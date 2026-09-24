@@ -22,6 +22,7 @@ import { readCitedKey } from "@/core/identity/keys";
 import { QUANTITY_BASES, type QuantityBasis } from "@/core/offers/law";
 import { parseSourceKey } from "@/core/sources";
 import { statedAt } from "../bbs-ui/present";
+import { variableReading } from "../viewer-measure/words";
 import type { LineMember, LineOmission, SourceLink } from "../trace/address";
 import type { IndexBox } from "../viewer/client";
 import { INSPECTOR_COPY, TRACE_COPY, fillCopy, fillTrace } from "./copy";
@@ -192,6 +193,14 @@ function keyShortOf(key: string): string | undefined {
     if (mark !== undefined && mark !== "") return mark;
   }
   return undefined;
+}
+
+/**
+ * Whether a variable was read off a hand trace: its source is the act that measured it (`act:`,
+ * I-619), which the block says in words beside the sheet it was traced on (s-measure I-662).
+ */
+export function isHandSource(key: string): boolean {
+  return readCitedKey(key).scheme === "act";
 }
 
 /** The basis a reading wears on its link: its own where it states a registered one, else the line's. */
@@ -440,7 +449,9 @@ export function InspectorPanel({ hover, selection, missing, chrome, trace, cited
                           each shown as itself and none woven into a sentence (I-26). The reading is
                           the drawing's own, digits whole, grouped by the seam. */}
                       <span className="cx-viewer-trace-reading">
-                        <QuantityText value={binding.value} unit={binding.unit} format={FIGURES} />
+                        {/* An area traced in square millimetres is read in square metres at three
+                            places (s-measure I-662); the exact reading stays on the row. */}
+                        {((read) => <QuantityText value={read.value} unit={read.unit} format={FIGURES} />)(variableReading(binding.value, binding.unit))}
                       </span>
                       <span className="cx-viewer-trace-basis-word">{binding.basis === "" ? null : <EnumLabel value={binding.basis} />}</span>
                       {/* The sheet it was read on, one click away — the schedule cell on S-11, the
@@ -451,7 +462,11 @@ export function InspectorPanel({ hover, selection, missing, chrome, trace, cited
                             <EvidenceLink href={link.href} basis={basis} label={link.sheet} />
                           </span>
                         )}
-                        {binding.source === "" ? null : <IdChip value={binding.source} short={keyShortOf(binding.source)} />}
+                        {binding.source === "" ? null : isHandSource(binding.source) ? (
+                          <span className="cx-viewer-trace-source-hand">{TRACE_COPY.trace_source_hand}</span>
+                        ) : (
+                          <IdChip value={binding.source} short={keyShortOf(binding.source)} />
+                        )}
                       </span>
                     </li>
                     );

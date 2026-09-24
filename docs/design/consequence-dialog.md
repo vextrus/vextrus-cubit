@@ -899,3 +899,31 @@ Acceptance: `tests/takeoff/viewer-measure/measure-card.test.tsx` (the card walke
 viewer) and J-000's `m4-sheet-and-manual-measure` leg. The pattern's existing suite stays green
 unchanged; the gallery entry and `consequence-dialog-open.png` do not move (the sample preview carries
 no measurement, no controls and no anchor).
+
+## Amendment (session 9, MANUAL-UX): the Insert levels dialog in words, and the card's faces
+
+- **I-664 — Insert levels says where a level stands and where an object is carried in words.**
+  Walk-2 (B16) found the Insert levels dialog still showing `ordinal:0` and `column … ROOF`: I-560 had
+  left level ordinals verbatim. Two vocabularies join `ConsequenceHeld`, filled by `INSERT_LEVEL` from
+  the state its preview read: `LEVEL_POSITION` (a level's ordinal in the stack, null before a level the
+  act authors) and `LEVEL_CARRIED` (the label of the live level a placeholder object is carried onto,
+  null where it waited under the placeholder). The dialog says them **Stack position 2** / **Not in
+  the stack** and **On ROOF** / **Waiting under a placeholder**; an ordinal is a signed integer (a
+  basement stands below 0), said whole, never grouped. Objects carried onto one level are counted as
+  one change — **3 objects from Waiting under a placeholder to On ROOF**, **Show the 3 objects** — and
+  levels moving together as **2 levels from Stack position 1 to Stack position 2**. A carried object
+  is named as the register names it, its class in words and its mark (**Column C2**; a member with no
+  mark by its class alone), never the class key. As I-560 holds, `held` is presentation: `before` and
+  `after` stay what the act writes (`ordinal:2`, the level label), whole in Details. The two codes are
+  written into the transport vocabulary beside `DRAWING_REVISION`, since they bear an underscore and
+  refuse nothing. Copy: `consequence_dialog_level_*`, `consequence_dialog_{change,same,members}_{levels,objects}`.
+- **The MEASUREMENT arm's faces** (s-measure I-662, I-663): the card hands the arm how
+  its figures and variable names are said (`measurementFaces`, injected at the app's edge, since the pattern
+  imports only core types), and the arm renders the figure at its kind's places, each formula variable
+  by its name in words (`consequence-measurement-variable`, `data-name`, `data-value`, `data-unit`), and
+  what the act adds to the bill (`consequence-measurement-adds`) in place of the register's word
+  REGISTERED. Every `data-` hook keeps the exact figure.
+
+Acceptance: `tests/ui/consequence-dialog/consequence-levels.test.tsx`,
+`tests/takeoff/levels/insert-level.test.ts` (live), `tests/takeoff/viewer-measure/measure-card.test.tsx`.
+The gallery entry and `consequence-dialog-open.png` do not move.

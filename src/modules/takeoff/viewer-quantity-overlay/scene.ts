@@ -69,6 +69,32 @@ export function chestCondition(stated: { readonly name: string; readonly class: 
   return { key: `condition:${stated.name}`, source: "manual", class: stated.class, name: stated.name, colour: stated.colour ?? "generic", hatch: stated.hatch ?? "solid" };
 }
 
+/* ------------------------------------------------ a hand ring on the sheet it was traced on */
+
+/** One window a paper sheet shows model space through: the model box it frames and the map onto the paper (`viewer/projection`'s `Window`). */
+export type PaperWindow = {
+  readonly model: readonly [number, number, number, number];
+  readonly centre: readonly [number, number];
+  readonly viewCentre: readonly [number, number];
+  readonly scale: number;
+};
+
+/**
+ * A hand measurement's rings as a paper sheet shows them (s-measure I-666): a ring traced on a
+ * paper sheet is stated in model space (I-620), so it paints on that sheet through the one window
+ * whose model box holds every point of its outer ring — `paper = centre + (model − viewCentre) × scale`,
+ * the projection the viewer drew the sheet by. Null where no window holds the ring whole: it is not
+ * shown on this sheet.
+ */
+export function ringsOnPaper(rings: readonly (readonly (readonly [number, number])[])[], windows: readonly PaperWindow[]): [number, number][][] | null {
+  const outer = rings[0] ?? [];
+  if (outer.length === 0) return null;
+  const through = windows.find(({ model }) => outer.every(([x, y]) => x >= model[0] && x <= model[2] && y >= model[1] && y <= model[3]));
+  if (through === undefined) return null;
+  const { centre, viewCentre, scale } = through;
+  return rings.map((ring) => ring.map(([x, y]) => [centre[0] + (x - viewCentre[0]) * scale, centre[1] + (y - viewCentre[1]) * scale] as [number, number]));
+}
+
 /* ------------------------------------------------------------- one placement's figures */
 
 /** One published line, as the figures of a placement read it (the store's own columns). */

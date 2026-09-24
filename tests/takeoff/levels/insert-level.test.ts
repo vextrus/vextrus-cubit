@@ -144,8 +144,10 @@ describe("AC-1: INSERT_LEVEL authors a stack and carries the objects that were w
       ).toEqual([objectKeys.beam, objectKeys.column].sort());
       expect(
         objectSubjects.map((subject) => String(subject.subjectLabel)).sort(),
-        "and says what class each is — 2 objects across 2 classes, stated (AC-1)",
-      ).toEqual([BEAM, COLUMN].sort());
+        // TEST_AMENDED (consequence-dialog I-664): the class is said in words beside the mark,
+        // as the register names the object — never the class key alone.
+        "and says what class each is, and which member — 2 objects across 2 classes, stated (AC-1)",
+      ).toEqual(["Beam B1", "Column C1"]);
       for (const subject of objectSubjects) {
         expect(movedTo(subject).after, `the object ${String(subject.subjectId)} is carried onto ${ONE_F}`).toEqual([ONE_F]);
       }

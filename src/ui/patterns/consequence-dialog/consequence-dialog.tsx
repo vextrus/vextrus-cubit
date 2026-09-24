@@ -37,6 +37,8 @@ import type {
 } from "@/core/acts";
 import type { RefusalCode, RefusalEntry } from "@/core/errors";
 import type { LevelSlot } from "@/core/identity";
+import type { HandLevel } from "@/core/manual/law";
+import type { FormulaParts } from "@/core/offers/formula";
 import type { StoreyHeightStandingName } from "@/core/levels";
 import type { Discipline } from "@/core/sheets";
 import type { ScaleRank } from "@/core/scale";
@@ -100,6 +102,25 @@ export interface ConsequenceDialogProps {
    * dialog does. The consumer computes the place; the dialog only stands there.
    */
   anchor?: { readonly left: number; readonly top: number } | null;
+  /**
+   * How a hand measurement's figures and words are said (s-measure I-662), handed in by the
+   * one consumer that previews one — the card — because the pattern formats nothing (ARCH-01): a
+   * kind's figure at its document places, a formula taken apart, a variable at the places a QS reads
+   * it, the level by its label. Unset, the MEASUREMENT arm shows each figure exact and grouped.
+   */
+  measurementFaces?: MeasurementFaces;
+}
+
+/** The readings the card hands the MEASUREMENT arm, each answered at the app's edge (I-662). */
+export interface MeasurementFaces {
+  /** A kind's figure at the places its kind is written to, grouped: `23.195`. */
+  quantity(value: string, kind: string): string;
+  /** The gate's formula sentence taken apart, or null where it cannot be — it then stands verbatim. */
+  formula(formula: string): FormulaParts | null;
+  /** A variable's reading at the places a QS reads it, in the unit a QS reads it in: `328.838` m2. */
+  variable(value: string, unit: string): { readonly value: string; readonly unit: string };
+  /** The level the measurement stands on, by the label the stack gives it, or null where none is known. */
+  level(level: HandLevel): string | null;
 }
 
 /**
@@ -177,7 +198,7 @@ type Body =
   | { readonly phase: "consequence"; readonly consequence: Consequence; readonly digest: string }
   | { readonly phase: "refused"; readonly answer: RefusedAnswer };
 
-export function ConsequenceDialog({ open, actType, preview, commit, onOpenChange, onCommitted, container, controls, anchor = null }: ConsequenceDialogProps) {
+export function ConsequenceDialog({ open, actType, preview, commit, onOpenChange, onCommitted, container, controls, anchor = null, measurementFaces }: ConsequenceDialogProps) {
   const [body, setBody] = useState<Body>({ phase: "pending" });
   const [stale, setStale] = useState(false);
   const [committing, setCommitting] = useState(false);
@@ -318,7 +339,7 @@ export function ConsequenceDialog({ open, actType, preview, commit, onOpenChange
               {pending ? <Skeleton style={DIGEST_BONE} /> : null}
             </div>
           ) : (
-            <ConsequenceSummary consequence={shown.consequence} digest={shown.digest} />
+            <ConsequenceSummary consequence={shown.consequence} digest={shown.digest} measurementFaces={measurementFaces} />
           )}
 
           {answer === null ? null : <RefusalState refusal={answer.refusal} evidence={answer.evidence} />}
@@ -368,6 +389,8 @@ export interface ConsequenceSummaryProps {
   consequence: Consequence;
   /** The digest that binds it — shown whole inside the Details disclosure, never as body text. */
   digest: string;
+  /** How a hand measurement's figures and words are said, where a consumer hands them in (I-662). */
+  measurementFaces?: MeasurementFaces;
 }
 
 /**
@@ -421,12 +444,12 @@ function useFigure(): (value: string) => string {
   return conventions === null ? (value) => value : (value) => conventions.figure(value);
 }
 
-export function ConsequenceSummary({ consequence, digest }: ConsequenceSummaryProps): ReactNode {
+export function ConsequenceSummary({ consequence, digest, measurementFaces }: ConsequenceSummaryProps): ReactNode {
   return (
     <>
       {consequence.pinning === undefined ? null : <Pinning pinning={consequence.pinning} />}
-      {consequence.measurement === undefined ? null : <MeasurementArm measurement={consequence.measurement} />}
-      <ConsequenceSubjects consequence={consequence} />
+      {consequence.measurement === undefined ? null : <MeasurementArm measurement={consequence.measurement} faces={measurementFaces ?? null} />}
+      <ConsequenceSubjects consequence={consequence} faces={measurementFaces ?? null} />
       <ConsequenceEffects effects={consequence.effects} />
       <ConsequenceDetails actType={consequence.actType} digest={digest} subjects={consequence.subjects} calibrations={calibrationKeysOf(consequence)} />
     </>
@@ -451,7 +474,7 @@ function basisOf(value: string): Basis | null {
  * notes a demoted point, a scan or an edit owe. The payload is what the digest binds, so what is
  * shown here is what is confirmed.
  */
-function MeasurementArm({ measurement }: { measurement: ConsequenceMeasurement }): ReactNode {
+function MeasurementArm({ measurement, faces }: { measurement: ConsequenceMeasurement; faces: MeasurementFaces | null }): ReactNode {
   const figure = useFigure();
   const { recipe } = measurement;
   const kinds = recipe.kinds.map((entry) => catalogueWords(entry.kind)).join(", ");
@@ -476,7 +499,7 @@ function MeasurementArm({ measurement }: { measurement: ConsequenceMeasurement }
                 data-basis={reading.basis}
                 data-source={reading.sourceKey ?? ""}
               >
-                <span className="cx-consequence-measurement-attribute">{reading.attribute}</span>
+                <span className="cx-consequence-measurement-attribute">{variableWords(reading.attribute)}</span>
                 <span className="cx-consequence-figure">
                   {figure(reading.valueAsWritten)}
                   <UnitBadge unit={reading.unitAsWritten} />
@@ -489,7 +512,7 @@ function MeasurementArm({ measurement }: { measurement: ConsequenceMeasurement }
       )}
       <ul className="cx-consequence-measurement-quantities">
         {(measurement.offered ?? []).map((offered) => (
-          <OfferedRow key={offered.kind} offered={offered} />
+          <OfferedRow key={offered.kind} offered={offered} faces={faces} />
         ))}
       </ul>
       <p className="cx-consequence-measurement-scale" data-factor-x={measurement.factorX} data-factor-y={measurement.factorY}>
@@ -522,7 +545,7 @@ function MeasurementArm({ measurement }: { measurement: ConsequenceMeasurement }
  * One kind of the measurement as the gate answers it (I-384): the figure it would publish, with the
  * gate's own formula; a queued kind with its cause; or a kind no pairing offers, said as such.
  */
-function OfferedRow({ offered }: { offered: OfferedFigure }): ReactNode {
+function OfferedRow({ offered, faces }: { offered: OfferedFigure; faces: MeasurementFaces | null }): ReactNode {
   const figure = useFigure();
   const kind = catalogueWords(offered.kind);
   switch (offered.arm) {
@@ -541,14 +564,12 @@ function OfferedRow({ offered }: { offered: OfferedFigure }): ReactNode {
         >
           <span className="cx-consequence-measurement-kind">{kind}</span>
           <span className="cx-consequence-figure">
-            {offered.value === null ? strings.consequence_dialog_none : figure(offered.value)}
+            {offered.value === null ? strings.consequence_dialog_none : faces === null ? figure(offered.value) : faces.quantity(offered.value, offered.kind)}
             <UnitBadge unit={offered.unit} />
           </span>
           {basis === null ? <span>{humaniseEnum(offered.quantityBasis)}</span> : <BasisChip basis={basis} />}
           <span className="cx-consequence-measurement-coverage">{humaniseEnum(offered.coverage)}</span>
-          <span className="cx-consequence-measurement-formula" data-technical="">
-            <span className="cx-consequence-effects-label">{strings.consequence_dialog_measurement_formula}</span> {offered.formula}
-          </span>
+          <FormulaWords formula={offered.formula} faces={faces} />
         </li>
       );
     }
@@ -569,6 +590,69 @@ function OfferedRow({ offered }: { offered: OfferedFigure }): ReactNode {
     default:
       return unoffered(offered);
   }
+}
+
+/**
+ * The words each variable of a hand method is read by (I-662): `t` is "Thickness", `A` is
+ * "Area". A variable the table does not hold is said by its own name, as the formula spells it.
+ */
+const VARIABLE_WORDS: Readonly<Record<string, string>> = {
+  count: strings.consequence_dialog_variable_count,
+  A: strings.consequence_dialog_variable_A,
+  openings: strings.consequence_dialog_variable_openings,
+  junctions: strings.consequence_dialog_variable_junctions,
+  t: strings.consequence_dialog_variable_t,
+  threshold: strings.consequence_dialog_variable_threshold,
+};
+
+/** A formula variable, or a reading a condition states, by its name in words — "Thickness" for `t`. */
+export function variableWords(name: string): string {
+  return VARIABLE_WORDS[name] ?? name;
+}
+
+/**
+ * The gate's formula as a QS checks it (I-662): the template, then each variable by its name
+ * in words and its reading at the places a QS reads it — "Area 328.838 m²" — the exact reading kept
+ * on the element. A sentence the faces cannot take apart, or a card with no faces, shows the
+ * sentence verbatim (L-QTY-03: it is the line's own formula, never re-spelled into something else).
+ */
+function FormulaWords({ formula, faces }: { formula: string; faces: MeasurementFaces | null }): ReactNode {
+  const parts = faces?.formula(formula) ?? null;
+  if (faces === null || parts === null) {
+    return (
+      <span className="cx-consequence-measurement-formula" data-technical="">
+        <span className="cx-consequence-effects-label">{strings.consequence_dialog_measurement_formula}</span> {formula}
+      </span>
+    );
+  }
+  return (
+    <span className="cx-consequence-measurement-formula" data-formula={formula}>
+      <span className="cx-consequence-measurement-template" data-technical="">
+        <span className="cx-consequence-effects-label">{strings.consequence_dialog_measurement_formula}</span> {parts.template}
+      </span>
+      <span className="cx-consequence-measurement-variables" aria-label={strings.consequence_dialog_measurement_variables}>
+        {parts.variables.map((variable) => {
+          if (variable.state === "omitted") {
+            return (
+              <span key={variable.name} className="cx-consequence-measurement-variable" data-testid={TESTIDS.consequence.measurementVariable} data-name={variable.name} data-omitted={variable.code}>
+                {variableWords(variable.name)} {strings.consequence_dialog_measurement_variable_omitted}
+              </span>
+            );
+          }
+          const read = faces.variable(variable.value, variable.unit);
+          return (
+            <span key={variable.name} className="cx-consequence-measurement-variable" data-testid={TESTIDS.consequence.measurementVariable} data-name={variable.name} data-value={variable.value} data-unit={variable.unit}>
+              {variableWords(variable.name)}{" "}
+              <span className="cx-consequence-figure">
+                {read.value}
+                <UnitBadge unit={read.unit} />
+              </span>
+            </span>
+          );
+        })}
+      </span>
+    </span>
+  );
 }
 
 /** An arm of `OfferedFigure` with no case above fails to compile here. */
@@ -624,6 +708,16 @@ const CHANGE_WORDS: { readonly [K in ConsequenceHeld["kind"]]: { readonly change
     same: strings.consequence_dialog_same_drawings,
     members: strings.consequence_dialog_members_drawings,
   },
+  LEVEL_POSITION: {
+    change: strings.consequence_dialog_change_levels,
+    same: strings.consequence_dialog_same_levels,
+    members: strings.consequence_dialog_members_levels,
+  },
+  LEVEL_CARRIED: {
+    change: strings.consequence_dialog_change_objects,
+    same: strings.consequence_dialog_same_objects,
+    members: strings.consequence_dialog_members_objects,
+  },
 };
 
 /** One side of a held change in words: never the enum, never the content address. */
@@ -636,6 +730,15 @@ function heldSaid(held: ConsequenceHeld, side: "before" | "after", figure: (valu
     case "DRAWING_REVISION": {
       const value = held[side];
       return value === null ? strings.consequence_dialog_revision_none : fill(strings.consequence_dialog_revision, { ordinal: figure(String(value)) });
+    }
+    case "LEVEL_POSITION": {
+      // An ordinal is a signed integer (a basement stands below 0), said whole rather than grouped.
+      const value = held[side];
+      return value === null ? strings.consequence_dialog_level_position_none : fill(strings.consequence_dialog_level_position, { n: String(value) });
+    }
+    case "LEVEL_CARRIED": {
+      const value = held[side];
+      return value === null ? strings.consequence_dialog_level_carried_none : fill(strings.consequence_dialog_level_carried, { level: value });
     }
     default:
       return unsaid(held);
@@ -726,27 +829,77 @@ function ChangeGroup({ held, subjects }: { held: ConsequenceHeld; subjects: read
  * defaulted here. An arm added to `ConsequenceRendering` (L-ACT-02's offered groups, R-UI-023) owes
  * its case below, or `unrendered` fails to compile.
  */
-function ConsequenceSubjects({ consequence }: { consequence: Consequence }): ReactNode {
+function ConsequenceSubjects({ consequence, faces }: { consequence: Consequence; faces: MeasurementFaces | null }): ReactNode {
   const arm: ConsequenceRendering = consequence.rendering;
   switch (arm) {
     // A hand measurement's subjects are the register row it adds and, on an edit, the one it strikes
-    // (s-measure I-373); the card at the closing point renders the arm's payload around them.
-    case "SUBJECTS":
+    // (s-measure I-373), said as what the act adds to the bill (I-663).
     case "MEASUREMENT":
-      return (
-        <ul className="cx-consequence-subjects">
-          {subjectEntriesOf(consequence.subjects).map((entry) =>
-            entry.shape === "one" ? (
-              <SubjectRow key={entry.subject.subjectId} subject={entry.subject} />
-            ) : (
-              <ChangeGroup key={`change:${entry.subjects[0]?.subjectId ?? ""}`} held={entry.held} subjects={entry.subjects} />
-            ),
-          )}
-        </ul>
-      );
+      if (consequence.measurement !== undefined) return <MeasurementSubjects consequence={consequence} measurement={consequence.measurement} faces={faces} />;
+      return <SubjectList subjects={consequence.subjects} />;
+    case "SUBJECTS":
+      return <SubjectList subjects={consequence.subjects} />;
     default:
       return unrendered(arm);
   }
+}
+
+/** The subjects, one row each or counted together where they make one change (I-560). */
+function SubjectList({ subjects }: { subjects: readonly ConsequenceSubject[] }): ReactNode {
+  return (
+    <ul className="cx-consequence-subjects">
+      {subjectEntriesOf(subjects).map((entry) =>
+        entry.shape === "one" ? (
+          <SubjectRow key={entry.subject.subjectId} subject={entry.subject} />
+        ) : (
+          <ChangeGroup key={`change:${entry.subjects[0]?.subjectId ?? ""}`} held={entry.held} subjects={entry.subjects} />
+        ),
+      )}
+    </ul>
+  );
+}
+
+/**
+ * A hand measurement's subjects as what the act does to the bill (I-663): the register row it
+ * adds, said as the lines it adds — "Adds 1 line: GF slab blinding 23.195 m³" — and, on an edit, the
+ * measurement it strikes. The subject ids stay on the rows (what the act moves is still one row per
+ * subject); the register's own words for a row, REGISTERED and REPUDIATED, stand in Details.
+ */
+function MeasurementSubjects({ consequence, measurement, faces }: { consequence: Consequence; measurement: ConsequenceMeasurement; faces: MeasurementFaces | null }): ReactNode {
+  const figure = useFigure();
+  const published = (measurement.offered ?? []).filter((offered): offered is Extract<OfferedFigure, { arm: "published" }> => offered.arm === "published" && offered.value !== null);
+  const level = faces?.level(measurement.level) ?? null;
+  const adds = published.length === 0 ? strings.consequence_dialog_measurement_adds_none : published.length === 1 ? strings.consequence_dialog_measurement_adds_one : fill(strings.consequence_dialog_measurement_adds, { count: figure(String(published.length)) });
+  return (
+    <ul className="cx-consequence-subjects">
+      {consequence.subjects.map((subject) =>
+        subject.subjectId === measurement.objectKey ? (
+          <li key={subject.subjectId} className="cx-consequence-subject cx-consequence-adds" data-testid={TESTIDS.consequence.subjectRow} data-subject={subject.subjectId} data-lines={published.length}>
+            <p className="cx-consequence-adds-said" data-testid={TESTIDS.consequence.measurementAdds}>
+              <span>{adds}</span>
+              {published.map((offered) => {
+                const description = `${catalogueWords(measurement.recipe.elementClass)} ${catalogueWords(offered.kind)}`.toLowerCase();
+                const value = offered.value as string;
+                return (
+                  <span key={offered.kind} className="cx-consequence-adds-line" data-kind={offered.kind} data-value={value}>
+                    {level === null ? description : `${level} ${description}`}{" "}
+                    <span className="cx-consequence-figure">
+                      {faces === null ? figure(value) : faces.quantity(value, offered.kind)}
+                      <UnitBadge unit={offered.unit} />
+                    </span>
+                  </span>
+                );
+              })}
+            </p>
+          </li>
+        ) : (
+          <li key={subject.subjectId} className="cx-consequence-subject" data-testid={TESTIDS.consequence.subjectRow} data-subject={subject.subjectId}>
+            <p className="cx-consequence-adds-said">{fill(strings.consequence_dialog_measurement_strikes, { previous: subject.subjectLabel ?? subject.subjectId })}</p>
+          </li>
+        ),
+      )}
+    </ul>
+  );
 }
 
 /**

@@ -20,7 +20,9 @@ import { isElementType } from "@/core/catalogue/classes";
 import { isKind } from "@/core/catalogue/kinds";
 import { and, conditions, eq, forTenant, inArray, isUuid, manualMeasurements, quantityLines, queueItems, registerObjects } from "@/core/db";
 import { CONDITION_COLOURS, CONDITION_HATCHES, ringsOf, type ConditionColour, type ConditionHatch, type MeasuredGeometry } from "@/core/manual/law";
-import { sheetOfKey } from "@/core/sheets/frames";
+import { artifactAt } from "@/core/entitygraph/artifact";
+import { projectDrawingsOf } from "@/core/sheets";
+import { modelSheetOf, sheetOfKey, sheetShowing } from "@/core/sheets/frames";
 import { appStorage } from "@/core/storage/app";
 import { drawingProjectOf } from "@/modules/takeoff/partition/store";
 import { repudiatedObjectsOf } from "@/modules/takeoff/register";
@@ -28,7 +30,8 @@ import { pinnedRecordsOf } from "@/modules/takeoff/trace";
 import { renderManifestOf } from "@/modules/takeoff/viewer";
 import type { RenderRecord } from "@/modules/takeoff/viewer";
 import { recordBox, recordKey } from "@/modules/takeoff/viewer/client";
-import { chestCondition, classCondition, figuresOf, type PlacementLine, type PlacementQueued } from "./scene";
+import { windowsOf } from "@/modules/takeoff/viewer/projection";
+import { chestCondition, classCondition, figuresOf, ringsOnPaper, type PaperWindow, type PlacementLine, type PlacementQueued } from "./scene";
 import type { OverlayBox, QuantityCondition, QuantityElsewhere, QuantityOverlay, QuantityPlacement } from "./types";
 
 /** Which sheet's quantities are asked for, in whose workspace and under which project. */
@@ -56,6 +59,20 @@ async function recordsOf(scope: QuantityOverlayScope): Promise<Map<string, Rende
     }
   }
   return byIdentity;
+}
+
+/**
+ * The windows the opened sheet shows model space through, read off the drawing's current record by the
+ * viewer's own `windowsOf` — the projection it painted the sheet by (I-620). Model space, a sheet of
+ * no window and a drawing not read yet answer none.
+ */
+async function paperWindowsOf(scope: QuantityOverlayScope): Promise<PaperWindow[]> {
+  const drawing = await forTenant({ tenantId: scope.tenantId }).transaction(async (tx) => (await projectDrawingsOf(tx, scope)).find((held) => held.drawingId === scope.drawingId));
+  const record = drawing?.record ?? null;
+  if (record === null) return [];
+  const graph = await artifactAt(scope.tenantId, record.artifactSha256, appStorage(), `the quantity overlay's windows on drawing ${scope.drawingId}`);
+  const layout = graph.layouts.find((held) => held.name === scope.layoutName);
+  return layout?.kind === "paper" ? windowsOf(layout) : [];
 }
 
 /** The box that holds every one of these points, or null where there are none. */
@@ -181,6 +198,11 @@ export async function quantityOverlayOf(scope: QuantityOverlayScope): Promise<Qu
   const [records, pinned] = await Promise.all([recordsOf(scope), pinnedRecordsOf(scope, rendered.setRevisionId, [scope.drawingId])]);
   const record = pinned.get(scope.drawingId);
   const handByObject = new Map<string, HandRow>(hand.map((row) => [row.objectKey, row]));
+  // A ring traced on a paper sheet is stated in model space (I-620): the sheet's windows say whether it
+  // shows here, and the ring itself which sheet shows it elsewhere (I-666). Read only where a
+  // hand measurement of this drawing was stated in another space than the opened sheet's.
+  const modelSheet = record === undefined ? null : modelSheetOf(record.standing.sheets);
+  const windows = hand.some((row) => row.drawingId === scope.drawingId && row.layoutName !== scope.layoutName) ? await paperWindowsOf(scope) : [];
 
   // Every member, by the key it is painted under: a rail line's placement, a hand measurement's object.
   const members = new Map<string, Member>();
@@ -215,12 +237,17 @@ export async function quantityOverlayOf(scope: QuantityOverlayScope): Promise<Qu
     if (member.source === "manual") {
       const measured = member.hand;
       if (measured === null || measured.drawingId !== scope.drawingId) continue;
-      if (measured.layoutName !== scope.layoutName) {
-        elsewhere.set(measured.layoutName, (elsewhere.get(measured.layoutName) ?? 0) + 1);
+      const geometry = measured.traced as MeasuredGeometry;
+      const stated = ringsOf(geometry).map((ring) => ring.map((point) => [Number(point.x), Number(point.y)] as Point));
+      const onPaper = measured.layoutName === scope.layoutName || measured.layoutName !== modelSheet ? null : ringsOnPaper(stated, windows);
+      if (measured.layoutName !== scope.layoutName && onPaper === null) {
+        // Filed under the sheet its ring was traced on, where its space is model and one sheet's windows hold it (I-666).
+        const traced = measured.layoutName === modelSheet && record !== undefined ? sheetShowing(stated[0] ?? [], record.standing.frames) : null;
+        const sheet = traced ?? measured.layoutName;
+        if (sheet !== scope.layoutName) elsewhere.set(sheet, (elsewhere.get(sheet) ?? 0) + 1);
         continue;
       }
-      const geometry = measured.traced as MeasuredGeometry;
-      const traced = ringsOf(geometry).map((ring) => ring.map((point) => [Number(point.x), Number(point.y)] as Point));
+      const traced = onPaper ?? stated;
       const box = boxOfPoints(traced.flat());
       if (box === null) continue;
       placements.push({ key: member.key, source: "manual", class: member.condition.class, mark: member.mark, condition: member.condition, keys: [], box, rings: geometry.geometry === "POLYGON" ? traced : [], ...figures });

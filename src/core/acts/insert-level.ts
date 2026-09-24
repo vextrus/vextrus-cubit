@@ -16,6 +16,7 @@ import { refusal } from "../faults/refusal-marker";
 import { dotlessUpper } from "../identity";
 import { STOREY_HEIGHT_BASES, carryToMetres, declaredOrdinal, readingKey, type CarriedReading, type StoreyHeightBasis } from "../levels";
 import { carryObjectOntoLevel, insertLevels, liveLevelsOf, moveOrdinal, objectsUnderPlaceholders, writeReadings, type LevelScope, type PlaceholderObject, type ReadingWrite } from "../levels/store";
+import { inWords } from "../documents/kinds/boq-draft-law";
 import type { Consequence, ConsequenceSubject } from "./consequence";
 import { linesRederivingOn } from "./level-effects";
 import { actChangesNothing } from "./refusals";
@@ -211,18 +212,26 @@ function levelFor(derived: Derived, object: PlaceholderObject): Placed {
 /** Every subject the act judges: the levels it authors, the levels it moves, the objects it carries. */
 function subjectsOf(derived: Derived): ConsequenceSubject[] {
   return [
-    ...derived.placed.map((level) => ({
-      subjectId: `proposed:${String(level.at)}`,
-      subjectLabel: level.label,
-      before: [],
-      after: [`ordinal:${String(level.ordinal)}`],
-    })),
-    ...derived.moved.map((level) => ({
-      subjectId: level.levelId,
-      subjectLabel: level.label,
-      before: [`ordinal:${String(level.from)}`],
-      after: [`ordinal:${String(level.to)}`],
-    })),
+    // `held` says the ordinals in the stack's words — "Stack position 2" — and is presentation, as
+    // every vocabulary is (I-560); `before` and `after` stay what the act writes (I-664).
+    ...derived.placed.map(
+      (level): ConsequenceSubject => ({
+        subjectId: `proposed:${String(level.at)}`,
+        subjectLabel: level.label,
+        before: [],
+        after: [`ordinal:${String(level.ordinal)}`],
+        held: { kind: "LEVEL_POSITION", before: null, after: level.ordinal },
+      }),
+    ),
+    ...derived.moved.map(
+      (level): ConsequenceSubject => ({
+        subjectId: level.levelId,
+        subjectLabel: level.label,
+        before: [`ordinal:${String(level.from)}`],
+        after: [`ordinal:${String(level.to)}`],
+        held: { kind: "LEVEL_POSITION", before: level.from, after: level.to },
+      }),
+    ),
     ...carriedSubjects(derived.carried),
   ];
 }
@@ -240,7 +249,10 @@ export function carriedSubjects(carried: readonly PlaceholderObject[]): Conseque
   const subjects = new Map<string, ConsequenceSubject>();
   for (const object of carried) {
     if (subjects.has(object.objectKey)) continue;
-    subjects.set(object.objectKey, { subjectId: object.objectKey, subjectLabel: object.elementType, before: [], after: [object.levelLabel] });
+    // Named as the register names it — the class in words and its mark, `Column C2` — and carried
+    // onto the level in words, never the class key and a bare label (I-664).
+    const label = (object.mark ?? "") === "" ? inWords(object.elementType) : `${inWords(object.elementType)} ${object.mark ?? ""}`;
+    subjects.set(object.objectKey, { subjectId: object.objectKey, subjectLabel: label, before: [], after: [object.levelLabel], held: { kind: "LEVEL_CARRIED", before: null, after: object.levelLabel } });
   }
   return [...subjects.values()];
 }

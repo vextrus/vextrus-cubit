@@ -22,6 +22,9 @@ export const trace = {
   trace_line_description: "{class} {kind}",
   trace_figure_unstated: "No figure",
   trace_figure_omitted: "{variables} unstated",
+  /* MANUAL-UX (s-measure I-662): a variable read off a hand trace is said as one — the act's
+     `act:` key is an identity no QS reads, and the sheet it was traced on stands beside it. */
+  trace_source_hand: "Traced by hand",
   /* The other end of a Trace address that no longer names anything. A drawing this project does not
      hold is not a drawing waiting to be read, and it is not told it is: the address is wrong, and
      the reader is told where the drawings this project does hold are (R-UI-050 separates empty from

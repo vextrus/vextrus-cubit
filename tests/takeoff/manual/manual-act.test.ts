@@ -120,6 +120,27 @@ describe("S1: a hand measurement, recorded live", () => {
     expect(mark).toMatch(/^~m\.[0-9a-f]{16}$/u);
   }, BUDGET_MS);
 
+  test("the register names the hand object for its condition and level, never its `~m.` mark (s-measure I-666)", async () => {
+    const world = await staged();
+    expect(first, "the first measurement stands").not.toBe("");
+    const scope = { tenantId: world.person.tenantId, projectId: world.projectId };
+    const [conditionName = ""] = sql(`select condition_name from manual_measurements where object_key = '${first}';`)[0] ?? [];
+    expect(conditionName, "the measurement names its condition").not.toBe("");
+
+    const trace = await productModule<{ handObjectsOf(scope: unknown, keys: readonly string[]): Promise<Map<string, { conditionName: string; ring: readonly (readonly [number, number])[] }>> }>(
+      "src/modules/takeoff/trace/index.ts",
+    );
+    const hand = await trace.handObjectsOf(scope, [first, "PLAN|not-a-hand-object"]);
+    expect([...hand.keys()], "one read answers the hand objects among the keys asked, and only them").toEqual([first]);
+    expect(hand.get(first)?.conditionName).toBe(conditionName);
+    expect(hand.get(first)?.ring.length, "and the outer ring it traced, in the space its points were stated in").toBe(SLAB.length);
+
+    const register = await productModule<{ registerViewOf(scope: unknown): Promise<{ objects: { objectKey: string; mark: string | null }[] }> }>("src/modules/takeoff/register-ui/server.ts");
+    const named = (await register.registerViewOf(scope)).objects.find((object) => object.objectKey === first);
+    expect(named?.mark, "the tree and Source column read the condition, never the placement's `~m.` mark").toMatch(new RegExp(`^${conditionName.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}( · |$)`, "u"));
+    expect(named?.mark).not.toContain("~m.");
+  }, BUDGET_MS);
+
   test("the same trace again is DUPLICATE_IDENTITY, and nothing is written", async () => {
     const world = await staged();
     const before = countOf("register_objects", `project_id = '${world.projectId}'::uuid`);

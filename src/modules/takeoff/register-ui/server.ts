@@ -17,7 +17,7 @@ import { QUANTITY_BASES, type QuantityBasis } from "@/core/offers/law";
 import { standingOf, type ObservationRow, type RegisterScope } from "@/core/register/store";
 import { proposedLevelStackOf } from "@/modules/takeoff/partition";
 import { refusedSightingsOf, registerObjectsOf, repudiatedObjectsOf } from "@/modules/takeoff/register";
-import { citedKeysOf, entitySelectionOf, levelLabelOf, omissionsOf, pinnedRecordsOf, tracedLineOf, variablesOf, type PinnedRecord } from "@/modules/takeoff/trace";
+import { citedKeysOf, entitySelectionOf, handObjectsOf, handObjectWords, levelLabelOf, omissionsOf, pinnedRecordsOf, tracedLineOf, variablesOf, type PinnedRecord } from "@/modules/takeoff/trace";
 import { declaredOf } from "./declared";
 import { levelRank, readingOrder, type LineRank } from "./order";
 import type { RegisterView, ViewAttribute, ViewLevelStack, ViewLine, ViewObject, ViewReading, ViewRefusal } from "./view";
@@ -134,6 +134,9 @@ export async function registerViewOf(scope: RegisterViewScope, options: Register
   // refused sighting are about members that produced no line, and they reveal where they stand too
   // (R-TO-011, I-557).
   const records = await pinnedRecordsOf(scope, campaign.setRevisionId, [...published.map((row) => row.drawingId), ...manifest.map((member) => member.drawingId)]);
+  // The hand measurements among the objects: named by their condition, filed under the sheet their
+  // ring was traced on (s-measure I-666) — one read, whatever their count.
+  const hand = await handObjectsOf(scope, objectRows.map((row) => row.objectKey));
 
   /* --- the lines, each marked with whether a person has struck the object it was measured off, in
      the order a register is READ (s-takeoff I-350): level, class, mark in natural order, kind. The
@@ -156,7 +159,7 @@ export async function registerViewOf(scope: RegisterViewScope, options: Register
   const lines: ViewLine[] = ranked.map(({ row }) => {
     const variables = variablesOf(row.bindings);
     const record = records.get(row.drawingId);
-    const traced = tracedLineOf(row, record);
+    const traced = tracedLineOf(row, record, undefined, hand);
     return {
       lineId: row.lineId,
       objectKey: row.objectKey,
@@ -195,6 +198,10 @@ export async function registerViewOf(scope: RegisterViewScope, options: Register
     else held.push(line.quantityBasis);
   }
 
+  // The sheet each hand object's lines stand on, as a reader names it — what its name says (I-666).
+  const handSheets = new Map<string, string>();
+  for (const line of lines) if (hand.has(line.objectKey) && line.sheetLabel !== null && !handSheets.has(line.objectKey)) handSheets.set(line.objectKey, line.sheetLabel);
+
   /* --- the objects, the struck among them: a repudiation is stated, never a disappearance (I-173) --- */
   const objects: ViewObject[] = objectRows.map((row) => {
     const attributes = attributesOf(observationsByObject.get(row.objectKey) ?? []);
@@ -204,7 +211,8 @@ export async function registerViewOf(scope: RegisterViewScope, options: Register
       discipline: row.discipline,
       level: levelLabelOf(row, levelLabels),
       class: row.elementType,
-      mark: row.mark,
+      // A hand object is named by its condition, sheet and level, never by its `~m.` mark (I-666).
+      mark: ((measured) => (measured === undefined ? row.mark : handObjectWords(measured, handSheets.get(row.objectKey) ?? null, levelLabelOf(row, levelLabels))))(hand.get(row.objectKey)),
       basis,
       role: row.standing,
       corroboration: corroborationOf(attributes, struck.has(row.objectKey)),

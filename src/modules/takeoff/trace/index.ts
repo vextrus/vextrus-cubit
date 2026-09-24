@@ -24,6 +24,7 @@ import { actSourceOf, readCitedKey } from "@/core/identity";
 import { and, asc, eq, forTenant, inArray, isUuid, manualMeasurements, quantityLines, registerObjects } from "@/core/db";
 import { sheetOfKey, standsOn, traceCitations, type TracedCitations } from "@/core/sheets/frames";
 import { pinnedRecordsIn, type PinnedRecord } from "@/core/sheets/pinned";
+import { ringsOf, type MeasuredGeometry } from "@/core/manual/law";
 import { appStorage } from "@/core/storage/app";
 import { levelsOf } from "@/modules/takeoff/levels";
 import { repudiatedObjectsOf } from "@/modules/takeoff/register";
@@ -71,11 +72,62 @@ export async function pinnedRecordsOf(scope: TraceScope, setRevisionId: string, 
  * it selects there, every entity it cites, and the sheet each cited key stands on (I-421). The one
  * composition the register, the Trace block and the other direction all read (B-17).
  */
-export function tracedLineOf(row: { readonly viewKey: string; readonly bindings: Record<string, unknown> }, record: PinnedRecord | null | undefined, acts: ActSources = NO_ACTS): TracedCitations {
+export function tracedLineOf(
+  row: { readonly viewKey: string; readonly bindings: Record<string, unknown>; readonly objectKey?: string },
+  record: PinnedRecord | null | undefined,
+  acts: ActSources = NO_ACTS,
+  hand: HandObjects = NO_HAND,
+): TracedCitations {
   // The same keys `citedKeysOf` reads, in its order: the view the line was read in, then each binding —
   // an `act:` key read through to the entities the hand measurement it names was traced on (I-619).
   const sources = Object.values(variablesOf(row.bindings)).flatMap((binding) => acts.get(binding.source) ?? [binding.source]);
-  return traceCitations({ viewKey: row.viewKey, sources }, record?.standing ?? null);
+  // A hand line's ring says the sheet it was traced on where its view says only model space (I-666).
+  const points = row.objectKey === undefined ? undefined : hand.get(row.objectKey)?.ring;
+  return traceCitations(points === undefined ? { viewKey: row.viewKey, sources } : { viewKey: row.viewKey, sources, points }, record?.standing ?? null);
+}
+
+/* ------------------------------------------------------- what a hand measurement is called */
+
+/**
+ * One hand measurement, as a reader names its object and finds its sheet (s-measure I-666): the
+ * condition it was measured under — "75 CC blinding under SOG", never its `~m.` mark, which is an
+ * identity and no name — and the outer ring it traced, in the space its points were stated in.
+ */
+export type HandObject = { readonly conditionName: string; readonly ring: readonly (readonly [number, number])[] };
+
+/** The hand measurements among a set of objects, by object key. */
+export type HandObjects = ReadonlyMap<string, HandObject>;
+
+const NO_HAND: HandObjects = new Map();
+
+/**
+ * The hand measurements among these objects (I-666): one read of the project's measurements
+ * for the keys asked, whatever their count. An object no hand measurement registered is absent.
+ */
+export async function handObjectsOf(scope: TraceScope, objectKeys: readonly string[]): Promise<Map<string, HandObject>> {
+  const found = new Map<string, HandObject>();
+  const wanted = [...new Set(objectKeys)];
+  if (wanted.length === 0 || !isUuid(scope.projectId) || !isUuid(scope.tenantId)) return found;
+  const rows = await forTenant({ tenantId: scope.tenantId }).transaction((tx) =>
+    tx
+      .select({ objectKey: manualMeasurements.objectKey, conditionName: manualMeasurements.conditionName, traced: manualMeasurements.traced })
+      .from(manualMeasurements)
+      .where(and(eq(manualMeasurements.tenantId, scope.tenantId), eq(manualMeasurements.projectId, scope.projectId), inArray(manualMeasurements.objectKey, wanted))),
+  );
+  for (const row of rows) {
+    const outer = ringsOf(row.traced as MeasuredGeometry)[0] ?? [];
+    found.set(row.objectKey, { conditionName: row.conditionName, ring: outer.map((point) => [Number(point.x), Number(point.y)] as const) });
+  }
+  return found;
+}
+
+/**
+ * What a hand object is called where a register names objects by their mark (I-666): its
+ * condition, the sheet it was traced on and its level — "75 CC blinding under SOG · S-08 · GF" —
+ * each part only where it is known.
+ */
+export function handObjectWords(hand: HandObject, sheet: string | null, level: string): string {
+  return [hand.conditionName, sheet ?? "", level].filter((part) => part !== "").join(" · ");
 }
 
 /* ------------------------------------------------------------- the sixth scheme: `act:` */
@@ -202,7 +254,8 @@ export async function lineEvidence(scope: TraceScope, lineId: string): Promise<L
   const record = records.get(row.drawingId);
   const members = await membersOf(scope, row.setRevisionId, [row.objectKey]);
   const acts = await actSourcesOf(scope, bindingSourcesOf([row]));
-  return evidenceOf(row, tracedLineOf(row, record, acts), record, members);
+  const hand = await handObjectsOf(scope, [row.objectKey]);
+  return evidenceOf(row, tracedLineOf(row, record, acts, hand), record, members);
 }
 
 /**
@@ -249,9 +302,10 @@ export async function linesCiting(scope: TraceScope, ask: CitingAsk): Promise<Li
   const records = await pinnedRecordsOf(scope, rendered.setRevisionId, [ask.drawingId]);
   const record = records.get(ask.drawingId);
   const acts = await actSourcesOf(scope, bindingSourcesOf(rows));
+  const hand = await handObjectsOf(scope, rows.map((row) => row.objectKey));
   const held: LineEvidence[] = [];
   for (const row of rows) {
-    const traced = tracedLineOf(row, record, acts);
+    const traced = tracedLineOf(row, record, acts, hand);
     const cited = citedKeysOf({ sourceKey: row.viewKey, variables: variablesOf(row.bindings) });
     if (traced.entities.some((key) => asked.has(key)) || cited.some((key) => asked.has(key))) held.push(evidenceOf(row, traced, record, EMPTY_MEMBERS));
   }
@@ -341,7 +395,9 @@ async function membersOf(scope: TraceScope, setRevisionId: string, objectKeys: r
     levelsOf(scope),
   ]);
   const labels = new Map(levels.map((level) => [level.levelId, level.label]));
-  for (const row of rows) held.set(row.objectKey, { mark: row.mark, level: levelLabelOf(row, labels) });
+  // A hand object is named by the condition it was measured under, never by its `~m.` mark (I-666).
+  const hand = await handObjectsOf(scope, rows.map((row) => row.objectKey));
+  for (const row of rows) held.set(row.objectKey, { mark: hand.get(row.objectKey)?.conditionName ?? row.mark, level: levelLabelOf(row, labels) });
   return held;
 }
 

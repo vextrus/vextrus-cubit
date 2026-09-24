@@ -74,7 +74,7 @@ function previewed(stated: Stated): Consequence {
       basis: "MEASURED",
       demoted: 0,
       campaignId: "c",
-      offered: [{ kind: "pcc.blinding", arm: "published", ruleId: "pcc.blinding.area", ruleVersion: "1", value: "24.662878", unit: "m3", formula: "count × (A − openings − junctions) × t (count = 1 pcs, A = 328.838371 m2, t = 0.075 m)", coverage: "COMPLETE", quantityBasis: reading?.basis === "TRANSCRIBED" ? "TRANSCRIBED" : "MEASURED" }],
+      offered: [{ kind: "pcc.blinding", arm: "published", ruleId: "pcc.blinding.area", ruleVersion: "1", value: "24.662878", unit: "m3", formula: "count × (A − openings − junctions) × t (count = 1 pcs, A = 328.8383712443629162090408955 m2, openings = 0 m2, junctions = 0 m2, t = 0.075 m, threshold = 0.5 m2)", coverage: "COMPLETE", quantityBasis: reading?.basis === "TRANSCRIBED" ? "TRANSCRIBED" : "MEASURED" }],
     },
   } as unknown as Consequence;
 }
@@ -152,6 +152,43 @@ describe("S6: the card where Confirm is the act", () => {
     expect(one(TESTIDS.consequence.measurementCondition)?.textContent).toContain(BLINDING.name);
     expect(card.textContent, "the one-line scope note names the level (I-390)").toContain(fill(strings.consequence_dialog_measurement_scope, { level: "GF" }));
     expect(one(TESTIDS.consequence.confirm), "Confirm stands once the preview answered").not.toBeNull();
+  });
+
+  test("I-662/b: the card says the measurement in a QS's words — the figure at its kind's places, each variable named and read in m², After as the line it adds", async () => {
+    const doors = cardDoors();
+    await finishedUnderBlinding(doors);
+    await waitFor(() => expect(one(TESTIDS.consequence.confirm)).not.toBeNull());
+
+    const quantity = one(TESTIDS.consequence.measurementQuantity) as HTMLElement;
+    expect(quantity.querySelector(".cx-consequence-figure")?.textContent, "the gate's figure at the three places a volume is written to").toBe("24.663m3");
+    expect(quantity.getAttribute("data-value"), "the exact figure stays on the element").toBe("24.662878");
+
+    const variables = [...document.querySelectorAll<HTMLElement>(`[data-testid="${TESTIDS.consequence.measurementVariable}"]`)];
+    const area = variables.find((variable) => variable.getAttribute("data-name") === "A");
+    expect(area?.textContent, "A is the Area, in m² at three places — never 28 digits").toBe(`${strings.consequence_dialog_variable_A} 328.838m2`);
+    expect(area?.getAttribute("data-value")).toBe("328.8383712443629162090408955");
+    expect(variables.find((variable) => variable.getAttribute("data-name") === "t")?.textContent).toBe(`${strings.consequence_dialog_variable_t} 0.075m`);
+
+    const reading = one(TESTIDS.consequence.measurementReading) as HTMLElement;
+    expect(reading.textContent, "the reading is labelled in words").toContain(strings.consequence_dialog_variable_t);
+    expect(document.getElementById("measure-card-reading-t")?.textContent, "and so is the card's control for it").toBe(strings.consequence_dialog_variable_t);
+
+    const adds = one(TESTIDS.consequence.measurementAdds) as HTMLElement;
+    expect(adds.textContent, "After is what the act adds to the bill").toBe(`${strings.consequence_dialog_measurement_adds_one}GF slab blinding 24.663m3`);
+    expect(document.querySelector(".cx-consequence-role-list")?.textContent ?? "", "REGISTERED is the register's word, never the card's").not.toContain("REGISTERED");
+  });
+
+  test("I-665: a ring that runs past its member is answered by the cut-out, named — the remedy link starts it rather than reloading the sheet", async () => {
+    const doors = cardDoors({ refuse: "MANUAL_BLINDING_PAST_MEMBER" });
+    const mount = await finishedUnderBlinding(doors);
+    const link = await waitFor(() => one(TESTIDS.refusal.evidenceLink) as HTMLAnchorElement);
+    expect([link.getAttribute("href"), link.textContent]).toEqual(["#cut-out", strings.measure_card_evidence_cut_out]);
+    await act(async () => {
+      window.location.hash = "cut-out";
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    });
+    await waitFor(() => expect(draft(mount).getAttribute("data-state"), "the card gives way to the cut-out ring").toBe("cutting"));
+    expect(window.location.hash, "the fragment is taken off again, so the link can be followed twice").toBe("");
   });
 
   test("picking note 828 for t re-previews the card with t TRANSCRIBED, citing the note (§ 2.5)", async () => {

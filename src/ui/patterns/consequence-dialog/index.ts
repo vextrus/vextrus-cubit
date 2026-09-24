@@ -18,4 +18,6 @@ export {
   type ConsequenceDialogProps,
   type ConsequencePreview,
   type ConsequenceSummaryProps,
+  type MeasurementFaces,
+  variableWords as measurementVariableWords,
 } from "./consequence-dialog";

@@ -158,7 +158,7 @@ describe("the chest's R-UI-050 cells (§ 3)", () => {
   });
 
   test("ready: a row per condition in the chest's order, digits by place, the campaign's COMPLETE total per kind — none shown as a dash, never a zero", async () => {
-    const billed = listed(BLINDING, "00000000-0000-4000-8000-000000000001", 0, { measured: 2, billed: 1, totals: [{ kind: "pcc.blinding", unit: "m3", value: "24.663" }] });
+    const billed = listed(BLINDING, "00000000-0000-4000-8000-000000000001", 0, { measured: 2, billed: 1, totals: [{ kind: "pcc.blinding", unit: "m3", value: "23.1951589143271937113530671625" }] });
     const second = listed({ ...BLINDING, name: "100 CC blinding under footings", hatch: "cross" }, "00000000-0000-4000-8000-000000000002", 1);
     mountChest(memoryChest({ conditions: [billed, second] }));
     await waitFor(() => expect(chestState()).toBe("ready"));
@@ -168,7 +168,11 @@ describe("the chest's R-UI-050 cells (§ 3)", () => {
       ["2", "100 CC blinding under footings"],
     ]);
     const totals = rows.map((row) => row.querySelector(".cx-measure-chest-total") as HTMLElement);
-    expect(totals[0]?.textContent, "the line's own figure, through the format seam").toBe("24.663m3");
+    // I-662 (walk-2 BD-2): the campaign's sum at the places the register states a volume to —
+    // stated whole, its 28 digits pushed the condition's name out of its own row.
+    expect(totals[0]?.textContent, "the lines' figure at the kind's places, through the format seam").toBe("23.195m3");
+    expect(totals[0]?.querySelector(".cx-measure-chest-figure")?.getAttribute("data-value"), "the exact sum stays on the element").toBe("23.1951589143271937113530671625");
+    expect(rows[0]?.querySelector(".cx-measure-chest-name")?.textContent, "and the row keeps the condition's name").toBe(BLINDING.name);
     expect(totals[0]?.querySelector(`[data-testid="${TESTIDS.unit.badge}"]`)?.textContent, "its unit in the product's one unit badge").toBe("m3");
     expect([totals[0]?.getAttribute("data-measured"), totals[0]?.getAttribute("data-billed")]).toEqual(["2", "1"]);
     expect(totals[1]?.textContent, "nothing billed is a dash, never 0").toBe(strings.measure_chest_total_none);

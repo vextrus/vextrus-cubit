@@ -86,14 +86,20 @@
 
 .cx-measure-chest-name {
   flex: 1 1 auto;
-  min-width: 0;
+  /* The condition's name keeps its place beside any total (walk-2 BD-2): the total gives way first. */
+  min-width: 6ch;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
 .cx-measure-chest-total {
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 50%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   font-family: var(--font-mono);
   font-size: var(--text-12);
   color: var(--ink-secondary);

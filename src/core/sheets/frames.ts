@@ -165,8 +165,26 @@ export function standingOfGraph(graph: EntityGraph, members: ReadonlyMap<string,
   return { sheets: sheetsOfGraph(graph), spaces: spacesOfGraph(graph), frames: framesOfGraph(graph), members };
 }
 
-/** What a line cites, as the Trace is asked about it: the view it was read in, then each binding's source. */
-export type Citations = { readonly viewKey: string; readonly sources: readonly string[] };
+/**
+ * What a line cites, as the Trace is asked about it: the view it was read in, then each binding's
+ * source — and, for a line measured off a hand trace, the traced ring's own points in the space they
+ * were stated in (s-measure I-666), which say the sheet a QS traced on where no member does.
+ */
+export type Citations = { readonly viewKey: string; readonly sources: readonly string[]; readonly points?: readonly (readonly [number, number])[] };
+
+/**
+ * The one sheet whose windows show every one of these model-space points, or null where none does,
+ * or windows of two sheets do (I-666). A hand ring traced on a paper sheet is stated in model
+ * space (s-measure I-620), and the view it was traced in may be anchored by a caption no one sheet's
+ * window shows — so the view alone files the line under model space. The ring itself says which
+ * sheet it was traced on, by the window that holds it: the reading `sheetOfKey` makes of one key's
+ * standing, made of a ring.
+ */
+export function sheetShowing(points: readonly (readonly [number, number])[], frames: RecordFrames): string | null {
+  if (points.length === 0) return null;
+  const showing = [...new Set(frames.windows.filter((window) => points.every((point) => inside(window.model, point))).map((window) => window.layoutName))];
+  return showing.length === 1 ? (showing[0] as string) : null;
+}
 
 /** What the Trace makes of a line's citations (I-421). */
 export type TracedCitations = {
@@ -237,7 +255,11 @@ export function traceCitations(cited: Citations, standing: RecordStanding | null
     layoutName = onView ? viewSheet : on(drawn[0] as string);
     candidates = drawn;
   } else {
-    layoutName = viewSheet ?? modelSheetOf(records);
+    // A hand line names no member: the sheet its ring was traced on, where the view says only model
+    // space and one sheet's windows hold the ring (I-666), else the view's.
+    const modelSheet = modelSheetOf(records);
+    const traced = cited.points !== undefined && (viewSheet === null || viewSheet === modelSheet) ? sheetShowing(cited.points, frames) : null;
+    layoutName = traced ?? viewSheet ?? modelSheet;
     candidates = sources;
   }
   const flyTo = layoutName === null ? [] : candidates.filter((key) => standsOn(key, layoutName as string, spaces, records, frames));

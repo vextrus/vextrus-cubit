@@ -75,6 +75,9 @@ export const measure = {
   // S6 (§ 4): the card recorded the measurement, or could not be checked.
   measure_status_recorded: "Recorded. Adding to the register.",
   measure_card_failed: "This measurement could not be checked, and nothing was recorded. Your outline is still on the sheet.",
+  // MANUAL-UX (s-measure I-665): a ring that takes in ground its member does not cover is
+  // answered by cutting that ground out, named — the remedy link starts the cut-out.
+  measure_card_evidence_cut_out: "Cut out what the member does not cover (X)",
   measure_condition_name: "Name",
   measure_condition_geometry: "Measured as",
   measure_condition_geometry_area: "Area",

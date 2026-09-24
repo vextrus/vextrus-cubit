@@ -358,12 +358,13 @@ export const TRANSPORT_VOCABULARY: ReadonlyArray<TransportVocabulary> = Object.f
   }),
   Object.freeze({
     // The consequence dialog's value vocabularies (docs/design/consequence-dialog.md I-560): what a
-    // subject's before and after are said in where they are not words a person reads. One bears an
-    // underscore, so Q-07's register would read it as a refusal code nobody registered — but nothing
-    // is refused by it: it names how a pin's cited revision is said ("Revision 2"). Its home is
+    // subject's before and after are said in where they are not words a person reads. Three bear an
+    // underscore, so Q-07's register would read them as refusal codes nobody registered — but nothing
+    // is refused by them: they name how a pin's cited revision is said ("Revision 2"), where a level
+    // stands in the stack and the level a placeholder object is carried onto (I-664). Their home is
     // `../acts/consequence.ts` (`ConsequenceHeld`), written down here for the reason the ranks above are.
     vocabulary: "consequence value vocabularies (I-560)",
-    codes: Object.freeze(["DRAWING_REVISION"]),
+    codes: Object.freeze(["DRAWING_REVISION", "LEVEL_POSITION", "LEVEL_CARRIED"]),
   }),
   Object.freeze({
     // The pile-head grammar's decline reasons (s-schedules I-597): why a clause that speaks of a length

@@ -155,6 +155,9 @@ export const TESTIDS = {
     measurementQuantity: "consequence-measurement-quantity",
     measurementReading: "consequence-measurement-reading",
     measurementReadingChoice: "consequence-measurement-reading-choice",
+    // MANUAL-UX (s-measure I-662, I-663): what the act adds, and each formula variable in words.
+    measurementAdds: "consequence-measurement-adds",
+    measurementVariable: "consequence-measurement-variable",
     pinning: "consequence-pinning",
     staleNotice: "consequence-stale-notice",
     subjectRow: "consequence-subject-row",

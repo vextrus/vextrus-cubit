@@ -24,7 +24,7 @@ S4 the armed tools and the gesture grammar · S5 the condition chest · S6 the c
 S7 the measurement book · S8 the legend's manual conditions (in VD-4's legend) · S9 the rest of the
 toolset · S10 assemblies · S11 J-041.
 
-This Decision defines I-370 … I-394, I-497 … I-501 (session 8), I-538 and I-539 (S2), I-573, I-574, I-575 and I-576 (S5), I-586 … I-589 (S3), I-614 (MANUAL-LAW) and I-616 … I-620 (S6), and cites D-005 (entered session 9, `docs/decisions/deviations.md`).
+This Decision defines I-370 … I-394, I-497 … I-501 (session 8), I-538 and I-539 (S2), I-573, I-574, I-575 and I-576 (S5), I-586 … I-589 (S3), I-614 (MANUAL-LAW), I-616 … I-620 (S6) and I-662, I-663, I-665 and I-666 (MANUAL-UX), and cites D-005 (entered session 9, `docs/decisions/deviations.md`).
 
 ---
 
@@ -1535,6 +1535,58 @@ Deviation in `docs/decisions/deviations.md` in the same commit (CLAUDE.md, Law).
 
 ---
 
+### MANUAL-UX's readings (a hand measurement in a QS's words, session 9)
+
+Walk-2 (BD-2) measured the S-08 blinding end to end and found every step saying the machine's words:
+the card showed `23.1951589143271937113530671625 m³`, `A = 328.8383712443629162090408955 m2`, a bare
+`t` and "After REGISTERED"; after one measurement the chest row showed that volume where the
+condition's name stood; the register tree, its Source column and the inspector named the object
+`~m.b2e1ef5d1e45b81f`; the Trace showed A as `32,88,38,371.244…` mm² beside `act:d30`; the legend
+filed the line under "model · 1" rather than S-08; and the refusal of a ring that takes in the ramp
+offered "Reload this sheet".
+
+- **I-662 — A hand measurement's figures are said one way at every step, at its kind's places.**
+  A quantity is stated at the places its kind is written to — the register's cell and the draft BOQ's
+  (`placesOf`, L-FMT-02) — carried half-up and grouped by the format seam: `23.195 m³`. A formula
+  variable is read in the unit a QS reads it in: an area the drawing gave in mm² or cm² is m² at three
+  places (`328.838 m²`), and m, m² and m³ are stated to three places on the card, as the running figure
+  is (§ 2.4); any other reading — a count, a thickness in mm — is the line's own. Each variable of a
+  hand method is named in words on the card: Count, Area, Openings, Columns and walls, Thickness,
+  Opening threshold (`consequence_dialog_variable_*`); the formula sentence the gate states is read
+  back into its template and variables (`src/core/offers/formula.ts`), so the card shows the template
+  and each variable by name, never a second spelling of it. The chest's total per condition takes the
+  same places, and the row keeps the condition's name (the exact sum rides `data-value`). The
+  register's Variables cell and its inspector, and the Trace block, read an mm² area in m² the same
+  way (`variableReading`); a variable read off the hand trace says "Traced by hand" beside the sheet it
+  was traced on, never its `act:` key. Display only: every exact figure stays on the element's
+  `data-value` and `data-unit`, which the journeys read, and what the bill publishes is the gate's
+  figure (I-373). Home: `src/modules/takeoff/viewer-measure/words.ts`.
+- **I-663 — The card's After is what the act adds to the bill.** "REGISTERED" is the register's
+  word for an object's standing, not a consequence a QS weighs. The MEASUREMENT arm says what the act
+  does to the bill: "Adds 1 line: GF slab blinding 23.195 m³" — the level, class and kind of each line
+  the gate would publish, at its figure; "Adds no line to the bill yet." where the gate publishes none;
+  and on an edit "Strikes {previous}: its line leaves the bill." The subjects' raw before and after
+  still stand whole in Details (I-560).
+- **I-665 — A ring that takes in ground its member does not cover is answered by the cut-out.**
+  `MANUAL_BLINDING_PAST_MEMBER` names the member the ring ran past; the remedy is to cut out what it
+  took in (the ramp on S-08), never to reload the sheet. The refusal's evidence link reads "Cut out
+  what the member does not cover (X)" and lands on the card as the fragment `#cut-out`, which starts the
+  cut-out ring over the outline kept, and is taken off again so the link can be followed twice.
+- **I-666 — A hand object is named for its condition, sheet and level, and filed under the
+  sheet it was traced on.** Its `~m.` mark is an identity (I-378), no name. Where the register names
+  objects by mark — the tree, the Source column, the inspector — a hand object reads "75 CC blinding
+  under SOG · S-08 · GF", each part only where it is known; the Trace's member line reads the
+  condition's name. A ring traced on a paper sheet is stated in model space (I-620), and its view's
+  caption may stand where no one sheet's window shows it, so the view alone filed the line under model
+  space. The ring itself says which sheet it was traced on: the one sheet whose windows hold every
+  point of its outer ring (`sheetShowing`, the reading `sheetOfKey` makes of one key, made of a ring).
+  Where the view says only model space, the Trace and the register's sheet follow the ring; a view
+  that names its own sheet keeps it. The legend's overlay paints the ring on that sheet, through the
+  window that holds it, by the projection the viewer drew the sheet by
+  (`paper = centre + (model − viewCentre) × scale`, `ringsOnPaper`), and counts it elsewhere under that
+  sheet, never "model". Homes: `src/core/sheets/frames.ts`, `src/modules/takeoff/trace/index.ts`
+  (`handObjectsOf`, `handObjectWords`), `src/modules/takeoff/viewer-quantity-overlay/`.
+
 ## 1. What a QS brings from Bluebeam, PlanSwift, On-Screen Takeoff and CostX
 
 A Dhaka QS who measures by hand today uses one of these four tools, or AutoCAD plus Excel plus a
@@ -2360,6 +2412,10 @@ per-Interpretation verdict, so those rows stay OWED, and their objections below 
 | I-618 | a card anchored at a corner covers the drawing beside the point, and the gross and Less rows belong on the card | the card is modal (I-373), so what it covers cannot be touched while it stands; the gate's formula states every bound variable, and the book's rows are S7's, one home | OWED | S6 |
 | I-619 | reading an act through to its ring makes an entered figure look drawn | the Trace flies to where the measurement stands, and the line's basis still says ENTERED; a reader loses nothing and gains the way back | OWED | S6 |
 | I-620 | mapping paper points on the client trusts a float inverse the act cannot check | the act re-derives every snapped point against the drawing (I-387) and refuses a point off its view by name; the map is the viewer's own projection, read on the server | OWED | S6 |
+| I-662 | a figure rounded on the face may be read as the figure billed | the bill publishes the gate's exact figure (I-373), the draft BOQ states it at the same places, and the exact figure stays on every element; three places of m³ is a litre | OWED | MANUAL-UX |
+| I-663 | "Adds 1 line" promises what the measure run later publishes | it is the gate's own preview of the offer (I-384), the arm names the lines it would publish at their figures, and "Adds no line" says so where the gate publishes none | OWED | MANUAL-UX |
+| I-665 | a ring that runs past its member may be the member's outline wrongly drawn, not ground to cut out | then the QS cancels and re-traces; the cut-out is the common case walk-2 met (the ramp), and it keeps the outline already placed | OWED | MANUAL-UX |
+| I-666 | filing a line by its ring's window guesses a sheet the act never recorded | the ring's points are the act's own statement, the windows the drawing's; a ring no one sheet's windows hold, or two sheets' hold, stays under the view's reading | OWED | MANUAL-UX |
 
 **D-005 — entered** (session 9: the refuter rejected I-388 — L-FRM-04 defers polygon plans outright and states `(L + 2p)(B + 2p)t` with no hand/machine split, so dropping p is a departure, not a reading). Its row and section are in `docs/decisions/deviations.md`.
 
@@ -2776,3 +2832,18 @@ Risks this Decision leaves the orchestrator:
     `tests/takeoff/manual/measure-card-offer.test.ts`, `tests/takeoff/trace/act-sources.test.ts`, and
     J-000's `m4-sheet-and-manual-measure` (run by the integrator). Refuter verdicts on I-616 … I-620
     are owed (§11).
+- 2026-09-24 — MANUAL-UX (session 9, wave 3d): a hand measurement reads in a QS's words at every step
+  (walk-2 BD-2), in I-662, I-663, I-665 and I-666:
+  - the card's figures at their kind's places, each variable named in words and an area in m²; its
+    After as the lines the act adds;
+  - the chest's total at the register's places, the row keeping the condition's name;
+  - the register, the inspector and the Trace naming a hand object by its condition, sheet and level,
+    reading an mm² area in m², and saying "Traced by hand" for an `act:` source;
+  - the line filed under the sheet its ring was traced on, and the ring painted there;
+  - the ring past its member answered by the cut-out.
+  - The Insert levels dialog's words are consequence-dialog.md's I-664.
+  - Proofs: `tests/takeoff/viewer-measure/measure-card.test.tsx`, `tests/takeoff/manual/formula-words.test.ts`,
+    `measure-chest.test.tsx`, `hand-object-words.test.ts`, `manual-act.test.ts` (live),
+    `tests/takeoff/sheets/hand-ring-sheet.test.ts`, `tests/takeoff/viewer-inspector/hand-line-trace.test.ts`,
+    `tests/takeoff/viewer-quantity-overlay/hand-ring-on-paper.test.ts`, and J-000's
+    `m4-sheet-and-manual-measure` (run by the integrator). Refuter verdicts are owed (§11).

@@ -16,6 +16,7 @@ import { STakeoffPage } from "../pages/s-takeoff.page";
 import { SYNTHETIC_SOURCES } from "../takeoff/register-stage";
 import { checkpoint } from "../support/checkpoint";
 import { heldAttribute } from "../support/retrying-read";
+import { fill, strings } from "../../../src/ui/strings";
 
 /** The width the frame paints the rail, the grid and the inspector side by side at (R-UI-030). */
 test.use({ viewport: { width: 1440, height: 900 } });
@@ -137,7 +138,12 @@ test.describe("J-031 — the level stack editor", () => {
     const subjects = levels.dialogSubjects;
     await expect(subjects, "the proposed level, the live level it moves, and the object carried onto it").toHaveCount(3);
     await expect(subjects.filter({ hasText: INSERTED }), `the level proposed at ordinal ${INSERTED_ORDINAL}`).toHaveCount(1);
-    await expect(subjects.filter({ hasText: `ordinal:${INSERTED_ORDINAL + 1}` }), "and the level whose ordinal moves up one — an insert re-keys nothing (L-MEA-07)").toHaveCount(1);
+    // TEST_AMENDED (consequence-dialog I-664): the ordinal is said as a stack position in the
+    // registry's words; the raw `ordinal:` value stands only in Details.
+    await expect(
+      subjects.filter({ hasText: fill(strings.consequence_dialog_level_position, { n: String(INSERTED_ORDINAL + 1) }) }),
+      "and the level whose ordinal moves up one — an insert re-keys nothing (L-MEA-07)",
+    ).toHaveCount(1);
     await expect(levels.dialogLines, "no line is published yet, so the act names none as re-deriving").toContainText("none");
 
     const digest = await heldAttribute(levels.dialogConfirm, "data-digest");

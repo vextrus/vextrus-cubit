@@ -57,6 +57,7 @@ export type TraceCopyKey =
   | "trace_heading"
   | "trace_formula_label"
   | "trace_variables_label"
+  | "trace_source_hand"
   | "trace_origin"
   | "trace_missing"
   | "trace_failed"
@@ -78,6 +79,7 @@ export const TRACE_COPY: Readonly<Record<TraceCopyKey, string>> = Object.freeze(
   trace_heading: "Trace",
   trace_formula_label: "Formula",
   trace_variables_label: "Variables",
+  trace_source_hand: "Traced by hand",
   trace_origin: "Back to the register line",
   trace_missing: "This project holds no line by that id.",
   trace_failed: "The line could not be read.",

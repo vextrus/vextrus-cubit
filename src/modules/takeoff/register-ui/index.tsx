@@ -33,6 +33,7 @@ import { parseSourceKey } from "@/core/sources";
 // A stored decimal STATED at a fraction length, half-up on the text — never a float, never a re-sum
 // (B-07, L-FMT-02). The bar schedule's own home for it; this screen states a figure the same way.
 import { statedAt } from "@/modules/takeoff/bbs-ui/present";
+import { variableReading } from "@/modules/takeoff/viewer-measure/words";
 import { LINE_PARAM, originAddress, selectionAddress, traceAddress } from "@/modules/takeoff/trace/address";
 import { basisOf } from "./basis";
 import { REGISTER_COPY, fillCopy } from "./copy";
@@ -505,10 +506,14 @@ function HintedLabel({ Tooltip, label, hint }: { readonly Tooltip: RegisterChrom
   );
 }
 
-/** A line's bindings as one line of cell text: `name=value unit`, in binding order (I-25). */
-function variablesOf(line: ViewLine): string {
+/**
+ * A line's bindings as one line of cell text: `name=value unit`, in binding order (I-25) — an area
+ * the drawing gave in square millimetres read in square metres at three places, `A=328.838 m2`
+ * (s-measure I-662); every other reading the line's own.
+ */
+export function variablesOf(line: Pick<ViewLine, "variables">): string {
   return Object.entries(line.variables)
-    .map(([name, binding]) => `${name}=${binding.value} ${binding.unit}`)
+    .map(([name, binding]) => ((read) => `${name}=${read.value} ${read.unit}`)(variableReading(binding.value, binding.unit)))
     .join(" ");
 }
 
@@ -1344,7 +1349,7 @@ export function RegisterWorkspace({ view, corroborations, permitted, offline, ch
               <Fragment key={name}>
                 <dt className="cx-register-cell-mono">{name}</dt>
                 <dd>
-                  <QuantityText value={binding.value} unit={binding.unit} format={FIGURES} />
+                  {((read) => <QuantityText value={read.value} unit={read.unit} format={FIGURES} />)(variableReading(binding.value, binding.unit))}
                 </dd>
               </Fragment>
             ))}

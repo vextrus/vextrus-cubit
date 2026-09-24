@@ -122,6 +122,34 @@ export const consequenceDialog = {
   consequence_dialog_measurement_replaces: "Replaces {previous}, which leaves the bill.",
   consequence_dialog_measurement_queued: "Waiting for agreement: {cause}",
   consequence_dialog_measurement_not_offered: "Nothing is measured by hand this way yet.",
+
+  // MANUAL-UX (s-measure I-662, I-663): the card in a QS's words — what the act adds,
+  // each variable of the formula by its name in words, the object an edit strikes.
+  consequence_dialog_measurement_adds_one: "Adds 1 line:",
+  consequence_dialog_measurement_adds: "Adds {count} lines:",
+  consequence_dialog_measurement_adds_none: "Adds no line to the bill yet.",
+  consequence_dialog_measurement_strikes: "Strikes {previous}: its line leaves the bill.",
+  consequence_dialog_measurement_variables: "Variables",
+  consequence_dialog_measurement_variable_omitted: "left out",
+  consequence_dialog_variable_count: "Count",
+  consequence_dialog_variable_A: "Area",
+  consequence_dialog_variable_openings: "Openings",
+  consequence_dialog_variable_junctions: "Columns and walls",
+  consequence_dialog_variable_t: "Thickness",
+  consequence_dialog_variable_threshold: "Opening threshold",
+
+  // MANUAL-UX (consequence-dialog I-664): the Insert levels dialog in words — where a level
+  // stands in the stack, and the level a placeholder object is carried onto.
+  consequence_dialog_level_position: "Stack position {n}",
+  consequence_dialog_level_position_none: "Not in the stack",
+  consequence_dialog_level_carried: "On {level}",
+  consequence_dialog_level_carried_none: "Waiting under a placeholder",
+  consequence_dialog_change_objects: "{count} objects from {before} to {after}",
+  consequence_dialog_same_objects: "{count} objects stay {after}",
+  consequence_dialog_members_objects: "Show the {count} objects",
+  consequence_dialog_change_levels: "{count} levels from {before} to {after}",
+  consequence_dialog_same_levels: "{count} levels stay at {after}",
+  consequence_dialog_members_levels: "Show the {count} levels",
 } as const;
 
 // R-SPINE-060's per-module convention is that a table file's DESIGNATED export is the one named for

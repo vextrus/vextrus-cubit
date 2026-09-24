@@ -47,6 +47,8 @@ export type PlaceholderObject = {
   readonly objectKey: string;
   readonly levelLabel: string;
   readonly elementType: string;
+  /** The mark it is read by (`C2`), for the words an act names it in — absent or "" where it carries none. */
+  readonly mark?: string;
 };
 
 /** Every level the project holds, repudiated ones included, in the order they physically stand. */
@@ -185,6 +187,7 @@ export async function objectsUnderPlaceholders(tx: TenantTx, scope: LevelScope, 
       objectKey: registerObjects.objectKey,
       levelLabel: registerObjects.levelLabel,
       elementType: registerObjects.elementType,
+      mark: registerObjects.mark,
     })
     .from(registerObjects)
     .where(and(eq(registerObjects.tenantId, scope.tenantId), eq(registerObjects.projectId, scope.projectId), isNull(registerObjects.levelId)))

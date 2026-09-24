@@ -21,14 +21,16 @@ import type { ReactNode, RefObject } from "react";
 import { isFoundationClass } from "@/core/catalogue/level-basis";
 import { refusalOf, type RefusalCode } from "@/core/errors";
 import type { ChestCondition } from "@/core/manual/conditions";
-import type { CutoutRole, StatedGeometry, StatedPoint } from "@/core/manual/law";
+import type { CutoutRole, HandLevel, StatedGeometry, StatedPoint } from "@/core/manual/law";
+import { readFormula } from "@/core/offers/formula";
 import type { MeasureCard } from "@/modules/takeoff/measure/card";
 import type { Camera } from "@/modules/takeoff/viewer";
 import { screenAt } from "@/modules/takeoff/viewer-partition-overlay/scene";
 import type { MeasureDraft, MeasurePoint } from "@/modules/takeoff/viewer-measure/gesture";
 import { cardAt, closingPointOf, modelPointOf, type CardPlace, type SheetWindow } from "@/modules/takeoff/viewer-measure/scene";
 import { viewAt, type MeasureView, type UseMeasure } from "@/modules/takeoff/viewer-measure/use-measure";
-import { ConsequenceDialog } from "@/ui/patterns/consequence-dialog";
+import { quantityAt, variableAt } from "@/modules/takeoff/viewer-measure/words";
+import { ConsequenceDialog, measurementVariableWords, type MeasurementFaces } from "@/ui/patterns/consequence-dialog";
 import { Button, ErrorState, Kbd, Select } from "@/ui/primitives/core";
 import { fill, strings } from "@/ui/strings";
 import { TESTIDS } from "@/ui/testids";
@@ -44,6 +46,16 @@ const FOUNDATION = "FOUNDATION";
 
 /** The card's width, as § 2.5 fixes it, and a height the placement plans for before it is laid out. */
 const CARD_SIZE = Object.freeze({ width: 320, height: 440 });
+
+/**
+ * The fragment the refusal's remedy link carries where a ring runs past its member (I-665): the
+ * page does not reload, and the card answers the fragment by cutting out — the remedy is the cut-out
+ * itself, named, never "Reload this sheet" over a trace the QS would lose.
+ */
+export const CUT_OUT_FRAGMENT = "cut-out";
+
+/** The refusals a cut-out answers: the ring takes in ground its member does not cover (a ramp, a pit). */
+const ANSWERED_BY_CUT_OUT: ReadonlySet<RefusalCode> = new Set<RefusalCode>(["MANUAL_BLINDING_PAST_MEMBER"]);
 
 /** The Select's value for "the condition's own reading" — no note's source key is empty. */
 const FROM_CONDITION = "";
@@ -112,6 +124,21 @@ export function readingsOf(picked: ChestCondition, sources: Readonly<Record<stri
     if (note === undefined) return { ...reading, basis: "ENTERED", sourceKey: null };
     return { attribute: reading.attribute, valueAsWritten: note.valueAsWritten, unitAsWritten: note.unitAsWritten, basis: "TRANSCRIBED", sourceKey: note.sourceKey };
   });
+}
+
+/**
+ * How the card says the measurement (s-measure I-662): each kind's figure at its document
+ * places, the gate's formula taken apart with each variable at the places a QS reads it, and the level
+ * by the label the stack gives it — the Foundation slot in words. Pure over what the card offered.
+ */
+export function measurementFacesOf(card: MeasureCard | null): MeasurementFaces {
+  return {
+    quantity: quantityAt,
+    formula: readFormula,
+    variable: variableAt,
+    level: (level: HandLevel): string | null =>
+      "levelId" in level ? (card?.levels.find((held) => held.levelId === level.levelId)?.label ?? null) : level.slot === FOUNDATION ? strings.consequence_dialog_measurement_foundation : null,
+  };
 }
 
 /** A fault of the card's preview or commit (not a refusal) lands here: the card's own ErrorState, the outline kept (§ 3). */
@@ -191,6 +218,7 @@ export function useMeasureCard({ measure, picked, sheet, views, cameraRef, stage
   }, [drawing]);
 
   const offered = card !== null && card.key === cardKey ? card.answer : null;
+  const faces = useMemo(() => measurementFacesOf(offered), [offered]);
   const ready = cardKey === null ? standing : card !== null && card.key === cardKey;
 
   const statement = useMemo(() => {
@@ -220,9 +248,10 @@ export function useMeasureCard({ measure, picked, sheet, views, cameraRef, stage
       if (sheet === null) return { href: "/", label: strings.viewer_partition_evidence_reload };
       if (code === "PERMISSION_NOT_HELD" || code === "WORKSPACE_PERMISSION_NOT_HELD") return { href: participantsRoute(sheet.tenantId, sheet.projectId), label: strings.viewer_partition_evidence_participants };
       if (code === "SIGNED_OUT") return { href: "/sign-in", label: strings.shell_evidence_sign_in };
+      if (ANSWERED_BY_CUT_OUT.has(code) && picked?.geometry === "POLYGON") return { href: `#${CUT_OUT_FRAGMENT}`, label: strings.measure_card_evidence_cut_out };
       return { href: viewerSheetRoute(sheet.tenantId, sheet.projectId, sheet.drawingId, sheet.sheetName), label: strings.viewer_partition_evidence_reload };
     },
-    [sheet],
+    [picked, sheet],
   );
   const refusedAnswer = useCallback((code: RefusalCode): unknown => ({ refusal: refusalOf(code), evidence: evidenceFor(code) }), [evidenceFor]);
 
@@ -275,6 +304,18 @@ export function useMeasureCard({ measure, picked, sheet, views, cameraRef, stage
   // finishing it opens the card again over the outline less what was cut (§ 2.5, I-372).
   const canCut = picked?.geometry === "POLYGON";
   const cutOut = useCallback((): void => input({ kind: "cutout" }), [input]);
+  // The refusal's remedy link lands here as a fragment (I-665): answered by cutting out, and
+  // the fragment taken off the address again so the same link can be followed twice.
+  useEffect(() => {
+    if (!standing || !canCut) return;
+    const onHash = (): void => {
+      if (window.location.hash !== `#${CUT_OUT_FRAGMENT}`) return;
+      window.history.replaceState(window.history.state, "", `${window.location.pathname}${window.location.search}`);
+      cutOut();
+    };
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, [canCut, cutOut, standing]);
   useEffect(() => {
     if (!standing || !canCut) return;
     const onKey = (event: KeyboardEvent): void => {
@@ -313,7 +354,7 @@ export function useMeasureCard({ measure, picked, sheet, views, cameraRef, stage
   const dialog = !standing ? null : (
     <CardBoundary onRetry={() => setAttempt((held) => held + 1)} onClose={() => onOpenChange(false)}>
       {/* A retried fault mounts the dialog afresh, which previews again (§ 3). */}
-      <ConsequenceDialog key={attempt} open={ready} actType={RECORD_MANUAL_MEASUREMENT} preview={preview} commit={commit} onOpenChange={onOpenChange} onCommitted={onCommitted} container={container} controls={controls} anchor={anchor} />
+      <ConsequenceDialog key={attempt} open={ready} actType={RECORD_MANUAL_MEASUREMENT} preview={preview} commit={commit} onOpenChange={onOpenChange} onCommitted={onCommitted} container={container} controls={controls} anchor={anchor} measurementFaces={faces} />
     </CardBoundary>
   );
 
@@ -371,7 +412,7 @@ function CardControls({ picked, card, level, onLevel, sources, onSource, cutouts
         return (
           <div key={reading.attribute} className="cx-viewer-measure-card-row">
             <span className="cx-viewer-measure-card-label" id={`measure-card-reading-${reading.attribute}`}>
-              {reading.attribute}
+              {measurementVariableWords(reading.attribute)}
             </span>
             <Select
               aria-labelledby={`measure-card-reading-${reading.attribute}`}

@@ -26,6 +26,7 @@ import { formatUserFigure } from "@/core/format";
 import type { AuthorableCatalogue, AuthorableClass, ChestCondition, ConditionStatement } from "@/core/manual/conditions";
 import { CONDITION_COLOURS, CONDITION_HATCHES, type ConditionColour, type ConditionHatch, type ManualGeometry } from "@/core/manual/law";
 import type { MeasureTool } from "@/modules/takeoff/viewer-measure/gesture";
+import { quantityAt } from "@/modules/takeoff/viewer-measure/words";
 import { IconMoreHorizontal, IconPlus } from "@/ui/icons";
 import { RefusalState } from "@/ui/patterns/refusal-state";
 import { humaniseEnum } from "@/ui/primitives/core/enum-label";
@@ -316,12 +317,16 @@ export function ChestPanel({ state, conditions, catalogue, pickedId, faultId, pr
   );
 }
 
-/** A kind's total in the campaign, through the format seam — the unit beside it, muted. */
+/**
+ * A kind's total in the campaign at the places its kind is written to (the register's, s-measure
+ * I-662), through the format seam — the unit beside it, muted. The exact sum stays on the
+ * element; stated whole, a 28-digit volume pushed the condition's name out of its own row (walk-2 BD-2).
+ */
 function totalWords(condition: ChestCondition): ReactNode {
   if (condition.totals.length === 0) return strings.measure_chest_total_none;
   return condition.totals.map((total) => (
-    <span key={`${total.kind}:${total.unit}`} className="cx-measure-chest-figure">
-      {formatUserFigure(total.value)}
+    <span key={`${total.kind}:${total.unit}`} className="cx-measure-chest-figure" data-value={total.value}>
+      {quantityAt(total.value, total.kind)}
       <UnitBadge unit={total.unit} />
     </span>
   ));

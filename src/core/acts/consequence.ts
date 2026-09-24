@@ -87,10 +87,16 @@ export type ConsequenceScale = {
  * - DISCIPLINE — a sheet's confirmed discipline (L-REG-03): none before a first confirmation.
  * - DRAWING_REVISION — the revision ordinal a pinned set cites a drawing at (L-REG-06): none before
  *   the drawing was first cited, none after where the set no longer names it.
+ * - LEVEL_POSITION — where a level stands in the project's stack, as its ordinal (L-REG-04): none
+ *   before a level the act authors (consequence-dialog I-664).
+ * - LEVEL_CARRIED — the label of the live level a placeholder object is carried onto: none before,
+ *   where it waited under the placeholder (consequence-dialog I-664).
  */
 export type ConsequenceHeld =
   | { readonly kind: "DISCIPLINE"; readonly before: Discipline | null; readonly after: Discipline | null }
-  | { readonly kind: "DRAWING_REVISION"; readonly before: number | null; readonly after: number | null };
+  | { readonly kind: "DRAWING_REVISION"; readonly before: number | null; readonly after: number | null }
+  | { readonly kind: "LEVEL_POSITION"; readonly before: number | null; readonly after: number | null }
+  | { readonly kind: "LEVEL_CARRIED"; readonly before: string | null; readonly after: string | null };
 
 /**
  * What a pin records, as a reader names it (I-561): the set, the revision of it this pin would
