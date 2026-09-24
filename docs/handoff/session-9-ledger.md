@@ -239,3 +239,18 @@ table joined TABLES_BEFORE). Repairs: J-011's duplicate `drawn`, BBS copy keyed 
 vocabulary. verify's third lever: the Edison reference proof (21 s, the cad lane's tail) moved to its
 own file, set aside by verify's cad lane and run by the gate's golden lane — cad 48 → 25 s,
 `verify wall-time 52.79s` / `53.24s`. Gate 3 running.
+
+## Gates 3–5
+
+Gate 3 red: cubit_dev drift (migrated); a repair agent (`032ad18a`…`a61e14e6`): one product cause
+behind most reds — ARCH-6's rooms panel scrolled without taking focus (axe SERIOUS
+scrollable-region-focusable on every viewer checkpoint); notes-door read BBS-TIES's one-line-per-mark
+bill; J-040 raced M4P-2's chained partition; J-042's budgets. `c55f3f27` baseline: 4 pictures
+looked at. Gate 4: e2e red on J-042 alone — its upload answered `duplicate` (the seeded workspace
+outlives a run; the seam still records and reads the project's drawing — proved by the walk):
+journey fixed. **Gate 5 GREEN**:
+`GATE summary — verify: green 51.60s · checkup: green 0.79s · golden: green 46.12s · db: green 117.21s · e2e: green 138.27s · e2e-j000: green 261.57s · perf: green 25.08s`
+`GATE wall-time 640.67s exit 0` — `verify wall-time 52.32s`.
+Read-back (project `b39569d7-8600-4d73-8c3c-8f68c52d38f0`): as gate 2's plus **tie beams 43 COMPLETE
+13.749410 m³ concrete / 129.137880 m² formwork** (GB-READ; golden FDN 14.619 / 136.566 — 5.9 % and
+5.4 % under: never over, but OUTSIDE the −3 % band); tie_beam objects 43; orphan 0.
