@@ -149,7 +149,7 @@ test.describe("J-031 — the level stack editor", () => {
     await expect(levels.row(staged.upperLevelId), "and the level that stood there moved up one").toHaveAttribute("data-ordinal", String(INSERTED_ORDINAL + 1));
 
     await checkpoint(page, testInfo, "stack");
-    await expect(page).toHaveScreenshot(["j-031-levels", "stack.png"], { mask: levels.masks(), animations: "disabled" });
+    await expect.soft(page).toHaveScreenshot(["j-031-levels", "stack.png"], { mask: levels.masks(), animations: "disabled" });
 
     /* --- the contest: a second reader's height, disagreeing with the transcribed one (AC-4) --- */
     const ground = levels.row(staged.groundLevelId);
@@ -180,7 +180,7 @@ test.describe("J-031 — the level stack editor", () => {
 
     await levels.row(staged.groundLevelId).click();
     await checkpoint(page, testInfo, "contested");
-    await expect(page).toHaveScreenshot(["j-031-levels", "contested.png"], { mask: levels.masks(), animations: "disabled" });
+    await expect.soft(page).toHaveScreenshot(["j-031-levels", "contested.png"], { mask: levels.masks(), animations: "disabled" });
 
     /* --- the re-affirmation: the same key, read again, which is the only thing that settles it --- */
     await levels.authorStoreyHeight(SETTLED_VALUE, METRE, ENTERED, READ_FROM);
@@ -203,6 +203,6 @@ test.describe("J-031 — the level stack editor", () => {
     );
 
     await checkpoint(page, testInfo, "reaffirmed");
-    await expect(page).toHaveScreenshot(["j-031-levels", "reaffirmed.png"], { mask: levels.masks(), animations: "disabled" });
+    await expect.soft(page).toHaveScreenshot(["j-031-levels", "reaffirmed.png"], { mask: levels.masks(), animations: "disabled" });
   });
 });

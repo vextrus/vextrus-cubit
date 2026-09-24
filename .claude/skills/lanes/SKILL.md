@@ -36,9 +36,10 @@ hydration (wait for a client-only fact); db reds in a source-mutating window are
 Met in session 8: a build that panics `TurbopackInternalError … was canceled` on the SAME task id every
 retry is a persistent cache a failed build poisoned — set `.next-cubit/cache/turbopack` aside and
 rebuild cold; `checkup` red on "cubit_dev migration drift" after new migrations is `pnpm db:migrate:dev`;
-the perf lane deletes `test-results/`, so re-run the journeys before `pnpm e2e:retake` after a gate; a
-journey with several picture checkpoints reveals the next moved picture only once the one before it is
-re-taken — re-run it until it is green, looking at each.
+the perf lane deletes `test-results/`, so re-run the journeys before `pnpm e2e:retake` after a gate.
+Every picture is `expect.soft(page).toHaveScreenshot(…)` (session 8's close): one run reports every
+moved picture of a walk, where a hard one hid each next checkpoint until the one before was re-taken
+(three gates lost to it). A new picture is written soft; the AC-3 guard and the roster count it.
 
 **Pictures:** a baseline a lawful change moved is re-taken with `pnpm e2e:retake` (dry run first, read
 the bands) and committed alone under a `baseline:` subject naming the proving run.

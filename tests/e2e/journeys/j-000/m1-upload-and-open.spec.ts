@@ -206,7 +206,7 @@ test.describe("J-000 — Golden Path: the uploaded drawing's sheet opens, and on
       await page.mouse.move(0, 0);
       await expect(viewer.hover, "nothing is under the pointer when the frame is taken").toHaveCount(0);
       await checkpoint(page, testInfo, "j-000/entity-selected");
-      await expect(viewer.inspector, "the inspector's own frame, as the Golden Path leaves it").toHaveScreenshot(["j-000", "entity-selected.png"], {
+      await expect.soft(viewer.inspector, "the inspector's own frame, as the Golden Path leaves it").toHaveScreenshot(["j-000", "entity-selected.png"], {
         animations: "disabled",
       });
     } finally {

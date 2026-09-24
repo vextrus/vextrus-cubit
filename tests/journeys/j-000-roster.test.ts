@@ -232,7 +232,7 @@ export function assertionsPerLeg(source: string): LegTest[] {
       const title = match[1] ?? match[2] ?? match[3] ?? "";
       const runnable = /\btest\s*\($/.test(source.slice(Math.max(0, match.index - 2), match.index + match[0].indexOf("(") + 1));
       const body = source.slice(match.index, found[at + 1]?.index ?? source.length);
-      return { title, assertions: runnable ? (body.match(/\bexpect\s*\(/g) ?? []).length : -1 };
+      return { title, assertions: runnable ? (body.match(/\bexpect(?:\.soft)?\s*\(/g) ?? []).length : -1 };
     })
     .filter((leg) => leg.assertions >= 0);
 }

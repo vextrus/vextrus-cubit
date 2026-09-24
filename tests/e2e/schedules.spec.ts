@@ -356,7 +356,7 @@ test.describe("J-032 — schedules, the member-type registry and sheet notes", (
     expect(await schedules.state(), "a sheet that holds both a table and a deferral reads as partial, never as ready (R-UI-050)").toBe(PARTIAL);
 
     await checkpoint(page, testInfo, "s-schedules/tables");
-    await expect(page).toHaveScreenshot(["s-schedules", "tables.png"], { mask: schedules.masks(), animations: "disabled" });
+    await expect.soft(page).toHaveScreenshot(["s-schedules", "tables.png"], { mask: schedules.masks(), animations: "disabled" });
 
     /* --- the one inspector: absent until something is chosen, and then exactly one (AC-7) --- */
     await schedules.cells(table).first().click();
@@ -365,7 +365,7 @@ test.describe("J-032 — schedules, the member-type registry and sheet notes", (
 
     await emulateTheme(page, "light");
     await settled(page);
-    await expect(page).toHaveScreenshot(["s-schedules", "tables-light.png"], { mask: schedules.masks(), animations: "disabled" });
+    await expect.soft(page).toHaveScreenshot(["s-schedules", "tables-light.png"], { mask: schedules.masks(), animations: "disabled" });
     await restoreLaneTheme(page, testInfo);
   });
 
@@ -446,7 +446,7 @@ test.describe("J-032 — schedules, the member-type registry and sheet notes", (
     expect(await schedules.state(), "a suspended standing beside readings that stand is the partial state (R-UI-050)").toBe(PARTIAL);
 
     await checkpoint(page, testInfo, "s-schedules/transcribed");
-    await expect(page).toHaveScreenshot(["s-schedules", "transcribed.png"], { mask: schedules.masks(), animations: "disabled" });
+    await expect.soft(page).toHaveScreenshot(["s-schedules", "transcribed.png"], { mask: schedules.masks(), animations: "disabled" });
   });
 
   test("J-032: a project with no partitioned drawing teaches the next action rather than standing empty-handed", async ({ page }, testInfo) => {

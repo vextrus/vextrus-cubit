@@ -208,12 +208,12 @@ test.describe("J-020 — scale: proposals, a two-point calibration, the affirmat
     // what did not reach it was the lane (`support/lane-theme.ts`: a capture named `-light` or
     // `-dark` states its own ground and is taken on it in every lane).
     await scale.setTheme("light");
-    await expect(scale.panel, "panel-light.png pictures the region a reader reads a sheet's scale in").toHaveScreenshot(["j-020-scale", "panel-light.png"], {
+    await expect.soft(scale.panel, "panel-light.png pictures the region a reader reads a sheet's scale in").toHaveScreenshot(["j-020-scale", "panel-light.png"], {
       animations: "disabled",
       maxDiffPixelRatio: 0.002,
     });
     await scale.setTheme("dark");
-    await expect(scale.panel, "panel-dark.png pictures the same region on the other paper (R-UI-001)").toHaveScreenshot(["j-020-scale", "panel-dark.png"], {
+    await expect.soft(scale.panel, "panel-dark.png pictures the same region on the other paper (R-UI-001)").toHaveScreenshot(["j-020-scale", "panel-dark.png"], {
       animations: "disabled",
       maxDiffPixelRatio: 0.002,
     });

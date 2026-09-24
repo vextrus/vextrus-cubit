@@ -156,12 +156,12 @@ test.describe("J-021 — views and grid on the sheet: what the machine saw, and 
     // `panel-light.png` was the dark panel, byte-identical to `panel-dark.png` (mean luma 28.3
     // both, measured on the committed files). The theme reaches this panel; the lane did not.
     await partition.setTheme("light");
-    await expect(partition.panel, "panel-light.png pictures the region a reader reads the partition in").toHaveScreenshot(["viewer-partition", "panel-light.png"], {
+    await expect.soft(partition.panel, "panel-light.png pictures the region a reader reads the partition in").toHaveScreenshot(["viewer-partition", "panel-light.png"], {
       mask: [partition.offeredGroups.getByTestId("offered-group-count")],
       animations: "disabled",
     });
     await partition.setTheme("dark");
-    await expect(partition.panel, "panel-dark.png pictures the same region on the other paper (R-UI-001)").toHaveScreenshot(["viewer-partition", "panel-dark.png"], {
+    await expect.soft(partition.panel, "panel-dark.png pictures the same region on the other paper (R-UI-001)").toHaveScreenshot(["viewer-partition", "panel-dark.png"], {
       mask: [partition.offeredGroups.getByTestId("offered-group-count")],
       animations: "disabled",
     });

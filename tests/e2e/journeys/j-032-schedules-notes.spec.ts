@@ -373,7 +373,7 @@ test.describe("J-032 — the bar schedule the transcribed notes produce", () => 
 
     /* --- the two pictures: the lane's dark ground, and the light one beside it --- */
     await checkpoint(page, testInfo, "s-bbs/schedule");
-    await expect(page, "schedule.png pictures the schedule a reader meets after the note and the measurement").toHaveScreenshot(["s-bbs", "schedule.png"], {
+    await expect.soft(page, "schedule.png pictures the schedule a reader meets after the note and the measurement").toHaveScreenshot(["s-bbs", "schedule.png"], {
       mask: bbs.masks(),
       animations: "disabled",
     });
@@ -381,7 +381,7 @@ test.describe("J-032 — the bar schedule the transcribed notes produce", () => 
     await emulateTheme(page, "light");
     await settled(page);
     await checkpoint(page, testInfo, "s-bbs/schedule-light");
-    await expect(page, "schedule-light.png pictures the same screen on the other paper (R-UI-001)").toHaveScreenshot(["s-bbs", "schedule-light.png"], {
+    await expect.soft(page, "schedule-light.png pictures the same screen on the other paper (R-UI-001)").toHaveScreenshot(["s-bbs", "schedule-light.png"], {
       mask: bbs.masks(),
       animations: "disabled",
     });
@@ -407,6 +407,6 @@ test.describe("J-032 — the bar schedule the transcribed notes produce", () => 
     await expect(action, "and it leads to the register, where a campaign is measured").toHaveAttribute("href", `/t/${bare.tenantId}/p/${bare.projectId}/takeoff/register`);
 
     await checkpoint(page, testInfo, "s-bbs/empty");
-    await expect(page, "empty.png pictures the screen a project with no bars stands in").toHaveScreenshot(["s-bbs", "empty.png"], { mask: bbs.masks(), animations: "disabled" });
+    await expect.soft(page, "empty.png pictures the screen a project with no bars stands in").toHaveScreenshot(["s-bbs", "empty.png"], { mask: bbs.masks(), animations: "disabled" });
   });
 });

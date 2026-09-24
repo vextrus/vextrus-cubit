@@ -84,7 +84,7 @@ test.describe("J-021 — the command palette, from the chord to the sheet", () =
     await palette.search(PROJECT);
     await expect(palette.activeRow).toHaveCount(1);
     await checkpoint(page, testInfo, "j-021-palette-open");
-    await expect(page, "palette/open-light.png pictures the palette that now stands").toHaveScreenshot(["palette", "open-light.png"], {
+    await expect.soft(page, "palette/open-light.png pictures the palette that now stands").toHaveScreenshot(["palette", "open-light.png"], {
       mask: masks,
       animations: "disabled",
       maxDiffPixelRatio: 0.002,
@@ -97,7 +97,7 @@ test.describe("J-021 — the command palette, from the chord to the sheet", () =
     await palette.openWithChord();
     await palette.search(PROJECT);
     await expect(palette.activeRow).toHaveCount(1);
-    await expect(page, "palette/open-dark.png pictures the same palette in the other theme").toHaveScreenshot(["palette", "open-dark.png"], {
+    await expect.soft(page, "palette/open-dark.png pictures the same palette in the other theme").toHaveScreenshot(["palette", "open-dark.png"], {
       mask: masks,
       animations: "disabled",
       maxDiffPixelRatio: 0.002,
@@ -127,7 +127,7 @@ test.describe("J-021 — the command palette, from the chord to the sheet", () =
     await expect(palette.sheetKeys("palette").locator("kbd").first(), "…each row drawing its own keycaps").toBeVisible();
 
     await checkpoint(page, testInfo, "j-021-shortcut-sheet");
-    await expect(page, "palette/sheet.png pictures the sheet that now stands, on the lane's own ground").toHaveScreenshot(["palette", "sheet.png"], {
+    await expect.soft(page, "palette/sheet.png pictures the sheet that now stands, on the lane's own ground").toHaveScreenshot(["palette", "sheet.png"], {
       mask: masks,
       animations: "disabled",
       maxDiffPixelRatio: 0.002,

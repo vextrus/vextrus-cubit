@@ -165,12 +165,12 @@ test.describe("J-030 — the project's issued documents", () => {
 
     /* --- s-documents/list: axe over the page, then the committed baselines, dark then light --- */
     await checkpoint(page, testInfo, checkpointAt("list"));
-    await expect(page).toHaveScreenshot([SCREEN, "list.png"], { mask: documents.masks(), animations: "disabled" });
+    await expect.soft(page).toHaveScreenshot([SCREEN, "list.png"], { mask: documents.masks(), animations: "disabled" });
 
     await emulateTheme(page, "light");
     await settled(page);
     await checkpoint(page, testInfo, checkpointAt("list-light"));
-    await expect(page).toHaveScreenshot([SCREEN, "list-light.png"], { mask: documents.masks(), animations: "disabled" });
+    await expect.soft(page).toHaveScreenshot([SCREEN, "list-light.png"], { mask: documents.masks(), animations: "disabled" });
     await restoreLaneTheme(page, testInfo);
 
     await page.setViewportSize({ ...NARROW });

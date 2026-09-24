@@ -226,14 +226,14 @@ test.describe("J-305 — the project's site facts: six deferrals, and the act th
     ).toBe(DEFAULT_DENSITY);
 
     await checkpoint(page, testInfo, "s-settings-site-facts/panel-absent");
-    await expect(page).toHaveScreenshot(["s-settings-site-facts", "panel-absent.png"], { mask: facts.masks(), animations: "disabled" });
+    await expect.soft(page).toHaveScreenshot(["s-settings-site-facts", "panel-absent.png"], { mask: facts.masks(), animations: "disabled" });
 
     /* --- the light twin, taken in this lane through the instrument's own flag (AM-08, I-D) --- */
     await page.goto(`${S_SITE_FACTS.route(tenantId, projectId)}?__theme=light`);
     await settled(page);
     await expect(page.locator("html"), "the document states the theme it is painting in").toHaveAttribute("data-theme", "light");
     await checkpoint(page, testInfo, "s-settings-site-facts/panel-absent-light");
-    await expect(page).toHaveScreenshot(["s-settings-site-facts", "panel-absent-light.png"], { mask: facts.masks(), animations: "disabled" });
+    await expect.soft(page).toHaveScreenshot(["s-settings-site-facts", "panel-absent-light.png"], { mask: facts.masks(), animations: "disabled" });
 
     await page.goto(S_SITE_FACTS.route(tenantId, projectId));
     await settled(page);
@@ -295,7 +295,7 @@ test.describe("J-305 — the project's site facts: six deferrals, and the act th
     await checkpoint(page, testInfo, "s-settings-site-facts/fact-entered");
     // The Entered-by cell names this worker's own account, which differs per worker as the top bar's
     // address does — so it is masked like the frame's, and asserted above rather than pictured (I-527).
-    await expect(page).toHaveScreenshot(["s-settings-site-facts", "fact-entered.png"], { mask: [...facts.masks(), facts.rowAct(WALKED.fact)], animations: "disabled" });
+    await expect.soft(page).toHaveScreenshot(["s-settings-site-facts", "fact-entered.png"], { mask: [...facts.masks(), facts.rowAct(WALKED.fact)], animations: "disabled" });
   });
 
   /**

@@ -79,7 +79,7 @@ test.describe("J-001 — invite, ACCEPT, and the second membership the switcher 
     await expect(members.pendingRows, "the invitation just made stands as one pending row (AC-2)").toHaveCount(1);
     await expect(members.panelRefusal, "a valid invitation is not refused").toHaveCount(0);
     await checkpoint(page, testInfo, "invite-pending");
-    await expect(page).toHaveScreenshot(["j-001-auth", "invite-pending.png"], { mask: masks(page) });
+    await expect.soft(page).toHaveScreenshot(["j-001-auth", "invite-pending.png"], { mask: masks(page) });
 
     /* --- the mailed link, opened by the invitee in their own browser --- */
     const invitation = await newestMail(INVITEE, "invitation");
@@ -93,7 +93,7 @@ test.describe("J-001 — invite, ACCEPT, and the second membership the switcher 
     ).toHaveText(INVITING_WORKSPACE);
     await expect(invitee.getByTestId("accept-invitation-refusal"), "a token straight out of the invitee's own mail is claimable").toHaveCount(0);
     await checkpoint(invitee, testInfo, "accept");
-    await expect(invitee).toHaveScreenshot(["j-001-auth", "accept.png"], { mask: masks(invitee) });
+    await expect.soft(invitee).toHaveScreenshot(["j-001-auth", "accept.png"], { mask: masks(invitee) });
 
     /* --- spending it: one user, two tenants, and the switcher live (R-SPINE-003) --- */
     await invitee.getByTestId("accept-invitation-submit").click();
@@ -113,7 +113,7 @@ test.describe("J-001 — invite, ACCEPT, and the second membership the switcher 
       "the session that accepted is the session standing inside /t/{invitingTenant} — no re-authentication (AC-4, R-SPINE-002)",
     ).toHaveURL(`${origin}/t/${invitingTenant}`);
     await checkpoint(invitee, testInfo, "switched");
-    await expect(invitee).toHaveScreenshot(["j-001-auth", "switched.png"], { mask: masks(invitee) });
+    await expect.soft(invitee).toHaveScreenshot(["j-001-auth", "switched.png"], { mask: masks(invitee) });
 
     await inviteeContext.close();
   });

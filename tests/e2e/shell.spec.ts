@@ -164,7 +164,7 @@ test.describe("J-004 — the signed-in application shell", () => {
     await shell.expectFrame();
     await expect(page.locator("html"), "the document states the theme it is painting in").toHaveAttribute("data-theme", "light");
 
-    await expect(shell.root).toHaveScreenshot("shell-light.png");
+    await expect.soft(shell.root).toHaveScreenshot("shell-light.png");
     await checkpoint(page, testInfo, "j004-shell-light");
 
     /* --- j004-shell-dark: the same frame, the same tokens, other values (Decision § 6).
@@ -178,7 +178,7 @@ test.describe("J-004 — the signed-in application shell", () => {
     await shell.expectFrame();
     await expect(page.locator("html"), "the document states the theme it is painting in").toHaveAttribute("data-theme", "dark");
 
-    await expect(shell.root).toHaveScreenshot("shell-dark.png");
+    await expect.soft(shell.root).toHaveScreenshot("shell-dark.png");
     await checkpoint(page, testInfo, "j004-shell-dark");
 
     // The page goes back to the LANE's ground, not to a spelled one: every capture below is named
@@ -318,7 +318,7 @@ test.describe("J-004 — the signed-in application shell", () => {
     const switcherMenu = page.getByRole("menu");
     await expect(switcherMenu, "…and the memberships it offers are on the screen being graded").toBeVisible();
 
-    await expect(page).toHaveScreenshot("shell-tenant-switcher-open.png");
+    await expect.soft(page).toHaveScreenshot("shell-tenant-switcher-open.png");
     await checkpoint(page, testInfo, "j004-shell-tenant-switcher-open");
 
     await page.keyboard.press("Escape");
@@ -332,7 +332,7 @@ test.describe("J-004 — the signed-in application shell", () => {
        the menu is open, which is the only state in which the serious finding this shell cures
        (focusable content under an `aria-hidden` frame) can manifest at all — graded here, a
        regression to the modal treatment reddens the journey instead of passing it. --- */
-    await expect(page).toHaveScreenshot("shell-user-menu-open.png");
+    await expect.soft(page).toHaveScreenshot("shell-user-menu-open.png");
     await checkpoint(page, testInfo, "j004-shell-user-menu-open");
 
     // The address itself, not the key it is stored under: `users.email` carries a folded key, and

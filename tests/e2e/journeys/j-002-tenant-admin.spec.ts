@@ -145,7 +145,7 @@ test.describe("J-002 — tenant admin: invite, roles, and the removal the log re
       .toBe(PROMOTED_ROLE);
     expect(await members.roleOf(memberId), "members-row-role shows the role this journey set through the role form").toBe(PROMOTED_ROLE);
     await checkpoint(page, testInfo, "panel");
-    await expect(page).toHaveScreenshot(["j-002-tenant-admin", "panel.png"], { mask: masks(page) });
+    await expect.soft(page).toHaveScreenshot(["j-002-tenant-admin", "panel.png"], { mask: masks(page) });
 
     /* --- and the removal the act log refuses, answered in the row that asked (I-57) --- */
     stageActsFor(tenantId, memberId);
@@ -156,6 +156,6 @@ test.describe("J-002 — tenant admin: invite, roles, and the removal the log re
     expect(await members.refusalCode(memberId), "the refused row wears MEMBER_HAS_ACTS machine-readably (AC-4)").toBe(MEMBER_HAS_ACTS);
     await expect(members.memberRows, "nothing was removed: the roster is what it was").toHaveCount(2);
     await checkpoint(page, testInfo, "remove-refused");
-    await expect(page).toHaveScreenshot(["j-002-tenant-admin", "remove-refused.png"], { mask: masks(page) });
+    await expect.soft(page).toHaveScreenshot(["j-002-tenant-admin", "remove-refused.png"], { mask: masks(page) });
   });
 });

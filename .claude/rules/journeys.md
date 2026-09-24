@@ -28,7 +28,8 @@ paths:
 - `test.skip` never; `test.fixme` only where `tests/journeys/fixme-roster.test.ts` admits it, on the J-000
   roster, opening with `MISSING DOOR:`, deleted by the door's own increment.
 - Baselines: a picture a lawful change moved is re-taken by `pnpm e2e:retake` (dry run, read the bands:
-  uniform anti-aliasing noise means the browser moved, a local change is a defect; then `-- --write`),
+  uniform anti-aliasing noise means the browser moved, a local change is a defect; then `-- --write`;
+  every picture is `expect.soft(page).toHaveScreenshot(…)`, so one run reports all a walk moved),
   committed alone under a `baseline:` subject naming the proving run. Never `--update-snapshots`.
 - Ceilings: V-E2E ≤ 12 min, ≤ 90 s a journey (J-000 carries its own budget). Performance assertions
   live only in PERF- specs (`pnpm test:perf`).

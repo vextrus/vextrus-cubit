@@ -122,7 +122,7 @@ test.describe("J-021 — the column slice: a line traced to its entities, back t
     await expect(trace.origin, "and a way back to the row it was traced from").toHaveAttribute("href", new RegExp(`takeoff/register\\?line=${staged.line.lineId}$`));
 
     await checkpoint(page, testInfo, "j-021-column-slice/traced");
-    await expect(trace.inspector, "traced.png pictures the Trace as a reader meets it").toHaveScreenshot(["j-021-column-slice", "traced.png"], {
+    await expect.soft(trace.inspector, "traced.png pictures the Trace as a reader meets it").toHaveScreenshot(["j-021-column-slice", "traced.png"], {
       animations: "disabled",
       mask: trace.masks(),
       maxDiffPixelRatio: 0.002,
@@ -201,7 +201,7 @@ test.describe("J-021 — the column slice: a line traced to its entities, back t
     await expect(back, "each cited line offers a way back to its own register row").toHaveAttribute("href", new RegExp(`takeoff/register\\?line=${staged.line.lineId}$`));
 
     await checkpoint(page, testInfo, "j-021-column-slice/cited");
-    await expect(trace.inspector, "cited.png pictures the other direction of X-2").toHaveScreenshot(["j-021-column-slice", "cited.png"], {
+    await expect.soft(trace.inspector, "cited.png pictures the other direction of X-2").toHaveScreenshot(["j-021-column-slice", "cited.png"], {
       animations: "disabled",
       mask: trace.masks(),
       maxDiffPixelRatio: 0.002,

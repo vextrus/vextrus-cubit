@@ -119,6 +119,6 @@ test.describe("J-003 — the project's audit surfaces", () => {
 
     /* --- s-audit/explorer: axe over the page, then the committed Linux baseline --- */
     await checkpoint(page, testInfo, "s-audit-explorer");
-    await expect(page).toHaveScreenshot(["s-audit", "explorer.png"], { mask: audit.masks(), animations: "disabled" });
+    await expect.soft(page).toHaveScreenshot(["s-audit", "explorer.png"], { mask: audit.masks(), animations: "disabled" });
   });
 });

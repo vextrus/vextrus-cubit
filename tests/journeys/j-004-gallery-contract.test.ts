@@ -268,11 +268,14 @@ function widenedImpactsIn(statement: string): string[] {
   return found;
 }
 
-/** Every `expect(<subject>)` whose matcher is one of `matchers`, with the subject and the arguments. */
+/**
+ * Every `expect(<subject>)` — or `expect.soft(<subject>)`, the form every picture takes so one run reports
+ * every moved picture of a walk — whose matcher is one of `matchers`, with the subject and the arguments.
+ */
 function expectations(code: string, matchers: string[]): { subject: string; args: string }[] {
   const found: { subject: string; args: string }[] = [];
   const matcher = new RegExp(`^\\s*(?:\\.(?!not\\b)\\w+\\s*)*\\.\\s*(?:${matchers.join("|")})\\s*\\(`);
-  for (const match of code.matchAll(/\bexpect\s*\(/g)) {
+  for (const match of code.matchAll(/\bexpect(?:\.soft)?\s*\(/g)) {
     const start = (match.index ?? 0) + match[0].length;
     const subject = balancedFrom(code, start);
     const after = code.slice(start + subject.length + 1);

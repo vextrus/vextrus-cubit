@@ -18,6 +18,7 @@ import {
   REPO_ROOT,
   blobAt,
   branchCommits,
+  assertionCount,
   callCount,
   changedSincePreFix,
   commitsTouching,
@@ -278,8 +279,8 @@ describe("AC-3: J-001 and J-002 keep asking what they asked, and any re-baseline
 
       // Floors, not counts (B-19): a repair may lawfully add a case, a checkpoint or a comparison.
       // What it may not do is arrive at green by asking less than the pre-fix spec asked.
-      expect(callCount(now, "expect"), `${path} makes fewer assertions than it did at ${PRE_FIX} — AC-3 deletes and weakens nothing`).toBeGreaterThanOrEqual(
-        callCount(old, "expect"),
+      expect(assertionCount(now), `${path} makes fewer assertions than it did at ${PRE_FIX} — AC-3 deletes and weakens nothing`).toBeGreaterThanOrEqual(
+        assertionCount(old),
       );
       expect(callCount(now, "test"), `${path} declares fewer cases than it did at ${PRE_FIX}`).toBeGreaterThanOrEqual(callCount(old, "test"));
 

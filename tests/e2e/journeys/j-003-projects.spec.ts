@@ -102,7 +102,7 @@ test.describe("J-003 — projects: create, edit, archive, restore, and the pin t
     await expect(home.cardNamed(PROJECT), "and the name it replaced is gone from the grid").toHaveCount(0);
 
     await checkpoint(page, testInfo, "j-003/project-edited");
-    await expect(page).toHaveScreenshot(["j-003", "project-edited.png"], { mask: home.masks(), animations: "disabled" });
+    await expect.soft(page).toHaveScreenshot(["j-003", "project-edited.png"], { mask: home.masks(), animations: "disabled" });
 
     /* --- archive, then restore: reversible, and nothing is deleted (AC-4) --- */
     await (await home.openRowMenu(projectId)).getByTestId("project-archive").click();
@@ -155,7 +155,7 @@ test.describe("J-003 — projects: create, edit, archive, restore, and the pin t
      * and last line.
      */
     const volatileRegions = [shell.user, digest, page.getByTestId("ruleset-lineage-step").locator("> :last-child")];
-    await expect(page).toHaveScreenshot(["j-003", "ruleset-pin-visible.png"], { mask: volatileRegions, animations: "disabled" });
+    await expect.soft(page).toHaveScreenshot(["j-003", "ruleset-pin-visible.png"], { mask: volatileRegions, animations: "disabled" });
   });
 
   /**
@@ -266,13 +266,13 @@ test.describe("J-003 — projects: create, edit, archive, restore, and the pin t
     await emulateTheme(page, "light");
     await shell.expectFrame();
     await expect(page.locator("html"), "the document states the theme it is painting in").toHaveAttribute("data-theme", "light");
-    await expect(shell.root, "shell-light.png pictures the screen that now stands").toHaveScreenshot("shell-light.png", { maxDiffPixelRatio: 0.002 });
+    await expect.soft(shell.root, "shell-light.png pictures the screen that now stands").toHaveScreenshot("shell-light.png", { maxDiffPixelRatio: 0.002 });
 
     /* --- shell-dark: the same frame, the other theme, resolved once at load (Decision § 6) --- */
     await emulateTheme(page, "dark");
     await shell.expectFrame();
     await expect(page.locator("html"), "the document states the theme it is painting in").toHaveAttribute("data-theme", "dark");
-    await expect(shell.root, "shell-dark.png pictures the screen that now stands").toHaveScreenshot("shell-dark.png", { maxDiffPixelRatio: 0.002 });
+    await expect.soft(shell.root, "shell-dark.png pictures the screen that now stands").toHaveScreenshot("shell-dark.png", { maxDiffPixelRatio: 0.002 });
 
     // The two overlay captures below are named without a theme, so they belong to the LANE — not to
     // the "light" this line used to spell, which made `design-dark/shell-tenant-switcher-open.png`
@@ -288,7 +288,7 @@ test.describe("J-003 — projects: create, edit, archive, restore, and the pin t
     );
     const switcherMenu = page.getByRole("menu");
     await expect(switcherMenu, "…and the memberships it offers are on the screen being compared").toBeVisible();
-    await expect(page, "shell-tenant-switcher-open.png pictures the screen that now stands").toHaveScreenshot("shell-tenant-switcher-open.png", {
+    await expect.soft(page, "shell-tenant-switcher-open.png pictures the screen that now stands").toHaveScreenshot("shell-tenant-switcher-open.png", {
       maxDiffPixelRatio: 0.002,
     });
 
@@ -298,7 +298,7 @@ test.describe("J-003 — projects: create, edit, archive, restore, and the pin t
 
     /* --- shell-user-menu-open: the other overlay, judged over the same frame --- */
     await shell.openUserMenu();
-    await expect(page, "shell-user-menu-open.png pictures the screen that now stands").toHaveScreenshot("shell-user-menu-open.png", {
+    await expect.soft(page, "shell-user-menu-open.png pictures the screen that now stands").toHaveScreenshot("shell-user-menu-open.png", {
       maxDiffPixelRatio: 0.002,
     });
   });
@@ -367,7 +367,7 @@ test.describe("J-003 — projects: create, edit, archive, restore, and the pin t
     await expect(participants.subjectRows, "…and one row per subject the Consequence names").toHaveCount(1);
     await expect(participants.confirm, "…and the act-variant confirm that carries the digest").toBeVisible();
 
-    await expect(participants.dialogCard, "consequence-dialog-open.png pictures the dialog that now stands").toHaveScreenshot(
+    await expect.soft(participants.dialogCard, "consequence-dialog-open.png pictures the dialog that now stands").toHaveScreenshot(
       "consequence-dialog-open.png",
       { mask: participants.foldedDialogMasks(), animations: "disabled", maxDiffPixelRatio: 0.002 },
     );

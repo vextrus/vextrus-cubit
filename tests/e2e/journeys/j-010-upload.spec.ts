@@ -104,7 +104,7 @@ test.describe("J-010 — a dropped drawing fans out into confirmed sheets", () =
 
       // B-20: the region is the shared job pattern now, so its picture is the pattern's. The timing
       // cells are elapsed real time and are masked — they are never the same twice.
-      await expect(drawings.timeline).toHaveScreenshot("job-timeline-done.png", {
+      await expect.soft(drawings.timeline).toHaveScreenshot("job-timeline-done.png", {
         animations: "disabled",
         maxDiffPixelRatio: 0.002,
         mask: [drawings.timelineTimings],
@@ -122,7 +122,7 @@ test.describe("J-010 — a dropped drawing fans out into confirmed sheets", () =
       // The mask is proved to cover what it names before the picture is taken: a locator that
       // matched nothing would bake real elapsed time into the baseline and never say so.
       await expect(drawings.jobsTrayTimings, "every listed job's elapsed cell is under the mask").toHaveCount(2);
-      await expect(drawings.jobsTrayPanel).toHaveScreenshot("job-timeline-tray-open.png", {
+      await expect.soft(drawings.jobsTrayPanel).toHaveScreenshot("job-timeline-tray-open.png", {
         animations: "disabled",
         maxDiffPixelRatio: 0.002,
         mask: [drawings.jobsTrayTimings],
@@ -168,7 +168,7 @@ test.describe("J-010 — a dropped drawing fans out into confirmed sheets", () =
       // under the lane's four workers (2026-09-21). The count and the scale are J-021's and M2's to
       // prove.
       const firstCard = drawings.cards.first();
-      await expect(firstCard).toHaveScreenshot("j-010-sheet-card.png", {
+      await expect.soft(firstCard).toHaveScreenshot("j-010-sheet-card.png", {
         animations: "disabled",
         maxDiffPixelRatio: 0.002,
         mask: [S_DRAWINGS.thumbnail, S_DRAWINGS.scale, S_DRAWINGS.views].map((id) => firstCard.locator(`[data-testid="${id}"]`)),

@@ -100,7 +100,7 @@ test.describe("J-021 — the register workspace", () => {
     await expect(takeoff.root, "and the workspace says it is partial: rows stand refused BESIDE the rows that published").toHaveAttribute("data-state", "partial");
 
     await checkpoint(page, testInfo, "s-takeoff/register");
-    await expect(page).toHaveScreenshot(["s-takeoff", "register.png"], { mask: takeoff.masks(), animations: "disabled" });
+    await expect.soft(page).toHaveScreenshot(["s-takeoff", "register.png"], { mask: takeoff.masks(), animations: "disabled" });
 
     /* --- the Measure door: the run is queued, and shown where it was started (R-UI-024) --- */
     await takeoff.measure.click();

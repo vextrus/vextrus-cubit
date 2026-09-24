@@ -205,7 +205,7 @@ test.describe("J-010 — the project home", () => {
 
     /* --- s-project/home: axe over the page, then the committed Linux baseline --- */
     await checkpoint(page, testInfo, "s-project-home");
-    await expect(page).toHaveScreenshot(["s-project", "home.png"], { mask: project.masks(), animations: "disabled" });
+    await expect.soft(page).toHaveScreenshot(["s-project", "home.png"], { mask: project.masks(), animations: "disabled" });
 
     /* --- s-project/drawings-via-tab: the home is the visible navigation into J-010 (R-UI-031) --- */
     await project.activateTabFromKeyboard("drawings");

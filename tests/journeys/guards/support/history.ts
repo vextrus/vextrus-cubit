@@ -227,6 +227,15 @@ export function callCount(source: string, identifier: string): number {
   return bare.match(pattern)?.length ?? 0;
 }
 
+/**
+ * How many assertions a spec makes, comments excluded: `expect(…)` and `expect.soft(…)` alike. Every
+ * picture comparison is soft (session 8) so one run reports every moved picture of a walk; a soft
+ * assertion still fails its test, so it counts as an assertion like any other.
+ */
+export function assertionCount(source: string): number {
+  return withoutComments(source).match(/\bexpect(?:\.soft)?\s*\(/g)?.length ?? 0;
+}
+
 /** Every string literal handed to a named call, in the order they appear. */
 export function literalArgumentsOf(source: string, identifier: string): string[] {
   const bare = withoutComments(source);

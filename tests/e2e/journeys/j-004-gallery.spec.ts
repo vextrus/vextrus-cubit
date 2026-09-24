@@ -60,7 +60,7 @@ async function galleryCheckpoint(page: Page, theme: "light" | "dark", checkpoint
   const shell = design.shell;
   // The name carries no separator: the lane's `snapshotPathTemplate` supplies the directory the
   // committed baselines live in, and the same template routes every other journey's captures.
-  await expect(shell).toHaveScreenshot(`gallery-shell-${theme}.png`, { animations: "disabled" });
+  await expect.soft(shell).toHaveScreenshot(`gallery-shell-${theme}.png`, { animations: "disabled" });
 }
 
 /**

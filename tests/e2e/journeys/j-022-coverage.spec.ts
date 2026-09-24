@@ -111,7 +111,7 @@ test.describe("J-022 — the coverage grid", () => {
     await expect(coverage.declareOutOfScope).toBeVisible();
 
     await checkpoint(page, testInfo, "grid");
-    await expect(page).toHaveScreenshot(["j-022-coverage", "grid.png"], { mask: coverage.masks(), animations: "disabled" });
+    await expect.soft(page).toHaveScreenshot(["j-022-coverage", "grid.png"], { mask: coverage.masks(), animations: "disabled" });
 
     /* --- the hold-out act, carried through its consequence dialog (AC-8) --- */
     await coverage.holdOut.click();
@@ -131,7 +131,7 @@ test.describe("J-022 — the coverage grid", () => {
     await expect(coverage.declareOutOfScope).toBeVisible();
 
     await checkpoint(page, testInfo, "held-out");
-    await expect(page).toHaveScreenshot(["j-022-coverage", "held-out.png"], { mask: coverage.masks(), animations: "disabled" });
+    await expect.soft(page).toHaveScreenshot(["j-022-coverage", "held-out.png"], { mask: coverage.masks(), animations: "disabled" });
 
     /* --- the certificate preview: the bill statement names that cell, and nothing else (AC-8) --- */
     await expect(coverage.statement("MEASUREMENT"), "the measurement boundary prints first and in full (L-QTY-07)").toBeVisible();
@@ -141,8 +141,11 @@ test.describe("J-022 — the coverage grid", () => {
     await expect(bill.first(), `the kind held out`).toHaveAttribute("data-kind", KIND);
     await expect(bill.first(), "on the class it was held out on").toHaveAttribute("data-class", CLASS);
     await expect(bill.first(), "under the cause the act wrote").toHaveAttribute("data-code", NOT_IN_THIS_BILL);
+    // The bill boundary prints below the measurement boundary, under the fold at 1440x900: without
+    // this the certificate picture was the held-out picture again and showed nothing AC-8 asks for.
+    await bill.first().scrollIntoViewIfNeeded();
 
     await checkpoint(page, testInfo, "certificate");
-    await expect(page).toHaveScreenshot(["j-022-coverage", "certificate.png"], { mask: coverage.masks(), animations: "disabled" });
+    await expect.soft(page).toHaveScreenshot(["j-022-coverage", "certificate.png"], { mask: coverage.masks(), animations: "disabled" });
   });
 });

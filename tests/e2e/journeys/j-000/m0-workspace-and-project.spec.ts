@@ -88,7 +88,7 @@ test.describe("J-000 — Golden Path: sign up, name the workspace, create the fi
     await expect(home.grid, "no grid is painted for a workspace that holds no projects").toHaveCount(0);
 
     await checkpoint(page, testInfo, "j-000/workspace-named");
-    await expect(page).toHaveScreenshot(["j-000", "workspace-named.png"], { mask: home.masks(), animations: "disabled" });
+    await expect.soft(page).toHaveScreenshot(["j-000", "workspace-named.png"], { mask: home.masks(), animations: "disabled" });
 
     /* --- create the first project --- */
     await home.createWith({ name: PROJECT, buildingType: 0 });
@@ -148,6 +148,6 @@ test.describe("J-000 — Golden Path: sign up, name the workspace, create the fi
     expect(elapsed, `J-000's first segment must be walkable in under two minutes; it took ${Math.round(elapsed / 1000)} s`).toBeLessThan(SEGMENT_BUDGET_MS);
 
     await checkpoint(page, testInfo, "j-000/first-project-on-s-home");
-    await expect(page).toHaveScreenshot(["j-000", "first-project-on-s-home.png"], { mask: home.masks(), animations: "disabled" });
+    await expect.soft(page).toHaveScreenshot(["j-000", "first-project-on-s-home.png"], { mask: home.masks(), animations: "disabled" });
   });
 });

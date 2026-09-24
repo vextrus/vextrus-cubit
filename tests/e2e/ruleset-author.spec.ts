@@ -196,14 +196,14 @@ test.describe("J-304 — the project settings nav, and authoring the edition a p
     ).toBe(DEFAULT_DENSITY);
 
     await checkpoint(page, testInfo, "s-settings-ruleset-author/authoring-open");
-    await expect(page).toHaveScreenshot(["s-settings-ruleset-author", "authoring-open.png"], { mask: author.masks(), animations: "disabled" });
+    await expect.soft(page).toHaveScreenshot(["s-settings-ruleset-author", "authoring-open.png"], { mask: author.masks(), animations: "disabled" });
 
     /* --- the light twin, taken in this lane by emulation (I-RSA-4, the gallery's precedent) --- */
     await emulateTheme(page, "light");
     await settled(page);
     await expect(page.locator("html"), "the document states the theme it is painting in").toHaveAttribute("data-theme", "light");
     await checkpoint(page, testInfo, "s-settings-ruleset-author/authoring-open-light");
-    await expect(page).toHaveScreenshot(["s-settings-ruleset-author", "authoring-open-light.png"], { mask: author.masks(), animations: "disabled" });
+    await expect.soft(page).toHaveScreenshot(["s-settings-ruleset-author", "authoring-open-light.png"], { mask: author.masks(), animations: "disabled" });
     await restoreLaneTheme(page, testInfo);
     await settled(page);
 
@@ -282,7 +282,7 @@ test.describe("J-304 — the project settings nav, and authoring the edition a p
     await expect(author.version, "the version the author stated stands in the field").toHaveValue(AUTHORED_VERSION);
 
     await checkpoint(page, testInfo, "s-settings-ruleset-author/value-changed");
-    await expect(page).toHaveScreenshot(["s-settings-ruleset-author", "value-changed.png"], { mask: author.masks(), animations: "disabled" });
+    await expect.soft(page).toHaveScreenshot(["s-settings-ruleset-author", "value-changed.png"], { mask: author.masks(), animations: "disabled" });
 
     /* --- the act: previewed as a Consequence, committed with the digest it rendered (L-ACT-02) --- */
     await author.submit.click();
@@ -331,7 +331,7 @@ test.describe("J-304 — the project settings nav, and authoring the edition a p
     expect(lineageAfter, "platform → tenant → project → project (AC-2)").toBe(4);
 
     await checkpoint(page, testInfo, "s-settings-ruleset-author/edition-minted");
-    await expect(page).toHaveScreenshot(["s-settings-ruleset-author", "edition-minted.png"], { mask: author.masks(), animations: "disabled" });
+    await expect.soft(page).toHaveScreenshot(["s-settings-ruleset-author", "edition-minted.png"], { mask: author.masks(), animations: "disabled" });
   });
 
   /**
