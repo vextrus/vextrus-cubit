@@ -1,6 +1,7 @@
 // R-SPINE-060: one typed string table, assembled from the per-module tables in this directory. A
 // screen imports `strings` and never a module table directly, so a key moving between modules is
 // not a rename at the call site; `StringKey` is the union the compiler refuses a missing key with.
+import { ask } from "./ask";
 import { auth } from "./auth";
 import { bbs } from "./bbs";
 import { boq } from "./boq";
@@ -33,6 +34,7 @@ import { viewerPartition } from "./viewer-partition";
 import { viewerSnap } from "./viewer-snap";
 
 export const strings = {
+  ...ask,
   ...auth,
   ...bbs,
   ...boq,

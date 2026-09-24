@@ -510,6 +510,28 @@ export const screenStates: ScreenStatesMatrix = {
   // could place, or a line that declared what it could not measure — said in words and never hidden;
   // incomplete coverage is not that gap, because every section states what it measured and says so.
   // Its denial names MEASURE, the one permission the export door moves.
+  // Ask the drawings (s-ask § 2): the seventh tab. Its refusal cell is the newest answer refused by
+  // name (a cost is never answered as a quantity); its partial cell is an answer that says what it
+  // leaves out; offline keeps every kept answer readable and asks nothing; the denial is the reader
+  // with no place on the project (I-406), which only participation settles.
+  "/t/[tenant]/p/[project]/takeoff/ask": declare({
+    loading: bones(3),
+    empty: (): ReactNode => <EmptyTeaching heading={strings.ask_empty_heading} body={strings.ask_empty_body} action={strings.ask_example_sheets} />,
+    error: fault(strings.ask_error_body),
+    refusal: refusal(REFUSAL_ENTRIES.ASK_ESTIMATE_NOT_BUILT, { href: "/", label: strings.ask_evidence_boq }),
+    partial: (): ReactNode => <InlineAnswer text={strings.ask_partial_lines_one} />,
+    offline: (): ReactNode => <InlineAnswer text={strings.ask_offline} />,
+    "permission-denied": (): ReactNode => (
+      <PermissionDenied
+        heading={strings.state_denied_project_heading}
+        permission={strings.ask_denied_permission}
+        holder={strings.ask_denied_holder}
+        refusal={REFUSAL_ENTRIES.PERMISSION_NOT_HELD}
+        evidence={PARTICIPANTS_EVIDENCE}
+      />
+    ),
+  }),
+
   // The bar schedule (s-bbs § 2): a reader without MEASURE meets the denial and no schedule at all,
   // and the empty cell teaches where a campaign is measured — the takeoff register.
   "/t/[tenant]/p/[project]/takeoff/bbs": declare({

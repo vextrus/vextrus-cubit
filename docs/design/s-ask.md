@@ -335,6 +335,63 @@ the most defensible reading of a question this Decision leaves open:
   collapsing a one-option `level N` clarify into a reading (I-400 puts the count to the person with
   **None of these** beside it, and one held count is still a count the person did not state).
 
+### 0.2 The screen's readings (ASK-1b)
+
+The screen is `takeoff/ask/**`: `page.tsx` (the guard, participation, the arrival read), `ask-screen.tsx`
+(the band, the thread, every article), `present.ts` (the facts written as the table's sentences —
+pure, graded by `tests/ui/ask/present.test.ts` over the read-back), `thread.ts` (the tab's store),
+`states.ts`, `demonstration.ts`, `actions.ts`, `route-address.ts`, `ask.css`, `loading.tsx`; the
+arrival read is `src/modules/takeoff/ask/arrival.ts`; the tab's store has one home in
+`src/ui/patterns/tab-store`. It reads these, each the most defensible reading of what this Decision
+leaves open:
+
+- **I-577 — the stamp is an opaque digest of the pinned revision, the project's newest act and
+  the campaign's newest published line; a kept answer is stale where its stamp is not the page's.**
+  I-403 names the three parts; the page reads them once on arrival (`askArrivalOf`) and states them as
+  sixteen hex characters on `data-stamp`, so no id a reader could read stands in the DOM (§6). Every
+  human change an answer reads — a level, a height, a transcribed note, a repudiation, a pin — is an
+  act (L-ACT-01), and every measured figure is a published line, so a change to anything an answer
+  read moves the stamp. "Older" is read as "not the same": the parts are ids, not instants, and any
+  difference is a change the reader is owed. A project with no campaign has the stamp `none`.
+  Rejected: timestamps on the face (a second clock beside `RelativeTime`); rejected: a digest over the
+  register's whole reading (it would read every line on every arrival to learn what three rows say).
+- **I-578 — what an answer leaves out states each code's registered message with its remedy as
+  the row's Tooltip, and names the registered objects with no line by their marks; no row links to
+  where it is settled yet.** §1.1 4 asks for a link to where each code is settled, "read from its one
+  home and lifted, never copied". That table is `bbs-ui/workspace.tsx`'s private `SETTLED_ON`, and it
+  holds only the rebar lane's five codes — none of the codes Ask meets on F-RCC6-BNBC's register
+  (`SLAB_THICKNESS_UNSTATED`, `INTERPRETED_UNCORROBORATED`, …). Lifting it for no code Ask can meet
+  would be a move with no reader; the remedy on every row still says where to act (R-UI-020). The
+  lineless objects are named by mark beside their lead (J-043: "the partial row names C4"): under a
+  quantity and a "why not measured" answer the engine records exactly those objects, so the marks are
+  read off the facts, never a second reading. §7 carries the settlement link.
+- **I-579 — a door that may not be used is the platform's `disabled`, except the one busy door.**
+  The shipped Button owns `aria-disabled` for its own `loading` (a busy door swallows its activation),
+  so `ask-submit` wears `loading` while a question is out — `aria-busy` and `aria-disabled` both, as
+  §2 asks — and every other door the screen cannot use (offline, answering, a blank field) is
+  `disabled`. The field is the core Input and wears `aria-disabled` itself, `readOnly` while offline.
+  Rejected: re-wrapping the Button to force `aria-disabled` (a second button).
+- **I-580 — a figure whose members stand on no placed sheet links to its answer's Rows.** I-404's
+  two targets are one sheet or the answer's evidence row, and an answer placing nothing on any sheet
+  has no evidence row. §6's absence — "no figure on an `ask-answer` that is not inside an
+  EvidenceLink" — then holds by linking the figure to `#ask-rows-{answer}`, the disclosure listing
+  every record it rests on with each key whole (s-takeoff-register I-181's rule).
+- **I-581 — "Ask again" sends the kept reading as the person's reading.** I-403 re-runs the kept
+  reading and never a model; the door's one lawful way to be handed a reading is `reading` (§6), which
+  the engine resolves against the project again and routes `PERSON`, so an asked-again answer's
+  Understood row says **your choice**. A kept clarify has no reading and asks its question again; a
+  failed article re-sends its question once (§1.1).
+- **I-582 — the thread is restored after hydration, and the screen stands `loading` until it is.**
+  The server cannot read the tab's store, so the page renders the thread's place as bones and the
+  client restores the thread in its first effect, with no request; `data-state="loading"` is what
+  `settled()` waits through, so no picture is taken of a thread half-restored. The answer a link was
+  followed from is kept beside the thread (`…:origin`) and scrolled into view on return.
+- **I-583 — the opening class and ARCH-2's three finishes read as words.** The grammar names the
+  opening class and `finish.flooring`, `finish.tiling`, `finish.skirting` (61b04549), so every
+  enumerated family of §3 carries them: `opening / openings`; **flooring on {classes}**, **tiling on
+  {classes}**, **skirting along {classes}**; and the trades **floor finish**, **wall tiling**,
+  **skirting** — a Dhaka bill's own words for the three items (I-541).
+
 ## 1. Layout and hierarchy (1440 × 900)
 
 ```
@@ -578,7 +635,7 @@ kept thread of the state named, exactly as `takeoff/boq/demonstration.ts` does.
 
 - **Loading** — `loading.tsx`, frame and tabs row intact: the band as one field bone (flex × 28) and
   one 28 × 64 button bone; the thread as three answer bones (a 14 px bone at 40 %, a 12 px bone at
-  25 %, two 13 px bones at 80 % and 60 % of the measure). The aside's chip is a 28 × 96 bone. Never a
+  25 %, two 13 px bones at 80 % and 60 % of the measure). The aside stays empty until the screen mounts its chip (a route's `loading.tsx` is rendered before the lane's slot has a surface to portal from, I-582). Never a
   spinner.
 - **Denied** — not a participant on this project (I-406). The page reads this itself:
   `authorizePage({ tenant, project })` admits any member of the tenant (the register page's own
@@ -655,7 +712,7 @@ with no pair): `ask_class_column_one` **column** / `_other` **columns** · `beam
 `slab` **slab / slabs** · `footing` **footing / footings** · `pile_cap` **pile cap / pile caps** ·
 `pile` **pile / piles** · `tie_beam` **tie beam / tie beams** · `shear_wall` **shear wall / shear
 walls** · `stair` **stair / stairs** · `lintel` **lintel / lintels** · `brick_wall` **brick wall /
-brick walls** · `surface` **surface / surfaces**.
+brick walls** · `surface` **surface / surfaces** · `opening` **opening / openings** (I-583).
 
 **A (class, kind), in words** — one phrase per member of `KINDS`, enumerated, the key spelling the
 kind with its dot as an underscore (`rcc.concrete` → `ask_kind_rcc_concrete`: no string key carries a
@@ -665,7 +722,9 @@ formwork** · `ask_kind_rcc_rebar` **{class} reinforcement** · `ask_kind_piling
 {classes}** · `ask_kind_piling_boring` **{class} boring** · `ask_kind_earthwork_excavation`
 **excavation for {classes}** · `ask_kind_pcc_blinding` **blinding under {classes}** ·
 `ask_kind_masonry_brickwork` **brickwork in {classes}** · `ask_kind_finish_plaster` **plaster on
-{classes}** · `ask_kind_finish_paint` **paint on {classes}**.
+{classes}** · `ask_kind_finish_paint` **paint on {classes}** · `ask_kind_finish_flooring` **flooring
+on {classes}** · `ask_kind_finish_tiling` **tiling on {classes}** · `ask_kind_finish_skirting`
+**skirting along {classes}**.
 
 **A kind across classes, in words** (`{trade}`) — one per member of `KINDS`, enumerated, keyed as
 above:
@@ -673,7 +732,9 @@ above:
 `ask_trade_rcc_rebar` **reinforcement** · `ask_trade_piling_bored` **bored piles** ·
 `ask_trade_piling_boring` **pile boring** · `ask_trade_earthwork_excavation` **excavation** ·
 `ask_trade_pcc_blinding` **blinding (PCC)** · `ask_trade_masonry_brickwork` **brickwork** ·
-`ask_trade_finish_plaster` **plaster** · `ask_trade_finish_paint` **paint**.
+`ask_trade_finish_plaster` **plaster** · `ask_trade_finish_paint` **paint** ·
+`ask_trade_finish_flooring` **floor finish** · `ask_trade_finish_tiling` **wall tiling** ·
+`ask_trade_finish_skirting` **skirting**.
 
 **Note kinds, in words** — one per member of `NOTE_KINDS`, enumerated: `ask_note_kind_fc` **concrete
 strength** · `ask_note_kind_fy` **reinforcement yield strength** · `ask_note_kind_lap` **lap length** ·
@@ -704,8 +765,10 @@ foundation** · `ask_marked` **marked {mark}** · `ask_lines_one` **1 complete l
   holds).
 - Partial rows: `ask_partial_lines_one` **1 more line stands without a figure:** / `_other` **{count}
   more lines stand without a figure:** · `ask_partial_objects_one` **1 more {class} is registered with
-  no line:** / `_other` **{count} more {classes} are registered with no line:** · each code's row
-  reads **{count} · {message}**, the message the registry's own.
+  no line:** / `_other` **{count} more {classes} are registered with no line:**, the objects' marks
+  after it (I-578) · each code's row reads `ask_partial_row` **{count} · {message}**, the message
+  the registry's own, its remedy as the row's Tooltip; a row whose sighting recorded no reason reads
+  `ask_partial_unrecorded` **no reason was recorded** in the message's place.
 - MEMBER_TYPE: `ask_member_type` **The schedules state {mark} as:**
 - NOTE: `ask_note` **The general notes state the {note}:** · `ask_note_disagree` **They state
   {count} different values, and none is chosen here.**
@@ -725,7 +788,11 @@ foundation** · `ask_marked` **marked {mark}** · `ask_lines_one` **1 complete l
 - What the project holds, beneath `ASK_SUBJECT_UNKNOWN`: `ask_held_marks` **{classes} in the
   register: {list}** · `ask_held_levels` **Levels in the stack: {list}** · `ask_held_sheets` **Sheets
   in the set: {list}** · `ask_held_schedules` **Schedules on the sheets: {list}** · `ask_held_notes`
-  **The general notes state: {list}**.
+  **The general notes state: {list}** · and, where the unknown mark named no class,
+  `ask_held_marks_any` **Marks in the register: {list}**.
+- Places and values: a place in model space is named `ask_show_model` **Model space** (§1.1 5's
+  "`Model` for model space", in words); a Rows value a PARTIAL line does not state reads
+  `ask_value_unstated` **{variables} unstated** (I-reg-1's own words).
 
 **Breakdown and Rows columns.** `ask_col_level` **Level** · `ask_col_class` **Class** ·
 `ask_col_mark` **Mark** · `ask_col_count` **Count** · `ask_col_lines` **Lines** · `ask_col_kind`
@@ -756,7 +823,8 @@ answered** · `ask_failed_body` **Nothing was changed. Ask again, and quote the 
 happening.** · `ask_offline` **You are offline. The answers read as they stood, and no question can
 be asked until the connection returns.** · `ask_denied_permission` **Asking the drawings needs you
 to be a participant on this project.** · `ask_denied_holder` **A project principal can add you on
-the participants screen.**
+the participants screen.** · the denial's evidence link, `ask_denied_evidence` **Open the
+participants**.
 
 **Registry entries** this door adds, in a new area `src/core/errors/ask.ts` (refusal-state §3's copy
 rules bind; the code is never rendered as text; each is `info`, `inline` — refusing a question is not
@@ -806,7 +874,7 @@ primitive) · `--ink` · `--ink-secondary` · `--ink-muted` · `--ink-link` (the
 `--weight-heading` · `--motion-state` / `--ease` / `--motion-reticle`; and, read by the primitives,
 `--row-h`, `--cell-px`, `--cell-py`, `--control-h`, `--toolbar-h`; the basis palette only through
 EvidenceLink. Px literals, closed set: the band's 36, the answer measure's 960, the empty and error
-blocks' 520, the origin mark's and the current tab's 2, and the loading bones (28/64/96). The hidden
+blocks' 520, the origin mark's and the current tab's 2, and the loading bones (28/64). The hidden
 `<h1>` (`takeoff_nav_ask` clipped out of sight, `.cx-ask-name`) states `font-size: var(--text-body)`
 (s-bbs I-289). **No copper anywhere**: asking commits nothing.
 
@@ -879,11 +947,12 @@ restored with no request; `?q=` asked once and replaced; a kept answer with an o
 `ask_stale`; the matrix's seven cells (`tests/screen-states/**`).
 
 Journey **J-043** (ASK-1b), `tests/e2e/journeys/j-043-ask.spec.ts`, every title carrying **J-043**,
-page object `tests/e2e/pages/s-ask.page.ts`, staged by `tests/e2e/takeoff/ask-stage.ts` over
-`stageRegister(page, { label: "ask", cite })` — as VD-1 restages it to production key shapes — with
-`cite` reading REAL `DXF_HANDLE:` keys off the served sheet's layer feed (J-021's idiom): the default
-synthetic keys are not keys the viewer's selection admits, so a figure's link would land on nothing.
-It walks, within 90 s:
+page object `tests/e2e/pages/s-ask.page.ts`, staged by `tests/e2e/takeoff/ask-stage.ts`'s
+`stageAsk` over `stageRegister(page, { label })` — which VD-1 restaged to production key shapes: the
+plan draws each column's outline and mark as real entities and the lines cite the member's placement,
+so a figure's link selects entities the viewer holds and needs no `cite` of its own. The stage reads
+back, through the register's own reader and the canon's exact arithmetic, the column concrete the
+walk compares with. It walks, within 90 s:
 (1) the empty state and its example; (2) **"How many C1 columns are on GF?"** — answered by the
 grammar, figure `1`, its EvidenceLink followed to the viewer, which flies to the member
 (`data-flyto-flight` ≥ 1, nothing missing — VD-1's own read), then Back: the thread stands as it was,
@@ -937,6 +1006,11 @@ R-TO-016 move with SRCH-1, not with this screen.
   framing sheet in the Rows. Owner: SRCH-1 and the viewer's node.
 - **A conversation kept across tabs or devices.** Needs a store and a migration; nobody has asked for
   it. Owner: a later node, if a QS does.
+- **Where each code a partial answer states is settled, as a link** (I-578). The code → screen
+  table is `bbs-ui/workspace.tsx`'s private `SETTLED_ON`, holding the rebar lane's codes only. Owner:
+  the node that lifts it to one home under `src/core/errors` and extends it to the register's codes
+  (`SLAB_THICKNESS_UNSTATED` → the levels or the schedules, `INTERPRETED_UNCORROBORATED` → the
+  register's queue); then every partial row links there with its remedy as the Tooltip.
 - **Two roundings of one figure** (found here). The register's face states a figure half-up on the
   text (`statedAt`) and the draft BOQ's emission sums with `ROUND_HALF_EVEN` (`boq/emission.ts`
   `sumAt`); on an exact tie the two faces of one figure would differ in the last place. Ask follows

@@ -1,0 +1,308 @@
+/*
+ * S-Ask — the question band and the thread of answers, cut from the grid workspace template
+ * (docs/design/s-ask.md §§1, 4, 5; Design Direction 00 §3.2). Every colour, size, weight and duration
+ * is a read into the committed Datum token source: the rules are identical in light and dark, and the
+ * themes differ only in what the tokens are worth. No `[data-theme]` selector appears here.
+ *
+ * THE GEOMETRY. The screen is a column that fills `shell-main`: the band (one row, 36), the offline
+ * status (absent while online), and the thread, which takes every remaining pixel and scrolls in its
+ * own box. An answer's lines stand in a 960 measure, left-aligned. Nothing stands beside them: this
+ * screen mounts no inspector, because nothing here is selected, only followed (R-UI-080).
+ *
+ * The px literals are the closed set §5 fixes: the band's 36, the measure's 960, the empty and error
+ * blocks' 520, the origin mark's 2, and the loading bones' 28 / 64. Nothing eases in (§4); focus
+ * is the reticle's, from its one home.
+ */
+
+.cx-ask {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  height: 100%;
+  min-height: 0;
+  font-family: var(--font-ui);
+  line-height: var(--leading-ui);
+  color: var(--ink);
+}
+
+/* The screen's name for assistive technology; the crumb says it to the eye (s-bbs I-289). */
+.cx-ask-name {
+  position: absolute;
+  width: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  font-size: var(--text-body);
+}
+
+.cx-ask-caption {
+  color: var(--ink-muted);
+  font-size: var(--text-12);
+}
+
+.cx-ask-aside {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* --- the question band: one row, never wrapping (§1) --- */
+
+.cx-ask-band {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 0 0 auto;
+  height: 36px;
+  padding-bottom: var(--space-1);
+  border-bottom: var(--hairline);
+  background: var(--surface-app);
+}
+
+.cx-ask-field {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: var(--control-h);
+}
+
+.cx-ask-bone-field {
+  flex: 1 1 auto;
+  height: 28px;
+}
+
+.cx-ask-bone-button {
+  width: 64px;
+  height: 28px;
+}
+
+/* --- the offline status: house notice chrome, absent while online --- */
+
+.cx-ask-status {
+  display: none;
+  margin: 0;
+}
+
+.cx-ask-status[data-offline="true"] {
+  display: block;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-4);
+  background: var(--state-info-surface);
+  color: var(--ink);
+  font-size: var(--text-body);
+}
+
+/* --- the thread: an ARIA feed of articles, newest first, scrolling in its own box --- */
+
+.cx-ask-thread {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.cx-ask-answer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-width: 960px;
+  padding: var(--space-3) var(--space-3) var(--space-4);
+  border-bottom: var(--hairline);
+}
+
+/* The origin mark: the answer a link was followed from, until another is followed (I-403). */
+.cx-ask-answer[data-origin="true"] {
+  box-shadow: inset 2px 0 0 var(--line-accent);
+}
+
+.cx-ask-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.cx-ask-question {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-14);
+  font-weight: var(--weight-heading);
+}
+
+.cx-ask-asked {
+  flex: 0 0 auto;
+  color: var(--ink-muted);
+  font-size: var(--text-12);
+}
+
+.cx-ask-understood {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--text-12);
+  color: var(--ink-secondary);
+}
+
+.cx-ask-qualifier {
+  color: var(--ink-muted);
+}
+
+.cx-ask-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.cx-ask-statement {
+  margin: 0;
+  font-size: var(--text-body);
+}
+
+/* The drawing's codes — a mark, a level label, a sheet number — are model data, in mono (§3). */
+.cx-ask-code {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The drawing's words are the interface's face inside quotation marks (I-401). */
+.cx-ask-quote {
+  font-family: var(--font-ui);
+}
+
+/* A table: its rows up to ten (twelve in the Rows), then it scrolls in its own box. */
+.cx-ask-table {
+  margin-top: var(--space-1);
+  height: calc((var(--cx-ask-table-rows, 1) + 1) * var(--row-h) + 2px);
+  max-width: 960px;
+}
+
+.cx-ask-partial {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  color: var(--ink-secondary);
+  font-size: var(--text-body);
+}
+
+.cx-ask-partial-lead {
+  margin: 0;
+}
+
+.cx-ask-partial-rows {
+  margin: 0;
+  padding-left: var(--space-4);
+}
+
+.cx-ask-evidence {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.cx-ask-show {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  color: var(--ink-link);
+  font-size: var(--text-body);
+  text-decoration: none;
+  transition: color var(--motion-state) var(--ease);
+}
+
+.cx-ask-show:hover {
+  text-decoration: underline;
+}
+
+.cx-ask-show-glyph {
+  font-size: var(--text-12);
+}
+
+.cx-ask-rows > summary {
+  cursor: pointer;
+  font-size: var(--text-12);
+  color: var(--ink-secondary);
+}
+
+.cx-ask-basis {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: var(--text-12);
+}
+
+.cx-ask-stale {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--ink-secondary);
+  font-size: var(--text-body);
+}
+
+.cx-ask-clarify {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cx-ask-readings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.cx-ask-held {
+  margin: 0;
+  font-size: var(--text-body);
+  color: var(--ink-secondary);
+}
+
+.cx-ask-cap {
+  margin: var(--space-2) 0 0;
+  color: var(--ink-muted);
+  font-size: var(--text-12);
+}
+
+.cx-ask .cx-empty-state,
+.cx-ask .cx-error-state,
+.cx-ask-denied {
+  max-width: 520px;
+}
+
+.cx-ask-denied {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* --- the bones (R-UI-004: never a spinner) --- */
+
+.cx-ask-bones {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-width: 960px;
+  padding: var(--space-3);
+}
+
+.cx-ask-bone {
+  height: 13px;
+}
+
+.cx-ask-bone-question {
+  width: 40%;
+  height: 14px;
+}
+
+.cx-ask-bone-understood {
+  width: 25%;
+  height: 12px;
+}

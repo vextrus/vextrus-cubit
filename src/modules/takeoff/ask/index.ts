@@ -22,6 +22,7 @@ import { queryFor } from "./queries/registry";
 import { vocabularyOf } from "./vocabulary";
 
 export * from "./law";
+export { askArrivalOf, type AskArrival, type AskExample } from "./arrival";
 export { answerReading, answerStatement, routeStatement, type Routed } from "./answer";
 export { completeReading, readQuestion, resolveReading, wordsOf, type GrammarOutcome } from "./grammar";
 export { ASK_QUERIES, ASK_QUERY_LIST, queryFor, registryOf, type AskQuery } from "./queries/registry";

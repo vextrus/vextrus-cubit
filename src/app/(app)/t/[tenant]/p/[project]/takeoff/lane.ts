@@ -13,6 +13,7 @@
 // rejection crossing a server-action boundary keeps neither its marker nor its cause: the screen
 // re-raises it as the refusal it is and renders the registry's own words (ARCH-03, B-21).
 import { actionContext, refused } from "@/server/call";
+import { aiRouter } from "@/server/routers/ai";
 import { takeoffRouter } from "@/server/routers/takeoff";
 import { takeoffBbsRouter } from "@/server/routers/takeoff-bbs";
 import { takeoffBoqRouter } from "@/server/routers/takeoff-boq";
@@ -67,4 +68,14 @@ export async function boqLane(client: string) {
  */
 export async function bbsLane(client: string) {
   return takeoffBbsRouter.createCaller(await actionContext(client));
+}
+
+/**
+ * The ai lane (`ai`), called the same way and for the same reason: S-Ask's one door, `ai.ask`, is
+ * the ai lane's, and the lane table in `src/server/root.ts` grows by enumeration, so the tier below it
+ * does too — the session, the guard and the seam a question is answered through are the ONE set the
+ * wire answers through (docs/design/s-ask.md §6, I-406).
+ */
+export async function aiLane(client: string) {
+  return aiRouter.createCaller(await actionContext(client));
 }

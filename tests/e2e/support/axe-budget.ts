@@ -146,6 +146,12 @@ export const AXE_MODERATE_BUDGET: Readonly<Record<string, number>> = Object.free
   "s-boq/empty": 0,
   "s-boq/sections": 0,
   "s-boq/sections-light": 0,
+  // S-Ask's three checkpoints (J-043), named by the acceptance that adds them. Zero is the strictest
+  // reading and the only honest one before a run: the screen is shipped primitives and patterns over
+  // a staged register, so a moderate finding here is a defect to repair rather than a number to raise.
+  "s-ask/empty": 0,
+  "s-ask/thread": 0,
+  "s-ask/thread-light": 0,
   // S-Schedules' two checkpoints (J-032), named here by the acceptance that added them: a checkpoint
   // this file does not name FAILS, so the screen could not be walked at all without these two lines.
   // Zero is the strictest reading and the only honest one before a run — the screen does not exist

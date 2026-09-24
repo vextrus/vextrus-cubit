@@ -29,6 +29,7 @@ type DeclaredCode = Extract<
   | "SET_NAME_NOT_USABLE"
   | "SET_MEMBER_NOT_IN_PROJECT"
   | "DOCUMENT_URL_EXPIRED"
+  | "ASK_ESTIMATE_NOT_BUILT"
 >;
 
 /**
@@ -167,6 +168,15 @@ export const REFUSAL_ENTRIES: Readonly<{ [C in DeclaredCode]: RefusalEntry & { c
     message: "This document link has expired.",
     remedy: "Open the document again to get a fresh link.",
     severity: "warning",
+    surface: "inline",
+  }),
+  // S-Ask's refused cell (s-ask § 2): a question about a cost is refused by name, never answered as a
+  // quantity — the one refusal of the five the screen's journey walks.
+  ASK_ESTIMATE_NOT_BUILT: Object.freeze({
+    code: "ASK_ESTIMATE_NOT_BUILT",
+    message: "Rates, prices and costs are not part of this product yet, so there is no figure to give.",
+    remedy: "Ask about quantities, counts and what the drawings state; the draft BOQ lists the measured items unpriced.",
+    severity: "info",
     surface: "inline",
   }),
 } satisfies Record<DeclaredCode, RefusalEntry>);
