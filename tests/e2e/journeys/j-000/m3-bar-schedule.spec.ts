@@ -79,19 +79,34 @@ const RENDER_BUDGET_MS = 600_000;
  * THE DECLARED ROSTER (I-659, the owner's A′): every cell that does not stand whole on F-RCC6-BNBC
  * under `rcc.rebar.synthesis@2`, and the codes its lines leave something out under. The rest — C1–C4 at
  * GF and C1–C5 at 1F–6F, the 34 cells whose top joint the placed framing bounds — stand COMPLETE.
- *   - REBAR_TIE_JOINT_UNREAD: nothing read bounds the joint at the column's top — the foundation necks,
- *     C6 at every storey and the roof stub;
- *   - BAR_SHAPE_NOT_HELD: C7's hoops (a round column, I-596) until CH joins the roster;
- *   - REBAR_TIE_ZONE_UNSTATED: a shear wall's confinement is a wall's, and @2 derives a column's only.
+ *   - REBAR_TIE_JOINT_UNREAD: nothing read bounds the joint at the column's top — the foundation necks
+ *     and C6 at every storey;
+ *   - BAR_SHAPE_NOT_HELD: C7's hoops (a round column, I-596) until CH joins the roster.
+ * The roof stub and the shear walls are not here: no rebar line stands for them (ABSENT, below).
  */
 const DECLARED: Readonly<Record<string, readonly string[]>> = Object.freeze({
   ...Object.fromEntries(["C1", "C2", "C3", "C4", "C6"].map((mark) => [`COLUMN|FDN|${mark}`, ["REBAR_TIE_JOINT_UNREAD"]])),
   "COLUMN|FDN|C7": ["BAR_SHAPE_NOT_HELD"],
   "COLUMN|GF|C7": ["BAR_SHAPE_NOT_HELD"],
   ...Object.fromEntries(["GF", "1F", "2F", "3F", "4F", "5F", "6F"].map((level) => [`COLUMN|${level}|C6`, ["REBAR_TIE_JOINT_UNREAD"]])),
-  "COLUMN|ROOF|C4": ["REBAR_TIE_JOINT_UNREAD"],
-  ...Object.fromEntries(["FDN", "GF", "1F", "2F", "3F", "4F", "5F", "6F", "ROOF"].map((level) => [`SHEAR_WALL|${level}|SW1`, ["REBAR_TIE_ZONE_UNSTATED"]])),
 });
+
+/**
+ * THE ABSENT ROSTER: members the golden schedules that no rebar line of the measured campaign stands
+ * for, so the schedule — which lists published lines only (I-bbs-2) — cannot hold them whole or
+ * declared. Each is absent for a reason the store names, and the set is asserted exactly, so a member
+ * that quietly drops off the schedule fails here as surely as one that stands over the golden.
+ * TEST_AMENDED (session 9, the leg's first walk): R6-LEG wrote these two into DECLARED from a staged
+ * register; the running product does not register them that way.
+ *   - COLUMN|ROOF|C4, the stair-roof stubs (W-49): registered at ROOF, and both rails observe instead
+ *     of offering — `SECTION_BAND_UNCOVERED` (concrete) and `REBAR_SCHEDULE_UNREAD` (rebar): S-10's
+ *     column schedule states no band above 6F, so no bar set is read for them (rail_observations).
+ *   - SHEAR_WALL|*|SW1, the lift core: no shear wall is registered — the core's walls stand on no plan
+ *     the partition places (S-23's pit plan carries no grid, I-609; the lift-core walls are FRM-4's).
+ */
+const ABSENT: readonly string[] = Object.freeze(
+  ["COLUMN|ROOF|C4", ...["FDN", "GF", "1F", "2F", "3F", "4F", "5F", "6F", "ROOF"].map((level) => `SHEAR_WALL|${level}|SW1`)].sort(),
+);
 
 /** Exact decimals, at a precision no sum here reaches — a mass never touches a float (B-07). */
 const Exact = Decimal.clone({ precision: 40, rounding: Decimal.ROUND_HALF_EVEN });
@@ -265,7 +280,7 @@ test.describe.serial("J-000 — Golden Path: M3's bar schedule on F-RCC6-BNBC", 
     );
     expect(compared.length, "the campaign scheduled at least one member the golden also schedules").toBeGreaterThan(0);
     expect(unknown, "the schedule holds no member the golden does not").toEqual([]);
-    expect(absent, "every member the golden schedules for these classes stands on the schedule, whole or declared").toEqual([]);
+    expect(absent, "every member the golden schedules for these classes stands on the schedule, whole or declared — but the absent roster, each for the reason the store names").toEqual(ABSENT);
     expect(over, `no component of any cell stands over the golden — over-measurement is a hard block, never a disclosure (L-QTY-06):\n  ${over.join("\n  ")}`).toEqual([]);
     expect(short, `every whole cell stands inside L-QTY-06's floor of the golden; these do not:\n  ${short.join("\n  ")}`).toEqual([]);
     expect(declared, "the cells that are not whole, and the codes they are declared under, are exactly A′'s roster (I-659)").toEqual(

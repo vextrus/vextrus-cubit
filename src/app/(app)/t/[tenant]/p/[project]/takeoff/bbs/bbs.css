@@ -98,7 +98,9 @@
 
 .cx-bbs-document-link {
   align-self: flex-start;
-  color: var(--accent);
+  /* Link INK, not the accent: the accent is a mid-tone on the dark ground (3.94:1 — axe, serious, at
+     J-000's bbs-schedule checkpoint), as the BOQ's document link found first (boq.css). */
+  color: var(--ink-link);
   font-size: var(--text-body);
 }
 
