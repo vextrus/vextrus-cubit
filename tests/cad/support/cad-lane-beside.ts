@@ -10,8 +10,8 @@
 // but the fixture regenerations the lane owns — and leaves the verdict to the lane, whose red fails
 // the chain. Run on its own (`pnpm test`), the suite still runs the lane itself.
 import { expect } from "vitest";
-import { CAD_WORKERS } from "../../../scripts/lib/cad-lane.mjs";
-import { LANE_COMMANDS } from "../../../scripts/verify.mjs";
+import { CAD_WORKERS, REFERENCE_TESTS } from "../../../scripts/lib/cad-lane.mjs";
+import { GOLDEN_PYTEST, LANE_COMMANDS } from "../../../scripts/verify.mjs";
 
 /** Verify's unit lane is told the cad lane runs beside it in the same chain. */
 export const CAD_LANE_BESIDE = process.env["CUBIT_CAD_LANE_BESIDE"] === "1";
@@ -27,6 +27,10 @@ export function expectCadLaneBeside(criterion: string): void {
   expect(pytest.slice(0, 2), `${criterion}: and then runs pytest over the whole cad tree`).toEqual(["pytest", "cad"]);
   // The worker count spreads the same collection over processes; it sets nothing aside.
   const withoutWorkers = pytest.slice(2).join(" ").replace(CAD_WORKERS.join(" "), "").split(" ").filter((argument) => argument !== "");
-  const setAside = withoutWorkers.filter((argument) => !REGENERATION_SET_ASIDE.test(argument));
-  expect(setAside, `${criterion}: setting aside nothing but the fixture regenerations the lane owns`).toEqual([]);
+  // The real-drawing proofs (REFERENCE_TESTS) are set aside too, and only because the gate's golden lane
+  // runs them: every one of them is a golden suite, so no gate goes without it.
+  const reference = new Set(REFERENCE_TESTS.map((test) => `--ignore=${test}`));
+  expect(REFERENCE_TESTS.every((test) => GOLDEN_PYTEST.includes(test)), `${criterion}: every real-drawing proof the cad lane sets aside is run by the golden lane`).toBe(true);
+  const setAside = withoutWorkers.filter((argument) => !REGENERATION_SET_ASIDE.test(argument) && !reference.has(argument));
+  expect(setAside, `${criterion}: setting aside nothing but the fixture regenerations the lane owns and the real-drawing proofs the golden lane runs`).toEqual([]);
 }
