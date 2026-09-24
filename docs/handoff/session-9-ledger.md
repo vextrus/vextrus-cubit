@@ -225,3 +225,17 @@ is one test (cad/tests/dwg/test_dwg_heal.py's Edison reference conversion, 21.3 
 alone) — a candidate for the cad lane's inputs-moved rule; the unit lane (~48–50 s) is the co-wall.
 Wave 3d stopped: the first account's weekly usage limit ended 11 of 12 agents mid-work (only M4P-11
 PARTIAL). The owner paused, then resumed on a new account; the wave is resumed from its run id.
+
+## Wave 3d (`wf_bbc4a550-1d5`, resumed on the new account: 23 agents, ~2.9 M + ~2.8 M before the limit) — integrated
+
+VIEW-FIT (I-661; the Trace's flight kept writing the pre-inspector stage box — S-01's doubled
+B500DWR is in the fixture generator itself, left for the next BNBC edition) · MANUAL-UX (I-662…I-666) ·
+SCALE-3 (I-667…I-669) · BBS-TIES (I-670…I-672) · GB-READ (I-673…I-675: 43 tie beams from S-08's GB
+marks) · ASK-3 (I-676…I-680; the J-000 ask leg) · M4P-2 (I-681…I-683; migration 0072) · M4P-4 (I-684) ·
+M4P-6 (I-685, I-686; 0073) · ARCH-6 (I-687, I-688; 0074) · DOC-FRONT (I-689…I-694) · M4P-11 (I-695;
+PERF-040). No slice lost anything (every branch compared against HEAD with ids renumbered). Registers
+re-frozen by `.private/work/session-9/refreeze.sh` (refusals 160 → 186, changed 0; schema; M4P-6's
+table joined TABLES_BEFORE). Repairs: J-011's duplicate `drawn`, BBS copy keyed by REFUSALS, REV_NO a
+vocabulary. verify's third lever: the Edison reference proof (21 s, the cad lane's tail) moved to its
+own file, set aside by verify's cad lane and run by the gate's golden lane — cad 48 → 25 s,
+`verify wall-time 52.79s` / `53.24s`. Gate 3 running.
