@@ -844,11 +844,57 @@ const SAMPLE_FIRST_READING: Consequence = {
   effects: { linesRederiving: [], signaturesVoiding: [] },
 };
 
+/**
+ * I-560: walk-1's discipline confirmation — 29 sheets of one drawing, unassigned, taking the
+ * structural discipline the title blocks proposed. Authored titles, never a drawing's own.
+ */
+const SAMPLE_DISCIPLINES: Consequence = {
+  actType: "CONFIRM_DISCIPLINE",
+  tenantId: SAMPLE_CONSEQUENCE.tenantId,
+  projectId: SAMPLE_CONSEQUENCE.projectId,
+  rendering: "SUBJECTS",
+  subjects: Array.from({ length: 29 }, (_, at) => ({
+    subjectId: `00000000-0000-4000-8000-0000000000d1::S-${String(at + 1).padStart(2, "0")}`,
+    subjectLabel: `S-${String(at + 1).padStart(2, "0")} Structural sheet`,
+    before: [],
+    after: ["STRUCTURAL"],
+    held: { kind: "DISCIPLINE" as const, before: null, after: "STRUCTURAL" as const },
+  })),
+};
+
+/** A sample drawing's content address — authored, 64 hex, so Details holds what a pin binds. */
+const sampleSha = (at: number, revision: number): string => `${String(at).padStart(2, "0")}${String(revision).padStart(2, "0")}`.padEnd(64, "a");
+
+/**
+ * I-561: the second pin of a set — three drawings re-issued since revision 1, one standing as it
+ * was, one newly named — said as the set, its revision and the revision each drawing is cited at.
+ */
+const SAMPLE_PIN: Consequence = {
+  actType: "PIN_DRAWING_SET",
+  tenantId: SAMPLE_CONSEQUENCE.tenantId,
+  projectId: SAMPLE_CONSEQUENCE.projectId,
+  rendering: "SUBJECTS",
+  subjects: [
+    ...[1, 2, 3].map((at) => ({
+      subjectId: `00000000-0000-4000-8000-0000000000e${String(at)}`,
+      subjectLabel: `structural-${String(at)}.dxf`,
+      before: [sampleSha(at, 1)],
+      after: [sampleSha(at, 2)],
+      held: { kind: "DRAWING_REVISION" as const, before: 1, after: 2 },
+    })),
+    { subjectId: "00000000-0000-4000-8000-0000000000e4", subjectLabel: "architectural.dxf", before: [sampleSha(4, 1)], after: [sampleSha(4, 1)], held: { kind: "DRAWING_REVISION", before: 1, after: 1 } },
+    { subjectId: "00000000-0000-4000-8000-0000000000e5", subjectLabel: "plumbing.dxf", before: [], after: [sampleSha(5, 1)], held: { kind: "DRAWING_REVISION", before: null, after: 1 } },
+  ],
+  pinning: { setName: "Tender set", revision: 2, standing: 1, drawings: 5 },
+};
+
 const consequenceSummaryStates: readonly GalleryState[] = [
   { name: "suspends", render: () => figured(<ConsequenceSummary consequence={SAMPLE_SUSPENDING} digest={SAMPLE_DIGEST} />) },
   { name: "settles", render: () => figured(<ConsequenceSummary consequence={SAMPLE_SETTLING} digest={SAMPLE_DIGEST} />) },
   { name: "first-reading", render: () => figured(<ConsequenceSummary consequence={SAMPLE_FIRST_READING} digest={SAMPLE_DIGEST} />) },
   { name: "roles", render: () => figured(<ConsequenceSummary consequence={SAMPLE_CONSEQUENCE} digest={SAMPLE_DIGEST} />) },
+  { name: "disciplines", render: () => figured(<ConsequenceSummary consequence={SAMPLE_DISCIPLINES} digest={SAMPLE_DIGEST} />) },
+  { name: "pin", render: () => figured(<ConsequenceSummary consequence={SAMPLE_PIN} digest={SAMPLE_DIGEST} />) },
 ];
 
 const REFUSAL_SEVERITIES: readonly RefusalSeverity[] = ["error", "warning", "info"];

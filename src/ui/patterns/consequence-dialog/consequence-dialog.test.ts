@@ -402,6 +402,6 @@ describe("DLG-1: the ConsequenceDialog speaks a quantity surveyor's words", () =
   test("I-447: the consequence's own form is catalogued in the states a reader meets it in (R-UI-011)", () => {
     const entry = galleryEntries[`${BARREL_ID}/ConsequenceSummary`];
     expect(entry, "the inline form S-Measure's card reuses has its own gallery entry").toBeDefined();
-    expect((entry?.states ?? []).map((state) => state.name), "open on the page, in each state the Decision's § 7 samples").toEqual(["suspends", "settles", "first-reading", "roles"]);
+    expect((entry?.states ?? []).map((state) => state.name), "open on the page, in each state the Decision's § 7 samples — DLG-2 adds the counted discipline change and the pin").toEqual(["suspends", "settles", "first-reading", "roles", "disciplines", "pin"]);
   });
 });

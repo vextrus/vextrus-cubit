@@ -24,7 +24,9 @@ import { Fragment, useCallback, useEffect, useId, useRef, useState, type ReactNo
 import type {
   ActType,
   Consequence,
+  ConsequenceHeld,
   ConsequenceLineGroup,
+  ConsequencePinning,
   ConsequenceRendering,
   ConsequenceStanding,
   ConsequenceSubject,
@@ -33,6 +35,7 @@ import type {
 import type { RefusalCode, RefusalEntry } from "@/core/errors";
 import type { LevelSlot } from "@/core/identity";
 import type { StoreyHeightStandingName } from "@/core/levels";
+import type { Discipline } from "@/core/sheets";
 import { Button, Skeleton, UnitBadge } from "../../primitives/core";
 import { humaniseEnum } from "../../primitives/core/enum-label";
 import { useFigureContext } from "../../primitives/core/figures";
@@ -388,10 +391,154 @@ function useFigure(): (value: string) => string {
 export function ConsequenceSummary({ consequence, digest }: ConsequenceSummaryProps): ReactNode {
   return (
     <>
+      {consequence.pinning === undefined ? null : <Pinning pinning={consequence.pinning} />}
       <ConsequenceSubjects consequence={consequence} />
       <ConsequenceEffects effects={consequence.effects} />
-      <ConsequenceDetails actType={consequence.actType} digest={digest} />
+      <ConsequenceDetails actType={consequence.actType} digest={digest} subjects={consequence.subjects} />
     </>
+  );
+}
+
+/**
+ * I-561: what a pin records, in the words the set screen uses — the set, the revision of it this
+ * pin becomes, how many drawings it cites, and what happens to the revision standing now. The content
+ * addresses the pin binds stand in Details, never here.
+ */
+function Pinning({ pinning }: { pinning: ConsequencePinning }): ReactNode {
+  const figure = useFigure();
+  const revision = figure(String(pinning.revision));
+  const records =
+    pinning.drawings === 1
+      ? fill(strings.consequence_dialog_pin_records_one, { set: pinning.setName, revision })
+      : fill(strings.consequence_dialog_pin_records, { set: pinning.setName, revision, count: figure(String(pinning.drawings)) });
+  return (
+    <div className="cx-consequence-pinning" data-testid={TESTIDS.consequence.pinning} data-revision={pinning.revision} data-count={pinning.drawings}>
+      <p className="cx-consequence-pinning-records">{records}</p>
+      <p className="cx-consequence-pinning-standing">
+        {pinning.standing === null
+          ? strings.consequence_dialog_pin_first
+          : fill(strings.consequence_dialog_pin_standing, { revision: figure(String(pinning.standing)) })}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * I-560: the words a discipline is read in, keyed by the roster's own type so a discipline added
+ * there without words here is a compile error (R-UI-082, as ACT_WORDS is).
+ */
+const DISCIPLINE_WORDS: { readonly [D in Discipline]: string } = {
+  STRUCTURAL: strings.consequence_dialog_discipline_structural,
+  ARCHITECTURAL: strings.consequence_dialog_discipline_architectural,
+  MEP: strings.consequence_dialog_discipline_mep,
+  CIVIL: strings.consequence_dialog_discipline_civil,
+  OTHER: strings.consequence_dialog_discipline_other,
+};
+
+/** The sentences each vocabulary counts a change in — total over the union, so a vocabulary added without them is a compile error. */
+const CHANGE_WORDS: { readonly [K in ConsequenceHeld["kind"]]: { readonly change: string; readonly same: string; readonly members: string } } = {
+  DISCIPLINE: {
+    change: strings.consequence_dialog_change_sheets,
+    same: strings.consequence_dialog_same_sheets,
+    members: strings.consequence_dialog_members_sheets,
+  },
+  DRAWING_REVISION: {
+    change: strings.consequence_dialog_change_drawings,
+    same: strings.consequence_dialog_same_drawings,
+    members: strings.consequence_dialog_members_drawings,
+  },
+};
+
+/** One side of a held change in words: never the enum, never the content address. */
+function heldSaid(held: ConsequenceHeld, side: "before" | "after", figure: (value: string) => string): string {
+  switch (held.kind) {
+    case "DISCIPLINE": {
+      const value = held[side];
+      return value === null ? strings.consequence_dialog_discipline_none : wordsFor(DISCIPLINE_WORDS, value);
+    }
+    case "DRAWING_REVISION": {
+      const value = held[side];
+      return value === null ? strings.consequence_dialog_revision_none : fill(strings.consequence_dialog_revision, { ordinal: figure(String(value)) });
+    }
+    default:
+      return unsaid(held);
+  }
+}
+
+/** A vocabulary added to `ConsequenceHeld` without a case above fails to compile here. */
+function unsaid(held: never): never {
+  throw new Error(`a subject's values arrived in ${JSON.stringify(held)}, which this dialog has no words for (I-560)`);
+}
+
+/**
+ * What the subject list renders, in the order the seam answered: a subject on its own, or the
+ * subjects making one and the same change, counted together at the place the first of them stood
+ * (I-560). Only subjects that say their vocabulary are counted together — a subject with a
+ * standing, or whose values are already words, keeps its own row, as every act before this one did.
+ */
+type SubjectEntry =
+  | { readonly shape: "one"; readonly subject: ConsequenceSubject }
+  | { readonly shape: "change"; readonly held: ConsequenceHeld; readonly subjects: readonly ConsequenceSubject[] };
+
+function subjectEntriesOf(subjects: readonly ConsequenceSubject[]): SubjectEntry[] {
+  const entries: (SubjectEntry | { readonly shape: "change"; readonly held: ConsequenceHeld; readonly subjects: ConsequenceSubject[] })[] = [];
+  const changes = new Map<string, ConsequenceSubject[]>();
+  for (const subject of subjects) {
+    const held = subject.held;
+    if (held === undefined || subject.standing !== undefined) {
+      entries.push({ shape: "one", subject });
+      continue;
+    }
+    const key = JSON.stringify([held.kind, held.before, held.after]);
+    const standing = changes.get(key);
+    if (standing !== undefined) {
+      standing.push(subject);
+      continue;
+    }
+    const members = [subject];
+    changes.set(key, members);
+    entries.push({ shape: "change", held, subjects: members });
+  }
+  // A change only one subject makes reads as that subject's own row, its columns in words.
+  return entries.map((entry): SubjectEntry => {
+    const only = entry.shape === "change" && entry.subjects.length === 1 ? entry.subjects[0] : undefined;
+    return only === undefined ? entry : { shape: "one", subject: only };
+  });
+}
+
+/**
+ * The subjects making one change, as a reader counts them — "29 sheets from Unassigned to
+ * Structural" — with each subject one press away, by the name it is recognised by. Each member keeps
+ * its `consequence-subject-row` and `data-subject`, so what the act moves is still one row per subject.
+ */
+function ChangeGroup({ held, subjects }: { held: ConsequenceHeld; subjects: readonly ConsequenceSubject[] }): ReactNode {
+  const figure = useFigure();
+  const words = CHANGE_WORDS[held.kind];
+  const count = figure(String(subjects.length));
+  const before = heldSaid(held, "before", figure);
+  const after = heldSaid(held, "after", figure);
+  const said = before === after ? fill(words.same, { count, after }) : fill(words.change, { count, before, after });
+  return (
+    <li
+      className="cx-consequence-subject cx-consequence-change"
+      data-testid={TESTIDS.consequence.changeGroup}
+      data-held={held.kind}
+      data-before={held.before ?? ""}
+      data-after={held.after ?? ""}
+      data-count={subjects.length}
+    >
+      <p className="cx-consequence-change-said">{said}</p>
+      <details className="cx-consequence-ids">
+        <summary className="cx-consequence-disclosure cx-reticle">{fill(words.members, { count })}</summary>
+        <ul className="cx-consequence-members">
+          {subjects.map((subject) => (
+            <li key={subject.subjectId} className="cx-consequence-member" data-testid={TESTIDS.consequence.subjectRow} data-subject={subject.subjectId}>
+              <span className="cx-consequence-subject-label">{subject.subjectLabel ?? subject.subjectId}</span>
+            </li>
+          ))}
+        </ul>
+      </details>
+    </li>
   );
 }
 
@@ -411,9 +558,13 @@ function ConsequenceSubjects({ consequence }: { consequence: Consequence }): Rea
     case "MEASUREMENT":
       return (
         <ul className="cx-consequence-subjects">
-          {consequence.subjects.map((subject) => (
-            <SubjectRow key={subject.subjectId} subject={subject} />
-          ))}
+          {subjectEntriesOf(consequence.subjects).map((entry) =>
+            entry.shape === "one" ? (
+              <SubjectRow key={entry.subject.subjectId} subject={entry.subject} />
+            ) : (
+              <ChangeGroup key={`change:${entry.subjects[0]?.subjectId ?? ""}`} held={entry.held} subjects={entry.subjects} />
+            ),
+          )}
         </ul>
       );
     default:
@@ -440,6 +591,7 @@ function unrendered(arm: never): never {
  */
 function SubjectRow({ subject }: { subject: ConsequenceSubject }): ReactNode {
   const standing = subject.standing;
+  const held = subject.held;
   return (
     <li
       className="cx-consequence-subject"
@@ -452,15 +604,37 @@ function SubjectRow({ subject }: { subject: ConsequenceSubject }): ReactNode {
       <div className="cx-consequence-roles">
         <div className="cx-consequence-column">
           <span className="cx-consequence-column-label">{strings.consequence_dialog_before_label}</span>
-          {standing === undefined ? <RoleList roles={subject.before} variant="before" /> : <Standing held={standing.before} variant="before" />}
+          {standing !== undefined ? (
+            <Standing held={standing.before} variant="before" />
+          ) : held !== undefined ? (
+            <HeldWords held={held} side="before" />
+          ) : (
+            <RoleList roles={subject.before} variant="before" />
+          )}
         </div>
         <div className="cx-consequence-column">
           <span className="cx-consequence-column-label">{strings.consequence_dialog_after_label}</span>
-          {standing === undefined ? <RoleList roles={subject.after} variant="after" /> : <Standing held={standing.after} variant="after" />}
+          {standing !== undefined ? (
+            <Standing held={standing.after} variant="after" />
+          ) : held !== undefined ? (
+            <HeldWords held={held} side="after" />
+          ) : (
+            <RoleList roles={subject.after} variant="after" />
+          )}
         </div>
       </div>
       {standing === undefined ? null : <Recorded standing={standing} />}
     </li>
+  );
+}
+
+/** One side of a subject's values in its vocabulary's words (I-560); the values themselves stand in Details. */
+function HeldWords({ held, side }: { held: ConsequenceHeld; side: "before" | "after" }): ReactNode {
+  const figure = useFigure();
+  return (
+    <span className="cx-consequence-held" data-column={side} data-value={held[side] ?? ""}>
+      {heldSaid(held, side, figure)}
+    </span>
   );
 }
 
@@ -634,7 +808,10 @@ function IdList({ summary, ids }: { summary: string; ids: readonly string[] }): 
  * whole and selectable. The digest line keeps its id and holds exactly the digest (I-43), so the
  * confirm's `data-digest` and this line can still be compared character for character.
  */
-function ConsequenceDetails({ actType, digest }: { actType: string; digest: string }): ReactNode {
+function ConsequenceDetails({ actType, digest, subjects }: { actType: string; digest: string; subjects: readonly ConsequenceSubject[] }): ReactNode {
+  // I-560: a value said in words on the face — a drawing's content sha-256, a discipline enum —
+  // is still what the act records, so it stands here whole, subject by subject.
+  const recorded = subjects.filter((subject) => subject.held !== undefined);
   return (
     <details className="cx-consequence-details">
       <summary className="cx-consequence-disclosure cx-reticle" data-testid={TESTIDS.consequence.details}>
@@ -651,6 +828,20 @@ function ConsequenceDetails({ actType, digest }: { actType: string; digest: stri
             {digest}
           </span>
         </dd>
+        {recorded.length === 0 ? null : (
+          <>
+            <dt className="cx-consequence-effects-label">{strings.consequence_dialog_details_values}</dt>
+            <dd className="cx-consequence-technical-value" data-technical="">
+              <ul className="cx-consequence-values">
+                {recorded.map((subject) => (
+                  <li key={subject.subjectId} className="cx-consequence-value" data-subject={subject.subjectId}>
+                    {`${subject.subjectLabel ?? subject.subjectId}: ${subject.before.join(" ") || strings.consequence_dialog_none} → ${subject.after.join(" ") || strings.consequence_dialog_none}`}
+                  </li>
+                ))}
+              </ul>
+            </dd>
+          </>
+        )}
       </dl>
     </details>
   );

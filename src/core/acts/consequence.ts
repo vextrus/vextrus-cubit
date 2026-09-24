@@ -4,6 +4,7 @@
 import { createHash } from "node:crypto";
 import type { GeometryFigure, HandLevel, MeasuredGeometry, Recipe } from "../manual/law";
 import type { QuantityBasis } from "../offers/law";
+import type { Discipline } from "../sheets/law";
 import type { ActType } from "./law";
 
 /**
@@ -37,6 +38,41 @@ export type ConsequenceSubject = {
    * standing they were shown, so that state is a different consequence (L-ACT-02, I-44).
    */
   readonly standing?: ConsequenceStanding;
+  /**
+   * What `before` and `after` MEAN, where they are not words a person reads — a discipline enum, a
+   * drawing's content sha-256 (I-560). It names the vocabulary the two values are said in, and
+   * the fact each stands for, so a surface says "Unassigned → Structural" or "Not cited → Revision 2"
+   * and can count the subjects that make the same change together ("29 sheets from Unassigned to
+   * Structural"). Presentation, and digest-blind exactly as the label is: it is read off the same
+   * state the values were, and the values are what the act writes and the digest binds.
+   */
+  readonly held?: ConsequenceHeld;
+};
+
+/**
+ * The vocabularies a subject's values are said in (I-560), a closed union so a surface says each
+ * in words off a table keyed by its roster, and a vocabulary added here without words there is a
+ * compile error. A null side is the absence the act's own values state by an empty list.
+ *
+ * - DISCIPLINE — a sheet's confirmed discipline (L-REG-03): none before a first confirmation.
+ * - DRAWING_REVISION — the revision ordinal a pinned set cites a drawing at (L-REG-06): none before
+ *   the drawing was first cited, none after where the set no longer names it.
+ */
+export type ConsequenceHeld =
+  | { readonly kind: "DISCIPLINE"; readonly before: Discipline | null; readonly after: Discipline | null }
+  | { readonly kind: "DRAWING_REVISION"; readonly before: number | null; readonly after: number | null };
+
+/**
+ * What a pin records, as a reader names it (I-561): the set, the revision of it this pin would
+ * become (the set's first is 1), the revision standing now (null where it was never pinned), and how
+ * many drawings the new revision cites. Presentation, digest-blind: the subjects' content addresses
+ * are what the pin records and what the digest binds; this is what they add up to.
+ */
+export type ConsequencePinning = {
+  readonly setName: string;
+  readonly revision: number;
+  readonly standing: number | null;
+  readonly drawings: number;
 };
 
 /**
@@ -154,6 +190,8 @@ export type Consequence = {
   readonly effects?: ConsequenceEffects;
   /** The MEASUREMENT arm's payload, present exactly where the rendering is that arm (I-373). */
   readonly measurement?: ConsequenceMeasurement;
+  /** What a PIN_DRAWING_SET act records, in words a reader names it by (I-561); absent for every other act. */
+  readonly pinning?: ConsequencePinning;
 };
 
 /**
@@ -182,7 +220,9 @@ export function consequenceDigest(consequence: Consequence): string {
  * bound whole (I-373): the recipe and the figure the person read are what they confirmed, and an act
  * with no such arm carries no field and digests exactly as before. The effects are bound as their
  * two id lists and nothing more: the lines' grouping is the seam's presentation of those same ids
- * (I-446), and a commit recomputes the ids, not the words a surface counted them in.
+ * (I-446), and a commit recomputes the ids, not the words a surface counted them in. A subject's
+ * `held` vocabulary and a pin's `pinning` are presentation of the values bound here (I-560,
+ * I-561), so neither is bound, and a pin or a discipline confirmation digests exactly as before.
  */
 function judged(consequence: Consequence): unknown {
   const effects = consequence.effects;

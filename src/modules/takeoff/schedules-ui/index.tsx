@@ -465,6 +465,20 @@ export function SchedulesWorkspace({ view, projectId, permitted, offline, state,
   );
 
   /**
+   * I-563: where a refused door is resolved. A permission is granted on the participants screen,
+   * so the denial's link goes there; every other refusal at this door — a reading that would change
+   * nothing, a source not on the sheet — is resolved on the sheet the readings are read from, at the
+   * notes they cite, never on a screen that has nothing to do with notes.
+   */
+  const evidenceFor = useCallback(
+    (code: string): Evidence =>
+      code === PERMISSION_NOT_HELD || sheet === null
+        ? evidence
+        : { href: traceTo(sheet.notes.proposals.map((proposal) => proposal.sourceKey)), label: OPEN_THE_SHEET },
+    [evidence, sheet, traceTo],
+  );
+
+  /**
    * A rejection at a door, answered in place — never a toast, and never a dialog over nothing
    * (R-UI-020, I-255). A failure carrying no registered code is a fault, and a fault belongs to the
    * boundary that owns the report id: it is re-raised untouched rather than dressed as a refusal.
@@ -476,9 +490,9 @@ export function SchedulesWorkspace({ view, projectId, permitted, offline, state,
         setFault(() => thrown);
         return;
       }
-      setAnswer({ refusal: entry, evidence });
+      setAnswer({ refusal: entry, evidence: evidenceFor(entry.code) });
     },
-    [evidence],
+    [evidenceFor],
   );
 
   /** Read the sheets again, which is what a committed act and the error cell's retry both need. */
@@ -830,6 +844,7 @@ export function SchedulesWorkspace({ view, projectId, permitted, offline, state,
                         testId={testIds.transcribe}
                         held={holdsMeasure}
                         offline={offline}
+                        movesNothing={sheet.notes.proposals.every((proposal) => standsAt(sheet, proposal, drafts[draftKey(proposal)] ?? proposal.canonical))}
                         onPress={() => openTranscribe(sheet.notes.proposals)}
                         Button={Button}
                         Tooltip={Tooltip}
@@ -893,8 +908,8 @@ export function SchedulesWorkspace({ view, projectId, permitted, offline, state,
         <ConsequenceDialog
           open
           actType={TRANSCRIBE_SHEET_NOTES}
-          preview={previewOf(doors, pending, evidence)}
-          commit={commitOf(doors, pending, evidence)}
+          preview={previewOf(doors, pending, evidenceFor)}
+          commit={commitOf(doors, pending, evidenceFor)}
           onOpenChange={(isOpen) => {
             if (!isOpen) setPending(null);
           }}
@@ -943,31 +958,31 @@ function standsAt(sheet: SheetView, proposal: NoteProposal, value: string): bool
 }
 
 /** The same rejection, shaped as the one ConsequenceDialog reads one (its I-40). */
-function refused(thrown: unknown, evidence: Evidence): never {
+function refused(thrown: unknown, evidenceFor: (code: string) => Evidence): never {
   const code = codeOf(thrown);
   const entry = code === null ? undefined : entryOf(code);
   if (entry === undefined) throw thrown;
-  throw Object.assign(new Error(entry.code), { refusal: entry, evidence });
+  throw Object.assign(new Error(entry.code), { refusal: entry, evidence: evidenceFor(entry.code) });
 }
 
 /** The preview the dialog runs for itself: state's own digest, taken again at the moment of showing. */
-function previewOf(doors: SchedulesDoors, input: TranscribeSheetNotesInput, evidence: Evidence): () => Promise<PreviewAnswer> {
+function previewOf(doors: SchedulesDoors, input: TranscribeSheetNotesInput, evidenceFor: (code: string) => Evidence): () => Promise<PreviewAnswer> {
   return async () => {
     try {
       return await doors.previewTranscribeSheetNotes({ input });
     } catch (thrown) {
-      return refused(thrown, evidence);
+      return refused(thrown, evidenceFor);
     }
   };
 }
 
 /** The commit the dialog's confirm carries, bound to the digest it showed (L-ACT-02). */
-function commitOf(doors: SchedulesDoors, input: TranscribeSheetNotesInput, evidence: Evidence): (carried: { consequenceDigest: string }) => Promise<{ actId: string }> {
+function commitOf(doors: SchedulesDoors, input: TranscribeSheetNotesInput, evidenceFor: (code: string) => Evidence): (carried: { consequenceDigest: string }) => Promise<{ actId: string }> {
   return async (carried) => {
     try {
       return await doors.commitTranscribeSheetNotes({ input, consequenceDigest: carried.consequenceDigest });
     } catch (thrown) {
-      return refused(thrown, evidence);
+      return refused(thrown, evidenceFor);
     }
   };
 }
@@ -1382,6 +1397,7 @@ function TranscribeDoor({
   testId,
   held,
   offline,
+  movesNothing,
   onPress,
   Button,
   Tooltip,
@@ -1389,11 +1405,13 @@ function TranscribeDoor({
   testId: string;
   held: boolean;
   offline: boolean;
+  /** Every figure in its box already stands as a reading on this sheet (I-563). */
+  movesNothing: boolean;
   onPress: () => void;
   Button: SchedulesChrome["Button"];
   Tooltip: SchedulesChrome["Tooltip"];
 }) {
-  if (held && !offline) {
+  if (held && !offline && !movesNothing) {
     return (
       <Button variant="primary" data-testid={testId} data-permission={MEASURE} onClick={onPress}>
         {SCHEDULES_COPY.schedules_transcribe}
@@ -1404,7 +1422,7 @@ function TranscribeDoor({
   // is gone and nothing can be committed — and the door publishes no `data-permission`, because
   // claiming a permission this reader in fact holds would be a false statement about their standing.
   return (
-    <Tooltip content={held ? SCHEDULES_COPY.schedules_offline : SCHEDULES_COPY.schedules_denied_transcribe}>
+    <Tooltip content={!held ? SCHEDULES_COPY.schedules_denied_transcribe : offline ? SCHEDULES_COPY.schedules_offline : SCHEDULES_COPY.schedules_transcribe_nothing}>
       <span
         className="cx-btn cx-reticle cx-schedules-door-shut"
         data-variant="primary"
@@ -1413,6 +1431,8 @@ function TranscribeDoor({
         aria-disabled="true"
         data-testid={testId}
         {...(held ? {} : { "data-permission": MEASURE })}
+        // I-563: shut because pressing would record nothing — every figure already stands.
+        {...(held && !offline && movesNothing ? { "data-shut": "moves-nothing" } : {})}
       >
         <span className="cx-btn-label">{SCHEDULES_COPY.schedules_transcribe}</span>
       </span>

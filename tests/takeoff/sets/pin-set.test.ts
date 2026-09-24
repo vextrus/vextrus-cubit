@@ -146,6 +146,32 @@ describe("AC-2: PIN_DRAWING_SET through the act seam", () => {
     }
   }, BUDGET_MS);
 
+  test("I-560/b: the preview says what the pin records in a reader's words — the set, its revision, the drawings and the revision each is cited at", async () => {
+    const stage = await staged();
+    const { consequence, view } = await pinned();
+
+    expect(consequence.pinning, "the first pin of a set records its revision 1, citing every member, over no revision standing").toEqual({
+      setName: view.name,
+      revision: 1,
+      standing: null,
+      drawings: stage.members.length,
+    });
+    for (const member of stage.members) {
+      const subject = consequence.subjects.find((candidate) => candidate.subjectId === member.drawingId);
+      expect(subject?.held, `${member.name} is said as the revision it would be cited at — its ordinal, not its sha-256`).toEqual({
+        kind: "DRAWING_REVISION",
+        before: null,
+        after: member.current.ordinal,
+      });
+    }
+    expect(
+      stage.members.some((member) => member.current.ordinal > 1),
+      "the re-uploaded member stands at its second revision, so an ordinal read off the wrong row would show",
+    ).toBe(true);
+    const bare = { ...consequence, pinning: undefined, subjects: consequence.subjects.map((subject) => ({ ...subject, held: undefined })) };
+    expect(stage.acts.consequenceDigest(bare), "the words are presentation: the digest binds the content addresses alone").toBe(stage.acts.consequenceDigest(consequence));
+  }, BUDGET_MS);
+
   test("AC-2: the commit writes exactly one act and exactly one immutable set revision", async () => {
     const stage = await staged();
     const { actId, view } = await pinned();

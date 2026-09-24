@@ -37,6 +37,7 @@ export const SCHEDULES_COPY = Object.freeze({
   schedules_proposal_proposed_by_model: "Proposed by a model from this clause — check it against the sheet.",
   schedules_proposal_lap_governs: "Proposed: this note states the tension lap that governs over the sheet's table.",
   schedules_transcribe: "Preview these readings",
+  schedules_transcribe_nothing: "Every figure here is already read at the value shown, so there is nothing to record. Change a value to record a different reading.",
   schedules_reading_accepted: "Accepted as proposed",
   schedules_reading_edited: "Edited",
   schedules_reading_superseded: "Superseded by a later reading under the same source.",

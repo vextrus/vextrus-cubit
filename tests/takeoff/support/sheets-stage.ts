@@ -137,7 +137,14 @@ export type ConsequenceLike = {
   tenantId: string;
   projectId: string;
   rendering: string;
-  subjects: { subjectId: string; subjectLabel?: string; before: readonly string[]; after: readonly string[] }[];
+  subjects: {
+    subjectId: string;
+    subjectLabel?: string;
+    before: readonly string[];
+    after: readonly string[];
+    /** What the values mean, as a surface says them (consequence-dialog I-560). */
+    held?: { kind: string; before: string | number | null; after: string | number | null };
+  }[];
 };
 
 /** Who is acting (SEAM-ACT: `ActorCtx`). */

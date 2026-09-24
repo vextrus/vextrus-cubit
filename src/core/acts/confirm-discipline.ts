@@ -111,6 +111,9 @@ export const confirmDiscipline: ActRendering<ConfirmDisciplineInput> = {
         subjectLabel: sheet.proposal.title,
         before: [],
         after: [input.group.discipline],
+        // I-560: the enum is said in words by the surface, and the sheets making the same change
+        // are counted together — an offered group is only ever unassigned sheets taking one discipline.
+        held: { kind: "DISCIPLINE", before: null, after: input.group.discipline },
       })),
     };
   },

@@ -123,6 +123,11 @@ describe("AC-2: the act type, its permission and its rendering", () => {
     for (const subject of consequence.subjects) {
       expect({ before: [...subject.before], after: [...subject.after] }, `the act adds a confirmed discipline to ${subject.subjectId} and overwrites nothing (L-ACT-01: before-images are rejected)`).toStrictEqual({ before: [], after: [STRUCTURAL] });
       expect(subject.subjectLabel, `the subject ${subject.subjectId} is recognisable by the sheet's proposed title`).toBe(titles.get(subject.subjectId));
+      expect(subject.held, `${subject.subjectId} says its change in the discipline vocabulary, so a surface reads it in words (consequence-dialog I-560)`).toEqual({
+        kind: "DISCIPLINE",
+        before: null,
+        after: STRUCTURAL,
+      });
     }
   }, BUDGET_MS);
 

@@ -107,6 +107,8 @@ export const TESTIDS = {
     paletteRefusal: "command-palette-refusal",
   },
   consequence: {
+    // DLG-2 (I-560, I-561): subjects making the same change, counted together; what a pin records.
+    changeGroup: "consequence-change-group",
     confirm: "consequence-confirm",
     // DLG-1 (I-446/d): the Details disclosure's summary, and one row of the counted lines.
     details: "consequence-details",
@@ -115,6 +117,7 @@ export const TESTIDS = {
     effectGroup: "consequence-effect-group",
     effectLines: "consequence-effect-lines",
     effectSignatures: "consequence-effect-signatures",
+    pinning: "consequence-pinning",
     staleNotice: "consequence-stale-notice",
     subjectRow: "consequence-subject-row",
   },

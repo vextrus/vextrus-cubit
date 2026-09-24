@@ -73,7 +73,26 @@ this file rules. No gallery entry is added (nothing new is invented here).
   the same canonical and unit are refused `ACT_CHANGES_NOTHING` by the seam; the screen renders that
   entry as one RefusalState in the answer slot and **no dialog opens** (s-levels I-245), and each
   such proposal row already carried `schedules_proposal_already_read` in its trailing cell so the
-  reader saw the reason before pressing.
+  reader saw the reason before pressing. *Amended by I-563.*
+- **I-563 — a door that would record nothing is shut with its reason; a refusal links where it is
+  resolved.** Walk-1 (N2) opened S-01 where every row read **Already read at this figure**, found
+  `schedules-transcribe` enabled, pressed it, and read `ACT_CHANGES_NOTHING` with **Open the
+  participants screen** as its only action — a screen that has nothing to do with notes. Two rulings:
+  (a) when EVERY proposal stands at the figure in its box — the same `standsAt` predicate that puts
+  **Already read at this figure** on each row, so the door and the rows can never disagree — the
+  door renders shut exactly as I-256's denied door does (`aria-disabled="true"`, a Tooltip) but with
+  `data-shut="moves-nothing"`, no `data-permission` (the reader holds MEASURE; claiming otherwise
+  would be false) and the reason `schedules_transcribe_nothing`; a press asks the seam nothing. A
+  reader who changes any value opens it again — another figure is a reading to record. Denial and
+  offline keep their own precedence and words (denied, then offline, then nothing to record).
+  (b) The answer slot's and the dialog's evidence is chosen by the refused code: `PERMISSION_NOT_HELD`
+  links the participants screen, where a permission is granted; every other refusal at this door
+  (`ACT_CHANGES_NOTHING` where the seam knows more than the rows, `NOTE_SOURCE_NOT_ON_SHEET`,
+  `REQUEST_MALFORMED`) links **Open the sheet**, the viewer at the notes the proposals cite. The
+  registry's copy is untouched — `ACT_CHANGES_NOTHING`'s remedy never carried a link; the link is
+  the evidence this screen passed, and RefusalState's law (refusal-state §2) keeps one on every
+  card, so it now points where the refusal is resolved. No refusal digest moves. I-255's "no
+  dialog opens" stands for the race the rows cannot see.
 - **I-256 — the door renders, disabled, naming its permission.** A reader without MEASURE sees
   `schedules-transcribe` with `aria-disabled="true"`, `data-permission="MEASURE"` and a Tooltip
   carrying the denial pair; every table, registry and reading reads on in full (s-levels I-247). The
@@ -1018,7 +1037,9 @@ this sheet** · `schedules_proposal_written_label` **As written** · `schedules_
 `schedules_proposal_proposed_by_model` **Proposed by a model from this clause — check it against the
 sheet.** · `schedules_proposal_lap_governs` **Proposed: this note states the tension lap that governs
 over the sheet's table.** ·
-`schedules_transcribe` **Preview these readings** · `schedules_reading_accepted` **Accepted as
+`schedules_transcribe` **Preview these readings** · `schedules_transcribe_nothing` **Every figure
+here is already read at the value shown, so there is nothing to record. Change a value to record a
+different reading.** (I-563) · `schedules_reading_accepted` **Accepted as
 proposed** · `schedules_reading_edited` **Edited** · `schedules_reading_superseded` **Superseded by
 a later reading under the same source.** · `schedules_inspector_cell_heading` **Schedule cell** ·
 `schedules_inspector_reading_heading` **Note reading** · `schedules_inspector_sources_label` **Read
@@ -1153,7 +1174,10 @@ fewer than one `evidence-link` unless its stored text is empty (I-252); no figur
 `schedules-standing` whose `data-standing` is not `AGREED` (I-253); no `schedules-transcribe` inside
 a `schedules-notes` that states `NOTES_NONE_PROPOSED` — whatever record stands beside it (I-257);
 no `consequence-dialog`
-after a preview refused `ACT_CHANGES_NOTHING` (I-255); no `line` param in any composed viewer
+after a preview refused `ACT_CHANGES_NOTHING` (I-255); no enabled `schedules-transcribe` while every
+proposal reads **Already read at this figure** — it carries `data-shut="moves-nothing"` instead, and
+no refusal at it other than `PERMISSION_NOT_HELD` links the participants screen (I-563,
+`tests/ui/takeoff-schedules/transcribe-door.test.ts`); no `line` param in any composed viewer
 address.
 
 Suites: `tests/takeoff/partition/arch-schedules.test.ts` (I-502…h over F-ARCH's own drawing,

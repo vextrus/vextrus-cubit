@@ -34,6 +34,20 @@ The new behaviour's proof is the pattern's jsdom suites (`consequence-dialog.tes
 `consequence-effects.test.tsx`), the pure seam suite `src/core/acts/__tests__/consequence-words.test.ts`
 and the live suite `tests/takeoff/levels-ui/consequence-words.test.ts`.
 
+**Amended by DLG-2 (session 9, walk-1 B16/N2 — "every consequence dialog speaks QS").** DLG-1 made
+the storey-height dialog right; walk-1 read the others. The discipline confirmation listed 29 blocks
+of `none → STRUCTURAL` — a raw enum — and its Confirm stood at y = 2,618 in a 900 px window; the
+pin's **After** was a 64-character sha-256. This amendment says a subject's values in the words of
+their vocabulary and counts the subjects making one change together, each one press away (I-560);
+says what a pin records — the set, its revision, the drawings it cites — with the content addresses
+in Details (I-561); and keeps the action row in view at the card's foot (I-562). The same
+walk found the schedules screen's transcribe door enabled when nothing would change, answering
+`ACT_CHANGES_NOTHING` with a link to the participants screen: that door's own Decision rules the fix
+(s-schedules I-563). Proof: `consequence-held.test.tsx` (jsdom: the words, the counted change,
+the sticky rule), the live preview cases in `tests/takeoff/sets/pin-set.test.ts` and
+`tests/takeoff/sheets/confirm-discipline.test.ts`, and `ConsequenceSummary`'s two new gallery
+states (§ 7). Where this amendment and an older line of this file disagree, this amendment rules.
+
 
 Not a routed screen: the single preview → confirm pattern `ConsequenceDialog` in
 `src/ui/patterns/consequence-dialog` — the one home (B-17) every act flow opens, first
@@ -224,6 +238,51 @@ and a level are said in — every other act-specific word arrives in the Consequ
   held focus when it opened and gives it back on close — unless the door is gone from the document,
   or something else already holds focus (a consumer that deliberately focused the row its act
   wrote keeps it).
+- **I-560 — a subject's values are said in their vocabulary's words, and subjects making one
+  change are counted together.** R-UI-082 bars enum values and machine identifiers as body text,
+  and R-UI-021 asks for "counts of rows affected"; walk-1 read `none → STRUCTURAL` 29 times.
+  `ConsequenceSubject.held` (core, optional) names the vocabulary a subject's `before`/`after`
+  values are said in — a closed union: `DISCIPLINE` (a sheet's confirmed discipline, null before a
+  first confirmation) and `DRAWING_REVISION` (the ordinal a pinned set cites a drawing at, null where
+  it is not cited). `CONFIRM_DISCIPLINE` and `PIN_DRAWING_SET` fill it, from the state their preview
+  read. It is presentation and digest-blind, exactly as `subjectLabel` is: the values are what the
+  act writes, what `movesNothing` judges and what the digest binds, so no stored digest moves. The
+  dialog says a held value off tables keyed by the roster's own type (`{ [D in Discipline]: string }`,
+  and an exhaustive switch over the union): **Unassigned**, **Structural**, **Not cited**,
+  **Revision 2**; a vocabulary added without words is a compile error. Subjects carrying `held` (and
+  no standing) that make the same change — the same vocabulary, the same before, the same after —
+  render as ONE row at the place the first of them stood, its sentence the count and the change:
+  **29 sheets from Unassigned to Structural**, **3 drawings from Revision 1 to Revision 2**, and,
+  where before and after read alike, **2 drawings stay at Revision 1**. Beneath it a closed
+  disclosure (**Show the 29 sheets**) lists each subject by its label, each still a
+  `consequence-subject-row` with its `data-subject`, so the act still shows one row per subject it
+  moves. A change only one subject makes is that subject's own row, its Before and After columns in
+  words. The raw values themselves stand in Details, under **Recorded values**, one line per subject
+  (`label: before → after`), whole and selectable. Subjects without `held` — roles, level ordinals,
+  calibration keys — render exactly as before. Rejected: grouping every subject list by identical
+  values, which would count role changes and ordinals in a sentence whose values are still raw;
+  rewriting `before`/`after` as words, which would move every digest and make the words what the
+  act judges. *Not built, and owed:* `CONFIRM_VIEW_TYPE` (its view type is an open string today, so
+  it has no roster to key words by) and `AFFIRM_SCALE` (its values are calibration keys; walk-1
+  names its After too) keep their verbatim values.
+- **I-561 — a pin says what it records.** L-REG-06's pin records a set revision citing every
+  member at the revision it stands at; the dialog's After was each member's content sha-256.
+  `Consequence.pinning` (core, optional, digest-blind) carries the set's name, the revision of it
+  this pin becomes (the set's first is 1, counted in pin order — the order the set screen lists its
+  pinned revisions in), the revision standing now (null where the set was never pinned) and how many
+  drawings the new revision cites. It renders above the subjects (`consequence-pinning`): **Pins
+  Tender set as its revision 2, citing 5 drawings at the revision each stands at now.** and beneath
+  it **Revision 1 stays exactly as it was pinned.** or **The set has never been pinned before.**
+  Each drawing's own row says its citation in words (I-560); the content addresses stand in
+  Details. Every figure goes through the frame's figure conventions.
+- **I-562 — the action row stays in view.** A long consequence scrolled the card (the overlay's
+  `max-height` + `overflow: auto`) until Confirm stood 2,618 px down. The footer is sticky at the
+  card's foot: `position: sticky; bottom: calc(var(--space-5) * -1)` with a matching negative
+  bottom margin and bottom padding (taking it over the card's own padding), `var(--surface-overlay)`
+  behind it so what scrolls under does not read through, and its 20 px above the body split into
+  `margin-top: var(--space-2)` + `padding-top: var(--space-3)` — so a consequence that fits paints
+  exactly as it did. No hairline is drawn above it: a rule that shows whether or not anything
+  scrolls under it would move every dialog's picture for no reader's gain.
 
 ## 1. Layout and hierarchy
 
@@ -240,12 +299,21 @@ a pre-focused Enter would commit by accident. Inside `DialogContent`, one wrappe
   <p class="cx-consequence-hint">…</p>
   [stale notice]                      — only after a stale commit (I-44)
   ── ConsequenceSummary ──            — or skeletons while preview is pending (I-447)
+  [<div data-testid="consequence-pinning" data-revision data-count>  — I-561, a pin only
+     <p>Pins {set} as its revision {n}, citing {count} drawings…</p> <p>{what stands now}</p></div>]
   <ul class="cx-consequence-subjects">
     <li data-testid="consequence-subject-row" data-subject={key}
         [data-standing-before data-standing-after]>                 — I-445
       <p class="cx-consequence-subject-label">{subject label}</p>
-      <div class="cx-consequence-roles">  Before | After columns — a standing, or the lists verbatim
+      <div class="cx-consequence-roles">  Before | After columns — a standing, held words
+                                          (I-560), or the lists verbatim
       [<p class="cx-consequence-recorded">This reading {figure}{unit}</p>]
+    </li>…
+    <li data-testid="consequence-change-group" data-held data-before data-after data-count> — I-560
+      <p class="cx-consequence-change-said">{count} sheets from {before} to {after}</p>
+      <details><summary>Show the {count} sheets</summary>
+        <ul><li data-testid="consequence-subject-row" data-subject={key}>{label}</li>…</ul>
+      </details>
     </li>…
   </ul>
   [effects]                           — only when the preview carries `effects` (I-161)
@@ -264,7 +332,8 @@ a pre-focused Enter would commit by accident. Inside `DialogContent`, one wrappe
   <details class="cx-consequence-details">                           — I-447
     <summary data-testid="consequence-details">Details</summary>
     <dl>  Act {actType}  ·  Consequence digest
-          <span data-testid="consequence-digest-line">{consequenceDigest}</span>  </dl>
+          <span data-testid="consequence-digest-line">{consequenceDigest}</span>
+          [· Recorded values <ul>{label}: {before} → {after}…</ul>]  — I-560  </dl>
   </details>
   ── end ConsequenceSummary ──
   [refusal slot]                      — exactly one RefusalState when refused (I-40)
@@ -344,7 +413,17 @@ a pre-focused Enter would commit by accident. Inside `DialogContent`, one wrappe
   exactly the rendered digest. The confirm exists only while a consequence and digest line
   are rendered: while the preview is pending, refused or superseded it is unmounted — not
   disabled — so no path to commit exists without them (AC-5). In its place while pending
-  stands a 32 × 96 px Skeleton keeping the footer's height.
+  stands a 32 × 96 px Skeleton keeping the footer's height. *Since I-562* the footer is
+  sticky at the card's foot over `var(--surface-overlay)`, and its 20 px above the body is
+  `margin-top: var(--space-2)` + `padding-top: var(--space-3)`.
+- **Pinning** (I-561) — `var(--space-4)` above; the record sentence `var(--text-13)`
+  `var(--weight-body-medium)` `var(--ink)`, the standing sentence beneath it `var(--text-12)`
+  `var(--ink-muted)`, `var(--space-1)` apart.
+- **Held words and change rows** (I-560) — a held value in a column is `var(--text-13)`,
+  **After** `var(--weight-body-medium)` `var(--ink)`, **Before** `var(--ink-muted)`, as a standing's
+  word is. A change row is a subject row (hairline between rows): its sentence `var(--text-13)`
+  `var(--weight-body-medium)` `var(--ink)`, then the members' disclosure styled as the ids'
+  disclosures are, the labels once opened `var(--text-12)` `var(--ink-secondary)`, one a line.
 
 **Pending preview** (every open, and after staleness): the subjects list and digest line are
 replaced by Skeletons keeping layout — two 16 × min(360 px, 100 %) bones and one
@@ -408,6 +487,21 @@ Details (I-447): `consequence_dialog_details` **Details** · `…_details_act` *
 through the frame's figure conventions (SEAM-FORMAT, injected); with none mounted, the exact
 decimal is shown, the DataTable subtotal's own rule.
 
+Added by DLG-2. Held words (I-560): `consequence_dialog_discipline_none` **Unassigned** ·
+`…_discipline_structural` **Structural** · `…_discipline_architectural` **Architectural** ·
+`…_discipline_mep` **MEP** · `…_discipline_civil` **Civil** · `…_discipline_other` **Other** ·
+`consequence_dialog_revision` **Revision {ordinal}** · `…_revision_none` **Not cited**. Counted
+changes: `consequence_dialog_change_sheets` **{count} sheets from {before} to {after}** ·
+`…_same_sheets` **{count} sheets stay {after}** · `…_members_sheets` **Show the {count} sheets** ·
+`…_change_drawings` **{count} drawings from {before} to {after}** · `…_same_drawings` **{count}
+drawings stay at {after}** · `…_members_drawings` **Show the {count} drawings** ·
+`…_details_values` **Recorded values**. The pin (I-561): `consequence_dialog_pin_records`
+**Pins {set} as its revision {revision}, citing {count} drawings at the revision each stands at
+now.** · `…_pin_records_one` **Pins {set} as its revision {revision}, citing 1 drawing at the
+revision it stands at now.** · `…_pin_first` **The set has never been pinned before.** ·
+`…_pin_standing` **Revision {revision} stays exactly as it was pinned.** The set's name is the
+person's own data, said as they named it.
+
 ## 4. Motion (R-UI-004)
 
 The primitive's own entrance (scrim fade, content fade + 0.98 → 1 scale over
@@ -424,7 +518,9 @@ duration is a token zeroed at source under reduced motion.
 Button's own; the semantic tints and evidence-link paint inside the slot are RefusalState's
 own. Px/em literals, closed set (core I-1's mandated class, I-42): the two 10 px lines,
 0.12em tracking, skeleton bones 16 × 360, 12 × 240 and 32 × 96. Any other literal is a
-defect.
+defect. DLG-2 adds `--surface-overlay` (the sticky footer's ground), `--space-1`,
+`--weight-body` and the `--ink`/`--ink-secondary`/`--ink-muted` aliases the rest of the file
+already reads; no literal.
 
 ## 6. Themes
 
@@ -437,7 +533,7 @@ once, on the confirm — the one place the law reserves it.
 
 ## 7. Test hooks (closed contract, C-05)
 
-Routes: none. Test ids, exactly these nine, on the elements ruled in §1:
+Routes: none. Test ids, exactly these nine (eleven since DLG-2, below), on the elements ruled in §1:
 `consequence-dialog` (the wrapper, `data-act-type`) · `consequence-subject-row` (each
 `<li>`, `data-subject`, and since DLG-1 `data-standing-before`/`-after` where the subject carries
 a standing) · `consequence-effect-lines` and `consequence-effect-signatures`
@@ -468,6 +564,27 @@ key re-read at 3.3528 m), `first-reading` (1F not stated → agreed at 3.048 m, 
 **none**), `roles` (the participants sample below). Baselines: `consequence-dialog-open.png`
 (J-003) MOVES — the overline is words, the digest is behind Details — and is re-taken by the gate
 (`pnpm e2e:retake`, a `baseline:` commit), never by hand.
+
+DLG-2 adds two ids, eleven in all: `consequence-change-group` (each counted change row,
+`data-held`, `data-before`, `data-after` — the raw values, `data-count`; its members keep
+`consequence-subject-row` inside its disclosure) and `consequence-pinning` (the pin's sentences,
+`data-revision`, `data-count`). A shut-for-nothing door says so on `data-shut="moves-nothing"`
+(s-schedules). DLG-2's acceptance (jsdom, `consequence-held.test.tsx`): 29 sheets confirmed to one
+discipline render one change row whose sentence is **‹29› sheets from Unassigned to Structural**,
+with no `STRUCTURAL`, no **none** and no sheet title on the dialog's face, and all 29 subject rows,
+in the seam's order, inside its closed disclosure; one sheet reads as its own row in words; two
+changes are two rows; the raw values stand in Details; a role change keeps its rows verbatim and
+Details adds no values list; a pin says its record and standing sentences, counts three re-cited
+drawings in one row, keeps an unchanged and a first-cited drawing as their own rows in words, puts
+no 40-plus-character run on the face and every content address in Details; drawings a pin leaves as
+they were read **stay at**; the footer rule is sticky with the negative inset and the split margin.
+The seam's half is live: the pin preview's `pinning` and each member's `held` ordinal (the
+re-uploaded member at revision 2), digest-blind, in `tests/takeoff/sets/pin-set.test.ts`, and
+each discipline subject's `held` in `tests/takeoff/sheets/confirm-discipline.test.ts`. Gallery:
+`ConsequenceSummary` gains `disciplines` (29 authored sheets to Structural) and `pin` (a set's
+second pin over five authored drawings). Pictures: a dialog whose consequence fits paints as
+before (I-562); the gallery walk's two new states are new pictures, and any journey picture of
+a discipline or pin dialog moves — re-taken by the gate, never by hand.
 
 Behavioural hooks without new ids: `aria-busy` on the wrapper while pending and on the
 confirm while committing; `data-variant="act"` and the `act-dot` on the confirm;

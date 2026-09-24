@@ -15,7 +15,7 @@ import { and, drawingSetMembers, drawingSetRevisions, drawingSets, eq, isUuid, t
 import type { RefusalCode } from "../errors";
 import { refusal } from "../faults/refusal-marker";
 import { currentSetRevisionOf, lineagesOf, manifestDigest, orderedManifest, type DrawingLineage, type ManifestMember, type SetRevisionRecord } from "../sets";
-import type { Consequence, ConsequenceSubject } from "./consequence";
+import type { Consequence, ConsequencePinning, ConsequenceSubject } from "./consequence";
 import type { ActRendering, ActorCtx, WrittenAct } from "./rendering";
 
 /** The act this file renders, spelled once. */
@@ -43,6 +43,11 @@ export function setNotPinnable(setId: string): Error {
 type Pinning = {
   readonly members: readonly DrawingLineage[];
   readonly standing: SetRevisionRecord | null;
+  /** The set's name, and how many revisions of it are pinned already — presentation (I-561). */
+  readonly setName: string;
+  readonly pinned: number;
+  /** Every revision of every drawing this project holds, by id, at its ordinal — a cited member the set no longer names included. */
+  readonly ordinals: ReadonlyMap<string, number>;
 };
 
 /**
@@ -58,11 +63,12 @@ async function pinningOf(ctx: ActorCtx, input: PinDrawingSetInput, tx: TenantTx)
   const scope = { tenantId: ctx.tenantId, projectId: input.projectId };
 
   const held = await tx
-    .select({ setId: drawingSets.setId })
+    .select({ setId: drawingSets.setId, name: drawingSets.name })
     .from(drawingSets)
     .where(and(eq(drawingSets.tenantId, ctx.tenantId), eq(drawingSets.setId, input.setId), eq(drawingSets.projectId, input.projectId)))
     .limit(1);
-  if (held[0] === undefined) throw setNotPinnable(input.setId);
+  const set = held[0];
+  if (set === undefined) throw setNotPinnable(input.setId);
 
   const named = new Set(
     (
@@ -73,10 +79,17 @@ async function pinningOf(ctx: ActorCtx, input: PinDrawingSetInput, tx: TenantTx)
     ).map((row) => row.drawingId),
   );
 
-  const members = (await lineagesOf(tx, scope)).filter((lineage) => named.has(lineage.drawingId));
+  const lineages = await lineagesOf(tx, scope);
+  const members = lineages.filter((lineage) => named.has(lineage.drawingId));
   if (members.length === 0) throw setNotPinnable(input.setId);
 
-  return { members, standing: await currentSetRevisionOf(tx, scope, input.setId) };
+  const pinned = await tx
+    .select({ setRevisionId: drawingSetRevisions.setRevisionId })
+    .from(drawingSetRevisions)
+    .where(and(eq(drawingSetRevisions.tenantId, ctx.tenantId), eq(drawingSetRevisions.setId, input.setId)));
+  const ordinals = new Map(lineages.flatMap((lineage) => lineage.revisions.map((revision) => [revision.revisionId, revision.ordinal] as const)));
+
+  return { members, standing: await currentSetRevisionOf(tx, scope, input.setId), setName: set.name, pinned: pinned.length, ordinals };
 }
 
 /** The manifest this pin would record: every member at the revision it stands at now (I-D). */
@@ -109,9 +122,30 @@ function subjectsOf(pinning: Pinning): ConsequenceSubject[] {
       subjectLabel: lineage?.name ?? before?.name ?? drawingId,
       before: before === undefined ? [] : [before.sha256],
       after: lineage === undefined ? [] : [lineage.current.sha256],
+      // I-560: the content addresses said as the revisions they are. A cited revision this project
+      // no longer holds has no ordinal to say, and reads as not cited rather than as a guessed number.
+      held: {
+        kind: "DRAWING_REVISION",
+        before: before === undefined ? null : (pinning.ordinals.get(before.revisionId) ?? null),
+        after: lineage === undefined ? null : lineage.current.ordinal,
+      },
     });
   }
   return subjects;
+}
+
+/**
+ * What the pin adds up to, as the set screen names it (I-561): this set, as its next revision,
+ * citing this many drawings. Revisions are counted from 1 in the order they were pinned — the order
+ * the set screen lists them in, newest first.
+ */
+function pinningWords(pinning: Pinning): ConsequencePinning {
+  return {
+    setName: pinning.setName,
+    revision: pinning.pinned + 1,
+    standing: pinning.pinned === 0 ? null : pinning.pinned,
+    drawings: pinning.members.length,
+  };
 }
 
 /** The subjects' own order, fixed rather than left to how the two rosters were read (L-ACT-02). */
@@ -121,12 +155,14 @@ function orderedIds(ids: readonly string[]): string[] {
 
 export const pinDrawingSet: ActRendering<PinDrawingSetInput> = {
   async preview(ctx: ActorCtx, input: PinDrawingSetInput, tx: TenantTx): Promise<Consequence> {
+    const pinning = await pinningOf(ctx, input, tx);
     return {
       actType: PIN_DRAWING_SET,
       tenantId: ctx.tenantId,
       projectId: input.projectId,
       rendering: "SUBJECTS",
-      subjects: subjectsOf(await pinningOf(ctx, input, tx)),
+      subjects: subjectsOf(pinning),
+      pinning: pinningWords(pinning),
     };
   },
 

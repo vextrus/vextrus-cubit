@@ -64,6 +64,30 @@ export const consequenceDialog = {
   consequence_dialog_details_act: "Act",
   consequence_dialog_details_lines: "Line ids",
   consequence_dialog_details_signatures: "Signature ids",
+
+  // I-560: a subject's values in the words its vocabulary is read in, and the subjects making one
+  // change counted together, each one press away.
+  consequence_dialog_discipline_none: "Unassigned",
+  consequence_dialog_discipline_structural: "Structural",
+  consequence_dialog_discipline_architectural: "Architectural",
+  consequence_dialog_discipline_mep: "MEP",
+  consequence_dialog_discipline_civil: "Civil",
+  consequence_dialog_discipline_other: "Other",
+  consequence_dialog_revision: "Revision {ordinal}",
+  consequence_dialog_revision_none: "Not cited",
+  consequence_dialog_change_sheets: "{count} sheets from {before} to {after}",
+  consequence_dialog_same_sheets: "{count} sheets stay {after}",
+  consequence_dialog_members_sheets: "Show the {count} sheets",
+  consequence_dialog_change_drawings: "{count} drawings from {before} to {after}",
+  consequence_dialog_same_drawings: "{count} drawings stay at {after}",
+  consequence_dialog_members_drawings: "Show the {count} drawings",
+  consequence_dialog_details_values: "Recorded values",
+
+  // I-561: what a pin records, in the set screen's words.
+  consequence_dialog_pin_records: "Pins {set} as its revision {revision}, citing {count} drawings at the revision each stands at now.",
+  consequence_dialog_pin_records_one: "Pins {set} as its revision {revision}, citing 1 drawing at the revision it stands at now.",
+  consequence_dialog_pin_first: "The set has never been pinned before.",
+  consequence_dialog_pin_standing: "Revision {revision} stays exactly as it was pinned.",
 } as const;
 
 // R-SPINE-060's per-module convention is that a table file's DESIGNATED export is the one named for

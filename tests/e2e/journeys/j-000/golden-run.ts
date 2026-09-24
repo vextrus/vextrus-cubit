@@ -844,7 +844,9 @@ async function transcribeNotes(page: Page, tenantId: string, projectId: string):
     await expect(row, `the sheet rail lists "${sheet}", which holds general notes`).toBeVisible({ timeout: 60_000 });
     await row.click();
     await expect(schedules.notes, `the notes panel of "${sheet}" stands`).toBeVisible({ timeout: 60_000 });
-    if (!(await appears(schedules.transcribe, 5_000))) {
+    // A door shut because every figure already stands (consequence-dialog I-563) is the same
+    // answer as no door: there is nothing on this sheet to transcribe.
+    if (!(await appears(schedules.transcribe, 5_000)) || (await heldAttribute(schedules.transcribe, "data-shut", "the transcribe door")) === "moves-nothing") {
       process.stdout.write(`J-000 golden run: "${sheet}" offers no reading to transcribe — its figures already stand, or it proposes none\n`);
       continue;
     }
