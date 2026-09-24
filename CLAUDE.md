@@ -149,15 +149,18 @@ pypdfium2 and Typst moves re-key corpora or document bytes and are the owner's c
   free of raw control bytes and use `command grep` when a search says "no match" where it should not.
   `git apply --3way` STAGES what it applies. A failed Edit means your copy is stale: re-read and edit.
 
-## Where the product stands (session 7's close; the handoffs hold the proofs)
-- M0–M2 done. M3: every leg walks except `m3-bar-schedule` (the ties need the joint depth and FRM-3);
-  beams publish PARTIAL until FRM-4; R0 (about 78 golden cells unreachable from the drawing as drawn,
-  about 15 disagreeing) is the owner's ruling. M4: four named MISSING DOORs, not started.
+## Where the product stands (session 8's close; the handoffs hold the proofs)
+- M0–M2 done. M3: every leg walks except `m3-bar-schedule` (the ties: A′ under D-003, owner-ruled);
+  beams publish PARTIAL until FRM-4; R0 = regenerate and draw all (owner-ruled) — R0-G0 merged, G1/G2
+  held with FND-OWN until wave 3a's edition. M4: four named MISSING DOORs, their foundations merged
+  (S-Measure and S-Ask Decisions, the manual act and tools, Ask's engine, vector PDF, F-ARCH and its
+  schedules). Held branches and why: `docs/handoff/session-8.md` §6.
 - J-000's read-back of the BNBC project is the ground a session starts from (`readback` skill): column
   concrete 208 COMPLETE lines, 93.892896 m³; piles 89 / 372.848929 m³; caps 26 / 128.781275 m³, formwork
-  254.132613 m²; beams 172 objects, 344 lines, all PARTIAL; no orphan lines (I-368).
-- verify reads ~47–53 s warm against 60 (gate 3: 47.51 s; cad ~35 s on six workers; unit ~44 s and lint
-  ~39 s are the walls); the first verify after a reboot, or after a cad input is committed, runs cold.
+  254.132613 m² (over-measured by the pile heads and the PC5 recess — FND-OWN, held, fixes it); beams
+  356 objects (1 on no level: S-13's LB1 placeholder), 710 lines, all PARTIAL; no orphan lines (I-368).
+- verify reads ~55–60 s warm against 60 (cad ~37 s, unit ~52 s, lint ~43 s); the first verify after a
+  reboot, after a cad input moved or after a failed build runs cold.
 
 ## Compact instructions
 When the context is compacted, the summary carries, verbatim where it can: the session's goal and
