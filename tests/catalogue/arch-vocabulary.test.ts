@@ -46,8 +46,8 @@ const ARCH_KINDS: readonly string[] = Object.freeze(["finish.flooring", "finish.
 const OPENING = "opening";
 
 /** A group of one line, as a section hands `numberItems` one. */
-function group(klass: string, kind: string): { class: string; kind: string; lines: { lineId: string; objectKey: string; levelOrdinal: number }[] } {
-  return { class: klass, kind, lines: [{ lineId: `${klass}|${kind}`, objectKey: `${klass}:${kind}`, levelOrdinal: 1 }] };
+function group(klass: string, kind: string): { class: string; kind: string; items: { key: string; levelOrdinal: number }[] } {
+  return { class: klass, kind, items: [{ key: `${klass}|${kind}`, levelOrdinal: 1 }] };
 }
 
 describe("ARCH-2: F-ARCH's vocabulary is appended, so no drafted bill renumbers", () => {

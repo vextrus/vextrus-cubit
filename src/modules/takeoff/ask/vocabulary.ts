@@ -37,6 +37,7 @@ export const CLASS_WORDS: Phrases<ElementType> = Object.freeze({
   lintel: ["lintel", "lintels"],
   brick_wall: ["brick wall", "brick walls"],
   surface: ["surface", "surfaces"],
+  opening: ["opening", "openings", "door", "doors", "window", "windows"],
 });
 
 /** `wall` on its own, and the two classes it may mean. */
@@ -58,6 +59,9 @@ export const KIND_WORDS: Phrases<Kind> = Object.freeze({
   "masonry.brickwork": ["brickwork", "brick work", "masonry"],
   "finish.plaster": ["plaster", "plastering"],
   "finish.paint": ["paint", "painting"],
+  "finish.flooring": ["flooring", "floor finish", "floor finishes", "floor finishing"],
+  "finish.tiling": ["tiling", "tiles", "tile", "wall tiles", "dado"],
+  "finish.skirting": ["skirting", "skirtings"],
   "rcc.rebar": ["rebar", "rod", "rods", "ms rod", "steel", "reinforcement", "reinforcing", "bars", "bar"],
 });
 
