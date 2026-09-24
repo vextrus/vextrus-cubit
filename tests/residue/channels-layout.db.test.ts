@@ -43,14 +43,21 @@ const LAYOUT = "LAYOUT";
 /** A source key of the committed fixture, by its handle — the extractor identity pins them. */
 const handle = (hex: string): string => `DXF_HANDLE:${hex}`;
 
-/** The six views the plans place members in: the caption's handle, the class, the sheet's NUMBER. */
+/**
+ * The seven views the plans place members in: the caption's handle, each class it places, the sheet's
+ * NUMBER. TEST_AMENDED (R0 Rev C): F1's footing in ring 638 on S-06 (W-44), and the stair-roof layout
+ * 2157 on S-15 with its two C4 stubs and SB-R1..SB-R4 (W-49) — one row per view and class.
+ */
 const VIEWS: readonly (readonly [string, string, string])[] = [
   ["20B6", "column", "S-10"],
   ["1FEB", "pile", "S-04"],
   ["202C", "pile_cap", "S-06"],
+  ["202C", "footing", "S-06"],
   ["2116", "beam", "S-13"],
   ["F31", "beam", "S-14"],
   ["10C1", "beam", "S-15"],
+  ["2157", "column", "S-15"],
+  ["2157", "beam", "S-15"],
 ];
 
 type SightingRow = { class: string; levelId: string | null; channel: string; drawingId: string; layoutName: string; sourceKey: string; declared?: boolean };
@@ -188,7 +195,7 @@ describe("RES-1: the layout channel sees every stored placement in its view (I-5
     ).map((row) => ({ ingestId: row[0] ?? "", viewKey: row[1] ?? "", class: row[2] ?? "" }));
     expect(members.length, "the partition stored every member the plans place").toBe(read.placed.placements.length);
     const byClass = (klass: string): number => members.filter((member) => member.class === klass).length;
-    expect([byClass("column"), byClass("pile"), byClass("pile_cap")], "the 27 columns, 89 piles and 26 caps the read-back stands on, and the beams of three layouts").toEqual([27, 89, 26]);
+    expect([byClass("column"), byClass("pile"), byClass("pile_cap"), byClass("footing")], "29 columns (S-10's 27 and Rev C's two C4 stubs), 89 piles, 26 caps and Rev C's F1, and the beams of four layouts").toEqual([29, 89, 26, 1]);
     expect(membershipOf(views, members).length, "and the channel's join meets every one in its view — none is lost").toBe(members.length);
   });
 
@@ -203,7 +210,7 @@ describe("RES-1: the layout channel sees every stored placement in its view (I-5
 describe("RES-1: a coverage read-back names the sheet per sighting (I-548)", () => {
   test("RES-1: a layout sighting names the sheet its view stands on", () => {
     const layout = sightings.filter(placedThrough(LAYOUT));
-    expect(layout.length, "the six views the plans place members in are each sighted").toBe(VIEWS.length);
+    expect(layout.length, "each class in each of the seven views the plans place members in is sighted").toBe(VIEWS.length);
     for (const sighting of layout) {
       const anchor = viewRefOf(sighting.sourceKey)?.captionAnchorSourceKey ?? "";
       expect(numberOf(sighting.layoutName), `the ${sighting.class} view anchored at ${anchor} stands on ${sheetOfCaption(anchor) ?? "?"}`).toBe(sheetOfCaption(anchor));
@@ -225,10 +232,10 @@ describe("RES-1: a coverage read-back names the sheet per sighting (I-548)", () 
     }
     const expected = new Map<string, number>();
     for (const [caption, klass, sheet] of VIEWS) {
-      const placed = read.placed.placements.filter((placement) => viewRefOf(placement.viewKey)?.captionAnchorSourceKey === handle(caption)).length;
+      const placed = read.placed.placements.filter((placement) => viewRefOf(placement.viewKey)?.captionAnchorSourceKey === handle(caption) && placement.elementType === klass).length;
       expected.set(`${klass}@${sheet}`, (expected.get(`${klass}@${sheet}`) ?? 0) + placed);
     }
-    expect(Object.fromEntries(bySheet), "columns on S-10, piles on S-04, caps on S-06, beams on S-13, S-14 and S-15").toEqual(Object.fromEntries(expected));
+    expect(Object.fromEntries(bySheet), "columns on S-10 and S-15, piles on S-04, caps and F1 on S-06, beams on S-13, S-14 and S-15").toEqual(Object.fromEntries(expected));
   });
 
   test("RES-1: the register's sighting names the sheet its placement stands on", () => {
@@ -239,7 +246,7 @@ describe("RES-1: a coverage read-back names the sheet per sighting (I-548)", () 
 
   test("RES-1: a caption's declaration names the sheet the caption stands on", () => {
     const declared = sightings.filter((sighting) => sighting.declared === true && sheetOfCaption(sighting.sourceKey) !== undefined);
-    expect(declared.length, "the six plans' captions declare what they place").toBeGreaterThan(0);
+    expect(declared.length, "the seven plans' captions declare what they place").toBeGreaterThan(0);
     for (const sighting of declared) {
       expect(numberOf(sighting.layoutName), `the caption at ${sighting.sourceKey} stands on ${sheetOfCaption(sighting.sourceKey) ?? "?"}`).toBe(sheetOfCaption(sighting.sourceKey));
     }
@@ -264,8 +271,12 @@ describe("RES-1: a coverage read-back names the sheet per sighting (I-548)", () 
     expect(columnCells.length, "the sighted column bears cells").toBeGreaterThan(0);
     for (const cell of columnCells) {
       const layout = cell.sightings.filter(placedThrough(LAYOUT));
-      expect(layout.length, `${cell.kind} on ${cell.class} carries the column layout plan's own sighting`).toBe(1);
-      expect(numberOf((layout[0] as SightingRow).layoutName), "on S-10").toBe("S-10");
+      // TEST_AMENDED (R0 Rev C, W-49): the stair-roof layout 2157 places the two C4 stubs, so a column
+      // cell carries two plans' sightings — S-10's column layout plan and S-15's stair-roof layout.
+      expect(
+        layout.map((sighting) => `${viewRefOf(sighting.sourceKey)?.captionAnchorSourceKey ?? ""}@${numberOf(sighting.layoutName) ?? "model"}`).sort(),
+        `${cell.kind} on ${cell.class} carries each column plan's own sighting, on its own sheet`,
+      ).toEqual([`${handle("20B6")}@S-10`, `${handle("2157")}@S-15`]);
     }
   });
 });
