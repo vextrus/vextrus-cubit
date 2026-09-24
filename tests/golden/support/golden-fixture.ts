@@ -101,12 +101,16 @@ export const PRODUCT_TO_GOLDEN_KIND: Readonly<Record<string, string>> = Object.f
   "pcc.blinding": "BLINDING",
   "piling.bored": "PILE_COUNT",
   "piling.boring": "PILE_LENGTH",
-  // The finish kinds F-ARCH's golden bills (session 8). F-ARCH also carries FLOORING, WALL_TILE,
-  // SKIRTING, OPENING_COUNT and OPENING_AREA rows, whose product kinds do not exist yet: the kind
-  // that lands for each (ARCH-2) adds its spelling here, and tests/golden/arch-golden.test.ts
-  // refuses an ARCHITECTURAL kind with no spelling that has rows.
+  // The finish kinds F-ARCH's golden bills (session 8). tests/golden/arch-golden.test.ts refuses an
+  // ARCHITECTURAL kind with no spelling that has rows.
   "finish.plaster": "PLASTER",
   "finish.paint": "PAINT",
+  // F-ARCH's own finishes (ARCH-2, I-541): the floor finish, the wall's tiled dado and the
+  // skirting. F-ARCH's OPENING_COUNT and OPENING_AREA rows have no product kind yet — what an opening
+  // is billed as lands with the rail that counts it — and so no spelling here.
+  "finish.flooring": "FLOORING",
+  "finish.tiling": "WALL_TILE",
+  "finish.skirting": "SKIRTING",
 });
 
 /**

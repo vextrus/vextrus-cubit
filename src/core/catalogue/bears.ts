@@ -77,6 +77,16 @@ export const BEARS: readonly BearsRow[] = Object.freeze([
   Object.freeze({ class: "stair", kind: "rcc.concrete" }),
   Object.freeze({ class: "stair", kind: "rcc.formwork" }),
   Object.freeze({ class: "slab", kind: "pcc.blinding" }),
+  // The architect's finishes (F-ARCH, AM-16(4), I-541): a SURFACE bears its floor finish, its wall
+  // tiling and its skirting as it bears its plaster and its paint — a finish is borne by the face it
+  // is applied to, never by the member behind it (L-MEA-03). Which face bears which finish, and to
+  // what height, is the room finish schedule's to say, per face, before anything is offered; the
+  // relation only says a surface lawfully CAN (L-MEA-04). The OPENING class bears nothing yet and
+  // says so in the unborne set below: what a door or a window is billed as — its joinery, counted
+  // off the schedule — lands with the rail that counts it (I-540).
+  Object.freeze({ class: "surface", kind: "finish.flooring" }),
+  Object.freeze({ class: "surface", kind: "finish.tiling" }),
+  Object.freeze({ class: "surface", kind: "finish.skirting" }),
 ] as const);
 
 /** The classes that bear at least one kind, as a set — read off the relation itself. */

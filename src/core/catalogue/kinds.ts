@@ -23,6 +23,15 @@ export const KINDS = [
   // else: `rebar` is neither a dimension, a unit, an element class, a pricing role nor a book code,
   // which is why the bars a member holds are `rcc.rebar` and never anything spelling MASS or `kg`.
   "rcc.rebar",
+  // The architect's finishes beyond plaster and paint (AM-16(4): "floor and wall finishes"), each a
+  // trade a Dhaka bill prices by itself (I-541). `finish.flooring` is the floor finish, whatever it
+  // is laid in; `finish.tiling` is tile fixed to a wall's face, the dado a kitchen and a toilet carry;
+  // `finish.skirting` is the band at a wall's foot, run along the room. None spells `floor` or `wall`
+  // as a word of its own, for the reason the masonry kinds give above. APPENDED after the rebar,
+  // never inserted beside the paint: a bill numbers its groups in this roster's order (AM-14 §2).
+  "finish.flooring",
+  "finish.tiling",
+  "finish.skirting",
 ] as const;
 
 /** One quantity kind, drawn from the closed roster above. */

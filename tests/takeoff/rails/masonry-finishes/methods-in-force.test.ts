@@ -11,6 +11,13 @@
  * the line's variables so a reader can see the rule that retained what was retained, and a figure
  * that moved when the threshold moved would be a figure the threshold was subtracted from. That is
  * asked here as behaviour — two thresholds, one figure — rather than by reading the tree.
+ *
+ * F-ARCH's finishes (ARCH-2) record four more pairs in the same shard and are graded by the same
+ * cases: the floor finish of a room's floor over the face algebra's `A = gross − openings`, the
+ * plaster and the paint of one run of a room's walls over `A = P × (H − f) − openings` and its tiled
+ * dado over `A = P × h − openings` (I-542, I-543). The case that asks the seed to cite every
+ * enumerated pair is answered by the seed's own derivation; the minted row that cites them is the
+ * edition-drift guard's to judge.
  */
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
@@ -18,12 +25,16 @@ import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 import { SEED_VERSION } from "../../../rulesets/support/editions";
 import {
+  ARCH_FINISH_PAIRS,
   AREA,
   BRICK_WALL_VOLUME_RULE_ID,
   EXPR_MODULE,
+  FINISH_FLOORING,
   FINISH_OPENING_CHANNEL,
   FINISH_PAINT,
   FINISH_PLASTER,
+  FINISH_TILING,
+  FLOORING_RULE_ID,
   LENGTH,
   MASONRY_BRICKWORK,
   MASONRY_PAIRS,
@@ -38,6 +49,10 @@ import {
   SEED_EDITION_VERSION,
   SEED_MODULE,
   VOLUME,
+  WALL_FACE_PAINT_RULE_ID,
+  WALL_FACE_PLASTER_RULE_ID,
+  WALL_FACE_RULE_IDS,
+  WALL_FACE_TILING_RULE_ID,
   canon,
   masonryMethod,
   methodsRegistry,
@@ -86,6 +101,38 @@ const DECLARED: readonly { ruleId: string; kind: string; dimension: string; chan
       { name: "threshold", dimension: AREA },
     ],
   },
+  // F-ARCH's finishes (ARCH-2, I-542): a room's floor is a face of a space like any other, so the
+  // floor finish declares exactly the face algebra's readings, on the finish's own channel.
+  {
+    ruleId: FLOORING_RULE_ID,
+    kind: FINISH_FLOORING,
+    dimension: AREA,
+    channel: FINISH_OPENING_CHANNEL,
+    variables: [
+      { name: "gross", dimension: AREA },
+      { name: "openings", dimension: AREA },
+      { name: "threshold", dimension: AREA },
+    ],
+  },
+  // And one run of a room's walls (I-543): the run and the heights are LENGTHS the method
+  // multiplies and subtracts, because a rail has no field a product or a difference could land in
+  // (L-MEA-08). The plaster and the paint cover the band from its floor `f` (the schedule's skirting
+  // or dado top) to the run's clear height `H` (the structure's); the tiling covers the dado `h`.
+  ...[
+    { ruleId: WALL_FACE_PLASTER_RULE_ID, kind: FINISH_PLASTER, heights: ["H", "f"] },
+    { ruleId: WALL_FACE_PAINT_RULE_ID, kind: FINISH_PAINT, heights: ["H", "f"] },
+    { ruleId: WALL_FACE_TILING_RULE_ID, kind: FINISH_TILING, heights: ["h"] },
+  ].map(({ heights, ...wallFace }) => ({
+    ...wallFace,
+    dimension: AREA,
+    channel: FINISH_OPENING_CHANNEL,
+    variables: [
+      { name: "P", dimension: LENGTH },
+      ...heights.map((name) => ({ name, dimension: LENGTH })),
+      { name: "openings", dimension: AREA },
+      { name: "threshold", dimension: AREA },
+    ],
+  })),
 ];
 
 /**
@@ -95,7 +142,10 @@ const DECLARED: readonly { ruleId: string; kind: string; dimension: string; chan
  */
 const BOUND: Readonly<Record<string, string>> = Object.freeze({
   L: "6.4",
+  P: "17.35",
   h: "2.9028",
+  H: "2.923",
+  f: "0.1016",
   t: "0.25",
   gross: "42.35",
   openings: "3.17",
@@ -119,6 +169,12 @@ function owed(ruleId: string, exact: (value: string) => DecimalLike): DecimalLik
   // V = (L × h − openings) × t — the wall's face, net of what was deducted, times its nominal
   // thickness per level (R-TO-032, L-MEA-02).
   if (ruleId === BRICK_WALL_VOLUME_RULE_ID) return v("L").mul(v("h")).sub(v("openings")).mul(v("t"));
+  // A = P × h − openings — the tiled dado of one run of a room's walls, from the floor to the dado's
+  // top, net of what its openings deducted (L-MEA-03, I-543).
+  if (ruleId === WALL_FACE_TILING_RULE_ID) return v("P").mul(v("h")).sub(v("openings"));
+  // A = P × (H − f) − openings — the plaster or the paint of one run: from the band's floor to the
+  // clear height of the soffit over it, net of what its openings deducted (L-MEA-03, I-543).
+  if (WALL_FACE_RULE_IDS.includes(ruleId)) return v("P").mul(v("H").sub(v("f"))).sub(v("openings"));
   // A = gross − openings — "net = gross − Σ(deducted openings) per surface group" (L-MEA-03).
   return v("gross").sub(v("openings"));
 }
@@ -139,10 +195,13 @@ function shard(): Shard {
 }
 
 describe("AC-2: the three masonry and finish methods are in force", () => {
-  test("AC-2: the shard records exactly the three pairs, each citing the clause it measures by", () => {
+  test("AC-2: the shard records exactly the three pairs and F-ARCH's four, each citing the clause it measures by", () => {
     const recorded = shard();
-    const owedKeys = MASONRY_PAIRS.map((pair) => `${pair.ruleId}@${pair.version}`).sort();
-    expect(Object.keys(recorded.methods ?? {}).sort(), `${MASONRY_SHARD} records exactly this shard's three pairs, keyed \`<ruleId>@<version>\` (L-MEA-01)`).toEqual(owedKeys);
+    const owedKeys = [...MASONRY_PAIRS, ...ARCH_FINISH_PAIRS].map((pair) => `${pair.ruleId}@${pair.version}`).sort();
+    expect(
+      Object.keys(recorded.methods ?? {}).sort(),
+      `${MASONRY_SHARD} records exactly this shard's three pairs and the four F-ARCH's finishes add (ARCH-2), keyed \`<ruleId>@<version>\` (L-MEA-01)`,
+    ).toEqual(owedKeys);
     for (const [key, row] of Object.entries(recorded.methods ?? {})) {
       expect(`${String(row.ruleId)}@${String(row.version)}`, `${key} restates the pair its key names`).toBe(key);
       expect(typeof row.module, `${key} names the module that computes it`).toBe("string");
@@ -159,7 +218,7 @@ describe("AC-2: the three masonry and finish methods are in force", () => {
   test("AC-2: the registry enumerates each pair exactly once", async () => {
     const registry = await methodsRegistry();
     const enumerated = registry.enumerateMethods().map((pair: MethodPairShape) => `${pair.ruleId}@${pair.version}`);
-    for (const pair of MASONRY_PAIRS) {
+    for (const pair of [...MASONRY_PAIRS, ...ARCH_FINISH_PAIRS]) {
       expect(
         enumerated,
         `\`enumerateMethods()\` answers ${pair.ruleId}@${pair.version} — a method not enumerated is a method no edition can cite (L-MEA-01)`,

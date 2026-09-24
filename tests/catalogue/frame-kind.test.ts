@@ -36,6 +36,7 @@ import {
   productModule,
   railsRoster,
 } from "../takeoff/rails/support/frame-rail-stage";
+import { ARCH_FINISH_KINDS } from "../takeoff/rails/masonry-finishes/support/masonry-contract";
 
 /** The discipline and the algebra the new kind stands in (AC-1). */
 const STRUCTURAL = "STRUCTURAL";
@@ -119,6 +120,25 @@ const RECONCILED_BEARS: readonly { class: string; kind: string }[] = Object.free
   { class: "slab", kind: "pcc.blinding" },
 ]);
 
+/**
+ * And what F-ARCH's VOCABULARY appends after those (ARCH-2, I-541): the floor finish, a wall's
+ * tiling and its skirting, each borne by the surface — three kinds and three `bears` rows, appended at
+ * the end of both rosters so no bill's group ordinals move. Re-baselined here for the same reason as
+ * the rosters above.
+ *
+ * They are the catalogue's before any rail measures them: until a rail lands for one, a sighted
+ * surface's cell of it reads `NOT_ESTABLISHED` (I-336's reading), so the roster the measure job runs
+ * does NOT answer them yet, and the case below says so by name — the rail that lands for one moves it
+ * from this list to MEASURED_KINDS.
+ */
+const ARCH_VOCABULARY_KINDS: readonly string[] = ARCH_FINISH_KINDS;
+
+const ARCH_VOCABULARY_BEARS: readonly { class: string; kind: string }[] = Object.freeze([
+  { class: "surface", kind: "finish.flooring" },
+  { class: "surface", kind: "finish.tiling" },
+  { class: "surface", kind: "finish.skirting" },
+]);
+
 /** Every kind the product measures, frame first, in the order the closed roster names them. */
 const MEASURED_KINDS: readonly string[] = Object.freeze([...FRAME_KINDS, ...FOUNDATIONS_KINDS, ...MASONRY_KINDS, ...REBAR_KINDS]);
 
@@ -127,9 +147,10 @@ describe("AC-1: rcc.formwork is a kind the product measures", () => {
     const kinds = await productModule<{ KINDS: readonly string[]; isKind: (value: unknown) => boolean }>(KINDS_MODULE);
     const law = await productModule<{ offendingTokens: (name: string) => readonly { token: string; vocabulary: string }[] }>(KIND_LAW_MODULE);
 
-    expect([...kinds.KINDS], `${KINDS_MODULE} closes over the two kinds this area measures, concrete first, and the foundations leaf's four beside them (AC-1)`).toEqual([
-      ...MEASURED_KINDS,
-    ]);
+    expect(
+      [...kinds.KINDS],
+      `${KINDS_MODULE} closes over the two kinds this area measures, concrete first, and the foundations leaf's four beside them, with F-ARCH's vocabulary appended last (AC-1, ARCH-2)`,
+    ).toEqual([...MEASURED_KINDS, ...ARCH_VOCABULARY_KINDS]);
     expect(kinds.isKind(RCC_FORMWORK), "and admits the new one as a kind — the closed list and its guard are one statement").toBe(true);
     expect(
       law.offendingTokens(RCC_FORMWORK),
@@ -175,6 +196,7 @@ describe("AC-1: rcc.formwork is a kind the product measures", () => {
       ...MASONRY_BEARS,
       ...REBAR_BEARS,
       ...RECONCILED_BEARS,
+      ...ARCH_VOCABULARY_BEARS,
     ];
     expect(
       bears.BEARS.map((row) => ({ class: row.class, kind: row.kind })),
@@ -226,5 +248,11 @@ describe("AC-1: rcc.formwork is a kind the product measures", () => {
       "a kind with no rail is a kind nothing measures, and a rail under no kind is never run: the roster is exactly the kinds this product measures (L-MEA-08)",
     ).toEqual([...MEASURED_KINDS].sort());
     for (const kind of MEASURED_KINDS) expect(typeof rails[kind], `${kind} is measured by a pure function (L-MEA-08)`).toBe("function");
+    for (const kind of ARCH_VOCABULARY_KINDS) {
+      expect(
+        rails[kind],
+        `${kind} is F-ARCH's vocabulary with no rail yet (ARCH-2): its sighted cells read NOT_ESTABLISHED until one lands, and the rail that lands moves it into MEASURED_KINDS`,
+      ).toBeUndefined();
+    }
   });
 });

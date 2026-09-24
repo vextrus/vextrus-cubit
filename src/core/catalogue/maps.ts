@@ -43,6 +43,12 @@ export const KIND_DISCIPLINE: Readonly<Record<Kind, Discipline>> = Object.freeze
   // Reinforcement is stated by the STRUCTURAL set and by nothing else: the bar schedules, the
   // detailing notes and the typical details a bill of bars is taken off are all the engineer's.
   "rcc.rebar": "STRUCTURAL",
+  // A floor finish, a wall's tiling and its skirting are stated by the ARCHITECTURAL set and by
+  // nothing else: the room finish schedule names each room's floor, dado and skirting and the plan
+  // bounds the room (F-ARCH, R-TO-036).
+  "finish.flooring": "ARCHITECTURAL",
+  "finish.tiling": "ARCHITECTURAL",
+  "finish.skirting": "ARCHITECTURAL",
 });
 
 /**
@@ -71,4 +77,11 @@ export const KIND_ALGEBRA: Readonly<Record<Kind, Algebra>> = Object.freeze({
   // a member's reinforcement is synthesised from that member's own schedule, never from a face of a
   // space and never from a network of runs (L-MEA-08, L-FRM-05).
   "rcc.rebar": "member",
+  // All three are FACES of a space — a room's floor, the tiled band of its walls, the foot of those
+  // walls — measured off the room's own outline less what its scheduled openings take out of it,
+  // which is the face algebra's own sentence. The skirting is the face's foot measured by its run
+  // rather than its area, and is no member and no network for that (L-MEA-08, I-541).
+  "finish.flooring": "face",
+  "finish.tiling": "face",
+  "finish.skirting": "face",
 });

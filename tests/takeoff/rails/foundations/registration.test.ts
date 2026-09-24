@@ -14,6 +14,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
+import { ARCH_FINISH_KINDS } from "../masonry-finishes/support/masonry-contract";
 import {
   BEARS_MODULE,
   CATALOGUE_DIR,
@@ -155,10 +156,18 @@ describe("AC-1: the foundations shard is registered — kinds, rails, bears and 
       expect(kinds.isKind(kind), "and its guard admits it — the closed list and its guard are one statement").toBe(true);
     }
     expect(new Set(kinds.KINDS).size, "the roster names each kind once").toBe(kinds.KINDS.length);
+    // F-ARCH's three finish kinds stand in the catalogue before any rail answers them (ARCH-2,
+    // I-541): a kind with no rail is a kind nothing measures (the roster is Partial on purpose,
+    // rails/law.ts), and their cells disclose it. They are named, so every OTHER kind still owes a
+    // rail here, and the rail that lands for one moves it out of this list.
     expect(
-      [...kinds.KINDS].sort(),
-      `the barrel measures every kind the catalogue closes over — a kind with no rail is a kind nothing measures (L-MEA-08); it answers ${JSON.stringify(Object.keys(rails).sort())}`,
+      [...kinds.KINDS].filter((kind) => !ARCH_FINISH_KINDS.includes(kind)).sort(),
+      `the barrel measures every kind the catalogue closes over but F-ARCH's three, which await their rail — a kind with no rail is a kind nothing measures (L-MEA-08); it answers ${JSON.stringify(Object.keys(rails).sort())}`,
     ).toEqual(Object.keys(rails).sort());
+    for (const kind of ARCH_FINISH_KINDS) {
+      expect([...kinds.KINDS], `the catalogue closes over \`${kind}\``).toContain(kind);
+      expect(rails[kind], `\`${kind}\` has no rail yet — the slice that measures room faces lands it (I-541)`).toBeUndefined();
+    }
     for (const [kind, rail] of Object.entries(roster)) {
       expect(rails[kind], `the barrel answers ${kind} with the area's own rail (AM-11: the barrel enumerates and never re-declares)`).toBe(rail);
     }

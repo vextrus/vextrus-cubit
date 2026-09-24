@@ -7,6 +7,13 @@
     "documentPrecision": 3
   },
   {
+    "kind": "finish.flooring",
+    "description": "Floor finish to surfaces, measured as the finished floor within the room's outline net of deducted openings and obstructions",
+    "dimension": "AREA",
+    "canonicalUnit": "m2",
+    "documentPrecision": 2
+  },
+  {
     "kind": "finish.paint",
     "description": "Paint to surfaces, measured as the painted face net of scheduled openings",
     "dimension": "AREA",
@@ -16,6 +23,20 @@
   {
     "kind": "finish.plaster",
     "description": "Plaster to surfaces, measured as the finished face net of scheduled openings",
+    "dimension": "AREA",
+    "canonicalUnit": "m2",
+    "documentPrecision": 2
+  },
+  {
+    "kind": "finish.skirting",
+    "description": "Skirting to wall surfaces, measured along the room's outline net of the widths of openings at floor level",
+    "dimension": "LENGTH",
+    "canonicalUnit": "m",
+    "documentPrecision": 2
+  },
+  {
+    "kind": "finish.tiling",
+    "description": "Tiling to wall surfaces, measured as the tiled band net of scheduled openings",
     "dimension": "AREA",
     "canonicalUnit": "m2",
     "documentPrecision": 2

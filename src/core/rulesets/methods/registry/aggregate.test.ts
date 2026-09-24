@@ -35,6 +35,16 @@ const byCodePoint = (left: string, right: string): number => (left < right ? -1 
 /**
  * Every pair the shards recorded before AM-11 moved a line, keyed `<ruleId>@<version>` (L-MEA-01).
  *
+ * Re-baselined by F-ARCH's FINISHES (ARCH-2, I-542, I-543) for FOUR ADDED pairs and nothing
+ * else — the floor finish of a room's floor, `finish.surface.flooring@1` over the face algebra's own
+ * `A = gross − openings`, and the plaster, the paint and the tiling of one run of a room's walls,
+ * `finish.wall_face.plaster@1` and `finish.wall_face.paint@1` over `A = P × (H − f) − openings` and
+ * `finish.wall_face.tiling@1` over `A = P × h − openings`, recorded in
+ * `../masonry-finishes/masonry-finishes.methods.json`. The roster
+ * grew by those four keys — forty pairs to forty-four — and no pair standing before them moved
+ * (B-19, B-20). No edition cites them yet: the edition that puts them in force is minted beside the
+ * wave's other methods.
+ *
  * Re-baselined by the MANUAL METHODS (session 8, S2; s-measure I-388, I-539) for ONE ADDED pair and
  * nothing else — `pcc.blinding.area@1`, the blinding under an outline a person traced,
  * `count × (A − openings − junctions) × t`, recorded in `../manual/manual.methods.json` by the new
@@ -89,8 +99,12 @@ const PAIRS_BEFORE: readonly string[] = Object.freeze([
   "conventions.resolve@1",
   "detailing.BNBC2020_BD@2026.07",
   "earthwork.pit_rect@1",
+  "finish.surface.flooring@1",
   "finish.surface.paint@1",
   "finish.surface.plaster@1",
+  "finish.wall_face.paint@1",
+  "finish.wall_face.plaster@1",
+  "finish.wall_face.tiling@1",
   "masonry.brick_wall.volume@1",
   "member.volume@1",
   "pcc.blinding.area@1",

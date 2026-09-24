@@ -5,7 +5,11 @@
 // `brick_wall` is the wall a mason builds and `surface` is L-MEA-03's own word for a face a finish is
 // applied to: a plaster is borne by the surface rather than by the wall behind it, so a face of a
 // slab soffit and a face of a brick wall are one class measured one way (R-TO-032, L-MEA-03).
-export const ELEMENT_TYPES = ["column", "beam", "slab", "footing", "pile_cap", "pile", "tie_beam", "shear_wall", "stair", "lintel", "brick_wall", "surface"] as const;
+// `opening` is a door, a window or a ventilator standing in a wall: the thing L-MEA-02's opening
+// schedule schedules and R-TO-036 places, and what a face and a wall deduct (I-540). It is
+// APPENDED, never inserted: a bill numbers its groups by this roster's order (AM-14 §2), so a class
+// slipped in among the others would renumber every item of every bill already drafted after it.
+export const ELEMENT_TYPES = ["column", "beam", "slab", "footing", "pile_cap", "pile", "tie_beam", "shear_wall", "stair", "lintel", "brick_wall", "surface", "opening"] as const;
 
 /** One element class, drawn from the closed roster above. */
 export type ElementType = (typeof ELEMENT_TYPES)[number];

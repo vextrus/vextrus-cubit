@@ -122,6 +122,31 @@ export const MASONRY_VERSION = "1";
 export const MASONRY_RULE_IDS: readonly string[] = Object.freeze([BRICK_WALL_VOLUME_RULE_ID, PLASTER_RULE_ID, PAINT_RULE_ID]);
 export const MASONRY_PAIRS: readonly MethodPairShape[] = Object.freeze(MASONRY_RULE_IDS.map((ruleId) => Object.freeze({ ruleId, version: MASONRY_VERSION })));
 
+/* ------------------------------------------------ F-ARCH's vocabulary (ARCH-2, I-540 … d) */
+
+/** The three finish kinds F-ARCH adds to the closed catalogue, appended after the rebar. */
+export const FINISH_FLOORING = "finish.flooring";
+export const FINISH_TILING = "finish.tiling";
+export const FINISH_SKIRTING = "finish.skirting";
+export const ARCH_FINISH_KINDS: readonly string[] = Object.freeze([FINISH_FLOORING, FINISH_TILING, FINISH_SKIRTING]);
+
+/** The class F-ARCH adds to the closed roster, appended after the surface: it bears nothing yet. */
+export const OPENING = "opening";
+
+/** The floor finish of a room's floor, over the face algebra's own tree. */
+export const FLOORING_RULE_ID = "finish.surface.flooring";
+
+/** The plaster and the paint of one run of a room's walls, `A = P × (H − f) − openings`, and its dado, `A = P × h − openings`. */
+export const WALL_FACE_PLASTER_RULE_ID = "finish.wall_face.plaster";
+export const WALL_FACE_PAINT_RULE_ID = "finish.wall_face.paint";
+export const WALL_FACE_TILING_RULE_ID = "finish.wall_face.tiling";
+export const WALL_FACE_RULE_IDS: readonly string[] = Object.freeze([WALL_FACE_PLASTER_RULE_ID, WALL_FACE_PAINT_RULE_ID, WALL_FACE_TILING_RULE_ID]);
+
+/** The four pairs F-ARCH's finishes record in this shard, each at the shard's version. */
+export const ARCH_FINISH_PAIRS: readonly MethodPairShape[] = Object.freeze(
+  [FLOORING_RULE_ID, ...WALL_FACE_RULE_IDS].map((ruleId) => Object.freeze({ ruleId, version: MASONRY_VERSION })),
+);
+
 /**
  * The identity the platform seed stands at (AC-2, interfaces), read off the seed's one spelling in
  * `tests/rulesets/support/editions.ts`: an edition is immutable, so a later shard is cited by a NEW

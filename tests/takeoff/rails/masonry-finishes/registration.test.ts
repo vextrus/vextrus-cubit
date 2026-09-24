@@ -18,6 +18,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 import {
+  ARCH_FINISH_KINDS,
+  ARCH_FINISH_PAIRS,
   AREA,
   BEARS_MODULE,
   BRICK_WALL,
@@ -27,16 +29,22 @@ import {
   CATALOGUE_MAPS_MODULE,
   CATALOGUE_MODULE,
   CLASSES_MODULE,
+  FINISH_FLOORING,
   FINISH_PAINT,
   FINISH_PLASTER,
+  FINISH_SKIRTING,
+  FINISH_TILING,
   KINDS_MODULE,
   KIND_LAW_MODULE,
+  LENGTH,
   MASONRY_BRICKWORK,
+  OPENING,
   REPO_ROOT,
   SHEETS_LAW_MODULE,
   SURFACE,
   VOLUME,
   canon,
+  masonryMethod,
   productModule,
 } from "./support/masonry-contract";
 
@@ -176,5 +184,129 @@ describe("AC-1: the masonry area is registered — kinds, classes, bears and the
       stage.status,
       `\`node ${CATALOGUE_DRIFT_SCRIPT}\` passes over the committed catalogue — a table re-emitted without re-recording its digest is drift (C-06):\n${`${stage.stdout ?? ""}${stage.stderr ?? ""}`.slice(-1200)}`,
     ).toBe(0);
+  });
+});
+
+/* ======================================================================= F-ARCH's vocabulary */
+
+/**
+ * ARCH-2 — F-ARCH's vocabulary, registered: one class and three kinds APPENDED to the closed rosters,
+ * the three `bears` rows the surface gains, the two total maps answering for them, and the four
+ * method pairs the registry resolves for them (R-TO-036, AM-16(4), L-MEA-03, L-MEA-04; I-540 …
+ * I-543). The store's half — the CHECKs re-stated and the rows seeded — is
+ * tests/catalogue/arch-vocabulary-store.test.ts, in the database lane.
+ */
+
+/** The last member of each roster before this vocabulary landed: everything it adds stands after it. */
+const LAST_KIND_BEFORE = "rcc.rebar";
+const LAST_CLASS_BEFORE = SURFACE;
+
+/** What each new kind is, as the catalogue must state it (I-541). */
+const ARCH_CATALOGUE: readonly { kind: string; dimension: string; precision: number }[] = [
+  { kind: FINISH_FLOORING, dimension: AREA, precision: 2 },
+  { kind: FINISH_TILING, dimension: AREA, precision: 2 },
+  { kind: FINISH_SKIRTING, dimension: LENGTH, precision: 2 },
+];
+
+/** The two classes the vocabulary's grid crosses: the one that bears the finishes, and the new one. */
+const ARCH_CLASSES: readonly string[] = [SURFACE, OPENING];
+
+describe("ARCH-2: F-ARCH's vocabulary — the opening class and three finish kinds a surface bears", () => {
+  test("the three kinds are appended in one run after every kind that stood before them, each lawfully named", async () => {
+    const kinds = await productModule<{ KINDS: readonly string[]; isKind: (value: unknown) => boolean }>(KINDS_MODULE);
+    const law = await productModule<{ offendingTokens: (name: string) => readonly { token: string; vocabulary: string }[] }>(KIND_LAW_MODULE);
+    const before = kinds.KINDS.indexOf(LAST_KIND_BEFORE);
+    expect(before, `\`${LAST_KIND_BEFORE}\` still stands in the roster`).toBeGreaterThanOrEqual(0);
+    expect(
+      kinds.KINDS.slice(before + 1, before + 1 + ARCH_FINISH_KINDS.length),
+      "the three stand right after the rebar, in one run — APPENDED, so no bill's group ordinal moves (AM-14 §2 numbers groups in this roster's order)",
+    ).toEqual([...ARCH_FINISH_KINDS]);
+    for (const kind of ARCH_FINISH_KINDS) {
+      expect(kinds.isKind(kind), `the guard admits \`${kind}\``).toBe(true);
+      expect(law.offendingTokens(kind), `\`${kind}\` names a trade and material only (L-MEA-04)`).toEqual([]);
+    }
+  });
+
+  test("the opening class is appended after the surface and bears nothing yet: it stands in the unborne set", async () => {
+    const classes = await productModule<{ ELEMENT_TYPES: readonly string[]; isElementType: (value: unknown) => boolean }>(CLASSES_MODULE);
+    const bears = await productModule<{ BEARS: readonly { class: string; kind: string }[]; UNBORNE: readonly string[] }>(BEARS_MODULE);
+    expect(
+      classes.ELEMENT_TYPES[classes.ELEMENT_TYPES.indexOf(LAST_CLASS_BEFORE) + 1],
+      "`opening` stands right after `surface` — appended, so no bill's group ordinal moves (AM-14 §2)",
+    ).toBe(OPENING);
+    expect(classes.isElementType(OPENING), "and its guard admits it").toBe(true);
+    expect(
+      bears.BEARS.filter((row) => row.class === OPENING),
+      "no row names the opening yet — what a door or a window is billed as lands with the rail that counts it (I-540)",
+    ).toEqual([]);
+    expect([...bears.UNBORNE], "so it is DECLARED unborne, never silently absent (L-MEA-04)").toContain(OPENING);
+  });
+
+  test("a kind may not spell `opening` any more: the class is a word of the element vocabulary", async () => {
+    const law = await productModule<{ offendingTokens: (name: string) => readonly { token: string; vocabulary: string }[] }>(KIND_LAW_MODULE);
+    expect(
+      law.offendingTokens("joinery.opening").map((offence) => ({ token: offence.token, vocabulary: offence.vocabulary })),
+      "the kind law reads the class roster as a vocabulary a kind may not borrow from, so the new class is refused in a kind's name with no edit to the law (L-MEA-04, B-19)",
+    ).toContainEqual({ token: OPENING, vocabulary: "element" });
+  });
+
+  test("over the surface and the opening crossed with the three kinds, the relation holds exactly the surface's three rows", async () => {
+    const bears = await productModule<{ BEARS: readonly { class: string; kind: string }[] }>(BEARS_MODULE);
+    const grid = bears.BEARS.filter((row) => ARCH_CLASSES.includes(row.class) && ARCH_FINISH_KINDS.includes(row.kind))
+      .map((row) => `${row.class}|${row.kind}`)
+      .sort();
+    expect(grid, "a finish is borne by the face it is applied to — the surface — and never by the opening cut out of it (L-MEA-03)").toEqual(
+      ARCH_FINISH_KINDS.map((kind) => `${SURFACE}|${kind}`).sort(),
+    );
+    const carried = bears.BEARS.map((row) => `${row.class}|${row.kind}`);
+    expect(carried.length, "and the relation still holds no pair twice (AM-11)").toBe(new Set(carried).size);
+  });
+
+  test("the two total maps answer ARCHITECTURAL and `face` for each kind, and the catalogue states each in its dimension's canonical unit", async () => {
+    const catalogue = await productModule<{ WORK_ITEM_CATALOGUE: Record<string, { description: string; dimension: string; canonicalUnit: string; documentPrecision: number }> }>(
+      CATALOGUE_MODULE,
+    );
+    const maps = await productModule<{ KIND_DISCIPLINE: Record<string, string>; KIND_ALGEBRA: Record<string, string> }>(CATALOGUE_MAPS_MODULE);
+    const { CANONICAL_UNIT } = await canon();
+    for (const entry of ARCH_CATALOGUE) {
+      expect(maps.KIND_DISCIPLINE[entry.kind], `${entry.kind} is stated by the architect's set — the room finish schedule and the plan (L-MEA-04)`).toBe("ARCHITECTURAL");
+      expect(maps.KIND_ALGEBRA[entry.kind], `${entry.kind} is a face of a space, measured off the room less its openings (L-MEA-08)`).toBe("face");
+      const item = catalogue.WORK_ITEM_CATALOGUE[entry.kind];
+      expect(item?.dimension, `${entry.kind} is a ${entry.dimension}`).toBe(entry.dimension);
+      expect(item?.canonicalUnit, "in the canonical unit of its dimension and nothing else (B-17)").toBe(CANONICAL_UNIT[entry.dimension]);
+      expect(item?.documentPrecision, `written to ${String(entry.precision)} places`).toBe(entry.precision);
+      expect((item?.description ?? "").length, "and says in words what is measured of it — the description is the method of measurement (L-BD-01)").toBeGreaterThan(0);
+    }
+  });
+
+  test("the emitted catalogue carries the three work items and the surface's three rows", async () => {
+    const emitter = await productModule<{ emittedRows: () => Record<string, readonly Record<string, string | number>[]> }>(CATALOGUE_EMIT_MODULE);
+    const rows = emitter.emittedRows();
+    const items = (rows["work-items.json"] ?? []).map((row) => String(row["kind"]));
+    const pairs = (rows["bears.json"] ?? []).map((row) => `${String(row["class"])}|${String(row["kind"])}`);
+    for (const kind of ARCH_FINISH_KINDS) {
+      expect(items, `the work-item table names \`${kind}\``).toContain(kind);
+      expect(pairs, `the bears table names (surface, ${kind})`).toContain(`${SURFACE}|${kind}`);
+    }
+    expect(pairs.some((pair) => pair.startsWith(`${OPENING}|`)), "and no bears row names the opening").toBe(false);
+  });
+
+  test("every method the vocabulary lands measures a kind the surface bears, through the finish's own channel", async () => {
+    const bears = await productModule<{ BEARS: readonly { class: string; kind: string }[] }>(BEARS_MODULE);
+    const borne = new Set(bears.BEARS.filter((row) => row.class === SURFACE).map((row) => row.kind));
+    const measured = new Set<string>();
+    for (const pair of ARCH_FINISH_PAIRS) {
+      const method = (await masonryMethod(pair)) as unknown as { kind: string; deductionChannels: readonly string[] };
+      expect(
+        borne.has(method.kind),
+        `${pair.ruleId}@${pair.version} measures \`${method.kind}\`, which the surface bears — a method for a kind no class bears could publish no line (L-MEA-04)`,
+      ).toBe(true);
+      expect([...method.deductionChannels], `${pair.ruleId} deducts through the finish's channel, whose threshold is the finish's own (L-MEA-01)`).toEqual(["finish_opening"]);
+      measured.add(method.kind);
+    }
+    expect(
+      [...measured].sort(),
+      "the floor finish and the three finishes of a room's walls: the skirting has no method yet — its cells read NOT_ESTABLISHED until one lands (I-541)",
+    ).toEqual([FINISH_FLOORING, FINISH_PAINT, FINISH_PLASTER, FINISH_TILING].sort());
   });
 });

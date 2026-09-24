@@ -99,4 +99,28 @@ export const WORK_ITEM_CATALOGUE: Readonly<Record<Kind, WorkItem>> = Object.free
     canonicalUnit: CANONICAL_UNIT["MASS"],
     documentPrecision: 3,
   }),
+  // The architect's finishes (AM-16(4), I-541). A floor finish and a wall's tiling are AREAS, as
+  // plaster and paint are, written to two places: the room's floor within its outline less what the
+  // threshold deducts from it (the column pieces standing in it), and the tiled band of its walls less
+  // the openings that band meets. A skirting is a LENGTH — the run of the room's outline less the
+  // widths of the openings at floor level — and a bill prices it by the running metre, to two places
+  // as the finishes beside it are written.
+  "finish.flooring": Object.freeze({
+    description: "Floor finish to surfaces, measured as the finished floor within the room's outline net of deducted openings and obstructions",
+    dimension: "AREA",
+    canonicalUnit: CANONICAL_UNIT["AREA"],
+    documentPrecision: 2,
+  }),
+  "finish.tiling": Object.freeze({
+    description: "Tiling to wall surfaces, measured as the tiled band net of scheduled openings",
+    dimension: "AREA",
+    canonicalUnit: CANONICAL_UNIT["AREA"],
+    documentPrecision: 2,
+  }),
+  "finish.skirting": Object.freeze({
+    description: "Skirting to wall surfaces, measured along the room's outline net of the widths of openings at floor level",
+    dimension: "LENGTH",
+    canonicalUnit: CANONICAL_UNIT["LENGTH"],
+    documentPrecision: 2,
+  }),
 });

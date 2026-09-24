@@ -120,6 +120,9 @@ const DEPTH_BAND: Axis = Object.freeze({
  *   · plaster BY THICKNESS, MIX, FACE AND FLOOR (L-BD-04) — the axes are named, the values are the
  *     drawing's (the rails carry them as written, `12 mm`, never banded), and no closed list of them
  *     is law. The rows land here on the increment that makes one law.
+ *   · flooring, tiling and skirting BY MATERIAL (AM-16(4)'s "floor and wall finishes") — a room
+ *     finish schedule names the tile, the mosaic or the stone room by room, and no clause closes that
+ *     set or states a size band, so each of the three carries the catalogue's one sentence (I-541).
  */
 const AXES: readonly Axis[] = Object.freeze([NOMINAL_THICKNESS, DEPTH_BAND]);
 

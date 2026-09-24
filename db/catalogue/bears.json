@@ -137,11 +137,23 @@
   },
   {
     "class": "surface",
+    "kind": "finish.flooring"
+  },
+  {
+    "class": "surface",
     "kind": "finish.paint"
   },
   {
     "class": "surface",
     "kind": "finish.plaster"
+  },
+  {
+    "class": "surface",
+    "kind": "finish.skirting"
+  },
+  {
+    "class": "surface",
+    "kind": "finish.tiling"
   },
   {
     "class": "tie_beam",

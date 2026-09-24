@@ -412,6 +412,113 @@ Decision in place (§1, §3, §5, §7 carry the text).
   height the grid does not use (`flex: 1 1 --cx-coverage-doc-h`, at least 192 where main has it);
   shut, the grid takes main back as it always did.
 
+**F-ARCH's vocabulary (session 8, ARCH-2; migration 0062).** The grid's rows are the catalogue's
+kinds and its columns the classes a campaign sights, so the vocabulary the architect's set is taken
+off in lands here first: before any reader places a room or an opening, a QS sees which finishes the
+product knows and that none is measured yet.
+
+- **I-540 — the opening is a class, and it bears nothing until what it is billed as is ruled
+  (L-MEA-02, L-MEA-04, R-TO-036, AM-14 §2).** `opening` joins `ELEMENT_TYPES`: a door, a window or a
+  ventilator standing in a wall — what L-MEA-02's opening schedule schedules and what a face and a
+  wall deduct. It is APPENDED after `surface`, never inserted: a draft numbers its groups in the
+  roster's order, and an insertion would renumber every item behind it in every bill already
+  drafted. It bears no kind yet and so stands in the derived unborne set; what a door or a window is
+  billed as — its joinery, counted off the schedule — is a kind of its own, with its own bill row and
+  taxonomy move, and lands with the rail that counts it. F-ARCH's OPENING_COUNT and OPENING_AREA
+  golden rows have no product spelling until then. The class is also a word the kind law now refuses
+  in a kind's name (`joinery.opening` offends the element vocabulary). Cost: nothing on this screen —
+  no cell stands for an unborne class, and nothing places an opening yet.
+- **I-541 — a surface bears three more finishes: flooring, tiling and skirting (AM-16(4), L-MEA-03,
+  L-MEA-04, L-MEA-08, L-BD-01).** AM-16(4)'s Finishes bill names "floor and wall finishes; ceiling
+  finishes" beside plaster and paint, and F-ARCH's golden carries FLOORING, WALL_TILE and SKIRTING
+  rows. Three kinds join `KINDS`, appended after `rcc.rebar`: `finish.flooring` — the floor finish,
+  whatever it is laid in (AREA, m², two places); `finish.tiling` — tile fixed to a wall's face, the dado
+  of a kitchen or a toilet (AREA, m², two places); `finish.skirting` — the band at a wall's foot, run
+  along the room (LENGTH, m, two places). Each names its trade and never spells `floor` or `wall` as a
+  word of its own, for the reason the masonry kinds give. Each is borne by `surface` — a finish is
+  borne by the face it is applied to — is ARCHITECTURAL (the room finish schedule states it) and is a
+  `face` quantity: the skirting is the face's foot measured by its run, no member and no network. A
+  ceiling finish is the plaster and the paint of a CEILING face and needs no kind of its own. The
+  material (tile, mosaic, stone) selects the item, and no clause closes that set or bands it, so each
+  kind carries the catalogue's one description and the closed description roster stays authored-only.
+  The three reach Finishes through the taxonomy's standing `finish` division row: no row, no taxonomy
+  version, no draft re-take. The relation says a surface lawfully CAN bear each; which face bears
+  which, and to what height, is the room finish schedule's to state per face before anything is
+  offered, and an extent nobody stated refuses rather than bills (L-QTY-04). None of the three has a
+  rail yet, and the catalogue closes over them all the same: the rail roster is Partial on purpose —
+  a kind with no rail is a kind nothing measures, never one measured by a default (L-MEA-08) — so the
+  tests that held "every kind has a rail" now name these three as the kinds awaiting one, and the
+  rail that lands for a kind takes it off that list. The floor finish and the tiling have their
+  methods (I-542, I-543) and wait for the slice that measures room faces to offer them; the
+  skirting has no method yet — its figure deducts opening WIDTHS, which no deduction channel
+  carries. Until then a sighted surface's cell of any of the three reads `NOT_ESTABLISHED`, the
+  disclosure. Cost: this grid
+  gains three kind rows (Flooring, Tiling, Skirting) reading NO_BEARER_SIGHTED on a campaign that
+  sights no surface — `NOT_ESTABLISHED` cells where one does — so J-022's three pictures move and the
+  gate re-takes them; every campaign opened before 0062 reads stale on `catalogue` once (freshness
+  blocks signing, never measuring); no item number of any drafted bill moves.
+- **I-542 — a room's floor finish is the face algebra itself (L-MEA-01, L-MEA-02, L-MEA-03).**
+  `finish.surface.flooring@1` is `faceMethodOf` over `A = gross − openings`, measuring
+  `finish.flooring`, in a file of its own (`methods/masonry-finishes/flooring.ts`): `gross` is the
+  room's clear outline, and `openings` is what the edition's `finishOpeningDeductionMinM2` deducts,
+  strictly greater, of the candidates on the finish channel — the column pieces standing in the room
+  (F-ARCH's A-14 applies L-MEA-02's rule to obstructions) and anything cut through the slab — the
+  retained ones listed on the line. `face.ts` is imported, never edited, so L-MEA-03's sentence keeps
+  one home.
+- **I-543 — a room's walls are measured run by run, one run to one soffit: plaster and paint
+  `A = P × (H − f) − openings`, the tiled dado `A = P × h − openings` (L-MEA-01, L-MEA-03, L-MEA-06,
+  L-MEA-08, L-QTY-04).** A band of a room's walls has no outline a rail could hand over: its gross is
+  a run of the room's clear outline carried up the band, and a rail computes nothing — no product and
+  no difference lands in a binding. So both are the METHOD's: `methods/masonry-finishes/wall-face.ts`
+  states two trees and three pairs over them — `finish.wall_face.plaster@1` and
+  `finish.wall_face.paint@1` over `A = P × (H − f) − openings`, `finish.wall_face.tiling@1` over
+  `A = P × h − openings` — three pairs because the gate refuses a method whose kind is not the offer's
+  (`OFFER_NOT_TO_CONTRACT`), so one method cannot measure three kinds. `openings` and `threshold` are
+  AREAS on the finish channel, the threshold bound and never in a tree. The readings come from three
+  places, and the tree does the arithmetic between them, as `rcc.beam.concrete`'s `D − t` does:
+  - `P` is the length of ONE RUN of the room's boundary — the part that stands under one soffit —
+    MEASURED off the room's clear outline.
+  - `H` is that run's clear height, FFL to the soffit of the slab over the room at that edge: L-MEA-06's
+    fact of the STRUCTURE, which F-ARCH's A-18 reads edge by edge, splitting an edge where the panel
+    over it changes. F-ARCH's section A-04 prints it by zone (the storey less the 125 slab, and notes for
+    the 150 thick panels and the sunken toilet panels), and the storey less the panel cross-checks it
+    (L-MEA-07). The room finish schedule states NO ceiling height: `H` is never the schedule's.
+  - `f` is where the plastered band starts — the top of the skirting (4") or of the dado (5'-0" in a
+    kitchen, 7'-0" in a toilet) — and `h`, the dado's own height, is the tiling's band. Both are the room
+    finish schedule's.
+
+  `P × (H − f)` holds only over a run under one soffit, and a room's boundary can stand under two.
+  Path 1 of F-ARCH's golden (`fixtures/gen/arch/golden.py`, `_edges_with_heights`) finds 16 of its 101
+  measured rooms under two clear heights: the LOBBY, E-KITCHEN and W-KITCHEN of 1F to 5F (2898 mm under
+  the 150 thick panels, 2923 mm elsewhere) and GF-LOBBY (3202.8 and 3227.8 mm). One `H` per room
+  cannot reproduce those rows. The higher over-measures plaster and paint by 0.25–0.52 m² a room, which
+  is over-measurement, a hard block (L-QTY-04). The lower under-measures by 0.11–0.14 m². The line key
+  admits one line per object and kind (`quantity_lines_one_per_object_kind`), so the run is the
+  REGISTER's and the offer's grain, not the method's, and it is owed before any wall band is offered.
+  ARCH-5, which registers a room's WALLS surface, and ARCH-78, which binds `P`, `H` and `f`, choose one
+  of two ways:
+  - register WALLS per (room, soffit) run, so each offer carries one `H` and the room's lines sum to the
+    golden exactly — the reading this Decision recommends;
+  - or keep one WALLS per room, bind the LOWEST clear height along its boundary and declare the
+    shortfall on the line (L-QTY-02).
+
+  Never the highest. `tests/takeoff/rails/masonry-finishes/wall-face-runs.test.ts` holds the recommended
+  reading against the golden for 1F LOBBY and 1F E-KITCHEN: two runs sum to the plaster and paint rows,
+  either single `H` misses them on its side, and the tiling closes over the whole boundary and over its
+  runs alike, because the dado stands below every soffit. The trees stand for either choice, so the
+  wave's edition can mint the three pairs without freezing a grain. A reading that takes the height
+  from the finish schedule's "ceiling height" does not hold for F-ARCH: the schedule has none.
+
+  `face.ts` is not edited: it is hashed into `finish.surface.plaster@1` and `paint@1`, and an edit to it
+  would be a new version of both. Rejected: building the wall face on `faceMethodOf` and overriding its
+  tree — a method that is not what `faceMethodOf` says it makes. Rejected: one tree `A = P × h −
+  openings` for all three with `h` the band's height — for a plaster and a paint that `h` is `H − f`, a
+  difference of a structural fact and a schedule value that no drawing writes, and a rail would have to
+  compute it. The gate judges the threshold per candidate; F-ARCH's A-18 judges an opening by its WHOLE
+  area and deducts only its overlap with the band, so the rail that offers a band owes the gate
+  candidates that carry both, or a refusal. The four pairs stand in the shard and the registry and are
+  cited by no edition until the wave's edition is minted; until then no pinned project measures by them.
+
 ## 1. Layout and hierarchy
 
 **Nav.** `takeoff/layout.tsx` gains a second `next/link`, `<a data-testid="takeoff-nav-coverage">`
@@ -974,3 +1081,16 @@ as stored** — MTEXT formatting codes, where a caption carries them, are not st
 REAL-1's core stripper, which this reader should call once it lands. **The measure run's timeline still
 says "Done"** — the run's deferrals are in its verdict step and in the register's region, and the
 job-timeline pattern shows no step detail; owner: the job-timeline pattern (`src/ui/patterns/job-timeline`).
+
+Opened by I-541 and I-543. **The skirting has no method** — its length deducts the widths of
+the openings at floor level, and no deduction channel carries a width; owner: the slice that measures
+room faces (ARCH-78), with a channel or a method version of its own. **A room's walls are measured run
+by run, one run to one soffit** — F-ARCH's A-18 splits a room's boundary where the panel over it
+changes, and 16 of its 101 measured rooms stand under two clear heights, so one WALLS offer per room
+with one `H` over-measures under the higher soffit; owners: ARCH-5 (register WALLS per (room, soffit)
+run, the recommended reading) and ARCH-78 (bind each run's `H` off the structure and `f` off the
+schedule, or bind the lowest `H` and declare the shortfall — never the highest). **A wall band's
+threshold is judged per candidate, where F-ARCH judges an opening by its whole area and deducts its
+overlap with the band** — owner: ARCH-78, which offers the bands, and which also allocates each opening
+to the run it stands in. **The four finish methods are cited by no
+edition** — owner: the wave's edition (OPEN-3), which mints them beside the wave's other methods.
