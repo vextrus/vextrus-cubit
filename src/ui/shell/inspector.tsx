@@ -44,12 +44,21 @@ export function storedInspectorWidth(read: (key: string) => string | null): numb
 interface InspectorSlot {
   /** What the selected thing's detail is, or null when nothing is selected. */
   readonly content: ReactNode | null;
-  readonly setContent: (content: ReactNode | null) => void;
   readonly width: number;
   readonly setWidth: (px: number) => void;
 }
 
+/**
+ * The slot is TWO contexts: what the frame reads, and the one setter a screen mounts through. A
+ * screen hands its detail as a fresh element on every render, so a screen that read the slot's value
+ * to reach the setter re-rendered each time its own detail landed, handed a fresh element again, and
+ * set it again — a render loop for as long as anything was selected (~800 commits a second on a
+ * held viewer selection), which starved every transition behind it: a palette find chosen from the
+ * viewer fetched its page and never committed (J-021 SRCH-1, command-palette §8). The setter's
+ * context never changes, so mounting reads nothing that the mount itself moves (slots.tsx's split).
+ */
 const InspectorContext = createContext<InspectorSlot | null>(null);
+const InspectorSetterContext = createContext<((content: ReactNode | null) => void) | null>(null);
 
 /**
  * The slot's own state, published once by the frame. A screen mounted outside the frame — the
@@ -81,8 +90,12 @@ export function InspectorProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const slot = useMemo<InspectorSlot>(() => ({ content, setContent, width, setWidth }), [content, width, setWidth]);
-  return <InspectorContext.Provider value={slot}>{children}</InspectorContext.Provider>;
+  const slot = useMemo<InspectorSlot>(() => ({ content, width, setWidth }), [content, width, setWidth]);
+  return (
+    <InspectorSetterContext.Provider value={setContent}>
+      <InspectorContext.Provider value={slot}>{children}</InspectorContext.Provider>
+    </InspectorSetterContext.Provider>
+  );
 }
 
 /**
@@ -91,8 +104,7 @@ export function InspectorProvider({ children }: { children: ReactNode }) {
  * screen owns the words (Direction §3.1).
  */
 export function useInspector(content: ReactNode | null): boolean {
-  const slot = useContext(InspectorContext);
-  const set = slot?.setContent;
+  const set = useContext(InspectorSetterContext) ?? undefined;
   useEffect(() => {
     if (set === undefined) return;
     set(content);

@@ -457,6 +457,12 @@ outline and mark selected, a click on the text with the text alone. Checkpoint
   name the text (I-632). The mark leg is proven on the db lane; this step is proven only by the
   journey. Owner: the orchestrator's J-021 walk; where it fails again, the viewer's same-sheet
   navigation (`use-selection`'s re-read of a new `s`, `publishViewport`'s replace) is where to look.
+  *Closed (session 9):* the cause was neither. The find's page was fetched and never committed: the
+  shell's inspector slot published its setter in the same context as its content, so a screen
+  mounting a fresh detail each render re-rendered itself on every landing — ~800 commits a second
+  while anything was selected — and the router's transition starved behind the loop. The slot now
+  publishes its setter apart (`src/ui/shell/inspector.tsx`, proof `inspector.test.tsx`), and J-021's
+  SRCH-1 walk passes whole.
 - **Item descriptions and notes.** R-SPINE-052 searches "sheet text …, item descriptions, notes".
   Only sheet text and the register's marks are searched; a BOQ item's description and a person's
   note (the register's comments, a disposition's reason) are not. Owner: SRCH's successors — each a
