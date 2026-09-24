@@ -9,31 +9,34 @@
       "emit/__init__.py": "4d3f67c73e685ca8c5ae3ea3ac48cb6726fcb32b4d28202057cf1a166f60214f",
       "emit/blocks.py": "833539d149df8b87d6dd63d215b8eae90c16c3e1ac6fd627c6f73006f2c6ad7c",
       "emit/dwg.py": "4a796a48b6b35a3d3bcd3bb84eabb40e8f263173aa16a17c2b25c21c6953f19c",
-      "emit/dxf.py": "178140b67b0a6054727de3ce6e4fc55ee0bcc21da7e1cb17f803a64bc0efa21f",
+      "emit/dxf.py": "851cf38afb8816f3eb3b241907aebe596599944083aaec8aaa1d5a16089e826d",
       "emit/hershey.py": "526d7acffbd4e54f8ad476da93546cfa3a0f6d3de1a8f0a36ca3f3ce6e72b45b",
       "emit/images.py": "672eafc5da03f32f18055ffb05ac2aeef80443354ef06f7ce55eae7c62849e2b",
       "emit/manifest.py": "f5fdd4779926cc14ae6a7a25540c04cc2e0ef2f2c81e2845bd5e58a69873e6ef",
       "emit/pdf.py": "1cfd94190aec05879d9bdb2c5d5f66c8a7e62bf0c359a4f9ac0fd81ce01de936",
       "emit/plan.py": "decb6c7ff3f76a59057ca4db5f6d79a289e653ad5a3442d0219e50ef4435f227",
       "emit/raster.py": "62d5ed793131ffc194e8af59d929cb996792bac452fe6ff8209fba54d3b5503f",
-      "emit/scene.py": "3772b00062f1c39fb80fdb1fcfb08719577e0945070dc4d0fb1fde12d1528ee8",
-      "emit/sheets/__init__.py": "8f81fef07feda1e98e2fbe9b0bd477deff27f50c4900ef92f73cf2a764246aef",
+      "emit/scene.py": "105c01319ca945dd730c524878246cc9ba4e7f4125b6d72de3ee001247cbefa4",
+      "emit/sheets/__init__.py": "7782e7f4b53eff83551568fac66943c6163638453ecc93cbce242075e1eee42d",
       "emit/sheets/beams.py": "218e2a1d61b7174c91da91caf222d6fb036b1f0933507e5765fa6809bd75d966",
       "emit/sheets/cols.py": "178be1a7bf6907668ebfaa11f8c2285cafdabfd6f37cc664e121d73726f08baf",
-      "emit/sheets/common.py": "b17f3ddb1089c07f5cf56b9745c850f22c5543504dde2995d9bde72762e619af",
+      "emit/sheets/common.py": "ca299f0590cb89c00502cc0632ca627356fd098cf7efb239822398d6cd7afc55",
       "emit/sheets/details.py": "09f16bcdb5238faf0944910ca8a8058f1c0c9a9a0d7b0377f399c8d978fdf522",
       "emit/sheets/found.py": "2a784a0e287e6551b8f0bc5401a309f641baefae3ec5d8f09cbe098649619d54",
       "emit/sheets/front.py": "7040a5d5ab5b5d703694869accc16135919a63263a11c2832d967633d4c4b285",
+      "emit/sheets/revb_windows.json": "2c6907ff9da7273f705c81682d70888149cddebc245d845b28f8000da2324caf",
+      "emit/sheets/revc.py": "e9048ddcb97dce5ef7632b3e43c9955d5ef406493aef064649b25edea0c67864",
       "emit/sheets/slabs.py": "a957a6a362e304ff8407d7df1f0809b99aaa7cdc0fc5d98127f9ac51c6d5e2ff",
       "golden.py": "42bfb877411d8f859ae86eb34f63cb574765a729f31316960543cd9d178c4e88",
       "golden_check.py": "49ac0b1b96bd7becbab4abdb70f85a1b58a8fc342e4b92cdc4696fbcad237c4b",
       "model.py": "8547128547171e9055ab31ff56edb7a79ad04d2cce5bd849c69be942e73eed8e",
       "selfcheck.py": "2eb02e58bf21a374692f4f2462d622effa08dd4f48af4a8b1d77cb02d0a29d95",
       "traps.json": "dbff6a4fa79602d71aad7e15b7aeac3024b8c3a71930524da9d2722c708fd513",
-      "validate/__init__.py": "f29a39d2c9f520d1c3be79c5aca08f794676b16448ccc63b6ef745f5270c73d8",
+      "validate/__init__.py": "a41b87f0fe1e0b04da94a88879c5184846a1990ae799a7f33283ef0c9e4a43b4",
       "validate/facts.py": "0330290597aef549a25da6c4788dbd5ef3dd2f0b9423698f271afaeffab7d084",
       "validate/fit.py": "0a1fb59ca48464bb4719740cbd537e91a7480c54fd3c4e1d486c5eab962ce5b6",
       "validate/notation.py": "61ef2dde3d7118c02c5b7f2a0e5f770c15ad3442417079973b9fee8d5808c10c",
+      "validate/revision.py": "244a95c2b5a8ca736da10acfacb4d64c66f618a51ccbe92bb90b404521ac23f5",
       "validate/tally.py": "eeea85e8f0ae700731aeafac73f14815d606248f7c3573475fe981721a2663e7",
       "validate/traps.py": "79f62a14bcaf247d61c5965989ae54af65ec08b000def76de3214050769e3c57",
       "validate/wall.py": "bd478d0e660f3f2e5d4abb5f7c6155a469c66b2484e3a78bb7392757bd184a83"
@@ -1625,6 +1628,50 @@
       "resolved": "52/52",
       "with_handle": 48,
       "anchored": 5
+    },
+    "revision": {
+      "paper": {
+        "issued": 8591,
+        "records": 8591,
+        "corrected": 0,
+        "grown": 0,
+        "added": 0,
+        "seed": [
+          "22A8",
+          "22A8"
+        ]
+      },
+      "frames": {
+        "issued": 8410,
+        "records": 8410,
+        "corrected": 0,
+        "grown": 0,
+        "added": 0,
+        "seed": [
+          "21F3",
+          "21F3"
+        ]
+      },
+      "twin": {
+        "issued": 8591,
+        "records": 8591,
+        "corrected": 0,
+        "grown": 0,
+        "added": 0,
+        "seed": [
+          "246A",
+          "246A"
+        ]
+      },
+      "traps": "52/52",
+      "items": {
+        "items": 5975,
+        "corrected": 0
+      },
+      "windows": {
+        "pinned": 53,
+        "untouched": 53
+      }
     },
     "determinism": {
       "rebuilt": [
