@@ -591,11 +591,20 @@
 }
 
 .cx-viewer-inspector-missing-key {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
   padding-block: var(--space-1);
   overflow-wrap: anywhere;
   font-family: var(--font-mono);
   font-size: var(--text-12);
   color: var(--ink-secondary);
+}
+
+/* R-UI-050's partial names where a key does stand, and opens it (I-553). */
+.cx-viewer-inspector-missing-sheet .cx-evidence-link {
+  font-family: var(--font-ui);
 }
 
 .cx-viewer-inspector-subheading {
@@ -632,8 +641,43 @@
   border-top: var(--hairline);
 }
 
+/* The traced line as a QS checks it (I-552): the member, storey and kind in the reading face, the
+   figure opposite it in the figure face — the pair a register row reads as. */
+.cx-viewer-trace-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  line-height: var(--leading-ui);
+  color: var(--ink);
+}
+
+.cx-viewer-trace-figure,
+.cx-viewer-cited-figure {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+/* A line kept with no quantity says what it left out, in words, in the muted ink a statement of
+   absence wears — never a bare unit (L-QTY-02). */
+.cx-viewer-trace-omitted {
+  font-family: var(--font-ui);
+  font-size: var(--text-12);
+  font-weight: var(--weight-body);
+  color: var(--ink-muted);
+}
+
 .cx-viewer-trace-basis {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
   margin: 0;
 }
 
@@ -673,14 +717,19 @@
   font-variant-numeric: tabular-nums slashed-zero;
 }
 
-.cx-viewer-trace-basis-word,
-.cx-viewer-cited-kind {
+.cx-viewer-trace-basis-word {
+  font-family: var(--font-ui);
   color: var(--ink-muted);
 }
 
-.cx-viewer-trace-variable .cx-viewer-inspector-key {
-  grid-column: 1 / -1;
-  color: var(--ink-secondary);
+/* Where the reading was taken: the sheet it opens, then the key as its chip (I-553, R-UI-082). */
+.cx-viewer-trace-source {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-1) var(--space-2);
+  min-width: 0;
 }
 
 .cx-viewer-trace-origin {
@@ -701,12 +750,18 @@
 
 .cx-viewer-cited-figure {
   justify-self: end;
-  font-variant-numeric: tabular-nums slashed-zero;
 }
 
+/* The way back is labelled in the register's words, so it reads in the reading face; the object's
+   key stands under it as its chip, the whole row wide. */
 .cx-viewer-cited-line .cx-evidence-link {
-  grid-column: 1 / -1;
   min-width: 0;
+  font-family: var(--font-ui);
+}
+
+.cx-viewer-cited-line .cx-id-chip {
+  grid-column: 1 / -1;
+  justify-self: start;
 }
 
 /* --------------------------------------------------------------------------------- the tool row */

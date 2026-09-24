@@ -36,6 +36,12 @@ export interface LineEvidence {
   traceKeys: string[];
   /** The sheet each cited key stands on, by the key as cited — null for one on no sheet (VD-1). */
   sourceSheets: Record<string, string | null>;
+  /** How a reader names each sheet named above — its number, where the record numbers it (VD-2). */
+  sheetLabels: Record<string, string>;
+  /** The class the line was measured under, and the member it was measured off (VD-2, I-552). */
+  elementClass: string;
+  member: { mark: string; level: string } | null;
+  omitted: { variable: string; code: string }[];
   formula: string;
   variables: Record<string, Binding>;
   quantityBasis: string;

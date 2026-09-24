@@ -1280,6 +1280,45 @@ rule the repair (tokens, renumbered at integration):
   and F-RCC6's counts are unchanged by it (every BNBC region view already stood on one paper sheet;
   F-RCC6 opens no window).
 
+**Amended by VD-2 (the Trace block reads as a QS check).** Walk-1 (B01, B15) found the block right
+and unreadable: the variables listed `v:LAYOUT_PLAN:DXF_HANDLE:1FEB|P1|…` and `SLAB_THICKNESS_UNSTATED`
+as body text, a Cited-by row was labelled by its raw object key under `rcc.rebar`, and a rebar row
+kept with no quantity read a bare `kg`. A quantity surveyor checks a traced figure the way the
+register row states it — which member, which storey, what was measured, how much — and then each
+reading against the drawing it came from. Two Interpretations rule the repair:
+
+- **I-552 — a traced line is named as the register names its row: `C4 · GF · Column concrete
+  0.405 m3`.** The member's mark and its level's label are read off the SAME register object the
+  register's row reads (`register_objects` of the line's pinned revision, the level through the one
+  `levelLabelOf`), the class and the kind are said in words through the draft BOQ's one rule
+  (`inWords`: `rcc.concrete` → `concrete`), and the figure is stated at the places its kind is
+  written to (the register cell's and the draft BOQ's, s-takeoff I-reg-2) with the exact value kept
+  in `data-value`. A line whose object the register does not hold — a hand line, a placeholder — is
+  named by its class and kind alone, never a guessed mark. A line kept with no quantity says what it
+  left out (`lap, ties unstated`, or `No figure`), from the line's own `omitted` read through the one
+  `omissionsOf` the register reads, and never stands a unit alone (L-QTY-02). The object key and every
+  source key render only as the shipped IdChip — short on screen (a handle, a placement's mark), whole
+  in `data-value`, one press from the clipboard (R-UI-082); a basis word renders through EnumLabel.
+  The formula itself stays verbatim (I-25). Rejected: re-spelling the formula with each variable's
+  value substituted (the stored formula already states its bindings in brackets, and a second
+  rendering of it would be a second home for the method's template, B-17).
+- **I-553 — every reading links to the sheet it was read on; the missing cell names the sheet a
+  key does stand on.** `sourceLinksOf` (`trace/address.ts`, pure) answers each cited key a reader can
+  land on: a SOURCE key opens its own sheet with itself selected — the schedule cell on S-11, the
+  level note on S-25 — and a PLACEMENT or `#bars` key opens the member's sheet with the member
+  selected (what the line's Trace selects there). A VIEW key is never flown to (I-421), and an
+  `edition:` clause, an `act:` and a key on no sheet offer no link rather than one that lands
+  nowhere. Each link is the shipped EvidenceLink in the reading's own basis, labelled by the sheet's
+  number (`LineEvidence.sheetLabels`, the register chip's I-179 reading) or its layout name where the
+  record numbers none. The "Not on this sheet" cell becomes R-UI-050's partial: it counts what it
+  lacks (`viewer_inspector_missing_count`), keeps each key whole as the row's subject (I-26: a stale
+  link's key is the only thing naming what is lacking), and where the Trace answers a sheet for that
+  key, names it and opens it (`On S-11`). Rejected: moving the missing keys into the selection of
+  another sheet silently (a reader would not know the link was stale).
+
+The panel's five new ids arrive as `chrome.testIds` (`InspectorTestIds`), the register's
+`RegisterTestIds` idiom, so the ratchet on literal ids under `src/modules` holds (AM-09 §1).
+
 ### 9.2 Anatomy
 
 Both blocks stand at the foot of the selection tab's body, under a hairline, in the order
@@ -1287,13 +1326,21 @@ Trace → Cited-by. Neither is boxed: each is a reading of the list above it, no
 
 ```
 <section data-testid="viewer-inspector-trace" data-line data-basis data-state>
-  <h3>Trace</h3>  <BasisChip basis={quantityBasis} />
+  <h3>Trace</h3>
+  <p data-testid="viewer-inspector-trace-line" data-object>          (VD-2, I-552)
+    {mark} · {level} · {Class kind}     <span data-testid="viewer-inspector-trace-figure">
+                                          <QuantityText value unit /> | {omitted} unstated | No figure
+  </p>
+  <p><BasisChip basis={quantityBasis} />  <IdChip value={objectKey} /></p>
   <p>Formula</p>  <p data-testid="viewer-inspector-trace-formula">{formula}</p>
   <p>Variables</p>
   <ol>
     <li data-testid="viewer-inspector-trace-variable"
         data-name data-value data-unit data-basis data-source>
-      {name} · {value} {unit} · {basis} · {source}
+      {name}                      <QuantityText value unit />
+      <EnumLabel value={basis} /> <span data-testid="viewer-inspector-trace-source" data-sheet>
+                                    <EvidenceLink href={sheet address} label={S-11} /></span>
+                                  <IdChip value={source} />
     </li>  … one per binding, in binding order
   </ol>
   <a data-testid="viewer-inspector-trace-origin" href={originAddress}>Back to the register line</a>
@@ -1302,13 +1349,24 @@ Trace → Cited-by. Neither is boxed: each is a reading of the list above it, no
 <section data-testid="viewer-inspector-cited" data-state data-count>
   <h3>Cited by</h3>  <p>{count} lines cite this selection</p>
   <li data-testid="viewer-inspector-cited-line" data-line data-basis data-kind>
-    {kind} · {value} {unit} · <EvidenceLink href={originAddress} basis label={objectKey} data-line />
+    <EvidenceLink href={originAddress} basis label="{mark} · {level} · {Class kind}" data-line />
+                                                   <QuantityText value unit /> | {omitted} unstated
+    <IdChip value={objectKey} />
   </li>  … one per answered line, in the door's own order
+</section>
+
+<section class="cx-viewer-inspector-missing">                  (VD-2: R-UI-050's partial)
+  <h3>Not on this sheet</h3>  <p>{body}</p>
+  <p data-testid="viewer-inspector-missing-count">{count} of the keys the link named are not on this sheet.</p>
+  <li data-testid="viewer-inspector-missing-key" data-key data-sheet>
+    {key}   <span data-testid="viewer-inspector-missing-sheet" data-sheet><EvidenceLink label="On S-11" /></span>
+  </li>
 </section>
 ```
 
-The formula, every reading, every unit, every basis word and every source key is model data rendered
-verbatim in mono and never woven into a sentence (I-25, I-26). The basis chip is the shipped one, and
+The formula and every reading are model data rendered verbatim in mono and never woven into a
+sentence (I-25, I-26); since VD-2 a reading is grouped by the format seam with its digits its own, a
+basis is said through EnumLabel, and a key is shown only as its IdChip (I-552). The basis chip is the shipped one, and
 it carries the glyph so the basis survives greyscale (R-UI-002). The origin link is a plain anchor:
 following it is a navigation, and Back stays a real history step (evidence-link I-178).
 
@@ -1336,7 +1394,11 @@ had established.
 
 Copy: `src/ui/strings/trace.ts` is the home — `trace_heading`, `trace_formula_label`,
 `trace_variables_label`, `trace_origin`, `trace_missing`, `trace_failed`, `trace_retry`,
-`trace_cited_heading`, `trace_cited_count`, `trace_cited_none`, `trace_cited_failed` — mirrored into
+`trace_cited_heading`, `trace_cited_count`, `trace_cited_none`, `trace_cited_failed`, and since VD-2
+`trace_line_description` ("{class} {kind}"), `trace_figure_unstated` ("No figure") and
+`trace_figure_omitted` ("{variables} unstated"); the missing cell's `viewer_inspector_missing_count`
+("{count} of the keys the link named are not on this sheet.") and `viewer_inspector_missing_elsewhere`
+("On {sheet}") live in `viewer-inspector.ts` with the cell's other words — mirrored into
 `viewer-inspector/copy.ts` as `TRACE_COPY`, a table SEPARATE from `INSPECTOR_COPY` because the two
 mirror two different homes; `tests/takeoff/viewer-inspector/copy-mirror.test.ts` pins both. No build
 vocabulary and no clause id is visible anywhere.
@@ -1368,6 +1430,15 @@ and a REAL line in the browser: J-000's `m3-measure-and-register` leg follows a 
 line's link to S-10 (`data-flyto-flight` ≥ 1, no missing key, the S-10 crumb) and holds that column's
 outline to find the line among its citers, at checkpoint `j-000/bnbc-traced`. J-021's stage now
 cites production's shapes on a sheet spelled `model`, so its `traced.png` and `cited.png` move.
+**Amended by VD-2:** ids `viewer-inspector-trace-line`, `-trace-figure`, `-trace-source`,
+`viewer-inspector-missing-count` and `-missing-sheet`, handed to the panel as `chrome.testIds`;
+attributes `data-object` on the traced line, `data-sheet` on a source link, a missing row and its
+sheet link. The block is proved in `tests/takeoff/viewer-inspector/trace-block.test.ts` (the QS
+words, the formatted figure and the omission words, keys only as chips, the basis through EnumLabel,
+a link per reading to its own sheet and none for a key on no sheet, the counted partial, and
+`sourceLinksOf` over production key shapes), and the doors carry the member, class, omissions and
+sheet numbers in `tests/takeoff/trace/doors.test.ts` against the register's own row. J-021's
+`traced.png` and `cited.png` move again.
 
 
 ---

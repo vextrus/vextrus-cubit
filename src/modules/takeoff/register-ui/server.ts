@@ -17,9 +17,9 @@ import { QUANTITY_BASES, type QuantityBasis } from "@/core/offers/law";
 import { standingOf, type ObservationRow, type RegisterScope } from "@/core/register/store";
 import { proposedLevelStackOf } from "@/modules/takeoff/partition";
 import { refusedSightingsOf, registerObjectsOf, repudiatedObjectsOf } from "@/modules/takeoff/register";
-import { citedKeysOf, pinnedRecordsOf, tracedLineOf, variablesOf } from "@/modules/takeoff/trace";
+import { citedKeysOf, levelLabelOf, omissionsOf, pinnedRecordsOf, tracedLineOf, variablesOf } from "@/modules/takeoff/trace";
 import { levelRank, readingOrder, type LineRank } from "./order";
-import type { RegisterView, ViewAttribute, ViewLevelStack, ViewLine, ViewObject, ViewOmission, ViewReading, ViewRefusal } from "./view";
+import type { RegisterView, ViewAttribute, ViewLevelStack, ViewLine, ViewObject, ViewReading, ViewRefusal } from "./view";
 
 /** Which project's register is being read, in which workspace. */
 export type RegisterViewScope = { readonly tenantId: string; readonly projectId: string };
@@ -129,7 +129,7 @@ export async function registerViewOf(scope: RegisterViewScope): Promise<Register
     const object = objectByKey.get(row.objectKey);
     const rank: LineRank = {
       rank: levelRank(object, levelOrdinals),
-      level: levelOf(object, levelLabels),
+      level: levelLabelOf(object, levelLabels),
       class: row.class,
       mark: object?.mark ?? "",
       kind: row.kind,
@@ -147,7 +147,7 @@ export async function registerViewOf(scope: RegisterViewScope): Promise<Register
       objectKey: row.objectKey,
       kind: row.kind,
       class: row.class,
-      level: levelOf(objectByKey.get(row.objectKey), levelLabels),
+      level: levelLabelOf(objectByKey.get(row.objectKey), levelLabels),
       value: row.value,
       unit: row.unit,
       formula: row.formula,
@@ -187,7 +187,7 @@ export async function registerViewOf(scope: RegisterViewScope): Promise<Register
     return {
       objectKey: row.objectKey,
       discipline: row.discipline,
-      level: levelOf(row, levelLabels),
+      level: levelLabelOf(row, levelLabels),
       class: row.elementType,
       mark: row.mark,
       basis,
@@ -253,28 +253,7 @@ function deferralRow(deferral: RunDeferral, views: readonly PlacedManifestView[]
   return { code: deferral.code, objectKey: deferral.levelId, kind: null, deferral: { subject: "STOREY", name: deferral.label } };
 }
 
-/**
- * The components a line enumerated as omitted, as the store holds them (`quantity_lines.omitted`, the
- * offer's `OmittedComponent[]`). The column is `json` of unknown shape at the type level, so each
- * entry is read for the two strings it carries and an entry carrying neither is not invented into
- * one (L-QTY-02: what the row declared, and nothing it did not).
- */
-function omissionsOf(stored: readonly unknown[]): ViewOmission[] {
-  const held: ViewOmission[] = [];
-  for (const entry of stored) {
-    const variable = (entry as { variable?: unknown } | null)?.variable;
-    const code = (entry as { code?: unknown } | null)?.code;
-    if (typeof variable === "string" && typeof code === "string") held.push({ variable, code });
-  }
-  return held;
-}
 
-/** The level a register row stands on, as a reader reads it: the label, never the surrogate's id. */
-function levelOf(row: { levelId: string | null; levelSlot: string | null; levelLabel: string | null } | undefined, labels: ReadonlyMap<string, string>): string {
-  if (row === undefined) return "";
-  if (row.levelId !== null) return labels.get(row.levelId) ?? "";
-  return row.levelSlot ?? row.levelLabel ?? "";
-}
 
 /**
  * Every attribute of one object, with how it stands derived from the readings the ledger holds. The

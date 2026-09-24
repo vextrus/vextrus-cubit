@@ -27,7 +27,9 @@ export type InspectorCopyKey =
   | "viewer_inspector_clear"
   | "viewer_inspector_selected_count"
   | "viewer_inspector_missing_heading"
-  | "viewer_inspector_missing_body";
+  | "viewer_inspector_missing_body"
+  | "viewer_inspector_missing_count"
+  | "viewer_inspector_missing_elsewhere";
 
 export const INSPECTOR_COPY: Readonly<Record<InspectorCopyKey, string>> = Object.freeze({
   viewer_inspector_heading: "Inspector",
@@ -46,6 +48,8 @@ export const INSPECTOR_COPY: Readonly<Record<InspectorCopyKey, string>> = Object
   viewer_inspector_selected_count: "{count} selected",
   viewer_inspector_missing_heading: "Not on this sheet",
   viewer_inspector_missing_body: "The link named these keys, and this sheet does not hold them.",
+  viewer_inspector_missing_count: "{count} of the keys the link named are not on this sheet.",
+  viewer_inspector_missing_elsewhere: "On {sheet}",
 });
 
 /** The keys of the Trace's own registry — `src/ui/strings/trace.ts`, mirrored for the same reason. */
@@ -60,7 +64,10 @@ export type TraceCopyKey =
   | "trace_cited_heading"
   | "trace_cited_count"
   | "trace_cited_none"
-  | "trace_cited_failed";
+  | "trace_cited_failed"
+  | "trace_line_description"
+  | "trace_figure_unstated"
+  | "trace_figure_omitted";
 
 /**
  * The Trace's and the Cited-by block's sentences (R-UI-022, X-2). A SEPARATE table from the panel's
@@ -79,6 +86,9 @@ export const TRACE_COPY: Readonly<Record<TraceCopyKey, string>> = Object.freeze(
   trace_cited_count: "{count} lines cite this selection",
   trace_cited_none: "No published line cites this selection.",
   trace_cited_failed: "The lines citing this selection could not be read.",
+  trace_line_description: "{class} {kind}",
+  trace_figure_unstated: "No figure",
+  trace_figure_omitted: "{variables} unstated",
 });
 
 /**

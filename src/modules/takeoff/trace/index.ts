@@ -20,15 +20,18 @@
 // here, so this barrel stays the one home the test contract names while a browser component may
 // reach the spelling without carrying the store into its bundle (ARCH-01's spirit, B-17).
 import { campaignsOf } from "@/core/campaigns";
-import { and, asc, eq, forTenant, isUuid, quantityLines } from "@/core/db";
-import { traceCitations, type TracedCitations } from "@/core/sheets/frames";
+import { and, asc, desc, drawingSetRevisions, eq, forTenant, inArray, ingests, isUuid, quantityLines, registerObjects } from "@/core/db";
+import { artifactAt } from "@/core/entitygraph/artifact";
+import { sheetLabelOf, standingOfGraph, traceCitations, type MemberKeys, type RecordStanding, type TracedCitations } from "@/core/sheets/frames";
 import { pinnedRecordsIn, type PinnedRecord } from "@/core/sheets/pinned";
 import { appStorage } from "@/core/storage/app";
+import { storedPlacementsOf } from "@/modules/takeoff/partition/placement/store";
+import { levelsOf } from "@/modules/takeoff/levels";
 import { repudiatedObjectsOf } from "@/modules/takeoff/register";
-import { citedKeysOf, type LineBinding, type LineEvidence } from "./address";
+import { citedKeysOf, type LineBinding, type LineEvidence, type LineMember, type LineOmission } from "./address";
 
-export { LINE_PARAM, citedKeysOf, originAddress, selectionAddress, traceAddress } from "./address";
-export type { AddressableLine, AddressableSelection, LineBinding, LineEvidence } from "./address";
+export { LINE_PARAM, citedKeysOf, originAddress, selectionAddress, sourceLinksOf, traceAddress } from "./address";
+export type { AddressableLine, AddressableSelection, LineBinding, LineEvidence, LineMember, LineOmission, SourceLink } from "./address";
 
 /** Which project's lines are being traced, in which workspace — the register's own scope. */
 export type TraceScope = {
@@ -94,7 +97,9 @@ export async function lineEvidence(scope: TraceScope, lineId: string): Promise<L
   const row = rows[0];
   if (row === undefined) return null;
   const records = await pinnedRecordsOf(scope, row.setRevisionId, [row.drawingId]);
-  return evidenceOf(row, tracedLineOf(row, records.get(row.drawingId)));
+  const record = records.get(row.drawingId);
+  const members = await membersOf(scope, row.setRevisionId, [row.objectKey]);
+  return evidenceOf(row, tracedLineOf(row, record), record, members);
 }
 
 /**
@@ -144,12 +149,16 @@ export async function linesCiting(scope: TraceScope, ask: CitingAsk): Promise<Li
   for (const row of rows) {
     const traced = tracedLineOf(row, record);
     const cited = citedKeysOf({ sourceKey: row.viewKey, variables: variablesOf(row.bindings) });
-    if (traced.entities.some((key) => asked.has(key)) || cited.some((key) => asked.has(key))) held.push(evidenceOf(row, traced));
+    if (traced.entities.some((key) => asked.has(key)) || cited.some((key) => asked.has(key))) held.push(evidenceOf(row, traced, record, EMPTY_MEMBERS));
   }
   if (held.length === 0) return [];
 
   const struck = await struckObjects(scope, [...new Set(rows.map((row) => row.setRevisionId))]);
-  return held.filter((line) => !struck.has(line.objectKey));
+  const shown = held.filter((line) => !struck.has(line.objectKey));
+  // Each citing row is named by its member as the register names it (I-552): one read of the
+  // revision's objects for the rows that are answered, never one per row.
+  const members = await membersOf(scope, rendered.setRevisionId, shown.map((line) => line.objectKey));
+  return shown.map((line) => ({ ...line, member: members.get(line.objectKey) ?? null }));
 }
 
 /* ---------------------------------------------------------------------------------- composing */
@@ -179,19 +188,88 @@ export function variablesOf(bindings: Record<string, unknown>): Record<string, L
   return held;
 }
 
+/**
+ * The components a line enumerated as omitted, as the store holds them (`quantity_lines.omitted`, the
+ * offer's `OmittedComponent[]`). The column is `json` of unknown shape at the type level, so each
+ * entry is read for the two strings it carries and an entry carrying neither is not invented into
+ * one (L-QTY-02: what the row declared, and nothing it did not). The one home of that reading, read
+ * by the register's table and the Trace's block alike (B-17).
+ */
+export function omissionsOf(stored: readonly unknown[]): LineOmission[] {
+  const held: LineOmission[] = [];
+  for (const entry of stored) {
+    const variable = (entry as { variable?: unknown } | null)?.variable;
+    const code = (entry as { code?: unknown } | null)?.code;
+    if (typeof variable === "string" && typeof code === "string") held.push({ variable, code });
+  }
+  return held;
+}
+
+/**
+ * The level a register row stands on, as a reader reads it: the label, never the surrogate's id; the
+ * slot or label the reading named where the row stands on no level of the stack; "" where it names
+ * none. The one home of that reading — the register's table and the Trace's heading say it alike.
+ */
+export function levelLabelOf(row: { levelId: string | null; levelSlot: string | null; levelLabel: string | null } | undefined, labels: ReadonlyMap<string, string>): string {
+  if (row === undefined) return "";
+  if (row.levelId !== null) return labels.get(row.levelId) ?? "";
+  return row.levelSlot ?? row.levelLabel ?? "";
+}
+
+const EMPTY_MEMBERS: ReadonlyMap<string, LineMember> = new Map();
+
+/**
+ * The member each of these objects is, inside one pinned revision: its mark and its level's label
+ * (I-552). One read of the objects asked for and one of the project's levels, whatever the count.
+ * An object the revision's register does not hold is absent from the answer.
+ */
+async function membersOf(scope: TraceScope, setRevisionId: string, objectKeys: readonly string[]): Promise<Map<string, LineMember>> {
+  const held = new Map<string, LineMember>();
+  const wanted = [...new Set(objectKeys)];
+  if (wanted.length === 0 || !isUuid(setRevisionId)) return held;
+  const [rows, levels] = await Promise.all([
+    forTenant({ tenantId: scope.tenantId }).transaction((tx) =>
+      tx
+        .select({ objectKey: registerObjects.objectKey, mark: registerObjects.mark, levelId: registerObjects.levelId, levelSlot: registerObjects.levelSlot, levelLabel: registerObjects.levelLabel })
+        .from(registerObjects)
+        .where(and(eq(registerObjects.tenantId, scope.tenantId), eq(registerObjects.setRevisionId, setRevisionId), inArray(registerObjects.objectKey, wanted))),
+    ),
+    levelsOf(scope),
+  ]);
+  const labels = new Map(levels.map((level) => [level.levelId, level.label]));
+  for (const row of rows) held.set(row.objectKey, { mark: row.mark, level: levelLabelOf(row, labels) });
+  return held;
+}
+
+/** How a reader names each sheet the Trace names, by layout name — where the record numbers it. */
+function sheetLabelsOf(traced: TracedCitations, record: PinnedRecord | null | undefined): Record<string, string> {
+  const labels: Record<string, string> = {};
+  if (record === null || record === undefined) return labels;
+  for (const layoutName of [traced.layoutName, ...Object.values(traced.sheets)]) {
+    if (layoutName === null || layoutName in labels) continue;
+    const label = record.labelOf(layoutName);
+    if (label !== null && label !== "") labels[layoutName] = label;
+  }
+  return labels;
+}
+
 /** One stored line as the Trace answers it — the register's own reading of it, plus its sheet. */
-function evidenceOf(row: typeof quantityLines.$inferSelect, traced: TracedCitations): LineEvidence {
+function evidenceOf(row: typeof quantityLines.$inferSelect, traced: TracedCitations, record: PinnedRecord | null | undefined, members: ReadonlyMap<string, LineMember>): LineEvidence {
   const variables = variablesOf(row.bindings);
   return {
     lineId: row.lineId,
     objectKey: row.objectKey,
+    elementClass: row.class,
+    member: members.get(row.objectKey) ?? null,
     kind: row.kind,
     value: row.value,
+    omitted: omissionsOf(row.omitted),
     unit: row.unit,
     drawingId: row.drawingId,
     layoutName: traced.layoutName,
     traceKeys: traced.flyTo,
     sourceSheets: traced.sheets,
+    sheetLabels: sheetLabelsOf(traced, record),
     formula: row.formula,
     variables,
     quantityBasis: row.quantityBasis,

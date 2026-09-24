@@ -10,7 +10,7 @@ import type { UseSnap } from "@/modules/takeoff/viewer-snap/use-snap";
 import { InspectorPanel, type InspectorChrome, type InspectorPanelProps } from "@/modules/takeoff/viewer-inspector/inspector-panel";
 import { SCALE_COPY } from "@/modules/takeoff/scale-ui/copy";
 import { EvidenceLink } from "@/ui/patterns/evidence-link";
-import { BasisChip } from "@/ui/primitives/core";
+import { BasisChip, EnumLabel, IdChip, QuantityText } from "@/ui/primitives/core";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup, Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/primitives/data";
 import { fill, strings } from "@/ui/strings";
 import { LayersPanel, type LayersPanelProps } from "./layers-panel";
@@ -20,11 +20,24 @@ import type { KeyboardEvent as ReactKeyboardEvent, ReactNode, RefObject } from "
 import { TESTIDS } from "@/ui/testids";
 
 /**
- * The two shipped renderers the inspector panel is handed (I-170). The panel lives in `src/modules`,
- * which may not import `src/ui` (ARCH-01), and may not re-implement either (B-17) — so this file,
+ * The shipped renderers the inspector panel is handed (I-170). The panel lives in `src/modules`,
+ * which may not import `src/ui` (ARCH-01), and may not re-implement any of them (B-17) — so this file,
  * the markup that mounts the panel, binds them once.
  */
-const INSPECTOR_CHROME: InspectorChrome = { BasisChip, EvidenceLink };
+const INSPECTOR_CHROME: InspectorChrome = {
+  BasisChip,
+  EvidenceLink,
+  IdChip,
+  EnumLabel,
+  QuantityText,
+  testIds: {
+    traceLine: TESTIDS.viewer.inspectorTraceLine,
+    traceFigure: TESTIDS.viewer.inspectorTraceFigure,
+    traceSource: TESTIDS.viewer.inspectorTraceSource,
+    missingCount: TESTIDS.viewer.inspectorMissingCount,
+    missingSheet: TESTIDS.viewer.inspectorMissingSheet,
+  },
+};
 
 /**
  * The drawer's width, and the band a reader may drag it to: the Decision's 200 px, min 160, max 320

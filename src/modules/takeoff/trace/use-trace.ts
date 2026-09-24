@@ -18,7 +18,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { QuantityBasis } from "@/core/offers/law";
 import type { CitedBlock, CitedLine, TraceBlock, TraceEvidence } from "../viewer-inspector/inspector-panel";
-import { originAddress } from "./address";
+import { originAddress, sourceLinksOf } from "./address";
 
 /** What a read of one line's evidence answers: the evidence, the fact that there is none, or a refusal. */
 export type EvidenceAnswer = { read: true; evidence: TraceEvidence | null } | { read: false; refusal: string };
@@ -87,9 +87,22 @@ export function useLineEvidence({ tenantId, projectId, lineId, read, onRefused }
   const block: TraceBlock | null =
     lineId === null || reading.state === "pending"
       ? null
-      : { state: reading.state, lineId, evidence: reading.evidence, originHref: originAddress(tenantId, projectId, lineId), onRetry: readLine };
+      : {
+          state: reading.state,
+          lineId,
+          evidence: reading.evidence,
+          originHref: originAddress(tenantId, projectId, lineId),
+          sources: sourcesOf(tenantId, projectId, reading.evidence),
+          onRetry: readLine,
+        };
 
   return { block, basis: reading.evidence?.quantityBasis, ready: reading.state !== "pending" };
+}
+
+/** Where each key a traced line cites can be followed to — none for a line with no drawing to open. */
+function sourcesOf(tenantId: string, projectId: string, evidence: TraceEvidence | null): TraceBlock["sources"] {
+  if (evidence === null || evidence.drawingId === null) return {};
+  return sourceLinksOf(tenantId, projectId, { ...evidence, drawingId: evidence.drawingId });
 }
 
 export type UseCitedByOptions = {

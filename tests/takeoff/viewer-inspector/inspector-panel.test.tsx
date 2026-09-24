@@ -14,6 +14,7 @@ import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, test } from "vitest";
 import { syntheticKey } from "../viewer/support/synthetic-graph";
+import { INSPECTOR_TEST_IDS } from "./support/trace-support";
 import {
   INSPECTOR_PANEL_MODULE,
   bboxAttribute,
@@ -89,6 +90,10 @@ function prepare(): Promise<void> {
 const CHROME = {
   BasisChip: () => null,
   EvidenceLink: () => null,
+  IdChip: () => null,
+  EnumLabel: () => null,
+  QuantityText: () => null,
+  testIds: INSPECTOR_TEST_IDS,
 };
 
 /** The props the screen hands the panel, with everything this case does not care about at rest. */

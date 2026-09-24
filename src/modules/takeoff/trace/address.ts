@@ -5,6 +5,7 @@
 // This file is deliberately free of the store: both screens that spell an address are browser
 // components, and a module they import must carry no database with it into their bundle. The doors
 // that read the store stand beside it in `./index.ts`, which re-publishes everything here.
+import { readCitedKey } from "@/core/identity/keys";
 import type { QuantityBasis } from "@/core/offers/law";
 // The selection's query is the viewer's own to spell (R-UI-031): its name and its lossless value are
 // read from the one module that also reads them back, so a link into the sheet and the sheet itself
@@ -27,12 +28,35 @@ export type LineBinding = {
   readonly canonical: { readonly value: string; readonly unit: string };
 };
 
+/** One component a line kept with no quantity left out, by the variable and the registered code. */
+export type LineOmission = {
+  readonly variable: string;
+  readonly code: string;
+};
+
+/**
+ * The member a line was measured off, as a quantity surveyor names it: its mark and the storey it
+ * stands on, read from the register object the line cites (I-552). Null where the pinned revision's
+ * register holds no such object — a hand line over an outline, a placeholder — and then the Trace
+ * names the line by its class and kind alone rather than by a guessed mark.
+ */
+export type LineMember = {
+  readonly mark: string;
+  /** The level's label (`GF`), or the slot the reading named where the stack holds none; "" for none. */
+  readonly level: string;
+};
+
 /** What a traced line answers: the sheet, the cited keys, the formula and its live variables. */
 export type LineEvidence = {
   readonly lineId: string;
   readonly objectKey: string;
+  /** The class the line was measured under (`column`) — the first word of its description. */
+  readonly elementClass: string;
+  readonly member: LineMember | null;
   readonly kind: string;
   readonly value: string | null;
+  /** What a line kept with no quantity left out (L-QTY-02) — empty wherever `value` stands. */
+  readonly omitted: readonly LineOmission[];
   readonly unit: string;
   readonly drawingId: string;
   /**
@@ -55,6 +79,12 @@ export type LineEvidence = {
    * S-11, the level note on S-25) rather than find it in the "not on this sheet" cell.
    */
   readonly sourceSheets: Readonly<Record<string, string | null>>;
+  /**
+   * How a reader names each sheet `layoutName` and `sourceSheets` name — the sheet's number (`S-11`)
+   * as the record's title block states it (I-179) — by layout name. A sheet the record numbers
+   * nowhere is absent, and is then named by its layout name.
+   */
+  readonly sheetLabels: Readonly<Record<string, string>>;
   readonly formula: string;
   readonly variables: Readonly<Record<string, LineBinding>>;
   readonly quantityBasis: QuantityBasis;
@@ -139,4 +169,40 @@ export function traceAddress(tenantId: string, projectId: string, line: Addressa
 export function originAddress(tenantId: string, projectId: string, lineId: string | null): string {
   const base = `/t/${tenantId}/p/${projectId}/takeoff/register`;
   return lineId === null ? base : `${base}?${LINE_PARAM}=${encodeURIComponent(lineId)}`;
+}
+
+/** Where one key a traced line cites can be followed to: the sheet it stands on, and the address there. */
+export type SourceLink = {
+  /** The sheet as a reader names it — its number where the record states one, else its layout name. */
+  readonly sheet: string;
+  readonly href: string;
+};
+
+/**
+ * Each key a traced line cites that a reader can follow, by the key as cited (I-553): a SOURCE key
+ * opens the sheet it stands on with itself selected — the schedule cell on S-11, the level note on
+ * S-25 — and a PLACEMENT or bar-set key opens the member's own sheet with the member selected, which
+ * is what the line's Trace selects there. A view key names a region and is never flown to, and an
+ * edition clause or an act stands on no sheet: neither is answered, so a row that cites one offers no
+ * link rather than one that lands nowhere.
+ */
+export function sourceLinksOf(
+  tenantId: string,
+  projectId: string,
+  line: Pick<LineEvidence, "drawingId" | "layoutName" | "traceKeys" | "sourceSheets" | "sheetLabels">,
+): Record<string, SourceLink> {
+  const links: Record<string, SourceLink> = {};
+  for (const [key, sheet] of Object.entries(line.sourceSheets)) {
+    if (sheet === null) continue;
+    const cited = readCitedKey(key);
+    let selected: readonly string[];
+    if (cited.scheme === "source") selected = [cited.key];
+    else if ((cited.scheme === "placement" || cited.scheme === "bars") && sheet === line.layoutName && line.traceKeys.length > 0) selected = line.traceKeys;
+    else continue;
+    links[key] = {
+      sheet: line.sheetLabels[sheet] ?? sheet,
+      href: selectionAddress(tenantId, projectId, { drawingId: line.drawingId, layoutName: sheet, sourceKeys: selected }),
+    };
+  }
+  return links;
 }

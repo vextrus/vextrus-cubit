@@ -23,6 +23,9 @@ export const viewerInspector = {
   viewer_inspector_selected_count: "{count} selected",
   viewer_inspector_missing_heading: "Not on this sheet",
   viewer_inspector_missing_body: "The link named these keys, and this sheet does not hold them.",
+  // VD-2: the partial cell counts what it lacks and names the sheet a key does stand on (R-UI-050).
+  viewer_inspector_missing_count: "{count} of the keys the link named are not on this sheet.",
+  viewer_inspector_missing_elsewhere: "On {sheet}",
   viewer_status_selection: "Selection",
   viewer_layer_select: "Select",
   viewer_layer_select_label: "Select every entity on {layer}",

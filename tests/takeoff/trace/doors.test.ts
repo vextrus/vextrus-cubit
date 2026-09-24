@@ -52,17 +52,21 @@ let published: {
   repudiated: boolean;
   layoutName: string | null;
   sheetLabel: string | null;
+  level: string;
   sourceKeys: string[];
   traceKeys: string[];
 }[];
 /** The placement rows the store holds for the pinned record, by placement key: the member each line cites. */
 let members: Map<string, { outlineKey: string; markKey: string }>;
+/** The mark the register's own reading names each object by (VD-2: the Trace names a line the same way). */
+let marks: Map<string, string>;
 
 beforeAll(async () => {
   staged = await stageRegisterCampaign("trace");
   scope = { tenantId: staged.tenantId, projectId: staged.projectId };
-  const server = await productModule<{ registerViewOf: (s: TraceScope) => Promise<{ lines: typeof published }> }>(REGISTER_UI_SERVER_MODULE);
+  const server = await productModule<{ registerViewOf: (s: TraceScope) => Promise<{ lines: typeof published; objects: { objectKey: string; mark: string }[] }> }>(REGISTER_UI_SERVER_MODULE);
   const view = await server.registerViewOf(scope);
+  marks = new Map(view.objects.map((object) => [object.objectKey, object.mark]));
   published = view.lines.filter((line) => !line.repudiated);
   expect(published.length, `the staged campaign published lines for the Trace to answer about: ${JSON.stringify(view.lines)}`).toBeGreaterThan(0);
 
@@ -123,6 +127,16 @@ describe("AC-2: lineEvidence", () => {
       expect(held.formula, "the formula it was measured by, verbatim").toBe(line.formula);
       expect(held.quantityBasis, "the basis the pulse and the chip are drawn in").toBe(line.quantityBasis);
       expect(typeof held.selectionBasis, "and the basis the selection was made on").toBe("string");
+
+      // VD-2 (walk-1 B01): the Trace names the line as the register names its row — the member's
+      // mark and level, read off the same register object (I-552), and the class it was measured under.
+      expect(held.member, "the Trace names the member the line was measured off").not.toBeNull();
+      expect(held.member?.mark, "by the mark the register's own row states").toBe(marks.get(line.objectKey));
+      expect(held.member?.level, "at the level the register's own row states").toBe(line.level);
+      expect(held.elementClass, "under the class it was published under").toBe(String(field(stored.get(line.lineId), "class", "class")));
+      expect(held.omitted, "a line with a figure left nothing out (L-QTY-02)").toEqual(line.value === null ? held.omitted : []);
+      // Each sheet the Trace names is named as the register's Source chip names it: its number (I-179).
+      expect(held.sheetLabels[held.layoutName ?? ""], "the member's sheet is named by its number, as the register's chip names it").toBe(line.sheetLabel === null || line.sheetLabel === "" ? undefined : line.sheetLabel);
 
       expect(held.drawingId, "the sheet the evidence stands on is the drawing the line was published from").toBe(String(field(stored.get(line.lineId), "drawingId", "drawing_id")));
       // VD-1 (walk-0): the layout is the paper sheet whose window frames the member — never `Model`,
@@ -231,6 +245,11 @@ describe("AC-2: linesCiting", () => {
       ),
     );
     expect(shared.length, "and every published line cites it").toBe(published.length);
+    // VD-2 (walk-1 B15): each citing row is named by its member, as the register's row names it.
+    for (const row of shared) {
+      const line = published.find((one) => one.lineId === String(row["lineId"]));
+      expect(row["member"], `the citing row ${String(row["lineId"])} names its member's mark and level`).toEqual({ mark: marks.get(line?.objectKey ?? ""), level: line?.level });
+    }
   }, BUDGET_MS);
 
   test("AC-2: a line matched by several of the asked keys is answered once", async () => {
