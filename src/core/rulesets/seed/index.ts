@@ -8,7 +8,11 @@
 // An edition is immutable, so a method landing in the tree is a NEW edition rather than an edit to
 // the standing one: every earlier version stands untouched as the row the campaigns opened under it
 // measured against, and the version named below is minted beside them as the head every later pin
-// forks (B-20, L-REG-07). 2027.04 is that head: the FOUNDATION FORMWORK's two methods —
+// forks (B-20, L-REG-07). 2027.05 is that head (OPEN-3, session 9, migration 0066): twelve pairs,
+// each a new rule id at version 1 — FND-OWN's seven (each pile cap owned once: its prism and formwork
+// less the heads its piles own and the recess cast into it, and the blinding less the piles through
+// it), S2's traced blinding and ARCH-2's four finishes — join the thirty-nine 2027.04 cited, so the
+// roster is fifty-one pairs. 2027.04 minted the FOUNDATION FORMWORK's two methods —
 // `rcc.foundation.formwork_rect@1` and `rcc.foundation.formwork_poly@1`, L-FRM-03's side faces of a
 // footing or a pile cap, `count × 2 × (L + B) × D` over a rectangle and `count × P × D` over any other
 // plan (I-337) — join the thirty-seven 2027.03 cited, so the roster this edition names is thirty-nine
@@ -20,7 +24,7 @@ import type { EditionContent, EditionIdentity } from "../editions/content";
 import { enumerateMethods } from "../methods/registry";
 
 /** The identity of the platform edition: the head of every lineage in the product (L-REG-07). */
-export const SEED_EDITION_IDENTITY: EditionIdentity = { scope: "platform", name: "IS1200_IN", version: "2027.04" };
+export const SEED_EDITION_IDENTITY: EditionIdentity = { scope: "platform", name: "IS1200_IN", version: "2027.05" };
 
 /**
  * The seed's content: L-MEA-01's seventeen parameter values, and the (rule id, version) pairs of the

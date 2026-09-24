@@ -20,19 +20,13 @@
 import type { ElementType } from "@/core/catalogue/classes";
 import type { Kind } from "@/core/catalogue/kinds";
 import { CHANNEL_THRESHOLD, CHANNEL_VARIABLE } from "@/core/gate/deductions";
-import { THRESHOLD_VARIABLE, type DeductionChannel, type GeometryType } from "@/core/offers/law";
+import { THRESHOLD_VARIABLE, type DeductionChannel } from "@/core/offers/law";
+import { type ManualGeometry } from "@/core/manual/law";
 import { MANUAL_BLINDING_METHOD } from "./blinding";
 
-// STAND-IN, deleted at integration. The manual geometry roster's home is S1's
-// `src/core/manual/law.ts` (`MANUAL_GEOMETRIES`, `ManualGeometry`, I-539), which this branch does
-// not yet hold. When S1 lands, these two declarations go and the names are imported from
-// `@/core/manual/law`; `tests/rulesets/manual-methods.test.ts` refuses the merge until they have
-// (ARCH-02: a copy is a defect). Same names and members as S1's, so the swap is one import.
-/** The three geometries a hand measurement traces (L-FRM-01's manual half; R-TO-040's Area, Linear, Count). */
-export const MANUAL_GEOMETRIES = ["POLYGON", "POLYLINE", "POINT_SET"] as const satisfies readonly GeometryType[];
-
-/** One manual geometry, drawn from the closed roster above. */
-export type ManualGeometry = (typeof MANUAL_GEOMETRIES)[number];
+// The manual geometry roster's one home is S1's `src/core/manual/law.ts` (I-539, ARCH-02): read from
+// there and re-exported for this area's readers, never restated.
+export { MANUAL_GEOMETRIES, type ManualGeometry } from "@/core/manual/law";
 
 /**
  * Where a hand measurement takes one variable its rule declares from.

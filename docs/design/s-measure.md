@@ -1193,8 +1193,8 @@ Deviation in `docs/decisions/deviations.md` in the same commit (CLAUDE.md, Law).
     parameter prices the machine's projected rectangle, and a hand measurement names its own
     thickness (I-374, L-MEA-06).
   - The geometry roster a pairing is typed by (`MANUAL_GEOMETRIES`, `ManualGeometry`) lives in S1's
-    `src/core/manual/law.ts`. Until S1 lands, `rules.ts` carries a marked stand-in with the same names
-    and members; at integration the stand-in is deleted and the names are imported from there.
+    `src/core/manual/law.ts`; `rules.ts` imports it from there (the stand-in it carried until S1 landed
+    was deleted at integration, session 9).
     `tests/rulesets/manual-methods.test.ts` goes red on a tree holding both.
   - Every kind of `KINDS`, decided. A kind added to the roster owes its row here, and
     `tests/rulesets/manual-methods.test.ts` refuses a roster with a kind the table lacks:
@@ -1213,6 +1213,9 @@ Deviation in `docs/decisions/deviations.md` in the same commit (CLAUDE.md, Law).
     | earthwork.excavation | Area | not offered | L-FRM-04 defers polygon pits, and a traced outline plus a working allowance is the offset of a polygon it defers | a Deviation first |
     | masonry.brickwork | Length, brick wall | reuse `masonry.brick_wall.volume@1`, not offered yet | L-MEA-02: "a face with no schedule is not measured"; a hand run brings no schedule until that clause is ruled for hand measurement | S9, with that ruling |
     | finish.plaster, finish.paint | Area, surface | reuse `finish.surface.plaster@1` and `finish.surface.paint@1`, not offered yet | the same L-MEA-02 clause | S9, with that ruling |
+    | finish.flooring | Area, surface | reuse `finish.surface.flooring@1`, not offered yet | a floor finish is a room's floor net of its openings (I-542); a hand ring of a room is S9's Area tool under the same L-MEA-02 ruling as plaster and paint (added at integration, session 9: ARCH-2's kind) | S9, with that ruling |
+    | finish.tiling | Area, surface | reuse `finish.wall_face.tiling@1`, not offered yet | a dado is `P × h − openings` over one run of a room's walls (I-543); a traced run states P and no height, so the height comes from a condition the chest does not hold yet (added at integration, session 9) | S9, with a condition that states h |
+    | finish.skirting | Length, surface | not offered | no method measures skirting yet: its length deducts the openings' widths at floor level and no channel carries a width (s-coverage, ARCH-2's open item) | ARCH-7/8, with the skirting's method |
     | rcc.rebar | none | never by hand geometry | bars are the schedule's and the BBS's (AM-03); a trace states no bar | none |
 
   - Proof: `tests/rulesets/manual-methods.test.ts` holds every pairing to its method: enumerated, a
@@ -1945,8 +1948,6 @@ per-Interpretation verdict, so those rows stay OWED, and their objections below 
 | I-385 | exact figures from float-sourced coordinates are false precision | the coordinate's own decimal spelling is the drawing's fact; the key alone quantises | OWED | S1, S3 |
 | I-386 | refusing where the factor ≠ the unit blocks every PDF sheet | yes, until the gate multiplies (L-MEA-05); publishing a wrong-size figure is worse | OWED | S1 |
 | I-387 | L-QTY-01 and R-TO-040 disagree on a free point on a scan; and a MEASURED claim rests on the client; and (review) one lattice step of reach let a metre drawing's corners, each pushed 70 mm outward, come back MEASURED at 102.8196 m² against 100 | weakest-wins makes it INTERPRETED under both; the door re-derives every snapped point from the cited entity and demotes what it cannot reproduce, within one micrometre of real length (never a lattice step), and stores the drawing's own point where the drawing determines one (I-385) | OWED | S1 |
-| I-388 | L-FRM-04 defers polygon blinding outright; and (review) S-08's drawn blinding rectangle bills blinding outside the slab at the chamfer | it defers projecting a polygon plan, and a traced outline projects nothing; a drawn blinding outline counts only where it follows its member, and where it does not, the member's own outline is traced (under by at most p) | OWED | S2 |
-| I-387 | L-QTY-01 and R-TO-040 disagree on a free point on a scan; and a MEASURED claim rests on the client | weakest-wins makes it INTERPRETED under both; the door re-derives every snapped point from the cited entity and demotes what it cannot reproduce | OWED | S1 |
 | I-388 | L-FRM-04 defers polygon blinding outright; and (review) S-08's drawn blinding rectangle bills blinding outside the slab at the chamfer | it defers projecting a polygon plan, and a traced outline projects nothing; a drawn blinding outline counts only where it follows its member, and where it does not, the member's own outline is traced (under by at most p) | OWED | OPEN-3 (the mint of S2's method) |
 | I-389 | a derived deduction from another sheet is "undrawn" on this one; a traced cut-out treated as an opening under-deducts a small column; and (review) "26 columns" counts the porch column outside the ring, and "members at that level" names the wrong storey | it is drawn on S-10 and in the register, and the fail-closed arm covers what cannot be placed; a cut-out carries a role; members are the storey whose top is the slab's level, each clipped to the ring's net region (25 on BNBC, 17 of them straddling its edge) | OWED | S3, S4, S6 |
 | I-390 | a one-line disclosure is still a disclosure of possible under-coverage | under-coverage is the lawful direction; over is blocked by k, l, m, t | OWED | S6 |

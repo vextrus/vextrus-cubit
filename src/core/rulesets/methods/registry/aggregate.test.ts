@@ -41,7 +41,7 @@ const byCodePoint = (left: string, right: string): number => (left < right ? -1 
  * `rcc.pile_cap.formwork_rect_recess@1` and `rcc.pile_cap.formwork_poly_recess@1`, a cap's sides and
  * its recess's; and `pcc.blinding_rect_piled@1`, L-FRM-04's blinding less the piles' sections through
  * it — recorded in `../foundations/foundations.methods.json` from a new module, `owned.ts`, so no
- * standing pair's closure moved. No edition cites them yet: the next platform edition does. The roster
+ * standing pair's closure moved. Cited by the platform edition `IS1200_IN @ 2027.05` (OPEN-3). The roster
  * grew by those seven keys — forty-four pairs to fifty-one — and no pair standing before them moved
  * (B-19, B-20).
  *
@@ -52,15 +52,14 @@ const byCodePoint = (left: string, right: string): number => (left < right ? -1 
  * `finish.wall_face.tiling@1` over `A = P × h − openings`, recorded in
  * `../masonry-finishes/masonry-finishes.methods.json`. The roster
  * grew by those four keys — forty pairs to forty-four — and no pair standing before them moved
- * (B-19, B-20). No edition cites them yet: the edition that puts them in force is minted beside the
- * wave's other methods.
+ * (B-19, B-20). Cited by the platform edition `IS1200_IN @ 2027.05` (OPEN-3, migration 0066).
  *
  * Re-baselined by the MANUAL METHODS (session 8, S2; s-measure I-388, I-539) for ONE ADDED pair and
  * nothing else — `pcc.blinding.area@1`, the blinding under an outline a person traced,
  * `count × (A − openings − junctions) × t`, recorded in `../manual/manual.methods.json` by the new
  * MANUAL area. The roster grew by that one key — thirty-nine pairs to forty — and no pair standing
- * before it moved (B-19, B-20). No edition cites it yet: the one that does is minted with the wave's
- * other new methods (L-MEA-01, L-REG-07).
+ * before it moved (B-19, B-20). Cited by the platform edition `IS1200_IN @ 2027.05` (OPEN-3, migration
+ * 0066; L-MEA-01, L-REG-07).
  *
  * Re-baselined before that by the FOUNDATION FORMWORK (FND-3, I-337) for TWO ADDED pairs and nothing else —
  * L-FRM-03's side faces of a footing or a pile cap, `rcc.foundation.formwork_rect@1` over a rectangle

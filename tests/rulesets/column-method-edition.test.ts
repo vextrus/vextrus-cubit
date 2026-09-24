@@ -204,8 +204,9 @@ describe("AC-6: the column method is enumerated, implemented and cited", () => {
     // lands a version with it, and ONE method owes a version exactly as twelve did (L-MEA-01, B-20).
     // Re-baselined again by the foundation formwork (FND-3, I-337), whose two pairs are minted at
     // 2027.04 beside the 2027.03 this leaf minted — the circular pair is cited by the new head exactly
-    // as it was by its own, which the arrayContaining below still grades.
-    expect(SEED_VERSION, "and the version it is re-minted at is the head the latest leaf lands").toBe("2027.04");
+    // as it was by its own, which the arrayContaining below still grades. And again by OPEN-3 (session
+    // 9), whose twelve pairs are minted at 2027.05 beside 2027.04.
+    expect(SEED_VERSION, "and the version it is re-minted at is the head the latest leaf lands").toBe("2027.05");
 
     expect(
       [...seed.SEED_EDITION_CONTENT.methods],

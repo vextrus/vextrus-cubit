@@ -554,7 +554,7 @@ const SEEDED_SEED_VERSION = "2026.08";
  * roster that grows, not the discipline: the store holds one row per mint, and an edition that had
  * been edited in place would leave a version missing here.
  */
-const MINTED_SEED_VERSIONS: readonly string[] = [SEEDED_SEED_VERSION, "2026.09", "2026.10", "2026.11", "2026.12", "2027.01", "2027.02", SUPERSEDED_SEED_VERSION, SEED_VERSION];
+const MINTED_SEED_VERSIONS: readonly string[] = [SEEDED_SEED_VERSION, "2026.09", "2026.10", "2026.11", "2026.12", "2027.01", "2027.02", "2027.03", SUPERSEDED_SEED_VERSION, SEED_VERSION];
 
 describe("AC-6: the platform edition is re-minted beside the row 0004 seeded", () => {
   it("AC-6: a new migration mints the edition, and the freshly migrated store holds one row per edition ever minted", async () => {
