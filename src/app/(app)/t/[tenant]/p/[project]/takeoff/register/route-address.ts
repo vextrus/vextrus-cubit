@@ -4,7 +4,7 @@
 //
 // The Trace stamps and links this same address with an origin row on it (`?line=`), so the spelling
 // now has one home for both: `originAddress(tenantId, projectId, null)` is this path (I-180, B-17).
-import { originAddress } from "@/modules/takeoff/trace";
+import { originAddress } from "@/modules/takeoff/trace/address";
 
 export function registerRoute(tenantId: string, projectId: string): string {
   return originAddress(tenantId, projectId, null);
