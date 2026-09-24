@@ -286,7 +286,16 @@ export interface ViewRefusal {
   kind: string | null;
   /** Where the member a queue item is about stands, and what the Trace selects there (I-557). */
   sheet?: { readonly drawingId: string; readonly layoutName: string; readonly sheetLabel: string | null; readonly sourceKeys: readonly string[] };
+  /** What a measure run deferred, by the name a QS knows it by (s-coverage I-484). */
+  deferral?:
+    | { subject: "VIEW"; name: string; sheet: { drawingId: string; layoutName: string; sourceKey: string } | null }
+    | { subject: "STOREY"; name: string };
 }
+
+/** What the drawings name and the run measured none of (s-takeoff-register I-650). */
+export type ViewDeclared =
+  | { subject: "CLASS"; class: string; kinds: string[] }
+  | { subject: "MEMBER"; word: string; caption: string; drawingId: string; address: string };
 
 /** One offered level stack, keyed on the fact judged: the key and the count, never its levels (R-UI-023, L-ACT-02). */
 export interface ViewLevelStack {
@@ -304,6 +313,10 @@ export interface RegisterViewLike {
   lines: ViewLine[];
   refusals: ViewRefusal[];
   levelStacks: ViewLevelStack[];
+  /** Whether a measure run has been carried over the campaign (s-takeoff-register I-649). */
+  measured?: boolean;
+  /** What the drawings name and the run measured none of (I-650). */
+  declared?: ViewDeclared[];
 }
 
 /* --------------------------------------------------------------------- the fixtures, declared once */
@@ -836,9 +849,14 @@ export async function mountRegister(view: RegisterViewLike, over: MountOptions =
       // the same hand-down the shipped screen makes (AM-09 §1).
       testIds: {
         empty: TESTIDS.register.empty,
+        declared: TESTIDS.register.declared,
+        declaredItem: TESTIDS.register.declaredItem,
         inspector: TESTIDS.register.inspector,
         objectKey: TESTIDS.register.objectKey,
         refusalObject: TESTIDS.register.refusalObject,
+        refusalsZero: TESTIDS.register.refusalsZero,
+        runSummary: TESTIDS.register.runSummary,
+        runStoreys: TESTIDS.register.runStoreys,
         sourceKey: TESTIDS.register.sourceKey,
         technical: TESTIDS.register.technical,
       },

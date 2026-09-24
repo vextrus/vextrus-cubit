@@ -177,6 +177,16 @@ export type ViewLevelStack = {
   readonly count: number;
 };
 
+/**
+ * What the drawings name that this campaign's run measured none of, as the coverage certificate's
+ * measurement boundary states it (s-takeoff-register I-650): a class the captions declare and
+ * the partition placed no member of — the certificate's "Not placed" rows, one per class — and a
+ * member no class of the catalogue is, by the word that names it and the caption that shows it.
+ */
+export type ViewDeclared =
+  | { readonly subject: "CLASS"; readonly class: string; readonly kinds: readonly string[] }
+  | { readonly subject: "MEMBER"; readonly word: string; readonly caption: string; readonly drawingId: string; readonly address: string };
+
 /** The whole reading, in one value (test contract: `RegisterView`). */
 export type RegisterView = {
   readonly tenantId: string;
@@ -186,4 +196,12 @@ export type RegisterView = {
   readonly lines: readonly ViewLine[];
   readonly refusals: readonly ViewRefusal[];
   readonly levelStacks: readonly ViewLevelStack[];
+  /**
+   * Whether any measure run has been carried over the campaign — reported or published anything
+   * (`reportedAbsencesOf`). What the work surface and the deferred-and-refused region say turns on it
+   * (I-649). Absent reads as no run: a reading composed without it claims nothing was measured.
+   */
+  readonly measured?: boolean;
+  /** What the drawings name and the run measured none of (I-650); absent reads as none. */
+  readonly declared?: readonly ViewDeclared[];
 };

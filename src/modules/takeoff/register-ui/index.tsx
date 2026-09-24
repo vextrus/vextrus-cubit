@@ -112,10 +112,18 @@ type Evidence = { href: string; label: string };
  */
 export interface RegisterTestIds {
   readonly empty: string;
+  /** What the drawings name and the run measured none of, and each of its rows (I-650). */
+  readonly declared: string;
+  readonly declaredItem: string;
   readonly inspector: string;
   readonly objectKey: string;
   /** The refusal row's object key, which is an identifier and renders as one (R-UI-082, I-287). */
   readonly refusalObject: string;
+  /** The deferred-and-refused region's stated zero (I-649). */
+  readonly refusalsZero: string;
+  /** The work surface after a run that published no line, and the storeys it names (I-649/c). */
+  readonly runSummary: string;
+  readonly runStoreys: string;
   readonly sourceKey: string;
   readonly technical: string;
 }
@@ -325,6 +333,7 @@ const drawingsHref = (tenantId: string, projectId: string): string => `/t/${tena
 const setsHref = (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/drawings/sets`;
 const participantsHref = (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/settings/participants`;
 const levelsHref = (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/takeoff/levels`;
+const coverageHref = (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/takeoff/coverage`;
 
 /** The code the screen's own denial renders, off the registry the caller looks it up in. */
 const PERMISSION_NOT_HELD = "PERMISSION_NOT_HELD";
@@ -1621,6 +1630,143 @@ export function RegisterWorkspace({ view, corroborations, permitted, offline, ch
     setSelectedLineId((held) => (held === lineId ? null : lineId));
   };
 
+
+  /* ------------------------------------------ what the run did not measure (I-649/b) */
+
+  /** Whether any measure run has been carried over the campaign (absent reads as none). */
+  const measured = view.measured === true;
+  const declared = view.declared ?? [];
+  /**
+   * A run was carried and published no line at all: what it deferred is then the work surface's own
+   * content, not a card below the fold of the rail (I-649). A registered campaign only —
+   * nothing registered is the empty state's.
+   */
+  const runPublishedNothing = !nothingRegistered && measured && view.lines.length === 0;
+  /** The storeys a run deferred for want of a height, by their labels (I-651). */
+  const storeysDeferred = view.refusals.flatMap((refusal) => (refusal.deferral?.subject === "STOREY" ? [refusal.deferral.name] : []));
+
+    {/* R-UI-020: a sighting that produced no line says why, in place, with the evidence that
+        resolves it — and the count is stated even when it is zero (silence never happens). The
+        sentence that used to stand under this heading is now the heading's own hint (§6). */}
+    {/* The same clause, for the same reason: this region scrolls too, and a campaign that
+        refused nothing leaves it with no focusable child (R-UI-012). */}
+  const refusalsRegion = (
+      <section
+        className="cx-register-refusals cx-reticle cx-reticle-scroll"
+        data-testid="register-refusals"
+        data-count={view.refusals.length}
+        tabIndex={0}
+        aria-label={REGISTER_COPY.takeoff_register_refusals_heading}
+      >
+        <Tooltip content={REGISTER_COPY.takeoff_register_refusals_hint}>
+          <h2 className="cx-register-panel-heading">{REGISTER_COPY.takeoff_register_refusals_heading}</h2>
+        </Tooltip>
+        {/* I-649: the zero is stated, never a bare heading — "nothing" after a run, and "no run
+            yet" before one, because the two are different facts. */}
+        {view.refusals.length === 0 ? (
+          <p className="cx-register-refusals-zero" data-testid={chrome.testIds.refusalsZero} data-measured={measured ? "true" : "false"}>
+            {measured ? REGISTER_COPY.takeoff_register_refusals_none : REGISTER_COPY.takeoff_register_refusals_unrun}
+          </p>
+        ) : null}
+        {view.refusals.map((refusal) => {
+          // A row with no message, remedy or evidence link is the silence R-UI-020 forbids: a
+          // code the registry does not hold is a fault of the reading, raised to the boundary
+          // that mints the report id rather than rendered as a blank row (ARCH-03, B-21).
+          const entry = doors.refusalOf(refusal.code);
+          if (entry === undefined) {
+            throw new Error(`the register read a refusal code no registry entry stands for: ${refusal.code} (R-UI-020)`);
+          }
+          return (
+            <div
+              key={`${refusal.code}-${refusal.objectKey}`}
+              className="cx-register-refusal"
+              data-testid="register-refusal"
+              data-code={refusal.code}
+              data-object={refusal.objectKey}
+              data-kind={refusal.kind ?? undefined}
+            >
+              {refusal.deferral === undefined ? (
+                <div className="cx-register-refusal-fact">
+                  <span className="cx-register-refusal-label">{REGISTER_COPY.takeoff_register_refusal_object_label}</span>
+                  {/* R-UI-082, I-287: a sighting's object key is a PLACEMENT key — a view key, a
+                      mark and a point — and a placement key is an identifier, not body text. It
+                      renders through the shipped IdChip, whole in `data-value` and in the chip's
+                      own tooltip, one press from the clipboard, and short on the face of the rail:
+                      the mark where this rail knows one, the leading characters where it does not
+                      (B-17 — the shortening is the chip's, never this screen's). */}
+                  <IdChip value={refusal.objectKey} short={marks.get(refusal.objectKey)} data-testid={chrome.testIds.refusalObject} />
+                  {/* R-TO-011, I-557: a queue item reveals its key in the sheet — the member it is
+                      about, flown to its outline and mark on the sheet the outline stands on, named
+                      as the Source column names a sheet. No basis: it names a member, not a figure.
+                      A key no stored placement resolves keeps the chip alone (I-181). */}
+                  {refusal.sheet === undefined ? null : (
+                    <EvidenceLink
+                      href={selectionAddress(view.tenantId, view.projectId, refusal.sheet)}
+                      label={queueSheetWord(refusal.sheet, marks.get(refusal.objectKey) ?? null)}
+                      data-key={refusal.objectKey}
+                    />
+                  )}
+                </div>
+              ) : (
+                // I-484: a run's deferral is about a VIEW or a STOREY, not an object, and
+                // what it names is words a QS reads — the caption or the label, whole — never an
+                // identifier cut short on the face of the rail.
+                <div className="cx-register-refusal-fact" data-deferral={refusal.deferral.subject}>
+                  <span className="cx-register-refusal-label">
+                    {refusal.deferral.subject === "VIEW" ? REGISTER_COPY.takeoff_register_refusal_view_label : REGISTER_COPY.takeoff_register_refusal_storey_label}
+                  </span>
+                  <span className="cx-register-refusal-name">{deferralName(refusal.deferral, refusal.objectKey, humaniseEnum)}</span>
+                </div>
+              )}
+              {refusal.kind === null ? null : (
+                <div className="cx-register-refusal-fact">
+                  <span className="cx-register-refusal-label">{REGISTER_COPY.takeoff_register_refusal_kind_label}</span>
+                  <EnumLabel value={refusal.kind} label={inWords(refusal.kind)} className="cx-register-enum" />
+                </div>
+              )}
+              <RefusalState refusal={entry} evidence={refusal.deferral === undefined ? evidence : deferralDoor(refusal.deferral, view.tenantId, view.projectId, evidence)} />
+            </div>
+          );
+        })}
+      </section>
+  );
+
+  /* The declared-but-unmeasured sightings, under their own heading and never mixed into the refusals:
+     they are not a refusal of anything the run was offered, they are what the drawings name and no
+     line answers — the coverage certificate's own rows (I-650). */
+  const declaredRegion =
+    declared.length === 0 ? null : (
+      <section className="cx-register-declared" data-testid={chrome.testIds.declared} data-count={declared.length} aria-label={REGISTER_COPY.takeoff_register_declared_heading}>
+        <Tooltip content={REGISTER_COPY.takeoff_register_declared_hint}>
+          <h2 className="cx-register-panel-heading">{REGISTER_COPY.takeoff_register_declared_heading}</h2>
+        </Tooltip>
+        <ul className="cx-register-declared-list">
+          {declared.map((item) =>
+            item.subject === "CLASS" ? (
+              <li key={`class-${item.class}`} className="cx-register-declared-item" data-testid={chrome.testIds.declaredItem} data-subject="CLASS" data-class={item.class}>
+                <span className="cx-register-refusal-name">{inWords(item.class)}</span>
+                <span className="cx-register-declared-why">{REGISTER_COPY.takeoff_register_declared_class}</span>
+              </li>
+            ) : (
+              <li
+                key={`member-${item.word}-${item.address}`}
+                className="cx-register-declared-item"
+                data-testid={chrome.testIds.declaredItem}
+                data-subject="MEMBER"
+                data-word={item.word}
+              >
+                <span className="cx-register-refusal-name">{inWords(item.word)}</span>
+                <span className="cx-register-declared-why">{fillCopy("takeoff_register_declared_member", { caption: item.caption })}</span>
+              </li>
+            ),
+          )}
+        </ul>
+        <a className="cx-btn cx-reticle cx-register-declared-open" data-variant="secondary" href={coverageHref(view.tenantId, view.projectId)}>
+          {REGISTER_COPY.takeoff_register_declared_open}
+        </a>
+      </section>
+    );
+
   return (
     <div className="cx-register" data-testid="register-workspace" data-state={state} data-campaign={view.campaign?.campaignId}>
       {/* The lane's tabs row and the frame's one inspector are filled, not drawn (§3.2, R-UI-080):
@@ -1723,82 +1869,9 @@ export function RegisterWorkspace({ view, corroborations, permitted, offline, ch
             {fillCopy("takeoff_register_repudiated_count", { count: formatUserFigure(String(repudiated)), lines: formatUserFigure(String(withheld)) })}
           </div>
 
-          {/* R-UI-020: a sighting that produced no line says why, in place, with the evidence that
-              resolves it — and the count is stated even when it is zero (silence never happens). The
-              sentence that used to stand under this heading is now the heading's own hint (§6). */}
-          {/* The same clause, for the same reason: this region scrolls too, and a campaign that
-              refused nothing leaves it with no focusable child (R-UI-012). */}
-          <section
-            className="cx-register-refusals cx-reticle cx-reticle-scroll"
-            data-testid="register-refusals"
-            data-count={view.refusals.length}
-            tabIndex={0}
-            aria-label={REGISTER_COPY.takeoff_register_refusals_heading}
-          >
-            <Tooltip content={REGISTER_COPY.takeoff_register_refusals_hint}>
-              <h2 className="cx-register-panel-heading">{REGISTER_COPY.takeoff_register_refusals_heading}</h2>
-            </Tooltip>
-            {view.refusals.map((refusal) => {
-              // A row with no message, remedy or evidence link is the silence R-UI-020 forbids: a
-              // code the registry does not hold is a fault of the reading, raised to the boundary
-              // that mints the report id rather than rendered as a blank row (ARCH-03, B-21).
-              const entry = doors.refusalOf(refusal.code);
-              if (entry === undefined) {
-                throw new Error(`the register read a refusal code no registry entry stands for: ${refusal.code} (R-UI-020)`);
-              }
-              return (
-                <div
-                  key={`${refusal.code}-${refusal.objectKey}`}
-                  className="cx-register-refusal"
-                  data-testid="register-refusal"
-                  data-code={refusal.code}
-                  data-object={refusal.objectKey}
-                  data-kind={refusal.kind ?? undefined}
-                >
-                  {refusal.deferral === undefined ? (
-                    <div className="cx-register-refusal-fact">
-                      <span className="cx-register-refusal-label">{REGISTER_COPY.takeoff_register_refusal_object_label}</span>
-                      {/* R-UI-082, I-287: a sighting's object key is a PLACEMENT key — a view key, a
-                          mark and a point — and a placement key is an identifier, not body text. It
-                          renders through the shipped IdChip, whole in `data-value` and in the chip's
-                          own tooltip, one press from the clipboard, and short on the face of the rail:
-                          the mark where this rail knows one, the leading characters where it does not
-                          (B-17 — the shortening is the chip's, never this screen's). */}
-                      <IdChip value={refusal.objectKey} short={marks.get(refusal.objectKey)} data-testid={chrome.testIds.refusalObject} />
-                      {/* R-TO-011, I-557: a queue item reveals its key in the sheet — the member it is
-                          about, flown to its outline and mark on the sheet the outline stands on, named
-                          as the Source column names a sheet. No basis: it names a member, not a figure.
-                          A key no stored placement resolves keeps the chip alone (I-181). */}
-                      {refusal.sheet === undefined ? null : (
-                        <EvidenceLink
-                          href={selectionAddress(view.tenantId, view.projectId, refusal.sheet)}
-                          label={queueSheetWord(refusal.sheet, marks.get(refusal.objectKey) ?? null)}
-                          data-key={refusal.objectKey}
-                        />
-                      )}
-                    </div>
-                  ) : (
-                    // I-484: a run's deferral is about a VIEW or a STOREY, not an object, and
-                    // what it names is words a QS reads — the caption or the label, whole — never an
-                    // identifier cut short on the face of the rail.
-                    <div className="cx-register-refusal-fact" data-deferral={refusal.deferral.subject}>
-                      <span className="cx-register-refusal-label">
-                        {refusal.deferral.subject === "VIEW" ? REGISTER_COPY.takeoff_register_refusal_view_label : REGISTER_COPY.takeoff_register_refusal_storey_label}
-                      </span>
-                      <span className="cx-register-refusal-name">{deferralName(refusal.deferral, refusal.objectKey, humaniseEnum)}</span>
-                    </div>
-                  )}
-                  {refusal.kind === null ? null : (
-                    <div className="cx-register-refusal-fact">
-                      <span className="cx-register-refusal-label">{REGISTER_COPY.takeoff_register_refusal_kind_label}</span>
-                      <EnumLabel value={refusal.kind} label={inWords(refusal.kind)} className="cx-register-enum" />
-                    </div>
-                  )}
-                  <RefusalState refusal={entry} evidence={refusal.deferral === undefined ? evidence : deferralDoor(refusal.deferral, view.tenantId, view.projectId, evidence)} />
-                </div>
-              );
-            })}
-          </section>
+          {runPublishedNothing ? null : refusalsRegion}
+          {runPublishedNothing ? null : declaredRegion}
+
 
           {/* R-UI-023: the one bulk door on this screen. There is no checkbox, no row selection and
               no select-all anywhere under this workspace — the offer is confirmed as it is named. */}
@@ -1855,6 +1928,26 @@ export function RegisterWorkspace({ view, corroborations, permitted, offline, ch
                 </a>
               ) : null}
             </EmptyState>
+          ) : runPublishedNothing ? (
+            // I-649: a run was carried and published nothing. The surface says so, and never
+            // invites the run that just happened; what the run deferred — each view and storey with
+            // its reason and its door — and what the drawings name that it measured none of are this
+            // surface's own content, where the eye is, not cards below the fold of the rail.
+            <section className="cx-register-run cx-reticle cx-reticle-scroll" data-testid={chrome.testIds.runSummary} data-lines="0" tabIndex={0} aria-label={REGISTER_COPY.takeoff_register_run_empty_heading}>
+              <div className="cx-register-run-said">
+                <h2 className="cx-register-run-heading">{REGISTER_COPY.takeoff_register_run_empty_heading}</h2>
+                <p className="cx-register-run-body">
+                  {view.refusals.length > 0 ? REGISTER_COPY.takeoff_register_run_empty_deferred_body : REGISTER_COPY.takeoff_register_run_empty_clear_body}
+                </p>
+                {storeysDeferred.length === 0 ? null : (
+                  <p className="cx-register-run-storeys" data-testid={chrome.testIds.runStoreys}>
+                    {fillCopy("takeoff_register_run_storeys", { storeys: storeysDeferred.join(", ") })}
+                  </p>
+                )}
+              </div>
+              {refusalsRegion}
+              {declaredRegion}
+            </section>
           ) : lines.length === 0 ? (
             // Two empties left, each saying WHY (R-UI-020, §2): a filter that matches nothing keeps
             // the rail and the count and carries no state id; a campaign nobody has measured —

@@ -81,6 +81,7 @@ import { checkpoint } from "../../support/checkpoint";
 import { heldAttribute, steadyCount, steadyText } from "../../support/retrying-read";
 import { settled } from "../../support/settled";
 import { TESTIDS, testIdSelector } from "../../../../src/ui/testids";
+import { strings } from "../../../../src/ui/strings";
 import { BNBC_NECK, BNBC_STOREYS, bnbcMeasured, releaseGoldenWorker } from "./golden-run";
 
 test.use({ viewport: { width: 1440, height: 900 } });
@@ -172,6 +173,20 @@ test.describe.serial("J-000 — Golden Path: M3's measure on F-RCC6-BNBC", () =>
     // The refusals and deferrals, reviewed where they stand: each says why, by its registered code.
     const refusals = await steadyText(takeoff.refusals, "the deferred-and-refused section").catch(() => "");
     await attach(testInfo, "m3-register-refusals", `count=${(await heldAttribute(takeoff.refusals, "data-count").catch(() => null)) ?? "absent"}\n${refusals}`);
+    // I-649/b: a measured campaign's register is never silent about what produced no line —
+    // a region with no row states its zero in words, and what the drawings name that no class
+    // measures (the BNBC set captions an underground reservoir and an overhead tank) stands under its
+    // own heading, read off the coverage certificate's statement.
+    await expect(takeoff.runSummary, "the run published lines, so the work surface is the grid").toHaveCount(0);
+    if ((await heldAttribute(takeoff.refusals, "data-count")) === "0") {
+      await expect(takeoff.refusalsZero, "a region with no row states its zero").toHaveText(strings.takeoff_register_refusals_none);
+    } else {
+      await expect(takeoff.refusalsZero, "a region with rows states no zero").toHaveCount(0);
+    }
+    await expect(takeoff.declared, "what the drawings name and nothing measured stands under its own heading").toBeVisible();
+    for (const word of ["reservoir", "tank"]) {
+      await expect(takeoff.declaredItems.and(page.locator(`[data-subject="MEMBER"][data-word="${word}"]`)).first(), `the ${word} the captions name, as the certificate names it`).toBeVisible();
+    }
 
     await takeoff.filter("class").click();
     await page.getByRole("option", { name: /^column$/i }).first().click();

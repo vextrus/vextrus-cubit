@@ -11,18 +11,27 @@
 // no figure is re-derived.
 import { and, asc, drawingSetRevisions, eq, forTenant, quantityLines, queueItems, registerObservations } from "@/core/db";
 import { campaignsOf } from "@/core/campaigns";
-import { reportedAbsencesOf, runDeferralsOf, type PlacedManifestView, type RunDeferral } from "@/core/residue";
+import { measurementStatementOf, reportedAbsencesOf, residueOf, runDeferralsOf, unclassedStatementOf, type PlacedManifestView, type RunDeferral } from "@/core/residue";
 import { levelStackOf, levelsOf } from "@/modules/takeoff/levels";
 import { QUANTITY_BASES, type QuantityBasis } from "@/core/offers/law";
 import { standingOf, type ObservationRow, type RegisterScope } from "@/core/register/store";
 import { proposedLevelStackOf } from "@/modules/takeoff/partition";
 import { refusedSightingsOf, registerObjectsOf, repudiatedObjectsOf } from "@/modules/takeoff/register";
 import { citedKeysOf, entitySelectionOf, levelLabelOf, omissionsOf, pinnedRecordsOf, tracedLineOf, variablesOf, type PinnedRecord } from "@/modules/takeoff/trace";
+import { declaredOf } from "./declared";
 import { levelRank, readingOrder, type LineRank } from "./order";
 import type { RegisterView, ViewAttribute, ViewLevelStack, ViewLine, ViewObject, ViewReading, ViewRefusal } from "./view";
 
 /** Which project's register is being read, in which workspace. */
 export type RegisterViewScope = { readonly tenantId: string; readonly projectId: string };
+
+/**
+ * What a caller asks of the reading beyond the register itself. `declared`: read the coverage
+ * certificate's residue for what the drawings name and the run measured none of (I-650) — the
+ * screen asks it; a caller that renders no such list (Ask, the workbook export) is not made to pay for
+ * the residue's read, and its reading carries no `declared` at all.
+ */
+export type RegisterViewOptions = { readonly declared?: boolean };
 
 /** The basis a queue item leaves an object standing on: interpreted, and uncorroborated (L-QTY-04). */
 const INTERPRETED: QuantityBasis = "INTERPRETED";
@@ -75,15 +84,15 @@ function corroborationOf(attributes: readonly ViewAttribute[], repudiated: boole
  * campaign open answers the empty reading rather than a fault: an absence is a state, and the screen
  * teaches the next action from it (R-UI-050).
  */
-export async function registerViewOf(scope: RegisterViewScope): Promise<RegisterView> {
+export async function registerViewOf(scope: RegisterViewScope, options: RegisterViewOptions = {}): Promise<RegisterView> {
   const open = await campaignsOf(scope);
   const campaign = open[open.length - 1];
   if (campaign === undefined) {
-    return { tenantId: scope.tenantId, projectId: scope.projectId, campaign: null, objects: [], lines: [], refusals: [], levelStacks: [] };
+    return { tenantId: scope.tenantId, projectId: scope.projectId, campaign: null, objects: [], lines: [], refusals: [], levelStacks: [], measured: false, declared: [] };
   }
 
   const registerScope: RegisterScope = { tenantId: scope.tenantId, projectId: scope.projectId, setRevisionId: campaign.setRevisionId };
-  const [objectRows, repudiatedRows, refusedRows, published, deferred, observations, levelRows, manifest, reported, stack] = await Promise.all([
+  const [objectRows, repudiatedRows, refusedRows, published, deferred, observations, levelRows, manifest, reported, stack, residue] = await Promise.all([
     registerObjectsOf(registerScope),
     repudiatedObjectsOf(registerScope),
     refusedSightingsOf(registerScope),
@@ -94,6 +103,9 @@ export async function registerViewOf(scope: RegisterViewScope): Promise<Register
     manifestOfRevision(scope.tenantId, campaign.setRevisionId),
     reportedAbsencesOf(scope, campaign),
     levelStackOf(scope),
+    // The coverage certificate's own residue of THIS campaign, read for what the drawings name and
+    // the run measured none of (I-650) — the statement is the certificate's, never re-derived.
+    options.declared === true ? residueOf({ ...scope, campaignId: campaign.campaignId }) : null,
   ]);
 
   const struck = new Set(repudiatedRows.map((row) => row.objectKey));
@@ -233,7 +245,30 @@ export async function registerViewOf(scope: RegisterViewScope): Promise<Register
     });
   }
 
-  return { tenantId: scope.tenantId, projectId: scope.projectId, campaign: { campaignId: campaign.campaignId, setRevisionId: campaign.setRevisionId }, objects, lines, refusals, levelStacks };
+  // What the drawings name and no run measured, stated only once a run has been carried: before one,
+  // everything is unmeasured and the work surface says so (I-649/b).
+  const declared =
+    residue === null
+      ? undefined
+      : reported.measured
+        ? declaredOf({
+        measurement: measurementStatementOf(residue.cells),
+        unclassed: unclassedStatementOf(residue.input.unclassed ?? []),
+            registeredClasses: new Set(objectRows.map((row) => row.elementType)),
+          })
+        : [];
+
+  return {
+    tenantId: scope.tenantId,
+    projectId: scope.projectId,
+    campaign: { campaignId: campaign.campaignId, setRevisionId: campaign.setRevisionId },
+    objects,
+    lines,
+    refusals,
+    levelStacks,
+    measured: reported.measured,
+    ...(declared === undefined ? {} : { declared }),
+  };
 }
 
 /**

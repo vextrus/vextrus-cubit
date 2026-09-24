@@ -62,9 +62,14 @@ const CHROME: RegisterChrome = {
   // read HERE, where the registry is lawfully reachable, and handed down with the rest of its chrome.
   testIds: {
     empty: TESTIDS.register.empty,
+    declared: TESTIDS.register.declared,
+    declaredItem: TESTIDS.register.declaredItem,
     inspector: TESTIDS.register.inspector,
     objectKey: TESTIDS.register.objectKey,
     refusalObject: TESTIDS.register.refusalObject,
+    refusalsZero: TESTIDS.register.refusalsZero,
+    runSummary: TESTIDS.register.runSummary,
+    runStoreys: TESTIDS.register.runStoreys,
     sourceKey: TESTIDS.register.sourceKey,
     technical: TESTIDS.register.technical,
   },

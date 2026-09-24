@@ -90,7 +90,7 @@ describe("each project page reaches the choke point itself, and reads under what
     const { default: page } = await import("../../src/app/(app)/t/[tenant]/p/[project]/takeoff/register/page");
     await page(address);
     expectAsked();
-    expect(seams.registerViewOf).toHaveBeenCalledWith({ tenantId: REAL, projectId: PROJECT });
+    expect(seams.registerViewOf).toHaveBeenCalledWith({ tenantId: REAL, projectId: PROJECT }, { declared: true });
     expect(seams.forTenant).toHaveBeenCalledWith({ tenantId: REAL });
     expect(seams.permissionsHeld.mock.calls[0]?.slice(1)).toEqual([PROJECT, USER]);
   });

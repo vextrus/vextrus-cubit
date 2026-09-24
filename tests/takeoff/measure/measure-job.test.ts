@@ -329,6 +329,50 @@ describe("MEASURE-REFUSE: an unscaled run defers by name, per view and per store
     ]);
   });
 
+  test("the register says a run was carried, and names as drawn-not-measured exactly what the certificate states (s-takeoff-register I-649/b)", async () => {
+    const { campaign, sheet } = await refused();
+    // A detail the drawing captions as a tank: a member no class of the catalogue is, which the
+    // certificate names as drawn and never measured (s-coverage I-481) — and so must the register.
+    sql(
+      `insert into partition_views (tenant_id, project_id, drawing_id, ingest_id, view_key, type, caption, anchor_key) values (${lit(campaign.tenantId)}, ${lit(campaign.projectId)}, ${lit(sheet.drawingId)}, ${lit(randomUUID())}, 'v:DETAIL:DXF_HANDLE:TANK', 'DETAIL', 'OVERHEAD WATER TANK', 'DXF_HANDLE:TANK');`,
+    );
+    type Declared = { subject: string; class?: string; word?: string };
+    const register = await productModule<{
+      registerViewOf: (
+        scope: { tenantId: string; projectId: string },
+        options: { declared: boolean },
+      ) => Promise<{ measured?: boolean; declared?: Declared[]; objects: { class: string }[]; lines: unknown[] }>;
+    }>("src/modules/takeoff/register-ui/server.ts");
+    const coverage = await productModule<{
+      certificatePreviewOf: (scope: { tenantId: string; projectId: string }) => Promise<{ measurement: unknown[]; unclassed: unknown[] }>;
+    }>("src/modules/takeoff/coverage/server.ts");
+    const reading = await productModule<{ declaredOf: (input: { measurement: unknown[]; unclassed: unknown[]; registeredClasses: ReadonlySet<string> }) => Declared[] }>(
+      "src/modules/takeoff/register-ui/declared.ts",
+    );
+    const view = await register.registerViewOf(campaign.scope, { declared: true });
+    expect(view.measured, "the run reported, so the register reads a run as carried — never 'not measured yet'").toBe(true);
+    expect(view.lines, "and it published nothing, which is the state the work surface then states").toEqual([]);
+    const certificate = await coverage.certificatePreviewOf(campaign.scope);
+    expect(
+      (view.declared ?? []).filter((item) => item.subject === "MEMBER").map((item) => item.word),
+      "the tank the drawing captions is named as drawn and not measured",
+    ).toEqual(["tank"]);
+    expect(view.declared, "the declared sightings are the certificate's own rows, read once (B-17)").toEqual(
+      reading.declaredOf({ measurement: certificate.measurement, unclassed: certificate.unclassed, registeredClasses: new Set(view.objects.map((object) => object.class)) }),
+    );
+  });
+
+  test("before any run the register reads no run carried and names nothing declared (I-649)", async () => {
+    const it = await stageCampaign("register-unrun", { objects: 1 });
+    const register = await productModule<{
+      registerViewOf: (scope: { tenantId: string; projectId: string }, options: { declared: boolean }) => Promise<{ measured?: boolean; declared?: unknown[]; refusals: unknown[] }>;
+    }>("src/modules/takeoff/register-ui/server.ts");
+    const view = await register.registerViewOf(it.scope, { declared: true });
+    expect(view.measured).toBe(false);
+    expect(view.declared).toEqual([]);
+    expect(view.refusals, "and nothing deferred, because nothing ran").toEqual([]);
+  });
+
   test("a member whose concrete published still owes its reinforcement cell the report that says why (the residue asks per kind)", async () => {
     // One column on the ground floor: the stub publishes its concrete and reports that nobody read
     // its reinforcement schedule. Asked by object alone, the concrete line swallowed the report and

@@ -84,6 +84,17 @@ export type RegisterCopyKey =
   | "takeoff_register_refusal_storey_label"
   | "takeoff_register_deferral_open_sheet"
   | "takeoff_register_deferral_open_levels"
+  | "takeoff_register_refusals_none"
+  | "takeoff_register_refusals_unrun"
+  | "takeoff_register_declared_heading"
+  | "takeoff_register_declared_hint"
+  | "takeoff_register_declared_class"
+  | "takeoff_register_declared_member"
+  | "takeoff_register_declared_open"
+  | "takeoff_register_run_empty_heading"
+  | "takeoff_register_run_empty_deferred_body"
+  | "takeoff_register_run_empty_clear_body"
+  | "takeoff_register_run_storeys"
   | "takeoff_register_evidence"
   | "takeoff_register_level_stack_heading"
   | "takeoff_register_level_stack_hint"
@@ -185,6 +196,19 @@ export const REGISTER_COPY: Readonly<Record<RegisterCopyKey, string>> = Object.f
   takeoff_register_refusal_storey_label: "Storey",
   takeoff_register_deferral_open_sheet: "Open the sheet",
   takeoff_register_deferral_open_levels: "Open the levels",
+  // s-takeoff-register I-649/b: after a run the register says what the run did — its zero
+  // stated, what it deferred where the eye is, and what the drawings name that it measured none of.
+  takeoff_register_refusals_none: "Nothing deferred or refused in this run.",
+  takeoff_register_refusals_unrun: "No measure run has been carried over this campaign yet, so nothing has been deferred or refused.",
+  takeoff_register_declared_heading: "Named by the drawings, not measured",
+  takeoff_register_declared_hint: "The drawings name these and this run measured none of them. The coverage certificate states each one as not measured.",
+  takeoff_register_declared_class: "A caption names it, and no member of it was placed on a storey.",
+  takeoff_register_declared_member: "Shown in {caption}. No class of the catalogue measures it.",
+  takeoff_register_declared_open: "Open the coverage",
+  takeoff_register_run_empty_heading: "This run published no line.",
+  takeoff_register_run_empty_deferred_body: "It deferred what it could not measure. Each view and storey stands below with the reason and where to set it up; measure the campaign again once they are.",
+  takeoff_register_run_empty_clear_body: "It deferred and refused nothing. The coverage shows what the drawings name and what was placed.",
+  takeoff_register_run_storeys: "Storey heights not stated: {storeys}",
   takeoff_register_evidence: "Open the source drawings",
 
   takeoff_register_level_stack_heading: "Proposed level stacks",

@@ -162,6 +162,25 @@ export class STakeoffPage {
     return this.page.getByTestId(TESTIDS.register.refusal);
   }
 
+  /** The region's stated zero, where it holds no row (s-takeoff-register I-649). */
+  get refusalsZero(): Locator {
+    return this.page.getByTestId(TESTIDS.register.refusalsZero);
+  }
+
+  /** What the drawings name and the run measured none of, and its rows (I-650). */
+  get declared(): Locator {
+    return this.page.getByTestId(TESTIDS.register.declared);
+  }
+
+  get declaredItems(): Locator {
+    return this.page.getByTestId(TESTIDS.register.declaredItem);
+  }
+
+  /** The work surface after a run that published no line (I-649). */
+  get runSummary(): Locator {
+    return this.page.getByTestId(TESTIDS.register.runSummary);
+  }
+
   get answer(): Locator {
     return this.page.getByTestId(TESTIDS.register.answer);
   }

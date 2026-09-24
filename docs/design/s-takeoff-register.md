@@ -194,6 +194,49 @@ it is only PLACED in its cell, no wider than the cell with its label ellipsised 
   stored placement resolves — and every run deferral, whose door already opens its sheet (I-484) —
   offers no second link (I-181). The fact row wraps rather than cutting the link at the rail's edge.
 
+- **I-649 — after a run, the register says what the run did (walk-1 B03, B11).** On a fresh
+  project after Measure the work surface still read "Not measured yet… Measure this campaign reads
+  their quantities" — inviting the run that had just happened — while the five views the run
+  deferred sat in a 240 px card below the fold of the rail; and on the measured BNBC project
+  "Deferred and refused" was a bare heading with `data-count="0"`. Ruling: `RegisterView` carries
+  `measured`, the residue's own answer to whether any run was carried over the campaign
+  (`reportedAbsencesOf`, the same reading the deferrals already turn on). (1) Objects registered,
+  a run carried, no line published: the grid's field becomes `register-run-summary` — "This run
+  published no line." and either "It deferred what it could not measure…" or, where it deferred
+  nothing, "It deferred and refused nothing…" — and the deferred-and-refused region and the declared
+  list (I-650) MOVE into it, whole, with their rows, codes and doors unchanged; the rail then
+  carries neither, so no row is rendered twice. The Measure door in the tabs row is the only
+  invitation to run again. (2) "Not measured yet." stands only where no run was carried. (3) A
+  region with no row states its zero (`register-refusals-zero`): "Nothing deferred or refused in this
+  run." after a run, "No measure run has been carried over this campaign yet, so nothing has been
+  deferred or refused." before one — two facts, never one sentence for both. Rejected: keeping the
+  deferrals in the rail and pointing at them from the empty cell (the eye still has to find a card
+  below the fold); rendering them in both places (two rows for one fact, B-17).
+- **I-650 — what the drawings name and no run measured is listed under its own heading, read
+  off the certificate's statement.** The coverage certificate names each "Not placed" class (a
+  caption declares it, the partition placed no member of it) and each member no class of the
+  catalogue is (Reservoir, Sunshade, Tank on BNBC); the register named none of them. Ruling: once a
+  run has been carried, `registerViewOf(scope, { declared: true })` reads the campaign's residue
+  (`residueOf`) and hands `measurementStatementOf` and `unclassedStatementOf` — the certificate's own
+  functions — to `declaredOf` (`register-ui/declared.ts`), which keeps every statement row in the
+  `UNPLACED` slot, one per class with its kinds, then every unclassed row by its word and caption.
+  They stand under "Named by the drawings, not measured" (`register-declared`, one
+  `register-declared-item` each, `data-subject` CLASS or MEMBER), never inside "Deferred and refused"
+  — they are not a refusal of anything a rail was offered — with one door, "Open the coverage", where
+  the certificate states each. A class the register holds an object of is left out: "no member of it
+  was placed" would be untrue of it, and its cells stand in the coverage grid. Only the register
+  screen asks for the list; Ask and the workbook export read the register without it and do not pay
+  for the residue's read. Rejected: a second reading of the captions here (two answers to what the
+  drawings declare, B-17); listing them before a run (then everything is unmeasured, and the empty
+  state says so).
+- **I-651 — a storey whose height the run wanted is named on the surface.** Where a run that
+  published no line deferred a storey for want of its height, `register-run-storeys` names each by its
+  label under the summary ("Storey heights not stated: 1ST, 2ND"), beside the storey's own row and its
+  "Open the levels" door (s-coverage I-484). A vertical that stands on no storey of the stack (walk-1's
+  fresh project: every column under "Unresolved") owes no storey a height, so `runDeferralsOf` names
+  none and neither does this surface; naming THAT absence is a deferral of the residue's
+  (`src/core/residue/deferrals.ts`), recorded in §8 rather than invented here.
+
 ## 1. Layout and hierarchy — what moves
 
 Nothing about the workspace's regions, widths, order or density is decided HERE: the tabs row, the
@@ -310,6 +353,10 @@ cell by cell:
 - **Refusal** — unchanged: the one RefusalState in `register-answer` and in each `register-refusal`
   row. The Trace introduces no code: a line the project does not hold is a fact, answered at the
   viewer end as `missing` (I-88's idiom), never a registry entry.
+- **Measured, nothing published** (I-649) — not a new R-UI-050 cell: `data-state` stays
+  `partial` where anything was deferred and `ready` where nothing was. The grid's field holds
+  `register-run-summary` with the run's sentence, the storeys it wanted heights for, the
+  deferred-and-refused region and the declared list; "Not measured yet." is the unrun campaign's alone.
 - **Partial** — widened by I-181 and rendered, never hidden: a line whose sheet cannot be resolved,
   and a DEFAULTED line, keep their chips as plain text in the same cell beside rows that carry links.
   The difference is visible (a rule and a glyph, or neither) and it is honest — those figures did not
@@ -332,9 +379,27 @@ no new sentence enters this screen. The cell's words are model data — the shee
 the handle, each verbatim, in mono (I-25, I-26), the whole key one disclosure away — and the column
 keeps `takeoff_register_col_source` **Source** as its header, which is what names the link for a reader and for a screen reader. The one string the
 cell shows beyond data is the pattern's own, on hover: `evidence_link_title` **Trace to the sheet**
-(`src/ui/strings/evidence-link.ts`, quoted here as it renders, owned there). `src/ui/strings/
-takeoff.ts` and the module's mirrored `copy.ts` are untouched, so
-`tests/takeoff/register-ui/copy-mirror.test.ts` still passes on an unchanged pair.
+(`src/ui/strings/evidence-link.ts`, quoted here as it renders, owned there). The Trace itself
+touches neither `src/ui/strings/takeoff.ts` nor the module's mirrored `copy.ts`; the sentences
+I-REGHONEST adds (below) enter both, and `tests/takeoff/register-ui/copy-mirror.test.ts` pins the pair.
+
+**Amended by I-649/b/c (session 9)** — eleven sentences enter, each in
+`src/ui/strings/takeoff.ts` and mirrored in `register-ui/copy.ts`:
+`takeoff_register_refusals_none` **Nothing deferred or refused in this run.** ·
+`takeoff_register_refusals_unrun` **No measure run has been carried over this campaign yet, so nothing
+has been deferred or refused.** · `takeoff_register_declared_heading` **Named by the drawings, not
+measured** · `takeoff_register_declared_hint` (the heading's tooltip) **The drawings name these and
+this run measured none of them. The coverage certificate states each one as not measured.** ·
+`takeoff_register_declared_class` **A caption names it, and no member of it was placed on a storey.** ·
+`takeoff_register_declared_member` **Shown in {caption}. No class of the catalogue measures it.** ·
+`takeoff_register_declared_open` **Open the coverage** · `takeoff_register_run_empty_heading` **This
+run published no line.** · `takeoff_register_run_empty_deferred_body` **It deferred what it could not
+measure. Each view and storey stands below with the reason and where to set it up; measure the
+campaign again once they are.** · `takeoff_register_run_empty_clear_body` **It deferred and refused
+nothing. The coverage shows what the drawings name and what was placed.** ·
+`takeoff_register_run_storeys` **Storey heights not stated: {storeys}**. A class and a member are said
+in words (`inWords`: `tie_beam` → Tie beam, `tank` → Tank); a caption and a storey label are the
+drawing's own words, whole.
 
 Voice, unchanged and re-affirmed: calm, concrete, professional; no exclamation marks; no build
 vocabulary — "rail", "gate", "seam", "ingest", "manifest" and every clause id appear nowhere a
@@ -378,7 +443,11 @@ Routes: `/t/{tenant}/p/{project}/takeoff/register?line={lineId}` (`originAddress
 `/t/{tenant}/p/{project}/viewer/{drawing}/{layout}?s={KEY,…}&line={lineId}` (`traceAddress`) — `s`
 in cited order, `line` last, no `v`. `registerRoute` keeps its name and its spelling.
 
-Test ids: **none are added to this screen.** The cell is addressed through the pattern's own
+Test ids: **amended by I-649/b/c** — five are added, in the registry and handed down through
+`RegisterChrome.testIds`: `register-refusals-zero` (`data-measured`), `register-run-summary`
+(`data-lines="0"`), `register-run-storeys`, `register-declared` (`data-count`) and
+`register-declared-item` (`data-subject` CLASS | MEMBER, `data-class` or `data-word`). Otherwise
+none are added to this screen. The cell is addressed through the pattern's own
 `evidence-link` and `evidence-link-glyph` inside `register-lines`, and the workspace's twenty-eight
 ids (s-takeoff.md §7) stand unchanged. Attributes under test, all on the anchor: `data-line`
 (the lineId), `data-basis` (the line's `quantityBasis`), `data-key` (the line's `sourceKey`, whole —
@@ -395,6 +464,13 @@ resolvable sheet; no `evidence-link` outside `register-lines` anywhere under `re
 per rendered row; no `v=` in any `href`; no `pushState` call; `history.replaceState` called with the
 origin address **before** the click's default is allowed to proceed, and `preventDefault` never
 called.
+
+I-REGHONEST's suites: `tests/ui/takeoff-register/run-honest.test.ts` (the after-run surface, the
+zero, the storeys, the declared list), `tests/takeoff/register-ui/declared.test.ts` (`declaredOf` over
+the certificate's own statement functions), and the db cases in `tests/takeoff/measure/measure-job.test.ts`
+(a carried run reads `measured`, the declared list equals the certificate's rows and names a captioned
+tank; an unrun campaign reads neither). J-000's `m3-measure-and-register` asserts the stated zero and
+the BNBC reservoir and tank.
 
 Suites: `tests/ui/takeoff-register/**` (jsdom mounts of `RegisterWorkspace` over the existing
 `registerFixture()` / `linesFixture(n)`, chrome bound to the shipped components including
@@ -435,3 +511,8 @@ per line off the pinned record's frames (viewer.md Part 2 §8). The queue items'
 "queue item") is **paid** by VD-3 (I-557). Column pin, resize and sort persistence are **paid** by DataTable v2's own
 per-user furniture (`cubit.datatable.v1:takeoff-register-lines`); the index rail's remembered width
 is not — owner: the prefs seam's node, unchanged. The inspector's width IS remembered, by the frame.
+A vertical that stands on no storey of the stack (the level stack not yet confirmed) owes no storey a
+height, so no deferral names it and a run over it states only its scale deferrals (I-651) —
+naming that absence ("these columns stand on no storey; confirm the level stack") is a deferral of
+the residue's own, owner: `src/core/residue/deferrals.ts` (`runDeferralsOf`), never a second rule in
+this screen.

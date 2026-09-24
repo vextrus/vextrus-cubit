@@ -47,7 +47,7 @@ export default async function ProjectRegister({ params }: { params: Promise<{ te
   let view: RegisterView | null = null;
   let reportId: string | null = null;
   try {
-    view = await registerViewOf({ tenantId, projectId: project });
+    view = await registerViewOf({ tenantId, projectId: project }, { declared: true });
   } catch (cause) {
     reportId = reportFault({ requestId: crypto.randomUUID(), actor: userId, route: "/t/[tenant]/p/[project]/takeoff/register", cause }).faultId;
   }
