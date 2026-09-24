@@ -149,7 +149,8 @@ export function useQuantityPaint({ canvasRef, stageRef, cameraRef, overlay, togg
       }
       context.setTransform(ratio, 0, 0, ratio, 0, 0);
       const held = shown.current.overlay;
-      const scene = held === null ? { fills: [] } : quantityScene(held, shown.current.toggles, { ...at, viewport: { width, height } });
+      // The sheet's own camera, box and all: the fills lie on the members the drawing drew (I-661).
+      const scene = held === null ? { fills: [] } : quantityScene(held, shown.current.toggles, at);
       drawQuantityScene(context, scene, paletteOf(stage, shown.current.glyphs), { width, height });
     },
     [canvasRef, stageRef],

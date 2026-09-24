@@ -234,7 +234,7 @@ export function useMeasure({ tool, snap, cameraRef, stageRef, views, unscaled, g
       context.setTransform(ratio, 0, 0, ratio, 0, 0);
       const own = ownRef.current;
       const scene =
-        own.armed === null ? null : measureScene({ tool: own.armed, rectangle: own.rectangle, draft: current(), live: liveRef.current?.point ?? null, camera: { ...at, viewport: { width, height } } });
+        own.armed === null ? null : measureScene({ tool: own.armed, rectangle: own.rectangle, draft: current(), live: liveRef.current?.point ?? null, camera: at }); // the sheet's own camera, box and all (I-661)
       if (scene === null || (scene.rings.length === 0 && scene.points.length === 0)) {
         context.clearRect(0, 0, width, height);
         return;

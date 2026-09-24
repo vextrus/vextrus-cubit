@@ -198,3 +198,32 @@ describe("B08: a traced note is framed as a note on its sheet, at a size a reade
     expect(readingScaleOf(facts.get(MARK_KEY)?.records ?? []), "the mark alone is still a note to read").toBeCloseTo(readingScale, 9);
   });
 });
+
+/**
+ * Walk 2 BD-1 (I-661): ⌘K "C2" opens S-10 with the eight C2 columns held, and the held
+ * selection opens the inspector, which takes 320 px of the canvas WHILE the travel is in flight. A
+ * landing framed in the box the travel was asked in (1184 wide) was drawn into the 864 the canvas
+ * then had: the sheet squeezed sideways, its grid circles tall ovals. The landing is framed in the
+ * box the stage stands at when it lands.
+ */
+describe("BD-1: a travel lands framed in the box the stage has when it lands", () => {
+  test("the inspector opening mid-flight: the landing is the frame for the narrower stage, not the wider one", async () => {
+    const WIDE = { width: 1184, height: 804 };
+    const NARROW = { width: 864, height: 804 };
+    const standAt = (box: { width: number; height: number }): void => {
+      stage.getBoundingClientRect = () => ({ ...box, x: 0, y: 0, top: 0, left: 0, right: box.width, bottom: box.height, toJSON: () => ({}) }) as DOMRect;
+    };
+    standAt(WIDE);
+    stage.style.setProperty("--motion-flyto", "60ms");
+    const { result } = mount();
+
+    act(() => result.current.reveal([HELD_KEY]));
+    expect(result.current.flyto, "the travel is in flight").toBe("flying");
+    standAt(NARROW);
+    await waitFor(() => expect(result.current.flyto, "and lands").toBe("settled"));
+
+    const union = unionBox([PAINTED]) ?? PAINTED;
+    expect(jumpTo, "the frame the canvas now has").toHaveBeenCalledWith(revealCamera(union, NARROW));
+    expect(jumpTo, "never the one it had when the Trace was asked").not.toHaveBeenCalledWith(revealCamera(union, WIDE));
+  });
+});

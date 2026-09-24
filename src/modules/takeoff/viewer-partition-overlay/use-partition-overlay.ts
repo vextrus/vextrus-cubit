@@ -182,9 +182,11 @@ export function useOverlayPaint({ canvasRef, stageRef, cameraRef, overlay, toggl
       }
       context.setTransform(ratio, 0, 0, ratio, 0, 0);
 
+      // The scene is projected through the camera the sheet was drawn at, box and all — never a box of
+      // this canvas's own (I-661). The drawing, this overlay and the pointer are one camera, so
+      // a bubble stands on the drawn axis whatever box that camera was composed in.
       const held = shown.current.overlay;
-      const scene =
-        held === null ? { outlines: [], axes: [], rooms: [] } : overlayScene(held, shown.current.toggles, { ...at, viewport: { width, height } }, shown.current.scaleAbsence, shown.current.labels);
+      const scene = held === null ? { outlines: [], axes: [], rooms: [] } : overlayScene(held, shown.current.toggles, at, shown.current.scaleAbsence, shown.current.labels);
       drawOverlayScene(context, scene, paletteOf(stage), { width, height });
     },
     [canvasRef, stageRef],

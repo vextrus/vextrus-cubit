@@ -36,6 +36,14 @@ function paletteOf(element: Element): CanvasPalette {
   };
 }
 
+/**
+ * The box a frame was projected into, as the canvas publishes it: `<width>x<height>` in layout
+ * pixels to two decimals — a machine reading, never a figure a reader is shown (I-661).
+ */
+export function frameBoxOf(at: Camera): string {
+  return `${at.viewport.width.toFixed(2)}x${at.viewport.height.toFixed(2)}`;
+}
+
 export type UsePainterOptions = {
   head: ViewerHead | null;
   /** Whether a door refused this reader: nothing to paint is on screen the moment it is known. */
@@ -118,6 +126,11 @@ export function usePainter(options: UsePainterOptions): UsePainter {
       const stats = painter.frameStats();
       readout?.setAttribute("data-frame-median-ms", String(stats.medianMs));
       readout?.setAttribute("data-frame-p95-ms", String(stats.p95Ms));
+      // The box the frame on screen was projected into, beside the canvas's own box: where the two
+      // differ the drawing is stretched into the canvas, and a drawn circle is an oval (I-661).
+      // A journey reads this rather than counting pixels.
+      const drawn = painter.frameCamera();
+      if (drawn !== null) element.setAttribute("data-frame-box", frameBoxOf(drawn));
       // First paint is the first geometry on the paper, never the paper alone: a blank sheet drawn
       // before any layer arrived would answer PB-2 with a picture of nothing.
       if (uploadedRef.current.size > 0) setFirstPaint(true);

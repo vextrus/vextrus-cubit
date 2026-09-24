@@ -244,3 +244,16 @@ describe("I-346: the glyph atlas is uploaded as alpha alone", () => {
     expect(atlas[0]?.slice(2, 5), "internal format, format and type").toEqual(["ALPHA", "ALPHA", "UNSIGNED_BYTE"]);
   });
 });
+
+describe("I-661: the painter says which camera the frame on screen was drawn at", () => {
+  test("nothing before the first frame, then the camera of the frame drawn — the box a screen publishes beside the canvas's own", () => {
+    expect(painter.frameCamera(), "no frame, no camera").toBeNull();
+    painter.draw(AT, STATE);
+    runOut();
+    expect(painter.frameCamera(), "the frame on screen was drawn at the camera asked for").toEqual(AT);
+    const narrower: Camera = { ...AT, viewport: { width: STAGE.width - 320, height: STAGE.height } };
+    painter.draw(narrower, STATE);
+    runOut();
+    expect(painter.frameCamera()?.viewport, "and a new box is a new frame, reported as drawn").toEqual(narrower.viewport);
+  });
+});

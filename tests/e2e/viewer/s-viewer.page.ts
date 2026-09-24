@@ -10,7 +10,7 @@ import { inflateSync } from "node:zlib";
 // journey that needs the screen point of a world point inverts the shipped mapping rather than
 // re-deriving one of its own, so no acceptance carries a second opinion about where a sheet is.
 import { worldAt } from "../../../src/modules/takeoff/viewer/client";
-import { appears, everyAttribute, heldAttribute, nextFrame } from "../support/retrying-read";
+import { appears, everyAttribute, heldAttribute, nextFrame, steadyAttribute } from "../support/retrying-read";
 import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
 import { afterSettled } from "../support/settled";
 
@@ -367,6 +367,19 @@ export class SViewerPage {
     const box = await this.canvas.boundingBox();
     expect(box, "the canvas is laid out before it is driven").not.toBeNull();
     return box as { x: number; y: number; width: number; height: number };
+  }
+
+  /**
+   * How much wider than tall a circle of the drawing is drawn on screen: the canvas's own box over
+   * the box the frame on screen was projected into (`data-frame-box`), across over down. 1 is a
+   * round circle; walk 2's S-10 with the inspector open drew 0.73 — a tall oval (I-661).
+   */
+  async drawnStretch(): Promise<{ stretch: number; frame: string; canvas: { width: number; height: number } }> {
+    const frame = await steadyAttribute(this.canvas, "data-frame-box", "the box the frame on screen was drawn in");
+    const [width, height] = frame.split("x").map(Number);
+    expect(Number.isFinite(width) && Number.isFinite(height) && (width ?? 0) > 0 && (height ?? 0) > 0, `the canvas publishes the box its frame was drawn in: "${frame}"`).toBe(true);
+    const box = await this.canvasBox();
+    return { stretch: box.width / (width as number) / (box.height / (height as number)), frame, canvas: { width: box.width, height: box.height } };
   }
 
   /** The middle of the canvas — where a sheet flown to one entity puts that entity. */

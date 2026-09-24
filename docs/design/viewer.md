@@ -407,6 +407,43 @@ IOU in §8 with its owning clause. A grey box promising a panel is a lie about w
   rows then overprint in its picture too, so the drawn run is pinned in the table, not read from the
   machine. **Cost:** every sheet with text moves at rest — mono glyphs stand condensed (a run of
   capitals less so, lower case and spaces most); no figure, key or register fact moves.
+- **I-661 — the sheet is drawn in the box the canvas stands in, and every layer draws the one
+  camera.** (Session 9, VIEW-FIT. Amends I-317's resize rule and I-112's overlay frame.) Walk 2
+  (BD-1, `.private/work/session-9/walk2/shots/b15-c2-open-settled-dark-1440.png`): ⌘K "C2" opens
+  F-RCC6-BNBC's S-10 with the eight C2 columns held, and the sheet was squeezed sideways — its grid
+  circles tall ovals — with the grid overlay's bubbles between the drawn axes; a zoom kept it, and
+  with the inspector closed the sheet was right. Cause, read in the code: a camera is a centre, a
+  scale and the BOX it is projected into (`u_viewport` in the painter's shaders). The Trace's travel
+  (`hooks/use-reveal.ts`) measured the stage once, when it was asked — 1184 px wide — and framed its
+  landing and every frame of its flight in that box. The held selection opens the inspector, which
+  takes 320 px of the canvas while the camera is still in flight: the `ResizeObserver` gave the camera
+  the new 864 px, and the next frame of the flight wrote the 1184 back. The drawing was then drawn
+  1184 wide into 864 (a circle 0.73 as wide as it is tall), while the overlay projected the same
+  centre and scale into its own canvas's box, so the two layers parted; the pointer read the stale
+  box with the drawing. Ruling: (1) **one box.** Every camera the sheet takes passes the camera door
+  (`hooks/use-camera.ts`, `inStage`), which draws it in the box the stage measures at that moment:
+  a camera composed in another box keeps its centre and its scale — as a resize keeps a reader's —
+  and takes the stage's box; a stage that measures nothing on either side (never laid out) states
+  no box, and the camera is taken as handed. (2) **The travel frames where it lands.** A reveal
+  frames its target in the stage's box at every frame of the flight and at the landing, so a Trace
+  that opens the inspector lands with the named members framed in the canvas the reader has, not the
+  one they had. (3) **One camera for every layer.** The views/grid overlay, the quantity overlay and
+  the measure layer project the camera the frame hands them, box and all; each sizes only its own
+  backing store by its canvas (I-112's "the same camera the sheet was drawn at", now literal). (4)
+  **Said, not counted.** The canvas publishes `data-frame-box` — the box the frame on screen was
+  projected into (`Painter.frameCamera`) — and J-011's flown deep link, which opens the inspector in
+  flight, holds a drawn circle round against the canvas's own box within 0.5 %. **Cost:** a
+  `getBoundingClientRect` per camera move (a clean layout, microseconds; the gesture frames of PB-3
+  are unchanged); an overlay may shift by under a pixel where the stage's fractional box and its
+  canvas's whole-pixel box differ. No figure, key or register fact moves.
+  **What walk 2's B05 residue on S-01 is, and who owns it:** the viewer letters each text once. The
+  drawing itself holds `B500DWR` twice — once at the end of the fy note, once as its own TEXT at
+  (16, 196), 3.2 high, whose baseline sits on the cap line of `CLEAR COVER` (4.0 high at 192) — and
+  its `WASTAGE` convention (MTEXT at (16, 16), 2.4 high) runs into the band the sheet label is set
+  in. The product's DWG lane (`drawing_render`, ezdxf) draws both collisions identically. They are
+  the fixture generator's layout (`fixtures/gen/rcc6_bnbc/emit/sheets/front.py`, `s01`), and moving
+  them regenerates F-RCC6-BNBC and re-keys every corpus and read-back on it — the next BNBC edition's
+  to carry, in its own `baseline:` commit, not a viewer change.
 
 ## 1. Layout and hierarchy
 
@@ -709,7 +746,9 @@ answer the index in its worker gave: its round trip against PB-3's 16 ms, and ho
 under the point — written the same way, so asking costs no render); on each row — `data-layer`, `data-visible`,
 `data-drawn`, `data-locked`, `data-isolated`, `data-failed`; `role="switch"` + `aria-checked` on the
 visibility control and `aria-pressed` on Isolate and Lock; `data-code="MANIFEST_NOT_RENDERABLE"` and
-`data-surface="banner"` on the refusal, with a non-empty evidence `href`; `cx-reticle` on the
+`data-surface="banner"` on the refusal, with a non-empty evidence `href`; `data-frame-box`
+(`<width>x<height>`, the box the frame on screen was projected into, written each frame it paints,
+I-661) on `viewer-canvas`; `cx-reticle` on the
 canvas, both panel controls, the zoom buttons and the handle. Swatch colour is graded by resolving
 the row's inline style, layer counts by the string `formatUserFigure` renders.
 

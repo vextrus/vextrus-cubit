@@ -313,6 +313,36 @@ describe("I-317: an address that names no camera is a fitted sheet, and stays on
     expect(result.current.camera?.scale, "and the camera it framed is the reader's").toBe(fitted().scale);
   });
 
+  /**
+   * Walk 2 BD-1 (I-661): a Trace's travel was composed in the 1184 px the stage had before the
+   * inspector opened, and landed after the inspector had taken 320 px of it. Its camera carried the
+   * old box, so the drawing was projected 1184 wide into 864 (squeezed, grid circles tall ovals) while
+   * the grid overlay projected the same centre and scale into its own 864 — and every zoom after it
+   * kept the stale box. A camera is drawn in the box the stage stands at.
+   */
+  test("BD-1: a camera composed in a box the stage no longer has is drawn in the stage's box, with its centre and scale", async () => {
+    const WIDE = { width: 1184, height: 804 };
+    const NARROW = { width: 864, height: 804 };
+    measure(WIDE);
+    const { result } = await mount({ head: headOf(S10_EXTENTS) });
+    const composed = { ...fitCamera(S10_EXTENTS, WIDE), centre: [300, 250] as [number, number] };
+
+    measure(NARROW);
+    act(() => {
+      result.current.jumpTo(composed);
+    });
+    expect(lastCamera(draw), "the landing is drawn in the canvas it now stands in").toEqual({ ...composed, viewport: NARROW });
+    expect(result.current.camera?.viewport, "and that is the camera held").toEqual(NARROW);
+
+    act(() => {
+      result.current.moveCamera((held) => ({ ...held, scale: held.scale * 1.25 }), false);
+    });
+    expect((lastCamera(draw) as Camera).viewport, "a zoom after it keeps the stage's box, never the stale one").toEqual(NARROW);
+
+    result.current.moveCamera(() => composed, true);
+    expect((lastCamera(draw) as Camera).viewport, "and so does a frame of a gesture in flight").toEqual(NARROW);
+  });
+
   test("R-UI-031 / I-85: an address that names a camera opens at exactly that camera, as it always did, and keeps it across a resize", async () => {
     const stated = "420.5,297,0.5";
     const { result } = await mount({ head: headOf(S10_EXTENTS), initialViewport: stated });

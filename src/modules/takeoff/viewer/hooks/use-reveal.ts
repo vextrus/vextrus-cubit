@@ -105,12 +105,18 @@ export function useReveal({ head, stageRef, facts, cameraRef, moveCamera, jumpTo
       // Nothing selected has no box, so a reveal has nowhere to go and does not pretend to travel.
       if (union === null) return;
 
-      const rect = stage.getBoundingClientRect();
-      const viewportPx = { width: rect.width, height: rect.height };
       // A selection of text alone is framed at that text's reading size at most; one that holds a
       // member's geometry is framed by it, as ever (I-464).
-      const to = revealCamera(union, viewportPx, readingScaleOf(keys.flatMap((key) => facts.get(key)?.records ?? [])));
-      const from = cameraAt.current ?? fitCamera(head.manifest.extents, viewportPx);
+      const reading = readingScaleOf(keys.flatMap((key) => facts.get(key)?.records ?? []));
+      // The frame is taken in the box the stage stands at when it is drawn, not when the travel was
+      // asked for (I-661): the selection a Trace holds opens the inspector, which takes its
+      // width from the canvas while the camera is still in flight, and a landing framed in the old
+      // box would hold the named members in a frame the canvas no longer has.
+      const frameNow = (): Camera => {
+        const rect = stage.getBoundingClientRect();
+        return revealCamera(union, { width: rect.width, height: rect.height }, reading);
+      };
+      const from = cameraAt.current ?? fitCamera(head.manifest.extents, frameNow().viewport);
       const { durationMs, ease } = flytoMotion(stage);
       const colour = basisColour(stage, basis);
       const flight = flightRef.current + 1;
@@ -120,8 +126,9 @@ export function useReveal({ head, stageRef, facts, cameraRef, moveCamera, jumpTo
       setFlight(flight);
 
       const land = (): void => {
-        if (cameraAt.current === null) jumpTo?.(to);
-        else moveCamera?.(() => to, false);
+        const landing = frameNow();
+        if (cameraAt.current === null) jumpTo?.(landing);
+        else moveCamera?.(() => landing, false);
         setFlyto("settled");
         pulse?.(durationMs, colour.length > 0 ? colour : undefined);
       };
@@ -142,7 +149,7 @@ export function useReveal({ head, stageRef, facts, cameraRef, moveCamera, jumpTo
           land();
           return;
         }
-        moveCamera?.(() => flyTo(from, to, elapsed, durationMs, ease), true);
+        moveCamera?.(() => flyTo(from, frameNow(), elapsed, durationMs, ease), true);
         requestAnimationFrame(step);
       };
       requestAnimationFrame(step);

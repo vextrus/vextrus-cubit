@@ -39,6 +39,13 @@ const FLYTO_BUDGET_MS = 1_000;
 /** How near the address's camera must land on the union centre, in drawing units (AC-3, AC-4). */
 const WORLD_TOLERANCE = 1;
 
+/**
+ * How far from round a drawn circle may stand (I-661): the camera's box is the stage's
+ * fractional box and the canvas's is whole pixels, so the two may part by under a pixel in 800.
+ * Walk 2's oval was 0.73.
+ */
+const STRETCH_TOLERANCE = 0.005;
+
 /** A key an address may name that no sheet holds — the shape error I-88 answers as a fact. */
 const MALFORMED_KEY = "FOO:1";
 
@@ -134,6 +141,12 @@ test.describe("J-011 — the inspector: hover, select, copy, reveal, and the add
     await page.goto(S_VIEWER.selecting(staged.tenantId, staged.projectId, staged.drawingId, staged.layoutName, [first.key, second.key]), { waitUntil: "commit" });
     await expect(viewer.screen, "an address naming keys and no camera flies to them (I-85)").toHaveAttribute("data-flyto", "settled", { timeout: 120_000 });
     expect(await viewer.selectedKeys(), "both named keys are selected, in the order the address named them").toEqual([first.key, second.key]);
+
+    // Walk 2 BD-1 (I-661): the selection opened the inspector while the sheet was in flight,
+    // and the landing was drawn in the box the canvas had before it — every circle a tall oval, the
+    // grid overlay off the drawn axes. The frame on screen is drawn in the box the canvas stands in.
+    const drawn = await viewer.drawnStretch();
+    expect(Math.abs(drawn.stretch - 1), `a circle of the drawing is drawn round: the frame was drawn in ${drawn.frame}, the canvas stands at ${drawn.canvas.width}x${drawn.canvas.height}`).toBeLessThanOrEqual(STRETCH_TOLERANCE);
 
     const flown = await viewer.cameraFromAddress();
     const union = await viewer.selectionCentre();

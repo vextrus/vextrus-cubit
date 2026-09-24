@@ -45,6 +45,18 @@ function laidOut(box: { width: number; height: number }): boolean {
   return box.width >= MIN_FIT_STAGE_PX && box.height >= MIN_FIT_STAGE_PX;
 }
 
+/**
+ * This camera in the box the stage stands at now: its own centre and scale, the stage's measured
+ * size (I-661). The same camera where that box already is its viewport, or where the stage
+ * measures nothing on either side — a stage never laid out states no box to draw into.
+ */
+export function inStage(at: Camera, stage: Element | null): Camera {
+  const rect = stage?.getBoundingClientRect();
+  if (rect === undefined || !(rect.width > 0) || !(rect.height > 0)) return at;
+  if (rect.width === at.viewport.width && rect.height === at.viewport.height) return at;
+  return { ...at, viewport: { width: rect.width, height: rect.height } };
+}
+
 export type UseCameraOptions = {
   head: ViewerHead | null;
   /** The `v` parameter as the address carries it, or null where it carries none. */
@@ -92,9 +104,18 @@ export function useCamera({ head, initialViewport, stageRef, cameraRef, draw, pu
   /**
    * Every camera this sheet takes comes through here: one frame now, and — unless the camera is the
    * open's own fit, which is no reader's state — one address write, once.
+   *
+   * A camera is drawn in the box the stage stands at NOW (I-661). Every layer of the sheet —
+   * the drawing, each overlay, the pointer's world — projects the one camera handed here, so a move
+   * composed against a box the stage no longer has (a Trace's travel framed before the inspector
+   * opened and took 320 px of the canvas) would be drawn stretched into the new one: S-10's grid
+   * circles tall ovals, the grid overlay's bubbles off the drawn axes, and every zoom after it keeping
+   * the stale box. Such a camera keeps its centre and its scale, as a resize keeps a reader's, and
+   * takes the stage's box.
    */
   const apply = useCallback(
-    (at: Camera, live: boolean, published = true): void => {
+    (asked: Camera, live: boolean, published = true): void => {
+      const at = inStage(asked, stage.current);
       heldRef.current = at;
       draw(at);
       if (settleRef.current !== null) clearTimeout(settleRef.current);
@@ -112,7 +133,7 @@ export function useCamera({ head, initialViewport, stageRef, cameraRef, draw, pu
         publish(last);
       }, ADDRESS_SETTLE_MS);
     },
-    [draw, heldRef, publish],
+    [draw, heldRef, publish, stage],
   );
 
   // A move is the reader's (or a reveal travelling for them): the sheet stops re-fitting from here on.

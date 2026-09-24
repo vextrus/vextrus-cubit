@@ -78,6 +78,11 @@ export type Painter = {
   setFrameListener: (listener: (() => void) | null) => void;
   /** The frame ledger: the middle and the tail of the last frames, in milliseconds. */
   frameStats: () => { medianMs: number; p95Ms: number };
+  /**
+   * The camera the frame on screen was drawn at, or null before the first — so a screen can publish
+   * the box that frame was projected into beside the box the canvas stands in (I-661).
+   */
+  frameCamera: () => Camera | null;
   /** Release the buffers and the loop — a screen leaving takes its GPU memory with it. */
   dispose: () => void;
 };
@@ -1377,6 +1382,8 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
       const sorted = [...ledger].sort((a, b) => a - b);
       return { medianMs: quantile(sorted, 0.5), p95Ms: quantile(sorted, 0.95) };
     },
+
+    frameCamera: () => shown?.camera ?? null,
 
     dispose: () => {
       disposed = true;
