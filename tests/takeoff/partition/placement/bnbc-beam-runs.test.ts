@@ -142,8 +142,10 @@ describe("FRM-1 under a pairing band wide enough to read the runs it governs", (
     // the placement stage could not name them until the artifact stated which way a mark is written.
     const { placed } = await bnbc();
     const runs = new Map((placed.runs ?? []).map((run) => [run.placementKey, run]));
+    // TEST_AMENDED (FRM4-AD, I-612): EB1's mark names its three end-to-end spans by chain, so
+    // the one asked for here is the span its label stands beside — EB1a, drawn by EE8/EE9.
     const on = (mark: string): PlacementRow => {
-      const rows = placed.placements.filter((row) => row.viewKey === TYPICAL_BEAMS && row.mark === mark);
+      const rows = placed.placements.filter((row) => row.viewKey === TYPICAL_BEAMS && row.mark === mark && (mark !== "EB1" || row.outlineKey === "DXF_HANDLE:EE8"));
       expect(rows.length, `S-14 places ${mark} once`).toBe(1);
       return rows[0] as PlacementRow;
     };

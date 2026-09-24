@@ -13,6 +13,10 @@
  * registered the same 23 beams on 1F beside their placeholders — 195 beam objects where the stack
  * gives 172. The rebuild now retires each placeholder onto the row the one resolver derives for it.
  *
+ * TEST_AMENDED (FRM4-AD, I-612): the chain rule names the edge beam's two further spans by the
+ * one mark S-14 letters `EB1` and S-13 `1EB1` with, so S-14 places 54 and S-13 52: 2 more on 1F and
+ * on each of 2F..6F, 12 more on the stack, and 2 more waiting at the pin.
+ *
  * AND WHAT MAY NOT MOVE: the piles, the caps and the columns stand on exactly the keys they stood on,
  * and beam rows are PARTIAL (no slab thickness), so nothing billed moves.
  *
@@ -240,14 +244,14 @@ describe("I-366 on F-RCC6-BNBC: J-000's register holds one object per beam place
     const read = await bnbc();
     const views = partitionArtifact(read.graph).views.flatMap((view) => (view.anchorKey === null ? [] : [{ caption: view.caption, view: { viewClass: view.type, captionAnchorSourceKey: view.anchorKey } }]));
     const pinned = resolveExpansion({ placements: read.placed.placements, views, levels: [], ranges: [] }).rows.filter((row) => "unregistered" in row.level);
-    expect(pinned.length, "S-13's 50 beams, and the stair roof plan's 4 beams and 2 stubs, wait under a level nobody has authored (TEST_AMENDED, FRM-3: 23; SRR-LEV: 50)").toBe(56);
+    expect(pinned.length, "S-13's 52 beams, and the stair roof plan's 4 beams and 2 stubs, wait under a level nobody has authored (TEST_AMENDED, FRM-3: 23; SRR-LEV: 56; FRM4-AD's chain names 1EB1b/c: 58)").toBe(58);
     const tally: Record<string, number> = {};
     for (const row of pinned) {
       const at = `${row.placement.viewKey} ${row.placement.elementType} ${JSON.stringify(row.level)}`;
       tally[at] = (tally[at] ?? 0) + 1;
     }
     expect(tally, "S-13's beams under the caption's word; the stair roof's beams under its own storey, its columns under the roof they rise from (I-621, I-622)").toEqual({
-      [`${FIRST_FLOOR_PLAN} beam {"unregistered":"1ST"}`]: 50,
+      [`${FIRST_FLOOR_PLAN} beam {"unregistered":"1ST"}`]: 52,
       [`${STAIR_ROOF_PLAN} beam {"unregistered":"SRR"}`]: 4,
       [`${STAIR_ROOF_PLAN} column {"unregistered":"ROOF"}`]: 2,
     });
@@ -256,19 +260,19 @@ describe("I-366 on F-RCC6-BNBC: J-000's register holds one object per beam place
 
   test("walked through J-000's acts, the rebuild retires 49 onto 1F: 355 beam objects on the stack, the resolver's own rows, LB1's placeholder the one I-367 keeps and the stair roof's four under SRR", async () => {
     const { register, resolved, carried } = await walked(true);
-    expect(carried, "the 49 placeholders the resolver stands on 1F, carried once each by the rebuild after the stack is confirmed").toBe(49);
-    expect(perStorey(register, "beam"), "ROOF's 46, the 1F plan's 49, the typical plan's 52 on each of 2F..6F — LB1 under the caption's word, and SB-R1..SB-R4 under the storey the stack does not carry").toEqual({
+    expect(carried, "the 51 placeholders the resolver stands on 1F, carried once each by the rebuild after the stack is confirmed (TEST_AMENDED, FRM4-AD: 49)").toBe(51);
+    expect(perStorey(register, "beam"), "ROOF's 46, the 1F plan's 51, the typical plan's 54 on each of 2F..6F (FRM4-AD's chain: 1EB1b/c, EB1b/c) — LB1 under the caption's word, and SB-R1..SB-R4 under the storey the stack does not carry").toEqual({
       ROOF: 46,
-      "1F": 49,
-      "2F": 52,
-      "3F": 52,
-      "4F": 52,
-      "5F": 52,
-      "6F": 52,
+      "1F": 51,
+      "2F": 54,
+      "3F": 54,
+      "4F": 54,
+      "5F": 54,
+      "6F": 54,
       "@unregistered:1ST": 1,
       "@unregistered:SRR": 4,
     });
-    expect(keysOf(register, "beam").length, "one object per beam placement per storey the stack gives it, 355, and the five placeholders never carried").toBe(360);
+    expect(keysOf(register, "beam").length, "one object per beam placement per storey the stack gives it, 367, and the five placeholders never carried (TEST_AMENDED, SRR-LEV: 360; FRM4-AD: +12)").toBe(372);
     const waiting = [...register.values()].filter((row) => "unregistered" in row.level);
     expect(
       waiting.map((row) => `${row.placement.viewKey} ${row.placement.mark}`).sort(),
@@ -297,7 +301,7 @@ describe("I-366 on F-RCC6-BNBC: J-000's register holds one object per beam place
     const stairRoof = [...register.keys()].filter((key) => key.endsWith("@unregistered:SRR")).sort();
     expect(stairRoof.map((key) => markOf.get(key)).sort(), "and the stair roof's four under SRR's (the case above)").toEqual(STAIR_ROOF_BEAMS);
     for (const measured of measuredBeams(read, register)) {
-      expect(measured.offered.length, `${measured.rail}: every one of the 355 beams on the stack is offered — J-000's beam lines, 2 × 355`).toBe(355);
+      expect(measured.offered.length, `${measured.rail}: every one of the 367 beams on the stack is offered — J-000's beam lines, 2 × 367 (TEST_AMENDED, FRM4-AD: 355)`).toBe(367);
       expect(measured.coverage, `${measured.rail}: each PARTIAL, no slab thickness read yet (FRM-4)`).toEqual(["PARTIAL_DECLARED"]);
       expect(measured.offered.filter(onPlaceholder), `${measured.rail}: nothing offered on a placeholder — the line would bind a band that does not reach 1F (L-FRM-02)`).toEqual([]);
       expect(
@@ -312,8 +316,8 @@ describe("I-366 on F-RCC6-BNBC: J-000's register holds one object per beam place
 
   test("and without the rebuild's carry the same walk leaves 409 — the 49 standing twice — which is the defect J-000 measured", async () => {
     const { register } = await walked(false);
-    expect(keysOf(register, "beam").length, "355 + the 50 placeholders beside their own 1F rows + the stair roof's 4 (TEST_AMENDED, FRM-3: 172 + 23 = 195; SRR-LEV: 405)").toBe(409);
-    expect(perStorey(register, "beam")["@unregistered:1ST"], "all 50 still under the caption's word").toBe(50);
+    expect(keysOf(register, "beam").length, "367 + the 52 placeholders beside their own 1F rows + the stair roof's 4 (TEST_AMENDED, FRM-3: 172 + 23 = 195; SRR-LEV: 409; FRM4-AD: +12 placed, +2 waiting)").toBe(423);
+    expect(perStorey(register, "beam")["@unregistered:1ST"], "all 52 still under the caption's word").toBe(52);
   }, BUDGET_MS);
 
   test("what may not move: the piles, the caps and the columns stand on exactly the keys they stood on", async () => {

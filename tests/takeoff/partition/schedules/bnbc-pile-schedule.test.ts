@@ -135,6 +135,19 @@ const RCC6_DECLARED: DeclaredDimensionUnit = Object.freeze({ unit: "mm", sourceK
 /** F-RCC6's `{ placements, runs, tables, families }` before FND-1 — the integrator's harness digest. */
 const RCC6_STAGES_BEFORE = "a3c0c6e0f692e49074b9c1276dbc955f248bd5287740c6babc1275c08018a703";
 
+/**
+ * TEST_AMENDED (FRM4-AD, I-612): F-RCC6's foundation plan letters its tie beams on the perimeter
+ * spans and draws the 28 interior spans end to end with them, unlettered; the chain rule names each by
+ * the mark of the span it continues. What it adds is set aside BY NAME — the interior spans' first edge
+ * lines — so every byte F-RCC6 read before is still held to the digest above, unmoved.
+ */
+const RCC6_TIE_BEAMS = "v:LAYOUT_PLAN:DXF_HANDLE:241";
+const RCC6_CHAINED_TIE_BEAMS: readonly string[] = Object.freeze(
+  ["1C6", "1C8", "1CA", "1CC", "1D0", "1D2", "1D4", "1D6", "1DA", "1DC", "1DE", "1E0", "1E4", "1E6", "1E8", "1EA", "20C", "20E", "210", "216", "218", "21A", "220", "222", "224", "22A", "22C", "22E"].map(
+    (handle) => `DXF_HANDLE:${handle}`,
+  ),
+);
+
 const sha = (value: unknown): string => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 
 let bnbcRead: Promise<StagesRead> | undefined;
@@ -230,6 +243,12 @@ describe("FND-1 moves nothing it was not asked to", () => {
     expect(evidence.declaredUnit, "F-RCC6's sheet line `ALL DIMENSIONS IN mm` (I-302)").toEqual(RCC6_DECLARED);
     const pinned = declaredSpacingUndone(registered.families, RCC6_DECLARED);
     expect(pinned.undone, "R6-U moved the twelve `T8 @ 150`-shaped tie spacings of its column and beam schedules into millimetres, and no other zone (I-412)").toEqual({ ties: 12 });
-    expect(sha({ placements: placed.placements, runs: placed.runs, tables: reconstructed.tables, families: pinned.families }), "the byte-frozen corpus reads exactly as it did (AM-01)").toBe(RCC6_STAGES_BEFORE);
+    const chained = placed.placements.filter((row) => row.viewKey === RCC6_TIE_BEAMS && row.elementType === "tie_beam" && RCC6_CHAINED_TIE_BEAMS.includes(row.outlineKey));
+    expect(chained.map((row) => row.outlineKey).sort(), "the 28 interior tie-beam spans the chain names (I-612), and no others").toEqual([...RCC6_CHAINED_TIE_BEAMS].sort());
+    const added = new Set(chained.map((row) => row.placementKey));
+    expect(
+      sha({ placements: placed.placements.filter((row) => !added.has(row.placementKey)), runs: (placed.runs ?? []).filter((run) => !added.has(run.placementKey)), tables: reconstructed.tables, families: pinned.families }),
+      "the byte-frozen corpus reads exactly as it did (AM-01), the chained spans aside",
+    ).toBe(RCC6_STAGES_BEFORE);
   }, BUDGET_MS);
 });

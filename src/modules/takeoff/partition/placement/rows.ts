@@ -162,10 +162,32 @@ export type WallOpeningRow = {
   readonly checked: boolean;
 };
 
-/** What one artifact's run stage read: the members it placed off edge-line pairs, and their runs. */
+/**
+ * One pair of edge lines a plan draws as a framed member and the stage could not name (I-613):
+ * drawn at a width a framed family's schedule states, on a layer the drawing shows, and named by no
+ * mark — its own, a chain's (I-612) or another plan's at the same grid reference. It is scope the
+ * drawing shows and no line carries, said by where it is drawn so a reader can go and look: the plan,
+ * its two edge lines (lower key first), their layer, the axis between them and how far apart they are
+ * drawn, in drawing units on the placement lattice, and the grid reference its centre stands at.
+ */
+export type UnnamedPairRow = {
+  /** L-REG-04's derived address of the plan it is drawn on — the name a placement calls the view by. */
+  readonly viewKey: string;
+  readonly view: ViewRef;
+  readonly edgeKeys: readonly [string, string];
+  readonly layer: string;
+  readonly from: readonly [string, string];
+  readonly to: readonly [string, string];
+  readonly width: string;
+  readonly gridLetter: string | null;
+  readonly gridNumeral: string | null;
+};
+
+/** What one artifact's run stage read: the members it placed off edge-line pairs, their runs, and the pairs it could not name. */
 export type DetectedRuns = {
   readonly placements: readonly PlacementRow[];
   readonly runs: readonly RunRow[];
+  readonly unnamed: readonly UnnamedPairRow[];
 };
 
 /** What one artifact's placement stage read: the plans it examined, and what it found in them. */
@@ -186,6 +208,12 @@ export type DetectedPlacements = {
    * edge lines has none; its run is its reading.
    */
   readonly outlines?: readonly OutlineRow[];
+  /**
+   * The pairs the plans draw as framed members that no mark names (`./runs`, I-613), enumerated
+   * so the residue can say so. Absent where the run stage read none; kept apart from `runs` so a
+   * reading that hashes the placements and their runs does not move for it.
+   */
+  readonly unnamed?: readonly UnnamedPairRow[];
   /**
    * The drawn scale the stage judged every stated section at — how many drawing units one unit of the
    * schedules measures, read off the drawing's own members (L-MEA-01) — or null where nothing could be

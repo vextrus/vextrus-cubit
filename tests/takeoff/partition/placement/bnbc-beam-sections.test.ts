@@ -56,10 +56,13 @@ const DECLARATION = "DXF_HANDLE:1F3E";
  * it — is Rev C's, drawn on S-15's roof layout on its own pair (`233C`) and lettered turned along it:
  * 10C1 places 47 (was 46), the one more a turned mark names, and its clear is the model's own.
  */
+// TEST_AMENDED (FRM4-AD, I-612): the edge beam S-14 letters `EB1` once and S-13 `1EB1` once is
+// drawn as three end-to-end spans; the chain rule names EB1b/EB1c and 1EB1b/1EB1c by the one mark, so
+// each of those layouts places two more (graded in runs-sides-and-chains.test.ts).
 const LAYOUTS = Object.freeze([
-  { view: "F31", level: "2F", placed: 52, beside: 25 },
-  { view: "2116", level: "1F", placed: 50, beside: 23 },
-  { view: "10C1", level: "ROOF", placed: 47, beside: 24 },
+  { view: "F31", level: "2F", placed: 54, beside: 25, chained: 2 },
+  { view: "2116", level: "1F", placed: 52, beside: 23, chained: 2 },
+  { view: "10C1", level: "ROOF", placed: 47, beside: 24, chained: 0 },
 ] as const);
 
 /** The members each layout letters on their own axes, turned along them — the golden's vertical beams, cantilevers and landing beam. */
@@ -82,8 +85,10 @@ const TURNED: Readonly<Record<string, readonly string[]>> = Object.freeze({
  *     the roof storey's own (support faces per storey).
  */
 const UNDER: Readonly<Record<string, Readonly<Record<string, number>>>> = Object.freeze({
-  F31: { B34: -125, B37: -125, CB1: -125, CB2: -125 },
-  "2116": { "1B32": -125, "1B34": -25, "1B35": -150, "1CB1": -125, "1CB2": -125 },
+  // TEST_AMENDED (FRM4-AD): CB3/CB4 and 1CB3/1CB4 now end at the face of EB1b/EB1c, which the chain
+  // rule names — the corner FRM-4 owes to one owner, as CB1/CB2 already did at EB1a (I-344's list).
+  F31: { B34: -125, B37: -125, CB1: -125, CB2: -125, CB3: -125, CB4: -125 },
+  "2116": { "1B32": -125, "1B34": -25, "1B35": -150, "1CB1": -125, "1CB2": -125, "1CB3": -125, "1CB4": -125 },
   "10C1": {
     RB1: -100, RB5: -100, RB6: -200, RB7: -100, RB8: -50, RB9: -50, RB10: -200, RB11: -200, RB12: -75, RB13: -50, RB14: -75, RB15: -200,
     RB16: -200, RB17: -75, RB18: -75, RB19: -200, RB24: -100, RB25: -100, RB29: -275, RB30: -150, RB31: -150, RB32: -275, RB33: -275,
@@ -182,12 +187,12 @@ describe("I-343: the long-section sheets state their beams' sections", () => {
 });
 
 describe("I-344: a pair wider than the band is a member where its gap is its mark's stated width", () => {
-  test.each(LAYOUTS)("$view ($level) places $placed beams, each typed by its own mark's family", async ({ view, placed, beside }) => {
+  test.each(LAYOUTS)("$view ($level) places $placed beams, each typed by its own mark's family", async ({ view, placed, beside, chained }) => {
     const read = await bnbc();
     const beams = beamsOn(read, view);
     expect(beams.length, `${view} places the beams whose labels stand beside them, and the beams lettered turned on their own axes`).toBe(placed);
     expect(beams.filter((row) => row.memberFamily !== row.mark).map((row) => row.mark), "every one typed by its own mark's family").toEqual([]);
-    expect(beams.filter((row) => !TURNED[view]?.includes(row.mark)).length, "the beside-named beams I-344 placed, unmoved").toBe(beside);
+    expect(beams.filter((row) => !TURNED[view]?.includes(row.mark)).length, "the beside-named beams I-344 placed, unmoved, and the spans their marks name by chain").toBe(beside + chained);
   }, BUDGET_MS);
 
   test.each(LAYOUTS)("$view ($level): every beam stands where the golden model puts the member of its mark — none named by a neighbour's", async ({ view, level }) => {

@@ -208,7 +208,7 @@ export function detectPlacements(evidence: PlacementEvidence): DetectedPlacement
   // places none carries neither field, so a structural drawing's reading is the reading it was.
   const walled = detectWalls(evidence, unit);
   const walls = walled.walls.length === 0 && walled.openings.length === 0 ? {} : { walls: walled.walls, wallOpenings: walled.openings };
-  return { views: examined, placements: [...typed, ...framed.placements, ...walled.placements], ungridded, runs: framed.runs, outlines, scale, noted, minted, ...walls };
+  return { views: examined, placements: [...typed, ...framed.placements, ...walled.placements], ungridded, runs: framed.runs, unnamed: framed.unnamed, outlines, scale, noted, minted, ...walls };
 }
 
 /** The plan each ring-placed row's ring encloses, in the rows' own order — none where no unit reads. */

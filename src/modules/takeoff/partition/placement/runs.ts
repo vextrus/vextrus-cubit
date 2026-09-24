@@ -39,7 +39,7 @@ import type { PartitionedView } from "../views/assign";
 import { yieldsInstances } from "../views/law";
 import { axisBetween, edgeOf, greedyPairs, insideRing, pairCandidates, saidOf, squareToThePlane, type Axis, type Drawn, type Edge, type Point, type Said } from "./edge-pairs";
 import { classOfMark, isBoundXrefContext, isFoundationClass, isFramedClass, isVerticalClass, levelWordsOf } from "./law";
-import type { DetectedRuns, DrawnUnit, FamilyNamed, PlacementEvidence, PlacementRow, RunReading, RunRow } from "./rows";
+import type { DetectedRuns, DrawnUnit, FamilyNamed, PlacementEvidence, PlacementRow, RunReading, RunRow, UnnamedPairRow } from "./rows";
 import { shareValue } from "./shares";
 
 /** The bases a reading of this stage stands on, read off the offer law's closed roster (L-QTY-01). */
@@ -132,6 +132,14 @@ type Plan = {
   readonly placed: ReadonlySet<string>;
   /** The mark standing nearest each member, where one stands near enough to name it. */
   readonly marked: ReadonlyMap<Axis, Said>;
+  /**
+   * The pairs drawn at a framed family's stated width that no member took (`atAStatedWidth`) — what
+   * the chain rule may name (I-612) and, where nothing does, what the plan drew and the stage
+   * could not name (I-613).
+   */
+  readonly pool: readonly Axis[];
+  /** The layer each of this plan's edge lines is drawn on, by its key. */
+  readonly layerOf: ReadonlyMap<string, string>;
 };
 
 /**
@@ -182,7 +190,18 @@ export function detectRuns(evidence: PlacementEvidence, placed: readonly Placeme
       { apart, reach, marks: said.filter((one) => isFramedClass(classOfMark(one.text))), banded },
       widths,
     );
-    const members = [...banded, ...stated.map((one) => one.member)];
+    const marked = new Map([...markedIn(banded, said, reach), ...stated.map((one) => [one.member, one.mark] as const)]);
+    // What is left drawn at a stated width once every member took its two lines: the pool the chain
+    // rule names from (I-612), and whatever it leaves is what the plan drew and nobody named.
+    const held = new Set([...banded, ...stated.map((one) => one.member)].flatMap((member) => member.keys));
+    const tolerance = apart / 1000;
+    const pool = greedyPairs(pairCandidates(edges.filter((edge) => !held.has(edge.key)), { tolerance, sameLayer: true, admits: (gap) => gap > tolerance && atAStatedWidth(widths)(gap) }));
+    const layerOf = new Map(edges.map((edge) => [edge.key, edge.layer]));
+    const drawnPairs = [...banded, ...stated.map((one) => one.member), ...pool];
+    // A chain names what no mark named: the band's unnamed members and the pool alike.
+    const unlettered = [...banded.filter((member) => !marked.has(member)), ...pool];
+    const chained = chainedFrom(marked, unlettered, { reach, tolerance, marks: said.filter((one) => isFramedClass(classOfMark(one.text))), widths, layerOf, drawn: drawnPairs });
+    const members = [...banded, ...stated.map((one) => one.member), ...pool.filter((pair) => chained.has(pair))];
     const ref: ViewRef = { viewClass: view.type, captionAnchorSourceKey: view.anchorKey };
     const key = viewKeyOf(ref);
     const plan: Plan = {
@@ -195,7 +214,9 @@ export function detectRuns(evidence: PlacementEvidence, placed: readonly Placeme
       said,
       members,
       placed: new Set(placed.filter((row) => row.viewKey === key).map((row) => row.outlineKey)),
-      marked: new Map([...markedIn(banded, said, reach), ...stated.map((one) => [one.member, one.mark] as const)]),
+      marked: new Map([...marked, ...chained]),
+      pool: pool.filter((pair) => !chained.has(pair)),
+      layerOf,
     };
     plans.push(plan);
   }
@@ -206,8 +227,11 @@ export function detectRuns(evidence: PlacementEvidence, placed: readonly Placeme
 
   const rows: PlacementRow[] = [];
   const runs: RunRow[] = [];
+  const unnamed: UnnamedPairRow[] = [];
+  const hidden = hiddenLayersOf(evidence.graph);
   for (const plan of plans) {
     const named = namedIn(plan, plans, evidence.families);
+    unnamed.push(...unnamedIn(plan, named, widths, hidden));
     for (const [member, mark] of named) {
       const type = classOfMark(mark.text);
       if (!isFramedClass(type)) continue;
@@ -240,7 +264,7 @@ export function detectRuns(evidence: PlacementEvidence, placed: readonly Placeme
       runs.push(runOf(key, member, plan, supports, type, unit));
     }
   }
-  return { placements: rows, runs };
+  return { placements: rows, runs, unnamed };
 }
 
 /** One view's axes, by the view they georeference. */
@@ -355,6 +379,18 @@ function statedWidthsOf(families: readonly FamilyNamed[], scale: number | null):
   return widths;
 }
 
+/**
+ * The one filter a pair of edge lines is read as a FRAMED member's through: its gap is a width some
+ * framed family's schedule states, at the drawn scale and within half the printed unit (I-344). The
+ * pairs wider than the band are admitted by it (`statedPairsIn`), the chain rule names from what it
+ * admits (I-612), and the pairs it admits that nothing names are what the plan drew and the stage
+ * could not name (I-613) — one home, so the three never disagree about what a drawn beam is (B-17).
+ */
+function atAStatedWidth(widths: ReadonlyMap<string, readonly StatedWidth[]>): (gap: number) => boolean {
+  const stated = [...widths.values()].flat();
+  return (gap) => stated.some((width) => Math.abs(gap - width.value) <= width.halfUnit);
+}
+
 /** Half a unit of the last place a figure is written to — `250` → 0.5, `12.5` → 0.05. */
 export function halfUnitOf(value: number): number {
   const places = String(value).split(".")[1]?.length ?? 0;
@@ -415,7 +451,7 @@ function statedPairsIn(
   const candidates = pairCandidates(edges, {
     tolerance,
     sameLayer: true,
-    admits: (gap) => gap > near.apart && stated.some((width) => Math.abs(gap - width.value) <= width.halfUnit),
+    admits: (gap) => gap > near.apart && atAStatedWidth(widths)(gap),
   }).map((candidate) => ({ ...candidate, member: axisBetween(candidate.left, candidate.right, candidate.gap) }));
 
   // A mark standing on a pair is never a label standing BESIDE another (the first fence), whichever
@@ -529,6 +565,142 @@ function standsOn(mark: Said, member: Axis): boolean {
   const along = member.along === "x" ? mark.at[0] : mark.at[1];
   const off = Math.abs((member.along === "x" ? mark.at[1] : mark.at[0]) - member.at);
   return off <= member.width / 2 && member.start <= along && along <= member.end;
+}
+
+/** What the chain rule reads beside the pool: the reach and tolerance, the framed marks, the stated widths, the layers. */
+type ChainContext = {
+  readonly reach: number;
+  readonly tolerance: number;
+  readonly marks: readonly Said[];
+  readonly widths: ReadonlyMap<string, readonly StatedWidth[]>;
+  readonly layerOf: ReadonlyMap<string, string>;
+  /** Every pair the plan draws — its members and the pool — which a label is nearest one of. */
+  readonly drawn: readonly Axis[];
+};
+
+/**
+ * The pairs a named member's mark names by CHAIN (Interpretation I-612): a plan letters a beam
+ * once however many spans it runs over, and draws each span as its own pair of edge lines, end to end.
+ * F-RCC6-BNBC's typical plan letters its edge beam `EB1` once, beside the first of its spans, and
+ * draws EB1a–c as three pairs meeting at the cantilevers that carry them; the nearest-pair rule names
+ * EB1a and leaves EB1b and EB1c drawn and unnamed.
+ *
+ * A pair is named by chain from a named member where every one of these holds, and by nothing else:
+ *   · it runs square to the plane, along the member's axis — the same direction, standing on the same
+ *     line to within the pairing's tolerance — and starts exactly where the member (or the last pair
+ *     of the chain) ends: END TO END, drawn so, not merely in line across a gap;
+ *   · it is drawn on the member's layer at the member's own width, and that width is one the mark's
+ *     own schedule states (I-344) — a chain never names a pair its schedule says is another size;
+ *   · no framed mark letters it: none stands on it, and no label stands nearer it than to any other
+ *     pair the plan draws (I-344(c)'s nearest-pair reading). A plan that letters a span has named it
+ *     — or named it twice — and the chain stops there rather than overruling the drawing;
+ *   · it is the only pair continuing the chain at that end, and no chain from another mark reaches
+ *     it. Two readings of one pair name it neither way (L-QTY-04).
+ * The member named by chain carries the mark that named the chain — the atom it was read from
+ * (L-CAD-03) — and is a member like any other: its run is measured, and its edge lines are a face a
+ * run ending on it is cut at.
+ */
+function chainedFrom(marked: ReadonlyMap<Axis, Said>, unlettered: readonly Axis[], context: ChainContext): Map<Axis, Said> {
+  const claims = new Map<Axis, Map<string, Said>>();
+  // A pair a mark letters is named by the plan already, or contested — never by a chain: a mark
+  // standing on it, or a label standing nearer it than to any other drawn pair (I-344(c)).
+  const lettered = new Set<Axis>();
+  for (const mark of context.marks) {
+    for (const pair of unlettered) if (standsOn(mark, pair)) lettered.add(pair);
+    let nearest: { pair: Axis; distance: number } | null = null;
+    for (const pair of context.drawn) {
+      const distance = besideAt(mark, pair, context.reach);
+      if (distance !== null && (nearest === null || distance < nearest.distance)) nearest = { pair, distance };
+    }
+    if (nearest !== null) lettered.add(nearest.pair);
+  }
+  const free = unlettered.filter((pair) => squareAxis(pair, context.tolerance) && !lettered.has(pair));
+  for (const [member, mark] of marked) {
+    const name = normaliseMark(mark.text);
+    const widths = context.widths.get(name) ?? [];
+    const layer = context.layerOf.get(member.keys[0]);
+    const stated = (pair: Axis): boolean => widths.some((width) => Math.abs(pair.width - width.value) <= width.halfUnit);
+    if (!stated(member)) continue;
+    const fits = (pair: Axis): boolean => context.layerOf.get(pair.keys[0]) === layer && stated(pair);
+    for (const end of ["end", "start"] as const) {
+      let from: Axis = member;
+      const walked = new Set<Axis>([member]);
+      for (;;) {
+        const at = end === "end" ? from.end : from.start;
+        const next = free.filter(
+          (pair) =>
+            !walked.has(pair) &&
+            pair.along === from.along &&
+            Math.abs(pair.at - from.at) <= context.tolerance &&
+            Math.abs((end === "end" ? pair.start : pair.end) - at) <= context.tolerance &&
+            fits(pair),
+        );
+        const [only] = next;
+        if (next.length !== 1 || only === undefined) break;
+        const held = claims.get(only) ?? new Map<string, Said>();
+        if (!held.has(name)) held.set(name, mark);
+        claims.set(only, held);
+        walked.add(only);
+        from = only;
+      }
+    }
+  }
+  const named = new Map<Axis, Said>();
+  for (const [pair, by] of claims) {
+    const [only] = [...by.values()];
+    if (by.size === 1 && only !== undefined) named.set(pair, only);
+  }
+  return named;
+}
+
+/** Does a member's axis run along one of the plane's two axes, to within the pairing's tolerance? */
+function squareAxis(member: Axis, tolerance: number): boolean {
+  return Math.min(Math.abs(member.to[0] - member.from[0]), Math.abs(member.to[1] - member.from[1])) <= tolerance;
+}
+
+/** The layers a drawing freezes or turns off, as its layer table states them (v3, I-417). */
+function hiddenLayersOf(graph: EntityGraph): ReadonlySet<string> {
+  return new Set((graph.layers ?? []).filter((layer) => layer.frozen || !layer.on).map((layer) => layer.name));
+}
+
+/**
+ * The pairs one plan draws as a framed member and the stage could not name (Interpretation
+ * I-613): every member no mark names, and every pair left in the pool — each drawn at a width a
+ * framed family's schedule states (`atAStatedWidth`, the one filter), on a layer the drawing shows.
+ * A pair on a layer the drawing freezes or turns off is on no sheet a reader reads (I-417's layer
+ * table): a superseded scheme kept frozen in the file is no beam of this one.
+ *
+ * Each is said by where it is drawn — its two edge lines, its axis, its width and the grid reference
+ * it stands at — and never counted into anything: it is ENUMERATED as scope the drawing shows and the
+ * bill does not carry (L-QTY-04, L-QTY-07).
+ */
+function unnamedIn(plan: Plan, named: ReadonlyMap<Axis, Said>, widths: ReadonlyMap<string, readonly StatedWidth[]>, hidden: ReadonlySet<string>): UnnamedPairRow[] {
+  const drawn = atAStatedWidth(widths);
+  const rows: UnnamedPairRow[] = [];
+  for (const pair of [...plan.members.filter((member) => !named.has(member)), ...plan.pool]) {
+    if (!drawn(pair.width)) continue;
+    const layer = plan.layerOf.get(pair.keys[0]) ?? "";
+    if (hidden.has(layer)) continue;
+    const centre: Point = [(pair.from[0] + pair.to[0]) / 2, (pair.from[1] + pair.to[1]) / 2];
+    const keys = [...pair.keys].sort(compareKeys) as [string, string];
+    rows.push({
+      viewKey: plan.key,
+      view: plan.ref,
+      edgeKeys: keys,
+      layer,
+      from: [quantise(pair.from[0]), quantise(pair.from[1])],
+      to: [quantise(pair.to[0]), quantise(pair.to[1])],
+      width: quantise(pair.width),
+      gridLetter: nearestLabel(plan.axes, LETTER_FAMILY, centre),
+      gridNumeral: nearestLabel(plan.axes, NUMERAL_FAMILY, centre),
+    });
+  }
+  return rows.sort((left, right) => compareKeys(left.edgeKeys[0], right.edgeKeys[0]));
+}
+
+/** Source keys in their one order: the lower first (L-REG-04). */
+function compareKeys(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
 }
 
 /**
