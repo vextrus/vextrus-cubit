@@ -79,9 +79,13 @@ def rerecord_method_shas(rewritten):
     re-taken here; one a landed edition cites is left alone and named loudly (that is a real edit)."""
     import glob
     import hashlib
+    # Cited by a LANDED edition: a migration committed before this integration. One staged by the slice
+    # itself mints its edition in the same commit, so the bytes it cites are still the slice's to settle.
     cited = set()
-    for sql in glob.glob(str(ROOT / "db/migrations/*.sql")):
-        for m in re.finditer(r'"ruleId"\s*:\s*"([^"]+)"\s*,\s*"version"\s*:\s*"([^"]+)"', Path(sql).read_text()):
+    for sql in git("ls-tree", "--name-only", "HEAD", "db/migrations/").splitlines():
+        if not sql.endswith(".sql"):
+            continue
+        for m in re.finditer(r'"ruleId"\s*:\s*"([^"]+)"\s*,\s*"version"\s*:\s*"([^"]+)"', git("show", f"HEAD:{sql}")):
             cited.add(f"{m.group(1)}@{m.group(2)}")
     for manifest in glob.glob(str(ROOT / "src/core/rulesets/methods/*/*.methods.json")):
         data = json.loads(Path(manifest).read_text())

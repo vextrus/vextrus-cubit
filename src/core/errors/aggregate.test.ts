@@ -191,8 +191,11 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "RASTER_URL_INVALID",
   "RATE_LIMITED",
   "READING_NOT_NUMERIC",
+  "REBAR_ANCHORAGE_UNSTATED",
   "REBAR_SCHEDULE_UNREAD",
   "REBAR_STOREY_RUN_UNSTATED",
+  "REBAR_TIE_JOINT_BOUNDED",
+  "REBAR_TIE_JOINT_UNREAD",
   "REBAR_TIE_ZONE_UNSTATED",
   "REQUEST_MALFORMED",
   "ROOM_AREA_DISAGREES",
@@ -485,7 +488,12 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * the whole register diffed against 9b0f3676: 160 → 182, added 22, removed 0, changed 0.
  * Previous: 9f5bd1eabba3eb8dbca9c07cd82af19963ee019559980566c52271a38ddcb443.
  */
-const ENTRIES_DIGEST_BEFORE = "50325a9f30d9c965ae84488e92558d3bbfd9f78c628a210043ff59569d63de3d";
+/*
+ * Re-baselined at integration (session 9, the ties chain) for R6b's entries (REBAR_ANCHORAGE_UNSTATED, REBAR_TIE_JOINT_BOUNDED, REBAR_TIE_JOINT_UNREAD);
+ * the whole register diffed against 9b0f3676: 160 → 185, added 25, removed 0, changed 0.
+ * Previous: 50325a9f30d9c965ae84488e92558d3bbfd9f78c628a210043ff59569d63de3d.
+ */
+const ENTRIES_DIGEST_BEFORE = "3774167a166c0296b1cfd8dd5b51ee0362cb0113874c33e05a09c982903435d4";
 
 /** The canonical text a digest is taken over: nothing about layout, only what each entry says. */
 function canonical(entries: Readonly<Record<string, Entry>>): string {
