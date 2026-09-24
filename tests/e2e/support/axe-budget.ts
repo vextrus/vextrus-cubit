@@ -122,6 +122,11 @@ export const AXE_MODERATE_BUDGET: Readonly<Record<string, number>> = Object.free
   // M4P-3: the traced scan's card and its page in the viewer (J-040 step 2).
   "j-040/scan-card": 0,
   "j-040/scan-open": 0,
+  // ARCH-6 (J-042): the rooms panel on F-ARCH's typical plan — offered, the consequence dialog over it,
+  // and confirmed. rooms-offered observed 0 on its first walk (session 9); the other two are held there.
+  "j-042/rooms-confirmed": 0,
+  "j-042/rooms-consequence": 0,
+  "j-042/rooms-offered": 0,
   "j004-shell-dark": 0,
   "j004-shell-deeplink": 0,
   "j004-shell-light": 0,
