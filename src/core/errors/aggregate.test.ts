@@ -429,10 +429,11 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * And ONE more ADDED entry, the same leaf's (FND-OWN review, I-547): `CAP_PILES_UNREAD`, what a
  * pile cap keeps its row under where nobody could read which piles it stands on — in place of the
  * whole prism it once fell back to, which would read over the heads its piles own (L-QTY-04). The
- * digest is re-frozen once the wave's integration has been diffed against its base
- * (integrate-slice --errors-check).
+ * digest was re-frozen once the wave's integration had been diffed against its base: the whole register
+ * against 9b0f3676, 160 entries to 163 — added 3 (PILE_HEAD_UNSTATED, CAP_HOLDS_NO_PILE,
+ * CAP_PILES_UNREAD), removed 0, changed 0. Previous: 47c0cb85646d12b8cad0cf8aff6913c48a1f5686088b7b4473303b84b0c727dc.
  */
-const ENTRIES_DIGEST_BEFORE = "47c0cb85646d12b8cad0cf8aff6913c48a1f5686088b7b4473303b84b0c727dc";
+const ENTRIES_DIGEST_BEFORE = "ac9946332644eca917bde4bc45ceaf6bf2f396f0978d8f3aecc9f35fea8cc795";
 
 /** The canonical text a digest is taken over: nothing about layout, only what each entry says. */
 function canonical(entries: Readonly<Record<string, Entry>>): string {
