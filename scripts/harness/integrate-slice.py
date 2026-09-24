@@ -72,6 +72,34 @@ def highest(kind, table):
     return max([{"I": 369, "D": 4}[kind], *nums])
 
 
+def rerecord_method_shas(rewritten):
+    """The renumbering rewrites law ids inside method files, which moves their bytes under the method-hash
+    stage. A file whose every pair no landed migration cites is not yet law, so its recorded sha is
+    re-taken here; one a landed edition cites is left alone and named loudly (that is a real edit)."""
+    import glob
+    import hashlib
+    cited = set()
+    for sql in glob.glob(str(ROOT / "db/migrations/*.sql")):
+        for m in re.finditer(r'"ruleId"\s*:\s*"([^"]+)"\s*,\s*"version"\s*:\s*"([^"]+)"', Path(sql).read_text()):
+            cited.add(f"{m.group(1)}@{m.group(2)}")
+    for manifest in glob.glob(str(ROOT / "src/core/rulesets/methods/*/*.methods.json")):
+        data = json.loads(Path(manifest).read_text())
+        moved = False
+        for pair, files in data.get("sha256", {}).items():
+            for f in list(files):
+                if f not in rewritten:
+                    continue
+                if pair in cited:
+                    print(f"WARNING: {f} moved under {pair}, which a landed edition cites — the method-hash stage will refuse it")
+                    continue
+                files[f] = hashlib.sha256((ROOT / f).read_bytes()).hexdigest()
+                moved = True
+        if moved:
+            Path(manifest).write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+            git("add", "--", str(Path(manifest).relative_to(ROOT)))
+            print(f"method shas re-taken in {Path(manifest).relative_to(ROOT)} (law ids renumbered in an uncited method)")
+
+
 def unmerged():
     return [line[3:] for line in git("status", "--short").splitlines() if line[:2] in UNMERGED]
 
@@ -170,12 +198,15 @@ def main():
         table[tok] = f"{tok[0]}-{(5 if tok[0] == 'D' and n == 3 else n):03d}"
         fresh.append(tok)
     rewrite = lambda t: TOKEN.sub(lambda m: table.get(m.group(0), m.group(0)) if m.group(2) in known else m.group(0), t)
+    rewritten = set()
     for p, t in texts.items():
         if rewrite(t) != t:
             (ROOT / p).write_text(rewrite(t))
+            rewritten.add(p)
     present = [p for p in paths if (ROOT / p).exists()]
     if present:
         git("add", "--", *present)
+    rerecord_method_shas(rewritten)
     if code and git("diff", "--cached", "--name-only").strip():
         rest = [rewrite(s) for _, s in code[1:]]
         MSG.write_text(rewrite(git("log", "-1", "--format=%B", code[0][0])).rstrip() + (f"\n\nThe slice's further commits ({slice_id}, integrated as one):\n" + "\n".join(f"- {s}" for s in rest) if rest else "") + "\n")
