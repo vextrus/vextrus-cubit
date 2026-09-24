@@ -183,6 +183,7 @@ export type OfferShape = {
   register: { setRevisionId: string; objectKey: string };
   drawing: { drawingId: string; viewKey: string };
   engine: string;
+  raster?: Readonly<Record<string, string | null>>;
   geometry: { type: string; basis: string; calibration?: string };
   bindings: Record<string, MeasureShape>;
   selectors: Record<string, MeasureShape>;
@@ -659,6 +660,7 @@ export type OfferDraft = {
   drawingId?: string;
   viewKey?: string;
   engine?: string;
+  raster?: Readonly<Record<string, string | null>>;
   coverage?: string;
   omitted?: readonly { variable: string; code: string }[];
 };
@@ -672,6 +674,7 @@ export function offer(draft: OfferDraft): OfferShape {
     register: { setRevisionId: draft.setRevisionId, objectKey: draft.objectKey },
     drawing: { drawingId: DRAWING_ID, viewKey: draft.viewKey ?? "PLAN:S-101:t:12" },
     engine: draft.engine ?? VECTOR,
+    ...(draft.raster === undefined ? {} : { raster: draft.raster }),
     geometry: {
       type: draft.geometryType,
       basis: draft.basis ?? MEASURED,

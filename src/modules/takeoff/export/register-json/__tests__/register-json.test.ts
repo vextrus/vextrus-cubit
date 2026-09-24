@@ -66,7 +66,7 @@ async function exported(): Promise<{ view: ReturnType<typeof sampleView>; docume
 describe("AC-1: the register JSON export is a pure function of the register's reading", () => {
   test("AC-1: the module publishes the schema version, the schema and the export function", async () => {
     const door = await registerJsonDoor();
-    expect(door.REGISTER_JSON_SCHEMA_VERSION, `${REGISTER_JSON_MODULE} publishes the version this schema is (AC-1)`).toBe("1.0");
+    expect(door.REGISTER_JSON_SCHEMA_VERSION, `${REGISTER_JSON_MODULE} publishes the version this schema is (AC-1)`).toBe("1.1");
   });
 
   test("AC-1: the schema accepts the document the committed reading exports to", async () => {

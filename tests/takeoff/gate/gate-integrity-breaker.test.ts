@@ -19,6 +19,7 @@
  * are the answers the criteria do not reach.
  */
 import { afterAll, describe, expect, test } from "vitest";
+import { READ_OFF_SCAN } from "../../support/raster-trace";
 import {
   INTERPRETED,
   QUANTITY_LINES_TABLE,
@@ -86,6 +87,8 @@ async function offerOver(
     ...held,
     calibration,
     ...(options.basis === undefined ? {} : { basis: options.basis }),
+    // An interpreted outline is read off a scan, under the RASTER engine and the trace it names (L-QTY-03).
+    ...(options.basis === INTERPRETED ? READ_OFF_SCAN : {}),
     bindings: options.bindings ?? bindingsIn("m", options.readings ?? SOUND, calibration),
   });
 }

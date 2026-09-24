@@ -121,7 +121,7 @@ describe("AC-2: the published shape cannot drift without a deliberate re-baselin
     expect(at(committed(), ["properties", "schemaVersion"])["const"], `${SCHEMA_FIXTURE} declares \`schemaVersion\` as the constant the module publishes (AC-2)`).toBe(
       door.REGISTER_JSON_SCHEMA_VERSION,
     );
-    expect(at(committed(), ["properties", "schemaVersion"])["const"], `the committed shape is version "1.0" (AC-2)`).toBe("1.0");
+    expect(at(committed(), ["properties", "schemaVersion"])["const"], `the committed shape is version "1.1" — 1.0 plus a line's trace and who agreed it (AC-2, s-takeoff I-685)`).toBe("1.1");
   });
 
   test("AC-2: the document, its objects, its lines and its refusals are closed — an added field is visible", () => {

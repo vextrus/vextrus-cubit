@@ -48,6 +48,7 @@ import {
 import { writtenAtV3 } from "../../../cad/support/entitygraph-versions";
 import { measureSeam, type MeasureSeam } from "../../gate/support/gate-stage";
 import { INGEST_JOB_MODULE, INGEST_MODULE, UPLOADS_MODULE, stubCli, tempDir, withCadCommand } from "../../support/ingest-stage";
+import { READ_OFF_SCAN } from "../../../support/raster-trace";
 import { PRINCIPAL, actorOf, grantRole, joinWorkspace, rejection, stagePerson, unique, type ActorCtx, type Person } from "../../support/sheets-stage";
 import { sql } from "../../../spine/uploads/support/upload-stage";
 import { TENANT_COLUMN } from "../../../../db/__tests__/support/fixtures";
@@ -210,6 +211,8 @@ export type StagedRegisterCampaign = StagedCampaign & {
   refusedObjectKey: string;
   /** The object whose only standing is a queue item (AC-4). */
   queuedObjectKey: string;
+  /** The batch the gate was handed — the measured offers and, last, the INTERPRETED one — as a measure run re-offers it. */
+  batch: readonly ColumnOfferShape[];
   /** The drawing the lines were measured on, as its pinned record reads (VD-1: production's shapes). */
   drawn: DrawnPlan;
 };
@@ -509,17 +512,18 @@ export async function stageRegisterCampaign(label: string = "register"): Promise
     levelNote: record.keys.levelNote,
     members: record.keys.members,
   };
-  return { ...staged, objectKeys, sourceKeys, refusedObjectKey, queuedObjectKey, drawn };
+  return { ...staged, objectKeys, sourceKeys, refusedObjectKey, queuedObjectKey, batch: [...measured, interpreted], drawn };
 }
 
 /**
  * One offer, said to be INTERPRETED: the geometry and every binding carry the basis, so the roll-up
- * L-QTY-01 takes over the offer is INTERPRETED however the gate weighs its inputs.
+ * L-QTY-01 takes over the offer is INTERPRETED however the gate weighs its inputs — read off a scan,
+ * under the RASTER engine and the trace it names, as L-QTY-03 has an interpreted figure carry.
  */
 export function interpretedOffer(offer: ColumnOfferShape): ColumnOfferShape {
   const bindings: Record<string, unknown> = {};
   for (const [name, measure] of Object.entries(offer.bindings)) bindings[name] = { ...(measure as Record<string, unknown>), basis: INTERPRETED };
-  return { ...offer, geometry: { ...offer.geometry, basis: INTERPRETED }, bindings } as ColumnOfferShape;
+  return { ...offer, ...READ_OFF_SCAN, geometry: { ...offer.geometry, basis: INTERPRETED }, bindings } as ColumnOfferShape;
 }
 
 /** A second person on the project holding REVIEWER and nothing else (AC-5's denial). */

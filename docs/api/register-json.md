@@ -1,6 +1,6 @@
 # Register JSON export
 
-Schema version: 1.0
+Schema version: 1.1
 
 The JSON export of one project's register and its published lines, for integrations
 (`R-TO-070`, `C-TO-EXPORT`: "JSON of the register (documented shape) for integrations").
@@ -33,7 +33,7 @@ Two rules govern every figure in the document:
 
 | Path | Type | Meaning |
 | --- | --- | --- |
-| `schemaVersion` | string | The version of this shape, always `"1.0"` for a document written under this page. |
+| `schemaVersion` | string | The version of this shape, always `"1.1"` for a document written under this page. |
 | `tenantId` | string | The tenant whose register was read. |
 | `projectId` | string | The project whose register was read. |
 | `campaign` | object or null | The campaign the register was read under, or `null` where no campaign stands (`L-REG-07`). |
@@ -124,6 +124,8 @@ on (`L-QTY-03`).
 | `lines[].coverage` | string | The coverage the line was published under — `COMPLETE`, or a declared shortfall such as `PARTIAL_DECLARED`. |
 | `lines[].calibrationKeys` | array of string | The affirmed calibration references the line rests on; never empty for a measured line (`L-QTY-03`). |
 | `lines[].engine` | string | The engine that read the drawing: `VECTOR` or `RASTER`, orthogonal to the basis. |
+| `lines[].raster` | object or null | The trace a `RASTER` line was read off, as `lines[].raster` below; `null` under `VECTOR`. Since 1.1. |
+| `lines[].agreedBy` | object or null | Who agreed the interpreted readings an `INTERPRETED` line stands on, as `lines[].agreedBy` below; `null` where no judgement entered. Since 1.1. |
 | `lines[].sourceKey` | string | The source key the line was measured at. |
 | `lines[].repudiated` | boolean | Whether a person has struck the object this line was measured from. A repudiated line is published and marked, never deleted. |
 | `lines[].drawingId` | string or null | The sheet the line's evidence stands on; `null` where the reading resolves none. |
@@ -142,6 +144,32 @@ keys this field carries have not changed (I-426).
 once per drawing, and a drawing recorded under no layout, or under more than one, reported `Model`,
 a name no layout of the drawing need carry. It is now resolved once per line. The value is more
 accurate, and the meaning is the same, so neither change moves the version.
+
+## `lines[].raster`
+
+The trace a line read off a scan was read from — `L-QTY-03`'s "vectoriser id + version + render DPI
+where INTERPRETED". An `INTERPRETED` line always carries one: the gate refuses an offer read off a
+scan that names no trace, or no resolution (`RASTER_IDENTITY_MISSING`).
+
+| Path | Type | Meaning |
+| --- | --- | --- |
+| `lines[].raster.tool` | string | The vectoriser that traced the scan. |
+| `lines[].raster.toolVersion` | string | Its version. |
+| `lines[].raster.parameterSetHash` | string | The hash of the parameter set it traced under. |
+| `lines[].raster.pageSha256` | string | The sha-256 of the page raster the reading was traced from. |
+| `lines[].raster.dpi` | string or null | The resolution the page was read at, as a decimal string; `null` exactly where `dpiSource` is `unstated`. |
+| `lines[].raster.dpiSource` | string | Where that resolution was stated: `file`, `placement` or `unstated`. |
+
+## `lines[].agreedBy`
+
+An interpreted figure reaches a bill only as agreed (`L-QTY-04`): a person restated what the scan was
+read as, and the act that did so resolved the line's queue item. This names that act and its actor —
+derived from the act log, never stamped on the line.
+
+| Path | Type | Meaning |
+| --- | --- | --- |
+| `lines[].agreedBy.actId` | string | The act that agreed the last of the line's interpreted readings. |
+| `lines[].agreedBy.actorId` | string | The person who performed it. |
 
 ## `lines[].variables.<name>`
 
@@ -183,10 +211,13 @@ published beside the lines rather than dropped: what was not measured is part of
 - The committed JSON Schema fixture is regenerated from the live schema on every unit run, so the
   published shape cannot move without a deliberate re-baseline saying so.
 
-## What version 1.0 does not carry
+## What version 1.1 added, and what it does not carry
+
+Version 1.1 added `lines[].raster` and `lines[].agreedBy`, together, when the reading came to carry
+them with the gate's way out for interpreted geometry. A 1.0 document is a 1.1 document without the
+two properties.
 
 The export publishes what the register's reading carries, and no more. `L-QTY-03` also names the rule
-id and version a derived figure was computed under, the vectoriser's id, version and render DPI
-behind an interpreted one, and the actor behind each line. The reading this document is a function of
-does not carry them today, so version 1.0 does not publish them; they enter as an additive minor
-version once it does.
+id and version a derived figure was computed under. The reading this document is a function of does
+not carry them today, so version 1.1 does not publish them; they enter as an additive minor version
+once it does.

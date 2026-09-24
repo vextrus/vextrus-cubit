@@ -58,6 +58,7 @@ import {
 } from "@/core/documents/kinds/boq-draft-law";
 import type { ExportCell, ExportColumn, SheetSpec, WorkbookSpec } from "@/core/exports";
 import type { BoqView } from "@/modules/takeoff/boq/view";
+import type { ViewAgreement, ViewRaster } from "@/modules/takeoff/register-ui/view";
 import { UNCLASSIFIED_LABEL } from "@/modules/takeoff/boq/taxonomy";
 
 /* ------------------------------------------------------------------ what the composer is handed */
@@ -75,7 +76,27 @@ export type LineEvidence = {
   readonly formula: string;
   readonly drawingId: string | null;
   readonly layoutName: string | null;
+  /** The trace a line read off a scan was read from (L-QTY-03); null or absent under VECTOR. */
+  readonly raster?: ViewRaster | null;
+  /** Who agreed an INTERPRETED line's readings (L-QTY-04's AGREED exit, s-takeoff I-685); null or absent otherwise. */
+  readonly agreedBy?: ViewAgreement | null;
 };
+
+/**
+ * The trace a line was read off, in words a checker can match against the drawing's own record: the
+ * vectoriser and its version, the parameter set, the page raster, and the resolution as the artifact
+ * stated it — or that it stated none (L-QTY-03). Every hash is written whole: provenance cut short is
+ * provenance nobody can match.
+ */
+export function traceWordsOf(raster: ViewRaster): string {
+  const resolution = raster.dpi === null ? `${TRACE_WORDS.dpiUnstated} (${raster.dpiSource})` : `${raster.dpi} ${TRACE_WORDS.dpi} (${raster.dpiSource})`;
+  return [`${raster.tool} ${raster.toolVersion}`, `${TRACE_WORDS.parameters} ${raster.parameterSetHash}`, `${TRACE_WORDS.page} ${raster.pageSha256}`, resolution].join(" · ");
+}
+
+/** Who agreed a line, in words: the person, and the act a checker finds the agreement under. */
+export function agreementWordsOf(agreement: ViewAgreement): string {
+  return `${agreement.actorId} (${TRACE_WORDS.act} ${agreement.actId})`;
+}
 
 /** What the workbook is composed from: the draft screens and documents read, and that evidence. */
 export type BoqExportReading = {
@@ -156,9 +177,24 @@ function quantitiesColumns(fractionDigits: number): readonly ExportColumn[] {
     { key: "sourceSheet", header: "Source sheet", kind: "text" },
     { key: "formula", header: "Formula", kind: "text" },
     { key: "placedBy", header: "Placed by", kind: "text" },
+    // Where a figure was read off a scan: the trace it was read from, and who agreed what it was read
+    // as (L-QTY-03, s-takeoff I-685). Empty for a line read off vector geometry.
+    { key: "trace", header: TRACE_WORDS.traceHeader, kind: "text" },
+    { key: "agreedBy", header: TRACE_WORDS.agreedByHeader, kind: "text" },
     { key: "reason", header: "Reason", kind: "text" },
   ];
 }
+
+/** The words the trace and agreement columns are written in. */
+const TRACE_WORDS = Object.freeze({
+  traceHeader: "Trace",
+  agreedByHeader: "Agreed by",
+  parameters: "parameters",
+  page: "page",
+  dpi: "dpi",
+  dpiUnstated: "resolution unstated",
+  act: "act",
+});
 
 /* ------------------------------------------------------------------------- the pieces, named */
 
@@ -347,6 +383,8 @@ export function boqQuantitiesSheetOf(reading: BoqExportReading): SheetSpec {
       evidence?.layoutName ?? NOTHING_HELD,
       evidence?.formula ?? NOTHING_HELD,
       line.decidedBy,
+      evidence?.raster == null ? null : traceWordsOf(evidence.raster),
+      evidence?.agreedBy == null ? null : agreementWordsOf(evidence.agreedBy),
       // Why the line sits where it does and why it states no figure, where either needs saying: the
       // taxonomy's reason for an unplaced line, then the not-measured words (I-450, I-570).
       [cells.reason, lineRemarksOf(line)].filter((said): said is string => said !== null && said !== "").join("; ") || null,

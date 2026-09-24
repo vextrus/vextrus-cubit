@@ -32,6 +32,7 @@ import { expect, type Page } from "@playwright/test";
 import { stagePartitionedSheet, type DrawnMembers } from "../viewer/viewer-partition-stage";
 import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
 import { afterSettled } from "../support/settled";
+import { READ_OFF_SCAN } from "../../support/raster-trace";
 
 /** The checkout these journeys run against. */
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
@@ -347,12 +348,15 @@ async function placeMembers(
 
 /**
  * One offer, said to be INTERPRETED: the geometry carries the basis the gate defers on, and every
- * binding carries it too, so the roll-up says the same thing however the gate weighs its inputs.
+ * binding carries it too, so the roll-up says the same thing however the gate weighs its inputs. It
+ * is read off a scan, so it carries the RASTER engine and the trace it names — an interpreted figure
+ * naming none is refused by name rather than deferred (L-QTY-03, s-takeoff I-685) — and the gate
+ * files each interpreted reading in the register's ledger beside its queue item.
  */
 function interpretedOffer(offer: OfferShape): OfferShape {
   const bindings: Record<string, Record<string, unknown>> = {};
   for (const [name, measure] of Object.entries(offer.bindings)) bindings[name] = { ...measure, basis: "INTERPRETED" };
-  return { ...offer, geometry: { ...offer.geometry, basis: "INTERPRETED" }, bindings };
+  return { ...offer, ...READ_OFF_SCAN, geometry: { ...offer.geometry, basis: "INTERPRETED" }, bindings };
 }
 
 /**

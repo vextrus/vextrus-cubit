@@ -21,6 +21,10 @@ import { closedList } from "./sql";
 import { sql as statement } from "drizzle-orm";
 import { check, index, json, numeric, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 
+/** The basis an interpreted reading carries and the engine that reads a scan, off their rosters (B-17). */
+const INTERPRETED: QuantityBasis = "INTERPRETED";
+const RASTER: Engine = "RASTER";
+
 /**
  * L-REG-07's campaign: what a pinned drawing-set revision is measured under, and what was in force
  * when it was opened.
@@ -118,6 +122,11 @@ export const quantityLines = pgTable(
     // a partial row DECLARED, and empty under COMPLETE (L-QTY-02).
     omitted: json("omitted").$type<readonly unknown[]>().notNull(),
     calibrationKeys: json("calibration_keys").$type<readonly string[]>().notNull(),
+    // L-QTY-03: "the vectoriser id + version + render DPI where INTERPRETED" — the trace a RASTER
+    // reading was read off (`RasterIdentity`: tool, version, parameter-set hash, the page raster's
+    // sha-256, its DPI and where that DPI was stated), as the offer carried it. Null under VECTOR,
+    // and never null where the figure stands on an interpreted reading (s-takeoff I-685).
+    raster: json("raster").$type<Readonly<Record<string, string | null>>>(),
     publishedAt: timestamp("published_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
@@ -136,6 +145,12 @@ export const quantityLines = pgTable(
     // ways round. PARTIAL_UNDECLARED is unrepresentable here as well as in the contract's roster —
     // a COMPLETE row with no figure, and a partial row carrying one, cannot be written at all.
     check("quantity_lines_partial_declared", statement`(${table.coverage} = 'COMPLETE') = (${table.value} is not null)`),
+    // L-QTY-03, in the store: a line whose figure stands on an interpreted reading names the trace it
+    // was read off, and a trace's identity stands only on a line the RASTER engine read. The gate
+    // answers an offer that could not satisfy either by name first (RASTER_IDENTITY_MISSING,
+    // OFFER_NOT_TO_CONTRACT), so these are the store's belt, never an answer a person reads.
+    check("quantity_lines_interpreted_names_raster", statement`${table.quantityBasis} <> ${statement.raw(closedList([INTERPRETED]))} or ${table.raster} is not null`),
+    check("quantity_lines_raster_under_raster_engine", statement`${table.raster} is null or ${table.engine} = ${statement.raw(closedList([RASTER]))}`),
     // The read a campaign's lines are answered from, in the order they were published.
     index("quantity_lines_by_campaign").on(table.tenantId, table.campaignId, table.publishedAt),
   ],
@@ -208,6 +223,44 @@ export const queueItems = pgTable(
 );
 
 /**
+ * The AGREED exit of a queue item (L-QTY-04: "an interpreted line reaches a bill only as AGREED";
+ * s-takeoff I-685): the act that corroborated every interpreted reading an item names, written in
+ * that act's own transaction (L-ACT-01) and never beside it.
+ *
+ * Append-only and one per item. The item itself is never edited — a deferral is a record of what was
+ * deferred and why — so what a person later did about it is a row of its own, and the per-line actor
+ * L-QTY-03 asks for "where judgement entered" is DERIVED from this row and its act, never stamped on
+ * the line. Resolved is not published: the gate still asks, at every run, that each reading stands
+ * AGREED at the value it interpreted, so a reading appended after this row that suspends one keeps
+ * the item queued.
+ */
+export const queueItemResolutions = pgTable(
+  "queue_item_resolutions",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    resolutionId: uuid("resolution_id").primaryKey().defaultRandom(),
+    queueItemId: uuid("queue_item_id")
+      .notNull()
+      .references(() => queueItems.queueItemId),
+    campaignId: uuid("campaign_id")
+      .notNull()
+      .references(() => campaigns.campaignId),
+    projectId: uuid("project_id").notNull(),
+    // A resolution is a human act and nothing else (L-ACT-01): the act that wrote it is not nullable.
+    actId: uuid("act_id")
+      .notNull()
+      .references(() => acts.actId),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    // One exit per item: resolving what is already resolved changes nothing, in the store as at the act.
+    unique("queue_item_resolutions_one_per_item").on(table.tenantId, table.queueItemId),
+    // The read the gate and the register make: one campaign's resolutions.
+    index("queue_item_resolutions_by_campaign").on(table.tenantId, table.campaignId, table.resolvedAt),
+  ],
+);
+
+/**
  * Every table this area publishes. `schema.ts` spreads it into `SEAM_SCHEMA`, so a table added to
  * this file joins the typed surface without a second roster being edited (B-19, AM-11).
  */
@@ -216,4 +269,5 @@ export const QUANTITY_LINES_TABLES = {
   quantityLines,
   railObservations,
   queueItems,
+  queueItemResolutions,
 };

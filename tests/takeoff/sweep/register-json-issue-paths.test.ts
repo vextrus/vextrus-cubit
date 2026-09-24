@@ -35,6 +35,8 @@ function lineOf(basis: string): Record<string, unknown> {
     coverage: "COMPLETE",
     calibrationKeys: ["cal-1"],
     engine: "VECTOR",
+    raster: null,
+    agreedBy: null,
     sourceKey: "S-102:e:7",
     repudiated: false,
     drawingId: "22222222-2222-4222-8222-222222222222",

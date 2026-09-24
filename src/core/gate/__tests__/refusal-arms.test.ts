@@ -21,7 +21,8 @@ import { GEOMETRY_TYPES } from "../../offers/law";
 import { MEMBER_VOLUME_METHOD } from "../../rulesets/methods/member/volume";
 import { implementationOf } from "../../rulesets/methods/registry";
 import { SEED_EDITION_CONTENT } from "../../rulesets/seed";
-import { judgeOffer, type MeasuredUnder, type RegisteredLevel } from "../evaluate";
+import type { ObservationRow } from "../../register/store";
+import { corroborationFrom, judgeOffer, type Corroboration, type MeasuredUnder, type RegisteredLevel } from "../evaluate";
 
 /** The campaign the offers below are judged under — a snapshot, not a store read. */
 const UNDER: MeasuredUnder = {
@@ -112,6 +113,25 @@ function offer(changed: Partial<Offer> = {}): Offer {
   } as Offer;
 }
 
+/**
+ * The trace a scan's reading names (L-QTY-03: "the vectoriser id + version + render DPI where
+ * INTERPRETED"), as a RASTER placement carries it across to its offers.
+ */
+const TRACE: NonNullable<Offer["raster"]> = {
+  tool: "opencv-lsd",
+  toolVersion: "4.10.0",
+  parameterSetHash: "a".repeat(64),
+  pageSha256: "b".repeat(64),
+  dpi: "300",
+  dpiSource: "file",
+};
+
+/** The same offer read off a scan: an interpreted outline, its readings interpreted, under the RASTER engine with its trace. */
+function interpretedOffer(changed: Partial<Offer> = {}): Offer {
+  const bindings = Object.fromEntries(Object.entries(everyBinding()).map(([name, measure]) => [name, { ...measure, basis: "INTERPRETED" as const }]));
+  return offer({ engine: "RASTER", raster: TRACE, geometry: { type: GEOMETRY_TYPES[0], basis: "INTERPRETED", calibration: CALIBRATION }, bindings, ...changed });
+}
+
 /** The code one judgement refused with, or the arm it landed on instead. */
 function answered(offered: Offer, edition: PinnedEdition = EDITION): string {
   const judgement = judgeOffer(offered, UNDER, edition, REGISTERED);
@@ -140,7 +160,12 @@ describe("SEAM-GATE: every offer lands on one arm, and a refusal names the regis
   });
 
   test("interpreted geometry is a queue item and never a line", () => {
-    const judgement = judgeOffer(offer({ geometry: { type: GEOMETRY_TYPES[0], basis: "INTERPRETED", calibration: CALIBRATION } }), UNDER, EDITION, REGISTERED);
+    const judgement = judgeOffer(
+      offer({ engine: "RASTER", raster: TRACE, geometry: { type: GEOMETRY_TYPES[0], basis: "INTERPRETED", calibration: CALIBRATION } }),
+      UNDER,
+      EDITION,
+      REGISTERED,
+    );
     expect(judgement.arm, "interpreted geometry uncorroborated is a declared exclusion, never a line (L-QTY-04)").toBe("queued");
     if (judgement.arm !== "queued") return;
     expect(judgement.item.cause, "and it states the registered reason it was deferred for (riskNotes (3))").toBe(REFUSALS.INTERPRETED_UNCORROBORATED.code);
@@ -217,7 +242,7 @@ describe("SEAM-GATE: every offer lands on one arm, and a refusal names the regis
     const arms = [
       answered(offer()),
       answered(offer({ ruleId: "face.area" })),
-      answered(offer({ geometry: { type: GEOMETRY_TYPES[0], basis: "INTERPRETED", calibration: CALIBRATION } })),
+      answered(interpretedOffer()),
     ];
     expect(arms, "measuring is never blocked by a pin that has moved (L-REG-07)").not.toContain(REFUSALS.PIN_STALE.code);
     expect(arms, "and a campaign the gate did hold is never answered as one it does not (ARCH-03)").not.toContain(REFUSALS.CAMPAIGN_NOT_FOUND.code);
@@ -235,7 +260,7 @@ describe("I-368: a member in the UNRESOLVED slot carries no line and no queue it
     return judgement.arm === "refused" ? judgement.refusal.code : judgement.arm;
   }
 
-  const INTERPRETED = { geometry: { type: GEOMETRY_TYPES[0], basis: "INTERPRETED" as const, calibration: CALIBRATION } };
+  const INTERPRETED = { engine: "RASTER" as const, raster: TRACE, geometry: { type: GEOMETRY_TYPES[0], basis: "INTERPRETED" as const, calibration: CALIBRATION } };
 
   test("an object in the UNRESOLVED slot is TYPICAL_RANGE_UNSTATED — L-CAD-07's 'UNRESOLVED rows with no line'", () => {
     expect(
@@ -276,5 +301,120 @@ describe("I-368: a member in the UNRESOLVED slot carries no line and no queue it
     expect(armOf(judgedAt(IN_UNRESOLVED, { ruleId: "face.area" })), "a rule the edition does not cite is that, wherever the object stands").toBe(
       REFUSALS.METHOD_NOT_IN_EDITION.code,
     );
+  });
+});
+
+describe("L-QTY-04's AGREED exit: an interpreted figure publishes only as a person agreed it (s-takeoff I-685)", () => {
+  /** One reading of one attribute of the object, as the register's ledger holds it. */
+  function row(attribute: string, canonical: { value: string; unit: string }, basis: ObservationRow["basis"], precedence: number, seq: number): ObservationRow {
+    return {
+      tenantId: "6f6d6c3a-0a5e-4a7b-9c2d-33333333ac06",
+      observationId: `7a7d6c3a-0a5e-4a7b-9c2d-${String(seq).padStart(12, "0")}`,
+      setRevisionId: UNDER.setRevisionId,
+      objectKey: OBJECT_KEY,
+      attribute,
+      valueAsWritten: canonical.value,
+      unitAsWritten: canonical.unit,
+      canonicalValue: canonical.value,
+      canonicalUnit: canonical.unit as ObservationRow["canonicalUnit"],
+      factor: "1",
+      factorProvenance: "unit canon (L-FRM-06)",
+      basis,
+      sourceKey: basis === "INTERPRETED" ? "S-101:e:41" : "person",
+      precedence,
+      actId: basis === "INTERPRETED" ? null : "8b8d6c3a-0a5e-4a7b-9c2d-33333333ac08",
+      observedAt: new Date(0),
+      appendSeq: seq,
+    } as ObservationRow;
+  }
+
+  /** One reading the deferral filed on its item: the attribute and what the scan was read as, in the canon's own figure. */
+  type Filed = { attribute: string; canonical: { value: string; unit: string } };
+
+  /** The readings the deferral filed on its item, read off the gate's own answer rather than transcribed. */
+  function filedReadings(): Filed[] {
+    const judgement = judgeOffer(interpretedOffer(), UNDER, EDITION, REGISTERED);
+    if (judgement.arm !== "queued") throw new Error(`the unresolved interpreted offer was not deferred: ${JSON.stringify(judgement)}`);
+    return (judgement.item.detail as { readings: Filed[] }).readings;
+  }
+
+  /** What a person said of one attribute, beside the scan's own reading of it. */
+  type Said = (attribute: string, scan: { value: string; unit: string }) => ObservationRow[];
+
+  /** The register in hand: the item resolved or not, and each filed reading beside whatever a person said of it. */
+  function corroboration(resolved: boolean, said: Said): Corroboration {
+    let seq = 0;
+    const attributes = new Map<string, ObservationRow[]>();
+    for (const reading of filedReadings()) {
+      seq += 1;
+      attributes.set(reading.attribute, [row(reading.attribute, reading.canonical, "INTERPRETED", 0, seq), ...said(reading.attribute, reading.canonical)]);
+    }
+    return corroborationFrom(resolved ? [{ objectKey: OBJECT_KEY, kind: bearing().kind }] : [], new Map([[OBJECT_KEY, attributes]]));
+  }
+
+  /** A person restating exactly what the scan was read as — the agreeing act's ENTERED reading. */
+  const RESTATED: Said = (attribute, scan) => [row(attribute, scan, "ENTERED", 0, 100)];
+
+  /** The arm the interpreted offer lands on against one register in hand. */
+  function armAgainst(held: Corroboration): string {
+    const judgement = judgeOffer(interpretedOffer(), UNDER, EDITION, REGISTERED, held);
+    return judgement.arm === "refused" ? judgement.refusal.code : judgement.arm;
+  }
+
+  test("an interpreted offer that names no trace is RASTER_IDENTITY_MISSING — refused by name, never queued", () => {
+    const { raster: dropped, ...untraced } = interpretedOffer();
+    void dropped;
+    expect(answered(untraced as Offer), "a figure read off a scan that cannot say what traced it, or at what resolution, is a missing mandatory attribute (L-QTY-03)").toBe(
+      REFUSALS.RASTER_IDENTITY_MISSING.code,
+    );
+  });
+
+  test("an interpreted figure over a trace whose resolution nobody stated is RASTER_IDENTITY_MISSING", () => {
+    expect(answered(interpretedOffer({ raster: { ...TRACE, dpi: null, dpiSource: "unstated" } })), "L-QTY-03's 'render DPI where INTERPRETED' — an unstated DPI states none").toBe(
+      REFUSALS.RASTER_IDENTITY_MISSING.code,
+    );
+  });
+
+  test("a VECTOR offer standing on an interpreted reading is OFFER_NOT_TO_CONTRACT — an interpreted figure is read off pixels", () => {
+    expect(answered(interpretedOffer({ engine: "VECTOR" })), "the engine and the basis contradict each other (L-QTY-01)").toBe(REFUSALS.OFFER_NOT_TO_CONTRACT.code);
+  });
+
+  test("the deferral files every interpreted reading and the trace on its item, so the act and the ledger read what the gate read", () => {
+    const judgement = judgeOffer(interpretedOffer(), UNDER, EDITION, REGISTERED);
+    expect(judgement.arm).toBe("queued");
+    if (judgement.arm !== "queued") return;
+    const detail = judgement.item.detail as { readings: Filed[]; raster: unknown };
+    expect(
+      detail.readings.map((reading) => reading.attribute),
+      "one reading per determining binding the scan was read for",
+    ).toEqual(formula().variables.map((variable) => variable.name));
+    expect(detail.raster, "and the trace it was read off").toEqual(TRACE);
+  });
+
+  test("resolved, and every reading agreed at the scan's own figure by a person: the line publishes, INTERPRETED, with its trace", () => {
+    const judgement = judgeOffer(interpretedOffer(), UNDER, EDITION, REGISTERED, corroboration(true, RESTATED));
+    expect(judgement.arm, `the AGREED exit publishes: ${JSON.stringify(judgement)}`).toBe("published");
+    if (judgement.arm !== "published") return;
+    expect(judgement.line.quantityBasis, "the line keeps what its figure stands on — never relabelled MEASURED (L-QTY-01)").toBe("INTERPRETED");
+    expect(judgement.line.raster, "and names the trace it was read off (L-QTY-03)").toEqual(TRACE);
+    const bound = judgement.line.bindings as Record<string, { canonical: { value: string; unit: string } }>;
+    for (const reading of filedReadings()) {
+      expect(bound[reading.attribute]?.canonical, `${reading.attribute} binds the AGREED canonical value`).toEqual(reading.canonical);
+    }
+  });
+
+  test("the item not resolved: queued, however the readings stand", () => {
+    expect(armAgainst(corroboration(false, RESTATED)), "a reading agreed by no act that resolved the item is not the exit (L-ACT-01)").toBe("queued");
+  });
+
+  test("resolved, but the scan's reading stands alone: queued — nothing disagreeing is not somebody agreeing", () => {
+    expect(armAgainst(corroboration(true, () => []))).toBe("queued");
+  });
+
+  test("resolved, but a person read another figure: queued — a correction is not an agreement", () => {
+    const higher: Said = (attribute, scan) => [row(attribute, { value: `${scan.value}1`, unit: scan.unit }, "ENTERED", 1, 100)];
+    expect(armAgainst(corroboration(true, higher)), "a person who read another figure at a higher precedence corrected the scan").toBe("queued");
+    const beside: Said = (attribute, scan) => [row(attribute, { value: `${scan.value}1`, unit: scan.unit }, "ENTERED", 0, 100)];
+    expect(armAgainst(corroboration(true, beside)), "and one beside it suspends the attribute (L-REG-03)").toBe("queued");
   });
 });

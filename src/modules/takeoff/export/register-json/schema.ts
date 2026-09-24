@@ -5,8 +5,10 @@
 // for field. It is declared here and not derived from a row: a register's shape has one home
 // (`register-ui/view.ts`), and a second declaration beside the rows would be a second answer to what
 // a register IS (B-17). What the reading does not carry, this version does not publish: L-QTY-03's
-// rule id and version, the vectoriser's identity and the per-line actor are absent from `RegisterView`
-// and therefore from v1.0; they enter as an additive minor version once the reading carries them.
+// rule id and version are absent from `RegisterView` and therefore from the document; they enter as
+// an additive minor version once the reading carries them. Version 1.1 added the two the reading
+// came to carry with the gate's AGREED exit (s-takeoff I-685): the trace a line was read off a
+// scan by, and who agreed what it was read as.
 //
 // Every level is a `z.strictObject`, so the JSON Schema this compiles to closes each level with
 // `additionalProperties: false` and a field added, removed or retyped shows up in the committed
@@ -18,7 +20,7 @@ import { QUANTITY_BASES } from "@/core/offers/law";
  * The version of the published shape. It changes only with a breaking change to the shape; an
  * additive field bumps the minor.
  */
-export const REGISTER_JSON_SCHEMA_VERSION = "1.0" as const;
+export const REGISTER_JSON_SCHEMA_VERSION = "1.1" as const;
 
 /** A binding's figure in the canon's own unit (`ViewBinding.canonical`). */
 const RegisterJsonCanonicalFigure = z.strictObject({
@@ -33,6 +35,29 @@ export const RegisterJsonBinding = z.strictObject({
   basis: z.string(),
   source: z.string(),
   canonical: RegisterJsonCanonicalFigure,
+});
+
+/**
+ * The trace a line read off a scan was read from (`ViewRaster`, L-QTY-03): the vectoriser, its version
+ * and parameter set, the page raster's sha-256, and the DPI as the artifact stated it — null exactly
+ * where `dpiSource` is `unstated`.
+ */
+export const RegisterJsonRaster = z.strictObject({
+  tool: z.string(),
+  toolVersion: z.string(),
+  parameterSetHash: z.string(),
+  pageSha256: z.string(),
+  dpi: z.string().nullable(),
+  dpiSource: z.string(),
+});
+
+/**
+ * Who agreed the interpreted readings a line stands on (`ViewAgreement`): the act that resolved its
+ * queue item and that act's actor — derived from the act log, never stamped on the line (L-QTY-03).
+ */
+export const RegisterJsonAgreement = z.strictObject({
+  actId: z.string(),
+  actorId: z.string(),
 });
 
 /** One reading of one attribute, as the ledger holds it (`ViewReading`, R-TO-051). */
@@ -95,6 +120,8 @@ export const RegisterJsonLine = z.strictObject({
   coverage: z.string(),
   calibrationKeys: z.array(z.string()),
   engine: z.string(),
+  raster: RegisterJsonRaster.nullable(),
+  agreedBy: RegisterJsonAgreement.nullable(),
   sourceKey: z.string(),
   repudiated: z.boolean(),
   drawingId: z.string().nullable(),

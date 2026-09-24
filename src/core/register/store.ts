@@ -12,6 +12,7 @@
 // and a typical range take, and the rows a typical range stands up beside its placeholder. The
 // module's door re-exports them; a core act commits through them in its own transaction.
 import {
+  acts,
   and,
   asc,
   campaigns,
@@ -19,6 +20,9 @@ import {
   drawingSetRevisions,
   eq,
   inArray,
+  isNull,
+  queueItemResolutions,
+  queueItems,
   refusedSightings,
   registerAttributes,
   registerObjects,
@@ -694,4 +698,182 @@ export async function repudiatedObjectsIn(tx: TenantTx, scope: RegisterScope): P
     .from(repudiatedObjects)
     .where(and(eq(repudiatedObjects.tenantId, scope.tenantId), eq(repudiatedObjects.setRevisionId, scope.setRevisionId)))
     .orderBy(asc(repudiatedObjects.repudiatedAt), asc(repudiatedObjects.objectKey));
+}
+
+/* ------------------------------------------------------------------ the AGREED exit (s-takeoff I-685) */
+
+/** The basis a scan's own reading carries (L-QTY-01), off the ledger's roster rather than spelled. */
+const INTERPRETED: ObservationBasis = "INTERPRETED";
+
+/** The one cause a person's corroboration answers (L-QTY-04), read off the closed taxonomy (Q-07). */
+const INTERPRETED_UNCORROBORATED = REFUSALS.INTERPRETED_UNCORROBORATED.code;
+
+/**
+ * One reading an interpreted outline's figure stands on, as the gate files it on the queue item and
+ * in the ledger (s-takeoff I-685): the determining variable it binds — which IS the attribute a
+ * person corroborates — what the rail read, the entity it was read off, and the canon's figure for it.
+ */
+export type InterpretedReading = {
+  readonly attribute: string;
+  readonly value: string;
+  readonly unit: string;
+  readonly source: string;
+  readonly canonical: { readonly value: string; readonly unit: string };
+};
+
+/** A string field of an unknown record, or null where it holds none. */
+function stringAt(record: unknown, key: string): string | null {
+  if (record === null || typeof record !== "object") return null;
+  const held = (record as Record<string, unknown>)[key];
+  return typeof held === "string" ? held : null;
+}
+
+/**
+ * The interpreted readings a queue item's detail names, in the order the gate filed them. A detail
+ * that names none — an item deferred before the gate filed its readings, or an outline whose figure
+ * stands on no interpreted reading at all — answers an empty list, never a guess.
+ */
+export function interpretedReadingsOf(detail: unknown): InterpretedReading[] {
+  const listed = detail !== null && typeof detail === "object" ? (detail as Record<string, unknown>)["readings"] : undefined;
+  if (!Array.isArray(listed)) return [];
+  const readings: InterpretedReading[] = [];
+  for (const entry of listed as unknown[]) {
+    const attribute = stringAt(entry, "attribute");
+    const value = stringAt(entry, "value");
+    const unit = stringAt(entry, "unit");
+    const source = stringAt(entry, "source");
+    const canonical = entry !== null && typeof entry === "object" ? (entry as Record<string, unknown>)["canonical"] : undefined;
+    const canonicalValue = stringAt(canonical, "value");
+    const canonicalUnit = stringAt(canonical, "unit");
+    if (attribute === null || value === null || unit === null || source === null || canonicalValue === null || canonicalUnit === null) continue;
+    readings.push({ attribute, value, unit, source, canonical: { value: canonicalValue, unit: canonicalUnit } });
+  }
+  return readings;
+}
+
+/** Does the standing stand at a reading a person made, beside or instead of the scan's own? */
+function spokenForByAPerson(standing: StandingOfAttribute): boolean {
+  return standing.competing.some((held) => held.basis !== INTERPRETED);
+}
+
+/**
+ * Does this standing corroborate this interpreted reading (L-QTY-04's AGREED, s-takeoff I-685)?
+ *
+ * Three things, all of them: the attribute stands AGREED; it stands at the very figure the scan was
+ * read as, in the canon's own unit (a person who read 450 where the scan said 452 has corrected the
+ * reading, not agreed it); and among the readings it stands at, one is not the scan's own. The last
+ * is the one that matters most: a lone INTERPRETED reading stands AGREED with itself, and "nothing
+ * disagrees" is not "somebody agreed".
+ */
+export function corroborates(standing: StandingOfAttribute, reading: InterpretedReading): boolean {
+  if (standing.standing !== AGREED || standing.canonicalValue === null || standing.canonicalUnit !== reading.canonical.unit) return false;
+  if (!readsAsANumber(standing.canonicalValue) || !readsAsANumber(reading.canonical.value)) return false;
+  return exact(asRead(standing.canonicalValue)).eq(exact(asRead(reading.canonical.value))) && spokenForByAPerson(standing);
+}
+
+/**
+ * Does every reading an item names stand corroborated? An item naming none — an outline whose figure
+ * stands on no interpreted reading, only its existence on the scan — is corroborated where the
+ * attribute the act spoke about (`spoken`) stands AGREED at a person's reading: the least a person can
+ * say about the object is that they looked at it and agreed what it holds.
+ */
+export function everyReadingCorroborated(
+  readings: readonly InterpretedReading[],
+  standingOfAttribute: (attribute: string) => StandingOfAttribute,
+  spoken: StandingOfAttribute | null,
+): boolean {
+  if (readings.length === 0) return spoken !== null && spoken.standing === AGREED && spokenForByAPerson(spoken);
+  return readings.every((reading) => corroborates(standingOfAttribute(reading.attribute), reading));
+}
+
+/** Every reading of every attribute of the named objects, keyed object → attribute, in append order. */
+export async function observationsOfObjectsIn(tx: TenantTx, scope: RegisterScope, objectKeys: readonly string[]): Promise<Map<string, Map<string, ObservationRow[]>>> {
+  const held = new Map<string, Map<string, ObservationRow[]>>();
+  if (objectKeys.length === 0) return held;
+  const rows = await tx
+    .select()
+    .from(registerObservations)
+    .where(
+      and(
+        eq(registerObservations.tenantId, scope.tenantId),
+        eq(registerObservations.setRevisionId, scope.setRevisionId),
+        inArray(registerObservations.objectKey, [...new Set(objectKeys)]),
+      ),
+    )
+    .orderBy(asc(registerObservations.appendSeq));
+  for (const row of rows) {
+    const attributes = held.get(row.objectKey) ?? new Map<string, ObservationRow[]>();
+    attributes.set(row.attribute, [...(attributes.get(row.attribute) ?? []), row]);
+    held.set(row.objectKey, attributes);
+  }
+  return held;
+}
+
+/** One queue item a corroboration could resolve: the deferral, the campaign it stands in and what it names. */
+export type AwaitingItem = {
+  readonly queueItemId: string;
+  readonly campaignId: string;
+  readonly kind: string;
+  readonly cause: string;
+  readonly readings: readonly InterpretedReading[];
+};
+
+/**
+ * The interpreted outline's queue items of one object that no act has resolved yet, in the campaign
+ * the revision was pinned under (one per revision, `campaigns_one_per_revision`), oldest first.
+ */
+export async function awaitingItemsIn(tx: TenantTx, scope: RegisterScope, objectKey: string): Promise<AwaitingItem[]> {
+  const rows = await tx
+    .select({ queueItemId: queueItems.queueItemId, campaignId: queueItems.campaignId, kind: queueItems.kind, cause: queueItems.cause, detail: queueItems.detail })
+    .from(queueItems)
+    .innerJoin(campaigns, and(eq(campaigns.tenantId, queueItems.tenantId), eq(campaigns.campaignId, queueItems.campaignId)))
+    .leftJoin(queueItemResolutions, and(eq(queueItemResolutions.tenantId, queueItems.tenantId), eq(queueItemResolutions.queueItemId, queueItems.queueItemId)))
+    .where(
+      and(
+        eq(queueItems.tenantId, scope.tenantId),
+        eq(campaigns.setRevisionId, scope.setRevisionId),
+        eq(queueItems.objectKey, objectKey),
+        eq(queueItems.cause, INTERPRETED_UNCORROBORATED),
+        isNull(queueItemResolutions.resolutionId),
+      ),
+    )
+    .orderBy(asc(queueItems.queuedAt), asc(queueItems.queueItemId));
+  return rows.map((row) => ({ queueItemId: row.queueItemId, campaignId: row.campaignId, kind: row.kind, cause: row.cause, readings: interpretedReadingsOf(row.detail) }));
+}
+
+/**
+ * Write the AGREED exit of each item, inside the transaction the corroborating act's row is written in
+ * (L-ACT-01). Append-only and once per item: an item already resolved keeps the act that resolved it.
+ */
+export async function resolveQueueItemsIn(tx: TenantTx, scope: RegisterScope, items: readonly AwaitingItem[], actId: string): Promise<void> {
+  if (items.length === 0) return;
+  await tx
+    .insert(queueItemResolutions)
+    .values(items.map((item) => ({ tenantId: scope.tenantId, queueItemId: item.queueItemId, campaignId: item.campaignId, projectId: scope.projectId, actId })))
+    .onConflictDoNothing();
+}
+
+/** One resolved queue item of a campaign: the object and kind it deferred, and who agreed it and when. */
+export type QueueItemAgreement = {
+  readonly objectKey: string;
+  readonly kind: string;
+  readonly actId: string;
+  readonly actorId: string;
+  readonly resolvedAt: Date;
+};
+
+/**
+ * Every AGREED exit one campaign's queue has taken, with the act that took it and its actor — the
+ * per-line actor L-QTY-03 asks for "where judgement entered", derived from the act log and never
+ * stamped on the line. The gate reads it to know what is resolved, and the register to say who
+ * agreed it, through this one read (B-17).
+ */
+export async function agreementsOfCampaignIn(tx: TenantTx, tenantId: string, campaignId: string): Promise<QueueItemAgreement[]> {
+  return tx
+    .select({ objectKey: queueItems.objectKey, kind: queueItems.kind, actId: queueItemResolutions.actId, actorId: acts.actorId, resolvedAt: queueItemResolutions.resolvedAt })
+    .from(queueItemResolutions)
+    .innerJoin(queueItems, and(eq(queueItems.tenantId, queueItemResolutions.tenantId), eq(queueItems.queueItemId, queueItemResolutions.queueItemId)))
+    .innerJoin(acts, and(eq(acts.tenantId, queueItemResolutions.tenantId), eq(acts.actId, queueItemResolutions.actId)))
+    .where(and(eq(queueItemResolutions.tenantId, tenantId), eq(queueItemResolutions.campaignId, campaignId)))
+    .orderBy(asc(queueItemResolutions.resolvedAt), asc(queueItemResolutions.resolutionId));
 }

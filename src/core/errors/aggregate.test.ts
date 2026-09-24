@@ -185,6 +185,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "PRECISION_NOT_APPLIED",
   "PRODUCT_FACTOR_MISSING",
   "PROJECT_WOULD_HAVE_NO_PRINCIPAL",
+  "RASTER_IDENTITY_MISSING",
   "RASTER_NOT_AVAILABLE",
   "RASTER_NOT_FOUND",
   "RASTER_URL_EXPIRED",
@@ -493,7 +494,13 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * the whole register diffed against 9b0f3676: 160 → 185, added 25, removed 0, changed 0.
  * Previous: 50325a9f30d9c965ae84488e92558d3bbfd9f78c628a210043ff59569d63de3d.
  */
-const ENTRIES_DIGEST_BEFORE = "3774167a166c0296b1cfd8dd5b51ee0362cb0113874c33e05a09c982903435d4";
+/*
+ * Re-baselined by M4P-6 (session 9, wave 4b) for ONE ADDED entry and nothing else: the gate's
+ * RASTER_IDENTITY_MISSING (./gate.ts, s-takeoff I-685), what an offer read off a scan that names no
+ * trace, or no resolution, is refused with rather than queued. 185 → 186, added 1, removed 0, changed 0.
+ * Previous: 3774167a166c0296b1cfd8dd5b51ee0362cb0113874c33e05a09c982903435d4.
+ */
+const ENTRIES_DIGEST_BEFORE = "ddfde6da23194ce9500523262a5566dbd9bb5d5f9dba785dd129759cd999ea1e";
 
 /** The canonical text a digest is taken over: nothing about layout, only what each entry says. */
 function canonical(entries: Readonly<Record<string, Entry>>): string {

@@ -5,7 +5,10 @@
 // One act over one object and one attribute: a reading that does not name the attribute it is about
 // is not a reading, and a reading about several attributes at once is a bulk this leaf does not offer.
 // The commit APPENDS — one `register_observations` row at basis ENTERED, because a person typed it —
-// and touches no reading that stood before (L-ACT-01).
+// and touches no reading that stood before (L-ACT-01). Where the reading restates what a scan was
+// read as and leaves every reading of an interpreted outline agreed, the same commit writes that
+// outline's queue-item resolution — the AGREED exit L-QTY-04 lets an interpreted line reach a bill by
+// (s-takeoff I-685). A bulk act appends one such restatement per member through this same pair.
 //
 // The standing the reading would produce is computed rather than guessed: the same canon the append
 // carries the reading through canonicalises it here, and the same derivation the register reads a
@@ -16,13 +19,17 @@ import { refusal } from "../faults/refusal-marker";
 import { recordCorroborationOutcomeIn } from "../outline-corroboration/outcome";
 import {
   appendObservationIn,
+  awaitingItemsIn,
+  everyReadingCorroborated,
   isRepudiatedIn,
-  observationsIn,
+  observationsOfObjectsIn,
   readingAsAppended,
   readsAsANumber,
   registerObjectIn,
   registerScopeIn,
+  resolveQueueItemsIn,
   standingOf,
+  type AwaitingItem,
   type RegisterScope,
   type StandingOfAttribute,
 } from "../register/store";
@@ -64,7 +71,16 @@ type Derived = {
   readonly scope: RegisterScope;
   readonly before: StandingOfAttribute;
   readonly after: StandingOfAttribute;
+  /**
+   * The interpreted outline's queue items this reading would resolve: every item of the object whose
+   * readings would all stand corroborated with this one appended (s-takeoff I-685). Empty for an
+   * object nothing interpreted, and for a reading that disagrees.
+   */
+  readonly resolving: readonly AwaitingItem[];
 };
+
+/** What a resolved item stands at after the act — the standing its exit is named for (L-QTY-04). */
+const AGREED = "AGREED";
 
 /**
  * How a standing reads on the dialog: the state word, the value that stands where one does, and one
@@ -128,18 +144,35 @@ async function derive(ctx: ActorCtx, input: CorroborateInput, tx: TenantTx): Pro
     });
   }
 
-  const stood = await observationsIn(tx, held, input.objectKey, input.attribute);
-  return { scope: held, before: standingOf(stood), after: standingOf([...stood, proposed.reading]) };
+  // Every reading of the object, read once: the attribute this act speaks about, and the others an
+  // interpreted item may name beside it (s-takeoff I-685).
+  const readings = (await observationsOfObjectsIn(tx, held, [input.objectKey])).get(input.objectKey) ?? new Map();
+  const stood = readings.get(input.attribute) ?? [];
+  const after = standingOf([...stood, proposed.reading]);
+  const standingAfter = (attribute: string): StandingOfAttribute => (attribute === input.attribute ? after : standingOf(readings.get(attribute) ?? []));
+
+  // L-QTY-04's AGREED exit: an item this reading leaves with every interpreted reading corroborated
+  // is resolved by this act, in its own transaction (L-ACT-01) — and one it does not is left queued,
+  // so a reading that disagrees, or agrees one attribute of several, resolves nothing yet.
+  const awaiting = await awaitingItemsIn(tx, held, input.objectKey);
+  const resolving = awaiting.filter((item) => everyReadingCorroborated(item.readings, standingAfter, after));
+  return { scope: held, before: standingOf(stood), after, resolving };
 }
 
-/** The one subject the act judges: the object the reading is about, before and after it stands. */
-function subjectOf(input: CorroborateInput, derived: Derived): ConsequenceSubject {
-  return {
+/**
+ * The subjects the act judges: the object the reading is about, before and after it stands — and,
+ * where the reading agrees an interpreted outline, each queue item it resolves, from the cause it was
+ * deferred for to the AGREED exit it takes, so the person confirms the exit with the reading.
+ */
+function subjectsOf(input: CorroborateInput, derived: Derived): ConsequenceSubject[] {
+  const reading: ConsequenceSubject = {
     subjectId: input.objectKey,
     subjectLabel: input.attribute,
     before: standingWords(derived.before),
     after: standingWords(derived.after),
   };
+  const exits = derived.resolving.map((item) => ({ subjectId: item.queueItemId, subjectLabel: item.kind, before: [item.cause], after: [AGREED] }));
+  return [reading, ...exits];
 }
 
 export const corroborate: ActRendering<CorroborateInput> = {
@@ -150,7 +183,7 @@ export const corroborate: ActRendering<CorroborateInput> = {
       tenantId: ctx.tenantId,
       projectId: input.projectId,
       rendering: "SUBJECTS",
-      subjects: [subjectOf(input, derived)],
+      subjects: subjectsOf(input, derived),
     };
   },
 
@@ -172,6 +205,11 @@ export const corroborate: ActRendering<CorroborateInput> = {
     if (!appended.appended) {
       throw new Error(`${CORROBORATE} previewed a reading the register then refused as ${appended.refusal} — the preview and the append disagree (L-ACT-02)`);
     }
+
+    // The AGREED exit of every item the Consequence named, beside the reading and the act row or not
+    // at all (L-ACT-01). The gate publishes nothing here: the campaign's next measure run finds the
+    // item resolved and asks the readings again (s-takeoff I-685).
+    await resolveQueueItemsIn(tx, derived.scope, derived.resolving, act.actId);
 
     // What this person did with the proposal that stood beside the object: corroborating an outline
     // the machine read as the member its mark names AFFIRMS what it said, and corroborating one it

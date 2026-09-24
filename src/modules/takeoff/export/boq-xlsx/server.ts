@@ -38,6 +38,9 @@ export async function boqExportReadingOf(scope: BoqScope): Promise<BoqExportRead
     formula: line.formula,
     drawingId: line.drawingId,
     layoutName: line.layoutName,
+    // A scan's line carries the trace it was read off and who agreed it (L-QTY-03, s-takeoff I-685).
+    raster: line.raster ?? null,
+    agreedBy: line.agreedBy ?? null,
   }));
 
   return { view: { ...view, payload }, evidence };

@@ -76,6 +76,10 @@ function lineOf(line: ViewLine): RegisterJsonLine {
     coverage: line.coverage,
     calibrationKeys: [...line.calibrationKeys],
     engine: line.engine,
+    // The trace a scan's line was read off and who agreed it (1.1, L-QTY-03): null where the reading
+    // carries none — a VECTOR line, a line no judgement entered, or a reading composed before either.
+    raster: line.raster == null ? null : { ...line.raster },
+    agreedBy: line.agreedBy == null ? null : { actId: line.agreedBy.actId, actorId: line.agreedBy.actorId },
     sourceKey: line.sourceKey,
     repudiated: line.repudiated,
     drawingId: line.drawingId,

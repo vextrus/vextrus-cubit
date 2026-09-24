@@ -342,6 +342,11 @@ const DECLARED_REBASELINED: readonly string[] = [
   // it "in its own `baseline:`-subject commit" when the live Zod schema's JSON form moves — as zod 4.6
   // moved it (db0927e9, D-004).
   "src/modules/takeoff/export/register-json/__tests__/fixtures/register-json.v1.schema.json",
+  // And the committed reading the export is a function of, with the whole document written from it
+  // (register-json.test.ts, AC-1): when the reading's shape grows — 1.1's `raster` and `agreedBy`
+  // (s-takeoff I-686) — the reading, its example and the schema are re-baselined together.
+  "src/modules/takeoff/export/register-json/__tests__/fixtures/register-view.sample.json",
+  "src/modules/takeoff/export/register-json/__tests__/fixtures/register-json.v1.example.json",
   // F-ARCH (session 8, ARCH-1): the corpus `python -m fixtures.gen.arch` writes, every file of it —
   // minted and re-minted in its own `baseline:` commits naming the proof, as the product's law puts a
   // regenerated fixture (cad/tests/sanity/test_arch_regenerate.py holds it byte for byte). Eight

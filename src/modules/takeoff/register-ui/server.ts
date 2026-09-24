@@ -14,14 +14,14 @@ import { campaignsOf } from "@/core/campaigns";
 import { measurementStatementOf, reportedAbsencesOf, residueOf, runDeferralsOf, unclassedStatementOf, type PlacedManifestView, type RunDeferral } from "@/core/residue";
 import { levelStackOf, levelsOf } from "@/modules/takeoff/levels";
 import { QUANTITY_BASES, type QuantityBasis } from "@/core/offers/law";
-import { standingOf, type ObservationRow, type RegisterScope } from "@/core/register/store";
+import { agreementsOfCampaignIn, standingOf, type ObservationRow, type QueueItemAgreement, type RegisterScope } from "@/core/register/store";
 import { proposedLevelStackOf } from "@/modules/takeoff/partition";
 import { refusedSightingsOf, registerObjectsOf, repudiatedObjectsOf } from "@/modules/takeoff/register";
 import { citedKeysOf, entitySelectionOf, handObjectsOf, handObjectWords, levelLabelOf, omissionsOf, pinnedRecordsOf, tracedLineOf, variablesOf, type PinnedRecord } from "@/modules/takeoff/trace";
 import { declaredOf } from "./declared";
 import { levelRank, readingOrder, type LineRank } from "./order";
 import { unlinedRefusalsOf } from "./unlined";
-import type { RegisterView, ViewAttribute, ViewLevelStack, ViewLine, ViewObject, ViewReading, ViewRefusal } from "./view";
+import type { RegisterView, ViewAgreement, ViewAttribute, ViewLevelStack, ViewLine, ViewObject, ViewRaster, ViewReading, ViewRefusal } from "./view";
 
 /** Which project's register is being read, in which workspace. */
 export type RegisterViewScope = { readonly tenantId: string; readonly projectId: string };
@@ -71,13 +71,20 @@ function readingOf(row: ObservationRow): ViewReading {
  * How an object's readings corroborate, over all of its attributes: a person's judgement that the
  * object is nothing stands above everything, a disagreement anywhere suspends the object as it
  * suspends the attribute (R-TO-051: "disagreements suspend and show as such"), an object with a
- * settled reading is AGREED, and one nobody has read is NONE.
+ * settled reading is AGREED, and one nobody has read is NONE. A reading that stands only on what a
+ * scan was read as settles nothing: "nothing disagrees" is not "somebody agreed", so an object whose
+ * attributes carry the scan's readings alone reads NONE until a person speaks (s-takeoff I-685).
  */
 function corroborationOf(attributes: readonly ViewAttribute[], repudiated: boolean): string {
   if (repudiated) return REPUDIATED;
   if (attributes.some((attribute) => attribute.standing === SUSPENDED)) return SUSPENDED;
-  if (attributes.some((attribute) => attribute.standing === AGREED)) return AGREED;
+  if (attributes.some(settledBeyondTheScan)) return AGREED;
   return NONE;
+}
+
+/** Does this attribute stand AGREED at a reading that is not a scan's own — one a drawing or a person stated? */
+function settledBeyondTheScan(attribute: ViewAttribute): boolean {
+  return attribute.standing === AGREED && attribute.competing.some((reading) => reading.basis !== INTERPRETED);
 }
 
 /**
@@ -93,7 +100,7 @@ export async function registerViewOf(scope: RegisterViewScope, options: Register
   }
 
   const registerScope: RegisterScope = { tenantId: scope.tenantId, projectId: scope.projectId, setRevisionId: campaign.setRevisionId };
-  const [objectRows, repudiatedRows, refusedRows, published, deferred, observations, levelRows, manifest, reported, stack, residue] = await Promise.all([
+  const [objectRows, repudiatedRows, refusedRows, published, deferred, observations, levelRows, manifest, reported, stack, residue, agreements] = await Promise.all([
     registerObjectsOf(registerScope),
     repudiatedObjectsOf(registerScope),
     refusedSightingsOf(registerScope),
@@ -107,6 +114,7 @@ export async function registerViewOf(scope: RegisterViewScope, options: Register
     // The coverage certificate's own residue of THIS campaign, read for what the drawings name and
     // the run measured none of (I-650) — the statement is the certificate's, never re-derived.
     options.declared === true ? residueOf({ ...scope, campaignId: campaign.campaignId }) : null,
+    agreementsOfCampaign(scope.tenantId, campaign.campaignId),
   ]);
 
   const struck = new Set(repudiatedRows.map((row) => row.objectKey));
@@ -119,6 +127,8 @@ export async function registerViewOf(scope: RegisterViewScope, options: Register
   // comparisons. One pass each, then lookups.
   const objectByKey = new Map(objectRows.map((row) => [row.objectKey, row]));
   const queuedKeys = new Set(deferred.map((item) => item.objectKey));
+  // Who agreed each resolved item, by the (object, kind) its line is published under (s-takeoff I-685).
+  const agreedBy = new Map(agreements.map((agreement) => [itemKeyOf(agreement.objectKey, agreement.kind), agreementOf(agreement)]));
   const observationsByObject = new Map<string, ObservationRow[]>();
   for (const row of observations) {
     const held = observationsByObject.get(row.objectKey);
@@ -177,6 +187,10 @@ export async function registerViewOf(scope: RegisterViewScope, options: Register
       omitted: omissionsOf(row.omitted),
       calibrationKeys: [...row.calibrationKeys],
       engine: row.engine,
+      // The trace a scan's line was read off, and who agreed what it was read as (L-QTY-03): the
+      // provenance an INTERPRETED line carries out of the register, null where none applies.
+      raster: rasterOf(row.raster),
+      agreedBy: agreedBy.get(itemKeyOf(row.objectKey, row.kind)) ?? null,
       sourceKey: row.viewKey,
       repudiated: struck.has(row.objectKey),
       // The Trace's own readings: the sheet the line stands on, how a reader names it (its number —
@@ -223,6 +237,7 @@ export async function registerViewOf(scope: RegisterViewScope, options: Register
   });
 
   /* --- what produced no line: a deferral says its cause, a refusal says its code (R-UI-020) --- */
+  const lined = new Set(published.map((row) => itemKeyOf(row.objectKey, row.kind)));
   const refusals: ViewRefusal[] = [
     // What a measure run could not measure for want of what is set up first, BY NAME and first — each
     // view no affirmation names, each storey whose height stands at none (MEASURE-REFUSE, s-coverage
@@ -236,7 +251,11 @@ export async function registerViewOf(scope: RegisterViewScope, options: Register
           lines: published.map((row) => ({ objectKey: row.objectKey, omitted: omissionsOf(row.omitted).map((omission) => omission.code) })),
         }).map((deferral) => deferralRow(deferral, reported.views))
       : []),
-    ...deferred.map((item): ViewRefusal => ({ code: item.cause, objectKey: item.objectKey, kind: item.kind, ...queueSheetOf(item.objectKey, records) })),
+    // A deferral whose AGREED exit has since published its line produced a line after all: the item
+    // stays on record, and the register lists the line rather than a sighting that produced none.
+    ...deferred
+      .filter((item) => !lined.has(itemKeyOf(item.objectKey, item.kind)))
+      .map((item): ViewRefusal => ({ code: item.cause, objectKey: item.objectKey, kind: item.kind, ...queueSheetOf(item.objectKey, records) })),
     ...refusedRows.map((row): ViewRefusal => ({ code: row.refusal, objectKey: row.objectKey, kind: null, ...queueSheetOf(row.objectKey, records) })),
     // And every object the run published no line for that nothing above names, by the reason the
     // rails' latest report gave it — never silence (I-668, walk-2 BD-3). Only once a run has
@@ -348,6 +367,42 @@ function attributesOf(readings: readonly ObservationRow[]): ViewAttribute[] {
       overruled: standing.overruled.map(readingOf),
     };
   });
+}
+
+/** What a line and a queue item are both keyed on: one object, under one kind. */
+function itemKeyOf(objectKey: string, kind: string): string {
+  return JSON.stringify([objectKey, kind]);
+}
+
+/** The act that agreed an item, as the reading carries it. */
+function agreementOf(agreement: QueueItemAgreement): ViewAgreement {
+  return { actId: agreement.actId, actorId: agreement.actorId };
+}
+
+/** A string field of the stored trace, or null where it holds none. */
+function traceField(raster: Readonly<Record<string, string | null>>, key: string): string | null {
+  const held = raster[key];
+  return typeof held === "string" ? held : null;
+}
+
+/**
+ * The trace a line was read off, as the reading carries it — or null under VECTOR, and null too for a
+ * stored trace missing a field the gate asks every trace to name: this read never invents one.
+ */
+function rasterOf(raster: Readonly<Record<string, string | null>> | null): ViewRaster | null {
+  if (raster === null) return null;
+  const tool = traceField(raster, "tool");
+  const toolVersion = traceField(raster, "toolVersion");
+  const parameterSetHash = traceField(raster, "parameterSetHash");
+  const pageSha256 = traceField(raster, "pageSha256");
+  const dpiSource = traceField(raster, "dpiSource");
+  if (tool === null || toolVersion === null || parameterSetHash === null || pageSha256 === null || dpiSource === null) return null;
+  return { tool, toolVersion, parameterSetHash, pageSha256, dpi: traceField(raster, "dpi"), dpiSource };
+}
+
+/** Every AGREED exit one campaign's queue has taken, with the act and actor that took it (s-takeoff I-685). */
+async function agreementsOfCampaign(tenantId: string, campaignId: string): Promise<QueueItemAgreement[]> {
+  return forTenant({ tenantId }).transaction((tx) => agreementsOfCampaignIn(tx, tenantId, campaignId));
 }
 
 /** Every line one campaign published, in the order they were published (L-QTY-03). */

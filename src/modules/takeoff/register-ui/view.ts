@@ -78,6 +78,30 @@ export type ViewOmission = {
 };
 
 /**
+ * The trace a line read off a scan was read from (L-QTY-03: "the vectoriser id + version + render DPI
+ * where INTERPRETED"): the vectoriser, its version and parameter set, the page raster's sha-256, and
+ * the DPI as the artifact stated it — null exactly where `dpiSource` is `unstated`.
+ */
+export type ViewRaster = {
+  readonly tool: string;
+  readonly toolVersion: string;
+  readonly parameterSetHash: string;
+  readonly pageSha256: string;
+  readonly dpi: string | null;
+  readonly dpiSource: string;
+};
+
+/**
+ * Who agreed the interpreted readings a line stands on: the act that resolved its queue item, and
+ * that act's actor — L-QTY-03's "actor where judgement entered", derived from the resolution and the
+ * act log and never stamped on the line (s-takeoff I-685).
+ */
+export type ViewAgreement = {
+  readonly actId: string;
+  readonly actorId: string;
+};
+
+/**
  * One published quantity line. `value` is null exactly where the coverage is not COMPLETE: a row
  * kept with no quantity carries none, never a zero (L-QTY-02) — and it SAYS why, from `omitted`.
  */
@@ -102,6 +126,10 @@ export type ViewLine = {
   readonly omitted?: readonly ViewOmission[];
   readonly calibrationKeys: readonly string[];
   readonly engine: string;
+  /** The trace a RASTER line was read off; null under VECTOR. Absent reads as none. */
+  readonly raster?: ViewRaster | null;
+  /** Who agreed an INTERPRETED line's readings; null where no judgement entered. Absent reads as none. */
+  readonly agreedBy?: ViewAgreement | null;
   readonly sourceKey: string;
   /** Whether a person has struck the object this line was measured from (I-173). */
   readonly repudiated: boolean;

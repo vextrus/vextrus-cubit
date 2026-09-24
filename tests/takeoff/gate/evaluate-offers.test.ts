@@ -18,6 +18,7 @@
  * cites it too.
  */
 import { afterAll, describe, expect, test } from "vitest";
+import { READ_OFF_SCAN } from "../../support/raster-trace";
 import {
   INTERPRETED,
   INTERPRETED_UNCORROBORATED,
@@ -103,7 +104,7 @@ const run = (): Promise<Run> =>
     const readings = bindingsIn(READ_IN, READINGS, CALIBRATION);
 
     const a = offer({ ...common, objectKey: String(it.objectKeys[0]), bindings: readings, calibration: CALIBRATION });
-    const b = offer({ ...common, objectKey: String(it.objectKeys[1]), bindings: readings, calibration: CALIBRATION, basis: INTERPRETED });
+    const b = offer({ ...common, objectKey: String(it.objectKeys[1]), bindings: readings, calibration: CALIBRATION, basis: INTERPRETED, ...READ_OFF_SCAN });
     const cBindings: Record<string, MeasureShape> = { ...readings, L: measure(READINGS["L"] as string, UNMAPPED_UNIT, { calibration: CALIBRATION }) };
     const c = offer({ ...common, objectKey: String(it.objectKeys[2]), bindings: cBindings, calibration: CALIBRATION });
 

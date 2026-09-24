@@ -93,6 +93,7 @@ export {
   quantityLines,
   railObservations,
   queueItems,
+  queueItemResolutions,
   scopeDeclarations,
   barRows,
   documents,

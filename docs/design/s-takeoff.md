@@ -765,6 +765,79 @@ it lands the finishes rails answer each surface OPENING_SCHEDULE_ABSENT, by name
   outline does not bear, and the register's own sentence for a reason; the canvas publishes
   `data-rooms` and `data-unclosed`. Strings: `viewer_partition_room*` (src/ui/strings/viewer-partition.ts).
 
+### 0.9 The gate's AGREED exit (session 9, wave 4b, M4P-6)
+
+L-QTY-04 has interpreted geometry nothing corroborates be "declared exclusion + queue item, never a
+line", and an interpreted line reach a bill "only as AGREED". Until this increment the first half was
+all there was: every INTERPRETED offer queued, and nothing a person did could ever take it out. A QS
+sees nothing new on this screen alone — the walk that uses it is the scan leg's (M4P-7) — but the
+store, the gate and the corroborating act now carry the whole way out, and the register's reading,
+its JSON export and the quantities workbook carry what a line read off a scan was read by and who
+agreed it.
+
+- **I-685 — corroborated interpreted geometry is a queue item resolved by a person's act, over
+  readings that stand AGREED at exactly what the scan was read as, spoken for by a person; the gate
+  then binds the AGREED canonical values and the line keeps its basis and its trace (L-QTY-01,
+  L-QTY-03, L-QTY-04, L-ACT-01, R-TO-051).** Four questions, each answered once:
+  - *The attribute an interpreted outline stands on.* Each determining binding the offer reads
+    INTERPRETED is an attribute of its object, named as the method's variable (a column's `count`, `L`,
+    `B`, `H`). When the gate defers the offer it files each such reading on the queue item's detail
+    and appends it to the register's ledger at basis INTERPRETED, precedence 0, with no act — the
+    scan's own reading, once (a re-run of an unchanged rail appends nothing; a rail that reads the
+    same outline differently next time appends a second reading, and the two suspend the attribute,
+    declared). The register therefore shows a person exactly what they are asked to agree. An outline
+    whose readings were all read elsewhere (only its existence came off the scan) is agreed by the
+    act that speaks about any attribute of it and leaves that attribute AGREED at a person's reading.
+    `SIGHTING_STANDINGS` and `OBSERVATION_BASES` gain INTERPRETED, and their CHECKs with them
+    (migration 0072): a register row may stand INTERPRETED — a scan's sighting, or a hand trace over
+    one — and the column rail carries that standing as the offer's basis as it carries MEASURED and DERIVED.
+  - *What the agreeing act appends.* CORROBORATE, unchanged in shape: one ENTERED reading, a
+    person's restatement of the value the Consequence shows. Where that reading leaves every reading
+    an item names corroborated — the attribute AGREED, at the scan's very figure in the canon's unit,
+    and among the readings it stands at one that is not the scan's own ("nothing disagrees" is not
+    "somebody agreed") — the same commit writes the item's resolution
+    (`queue_item_resolutions`, append-only, one per item, RLS forced) in the act's own transaction, and
+    the Consequence names the item as a second subject, from its cause to AGREED, so the person
+    confirms the exit with the reading. A reading that disagrees, or agrees one attribute of several,
+    resolves nothing yet; a correction to another figure is a correction, not an agreement, and leaves
+    the item queued. A bulk act agrees member by member through the same pair: one ENTERED reading per
+    member, each resolving what it completes. The item itself is never edited.
+  - *What the gate binds.* At every run the gate reads the campaign's resolutions, then the readings
+    of each interpreted object (in that order, so a resolution it sees is one whose readings it
+    sees), and publishes only where the item is resolved AND each reading still stands corroborated
+    now — a reading appended after the resolution that suspends one keeps the item queued. It then
+    binds each interpreted variable to the attribute's AGREED canonical value (the register's, never
+    the rail's) and publishes one line whose `quantity_basis` stays INTERPRETED — never relabelled
+    MEASURED — and whose new `raster` column carries the trace it was read off (vectoriser, version,
+    parameter set, page sha-256, DPI and where it was stated). The queue item stays on record beside
+    the line; the natural key's re-run publishes nothing twice; over-measurement is refused exactly
+    as before. Who agreed the line is NOT stamped on it: L-QTY-03's actor "where judgement entered" is
+    derived from the resolution and its act (`agreementsOfCampaignIn`).
+  - *Whether the edition moves.* No. No method, parameter or threshold changes: the exit is the
+    gate's law and the act's, read the same under every edition, so no pinned campaign's digest moves
+    and the J-000 read-back is unchanged (F-RCC6-BNBC reads no scan).
+  - *A trace that is not there.* An offer that stands on anything read off a scan — its geometry or a
+    determining reading — or that the RASTER engine read, and that names no trace, or (being
+    interpreted) no stated DPI, is refused `RASTER_IDENTITY_MISSING`, by name, before it could be
+    queued for a person to agree into a line that cannot say what it was read by. A VECTOR offer
+    carrying an interpreted reading or a trace is `OFFER_NOT_TO_CONTRACT`. The store's two CHECKs
+    (an INTERPRETED line names its trace; a trace stands only under RASTER) are the belt, never the
+    answer a person reads. Proof: `src/core/gate/__tests__/refusal-arms.test.ts` (the ladder, pure) and
+    `tests/db/gate-agreed.test.ts` (live: the deferral and its filed readings, a disagreeing reading,
+    the agreeing acts and the one resolution in the last act's transaction, the one INTERPRETED line
+    with its trace, the derived agreement, a missing trace refused by name, over-measurement blocked).
+- **I-686 — the register's reading carries each line's trace and who agreed it, and a deferral
+  whose AGREED line has published is read as that line.** `ViewLine` gains `raster` and `agreedBy`
+  (absent reads as none); the register JSON export moves to 1.1 with `lines[].raster` and
+  `lines[].agreedBy` (additive, docs/api/register-json.md), and the quantities workbook's Quantities
+  sheet (and its CSV) gains a Trace column, the trace written whole, and an Agreed by column, the
+  person and the act. The deferred-and-refused region lists a queue item only while no line stands
+  under its object and kind: once the exit has published, the object has a line, and listing it as a
+  sighting that produced none would say the opposite of the register. An object whose attributes
+  carry the scan's own readings alone shows them, and its corroboration reads NONE, not AGREED:
+  a lone INTERPRETED reading stands AGREED with itself, and the register does not say a person agreed
+  what nobody has looked at.
+
 ## 1. Layout and hierarchy
 
 `takeoff/layout.tsx` renders `<TakeoffTabs>` around `{children}`: the lane's 40 px-of-content tabs

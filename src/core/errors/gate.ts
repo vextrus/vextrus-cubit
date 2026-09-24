@@ -14,7 +14,8 @@ export type GateRefusalCode =
   | "FORMULA_DIVISOR_ZERO"
   | "PIN_STALE"
   | "CAMPAIGN_NOT_FOUND"
-  | "CELL_MEASURED_BY_HAND";
+  | "CELL_MEASURED_BY_HAND"
+  | "RASTER_IDENTITY_MISSING";
 
 /** This area's registered refusals, frozen entry by entry exactly as the one register holds them. */
 export const GATE_REFUSALS: RefusalGroup<GateRefusalCode> = Object.freeze({
@@ -92,6 +93,18 @@ export const GATE_REFUSALS: RefusalGroup<GateRefusalCode> = Object.freeze({
     message: "A quantity surveyor measured this class and kind on this level by hand, so the product's own reading was not published.",
     remedy: "Keep the hand measurements, or delete them to let the product's reading publish on the next run.",
     severity: "info",
+    surface: "inline",
+  }),
+  // L-QTY-03: a line always carries "the vectoriser id + version + render DPI where INTERPRETED", and
+  // the engine that read it. An offer read off a scan — an INTERPRETED reading, or the RASTER engine —
+  // that names no trace cannot say what its pixels were read by or at what resolution: a missing
+  // mandatory publishable attribute (L-QTY-04's hard block), answered by name rather than queued as
+  // corroborable or left to the store's CHECK (s-takeoff I-685, s-drawings I-654).
+  RASTER_IDENTITY_MISSING: Object.freeze({
+    code: "RASTER_IDENTITY_MISSING",
+    message: "This quantity was read off a scan, but which trace it was read from, and at what resolution, could not be established.",
+    remedy: "Re-read the drawing so its scan is traced with a stated resolution, or measure the scope from vector geometry.",
+    severity: "error",
     surface: "inline",
   }),
 });

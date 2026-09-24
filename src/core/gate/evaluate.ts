@@ -36,8 +36,20 @@ import { unsettledLevelCode } from "../offers/contract";
 import { COVERAGES, ENGINES, GEOMETRY_TYPES, QUANTITY_BASES, weakestBasis, type QuantityBasis } from "../offers/law";
 import type { MethodPair } from "../rulesets/editions/content";
 import { implementationOf, type FormulaMethod, type NormalisedBindings } from "../rulesets/methods/registry";
-import { repudiatedObjectsIn, type RegisterScope } from "../register/store";
-import { CANONICAL_UNIT, exact } from "../units/canon";
+import {
+  agreementsOfCampaignIn,
+  appendObservationIn,
+  corroborates,
+  interpretedReadingsOf,
+  observationsOfObjectsIn,
+  repudiatedObjectsIn,
+  standingOf,
+  type InterpretedReading,
+  type ObservationRow,
+  type RegisterScope,
+  type StandingOfAttribute,
+} from "../register/store";
+import { CANONICAL_UNIT, exact, unitNamed } from "../units/canon";
 import { CHANNEL_VARIABLE, deductedSum, partitionDeductions } from "./deductions";
 import { renderFormula } from "./template";
 import { admissibleFigure, normaliseMeasure } from "./units";
@@ -107,6 +119,54 @@ export type RegisteredLevel = { readonly levelSlot: string | null; readonly leve
  * measured where no level the stack holds will ever take them (I-367). Refusing them needs a
  * durable disclosure first, and I-368 records that as owed rather than refusing them silently.
  */
+
+/** The basis a scan's reading carries, and the two engines, off their rosters (L-QTY-01, L-QTY-03). */
+const INTERPRETED: QuantityBasis = "INTERPRETED";
+const RASTER = "RASTER";
+const VECTOR = "VECTOR";
+
+/**
+ * What the register says, at this run, about the interpreted offers of a batch (s-takeoff I-685):
+ * which (object, kind) queue items a person's act resolved, and every reading each interpreted
+ * object's attributes stand on. Read on the gate's own transaction before any offer is judged, so
+ * `judgeOffer` stays a function of what it is handed.
+ */
+export type Corroboration = {
+  readonly resolved: ReadonlySet<string>;
+  readonly readings: ReadonlyMap<string, ReadonlyMap<string, readonly ObservationRow[]>>;
+};
+
+/** A batch nothing was ever corroborated for — what a preview, or a batch with no interpreted offer, is judged against. */
+export const NOTHING_CORROBORATED: Corroboration = Object.freeze({ resolved: new Set<string>(), readings: new Map() });
+
+/**
+ * Does this offer stand on anything read off a scan's pixels — its geometry, or a determining reading
+ * of it (L-QTY-01)? Either makes the figure INTERPRETED, and L-QTY-04's "never a line" is about the
+ * figure, so a measured outline carrying an interpreted binding is deferred as surely as an
+ * interpreted outline is.
+ */
+function standsOnInterpretation(offer: Offer): boolean {
+  return offer.geometry.basis === INTERPRETED || Object.values(offer.bindings).some((reading) => reading.basis === INTERPRETED);
+}
+
+/**
+ * Does the offer name the trace L-QTY-03 has a line carry — the vectoriser, its version and parameter
+ * set, the page raster — and, where the figure is interpreted, "the render DPI"? A DPI the artifact
+ * did not state is null under `unstated` (I-584 §4), and an interpreted figure standing on it could
+ * not say at what resolution its pixels were read.
+ */
+function rasterIdentityStated(offer: Offer, interpreted: boolean): boolean {
+  const raster = offer.raster;
+  if (raster === undefined || raster === null) return false;
+  const named = [raster.tool, raster.toolVersion, raster.parameterSetHash, raster.pageSha256].every((field) => typeof field === "string" && field.length > 0);
+  if (!named || typeof raster.dpiSource !== "string") return false;
+  return !interpreted || (typeof raster.dpi === "string" && raster.dpi.length > 0);
+}
+
+/** How one attribute of one object stands, over the readings the corroboration read for it. */
+function standingAt(corroboration: Corroboration, objectKey: string, attribute: string): StandingOfAttribute {
+  return standingOf(corroboration.readings.get(objectKey)?.get(attribute) ?? []);
+}
 
 /** Is this spelling a member of the closed roster the contract publishes? */
 function inRoster(roster: readonly string[], value: string): boolean {
@@ -253,11 +313,20 @@ function observationKeyOf(observation: RailObservation): string {
  *
  * The order is the order a reader would ask the questions in: is this an offer at all, is its rule in
  * force, can the tree compute it, is the object one the register holds, does it stand where a record
- * keyed on it stays keyed, is its geometry corroborated, are its readings carryable, does it stand on
- * a calibration reference, do its deduction candidates stand in channels the method declares. Each
- * answer is final for that offer — nothing is judged twice and nothing falls through.
+ * keyed on it stays keyed, does a reading off a scan name its trace, are its readings carryable, do
+ * its deduction candidates stand in channels the method declares, does it stand on a calibration
+ * reference, has it a figure — and last, where anything it stands on was interpreted, has a person
+ * agreed it (`corroboration`, s-takeoff I-685). Each answer is final for that offer — nothing is
+ * judged twice and nothing falls through. A caller that reads no register (the manual act's preview)
+ * judges against nothing corroborated, which is the deferral an interpreted offer then answers.
  */
-export function judgeOffer(offer: Offer, under: MeasuredUnder, edition: PinnedEdition, registered: ReadonlyMap<string, RegisteredLevel>): Judgement {
+export function judgeOffer(
+  offer: Offer,
+  under: MeasuredUnder,
+  edition: PinnedEdition,
+  registered: ReadonlyMap<string, RegisteredLevel>,
+  corroboration: Corroboration = NOTHING_CORROBORATED,
+): Judgement {
   if (!toContract(offer, under)) return refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
 
   const pair = versionInForce(edition, offer.ruleId);
@@ -283,22 +352,15 @@ export function judgeOffer(offer: Offer, under: MeasuredUnder, edition: PinnedEd
   const unsettled = unsettledLevelCode(standing);
   if (unsettled !== null) return refuse(offer, unsettled);
 
-  // L-QTY-04: "interpreted geometry uncorroborated → declared exclusion + queue item, never a line".
-  // The deferral carries a registered code, because the same taxonomy serves machine refusals and
-  // human deferrals (riskNotes (3)).
-  if (offer.geometry.basis === "INTERPRETED") {
-    return {
-      arm: "queued",
-      item: {
-        campaignId: under.campaignId,
-        projectId: under.projectId,
-        objectKey: offer.register.objectKey,
-        kind: offer.kind,
-        cause: REFUSALS.INTERPRETED_UNCORROBORATED.code,
-        detail: { ruleId: offer.ruleId, ruleVersion: pair.version, geometry: offer.geometry.type },
-      },
-    };
-  }
+  // L-QTY-03: a figure read off a scan names the trace it was read off — "the vectoriser id + version
+  // + render DPI where INTERPRETED" — and the engine that read it. One that names none is a missing
+  // mandatory publishable attribute, a hard block by name (L-QTY-04), and never a queue item a person
+  // could corroborate into a line that cannot say what it was read by (s-takeoff I-685). Both
+  // halves of the engine's contract are asked here: a vector reading carries no trace, and an
+  // interpreted one is never VECTOR (L-QTY-01: "machine-vectorised from pixels").
+  const interpreted = standsOnInterpretation(offer);
+  if ((interpreted || offer.engine === RASTER) && !rasterIdentityStated(offer, interpreted)) return refuse(offer, REFUSALS.RASTER_IDENTITY_MISSING.code);
+  if (offer.engine === VECTOR && (interpreted || offer.raster !== undefined)) return refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
 
   // Every declared variable, and only the declared variables: a binding the method does not name is
   // the rail and the method disagreeing about the declaration, and dropping it silently would be the
@@ -359,6 +421,26 @@ export function judgeOffer(offer: Offer, under: MeasuredUnder, edition: PinnedEd
   const calibrationKeys = calibrationKeysOf(offer);
   if (calibrationKeys.length === 0) return refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
 
+  // L-QTY-04's AGREED exit (s-takeoff I-685). The readings an interpreted figure stands on are its
+  // determining bindings read INTERPRETED, each the attribute of its object a person corroborates.
+  // The figure publishes only where the act resolved the item AND each reading stands AGREED, now, at
+  // the value the scan was read as, spoken for by a person — and then it binds the AGREED canonical
+  // value, the register's, never the rail's (L-REG-01). Anything short of that is the deferral, with
+  // the readings filed on the item so the act and the ledger read what the gate read.
+  const readings: InterpretedReading[] = interpreted
+    ? Object.entries(offer.bindings)
+        .filter(([, reading]) => reading.basis === INTERPRETED)
+        .map(([attribute, reading]) => ({ attribute, value: reading.value, unit: reading.unit, source: reading.source, canonical: normalised[attribute] as { value: string; unit: string } }))
+    : [];
+  const agreed = interpreted ? agreedReadings(offer, readings, corroboration) : null;
+  if (agreed !== null) {
+    for (const [attribute, value] of agreed) {
+      normalised[attribute] = value;
+      const held = recorded[attribute];
+      if (held !== undefined) recorded[attribute] = { ...held, canonical: value };
+    }
+  }
+
   const bound = normalised as NormalisedBindings;
   // The figure, asked for the way a batch can carry the answer: a formula whose divisor the readings
   // make zero HAS no figure, and an exception here would take every other offer of the batch with it.
@@ -369,6 +451,25 @@ export function judgeOffer(offer: Offer, under: MeasuredUnder, edition: PinnedEd
   // forecloses outright, and it is the FIGURE that is judged — the readings it was computed from may
   // be signed, because an elevation below datum is a reading (`admissibleFigure`, L-QTY-03).
   if (figure !== null && figure.ok && !admissibleFigure(figure.value)) return refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
+
+  // "Interpreted geometry uncorroborated → declared exclusion + queue item, never a line" (L-QTY-04).
+  // Asked after every other question, so an interpreted offer the gate could never publish is refused
+  // by what is wrong with it rather than queued for a person to agree. The deferral carries a
+  // registered code, because the same taxonomy serves machine refusals and human deferrals
+  // (riskNotes (3)).
+  if (interpreted && agreed === null) {
+    return {
+      arm: "queued",
+      item: {
+        campaignId: under.campaignId,
+        projectId: under.projectId,
+        objectKey: offer.register.objectKey,
+        kind: offer.kind,
+        cause: REFUSALS.INTERPRETED_UNCORROBORATED.code,
+        detail: { ruleId: offer.ruleId, ruleVersion: pair.version, geometry: offer.geometry.type, readings, raster: offer.raster ?? null },
+      },
+    };
+  }
 
   const deductions: RecordedDeduction[] = [
     ...partition.deducted.map((candidate) => ({ channel: candidate.channel, measure: candidate.measure, side: "deducted" as const })),
@@ -402,8 +503,29 @@ export function judgeOffer(offer: Offer, under: MeasuredUnder, edition: PinnedEd
       deductions,
       omitted: offer.omitted,
       calibrationKeys,
+      // The trace a raster reading was read off, whole, and nothing under VECTOR (L-QTY-03).
+      raster: offer.raster === undefined ? null : { ...offer.raster },
     },
   };
+}
+
+/**
+ * The AGREED canonical value of each interpreted reading, where the offer's item was resolved and
+ * every reading stands corroborated now — or null, which is the deferral (s-takeoff I-685).
+ *
+ * An offer that stands on an interpreted outline and binds no interpreted reading (its sizes read
+ * elsewhere) is agreed by the resolution alone: the act that wrote it has already asked that the
+ * attribute it spoke about stands AGREED at a person's reading (`everyReadingCorroborated`).
+ */
+function agreedReadings(offer: Offer, readings: readonly InterpretedReading[], corroboration: Corroboration): Map<string, { value: string; unit: string }> | null {
+  if (!corroboration.resolved.has(naturalKeyOf(offer.register.objectKey, offer.kind))) return null;
+  const agreed = new Map<string, { value: string; unit: string }>();
+  for (const reading of readings) {
+    const standing = standingAt(corroboration, offer.register.objectKey, reading.attribute);
+    if (!corroborates(standing, reading) || standing.canonicalValue === null || standing.canonicalUnit === null) return null;
+    agreed.set(reading.attribute, { value: standing.canonicalValue, unit: standing.canonicalUnit });
+  }
+  return agreed;
 }
 
 /** What a line and a queue item are both keyed on: one object, under one kind. */
@@ -520,6 +642,7 @@ type StandingClaim = {
   readonly drawingId: string;
   readonly viewKey: string;
   readonly calibrationKeys: readonly string[];
+  readonly raster: unknown;
 };
 
 /**
@@ -555,7 +678,10 @@ function sameClaim(standing: StandingClaim, line: PublishedLine): boolean {
     standing.class === line.class &&
     standing.drawingId === line.drawingId &&
     standing.viewKey === line.viewKey &&
-    canonical(standing.calibrationKeys) === canonical(line.calibrationKeys)
+    canonical(standing.calibrationKeys) === canonical(line.calibrationKeys) &&
+    // A line read off another trace — another vectoriser version, another page raster, another DPI —
+    // is another statement about the object (L-QTY-03).
+    canonical(standing.raster ?? null) === canonical(line.raster ?? null)
   );
 }
 
@@ -578,19 +704,23 @@ function offeredKeys(offers: readonly Offer[]): string[] {
   return [...new Set(offers.map((offer) => offer.register.objectKey).filter((key) => key.length > 0))];
 }
 
-/** What the campaign's own stores already hold for the objects this batch is about. */
+/**
+ * What the campaign's own stores already hold for the objects this batch is about: its lines, its
+ * queue items by cause, and which of those items a person's act resolved (s-takeoff I-685).
+ */
 type Standing = {
   readonly lines: ReadonlyMap<string, StandingClaim>;
   readonly deferred: ReadonlyMap<string, string>;
+  readonly resolved: ReadonlySet<string>;
 };
 
 /**
  * The standing records this batch could collide with, read once for the whole batch: after the
  * over-measurement block no two offers write under one key, so one reading stays true for the run.
  */
-async function standingFor(tx: TenantTx, tenantId: string, campaignId: string, offers: readonly Offer[]): Promise<Standing> {
+async function standingFor(tx: TenantTx, tenantId: string, campaignId: string, offers: readonly Offer[], resolved: ReadonlySet<string>): Promise<Standing> {
   const offered = offeredKeys(offers);
-  if (offered.length === 0) return { lines: new Map(), deferred: new Map() };
+  if (offered.length === 0) return { lines: new Map(), deferred: new Map(), resolved };
   const lines = await tx
     .select({
       objectKey: quantityLines.objectKey,
@@ -609,6 +739,7 @@ async function standingFor(tx: TenantTx, tenantId: string, campaignId: string, o
       drawingId: quantityLines.drawingId,
       viewKey: quantityLines.viewKey,
       calibrationKeys: quantityLines.calibrationKeys,
+      raster: quantityLines.raster,
     })
     .from(quantityLines)
     .where(and(eq(quantityLines.tenantId, tenantId), eq(quantityLines.campaignId, campaignId), inArray(quantityLines.objectKey, offered)));
@@ -619,6 +750,7 @@ async function standingFor(tx: TenantTx, tenantId: string, campaignId: string, o
   return {
     lines: new Map(lines.map((row) => [naturalKeyOf(row.objectKey, row.kind), row])),
     deferred: new Map(deferred.map((row) => [naturalKeyOf(row.objectKey, row.kind), row.cause])),
+    resolved,
   };
 }
 
@@ -626,13 +758,15 @@ async function standingFor(tx: TenantTx, tenantId: string, campaignId: string, o
  * Publish one line, and answer what the store then holds for its object.
  *
  * A key a queue item already stands under is refused rather than published: an object is a measured
- * line or a declared exclusion and never both (L-QTY-04). A key this very line already stands under
- * is the re-run the natural key exists for, and is reported as published without writing again; a
- * key a DIFFERENT line stands under is the over-measurement across batches, and is answered.
+ * line or a declared exclusion and never both (L-QTY-04) — unless a person's act resolved that item,
+ * which is the AGREED exit the item was waiting for (s-takeoff I-685): the deferral stays on
+ * record and the line stands beside it. A key this very line already stands under is the re-run the
+ * natural key exists for, and is reported as published without writing again; a key a DIFFERENT line
+ * stands under is the over-measurement across batches, and is answered.
  */
 async function publish(tx: TenantTx, tenantId: string, offer: Offer, line: PublishedLine, standing: Standing): Promise<Judgement> {
   const key = naturalKeyOf(line.objectKey, line.kind);
-  if (standing.deferred.has(key)) return refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
+  if (standing.deferred.has(key) && !standing.resolved.has(key)) return refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
   const held = standing.lines.get(key);
   if (held !== undefined) return sameClaim(held, line) ? { arm: "published", line } : refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
 
@@ -649,14 +783,89 @@ async function publish(tx: TenantTx, tenantId: string, offer: Offer, line: Publi
  * key a line already stands under cannot also be a declared exclusion, and a queue item already
  * standing for the same cause is the same deferral rather than a second one.
  */
-async function defer(tx: TenantTx, tenantId: string, offer: Offer, item: QueuedItem, standing: Standing): Promise<Judgement> {
+async function defer(tx: TenantTx, tenantId: string, offer: Offer, item: QueuedItem, standing: Standing, file: FileReadings): Promise<Judgement> {
   const key = naturalKeyOf(item.objectKey, item.kind);
   if (standing.lines.has(key)) return refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
   const held = standing.deferred.get(key);
-  if (held !== undefined) return held === item.cause ? { arm: "queued", item } : refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
+  if (held !== undefined && held !== item.cause) return refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
 
-  await tx.insert(queueItems).values({ ...item, tenantId }).onConflictDoNothing();
+  if (held === undefined) await tx.insert(queueItems).values({ ...item, tenantId }).onConflictDoNothing();
+  await file(item);
   return { arm: "queued", item };
+}
+
+/** Files the readings a deferred item names in the register's ledger, each once (s-takeoff I-685). */
+type FileReadings = (item: QueuedItem) => Promise<void>;
+
+/**
+ * The ledger's side of a deferral: each reading an interpreted item names, appended to its object's
+ * attribute as an INTERPRETED observation at precedence 0 — nobody's act (L-ACT-01), the scan's own
+ * reading — so the register shows a person exactly what they are asked to agree, and a person's
+ * ENTERED restatement competes with it on declared precedence like any other reading (R-TO-051).
+ *
+ * Idempotent over runs: a reading already standing — the same attribute, source and canonical figure,
+ * read INTERPRETED — is not appended again, within this batch or across batches, so a re-run of an
+ * unchanged rail appends nothing. A rail that reads the SAME outline differently next time appends a
+ * second reading, and the two disagreeing suspend the attribute: declared, never resolved silently
+ * (L-REG-03). The unit is filed as the canon names the written spelling (`M` is `m`), because the
+ * ledger carries a reading through the canon's exact spellings and the gate's normalisation has
+ * already asked the canon what this one names.
+ */
+function readingFiling(tx: TenantTx, scope: RegisterScope, corroboration: Corroboration): FileReadings {
+  const filed = new Set<string>();
+  return async (item) => {
+    for (const reading of interpretedReadingsOf(item.detail)) {
+      const once = canonical([item.objectKey, reading.attribute, reading.source, reading.canonical.value, reading.canonical.unit]);
+      if (filed.has(once)) continue;
+      filed.add(once);
+      const stood = corroboration.readings.get(item.objectKey)?.get(reading.attribute) ?? [];
+      const standing = stood.some(
+        (row) =>
+          row.basis === INTERPRETED && row.sourceKey === reading.source && row.canonicalUnit === reading.canonical.unit && exact(row.canonicalValue).eq(exact(reading.canonical.value)),
+      );
+      if (standing) continue;
+      const appended = await appendObservationIn(tx, scope, {
+        objectKey: item.objectKey,
+        attribute: reading.attribute,
+        valueAsWritten: reading.value,
+        unitAsWritten: unitNamed(reading.unit) ?? reading.unit,
+        basis: INTERPRETED,
+        sourceKey: reading.source,
+        precedence: 0,
+        actId: null,
+      });
+      // The gate has already carried this very reading through the canon, so a ledger that refuses it
+      // is the two halves of one canon disagreeing — a fault of this file, not an answer (ARCH-03).
+      if (!appended.appended) throw new Error(`the register refused the interpreted reading ${reading.attribute} = ${reading.value} ${reading.unit} as ${appended.refusal}, which the gate carried (B-17)`);
+    }
+  };
+}
+
+/**
+ * The corroboration a batch's interpreted offers are judged against: the campaign's resolved items
+ * and every reading of each interpreted object. A batch with no interpreted offer reads nothing.
+ *
+ * The resolutions are read BEFORE the readings. An act writes its reading and its resolution in one
+ * transaction, so a resolution this read sees is one whose reading the next read sees too — never the
+ * item resolved over a reading the gate did not read.
+ */
+async function corroborationFor(tx: TenantTx, scope: RegisterScope, campaignId: string, offers: readonly Offer[]): Promise<Corroboration> {
+  const interpreted = offeredKeys(offers.filter(standsOnInterpretation));
+  if (interpreted.length === 0) return NOTHING_CORROBORATED;
+  const agreements = await agreementsOfCampaignIn(tx, scope.tenantId, campaignId);
+  return corroborationFrom(agreements, await observationsOfObjectsIn(tx, scope, interpreted));
+}
+
+/**
+ * A corroboration as the gate keys it: the (object, kind) items a person's act resolved, and every
+ * reading of each interpreted object — the one place the resolved items are keyed, for the gate's own
+ * read and for anything that judges an offer against a register it holds in hand.
+ */
+export function corroborationFrom(
+  resolvedItems: readonly { readonly objectKey: string; readonly kind: string }[],
+  readings: ReadonlyMap<string, ReadonlyMap<string, readonly ObservationRow[]>>,
+): Corroboration {
+  return { resolved: new Set(resolvedItems.map((item) => naturalKeyOf(item.objectKey, item.kind))), readings };
 }
 
 /** The campaign this scope names, read on the caller's transaction — or nothing where it holds none. */
@@ -712,18 +921,23 @@ export async function evaluateOffers(scope: GateScope, batch: RailBatch): Promis
     const registered = await registeredObjects(tx, scope.tenantId, under.setRevisionId, batch.offers);
     // A cell is the machine's or the person's, never both (I-382): judged against the stored claims
     // after the batch's own over-measurement block, so an offer refused there is answered once.
-    const claims = await cellClaimsIn(tx, { tenantId: scope.tenantId, projectId: under.projectId, setRevisionId: under.setRevisionId }, under.campaignId);
+    const registerScope: RegisterScope = { tenantId: scope.tenantId, projectId: under.projectId, setRevisionId: under.setRevisionId };
+    const claims = await cellClaimsIn(tx, registerScope, under.campaignId);
+    // What the register says about the batch's interpreted offers, read once before any is judged
+    // (s-takeoff I-685).
+    const corroboration = await corroborationFor(tx, registerScope, under.campaignId, batch.offers);
     const judged = withoutSharedCells(
-      withoutOverMeasurement(batch.offers.map((offer) => ({ offer, judgement: judgeOffer(offer, under, edition, registered) }))),
+      withoutOverMeasurement(batch.offers.map((offer) => ({ offer, judgement: judgeOffer(offer, under, edition, registered, corroboration) }))),
       registered,
       claims,
     );
 
-    const standing = await standingFor(tx, scope.tenantId, under.campaignId, batch.offers);
+    const standing = await standingFor(tx, scope.tenantId, under.campaignId, batch.offers, corroboration.resolved);
+    const file = readingFiling(tx, registerScope, corroboration);
     const answers: Judgement[] = [];
     for (const { offer, judgement } of judged) {
       if (judgement.arm === "published") answers.push(await publish(tx, scope.tenantId, offer, judgement.line, standing));
-      else if (judgement.arm === "queued") answers.push(await defer(tx, scope.tenantId, offer, judgement.item, standing));
+      else if (judgement.arm === "queued") answers.push(await defer(tx, scope.tenantId, offer, judgement.item, standing, file));
       else answers.push(judgement);
     }
     const refusals: GateRefusal[] = answers.flatMap((answer) => (answer.arm === "refused" ? [answer.refusal] : []));

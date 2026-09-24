@@ -14,6 +14,7 @@
  * what a store holds is read out of the store.
  */
 import { afterAll, describe, expect, test } from "vitest";
+import { READ_OFF_SCAN } from "../../support/raster-trace";
 import {
   INTERPRETED,
   MEMBER_VOLUME,
@@ -159,7 +160,7 @@ describe("BREAKER: two offers over one object", () => {
     const it = await campaign();
     const objectKey = String(it.objectKeys[4]);
     const measured = await offerOver(4);
-    const interpreted = await offerOver(4, { basis: INTERPRETED });
+    const interpreted = await offerOver(4, { basis: INTERPRETED, ...READ_OFF_SCAN });
 
     const { thrown } = await judge([measured, interpreted]);
     expect(thrown, `the gate answers this batch rather than failing on it: ${saidOf(thrown)}`).toBeNull();
