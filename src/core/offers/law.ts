@@ -32,8 +32,15 @@ export function weakestBasis(bases: readonly QuantityBasis[]): QuantityBasis {
  * `finishOpeningDeductionMinM2`, because a face is finished around openings a wall is built around
  * (L-MEA-02, L-MEA-03). The member-end and embedded-duct channels join them with the units they are
  * stated in.
+ *
+ * The `junction` channel is the one that carries NO threshold: L-MEA-09's "slabs run through … less
+ * column and wall plan areas, less openings above `openingDeductionMinM2`" puts the allowance on the
+ * openings alone, so a vertical member's plan standing through a traced ring is deducted whole,
+ * whatever its size. It is a channel rather than a sum a rail binds because L-MEA-08 has an offer
+ * carry "deduction candidates per channel … and no sums": each member stands on the line with its
+ * own reading and source, and the gate adds them (s-measure I-389, I-538).
  */
-export const DEDUCTION_CHANNELS = ["opening", "finish_opening"] as const;
+export const DEDUCTION_CHANNELS = ["opening", "finish_opening", "junction"] as const;
 
 /** One deduction channel, drawn from the closed roster above. */
 export type DeductionChannel = (typeof DEDUCTION_CHANNELS)[number];

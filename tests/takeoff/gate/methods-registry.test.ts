@@ -11,6 +11,12 @@
  * The threshold the opening channel is partitioned against is read from the seed edition's own
  * parameters, and the "below" candidate is proved below by carrying it through the canon — the two
  * facts a strictly-greater partition turns on, both asked of the product (B-17, B-19).
+ *
+ * Session 8's S2 adds the MANUAL area: its shard records `pcc.blinding.area@1`, the blinding under
+ * an outline a person traced (s-measure I-388), and the registry answers it; and the `junction`
+ * channel that method deducts a member's plan through is partitioned with no threshold at all
+ * (L-MEA-09, s-measure I-389, I-538). The figure the gate answers for J-000's ring is proved in the
+ * unit lane (`tests/rulesets/manual-methods.test.ts`).
  */
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
@@ -50,6 +56,15 @@ const UNMAPPED_UNIT = "furlong";
 
 /** The candidate AC-7 names as below the threshold once the canon has carried it. */
 const BELOW = { value: "1.076391", unit: "sft" };
+
+/** The manual area's shard, and the pair S2 records in it (s-measure I-388). */
+const MANUAL_SHARD = "src/core/rulesets/methods/manual/manual.methods.json";
+const MANUAL_METHOD_DIR = "src/core/rulesets/methods/manual/";
+const MANUAL_BLINDING: MethodPairShape = { ruleId: "pcc.blinding.area", version: "1" };
+const PCC_BLINDING = "pcc.blinding";
+
+/** The channel a member's plan is deducted through, whole (L-MEA-09, s-measure I-389). */
+const JUNCTION = "junction";
 
 /** Sorted by code point — `localeCompare` is not available to this tree (L-REG-05). */
 function byCodePoint(values: readonly string[]): string[] {
@@ -162,6 +177,30 @@ describe("AC-7: the registry enumerates the shards and maps each pair to its imp
       `pnpm verify's method-hash stage accepts every shard's recorded digest — a shard whose digest has gone stale is a method roster nobody can trust:\n${`${stage.stdout ?? ""}${stage.stderr ?? ""}`.slice(-1200)}`,
     ).toBe(0);
   });
+  test("S2: the manual shard records pcc.blinding.area@1 beside the module that computes it, and the registry answers it with the blinding's formula", async () => {
+    const registry = await methodsRegistry();
+    const key = registry.methodKey(MANUAL_BLINDING);
+    const shard = join(REPO_ROOT, MANUAL_SHARD);
+    expect(existsSync(shard), `${MANUAL_SHARD} is the shard the MANUAL area puts in force`).toBe(true);
+
+    // white-box: AC-7 — which pair a shard RECORDS is its own text; the digest and the closure record
+    // beside it are judged by the toolchain stage the member-shard case above runs over every shard.
+    const recorded = JSON.parse(readFileSync(shard, "utf8")) as { methods?: Record<string, { law?: unknown; module?: unknown }>; sha256?: Record<string, Record<string, string>> };
+    const entry = recorded.methods?.[key];
+    expect(entry, `${MANUAL_SHARD} records ${key} under exactly that key (L-MEA-01)`).toBeTruthy();
+    expect(entry?.law, "under the clause it measures by, as I-388 reads it").toBe("L-FRM-04");
+    expect(String(entry?.module), `and names a module of the manual area`).toContain(MANUAL_METHOD_DIR);
+    const closure = Object.keys(recorded.sha256?.[key] ?? {});
+    expect(closure.length, `${key}'s implementation closure is recorded with the bytes it computes by`).toBeGreaterThan(0);
+    expect(closure.filter((file) => !file.startsWith(MANUAL_METHOD_DIR)), "and it reaches no other area's files — a twin shares no machine method's bytes").toEqual([]);
+
+    expect(registry.enumerateMethods().map((pair) => registry.methodKey(pair)), "the registry enumerates it — an area the barrel names (AM-11)").toContain(key);
+    const method = registry.implementationOf(MANUAL_BLINDING);
+    expect(method?.role, `${key} is a formula`).toBe("formula");
+    expect(method?.kind, "of the blinding kind").toBe(PCC_BLINDING);
+    expect([...(method?.deductionChannels ?? [])], "deducting traced openings by the threshold, and members through the junction channel").toEqual([OPENING, JUNCTION]);
+    expect(method?.variables.map((variable) => variable.name), "and binding no projection: a traced outline projects nothing (I-388)").not.toContain("p");
+  });
 });
 
 describe("AC-7: deduction candidates are partitioned strictly-greater against the edition's threshold", () => {
@@ -207,5 +246,31 @@ describe("AC-7: deduction candidates are partitioned strictly-greater against th
     const answer = gate.partitionDeductions([{ channel: OPENING, measure: measure("1", UNMAPPED_UNIT) }], seed.SEED_EDITION_CONTENT.parameters);
     expect(answer.ok, `a candidate the canon cannot carry is refused, never partitioned: ${JSON.stringify(answer)}`).toBe(false);
     expect((answer as { ok: false; code: string }).code, "and the refusal is UNIT_UNMAPPED (goal, riskNotes (4))").toBe(UNIT_UNMAPPED);
+  });
+
+  test("S2 (I-538): a junction candidate is deducted whole, below and at the opening threshold alike", async () => {
+    const gate = await gateSeam();
+    const contract = await offersContract();
+    const seed = await productModule<{ SEED_EDITION_CONTENT: { parameters: Readonly<Record<string, { value: string; unit: string }>> } }>("src/core/rulesets/seed/index.ts");
+
+    expect([...contract.DEDUCTION_CHANNELS], "the contract admits the junction channel — the one a member's plan comes off through (L-MEA-09)").toContain(JUNCTION);
+    const parameters = seed.SEED_EDITION_CONTENT.parameters;
+    const at = parameters[OPENING_THRESHOLD_PARAMETER] as { value: string; unit: string };
+
+    // A 300 × 300 column is 0.09 m²: below the opening threshold, and still a member the slab runs
+    // past. Borrowing the opening figure would keep it — and bill concrete where the column stands.
+    const stub: DeductionCandidateShape = { channel: JUNCTION, measure: measure("90000", "mm2", { basis: "DERIVED", source: "register:C-stub" }) };
+    const exactly: DeductionCandidateShape = { channel: JUNCTION, measure: measure(at.value, at.unit, { basis: "DERIVED", source: "register:C-at" }) };
+    const answer = gate.partitionDeductions([stub, exactly], parameters);
+    expect(answer.ok, `the junctions partition: ${JSON.stringify(answer)}`).toBe(true);
+    const partitioned = answer as { ok: true; deducted: DeductionCandidateShape[]; kept: DeductionCandidateShape[] };
+    expect(partitioned.deducted, "every junction is deducted, whatever its size (L-MEA-09: the threshold is the openings')").toEqual([stub, exactly]);
+    expect(partitioned.kept, "and none is kept").toEqual([]);
+
+    // The same stub in the opening channel is judged by the edition's figure, and kept: the two
+    // channels are two rules, and neither borrows the other's.
+    const asOpening: DeductionCandidateShape = { ...stub, channel: OPENING };
+    const other = gate.partitionDeductions([asOpening], parameters) as { ok: true; deducted: DeductionCandidateShape[]; kept: DeductionCandidateShape[] };
+    expect(other.kept, "0.09 m² is KEPT as an opening — it is not strictly greater than 0.1 m² (L-MEA-02)").toEqual([asOpening]);
   });
 });

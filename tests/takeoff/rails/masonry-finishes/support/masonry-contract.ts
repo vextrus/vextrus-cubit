@@ -174,10 +174,14 @@ export const WALL_OMISSION: Readonly<Record<string, string>> = Object.freeze({
 export const WARNING = "warning";
 export const INLINE = "inline";
 
-/** The two deduction channels the contract admits once this leaf lands (AC-7, interfaces). */
+/**
+ * The deduction channels the contract admits (AC-7, interfaces): this leaf's two, and the `junction`
+ * channel the manual methods deduct a member's plan through, whole (session 8 S2, s-measure I-389).
+ */
 export const OPENING_CHANNEL = "opening";
 export const FINISH_OPENING_CHANNEL = "finish_opening";
-export const DEDUCTION_CHANNELS_OWED: readonly string[] = Object.freeze([OPENING_CHANNEL, FINISH_OPENING_CHANNEL]);
+export const JUNCTION_CHANNEL = "junction";
+export const DEDUCTION_CHANNELS_OWED: readonly string[] = Object.freeze([OPENING_CHANNEL, FINISH_OPENING_CHANNEL, JUNCTION_CHANNEL]);
 
 /** The edition parameter each channel is partitioned against (L-MEA-01's roster, interfaces). */
 export const OPENING_THRESHOLD_PARAMETER = "openingDeductionMinM2";

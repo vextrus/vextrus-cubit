@@ -9,13 +9,23 @@
 // quantities rather than two numbers (B-07, B-17). A threshold stated in a unit the canon has no
 // factor for is not something to guess at: the channel refuses `UNIT_UNMAPPED` until the canon holds
 // the unit, which is the leaf that adds the member-end and embedded-duct channels.
+//
+// One channel states no threshold at all: `junction`. L-MEA-09 puts the allowance on a slab's
+// openings and on nothing else, so a column or wall plan standing through a traced ring is deducted
+// whole, however small (s-measure I-389, I-538). Such a candidate is still judged a quantity — a
+// figure in a unit the canon carries — before it is deducted, so a junction is never taken off a
+// bill on the strength of digits nobody can carry. And it is judged a PLAN: a member's section is
+// never below zero, and one that reads so is refused rather than deducted. With no threshold in the
+// way, a negative junction would be subtracted from the ring and ADD to the published figure —
+// over-measurement, which L-QTY-04 makes a hard block. (A threshold channel needs no such arm: a
+// negative candidate is never strictly greater than its threshold, so it is kept and moves nothing.)
 import { REFUSALS, type RefusalCode } from "../errors";
 import type { DeductionCandidate, DeductionChannel } from "../offers/contract";
 import { DEDUCTION_CHANNELS } from "../offers/law";
 import { isDecimalFigure } from "../projects";
 import type { EditionParameter } from "../rulesets/editions/content";
 import { CANONICAL_UNIT, convert, exact, isUnit, type Dimension, type Unit } from "../units/canon";
-import { normaliseMeasure } from "./units";
+import { admissibleFigure, normaliseMeasure } from "./units";
 
 /** What a partition answers: the two sides, or the registered code that stopped it. */
 export type DeductionPartition =
@@ -23,14 +33,20 @@ export type DeductionPartition =
   | { readonly ok: false; readonly code: RefusalCode };
 
 /**
- * Which edition parameter each channel is partitioned against (L-MEA-01's parameter roster). One
- * map, so the channel a rail offers and the threshold the edition states cannot drift apart.
+ * Which edition parameter each channel is partitioned against (L-MEA-01's parameter roster), or
+ * `null` for the channel L-MEA-09 deducts whole. One map, so the channel a rail offers and the
+ * threshold the edition states cannot drift apart.
  */
-export const CHANNEL_THRESHOLD: Readonly<Record<DeductionChannel, string>> = Object.freeze({
+export const CHANNEL_THRESHOLD: Readonly<Record<DeductionChannel, string | null>> = Object.freeze({
   opening: "openingDeductionMinM2",
   // A finish is applied around the openings a wall is built around, and L-MEA-03 gives the surface
   // group its own figure: the two channels never borrow each other's threshold (L-MEA-01).
   finish_opening: "finishOpeningDeductionMinM2",
+  // "Slabs run through: … less column and wall plan areas, less openings above
+  // `openingDeductionMinM2`" (L-MEA-09): the threshold qualifies the openings, and a member's plan is
+  // deducted whatever its size. Borrowing the opening figure here would leave a 300 × 300 column
+  // (0.09 m²) in a slab it stands through — over-measurement, which L-QTY-04 blocks.
+  junction: null,
 });
 
 /**
@@ -44,6 +60,7 @@ export const CHANNEL_THRESHOLD: Readonly<Record<DeductionChannel, string>> = Obj
 export const CHANNEL_VARIABLE: Readonly<Record<DeductionChannel, string>> = Object.freeze({
   opening: "openings",
   finish_opening: "openings",
+  junction: "junctions",
 });
 
 /** Is this spelling one of the channels the contract admits? */
@@ -70,6 +87,17 @@ export function partitionDeductions(candidates: readonly DeductionCandidate[], p
     // same answer the gate gives any unreadable reading, in the same grammar (B-07, B-17).
     if (!isDecimalFigure(candidate.measure.value)) return { ok: false, code: REFUSALS.OFFER_NOT_TO_CONTRACT.code };
     const named = CHANNEL_THRESHOLD[candidate.channel];
+    // A channel with no threshold deducts every candidate it carries (L-MEA-09) — once the canon can
+    // carry it and it is a quantity a bill could hold, the two questions left to ask of a candidate
+    // nothing is compared against. A member's plan, like a line's figure, is never less than nothing
+    // (`admissibleFigure`, L-QTY-04): a signed ring area that came through negative is a rail's
+    // arithmetic gone wrong, not a member, and deducting it would raise the figure (I-538).
+    if (named === null) {
+      if (!isUnit(candidate.measure.unit)) return { ok: false, code: REFUSALS.UNIT_UNMAPPED.code };
+      if (!admissibleFigure(candidate.measure.value)) return { ok: false, code: REFUSALS.OFFER_NOT_TO_CONTRACT.code };
+      deducted.push(candidate);
+      continue;
+    }
     const threshold = parameters[named];
     // An edition that states no threshold for this channel is an edition this measurement is not in:
     // the offer names a channel the edition in force carries no figure for, and the answer is the

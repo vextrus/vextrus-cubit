@@ -24,7 +24,7 @@ S4 the armed tools and the gesture grammar · S5 the condition chest · S6 the c
 S7 the measurement book · S8 the legend's manual conditions (in VD-4's legend) · S9 the rest of the
 toolset · S10 assemblies · S11 J-041.
 
-This Decision defines I-370 … I-394, I-497 … I-501 and D-005 (session 8).
+This Decision defines I-370 … I-394, I-497 … I-501 and D-005 (session 8), and I-538 and I-539 (S2).
 
 ---
 
@@ -786,11 +786,11 @@ Deviation in `docs/decisions/deviations.md` in the same commit (CLAUDE.md, Law).
       model space, which is the core's outer face (CORE ± t_low / 2), and every wall lies within it.
       The pit's cut-out therefore already takes them, and nothing more is owed (I-393 Q(3), answered
       by the drawing).
-  - Owner: S3 (the offer builder and the channel), with S2 declaring the method's `junction` channel,
-    and S4/S6 for the cut-out role on the gesture and the card. The channel roster
-    (`DEDUCTION_CHANNELS`, `offers/law.ts:36`, today `opening | finish_opening`) gains `junction`
-    (§14). S2's slice text names only the opening channel; this Decision widens it, and the
-    orchestrator owns reconciling the two (§12, risks).
+  - Owner: S3 (the offer builder: which members are candidates, and their clipping), and S4/S6 for
+    the cut-out role on the gesture and the card. The channel itself landed with S2 (I-538): the
+    roster (`DEDUCTION_CHANNELS`, `src/core/offers/law.ts`) is `opening | finish_opening |
+    junction`, the gate deducts a junction candidate whole and binds the sum into `junctions`, and
+    `pcc.blinding.area@1` declares both channels.
   - Rejected: letting the QS type the column deductions ("Less: 7 × 0.45 × 0.60", ENTERED). That is
     PWD practice and it may come later (S9), but it trusts arithmetic the register can already do.
     Rejected: publishing without them, which over-measures.
@@ -1140,6 +1140,84 @@ Deviation in `docs/decisions/deviations.md` in the same commit (CLAUDE.md, Law).
     right is a fact the drawing states. Rejected: carrying the windows in the manifest head — the
     manifest is VIEW-TXT's this wave and its digest covers what a painter draws; the calibration door
     is where the question "what carries this sheet into metres" is already answered.
+- **I-538 — A deduction channel may carry no threshold: `junction` deducts a member's plan whole
+  (L-MEA-08, L-MEA-09).** L-MEA-08 has an offer carry "deduction candidates per channel with
+  geometry/basis/source and no sums", and has the gate "read deduction thresholds from the edition and
+  partition strictly-greater". L-MEA-09 puts the threshold on a slab's openings and on nothing else:
+  "less column and wall plan areas, less openings above `openingDeductionMinM2`".
+  - Reading: the gate partitions a channel against the threshold the edition states for it; a
+    channel the law states none for is deducted whole. So I-389's members come off as candidates,
+    each with its own reading and source and each on the line with its side, never as one sum an
+    offer binds.
+  - The roster (`DEDUCTION_CHANNELS`, `src/core/offers/law.ts`) is `opening | finish_opening |
+    junction`. `CHANNEL_THRESHOLD.junction` is null and the channel's sum binds `junctions`
+    (`src/core/gate/deductions.ts`). A junction in a unit the canon lacks is refused
+    `UNIT_UNMAPPED`, and one that is not a figure `OFFER_NOT_TO_CONTRACT`, as any candidate is.
+  - A junction below zero is refused `OFFER_NOT_TO_CONTRACT`, never deducted. A member's plan, like
+    a line's figure, is never less than nothing (`admissibleFigure`, L-QTY-04). With no threshold
+    in the way, a negative candidate would be subtracted from the ring and raise the figure, which
+    is over-measurement, a hard block. A signed ring area that came through clockwise is the likely
+    way in, since the manual builder clips members with signed arithmetic (S1's `core/manual/exact.ts`).
+    The threshold channels need no such arm: a negative candidate is never strictly greater than
+    their threshold, so it is kept and moves nothing. A junction of zero is deducted and moves
+    nothing. (Found by S2's adversarial review, 2026-09-24.)
+  - The channel is the home of every junction L-MEA-09 gives to a member the plate does not own:
+    columns and walls through a slab's ring, and a pile's section through a cap's blinding (pile ›
+    pile cap). Each comes off whole. A member offered through the opening channel would be judged by
+    a threshold L-MEA-09 puts on openings alone. BNBC's piles are about 0.2 m², above the 0.1 m²
+    threshold, so today the two channels agree on them, but only one of them is the rule.
+  - Nothing in the method or `MANUAL_RULES` says junction candidates are OWED: an offer with none
+    publishes with `junctions = 0`. I-389's fail-closed arm (members that stand through the ring but
+    cannot be placed refuse or declare, never publish COMPLETE) is the builder's to build (S3, §14).
+  - The machine's slab methods keep their pre-summed `A_members` (`rcc.slab.concrete@1` and its kin,
+    bound from the plan reader's junction reading): a standing pair is never edited (L-MEA-01). A
+    later version of them may take the channel; that is their owner's call.
+  - Rejected: `junctions` as a variable the manual builder binds pre-summed. That is the sum L-MEA-08
+    keeps out of an offer, and it drops each member's source from the line the book prints "Less: 25
+    columns (register)" from. Rejected: borrowing `openingDeductionMinM2`. A 300 × 300 column is
+    0.09 m²; the threshold would keep it, and the slab would bill concrete where the column stands.
+  - Proof: `tests/rulesets/manual-methods.test.ts` and `tests/takeoff/gate/methods-registry.test.ts`.
+
+- **I-539 — Which rule a hand measurement is offered under: one twin, the reuses named, the rest
+  not offered yet (R-TO-040, R-TO-041, L-MEA-01).** A hand measurement is offered under the machine's
+  own pair wherever that pair's algebra takes exactly the readings a trace and a condition give. A
+  twin is minted only where it does not.
+  - `src/core/rulesets/methods/manual/rules.ts` (`MANUAL_RULES`) is the one home of the pairings
+    offered today (geometry × class × kind → rule id) and, per pairing, what supplies each variable
+    the rule declares: the trace, the multiplier, the condition's reading, the edition or the gate.
+    The act snapshots the rule id it reads there (I-374), the chest (§2.6) lists what it holds, and
+    the offer builder (S3) binds by it. A pairing it does not hold is not offered, and no rule is
+    guessed for it.
+  - A condition attribute a twin declares (for blinding, `t`) is the condition's reading (ENTERED)
+    or the drawing note the card binds (TRANSCRIBED), never the edition's `blindingThickness`: that
+    parameter prices the machine's projected rectangle, and a hand measurement names its own
+    thickness (I-374, L-MEA-06).
+  - The geometry roster a pairing is typed by (`MANUAL_GEOMETRIES`, `ManualGeometry`) lives in S1's
+    `src/core/manual/law.ts`. Until S1 lands, `rules.ts` carries a marked stand-in with the same names
+    and members; at integration the stand-in is deleted and the names are imported from there.
+    `tests/rulesets/manual-methods.test.ts` goes red on a tree holding both.
+  - Every kind of `KINDS`, decided. A kind added to the roster owes its row here, and
+    `tests/rulesets/manual-methods.test.ts` refuses a roster with a kind the table lacks:
+
+    | Kind | Hand geometry, class | Decision | Why | Offered by |
+    |---|---|---|---|---|
+    | pcc.blinding | Area, slab | twin `pcc.blinding.area@1` | the rect method reads L and B off a rectangle, projects p, and has no channel for a cut-out (I-388) | S2 |
+    | pcc.blinding | Area, pile cap | the same twin, not offered yet | the piles stand through a cap's blinding (FND-OWN deducts their sections from the machine's), and nothing offers them from a hand trace yet, so the figure would be over | S3's successor, with those candidates |
+    | pcc.blinding | Area, footing | the same twin, not offered yet | nothing stands through a spread footing's blinding, so the figure is whole, but no proof walks one (BNBC is piled) | the first proof that measures a footing |
+    | rcc.concrete | Area, slab | twin owed, on the same traced-plate tree (`manual/traced-plate.ts`) | `rcc.slab.concrete@1` takes the members pre-summed (`A_members`); a hand ring takes them as junction candidates (I-538) | S9 |
+    | rcc.concrete | Count, pile | reuse `rcc.pile.concrete@1` | count × π × d × d × length ÷ 4 takes the points counted, and d and length from the condition or the pile schedule | the Count tool's proof (S9, S11) |
+    | rcc.concrete | Count, column; Length, beam or wall | not offered | a vertical's height is the stack's floor-to-floor, band-aware, and a beam's length its clear span between support faces (L-MEA-09); a click or a traced run states neither | S9 |
+    | rcc.formwork | any | not offered | a contact face depends on which member owns each junction (L-MEA-09), which one trace does not state | after S9 |
+    | piling.bored | Count, pile | reuse `piling.bored.count@1` | N = count, the points counted | the Count tool's proof (S9, S11) |
+    | piling.boring | Count, pile | reuse `piling.bored.length@1` | count × length, the length from the condition or the pile schedule (AM-06 §2) | the Count tool's proof (S9, S11) |
+    | earthwork.excavation | Area | not offered | L-FRM-04 defers polygon pits, and a traced outline plus a working allowance is the offset of a polygon it defers | a Deviation first |
+    | masonry.brickwork | Length, brick wall | reuse `masonry.brick_wall.volume@1`, not offered yet | L-MEA-02: "a face with no schedule is not measured"; a hand run brings no schedule until that clause is ruled for hand measurement | S9, with that ruling |
+    | finish.plaster, finish.paint | Area, surface | reuse `finish.surface.plaster@1` and `finish.surface.paint@1`, not offered yet | the same L-MEA-02 clause | S9, with that ruling |
+    | rcc.rebar | none | never by hand geometry | bars are the schedule's and the BBS's (AM-03); a trace states no bar | none |
+
+  - Proof: `tests/rulesets/manual-methods.test.ts` holds every pairing to its method: enumerated, a
+    formula of the pairing's kind, borne by its class, every declared variable supplied and nothing
+    else, and each supplier's dimension, channel and parameter the method's own.
 
 ---
 
@@ -1354,10 +1432,10 @@ arms its tool.
 **New condition** opens a Popover (320 wide) anchored to the button, holding:
 - **Name**;
 - **Measured as** (Select: Area · Length · Count);
-- **Class** (Combobox over the classes that bear a kind with a manual method for that geometry);
-- **Kinds** (checkboxes over those kinds);
-- one NumberInput plus unit Select per attribute the methods declare (for blinding: **Thickness**,
-  mm);
+- **Class** (Combobox over the classes `MANUAL_RULES` pairs with that geometry, I-539);
+- **Kinds** (checkboxes over the kinds it pairs with that geometry and class);
+- one NumberInput plus unit Select per variable the paired rules take from the recipe (for blinding:
+  **Thickness**, mm);
 - **Colour** (eight swatches);
 - **Hatch** (six);
 - **Hotkey** (the next free digit, changeable).
@@ -1868,6 +1946,8 @@ per-Interpretation verdict, so those rows stay OWED, and their objections below 
 | I-386 | refusing where the factor ≠ the unit blocks every PDF sheet | yes, until the gate multiplies (L-MEA-05); publishing a wrong-size figure is worse | OWED | S1 |
 | I-387 | L-QTY-01 and R-TO-040 disagree on a free point on a scan; and a MEASURED claim rests on the client; and (review) one lattice step of reach let a metre drawing's corners, each pushed 70 mm outward, come back MEASURED at 102.8196 m² against 100 | weakest-wins makes it INTERPRETED under both; the door re-derives every snapped point from the cited entity and demotes what it cannot reproduce, within one micrometre of real length (never a lattice step), and stores the drawing's own point where the drawing determines one (I-385) | OWED | S1 |
 | I-388 | L-FRM-04 defers polygon blinding outright; and (review) S-08's drawn blinding rectangle bills blinding outside the slab at the chamfer | it defers projecting a polygon plan, and a traced outline projects nothing; a drawn blinding outline counts only where it follows its member, and where it does not, the member's own outline is traced (under by at most p) | OWED | S2 |
+| I-387 | L-QTY-01 and R-TO-040 disagree on a free point on a scan; and a MEASURED claim rests on the client | weakest-wins makes it INTERPRETED under both; the door re-derives every snapped point from the cited entity and demotes what it cannot reproduce | OWED | S1 |
+| I-388 | L-FRM-04 defers polygon blinding outright; and (review) S-08's drawn blinding rectangle bills blinding outside the slab at the chamfer | it defers projecting a polygon plan, and a traced outline projects nothing; a drawn blinding outline counts only where it follows its member, and where it does not, the member's own outline is traced (under by at most p) | OWED | OPEN-3 (the mint of S2's method) |
 | I-389 | a derived deduction from another sheet is "undrawn" on this one; a traced cut-out treated as an opening under-deducts a small column; and (review) "26 columns" counts the porch column outside the ring, and "members at that level" names the wrong storey | it is drawn on S-10 and in the register, and the fail-closed arm covers what cannot be placed; a cut-out carries a role; members are the storey whose top is the slab's level, each clipped to the ring's net region (25 on BNBC, 17 of them straddling its edge) | OWED | S3, S4, S6 |
 | I-390 | a one-line disclosure is still a disclosure of possible under-coverage | under-coverage is the lawful direction; over is blocked by k, l, m, t | OWED | S6 |
 | I-391 | printing 4-decimal metres is unusual in a PWD book | it is what makes the printed arithmetic reproduce | OWED | S7 |
@@ -1881,6 +1961,8 @@ per-Interpretation verdict, so those rows stay OWED, and their objections below 
 | I-499 | ruling the table's open cells in code is the grammar growing silently | each cell is written here, and each errs toward keeping the QS's work | OWED | S4 |
 | I-500 | a derived corner nothing was snapped to is a free point and belongs on the lattice | its coordinates are the clicked corners' own, exactly; its basis is asked of the drawing and demoted at the door if it does not reproduce | OWED | S4, S1 |
 | I-501 | a window's ratio applied to a factor read on paper states a figure 10⁴ over; picking "the" window by the frame misreads a shape across two | only machine ranks (read off model-space members) are carried through a window, a two-point is `unrecorded`; a shape must stand inside exactly one frame, and two, none or overlapping frames refuse by name | OWED | S4, S6 |
+| I-538 | L-MEA-08 has the gate partition candidates against thresholds, so a channel with none is no channel | L-MEA-08 also keeps sums out of offers, and L-MEA-09 states no threshold for members; a channel with no threshold is the only home that keeps both | OWED | OPEN-3 (the mint) |
+| I-539 | reusing a machine pair for a hand trace hides that a person measured it | the line's bases, sources and act say who measured it; the pair says only how it is computed, and one algebra has one pair (B-17) | OWED | OPEN-3 (the mint) |
 
 **D-005 (entered only if the refuter rejects I-388).** Clause: L-FRM-04, "Blinding (CC) count ×
 (L + 2p) × (B + 2p) × t; deferred for polygon plans". Evidence: the SOG on S-08 (POLYLINE 81D) is a
@@ -1911,9 +1993,14 @@ Findings are resolved here, in this file, in the commit that records them.
 Risks this Decision leaves the orchestrator:
 - S3's slice text says the residue sights "only the recipe's kinds". I-383 rules the opposite under
   L-QTY-05. The slice text defers to this file, so S3 follows I-383 unless the refuter overturns it.
-- I-389 adds a `junction` channel, a cross-view placement and a cut-out role. That touches S2 (the
-  method's channel), S3 (the builder), S4 (the gesture) and S6 (the card), and S2's and S3's slice
-  text names only the opening channel.
+- I-389 adds a `junction` channel, a cross-view placement and a cut-out role. S2 landed the channel
+  and the method's two channels (I-538). What remains touches S3 (the builder), S4 (the gesture)
+  and S6 (the card), and S3's slice text names only the opening channel. The fail-closed arm is
+  S3's too (§14): an offer with no junction candidates publishes with `junctions = 0`.
+- FND-OWN's slice text deducts a cap blinding's pile sections "above the 0.1 m² threshold". I-538
+  reads a pile's section as a junction (L-MEA-09's pile › pile cap), deducted whole in the `junction`
+  channel. FND-OWN takes that channel or records why not. No BNBC figure moves either way: its
+  piles are about 0.2 m².
 - I-387 puts a snap re-derivation in S1's door: the server reads the cited entities from the stored
   EntityGraph.
 - J-000's asserted residue roster (R0-1) must carry the slab × GF cells once S6 lands.
@@ -1989,8 +2076,12 @@ Risks this Decision leaves the orchestrator:
 
 - The proof of disjointness across views (I-381): grid-frame mapping by shared axis labels. Owner:
   S3, or the slice the orchestrator names.
-- The `junction` deduction channel and the cross-view placement of registered members (I-389). Owner:
-  S3 with S2.
+- The cross-view placement of registered members as junction candidates (I-389). Owner: S3. The
+  channel itself landed with S2 (I-538).
+- I-389's fail-closed arm: a hand ring whose standing members cannot all be placed as junction
+  candidates refuses or declares and never publishes COMPLETE. Neither the method nor `MANUAL_RULES`
+  can tell a ring with no members from one whose members were never offered, so the builder owes it.
+  Owner: S3.
 - Geometry-grain sharing of a cell between machine and hand lines (I-382). Owner: after M4, named at
   that time.
 - A per-cell "hand coverage is partial" declaration (I-390). Owner: the residue's owner (S3's
@@ -2159,3 +2250,24 @@ Risks this Decision leaves the orchestrator:
     shape's first vertex while a tool is armed (path mode).
   - I-497 … I-501 are recorded, their refuter rows owed. §2.1, §2.3, §2.4, §3, §4, §7, §9, §12 and
     §14 are amended to what landed.
+- 2026-09-24 — S2 (session 8, wave 2): the manual methods.
+  - `pcc.blinding.area@1` lands in the new MANUAL method area (`src/core/rulesets/methods/manual/`,
+    its shard `manual.methods.json`, `registry/manual.ts`), on the traced-plate tree
+    `V = count × (A − openings − junctions) × t`, with the opening and junction channels (I-388,
+    I-389). No edition cites it yet; it is not in force until the edition that mints the wave's new
+    methods does (L-MEA-01).
+  - The `junction` channel lands in the roster and the gate with no threshold (I-538). I-389's owner
+    line, §12's risk and §14's IOU now say so.
+  - I-539 records the decision for each kind, and `MANUAL_RULES` holds the one pairing offered
+    today: a slab's blinding, traced. §2.6's New condition popover now lists its classes, kinds and
+    attribute inputs from that roster.
+  - I-388's refuter verdict is still OWED. S2 built on it because a method is in force only once an
+    edition cites it, so the verdict now blocks that mint (§11's row). If the refuter rejects I-388,
+    D-005 enters with the mint and the method does not change: D-005's "what the product does
+    instead" is this method.
+  - S2's adversarial review (the same day). The gate now refuses a junction below zero
+    `OFFER_NOT_TO_CONTRACT` (I-538): with no threshold in the way it would have raised the figure.
+    I-538 also records that a pile's section through a cap's blinding is a junction, and that the
+    fail-closed arm is S3's (§14). I-539 now places the geometry roster in S1's `core/manual/law.ts`,
+    and its table is proved to cover every kind of `KINDS`. `MANUAL_RULES` reads each channel's
+    variable and threshold off the gate's maps.

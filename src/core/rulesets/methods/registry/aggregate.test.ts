@@ -35,7 +35,14 @@ const byCodePoint = (left: string, right: string): number => (left < right ? -1 
 /**
  * Every pair the shards recorded before AM-11 moved a line, keyed `<ruleId>@<version>` (L-MEA-01).
  *
- * Re-baselined by the FOUNDATION FORMWORK (FND-3, I-337) for TWO ADDED pairs and nothing else —
+ * Re-baselined by the MANUAL METHODS (session 8, S2; s-measure I-388, I-539) for ONE ADDED pair and
+ * nothing else — `pcc.blinding.area@1`, the blinding under an outline a person traced,
+ * `count × (A − openings − junctions) × t`, recorded in `../manual/manual.methods.json` by the new
+ * MANUAL area. The roster grew by that one key — thirty-nine pairs to forty — and no pair standing
+ * before it moved (B-19, B-20). No edition cites it yet: the one that does is minted with the wave's
+ * other new methods (L-MEA-01, L-REG-07).
+ *
+ * Re-baselined before that by the FOUNDATION FORMWORK (FND-3, I-337) for TWO ADDED pairs and nothing else —
  * L-FRM-03's side faces of a footing or a pile cap, `rcc.foundation.formwork_rect@1` over a rectangle
  * and `rcc.foundation.formwork_poly@1` over any other plan, recorded in
  * `../foundations/foundations.methods.json` and cited by the platform edition `IS1200_IN @ 2027.04`.
@@ -86,6 +93,7 @@ const PAIRS_BEFORE: readonly string[] = Object.freeze([
   "finish.surface.plaster@1",
   "masonry.brick_wall.volume@1",
   "member.volume@1",
+  "pcc.blinding.area@1",
   "pcc.blinding_rect@1",
   "piling.bored.count@1",
   "piling.bored.length@1",

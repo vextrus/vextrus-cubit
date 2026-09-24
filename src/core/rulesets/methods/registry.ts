@@ -28,6 +28,7 @@ import { CONVENTIONS_METHODS } from "./registry/conventions";
 import { DOCS_METHODS } from "./registry/docs";
 import { FOUNDATIONS_METHODS } from "./registry/foundations";
 import { FRAME_METHODS } from "./registry/frame";
+import { MANUAL_METHODS } from "./registry/manual";
 import { MASONRY_METHODS } from "./registry/masonry";
 import { MEMBER_METHODS } from "./registry/member";
 import { REBAR_METHODS } from "./registry/rebar";
@@ -59,6 +60,9 @@ const AREAS: readonly MethodArea[] = Object.freeze([
   REBAR_METHODS,
   DOCS_METHODS,
   BOQ_METHODS,
+  // The hand-measurement twins (R-TO-040, s-measure I-388): methods for the geometry a person traces
+  // where no machine method's algebra fits it.
+  MANUAL_METHODS,
 ]);
 
 /**

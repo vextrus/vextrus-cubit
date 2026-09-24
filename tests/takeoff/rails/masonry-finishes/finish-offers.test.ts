@@ -166,11 +166,11 @@ describe("AC-7: the finish rails offer faces net of scheduled openings, with sel
     ).toBe("function");
   });
 
-  test("AC-7: the contract admits both channels, and the finish channel is partitioned against its OWN threshold", async () => {
+  test("AC-7: the contract admits its three channels, and the finish channel is partitioned against its OWN threshold", async () => {
     const law = await productModule<{ DEDUCTION_CHANNELS: readonly string[] }>(OFFERS_LAW_MODULE);
     expect(
       [...law.DEDUCTION_CHANNELS],
-      "the rail↔gate contract admits exactly the opening channel and the finish channel, in that order — a channel nobody admits is a candidate the gate refuses (interfaces)",
+      "the rail↔gate contract admits exactly the opening channel, the finish channel and the junction channel, in that order — a channel nobody admits is a candidate the gate refuses (interfaces)",
     ).toEqual([...DEDUCTION_CHANNELS_OWED]);
 
     const gate = await productModule<{
