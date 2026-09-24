@@ -284,7 +284,8 @@ export type BbsDocumentShape = {
   campaignId: string;
   stockMm: string;
   roundingMm: number;
-  rows: BarRowShape[];
+  /** The schedule's lines (I-534): a member's bars, or identical members' bars counted as one, each naming the members it counts. */
+  rows: (BarRowShape & { members: readonly string[] })[];
   perDiameterKg: Record<string, string>;
   perMarkKg: Record<string, string>;
   cuttingStock: Record<string, { stockBars: number; pieces: number; offcutMm: string; method: string }>;
