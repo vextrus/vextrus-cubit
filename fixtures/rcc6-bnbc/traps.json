@@ -80,7 +80,7 @@
       "handle": "1C9C",
       "family": "length",
       "sample": "3'-6\\S1/2;\"  (MTEXT stacked fraction)",
-      "expected": "\\S1/2; reads as ½ → 3'-6½\" = 1079.5 mm"
+      "expected": "\\S1/2; reads as ½ → 3'-6½\" = 1079.5 mm, the flight width the golden bills (W-32)"
     },
     {
       "id": "T-NOT-SIZE-IN",
@@ -96,7 +96,7 @@
       "handle": "1D90",
       "family": "level",
       "sample": "P.L= +0'-0\"  E.G.L (-1'-6\")  EL +11'-0\"  +3.353",
-      "expected": "levels in both notations resolve to one level stack; EGL −457.2 is the SITE fact"
+      "expected": "levels in both notations resolve to one level stack; E.G.L (-1'-6\") = −457.2 is the SITE fact, and the section's ground line stands at it (W-20)"
     },
     {
       "id": "T-NOT-RANGE",
@@ -119,8 +119,8 @@
       "sheet": "S-20",
       "handle": "1B04",
       "family": "range",
-      "sample": "TYPICAL SLAB REINFORCEMENT PLAN (no floor range in the caption; index says 2ND TO 6TH)",
-      "expected": "range taken from the S-00 index; disclosed as INFERRED_RANGE"
+      "sample": "TYPICAL SLAB REINFORCEMENT PLAN (no floor range in the caption, and none on the S-00 index)",
+      "expected": "no floor range is stated for this plan anywhere: it registers UNRESOLVED rows with no line (TYPICAL_RANGE_UNSTATED) until a person states the range — never a range guessed from S-14's"
     },
     {
       "id": "T-NOT-FC-PSI",
@@ -144,7 +144,7 @@
       "handle": "1F46",
       "family": "cover",
       "sample": "2\" clear cover (pile caps)  beside  25mm clear cover (beams)",
-      "expected": "both units read; footing/cap cover 50.8 ≠ Bible 75 — the drawing's value bills"
+      "expected": "both units read; the pile-cap cover 2\" = 50.8 mm is the drawing's value and bills (the golden cuts the cap bars at 50.8, W-27) — never the Bible's 75"
     },
     {
       "id": "T-MTEXT-CODES",
@@ -376,8 +376,8 @@
       "family": "document",
       "sample": "printed BBS grand total 1.7 % above the row sum",
       "expected": "row sums win; the printed total is an observation BBS_TOTAL_MISMATCH",
-      "true": "481.889",
-      "printed": "490.081"
+      "true": "492.564",
+      "printed": "500.938"
     },
     {
       "id": "T-FRAMES-MODELSPACE",
@@ -428,7 +428,7 @@
       "file": "rcc6-bnbc.libredwg-r2000.dxf",
       "anchor": {
         "file": "rcc6-bnbc.libredwg-r2000.dxf",
-        "line": 74789,
+        "line": 83393,
         "dropped_lines": 13
       }
     },
@@ -449,6 +449,70 @@
       "family": "opening",
       "sample": "4 sleeves 150×150 (0.0225 m²) beside 2 ducts 600×1200 (0.72 m²)",
       "expected": "sleeves below 0.1 m² are not deducted; ducts are"
+    },
+    {
+      "id": "T-PIT-RECESS",
+      "sheet": "S-07",
+      "handle": "22B0",
+      "family": "cad",
+      "sample": "PC5 SECTION: the lift pit drawn as a recess cut into the pile cap's top, 2493x2188, floor EL -5'-0\" (914 deep), the recess bars and the FDN core legs standing on the cap",
+      "expected": "one pile cap and one line for it: PC5 deducts the recess void and forms its four sides (K18, W-30); the pit is no member of its own, its walls and base are cap concrete and its bars PC5's"
+    },
+    {
+      "id": "T-BLINDING-OUTLINE",
+      "sheet": "S-08",
+      "handle": "2309",
+      "family": "cad",
+      "sample": "the slab on grade's blinding drawn as five exploded LINEs on its own edges, the E-1 chamfer's the fifth",
+      "expected": "the LINEs close into the slab's own outline: the blinding bills the slab on grade's net plan, never its bounding box (D-BLIND, W-40)"
+    },
+    {
+      "id": "T-RAMP-REVEAL",
+      "sheet": "S-08",
+      "handle": "2316",
+      "family": "note",
+      "sample": "SOG EDGE EXPOSED ALONG BOTH RAMP SIDES AND ITS MOUTH TO THE LESSER OF 125 AND THE DROP (RAMP SECTION)",
+      "expected": "the slab on grade's edge along the ramp hole is formed to min(t, drop), the drop falling linearly from the ramp's flush top edge; the pit hole reveals nothing (K7, W-24)"
+    },
+    {
+      "id": "T-CORE-BAND",
+      "sheet": "S-14",
+      "handle": "233A",
+      "family": "cad",
+      "sample": "the typical floor beam layout (2ND TO 6TH FLOOR) draws the lift core's legs 250 thick",
+      "expected": "the typical plan draws the lower band; S-23's band note governs: 250 at GF..2F, 200 at 3F..ROOF (AM-06(4) band-aware, D-CORE, W-36) — never 250 over five floors"
+    },
+    {
+      "id": "T-LB1-HALF-LANDING",
+      "sheet": "S-15",
+      "handle": "233E",
+      "family": "cad",
+      "sample": "LB1 on the roof beam layout, the sixth storey's half-landing beam, drawn below the roof",
+      "expected": "filed at the level of the layout that draws it, ROOF, for every kind, as its bars are (K6, W-23)"
+    },
+    {
+      "id": "T-STUB-COLUMNS",
+      "sheet": "S-15",
+      "handle": "2388",
+      "family": "note",
+      "sample": "COLUMNS AT C/2 AND D/2 (C4) CONTINUE TO THE STAIR ROOF",
+      "expected": "two roof-storey columns of mark C4 (stacks C2 and D2) from the roof to the stair roof; the note names grid points and the mark, never the stack C2 as a mark (I-303)"
+    },
+    {
+      "id": "T-TANK-CLEAR",
+      "sheet": "S-24",
+      "handle": "2629",
+      "family": "note",
+      "sample": "ALL SIZES ARE CLEAR INSIDE (the tank plans' lx and ly)",
+      "expected": "lx and ly are clear inside sizes: the walls stand outside them and the base and top slabs run over them (D-TANK, W-38)"
+    },
+    {
+      "id": "T-LINTEL-NOS-FLOORS",
+      "sheet": "S-25",
+      "handle": "2688",
+      "family": "note",
+      "sample": "NOS PER FLOOR ARE INDICATIVE; THE ARCHITECTURAL SCHEDULE GOVERNS (beside the schedule's 'OVER 1000 OPENING, 10 NOS PER FLOOR')",
+      "expected": "the counts per floor corroborate and never bill: one lintel per scheduled opening of F-ARCH's door and window schedule, classed by S-25's class-to-mark map (AM-06(5), LNT-1)"
     }
   ]
 }

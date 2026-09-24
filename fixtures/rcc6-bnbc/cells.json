@@ -1,6 +1,6 @@
 {
   "fixture": "F-RCC6-BNBC",
-  "note": "The 36 M3 gate cells (class × kind) that R-TO-032's rails must fill and R-TO-035 judges at ±3 %/+0 % (H-bible-m3 §3, E-fixture §3.6). 11 structural classes × {RCC_CONCRETE, FORMWORK, REBAR} less PILE×FORMWORK (bored, none), plus PILE_LENGTH, PILE_COUNT, and EXCAVATION/BLINDING under PILE_CAP. Rows the golden carries beyond the matrix (FOOTING/WALL/SLAB earthwork, BRICKWORK) are informational until AM-06/AM-07 phase them. Each entry is {cell: {class, kind}, expected_residue?}: the `cell` dict is the row selector (cell ⊆ row), the residue note sits beside it (adversary 4).",
+  "note": "The 40 M3 gate cells (class × kind) that R-TO-032's rails must fill and R-TO-035 judges at ±3 %/+0 % (H-bible-m3 §3, E-fixture §3.6). 11 structural classes × {RCC_CONCRETE, FORMWORK, REBAR} less PILE×FORMWORK (bored, none), plus PILE_LENGTH, PILE_COUNT, and the earthwork the golden bills beside the concrete it serves: EXCAVATION and BLINDING under PILE_CAP and FOOTING, EXCAVATION under WALL (the two tank pits) and BLINDING under SLAB (the slab on grade and the ramp) — R0, W-41. BRICK_WALL × BRICKWORK is not a BNBC cell: the walls are drawn and billed in the architect's set, and the pair is F-ARCH's — its rows are read from goldenRows('arch') (GF..6F, components BW250/BW125, S-25's lintels deducted), and BNBC's golden keeps only the LINTEL rows (R0-G3, D-R0G3-a). Each entry is {cell: {class, kind}, expected_residue?}: the `cell` dict is the row selector (cell ⊆ row), the residue note sits beside it (adversary 4).",
   "cells": [
     {
       "cell": {
@@ -49,14 +49,14 @@
         "class": "PILE_CAP",
         "kind": "EXCAVATION"
       },
-      "expected_residue": "PC2 (14 triangular caps) may defer POLYGON_PIT under L-FRM-04; the golden measures them by bounding box — a deferral is under, lawful"
+      "expected_residue": "PC2 (14 triangular caps): the golden measures a polygon cap's pit by its bounding box, a Deviation from L-FRM-04's deferral (D-R0G1-a); a rail that defers POLYGON_PIT is under, lawful, until it measures the box. From E.G.L −457.2 (W-20)"
     },
     {
       "cell": {
         "class": "PILE_CAP",
         "kind": "BLINDING"
       },
-      "expected_residue": "PC2 as above"
+      "expected_residue": "PC2 by its bounding box as above (D-R0G1-a); net of the pile sections passing through the blinding (W-31, I-R0G1-b)"
     },
     {
       "cell": {
@@ -74,6 +74,19 @@
       "cell": {
         "class": "FOOTING",
         "kind": "REBAR"
+      }
+    },
+    {
+      "cell": {
+        "class": "FOOTING",
+        "kind": "EXCAVATION"
+      },
+      "expected_residue": "F1, the ramp wall's footing: its pit from E.G.L −457.2 (W-20)"
+    },
+    {
+      "cell": {
+        "class": "FOOTING",
+        "kind": "BLINDING"
       }
     },
     {
@@ -165,6 +178,13 @@
         "class": "SLAB",
         "kind": "REBAR"
       }
+    },
+    {
+      "cell": {
+        "class": "SLAB",
+        "kind": "BLINDING"
+      },
+      "expected_residue": "the slab on grade and the ramp, over their net plan: the lift pit is PC5's recess, and a column or wall standing in a deducted hole is not deducted again (W-33)"
     },
     {
       "cell": {
@@ -190,7 +210,7 @@
         "class": "LINTEL",
         "kind": "RCC_CONCRETE"
       },
-      "expected_residue": "lintels come from the S-25 schedule by arch mark (AM-06); a rail reading only plans defers LINTEL_SOURCE_UNSTATED"
+      "expected_residue": "lintels are counted off the architect's door & window schedule (F-ARCH) through S-25's class map — L1 over W1, LS1 over W2, L2 over D1/FD1/SD1, in 250 walls (AM-06(5)); S-25's own counts are the cross-check; a rail reading only the structural set defers LINTEL_SOURCE_UNSTATED"
     },
     {
       "cell": {
@@ -209,7 +229,7 @@
         "class": "WALL",
         "kind": "RCC_CONCRETE"
       },
-      "expected_residue": "tank/parapet walls need the catalogue home E-fixture §3.1 asks for; until then WALL_CLASS_UNCATALOGUED defers (under)"
+      "expected_residue": "the WALL class is the tanks' walls (S-24: clear sizes, the walls outside them, W-38) and the roof parapet (1067 high, W-35); until the class is catalogued WALL_CLASS_UNCATALOGUED defers (under)"
     },
     {
       "cell": {
@@ -222,6 +242,13 @@
         "class": "WALL",
         "kind": "REBAR"
       }
+    },
+    {
+      "cell": {
+        "class": "WALL",
+        "kind": "EXCAVATION"
+      },
+      "expected_residue": "the two tank pits (UGWR, septic) from E.G.L −457.2 (W-20) to the tank's base, with the working allowance"
     }
   ]
 }

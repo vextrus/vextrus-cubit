@@ -3042,6 +3042,70 @@
       "handle": "1F5E"
     },
     {
+      "sheet": "S-01",
+      "view": "paper",
+      "kind": "TEXT",
+      "raw": "75mm clear cover (piles & footings)",
+      "plain": [
+        "75mm clear cover (piles & footings)"
+      ],
+      "family": "cover",
+      "fact": {
+        "authored": "75"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "26C7"
+    },
+    {
+      "sheet": "S-01",
+      "view": "paper",
+      "kind": "TEXT",
+      "raw": "30mm clear cover (tanks)",
+      "plain": [
+        "30mm clear cover (tanks)"
+      ],
+      "family": "cover",
+      "fact": {
+        "authored": "30"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "26C8"
+    },
+    {
+      "sheet": "S-01",
+      "view": "paper",
+      "kind": "TEXT",
+      "raw": "25mm clear cover (lintels)",
+      "plain": [
+        "25mm clear cover (lintels)"
+      ],
+      "family": "cover",
+      "fact": {
+        "authored": "25"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "26C9"
+    },
+    {
+      "sheet": "S-01",
+      "view": "paper",
+      "kind": "TEXT",
+      "raw": "20mm clear cover (walls, stairs & parapet)",
+      "plain": [
+        "20mm clear cover (walls, stairs & parapet)"
+      ],
+      "family": "cover",
+      "fact": {
+        "authored": "20"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "26CA"
+    },
+    {
       "sheet": "S-02",
       "view": "paper",
       "kind": "ATTRIB",
@@ -4163,9 +4227,9 @@
       "sheet": "S-03",
       "view": "TYPICAL SLAB BAR CRANK",
       "kind": "TEXT",
-      "raw": "CRANK 1:6 AT L/5 FROM THE SUPPORT FACE",
+      "raw": "CRANK 45%%D AT L/5 FROM THE SUPPORT FACE",
       "plain": [
-        "CRANK 1:6 AT L/5 FROM THE SUPPORT FACE"
+        "CRANK 45° AT L/5 FROM THE SUPPORT FACE"
       ],
       "family": "plain",
       "fact": null,
@@ -11108,6 +11172,36 @@
     },
     {
       "sheet": "S-05",
+      "view": "PILE CURTAILMENT & SPIRAL ZONES",
+      "kind": "TEXT",
+      "raw": "MAIN BARS EXTENDED 3\" INTO THE CAP",
+      "plain": [
+        "MAIN BARS EXTENDED 3\" INTO THE CAP"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "22A8"
+    },
+    {
+      "sheet": "S-05",
+      "view": "PILE CURTAILMENT & SPIRAL ZONES",
+      "kind": "TEXT",
+      "raw": "AND 40d (800) ABOVE THE CUT-OFF",
+      "plain": [
+        "AND 40d (800) ABOVE THE CUT-OFF"
+      ],
+      "family": "plain",
+      "fact": {
+        "authored": "800"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "22A9"
+    },
+    {
+      "sheet": "S-05",
       "view": "PILE SCHEDULE",
       "kind": "TEXT",
       "raw": "MARK",
@@ -12217,6 +12311,102 @@
     },
     {
       "sheet": "S-06",
+      "view": "PILE CAP LAYOUT",
+      "kind": "TEXT",
+      "raw": "F1",
+      "plain": [
+        "F1"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "22AA"
+    },
+    {
+      "sheet": "S-06",
+      "view": "PILE CAP LAYOUT",
+      "kind": "TEXT",
+      "raw": "1500x1500",
+      "plain": [
+        "1500x1500"
+      ],
+      "family": "section",
+      "fact": {
+        "member": "F1",
+        "field": "l",
+        "value": "1500"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "22AB"
+    },
+    {
+      "sheet": "S-06",
+      "view": "PILE CAP LAYOUT",
+      "kind": "TEXT",
+      "raw": "450 DEEP",
+      "plain": [
+        "450 DEEP"
+      ],
+      "family": "plain",
+      "fact": {
+        "member": "F1",
+        "field": "depth",
+        "value": "450"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "22AC"
+    },
+    {
+      "sheet": "S-06",
+      "view": "PILE CAP LAYOUT",
+      "kind": "TEXT",
+      "raw": "12%%C @ 150 c/c B/W",
+      "plain": [
+        "12Ø @ 150 c/c B/W"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "22AD"
+    },
+    {
+      "sheet": "S-06",
+      "view": "PILE CAP LAYOUT",
+      "kind": "TEXT",
+      "raw": "ALL PILE CAPS: SIDE BARS 3-12%%C ALL ROUND",
+      "plain": [
+        "ALL PILE CAPS: SIDE BARS 3-12Ø ALL ROUND"
+      ],
+      "family": "plain",
+      "fact": {
+        "authored": "12"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "22AE"
+    },
+    {
+      "sheet": "S-06",
+      "view": "PILE CAP LAYOUT",
+      "kind": "TEXT",
+      "raw": "PC5: LIFT PIT RECESS, SEE S-07",
+      "plain": [
+        "PC5: LIFT PIT RECESS, SEE S-07"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "22AF"
+    },
+    {
+      "sheet": "S-06",
       "view": "PILE CAP SCHEDULE",
       "kind": "MTEXT",
       "raw": "\\LPILE CAP SCHEDULE\\l\\PMARK        SIZE                 DEPTH      PILES      BOTTOM MESH        TOP MESH",
@@ -13139,6 +13329,128 @@
     },
     {
       "sheet": "S-07",
+      "view": "PC5 SECTION",
+      "kind": "TEXT",
+      "raw": "SW1",
+      "plain": [
+        "SW1"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "22B8"
+    },
+    {
+      "sheet": "S-07",
+      "view": "PC5 SECTION",
+      "kind": "TEXT",
+      "raw": "SW1",
+      "plain": [
+        "SW1"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "22B9"
+    },
+    {
+      "sheet": "S-07",
+      "view": "PC5 SECTION",
+      "kind": "TEXT",
+      "raw": "12%%C @ 150 VERT. E.F.",
+      "plain": [
+        "12Ø @ 150 VERT. E.F."
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "22D9"
+    },
+    {
+      "sheet": "S-07",
+      "view": "PC5 SECTION",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150 HORIZ. E.F.",
+      "plain": [
+        "10Ø @ 150 HORIZ. E.F."
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "22DA"
+    },
+    {
+      "sheet": "S-07",
+      "view": "PC5 SECTION",
+      "kind": "TEXT",
+      "raw": "12%%C @ 150 B/W T&B (BASE)",
+      "plain": [
+        "12Ø @ 150 B/W T&B (BASE)"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "22DB"
+    },
+    {
+      "sheet": "S-07",
+      "view": "PC5 SECTION",
+      "kind": "TEXT",
+      "raw": "LIFT PIT RECESS (SEE S-23)",
+      "plain": [
+        "LIFT PIT RECESS (SEE S-23)"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "22DC"
+    },
+    {
+      "sheet": "S-07",
+      "view": "PC5 SECTION",
+      "kind": "TEXT",
+      "raw": "2493x2188",
+      "plain": [
+        "2493x2188"
+      ],
+      "family": "section",
+      "fact": {
+        "authored": "2493.2"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "22DD"
+    },
+    {
+      "sheet": "S-07",
+      "view": "PC5 SECTION",
+      "kind": "TEXT",
+      "raw": "EL -5'-0\"",
+      "plain": [
+        "EL -5'-0\""
+      ],
+      "family": "level",
+      "fact": {
+        "authored": "-1524.0"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "22DE"
+    },
+    {
+      "sheet": "S-07",
       "view": "F1 ISOLATED FOOTING (RAMP WALL)",
       "kind": "TEXT",
       "raw": "F1",
@@ -13398,6 +13710,20 @@
       "trap": null,
       "layer": "S-SHEET",
       "handle": "2074"
+    },
+    {
+      "sheet": "S-08",
+      "view": "paper",
+      "kind": "TEXT",
+      "raw": "RAMP SECTION  SCALE 1:50",
+      "plain": [
+        "RAMP SECTION  SCALE 1:50"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-SHEET",
+      "handle": "26CB"
     },
     {
       "sheet": "S-08",
@@ -13782,9 +14108,9 @@
       "sheet": "S-08",
       "view": "GRADE BEAM LAYOUT & GF SLAB ON GRADE",
       "kind": "TEXT",
-      "raw": "75 THK BLINDING UNDER (EXPLODED OUTLINE)",
+      "raw": "75 THK BLINDING UNDER SLAB ON GRADE & RAMP (EXPLODED OUTLINE)",
       "plain": [
-        "75 THK BLINDING UNDER (EXPLODED OUTLINE)"
+        "75 THK BLINDING UNDER SLAB ON GRADE & RAMP (EXPLODED OUTLINE)"
       ],
       "family": "plain",
       "fact": null,
@@ -13896,6 +14222,720 @@
       "trap": null,
       "layer": "S-TEXT",
       "handle": "832"
+    },
+    {
+      "sheet": "S-08",
+      "view": "GRADE BEAM LAYOUT & GF SLAB ON GRADE",
+      "kind": "TEXT",
+      "raw": "GB1",
+      "plain": [
+        "GB1"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "22DF"
+    },
+    {
+      "sheet": "S-08",
+      "view": "GRADE BEAM LAYOUT & GF SLAB ON GRADE",
+      "kind": "TEXT",
+      "raw": "GB1",
+      "plain": [
+        "GB1"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "22E0"
+    },
+    {
+      "sheet": "S-08",
+      "view": "GRADE BEAM LAYOUT & GF SLAB ON GRADE",
+      "kind": "TEXT",
+      "raw": "GB1",
+      "plain": [
+        "GB1"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "22E1"
+    },
+    {
+      "sheet": "S-08",
+      "view": "GRADE BEAM LAYOUT & GF SLAB ON GRADE",
+      "kind": "TEXT",
+      "raw": "GB1",
+      "plain": [
+        "GB1"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "22E2"
+    },
+    {
+      "sheet": "S-08",
+      "view": "GRADE BEAM LAYOUT & GF SLAB ON GRADE",
+      "kind": "TEXT",
+      "raw": "GB1",
+      "plain": [
+        "GB1"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "22E3"
+    },
+    {
+      "sheet": "S-08",
+      "view": "GRADE BEAM LAYOUT & GF SLAB ON GRADE",
+      "kind": "TEXT",
+      "raw": "GB1",
+      "plain": [
+        "GB1"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "22E4"
+    },
+    {
+      "sheet": "S-08",
+      "view": "GRADE BEAM LAYOUT & GF SLAB ON GRADE",
+      "kind": "TEXT",
+      "raw": "GB1",
+      "plain": [
+        "GB1"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "22E5"
+    },
+    {
+      "sheet": "S-08",
+      "view": "GRADE BEAM LAYOUT & GF SLAB ON GRADE",
+      "kind": "TEXT",
+      "raw": "GB1",
+      "plain": [
+        "GB1"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "22E6"
+    },
+    {
+      "sheet": "S-08",
+      "view": "GRADE BEAM LAYOUT & GF SLAB ON GRADE",
+      "kind": "TEXT",
+      "raw": "GB1",
+      "plain": [
+        "GB1"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "22E7"
+    },
+    {
+      "sheet": "S-08",
+      "view": "GRADE BEAM LAYOUT & GF SLAB ON GRADE",
+      "kind": "TEXT",
+      "raw": "GB1",
+      "plain": [
+        "GB1"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "22E8"
+    },
+    {
+      "sheet": "S-08",
+      "view": "GRADE BEAM LAYOUT & GF SLAB ON GRADE",
+      "kind": "TEXT",
+      "raw": "GB1",
+      "plain": [
+        "GB1"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "22E9"
+    },
+    {
+      "sheet": "S-08",
+      "view": "GRADE BEAM LAYOUT & GF SLAB ON GRADE",
+      "kind": "TEXT",
+      "raw": "GB1",
+      "plain": [
+        "GB1"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "22EA"
+    },
+    {
+      "sheet": "S-08",
+      "view": "GRADE BEAM LAYOUT & GF SLAB ON GRADE",
+      "kind": "TEXT",
+      "raw": "GB1",
+      "plain": [
+        "GB1"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "22EB"
+    },
+    {
+      "sheet": "S-08",
+      "view": "GRADE BEAM LAYOUT & GF SLAB ON GRADE",
+      "kind": "TEXT",
+      "raw": "GB1",
+      "plain": [
+        "GB1"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "22EC"
+    },
+    {
+      "sheet": "S-08",
+      "view": "GRADE BEAM LAYOUT & GF SLAB ON GRADE",
+      "kind": "TEXT",
+      "raw": "GB1",
+      "plain": [
+        "GB1"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "22ED"
+    },
+    {
+      "sheet": "S-08",
+      "view": "GRADE BEAM LAYOUT & GF SLAB ON GRADE",
+      "kind": "TEXT",
+      "raw": "GB2",
+      "plain": [
+        "GB2"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "22EE"
+    },
+    {
+      "sheet": "S-08",
+      "view": "GRADE BEAM LAYOUT & GF SLAB ON GRADE",
+      "kind": "TEXT",
+      "raw": "GB2",
+      "plain": [
+        "GB2"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "22EF"
+    },
+    {
+      "sheet": "S-08",
+      "view": "GRADE BEAM LAYOUT & GF SLAB ON GRADE",
+      "kind": "TEXT",
+      "raw": "GB2",
+      "plain": [
+        "GB2"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "22F0"
+    },
+    {
+      "sheet": "S-08",
+      "view": "GRADE BEAM LAYOUT & GF SLAB ON GRADE",
+      "kind": "TEXT",
+      "raw": "GB2",
+      "plain": [
+        "GB2"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "22F1"
+    },
+    {
+      "sheet": "S-08",
+      "view": "GRADE BEAM LAYOUT & GF SLAB ON GRADE",
+      "kind": "TEXT",
+      "raw": "GB2",
+      "plain": [
+        "GB2"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "22F2"
+    },
+    {
+      "sheet": "S-08",
+      "view": "GRADE BEAM LAYOUT & GF SLAB ON GRADE",
+      "kind": "TEXT",
+      "raw": "GB2",
+      "plain": [
+        "GB2"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "22F3"
+    },
+    {
+      "sheet": "S-08",
+      "view": "GRADE BEAM LAYOUT & GF SLAB ON GRADE",
+      "kind": "TEXT",
+      "raw": "GB2",
+      "plain": [
+        "GB2"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "22F4"
+    },
+    {
+      "sheet": "S-08",
+      "view": "GRADE BEAM LAYOUT & GF SLAB ON GRADE",
+      "kind": "TEXT",
+      "raw": "GB2",
+      "plain": [
+        "GB2"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "22F5"
+    },
+    {
+      "sheet": "S-08",
+      "view": "GRADE BEAM LAYOUT & GF SLAB ON GRADE",
+      "kind": "TEXT",
+      "raw": "GB2",
+      "plain": [
+        "GB2"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "22F6"
+    },
+    {
+      "sheet": "S-08",
+      "view": "GRADE BEAM LAYOUT & GF SLAB ON GRADE",
+      "kind": "TEXT",
+      "raw": "GB2",
+      "plain": [
+        "GB2"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "22F7"
+    },
+    {
+      "sheet": "S-08",
+      "view": "GRADE BEAM LAYOUT & GF SLAB ON GRADE",
+      "kind": "TEXT",
+      "raw": "GB2",
+      "plain": [
+        "GB2"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "22F8"
+    },
+    {
+      "sheet": "S-08",
+      "view": "GRADE BEAM LAYOUT & GF SLAB ON GRADE",
+      "kind": "TEXT",
+      "raw": "GB3",
+      "plain": [
+        "GB3"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "22F9"
+    },
+    {
+      "sheet": "S-08",
+      "view": "GRADE BEAM LAYOUT & GF SLAB ON GRADE",
+      "kind": "TEXT",
+      "raw": "GB3",
+      "plain": [
+        "GB3"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "22FA"
+    },
+    {
+      "sheet": "S-08",
+      "view": "GRADE BEAM LAYOUT & GF SLAB ON GRADE",
+      "kind": "TEXT",
+      "raw": "GB3",
+      "plain": [
+        "GB3"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "22FB"
+    },
+    {
+      "sheet": "S-08",
+      "view": "GRADE BEAM LAYOUT & GF SLAB ON GRADE",
+      "kind": "TEXT",
+      "raw": "GB3",
+      "plain": [
+        "GB3"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "22FC"
+    },
+    {
+      "sheet": "S-08",
+      "view": "GRADE BEAM LAYOUT & GF SLAB ON GRADE",
+      "kind": "TEXT",
+      "raw": "GB3",
+      "plain": [
+        "GB3"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "22FD"
+    },
+    {
+      "sheet": "S-08",
+      "view": "GRADE BEAM LAYOUT & GF SLAB ON GRADE",
+      "kind": "TEXT",
+      "raw": "GB3",
+      "plain": [
+        "GB3"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "22FE"
+    },
+    {
+      "sheet": "S-08",
+      "view": "GRADE BEAM LAYOUT & GF SLAB ON GRADE",
+      "kind": "TEXT",
+      "raw": "GB3",
+      "plain": [
+        "GB3"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "22FF"
+    },
+    {
+      "sheet": "S-08",
+      "view": "GRADE BEAM LAYOUT & GF SLAB ON GRADE",
+      "kind": "TEXT",
+      "raw": "GB3",
+      "plain": [
+        "GB3"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2300"
+    },
+    {
+      "sheet": "S-08",
+      "view": "GRADE BEAM LAYOUT & GF SLAB ON GRADE",
+      "kind": "TEXT",
+      "raw": "GB3",
+      "plain": [
+        "GB3"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2301"
+    },
+    {
+      "sheet": "S-08",
+      "view": "GRADE BEAM LAYOUT & GF SLAB ON GRADE",
+      "kind": "TEXT",
+      "raw": "GB3",
+      "plain": [
+        "GB3"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2302"
+    },
+    {
+      "sheet": "S-08",
+      "view": "GRADE BEAM LAYOUT & GF SLAB ON GRADE",
+      "kind": "TEXT",
+      "raw": "GB3",
+      "plain": [
+        "GB3"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2303"
+    },
+    {
+      "sheet": "S-08",
+      "view": "GRADE BEAM LAYOUT & GF SLAB ON GRADE",
+      "kind": "TEXT",
+      "raw": "GB3",
+      "plain": [
+        "GB3"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2304"
+    },
+    {
+      "sheet": "S-08",
+      "view": "GRADE BEAM LAYOUT & GF SLAB ON GRADE",
+      "kind": "TEXT",
+      "raw": "GB4",
+      "plain": [
+        "GB4"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2305"
+    },
+    {
+      "sheet": "S-08",
+      "view": "GRADE BEAM LAYOUT & GF SLAB ON GRADE",
+      "kind": "TEXT",
+      "raw": "GB4",
+      "plain": [
+        "GB4"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2306"
+    },
+    {
+      "sheet": "S-08",
+      "view": "GRADE BEAM LAYOUT & GF SLAB ON GRADE",
+      "kind": "TEXT",
+      "raw": "GB4",
+      "plain": [
+        "GB4"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2307"
+    },
+    {
+      "sheet": "S-08",
+      "view": "GRADE BEAM LAYOUT & GF SLAB ON GRADE",
+      "kind": "TEXT",
+      "raw": "GB5",
+      "plain": [
+        "GB5"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2308"
+    },
+    {
+      "sheet": "S-08",
+      "view": "RAMP SECTION",
+      "kind": "TEXT",
+      "raw": "SOG",
+      "plain": [
+        "SOG"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2312"
+    },
+    {
+      "sheet": "S-08",
+      "view": "RAMP SECTION",
+      "kind": "TEXT",
+      "raw": "RAMP",
+      "plain": [
+        "RAMP"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2313"
+    },
+    {
+      "sheet": "S-08",
+      "view": "RAMP SECTION",
+      "kind": "TEXT",
+      "raw": "125 THK",
+      "plain": [
+        "125 THK"
+      ],
+      "family": "thickness",
+      "fact": {
+        "member": "RAMP@GF",
+        "field": "t",
+        "value": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "2314"
+    },
+    {
+      "sheet": "S-08",
+      "view": "RAMP SECTION",
+      "kind": "TEXT",
+      "raw": "FALLS 457 TO GRID A (1:8)",
+      "plain": [
+        "FALLS 457 TO GRID A (1:8)"
+      ],
+      "family": "plain",
+      "fact": {
+        "authored": "457.2"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "2315"
+    },
+    {
+      "sheet": "S-08",
+      "view": "RAMP SECTION",
+      "kind": "TEXT",
+      "raw": "SOG EDGE EXPOSED ALONG BOTH RAMP SIDES AND ITS MOUTH TO THE LESSER OF 125 AND THE DROP",
+      "plain": [
+        "SOG EDGE EXPOSED ALONG BOTH RAMP SIDES AND ITS MOUTH TO THE LESSER OF 125 AND THE DROP"
+      ],
+      "family": "plain",
+      "fact": {
+        "member": "SOG@GF",
+        "field": "t",
+        "value": "125"
+      },
+      "trap": "T-RAMP-REVEAL",
+      "layer": "S-TEXT2",
+      "handle": "2316"
+    },
+    {
+      "sheet": "S-08",
+      "view": "RAMP SECTION",
+      "kind": "TEXT",
+      "raw": "75 THK BLINDING UNDER",
+      "plain": [
+        "75 THK BLINDING UNDER"
+      ],
+      "family": "plain",
+      "fact": {
+        "authored": "75.0"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "2317"
+    },
+    {
+      "sheet": "S-08",
+      "view": "RAMP SECTION",
+      "kind": "TEXT",
+      "raw": "EL -1'-6\"",
+      "plain": [
+        "EL -1'-6\""
+      ],
+      "family": "level",
+      "fact": {
+        "authored": "-457.2"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "2318"
+    },
+    {
+      "sheet": "S-08",
+      "view": "RAMP SECTION",
+      "kind": "TEXT",
+      "raw": "GRID A",
+      "plain": [
+        "GRID A"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "2319"
     },
     {
       "sheet": "S-09",
@@ -14246,6 +15286,36 @@
       "trap": "T-DIM-SUFFIX",
       "layer": "S-DIMS",
       "handle": "846"
+    },
+    {
+      "sheet": "S-09",
+      "view": "GB1 LONG SECTION",
+      "kind": "TEXT",
+      "raw": "TOP OF GRADE BEAM AT THE UNDERSIDE OF THE SLAB ON GRADE (EL -0.125);",
+      "plain": [
+        "TOP OF GRADE BEAM AT THE UNDERSIDE OF THE SLAB ON GRADE (EL -0.125);"
+      ],
+      "family": "plain",
+      "fact": {
+        "authored": "-125.0"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "2337"
+    },
+    {
+      "sheet": "S-09",
+      "view": "GB1 LONG SECTION",
+      "kind": "TEXT",
+      "raw": "THE SLAB RUNS OVER TO THEIR OUTER FACE (ALL GRADE BEAMS)",
+      "plain": [
+        "THE SLAB RUNS OVER TO THEIR OUTER FACE (ALL GRADE BEAMS)"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "2338"
     },
     {
       "sheet": "S-09",
@@ -17661,6 +18731,36 @@
       "trap": null,
       "layer": "S-SHEET",
       "handle": "20F2"
+    },
+    {
+      "sheet": "S-12",
+      "view": "paper",
+      "kind": "TEXT",
+      "raw": "SECTIONS ARE TYPICAL FOR EVERY BAND OF THE MARK (S-11 GIVES EACH BAND'S SIZE AND BARS)",
+      "plain": [
+        "SECTIONS ARE TYPICAL FOR EVERY BAND OF THE MARK (S-11 GIVES EACH BAND'S SIZE AND BARS)"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "26CD"
+    },
+    {
+      "sheet": "S-12",
+      "view": "paper",
+      "kind": "TEXT",
+      "raw": "STARTER BARS: AS THE COLUMN MAIN BARS, 12d FOOT ON THE PILE CAP BOTTOM MESH, LAPPED 50d AT GF",
+      "plain": [
+        "STARTER BARS: AS THE COLUMN MAIN BARS, 12d FOOT ON THE PILE CAP BOTTOM MESH, LAPPED 50d AT GF"
+      ],
+      "family": "plain",
+      "fact": {
+        "authored": "12"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "26CE"
     },
     {
       "sheet": "S-12",
@@ -22155,6 +23255,20 @@
     },
     {
       "sheet": "S-15",
+      "view": "ROOF BEAM LAYOUT",
+      "kind": "TEXT",
+      "raw": "LB1",
+      "plain": [
+        "LB1"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": "T-LB1-HALF-LANDING",
+      "layer": "S-TEXT",
+      "handle": "233E"
+    },
+    {
+      "sheet": "S-15",
       "view": "STAIR ROOF BEAM LAYOUT",
       "kind": "TEXT",
       "raw": "LIFT CORE",
@@ -22293,6 +23407,189 @@
       "trap": null,
       "layer": "S-TEXT",
       "handle": "10DA"
+    },
+    {
+      "sheet": "S-15",
+      "view": "STAIR ROOF BEAM LAYOUT",
+      "kind": "ATTRIB",
+      "tag": "GRID",
+      "raw": "2",
+      "plain": [
+        "2"
+      ],
+      "family": "grid",
+      "fact": null,
+      "trap": null,
+      "layer": "S-GRIDC",
+      "handle": "2341"
+    },
+    {
+      "sheet": "S-15",
+      "view": "STAIR ROOF BEAM LAYOUT",
+      "kind": "ATTRIB",
+      "tag": "GRID",
+      "raw": "3",
+      "plain": [
+        "3"
+      ],
+      "family": "grid",
+      "fact": null,
+      "trap": null,
+      "layer": "S-GRIDC",
+      "handle": "2345"
+    },
+    {
+      "sheet": "S-15",
+      "view": "STAIR ROOF BEAM LAYOUT",
+      "kind": "ATTRIB",
+      "tag": "GRID",
+      "raw": "4",
+      "plain": [
+        "4"
+      ],
+      "family": "grid",
+      "fact": null,
+      "trap": null,
+      "layer": "S-GRIDC",
+      "handle": "2349"
+    },
+    {
+      "sheet": "S-15",
+      "view": "STAIR ROOF BEAM LAYOUT",
+      "kind": "ATTRIB",
+      "tag": "GRID",
+      "raw": "C",
+      "plain": [
+        "C"
+      ],
+      "family": "grid",
+      "fact": null,
+      "trap": null,
+      "layer": "S-GRIDC",
+      "handle": "234D"
+    },
+    {
+      "sheet": "S-15",
+      "view": "STAIR ROOF BEAM LAYOUT",
+      "kind": "ATTRIB",
+      "tag": "GRID",
+      "raw": "D",
+      "plain": [
+        "D"
+      ],
+      "family": "grid",
+      "fact": null,
+      "trap": null,
+      "layer": "S-GRIDC",
+      "handle": "2351"
+    },
+    {
+      "sheet": "S-15",
+      "view": "STAIR ROOF BEAM LAYOUT",
+      "kind": "DIMENSION",
+      "raw": "14'-0\"",
+      "plain": [
+        "14'-0\""
+      ],
+      "family": "length",
+      "fact": {
+        "authored": "4267.200000000001"
+      },
+      "trap": null,
+      "layer": "S-DIMI",
+      "handle": "2354"
+    },
+    {
+      "sheet": "S-15",
+      "view": "STAIR ROOF BEAM LAYOUT",
+      "kind": "DIMENSION",
+      "raw": "9'-0\"",
+      "plain": [
+        "9'-0\""
+      ],
+      "family": "length",
+      "fact": {
+        "authored": "2743.199999999999"
+      },
+      "trap": null,
+      "layer": "S-DIMI",
+      "handle": "2363"
+    },
+    {
+      "sheet": "S-15",
+      "view": "STAIR ROOF BEAM LAYOUT",
+      "kind": "DIMENSION",
+      "raw": "8'-0\"",
+      "plain": [
+        "8'-0\""
+      ],
+      "family": "length",
+      "fact": {
+        "authored": "2438.3999999999996"
+      },
+      "trap": null,
+      "layer": "S-DIMI",
+      "handle": "2372"
+    },
+    {
+      "sheet": "S-15",
+      "view": "STAIR ROOF BEAM LAYOUT",
+      "kind": "TEXT",
+      "raw": "C4",
+      "plain": [
+        "C4"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2384"
+    },
+    {
+      "sheet": "S-15",
+      "view": "STAIR ROOF BEAM LAYOUT",
+      "kind": "TEXT",
+      "raw": "C4",
+      "plain": [
+        "C4"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2387"
+    },
+    {
+      "sheet": "S-15",
+      "view": "STAIR ROOF BEAM LAYOUT",
+      "kind": "TEXT",
+      "raw": "COLUMNS AT C/2 AND D/2 (C4) CONTINUE TO THE STAIR ROOF",
+      "plain": [
+        "COLUMNS AT C/2 AND D/2 (C4) CONTINUE TO THE STAIR ROOF"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": "T-STUB-COLUMNS",
+      "layer": "S-TEXT",
+      "handle": "2388"
+    },
+    {
+      "sheet": "S-15",
+      "view": "STAIR ROOF BEAM LAYOUT",
+      "kind": "TEXT",
+      "raw": "MRR 150 THK",
+      "plain": [
+        "MRR 150 THK"
+      ],
+      "family": "plain",
+      "fact": {
+        "member": "MRR@SRR",
+        "field": "t",
+        "value": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "2389"
     },
     {
       "sheet": "S-16",
@@ -32724,7 +34021,7 @@
       ],
       "family": "section",
       "fact": {
-        "member": "LB1@2F",
+        "member": "LB1@1F",
         "field": "b",
         "value": "250"
       },
@@ -38282,6 +39579,20 @@
     },
     {
       "sheet": "S-19",
+      "view": "paper",
+      "kind": "TEXT",
+      "raw": "SLAB PANEL SCHEDULE (1ST FLOOR)  SCALE 1:50",
+      "plain": [
+        "SLAB PANEL SCHEDULE (1ST FLOOR)  SCALE 1:50"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-SHEET",
+      "handle": "26CF"
+    },
+    {
+      "sheet": "S-19",
       "view": "1ST FLOOR SLAB REINFORCEMENT PLAN",
       "kind": "ATTRIB",
       "tag": "GRID",
@@ -39696,6 +41007,1504 @@
       "handle": "19E4"
     },
     {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "plain": [
+        "SLAB PANEL SCHEDULE (1ST FLOOR)"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "238B"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "MARK",
+      "plain": [
+        "MARK"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23A4"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "THK",
+      "plain": [
+        "THK"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23A5"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "SHORT SPAN BOT.",
+      "plain": [
+        "SHORT SPAN BOT."
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23A6"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "LONG SPAN BOT.",
+      "plain": [
+        "LONG SPAN BOT."
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23A7"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "EXTRA TOP",
+      "plain": [
+        "EXTRA TOP"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23A8"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "DIST.",
+      "plain": [
+        "DIST."
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23A9"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "REMARKS",
+      "plain": [
+        "REMARKS"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23AA"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "S1",
+      "plain": [
+        "S1"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23AB"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "125",
+      "plain": [
+        "125"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "S1#00@1F",
+        "field": "t",
+        "value": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23AC"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23AD"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23AE"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23AF"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23B0"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "S2",
+      "plain": [
+        "S2"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23B1"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "125",
+      "plain": [
+        "125"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "S2#10@1F",
+        "field": "t",
+        "value": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23B2"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23B3"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23B4"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23B5"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23B6"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "S3",
+      "plain": [
+        "S3"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23B7"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "125",
+      "plain": [
+        "125"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "S3#20@1F",
+        "field": "t",
+        "value": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23B8"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23B9"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23BA"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23BB"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23BC"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "S4",
+      "plain": [
+        "S4"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23BD"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "125",
+      "plain": [
+        "125"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "S4#30@1F",
+        "field": "t",
+        "value": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23BE"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23BF"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23C0"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23C1"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23C2"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "S5",
+      "plain": [
+        "S5"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23C3"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "125",
+      "plain": [
+        "125"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "S5#40@1F",
+        "field": "t",
+        "value": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23C4"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23C5"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23C6"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23C7"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23C8"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "S6",
+      "plain": [
+        "S6"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23C9"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "125",
+      "plain": [
+        "125"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "S6#01@1F",
+        "field": "t",
+        "value": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23CA"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23CB"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23CC"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23CD"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23CE"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "S7",
+      "plain": [
+        "S7"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23CF"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "150",
+      "plain": [
+        "150"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "S7#11@1F",
+        "field": "t",
+        "value": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23D0"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "12%%C @ 150",
+      "plain": [
+        "12Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23D1"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "12%%C @ 150",
+      "plain": [
+        "12Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23D2"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "12%%C @ 150",
+      "plain": [
+        "12Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23D3"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23D4"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "S8",
+      "plain": [
+        "S8"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23D5"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "125",
+      "plain": [
+        "125"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "S8#21@1F",
+        "field": "t",
+        "value": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23D6"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23D7"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23D8"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23D9"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23DA"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "S9",
+      "plain": [
+        "S9"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23DB"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "150",
+      "plain": [
+        "150"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "S9#31@1F",
+        "field": "t",
+        "value": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23DC"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "12%%C @ 150",
+      "plain": [
+        "12Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23DD"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "12%%C @ 150",
+      "plain": [
+        "12Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23DE"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "12%%C @ 150",
+      "plain": [
+        "12Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23DF"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23E0"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "S10",
+      "plain": [
+        "S10"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23E1"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "125",
+      "plain": [
+        "125"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "S10#02@1F",
+        "field": "t",
+        "value": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23E2"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 125",
+      "plain": [
+        "10Ø @ 125"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23E3"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23E4"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 125",
+      "plain": [
+        "10Ø @ 125"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23E5"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "8%%C @ 200",
+      "plain": [
+        "8Ø @ 200"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "200"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23E6"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "ONE WAY",
+      "plain": [
+        "ONE WAY"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23E7"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "CS1",
+      "plain": [
+        "CS1"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23E8"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "150",
+      "plain": [
+        "150"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "CS1@1F",
+        "field": "t",
+        "value": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23E9"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23EA"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23EB"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 125",
+      "plain": [
+        "10Ø @ 125"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23EC"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "8%%C @ 200",
+      "plain": [
+        "8Ø @ 200"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "200"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23ED"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "CANTILEVER",
+      "plain": [
+        "CANTILEVER"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23EE"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "SS1",
+      "plain": [
+        "SS1"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23EF"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "125",
+      "plain": [
+        "125"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "SS1-1@1F",
+        "field": "t",
+        "value": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23F0"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23F1"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23F2"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23F3"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23F4"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "SUNK 300",
+      "plain": [
+        "SUNK 300"
+      ],
+      "family": "plain",
+      "fact": {
+        "authored": "300"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23F5"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "PS1",
+      "plain": [
+        "PS1"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23F6"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "125",
+      "plain": [
+        "125"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "PS1@1F",
+        "field": "t",
+        "value": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23F7"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23F8"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23F9"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23FA"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23FB"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "FL",
+      "plain": [
+        "FL"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23FC"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "150",
+      "plain": [
+        "150"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "FL@1F",
+        "field": "t",
+        "value": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23FD"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "12%%C @ 150",
+      "plain": [
+        "12Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23FE"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "12%%C @ 150",
+      "plain": [
+        "12Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "23FF"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "12%%C @ 150",
+      "plain": [
+        "12Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2400"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2401"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "BOTTOM BARS: ALTERNATE BARS CRANKED AT L/5 (S-03)",
+      "plain": [
+        "BOTTOM BARS: ALTERNATE BARS CRANKED AT L/5 (S-03)"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "2402"
+    },
+    {
+      "sheet": "S-19",
+      "view": "SLAB PANEL SCHEDULE (1ST FLOOR)",
+      "kind": "TEXT",
+      "raw": "EXTRA TOP BARS: L/4 EACH SIDE OF THE SUPPORT",
+      "plain": [
+        "EXTRA TOP BARS: L/4 EACH SIDE OF THE SUPPORT"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "2403"
+    },
+    {
       "sheet": "S-20",
       "view": "paper",
       "kind": "ATTRIB",
@@ -39926,6 +42735,20 @@
       "trap": null,
       "layer": "S-SHEET",
       "handle": "21EC"
+    },
+    {
+      "sheet": "S-20",
+      "view": "paper",
+      "kind": "TEXT",
+      "raw": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)  SCALE 1:50",
+      "plain": [
+        "SLAB PANEL SCHEDULE (TYPICAL FLOOR)  SCALE 1:50"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-SHEET",
+      "handle": "26D1"
     },
     {
       "sheet": "S-20",
@@ -41217,6 +44040,1442 @@
       "handle": "1B11"
     },
     {
+      "sheet": "S-20",
+      "view": "TYPICAL SLAB REINFORCEMENT PLAN",
+      "kind": "TEXT",
+      "raw": "DUCT 600x1200",
+      "plain": [
+        "DUCT 600x1200"
+      ],
+      "family": "plain",
+      "fact": {
+        "authored": "600"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "2406"
+    },
+    {
+      "sheet": "S-20",
+      "view": "TYPICAL SLAB REINFORCEMENT PLAN",
+      "kind": "TEXT",
+      "raw": "DUCT 600x1200",
+      "plain": [
+        "DUCT 600x1200"
+      ],
+      "family": "plain",
+      "fact": {
+        "authored": "600"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "2408"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "plain": [
+        "SLAB PANEL SCHEDULE (TYPICAL FLOOR)"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2409"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "MARK",
+      "plain": [
+        "MARK"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2421"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "THK",
+      "plain": [
+        "THK"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2422"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "SHORT SPAN BOT.",
+      "plain": [
+        "SHORT SPAN BOT."
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2423"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "LONG SPAN BOT.",
+      "plain": [
+        "LONG SPAN BOT."
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2424"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "EXTRA TOP",
+      "plain": [
+        "EXTRA TOP"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2425"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "DIST.",
+      "plain": [
+        "DIST."
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2426"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "REMARKS",
+      "plain": [
+        "REMARKS"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2427"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "S1",
+      "plain": [
+        "S1"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2428"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "125",
+      "plain": [
+        "125"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "S1#00@2F",
+        "field": "t",
+        "value": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2429"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "242A"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "242B"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "242C"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "242D"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "S2",
+      "plain": [
+        "S2"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "242E"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "125",
+      "plain": [
+        "125"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "S2#10@2F",
+        "field": "t",
+        "value": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "242F"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2430"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2431"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2432"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2433"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "S3",
+      "plain": [
+        "S3"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2434"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "125",
+      "plain": [
+        "125"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "S3#20@2F",
+        "field": "t",
+        "value": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2435"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2436"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2437"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2438"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2439"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "S4",
+      "plain": [
+        "S4"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "243A"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "125",
+      "plain": [
+        "125"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "S4#30@2F",
+        "field": "t",
+        "value": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "243B"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "243C"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "243D"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "243E"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "243F"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "S5",
+      "plain": [
+        "S5"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2440"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "125",
+      "plain": [
+        "125"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "S5#40@2F",
+        "field": "t",
+        "value": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2441"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2442"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2443"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2444"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2445"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "S6",
+      "plain": [
+        "S6"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2446"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "125",
+      "plain": [
+        "125"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "S6#01@2F",
+        "field": "t",
+        "value": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2447"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2448"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2449"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "244A"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "244B"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "S7",
+      "plain": [
+        "S7"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "244C"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "150",
+      "plain": [
+        "150"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "S7#11@2F",
+        "field": "t",
+        "value": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "244D"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "12%%C @ 150",
+      "plain": [
+        "12Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "244E"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "12%%C @ 150",
+      "plain": [
+        "12Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "244F"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "12%%C @ 150",
+      "plain": [
+        "12Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2450"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2451"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "S8",
+      "plain": [
+        "S8"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2452"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "125",
+      "plain": [
+        "125"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "S8#21@2F",
+        "field": "t",
+        "value": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2453"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2454"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2455"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2456"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2457"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "S9",
+      "plain": [
+        "S9"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2458"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "150",
+      "plain": [
+        "150"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "S9#31@2F",
+        "field": "t",
+        "value": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2459"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "12%%C @ 150",
+      "plain": [
+        "12Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "245A"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "12%%C @ 150",
+      "plain": [
+        "12Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "245B"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "12%%C @ 150",
+      "plain": [
+        "12Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "245C"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "245D"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "S10",
+      "plain": [
+        "S10"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "245E"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "125",
+      "plain": [
+        "125"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "S10#02@2F",
+        "field": "t",
+        "value": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "245F"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 125",
+      "plain": [
+        "10Ø @ 125"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2460"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2461"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 125",
+      "plain": [
+        "10Ø @ 125"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2462"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "8%%C @ 200",
+      "plain": [
+        "8Ø @ 200"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "200"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2463"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "ONE WAY",
+      "plain": [
+        "ONE WAY"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2464"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "CS1",
+      "plain": [
+        "CS1"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2465"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "150",
+      "plain": [
+        "150"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "CS1@2F",
+        "field": "t",
+        "value": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2466"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2467"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2468"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 125",
+      "plain": [
+        "10Ø @ 125"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2469"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "8%%C @ 200",
+      "plain": [
+        "8Ø @ 200"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "200"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "246A"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "CANTILEVER",
+      "plain": [
+        "CANTILEVER"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "246B"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "SS1",
+      "plain": [
+        "SS1"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "246C"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "125",
+      "plain": [
+        "125"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "SS1-1@2F",
+        "field": "t",
+        "value": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "246D"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "246E"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "246F"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2470"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2471"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "SUNK 300",
+      "plain": [
+        "SUNK 300"
+      ],
+      "family": "plain",
+      "fact": {
+        "authored": "300"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2472"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "FL",
+      "plain": [
+        "FL"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2473"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "150",
+      "plain": [
+        "150"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "FL@2F",
+        "field": "t",
+        "value": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2474"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "12%%C @ 150",
+      "plain": [
+        "12Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2475"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "12%%C @ 150",
+      "plain": [
+        "12Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2476"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "12%%C @ 150",
+      "plain": [
+        "12Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2477"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2478"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "BOTTOM BARS: ALTERNATE BARS CRANKED AT L/5 (S-03)",
+      "plain": [
+        "BOTTOM BARS: ALTERNATE BARS CRANKED AT L/5 (S-03)"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "2479"
+    },
+    {
+      "sheet": "S-20",
+      "view": "SLAB PANEL SCHEDULE (TYPICAL FLOOR)",
+      "kind": "TEXT",
+      "raw": "EXTRA TOP BARS: L/4 EACH SIDE OF THE SUPPORT",
+      "plain": [
+        "EXTRA TOP BARS: L/4 EACH SIDE OF THE SUPPORT"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "247A"
+    },
+    {
       "sheet": "S-21",
       "view": "paper",
       "kind": "ATTRIB",
@@ -41461,6 +45720,20 @@
       "trap": null,
       "layer": "S-SHEET",
       "handle": "220D"
+    },
+    {
+      "sheet": "S-21",
+      "view": "paper",
+      "kind": "TEXT",
+      "raw": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)  SCALE 1:50",
+      "plain": [
+        "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)  SCALE 1:50"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-SHEET",
+      "handle": "26D3"
     },
     {
       "sheet": "S-21",
@@ -42459,11 +46732,61 @@
       ],
       "family": "plain",
       "fact": {
-        "authored": "1066.8"
+        "authored": "1067"
       },
       "trap": null,
       "layer": "S-TEXT2",
       "handle": "1C28"
+    },
+    {
+      "sheet": "S-21",
+      "view": "ROOF & STAIR ROOF PLAN",
+      "kind": "TEXT",
+      "raw": "150 THK",
+      "plain": [
+        "150 THK"
+      ],
+      "family": "thickness",
+      "fact": {
+        "member": "MRR@SRR",
+        "field": "t",
+        "value": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "247C"
+    },
+    {
+      "sheet": "S-21",
+      "view": "ROOF & STAIR ROOF PLAN",
+      "kind": "TEXT",
+      "raw": "125 THK",
+      "plain": [
+        "125 THK"
+      ],
+      "family": "thickness",
+      "fact": {
+        "member": "SRR@SRR",
+        "field": "t",
+        "value": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "247D"
+    },
+    {
+      "sheet": "S-21",
+      "view": "ROOF & STAIR ROOF PLAN",
+      "kind": "TEXT",
+      "raw": "OHWT OVER THE STAIR ROOF (SEE S-24)",
+      "plain": [
+        "OHWT OVER THE STAIR ROOF (SEE S-24)"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "2482"
     },
     {
       "sheet": "S-21",
@@ -42507,11 +46830,2125 @@
       ],
       "family": "length",
       "fact": {
-        "authored": "1066.8"
+        "authored": "1067.0"
       },
       "trap": null,
       "layer": "S-DIMS",
       "handle": "1C2E"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "plain": [
+        "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2483"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "MARK",
+      "plain": [
+        "MARK"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24A3"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "THK",
+      "plain": [
+        "THK"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24A4"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "SHORT SPAN BOT.",
+      "plain": [
+        "SHORT SPAN BOT."
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24A5"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "LONG SPAN BOT.",
+      "plain": [
+        "LONG SPAN BOT."
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24A6"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "EXTRA TOP",
+      "plain": [
+        "EXTRA TOP"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24A7"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "DIST.",
+      "plain": [
+        "DIST."
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24A8"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "REMARKS",
+      "plain": [
+        "REMARKS"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24A9"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "R1",
+      "plain": [
+        "R1"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24AA"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "125",
+      "plain": [
+        "125"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "R1#00@ROOF",
+        "field": "t",
+        "value": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24AB"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24AC"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24AD"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24AE"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24AF"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "R2",
+      "plain": [
+        "R2"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24B0"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "125",
+      "plain": [
+        "125"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "R2#10@ROOF",
+        "field": "t",
+        "value": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24B1"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24B2"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24B3"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24B4"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24B5"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "R3",
+      "plain": [
+        "R3"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24B6"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "125",
+      "plain": [
+        "125"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "R3#20@ROOF",
+        "field": "t",
+        "value": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24B7"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24B8"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24B9"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24BA"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24BB"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "R4",
+      "plain": [
+        "R4"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24BC"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "125",
+      "plain": [
+        "125"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "R4#30@ROOF",
+        "field": "t",
+        "value": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24BD"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24BE"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24BF"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24C0"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24C1"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "R5",
+      "plain": [
+        "R5"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24C2"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "125",
+      "plain": [
+        "125"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "R5#40@ROOF",
+        "field": "t",
+        "value": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24C3"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24C4"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24C5"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24C6"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24C7"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "R6",
+      "plain": [
+        "R6"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24C8"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "125",
+      "plain": [
+        "125"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "R6#01@ROOF",
+        "field": "t",
+        "value": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24C9"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24CA"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24CB"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24CC"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24CD"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "R7",
+      "plain": [
+        "R7"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24CE"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "125",
+      "plain": [
+        "125"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "R7#11@ROOF",
+        "field": "t",
+        "value": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24CF"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24D0"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24D1"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24D2"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24D3"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "R8",
+      "plain": [
+        "R8"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24D4"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "125",
+      "plain": [
+        "125"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "R8#21@ROOF",
+        "field": "t",
+        "value": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24D5"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24D6"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24D7"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24D8"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24D9"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "R9",
+      "plain": [
+        "R9"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24DA"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "125",
+      "plain": [
+        "125"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "R9#31@ROOF",
+        "field": "t",
+        "value": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24DB"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24DC"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24DD"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24DE"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24DF"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "R10",
+      "plain": [
+        "R10"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24E0"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "125",
+      "plain": [
+        "125"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "R10#41@ROOF",
+        "field": "t",
+        "value": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24E1"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24E2"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24E3"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24E4"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24E5"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "R11",
+      "plain": [
+        "R11"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24E6"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "125",
+      "plain": [
+        "125"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "R11#02@ROOF",
+        "field": "t",
+        "value": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24E7"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24E8"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24E9"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24EA"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24EB"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "R12",
+      "plain": [
+        "R12"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24EC"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "125",
+      "plain": [
+        "125"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "R12#32@ROOF",
+        "field": "t",
+        "value": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24ED"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24EE"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24EF"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24F0"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24F1"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "R13",
+      "plain": [
+        "R13"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24F2"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "125",
+      "plain": [
+        "125"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "R13#42@ROOF",
+        "field": "t",
+        "value": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24F3"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24F4"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24F5"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24F6"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24F7"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "R14",
+      "plain": [
+        "R14"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24F8"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "125",
+      "plain": [
+        "125"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "R14#03@ROOF",
+        "field": "t",
+        "value": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24F9"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24FA"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24FB"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24FC"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24FD"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "R15",
+      "plain": [
+        "R15"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24FE"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "125",
+      "plain": [
+        "125"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "R15#13@ROOF",
+        "field": "t",
+        "value": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "24FF"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2500"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2501"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2502"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2503"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "R16",
+      "plain": [
+        "R16"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2504"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "125",
+      "plain": [
+        "125"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "R16#23@ROOF",
+        "field": "t",
+        "value": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2505"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2506"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2507"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2508"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2509"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "R17",
+      "plain": [
+        "R17"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "250A"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "125",
+      "plain": [
+        "125"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "R17#33@ROOF",
+        "field": "t",
+        "value": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "250B"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "250C"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "250D"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "250E"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "250F"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "R18",
+      "plain": [
+        "R18"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2510"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "125",
+      "plain": [
+        "125"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "R18#43@ROOF",
+        "field": "t",
+        "value": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2511"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2512"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2513"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2514"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2515"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "FL",
+      "plain": [
+        "FL"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2516"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "150",
+      "plain": [
+        "150"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "FL@ROOF",
+        "field": "t",
+        "value": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2517"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "12%%C @ 150",
+      "plain": [
+        "12Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2518"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "12%%C @ 150",
+      "plain": [
+        "12Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2519"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "12%%C @ 150",
+      "plain": [
+        "12Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "251A"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "251B"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "SRR",
+      "plain": [
+        "SRR"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "251C"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "125",
+      "plain": [
+        "125"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "SRR@SRR",
+        "field": "t",
+        "value": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "251D"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "251E"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "251F"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150",
+      "plain": [
+        "10Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2520"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2521"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "MRR",
+      "plain": [
+        "MRR"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2522"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "150",
+      "plain": [
+        "150"
+      ],
+      "family": "number",
+      "fact": {
+        "member": "MRR@SRR",
+        "field": "t",
+        "value": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2523"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "12%%C @ 150",
+      "plain": [
+        "12Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2524"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "12%%C @ 150",
+      "plain": [
+        "12Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2525"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "12%%C @ 150",
+      "plain": [
+        "12Ø @ 150"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2526"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "-",
+      "plain": [
+        "-"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "2527"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "BOTTOM BARS: ALTERNATE BARS CRANKED AT L/5 (S-03)",
+      "plain": [
+        "BOTTOM BARS: ALTERNATE BARS CRANKED AT L/5 (S-03)"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "2528"
+    },
+    {
+      "sheet": "S-21",
+      "view": "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)",
+      "kind": "TEXT",
+      "raw": "EXTRA TOP BARS: L/4 EACH SIDE OF THE SUPPORT",
+      "plain": [
+        "EXTRA TOP BARS: L/4 EACH SIDE OF THE SUPPORT"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "2529"
     },
     {
       "sheet": "S-22",
@@ -42975,7 +49412,7 @@
       ],
       "family": "length",
       "fact": {
-        "authored": "1066.8"
+        "authored": "1079.5"
       },
       "trap": "T-NOT-FTIN-STACK",
       "layer": "S-TEXT2",
@@ -42985,9 +49422,9 @@
       "sheet": "S-22",
       "view": "STAIR SECTION",
       "kind": "TEXT",
-      "raw": "WELL 304  LANDING 1219",
+      "raw": "WELL 279  LANDING 1219",
       "plain": [
-        "WELL 304  LANDING 1219"
+        "WELL 279  LANDING 1219"
       ],
       "family": "plain",
       "fact": {
@@ -42996,6 +49433,52 @@
       "trap": null,
       "layer": "S-TEXT2",
       "handle": "1C9D"
+    },
+    {
+      "sheet": "S-22",
+      "view": "STAIR SECTION",
+      "kind": "TEXT",
+      "raw": "ML1 & FL LANDINGS 150 THK",
+      "plain": [
+        "ML1 & FL LANDINGS 150 THK"
+      ],
+      "family": "plain",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "252A"
+    },
+    {
+      "sheet": "S-22",
+      "view": "STAIR SECTION",
+      "kind": "TEXT",
+      "raw": "ML1",
+      "plain": [
+        "ML1"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "252B"
+    },
+    {
+      "sheet": "S-22",
+      "view": "STAIR SECTION",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150 c/c B/W (BOTTOM)",
+      "plain": [
+        "10Ø @ 150 c/c B/W (BOTTOM)"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "252C"
     },
     {
       "sheet": "S-23",
@@ -43218,9 +49701,9 @@
       "sheet": "S-23",
       "view": "paper",
       "kind": "TEXT",
-      "raw": "LIFT PIT SECTION  SCALE 1:50",
+      "raw": "LIFT PIT SECTION (RECESS IN PILE CAP PC5, SEE S-07)  SCALE 1:50",
       "plain": [
-        "LIFT PIT SECTION  SCALE 1:50"
+        "LIFT PIT SECTION (RECESS IN PILE CAP PC5, SEE S-07)  SCALE 1:50"
       ],
       "family": "plain",
       "fact": null,
@@ -43245,6 +49728,20 @@
     },
     {
       "sheet": "S-23",
+      "view": "paper",
+      "kind": "TEXT",
+      "raw": "LIFT PIT PLAN AT FDN  SCALE 1:50",
+      "plain": [
+        "LIFT PIT PLAN AT FDN  SCALE 1:50"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-SHEET",
+      "handle": "26D5"
+    },
+    {
+      "sheet": "S-23",
       "view": "LIFT CORE PLAN",
       "kind": "TEXT",
       "raw": "SW1",
@@ -43261,9 +49758,9 @@
       "sheet": "S-23",
       "view": "LIFT CORE PLAN",
       "kind": "TEXT",
-      "raw": "SHEAR WALL 250 THK (LOWER), 200 THK ABOVE 4F",
+      "raw": "SHEAR WALL 250 THK (GF TO 2ND), 200 THK (3RD TO ROOF)",
       "plain": [
-        "SHEAR WALL 250 THK (LOWER), 200 THK ABOVE 4F"
+        "SHEAR WALL 250 THK (GF TO 2ND), 200 THK (3RD TO ROOF)"
       ],
       "family": "plain",
       "fact": {
@@ -43329,11 +49826,73 @@
     },
     {
       "sheet": "S-23",
+      "view": "LIFT CORE PLAN",
+      "kind": "TEXT",
+      "raw": "SW1",
+      "plain": [
+        "SW1"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "252E"
+    },
+    {
+      "sheet": "S-23",
+      "view": "LIFT CORE PLAN",
+      "kind": "TEXT",
+      "raw": "12%%C @ 150 VERT. E.F.",
+      "plain": [
+        "12Ø @ 150 VERT. E.F."
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "252F"
+    },
+    {
+      "sheet": "S-23",
+      "view": "LIFT CORE PLAN",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150 HORIZ. E.F.",
+      "plain": [
+        "10Ø @ 150 HORIZ. E.F."
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "2530"
+    },
+    {
+      "sheet": "S-23",
+      "view": "LIFT CORE PLAN",
+      "kind": "TEXT",
+      "raw": "HORIZONTAL BARS HOOKED 90%%D (12d) AT THE WALL ENDS",
+      "plain": [
+        "HORIZONTAL BARS HOOKED 90° (12d) AT THE WALL ENDS"
+      ],
+      "family": "plain",
+      "fact": {
+        "authored": "12"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "2531"
+    },
+    {
+      "sheet": "S-23",
       "view": "LIFT PIT SECTION",
       "kind": "TEXT",
-      "raw": "PIT",
+      "raw": "PC5",
       "plain": [
-        "PIT"
+        "PC5"
       ],
       "family": "mark",
       "fact": null,
@@ -43345,9 +49904,9 @@
       "sheet": "S-23",
       "view": "LIFT PIT SECTION",
       "kind": "TEXT",
-      "raw": "LPS",
+      "raw": "PC5",
       "plain": [
-        "LPS"
+        "PC5"
       ],
       "family": "mark",
       "fact": null,
@@ -43385,6 +49944,142 @@
       "trap": null,
       "layer": "S-TEXT",
       "handle": "1CCA"
+    },
+    {
+      "sheet": "S-23",
+      "view": "LIFT PIT PLAN AT FDN",
+      "kind": "TEXT",
+      "raw": "PC5 (BELOW)",
+      "plain": [
+        "PC5 (BELOW)"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "253B"
+    },
+    {
+      "sheet": "S-23",
+      "view": "LIFT PIT PLAN AT FDN",
+      "kind": "TEXT",
+      "raw": "SW1",
+      "plain": [
+        "SW1"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "253C"
+    },
+    {
+      "sheet": "S-23",
+      "view": "LIFT PIT PLAN AT FDN",
+      "kind": "TEXT",
+      "raw": "PIT FLOOR",
+      "plain": [
+        "PIT FLOOR"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "253D"
+    },
+    {
+      "sheet": "S-23",
+      "view": "LIFT PIT PLAN AT FDN",
+      "kind": "TEXT",
+      "raw": "EL -5'-0\"",
+      "plain": [
+        "EL -5'-0\""
+      ],
+      "family": "level",
+      "fact": {
+        "authored": "-1524.0"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "253E"
+    },
+    {
+      "sheet": "S-23",
+      "view": "LIFT PIT PLAN AT FDN",
+      "kind": "TEXT",
+      "raw": "BELOW GF THE PIT IS CLOSED ON GRID C:",
+      "plain": [
+        "BELOW GF THE PIT IS CLOSED ON GRID C:"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "255E"
+    },
+    {
+      "sheet": "S-23",
+      "view": "LIFT PIT PLAN AT FDN",
+      "kind": "TEXT",
+      "raw": "FRONT WALL SW1 250 THK, PIT FLOOR TO GF",
+      "plain": [
+        "FRONT WALL SW1 250 THK, PIT FLOOR TO GF"
+      ],
+      "family": "plain",
+      "fact": {
+        "member": "SW1-C@FDN",
+        "field": "t",
+        "value": "250"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "255F"
+    },
+    {
+      "sheet": "S-23",
+      "view": "LIFT PIT PLAN AT FDN",
+      "kind": "TEXT",
+      "raw": "(BELOW THE LIFT DOOR)",
+      "plain": [
+        "(BELOW THE LIFT DOOR)"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "2560"
+    },
+    {
+      "sheet": "S-23",
+      "view": "LIFT PIT PLAN AT FDN",
+      "kind": "TEXT",
+      "raw": "AT FDN SW1 L=2688/2688/2493/2493",
+      "plain": [
+        "AT FDN SW1 L=2688/2688/2493/2493"
+      ],
+      "family": "plain",
+      "fact": {
+        "member": "SW1-3@FDN",
+        "field": "length",
+        "value": "2688.4"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "2561"
+    },
+    {
+      "sheet": "S-23",
+      "view": "LIFT PIT PLAN AT FDN",
+      "kind": "TEXT",
+      "raw": "LIFT DOOR ABOVE (GF)",
+      "plain": [
+        "LIFT DOOR ABOVE (GF)"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "2562"
     },
     {
       "sheet": "S-24",
@@ -43648,6 +50343,48 @@
     },
     {
       "sheet": "S-24",
+      "view": "paper",
+      "kind": "TEXT",
+      "raw": "OHWT PLAN  SCALE 1:50",
+      "plain": [
+        "OHWT PLAN  SCALE 1:50"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-SHEET",
+      "handle": "26D7"
+    },
+    {
+      "sheet": "S-24",
+      "view": "paper",
+      "kind": "TEXT",
+      "raw": "UGWR PLAN  SCALE 1:50",
+      "plain": [
+        "UGWR PLAN  SCALE 1:50"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-SHEET",
+      "handle": "26D8"
+    },
+    {
+      "sheet": "S-24",
+      "view": "paper",
+      "kind": "TEXT",
+      "raw": "SEPTIC TANK PLAN  SCALE 1:50",
+      "plain": [
+        "SEPTIC TANK PLAN  SCALE 1:50"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-SHEET",
+      "handle": "26D9"
+    },
+    {
+      "sheet": "S-24",
       "view": "OVERHEAD WATER TANK",
       "kind": "TEXT",
       "raw": "OVERHEAD WATER TANK",
@@ -43908,6 +50645,452 @@
       "handle": "1D2A"
     },
     {
+      "sheet": "S-24",
+      "view": "OHWT PLAN",
+      "kind": "TEXT",
+      "raw": "MH 600x600",
+      "plain": [
+        "MH 600x600"
+      ],
+      "family": "plain",
+      "fact": {
+        "authored": "600.0"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "2597"
+    },
+    {
+      "sheet": "S-24",
+      "view": "OHWT PLAN",
+      "kind": "TEXT",
+      "raw": "ALL SIZES ARE CLEAR INSIDE",
+      "plain": [
+        "ALL SIZES ARE CLEAR INSIDE"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "25D6"
+    },
+    {
+      "sheet": "S-24",
+      "view": "OHWT PLAN",
+      "kind": "TEXT",
+      "raw": "WALL 150 THK",
+      "plain": [
+        "WALL 150 THK"
+      ],
+      "family": "plain",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "25D7"
+    },
+    {
+      "sheet": "S-24",
+      "view": "OHWT PLAN",
+      "kind": "TEXT",
+      "raw": "12%%C @ 125 B/W T&B (BASE)",
+      "plain": [
+        "12Ø @ 125 B/W T&B (BASE)"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "25D8"
+    },
+    {
+      "sheet": "S-24",
+      "view": "OHWT PLAN",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150 B/W (TOP SLAB)",
+      "plain": [
+        "10Ø @ 150 B/W (TOP SLAB)"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "25D9"
+    },
+    {
+      "sheet": "S-24",
+      "view": "OHWT PLAN",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150 E.F. BOTH WAYS (WALLS)",
+      "plain": [
+        "10Ø @ 150 E.F. BOTH WAYS (WALLS)"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "25DA"
+    },
+    {
+      "sheet": "S-24",
+      "view": "OHWT PLAN",
+      "kind": "TEXT",
+      "raw": "BASE ON THE STAIR ROOF AT",
+      "plain": [
+        "BASE ON THE STAIR ROOF AT"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "25DB"
+    },
+    {
+      "sheet": "S-24",
+      "view": "OHWT PLAN",
+      "kind": "TEXT",
+      "raw": "EL +80'-0\"",
+      "plain": [
+        "EL +80'-0\""
+      ],
+      "family": "level",
+      "fact": {
+        "authored": "24384.0"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "25DC"
+    },
+    {
+      "sheet": "S-24",
+      "view": "OHWT PLAN",
+      "kind": "TEXT",
+      "raw": "OUTER CORNER AT GRID 2 / GRID C",
+      "plain": [
+        "OUTER CORNER AT GRID 2 / GRID C"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "25DD"
+    },
+    {
+      "sheet": "S-24",
+      "view": "UGWR PLAN",
+      "kind": "TEXT",
+      "raw": "MH 600x600",
+      "plain": [
+        "MH 600x600"
+      ],
+      "family": "plain",
+      "fact": {
+        "authored": "600.0"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "25E5"
+    },
+    {
+      "sheet": "S-24",
+      "view": "UGWR PLAN",
+      "kind": "TEXT",
+      "raw": "MH 600x600",
+      "plain": [
+        "MH 600x600"
+      ],
+      "family": "plain",
+      "fact": {
+        "authored": "600.0"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "25EA"
+    },
+    {
+      "sheet": "S-24",
+      "view": "UGWR PLAN",
+      "kind": "TEXT",
+      "raw": "ALL SIZES ARE CLEAR INSIDE",
+      "plain": [
+        "ALL SIZES ARE CLEAR INSIDE"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": "T-TANK-CLEAR",
+      "layer": "S-TEXT2",
+      "handle": "2629"
+    },
+    {
+      "sheet": "S-24",
+      "view": "UGWR PLAN",
+      "kind": "TEXT",
+      "raw": "WALL 200 THK",
+      "plain": [
+        "WALL 200 THK"
+      ],
+      "family": "plain",
+      "fact": {
+        "authored": "200"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "262A"
+    },
+    {
+      "sheet": "S-24",
+      "view": "UGWR PLAN",
+      "kind": "TEXT",
+      "raw": "16%%C @ 150 B/W T&B (BASE)",
+      "plain": [
+        "16Ø @ 150 B/W T&B (BASE)"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "262B"
+    },
+    {
+      "sheet": "S-24",
+      "view": "UGWR PLAN",
+      "kind": "TEXT",
+      "raw": "12%%C @ 150 B/W (TOP SLAB)",
+      "plain": [
+        "12Ø @ 150 B/W (TOP SLAB)"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "262C"
+    },
+    {
+      "sheet": "S-24",
+      "view": "UGWR PLAN",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150 E.F. BOTH WAYS (WALLS)",
+      "plain": [
+        "10Ø @ 150 E.F. BOTH WAYS (WALLS)"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "262D"
+    },
+    {
+      "sheet": "S-24",
+      "view": "UGWR PLAN",
+      "kind": "TEXT",
+      "raw": "UNDERSIDE OF BASE AT",
+      "plain": [
+        "UNDERSIDE OF BASE AT"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "262E"
+    },
+    {
+      "sheet": "S-24",
+      "view": "UGWR PLAN",
+      "kind": "TEXT",
+      "raw": "EL -9'-0\"",
+      "plain": [
+        "EL -9'-0\""
+      ],
+      "family": "level",
+      "fact": {
+        "authored": "-2743.2"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "262F"
+    },
+    {
+      "sheet": "S-24",
+      "view": "UGWR PLAN",
+      "kind": "TEXT",
+      "raw": "OUTER CORNER AT GRID 2, 25'-0\" SOUTH OF GRID A",
+      "plain": [
+        "OUTER CORNER AT GRID 2, 25'-0\" SOUTH OF GRID A"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "2630"
+    },
+    {
+      "sheet": "S-24",
+      "view": "SEPTIC TANK PLAN",
+      "kind": "TEXT",
+      "raw": "MH 600x600",
+      "plain": [
+        "MH 600x600"
+      ],
+      "family": "plain",
+      "fact": {
+        "authored": "600.0"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "2639"
+    },
+    {
+      "sheet": "S-24",
+      "view": "SEPTIC TANK PLAN",
+      "kind": "TEXT",
+      "raw": "MH 600x600",
+      "plain": [
+        "MH 600x600"
+      ],
+      "family": "plain",
+      "fact": {
+        "authored": "600.0"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "263E"
+    },
+    {
+      "sheet": "S-24",
+      "view": "SEPTIC TANK PLAN",
+      "kind": "TEXT",
+      "raw": "ALL SIZES ARE CLEAR INSIDE",
+      "plain": [
+        "ALL SIZES ARE CLEAR INSIDE"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "267D"
+    },
+    {
+      "sheet": "S-24",
+      "view": "SEPTIC TANK PLAN",
+      "kind": "TEXT",
+      "raw": "WALL 200 THK",
+      "plain": [
+        "WALL 200 THK"
+      ],
+      "family": "plain",
+      "fact": {
+        "authored": "200"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "267E"
+    },
+    {
+      "sheet": "S-24",
+      "view": "SEPTIC TANK PLAN",
+      "kind": "TEXT",
+      "raw": "12%%C @ 125 B/W T&B (BASE)",
+      "plain": [
+        "12Ø @ 125 B/W T&B (BASE)"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "125"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "267F"
+    },
+    {
+      "sheet": "S-24",
+      "view": "SEPTIC TANK PLAN",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150 B/W (TOP SLAB)",
+      "plain": [
+        "10Ø @ 150 B/W (TOP SLAB)"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "2680"
+    },
+    {
+      "sheet": "S-24",
+      "view": "SEPTIC TANK PLAN",
+      "kind": "TEXT",
+      "raw": "10%%C @ 150 E.F. BOTH WAYS (WALLS)",
+      "plain": [
+        "10Ø @ 150 E.F. BOTH WAYS (WALLS)"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "2681"
+    },
+    {
+      "sheet": "S-24",
+      "view": "SEPTIC TANK PLAN",
+      "kind": "TEXT",
+      "raw": "UNDERSIDE OF BASE AT",
+      "plain": [
+        "UNDERSIDE OF BASE AT"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "2682"
+    },
+    {
+      "sheet": "S-24",
+      "view": "SEPTIC TANK PLAN",
+      "kind": "TEXT",
+      "raw": "EL -8'-0\"",
+      "plain": [
+        "EL -8'-0\""
+      ],
+      "family": "level",
+      "fact": {
+        "authored": "-2438.4"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "2683"
+    },
+    {
+      "sheet": "S-24",
+      "view": "SEPTIC TANK PLAN",
+      "kind": "TEXT",
+      "raw": "OUTER CORNER AT 50'-0\" FROM GRID 1, 25'-0\" SOUTH OF GRID A",
+      "plain": [
+        "OUTER CORNER AT 50'-0\" FROM GRID 1, 25'-0\" SOUTH OF GRID A"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "2684"
+    },
+    {
       "sheet": "S-25",
       "view": "paper",
       "kind": "ATTRIB",
@@ -44152,6 +51335,34 @@
       "trap": null,
       "layer": "S-SHEET",
       "handle": "2285"
+    },
+    {
+      "sheet": "S-25",
+      "view": "paper",
+      "kind": "TEXT",
+      "raw": "LINTEL NOTES",
+      "plain": [
+        "LINTEL NOTES"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-SHEET",
+      "handle": "26DD"
+    },
+    {
+      "sheet": "S-25",
+      "view": "paper",
+      "kind": "TEXT",
+      "raw": "LS1 SUNSHADE DETAIL  SCALE 1:20",
+      "plain": [
+        "LS1 SUNSHADE DETAIL  SCALE 1:20"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-SHEET",
+      "handle": "26DE"
     },
     {
       "sheet": "S-25",
@@ -44467,9 +51678,7 @@
       ],
       "family": "plain",
       "fact": {
-        "member": "BW250@1F",
-        "field": "t",
-        "value": "250"
+        "authored": "250"
       },
       "trap": null,
       "layer": "S-TEXT",
@@ -44499,9 +51708,7 @@
       ],
       "family": "plain",
       "fact": {
-        "member": "BW125@1F",
-        "field": "t",
-        "value": "125"
+        "authored": "125"
       },
       "trap": null,
       "layer": "S-TEXT",
@@ -44675,7 +51882,7 @@
       ],
       "family": "level",
       "fact": {
-        "authored": "-152.4"
+        "authored": "-457.2"
       },
       "trap": null,
       "layer": "S-TEXT",
@@ -44726,6 +51933,176 @@
       "trap": null,
       "layer": "S-TEXT",
       "handle": "1D96"
+    },
+    {
+      "sheet": "S-25",
+      "view": "LINTEL NOTES",
+      "kind": "TEXT",
+      "raw": "LINTELS AT 1ST TO 6TH FLOOR; BEARING 300 EACH SIDE",
+      "plain": [
+        "LINTELS AT 1ST TO 6TH FLOOR; BEARING 300 EACH SIDE"
+      ],
+      "family": "plain",
+      "fact": {
+        "authored": "300.0"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "2685"
+    },
+    {
+      "sheet": "S-25",
+      "view": "LINTEL NOTES",
+      "kind": "TEXT",
+      "raw": "L1 OVER W1, LS1 OVER W2, L2 OVER D1, FD1 & SD1 - IN 250 WALLS ONLY",
+      "plain": [
+        "L1 OVER W1, LS1 OVER W2, L2 OVER D1, FD1 & SD1 - IN 250 WALLS ONLY"
+      ],
+      "family": "plain",
+      "fact": {
+        "authored": "250"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "2686"
+    },
+    {
+      "sheet": "S-25",
+      "view": "LINTEL NOTES",
+      "kind": "TEXT",
+      "raw": "(SEE THE ARCHITECTURAL DOOR & WINDOW SCHEDULE)",
+      "plain": [
+        "(SEE THE ARCHITECTURAL DOOR & WINDOW SCHEDULE)"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "2687"
+    },
+    {
+      "sheet": "S-25",
+      "view": "LINTEL NOTES",
+      "kind": "TEXT",
+      "raw": "NOS PER FLOOR ARE INDICATIVE; THE ARCHITECTURAL SCHEDULE GOVERNS",
+      "plain": [
+        "NOS PER FLOOR ARE INDICATIVE; THE ARCHITECTURAL SCHEDULE GOVERNS"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": "T-LINTEL-NOS-FLOORS",
+      "layer": "S-TEXT2",
+      "handle": "2688"
+    },
+    {
+      "sheet": "S-25",
+      "view": "LINTEL NOTES",
+      "kind": "TEXT",
+      "raw": "BRICK WALLS: SEE THE ARCHITECTURAL DRAWINGS",
+      "plain": [
+        "BRICK WALLS: SEE THE ARCHITECTURAL DRAWINGS"
+      ],
+      "family": "plain",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "2689"
+    },
+    {
+      "sheet": "S-25",
+      "view": "LS1 SUNSHADE DETAIL",
+      "kind": "TEXT",
+      "raw": "LS1",
+      "plain": [
+        "LS1"
+      ],
+      "family": "mark",
+      "fact": null,
+      "trap": null,
+      "layer": "S-TEXT",
+      "handle": "26C1"
+    },
+    {
+      "sheet": "S-25",
+      "view": "LS1 SUNSHADE DETAIL",
+      "kind": "TEXT",
+      "raw": "250x200",
+      "plain": [
+        "250x200"
+      ],
+      "family": "section",
+      "fact": {
+        "member": "LS1@1F",
+        "field": "b",
+        "value": "250"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "26C2"
+    },
+    {
+      "sheet": "S-25",
+      "view": "LS1 SUNSHADE DETAIL",
+      "kind": "TEXT",
+      "raw": "2-12%%C T&B",
+      "plain": [
+        "2-12Ø T&B"
+      ],
+      "family": "bar_call",
+      "fact": {
+        "authored": "12"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "26C3"
+    },
+    {
+      "sheet": "S-25",
+      "view": "LS1 SUNSHADE DETAIL",
+      "kind": "TEXT",
+      "raw": "8%%C @ 150 STIRRUPS",
+      "plain": [
+        "8Ø @ 150 STIRRUPS"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "26C4"
+    },
+    {
+      "sheet": "S-25",
+      "view": "LS1 SUNSHADE DETAIL",
+      "kind": "TEXT",
+      "raw": "8%%C @ 150 (SUNSHADE MAIN)",
+      "plain": [
+        "8Ø @ 150 (SUNSHADE MAIN)"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "150"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "26C5"
+    },
+    {
+      "sheet": "S-25",
+      "view": "LS1 SUNSHADE DETAIL",
+      "kind": "TEXT",
+      "raw": "8%%C @ 200 DIST. (SUNSHADE)",
+      "plain": [
+        "8Ø @ 200 DIST. (SUNSHADE)"
+      ],
+      "family": "diameter",
+      "fact": {
+        "authored": "200"
+      },
+      "trap": null,
+      "layer": "S-TEXT2",
+      "handle": "26C6"
     },
     {
       "sheet": "S-26",
@@ -45133,9 +52510,9 @@
       "sheet": "S-26",
       "view": "BAR BENDING SCHEDULE",
       "kind": "TEXT",
-      "raw": "A=192.000/B=1850.000/C=192.000",
+      "raw": "A=192.000/B=1898.400/C=192.000",
       "plain": [
-        "A=192.000/B=1850.000/C=192.000"
+        "A=192.000/B=1898.400/C=192.000"
       ],
       "family": "plain",
       "fact": null,
@@ -45147,13 +52524,13 @@
       "sheet": "S-26",
       "view": "BAR BENDING SCHEDULE",
       "kind": "TEXT",
-      "raw": "2175",
+      "raw": "2225",
       "plain": [
-        "2175"
+        "2225"
       ],
       "family": "number",
       "fact": {
-        "authored": "2175"
+        "authored": "2225"
       },
       "trap": null,
       "layer": "S-TEXT",
@@ -45163,9 +52540,9 @@
       "sheet": "S-26",
       "view": "BAR BENDING SCHEDULE",
       "kind": "TEXT",
-      "raw": "15",
+      "raw": "16",
       "plain": [
-        "15"
+        "16"
       ],
       "family": "number",
       "fact": null,
@@ -45177,13 +52554,13 @@
       "sheet": "S-26",
       "view": "BAR BENDING SCHEDULE",
       "kind": "TEXT",
-      "raw": "51.396",
+      "raw": "56.046",
       "plain": [
-        "51.396"
+        "56.046"
       ],
       "family": "number",
       "fact": {
-        "authored": "51.396"
+        "authored": "56.046"
       },
       "trap": null,
       "layer": "S-TEXT",
@@ -45251,9 +52628,9 @@
       "sheet": "S-26",
       "view": "BAR BENDING SCHEDULE",
       "kind": "TEXT",
-      "raw": "A=192.000/B=1850.000/C=192.000",
+      "raw": "A=192.000/B=1898.400/C=192.000",
       "plain": [
-        "A=192.000/B=1850.000/C=192.000"
+        "A=192.000/B=1898.400/C=192.000"
       ],
       "family": "plain",
       "fact": null,
@@ -45265,13 +52642,13 @@
       "sheet": "S-26",
       "view": "BAR BENDING SCHEDULE",
       "kind": "TEXT",
-      "raw": "2175",
+      "raw": "2225",
       "plain": [
-        "2175"
+        "2225"
       ],
       "family": "number",
       "fact": {
-        "authored": "2175"
+        "authored": "2225"
       },
       "trap": null,
       "layer": "S-TEXT",
@@ -45281,9 +52658,9 @@
       "sheet": "S-26",
       "view": "BAR BENDING SCHEDULE",
       "kind": "TEXT",
-      "raw": "15",
+      "raw": "16",
       "plain": [
-        "15"
+        "16"
       ],
       "family": "number",
       "fact": null,
@@ -45295,13 +52672,13 @@
       "sheet": "S-26",
       "view": "BAR BENDING SCHEDULE",
       "kind": "TEXT",
-      "raw": "51.396",
+      "raw": "56.046",
       "plain": [
-        "51.396"
+        "56.046"
       ],
       "family": "number",
       "fact": {
-        "authored": "51.396"
+        "authored": "56.046"
       },
       "trap": null,
       "layer": "S-TEXT",
@@ -45369,9 +52746,9 @@
       "sheet": "S-26",
       "view": "BAR BENDING SCHEDULE",
       "kind": "TEXT",
-      "raw": "A=144.000/B=1850.000/C=144.000",
+      "raw": "A=144.000/B=1898.400/C=144.000",
       "plain": [
-        "A=144.000/B=1850.000/C=144.000"
+        "A=144.000/B=1898.400/C=144.000"
       ],
       "family": "plain",
       "fact": null,
@@ -45383,13 +52760,13 @@
       "sheet": "S-26",
       "view": "BAR BENDING SCHEDULE",
       "kind": "TEXT",
-      "raw": "2100",
+      "raw": "2150",
       "plain": [
-        "2100"
+        "2150"
       ],
       "family": "number",
       "fact": {
-        "authored": "2100"
+        "authored": "2150"
       },
       "trap": null,
       "layer": "S-TEXT",
@@ -45413,13 +52790,13 @@
       "sheet": "S-26",
       "view": "BAR BENDING SCHEDULE",
       "kind": "TEXT",
-      "raw": "18.559",
+      "raw": "18.989",
       "plain": [
-        "18.559"
+        "18.989"
       ],
       "family": "number",
       "fact": {
-        "authored": "18.559"
+        "authored": "18.989"
       },
       "trap": null,
       "layer": "S-TEXT",
@@ -45487,9 +52864,9 @@
       "sheet": "S-26",
       "view": "BAR BENDING SCHEDULE",
       "kind": "TEXT",
-      "raw": "A=144.000/B=1850.000/C=144.000",
+      "raw": "A=144.000/B=1898.400/C=144.000",
       "plain": [
-        "A=144.000/B=1850.000/C=144.000"
+        "A=144.000/B=1898.400/C=144.000"
       ],
       "family": "plain",
       "fact": null,
@@ -45501,13 +52878,13 @@
       "sheet": "S-26",
       "view": "BAR BENDING SCHEDULE",
       "kind": "TEXT",
-      "raw": "2100",
+      "raw": "2150",
       "plain": [
-        "2100"
+        "2150"
       ],
       "family": "number",
       "fact": {
-        "authored": "2100"
+        "authored": "2150"
       },
       "trap": null,
       "layer": "S-TEXT",
@@ -45531,13 +52908,13 @@
       "sheet": "S-26",
       "view": "BAR BENDING SCHEDULE",
       "kind": "TEXT",
-      "raw": "18.559",
+      "raw": "18.989",
       "plain": [
-        "18.559"
+        "18.989"
       ],
       "family": "number",
       "fact": {
-        "authored": "18.559"
+        "authored": "18.989"
       },
       "trap": null,
       "layer": "S-TEXT",
@@ -45605,9 +52982,9 @@
       "sheet": "S-26",
       "view": "BAR BENDING SCHEDULE",
       "kind": "TEXT",
-      "raw": "A=7400.000",
+      "raw": "A=7593.600",
       "plain": [
-        "A=7400.000"
+        "A=7593.600"
       ],
       "family": "plain",
       "fact": null,
@@ -45619,13 +52996,13 @@
       "sheet": "S-26",
       "view": "BAR BENDING SCHEDULE",
       "kind": "TEXT",
-      "raw": "7400",
+      "raw": "7600",
       "plain": [
-        "7400"
+        "7600"
       ],
       "family": "number",
       "fact": {
-        "authored": "7400"
+        "authored": "7600"
       },
       "trap": null,
       "layer": "S-TEXT",
@@ -45649,13 +53026,13 @@
       "sheet": "S-26",
       "view": "BAR BENDING SCHEDULE",
       "kind": "TEXT",
-      "raw": "19.714",
+      "raw": "20.229",
       "plain": [
-        "19.714"
+        "20.229"
       ],
       "family": "number",
       "fact": {
-        "authored": "19.714"
+        "authored": "20.229"
       },
       "trap": null,
       "layer": "S-TEXT",
@@ -47005,13 +54382,13 @@
       "sheet": "S-26",
       "view": "BAR BENDING SCHEDULE",
       "kind": "TEXT",
-      "raw": "490.081",
+      "raw": "500.938",
       "plain": [
-        "490.081"
+        "500.938"
       ],
       "family": "number",
       "fact": {
-        "authored": "481.889"
+        "authored": "492.564"
       },
       "trap": "T-BBS-TOTAL",
       "layer": "S-TEXT",

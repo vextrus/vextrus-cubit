@@ -1,7 +1,7 @@
 {
   "fixture": "F-RCC6-BNBC",
   "facts": {
-    "egl_mm": "-152.4",
+    "egl_mm": "-457.2",
     "working_allowance_mm": "457.2",
     "depth_extra_mm": "152.4",
     "blinding_projection_mm": "76.2",
