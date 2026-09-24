@@ -18,7 +18,7 @@
  *   · I-460 — the beams running up the sheet are lettered ON their own axes, turned along them
  *     (T-TEXT-ROTATED). EntityGraph v3 states each text's world rotation (I-415), and a mark turned to
  *     run along the one pair it stands on names that pair: S-14 +27 (B25–B46, CB1–4, LB1), S-13 +27
- *     (1B23–1B44, 1CB1–4, LB1), S-15 +22 (RB25–RB46). TG1, lettered `D74` at 0° inside its own pair
+ *     (1B23–1B44, 1CB1–4, LB1), S-15 +23 (RB25–RB46, and Rev C's LB1). TG1, lettered `D74` at 0° inside its own pair
  *     and `D75` turned across it, stays unplaced. Every clear is graded against the golden model's own
  *     clear: none is over, and each under is recorded for FRM-4 (I-344's list, re-graded).
  *   · No beam line can be COMPLETE: no beam layout states a slab thickness, and a run binds `t` only
@@ -51,11 +51,15 @@ const DECLARATION = "DXF_HANDLE:1F3E";
  *
  * TEST_AMENDED (FRM-3, I-460): 25, 23 and 24 before EntityGraph v3 stated a text's rotation —
  * exactly the beside-named counts below, which do not move.
+ *
+ * TEST_AMENDED (R0 Rev C, K6 / W-23): the seventh LB1 — `LB1@6F`, filed at the ROOF layout that draws
+ * it — is Rev C's, drawn on S-15's roof layout on its own pair (`233C`) and lettered turned along it:
+ * 10C1 places 47 (was 46), the one more a turned mark names, and its clear is the model's own.
  */
 const LAYOUTS = Object.freeze([
   { view: "F31", level: "2F", placed: 52, beside: 25 },
   { view: "2116", level: "1F", placed: 50, beside: 23 },
-  { view: "10C1", level: "ROOF", placed: 46, beside: 24 },
+  { view: "10C1", level: "ROOF", placed: 47, beside: 24 },
 ] as const);
 
 /** The members each layout letters on their own axes, turned along them — the golden's vertical beams, cantilevers and landing beam. */
@@ -63,7 +67,7 @@ const numberedFrom = (prefix: string, from: number, to: number): string[] => Arr
 const TURNED: Readonly<Record<string, readonly string[]>> = Object.freeze({
   F31: [...numberedFrom("B", 25, 46), ...numberedFrom("CB", 1, 4), "LB1"],
   "2116": [...numberedFrom("1B", 23, 44), ...numberedFrom("1CB", 1, 4), "LB1"],
-  "10C1": numberedFrom("RB", 25, 46),
+  "10C1": [...numberedFrom("RB", 25, 46), "LB1"],
 });
 
 /**
