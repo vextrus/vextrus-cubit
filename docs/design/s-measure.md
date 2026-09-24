@@ -714,12 +714,15 @@ Deviation in `docs/decisions/deviations.md` in the same commit (CLAUDE.md, Law).
     cannot tell a drawn blinding outline from any other ring, so today this is the QS's reading,
     made checkable by the cited entity. A guard that holds a blinding ring inside its member's ring
     plus p is owed (§14).
-  - S-08 is that case. LINEs 824–827 (note 828, "75 THK BLINDING UNDER (EXPLODED OUTLINE)") draw a
-    plain rectangle, the SOG's bounding box plus 75 mm on every side. The SOG itself (POLYLINE 81D) is
-    a pentagon with a 45° chamfer. So the rectangle takes in 9.504 m² outside the slab, 4.091 m² of it
-    at the chamfered corner beyond even a 75 mm projection: about 0.307 m³ of blinding with no slab
-    above it. J-000 traces 81D, not the rectangle (I-393), and the disagreement is put to the
-    qs-critic (I-393 Q(4)).
+  - S-08 was that case in Rev B, and Rev C draws the blinding on its member (F-RCC6-BNBC's D-BLIND,
+    `fixtures/gen/rcc6_bnbc/DECISIONS.md` W-40). Rev B's LINEs 824–827 drew a plain rectangle, the
+    SOG's bounding box plus 75 mm on every side, around a pentagon with a 45° chamfer (POLYLINE 81D):
+    9.504 m² outside the slab, 4.091 m² of it beyond even a 75 mm projection. Rev C moves the four
+    LINEs onto the slab's four square edges, draws the chamfer as a fifth LINE (2309), and note 828
+    reads "75 THK BLINDING UNDER SLAB ON GRADE & RAMP (EXPLODED OUTLINE)". The drawn outline now closes
+    on 81D's own five points and takes in nothing outside the slab. J-000 traces 81D (I-393), which is
+    now the drawn blinding outline too. The reading above still governs any set whose blinding outline
+    does not follow its member.
   - If the refuter rejects this reading, Deviation **D-005** (text in §11) is entered in
     `docs/decisions/deviations.md` in the same commit, before S2 mints the method.
 
@@ -729,10 +732,13 @@ Deviation in `docs/decisions/deviations.md` in the same commit (CLAUDE.md, Law).
   otherwise it is a hard block. The blinding under a slab is borne by the slab (`bears.ts`) and
   follows the slab's plan.
   - A column stub stands through the blinding course: it is cast before the course is laid. L-MEA-09
-    deducts a column's plan whole, whatever its size. The yardstick's authoring model deducts
-    5.956875 m² under SOG@GF (`model.py` `deduct_columns`, instrumented this session): 4.051875 m²
-    of 25 FDN column plans clipped to the SOG's bounding box, plus 1.905 m² of the three FDN core
-    walls SW1-3, SW1-4 and SW1-D.
+    deducts a column's plan whole, whatever its size. At Rev B the yardstick's authoring model
+    deducted 5.956875 m² under SOG@GF (`model.py` `deduct_columns`, instrumented in session 8):
+    4.051875 m² of 25 FDN column plans clipped to the SOG's bounding box, plus 1.905 m² of the three
+    FDN core walls SW1-3, SW1-4 and SW1-D. Since R0's K21 (W-33) it deducts only what stands on the
+    slab's net plan: 3.961875 m², the 25 columns less A4's and A5's parts inside the ramp hole
+    (0.09 m², which RAMP@GF deducts on its own plan), and no core wall, because all four FDN legs
+    (K22 adds SW1-C) stand inside the lift-pit hole.
   - **Which storey's members pass through a slab at level L:** the storey whose top is L, as the
     yardstick reads it (`STOREY_TOP`). At GF that is the FDN storey's columns, which run from the cap
     to GF. A register object at level L spans L to the level above; it stands on the slab, not
@@ -846,27 +852,25 @@ Deviation in `docs/decisions/deviations.md` in the same commit (CLAUDE.md, Law).
   the column deduction applies.** This is PROVISIONAL until the `qs-critic` rules. S6 asserts no
   COMPLETE figure before that ruling and I-389 both stand, and the ruling is recorded in §12.
   - **The ring** is the SOG's own outline, POLYLINE 81D on layer Slab: five points, endpoint snaps.
-    The lift pit, LWPOLYLINE 830, is its Opening cut-out. The ring is not the drawn blinding
-    rectangle, LINEs 824–827.
-  - **S-08's two outlines disagree, and the disagreement is declared here (L-REG-03).** S-08 draws the
+    The lift pit, LWPOLYLINE 830, is its Opening cut-out. Since Rev C the ring is also S-08's drawn
+    blinding outline, LINEs 824, 825, 826, 2309 and 827.
+  - **S-08's two outlines disagreed in Rev B; Rev C draws them as one (L-REG-03).** Rev B drew the
     blinding's scope twice:
     - 81D is a pentagon with a 45° chamfer from (2691.423304703363, −384025.4) to
       (−125, −386841.82330470334);
-    - 824–827 is a plain rectangle: 81D's bounding box plus 75 mm on every side.
-    - The rectangle takes in 9.504 m² outside the slab. Of that, 4.091 m² lies at the chamfered
-      corner beyond even a 75 mm projection: about 0.307 m³ of blinding with no slab above it. The
-      rest is the 75 mm band that the yardstick leaves out under a slab on grade (p = 0, I-388).
-    - Traced with the columns' whole plans deducted, the rectangle comes to about 24.41 m³: 0.79 m³
-      (3.4 %) over the golden's 23.615. That is over-measurement, a hard block (L-QTY-04), never a
-      disclosure. So the leg traces 81D, which is under by at most the projection, and puts the
-      rectangle to the qs-critic as Q(4).
-  - **A fixture defect, for the fixture's owner.** The generator's comment says the slab and its
-    blinding are "the same shape drawn three ways"
-    (`fixtures/gen/rcc6_bnbc/emit/sheets/found.py:229-230`). They are not: its next lines draw the
-    blinding as the bounding box plus 75 mm, which does not follow the chamfer. Either the comment
-    or the drawing is wrong. F-RCC6-BNBC is guarded and a regenerated fixture is its own `baseline:`
-    commit, so this Decision changes neither. It builds on 81D, which is the outline the yardstick
-    reads too (SOG@GF's `poly` in `model.json`; §12, risks).
+    - Rev B's 824–827 was a plain rectangle: 81D's bounding box plus 75 mm on every side. It took in
+      9.504 m² outside the slab, 4.091 m² of it at the chamfered corner beyond even a 75 mm
+      projection. Traced with the columns' whole plans deducted, it came to about 24.41 m³, 0.79 m³
+      (3.4 %) over the golden's then 23.615: over-measurement, a hard block (L-QTY-04). So the leg
+      traced 81D, and the rectangle went to the qs-critic as Q(4).
+    - Rev C (D-BLIND, W-40) moves 824–827 onto the slab's four square edges and adds the chamfer's
+      LINE 2309. The five LINEs close on 81D's own points, and the outline takes in 0 mm² outside the
+      slab. The drawing now answers Q(4), and the conclusion holds: the ring is 81D, whichever of the
+      two coincident outlines the QS snaps to.
+  - **The fixture defect this Decision recorded is corrected.** The generator's comment said the slab
+    and its blinding are "the same shape drawn three ways", and its next lines drew the bounding box
+    plus 75 mm. R0's D-BLIND made the drawing follow the comment, in the Rev C `baseline:` commit
+    (7cd0ead3). The ring is 81D, the outline the yardstick reads too (SOG@GF's `poly` in `model.json`).
   - **The slice's rule, and how this item meets it.** The item must carry "no undrawn deduction".
     Read strictly, S-08 alone fails it: S-08 does not draw the FDN columns the blinding is laid
     around. The columns are drawn on S-10, sized on S-11 and registered (26 FDN column objects in the
@@ -925,32 +929,31 @@ Deviation in `docs/decisions/deviations.md` in the same commit (CLAUDE.md, Law).
     | J-000 ring reading | Value | Source |
     |---|---|---|
     | slab outline 81D, mm² | 328838371.24436192623624929233379 | the shoelace of its five vertices' decimal spellings in the DXF |
-    | blinding rectangle 824–827, mm² | 338342671.36 | the four LINEs |
-    | rectangle outside the slab, mm² | 9504300.11563807376375070766621 | the difference |
+    | blinding outline 824–827 and 2309, mm² | 328838371.24436192623624929233379 | the five LINEs (Rev C, D-BLIND) |
+    | blinding outline outside the slab, mm² | 0 | the difference |
     | lift pit 830, mm² | 8046918.88 | the LWPOLYLINE |
     | FDN columns meeting the ring | 25 | `model.json`; C7, the porch column, outside |
     | their plans clipped to the ring, mm² | 4051875 | `model.json` |
     | of those columns, straddling the slab's edge | 17 | `model.json`: the perimeter columns |
-    | FDN core walls inside the pit, mm² | 1905000 | `model.json`: SW1-3, SW1-4, SW1-D |
-    | the yardstick's deduction under SOG@GF, mm² | 5956875 | `model.json`, `col_deduct` |
+    | FDN core walls inside the pit, mm² | 2590800 | `model.json`: SW1-3, SW1-4, SW1-D and K22's SW1-C |
+    | the yardstick's deduction under SOG@GF, mm² | 3961875 | `model.json`, `col_deduct`: the columns less their parts in the ramp hole (K21) |
     | the yardstick's deduction under RAMP@GF, mm² | 90000 | `model.json`: A4 and A5 inside the ramp |
     | hand figure, m³ | 23.755468 | (81D − pit − columns) × 0.075, to 6 places |
-    | golden slab × blinding × GF, m³ | 23.615 | `takeoff.golden.json` |
+    | golden slab × blinding × GF, m³ | 23.765 | `takeoff.golden.json` (R0: 23.615 → 23.765, K21) |
 
     `tests/takeoff/manual/s-measure-decision.test.ts` recomputes every row from the committed DXF,
     `model.json` and the golden, so a moved fixture or a misread figure goes red here before a slice
     builds on it.
-  - **The hand figure against the golden: +0.140568 m³ (+0.60 %), and the golden owns most of it.**
-    - +0.142875 m³: the golden deducts the three FDN core walls (1.905 m²) inside the lift-pit hole it
-      has already deducted. SOG@GF's `col_deduct` includes SW1-3, SW1-4 and SW1-D, and all three lie
-      inside the LIFT_PIT hole. That is a double deduction, an R0 item on the golden's side.
-    - +0.00675 m³: the golden deducts the parts of A4 and A5 inside the ramp hole twice. It takes them
-      once in SOG@GF's `col_deduct`, which clips to the SOG's bounding box and ignores its holes, and
-      again in RAMP@GF's (0.09 m²). That is a second R0 item on the golden's side.
+  - **The hand figure against the golden: −0.009532 m³ (−0.04 %), under, the lawful direction.**
+    - At Rev B the hand figure stood +0.140568 m³ over the golden's 23.615, and the golden owned most
+      of it: SOG@GF's `col_deduct` took the three FDN core walls (1.905 m², 0.142875 m³) inside the
+      lift-pit hole it had already deducted, and A4's and A5's parts inside the ramp hole a second
+      time beside RAMP@GF's (0.09 m², 0.00675 m³). R0's K21 (W-33) deducts each member only from the
+      plan it stands on, and the golden now reads 23.765. Both R0 items are closed.
     - −0.009057 m³: the hand line measures the blinding under the 1:8 ramp on plan, where the golden
       takes the sloped area (Q(2)). That is under, the lawful direction.
-    - The difference is an informational row's disagreement, listed with R0 and never a band failure.
-      The R0 listing names the golden's two double deductions as its cause, not the hand figure.
+    - −0.000475 m³: the golden prints its row to three places (23.764525 → 23.765).
+    - The difference is an informational row's disagreement, never a band failure.
   - **Questions put to the qs-critic (§12):**
     - (1) Is the column deduction owed under the SOG blinding? (This file's reading: yes.)
     - (2) Is plan area right for the blinding under the 1:8 ramp (drawn, 82F), or is the line
@@ -958,13 +961,13 @@ Deviation in `docs/decisions/deviations.md` in the same commit (CLAUDE.md, Law).
       direction.)
     - (3) **Answered by the drawing, shown to the critic to contest.** Does the lift-pit outline 830
       include the core walls? It does. 830 runs 8714.2…11707.4 × 8714.2…11402.6 in model space, which
-      is CORE ± t_low / 2, the walls' outer face, and all three FDN walls lie inside it. Nothing more
-      is owed. The yardstick's wall deduction on top of the pit is the golden's double deduction
-      above.
-    - (4) S-08 draws the blinding's scope twice, and the two disagree at the chamfer. Is the slab's
-      own outline 81D the right ring (this file's reading: yes)? Or is it the rectangle 824–827 with
-      the chamfer corner cut, which would still take the 75 mm band that the yardstick leaves out
-      under a slab on grade?
+      is CORE ± t_low / 2, the walls' outer face, and all four FDN walls (K22 adds SW1-C on grid C)
+      lie inside it. Nothing more is owed. The yardstick no longer deducts them on top of the pit
+      (K21).
+    - (4) **Answered by the drawing since Rev C.** In Rev B S-08 drew the blinding's scope twice, and
+      the two disagreed at the chamfer: was the slab's own outline 81D the right ring (this file's
+      reading: yes), or the rectangle 824–827? Rev C's D-BLIND draws the blinding outline on 81D's
+      own edges, so the two are one ring.
 
 - **I-394 — Carrying a hand measurement across a re-pin is an IOU (L-REG-06).** A hand measurement's
   key names a view (a caption anchor's handle) and the drawing's coordinates, both inside one set
@@ -2070,8 +2073,8 @@ skips to the read-back.
    leg affirms two points first (SCALE-1).
 2. In the chest, find "75 CC blinding under SOG" (slab · blinding · t 75 mm) or author it.
 3. Press its digit (or A). Click the five vertices of POLYLINE 81D, the SOG's own outline (endpoint
-   snaps), and press Enter. Never the rectangle 824–827, which bills blinding outside the slab
-   (I-393).
+   snaps), and press Enter. Since Rev C the drawn blinding outline (824–827 and 2309) lies on the
+   same five edges; in Rev B it was a rectangle that billed blinding outside the slab (I-393).
 4. On the card, press X. Click the four corners of LWPOLYLINE 830 (the lift pit) and press Enter.
 5. The card re-previews and the leg reads it through `data-value`:
    - gross 328.83837124436192623624929233379 m² in `data-value` (exact; the row prints 328.8384),
@@ -2200,16 +2203,15 @@ Risks this Decision leaves the orchestrator:
   EntityGraph.
 - J-000's asserted residue roster (R0-1) must carry the slab × GF cells once S6 lands.
 - If I-389 is not built this session, J-000's manual leg asserts a named refusal, not a line (I-393).
-- **Two R0 items on the golden's side** (I-393). SOG@GF's column deduction takes the three FDN core
-  walls (1.905 m², 0.142875 m³) inside the lift-pit hole it has already deducted, and it takes A4's
-  and A5's parts inside the ramp hole a second time beside RAMP@GF's (0.09 m², 0.00675 m³). Both
-  make the golden's 23.615 m³ under. The R0 listing should carry them against the golden, not
-  against the hand figure (+0.140568 m³, +0.60 %).
-- **A fixture defect for F-RCC6-BNBC's owner**: `found.py:229-230` says the SOG and its blinding
-  are "the same shape drawn three ways", but the blinding LINEs 824–827 are the SOG's bounding box
-  plus 75 mm and do not follow the chamfer. Either the comment or the drawing is wrong. It is
-  recorded here and not fixed: F-RCC6 is guarded, and a regenerated fixture is its own `baseline:`
-  commit.
+- **Two R0 items on the golden's side** (I-393), **closed by R0's K21 (W-33).** SOG@GF's column
+  deduction took the three FDN core walls (1.905 m², 0.142875 m³) inside the lift-pit hole it had
+  already deducted, and A4's and A5's parts inside the ramp hole a second time beside RAMP@GF's
+  (0.09 m², 0.00675 m³). The golden now deducts each member only from the plan it stands on: 23.615
+  → 23.765 m³, and the hand figure stands 0.009532 m³ under it.
+- **A fixture defect for F-RCC6-BNBC's owner, closed by R0's D-BLIND (W-40)**: `found.py` said the
+  SOG and its blinding are "the same shape drawn three ways", but Rev B's blinding LINEs 824–827 were
+  the SOG's bounding box plus 75 mm. Rev C draws them on the slab's own edges, with the chamfer's
+  LINE 2309.
 - **The residue's no-join rule** (I-379) is S3's, and S7 offers no Delete or Edit on a hand
   measurement until it stands. S3's and S7's slice texts do not name it yet.
 - **Metres on a paper sheet (I-501).** The snapping region's distance cell multiplied paper
@@ -2518,3 +2520,14 @@ Risks this Decision leaves the orchestrator:
     its formula, calibration key and basis; the residue's cells; the machine arm refused; the no-join
     rule for hand and machine objects; the commit door's ask). The refuter's verdicts on I-586 …
     I-589 and on the `evaluate.ts` change are owed (§11).
+- 2026-09-24 — R0's Rev C (session 9): F-RCC6-BNBC regenerated (7cd0ead3), and I-388's, I-389's and
+  I-393's statements about S-08 amended to the drawing as Rev C draws it.
+  - D-BLIND (W-40): the blinding LINEs 824–827 lie on the slab's four square edges and LINE 2309 draws
+    the chamfer, so the drawn outline is 81D's own and takes in 0 mm² outside the slab (was 9.504 m²).
+    Q(4) is answered by the drawing; the conclusion stands: J-000 traces 81D.
+  - K21 (W-33) and K22 (W-34): the yardstick deducts only what stands on a panel's net plan
+    (SOG@GF 5.956875 → 3.961875 m²), four FDN core legs stand inside the pit (1.905 → 2.5908 m²), and
+    the golden slab × blinding × GF reads 23.765 (was 23.615). The two R0 items this Decision
+    listed against the golden are closed; the hand figure, 23.755468 m³, is unchanged and stands
+    0.009532 m³ under the golden (the ramp's slope and the golden's rounding).
+  - Proof: `tests/takeoff/manual/s-measure-decision.test.ts`, re-read over the Rev C DXF.

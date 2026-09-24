@@ -10,8 +10,8 @@
  *   and §3 rules R-UI-050's seven states;
  * - it names only tokens the stylesheets define, and no primitive ramp (R-UI-086);
  * - I-393's readings of J-000's ring are the committed fixture's. Each row of its table is
- *   recomputed here from the DXF's own entities (the slab outline 81D, the blinding LINEs 824–827,
- *   the lift pit 830), from `model.json` and from the golden. A misread figure, like the ones the
+ *   recomputed here from the DXF's own entities (the slab outline 81D, the blinding LINEs 824–827
+ *   and 2309, the lift pit 830), from `model.json` and from the golden. A misread figure, like the ones the
  *   slice's review found (the yardstick's 5.957 m² read as columns alone, and the porch column
  *   counted inside the ring), or a regenerated fixture that moves the ring, goes red here before a
  *   slice builds on it.
@@ -354,7 +354,9 @@ describe("S0: I-393's readings of J-000's ring are the committed fixture's", () 
   };
   const sog = member("SOG@GF");
   const slabRing = polylineRing(entities, "81D");
-  const rectangle = lineRing(entities, ["824", "825", "826", "827"]);
+  // Rev C's D-BLIND (W-40): the four LINEs moved onto the slab's square edges, and 2309 draws the
+  // chamfer between 826 and 827 — the outline is five LINEs, closing on 81D's own points.
+  const outline = lineRing(entities, ["824", "825", "826", "2309", "827"]);
   const pit = lwpolylineRing(entities, "830");
 
   test("the ring is the SOG's own outline: 81D is SOG@GF's polygon on S-08, and the pit 830 its lift-pit hole", () => {
@@ -375,13 +377,15 @@ describe("S0: I-393's readings of J-000's ring are the committed fixture's", () 
     expect(text.includes(key), `the Decision keys J-000's ring at 81D's least point ${key}`).toBe(true);
   });
 
-  test("the areas: 81D, the rectangle 824–827, their difference, and the lift pit", () => {
+  test("the areas: 81D, the blinding outline 824–827 and 2309, their difference, and the lift pit", () => {
     const slab = shoelace(slabRing);
-    const rect = shoelace(rectangle);
+    const drawn = shoelace(outline);
     expect(reading(readings, "slab outline 81D, mm²")).toBe(spell(slab));
-    expect(reading(readings, "blinding rectangle 824–827, mm²")).toBe(spell(rect));
-    expect(reading(readings, "rectangle outside the slab, mm²")).toBe(spell(sub(rect, slab)));
-    expect(cmp(rect, slab), "the drawn rectangle takes in more than the slab").toBe(1);
+    expect(reading(readings, "blinding outline 824–827 and 2309, mm²")).toBe(spell(drawn));
+    expect(reading(readings, "blinding outline outside the slab, mm²")).toBe(spell(sub(drawn, slab)));
+    // TEST_AMENDED (R0 Rev C, D-BLIND, W-40): Rev B's rectangle took in 9.504 m² more than the slab;
+    // Rev C's outline follows it, so the drawn blinding and 81D are one ring.
+    expect(cmp(drawn, slab), "the drawn blinding outline takes in exactly the slab").toBe(0);
     expect(reading(readings, "lift pit 830, mm²")).toBe(spell(shoelace(pit)));
   });
 
@@ -442,7 +446,9 @@ describe("S0: I-393's readings of J-000's ring are the committed fixture's", () 
     }
     expect(reading(readings, "FDN core walls inside the pit, mm²")).toBe(spell(wallPlan));
     const yardstick = field(sog, "col_deduct");
-    expect(cmp(yardstick, add(clipped, wallPlan)), "the yardstick's deduction under SOG@GF is those columns plus the walls the pit already took").toBe(0);
+    // TEST_AMENDED (R0 K21, W-33): the yardstick deducts only what stands on the slab's net plan — no
+    // wall inside the pit it already deducted, and A4's and A5's parts in the ramp hole on RAMP@GF alone.
+    expect(cmp(add(yardstick, field(member("RAMP@GF"), "col_deduct")), clipped), "the yardstick's deductions under SOG@GF and RAMP@GF are those columns, once each, and no wall").toBe(0);
     expect(reading(readings, "the yardstick's deduction under SOG@GF, mm²")).toBe(spell(yardstick));
     expect(reading(readings, "the yardstick's deduction under RAMP@GF, mm²")).toBe(spell(field(member("RAMP@GF"), "col_deduct")));
   });
