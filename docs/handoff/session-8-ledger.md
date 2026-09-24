@@ -291,4 +291,19 @@ the 75 cells lack is drawn in F-RCC6-BNBC itself, appended so that no existing h
 - **Spend, as the workflow notices reported:** maps 5.92 M, Edison 2.21 M, walk-0 0.16 M + earlier, R0
   design 1.19 M, wave 1 + recovery ≈ 9.0 M + the interrupted run, wave 2 17.24 M, R0 chain 2.26 M —
   about 38 M subagent tokens. Live Jev: none this session (the demo replayed fixtures).
-- **Gate 4** (`21ad25f0`): `verify green 132.64s` (cold after the corpus input moved), `checkup green`…
+- **Gate 4** (`21ad25f0`): `GATE summary — verify: green 132.64s · checkup: green 0.76s · golden: green 19.06s · db: green 111.31s · e2e: RED exit=1 423.52s · e2e-j000: green 205.37s · perf: green 20.37s`
+  (verify cold after the corpus input moved). e2e reds: moved pictures (wave 2's), J-003's dialog mask
+  over its own buttons, the coverage masks over the inspector, J-033's `steadyCount` floor — fixed
+  (`b00dfb76`, `b3806a6a`); SRCH-1's palette journey — reverted and held.
+- **Gate 5** (`e29c3fb5`): `GATE summary — verify: green 61.08s · checkup: green 0.85s · golden: green 19.82s · db: green 116.82s · e2e: RED exit=1 133.55s · e2e-j000: green 208.31s · perf: green 19.12s`
+  (verify's own `wall-time 58.31s`). e2e reds: J-021's strict-mode double chip after goBack (fixed at
+  the cause, `f312a024`), two moved pictures looked at and re-taken (`7e6c4f00`).
+- **Gate 6** (`00050482`): `GATE summary — verify: green 62.05s · checkup: green 0.79s · golden: green 20.78s · db: green 100.07s · e2e: RED exit=1 135.88s · e2e-j000: green 211.90s · perf: green 20.18s`
+  — verify's own `wall-time 60.23s` (over the ceiling); e2e: the next chained pictures (J-022
+  certificate, J-304 value-changed). Cures: `fc9fb85e` (the extractor's timeout kills its process
+  group — a real defect; the unit lane's 30.5 s file to 0.5 s), `aebf7b61` (every picture soft; J-022's
+  certificate scrolled to the bill boundary it asserts), `4164407c` (the agents' effort), `be543bfb`
+  (three re-takes, looked at; proof `pnpm e2e --journeys J-022,J-304` → `3 passed`).
+- **Gate 7, the closing gate** (`be543bfb`): `GATE summary — verify: green 61.40s · checkup: green 0.80s · golden: green 20.22s · db: green 120.55s · e2e: green 137.10s · e2e-j000: green 213.93s · perf: green 19.58s`
+  · `GATE wall-time 573.61s exit 0` · verify's own `wall-time 59.51s`. Read-back of `cf71d9ff…` equal
+  to the ground truth (session-8.md §5); pile_cap register objects 89 → 26, not yet attributed.

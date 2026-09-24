@@ -164,8 +164,9 @@ pypdfium2 and Typst moves re-key corpora or document bytes and are the owner's c
   concrete 208 COMPLETE lines, 93.892896 m³; piles 89 / 372.848929 m³; caps 26 / 128.781275 m³, formwork
   254.132613 m² (over-measured by the pile heads and the PC5 recess — FND-OWN, held, fixes it); beams
   356 objects (1 on no level: S-13's LB1 placeholder), 710 lines, all PARTIAL; no orphan lines (I-368).
-- verify reads ~55–60 s warm against 60 (cad ~37 s, unit ~52 s, lint ~43 s); the first verify after a
-  reboot, after a cad input moved or after a failed build runs cold.
+- verify reads ~59.5 s warm against 60 — at the edge (unit ~56 s and lint ~49 s are the walls; cad ~42 s;
+  `CUBIT_VERIFY_REPORT_JSON=<file> pnpm verify` ranks the unit files); the first verify after a reboot,
+  after a cad input moved or after a failed build runs cold.
 
 ## Compact instructions
 When the context is compacted, the summary carries, verbatim where it can: the session's goal and

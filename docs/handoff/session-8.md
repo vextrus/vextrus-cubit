@@ -38,7 +38,8 @@ shaped the session; nothing committed was lost.
    objects; the levels FDN row; coverage states the whole building; the bill in its ruled shape; the BBS
    counted per floor and laid out as a document; legible sheets with `%%C` resolved). **None of it has
    been re-walked in the browser** — the lanes and the looked-at pictures are the only evidence.
-4. **The gate green on the committed tree — see §5.**
+4. **The gate green on the committed tree — REACHED** at `be543bfb` (§5): every lane green, verify's own
+   wall-time 59.51 s against 60 — at the edge; session 9's first care (§5).
 5. **A demo the owner can give — NOT REACHED.** `docs/demo.md` is session 7's; the M4 steps cannot be
    shown; the flow was not re-walked.
 6. **An honest close — this document**, the ledger, `session-9-prompt.md`, the harness changes (§4).
@@ -74,7 +75,11 @@ declared; `227a8cfe` a stand-in extractor still writing EntityGraph v2; `8e9595d
 (26 refusals added, 0 changed, proved against `9ebdf29a`) and `text.ts` reading through core's one
 stripper (B-17); `570ce2d5` a client component pulling `pg` into the browser bundle; `b3806a6a` the
 DataTable's last-column resize handle under the Columns tool (axe), J-033's zero read, and the COV-ALL
-assertion moved from the F-RCC6 leg to the BNBC leg; `b6c03d8a` F-ARCH re-minted for ARCH-3's trap; `b00dfb76` the coverage masks painted over the inspector; the closing re-takes `e29c3fb5`.
+assertion moved from the F-RCC6 leg to the BNBC leg; `b6c03d8a` F-ARCH re-minted for ARCH-3's trap; `b00dfb76` the coverage masks painted over the inspector; `f312a024` J-021's double class chip after the
+history step; `fc9fb85e` **the extractor's timeout now kills its whole process group** — node's own
+timeout killed `uv run` alone and left python running and holding the pipe, so an ingest neither
+stopped nor answered until python finished (the unit lane's 30.5 s file, now 0.5 s); the closing
+re-takes `e29c3fb5`, `7e6c4f00`, `be543bfb`.
 
 ## 2. The law this session wrote
 
@@ -90,7 +95,8 @@ verdict" in their own Decisions (s-measure.md §11 lists them) — the next sess
 - Gate 1/2 (wave 1): reds found and fixed (ledger); gate 2 `db: green 101.34s`, `e2e-j000: green`.
 - Gate 3 (wave 2): verify green 58.85 s; db green 110.22 s; e2e / J-000 / perf red — every cause fixed
   in `b3806a6a` and the perf miss (16.80 against 16.75 ms, under concurrent agent load) green twice alone.
-- **Gate 4 / the closing gate: see §5.**
+- Gates 4–6: reds were moved pictures found one checkpoint at a time, J-021's double chip, and verify
+  at 60.23 s once (ledger). **Gate 7, the closing gate: §5.**
 - Read-backs: gate 0 and gate 2 matched session 7's ground truth exactly (column 208 / 93.892896 m³;
   piles 89 / 1,898.904 m / 372.848929 m³; caps 128.781275 m³ / 254.132613 m²; beams 172 objects, all
   PARTIAL; 0 orphans). The closing read-back is §5.
@@ -113,12 +119,38 @@ verdict" in their own Decisions (s-measure.md §11 lists them) — the next sess
 - **Worktrees** no longer share `cad/.venv` (user settings `worktree.symlinkDirectories`): a shared venv
   let worktree agents swap the main checkout's extractor under the gate.
 - CLAUDE.md's "Spend like the owner pays" and "Workflows and merging"; the lanes skill's new red shapes
-  (the poisoned Turbopack cache, dev-DB drift after migrations, perf clearing `test-results/`, chained
-  picture checkpoints).
+  (the poisoned Turbopack cache, dev-DB drift after migrations, perf clearing `test-results/`).
+- **Soft pictures** (`aebf7b61`): every `toHaveScreenshot` is `expect.soft`, so one run reports every
+  moved picture of a walk — chained checkpoints cost three gates this session. The AC-3 guard and the
+  J-000 roster count `expect.soft` as an assertion.
+- **The named agents carry their effort** (`4164407c`: `refuter` high, the critics and the analyst
+  medium) and CLAUDE.md says how to prompt an agent the Opus 5.5 way (goal and why, finish line,
+  constraints, return shape; calm words).
 
 ## 5. The closing gate and read-back
 
-(filled at the close — see below)
+Gate 7 on `be543bfb` (`.private/work/session-8/gate7.log`):
+
+`GATE summary — verify: green 61.40s · checkup: green 0.80s · golden: green 20.22s · db: green 120.55s · e2e: green 137.10s · e2e-j000: green 213.93s · perf: green 19.58s`
+`GATE wall-time 573.61s exit 0` — verify's own `verify wall-time 59.51s`.
+
+**Verify's budget is session 9's first care.** It read 58.31, 60.23, 61.75 (with the JSON report),
+59.52 and 59.51 s across the close. The wall is the unit lane (~56 s; lint ~49 s): 629 files, ~500 s
+of file time. The longest files after `fc9fb85e`: `src/ui/semantic-alias.test.ts` 27.9 s,
+`tests/lint/import-depth.test.ts` 27.7 s, `tests/takeoff/viewer-measure/measure-screen.test.tsx`
+16.3 s, `tests/journeys/retrying-read-steady.test.ts` 15.2 s, `tests/refusal-register/register.test.ts`
+13.3 s (`CUBIT_VERIFY_REPORT_JSON=<file> pnpm verify` gives the ranking). Any wave adds tests; take
+the budget back before the next one lands.
+
+**Read-back** (gate 7's J-000, project `cf71d9ff-d401-49a8-87d5-736c8b86d0b9`) — equal to the ground
+truth: column concrete 208 COMPLETE / 93.89289649 m³ (rebar 208 PARTIAL); piles 89 bored / 1,898.904 m
+/ 372.848929 m³ COMPLETE; caps concrete 26 COMPLETE / 128.781275 m³ (still over-measured by the pile
+heads and the PC5 recess — FND-OWN, held), formwork 254.132613 m², excavation 26 PARTIAL; blinding 12
+COMPLETE / 4.692188 m³ and 14 PARTIAL; beams 356 objects (1 unlevelled), 355 + 355 lines PARTIAL;
+orphan_lines 0, placeholder_lines 0. Observed, not yet attributed: **pile_cap register objects 89 → 26**
+(session 7's run `37c17af3…` registered 89; this one registers the 26 caps the lines already counted —
+lines and totals unchanged). Piles stand unlevelled (89/89) as they did in session 7. Session 9 names
+the slice that moved the caps before it treats 26 as ground truth.
 
 ## 6. Held, not merged — the next session's first work
 

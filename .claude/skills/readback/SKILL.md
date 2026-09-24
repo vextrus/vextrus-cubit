@@ -17,7 +17,8 @@ missed in session 7 (the 1F beams registered twice; 50 orphan beam lines).
    - I-368's invariant: `orphan_lines` and `placeholder_lines` both 0.
 3. **Compare with the ground truth** (session 8's close; a run that reads anything else moved it):
    - column concrete 208 COMPLETE lines, 93.892896 m³ (FDN 3.0596 plus GF..6F);
-   - piles 89 / 1,898.904 m / 372.848929 m³; caps 26 / 128.781275 m³, formwork 254.132613 m²;
+   - piles 89 / 1,898.904 m / 372.848929 m³ (89 objects, unlevelled as in session 7); caps 26 lines /
+     128.781275 m³, formwork 254.132613 m² (26 cap objects since session 8 — was 89; slice to be named);
    - beams 356 register objects (1 on no level, S-13's LB1 placeholder), 710 lines, every one PARTIAL
      (FRM3-B placed the vertical beams in session 8; no beam COMPLETE before FRM-4);
    - orphan_lines 0; 13 golden cells COMPLETE: 595.523 of 1,186.893 m³ of RCC concrete.

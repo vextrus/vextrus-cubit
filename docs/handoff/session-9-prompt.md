@@ -47,6 +47,11 @@ A session that closes some of these fully beats one that touches all of them. Or
 
 ## 4. The programme, in order
 
+0. **Verify's budget, before any wave lands.** Session 8 closed at 59.51 s against 60 (unit ~56 s, lint
+   ~49 s are the walls; the ranking and the five longest files are in session-8.md §5). Take back
+   enough headroom for the waves below — a lane over its ceiling is a red, not a warning. And name the
+   slice that moved the pile_cap register from 89 objects to 26 (§5's read-back) before 26 is ground
+   truth.
 1. **Wave 3a — the edition and the held work (one writer: seed/index.ts, the edition migration).**
    OPEN-3 (slice spec `.private/work/session-8/slices/OPEN-3.json`): mint the edition citing S2's,
    ARCH-2's and FND-OWN's pairs with the in-force selector; then merge S2, ARCH-2, FND-OWN on top
@@ -79,7 +84,8 @@ A session that closes some of these fully beats one that touches all of them. Or
   figures, migrations or security.** Everything else in one context. Pass file paths and short specs;
   read results through compact extractions.
 - **Merging:** `scripts/harness/integrate-slice.py` per slice; verify, then the gate; look at every moved
-  picture; the read-back after any rail, gate, level or partition change.
+  picture (every picture is `expect.soft` now: one run shows them all); the read-back after any rail,
+  gate, level or partition change.
 - **Turn endings, evidence, durability:** as session 8's brief said — status notes in the same message as
   the next tool call; every claim cites a tool result; commit small; keep the ledger
   (`docs/handoff/session-9-ledger.md`) as you go.
