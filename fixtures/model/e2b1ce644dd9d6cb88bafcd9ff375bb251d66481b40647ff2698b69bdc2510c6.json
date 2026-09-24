@@ -1,0 +1,65 @@
+{
+  "requestHash": "e2b1ce644dd9d6cb88bafcd9ff375bb251d66481b40647ff2698b69bdc2510c6",
+  "modelId": "jev-latest",
+  "payload": {
+    "payload": {
+      "intent": "WHY_NOT_MEASURED",
+      "slots": {}
+    },
+    "sources": [
+      "DXF_HANDLE:28",
+      "DXF_HANDLE:11"
+    ]
+  },
+  "inputTokens": 872,
+  "outputTokens": 112,
+  "judgment": {
+    "provider": "jev-1.13.0",
+    "confidence": 0.98,
+    "answers": {
+      "intent": {
+        "type": "choice",
+        "value": "WHY_NOT_MEASURED",
+        "confidence": 0.98,
+        "probabilities": {
+          "MEMBER_TYPE": 0,
+          "LEVEL_HEIGHT": 0,
+          "NOTE": 0,
+          "MEASURED_SO_FAR": 0,
+          "WHY_NOT_MEASURED": 0.99,
+          "NONE_OF_THESE": 0.01,
+          "MARKS": 0,
+          "COUNT": 0,
+          "SHEET_LIST": 0,
+          "QUANTITY": 0
+        }
+      }
+    }
+  },
+  "body": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "intent": {
+        "type": "choice",
+        "choice": "WHY_NOT_MEASURED",
+        "confidence": 0.98,
+        "probabilities": {
+          "MEMBER_TYPE": 0,
+          "LEVEL_HEIGHT": 0,
+          "NOTE": 0,
+          "MEASURED_SO_FAR": 0,
+          "WHY_NOT_MEASURED": 0.99,
+          "NONE_OF_THESE": 0.01,
+          "MARKS": 0,
+          "COUNT": 0,
+          "SHEET_LIST": 0,
+          "QUANTITY": 0
+        }
+      }
+    },
+    "usage": {
+      "input_tokens": 872,
+      "output_tokens": 112
+    }
+  }
+}
