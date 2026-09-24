@@ -22,6 +22,8 @@ const CLI_MODULE = "src/modules/takeoff/ingest/cli.ts";
 /** How long the deaf extractor sleeps for, and how long the call gives it. */
 const SLEEP_SECONDS = 30;
 const TIMEOUT_MS = 500;
+/** How soon the answer must land: far inside the sleep, which only a wait on the orphan reaches. */
+const ANSWERED_WITHIN_MS = 10_000;
 
 type CliSeam = {
   checkoutRootAmong: (candidates: readonly string[]) => string;
@@ -38,7 +40,11 @@ async function cli(): Promise<CliSeam> {
   return module as unknown as CliSeam;
 }
 
-/** A stand-in extractor that traps the polite signal and outlives any patience: the row's own case. */
+/**
+ * A stand-in extractor that traps the polite signal and outlives any patience: the row's own case.
+ * Its `sleep` is the shell's CHILD, holding the stderr pipe, as `uv run`'s python is uv's: killing the
+ * shell alone left it running, and the call waited the whole sleep for the pipe to close (session 8).
+ */
 function deafExtractor(): string {
   const path = join(mkdtempSync(join(tmpdir(), "cubit-deaf-cad-")), "deaf-extractor.sh");
   writeFileSync(path, `#!/bin/sh\ntrap "" TERM\nsleep ${SLEEP_SECONDS}\n`, "utf8");
@@ -64,6 +70,7 @@ test(
     process.env["CUBIT_CAD_COMMAND"] = deafExtractor();
 
     try {
+      const started = Date.now();
       const answered = await ingestDrawing(new TextEncoder().encode("0\nSECTION\n2\nHEADER\n0\nENDSEC\n0\nEOF\n"), "dxf", {
         tempDir: mkdtempSync(join(tmpdir(), "cubit-ingest-")),
         timeoutMs: TIMEOUT_MS,
@@ -75,6 +82,10 @@ test(
       expect(answered.threw, `a run that hit the wall is a fault of ours, never an answer about the drawing — it answered ${answered.said}`).toBe(true);
       expect(answered.said, "the signal that ended it is named, so an operator can tell a timeout from an unreadable drawing").toContain("SIGKILL");
       expect(answered.said, "and a killed run is never dressed as the drawing's own fault").not.toContain("SHEET_NOT_INGESTABLE");
+      expect(
+        Date.now() - started,
+        "the wait ends with the budget: the kill takes the extractor's children with it, never waiting on an orphan that holds the pipe",
+      ).toBeLessThan(ANSWERED_WITHIN_MS);
     } finally {
       if (held === undefined) delete process.env["CUBIT_CAD_COMMAND"];
       else process.env["CUBIT_CAD_COMMAND"] = held;

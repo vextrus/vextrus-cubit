@@ -179,6 +179,11 @@ function staleExtractor(written: number): string {
  * that installs its own handler — outlives the budget it was given; node then stops waiting and the
  * run lands as though the SHEET could not be read, which blames the drawing for our own wall clock
  * (ARCH-03). A run this side ended is ended for certain, and says which signal ended it.
+ *
+ * The signal goes to the extractor's whole process GROUP, which it leads: the command is a wrapper
+ * (`uv run` starts python as its child), and a kill of the wrapper alone left the child running and
+ * holding the stderr pipe, so the run neither stopped nor answered until the child was done
+ * (session 8).
  */
 function invoke(argv: readonly string[], timeoutMs: number): Promise<Run> {
   const [command, ...prefix] = commandPrefix();
@@ -186,9 +191,18 @@ function invoke(argv: readonly string[], timeoutMs: number): Promise<Run> {
     const child = spawn(/* turbopackIgnore: true */ command ?? "", [...prefix, ...argv], {
       cwd: repoRoot(),
       stdio: ["ignore", "ignore", "pipe"],
-      timeout: timeoutMs,
-      killSignal: "SIGKILL",
+      detached: true,
     });
+    const wall = setTimeout(() => {
+      if (child.pid === undefined) return;
+      try {
+        process.kill(-child.pid, "SIGKILL");
+      } catch (thrown) {
+        // No such group: the run ended as the budget did, and there is nothing left to stop. Any
+        // other failure to signal our own child is a fault of ours and is thrown as one.
+        if ((thrown as NodeJS.ErrnoException).code !== "ESRCH") throw thrown;
+      }
+    }, timeoutMs);
     let stderr = "";
     child.stderr?.setEncoding("utf8");
     child.stderr?.on("data", (chunk: string) => {
@@ -198,8 +212,12 @@ function invoke(argv: readonly string[], timeoutMs: number): Promise<Run> {
     });
     // A CLI that could not be spawned at all is an outage of ours, not a sheet's fault: it travels
     // to the caller as a failure rather than being dressed up as a refusal (ARCH-03).
-    child.on("error", fail);
+    child.on("error", (reason) => {
+      clearTimeout(wall);
+      fail(reason);
+    });
     child.on("close", (code, signal) => {
+      clearTimeout(wall);
       settle({ stderr, ended: signal === null ? `exit status ${String(code)}` : `signal ${signal}`, signal });
     });
   });
