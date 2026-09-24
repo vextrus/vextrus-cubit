@@ -1,6 +1,6 @@
 {
   "project": {
-    "about": "J-043's staged register (tests/e2e/takeoff/register-stage.ts, stageRegister): four columns C1–C4 on GF, C1–C3 measured into rcc.concrete lines and C4 registered with none; the plan artifact (tests/e2e/viewer/viewer-partition-stage.ts, buildPartitionPlan with STAGED_MARKS) draws each member's mark text at DXF_HANDLE:22, 24, 26, 28, and GF's storey height is transcribed at its second schedule rule, DXF_HANDLE:11.",
+    "about": "J-043's staged register (tests/e2e/takeoff/register-stage.ts, stageRegister): four columns C1–C4 on GF, C1–C3 measured into rcc.concrete lines and C4 registered with none. The plan artifact (tests/e2e/viewer/viewer-partition-stage.ts, buildPartitionPlan over STAGED_MARKS) draws each member's mark text at DXF_HANDLE:22, 24, 26, 28 — read back off cubit_e2e's placements.mark_key on 2026-09-24. GF carries no storey-height reading (storey_height_readings holds none for the stage), so it has no defining key.",
     "objects": [
       [
         "column",
@@ -37,8 +37,7 @@
       "mark|C1": "DXF_HANDLE:22",
       "mark|C2": "DXF_HANDLE:24",
       "mark|C3": "DXF_HANDLE:26",
-      "mark|C4": "DXF_HANDLE:28",
-      "level|GF": "DXF_HANDLE:11"
+      "mark|C4": "DXF_HANDLE:28"
     }
   },
   "paraphrases": [
@@ -83,28 +82,20 @@
       "intent": "COUNT"
     },
     {
-      "question": "what's the column breakdown on GF by designation",
-      "intent": "MARKS"
+      "question": "tot up the C1 columns on GF",
+      "intent": "COUNT"
     },
     {
-      "question": "which column designations are used on GF",
-      "intent": "MARKS"
+      "question": "how often does C4 occur",
+      "intent": "COUNT"
     },
     {
-      "question": "list the column references on the ground floor and their tallies",
-      "intent": "MARKS"
+      "question": "C3 occurrences on the ground floor",
+      "intent": "COUNT"
     },
     {
-      "question": "GF columns grouped by their labels",
-      "intent": "MARKS"
-    },
-    {
-      "question": "what column kinds does GF carry",
-      "intent": "MARKS"
-    },
-    {
-      "question": "break the GF columns down per reference",
-      "intent": "MARKS"
+      "question": "is C2 drawn more than once on GF",
+      "intent": "COUNT"
     },
     {
       "question": "the pour for C3 on GF",
@@ -116,6 +107,26 @@
     },
     {
       "question": "give me the casting figure for C2 on GF",
+      "intent": "QUANTITY"
+    },
+    {
+      "question": "C2 cubic metres on GF",
+      "intent": "QUANTITY"
+    },
+    {
+      "question": "the casting for C1 on GF in m3",
+      "intent": "QUANTITY"
+    },
+    {
+      "question": "cubic metres for C3",
+      "intent": "QUANTITY"
+    },
+    {
+      "question": "what did C1 measure out at",
+      "intent": "QUANTITY"
+    },
+    {
+      "question": "C2 takeoff figure",
       "intent": "QUANTITY"
     },
     {
@@ -151,6 +162,18 @@
       "intent": "WHY_NOT_MEASURED"
     },
     {
+      "question": "C4 never got a number, explain",
+      "intent": "WHY_NOT_MEASURED"
+    },
+    {
+      "question": "C4 has no line in the register, how so",
+      "intent": "WHY_NOT_MEASURED"
+    },
+    {
+      "question": "what's wrong with C4 that it wasn't counted in the bill",
+      "intent": "WHY_NOT_MEASURED"
+    },
+    {
       "question": "what does the schedule say about C4",
       "intent": "MEMBER_TYPE"
     },
@@ -175,28 +198,16 @@
       "intent": "MEMBER_TYPE"
     },
     {
-      "question": "how high is GF",
-      "intent": "LEVEL_HEIGHT"
+      "question": "schedule entry for C3",
+      "intent": "MEMBER_TYPE"
     },
     {
-      "question": "GF storey rise",
-      "intent": "LEVEL_HEIGHT"
+      "question": "how is C1 detailed",
+      "intent": "MEMBER_TYPE"
     },
     {
-      "question": "distance from GF slab to the one above",
-      "intent": "LEVEL_HEIGHT"
-    },
-    {
-      "question": "what's the clear rise of the ground floor",
-      "intent": "LEVEL_HEIGHT"
-    },
-    {
-      "question": "GF floor to ceiling?",
-      "intent": "LEVEL_HEIGHT"
-    },
-    {
-      "question": "vertical span of GF",
-      "intent": "LEVEL_HEIGHT"
+      "question": "what does a C2 look like on paper",
+      "intent": "MEMBER_TYPE"
     },
     {
       "question": "who detailed C3",
@@ -215,10 +226,6 @@
       "intent": null
     },
     {
-      "question": "who approved the GF layout",
-      "intent": null
-    },
-    {
       "question": "what colour is C1 painted",
       "intent": null
     },
@@ -227,7 +234,11 @@
       "intent": null
     },
     {
-      "question": "which contractor pours GF",
+      "question": "who is the engineer for C2",
+      "intent": null
+    },
+    {
+      "question": "when was C4 revised",
       "intent": null
     },
     {
@@ -259,43 +270,33 @@
       }
     },
     {
-      "question": "GF column tags and their counts",
+      "question": "C2 but not C1: the casting figure",
+      "intent": "QUANTITY",
+      "slots": {
+        "mark": "C2"
+      }
+    },
+    {
+      "question": "C1 and C2 are fine, what is C3 in the schedule",
+      "intent": "MEMBER_TYPE",
+      "slots": {
+        "mark": "C3"
+      }
+    },
+    {
+      "question": "besides C1, which other column references stand on GF",
       "intent": "MARKS"
     },
     {
-      "question": "storey rise at the ground floor",
-      "intent": "LEVEL_HEIGHT"
+      "question": "alongside C2, what other column designations does GF use",
+      "intent": "MARKS"
     },
     {
-      "question": "tot up the C1 columns on GF",
-      "intent": "COUNT"
+      "question": "C1 aside, list the other column labels on GF with their tallies",
+      "intent": "MARKS"
     },
     {
-      "question": "C2 cubic metres on GF",
-      "intent": "QUANTITY"
-    },
-    {
-      "question": "the casting for C1 on GF in m3",
-      "intent": "QUANTITY"
-    },
-    {
-      "question": "C4 never got a number, explain",
-      "intent": "WHY_NOT_MEASURED"
-    },
-    {
-      "question": "schedule entry for C3",
-      "intent": "MEMBER_TYPE"
-    },
-    {
-      "question": "GF slab to slab",
-      "intent": "LEVEL_HEIGHT"
-    },
-    {
-      "question": "who is the engineer for C2",
-      "intent": null
-    },
-    {
-      "question": "what date was GF approved",
+      "question": "C4's pour date",
       "intent": null
     }
   ]
