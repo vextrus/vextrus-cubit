@@ -218,3 +218,10 @@ grid) → VIEW-FIT; BD-2 the hand measurement's raw decimals and ids → MANUAL-
 affirmed view still measures nothing (outgoing_keys {""}) → SCALE-3; BD-4 the bar schedule's total
 contradicts its ties, the table squeezed → BBS-TIES. Also: S-08's GB marks not read (58 "Beam drawn,
 not named") → GB-READ; Ask misreads "where is C7 drawn?" and drops "what diameters" → ASK-3's note.
+
+Wave 3d launched (`wf_bbc4a550-1d5`, base `2ee453e4`): VIEW-FIT, MANUAL-UX, SCALE-3, BBS-TIES, GB-READ,
+ASK-3, M4P-2, M4P-4, M4P-6, ARCH-6, DOC-FRONT, M4P-11. Next lever for verify noted: the cad lane's tail
+is one test (cad/tests/dwg/test_dwg_heal.py's Edison reference conversion, 21.3 s of the lane's 26 s
+alone) — a candidate for the cad lane's inputs-moved rule; the unit lane (~48–50 s) is the co-wall.
+Wave 3d stopped: the first account's weekly usage limit ended 11 of 12 agents mid-work (only M4P-11
+PARTIAL). The owner paused, then resumed on a new account; the wave is resumed from its run id.
