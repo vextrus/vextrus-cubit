@@ -13,6 +13,52 @@
       "sattva-court-structural.dxf",
       "sattva-court-architectural.dxf"
     ],
+    "register": [
+      {
+        "sheet": "A-02",
+        "title": "GROUND FLOOR PLAN",
+        "revision": "B"
+      },
+      {
+        "sheet": "S-04",
+        "title": "PILE CAP & GRADE BEAM LAYOUT",
+        "revision": "B"
+      },
+      {
+        "sheet": "S-05",
+        "title": "PILE LAYOUT PLAN",
+        "revision": "B"
+      },
+      {
+        "sheet": "S-06",
+        "title": "PILE CAP DETAILS",
+        "revision": "B"
+      },
+      {
+        "sheet": "S-10",
+        "title": "COLUMN LAYOUT PLAN",
+        "revision": "B"
+      },
+      {
+        "sheet": "S-11",
+        "title": "COLUMN SCHEDULE",
+        "revision": "C"
+      },
+      {
+        "sheet": "S-12",
+        "title": "GRADE BEAM LAYOUT",
+        "revision": "B"
+      },
+      {
+        "sheet": "S-13",
+        "title": "FLOOR BEAM LAYOUT",
+        "revision": null
+      }
+    ],
+    "edition": {
+      "name": "IS1200_IN",
+      "version": "2027.06"
+    },
     "issued": "24 Sep 2026"
   },
   "sections": [
