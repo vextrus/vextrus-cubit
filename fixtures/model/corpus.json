@@ -144,6 +144,17 @@
       "providerCost": "0.00003423"
     },
     {
+      "requestHash": "05a711988f3fda4501fce677d6564bbc44267b1906f10a3a59f360f800af6be7",
+      "question": "room-type",
+      "subject": "labels.json · convention · S.BED",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 842,
+      "outputTokens": 186,
+      "attributedCost": "0.000035364",
+      "providerCost": "0.000035364"
+    },
+    {
       "requestHash": "0602bb9a1bbef9823321be33b67d4b5a274c601bc229d2541311f4e3331e69be",
       "question": "outline-corroboration",
       "subject": "rcc6.dxf · F3 · DXF_HANDLE:16D",
@@ -164,6 +175,17 @@
       "outputTokens": 151,
       "attributedCost": "0.000043974",
       "providerCost": "0.000043974"
+    },
+    {
+      "requestHash": "06f45596dcb1c4d88d3f8a58977444287eea15ba5df0f6498948826b7eea744f",
+      "question": "room-type",
+      "subject": "labels.json · convention · LOUNGE",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 842,
+      "outputTokens": 187,
+      "attributedCost": "0.000035364",
+      "providerCost": "0.000035364"
     },
     {
       "requestHash": "07fa2e5495c0da535436f86bfeeaa07f4d017f1ea61efe6e7cd57fbd8d0ebf0c",
@@ -375,6 +397,17 @@
       "providerCost": "0.000082908"
     },
     {
+      "requestHash": "12eb18fba988e755b00ff0f35111d4512cd34de9d20c83aafc14ca6a96bf4049",
+      "question": "room-type",
+      "subject": "labels.json · convention · LIBRARY",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 841,
+      "outputTokens": 187,
+      "attributedCost": "0.000035322",
+      "providerCost": "0.000035322"
+    },
+    {
       "requestHash": "13d0b53de66c9aad48d15ef42c65188cecee51edfbe7f90cb32ee1043c753903",
       "question": "schedule-cell",
       "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (1ST FLOOR)  SCALE 1:50 · row 12",
@@ -384,6 +417,17 @@
       "outputTokens": 129,
       "attributedCost": "0.000083286",
       "providerCost": "0.000083286"
+    },
+    {
+      "requestHash": "13deb7dc9079b3c66e22a83720c7d315538a0ffe740bf10d69282f2ebb2a8f61",
+      "question": "room-type",
+      "subject": "labels.json · F-ARCH A-02 · DINING / LIVING",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 844,
+      "outputTokens": 186,
+      "attributedCost": "0.000035448",
+      "providerCost": "0.000035448"
     },
     {
       "requestHash": "14904d94c38c4f3928d53aab5d004047104a6ac7c4ee347eefddbaae2c22897a",
@@ -474,6 +518,17 @@
       "providerCost": "0.000064932"
     },
     {
+      "requestHash": "1910d5fbd36cb12ccb194e45a1261e87ee691f2ece74b86c2441c94c9b6af2f9",
+      "question": "room-type",
+      "subject": "labels.json · convention · ATT. TOILET",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 844,
+      "outputTokens": 187,
+      "attributedCost": "0.000035448",
+      "providerCost": "0.000035448"
+    },
+    {
       "requestHash": "19813a4f699be18aa8a69479598520438840a558edf86101ec311f6f6be048e3",
       "question": "outline-corroboration",
       "subject": "rcc6.dxf · F3 · DXF_HANDLE:179",
@@ -516,6 +571,28 @@
       "outputTokens": 24,
       "attributedCost": "0.00003486",
       "providerCost": "0.00003486"
+    },
+    {
+      "requestHash": "1e3c1175205534b7afd526a4781b5e006d075c0c7ae610c6ea1c7103fcb05189",
+      "question": "room-type",
+      "subject": "labels.json · convention · GYM",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 841,
+      "outputTokens": 188,
+      "attributedCost": "0.000035322",
+      "providerCost": "0.000035322"
+    },
+    {
+      "requestHash": "1e997deec07ba8503a3095d335f979071d0eb7872c9e19e080b9f18e37fb38fe",
+      "question": "room-type",
+      "subject": "labels.json · convention · ELECTRICAL ROOM",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 844,
+      "outputTokens": 186,
+      "attributedCost": "0.000035448",
+      "providerCost": "0.000035448"
     },
     {
       "requestHash": "1ee96dbd3fe94720450ccc591f853c5bc61c8cd11a8d2544cd4f6ab983b1d440",
@@ -925,6 +1002,17 @@
       "providerCost": "0.000037716"
     },
     {
+      "requestHash": "31a72c25597546988c2e3a2a1cd2f51b40b835601029fa8695cafc6150d016b1",
+      "question": "room-type",
+      "subject": "labels.json · convention · WASH AREA",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 842,
+      "outputTokens": 188,
+      "attributedCost": "0.000035364",
+      "providerCost": "0.000035364"
+    },
+    {
       "requestHash": "323d313f71f00fd4047ef6586539e262c0be6d9a88f33ff5ccbd85ebe9fa8378",
       "question": "schedule-cell",
       "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (2 OF 2) · row 18",
@@ -1057,6 +1145,17 @@
       "providerCost": "0.000083076"
     },
     {
+      "requestHash": "3cabd99d10acf73f4457d623a78765c5653c7a97d628e3537865f5329217f17c",
+      "question": "room-type",
+      "subject": "labels.json · convention · TERRACE",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 842,
+      "outputTokens": 187,
+      "attributedCost": "0.000035364",
+      "providerCost": "0.000035364"
+    },
+    {
       "requestHash": "3d18a0b0b5f3eb2691b535b818bd2b9c10b6cc3f0938b744094efeb7d5a1909e",
       "question": "outline-corroboration",
       "subject": "rcc6.dxf · C3 · DXF_HANDLE:335",
@@ -1110,6 +1209,17 @@
       "outputTokens": 129,
       "attributedCost": "0.000082992",
       "providerCost": "0.000082992"
+    },
+    {
+      "requestHash": "3f091fa3baa1ce58d6253eec941ffa59742d9337366d9ff573471551feae360b",
+      "question": "room-type",
+      "subject": "labels.json · convention · C.TOILET",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 844,
+      "outputTokens": 187,
+      "attributedCost": "0.000035448",
+      "providerCost": "0.000035448"
     },
     {
       "requestHash": "3f5008fc6b110a91fa21f674e74cdb5337f66247fd96cab757a901b024ea6f51",
@@ -1519,6 +1629,17 @@
       "providerCost": "0.000036834"
     },
     {
+      "requestHash": "5738241bc9305c5c481b41fc07539a9538bf734aa89da07cba9bb32cd55ab834",
+      "question": "room-type",
+      "subject": "labels.json · convention · MAID",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 841,
+      "outputTokens": 186,
+      "attributedCost": "0.000035322",
+      "providerCost": "0.000035322"
+    },
+    {
       "requestHash": "5932a987d7ee1f5046ff2bea2e3baa2230c09c78579ee91c7a2c76b790f1b6e4",
       "question": "sheet-revision-recency",
       "subject": "rcc6-bnbc.dxf · S-14 TYPICAL FLOOR BEAM LAYOUT (2ND TO 6TH FLOOR)",
@@ -1926,6 +2047,17 @@
       "providerCost": "0.000049518"
     },
     {
+      "requestHash": "746497adf763b9f7a73b0ad9a8360767a8dee097bedcd44b02945a3b28147930",
+      "question": "room-type",
+      "subject": "labels.json · convention · S.TOILET",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 844,
+      "outputTokens": 187,
+      "attributedCost": "0.000035448",
+      "providerCost": "0.000035448"
+    },
+    {
       "requestHash": "75942a410b55f9353ff2fce8376ec1013c14274308844eafd9be4ab61d93350a",
       "question": "note-clause",
       "subject": "rcc6-bnbc.dxf · S-01 GENERAL NOTES (1 OF 2) · DXF_HANDLE:1F3F#2 · 6. CONCRETE: CYLINDER STRENGTH AT 28 DAYS AS NOTED BELOW. CE",
@@ -1946,6 +2078,17 @@
       "outputTokens": 89,
       "attributedCost": "0.000038934",
       "providerCost": "0.000038934"
+    },
+    {
+      "requestHash": "7645b15967c1eb914a88f3b7cf6add79910d99cdfabbdb1a423d94ab9547502b",
+      "question": "room-type",
+      "subject": "labels.json · F-ARCH A-02 · LIVING / DINING",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 845,
+      "outputTokens": 187,
+      "attributedCost": "0.00003549",
+      "providerCost": "0.00003549"
     },
     {
       "requestHash": "7669a5114462600dec0233846cfeeb336f1149b3e2ad9b9111a20b9be2365568",
@@ -2100,6 +2243,28 @@
       "outputTokens": 89,
       "attributedCost": "0.000036162",
       "providerCost": "0.000036162"
+    },
+    {
+      "requestHash": "80c3846ee99a85008899093b23240b61b6edf4078aec31b934f808830d7e6da1",
+      "question": "room-type",
+      "subject": "labels.json · convention · PANTRY",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 841,
+      "outputTokens": 185,
+      "attributedCost": "0.000035322",
+      "providerCost": "0.000035322"
+    },
+    {
+      "requestHash": "820b22a20d86fbfea228918f0b092b9b992281d5b73af9e8bb5b15139a833592",
+      "question": "room-type",
+      "subject": "labels.json · convention · M.BED",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 842,
+      "outputTokens": 185,
+      "attributedCost": "0.000035364",
+      "providerCost": "0.000035364"
     },
     {
       "requestHash": "82dfefdef605cf67717cc209ee68ea7e9a1e7a7666bba9aab4103dad5830700e",
@@ -2287,6 +2452,17 @@
       "outputTokens": 108,
       "attributedCost": "0.000036666",
       "providerCost": "0.000036666"
+    },
+    {
+      "requestHash": "8e4ad4fd75bf0ffffac881b44a2d19ade47b579adc45bd67b7a0265fef5aee90",
+      "question": "room-type",
+      "subject": "labels.json · convention · OFFICE",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 841,
+      "outputTokens": 187,
+      "attributedCost": "0.000035322",
+      "providerCost": "0.000035322"
     },
     {
       "requestHash": "8e75624e25ea833e32fb4d1e944186615b7c4bcad2a3b8e8e1d67e7b064bed70",
@@ -2564,6 +2740,17 @@
       "providerCost": "0.000082866"
     },
     {
+      "requestHash": "9ca0786646ec39175a7076a9ff3f4c7b437fca0171fc373a602aea294149990e",
+      "question": "room-type",
+      "subject": "labels.json · convention · KITCHEN / DINING",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 845,
+      "outputTokens": 187,
+      "attributedCost": "0.00003549",
+      "providerCost": "0.00003549"
+    },
+    {
       "requestHash": "9ec2b05d827ffc174cf75cf8337bdd0b935922d6f108fae6b143e66d24a51a6f",
       "question": "note-clause",
       "subject": "rcc6-bnbc.dxf · S-01 GENERAL NOTES (1 OF 2) · DXF_HANDLE:1F46#1 · 2\" clear cover (pile caps)",
@@ -2608,6 +2795,17 @@
       "providerCost": "0.000082908"
     },
     {
+      "requestHash": "a103f5366a673552fb1484fdf31e7b987104d64f76fc04ad3f49fcdff3b9e9f7",
+      "question": "room-type",
+      "subject": "labels.json · convention · FAMILY LOUNGE",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 845,
+      "outputTokens": 190,
+      "attributedCost": "0.00003549",
+      "providerCost": "0.00003549"
+    },
+    {
       "requestHash": "a13987ff9e182d66a54634b4825df50beb7c60fefd9da90a7d67113fef1032dd",
       "question": "ask-route",
       "subject": "paraphrases.json · is C2 drawn more than once on GF",
@@ -2617,6 +2815,17 @@
       "outputTokens": 108,
       "attributedCost": "0.00003675",
       "providerCost": "0.00003675"
+    },
+    {
+      "requestHash": "a1855f4656968fdf02cddf9f7bb93594270071d08a53f7c50db57fd08d6d8faa",
+      "question": "room-type",
+      "subject": "labels.json · convention · LIFT MACHINE ROOM",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 843,
+      "outputTokens": 188,
+      "attributedCost": "0.000035406",
+      "providerCost": "0.000035406"
     },
     {
       "requestHash": "a29bceca182dcc5ebba4e904dfc4b0305af5f90be2b10befa489606f27534793",
@@ -2683,6 +2892,17 @@
       "outputTokens": 93,
       "attributedCost": "0.000061824",
       "providerCost": "0.000061824"
+    },
+    {
+      "requestHash": "a7a068c872d397d1d6ae37ebc27e715627bd5508a8c0a99c999f46d5c7c185ff",
+      "question": "room-type",
+      "subject": "labels.json · convention · FOYER",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 842,
+      "outputTokens": 187,
+      "attributedCost": "0.000035364",
+      "providerCost": "0.000035364"
     },
     {
       "requestHash": "a82e64a01b9d9451756ffad062ec0a4aa855f75320496d32602fc7508f6435d3",
@@ -2817,6 +3037,17 @@
       "providerCost": "0.000082992"
     },
     {
+      "requestHash": "af0261d53fc385dfa404b1a0d8a1b9f10481976632d051b04e43d06d1cc060e3",
+      "question": "room-type",
+      "subject": "labels.json · convention · SIT OUT",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 842,
+      "outputTokens": 187,
+      "attributedCost": "0.000035364",
+      "providerCost": "0.000035364"
+    },
+    {
       "requestHash": "af35b70893e4ea89c56cc13aff8503eecab73a6b8b14dd837440a06fa1b777e1",
       "question": "ask-route",
       "subject": "paraphrases.json · when will C4 be cast",
@@ -2914,6 +3145,17 @@
       "outputTokens": 24,
       "attributedCost": "0.00003486",
       "providerCost": "0.00003486"
+    },
+    {
+      "requestHash": "b739c9b6704c483fa93a371148bbc21beee0056c0a17826ec474cc23eb874b20",
+      "question": "room-type",
+      "subject": "labels.json · convention · C.BED-02",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 845,
+      "outputTokens": 185,
+      "attributedCost": "0.00003549",
+      "providerCost": "0.00003549"
     },
     {
       "requestHash": "b7ba15fdd5a094ead46e81860164e81303d02aa72a9ab2e70dd7c6928c3d15a5",
@@ -3024,6 +3266,17 @@
       "outputTokens": 24,
       "attributedCost": "0.00003486",
       "providerCost": "0.00003486"
+    },
+    {
+      "requestHash": "c1bb7b7870f010bd5e404ff81b9053162f8c9518db521bc824fa4dbd8da6f70c",
+      "question": "room-type",
+      "subject": "labels.json · convention · POWDER ROOM",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 843,
+      "outputTokens": 187,
+      "attributedCost": "0.000035406",
+      "providerCost": "0.000035406"
     },
     {
       "requestHash": "c2bcf1a30ca416df89c340901d61323fa4fed32d70a68544e4e2945318f5978a",
@@ -3180,6 +3433,17 @@
       "providerCost": "0.000061824"
     },
     {
+      "requestHash": "ce305aa1a9bf9a8a515fb5888d07dc715aa0f6b7fd0e14df9beb8a526d8ca339",
+      "question": "room-type",
+      "subject": "labels.json · convention · NAMAZ",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 841,
+      "outputTokens": 187,
+      "attributedCost": "0.000035322",
+      "providerCost": "0.000035322"
+    },
+    {
       "requestHash": "cead2498bcc9de6e9bd1681edb3050ac54317558cf604c01539bd6b08a5231e7",
       "question": "schedule-cell",
       "subject": "rcc6-bnbc.dxf · PILE CAP SCHEDULE  SCALE 1:50 · row 4",
@@ -3255,6 +3519,17 @@
       "outputTokens": 110,
       "attributedCost": "0.000052752",
       "providerCost": "0.000052752"
+    },
+    {
+      "requestHash": "d1825347b21e78690e7f68e9d821be4dcca37d3df3d1eee89b8786053b0519d4",
+      "question": "room-type",
+      "subject": "labels.json · convention · GUEST BED",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 842,
+      "outputTokens": 185,
+      "attributedCost": "0.000035364",
+      "providerCost": "0.000035364"
     },
     {
       "requestHash": "d19686328f109fd1c5ef562902006195070f56a152007881af050f13a54a8949",
@@ -3554,6 +3829,28 @@
       "providerCost": "0.00006174"
     },
     {
+      "requestHash": "e0a0beadbe0e16c52df8e05bf6857a5133064a3b3bbdb3d5b50deff59009bdda",
+      "question": "room-type",
+      "subject": "labels.json · convention · DRAWING / DINING",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 845,
+      "outputTokens": 187,
+      "attributedCost": "0.00003549",
+      "providerCost": "0.00003549"
+    },
+    {
+      "requestHash": "e10d5c55d9604b7014329a651a9c67520f1d2f8aa8b1ac7e5623f5cf4fa8c16f",
+      "question": "room-type",
+      "subject": "labels.json · convention · ENTRANCE HALL",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 844,
+      "outputTokens": 187,
+      "attributedCost": "0.000035448",
+      "providerCost": "0.000035448"
+    },
+    {
       "requestHash": "e156b904dec9e28c77da59a278d73a5f9e4bea2febcd4ba7832072a30359bfee",
       "question": "outline-corroboration",
       "subject": "rcc6.dxf · F4 · DXF_HANDLE:19D",
@@ -3838,6 +4135,28 @@
       "outputTokens": 24,
       "attributedCost": "0.000034524",
       "providerCost": "0.000034524"
+    },
+    {
+      "requestHash": "f751684f068681b76d65ed93250bc5de7d4e9635c76d9bde6ed86d90c2f510fe",
+      "question": "room-type",
+      "subject": "labels.json · convention · PUMP ROOM",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 842,
+      "outputTokens": 188,
+      "attributedCost": "0.000035364",
+      "providerCost": "0.000035364"
+    },
+    {
+      "requestHash": "f7a59f1d199d40b6dbdcab0ffe0f47a2d54b77c1a22acf284bb3544b8c4f2a07",
+      "question": "room-type",
+      "subject": "labels.json · convention · MASTER BED",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 841,
+      "outputTokens": 185,
+      "attributedCost": "0.000035322",
+      "providerCost": "0.000035322"
     },
     {
       "requestHash": "f7de730f90cc3d573077bd433ee18f16375a4ff987e9d877138b918819cb467c",

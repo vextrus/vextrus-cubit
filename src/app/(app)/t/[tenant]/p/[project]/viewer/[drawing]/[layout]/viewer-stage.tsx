@@ -14,6 +14,7 @@ import { BasisChip, EnumLabel, IdChip, QuantityText } from "@/ui/primitives/core
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup, Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/primitives/data";
 import { fill, strings } from "@/ui/strings";
 import { LayersPanel, type LayersPanelProps } from "./layers-panel";
+import { RoomsRegion, type RoomsRegionProps } from "./rooms-region";
 import { ScalePanel, type ScaleRegion, type ScaleViewBox } from "./scale-region";
 import { SnapAnnouncer, SnapOverlay } from "./snap-region";
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode, RefObject } from "react";
@@ -89,6 +90,8 @@ export type ViewerStageProps = {
   onKeyDown: (event: ReactKeyboardEvent<HTMLCanvasElement>) => void;
   /** The condition chest (s-measure § 2.6): the drawer's first group, above the layers (§ 1's fixed order). */
   chest?: ReactNode;
+  /** Whose rooms the drawer's last group reads (Part 7), under the views/grid panel — absent, no rooms panel. */
+  rooms?: Omit<RoomsRegionProps, "sheetName">;
   /** Whether the layers drawer stands — the `L≡` toggle in the frame's tool row (§3.1). */
   layersOpen: boolean;
   stageRef: RefObject<HTMLDivElement | null>;
@@ -100,7 +103,7 @@ export type ViewerStageProps = {
   renderer: "webgl" | "unavailable";
 };
 
-export function ViewerStage({ panel, partition, quantities, pointer, tool = "select", snap, measure, chest, onKeyDown, stageRef, canvasRef, sheetName, probed, renderer, layersOpen }: ViewerStageProps) {
+export function ViewerStage({ panel, partition, quantities, pointer, tool = "select", snap, measure, chest, rooms, onKeyDown, stageRef, canvasRef, sheetName, probed, renderer, layersOpen }: ViewerStageProps) {
   return (
     /* Every panel carries a stable id, and the split is remembered once per set of panels standing,
        so a layout stored by another build's group no longer matches this group and is dropped
@@ -115,6 +118,7 @@ export function ViewerStage({ panel, partition, quantities, pointer, tool = "sel
               {chest}
               <LayersPanel {...panel} />
               {partition.panel}
+              {rooms === undefined ? null : <RoomsRegion {...rooms} sheetName={sheetName} />}
             </div>
           </ResizablePanel>
           <ResizableHandle />

@@ -1,0 +1,125 @@
+/* The rooms panel (viewer.md Part 7): the last section of the viewer's left column, under the
+   views/grid panel. Tokens only, so light and dark are one stylesheet (R-UI-001). It takes the room
+   left beneath the lists above it, capped, with its own scroller and a hairline seam — the I-110
+   stack, never a second split. */
+.cx-rooms {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-height: 0;
+  max-block-size: 45%;
+  overflow-y: auto;
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-panel);
+  border-block-start: var(--hairline);
+}
+
+.cx-rooms-heading {
+  margin: 0;
+  font-size: var(--text-13);
+  font-weight: var(--weight-heading);
+  color: var(--ink);
+}
+
+.cx-rooms-plan {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-block-start: var(--space-2);
+  border-block-start: var(--hairline);
+}
+
+.cx-rooms-caption {
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--text-12);
+  font-weight: var(--weight-body-medium);
+  color: var(--ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cx-rooms-subheading {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-12);
+  font-weight: var(--weight-body-medium);
+  color: var(--ink-secondary);
+}
+
+.cx-rooms-counts,
+.cx-rooms-note {
+  margin: 0;
+  font-size: var(--text-12);
+  color: var(--ink-secondary);
+}
+
+.cx-rooms-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cx-rooms-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-block: var(--space-1);
+  border-block-end: var(--hairline);
+}
+
+.cx-rooms-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.cx-rooms-line.cx-rooms-note {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  column-gap: var(--space-2);
+}
+
+.cx-rooms-name {
+  overflow: hidden;
+  font-size: var(--text-12);
+  color: var(--ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cx-rooms-type {
+  flex: none;
+  font-size: var(--text-12);
+  color: var(--ink);
+}
+
+.cx-rooms-figure {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.cx-rooms-control {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+  min-width: 0;
+}
+
+.cx-rooms-control > :first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.cx-rooms-retry {
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}

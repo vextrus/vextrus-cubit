@@ -28,7 +28,8 @@ const REBASELINED_TEST = "AC-2: each lane is defined in its own file under src/s
 // measurement act's preview and commit doors (S-Measure, R-TO-040, session 8 S1).
 // Re-baselined for ONE ADDED lane, `takeoffConditions` (src/server/routers/takeoff-conditions.ts): the
 // condition chest's list, author and retire doors (S-Measure, R-TO-041, session 9 S5).
-const LANES = ["ai", "assure", "bid", "spine", "takeoff", "takeoffBbs", "takeoffBoq", "takeoffConditions", "takeoffManual", "takeoffSchedules"] as const;
+// Re-baselined for ONE ADDED lane, `takeoffRooms` (src/server/routers/takeoff-rooms.ts): the rooms panel's doors and CONFIRM_ROOMS (viewer.md Part 7).
+const LANES = ["ai", "assure", "bid", "spine", "takeoff", "takeoffBbs", "takeoffBoq", "takeoffConditions", "takeoffManual", "takeoffRooms", "takeoffSchedules"] as const;
 
 const proceduresOf = (router: RouterLike): Record<string, unknown> => router._def?.procedures ?? {};
 

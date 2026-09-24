@@ -2,4 +2,4 @@
 // drizzle-kit. The definition lives in the seam: the ORM's table builders are a driver import, and
 // src/core/db.ts is their one lawful home (SEAM-TENANT). This file is where the generator and the drift
 // lane read it back.
-export { roomOutlines } from "../../src/core/db";
+export { roomConfirmations, roomOutlines } from "../../src/core/db";

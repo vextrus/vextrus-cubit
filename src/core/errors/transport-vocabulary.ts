@@ -14,6 +14,7 @@ import { NOTE_KINDS } from "../notes/law";
 import { COVERAGES, GEOMETRY_TYPES, PLAN_MEMBERS } from "../offers/law";
 import { AXIS_IDLE_READINGS } from "../residue/law";
 import { ROOM_OUTLINE_STATUSES } from "../rooms/law";
+import { ROOM_TYPES, ROOM_TYPE_NONE } from "../rooms/room-types";
 import { SITE_FACTS } from "../site-facts/law";
 
 /** One foreign vocabulary: who owns the names, and which of them this tree spells. */
@@ -155,8 +156,10 @@ export const TRANSPORT_VOCABULARY: ReadonlyArray<TransportVocabulary> = Object.f
     // with and is written to no log and answered to nobody. Its home is `../acts/confirm-discipline.ts`.
     // `PROPOSED_LEVEL_STACK` is the kind the level stack a drawing's sections state is offered under
     // (L-MEA-07: the machine proposes a stack, never a level), keyed on the stack as a whole.
+    // `PROPOSED_ROOMS` is the kind one plan's rooms are confirmed under, each with the type read off
+    // its labels or proposed by the model (viewer.md I-687).
     vocabulary: "offered-group kinds (L-ACT-02)",
-    codes: Object.freeze(["PROPOSED_DISCIPLINE", "PROPOSED_VIEW_TYPE", "PROPOSED_LEVEL_STACK"]),
+    codes: Object.freeze(["PROPOSED_DISCIPLINE", "PROPOSED_VIEW_TYPE", "PROPOSED_LEVEL_STACK", "PROPOSED_ROOMS"]),
   }),
   Object.freeze({
     // L-CAD-06's view types, declared above and named here so the register can tell them from codes
@@ -386,5 +389,15 @@ export const TRANSPORT_VOCABULARY: ReadonlyArray<TransportVocabulary> = Object.f
     // than copied (B-19, ARCH-02).
     vocabulary: "room outline statuses (s-takeoff I-643)",
     codes: ROOM_OUTLINE_STATUSES,
+  }),
+  Object.freeze({
+    // The room types a finish schedule keys its rows by (viewer.md I-687), and the room-type
+    // question's own "none of these" (I-688). `FAMILY_LIVING` and `NONE_OF_THESE` bear an
+    // underscore, so Q-07's register would read them as refusal codes nobody registered — but a type
+    // is what a confirmed room is, written to `room_confirmations.room_type`, and the no-match is what
+    // Jev answers; a person reads the type in words and is never answered with either. The roster's
+    // home is `../rooms/room-types.ts`, read from there rather than copied (B-19, ARCH-02).
+    vocabulary: "room types (viewer.md I-687)",
+    codes: Object.freeze([...ROOM_TYPES, ROOM_TYPE_NONE]),
   }),
 ]);

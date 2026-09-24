@@ -1,0 +1,81 @@
+{
+  "requestHash": "e0a0beadbe0e16c52df8e05bf6857a5133064a3b3bbdb3d5b50deff59009bdda",
+  "modelId": "jev-latest",
+  "payload": {
+    "payload": {
+      "type": "DRAWING"
+    },
+    "sources": [
+      "DXF_HANDLE:R13"
+    ]
+  },
+  "inputTokens": 845,
+  "outputTokens": 187,
+  "judgment": {
+    "provider": "jev-1.13.0",
+    "confidence": 0.99,
+    "answers": {
+      "room_type": {
+        "type": "choice",
+        "value": "DRAWING",
+        "confidence": 0.99,
+        "probabilities": {
+          "PRAYER": 0,
+          "LIVING": 0,
+          "FAMILY_LIVING": 0,
+          "DRIVER": 0,
+          "GUARD": 0,
+          "DRAWING": 1,
+          "CORRIDOR": 0,
+          "NONE_OF_THESE": 0,
+          "STUDY": 0,
+          "TOILET": 0,
+          "LAUNDRY": 0,
+          "VERANDAH": 0,
+          "DINING": 0,
+          "METER": 0,
+          "BED": 0,
+          "KITCHEN": 0,
+          "STORE": 0,
+          "SERVANT": 0,
+          "LOBBY": 0
+        }
+      }
+    }
+  },
+  "body": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "room_type": {
+        "type": "choice",
+        "choice": "DRAWING",
+        "confidence": 0.99,
+        "probabilities": {
+          "PRAYER": 0,
+          "LIVING": 0,
+          "FAMILY_LIVING": 0,
+          "DRIVER": 0,
+          "GUARD": 0,
+          "DRAWING": 1,
+          "CORRIDOR": 0,
+          "NONE_OF_THESE": 0,
+          "STUDY": 0,
+          "TOILET": 0,
+          "LAUNDRY": 0,
+          "VERANDAH": 0,
+          "DINING": 0,
+          "METER": 0,
+          "BED": 0,
+          "KITCHEN": 0,
+          "STORE": 0,
+          "SERVANT": 0,
+          "LOBBY": 0
+        }
+      }
+    },
+    "usage": {
+      "input_tokens": 845,
+      "output_tokens": 187
+    }
+  }
+}

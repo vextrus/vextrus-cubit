@@ -20,6 +20,7 @@ import { offeredGroup } from "./offered-group";
 import { participants } from "./participants";
 import { partition } from "./partition";
 import { primitives } from "./primitives";
+import { rooms } from "./rooms";
 import { schedules } from "./schedules";
 import { screenStates } from "./screen-states";
 import { shell } from "./shell";
@@ -53,6 +54,7 @@ export const strings = {
   ...participants,
   ...partition,
   ...primitives,
+  ...rooms,
   ...schedules,
   ...screenStates,
   ...shell,

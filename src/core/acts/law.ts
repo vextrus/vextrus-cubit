@@ -35,6 +35,9 @@ export const ACT_TYPES = [
   // per completed hand measurement, which registers its row and records the recipe it applied
   // (docs/design/s-measure.md, I-373, I-378).
   "RECORD_MANUAL_MEASUREMENT",
+  // R-TO-036: "rooms … confirmable", and R-TO-030's "each stage's result is visible and confirmable" —
+  // one act confirms a plan's rooms as read, each with its name and its type (viewer.md I-687).
+  "CONFIRM_ROOMS",
 ] as const;
 
 /** One act type, drawn from the enum above. */
@@ -125,6 +128,10 @@ export const ACT_PERMISSION: Readonly<Record<ActType, Permission>> = Object.free
   AUTHOR_RULESET_EDITION: "AUTHOR_RULE_SET",
   // L-ACT-03 cuts MEASURE on exactly this: "MEASURE (… manual measurement acts …)".
   RECORD_MANUAL_MEASUREMENT: "MEASURE",
+  // A room confirmed is a reading of the drawing — the outline its finishes are measured on, and the
+  // type its finish-schedule row is found by — so it moves the permission the measuring itself moves,
+  // as CONFIRM_VIEW_TYPE does (viewer.md I-687).
+  CONFIRM_ROOMS: "MEASURE",
 });
 
 /**

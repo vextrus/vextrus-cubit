@@ -18,3 +18,13 @@ export const ROOM_FACES = ["FLOOR", "CEILING", "WALLS"] as const;
 
 /** One of the three. */
 export type RoomFace = (typeof ROOM_FACES)[number];
+
+/**
+ * How a confirmed room's type was read (viewer.md I-687): off its labels by the grammar, proposed
+ * by the model, or given by the person confirming it where neither read one or they read it otherwise.
+ * Here, beside the statuses, for their reason: the store's CHECK is written from it too.
+ */
+export const ROOM_TYPE_BASES = ["LABEL", "MODEL", "PERSON"] as const;
+
+/** One of the three. */
+export type RoomTypeBasis = (typeof ROOM_TYPE_BASES)[number];

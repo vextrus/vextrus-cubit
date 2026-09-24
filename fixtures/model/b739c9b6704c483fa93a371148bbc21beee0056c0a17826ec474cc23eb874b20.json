@@ -1,0 +1,81 @@
+{
+  "requestHash": "b739c9b6704c483fa93a371148bbc21beee0056c0a17826ec474cc23eb874b20",
+  "modelId": "jev-latest",
+  "payload": {
+    "payload": {
+      "type": "BED"
+    },
+    "sources": [
+      "DXF_HANDLE:R03"
+    ]
+  },
+  "inputTokens": 845,
+  "outputTokens": 185,
+  "judgment": {
+    "provider": "jev-1.13.0",
+    "confidence": 1,
+    "answers": {
+      "room_type": {
+        "type": "choice",
+        "value": "BED",
+        "confidence": 1,
+        "probabilities": {
+          "STUDY": 0,
+          "VERANDAH": 0,
+          "DRIVER": 0,
+          "LIVING": 0,
+          "GUARD": 0,
+          "PRAYER": 0,
+          "METER": 0,
+          "DRAWING": 0,
+          "NONE_OF_THESE": 0,
+          "LAUNDRY": 0,
+          "DINING": 0,
+          "LOBBY": 0,
+          "FAMILY_LIVING": 0,
+          "TOILET": 0,
+          "CORRIDOR": 0,
+          "STORE": 0,
+          "SERVANT": 0,
+          "KITCHEN": 0,
+          "BED": 1
+        }
+      }
+    }
+  },
+  "body": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "room_type": {
+        "type": "choice",
+        "choice": "BED",
+        "confidence": 1,
+        "probabilities": {
+          "STUDY": 0,
+          "VERANDAH": 0,
+          "DRIVER": 0,
+          "LIVING": 0,
+          "GUARD": 0,
+          "PRAYER": 0,
+          "METER": 0,
+          "DRAWING": 0,
+          "NONE_OF_THESE": 0,
+          "LAUNDRY": 0,
+          "DINING": 0,
+          "LOBBY": 0,
+          "FAMILY_LIVING": 0,
+          "TOILET": 0,
+          "CORRIDOR": 0,
+          "STORE": 0,
+          "SERVANT": 0,
+          "KITCHEN": 0,
+          "BED": 1
+        }
+      }
+    },
+    "usage": {
+      "input_tokens": 845,
+      "output_tokens": 185
+    }
+  }
+}

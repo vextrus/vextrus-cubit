@@ -14,7 +14,7 @@
  * its own formatting (I-78, I-79); nothing here counts, re-formats or writes prose around them.
  */
 import { useId } from "react";
-import type { LevelStackGroupKey, OfferedGroupKey, ViewGroupKey } from "@/core/acts";
+import type { LevelStackGroupKey, OfferedGroupKey, RoomsGroupKey, ViewGroupKey } from "@/core/acts";
 import { Button } from "../../primitives/core";
 import { strings } from "../../strings";
 import { TESTIDS } from "@/ui/testids";
@@ -24,7 +24,7 @@ import { TESTIDS } from "@/ui/testids";
  * key's shape the fact judged, so each act's key joins this union rather than being flattened into a
  * shape of the pattern's own — a kind dropped from the roster is a compile error here (B-17).
  */
-export type OfferedKey = OfferedGroupKey | ViewGroupKey | LevelStackGroupKey;
+export type OfferedKey = OfferedGroupKey | ViewGroupKey | LevelStackGroupKey | RoomsGroupKey;
 
 /**
  * One group as the consumer offers it: the typed key, the sentence naming it, the live count.

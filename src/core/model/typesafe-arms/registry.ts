@@ -8,6 +8,7 @@ import { boqLineDescriptionArm } from "./boq-line-description";
 import { coverageCauseArm } from "./coverage-cause";
 import { noteClauseArm } from "./note-clause";
 import { outlineCorroborationArm } from "./outline-corroboration";
+import { roomTypeArm } from "./room-type";
 import { scheduleCellArm } from "./schedule-cell";
 import { sheetReadingArm } from "./sheet-reading";
 import { sheetRevisionRecencyArm } from "./sheet-revision-recency";
@@ -24,6 +25,7 @@ export const TYPESAFE_ARMS = [
   outlineCorroborationArm,
   sheetRevisionRecencyArm,
   askRouteArm,
+  roomTypeArm,
 ] as const;
 
 /** The task of one arm, read off its own recognition. */

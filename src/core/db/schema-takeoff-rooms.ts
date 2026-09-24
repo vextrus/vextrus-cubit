@@ -9,10 +9,11 @@
 // transaction, keyed by a content-derived room key, so a re-derivation of the same artifact writes the
 // same rows (L-REG-04, R-TO-030).
 import { ROOM_OUTLINE_REASONS } from "../errors";
-import { ROOM_OUTLINE_STATUSES, type RoomFace, type RoomOutlineStatus } from "../rooms/law";
+import { ROOM_OUTLINE_STATUSES, ROOM_TYPE_BASES, type RoomFace, type RoomOutlineStatus, type RoomTypeBasis } from "../rooms/law";
+import { ROOM_TYPES, type RoomType } from "../rooms/room-types";
 import { closedList } from "./sql";
 import { sql as statement } from "drizzle-orm";
-import { check, doublePrecision, index, jsonb, pgTable, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { check, doublePrecision, index, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 
 // The statuses and the faces are law (`../rooms/law.ts`), read from there rather than copied (B-17);
 // their types stay published beside the table that stores them.
@@ -78,9 +79,46 @@ export const roomOutlines = pgTable(
 );
 
 /**
+ * A person's confirmation of one room as read (CONFIRM_ROOMS, viewer.md I-687): its outline,
+ * its name and its type, keyed by the record and the room's content-derived key. Append-only, as
+ * every confirmation is (L-ACT-01): the reading it confirms stays in `room_outlines`, and the name and
+ * type are copied here as they were confirmed, so a finish that reads a confirmed type reads what the
+ * person saw even where a later rebuild names the room otherwise. A type the model proposed carries
+ * the call that proposed it (L-AI-02).
+ */
+export const roomConfirmations = pgTable(
+  "room_confirmations",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    confirmationId: uuid("confirmation_id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id").notNull(),
+    drawingId: uuid("drawing_id").notNull(),
+    ingestId: uuid("ingest_id").notNull(),
+    roomKey: text("room_key").notNull(),
+    viewKey: text("view_key").notNull(),
+    name: text("name").notNull(),
+    roomType: text("room_type").$type<RoomType>().notNull(),
+    basis: text("basis").$type<RoomTypeBasis>().notNull(),
+    callId: uuid("call_id"),
+    actId: uuid("act_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    check("room_confirmations_type_closed", statement`${table.roomType} in (${statement.raw(closedList(ROOM_TYPES))})`),
+    check("room_confirmations_basis_closed", statement`${table.basis} in (${statement.raw(closedList(ROOM_TYPE_BASES))})`),
+    // A type the model proposed names its call; one the grammar read names none (L-AI-02).
+    check("room_confirmations_call_stated", statement`(${table.basis} = 'MODEL') = (${table.callId} is not null)`),
+    // One confirmation per room of one record: a second, disagreeing reading is its own act's.
+    uniqueIndex("room_confirmations_once").on(table.tenantId, table.ingestId, table.roomKey),
+    index("room_confirmations_by_drawing").on(table.tenantId, table.drawingId),
+  ],
+);
+
+/**
  * Every table this area publishes. `schema.ts` spreads it into `SEAM_SCHEMA`, so a table added to this
  * file joins the typed surface without a second roster being edited (B-19, AM-11).
  */
 export const TAKEOFF_ROOMS_TABLES = {
   roomOutlines,
+  roomConfirmations,
 };

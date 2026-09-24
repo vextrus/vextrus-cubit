@@ -1,0 +1,81 @@
+{
+  "requestHash": "31a72c25597546988c2e3a2a1cd2f51b40b835601029fa8695cafc6150d016b1",
+  "modelId": "jev-latest",
+  "payload": {
+    "payload": {
+      "type": "LAUNDRY"
+    },
+    "sources": [
+      "DXF_HANDLE:R19"
+    ]
+  },
+  "inputTokens": 842,
+  "outputTokens": 188,
+  "judgment": {
+    "provider": "jev-1.13.0",
+    "confidence": 0.82,
+    "answers": {
+      "room_type": {
+        "type": "choice",
+        "value": "LAUNDRY",
+        "confidence": 0.82,
+        "probabilities": {
+          "BED": 0,
+          "LIVING": 0,
+          "METER": 0,
+          "PRAYER": 0,
+          "CORRIDOR": 0,
+          "FAMILY_LIVING": 0,
+          "STUDY": 0,
+          "DRAWING": 0,
+          "NONE_OF_THESE": 0.01,
+          "SERVANT": 0,
+          "TOILET": 0.16,
+          "STORE": 0,
+          "DRIVER": 0,
+          "LOBBY": 0,
+          "DINING": 0,
+          "KITCHEN": 0,
+          "LAUNDRY": 0.83,
+          "VERANDAH": 0,
+          "GUARD": 0
+        }
+      }
+    }
+  },
+  "body": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "room_type": {
+        "type": "choice",
+        "choice": "LAUNDRY",
+        "confidence": 0.82,
+        "probabilities": {
+          "BED": 0,
+          "LIVING": 0,
+          "METER": 0,
+          "PRAYER": 0,
+          "CORRIDOR": 0,
+          "FAMILY_LIVING": 0,
+          "STUDY": 0,
+          "DRAWING": 0,
+          "NONE_OF_THESE": 0.01,
+          "SERVANT": 0,
+          "TOILET": 0.16,
+          "STORE": 0,
+          "DRIVER": 0,
+          "LOBBY": 0,
+          "DINING": 0,
+          "KITCHEN": 0,
+          "LAUNDRY": 0.83,
+          "VERANDAH": 0,
+          "GUARD": 0
+        }
+      }
+    },
+    "usage": {
+      "input_tokens": 842,
+      "output_tokens": 188
+    }
+  }
+}

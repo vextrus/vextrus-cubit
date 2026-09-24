@@ -30,7 +30,8 @@ import {
 // Re-baselined for ONE ADDED lane, `takeoffBbs` — the bar schedule's export door (R-TO-054, B-20).
 // Re-baselined for ONE ADDED lane, `takeoffManual` — the manual measurement act's doors (S-Measure, session 8 S1).
 // Re-baselined for ONE ADDED lane, `takeoffConditions` — the condition chest's doors (S-Measure, session 9 S5).
-const LANES = ["spine", "takeoff", "takeoffSchedules", "takeoffBoq", "takeoffBbs", "takeoffManual", "takeoffConditions", "bid", "assure", "ai"] as const;
+// Re-baselined for ONE ADDED lane, `takeoffRooms` — the rooms panel's doors and CONFIRM_ROOMS (viewer.md Part 7, ARCH-6).
+const LANES = ["spine", "takeoff", "takeoffSchedules", "takeoffBoq", "takeoffBbs", "takeoffManual", "takeoffConditions", "takeoffRooms", "bid", "assure", "ai"] as const;
 
 const request = (headers: Record<string, string> = {}) => new Request("http://cubit.test/api/trpc/spine.health", { headers: new Headers(headers) });
 

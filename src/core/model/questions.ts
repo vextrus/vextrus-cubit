@@ -27,6 +27,8 @@ export const MODEL_QUESTIONS = Object.freeze({
   sheetRevisionRecency: "sheet-revision-recency",
   /** Which intent of S-Ask's roster a question the grammar could not route asks, and which named subject (R-AI-003, I-396). */
   askRoute: "ask-route",
+  /** Which room type a room is, where the grammar reads none off its labels (R-TO-036, viewer.md I-688). */
+  roomType: "room-type",
 } as const);
 
 /** One of the closed names above. */

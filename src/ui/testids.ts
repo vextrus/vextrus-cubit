@@ -462,6 +462,14 @@ export const TESTIDS = {
     parameterTable: "ruleset-parameter-table",
     unpinned: "ruleset-unpinned",
   },
+  rooms: {
+    panel: "rooms-panel",
+    plan: "rooms-plan",
+    room: "rooms-room",
+    typeSelect: "rooms-type-select",
+    typeConfirm: "rooms-type-confirm",
+    refused: "rooms-refused",
+  },
   rulesetAuthor: {
     diff: "ruleset-author-diff",
     diffRow: "ruleset-author-diff-row",

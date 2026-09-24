@@ -218,7 +218,7 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
         tool={tool}
         snap={snap}
         measure={{ layer: measuring.layer, refusal: measuring.measure.refusal, onKeyUp: measuring.onKeyUp }}
-        chest={chested.chest.panel}
+        chest={chested.chest.panel} rooms={{ tenantId, projectId, drawingId, container: screenRoot }}
         onKeyDown={keyboard.onKeyDown}
         stageRef={stageRef}
         canvasRef={canvasRef}

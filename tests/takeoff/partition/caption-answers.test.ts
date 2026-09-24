@@ -20,7 +20,7 @@ import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "n
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import { JEV_MODEL, createModelSeam, requestHash, sourceKeyResolver, type ModelLedger, type ModelLedgerRow } from "@/core/model";
+import { JEV_MODEL, MODEL_QUESTIONS, createModelSeam, requestHash, sourceKeyResolver, type ModelLedger, type ModelLedgerRow } from "@/core/model";
 import { proposeViewType, viewCaptionRequest } from "@/core/view-captions";
 import { CAPTION_CLASSES } from "@/modules/takeoff/partition/rebuild";
 
@@ -36,8 +36,12 @@ type Recorded = { file: string; requestHash: string; anchorKey: string; fixture:
  * governed with no edit (B-19).
  */
 function recordedCaptionAnswers(): Recorded[] {
+  // Another closed question answers in the same `{type}` shape (the room type, viewer.md I-688):
+  // the roster files each recording under the question it answers, so those are not captions.
+  const roster = JSON.parse(readFileSync(join(CORPUS_ROOT, "corpus.json"), "utf8")) as { fixtures: { requestHash: string; question: string }[] };
+  const otherQuestion = new Set(roster.fixtures.filter((line) => line.question === MODEL_QUESTIONS.roomType).map((line) => `${line.requestHash}.json`));
   return readdirSync(CORPUS_ROOT)
-    .filter((name) => name.endsWith(".json"))
+    .filter((name) => name.endsWith(".json") && !otherQuestion.has(name))
     .sort()
     .flatMap((name) => {
       const fixture = JSON.parse(readFileSync(join(CORPUS_ROOT, name), "utf8")) as Record<string, unknown>;

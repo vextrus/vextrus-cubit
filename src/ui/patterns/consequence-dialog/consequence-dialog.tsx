@@ -153,6 +153,7 @@ const ACT_WORDS: { readonly [T in ActType]: string } = {
   AUTHOR_RULESET_EDITION: strings.consequence_dialog_act_author_ruleset_edition,
   AUTHOR_SITE_FACT: strings.consequence_dialog_act_author_site_fact,
   RECORD_MANUAL_MEASUREMENT: strings.consequence_dialog_act_record_manual_measurement,
+  CONFIRM_ROOMS: strings.consequence_dialog_act_confirm_rooms,
 };
 
 /**

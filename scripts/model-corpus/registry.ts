@@ -9,6 +9,7 @@ import { subjectsOf as boqLineDescription } from "./boq-line-description";
 import { subjectsOf as coverageCause } from "./coverage-cause";
 import { subjectsOf as noteClause } from "./note-clause";
 import { subjectsOf as outlineCorroboration } from "./outline-corroboration";
+import { subjectsOf as roomType } from "./room-type";
 import { subjectsOf as scheduleCell } from "./schedule-cell";
 import { subjectsOf as sheetReading } from "./sheet-reading";
 import { subjectsOf as sheetRevisionRecency } from "./sheet-revision-recency";
@@ -26,4 +27,5 @@ export const CORPUS_RECORDERS: Readonly<Record<ModelQuestion, CorpusRecorder>> =
   [MODEL_QUESTIONS.outlineCorroboration]: outlineCorroboration,
   [MODEL_QUESTIONS.sheetRevisionRecency]: sheetRevisionRecency,
   [MODEL_QUESTIONS.askRoute]: askRoute,
+  [MODEL_QUESTIONS.roomType]: roomType,
 });

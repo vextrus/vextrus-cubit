@@ -3578,3 +3578,152 @@ carries (a sighting nothing registered) under Unmeasured — owner: the coverage
 owns sightings. Including the legend in A-SHEET-PDF (R-TO-044's last clause) — owner: VD-6, which the
 paper palette of I-637 serves. A condition's hatch drawn at the chest's own swatch pitch on the
 canvas (6 px here, 3 px in the swatch) — owner: the design pass that rules the chest's swatch.
+
+# Design Decision — S-Viewer's rooms panel: confirming a plan's rooms, named and typed (Part 7)
+
+The eighth region of S-Viewer, and no route of its own: a section docked LAST in the left column,
+under the views/grid panel (R-UI-080: no second right column; the canvas keeps its ≥ 70 %). Per plan
+of the drawing's current record, it offers ONE act that confirms every room the rooms stage read —
+each named from its labels and typed from them, or by Jev where the labels name no type — lists every
+room the offer leaves out with why, and gives each of those a type control of its own. Route unchanged.
+Files: `src/core/acts/{confirm-rooms.ts,law.ts,confirm-discipline.ts}` (the act, its permission, the
+two group kinds), `src/core/rooms/{room-types.ts,room-type-question.ts}` (the roster, the grammar and
+the question), `src/core/model/typesafe-arms/room-type.ts` and its recorder
+`scripts/model-corpus/room-type.ts` over `tests/ai/room-type/labels.json`, the store
+`room_confirmations` (`src/core/db/schema-takeoff-rooms.ts`), `src/modules/takeoff/rooms-ui/{server.ts,
+view.ts,index.tsx,copy.ts,rooms.css}`, the lane `src/server/routers/takeoff-rooms.ts`, the route's
+`rooms-region.tsx` and `rooms-actions.ts`, `viewer-stage.tsx`, `viewer-screen.tsx`, copy home
+`src/ui/strings/rooms.ts`. Slice ARCH-6. Law: R-TO-030, R-TO-036, L-ACT-01/02/03, L-AI-01/02,
+L-MEA-01, L-MEA-03, R-UI-023, R-UI-050, R-UI-080, R-UI-082, ARCH-01, B-17.
+
+## 0. Interpretations
+
+- **I-687 — a plan's rooms are confirmed in one act, keyed on the plan; a room left out is typed on
+  its own.** R-TO-036's rooms are "confirmable" (R-TO-030) and L-ACT-02 offers bulk as a typed key, so
+  CONFIRM_ROOMS takes one of two keys and nothing else: `PROPOSED_ROOMS {drawingId, viewKey}` — every
+  unconfirmed CLOSED, named room of that plan whose type is READ — and `ROOM {drawingId, roomKey,
+  roomType}` — one closed, named room at the type a person gives it. Both are members of the seam's one
+  closed roster (`GROUP_KINDS`). Membership is resolved in the act's transaction from the partition's
+  rooms, the confirmations already written and the model's answers already on the ledger, by the same
+  functions the panel reads with, so the offer's count is the Consequence's. The Consequence is the
+  SUBJECTS arm: a room's key, its name as the label, and `[type, basis]` after — the digest binds both.
+  The act moves MEASURE (a room is a reading of the drawing, as a view's class is). The commit appends
+  one `room_confirmations` row per room — its name and type copied as confirmed, how the type was read
+  (`LABEL`, `MODEL` with the call, or `PERSON`), the act — and records the model call's outcome:
+  CONFIRMED where its proposal was confirmed as proposed, OVERRULED where a person typed the room
+  otherwise (L-AI-02). A confirmed room leaves every group; a second reading is its own act's (L-ACT-01),
+  and the store's `room_confirmations_once` turns a lost race into `GROUP_NOT_OFFERED`. The type roster
+  is what a Dhaka residential finish schedule keys its rows by (BED … VERANDAH); which finishes a type
+  bears is the finishes reader's, never this act's. Rejected: one act per room (sixteen dialogs for one
+  plan), and confirming untyped rooms with no type (a finish row nobody can find).
+- **I-688 — the grammar types what its labels say; Jev is asked only where it cannot, once, and a
+  room is never typed by a guess.** A room's type is read off the labels its name is made of
+  (`LIVING / DINING` is two): the one type every label names, after a serial and a trailing ROOM are set
+  aside (`BED-01`, `GUARD ROOM`, `F.LIVING`). Where the labels name none, or two that differ, the room is
+  put to Jev as one closed Choice over the roster plus "none of these", on its name and its first
+  label's key, which the answer must cite (L-AI-01). The answer lands on the ledger and is read back by
+  the request's hash, so a room is asked once; the panel asks, on its first reading of a drawing, for
+  the rooms nobody has asked about, and that ask moves MEASURE (it spends and writes the ledger). A
+  room Jev answers "none of these", or whose asking the seam refuses (a missing recording, an uncited
+  answer), stays untyped, is said so on its row, and is typed by a person. The corpus
+  (`tests/ai/room-type/labels.json`) holds F-ARCH's two living-and-dining spaces — transcribed off the
+  partition's own reading, which the test holds it to — and 27 Dhaka conventions; every one is recorded
+  and replayed through the seam, and Jev agrees with the surveyor's type on all but PANTRY (Jev: STORE;
+  the corpus: KITCHEN), which the test names.
+
+## 1. Layout and hierarchy
+
+```
+left column:  [chest] → Layers → Views and grid → Rooms
+Rooms
+───────────────────────────────────────────────
+TYPICAL FLOOR PLAN (1ST TO 6TH)
+18 rooms · 0 confirmed · 0 to type
+┌ Rooms on TYPICAL FLOOR PLAN (1ST TO 6TH) ─────┐
+│ 18 rooms, named and typed from their labels   │   OfferedGroups, one row
+│                             [Preview this group]
+└───────────────────────────────────────────────┘
+BED-01                                   Bed
+23.95 m²  From its label
+LIVING / DINING                          Living
+45.12 m²  Proposed by Jev, 100 % sure
+PUMP ROOM
+4.00 m²   Jev read no type in its label
+[Choose a type ▾] [Preview]
+Not rooms a finish is measured in
+GUARD ROOM                    Surface not closed
+```
+
+| Region | Where | Size | Owner |
+|---|---|---|---|
+| Rooms panel | the left column, last, under the views/grid panel | the column's width; ≤ 45 % tall, scrolls within | `rooms-ui/index.tsx` |
+| Offer | the plan's section, under its counts | one OfferedGroups row | `rooms-region.tsx` |
+| Type control | the untyped room's row | Select + secondary button | `rooms-region.tsx` |
+| Dialog | the screen's root | the one ConsequenceDialog | `rooms-region.tsx` |
+
+## 2. States (R-UI-050)
+
+| Cell | When | What stands |
+|---|---|---|
+| loading | asked, not answered | "Reading the rooms." |
+| unread | the drawing has no record | the unread sentence |
+| empty | the record's partition read no region | the empty sentence |
+| ready | rooms read | per plan: counts, the offer (where a group stands), the rows, the regions refused |
+| asking | Jev is being asked about rooms | the asking sentence as a status line above the plans |
+| failed | the reading faulted | the failure sentence and Read again |
+| refused | the read door refused (401/403) | the one RefusalState with its evidence link |
+| denied | the preview refused PERMISSION_NOT_HELD | the two denial sentences in the answer slot; the rows stay |
+
+A reader without MEASURE keeps every row — knowledge is not permission — and loses the doors.
+
+## 3. Copy, verbatim (`src/ui/strings/rooms.ts`, mirrored in `rooms-ui/copy.ts`)
+
+`rooms_heading` "Rooms" · `rooms_loading` "Reading the rooms." · `rooms_unread` "This drawing has not
+been read yet, so no room stands on it." · `rooms_empty` "The plans of this drawing enclose no room the
+product could read." · `rooms_failed` "The rooms could not be read." · `rooms_retry` "Read again" ·
+`rooms_plan_counts` "{rooms} rooms · {confirmed} confirmed · {untyped} to type" · `rooms_group_label`
+"Rooms on {caption}" · `rooms_group_count_one` "1 room, named and typed from its label" ·
+`rooms_group_count_many` "{count} rooms, named and typed from their labels" · `rooms_basis_label` "From
+its label" · `rooms_basis_model` "Proposed by Jev, {confidence} % sure" · `rooms_basis_model_unsure`
+"Proposed by Jev" · `rooms_basis_person` "Typed by a person" · `rooms_confirmed` "Confirmed" ·
+`rooms_untyped_unasked` "No type read from its label; Jev has not answered yet" · `rooms_untyped_none`
+"Jev read no type in its label" · `rooms_type_field` "Type for {name}" · `rooms_type_placeholder`
+"Choose a type" · `rooms_type_confirm` "Preview" · `rooms_refused_heading` "Not rooms a finish is
+measured in" · `rooms_area` "{area} m²" · `rooms_unnamed` "Unnamed region" · `rooms_asking` "Asking Jev
+about {count} rooms whose labels name no type." · `rooms_offline` "Nothing was previewed: the connection
+to the product is gone." · `rooms_denied_permission` "Confirming rooms needs the MEASURE permission on
+this project, and your account does not hold it." · `rooms_denied_holder` "This project's principals
+and measurers hold it; a principal grants it on the participants screen." · the dialog's act name
+`consequence_dialog_act_confirm_rooms` "Confirm rooms". A type and a refused region's reason are said by
+EnumLabel's `humaniseEnum`; figures pass the format seam.
+
+## 4. Motion
+
+None beyond the dialog's own.
+
+## 5. Tokens
+
+`--surface-panel`, `--hairline`, `--ink`, `--ink-secondary`, `--accent` (Read again), `--font-mono`,
+`--text-12`, `--text-13`, `--weight-heading`, `--weight-body-medium`, `--space-*`. No new token.
+
+## 6. Themes
+
+CSS only; it follows the theme.
+
+## 7. Test hooks (closed contract, C-05)
+
+`rooms-panel` (`data-state`) · `rooms-plan` (`data-view-key`, `data-offered`, `data-confirmed`,
+`data-untyped`) · `rooms-room` (`data-room-key`, `data-state` CONFIRMED | OFFERED | WAITING,
+`data-type`, `data-basis`) · `rooms-type-select` · `rooms-type-confirm` · `rooms-refused`
+(`data-reason`); the offer is the shared `offered-group*` hooks with `data-kind="PROPOSED_ROOMS"`.
+J-042 (`tests/e2e/journeys/j-042-rooms-and-finishes.spec.ts`) opens F-ARCH's typical plan and confirms
+its rooms in one act.
+
+## 8. Recorded IOUs (owner named, never a comment in `src/`)
+
+The rooms are not painted as confirmed on the sheet (the partition overlay's room chips read the
+partition, not the confirmation) — owner: the finishes slice that reads confirmed types. A room Jev was
+refused on is asked again on the next mount of the panel (a refused call stands on the ledger and is not
+an answer) — owner: the model seam's refusal memory, if a live refusal proves recurrent. A second,
+disagreeing reading of a confirmed room has no door yet (L-ACT-01's competing observation) — owner: the
+rooms' repudiation, with the finishes slice.

@@ -13,6 +13,7 @@ import { authorStoreyHeight, type AuthorStoreyHeightInput } from "./author-store
 import { authorTypicalRange, type AuthorTypicalRangeInput } from "./author-typical-range";
 import { confirmDiscipline, type ConfirmDisciplineInput } from "./confirm-discipline";
 import { confirmViewType, type ConfirmViewTypeInput } from "./confirm-view-type";
+import { confirmRooms, type ConfirmRoomsInput } from "./confirm-rooms";
 import { corroborate, type CorroborateInput } from "./corroborate";
 import { declareNotInProjectScope, type DeclareNotInProjectScopeInput } from "./declare-not-in-project-scope";
 import { holdOutOfBill, type HoldOutOfBillInput } from "./hold-out-of-bill";
@@ -66,6 +67,7 @@ export { type ActRendering, type ActorCtx, type WrittenAct } from "./rendering";
 export { directionOf, type AssignDirection, type AssignParticipantRoleInput } from "./assign-participant-role";
 export { GROUP_KINDS, groupNotOffered, type ConfirmDisciplineInput, type GroupKind, type OfferedGroupKey } from "./confirm-discipline";
 export { viewGroupNotOffered, type ConfirmViewTypeInput, type ViewGroupKey } from "./confirm-view-type";
+export { answersFor, readRoomType, roomsGroupNotOffered, unconfirmedRoomsOf, type ConfirmRoomsInput, type ReadRoomType, type RoomMember, type RoomsGroupKey } from "./confirm-rooms";
 export { setNotPinnable, type PinDrawingSetInput } from "./pin-drawing-set";
 export { affirmScale, type AffirmScaleInput } from "./affirm-scale";
 export {
@@ -108,7 +110,8 @@ export type ActInput =
   | DeclareNotInProjectScopeInput
   | AuthorRulesetEditionInput
   | AuthorSiteFactInput
-  | RecordManualMeasurementInput;
+  | RecordManualMeasurementInput
+  | ConfirmRoomsInput;
 
 /**
  * L-ACT-02: "The pairs form a total map over the act-type enum (a type without a rendering is a
@@ -133,6 +136,7 @@ export const ACT_MAP: Readonly<{ [T in ActType]: ActRendering<Extract<ActInput, 
   AUTHOR_RULESET_EDITION: authorRulesetEdition,
   AUTHOR_SITE_FACT: authorSiteFact,
   RECORD_MANUAL_MEASUREMENT: recordManualMeasurement,
+  CONFIRM_ROOMS: confirmRooms,
 });
 
 /**
@@ -202,6 +206,8 @@ function renderingFor(input: ActInput): BoundRendering {
     case "AUTHOR_SITE_FACT":
       return bind(ACT_MAP[input.type], input);
     case "RECORD_MANUAL_MEASUREMENT":
+      return bind(ACT_MAP[input.type], input);
+    case "CONFIRM_ROOMS":
       return bind(ACT_MAP[input.type], input);
     default:
       return unrendered(input);
