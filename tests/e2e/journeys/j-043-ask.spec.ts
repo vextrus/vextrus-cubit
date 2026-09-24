@@ -161,7 +161,13 @@ test.describe("J-043 — ask the drawings", () => {
     await settled(page);
 
     /* --- (6) the QS's own words, no cue the grammar reads: Jev routes it, from its recorded answer --- */
-    // Asked after the pictures, so the thread they hold is the grammar's alone.
+    // Asked after the pictures, so the thread they hold is the grammar's alone — and in a cleared
+    // conversation: beside an answered reading, words that name a subject and no intent are a
+    // follow-up the grammar reads against it (§1 Follow-ups), and I-623 routes no follow-up. The
+    // paraphrase was recorded as a question read on its own (I-625), so it is asked as one.
+    await ask.clear.click();
+    await expect(ask.answers, "the conversation cleared").toHaveCount(0);
+    expect(await ask.state(), "and the screen stands empty again").toBe("empty");
     const routed = await ask.ask(ROUTED_PARAPHRASE);
     await settled(page);
     await expect(routed, "the paraphrase is answered, not refused").toHaveAttribute("data-answer", "answered");
@@ -170,6 +176,6 @@ test.describe("J-043 — ask the drawings", () => {
     await expect(routed, "naming the ledger row of the one call it cost").toHaveAttribute("data-call", /^[0-9a-f-]{36}$/u);
     await expect(ask.figures(routed).first(), "the same cited count the grammar gives").toHaveAttribute("data-value", "1");
     await expect(routed.getByTestId(TESTIDS.ask.understood), "and it says whose reading it is").toContainText(strings.ask_understood_machine);
-    await expect(ask.answers, "five answers kept").toHaveCount(5);
+    await expect(ask.answers, "the one answer the cleared conversation keeps").toHaveCount(1);
   });
 });

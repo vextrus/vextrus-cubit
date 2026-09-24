@@ -73,6 +73,10 @@ export class SAskPage {
   get submit(): Locator {
     return this.page.getByTestId(TESTIDS.ask.submit);
   }
+  /** The band's one way to start the conversation over (I-403: the thread is kept until cleared). */
+  get clear(): Locator {
+    return this.page.getByTestId(TESTIDS.ask.clear);
+  }
   get thread(): Locator {
     return this.page.getByTestId(TESTIDS.ask.thread);
   }

@@ -8,17 +8,15 @@
 // change to what an answer reads — a level, a height, a transcribed note, a repudiation, a pin — is an
 // act (L-ACT-01), and every measured figure is a published line, so these three are the whole of it.
 import { createHash } from "node:crypto";
-import { ELEMENT_TYPES, isElementType, type ElementType } from "@/core/catalogue/classes";
 import { campaignsOf } from "@/core/campaigns";
 import { acts, and, desc, eq, forTenant, quantityLines } from "@/core/db";
 import { levelStackOf } from "@/modules/takeoff/levels";
 import { registerObjectsOf } from "@/modules/takeoff/register";
-import { markOrder } from "@/modules/takeoff/register-ui/order";
+import { exampleOf, type AskExample } from "./example";
 /** Which project is asked, in which workspace — the guard has already resolved both. */
 type AskScope = { readonly tenantId: string; readonly projectId: string };
 
-/** The question the empty state offers, in the register's own subjects (§2 Empty). */
-export type AskExample = { readonly class: ElementType; readonly mark: string; readonly level: string };
+export type { AskExample } from "./example";
 
 /** What the page reads once. */
 export type AskArrival = {
@@ -35,23 +33,6 @@ const NO_CAMPAIGN = "none";
 /** The stamp over its three parts, short and opaque — it names no id a reader could read (§6). */
 function stampOf(parts: readonly string[]): string {
   return createHash("sha256").update(parts.join("\u0000")).digest("hex").slice(0, 16);
-}
-
-/**
- * The first registered object standing on a level of the stack, in the register's own order — level
- * from the ground up, then class in the catalogue's order, then mark as a QS counts them (§2 Empty).
- */
-function exampleOf(objects: readonly { elementType: string; mark: string; levelLabel: string | null }[], stack: readonly { label: string; ordinal: number }[]): AskExample | null {
-  const rank = new Map(stack.map((level) => [level.label, level.ordinal]));
-  const standing = objects.filter((object) => object.levelLabel !== null && rank.has(object.levelLabel) && isElementType(object.elementType) && object.mark.trim() !== "");
-  standing.sort(
-    (left, right) =>
-      (rank.get(left.levelLabel as string) as number) - (rank.get(right.levelLabel as string) as number) ||
-      ELEMENT_TYPES.indexOf(left.elementType as ElementType) - ELEMENT_TYPES.indexOf(right.elementType as ElementType) ||
-      markOrder(left.mark, right.mark),
-  );
-  const first = standing[0];
-  return first === undefined ? null : { class: first.elementType as ElementType, mark: first.mark, level: first.levelLabel as string };
 }
 
 /** Read what S-Ask's page stands on (test contract: `askArrivalOf`). */
