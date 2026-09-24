@@ -73,6 +73,111 @@ function isRegeneratedBaseline(path: string): boolean {
   return isBaselineImage(path) || /^cad\/tests\/fixtures\/.*\.entitygraph\.json$/.test(path) || DECLARED_REBASELINED.includes(path);
 }
 
+/** The ask-route corpus's recordings the two `baseline:` commits of ASK-2 carried, by request hash (see below). */
+const ASK_ROUTE_RECORDINGS: readonly string[] = [
+  "0107703505cebbe40920ce49b40c9b12c112470cd36fbd172ebe79a1d630c6a6",
+  "027eef21b1013c7ee617d199e7baa02261890660361f783b339e82d116e00627",
+  "02e5b5c7c0b777987a62150428d7e3304042dab5fb4a776cb8d4d7560b15a392",
+  "03273040ced24b61a9594b0a0534ec596a312d94aa4860e6e73a9433ca17b342",
+  "063349da461cce1b01de82fd90ab80894dbaf5f2a2d25b0131f2cce333343a42",
+  "07be4464d6bf16d1c5310965d8fa962c06e8008b6a56e5af45fc2c1a39da213b",
+  "08e5c0a6b873f12ecf117514a3115c618de14f50c40b112328c67b13b928fae9",
+  "09ce68e8a1257b1270ca4c3f6adcb95c7135eeeb454695afe7a5b007a27f6d2d",
+  "0bc76cf35c8755695a35f1ef2e926f2cee545f53a12d80409a044f95ac86abaa",
+  "0eec582dc30b64235bcdf06aab96086db4efba0a81a177a3da993992d3b2dc77",
+  "0f4f68e62efc7937fe5dcb6e86030415d1765d2583ca5331266fb484cb5bc69d",
+  "131c2a99864c0087458ccd9140f2e38a454fc6596c22a88500b697112d046303",
+  "1a96678a3ca099952e169460931f386674c93a3bb71736114bc1cb57df7f22c0",
+  "1dadb9b2568bc406c98a281b416b9af48af180174f0679e072773526f26a9c76",
+  "1f5741b9c92f53a4d561df5da5fd504a4c35cade5226df425b9626868f515a50",
+  "20516b77b9a96f43534d996ef16fc12be3dc95ef7127a729f6fd744a5a8121d6",
+  "221fa2d7cebab65449c90658539d5d7d6c6538f0ef764cbb7926755fbf3cd2ee",
+  "27076caf6d53b3c7b4b0f441c791db3003b365836611f6b60cbdd10a212edc93",
+  "29b137cb8b2afd71371589235eaae26e85e4d76740ae143a222dd485c2261c77",
+  "2bfe00575e572c47778ae6031097d6ed7dd66942c38c5ac6e5445d85ede1d77a",
+  "31a47bd077d1668f8bb38623c2d7dc8a9b7af30d4e690239259272f8046a6c70",
+  "3383c2863a027729cecbf92959de10a1cb30b0f55e8ff0605d8d93eb81ec16d7",
+  "396cd9018368fc7aaebc2019cca3c3ffc14432596da910d07094226114060b10",
+  "3ee75d6839b4b66daef9dc20f19a117fba4174ee4726db0cec4b2b3bbcc55f07",
+  "4015e2d655ef2ecba7920c93fe0457f095bb6dda3ecae22157258772dd3b466b",
+  "4073fdc99ff425a499755fd9ea236cb260290b0e51f396b718e3dba1e2f1324a",
+  "43abc7d82e891803a583273f26f4fba0905de9bc289b746803c0e7380bc7c3c9",
+  "4916252ec194064d3819efd2357b73b307556ed101f7e4970685ba2d7bab2027",
+  "4acb8aea74548241d94c4dbb1fd5db8d4d7708b55c4cc29e0c073a530880ac03",
+  "4b3a3ea8c977677c98f4c43edb3bc2cd6a4b333da0a542cc7d8faa829a232ab8",
+  "4cc9046c2505ae46cba6c20b0aba4e18ee3c71e3dd87f5ab574a7c856930a278",
+  "52a30439587abedb2876cb06d679cc910204ca007dc59ba05e80c7fcfbea94d8",
+  "56eaee28396d2cf88b400a6f67d5c4f46b829b9b7888f183e225e5b13eb7a249",
+  "5857e0d322fc6564210e578d43fbade99500f11b4719d15aa6955ad25afa5bd6",
+  "5a508280eae83cbe992359fc0ef624ba43bed74e3305367c34f8160f0c93db3e",
+  "5c4e7506d5b102ec4026bf2178c2d231c0a4fb4a0f4923cc0e9c521f8fe8a59d",
+  "618aebe9e436ea5e93775a20e24e1f9dbb790e57953ffae9bab9d249ef37978d",
+  "6248675266bfa0ee5182f6381504c18a016af0eda6299542b64b47ee36e26960",
+  "66a0b9ac381de7901fca551221008bb121cfc4dd0b8b30e37cb4b283628fd434",
+  "672be681673bd264260d65ddc2b4322a9804a53b0eb45641216ef95ed42968fd",
+  "687539ebd397b1b4017fdfd1aeb39271b9dd1bad790d6285332675f380ed328c",
+  "68cdfe7adfc1e1d8e92858aee1406bbcc87bbe50fba127b770a293f6b9e8ad64",
+  "6999ba6197da6e86d54043a6a452fc476355f3f55af6f070c5a6c81e2fe80a46",
+  "6ccebf395f5cc41bd20c41dfaf704182ad4146d80dc4a546690eedf36263cae2",
+  "6e6af55a304da705ea6ebe5321cd1167bc62d258164004b28b8bf4986f5e3632",
+  "76d0a0a6f439a68a732fd6968101195c7741f9bf60dc75b5975a6be8e2cfebb3",
+  "795b71c07560b08c08495f83895c8920082886fccc9bb8a925655303331faf1a",
+  "7c7b2faa87eac0386a5169be4a199e53205c6ff8b87791da8403ddc302ca6fb3",
+  "7f11ae1f79c0dc51a881add97cb4395f8da1f508dd15b3839f7f612da220d7a0",
+  "83b7ad233a920c9880b5fc331be5a9586670e9889bdd31ca2d9524885a24bb62",
+  "84470097879c2c6cf4062dd092524d6d0baa08def6dfe0a43f77e36c58f8410b",
+  "886431d9797a3119b26db094e5b08a738f9df6562e6d15446950ec143d3c369c",
+  "8d6cd82b0fc04c0814cc9332af4ddd35152cff479291b7d5766cd3a1b6b467f8",
+  "8e909de1756f4aece5777a71f43ecc99b3c696753cfc0e1f8f76556a167d6f46",
+  "8e9ed46cb06607b11df7387a67eb28e7aeeface6d1cb82fb2a8f5cff2651ef04",
+  "8ee13c2edb3e794919b6312cdb1a6374ace0e1a9d61e4108f65698d9c5f8dd38",
+  "91c44795259a8995ced68604ea26f0721c30df012ff27f04031c53081c731b89",
+  "931511b6006bb51fa9b950c9f4c934565cc5c0a4e60005d0f1cd8a66cac01612",
+  "95119229ae6e5487625433bdcd4852313c4ef4a7fa6628c4f77807f2d2632e19",
+  "9652a8cf6edd047b0942b3bcce9b6131131e061932fe1bf3648447c675af90a0",
+  "96d6089fdba9aa6808393329ec555689cf39286d65d1b128a7414beda935b185",
+  "97ecb17ca1e5ce86385ba73bce1dbdafd84a3948dc47125a98c2fb43a01a797a",
+  "9839dd59ecd00740a03b285776048fb7ee10ad52a89a934d2f33fe927dd0074f",
+  "9846904a910c097a36914fe9f06dd84af1e7aebae241c52495d8c88237dc589c",
+  "986999b4d92a5cade5ec2493cb65a3aa1ab5410e6a80844b727c45a3c7b3af0e",
+  "a13987ff9e182d66a54634b4825df50beb7c60fefd9da90a7d67113fef1032dd",
+  "a49d6a7871921ce798369ac3393edba05c1077eb020248e0194fd77c67b0dadb",
+  "ab9f61a7ef3ac2e9ae9b21223833e3dd9e9e87b4c30d91386ccc46c3655e574f",
+  "ad2c18530381ad0b64ab2613b50fe267089b064834c2360f2401fedacde9b8d6",
+  "af35b70893e4ea89c56cc13aff8503eecab73a6b8b14dd837440a06fa1b777e1",
+  "b132944d9150282f3fab13c422347dff0278a18697251ddbe2aed2418dcd4b63",
+  "b1e5ee1ac91786bb50f74af57f9fbf21c7f5f342746baa854a9dc61bdf7354b7",
+  "b7849d845f549b7c41c56b80826dc1d059bf5477f2ea6aa20d6b9a2658b4ed45",
+  "bb2774bb6c9f1f2987e4c2d1bd235f174723b30713966108950474bbf56f233a",
+  "bc2ed6e135e11fb33e11cd286192fa47bc79f600dd4c483ebcba33558b1c0593",
+  "bcfe088750f7f213e87de27e4ad5caed5602af5842b60976a18fc8012b97bca2",
+  "c0f2e0ab465fbfacf808b6c320739059f9e4e7bc88384b9ba0b38dea17eb2872",
+  "c40f0b0384c01183ee824c4619ae45d8bf43f631622f70c3ca2192ac049c5837",
+  "c568c596ff772b36f2e316dfb0555e08de11f5463d382e577e68c0c8fd75b034",
+  "cac5f7078aa3c47722df7edaa5defe11e994eee2925e182e4e79cac8242386a7",
+  "cca8d3b6bbcb3f6f23f741ed670eced60b47807227dad8993102ee5451feaf5e",
+  "ce83c2457a2c7d9addc8fd170c1b0910a0ceeb4c15ccb46bac78c1ad344a331c",
+  "cfb9183f997578f0bcff709eef76a5f130c2cbb0526d81f3d07af4efb990ba31",
+  "cfbfdfcc5731e2f89ea9ba8569e2d4ff5084ad42fb1214f7aac9368e025e9d02",
+  "d08b2a5ab4d8a45817df2f749ef1b1261e48f0df27852177df18a2098faf342d",
+  "d0af1f860d4517bbd45c667048390753de3479b3bb3eb099adc81322fe41457e",
+  "d3bb5ebf13bde01a21e47aef92e9730c1684e62e8488274260973e58d686157b",
+  "d4da09c0d47c1cc3668f9bc72d9320578b5fd381fbc6b0eb89105ce8e11c6834",
+  "dcd5980f7b270567d8a41cbe8e1b3d8e45ef3cc1f1b2933ce7903d0767ad1fc8",
+  "dea7e0064c2b019808d50b60e2b4f0d79beec69cb0c756228d3aca4f18fc2d68",
+  "df47a18e1a743dfc0e37d07ffeaf341655dee03f4cebe2552b6b6fac73a5120e",
+  "e22af4169a55a6465958aec28af1f280591728ccaebab5bc3ae75345f17cf33a",
+  "e27bd7fe8a32dbce5f5b1afa0cbe83cdcfc4df4f1948ea78277ca043218da044",
+  "e2b1ce644dd9d6cb88bafcd9ff375bb251d66481b40647ff2698b69bdc2510c6",
+  "e5ae86ece0260441c24380105a0a601e43fbb47020e343e37acece32704793e8",
+  "e78d3b5ae078fb78190b0dc7ec4c1c6fd82efb82e19450f0d4ed76f0c7bba01e",
+  "e7ee88fc668296a5da5ea6b81f46c4e32646092b0907ed78e038184be73daf66",
+  "f7de730f90cc3d573077bd433ee18f16375a4ff987e9d877138b918819cb467c",
+  "f8c59ca52f346174f3a18ab93a343de44da163eca820f1480fb32490c5e3c6db",
+  "fd6b7441d3b1f5a54e494e8eed2608b8600259fec7ddce2a8b2c161badfe91b3",
+  "ff3c556cb809e75108c9d52369cf0420515169c468d80d9dab4c216fb7c0ffeb",
+];
+
 /**
  * The frozen expectations this branch's plan names as re-baselined — no wider a licence than the
  * criteria spell, so every undeclared file is still a stray.
@@ -264,6 +369,20 @@ const DECLARED_REBASELINED: readonly string[] = [
   // moves (FRM-3, FRM-4, R0) moves the document, in a `baseline:` commit naming the tests it feeds.
   "tests/ai/ask/fixtures/bnbc-readback.json",
   "tests/ai/ask/fixtures/bnbc-readback.sql",
+  // ASK-2's ask-route corpus (session 9): two commits, 34a10f7a and 4abd17d1, recorded it under a
+  // `baseline:` subject where the recorded corpora before them were filed as `baseline(corpus):` —
+  // a subject this reading does not take up. Landed commits are not rewritten, so what they carry is
+  // declared by path. The recordings are what `scripts/model-corpus.ts` writes, each filed under its
+  // request's hash and never hand-authored, and `corpus.json` is the roster it re-derives beside them.
+  // `tests/ai/ask/paraphrases.json` is the corpus's source: its stage keys are read back off
+  // cubit_e2e and each paraphrase's intent is the expectation route-corpus.test.ts grades, and a
+  // recording is keyed on the request its paraphrase composes, so the two cannot land apart without a
+  // red commit between them — the precedent of `bnbc-readback.sql` above, the statement minted with
+  // the document it takes. Literal paths, as the notes above require: no pattern over
+  // `fixtures/model/**`. A later recording lands under `baseline(corpus):`, as the first ten did.
+  "fixtures/model/corpus.json",
+  "tests/ai/ask/paraphrases.json",
+  ...ASK_ROUTE_RECORDINGS.map((hash) => `fixtures/model/${hash}.json`),
 ];
 
 describe("AC-3: J-001 and J-002 keep asking what they asked, and any re-baseline says so", () => {
