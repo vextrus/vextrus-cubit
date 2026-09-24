@@ -46,7 +46,7 @@ import { DEFAULT_DIST_DIR, holdersOf } from "./lib/dist.mjs";
 import { e2eDatabaseUrl, runSql } from "./lib/pg-database.mjs";
 import { attribution, portState } from "./lib/port-probe.mjs";
 import { portFor } from "./lib/ports.mjs";
-import { READY_BUDGET_MS, liveStageProcesses, stageStorageRoot, startStage, stopStage } from "./lib/stage.mjs";
+import { READY_BUDGET_MS, liveStageProcesses, stageModel, stageStorageRoot, startStage, stopStage } from "./lib/stage.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("../", import.meta.url)));
 
@@ -55,13 +55,15 @@ const DEMO_HOME = join(ROOT, "node_modules", ".cache", "cubit", "demo");
 
 /**
  * The demo's stage: its own port, the shipped worker beside it, no evidence instrument (the owner
- * sees what a customer sees), and a record of its own — never the probe's `scripts/probe/server.pids`.
+ * sees what a customer sees), the live model when the owner's shell holds a key (Ask on Jev, live in
+ * the demo — the owner's ruling; the spend the product ledgers is then real), and a record of its own — never the probe's `scripts/probe/server.pids`.
  */
 export const DEMO_STAGE = Object.freeze({
   name: "demo",
   which: /** @type {const} */ ("demo"),
   worker: true,
   instrument: false,
+  model: /** @type {const} */ ("live-when-keyed"),
   record: join(DEMO_HOME, "stage.json"),
   logs: { server: join(DEMO_HOME, "server.log"), worker: join(DEMO_HOME, "worker.log") },
 });
@@ -327,7 +329,7 @@ export function tierLine(choice) {
 
 /**
  * THE BLOCK the owner reads — printed once, and the only place the password is printed.
- * @param {{ origin: string, url: string, choice: Choice, opened: string }} served
+ * @param {{ origin: string, url: string, choice: Choice, opened: string, model: "live" | "fixture" }} served
  * @returns {string}
  */
 export function demoBlock(served) {
@@ -344,6 +346,9 @@ export function demoBlock(served) {
     `  Password  ${choice.account.password}`,
     "            The address asks you to sign in first and then lands on the product's home: open it again.",
     "  Worker    ready — it takes jobs from every tenant in cubit_e2e: run no journey while the demo stands",
+    served.model === "live"
+      ? "  Model     live — Ask answers from Jev and every call's cost is ledgered as the product's AI spend"
+      : "  Model     recorded answers — no model key in this shell (TYPESAFE_API_KEY); Ask answers only what the corpus recorded",
     "  Stop      pnpm demo --stop",
     "",
     `  Browser   ${served.opened}`,
@@ -424,7 +429,7 @@ async function start(/** @type {boolean} */ open) {
   process.stdout.write(`demo: served at ${served.origin}; worker: ready (pid ${workerPid ?? "none"}); log ${DEMO_STAGE.logs.worker}\n`);
   const url = registerUrl(served.origin, choice.row.tenant_id, choice.row.project_id);
   const opened = open ? openInWindows(url).why : "not opened (--no-open)";
-  process.stdout.write(`${demoBlock({ origin: served.origin, url, choice, opened })}\n`);
+  process.stdout.write(`${demoBlock({ origin: served.origin, url, choice, opened, model: stageModel(DEMO_STAGE) })}\n`);
 }
 
 /** Is this file the process's entry point, rather than a module a suite is reading? */

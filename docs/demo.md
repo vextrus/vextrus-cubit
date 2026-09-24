@@ -134,11 +134,17 @@ DEMO ready — Vextrus Cubit at http://127.0.0.1:3213 (127.0.0.1 only; nothing l
   Password  golden-path-legs-<stamp>
             The address asks you to sign in first and then lands on the product's home: open it again.
   Worker    ready — it takes jobs from every tenant in cubit_e2e: run no journey while the demo stands
+  Model     live — Ask answers from Jev and every call's cost is ledgered as the product's AI spend
   Stop      pnpm demo --stop
 
   Browser   opened in your Windows browser
 ──────────────────────────────────────────────────────────────────────────────
 ```
+
+The Model line reads `recorded answers — no model key in this shell` when the shell that ran
+`pnpm demo` holds no `TYPESAFE_API_KEY`: Ask then answers only what the fixture corpus recorded. The
+key's presence is all the demo reads; it is never printed. The probe stage always answers from the
+corpus.
 
 When no project is billed yet, the Project line reads `measured only — 182 column concrete lines;
 no issued bill with bar rows yet (the bill leg has not run on it)`.

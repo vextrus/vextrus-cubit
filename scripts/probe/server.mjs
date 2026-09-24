@@ -26,6 +26,7 @@ export const PROBE_STAGE = Object.freeze({
   which: /** @type {const} */ ("e2e"),
   worker: true,
   instrument: true,
+  model: /** @type {const} */ ("fixture"),
   record: join(HERE, "server.pids"),
   logs: { server: join(HERE, "server.log"), worker: join(HERE, "worker.log") },
 });

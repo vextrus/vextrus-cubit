@@ -30,7 +30,7 @@ import {
 } from "../../scripts/demo.mjs";
 import { gate } from "../../scripts/gate.mjs";
 import { PORTS, originFor, portFor, servedPorts } from "../../scripts/lib/ports.mjs";
-import { ROLE_MARKS, liveStageProcesses, readStageRecord, stageEnv, stageStorageRoot, startStage, stopStage } from "../../scripts/lib/stage.mjs";
+import { ROLE_MARKS, liveStageProcesses, readStageRecord, stageEnv, stageModel, stageStorageRoot, startStage, stopStage } from "../../scripts/lib/stage.mjs";
 import { PROBE_STAGE } from "../../scripts/probe/server.mjs";
 import { ELEMENT_TYPES } from "../../src/core/catalogue/classes";
 import { KINDS } from "../../src/core/catalogue/kinds";
@@ -145,6 +145,24 @@ describe("the stage: the demo's own record, its worker, and a --stop that signal
     expect(stageStorageRoot({})).toBe(join(ROOT, "storage"));
     expect(stageStorageRoot({ STORAGE_ROOT: "/elsewhere/storage" })).toBe("/elsewhere/storage");
     expect(stageEnv(DEMO_STAGE, { STORAGE_ROOT: "/elsewhere/storage" })["STORAGE_ROOT"], "the served product is handed the root the choice was read against").toBe("/elsewhere/storage");
+  });
+
+  test("the demo answers Ask from the live model when the shell holds a key, and says which; the probe always from the corpus", () => {
+    const fixtureRoot = join(ROOT, "fixtures", "model");
+    const keyed = stageEnv(DEMO_STAGE, { TYPESAFE_API_KEY: "sk-test-not-a-key" });
+    expect(stageModel(DEMO_STAGE, { TYPESAFE_API_KEY: "sk-test-not-a-key" })).toBe("live");
+    expect(keyed["CUBIT_MODEL_FIXTURE_ROOT"], "a stated root selects the fixture transport, so a live stage states none").toBeUndefined();
+    expect(stageModel(DEMO_STAGE, { TYPESAFE_API_KEY: "  " }), "a blank key is no key").toBe("fixture");
+    expect(stageEnv(DEMO_STAGE, {})["CUBIT_MODEL_FIXTURE_ROOT"]).toBe(fixtureRoot);
+    expect(stageModel(PROBE_STAGE, { TYPESAFE_API_KEY: "sk-test-not-a-key" }), "the evidence stage never spends").toBe("fixture");
+    expect(stageEnv(PROBE_STAGE, { TYPESAFE_API_KEY: "sk-test-not-a-key" })["CUBIT_MODEL_FIXTURE_ROOT"]).toBe(fixtureRoot);
+    const choice = chooseProject([row({ live_bills: 1, bar_rows: 182 })]).choice;
+    if (choice === null) throw new Error("no choice");
+    const url = registerUrl(originFor("demo"), TENANT, PROJECT);
+    const base = { origin: originFor("demo"), url, choice, opened: "opened" };
+    expect(demoBlock({ ...base, model: "live" })).toMatch(/Model {5}live — Ask answers from Jev/);
+    expect(demoBlock({ ...base, model: "fixture" })).toMatch(/Model {5}recorded answers — no model key in this shell/);
+    expect(demoBlock({ ...base, model: "live" })).not.toContain("sk-test-not-a-key");
   });
 
   let scratch: string | null = null;
@@ -374,7 +392,7 @@ describe("what the owner is shown", () => {
     expect(choice).not.toBeNull();
     if (choice === null) return;
     const url = registerUrl(originFor("demo"), TENANT, PROJECT);
-    const block = demoBlock({ origin: originFor("demo"), url, choice, opened: "opened in your Windows browser" });
+    const block = demoBlock({ origin: originFor("demo"), url, choice, opened: "opened in your Windows browser", model: "live" });
     expect(block).toContain(url);
     expect(block).toContain("j000-legs-mud8l396l8lf@cubit.test");
     expect(block.split("golden-path-legs-mud8l396l8lf").length - 1, "the password is printed once").toBe(1);

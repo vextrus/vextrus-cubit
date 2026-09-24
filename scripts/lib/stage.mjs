@@ -44,8 +44,9 @@ const WORKER_READY = "worker: ready";
 /**
  * What one stage is: its name (written into its record), which served port it takes, whether the
  * shipped worker runs beside it, whether the evidence instrument (`?__theme=`, `?__state=`) is armed,
- * and where its record and logs live.
- * @typedef {{ name: string, which: "e2e" | "demo", worker: boolean, instrument: boolean, record: string, logs: { server: string, worker: string } }} StageSpec
+ * which model it answers from (`fixture`: the recorded corpus, always; `live-when-keyed`: the live
+ * model when the environment holds a key, else the corpus), and where its record and logs live.
+ * @typedef {{ name: string, which: "e2e" | "demo", worker: boolean, instrument: boolean, model: "fixture" | "live-when-keyed", record: string, logs: { server: string, worker: string } }} StageSpec
  */
 
 /**
@@ -80,6 +81,21 @@ export function stageStorageRoot(env = process.env) {
   return stated === undefined || stated === "" ? join(ROOT, "storage") : resolve(ROOT, stated);
 }
 
+/** The keys the live transport reads (src/core/model/live.ts), in its own order. */
+const MODEL_KEYS = Object.freeze(["TYPESAFE_API_KEY", "TYPESAFE_AI_API_KEY", "ANTHROPIC_API_KEY"]);
+
+/**
+ * Which model a stage answers from under this environment. Only whether a key is present is read;
+ * the key itself is never returned, printed or written.
+ * @param {StageSpec} spec
+ * @param {Record<string, string | undefined>} [env]
+ * @returns {"live" | "fixture"}
+ */
+export function stageModel(spec, env = process.env) {
+  if (spec.model !== "live-when-keyed") return "fixture";
+  return MODEL_KEYS.some((key) => (env[key] ?? "").trim() !== "") ? "live" : "fixture";
+}
+
 /**
  * The environment the served product (and the worker, where there is one) runs under. NODE_ENV is
  * left for `next` to set, so it is dropped rather than inherited — which is why the answer is cast:
@@ -99,6 +115,8 @@ export function stageEnv(spec, env = process.env) {
     CUBIT_MODEL_FIXTURE_ROOT: join(ROOT, "fixtures", "model"),
     WORKER_HEALTH_PORT: "0",
   };
+  // A live stage leaves the fixture root unset: the transport is live iff no root is stated.
+  if (stageModel(spec, env) === "live") delete staged["CUBIT_MODEL_FIXTURE_ROOT"];
   if (spec.instrument) staged["CUBIT_UI_INSTRUMENT"] = "1";
   else delete staged["CUBIT_UI_INSTRUMENT"];
   delete staged["NODE_ENV"];
