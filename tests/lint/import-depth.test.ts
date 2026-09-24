@@ -152,11 +152,14 @@ async function specifiersUnderSrc(): Promise<readonly Sighting[]> {
       });
     },
   };
+  // The shipped config with every rule of its own disarmed: the files, parsers and ignores are the
+  // product's, so the probe visits exactly what the lint lane visits, without paying the whole rule
+  // set (import-x/no-cycle above all) a second time beside the lint lane that already runs it.
   const probing = new ESLintCtor({
     cwd: REPO_ROOT,
     overrideConfigFile: true,
     overrideConfig: [
-      ...config,
+      ...config.map((block) => (block.rules === undefined ? block : { ...block, rules: {} })),
       { files: ["src/**/*.ts", "src/**/*.tsx"], plugins: { probe: { rules: { collect: probe } } }, rules: { "probe/collect": "error" } },
     ],
   });

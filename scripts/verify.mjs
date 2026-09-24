@@ -63,7 +63,12 @@ const CAD_LANE = cadLane(ROOT);
  * nobody can audit, so the cad lane names the regeneration it deselected and why (V-VERIFY).
  * @type {Readonly<Record<string, string>>}
  */
-export const LANE_NOTES = Object.freeze(/** @type {Record<string, string>} */ (CAD_LANE.note === null ? {} : { cad: CAD_LANE.note }));
+export const LANE_NOTES = Object.freeze(
+  /** @type {Record<string, string>} */ ({
+    golden: "golden: the cad half (pytest over the golden suites) is collected by the cad lane beside it; `pnpm test:golden` runs both halves",
+    ...(CAD_LANE.note === null ? {} : { cad: CAD_LANE.note }),
+  }),
+);
 
 /**
  * What each lane runs when it is armed. Keyed by the lane ids deriveLanes yields; the roster still
@@ -84,14 +89,13 @@ export const LANE_COMMANDS = Object.freeze({
   "schema-drift": [["node", "scripts/db-drift.mjs", "--scratch"]],
   "method-hash": [["node", "scripts/method-hashes.mjs", "--in-chain"]],
   "catalogue-drift": [["node", "scripts/catalogue-drift.mjs", "--in-chain"]],
-  // The fixture evidence lane (V-GOLDEN). Both halves of it: the goldens read as committed bytes
-  // (tests/golden/vitest.config.ts) and the cad suites that recompute them from the authored
-  // inputs. It is the same pair `pnpm test:golden` runs, so the engine's gate and this chain say
-  // the same thing about a node tagged `golden`.
-  golden: [
-    ["node", "node_modules/vitest/vitest.mjs", "run", "--config", "tests/golden/vitest.config.ts"],
-    ["uv", "run", "--project", "cad", "pytest", "-q", ...GOLDEN_PYTEST],
-  ],
+  // The fixture evidence lane (V-GOLDEN). Inside this chain, its vitest half only: the goldens
+  // read as committed bytes (tests/golden/vitest.config.ts). Its cad half — GOLDEN_PYTEST — is a
+  // subset of what the cad lane's `pytest cad` collects in the same wave (none of those paths is a
+  // regeneration test the cad lane may set aside; tests/toolchain/cad-lane.test.ts proves it), so
+  // running it here too was the same ~40 s of pytest twice on one tree, and it was verify's margin
+  // against V-VERIFY. `pnpm test:golden`, the gate's own golden lane, still runs both halves.
+  golden: [["node", "node_modules/vitest/vitest.mjs", "run", "--config", "tests/golden/vitest.config.ts"]],
   // The fixture-regeneration tests are the lane's whole wall (BNBC's ~80 s of ~100), and each can
   // only break when something its own corpus reads has moved; scripts/lib/cad-lane.mjs asks git,
   // corpus by corpus, and says in LANE_NOTES which it set aside and why.

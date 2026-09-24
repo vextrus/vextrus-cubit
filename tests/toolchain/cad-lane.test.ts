@@ -28,7 +28,7 @@ import {
   touchesCorpus,
   touchesFixtureInputs,
 } from "../../scripts/lib/cad-lane.mjs";
-import { GOLDEN_PYTEST } from "../../scripts/verify.mjs";
+import { GOLDEN_PYTEST, LANE_COMMANDS } from "../../scripts/verify.mjs";
 
 const REPO_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 
@@ -208,6 +208,19 @@ describe("what the lane runs, and what it says about it", () => {
     const script = manifest.scripts["test:golden"] ?? "";
     expect(script.endsWith(`pytest -q ${GOLDEN_PYTEST.join(" ")}`), script).toBe(true);
     expect(GOLDEN_PYTEST).toContain("cad/tests/arch");
+  });
+
+  test("verify's cad lane collects every golden suite, whichever recomputations it sets aside — so verify's golden lane leaves them to it", () => {
+    for (const argv of [cadPytestArgv([]), cadPytestArgv(ALL)]) {
+      expect(argv.slice(0, 2)).toEqual(["pytest", "cad"]);
+      const ignored = argv.filter((arg) => arg.startsWith("--ignore=")).map((arg) => arg.slice("--ignore=".length));
+      for (const path of GOLDEN_PYTEST) {
+        expect(path.startsWith("cad/"), path).toBe(true);
+        expect(ignored.some((gone) => path === gone || path.startsWith(`${gone}/`) || gone.startsWith(`${path}/`)), `${path} is set aside by the cad lane`).toBe(false);
+      }
+    }
+    expect(LANE_COMMANDS["golden"], "verify's golden lane is its vitest half alone").toEqual([["node", "node_modules/vitest/vitest.mjs", "run", "--config", "tests/golden/vitest.config.ts"]]);
+    expect(LANE_COMMANDS["cad"]?.[1]?.slice(0, 2)).toEqual(["pytest", "cad"]);
   });
 });
 

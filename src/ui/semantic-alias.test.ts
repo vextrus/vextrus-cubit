@@ -11,8 +11,8 @@
  */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-import { ESLint } from "eslint";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { ESLint, type Linter } from "eslint";
 import { describe, expect, test } from "vitest";
 import { darkTokens, lightTokens } from "./tokens";
 
@@ -240,7 +240,14 @@ describe("the semantic alias layer", () => {
   });
 
   test("§4 rule 3: no file under src/ spells a primitive ramp outside the token source", async () => {
-    const eslint = new ESLint({ cwd: REPO_ROOT });
+    // The shipped config with this rule alone left armed: the same files, parsers and ignores the
+    // lint lane reads, without paying the whole rule set over src/ a second time beside it.
+    const shipped = (await import(pathToFileURL(resolve(REPO_ROOT, "eslint.config.mjs")).href)) as { default: readonly Linter.Config[] };
+    const armedOnly = shipped.default.map((block) =>
+      block.rules === undefined ? block : { ...block, rules: Object.fromEntries(Object.entries(block.rules).filter(([id]) => id === "cubit/no-primitive-token")) },
+    );
+    expect(armedOnly.some((block) => block.rules?.["cubit/no-primitive-token"] === "error"), "the shipped config arms the rule").toBe(true);
+    const eslint = new ESLint({ cwd: REPO_ROOT, overrideConfigFile: true, overrideConfig: armedOnly });
     const results = await eslint.lintFiles(["src/**/*.css", "src/**/*.tsx", "src/**/*.ts"]);
     const offences = results.flatMap((r) =>
       r.messages.filter((m) => m.ruleId === "cubit/no-primitive-token").map((m) => `${r.filePath}:${m.line}`),
