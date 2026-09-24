@@ -68,7 +68,8 @@ def load():
 def highest(kind, table):
     text = subprocess.run(["git", "grep", "-hoE", rf"\*\*{kind}-[0-9]{{3}}\b", "--", "docs/design", "docs/decisions"], cwd=ROOT, text=True, capture_output=True, check=False).stdout
     nums = [int(m[len(kind) + 3:]) for m in re.findall(rf"\*\*{kind}-[0-9]{{3}}", text)]
-    nums += [int(v.split("-")[1]) for v in table.values() if v.startswith(kind + "-")]
+    # Only a well-formed id counts: a note-shaped row in the table must never strand a slice mid-integration.
+    nums += [int(v[len(kind) + 1:]) for v in table.values() if re.fullmatch(rf"{kind}-[0-9]{{3}}", v)]
     return max([{"I": 369, "D": 4}[kind], *nums])
 
 
