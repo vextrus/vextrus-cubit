@@ -208,3 +208,13 @@ m³ + 14 PARTIAL; **slab × pcc.blinding 1 COMPLETE 23.7554683 m³ (the manual l
 beams 372 objects (5 unlevelled: LB1 + SB-R1..4 under SRR), 367 + 367 lines, all PARTIAL (SB-R4's
 over-measurement gone); columns 210 objects; footing 1 (F1); orphan 0, placeholder 0.
 J-000 legs still MISSING DOOR: m4-ask-the-drawings, m4-pdf-sheet, m4-rooms-and-finishes.
+
+## Walk-2 (ux-critic; `.private/work/session-9/walk2/result.md`)
+
+walk-1's items: FIXED B03, B11, B12, B14, N2; PARTLY B02+N1, B05, B15, B16. New surfaces: Ask works;
+the chest and the quantity overlay work with friction; the hand measurement and the bar schedule
+broken for a demo. BLOCKS_DEMO: BD-1 the viewer distorts S-10 with the inspector open (overlay off the
+grid) → VIEW-FIT; BD-2 the hand measurement's raw decimals and ids → MANUAL-UX; BD-3 a fresh DWG's
+affirmed view still measures nothing (outgoing_keys {""}) → SCALE-3; BD-4 the bar schedule's total
+contradicts its ties, the table squeezed → BBS-TIES. Also: S-08's GB marks not read (58 "Beam drawn,
+not named") → GB-READ; Ask misreads "where is C7 drawn?" and drops "what diameters" → ASK-3's note.
