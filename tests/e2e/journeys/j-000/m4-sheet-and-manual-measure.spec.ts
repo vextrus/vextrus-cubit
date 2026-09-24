@@ -46,11 +46,14 @@ import { bnbcMeasured, releaseGoldenWorker } from "./golden-run";
 test.use({ viewport: { width: 1440, height: 900 } });
 
 /** The sheet, the condition and the entities the leg measures (s-measure § 10, I-393). */
-const SHEET = "S-08";
+/** S-08's layout as the drawing names it: a card is found by its layout (`cardForLayout`), never by the number alone. */
+const SHEET = "S-08 GRADE BEAM LAYOUT & GF SLAB-ON-GRADE";
 const CONDITION = "75 CC blinding under SOG";
 const THICKNESS = "75";
 const SOG = "DXF_HANDLE:81D";
 const PIT = "DXF_HANDLE:830";
+/** S-08's drawn slab outline since Rev C: the SOG's polyline and the five blinding LINEs on its edges (I-393). */
+const OUTLINE: readonly string[] = [SOG, "DXF_HANDLE:824", "DXF_HANDLE:825", "DXF_HANDLE:826", "DXF_HANDLE:827", "DXF_HANDLE:2309"];
 const NOTE = "DXF_HANDLE:828";
 const NOTE_WORDS = /75 THK BLINDING UNDER/;
 /** The level S-08's caption states, as the stack labels it (I-377). */
@@ -60,6 +63,17 @@ const SLAB = "slab";
 const BLINDING = "pcc.blinding";
 /** How long the campaign's measure run may take to publish the line after Confirm (a BNBC run is under a second, plus the worker's pick-up). */
 const PUBLISH_BUDGET_MS = 120_000;
+
+/** Whether a figure stated once rounded is its exact source within half a unit of its own last place. */
+function withinHalfUnit(stated: string, exact: string): boolean {
+  const places = (stated.split(".")[1] ?? "").length;
+  const [whole = "0", fraction = ""] = exact.split(".");
+  const scale = 10n ** BigInt(places + 1);
+  const tenths = (text: string, digits: string): bigint => BigInt(text) * scale + BigInt((digits + "0".repeat(places + 1)).slice(0, places + 1) || "0");
+  const [statedWhole = "0", statedFraction = ""] = stated.split(".");
+  const difference = tenths(statedWhole, statedFraction) - tenths(whole, fraction);
+  return difference <= 5n && difference >= -5n;
+}
 
 /** The sheet a viewer address opens: `/t/{tenant}/p/{project}/viewer/{drawing}/{layout}`. */
 function sheetOf(address: string): { drawingId: string; layoutName: string } {
@@ -105,12 +119,33 @@ test.describe.serial("J-000 — Golden Path: M4's manual condition (AM-09 §3, A
       const box = await viewer.canvasBox();
       await page.goto(S_VIEWER.at(run.tenantId, projectId, drawingId, layoutName, SMeasurePage.viewportOver(sog, box)));
       await expect(viewer.status).toHaveAttribute("data-first-paint", "true", { timeout: VIEWER_BUDGETS.firstPaintColdMs });
+      // The snap meets only what has arrived: the first paint is a layer or two, and 81D stands on the
+      // Slab layer, so every layer is waited for before a vertex is clicked (the leg's first walk traced
+      // while the status read "Layers 2 of …" and every point stood on nothing).
+      await expect
+        .poll(async () => {
+          const total = await viewer.statusNumber("data-total-layers");
+          return total > 0 && (await viewer.statusNumber("data-loaded-layers")) === total;
+        }, { timeout: VIEWER_BUDGETS.firstPaintColdMs, message: "every layer of S-08 arrives before a vertex is clicked" })
+        .toBe(true);
       await expect(measure.chest).toHaveAttribute("data-state", "ready");
       await measure.pick(CONDITION);
       await expect(page.getByTestId(TESTIDS.viewer.toolArea), "picking an area condition arms Area (§ 2.6)").toHaveAttribute("aria-pressed", "true");
 
       await measure.trace(viewer, sog);
-      expect(await everyAttribute(measure.points, "data-source", "the placed points", { min: 5 }), "each point met 81D and cites it (R-TO-040)").toEqual(Array(5).fill(SOG));
+      // TEST_AMENDED (R0 Rev C, D-BLIND W-40; s-measure I-393 as amended): Rev C draws the blinding
+      // outline — LINEs 824–827 and 2309 — on 81D's own edges, so every vertex of the ring is a drawn
+      // point of 81D AND the endpoint of two blinding LINEs, and the snap meets whichever it meets
+      // first. Each point is held to what R-TO-040 asks: it cites an entity of S-08's drawn slab
+      // outline, and that entity draws the very vertex clicked.
+      const cited = await everyAttribute(measure.points, "data-source", "the placed points", { min: 5 });
+      expect(cited.length, "one point per vertex of the ring").toBe(sog.length);
+      cited.forEach((key, index) => {
+        const vertex = sog[index] as [number, number];
+        expect(OUTLINE, `point ${String(index + 1)} cites the slab's drawn outline, 81D or the blinding LINEs on its edges (R-TO-040)`).toContain(key);
+        const drawn = records.find((record) => record.key === key)?.points ?? [];
+        expect(drawn.some((point) => point[0] === vertex[0] && point[1] === vertex[1]), `${key} draws the vertex ${vertex.join(", ")} the point was placed on`).toBe(true);
+      });
       await page.keyboard.press("Enter");
       await expect(measure.card, "Enter under a condition opens the card at the closing point (S6)").toHaveAttribute("data-presentation", "anchored");
       await expect(measure.card).toHaveAttribute("data-act-type", "RECORD_MANUAL_MEASUREMENT");
@@ -163,6 +198,14 @@ test.describe.serial("J-000 — Golden Path: M4's manual condition (AM-09 §3, A
     const boq = new SBoqPage(page);
     await boq.open(run.tenantId, projectId);
     await settled(page);
-    await expect(boq.line(lineId ?? ""), "the draft BOQ lists the hand measurement's line").toHaveCount(1);
+    // TEST_AMENDED (the leg's first walk, s-boq I-528): a row of the draft is an ITEM — the register's
+    // sum for one description and level, rounded once — and only a line the taxonomy could not place
+    // is kept as a row of its own naming its line. The hand line is classified, so the draft lists it
+    // as the slab · blinding item it alone makes up, at its figure stated once.
+    const item = page.locator(`[data-testid="${TESTIDS.boq.line}"][data-class="${SLAB}"][data-kind="${BLINDING}"]`);
+    await expect(item, "the draft BOQ lists the hand measurement as its slab · blinding item").toHaveCount(1);
+    await expect(item, "summed from that one line").toHaveAttribute("data-members", "1");
+    const stated = await heldAttribute(item, "data-quantity", "the item's figure");
+    expect(stated !== null && withinHalfUnit(stated, total ?? ""), `the item states the line's ${String(total)} m³ once rounded (${String(stated)})`).toBe(true);
   });
 });

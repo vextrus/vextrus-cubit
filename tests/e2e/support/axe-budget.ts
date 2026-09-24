@@ -52,6 +52,8 @@ export const AXE_MODERATE_BUDGET: Readonly<Record<string, number>> = Object.free
   "j-000/coverage-grid": 0,
   "j-000/documents-issued": 0,
   "j-000/levels-transcribed": 0,
+  // S6: S-08's manual card, a blinding measured over the SOG less the lift pit (m4-sheet-and-manual-measure).
+  "j-000/manual-card": 0,
   "j-000/notes-transcribed": 0,
   "j-000/disciplines-confirmed": 0,
   "j-000/entity-selected": 0,
