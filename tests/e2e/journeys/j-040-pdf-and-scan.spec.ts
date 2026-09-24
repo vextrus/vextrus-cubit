@@ -30,7 +30,7 @@
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { drawings as drawingsCopy } from "../../../src/app/(app)/t/[tenant]/p/[project]/drawings/strings";
 import { SAuthPage, S_AUTH } from "../pages/s-auth.page";
 import { SDrawingsPage, S_DRAWINGS } from "../pages/s-drawings.page";
@@ -72,16 +72,15 @@ const S10 = { number: "S-10", title: "COLUMN LAYOUT PLAN", discipline: "STRUCTUR
 const FRESH_READING_MS = 90_000;
 
 /**
- * A page's scale as its card reads once the partition has landed. The ingest chains the page-by-page
+ * A page's scale cell as its card stands once the index is read afresh. The ingest chains the page-by-page
  * partition beside the previews (I-681, X-1) and the timeline follows the previews alone, so the index
  * is read afresh until the partition stands: a page that states no world unit then counts its one view
  * as having no scale of record — I-513's words, I-681's count — never "not placeable" as a page.
  */
-async function partitionedScale(page: Page, drawings: SDrawingsPage, layout: string): Promise<(string | null)[]> {
+async function freshScaleCell(page: Page, drawings: SDrawingsPage, layout: string): Promise<Locator> {
   await page.reload();
   await expect(drawings.index).toBeVisible();
-  const scale = drawings.cell(drawings.cardForLayout(layout), S_DRAWINGS.scale);
-  return [await scale.getAttribute("data-scale"), await scale.getAttribute("data-unplaceable")];
+  return drawings.cell(drawings.cardForLayout(layout), S_DRAWINGS.scale);
 }
 
 /** The layout a page is read as: its place in the file (I-511). */
@@ -190,7 +189,13 @@ test.describe("J-040 — a PDF set and a scan, read and corroborated (M4)", () =
       await expect(drawings.cell(s10, S_DRAWINGS.title), "titled as its block prints it").toHaveText(S10.title);
       await expect(s10, "a structural sheet by its own number's designator (I-365)").toHaveAttribute("data-discipline", S10.discipline);
       await expect
-        .poll(() => partitionedScale(page, drawings, pageLayout(10)), { timeout: FRESH_READING_MS, message: "once partitioned, S-10's page counts its one view with no scale of record yet (I-681; I-513's words)" })
+        .poll(
+          async () => {
+            const scale = await freshScaleCell(page, drawings, pageLayout(10));
+            return [await scale.getAttribute("data-scale"), await scale.getAttribute("data-unplaceable")];
+          },
+          { timeout: FRESH_READING_MS, message: "once partitioned, S-10's page counts its one view with no scale of record yet (I-681; I-513's words)" },
+        )
         .toEqual(["unplaceable", "1"]);
       await drawings.search.fill(S10.number);
       await expect(drawings.cards, `searching ${S10.number} leaves its one card`).toHaveCount(1);
@@ -259,7 +264,13 @@ test.describe("J-040 — a PDF set and a scan, read and corroborated (M4)", () =
       await expect(scan, "R1 is a square render: the deskew found no turn").toHaveAttribute("data-deskew", "0");
       await expect(scan).toContainText(drawingsCopy.drawings_scan_dpi_unstated);
       await expect
-        .poll(() => partitionedScale(page, drawings, pageLayout(0)), { timeout: FRESH_READING_MS, message: "once partitioned, the scan's one view has no scale of record yet — it waits on a QS (I-513's words, I-681's count)" })
+        .poll(
+          async () => {
+            const scale = await freshScaleCell(page, drawings, pageLayout(0));
+            return [await scale.getAttribute("data-scale"), await scale.getAttribute("data-unplaceable")];
+          },
+          { timeout: FRESH_READING_MS, message: "once partitioned, the scan's one view has no scale of record yet — it waits on a QS (I-513's words, I-681's count)" },
+        )
         .toEqual(["unplaceable", "1"]);
       await settled(page);
       await checkpoint(page, testInfo, "j-040/scan-card");
