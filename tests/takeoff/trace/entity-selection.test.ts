@@ -48,7 +48,7 @@ function record(): PinnedRecord {
     },
     members: new Map([[PLACED, { outlineKey: OUTLINE, markKey: MARK }]]),
   };
-  return { standing, labelOf: (layoutName) => layoutName, gridOf: () => null };
+  return { ingestId: "ingest-1", standing, labelOf: (layoutName) => layoutName, gridOf: () => null };
 }
 
 const RECORDS: ReadonlyMap<string, PinnedRecord> = new Map([["drawing-1", record()]]);
