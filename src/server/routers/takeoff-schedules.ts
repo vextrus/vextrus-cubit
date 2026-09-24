@@ -10,6 +10,7 @@
 import { z } from "zod";
 import { actChangesNothing, commit, consequenceDigest, movesNothing, preview, type Consequence, type TranscribeSheetNotesInput } from "../../core/acts";
 import { DISPOSITIONS } from "../../core/db";
+import { ELEMENT_TYPES } from "../../core/catalogue/classes";
 import { NOTE_KINDS } from "../../core/notes/law";
 import { recordCellReadingDisposition } from "../../modules/takeoff/partition/schedules/cell-reading/dispositions";
 import { schedulesViewOf } from "../../modules/takeoff/schedules-ui/server";
@@ -53,6 +54,9 @@ const noteReading = z.object({
   sourceKey: text("sourceKey"),
   valueAsWritten: text("valueAsWritten"),
   unitAsWritten: text("unitAsWritten"),
+  // The class the figure is kept for, `null` for every class, or absent to keep the scope the
+  // sheet's own words state (I-652) — a class outside the catalogue's roster scopes nothing.
+  scopeClass: z.enum(ELEMENT_TYPES, { error: "takeoff-schedules: that is not an element class — the catalogue's roster is closed" }).nullable().optional(),
 });
 
 /** The act's input as it arrives on the wire, read into the shape the seam declares (L-ACT-02). */

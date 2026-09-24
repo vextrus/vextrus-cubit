@@ -20,6 +20,7 @@ import { describe, expect, test } from "vitest";
 import { askedClausesOf, clausesOf, figuresIn, lapTableHeadingsOn } from "@/core/notes/clauses";
 import { proposeNotes, readFigure, type SheetText } from "@/core/notes/grammar";
 import { NOTE_KINDS } from "@/core/notes/law";
+import { noteReadingKey, noteStandingsByScope } from "@/core/notes/standing";
 
 /** F-RCC6-BNBC's committed notation corpus: every string of the drawing, by sheet and handle. */
 const BNBC_CORPUS = "fixtures/rcc6-bnbc/notation.corpus.json";
@@ -235,7 +236,34 @@ describe("the figure of a clause a model classified is the grammar's own (L-AI-0
   });
 
   test("a class the reader does read is read verbatim, off the clause's own words", () => {
-    expect(readFigure("LAP", "LAP 50d TENSION / 40d COMPRESSION U.N.O.")).toEqual({ valueAsWritten: "50d", unitAsWritten: "d", canonical: "50" });
-    expect(readFigure("FC", "f'c = 3500 psi (24 MPa) cylinder")).toEqual({ valueAsWritten: "3500 psi", unitAsWritten: "psi", canonical: "3500" });
+    expect(readFigure("LAP", "LAP 50d TENSION / 40d COMPRESSION U.N.O.")).toEqual({ valueAsWritten: "50d", unitAsWritten: "d", canonical: "50", scopeClass: null });
+    expect(readFigure("FC", "f'c = 3500 psi (24 MPa) cylinder")).toEqual({ valueAsWritten: "3500 psi", unitAsWritten: "psi", canonical: "3500", scopeClass: null });
+  });
+
+  test("a clause scoped to one class is read with its scope, by code off its own words (I-652)", () => {
+    expect(readFigure("FC", "f'c = 3000 psi (BORED PILES)")).toEqual({ valueAsWritten: "3000 psi", unitAsWritten: "psi", canonical: "3000", scopeClass: "pile" });
+    expect(readFigure("FC", "f'c = 4000 psi (COLUMNS AND BEAMS)"), "a scope one reading cannot carry reads no figure at all").toBeNull();
+  });
+});
+
+describe("I-652: F-RCC6-BNBC's concrete strengths, read with their scopes, stand without a contest", () => {
+  test("S-01 and S-02 kept as proposed: f'c stands AGREED 3500 psi on the unscoped 1F41 and 1F78, and 3000 psi for the piles on 1F42", () => {
+    const fc = proposeNotes([...textsOf(S01), ...textsOf(S02)]).filter((proposal) => proposal.kind === "FC");
+    expect(
+      fc.map((proposal) => `${proposal.sourceKey}|${proposal.canonical} ${proposal.unitAsWritten}|${String(proposal.scopeClass)}`),
+      "the three strengths the two sheets state: the cylinder strength, the piles' and the ld table's heading — which scopes nothing (it is a heading, not a column note)",
+    ).toEqual(["DXF_HANDLE:1F41|3500 psi|null", "DXF_HANDLE:1F42|3000 psi|pile", "DXF_HANDLE:1F78|3500 psi|null"]);
+
+    const kept = fc.map((proposal) => ({
+      readingKey: noteReadingKey({ drawingId: "d", layoutName: proposal.sourceKey === "DXF_HANDLE:1F78" ? S02 : S01, kind: "FC", actorId: "qs", sourceKey: proposal.sourceKey }),
+      canonical: proposal.canonical,
+      unitAsWritten: proposal.unitAsWritten,
+      scopeClass: proposal.scopeClass,
+    }));
+    const stands = noteStandingsByScope(kept);
+    expect([...stands.entries()].map(([scope, stood]) => `${String(scope)}|${stood.standing}|${String(stood.canonical)}`), "no scope is contested: walk-1's Suspended is gone").toEqual([
+      "null|AGREED|3500",
+      "pile|AGREED|3000",
+    ]);
   });
 });

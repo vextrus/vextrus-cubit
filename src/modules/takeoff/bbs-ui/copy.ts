@@ -50,6 +50,10 @@ export const BBS_COPY = {
   bbs_scope_main_bars: "main bars",
   bbs_scope_bars: "bars",
   bbs_scope_and: "and",
+  // An entry whose members' lines left part of its steel out says so on its own row (s-bbs I-655).
+  bbs_member_left_out: "{components} left out",
+  bbs_member_partly: "Partly declared",
+  bbs_member_partial_tooltip: "The lines of this entry's members leave part of its steel out: what, and why, is said above the schedule.",
   // A member whose laps are not stated holds storey-height runs, not lengths to cut (I-567).
   bbs_run_label: "Storey-height runs, not for cutting",
   bbs_run_tooltip: "The laps of these bars are not stated, so each stands at its storey height: a quantity to weigh, not a length to cut.",

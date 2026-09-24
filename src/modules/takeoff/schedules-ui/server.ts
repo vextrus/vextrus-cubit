@@ -11,7 +11,9 @@
 import { and, desc, drawingSetRevisions, eq, forTenant } from "@/core/db";
 import { proposeNotes, type NoteProposal, type SheetText } from "@/core/notes/grammar";
 import { NOTE_KINDS, type NoteKind } from "@/core/notes/law";
-import { noteStanding } from "@/core/notes/standing";
+import type { ElementType } from "@/core/catalogue/classes";
+import { scopeOfOffer } from "@/core/notes/clause-store";
+import { noteStanding, noteStandingsByScope } from "@/core/notes/standing";
 import type { NoteReadingRow } from "@/core/notes/store";
 import { clauseOffersOnDrawing, readingsOnDrawings, sheetLayoutsOf, type NoteClauseOfferWrite } from "@/modules/takeoff/notes";
 import { artifactAt } from "@/core/entitygraph/artifact";
@@ -135,7 +137,7 @@ function notesOf(texts: readonly SheetText[], readings: readonly NoteReadingRow[
     readings: readings.map(
       (reading, at): ReadingView => ({ ...reading, superseded: superseded.has(reading.readingKey) && readings.slice(at + 1).some((later) => later.readingKey === reading.readingKey) }),
     ),
-    standings: NOTE_KINDS.filter((kind) => spoken.has(kind)).map((kind) => standingOf(kind, readings)),
+    standings: NOTE_KINDS.filter((kind) => spoken.has(kind)).flatMap((kind) => standingsOf(kind, readings, proposals)),
   };
 }
 
@@ -169,6 +171,8 @@ function proposalsOf(proposals: readonly NoteProposal[], offers: readonly NoteCl
             valueAsWritten: offer.valueAsWritten,
             unitAsWritten: offer.unitAsWritten,
             canonical: offer.canonical,
+            // The scope is code's, read off the clause the model classified (I-652, L-AI-03).
+            scopeClass: scopeOfOffer(offer),
             proposedBy: "model",
             callId: offer.callId,
             governs: offer.governs,
@@ -179,11 +183,30 @@ function proposalsOf(proposals: readonly NoteProposal[], offers: readonly NoteCl
 }
 
 /**
- * How one kind stands over the readings made of it here (L-REG-03). A SUSPENDED kind carries no
- * figure at all and names the code its absence is refused under; a kind nobody has read stands at
- * none, which is a different answer from a kind two people read differently (I-253).
+ * How one kind stands over the readings made of it here (L-REG-03), once per SCOPE (I-652): the
+ * figure every unscoped class takes first, then one row per element class a reading or an offer
+ * scopes the kind to — `f'c · Agreed 3500 psi` and `f'c · Pile · Agreed 3000 psi` are two answers,
+ * not a contest. A SUSPENDED scope carries no figure at all and names the code its absence is refused
+ * under; a scope nobody has read stands at none, which is a different answer from a scope two people
+ * read differently (I-253).
  */
-function standingOf(kind: NoteKind, readings: readonly NoteReadingRow[]): StandingView {
-  const stood = noteStanding(readings.filter((reading) => reading.kind === kind));
-  return { kind, standing: stood.standing, canonical: stood.canonical, unitAsWritten: stood.unitAsWritten, code: stood.code };
+function standingsOf(kind: NoteKind, readings: readonly NoteReadingRow[], proposals: readonly ProposalView[]): StandingView[] {
+  const byScope = noteStandingsByScope(readings.filter((reading) => reading.kind === kind));
+  const scopes: (ElementType | null)[] = [null];
+  const add = (scope: ElementType | null): void => {
+    if (!scopes.includes(scope)) scopes.push(scope);
+  };
+  for (const scope of byScope.keys()) add(scope as ElementType | null);
+  for (const proposal of proposals) if (proposal.kind === kind) add(proposal.scopeClass);
+  // The unscoped row stands only where something speaks for it: a sheet whose only figure of a kind
+  // is the piles' says nothing of every other class, and a "Not read" row would say it had.
+  const unscopedSpoken = byScope.has(null) || proposals.some((proposal) => proposal.kind === kind && proposal.scopeClass === null);
+  return scopes
+    .filter((scope) => scope !== null || unscopedSpoken)
+    .map((scopeClass) => {
+      const stood = byScope.get(scopeClass);
+      return stood === undefined
+        ? { kind, scopeClass, standing: "NONE", canonical: null, unitAsWritten: null, code: null }
+        : { kind, scopeClass, standing: stood.standing, canonical: stood.canonical, unitAsWritten: stood.unitAsWritten, code: stood.code };
+    });
 }

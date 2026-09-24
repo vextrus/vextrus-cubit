@@ -19,6 +19,18 @@ export type BbsOmission = {
   readonly components: readonly string[];
 };
 
+/**
+ * How one ENTRY of the schedule stands (s-bbs I-655): the coverage its members' rebar lines state
+ * and what those lines left out. An entry is COMPLETE only where every member it counts published a
+ * COMPLETE line; otherwise it is PARTIAL_DECLARED and `omitted` names each registered code the
+ * members' lines state, once, in the order the lines first state it, with the components it was
+ * stated for (L-QTY-02, I-354). Read from the published lines, never inferred from the bars drawn.
+ */
+export type BbsEntryCoverage = {
+  readonly coverage: string;
+  readonly omitted: readonly BbsOmission[];
+};
+
 /** One sheet, and the entities on it a Trace selects — the viewer's address, uncomposed (I-559). */
 export type BbsSheetSelection = {
   readonly drawingId: string;
@@ -55,6 +67,13 @@ export type BbsView = {
    * steel. Absent, or empty, where nothing was left out.
    */
   readonly omitted?: readonly BbsOmission[];
+  /**
+   * Each entry's own standing, by the entry's key — its first member's `objectKey`, the key its group
+   * row is named by (I-534, s-bbs I-655). A reader of one column's bars learns from its own row
+   * whether they are the whole of its steel, not only from the schedule-wide list. Absent, or missing
+   * an entry, reads as nothing stated for it — never as COMPLETE.
+   */
+  readonly entries?: Readonly<Record<string, BbsEntryCoverage>>;
   /** Where each mass and each bar was read from, for the Trace (I-559). Absent reads as none. */
   readonly traces?: BbsTraces;
   /**

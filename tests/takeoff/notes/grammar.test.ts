@@ -137,6 +137,27 @@ describe("AC-1: the notes grammar reads F-RCC6-BNBC's general notes, and nothing
     ]);
   });
 
+  test("I-652: the pile note's parenthetical scopes its strength to the piles; the other notes scope nothing", async () => {
+    const grammar = await grammarSeam();
+    const scopes = (texts: readonly SheetText[]) =>
+      (grammar.proposeNotes(texts) as Record<string, unknown>[]).map((proposal) => `${String(proposal["kind"])}|${String(proposal["sourceKey"])}|${String(proposal["scopeClass"])}`);
+    expect(scopes([BNBC_PILE_NOTE]), "`(BORED PILES)` names the pile class through the catalogue's own word table").toEqual([`${FC}|${BNBC_PILE_NOTE.sourceKey}|pile`]);
+    expect(
+      scopes(BNBC_GENERAL_NOTES).every((line) => line.endsWith("|null")),
+      "`(24 MPa)`, `(500 MPa)` and `(S-03)` name no class, so every other figure of S-01 governs every class",
+    ).toBe(true);
+    expect(scopes(BNBC_GENERAL_NOTES).length, "and scoping took no figure away from them").toBe(EXPECTED_PROPOSALS.length);
+  });
+
+  test("I-652: a reference is not a scope, and a scope naming two classes reads no figure rather than a figure for either", async () => {
+    const grammar = await grammarSeam();
+    const one = (text: string) => grammar.proposeNotes([{ sourceKey: "DXF_HANDLE:A1", text }]) as Record<string, unknown>[];
+    expect(one("f'c = 3000 psi (SEE S-05 PILE DETAIL)").map((proposal) => proposal["scopeClass"]), "a parenthetical that points at another sheet names that sheet, not the figure's class").toEqual([null]);
+    expect(one("LAP 45d (COLUMNS)").map((proposal) => proposal["scopeClass"]), "a lap stated for the columns is the columns'").toEqual(["column"]);
+    expect(one("f'c = 3000 psi (PILE CAPS)").map((proposal) => proposal["scopeClass"]), "PILE before CAPS is the cap, as the catalogue's table reads it").toEqual(["pile_cap"]);
+    expect(one("f'c = 4000 psi (COLUMNS & BEAMS)"), "two classes in one scope is a scope no single reading carries: nothing is proposed off it (L-MEA-01)").toEqual([]);
+  });
+
   test("AC-1: each reading cites the sentence it was read from, and quotes it as written", async () => {
     const grammar = await grammarSeam();
     const proposed = grammar.proposeNotes(BNBC_GENERAL_NOTES).map(proposalFacts);

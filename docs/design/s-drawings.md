@@ -619,6 +619,27 @@ journey- and URL-reachable, and `drawingsRoute()` in `route-address.ts` is its o
   0°**; Page 1's colour logo stays **Images and shadings not read**: 1
   (`cad/tests/test_raster.py`, `tests/cad/pdf-sheets.test.ts`). Colour alone is a proxy: a colour
   scan pasted small onto a drawn page is left unread and named, the safer error.
+- **I-654 — a line says RASTER where what it was read off was traced, and carries the trace
+  (session 9, OPEN-4; L-QTY-03, L-QTY-06, L-CAD-02, I-518, I-584).** The engine is no longer a constant
+  of the measure setup: `railSetupOf` derives each placement's from the schemes of the atoms it stands
+  on (`src/modules/takeoff/measure/engine.ts`) — its outline, its mark and its note, in that order. Any
+  `RASTER_TRACE` atom makes it RASTER ("a trace on a raster page": on a mixed PDF page a traced outline
+  under a pdfium mark is RASTER, a pdfium outline over a pasted scan stays VECTOR, since the geometry is
+  what was measured); every other placement is VECTOR, and its artifact is not opened for this. Under
+  RASTER the placement and every offer made off it carry the trace's identity (`RasterIdentity`): the
+  vectoriser's tool, version and parameter-set hash — the record's own extractor for a standalone scan,
+  the `trace` beside pdfium's on a mixed page — and the page raster's sha256 with its DPI and
+  `dpi_source` as the artifact states them (a DPI nobody stated is null under `unstated`, never
+  inferred). The picture is the one record on the atom's page, or, where a page carries several pasted
+  scans, the one whose placement holds every point of the atom; where none or more than one does, or the
+  record pins no vectoriser, the placement is RASTER with no identity — never VECTOR, and never a
+  guessed picture; the gate's own rule for an identity-less raster reading answers it (M4P-6). The rails
+  carry both through one door (`sightedBy`, `src/core/offers/contract.ts`), which answers `{ engine }`
+  alone under VECTOR, so every vector offer and line is byte for byte what it was. Not done here: the
+  line's storage of the identity (M4P-6 writes it); a hand trace over a scan (`src/core/manual/offer.ts`)
+  is RASTER by its INTERPRETED basis and carries no identity yet. Rejected: RASTER for any placement on
+  a page that holds a scan (it would mark vector-measured geometry as a raster reading); inferring the
+  picture by nearness.
 
 ## 1. Layout and hierarchy
 

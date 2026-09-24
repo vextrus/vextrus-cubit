@@ -66,28 +66,30 @@ export const LINEAGE_SCOPES: readonly ["platform", "tenant", "project"] = ["plat
  * by the FOUNDATION FORMWORK (FND-3, I-337), whose two pairs — L-FRM-03's side faces of a footing or
  * a pile cap over a rectangle and over any other plan — it has to cite too, and again by OPEN-3
  * (session 9), whose twelve pairs — each pile cap owned once (FND-OWN), the traced blinding (S2) and
- * F-ARCH's four finishes (ARCH-2) — it has to cite as well — each
+ * F-ARCH's four finishes (ARCH-2) — it has to cite as well, and again by OPEN-4 (session 9), which puts
+ * the bar synthesis's second version in force (R6b: a column's ties under D-003, and a stated lap) —
+ * a new version of a standing rule is a new roster as surely as a new rule is — each
  * inserted beside the immutable 2026.08 row rather than over it — so the SEED the
  * product ships, and every fork of it, is the new one, while the old rows stand untouched as the
  * campaigns opened under them measured against.
  */
 export const SEED_NAME = "IS1200_IN";
-export const SEED_VERSION = "2027.05";
+export const SEED_VERSION = "2027.06";
 
 /**
  * The version the seed stood at before this leaf, kept as the row a migration test reads.
  *
- * Re-baselined by OPEN-3 (session 9): 2027.04 is the row the foundation formwork minted, and the
- * wave's twelve pairs come in on the next version beside it rather than over it — an edition is
+ * Re-baselined by OPEN-4 (session 9): 2027.05 is the row OPEN-3 minted, and the synthesis's second
+ * version comes in on the next version beside it rather than over it — an edition is
  * immutable, so a re-mint of a standing version would be an EDIT of a row campaigns have already
  * measured against (L-MEA-01, B-20). That is what "re-minted … so a pin puts them in force" means here.
  *
  * It names the version standing BEFORE this leaf and not every version ever minted: the roster of
  * all of them is `db/__tests__/ruleset-editions.migration.test.ts`'s own `MINTED_SEED_VERSIONS`, and
- * the version this const stops naming (2027.03) has to be written there as a literal, as 2026.09
+ * the version this const stops naming (2027.04) has to be written there as a literal, as 2026.09
  * through 2027.01 already are.
  */
-export const SUPERSEDED_SEED_VERSION = "2027.04";
+export const SUPERSEDED_SEED_VERSION = "2027.05";
 
 /**
  * The seed's parameters, verbatim from L-MEA-01 and the Design Decision §3 table — the closed 17

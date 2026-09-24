@@ -352,6 +352,7 @@ const FY_READING: ReadingView = {
   canonical: "500",
   basis: "TRANSCRIBED",
   acceptance: "ACCEPTED",
+  scopeClass: null,
   actId: "7c2f0b3c-6666-4666-8666-666666666666",
   superseded: false,
 };

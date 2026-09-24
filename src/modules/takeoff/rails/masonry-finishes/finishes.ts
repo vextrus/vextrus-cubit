@@ -14,6 +14,7 @@
 // rate is not a wrong number).
 import type { Kind } from "@/core/catalogue/kinds";
 import type { Measure, Offer, OmittedComponent, Rail, RailInput, RailObservation, RailSetup, RegisterObjectRow, SurfaceSetup } from "@/core/offers/contract";
+import { sightedBy } from "@/core/offers/contract";
 import {
   FACE,
   FINISH_GROSS_UNSTATED,
@@ -141,7 +142,7 @@ function finishRail(finish: Finish): Rail {
         class: SURFACE,
         register: { setRevisionId: row.setRevisionId, objectKey: row.objectKey },
         drawing: { drawingId: placement.drawingId, viewKey: placement.viewKey },
-        engine: placement.engine,
+        ...sightedBy(placement),
         // A closed outline is L-FRM-01's POLYGON, standing on the affirmed calibration of the view it
         // was read in (L-QTY-03).
         geometry: { type: POLYGON, basis: row.standing, calibration },

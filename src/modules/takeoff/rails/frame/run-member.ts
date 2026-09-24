@@ -13,6 +13,7 @@
 import type { ElementType } from "@/core/catalogue/classes";
 import type { Kind } from "@/core/catalogue/kinds";
 import type { Measure, Offer, OmittedComponent, Rail, RailInput, RailObservation, ReadingSetup, RegisterObjectRow } from "@/core/offers/contract";
+import { sightedBy } from "@/core/offers/contract";
 import { CANONICAL_UNIT } from "@/core/units/canon";
 import { CLEAR, COUNT, DEPTH, LEFT, ONE, PRISM_RECT, RIGHT, RUN_UNREAD, SLAB_THICKNESS_UNSTATED, THICKNESS, WIDTH, observe, runOf, sectionOf, sightingOf } from "./read";
 
@@ -123,7 +124,7 @@ export function runMemberRail(declared: RunMemberRail): Rail {
         class: declared.class,
         register: { setRevisionId: row.setRevisionId, objectKey: row.objectKey },
         drawing: { drawingId: placement.drawingId, viewKey: placement.viewKey },
-        engine: placement.engine,
+        ...sightedBy(placement),
         geometry: { type: PRISM_RECT, basis, calibration },
         bindings,
         // A grade selects the concrete item a line is priced under; formwork is not priced by the

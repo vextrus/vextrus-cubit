@@ -155,3 +155,73 @@ describe("I-354: the stock readout's words are words, and only its figures are m
     expect(declaredValue(SHEET, ".cx-bbs-stock-figure", "font-family")).toBe("var(--font-mono)");
   });
 });
+
+type StubColumn = { id: string; cell: (context: { row: { original: unknown } }) => ReactNode };
+type StubTable = { columns: StubColumn[]; data: unknown[]; getRowId: (row: unknown, index: number) => string; rowDataOf?: (row: unknown, rowId: string) => Readonly<Record<string, string>> };
+
+/** The same chrome with a table that DRAWS what it is handed: every row's attributes and cells. */
+function drawingChrome(): BbsChrome {
+  const DataTable = ({ columns, data, getRowId, rowDataOf }: StubTable): ReactNode => (
+    <div data-testid={TESTIDS.datatable.root} data-rows-rendered={String(data.length)}>
+      {data.map((row, index) => {
+        const id = getRowId(row, index);
+        return (
+          <div key={id} role="row" {...(rowDataOf?.(row, id) ?? {})}>
+            {columns.map((column) => (
+              <span key={column.id} role="gridcell" data-column={column.id}>
+                {column.cell({ row: { original: row } })}
+              </span>
+            ))}
+          </div>
+        );
+      })}
+    </div>
+  );
+  return { ...chrome(), DataTable: DataTable as unknown as BbsChrome["DataTable"] };
+}
+
+/**
+ * s-bbs I-655 — the entry says on its own row whether its bars are the whole of its steel. The
+ * standings are handed as `bbsViewOf` answers them; the words are the copy table's, graded whole.
+ */
+describe("I-655: an entry's group row publishes its coverage and codes, and says what it left out", () => {
+  it("a partial entry names its components and codes; a whole one says nothing more; an unstated one publishes nothing", () => {
+    const document_ = goldenBbsDocument() as unknown as BbsDocument;
+    const [partly, whole, unstated, nameless] = [...new Set(document_.rows.map((line) => line.objectKey))];
+    const ties = REFUSALS.REBAR_TIE_JOINT_UNREAD.code;
+    const run = REFUSALS.REBAR_STOREY_RUN_UNSTATED.code;
+    const view: BbsView = {
+      ...partialView([{ code: ties, components: ["ties"] }]),
+      entries: {
+        [partly as string]: { coverage: "PARTIAL_DECLARED", omitted: [{ code: ties, components: ["ties"] }, { code: run, components: ["lap"] }] },
+        [whole as string]: { coverage: "COMPLETE", omitted: [] },
+        [nameless as string]: { coverage: "PARTIAL_DECLARED", omitted: [{ code: REFUSALS.BBS_NO_BAR_ROW.code, components: [] }] },
+      },
+    };
+    render(<BbsWorkspace view={view} permitted tenantId="t" projectId="p" chrome={drawingChrome()} doors={{ refusalOf }} />);
+    const member = (key: string | undefined): HTMLElement => {
+      const found = [...document.querySelectorAll<HTMLElement>(`[data-testid="${TESTIDS.bbs.member}"]`)].find((row) => row.getAttribute("data-member") === key);
+      if (found === undefined) throw new Error(`no group row for ${String(key)}`);
+      return found;
+    };
+
+    const partial = member(partly);
+    expect(partial.getAttribute("data-coverage")).toBe("PARTIAL_DECLARED");
+    expect(partial.getAttribute("data-omitted"), "every code its members' lines state, in their order").toBe(`${ties} ${run}`);
+    const leftOut = partial.querySelector(".cx-bbs-member-left-out");
+    expect(leftOut?.textContent, "the components in the omitted list's own words, the first capitalised").toBe("Ties and laps left out");
+    expect(leftOut?.closest("[data-tip]")?.getAttribute("data-tip"), "and where why is said").toBe("The lines of this entry's members leave part of its steel out: what, and why, is said above the schedule.");
+
+    const complete = member(whole);
+    expect(complete.getAttribute("data-coverage")).toBe("COMPLETE");
+    expect(complete.getAttribute("data-omitted"), "a whole entry states no code, and still states the attribute").toBe("");
+    expect(complete.querySelector(".cx-bbs-member-left-out"), "a whole entry says nothing more than its count").toBeNull();
+
+    expect(member(nameless).querySelector(".cx-bbs-member-left-out")?.textContent, "a code stated for no component still says the entry is not whole").toBe("Partly declared");
+
+    const silent = member(unstated);
+    expect(silent.hasAttribute("data-coverage"), "an entry the view stated no standing for publishes none — never COMPLETE by default").toBe(false);
+    expect(silent.hasAttribute("data-omitted")).toBe(false);
+    expect(silent.querySelector(".cx-bbs-member-left-out")).toBeNull();
+  });
+});

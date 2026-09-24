@@ -37,7 +37,7 @@ import type {
   RailSetup,
   RegisterObjectRow,
 } from "@/core/offers/contract";
-import { heightOf, variantCovering } from "@/core/offers/contract";
+import { heightOf, sightedBy, variantCovering } from "@/core/offers/contract";
 import { CANONICAL_UNIT } from "@/core/units/canon";
 
 /** The twelve rules these rails offer under. An offer names a rule and never a version (L-MEA-08). */
@@ -359,7 +359,7 @@ function offerOf(measurement: Measurement, kind: Kind, row: RegisterObjectRow, p
     class: row.elementType as ElementType,
     register: { setRevisionId: row.setRevisionId, objectKey: row.objectKey },
     drawing: { drawingId: placement.drawingId, viewKey: placement.viewKey },
-    engine: placement.engine,
+    ...sightedBy(placement),
     // An expanded object's geometry on a level not drawn carries DERIVED, and one read off the
     // drawing carries MEASURED: the register row's own standing IS that distinction, and the rail
     // carries it rather than re-deciding it (L-QTY-01, L-REG-03).

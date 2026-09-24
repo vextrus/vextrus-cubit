@@ -507,9 +507,70 @@ describe("AC-2: TRANSCRIBE_SHEET_NOTES previews what it would write, and the sea
       const standing = door.noteStanding(rows as unknown as Record<string, unknown>[]);
       expect((standing.superseded as unknown[]).length, "a reading of another sentence supersedes nothing: they are not the same reading twice").toBe(0);
       expect((standing.current as unknown[]).length, "so both stand as current readings of this sheet's concrete strength").toBe(readings.length);
-      expect(standing.standing, "and two current readings that disagree leave the figure suspended (AC-4)").toBe(SUSPENDED);
+      expect(standing.standing, "read with no regard to scope, the two figures disagree and the figure is suspended (AC-4)").toBe(SUSPENDED);
       expect(standing.code, "under the code a contested reading is refused by").toBe(NOTE_READING_CONTESTED);
       expect(standing.canonical ?? null, "standing at no figure at all — a suspension prints no number (I-253)").toBeNull();
+
+      // I-652: the pile note's `(BORED PILES)` is kept with the reading, so the two are two scopes.
+      expect(
+        Object.fromEntries(rows.map((row) => [row.sourceKey, row.scopeClass])),
+        "the store keeps the scope the sheet's words state — the piles' for the pile note, none for the other",
+      ).toEqual({ [BNBC_PILE_NOTE.sourceKey]: "pile", [String(readings.find((one) => one.sourceKey !== BNBC_PILE_NOTE.sourceKey)?.sourceKey)]: "" });
+      const byScope = door.noteStandingsByScope(rows.map((row) => ({ ...row, scopeClass: row.scopeClass === "" ? null : row.scopeClass })) as unknown as Record<string, unknown>[]);
+      expect(
+        [...byScope.entries()].map(([scope, stood]) => `${String(scope)}|${String(stood.standing)}|${String(stood.canonical)}`),
+        "and read per scope, neither contests the other: every other class at 3500 psi, the piles at 3000 psi",
+      ).toEqual(["null|AGREED|3500", "pile|AGREED|3000"]);
+      expect(rows.every((row) => row.acceptance === ACCEPTED), "kept as offered, scope and all, both are ACCEPTED").toBe(true);
+    },
+    BUDGET_MS,
+  );
+
+  test(
+    "I-652: the scope is the person's to dispose of — kept against the drawing's it is EDITED, and re-scoping a reading moves it",
+    async () => {
+      const door = await notesDoor();
+      const stage = await stageNotes("scope", [...BNBC_GENERAL_NOTES, BNBC_PILE_NOTE]);
+      const pile = reading(FC, BNBC_PILE_NOTE.sourceKey, "3000 psi", "psi");
+
+      // Kept for every class, against a sheet that states it for the piles: the figure is the
+      // drawing's, the scope is not, and the seam says so.
+      const unscoped = await performAct(stage.measurer.actor, transcription(stage, [{ ...pile, scopeClass: null }]));
+      const first = readingRows(stage.tenantId)
+        .map(readingFacts)
+        .filter((row) => row.actId === unscoped.actId);
+      expect(first.map((row) => `${row.scopeClass}|${row.acceptance}`), "stored unscoped, and judged EDITED — the person moved the scope the drawing states").toEqual(["|EDITED"]);
+
+      // Read again as the drawing states it: the same key, a new scope — which moves the record.
+      const again = transcription(stage, [pile]);
+      const subjects = subjectsOf(await previewOf(stage.measurer.actor, again));
+      expect(subjects.map((subject) => movedTo(subject)), "the Consequence names the scope it moves to, so before and after do not read the same").toEqual([
+        { before: ["3000"], after: ["3000 · Pile"] },
+      ]);
+      const rescoped = await performAct(stage.measurer.actor, again);
+      const second = readingRows(stage.tenantId)
+        .map(readingFacts)
+        .filter((row) => row.actId === rescoped.actId);
+      expect(second.map((row) => `${row.scopeClass}|${row.acceptance}`), "kept as the sheet states it, scope and all: ACCEPTED").toEqual(["pile|ACCEPTED"]);
+      expect(second[0]?.readingKey, "under the key the first reading stood under, which it supersedes").toBe(first[0]?.readingKey);
+
+      const byScope = door.noteStandingsByScope(
+        readingRows(stage.tenantId)
+          .map(readingFacts)
+          .map((row) => ({ ...row, scopeClass: row.scopeClass === "" ? null : row.scopeClass })) as unknown as Record<string, unknown>[],
+      );
+      expect([...byScope.keys()], "the unscoped reading it superseded no longer stands anywhere but the pile scope").toEqual(["pile"]);
+
+      // Kept once more exactly as it stands: nothing moves, and the seam refuses to record nothing.
+      expect(await refusalOfPerforming(stage.measurer.actor, again), "a scope that repeats what stands moves nothing (L-ACT-01)").toBe(ACT_CHANGES_NOTHING);
+
+      const caller = await schedulesCaller(stage.measurer.person);
+      const failure = await rejection(
+        caller.previewTranscribeSheetNotes({
+          input: { ...transcription(stage, [{ ...pile, scopeClass: "bored_pile" }]) },
+        }),
+      );
+      expect(await codeOf(failure), "a scope outside the catalogue's roster is malformed at the door, never a 500").toBe(REQUEST_MALFORMED);
     },
     BUDGET_MS,
   );

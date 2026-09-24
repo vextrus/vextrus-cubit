@@ -9,11 +9,11 @@ export { NOTE_ACCEPTANCES, NOTE_BASIS, NOTE_KINDS, NOTE_STANDINGS, isNoteKind } 
 export type { NoteAcceptance, NoteKind, NoteStandingName } from "./law";
 export { proposeNotes } from "./grammar";
 export type { NoteProposal, SheetText } from "./grammar";
-export { noteReadingKey, noteStanding } from "./standing";
-export type { NoteReadingRef, NoteStanding, ReadingOfNote } from "./standing";
+export { noteReadingKey, noteStanding, noteStandingsByScope } from "./standing";
+export type { NoteReadingRef, NoteStanding, ReadingOfNote, ScopedReadingOfNote } from "./standing";
 export { sheetLayoutsOf, sheetTextsOf } from "./texts";
 export type { SheetLayout, SheetTextScope } from "./texts";
 export { appliedDetailingValuesOf, clauseOffersOnDrawing, readingsOfSheet, readingsOnDrawings, readingsOnSheet, writeNoteReadings } from "./store";
-export type { AppliedDetailingScope, AppliedDetailingValues, DetailingFigure, NoteClauseOffer, NoteClauseOfferWrite, NoteReadingRow, NotesScope, SheetRef } from "./store";
+export type { AppliedDetailingScope, AppliedDetailingValues, AppliedValues, DetailingFigure, NoteClauseOffer, NoteClauseOfferWrite, NoteReadingRow, NotesScope, SheetRef } from "./store";
 export { noteClauseOffersOf, runNoteClausePass } from "./clause-pass";
 export type { NoteClausePass, NoteClauseSeam, PassSheet } from "./clause-pass";

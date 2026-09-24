@@ -16,18 +16,22 @@
 // two drawings, which no single store states and no rail may reach a store to ask — and with it how
 // far the piles' heads stand into the caps, as the note on the pile's own detail states it, read off
 // the same artifact's words by the partition's stored view assignments (I-597), and the recess
-// a cap's own section draws cut into it (I-598).
+// a cap's own section draws cut into it (I-598). The second is each column's top joint, read off the
+// framing the partition placed (`./joints`, s-bbs I-413): the placements' outlines and every run's
+// clear, cited whole, against the register the run is measuring.
 import { editionOf } from "@/core/campaigns";
 import { drawingSetRevisions, eq, and, forTenant, viewAssignments, type TenantTx } from "@/core/db";
 import { artifactAt } from "@/core/entitygraph/artifact";
 import { manualSetupIn } from "@/core/manual/offer";
+import type { ElementType } from "@/core/catalogue/classes";
 import { appStorage } from "@/core/storage/app";
 import { levelStackOf } from "@/modules/takeoff/levels";
 import { siteFactsOf, type SiteFact } from "@/modules/takeoff/site-facts";
-import { appliedDetailingValuesOf, type AppliedDetailingValues } from "@/modules/takeoff/notes";
+import { appliedDetailingValuesOf, type AppliedDetailingValues, type AppliedValues } from "@/modules/takeoff/notes";
 import type {
   CapJunctionSetup,
   DetailingSetup,
+  DetailingValuesSetup,
   LevelSetup,
   Measure,
   MemberVariantSetup,
@@ -71,6 +75,8 @@ import {
   type Point,
   type RecessReading,
 } from "./cap-junctions";
+import { sightingOf, type EngineGraph } from "./engine";
+import { clearCitationsOf, jointPlacementsOf, jointsOf, type JointObject, type JointPlacement } from "./joints";
 import { wallSetupsOf } from "./walls";
 // The notation grammar registers its storey reading with core's band placement at load (`sameStorey`,
 // `useStoreyEquivalence`): the rails place a schedule's band ("3RD & 4TH") on the stack ("3F") through
@@ -92,13 +98,6 @@ export type RailSetupScope = {
 };
 
 /**
- * The engine that read these placements. This lane ingests vector CAD and nothing else, so what a
- * placement of it was read by is the vector engine — a raster reading arrives with the vectoriser
- * that produces one, and would carry its own engine and its own INTERPRETED basis (L-QTY-03).
- */
-const VECTOR = "VECTOR";
-
-/**
  * What the notes door answered, as the setup carries it: a figure it HAS becomes a reading whose
  * value is the drawing's own and whose basis is TRANSCRIBED — a note is read off a drawing, which
  * is what TRANSCRIBED means (L-QTY-01) — and a figure it has not becomes a null. Nothing is
@@ -106,6 +105,13 @@ const VECTOR = "VECTOR";
  * folded in at this seam would be a number nobody could trace to a clause (L-MEA-06).
  */
 function detailingSetupOf(applied: AppliedDetailingValues): DetailingSetup {
+  const byClass: Partial<Record<ElementType, DetailingValuesSetup>> = {};
+  for (const [memberClass, values] of Object.entries(applied.byClass) as [ElementType, AppliedValues][]) byClass[memberClass] = detailingValuesOf(values);
+  return { ...detailingValuesOf(applied), byClass };
+}
+
+/** One scope's answer, as the setup carries it (I-652): the unscoped values, or one class's own. */
+function detailingValuesOf(applied: AppliedValues): DetailingValuesSetup {
   // The FIRST text the door cited, as every other reading of this setup does (`readingSetupOf`):
   // one atom to follow back, with the whole citation carried beside it in `sourceKeys`.
   const source = applied.sourceKeys[0] ?? "";
@@ -348,7 +354,7 @@ function levelSetupOf(level: Awaited<ReturnType<typeof levelStackOf>>[number]): 
  * report as an observation, and a measurement that threw over one unpartitioned drawing would cost
  * every other drawing of the set its lines (ARCH-03, L-MEA-08).
  */
-export async function railSetupOf(scope: RailSetupScope): Promise<RailSetup> {
+export async function railSetupOf(scope: RailSetupScope, objects?: readonly JointObject[]): Promise<RailSetup> {
   const levels = (await levelStackOf({ tenantId: scope.tenantId, projectId: scope.projectId })).map(levelSetupOf);
   const drawingIds = await forTenant({ tenantId: scope.tenantId }).transaction((tx) => drawingsOfRevision(tx, scope));
 
@@ -383,6 +389,11 @@ export async function railSetupOf(scope: RailSetupScope): Promise<RailSetup> {
   const runs: Record<string, RunSetup> = {};
   const walls: Record<string, WallSetup> = {};
   const relation: RelationDrawing[] = [];
+  // What the joint seam reads beside the rails' own setup: each placement's outline, and every framing
+  // run's clear cited WHOLE — `RunSetup.clear.source` keeps the first atom only, which is a run's own
+  // edge line and never the column it was cut at (s-bbs I-413).
+  const jointPlacements: Record<string, JointPlacement> = {};
+  const citations: Record<string, readonly string[]> = {};
 
   for (const drawingId of drawingIds) {
     const record = await ingestRecordOf({ tenantId: scope.tenantId, drawingId });
@@ -395,6 +406,10 @@ export async function railSetupOf(scope: RailSetupScope): Promise<RailSetup> {
     // states, or declares the plan it did not get (L-QTY-02).
     const outlines = new Map(((await outlinesOf(viewsScope)) ?? []).map((outline) => [outline.placementKey, outline]));
     const placed = (await placementsOf(viewsScope)) ?? [];
+    // The artifact is opened only where a placement stands on a vectoriser's trace, and then once per
+    // drawing: the identity of the trace — which picture, at which DPI — is the artifact's to state.
+    let artifact: Promise<EngineGraph> | undefined;
+    const graph = (): Promise<EngineGraph> => (artifact ??= artifactAt(scope.tenantId, record.artifactSha256, appStorage(), `ingest ${record.ingestId}`));
     for (const placement of placed) {
       const outline = outlines.get(placement.placementKey);
       placements[placement.placementKey] = {
@@ -402,7 +417,10 @@ export async function railSetupOf(scope: RailSetupScope): Promise<RailSetup> {
         ingestId: placement.ingestId,
         viewKey: placement.viewKey,
         memberFamily: placement.memberFamily,
-        engine: VECTOR,
+        // The engine the placement was READ by, from the schemes of the atoms it stands on, and under
+        // RASTER the trace's identity — never a constant, so a scan's line never says it was read off
+        // vector geometry (L-QTY-03, L-QTY-06; I-654).
+        ...(await sightingOf(placement, record, graph)),
         // A count provenances to the entity it was counted off, which is the placement itself
         // (L-QTY-03: "the (drawing, view) read from", and the source entity beside it).
         sourceEntity: placement.placementKey,
@@ -425,9 +443,12 @@ export async function railSetupOf(scope: RailSetupScope): Promise<RailSetup> {
     // The clear each beam and tie beam of this drawing measures, and the slab adjoining each of its
     // sides (L-MEA-09). A reading is carried across whole — value, unit, basis — with the FIRST entity
     // it was read from as its source, which is what a binding provenances to (L-QTY-03).
-    for (const run of (await runsOf(viewsScope)) ?? []) {
+    const stored = (await runsOf(viewsScope)) ?? [];
+    for (const run of stored) {
       runs[run.placementKey] = { clear: readingSetupOf(run.clear), sides: [readingSetupOf(run.sides[0]), readingSetupOf(run.sides[1])] };
     }
+    Object.assign(jointPlacements, jointPlacementsOf(placed));
+    Object.assign(citations, clearCitationsOf(stored));
 
     const registered = await memberTypesOf(viewsScope);
     if (registered !== null) {
@@ -486,6 +507,12 @@ export async function railSetupOf(scope: RailSetupScope): Promise<RailSetup> {
   // members (I-389).
   const manual = await forTenant({ tenantId: scope.tenantId }).transaction((tx) => manualSetupIn(tx, scope));
 
+  // Each column's top joint, read off the framing placed on the level above whose run cites the
+  // column's outline (s-bbs I-413): BOUNDED at the deepest depth read, or UNREAD by name (I-414). Read
+  // only where the caller handed the register it measures — the seam answers for register rows, and a
+  // setup read without them carries no joint, which a rail reads as a joint nobody read.
+  const joints = objects === undefined ? undefined : jointsOf(objects, { levels, memberTypes, placements: jointPlacements, citations });
+
   return {
     placements,
     memberTypes,
@@ -521,8 +548,11 @@ export async function railSetupOf(scope: RailSetupScope): Promise<RailSetup> {
     // DERIVED reading cites by digest (L-MEA-01). Neither is judged here: a fact nobody entered is
     // simply absent, and what a rail makes of that absence is the rail's.
     siteFacts,
-    edition: { digest: edition.digest, parameters: edition.parameters },
+    // The pairs the edition cites ride beside its digest, so a rail that runs a versioned method of its
+    // own dispatches on the pair the campaign's edition pinned (s-bbs I-658, L-MEA-01).
+    edition: { digest: edition.digest, parameters: edition.parameters, methods: edition.methods },
     detailing: detailingSetupOf(applied),
     manual,
+    ...(joints === undefined ? {} : { joints }),
   };
 }

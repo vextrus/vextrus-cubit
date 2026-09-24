@@ -15,6 +15,7 @@
 // SEAM's — this screen never decides ACCEPTED from EDITED (R-TO-034, AC-2).
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties, type MouseEvent, type ReactNode, type RefObject } from "react";
 import type { Consequence, TranscribeSheetNotesInput } from "@/core/acts";
+import { inWords } from "@/core/documents/kinds/boq-draft-law";
 import { displayText } from "@/core/entitygraph/text";
 import { REFUSALS, type RefusalEntry } from "@/core/errors";
 import { refusalCodeOf } from "@/core/faults/refusal-marker";
@@ -802,7 +803,16 @@ export function SchedulesWorkspace({ view, projectId, permitted, offline, state,
                 <>
                   <h3 className="cx-schedules-panel-heading">{SCHEDULES_COPY.schedules_standing_heading}</h3>
                   {sheet.notes.standings.map((standing) => (
-                    <Standing key={standing.kind} standing={standing} testId={testIds.standing} href={traceTo([])} EnumLabel={EnumLabel} RefusalState={RefusalState} UnitBadge={UnitBadge} />
+                    <Standing
+                      key={`${standing.kind}\u0000${standing.scopeClass ?? ""}`}
+                      standing={standing}
+                      others={standing.scopeClass === null && sheet.notes.standings.some((one) => one.kind === standing.kind && one.scopeClass !== null)}
+                      testId={testIds.standing}
+                      href={traceTo([])}
+                      EnumLabel={EnumLabel}
+                      RefusalState={RefusalState}
+                      UnitBadge={UnitBadge}
+                    />
                   ))}
 
                   <h3 className="cx-schedules-panel-heading">{SCHEDULES_COPY.schedules_readings_heading}</h3>
@@ -953,7 +963,14 @@ function draftKey(proposal: NoteProposal): string {
  */
 function standsAt(sheet: SheetView, proposal: NoteProposal, value: string): boolean {
   return sheet.notes.readings.some(
-    (reading) => reading.kind === proposal.kind && reading.sourceKey === proposal.sourceKey && reading.canonical === value && reading.unitAsWritten === proposal.unitAsWritten,
+    (reading) =>
+      reading.kind === proposal.kind &&
+      reading.sourceKey === proposal.sourceKey &&
+      reading.canonical === value &&
+      reading.unitAsWritten === proposal.unitAsWritten &&
+      // A figure kept for another scope than the one the sheet states is not yet read as the sheet
+      // states it: re-reading it moves the scope (I-652).
+      (reading.scopeClass ?? null) === proposal.scopeClass,
   );
 }
 
@@ -1261,6 +1278,7 @@ function Family({
  */
 function Standing({
   standing,
+  others,
   testId,
   href,
   EnumLabel,
@@ -1268,6 +1286,8 @@ function Standing({
   UnitBadge,
 }: {
   standing: StandingView;
+  /** An unscoped standing beside a scoped one of its kind governs every OTHER class (I-652). */
+  others: boolean;
   testId: string;
   href: string;
   EnumLabel: SchedulesChrome["EnumLabel"];
@@ -1277,8 +1297,16 @@ function Standing({
   const entry = standing.code === null ? undefined : entryOf(standing.code);
   const stands = standing.standing === AGREED && standing.canonical !== null;
   return (
-    <div className="cx-schedules-standing" data-testid={testId} data-kind={standing.kind} data-standing={standing.standing} data-code={standing.code ?? ""}>
+    <div
+      className="cx-schedules-standing"
+      data-testid={testId}
+      data-kind={standing.kind}
+      data-scope={standing.scopeClass ?? ""}
+      data-standing={standing.standing}
+      data-code={standing.code ?? ""}
+    >
       <EnumLabel value={standing.kind} label={KIND_SAID[standing.kind]} className="cx-schedules-enum" />
+      <ScopeSaid scopeClass={standing.scopeClass} others={others} EnumLabel={EnumLabel} />
       <EnumLabel value={standing.standing} label={STANDING_SAID[standing.standing] ?? STANDING_SAID[NONE]} className="cx-schedules-enum" />
       {stands ? <span className="cx-schedules-figure cx-schedules-mono">{formatUserFigure(standing.canonical as string)}</span> : <span className="cx-schedules-none">{DASH}</span>}
       {stands && standing.unitAsWritten !== null && standing.unitAsWritten !== "" ? <UnitBadge unit={standing.unitAsWritten} /> : null}
@@ -1289,6 +1317,17 @@ function Standing({
       )}
     </div>
   );
+}
+
+/**
+ * The members a figure is for (I-652): the class a note scoped it to, as a word through EnumLabel
+ * under the draft bill's own rule (`pile` → `Pile`, the raw class under `data-technical`), or — for an
+ * unscoped figure — every member, or every OTHER member where a scoped figure of its kind stands
+ * beside it.
+ */
+function ScopeSaid({ scopeClass, others, EnumLabel }: { scopeClass: string | null; others: boolean; EnumLabel: SchedulesChrome["EnumLabel"] }) {
+  if (scopeClass !== null) return <EnumLabel value={scopeClass} label={inWords(scopeClass)} className="cx-schedules-enum" />;
+  return <span className="cx-schedules-scope-all">{others ? SCHEDULES_COPY.schedules_scope_others : SCHEDULES_COPY.schedules_scope_all}</span>;
 }
 
 /** One committed reading, with the verdict the SEAM gave it — reported, never decided here (I-254). */
@@ -1314,6 +1353,7 @@ function Reading({
       className="cx-schedules-reading"
       data-testid={testId}
       data-kind={reading.kind}
+      data-scope={reading.scopeClass ?? ""}
       data-acceptance={reading.acceptance}
       data-basis={reading.basis}
       data-source={reading.sourceKey}
@@ -1328,6 +1368,7 @@ function Reading({
       }}
     >
       <EnumLabel value={reading.kind} label={KIND_SAID[reading.kind]} className="cx-schedules-enum" />
+      {reading.scopeClass === null ? null : <ScopeSaid scopeClass={reading.scopeClass} others={false} EnumLabel={EnumLabel} />}
       <span className="cx-schedules-mono">{readingSaid(reading)}</span>
       <EnumLabel
         value={reading.acceptance}
@@ -1363,13 +1404,17 @@ function Proposal({
   NumberInput: SchedulesChrome["NumberInput"];
 }) {
   return (
-    <div className="cx-schedules-proposal" data-testid={testIds.proposal} data-kind={proposal.kind} data-proposed-by={proposal.proposedBy}>
+    <div className="cx-schedules-proposal" data-testid={testIds.proposal} data-kind={proposal.kind} data-scope={proposal.scopeClass ?? ""} data-proposed-by={proposal.proposedBy}>
       <EnumLabel value={proposal.kind} label={KIND_SAID[proposal.kind]} className="cx-schedules-enum" />
       {/* I-296: a figure a model classified says so, in place, before a reader keeps it. The figure
           itself is the grammar's reading of the clause — a model moves no digit (L-AI-03). */}
       {proposal.proposedBy === "model" ? <span className="cx-schedules-proposed-by">{SCHEDULES_COPY.schedules_proposal_proposed_by_model}</span> : null}
       <span className="cx-schedules-label">{SCHEDULES_COPY.schedules_proposal_written_label}</span>
-      <EvidenceLink href={href} basis={TRANSCRIBED} label={proposal.valueAsWritten} />
+      {/* I-652: the clause WHOLE, as the sheet shows it — `f'c = 3000 psi (BORED PILES)` says whose
+          strength it is, and the figure alone would drop the words that scope it. */}
+      <EvidenceLink href={href} basis={TRANSCRIBED} label={drawn(proposal.text)} />
+      <span className="cx-schedules-label">{SCHEDULES_COPY.schedules_proposal_applies_label}</span>
+      <ScopeSaid scopeClass={proposal.scopeClass} others={false} EnumLabel={EnumLabel} />
       <label className="cx-schedules-field">
         <span className="cx-schedules-label">{SCHEDULES_COPY.schedules_proposal_value_label}</span>
         <NumberInput value={value} data-testid={testIds.proposalValue} aria-label={`${KIND_SAID[proposal.kind]} ${SCHEDULES_COPY.schedules_proposal_value_label}`} onChange={onValue} />

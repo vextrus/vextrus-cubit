@@ -10,8 +10,14 @@
  */
 import { describe, expect, test } from "vitest";
 import {
+  BAR_SHAPE_NOT_HELD,
   DETAILING_ROW_NOT_IN_EDITION,
+  INGEST_ID,
   NOTE_READING_CONTESTED,
+  REBAR_PAIRS_V2,
+  REBAR_SCHEDULE_UNREAD,
+  REBAR_TIE_JOINT_UNREAD,
+  REBAR_TIE_ZONE_UNSTATED,
   detailingUnread,
   levelStanding,
   placement,
@@ -22,11 +28,16 @@ import {
   registerRow,
   variant,
   zone,
+  type BarRowShape,
   type DetailingSetupShape,
+  type JointReadingShape,
   type OfferShape,
+  type PlacementSetupShape,
   type RailBatchShape,
+  type RailInputShape,
   type RailShape,
   type RebarZoneSetupShape,
+  type VariantSetupShape,
 } from "./support/rebar-contract";
 import { parseRebarGroups } from "../../../../src/modules/takeoff/partition/notation";
 
@@ -130,3 +141,103 @@ describe("the reinforcement rail, attacked where the acceptance does not reach",
     ).toContain(DETAILING_ROW_NOT_IN_EDITION);
   });
 });
+
+/**
+ * R6b: synthesis@2 attacked where the model-based proofs do not reach — a joint read deeper than the
+ * storey, a round column, a tie the kg/m table holds no rate for, spacings in a unit nobody carries,
+ * and a stated lap beside a contested note. Each answers a figure or a code, never a throw, and never
+ * a tie count over the one the drawing's zones allow.
+ */
+describe("synthesis@2's derived ties, attacked", () => {
+  /** A column pinned to @2, with the tie zones, the joint and the shape the case is about. */
+  function tiedCase(options: {
+    ties?: RebarZoneSetupShape[];
+    joint?: JointReadingShape;
+    round?: boolean;
+    detailing?: DetailingSetupShape;
+    runMm?: string;
+  }): RailInputShape {
+    const input = columnCase({ bars: [{ n: 8, diameterMm: 20 }], detailing: options.detailing, runMm: options.runMm });
+    const ties = options.ties ?? [
+      zone({ zone: "ties-end", spacing: 100, spacingUnit: "mm", spacingBar: 10 }),
+      zone({ zone: "ties-mid", spacing: 150, spacingUnit: "mm", spacingBar: 10 }),
+    ];
+    const family = input.setup.memberTypes[INGEST_ID]?.[FAMILY]?.[0] as VariantSetupShape;
+    const framer = { objectKey: "beam", placementKey: "beam", family: "1B1", depth: reading("600", "mm", { source: "cell:1B1" }), depthMm: "600" };
+    const joint: JointReadingShape = options.joint ?? { standing: "BOUNDED", levelId: "above", depthMm: "600", deepest: framer, framing: [framer], depthUnread: [] };
+    return {
+      ...input,
+      setup: {
+        ...input.setup,
+        placements: { [PLACEMENT_KEY]: { ...(input.setup.placements[PLACEMENT_KEY] as PlacementSetupShape), noteShape: options.round === true ? "ROUND" : null } },
+        memberTypes: { [INGEST_ID]: { [FAMILY]: [{ ...family, rebar: [...family.rebar, ...ties] }] } },
+        edition: { ...input.setup.edition, methods: REBAR_PAIRS_V2 },
+        joints: { [OBJECT_KEY]: joint },
+      },
+    };
+  }
+
+  /** The line's `ties` component: bound, or the code it is omitted under. */
+  function tiesOf(batch: RailBatchShape): { bound: boolean; code: string | undefined } {
+    const line = lineOf(batch);
+    return { bound: line.bindings["ties"] !== undefined, code: line.omitted.find((one) => one.variable === "ties")?.code };
+  }
+
+  test("a joint bound read deeper than the storey is one run at the end spacing — never thrown, never more", async () => {
+    const rail = (await rebarRailDoor())["rebarRail"] as RailShape;
+    const framer = { objectKey: "beam", placementKey: "beam", family: "TG", depth: reading("4000", "mm"), depthMm: "4000" };
+    const input = tiedCase({ joint: { standing: "BOUNDED", levelId: "above", depthMm: "4000", deepest: framer, framing: [framer], depthUnread: [] } });
+    let batch: RailBatchShape | undefined;
+    expect(() => {
+      batch = rail(input);
+    }).not.toThrow();
+    const rows = await barRowsOfDoor(input);
+    // ⌊(3000 + ½) / 100⌋ + 1 = 31 — the most any depth could need is the storey tied at its end spacing
+    expect(rows.filter((row) => row.role === "TIE").map((row) => row.barsPerUnit)).toEqual([31]);
+    expect(tiesOf(batch as RailBatchShape).bound).toBe(true);
+  });
+
+  test("a round column's ties are left out as a shape the roster does not hold (I-596), never cut as a rectangle", async () => {
+    const rail = (await rebarRailDoor())["rebarRail"] as RailShape;
+    expect(tiesOf(rail(tiedCase({ round: true })))).toEqual({ bound: false, code: BAR_SHAPE_NOT_HELD });
+  });
+
+  test("a tie the kg/m table holds no rate for is disclosed, never thrown", async () => {
+    const rail = (await rebarRailDoor())["rebarRail"] as RailShape;
+    const ties = [zone({ zone: "ties-end", spacing: 100, spacingUnit: "mm", spacingBar: 11 }), zone({ zone: "ties-mid", spacing: 150, spacingUnit: "mm", spacingBar: 11 })];
+    let batch: RailBatchShape | undefined;
+    expect(() => {
+      batch = rail(tiedCase({ ties }));
+    }).not.toThrow();
+    expect(tiesOf(batch as RailBatchShape)).toEqual({ bound: false, code: REBAR_SCHEDULE_UNREAD });
+  });
+
+  test("spacings stated in a unit nobody carried are no zone to derive from", async () => {
+    const rail = (await rebarRailDoor())["rebarRail"] as RailShape;
+    const ties = [zone({ zone: "ties-end", spacing: 4, spacingUnit: "in", spacingBar: 10 }), zone({ zone: "ties-mid", spacing: 6, spacingUnit: "in", spacingBar: 10 })];
+    expect(tiesOf(rail(tiedCase({ ties })))).toEqual({ bound: false, code: REBAR_TIE_ZONE_UNSTATED });
+  });
+
+  test("a joint the seam could not read, or never read, leaves the ties out by name", async () => {
+    const rail = (await rebarRailDoor())["rebarRail"] as RailShape;
+    expect(tiesOf(rail(tiedCase({ joint: { standing: "UNREAD", unread: "FRAMING", levelId: "above", depthUnread: [] } })))).toEqual({ bound: false, code: REBAR_TIE_JOINT_UNREAD });
+    const unread = tiedCase({});
+    const withoutJoints = { ...unread, setup: { ...unread.setup, joints: {} } };
+    expect(tiesOf(rail(withoutJoints))).toEqual({ bound: false, code: REBAR_TIE_JOINT_UNREAD });
+  });
+
+  test("R2: a stated lap binds beside a contested grade, and a contested LAP note still binds nothing", async () => {
+    const rail = (await rebarRailDoor())["rebarRail"] as RailShape;
+    const stated = (suspended: string[]): DetailingSetupShape => ({ ...detailingUnread(), lapMultiplier: 50, suspended, sourceKeys: ["fixtures/rcc6-bnbc/model.json#notes"] });
+    const beside = lineOf(rail(tiedCase({ detailing: stated(["FY", "FC"]) })));
+    expect(beside.bindings["lap"], "50 × 20 mm × 8 bars, once each, weighed — a lap nobody derives from the grade").toBeDefined();
+    const contested = lineOf(rail(tiedCase({ detailing: stated(["LAP"]) })));
+    expect(contested.bindings["lap"]).toBeUndefined();
+    expect(contested.omitted.filter((one) => one.variable === "lap").map((one) => one.code)).toEqual([NOTE_READING_CONTESTED]);
+  });
+});
+
+/** The bill of bars through the rail door, for a case that asks what was written rather than billed. */
+async function barRowsOfDoor(input: RailInputShape): Promise<BarRowShape[]> {
+  return ((await rebarRailDoor())["barRowsOf"] as (one: RailInputShape) => BarRowShape[])(input);
+}

@@ -31,10 +31,6 @@ const ROSTER: Readonly<Record<string, Readonly<Record<string, string>>>> = {
     "J-011: the selection is repainted after the fly-to settles, and the pulse ends by itself (R-UI-022)":
       "with motion in force a Reveal's arrival paints no frame a screenshot can see between `data-flyto=settled` and stillness — paint vs WebGL compositing, which this journey's node cannot own (R-UI-022, docs/design/viewer.md §4; the restore recipe is at the foot of the file)",
   },
-  "tests/e2e/journeys/j-000/m3-bar-schedule.spec.ts": {
-    "MISSING DOOR: J-000 m3-bar-schedule: the bar schedule is emitted as DRAFT — UNSIGNED and read against the golden, member by member":
-      "no column member's schedule is whole: the campaign's column rebar lines stand PARTIAL_DECLARED with their TIES omitted until the ties slice (R6, D-003) derives them from BNBC 2020 / ACI 318-19 (docs/reference/bnbc-2020/), and the stated LAP 50d (I-308, reserved and not yet minted) rides with that synthesis bump behind the FC contest (N1) — the leg compares whole members, NET and LAP, against fixtures/rcc6-bnbc/bbs.golden.json (session 7)",
-  },
   // M4's four segments (AM-17), one door-owing file each since session 7 — the owner ruled "M3 breadth
   // first", so M4 stands on named, measured doors and nothing of it is built; each file's header holds
   // the measured work behind its door, file by line.

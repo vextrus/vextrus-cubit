@@ -18,7 +18,10 @@ export type RebarRefusalCode =
   | "REBAR_STOREY_RUN_UNSTATED"
   | "BBS_NO_CAMPAIGN"
   | "BBS_NO_BAR_ROW"
-  | "BAR_SHAPE_NOT_HELD";
+  | "BAR_SHAPE_NOT_HELD"
+  | "REBAR_TIE_JOINT_BOUNDED"
+  | "REBAR_TIE_JOINT_UNREAD"
+  | "REBAR_ANCHORAGE_UNSTATED";
 
 /** This area's registered refusals, frozen entry by entry exactly as the one register holds them. */
 export const REBAR_REFUSALS: RefusalGroup<RebarRefusalCode> = Object.freeze({
@@ -78,6 +81,36 @@ export const REBAR_REFUSALS: RefusalGroup<RebarRefusalCode> = Object.freeze({
     code: "REBAR_TIE_ZONE_UNSTATED",
     message: "The schedule states the tie spacing for this member but no zone it runs over, so its ties cannot be counted.",
     remedy: "Read the typical detail's confinement and mid-height zone lengths into the member's schedule, then measure again.",
+    severity: "warning",
+    surface: "inline",
+  }),
+  // D-003 (the owner's A′): a column's ties are derived from BNBC 2020's zones, and the joint zone
+  // turns on the depth of the framing at the column's top, which the placed framing only BOUNDS from
+  // below. The count is the fewest any depth in that bound could need, so it stands at or under the
+  // true count — a lawful under, said on the line, never an over (L-QTY-04).
+  REBAR_TIE_JOINT_BOUNDED: Object.freeze({
+    code: "REBAR_TIE_JOINT_BOUNDED",
+    message: "The framing read so far only bounds the depth of this column's top joint, so its ties are counted at the fewest that depth could need and may stand under the true count.",
+    remedy: "Place the rest of the beams framing into the column's top on the layout plans, then measure the campaign again.",
+    severity: "warning",
+    surface: "inline",
+  }),
+  // A′: where nothing read bounds the joint at the column's top — no framing placed on the level
+  // above cites the column, or no level above stands — the ties are left out by name rather than
+  // counted over a joint nobody read. The joint is framed by what nobody has read yet, not by nothing.
+  REBAR_TIE_JOINT_UNREAD: Object.freeze({
+    code: "REBAR_TIE_JOINT_UNREAD",
+    message: "No framing read on the level above bounds this column's top joint, so its ties are left out rather than counted over a joint depth nobody read.",
+    remedy: "Place the beams that frame into the column's top on the level above, then measure the campaign again.",
+    severity: "warning",
+    surface: "inline",
+  }),
+  // A′: the column bars at the foundation neck are billed through the neck; how far they anchor into
+  // the cap below (the dowel's leg and hook) is stated on no sheet, so it is left out and said.
+  REBAR_ANCHORAGE_UNSTATED: Object.freeze({
+    code: "REBAR_ANCHORAGE_UNSTATED",
+    message: "No sheet states how this column's bars anchor into the foundation below, so they are billed through the neck only and the anchorage is left out.",
+    remedy: "State the starter bars' anchorage into the cap on the column or foundation detail, then measure the campaign again.",
     severity: "warning",
     surface: "inline",
   }),

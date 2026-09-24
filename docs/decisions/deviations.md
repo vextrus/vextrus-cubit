@@ -40,6 +40,7 @@ Each Deviation is one row in the table below, and a section beneath it when the 
 |---|---|---|---|---|---|
 | D-001 | L-MEA-07: storey-height readings — "agreeing readings corroborate, disagreeing readings suspend … equality is on canonical metres" | T-NOT-LEVEL (traps.json, S-25 1D90): "levels in both notations resolve to one level stack"; S-25 states 1F as `1F EL +3.353` (1D4C) and `EL +11'-0"` (1D92), 3352.8 mm apart; model.json GF 3352.8; under equality GF would SUSPEND, and on the metric print alone GF column concrete is 16.828852 m³ against the golden's 16.828 — a hard block | A storey is read once PER NOTATION; two PRINTS (TRANSCRIBED, cited, value and unit as written) in DIFFERENT notations agree when the exact one, rounded half-even to the decimal print's written places, equals it; every pair must agree; the finest reading is carried and the rails bind it | A cross-notation disagreement smaller than the decimal print's half-unit is invisible; where the metric figure was the design, the imperial conversion is carried | the commit that adds this row (see §D-001) |
 | D-002 | AS-05: "Model ids used in production are `claude-opus-5` for reading/proposals and `claude-sonnet-5` for cheap classification" | All eight closed questions are answered only by TypeSafe Jev (the Claude path answers none: `propose` refuses a Messages content array MALFORMED, `src/core/model/proposal.ts:80-89`); all 240 prior fixtures were answered by `jev-1.13.0` yet billed under a Claude id at the tree's wrong Claude rates — 3.572892 USD against 0.01498665 at Jev's documented rate (docs.typesafe.ai/models, read 2026-09-23) | `MODEL_IDS` = claude-opus-5, claude-sonnet-5, **jev-latest**; one `JEV_MODEL` pinned UNCONDITIONALLY by the eight questions (the id is hashed into every request); rates 5/25, 2/10, 0.042/0 USD per MTok; 0057 re-closes the ledger's CHECK; the corpus re-recorded live with provider bodies | The Bible names two ids, the ledger holds three; every request hash moved (240 fixtures retired, 241 recorded); `jev-latest` moves when TypeSafe ships, so answers can change with no change here (the answering version is recorded per call) | the commit that adds this row (see §D-002) |
+| D-003 | L-FRM-05: "closed link … zones each `⌊dist/spacing⌋ + 1`" with no zone distance stated anywhere (the registry states a spacing, never a zone length); L-QTY-04: "Known scope, not measured → declared exclusion + queue item" | Every one of J-000's 208 column rebar lines is PARTIAL_DECLARED `ties: REBAR_TIE_ZONE_UNSTATED` (session 8's ties map, project fe67f2bc): S-11 states `10Ø@100/150 (TIES)` and no zone length, so no column's ties are billed at all; BNBC 2020 §8.3.10.5(a) and §6.4.9.2 state the zones; the rule reproduces the corrected golden's `bars_per_unit` on all 208 rectangular members where the joint is read whole (`column-ties-derived.test.ts`) | A column's ties are DERIVED under `rcc.rebar.synthesis@2`: end zones ℓo = max(largest side, clear/6, 450), the joint zone the deepest framing (never under 450), the middle at the second spacing, one run where the clear height fits the two end zones; where the placed framing only BOUNDS the joint, the count is the exact minimum over every depth the bound leaves open, published COMPLETE with `REBAR_TIE_JOINT_BOUNDED` beside the line; where nothing read bounds it, the ties are omitted `REBAR_TIE_JOINT_UNREAD` (the owner's A′) | A bounded column's ties stand up to 7.14 % under the golden's count on a COMPLETE line (C3 at 3F–5F; 34 cells GF–6F whole-member within −2.42 % before FRM-3), said only by the observation; the zone lengths are the code's, not the drawing's; C6, the FDN necks and the roof stubs bill no ties until their framing is read | the commit that adds this row (see §D-003) |
 | D-004 | The stack element's version pins (`cubit.bible.xml:285-308`; AM-08 PART 1): TypeScript "5.9.3 exact", pnpm "10.x", TanStack Table "8.x", Vitest "4.x" | TypeScript 7 (native) type-checks the tree in 2.3 s against 14.8 s; Next 16.3.1 carried three critical advisories fixed in 16.3.3 and 16.3.6; typescript-eslint refuses TypeScript ≥ 7 | The toolchain moves to its current stable majors, TypeScript 7 beside a TypeScript 6 API alias; pg-boss holds at 10.4.2 and Playwright at 1.62.1 | Two TypeScript compilers read the tree; a Bible reader finds older versions | 18b689ab, 70d67aa7 |
 | D-005 | L-FRM-04: "Blinding (CC) count × (L + 2p) × (B + 2p) × t; deferred for polygon plans" | S-08's slab on grade (POLYLINE 81D) is a pentagon with a 45° chamfer the projected rectangle cannot express, and the drawn blinding rectangle beside it (824–827) does not follow the chamfer; session 9's refuter rejected I-388's reading (s-measure §11): the clause defers polygon plans outright and names no hand/machine split | A hand measurement of blinding is `pcc.blinding.area@1` = `count × (A_traced − Σ openings − Σ junctions) × t` over a traced outline (the member's own, or a drawn outline that follows it), with no projection p | Blinding has two spellings, each its own rule id; a traced blinding is under the clause's figure by the projection strip (never over); the edition's `blindingProjection` is not applied to it | the commit that adds this row (see §D-005) |
 | D-006 | R-UI-040: "level-of-detail hides text below legibility" | Walk 0 (BLOCKS_DEMO): S-10 opened with no caption, no marks and an empty title block, where `drawing_render` letters them at the same size; measured on the true-size mipmapped glyphs, a capital is read from about 3 px (viewer.md I-463), and S-10's marks stand 2.6 px at fit | A drawing's own text is lettered down to a 2 px cap height (`LETTERED_TEXT_PX`), at its true size, and hidden only below that; nothing is drawn larger than the drawing states, and nothing is drawn as a bar | Text between 2 and 3 px is drawn and not readable; the lettering's fill at rest grows with it; every sheet's at-rest picture moves | the commit that adds this row (see §D-006) |
@@ -137,6 +138,78 @@ change moves a body fixture's replay); `tests/ai/view-caption-recorder.test.ts` 
 captions the product asks — one selection, imported); `tests/takeoff/partition/view-caption-corpus.test.ts` (db lane:
 the partition job over BNBC finds every caption request in the corpus, none FIXTURE_MISSING, all `jev-latest`);
 `pnpm db:drift --scratch` clean.
+
+## D-003 — a column's ties are derived from BNBC 2020 and published at the joint's never-over bound (session 9, R6b; the owner's ruling A′)
+
+**Clauses.** L-FRM-05 (`docs/specs/cubit.bible.xml:256`): "closed link legs to the outer bend line
+(b−2c, d−2c) … zones each `⌊dist/spacing⌋ + 1`" — a count over a zone DISTANCE that no clause and no
+schedule states; the product read it as "the registry states spacing, never a zone length" and declared
+every column's ties unstated. L-QTY-04 (`:198`): "Known scope, not measured → declared exclusion + queue
+item" — a joint whose depth the placed framing only bounds is known scope not wholly measured.
+
+**Evidence.** Session 8's ties map (read-back of J-000's project fe67f2bc): all 208 column `rcc.rebar`
+lines PARTIAL_DECLARED with `ties: REBAR_TIE_ZONE_UNSTATED`, so the bar schedule billed no column tie at
+all and `m3-bar-schedule` could not walk. S-11 states the spacing pair `10Ø@100/150 (TIES)` and S-01 the
+code the set is detailed under; BNBC 2020 states the zones (`docs/reference/bnbc-2020/…clauses.txt`):
+§8.3.10.5(a) ℓo = max(clear/6, largest section dimension, 450) at each joint face at the first spacing;
+§6.4.9.2 joint ties "for a depth not less than that of the deepest connection". With the joint read off
+every beam the model frames a column with, the rule reproduces the corrected golden (R0's W-28
+GC-1..GC-4) member for member — 208 of 208 rectangular column tie rows
+(`tests/takeoff/rails/rebar/column-ties-derived.test.ts`). The joint's depth is read by R6b-1's seam off
+the framing the partition PLACED (s-bbs I-413), which is a lower bound D_lo and never the joint: the
+axis-y beams, CB1–4, LB1 and TG1 wait on FRM-3, EB2 and PB on D13. The count N(D) is not monotonic in D
+(a deeper joint can need fewer sets), so N(D_lo) alone could read over; the exact minimum over every
+depth the bound leaves open never can.
+
+**What the product does instead.** Under `rcc.rebar.synthesis@2` (`src/core/rulesets/methods/rebar/
+synthesis-v2.ts`; s-bbs I-656, I-659):
+- A column whose schedule states its tie spacings and no zone length is tied in BNBC's zones: two end
+  zones ℓo at the first spacing, the joint zone at the first spacing through max(D, 450), the middle at
+  the second spacing; one run at the first spacing over the storey where the clear height (h − joint)
+  fits inside the two end zones or the two spacings are one (GC-1). Each zone is counted by L-FRM-05's
+  own rule `⌊(distance + 0.5 mm)/spacing⌋ + 1`. A zone the schedule DOES state a length for is counted
+  over that length, as before: the drawing outranks the clause.
+- Where the placed framing bounds the joint (BOUNDED, D_lo), the count is the exact minimum of N over
+  [max(D_lo, 450), h) — D_lo, every breakpoint, one depth inside every open interval and the last — and
+  the line binds `ties` COMPLETE and says so beside itself: `REBAR_TIE_JOINT_BOUNDED`, whose detail cites
+  the method, the two clauses, the bound, the member it was read off and the joint depth that attains
+  the count. Whatever the joint's true depth, the true count is at least this: under, never over.
+- Where nothing read bounds the joint (UNREAD: no framing placed on the level above cites the column,
+  or no level above stands), the ties are omitted `REBAR_TIE_JOINT_UNREAD` — the owner's A′: C6 (framed
+  only by the slanted beams), the foundation necks, the roof stubs. A round column's ties are hoops the
+  BS 8666 roster does not hold and are omitted `BAR_SHAPE_NOT_HELD` until CH joins it with its method.
+
+**The readings this rests on** (s-bbs I-656). *§8.3.10 applies, not §8.3.5.* §8.3.10.1 puts an
+intermediate moment frame under SDC C; S-01 states no site class, and Table 6.2.18 gives zone 2
+(Dhaka, Z = 0.20), occupancy II, SDC C on site class SA and D on SD–S2. The drawing's own detailing
+reads as IMF: its first spacing of 100 passes §8.3.10.5(a)'s so in all 19 rectangular schedule bands
+and fails SMF's §8.3.5.4(b) limit in 17 of 19 (16 of 18 with C5's identical bands once; the ties map's
+`smf.py`). *§6.4.9.2's four-sided exemption does not apply.* It excuses only "connections not part of a
+primary seismic load-resisting system that are restrained on four sides by beams or slabs of
+approximately equal depth"; the frame is the primary system, and the store cannot know a joint is
+framed on four sides (no census), so every joint is tied. *The joint is tied at the first spacing* —
+the drawing's closer spacing carried through, as the golden reads it (W-28), rather than §6.4.9.2's
+Av,min reading at 150. *The joint zone is never under 450* — the golden's I-605: a zone longer than the
+deepest connection is still "not less than" it, so it is lawful, and it is the depth the committed
+golden tied every joint through before GC-4.
+
+**Cost.** A bounded column's ties stand under their true count on a COMPLETE line, and only the
+observation says so (a reader of the line alone sees COMPLETE); the worst tie count is C3 at 3F–5F, 26
+sets against the golden's 28 (−7.14 %). Before
+FRM-3 the 34 bounded (level, mark) cells of C1–C5 at GF–6F stand within −2.42 % of the golden whole
+(worst 5F C3; `column-ties-derived.test.ts`), which nets the tie component's under against exact mains —
+L-QTY-06's "no netting" is R6-LEG's to grade per component. The zone lengths are the code's reading, not
+the drawing's, and a reader who wants them on the row waits for R6-SHOW. C6, the necks, the roof stubs
+and C7 bill no ties until their framing (FRM-3, D13, LEV-2) or CH is read. Pinned campaigns do not move:
+@1 stands and is still what every edition up to `IS1200_IN @ 2027.05` cites (I-658); @2 is in force
+only from `IS1200_IN @ 2027.06`, the edition OPEN-4 mints (I-653).
+
+**Proof.** `src/core/rulesets/methods/rebar/synthesis-v2.test.ts` (the count and its never-over minimum
+against a brute-force oracle in whole 1/240 mm, over a sweep that crosses every regime);
+`tests/takeoff/rails/rebar/column-ties-derived.test.ts` (the golden member for member; the placed bound
+never over it; the rail's lines and declarations over every column of the model; the 34-cell forecast);
+`tests/takeoff/rails/rebar/rcc6-bnbc-column-band.test.ts` (db lane: the same under the real job and gate);
+`tests/takeoff/rails/rebar/rebar-engine-breaker.test.ts` (the attacks).
 
 ## D-004 — the toolchain moves to its current stable majors (session 7's extension, 2026-09-23)
 

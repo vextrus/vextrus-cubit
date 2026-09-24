@@ -13,6 +13,7 @@
 import type { ElementType } from "@/core/catalogue/classes";
 import type { Kind } from "@/core/catalogue/kinds";
 import type { GeometryType, Measure, Offer, OmittedComponent, Rail, RailInput, RailObservation, RailSetup } from "@/core/offers/contract";
+import { sightedBy } from "@/core/offers/contract";
 import type { RefusalCode } from "@/core/errors";
 import {
   DEPTH,
@@ -77,7 +78,7 @@ function offerOf(read: Read, kind: Kind, ruleId: string, geometry: GeometryType,
     class: row.elementType as ElementType,
     register: { setRevisionId: row.setRevisionId, objectKey: row.objectKey },
     drawing: { drawingId: placement.drawingId, viewKey: placement.viewKey },
-    engine: placement.engine,
+    ...sightedBy(placement),
     geometry: { type: geometry, basis: row.standing, calibration },
     bindings: { [COUNT]: countOf(read), ...bindings },
     // Nothing selects an item here: a pit is priced by the ground it is dug in and a blinding by its

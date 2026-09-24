@@ -213,3 +213,54 @@ describe("AC-3: the bar schedule the screen draws is the door's own answer, row 
     expect(summary.grandTotalKg.includes(","), `the presenter never formats: ${formatUserFigure(summary.grandTotalKg)} is what the CELL shows, and ${summary.grandTotalKg} is what the attribute carries`).toBe(false);
   });
 });
+
+/**
+ * s-bbs I-655 — an entry's standing is its members' published lines, joined and never inferred.
+ * The entries are real `BbsLine` shapes cut down to what the join reads (the key and the members it
+ * counts); the lines are handed in their published order, as `bbsViewOf` reads them.
+ */
+describe("I-655: each entry states the coverage of its members' lines and the codes they left out", () => {
+  type Entry = { objectKey: string; members: string[] };
+  const entry = (objectKey: string, ...others: string[]): Entry => ({ objectKey, members: [objectKey, ...others] });
+  const line = (objectKey: string, coverage: string, ...omitted: [string, string | null][]) => ({ objectKey, coverage, omitted: omitted.map(([code, variable]) => ({ code, variable })) });
+  const standing = async (rows: Entry[], lines: ReturnType<typeof line>[]) => {
+    const { entryCoverageOf } = await import("../../../src/modules/takeoff/bbs-ui/present");
+    return entryCoverageOf({ rows } as unknown as Parameters<typeof entryCoverageOf>[0], lines);
+  };
+
+  it("an entry is COMPLETE only where every member it counts published a whole line", async () => {
+    const answered = await standing(
+      [entry("C1@GF", "C1b@GF"), entry("C1@GF", "C1b@GF"), entry("C6@GF"), entry("C2@GF", "C2b@GF")],
+      [line("C1@GF", "COMPLETE"), line("C1b@GF", "COMPLETE"), line("C6@GF", "PARTIAL_DECLARED", ["REBAR_TIE_JOINT_UNREAD", "ties"]), line("C2@GF", "COMPLETE")],
+    );
+    expect(Object.keys(answered), "one standing per entry, keyed as its group row is named, each once").toEqual(["C1@GF", "C6@GF", "C2@GF"]);
+    expect(answered["C1@GF"]).toEqual({ coverage: "COMPLETE", omitted: [] });
+    expect(answered["C6@GF"]).toEqual({ coverage: "PARTIAL_DECLARED", omitted: [{ code: "REBAR_TIE_JOINT_UNREAD", components: ["ties"] }] });
+    expect(answered["C2@GF"], "a member that published no line is never whole by default, and names nothing it did not state").toEqual({ coverage: "PARTIAL_DECLARED", omitted: [] });
+  });
+
+  it("one partly declared member makes its entry partial; codes stand once, in the lines' order, with every component", async () => {
+    const answered = await standing(
+      [entry("SW1-3@1F", "SW1-4@1F", "SW1-D@1F")],
+      [
+        line("SW1-4@1F", "PARTIAL_DECLARED", ["REBAR_TIE_ZONE_UNSTATED", "ties"], ["REBAR_STOREY_RUN_UNSTATED", "net"]),
+        line("SW1-3@1F", "COMPLETE"),
+        line("SW1-D@1F", "PARTIAL_DECLARED", ["REBAR_STOREY_RUN_UNSTATED", "lap"], ["REBAR_TIE_ZONE_UNSTATED", "ties"], ["BBS_NO_BAR_ROW", null]),
+        line("OTHER@1F", "PARTIAL_DECLARED", ["BAR_SHAPE_NOT_HELD", "ties"]),
+      ],
+    );
+    expect(answered["SW1-3@1F"]).toEqual({
+      coverage: "PARTIAL_DECLARED",
+      omitted: [
+        { code: "REBAR_TIE_ZONE_UNSTATED", components: ["ties"] },
+        { code: "REBAR_STOREY_RUN_UNSTATED", components: ["net", "lap"] },
+        { code: "BBS_NO_BAR_ROW", components: [] },
+      ],
+    });
+  });
+
+  it("an entry whose line names no members stands for its own key alone", async () => {
+    const answered = await standing([{ objectKey: "C3@2F", members: [] }], [line("C3@2F", "COMPLETE")]);
+    expect(answered["C3@2F"]).toEqual({ coverage: "COMPLETE", omitted: [] });
+  });
+});

@@ -20,7 +20,7 @@ import type { JobKind } from "@/core/jobs/kinds";
 import { BBS_COMPONENT_SAID, BBS_COPY, fillCopy, membersSaid } from "./copy";
 import { BBS_PLACES, bbsRowsOf, bbsSummaryOf, cuttingStandingOf, listed, statedAt, totalCoversOf, type BbsGridRow, type BbsSummaryRow } from "./present";
 import { bbsStateOf, nothingScheduled } from "./states";
-import type { BbsSheetSelection, BbsTraces, BbsView } from "./view";
+import type { BbsEntryCoverage, BbsSheetSelection, BbsTraces, BbsView } from "./view";
 // The viewer's address at the entities something cites, spelled once by the Trace (B-17): the pure
 // module, which carries no store into this browser component (ARCH-01).
 import { selectionAddress } from "@/modules/takeoff/trace/address";
@@ -51,6 +51,15 @@ export type BbsMemberRow = {
   readonly members: number;
   /** Whether its running bars are storey-height runs whose laps are not stated (I-567). */
   readonly notForCutting: boolean;
+  /**
+   * The entry's own standing, read off its members' published lines (s-bbs I-655): COMPLETE only
+   * where every one is whole; otherwise PARTIAL_DECLARED, or `null` where the view stated nothing.
+   */
+  readonly coverage: string | null;
+  /** The registered codes its members' lines left something out under, each once, in their order. */
+  readonly omitted: readonly string[];
+  /** The components those codes were stated for, in words — `Ties`, `Laps and ties` — or empty. */
+  readonly leftOut: string;
 };
 
 /** One row of the schedule's grid: a member's group row, a bar, or the lap beneath a bar. */
@@ -291,7 +300,7 @@ function InPlace({ children }: { children: ReactNode }): ReactNode {
  * order: the entries in the order the document first names them, the rows inside an entry in the
  * document's own (L-REG-04). Nothing is sorted here.
  */
-function tableRowsOf(rows: readonly BbsGridRow[], runs: ReadonlySet<string>): BbsTableRow[] {
+function tableRowsOf(rows: readonly BbsGridRow[], runs: ReadonlySet<string>, entries: Readonly<Record<string, BbsEntryCoverage>>): BbsTableRow[] {
   const order: string[] = [];
   const byMember = new Map<string, BbsTableRow[]>();
   for (const row of rows) {
@@ -307,11 +316,26 @@ function tableRowsOf(rows: readonly BbsGridRow[], runs: ReadonlySet<string>): Bb
         level: row.level,
         members: row.members,
         notForCutting: runs.has(row.objectKey),
+        ...standingOf(entries[row.objectKey]),
       };
       byMember.set(row.objectKey, [member, row]);
     } else held.push(row);
   }
   return order.flatMap((objectKey) => byMember.get(objectKey) ?? []);
+}
+
+/** The coverage of an entry whose members' lines are all whole (L-QTY-02). */
+const WHOLE_COVERAGE = "COMPLETE";
+
+/**
+ * An entry's standing as its group row states it (s-bbs I-655): the coverage and codes verbatim
+ * for a machine, and the components left out in the words the omitted list says them in (I-354).
+ */
+function standingOf(entry: BbsEntryCoverage | undefined): Pick<BbsMemberRow, "coverage" | "omitted" | "leftOut"> {
+  if (entry === undefined) return { coverage: null, omitted: [], leftOut: "" };
+  const components = [...new Set(entry.omitted.flatMap((omission) => omission.components))].map((component) => COMPONENT_SAID[component] ?? component);
+  const words = listed(components.map((word, at) => (at === 0 ? word : word.toLowerCase())));
+  return { coverage: entry.coverage, omitted: entry.omitted.map((omission) => omission.code), leftOut: words };
 }
 
 /**
@@ -333,6 +357,7 @@ function rowDataOf(ids: BbsTestIds): (row: BbsTableRow) => Record<string, string
         "data-class": row.class,
         "data-level": row.level ?? "",
         ...(row.notForCutting ? { "data-not-for-cutting": "true" } : {}),
+        ...(row.coverage === null ? {} : { "data-coverage": row.coverage, "data-omitted": row.omitted.join(" ") }),
       };
     }
     if (row.component === "LAP") {
@@ -417,8 +442,9 @@ export function BbsWorkspace(props: BbsWorkspaceProps) {
   // the reading the issued schedule is emitted from too, so the two faces withhold the same lines
   // (I-567, B-17).
   const deferred = view?.deferred;
+  const entries = view?.entries;
   const standing = useMemo(() => (document_ === null ? null : cuttingStandingOf(document_, deferred ?? [])), [document_, deferred]);
-  const rows = useMemo(() => (document_ === null || standing === null ? [] : tableRowsOf(bbsRowsOf(document_), standing.runs)), [document_, standing]);
+  const rows = useMemo(() => (document_ === null || standing === null ? [] : tableRowsOf(bbsRowsOf(document_), standing.runs, entries ?? {})), [document_, standing, entries]);
   const summary = useMemo(() => (document_ === null || standing === null ? null : bbsSummaryOf(document_, standing.withheld)), [document_, standing]);
   const notInSchedule = useMemo(() => view?.notInSchedule ?? [], [view?.notInSchedule]);
   const totalCovers = useMemo(
@@ -948,6 +974,16 @@ function bbsColumns(chrome: Pick<BbsChrome, "EnumLabel" | "Tooltip" | "EvidenceL
                   <span className="cx-bbs-member-separator">{" · "}</span>
                   <Tooltip content={BBS_COPY.bbs_run_tooltip}>
                     <span className="cx-bbs-member-run">{BBS_COPY.bbs_run_label}</span>
+                  </Tooltip>
+                </>
+              ) : null}
+              {/* The entry says on its own row that its bars are not the whole of its steel, and
+                  which components are missing; why is the omitted list's, above (s-bbs I-655). */}
+              {held.coverage !== null && held.coverage !== WHOLE_COVERAGE ? (
+                <>
+                  <span className="cx-bbs-member-separator">{" · "}</span>
+                  <Tooltip content={BBS_COPY.bbs_member_partial_tooltip}>
+                    <span className="cx-bbs-member-left-out">{held.leftOut === "" ? BBS_COPY.bbs_member_partly : fillCopy("bbs_member_left_out", { components: held.leftOut })}</span>
                   </Tooltip>
                 </>
               ) : null}

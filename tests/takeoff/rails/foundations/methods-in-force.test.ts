@@ -444,13 +444,22 @@ describe("AC-2: the sixteen foundation methods are in force", () => {
     const seed = await productModule<{
       SEED_EDITION_IDENTITY: { scope: string; name: string; version: string };
       SEED_EDITION_CONTENT: { methods: readonly MethodPairShape[]; parameters: Record<string, { value: string; unit: string }> };
+      IN_FORCE_VERSIONS: Readonly<Record<string, string>>;
     }>(SEED_MODULE);
     const registry = await methodsRegistry();
+    // A rule the tree computes at two versions is cited at the one the seed selects by name (R6b).
+    const selected = seed.IN_FORCE_VERSIONS;
 
     expect(seed.SEED_EDITION_IDENTITY.version, "the seed the product ships is re-minted at the version this increment lands (AC-2, B-20)").toBe(SEED_VERSION);
     expect(
       seed.SEED_EDITION_CONTENT.methods.map((pair) => `${pair.ruleId}@${pair.version}`).sort(),
-      "and cites exactly the pairs the shards enumerate — a method landed with its manifest is in force with no second list to edit (B-19)",
-    ).toEqual(registry.enumerateMethods().map((pair) => `${pair.ruleId}@${pair.version}`).sort());
+      "and cites exactly the pairs the shards enumerate, narrowed only by the seed's named in-force selection — a method landed with its manifest is in force with no second list to edit (B-19)",
+    ).toEqual(
+      registry
+        .enumerateMethods()
+        .filter((pair) => !Object.hasOwn(selected, pair.ruleId) || selected[pair.ruleId] === pair.version)
+        .map((pair) => `${pair.ruleId}@${pair.version}`)
+        .sort(),
+    );
   });
 });

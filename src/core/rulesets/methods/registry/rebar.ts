@@ -4,11 +4,17 @@
 // what is in force is decided at build time. It states `with { type: "json" }` because an ES module
 // loader admits a JSON module only on that attribute.
 //
-// The shard records its five pairs as a LIST — one entry per method, each naming the file that
+// The shard records its six pairs as a LIST — one entry per method, each naming the file that
 // implements it under `module`, the one spelling every shard uses for that path — and this file keys
 // them for the roster the registry enumerates. The list is the record; the key is how a roster is
 // read. Neither is a second spelling of the other: the entry is carried through whole, so the
 // manifest's digest and the roster's key move together (L-MEA-01).
+//
+// The synthesis stands at two versions (R6b): @1, which every edition up to 2027.05 cites, and @2,
+// which derives a column's ties under D-003 and binds a stated lap outside the grade and mix contest,
+// and which the platform edition 2027.06 (OPEN-4) puts in force.
+// Both are computed by the tree; which one an edition puts in force is the seed's explicit selection
+// (`IN_FORCE_VERSIONS`, `src/core/rulesets/seed`), never the order the shard lists them in.
 
 import rebarShard from "../rebar/rebar.methods.json" with { type: "json" };
 import { CUTTING_LENGTH_BS8666 } from "../rebar/bs8666";
@@ -16,6 +22,7 @@ import { DETAILING_BNBC2020_BD } from "../rebar/detailing-bnbc2020-bd";
 import { REBAR_MASS_FORMULA, REBAR_MASS_METHOD } from "../rebar/mass";
 import { REBAR_STOCK } from "../rebar/stock";
 import { REBAR_SYNTHESIS } from "../rebar/synthesis";
+import { REBAR_SYNTHESIS_V2 } from "../rebar/synthesis-v2";
 import { methodKey, type MethodArea, type MethodShard } from "./area";
 import type { MethodPair } from "../../editions/content";
 
@@ -30,6 +37,9 @@ export const STOCK_METHOD: MethodPair = Object.freeze({ ruleId: REBAR_STOCK.rule
 
 /** What bars a member class holds, given what its schedule states (R-TO-032). */
 export const SYNTHESIS_METHOD: MethodPair = Object.freeze({ ruleId: REBAR_SYNTHESIS.ruleId, version: REBAR_SYNTHESIS.version });
+
+/** The same rule at version 2: a column's ties derived under D-003, and R2's stated lap (R6b). */
+export const SYNTHESIS_V2_METHOD: MethodPair = Object.freeze({ ruleId: REBAR_SYNTHESIS_V2.ruleId, version: REBAR_SYNTHESIS_V2.version });
 
 /** The formula a rebar line publishes: the net and the laps beside it (AM-03(a)). */
 export const MASS_METHOD: MethodPair = REBAR_MASS_METHOD;
@@ -52,6 +62,7 @@ export const REBAR_METHODS: MethodArea = Object.freeze({
     [methodKey(CUTTING_LENGTH_METHOD)]: CUTTING_LENGTH_BS8666,
     [methodKey(STOCK_METHOD)]: REBAR_STOCK,
     [methodKey(SYNTHESIS_METHOD)]: REBAR_SYNTHESIS,
+    [methodKey(SYNTHESIS_V2_METHOD)]: REBAR_SYNTHESIS_V2,
     [methodKey(MASS_METHOD)]: REBAR_MASS_FORMULA,
   }),
 });

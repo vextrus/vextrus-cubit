@@ -6,6 +6,7 @@
 // write lands in (L-ACT-02). Nothing is ever rewritten: a re-reading is another row, and which row
 // is current is derived at read time (`./standing.ts`).
 import { and, asc, eq, inArray, notesReadings, type TenantTx } from "../db";
+import type { ElementType } from "../catalogue/classes";
 import { NOTE_BASIS, type NoteAcceptance, type NoteKind } from "./law";
 
 /** Which workspace and project a reading is scoped to. */
@@ -27,6 +28,8 @@ export type NoteReadingRow = {
   readonly canonical: string;
   readonly basis: string;
   readonly acceptance: NoteAcceptance;
+  /** The element class the reading was scoped to, or null where it governs every unscoped class (I-652). */
+  readonly scopeClass: ElementType | null;
   readonly actId: string;
 };
 
@@ -41,6 +44,7 @@ export type NoteReadingWrite = {
   readonly unitAsWritten: string;
   readonly canonical: string;
   readonly acceptance: NoteAcceptance;
+  readonly scopeClass: ElementType | null;
 };
 
 /** The row as the store holds it, read as the record above. */
@@ -57,6 +61,7 @@ function row(held: typeof notesReadings.$inferSelect): NoteReadingRow {
     canonical: held.canonical,
     basis: held.basis,
     acceptance: held.acceptance,
+    scopeClass: held.scopeClass ?? null,
     actId: held.actId,
   };
 }
@@ -116,6 +121,7 @@ export async function writeNoteReadings(tx: TenantTx, scope: NotesScope, actorId
       canonical: reading.canonical,
       basis: NOTE_BASIS,
       acceptance: reading.acceptance,
+      scopeClass: reading.scopeClass,
       actId,
     })),
   );

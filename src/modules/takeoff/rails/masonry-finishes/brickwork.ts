@@ -11,6 +11,7 @@
 // line records and the pricing seam bands (L-MEA-06).
 import type { Kind } from "@/core/catalogue/kinds";
 import type { Measure, Offer, OmittedComponent, Rail, RailInput, RailObservation, RailSetup, ReadingSetup } from "@/core/offers/contract";
+import { sightedBy } from "@/core/offers/contract";
 import {
   AREA_THICK,
   BRICK_WALL,
@@ -118,7 +119,7 @@ export const brickworkRail: Rail = (input: RailInput) => {
       class: BRICK_WALL,
       register: { setRevisionId: row.setRevisionId, objectKey: row.objectKey },
       drawing: { drawingId: placement.drawingId, viewKey: placement.viewKey },
-      engine: placement.engine,
+      ...sightedBy(placement),
       // A wall is L-FRM-01's AREA_THICK: a face read off the plan, over a thickness the plan states.
       geometry: { type: AREA_THICK, basis: row.standing, calibration },
       // `openings` is bound by nobody here: the gate binds the sum of what its threshold deducted,

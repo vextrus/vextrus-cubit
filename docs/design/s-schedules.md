@@ -1060,6 +1060,48 @@ byte-identical too).
   row, the page stands on the first sheet holding a schedule — what a reader came to this screen for —
   and on the rail's first row where no sheet holds one. Presentation only: no stored row, key or
   figure moves.
+- **I-652 — a note that names a member in its parenthetical states that member's figure, not the
+  project's (session 9, N1; R-TO-034, L-REG-03, AM-03(h)).** Walk-1 (B12) found S-01's Concrete
+  strength Suspended and every level's Rebar reading *Note reading contested*: `f'c = 3000 psi (BORED
+  PILES)` (1F42) was read as the project's strength and contested `f'c = 3500 psi (24 MPa) cylinder`
+  (1F41) and the ℓd table's heading `f'c 3500 psi` (S-02, 1F78), so no column lap could be derived
+  off a strength at all. The ruling:
+  (a) **The scope is read by code, off the statement the figure was read in.** A parenthetical of
+  that statement names the class through the catalogue's one closed word table (`classesDeclaredBy`,
+  `src/core/residue/declared.ts`): `(BORED PILES)` is `pile`, `(PILE CAPS)` `pile_cap`, `(COLUMNS)`
+  `column`. A parenthetical naming no class — `(24 MPa)`, `(S-03)` — scopes nothing, and one that
+  points at a sheet (`(SEE S-05 …)`, `(REFER …)`) is a reference, not a scope. A statement naming two
+  classes or more states a scope one reading cannot carry, and the grammar proposes NO figure off it
+  rather than apply it beyond, or short of, what it was stated for (L-MEA-01). A scope written
+  before the name (`ALL COLUMNS f'c = …`, S-11) is not read: that text is a schedule's, and the
+  parenthetical is what BNBC's general notes write. A model's clause offer carries the scope the same
+  reader reads off its clause (`scopeOfOffer`); the model proposes a kind and never a scope (L-AI-03).
+  (b) **A scoped figure governs its class; the unscoped figures govern the rest.** Readings compete
+  within a scope: the unscoped among themselves, each class's among themselves. Supersession is
+  judged first over every reading, so re-reading a note under a new scope leaves nothing behind in
+  the scope it left. Two unscoped readings that differ still suspend, by the same code, and so do two
+  readings for one class. What a campaign applies is answered once for every unscoped class and once
+  more, whole, for each class a note scoped a figure to — its scoped kinds at its own readings, every
+  other kind at the unscoped answer (the piles take their 3000 psi and everybody's 50d lap).
+  `DetailingSetup` carries both (`byClass`), and the rebar rail details a member at its class's values
+  (`detailingOfClass`). On BNBC, S-01 and S-02 kept as proposed stand f'c AGREED 3500 psi on 1F41 and
+  1F78 and 3000 psi for the piles on 1F42; no column lap is contested.
+  (c) **The scope is part of the reading, and the person's to dispose of.** `notes_readings.scope_class`
+  (nullable, closed to the element roster) keeps it beside the figure; the reading key does not change,
+  so a re-reading that scopes a figure differently supersedes the reading it corrects. The act keeps
+  the scope the sheet states unless the statement names one (`null` for every class), and judges it
+  like the figure: kept as the sheet scopes it is ACCEPTED, kept otherwise EDITED, and a re-scope with
+  the same figure moves the record (the Consequence says `3000 · Pile`). Readings kept before this
+  ruling carry no scope and stand unscoped until a reader keeps them again.
+  (d) **The screen shows the clause whole and the members each figure is for.** A proposal's *As
+  written* is the clause as the sheet shows it, and beside it **Applies to** says the class (through
+  EnumLabel, `pile` → **Pile**) or **All members**; Applied values show one standing per scope, the
+  unscoped one reading **All other members** where a scoped one of its kind stands beside it; a
+  scoped reading row says its class. The screen offers no control to re-scope a figure: the act and
+  its wire accept one, and choosing it on the row is recorded in §8 as the next step.
+  Rejected: reading the pile note as a disagreement (walk-1's defect); keying a reading on its scope
+  (a re-scope would leave the old reading standing and contesting); storing the scope on the model's
+  offer (it is code's reading of the clause, re-derived wherever the offer is read).
 
 ## 1. Layout and hierarchy (1440 × 900)
 
@@ -1199,7 +1241,8 @@ types** · `schedules_registry_mark` **Mark** · `schedules_registry_band` **Ban
 `schedules_notes_heading` **General notes** · `schedules_standing_heading` **Applied values** ·
 `schedules_readings_heading` **Readings on this sheet** · `schedules_proposals_heading` **Read from
 this sheet** · `schedules_proposal_written_label` **As written** · `schedules_proposal_value_label`
-**Value** · `schedules_proposal_already_read` **Already read at this figure.** ·
+**Value** · `schedules_proposal_applies_label` **Applies to** (I-652) · `schedules_scope_all` **All
+members** · `schedules_scope_others` **All other members** · `schedules_proposal_already_read` **Already read at this figure.** ·
 `schedules_proposal_proposed_by_model` **Proposed by a model from this clause — check it against the
 sheet.** · `schedules_proposal_lap_governs` **Proposed: this note states the tension lap that governs
 over the sheet's table.** ·
@@ -1222,7 +1265,8 @@ on the participants screen.**
 
 The five note kinds render as words through `EnumLabel` (the vocabulary line `note kinds (R-TO-034)`):
 FY **Reinforcement grade** · FC **Concrete strength** · LAP **Tension lap** · HOOK **Hook extension**
-· HOOK_MIN **Minimum hook length**. The four rebar zones render as words the same way (I-sch-1):
+· HOOK_MIN **Minimum hook length**. A scoped figure's element class renders as a word the same way,
+under the draft bill's own rule (`inWords`: pile **Pile**, pile_cap **Pile cap**; I-652). The four rebar zones render as words the same way (I-sch-1):
 main **Main** · ties **Ties** · ties-end **End ties** · ties-mid **Mid ties**. The model space renders
 as words the same way in the sheet rail (I-353): model **Model space**. The three standings render *Agreed* / *Suspended* / *Not read*;
 the basis renders *Transcribed* with its ▣ glyph.
@@ -1402,5 +1446,9 @@ the lap's Noul is owed that id. Named here rather than spelled a second time in 
   are read here. Owner: the node that reconstructs S-02's development-length table.
 - **Editing a stored schedule cell and `RENAME_MARK`.** The registry and the tables are read-only on
   this screen. Owner: the mark-authoring leaf.
+- **Choosing a figure's scope on the row** (I-652 (d)). The act and its wire take a scope, and the
+  screen says the one the sheet states; an **Applies to** choice per proposal, and declining one
+  reading of a contested scope, are the next step on this panel. Owner: the schedules notes leaf
+  after N1.
 - **A copy home both layers may read**, so the module's `copy.ts` need not mirror
   `src/ui/strings/schedules.ts` — re-recorded unpaid (s-levels §8, the register's precedent).

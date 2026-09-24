@@ -33,6 +33,8 @@ import {
   REBAR_ERRORS_MODULE,
   REBAR_METHOD_DIR,
   REBAR_PAIRS,
+  REBAR_PAIRS_V2,
+  REBAR_SHARD_PAIRS,
   REBAR_PRECISION,
   REBAR_REGISTRY_MODULE,
   REBAR_ROSTER_MODULE,
@@ -77,19 +79,20 @@ function catalogueTable<T>(name: string): T[] {
 }
 
 describe("AC-1: the rebar shard's methods, kind, rail, codes and table are registered", () => {
-  test("AC-1: the registry enumerates exactly the five rebar pairs, each with an implementation", async () => {
+  test("AC-1: the registry enumerates exactly the shard's six rebar pairs, each with an implementation", async () => {
     const registry = await methodsRegistry();
     const enumerated = [...registry.enumerateMethods()];
     const mine = enumerated.filter(isRebarPair).map(said).sort();
-    expect(mine, `the shard's five pairs stand in the manifest, and no sixth stands with them (interfaces): the registry enumerates ${enumerated.length} pairs in all`).toEqual(
-      REBAR_PAIRS.map(said).sort(),
-    );
-    for (const pair of REBAR_PAIRS) {
+    expect(
+      mine,
+      `the shard's five pairs and synthesis@2 beside them (R6b) stand in the manifest, and no seventh stands with them (interfaces): the registry enumerates ${enumerated.length} pairs in all`,
+    ).toEqual(REBAR_SHARD_PAIRS.map(said).sort());
+    for (const pair of REBAR_SHARD_PAIRS) {
       expect(registry.implementationOf(pair), `${said(pair)} resolves to an implementation — a pair the registry cannot resolve measures nothing (L-MEA-01)`).toBeTruthy();
     }
   });
 
-  test("AC-1: the registry shard publishes the five pairs by name, and the manifest records them", async () => {
+  test("AC-1: the registry shard publishes the six pairs by name, and the manifest records them", async () => {
     const shard = await productModule<Record<string, unknown>>(REBAR_REGISTRY_MODULE);
     const roster = shard["REBAR_METHODS"];
     expect(roster !== null && typeof roster === "object", `${REBAR_REGISTRY_MODULE} publishes \`REBAR_METHODS\` — the area's one roster (AM-11)`).toBe(true);
@@ -100,8 +103,8 @@ describe("AC-1: the rebar shard's methods, kind, rail, codes and table are regis
     expect(existsSync(join(REPO_ROOT, REBAR_SHARD)), `${REBAR_SHARD} records the pairs this area declares (L-MEA-01: one file per method, hashed whole into a committed manifest)`).toBe(true);
     const recorded = JSON.parse(readFileSync(join(REPO_ROOT, REBAR_SHARD), "utf8")) as { methods?: { ruleId: string; version: string; module?: string; law?: string }[]; digest?: string };
     const methods = recorded.methods ?? [];
-    expect(methods.map((method) => said(method)).sort(), `${REBAR_SHARD} records the shard's five pairs (L-MEA-01: one file per method, hashed whole into a committed manifest)`).toEqual(
-      REBAR_PAIRS.map(said).sort(),
+    expect(methods.map((method) => said(method)).sort(), `${REBAR_SHARD} records the shard's six pairs (L-MEA-01: one file per method, hashed whole into a committed manifest)`).toEqual(
+      REBAR_SHARD_PAIRS.map(said).sort(),
     );
     for (const method of methods) {
       expect(String(method.module ?? ""), `${said(method)} names the file under ${REBAR_METHOD_DIR}/ that implements it, under \`module\` as every shard spells it`).toContain(REBAR_METHOD_DIR);
@@ -118,12 +121,12 @@ describe("AC-1: the rebar shard's methods, kind, rail, codes and table are regis
     ).toBe(0);
   });
 
-  test("AC-1: the platform seed edition cites the five pairs", async () => {
+  test("AC-1: the platform seed edition cites the five pairs, the synthesis at @2 since OPEN-4's edition selected it", async () => {
     const seed = await productModule<Record<string, unknown>>(SEED_MODULE);
     expect(seed["SEED_EDITION_IDENTITY"], `${SEED_MODULE} names the edition this leaf's migration mints (AC-1)`).toMatchObject(SEED_EDITION);
     const content = seed["SEED_EDITION_CONTENT"] as { methods?: MethodPairShape[] };
     const cited = (content.methods ?? []).filter(isRebarPair).map(said).sort();
-    expect(cited, "the seed edition puts the shard's five pairs in force — a pair no edition cites measures nothing (L-REG-07)").toEqual(REBAR_PAIRS.map(said).sort());
+    expect(cited, "the seed edition puts the shard's five pairs in force — a pair no edition cites measures nothing (L-REG-07) — the synthesis at @2, D-003's ties (R6b, OPEN-4)").toEqual(REBAR_PAIRS_V2.map(said).sort());
   });
 
   test("AC-1: the closed catalogue gains rcc.rebar, borne by the ten classes that carry reinforcement", async () => {

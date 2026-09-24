@@ -30,8 +30,12 @@ const LAP = "LAP";
 const FY = "FY";
 const HOOK = "HOOK";
 const HOOK_MIN = "HOOK_MIN";
+const FC = "FC";
 const ACCEPTED = "ACCEPTED";
 const AGREED = "AGREED";
+const SUSPENDED = "SUSPENDED";
+/** The class S-01's `f'c = 3000 psi (BORED PILES)` scopes its strength to (s-schedules I-652). */
+const PILE = "pile";
 
 test.describe.serial("J-000 — Golden Path: M3's first leg on F-RCC6-BNBC", () => {
   test.afterAll(async () => {
@@ -91,6 +95,12 @@ test.describe.serial("J-000 — Golden Path: M3's first leg on F-RCC6-BNBC", () 
     for (const kind of [FY, HOOK, HOOK_MIN]) {
       await expect(schedules.readingJudged(kind, ACCEPTED), `the ${kind} figure S-01 states is recorded as proposed`).toHaveCount(1);
     }
+    // I-652: `f'c = 3000 psi (BORED PILES)` is the piles' strength, not a second opinion of the
+    // project's: the cylinder strength stands for every other member and the piles' beside it, and
+    // nothing on S-01 is contested (walk-1's B12).
+    await expect(schedules.standing(FC).and(page.locator(`[data-scope="${PILE}"]`)), "S-01's pile strength stands, agreed, for the piles").toHaveAttribute("data-standing", AGREED);
+    await expect(schedules.standing(FC).and(page.locator('[data-scope=""]')), "and the cylinder strength, agreed, for every other member").toHaveAttribute("data-standing", AGREED);
+    await expect(schedules.standings.and(page.locator(`[data-standing="${SUSPENDED}"]`)), "no figure S-01 states is contested").toHaveCount(0);
     await checkpoint(page, testInfo, "j-000/notes-transcribed");
   });
 });

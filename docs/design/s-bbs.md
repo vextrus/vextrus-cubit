@@ -446,6 +446,106 @@ shell's one inspector slot stays at width 0 (R-UI-080). Files: `takeoff/layout.t
   (the schedule's lines are graded as drawn, cut and packed, which a declared bar is not); and
   marking the whole schedule `partial` (`partial` is L-QTY-02's partly declared rebar lines, and the
   declared block names exactly what is excluded).
+- **I-656 — a column's ties are derived from BNBC 2020's zones and counted at the joint's never-over
+  bound (session 9, R6b; D-003, the owner's ruling A′).** Under `rcc.rebar.synthesis@2`
+  (`src/core/rulesets/methods/rebar/synthesis-v2.ts`) a column whose schedule states its tie spacings
+  (`ties-end`/`ties-mid`, or one `ties` spacing for both) and no zone length is tied in §8.3.10.5(a)'s
+  zones: two end zones ℓo = max(largest section side, clear/6, 450) and the joint zone at the first
+  spacing, the middle at the second, where clear = h − joint; one run at the first spacing over the
+  storey where the clear fits the two end zones or the two spacings are one (GC-1). Every zone is
+  counted by @1's `countBetween`, the one counting rule, and closed on @1's `synthesiseLink` (shape 51,
+  the applied 135° hook). The joint zone is max(D, 450), D the deepest framing member (the golden's
+  I-605, W-28 GC-4), tied at the first spacing (W-28: the closer spacing carried through, not §6.4.9.2's
+  Av,min at 150). The seam answers D only as a lower bound D_lo (I-413), and N(D) is not monotonic —
+  a deeper joint can need fewer sets — so a BOUNDED joint is counted at the EXACT minimum of N over
+  [max(D_lo, 450), h): D_lo, every breakpoint (where ℓo turns from the side to clear/6, where the
+  member turns to one run, and where any zone's count steps, each an exact decimal), one depth inside
+  every open interval and one inside the last. Whatever the joint's true depth, the true count is at
+  least this. The joint depth that attains it is kept, and the zones are cut at it. Read §8.3.10 (IMF,
+  SDC C: S-01 states no site class; the drawing's spacings pass IMF in all 19 bands and fail SMF in 17)
+  and §6.4.9.2 without its four-sided exemption (the frame is the primary system, and no census says a
+  joint is framed on four sides) — D-003 records both readings. A zone the schedule states a length for
+  is counted over it, under @1 and @2 alike. Proved against a brute-force oracle in whole 1/240 mm
+  (`synthesis-v2.test.ts`), and against the corrected golden member for member where the joint is read
+  whole (`tests/takeoff/rails/rebar/column-ties-derived.test.ts`, 208 of 208). Rejected: N(D_lo) (reads
+  over where N falls with depth); the golden's own depth where it is not read (a figure nobody measured).
+- **I-657 — a stated lap binds outside the grade and mix contest (session 9, R6b; I-308's R2).**
+  Under @2, `lapLengthFor` answers the contest only for what it reads: a contested LAP note still states
+  nothing; a stated multiplier IS the lap, 50 × d, and ℓd is never consulted for it (L-BD-02), so a
+  contest about fy or f'c — which only ℓd reads — no longer suspends it; with no lap stated, the lap is
+  derived off ℓd exactly as @1 derives it, and the grade and mix contest still bites there. That alone
+  ends the column lap's contest on J-000 (the pile note's 3000 psi beside the columns' 3500 suspends FC;
+  `LAP 50d` is agreed), so N1's class-scoped notes are off this path. Why the TENSION lap governs a column
+  vertical, against S-01's `LAP 50d TENSION / 40d COMPRESSION U.N.O.`: a column of a frame resisting
+  earthquake and wind reverses stress at its splice, so its verticals are spliced as tension bars; the
+  compression lap is taken for none, and the golden's LAP rows bill 50d. Rejected: resolving FC per class
+  here (N1's, and it would still leave a contested mix suspending a lap nobody derives from it).
+- **I-658 — the bar synthesis is dispatched on the campaign edition's pinned pair (session 9, R6b;
+  L-MEA-01, L-REG-07).** `EditionSetup.methods` carries the pairs the campaign's edition cites (the setup
+  reads them with the digest); the rail runs the version the edition cites for `rcc.rebar.synthesis` —
+  the first pair it cites for the rule, as the gate's `versionInForce` reads an edition. An edition that
+  cites none (2026.08–.12, which predate the rail; a setup a proof builds by hand) is written by @1, the
+  code every such campaign's rows were written by; one that cites a version the tree does not compute
+  writes no bar and observes `METHOD_IMPLEMENTATION_MISSING` per member. @1 stands byte for byte: a
+  2027.04-pinned campaign writes HEAD c72a3dd5's bar rows, digest-frozen
+  (`tests/takeoff/rails/rebar/synthesis-dispatch.test.ts`). The seed names the version it cites for a rule
+  the tree computes twice (`IN_FORCE_VERSIONS`), and refuses a roster that computes a rule twice with no
+  selection; 2027.05 cites @1, and @2 is computed and cited by no edition until OPEN-4 mints the next.
+  Rejected: the tree's newest version (re-measuring a pinned campaign would move its bars); the order the
+  roster sorts in (an edition citing both would put in force whichever sorted first).
+- **I-659 — what @2 cannot count it names, and what it counts it cites (session 9, R6b; A′,
+  L-QTY-02).** An UNREAD joint, or none read at all, omits `ties` under `REBAR_TIE_JOINT_UNREAD`, with an
+  observation carrying the seam's word (LEVEL, OUTLINE, FRAMING, DEPTH; I-414): C6, the foundation necks,
+  the roof stubs. A round column (the plan's `ROUND`, I-304) omits `ties` under `BAR_SHAPE_NOT_HELD`
+  (I-596) until CH joins the roster with its own method. A column on the foundation neck is billed through
+  the neck, and its anchorage into the cap — the golden's hooked dowel, stated on no sheet — is declared by
+  `REBAR_ANCHORAGE_UNSTATED` beside the line. A BOUNDED column's line binds `ties` and stands COMPLETE,
+  and `REBAR_TIE_JOINT_BOUNDED` beside it carries the method (`rcc.rebar.synthesis@2`), the clauses
+  (§8.3.10.5(a), §6.4.9.2), the bound, the member it was read off, the joint depth that attains the count
+  and the count: the line's bindings keep citing the member's bar set (`#bars`, the Trace's grammar), and
+  the derivation is cited where a reader of the line's residue meets it. The tie row cites the cells the
+  spacings were read at and the cell the bounding member's depth was read at. Rejected:
+  `JUNCTION_DEFERRED` (its copy speaks of a deduction taken at a bound, and nothing is deducted here); a
+  clause string among a row's source keys (those are drawing entities a reader is sent to).
+- **I-660 — the setup reads each column's joint against the register it measures (session 9, R6b;
+  I-413's "R6b binds the seam into the setup").** `RailSetup.joints` (optional; homed with the reading's
+  types in `src/core/offers/contract.ts`, published again from the seam) is read by `railSetupOf` from
+  every drawing's placements and every run's clear cited WHOLE (`jointPlacementsOf`, `clearCitationsOf`),
+  over the register the measure job hands it — only then, because the seam answers for register rows. Not
+  done here, and owed: I-413's `sectionAt` in core for the seam and the frame rail to share (the joint's
+  depth still repeats `sectionOf`'s steps); and the bar schedule's status line, which says "Every bar … is
+  scheduled" over COMPLETE lines whose ties stand at a bound — the schedule's surface is R6-LEG's and
+  R6-SHOW's, and no edition puts @2 in force before OPEN-4.
+- **I-653 — `IS1200_IN @ 2027.06` puts synthesis@2 in force, and nothing else moves (session 9,
+  OPEN-4; L-MEA-01, L-REG-07, B-20).** The platform edition is re-minted beside 2027.05 (never over it)
+  with `IN_FORCE_VERSIONS` selecting `rcc.rebar.synthesis@2`: the same fifty-one rules, the same
+  seventeen parameters, and one rule cited at its other version — so a version of a standing rule owes an
+  edition exactly as a new rule does. A project pinned from now on forks 2027.06 and its columns bill the
+  ties D-003 derives and the lap R2 binds; a campaign opened under 2027.05 or earlier keeps @1 and writes
+  the bars it always wrote (the 2027.04 and 2027.05 digests in `synthesis-dispatch.test.ts`). The edition
+  cites @2 alone (never @1 beside it): `versionInForce` puts in force the first pair an edition cites for
+  a rule, and an edition citing both would put in force whichever the roster sorted first. R6b added no
+  other pair, so the edition cites nothing else new. Rejected: editing 2027.05 to cite @2 (an edit of a
+  row campaigns measured against); waiting for FRM3-B's framing (the 34 bounded cells already stand
+  within −2.42 % and none over; the rest are declared by name, I-659).
+- **I-655 — each entry states its own coverage and what its lines left out (session 9, R6-LEG;
+  L-QTY-02, L-QTY-06, the owner's ruling Q2).** `bbsViewOf` answers `entries`: for every entry of the
+  door's schedule, by its key (the first member's `objectKey`, I-534), the coverage of its members'
+  published `rcc.rebar` lines — `COMPLETE` only where every member it counts published a line and
+  every such line is COMPLETE, `PARTIAL_DECLARED` otherwise (a member with no line is never whole by
+  default) — and the codes those lines state, each once, in the lines' published order, with the
+  components each was stated for (`entryCoverageOf`, pure, in `present.ts`). The group row publishes
+  them (`data-coverage`, `data-omitted`) and says the components in words beside its count; the
+  schedule-wide omitted list above the grid still says why and where each is settled (I-354). Why: under
+  A′ some entries are whole (the 34 bounded GF–6F column cells) and some are not (C6, C7, the necks, the
+  roof stubs, the shear walls' ties), and a reader — or J-000's `m3-bar-schedule` leg, which grades the
+  whole-member floor only where every member of a (class, level, mark) cell is COMPLETE and the over arm
+  per component everywhere — must learn it from the entry, not from a list that names codes and no
+  members. Not done here, and still owed: I-660's status line ("Every bar … is scheduled" over
+  COMPLETE lines whose ties stand at a bound) and the bound shown on the tie row (R6-SHOW). Rejected: a per-member mass or coverage figure (a second home, I-bbs-2);
+  inferring coverage from the rows drawn (a tie row present says nothing of a lap declared missing);
+  carrying the coverage on `BbsDocument` (the issued schedule's payload is frozen by V-DOCS and prints
+  its own declared block).
 
 ## 1. Layout and hierarchy (1440 × 900)
 
@@ -519,8 +619,11 @@ A `bbs-member` group row is a row of the one grid and reads `GF · Column · C1 
 label, the class through `EnumLabel`, the member mark in mono, and the entry's number of members in
 the secondary ink at the body weight (`bbs_members_one` / `bbs_members_many`, I-534) — from its frozen
 key cell across the row's empty cells, on `--surface-sunken` at the body-medium weight, carrying
-`data-member` (the entry's first member), `data-members`, `data-mark`, `data-class`, `data-level` and
-no mass at all (I-bbs-2, I-bbs-9). Summary columns:
+`data-member` (the entry's first member), `data-members`, `data-mark`, `data-class`, `data-level`,
+`data-coverage` and `data-omitted` (I-655) and no mass at all (I-bbs-2, I-bbs-9). An entry that is
+not whole adds, after its count and in the same muted ink as the runs' label, the components its lines
+left out — `C6 · 1 member · Ties left out` (`bbs_member_left_out`, `bbs_member_partly` where no
+component is named) — with `bbs_member_partial_tooltip` as its Tooltip. Summary columns:
 `bbs_summary_col_diameter` 112 frozen · `bbs_summary_col_kg` 160 right · `bbs_summary_col_stock_bars`
 128 right · `bbs_summary_col_pieces` 112 right · `bbs_summary_col_offcut` 160 right; every mass at
 `BBS_PLACES.mass`; the total row reads `bbs_summary_total` with the figure in the Mass column and,
@@ -588,7 +691,10 @@ are never billed.** · `bbs_summary_col_diameter` **Diameter (mm)** · `bbs_summ
 only** · `bbs_scope_main_bars` **main bars** · `bbs_scope_bars` **bars** · `bbs_scope_and` **and**
 (what the total covers, I-567) · `bbs_run_label` **Storey-height runs, not for cutting** ·
 `bbs_run_tooltip` **The laps of these bars are not stated, so each stands at its storey height: a
-quantity to weigh, not a length to cut.** · `bbs_stock_withheld` **Not computed — laps not stated** ·
+quantity to weigh, not a length to cut.** · `bbs_member_left_out` **{components} left out** ·
+`bbs_member_partly` **Partly declared** · `bbs_member_partial_tooltip` **The lines of this entry's
+members leave part of its steel out: what, and why, is said above the schedule.** (I-655) ·
+`bbs_stock_withheld` **Not computed — laps not stated** ·
 `bbs_stock_withheld_note` **Cutting stock is not computed for {diameters} mm: those bars are
 storey-height runs whose laps are not stated, and nobody can cut from them.** (I-567) ·
 `bbs_not_in_schedule` **Not in this schedule:** (I-569) ·
@@ -705,7 +811,9 @@ Test ids, exactly the registry's spellings, on the elements ruled in §1: `bbs-s
 the whole `setRevisionId`) · `bbs-stock` (`data-stock-mm`, `data-rounding-mm`) · `bbs-grid`
 (`data-rows-rendered`) · `bbs-member` (`data-member` = the entry's first member's `objectKey`,
 `data-members` = the number of members the entry counts, `data-mark`, `data-class`, `data-level`;
-I-534; `data-not-for-cutting="true"` on an entry of storey-height runs, I-567) · `bbs-row` (`data-bar-key`, `data-bar-mark`, `data-role`, `data-diameter`,
+I-534; `data-not-for-cutting="true"` on an entry of storey-height runs, I-567; `data-coverage` ∈
+{`COMPLETE`, `PARTIAL_DECLARED`} and `data-omitted` = the codes its members' lines state, space-joined
+and empty where none, both absent where the view stated no standing, I-655) · `bbs-row` (`data-bar-key`, `data-bar-mark`, `data-role`, `data-diameter`,
 `data-shape`, `data-dims` = JSON of `dimsMm`, `data-cutting-raw`, `data-cutting-rounded`,
 `data-cutting-is`, `data-pieces`, `data-bars`, `data-lap-mm`, `data-laps`, `data-kg`,
 `data-component="NET"`) · `bbs-lap` (`data-bar-key`, `data-component="LAP"`, `data-lap-mm`,

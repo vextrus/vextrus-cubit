@@ -18,7 +18,8 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 import { editionDigest, type MethodPair } from "../editions/content";
-import { SEED_EDITION_CONTENT, SEED_EDITION_IDENTITY } from "./index";
+import { enumerateMethods } from "../methods/registry";
+import { IN_FORCE_VERSIONS, SEED_EDITION_CONTENT, SEED_EDITION_IDENTITY, inForce } from "./index";
 
 /** The migrations directory — this file sits at `src/core/rulesets/seed/`. */
 const MIGRATIONS = join(import.meta.dirname, "..", "..", "..", "..", "db", "migrations");
@@ -72,8 +73,43 @@ describe("the minted edition states what the seed derives", () => {
     const derived = SEED_EDITION_CONTENT.methods.map(spellPair);
     expect(
       [...new Set(citedPairs(source))].sort(),
-      `${file} cites exactly the pairs enumerateMethods() answers: a pair the tree computes and no edition cites is a method in force that nothing in force names, and a pair cited and not computed is an edition no campaign could measure under (L-MEA-01, B-19)`,
+      `${file} cites exactly the pairs the seed derives from enumerateMethods() and its in-force selection: a pair the tree computes and no edition cites is a method in force that nothing in force names, and a pair cited and not computed is an edition no campaign could measure under (L-MEA-01, B-19)`,
     ).toEqual([...new Set(derived)].sort());
+  });
+
+  test("R6b: every pair the tree computes is cited, or is a version the in-force selection sets aside by name", () => {
+    const cited = new Set(SEED_EDITION_CONTENT.methods.map(spellPair));
+    const uncited = enumerateMethods().filter((pair) => !cited.has(spellPair(pair)));
+    for (const pair of uncited) {
+      expect(
+        Object.hasOwn(IN_FORCE_VERSIONS, pair.ruleId) && IN_FORCE_VERSIONS[pair.ruleId] !== pair.version,
+        `${spellPair(pair)} is computed and uncited only because IN_FORCE_VERSIONS names another version of ${pair.ruleId} (B-19)`,
+      ).toBe(true);
+    }
+    // the one set aside today: synthesis@1, which 2027.05 and every edition before it cite, stays
+    // computed for their campaigns while 2027.06 puts @2 in force (OPEN-4)
+    expect(uncited.map(spellPair)).toEqual(["rcc.rebar.synthesis@1"]);
+    expect(SEED_EDITION_CONTENT.methods.map(spellPair), "the seed edition puts D-003's ties in force (R6b, OPEN-4)").toContain("rcc.rebar.synthesis@2");
+  });
+
+  test("R6b: the seed cites every rule at exactly one version — the gate puts in force the first pair it meets", () => {
+    const seen = new Map<string, number>();
+    for (const pair of SEED_EDITION_CONTENT.methods) seen.set(pair.ruleId, (seen.get(pair.ruleId) ?? 0) + 1);
+    expect([...seen].filter(([, count]) => count > 1), "no rule is cited twice (versionInForce, evaluate.ts)").toEqual([]);
+  });
+
+  test("R6b: a rule computed at two versions with no selection, or a selection naming a version nobody computes, is refused", () => {
+    const pairs: MethodPair[] = [
+      { ruleId: "a", version: "1" },
+      { ruleId: "a", version: "2" },
+      { ruleId: "b", version: "1" },
+    ];
+    expect(() => inForce(pairs, {})).toThrow(/a at 1 and 2/u);
+    expect(() => inForce(pairs, { a: "3" })).toThrow(/a@3/u);
+    expect(inForce(pairs, { a: "2" })).toEqual([
+      { ruleId: "a", version: "2" },
+      { ruleId: "b", version: "1" },
+    ]);
   });
 
   test("AC-6(a): the seed derives its methods rather than freezing them", () => {

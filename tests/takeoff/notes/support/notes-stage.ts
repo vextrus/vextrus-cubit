@@ -114,6 +114,8 @@ export type NotesDoor = {
   sheetTextsOf: (scope: { tenantId: string; projectId: string; drawingId: string }, layoutName: string) => Promise<readonly SheetText[]>;
   noteReadingKey: (ref: { drawingId: string; layoutName: string; kind: string; actorId: string; sourceKey: string }) => string;
   noteStanding: (readings: readonly Record<string, unknown>[]) => StandingLike;
+  /** How a kind stands in each scope its readings were made under (I-652); `null` keys the unscoped. */
+  noteStandingsByScope: (readings: readonly Record<string, unknown>[]) => Map<string | null, StandingLike>;
   proposeNotes: (texts: readonly SheetText[]) => Record<string, unknown>[];
 };
 
@@ -123,6 +125,7 @@ const DOOR_HOMES: Readonly<Record<keyof NotesDoor & string, readonly string[]>> 
   sheetTextsOf: [NOTES_MODULE, "src/modules/takeoff/notes/texts.ts"],
   noteReadingKey: [NOTES_MODULE, NOTES_STANDING_MODULE],
   noteStanding: [NOTES_MODULE, NOTES_STANDING_MODULE],
+  noteStandingsByScope: [NOTES_MODULE, NOTES_STANDING_MODULE],
   proposeNotes: [NOTES_MODULE, NOTES_GRAMMAR_MODULE],
 });
 
@@ -610,6 +613,8 @@ export function readingFacts(row: StoreRow): Record<string, string> {
     canonical: of("canonical", "canonical"),
     basis: of("basis", "basis"),
     acceptance: of("acceptance", "acceptance"),
+    // The class a reading is scoped to, or "" where it is scoped to none (I-652).
+    scopeClass: of("scopeClass", "scope_class"),
     actId: of("actId", "act_id"),
   };
 }

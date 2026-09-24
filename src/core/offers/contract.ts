@@ -12,10 +12,12 @@
 // reading an offer carries is what a drawing said, in the unit it was written in, and the carrying
 // into canonical units is the gate's — through the one canon (B-17).
 import type { ElementType } from "../catalogue/classes";
+import type { DpiSource } from "../entitygraph/schema";
 import type { Kind } from "../catalogue/kinds";
 import { registerObjects, type MemberShape } from "../db";
 import type { RefusalCode } from "../errors";
 import { STOREY_HEIGHT_ABSENCE, type StoreyHeightStandingName } from "../levels/law";
+import type { MethodPair } from "../rulesets/editions/content";
 import type { SiteFact } from "../site-facts/law";
 import type { Coverage, DeductionChannel, Engine, GeometryType, QuantityBasis } from "./law";
 
@@ -42,6 +44,21 @@ export type Measure = {
   readonly calibration?: string;
 };
 
+/**
+ * What read a raster reading (L-QTY-03's engine, L-QTY-06): the vectoriser that traced the scan — its
+ * tool, version and parameter-set hash, the identity L-CAD-02 scopes a `RASTER_TRACE` key to (I-518) —
+ * and the page raster the reading was traced from, with the resolution it was read at as the artifact
+ * states it (I-584 §4): a decimal string, or null exactly where `dpiSource` is `unstated`.
+ */
+export type RasterIdentity = {
+  readonly tool: string;
+  readonly toolVersion: string;
+  readonly parameterSetHash: string;
+  readonly pageSha256: string;
+  readonly dpi: string | null;
+  readonly dpiSource: DpiSource;
+};
+
 /** One thing that might be deducted, in the channel it would be deducted through — never a sum. */
 export type DeductionCandidate = {
   readonly channel: DeductionChannel;
@@ -60,6 +77,13 @@ export type Offer = {
   readonly register: { readonly setRevisionId: string; readonly objectKey: string };
   readonly drawing: { readonly drawingId: string; readonly viewKey: string };
   readonly engine: Engine;
+  /**
+   * The trace a RASTER offer was read off (s-drawings I-654): absent under VECTOR, and absent too
+   * where a raster reading's identity could not be read — a RASTER offer without one is the gate's
+   * to answer, never a VECTOR line (L-QTY-03). A rail carries it across from its placement through
+   * `sightedBy`, as it carries the engine.
+   */
+  readonly raster?: RasterIdentity;
   /**
    * The geometry an offer was read off: the L-FRM-01 type, its own basis, and the calibration
    * reference it stands on. The reference is owed rather than optional — a line always carries "a
@@ -119,7 +143,14 @@ export type PlacementSetup = {
   readonly ingestId: string;
   readonly viewKey: string;
   readonly memberFamily: string | null;
+  /**
+   * The engine the placement was read by, derived from the schemes of the atoms it stands on — RASTER
+   * where any is a vectoriser's trace (`src/modules/takeoff/measure/engine.ts`, I-654) — and the
+   * trace's identity beside it under RASTER. Never stamped: a scan placed as VECTOR would publish a
+   * line that says it was read off vector geometry (L-QTY-03, L-QTY-06).
+   */
   readonly engine: Engine;
+  readonly raster?: RasterIdentity;
   readonly sourceEntity: string;
   /** The plan outline a reader read for this placement, or null where none was read (L-FRM-02). */
   readonly outline: OutlineSetup | null;
@@ -144,6 +175,16 @@ export type PlacementSetup = {
    */
   readonly noteKey: string | null;
 };
+
+/**
+ * The engine an offer is read under, and the trace's identity where it is a raster's, carried across
+ * from the placement it was sighted at — the one spelling every rail offers them through, so no rail
+ * can carry the engine and drop the identity (B-17). A VECTOR placement answers `{ engine }` alone,
+ * so a vector offer's shape is the one it always was.
+ */
+export function sightedBy(placement: Pick<PlacementSetup, "engine" | "raster">): Pick<Offer, "engine" | "raster"> {
+  return placement.raster === undefined ? { engine: placement.engine } : { engine: placement.engine, raster: placement.raster };
+}
 
 /**
  * One placement's plan, as the reader of the drawing read it: which of L-FRM-01's plan geometries it
@@ -497,7 +538,85 @@ export type RailSetup = {
    * builds by hand for another area stays valid as it stands.
    */
   readonly manual?: ManualSetup;
+  /**
+   * The top joint of every column of the register, by the column's object key, as the joint seam
+   * read it off the framing the partition placed (`src/modules/takeoff/measure/joints.ts`, s-bbs
+   * I-413/I-414): BOUNDED at the deepest framing read, or UNREAD by name. The rebar rail derives a
+   * column's ties from it under D-003. Optional, so a setup a proof builds by hand for another area
+   * stays valid as it stands; an absent field, or an absent key, is a joint nobody read (I-660).
+   */
+  readonly joints?: Readonly<Record<string, JointReading>>;
 };
+
+/**
+ * The standings a column's top joint can take. RESOLVED is left out on purpose, so no reading can
+ * carry it: it needs a census of every member the drawing frames the joint with, which the store does
+ * not hold (s-bbs I-413).
+ */
+export const JOINT_STANDINGS = ["BOUNDED", "UNREAD"] as const;
+
+/** One standing of the roster above. */
+export type JointStanding = (typeof JOINT_STANDINGS)[number];
+
+/**
+ * What an UNREAD joint could not read, each named for what is true of the drawing and of the store
+ * (L-QTY-04, s-bbs I-414): the level above, the column's outline, the framing on the level above, or
+ * the depth of the framing that was found. None of them says the joint is unframed. They are the
+ * seam's own words, not registered codes: the rail that binds a joint reports its omission under a
+ * code it registers.
+ */
+export const JOINT_UNREAD = ["LEVEL", "OUTLINE", "FRAMING", "DEPTH"] as const;
+
+/** One member of the roster above. */
+export type JointUnread = (typeof JOINT_UNREAD)[number];
+
+/**
+ * One framing member that meets a column's top and whose depth was read: the depth as its schedule
+ * wrote it (TRANSCRIBED, cited to the schedule cell) and the canon's millimetres of it, side by side
+ * (L-QTY-03).
+ */
+export type JointFramer = {
+  readonly objectKey: string;
+  readonly placementKey: string;
+  readonly family: string;
+  readonly depth: ReadingSetup;
+  readonly depthMm: string;
+};
+
+/** One framing member that meets a column's top whose depth was NOT read, with the registered code. */
+export type JointFramerUnread = {
+  readonly objectKey: string;
+  readonly placementKey: string;
+  readonly code: RefusalCode;
+};
+
+/**
+ * How one column's top joint stands.
+ *
+ * BOUNDED: `depthMm` is D_lo, the deepest depth read among the framing placed on the level above that
+ * cites the column. The true joint depth is at least D_lo, and nothing here says it is no more.
+ * `deepest` is the member it was read off, and `framing` lists every member read, in object-key order.
+ * `depthUnread` lists the citing members whose depth could not be read. They leave the bound
+ * standing, because a lower bound over fewer members is still a lower bound.
+ *
+ * UNREAD: no bound is read, and `unread` names what was not read. `levelId` is the level the framing
+ * was looked for on, or null where the stack holds none.
+ */
+export type JointReading =
+  | {
+      readonly standing: "BOUNDED";
+      readonly levelId: string;
+      readonly depthMm: string;
+      readonly deepest: JointFramer;
+      readonly framing: readonly JointFramer[];
+      readonly depthUnread: readonly JointFramerUnread[];
+    }
+  | {
+      readonly standing: "UNREAD";
+      readonly unread: JointUnread;
+      readonly levelId: string | null;
+      readonly depthUnread: readonly JointFramerUnread[];
+    };
 
 /** The revision's hand measurements, as the run hands them to its rails (s-measure I-384). */
 export type ManualSetup = {
@@ -529,7 +648,7 @@ export interface ManualMeasurementSetup {
  * than treating the absence as a zero. `suspended` names the kinds whose readings DISAGREE — a note
  * nobody has settled states nothing at all, and the component it governs is omitted by name.
  */
-export type DetailingSetup = {
+export type DetailingValuesSetup = {
   readonly fy: Measure | null;
   readonly fc: Measure | null;
   readonly lapMultiplier: number | null;
@@ -537,6 +656,24 @@ export type DetailingSetup = {
   readonly suspended: readonly string[];
   readonly sourceKeys: readonly string[];
 };
+
+/**
+ * The campaign's detailing, PER CLASS (I-652): the values above are what every class applies that no
+ * scoped note speaks for, and `byClass` holds a class's own values whole where a note scoped a figure
+ * to it — `f'c = 3000 psi (BORED PILES)` details the piles, and the columns detail at the unscoped
+ * 3500. A rail asks `detailingOfClass` rather than reading either half itself. Optional because a
+ * setup a proof builds by hand states no scoped note, which is every class at the unscoped values.
+ */
+export type DetailingSetup = DetailingValuesSetup & {
+  readonly byClass?: Readonly<Partial<Record<ElementType, DetailingValuesSetup>>>;
+};
+
+/** The detailing one member class applies: its own scoped values where a note scoped any, else the unscoped ones. */
+export function detailingOfClass(setup: DetailingSetup, memberClass: ElementType): DetailingValuesSetup {
+  const scoped = setup.byClass?.[memberClass];
+  if (scoped !== undefined) return scoped;
+  return { fy: setup.fy, fc: setup.fc, lapMultiplier: setup.lapMultiplier, hookExtension: setup.hookExtension, suspended: setup.suspended, sourceKeys: setup.sourceKeys };
+}
 
 /**
  * One reinforcement zone a schedule states for a member-type variant (L-FRM-05, R-TO-032).
@@ -610,6 +747,13 @@ export type RecessSetup = {
 export type EditionSetup = {
   readonly digest: string;
   readonly parameters: Readonly<Record<string, { readonly value: string; readonly unit: string }>>;
+  /**
+   * The (rule id, version) pairs the edition cites, in the order it cites them — what a rail
+   * dispatches a versioned method of its own by, where the method is code the rail runs rather than
+   * a rule the gate resolves (the bar synthesis, s-bbs I-658). Optional, so a setup a proof builds
+   * by hand stays valid; an absent list cites nothing, and a rail answers for that absence itself.
+   */
+  readonly methods?: readonly MethodPair[];
 };
 
 /**

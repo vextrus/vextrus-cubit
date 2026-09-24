@@ -33,6 +33,10 @@ export const SCHEDULES_COPY = Object.freeze({
   schedules_proposals_heading: "Read from this sheet",
   schedules_proposal_written_label: "As written",
   schedules_proposal_value_label: "Value",
+  // I-652: the members a figure is for — the scoped class renders through EnumLabel beside it.
+  schedules_proposal_applies_label: "Applies to",
+  schedules_scope_all: "All members",
+  schedules_scope_others: "All other members",
   schedules_proposal_already_read: "Already read at this figure.",
   schedules_proposal_proposed_by_model: "Proposed by a model from this clause — check it against the sheet.",
   schedules_proposal_lap_governs: "Proposed: this note states the tension lap that governs over the sheet's table.",

@@ -14,7 +14,9 @@
 // never by a second control-code table (B-17) — and every sentence is read AFTER its MTEXT codes are
 // resolved, so a paragraph or font code glued to `fy` or `LAP` no longer hides the word from the
 // reader that looks for it (Interpretation I-459).
+import type { ElementType } from "../catalogue/classes";
 import { normaliseNotation } from "../entitygraph/notation";
+import { classesDeclaredBy } from "../residue/declared";
 import { NOTE_KINDS, type NoteKind } from "./law";
 
 /** One text entity of a sheet, as the grammar is handed one: the entity it is, and what it says. */
@@ -36,6 +38,12 @@ export type NoteProposal = {
   readonly valueAsWritten: string;
   readonly unitAsWritten: string;
   readonly canonical: string;
+  /**
+   * The element class the note scopes this figure to — `f'c = 3000 psi (BORED PILES)` states the
+   * piles' strength, not the project's — or null where it names none, which is a figure that governs
+   * every class no scoped figure of its kind speaks for (Interpretation I-652).
+   */
+  readonly scopeClass: ElementType | null;
 };
 
 /** A figure as a note writes one: digits, the thousands commas a draughtsman groups them with. */
@@ -100,8 +108,11 @@ const HOOK_BEND = "135";
 /** A minimum length, as a hook note states one: `min 75 mm`. */
 const MINIMUM_MM = new RegExp(String.raw`\bmin(?:imum)?\.?\s*(${FIGURE})\s*(mm)\b`, "i");
 
-/** Where one figure was found, so a later rule can ask what stood after it. */
-type Found = { readonly at: number; readonly valueAsWritten: string; readonly canonical: string; readonly unitAsWritten: string };
+/**
+ * Where one figure was found, so a later rule can ask what stood after it — and the statement it was
+ * read in, which is where its scope is read (`scopeOf`).
+ */
+type Found = { readonly at: number; readonly valueAsWritten: string; readonly canonical: string; readonly unitAsWritten: string; readonly statement: string };
 
 /** The figure alone: the thousands commas a draughtsman grouped it with are not part of it. */
 function figureOf(written: string): string {
@@ -128,14 +139,14 @@ function strengthIn(said: string, units: string, from = 0): Found | null {
   const pattern = new RegExp(String.raw`${FIGURE_STARTS}(${FIGURE})\s*(${units})`, "i");
   const match = pattern.exec(said.slice(from));
   if (match === null || match.index === undefined) return null;
-  return { at: from + match.index, valueAsWritten: match[0], canonical: figureOf(match[1] as string), unitAsWritten: match[2] as string };
+  return { at: from + match.index, valueAsWritten: match[0], canonical: figureOf(match[1] as string), unitAsWritten: match[2] as string, statement: said };
 }
 
 /** The first multiple of the bar diameter this text states at or after `from`. */
 function multipleOfD(said: string, from = 0): Found | null {
   const match = MULTIPLE_OF_D.exec(said.slice(from));
   if (match === null || match.index === undefined) return null;
-  return { at: from + match.index, valueAsWritten: match[0], canonical: figureOf(match[1] as string), unitAsWritten: "d" };
+  return { at: from + match.index, valueAsWritten: match[0], canonical: figureOf(match[1] as string), unitAsWritten: "d", statement: said };
 }
 
 /** Either strength's name — where the statement of the other one ends. */
@@ -234,7 +245,54 @@ function readHook(said: string): Found | null {
 function readHookMin(said: string): Found | null {
   const match = MINIMUM_MM.exec(said);
   if (match === null) return null;
-  return { at: match.index, valueAsWritten: `${match[1] as string} ${match[2] as string}`, canonical: figureOf(match[1] as string), unitAsWritten: match[2] as string };
+  return { at: match.index, valueAsWritten: `${match[1] as string} ${match[2] as string}`, canonical: figureOf(match[1] as string), unitAsWritten: match[2] as string, statement: said };
+}
+
+/** A parenthetical of a statement: the words between one pair of round brackets, nesting none. */
+const PARENTHETICAL = /\(([^()]*)\)/g;
+
+/**
+ * A parenthetical that points AT another drawing rather than saying what the figure is for —
+ * `(SEE S-05 PILE DETAIL)`, `(REFER S-03)` — names a sheet, not a scope, however many member nouns
+ * its title carries.
+ */
+const REFERENCE = /^\s*(?:SEE|REF(?:ER)?\.?|AS PER)\b/i;
+
+/** What a statement says of the class its figure is for: none, exactly one, or more than one. */
+type Scope = { readonly named: "none" } | { readonly named: "one"; readonly scopeClass: ElementType } | { readonly named: "many" };
+
+/**
+ * The element class a statement scopes its figure to (Interpretation I-652), read through the
+ * catalogue's closed word table (`classesDeclaredBy`) — the one reading of which member a drawing's
+ * words name, never a second list of nouns here (B-17).
+ *
+ * The scope is what a parenthetical of the statement names: `f'c = 3000 psi (BORED PILES)` is the
+ * piles' strength. A parenthetical naming no class — `(24 MPa)`, `(S-03)` — scopes nothing, and one
+ * pointing at another sheet is a reference rather than a scope. A statement whose parentheticals name
+ * two classes or more states a scope one reading cannot carry: `proposeNotes` offers no figure off it
+ * rather than applying the figure beyond, or short of, what it was stated for (L-MEA-01).
+ */
+function scopeOf(statement: string): Scope {
+  const named = new Set<ElementType>();
+  for (const match of statement.matchAll(PARENTHETICAL)) {
+    const inner = match[1] as string;
+    if (REFERENCE.test(inner)) continue;
+    for (const one of classesDeclaredBy(inner)) named.add(one);
+  }
+  if (named.size === 0) return { named: "none" };
+  if (named.size > 1) return { named: "many" };
+  return { named: "one", scopeClass: [...named][0] as ElementType };
+}
+
+/**
+ * The class one statement of a note scopes its figures to, or null where it scopes none — published
+ * so a model's offer on a clause carries the scope CODE read off that clause, never one the model
+ * proposed (L-AI-03). A clause naming more than one class answers null here, and its figure is read
+ * by the same rule `proposeNotes` applies: `readFigure` reads none off it.
+ */
+export function scopeClassOf(said: string): ElementType | null {
+  const scope = scopeOf(normaliseNotation(said));
+  return scope.named === "one" ? scope.scopeClass : null;
 }
 
 /**
@@ -254,7 +312,18 @@ export type ReadFigure = {
   readonly valueAsWritten: string;
   readonly unitAsWritten: string;
   readonly canonical: string;
+  /** The class the statement the figure was read in scopes it to, or null (I-652). */
+  readonly scopeClass: ElementType | null;
 };
+
+/** One kind's figure off one normalised text, with its scope — or null where none is read or none can be scoped. */
+function readScoped(kind: NoteKind, said: string): (Found & { readonly scopeClass: ElementType | null }) | null {
+  const found = READINGS[kind](said);
+  if (found === null) return null;
+  const scope = scopeOf(found.statement);
+  if (scope.named === "many") return null;
+  return { ...found, scopeClass: scope.named === "one" ? scope.scopeClass : null };
+}
 
 /**
  * What ONE kind's reader reads off one sentence, or null where that sentence states no such figure.
@@ -265,9 +334,9 @@ export type ReadFigure = {
  * never moves a figure).
  */
 export function readFigure(kind: NoteKind, said: string): ReadFigure | null {
-  const found = READINGS[kind](normaliseNotation(said));
+  const found = readScoped(kind, normaliseNotation(said));
   if (found === null) return null;
-  return { valueAsWritten: found.valueAsWritten, unitAsWritten: found.unitAsWritten, canonical: found.canonical };
+  return { valueAsWritten: found.valueAsWritten, unitAsWritten: found.unitAsWritten, canonical: found.canonical, scopeClass: found.scopeClass };
 }
 
 /**
@@ -282,7 +351,7 @@ export function proposeNotes(texts: readonly SheetText[]): NoteProposal[] {
   for (const one of texts) {
     const said = normaliseNotation(one.text);
     for (const kind of NOTE_KINDS) {
-      const found = READINGS[kind](said);
+      const found = readScoped(kind, said);
       if (found === null) continue;
       proposed.push({
         kind,
@@ -291,6 +360,7 @@ export function proposeNotes(texts: readonly SheetText[]): NoteProposal[] {
         valueAsWritten: found.valueAsWritten,
         unitAsWritten: found.unitAsWritten,
         canonical: found.canonical,
+        scopeClass: found.scopeClass,
       });
     }
   }

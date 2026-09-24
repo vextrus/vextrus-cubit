@@ -9,13 +9,20 @@
 //
 // A class this file has no reader for is not measured at zero: it is OBSERVED under
 // REBAR_SCHEDULE_UNREAD, which is what a reader goes and reads (L-QTY-01, L-QTY-02).
+//
+// WHICH synthesis details a campaign is its edition's to say (L-MEA-01, s-bbs I-658): the pair the
+// campaign's pinned edition cites for `rcc.rebar.synthesis` picks the code, so a campaign pinned
+// before @2 writes the bars it always wrote. @2 derives a column's ties under D-003 and binds a stated
+// lap outside the grade and mix contest; @1 does neither.
 import type { ElementType } from "@/core/catalogue/classes";
 import type { Kind } from "@/core/catalogue/kinds";
 import type { RebarRefusalCode } from "@/core/errors/rebar";
 import type { NoteContestedCode } from "@/core/notes/law";
 import { semanticDigest } from "@/core/identity/semantic";
-import { heightOf, variantCovering } from "@/core/offers/contract";
+import { detailingOfClass, foundationNeckOf, heightOf, variantCovering } from "@/core/offers/contract";
 import type {
+  EditionSetup,
+  JointReading,
   LevelSetup,
   Measure,
   MemberVariantSetup,
@@ -40,12 +47,23 @@ import { stockSplitOf } from "@/core/rulesets/methods/rebar/stock";
 import {
   applyDetailing,
   lapLengthFor,
+  REBAR_SYNTHESIS,
   synthesiseLink,
   synthesiseVertical,
   type AppliedDetailing,
+  type BarPosition,
   type BarRole,
   type BarSpec,
+  type LengthAnswer,
+  type VerticalProbe,
 } from "@/core/rulesets/methods/rebar/synthesis";
+import {
+  lapLengthFor as lapLengthForV2,
+  REBAR_SYNTHESIS_V2,
+  synthesiseColumnTies,
+  synthesiseVertical as synthesiseVerticalV2,
+  TIE_CLAUSES,
+} from "@/core/rulesets/methods/rebar/synthesis-v2";
 import { isLinkRole } from "@/core/rulesets/rebar-roles";
 import { convert, exact, unitNamed } from "@/core/units/canon";
 
@@ -60,6 +78,51 @@ const EDITION: DetailingEdition = DETAILING_BNBC2020_BD.resolve() as DetailingEd
 
 /** One millimetre-stated length, as every length in this file is (BS 8666 is a millimetre standard). */
 const MM = "mm";
+
+/** The shape a plan note calls a round member (I-304) — whose ties are hoops the roster does not hold. */
+const ROUND = "ROUND";
+
+/** The class whose ties @2 derives under D-003. A shear wall's confinement is a wall's, not a column's. */
+const COLUMN: ElementType = "column";
+
+/**
+ * One version of the bar synthesis, as this leaf runs it: the verticals, the lap they are spliced
+ * at, and whether a column's unstated tie zones are DERIVED (D-003) or declared unstated.
+ */
+type Synthesis = {
+  readonly pair: string;
+  readonly synthesiseVertical: (probe: VerticalProbe) => readonly BarSpec[];
+  readonly lapLengthFor: (applied: AppliedDetailing, edition: DetailingEdition, at: BarPosition) => LengthAnswer;
+  readonly derivesColumnTies: boolean;
+};
+
+/** The versions this tree implements, by version (L-MEA-01: a method is versioned code). */
+const SYNTHESES: Readonly<Record<string, Synthesis>> = Object.freeze({
+  [REBAR_SYNTHESIS.version]: Object.freeze({ pair: `${REBAR_SYNTHESIS.ruleId}@${REBAR_SYNTHESIS.version}`, synthesiseVertical, lapLengthFor, derivesColumnTies: false }),
+  [REBAR_SYNTHESIS_V2.version]: Object.freeze({
+    pair: `${REBAR_SYNTHESIS_V2.ruleId}@${REBAR_SYNTHESIS_V2.version}`,
+    synthesiseVertical: synthesiseVerticalV2,
+    lapLengthFor: lapLengthForV2,
+    derivesColumnTies: true,
+  }),
+});
+
+/**
+ * The synthesis a campaign's bars are written by: the version its pinned edition cites for
+ * `rcc.rebar.synthesis` — the FIRST pair it cites for the rule, as the gate reads an edition
+ * (`versionInForce`) — and null where it cites a version this tree does not implement.
+ *
+ * An edition that cites NO synthesis pair (the platform's 2026.08–.12, which predate the rebar rail,
+ * and a setup a proof builds by hand) is written by @1: that is the code every such campaign's bar
+ * rows were written by, and the re-measure of a pinned campaign writes the bars it always wrote
+ * (L-REG-07; s-bbs I-658). The gate publishes no rebar line under such an edition anyway — it cites
+ * no `rcc.rebar.mass` — so the rows are the bill of bars and nothing more.
+ */
+export function synthesisFor(edition: EditionSetup): Synthesis | null {
+  const cited = edition.methods?.find((pair) => pair.ruleId === REBAR_SYNTHESIS.ruleId);
+  if (cited === undefined) return SYNTHESES[REBAR_SYNTHESIS.version] as Synthesis;
+  return Object.hasOwn(SYNTHESES, cited.version) ? (SYNTHESES[cited.version] as Synthesis) : null;
+}
 
 /**
  * The classes this leaf synthesises bars for, and the reader each is read by.
@@ -157,9 +220,17 @@ type MemberRead = {
  */
 type UnstatedCode = RebarRefusalCode | NoteContestedCode;
 
-/** What this leaf answers a member it could not read under — its own closed roster (L-MEA-08). */
-function observe(code: RebarRefusalCode, row: RegisterObjectRow, sourceEntity: string): RailObservation {
-  return { class: row.elementType as ElementType, kind: RCC_REBAR, code, objectKey: row.objectKey, sourceEntity };
+/**
+ * What this leaf answers a member it could not read under — its own closed roster (L-MEA-08) — and
+ * the gate's own code for a synthesis version the campaign's edition cites and the tree does not
+ * implement, which is the same absence the gate names for a formula (B-17).
+ */
+type ObservedCode = RebarRefusalCode | "METHOD_IMPLEMENTATION_MISSING";
+
+/** One observation of this leaf, with what it stands on where it says more than its code. */
+function observe(code: ObservedCode, row: RegisterObjectRow, sourceEntity: string, detail?: Record<string, unknown>): RailObservation {
+  const said: RailObservation = { class: row.elementType as ElementType, kind: RCC_REBAR, code, objectKey: row.objectKey, sourceEntity };
+  return detail === undefined ? said : { ...said, detail };
 }
 
 /**
@@ -277,11 +348,30 @@ export function readMembers(input: RailInput): { readonly reads: readonly Member
   const setup: RailSetup = input.setup;
   const reads: MemberRead[] = [];
   const observations: RailObservation[] = [];
-  const applied = applyDetailing(setup.detailing, EDITION, setup.edition.digest);
+  // The detailing is the member CLASS's (I-652): a note that scoped a figure to the piles details
+  // the piles, and a column is detailed at the unscoped figures. Resolved once per class.
+  const appliedByClass = new Map<ElementType, AppliedDetailing>();
+  const appliedOf = (memberClass: ElementType): AppliedDetailing => {
+    const held = appliedByClass.get(memberClass);
+    if (held !== undefined) return held;
+    const resolved = applyDetailing(detailingOfClass(setup.detailing, memberClass), EDITION, setup.edition.digest);
+    appliedByClass.set(memberClass, resolved);
+    return resolved;
+  };
+  const synthesis = synthesisFor(setup.edition);
+  // The foundation neck, where a column's bars are billed through the neck and their anchorage into
+  // the cap is stated on no sheet (A′; the level a person entered beneath GF, `foundationNeckOf`).
+  const neck = foundationNeckOf(setup.levels)?.neck.levelId ?? null;
 
   for (const row of input.objects) {
     const memberClass = row.elementType as ElementType;
     if (!READ_CLASSES.includes(memberClass)) continue;
+    if (synthesis === null) {
+      // The edition cites a synthesis version the tree does not compute: no bar is written under a
+      // version nobody implements, and the member says so by the gate's own code (L-MEA-01).
+      observations.push(observe("METHOD_IMPLEMENTATION_MISSING", row, row.placementKey));
+      continue;
+    }
 
     const placement = setup.placements[row.placementKey];
     if (placement === undefined) {
@@ -312,7 +402,8 @@ export function readMembers(input: RailInput): { readonly reads: readonly Member
       continue;
     }
 
-    const head = { row, class: memberClass, placement, calibration, variant, level, applied, fy: setup.detailing.fy };
+    const applied = appliedOf(memberClass);
+    const head = { row, class: memberClass, placement, calibration, variant, level, applied, fy: detailingOfClass(setup.detailing, memberClass).fy };
     const unstated: { readonly variable: string; readonly code: UnstatedCode }[] = [];
     const bars: BarRow[] = [];
 
@@ -333,7 +424,7 @@ export function readMembers(input: RailInput): { readonly reads: readonly Member
         unstated.push({ variable: "net", code: "REBAR_SCHEDULE_UNREAD" });
         observations.push(observe("REBAR_SCHEDULE_UNREAD", row, zones.main.sourceKeys[0] ?? placement.sourceEntity));
       }
-      const mains = synthesiseVertical({
+      const mains = synthesis.synthesiseVertical({
         storeyRunMm: run.mm,
         mains: priced,
         detailing: applied,
@@ -345,24 +436,119 @@ export function readMembers(input: RailInput): { readonly reads: readonly Member
       // grade the edition holds no row for and a note two readers read differently are different
       // disclosures, and the one that applies is the one reported (AM-03(f), AM-03(h), L-QTY-02).
       for (const group of zones.main.bars) {
-        const lap = lapLengthFor(applied, EDITION, { diameterMm: group.diameterMm, confined: false, top: false });
+        const lap = synthesis.lapLengthFor(applied, EDITION, { diameterMm: group.diameterMm, confined: false, top: false });
         if (lap.ok) continue;
         unstated.push({ variable: "lap", code: lap.code });
         break;
       }
+      // A′: the bars of a column standing on the foundation neck are billed through the neck; their
+      // anchorage into the cap below is stated on no sheet, and the line says it stands under.
+      if (synthesis.derivesColumnTies && memberClass === COLUMN && neck !== null && row.levelId === neck) {
+        observations.push(observe("REBAR_ANCHORAGE_UNSTATED", row, zones.main.sourceKeys[0] ?? placement.sourceEntity));
+      }
     }
 
-    // The tie zones state a SPACING and no length to run it over — "the registry states spacing,
-    // never a zone length" — so the confinement steel is a component nobody has read, omitted by
-    // name rather than derived from a confinement rule nobody wrote down (L-QTY-02, riskNotes (5)).
+    // A zone the schedule states a LENGTH for is counted over it, under either version: the drawing
+    // outranks the clause (L-QTY-01). Where the zones state a spacing and no length, @1 leaves the
+    // confinement steel a component nobody has read (riskNotes (5)); @2 derives a COLUMN's zones under
+    // D-003 where the joint at its top is bounded, and names what it could not read where it is not.
     const links = linksOf(zones.ties, variant, head, run.ok ? run.mm : null);
-    if (links.length === 0) unstated.push({ variable: "ties", code: "REBAR_TIE_ZONE_UNSTATED" });
-    links.forEach((spec, at) => bars.push(rowOf(spec, at, head)));
+    if (links.length > 0) links.forEach((spec, at) => bars.push(rowOf(spec, at, head)));
+    else if (synthesis.derivesColumnTies && memberClass === COLUMN) {
+      const derived = derivedTiesOf({ row, placement, variant, ties: zones.ties, head, runMm: run.ok ? run.mm : null, joint: setup.joints?.[row.objectKey] });
+      if (derived.ok) {
+        derived.bars.forEach((spec, at) => bars.push(rowOf(spec, at, head)));
+        observations.push(derived.observation);
+      } else {
+        unstated.push({ variable: "ties", code: derived.code });
+        if (derived.observation !== undefined) observations.push(derived.observation);
+      }
+    } else unstated.push({ variable: "ties", code: "REBAR_TIE_ZONE_UNSTATED" });
 
     reads.push({ ...head, bars, unstated });
   }
 
   return { reads, observations };
+}
+
+/** What one column's derived ties came to: the bars and the bound they stand at, or the code they are left out under. */
+type DerivedTies =
+  | { readonly ok: true; readonly bars: readonly BarSpec[]; readonly observation: RailObservation }
+  | { readonly ok: false; readonly code: RebarRefusalCode; readonly observation?: RailObservation };
+
+/** The spacing a column schedule states for one of its tie zones, where it states it in millimetres. */
+function spacingOf(ties: readonly RebarZoneSetup[], zone: "ties-end" | "ties-mid"): RebarZoneSetup | undefined {
+  const stated = (one: RebarZoneSetup): boolean => one.spacing !== null && one.spacingBar !== null && one.spacingUnit === MM;
+  // a pair (`10Ø@100/150`) states each zone; a single spacing (`10Ø@150`) states both
+  return ties.find((one) => one.zone === zone && stated(one)) ?? ties.find((one) => one.zone === "ties" && stated(one));
+}
+
+/**
+ * A column's ties under D-003 (`rcc.rebar.synthesis@2`; s-bbs I-656).
+ *
+ * The count turns on the joint at the column's top, which the joint seam reads off the framing the
+ * partition placed (`RailSetup.joints`, I-413). BOUNDED: the ties are counted at the fewest any joint
+ * depth the bound leaves open could need — never over — and the line says it stands at that bound
+ * (`REBAR_TIE_JOINT_BOUNDED`, with the method, the clauses and the bound in its detail). UNREAD, or no
+ * reading at all: the ties are left out by name (`REBAR_TIE_JOINT_UNREAD`, A′). A round column's ties
+ * are hoops the BS 8666 roster does not hold, so they are left out as the bar schedule leaves such a
+ * bar out (`BAR_SHAPE_NOT_HELD`, I-596) until the shape joins the roster with its own method.
+ */
+function derivedTiesOf(at: {
+  readonly row: RegisterObjectRow;
+  readonly placement: PlacementSetup;
+  readonly variant: MemberVariantSetup;
+  readonly ties: readonly RebarZoneSetup[];
+  readonly head: Omit<MemberRead, "bars" | "unstated">;
+  readonly runMm: string | null;
+  readonly joint: JointReading | undefined;
+}): DerivedTies {
+  const { row, placement, variant } = at;
+  if (at.runMm === null) return { ok: false, code: "REBAR_STOREY_RUN_UNSTATED" };
+  if (placement.noteShape === ROUND) return { ok: false, code: "BAR_SHAPE_NOT_HELD" };
+  const end = spacingOf(at.ties, "ties-end");
+  const mid = spacingOf(at.ties, "ties-mid");
+  if (end === undefined || mid === undefined || variant.sectionWidth === null || variant.sectionDepth === null || variant.sectionUnit !== MM) {
+    return { ok: false, code: "REBAR_TIE_ZONE_UNSTATED" };
+  }
+  const tieMm = end.spacingBar as number;
+  // A tie the edition holds no unit weight for cannot be billed (AM-03(b)): a schedule cell that
+  // yields no bar anyone can bill is a schedule unread for this member's ties, as it is for its mains.
+  if (tieMm !== mid.spacingBar || !isEditionDiameter(EDITION, tieMm)) return { ok: false, code: "REBAR_SCHEDULE_UNREAD" };
+  const joint = at.joint;
+  if (joint === undefined || joint.standing === "UNREAD") {
+    return {
+      ok: false,
+      code: "REBAR_TIE_JOINT_UNREAD",
+      observation: observe("REBAR_TIE_JOINT_UNREAD", row, placement.sourceEntity, { unread: joint === undefined ? null : joint.unread, levelId: joint?.levelId ?? null }),
+    };
+  }
+  const tied = synthesiseColumnTies({
+    storeyRunMm: at.runMm,
+    bMm: String(variant.sectionWidth),
+    dMm: String(variant.sectionDepth),
+    endSpacingMm: String(end.spacing),
+    midSpacingMm: String(mid.spacing),
+    joint: { standing: "BOUNDED", depthMm: joint.depthMm },
+    coverMm: coverOf(EDITION, "column"),
+    tieMm,
+    detailing: at.head.applied,
+    edition: EDITION,
+    // the schedule cells the spacings were read at, and the cell the bounding member's depth was read at
+    sourceKeys: [...new Set([...end.sourceKeys, ...mid.sourceKeys, joint.deepest.depth.source])],
+  });
+  return {
+    ok: true,
+    bars: tied.bars,
+    observation: observe("REBAR_TIE_JOINT_BOUNDED", row, placement.sourceEntity, {
+      method: `${REBAR_SYNTHESIS_V2.ruleId}@${REBAR_SYNTHESIS_V2.version}`,
+      clauses: [...TIE_CLAUSES],
+      boundMm: joint.depthMm,
+      boundBy: joint.deepest.objectKey,
+      jointMm: tied.count.jointMm,
+      sets: tied.count.sets,
+    }),
+  };
 }
 
 /**

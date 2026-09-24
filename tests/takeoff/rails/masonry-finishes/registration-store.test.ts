@@ -139,7 +139,7 @@ describe("AC-1: the migrated database follows the grown rosters", () => {
   });
 
   it("AC-2: the platform seed edition stands in the migrated database at the version this leaf mints, citing every enumerated pair", async () => {
-    const seed = await productModule<{ SEED_EDITION_IDENTITY: { name: string; version: string } }>(SEED_MODULE);
+    const seed = await productModule<{ SEED_EDITION_IDENTITY: { name: string; version: string }; IN_FORCE_VERSIONS: Readonly<Record<string, string>> }>(SEED_MODULE);
     const registry = await productModule<{ enumerateMethods: () => readonly { ruleId: string; version: string }[] }>(METHODS_REGISTRY_MODULE);
     expect(
       { name: seed.SEED_EDITION_IDENTITY.name, version: seed.SEED_EDITION_IDENTITY.version },
@@ -169,8 +169,14 @@ describe("AC-1: the migrated database follows the grown rosters", () => {
     const pairs = (JSON.parse(cited[0] ?? "[]") as readonly { ruleId?: string; version?: string }[]).map((pair) => `${String(pair.ruleId)}@${String(pair.version)}`).sort();
     expect(
       pairs,
-      "and cites exactly the pairs the shards enumerate — a pin forks this row verbatim, so a pair it omits is a pair no project can measure by (L-REG-07, AM-11)",
-    ).toEqual(registry.enumerateMethods().map((pair) => `${pair.ruleId}@${pair.version}`).sort());
+      "and cites exactly the pairs the shards enumerate, narrowed only by the seed's named in-force selection (R6b) — a pin forks this row verbatim, so a pair it omits is a pair no project can measure by (L-REG-07, AM-11)",
+    ).toEqual(
+      registry
+        .enumerateMethods()
+        .filter((pair) => !Object.hasOwn(seed.IN_FORCE_VERSIONS, pair.ruleId) || seed.IN_FORCE_VERSIONS[pair.ruleId] === pair.version)
+        .map((pair) => `${pair.ruleId}@${pair.version}`)
+        .sort(),
+    );
   });
 
   it("AC-1: public.bears carries this leaf's three rows", async () => {

@@ -34,7 +34,15 @@
 // foundation neck and the roof stub are framed by what nobody has read yet, not by nothing.
 import { isElementType, type ElementType } from "@/core/catalogue/classes";
 import type { RefusalCode } from "@/core/errors";
-import { variantCovering, type LevelSetup, type ReadingSetup, type RailSetup, type RegisterObjectRow } from "@/core/offers/contract";
+import {
+  variantCovering,
+  type JointFramer,
+  type JointFramerUnread,
+  type JointReading,
+  type LevelSetup,
+  type RailSetup,
+  type RegisterObjectRow,
+} from "@/core/offers/contract";
 import { convert, exact, unitNamed } from "@/core/units/canon";
 import type { StoredPlacement, StoredRun } from "@/modules/takeoff/partition";
 // The placement law reads marks through the notation grammar, and loading the grammar registers its
@@ -48,36 +56,11 @@ const COLUMN = "column" satisfies ElementType;
 /** The unit every length of the bar schedule is stated in (BS 8666 is a millimetre standard). */
 const MM = "mm";
 
-/**
- * The standings a joint can take here. RESOLVED is left out on purpose, so no reading can carry it:
- * it needs a census of every member the drawing frames the joint with, which the store does not hold.
- */
-export const JOINT_STANDINGS = ["BOUNDED", "UNREAD"] as const;
-
-/** One standing of the roster above. */
-export type JointStanding = (typeof JOINT_STANDINGS)[number];
-
-/**
- * What an UNREAD joint could not read, each named for what is true of the drawing and of the store
- * (L-QTY-04): a reading says `unread: "FRAMING"`, the framing is unread, and never that there is none.
- * None of them says the joint is unframed.
- * - LEVEL: the stack holds no level above the column's, so the framing at its top stands on a level
- *   nobody registered (the model's roof stub, framed by the stair-room roof beams until LEV-2; the
- *   product's register holds no stub today, so there it is the column topping the stack).
- * - OUTLINE: the setup holds no outline for the column, so no run can be found citing it.
- * - FRAMING: the level above stands, and no framing member placed on it off the column's own drawing
- *   cites the column (the foundation neck, framed by grade beams carried on the caps; C6, framed by
- *   slanted beams; C7, the porch column).
- * - DEPTH: framing members placed on the level above cite the column, and none of their depths could
- *   be read; each is listed with the registered code it was not read under.
- *
- * These are the seam's own words, one word each, and none of them is a registered refusal code: the
- * rail that binds a joint reports its omission under a code it registers (R6b).
- */
-export const JOINT_UNREAD = ["LEVEL", "OUTLINE", "FRAMING", "DEPTH"] as const;
-
-/** One member of the roster above. */
-export type JointUnread = (typeof JOINT_UNREAD)[number];
+// The standings, the unread words and the reading itself are the setup's vocabulary, homed in core's
+// contract because the setup carries the readings to the rails (`RailSetup.joints`); they are published
+// from here too, the seam that answers them (B-17).
+export { JOINT_STANDINGS, JOINT_UNREAD } from "@/core/offers/contract";
+export type { JointFramer, JointFramerUnread, JointReading, JointStanding, JointUnread } from "@/core/offers/contract";
 
 /** The register rows the seam reads: the columns it answers for and the framing it answers from. */
 export type JointObject = Pick<RegisterObjectRow, "objectKey" | "placementKey" | "elementType" | "levelId">;
@@ -104,54 +87,6 @@ export type JointSetup = {
   readonly placements: Readonly<Record<string, JointPlacement>>;
   readonly citations: Readonly<Record<string, readonly string[]>>;
 };
-
-/**
- * One framing member that meets a column's top and whose depth was read: the depth as its schedule
- * wrote it (TRANSCRIBED, cited to the schedule cell) and the canon's millimetres of it, side by side
- * (L-QTY-03).
- */
-export type JointFramer = {
-  readonly objectKey: string;
-  readonly placementKey: string;
-  readonly family: string;
-  readonly depth: ReadingSetup;
-  readonly depthMm: string;
-};
-
-/** One framing member that meets a column's top whose depth was NOT read, with the registered code. */
-export type JointFramerUnread = {
-  readonly objectKey: string;
-  readonly placementKey: string;
-  readonly code: RefusalCode;
-};
-
-/**
- * How one column's top joint stands.
- *
- * BOUNDED: `depthMm` is D_lo, the deepest depth read among the framing placed on the level above that
- * cites the column. The true joint depth is at least D_lo, and nothing here says it is no more.
- * `deepest` is the member it was read off, and `framing` lists every member read, in object-key order.
- * `depthUnread` lists the citing members whose depth could not be read. They leave the bound
- * standing, because a lower bound over fewer members is still a lower bound.
- *
- * UNREAD: no bound is read, and `unread` names what was not read. `levelId` is the level the framing
- * was looked for on, or null where the stack holds none.
- */
-export type JointReading =
-  | {
-      readonly standing: "BOUNDED";
-      readonly levelId: string;
-      readonly depthMm: string;
-      readonly deepest: JointFramer;
-      readonly framing: readonly JointFramer[];
-      readonly depthUnread: readonly JointFramerUnread[];
-    }
-  | {
-      readonly standing: "UNREAD";
-      readonly unread: JointUnread;
-      readonly levelId: string | null;
-      readonly depthUnread: readonly JointFramerUnread[];
-    };
 
 /**
  * Every framing run's clear, cited WHOLE, keyed by its placement: the edge lines it was read off, the

@@ -87,7 +87,7 @@ export async function runMeasureJob(payload: JobPayloads["measure"], progress: J
     // Read once for the whole roster: rails share their setup, so two rails over one campaign cannot
     // disagree about what the drawings said (L-MEA-08). The setup is read against the edition THIS
     // campaign was opened under, so a DERIVED reading cites what the campaign measures by (L-REG-07).
-    const setup = await railSetupOf({ ...registerScope, editionId: campaign.editionId });
+    const setup = await railSetupOf({ ...registerScope, editionId: campaign.editionId }, objects);
     stack = setup.levels;
     // The machine's rails read the machine's rows (s-measure I-384): a hand measurement's register row
     // is the person's sighting, offered by each kind's manual arm from `setup.manual`, and a machine

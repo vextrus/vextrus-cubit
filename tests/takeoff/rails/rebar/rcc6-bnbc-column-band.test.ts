@@ -20,7 +20,16 @@
  */
 import { afterAll, describe, expect, test } from "vitest";
 import { printingAllowanceOf } from "../../../golden/support/golden-fixture";
+import { deepestOf, framingAt, markSpacings, placedBeforeFrm3, readModel, storeyAbove, type ModelMember } from "./support/column-ties";
 import {
+  BAR_SHAPE_NOT_HELD,
+  COMPLETE,
+  REBAR_PAIRS_V2,
+  REBAR_TIE_JOINT_BOUNDED,
+  REBAR_TIE_JOINT_UNREAD,
+  type JointReadingShape,
+  type StagedRebarMember,
+  type StoreRow,
   BNBC_FIXTURE_ID,
   BNBC_MODEL,
   DETAILING_ROW_NOT_IN_EDITION,
@@ -203,6 +212,137 @@ describe("AC-8: F-RCC6-BNBC's column main bars stand inside L-QTY-06's band", ()
         rows.filter((row) => row.level === null || !MEASURED_LEVELS.includes(String(row.level))).map((row) => row.barMark),
         "and no bar is billed for a member whose run nobody stated — an unmeasured column bills nothing, rather than a length the machine invented (L-QTY-01)",
       ).toEqual([]);
+    },
+    BUDGET_MS,
+  );
+});
+
+/* ------------------------------------------------------------------ R6b: the same columns under synthesis@2 */
+
+/**
+ * R6b — the same campaign pinned to an edition citing `rcc.rebar.synthesis@2`, through the real job
+ * and the real gate (D-003, the owner's A′; s-bbs I-656, I-657).
+ *
+ * Every column states its mark's tie pair (`10Ø@100/150`) and no zone length; each column's top joint
+ * is what the joint seam reads off the framing the partition placed before FRM-3 (the ties map's
+ * placed subset, `placedBeforeFrm3`). The notes contest the mix — the pile note's 3000 psi beside the
+ * columns' 3500 — and state `LAP 50d`, which R2 binds outside that contest.
+ */
+let groundV2: Promise<Ground> | undefined;
+
+const stagedV2 = (): Promise<Ground> =>
+  (groundV2 ??= (async () => {
+    const model = readModel();
+    const spacings = markSpacings(model);
+    const byId = new Map(model.members.map((member) => [member.id, member]));
+    const members: StagedRebarMember[] = columnMembersOf(BNBC_MODEL).map((member) => {
+      const modelMember = byId.get(member.id) as ModelMember;
+      const pair = spacings.get(member.mark);
+      return {
+        ...member,
+        round: modelMember.geom === "CYL",
+        ties: pair === undefined ? member.ties : { diameterMm: pair.bar, spacingMm: Number(pair.end), midSpacingMm: Number(pair.mid) },
+      };
+    });
+    const joints = (member: StagedRebarMember): JointReadingShape | undefined => {
+      const modelMember = byId.get(member.id) as ModelMember;
+      const above = storeyAbove(model, modelMember.level);
+      if (above === undefined || !MEASURED_LEVELS.includes(above)) return { standing: "UNREAD", unread: "LEVEL", levelId: null, depthUnread: [] };
+      const placed = deepestOf(framingAt(model, modelMember, placedBeforeFrm3).map((one) => one.depthMm));
+      if (placed === undefined) return { standing: "UNREAD", unread: "FRAMING", levelId: above, depthUnread: [] };
+      const framer = {
+        objectKey: `beam:${above}`,
+        placementKey: `beam:${above}`,
+        family: "B",
+        depth: { value: placed, unit: "mm", basis: "TRANSCRIBED", source: `${BNBC_MODEL}#framing:${member.id}` },
+        depthMm: placed,
+      };
+      return { standing: "BOUNDED", levelId: above, depthMm: placed, deepest: framer, framing: [framer], depthUnread: [] };
+    };
+    const stage = await stageRebarCampaign("bnbc-col-v2", members, {
+      levels: modelStoreys(BNBC_MODEL).filter((level) => MEASURED_LEVELS.includes(level.label)),
+      detailing: detailingStating({ lapMultiplier: 50, fyMPa: 500, fcPsi: 3500, hook: { multiplier: 10, minimumMm: 75 }, suspended: ["FC"] }),
+      pairs: REBAR_PAIRS_V2,
+      joints,
+    });
+    const measured = await measure(stage);
+    return { stage, measured, rows: await barRowsOf(measured.input) };
+  })());
+
+/** The staged member a line stands for, by its register object key. */
+function memberOfLine(stage: RebarStage, line: StoreRow): StagedRebarMember {
+  const key = said(line, "objectKey", "object_key");
+  const at = stage.objects.findIndex((row) => String(row["objectKey"]) === key);
+  return stage.members[at] as StagedRebarMember;
+}
+
+describe("R6b: F-RCC6-BNBC's columns under synthesis@2 — the ties derived at the joint's bound, the rest declared by name", () => {
+  test(
+    "the gate publishes every line; a bounded rectangular column's line is COMPLETE and says it stands at the bound",
+    async () => {
+      const { stage, measured } = await stagedV2();
+      expect(measured.verdict.refused, `every offer published (the gate refused ${JSON.stringify(measured.verdict.refusals)})`).toBe(0);
+      const lines = linesOf(stage);
+      expect(lines.length, "one rebar line per column member").toBe(stage.members.length);
+      const bounded = new Set(observationsOf(stage).filter((row) => said(row, "code", "code") === REBAR_TIE_JOINT_BOUNDED).map((row) => said(row, "objectKey", "object_key")));
+      let complete = 0;
+      for (const line of lines) {
+        const member = memberOfLine(stage, line);
+        if (member.level === FOUNDATION_SLOT || member.level === "ROOF" || member.round === true || member.mark === "C6") continue;
+        expect(said(line, "coverage", "coverage"), `${member.id}: net, the 50d lap (R2, the mix contested) and the derived ties all bind`).toBe(COMPLETE);
+        expect(bounded.has(said(line, "objectKey", "object_key")), `${member.id}: and the line says its ties stand at the joint's bound`).toBe(true);
+        complete += 1;
+      }
+      expect(complete, "every rectangular column of C1–C5 at GF–6F: 26 a storey over seven storeys, less C6 (seven) and C7 at GF").toBe(174);
+    },
+    BUDGET_MS,
+  );
+
+  test(
+    "every (level, diameter, component) cell is never over the golden, the ties are billed at every storey, and the main bars still reconcile",
+    async () => {
+      const { rows } = await stagedV2();
+      const { exact } = await canon();
+      const summed = new Map<string, DecimalLike>();
+      for (const row of rows) {
+        if (row.level === null || !MEASURED_LEVELS.includes(row.level)) continue;
+        const add = (key: string, kilos: string): void => void summed.set(key, (summed.get(key) ?? exact("0")).add(exact(kilos)));
+        add(`${row.level}|${row.diameterMm}|${NET}`, String(row.kgNet));
+        add(`${row.level}|${row.diameterMm}|${LAP}`, String(row.kgLap));
+      }
+      const cells = goldenRows(BNBC_FIXTURE_ID).filter(
+        (row) => row.class === GOLDEN_COLUMN && row.kind === GOLDEN_REBAR && MEASURED_LEVELS.includes(row.level) && (row.component === NET || row.component === LAP),
+      );
+      let ties = 0;
+      for (const cell of cells) {
+        const key = `${cell.level}|${Number(cell.diameter_mm)}|${String(cell.component)}`;
+        const measured = summed.get(key) ?? exact("0");
+        const printed = exact(cell.quantity);
+        expect(measured.lte(printed.add(halfUlp(exact as (value: string) => DecimalLike, cell.quantity))), `${key}: ${measured.toString()} kg is never over the golden's ${cell.quantity} kg`).toBe(true);
+        if (MAIN_DIAMETERS.includes(Number(cell.diameter_mm))) {
+          expect(printed.mul(exact(UNDER_TOLERANCE)).lte(measured), `${key}: the main bars stand within three per cent under (L-QTY-06)`).toBe(true);
+        } else if (Number(cell.diameter_mm) === 10 && cell.component === NET && cell.level !== "ROOF") {
+          ties += 1;
+          expect(exact("0").lte(measured) && !measured.lte(exact("0")), `${key}: the storey's ties are billed`).toBe(true);
+        }
+      }
+      expect(ties, "a tie cell at each of GF–6F").toBe(7);
+    },
+    BUDGET_MS,
+  );
+
+  test(
+    "the rest are declared by name: C6 and the roof stubs' unread joints, C7's hoops, and the foundation slot's run",
+    async () => {
+      const { stage } = await stagedV2();
+      for (const line of linesOf(stage)) {
+        const member = memberOfLine(stage, line);
+        const code = omittedOf(line).find((one) => one.variable === "ties")?.code;
+        if (member.level === FOUNDATION_SLOT) expect(code, `${member.id}: no storey run, no ties`).toBe(REBAR_STOREY_RUN_UNSTATED);
+        else if (member.round === true) expect(code, `${member.id}: C7's hoops are a shape the roster does not hold (I-596)`).toBe(BAR_SHAPE_NOT_HELD);
+        else if (member.mark === "C6" || member.level === "ROOF") expect(code, `${member.id}: nothing read bounds its top joint (A′)`).toBe(REBAR_TIE_JOINT_UNREAD);
+        else expect(code, `${member.id}: its ties are bound`).toBeUndefined();
+      }
     },
     BUDGET_MS,
   );

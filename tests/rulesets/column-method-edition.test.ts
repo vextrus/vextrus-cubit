@@ -84,6 +84,8 @@ const EXPR_MODULE = "src/core/rulesets/methods/expr.ts";
 type SeedModule = {
   SEED_EDITION_IDENTITY: { scope: string; name: string; version: string };
   SEED_EDITION_CONTENT: { parameters: Record<string, { value: string; unit: string }>; methods: readonly { ruleId: string; version: string }[] };
+  /** The version the seed cites for a rule the tree computes at two (R6b). */
+  IN_FORCE_VERSIONS: Readonly<Record<string, string>>;
 };
 
 describe("AC-6: the column method is enumerated, implemented and cited", () => {
@@ -205,13 +207,16 @@ describe("AC-6: the column method is enumerated, implemented and cited", () => {
     // Re-baselined again by the foundation formwork (FND-3, I-337), whose two pairs are minted at
     // 2027.04 beside the 2027.03 this leaf minted — the circular pair is cited by the new head exactly
     // as it was by its own, which the arrayContaining below still grades. And again by OPEN-3 (session
-    // 9), whose twelve pairs are minted at 2027.05 beside 2027.04.
-    expect(SEED_VERSION, "and the version it is re-minted at is the head the latest leaf lands").toBe("2027.05");
+    // 9), whose twelve pairs are minted at 2027.05 beside 2027.04; and by OPEN-4, whose edition puts
+    // the bar synthesis's second version in force at 2027.06 beside 2027.05.
+    expect(SEED_VERSION, "and the version it is re-minted at is the head the latest leaf lands").toBe("2027.06");
 
+    // A rule the tree computes at two versions is cited at the one the seed selects by name (R6b).
+    const selected = seed.IN_FORCE_VERSIONS;
     expect(
       [...seed.SEED_EDITION_CONTENT.methods],
-      "the edition cites every method in force — the shards' own roster, so a method landed with its manifest is cited without a second list being edited (riskNotes (1), B-19)",
-    ).toEqual([...registry.enumerateMethods()]);
+      "the edition cites every method in force — the shards' own roster, narrowed only by the seed's named in-force selection, so a method landed with its manifest is cited without a second list being edited (riskNotes (1), B-19)",
+    ).toEqual(registry.enumerateMethods().filter((pair) => !Object.hasOwn(selected, pair.ruleId) || selected[pair.ruleId] === pair.version));
     expect(
       seed.SEED_EDITION_CONTENT.methods.map((pair) => `${pair.ruleId}@${pair.version}`),
       "including both pairs a column's concrete is measured by — the prism the schedule's B × D cell states, and the circle the plan's own note states",

@@ -10,9 +10,15 @@
 // the confinement steel beside them as `ties`; the per-diameter detail is NOT on the line, because
 // L-QTY-03 gives one line one figure — the detail is the stored bar rows, read back through
 // `bbsOf` (riskNotes (1), L-REG-04).
+//
+// Under `rcc.rebar.synthesis@2` a column's `ties` are DERIVED under D-003 and bound here like any
+// other component; where they stand at the joint's never-over bound the line is COMPLETE and the
+// rail's `REBAR_TIE_JOINT_BOUNDED` observation beside it cites the method, the clauses and the bound
+// (s-bbs I-659). The bindings themselves keep citing the member's bar set, the Trace's grammar.
 import type { Kind } from "@/core/catalogue/kinds";
 import { barsSourceOf } from "@/core/identity";
 import type { Measure, Offer, OmittedComponent, Rail, RailInput, RailObservation } from "@/core/offers/contract";
+import { sightedBy } from "@/core/offers/contract";
 import type { QuantityBasis } from "@/core/offers/law";
 import { CANONICAL_UNIT } from "@/core/units/canon";
 import { massesOf, readMembers, REBAR_RULE_ID, RCC_REBAR, type MemberRead } from "./bars";
@@ -57,7 +63,7 @@ function offerOf(read: MemberRead): Offer {
     class: read.class,
     register: { setRevisionId: read.row.setRevisionId, objectKey: read.row.objectKey },
     drawing: { drawingId: read.placement.drawingId, viewKey: read.placement.viewKey },
-    engine: read.placement.engine,
+    ...sightedBy(read.placement),
     geometry: { type: POINT_SET, basis, calibration: read.calibration },
     bindings,
     selectors: fy === null ? {} : { [FY]: fy },

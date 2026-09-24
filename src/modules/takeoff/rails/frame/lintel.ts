@@ -10,6 +10,7 @@
 import type { ElementType } from "@/core/catalogue/classes";
 import type { Kind } from "@/core/catalogue/kinds";
 import type { LintelSetup, Measure, Offer, Rail, RailInput, RailObservation, ReadingSetup } from "@/core/offers/contract";
+import { sightedBy } from "@/core/offers/contract";
 import { COUNT, DEPTH, LINTEL_SOURCE_ABSENT, PRISM_RECT, WIDTH, drawingsOf, lintelsIn, observe, observeDrawing, sightingOf } from "./read";
 
 /** The class these rails measure (L-MEA-04's roster). */
@@ -90,7 +91,7 @@ export function lintelRail(declared: { readonly ruleId: string; readonly kind: K
         class: LINTEL,
         register: { setRevisionId: row.setRevisionId, objectKey: row.objectKey },
         drawing: { drawingId: placement.drawingId, viewKey: placement.viewKey },
-        engine: placement.engine,
+        ...sightedBy(placement),
         geometry: { type: PRISM_RECT, basis: row.standing, calibration },
         bindings: bindingsOf(stated),
         selectors: {},

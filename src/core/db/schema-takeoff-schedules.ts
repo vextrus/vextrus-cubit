@@ -8,6 +8,7 @@
 // Nothing here reaches the seam, the pools or the jobs store: those are built over the schema, so the
 // dependency runs one way and no cycle is representable (ARCH-01, ARCH-02).
 
+import { ELEMENT_TYPES, type ElementType } from "../catalogue/classes";
 import { PRINTED_QUANTITY_REFUSAL_CODES, SCHEDULE_DEFERRAL_REASONS, type PrintedQuantityRefusal, type ScheduleDeferralReason } from "../errors";
 import { NOTE_ACCEPTANCES, NOTE_BASIS, NOTE_KINDS, type NoteAcceptance, type NoteKind } from "../notes/law";
 import { acts } from "./schema-acts";
@@ -395,6 +396,10 @@ export const notesReadings = pgTable(
     canonical: text("canonical").notNull(),
     basis: text("basis").notNull(),
     acceptance: text("acceptance").$type<NoteAcceptance>().notNull(),
+    // The element class the note scopes the figure to — `f'c = 3000 psi (BORED PILES)` is the piles'
+    // strength — or null where it scopes none, which governs every class no scoped reading of its
+    // kind speaks for (I-652). Nullable because a reading kept before scopes were read states none.
+    scopeClass: text("scope_class").$type<ElementType>(),
     // Every reading is an act's, and the ledger says so in the schema rather than in the one code
     // path that happens to write it — the storey-height reading's own constraint (L-ACT-01, R-TO-051).
     actId: uuid("act_id")
@@ -411,6 +416,8 @@ export const notesReadings = pgTable(
     // else — a basis is not a field this act has a choice about.
     check("notes_readings_basis_transcribed", statement`${table.basis} = ${statement.raw(closedList([NOTE_BASIS]))}`),
     check("notes_readings_acceptance_closed", statement`${table.acceptance} in (${statement.raw(closedList(NOTE_ACCEPTANCES))})`),
+    // A scope is an element class of the roster or none at all: a word outside it scopes nothing (I-652).
+    check("notes_readings_scope_class_closed", statement`${table.scopeClass} is null or ${table.scopeClass} in (${statement.raw(closedList(ELEMENT_TYPES))})`),
     // The read every surface makes: what has been read on THIS sheet.
     index("notes_readings_by_sheet").on(table.tenantId, table.drawingId, table.layoutName),
   ],

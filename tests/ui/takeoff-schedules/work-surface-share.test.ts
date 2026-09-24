@@ -220,7 +220,7 @@ describe("I-288: the schedules region publishes itself as the primary work surfa
     const sheet = aSheet("S-03", {
       notes: {
         proposals: [
-          { kind: "LAP", sourceKey: "DXF_HANDLE:4122", text: "TENSION LAP 50d", valueAsWritten: "50", unitAsWritten: "d", canonical: "50", proposedBy: "grammar", callId: null, governs: null },
+          { kind: "LAP", sourceKey: "DXF_HANDLE:4122", text: "TENSION LAP 50d", valueAsWritten: "50", unitAsWritten: "d", canonical: "50", scopeClass: null, proposedBy: "grammar", callId: null, governs: null },
         ],
         readings: [],
         standings: [],

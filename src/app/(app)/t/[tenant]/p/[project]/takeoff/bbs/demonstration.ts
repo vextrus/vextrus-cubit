@@ -48,6 +48,14 @@ const TIE_ZONE_UNSTATED = REFUSALS.REBAR_TIE_ZONE_UNSTATED.code;
 /** The component of a rebar line that absence is declared for — the rail's own variable name. */
 const TIES = "ties";
 
+/** The two entries' keys — each its first member's, as the one door names an entry (I-534). */
+const C1 = "column/GF/C1";
+const C2 = "column/GF/C2";
+
+/** The coverage of a whole line, and of one that declared part of its steel missing (L-QTY-02). */
+const WHOLE = "COMPLETE";
+const PARTLY = "PARTIAL_DECLARED";
+
 /** One bar of the demonstrated bill, in the shape the one door answers one (L-REG-04). */
 function bar(
   mark: string,
@@ -165,6 +173,12 @@ function reading(scheduled: boolean, partial: boolean): BbsView {
     document: DOCUMENT,
     partial,
     omitted: partial ? [{ code: TIE_ZONE_UNSTATED, components: [TIES] }] : [],
+    // Each entry states its own standing on its group row (s-bbs I-655): C1's line is whole — its
+    // ties are on the schedule — and, in the partial cell, C2's two members left their ties out.
+    entries: {
+      [C1]: { coverage: WHOLE, omitted: [] },
+      [C2]: partial ? { coverage: PARTLY, omitted: [{ code: TIE_ZONE_UNSTATED, components: [TIES] }] } : { coverage: WHOLE, omitted: [] },
+    },
   };
 }
 

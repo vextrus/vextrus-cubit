@@ -22,7 +22,7 @@ import { isLinkRole } from "@/core/rulesets/rebar-roles";
 import { convert } from "@/core/units/canon";
 import type { BbsDocument } from "@/modules/takeoff/rebar";
 import { BBS_COMPONENT_SAID, BBS_COPY, fillCopy } from "./copy";
-import type { BbsOmission } from "./view";
+import type { BbsEntryCoverage, BbsOmission } from "./view";
 
 /**
  * The fraction length this schedule states each kind of figure at: a length to the thousandth of a
@@ -237,6 +237,49 @@ export function cuttingStandingOf(document: BbsDocument, deferred: readonly stri
     withheld.add(line.diameterMm);
   }
   return { runs, withheld: [...withheld].sort((left, right) => left - right) };
+}
+
+/** One published rebar line as an entry's standing reads it: whose it is, its coverage, what it left out. */
+export type BbsLineStanding = {
+  readonly objectKey: string;
+  readonly coverage: string;
+  readonly omitted: readonly { readonly code: string; readonly variable: string | null }[];
+};
+
+/** The coverage a line states when it measured the whole of what its kind asks (L-QTY-02). */
+const WHOLE = "COMPLETE";
+/** The coverage an entry stands at wherever any member's line is not known whole (L-QTY-02). */
+const PARTLY = "PARTIAL_DECLARED";
+
+/**
+ * Each entry's standing, by the entry's key (s-bbs I-655): COMPLETE only where every member the
+ * entry counts published a line and every such line is COMPLETE; otherwise PARTIAL_DECLARED, with the
+ * codes those lines state, each once, in the order the lines (handed in their published order) first
+ * state it, and the components each was stated for.
+ *
+ * A member with no line is not whole: nothing was published that says it is, and an entry is never
+ * told COMPLETE by default (L-QTY-02). Read, never judged — this joins the door's entries to the
+ * lines' own statements and computes no figure.
+ */
+export function entryCoverageOf(document: Pick<BbsDocument, "rows">, lines: readonly BbsLineStanding[]): Record<string, BbsEntryCoverage> {
+  const entries: Record<string, BbsEntryCoverage> = {};
+  for (const line of document.rows) {
+    if (line.objectKey in entries) continue;
+    const members = new Set(line.members.length > 0 ? line.members : [line.objectKey]);
+    const own = lines.filter((one) => members.has(one.objectKey));
+    const published = new Set(own.map((one) => one.objectKey));
+    const whole = [...members].every((member) => published.has(member)) && own.every((one) => one.coverage === WHOLE);
+    const byCode = new Map<string, string[]>();
+    for (const one of own) {
+      for (const { code, variable } of one.omitted) {
+        const held = byCode.get(code) ?? [];
+        if (!byCode.has(code)) byCode.set(code, held);
+        if (variable !== null && !held.includes(variable)) held.push(variable);
+      }
+    }
+    entries[line.objectKey] = { coverage: whole ? WHOLE : PARTLY, omitted: [...byCode.entries()].map(([code, components]) => ({ code, components })) };
+  }
+  return entries;
 }
 
 /**

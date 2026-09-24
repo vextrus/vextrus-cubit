@@ -12,13 +12,28 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import { TESTIDS, isTestId, testIdSelector, type TestId } from "../../../src/ui/testids";
 import { shellMasks } from "./shell.page";
-import { heldAttribute } from "../support/retrying-read";
+import { heldAttribute, readWhen } from "../support/retrying-read";
 
 /** The addresses this screen answers at and offers (Decision §6, test contract). */
 export const S_BBS = Object.freeze({
   bbs: (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/takeoff/bbs`,
   register: (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/takeoff/register`,
 } as const);
+
+/** One painted row of the grid: its place in the whole list and every `data-*` it publishes. */
+export type BbsPaintedRow = { readonly index: number; readonly data: Readonly<Record<string, string>> };
+
+/** The whole grid, read row by row past its window: group rows, NET rows and LAP rows, in order. */
+export type BbsWholeGrid = {
+  readonly members: readonly BbsPaintedRow[];
+  readonly rows: readonly BbsPaintedRow[];
+  readonly laps: readonly BbsPaintedRow[];
+  /** Places in the list between the first and last row read that no pass painted — zero when whole. */
+  readonly gaps: number;
+};
+
+/** How long a whole read of a long schedule may take before it is a failure with a named cause. */
+const WHOLE_READ_TIMEOUT_MS = 120_000;
 
 /** The group this screen publishes its ids under, as the registry holds it today. */
 const group = (TESTIDS as unknown as { bbs?: Record<string, string> }).bbs ?? {};
@@ -130,6 +145,56 @@ export class SBbsPage {
   }
   lapOf(barKey: string): Locator {
     return this.page.locator(`${testIdSelector(idOf("lap"))}[data-bar-key="${barKey}"]`);
+  }
+
+  /**
+   * The WHOLE schedule, read the way a reader reads a long one: scrolled from the top to the foot of
+   * the grid, every row each window paints kept by its place in the list (`aria-rowindex`). A
+   * virtualised grid paints a window of its rows (§5 rule 9, past 200), so a locator over the page
+   * sees only that window; this reads them all. The read is whole only when its NET rows are the
+   * document's lines (`bbs-screen`'s `data-rows`) and no place between its first and last row went
+   * unpainted — otherwise it is read again, and a read that never comes whole fails by name.
+   */
+  async wholeGrid(): Promise<BbsWholeGrid> {
+    const lines = Number(await heldAttribute(this.screen, "data-rows", "the lines the schedule states"));
+    const testIds = { member: idOf("member"), row: idOf("row"), lap: idOf("lap") };
+    const viewport = this.grid.getByTestId(TESTIDS.datatable.viewport);
+    return readWhen(
+      () =>
+        viewport.evaluate(async (box, ids): Promise<BbsWholeGrid> => {
+          const frame = (): Promise<void> => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => done())));
+          const painted = new Map<number, { kind: string; data: Record<string, string> }>();
+          const kinds = new Set<string>([ids.member, ids.row, ids.lap]);
+          const keep = (): void => {
+            for (const row of Array.from(box.querySelectorAll("[role=row][aria-rowindex]"))) {
+              const kind = row.getAttribute("data-testid") ?? "";
+              if (!kinds.has(kind)) continue;
+              const data: Record<string, string> = {};
+              for (const name of row.getAttributeNames()) if (name.startsWith("data-")) data[name] = row.getAttribute(name) ?? "";
+              painted.set(Number(row.getAttribute("aria-rowindex")), { kind, data });
+            }
+          };
+          box.scrollTop = 0;
+          await frame();
+          // Half a window a step, so every row stands in two windows and none falls between them.
+          for (let step = 0; step < 100_000; step += 1) {
+            keep();
+            const foot = box.scrollTop + box.clientHeight >= box.scrollHeight - 1;
+            if (foot) break;
+            box.scrollTop += Math.max(1, Math.floor(box.clientHeight / 2));
+            await frame();
+          }
+          box.scrollTop = 0;
+          const order = [...painted.keys()].sort((left, right) => left - right);
+          const first = order[0] ?? 0;
+          const last = order.at(-1) ?? -1;
+          const of = (kind: string) => order.flatMap((index) => (painted.get(index)?.kind === kind ? [{ index, data: painted.get(index)?.data ?? {} }] : []));
+          return { members: of(ids.member), rows: of(ids.row), laps: of(ids.lap), gaps: last - first + 1 - order.length };
+        }, testIds),
+      (read) => read.rows.length === lines && read.gaps === 0 && read.members.length > 0,
+      `the whole schedule read past the grid's window: ${String(lines)} NET rows with no place unpainted`,
+      WHOLE_READ_TIMEOUT_MS,
+    );
   }
 
   /* --- the cutting-stock summary beneath it --- */

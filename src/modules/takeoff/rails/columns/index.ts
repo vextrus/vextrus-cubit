@@ -25,7 +25,7 @@
 import type { ElementType } from "@/core/catalogue/classes";
 import type { Kind } from "@/core/catalogue/kinds";
 import type { RefusalCode } from "@/core/errors";
-import { heightOf, variantCovering } from "@/core/offers/contract";
+import { heightOf, sightedBy, variantCovering } from "@/core/offers/contract";
 import type {
   Measure,
   MemberShape,
@@ -208,7 +208,7 @@ function offerOf(read: Read, setup: RailSetup): Offer {
     class: COLUMN,
     register: { setRevisionId: row.setRevisionId, objectKey: row.objectKey },
     drawing: { drawingId: placement.drawingId, viewKey: placement.viewKey },
-    engine: placement.engine,
+    ...sightedBy(placement),
     geometry: { type: section.shape === ROUND ? PRISM_POLY : PRISM_RECT, basis, calibration },
     bindings,
     selectors: grade === undefined ? {} : { [GRADE]: grade },

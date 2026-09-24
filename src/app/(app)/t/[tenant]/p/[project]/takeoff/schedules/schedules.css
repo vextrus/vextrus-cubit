@@ -341,6 +341,12 @@
   cursor: pointer;
 }
 
+/* The members an unscoped figure is for, said beside the kind in the kind's own size (I-652); a
+   scoped figure's class is an EnumLabel and dressed as one. */
+.cx-schedules-scope-all {
+  color: var(--ink-muted);
+}
+
 .cx-schedules-reading[data-superseded="true"] {
   color: var(--ink-muted);
 }

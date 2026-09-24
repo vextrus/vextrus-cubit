@@ -6,12 +6,19 @@
 // and a later reading under that same key supersedes the earlier one — which is the only thing that
 // clears a contest between two readers (R-TO-051, L-REG-03).
 //
+// A reading carries the SCOPE it is kept under — the element class the note states the figure for,
+// or none (I-652). What the drawing scopes is read by code, off the sheet's own words; a caller that
+// states no scope keeps the drawing's, and one that states a scope (or `null`, every class) disposes
+// of it, which the verdict then judges like the figure.
+//
 // THE SEAM JUDGES THE VERDICT, NOT THE CALLER. The commit re-reads the sheet's own texts, runs the
 // grammar over them again and compares what was kept against what was offered: a client that claims
 // its edited figure was accepted as proposed is simply not asked. A flag the caller sends would make
 // the record a statement about the client rather than about the drawing (L-QTY-01, B-19).
 import { recordModelOutcome, type TenantTx } from "../db";
-import { noteClauseOffersOfSheet, type NoteClauseOffer } from "../notes/clause-store";
+import type { ElementType } from "../catalogue/classes";
+import { inWords } from "../documents/kinds/boq-draft-law";
+import { noteClauseOffersOfSheet, type ScopedNoteClauseOffer } from "../notes/clause-store";
 import { canonicalFigure, proposeNotes, type NoteProposal } from "../notes/grammar";
 import type { NoteAcceptance, NoteKind } from "../notes/law";
 import { noteSourceNotOnSheet } from "../notes/refusals";
@@ -35,6 +42,11 @@ export type ProposedNoteReading = {
   readonly sourceKey: string;
   readonly valueAsWritten: string;
   readonly unitAsWritten: string;
+  /**
+   * The class the person keeps the figure for: a class, `null` for every class no scoped reading
+   * speaks for, or absent to keep the scope the sheet's own words state (I-652).
+   */
+  readonly scopeClass?: ElementType | null;
 };
 
 /** The act's input: whose sheet, and every figure the person kept off it. */
@@ -54,6 +66,7 @@ type Judged = {
   readonly valueAsWritten: string;
   readonly unitAsWritten: string;
   readonly canonical: string;
+  readonly scopeClass: ElementType | null;
   readonly acceptance: NoteAcceptance;
   /** What this key said before — empty where nobody has read it under that key (L-ACT-02). */
   readonly before: readonly string[];
@@ -79,7 +92,7 @@ function offeredKey(kind: string, sourceKey: string): string {
 }
 
 /** One offer, whichever read it: what it says, and the model call behind it where a model made it. */
-type Offer = { readonly canonical: string; readonly unitAsWritten: string; readonly callId: string | null };
+type Offer = { readonly canonical: string; readonly unitAsWritten: string; readonly scopeClass: ElementType | null; readonly callId: string | null };
 
 /**
  * What the sheet offers today, by the kind and the text each offer was read off.
@@ -93,16 +106,16 @@ type Offer = { readonly canonical: string; readonly unitAsWritten: string; reado
  * A model offer whose class carried no figure — the grammar's reader read nothing under it — is no
  * offer at all: there is nothing for a person to keep and nothing to judge a kept figure against.
  */
-function offeredBy(proposals: readonly NoteProposal[], offers: readonly NoteClauseOffer[]): Map<string, Offer> {
+function offeredBy(proposals: readonly NoteProposal[], offers: readonly ScopedNoteClauseOffer[]): Map<string, Offer> {
   const offered = new Map<string, Offer>();
   for (const proposal of proposals) {
-    offered.set(offeredKey(proposal.kind, proposal.sourceKey), { canonical: proposal.canonical, unitAsWritten: proposal.unitAsWritten, callId: null });
+    offered.set(offeredKey(proposal.kind, proposal.sourceKey), { canonical: proposal.canonical, unitAsWritten: proposal.unitAsWritten, scopeClass: proposal.scopeClass, callId: null });
   }
   for (const offer of offers) {
     if (offer.kind === null || offer.canonical === null || offer.unitAsWritten === null) continue;
     const key = offeredKey(offer.kind, offer.sourceKey);
     if (offered.has(key)) continue;
-    offered.set(key, { canonical: offer.canonical, unitAsWritten: offer.unitAsWritten, callId: offer.callId });
+    offered.set(key, { canonical: offer.canonical, unitAsWritten: offer.unitAsWritten, scopeClass: offer.scopeClass, callId: offer.callId });
   }
   return offered;
 }
@@ -157,6 +170,8 @@ async function derive(ctx: ActorCtx, input: TranscribeSheetNotesInput, tx: Tenan
     const canonical = canonicalFigure(reading.valueAsWritten);
     const proposal = offered.get(offeredKey(reading.kind, reading.sourceKey));
     const held = standingUnder(stored, readingKey);
+    // No scope stated keeps the one the sheet's words state; a figure nothing offered states none.
+    const scopeClass = reading.scopeClass === undefined ? (proposal?.scopeClass ?? null) : reading.scopeClass;
     byKey.set(readingKey, {
       readingKey,
       kind: reading.kind,
@@ -164,18 +179,30 @@ async function derive(ctx: ActorCtx, input: TranscribeSheetNotesInput, tx: Tenan
       valueAsWritten: reading.valueAsWritten,
       unitAsWritten: reading.unitAsWritten,
       canonical,
-      // The verdict is the seam's: what the drawing offers today against what the person kept.
-      acceptance: proposal !== undefined && proposal.canonical === canonical && proposal.unitAsWritten === reading.unitAsWritten ? ACCEPTED : EDITED,
-      before: held === undefined ? [] : [held.canonical],
+      scopeClass,
+      // The verdict is the seam's: what the drawing offers today — the figure, its unit and the class
+      // it is stated for — against what the person kept.
+      acceptance:
+        proposal !== undefined && proposal.canonical === canonical && proposal.unitAsWritten === reading.unitAsWritten && proposal.scopeClass === scopeClass ? ACCEPTED : EDITED,
+      before: held === undefined ? [] : [said(held)],
       offeredCallId: proposal?.callId ?? null,
     });
   }
 
   const moving = [...byKey.values()].filter((judged) => {
     const held = standingUnder(stored, judged.readingKey);
-    return held === undefined || held.canonical !== judged.canonical || held.unitAsWritten !== judged.unitAsWritten;
+    return held === undefined || held.canonical !== judged.canonical || held.unitAsWritten !== judged.unitAsWritten || held.scopeClass !== judged.scopeClass;
   });
   return { sheet, scope, moving };
+}
+
+/**
+ * What a reading says, as a Consequence names it: the figure, and the class it is scoped to where it
+ * is scoped — so re-reading `3000` for the piles (`3000 · Pile`) where `3000` stood for every class is a
+ * change the dialog shows rather than a before and an after that read the same (L-ACT-02).
+ */
+function said(reading: { readonly canonical: string; readonly scopeClass: ElementType | null }): string {
+  return reading.scopeClass === null ? reading.canonical : `${reading.canonical} · ${inWords(reading.scopeClass)}`;
 }
 
 /** One reading, as the store is asked to append it. */
@@ -190,6 +217,7 @@ function written(judged: Judged, sheet: SheetRef): NoteReadingWrite {
     unitAsWritten: judged.unitAsWritten,
     canonical: judged.canonical,
     acceptance: judged.acceptance,
+    scopeClass: judged.scopeClass,
   };
 }
 
@@ -205,7 +233,7 @@ export const transcribeSheetNotes: ActRendering<TranscribeSheetNotesInput> = {
         subjectId: judged.readingKey,
         subjectLabel: judged.kind,
         before: judged.before,
-        after: [judged.canonical],
+        after: [said(judged)],
       })),
       // AM-03(h): a note re-versions what the CAMPAIGN applies, never a rule-set edition — and the
       // lines a lap re-presents are re-derived by the rail that reads the applied values, which does

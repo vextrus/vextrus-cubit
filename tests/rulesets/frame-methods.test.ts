@@ -225,12 +225,18 @@ describe("AC-2: the six frame methods are in force", () => {
 
   test("AC-2: the platform seed is re-minted, and cites every method the shards enumerate", async () => {
     const registry = await methodsRegistry();
-    const seed = await productModule<{ SEED_EDITION_IDENTITY: { scope: string; name: string; version: string }; SEED_EDITION_CONTENT: { methods: readonly MethodPairShape[] } }>(SEED_MODULE);
+    const seed = await productModule<{
+      SEED_EDITION_IDENTITY: { scope: string; name: string; version: string };
+      SEED_EDITION_CONTENT: { methods: readonly MethodPairShape[] };
+      IN_FORCE_VERSIONS: Readonly<Record<string, string>>;
+    }>(SEED_MODULE);
 
     expect(seed.SEED_EDITION_IDENTITY.version, "the platform edition is re-minted at the head of the lineage, so the seed and every fork of it cite the six (L-REG-07, B-20)").toBe(SEED_VERSION);
+    // A rule the tree computes at two versions is cited at the one the seed selects by name (R6b).
+    const selected = seed.IN_FORCE_VERSIONS;
     expect(
       [...seed.SEED_EDITION_CONTENT.methods],
-      "the edition cites every method in force — the shards' own roster, so a method landed with its manifest is cited without a second list being edited (B-19)",
-    ).toEqual([...registry.enumerateMethods()]);
+      "the edition cites every method in force — the shards' own roster, narrowed only by the seed's named in-force selection, so a method landed with its manifest is cited without a second list being edited (B-19)",
+    ).toEqual(registry.enumerateMethods().filter((pair) => !Object.hasOwn(selected, pair.ruleId) || selected[pair.ruleId] === pair.version));
   });
 });

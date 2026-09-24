@@ -25,31 +25,38 @@
  * the note's own force on a line is graded on a campaign that reads it before it measures.
  */
 import { afterAll, describe, expect, test } from "vitest";
+import { BNBC_SHEET_TEXTS, type SheetText } from "../../notes/support/bnbc-notes";
 import { editionCounts, type EditionCounts } from "../../notes/support/notes-stage";
 import {
   DERIVED,
   DETAILING_ROW_NOT_IN_EDITION,
   MEASURE_SETUP_MODULE,
+  NOTE_READING_CONTESTED,
   OFFER_NOT_TO_CONTRACT,
   PARTIAL_DECLARED,
   QUANTITY_LINES_TABLE,
   RCC_REBAR,
+  REBAR_PAIRS_V2,
+  REBAR_TIE_JOINT_UNREAD,
   REBAR_TIE_ZONE_UNSTATED,
   TRANSCRIBED,
   barRowsOf,
   bbsThroughDoor,
+  appliedDetailingOf,
   bindingsOf,
   closeStage,
   detailingEdition,
   detailingLookups,
   linesOf,
   measure,
+  observationsOf,
   omittedOf,
   privilegesOf,
   railSetupOf,
   railSetupWatchingTheDoor,
   said,
   stageRebarCampaign,
+  transcribeEveryProposal,
   transcribeNotes,
   type BarRowShape,
   type DetailingSetupShape,
@@ -185,6 +192,16 @@ const unrowed = (): Promise<{ stage: RebarStage; measured: MeasuredCampaign }> =
 afterAll(async () => {
   await closeStage();
 });
+
+/**
+ * F-RCC6-BNBC's three concrete strengths, in the drawing's own words and under its own handles: the
+ * cylinder strength on S-01 (1F41), the bored piles' on S-01 (1F42) and the heading of S-02's ℓd table
+ * (1F78) — a heading of the table the strength it names was computed at, not a note scoped to the
+ * columns. Staged on the one sheet beside the fixture's other general notes (I-652).
+ */
+const PILE_STRENGTH: SheetText = { sourceKey: "DXF_HANDLE:1F42", text: "f'c = 3000 psi (BORED PILES)" };
+const LD_TABLE_HEADING: SheetText = { sourceKey: "DXF_HANDLE:1F78", text: "DEVELOPMENT LENGTH ld  -  fy 500 MPa, f'c 3500 psi" };
+const SCOPED_SHEET: readonly SheetText[] = [...BNBC_SHEET_TEXTS, PILE_STRENGTH, LD_TABLE_HEADING];
 
 /** The MAIN bar rows of a measured campaign — the verticals whose lap a note moves. */
 function mains(rows: readonly BarRowShape[]): BarRowShape[] {
@@ -451,6 +468,102 @@ describe("AC-7: the notes door governs what the campaign applies, and re-present
         ).toEqual([DETAILING_ROW_NOT_IN_EDITION]);
         expect(bindingsOf(line)["lap"], "and no lap is bound at all").toBeUndefined();
         expect(bindingsOf(line)["net"], "while the net the schedule states still is — a column's bars were read (L-QTY-02)").toBeTruthy();
+      }
+    },
+    BUDGET_MS,
+  );
+
+  test(
+    "R6b: under an edition citing synthesis@2 the job's own setup carries the edition's pairs and each column's joint, and a joint nobody framed leaves the ties out by name",
+    async () => {
+      const stage = await stageRebarCampaign("r6b", columns(), { levels: [LEVEL], detailing: "door", pairs: REBAR_PAIRS_V2 });
+      await transcribeNotes(stage, NOTED_READINGS);
+      const measured = await measure(stage);
+      expect(measured.verdict.refused, `every offer published (${JSON.stringify(measured.verdict.refusals)})`).toBe(0);
+
+      // What the job handed the rail is the product's own setup (the stage folds in only its
+      // placements, variants and calibrations): the pinned edition's pairs, and a joint per column —
+      // UNREAD, because no framing is placed in this campaign's store, not even the column's outline.
+      const setup = measured.input.setup;
+      expect(setup.edition.methods?.map((pair) => `${pair.ruleId}@${pair.version}`), "the edition's pairs ride beside its digest").toContain("rcc.rebar.synthesis@2");
+      for (const row of stage.objects) {
+        expect(setup.joints?.[String(row["objectKey"])], `${String(row["objectKey"])}'s joint is read by the seam, and read as unread by name (I-414)`).toMatchObject({ standing: "UNREAD" });
+      }
+
+      for (const [at] of stage.members.entries()) {
+        const line = lineForMember(stage, at);
+        expect(String(bindingsOf(line)["lap"]?.basis), "the note's 50d binds, TRANSCRIBED").toBe(TRANSCRIBED);
+        expect(omittedOf(line).filter((one) => one.variable === "ties").map((one) => one.code), `and the ties are left out under ${REBAR_TIE_JOINT_UNREAD} (A′), not counted over a joint nobody read`).toEqual([
+          REBAR_TIE_JOINT_UNREAD,
+        ]);
+      }
+      const told = observationsOf(stage).filter((row) => said(row, "code", "code") === REBAR_TIE_JOINT_UNREAD);
+      expect(told.length, "and each column says so beside its line").toBe(stage.members.length);
+    },
+    BUDGET_MS,
+  );
+
+  test(
+    "N1 (I-652): every figure of S-01 and S-02 kept as proposed — f'c stands AGREED 3500 psi for the columns and 3000 psi for the piles, and no column's lap is contested",
+    async () => {
+      const stage = await stageRebarCampaign("fc-scoped", columns(), { levels: [LEVEL], detailing: "door", notes: SCOPED_SHEET });
+      const proposals = await transcribeEveryProposal(stage);
+      expect(
+        proposals.filter((one) => one["kind"] === "FC").map((one) => `${String(one["sourceKey"])}|${String(one["canonical"])}|${String(one["scopeClass"])}`),
+        "the sheet offers three strengths, the piles' scoped by its own parenthetical",
+      ).toEqual(["DXF_HANDLE:1F41|3500|null", "DXF_HANDLE:1F42|3000|pile", "DXF_HANDLE:1F78|3500|null"]);
+
+      // The door: one unscoped answer every class takes, and the piles' own.
+      const answered = await appliedDetailingOf(stage);
+      expect({ fc: answered["fc"], suspended: answered["suspended"] }, "the unscoped f'c is AGREED at 3500 psi off 1F41 and 1F78, and nothing is suspended").toEqual({
+        fc: { value: 3500, unit: "psi" },
+        suspended: [],
+      });
+      const pile = (answered["byClass"] as Record<string, Record<string, unknown>>)["pile"];
+      expect({ fc: pile?.["fc"], suspended: pile?.["suspended"] }, "the piles stand at their own 3000 psi, uncontested").toEqual({ fc: { value: 3000, unit: "psi" }, suspended: [] });
+      expect(pile?.["lapMultiplier"], "and take every figure no pile note scopes — the 50d lap — at the unscoped answer").toBe(LAP_MULTIPLIER);
+      expect(Object.keys(answered["byClass"] as object), "no other class was scoped, so every other class takes the unscoped values").toEqual(["pile"]);
+
+      // The setup the job hands the rail carries the same, per class.
+      const measured = await measure(stage);
+      const detailing = measured.input.setup.detailing;
+      expect({ fc: detailing.fc, suspended: detailing.suspended }, "the columns are detailed at the unscoped 3500 psi, TRANSCRIBED").toMatchObject({
+        fc: { value: "3500", unit: "psi", basis: TRANSCRIBED },
+        suspended: [],
+      });
+      expect(detailing.byClass?.["pile"]?.fc, "and the setup carries the piles' 3000 psi beside it").toMatchObject({ value: "3000", unit: "psi", basis: TRANSCRIBED });
+
+      // The column lines: the lap binds off the 50d note, and nothing is omitted as contested.
+      expect(measured.verdict.refused, `every offer published (${JSON.stringify(measured.verdict.refusals)})`).toBe(0);
+      for (const [at] of stage.members.entries()) {
+        const line = lineForMember(stage, at);
+        expect(String(bindingsOf(line)["lap"]?.basis), "the column's lap binds, TRANSCRIBED off the note").toBe(TRANSCRIBED);
+        expect(omittedOf(line).map((one) => one.code), `and no component is omitted under ${NOTE_READING_CONTESTED}`).not.toContain(NOTE_READING_CONTESTED);
+      }
+      expect(observationsOf(stage).map((row) => said(row, "code", "code")), `and the rail reports no ${NOTE_READING_CONTESTED} anywhere`).not.toContain(NOTE_READING_CONTESTED);
+    },
+    BUDGET_MS,
+  );
+
+  test(
+    "N1 (I-652): a reader who keeps the piles' 3000 psi for EVERY class contests the columns' 3500 — the lap is omitted by name, never taken off either figure",
+    async () => {
+      const stage = await stageRebarCampaign("fc-unscoped", columns(), { levels: [LEVEL], detailing: "door", notes: SCOPED_SHEET });
+      await transcribeEveryProposal(stage, { [PILE_STRENGTH.sourceKey]: null });
+      const answered = await appliedDetailingOf(stage);
+      expect(answered["suspended"], "three unscoped strengths that disagree suspend f'c for every class, exactly as a contest always has").toEqual(["FC"]);
+      expect(answered["fc"], "and no figure stands").toBeUndefined();
+      expect(answered["byClass"], "no class was scoped").toEqual({});
+
+      const measured = await measure(stage);
+      expect(measured.verdict.refused, `every offer published (${JSON.stringify(measured.verdict.refusals)})`).toBe(0);
+      for (const [at] of stage.members.entries()) {
+        const line = lineForMember(stage, at);
+        expect(
+          omittedOf(line).filter((one) => one.variable === "lap").map((one) => one.code),
+          `the lap is omitted under ${NOTE_READING_CONTESTED} — the rail still refuses to detail off a contested strength`,
+        ).toEqual([NOTE_READING_CONTESTED]);
+        expect(said(line, "coverage", "coverage")).toBe(PARTIAL_DECLARED);
       }
     },
     BUDGET_MS,

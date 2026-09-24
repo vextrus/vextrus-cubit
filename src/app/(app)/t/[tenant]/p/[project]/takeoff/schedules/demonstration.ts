@@ -111,6 +111,7 @@ const PROPOSAL = {
   valueAsWritten: "50d",
   unitAsWritten: "d",
   canonical: "50",
+  scopeClass: null,
   // The demonstrated sheet's own lap is the GRAMMAR's reading, with the proposition a model made
   // about it standing beside it — which is what §1's notes panel wireframes (I-296, AM-03(e)).
   proposedBy: "grammar" as const,
@@ -136,6 +137,7 @@ const READING = {
   canonical: "500",
   basis: "TRANSCRIBED",
   acceptance: "ACCEPTED" as const,
+  scopeClass: null,
   actId: "00000000-0000-4000-8000-00000000d004",
   superseded: false,
 };
@@ -156,10 +158,10 @@ function sheet(held: "whole" | "deferred"): SheetView {
       readings: [READING],
       standings:
         held === "whole"
-          ? [{ kind: "FY" as const, standing: "AGREED" as const, canonical: "500", unitAsWritten: "MPa", code: null }]
+          ? [{ kind: "FY" as const, scopeClass: null, standing: "AGREED" as const, canonical: "500", unitAsWritten: "MPa", code: null }]
           : [
-              { kind: "FY" as const, standing: "AGREED" as const, canonical: "500", unitAsWritten: "MPa", code: null },
-              { kind: "LAP" as const, standing: "SUSPENDED" as const, canonical: null, unitAsWritten: null, code: "NOTE_READING_CONTESTED" as const },
+              { kind: "FY" as const, scopeClass: null, standing: "AGREED" as const, canonical: "500", unitAsWritten: "MPa", code: null },
+              { kind: "LAP" as const, scopeClass: null, standing: "SUSPENDED" as const, canonical: null, unitAsWritten: null, code: "NOTE_READING_CONTESTED" as const },
             ],
     },
   };

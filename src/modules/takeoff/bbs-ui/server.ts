@@ -12,6 +12,7 @@ import { bbsOf, type BbsDocument } from "@/modules/takeoff/rebar";
 import { manifestOfRevision } from "@/modules/takeoff/register-ui/server";
 import { entitySelectionOf, pinnedRecordsOf, type PinnedRecord } from "@/modules/takeoff/trace";
 import type { BbsParticulars } from "./emission";
+import { entryCoverageOf, type BbsLineStanding } from "./present";
 import type { BbsNotInSchedule, BbsOmission, BbsSheetSelection, BbsTraces, BbsView } from "./view";
 
 /** Which project's schedule is being read, in which workspace (SEAM-TENANT). */
@@ -58,6 +59,7 @@ export async function bbsViewOf(scope: BbsScope): Promise<BbsView> {
     document: document_,
     partial: declared.partial,
     omitted: declared.omitted,
+    entries: entryCoverageOf(document_, declared.lines),
     deferred: declared.deferred,
     notInSchedule: notInScheduleOf(measurementStatementOf(residue.cells)),
     traces,
@@ -135,7 +137,7 @@ export function notInScheduleOf(statement: Parameters<typeof notMeasuredRowsOf>[
  * whole schedule over a campaign whose bars are only part of the story, and the reader would never
  * learn what is missing from the figures in front of them (Decision §2).
  */
-async function partlyDeclared(tenantId: string, campaignId: string): Promise<{ partial: boolean; omitted: BbsOmission[]; deferred: string[] }> {
+async function partlyDeclared(tenantId: string, campaignId: string): Promise<{ partial: boolean; omitted: BbsOmission[]; deferred: string[]; lines: BbsLineStanding[] }> {
   const lines = await forTenant({ tenantId }).transaction((tx) =>
     tx
       .select({ objectKey: quantityLines.objectKey, coverage: quantityLines.coverage, omitted: quantityLines.omitted })
@@ -155,7 +157,14 @@ async function partlyDeclared(tenantId: string, campaignId: string): Promise<{ p
       if (variable !== null && LENGTH_TERMS.includes(variable) && !deferred.includes(line.objectKey)) deferred.push(line.objectKey);
     }
   }
-  return { partial: partly.length > 0, omitted: [...byCode.entries()].map(([code, components]) => ({ code, components })), deferred };
+  return {
+    partial: partly.length > 0,
+    omitted: [...byCode.entries()].map(([code, components]) => ({ code, components })),
+    deferred,
+    // Every line, whole or not, in its published order: an entry's own standing is read off its
+    // members' lines (s-bbs I-655), and a whole line is what lets an entry say COMPLETE.
+    lines: lines.map((line) => ({ objectKey: line.objectKey, coverage: line.coverage, omitted: omittedComponentsOf(line.omitted) })),
+  };
 }
 
 /**

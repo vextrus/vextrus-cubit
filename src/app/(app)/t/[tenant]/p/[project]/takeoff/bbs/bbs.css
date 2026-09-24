@@ -218,7 +218,8 @@
 
 /* An entry of storey-height runs says so after its count (I-567): a note on the row, muted
    like the count, so the floor, the class and the mark still lead. */
-.cx-bbs-member-run {
+.cx-bbs-member-run,
+.cx-bbs-member-left-out {
   color: var(--ink-muted);
   font-weight: var(--weight-body);
 }

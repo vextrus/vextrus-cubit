@@ -3,5 +3,5 @@
 //
 // Pure. Its home is `@/core/notes/standing`, because the act's own preview names a subject by the
 // key and reads what that key said before, and the act seam is core (ARCH-01).
-export { noteReadingKey, noteStanding } from "@/core/notes/standing";
-export type { NoteReadingRef, NoteStanding, ReadingOfNote } from "@/core/notes/standing";
+export { noteReadingKey, noteStanding, noteStandingsByScope } from "@/core/notes/standing";
+export type { NoteReadingRef, NoteStanding, ReadingOfNote, ScopedReadingOfNote } from "@/core/notes/standing";

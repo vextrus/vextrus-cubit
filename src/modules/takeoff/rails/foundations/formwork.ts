@@ -18,6 +18,7 @@
 import type { ElementType } from "@/core/catalogue/classes";
 import type { Kind } from "@/core/catalogue/kinds";
 import type { Measure, Offer, OmittedComponent, Rail, RailInput, RailObservation } from "@/core/offers/contract";
+import { sightedBy } from "@/core/offers/contract";
 import type { RailSetup } from "@/core/offers/contract";
 import { DEPTH, FOUNDATION_DEPTH_UNSTATED, FOUNDATION_PLAN_UNSTATED, PRISM_POLY, PRISM_RECT, SPREAD, capJunctionOf, countOf, dimensionOf, planOf, recessOf, resolve, type Read } from "./read";
 
@@ -93,7 +94,7 @@ function formworkOffer(read: Read, setup: RailSetup): Offer {
     class: row.elementType as ElementType,
     register: { setRevisionId: row.setRevisionId, objectKey: row.objectKey },
     drawing: { drawingId: placement.drawingId, viewKey: placement.viewKey },
-    engine: placement.engine,
+    ...sightedBy(placement),
     geometry: { type: poly ? PRISM_POLY : PRISM_RECT, basis: row.standing, calibration },
     bindings: { [COUNT]: countOf(read), ...bindings, ...(recess?.bindings ?? {}) },
     // Nothing selects a formwork item here: the member is the line's own class, which code already

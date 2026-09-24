@@ -11,6 +11,8 @@
 // `readFigure` is what put a value in the row, off the clause's own words, and a class whose reader
 // read nothing carries no figure at all.
 import { and, asc, desc, drawings, eq, ingests, isUuid, noteClauseProposals, type TenantTx } from "../db";
+import type { ElementType } from "../catalogue/classes";
+import { readFigure } from "./grammar";
 import type { NoteKind } from "./law";
 import type { NotesScope, SheetRef } from "./store";
 
@@ -27,6 +29,21 @@ export type NoteClauseOffer = {
   readonly governs: string | null;
   readonly callId: string;
 };
+
+/**
+ * An offer as a reader is handed one: the stored offer, and the class its clause scopes the figure to
+ * (I-652). The scope is not stored and not the model's: it is read by CODE off the clause's own
+ * words each time the offer is read, by the reader that read its figure (`readFigure`), so a model
+ * that classified `f'c = 3000 psi (BORED PILES)` offers the piles' strength and cannot offer
+ * anything else (L-AI-03).
+ */
+export type ScopedNoteClauseOffer = NoteClauseOffer & { readonly scopeClass: ElementType | null };
+
+/** The scope of one offer's figure, off its clause — null where it carries no figure or names no class. */
+export function scopeOfOffer(offer: Pick<NoteClauseOffer, "kind" | "clause" | "canonical">): ElementType | null {
+  if (offer.kind === null || offer.canonical === null) return null;
+  return readFigure(offer.kind, offer.clause)?.scopeClass ?? null;
+}
 
 /** One offer as the pass asks the store to write it, on the sheet it was read off. */
 export type NoteClauseOfferWrite = NoteClauseOffer & { readonly layoutName: string };
@@ -74,7 +91,7 @@ export async function currentIngestOf(tx: TenantTx, scope: NotesScope, drawingId
  * empty list: an offer nobody made is silence, and the surfaces above render silence as silence
  * (R-UI-050, L-MEA-01).
  */
-export async function noteClauseOffersOfSheet(tx: TenantTx, scope: NotesScope, sheet: SheetRef): Promise<NoteClauseOffer[]> {
+export async function noteClauseOffersOfSheet(tx: TenantTx, scope: NotesScope, sheet: SheetRef): Promise<ScopedNoteClauseOffer[]> {
   const ingestId = await currentIngestOf(tx, scope, sheet.drawingId);
   if (ingestId === null) return [];
   const held = await tx
@@ -90,7 +107,10 @@ export async function noteClauseOffersOfSheet(tx: TenantTx, scope: NotesScope, s
       ),
     )
     .orderBy(asc(noteClauseProposals.sourceKey), asc(noteClauseProposals.ordinal));
-  return held.map(offerOf);
+  return held.map((row) => {
+    const offer = offerOf(row);
+    return { ...offer, scopeClass: scopeOfOffer(offer) };
+  });
 }
 
 /**

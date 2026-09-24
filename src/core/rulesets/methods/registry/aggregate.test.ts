@@ -35,7 +35,15 @@ const byCodePoint = (left: string, right: string): number => (left < right ? -1 
 /**
  * Every pair the shards recorded before AM-11 moved a line, keyed `<ruleId>@<version>` (L-MEA-01).
  *
- * Re-baselined by FND-OWN (I-544..c) for SEVEN ADDED pairs and nothing else — L-MEA-09's pile ›
+ * Re-baselined by R6b (D-003, s-bbs I-656, I-657) for ONE ADDED pair and nothing else —
+ * `rcc.rebar.synthesis@2`, a column's ties derived from BNBC 2020's zones at the never-over bound and
+ * a stated lap bound outside the grade and mix contest, recorded in `../rebar/rebar.methods.json`
+ * from a new module, `synthesis-v2.ts`, so no standing pair's closure moved. The first rule the tree
+ * computes at two versions: the seed names the version it cites (`IN_FORCE_VERSIONS`) — @1 through
+ * `IS1200_IN @ 2027.05`, @2 from 2027.06 (OPEN-4). The roster grew by that one key — fifty-one pairs to fifty-two — and no pair
+ * standing before it moved (B-19, B-20).
+ *
+ * Re-baselined before that by FND-OWN (I-544..c) for SEVEN ADDED pairs and nothing else — L-MEA-09's pile ›
  * pile cap: `rcc.pile_cap.prism_rect@1` and `rcc.pile_cap.prism_poly@1`, a cap's prism less the heads
  * its piles own; their `_recess` twins, less the recess cast into it as well;
  * `rcc.pile_cap.formwork_rect_recess@1` and `rcc.pile_cap.formwork_poly_recess@1`, a cap's sides and
@@ -142,6 +150,7 @@ const PAIRS_BEFORE: readonly string[] = Object.freeze([
   "rcc.rebar.mass@1",
   "rcc.rebar.stock@1",
   "rcc.rebar.synthesis@1",
+  "rcc.rebar.synthesis@2",
   "rcc.slab.concrete@1",
   "rcc.slab.drop.concrete@1",
   "rcc.slab.drop.formwork@1",

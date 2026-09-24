@@ -72,6 +72,8 @@ import {
   type BarRowShape,
   type BbsDocumentShape,
   type DetailingSetupShape,
+  type JointReadingShape,
+  type MethodPairShape,
   type PlacementSetupShape,
   type RailInputShape,
   type RailSetupShape,
@@ -119,7 +121,13 @@ export type StagedRebarMember = {
   level: string;
   section: { b: number; d: number };
   mains: { n: number; diameterMm: number };
-  ties?: { diameterMm: number; spacingMm: number };
+  /**
+   * The tie a mark's schedule states: one spacing, or — where `midSpacingMm` is given — the pair
+   * `10Ø@100/150` states, staged as its end and middle zones (R6b).
+   */
+  ties?: { diameterMm: number; spacingMm: number; midSpacingMm?: number };
+  /** A member the plan calls round (I-304): its placement carries the plan note's shape. */
+  round?: boolean;
 };
 
 /** One level of the stack a case states, with the storey height authored for it. */
@@ -132,6 +140,10 @@ export type RebarStageOptions = {
   detailing: DetailingSetupShape | "door";
   /** The texts the staged sheet carries — the fixture's own general notes unless a case says otherwise. */
   notes?: readonly SheetText[];
+  /** The pairs the tenant template the project forks cites — the five at synthesis@1 unless a case pins @2 (R6b). */
+  pairs?: readonly MethodPairShape[];
+  /** Each member's top joint, as the joint seam would read it off placed framing (R6b); none where omitted. */
+  joints?: (member: StagedRebarMember) => JointReadingShape | undefined;
 };
 
 /** Everything a criterion driven over a real campaign is handed. */
@@ -157,6 +169,8 @@ export type RebarStage = {
   calibrations: Record<string, string>;
   /** The detailing a case stated, or null where it asked for the notes door's own answer. */
   stated: DetailingSetupShape | null;
+  /** The joints a case stated, by register object key, folded over the setup's own (R6b); null where none. */
+  joints: Record<string, JointReadingShape> | null;
 };
 
 /** What the measure job reported, and what the gate made of the batch it was handed. */
@@ -236,7 +250,7 @@ export async function stageRebarCampaign(label: string, members: readonly Staged
 
   const person = await enrol(`rebar-${label}`);
   const tenantId = person.tenantId;
-  await stageTenantTemplate(tenantId, REBAR_PAIRS);
+  await stageTenantTemplate(tenantId, options.pairs ?? REBAR_PAIRS);
   const projectId = await createProjectThroughDoor(person, unique(`Rebar ${label}`));
   const actor = actorOf(person) as { tenantId: string; userId: string; actorKind: string };
   // No role is granted here: L-ACT-03 has project creation install its creator as PRINCIPAL in the
@@ -297,6 +311,7 @@ export async function stageRebarCampaign(label: string, members: readonly Staged
   const placements: Record<string, PlacementSetupShape> = {};
   const memberTypes: Record<string, readonly VariantSetupShape[]> = {};
   const calibrations: Record<string, string> = {};
+  const joints: Record<string, JointReadingShape> = {};
   const byMark = new Map<string, Record<string, unknown>[]>();
   for (const row of rows) byMark.set(String(row["mark"]), [...(byMark.get(String(row["mark"])) ?? []), row]);
   const taken = new Map<string, number>();
@@ -318,10 +333,22 @@ export async function stageRebarCampaign(label: string, members: readonly Staged
       engine: "VECTOR",
       sourceEntity: placementKey,
       outline: null,
+      noteShape: member.round === true ? "ROUND" : null,
+      noteKey: null,
     };
     calibrations[viewKey] = CALIBRATION_KEY;
+    const joint = options.joints?.(member);
+    if (joint !== undefined) joints[String(known["objectKey"])] = joint;
     const zones: RebarZoneSetupShape[] = [zone({ zone: MAIN_ZONE, bars: [{ n: member.mains.n, diameterMm: member.mains.diameterMm }], sourceKeys: [`${BNBC_MODEL}#${member.id}.main`] })];
-    if (member.ties !== undefined) {
+    if (member.ties !== undefined && member.ties.midSpacingMm !== undefined) {
+      // The pair a column schedule states (`10Ø@100/150`), end and middle — still no zone LENGTH, which
+      // synthesis@2 derives under D-003 and @1 declares unstated (R6b).
+      const cites = [`${BNBC_MODEL}#${member.id}.ties`];
+      zones.push(
+        zone({ zone: "ties-end", spacing: member.ties.spacingMm, spacingUnit: "mm", spacingBar: member.ties.diameterMm, sourceKeys: cites }),
+        zone({ zone: "ties-mid", spacing: member.ties.midSpacingMm, spacingUnit: "mm", spacingBar: member.ties.diameterMm, sourceKeys: cites }),
+      );
+    } else if (member.ties !== undefined) {
       // A spacing and no zone length: BNBC's confinement zone is a typical detail nobody has read,
       // and the rail is owed the absence rather than a length this stage invented (scope).
       zones.push(zone({ zone: TIES_ZONE, spacing: member.ties.spacingMm, spacingUnit: "mm", spacingBar: member.ties.diameterMm, sourceKeys: [`${BNBC_MODEL}#${member.id}.ties`] }));
@@ -351,6 +378,7 @@ export async function stageRebarCampaign(label: string, members: readonly Staged
     memberTypes,
     calibrations,
     stated: options.detailing === "door" ? null : options.detailing,
+    joints: options.joints === undefined ? null : joints,
   };
 }
 
@@ -373,6 +401,25 @@ export async function transcribeNotes(stage: RebarStage, readings: readonly Stag
     return noteReading(one.kind, String(sourceKey), one.valueAsWritten, one.unitAsWritten);
   });
   await performNoteAct(stage.actor as never, transcription({ projectId: stage.projectId, sheet: { drawingId: stage.sheet.drawingId, layoutName: stage.sheet.layoutName } }, stated));
+}
+
+/**
+ * Keep EVERY figure the product's grammar proposes off the staged sheet, as proposed — what the
+ * schedules screen's one door does — through TRANSCRIBE_SHEET_NOTES. A reading named in `scoped`
+ * (by source key) is kept under the scope stated there instead of the sheet's own (I-652).
+ */
+export async function transcribeEveryProposal(stage: RebarStage, scoped: Readonly<Record<string, string | null>> = {}): Promise<Record<string, unknown>[]> {
+  const door = await notesDoor();
+  const texts = await door.sheetTextsOf({ tenantId: stage.tenantId, projectId: stage.projectId, drawingId: stage.sheet.drawingId }, stage.sheet.layoutName);
+  const proposals = door.proposeNotes(texts) as Record<string, unknown>[];
+  expect(proposals.length, "the staged sheet proposes figures to keep").toBeGreaterThan(0);
+  const kept = proposals.map((proposal) => {
+    const sourceKey = String(proposal["sourceKey"]);
+    const one = noteReading(String(proposal["kind"]), sourceKey, String(proposal["valueAsWritten"]), String(proposal["unitAsWritten"]));
+    return sourceKey in scoped ? { ...one, scopeClass: scoped[sourceKey] ?? null } : one;
+  });
+  await performNoteAct(stage.actor as never, transcription({ projectId: stage.projectId, sheet: { drawingId: stage.sheet.drawingId, layoutName: stage.sheet.layoutName } }, kept));
+  return proposals;
 }
 
 /** What the ONE door answers for this campaign's revision (inc-303, goal). */
@@ -461,6 +508,9 @@ export async function measure(stage: RebarStage): Promise<MeasuredCampaign> {
     Object.assign(input.setup.memberTypes, { [stage.sheet.ingestId]: { ...(input.setup.memberTypes[stage.sheet.ingestId] ?? {}), ...stage.memberTypes } });
     Object.assign(input.setup.calibrations, { [stage.sheet.ingestId]: { ...(input.setup.calibrations[stage.sheet.ingestId] ?? {}), ...stage.calibrations } });
     if (stage.stated !== null) Object.assign(input.setup, { detailing: stage.stated });
+    // The joints a case stated stand in for the partition's placed framing, which this stage does not
+    // place; the setup's own reading of the staged register (every column UNREAD) is folded under them.
+    if (stage.joints !== null) Object.assign(input.setup, { joints: { ...(input.setup.joints ?? {}), ...stage.joints } });
     seen.input = input;
     const batch = (rail as unknown as (one: RailInputShape) => { offers: Record<string, unknown>[]; observations: Record<string, unknown>[] })(input);
     seen.offers = [...batch.offers];

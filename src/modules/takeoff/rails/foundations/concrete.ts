@@ -15,6 +15,7 @@
 import type { ElementType } from "@/core/catalogue/classes";
 import type { Kind } from "@/core/catalogue/kinds";
 import type { GeometryType, Measure, Offer, OmittedComponent, Rail, RailInput, RailObservation, RailSetup } from "@/core/offers/contract";
+import { sightedBy } from "@/core/offers/contract";
 import {
   DEPTH,
   DIA,
@@ -98,7 +99,7 @@ function offerOf(
     class: row.elementType as ElementType,
     register: { setRevisionId: row.setRevisionId, objectKey: row.objectKey },
     drawing: { drawingId: placement.drawingId, viewKey: placement.viewKey },
-    engine: placement.engine,
+    ...sightedBy(placement),
     geometry: { type: stated.geometry, basis: row.standing, calibration },
     bindings: { [COUNT]: countOf(read), ...stated.bindings },
     selectors: stated.selectors,

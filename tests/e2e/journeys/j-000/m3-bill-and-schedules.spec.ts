@@ -11,7 +11,7 @@
  * opens it with exceljs: its Summary, its section sheets named by ordinal, A-BOQ-XLSX's seven columns,
  * the live Amount formula over an empty Rate, the frozen header, and the Quantities sheet with every
  * published line's bases, coverage, source sheet and formula. The bar schedule — the other half of
- * AM-17's emission segment, which m3-bar-schedule.spec.ts claims — waits there on the column ties.
+ * AM-17's emission segment — is walked in m3-bar-schedule.spec.ts.
  *
  * WHAT IS COMPARED, AND AGAINST WHAT (L-QTY-06, L-QTY-07, AM-01). A numeric assertion names its
  * roster, and this one is DERIVED, never typed: the COMPARED cells are the (class, kind, level) cells
@@ -464,7 +464,7 @@ test.describe.serial("J-000 — Golden Path: M3's documents on F-RCC6-BNBC", () 
    * to the member it weighs: the first bar row's Mass cell is pressed as a reader presses it, and the
    * sheet it opens must paint, fly, and hold every key the address named — the members' outlines and
    * marks — with nothing missing from the sheet. The figure itself is not compared here: it is the
-   * schedule's own, and its band is m3-bar-schedule's (held on the ties, D-003).
+   * schedule's own, and its band is m3-bar-schedule's (released by R6-LEG under D-003).
    */
   test("J-000 m3-bill-and-schedules: one bar-schedule mass flies to the member it weighs, with nothing missing from the sheet", async ({ page }, testInfo) => {
     test.setTimeout(600_000);

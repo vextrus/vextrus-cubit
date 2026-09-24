@@ -7,6 +7,7 @@
 import type { ElementType } from "@/core/catalogue/classes";
 import type { Kind } from "@/core/catalogue/kinds";
 import type { GeometryType, Measure, Offer, OmittedComponent, Rail, RailInput, RailObservation, RailSetup } from "@/core/offers/contract";
+import { sightedBy } from "@/core/offers/contract";
 import { DIA, DIAMETER, LENGTH, PILE, PILE_LENGTH_UNSTATED, PRISM_POLY, countOf, dimensionOf, resolve, type Read } from "./read";
 
 /** The rules these rails offer under. An offer names a rule and never a version (L-MEA-08). */
@@ -33,7 +34,7 @@ function offerOf(read: Read, kind: Kind, ruleId: string, bindings: Record<string
     class: PILE,
     register: { setRevisionId: row.setRevisionId, objectKey: row.objectKey },
     drawing: { drawingId: placement.drawingId, viewKey: placement.viewKey },
-    engine: placement.engine,
+    ...sightedBy(placement),
     geometry: { type: PILE_GEOMETRY, basis: row.standing, calibration },
     bindings: { [COUNT]: countOf(read), ...bindings },
     selectors,

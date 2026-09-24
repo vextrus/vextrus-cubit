@@ -45,6 +45,7 @@ const FY: ProposalView = {
   valueAsWritten: "500 MPa",
   unitAsWritten: "MPa",
   canonical: "500",
+  scopeClass: null,
   proposedBy: "grammar",
   callId: null,
   governs: null,
@@ -65,6 +66,7 @@ function readAt(proposal: ProposalView, at: number): ReadingView {
     canonical: proposal.canonical,
     basis: "TRANSCRIBED",
     acceptance: "ACCEPTED",
+    scopeClass: null,
     actId: `7c2f0b3c-6666-4666-8666-66666666666${String(at)}`,
     superseded: false,
   };
@@ -218,3 +220,58 @@ describe("I-563: a refusal at this door links where it is resolved", () => {
     expect(link.getAttribute("href")).toBe(ADDRESSES.participants);
   });
 });
+
+describe("I-652: a figure scoped to a class says so, and is kept with its scope", () => {
+  const PILE: ProposalView = { ...FY, kind: "FC", sourceKey: "DXF_HANDLE:1F42", text: "f'c = 3000 psi (BORED PILES)", valueAsWritten: "3000 psi", unitAsWritten: "psi", canonical: "3000", scopeClass: "pile" };
+  const CYLINDER: ProposalView = { ...FY, kind: "FC", sourceKey: "DXF_HANDLE:1F41", text: "f'c = 3500 psi (24 MPa) cylinder", valueAsWritten: "3500 psi", unitAsWritten: "psi", canonical: "3500" };
+
+  function scoped(readings: ReadingView[]): SchedulesView {
+    const sheet: SheetView = {
+      drawingId: DRAWING,
+      layoutName: LAYOUT,
+      kind: "paper",
+      schedules: [],
+      deferrals: [],
+      families: [],
+      notes: {
+        proposals: [CYLINDER, PILE],
+        readings,
+        standings: [
+          { kind: "FC", scopeClass: null, standing: "AGREED", canonical: "3500", unitAsWritten: "psi", code: null },
+          { kind: "FC", scopeClass: "pile", standing: "AGREED", canonical: "3000", unitAsWritten: "psi", code: null },
+        ],
+      },
+    };
+    return { projectId: PROJECT, setRevisionId: REVISION, sheets: [sheet] };
+  }
+
+  test("the proposal shows its clause whole and the class it applies to; the standings say one figure per scope", () => {
+    const root = mount(scoped([]), neverAsked);
+    const pile = root.querySelector<HTMLElement>(`${testIdSelector(TESTIDS.schedules.proposal)}[data-scope="pile"]`);
+    expect(pile?.textContent ?? "", "As written is the clause the sheet shows, parenthetical and all").toContain("f'c = 3000 psi (BORED PILES)");
+    expect(pile?.textContent ?? "", "and it says whose figure it is").toContain(`${SCHEDULES_COPY.schedules_proposal_applies_label}`);
+    expect(pile?.textContent ?? "").toContain("Pile");
+    const cylinder = root.querySelector<HTMLElement>(`${testIdSelector(TESTIDS.schedules.proposal)}[data-scope=""]`);
+    expect(cylinder?.textContent ?? "", "an unscoped figure applies to every member").toContain(SCHEDULES_COPY.schedules_scope_all);
+
+    const standings = Array.from(root.querySelectorAll<HTMLElement>(testIdSelector(TESTIDS.schedules.standing)));
+    expect(standings.map((one) => `${one.dataset["scope"] ?? ""}|${one.dataset["standing"] ?? ""}`), "two answers for two scopes, neither suspended").toEqual(["|AGREED", "pile|AGREED"]);
+    expect(standings[0]?.textContent ?? "", "the unscoped one is every OTHER member's, beside the piles'").toContain(SCHEDULES_COPY.schedules_scope_others);
+  });
+
+  test("a reading kept for every class before scopes were read is not the sheet's reading: the door opens, and the preview keeps the piles' scope", async () => {
+    const legacy: ReadingView = { ...readAt(PILE, 1), scopeClass: null };
+    const kept: unknown[] = [];
+    const root = mount(scoped([readAt(CYLINDER, 2), legacy]), (request) => {
+      kept.push(request);
+      return Promise.reject(refusal("ACT_CHANGES_NOTHING", "answered so the dialog stays shut"));
+    });
+    const open = door(root);
+    expect(open.tagName, "the unscoped 3000 is re-read as the piles' — a move the door records").toBe("BUTTON");
+    fireEvent.click(open);
+    await waitFor(() => expect(kept.length).toBe(1));
+    const readings = ((kept[0] as { input: { readings: { sourceKey: string; scopeClass?: unknown }[] } }).input.readings ?? []).map((one) => `${one.sourceKey}|${String(one.scopeClass)}`);
+    expect(readings, "each figure is kept under the scope its row said").toEqual(["DXF_HANDLE:1F41|null", "DXF_HANDLE:1F42|pile"]);
+  });
+});
+

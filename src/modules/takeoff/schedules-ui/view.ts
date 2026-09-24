@@ -4,6 +4,7 @@
 //
 // Nothing here is a count of members. L-CAD-08 forbids a schedule's rows being read as a quantity, so
 // no field of this value is a number of anything a bill could carry (I-251).
+import type { ElementType } from "@/core/catalogue/classes";
 import type { PrintedQuantityRefusal } from "@/core/errors";
 import type { NoteProposal } from "@/core/notes/grammar";
 import type { NoteContestedCode, NoteKind, NoteStandingName } from "@/core/notes/law";
@@ -119,12 +120,14 @@ export type FamilyView = {
 export type ReadingView = NoteReadingRow & { readonly superseded: boolean };
 
 /**
- * How one kind stands over every reading made of it on this sheet (L-REG-03). A SUSPENDED standing
- * carries NO figure and names the code its absence is refused under: a number printed beside the word
- * *suspended* is the claim the suspension denies (I-253).
+ * How one kind stands over every reading made of it on this sheet, in one scope (L-REG-03, I-652).
+ * A SUSPENDED standing carries NO figure and names the code its absence is refused under: a number
+ * printed beside the word *suspended* is the claim the suspension denies (I-253).
  */
 export type StandingView = {
   readonly kind: NoteKind;
+  /** The element class this standing is the figure for, or null for every class no scoped figure speaks for. */
+  readonly scopeClass: ElementType | null;
   readonly standing: NoteStandingName;
   readonly canonical: string | null;
   readonly unitAsWritten: string | null;

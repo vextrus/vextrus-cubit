@@ -89,6 +89,12 @@ function agree(left: ReadingOfNote, right: ReadingOfNote): boolean {
  * so a reader sees the competing readings in the order the sheet acquired them.
  */
 export function noteStanding<R extends ReadingOfNote>(readings: readonly R[]): NoteStanding<R> {
+  const { current, superseded } = currentOf(readings);
+  return standingOver(current, superseded);
+}
+
+/** Each key's latest reading, and every reading a later one under the same key superseded. */
+function currentOf<R extends ReadingOfNote>(readings: readonly R[]): { readonly current: R[]; readonly superseded: R[] } {
   const latest = new Map<string, R>();
   const superseded: R[] = [];
   for (const reading of readings) {
@@ -96,9 +102,43 @@ export function noteStanding<R extends ReadingOfNote>(readings: readonly R[]): N
     if (standing !== undefined) superseded.push(standing);
     latest.set(reading.readingKey, reading);
   }
-  const current = [...latest.values()];
+  return { current: [...latest.values()], superseded };
+}
 
-  if (current.length === 0) return { standing: "NONE", canonical: null, unitAsWritten: null, code: null, current: [], superseded };
+/** A reading as a scoped standing reads one: the two facts, and the class its note scoped it to. */
+export type ScopedReadingOfNote = ReadingOfNote & { readonly scopeClass: string | null };
+
+/**
+ * How one kind stands in each SCOPE its readings were made under (Interpretation I-652): the
+ * readings scoped to one element class compete among themselves, and the unscoped ones among
+ * themselves. `f'c = 3000 psi (BORED PILES)` beside `f'c = 3500 psi` is two figures for two scopes,
+ * not a disagreement — and two unscoped readings that differ still suspend exactly as before.
+ *
+ * Supersession is judged over EVERY reading first, whatever its scope: a re-reading under the same key
+ * that scopes the figure differently supersedes the earlier reading in the scope it left, so a note
+ * first read unscoped and then read again as the piles' leaves no unscoped figure behind (R-TO-051).
+ * The map's keys keep their first-appearance order among the current readings; `null` is unscoped.
+ */
+export function noteStandingsByScope<R extends ScopedReadingOfNote>(readings: readonly R[]): Map<string | null, NoteStanding<R>> {
+  const { current, superseded } = currentOf(readings);
+  const scopes = new Map<string | null, R[]>();
+  for (const reading of current) scopes.set(reading.scopeClass, [...(scopes.get(reading.scopeClass) ?? []), reading]);
+  const standings = new Map<string | null, NoteStanding<R>>();
+  for (const [scope, held] of scopes) {
+    standings.set(
+      scope,
+      standingOver(
+        held,
+        superseded.filter((reading) => reading.scopeClass === scope),
+      ),
+    );
+  }
+  return standings;
+}
+
+/** How one kind stands over the readings current in one scope. */
+function standingOver<R extends ReadingOfNote>(current: readonly R[], superseded: readonly R[]): NoteStanding<R> {
+  if (current.length === 0) return { standing: "NONE", canonical: null, unitAsWritten: null, code: null, current: [], superseded: [...superseded] };
 
   // Agreement is judged among ALL the current readings: one that disagrees with the rest suspends
   // the figure rather than correcting it, because a correction that carried the day by being
@@ -106,7 +146,7 @@ export function noteStanding<R extends ReadingOfNote>(readings: readonly R[]): N
   // re-reading under its own key, which supersedes the reading it corrects.
   const stands = current[0] as R;
   if (current.some((reading) => !agree(reading, stands))) {
-    return { standing: "SUSPENDED", canonical: null, unitAsWritten: null, code: CONTESTED, current, superseded };
+    return { standing: "SUSPENDED", canonical: null, unitAsWritten: null, code: CONTESTED, current: [...current], superseded: [...superseded] };
   }
-  return { standing: "AGREED", canonical: stands.canonical, unitAsWritten: stands.unitAsWritten, code: null, current, superseded };
+  return { standing: "AGREED", canonical: stands.canonical, unitAsWritten: stands.unitAsWritten, code: null, current: [...current], superseded: [...superseded] };
 }

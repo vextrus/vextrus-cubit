@@ -114,6 +114,8 @@ describe("AC-4: the door answers what the campaign applies, and a note mints no 
         hookExtension: { multiplier: null, minimumMm: 100 },
         sourceKeys: keysInKindOrder,
         suspended: [],
+        // No reading scoped a figure to a class, so no class answers values of its own (I-652).
+        byClass: {},
       });
       expect(Object.keys(applied), "nothing transcribed a concrete strength, so the answer carries no `fc` at all (L-MEA-01)").not.toContain("fc");
     },
@@ -141,7 +143,7 @@ describe("AC-4: the door answers what the campaign applies, and a note mints no 
       const door = await notesDoor();
       const unread = await stageNotes("unread");
       const applied = await door.appliedDetailingValuesOf({ tenantId: unread.tenantId, projectId: unread.projectId, setRevisionId: unread.setRevisionId });
-      expect(applied, "no note read, no figure applied, and the absence stated as the absence it is").toEqual({ sourceKeys: [], suspended: [] });
+      expect(applied, "no note read, no figure applied, and the absence stated as the absence it is").toEqual({ sourceKeys: [], suspended: [], byClass: {} });
     },
     BUDGET_MS,
   );

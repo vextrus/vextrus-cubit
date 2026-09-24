@@ -145,6 +145,23 @@ describe("AC-2: the view S-BBS is drawn from is the project's own campaign, decl
       // lines — exactly those that left their laps or their run out, and here the notes state a 50d lap.
       const deferred = lines.filter((line) => omittedOf(line).some((one) => one.variable === "lap" || one.variable === "net")).map((line) => said(line, "objectKey", "object_key"));
       expect([...(view.deferred ?? [])].sort(), "the view defers exactly the members whose lines left a length term out").toEqual([...new Set(deferred)].sort());
+      // s-bbs I-655: each entry states the standing of its OWN members' lines — COMPLETE only
+      // where every one is whole — and the codes they state, read back here from the stored lines.
+      const entries = (view as { entries?: Record<string, { coverage: string; omitted: { code: string; components: string[] }[] }> }).entries ?? {};
+      const document_ = view.document as BbsDocumentShape;
+      const entryKeys = [...new Set(document_.rows.map((row) => row.objectKey))];
+      expect(Object.keys(entries).sort(), "every entry of the schedule states its standing, and nothing else does").toEqual([...entryKeys].sort());
+      const lineOf = new Map(lines.map((line) => [said(line, "objectKey", "object_key"), line]));
+      for (const row of document_.rows) {
+        const members = row.members.length > 0 ? row.members : [row.objectKey];
+        const own = members.map((member) => lineOf.get(member));
+        const whole = own.every((line) => line !== undefined && said(line, "coverage", "coverage") === "COMPLETE");
+        const codes = [...new Set(own.flatMap((line) => (line === undefined ? [] : omittedOf(line).map((one) => one.code))))].sort();
+        expect(entries[row.objectKey]?.coverage, `${row.objectKey}: the entry is whole exactly where its members' stored lines are`).toBe(whole ? "COMPLETE" : PARTIAL_DECLARED);
+        expect(entries[row.objectKey]?.omitted.map((one) => one.code).sort(), `${row.objectKey}: and names the codes those lines stored`).toEqual(codes);
+      }
+      expect(Object.values(entries).some((entry) => entry.coverage === PARTIAL_DECLARED), "the staged campaign holds an entry that is not whole, so a default could not pass").toBe(partly > 0);
+
       // I-569: the steel no line was published for is the statement's own rebar rows, in words.
       expect(Array.isArray(view.notInSchedule), "the view carries the steel no line was published for").toBe(true);
       for (const row of view.notInSchedule ?? []) {

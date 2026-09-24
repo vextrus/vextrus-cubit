@@ -115,12 +115,22 @@ export const SYNTHESIS_PAIR: MethodPairShape = Object.freeze({ ruleId: "rcc.reba
 export const MASS_PAIR: MethodPairShape = Object.freeze({ ruleId: "rcc.rebar.mass", version: "1" });
 export const REBAR_PAIRS: readonly MethodPairShape[] = Object.freeze([DETAILING_EDITION_PAIR, CUTTING_LENGTH_PAIR, STOCK_PAIR, SYNTHESIS_PAIR, MASS_PAIR]);
 
-/** The names the registry shard publishes its five pairs under (interfaces). */
+/** The synthesis at version 2 (R6b): a column's ties under D-003 and R2's stated lap. In force from the platform edition 2027.06 (OPEN-4). */
+export const SYNTHESIS_V2_PAIR: MethodPairShape = Object.freeze({ ruleId: "rcc.rebar.synthesis", version: "2" });
+
+/** The five pairs with the synthesis at version 2 — what a campaign pinned to a @2 edition cites. */
+export const REBAR_PAIRS_V2: readonly MethodPairShape[] = Object.freeze([DETAILING_EDITION_PAIR, CUTTING_LENGTH_PAIR, STOCK_PAIR, SYNTHESIS_V2_PAIR, MASS_PAIR]);
+
+/** Every pair the shard records: the five in force and the synthesis's second version beside them. */
+export const REBAR_SHARD_PAIRS: readonly MethodPairShape[] = Object.freeze([...REBAR_PAIRS, SYNTHESIS_V2_PAIR]);
+
+/** The names the registry shard publishes its six pairs under (interfaces). */
 export const PAIR_CONSTANTS: Readonly<Record<string, MethodPairShape>> = Object.freeze({
   DETAILING_EDITION_METHOD: DETAILING_EDITION_PAIR,
   CUTTING_LENGTH_METHOD: CUTTING_LENGTH_PAIR,
   STOCK_METHOD: STOCK_PAIR,
   SYNTHESIS_METHOD: SYNTHESIS_PAIR,
+  SYNTHESIS_V2_METHOD: SYNTHESIS_V2_PAIR,
   MASS_METHOD: MASS_PAIR,
 });
 
@@ -139,7 +149,24 @@ export const REBAR_SCHEDULE_UNREAD = "REBAR_SCHEDULE_UNREAD";
 export const REBAR_TIE_ZONE_UNSTATED = "REBAR_TIE_ZONE_UNSTATED";
 export const REBAR_STOREY_RUN_UNSTATED = "REBAR_STOREY_RUN_UNSTATED";
 export const NOTE_READING_CONTESTED = "NOTE_READING_CONTESTED";
-export const REBAR_CODES: readonly string[] = Object.freeze([DETAILING_ROW_NOT_IN_EDITION, REBAR_SCHEDULE_UNREAD, REBAR_TIE_ZONE_UNSTATED, REBAR_STOREY_RUN_UNSTATED]);
+
+/** R6b's three (D-003, A′): the ties counted at the joint's bound, the ties of an unread joint, and the neck's unstated anchorage. */
+export const REBAR_TIE_JOINT_BOUNDED = "REBAR_TIE_JOINT_BOUNDED";
+export const REBAR_TIE_JOINT_UNREAD = "REBAR_TIE_JOINT_UNREAD";
+export const REBAR_ANCHORAGE_UNSTATED = "REBAR_ANCHORAGE_UNSTATED";
+
+/** A bar in a shape the BS 8666 roster does not hold (s-bbs I-596) — a round column's hoops under @2. */
+export const BAR_SHAPE_NOT_HELD = "BAR_SHAPE_NOT_HELD";
+
+export const REBAR_CODES: readonly string[] = Object.freeze([
+  DETAILING_ROW_NOT_IN_EDITION,
+  REBAR_SCHEDULE_UNREAD,
+  REBAR_TIE_ZONE_UNSTATED,
+  REBAR_STOREY_RUN_UNSTATED,
+  REBAR_TIE_JOINT_BOUNDED,
+  REBAR_TIE_JOINT_UNREAD,
+  REBAR_ANCHORAGE_UNSTATED,
+]);
 
 /** The store the bar rows stand in, and the key it holds them under (interfaces, AC-1). */
 export const BAR_ROWS_TABLE = "bar_rows";
@@ -272,6 +299,8 @@ export type DetailingSetupShape = {
   hookExtension: { multiplier: number | null; minimumMm: number | null } | null;
   suspended: readonly string[];
   sourceKeys: readonly string[];
+  /** A class's own values where a note scoped a figure to it (I-652); absent or empty where none did. */
+  byClass?: Readonly<Record<string, Omit<DetailingSetupShape, "byClass">>>;
 };
 
 /** One reinforcement zone a schedule states for a variant (interfaces: `RebarZoneSetup`). */
@@ -299,7 +328,7 @@ export type VariantSetupShape = {
 };
 
 /** One placement of the read-only setup, keyed by its placement key (`RailSetup.placements`). */
-export type PlacementSetupShape = { drawingId: string; ingestId: string; viewKey: string; memberFamily: string | null; engine: string; sourceEntity: string; outline: unknown };
+export type PlacementSetupShape = { drawingId: string; ingestId: string; viewKey: string; memberFamily: string | null; engine: string; sourceEntity: string; outline: unknown; noteShape?: string | null; noteKey?: string | null };
 
 /** How one level's storey height stands in the setup (L-MEA-07). */
 export type HeightSetupShape = { standing: string; value: string | null; unit: string | null; basis: string | null; sourceKey: string | null };
@@ -319,9 +348,19 @@ export type RailSetupShape = {
   walls: Record<string, unknown>;
   surfaces: Record<string, unknown>;
   siteFacts: Record<string, unknown>;
-  edition: { digest: string; parameters: Record<string, { value: string; unit: string }> };
+  edition: { digest: string; parameters: Record<string, { value: string; unit: string }>; methods?: readonly MethodPairShape[] };
   detailing: DetailingSetupShape;
+  /** Each column's top joint, by the column's object key (`RailSetup.joints`, s-bbs I-413). */
+  joints?: Record<string, JointReadingShape>;
 };
+
+/** One framing member a joint was bounded by (`JointFramer`). */
+export type JointFramerShape = { objectKey: string; placementKey: string; family: string; depth: MeasureShape; depthMm: string };
+
+/** How one column's top joint stands (`JointReading`): BOUNDED at D_lo, or UNREAD by name. */
+export type JointReadingShape =
+  | { standing: "BOUNDED"; levelId: string; depthMm: string; deepest: JointFramerShape; framing: JointFramerShape[]; depthUnread: { objectKey: string; placementKey: string; code: string }[] }
+  | { standing: "UNREAD"; unread: "LEVEL" | "OUTLINE" | "FRAMING" | "DEPTH"; levelId: string | null; depthUnread: { objectKey: string; placementKey: string; code: string }[] };
 
 /** What a rail is asked (`RailInput`). */
 export type RailInputShape = { campaignId: string; setRevisionId: string; kind: string; objects: readonly Record<string, unknown>[]; setup: RailSetupShape };
