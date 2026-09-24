@@ -1,6 +1,7 @@
-// How a text record is lettered on the sheet (R-UI-040, L-CAD-05 v3, Decision I-462): the
-// lines its words are drawn as, each glyph at the record's own cap height and the face's own
-// advance, the run turned by the text's world rotation and set so that its anchor stands where the
+// How a text record is lettered on the sheet (R-UI-040, L-CAD-05 v3, Decisions I-462 and
+// I-648): the lines its words are drawn as, each at the record's own cap height and at the
+// width the drawing's lettering gives it (`DRAWN_ADVANCE`), the face's glyphs set evenly along that
+// run, the run turned by the text's world rotation and set so that its anchor stands where the
 // drawing says it does — the start, middle or end of the run; the baseline, the descenders, the
 // middle or the cap top of the block.
 //
@@ -9,6 +10,7 @@
 // answers (B-17). The face is handed in: the painter measures the one it letters in, and a box read
 // where no face can be measured (the index's worker, a server) takes `NOMINAL_FACE`.
 import { MTEXT_LINE_PITCH, displayLines } from "@/core/entitygraph/text";
+import { DRAWN_ADVANCE_UNITS, DRAWN_UNITS } from "./drawn-advance";
 import type { RenderRecord, TextJustify } from "./types";
 
 /** A point in drawing units. */
@@ -38,10 +40,10 @@ export type Face = {
  * The face a box is read with where none can be measured: the product's own mono face, Spline Sans
  * Mono (`src/ui/fonts/`, 2000 units to the em), by the file's own figures — a capital stands 1454
  * units, every character advances 1200 (0.825 of a cap), an H's ink runs from 134 to 1066, and the
- * deepest descender (j) reaches 462 below the baseline. So the box the index, a hit, a marquee and a
- * fly-to read is the box the painter letters in once it has measured that face (I-462 (5)),
- * never a nominal few per cent wider. Every character is a capital's ink box, which is what a
- * drawing's lettering almost wholly is.
+ * deepest descender (j) reaches 462 below the baseline. A line's length is the drawn run whatever the
+ * face (I-648), so the face says only how deep a block's descenders reach, and the box the
+ * index, a hit, a marquee and a fly-to read is the box the painter letters (I-462 (5)). Every
+ * character is a capital's ink box, which is what a drawing's lettering almost wholly is.
  */
 export const MONO_UNITS = Object.freeze({ cap: 1454, advance: 1200, inkLeft: 134, inkRight: 1066, descender: 462 });
 const NOMINAL_SHAPE: GlyphShape = Object.freeze({
@@ -52,6 +54,20 @@ const NOMINAL_SHAPE: GlyphShape = Object.freeze({
   descent: 0,
 });
 export const NOMINAL_FACE: Face = Object.freeze({ shapeOf: () => NOMINAL_SHAPE, descent: MONO_UNITS.descender / MONO_UNITS.cap });
+
+/** How far the pen moves after a character, in cap heights. */
+export type Advance = (character: string) => number;
+
+/**
+ * The advance a drawing's text is lettered at (Decision I-648): DejaVu Sans's — Bitstream
+ * Vera's metrics — with the capital A standing the text's height and no kerning: the face ezdxf's
+ * drawing lane (the picture `drawing_render` paints) letters a drawing's text in where the style's
+ * own font is not installed, which a drawing's named fonts (an Autodesk shape file, a licensed
+ * TrueType) never are for the product. So a run is as long as that picture draws it, whatever face
+ * the painter letters in. The table (`./drawn-advance`) is generated from the face through ezdxf's
+ * own renderer; a character it does not hold advances as the face's missing glyph.
+ */
+export const DRAWN_ADVANCE: Advance = (character) => (DRAWN_ADVANCE_UNITS[character] ?? DRAWN_UNITS.missing) / DRAWN_UNITS.cap;
 
 /** One glyph as it is laid: the character, and its ink quad's four world corners — bottom left, bottom right, top right, top left. */
 export type GlyphSink = (character: string, corners: readonly [number, number, number, number, number, number, number, number]) => void;
@@ -81,9 +97,9 @@ function lineStart(x: TextJustify["x"], width: number): number {
 }
 
 /** One line's run, in cap heights: the sum of its characters' advances. */
-function runOf(line: string, face: Face): number {
+function runOf(line: string, advance: Advance): number {
   let run = 0;
-  for (const character of line) run += face.shapeOf(character).advance;
+  for (const character of line) run += advance(character);
   return run;
 }
 
@@ -92,15 +108,21 @@ function runOf(line: string, face: Face): number {
  * outline and cap height answered. Null for a record that is no text, stands nowhere, or has no
  * height to letter at — nothing of it can be drawn or framed.
  *
+ * Each line runs as long as the drawing letters it (`drawn`; `DRAWN_ADVANCE` unless a caller states
+ * another), and the face's glyphs are set along it evenly: every advance and ink box of the line
+ * scaled across by one factor, the drawn run over the face's own, as a style's width factor condenses
+ * a run. So a line starts and ends where the drawing's does, and a face wider than the drawing's
+ * never carries its words into the next text. The height is never scaled by it.
+ *
  * A fitted text (DXF "aligned" or "fit") runs from its anchor to its second point, turned along them:
  * its advances are stretched to the distance, and its height with them where the drawing scales it.
  */
-export function letter(record: RenderRecord, face: Face, sink?: GlyphSink): Lettering | null {
+export function letter(record: RenderRecord, face: Face, sink?: GlyphSink, drawn: Advance = DRAWN_ADVANCE): Lettering | null {
   const height = record.height ?? 0;
   const anchor = record.anchor;
   if (record.text === undefined || anchor === undefined || !(height > 0) || !Number.isFinite(height)) return null;
   const lines = displayLines(record.text, record.type);
-  const runs = lines.map((line) => runOf(line, face));
+  const runs = lines.map((line) => runOf(line, drawn));
 
   let turn = (record.rotation ?? 0) * DEGREES;
   let across = height;
@@ -134,12 +156,15 @@ export function letter(record: RenderRecord, face: Face, sink?: GlyphSink): Lett
     if (start + width > maxX) maxX = start + width;
     if (sink === undefined) return;
     const y = baseline - at * pitch;
+    // The face's glyphs set evenly along the drawn run: one factor across for the whole line.
+    const own = runOf(line, (character) => face.shapeOf(character).advance);
+    const along = own > 0 ? width / own : across;
     let pen = start;
     for (const character of line) {
       const shape = face.shapeOf(character);
       if (shape.right > shape.left && shape.ascent + shape.descent > 0) {
-        const left = pen + shape.left * across;
-        const right = pen + shape.right * across;
+        const left = pen + shape.left * along;
+        const right = pen + shape.right * along;
         const bottom = y - shape.descent * up;
         const top = y + shape.ascent * up;
         sink(character, [
@@ -153,7 +178,7 @@ export function letter(record: RenderRecord, face: Face, sink?: GlyphSink): Lett
           worldY(left, top),
         ]);
       }
-      pen += shape.advance * across;
+      pen += shape.advance * along;
     }
   });
   if (!(maxX >= minX)) {
@@ -171,8 +196,8 @@ export function letter(record: RenderRecord, face: Face, sink?: GlyphSink): Lett
 }
 
 /** The world box `[minX, minY, maxX, maxY]` of a text's outline, or null where it letters nothing. */
-export function letteredBox(record: RenderRecord, face: Face = NOMINAL_FACE): [number, number, number, number] | null {
-  const lettered = letter(record, face);
+export function letteredBox(record: RenderRecord, face: Face = NOMINAL_FACE, drawn: Advance = DRAWN_ADVANCE): [number, number, number, number] | null {
+  const lettered = letter(record, face, undefined, drawn);
   if (lettered === null) return null;
   let minX = Number.POSITIVE_INFINITY;
   let minY = Number.POSITIVE_INFINITY;

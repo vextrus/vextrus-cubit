@@ -316,8 +316,10 @@ IOU in §8 with its owning clause. A grey box promising a panel is a lie about w
   fitted text's second point is projected with its first. A text read at v2 carries none of these and
   is laid where it always was. (3) **Size.** The record's height is its CAP height. The atlas measures
   the face it letters in (`--font-mono`, lettered at 40 px in 64 px cells, 16 × 16) — the capital's
-  height, each glyph's advance and ink box — and a glyph is laid at the record's cap height and the
-  face's own advance, one quad over its ink and a one-pixel rim; a space lays none. A painter made
+  height, each glyph's advance and ink box — and a glyph is laid at the record's cap height, one quad
+  over its ink and a one-pixel rim; a space lays none. Along the run the face's advances are
+  condensed or widened evenly to the width the drawing letters the line at (**amended by
+  I-648**, below: the face's own advance set S-01's texts into each other). A painter made
   before the web face has loaded measures its fallback, so where `document.fonts` says the face is
   still to load, the lettering is laid again by the face once it arrives, and the sheet redrawn — the
   same re-letter a change of face makes. **Amends I-346:**
@@ -367,6 +369,44 @@ IOU in §8 with its owning clause. A grey box promising a panel is a lie about w
   product's own DWG lane do, and a zoom sharpens them rather than making them appear. Nothing is ever
   drawn LARGER than the drawing states to make it readable at fit: S-10's marks at fit are 2.6 px, and
   a QS reads them after two or three wheel notches (3.2 px at 1.25 ×).
+- **I-648 — a line of text runs as long as the drawing letters it.** (Session 9, VIEW-TXT2.
+  Amends I-462 (3) and (5).) Walk 1 (B05, `.private/work/session-9/walk1/shots/b05-s01-*.png`) found
+  S-01's text legible and in its place but wider than the drawing's: every glyph advanced the mono
+  face's 0.825 of a cap, so `2" clear cover (pile caps)` (x 16, 3.2 high) ran 68.6 units to x 84.6,
+  over `25mm clear cover (beams)` set at x 80, and the formwork JUNCTION OWNERSHIP note ran to x 596,
+  through the title block (x 524) and past the frame (x 584). The drawing names its fonts in its
+  styles (BNBC: `txt` for STANDARD, `swiss.ttf` for the GENERAL NOTES blocks), but the artifact
+  carries no style, and neither face is the product's to ship — `txt` is an Autodesk shape file.
+  Ruling: (1) **The drawn run.** Each line's width is the sum of its characters' advances in DejaVu
+  Sans (Bitstream Vera's metrics), a capital A standing the record's height, no kerning — the face
+  ezdxf's drawing add-on, the product's DWG lane and `drawing_render`, letters a drawing's text in
+  where the style's own font is not installed, and the metrics of the Vera face the fixtures' own
+  plots are set in. The table is generated from the face through ezdxf's own renderer
+  (`src/modules/takeoff/viewer/drawn-advance.ts`, by `tests/takeoff/viewer/support/drawn-advance.gen.py`,
+  its figures checked against ezdxf's `get_text_length`); a character the face holds no glyph for
+  advances as its missing glyph. (2) **The face set along it.** The painter still letters in its own
+  face (`--font-mono`, measured by the atlas), and a line's glyphs are set along the drawn run by one
+  factor across — the drawn run over the face's own — as a style's width factor condenses a run: the
+  line starts and ends where the drawing's does, its height is never touched, and a face wider than
+  the drawing's cannot carry its words into the next text. (3) **One box.** The outline a pick, a
+  marquee, a selection mark and a fly-to meet is the drawn run, so it no longer depends on the face
+  at all: the index's worker (`NOMINAL_FACE`) and the painter answer the same box by construction. A
+  fitted (aligned/fit) text's natural length is the drawn run. Measured on S-01's own figures
+  (`tests/takeoff/viewer/drawn-advance.test.ts`): `(pile caps)` ends at x 71.0, short of `25mm` at 80,
+  and every text in both clear-cover rows ends before the next starts; the formwork note ends at
+  x 502.6, inside the frame and short of the title block; `drawing_render` (DejaVu) draws the same
+  runs. **What it does not do, and who owns it:** (a) a style's width factor and its own font are
+  not in the artifact; every BNBC and F-ARCH text has width factor 1, and the GENERAL NOTES' condensed
+  `swiss.ttf` style runs narrower in a CAD program than this run — the extractor carrying the
+  style's font and width factor is the cad lane's (with the MTEXT reference width, IOU (2) under
+  "what the sheet still cannot letter"), and the lettering multiplies by it once it arrives. (b) A
+  drawing whose texts were spaced for AutoCAD's own `txt.shx` (about 0.9 of a cap a character) is
+  lettered narrower here than there, never wider: the viewer under-runs a line rather than
+  over-running into its neighbour. `drawing_render` itself moves between the two: where ezdxf's font
+  cache finds Autodesk's shape files under `/mnt/c` it letters `txt` wider, and S-01's clear-cover
+  rows then overprint in its picture too, so the drawn run is pinned in the table, not read from the
+  machine. **Cost:** every sheet with text moves at rest — mono glyphs stand condensed (a run of
+  capitals less so, lower case and spaces most); no figure, key or register fact moves.
 
 ## 1. Layout and hierarchy
 
@@ -735,7 +775,7 @@ values blank on every sheet, where `drawing_render` letters them. Owner: the cad
 EntityGraph mirror (an attribute's insert and alignment point beside its v3 facts, one declared
 re-ingest), then this painter, which letters an attribute as it letters a TEXT. (2) **An MTEXT's
 reference width** (group 41) is not in the artifact, so a paragraph is lettered as one line where the
-drawing wraps it: S-01's long notes run past their column into the title block. Owner: the same
+drawing wraps it: S-01's long notes run past their 334-unit column (short of the title block since I-648). Owner: the same
 extractor change (the width beside the attachment), then the lettering, which wraps at it. (3)
 **Complex scripts** — a Bengali title block is lettered glyph by glyph, unshaped (no conjuncts or
 reordered vowel signs). Owner: a later leaf that shapes a line before it is lettered. (4) **What an

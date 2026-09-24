@@ -14,7 +14,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { LETTERED_TEXT_PX, buildSpatialIndex, hitTest, isTextLettered, recordBox } from "../../../src/modules/takeoff/viewer/client";
-import { MONO_UNITS, NOMINAL_FACE, letter, letteredBox, type Face, type GlyphShape } from "../../../src/modules/takeoff/viewer/lettering";
+import { DRAWN_ADVANCE, MONO_UNITS, NOMINAL_FACE, letter, letteredBox, type Advance, type Face, type GlyphShape } from "../../../src/modules/takeoff/viewer/lettering";
 import { createPainter, type CanvasPalette, type Painter } from "../../../src/modules/takeoff/viewer/painter";
 import type { Camera, RenderRecord } from "../../../src/modules/takeoff/viewer/types";
 import { darkTokens } from "../../../src/ui/tokens";
@@ -23,13 +23,15 @@ import { darkTokens } from "../../../src/ui/tokens";
 const INK: GlyphShape = { advance: 1, left: 0.1, right: 0.9, ascent: 1, descent: 0 };
 const BLANK: GlyphShape = { advance: 1, left: 0, right: 0, ascent: 0, descent: 0 };
 const FACE: Face = { shapeOf: (character) => (character === " " ? BLANK : INK), descent: 0.25 };
+/** The same round numbers as the drawn advance (I-648): each line runs exactly as long as the face letters it, so the placement arithmetic below is read in whole cap heights. */
+const FACE_ADVANCE: Advance = (character) => FACE.shapeOf(character).advance;
 
 type Quad = { character: string; corners: number[] };
 
 /** Every glyph a record is lettered as, and the lettering. */
 function lettered(record: RenderRecord, face: Face = FACE): { quads: Quad[]; outline: (readonly [number, number])[]; height: number } {
   const quads: Quad[] = [];
-  const made = letter(record, face, (character, corners) => quads.push({ character, corners: [...corners] }));
+  const made = letter(record, face, (character, corners) => quads.push({ character, corners: [...corners] }), FACE_ADVANCE);
   expect(made, "the record letters").not.toBeNull();
   return { quads, outline: [...(made?.outline ?? [])], height: made?.height ?? 0 };
 }
@@ -124,13 +126,13 @@ describe("the run is turned by the text's world rotation", () => {
     expect(quads[0]?.corners[1], "the first glyph's ink starts 1 up the run").toBeCloseTo(201, 9);
     expect(quads[0]?.corners[4], "its top is a height to the left").toBeCloseTo(90, 9);
     expect(quads[1]?.corners[1], "the second glyph stands one advance further up").toBeCloseTo(211, 9);
-    const box = letteredBox(text({ text: "2B", rotation: 90 }), FACE);
+    const box = letteredBox(text({ text: "2B", rotation: 90 }), FACE, FACE_ADVANCE);
     expect(box, "the world box of a turned mark is tall, not wide").toEqual([90, 200, 102.5, 220]);
     expect(outline.length).toBe(4);
   });
 
   test("a turned, centred mark is centred on its anchor along its own run", () => {
-    const box = letteredBox(text({ text: "2B7", rotation: 90, justify: { x: "centre", y: "middle" } }), FACE) ?? [0, 0, 0, 0];
+    const box = letteredBox(text({ text: "2B7", rotation: 90, justify: { x: "centre", y: "middle" } }), FACE, FACE_ADVANCE) ?? [0, 0, 0, 0];
     expect((box[1] + box[3]) / 2, "centred up the sheet").toBeCloseTo(200, 9);
   });
 
@@ -378,7 +380,11 @@ describe("the painter lays each glyph at its true cap height, turned, from a mea
     const across = Math.max(quad[0] ?? 0, quad[2] ?? 0, quad[4] ?? 0) - Math.min(quad[0] ?? 0, quad[2] ?? 0, quad[4] ?? 0);
     expect(across, "each glyph stands its record's cap height, rims included — never two thirds of it").toBeCloseTo(((CAP_PX + 2) / CAP_PX) * 10, 3);
     const starts = [0, 1, 2, 3, 4].map((at) => positions?.[at * 12 + 1] ?? 0);
-    expect(starts[1]! - starts[0]!, "and each stands one advance up the run from the last — the face's own, 24/28 of a cap").toBeCloseTo((ADVANCE_PX / CAP_PX) * 10, 3);
+    // The stand-in face advances every glyph alike, so its five glyphs share the run the drawing
+    // letters `8-16Ø` at evenly (I-648): each a fifth of it up from the last.
+    const drawnRun = [..."8-16Ø"].reduce((run, character) => run + DRAWN_ADVANCE(character), 0) * 10;
+    expect(starts[1]! - starts[0]!, "and each stands a fifth of the drawn run up from the last — never the face's own 24/28 of a cap").toBeCloseTo(drawnRun / 5, 3);
+    expect(drawnRun / 5, "which is not the face's own advance").not.toBeCloseTo((ADVANCE_PX / CAP_PX) * 10, 1);
   });
 
   test("a character the atlas does not hold yet is lettered into it when its sheet arrives, and the sheet re-uploaded once", () => {
