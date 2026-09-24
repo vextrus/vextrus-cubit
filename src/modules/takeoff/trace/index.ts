@@ -20,12 +20,10 @@
 // here, so this barrel stays the one home the test contract names while a browser component may
 // reach the spelling without carrying the store into its bundle (ARCH-01's spirit, B-17).
 import { campaignsOf } from "@/core/campaigns";
-import { and, asc, desc, drawingSetRevisions, eq, forTenant, inArray, ingests, isUuid, quantityLines, registerObjects } from "@/core/db";
-import { artifactAt } from "@/core/entitygraph/artifact";
-import { sheetLabelOf, standingOfGraph, traceCitations, type MemberKeys, type RecordStanding, type TracedCitations } from "@/core/sheets/frames";
+import { and, asc, eq, forTenant, inArray, isUuid, quantityLines, registerObjects } from "@/core/db";
+import { traceCitations, type TracedCitations } from "@/core/sheets/frames";
 import { pinnedRecordsIn, type PinnedRecord } from "@/core/sheets/pinned";
 import { appStorage } from "@/core/storage/app";
-import { storedPlacementsOf } from "@/modules/takeoff/partition/placement/store";
 import { levelsOf } from "@/modules/takeoff/levels";
 import { repudiatedObjectsOf } from "@/modules/takeoff/register";
 import { citedKeysOf, type LineBinding, type LineEvidence, type LineMember, type LineOmission } from "./address";
