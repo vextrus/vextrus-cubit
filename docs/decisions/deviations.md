@@ -388,6 +388,13 @@ observations, never trimmed. BNBC's golden loses its 12 BRICKWORK rows (370 → 
 and `tests/takeoff/rails/masonry-finishes/rcc6-bnbc-band.test.ts`, which reads BNBC's brick-wall
 members and rows, moves to F-ARCH's with that baseline.
 
+*Carried out (session 9, the gate's db lane):* F-ARCH states no model member per wall to stage, and the
+product keeps each F-ARCH wall's row naming `WALL_HEIGHT_UNSTATED` (`arch-walls.test.ts`), so no band
+is graded over F-ARCH's brickwork yet. The BNBC band file now holds this hand-over instead — BNBC's
+model mints no brick wall, its golden bills no brickwork and keeps its 30 LINTEL rows, F-RCC6 carries
+no masonry, and F-ARCH's golden holds the 14 level × wall-type rows at 538.041 m³ — and the brickwork
+band waits on the wall height's reading.
+
 **Proof.** A scratch regeneration (`python -m fixtures.gen.rcc6_bnbc`) before and after: the paper,
 frames, twin DXFs and the vector PDF byte-identical; the 30 LINTEL rows byte-equal; no BRICK_WALL or
 BRICKWORK row; the other 358 rows identical. `python -m fixtures.gen.arch` over the new BNBC:

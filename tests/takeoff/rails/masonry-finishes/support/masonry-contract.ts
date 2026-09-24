@@ -937,13 +937,6 @@ export function modelMembers(relative: string): ModelMember[] {
 /** How the model spells the class this leaf measures (test contract). */
 export const MODEL_BRICK_WALL = "BRICK_WALL";
 
-/** The twelve brick walls of the BNBC model, as the fixture wrote them (AC-5). */
-export function bnbcBrickWalls(): ModelMember[] {
-  const held = modelMembers(BNBC_MODEL).filter((member) => member.class === MODEL_BRICK_WALL);
-  expect(held.length, `${BNBC_MODEL} carries the brick walls this leaf measures`).toBeGreaterThan(0);
-  return held;
-}
-
 /** The golden rows of one fixture standing in one (class, kind, level, component) — the file's own. */
 export function goldenBrickworkRows(fixtureId: string = BNBC_FIXTURE): GoldenRow[] {
   return goldenRowsOf(fixtureId).filter((row) => row.class === GOLDEN_CLASS[BRICK_WALL] && row.kind === GOLDEN_KIND[MASONRY_BRICKWORK]);
