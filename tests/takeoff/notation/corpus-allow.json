@@ -1,6 +1,6 @@
 {
  "note": "The notation strings of fixtures/rcc6-bnbc/notation.corpus.json the grammar does NOT read as their declared family, each with the reason. This file is a DEBT and a ratchet: tests/takeoff/notation/corpus.test.ts freezes `frozen` at the number of entries, so an allowance can be retired and none can be added without lowering the freeze by hand and saying why in the commit. An entry nothing uses fails the suite — a form that learns to read a string does not keep its excuse. A string the fixture registers in traps.json belongs there, never here.",
- "frozen": 18,
+ "frozen": 17,
  "strings": [
   {
    "raw": "300",
@@ -51,11 +51,6 @@
    "raw": "+3.353",
    "family": "level",
    "why": "as `EL +3.353`: the printed metre level is 3353 mm and the authored figure is 3352.8 mm — the set's own rounding of 11'-0\"."
-  },
-  {
-   "raw": "E.G.L (-1'-6\")",
-   "family": "level",
-   "why": "reads as -457.2 mm, which is exactly -1'-6\"; the fixture authored -152.4 mm (-0'-6\"). The drawn text and the authored figure disagree by a foot — a fixture disagreement to settle with the fixture's author, not a reading to bend."
   },
   {
    "raw": "EL -1.829",

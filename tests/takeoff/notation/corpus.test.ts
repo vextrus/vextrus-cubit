@@ -111,7 +111,7 @@ describe("the fixture's own 3,102 drawn strings, read by the product's grammar",
     // reads fewer strings than the last one is a regression even when nothing is unaccounted for.
     const numbers = `read=${tally.read} trap=${tally.trap} allowed=${tally.allowed} of ${corpus.strings.length}`;
     expect(unaccounted, `a string neither read, nor trapped, nor allowed (${numbers})`).toStrictEqual([]);
-    expect(numbers).toBe("read=3067 trap=8 allowed=27 of 3102");
+    expect(numbers).toBe("read=3550 trap=8 allowed=26 of 3584");
   });
 
   test("the allowlist is a ratchet: it may shrink and may not grow", () => {

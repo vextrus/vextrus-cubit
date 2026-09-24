@@ -168,9 +168,9 @@ describe("which clauses are asked at all (L-AI-03: the grammar speaks first)", (
   test("the asked set is the fixture's own, and its size is a fact this suite states", () => {
     const s01 = askedClausesOf(textsOf(S01));
     const s02 = askedClausesOf(textsOf(S02));
-    expect(s01.length, "S-01's silent clauses").toBe(30);
+    expect(s01.length, "S-01's silent clauses").toBe(34);
     expect(s02.length, "S-02's silent clauses, and the lap its table contests").toBe(8);
-    expect(s01.length + s02.length, "what a recording of these two sheets asks").toBe(38);
+    expect(s01.length + s02.length, "what a recording of these two sheets asks").toBe(42);
     for (const clause of [...s01, ...s02]) {
       expect(clause.figures.length, `${clause.sourceKey}#${clause.ordinal} states a figure`).toBeGreaterThan(0);
       expect(clause.clause, `${clause.sourceKey}#${clause.ordinal} is a clause of the drawing's own words`).not.toBe("");
@@ -185,31 +185,31 @@ describe("which clauses are asked at all (L-AI-03: the grammar speaks first)", (
     const perSheet = sheets.map((sheet) => [sheet, askedClausesOf(textsOf(sheet)).length] as const);
     expect(Object.fromEntries(perSheet)).toEqual({
       "S-00": 13,
-      "S-01": 30,
+      "S-01": 34,
       "S-02": 8,
       "S-03": 5,
       "S-04": 4,
       "S-05": 5,
       "S-06": 4,
       "S-07": 8,
-      "S-08": 3,
+      "S-08": 4,
       "S-09": 7,
       "S-10": 3,
       "S-11": 1,
-      "S-12": 7,
+      "S-12": 9,
       "S-13": 3,
       "S-14": 3,
       "S-15": 4,
       "S-16": 3,
       "S-17": 3,
       "S-18": 4,
-      "S-19": 3,
-      "S-20": 3,
-      "S-21": 4,
+      "S-19": 4,
+      "S-20": 4,
+      "S-21": 5,
       "S-22": 4,
-      "S-23": 4,
-      "S-24": 5,
-      "S-25": 4,
+      "S-23": 5,
+      "S-24": 8,
+      "S-25": 5,
       "S-26": 3,
     });
     // A detail sheet's PRINTED words are its title block and its revision block, and none of them
@@ -219,7 +219,7 @@ describe("which clauses are asked at all (L-AI-03: the grammar speaks first)", (
     expect(
       perSheet.reduce((total, [, count]) => total + count, 0),
       "the whole recording, over every sheet the corpus carries",
-    ).toBe(148);
+    ).toBe(163);
   });
 
   test("the reading is deterministic: the same sheet read twice is the same asked set", () => {
