@@ -34,21 +34,21 @@
           "diameterMm": 16,
           "shape": "11",
           "dimsMm": {
-            "A": "1830.000",
+            "A": "1854.200",
             "B": "192.000"
           },
-          "cuttingRawMm": "1990.000",
-          "cuttingRoundedMm": "2000",
-          "cuttingIsAdditiveMm": "1990.000",
+          "cuttingRawMm": "2014.200",
+          "cuttingRoundedMm": "2025",
+          "cuttingIsAdditiveMm": "2014.200",
           "piecesPerBar": 1,
           "lapMm": "800",
           "lapsPerBar": 1,
           "barsPerUnit": 8,
           "bars": "24",
           "kgPerMetre": "1.579",
-          "kgNet": "75.414",
+          "kgNet": "76.329",
           "kgLap": "30.318",
-          "kg": "105.729"
+          "kg": "106.647"
         },
         {
           "barMark": "C1-t",
@@ -69,12 +69,12 @@
           "piecesPerBar": 1,
           "lapMm": "0",
           "lapsPerBar": 0,
-          "barsPerUnit": 16,
-          "bars": "48",
+          "barsPerUnit": 7,
+          "bars": "21",
           "kgPerMetre": "0.616",
-          "kgNet": "40.803",
+          "kgNet": "17.853",
           "kgLap": "0.000",
-          "kg": "40.803"
+          "kg": "17.853"
         }
       ]
     },
@@ -91,21 +91,21 @@
           "diameterMm": 20,
           "shape": "11",
           "dimsMm": {
-            "A": "1830.000",
+            "A": "1854.200",
             "B": "240.000"
           },
-          "cuttingRawMm": "2015.000",
-          "cuttingRoundedMm": "2025",
-          "cuttingIsAdditiveMm": "2030.000",
+          "cuttingRawMm": "2039.200",
+          "cuttingRoundedMm": "2050",
+          "cuttingIsAdditiveMm": "2054.200",
           "piecesPerBar": 1,
           "lapMm": "1000",
           "lapsPerBar": 1,
           "barsPerUnit": 10,
           "bars": "80",
           "kgPerMetre": "2.466",
-          "kgNet": "397.520",
+          "kgNet": "402.296",
           "kgLap": "197.280",
-          "kg": "594.800"
+          "kg": "599.576"
         },
         {
           "barMark": "C2-t",
@@ -126,12 +126,12 @@
           "piecesPerBar": 1,
           "lapMm": "0",
           "lapsPerBar": 0,
-          "barsPerUnit": 20,
-          "bars": "160",
+          "barsPerUnit": 7,
+          "bars": "56",
           "kgPerMetre": "0.616",
-          "kgNet": "155.728",
+          "kgNet": "54.504",
           "kgLap": "0.000",
-          "kg": "155.728"
+          "kg": "54.504"
         }
       ]
     },
@@ -148,21 +148,21 @@
           "diameterMm": 20,
           "shape": "11",
           "dimsMm": {
-            "A": "1830.000",
+            "A": "1854.200",
             "B": "240.000"
           },
-          "cuttingRawMm": "2015.000",
-          "cuttingRoundedMm": "2025",
-          "cuttingIsAdditiveMm": "2030.000",
+          "cuttingRawMm": "2039.200",
+          "cuttingRoundedMm": "2050",
+          "cuttingIsAdditiveMm": "2054.200",
           "piecesPerBar": 1,
           "lapMm": "1000",
           "lapsPerBar": 1,
           "barsPerUnit": 8,
           "bars": "48",
           "kgPerMetre": "2.466",
-          "kgNet": "238.512",
+          "kgNet": "241.374",
           "kgLap": "118.368",
-          "kg": "356.880"
+          "kg": "359.742"
         },
         {
           "barMark": "C3-t",
@@ -183,12 +183,12 @@
           "piecesPerBar": 1,
           "lapMm": "0",
           "lapsPerBar": 0,
-          "barsPerUnit": 18,
-          "bars": "108",
+          "barsPerUnit": 7,
+          "bars": "42",
           "kgPerMetre": "0.616",
-          "kgNet": "91.806",
+          "kgNet": "35.706",
           "kgLap": "0.000",
-          "kg": "91.806"
+          "kg": "35.706"
         }
       ]
     },
@@ -205,44 +205,21 @@
           "diameterMm": 25,
           "shape": "11",
           "dimsMm": {
-            "A": "1830.000",
+            "A": "1854.200",
             "B": "300.000"
           },
-          "cuttingRawMm": "2061.250",
-          "cuttingRoundedMm": "2075",
-          "cuttingIsAdditiveMm": "2080.000",
+          "cuttingRawMm": "2085.450",
+          "cuttingRoundedMm": "2100",
+          "cuttingIsAdditiveMm": "2104.200",
           "piecesPerBar": 1,
           "lapMm": "1250",
           "lapsPerBar": 1,
           "barsPerUnit": 12,
           "bars": "84",
           "kgPerMetre": "3.854",
-          "kgNet": "667.303",
+          "kgNet": "675.136",
           "kgLap": "404.670",
-          "kg": "1071.973"
-        },
-        {
-          "barMark": "C4-ct",
-          "role": "TIE",
-          "diameterMm": 10,
-          "shape": "CT",
-          "dimsMm": {
-            "A": "520.000",
-            "B": "100.000",
-            "C": "100.000"
-          },
-          "cuttingRawMm": "680.000",
-          "cuttingRoundedMm": "700",
-          "cuttingIsAdditiveMm": "660.000",
-          "piecesPerBar": 1,
-          "lapMm": "0",
-          "lapsPerBar": 0,
-          "barsPerUnit": 40,
-          "bars": "280",
-          "kgPerMetre": "0.616",
-          "kgNet": "117.285",
-          "kgLap": "0.000",
-          "kg": "117.285"
+          "kg": "1079.806"
         },
         {
           "barMark": "C4-t",
@@ -263,12 +240,12 @@
           "piecesPerBar": 1,
           "lapMm": "0",
           "lapsPerBar": 0,
-          "barsPerUnit": 20,
-          "bars": "140",
+          "barsPerUnit": 7,
+          "bars": "49",
           "kgPerMetre": "0.616",
-          "kgNet": "162.134",
+          "kgNet": "56.749",
           "kgLap": "0.000",
-          "kg": "162.134"
+          "kg": "56.749"
         }
       ]
     },
@@ -285,21 +262,21 @@
           "diameterMm": 20,
           "shape": "11",
           "dimsMm": {
-            "A": "1830.000",
+            "A": "1854.200",
             "B": "240.000"
           },
-          "cuttingRawMm": "2015.000",
-          "cuttingRoundedMm": "2025",
-          "cuttingIsAdditiveMm": "2030.000",
+          "cuttingRawMm": "2039.200",
+          "cuttingRoundedMm": "2050",
+          "cuttingIsAdditiveMm": "2054.200",
           "piecesPerBar": 1,
           "lapMm": "1000",
           "lapsPerBar": 1,
           "barsPerUnit": 8,
           "bars": "8",
           "kgPerMetre": "2.466",
-          "kgNet": "39.752",
+          "kgNet": "40.229",
           "kgLap": "19.728",
-          "kg": "59.480"
+          "kg": "59.957"
         },
         {
           "barMark": "C6-t",
@@ -320,12 +297,12 @@
           "piecesPerBar": 1,
           "lapMm": "0",
           "lapsPerBar": 0,
-          "barsPerUnit": 18,
-          "bars": "18",
+          "barsPerUnit": 7,
+          "bars": "7",
           "kgPerMetre": "0.616",
-          "kgNet": "15.301",
+          "kgNet": "5.951",
           "kgLap": "0.000",
-          "kg": "15.301"
+          "kg": "5.951"
         }
       ]
     },
@@ -342,42 +319,73 @@
           "diameterMm": 20,
           "shape": "11",
           "dimsMm": {
-            "A": "1830.000",
+            "A": "1854.200",
             "B": "240.000"
           },
-          "cuttingRawMm": "2015.000",
-          "cuttingRoundedMm": "2025",
-          "cuttingIsAdditiveMm": "2030.000",
+          "cuttingRawMm": "2039.200",
+          "cuttingRoundedMm": "2050",
+          "cuttingIsAdditiveMm": "2054.200",
           "piecesPerBar": 1,
           "lapMm": "1000",
           "lapsPerBar": 1,
           "barsPerUnit": 8,
           "bars": "8",
           "kgPerMetre": "2.466",
-          "kgNet": "39.752",
+          "kgNet": "40.229",
           "kgLap": "19.728",
-          "kg": "59.480"
+          "kg": "59.957"
+        }
+      ]
+    },
+    {
+      "level": "FDN",
+      "class": "shear_wall",
+      "mark": "SW1",
+      "members": 2,
+      "notForCutting": false,
+      "bars": [
+        {
+          "barMark": "SW1-v",
+          "role": "MAIN",
+          "diameterMm": 12,
+          "shape": "00",
+          "dimsMm": {
+            "A": "609.600"
+          },
+          "cuttingRawMm": "609.600",
+          "cuttingRoundedMm": "625",
+          "cuttingIsAdditiveMm": "609.600",
+          "piecesPerBar": 1,
+          "lapMm": "600",
+          "lapsPerBar": 1,
+          "barsPerUnit": 36,
+          "bars": "72",
+          "kgPerMetre": "0.888",
+          "kgNet": "38.976",
+          "kgLap": "38.362",
+          "kg": "77.336"
         },
         {
-          "barMark": "C7-sp",
-          "role": "SPIRAL",
+          "barMark": "SW1-h",
+          "role": "HORIZONTAL",
           "diameterMm": 10,
-          "shape": "SP",
+          "shape": "11",
           "dimsMm": {
-            "A": "8166.780"
+            "A": "2648.400",
+            "B": "120.000"
           },
-          "cuttingRawMm": "8166.780",
-          "cuttingRoundedMm": "8175",
-          "cuttingIsAdditiveMm": "8166.780",
+          "cuttingRawMm": "2748.400",
+          "cuttingRoundedMm": "2750",
+          "cuttingIsAdditiveMm": "2748.400",
           "piecesPerBar": 1,
           "lapMm": "0",
           "lapsPerBar": 0,
-          "barsPerUnit": 1,
-          "bars": "1",
+          "barsPerUnit": 8,
+          "bars": "16",
           "kgPerMetre": "0.616",
-          "kgNet": "5.031",
+          "kgNet": "27.088",
           "kgLap": "0.000",
-          "kg": "5.031"
+          "kg": "27.088"
         }
       ]
     },
@@ -415,58 +423,6 @@
           "diameterMm": 10,
           "shape": "11",
           "dimsMm": {
-            "A": "2523.400",
-            "B": "120.000"
-          },
-          "cuttingRawMm": "2623.400",
-          "cuttingRoundedMm": "2625",
-          "cuttingIsAdditiveMm": "2623.400",
-          "piecesPerBar": 1,
-          "lapMm": "0",
-          "lapsPerBar": 0,
-          "barsPerUnit": 8,
-          "bars": "16",
-          "kgPerMetre": "0.616",
-          "kgNet": "25.856",
-          "kgLap": "0.000",
-          "kg": "25.856"
-        }
-      ]
-    },
-    {
-      "level": "FDN",
-      "class": "shear_wall",
-      "mark": "SW1",
-      "members": 1,
-      "notForCutting": false,
-      "bars": [
-        {
-          "barMark": "SW1-v",
-          "role": "MAIN",
-          "diameterMm": 12,
-          "shape": "00",
-          "dimsMm": {
-            "A": "609.600"
-          },
-          "cuttingRawMm": "609.600",
-          "cuttingRoundedMm": "625",
-          "cuttingIsAdditiveMm": "609.600",
-          "piecesPerBar": 1,
-          "lapMm": "600",
-          "lapsPerBar": 1,
-          "barsPerUnit": 34,
-          "bars": "34",
-          "kgPerMetre": "0.888",
-          "kgNet": "18.405",
-          "kgLap": "18.115",
-          "kg": "36.520"
-        },
-        {
-          "barMark": "SW1-h",
-          "role": "HORIZONTAL",
-          "diameterMm": 10,
-          "shape": "11",
-          "dimsMm": {
             "A": "2453.200",
             "B": "120.000"
           },
@@ -477,11 +433,11 @@
           "lapMm": "0",
           "lapsPerBar": 0,
           "barsPerUnit": 8,
-          "bars": "8",
+          "bars": "16",
           "kgPerMetre": "0.616",
-          "kgNet": "12.582",
+          "kgNet": "25.164",
           "kgLap": "0.000",
-          "kg": "12.582"
+          "kg": "25.164"
         }
       ]
     },
@@ -532,12 +488,12 @@
           "piecesPerBar": 1,
           "lapMm": "0",
           "lapsPerBar": 0,
-          "barsPerUnit": 28,
-          "bars": "84",
+          "barsPerUnit": 30,
+          "bars": "90",
           "kgPerMetre": "0.616",
-          "kgNet": "71.406",
+          "kgNet": "76.506",
           "kgLap": "0.000",
-          "kg": "71.406"
+          "kg": "76.506"
         }
       ]
     },
@@ -588,12 +544,12 @@
           "piecesPerBar": 1,
           "lapMm": "0",
           "lapsPerBar": 0,
-          "barsPerUnit": 31,
-          "bars": "248",
+          "barsPerUnit": 32,
+          "bars": "256",
           "kgPerMetre": "0.616",
-          "kgNet": "241.376",
+          "kgNet": "249.160",
           "kgLap": "0.000",
-          "kg": "241.376"
+          "kg": "249.160"
         }
       ]
     },
@@ -644,12 +600,12 @@
           "piecesPerBar": 1,
           "lapMm": "0",
           "lapsPerBar": 0,
-          "barsPerUnit": 30,
-          "bars": "180",
+          "barsPerUnit": 31,
+          "bars": "186",
           "kgPerMetre": "0.616",
-          "kgNet": "153.012",
+          "kgNet": "158.112",
           "kgLap": "0.000",
-          "kg": "153.012"
+          "kg": "158.112"
         }
       ]
     },
@@ -657,7 +613,7 @@
       "level": "GF",
       "class": "column",
       "mark": "C4",
-      "members": 7,
+      "members": 5,
       "notForCutting": false,
       "bars": [
         {
@@ -675,34 +631,11 @@
           "lapMm": "1250",
           "lapsPerBar": 1,
           "barsPerUnit": 12,
-          "bars": "84",
+          "bars": "60",
           "kgPerMetre": "3.854",
-          "kgNet": "1085.420",
-          "kgLap": "404.670",
-          "kg": "1490.090"
-        },
-        {
-          "barMark": "C4-ct",
-          "role": "TIE",
-          "diameterMm": 10,
-          "shape": "CT",
-          "dimsMm": {
-            "A": "520.000",
-            "B": "100.000",
-            "C": "100.000"
-          },
-          "cuttingRawMm": "680.000",
-          "cuttingRoundedMm": "700",
-          "cuttingIsAdditiveMm": "660.000",
-          "piecesPerBar": 1,
-          "lapMm": "0",
-          "lapsPerBar": 0,
-          "barsPerUnit": 62,
-          "bars": "434",
-          "kgPerMetre": "0.616",
-          "kgNet": "181.797",
-          "kgLap": "0.000",
-          "kg": "181.797"
+          "kgNet": "775.300",
+          "kgLap": "289.050",
+          "kg": "1064.350"
         },
         {
           "barMark": "C4-t",
@@ -724,11 +657,67 @@
           "lapMm": "0",
           "lapsPerBar": 0,
           "barsPerUnit": 31,
-          "bars": "217",
+          "bars": "155",
           "kgPerMetre": "0.616",
-          "kgNet": "251.300",
+          "kgNet": "179.500",
           "kgLap": "0.000",
-          "kg": "251.300"
+          "kg": "179.500"
+        }
+      ]
+    },
+    {
+      "level": "GF",
+      "class": "column",
+      "mark": "C4",
+      "members": 2,
+      "notForCutting": false,
+      "bars": [
+        {
+          "barMark": "C4-v",
+          "role": "MAIN",
+          "diameterMm": 25,
+          "shape": "00",
+          "dimsMm": {
+            "A": "3352.800"
+          },
+          "cuttingRawMm": "3352.800",
+          "cuttingRoundedMm": "3375",
+          "cuttingIsAdditiveMm": "3352.800",
+          "piecesPerBar": 1,
+          "lapMm": "1250",
+          "lapsPerBar": 1,
+          "barsPerUnit": 12,
+          "bars": "24",
+          "kgPerMetre": "3.854",
+          "kgNet": "310.120",
+          "kgLap": "115.620",
+          "kg": "425.740"
+        },
+        {
+          "barMark": "C4-t",
+          "role": "TIE",
+          "diameterMm": 10,
+          "shape": "51",
+          "dimsMm": {
+            "A": "370.000",
+            "B": "520.000",
+            "C": "370.000",
+            "D": "520.000",
+            "E": "100.000",
+            "F": "100.000"
+          },
+          "cuttingRawMm": "1880.000",
+          "cuttingRoundedMm": "1900",
+          "cuttingIsAdditiveMm": "1860.000",
+          "piecesPerBar": 1,
+          "lapMm": "0",
+          "lapsPerBar": 0,
+          "barsPerUnit": 33,
+          "bars": "66",
+          "kgPerMetre": "0.616",
+          "kgNet": "76.434",
+          "kgLap": "0.000",
+          "kg": "76.434"
         }
       ]
     },
@@ -815,27 +804,6 @@
           "kgNet": "66.144",
           "kgLap": "19.728",
           "kg": "85.872"
-        },
-        {
-          "barMark": "C7-sp",
-          "role": "SPIRAL",
-          "diameterMm": 10,
-          "shape": "SP",
-          "dimsMm": {
-            "A": "39667.216"
-          },
-          "cuttingRawMm": "39667.216",
-          "cuttingRoundedMm": "39675",
-          "cuttingIsAdditiveMm": "39667.216",
-          "piecesPerBar": 4,
-          "lapMm": "500",
-          "lapsPerBar": 3,
-          "barsPerUnit": 1,
-          "bars": "1",
-          "kgPerMetre": "0.616",
-          "kgNet": "24.435",
-          "kgLap": "0.924",
-          "kg": "25.359"
         }
       ]
     },
@@ -990,12 +958,12 @@
           "piecesPerBar": 1,
           "lapMm": "0",
           "lapsPerBar": 0,
-          "barsPerUnit": 27,
-          "bars": "81",
+          "barsPerUnit": 28,
+          "bars": "84",
           "kgPerMetre": "0.616",
-          "kgNet": "68.856",
+          "kgNet": "71.406",
           "kgLap": "0.000",
-          "kg": "68.856"
+          "kg": "71.406"
         }
       ]
     },
@@ -1046,12 +1014,12 @@
           "piecesPerBar": 1,
           "lapMm": "0",
           "lapsPerBar": 0,
-          "barsPerUnit": 29,
-          "bars": "232",
+          "barsPerUnit": 30,
+          "bars": "240",
           "kgPerMetre": "0.616",
-          "kgNet": "225.800",
+          "kgNet": "233.584",
           "kgLap": "0.000",
-          "kg": "225.800"
+          "kg": "233.584"
         }
       ]
     },
@@ -1102,12 +1070,12 @@
           "piecesPerBar": 1,
           "lapMm": "0",
           "lapsPerBar": 0,
-          "barsPerUnit": 28,
-          "bars": "168",
+          "barsPerUnit": 29,
+          "bars": "174",
           "kgPerMetre": "0.616",
-          "kgNet": "142.812",
+          "kgNet": "147.912",
           "kgLap": "0.000",
-          "kg": "142.812"
+          "kg": "147.912"
         }
       ]
     },
@@ -1138,29 +1106,6 @@
           "kgNet": "986.748",
           "kgLap": "404.670",
           "kg": "1391.418"
-        },
-        {
-          "barMark": "C4-ct",
-          "role": "TIE",
-          "diameterMm": 10,
-          "shape": "CT",
-          "dimsMm": {
-            "A": "520.000",
-            "B": "100.000",
-            "C": "100.000"
-          },
-          "cuttingRawMm": "680.000",
-          "cuttingRoundedMm": "700",
-          "cuttingIsAdditiveMm": "660.000",
-          "piecesPerBar": 1,
-          "lapMm": "0",
-          "lapsPerBar": 0,
-          "barsPerUnit": 58,
-          "bars": "406",
-          "kgPerMetre": "0.616",
-          "kgNet": "170.065",
-          "kgLap": "0.000",
-          "kg": "170.065"
         },
         {
           "barMark": "C4-t",
@@ -1408,42 +1353,74 @@
     }
   ],
   "perDiameterKg": {
-    "10": "2867.595",
-    "12": "798.009",
-    "16": "408.927",
-    "20": "4053.800",
-    "25": "3953.481"
+    "10": "2124.915",
+    "12": "838.825",
+    "16": "409.845",
+    "20": "4062.392",
+    "25": "3961.314"
   },
   "cuttingStock": {
     "10": {
-      "stockBars": 401,
-      "pieces": 3373,
-      "offcutM": "92.625"
+      "stockBars": 306,
+      "pieces": 1998,
+      "offcutM": "185.700"
     },
     "12": {
       "stockBars": 68,
-      "pieces": 306,
-      "offcutM": "96.900"
+      "pieces": 344,
+      "offcutM": "73.150"
     },
     "16": {
-      "stockBars": 19,
+      "stockBars": 20,
       "pieces": 72,
-      "offcutM": "25.800"
+      "offcutM": "37.200"
     },
     "20": {
       "stockBars": 116,
       "pieces": 432,
-      "offcutM": "175.200"
+      "offcutM": "171.600"
     },
     "25": {
       "stockBars": 68,
       "pieces": 252,
-      "offcutM": "102.000"
+      "offcutM": "99.900"
     }
   },
   "stockWithheld": [],
-  "grandTotalKg": "12081.812",
+  "grandTotalKg": "11397.291",
   "totalCovers": "",
+  "declared": {
+    "reason": "This bar is bent to a shape the schedule's BS 8666 roster does not hold, so it is declared here and its mass is left out of every total.",
+    "kg": "33.398",
+    "bars": [
+      {
+        "level": "FDN",
+        "class": "column",
+        "mark": "C7",
+        "members": 1,
+        "barMark": "C7-h",
+        "role": "TIE",
+        "diameterMm": 10,
+        "shape": "CH",
+        "cuttingRawMm": "1322.389",
+        "bars": "7",
+        "kg": "5.702"
+      },
+      {
+        "level": "GF",
+        "class": "column",
+        "mark": "C7",
+        "members": 1,
+        "barMark": "C7-h",
+        "role": "TIE",
+        "diameterMm": 10,
+        "shape": "CH",
+        "cuttingRawMm": "1322.389",
+        "bars": "34",
+        "kg": "27.696"
+      }
+    ]
+  },
   "partial": false,
   "leftOut": [],
   "notInSchedule": []
