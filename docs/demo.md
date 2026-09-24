@@ -1,4 +1,4 @@
-# The demo — a measured M3 project on the owner's screen
+# The demo — the Takeoff module on the owner's screen
 
 One command serves the product, showing the newest measured M3 project, to a browser on this
 machine and prints how to sign in. The owner's ruling (session 7): the demo is shown **on my
@@ -16,6 +16,64 @@ pnpm demo              # find the project, prove its sign-in, serve, print one b
 pnpm demo --no-open    # the same, without opening a browser
 pnpm demo --stop       # stop what `pnpm demo` started in this checkout, and nothing else
 ```
+
+## The founder's script (session 9 — walked in the browser, walk-3)
+
+Tell the story on the **pre-measured Bashundhara G+6 project** (`pnpm demo` opens it), and set up a
+fresh project the day before if you want to show the set-up steps live. Start the demo from a terminal
+where `TYPESAFE_API_KEY` is set (`~/.bashrc`): Ask then answers from Jev live, and the AI spend the
+project home shows is the product's own model ledger — true to the cent. Walked at 1440x900 dark
+(Settings sets the theme; it does not follow the OS).
+
+**1. The drawings come in (on a fresh project, prepared beforehand or live).**
+- Projects → New project → Name, Client, District → choose a **Building type first** → Create project
+  → open the new row. *(Avoid: submitting without a building type clears the form.)*
+- Add drawings → Choose files → `rcc6-bnbc.dwg`. The audience sees "Read the drawing — Done" and 28
+  sheet cards.
+- Preview this group → "28 sheets from Unassigned to Structural" → Confirm.
+- Drawing sets → name "Structural IFC" → Create set → Add → Preview this pin → Confirm.
+
+**2. Scale and the first Measure — the product says what it cannot do yet.**
+- Takeoff → Measure this campaign → "This run published no line", and each view that has no scale of
+  record is listed with its reason and **Open the sheet**. This is the honesty story: nothing is
+  guessed.
+- Open the sheet (COLUMN LAYOUT PLAN) → Scale → include the view → Affirm at Dimension ratio → Confirm.
+- Proposed level stacks → Preview this group → Confirm → Measure → "Open the levels" → state the
+  typical range GF–6F → Confirm → Measure → the columns publish. *(Show S-10 only; each other view
+  needs its own scale act.)*
+
+**3. The machine's takeoff (switch to the measured Bashundhara G+6).**
+- Register: ~1,600 lines, each with its basis, coverage, source and formula. Column concrete
+  93.893 m³ (208 lines); piles 372.849 m³; pile caps 122.464 m³ net of the pile heads and the lift-pit
+  recess; column rebar with its ties.
+- **The Trace**: Level · GF → click a column line's source → the viewer opens S-10 on that column; the
+  inspector shows V = count × L × B × H with L and B linked to S-11's schedule and H to S-25's section.
+  *(It lands close: press − three times to show the grid.)* ⌘K "C2" does the same from the palette.
+
+**4. What is and is not measured.**
+- Levels and Schedules → S-01's notes: 3,500 psi for all members, 3,000 psi for the bored piles.
+- Coverage: the class × level matrix and the certificate preview — every cell says why it stands as it
+  does ("Beam drawn, not named", "Not placed", "Ties of 34 members not counted — joint unread").
+
+**5. A QS measures what the machine could not.**
+- S-08 → New condition (Area · Slab · Blinding, 75) → Save → click the slab's corners → Enter → the
+  card reads "Adds 1 line: GF slab blinding …" → Confirm. The line is in the register and the draft BOQ.
+
+**6. Ask the drawings.**
+- "How many C1 columns are on the ground floor?" → 3. "How much column concrete is there in total?"
+  → 93.893 m³ from 208 lines. "What will the building cost?" → an honest refusal pointing to the draft
+  BOQ. Every figure links back to the members it counts.
+
+**7. The documents.**
+- Draft BOQ → Export the draft → Open the issued draft: one item per description, a drawing register,
+  measurement notes, the sign-off block, and what is not measured with its reason.
+- Bar schedule → Export the schedule: bars and ties by floor, each mark once with its member count,
+  the total saying exactly what it covers.
+
+**Keep out of the demo for now** (walk-3; being fixed in wave 3e): scaling a **scanned** sheet;
+**finishes** on the architect's set (rooms are detected and confirmed, finish quantities do not yet
+follow); clicking the **Trace of a hand-measured line** (it lands on the snapped line). A **PDF** set
+reads and scales but registers no structural members: show it as reading, not takeoff.
 
 ## What it shows
 
