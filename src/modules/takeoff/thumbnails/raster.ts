@@ -13,14 +13,29 @@
 // one (B-17). Without it a sheet whose drawing stands in model space (every F-RCC6-BNBC plan,
 // schedule and section) rasterised as an empty frame and title-block strip.
 //
-// Pure: the same graph and the same tier make the same bytes, so a raster's address is a function of
-// what it is a picture of (R-SPINE-021, content addressing).
-import type { EntityGraph } from "@/core/entitygraph/schema";
+// A scanned page is the scan itself first (I-684): each page raster the vectoriser traced from
+// (I-584) is laid down at the page-space corners its record states — a standalone scan over the whole
+// page, a picture pasted onto a PDF page (S-03) at its own placement — averaged down to the tier by
+// area, as any viewer shows a picture smaller than it is; the page's paint, the traced lines among
+// it, is drawn over it as on every other sheet. The same reduction draws the viewer's backdrop
+// (`scanBackdrop`): the scan alone, fitted to the full tier's edge, which the viewer lays under the
+// traced lines it paints itself.
+//
+// Pure: the same graph, the same scans and the same tier make the same bytes, so a raster's address
+// is a function of what it is a picture of (R-SPINE-021, content addressing).
+import type { EntityGraph, RasterRecord } from "@/core/entitygraph/schema";
 import { projectRecord, unionOfFrames, windowsOf, type Window } from "../viewer/projection";
-import { CHANNELS, encodePng } from "./png";
+import { CHANNELS, encodeGreyPng, encodePng, type GreyImage } from "./png";
 
 /** One rendered sheet: the encoded image and the canvas it was drawn on. */
 export type SheetRaster = { png: Uint8Array; width: number; height: number };
+
+/**
+ * A page raster the sheet was traced from, decoded, with the record that says where it stands: its
+ * page (`space`) and the page-space corners of its top-left, top-right, bottom-right and bottom-left
+ * pixels (I-584).
+ */
+export type PageScan = { readonly record: Pick<RasterRecord, "space" | "placement">; readonly image: GreyImage };
 
 /** The paper a sheet is drawn on. Line work is dark on it, never the other way round. */
 const PAPER = 255;
@@ -117,7 +132,7 @@ function blank(longEdge: number): SheetRaster {
  * A paper layout's windows are drawn first and its own paint over them, so the frames and the title
  * block stand crisp over whatever model space runs up to them.
  */
-export function renderSheet(graph: EntityGraph, layoutName: string, longEdge: number): SheetRaster {
+export function renderSheet(graph: EntityGraph, layoutName: string, longEdge: number, scans: readonly PageScan[] = []): SheetRaster {
   const layout = graph.layouts.find((candidate) => candidate.name === layoutName);
   const windows = windowsOfSheet(graph, layoutName);
   const bbox = layout?.bbox ?? unionOfFrames(windows);
@@ -140,6 +155,11 @@ export function renderSheet(graph: EntityGraph, layoutName: string, longEdge: nu
   const column = (x: number): number => clamp(Math.floor((x - bbox.min[0]) * scale), width - 1);
   const row = (y: number): number => clamp(Math.floor((bbox.max[1] - y) * scale), height - 1);
 
+  // The scans first, so every path the page carries stands over the picture it was traced from.
+  for (const scan of scans) {
+    if (scan.record.space === layoutName) layScan(canvas, width, height, scan, { minX: bbox.min[0], maxY: bbox.max[1], scale });
+  }
+
   const pen = longEdge <= BOLD_BELOW ? 2 : 1;
   for (const path of [...projectedPathsOf(graph, windows), ...pathsOf(graph, layoutName)]) {
     const drawn = path.points.map((point) => [column(point[0]), row(point[1])] as const);
@@ -151,6 +171,100 @@ export function renderSheet(graph: EntityGraph, layoutName: string, longEdge: nu
   }
 
   return { png: encodePng(canvas, width, height), width, height };
+}
+
+/**
+ * A grey picture averaged down by area to `width` × `height`: every output pixel is the mean of the
+ * source pixels its footprint covers, so a hairline thinner than the footprint fades rather than
+ * vanishing or breaking into dashes, as a picture shown smaller than itself does anywhere.
+ */
+export function reduceGrey(image: GreyImage, width: number, height: number): GreyImage {
+  if (width >= image.width && height >= image.height) return image;
+  const across = new Uint32Array(width + 1);
+  for (let column = 0; column <= width; column += 1) across[column] = Math.floor((column * image.width) / width);
+  const sums = new Uint32Array(width);
+  const pixels = new Uint8Array(width * height);
+  for (let row = 0; row < height; row += 1) {
+    const top = Math.floor((row * image.height) / height);
+    const bottom = Math.max(top + 1, Math.floor(((row + 1) * image.height) / height));
+    sums.fill(0);
+    for (let source = top; source < bottom; source += 1) {
+      const line = source * image.width;
+      for (let column = 0; column < width; column += 1) {
+        const end = Math.max((across[column] as number) + 1, across[column + 1] as number);
+        let sum = 0;
+        for (let at = across[column] as number; at < end; at += 1) sum += image.pixels[line + at] as number;
+        sums[column] = (sums[column] as number) + sum;
+      }
+    }
+    for (let column = 0; column < width; column += 1) {
+      const span = Math.max(1, (across[column + 1] as number) - (across[column] as number)) * (bottom - top);
+      pixels[row * width + column] = Math.round((sums[column] as number) / span);
+    }
+  }
+  return { width, height, pixels };
+}
+
+/**
+ * The viewer's backdrop of one scan (I-684): the page raster alone, averaged down so its long
+ * edge is at most `longEdge`, as a grey PNG. A scan already that small is written as it is.
+ */
+export function scanBackdrop(image: GreyImage, longEdge: number): SheetRaster {
+  const fit = Math.min(1, longEdge / Math.max(image.width, image.height));
+  const reduced = reduceGrey(image, Math.max(1, Math.round(image.width * fit)), Math.max(1, Math.round(image.height * fit)));
+  return { png: encodeGreyPng(reduced.pixels, reduced.width, reduced.height), width: reduced.width, height: reduced.height };
+}
+
+/**
+ * One scan laid onto a sheet's canvas at the corners its record states. The corners are an affine
+ * image of the picture (a scale, a turn and a move, as the vectoriser's page map is), so each canvas
+ * pixel's centre is taken back into the picture's pixels by the inverse of that map and the nearest
+ * one read — from the picture first averaged down to about one of its pixels per canvas pixel where
+ * it is larger than that. A pixel is darkened to the scan, never lightened: two scans overlapping
+ * both show, and nothing drawn before one is washed out by its paper.
+ */
+function layScan(canvas: Uint8Array, width: number, height: number, scan: PageScan, sheet: { minX: number; maxY: number; scale: number }): void {
+  const placement = scan.record.placement as readonly (readonly [number, number])[];
+  const [topLeft, topRight, , bottomLeft] = placement;
+  if (topLeft === undefined || topRight === undefined || bottomLeft === undefined) return;
+  const { image } = scan;
+  // The world step of one picture pixel across and down.
+  const acrossX = (topRight[0] - topLeft[0]) / image.width;
+  const acrossY = (topRight[1] - topLeft[1]) / image.width;
+  const downX = (bottomLeft[0] - topLeft[0]) / image.height;
+  const downY = (bottomLeft[1] - topLeft[1]) / image.height;
+  const determinant = acrossX * downY - downX * acrossY;
+  if (!(Math.abs(determinant) > 0)) return;
+
+  // How many picture pixels one canvas pixel covers, and the picture at about one of them per pixel.
+  const footprint = 1 / sheet.scale / Math.max(Math.hypot(acrossX, acrossY), Math.hypot(downX, downY));
+  const factor = Math.max(1, footprint);
+  const source = factor > 1 ? reduceGrey(image, Math.max(1, Math.round(image.width / factor)), Math.max(1, Math.round(image.height / factor))) : image;
+  const shrinkX = source.width / image.width;
+  const shrinkY = source.height / image.height;
+
+  // The canvas box the four corners cover, so the pixels outside the picture are never visited.
+  const across = placement.map(([x]) => (x - sheet.minX) * sheet.scale);
+  const down = placement.map(([, y]) => (sheet.maxY - y) * sheet.scale);
+  const left = Math.max(0, Math.floor(Math.min(...across)));
+  const right = Math.min(width - 1, Math.ceil(Math.max(...across)));
+  const top = Math.max(0, Math.floor(Math.min(...down)));
+  const bottom = Math.min(height - 1, Math.ceil(Math.max(...down)));
+
+  for (let row = top; row <= bottom; row += 1) {
+    const worldY = sheet.maxY - (row + 0.5) / sheet.scale - topLeft[1];
+    for (let column = left; column <= right; column += 1) {
+      const worldX = sheet.minX + (column + 0.5) / sheet.scale - topLeft[0];
+      const u = (worldX * downY - downX * worldY) / determinant;
+      const v = (acrossX * worldY - worldX * acrossY) / determinant;
+      if (u < 0 || v < 0 || u >= image.width || v >= image.height) continue;
+      const grey = source.pixels[Math.min(source.height - 1, Math.floor(v * shrinkY)) * source.width + Math.min(source.width - 1, Math.floor(u * shrinkX))] as number;
+      const at = (row * width + column) * CHANNELS;
+      canvas[at] = Math.min(canvas[at] as number, grey);
+      canvas[at + 1] = Math.min(canvas[at + 1] as number, grey);
+      canvas[at + 2] = Math.min(canvas[at + 2] as number, grey);
+    }
+  }
 }
 
 /** A coordinate inside the canvas: geometry may sit on the extent's own edge, or a hair past it. */

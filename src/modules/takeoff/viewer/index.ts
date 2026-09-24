@@ -6,6 +6,6 @@
 // and ./painter, which the browser loads and which hold no import of the store — a barrel that named
 // them would put a database pool into the browser's module graph (ARCH-01).
 export { drawingAddress, type DrawingAddress } from "./access";
-export { renderManifestOf, type ViewerScope } from "./head";
+export { backdropOf, renderManifestOf, type ViewerScope } from "./head";
 export { buildRenderManifest, manifestCacheKey, manifestDigest } from "./manifest";
-export type { Camera, RenderLayer, RenderManifest, RenderRecord, ViewerHead, Viewport } from "./types";
+export type { Camera, RenderBackdrop, RenderLayer, RenderManifest, RenderRecord, ViewerHead, Viewport } from "./types";

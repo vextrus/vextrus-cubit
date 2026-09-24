@@ -14,6 +14,9 @@ import type { Storage } from "@/core/storage";
 import type { IngestFacts } from "../ingest/facts";
 import { ingestRecordOf } from "../ingest/records";
 import { drawingProjectOf } from "../partition/store";
+import { decodeGreyPng } from "../thumbnails/png";
+import { scanBackdrop } from "../thumbnails/raster";
+import { RASTER_TIER_LONG_EDGE } from "../thumbnails/tiers";
 import { buildRenderManifest, graphHoldsLayout, manifestCacheKey } from "./manifest";
 import type { RenderManifest, ViewerHead } from "./types";
 
@@ -187,6 +190,55 @@ async function build(scope: ViewerScope, artifactSha256: string, storage: Storag
   const manifest = buildRenderManifest(graph, scope.layoutName);
   remember(memoKey(scope.tenantId, artifactSha256, scope.layoutName), manifest);
   return { kind: "manifest", manifest };
+}
+
+/** The anchor of the backdrops this process has drawn, keyed like the manifests (tenant and address). */
+const BACKDROP_ANCHOR = Symbol.for("cubit.viewer.backdropCache");
+
+/** The process's backdrop memo, made once. */
+function backdropCache(): Map<string, Uint8Array> {
+  const host = globalThis as typeof globalThis & { [BACKDROP_ANCHOR]?: Map<string, Uint8Array> };
+  const held = host[BACKDROP_ANCHOR];
+  if (held !== undefined) return held;
+  const made = new Map<string, Uint8Array>();
+  host[BACKDROP_ANCHOR] = made;
+  return made;
+}
+
+/**
+ * The picture one scan of a sheet is painted from under its traced lines (I-684): the page raster
+ * the vectoriser read (I-584), averaged down to the full tier's edge and written as a grey PNG — or
+ * null where the drawing has no reading or the sheet no scan at that place in its list (the head
+ * already answers both; a backdrop has nothing more to say about them). One draw per page raster
+ * per process: the raster is content-addressed and never changes, so the picture drawn from it
+ * never does either.
+ *
+ * A page raster the store does not hold, or one that is not the grey PNG the vectoriser writes, is an
+ * outage of ours — the ingest stored it before its record landed — and is thrown as one.
+ */
+export async function backdropOf(scope: ViewerScope, index: number, deps: { storage: Storage }): Promise<Uint8Array | null> {
+  const record = await ingestRecordOf({ tenantId: scope.tenantId, drawingId: scope.drawingId });
+  if (record === null) return null;
+  // A reading nothing can be drawn from is answered by the head as its registered refusal, and a
+  // screen told that asks for no scan; one that asks anyway is past the head, and the failure is ours.
+  const graph = await artifactAt(scope.tenantId, record.artifactSha256, deps.storage, `the viewer's backdrop of ${scope.layoutName}`);
+  const scan = (graph.rasters ?? []).filter((raster) => raster.space === scope.layoutName)[index];
+  if (scan === undefined) return null;
+
+  const key = `${scope.tenantId}/${scan.sha256}`;
+  const cache = backdropCache();
+  const held = cache.get(key);
+  if (held !== undefined) return held;
+
+  const bytes = await deps.storage.get(scope.tenantId, scan.sha256);
+  if (bytes === null) throw new Error(`the store holds no page raster at ${scan.sha256} for sheet ${scope.layoutName} (I-584)`);
+  const drawn = scanBackdrop(decodeGreyPng(bytes), RASTER_TIER_LONG_EDGE.full).png;
+  cache.set(key, drawn);
+  for (const oldest of cache.keys()) {
+    if (cache.size <= CACHE_LIMIT) break;
+    cache.delete(oldest);
+  }
+  return drawn;
 }
 
 /**

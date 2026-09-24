@@ -20,7 +20,8 @@ import { enqueue, type JobKind, type JobPayloads, type JobProgress } from "@/cor
 import type { Storage } from "@/core/storage";
 import { appStorage } from "@/core/storage/app";
 import { drawingInScope, ingestRecordOf, ingestRecords, type IngestRecord } from "../ingest";
-import { renderSheet } from "./raster";
+import { decodeGreyPng } from "./png";
+import { renderSheet, type PageScan, type SheetRaster } from "./raster";
 import type { ThumbnailsRefusalCode } from "./refusals";
 import { sheetRasterRecords, writeSheetRaster, type SheetRasterRecord } from "./records";
 import { RASTER_TIERS, RASTER_TIER_LONG_EDGE, RASTER_URL_LIFETIME_SECONDS, type RasterTier } from "./tiers";
@@ -148,15 +149,20 @@ export async function runThumbnailsJob(payload: JobPayloads["thumbnails"], progr
   refuseCollidingNames(graph);
   await progress.step(STEP_RESOLVE);
 
-  const rendered = graph.layouts.flatMap((layout) =>
-    RASTER_TIERS.map((tier) => {
-      const raster = renderSheet(graph, layout.name, RASTER_TIER_LONG_EDGE[tier]);
+  // A scanned page is drawn from the scan it was traced from (I-684): its page rasters are read
+  // one sheet at a time — a page raster is tens of millions of pixels, and a set of them held at once
+  // would be the worker's memory — and every tier of that sheet is drawn from the one reading.
+  const rendered: { layoutName: string; tier: RasterTier; raster: SheetRaster }[] = [];
+  for (const layout of graph.layouts) {
+    const scans = await pageScansOf(graph, layout.name, tenantId, deps.storage);
+    for (const tier of RASTER_TIERS) {
+      const raster = renderSheet(graph, layout.name, RASTER_TIER_LONG_EDGE[tier], scans);
       // A canvas of no pixels is a picture of nothing: the store closes its tier list and nothing
       // else, so a size that could never be shown is caught here rather than written down.
       if (raster.width < 1 || raster.height < 1) throw new Error(`the ${tier} raster of sheet ${layout.name} came out ${raster.width}×${raster.height}`);
-      return { layoutName: recordedLayoutName(layout.name), tier, raster };
-    }),
-  );
+      rendered.push({ layoutName: recordedLayoutName(layout.name), tier, raster });
+    }
+  }
   await progress.step(STEP_RENDER);
 
   const stored = [];
@@ -180,6 +186,23 @@ export async function runThumbnailsJob(payload: JobPayloads["thumbnails"], progr
     });
   }
   await progress.step(STEP_RECORD);
+}
+
+/**
+ * The page rasters one sheet was traced from, read out of the store and decoded (I-584, I-684).
+ * The ingest stored each before its record landed, so an address the store cannot answer, or bytes
+ * that are not the grey picture the vectoriser writes, are an outage of ours and thrown as one: a
+ * scanned sheet drawn without its scan would be a card of lines standing on nothing.
+ */
+async function pageScansOf(graph: EntityGraph, layoutName: string, tenantId: string, storage: Storage): Promise<PageScan[]> {
+  const scans: PageScan[] = [];
+  for (const record of graph.rasters ?? []) {
+    if (record.space !== layoutName) continue;
+    const bytes = await storage.get(tenantId, record.sha256);
+    if (bytes === null) throw new Error(`the store holds no page raster at ${record.sha256} for sheet ${layoutName} (I-584)`);
+    scans.push({ record, image: decodeGreyPng(bytes) });
+  }
+  return scans;
 }
 
 /**

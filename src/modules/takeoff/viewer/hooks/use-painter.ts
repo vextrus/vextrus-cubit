@@ -11,12 +11,15 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
-import { createPainter, type CanvasPalette, type Painter } from "../painter";
+import { createPainter, type Backdrop, type CanvasPalette, type Painter } from "../painter";
 import type { HoverFact } from "../../viewer-inspector/inspector-panel";
 import type { ViewerState } from "../client";
 import type { Camera, RenderLayer, ViewerHead } from "../types";
 import { createSheetFacts, type SheetFacts } from "./facts";
 import { useHandedRef } from "./use-handed-ref";
+
+/** A drawn sheet's scans: none. One value, so an effect keyed on it does not run every render. */
+const NO_BACKDROPS: readonly Backdrop[] = Object.freeze([]);
 
 /** A sheet nobody has learned anything about yet — nothing is marked, because nothing is known. */
 const EMPTY_FACTS: SheetFacts = createSheetFacts();
@@ -63,6 +66,8 @@ export type UsePainterOptions = {
   drawnLayers?: string;
   selection?: readonly string[];
   hovered?: HoverFact | null;
+  /** The scans a scanned sheet's traced lines were read from, painted under every layer (I-684). */
+  backdrops?: readonly Backdrop[];
 };
 
 export type UsePainter = {
@@ -74,7 +79,7 @@ export type UsePainter = {
 
 export function usePainter(options: UsePainterOptions): UsePainter {
   const { head, refused = false, canvasRef, stageRef, statusRef, painterRef, stateRef, cameraRef, layers } = options;
-  const { facts = EMPTY_FACTS, loadedLayers = 0, drawnLayers = "", selection = [], hovered = null } = options;
+  const { facts = EMPTY_FACTS, loadedLayers = 0, drawnLayers = "", selection = [], hovered = null, backdrops = NO_BACKDROPS } = options;
 
   const [renderer, setRenderer] = useState<"webgl" | "unavailable">("unavailable");
   const [probed, setProbed] = useState(false);
@@ -154,6 +159,15 @@ export function usePainter(options: UsePainterOptions): UsePainter {
     if (head?.kind !== "manifest") return;
     brush.current?.setExtents(head.manifest.extents);
   }, [brush, head, renderer]);
+
+  // The scans under the sheet, handed to every painter this screen makes — a new sheet's painter
+  // included — and a frame asked for at the camera held (I-684).
+  useEffect(() => {
+    const painter = brush.current;
+    if (painter === null) return;
+    painter.setBackdrops(backdrops);
+    paint(painter);
+  }, [backdrops, brush, head, paint, renderer]);
 
   // Nothing to paint is painted at once: a refusal, an absence and a browser with no WebGL are all
   // on screen the moment the head answers, and first paint is what a reader can see (PB-2).

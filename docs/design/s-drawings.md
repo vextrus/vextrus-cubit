@@ -843,6 +843,8 @@ card names itself as a region because its last child is a door every card labels
   its intrinsic `width`/`height` and `alt` = `drawings_thumbnail_alt` filled with the
   card's name (I-429: the proposed title, or **Model space**); pending, a `<div data-testid="sheet-card-thumbnail" data-pending="true">`
   centring `drawings_thumbnail_pending`, `var(--text-12)` `var(--graphite-600)`.
+  A scanned sheet's thumbnail is its scan with the traced lines over it, drawn at the page corners
+  the trace's record states (viewer.md I-684); a drawn sheet's is its lines alone, as before.
 - **Title** — `<h3 data-testid="sheet-card-title">`, `var(--text-13)`
   `var(--weight-body-medium)` `var(--graphite-900)`, wrapping. The words are the grammar's proposal,
   read in I-364's order: the block's numbered line, else its tallest text that not every sheet of

@@ -176,7 +176,7 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
     moveCamera: camera.moveCamera, zoomBy: camera.zoomBy, fitSheet: camera.fitSheet, hold: held.hold, setTool, measureKey,
     isSnapKey: snapping.isSnapKey, toggleSnapping: snap.toggleSnapping, takePick: snap.takePick, clearPicks: snap.clearPicks,
   });
-  const paint = usePainter({ head: sheet.head, refused: denied !== null, canvasRef, stageRef, statusRef, painterRef, stateRef: layers.stateRef, cameraRef, layers: arrived, facts, loadedLayers: sheet.loadedLayers, drawnLayers: layers.drawnLayers, selection: held.selection, hovered: pointer.hovered });
+  const paint = usePainter({ head: sheet.head, refused: denied !== null, canvasRef, stageRef, statusRef, painterRef, stateRef: layers.stateRef, cameraRef, layers: arrived, facts, loadedLayers: sheet.loadedLayers, drawnLayers: layers.drawnLayers, selection: held.selection, hovered: pointer.hovered, backdrops: sheet.backdrops });
 
   /**
    * THE FRAME'S THREE SLOTS (Direction §1, §3.1; R-UI-080). The tool row, the readout and the ONE

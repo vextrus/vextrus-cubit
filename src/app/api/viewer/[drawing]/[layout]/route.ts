@@ -20,7 +20,7 @@
 import { z } from "zod";
 import { REFUSALS } from "@/core/errors";
 import { appStorage } from "@/core/storage/app";
-import { drawingAddress, renderManifestOf } from "@/modules/takeoff/viewer";
+import { backdropOf, drawingAddress, renderManifestOf } from "@/modules/takeoff/viewer";
 import { partitionOverlayOfSheet } from "@/modules/takeoff/viewer-partition-overlay/server";
 import { quantityOverlayOfSheet } from "@/modules/takeoff/viewer-quantity-overlay/server";
 import { snapCalibrationsOfSheet } from "@/modules/takeoff/viewer-snap/server";
@@ -41,14 +41,14 @@ const STATUS: Readonly<Record<"SIGNED_OUT" | "WORKSPACE_PERMISSION_NOT_HELD", nu
 });
 
 /** What a caller is told when the address asks for a part of a sheet that is not one. */
-const NOT_A_PART = "a sheet is asked for as ?part=head, ?part=layer&index=<n>, ?part=partition, ?part=calibration or ?part=quantities";
+const NOT_A_PART = "a sheet is asked for as ?part=head, ?part=layer&index=<n>, ?part=backdrop&index=<n>, ?part=partition, ?part=calibration or ?part=quantities";
 
 /**
  * What a caller is told when the part is one this feed serves but the index beside it is not a
  * place in a roster. Its own sentence: a client answered with the part's copy is told to ask for
  * exactly what it did ask for, and learns nothing about which half of the address was wrong.
  */
-const NOT_AN_INDEX = "?index= is a layer's place in the roster the head published: a whole number from 0 upwards";
+const NOT_AN_INDEX = "?index= is a layer's or a scan's place in the lists the head published: a whole number from 0 upwards";
 
 /**
  * What the address asks for, read once by the one reading this tier has (`@/server/call`): the head,
@@ -69,17 +69,17 @@ const ASKED = z.object({
       drawing: z.string(),
       layout: z.string(),
       tenant: z.string().optional(),
-      // A stated part is one of the five this feed serves; an address that names none asks for the
+      // A stated part is one of the six this feed serves; an address that names none asks for the
       // head, which is what a screen wants first.
       part: z
         .string()
         .optional()
         .transform((stated) => stated ?? "head")
-        .pipe(z.enum(["head", "layer", "partition", "calibration", "quantities"], { error: NOT_A_PART })),
+        .pipe(z.enum(["head", "layer", "backdrop", "partition", "calibration", "quantities"], { error: NOT_A_PART })),
       index: z.string().optional(),
     })
     .superRefine((stated, ctx) => {
-      if (stated.part !== "layer") return;
+      if (stated.part !== "layer" && stated.part !== "backdrop") return;
       if (/^\d+$/.test(stated.index ?? "")) return;
       ctx.addIssue({ code: "custom", message: NOT_AN_INDEX, path: ["index"] });
     })
@@ -106,6 +106,9 @@ function headAnswer(head: ViewerHead): Response {
       insunits: manifest.insunits,
       digest: manifest.digest,
       version: manifest.version,
+      // The scans painted under a scanned sheet's traced lines, each asked for at its own index; a
+      // drawn sheet's head carries no such key (I-684).
+      ...(manifest.backdrops === undefined ? {} : { backdrops: manifest.backdrops }),
       layers: manifest.layers.map((layer: RenderLayer) => ({
         name: layer.name,
         rgb: layer.rgb,
@@ -197,6 +200,16 @@ export const GET = routeHandler({ route: ROUTE, actor: "viewer", schema: ASKED, 
   // collide two addresses and fault on a name carrying a bare `%` (R-UI-031).
   // The project this sheet is read under is the one the guard above admitted the caller into, so it
   // is stated here rather than left out: a head is never built for a scope that names no project.
+  // The picture one scan of this sheet is painted from, under its traced lines (I-684): the bytes
+  // themselves, not a link to them — the door that admitted the reader to the sheet admits them to
+  // the scan it was traced from, and nothing else mints a way to it. A sheet with no scan at that
+  // index is the same absence a layer the roster does not hold is.
+  if (part === "backdrop") {
+    const picture = await backdropOf({ tenantId, projectId: address.projectId, drawingId: drawing, layoutName: layout }, index ?? 0, { storage: appStorage() });
+    if (picture === null) return json({ error: `the sheet holds no scan at ${String(index ?? 0)}` }, 404);
+    return new Response(new Uint8Array(picture), { status: 200, headers: { "content-type": "image/png", "cache-control": "private, max-age=3600" } });
+  }
+
   const head = await renderManifestOf({ tenantId, projectId: address.projectId, drawingId: drawing, layoutName: layout }, { storage: appStorage() });
   if (part === "head") return headAnswer(head);
   return layerAnswer(head, index ?? 0);

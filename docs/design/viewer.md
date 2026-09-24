@@ -445,6 +445,40 @@ IOU in §8 with its owning clause. A grey box promising a panel is a lie about w
   them regenerates F-RCC6-BNBC and re-keys every corpus and read-back on it — the next BNBC edition's
   to carry, in its own `baseline:` commit, not a viewer change.
 
+- **I-684 — a scanned sheet is painted with its scan under its trace** (session 9, M4P-4; R-UI-040,
+  R-SPINE-022, R-TO-003, I-584). A traced line is only as believable as the picture it was read from,
+  and a QS checks a trace by seeing it on the scanned line. The reading: (1) **The sheet index.** A
+  scanned page's three tiers are drawn from the page raster the vectoriser read (stored by the ingest
+  at the sha256 its `rasters[]` record names, before the record lands), laid through the four
+  page-space corners the record states and averaged by area into the tier's pixels — so a hairline
+  fades at the thumb tier and never vanishes — with the traced lines drawn over it. A picture pasted
+  onto part of a PDF page (S-03's mixed page) stands at its own placement corners and nowhere else; a
+  page turned in its scan is read back through its turn. A page raster the store does not hold, or
+  bytes that are not the grey PNG the vectoriser writes, is an outage of ours and fails the job: a
+  scanned card of lines standing on nothing is not drawn. The grey-PNG reader sits beside the
+  encoder (`thumbnails/png.ts`) and reads exactly what the vectoriser writes — 8-bit grey,
+  non-interlaced, CRCs checked — and nothing else. (2) **The head.** A scanned sheet's manifest
+  carries `backdrops` — each scan's index in the sheet's list, its page raster's sha256, size and
+  corners; a drawn sheet carries no such key, and its digest is spelled exactly as before, so no DXF
+  or vector-PDF sheet's digest, cache or picture moves. (3) **The feed.** `?part=backdrop&index=<n>`
+  answers the scan's picture itself — the page raster averaged to the full tier's 2048 px edge, one
+  grey PNG, drawn once per page raster per process — behind the same participation door as the sheet
+  (a caller who may not read the sheet is refused by the one refusal the sheet answers; a sheet with
+  no scan at that index is a 404 absence). (4) **The painter.** Each scan is one textured quad at its
+  record's corners, drawn before every layer with the settled frame's vertex program and its own
+  fragment program, toned between the canvas's paper and ink at `BACKDROP_STRENGTH` (0.45 of the
+  ink) — so it reads on the dark paper as on the light, and every traced line, drawn in the full ink
+  over it, stands out from the scanned line it was read from. A scan wholly out of view is not sent;
+  a sheet with no scan pays nothing (no program switch, no texture). The head paints first; the scan
+  joins under the lines when it arrives, and one that does not arrive or will not decode leaves the
+  traced lines standing whole, as a missing layer leaves its row (I-81). A context that will not
+  compile the program paints the trace without its picture. **What it does not do, and who owns
+  it:** the backdrop is one untiled 2048 px picture — about 62 DPI across an A1 sheet — so a reader
+  zoomed hard in sees the scan soften under a trace that stays sharp; tiling it at the page raster's
+  own resolution is R-UI-040's raster clause, still an IOU (§ 8). **Cost:** every scanned sheet's
+  tiers and viewer picture move (they now show the scan); a scanned sheet's first open fetches one
+  more picture after its head; no figure, key or register fact moves.
+
 ## 1. Layout and hierarchy
 
 Files in the route directory: `page.tsx` (thin server component — reads the four segments and `v`,
@@ -773,7 +807,8 @@ model, the Trace target (`?s=` + reveal-in-sheet + pulse), and visible navigatio
 the sheet card's own door (I-77, R-UI-031). Minimap, rotate in 90° steps, zoom-to-selection and a
 rotation component in `v` — R-TO-010's remaining gestures, owner: the same toolbar leaf. Raster
 sheets as tiled backgrounds under vector traces — R-UI-040's raster clause, owner: the R-SPINE-022
-tier leaf. A per-user remembered split size — R-UI-005, owner:
+tier leaf; **part paid** by M4P-4 (I-684): a scan is painted under its trace as one untiled
+2048 px picture (about 62 DPI on A1), and tiling it at the page raster's own resolution stands. A per-user remembered split size — R-UI-005, owner:
 the prefs seam's node (I-84). The shared `cx-readout` class R-UI-030 names — owner: the `src/ui`
 node that ships it. Manifest durability across a server restart — owner: a later leaf, if PB-2 cold
 ever demands more than the content-keyed process memo.

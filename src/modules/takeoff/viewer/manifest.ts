@@ -17,7 +17,7 @@
 import { createHash } from "node:crypto";
 import type { EntityGraph } from "@/core/entitygraph/schema";
 import { projectedRecords, unionOfFrames, windowsOf } from "./projection";
-import type { RenderLayer, RenderManifest, RenderRecord, TextJustify } from "./types";
+import type { RenderBackdrop, RenderLayer, RenderManifest, RenderRecord, TextJustify } from "./types";
 
 /** The name the artifact gives model space (`vextrus_cad.ingest.MODEL_SPACE`). */
 const MODEL_SPACE = "model";
@@ -158,7 +158,10 @@ function digestSubject(manifest: Omit<RenderManifest, "digest">): string {
       record.fit ?? null,
     ]),
   ]);
-  return JSON.stringify([manifest.version, manifest.layoutName, manifest.extents, manifest.insunits, layers]);
+  // A scan painted under the sheet is part of what a painter draws; a drawn sheet carries none, and
+  // its subject — and so every digest taken before scans were painted — is spelled as it always was.
+  const backdrops = manifest.backdrops === undefined ? [] : [manifest.backdrops.map((backdrop) => [backdrop.index, backdrop.sha256, backdrop.width, backdrop.height, backdrop.placement])];
+  return JSON.stringify([manifest.version, manifest.layoutName, manifest.extents, manifest.insunits, layers, ...backdrops]);
 }
 
 /**
@@ -219,6 +222,18 @@ export function buildRenderManifest(graph: EntityGraph, layoutName: string): Ren
     records,
   }));
 
+  // The scans this sheet's lines were traced from, in the artifact's order, painted under the layers
+  // (I-584, I-684). Only a scanned sheet carries the key at all.
+  const backdrops: RenderBackdrop[] = (graph.rasters ?? [])
+    .filter((record) => record.space === layoutName)
+    .map((record, index) => ({
+      index,
+      sha256: record.sha256,
+      width: record.width,
+      height: record.height,
+      placement: record.placement.map(([x, y]) => [x, y] as const),
+    }));
+
   // A sheet of windows and nothing else still has a place its windows stand: their frames.
   const draft = {
     version: MANIFEST_VERSION,
@@ -226,6 +241,7 @@ export function buildRenderManifest(graph: EntityGraph, layoutName: string): Ren
     extents: inventory?.bbox ?? unionOfFrames(windows),
     insunits: graph.insunits,
     layers,
+    ...(backdrops.length === 0 ? {} : { backdrops }),
   } as const satisfies Omit<RenderManifest, "digest">;
 
   return { ...draft, digest: manifestDigest(draft) };

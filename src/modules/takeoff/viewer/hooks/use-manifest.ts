@@ -11,7 +11,7 @@
  * error cell (I-81).
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { RenderLayer, RenderManifest, ViewerHead } from "../types";
+import type { RenderBackdrop, RenderLayer, RenderManifest, ViewerHead } from "../types";
 
 /** The facts an ingest record carries, as they arrive over the feed. */
 type ViewerHeadFacts = Extract<ViewerHead, { kind: "refusal" }>["facts"];
@@ -35,6 +35,8 @@ export type HeadAnswer =
       insunits: RenderManifest["insunits"];
       digest: string;
       layers: LayerRoster[];
+      /** The scans under a scanned sheet's traced lines; absent on a drawn sheet (I-684). */
+      backdrops?: RenderBackdrop[];
     }
   | { kind: "refusal"; refusal: Extract<ViewerHead, { kind: "refusal" }>["refusal"]; facts: ViewerHeadFacts }
   | { kind: "absent"; reason: "not-ingested" | "layout-unknown" | "drawing-unknown" };
@@ -56,8 +58,22 @@ export type UseManifestOptions = {
   onDenied?: (status: number) => void;
 };
 
+/**
+ * A scan painted under the sheet (I-684): the world corners it stands at and its picture, decoded
+ * by the browser and ready to be a texture.
+ */
+export type LoadedBackdrop = {
+  readonly placement: RenderBackdrop["placement"];
+  readonly image: ImageBitmap;
+};
+
+/** The scans of a drawn sheet, and of a scanned one before any has arrived. */
+const NO_BACKDROPS: readonly LoadedBackdrop[] = Object.freeze([]);
+
 export type UseManifest = {
   head: ViewerHead | null;
+  /** The scans that have arrived, in the head's order; empty on a drawn sheet. */
+  backdrops: readonly LoadedBackdrop[];
   loadedLayers: number;
   /** Ask for one layer again, by its place in the roster and the name its row carries. */
   retryLayer: (index: number, name: string) => void;
@@ -69,6 +85,11 @@ export function useManifest({ supplied, feed, onLayer, onLayerFailed, onDenied }
   const [head, setHead] = useState<ViewerHead | null>(supplied ?? null);
   const [loadedLayers, setLoadedLayers] = useState(supplied?.kind === "manifest" ? supplied.manifest.layers.length : 0);
   const [failure, setFailure] = useState<Error | null>(null);
+  // Held with the address they were asked at, so a sheet opened after another never shows the
+  // first sheet's scans for a moment under its own lines.
+  const [arrivedBackdrops, setBackdrops] = useState<{ feed: string; list: readonly LoadedBackdrop[] }>({ feed: "", list: [] });
+  const sheetFeed = feed("part=head");
+  const backdrops = arrivedBackdrops.feed === sheetFeed ? arrivedBackdrops.list : NO_BACKDROPS;
 
   // The sinks are read off a ref rather than depended on: a screen that hands its callbacks in as
   // they are written would otherwise refetch the whole sheet on every render.
@@ -95,6 +116,29 @@ export function useManifest({ supplied, feed, onLayer, onLayerFailed, onDenied }
       } catch (cause) {
         if (signal?.aborted === true) throw cause;
         return false;
+      }
+    },
+    [feed],
+  );
+
+  const takeBackdrop = useCallback(
+    async (backdrop: RenderBackdrop, signal: AbortSignal): Promise<void> => {
+      if (typeof createImageBitmap !== "function") return;
+      try {
+        const answer = await fetch(feed(`part=backdrop&index=${backdrop.index}`), { signal });
+        if (!answer.ok) return;
+        const image = await createImageBitmap(await answer.blob());
+        if (signal.aborted) {
+          image.close();
+          return;
+        }
+        const asked = feed("part=head");
+        setBackdrops((held) => ({ feed: asked, list: [...(held.feed === asked ? held.list : []), { placement: backdrop.placement, image }] }));
+      } catch (cause) {
+        // A scan that could not be fetched or decoded leaves the sheet without its picture — the
+        // traced lines stand whole — exactly as a layer that does not arrive leaves its row (I-81).
+        // Only a fetch this screen cut short by leaving is raised, and its caller lets it go.
+        if (signal.aborted) throw cause;
       }
     },
     [feed],
@@ -135,8 +179,15 @@ export function useManifest({ supplied, feed, onLayer, onLayerFailed, onDenied }
           insunits: body.insunits,
           digest: body.digest,
           layers: body.layers.map((layer) => ({ ...layer, records: [] })),
+          ...(body.backdrops === undefined ? {} : { backdrops: body.backdrops }),
         },
       });
+
+      // The scans are asked for beside the layers, never ahead of them: first paint is the first
+      // layer's lines, and the scan they were traced from joins under them when it arrives. A scan
+      // that does not arrive leaves the traced lines standing as they are — the sheet is whole
+      // without its picture, only harder to check against (I-684).
+      for (const backdrop of body.backdrops ?? []) void takeBackdrop(backdrop, controller.signal).catch(() => undefined);
 
       // Layer by layer, in the roster's order: the first one painted is what a heavy sheet shows
       // first, and a layer that does not arrive leaves its row standing (R-UI-043, I-81).
@@ -157,7 +208,7 @@ export function useManifest({ supplied, feed, onLayer, onLayerFailed, onDenied }
     });
 
     return () => controller.abort();
-  }, [feed, supplied, takeLayer]);
+  }, [feed, supplied, takeBackdrop, takeLayer]);
 
   const retryLayer = useCallback(
     (index: number, name: string): void => {
@@ -178,5 +229,5 @@ export function useManifest({ supplied, feed, onLayer, onLayerFailed, onDenied }
     [takeLayer],
   );
 
-  return { head, loadedLayers, retryLayer, failure };
+  return { head, backdrops, loadedLayers, retryLayer, failure };
 }

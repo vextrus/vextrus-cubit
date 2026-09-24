@@ -68,13 +68,31 @@ export type RenderLayer = {
   readonly records: readonly RenderRecord[];
 };
 
-/** A sheet as the client paints it: the layout, its world box, its units and its layers. */
+/**
+ * A scan the sheet's traced lines were read from, painted under them (I-684): its place in the
+ * sheet's list — the address its picture is asked for at (`?part=backdrop&index=`) — the page raster's
+ * own address and size, and the world corners its top-left, top-right, bottom-right and bottom-left
+ * pixels stand at (I-584's `placement`).
+ */
+export type RenderBackdrop = {
+  readonly index: number;
+  readonly sha256: string;
+  readonly width: number;
+  readonly height: number;
+  readonly placement: readonly (readonly [number, number])[];
+};
+
+/**
+ * A sheet as the client paints it: the layout, its world box, its units, its layers and — on a
+ * scanned sheet only — the scans painted under them. A drawn sheet carries no `backdrops` key.
+ */
 export type RenderManifest = {
   readonly version: 1;
   readonly layoutName: string;
   readonly extents: { readonly min: readonly [number, number]; readonly max: readonly [number, number] } | null;
   readonly insunits: EntityGraph["insunits"];
   readonly layers: readonly RenderLayer[];
+  readonly backdrops?: readonly RenderBackdrop[];
   readonly digest: string;
 };
 

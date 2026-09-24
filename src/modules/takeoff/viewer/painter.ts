@@ -42,6 +42,15 @@ export type CanvasPalette = {
   pulse: string;
 };
 
+/**
+ * A scan painted under the sheet (I-684): its picture, and the world corners of its top-left,
+ * top-right, bottom-right and bottom-left pixels.
+ */
+export type Backdrop = {
+  readonly image: TexImageSource;
+  readonly placement: readonly (readonly [number, number])[];
+};
+
 /** What the screen drives a sheet through. */
 export type Painter = {
   /** Tessellate one arrived layer into the batch it is drawn from thereafter. */
@@ -53,6 +62,11 @@ export type Painter = {
       max: readonly [number, number];
     } | null,
   ) => void;
+  /**
+   * The scans a scanned sheet's traced lines were read from, painted under every layer in the canvas's
+   * own paper and ink (I-684). An empty list paints none, which is every drawn sheet.
+   */
+  setBackdrops: (backdrops: readonly Backdrop[]) => void;
   /** The three canvas colours again, after the document's theme changed (Decision § 6). */
   setPalette: (palette: CanvasPalette) => void;
   /** Ask for a frame at this camera, with these layers drawn. */
@@ -261,6 +275,34 @@ varying vec2 v_texel;
 void main() {
   gl_FragColor = vec4(texture2D(u_atlas, v_texel).rgb, 1.0);
 }`;
+
+/**
+ * A scan under the sheet (I-684): the settled frame's quad, sampling a scan's grey rather than a
+ * frame's colour, and toned between the canvas's paper and its ink — so a scan reads on the dark
+ * paper as on the light one, and at `BACKDROP_STRENGTH` of the ink, so every traced line painted over
+ * it in the full ink stands out from the scanned line it was read from.
+ */
+const BACKDROP_FRAGMENT_SHADER = `
+precision mediump float;
+uniform sampler2D u_atlas;
+uniform vec3 u_paper;
+uniform vec3 u_ink;
+uniform float u_strength;
+varying vec2 v_texel;
+void main() {
+  float dark = 1.0 - texture2D(u_atlas, v_texel).r;
+  gl_FragColor = vec4(mix(u_paper, u_ink, dark * u_strength), 1.0);
+}`;
+
+/** How far toward the ink a scan's darkest pixel is painted: a line the reader sees, under the trace. */
+export const BACKDROP_STRENGTH = 0.45;
+
+/** One scan on the GPU: its texture, its quad in world units and the box the quad covers. */
+type BackdropBatch = {
+  texture: WebGLTexture;
+  quad: WebGLBuffer | null;
+  box: WorldBox;
+};
 
 /**
  * A mark drawn above the sheet — what is held, and what is under the pointer. It carries its own
@@ -559,6 +601,13 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
   // A context that will not compile the settled frame's program draws every frame in full — slower
   // in motion, never different (I-345).
   const settledProgram = programOf(gl, SETTLED_VERTEX_SHADER, SETTLED_FRAGMENT_SHADER);
+  // A context that will not compile the scan's program paints the traced lines without it — the
+  // sheet whole, only without the picture to check them against (I-684).
+  const backdropProgram = programOf(gl, SETTLED_VERTEX_SHADER, BACKDROP_FRAGMENT_SHADER);
+  /** The scans under the sheet, in the order they were handed over. */
+  let backdrops: BackdropBatch[] = [];
+  /** One texel per corner of a scan's quad: top-left, top-right, bottom-right, top-left, bottom-right, bottom-left. */
+  let backdropTexels: WebGLBuffer | null = null;
 
   let palette = tokens;
   let atlas = createAtlas(gl, palette.mono);
@@ -641,10 +690,14 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
     tinted: gl.getUniformLocation(program, "u_tinted"),
     shift: gl.getUniformLocation(program, "u_shift"),
     alpha: gl.getUniformLocation(program, "u_alpha"),
+    paper: gl.getUniformLocation(program, "u_paper"),
+    ink: gl.getUniformLocation(program, "u_ink"),
+    strength: gl.getUniformLocation(program, "u_strength"),
   });
   const lineSlots = slots(lineProgram);
   const glyphSlots = slots(glyphProgram);
   const settledSlots = settledProgram === null ? null : slots(settledProgram);
+  const backdropSlots = backdropProgram === null ? null : slots(backdropProgram);
 
   /** Bind an attribute to the buffer that feeds it. */
   const attribute = (at: number, buffer: WebGLBuffer | null, size: number): void => {
@@ -817,6 +870,26 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
 
     const box = viewBoxOf(camera);
 
+    // The scans first, so every line and letter the sheet paints stands over the picture it was read
+    // from (I-684); a scan wholly out of view is not sent.
+    if (backdropProgram !== null && backdropSlots !== null && backdrops.length > 0) {
+      const ink = unitChannelsOf(palette.ink);
+      gl.useProgram(backdropProgram);
+      camera3(backdropSlots, camera);
+      gl.uniform3f(backdropSlots.paper, paper[0], paper[1], paper[2]);
+      gl.uniform3f(backdropSlots.ink, ink[0], ink[1], ink[2]);
+      gl.uniform1f(backdropSlots.strength, BACKDROP_STRENGTH);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.uniform1i(backdropSlots.atlas, 0);
+      attribute(backdropSlots.texel, backdropTexels, 2);
+      for (const backdrop of backdrops) {
+        if (backdrop.box[0] > box[2] || backdrop.box[2] < box[0] || backdrop.box[1] > box[3] || backdrop.box[3] < box[1]) continue;
+        gl.bindTexture(gl.TEXTURE_2D, backdrop.texture);
+        attribute(backdropSlots.position, backdrop.quad, 2);
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
+      }
+    }
+
     gl.useProgram(lineProgram);
     camera3(lineSlots, camera);
     // The sheet paints in its own colours: only a mark is ever tinted (Decision § 6).
@@ -885,6 +958,7 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
   /** Everything the drawn layers and the extents frame can paint, as one world box (I-345). */
   const contentOf = (drawn: ReadonlySet<string>): WorldBox | null => {
     let box: WorldBox | null = frame === null ? null : frame.box;
+    for (const backdrop of backdrops) box = joinBox(box, backdrop.box[0], backdrop.box[1], backdrop.box[2], backdrop.box[3]);
     for (const [name, batch] of batches) {
       if (!drawn.has(name) || batch.box === null) continue;
       box = joinBox(box, batch.box[0], batch.box[1], batch.box[2], batch.box[3]);
@@ -1101,6 +1175,47 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
     }
   };
 
+  /** Every scan's texture and quad, let go of before the next set takes their place. */
+  const releaseBackdrops = (): void => {
+    for (const backdrop of backdrops) {
+      gl.deleteTexture(backdrop.texture);
+      if (backdrop.quad !== null) gl.deleteBuffer(backdrop.quad);
+    }
+    backdrops = [];
+  };
+
+  /**
+   * The scans under the sheet, uploaded once each: a texture sampled linearly and clamped at its
+   * edges (a scan is rarely a power of two on a side, which WebGL 1 then asks of no mipmaps and no
+   * repeat), and a quad at the four corners its record states — two triangles, so a picture turned
+   * or placed askew on its page stands exactly where the trace says it does.
+   */
+  const uploadBackdrops = (next: readonly Backdrop[]): void => {
+    releaseBackdrops();
+    if (backdropProgram !== null && backdropTexels === null) backdropTexels = bufferOf(new Float32Array([0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1]));
+    for (const backdrop of next) {
+      const [topLeft, topRight, bottomRight, bottomLeft] = backdrop.placement;
+      if (topLeft === undefined || topRight === undefined || bottomRight === undefined || bottomLeft === undefined) continue;
+      const texture = gl.createTexture();
+      if (texture === null) continue;
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, backdrop.image);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      const corners = [topLeft, topRight, bottomRight, bottomLeft];
+      const xs = corners.map((corner) => corner[0]);
+      const ys = corners.map((corner) => corner[1]);
+      backdrops.push({
+        texture,
+        quad: bufferOf(new Float32Array([...topLeft, ...topRight, ...bottomRight, ...topLeft, ...bottomRight, ...bottomLeft])),
+        box: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)],
+      });
+    }
+    scene += 1;
+  };
+
   /** The extents' own two buffers, let go of before the next pair takes their place. */
   const releaseFrame = (): void => {
     if (frameBuffer !== null) gl.deleteBuffer(frameBuffer);
@@ -1296,6 +1411,8 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
 
     setExtents: frameExtents,
 
+    setBackdrops: uploadBackdrops,
+
     setPalette: (next) => {
       const was = palette;
       palette = next;
@@ -1403,6 +1520,9 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
       releaseFrame();
       frame = null;
       framed = null;
+      releaseBackdrops();
+      if (backdropTexels !== null) gl.deleteBuffer(backdropTexels);
+      backdropTexels = null;
       releaseSettled();
       shown = null;
       uploaded.clear();
