@@ -881,3 +881,151 @@
 .cx-viewer-readout-partial {
   color: var(--ink);
 }
+
+/* ------------------------------------------------------- the quantity overlay (viewer.md Part 6) */
+
+/* The two switches stand in the tool row as the snapping toggles do: pressed wears the accent's
+   subtle ground AND a filled swatch, never hue alone (R-UI-060). The wrapper lays no box of its own. */
+.cx-viewer-quantity-tools {
+  display: contents;
+}
+
+.cx-viewer-quantity-tools .cx-btn[aria-pressed="true"] {
+  background: var(--accent-subtle);
+  color: var(--ink);
+  font-weight: var(--weight-heading);
+}
+
+.cx-viewer-quantity-tools .cx-btn[aria-pressed="true"] .cx-viewer-snap-swatch {
+  background: var(--canvas-snap);
+}
+
+/* The third canvas: paint over the sheet and under the views/grid overlay, reached by nothing (I-112). */
+.cx-viewer-quantity-canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: var(--z-base);
+}
+
+/* The legend on the sheet (R-TO-044): docked in the stage's lower-left corner, where a drawing's own
+   legend and notes are not — the title block stands lower-right — on the panel surface with one
+   hairline, never glass (glass is the z-overlay's). It scrolls within half the stage. */
+.cx-viewer-quantity-legend {
+  position: absolute;
+  inset-inline-start: var(--space-3);
+  inset-block-end: var(--space-3);
+  z-index: var(--z-base);
+  max-inline-size: 360px;
+  max-block-size: 50%;
+  overflow-y: auto;
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-panel);
+  border: var(--hairline);
+  border-radius: var(--radius-2);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: var(--text-12);
+  line-height: var(--leading-ui);
+}
+
+.cx-viewer-quantity-heading {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-13);
+  font-weight: var(--weight-heading);
+}
+
+.cx-viewer-quantity-subhead {
+  margin: var(--space-2) 0 var(--space-1);
+  color: var(--ink-muted);
+  font-weight: var(--weight-body-medium);
+}
+
+.cx-viewer-quantity-bases .cx-viewer-quantity-subhead,
+.cx-viewer-quantity-elsewhere .cx-viewer-quantity-subhead {
+  margin: 0 var(--space-2) 0 0;
+}
+
+.cx-viewer-quantity-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cx-viewer-quantity-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--space-1);
+  min-block-size: var(--row-h);
+}
+
+.cx-viewer-quantity-condition {
+  font-weight: var(--weight-body-medium);
+}
+
+.cx-viewer-quantity-count,
+.cx-viewer-quantity-unit {
+  color: var(--ink-secondary);
+}
+
+.cx-viewer-quantity-mono,
+.cx-viewer-quantity-total {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.cx-viewer-quantity-reason {
+  flex-basis: 100%;
+  color: var(--ink-muted);
+}
+
+/* The unmeasured row's key: the sheet's own warn hatch, never a fill (L-QTY-07). */
+.cx-viewer-quantity-hatch {
+  flex: none;
+  width: 12px;
+  height: var(--space-3);
+  border: 1px dashed var(--warn);
+  border-radius: var(--radius-2);
+  background-image: repeating-linear-gradient(-45deg, var(--warn) 0 1px, transparent 1px 3px);
+}
+
+.cx-viewer-quantity-bases,
+.cx-viewer-quantity-elsewhere {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--space-2);
+  margin: var(--space-2) 0 0;
+}
+
+/* A basis keyed twice: its glyph in its own colour, then its word (R-UI-002). */
+.cx-viewer-quantity-basis {
+  display: inline-flex;
+  gap: var(--space-1);
+  align-items: baseline;
+}
+
+.cx-viewer-quantity-glyph {
+  color: var(--cx-basis);
+  font-family: var(--font-mono);
+}
+
+.cx-viewer-quantity-note {
+  margin: 0;
+  color: var(--ink-secondary);
+}
+
+.cx-viewer-quantity-retry {
+  margin-block-start: var(--space-1);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}

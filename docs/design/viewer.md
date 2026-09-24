@@ -3226,3 +3226,183 @@ foundation leaf that mints it; the distance field here is the core Input and the
 `<select>` in the house field classes, replaced when that primitive lands. Moving this panel's keys
 into `src/ui/strings/viewer-scale.ts` (I-153) — owner: the node that owns `src/ui/strings` and the
 ARCH-01 import matrix.
+
+# Design Decision — S-Viewer's quantity overlay and the legend on the sheet (Part 6)
+
+The seventh region of S-Viewer, and no route of its own: two switches in the tool row
+(**Quantities**, **Unmeasured**), a third canvas over the sheet that paints every published quantity's
+member, and a legend docked in the stage's lower-left corner. Route unchanged
+(`/t/{tenant}/p/{project}/viewer/{drawing}/{layout}`, `?v=`, `?s=`); the feed gains
+`?part=quantities`. Files: `src/modules/takeoff/viewer-quantity-overlay/{types.ts,server.ts,scene.ts,
+paint.ts,use-quantity-overlay.ts,legend.tsx,copy.ts}`, the route's `quantity-region.tsx` (the region's
+own composition: the string table, the one RefusalState, the chest's Swatch, the basis glyphs and the
+test ids), `use-frame-paint.ts`, `viewer-screen.tsx`, `viewer-slots.tsx`, `viewer-toolbar.tsx`,
+`viewer-stage.tsx`, `viewer.css`, the feed `src/app/api/viewer/[drawing]/[layout]/route.ts`, copy
+home `src/ui/strings/viewer.ts`, and the paper palette `src/ui/palette-typ.ts` →
+`documents/base/palette.typ`. Slice VD-4. Law: R-TO-015, R-TO-044, R-UI-002, R-UI-060, L-QTY-01/02/04/07,
+L-FMT-02, R-UI-043/050, ARCH-01, B-07, B-17, B-19.
+
+Every convention of the earlier parts binds: `cx-` classes, variants on data-attributes, tokens-only
+colour, copy by key from a strings table, figures through the format seam. Part 3 (views/grid) rules
+the overlay-canvas idiom this part repeats; I-112's rule — an overlay canvas is paint and nothing else,
+`pointer-events: none` — holds for the third canvas.
+
+## 0. Interpretations
+
+- **I-633 — "on this sheet" is the partition overlay's test, and the resolver only names other
+  sheets.** A published line is grouped under its MEMBER — a rail line's placement (the register
+  object's `placement_key`), a hand measurement's own object — and a member stands on the opened sheet
+  exactly when its outline (else its mark) is among the records of the opened layout's manifest, by the
+  identity each record is painted under (`recordKey`), its box being `recordBox`'s union over them —
+  the reading `partitionOverlayOf` makes of a view (B-17). On a paper sheet that frames model space the
+  manifest carries the model entities by their own keys (I-290), so the columns of S-10 are found there.
+  A member no record of this sheet names is not painted; the pinned record's `sheetOfKey` NAMES the sheet
+  it stands on, and the legend says "Also measured on S-11 · 4" rather than guessing geometry for it.
+  Rejected: painting from `traceCitations`' sheet — it answers one sheet per member, and a member framed
+  by two sheets would be painted on only one of them.
+- **I-634 — the legend is keyed by condition, and a rail's class is read as a condition.** R-TO-044
+  says "a legend of conditions"; a rail's member has no chest condition, so its class stands as one
+  (`class:<class>`), wearing a chest colour (the element palette, I-374) and a chest hatch chosen so no
+  two classes share both (`CLASS_CONDITIONS` in `scene.ts`). A hand measurement stands under the chest
+  condition it was applied from, by the name it snapshotted (`condition:<name>`), in that condition's
+  colour and hatch — generic and solid where the condition has left the chest. That table and
+  `chestCondition` are the one home of "which condition does a member stand under"; the manual
+  measure's own legend work extends them, never a second table.
+- **I-635 — the overlay slot is a list, painted bottom first.** `useFramePaint` answers one slot per
+  overlay region in `OVERLAY_SLOTS` order — quantities, then views/grid — and the frame paints them in
+  that order after the sheet and before the measure region. The fills lie UNDER the views' outlines and
+  the grid, so the partition still reads over the quantities. A region joins the frame by taking a slot;
+  the draw names no region.
+- **I-636 — the legend's copy crosses by key, so nothing is mirrored.** The legend lives in the
+  module (ARCH-01) and says the registry's sentences: `copy.ts` names the keys it reads
+  (`QUANTITY_COPY_KEYS`) and holds no sentence; the route hands in `strings[key]` for each, so a key the
+  registry lacks is a compile error and there is no mirror to drift (the debt I-113 records is not
+  joined).
+- **I-637 — the paper palette is generated beside the token source.** `documents/base/palette.typ`
+  is `emitPaletteTyp()`'s answer (`src/ui/palette-typ.ts`), which reads every colour from `tokens.ts`'s
+  light table and every glyph from `basis.ts`; a drift test holds the template byte-identical and a
+  compile test has the pinned Typst read every entry. The emitter stands beside `tokens.ts` rather than
+  in it, because `tokens.ts`'s contract is exactly three exports; and a colour crosses as the token's hex
+  STRING, painted through Typst's constructor where a template uses it, so no colour function is spelled
+  outside the token source (R-UI-001, `cubit/no-colour-literal`). The base directory is
+  `documents/base/` — the one `stageRender` copies — not `src/core/documents/base/`, which does not exist.
+- **I-638 — the condition fills, the basis outlines.** R-TO-015 asks for the class colour AND the
+  basis by colour and glyph on one shape. A measured member is TINTED in its condition's colour with the
+  condition's hatch over the tint (the condition's two channels), and OUTLINED in its basis colour with
+  the basis glyph on a paper chip at its centre (the basis's two channels, R-UI-002). The basis is the
+  weakest of the member's COMPLETE lines (L-QTY-01's roll-up). A member too small for a legible glyph
+  keeps its outline and loses only the glyph (the I-363 floor).
+- **I-639 — the legend states measured scope, never a grand total.** A condition's row reads
+  `Column · 27 · 93.893 m3`: the condition, how many of its members on this sheet carry a COMPLETE
+  figure, and per kind the exact sum of their COMPLETE lines — at the kind's own document precision on
+  the face (`placesOf`, L-FMT-02: concrete is three places, so the register's 93.892896 reads 93.893) and
+  whole on `data-value` (B-07). The block is headed **Measured scope** (L-QTY-07): kinds and conditions
+  are never added across each other, and a PARTIAL line is never added in.
+- **I-640 — "Unmeasured" is what was seen and not billed, hatched with its reason.** With the second
+  switch on, a member carrying a PARTIAL_DECLARED line (L-QTY-02) or a queue item (L-QTY-04) is hatched
+  in the warn token with a dashed outline — the untyped view's idiom, so "this measures nothing" reads
+  one way on the sheet (I-160) — and never filled. The legend lists it under **Unmeasured: seen, not
+  billed** with its count and its reason: the variables the lines omitted, else each code's registered
+  sentence. R-TO-015's "residue cells' sighted evidence" is paid for the members the register holds; a
+  rail OBSERVATION with no register object (a sighting nothing registered) is not painted — § 8.
+- **I-641 — the campaign is the register's, and a struck member is withheld.** The door reads the
+  project's latest campaign — the one the register renders (I-173) — and drops every object a person
+  repudiated, whose lines the register withholds from its totals too. A figure on the sheet is always one
+  the register's table can show.
+- **I-642 — the overlay opens off and is read lazily.** A sheet is a drawing first. The feed is asked
+  for `?part=quantities` the first time a reader turns the overlay on, and held from then on: turning it
+  off and on repaints what is held and asks nothing (R-UI-043, PB-3). No picture of a sheet moves until a
+  reader asks for its quantities; only the tool row gains its group.
+
+## 1. Layout and hierarchy
+
+```
+tool row:  … │ Snap Ortho Angle │ [■ Quantities] [□ Unmeasured] │ ⛶ + − │ L≡ V≡
+stage:     sheet canvas → quantity canvas → views/grid canvas → measure layer → snap marks
+           ┌ On this sheet ───────────────────────────┐   (lower-left, max 360 px wide, ≤ 50 % tall)
+           │ Measured scope                            │
+           │ ▨ Column · 27 · 93.893 m3                │
+           │ Unmeasured: seen, not billed              │   (only with Unmeasured on)
+           │ ▧ Beam · 12 not billed                    │
+           │   Omitted: t_slab                         │
+           │ Basis ◆ Measured ƒ Derived                │
+           │ Also measured on S-11 · 4                 │
+           └───────────────────────────────────────────┘
+```
+
+| Region | Where | Size | Owner |
+|---|---|---|---|
+| Switches | the tool row's own group "Quantities", after Snap | 28 px text toggles | `quantity-region.tsx` |
+| Quantity canvas | the stage, over the sheet, under the views/grid canvas | the stage | `paint.ts` |
+| Legend | the stage's lower-left corner, `--space-3` in | ≤ 360 px × ≤ 50 % | `legend.tsx` |
+
+The **Unmeasured** switch stands disabled while **Quantities** is off. The legend is on the panel
+surface with one hairline, never glass (the z-overlay's privilege), and scrolls within itself.
+
+## 2. States (R-UI-050) — the legend's cells
+
+| Cell | When | What stands |
+|---|---|---|
+| (none) | the overlay off | no legend, no canvas |
+| loading | asked, not answered | the loading line, `role="status"` |
+| ready | quantities on this sheet or named elsewhere | the rows, the bases, the sheets |
+| empty | no campaign, or nothing on this drawing | the empty sentence, which teaches |
+| failed | the feed faulted | the failure sentence, the report id, Retry |
+| refused | the feed answered 401/403 | the one RefusalState, with its evidence link |
+
+A refusal or a failure is the legend's own; the sheet beside it stands.
+
+## 3. Copy, verbatim (`src/ui/strings/viewer.ts`)
+
+`viewer_tools_quantities` "Quantities" · `viewer_quantity_toggle` "Quantities" ·
+`viewer_quantity_unmeasured_toggle` "Unmeasured" · `viewer_quantity_legend_label` "Legend of the
+quantities on this sheet" · `viewer_quantity_legend_heading` "On this sheet" ·
+`viewer_quantity_measured_scope` "Measured scope" · `viewer_quantity_measured_scope_note` "Complete lines
+only. A partial line is shown as unmeasured and is never added in." ·
+`viewer_quantity_unmeasured_heading` "Unmeasured: seen, not billed" · `viewer_quantity_unmeasured_count`
+"{count} not billed" · `viewer_quantity_omitted` "Omitted: {variables}" · `viewer_quantity_bases_heading`
+"Basis" · `viewer_quantity_elsewhere_heading` "Also measured on" · `viewer_quantity_elsewhere_row`
+"{sheet} · {count}" · `viewer_quantity_loading` "Reading the campaign's quantities" ·
+`viewer_quantity_empty` "No published quantity stands on this sheet. Measure the campaign from the
+register and its lines paint here." · `viewer_quantity_failed` "The quantities for this sheet could not
+be read." · `viewer_quantity_retry` "Retry" · `viewer_quantity_report_id` "Report id {id}". A class and a
+basis are said by EnumLabel's `humaniseEnum`; a kind, where a condition has more than one, by its last
+segment in words (`rcc.formwork` → "Formwork").
+
+## 4. Motion
+
+None. A switch, an arrival and a theme change land on the next frame; a fill is data, and fading it in
+would read as uncertainty (Part 3 § 4).
+
+## 5. Tokens
+
+`--element-<colour>` (a condition's tint, at 30 %, and its hatch), `--basis-<basis>` (the outline and
+the glyph), `--warn` (the unmeasured hatch and dash), `--canvas-paper` (the glyph's chip),
+`--font-mono`, `--text-12` (the glyph); the legend `--surface-panel`, `--hairline`, `--ink`,
+`--ink-secondary`, `--ink-muted`, `--space-*`, `--radius-2`, `--row-h`. No new token.
+
+## 6. Themes
+
+The canvas reads its palette from the stage's computed style and reads it again on every
+`data-theme` change, repainting the held scene (Part 3 § 6). The legend is CSS and follows the theme.
+The paper palette is the light theme's: a document is paper.
+
+## 7. Test hooks (closed contract, C-05)
+
+`viewer-quantity-toggle`, `viewer-quantity-unmeasured-toggle` (`aria-pressed`) ·
+`viewer-quantity-canvas` (`data-filled`, `data-hatched`, `data-placements`, read off the scene, never
+the paint) · `viewer-quantity-legend` (`data-state`, `data-rows`, `data-unmeasured-rows`) ·
+`viewer-quantity-legend-row` (`data-condition`, `data-measured`) · `viewer-quantity-legend-total`
+(`data-kind`, `data-unit`, `data-value` exact, `data-lines`) · `viewer-quantity-legend-unmeasured`
+(`data-condition`, `data-unmeasured`, `data-codes`) · `viewer-quantity-legend-basis` (`data-basis`) ·
+`viewer-quantity-legend-elsewhere` · `viewer-quantity-retry`. J-000's m3-measure-and-register leg turns
+the overlay on over S-10 and reads the column concrete total against the register's own footers.
+
+## 8. Recorded IOUs (owner named, never a comment in `src/`)
+
+R-TO-015's filter by class, kind and basis — owner: the next viewer slice after VD-6; today every
+condition shows and the switch is the one filter. Painting a rail observation that no register object
+carries (a sighting nothing registered) under Unmeasured — owner: the coverage residue's node, which
+owns sightings. Including the legend in A-SHEET-PDF (R-TO-044's last clause) — owner: VD-6, which the
+paper palette of I-637 serves. A condition's hatch drawn at the chest's own swatch pitch on the
+canvas (6 px here, 3 px in the swatch) — owner: the design pass that rules the chest's swatch.

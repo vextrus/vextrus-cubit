@@ -265,6 +265,52 @@ test.describe.serial("J-000 — Golden Path: M3's measure on F-RCC6-BNBC", () =>
 sheet=${traced.layoutName}
 selected=${column.join(",")}`);
 
+    /* --- the quantities on the sheet (viewer.md Part 6, R-TO-015, R-TO-044): on S-10 every measured
+       column is painted, and the legend states the column condition's measured scope — the same exact
+       figure the register's footers state for column concrete over every storey, never a second
+       addition of it (B-17). The members seen and not billed are hatched only when asked for. --- */
+    const legend = page.getByTestId(TESTIDS.viewer.quantityLegend);
+    const quantityCanvas = page.getByTestId(TESTIDS.viewer.quantityCanvas);
+    await expect(legend, "the overlay opens off: a sheet is a drawing first").toHaveCount(0);
+    await page.getByTestId(TESTIDS.viewer.quantityToggle).click();
+    await expect(legend, "the legend reads the campaign's quantities on this sheet").toHaveAttribute("data-state", "ready");
+    const columnRow = legend.getByTestId(TESTIDS.viewer.quantityLegendRow).and(page.locator('[data-condition="class:column"]'));
+    await expect(columnRow, "the column condition stands in the legend").toHaveCount(1);
+    const columnConcrete = columnRow.getByTestId(TESTIDS.viewer.quantityLegendTotal).and(page.locator(`[data-kind="${RCC_CONCRETE}"]`));
+    const registered = readings.reduce((sum, reading) => sum.plus(reading.total ?? "0"), new Exact(0));
+    expect(
+      new Exact((await heldAttribute(columnConcrete, "data-value", "the legend's column concrete measured scope")) ?? "0").equals(registered),
+      `the legend's column concrete is the register's own: ${registered.toString()} m³ over every storey`,
+    ).toBe(true);
+    expect(await heldAttribute(columnConcrete, "data-lines"), "one COMPLETE line per member per storey, as the register counts them").toBe(String(readings.reduce((sum, reading) => sum + reading.shown, 0)));
+    const measuredColumns = Number(await heldAttribute(columnRow, "data-measured"));
+    await expect(quantityCanvas, "every measured member is painted on the sheet").toHaveAttribute("data-filled", /^[1-9]\d*$/);
+    expect(Number(await heldAttribute(quantityCanvas, "data-filled")), "each painted member is one the legend counts").toBeGreaterThanOrEqual(measuredColumns);
+    await page.getByTestId(TESTIDS.viewer.quantityUnmeasuredToggle).click();
+    const unmeasuredRows = legend.getByTestId(TESTIDS.viewer.quantityLegendUnmeasured);
+    // What the sheet hatches and what the legend counts as not billed, read together until they agree.
+    await expect
+      .poll(
+        async () => {
+          const counted = await unmeasuredRows.evaluateAll((rows) => rows.reduce((sum, row) => sum + Number(row.getAttribute("data-unmeasured") ?? "0"), 0));
+          return `${await quantityCanvas.getAttribute("data-hatched")}/${counted}`;
+        },
+        { message: "every member the legend says was seen and not billed is hatched on the sheet" },
+      )
+      .toMatch(/^(\d+)\/\1$/u);
+    const hatched = await heldAttribute(quantityCanvas, "data-hatched");
+    await settled(page);
+    await checkpoint(page, testInfo, "j-000/bnbc-quantities");
+    await attach(
+      testInfo,
+      "m3-quantities",
+      `sheet=${traced.layoutName}
+legend=${(await steadyText(legend, "the legend on the sheet")).replace(/\s+/gu, " ")}
+column-measured=${measuredColumns}
+filled=${await heldAttribute(quantityCanvas, "data-filled")}
+hatched=${hatched}`,
+    );
+
     // Back to the register, which the piles are read on.
     await takeoff.open(run.tenantId, run.bnbc.projectId);
 

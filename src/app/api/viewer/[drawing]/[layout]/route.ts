@@ -22,6 +22,7 @@ import { REFUSALS } from "@/core/errors";
 import { appStorage } from "@/core/storage/app";
 import { drawingAddress, renderManifestOf } from "@/modules/takeoff/viewer";
 import { partitionOverlayOfSheet } from "@/modules/takeoff/viewer-partition-overlay/server";
+import { quantityOverlayOfSheet } from "@/modules/takeoff/viewer-quantity-overlay/server";
 import { snapCalibrationsOfSheet } from "@/modules/takeoff/viewer-snap/server";
 import type { RenderLayer, ViewerHead } from "@/modules/takeoff/viewer";
 import { authorize } from "@/server/authorize";
@@ -40,7 +41,7 @@ const STATUS: Readonly<Record<"SIGNED_OUT" | "WORKSPACE_PERMISSION_NOT_HELD", nu
 });
 
 /** What a caller is told when the address asks for a part of a sheet that is not one. */
-const NOT_A_PART = "a sheet is asked for as ?part=head, ?part=layer&index=<n>, ?part=partition or ?part=calibration";
+const NOT_A_PART = "a sheet is asked for as ?part=head, ?part=layer&index=<n>, ?part=partition, ?part=calibration or ?part=quantities";
 
 /**
  * What a caller is told when the part is one this feed serves but the index beside it is not a
@@ -68,13 +69,13 @@ const ASKED = z.object({
       drawing: z.string(),
       layout: z.string(),
       tenant: z.string().optional(),
-      // A stated part is one of the four this feed serves; an address that names none asks for the
+      // A stated part is one of the five this feed serves; an address that names none asks for the
       // head, which is what a screen wants first.
       part: z
         .string()
         .optional()
         .transform((stated) => stated ?? "head")
-        .pipe(z.enum(["head", "layer", "partition", "calibration"], { error: NOT_A_PART })),
+        .pipe(z.enum(["head", "layer", "partition", "calibration", "quantities"], { error: NOT_A_PART })),
       index: z.string().optional(),
     })
     .superRefine((stated, ctx) => {
@@ -182,6 +183,14 @@ export const GET = routeHandler({ route: ROUTE, actor: "viewer", schema: ASKED, 
   // drawing nothing has partitioned answers `null` at 200 rather than a refusal.
   if (part === "calibration") {
     return json({ calibration: await snapCalibrationsOfSheet({ tenantId, drawingId: drawing, layoutName: layout }) }, 200);
+  }
+
+  // The rendered campaign's published quantities on this sheet, for the overlay and its legend
+  // (R-TO-015, R-TO-044, viewer.md Part 6). A participant READS the quantities as they read the sheet —
+  // the register shows every participant the same lines — so the door is the one above and no other. A
+  // project with no campaign answers `null` at 200: the legend teaches rather than alarming (R-UI-050).
+  if (part === "quantities") {
+    return json({ quantities: await quantityOverlayOfSheet({ tenantId, drawingId: drawing, layoutName: layout }) }, 200);
   }
 
   // The segment Next resolved is the sheet's name: it arrives decoded, and reading it again would

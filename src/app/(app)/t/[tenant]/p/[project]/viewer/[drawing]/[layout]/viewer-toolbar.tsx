@@ -64,6 +64,8 @@ export type ViewerToolbarProps = {
   /** The views/grid overlay toggle — the partition region's, for the same reason; absent where
       the sheet has no partition to overlay, and an absent group is no group at all (R-UI-080). */
   views?: ReactNode;
+  /** The quantity overlay's two switches — the quantity region's own (Part 6 § 1); absent, no group stands. */
+  quantities?: ReactNode;
   onFit: () => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
@@ -75,7 +77,7 @@ export type ViewerToolbarProps = {
   onInspector: () => void;
 };
 
-export function ViewerToolbar({ tool, onTool, measure, snapTools, views, onFit, onZoomIn, onZoomOut, layersOpen, onLayers, inspectorPinned, onInspector }: ViewerToolbarProps) {
+export function ViewerToolbar({ tool, onTool, measure, snapTools, views, quantities, onFit, onZoomIn, onZoomOut, layersOpen, onLayers, inspectorPinned, onInspector }: ViewerToolbarProps) {
   return (
     <ShellToolbar label={strings.viewer_tools_label} className="cx-viewer-toolbar">
       <ShellToolbarGroup label={strings.viewer_tools_pointer}>
@@ -103,6 +105,7 @@ export function ViewerToolbar({ tool, onTool, measure, snapTools, views, onFit, 
       </ShellToolbarGroup>
       <ShellToolbarGroup label={strings.viewer_snap_tools_label}>{snapTools}</ShellToolbarGroup>
       {views === undefined ? null : <ShellToolbarGroup label={strings.viewer_tools_views}>{views}</ShellToolbarGroup>}
+      {quantities === undefined || quantities === null ? null : <ShellToolbarGroup label={strings.viewer_tools_quantities}>{quantities}</ShellToolbarGroup>}
       <ShellToolbarGroup label={strings.viewer_tools_camera}>
         <IconButton icon={<IconFit />} label={strings.viewer_fit} kbd="F" data-testid={TESTIDS.viewer.fit} onClick={onFit} />
         <IconButton icon={<IconZoomIn />} label={strings.viewer_zoom_in} kbd="+" data-testid={TESTIDS.viewer.zoomIn} onClick={onZoomIn} />

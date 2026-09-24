@@ -30,6 +30,7 @@ import type { LineEvidenceHold } from "@/modules/takeoff/trace/use-trace";
 import type { CitedBlock } from "@/modules/takeoff/viewer-inspector/inspector-panel";
 import type { MeasureRegion } from "./measure-region";
 import type { PartitionRegion } from "./partition-region";
+import type { QuantityRegion } from "./quantity-region";
 import type { ScaleRegion } from "./scale-region";
 import { ZOOM_STEP } from "@/modules/takeoff/viewer/hooks/use-camera";
 import { useInspector, useShellPage, useShellStatus, useShellToolbar } from "@/ui/shell";
@@ -70,6 +71,8 @@ export interface ViewerSlotsInput {
   partition: PartitionRegion;
   /** The measure region: its group of the tool row and its cell of the readout (s-measure § 2.1, § 2.4). */
   measure: MeasureRegion;
+  /** The quantity region: its two switches take their own group of the tool row (Part 6 § 1). */
+  quantities: QuantityRegion;
 }
 
 /**
@@ -90,7 +93,7 @@ export interface ViewerSlots {
 }
 
 export function useViewerSlots(input: ViewerSlotsInput): ViewerSlots {
-  const { denied, head, tool, snap, camera, layersOpen, setLayersOpen, inspectorPinned, setInspectorPinned, sheetName, loadedLayers, layers, held, paint, statusRef, initialLine, pointer, line, cited, trace, scale, partition, measure } = input;
+  const { denied, head, tool, snap, camera, layersOpen, setLayersOpen, inspectorPinned, setInspectorPinned, sheetName, loadedLayers, layers, held, paint, statusRef, initialLine, pointer, line, cited, trace, scale, partition, measure, quantities } = input;
   const drawable = denied === null && head !== null && head.kind === "manifest";
 
   const toolbar = useMemo(
@@ -102,6 +105,7 @@ export function useViewerSlots(input: ViewerSlotsInput): ViewerSlots {
             onTool={measure.requestTool}
             measure={measure.tools}
             snapTools={<SnapTools snap={snap} />}
+            quantities={quantities.tools}
             onFit={camera.fitSheet}
             onZoomIn={() => camera.zoomBy(ZOOM_STEP)}
             onZoomOut={() => camera.zoomBy(1 / ZOOM_STEP)}
@@ -111,7 +115,7 @@ export function useViewerSlots(input: ViewerSlotsInput): ViewerSlots {
             onInspector={() => setInspectorPinned((pinned) => !pinned)}
           />
         ) : null,
-      [drawable, tool, measure.requestTool, measure.tools, snap, camera.fitSheet, camera.zoomBy, layersOpen, inspectorPinned],
+      [drawable, tool, measure.requestTool, measure.tools, snap, quantities.tools, camera.fitSheet, camera.zoomBy, layersOpen, inspectorPinned],
   );
   const framedToolbar = useShellToolbar(toolbar);
   // R-UI-084: the trail's last crumb names the sheet a reader opened (viewer.md's frame:

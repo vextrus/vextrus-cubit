@@ -44,6 +44,7 @@ import type { ChestDoors } from "./measure-chest";
 import { useChest, useChestKeys } from "./use-chest-arming";
 import { useFramePaint } from "./use-frame-paint";
 import { usePartitionRegion } from "./partition-region";
+import { useQuantityRegion } from "./quantity-region";
 import { SheetAbsence } from "./viewer-bones";
 import { useViewerSlots, type ViewerTool } from "./viewer-slots";
 import { layoutNameOf } from "./route-address";
@@ -96,9 +97,7 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   const statusRef = useRef<HTMLDivElement | null>(null);
   const painterRef = useRef<Painter | null>(null);
   const cameraRef = useRef<Camera | null>(null);
-  /** The keys held, off the render loop: a gesture publishes the address without a stale closure. */
   const selectionRef = useRef<string[]>([]);
-  /** Every layer whose geometry has arrived, and what each source key of it is — one home each. */
   const arrived = useRef<Map<string, RenderLayer>>(new Map());
   const facts = useRef(createSheetFacts()).current;
 
@@ -128,7 +127,6 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
     publishViewport(window, ownPathname.current, at, selectionRef.current);
   }, []);
 
-  /** One arrived layer, filed where the painter and the index read it, and read for what it holds. */
   const onLayer = useCallback(
     (layer: RenderLayer): void => {
       arrived.current.set(layer.name, layer);
@@ -146,7 +144,7 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   const layers = useLayers({ head: sheet.head });
   failedSink.current = layers.markFailed;
 
-  const { draw, overlayPaint, measurePaint } = useFramePaint(painterRef, layers.stateRef); // the frame paints every region (I-112)
+  const { draw, overlayPaints, measurePaint } = useFramePaint(painterRef, layers.stateRef); // the frame paints every region, the overlays in their list's order (I-112, I-635)
   const pulse = useCallback((durationMs: number, colour?: string): void => void painterRef.current?.pulse(durationMs, colour), []);
   // The Trace, both ways (R-UI-022, X-2). A refusal of either read is answered as a status where the sheet's own feed's are (ARCH-03).
   const line = useLineEvidence({ tenantId, projectId, lineId: initialLine, read: readLineEvidence, onRefused: (refusal) => setDenied(refusal === REFUSALS.SIGNED_OUT.code ? 401 : 403) });
@@ -162,7 +160,8 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
       views/grid region — the stored partition, its paint and its one act door — is asked only once the
       head is a manifest (R-UI-043); a door that refuses the PARTITION refuses that panel, not the sheet. */
   const scale = useScaleRegion({ tenantId, projectId, drawingId, sheetName, enabled: sheet.head?.kind === "manifest", container: screenRoot, supplied: suppliedScale });
-  const partition = usePartitionRegion({ tenantId, projectId, drawingId, sheetName, feed, enabled: sheet.head?.kind === "manifest", camera: camera.camera, stageRef, cameraRef, paintRef: overlayPaint, scaleAbsence: scale.absence });
+  const partition = usePartitionRegion({ tenantId, projectId, drawingId, sheetName, feed, enabled: sheet.head?.kind === "manifest", camera: camera.camera, stageRef, cameraRef, paintRef: overlayPaints.partition, scaleAbsence: scale.absence });
+  const quantities = useQuantityRegion({ tenantId, projectId, drawingId, sheetName, feed, enabled: sheet.head?.kind === "manifest", camera: camera.camera, stageRef, cameraRef, paintRef: overlayPaints.quantities }); // Part 6: asked the first time a reader turns it on
   /** The snapping region: what the pointer meets, the scale of record behind the metres, and the key the roster binds
       (R-TO-012, R-UI-041), on the grid the views/grid region already holds (I-149); its door's refusal is the sheet's (I-150). */
   const snapping = useSnapRegion({ feed, enabled: sheet.head?.kind === "manifest", supplied: suppliedCalibration, onDenied: setDenied, layers: arrived, stateRef: layers.stateRef, cameraRef, camera: camera.camera, axes: partition.axes });
@@ -187,7 +186,7 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
    */
   const slots = useViewerSlots({
     denied, head: sheet.head, tool, snap, camera, layersOpen, setLayersOpen, inspectorPinned, setInspectorPinned,
-    sheetName, loadedLayers: sheet.loadedLayers, layers, held, paint, statusRef, initialLine, pointer, line, cited, trace, scale, partition, measure: measuring,
+    sheetName, loadedLayers: sheet.loadedLayers, layers, held, paint, statusRef, initialLine, pointer, line, cited, trace, scale, partition, measure: measuring, quantities,
   });
 
   // A head that cannot be read at all is the error state and nothing else: it is raised into the
@@ -204,6 +203,7 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
     return (
       <ViewerStage
         partition={partition}
+        quantities={quantities}
         layersOpen={layersOpen}
         panel={{
           rows: layers.rows,

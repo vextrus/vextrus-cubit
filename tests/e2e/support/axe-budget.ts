@@ -45,6 +45,8 @@ export const AXE_MODERATE_BUDGET: Readonly<Record<string, number>> = Object.free
   "j-000/bnbc-register": 0,
   // VD-1: S-10 opened by a real column concrete line's Trace, the column held and flown to.
   "j-000/bnbc-traced": 0,
+  // VD-4: S-10 with the quantity overlay on — the column fills, the unmeasured hatched, the legend.
+  "j-000/bnbc-quantities": 0,
   "j-000/boq-draft": 0,
   "j-000/column-lines": 0,
   "j-000/coverage-grid": 0,

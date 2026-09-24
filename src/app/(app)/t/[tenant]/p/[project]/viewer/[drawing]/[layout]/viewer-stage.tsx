@@ -74,6 +74,8 @@ export type ViewerStageProps = {
       its canvas lies over the sheet, reached by nothing (I-112), and its view boxes say where each
       view of the partition stands, which is how an observation names the view it was taken in. */
   partition: { panel: ReactNode; canvas: ReactNode; views: readonly ScaleViewBox[] };
+  /** The quantity region's canvas, laid under the views/grid overlay, and its legend in the stage's corner (Part 6). */
+  quantities?: { canvas: ReactNode; legend: ReactNode };
   pointer: UsePointer;
   tool?: PointerTool;
   /** The snapping region: its toolbar on the stage and its marks on the overlay stack (I-151). */
@@ -98,7 +100,7 @@ export type ViewerStageProps = {
   renderer: "webgl" | "unavailable";
 };
 
-export function ViewerStage({ panel, partition, pointer, tool = "select", snap, measure, chest, onKeyDown, stageRef, canvasRef, sheetName, probed, renderer, layersOpen }: ViewerStageProps) {
+export function ViewerStage({ panel, partition, quantities, pointer, tool = "select", snap, measure, chest, onKeyDown, stageRef, canvasRef, sheetName, probed, renderer, layersOpen }: ViewerStageProps) {
   return (
     /* Every panel carries a stable id, and the split is remembered once per set of panels standing,
        so a layout stored by another build's group no longer matches this group and is dropped
@@ -153,6 +155,7 @@ export function ViewerStage({ panel, partition, pointer, tool = "select", snap, 
             onKeyDown={onKeyDown}
             onKeyUp={measure?.onKeyUp}
           />
+          {quantities?.canvas}
           {partition.canvas}
           {measure?.layer}
           {/* The rectangle follows the pointer untweened and is written straight onto the element:
@@ -173,6 +176,7 @@ export function ViewerStage({ panel, partition, pointer, tool = "select", snap, 
             />
           ) : null}
           <SnapOverlay snap={snap} />
+          {quantities?.legend}
           {/* The snapping toggles and the camera's three controls are NOT here any more: they are
               the frame's tool row (`viewer-toolbar.tsx`, §3.1). A control box floating over the
               sheet is work surface a reader cannot work on — §8's first fix for this screen. */}
