@@ -6,13 +6,11 @@
 // No database. The clauses are read off the ingested artifact's own texts, sheet by sheet, exactly
 // as `sheetTextsOn` reads them from a stored artifact — the same entities, the same order — so what
 // is recorded is a fact about the drawing rather than about a workspace.
-import { readFileSync, mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { basename, join } from "node:path";
+import { basename } from "node:path";
 import { askedClausesOf, lapTableHeadingsOn } from "../../src/core/notes/clauses";
 import type { SheetText } from "../../src/core/notes/grammar";
 import { noteClauseRequest } from "../../src/core/notes/model";
-import { ingestDrawing } from "../../src/modules/takeoff/ingest/job";
+import { ingestedGraph } from "./ingested";
 import type { Asked, RecorderContext } from "./recorder";
 
 /** How many subjects are asked when the command line names no limit. */
@@ -32,14 +30,10 @@ const PAPER = "paper";
 export async function subjectsOf(ctx: RecorderContext): Promise<Asked[]> {
   const drawing = ctx.option("--drawing") ?? ctx.fail("--drawing <path> names the drawing whose silent note clauses are asked");
   const limit = Number(ctx.option("--limit") ?? DEFAULT_LIMIT);
-  const bytes = new Uint8Array(readFileSync(drawing));
-  const tempDir = mkdtempSync(join(tmpdir(), "cubit-model-corpus-ingest-"));
-  const format = drawing.toLowerCase().endsWith(".dwg") ? "dwg" : "dxf";
-  const outcome = await ingestDrawing(bytes, format as Parameters<typeof ingestDrawing>[1], { tempDir });
-  if (!outcome.ok) ctx.fail(`the extractor refused ${drawing}: ${outcome.refusal} — ${outcome.detail}`);
+  const graph = await ingestedGraph(drawing, ctx.fail);
 
   const said = new Map<string, SheetText[]>();
-  for (const entity of outcome.graph.entities) {
+  for (const entity of graph.entities) {
     if (typeof entity.text !== "string") continue;
     const held = said.get(entity.space);
     if (held === undefined) said.set(entity.space, [{ sourceKey: entity.key, text: entity.text }]);
@@ -51,7 +45,7 @@ export async function subjectsOf(ctx: RecorderContext): Promise<Asked[]> {
   const named = ctx.option("--layouts")?.split(",").map((one) => one.trim()).filter((one) => one !== "");
 
   const asked: Asked[] = [];
-  for (const layout of outcome.graph.layouts) {
+  for (const layout of graph.layouts) {
     if (layout.kind !== PAPER) continue;
     if (named !== undefined && !named.includes(layout.name)) continue;
     const texts = said.get(layout.name) ?? [];
@@ -67,7 +61,7 @@ export async function subjectsOf(ctx: RecorderContext): Promise<Asked[]> {
       });
     }
   }
-  const sheets = outcome.graph.layouts.filter((layout) => layout.kind === PAPER && (named === undefined || named.includes(layout.name)));
+  const sheets = graph.layouts.filter((layout) => layout.kind === PAPER && (named === undefined || named.includes(layout.name)));
   ctx.say(`${basename(drawing)}: ${asked.length} clauses asked over ${sheets.length} paper layout(s)`);
   return asked.slice(0, limit);
 }

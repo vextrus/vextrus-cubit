@@ -7,11 +7,9 @@
 // DATE attributes of one title block and the two printed rows of its revision table, and every sheet
 // is read against the other twenty-six, which is the benchmark the question exists for. No database
 // is opened: the drawing is ingested into an artifact and the request is a pure function of it.
-import { readFileSync, mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { basename, join, resolve } from "node:path";
+import { basename, resolve } from "node:path";
 import { carriesRevisionEvidence, sheetRevisionRequest } from "../../src/modules/ai/sheet-revision";
-import { ingestDrawing } from "../../src/modules/takeoff/ingest/job";
+import { ingestedGraph } from "./ingested";
 import type { Asked, RecorderContext } from "./recorder";
 
 /** The drawing whose sheets are asked when the command line names none (F-RCC6-BNBC). */
@@ -24,19 +22,15 @@ const DEFAULT_LIMIT = "30";
 export async function subjectsOf(ctx: RecorderContext): Promise<Asked[]> {
   const drawing = ctx.option("--drawing") ?? resolve(ctx.corpusRoot, ...YARDSTICK);
   const limit = Number(ctx.option("--limit") ?? DEFAULT_LIMIT);
-  const bytes = new Uint8Array(readFileSync(drawing));
-  const tempDir = mkdtempSync(join(tmpdir(), "cubit-model-corpus-ingest-"));
-  const format = drawing.toLowerCase().endsWith(".dwg") ? "dwg" : "dxf";
-  const outcome = await ingestDrawing(bytes, format as Parameters<typeof ingestDrawing>[1], { tempDir });
-  if (!outcome.ok) ctx.fail(`the extractor refused ${drawing}: ${outcome.refusal} — ${outcome.detail}`);
-  const paper = outcome.graph.layouts.filter((layout) => layout.kind === "paper");
+  const graph = await ingestedGraph(drawing, ctx.fail);
+  const paper = graph.layouts.filter((layout) => layout.kind === "paper");
   const asked: Asked[] = [];
   for (const layout of paper) {
     // A sheet that prints neither a mark nor a row is not asked at all: its only answer would cite
     // nothing, and a call spent on an answer the seam must refuse is a call nobody should make
     // (L-AI-01 attributes what it spends, L-AI-02 refuses an uncited reading).
-    if (!carriesRevisionEvidence(outcome.graph, layout.name)) continue;
-    asked.push({ request: sheetRevisionRequest(outcome.graph, layout.name), subject: `${basename(drawing)} · ${layout.name}`, artifact: drawing });
+    if (!carriesRevisionEvidence(graph, layout.name)) continue;
+    asked.push({ request: sheetRevisionRequest(graph, layout.name), subject: `${basename(drawing)} · ${layout.name}`, artifact: drawing });
   }
   // The count before the spend: a person reading this line knows how many subjects a recording
   // would put, and how many sheets of the set print nothing, before a single token is spent.

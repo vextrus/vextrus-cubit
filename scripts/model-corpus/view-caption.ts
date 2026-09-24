@@ -5,12 +5,10 @@
 // asks, and a corpus recorded before the partition moved stops answering where the product stops
 // asking. The drawing is this recorder's own flag — `--drawing <path>`, and `--limit N` for how many
 // subjects are asked.
-import { readFileSync, mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { basename, join } from "node:path";
+import { basename } from "node:path";
 import { requestHash } from "../../src/core/model";
 import { viewCaptionRequest } from "../../src/core/view-captions";
-import { ingestDrawing } from "../../src/modules/takeoff/ingest/job";
+import { ingestedGraph } from "./ingested";
 import { captionsAskedOf } from "../../src/modules/takeoff/partition/views/asked-captions";
 import { partitionArtifact, type PartitionedView } from "../../src/modules/takeoff/partition/views/assign";
 import type { Asked, RecorderContext } from "./recorder";
@@ -40,12 +38,8 @@ export function captionSubjectsOf(views: readonly PartitionedView[], drawing: st
 export async function subjectsOf(ctx: RecorderContext): Promise<Asked[]> {
   const drawing = ctx.option("--drawing") ?? ctx.fail("--drawing <path> names the drawing whose untyped captions are asked");
   const limit = Number(ctx.option("--limit") ?? DEFAULT_LIMIT);
-  const bytes = new Uint8Array(readFileSync(drawing));
-  const tempDir = mkdtempSync(join(tmpdir(), "cubit-model-corpus-ingest-"));
-  const format = drawing.toLowerCase().endsWith(".dwg") ? "dwg" : "dxf";
-  const outcome = await ingestDrawing(bytes, format as Parameters<typeof ingestDrawing>[1], { tempDir });
-  if (!outcome.ok) ctx.fail(`the extractor refused ${drawing}: ${outcome.refusal} — ${outcome.detail}`);
-  const partition = partitionArtifact(outcome.graph);
+  const graph = await ingestedGraph(drawing, ctx.fail);
+  const partition = partitionArtifact(graph);
   const asked = captionSubjectsOf(partition.views, drawing);
   ctx.say(`${basename(drawing)}: ${partition.views.length} views, ${asked.length} captions the grammar could not read`);
   return asked.slice(0, limit);

@@ -7,10 +7,8 @@
 // rebuild runs — ingest the artifact, partition its views, reconstruct the schedules standing in them
 // — so what is recorded is a fact about the drawing and about nothing else (L-AI-01 replays
 // deterministically from the hash of the request this builds).
-import { readFileSync, mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { basename, join } from "node:path";
-import { ingestDrawing } from "../../src/modules/takeoff/ingest/job";
+import { basename } from "node:path";
+import { ingestedGraph } from "./ingested";
 import { contestedRowsOf, scheduleCellRequest } from "../../src/modules/takeoff/partition/schedules/cell-reading";
 import { reconstructSchedules } from "../../src/modules/takeoff/partition/schedules/reconstruct";
 import { partitionArtifact } from "../../src/modules/takeoff/partition/views/assign";
@@ -30,14 +28,10 @@ const DEFAULT_LIMIT = "200";
 export async function subjectsOf(ctx: RecorderContext): Promise<Asked[]> {
   const drawing = ctx.option("--drawing") ?? ctx.fail("--drawing <path> names the drawing whose contested schedule cells are asked");
   const limit = Number(ctx.option("--limit") ?? DEFAULT_LIMIT);
-  const bytes = new Uint8Array(readFileSync(drawing));
-  const tempDir = mkdtempSync(join(tmpdir(), "cubit-model-corpus-ingest-"));
-  const format = drawing.toLowerCase().endsWith(".dwg") ? "dwg" : "dxf";
-  const outcome = await ingestDrawing(bytes, format as Parameters<typeof ingestDrawing>[1], { tempDir });
-  if (!outcome.ok) ctx.fail(`the extractor refused ${drawing}: ${outcome.refusal} — ${outcome.detail}`);
+  const graph = await ingestedGraph(drawing, ctx.fail);
 
-  const partition = partitionArtifact(outcome.graph);
-  const schedules = reconstructSchedules({ graph: outcome.graph, views: partition.views, assignments: partition.assignments });
+  const partition = partitionArtifact(graph);
+  const schedules = reconstructSchedules({ graph: graph, views: partition.views, assignments: partition.assignments });
 
   const asked: Asked[] = [];
   let rows = 0;
