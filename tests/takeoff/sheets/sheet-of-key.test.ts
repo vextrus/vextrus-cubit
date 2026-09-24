@@ -43,12 +43,15 @@ const READ_MS = 300_000;
 const handle = (hex: string): string => `DXF_HANDLE:${hex}`;
 
 /**
- * The six view captions the rails read members off, and the sheet NUMBER each stands on. 20B6, 2116,
- * 1FEB and 202C are captioned on their sheets' paper; 10C1 and F31 in model space, framed by a window.
+ * The seven view captions the rails read members off, and the sheet NUMBER each stands on. 20B6, 2116,
+ * 1FEB and 202C are captioned on their sheets' paper; 10C1, F31 and 2157 in model space, framed by a
+ * window. TEST_AMENDED (R0 Rev C, W-49): the stair-roof layout 2157 on S-15 is gridded in Rev C and
+ * places its two C4 stubs and SB-R1..SB-R4.
  */
 const VIEW_SHEETS: readonly (readonly [string, string])[] = [
   ["20B6", "S-10"],
   ["10C1", "S-15"],
+  ["2157", "S-15"],
   ["F31", "S-14"],
   ["2116", "S-13"],
   ["1FEB", "S-04"],
@@ -81,9 +84,11 @@ function numberOf(key: string | null): string | null {
   return layout === null ? null : sheetLabelOf(read.graph, layout);
 }
 
-/** The placements the stages placed in one view, by the caption handle that anchors it. */
-function placedIn(caption: string) {
-  return read.placed.placements.filter((placement) => viewRefOf(placement.viewKey)?.captionAnchorSourceKey === handle(caption));
+/** The placements the stages placed in one view, by the caption handle that anchors it — of one class where one is named. */
+function placedIn(caption: string, elementType?: string) {
+  return read.placed.placements.filter(
+    (placement) => viewRefOf(placement.viewKey)?.captionAnchorSourceKey === handle(caption) && (elementType === undefined || placement.elementType === elementType),
+  );
 }
 
 describe("VD-1: the sheet a view stands on — the one resolver, over F-RCC6-BNBC", () => {
@@ -121,15 +126,20 @@ describe("VD-1: a line's Trace opens its member's sheet and selects the member",
       const label = sheetLabelOf(read.graph, traced.layoutName ?? "") ?? "model";
       bySheet.set(`${placement.elementType}@${label}`, (bySheet.get(`${placement.elementType}@${label}`) ?? 0) + 1);
     }
-    expect(Object.fromEntries(bySheet), "27 columns on S-10, 89 piles on S-04, 26 caps on S-06, and the beams on the three beam layouts").toEqual({
+    // TEST_AMENDED (R0 Rev C): S-06 places F1 in ring 638 beside the 26 caps (W-44), and S-15's
+    // stair-roof layout its two C4 stubs and four SB-R beams beside the roof layout's (W-49).
+    expect(Object.fromEntries(bySheet), "27 columns on S-10, 89 piles on S-04, 26 caps and F1 on S-06, the beams on the three beam layouts, and the stair roof's stubs and beams on S-15").toEqual({
       "column@S-10": placedIn("20B6").length,
+      "column@S-15": placedIn("2157", "column").length,
       "pile@S-04": placedIn("1FEB").length,
-      "pile_cap@S-06": placedIn("202C").length,
+      "pile_cap@S-06": placedIn("202C", "pile_cap").length,
+      "footing@S-06": placedIn("202C", "footing").length,
       "beam@S-13": placedIn("2116").length,
       "beam@S-14": placedIn("F31").length,
-      "beam@S-15": placedIn("10C1").length,
+      "beam@S-15": placedIn("10C1").length + placedIn("2157", "beam").length,
     });
-    expect([placedIn("20B6").length, placedIn("1FEB").length, placedIn("202C").length], "the members the read-back stands on").toEqual([27, 89, 26]);
+    expect([placedIn("20B6").length, placedIn("1FEB").length, placedIn("202C", "pile_cap").length], "the members the read-back stands on").toEqual([27, 89, 26]);
+    expect([placedIn("202C", "footing").length, placedIn("2157", "column").length, placedIn("2157", "beam").length], "Rev C's: F1, the two C4 stubs, SB-R1..SB-R4").toEqual([1, 2, 4]);
   });
 
   test("VD-1: a column concrete line — placement, section cell, level note — selects the column alone on S-10", () => {
