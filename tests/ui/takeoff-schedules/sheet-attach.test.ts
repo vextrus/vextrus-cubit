@@ -57,7 +57,10 @@ beforeAll(async () => {
 }, READ_MS);
 
 describe("I-550: each schedule stands on the sheet whose window or title shows it", () => {
-  test("F-RCC6-BNBC's seven schedules stand on six sheets — none on model space", () => {
+  // TEST_AMENDED (R0 Rev C, W-47): Rev C draws a slab panel schedule on each slab plan sheet —
+  // S-19 (1ST FLOOR, 26CF), S-20 (TYPICAL FLOOR, 26D1), S-21 (ROOF & STAIR ROOF, 26D3) — so the
+  // seven schedules on six sheets became ten on nine, each on the sheet that prints it.
+  test("F-RCC6-BNBC's ten schedules stand on nine sheets — none on model space", () => {
     const placed = rail.flatMap((sheet) => sheet.schedules.map((table) => [numberOf(sheet.layoutName), table.title] as const));
     expect(placed, "every schedule the stages reconstructed, on the sheet that prints it, in the rail's order").toEqual([
       ["S-05", "PILE SCHEDULE  SCALE 1:50"],
@@ -65,10 +68,13 @@ describe("I-550: each schedule stands on the sheet whose window or title shows i
       ["S-11", "COLUMN SCHEDULE"],
       ["S-18", "ROOF BEAM SCHEDULE (1 OF 2)"],
       ["S-18", "ROOF BEAM SCHEDULE (2 OF 2)"],
+      ["S-19", "SLAB PANEL SCHEDULE (1ST FLOOR)  SCALE 1:50"],
+      ["S-20", "SLAB PANEL SCHEDULE (TYPICAL FLOOR)  SCALE 1:50"],
+      ["S-21", "SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)  SCALE 1:50"],
       ["S-25", "LINTEL & SUNSHADE SCHEDULE"],
       ["S-26", "BAR BENDING SCHEDULE (SAMPLE)"],
     ]);
-    expect(new Set(placed.map(([sheet]) => sheet)).size).toBe(6);
+    expect(new Set(placed.map(([sheet]) => sheet)).size).toBe(9);
   });
 
   test("S-11 COLUMN SCHEDULE holds the column schedule and the column families it named, and nothing of the beams'", () => {
@@ -85,7 +91,8 @@ describe("I-550: each schedule stands on the sheet whose window or title shows i
     const deferredOn = rail.filter((sheet) => sheet.deferrals.length > 0).map((sheet) => numberOf(sheet.layoutName));
     expect(deferredOn, "the two schedules that named no member say so where they are printed").toEqual(["S-25", "S-26"]);
     const familiesOn = rail.filter((sheet) => sheet.families.length > 0).map((sheet) => numberOf(sheet.layoutName));
-    expect(familiesOn).toEqual(["S-05", "S-06", "S-11", "S-16", "S-17", "S-18"]);
+    // The slab panel schedules' 43 families (W-47) stand on the three sheets that print them.
+    expect(familiesOn).toEqual(["S-05", "S-06", "S-11", "S-16", "S-17", "S-18", "S-19", "S-20", "S-21"]);
   });
 });
 
@@ -101,6 +108,9 @@ describe("I-248, I-551: the rail is the sheets that hold something, paper first,
       "S-16",
       "S-17",
       "S-18",
+      "S-19",
+      "S-20",
+      "S-21",
       "S-25",
       "S-26",
       "model",
