@@ -18,12 +18,13 @@
 // priced off an object the register itself says is nothing (I-173, I-449). The draft asks the
 // register's own reader which objects stand struck in the campaign's revision and reads past their
 // lines — the screen, the PDF and the workbook alike, because all three read this one reading.
-import { and, asc, desc, drawingSetRevisions, drawingSets, eq, forTenant, inArray, ingests, projects, quantityLines } from "@/core/db";
+import { and, asc, campaigns, desc, drawingSetRevisions, drawingSets, eq, forTenant, inArray, ingests, projects, quantityLines, rulesetEditions, tenantRulesetEditions } from "@/core/db";
 import { notMeasuredRowsOf, setRevisionInWords, type BoqDraftFront } from "@/core/documents/kinds/boq-draft";
 import { dhakaDateParts, formatDate } from "@/core/format";
 import type { ModelCallContext } from "@/core/model";
 import { measurementStatementOf, residueOf } from "@/core/residue";
 import { registerObjectsOf, repudiatedObjectsOf } from "@/modules/takeoff/register";
+import type { RegisterSheet } from "@/core/sheets/pinned";
 import { pinnedRecordsOf, tracedLineOf, variablesOf, type PinnedGrid } from "@/modules/takeoff/trace";
 import { describeGroups, groupAsksOf, type GroupDescriptions } from "./descriptions";
 import type { BoqDescriptionPort } from "./description-question";
@@ -69,7 +70,12 @@ export async function boqViewOf(scope: BoqScope, asking?: BoqAsking): Promise<Bo
   if (campaign === null) return { campaignId: null, setRevisionId: null, ...NOTHING_DRAFTED };
 
   const registerScope = { tenantId: scope.tenantId, projectId: scope.projectId, setRevisionId: campaign.setRevisionId };
-  const [lines, front, registered] = await Promise.all([billableLinesOf(registerScope, campaign.campaignId), frontOf(scope, campaign.setRevisionId), registerObjectsOf(registerScope)]);
+  const [lines, front, registered, edition] = await Promise.all([
+    billableLinesOf(registerScope, campaign.campaignId),
+    frontOf(scope, campaign.setRevisionId),
+    registerObjectsOf(registerScope),
+    editionOf(scope, campaign.campaignId),
+  ]);
   if (lines.length === 0) {
     return { campaignId: campaign.campaignId, setRevisionId: campaign.setRevisionId, ...NOTHING_DRAFTED };
   }
@@ -85,7 +91,7 @@ export async function boqViewOf(scope: BoqScope, asking?: BoqAsking): Promise<Bo
   // The descriptions, where a caller asked for them (L-BD-01, I-298). A group the closed catalogue
   // holds one description for is never asked; a refusal leaves the catalogue's sentence standing and
   // the draft reads on, because abstention is the caller's (L-AI-02).
-  const [descriptions, details] = await Promise.all([descriptionsOf(scope, lines, residue.input, asking), detailsOf(scope, campaign.setRevisionId, lines, registered)]);
+  const [descriptions, { details, register }] = await Promise.all([descriptionsOf(scope, lines, residue.input, asking), detailsOf(scope, campaign.setRevisionId, lines, registered)]);
 
   const payload = boqDraftPayloadOf({
     project: front.project,
@@ -127,7 +133,9 @@ export async function boqViewOf(scope: BoqScope, asking?: BoqAsking): Promise<Bo
     // the registered reason read beside the writerless fall-through where the row carries one — so
     // the draft never prints that nothing explains an absence — and the row's cause everywhere else.
     notMeasured: notMeasuredRowsOf(statement),
-    front: front.facts,
+    // The drawing register is the sheets the lines were measured on, read off the same pinned records
+    // the details cite (I-689); the edition is the one the campaign was opened under (L-REG-07).
+    front: { ...front.facts, register, edition },
   });
 
   return {
@@ -163,23 +171,58 @@ async function detailsOf(
   setRevisionId: string,
   lines: readonly StoredLine[],
   registered: readonly { readonly objectKey: string; readonly mark: string; readonly levelSlot: string | null; readonly placementKey: string }[],
-): Promise<ReadonlyMap<string, MemberDetail>> {
+): Promise<{ readonly details: ReadonlyMap<string, MemberDetail>; readonly register: RegisterSheet[] }> {
   const drawingIds = [...new Set(lines.map((line) => line.drawingId))];
   const records = await pinnedRecordsOf(scope, setRevisionId, drawingIds);
   const byObject = new Map(registered.map((row) => [row.objectKey, row]));
   const details = new Map<string, MemberDetail>();
+  const sheets = new Map<string, RegisterSheet>();
   for (const line of lines) {
     const object = byObject.get(line.objectKey);
     const record = records.get(line.drawingId);
     const traced = tracedLineOf(line, record);
+    const sheet = traced.layoutName === null || record === undefined ? null : record.registerOf(traced.layoutName);
+    if (sheet !== null && !sheets.has(sheet.sheet)) sheets.set(sheet.sheet, sheet);
     details.set(line.lineId, {
       mark: object?.mark ?? "",
       slot: object?.levelSlot ?? null,
       grid: object === undefined || record === undefined ? null : gridReferenceOf(record.gridOf(object.placementKey)),
-      sheet: traced.layoutName === null || record === undefined ? null : record.labelOf(traced.layoutName),
+      sheet: sheet?.sheet ?? null,
     });
   }
-  return details;
+  return { details, register: registerInOrder([...sheets.values()]) };
+}
+
+/**
+ * The drawing register in the order a register is read: by sheet number, the discipline's letter
+ * first and the number after it, as the set numbers them (I-689). One sheet once, whatever
+ * number of lines it carries.
+ */
+export function registerInOrder(sheets: readonly RegisterSheet[]): RegisterSheet[] {
+  return [...sheets].sort((a, b) => (a.sheet < b.sheet ? -1 : a.sheet > b.sheet ? 1 : 0));
+}
+
+/**
+ * The rule-set edition a campaign was opened under, by its own name and version (L-MEA-01,
+ * L-REG-07): the campaign names the edition it copied, a project's pin in the workspace's own
+ * editions or the platform's seed. Null where neither store holds it — the notes then say the draft
+ * names none, rather than naming one it cannot stand behind.
+ */
+async function editionOf(scope: BoqScope, campaignId: string): Promise<{ readonly name: string; readonly version: string } | null> {
+  return forTenant({ tenantId: scope.tenantId }).transaction(async (tx) => {
+    const pinned = (await tx.select({ editionId: campaigns.editionId }).from(campaigns).where(and(eq(campaigns.tenantId, scope.tenantId), eq(campaigns.campaignId, campaignId))).limit(1))[0];
+    if (pinned === undefined) return null;
+    const own = (
+      await tx
+        .select({ name: tenantRulesetEditions.name, version: tenantRulesetEditions.version })
+        .from(tenantRulesetEditions)
+        .where(and(eq(tenantRulesetEditions.tenantId, scope.tenantId), eq(tenantRulesetEditions.editionId, pinned.editionId)))
+        .limit(1)
+    )[0];
+    if (own !== undefined) return own;
+    const platform = (await tx.select({ name: rulesetEditions.name, version: rulesetEditions.version }).from(rulesetEditions).where(eq(rulesetEditions.editionId, pinned.editionId)).limit(1))[0];
+    return platform ?? null;
+  });
 }
 
 /**

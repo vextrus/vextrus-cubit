@@ -13,7 +13,7 @@ import type { Storage } from "../storage";
 import { readTitleBlock } from "./grammar";
 import { DISCIPLINES, FIDELITY_FACTS, sheetIdOf, type Discipline, type FidelityFact, type ScaleState, type SheetProposal } from "./law";
 
-export { readTitleBlock } from "./grammar";
+export { readSheetRevision, readTitleBlock } from "./grammar";
 export {
   DISCIPLINES,
   FIDELITY_FACTS,

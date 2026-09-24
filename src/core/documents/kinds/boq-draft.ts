@@ -23,10 +23,13 @@ import { z } from "zod";
 import { ELEMENT_TYPES } from "../../catalogue/classes";
 import { KINDS } from "../../catalogue/kinds";
 import { REFUSALS, type RefusalEntry } from "../../errors";
-import { formatUserFigure } from "../../format";
+import { BD_DOCUMENT, formatUserFigure } from "../../format";
+import { QUANTITY_BASES } from "../../offers/law";
 import { UNITS } from "../../units/canon";
 import { figure } from "../figures";
 import {
+  BASIS_MEANINGS,
+  BASIS_NOTE,
   BOQ_DRAFT,
   BOQ_SECTIONS,
   CHECKING_FIELDS,
@@ -35,12 +38,18 @@ import {
   DETAILS_HEADING,
   FRONT_LABELS,
   LINE_REASONS_HEADING,
+  MEASUREMENT_NOTES_HEADING,
   NOT_MEASURED,
   NOT_MEASURED_HEADING,
+  NOT_MEASURED_NOTE,
   NOT_MEASURED_SCOPE_HEADING,
   NOT_STATED,
+  REGISTER_HEADING,
+  REGISTER_HEADS,
+  REVISION_NOT_MARKED,
   ROUNDING_NOTE,
   descriptionOf,
+  methodNote,
   groupQualifier,
   inWords,
   notMeasuredAbout,
@@ -215,6 +224,9 @@ const notMeasuredRow = z
   })
   .strict();
 
+/** One sheet of the drawing register, as its title block states it (I-689). */
+const registerSheet = z.object({ sheet: z.string().min(1), title: z.string().min(1), revision: z.string().min(1).nullable() }).strict();
+
 /**
  * What the front page states about the project, IN WORDS (I-530): nothing here is an id. A
  * question the project holds no answer to is `null`, and the page says `Not stated` for it rather
@@ -229,6 +241,14 @@ const frontMatter = z
     drawingSet: z.string().min(1).nullable(),
     /** The drawings that revision pins, by the names they were uploaded under. */
     drawings: z.array(z.string().min(1)),
+    /**
+     * The drawing register (I-689): each sheet the bill's lines were measured on, by the
+     * number and title its title block states and the revision it marks (`null` where it marks none).
+     * Absent or empty, the page falls back to the drawings by the names they were uploaded under.
+     */
+    register: z.array(registerSheet).optional(),
+    /** The rule-set edition the campaign was measured under, by its own name and version (L-MEA-01). */
+    edition: z.object({ name: z.string().min(1), version: z.string().min(1) }).strict().nullable().optional(),
     issued: documentDay.nullable(),
   })
   .strict();
@@ -393,22 +413,61 @@ function presentedDetail(line: BoqDraftLine, kind: string): Record<string, unkno
   };
 }
 
-/** The front page's facts as label and value pairs, every value in words (I-530). */
+/**
+ * The front page's facts as label and value pairs, every value in words (I-530). Where the payload
+ * carries a drawing register the drawings are stated there, by sheet (I-689), and the file
+ * names the set was uploaded under are not repeated as a row: a file name is not a drawing.
+ */
 function frontRowsOf(draft: BoqDraftPayload): { readonly label: string; readonly value: string }[] {
   const front = draft.front;
   const drawings = front?.drawings ?? [];
+  const registered = (front?.register ?? []).length > 0;
   return [
     { label: FRONT_LABELS.project, value: draft.project },
     { label: FRONT_LABELS.client, value: front?.client ?? NOT_STATED },
     { label: FRONT_LABELS.site, value: front?.site ?? NOT_STATED },
     { label: FRONT_LABELS.drawingSet, value: front?.drawingSet ?? NOT_STATED },
-    { label: FRONT_LABELS.drawings, value: drawings.length === 0 ? NOT_STATED : drawings.join(", ") },
+    ...(registered ? [] : [{ label: FRONT_LABELS.drawings, value: drawings.length === 0 ? NOT_STATED : drawings.join(", ") }]),
     // The day the issue went out — and no row at all on a reading nobody issued: a working export is
     // not an issue, and `Not stated` would read as a fact nobody knew (I-530).
     ...(front?.issued === null || front?.issued === undefined ? [] : [{ label: FRONT_LABELS.issued, value: front.issued }]),
     { label: FRONT_LABELS.taxonomy, value: taxonomyInWords(draft.taxonomyVersion) },
     { label: FRONT_LABELS.measurement, value: draft.coverage === "COMPLETE" ? COVERAGE_WORDS.COMPLETE : COVERAGE_WORDS.INCOMPLETE },
   ];
+}
+
+/**
+ * The drawing register as the front page prints it (I-689): sheet, title and revision, a
+ * revision the title block does not mark said in words rather than left blank.
+ */
+export function registerRowsOf(draft: Pick<BoqDraftPayload, "front">): { readonly sheet: string; readonly title: string; readonly revision: string; readonly revisionIsWord: boolean }[] {
+  return (draft.front?.register ?? []).map((one) => ({ sheet: one.sheet, title: one.title, revision: one.revision ?? REVISION_NOT_MARKED, revisionIsWord: one.revision === null }));
+}
+
+/**
+ * The measurement notes a draft opens on (I-691): the method and the edition in force by
+ * name and version; what each basis this draft's lines rest on means, in L-QTY-01's order and each
+ * once; what `Not measured` means; and how the figures are rounded. The Details of measurement no
+ * longer carries its own note: the rounding is stated here, once.
+ */
+export function measurementNotesOf(draft: BoqDraftPayload): { readonly text: string; readonly bases: readonly { readonly basis: string; readonly meaning: string }[] }[] {
+  const used = new Set(draftLinesOf(draft).map((line) => line.quantityBasis));
+  const bases = QUANTITY_BASES.filter((basis) => used.has(basis)).map((basis) => ({ basis: inWords(basis), meaning: BASIS_MEANINGS[basis] ?? "" }));
+  const note = (text: string) => ({ text, bases: [] });
+  return [note(methodNote(draft.front?.edition ?? null)), ...(bases.length === 0 ? [] : [{ text: BASIS_NOTE, bases }]), note(NOT_MEASURED_NOTE), note(ROUNDING_NOTE)];
+}
+
+/**
+ * The day a document's PDF states as its creation date: the day it was ISSUED, read back off the
+ * issue's own stamp (`24 Sep 2026`) — never the renderer's clock, which the seam pins to the epoch so
+ * the bytes stay deterministic (R-SPINE-040, I-693). A reading nobody issued states none.
+ */
+export function issuedDateOf(issued: string | null | undefined): { readonly year: number; readonly month: number; readonly day: number } | null {
+  if (issued === null || issued === undefined) return null;
+  const said = /^(\d{2}) ([A-Z][a-z]{2}) (\d{4})$/u.exec(issued);
+  const month = said === null ? -1 : (BD_DOCUMENT.months as readonly string[]).indexOf(said[2] ?? "");
+  if (said === null || month < 0) return null;
+  return { year: Number(said[3]), month: month + 1, day: Number(said[1]) };
 }
 
 /**
@@ -454,7 +513,14 @@ function present(payload: unknown): Record<string, unknown> {
   return {
     title: draft.title,
     project: draft.project,
-    front: { rows: frontRowsOf(draft), checking: CHECKING_LABELS, fields: CHECKING_FIELDS },
+    front: {
+      rows: frontRowsOf(draft),
+      checking: CHECKING_LABELS,
+      fields: CHECKING_FIELDS,
+      register: { heading: REGISTER_HEADING, heads: REGISTER_HEADS, rows: registerRowsOf(draft) },
+      notes: { heading: MEASUREMENT_NOTES_HEADING, items: measurementNotesOf(draft) },
+    },
+    issuedOn: issuedDateOf(draft.front?.issued),
     footer: footerOf(draft),
     sections,
     // Kept, labelled, reason stated, never dropped (L-BD-08). An unplaced line carries no item
@@ -481,7 +547,7 @@ function present(payload: unknown): Record<string, unknown> {
       reasonsHeading: LINE_REASONS_HEADING,
       reasons: lineReasonsOf(draft),
     },
-    details: { heading: DETAILS_HEADING, note: ROUNDING_NOTE, items: details },
+    details: { heading: DETAILS_HEADING, items: details },
   };
 }
 

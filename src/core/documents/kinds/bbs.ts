@@ -44,7 +44,7 @@ import { formatDate } from "../../format";
 import { refusalCodeOf } from "../../faults/refusal-marker";
 import { SHAPE_CODES, isShapeCode } from "../../rulesets/methods/rebar/bs8666";
 import { figure } from "../figures";
-import { inWords } from "./boq-draft-law";
+import { NOT_STATED, inWords } from "./boq-draft-law";
 import { kindTemplate, type DocumentKind } from "./law";
 
 /** The key this kind is asked for by, and the key the barrel files it under. */
@@ -263,9 +263,6 @@ export type BbsPayloadBar = z.output<typeof barLine>;
 
 /* ------------------------------------------------------- the payload, as the template reads it */
 
-/** What the page says where the project records nothing for a particular. */
-const NOT_RECORDED = "Not recorded";
-
 /** A count as the page writes it: a whole number, grouped by the one figure seam. */
 const counted = (value: number): string => figure(String(value), COUNT_PLACES);
 
@@ -413,7 +410,9 @@ function declaredSaid(payload: BbsPayload): Record<string, unknown> | null {
 /**
  * The particulars block, in words: whose and where down the first column, read from what, when and
  * cut from what down the second (the block sets two pairs to a row, so the list alternates the two
- * columns). A particular the project does not record is said to be not recorded, never left blank as
+ * columns). A particular the project does not record is said `Not stated` — the draft BOQ's own
+ * phrase, read from its one home, so the two papers of one project say one thing about one blank
+ * (I-690) — never left blank as
  * if it were nothing and never filled with an id (I-535).
  */
 function particularsOf(payload: BbsPayload): { label: string; value: string }[] {
@@ -424,9 +423,9 @@ function particularsOf(payload: BbsPayload): { label: string; value: string }[] 
   return [
     { label: "Project", value: project },
     { label: "Drawings", value: revision },
-    { label: "Client", value: about.client ?? NOT_RECORDED },
+    { label: "Client", value: about.client ?? NOT_STATED },
     { label: "Issued", value: formatDate(about.issuedOn) },
-    { label: "Site", value: about.site ?? NOT_RECORDED },
+    { label: "Site", value: about.site ?? NOT_STATED },
     { label: "Cut from", value: stock },
   ];
 }
@@ -442,6 +441,9 @@ function present(payload: unknown): Record<string, unknown> {
     title: schedule.title,
     project: schedule.project,
     runningTitle: `${schedule.project} · ${schedule.title}`,
+    // The PDF's own creation date is the day the schedule was issued, never the renderer's pinned
+    // epoch (I-693): the day is data, so the bytes stay deterministic.
+    issuedOn: schedule.particulars.issuedOn,
     particulars: particularsOf(schedule),
     entries: entriesOf(schedule),
     stock: stockOf(schedule),

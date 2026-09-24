@@ -14,6 +14,10 @@ import { and, desc, drawingSetRevisions, eq, ingests, placements, type TenantTx 
 import { artifactAt } from "../entitygraph/artifact";
 import type { Storage } from "../storage";
 import { sheetLabelOf, standingOfGraph, type MemberKeys, type RecordStanding } from "./frames";
+import { readSheetRevision, readTitleBlock } from "./grammar";
+
+/** One sheet as a drawing register lists it: its number, its title and the revision it marks. */
+export type RegisterSheet = { readonly sheet: string; readonly title: string; readonly revision: string | null };
 
 /** One placement's grid reading on a pinned record, as the partition stored it. */
 export type PinnedGrid = { readonly letter: string | null; readonly numeral: string | null };
@@ -28,6 +32,12 @@ export type PinnedRecord = {
   readonly standing: RecordStanding;
   /** How a reader names one of this record's sheets: its number, or null for model space. */
   readonly labelOf: (layoutName: string) => string | null;
+  /**
+   * One of this record's sheets as a drawing register lists it — the number `labelOf` names it by,
+   * the title its title block states and the revision the block marks (s-boq I-689) — or
+   * null for model space, which is no sheet.
+   */
+  readonly registerOf: (layoutName: string) => RegisterSheet | null;
   /**
    * Where one of this record's placements stands on the plan's own grid: the nearest axis of each
    * family as the partition filed it on THIS record, a family the grid carries no axis of null in its
@@ -92,6 +102,10 @@ export async function pinnedRecordsIn(
       artifactSha256: record.artifactSha256,
       standing: standingOfGraph(graph, members),
       labelOf: (layoutName) => sheetLabelOf(graph, layoutName),
+      registerOf: (layoutName) => {
+        const sheet = sheetLabelOf(graph, layoutName);
+        return sheet === null ? null : { sheet, title: readTitleBlock(graph, layoutName).title, revision: readSheetRevision(graph, layoutName) };
+      },
       gridOf: (placementKey) => grids.get(placementKey) ?? null,
     });
   }

@@ -315,7 +315,7 @@ shell's one inspector slot stays at width 0 (R-UI-080). Files: `takeoff/layout.t
   (`inWords`, `boq-draft-law.ts`: `shear_wall` → `Shear wall`, `MAIN` → `Main`), and a lap line reads
   `Lap`, not `LAP`. The shape codes stay as codes (I-bbs-6), and the floors' labels are model data.
   (c) *The particulars, in words.* Beneath the title stand the project (with its code), the client
-  and the site as the project records them, or `Not recorded`. Beside them stand the drawings, the
+  and the site as the project records them, or `Not stated` (amended by I-694). Beside them stand the drawings, the
   day of issue and what the bars are cut from. The drawings read as the set's own name, WHICH of its
   pins the campaign measured (counted from the first in the store's write order, `appendSeq`) and the
   day it was pinned: `Structural drawings, revision 2, pinned 22 Sep 2026`. The cut-from line reads
@@ -549,6 +549,22 @@ shell's one inspector slot stays at width 0 (R-UI-080). Files: `takeoff/layout.t
   inferring coverage from the rows drawn (a tie row present says nothing of a lap declared missing);
   carrying the coverage on `BbsDocument` (the issued schedule's payload is frozen by V-DOCS and prints
   its own declared block).
+- **I-694 — the issued schedule reads on clean paper, says one blank one way, and is dated
+  the day it was issued (session 9, 2026-09-24; walk-1's qs-critic, B18 PARTLY; amends I-535 (c) and
+  its rejection of dropping the watermark).** Walk-1 read the schedule's PDF beside the draft BOQ's.
+  The large logo watermark sat under a table a fabricator reads across a dozen columns, while the
+  draft BOQ had already dropped its own (s-boq I-530). The particulars said `Not recorded` where the
+  BOQ of the same project said `Not stated`. The PDF stated 1 Jan 1970 as its creation date. Ruling:
+  (a) the schedule calls `document-frame` with `watermarked: false`, so every figure reads against
+  clean paper. `DRAFT — UNSIGNED` still heads every page, and the watermark was never the draft's
+  mark. (b) A client or site the project does not state reads `Not stated`, read from `NOT_STATED`
+  in `boq-draft-law.ts`, its one home (s-boq I-690). The project's details on the projects
+  home are the door where a person states them. (c) The PDF's creation date is the schedule's own
+  `issuedOn`, handed to the frame's `issued` parameter (s-boq I-693). The day is data, so the
+  bytes stay deterministic (R-SPINE-040). I-535's rejection of dropping the watermark is withdrawn:
+  its reason was that the frame is shared with the draft BOQ, and the frame's `watermarked` flag
+  already lets each kind choose. Tests: `tests/docs/front-page.test.ts`; the bbs golden re-taken in
+  a `baseline:` commit (V-DOCS).
 
 - **I-670 — identical members of a mark are one entry however their ties' joints were cited
   (session 9, BBS-TIES; walk-2 BD-4; the owner's ruling Q3, BS 8666; amends I-534(a)).** Under

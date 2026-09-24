@@ -418,6 +418,59 @@ answered by it.
   `pile caps, thickness 3 in` as though a sheet said so. A selecting attribute (a pile's diameter)
   is the rail's reading of the drawing and stays bare. Tests: `tests/takeoff/boq/items.test.ts`.
 
+### 0.6 DOC-FRONT — the front page reads as a QS's document (session 9, 2026-09-24)
+
+Walk-1's qs-critic judged B18 PARTLY (`.private/work/session-9/walk1/doc-result.md`). The front page
+cited `Drawings rcc6-bnbc.dxf`, a file name where a drawing register belongs. Client and Site read
+`Not stated` on the BOQ and `Not recorded` on the BBS. The only measurement note was the two-line
+rounding note on p.7. The checking boxes had no signature line, and the PDF was dated 1 Jan 1970.
+
+- **I-689 — the drawings measured are a register of sheets.** The front page states
+  **Drawings measured**: each sheet a published line's evidence stands on, once, by the number the
+  details of measurement cite it by (`labelOf`, I-179), the title its title block states
+  (`readTitleBlock`, R-TO-004) and the revision its title block marks. The revision is read off the
+  block's own REV attribute on an insert standing on that sheet (`readSheetRevision`: tags `REV`,
+  `REV.`, `REVISION`, `REV_NO`, `REVNO`). It is never read off the revision table, whose rows every
+  sheet carries alike. A block that marks no revision reads **Not marked**, in the body face. The
+  sheets come from the PINNED records the lines were measured on (I-422), in sheet-number order
+  (`registerInOrder`). Where a register stands, the `Drawings` row of file names is not printed:
+  a file name is not a drawing. A payload with no register (an older issue re-rendered) still names
+  the files. The workbook's Summary is unchanged and still names the files. Rejected: listing every
+  sheet of the pinned set. That lists sheets the bill measured nothing on, and a register says what
+  the bill rests on. Also rejected: the set revision's ordinal as each sheet's revision. That is the
+  product's pin count, not the drawing office's mark.
+- **I-690 — one phrase for a blank.** A client or site the project does not state reads
+  `Not stated` on both drafts. The bar schedule reads `NOT_STATED` from `boq-draft-law.ts`, its one
+  home, so the two papers of one project cannot disagree about one blank. A person states the
+  client and the site through the project's own details (the edit door on the projects home,
+  `updateProject`). The words stay short on the paper; they do not name that door, because a
+  document is not a screen.
+- **I-691 — the draft opens on measurement notes.** Under **Measurement notes**, numbered, the
+  front page states four things. (1) The method: *Quantities are measured net from the drawings
+  listed above, by the method of measurement of the rule-set edition <name>, version <version>: its
+  deductions, its thresholds and its rules at junctions.* The edition is the one the campaign was
+  opened under (`campaigns.edition_id`, resolved in the workspace's editions and then the
+  platform's, L-MEA-01, L-REG-07). A payload that names none says *the rule-set edition in force,
+  which this draft does not name* rather than inventing one. (2) The bases: *The Basis column of the
+  details of measurement says where each figure came from:* followed by each basis this draft's
+  lines rest on, once each, in L-QTY-01's order of recourse, with the clause's own meaning in words
+  (`BASIS_MEANINGS`). (3) What **Not measured** means (`NOT_MEASURED_NOTE`). (4) The rounding rule
+  (`ROUNDING_NOTE`), moved here from the top of the Details of measurement, which now carries no
+  note of its own. The notes never say "bill" (AM-05, reading 9). The front page is a page of its
+  own: the sections begin on page 2. Rejected: stating BNBC or IS 1200 by clause. The edition is
+  what the product measured under, and its name is the fact a checker can trace.
+- **I-692 — the checking boxes carry a signature line.** I-531's boxes gain
+  `CHECKING_FIELDS` **Signature** between **Name** and **Date**. This is the line a checker signs by
+  hand, as the bar schedule's sign-off box already has. The product still names nobody and signs
+  nothing (AM-05 (2)). A handwritten signature on a draft's checking record is not M7's signature.
+- **I-693 — the PDF is dated the day it was issued.** `document-frame` takes an `issued`
+  parameter. The kind reads the parts off the issue's own stamp (`issuedDateOf` over `24 Sep 2026`,
+  the months from `BD_DOCUMENT`) and the PDF's creation date is that day. A reading nobody issued
+  (`issued: null`) states no date at all, where it used to state the epoch the seam pins
+  (`--creation-timestamp 0`). The day is data, so the bytes stay deterministic (R-SPINE-040). The
+  proof kind passes nothing and keeps its bytes. Tests: `tests/docs/front-page.test.ts`,
+  `tests/takeoff/sheets/sheet-revision.test.ts`, `tests/takeoff/boq/front-register.db.test.ts`.
+
 ## 1. Layout and hierarchy (1440 × 900)
 
 ```
@@ -607,15 +660,27 @@ ids render only through `IdChip`; classes, kinds, bases and reasons render as wo
 PDF's own words are the document kind's, held to AM-05: **DRAFT — UNSIGNED** on every page, the
 section labels, and no surveyor, credential or certificate anywhere. Its front page and foot, in words
 (I-530, `boq-draft-law.ts`): the labels **Project**, **Client**, **Site**, **Drawing set**,
-**Drawings**, **Issued**, **Sections**, **Measurement**; `NOT_STATED` **Not stated**; the taxonomy
+**Drawings** (only where no register stands, I-689), **Issued**, **Sections**,
+**Measurement**; `NOT_STATED` **Not stated** (the bar schedule's too, I-690); the taxonomy
 **By the taxonomy of <DD MMM YYYY>**; the set **<name>, revision <n>, pinned <DD MMM YYYY>**; the
 measurement **Complete: every class the drawings show was measured** or **Incomplete: what this
-draft leaves out is listed under Not measured in this draft**; the checking record's boxes **Prepared
-by** and **Checked by**, each with **Name** and **Date** (I-531); the foot **<project> ·
-Draft BOQ — unpriced · issued <DD MMM YYYY>**. The appendix (I-528): `DETAILS_HEADING`
-**Details of measurement**, its note `ROUNDING_NOTE` **Each item states the register's sum of its
-members, rounded once to the places its kind is written to. Each member line below states its own
-register figure, rounded once the same way.** and its heads **Mark**, **Grid**, **Level**, **Nos**,
+draft leaves out is listed under Not measured in this draft**; the register (I-689)
+`REGISTER_HEADING` **Drawings measured**, its heads **Sheet**, **Title**, **Rev**, and
+`REVISION_NOT_MARKED` **Not marked**; the notes (I-691) `MEASUREMENT_NOTES_HEADING`
+**Measurement notes**: `methodNote` **Quantities are measured net from the drawings listed above, by
+the method of measurement of the rule-set edition <name>, version <version>: its deductions, its
+thresholds and its rules at junctions.** (or **… of the rule-set edition in force, which this draft
+does not name: …**), `BASIS_NOTE` **The Basis column of the details of measurement says where each
+figure came from:** with each basis in words beside its `BASIS_MEANINGS` sentence, `NOT_MEASURED_NOTE`
+**Not measured means the draft states no figure for that item or line and nothing can be priced
+against it. It is never a zero: the reason stands beside it, and everything the draft leaves out is
+listed under Not measured in this draft.**, and `ROUNDING_NOTE` **Each item states the register's sum
+of its members, rounded once to the places its kind is written to. Each member line in the details of
+measurement states its own register figure, rounded once the same way.**; the checking record's boxes
+**Prepared by** and **Checked by**, each with **Name**, **Signature** and **Date** (I-531,
+I-692); the foot **<project> · Draft BOQ — unpriced · issued <DD MMM YYYY>**. The appendix
+(I-528): `DETAILS_HEADING` **Details of measurement**, with no note of its own (the rounding is
+stated once, in the notes), and its heads **Mark**, **Grid**, **Level**, **Nos**,
 **Dimensions**, **Quantity**, **Unit**, **Basis**, **Sheet**; a variable the drawing did not state,
 **<name> not stated**. An item's description **<the group's sentence> — <members>, <attribute> <value>
 <unit>, …** and, in the workbook, **…, at <level>**. Where no figure stands (I-450, I-451):

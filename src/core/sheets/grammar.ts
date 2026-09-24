@@ -220,3 +220,25 @@ export function readTitleBlock(graph: EntityGraph, layoutName: string): SheetPro
     cited,
   };
 }
+
+/**
+ * The tags a title block's revision attribute is written under: `REV` on F-RCC6-BNBC's
+ * `TITLE_BLOCK`, and the spellings an office's own block uses for the same box.
+ */
+const REVISION_TAGS: ReadonlySet<string> = new Set(["REV", "REV.", "REVISION", "REV_NO", "REVNO"]);
+
+/**
+ * The revision a sheet's title block marks, or null where it marks none this reader can read
+ * (s-boq I-689). It is read off the block's own revision attribute on an insert standing on
+ * that layout (the box a draughtsman fills) and never off the revision TABLE, whose rows every
+ * sheet carries alike. An attribute left empty marks nothing, and the answer is null, not a guess.
+ */
+export function readSheetRevision(graph: EntityGraph, layoutName: string): string | null {
+  const inserts = new Set(graph.entities.filter((entity) => entity.type === "INSERT" && entity.space === layoutName).map((entity) => entity.key));
+  for (const attribute of graph.block_attributes) {
+    if (!inserts.has(attribute.src) || !REVISION_TAGS.has(attribute.tag.trim().toUpperCase())) continue;
+    const said = attribute.text.replace(ESCAPE, "").trim();
+    if (said !== "") return said;
+  }
+  return null;
+}

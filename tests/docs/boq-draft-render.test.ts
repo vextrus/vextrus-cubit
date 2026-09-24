@@ -46,7 +46,15 @@ type Item = { key: string; description: string; level: string; quantity: string 
 type Group = { class: string; kind: string; description: string; unit: string; items: Item[] };
 type Section = { bill: string; label: string; groups: Group[] };
 type NotMeasuredRow = { class: string | null; kind: string; levels: string; cause: string };
-type Front = { client: string | null; site: string | null; drawingSet: string | null; drawings: string[]; issued: string | null };
+type Front = {
+  client: string | null;
+  site: string | null;
+  drawingSet: string | null;
+  drawings: string[];
+  register?: { sheet: string; title: string; revision: string | null }[];
+  edition?: { name: string; version: string } | null;
+  issued: string | null;
+};
 type Payload = {
   project: string;
   campaignId: string;
@@ -237,7 +245,14 @@ describe("AC-4: the unpriced draft renders as a draft, byte for byte", () => {
       expect(value, `${PAYLOAD} states ${what}`).toBeTruthy();
       expect(first, `the front page states ${what}`).toContain(value as string);
     }
-    for (const drawing of front.drawings) expect(first, `and names the drawing ${drawing}`).toContain(drawing);
+    // TEST_AMENDED (session 9, DOC-FRONT; s-boq I-689): the drawings are stated as a register
+    // of sheets — number, title, revision — and a file name is not a drawing, so the names the set was
+    // uploaded under no longer print where the payload carries the register.
+    expect(front.register?.length ?? 0, `${PAYLOAD} carries the drawing register, so the register is rendered and graded`).toBeGreaterThan(0);
+    for (const sheet of front.register ?? []) {
+      for (const fact of [sheet.sheet, sheet.title, ...(sheet.revision === null ? [] : [sheet.revision])]) expect(first, `the register states ${sheet.sheet}'s ${fact}`).toContain(fact);
+    }
+    for (const drawing of front.drawings) expect(first, `and no longer names the file ${drawing} as though it were a drawing`).not.toContain(drawing);
     for (const label of ["Prepared by", "Checked by"]) expect(first.toLowerCase(), `the front page carries the checking record's ${label} box, blank`).toContain(label.toLowerCase());
 
     const whole = squashed(sheets.join(" "));

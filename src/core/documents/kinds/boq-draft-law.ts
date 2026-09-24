@@ -224,9 +224,14 @@ export const DETAILS_HEADING = "Details of measurement";
  * printed figures.
  */
 export const ROUNDING_NOTE =
-  "Each item states the register's sum of its members, rounded once to the places its kind is written to. Each member line below states its own register figure, rounded once the same way.";
+  "Each item states the register's sum of its members, rounded once to the places its kind is written to. Each member line in the details of measurement states its own register figure, rounded once the same way.";
 
-/** What the front page says where the project holds no answer to one of its questions. */
+/**
+ * What a document's front page says where the project holds no answer to one of its questions —
+ * the ONE phrase: the draft BOQ and the bar schedule both read it here, so the two papers of one
+ * project never disagree about the same blank (I-690). The project's details (the edit door
+ * on the projects home) are where a person states the client and the site.
+ */
 export const NOT_STATED = "Not stated";
 
 /** What the front page says about the draft's measurement, complete or not (L-QTY-04, I-451). */
@@ -254,8 +259,59 @@ export const FRONT_LABELS = Object.freeze({
  */
 export const CHECKING_LABELS: readonly string[] = Object.freeze(["Prepared by", "Checked by"]);
 
-/** What stands under each checking blank: the two things a checker writes. */
-export const CHECKING_FIELDS: readonly string[] = Object.freeze(["Name", "Date"]);
+/**
+ * What stands under each checking blank: the three things a checker writes — the name, the hand and
+ * the day (I-692). The signature line is ruled paper for the checker's own hand, as the bar
+ * schedule's sign-off box has it; the product signs nothing (AM-05 (2)).
+ */
+export const CHECKING_FIELDS: readonly string[] = Object.freeze(["Name", "Signature", "Date"]);
+
+/* ------------------------------------------------ the drawing register and the measurement notes */
+
+/**
+ * The drawing register a draft states on its front page (I-689): each sheet the bill's lines
+ * were measured on, by the number and title its title block states and the revision its title block
+ * marks, in sheet-number order.
+ */
+export const REGISTER_HEADING = "Drawings measured";
+
+/** The register's column heads, in the order it prints them. */
+export const REGISTER_HEADS: readonly string[] = Object.freeze(["Sheet", "Title", "Rev"]);
+
+/** What the register's revision cell says where a sheet's title block marks no revision. */
+export const REVISION_NOT_MARKED = "Not marked";
+
+/** The notes a draft opens on, before its first item (I-691). */
+export const MEASUREMENT_NOTES_HEADING = "Measurement notes";
+
+/**
+ * The method note: the method of measurement, and the rule-set edition in force by its own name and
+ * version (L-MEA-01). A draft whose payload names no edition says so rather than naming one.
+ */
+export function methodNote(edition: { readonly name: string; readonly version: string } | null): string {
+  const method = edition === null ? "the rule-set edition in force, which this draft does not name" : `the rule-set edition ${edition.name}, version ${edition.version}`;
+  return `Quantities are measured net from the drawings listed above, by the method of measurement of ${method}: its deductions, its thresholds and its rules at junctions.`;
+}
+
+/**
+ * What each basis a figure can rest on means, in L-QTY-01's own order of recourse. The notes state
+ * only the bases this draft's lines rest on, each once.
+ */
+export const BASIS_MEANINGS: Readonly<Record<string, string>> = Object.freeze({
+  MEASURED: "read off the drawing's geometry; checked by measuring it again",
+  TRANSCRIBED: "read from a figure the drawings state in words or in a schedule; checked by reading it again",
+  DERIVED: "computed by a named rule of the method from measured or stated figures",
+  IMPORTED: "taken from a file brought in from outside the drawings",
+  ENTERED: "entered by a person, as a recorded act",
+  INTERPRETED: "traced from a scanned image; reproducible, but no drawn geometry stands behind it",
+  DEFAULTED: "supplied by the rule-set edition where the drawings are silent; nobody measured it",
+});
+
+/** How the notes introduce the bases: the Basis column of the details of measurement reads them. */
+export const BASIS_NOTE = "The Basis column of the details of measurement says where each figure came from:";
+
+/** What `Not measured` means wherever the draft prints it (I-450, I-451, L-QTY-04). */
+export const NOT_MEASURED_NOTE = `${NOT_MEASURED} means the draft states no figure for that item or line and nothing can be priced against it. It is never a zero: the reason stands beside it, and everything the draft leaves out is listed under ${NOT_MEASURED_HEADING}.`;
 
 /**
  * The taxonomy a draft was sectioned under, as a reader says it: its EDITION as a date (L-FMT-01) —

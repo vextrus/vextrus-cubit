@@ -107,17 +107,68 @@
   ]),
 )
 
+/// The drawing register: each sheet the bill was measured on, by the number and title its title block
+/// states and the revision it marks (I-689). The rows arrive written; nothing here decides them.
+#let register-block(register) = [
+  #part-heading(register.heading)
+  #table(
+    columns: (22mm, 1fr, 24mm),
+    align: (left, left, left),
+    stroke: none,
+    inset: (x: 2mm, y: 1.2mm),
+    row-gutter: 0pt,
+    table.header(..register.heads.map(head => head-cell(head))),
+    table.hline(stroke: 0.6pt + rule),
+    ..register.rows
+      .map(row => (
+        text(size: 9pt, font: mono-face)[#row.sheet],
+        text(size: 9pt)[#row.title],
+        if row.revisionIsWord { text(size: 8.5pt, fill: quiet)[#row.revision] } else { text(size: 9pt, font: mono-face)[#row.revision] },
+      ))
+      .flatten(),
+  )
+]
+
+/// The measurement notes a draft opens on (I-691): numbered, in the order the kind wrote them,
+/// with the bases this draft's figures rest on listed under the note that introduces them.
+#let notes-block(notes) = [
+  #part-heading(notes.heading)
+  #block(inset: (x: 2mm))[
+    #set text(size: 9pt, fill: ink)
+    #set enum(numbering: "1.", spacing: 2.2mm, indent: 0mm, body-indent: 2.5mm)
+    #enum(..notes.items.map(note => [
+      #note.text
+      #if note.bases.len() > 0 [
+        #v(1mm)
+        #grid(
+          columns: (24mm, 1fr),
+          column-gutter: 3mm,
+          row-gutter: 1.4mm,
+          ..note.bases.map(one => (text(size: 8.5pt, weight: "semibold")[#one.basis], text(size: 8.5pt, fill: quiet)[#one.meaning])).flatten(),
+        )
+      ]
+    ]))
+  ]
+]
+
 #document-frame(
   title: payload.title,
   subtitle: payload.project,
   draft-every-page: true,
   footer-note: payload.footer,
   watermarked: false,
+  issued: payload.issuedOn,
 )[
   #project-block(payload.front.rows)
   #v(5mm)
+  #if payload.front.register.rows.len() > 0 [
+    #register-block(payload.front.register)
+    #v(4mm)
+  ]
+  #notes-block(payload.front.notes)
+  #v(5mm)
   #checking-block(payload.front.checking, payload.front.fields)
-  #v(6mm)
+  #pagebreak()
 
   #for section in payload.sections [
     #block-heading[#section.ordinal #section.label]
@@ -226,7 +277,6 @@
   #if payload.details.items.len() > 0 [
     #pagebreak()
     #block-heading[#payload.details.heading]
-    #block(inset: (x: 2mm), below: 4mm)[#text(size: 8.5pt, fill: quiet)[#payload.details.note]]
     #for item in payload.details.items [
       // The item's heading is part of its member table's header: it is never left at a page's foot
       // with its members on the next, and a member list that runs onto the next page opens that page

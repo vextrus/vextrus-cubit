@@ -146,9 +146,17 @@
 /// day it was issued — so a page read on its own still says what it is a page of (s-boq I-530; the bar
 /// schedule's too, s-bbs I-535). `landscape` turns the A4 leaf on its side for a schedule read across
 /// a dozen columns (the bar schedule's), and `watermarked: false` leaves the page's background bare
-/// where every figure on it must read against clean paper (s-boq I-530).
-#let document-frame(title: "", subtitle: "", facts: (), draft-every-page: false, landscape: false, footer-note: "", watermarked: true, body) = {
-  set document(title: title, author: "Vextrus Cubit")
+/// where every figure on it must read against clean paper (s-boq I-530). `issued` is the day the
+/// document was issued, as `(year, month, day)` parts the kind read off its payload: the PDF states it
+/// as its creation date, and `none` (a reading nobody issued) states no date at all rather than the
+/// renderer's pinned epoch; left at `auto` the renderer's own timestamp stands, as it always did
+/// (s-boq I-693). No clock is read here: the day is data.
+#let document-frame(title: "", subtitle: "", facts: (), draft-every-page: false, landscape: false, footer-note: "", watermarked: true, issued: auto, body) = {
+  set document(
+    title: title,
+    author: "Vextrus Cubit",
+    date: if issued == auto or issued == none { issued } else { datetime(year: issued.year, month: issued.month, day: issued.day) },
+  )
   set page(
     paper: "a4",
     flipped: landscape,

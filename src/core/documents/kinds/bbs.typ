@@ -139,6 +139,10 @@
   draft-every-page: true,
   landscape: true,
   footer-note: payload.runningTitle,
+  // Clean paper under a schedule a fabricator reads across a dozen columns, as the draft BOQ has it
+  // (s-bbs I-694).
+  watermarked: false,
+  issued: payload.issuedOn,
 )[
   #particulars-block(payload.particulars)
   #v(5mm)
