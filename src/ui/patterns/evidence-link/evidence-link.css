@@ -74,6 +74,13 @@
   color: var(--basis-defaulted);
 }
 
+/* I-554: a link that states no basis — a sighting, a queue item — wears no basis colour and no
+   glyph. The rule is drawn in ink, which clears the 3:1 floor on every ground in both themes, so the
+   affordance still stands at rest (I-177) without borrowing a basis nobody established. */
+.cx-evidence-link:not([data-basis]) {
+  color: var(--ink);
+}
+
 /* Inline-block, so the propagated underline does not strike through the glyph.
  *
  * R-UI-002 asks the glyph to carry the basis where colour is gone, and the seven marks do not carry

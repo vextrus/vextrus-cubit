@@ -55,7 +55,7 @@ export async function schedulesViewOf(scope: SchedulesViewScope): Promise<Schedu
  * alone leaves two revisions written in one instant in whichever order the planner reached them, and
  * "the current pin" would change between two reads of the same rows.
  */
-async function pinnedRevisionOf(scope: SchedulesViewScope): Promise<PinnedRevision | null> {
+export async function pinnedRevisionOf(scope: SchedulesViewScope): Promise<PinnedRevision | null> {
   const held = await forTenant({ tenantId: scope.tenantId }).transaction((tx) =>
     tx
       .select({ setRevisionId: drawingSetRevisions.setRevisionId, manifest: drawingSetRevisions.manifest })

@@ -20,8 +20,9 @@
 // here, so this barrel stays the one home the test contract names while a browser component may
 // reach the spelling without carrying the store into its bundle (ARCH-01's spirit, B-17).
 import { campaignsOf } from "@/core/campaigns";
+import { readCitedKey } from "@/core/identity";
 import { and, asc, eq, forTenant, inArray, isUuid, quantityLines, registerObjects } from "@/core/db";
-import { traceCitations, type TracedCitations } from "@/core/sheets/frames";
+import { sheetOfKey, standsOn, traceCitations, type TracedCitations } from "@/core/sheets/frames";
 import { pinnedRecordsIn, type PinnedRecord } from "@/core/sheets/pinned";
 import { appStorage } from "@/core/storage/app";
 import { levelsOf } from "@/modules/takeoff/levels";
@@ -74,6 +75,43 @@ export function tracedLineOf(row: { readonly viewKey: string; readonly bindings:
   // The same keys `citedKeysOf` reads, in its order: the view the line was read in, then each binding.
   const sources = Object.values(variablesOf(row.bindings)).map((binding) => binding.source);
   return traceCitations({ viewKey: row.viewKey, sources }, record?.standing ?? null);
+}
+
+/**
+ * One entity a row NAMES — a sighting, a queue item, a storey-height reading's note — as the Trace
+ * selects it: the sheet it stands on and the keys the viewer flies to there (I-555).
+ *
+ * The key is read by the grammar that minted it, exactly as a line's citations are (`traceCitations`):
+ * a placement key or a bar set is the member, resolved to the outline and the mark it was read off; a
+ * source key is its own entity. The sheet is the one the caller already names (a sighting states
+ * its own), else the one the entity stands on. Only keys that stand on that sheet are selected, so
+ * the viewer never lands with a key it cannot hold; a key the record does not hold — a view, an act, an
+ * entity of another record — answers `null`, and the row shows its key with no link (I-181).
+ *
+ * The drawing is the caller's where it names one, else the first drawing of the records that holds
+ * the key: a `DXF_HANDLE` is unique within a drawing, never across two (the Ask locator's reading).
+ */
+export function entitySelectionOf(
+  key: string,
+  records: ReadonlyMap<string, PinnedRecord>,
+  at: { readonly drawingId?: string | null; readonly layoutName?: string | null } = {},
+): { drawingId: string; layoutName: string; sourceKeys: string[] } | null {
+  const candidates = at.drawingId === undefined || at.drawingId === null ? [...records.keys()] : [at.drawingId];
+  for (const drawingId of candidates) {
+    const record = records.get(drawingId);
+    if (record === undefined) continue;
+    const traced = traceCitations({ viewKey: "", sources: [key] }, record.standing);
+    if (traced.entities.length === 0) continue;
+    const { spaces, sheets, frames } = record.standing;
+    // A member opens where its outline stands (the Trace's own reading); an entity on its own sheet.
+    const named = at.layoutName !== undefined && at.layoutName !== null && at.layoutName !== "" ? at.layoutName : null;
+    const scheme = readCitedKey(key).scheme;
+    const layoutName = named ?? (scheme === "placement" || scheme === "bars" ? traced.layoutName : sheetOfKey(key, spaces, sheets, frames));
+    if (layoutName === null) continue;
+    const sourceKeys = traced.entities.filter((entity) => standsOn(entity, layoutName, spaces, sheets, frames));
+    if (sourceKeys.length > 0) return { drawingId, layoutName, sourceKeys };
+  }
+  return null;
 }
 
 /* --------------------------------------------------------------------------------- the doors */

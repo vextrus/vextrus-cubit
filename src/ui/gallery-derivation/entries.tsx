@@ -142,6 +142,7 @@ const copy = {
   // is cycled against the basis roster, so it constrains nothing about which bases exist (B-19).
   evidenceLink: {
     href: "/design",
+    sighting: "DXF_HANDLE:4D2",
     keys: [
       "DXF_HANDLE:1A4",
       "PDF_TEXT:p3:r18:c4",
@@ -423,6 +424,9 @@ const basisStates: readonly GalleryState[] = BASES.map((basis) => ({
   render: () => <BasisChip basis={basis} />,
 }));
 
+/** The gallery cell of a link that states no basis — a sighting's (evidence-link § 7, I-554). */
+const EVIDENCE_LINK_UNBASED = "UNBASED";
+
 /**
  * The Trace affordance, one cell per basis (evidence-link § 7): the roster is the same `BASES` the
  * basis chip's own cells are derived from, so the two surfaces of R-UI-002 can never disagree about
@@ -431,13 +435,21 @@ const basisStates: readonly GalleryState[] = BASES.map((basis) => ({
  * cycle, so a basis added to the roster still gets a cell. `/design` is the sample destination that
  * stays on the current route; the key rides its query, so no two cells stand at the same place.
  */
-const evidenceLinkStates: readonly GalleryState[] = BASES.map((basis, at) => {
-  const label = copy.evidenceLink.keys[at % copy.evidenceLink.keys.length] as string;
-  return {
-    name: basis,
-    render: () => <EvidenceLink href={`${copy.evidenceLink.href}?s=${encodeURIComponent(label)}`} basis={basis} label={label} />,
-  };
-});
+const evidenceLinkStates: readonly GalleryState[] = [
+  ...BASES.map((basis, at) => {
+    const label = copy.evidenceLink.keys[at % copy.evidenceLink.keys.length] as string;
+    return {
+      name: basis,
+      render: () => <EvidenceLink href={`${copy.evidenceLink.href}?s=${encodeURIComponent(label)}`} basis={basis} label={label} />,
+    };
+  }),
+  // I-554: the one variant that is no basis — a link to an entity a sighting names, which carries
+  // no figure and so no basis to colour it by. Its own cell, after the roster, named for what it is.
+  {
+    name: EVIDENCE_LINK_UNBASED,
+    render: () => <EvidenceLink href={`${copy.evidenceLink.href}?s=${encodeURIComponent(copy.evidenceLink.sighting)}`} label={copy.evidenceLink.sighting} />,
+  },
+];
 
 const coverageStates: readonly GalleryState[] = [
   { name: "low", render: () => <CoverageChip value={0.32} /> },

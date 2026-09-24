@@ -10,6 +10,13 @@ export type LevelsViewReading = {
   readonly basis: string;
   /** Null where the reading cites no drawing entity — a height somebody entered cites none. */
   readonly sourceKey: string | null;
+  /**
+   * The Trace to the words the height was read from (s-levels I-558): the viewer at the sheet the
+   * source key stands on, selecting it — composed by `selectionAddress`, the one spelling. Null where
+   * the reading cites nothing, or cites a key no drawing of the project's newest pin holds (I-181).
+   * Absent reads as null.
+   */
+  readonly sourceHref?: string | null;
   readonly valueAsWritten: string;
   readonly unitAsWritten: string;
   readonly canonicalMetres: string;

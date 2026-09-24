@@ -18,6 +18,7 @@ import { REFUSALS, type RefusalEntry } from "@/core/errors";
 import { CoverageWorkspace, type BoundaryCell, type CoverageChrome, type CoverageDensity, type CoverageDoors, type CoveragePreviewAnswer } from "@/modules/takeoff/coverage";
 import type { CoverageCauseProposalView, CoverageView } from "@/modules/takeoff/coverage/view";
 import { ConsequenceDialog } from "@/ui/patterns/consequence-dialog";
+import { EvidenceLink } from "@/ui/patterns/evidence-link";
 import { RefusalState } from "@/ui/patterns/refusal-state";
 import { Button, EmptyState, EnumLabel, ErrorState, IdChip, Tooltip } from "@/ui/primitives/core";
 import { ShellToolbar, useInspector, useShellPage } from "@/ui/shell";
@@ -71,6 +72,7 @@ const CHROME: CoverageChrome = {
   RefusalState,
   ConsequenceDialog,
   IdChip,
+  EvidenceLink,
   EnumLabel,
   Tooltip,
   EmptyState,

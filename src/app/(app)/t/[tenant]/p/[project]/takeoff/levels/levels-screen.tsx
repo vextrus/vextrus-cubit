@@ -12,6 +12,7 @@ import type { Consequence } from "@/core/acts";
 import { LevelsWorkspace, type LevelsChrome, type LevelsDoors, type PreviewAnswer } from "@/modules/takeoff/levels-ui";
 import type { LevelsView } from "@/modules/takeoff/levels-ui/view";
 import { ConsequenceDialog } from "@/ui/patterns/consequence-dialog";
+import { EvidenceLink } from "@/ui/patterns/evidence-link";
 import { RefusalState } from "@/ui/patterns/refusal-state";
 import { BasisChip, Button, CoverageChip, EmptyState, EnumLabel, IdChip, Input, NumberInput, QuantityText, Select, Skeleton, Tooltip, UnitBadge } from "@/ui/primitives/core";
 // `humaniseEnum` is the one rule EnumLabel says a SCREAMING value in words by, handed down rather
@@ -94,6 +95,7 @@ const CHROME: LevelsChrome = {
   IdChip,
   EnumLabel,
   BasisChip,
+  EvidenceLink,
   CoverageChip,
   QuantityText,
   UnitBadge,

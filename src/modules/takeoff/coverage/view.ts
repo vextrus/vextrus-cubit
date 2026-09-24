@@ -41,6 +41,13 @@ export type CoverageView = {
    * left out (L-QTY-02). Absent reads as none.
    */
   readonly declaredLineIds?: readonly string[];
+  /**
+   * What each sighting's Trace selects on the sheet the sighting names (s-coverage I-556): by
+   * drawing, then by the sighting's own key, the entities the viewer flies to — a placed member's
+   * outline and mark, a declaration's caption. A sighting absent here names nothing the pinned record
+   * holds on that sheet and shows its key with no link. Absent reads as none.
+   */
+  readonly sightingSelections?: Readonly<Record<string, Readonly<Record<string, readonly string[]>>>>;
 };
 
 /** One cell read on its own, as the inspector's own door answers it (`takeoff.coverageCell`). */

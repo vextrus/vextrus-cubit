@@ -106,6 +106,21 @@ describe("AC-1: the link", () => {
     expect(css.includes("[data-theme"), "no `[data-theme]` selector: the themes differ by token value alone (Decision §6)").toBe(false);
   });
 
+  test("I-554: a link with no single basis states none — no data-basis, no glyph, the key alone", async () => {
+    const anchor = await mountLink({ href: SAMPLE_HREF, label: SAMPLE_LABEL });
+    expect(anchor.tagName, "still a place, never a door (I-178)").toBe("A");
+    expect(anchor.getAttribute("href"), "its href is the prop, verbatim").toBe(SAMPLE_HREF);
+    expect(anchor.hasAttribute("data-basis"), "a sighting names an entity, not a figure read on a basis: no `data-basis` is claimed").toBe(false);
+    expect(anchor.querySelector(testIdSelector(TESTIDS.evidence.linkGlyph)), "and no basis glyph is borrowed for it").toBeNull();
+    expect(text(anchor).replace(/\s+/g, ""), "the anchor reads as the key and nothing else").toBe(SAMPLE_LABEL);
+    expect([...anchor.classList].sort(), "the same anatomy and the same reticle as every other link").toEqual(["cx-evidence-link", "cx-reticle"]);
+
+    const css = stylesheetText().replace(/\/\*[\s\S]*?\*\//g, "");
+    const at = css.indexOf(".cx-evidence-link:not([data-basis]) {");
+    expect(at, "evidence-link.css colours the unbased link's rule").toBeGreaterThan(-1);
+    expect(css.slice(at, css.indexOf("}", at)), "in ink, a token, never a basis colour").toContain("color: var(--ink);");
+  });
+
   test("I-313: the link is a 24 px target whose glyph and key still share one baseline", () => {
     // white-box, for the reason above: the box is a stylesheet fact. The served register's Source
     // cell measured 191.8 × 18.8 and failed axe `target-size` under the sticky totals footer.
@@ -137,7 +152,7 @@ describe("AC-1: the catalogue", () => {
       expect(entry, `the catalogue holds \`${key}\``).toBeTypeOf("object");
 
       const stateNames = (entry as { states: readonly { name: string }[] }).states.map((state) => state.name);
-      expect(stateNames, `\`${key}\` renders one state per basis, named by the basis verbatim and derived from BASIS_GLYPHS (B-19)`).toEqual(Object.keys(glyphs));
+      expect(stateNames, `\`${key}\` renders one state per basis, named by the basis verbatim and derived from BASIS_GLYPHS (B-19), then the one link that states no basis (I-554)`).toEqual([...Object.keys(glyphs), "UNBASED"]);
       for (const state of (entry as { states: readonly { render: () => unknown }[] }).states) {
         expect(typeof state.render, `every state of \`${key}\` is mountable`).toBe("function");
       }

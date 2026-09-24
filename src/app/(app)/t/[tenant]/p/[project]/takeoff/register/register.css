@@ -236,6 +236,9 @@
 
 .cx-register-refusal-fact {
   display: flex;
+  /* A queue item's chip and its Trace (I-557) share the fact's row where the rail's width holds
+     both, and the link drops beneath the chip where it does not — never cut off at the rail's edge. */
+  flex-wrap: wrap;
   gap: var(--space-2);
   align-items: baseline;
   min-width: 0;

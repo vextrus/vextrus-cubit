@@ -7,9 +7,11 @@
 import { and, asc, drawingSetRevisions, drawingSets, eq, forTenant, projects, quantityLines } from "@/core/db";
 import { dhakaDateParts } from "@/core/format";
 import { residueOf } from "@/core/residue";
-import { bbsOf } from "@/modules/takeoff/rebar";
+import { bbsOf, type BbsDocument } from "@/modules/takeoff/rebar";
+import { manifestOfRevision } from "@/modules/takeoff/register-ui/server";
+import { entitySelectionOf, pinnedRecordsOf, type PinnedRecord } from "@/modules/takeoff/trace";
 import type { BbsParticulars } from "./emission";
-import type { BbsOmission, BbsView } from "./view";
+import type { BbsOmission, BbsSheetSelection, BbsTraces, BbsView } from "./view";
 
 /** Which project's schedule is being read, in which workspace (SEAM-TENANT). */
 export type BbsScope = { readonly tenantId: string; readonly projectId: string };
@@ -40,8 +42,60 @@ export async function bbsViewOf(scope: BbsScope): Promise<BbsView> {
     bbsOf({ tenantId: scope.tenantId, projectId: scope.projectId, campaignId: campaign.campaignId }),
     partlyDeclared(scope.tenantId, campaign.campaignId),
   ]);
+  const traces = await tracesOf(scope, campaign.setRevisionId, document_);
 
-  return { campaignId: campaign.campaignId, setRevisionId: campaign.setRevisionId, document: document_, partial: declared.partial, omitted: declared.omitted };
+  return { campaignId: campaign.campaignId, setRevisionId: campaign.setRevisionId, document: document_, partial: declared.partial, omitted: declared.omitted, traces };
+}
+
+/**
+ * Where the schedule's figures came from, for the Trace (s-bbs I-559): the record each drawing of
+ * the campaign's pinned revision was measured on, read ONCE, and every key resolved against it by the
+ * Trace's one reading of a named entity (`entitySelectionOf`).
+ *
+ * - An entry's MASS is the mass of every member it counts, so it selects all of them — each member's
+ *   outline and mark — on the plan its first member stands on; a member standing on another sheet is
+ *   still counted in the figure and simply not selected there.
+ * - A bar's MARK was read off the schedule's cells (`sourceKeys`), so it selects those cells on the
+ *   sheet the first of them is drawn on.
+ *
+ * Nothing is guessed: what resolves to nothing is absent, and the cell states its figure unlinked.
+ */
+export async function tracesOf(scope: BbsScope, setRevisionId: string, document_: BbsDocument): Promise<BbsTraces> {
+  if (document_.rows.length === 0) return { members: {}, bars: {} };
+  const manifest = await manifestOfRevision(scope.tenantId, setRevisionId);
+  const records = await pinnedRecordsOf(scope, setRevisionId, manifest.map((member) => member.drawingId));
+  return tracesOver(document_, records);
+}
+
+/** The pure half of `tracesOf`: the schedule's keys, resolved over records already read. */
+export function tracesOver(document_: Pick<BbsDocument, "rows">, records: ReadonlyMap<string, PinnedRecord>): BbsTraces {
+  const members: Record<string, BbsSheetSelection> = {};
+  const bars: Record<string, BbsSheetSelection> = {};
+  for (const line of document_.rows) {
+    if (!(line.objectKey in members)) {
+      const selection = selectionOfAll(line.members.length > 0 ? line.members : [line.objectKey], records);
+      if (selection !== null) members[line.objectKey] = selection;
+    }
+    const cells = selectionOfAll(line.sourceKeys, records);
+    if (cells !== null) bars[line.barKey] = cells;
+  }
+  return { members, bars };
+}
+
+/**
+ * Several named keys on ONE sheet: the sheet the first key that resolves stands on, and every key's
+ * entities that stand on that same sheet, each once, in order.
+ */
+function selectionOfAll(keys: readonly string[], records: ReadonlyMap<string, PinnedRecord>): BbsSheetSelection | null {
+  let first: BbsSheetSelection | null = null;
+  const selected: string[] = [];
+  for (const key of keys) {
+    const selection: BbsSheetSelection | null = first === null ? entitySelectionOf(key, records) : entitySelectionOf(key, records, { drawingId: first.drawingId, layoutName: first.layoutName });
+    if (selection === null) continue;
+    if (first === null) first = selection;
+    for (const entity of selection.sourceKeys) if (!selected.includes(entity)) selected.push(entity);
+  }
+  return first === null ? null : { drawingId: first.drawingId, layoutName: first.layoutName, sourceKeys: selected };
 }
 
 /**

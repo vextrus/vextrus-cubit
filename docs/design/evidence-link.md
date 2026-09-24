@@ -42,6 +42,31 @@ solely from `src/ui/primitives/core/reticle.css`, the glyph table solely from
   a `Trace` component that takes a lineId and composes its own address, which would put the route's
   spelling in `src/ui`, where no address may live.
 
+- **I-554 — a link with no single basis states none.** R-UI-022 names four surfaces, and two of
+  them — a coverage sighting and a queue item (R-TO-011) — cite an ENTITY of the drawing, not a figure
+  read on one basis: a sighting says "the channel saw this class here", a refused sighting says "this
+  placement produced no line", a storey-height reading's note is the text the height was written in.
+  Colouring such a link by a basis would state a provenance nobody established, and the glyph is that
+  colour's greyscale twin (R-UI-002, R-UI-060). Ruling: `basis` is optional. Where it is absent the
+  anchor carries no `data-basis`, renders no glyph, and its rule is drawn in `var(--ink)` — the label's
+  own colour, which clears the 3:1 UI floor on every ground in both themes — so the affordance still
+  stands at rest (I-177) and still thickens under the pointer. Everything else is unchanged: the same
+  box, the same reticle, the same title, the key whole. Rejected: a neutral eighth "basis" token, which
+  would put a value into R-UI-001's founder palette that no clause names; rejected: `DEFAULTED` for a
+  sighting, which would teach a reader that a sighting is an assumed figure.
+- **I-555 — what an unbased link selects is the Trace's one reading of a NAMED entity.** A line's
+  Trace reads what the line cites (I-421); a sighting, a queue item and a storey-height reading name
+  one key and cite nothing. Ruling: one server reading, `entitySelectionOf` beside `pinnedRecordsOf`
+  in `src/modules/takeoff/trace`, reads the key by the grammar that minted it — a placement, an
+  instance or a bar set is the member, resolved to the outline and the mark its stored placement was
+  read off; a source key is itself — on the record the screen's pinned revision was read on, on the
+  sheet the row names (else the member's outline's sheet, else the sheet the key is drawn on or framed
+  by), and selects only the keys that stand on that sheet. What resolves to nothing — a view, an edition
+  clause, an act, a key no record holds — answers null and the consumer offers no link (I-181). The
+  consumers compose the address with `selectionAddress` alone: no `line`, because no quantity row was
+  the origin. Rejected: putting a placement key in the address — the viewer's selection holds source
+  keys only (L-CAD-02) and would land the reader on "not on this sheet".
+
 ## 1. Anatomy, geometry, hierarchy
 
 ```
@@ -52,7 +77,9 @@ solely from `src/ui/primitives/core/reticle.css`, the glyph table solely from
 </a>
 ```
 
-Props are exactly `{ href, basis, label } & ComponentPropsWithRef<'a'>`; `rest` spreads onto the
+Props are exactly `{ href, basis?, label } & ComponentPropsWithRef<'a'>` (`basis` absent only for a
+link that names an entity and no figure, I-554 — then the glyph span is not rendered and
+`data-basis` is not set); `rest` spreads onto the
 anchor after the three fixed attributes, so a caller adds `data-line`, `data-origin`, `aria-current`
 or an `onClick` and may never re-id or re-class the element. The label rides its own span so I-176's
 graphite can be stated without touching the anchor's basis colour; `anchor.textContent` is still the
@@ -109,7 +136,8 @@ line — renders the key as plain text and no anchor; withholding the link is th
 not a place.
 
 Its enumerable variants, which the gallery renders and the suite reflects over: seven bases × the
-rest state, plus hover, focus-visible and active on any one of them. There is no visited styling —
+rest state, the one link that states no basis (I-554), plus hover, focus-visible and active on any
+one of them. There is no visited styling —
 whether a reader has traced this key before is not a fact about the drawing.
 
 ## 3. Copy, verbatim
@@ -145,7 +173,8 @@ durations are tokens zeroed at source under reduced motion, so `evidence-link.cs
 ## 5. Tokens
 
 `--basis-measured` · `--basis-transcribed` · `--basis-derived` · `--basis-imported` ·
-`--basis-entered` · `--basis-interpreted` · `--basis-defaulted` · `--graphite-900` · `--space-1` ·
+`--basis-entered` · `--basis-interpreted` · `--basis-defaulted` · `--graphite-900` · `--ink` (the
+unbased link's rule, I-554) · `--space-1` ·
 `--space-6` (the target minimum, §1) ·
 `--font-mono` · `--text-12` · `--text-13` and `--weight-body-medium` (the glyph's own step, §1) ·
 `--motion-state` / `--ease` (and `--motion-reticle` inherited from the
@@ -185,7 +214,8 @@ a barrel index file, sorting between `patterns/dropzone` and `patterns/job-timel
 type and is erased), and `missingEntries()` stays empty. Its `gallery-state` cells are **derived from
 the basis roster** — `Object.keys(BASIS_GLYPHS)`, one cell per basis, named by the basis verbatim
 (`MEASURED`, `TRANSCRIBED`, `DERIVED`, `IMPORTED`, `ENTERED`, `INTERPRETED`, `DEFAULTED`, s-design
-I-17) — never a frozen list of seven. Addressed as
+I-17) — never a frozen list of seven — followed by one cell named `UNBASED`, the link that states no
+basis (I-554), sample key **DXF_HANDLE:4D2**. Addressed as
 `gallery-barrel[data-barrel="patterns/evidence-link"]` and
 `gallery-entry[data-entry="patterns/evidence-link/EvidenceLink"]`; the page's own four ids stand
 unchanged and none is added.
@@ -201,8 +231,10 @@ pattern's own pictures are `tests/e2e/baselines/design/evidence-link-*`.
 
 ## 8. Recorded IOUs (owner named, never a comment in `src/`)
 
-EvidenceLinks on queue items, certificate cells and BOQ lines — owner: those screens' leaves
-(R-UI-022 names four surfaces; two ship here). A `--basis-defaulted` pairing that clears 4.5:1 as
+EvidenceLinks on certificate cells and BOQ lines — owner: those screens' leaves (R-UI-022 names
+four surfaces). *(PAID by VD-3: the queue items — the register's refused and deferred rows — the
+coverage sightings, the storey-height readings and the bar schedule's mass and bar-mark cells now
+carry the link; the first three through I-554's unbased variant.)* A `--basis-defaulted` pairing that clears 4.5:1 as
 text in light, which would let a future consumer colour a key by basis — owner: the node that owns
 `src/ui/tokens.ts` and R-UI-001's founder values; until then I-176 stands and no consumer may
 override it. A shared `title`/tooltip treatment through the core Tooltip rather than the native

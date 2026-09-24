@@ -533,6 +533,19 @@ height previewed with an empty Source key went straight to the dialog.
   uncited reading — the door is where the evidence is asked for. The form's draft and its refusals
   are held for the level they were written on: choosing another level shows a fresh form, so a figure
   typed for GF is never previewed against ROOF.
+- **I-558 — a reading's source key is the Trace to the words the height was read from (pays §8's
+  per-level EvidenceLink).** A QS checking a storey height wants to see the section mark or the note
+  it was taken off, and the inspector printed the key as text. Ruling: `levelsViewOf` answers each
+  reading's `sourceHref` — the viewer at the sheet its key stands on, selecting it, composed by
+  `selectionAddress` (no `line`: no quantity row was the origin) — and the inspector's `Read from`
+  renders it as an `EvidenceLink` coloured by the READING's own basis (a height is a figure read on
+  one: TRANSCRIBED, DERIVED or ENTERED, never DEFAULTED, L-MEA-07). The key is placed by the Trace's
+  one reading of a named entity (`entitySelectionOf`, evidence-link I-555) over the drawings of the
+  project's NEWEST pin — the one the Schedules screen reads the same notes on (`pinnedRevisionOf`), and
+  the one a reader sees — not the campaign's, because a height is read before any campaign is open
+  (L-MEA-07); the records are read only when some reading cites a key. A reading that cites nothing
+  (entered by a person) has no source; a key no pinned drawing holds keeps its words and offers no link
+  (I-181). Cost: one read of each pinned drawing's artifact per page load where a reading cites a key.
 
 ## 1. Layout and hierarchy (1440 × 900)
 
@@ -815,8 +828,8 @@ shows it — and `tests/takeoff/levels/**` where a deep-equal froze a Consequenc
   (I-162). Owner: the signature increment.
 - **The floor-multiplier scheme.** `LEVEL_ORDINAL_UNMAPPED` is renderable as a refusal here but no
   screen states which ordinals a tenant's scheme maps. Owner: the pricing node.
-- **A per-level EvidenceLink from a reading to its drawing** (R-UI-022) — a TRANSCRIBED reading
-  names a source key and cannot yet be traced to the sheet. Owner: the Trace node.
+- ~~**A per-level EvidenceLink from a reading to its drawing** (R-UI-022).~~ **Paid by VD-3**
+  (I-558): a reading that cites a key links to it on its sheet, in the reading's basis.
 - **A copy home both layers may read**, so the module's `copy.ts` need not mirror
   `src/ui/strings/levels.ts` — re-recorded unpaid (the register's §8 precedent).
 - **The Foundation's kinds in a QS's words (I-433).** The one rule a kind is said by (`inWords`, I-352)

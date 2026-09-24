@@ -20,7 +20,10 @@ import type { JobKind } from "@/core/jobs/kinds";
 import { BBS_COMPONENT_SAID, BBS_COPY, fillCopy, membersSaid } from "./copy";
 import { BBS_PLACES, bbsRowsOf, bbsSummaryOf, statedAt, type BbsGridRow, type BbsSummaryRow } from "./present";
 import { bbsStateOf, nothingScheduled } from "./states";
-import type { BbsView } from "./view";
+import type { BbsSheetSelection, BbsTraces, BbsView } from "./view";
+// The viewer's address at the entities something cites, spelled once by the Trace (B-17): the pure
+// module, which carries no store into this browser component (ARCH-01).
+import { selectionAddress } from "@/modules/takeoff/trace/address";
 
 /* ------------------------------------------------------------------ what the screen is handed */
 
@@ -155,6 +158,17 @@ export interface BbsChrome {
   readonly RefusalState: ComponentType<{ refusal: RefusalEntry; evidence: Evidence }>;
   readonly IdChip: ComponentType<{ value: string; short?: string; className?: string; "data-testid"?: string }>;
   readonly EnumLabel: ComponentType<{ value: string; label?: string; className?: string; "data-testid"?: string }>;
+  /**
+   * R-UI-022's Trace (I-559): a mass to the members it weighs on their plan, a bar mark to the
+   * schedule cells it was read off. `data-member` / `data-bar-key` say which, for a test and a reader.
+   */
+  readonly EvidenceLink: ComponentType<{
+    href: string;
+    basis: "DERIVED" | "TRANSCRIBED";
+    label: string;
+    "data-member"?: string;
+    "data-bar-key"?: string;
+  }>;
   readonly Skeleton: ComponentType<{ className?: string }>;
   readonly Tooltip: ComponentType<{ content: ReactNode; children: ReactNode }>;
   /** The `(i)` note the summary's heading carries: the shipped Popover, composed by the app (§1). */
@@ -353,7 +367,7 @@ function rowDataOf(ids: BbsTestIds): (row: BbsTableRow) => Record<string, string
 export function BbsWorkspace(props: BbsWorkspaceProps) {
   const { chrome, view } = props;
   const ids = chrome.testIds ?? DEFAULT_TEST_IDS;
-  const { DataTable, EmptyState, ErrorState, RefusalState, IdChip, EnumLabel, Skeleton, Tooltip, Note, JobTimeline, Button, TabsAside = InPlace } = chrome;
+  const { DataTable, EmptyState, ErrorState, RefusalState, IdChip, EnumLabel, EvidenceLink, Skeleton, Tooltip, Note, JobTimeline, Button, TabsAside = InPlace } = chrome;
   const doors: Partial<BbsDoors> = props.doors ?? {};
   const tenantId = props.tenantId ?? "";
   const projectId = props.projectId ?? "";
@@ -407,7 +421,9 @@ export function BbsWorkspace(props: BbsWorkspaceProps) {
    */
   const gridRef = useRef<HTMLDivElement | null>(null);
   const [gridWidth, setGridWidth] = useState<number | null>(null);
-  const columns = useMemo(() => bbsColumns({ EnumLabel, Tooltip }, dimensionsWidthOf(gridWidth)), [EnumLabel, Tooltip, gridWidth]);
+  const traces = denied ? undefined : view?.traces;
+  const traceTo = useMemo(() => traceAddressesOf(tenantId, projectId, traces), [projectId, tenantId, traces]);
+  const columns = useMemo(() => bbsColumns({ EnumLabel, Tooltip, EvidenceLink }, dimensionsWidthOf(gridWidth), traceTo), [EnumLabel, EvidenceLink, Tooltip, gridWidth, traceTo]);
 
   const denial = denied ? (doors.refusalOf?.(PERMISSION_NOT_HELD) ?? null) : null;
   const refusal = refused === null ? null : (doors.refusalOf?.(refused) ?? null);
@@ -728,6 +744,30 @@ export function BbsWorkspace(props: BbsWorkspaceProps) {
   );
 }
 
+/** Where a cell's Trace goes: the member's plan for a mass, the schedule's cells for a bar mark. */
+type TraceTo = {
+  readonly member: (objectKey: string) => string | null;
+  readonly bar: (barKey: string) => string | null;
+};
+
+/**
+ * The two Trace addresses a schedule's cells are offered (I-559), composed by the one spelling of
+ * the viewer's address (`selectionAddress`) over what the server resolved. An entry or a bar the
+ * server resolved nothing for answers null, and its cell states the figure unlinked.
+ */
+function traceAddressesOf(tenantId: string, projectId: string, traces: BbsTraces | undefined): TraceTo {
+  const at = (selection: BbsSheetSelection | undefined): string | null =>
+    selection === undefined || selection.sourceKeys.length === 0 || tenantId === "" || projectId === "" ? null : selectionAddress(tenantId, projectId, selection);
+  return {
+    member: (objectKey) => at(traces?.members[objectKey]),
+    bar: (barKey) => at(traces?.bars[barKey]),
+  };
+}
+
+/** A mass is DERIVED — worked from the schedule's bars and the edition — and a bar mark TRANSCRIBED. */
+const MASS_BASIS = "DERIVED" as const;
+const MARK_BASIS = "TRANSCRIBED" as const;
+
 /** The loading posture's bones (§2): two members' worth of rows — a group row and eight bars each —
     and three lines of the summary beneath. */
 const LOADING_ROWS = 18;
@@ -824,8 +864,8 @@ function dimensionsWidthOf(gridWidth: number | null): number {
  * on a member's group row, where the member stands, what it is and its mark, read across the row.
  * Every other cell of a group row is empty: the row carries no figure (I-bbs-2).
  */
-function bbsColumns(chrome: Pick<BbsChrome, "EnumLabel" | "Tooltip">, dimensionsWidth: number): BbsColumn[] {
-  const { EnumLabel, Tooltip } = chrome;
+function bbsColumns(chrome: Pick<BbsChrome, "EnumLabel" | "Tooltip" | "EvidenceLink">, dimensionsWidth: number, traceTo: TraceTo): BbsColumn[] {
+  const { EnumLabel, Tooltip, EvidenceLink } = chrome;
   /** A stored decimal as a reader reads it: grouped lakh/crore, by the one formatter (SEAM-FORMAT). */
   const printed = (value: string): string => (value === "" ? NOTHING : formatUserFigure(value));
   /** A bar or a lap's own cell; a member's group row states none of them. */
@@ -864,7 +904,7 @@ function bbsColumns(chrome: Pick<BbsChrome, "EnumLabel" | "Tooltip">, dimensions
             <span className="cx-bbs-lap-label">{BBS_COPY.bbs_lap_label}</span>
           </Tooltip>
         ) : (
-          <span className="cx-bbs-mark">{held.barMark}</span>
+          <BarMark row={held} href={traceTo.bar(held.barKey)} EvidenceLink={EvidenceLink} />
         );
       },
     },
@@ -963,9 +1003,31 @@ function bbsColumns(chrome: Pick<BbsChrome, "EnumLabel" | "Tooltip">, dimensions
       accessorFn: barText((row) => row.kg),
       // Stated at the gramme the document prints a mass at, so the figure a reader reads here is
       // the figure the issued schedule prints (I-bbs-2); `data-kg` keeps the stored decimal.
-      cell: bar((row) => <span className="cx-bbs-figure">{massOf(row.kg)}</span>),
+      // I-559: the mass flies to the members it weighs, on their plan — a figure the reader can
+      // check against the member it came from. Where nothing resolved, the figure stands unlinked.
+      cell: bar((row) => {
+        const href = row.kg === "" ? null : traceTo.member(row.objectKey);
+        return href === null ? (
+          <span className="cx-bbs-figure">{massOf(row.kg)}</span>
+        ) : (
+          <span className="cx-bbs-figure">
+            <EvidenceLink href={href} basis={MASS_BASIS} label={massOf(row.kg)} data-member={row.objectKey} />
+          </span>
+        );
+      }),
     },
   ];
+}
+
+/** A bar's mark, as the Trace to the schedule cells it was read off where they resolved (I-559). */
+function BarMark({ row, href, EvidenceLink }: { row: BbsGridRow; href: string | null; EvidenceLink: BbsChrome["EvidenceLink"] }) {
+  return href === null ? (
+    <span className="cx-bbs-mark">{row.barMark}</span>
+  ) : (
+    <span className="cx-bbs-mark">
+      <EvidenceLink href={href} basis={MARK_BASIS} label={row.barMark} data-bar-key={row.barKey} />
+    </span>
+  );
 }
 
 /** The legs a bar is dimensioned by, or the lap's own length on the row beneath it (I-bbs-3). */

@@ -19,6 +19,24 @@ export type BbsOmission = {
   readonly components: readonly string[];
 };
 
+/** One sheet, and the entities on it a Trace selects — the viewer's address, uncomposed (I-559). */
+export type BbsSheetSelection = {
+  readonly drawingId: string;
+  readonly layoutName: string;
+  readonly sourceKeys: readonly string[];
+};
+
+/**
+ * Where the schedule's figures came from, as the Trace selects them (s-bbs I-559): each entry's
+ * members on their plan — by the entry's key, its first member's — and each bar's schedule cells on
+ * the sheet they are drawn on, by the bar's key. An entry or a bar absent here resolved to nothing
+ * the pinned record holds, and its cell states the figure with no link.
+ */
+export type BbsTraces = {
+  readonly members: Readonly<Record<string, BbsSheetSelection>>;
+  readonly bars: Readonly<Record<string, BbsSheetSelection>>;
+};
+
 /** The whole reading one bar-schedule screen paints (test contract: `bbsViewOf`). */
 export type BbsView = {
   /** The project's open campaign, or `null` where none is pinned (R-UI-050's empty). */
@@ -37,4 +55,6 @@ export type BbsView = {
    * steel. Absent, or empty, where nothing was left out.
    */
   readonly omitted?: readonly BbsOmission[];
+  /** Where each mass and each bar was read from, for the Trace (I-559). Absent reads as none. */
+  readonly traces?: BbsTraces;
 };

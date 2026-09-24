@@ -17,7 +17,7 @@ import { QUANTITY_BASES, type QuantityBasis } from "@/core/offers/law";
 import { standingOf, type ObservationRow, type RegisterScope } from "@/core/register/store";
 import { proposedLevelStackOf } from "@/modules/takeoff/partition";
 import { refusedSightingsOf, registerObjectsOf, repudiatedObjectsOf } from "@/modules/takeoff/register";
-import { citedKeysOf, levelLabelOf, omissionsOf, pinnedRecordsOf, tracedLineOf, variablesOf } from "@/modules/takeoff/trace";
+import { citedKeysOf, entitySelectionOf, levelLabelOf, omissionsOf, pinnedRecordsOf, tracedLineOf, variablesOf, type PinnedRecord } from "@/modules/takeoff/trace";
 import { levelRank, readingOrder, type LineRank } from "./order";
 import type { RegisterView, ViewAttribute, ViewLevelStack, ViewLine, ViewObject, ViewReading, ViewRefusal } from "./view";
 
@@ -118,7 +118,10 @@ export async function registerViewOf(scope: RegisterViewScope): Promise<Register
      lines, and a read per line would price the page in as many round trips), and each line is then
      resolved against it by the Trace's own pure reading — per VIEW and per MEMBER, never one sheet
      per drawing: F-RCC6-BNBC's lines stand on S-04, S-06, S-10 and S-13..15 of one file (I-421). */
-  const records = await pinnedRecordsOf(scope, campaign.setRevisionId, published.map((row) => row.drawingId));
+  // Every drawing the revision pins, not only those a line was published off: a queue item and a
+  // refused sighting are about members that produced no line, and they reveal where they stand too
+  // (R-TO-011, I-557).
+  const records = await pinnedRecordsOf(scope, campaign.setRevisionId, [...published.map((row) => row.drawingId), ...manifest.map((member) => member.drawingId)]);
 
   /* --- the lines, each marked with whether a person has struck the object it was measured off, in
      the order a register is READ (s-takeoff I-350): level, class, mark in natural order, kind. The
@@ -212,8 +215,8 @@ export async function registerViewOf(scope: RegisterViewScope): Promise<Register
           lines: published.map((row) => ({ objectKey: row.objectKey, omitted: omissionsOf(row.omitted).map((omission) => omission.code) })),
         }).map((deferral) => deferralRow(deferral, reported.views))
       : []),
-    ...deferred.map((item): ViewRefusal => ({ code: item.cause, objectKey: item.objectKey, kind: item.kind })),
-    ...refusedRows.map((row): ViewRefusal => ({ code: row.refusal, objectKey: row.objectKey, kind: null })),
+    ...deferred.map((item): ViewRefusal => ({ code: item.cause, objectKey: item.objectKey, kind: item.kind, ...queueSheetOf(item.objectKey, records) })),
+    ...refusedRows.map((row): ViewRefusal => ({ code: row.refusal, objectKey: row.objectKey, kind: null, ...queueSheetOf(row.objectKey, records) })),
   ];
 
   /* --- the level stacks the pinned revision's drawings propose, one offered group each --- */
@@ -231,6 +234,19 @@ export async function registerViewOf(scope: RegisterViewScope): Promise<Register
   }
 
   return { tenantId: scope.tenantId, projectId: scope.projectId, campaign: { campaignId: campaign.campaignId, setRevisionId: campaign.setRevisionId }, objects, lines, refusals, levelStacks };
+}
+
+/**
+ * Where a queue item or a refused sighting stands (R-TO-011, I-557): the member its key names,
+ * resolved by the Trace's one reading of a named entity to the outline and the mark its stored
+ * placement was read off, on the sheet the outline stands on, with that sheet's number. Nothing where
+ * the pinned records hold no such placement — the row then keeps its key and offers no link.
+ */
+function queueSheetOf(objectKey: string, records: ReadonlyMap<string, PinnedRecord>): Pick<ViewRefusal, "sheet"> {
+  const selection = entitySelectionOf(objectKey, records);
+  if (selection === null) return {};
+  const record = records.get(selection.drawingId);
+  return { sheet: { ...selection, sheetLabel: record === undefined ? null : record.labelOf(selection.layoutName) } };
 }
 
 /**

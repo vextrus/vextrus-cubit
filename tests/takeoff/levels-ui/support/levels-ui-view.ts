@@ -424,6 +424,7 @@ export const CHROME_BARRELS: readonly string[] = Object.freeze([
   "src/ui/primitives/overlay/index.ts",
   "src/ui/patterns/refusal-state/index.ts",
   "src/ui/patterns/consequence-dialog/index.ts",
+  "src/ui/patterns/evidence-link/index.ts",
   // One RULE travels with the renderers, because a rule is not a component and the barrel publishes
   // components: the humanising EnumLabel says a SCREAMING value by. The table's own file stands
   // beside it for the same reason the register's stage names it.
@@ -445,6 +446,7 @@ export const CHROME_NAMES: readonly string[] = Object.freeze([
   "IdChip",
   "EnumLabel",
   "BasisChip",
+  "EvidenceLink",
   "CoverageChip",
   "QuantityText",
   "UnitBadge",

@@ -16,6 +16,11 @@
  * The glyph comes only from `BASIS_GLYPHS`, R-UI-002's single home, and is `aria-hidden`: it is the
  * colour's greyscale twin, not a second announcement. The accessible name stays the key itself.
  *
+ * I-554 — a link with no single basis. A sighting, a queue item, a storey-height note: each names
+ * an entity of the drawing, and none is a figure read on one basis. Such a link states no basis at
+ * all — no `data-basis`, no glyph, the rule in ink — because a colour or a mark borrowed from one
+ * basis would say something about the evidence that nobody established (R-UI-002, R-UI-060).
+ *
  * Inside a grid cell the link leaves the Tab order and is reached through its cell (Enter or F2):
  * a grid is one Tab stop, and a register's Source column was one stop per line (grid-cell.ts). A
  * consumer that states its own `tabIndex` keeps it; a screen that puts focus back on the link a
@@ -30,8 +35,11 @@ import { TESTIDS } from "@/ui/testids";
 export type EvidenceLinkProps = {
   /** Where the evidence stands. The address is the consumer's — this layer composes none (I-178). */
   href: string;
-  /** The basis the number was read on, which is the colour and the glyph it wears (R-UI-002). */
-  basis: Basis;
+  /**
+   * The basis the number was read on, which is the colour and the glyph it wears (R-UI-002) — absent
+   * where the link names an entity and no figure read on one basis (a sighting, I-554).
+   */
+  basis?: Basis;
   /** What a reader sees: the source key, whole and verbatim (I-26). */
   label: string;
 } & ComponentPropsWithRef<"a">;
@@ -52,9 +60,11 @@ export function EvidenceLink({ href, basis, label, ...rest }: EvidenceLinkProps)
       href={href}
       title={strings.evidence_link_title}
     >
-      <span className="cx-evidence-link-glyph" data-testid={TESTIDS.evidence.linkGlyph} aria-hidden="true">
-        {BASIS_GLYPHS[basis]}
-      </span>
+      {basis === undefined ? null : (
+        <span className="cx-evidence-link-glyph" data-testid={TESTIDS.evidence.linkGlyph} aria-hidden="true">
+          {BASIS_GLYPHS[basis]}
+        </span>
+      )}
       <span className="cx-evidence-link-label">{label}</span>
     </a>
   );

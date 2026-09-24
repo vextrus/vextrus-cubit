@@ -354,6 +354,23 @@ shell's one inspector slot stays at width 0 (R-UI-080). Files: `takeoff/layout.t
   cutting stock's total carries `Measured scope only` beside it. A code the register does not hold is
   left off exactly as the screen leaves it off. A whole schedule says neither. Rejected: a caveat on
   every page (the banner is the one running statement), and the codes themselves (R-UI-082).
+- **I-559 — a mass flies to the members it weighs; a bar mark to the schedule it was read off
+  (pays §7's "A bar's Trace"; R-UI-022; evidence-link I-555).** A QS checks a schedule by
+  following a figure to where it came from, and every figure here was a dead end. Ruling: `bbsViewOf`
+  answers `traces` — resolved server-side over the record each drawing of the campaign's pinned
+  revision was measured on, read once, by the Trace's one reading of a named entity — and the grid
+  offers two `EvidenceLink`s, composed by `selectionAddress` (no `line`: the schedule is no quantity
+  row). **Mass** (NET and LAP rows alike, basis `DERIVED`, `data-member` the entry's key): the viewer
+  at the plan the entry's first member stands on, selecting the outline and the mark of EVERY member
+  the line counts that stands on that plan — the figure is the mass of all of them (I-534), so the
+  reader sees all of them; a counted member drawn on another sheet stays in the figure and is not
+  selected there. **Mark** (NET rows, basis `TRANSCRIBED`, `data-bar-key`): the viewer at the sheet
+  the bar's schedule cells (`sourceKeys`) are drawn on, selecting them. The label is the figure or the
+  mark exactly as the cell stated it before; the cell's figure face and alignment are unchanged. What
+  resolves to nothing — a member no stored placement names, a cell no pinned drawing holds — is
+  absent from `traces` and its cell states the figure unlinked (I-181). The group row carries no link:
+  it states no figure (I-bbs-2). The issued PDF is unchanged — a document carries no link. Cost: one
+  read of each pinned drawing's artifact per page load, the register's own price.
 
 ## 1. Layout and hierarchy (1440 × 900)
 
@@ -663,9 +680,9 @@ tab as the proof.
 - **A-BBS-XLSX.** No workbook of the schedule at M3. Owner: the export-channel leaf.
 - **The d²/162 check column.** AM-03(b) makes it informational with a stated tolerance; neither the
   screen nor the PDF prints it today. Owner: the disclosure leaf that adds it to both faces at once.
-- **A bar's Trace.** Every figure here came from a drawing, and R-UI-022 will want an EvidenceLink on
-  the Mass cell with an inspector behind it; the register carries the Trace meanwhile. Owner: the M4
-  rebar leaf.
+- **A bar's Trace.** *(PAID by VD-3, I-559: the Mass cell flies to the members it weighs, the
+  Mark cell to the schedule cells. An inspector behind the cell — the bar's whole reading beside the
+  sheet — stays unpaid; owner: the M4 rebar leaf.)*
 - **Members beyond columns and shear walls.** `READ_CLASSES` reads two classes, so beams and slabs
   schedule no bars yet and their members never group here. Owner: inc-309's successors.
 - **A mark stated once with its number of members** (I-354(d)). *(PAID by I-534, session 8, on the

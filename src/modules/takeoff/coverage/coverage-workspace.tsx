@@ -95,6 +95,11 @@ export interface CoverageChrome {
   /** R-UI-082: an opaque identifier as a person can use it — short, whole, copyable. */
   readonly IdChip: ComponentType<{ value: string; className?: string }>;
   /**
+   * R-UI-022's Trace, from a sighting to the sheet it was sighted on (I-556). A sighting names an
+   * entity and no figure, so the link states no basis (evidence-link I-554).
+   */
+  readonly EvidenceLink: ComponentType<{ href: string; label: string; className?: string }>;
+  /**
    * §6: a model value said in words, with the SCREAMING form left inside `[data-technical]` — and, for
    * a kind, the words the draft BOQ's rule says it by, handed in as its `label` (I-351).
    */
@@ -189,6 +194,24 @@ export function registerCellHref(tenantId: string, projectId: string, cell: Pick
   const level = cell.levelLabel !== "" ? cell.levelLabel : (cell.levelSlot ?? "");
   const query = narrowingQuery({ class: cell.class ?? "", kind: cell.kind, level: level === UNPLACED ? "" : level });
   return `${registerHref(tenantId, projectId)}?${query}`;
+}
+
+/**
+ * The viewer at what one sighting names (s-coverage I-556): the sheet the sighting states, and the
+ * entities its key resolved to on it — the server's reading (`sightingSelections`), never a guess
+ * made here. A sighting that names no sheet, or whose key resolved to nothing standing on it, answers
+ * null: its row shows the key with no link, because a link to a sheet that cannot hold it would land
+ * the reader on "not on this sheet" (I-181).
+ */
+export function sightingAddress(
+  tenantId: string,
+  projectId: string,
+  seen: Pick<ResidueCell["sightings"][number], "drawingId" | "layoutName" | "sourceKey">,
+  selections: CoverageView["sightingSelections"],
+): string | null {
+  const keys = selections?.[seen.drawingId]?.[seen.sourceKey];
+  if (seen.layoutName === "" || keys === undefined || keys.length === 0 || tenantId === "" || projectId === "") return null;
+  return selectionAddress(tenantId, projectId, { drawingId: seen.drawingId, layoutName: seen.layoutName, sourceKeys: keys });
 }
 
 /** The two reasons whose fix is made on a sheet rather than in the register (I-484). */
@@ -305,6 +328,7 @@ export function CoverageWorkspace(props: CoverageWorkspaceProps) {
     RefusalState,
     ConsequenceDialog,
     IdChip = FallbackIdChip,
+    EvidenceLink = FallbackEvidenceLink,
     EnumLabel = FallbackEnumLabel,
     Tooltip = FallbackTooltip,
     EmptyState = FallbackEmptyState,
@@ -392,6 +416,13 @@ export function CoverageWorkspace(props: CoverageWorkspaceProps) {
   const denial = refusalOf(PERMISSION_NOT_HELD);
   const tenantId = view?.tenantId ?? "";
   const projectId = view?.projectId ?? "";
+
+  /** The Trace from one sighting to what it names on its sheet, or none (I-556). */
+  const sightingSelections = view?.sightingSelections;
+  const sightingHref = useCallback(
+    (seen: ResidueCell["sightings"][number]): string | null => sightingAddress(tenantId, projectId, seen, sightingSelections),
+    [projectId, sightingSelections, tenantId],
+  );
 
   /** Where a reader is sent to resolve a door's rejection — the register, where the lines are made. */
   const evidence: Evidence = { href: registerHref(tenantId, projectId), label: COVERAGE_COPY.takeoff_coverage_empty_campaign_action };
@@ -565,7 +596,9 @@ export function CoverageWorkspace(props: CoverageWorkspaceProps) {
             proposal={proposal}
             Button={Button}
             IdChip={IdChip}
+            EvidenceLink={EvidenceLink}
             EnumLabel={EnumLabel}
+            sightingHref={sightingHref}
             onCarryProposed={() => setDoor(proposal?.cause === NOT_IN_THIS_BILL ? HOLD_OUT_OF_BILL : DECLARE_NOT_IN_PROJECT_SCOPE)}
             onHoldOut={() => setDoor(HOLD_OUT_OF_BILL)}
             onDeclareOutOfScope={() => setDoor(DECLARE_NOT_IN_PROJECT_SCOPE)}
@@ -747,7 +780,9 @@ function Inspector({
   proposal,
   Button,
   IdChip,
+  EvidenceLink,
   EnumLabel,
+  sightingHref,
   onCarryProposed,
   onHoldOut,
   onDeclareOutOfScope,
@@ -763,7 +798,10 @@ function Inspector({
   proposal: ProposedCause | null;
   Button: CoverageChrome["Button"];
   IdChip: CoverageChrome["IdChip"];
+  EvidenceLink: CoverageChrome["EvidenceLink"];
   EnumLabel: CoverageChrome["EnumLabel"];
+  /** The viewer at what one sighting names, or null where the pinned record holds none of it (I-556). */
+  sightingHref: (seen: ResidueCell["sightings"][number]) => string | null;
   onCarryProposed: () => void;
   onHoldOut: () => void;
   onDeclareOutOfScope: () => void;
@@ -941,17 +979,27 @@ function Inspector({
             </tr>
           </thead>
           <tbody>
-            {cell.sightings.map((seen) => (
-              <tr data-testid="coverage-inspector-sighting" data-channel={seen.channel} data-source={seen.sourceKey} key={`${seen.channel}:${seen.sourceKey}`}>
-                <td>
-                  <EnumLabel value={seen.channel} />
-                </td>
-                <td className="cx-coverage-view-name">{seen.layoutName}</td>
-                <td>
-                  <IdChip value={seen.sourceKey} className="cx-coverage-source-key" />
-                </td>
-              </tr>
-            ))}
+            {cell.sightings.map((seen) => {
+              // I-556: the key a sighting was read at is a place on the sheet the row names, so it
+              // is the Trace to that place — the member's outline and mark, the caption itself. A
+              // sighting the pinned record holds nothing of keeps its key, whole, with no link.
+              const href = sightingHref(seen);
+              return (
+                <tr data-testid="coverage-inspector-sighting" data-channel={seen.channel} data-source={seen.sourceKey} key={`${seen.channel}:${seen.sourceKey}`}>
+                  <td>
+                    <EnumLabel value={seen.channel} />
+                  </td>
+                  <td className="cx-coverage-view-name">{seen.layoutName}</td>
+                  <td>
+                    {href === null ? (
+                      <IdChip value={seen.sourceKey} className="cx-coverage-source-key" />
+                    ) : (
+                      <EvidenceLink href={href} label={seen.sourceKey} className="cx-coverage-source-key" />
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
             {/*
               A declaration a person made is evidence for this cell's reading exactly as a sighting
               is, so it stands in the same table under its own channel (L-ACT-01): it is what a reader
@@ -1206,6 +1254,18 @@ function FallbackButton({
     <button className="cx-btn cx-reticle" type="button" data-variant={variant} disabled={disabled} onClick={onClick} {...hooks}>
       {children}
     </button>
+  );
+}
+
+/**
+ * The Trace as a bare anchor, where no EvidenceLink was handed over: still a place a reader can go,
+ * with the key whole as its words (evidence-link I-178, I-554).
+ */
+function FallbackEvidenceLink({ href, label, className }: { href: string; label: string; className?: string }) {
+  return (
+    <a className={className} href={href}>
+      {label}
+    </a>
   );
 }
 

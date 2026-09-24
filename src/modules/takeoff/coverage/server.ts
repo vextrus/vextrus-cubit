@@ -12,6 +12,7 @@ import { SCOPE_DECLARATION_CAUSES } from "@/core/errors";
 import { refusalCodeOf } from "@/core/faults/refusal-marker";
 import { sourceKeyResolver } from "@/core/model";
 import { billStatementOf, cellRef, measurementStatementOf, parseCellRef, partialStatementOf, residueOf, unclassedStatementOf } from "@/core/residue";
+import { entitySelectionOf, pinnedRecordsOf } from "@/modules/takeoff/trace";
 import { coverageCauseStateOf, proposeCoverageCause, standsAboveFloor, type CoverageCausePort } from "./cause-proposal";
 import type { CertificatePreview, CoverageCauseProposalView, CoverageCellView, CoverageView } from "./view";
 
@@ -34,7 +35,34 @@ export async function coverageViewOf(scope: CoverageScope): Promise<CoverageView
     partial: partialStatementOf(residue.cells),
     unclassed: unclassedStatementOf(residue.input.unclassed ?? []),
     declaredLineIds: residue.campaign === null ? [] : await declaredLinesOf(scope.tenantId, residue.campaign.campaignId),
+    sightingSelections: residue.campaign === null ? {} : await sightingSelectionsOf(scope, residue.campaign.setRevisionId, residue.cells.flatMap((cell) => cell.sightings)),
   };
+}
+
+/**
+ * What each sighting's Trace selects on the sheet it names (s-coverage I-556): the record each
+ * sighted drawing of the pinned revision was read on, read once, and every sighting's key resolved
+ * against it by the Trace's own reading (`entitySelectionOf`) — a placement to the outline and the
+ * mark it was read off, a caption to itself. Only the keys that stand on the sighting's own sheet are
+ * kept, so the link never lands on a key the sheet cannot hold; a sighting that resolves none is not
+ * answered, and its row keeps the key with no link (I-181).
+ */
+async function sightingSelectionsOf(
+  scope: CoverageScope,
+  setRevisionId: string,
+  sightings: readonly { readonly drawingId: string; readonly layoutName: string; readonly sourceKey: string }[],
+): Promise<Record<string, Record<string, string[]>>> {
+  const named = sightings.filter((seen) => seen.layoutName !== "");
+  if (named.length === 0) return {};
+  const records = await pinnedRecordsOf(scope, setRevisionId, named.map((seen) => seen.drawingId));
+  const held: Record<string, Record<string, string[]>> = {};
+  for (const seen of named) {
+    const onDrawing = (held[seen.drawingId] ??= {});
+    if (seen.sourceKey in onDrawing) continue;
+    const selection = entitySelectionOf(seen.sourceKey, records, { drawingId: seen.drawingId, layoutName: seen.layoutName });
+    if (selection !== null) onDrawing[seen.sourceKey] = selection.sourceKeys;
+  }
+  return held;
 }
 
 /** The coverage every line carries that bears its quantity (L-QTY-02): anything else declared an omission. */

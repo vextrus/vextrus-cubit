@@ -65,6 +65,7 @@ function chrome(): BbsChrome {
     RefusalState: (({ refusal }: { refusal: { code: string } }) => <div data-testid={TESTIDS.refusal.state} data-code={refusal.code} />) as BbsChrome["RefusalState"],
     IdChip: (({ value, "data-testid": testId }: { value: string; "data-testid"?: string }) => <span data-testid={testId} data-value={value} />) as BbsChrome["IdChip"],
     EnumLabel: (({ value }: { value: string }) => <span data-technical={value}>{value}</span>) as BbsChrome["EnumLabel"],
+    EvidenceLink: (({ href, label }: { href: string; label: string }) => <a href={href}>{label}</a>) as BbsChrome["EvidenceLink"],
     Skeleton: passThrough("span") as BbsChrome["Skeleton"],
     Tooltip: (({ children }: { children: ReactNode }) => <>{children}</>) as BbsChrome["Tooltip"],
     Note: (({ label }: { label: string }) => <button aria-label={label} />) as BbsChrome["Note"],

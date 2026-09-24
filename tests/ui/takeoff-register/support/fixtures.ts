@@ -284,6 +284,8 @@ export interface ViewRefusal {
   code: string;
   objectKey: string;
   kind: string | null;
+  /** Where the member a queue item is about stands, and what the Trace selects there (I-557). */
+  sheet?: { readonly drawingId: string; readonly layoutName: string; readonly sheetLabel: string | null; readonly sourceKeys: readonly string[] };
 }
 
 /** One offered level stack, keyed on the fact judged: the key and the count, never its levels (R-UI-023, L-ACT-02). */

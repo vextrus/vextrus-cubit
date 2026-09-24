@@ -61,9 +61,13 @@ import ExcelJS from "exceljs";
 import { expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { pdfText } from "../../../docs/support/pdf-text";
 import { PRODUCT_TO_GOLDEN_KIND, goldenKindOf, goldenRows } from "../../../golden/support/golden-fixture";
+import { SBbsPage } from "../../pages/s-bbs.page";
 import { SBoqPage } from "../../pages/s-boq.page";
 import { SDocumentsPage } from "../../pages/s-documents.page";
 import { STakeoffPage } from "../../pages/s-takeoff.page";
+import { SViewerTracePage } from "../../pages/s-viewer-trace.page";
+import { SViewerPage, VIEWER_BUDGETS } from "../../viewer/s-viewer.page";
+import { TESTIDS, testIdSelector } from "../../../../src/ui/testids";
 import { checkpoint } from "../../support/checkpoint";
 import { everyAttribute, heldAttribute } from "../../support/retrying-read";
 import { settled } from "../../support/settled";
@@ -451,5 +455,42 @@ test.describe.serial("J-000 — Golden Path: M3's documents on F-RCC6-BNBC", () 
     await attach(testInfo, "m3-item-ties", [`items tied to the register (${tied.length}):`, ...tied, `items that do not tie (${untied.length}):`, ...untied].join("\n"));
     expect(tied.length, "at least one item stands alone over register cells the walk read back — a tie over nothing proves nothing").toBeGreaterThan(0);
     expect(untied, "each item states the register's own sum of its members rounded ONCE — never a sum of rounded lines (I-528)").toEqual([]);
+  });
+
+  /*
+   * THE TRACE FROM THE BAR SCHEDULE (VD-3, s-bbs I-559). A QS checks a schedule by following a mass
+   * to the member it weighs: the first bar row's Mass cell is pressed as a reader presses it, and the
+   * sheet it opens must paint, fly, and hold every key the address named — the members' outlines and
+   * marks — with nothing missing from the sheet. The figure itself is not compared here: it is the
+   * schedule's own, and its band is m3-bar-schedule's (held on the ties, D-003).
+   */
+  test("J-000 m3-bill-and-schedules: one bar-schedule mass flies to the member it weighs, with nothing missing from the sheet", async ({ page }, testInfo) => {
+    test.setTimeout(600_000);
+    const run = await bnbcMeasured(page);
+    const bbs = new SBbsPage(page);
+    const viewer = new SViewerPage(page);
+    const trace = new SViewerTracePage(page);
+
+    await bbs.open(run.tenantId, run.bnbc.projectId);
+    await settled(page);
+    await expect(bbs.rows.first(), "the campaign's bill of bars stands on the schedule").toBeVisible();
+    const mass = bbs.rows.first().locator(`${testIdSelector(TESTIDS.evidence.link)}[data-member]`);
+    await expect(mass, "the first bar's mass is a Trace to the member it weighs (R-UI-022)").toHaveCount(1);
+    await expect(mass, "a mass is worked from the bars, so it wears the DERIVED basis").toHaveAttribute("data-basis", "DERIVED");
+    const member = await heldAttribute(mass, "data-member");
+
+    await mass.click();
+    await page.waitForURL(/\/viewer\//u);
+    await expect(viewer.status, "the plan the Trace opened paints").toHaveAttribute("data-first-paint", "true", { timeout: VIEWER_BUDGETS.firstPaintColdMs });
+    await trace.settled();
+    await expect(viewer.screen, "and the camera flew to what the Trace selects (R-UI-022's fly-to)").toHaveAttribute("data-flyto-flight", /^[1-9]\d*$/u);
+    const named = trace.addressKeys();
+    expect(named.length, `the mass of ${member ?? "the entry"} selects its members' outlines and marks — two keys a member`).toBeGreaterThanOrEqual(2);
+    expect(named.length % 2, "an outline and a mark for every member it weighs").toBe(0);
+    expect([...(await trace.selectedKeys())].sort(), "every key the address named is held on the sheet").toEqual([...named].sort());
+    await expect(viewer.missingKeys, "and nothing the address named is missing from the sheet").toHaveCount(0);
+    expect(trace.addressLine(), "no origin row: a schedule is no quantity line").toBeNull();
+    await testInfo.attach("m3-bbs-trace", { body: `${member ?? ""} → ${page.url()}`, contentType: "text/plain" });
+    await settled(page);
   });
 });

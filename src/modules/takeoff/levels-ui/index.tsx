@@ -163,6 +163,12 @@ export interface LevelsChrome {
   readonly IdChip: ComponentType<{ value: string; short?: string; className?: string; "data-testid"?: string }>;
   readonly EnumLabel: ComponentType<{ value: string; label?: string; className?: string; "data-testid"?: string }>;
   readonly BasisChip: ComponentType<{ basis: QuantityBasis }>;
+  /**
+   * R-UI-022's Trace, from a reading to the words its height was read from (I-558), coloured by the
+   * reading's own basis. Optional so a mount that hands none still reaches the sheet through a bare
+   * anchor rather than losing the way there.
+   */
+  readonly EvidenceLink?: ComponentType<{ href: string; basis: QuantityBasis; label: string }>;
   readonly CoverageChip: ComponentType<{ value: number }>;
   readonly QuantityText: ComponentType<{
     value: string;
@@ -557,6 +563,7 @@ export function LevelsWorkspace({ view, permitted, offline, state, level, report
     IdChip,
     EnumLabel,
     BasisChip,
+    EvidenceLink = BareEvidenceLink,
     CoverageChip,
     QuantityText,
     UnitBadge,
@@ -810,7 +817,7 @@ export function LevelsWorkspace({ view, permitted, offline, state, level, report
         <h3 className="cx-levels-section-heading">{LEVELS_COPY.levels_readings_heading}</h3>
         {chosen.readings.length === 0 ? <p className="cx-levels-no-readings">{LEVELS_COPY.levels_no_readings}</p> : null}
         {chosen.readings.map((held) => (
-          <Reading key={held.readingKey + held.valueAsWritten + held.canonicalMetres} reading={held} testId={testIds.reading} BasisChip={BasisChip} QuantityText={QuantityText} />
+          <Reading key={held.readingKey + held.valueAsWritten + held.canonicalMetres} reading={held} testId={testIds.reading} BasisChip={BasisChip} EvidenceLink={EvidenceLink} QuantityText={QuantityText} />
         ))}
 
         {/* I-243: the form stands open and typing changes nothing — only the door previews. */}
@@ -1413,16 +1420,23 @@ function InsertDoor({
   );
 }
 
+/** The Trace as a bare anchor, where no EvidenceLink was handed over (evidence-link I-178). */
+function BareEvidenceLink({ href, label }: { href: string; basis: QuantityBasis; label: string }) {
+  return <a href={href}>{label}</a>;
+}
+
 /** One reading of a height, as the inspector lists one: superseded, never erased (R-TO-051). */
 function Reading({
   reading,
   testId,
   BasisChip,
+  EvidenceLink,
   QuantityText,
 }: {
   reading: LevelsViewReading;
   testId: string;
   BasisChip: LevelsChrome["BasisChip"];
+  EvidenceLink: NonNullable<LevelsChrome["EvidenceLink"]>;
   QuantityText: LevelsChrome["QuantityText"];
 }) {
   return (
@@ -1454,7 +1468,13 @@ function Reading({
         <span className="cx-levels-reading-field">
           <span className="cx-levels-reading-label">{LEVELS_COPY.levels_reading_source_label}</span>
           <span className="cx-levels-source" data-technical="">
-            {reading.sourceKey}
+            {/* I-558: the key a height was read at is the Trace to those words on their sheet, in
+                the reading's own basis. A key no pinned drawing holds keeps its words, unlinked. */}
+            {reading.sourceHref === undefined || reading.sourceHref === null ? (
+              reading.sourceKey
+            ) : (
+              <EvidenceLink href={reading.sourceHref} basis={reading.basis as QuantityBasis} label={reading.sourceKey} />
+            )}
           </span>
         </span>
       )}

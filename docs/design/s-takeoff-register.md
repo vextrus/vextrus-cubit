@@ -180,6 +180,19 @@ it is only PLACED in its cell, no wider than the cell with its label ellipsised 
   above); computing the cited keys a second time inside the export (the export adds nothing and
   rewrites nothing, AC-1); publishing `traceKeys` as an additive 1.1 field (integrations have no
   viewer to select in, so nobody has asked for it).
+- **I-557 — a queue item reveals its key in the sheet (R-TO-011; pays §8's queue-item Trace).** A
+  row of "Deferred and refused" that is about a member — a queue item keyed on its instance key, a
+  refused sighting on its placement key — told a QS which member by a chip reading its mark, and gave
+  no way to see it. Ruling: `registerViewOf` resolves each such row's key through the Trace's one
+  reading of a named entity (`entitySelectionOf`, evidence-link I-555) over the records of EVERY
+  drawing the campaign's revision pins — a member that produced no line may stand on a drawing no line
+  was published off — and answers `sheet` (drawing, layout, the sheet's number, the outline and mark to
+  select). The row keeps its IdChip, and beside it an `EvidenceLink` with no basis (it names a member,
+  not a figure, evidence-link I-554) to `selectionAddress` — no `line`, because no line was published
+  for it — labelled as the Source column labels a sheet (`S-10 · C4`; "Model space" in words; the mark
+  only where the register knows one), with the key whole on `data-key` (I-287). A row whose key no
+  stored placement resolves — and every run deferral, whose door already opens its sheet (I-484) —
+  offers no second link (I-181). The fact row wraps rather than cutting the link at the rail's edge.
 
 ## 1. Layout and hierarchy — what moves
 
@@ -419,6 +432,6 @@ the `?line=` address, and pushState history for the register — deliberately ab
 the state. A `layout` column on partition views, so a line names its sheet without `sheetOfView`
 falling back to the ingest's single recorded layout — **paid by VD-1 without one**: the sheet is read
 per line off the pinned record's frames (viewer.md Part 2 §8). The queue items' Trace (R-TO-011's
-"queue item") stays unpaid — owner: VD-3. Column pin, resize and sort persistence are **paid** by DataTable v2's own
+"queue item") is **paid** by VD-3 (I-557). Column pin, resize and sort persistence are **paid** by DataTable v2's own
 per-user furniture (`cubit.datatable.v1:takeoff-register-lines`); the index rail's remembered width
 is not — owner: the prefs seam's node, unchanged. The inspector's width IS remembered, by the frame.

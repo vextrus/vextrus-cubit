@@ -72,6 +72,7 @@ function chrome(): BbsChrome {
         <span data-technical="">{value}</span>
       </span>
     )) as BbsChrome["EnumLabel"],
+    EvidenceLink: (({ href, label }: { href: string; label: string }) => <a href={href}>{label}</a>) as BbsChrome["EvidenceLink"],
     Skeleton: passThrough("span") as BbsChrome["Skeleton"],
     Tooltip: (({ content, children }: { content: ReactNode; children: ReactNode }) => (
       <span className="tip" data-tip={String(content)}>

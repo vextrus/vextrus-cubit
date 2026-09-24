@@ -19,6 +19,8 @@ import type { RefusalCode } from "@/core/errors";
 import { viewAddressOf } from "@/core/views";
 import { levelStackOf, readingsOf, type LevelScope, type StackLevel, type StoreyHeightReadingRow } from "@/modules/takeoff/levels";
 import { expansionDeferralsOf, viewsOf } from "@/modules/takeoff/partition";
+import { pinnedRevisionOf } from "@/modules/takeoff/schedules-ui/server";
+import { entitySelectionOf, pinnedRecordsOf, selectionAddress, type PinnedRecord } from "@/modules/takeoff/trace";
 import { rollupsOf, rowsOfLines, type RolledLine } from "./rollups";
 import type { LevelsView, LevelsViewLevel, LevelsViewRange, LevelsViewReading } from "./view";
 
@@ -50,7 +52,27 @@ export async function levelsViewOf(scope: LevelsViewScope): Promise<LevelsView> 
   const rows = rowsOfLines(stack.map((level) => level.levelId), lines);
 
   const composed = await Promise.all(stack.map(async (level) => levelOf(levelScope, level, rows.byLevel.get(level.levelId) ?? [])));
-  return { projectId: scope.projectId, stack: composed, slots: rows.slots, unstatedRanges };
+  return { projectId: scope.projectId, stack: await withSourceTraces(scope, composed), slots: rows.slots, unstatedRanges };
+}
+
+/**
+ * Each reading's Trace to the words its height was read from (s-levels I-558). A height is read
+ * off a section's level mark or a note before any campaign is open, so the record it is resolved on
+ * is the one the reader will see: the drawings of the project's NEWEST pin — the pin the Schedules
+ * screen reads the same notes on (`pinnedRevisionOf`) — read once, and only where some reading cites
+ * a key at all. The key is placed by the Trace's one reading of a named entity (`entitySelectionOf`,
+ * the first drawing that holds it); a key none holds keeps its words and offers no link (I-181).
+ */
+async function withSourceTraces(scope: LevelsViewScope, levels: readonly LevelsViewLevel[]): Promise<LevelsViewLevel[]> {
+  const cited = levels.some((level) => level.readings.some((reading) => reading.sourceKey !== null));
+  const pinned = cited ? await pinnedRevisionOf(scope) : null;
+  const records: ReadonlyMap<string, PinnedRecord> = pinned === null ? new Map() : await pinnedRecordsOf(scope, pinned.setRevisionId, pinned.drawingIds);
+  const hrefOf = (sourceKey: string | null): string | null => {
+    if (sourceKey === null) return null;
+    const selection = entitySelectionOf(sourceKey, records);
+    return selection === null ? null : selectionAddress(scope.tenantId, scope.projectId, selection);
+  };
+  return levels.map((level) => ({ ...level, readings: level.readings.map((reading) => ({ ...reading, sourceHref: hrefOf(reading.sourceKey) })) }));
 }
 
 /**

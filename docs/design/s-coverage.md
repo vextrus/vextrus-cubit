@@ -518,6 +518,21 @@ product knows and that none is measured yet.
   area and deducts only its overlap with the band, so the rail that offers a band owes the gate
   candidates that carry both, or a refusal. The four pairs stand in the shard and the registry and are
   cited by no edition until the wave's edition is minted; until then no pinned project measures by them.
+- **I-556 — a sighting is the Trace to the place it names (pays §8's sighting IOU; evidence-link
+  I-554, I-555).** A reader who opens "Sighted in" is asking where the drawings show this class,
+  and the row's key was a chip they could copy and nowhere they could go. Ruling: each Sighting's
+  `Read at` cell is an `EvidenceLink` with no basis (a sighting names an entity, not a figure) to the
+  viewer at the sheet the row names (`selectionAddress`, no `line`), selecting what the key names ON
+  that sheet — a placed member's outline and mark, a declaration's caption. The resolution is the
+  server's, not the browser's: `coverageViewOf` reads the record each sighted drawing of the pinned
+  revision was read on, once, and answers `sightingSelections` (drawing → key → the entities to
+  select) through the Trace's one reading of a named entity (`entitySelectionOf`). A placement key is
+  never put in the address, because the viewer's selection holds source keys only and would land on
+  "not on this sheet". A sighting whose key resolves to nothing standing on its sheet — a sheet the
+  pinned record does not hold, a view key, a placement no stored placement names — keeps the IdChip
+  and offers no link (I-181: a link that cannot land is not offered). A declaration by a person
+  (channel `DECLARATION`) is an act and stands on no sheet; its act id stays an IdChip. Cost: one
+  read of each sighted drawing's artifact per page load, the register's own price (R-TO-050).
 
 **The sheet a sighting stands on (session 9, RES-1; L-QTY-05, L-REG-04, L-CAD-05).** A read-back of
 F-RCC6-BNBC's campaign found the inspector's View column saying `rcc6-bnbc.dxf` for every sighting —
@@ -703,8 +718,9 @@ sentence, no button. Then `<h3>`
 `<summary>` is `_sightings_summary_one|other` — how many, on which sheets (I-484) — over a
 compact table — header row `_channel_label` / `_view_label`
 / `_source_label`, then one `<tr data-testid="coverage-inspector-sighting" data-channel data-source>`
-per Sighting: the channel as an `EnumLabel`, the view verbatim, the source key as an `IdChip` (class
-`cx-coverage-source-key`) — with each in-force declaration standing in the same table under channel
+per Sighting: the channel as an `EnumLabel`, the view verbatim, the source key as the Trace to it
+(`EvidenceLink`, no basis, I-556) — an `IdChip` (class `cx-coverage-source-key`) where the key
+resolves to nothing on its sheet — with each in-force declaration standing in the same table under channel
 `DECLARATION`, its act as an `IdChip` (class `cx-coverage-act-id`); or
 `takeoff_coverage_sightings_none`. Rows are `var(--row-h)`, nothing wraps, everything ellipsises (§5).
 Then `<h3>` `takeoff_coverage_observations_heading` and one `<div
@@ -1070,9 +1086,9 @@ because the nav gains a second entry.
 Withdrawing or superseding a scope declaration, and the REPIN consequence over one — owner: the act's
 own later leaf; `in_force` is written true here and never flipped, and the screen offers no door that
 would. The Part A declared-disagreement row a contradicted cell owes (L-QTY-09) — owner: M7's review
-queue; here the cell is marked and omitted from the statements, and no queue row is written. An
-`EvidenceLink` from a sighting row to the sheet it was sighted on — owner: a later leaf, once the
-pattern admits a sighting, which carries no basis to colour it by. *(PAID by this rebuild: the frozen
+queue; here the cell is marked and omitted from the statements, and no queue row is written. *(PAID by VD-3: the
+`EvidenceLink` from a sighting row to the sheet it was sighted on, I-556, once the pattern admitted
+a link with no basis, evidence-link I-554.)* *(PAID by this rebuild: the frozen
 kind column and the sticky class/level header, an IOU here and Direction §3.5's law — I-190.)* The
 class-grain appendix (a sighted class bearing no kind), the
 sheet-grain fidelity block, and the certificate document itself — owner: M7, per L-QTY-07. Bulk

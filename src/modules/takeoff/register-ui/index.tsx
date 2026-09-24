@@ -39,7 +39,7 @@ import { REGISTER_COPY, fillCopy } from "./copy";
 import { narrowingOf, narrows } from "./narrowing";
 import { markOrder } from "./order";
 import { originRowIndexOf } from "./origin";
-import type { RegisterView, ViewAttribute, ViewDeferral, ViewLine, ViewObject, ViewReading } from "./view";
+import type { RegisterView, ViewAttribute, ViewDeferral, ViewLine, ViewObject, ViewReading, ViewRefusal } from "./view";
 
 /* ------------------------------------------------------------------ what the screen is handed */
 
@@ -192,9 +192,11 @@ export interface RegisterChrome {
    */
   readonly EvidenceLink: ComponentType<{
     href: string;
-    basis: QuantityBasis;
+    /** Absent on a queue item's link, which names a member and no figure (evidence-link I-554). */
+    basis?: QuantityBasis;
     label: string;
-    "data-line": string;
+    /** The line a Source cell traces; absent on a queue item, which no line was published for. */
+    "data-line"?: string;
     /**
      * The cited key, whole, on the element that IS the evidence (I-287, R-UI-082). The label reads
      * the sheet, the mark and the view's class in words; the key itself never becomes body text, so
@@ -655,6 +657,16 @@ function sheetWord(line: ViewLine): string | null {
  */
 function sourceChips(line: ViewLine, mark: string | null, humanise: (value: string) => string): string {
   return [sheetWord(line), mark, sourceWord(line.sourceKey, humanise)].filter((part): part is string => part !== null && part !== "").join(CHIP_SEPARATOR);
+}
+
+/**
+ * How a queue item's link reads (I-557): the sheet the member stands on, as the Source column names
+ * a sheet — its number, else "Model space" in words — and the member's mark where the register knows
+ * one. The key itself rides the anchor's `data-key`, whole (I-287).
+ */
+function queueSheetWord(sheet: NonNullable<ViewRefusal["sheet"]>, mark: string | null): string {
+  const named = sheet.sheetLabel ?? REGISTER_COPY.takeoff_register_source_model_space;
+  return mark === null || mark === "" ? named : `${named}${CHIP_SEPARATOR}${mark}`;
 }
 
 /**
@@ -1753,6 +1765,17 @@ export function RegisterWorkspace({ view, corroborations, permitted, offline, ch
                           the mark where this rail knows one, the leading characters where it does not
                           (B-17 — the shortening is the chip's, never this screen's). */}
                       <IdChip value={refusal.objectKey} short={marks.get(refusal.objectKey)} data-testid={chrome.testIds.refusalObject} />
+                      {/* R-TO-011, I-557: a queue item reveals its key in the sheet — the member it is
+                          about, flown to its outline and mark on the sheet the outline stands on, named
+                          as the Source column names a sheet. No basis: it names a member, not a figure.
+                          A key no stored placement resolves keeps the chip alone (I-181). */}
+                      {refusal.sheet === undefined ? null : (
+                        <EvidenceLink
+                          href={selectionAddress(view.tenantId, view.projectId, refusal.sheet)}
+                          label={queueSheetWord(refusal.sheet, marks.get(refusal.objectKey) ?? null)}
+                          data-key={refusal.objectKey}
+                        />
+                      )}
                     </div>
                   ) : (
                     // I-484: a run's deferral is about a VIEW or a STOREY, not an object, and

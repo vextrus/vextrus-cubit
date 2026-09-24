@@ -136,6 +136,18 @@ export type ViewRefusal = {
   readonly kind: string | null;
   /** Where the row is a measure run's deferral, what it names and where it is fixed; absent otherwise. */
   readonly deferral?: ViewDeferral;
+  /**
+   * Where the member a queue item or a refused sighting is about stands, and what the Trace selects
+   * there — its outline and its mark (R-TO-011, s-takeoff-register I-557) — with how a reader names
+   * that sheet (its number, or null for model space). Absent where the pinned record holds no stored
+   * placement for the key: the row keeps its key and offers no link (I-181).
+   */
+  readonly sheet?: {
+    readonly drawingId: string;
+    readonly layoutName: string;
+    readonly sheetLabel: string | null;
+    readonly sourceKeys: readonly string[];
+  };
 };
 
 /**

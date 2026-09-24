@@ -12,6 +12,7 @@ import { REFUSALS, type RefusalEntry } from "@/core/errors";
 import { BbsWorkspace, type BbsChrome, type BbsJobStep } from "@/modules/takeoff/bbs-ui/workspace";
 import type { BbsView } from "@/modules/takeoff/bbs-ui/view";
 import { IconInfo } from "@/ui/icons";
+import { EvidenceLink } from "@/ui/patterns/evidence-link";
 import { RefusalState } from "@/ui/patterns/refusal-state";
 import { JobTimeline, useTrackedJobs, type TrackedJob } from "@/ui/patterns/job-timeline";
 import { Button, EmptyState, EnumLabel, ErrorState, IdChip, Skeleton, Tooltip } from "@/ui/primitives/core";
@@ -78,6 +79,7 @@ const CHROME: BbsChrome = {
   RefusalState,
   IdChip,
   EnumLabel,
+  EvidenceLink,
   Skeleton,
   Tooltip,
   Note: StockNote,
