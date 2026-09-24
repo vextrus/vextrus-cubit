@@ -25,7 +25,7 @@
  },
  "structure": {
   "path": "fixtures/gen/rcc6_bnbc/model.py",
-  "sha256": "bff79c2bf9ee4d91bd01e5731000cae05fcb9ed57e70f4dfa2683aaa19f0db8b",
+  "sha256": "1911fe42a805ca44f808d694bfa8410d9b7d6d302ac36d8e1d1ca4245a584eb9",
   "read": "module constants (grid, levels, chamfer, balcony, sunken panels, ducts, column stacks) and, read-only, build()'s shear walls, beams, slab panels and S-25 lintels"
  },
  "identity": {
