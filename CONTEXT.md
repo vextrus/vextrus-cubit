@@ -26,6 +26,16 @@ The bill of quantities for a building, item by item by trade, with a rate and an
 item; each quantity traces back to where it was read on the drawings.
 _Avoid_: estimate (use it only for the total cost figure), register, bill
 
+**BOQ Section**:
+One building part the Priced BOQ is grouped by, in this order: Sub-structure, Super-structure,
+Masonry, Finishes, Doors & Windows, Services, External works.
+_Avoid_: bill, chapter, trade (a trade is a kind of work)
+
+**Trade**:
+A kind of work (concrete, formwork, rod work, brickwork, plaster, flooring…) as PWD's chapters and
+Labour Contracts divide it; the Priced BOQ can be viewed by Trade, and a Cost Basis is set per Trade.
+_Avoid_: discipline (a family of drawings), section, package
+
 **Material Schedule**:
 The quantities of basic materials (cement, sand, stone chips, rod by diameter, bricks and the like)
 the building needs, broken down by floor and by Construction Stage, derived from the same takeoff
