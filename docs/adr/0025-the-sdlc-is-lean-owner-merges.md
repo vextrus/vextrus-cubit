@@ -30,3 +30,23 @@ forbids approving one's own PR, so required approvals cannot be the mechanism
 5. **No self-hosted runner on the owner's machine** for cloud PRs.
 
 The owner's ruling: "Agree, I'll buy GitHub Pro".
+
+## Amended: how waves run (owner's decision, 26 Sep 2026)
+Evidence: docs/research/sdlc-waves-and-cloud.md. The Workflow tool launches only local worktrees; the
+cloud credit ($500 across two Max accounts) reportedly expires on 4 November 2026, after which cloud
+sessions draw on plan limits, so it is spent early rather than saved.
+1. **Cloud tickets launch one `claude --cloud` command each,** about two-thirds on account B (run from
+   this machine through a second config folder), since account A also carries planning and local work.
+2. **Wave 1 is four cloud and one or two local tickets,** measuring cost per merged PR, time to PR,
+   the owner's review minutes per PR, and second continuations.
+3. **Widen to 6–8 cloud** once the review queue stays under a day, at most one PR in four needs a
+   second continuation, and conflicts stay trivial. The ceiling (about 10–12) is the owner's review.
+4. **Tickets in a wave own disjoint files;** at most one per wave adds migrations to a given module.
+5. **The Workflow tool launches only unattended local tickets,** as a launcher with no state. No
+   orchestration code (this answers refuter #1: the research's warning was against an engine).
+6. **Cloud waves start as soon as M0's first `cloud` tickets exist;** one milestone is planned at a
+   time.
+7. **Ultrareview uses only the free runs** (three per account). No paid ultrareviews and no usage
+   credits; after the free runs, `/code-review` and the critics carry risky PRs.
+
+The owner's ruling: "Agree but no paid ultraviews".
