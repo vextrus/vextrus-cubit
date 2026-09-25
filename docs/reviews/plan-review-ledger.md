@@ -40,7 +40,7 @@ figures are modelling effort, on one set.
 | M9 | No font policy (server has no CAD fonts; substitutes, a per-upload font report) | 0022, architecture | Adds | evidence (2D viewer measurement), then grill |
 | M10 | dxf-viewer re-interprets the drawing with a second engine; render the engine's own buffers so the QS sees what was read | 0022 | Challenges | evidence (2D viewer measurement), then grill |
 | M11 | "Only the owner merges" is unenforceable: branch protection on a private Free repo returns 403 (confirmed 26 Sep); the owner should review evidence, not diffs | 0025, sdlc | Challenges | agreed: ADR 0025 amended (GitHub Pro ruleset; guard refuses agent merges; owner reviews evidence) |
-| M12 | No real-drawing regression when a `cloud` PR touches engine code; no lessons file; semantic collisions between parallel tickets | 0019, 0025, sdlc | Challenges | grill |
+| M12 | No real-drawing regression when a `cloud` PR touches engine code; no lessons file; semantic collisions between parallel tickets | 0019, 0025, sdlc | Challenges | agreed: ADR 0030 (by path; run as the key user; aggregates and changed attributes; lessons file) |
 | M13 | Price and "delivered in days" are unmeasured; time the QS per step in the walks | 0012 | Adds | grill (measurement only; the business is settled) |
 
 ## Minor

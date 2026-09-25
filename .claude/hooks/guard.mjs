@@ -83,8 +83,8 @@ const BASH_RULES = [
   {
     rule: "MERGE_BY_AGENT",
     fires: (parts) =>
-      parts.some((part) => /^(?:[A-Z_]+=\S*\s+)*gh\s+pr\s+merge\b/.test(part) || (/^(?:[A-Z_]+=\S*\s+)*gh\s+api\b/.test(part) && /\/pulls\/\d+\/merge\b/.test(part))),
-    reason: "Only the owner merges (ADR 0025). Open the PR, state what was and was not verified, and stop.",
+      parts.some((part) => /^(?:[A-Z_]+=\S*\s+)*gh\s+pr\s+merge\b/.test(part) || (/^(?:[A-Z_]+=\S*\s+)*gh\s+api\b/.test(part) && /\/(?:pulls\/\d+\/merge|statuses\/|check-runs)\b/.test(part))),
+    reason: "Only the owner merges (ADR 0025), and only the key user posts the real-drawing status (ADR 0030). Open the PR, state what was and was not verified, and stop.",
   },
   {
     rule: "PRIVILEGE_RAISED",
