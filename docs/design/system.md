@@ -1,5 +1,8 @@
 # The Vextrus design system
 
+> **Accepted by the owner, 26 Sep 2026** ("accept"), after judging the specimen, the Takeoff frame
+> and the Project Summary in the browser. The five key screens are prototyped on it next.
+
 Draft of 26 Sep 2026, for the owner's judgement in the browser. The tokens are one CSS file,
 `.private/work/session-01/design/src/tokens.css` (to be copied into the product's `src/ui/`). The
 living specimen, a static app frame at 1440 × 900 and the Project Summary run from the same folder
