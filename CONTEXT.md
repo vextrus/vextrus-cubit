@@ -36,3 +36,27 @@ _Avoid_: material list, BOM
 The 3D model of the building assembled from the QS-confirmed takeoff; the project dataset that the
 Priced BOQ, the Material Schedule and every later module are read from.
 _Avoid_: BIM (as a noun for our object), 3D view, digital twin
+
+### Drawings and projects
+
+**Drawing Set**:
+All the drawings issued for one building project, across its disciplines, as the files the
+consultant or team produced (DWG, PDF, and where they exist RVT and IFC).
+_Avoid_: drawings (loosely), package, fixture
+
+**Discipline**:
+One family of drawings in a Drawing Set: structural, architectural, or MEP (plumbing, sanitary,
+electrical). The MVP reads structural and architectural; MEP enters the Priced BOQ as lump-sum
+items the QS types.
+_Avoid_: trade (a trade is a BOQ grouping, not a drawing family), lane
+
+**Sample Project**:
+The typical Dhaka RCC-framed Developer project that the Vextrus team, as practising civil engineers,
+drafts in AutoCAD the way a Dhaka consultant does; Vextrus owns it outright, uses it as a test set,
+and ships it as the sample project clients see first.
+_Avoid_: demo project, fixture, golden, synthetic set (it is drafted by engineers, not generated)
+
+**Independent Set**:
+A real Drawing Set that the Vextrus team did not draw, such as the Edison set or a client Developer's
+project; read locally, never committed, and never shown without its owner's permission.
+_Avoid_: real set (the Sample Project is real too), external fixture
