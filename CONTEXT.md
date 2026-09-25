@@ -57,10 +57,10 @@ items the QS types.
 _Avoid_: trade (a trade is a BOQ grouping, not a drawing family), lane
 
 **Sample Project**:
-The typical Dhaka RCC-framed Developer project that the Vextrus team, as practising civil engineers,
-drafts in AutoCAD the way a Dhaka consultant does; Vextrus owns it outright, uses it as a test set,
-and ships it as the sample project clients see first.
-_Avoid_: demo project, fixture, golden, synthetic set (it is drafted by engineers, not generated)
+A typical Dhaka RCC-framed Developer project that Vextrus owns outright, made with an agent's help as a
+clean set with planted contradictions; a Development Set for regression, and the sample project
+clients see first. Never evidence that Vextrus reads real drafting mess.
+_Avoid_: demo project, fixture, golden, "hand-drafted"
 
 **Independent Set**:
 A real Drawing Set that the Vextrus team did not draw, such as the Edison set or a client Developer's
