@@ -19,4 +19,6 @@ that did not read real drawings (docs/postmortem.md, cause 1).
 Considered: a self-hosted GitHub runner on the owner's machine. Rejected: agents write the workflows
 it would run, beside `.private/` and the secrets (docs/research/sdlc-waves-and-cloud.md).
 
-The owner's ruling (26 Sep 2026): "Agree".
+## History
+- 26 Sep 2026: decided. Evidence: refuter #5, plan review M12, the architecture critic's dispute
+  (docs/reviews/). The owner's ruling (26 Sep 2026): "Agree".

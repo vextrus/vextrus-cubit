@@ -1,41 +1,43 @@
-# Working rates come from the Developer's Rate Analysis; PWD SoR is the benchmark
+# Working rates come from the Developer's Rate Analysis; the Estimate is a build-up; PWD SoR is the benchmark
 
-Every item in the Priced BOQ is priced by its Rate Analysis: the Resources it consumes per unit, at
-the Developer's Market Prices. That matches how Dhaka Developers price: they buy materials themselves
-and hire labour-only contractors (Labour Contracts), and only rarely give a trade out on a
-Material-and-Labour Contract. The PWD Schedule of Rates rate is shown beside each item as a Benchmark
-Rate, never as the working rate.
+Every BOQ Item is priced by its Rate Analysis: the Resources it consumes per unit, at the Developer's
+Market Prices (working rate = Σ materials × (1 + Wastage) × Market Price + labour + plant). The same
+Rate Analyses yield the Material Schedule, so money and materials cannot disagree. Vextrus ships a
+Bangladeshi starting library (docs/specs/bd-defaults.md), which each Developer edits. Mark-ups never
+sit inside item rates.
 
-The same Rate Analysis yields both the money and the Material Schedule, so the two MVP outputs
-cannot disagree, and a change in one Market Price updates every rate and amount. Vextrus ships a
-Bangladeshi starting library of Rate Analyses (drawn from PWD SoR practice and its analysis of rates,
-editable per Developer) so a new client does not start blank.
+**The Estimate is an ordered build-up the Developer edits:** direct cost (the items) + preliminaries
+and site overheads (as items or a % of direct cost) + contingency % + taxes (VAT and AIT, dated rates
+held as data). The Priced BOQ shows each layer; cost per sft is quoted on the Estimate, with direct
+cost beside it. No profit layer: the Developer does not bill itself.
 
-Considered: PWD SoR item rates as the working rate (rejected: Developers use them only as a
-reference) and the Developer's rates alone (rejected: a benchmark is how an MD checks a figure).
-The three-layer idea (item → resources → prices) was learnt from OpenConstructionERP and is
-re-expressed in our own design; its CWICR data has no Bangladesh base and is non-commercial.
+**Labour Contracts** have their own unit and scope (for example per sft of casting area, covering rod
+binding, shuttering and casting); the quantity comes from a Measurement Rule, and each is its own
+line in the Priced BOQ. They belong to the Developer, with a per-project override of rate or scope.
+Every item a Labour Contract covers takes no other labour; a Check (ADR 0027) makes each item's labour
+come from exactly one source. A Material-and-Labour Contract is the exception: one rate per unit, its
+materials outside the Material Schedule.
 
-## Amended: the build-up above direct cost, and a like-for-like Benchmark (owner's decision, 26 Sep 2026)
-The QS critic (#1, docs/reviews/session-01-qs-critic.md) found the price stopped at direct cost. The
-QS-defaults research (docs/research/qs-defaults.md) measured the Benchmark's gap: PWD rates carry 10 %
-profit, 3.5 % overhead and 10 % VAT, so a printed rate is about 1.261 × direct cost, and PWD's own
-"22.703 % extra" matches (1.135) ÷ (1 − VAT). So:
-- **The Estimate is an ordered build-up the Developer edits:** direct cost (the items) + preliminaries
-  and site overheads (as items or a % of direct cost) + contingency % + taxes (VAT and AIT, dated rates
-  held as data). The Priced BOQ shows each layer; cost per sft is quoted on the Estimate, with direct
-  cost beside it.
-- **The Benchmark Rate is shown as printed and net of PWD's mark-ups,** so an MD compares like with
-  like. The mark-up figures are data with their SoR edition and date.
-- No profit layer: the Developer does not bill itself.
+**The Benchmark Rate** (PWD Schedule of Rates) is shown beside each item, as printed and net of PWD's
+mark-ups (10 % profit, 3.5 % overhead, 10 % VAT: printed ≈ 1.261 × direct cost), held as data per SoR
+edition. A covered item's Benchmark comparison uses its share of the Labour Contract, allocated in
+proportion to the labour its own Rate Analysis would have carried at Market Prices. The Benchmark is
+never the working rate.
 
-The owner's ruling: "Agree".
+Why: Dhaka Developers buy materials themselves and hire labour-only contractors. Rejected: PWD rates as
+the working rate (a reference only), the Developer's rates with no benchmark (a benchmark is how an MD
+checks a figure). The item → resources → prices idea was learnt from OpenConstructionERP and
+re-expressed; its CWICR data has no Bangladesh base and is non-commercial.
 
-## Amended: Labour Contracts with their own unit and scope (owner's decision, 26 Sep 2026)
-Dhaka structural labour is often let per sft of floor or casting area, covering rod binding,
-shuttering and casting together, and finishing labour per sft of floor (QS critic #2). So a Labour
-Contract has its own unit and scope; its quantity comes from a Measurement Rule (for example casting
-area per slab) and it is its own line in the Priced BOQ. Every item it covers is marked covered, and
-its Rate Analysis then carries no labour. A Check (ADR 0027) makes each item's labour come from exactly
-one source, its own labour line or one Labour Contract, so nothing is paid twice or left unpriced. For
-the Benchmark comparison a covered item's rate shows its allocated share. The owner's ruling: "Agree".
+## History
+- 25 Sep 2026: decided.
+- 26 Sep 2026 (owner's decision): the build-up above direct cost and a like-for-like Benchmark.
+  Evidence: QS critic #1, docs/research/qs-defaults.md. The owner's ruling: "Agree".
+- 26 Sep 2026 (owner's decision): Labour Contracts with their own unit and scope. Evidence: QS critic
+  #2. The owner's ruling: "Agree".
+- 26 Sep 2026: Labour Contracts belong to the Developer; Benchmark allocation. Evidence:
+  docs/data-model.md §6. The owner's ruling: "Agree".
+- 26 Sep 2026: the Rate Analysis shape and starting library. Evidence: docs/specs/bd-defaults.md. The
+  owner's ruling: "Yes agree with the shape and your four recommendations".
+- 26 Sep 2026: an Issued Estimate freezes prices (ADR 0028 amends the "one change updates everything"
+  rule for issued figures).

@@ -19,5 +19,10 @@ Converter is not permitted for a commercial service.
 
 Considered: ACadSharp only in the local gate and on each new writer (the architecture critic's
 preference, keeping .NET out of the image). Rejected: a known writer can still bring a new failure,
-and a second second per upload is cheap. Answers plan review C5. The owner's ruling (26 Sep 2026):
-"Agree".
+and a second second per upload is cheap. Both readers run sandboxed (ADR 0031). A dedicated
+deployment's LibreDWG licence duty is in ADR 0018.
+
+## History
+- 26 Sep 2026: decided; answers plan review C5 (docs/reviews/plan-review-ledger.md). Evidence:
+  docs/research/dwg-reader-evidence.md, docs/research/dwg-reader-options.md. The owner's ruling
+  (26 Sep 2026): "Agree".

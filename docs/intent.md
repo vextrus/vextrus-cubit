@@ -13,19 +13,33 @@ OpenConstructionERP never attempts it (docs/research/oce-algorithms.md).
 
 ## The first customer and the MVP
 - **Who:** the Developer. The MD buys and the QS uses the product daily. The founding team's network
-  already reaches Developers waiting to see it (ADR 0001).
+  already reaches Developers waiting to see it (ADR 0033).
 - **What they pay for:** the Priced BOQ, the Material Schedule and the Building Model in 3D, from one
-  QS-confirmed Takeoff (ADR 0002).
+  QS-confirmed Takeoff (ADR 0002), priced per project by Gross Floor Area (ADR 0033).
 - **Scope:** RCC-framed buildings, read from structural and architectural drawings; MEP as lump sums
-  (ADR 0003).
-- **How the Takeoff works:** building-first, element by element, with bulk Confirmation and
-  Questions at the point of need (ADR 0007).
-- **Money:**
-  - Rate Analyses priced at the Developer's Market Prices, with PWD as the benchmark (ADR 0006).
-  - Measurement Rules held as data, defaulting to PWD (ADR 0009).
-  - Rod by ratio first, then read from the drawing (ADR 0010).
-  - SI inside, the market's imperial units on screen (ADR 0008).
-- **Proof:** every milestone passes on the Sample Project and on an Independent Set (ADRs 0004, 0005).
+  from a template (ADR 0003).
+- **How the Takeoff works:** building-first, fourteen Takeoff Steps, bulk Confirmation, and Questions
+  at the point of need; Checks against the source raise those Questions (ADRs 0007, 0027).
+- **Money, from M1:**
+  - A whole-building figure from the first Confirmation: every Trade carries a Cost Basis, measured
+    or a marked allowance, and the Target Cost warns on measured + allowance (ADR 0002).
+  - Rate Analyses priced at the Developer's Market Prices, with PWD as the Benchmark, shown net of
+    PWD's mark-ups (ADR 0006).
+  - The Estimate is layered: direct cost, preliminaries and site overheads, contingency and taxes,
+    each shown and editable (ADR 0006).
+  - An Issued Estimate is frozen; every later change is shown against it, split into quantity and
+    price effect (ADR 0028).
+  - Measurement Rules held as data, defaulting to IS 1200 with PWD's conventions (ADR 0009).
+  - Rod by ratio first, then read from the drawing, with its Rod Basis on every figure (ADR 0010).
+  - Each BOQ Item in its Billing Unit, rounded as a QS rounds; the market's imperial units on screen;
+    money and quantities in lakh and crore (ADR 0008).
+- **For the MD:** the Project Summary and the 3D share link work on a phone; the QS's work is
+  desktop-only (ADR 0016).
+- **Honest inputs:** DWG first; a vector PDF is accepted, and the product tells the QS at upload how
+  much it could not read and what to ask for instead (ADR 0014).
+- **Proof:** the Sample Project and the Edison set are Development Sets that prove nothing
+  regressed; Held-out Sets from other consultants, which no build session opens, prove Vextrus
+  reads Dhaka drawings, scored blind against a Hand Takeoff (ADRs 0004, 0005, 0026).
 - **AI:** Levels 1 and 2 on Jev (ADR 0011).
 
 ## How we beat OpenConstructionERP
@@ -38,12 +52,13 @@ It is broad (194 modules) and free, but shallow where our clients live
 - **One real dataset.** OCE's "one dataset" is a hub of loose ids with 31 event subscriptions nothing
   publishes. Ours is one typed chain: element → quantity → BOQ item → rate, tested end to end.
 - **Local depth.** OCE has no Bangladesh region, no PWD rates, no lakh/crore on its screens (only its PDF export groups in lakh), and a blank box for ৳.
-  We have PWD Measurement Rules and Benchmark Rates, Dhaka rate analyses, imperial units and ৳.
+  We have a Rule Set on IS 1200 with PWD's conventions, PWD Benchmark Rates, Dhaka Rate Analyses,
+  imperial units, lakh grouping and ৳.
 - **Measurement standards.** OCE applies none; we apply a Rule Set the QS can read and edit.
 - **UX.** OCE ranks lowest here. We design for the QS's real workflow: building-first Takeoff, bulk
   Confirmation, Questions at the point of need.
 - **Quiet AI.** Jev inside the flow, cheap and bounded, instead of a bring-your-own-key chatbot.
-- **A business, not a free download.** We sell a finished result per project (ADR 0012).
+- **A business, not a free download.** We sell a finished result per project (ADR 0033).
 
 ## Next after the MVP
 - Cost control during construction.

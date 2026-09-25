@@ -1,52 +1,35 @@
-# Quantities are stored in SI and shown in the project's Display Units
+# Units: drawing units until assembly, SI in the Building Model, money in its quoted unit, each BOQ Item in its Billing Unit
 
-Every quantity, dimension and rate is held in SI inside Vextrus (the Building Model, the maths, the
-Rate Analyses). What the QS sees is formatted at the edge in the project's Display Units, which
-default to private Dhaka practice:
-- cft for RCC and earthwork;
-- sft for plaster, flooring and brickwork;
-- rft for skirting and railings;
-- kg or ton for rod;
-- bags for cement.
-
-Metric is one switch away. The Benchmark Rate (PWD, metric) is converted to the same unit so it sits
-beside the working rate. Money is always ৳, grouped in lakh and crore. Grouping applies to money
-only, never to lengths or coordinates.
-
-We chose this because private practice measures in imperial while PWD and the codes are metric, so a
-BOQ in m³ looks foreign to a Dhaka QS. SI inside keeps the engineering, the IFC model and later
-markets correct. One unit system inside plus a formatting layer outside prevents a class of error
-Vextrus Cubit shipped: lakh grouping on millimetre coordinates. Drawings arrive in their own units
-(the Edison set is in inches) and are converted to SI on reading.
-
-## Amended: where units convert, and how money rounds (owner's decision, 26 Sep 2026)
-Three findings broke "every quantity, dimension and rate in SI, converted on reading": the plan
-review's M8 (the laboratory kept drawing units to the end; precision differs by discipline; spacing
-text must stay verbatim), the architecture critic's #10 (a per-m³ rate is the per-cft rate ÷
-0.028316846592, which does not terminate, so qty × rate stops matching the QS's own check and the
-Excel file) and the QS critic's #7 (a unit belongs to the item: 10" walls in cft, 5" in sft, bricks in
-nos, doors in sft). Reviews: docs/reviews/. So:
-- **Drawings stay in their own units,** each view with its confirmed scale, and convert to SI with
-  exact factors only when the Building Model is assembled. The Building Model and the engineering are
-  SI.
+- **Drawings stay in their own units** (the Edison set is in inches), each view with its confirmed
+  scale; spacing text stays verbatim. They convert to SI with exact factors only when the confirm
+  service writes the Building Model. The Building Model and the engineering are SI.
 - **Money stays in the unit it is quoted in:** each Market Price and rate is an exact decimal per cft,
-  bag, sft or whatever unit the market quotes.
-- **Each BOQ item has a Billing Unit, set in the Rule Set.** Its quantity is rounded to two decimals
-  in that unit, and amount = rounded quantity × rate, exact to the paisa. Excel carries the same
-  values with live formulas; a test checks qty × rate = amount on every row.
-- **Imperial or metric stays one switch per project,** and the switch re-bills the Priced BOQ in the
-  other units rather than relabelling it.
+  bag, sft or whatever unit the market quotes. Money is always ৳.
+- **Each BOQ Item has a Billing Unit, set in the Rule Set** (10" brickwork in cft, 5" in sft, bricks
+  in nos, doors in sft; defaults in docs/specs/bd-defaults.md). The Benchmark Rate is converted to the
+  same unit so it sits beside the working rate.
+- **Rounding as a QS rounds:** each Measurement Line to two decimals in its Billing Unit, and the
+  item's quantity is their sum; countable units (nos, bags, kg of rod) to whole numbers, tons to
+  three decimals (a Rule Set parameter); rates to the paisa; amount = ROUND(quantity × rate, 2); the
+  Estimate's layers on the rounded amounts; the Material Schedule rounds up. Excel carries the same
+  values with live formulas, and a test checks quantity × rate = amount on every row.
+- **Display Units are one switch per project:** the market's imperial (cft, sft, rft, bags, ton) by
+  default, metric one switch away; the switch re-bills the Priced BOQ, never relabels it.
+- **Grouping:** money and quantities group in lakh and crore (`1,24,500 kg`), at the edge only.
+  Coordinates and dimensions (drawing positions, lengths such as 14'-6") never group.
 
-Lakh grouping stays at the edge, for money only. The owner's ruling: "yes, agree on units and
-rounding".
+Why: private Dhaka practice measures in imperial while PWD and the codes are metric, so a BOQ in m³
+looks foreign to a Dhaka QS; SI inside keeps the engineering and IFC correct. A per-m³ rate is the
+per-cft rate ÷ 0.028316846592, which does not terminate, so rates held in SI would break the QS's own
+qty × rate check. One formatting layer at the edge prevents an error Vextrus Cubit shipped: lakh
+grouping on millimetre coordinates.
 
-## Amended: rounding as a QS rounds (owner's decision, 26 Sep 2026)
-Each Measurement Line is rounded to two decimals in its Billing Unit and an item's quantity is their
-sum; countable units (nos, bags, kg of rod) round to whole numbers and tons show three decimals (a
-Rule Set parameter); rates are held to the paisa; amount = ROUND(quantity × rate, 2); the Estimate's
-layers are computed on rounded amounts; the Material Schedule rounds up. The owner's ruling: "Agree".
-
-## Amended: quantities group in lakh too (owner's decision, 26 Sep 2026)
-Money and quantities both group in lakh and crore (`1,24,500 kg`), so a BOQ line reads one way
-across its columns. Coordinates and dimensions (drawing positions, lengths such as 14'-6") never
-group. The owner's ruling: "Lakh".
+## History
+- 25 Sep 2026: decided as "SI inside, converted on reading; lakh for money only".
+- 26 Sep 2026 (owner's decision): where units convert, and how money rounds (drawing units to
+  assembly; money in quoted units; Billing Units). Evidence: plan review M8, architecture critic #10,
+  QS critic #7 (docs/reviews/). The owner's ruling: "yes, agree on units and rounding".
+- 26 Sep 2026 (owner's decision): rounding as a QS rounds. Evidence: docs/data-model.md §6. The
+  owner's ruling: "Agree".
+- 26 Sep 2026 (owner's decision): quantities group in lakh too. Evidence: docs/design/system.md §10.
+  The owner's ruling: "Lakh".

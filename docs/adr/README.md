@@ -1,0 +1,42 @@
+# Architecture decision records
+
+Each ADR states the decision as it now stands; its `## History` lists every amendment with its date,
+evidence and the owner's ruling, quoted. A superseded ADR keeps its file as a stub so old links
+resolve. Format: `.claude/skills/domain-modeling/ADR-FORMAT.md`. Updated 26 Sep 2026, after session 01.
+
+| # | Title | Status | The decision in one line |
+|---|---|---|---|
+| [0001](0001-first-customer-is-the-developer.md) | The first customer is the real-estate Developer | superseded by 0033 | The Bangladeshi real-estate Developer is the first paying customer: its MD buys, its QS uses Vextrus daily. |
+| [0002](0002-mvp-is-priced-boq-material-schedule-and-model.md) | The MVP delivers the Priced BOQ, the Material Schedule and the Building Model together | current | Three outputs from one Takeoff, with a whole-building figure (Cost Basis) from M1 and the Material Schedule by Construction Stage. |
+| [0003](0003-mvp-reads-rcc-structural-and-architectural.md) | The MVP reads RCC-framed buildings from structural and architectural drawings | current | RCC frames, structural and architectural Disciplines; MEP as lump sums. |
+| [0004](0004-the-sample-project-is-drawn-by-the-team.md) | The Sample Project is Vextrus's own clean set | current | A clean set with planted contradictions: a Development Set and the sample clients see, never proof of reading. |
+| [0005](0005-milestones-pass-on-an-independent-set.md) | Milestones are proven on Held-out Sets and measured against a Hand Takeoff | current | Development Sets prove no regression; Held-out Sets (one by M1, two by M2) prove reading; stated tolerances over five zones. |
+| [0006](0006-rates-come-from-the-developers-rate-analysis.md) | Working rates come from the Developer's Rate Analysis; the Estimate is a build-up | current | Rate Analyses at Market Prices; Estimate layers; Labour Contracts; the PWD Benchmark printed and net. |
+| [0007](0007-takeoff-is-building-first-element-by-element.md) | Takeoff is building-first, element by element, with bulk Confirmation | current | Fourteen Takeoff Steps in building order; bulk Confirmation; Questions at the point of need. |
+| [0008](0008-si-inside-display-units-outside.md) | Units: drawing units until assembly, SI in the Building Model, money in its quoted unit | current | Billing Units, rounding as a QS rounds, one imperial/metric switch, lakh for money and quantities. |
+| [0009](0009-measurement-rules-are-data-pwd-default.md) | Measurement Rules are data, defaulting to IS 1200 with PWD's conventions | current | An editable, versioned Rule Set; junction ownership is a rule. |
+| [0010](0010-rod-by-ratio-first-then-from-the-drawing.md) | Rod is priced by ratio first, and read from the drawing | current | Three Rod Bases; ratios by Storey Band; rod from the drawing is a must (columns M1, beams and slabs M3). |
+| [0011](0011-mvp-ai-is-jev-no-llm.md) | The MVP's AI is Jev only; an LLM joins at Level 3 | current | Code finds and counts, Jev picks, the QS confirms; every node spot-checked on real items. |
+| [0012](0012-priced-per-project-by-floor-area.md) | The MVP is priced per project by gross floor area | superseded by 0033 | A Developer pays ৳4 per sft of Gross Floor Area per project (minimum ৳60,000); a subscription comes later. |
+| [0013](0013-typesafe-may-receive-development-data.md) | TypeSafe's servers may receive development data | current | Edison and Sample Project text may go to Jev in development; cloud sessions use their own key. |
+| [0014](0014-mvp-reads-dwg-and-vector-pdf.md) | The MVP reads DWG first and accepts vector PDFs; scans are not accepted | current | A PDF gives more Questions, and its upload report says so; M4 tests PDF against DWG. |
+| [0015](0015-revisions-carry-confirmations-and-compare.md) | A Revision carries Confirmations over, and the MD sees a Revision Comparison | current | Identity per Element Family, revisions per sheet, reader upgrades matched like Revisions. |
+| [0016](0016-md-summary-excel-pdf-english.md) | The MD gets a Project Summary on a phone; exports are Excel and PDF; English | current | Cost per sft on two areas, consumption checks, a five-sheet Excel with live formulas. |
+| [0017](0017-bangladesh-first-until-ten-paying.md) | Bangladesh only until ten paying Developers | superseded by 0033 | No second market until 10 Developers pay and 5 buy again; country differences are data from day one. |
+| [0018](0018-hosted-multi-tenant-dedicated-later.md) | Vextrus is hosted by us; a dedicated deployment later | current | One hosted multi-tenant system; no self-hosted installs. |
+| [0019](0019-no-dates-speed-bounded-by-verification.md) | No dates: build at the fastest pace verification allows | current | Parallel where tests prove it; reading kept tight; the owner's walk decides. |
+| [0020](0020-django-modular-monolith.md) | The backend is one Django modular monolith | superseded by 0034 | One Django 6.1 + Ninja application of 13 layered modules, with a pure-Python `engine`. |
+| [0021](0021-one-postgres-for-data-jobs-search-events.md) | One Postgres holds the data, the jobs, the search and the events | superseded by 0034 | One Postgres holds data, jobs, search and events, with row-level security from M0. |
+| [0022](0022-react-spa-openapi-types-own-viewers.md) | The frontend is a React SPA on generated OpenAPI types, with our own viewers | current (being amended) | React 19 + Vite on generated types; BOQ grid, sheet and 3D viewers of our own. |
+| [0023](0023-deploy-native-dev-aws-mumbai-beta.md) | Development runs natively; the beta runs in AWS Mumbai | superseded by 0034 | Native development at about $0, an AWS Mumbai beta, and scale only on measured triggers. |
+| [0024](0024-the-product-repo-is-private.md) | The product repository is private | current | Private since 25 Sep 2026; the moat and client content stay out of view. |
+| [0025](0025-the-sdlc-is-lean-owner-merges.md) | The SDLC is spec → attacked plan → tickets → PRs, merged only by the owner | current | An enforced owner-only merge, evidence-based review, waves sized by the owner's review. |
+| [0026](0026-answer-keys-are-fenced-by-the-operating-system.md) | Answer Keys are fenced by the operating system, and scored blind | current | Keys live with a separate user; a blind scorer returns aggregates only. |
+| [0027](0027-checks-against-the-source-raise-questions.md) | A catalogue of Checks raises Questions, at reading and at every Confirmation | current | Checks against the source, conservation and sanity ranges; n / N counts; Coverage from M0. |
+| [0028](0028-issued-estimates-freeze-and-comparisons-split-quantity-and-price.md) | An Issued Estimate is frozen; every comparison splits quantity from price | current | Issued snapshots with their pins; Market Price sets copied on issue. |
+| [0029](0029-libredwg-reads-acadsharp-checks-every-upload.md) | LibreDWG 0.14 reads every DWG; ACadSharp checks every upload | current | Two independent decoders; a disagreement quarantines the file. |
+| [0030](0030-the-real-drawing-check-runs-on-every-engine-pr.md) | The real-drawing check runs on every engine PR | current | Chosen by path, run as the key user, posting aggregates only. |
+| [0031](0031-the-engine-and-the-data-spine.md) | The engine and the data spine | current | Pure measuring, precise Trace anchors, families as packages, safe jobs and sandboxing. |
+| [0032](0032-light-chrome-paper-sheet-cad-dark-switch.md) | The app is light, the sheet opens as plotted, a CAD-dark canvas is one switch away | current | Light chrome and paper sheet; CAD-dark as a switch. |
+| [0033](0033-the-business.md) | The business: the Developer first, priced per project, Bangladesh first | current | The Developer; ৳4/sft of Gross Floor Area per project; Bangladesh until ten paying Developers. |
+| [0034](0034-the-stack.md) | The stack: one Django modular monolith, one Postgres, native development and a Mumbai beta | current | Django + Ninja monolith, one Postgres with row-level security from M0, AWS Mumbai beta. |

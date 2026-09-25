@@ -35,7 +35,7 @@ configuration and prose, not code. It must never become the product (docs/postmo
      and behaviour, and reads in full only `.github/`, `.claude/`, migrations and tests.
 8. **Close the milestone:** the owner and the team walk the running product on the Development Sets
    and Held-out Sets, with a timed Takeoff, and score against the Hand Takeoff blind (ADRs 0005,
-   0012, 0026). Only that walk says "done".
+   0033, 0026). Only that walk says "done".
 
 ## Waves (ADR 0025)
 - **Cloud tickets:** one `claude --cloud` command each, about two-thirds on account B (second config

@@ -25,7 +25,7 @@ From the architecture critic's sweep (docs/reviews/session-01-architecture-criti
    its queue; peak RAM on the Edison set is measured in M0.
 8. **Sandboxing:** the DWG readers run with no network and a read-only filesystem, via `bwrap`
    natively in development and a locked-down sibling container in the beta; tested in M0.
-9. **The beta runs on x86 instances,** matching development and CI (amends ADR 0023's t4g).
+9. **The beta runs on x86 instances,** matching development and CI (not t4g; ADR 0034).
 10. **Staging has its own small database** (about $15 a month).
 11. **An upload Check flags Bangla text in legacy ANSI fonts** (Bijoy/SutonnyMJ).
 
@@ -34,4 +34,8 @@ path to the BOQ, Traces that cannot name one door in a block, reader upgrades th
 work, parallel tickets colliding on shared registries or migration chains, a restart stranding a
 job, a sandbox first met at beta. None adds a service.
 
-The owner's ruling (26 Sep 2026): "Agree with the bundle". Viewers and fonts: a separate ADR.
+Viewers and fonts are ADR 0022 (being amended). The table-level shape is docs/data-model.md.
+
+## History
+- 26 Sep 2026: decided as one bundle. Evidence: docs/reviews/session-01-architecture-critic.md, #1–#7
+  and #12–#16. The owner's ruling (26 Sep 2026): "Agree with the bundle".

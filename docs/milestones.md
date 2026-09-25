@@ -21,7 +21,7 @@ counts exact; each BOQ item line within its tolerance (concrete ±1 %, rod from 
 formwork ±3 %, masonry and plaster ±3 %, finishes ±5 %); each zone's ৳ total within ±2 %; rod by
 ratio not compared. The Hand Takeoff covers five zones under the same signed Rule Set, and is scored
 blind (ADR 0026). M1 needs one Held-out Set, M2 two. The M1 and M2 walks each include a timed Takeoff
-by a QS who did not build the product (ADR 0012).
+by a QS who did not build the product (ADR 0033).
 
 ## After the MVP, in order
 1. Level 3: a written explanation of each Revision Comparison (ADR 0015).

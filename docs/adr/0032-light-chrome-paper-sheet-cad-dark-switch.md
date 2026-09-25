@@ -11,4 +11,8 @@ Why: every document the product hands over (the Priced BOQ, Excel, PDF) is light
 are bright, and the MD reads and prints figures; dark-first reads as a developer tool. The old
 product's dark default was a ruling never tested on a user (docs/research/design-legacy.md §5).
 
-The owner's ruling (26 Sep 2026): "Agree".
+The design system that applies it is docs/design/system.md.
+
+## History
+- 26 Sep 2026: decided. Evidence: docs/research/design-legacy.md §5. The owner's ruling (26 Sep 2026):
+  "Agree".

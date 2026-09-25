@@ -1,59 +1,38 @@
 # The MVP's AI is Jev only; a System Two LLM joins at Level 3, beside Jev
 
-AI in Vextrus comes at three levels:
-1. **Level 1, inside the Takeoff.** Sheet classification and sheet-to-storey mapping, layer-to-member
-   mapping, reading schedules and notes, binding labels to geometry, phrasing Questions.
-2. **Level 2, an assistant over the confirmed dataset.** For example "concrete on the 3rd floor?"
-   or "what if rod rises 8%?". The AI chooses the question's meaning; code computes every number,
-   with its Trace.
-3. **Level 3, autonomous agents doing whole jobs.** For example "what changed in revision C, and
-   what does it cost?".
+AI in Vextrus comes at three levels: **Level 1** inside the Takeoff (sheet types, layer and text roles,
+label binding, phrasing Questions); **Level 2**, an assistant over the confirmed dataset ("concrete on
+the 3rd floor?", "what if rod rises 8%?"), where the AI chooses the question's meaning and code
+computes every number with its Trace; **Level 3**, autonomous agents doing whole jobs ("what changed in
+revision C, and what does it cost?"). The MVP ships Levels 1 and 2 on TypeSafe's Jev, a System One
+judgment model, with no LLM. Level 3 comes after the MVP and combines Jev with a System Two LLM
+(Claude), used only where reasoning or generation is genuinely needed.
 
-The owner's decision: the MVP ships Levels 1 and 2, built on TypeSafe's Jev, a System One judgment
-model, with no LLM. Level 3 comes in the milestone after the MVP. It combines Jev with a System Two
-LLM (Claude), so the LLM is used only where reasoning or generation is genuinely needed.
-
-Why:
-- **It gives AI the properties of code.** Jev answers closed questions (a choice among given
-  options, a score), so it cannot invent a quantity or a rate. Code owns every number.
-- **It is fast and cheap.** The Takeoff and the assistant are used heavily. An LLM behind every call
-  would turn usage into a large API bill; Jev keeps AI cost negligible per project. Vextrus Cubit's
-  measured Ask cost was under one cent.
-- **Quiet intelligence.** The product does not market "AI". Jev sits inside ordinary business-logic
-  nodes where a fixed rule would be dumb (a smarter default, a sensible match, a better ranking),
-  so users feel the product is smart. Code stays the first choice wherever the logic is obvious.
-
-Caveat, stated plainly: a closed-question model cannot invent, but it can still choose wrongly.
-Each Jev node needs its own measured accuracy on real drawings before it is trusted, and a
-low-confidence answer becomes a Question for the QS. Which nodes use Jev, code alone, or an LLM is
-settled in docs/research/jev-system-one.md. Its live tests (226 invented AEC cases, about one US
-cent in total) found:
-- **Where Jev is strong:** sheet types, layer roles, label binding and Ask routing (in English and Bangla script; Banglish what-if phrasing was its weakest area, docs/research/jev-system-one.md:152).
-- **Where it must not be used:** counting and numeric plausibility (a 150×150 column scored as
-  plausible). Those checks are code.
-- **The rule for every node:** code finds the candidates and computes every number, Jev picks one
-  with a confidence, and the QS confirms.
-- **If TypeSafe is unavailable,** the Takeoff falls back to the QS picking. It never stops.
-
-The owner also asks that Jev help the development sessions themselves, where it fits (the SDLC
-design).
-
-## Amended: every Jev node is measured on real items (owner's decision, 26 Sep 2026)
-On the real Edison set (plan review M1, docs/reviews/plan-review-ledger.md), storey ranges as Jev
-choices were right 19 / 38, section-cut letters were confused with grid labels, first bar-role and
-level-label passes were right about a third of the time until code-computed facts were added, and
-review queues reached several hundred items per drawing. So:
-1. **Code owns storey ranges, grids and detail-to-plan references.** Jev keeps sheet types, layer
-   roles, text roles, label binding and Ask routing.
-2. **Every Jev node ships with a spot check of about 30 real items,** a measured queue size and a
-   pinned model version, in one table (counts in git, labelled items in `.private/`), re-measured
-   when the model changes.
-3. **Jev is always given code-computed facts** (sizes, positions, neighbours), never raw text alone.
+**The rule for every node:** code finds the candidates and computes every number; Jev picks one with a
+confidence; the QS confirms. A low-confidence answer becomes a Question. If TypeSafe is unavailable,
+the QS picks; the Takeoff never stops.
+1. **Code owns** counting, numeric plausibility, storey ranges, grids and detail-to-plan references.
+   Jev keeps sheet types, layer roles, text roles, label binding and Ask routing.
+2. **Jev is always given code-computed facts** (sizes, positions, neighbours), never raw text alone.
+3. **Every Jev node ships with a spot check of about 30 real items,** a measured queue size and a
+   pinned model version, in one table (counts in git, labelled items in `.private/`), re-measured when
+   the model changes.
 4. **Each QS override of a Jev proposal is logged** as the node's live error rate.
 5. **A per-tenant answer cache** keyed by (facts, question, options, model) makes re-reads free and
    reproducible.
 6. **The review queue is sorted by effect on quantity or ৳;** Questions per step is a finish-line
    metric.
-7. We ask TypeSafe about concurrency limits for thousands of calls per drawing.
 
-The owner's ruling: "Agree".
+Why: a closed-question model cannot invent a quantity or a rate, so AI gets the properties of code;
+it keeps AI cost per project negligible; and it lets the product be quietly smart instead of
+marketing "AI". Code stays the first choice wherever the logic is obvious. Caveat: it can still choose
+wrongly, hence the spot checks. Evidence: docs/research/jev-system-one.md (on invented cases Ask
+routing was strong in English and Bangla script; Banglish what-if phrasing weakest, :152). Jev also
+helps development sessions where a closed question fits (docs/sdlc.md).
+
+## History
+- 25 Sep 2026 (the owner's decision): Levels 1 and 2 on Jev with no LLM; Level 3 after the MVP.
+- 26 Sep 2026 (owner's decision): every Jev node measured on real items. Evidence: plan review M1 on
+  the real Edison set (storey ranges right 19 / 38; section letters confused with grid labels; review
+  queues of several hundred items), docs/reviews/plan-review-ledger.md. The owner's ruling: "Agree".
+- Open: we ask TypeSafe about concurrency limits for thousands of calls per drawing.
