@@ -234,7 +234,8 @@ _Avoid_: level range, floor group
 **Display Units**:
 The unit system a project is billed and shown in, chosen per project by the Developer: the market's
 imperial (cft, sft, rft, bags, ton) by default, metric one switch away; switching re-bills the Priced
-BOQ rather than relabelling it. Money is always ৳ grouped in lakh and crore.
+BOQ rather than relabelling it. Money is always ৳; money and quantities group in lakh and crore,
+coordinates and dimensions never.
 _Avoid_: unit system, locale
 
 **Billing Unit**:

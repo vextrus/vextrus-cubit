@@ -45,3 +45,8 @@ Each Measurement Line is rounded to two decimals in its Billing Unit and an item
 sum; countable units (nos, bags, kg of rod) round to whole numbers and tons show three decimals (a
 Rule Set parameter); rates are held to the paisa; amount = ROUND(quantity × rate, 2); the Estimate's
 layers are computed on rounded amounts; the Material Schedule rounds up. The owner's ruling: "Agree".
+
+## Amended: quantities group in lakh too (owner's decision, 26 Sep 2026)
+Money and quantities both group in lakh and crore (`1,24,500 kg`), so a BOQ line reads one way
+across its columns. Coordinates and dimensions (drawing positions, lengths such as 14'-6") never
+group. The owner's ruling: "Lakh".
