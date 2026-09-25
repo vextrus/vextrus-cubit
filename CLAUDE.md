@@ -166,6 +166,20 @@ pypdfium2 and Typst moves re-key corpora or document bytes and are the owner's c
   `CUBIT_VERIFY_REPORT_JSON=<file> pnpm verify` ranks the unit files). `pnpm demo` answers Ask live
   when the shell holds `TYPESAFE_API_KEY` and says which model it serves.
 
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues on `vextrus/vextrus-cubit` through `gh` (public: no secrets, `.private/` or Edison content). See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five default roles, each label equal to its name (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `CONTEXT.md` at the root and ADRs in `docs/adr/`, both created lazily. See `docs/agents/domain.md`.
+
 ## Compact instructions
 When the context is compacted, the summary carries, verbatim where it can: the session's goal and
 finish line with each condition's current verdict; every commit so far (hash, one line); uncommitted
