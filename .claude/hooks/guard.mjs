@@ -88,7 +88,7 @@ const BASH_RULES = [
   },
   {
     rule: "PRIVILEGE_RAISED",
-    fires: (parts) => parts.some((part) => /^(?:[A-Z_]+=\S*\s+)*(?:sudo|su|doas|pkexec)(?:\s|$)/.test(part)),
+    fires: (parts) => parts.some((part) => /^(?:[A-Z_]+=\S*\s+)*(?:sudo|su|doas|pkexec|(?:\S*\/)?wsl(?:\.exe)?)(?:\s|$)/.test(part)),
     reason: "Agent sessions never raise privilege: Answer Keys live with another user (ADR 0026). If something needs root, say what and the owner runs it with `! <command>`.",
   },
   {
