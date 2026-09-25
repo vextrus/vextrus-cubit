@@ -32,3 +32,5 @@ and rules fitted to one office fail at the next, so prove it "on two or three re
 - 26 Sep 2026 (owner's decision): what "agree" means (tolerances, five zones, one Rule Set). Evidence:
   plan review C1 and the QS critic, docs/reviews/. The owner's ruling: "accept these tolerances and
   five zones".
+- 26 Sep 2026 (clarification): "before M1" means before M1 closes. The owner's ruling: "before M1
+  closes."
