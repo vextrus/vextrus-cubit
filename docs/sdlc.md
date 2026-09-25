@@ -36,7 +36,7 @@ cause 3).
 
 ## Rules against the Builder's failure modes
 - **The harness stays small.** Two hooks of about 200 lines together; no orchestrator, ledger, state
-  store, locked paths, held-out tests or evidence packs. A harness change needs an owner-approved
+  store, locked paths, held-out tests (Held-out Sets are drawings the owner scores, ADR 0005, not hidden tests) or evidence packs. A harness change needs an owner-approved
   issue and should remove as much as it adds.
 - **Green is not done.** CI is necessary, never sufficient; the owner's walk decides.
 - **Real drawings from M0.** Synthetic fixtures only for unit mechanics, never offered as proof.

@@ -61,6 +61,16 @@ A real Drawing Set that the Vextrus team did not draw, such as the Edison set or
 project; read locally, never committed, and never shown without its owner's permission.
 _Avoid_: real set (the Sample Project is real too), external fixture
 
+**Development Set**:
+A Drawing Set that build sessions read and fit the readers to (the Sample Project and the Edison set);
+it proves that nothing regressed, never that Vextrus reads an unseen consultant's drawings.
+_Avoid_: test set, training set, golden
+
+**Held-out Set**:
+An Independent Set from another consultant that no build session ever opens, scored only by the
+owner; the proof that Vextrus reads Dhaka drawings. One is required before M1 closes, two before M2.
+_Avoid_: blind set, validation set, holdout (one word)
+
 ### Money
 
 **Resource**:
@@ -190,4 +200,10 @@ _Avoid_: budget (budget belongs to cost control), cap
 **Hand Takeoff**:
 A team engineer's manual measurement of one typical floor of a Drawing Set, kept private and used
 only by the owner to check Vextrus's figures.
-_Avoid_: golden, answer key, ground truth
+_Avoid_: golden, ground truth
+
+**Answer Key**:
+Anything that states what the right figures for a Drawing Set are (a Hand Takeoff, a Held-out Set's
+scoring, the team's own model of the Sample Project); kept where no build session can read it and
+compared with Vextrus's figures only through a blind scorer that returns aggregates.
+_Avoid_: golden, oracle, ground truth, expected output

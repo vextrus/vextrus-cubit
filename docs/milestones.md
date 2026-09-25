@@ -1,7 +1,7 @@
 # Vextrus — the first milestones
 
 Agreed by the owner on 25 Sep 2026. Every finish line is walked by the owner and the team in the
-running product, on the Sample Project and an Independent Set (the Edison set) (ADR 0005). No dates
+running product, on the Development Sets (the Sample Project and the Edison set) and the Held-out Sets (ADR 0005). No dates
 (ADR 0019). After M2, M3–M5 run in parallel, since they touch different modules.
 
 | # | Milestone | Finish line the owner judges |
@@ -12,6 +12,13 @@ running product, on the Sample Project and an Independent Set (the Edison set) (
 | M3 | **Revisions and vector PDFs** | A revised set carries Confirmations over, and the Revision Comparison shows the ৳ effect. A vector-PDF set goes through the same Takeoff. |
 | M4 | **Rod from the drawing** | Beam rod, then slab rod, read from the drawing. The Priced BOQ shows the rising share of rod from the drawing. |
 | M5 | **Beta** | AWS Mumbai, row-level security, backups with a restore drill, and MFA. The founding Developers are onboarded "done with you" on their own Drawing Sets. |
+
+## How a finish line is measured (ADR 0005, amended 26 Sep 2026)
+"Agrees with the Hand Takeoff" means, on every Development Set and Held-out Set the milestone names:
+counts exact; each BOQ item line within its tolerance (concrete ±1 %, rod from the drawing ±3 %,
+formwork ±3 %, masonry and plaster ±3 %, finishes ±5 %); each zone's ৳ total within ±2 %; rod by
+ratio not compared. The Hand Takeoff covers five zones under the same signed Rule Set, and is scored
+blind (ADR 0026). M1 needs one Held-out Set, M2 two.
 
 ## After the MVP, in order
 1. Level 3: a written explanation of each Revision Comparison (ADR 0015).
