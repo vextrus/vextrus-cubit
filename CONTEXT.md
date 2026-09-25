@@ -166,3 +166,23 @@ _Avoid_: version, update, change order
 The element-by-element difference between the Building Model of one Revision and the next (new,
 removed, changed), with its effect on the Priced BOQ in quantities and ৳.
 _Avoid_: diff, delta report, change log
+
+**MD**:
+The Developer's managing director or director who buys Vextrus and reads the Project Summary; views
+and sets the Target Cost, does not edit the Takeoff.
+_Avoid_: owner, admin, manager
+
+**Vextrus Engineer**:
+A Vextrus team member who sits with a client's QS through their first Takeoff ("done with you").
+_Avoid_: support agent, consultant
+
+**Project Summary**:
+The MD's page for one project: total cost and cost per sft, cost by trade and by floor, what is
+confirmed and what is open, the rod from the drawing, the latest Revision Comparison, the Building
+Model in 3D, and the Target Cost warning.
+_Avoid_: dashboard, home, overview
+
+**Target Cost**:
+A figure the MD sets for a project; the Project Summary warns when the Priced BOQ crosses it, even
+while the Takeoff is still in progress.
+_Avoid_: budget (budget belongs to cost control), cap
