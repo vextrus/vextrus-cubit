@@ -135,3 +135,14 @@ The units a project shows its quantities and rates in, chosen per project by the
 market's imperial (cft, sft, rft, bags, ton) by default, metric one switch away. Money is always ৳
 grouped in lakh and crore.
 _Avoid_: unit system, locale
+
+**Measurement Rule**:
+One rule, written in words a QS reads, for turning the Building Model into a BOQ quantity (for
+example: deduct openings over 0.1 m² from brickwork); every figure's Trace names the rules that
+produced it.
+_Avoid_: quantity rule, formula, method
+
+**Rule Set**:
+The Measurement Rules a Developer measures by: a copy of the Bangladeshi default set, based on PWD
+practice, which the Developer edits to match its own habits.
+_Avoid_: standard (a Rule Set may depart from one), profile, law
