@@ -16,3 +16,8 @@ choice, not a rewrite.
 Considered: self-hosted installs at each client, as OpenConstructionERP offers. Rejected: each client
 becomes a separate upgrade and support burden, and it would put the GPL reader in software we
 distribute.
+
+## Correction (26 Sep 2026)
+A dedicated deployment in a client's cloud would convey LibreDWG, which obliges us only to ship
+LibreDWG's source and licence with it; our own code stays ours because LibreDWG runs as a separate
+program and is never linked in (docs/research/dwg-reader-options.md). The reader is ADR 0029.

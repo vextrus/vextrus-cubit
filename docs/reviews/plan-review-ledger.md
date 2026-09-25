@@ -22,18 +22,18 @@ figures are modelling effort, on one set.
 | C2 | The engine has no check stage; bulk Confirmation passes plausible systematic errors; checks must run against the source, with a coverage ledger and n / N counts | 0007, architecture | Adds | agreed: ADR 0027 (Checks at reading and at every Confirmation; Coverage from M0) |
 | C3 | Once methods are fitted to Edison and the Sample Project, neither proves reading; proof needs held-out sets from other consultants | 0004, 0005 | Challenges | agreed: ADR 0005 amended (one Held-out Set before M1, two before M2) |
 | C4 | Answer keys are protected by words; any local session can read them (and the laboratory's verified model) | 0004, 0005, sdlc | Challenges | agreed: ADR 0026 (separate user, password on sudo, blind scorer) |
-| C5 | The DWG reader was chosen before it was tested; LibreDWG 0.13.3 lost over half of one real file silently; `dwgread` is not an independent check | 0018, 0020, architecture | Challenges | evidence (reader bake-off on both sets; options research), then grill |
-| C6 | Plotted PDFs often lack text (SHX strokes, outlined TrueType), lose blocks, dimensions, arcs and handles; PDF is harder, not easier | 0014 | Challenges | evidence (PDF read of both sets), then grill |
+| C5 | The DWG reader was chosen before it was tested; LibreDWG 0.13.3 lost over half of one real file silently; `dwgread` is not an independent check | 0018, 0020, architecture | Challenges | agreed: ADR 0029 (LibreDWG 0.14 reads; ACadSharp checks every upload) |
+| C6 | Plotted PDFs often lack text (SHX strokes, outlined TrueType), lose blocks, dimensions, arcs and handles; PDF is harder, not easier | 0014 | Challenges | agreed: ADR 0014 amended (more Questions; upload report; differential test) |
 
 ## Major
 
 | Id | The review's point, in one line | ADRs | Verdict | Status |
 |---|---|---|---|---|
-| M1 | Jev's strengths were measured on invented cases; on real drawings storey ranges were 19 / 38, so ranges and grids go to code; each node needs a real-item spot check and a pinned model | 0011 | Challenges | grill |
+| M1 | Jev's strengths were measured on invented cases; on real drawings storey ranges were 19 / 38, so ranges and grids go to code; each node needs a real-item spot check and a pinned model | 0011 | Challenges | agreed: ADR 0011 amended (code for ranges and grids; per-node spot checks; override logging; answer cache) |
 | M2 | Rod from the drawing is reading plus detailing rules (laps, hooks, anchorage); add a third Rod Basis; column rod was the tractable case | 0010 | Challenges | agreed: ADR 0010 amended (three Rod Bases; ratios by Storey Band; assumed diameter split) |
 | M3 | Walls and rooms are the hardest architectural family (false walls from door leaves and furniture, hairline gaps); prove rooms enclosed | 0007, milestones | Adds | grill |
 | M4 | "The Building Model stays pure geometry" leaves junction ownership of overlapping concrete unassigned | 0009 | Adds | agreed: ADR 0009 amended (a Rule Set rule, IS 1200 / PWD default; one function for quantities and 3D; conservation Check) |
-| M5 | Revision matching by grid, storey and mark breaks on unreliable marks and the reader's own noise; identity per element family; a zero-change re-read test | 0015 | Challenges | grill |
+| M5 | Revision matching by grid, storey and mark breaks on unreliable marks and the reader's own noise; identity per element family; a zero-change re-read test | 0015 | Challenges | agreed: ADR 0015 amended (identity per family; per-sheet revisions; reader upgrades as Revisions; real revision pair for M3) |
 | M6 | Takeoff Steps miss lintels, sunk slabs, upstands, water tanks, lift pit and core, pile heads, parapets, verandah fills | 0007 | Adds | agreed: ADR 0007 amended (fourteen Takeoff Steps; Developer's Specification; MEP template) |
 | M7 | Levels by consensus erase real local levels (sunk and raised zones); storeys from level lines, a dissenting mark is a Question | prototype lessons | Challenges | agreed: ADR 0007 amended, step 3 |
 | M8 | Converting to SI on reading is too early; keep native units to assembly, round only for display | 0008 | Challenges | agreed: ADR 0008 amended (native units to assembly; money in quoted units; Billing Unit) |

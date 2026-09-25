@@ -37,3 +37,23 @@ cent in total) found:
 
 The owner also asks that Jev help the development sessions themselves, where it fits (the SDLC
 design).
+
+## Amended: every Jev node is measured on real items (owner's decision, 26 Sep 2026)
+On the real Edison set (plan review M1, docs/reviews/plan-review-ledger.md), storey ranges as Jev
+choices were right 19 / 38, section-cut letters were confused with grid labels, first bar-role and
+level-label passes were right about a third of the time until code-computed facts were added, and
+review queues reached several hundred items per drawing. So:
+1. **Code owns storey ranges, grids and detail-to-plan references.** Jev keeps sheet types, layer
+   roles, text roles, label binding and Ask routing.
+2. **Every Jev node ships with a spot check of about 30 real items,** a measured queue size and a
+   pinned model version, in one table (counts in git, labelled items in `.private/`), re-measured
+   when the model changes.
+3. **Jev is always given code-computed facts** (sizes, positions, neighbours), never raw text alone.
+4. **Each QS override of a Jev proposal is logged** as the node's live error rate.
+5. **A per-tenant answer cache** keyed by (facts, question, options, model) makes re-reads free and
+   reproducible.
+6. **The review queue is sorted by effect on quantity or ৳;** Questions per step is a finish-line
+   metric.
+7. We ask TypeSafe about concurrency limits for thousands of calls per drawing.
+
+The owner's ruling: "Agree".
