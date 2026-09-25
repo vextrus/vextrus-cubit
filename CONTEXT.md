@@ -79,8 +79,9 @@ a BOQ item consumes, with a unit and a Market Price.
 _Avoid_: input, component, cost element
 
 **Market Price**:
-The Developer's current price for one unit of a Resource; the one place a price is changed so every
-rate and amount follows.
+The Developer's price for one unit of a Resource on a date, kept in dated sets; the one place a price
+is changed so every working rate and amount follows, while Issued Estimates keep the set they were
+issued on.
 _Avoid_: resource rate, unit cost (ambiguous with an item's rate)
 
 **Rate Analysis**:
@@ -98,10 +99,22 @@ The exception: a trade given out with its materials, priced as one rate per unit
 not enter the Developer's Material Schedule.
 _Avoid_: turnkey, subcontract (alone)
 
+**Cost Basis**:
+Whether a trade's money in the Priced BOQ is "measured" (from confirmed elements) or an "allowance"
+(৳ per sft of floor area, for a trade not yet measured, clearly marked); the measured share rises as
+the Takeoff proceeds.
+_Avoid_: provisional sum (a PWD term for a different thing), estimate, placeholder
+
 **Benchmark Rate**:
-The PWD Schedule of Rates rate for an item, shown beside the working rate for comparison; never the
-rate the Priced BOQ is totalled on.
+The PWD Schedule of Rates rate for an item, shown beside the working rate as printed and net of PWD's
+mark-ups (profit, overhead, VAT) so it compares like with like; never the rate the Priced BOQ is
+totalled on.
 _Avoid_: SoR rate (as if it were the working rate), standard rate
+
+**Estimate**:
+The total cost of a building: the Priced BOQ's direct cost plus preliminaries and site overheads,
+contingency and taxes, each layer shown and editable by the Developer.
+_Avoid_: budget, quotation, bid
 
 ### Takeoff
 
@@ -200,9 +213,16 @@ the latest Revision is the instruction.
 _Avoid_: version, update, change order
 
 **Revision Comparison**:
-The element-by-element difference between the Building Model of one Revision and the next (new,
-removed, changed), with its effect on the Priced BOQ in quantities and ৳.
+The element-by-element difference between the Building Model of one Revision and a baseline the MD
+picks (the previous Revision or an Issued Estimate): new, removed and changed elements, with their
+effect on the Priced BOQ split into quantity effect and price effect, in quantities and ৳.
 _Avoid_: diff, delta report, change log
+
+**Issued Estimate**:
+A frozen snapshot of the Estimate (the Priced BOQ, the Material Schedule, the Market Price set, the
+Rule Set version and the Building Model's state) with an issue number and date; the figure the MD
+takes to the board, which later changes are compared against.
+_Avoid_: version, baseline (alone), final estimate
 
 **MD**:
 The Developer's managing director or director who buys Vextrus and reads the Project Summary; views

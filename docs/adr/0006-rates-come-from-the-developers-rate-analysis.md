@@ -15,3 +15,18 @@ Considered: PWD SoR item rates as the working rate (rejected: Developers use the
 reference) and the Developer's rates alone (rejected: a benchmark is how an MD checks a figure).
 The three-layer idea (item → resources → prices) was learnt from OpenConstructionERP and is
 re-expressed in our own design; its CWICR data has no Bangladesh base and is non-commercial.
+
+## Amended: the build-up above direct cost, and a like-for-like Benchmark (owner's decision, 26 Sep 2026)
+The QS critic (#1, docs/reviews/session-01-qs-critic.md) found the price stopped at direct cost. The
+QS-defaults research (docs/research/qs-defaults.md) measured the Benchmark's gap: PWD rates carry 10 %
+profit, 3.5 % overhead and 10 % VAT, so a printed rate is about 1.261 × direct cost, and PWD's own
+"22.703 % extra" matches (1.135) ÷ (1 − VAT). So:
+- **The Estimate is an ordered build-up the Developer edits:** direct cost (the items) + preliminaries
+  and site overheads (as items or a % of direct cost) + contingency % + taxes (VAT and AIT, dated rates
+  held as data). The Priced BOQ shows each layer; cost per sft is quoted on the Estimate, with direct
+  cost beside it.
+- **The Benchmark Rate is shown as printed and net of PWD's mark-ups,** so an MD compares like with
+  like. The mark-up figures are data with their SoR edition and date.
+- No profit layer: the Developer does not bill itself.
+
+The owner's ruling: "Agree".
