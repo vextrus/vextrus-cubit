@@ -28,9 +28,15 @@ _Avoid_: estimate (use it only for the total cost figure), register, bill
 
 **Material Schedule**:
 The quantities of basic materials (cement, sand, stone chips, rod by diameter, bricks and the like)
-the building needs, broken down by floor and by construction stage, derived from the same takeoff
+the building needs, broken down by floor and by Construction Stage, derived from the same takeoff
 as the Priced BOQ.
 _Avoid_: material list, BOM
+
+**Construction Stage**:
+One step in the fixed order a Dhaka building is built and paid for (piling; substructure; each floor's
+slab casting; masonry; finishes; services; external works); the Material Schedule and the ৳ by stage
+are broken down by it. It is a sequence, not a date.
+_Avoid_: phase, milestone (a milestone is ours), activity, schedule
 
 **Building Model**:
 The 3D model of the building assembled from the QS-confirmed takeoff; the project dataset that the
@@ -90,8 +96,9 @@ gives the item's working rate and, summed over the building, the Material Schedu
 _Avoid_: recipe, build-up, analysis (alone)
 
 **Labour Contract**:
-The Developer's agreement with a labour-only contractor for a trade, priced per unit of work (per cft
-of RCC, per sft of plaster); the usual way labour enters a Rate Analysis.
+The Developer's agreement with a labour-only contractor, priced per unit of its own scope (per cft of
+RCC, per sft of plaster, or per sft of casting area covering rod binding, shuttering and casting
+together); it is its own line in the Priced BOQ, and each item it covers takes no other labour.
 _Avoid_: subcontract (that implies material and labour together)
 
 **Material-and-Labour Contract**:
@@ -238,6 +245,16 @@ The MD's page for one project: total cost and cost per sft, cost by trade and by
 confirmed and what is open, the rod from the drawing, the latest Revision Comparison, the Building
 Model in 3D, and the Target Cost warning.
 _Avoid_: dashboard, home, overview
+
+**Gross Floor Area**:
+The area of every floor of a building, basement and parking included, measured to the outside of the
+walls from the confirmed Building Model; what Vextrus's price and the consumption checks are per sft of.
+_Avoid_: GFA (in screens), built-up area, plinth area
+
+**Saleable Area**:
+The area the Developer sells, apartments plus their loaded share of common areas as the Developer
+counts it; entered or confirmed by the QS.
+_Avoid_: carpet area, net area, sellable area
 
 **Target Cost**:
 A figure the MD sets for a project; the Project Summary warns when the Priced BOQ crosses it, even

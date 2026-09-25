@@ -30,3 +30,12 @@ profit, 3.5 % overhead and 10 % VAT, so a printed rate is about 1.261 × direct 
 - No profit layer: the Developer does not bill itself.
 
 The owner's ruling: "Agree".
+
+## Amended: Labour Contracts with their own unit and scope (owner's decision, 26 Sep 2026)
+Dhaka structural labour is often let per sft of floor or casting area, covering rod binding,
+shuttering and casting together, and finishing labour per sft of floor (QS critic #2). So a Labour
+Contract has its own unit and scope; its quantity comes from a Measurement Rule (for example casting
+area per slab) and it is its own line in the Priced BOQ. Every item it covers is marked covered, and
+its Rate Analysis then carries no labour. A Check (ADR 0027) makes each item's labour come from exactly
+one source, its own labour line or one Labour Contract, so nothing is paid twice or left unpriced. For
+the Benchmark comparison a covered item's rate shows its allocated share. The owner's ruling: "Agree".

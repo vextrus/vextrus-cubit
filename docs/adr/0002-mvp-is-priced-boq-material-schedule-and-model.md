@@ -23,3 +23,13 @@ a BOQ still being measured warns only at the end. So:
 - **Piles and pile caps move into M1**; mat foundations and derived earthwork stay in M2.
 
 The owner's ruling: "Agree".
+
+## Amended: "when" is a Construction Stage, not a date (owner's decision, 26 Sep 2026)
+The MVP has no schedule, and buyers' instalments in Dhaka follow slab castings (QS critic #11). So the
+Material Schedule's "when" is a Construction Stage in a fixed sequence the Developer may rename but
+not reorder in the MVP: piling; substructure (caps, grade beams, basement); the frame floor by floor,
+one stage per slab casting; masonry; finishes; services; external works. Materials run down the side,
+stages and floors across the top; rod splits by diameter from the drawing and by an "assumed" split
+by ratio. Each Resource carries an editable procurement lead time, so the schedule says what to order
+before each stage. The Project Summary shows ৳ by stage. Real dates wait for 4D after the MVP. The
+owner's ruling: "Agree".
