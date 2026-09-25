@@ -29,6 +29,11 @@
             "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/state.mjs",
             "timeout": 20
+          },
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR\"/scripts/cloud/session-start.sh",
+            "timeout": 120
           }
         ]
       }

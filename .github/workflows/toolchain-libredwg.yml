@@ -1,0 +1,47 @@
+# Builds LibreDWG (ADR 0029) once and publishes it as a release asset that CI and cloud sessions
+# download, so no session spends minutes compiling it. The version is pinned in
+# toolchain/libredwg.version: changing it is a reader upgrade (ADR 0015) and must pass the
+# real-drawing check (ADR 0030) before merge.
+name: toolchain-libredwg
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['toolchain/libredwg.version', '.github/workflows/toolchain-libredwg.yml']
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build static LibreDWG
+        run: |
+          V=$(tr -d '[:space:]' < toolchain/libredwg.version)
+          echo "V=$V" >> "$GITHUB_ENV"
+          curl -fsSLO "https://ftp.gnu.org/gnu/libredwg/libredwg-$V.tar.xz"
+          curl -fsSLO "https://ftp.gnu.org/gnu/libredwg/libredwg-$V.tar.xz.sig"
+          curl -fsSL https://ftp.gnu.org/gnu/gnu-keyring.gpg -o gnu-keyring.gpg
+          gpg --no-default-keyring --keyring ./gnu-keyring.gpg --verify "libredwg-$V.tar.xz.sig" "libredwg-$V.tar.xz"
+          sha256sum "libredwg-$V.tar.xz"
+          tar -xJf "libredwg-$V.tar.xz"
+          cd "libredwg-$V"
+          ./configure --prefix=/opt/libredwg --disable-shared --disable-bindings --disable-docs
+          make -j"$(nproc)"
+          sudo make install
+      - name: Check the tools we use exist and report their version
+        run: |
+          /opt/libredwg/bin/dwg2dxf --version
+          /opt/libredwg/bin/dwgread --version
+      - name: Publish as a release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ASSET="libredwg-$V-ubuntu24.04-x86_64.tar.gz"
+          tar -C / -czf "$ASSET" opt/libredwg
+          sha256sum "$ASSET" > "$ASSET.sha256"
+          gh release view "toolchain-libredwg-$V" >/dev/null 2>&1 \
+            || gh release create "toolchain-libredwg-$V" --prerelease \
+                 --title "Toolchain: LibreDWG $V" --notes "Static build for CI and cloud sessions (ADR 0029)."
+          gh release upload "toolchain-libredwg-$V" "$ASSET" "$ASSET.sha256" --clobber
