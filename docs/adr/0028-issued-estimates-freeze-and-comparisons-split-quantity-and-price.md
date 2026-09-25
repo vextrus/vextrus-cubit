@@ -18,3 +18,8 @@ Considered: one live estimate with an audit log. Rejected: the MD needs a figure
 and a log does not say what the change was due to.
 
 The owner's ruling (26 Sep 2026): "Agree". Amends ADRs 0006 and 0015.
+
+## Amended: sets are copied on issue, not on every edit (owner's decision, 26 Sep 2026)
+Edits go into the current working Market Price set; a new set is copied only when an Issued Estimate
+freezes the current one. Each price keeps its last-changed date. What this ADR protects (the issued
+figure, and the price effect of every later change) is unchanged. The owner's ruling: "Agree".

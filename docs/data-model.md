@@ -611,6 +611,8 @@ prices them.
    countable units (nos, bags, kg of rod) to whole numbers, tons to 3 dp (a Rule Set parameter); rates
    to the paisa; amount = ROUND(qty × rate, 2); the Estimate's layers on the rounded amounts; the
    Material Schedule rounds up. "Agree".
+5. **Market Price sets:** edits go into the current working set; a new set is copied only when an
+   Issued Estimate freezes the current one; each price keeps its last-changed date. "Agree".
 
 ## 7. Deliberately left out of the MVP
 - **Answer Keys and Hand Takeoffs** never enter the product database (ADR 0026).
