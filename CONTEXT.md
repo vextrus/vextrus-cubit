@@ -92,3 +92,40 @@ _Avoid_: turnkey, subcontract (alone)
 The PWD Schedule of Rates rate for an item, shown beside the working rate for comparison; never the
 rate the Priced BOQ is totalled on.
 _Avoid_: SoR rate (as if it were the working rate), standard rate
+
+### Takeoff
+
+**Takeoff**:
+The QS's work of turning a Drawing Set into the confirmed Building Model, one Takeoff Step at a time,
+with the machine proposing and the QS confirming.
+_Avoid_: extraction, reading, campaign, measurement run
+
+**Takeoff Step**:
+One element type in the building-first order (storeys and heights, grid, foundations, columns, beams,
+slabs, stairs, walls and openings, finishes); it draws on every sheet that carries that element type.
+_Avoid_: stage, phase, lane, class
+
+**Proposal**:
+What the machine has read or inferred for an element or a fact, shown with its Trace, waiting for the
+QS; it counts toward nothing until confirmed.
+_Avoid_: suggestion, candidate, detection, draft
+
+**Confirmation**:
+The QS's acceptance of Proposals, made in bulk for the ones that agree and one by one for the
+exceptions; only confirmed elements enter the Building Model and the Priced BOQ.
+_Avoid_: approval, sign-off, commit, act
+
+**Question**:
+A fact the machine could not read or found in conflict, asked of the QS at the point of need and
+answered once for every element it unblocks.
+_Avoid_: refusal, blocker, gap, decision
+
+**Trace**:
+The link from any figure back to where on which sheet it was read, or to the Question that supplied
+it.
+_Avoid_: provenance, source, lineage
+
+**Storey Band**:
+The range of storeys over which an element keeps one size or specification, as a column schedule
+gives it; a column's size is known per Storey Band, not once.
+_Avoid_: level range, floor group
