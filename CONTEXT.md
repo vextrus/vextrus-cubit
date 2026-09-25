@@ -60,3 +60,35 @@ _Avoid_: demo project, fixture, golden, synthetic set (it is drafted by engineer
 A real Drawing Set that the Vextrus team did not draw, such as the Edison set or a client Developer's
 project; read locally, never committed, and never shown without its owner's permission.
 _Avoid_: real set (the Sample Project is real too), external fixture
+
+### Money
+
+**Resource**:
+A material (cement, rod, sand, stone chips, bricks), a labour contract item or a piece of plant that
+a BOQ item consumes, with a unit and a Market Price.
+_Avoid_: input, component, cost element
+
+**Market Price**:
+The Developer's current price for one unit of a Resource; the one place a price is changed so every
+rate and amount follows.
+_Avoid_: resource rate, unit cost (ambiguous with an item's rate)
+
+**Rate Analysis**:
+The breakdown of one BOQ item into the Resources it consumes per unit, which priced at Market Prices
+gives the item's working rate and, summed over the building, the Material Schedule.
+_Avoid_: recipe, build-up, analysis (alone)
+
+**Labour Contract**:
+The Developer's agreement with a labour-only contractor for a trade, priced per unit of work (per cft
+of RCC, per sft of plaster); the usual way labour enters a Rate Analysis.
+_Avoid_: subcontract (that implies material and labour together)
+
+**Material-and-Labour Contract**:
+The exception: a trade given out with its materials, priced as one rate per unit; its materials do
+not enter the Developer's Material Schedule.
+_Avoid_: turnkey, subcontract (alone)
+
+**Benchmark Rate**:
+The PWD Schedule of Rates rate for an item, shown beside the working rate for comparison; never the
+rate the Priced BOQ is totalled on.
+_Avoid_: SoR rate (as if it were the working rate), standard rate
