@@ -597,6 +597,17 @@ prices them.
    set on every edit). Recommendation: yes. It keeps what ADR 0028 protects without dozens of sets a
    week.
 
+### The owner's rulings on §6 (26 Sep 2026)
+1. **While a Revision awaits the QS:** changed and removed elements keep their last confirmed figure,
+   flagged "changed in rev B, awaiting Confirmation" in the grid, the Project Summary and exports; new
+   elements count for nothing until confirmed. "Agree".
+2. **Allowance to measured:** a Trade keeps its allowance until every Takeoff Step feeding it is
+   confirmed, with "measured so far: ৳X of an allowance of ৳Y" beside it; Vextrus proposes the switch
+   and the QS may switch earlier (recorded). "Agree".
+3. **Labour Contracts** belong to the Developer, with a per-project override of rate or scope; for
+   the Benchmark, a contract's ৳ is shared across its covered items in proportion to the labour their
+   own Rate Analyses would have carried at Market Prices. "Agree".
+
 ## 7. Deliberately left out of the MVP
 - **Answer Keys and Hand Takeoffs** never enter the product database (ADR 0026).
 - **One building, one Drawing Set per project.** Multi-building projects wait.

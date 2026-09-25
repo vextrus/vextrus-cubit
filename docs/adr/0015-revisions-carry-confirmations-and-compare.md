@@ -33,3 +33,6 @@ hold Confirmations (plan review M5; architecture critic #3, #5; refuter #4; docs
 - Baselines and the quantity / price split: ADR 0028.
 
 The owner's ruling: "Agree, yes" (the owner will obtain a real revision pair).
+- **While a Revision awaits the QS** (owner's ruling, 26 Sep 2026: "Agree"): changed and removed
+  elements keep their last confirmed figure, flagged "changed in rev B, awaiting Confirmation"
+  wherever it appears; new elements count for nothing until confirmed.
