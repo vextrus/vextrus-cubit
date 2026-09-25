@@ -111,9 +111,17 @@ with the machine proposing and the QS confirming.
 _Avoid_: extraction, reading, campaign, measurement run
 
 **Takeoff Step**:
-One element type in the building-first order (storeys and heights, grid, foundations, columns, beams,
-slabs, stairs, walls and openings, finishes); it draws on every sheet that carries that element type.
+One element family in the building-first order (sheets; general notes and specification; storeys and
+levels; grid; foundations and substructure; columns, shear walls and core; beams; slabs and slab-edge
+members; stairs; tanks; walls and openings; rooms and finishes; roof; site works and MEP); it draws on
+every sheet that carries that family.
 _Avoid_: stage, phase, lane, class
+
+**Developer's Specification**:
+The Developer's standard choice of finishes, fittings, doors and windows by room type (bed, toilet,
+kitchen, lobby, stair, parking), the same list its sales brochure promises; applied to confirmed
+rooms, since consultant drawings rarely state it.
+_Avoid_: spec sheet, features list, finish schedule
 
 **Proposal**:
 What the machine has read or inferred for an element or a fact, shown with its Trace, waiting for the
@@ -130,6 +138,16 @@ A fact the machine could not read or found in conflict, asked of the QS at the p
 answered once for every element it unblocks.
 _Avoid_: refusal, blocker, gap, decision
 
+**Check**:
+A comparison of what was read or confirmed with the source drawings (a schedule against its plan, a
+section against its span, a room against its walls); when it fires, it raises a Question.
+_Avoid_: validation, gate, test, rule (a rule is a Measurement Rule)
+
+**Coverage**:
+The account of every view on every sheet of a Drawing Set: used by a Takeoff Step, or excluded with a
+reason; nothing is silently unread.
+_Avoid_: completeness, progress
+
 **Trace**:
 The link from any figure back to where on which sheet it was read, or to the Question that supplied
 it.
@@ -141,10 +159,16 @@ gives it; a column's size is known per Storey Band, not once.
 _Avoid_: level range, floor group
 
 **Display Units**:
-The units a project shows its quantities and rates in, chosen per project by the Developer: the
-market's imperial (cft, sft, rft, bags, ton) by default, metric one switch away. Money is always ৳
-grouped in lakh and crore.
+The unit system a project is billed and shown in, chosen per project by the Developer: the market's
+imperial (cft, sft, rft, bags, ton) by default, metric one switch away; switching re-bills the Priced
+BOQ rather than relabelling it. Money is always ৳ grouped in lakh and crore.
 _Avoid_: unit system, locale
+
+**Billing Unit**:
+The unit one BOQ item is measured and priced in (cft for RCC and 10" brickwork, sft for 5" brickwork
+and plaster, nos for bricks), set by the Rule Set; the item's quantity is rounded in it, and quantity ×
+rate = amount exactly.
+_Avoid_: UoM, display unit
 
 **Measurement Rule**:
 One rule, written in words a QS reads, for turning the Building Model into a BOQ quantity (for
@@ -158,13 +182,16 @@ practice, which the Developer edits to match its own habits.
 _Avoid_: standard (a Rule Set may depart from one), profile, law
 
 **Rod Ratio**:
-The kg of rod per unit volume of concrete for an element type, set from Vextrus's defaults or by the
-Developer's QS, used to give an element rod before its reinforcement is read from the drawings.
+The kg of rod per unit volume of concrete for an element type, by Storey Band where the QS sets it,
+from Vextrus's defaults or the Developer's QS; it gives an element rod (with an assumed diameter
+split) before its reinforcement is read from the drawings.
 _Avoid_: steel factor, thumb rule
 
 **Rod Basis**:
-Whether an element's rod is "by ratio" (from a Rod Ratio) or "from the drawing" (read from its
-reinforcement detailing into a bar-bending schedule); every rod figure shows its basis.
+How an element's rod was found, shown on every rod figure: "by ratio" (from a Rod Ratio), "from the
+drawing" (every bar, lap and hook stated on the drawing) or "from the drawing + rules" (bars read,
+with laps, hooks, anchorage, cutting and wastage supplied by Measurement Rules where the drawing is
+silent).
 _Avoid_: rebar mode, estimate type
 
 **Revision**:

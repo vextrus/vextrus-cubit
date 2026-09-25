@@ -16,3 +16,14 @@ quickly. Developers' habits differ, and the Rule Set is where that difference be
 We rejected rules hard-coded to one standard (PWD or IS 1200) and rules hard-coded to "Dhaka
 practice": both are invisible and unarguable. OpenConstructionERP holds quantity maps as data but
 applies no measurement standard (docs/research/oce-algorithms.md); this is where we go further.
+
+## Amended: junction ownership is a Measurement Rule (owner's decision, 26 Sep 2026)
+"The Building Model stays pure geometry" left unsaid who owns concrete where members overlap (tie
+beams through caps, beams into columns, slabs over beams, lintels in wall lines). The plan review (M4)
+proposed a fixed engine order; the QS and architecture critics (docs/reviews/) disputed it, because
+IS 1200 practice runs the slab over beams and columns, stops columns at the slab soffit and runs beams
+between column faces below it, and because the split between items changes the money. So junction
+ownership is a Measurement Rule in the Rule Set, defaulting to IS 1200 / PWD practice, with masonry
+deducting the concrete embedded in it. One function applies it for both the quantities and the 3D
+geometry, so the picture and the figures cannot disagree. A Check (ADR 0027) proves the owned volumes
+sum exactly to the union of the concrete. The owner's ruling: "yes, agree on junction ownership".

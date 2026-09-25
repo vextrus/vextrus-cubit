@@ -20,3 +20,22 @@ Considered options:
 
 Ratios are how Dhaka engineers make early estimates, and marking the basis keeps the product honest
 with the MD.
+
+## Amended: three Rod Bases, ratios by Storey Band (owner's decision, 26 Sep 2026)
+The plan review (M2) and the QS critic (#8, #9; docs/reviews/) found that rod "from the drawing" is
+bars read plus detailing rules (drawings often leave laps, hooks and anchorage to a general note), that
+a net schedule understates without laps, hooks, stock-length cutting and wastage, and that a ratio
+cannot give the diameters the Material Schedule promises. So:
+- **Three Rod Bases,** shown on every rod figure: *by ratio*; *from the drawing* (every bar, lap and
+  hook stated on the drawing); *from the drawing + rules* (bars read; laps, hooks, anchorage,
+  stock-length cutting and wastage supplied by Measurement Rules where the drawing is silent, each
+  assumed length traced to its rule).
+- **Rod Ratios vary by element type × Storey Band:** one default per element type, overridable per
+  band by the QS.
+- **Ratio rod enters the Material Schedule with a diameter split marked "assumed"**, from a default
+  split per element type.
+- **Where a plan and a section disagree,** a precedence rule is confirmed once per consultant.
+- **Rod from the drawing is accepted by two Checks** (ADR 0027): every bar inside its concrete, and
+  schedule totals that sum back.
+
+The owner's ruling: "Agree".

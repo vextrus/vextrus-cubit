@@ -33,7 +33,7 @@ The question and the recommended pipeline come from `2d-to-bim-approaches.md`.
 
 ## What rules read reliably
 Grid axes and bubbles; column outlines placed on the grid with mark and size; schedule cells; beams
-bound to their labels; storey levels as a consensus of repeated level marks (one mark was mistyped);
+bound to their labels; storey levels as a consensus of repeated level marks (one mark was mistyped; but see the correction below);
 registering one sheet onto another through a shared grid intersection.
 
 ## Facts the domain forces
@@ -60,3 +60,8 @@ or `get_volume` returns garbage; `api.run` is gone, so call `ifcopenshell.api.<m
 Go on LibreDWG ≥ 0.14 → ezdxf → IfcOpenShell, with repair and verification. The hard parts are sheet
 segmentation, binding labels to geometry and wall recall, not the libraries. The confirmation
 experience is the core of the product.
+
+## Correction (session 01, 26 Sep 2026)
+Levels by consensus can erase real local levels. The plan review (M7, docs/reviews/plan-review-ledger.md)
+reports that marks disagreeing with the level ladder were sunk and raised zones, not typos. Storeys come
+from drawn level lines; a dissenting mark is a candidate local level and a Question (ADR 0007, step 3).
