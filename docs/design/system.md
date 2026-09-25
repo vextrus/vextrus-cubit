@@ -2,6 +2,9 @@
 
 > **Accepted by the owner, 26 Sep 2026** ("accept"), after judging the specimen, the Takeoff frame
 > and the Project Summary in the browser. The five key screens are prototyped on it next.
+> Owner's rulings since: quantities group in lakh like money (ADR 0008), only coordinates and
+> dimensions never group. "Canvas ≥ 70 %" is measured by width with the inspector open (≥ 90 %
+> with it collapsed).
 
 Draft of 26 Sep 2026, for the owner's judgement in the browser. The tokens are one CSS file,
 `.private/work/session-01/design/src/tokens.css` (to be copied into the product's `src/ui/`). The
