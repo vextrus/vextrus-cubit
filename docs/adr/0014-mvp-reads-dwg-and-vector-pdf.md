@@ -33,7 +33,7 @@ the DWG. So:
    substituted fonts; rotated and mirrored text; images, telling a scan from a gradient fill. Without
    the SHX comments, Vextrus says the text cannot be read reliably and asks for the DWG or a re-plot
    with the option on, giving the exact AutoCAD setting.
-3. **M3's PDF finish line is a differential test:** the same set as DWG and as PDF through the same
+3. **M4's PDF finish line (Revisions and vector PDFs) is a differential test:** the same set as DWG and as PDF through the same
    steps, with a loss table per step (recovered, and the extra Questions raised).
 4. **The readers are pdfplumber / pdfminer.six and pypdfium2** (permissive; about 0.1 s a page).
 

@@ -28,7 +28,7 @@ hold Confirmations (plan review M5; architecture critic #3, #5; refuter #4; docs
   the sheets it reissues.
 - **A reader upgrade runs through the same matching from M1,** so Confirmations carry over.
 - **The first test:** re-reading the same revision gives zero changes.
-- **A real revision pair is an explicit dependency of M3,** from a founding client or Edison; M3 does
+- **A real revision pair is an explicit dependency of M4 (Revisions and vector PDFs),** from a founding client or Edison; M4 does
   not pass on a revision the team drew.
 - Baselines and the quantity / price split: ADR 0028.
 

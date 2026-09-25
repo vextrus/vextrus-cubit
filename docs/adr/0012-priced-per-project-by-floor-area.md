@@ -30,3 +30,9 @@ result).
   1. permission to use their Drawing Sets, locally, as Independent Sets (ADR 0005);
   2. a feedback session after each Takeoff;
   3. a reference if they are satisfied.
+
+## Amended: the QS's time is measured (owner's decision, 26 Sep 2026)
+The price and "delivered in days" were unmeasured (plan review M13). Vextrus records time per Takeoff
+Step and Confirmations and Questions per step, as telemetry for the owner, never shown to the client.
+The M1 and M2 walks each include a timed Takeoff by a QS who did not build the product. The list price
+of ৳4/sft stands; the owner may revisit it with the timings after M2. The owner's ruling: "Agree".

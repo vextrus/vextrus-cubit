@@ -31,7 +31,7 @@ figures are modelling effort, on one set.
 |---|---|---|---|---|
 | M1 | Jev's strengths were measured on invented cases; on real drawings storey ranges were 19 / 38, so ranges and grids go to code; each node needs a real-item spot check and a pinned model | 0011 | Challenges | agreed: ADR 0011 amended (code for ranges and grids; per-node spot checks; override logging; answer cache) |
 | M2 | Rod from the drawing is reading plus detailing rules (laps, hooks, anchorage); add a third Rod Basis; column rod was the tractable case | 0010 | Challenges | agreed: ADR 0010 amended (three Rod Bases; ratios by Storey Band; assumed diameter split) |
-| M3 | Walls and rooms are the hardest architectural family (false walls from door leaves and furniture, hairline gaps); prove rooms enclosed | 0007, milestones | Adds | grill |
+| M3 | Walls and rooms are the hardest architectural family (false walls from door leaves and furniture, hairline gaps); prove rooms enclosed | 0007, milestones | Adds | folded: ADR 0007 step 11 and ADR 0027 (room-enclosed Check; walls after the structure); detail in the M2 spec |
 | M4 | "The Building Model stays pure geometry" leaves junction ownership of overlapping concrete unassigned | 0009 | Adds | agreed: ADR 0009 amended (a Rule Set rule, IS 1200 / PWD default; one function for quantities and 3D; conservation Check) |
 | M5 | Revision matching by grid, storey and mark breaks on unreliable marks and the reader's own noise; identity per element family; a zero-change re-read test | 0015 | Challenges | agreed: ADR 0015 amended (identity per family; per-sheet revisions; reader upgrades as Revisions; real revision pair for M3) |
 | M6 | Takeoff Steps miss lintels, sunk slabs, upstands, water tanks, lift pit and core, pile heads, parapets, verandah fills | 0007 | Adds | agreed: ADR 0007 amended (fourteen Takeoff Steps; Developer's Specification; MEP template) |
@@ -41,7 +41,7 @@ figures are modelling effort, on one set.
 | M10 | dxf-viewer re-interprets the drawing with a second engine; render the engine's own buffers so the QS sees what was read | 0022 | Challenges | evidence (2D viewer measurement), then grill |
 | M11 | "Only the owner merges" is unenforceable: branch protection on a private Free repo returns 403 (confirmed 26 Sep); the owner should review evidence, not diffs | 0025, sdlc | Challenges | agreed: ADR 0025 amended (GitHub Pro ruleset; guard refuses agent merges; owner reviews evidence) |
 | M12 | No real-drawing regression when a `cloud` PR touches engine code; no lessons file; semantic collisions between parallel tickets | 0019, 0025, sdlc | Challenges | agreed: ADR 0030 (by path; run as the key user; aggregates and changed attributes; lessons file) |
-| M13 | Price and "delivered in days" are unmeasured; time the QS per step in the walks | 0012 | Adds | grill (measurement only; the business is settled) |
+| M13 | Price and "delivered in days" are unmeasured; time the QS per step in the walks | 0012 | Adds | agreed: ADR 0012 amended (time per step recorded; timed Takeoff in M1 and M2 walks; price stands) |
 
 ## Minor
 
@@ -49,11 +49,11 @@ figures are modelling effort, on one set.
 |---|---|---|---|
 | Marks and titles are unreliable keys; sheet → storey confirmed by outline as well as title | 0007 | Adds | fold into C2 / M5 |
 | Scale per view, not per sheet; read only text from not-to-scale views | architecture | Adds | fold into the engine ADR |
-| M3–M5 "in parallel" collide: M3 and M4 both change `engine` reading | milestones, 0019 | Challenges | grill (milestone order) |
+| M3–M5 "in parallel" collide: M3 and M4 both change `engine` reading | milestones, 0019 | Challenges | agreed: rod (now M3) before revisions and PDFs (now M4), in sequence; RLS from M0 (ADR 0021); M5 operations beside them |
 | An implicit date in the session-01 brief | 0019 | — | fix: already gone from the rewritten brief (checked 26 Sep) |
 | Stale research: `stack-frontend.md` names FastAPI and a committed `api-types.ts`; `stack-deploy.md` says CI is free "for this public repo" | 0022, 0024 | Fix | fix (confirmed by grep, 26 Sep) |
 | `triangle` wraps Shewchuk's Triangle (non-commercial terms); a dedicated deployment hands over GPL LibreDWG and IfcOpenShell's libraries | 0018 | Adds | fix: licence checks in the engine ADR |
-| A per-tenant Jev answer cache keyed by (state, question, options, model); ask TypeSafe about concurrency limits | 0011 | Adds | grill with M1 |
+| A per-tenant Jev answer cache keyed by (state, question, options, model); ask TypeSafe about concurrency limits | 0011 | Adds | agreed: ADR 0011 amended |
 | An IFC validation gate | 0021, 0022 | Adds | fold into the engine ADR |
 | The image will exceed free private registry storage | 0023 | Adds | fix (a cost line in `stack-deploy.md`) |
 | One term for the owner-held truth | CONTEXT | Adds | fix with C4 |

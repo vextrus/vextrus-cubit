@@ -22,3 +22,10 @@ Rejected:
 - **A columnar copy (Parquet + DuckDB).** It returns only if a slow query is measured.
 
 Every later addition needs a measured trigger. Details: docs/research/stack-data.md.
+
+## Amended: row-level security from M0 (26 Sep 2026)
+M5's row-level security would have added a policy and a migration to every module while M3 and M4
+worked in them (refuter #6, architecture critic #11, docs/reviews/). So from M0 the app connects as a
+non-owner role, every tenant table has a policy in its first migration, and a CI test checks every
+table has one. The beta only hardens. Recommended with the milestone order the owner ruled on
+("M4 first"); it stands unless the owner rules otherwise.
