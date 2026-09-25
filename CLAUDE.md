@@ -28,7 +28,8 @@ civil engineer and the CEO and co-founder. The previous product (Vextrus Cubit) 
 - **Plain words.** Say what you did, what you found and what you need, briefly.
 - **Keep the context for the owner.** Fan read-heavy work out to background agents, one question
   each, each returning a cited file.
-- **Effort:** `medium` by default. Suggest `/effort high` for genuinely hard decisions, then drop back.
+- **Effort:** `high` by default (the owner's ruling, 26 Sep 2026: the project is complex). Small,
+  fully specified cloud tickets may run at `medium` to stretch the cloud credit; each ticket says so.
 - **A mistake made twice goes into this file.**
 
 ## Law
