@@ -1,4 +1,4 @@
-# Vextrus — intent (draft, growing through session 10's grilling)
+# Vextrus — intent
 
 The first of the playbook's documents (intent → spec → plan). It says what we are building and why,
 in the owner's terms. Decisions live in `docs/adr/`, terms in `CONTEXT.md`.
@@ -27,6 +27,23 @@ OpenConstructionERP never attempts it (docs/research/oce-algorithms.md).
   - SI inside, the market's imperial units on screen (ADR 0008).
 - **Proof:** every milestone passes on the Sample Project and on an Independent Set (ADRs 0004, 0005).
 - **AI:** Levels 1 and 2 on Jev (ADR 0011).
+
+## How we beat OpenConstructionERP
+It is broad (194 modules) and free, but shallow where our clients live
+(docs/research/oce-*.md):
+- **2D → Building Model.** OCE never attempts it; its DWG path yields a spreadsheet of CAD records.
+  This is our core.
+- **Numbers you can trust.** OCE double-counts totals, mislabels mm as m, and passes a ৳ rate 100×
+  too high. We trace every figure, check it in code, and a QS confirms it.
+- **One real dataset.** OCE's "one dataset" is a hub of loose ids with 31 event subscriptions nothing
+  publishes. Ours is one typed chain: element → quantity → BOQ item → rate, tested end to end.
+- **Local depth.** OCE has no Bangladesh region, no PWD rates, no lakh/crore, and a blank box for ৳.
+  We have PWD Measurement Rules and Benchmark Rates, Dhaka rate analyses, imperial units and ৳.
+- **Measurement standards.** OCE applies none; we apply a Rule Set the QS can read and edit.
+- **UX.** OCE ranks lowest here. We design for the QS's real workflow: building-first Takeoff, bulk
+  Confirmation, Questions at the point of need.
+- **Quiet AI.** Jev inside the flow, cheap and bounded, instead of a bring-your-own-key chatbot.
+- **A business, not a free download.** We sell a finished result per project (ADR 0012).
 
 ## Next after the MVP
 - Cost control during construction.
