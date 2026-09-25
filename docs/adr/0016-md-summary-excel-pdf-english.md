@@ -41,3 +41,9 @@ measured from the confirmed Building Model; Vextrus's price in ADR 0012 uses it)
 consumption checks per sft of Gross Floor Area (rod kg, cement bags, bricks, concrete cft), each
 against a sanity range (Vextrus's default, then the Developer's past projects); a figure outside its
 range is flagged, never blocked. The owner's ruling: "Agree".
+
+## Amended: the MD's pages work on a phone (owner's decision, 26 Sep 2026)
+The Project Summary and the read-only 3D share link work at 390 px and up (read-only). Everything the
+QS does (the Takeoff, the sheet, the BOQ grid, Rate Analyses) is desktop-only at 1280 px and up, and
+says so plainly on a phone. The design gate adds a 390×844 walk for those two screens. The owner's
+ruling: "Agree".

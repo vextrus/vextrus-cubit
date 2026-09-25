@@ -27,7 +27,8 @@ configuration and prose, not code. It must never become the product (docs/postmo
    - **engine PRs** (by path: `engine/**` and the reading modules) carry the `real-drawings` status,
      which the owner starts with one command and which runs as the key user (ADR 0030);
    - **UI PRs** pass the design gate: `ux-critic` walks the running product at 1440×900 and
-     1280×800 with screenshots and checks the design system; findings above minor block; the
+     1280×800 (and 390×844 for the Project Summary and share link) with screenshots and checks the
+     design system; findings above minor block; the
      screenshots go in the PR body;
    - ultrareview (free runs only) on risky PRs: money, geometry, the data spine;
    - **the owner merges.** Only the owner; the guard refuses agent merges. The owner reviews evidence
