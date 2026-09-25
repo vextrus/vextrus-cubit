@@ -247,8 +247,9 @@ and sets the Target Cost, does not edit the Takeoff.
 _Avoid_: owner, admin, manager
 
 **Vextrus Engineer**:
-A Vextrus team member who sits with a client's QS through their first Takeoff ("done with you").
-_Avoid_: support agent, consultant
+A Vextrus team member who sits with a client's QS through their first Takeoff ("done with you"),
+inside the Developer's data only by its time-bound invitation.
+_Avoid_: support agent, consultant, admin
 
 **Project Summary**:
 The MD's page for one project: total cost and cost per sft, cost by trade and by floor, what is

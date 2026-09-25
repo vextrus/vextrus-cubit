@@ -29,3 +29,11 @@ worked in them (refuter #6, architecture critic #11, docs/reviews/). So from M0 
 non-owner role, every tenant table has a policy in its first migration, and a CI test checks every
 table has one. The beta only hardens. Recommended with the milestone order the owner ruled on
 ("M4 first"); it stands unless the owner rules otherwise.
+
+## Amended: Vextrus Engineers enter a tenant only by invitation (owner's decision, 26 Sep 2026)
+A Vextrus Engineer reaches a Developer's data only by that Developer's invitation: a named member with
+the QS role, time-bound (30 days by default, renewable) and revocable. No one at Vextrus bypasses
+row-level security through the app, and the Django admin obeys the same policies; operators reach raw
+data only through the audited database path of the beta hardening. Every action is recorded under the
+engineer's own name, and the client sees who from Vextrus has access and until when. The owner's
+ruling: "Agree".
