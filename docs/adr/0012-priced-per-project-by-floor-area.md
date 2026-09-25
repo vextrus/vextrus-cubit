@@ -19,4 +19,14 @@ Why:
   Vextrus's first value is cutting that time sharply, and that is the lever in the bargain.
 
 Considered: per seat per year (rejected: disliked in the culture, and it prices the tool, not the
-result). The ৳-per-sft level is set in a separate decision.
+result).
+
+## The price (owner's decision)
+- **List price:** ৳4 per sft of gross floor area, with a minimum of ৳60,000 per building. A typical
+  25,000 sft G+9 building comes to about ৳1 lakh, today's price for an estimate, delivered in days
+  and with a 3D model and a Material Schedule on top.
+- **Revisions:** revised drawings of the same building are included for 6 months.
+- **Founding clients:** the first three Developers pay half, in exchange for:
+  1. permission to use their Drawing Sets, locally, as Independent Sets (ADR 0005);
+  2. a feedback session after each Takeoff;
+  3. a reference if they are satisfied.
