@@ -81,6 +81,22 @@ const BASH_RULES = [
     reason: "`--no-verify` skips the checks a commit or push is owed. Fix what they refuse instead.",
   },
   {
+    rule: "MERGE_BY_AGENT",
+    fires: (parts) =>
+      parts.some((part) => /^(?:[A-Z_]+=\S*\s+)*gh\s+pr\s+merge\b/.test(part) || (/^(?:[A-Z_]+=\S*\s+)*gh\s+api\b/.test(part) && /\/pulls\/\d+\/merge\b/.test(part))),
+    reason: "Only the owner merges (ADR 0025). Open the PR, state what was and was not verified, and stop.",
+  },
+  {
+    rule: "PRIVILEGE_RAISED",
+    fires: (parts) => parts.some((part) => /^(?:[A-Z_]+=\S*\s+)*(?:sudo|su|doas|pkexec)(?:\s|$)/.test(part)),
+    reason: "Agent sessions never raise privilege: Answer Keys live with another user (ADR 0026). If something needs root, say what and the owner runs it with `! <command>`.",
+  },
+  {
+    rule: "LABORATORY_READ",
+    fires: (parts) => parts.some((part) => /(?:~|\$HOME|\/home\/[^/\s]+|\.\.)\/vextrus-cad(?:\/|\s|$|["'])/.test(part)),
+    reason: "The laboratory (~/vextrus-cad) holds Answer Keys and is never read by a Vextrus session (ADR 0026). Its methods reach us only through documents the owner hands over.",
+  },
+  {
     rule: "POWERSHELL",
     fires: (parts) =>
       parts.some((part) => /^(?:(?:cmd(?:\.exe)?\s+\/c|start|exec|nohup|sudo)\s+)?(?:\S*\/)?(?:powershell|pwsh)(?:\.exe)?(?:\s|$)/i.test(part)),
