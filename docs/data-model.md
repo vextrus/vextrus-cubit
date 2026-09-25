@@ -607,6 +607,10 @@ prices them.
 3. **Labour Contracts** belong to the Developer, with a per-project override of rate or scope; for
    the Benchmark, a contract's ৳ is shared across its covered items in proportion to the labour their
    own Rate Analyses would have carried at Market Prices. "Agree".
+4. **Rounding:** each Measurement Line to 2 dp in its Billing Unit, the item quantity their sum;
+   countable units (nos, bags, kg of rod) to whole numbers, tons to 3 dp (a Rule Set parameter); rates
+   to the paisa; amount = ROUND(qty × rate, 2); the Estimate's layers on the rounded amounts; the
+   Material Schedule rounds up. "Agree".
 
 ## 7. Deliberately left out of the MVP
 - **Answer Keys and Hand Takeoffs** never enter the product database (ADR 0026).

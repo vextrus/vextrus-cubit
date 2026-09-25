@@ -39,3 +39,9 @@ nos, doors in sft). Reviews: docs/reviews/. So:
 
 Lakh grouping stays at the edge, for money only. The owner's ruling: "yes, agree on units and
 rounding".
+
+## Amended: rounding as a QS rounds (owner's decision, 26 Sep 2026)
+Each Measurement Line is rounded to two decimals in its Billing Unit and an item's quantity is their
+sum; countable units (nos, bags, kg of rod) round to whole numbers and tons show three decimals (a
+Rule Set parameter); rates are held to the paisa; amount = ROUND(quantity × rate, 2); the Estimate's
+layers are computed on rounded amounts; the Material Schedule rounds up. The owner's ruling: "Agree".
