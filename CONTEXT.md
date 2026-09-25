@@ -129,3 +129,9 @@ _Avoid_: provenance, source, lineage
 The range of storeys over which an element keeps one size or specification, as a column schedule
 gives it; a column's size is known per Storey Band, not once.
 _Avoid_: level range, floor group
+
+**Display Units**:
+The units a project shows its quantities and rates in, chosen per project by the Developer: the
+market's imperial (cft, sft, rft, bags, ton) by default, metric one switch away. Money is always ৳
+grouped in lakh and crore.
+_Avoid_: unit system, locale
