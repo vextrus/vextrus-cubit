@@ -62,6 +62,11 @@ Each session's brief is `docs/handoff/session-<N>-prompt.md`; read it first.
 - **Edison is an internal benchmark, never demo content**, and competitor-derived drawings never enter
   the repository (L-CAD-09). The owner's Edison set is in `.private/reference/edison/` (gitignored):
   read and dissect it freely (`edison-drawings` skill); carry out conventions, never its content.
+- **Open-source references live outside the checkout** in `~/reference/` (its `README.md` is the law
+  and the how-to): OpenConstructionERP (AGPL-3.0; runs with `~/reference/oce.sh start`, :8080) and
+  cad2data (MIT docs and scripts; proprietary converters, not installed). Learn their domain knowledge
+  and solved problems and re-implement in our own code; never copy AGPL code, schemas, strings or
+  data into this public repository, and never run the cad2data converters without the owner.
 - Path-scoped law loads when you touch the files: `.claude/rules/takeoff-law.md` (quantities, junctions,
   rebar, levels), `frontend.md` (Datum, craft rubric, shell), `journeys.md`, `cad-and-fixtures.md`,
   `database.md`, `model-seam.md`.
