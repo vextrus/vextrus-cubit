@@ -1,5 +1,11 @@
 # Where and how Vextrus is deployed and observed: dev, beta, scale
 
+> **Correction, 26 Sep 2026.** The repo is private (ADR 0024): GitHub Actions gives 2,000 free
+> minutes a month, then a per-minute charge, and private registry storage is limited (an
+> IfcOpenShell image will likely exceed the free tier). The beta runs on x86, not t4g (ADR 0031), and
+> staging has its own small database.
+
+
 Question: where and how should Vextrus be deployed and observed at each of three stages (dev on one
 WSL2 machine; a beta with about 3 to 10 Developer clients; scale across Bangladesh and then the
 Gulf)? At what monthly cost, and with what latency from Dhaka?

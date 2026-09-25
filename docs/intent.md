@@ -37,7 +37,7 @@ It is broad (194 modules) and free, but shallow where our clients live
   too high. We trace every figure, check it in code, and a QS confirms it.
 - **One real dataset.** OCE's "one dataset" is a hub of loose ids with 31 event subscriptions nothing
   publishes. Ours is one typed chain: element → quantity → BOQ item → rate, tested end to end.
-- **Local depth.** OCE has no Bangladesh region, no PWD rates, no lakh/crore, and a blank box for ৳.
+- **Local depth.** OCE has no Bangladesh region, no PWD rates, no lakh/crore on its screens (only its PDF export groups in lakh), and a blank box for ৳.
   We have PWD Measurement Rules and Benchmark Rates, Dhaka rate analyses, imperial units and ৳.
 - **Measurement standards.** OCE applies none; we apply a Rule Set the QS can read and edit.
 - **UX.** OCE ranks lowest here. We design for the QS's real workflow: building-first Takeoff, bulk

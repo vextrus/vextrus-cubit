@@ -1,5 +1,11 @@
 # Frontend stack for Vextrus
 
+> **Correction, 26 Sep 2026.** The backend is Django + Django Ninja (ADR 0020), not FastAPI; the
+> OpenAPI contract and generated types are unchanged. The generated `api-types.ts` is never committed
+> (ADR 0022). The 3D and 2D viewer choices are revisited in viewer-3d-budgets.md and
+> viewer-2d-fidelity.md.
+
+
 Question: what frontend stack should Vextrus use for a dense professional web app that AI agents
 build fast and well? The screens in scope are the QS's Takeoff with bulk Confirmation of Proposals,
 a 2D sheet viewer that shows the Trace, a large editable Priced BOQ grid, the Building Model in 3D,

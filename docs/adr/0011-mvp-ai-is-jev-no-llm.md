@@ -28,7 +28,7 @@ Each Jev node needs its own measured accuracy on real drawings before it is trus
 low-confidence answer becomes a Question for the QS. Which nodes use Jev, code alone, or an LLM is
 settled in docs/research/jev-system-one.md. Its live tests (226 invented AEC cases, about one US
 cent in total) found:
-- **Where Jev is strong:** sheet types and storey ranges, layer roles, label binding and Ask routing.
+- **Where Jev is strong:** sheet types, layer roles, label binding and Ask routing (in English and Bangla script; Banglish what-if phrasing was its weakest area, docs/research/jev-system-one.md:152).
 - **Where it must not be used:** counting and numeric plausibility (a 150×150 column scored as
   plausible). Those checks are code.
 - **The rule for every node:** code finds the candidates and computes every number, Jev picks one
