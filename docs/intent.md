@@ -1,0 +1,51 @@
+# Vextrus — intent (draft, growing through session 10's grilling)
+
+The first of the playbook's documents (intent → spec → plan). It says what we are building and why,
+in the owner's terms. Decisions live in `docs/adr/`, terms in `CONTEXT.md`.
+
+## The product
+An AI-native platform for the AEC business, starting with Bangladeshi real-estate Developers. One
+project dataset, the Building Model, is built first from the Developer's 2D AutoCAD drawings through
+a Takeoff the QS drives and the machine assists. Every department and later module works from that
+dataset. Our market does not use BIM (Revit is rare in practice), so turning 2D drawings into a
+working Building Model is both the core of the MVP and the moat. No one does it well:
+OpenConstructionERP never attempts it (docs/research/oce-algorithms.md).
+
+## The first customer and the MVP
+- **Who:** the Developer. The MD buys and the QS uses the product daily. The founding team's network
+  already reaches Developers waiting to see it (ADR 0001).
+- **What they pay for:** the Priced BOQ, the Material Schedule and the Building Model in 3D, from one
+  QS-confirmed Takeoff (ADR 0002).
+- **Scope:** RCC-framed buildings, read from structural and architectural drawings; MEP as lump sums
+  (ADR 0003).
+- **How the Takeoff works:** building-first, element by element, with bulk Confirmation and
+  Questions at the point of need (ADR 0007).
+- **Money:**
+  - Rate Analyses priced at the Developer's Market Prices, with PWD as the benchmark (ADR 0006).
+  - Measurement Rules held as data, defaulting to PWD (ADR 0009).
+  - Rod by ratio first, then read from the drawing (ADR 0010).
+  - SI inside, the market's imperial units on screen (ADR 0008).
+- **Proof:** every milestone passes on the Sample Project and on an Independent Set (ADRs 0004, 0005).
+- **AI:** Levels 1 and 2 on Jev (ADR 0011).
+
+## Next after the MVP
+- Cost control during construction.
+- Level 3 AI: the first autonomous job, likely a revision comparison.
+- Then the modules beta Developers ask for.
+
+## The owner's broader ideas (their words, condensed; to be placed in the sequence)
+- **Quiet intelligence, not an AI gimmick.** Most software now calls itself "AI-integrated" and means
+  a chatbot on an API call. Vextrus must not shout "AI". It should silently do and deliver things, so
+  clients are astonished by using it. Jev turns ordinary yes/no and CRUD nodes into smarter ones where
+  that helps. Code remains the first preference where it is obvious (after TypeSafe's manifesto,
+  https://typesafe.ai/manifesto).
+- **Project memory.** Each tenant's historical data is kept securely and searched semantically, fast
+  and accurately (a vector store or similar). Clients drop in raw old documents, the system files
+  them systematically, and they start serving at once. Over time this history pays off.
+- **A live project that wakes when needed.** Once a real project's dataset exists, events on it are
+  watched in real time. The system stays quiet most of the time, then wakes to flag an anomaly or
+  suggest an action, and notifies the client for a faster response.
+- **4D Schedule and 5D Cost** on the real dataset, built with the project's real engineers.
+- **Continuous development driven by client feedback** is itself part of what changes the industry.
+- Glodon's "Evolving into BIM 2.0" (owner's copy in ~/reference/) describes much of this vision
+  already running in Glodon's products. Its study is in docs/research/glodon-bim-2.md.
