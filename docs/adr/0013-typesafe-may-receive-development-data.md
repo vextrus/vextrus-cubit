@@ -20,3 +20,9 @@ Jev answers by default; live calls run only in tests marked live.
 ## History
 - 25 Sep 2026: decided (the owner's permission).
 - 25 Sep 2026 (owner's decision): a separate key for cloud sessions.
+- 26 Sep 2026 (owner's decision): in development, text (and code-computed facts, never files) from
+  any set Vextrus may use (Edison, the Sample Project, Held-out Sets, founding clients' sets) may go to
+  Jev under the owner's local key, never the cloud key. Held-out Sets go only through the key user's
+  scoring run, which holds its own copy of the key readable only by `vxkeys`; build sessions never see
+  Held-out text. Each founding client's written permission names TypeSafe as a processor (US servers,
+  no training on inputs). The owner's ruling: "Agree".
