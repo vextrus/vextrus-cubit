@@ -36,6 +36,27 @@ A kind of work (concrete, formwork, rod work, brickwork, plaster, flooring…) a
 Labour Contracts divide it; the Priced BOQ can be viewed by Trade, and a Cost Basis is set per Trade.
 _Avoid_: discipline (a family of drawings), section, package
 
+**BOQ Item**:
+One line of the Priced BOQ: a description with its mix, grade and element class, a Billing Unit, a
+BOQ Section and a Trade; its quantity is the sum of its Measurement Lines and its rate comes from its
+Rate Analysis.
+_Avoid_: line item, row, entry
+
+**Measurement Line**:
+One line of the measurement sheet behind a BOQ Item: the element, Nos × L × B × H, the quantity in the
+Billing Unit, and the Measurement Rules that produced it.
+_Avoid_: calculation, dimension line
+
+**Lump Sum**:
+A BOQ Item priced as one typed amount (unit "LS") with no Rate Analysis, such as a lift or the
+plumbing; it counts toward the Estimate but not the measured subtotal.
+_Avoid_: allowance (that is a Cost Basis), provisional sum
+
+**Provisional Sum**:
+An amount set aside for work whose scope is not yet known, shown at the end of the BOQ Section it
+provides for and kept outside the measured subtotal.
+_Avoid_: contingency (a contingency is an Estimate layer), lump sum
+
 **Material Schedule**:
 The quantities of basic materials (cement, sand, stone chips, rod by diameter, bricks and the like)
 the building needs, broken down by floor and by Construction Stage, derived from the same takeoff
@@ -105,6 +126,16 @@ The breakdown of one BOQ item into the Resources it consumes per unit, which pri
 gives the item's working rate and, summed over the building, the Material Schedule.
 _Avoid_: recipe, build-up, analysis (alone)
 
+**Mix**:
+The proportion of cement, sand and aggregate in a concrete or mortar (1:1.5:3, 1:4), with its
+dry-volume factor; a Rate Analysis's material quantities follow from it.
+_Avoid_: ratio (alone), grade (grade is strength)
+
+**Wastage**:
+The allowance added to a Resource's quantity in a Rate Analysis for cutting, breakage and spillage;
+it enters the Material Schedule (what to buy), never a BOQ quantity (measured net).
+_Avoid_: loss, extra
+
 **Labour Contract**:
 The Developer's agreement with a labour-only contractor, priced per unit of its own scope (per cft of
 RCC, per sft of plaster, or per sft of casting area covering rod binding, shuttering and casting
@@ -134,6 +165,16 @@ contingency and taxes, each layer shown and editable by the Developer.
 _Avoid_: budget, quotation, bid
 
 ### Takeoff
+
+**Element**:
+One confirmed thing in the Building Model with a stable identity across Revisions: a column over a
+Storey Band, a beam, a slab panel, a wall run, an opening, a storey, a grid line.
+_Avoid_: object, entity, member (a member is structural only)
+
+**Element Family**:
+The kind of Element one Takeoff Step proposes and confirms (columns, beams, slabs, walls…), with its
+own identity rule across Revisions.
+_Avoid_: category, class, type (alone)
 
 **Takeoff**:
 The QS's work of turning a Drawing Set into the confirmed Building Model, one Takeoff Step at a time,
@@ -230,6 +271,11 @@ _Avoid_: rebar mode, estimate type
 A re-issue of all or part of a Drawing Set by its consultant (revision B after A); in Dhaka practice
 the latest Revision is the instruction.
 _Avoid_: version, update, change order
+
+**Sheet Revision**:
+One issue of one sheet (S-201 rev B); a Revision reissues some sheets, and the rest keep their
+current Sheet Revision.
+_Avoid_: sheet version
 
 **Revision Comparison**:
 The element-by-element difference between the Building Model of one Revision and a baseline the MD
