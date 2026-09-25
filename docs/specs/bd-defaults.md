@@ -14,6 +14,18 @@ A Developer edits its own copy (ADR 0009).
   unstated, the default is 40 × bar diameter for tension laps (editable), and the figure's Rod Basis
   is "from the drawing + rules". Owner's ruling, 26 Sep 2026: "Agree and yes".
 
+- **The default Rule Set** is docs/research/qs-defaults.md §1 (about 50 rules: IS 1200 as written with
+  PWD's item conventions on top), each rule labelled with its source. Owner's ruling, 26 Sep 2026:
+  "Agree, 450". Its practice-based parameters, as set:
+  - E1 excavation working space: **450 mm (1'-6")** each side (Dhaka practice; IS 1200 says 600 mm);
+  - E4 blinding: 3" projection, 3" thick;
+  - P1 pile over-cast above cut-off: 600 mm (2'), head breaking its own item;
+  - L1 lintel bearing: 150 mm (6") each side;
+  - FW5 slab and step edges under 200 mm: measured as area (a stated departure from IS 1200's rm);
+  - F6 slabs of different thickness over a beam: each runs to the beam's centre line;
+  - PT1 painting: the plaster area it covers, per face.
+- The Hand Takeoff is measured under these same written rules (ADR 0005).
+
 ## Rod Ratios (ADR 0010)
 Default per element type, overridable per Storey Band. Each includes laps, ties and stirrups;
 cutting wastage is in the Rate Analysis. No primary source exists; the owner set them from practice
