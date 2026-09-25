@@ -1,5 +1,9 @@
 # Session 9 — close
 
+> **Superseded by the owner's ruling at the close (25 Sep 2026): the product is reset to zero.** §4 and
+> §6's programme (integrate wave 3e, reach M4) is void. Session 10 plans the new foundation on branch
+> `foundation`: see `session-10-prompt.md`, `session-9-critical-review.md` and `docs/postmortem.md`.
+
 The owner asked for the session to stop at a stable state rather than reach the brief's finish line.
 It stops with every merged change on `dev-lane-and-jev`, the tree clean, and the gate run on the
 committed tree (§2). Wave 3e's seven slices are **held on their branches, not merged** (§4).

@@ -271,3 +271,13 @@ snapped line (→ MANUAL-TRACE). Friction → FLOW-NEXT. Wave 3e: those six + M4
 - Gate 6 **GREEN** on `936febc6`:
   `GATE summary — verify: green 52.75s · checkup: green 0.76s · golden: green 45.85s · db: green 117.23s · e2e: green 137.49s · e2e-j000: green 291.22s · perf: green 26.09s`
   `GATE wall-time 671.41s exit 0`.
+
+## The reset (session 9's last hours)
+
+The owner ruled a full reset after the critical walk (`session-9-critical-review.md`). The session:
+- wrote `docs/postmortem.md`, the one file the reset keeps;
+- rewrote `CLAUDE.md` for the planning phase and `session-10-prompt.md` as the foundation brief;
+- updated `~/.claude/settings.json`'s auto-mode description (backup `settings.json.bak-session9`);
+- set up `~/reference/` (OpenConstructionERP running at :8080; cad2data; the DDC book).
+
+`dev-lane-and-jev` is pushed and `foundation` is cut from it.
