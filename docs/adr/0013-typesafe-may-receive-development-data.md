@@ -10,3 +10,9 @@ Vextrus's client agreement. Before the beta, we ask TypeSafe what it retains and
 retention is available. TypeSafe says it does not train on inputs, is hosted in the US and does not
 state a retention period (docs/research/jev-system-one.md). The key itself is never printed, written
 or committed.
+
+## Cloud sessions (owner's decision, 25 Sep 2026)
+Claude Code cloud sessions get their own TypeSafe key, separate from the owner's local key. The owner
+creates it and pastes it into the cloud environment's settings, never into the repo or a chat. It has
+a spending limit if TypeSafe offers one and is rotated when the execution phase ends. Tests use
+recorded Jev answers by default; live calls run only in tests marked as live.
