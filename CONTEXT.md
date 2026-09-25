@@ -146,3 +146,13 @@ _Avoid_: quantity rule, formula, method
 The Measurement Rules a Developer measures by: a copy of the Bangladeshi default set, based on PWD
 practice, which the Developer edits to match its own habits.
 _Avoid_: standard (a Rule Set may depart from one), profile, law
+
+**Rod Ratio**:
+The kg of rod per unit volume of concrete for an element type, set from Vextrus's defaults or by the
+Developer's QS, used to give an element rod before its reinforcement is read from the drawings.
+_Avoid_: steel factor, thumb rule
+
+**Rod Basis**:
+Whether an element's rod is "by ratio" (from a Rod Ratio) or "from the drawing" (read from its
+reinforcement detailing into a bar-bending schedule); every rod figure shows its basis.
+_Avoid_: rebar mode, estimate type
