@@ -22,3 +22,7 @@ it would run, beside `.private/` and the secrets (docs/research/sdlc-waves-and-c
 ## History
 - 26 Sep 2026: decided. Evidence: refuter #5, plan review M12, the architecture critic's dispute
   (docs/reviews/). The owner's ruling (26 Sep 2026): "Agree".
+- 26 Sep 2026 (mechanism, no new decision): the ruleset requires a `real-drawings` status on every
+  PR. A CI job sets it to success ("not applicable") when the diff touches no engine path; otherwise
+  it stays pending until the owner's command posts the result as the key user. The owner reads every
+  change to `.github/` in full (ADR 0025), so an agent cannot quietly widen "not applicable".

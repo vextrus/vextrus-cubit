@@ -37,3 +37,5 @@ Target Cost warning is cheap and makes the MD's page matter early (docs/research
 - 26 Sep 2026 (owner's decision): which sft, and the MD's consumption checks. Evidence: QS critic #14.
   The owner's ruling: "Agree".
 - 26 Sep 2026 (owner's decision): the MD's pages work on a phone. The owner's ruling: "Agree".
+- 26 Sep 2026 (clarification, no new decision): an export of the working Estimate is printed
+  "Working — not issued"; only an Issued Estimate's export carries an issue number and date.

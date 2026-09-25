@@ -2,7 +2,8 @@
 
 The owner permits Vextrus's development work (sessions, tests, prototypes and tuning) to send text
 from the Edison set and the Sample Project to TypeSafe's servers, through the owner's
-`TYPESAFE_API_KEY`, at the owner's cost. Jev is text only; drawing files and geometry are never sent
+`TYPESAFE_API_KEY`, at the owner's cost. Jev is text only: drawing files and raw geometry are never sent; code-computed facts
+(a size, a position, a neighbour) may go with the text as a node's state (ADR 0011)
 (docs/research/jev-system-one.md). Without this, Jev nodes could not be tuned on real drawings, which
 ADR 0005 requires.
 

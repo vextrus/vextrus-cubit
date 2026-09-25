@@ -39,3 +39,8 @@ Viewers and fonts are ADR 0022 (being amended). The table-level shape is docs/da
 ## History
 - 26 Sep 2026: decided as one bundle. Evidence: docs/reviews/session-01-architecture-critic.md, #1–#7
   and #12–#16. The owner's ruling (26 Sep 2026): "Agree with the bundle".
+- 26 Sep 2026 (folded from the plan-review ledger, no new decision): scale is found per view, not per
+  sheet (dimension measurement against dimension text; only text is read from not-to-scale views);
+  every third-party library's licence is checked before first use (Shewchuk's Triangle restricts
+  commercial use; IfcOpenShell's bundled libraries are reviewed before any dedicated deployment);
+  every IFC export passes a validation gate.

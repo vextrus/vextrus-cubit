@@ -253,9 +253,9 @@ shared table of expected strings (stack-frontend.md §7).
 | Money, the MD's tiles | ৳18.43 Cr, ৳42.65 L | Two decimals in Cr (10⁷) or L (10⁵); the exact figure on hover or tap and in the accessible name. Never Intl's compact notation (it rounds ৳12,50,000 to "13L"). |
 | Money per sft | ৳3,788 | Whole taka. |
 | Money, a change | +৳42,65,400.00, −৳1,20,500.00 | Explicit + and a true minus (U+2212). |
-| Quantity | 3,842.50 cft | Two decimals, as the Rule Set rounds (ADR 0008); thousands grouping. **Never lakh.** |
-| Count units | 245,600 nos; 1,860 bags; 48,620 kg | nos, bags and kg: whole numbers (the Rule Set rounds them to 0 dp); rod never to the gram. |
-| Weight | 48.62 ton | Two decimals. |
+| Quantity | 1,24,842.50 cft | Two decimals, as the Rule Set rounds (ADR 0008); lakh grouping like money (the owner's ruling). |
+| Count units | 2,45,600 nos; 1,860 bags; 48,620 kg | nos, bags and kg: whole numbers (the Rule Set rounds them to 0 dp); rod never to the gram. |
+| Weight | 48.620 ton | Three decimals (ADR 0008). |
 | Metric (one switch) | 108.81 m³, 4,519.80 m² | Real superscripts, never m3. |
 | Length, imperial | 10′-4½″ | Feet and inches to 1/8″, inches always shown (12′-0″), primes on screen, the fraction set with the `frac` feature; plain 10'-4 1/2" in titles, the accessible name and Excel. |
 | Section size | 15″ × 24″ | Inches only, as Dhaka drawings write sizes. |

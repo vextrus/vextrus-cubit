@@ -57,7 +57,7 @@ first use.
 | 20 | — | The fourteen Takeoff Steps; the Developer's Specification by room type; a template of MEP lump-sum lines with ৳/sft sanity ranges | 0007 am. |
 | 21 | Tenant-less library tables, copied on first use | The same tables, with the Library as a tenant whose rows every tenant may read but not write; copying is then a row copy. *My recommendation; no ADR forces it* | — |
 
-### 1.3 Terms used here that `CONTEXT.md` lacks (proposed; `CONTEXT.md` not edited)
+### 1.3 Terms (most now in `CONTEXT.md`, added 26 Sep 2026; the rest are implementation words)
 - **Element**: one confirmed thing in the Building Model with a stable identity across Revisions (a
   column over a Storey Band, a beam, a storey, a grid line, a General Notes fact). *Avoid*: object,
   entity.
