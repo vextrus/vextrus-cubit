@@ -20,13 +20,20 @@ Why:
   would turn usage into a large API bill; Jev keeps AI cost negligible per project. Vextrus Cubit's
   measured Ask cost was under one cent.
 - **Quiet intelligence.** The product does not market "AI". Jev sits inside ordinary business-logic
-  nodes where a fixed rule would be dumb (a smarter default, a sensible match, a plausibility check),
+  nodes where a fixed rule would be dumb (a smarter default, a sensible match, a better ranking),
   so users feel the product is smart. Code stays the first choice wherever the logic is obvious.
 
 Caveat, stated plainly: a closed-question model cannot invent, but it can still choose wrongly.
 Each Jev node needs its own measured accuracy on real drawings before it is trusted, and a
 low-confidence answer becomes a Question for the QS. Which nodes use Jev, code alone, or an LLM is
-settled in docs/research/jev-system-one.md.
+settled in docs/research/jev-system-one.md. Its live tests (226 invented AEC cases, about one US
+cent in total) found:
+- **Where Jev is strong:** sheet types and storey ranges, layer roles, label binding and Ask routing.
+- **Where it must not be used:** counting and numeric plausibility (a 150×150 column scored as
+  plausible). Those checks are code.
+- **The rule for every node:** code finds the candidates and computes every number, Jev picks one
+  with a confidence, and the QS confirms.
+- **If TypeSafe is unavailable,** the Takeoff falls back to the QS picking. It never stops.
 
 The owner also asks that Jev help the development sessions themselves, where it fits (the SDLC
 design).
