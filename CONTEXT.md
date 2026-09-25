@@ -156,3 +156,13 @@ _Avoid_: steel factor, thumb rule
 Whether an element's rod is "by ratio" (from a Rod Ratio) or "from the drawing" (read from its
 reinforcement detailing into a bar-bending schedule); every rod figure shows its basis.
 _Avoid_: rebar mode, estimate type
+
+**Revision**:
+A re-issue of all or part of a Drawing Set by its consultant (revision B after A); in Dhaka practice
+the latest Revision is the instruction.
+_Avoid_: version, update, change order
+
+**Revision Comparison**:
+The element-by-element difference between the Building Model of one Revision and the next (new,
+removed, changed), with its effect on the Priced BOQ in quantities and ৳.
+_Avoid_: diff, delta report, change log
