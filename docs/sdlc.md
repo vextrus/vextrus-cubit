@@ -1,73 +1,87 @@
 # Vextrus — how we build (the AI-native SDLC)
 
-Agreed by the owner on 25 Sep 2026 (ADR 0025). Evidence: docs/research/sdlc-claude-code.md. The
-harness is configuration and prose, not code. It must never become the product (docs/postmortem.md,
-cause 3).
+Agreed by the owner on 25 Sep 2026 and rewritten after session 01's rulings (26 Sep 2026): ADRs 0025,
+0026 and 0030. Evidence: docs/research/sdlc-claude-code.md and sdlc-waves-and-cloud.md. The harness is
+configuration and prose, not code. It must never become the product (docs/postmortem.md, cause 3).
 
 ## Per milestone
-1. **Grill** the milestone locally (`/grill-with-docs`) at medium effort, raised to high only for
-   hard parts. Write `docs/specs/M<n>.md`; the owner signs it off.
-2. **Plan** in plan mode: `docs/plans/M<n>.md` (modules, order, test seams, risks).
-3. **Ticket** with `/to-tickets` into GitHub Issues: vertical slices that own disjoint files, with
-   blocking links. Issues are the only work state. Labels:
+1. **Grill** the milestone with the owner (`/grill-with-docs`, effort high). Write
+   `docs/specs/M<n>.md`; the owner signs it.
+2. **Draft the plan** as a committed document, `docs/plans/M<n>.md`: modules, slices, order, test
+   seams, the Checks it brings (ADR 0027), risks.
+3. **Attack the plan in parallel:** an architecture critic, `qs-critic`, `ux-critic` (against the
+   prototypes and the design system) and `refuter`, each writing a findings file under
+   `docs/reviews/`.
+4. **Resolve every finding:** fixed in the plan or put to the owner, one question at a time. The owner
+   signs the plan; only then is it cut into tickets.
+5. **Ticket** with `/to-tickets` into GitHub Issues, the only work state: vertical slices that own
+   disjoint files, with blocking links. Labels:
    - the five triage states;
    - **`cloud`**: fully provable by committed tests;
-   - **`local`**: needs real drawings or the owner's eyes (reading, recognition, model assembly).
-4. **Build each ticket:** `/implement`, then `/tdd`, then the fast check (the module's tests, mypy,
-   `lint-imports`), then `/code-review`, then a PR that closes the issue. The PR body states what was
-   verified, how, and what was **not**.
-5. **Gate each PR:**
-   - CI is green;
-   - a `local` PR also passes the real-drawing check on the Sample Project and the Edison set, run
-     locally, and reports pass/fail and counts only;
-   - `/code-review ultra` runs on risky PRs (money, geometry, the data spine);
-   - **the owner merges.** Only the owner. Claude never approves its own work.
-6. **Close the milestone:** the owner and the team walk the running product on real drawings and
-   compare with the Hand Takeoff. Only that walk says "done".
+   - **`local`**: needs real drawings or the owner's eyes (reading, recognition, model assembly);
+   - the effort: `high` by default, `medium` for small, fully specified `cloud` tickets.
+6. **Build each ticket:** `/implement`, then `/tdd`, then the fast check (the module's tests, mypy,
+   `lint-imports`), then `/code-review`, then a PR that closes the issue. The PR body **leads with what
+   was not verified**, then what was verified and how.
+7. **Gate each PR** (ADR 0025's ruleset: a PR, CI green, up to date with `main`):
+   - **engine PRs** (by path: `engine/**` and the reading modules) carry the `real-drawings` status,
+     which the owner starts with one command and which runs as the key user (ADR 0030);
+   - **UI PRs** pass the design gate: `ux-critic` walks the running product at 1440×900 and
+     1280×800 with screenshots and checks the design system; findings above minor block; the
+     screenshots go in the PR body;
+   - ultrareview (free runs only) on risky PRs: money, geometry, the data spine;
+   - **the owner merges.** Only the owner; the guard refuses agent merges. The owner reviews evidence
+     and behaviour, and reads in full only `.github/`, `.claude/`, migrations and tests.
+8. **Close the milestone:** the owner and the team walk the running product on the Development Sets
+   and Held-out Sets, with a timed Takeoff, and score against the Hand Takeoff blind (ADRs 0005,
+   0012, 0026). Only that walk says "done".
 
-## Parallelism
-- The built-in Workflow tool launches a wave of ready tickets, each in its own worktree or cloud
-  session, each ending in a PR. It is a launcher, not an engine: no custom orchestration code, no
-  state of its own, no autonomous merge.
-- A wave's size is set by how many independent tickets the milestone has and how fast the owner can
-  review. Tokens are not the constraint (ADR 0019).
-- The $250 cloud credit is spent only on `cloud` tickets, 3–5 at a time at first, widening once
-  review keeps pace. Planning, research and real-drawing work stay local.
+## Waves (ADR 0025)
+- **Cloud tickets:** one `claude --cloud` command each, about two-thirds on account B (second config
+  folder), one-third on A. The credit ($500 across both, reportedly expiring 4 Nov 2026) is spent
+  from M0's first `cloud` tickets, not saved; afterwards cloud sessions draw on plan limits.
+- **Unattended local tickets:** the Workflow tool, as a launcher with no state of its own, one
+  worktree per ticket, each ending in a PR. Local tickets that need the owner run interactively.
+- **Size:** wave 1 is four cloud and one or two local tickets, measuring cost per merged PR, time to
+  PR, the owner's review minutes and second continuations. Widen to 6–8 cloud once the review queue
+  stays under a day, at most one PR in four needs a second continuation, and conflicts stay trivial.
+  The ceiling (about 10–12) is the owner's review.
+- **Collisions:** tickets in a wave own disjoint files; at most one ticket per wave adds migrations to
+  a given module. Record the account and cost of each merged PR in the milestone's issue.
 
 ## Rules against the Builder's failure modes
-- **The harness stays small.** Two hooks of about 200 lines together; no orchestrator, ledger, state
-  store, locked paths, held-out tests (Held-out Sets are drawings the owner scores, ADR 0005, not hidden tests) or evidence packs. A harness change needs an owner-approved
-  issue and should remove as much as it adds.
+- **The harness stays small:** three hooks (guard, state, after-bash) and the blind scorer; no
+  orchestrator, ledger, state store, locked paths or evidence packs. A harness change needs an
+  owner-approved issue and should remove as much as it adds.
 - **Green is not done.** CI is necessary, never sufficient; the owner's walk decides.
 - **Real drawings from M0.** Synthetic fixtures only for unit mechanics, never offered as proof.
+- **Answer Keys are out of reach** (ADR 0026): a separate user, `sudo` with a password, a blind scorer
+  that returns aggregates; no session reads the laboratory.
 - **Plan one milestone at a time.** Everything later stays rough until its turn.
-- **One implementing session per ticket,** plus three read-only reviewers (`refuter`, `qs-critic`,
-  `ux-critic`); `drawing-analyst` for local work only. Reviewers flag only correctness and
-  stated-requirement gaps.
-- **No learning machinery.** A mistake Claude makes twice goes into the one-page `CLAUDE.md`.
-- **The stop rule.** A ticket that fails its checks after two continuations goes back to
-  `needs-triage` for a human re-spec. No retry loops.
-- **Pinned model and effort** (medium) in the committed settings, so cloud sessions inherit them.
+- **One implementing session per ticket,** plus the read-only reviewers (`refuter`, `qs-critic`,
+  `ux-critic`) and `drawing-analyst` for local work. Reviewers flag correctness and stated-requirement
+  gaps, top five findings per PR.
+- **The stop rule.** A `cloud` ticket that fails its checks after two continuations goes back to
+  `needs-triage` for a human re-spec. A `local` reading ticket stops when its n / N stops improving.
+- **Lessons, not machinery.** `docs/knowledge/lessons.md` by area, written in the same PR as the fix.
+  A mistake Claude makes twice goes into `CLAUDE.md`.
+- **Pinned model and effort** in the committed settings (high); a ticket may lower it to medium.
 - **Every external fact** in the product (a price, an API shape, a rate) cites a source.
-- **Reports lead with what is broken or unmeasured.** Cost per merged PR is recorded in the
-  milestone's issue.
+- **Reports lead with what is broken or unmeasured.**
 
-## The harness after the reset
+## The harness
 - **`CLAUDE.md`** under one page, with `CONTEXT.md`, `docs/adr/`, `docs/intent.md`,
   `docs/architecture.md`, `docs/milestones.md` and this file.
-- **Hooks:** a self-contained guard (secrets printed; staging everything at once; `.private/`
-  staged; deleting untracked files; history rewrite and force-push; skipping hooks; PowerShell) and a
-  small SessionStart status that also runs in the cloud; keep `sync` after commit.
-- **Skills:** Matt's planning and building set (`grill-with-docs`, `grilling`, `domain-modeling`,
-  `to-spec`, `to-tickets`, `triage`, `wayfinder`, `implement`, `tdd`, `diagnosing-bugs`,
-  `codebase-design`, `prototype`, `research`, `handoff`, `resolving-merge-conflicts`,
-  `writing-for-agents`, `wizard`, `ask-matt`, `improve-codebase-architecture`).
-  - Matt's `code-review` is renamed `spec-review`, so the built-in `/code-review` and ultrareview
-    are reachable.
-  - `product-review` is rewritten for the new product, and `edison-drawings` becomes
-    `real-drawings`.
-  - The Cubit skills (`lanes`, `readback`, `session-close`, `jev`, `chain`, `wave`), rules and
-    workflows are dropped.
-- **MCP:** `chrome-devtools` re-pointed at its published package; the `cubit` server removed.
-- **Jev:** used in the product per ADR 0011, and in development sessions where a closed question
-  helps (the owner's wish).
+- **Hooks:** the guard (secrets printed; staging everything; `.private/` or drawings staged; deleting
+  untracked files; history rewrites; skipped hooks; PowerShell; agent merges and posted statuses;
+  raising privilege; reading the laboratory; editing reference drawings), a SessionStart status that
+  also runs in the cloud, and `sync` after commit. Deny rules on the laboratory and the key user's
+  home.
+- **Skills:** Matt Pocock's planning and building set (`grill-with-docs`, `grilling`,
+  `domain-modeling`, `to-spec`, `to-tickets`, `triage`, `wayfinder`, `implement`, `tdd`,
+  `diagnosing-bugs`, `codebase-design`, `prototype`, `research`, `handoff`,
+  `resolving-merge-conflicts`, `writing-for-agents`, `wizard`, `ask-matt`,
+  `improve-codebase-architecture`; his review skill is `spec-review`), plus `product-review` and
+  `real-drawings`. The built-in `/code-review` and ultrareview review PRs.
+- **MCP:** `chrome-devtools`, through the small wrapper in `.claude/mcp/`.
+- **Jev:** in the product per ADR 0011, and in development sessions where a closed question helps.
