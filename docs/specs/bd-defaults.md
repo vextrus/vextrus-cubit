@@ -73,3 +73,21 @@ F.M. 2.2 sand, 81.8 cft stone chips per 100 cft. Plus:
 - **A PWD-chapter view by Trade** is one switch away, for comparing with the SoR.
 - Rod by ratio carries an "assumed" diameter split (ADR 0010, the owner's Q7 ruling), overriding the
   research's advice to leave it undivided.
+
+## Material Schedule (owner's ruling, 26 Sep 2026: "Agree"; stages per ADR 0002)
+Gross (what to buy: wastage included); materials under a Material-and-Labour Contract excluded; each
+cell opens to the BOQ items that produced it.
+
+| Material | Unit (metric) | Split by |
+|---|---|---|
+| Cement | bags of 50 kg (t) | type where the Rate Analysis names it (OPC for RCC, PCC for masonry and plaster) |
+| Sylhet / coarse sand, F.M. 2.2 | cft (m³) | — |
+| Local sand, F.M. 1.2 | cft (m³) | — |
+| Filling sand, F.M. 0.5–0.8 | cft (m³) | — |
+| Stone chips, 20 mm down | cft (m³) | — |
+| Brick chips (picked jhama) | cft (m³) | — |
+| Bricks, first class | nos | — |
+| Rod | kg, ton totals | diameter from the drawing, or "assumed" by ratio |
+| Binding wire | kg | — |
+| Floor tiles | sft (m²) | size |
+| Ready-mix concrete | cft (m³) | grade; listed apart, its cement and aggregates not above |
