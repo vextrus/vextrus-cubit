@@ -12,3 +12,9 @@ permission.
 This rule exists because Vextrus Cubit passed every gate on drawings it generated itself and was
 never tested on a drawing it did not author (docs/postmortem.md, cause 1). A reader that passes only
 on the Sample Project is not done.
+
+## The Hand Takeoff (owner's decision, 25 Sep 2026)
+A team engineer measures one typical floor of the Sample Project and of each Independent Set by hand,
+as a QS normally does. The figures are kept in `.private/` and out of every build session's reach.
+The owner compares Vextrus's figures with them when walking M1 and M2. It is our own truth, made from
+the drawings, not from a model an agent could fit to.

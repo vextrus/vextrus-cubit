@@ -186,3 +186,8 @@ _Avoid_: dashboard, home, overview
 A figure the MD sets for a project; the Project Summary warns when the Priced BOQ crosses it, even
 while the Takeoff is still in progress.
 _Avoid_: budget (budget belongs to cost control), cap
+
+**Hand Takeoff**:
+A team engineer's manual measurement of one typical floor of a Drawing Set, kept private and used
+only by the owner to check Vextrus's figures.
+_Avoid_: golden, answer key, ground truth
