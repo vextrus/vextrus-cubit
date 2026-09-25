@@ -1,50 +1,45 @@
 ---
 name: product-review
-description: Review the RUNNING Vextrus Cubit in a real browser the way a quantity surveyor and a design lead would — serve it, sign in, walk a real task end to end with the chrome-devtools MCP, capture what the eye sees in both themes and both viewports, and turn what is wrong into a ranked, evidenced defect list that feeds the next fix wave. Use to judge any screen or flow, before and after a change, and before every demo.
+description: Review the RUNNING Vextrus in a real browser the way a QS, an MD and a design lead would. Serve it, sign in, walk a real task end to end on a real Drawing Set with the chrome-devtools MCP, look at what the eye sees, and turn what is wrong into a ranked, evidenced defect list. Use to judge any screen or flow, before and after a change, and before every milestone walk.
 ---
 # Product review in the browser
 
-The e2e lanes prove contracts; they do not prove the product is good. This is how a session looks at
-the product itself (the owner's ruling for session 8: "use the browser directly to critically judge").
+Tests prove contracts; they do not prove the product is good. Cubit passed its gates and failed in
+front of the owner (docs/postmortem.md). This is how a session looks at the product itself.
 
 ## 1. Serve it
-- Nothing else served: `node scripts/harness/state.mjs` (3210/3211/3213 free; no db lane running).
-- `pnpm demo --no-open` serves the newest measured "Bashundhara G+6" project on
-  `http://127.0.0.1:3213`, runs the worker, and prints one block with the sign-in it PROVED against the
-  stored hash (`j000-legs-<stamp>@cubit.test` / `golden-path-legs-<stamp>`) and the register URL. No
-  measured project yet → `pnpm e2e --journeys J-000` first (demo stopped). For a screen not reached by
-  the demo project, `pnpm dev` (3210, cubit_dev) is the other served product — never both beside a lane.
-- `pnpm demo --stop` before any `pnpm e2e`, `pnpm test:perf`, `pnpm test:db` or `pnpm gate` (they refuse).
+- Start the app with the dev command in `CLAUDE.md`. Use `127.0.0.1`, never `localhost`.
+- Use a real Drawing Set: the Sample Project or the Edison set (`.private/reference/`), in a local
+  session. A cloud session has no real drawings. Say so, and review only what committed data can
+  show.
 
-## 2. Walk it (chrome-devtools MCP, headless Chromium 1440x900 — the journeys' engine)
-- `new_page` the sign-in URL → `take_snapshot` → `fill_form` the credentials → click Sign in.
-- Walk the task a QS actually does, in order, clicking what a customer clicks: project home → drawings
-  (sets, disciplines, scale) → viewer → levels → schedules & notes → takeoff register → coverage → BOQ
-  → BBS → documents/exports → audit. Say at each step what the QS is trying to achieve and whether the
-  screen lets them.
-- Evidence: `take_screenshot` with `filePath: ".private/work/review/<area>-<step>-<theme>-<width>.png"`,
-  then Read the PNG and look at it — every claim about a screen cites a picture you looked at.
-  `resize_page` 1280x800 for the second viewport; toggle the theme in the shell for light.
-- `list_console_messages` (errors are defects), `list_network_requests` (a slow or failed call is a
-  defect with a cause), `performance_start_trace`/`stop_trace` + `performance_analyze_insight` where a
-  step feels slow (PB-1…PB-7 are the budgets), `lighthouse_audit` for accessibility on a settled page.
-- Opus 5.5 reads screenshots precisely; for dense detail (a schedule, a drawing region) take a
-  full-resolution element screenshot (`uid`) rather than squinting at the whole page.
+## 2. Walk it (chrome-devtools MCP, headless Chromium, 1440x900)
+- `new_page` the sign-in, then `take_snapshot` and `fill_form`, and sign in.
+- Walk the job in order, as the user does it, saying at each step what they are trying to achieve and
+  whether the screen lets them:
+  - **The QS:** upload the set, confirm sheets and storeys, then each Takeoff Step (grid, columns,
+    beams, slabs, walls…), answering Questions; then the Priced BOQ, the Material Schedule and the
+    exports.
+  - **The MD:** the Project Summary, the Target Cost, the 3D Building Model, the Revision Comparison.
+- **Evidence.** Save `take_screenshot` to `.private/work/review/<area>-<step>.png`, then Read the PNG
+  and look at it. Every claim about a screen cites a picture you looked at. `resize_page` 1280x800 for
+  the second viewport. `list_console_messages` (an error is a defect) and `list_network_requests` (a
+  slow or failed call is a defect with a cause).
 
 ## 3. Judge it
-Against, in order: the QS's real workflow and the Bible's personas (P-QS, P-LEAD); trust (the Trace,
-basis, coverage, honest refusals — L-QTY-*, R-UI-020/022); the screen's Design Decision
-(`docs/design/<screen>.md`) and the craft rubric (`.claude/rules/frontend.md`); Datum's visual law; and
-the competitors the Bible names (Bluebeam, CostX, PlanSwift, Togal) — what would a QS who uses them
-miss here? Fan the walk out when it is wide: `ux-critic` agents per area, `qs-critic` on figures and
-documents, `refuter` on any finding you are about to spend a fix on.
+Judge against, in order:
+1. the QS's real workflow and words (`CONTEXT.md`);
+2. trust: the Trace in one click, Rod Basis, Questions answerable in place;
+3. numbers: ৳ in lakh and crore, Display Units, and the same figure on screen, in Excel and in PDF;
+4. craft and accessibility;
+5. OpenConstructionERP's weaknesses (docs/research/oce-product-walk.md), which we must beat.
+
+When the walk is wide, fan it out: `ux-critic` per area, `qs-critic` on figures and documents,
+`refuter` on any finding before a fix is spent on it.
 
 ## 4. Record and act
-- A ranked defect list (BLOCKS_DEMO › FRICTION › POLISH), each with screen, element (testid), repro,
-  screenshot path, the law or Decision it breaks, and the fix. Keep it in the session's ledger
-  (`docs/handoff/session-N-ledger.md`); screenshots stay in `.private/work/review/` unless a Decision
-  needs an annotated capture (then it is a committed picture of OUR product only).
-- Fix in waves: foundation defects (shared primitives, shell, tokens) before screen defects; each fix
-  amends its Design Decision in the same commit; re-walk the screen in the browser after the fix, and
-  let the gate re-take any baseline the fix moved (`pnpm e2e:retake`, a `baseline:` commit).
-- Stop the demo when done: `pnpm demo --stop`.
+- A ranked defect list (BLOCKS_DEMO › FRICTION › POLISH), each with screen, element, repro, screenshot
+  path and fix. Defects become GitHub issues. **No drawing content goes in an issue:** describe the
+  screen, not the client's data.
+- Screenshots of real drawings stay in `.private/work/review/`.
+- Re-walk the screen after the fix. A milestone is done only when the owner has walked it.

@@ -1,7 +1,0 @@
-{
-  "parser": "parseRebarGroups",
-  "why": "I-458: a bar group drawn in a width group names its bars.",
-  "cases": [
-    { "input": "{\\W0.8;8-16%%C}", "expect": [{ "n": 8, "diameterMm": 16 }] }
-  ]
-}

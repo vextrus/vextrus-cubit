@@ -1,8 +1,0 @@
-{
-  "parser": "rebarZoneOfHeader",
-  "why": "I-458: a rebar column headed in a font group or underlined heads the zone its words name.",
-  "cases": [
-    { "input": "{\\fArial|b1|i0|c0|p34;TIES}", "expect": "ties" },
-    { "input": "\\LMAIN\\l BARS", "expect": "main" }
-  ]
-}

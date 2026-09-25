@@ -1,2 +1,0 @@
-ALTER TABLE "notes_readings" ADD COLUMN "scope_class" text;--> statement-breakpoint
-ALTER TABLE "notes_readings" ADD CONSTRAINT "notes_readings_scope_class_closed" CHECK ("notes_readings"."scope_class" is null or "notes_readings"."scope_class" in ('column', 'beam', 'slab', 'footing', 'pile_cap', 'pile', 'tie_beam', 'shear_wall', 'stair', 'lintel', 'brick_wall', 'surface', 'opening'));

@@ -1,1 +1,0 @@
-ALTER TABLE "user_prefs" ALTER COLUMN "density" SET DEFAULT 'compact';

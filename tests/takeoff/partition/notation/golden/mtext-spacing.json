@@ -1,8 +1,0 @@
-{
-  "parser": "parseSpacing",
-  "why": "I-458: a ties cell drawn with an alignment code and a stacked half inch states its centres — five and a half inches, never five (a bar counted at five would be one bar in eleven too many).",
-  "cases": [
-    { "input": "\\A1;10%%C @ 5{\\H0.7x;\\S1/2;}\" c/c", "expect": { "bar": 10, "spacing": 5.5, "unit": "in" } },
-    { "input": "{\\W0.8;12%%C @ 7\" c/c}", "expect": { "bar": 12, "spacing": 7, "unit": "in" } }
-  ]
-}

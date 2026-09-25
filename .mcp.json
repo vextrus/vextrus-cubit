@@ -1,12 +1,8 @@
 {
   "mcpServers": {
-    "cubit": {
-      "command": "node",
-      "args": ["--import", "tsx", "scripts/harness/mcp.mjs"]
-    },
     "chrome-devtools": {
       "command": "node",
-      "args": ["scripts/harness/browser-mcp.mjs"]
+      "args": [".claude/mcp/browser.mjs"]
     }
   }
 }

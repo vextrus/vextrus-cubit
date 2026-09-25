@@ -1,6 +1,0 @@
-{
-  "cell": { "kind": "rcc.concrete", "class": "column", "level": "L1", "ordinal": 1 },
-  "key": "DXF_HANDLE:C9A",
-  "sightings": [{ "channel": "REGISTER", "layout": "S-101" }],
-  "observations": []
-}

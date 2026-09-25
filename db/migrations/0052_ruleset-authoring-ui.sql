@@ -1,3 +1,0 @@
-DROP INDEX "tenant_ruleset_editions_pin_once";--> statement-breakpoint
-CREATE INDEX "tenant_ruleset_editions_pin_newest" ON "tenant_ruleset_editions" USING btree ("tenant_id","project_id","created_at") WHERE "scope" = 'project';--> statement-breakpoint
-CREATE UNIQUE INDEX "tenant_ruleset_editions_identity_once" ON "tenant_ruleset_editions" USING btree ("tenant_id","project_id","name","version") WHERE "scope" = 'project';

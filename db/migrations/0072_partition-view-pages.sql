@@ -1,2 +1,0 @@
-ALTER TABLE "partition_views" ADD COLUMN "page" text;--> statement-breakpoint
-ALTER TABLE "partition_views" ADD CONSTRAINT "partition_views_page_named" CHECK ("partition_views"."page" is null or length("partition_views"."page") > 0);

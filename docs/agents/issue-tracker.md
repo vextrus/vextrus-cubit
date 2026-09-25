@@ -2,9 +2,11 @@
 
 Issues and specs for this repo live as GitHub issues on `vextrus/vextrus-cubit`. Use the `gh` CLI for all operations.
 
-**The repository is public, so every issue is public the moment it is created.** An issue never carries
-a secret or key, anything from `.private/` (the Edison set, its names or its content: L-CAD-09), or a
-customer's data. Refer to the owner by role.
+**The repository is private (ADR 0024), but issues are still written as if they could leak.** An issue
+or PR never carries a secret or key, anything from `.private/` (the Edison set, the Sample Project,
+client drawings: their names, figures or content), or a client's data. Refer to the owner by role.
+Labels beyond triage: `cloud` (provable by committed tests) and `local` (needs real drawings or the
+owner's eyes); see docs/sdlc.md.
 
 ## Conventions
 
