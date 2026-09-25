@@ -169,8 +169,10 @@ answered once for every element it unblocks.
 _Avoid_: refusal, blocker, gap, decision
 
 **Check**:
-A comparison of what was read or confirmed with the source drawings (a schedule against its plan, a
-section against its span, a room against its walls); when it fires, it raises a Question.
+A test of what was read, confirmed or priced against something independent of it: the source
+drawings (a schedule against its plan, a room against its walls), a conservation (owned volumes sum to
+the whole; each item's labour paid once), or a sanity range (rod kg per sft); when it fires, it raises
+a Question, or for a sanity range a flag.
 _Avoid_: validation, gate, test, rule (a rule is a Measurement Rule)
 
 **Coverage**:
