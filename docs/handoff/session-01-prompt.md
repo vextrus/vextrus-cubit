@@ -74,8 +74,8 @@ question needs it; each file opens with its conclusions.
 - Commit documents as they settle, with explicit paths. Push only with the owner's yes.
 
 ## Starting state
-- **Branch:** `foundation`, reset on 25 Sep 2026. The old product is on `dev-lane-and-jev`, and
-  `main` is older still.
+- **Branch:** `main`, fast-forwarded to the reset on 25 Sep 2026 (`foundation` holds the same
+  commit). The old product is on `dev-lane-and-jev`.
 - **Machine:**
   - Postgres 16 on 5544 holds no Cubit databases. Four older ones remain: `vextrus`, `vextrus_dev`,
     `vextrus_e2e_scratch` and `fixprobe`.
