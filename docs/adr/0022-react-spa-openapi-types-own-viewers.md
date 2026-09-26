@@ -51,3 +51,6 @@ by the owner, and the design gate on every UI PR (docs/sdlc.md).
   owner's ruling: "Q55: Agree". The owner's first run was on the RTX 3060 Ti (not the reference):
   sheet S-08 GPU p95 0.87 ms at 60 fps; 3D model on screen 0.32 s, GPU moving p95 1.23 ms,
   Confirmation painted 2.7 ms, pick p95 1.30 ms, 29 draw calls, idle MSAA frame 24 ms.
+- 26 Sep 2026: the owner re-ran the sheet and 3D prototypes on the reference setup and reported they
+  "still it's managing to hold up and it'll do the work" (figures not captured; to be recorded at
+  M0's budget check).

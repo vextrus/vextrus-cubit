@@ -60,3 +60,28 @@ most probably 10% which was 7.5% before".
 7. **About 270 items per building is right;** a "per floor" item layout is offered as a view.
 8. **The tax layer:** VAT and AIT deducted on Labour Contract bills. VAT at 10 % (7.5 % before);
    the AIT rate is to be confirmed from NBR and held as dated data.
+
+## The sheet (prototype: 38 real structural sheets from engine buffers) and the 3D Building Model
+## (prototype: 1,269 elements from the real read)
+The owner judged both in the browser and ran them on the reference setup (integrated GPU, low
+performance): "still it's managing to hold up and it'll do the work" (26 Sep 2026; the figures of that
+run were not captured). The owner's ruling on eleven design choices: "Agree with all eleven: This two
+prototypes' design choices is the biggest achievement I would say for this session and if we can
+actually implement this in our actual product this will be phenomenon".
+
+The sheet:
+1. **A Trace flies tight to its source,** neighbours in view: the source's box padded to about 3×, never
+   under 100 mm of paper.
+2. **Fine lines at fit draw as plotted,** faint by lineweight.
+3. **A Proposal's outline sits 2 px outside the element,** no white casing (a casing only in CAD-dark).
+4. **The sheet opens on Engine;** Plot and Compare one key away (P).
+5. **A sheet opens fitted to its working view** (the plan and its title).
+
+The 3D Building Model:
+6. **Proposals are opaque cyan with dashed edges,** never translucent.
+7. **A column is one Element per Storey Band,** drawn and measured storey by storey, selected and
+   confirmed as one.
+8. **The QS's view opens orthographic;** the MD's share link opens in perspective.
+9. **Piles are shown;** the opening fit frames the building above ground; a Foundations toggle.
+10. **A Question tints every element it holds amber;** its origin carries the revision-cloud marker.
+11. **Cut faces are coloured by material:** concrete grey, brick hatched terracotta.
