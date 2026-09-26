@@ -45,3 +45,9 @@ by the owner, and the design gate on every UI PR (docs/sdlc.md).
   1.000 but 0.1–1.3 s to re-render) and docs/research/viewer-3d-budgets.md (one node per element:
   5,846 draw calls, under 60 fps; merged per storey: 1.3 ms GPU with edges, a Confirmation in 17 ms).
   Answers plan review M9 and M10 and architecture critic #8 and #9. The owner's ruling: "Agree".
+- 26 Sep 2026 (owner's decision): the budgets hold on the owner's PC with Chrome forced onto the
+  integrated GPU (Intel UHD 770, Windows "Power saving") and DevTools' 4× CPU throttle, for M0–M2; and
+  on a founding client's own QS computer before M5. The RTX 3060 Ti is never the reference. The
+  owner's ruling: "Q55: Agree". The owner's first run was on the RTX 3060 Ti (not the reference):
+  sheet S-08 GPU p95 0.87 ms at 60 fps; 3D model on screen 0.32 s, GPU moving p95 1.23 ms,
+  Confirmation painted 2.7 ms, pick p95 1.30 ms, 29 draw calls, idle MSAA frame 24 ms.

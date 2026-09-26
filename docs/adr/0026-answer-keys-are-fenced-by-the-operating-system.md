@@ -25,3 +25,9 @@ needed no password and `~/vextrus-cad` was world-readable. Rejected: deny rules 
   ruling (26 Sep 2026): "yes I agree including putting a password".
 - 26 Sep 2026: the key list names the Sample Project's generating inputs (ADR 0004, amended) and the
   real-drawing check's expected N values (ADR 0030).
+- 26 Sep 2026 (done): the owner ran `scripts/owner/custody-setup.sh` and reported "Setup complete"
+  (the `vxkeys` user, the scorer placeholder and its one rule, `sudo` with a password). The
+  deliberate test the same day: a session's Bash read of the keys and its Read-tool read of
+  `/home/vxkeys/keys` were both refused by the permission layer before reaching the operating
+  system; the operating-system fence itself was checked by the script's own stage 7, whose three
+  lines the orchestrator did not see. The owner's words: "I ran the bash script: Setup complete".
