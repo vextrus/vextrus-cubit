@@ -13,8 +13,8 @@ the team:
 **Agreement is measured against a Hand Takeoff:** a team engineer's manual measurement of five zones
 (foundations and substructure; the ground / podium floor; one typical floor; one non-typical upper
 floor where there is one; the roof with the stair and lift tower), under the same signed Rule Set as
-the product. The Sample Project and each Independent Set (the Edison set and every Held-out Set)
-get their own. It is an Answer Key, scored blind (ADR 0026).
+the product. Each Independent Set (the Edison set and every Held-out Set) gets its own; the Sample
+Project is scored against its generating inputs instead (see History). It is an Answer Key, scored blind (ADR 0026).
 - Counts exact: sheets, views, storeys, grid lines, columns, beams, slab panels, openings, rooms.
 - Per BOQ Item line: concrete ±1 %; rebar from the drawing ±3 %; formwork ±3 %; masonry and plaster
   ±3 %; finishes ±5 %. Each zone's ৳ total ±2 %. Rebar by ratio is not compared.
@@ -34,3 +34,7 @@ and rules fitted to one office fail at the next, so prove it "on two or three re
   five zones".
 - 26 Sep 2026 (clarification): "before M1" means before M1 closes. The owner's ruling: "before M1
   closes."
+- 26 Sep 2026 (owner's decision): the Sample Project needs no Hand Takeoff. Its counts and geometry
+  are scored blind against its generating agent's inputs (an Answer Key, ADR 0026); its quantities
+  are checked only as arithmetic, never as proof. Edison and each Held-out Set keep their five-zone
+  Hand Takeoffs. The owner's ruling: "Agree".

@@ -330,7 +330,7 @@ _Avoid_: budget (budget belongs to cost control), cap
 A team engineer's manual measurement of five zones of a Drawing Set (foundations and substructure;
 the ground / podium floor; one typical floor; one non-typical upper floor where there is one; the roof
 with the stair and lift tower), under the same Rule Set as the product, kept private and used only by
-the owner to check Vextrus's figures.
+the owner to check Vextrus's figures; made for the Edison set and every Held-out Set, not the Sample Project.
 _Avoid_: golden, ground truth
 
 **Answer Key**:
