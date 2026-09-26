@@ -31,6 +31,10 @@ civil engineer and the CEO and co-founder. The previous product (Vextrus Cubit) 
 - **Effort:** `high` by default (the owner's ruling, 26 Sep 2026: the project is complex). Small,
   fully specified cloud tickets may run at `medium` to stretch the cloud credit; each ticket says so.
 - **A mistake made twice goes into this file.**
+  - Agents deleted their own build output recursively twice (26 Sep 2026); the guard now refuses a
+    recursive `rm`. Delete files by name, or leave build output and say so.
+  - Parallel agents share one chrome-devtools browser: select your own page by URL before every
+    action; per-page viewport emulation only; never touch another agent's page.
 
 ## Law
 - **Secrets** are never printed, written or committed (`TYPESAFE_API_KEY` lives in `~/.bashrc`).

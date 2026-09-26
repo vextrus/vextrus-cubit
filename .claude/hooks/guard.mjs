@@ -68,6 +68,12 @@ const BASH_RULES = [
     reason: "`git clean` deletes untracked files, the owner's own files and .private/ among them. Remove the files you made by name.",
   },
   {
+    rule: "RECURSIVE_DELETE",
+    fires: (parts) =>
+      parts.some((part) => /(?:^|\s)rm\s+(?:-[a-zA-Z]*[rR][a-zA-Z]*|--recursive)(?:\s|$)/.test(part) || /(?:^|\s)rm\s+.*\s-[a-zA-Z]*[rR]/.test(part)),
+    reason: "`rm -r` asks the owner (CLAUDE.md). Delete the files you made by name, or leave build output in place and say so.",
+  },
+  {
     rule: "HISTORY_REWRITTEN",
     fires: (parts) =>
       parts.some(
