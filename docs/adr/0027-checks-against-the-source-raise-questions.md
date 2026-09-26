@@ -31,3 +31,5 @@ Confirmation as the one safeguard: exactly where plausible, systematic errors pa
   The owner's ruling (26 Sep 2026): "yes, agree on the check catalogue".
 - 26 Sep 2026: "Check" widened in CONTEXT.md to conservation and sanity ranges, which ADRs 0006, 0009
   and 0016 already used; this ADR now says so (docs/data-model.md §1.3).
+- 26 Sep 2026 (owner's decision, M0 spec): a view is accounted for in Coverage once it is used,
+  excluded, or assigned to the Takeoff Step that will read it. The owner's ruling: "Agree with 1–5".

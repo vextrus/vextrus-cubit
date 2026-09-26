@@ -26,3 +26,5 @@ it would run, beside `.private/` and the secrets (docs/research/sdlc-waves-and-c
   PR. A CI job sets it to success ("not applicable") when the diff touches no engine path; otherwise
   it stays pending until the owner's command posts the result as the key user. The owner reads every
   change to `.github/` in full (ADR 0025), so an agent cannot quietly widen "not applicable".
+- 26 Sep 2026 (owner's decision, M0 spec): each Takeoff Step's expected N values are written when that
+  step's milestone starts, not all in M0. The owner's ruling: "Agree with 1–5".
