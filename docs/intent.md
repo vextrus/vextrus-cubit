@@ -61,8 +61,8 @@ It is broad (194 modules) and free, but shallow where our clients live
 - **A business, not a free download.** We sell a finished result per project (ADR 0033).
 
 ## Next after the MVP
-- Cost control during construction.
-- Level 3 AI: the first autonomous job, likely a revision comparison.
+- Level 3 AI first: a written explanation of each Revision Comparison (the owner's ruling, 26 Sep 2026).
+- Then cost control during construction, the first new module, once beta Developers are on site.
 - Then the modules beta Developers ask for.
 
 ## The owner's broader ideas (their words, condensed; to be placed in the sequence)

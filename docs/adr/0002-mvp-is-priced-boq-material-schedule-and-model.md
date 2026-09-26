@@ -24,7 +24,8 @@ Summary shows ৳ by stage. Real dates wait for 4D after the MVP.
 **Structure.** The Priced BOQ's seven BOQ Sections, numbering and columns, and the Material Schedule's
 materials and units are in docs/specs/bd-defaults.md.
 
-Cost control during construction is the next module; modules after it are chosen by what beta
+After the MVP, Level 3 comes first (a written explanation of each Revision Comparison), then cost
+control during construction as the first new module; modules after it are chosen by what beta
 Developers ask for.
 
 ## History
@@ -49,3 +50,5 @@ Developers ask for.
   sft of Gross Floor Area (concrete cft, rebar kg, bricks…) priced at current Market Prices, so a price
   change moves unmeasured steps too; the Target Cost is tested on the full Estimate. Evidence: the
   Project Summary prototype (docs/design/screens.md). The owner's ruling: "Q49 Agree".
+- 26 Sep 2026 (owner's decision): after the MVP, Level 3 first, then cost control, matching
+  docs/milestones.md. The owner's ruling: "Agree, Level 3 first".
