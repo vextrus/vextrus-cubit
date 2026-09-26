@@ -102,3 +102,11 @@ The owner's ruling, 26 Sep 2026: "I was checking out the Step 1 prototype and re
 across the whole canvas (912 px at 1280, 71 %; 1072 px at 1440, 74 %) with the inspector and rail
 unchanged; Esc returns to the list. Measured: a clean set's sheet list confirmed in 2 keystrokes, a
 messy one (8 Questions) in 14, no clicks; 8–35 ms key to frame (40–146 ms at 4× CPU slowdown).
+The owner's ruling on five more choices, 26 Sep 2026: "Agree with all five".
+1. **Proposed exclusions join the bulk Confirmation** (the bar names them; Undo reverses): a clean set
+   confirms in one key.
+2. **A missing storey is a Question only on plan views.**
+3. **Step 1 may be confirmed while a file is held by the decoder check,** once its Question is answered
+   ("read anyway" or "set this file aside"); the held file's sheets stay marked.
+4. **The storey strip stays,** showing "floor to floor" and "at floor level" differently.
+5. **In sheet view, Enter confirms the sheet and opens the next one needing the QS.**
