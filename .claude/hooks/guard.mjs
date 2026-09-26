@@ -88,8 +88,10 @@ const BASH_RULES = [
   },
   {
     rule: "PRIVILEGE_RAISED",
-    fires: (parts) => parts.some((part) => /^(?:[A-Z_]+=\S*\s+)*(?:sudo|su|doas|pkexec|(?:\S*\/)?wsl(?:\.exe)?)(?:\s|$)/.test(part)),
-    reason: "Agent sessions never raise privilege: Answer Keys live with another user (ADR 0026). If something needs root, say what and the owner runs it with `! <command>`.",
+    // Anywhere in the command, not only at its start: `bash -c "sudo …"` is the same act.
+    fires: (parts) =>
+      parts.some((part) => /(?:^|[\s"'`(=$])(?:sudo|su|doas|pkexec|(?:\S*\/)?wsl(?:\.exe)?)(?=\s|$|["'`;)])|vxkeys|vx-score/.test(part)),
+    reason: "Agent sessions never raise privilege, name the key user or run the scorer: Answer Keys live with another user and only the owner scores (ADRs 0026, 0030). If something needs root, say what and the owner runs it with `! <command>`.",
   },
   {
     rule: "LABORATORY_READ",
