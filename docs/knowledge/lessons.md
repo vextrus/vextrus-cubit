@@ -20,3 +20,8 @@ fix that taught it (ADR 0030). Read the area you are working in before you start
 - **`dwg2dxf` corrupts text with raw line breaks;** read text from `dwgread` JSON.
 - **Rules fitted to one office read nothing at the next.** The session-10 prototype ran zero stages
   on the Sample Project until 17 fittings (docs/research/sample-project-first-read.md).
+- **LibreDWG 0.14 drops ATTRIB text styles** (null style handle); inherit the style from the ATTDEF
+  with the same tag (docs/research/viewer-2d-fidelity.md).
+- **dxf-viewer hides ATTRIBs carrying an embedded xrecord and draws no leaders:** it is not our sheet
+  renderer.
+- **Thin CAD lines as GL_LINES, never one quad per segment** (242 ms vs 19 ms a frame).
