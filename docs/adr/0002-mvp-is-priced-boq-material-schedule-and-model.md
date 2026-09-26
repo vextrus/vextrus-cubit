@@ -45,3 +45,7 @@ Developers ask for.
   confirmed. Held per Trade, concrete and rod stayed allowances until steps 5–10 were all confirmed,
   and the Project Summary prototype showed 7 % measured with most of the frame done. Defaults are
   Vextrus's (set by the owner), then the Developer's past projects. The owner's ruling: "Agree".
+- 26 Sep 2026 (owner's decision, refining the above): each step's allowance is held as consumption per
+  sft of Gross Floor Area (concrete cft, rod kg, bricks…) priced at current Market Prices, so a price
+  change moves unmeasured steps too; the Target Cost is tested on the full Estimate. Evidence: the
+  Project Summary prototype (docs/design/screens.md). The owner's ruling: "Q49 Agree".

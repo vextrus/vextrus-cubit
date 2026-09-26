@@ -22,3 +22,22 @@ with the six Takeoff design choices".
 
 Keys: Enter confirms a group or one element; → / ← review one by one; X excludes with a reason; E edits
 a size; a number key picks an answer; Ctrl Z undoes; Esc returns from a Trace.
+
+## The Project Summary (prototype: variants A, B, C; invented figures, every total reconciled)
+The owner's ruling on nine design choices, 26 Sep 2026: "Q49 Agree".
+1. **Layout:** A's tiles on desktop; B's fixed brief as the phone's first screen; C's building section
+   (floors with each slab casting's Construction Stage) as a panel.
+2. **The Revision Comparison** has no "inside allowances" column: a change shows in the Estimate once
+   its step is confirmed; unconfirmed steps are listed "still on allowance".
+3. **"Likely over allowance"** is an amber flag when a step's measured-so-far, projected to its n / N,
+   passes the step's allowance; it never changes the Estimate.
+4. **Allowances follow Market Prices:** each Takeoff Step's allowance is held as consumption per sft of
+   Gross Floor Area (cft of concrete, kg of rod, bricks…) priced at current Market Prices; the same
+   figures feed the consumption checks. (Refines ADR 0002's per-step allowances.)
+5. **The Target Cost is tested on the full Estimate,** layers included.
+6. **The Estimate's layers spread over the Construction Stages pro rata;** no buyers' instalment plan
+   in the MVP.
+7. An allowance sits in its step's BOQ Section and is never split.
+8. **Exports default to the latest Issued Estimate;** a working export says "Working — not issued"; the
+   MD may issue from the Summary.
+9. **A floor's ৳/sft shows "—"** where its area is too small to mean anything, with a note.
