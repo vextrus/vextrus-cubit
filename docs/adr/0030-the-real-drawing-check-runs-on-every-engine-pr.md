@@ -34,3 +34,6 @@ it would run, beside `.private/` and the secrets (docs/research/sdlc-waves-and-c
   password, reading that export and the keys. Running the PR's own code as the key holder would have
   let it copy a key (architecture critic #3, refuter #1). The owner's ruling: "Agree, write the
   script to remove the rule".
+- 26 Sep 2026 (owner's decision, M0 plan): the `real-drawings` status is posted by a small private
+  GitHub App the owner holds (commit statuses only, its key with the key user), so a forged status
+  shows a different author. The owner's ruling: "Agree with all four".

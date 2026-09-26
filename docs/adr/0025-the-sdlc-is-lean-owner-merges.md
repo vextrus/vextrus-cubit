@@ -38,3 +38,6 @@ green while the product failed (docs/postmortem.md; docs/research/sdlc-claude-co
 - 26 Sep 2026 (owner's decision): how waves run. The owner's ruling: "Agree but no paid ultraviews".
 - 26 Sep 2026: the plan became a committed, attacked document (session 01 brief); the harness has
   three hooks and the blind scorer (ADR 0026), as docs/sdlc.md states.
+- 26 Sep 2026 (owner's decision, M0 plan): the owner also reads in full the harness scripts and the
+  sandbox (`scripts/real-drawings`, `scripts/real_drawings/`, `scripts/score/`, `scripts/owner/`,
+  `scripts/cloud/`, `engine/read/sandbox.py`). The owner's ruling: "Agree with all four".
