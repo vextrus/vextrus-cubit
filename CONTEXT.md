@@ -32,7 +32,7 @@ Masonry, Finishes, Doors & Windows, Services, External works.
 _Avoid_: bill, chapter, trade (a trade is a kind of work)
 
 **Trade**:
-A kind of work (concrete, formwork, rod work, brickwork, plaster, flooring…) as PWD's chapters and
+A kind of work (concrete, formwork, rebar work, brickwork, plaster, flooring…) as PWD's chapters and
 Labour Contracts divide it; the Priced BOQ can be viewed by Trade.
 _Avoid_: discipline (a family of drawings), section, package
 
@@ -58,7 +58,7 @@ provides for and kept outside the measured subtotal.
 _Avoid_: contingency (a contingency is an Estimate layer), lump sum
 
 **Material Schedule**:
-The quantities of basic materials (cement, sand, stone chips, rod by diameter, bricks and the like)
+The quantities of basic materials (cement, sand, stone chips, rebar by diameter, bricks and the like)
 the building needs, broken down by floor and by Construction Stage, derived from the same takeoff
 as the Priced BOQ.
 _Avoid_: material list, BOM
@@ -111,7 +111,7 @@ _Avoid_: blind set, validation set, holdout (one word)
 ### Money
 
 **Resource**:
-A material (cement, rod, sand, stone chips, bricks), a labour contract item or a piece of plant that
+A material (cement, rebar, sand, stone chips, bricks), a labour contract item or a piece of plant that
 a BOQ item consumes, with a unit and a Market Price.
 _Avoid_: input, component, cost element
 
@@ -138,7 +138,7 @@ _Avoid_: loss, extra
 
 **Labour Contract**:
 The Developer's agreement with a labour-only contractor, priced per unit of its own scope (per cft of
-RCC, per sft of plaster, or per sft of casting area covering rod binding, shuttering and casting
+RCC, per sft of plaster, or per sft of casting area covering rebar binding, shuttering and casting
 together); it is its own line in the Priced BOQ, and each item it covers takes no other labour.
 _Avoid_: subcontract (that implies material and labour together)
 
@@ -212,7 +212,7 @@ _Avoid_: refusal, blocker, gap, decision
 **Check**:
 A test of what was read, confirmed or priced against something independent of it: the source
 drawings (a schedule against its plan, a room against its walls), a conservation (owned volumes sum to
-the whole; each item's labour paid once), or a sanity range (rod kg per sft); when it fires, it raises
+the whole; each item's labour paid once), or a sanity range (rebar kg per sft); when it fires, it raises
 a Question, or for a sanity range a flag.
 _Avoid_: validation, gate, test, rule (a rule is a Measurement Rule)
 
@@ -255,18 +255,23 @@ The Measurement Rules a Developer measures by: a copy of the Bangladeshi default
 practice, which the Developer edits to match its own habits.
 _Avoid_: standard (a Rule Set may depart from one), profile, law
 
-**Rod Ratio**:
-The kg of rod per unit volume of concrete for an element type, by Storey Band where the QS sets it,
-from Vextrus's defaults or the Developer's QS; it gives an element rod (with an assumed diameter
-split) before its reinforcement is read from the drawings.
-_Avoid_: steel factor, thumb rule
+**Rebar**:
+The steel reinforcement bars of RCC, bought by the ton and scheduled by diameter; the product's one
+word for them on every screen and document (the owner's ruling, 26 Sep 2026: "Rebar it is").
+_Avoid_: rod, MS rod, steel (alone), reinforcement (except in PWD's own item text)
 
-**Rod Basis**:
-How an element's rod was found, shown on every rod figure: "by ratio" (from a Rod Ratio), "from the
+**Rebar Ratio**:
+The kg of rebar per unit volume of concrete for an element type, by Storey Band where the QS sets it,
+from Vextrus's defaults or the Developer's QS; it gives an element rebar (with an assumed diameter
+split) before its reinforcement is read from the drawings.
+_Avoid_: rod ratio, steel factor, thumb rule
+
+**Rebar Basis**:
+How an element's rebar was found, shown on every rebar figure: "by ratio" (from a Rebar Ratio), "from the
 drawing" (every bar, lap and hook stated on the drawing) or "from the drawing + rules" (bars read,
 with laps, hooks, anchorage, cutting and wastage supplied by Measurement Rules where the drawing is
 silent).
-_Avoid_: rebar mode, estimate type
+_Avoid_: rod basis, rebar mode, estimate type
 
 **Revision**:
 A re-issue of all or part of a Drawing Set by its consultant (revision B after A); in Dhaka practice
@@ -302,7 +307,7 @@ _Avoid_: support agent, consultant, admin
 
 **Project Summary**:
 The MD's page for one project: total cost and cost per sft, cost by trade and by floor, what is
-confirmed and what is open, the rod from the drawing, the latest Revision Comparison, the Building
+confirmed and what is open, the rebar from the drawing, the latest Revision Comparison, the Building
 Model in 3D, and the Target Cost warning.
 _Avoid_: dashboard, home, overview
 

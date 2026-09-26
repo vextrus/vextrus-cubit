@@ -3,7 +3,7 @@
 The engine has a versioned catalogue of Checks. A Check tests what was read, confirmed or priced
 against something independent of it, never against the pipeline's own output. Three kinds:
 - **Against the source drawings:** schedule vs plan, section span vs plan span, level lines vs level
-  labels, drawn spacing vs spacing text, bars inside their concrete, rod schedule totals that sum
+  labels, drawn spacing vs spacing text, bars inside their concrete, rebar schedule totals that sum
   back (ADR 0010), each room enclosed by its walls.
 - **Conservation:** owned volumes sum exactly to the union of the concrete (ADR 0009); each item's
   labour comes from exactly one source (ADR 0006).

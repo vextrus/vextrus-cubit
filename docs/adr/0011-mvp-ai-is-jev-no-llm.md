@@ -2,7 +2,7 @@
 
 AI in Vextrus comes at three levels: **Level 1** inside the Takeoff (sheet types, layer and text roles,
 label binding, phrasing Questions); **Level 2**, an assistant over the confirmed dataset ("concrete on
-the 3rd floor?", "what if rod rises 8%?"), where the AI chooses the question's meaning and code
+the 3rd floor?", "what if rebar rises 8%?"), where the AI chooses the question's meaning and code
 computes every number with its Trace; **Level 3**, autonomous agents doing whole jobs ("what changed in
 revision C, and what does it cost?"). The MVP ships Levels 1 and 2 on TypeSafe's Jev, a System One
 judgment model, with no LLM. Level 3 comes after the MVP and combines Jev with a System Two LLM

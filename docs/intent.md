@@ -30,7 +30,7 @@ OpenConstructionERP never attempts it (docs/research/oce-algorithms.md).
   - An Issued Estimate is frozen; every later change is shown against it, split into quantity and
     price effect (ADR 0028).
   - Measurement Rules held as data, defaulting to IS 1200 with PWD's conventions (ADR 0009).
-  - Rod by ratio first, then read from the drawing, with its Rod Basis on every figure (ADR 0010).
+  - Rebar by ratio first, then read from the drawing, with its Rebar Basis on every figure (ADR 0010).
   - Each BOQ Item in its Billing Unit, rounded as a QS rounds; the market's imperial units on screen;
     money and quantities in lakh and crore (ADR 0008).
 - **For the MD:** the Project Summary and the 3D share link work on a phone; the QS's work is

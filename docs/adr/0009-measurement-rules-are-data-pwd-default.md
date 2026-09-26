@@ -7,7 +7,7 @@ labelled with its source, with Dhaka-practice parameters (docs/specs/bd-defaults
 excavation working space). Rule Sets are versioned; each project pins a version, and a rule edit is an
 explicit re-measure (ADR 0031). Every figure's Trace names the rules that produced it. The Building
 Model holds confirmed facts; all measurement judgement lives in the Rule Set: opening deductions,
-formwork, plaster, Billing Units (ADR 0008), rod detailing (ADR 0010).
+formwork, plaster, Billing Units (ADR 0008), rebar detailing (ADR 0010).
 
 **Junction ownership is a Measurement Rule.** Who owns concrete where members overlap is a rule,
 defaulting to IS 1200 Pt 2 cl. 4.2.2: the slab runs over beams and columns; a column stops at the slab

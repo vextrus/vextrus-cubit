@@ -11,7 +11,7 @@ and site overheads (as items or a % of direct cost) + contingency % + taxes (VAT
 held as data). The Priced BOQ shows each layer; cost per sft is quoted on the Estimate, with direct
 cost beside it. No profit layer: the Developer does not bill itself.
 
-**Labour Contracts** have their own unit and scope (for example per sft of casting area, covering rod
+**Labour Contracts** have their own unit and scope (for example per sft of casting area, covering rebar
 binding, shuttering and casting); the quantity comes from a Measurement Rule, and each is its own
 line in the Priced BOQ. They belong to the Developer, with a per-project override of rate or scope.
 Every item a Labour Contract covers takes no other labour; a Check (ADR 0027) makes each item's labour

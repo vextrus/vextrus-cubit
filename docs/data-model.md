@@ -27,7 +27,7 @@ The data sits in four bands, in one Postgres with row-level security on every te
     Drawing Set State, the Rule Set version and the Market Price set.
   - Every comparison splits the quantity effect from the price effect.
 
-Library data (the Bangladeshi default Rule Set, Rate Analyses, Rod Ratios and Benchmark Rates) lives
+Library data (the Bangladeshi default Rule Set, Rate Analyses, Rebar Ratios and Benchmark Rates) lives
 under one system tenant, the Vextrus Library. Tenants can read it, and a Developer gets a copy on
 first use.
 
@@ -47,7 +47,7 @@ first use.
 | 10 | Direct cost only | Estimate Layers (preliminaries, site overheads, contingency, taxes at dated Tax Rates); the Benchmark Rate printed and net, with its mark-up as data per SoR edition | 0006 am. |
 | 11 | A labour line inside each Rate Analysis | A Labour Contract has its own unit, its own BOQ line and a list of the items it covers; a covered item's labour lines drop out | 0006 am. |
 | 12 | — | Cost Basis per Trade (measured or allowance ৳/sft); Construction Stages (fixed order, renamable); procurement lead time per Resource | 0002 am. |
-| 13 | A single Rod Basis and quantity on the state | Three Rod Bases. Rod Ratios by element type × Storey Band and an assumed diameter split, both in the Rule Set version. Confirmed bars are held in `building_model` | 0010 am., 0031 §4 |
+| 13 | A single Rebar Basis and quantity on the state | Three Rebar Bases. Rebar Ratios by element type × Storey Band and an assumed diameter split, both in the Rule Set version. Confirmed bars are held in `building_model` | 0010 am., 0031 §4 |
 | 14 | — | Junction ownership is a Measurement Rule, not an engine constant | 0009 am. |
 | 15 | `QUESTION` unblocks Element States | Questions unblock Proposals; a Check catalogue, Check runs and findings; Coverage per view | 0027 |
 | 16 | — | A per-tenant Jev answer cache and a log of the QS's overrides | 0011 am. |
@@ -83,7 +83,7 @@ first use.
   - "labour from exactly one source";
   - "owned volumes sum to the union".
 
-  Neither compares with the drawings. ADR 0016's "consumption checks" (rod kg per sft against a
+  Neither compares with the drawings. ADR 0016's "consumption checks" (rebar kg per sft against a
   range) clash with the term too. I recommend widening the definition to "…with the source drawings
   or with the confirmed model's own totals" and calling the MD's figures **Consumption Ranges**.
 
@@ -214,14 +214,14 @@ quantities on Proposals by calling `measurement` on their facts; the preview is 
 | ProjectRulePin | from_at, to_at, pinned_by | (project) where to_at is null | T | RuleSetVersion; project_id ↓ |
 
 `measurement.services.measure(project, facts_seq, version)` reads facts from `building_model`, calls
-the pure `engine` function and returns Measurement Lines. It stores nothing. Each Rod Ratio is kept
+the pure `engine` function and returns Measurement Lines. It stores nothing. Each Rebar Ratio is kept
 in the unit the owner set it in (kg/cft), because bd-defaults' kg/m³ column is rounded
 (1.7 kg/cft = 60.03 kg/m³, not 60).
 
 **`rates`**: Resources, prices, Rate Analyses, Benchmarks
 | Entity | Key fields | Identity | Tenant | References |
 |---|---|---|---|---|
-| Resource | code, name, kind (`material`/`labour`/`plant`/`labour_contract`/`material_and_labour`), quoted_unit (`bag`/`cft`/`kg`/`ton`/`nos`/`sft`/`litre`…), schedule_group ("Cement OPC", "Rod"), in_material_schedule bool, procurement_lead_days | (tenant, code) | L | — |
+| Resource | code, name, kind (`material`/`labour`/`plant`/`labour_contract`/`material_and_labour`), quoted_unit (`bag`/`cft`/`kg`/`ton`/`nos`/`sft`/`litre`…), schedule_group ("Cement OPC", "Rebar"), in_material_schedule bool, procurement_lead_days | (tenant, code) | L | — |
 | MarketPriceSet | effective_date, label, status (`open`/`frozen`), parent_set_id | (tenant, effective_date, label) | L | MarketPriceSet |
 | MarketPrice | price ৳ dec(14,4) per the Resource's quoted unit | (set, resource) | L | MarketPriceSet, Resource |
 | RateAnalysis | item_code, per_unit (the unit it is analysed in), shown_per (100), mix, dry_volume_factor, benchmark_code (PWD) | (tenant, item_code) | L | — |
@@ -269,7 +269,7 @@ in the unit the owner set it in (kg/cft), because bd-defaults' kg/m³ column is 
 | revisions | Comparison | kind (`revision`/`rule_remeasure`/`price_update`/`any`); baseline (`model_state`: facts_seq + rule version + price set; or `issued_estimate`); target pins; computed_at, by | id | T | ids ↓ |
 | revisions | ComparisonItem | item_code, q0, r0, q1, r1, quantity_effect ৳ = (q1 − q0) × r0, price_effect ৳ = (r1 − r0) × q1 | (comparison, item) | T | Comparison |
 | revisions | ComparisonElement | change (`new`/`removed`/`changed`), changed_facts jsonb, quantity_effect ৳ | (comparison, element) | T | Comparison; element_id ↓ |
-| summary | ConsumptionRange | measure (rod kg, cement bags, bricks, concrete cft per sft of Gross Floor Area), low, high, source | (tenant, measure) | L | — |
+| summary | ConsumptionRange | measure (rebar kg, cement bags, bricks, concrete cft per sft of Gross Floor Area), low, high, source | (tenant, measure) | L | — |
 | exports | Export | kind (`excel`/`pdf`), input_hash, created_by + at; issued_estimate_id nullable (null = the working Estimate, printed "not issued") | id | T | file_id ↓, issued_estimate_id ↓ |
 | exports | ShareLink | token_hash, facts_seq (pinned) or live, expires_at, revoked_at | token_hash (global unique) | T + a G lookup | project_id ↓ |
 | assistant | AskLog | text, route, jev_answer_id, service answered from, at | id | T | ids ↓ |
@@ -396,7 +396,7 @@ version 3, and the current Market Price set is PS5.
 1. `takeoff.RecogniseRun` R1 (family `column`, Drawing Set State S1, cache key) finds 89
    candidates, each a grid intersection over a Storey Band.
 2. `platform.JevAnswer` rows are written for label binding (cache misses; later reads hit).
-3. `takeoff.Proposal` ×89 (`first_read`; values in inches as drawn; mix from the notes; rod basis
+3. `takeoff.Proposal` ×89 (`first_read`; values in inches as drawn; mix from the notes; rebar basis
    "by ratio"), with `takeoff.ProposalTrace` ×~180 (size from the schedule cell, position from the
    layout insert).
 4. `takeoff.CheckRun` (schedule against plan) passes 86 of 89. One `CheckFinding` becomes
@@ -421,7 +421,7 @@ version 3, and the current Market Price set is PS5.
 9. **The Priced BOQ is opened.**
    - `boq.MeasureCache` misses (project, facts 9, RSv3, imperial) and calls
      `measurement.measure`, which returns lines written as `boq.MeasurementLine` ×~1,100: each
-     column per storey, for concrete (cft), formwork (sft), and rod by ratio split per the assumed
+     column per storey, for concrete (cft), formwork (sft), and rebar by ratio split per the assumed
      `DiameterSplit`. Rules applied: F1, F2, G3, FW2, R2, J1.
    - `rates` computes the working rates at PS5.
    - No other row is written: the amounts, the Material Schedule by storey × slab casting, the
@@ -438,7 +438,7 @@ version 3, and the current Market Price set is PS5.
   to the casting of the slab above it), not a hidden constant.
 
 ### (b) A Revision reissues 3 sheets, 2 columns change size, and the Revision Comparison against an Issued Estimate
-Given: Issued Estimate IE1 (facts 40, State S1, RSv3, PS5, now frozen). Since then the rod price has
+Given: Issued Estimate IE1 (facts 40, State S1, RSv3, PS5, now frozen). Since then the rebar price has
 moved (current set PS7).
 1. **The re-issue arrives.** `drawings.Revision` B is written, then `DrawingFile` ×1 (the
    reissued DWG) and `platform.StoredFile` (original). The cross-check passes.
@@ -469,8 +469,8 @@ moved (current set PS7).
     - `boq.MeasureCache` computes (facts 42, RSv3) if missing.
     - `revisions.Comparison` C1 (baseline IE1, target facts 42 + RSv3 + PS7).
     - `ComparisonElement` ×2 (changed b, d; quantity effect ৳).
-    - `ComparisonItem` for each touched item: column concrete, formwork and rod have a quantity
-      effect of (q1 − q0) × r0 using IE1's frozen rates. Every rod item also has a price effect of
+    - `ComparisonItem` for each touched item: column concrete, formwork and rebar have a quantity
+      effect of (q1 − q0) × r0 using IE1's frozen rates. Every rebar item also has a price effect of
       (r1 − r0) × q1 from PS7.
     - q0 is IE1's `IssuedLine`, and a test asserts it equals the recomputation at (facts 40, RSv3).
 
@@ -514,9 +514,9 @@ The M1 test for ADR 0015 ("re-reading gives zero changes") asserts on the DB:
 
 ### (d) The Developer edits a Market Price and a Measurement Rule after issuing an Estimate
 Given: IE1 issued on PS5 and RSv3, so PS5 is `frozen`.
-1. **The Market Price edit.** The QS changes rod from ৳95,000 to ৳102,000 per ton. PS5 is frozen,
+1. **The Market Price edit.** The QS changes rebar from ৳95,000 to ৳102,000 per ton. PS5 is frozen,
    so `rates.MarketPriceSet` PS6 (`open`, parent PS5, today's date) is written, with `MarketPrice`
-   ×~150 copied and rod changed.
+   ×~150 copied and rebar changed.
    - The working Estimate reprices on read. IE1 is untouched: it keeps PS5 and its frozen rows.
    - Further edits go into PS6 in place, until something is issued on it.
 2. **The Measurement Rule edit.** The Developer's QS edits FW4 (openings not deducted from slab
@@ -531,7 +531,7 @@ Given: IE1 issued on PS5 and RSv3, so PS5 is `frozen`.
      shows only a quantity effect, on the slab formwork items.
 4. **The QS accepts.** `measurement.ProjectRulePin` closes RSv3 and opens RSv4.
 5. **The MD compares against IE1.** A `Comparison` against IE1 shows the formwork change as a
-   quantity effect and the rod change as a price effect, separately.
+   quantity effect and the rebar change as a price effect, separately.
 
 **Gaps this exposed, and how they were closed.**
 - **A Rule Set edit silently re-measuring.** A Rule Set edit must never re-measure silently. It is
@@ -552,7 +552,7 @@ prices them.
    - `rates.MarketPrice` R-LC1 = ৳150 per sft in the open set.
    - `rates.LabourContract` LC1 (project P, own_item_code `LAB-CAST`, contractor, trade).
    - `rates.LabourContractCover` ×3: the frame's casting (`RCC-SLB-BM-1:1.5:3`), its shuttering
-     (`FW-SLB-BM`) and its rod binding (`ROD-500W`).
+     (`FW-SLB-BM`) and its rebar binding (`ROD-500W`).
 2. On read, the `boq` Measurement Lines for `LAB-CAST` (one per slab per storey, in sft) become their
    own Priced BOQ line at ৳150. They are staged per slab casting, which matches Dhaka instalments.
 3. `rates` computes the three covered items' working rates without their labour lines. The Rate
@@ -610,12 +610,12 @@ prices them.
    the Benchmark, a contract's ৳ is shared across its covered items in proportion to the labour their
    own Rate Analyses would have carried at Market Prices. "Agree".
 4. **Rounding:** each Measurement Line to 2 dp in its Billing Unit, the item quantity their sum;
-   countable units (nos, bags, kg of rod) to whole numbers, tons to 3 dp (a Rule Set parameter); rates
+   countable units (nos, bags, kg of rebar) to whole numbers, tons to 3 dp (a Rule Set parameter); rates
    to the paisa; amount = ROUND(qty × rate, 2); the Estimate's layers on the rounded amounts; the
    Material Schedule rounds up. "Agree".
 5. **Market Price sets:** edits go into the current working set; a new set is copied only when an
    Issued Estimate freezes the current one; each price keeps its last-changed date. "Agree".
-6. **Rod Measurement Lines** are held to 2 decimals of a kg and the item total to whole kg (refines 4;
+6. **Rebar Measurement Lines** are held to 2 decimals of a kg and the item total to whole kg (refines 4;
    the BOQ grid prototype showed whole-kg lines up to 8 % off). "Agree with 1–6".
 
 ## 7. Deliberately left out of the MVP
@@ -623,7 +623,7 @@ prices them.
 - **One building, one Drawing Set per project.** Multi-building projects wait.
 - **Rate Analysis alternatives.** A per-project alternative Rate Analysis (for example, ready-mix for
   one project only) waits; the Developer's one Rate Analysis per item is used.
-- **Rod prices.** Per-diameter rod prices wait: one rod Resource per grade, with the diameter as a
+- **Rebar prices.** Per-diameter rebar prices wait: one rebar Resource per grade, with the diameter as a
   split of the quantity.
 - **PWD added rates** per floor and per metre over 4 m (Benchmark only).
 - **Construction baselines.** Cast stages marked done, and the construction baseline after work

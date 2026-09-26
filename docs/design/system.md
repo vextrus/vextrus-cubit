@@ -104,7 +104,7 @@ Cubit's green at 4.46:1 on the grey background, below AA.
 Amber is the "needs a look" family: Questions, and a consumption figure outside its sanity range on
 the Project Summary ("Above range", flagged, never blocked, ADR 0016).
 
-### Cost Basis and Rod Basis
+### Cost Basis and Rebar Basis
 
 No hue of their own; they would outshout the quantities (Cubit's basis chips did, walk P15).
 
@@ -112,9 +112,9 @@ No hue of their own; they would outshout the quantities (Cubit's basis chips did
 |---|---|---|
 | Cost Basis: measured | solid square | "measured" |
 | Cost Basis: allowance | hatched square; hatched bar in charts | "allowance" |
-| Rod Basis: by ratio | dashed bar cross-section | "by ratio" |
-| Rod Basis: from the drawing | solid bar cross-section | "from the drawing" |
-| Rod Basis: from the drawing + rules | solid cross-section with a ring | "from the drawing + rules" |
+| Rebar Basis: by ratio | dashed bar cross-section | "by ratio" |
+| Rebar Basis: from the drawing | solid bar cross-section | "from the drawing" |
+| Rebar Basis: from the drawing + rules | solid cross-section with a ring | "from the drawing + rules" |
 
 The measured share of the Estimate is one proportion bar: indigo for measured, hatch for allowance.
 
@@ -236,7 +236,7 @@ plays, skeletons stop shimmering, the camera cuts.
 - **Our domain glyphs**, drawn on Lucide's 24-unit grid with the same 1.5 stroke
   (`src/ui/glyphs.tsx`): the 14 Takeoff Step families (sheets, notes, level datum, grid bubbles,
   foundation, column, beam, slab, stair, tank, wall, room, roof, site); the status marks (Proposal,
-  Confirmed, Question cloud, Over Target, Excluded); Cost Basis (measured, allowance); Rod Basis
+  Confirmed, Question cloud, Over Target, Excluded); Cost Basis (measured, allowance); Rebar Basis
   (by ratio, from the drawing, from the drawing + rules); the Trace leader. The brand mark keeps
   Cubit's "Ascent", with the copper spark only at 32 px and larger.
 
@@ -254,7 +254,7 @@ shared table of expected strings (stack-frontend.md §7).
 | Money per sft | ৳3,788 | Whole taka. |
 | Money, a change | +৳42,65,400.00, −৳1,20,500.00 | Explicit + and a true minus (U+2212). |
 | Quantity | 1,24,842.50 cft | Two decimals, as the Rule Set rounds (ADR 0008); lakh grouping like money (the owner's ruling). |
-| Count units | 2,45,600 nos; 1,860 bags; 48,620 kg | nos, bags and kg: whole numbers (the Rule Set rounds them to 0 dp); rod never to the gram. |
+| Count units | 2,45,600 nos; 1,860 bags; 48,620 kg | nos, bags and kg: whole numbers (the Rule Set rounds them to 0 dp); rebar never to the gram. |
 | Weight | 48.620 ton | Three decimals (ADR 0008). |
 | Metric (one switch) | 108.81 m³, 4,519.80 m² | Real superscripts, never m3. |
 | Length, imperial | 10′-4½″ | Feet and inches to 1/8″, inches always shown (12′-0″), primes on screen, the fraction set with the `frac` feature; plain 10'-4 1/2" in titles, the accessible name and Excel. |
@@ -305,11 +305,11 @@ Built in the specimen as React + Tailwind v4 on the tokens; the product copies s
   (never a free-text box first); "Answer" and "Ask later". Lives in the inspector's Questions tab;
   its cloud and tag sit on the sheet where the conflict is.
 - **BOQ grid row and cell:** 28 px rows; Item, Description (ellipsis + tooltip), Qty, Unit, Rate (৳),
-  Amount (৳), Cost Basis, Rod Basis, Status; figures right-aligned and tabular; trade rows banded
+  Amount (৳), Cost Basis, Rebar Basis, Status; figures right-aligned and tabular; trade rows banded
   with their Cost Basis in words; a sticky total that names its Revision; allowance trades carry the
   word and the hatch. Keys: arrows move, Enter opens the Trace, Space selects, Shift extends.
 - **Inspector:** tabs Selection | Questions (count). Selection: title and status, sizes by Storey
-  Band, Checks as n / N with a tick, quantities in their Billing Units with the Rod Basis, the Trace
+  Band, Checks as n / N with a tick, quantities in their Billing Units with the Rebar Basis, the Trace
   as links, then secondary actions (Edit size, Exclude).
 - **Trace popover:** anchored to the figure, never covering it; the figure at the top; numbered
   sources (sheet, place, the Measurement Rule named, or the Question that supplied it); Enter opens

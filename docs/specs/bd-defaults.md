@@ -1,6 +1,6 @@
 # The Bangladeshi defaults, as the owner verified them
 
-The values Vextrus ships as a new Developer's starting Rule Set, Rate Analyses, Rod Ratios, Priced BOQ
+The values Vextrus ships as a new Developer's starting Rule Set, Rate Analyses, Rebar Ratios, Priced BOQ
 structure and Material Schedule. Drafted in docs/research/qs-defaults.md with a source and confidence
 for every figure; each line below is one the owner (a practising civil engineer) has verified or set.
 A Developer edits its own copy (ADR 0009).
@@ -11,7 +11,7 @@ A Developer edits its own copy (ADR 0009).
 - **Billing Units:** 10" and thicker brickwork in cft, 5" in sft; bricks in nos (ADR 0008, amended).
 - **Laps (R3):** measured, as a separate visible line beside the net bars, and included in the
   Material Schedule. The Benchmark Rate applies to net-of-lap kg. Where the drawing leaves a lap
-  unstated, the default is 40 × bar diameter for tension laps (editable), and the figure's Rod Basis
+  unstated, the default is 40 × bar diameter for tension laps (editable), and the figure's Rebar Basis
   is "from the drawing + rules". Owner's ruling, 26 Sep 2026: "Agree and yes".
 
 - **The default Rule Set** is docs/research/qs-defaults.md §1 (about 50 rules: IS 1200 as written with
@@ -26,7 +26,7 @@ A Developer edits its own copy (ADR 0009).
   - PT1 painting: the plaster area it covers, per face.
 - The Hand Takeoff is measured under these same written rules (ADR 0005).
 
-## Rod Ratios (ADR 0010)
+## Rebar Ratios (ADR 0010)
 Default per element type, overridable per Storey Band. Each includes laps, ties and stirrups;
 cutting wastage is in the Rate Analysis. No primary source exists; the owner set them from practice
 (26 Sep 2026: "Agree and yeah all right").
@@ -47,7 +47,7 @@ cutting wastage is in the Rate Analysis. No primary source exists; the owner set
 | Lintel | 2.5 | 90 |
 | Sunshade, drop wall, parapet | 2.5 | 90 |
 
-**Whole-building check (ADR 0016):** rod 4.5–6 kg per sft of Gross Floor Area for Dhaka G+6 to
+**Whole-building check (ADR 0016):** rebar 4.5–6 kg per sft of Gross Floor Area for Dhaka G+6 to
 G+14; outside the range is flagged, never blocked.
 
 ## Rate Analyses (ADR 0006)
@@ -66,13 +66,13 @@ F.M. 2.2 sand, 81.8 cft stone chips per 100 cft. Plus:
 **Parameters, as shipped (all editable):**
 - dry-volume factor 1.5 (PWD), a parameter of each Mix;
 - bricks per 100 cft of brickwork 1,100 (PWD), flagged against the arithmetic ~1,244;
-- wastage: cement 2 %, sand 5 %, stone and brick chips 3 %, bricks 3 %, rod 3 %, tiles 5 %;
+- wastage: cement 2 %, sand 5 %, stone and brick chips 3 %, bricks 3 %, rebar 3 %, tiles 5 %;
 - no Labour Contract rates: the Developer enters its own.
 
 ## Priced BOQ structure (owner's ruling, 26 Sep 2026: "Agree")
 - **Seven BOQ Sections by building part:** Sub-structure; Super-structure; Masonry; Finishes; Doors &
   Windows; Services; External works. Within each, items group by element class (piles, caps, columns,
-  beams, slabs…); each RCC element's concrete, formwork and rod sit together.
+  beams, slabs…); each RCC element's concrete, formwork and rebar sit together.
 - **Numbering** `section.group.item` (2.1.1 = Super-structure › Columns › RCC 1:1.5:3), derived, never
   stored. The PWD code appears only in the Benchmark column.
 - **Each line:** number, description (mix, grade, class), Billing Unit, quantity, rate, amount,
@@ -83,7 +83,7 @@ F.M. 2.2 sand, 81.8 cft stone chips per 100 cft. Plus:
   visible "Unclassified" heading.
 - **Totals:** a subtotal per section, the measured subtotal, then the Estimate's layers (ADR 0006).
 - **A PWD-chapter view by Trade** is one switch away, for comparing with the SoR.
-- Rod by ratio carries an "assumed" diameter split (ADR 0010, the owner's Q7 ruling), overriding the
+- Rebar by ratio carries an "assumed" diameter split (ADR 0010, the owner's Q7 ruling), overriding the
   research's advice to leave it undivided.
 
 ## Material Schedule (owner's ruling, 26 Sep 2026: "Agree"; stages per ADR 0002)
@@ -99,7 +99,7 @@ cell opens to the BOQ items that produced it.
 | Stone chips, 20 mm down | cft (m³) | — |
 | Brick chips (picked jhama) | cft (m³) | — |
 | Bricks, first class | nos | — |
-| Rod | kg, ton totals | diameter from the drawing, or "assumed" by ratio |
+| Rebar | kg, ton totals | diameter from the drawing, or "assumed" by ratio |
 | Binding wire | kg | — |
 | Floor tiles | sft (m²) | size |
 | Ready-mix concrete | cft (m³) | grade; listed apart, its cement and aggregates not above |

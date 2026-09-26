@@ -17,7 +17,7 @@ earthwork are M2.
 **"When" is a Construction Stage, not a date.** The Material Schedule runs materials down the side and
 stages and floors across the top, in a fixed sequence the Developer may rename but not reorder:
 piling; substructure; the frame, one stage per slab casting; masonry; finishes; services; external
-works. Rod splits by diameter from the drawing, or by an "assumed" split by ratio. Each Resource has
+works. Rebar splits by diameter from the drawing, or by an "assumed" split by ratio. Each Resource has
 an editable procurement lead time, so the schedule says what to order before each stage. The Project
 Summary shows ৳ by stage. Real dates wait for 4D after the MVP.
 
@@ -42,10 +42,10 @@ Developers ask for.
 - 26 Sep 2026 (owner's decision, reopening the allowance-switch ruling on prototype evidence):
   allowances are held **per Takeoff Step**, not per Trade: each step carries an allowance in ৳/sft of
   Gross Floor Area for everything it brings, replaced whole by its measured figure when the step is
-  confirmed. Held per Trade, concrete and rod stayed allowances until steps 5–10 were all confirmed,
+  confirmed. Held per Trade, concrete and rebar stayed allowances until steps 5–10 were all confirmed,
   and the Project Summary prototype showed 7 % measured with most of the frame done. Defaults are
   Vextrus's (set by the owner), then the Developer's past projects. The owner's ruling: "Agree".
 - 26 Sep 2026 (owner's decision, refining the above): each step's allowance is held as consumption per
-  sft of Gross Floor Area (concrete cft, rod kg, bricks…) priced at current Market Prices, so a price
+  sft of Gross Floor Area (concrete cft, rebar kg, bricks…) priced at current Market Prices, so a price
   change moves unmeasured steps too; the Target Cost is tested on the full Estimate. Evidence: the
   Project Summary prototype (docs/design/screens.md). The owner's ruling: "Q49 Agree".

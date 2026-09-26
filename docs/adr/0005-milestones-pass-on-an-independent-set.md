@@ -16,8 +16,8 @@ floor where there is one; the roof with the stair and lift tower), under the sam
 the product. The Sample Project and each Independent Set (the Edison set and every Held-out Set)
 get their own. It is an Answer Key, scored blind (ADR 0026).
 - Counts exact: sheets, views, storeys, grid lines, columns, beams, slab panels, openings, rooms.
-- Per BOQ Item line: concrete ±1 %; rod from the drawing ±3 %; formwork ±3 %; masonry and plaster
-  ±3 %; finishes ±5 %. Each zone's ৳ total ±2 %. Rod by ratio is not compared.
+- Per BOQ Item line: concrete ±1 %; rebar from the drawing ±3 %; formwork ±3 %; masonry and plaster
+  ±3 %; finishes ±5 %. Each zone's ৳ total ±2 %. Rebar by ratio is not compared.
 - M1 checks the frame in the zones it covers; M2 checks all five.
 
 Why: Vextrus Cubit passed every gate on drawings it generated itself (docs/postmortem.md, cause 1),

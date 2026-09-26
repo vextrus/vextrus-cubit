@@ -9,7 +9,7 @@ step, and the Priced BOQ fills in as it grows.
 
 **The fourteen Takeoff Steps:**
 1. Sheets. 2. General Notes and Specification (grades, cover, laps, mixes, brick class; they decide
-each member's BOQ Item and supply the rod rules). 3. Storeys and levels, from level lines; a
+each member's BOQ Item and supply the rebar rules). 3. Storeys and levels, from level lines; a
 dissenting level mark is a candidate local level and a Question, never a typo by default. 4. Grid.
 5. Foundations and substructure: piles as a whole family, caps, mat or footings, grade and tie beams,
 basement walls and ramps; earthwork is derived by Measurement Rules, not read. 6. Columns, shear

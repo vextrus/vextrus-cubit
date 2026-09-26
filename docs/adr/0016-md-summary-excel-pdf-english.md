@@ -6,7 +6,7 @@ Vextrus Engineer works beside the client's QS during onboarding (ADR 0034 sets h
 **The Project Summary** shows cost per sft on two defined areas: the Gross Floor Area (every floor,
 basement and parking included, to the outside of the walls, from the confirmed Building Model; the
 area Vextrus's price uses, ADR 0033) and the Saleable Area (entered or confirmed by the QS). It carries
-the MD's consumption checks per sft of Gross Floor Area (rod kg, cement bags, bricks, concrete cft),
+the MD's consumption checks per sft of Gross Floor Area (rebar kg, cement bags, bricks, concrete cft),
 each a sanity-range Check (ADR 0027) against Vextrus's default range, then the Developer's past
 projects; a figure outside its range is flagged, never blocked. The Target Cost warning works while
 the Takeoff is still in progress (ADR 0002).

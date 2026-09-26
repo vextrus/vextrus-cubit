@@ -12,7 +12,7 @@ a new set is copied only when an Issued Estimate freezes the current one. Each p
 last-changed date.
 
 Why: ADR 0006 has one Market Price change update every rate and amount, which is right for a working
-estimate and wrong for a figure the MD has taken to the board; rod moves 20–30 % in a year. After
+estimate and wrong for a figure the MD has taken to the board; rebar moves 20–30 % in a year. After
 construction starts the baseline is the issued figure, not the previous drawing. Rejected: one live
 estimate with an audit log (the MD needs a figure that does not move, and a log does not say what a
 change was due to).

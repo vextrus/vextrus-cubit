@@ -9,7 +9,7 @@
   in nos, doors in sft; defaults in docs/specs/bd-defaults.md). The Benchmark Rate is converted to the
   same unit so it sits beside the working rate.
 - **Rounding as a QS rounds:** each Measurement Line to two decimals in its Billing Unit, and the
-  item's quantity is their sum; countable units (nos, bags, kg of rod) to whole numbers, tons to
+  item's quantity is their sum; countable units (nos, bags, kg of rebar) to whole numbers, tons to
   three decimals (a Rule Set parameter); rates to the paisa; amount = ROUND(quantity × rate, 2); the
   Estimate's layers on the rounded amounts; the Material Schedule rounds up. Excel carries the same
   values with live formulas, and a test checks quantity × rate = amount on every row.
