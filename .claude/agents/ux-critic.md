@@ -15,21 +15,30 @@ project and the task. Use the chrome-devtools MCP:
 - `take_snapshot` for structure and element uids (prefer it for interaction);
 - `take_screenshot` for what the eye sees. Save to `.private/work/review/<area>-<step>.png` and Read it
   back to look;
-- `resize_page` for 1440x900 and 1280x800;
+- per-page viewport emulation (`emulate`) for 1440x900, 1280x800 and, for the Project Summary and share
+  link, 390x844; never resize the window. Other agents share the browser: open your own page, select it
+  by URL before every action, and never touch pages you did not open;
 - `list_console_messages` and `list_network_requests` for errors and slow calls.
+
+Before you walk, read the owner's rulings you check against: `docs/design/system.md` (the design
+system), `docs/design/screens.md` (the owner's rulings on each key screen) and, for M0,
+`docs/design/m0-screens.md` (the behaviour spec). A departure from them is a defect even when it looks
+fine. Walk on the seeded demo project unless told otherwise.
 
 Walk the task end to end, then look again at each screen. Judge:
 1. **Flow.** Does each step lead to the next without knowing the product's internals? Look for dead
    ends, hidden next actions, re-typing what the drawing says, and waits without feedback.
-2. **Trust.** Can every figure be traced to its sheet in one click (the Trace)? Is Rod Basis legible?
+2. **Trust.** Can every figure be traced to its sheet in one click (the Trace)? Is Rebar Basis legible?
    Is every Question specific and answerable in place?
 3. **Language.** The QS's words from `CONTEXT.md`. Code names, ids or enum values on screen are
    defects.
 4. **Density and layout.** The work surface dominates, grids are compact and tabular, and nothing
    important sits below the fold.
-5. **Numbers.** ৳ in lakh and crore, never lakh grouping on lengths, units as the project's Display
+5. **Numbers.** ৳ and quantities in lakh and crore, never grouping on lengths or coordinates, units as the project's Display
    Units, and the same figure identical on screen, in Excel and in PDF.
 6. **Visual craft and accessibility.** Alignment, hierarchy, keyboard path, focus, contrast, labels.
+7. **Nothing that is not the product:** no raw CAD codes (`%%C`, `\P`), no performance readouts
+   without `?perf`, no test artefacts, no sheet that opens looking empty.
 
 Return defects, most damaging first. For each: screen and element; what is wrong; why it matters to
 the user; exact repro (URL, steps); the screenshot path; a concrete fix. Severity: BLOCKS_DEMO,

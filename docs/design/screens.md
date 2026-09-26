@@ -85,3 +85,13 @@ The 3D Building Model:
 9. **Piles are shown;** the opening fit frames the building above ground; a Foundations toggle.
 10. **A Question tints every element it holds amber;** its origin carries the revision-cloud marker.
 11. **Cut faces are coloured by material:** concrete grey, brick hatched terracotta.
+
+## How M0's screens keep this quality (the owner's ruling on the M0 plan's UX review, 26 Sep 2026: "Agree")
+1. A committed behaviour spec, `docs/design/m0-screens.md`, written from the prototypes with
+   wireframes on invented data: every key (one key map owned by the app shell), state, empty and
+   loading view, and piece of wording (reports in a QS's words).
+2. A Step 1 prototype on invented sheets, judged by the owner before ticket 22 is cut.
+3. A committed seed of an invented demo project for walking every UI PR.
+4. `ux-critic` checks this file and the behaviour spec, not only the tokens.
+5. A `local` walk on a real set before tickets 16 and 22 merge: no sheet opens looking empty.
+6. Performance readouts only behind a `?perf` flag, never on by default.
