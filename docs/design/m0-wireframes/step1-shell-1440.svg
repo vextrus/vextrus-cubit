@@ -1,0 +1,116 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900" font-family="Archivo, Arial, sans-serif">
+<title>step1-shell at 1440x900 (invented)</title>
+<rect x="0" y="0" width="1440" height="900" rx="0" fill="#E9EBEA"/>
+<rect x="0" y="0" width="1440" height="40" rx="0" fill="#F4F5F4"/>
+<line x1="0" y1="40" x2="1440" y2="40" stroke="#D6D9D8" stroke-width="1"/>
+<rect x="12" y="10" width="20" height="20" rx="3" fill="#5A4FB0"/>
+<text x="42" y="25" font-size="13" fill="#262B33" font-weight="600" text-anchor="start">Kadam Residence ▾</text>
+<text x="202" y="25" font-size="13" fill="#262B33" font-weight="500" text-anchor="start">Takeoff</text>
+<rect x="200" y="38" width="60" height="2" rx="0" fill="#5A4FB0"/>
+<text x="286" y="25" font-size="13" fill="#5F6772" font-weight="400" text-anchor="start">Drawing Set</text>
+<rect x="1000" y="6" width="220" height="28" rx="4" fill="#FFFFFF" stroke="#BFC4C3" stroke-width="1"/>
+<text x="1010" y="25" font-size="13" fill="#5F6772" font-weight="400" text-anchor="start">Jump to…</text>
+<text x="1208" y="24" font-size="11" fill="#5F6772" font-weight="500" text-anchor="end">Ctrl K</text>
+<text x="1428" y="25" font-size="13" fill="#262B33" font-weight="400" text-anchor="end">Nusrat Jahan, QS ▾</text>
+<rect x="0" y="40" width="48" height="836" rx="0" fill="#F4F5F4"/>
+<line x1="48" y1="40" x2="48" y2="876" stroke="#D6D9D8" stroke-width="1"/>
+<rect x="0" y="46" width="48" height="34" rx="0" fill="#ECEAFA"/>
+<rect x="0" y="50" width="2" height="26" rx="0" fill="#5A4FB0"/>
+<rect x="14" y="53" width="20" height="20" rx="2" fill="none" stroke="#4A515B" stroke-width="1"/>
+<text x="24" y="68" font-size="10" fill="#4A515B" font-weight="500" text-anchor="middle">1</text>
+<rect x="14" y="87" width="20" height="20" rx="2" fill="none" stroke="#C9CCC8" stroke-width="1"/>
+<text x="24" y="102" font-size="10" fill="#5F6772" font-weight="500" text-anchor="middle">2</text>
+<rect x="14" y="121" width="20" height="20" rx="2" fill="none" stroke="#C9CCC8" stroke-width="1"/>
+<text x="24" y="136" font-size="10" fill="#5F6772" font-weight="500" text-anchor="middle">3</text>
+<rect x="14" y="155" width="20" height="20" rx="2" fill="none" stroke="#C9CCC8" stroke-width="1"/>
+<text x="24" y="170" font-size="10" fill="#5F6772" font-weight="500" text-anchor="middle">4</text>
+<rect x="14" y="189" width="20" height="20" rx="2" fill="none" stroke="#C9CCC8" stroke-width="1"/>
+<text x="24" y="204" font-size="10" fill="#5F6772" font-weight="500" text-anchor="middle">5</text>
+<rect x="14" y="223" width="20" height="20" rx="2" fill="none" stroke="#C9CCC8" stroke-width="1"/>
+<text x="24" y="238" font-size="10" fill="#5F6772" font-weight="500" text-anchor="middle">6</text>
+<rect x="14" y="257" width="20" height="20" rx="2" fill="none" stroke="#C9CCC8" stroke-width="1"/>
+<text x="24" y="272" font-size="10" fill="#5F6772" font-weight="500" text-anchor="middle">7</text>
+<rect x="14" y="291" width="20" height="20" rx="2" fill="none" stroke="#C9CCC8" stroke-width="1"/>
+<text x="24" y="306" font-size="10" fill="#5F6772" font-weight="500" text-anchor="middle">8</text>
+<rect x="14" y="325" width="20" height="20" rx="2" fill="none" stroke="#C9CCC8" stroke-width="1"/>
+<text x="24" y="340" font-size="10" fill="#5F6772" font-weight="500" text-anchor="middle">9</text>
+<rect x="14" y="359" width="20" height="20" rx="2" fill="none" stroke="#C9CCC8" stroke-width="1"/>
+<text x="24" y="374" font-size="10" fill="#5F6772" font-weight="500" text-anchor="middle">10</text>
+<rect x="14" y="393" width="20" height="20" rx="2" fill="none" stroke="#C9CCC8" stroke-width="1"/>
+<text x="24" y="408" font-size="10" fill="#5F6772" font-weight="500" text-anchor="middle">11</text>
+<rect x="14" y="427" width="20" height="20" rx="2" fill="none" stroke="#C9CCC8" stroke-width="1"/>
+<text x="24" y="442" font-size="10" fill="#5F6772" font-weight="500" text-anchor="middle">12</text>
+<rect x="14" y="461" width="20" height="20" rx="2" fill="none" stroke="#C9CCC8" stroke-width="1"/>
+<text x="24" y="476" font-size="10" fill="#5F6772" font-weight="500" text-anchor="middle">13</text>
+<rect x="14" y="495" width="20" height="20" rx="2" fill="none" stroke="#C9CCC8" stroke-width="1"/>
+<text x="24" y="510" font-size="10" fill="#5F6772" font-weight="500" text-anchor="middle">14</text>
+<rect x="48" y="40" width="1072" height="32" rx="0" fill="#F4F5F4"/>
+<line x1="48" y1="72" x2="1120" y2="72" stroke="#D6D9D8" stroke-width="1"/>
+<text x="56" y="61" font-size="12" fill="#5F6772" font-weight="400" text-anchor="start">Step 1</text>
+<text x="100" y="61" font-size="13" fill="#262B33" font-weight="600" text-anchor="start">Sheets</text>
+<text x="156" y="61" font-size="13" fill="#4A515B" font-weight="400" text-anchor="start">Confirmed 0 / 24</text>
+<text x="284" y="61" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">▤ S-04  GROUND FLOOR BEAM LAYOUT PLAN ▾</text>
+<text x="676" y="61" font-size="14" fill="#4A515B" font-weight="400" text-anchor="start">‹  ›</text>
+<rect x="1084" y="44" width="24" height="24" rx="3" fill="none" stroke="#D6D9D8" stroke-width="1"/>
+<text x="1096" y="60" font-size="12" fill="#4A515B" font-weight="500" text-anchor="middle">?</text>
+<rect x="1056" y="44" width="24" height="24" rx="3" fill="none" stroke="#D6D9D8" stroke-width="1"/>
+<text x="1068" y="60" font-size="12" fill="#4A515B" font-weight="500" text-anchor="middle">F</text>
+<rect x="978" y="44" width="68" height="24" rx="3" fill="#F4F5F4"/>
+<text x="1012.0" y="60" font-size="12" fill="#5F6772" font-weight="500" text-anchor="middle">Compare</text>
+<rect x="928" y="44" width="48" height="24" rx="3" fill="#F4F5F4"/>
+<text x="952.0" y="60" font-size="12" fill="#5F6772" font-weight="500" text-anchor="middle">Plot</text>
+<rect x="866" y="44" width="60" height="24" rx="3" fill="#FFFFFF" stroke="#BFC4C3" stroke-width="1"/>
+<text x="896.0" y="60" font-size="12" fill="#262B33" font-weight="500" text-anchor="middle">Engine</text>
+<rect x="782" y="44" width="74" height="24" rx="3" fill="#F4F5F4"/>
+<text x="819.0" y="60" font-size="12" fill="#5F6772" font-weight="500" text-anchor="middle">CAD-dark</text>
+<rect x="726" y="44" width="54" height="24" rx="3" fill="#FFFFFF" stroke="#BFC4C3" stroke-width="1"/>
+<text x="753.0" y="60" font-size="12" fill="#262B33" font-weight="500" text-anchor="middle">Paper</text>
+<rect x="48" y="72" width="1072" height="804" rx="0" fill="#DDE0DF"/>
+<rect x="88" y="116" width="992" height="615.04" rx="0" fill="#FFFFFF" stroke="#000" stroke-width="1"/>
+<rect x="930" y="124" width="142" height="599.04" rx="0" fill="none" stroke="#000" stroke-width="1"/>
+<text x="1001" y="701.04" font-size="16" fill="#000" font-weight="700" text-anchor="middle">S-04</text>
+<rect x="108" y="136" width="515.84" height="442.82879999999994" rx="0" fill="none" stroke="#0A6C80" stroke-width="1.5" stroke-dasharray="6 3"/>
+<text x="112" y="150" font-size="11" fill="#0A6C80" font-weight="500" text-anchor="start">PLAN · Ground floor beam layout · 1:100</text>
+<rect x="633.84" y="136" width="198.4" height="184.51199999999997" rx="0" fill="none" stroke="#0A6C80" stroke-width="1.5" stroke-dasharray="6 3"/>
+<text x="637.84" y="150" font-size="11" fill="#0A6C80" font-weight="500" text-anchor="start">DETAIL · Lift pit · 1:25</text>
+<rect x="633.84" y="330.51199999999994" width="198.4" height="172.21120000000002" rx="0" fill="none" stroke="#8A5100" stroke-width="1.5" stroke-dasharray="3 3"/>
+<text x="637.84" y="344.51199999999994" font-size="11" fill="#8A5100" font-weight="500" text-anchor="start">DETAIL · Tie detail · not to scale</text>
+<rect x="108" y="588.8288" width="515.84" height="123.008" rx="0" fill="none" stroke="#5F6772" stroke-width="1.5" stroke-dasharray="2 3"/>
+<text x="112" y="602.8288" font-size="11" fill="#5F6772" font-weight="500" text-anchor="start">NOTES · General notes</text>
+<rect x="128" y="619.7312" width="120" height="3" rx="0" fill="#C9CCC8"/>
+<rect x="128" y="626.7312" width="157" height="3" rx="0" fill="#C9CCC8"/>
+<rect x="128" y="633.7312" width="194" height="3" rx="0" fill="#C9CCC8"/>
+<rect x="128" y="640.7312" width="141" height="3" rx="0" fill="#C9CCC8"/>
+<rect x="128" y="647.7312" width="178" height="3" rx="0" fill="#C9CCC8"/>
+<rect x="128" y="654.7312" width="125" height="3" rx="0" fill="#C9CCC8"/>
+<rect x="58" y="80" width="380" height="28" rx="4" fill="#FFFFFF" stroke="#D6D9D8" stroke-width="1"/>
+<text x="68" y="99" font-size="12" fill="#4A515B" font-weight="400" text-anchor="start">□ Proposal 3   ■ Confirmed 0   ☁ Question 1   ⊘ Excluded 0</text>
+<rect x="890" y="80" width="220" height="28" rx="4" fill="#FFFFFF"/>
+<rect x="898" y="94" width="60" height="4" rx="0" fill="#5F6772"/>
+<text x="964" y="99" font-size="11" fill="#5F6772" font-weight="400" text-anchor="start">0–10′  1:100, as stated</text>
+<rect x="224.0" y="816" width="720" height="44" rx="8" fill="#FFFFFF" stroke="#D6D9D8" stroke-width="1"/>
+<text x="238.0" y="835" font-size="13" fill="#262B33" font-weight="500" text-anchor="start">20 sheets agree: Structural, Architectural, MEP</text>
+<text x="238.0" y="851" font-size="11" fill="#5F6772" font-weight="400" text-anchor="start">Read from their title blocks; 3 MEP sheets excluded</text>
+<rect x="784.0" y="824" width="150" height="28" rx="4" fill="#A85B28"/>
+<text x="859.0" y="842.5" font-size="13" fill="#fff" font-weight="500" text-anchor="middle">Confirm 20 ↵</text>
+<rect x="644.0" y="824" width="132" height="28" rx="4" fill="none"/>
+<text x="710.0" y="842.5" font-size="13" fill="#262B33" font-weight="500" text-anchor="middle">Review one by one</text>
+<rect x="1120" y="40" width="320" height="836" rx="0" fill="#F4F5F4"/>
+<line x1="1120" y1="40" x2="1120" y2="876" stroke="#D6D9D8" stroke-width="1"/>
+<text x="1134" y="61" font-size="13" fill="#262B33" font-weight="500" text-anchor="start">Selection</text>
+<rect x="1130" y="70" width="64" height="2" rx="0" fill="#5A4FB0"/>
+<text x="1216" y="61" font-size="13" fill="#5F6772" font-weight="400" text-anchor="start">Questions</text>
+<rect x="1280" y="49" width="18" height="16" rx="2" fill="#FBF1E1"/>
+<text x="1289" y="61" font-size="11" fill="#8A5100" font-weight="600" text-anchor="middle">5</text>
+<line x1="1120" y1="72" x2="1440" y2="72" stroke="#D6D9D8" stroke-width="1"/>
+<rect x="1132" y="90" width="296" height="120" rx="4" fill="none" stroke="#BFC4C3" stroke-width="1" stroke-dasharray="4 4"/>
+<text x="1280.0" y="140" font-size="12" fill="#5F6772" font-weight="500" text-anchor="middle">Step 1&#x27;s inspector content:</text>
+<text x="1280.0" y="158" font-size="12" fill="#5F6772" font-weight="500" text-anchor="middle">pending the Step 1 prototype</text>
+<rect x="0" y="876" width="1440" height="24" rx="0" fill="#F4F5F4"/>
+<line x1="0" y1="876" x2="1440" y2="876" stroke="#D6D9D8" stroke-width="1"/>
+<text x="12" y="892" font-size="11" fill="#5F6772" font-weight="400" text-anchor="start">X 42′-7½″</text>
+<text x="96" y="892" font-size="11" fill="#5F6772" font-weight="400" text-anchor="start">Y 18′-3″</text>
+<text x="180" y="892" font-size="11" fill="#5F6772" font-weight="400" text-anchor="start">1:100, as stated</text>
+<text x="290" y="892" font-size="11" fill="#5F6772" font-weight="400" text-anchor="start">Imperial</text>
+<text x="1428" y="892" font-size="11" fill="#5F6772" font-weight="400" text-anchor="end">Coverage: 70 views — 52 assigned, 16 excluded, 2 unaccounted      ✓ All changes saved</text>
+</svg>

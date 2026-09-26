@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800" font-family="Archivo, Arial, sans-serif">
+<title>Drawing Set at 1280x800 (invented)</title>
+<rect x="0" y="0" width="1280" height="800" rx="0" fill="#E9EBEA"/>
+<rect x="0" y="0" width="1280" height="40" rx="0" fill="#F4F5F4"/>
+<line x1="0" y1="40" x2="1280" y2="40" stroke="#D6D9D8" stroke-width="1"/>
+<rect x="12" y="10" width="20" height="20" rx="3" fill="#5A4FB0"/>
+<text x="42" y="25" font-size="13" fill="#262B33" font-weight="600" text-anchor="start">Kadam Residence ▾</text>
+<text x="202" y="25" font-size="13" fill="#5F6772" font-weight="400" text-anchor="start">Takeoff</text>
+<text x="286" y="25" font-size="13" fill="#262B33" font-weight="500" text-anchor="start">Drawing Set</text>
+<rect x="284" y="38" width="92" height="2" rx="0" fill="#5A4FB0"/>
+<rect x="840" y="6" width="220" height="28" rx="4" fill="#FFFFFF" stroke="#BFC4C3" stroke-width="1"/>
+<text x="850" y="25" font-size="13" fill="#5F6772" font-weight="400" text-anchor="start">Jump to…</text>
+<text x="1048" y="24" font-size="11" fill="#5F6772" font-weight="500" text-anchor="end">Ctrl K</text>
+<text x="1268" y="25" font-size="13" fill="#262B33" font-weight="400" text-anchor="end">Nusrat Jahan, QS ▾</text>
+<text x="24" y="82" font-size="20" fill="#262B33" font-weight="600" text-anchor="start">Drawing Set</text>
+<text x="24" y="102" font-size="13" fill="#5F6772" font-weight="400" text-anchor="start">7 files: 21 sheets read, 1 file reading, 1 set aside, 1 refused</text>
+<rect x="680" y="64" width="96" height="28" rx="4" fill="#5A4FB0"/>
+<text x="728.0" y="82.5" font-size="13" fill="#fff" font-weight="500" text-anchor="middle">Add files</text>
+<rect x="24" y="116" width="752" height="36" rx="4" fill="#FFFFFF" stroke="#BFC4C3" stroke-width="1" stroke-dasharray="6 4"/>
+<text x="36" y="139" font-size="13" fill="#5F6772" font-weight="400" text-anchor="start">Drop DWG and PDF files here to add them, or choose files.</text>
+<rect x="24" y="164" width="752" height="28" rx="0" fill="#EFF0EF"/>
+<text x="32" y="182" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">File</text>
+<text x="262" y="182" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Discipline</text>
+<text x="372" y="182" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Status</text>
+<text x="768" y="182" font-size="12" fill="#4A515B" font-weight="600" text-anchor="end">Sheets found</text>
+<rect x="24" y="192" width="752" height="28" rx="0" fill="#FFFFFF"/>
+<line x1="24" y1="220" x2="776" y2="220" stroke="#D6D9D8" stroke-width="1"/>
+<text x="32" y="210" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">KR-STR-R0.dwg</text>
+<text x="262" y="210" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">Structural</text>
+<text x="372" y="210" font-size="13" fill="#18703F" font-weight="400" text-anchor="start">■ Read. Two readers agree</text>
+<text x="768" y="210" font-size="13" fill="#262B33" font-weight="400" text-anchor="end">13</text>
+<rect x="24" y="220" width="752" height="28" rx="0" fill="#FFFFFF"/>
+<line x1="24" y1="248" x2="776" y2="248" stroke="#D6D9D8" stroke-width="1"/>
+<text x="32" y="238" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">KR-STR-R0.pdf</text>
+<text x="262" y="238" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">Structural</text>
+<text x="372" y="238" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">Plot: 11 of 12 pages matched</text>
+<text x="768" y="238" font-size="13" fill="#262B33" font-weight="400" text-anchor="end">—</text>
+<rect x="24" y="248" width="752" height="28" rx="0" fill="#ECEAFA"/>
+<rect x="24" y="248" width="2" height="28" rx="0" fill="#5A4FB0"/>
+<line x1="24" y1="276" x2="776" y2="276" stroke="#D6D9D8" stroke-width="1"/>
+<text x="32" y="266" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">KR-ARC-R0.dwg</text>
+<text x="262" y="266" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">Architectural</text>
+<text x="372" y="266" font-size="13" fill="#18703F" font-weight="400" text-anchor="start">■ Read. 1 flag: Bangla text</text>
+<text x="768" y="266" font-size="13" fill="#262B33" font-weight="400" text-anchor="end">8</text>
+<rect x="24" y="276" width="752" height="28" rx="0" fill="#FFFFFF"/>
+<line x1="24" y1="304" x2="776" y2="304" stroke="#D6D9D8" stroke-width="1"/>
+<text x="32" y="294" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">KR-ARC-R0.pdf</text>
+<text x="262" y="294" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">Architectural</text>
+<text x="372" y="294" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">Plot: 8 of 8 matched; lettering as lines</text>
+<text x="768" y="294" font-size="13" fill="#262B33" font-weight="400" text-anchor="end">—</text>
+<rect x="24" y="304" width="752" height="28" rx="0" fill="#FFFFFF"/>
+<line x1="24" y1="332" x2="776" y2="332" stroke="#D6D9D8" stroke-width="1"/>
+<text x="32" y="322" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">KR-MEP-R0.dwg</text>
+<text x="262" y="322" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">MEP</text>
+<text x="372" y="322" font-size="13" fill="#0A6C80" font-weight="400" text-anchor="start">Reading sheet 2 of 3</text>
+<text x="768" y="322" font-size="13" fill="#262B33" font-weight="400" text-anchor="end">2 so far</text>
+<rect x="24" y="332" width="752" height="28" rx="0" fill="#FFFFFF"/>
+<line x1="24" y1="360" x2="776" y2="360" stroke="#D6D9D8" stroke-width="1"/>
+<text x="32" y="350" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">KR-STR-old.dwg</text>
+<text x="262" y="350" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">Structural</text>
+<text x="372" y="350" font-size="13" fill="#8A5100" font-weight="400" text-anchor="start">▲ Set aside: may be misread (Question)</text>
+<text x="768" y="350" font-size="13" fill="#262B33" font-weight="400" text-anchor="end">—</text>
+<rect x="24" y="360" width="752" height="28" rx="0" fill="#FFFFFF"/>
+<line x1="24" y1="388" x2="776" y2="388" stroke="#D6D9D8" stroke-width="1"/>
+<text x="32" y="378" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">site-photos.pdf</text>
+<text x="262" y="378" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">—</text>
+<text x="372" y="378" font-size="13" fill="#5F6772" font-weight="400" text-anchor="start">⊘ Refused: a scan, not a drawing</text>
+<text x="768" y="378" font-size="13" fill="#262B33" font-weight="400" text-anchor="end">—</text>
+<rect x="372" y="327" width="140" height="3" rx="0" fill="#D6D9D8"/>
+<rect x="372" y="327" width="93" height="3" rx="0" fill="#0A6C80"/>
+<rect x="540" y="306" width="120" height="24" rx="4" fill="#FFFFFF" stroke="#BFC4C3" stroke-width="1"/>
+<text x="600.0" y="322.5" font-size="13" fill="#262B33" font-weight="500" text-anchor="middle">Cancel reading</text>
+<rect x="800" y="40" width="480" height="760" rx="0" fill="#F4F5F4"/>
+<line x1="800" y1="40" x2="800" y2="800" stroke="#D6D9D8" stroke-width="1"/>
+<text x="816" y="70" font-size="16" fill="#262B33" font-weight="500" text-anchor="start">KR-ARC-R0.dwg</text>
+<text x="1264" y="70" font-size="12" fill="#5F6772" font-weight="400" text-anchor="end">Close  Esc</text>
+<text x="816" y="90" font-size="12" fill="#5F6772" font-weight="400" text-anchor="start">Architectural. Added 26 Sep 2026 by Nusrat Jahan</text>
+<line x1="800" y1="110" x2="1280" y2="110" stroke="#D6D9D8" stroke-width="1"/>
+<text x="816" y="132" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Readers</text>
+<text x="816" y="152" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">✓ Read twice, by two independent readers, and they agree.</text>
+<text x="816" y="170" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">Nothing in the file was skipped.</text>
+<line x1="800" y1="196" x2="1280" y2="196" stroke="#D6D9D8" stroke-width="1"/>
+<text x="816" y="218" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Sheets</text>
+<text x="816" y="238" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">8 sheets found: 6 laid out in the drawing, 2 on layout tabs.</text>
+<text x="816" y="256" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">Open them in Takeoff Step 1.</text>
+<line x1="800" y1="282" x2="1280" y2="282" stroke="#D6D9D8" stroke-width="1"/>
+<text x="816" y="304" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Bangla text</text>
+<text x="816" y="324" font-size="13" fill="#8A5100" font-weight="400" text-anchor="start">⚠ 9 texts on 2 sheets are Bangla typed in an old</text>
+<text x="816" y="342" font-size="13" fill="#8A5100" font-weight="400" text-anchor="start">Bijoy-style font (SutonnyMJ). They show as Latin letters,</text>
+<text x="816" y="360" font-size="13" fill="#8A5100" font-weight="400" text-anchor="start">as in AutoCAD, and Vextrus cannot read them.</text>
+<text x="816" y="378" font-size="13" fill="#8A5100" font-weight="400" text-anchor="start">If they matter, ask the consultant for a Unicode Bangla font.</text>
+<line x1="800" y1="404" x2="1280" y2="404" stroke="#D6D9D8" stroke-width="1"/>
+<text x="816" y="426" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Fonts</text>
+<text x="816" y="446" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">4 fonts named in the drawing. Vextrus draws each with a</text>
+<text x="816" y="464" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">free font of the same shape:</text>
+<rect x="816" y="484" width="448" height="26" rx="0" fill="#EFF0EF"/>
+<text x="824" y="502" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">The drawing asks for</text>
+<text x="994" y="502" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Drawn with</text>
+<text x="1144" y="502" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">How close</text>
+<rect x="816" y="510" width="448" height="26" rx="0" fill="#FFFFFF"/>
+<line x1="816" y1="536" x2="1264" y2="536" stroke="#D6D9D8" stroke-width="1"/>
+<text x="824" y="528" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">Arial</text>
+<text x="994" y="528" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">Liberation Sans</text>
+<text x="1144" y="528" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">Same widths</text>
+<rect x="816" y="536" width="448" height="26" rx="0" fill="#FFFFFF"/>
+<line x1="816" y1="562" x2="1264" y2="562" stroke="#D6D9D8" stroke-width="1"/>
+<text x="824" y="554" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">Romans (AutoCAD)</text>
+<text x="994" y="554" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">Single-stroke</text>
+<text x="1144" y="554" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">Like the plot</text>
+<rect x="816" y="562" width="448" height="26" rx="0" fill="#FFFFFF"/>
+<line x1="816" y1="588" x2="1264" y2="588" stroke="#D6D9D8" stroke-width="1"/>
+<text x="824" y="580" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">Swiss 721 Condensed</text>
+<text x="994" y="580" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">Liberation Narrow</text>
+<text x="1144" y="580" font-size="13" fill="#8A5100" font-weight="400" text-anchor="start">A little wider</text>
+<rect x="816" y="588" width="448" height="26" rx="0" fill="#FFFFFF"/>
+<line x1="816" y1="614" x2="1264" y2="614" stroke="#D6D9D8" stroke-width="1"/>
+<text x="824" y="606" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">SutonnyMJ</text>
+<text x="994" y="606" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">—</text>
+<text x="1144" y="606" font-size="13" fill="#8A5100" font-weight="400" text-anchor="start">Bangla, see above</text>
+</svg>

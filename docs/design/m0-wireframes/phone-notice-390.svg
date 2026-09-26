@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" font-family="Archivo, Arial, sans-serif">
+<title>Phone notice (invented)</title>
+<rect x="0" y="0" width="390" height="844" rx="0" fill="#E9EBEA"/>
+<rect x="35" y="330" width="320" height="150" rx="8" fill="#FFFFFF" stroke="#D6D9D8" stroke-width="1"/>
+<text x="51" y="362" font-size="16" fill="#262B33" font-weight="500" text-anchor="start">Vextrus needs a desktop</text>
+<text x="51" y="390" font-size="13" fill="#4A515B" font-weight="400" text-anchor="start">Open it on a screen 1280 px wide or more.</text>
+<text x="51" y="410" font-size="13" fill="#4A515B" font-weight="400" text-anchor="start">Your work is saved; nothing is lost.</text>
+<text x="51" y="450" font-size="13" fill="#5A4FB0" font-weight="400" text-anchor="start">Sign out</text>
+</svg>

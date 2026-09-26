@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800" font-family="Archivo, Arial, sans-serif">
+<title>Sign-in at 1280x800 (invented)</title>
+<rect x="0" y="0" width="1280" height="800" rx="0" fill="#E9EBEA"/>
+<rect x="460.0" y="230.0" width="360" height="330" rx="8" fill="#FFFFFF" stroke="#D6D9D8" stroke-width="1"/>
+<rect x="484.0" y="254.0" width="24" height="24" rx="3" fill="#5A4FB0"/>
+<text x="518.0" y="272.0" font-size="16" fill="#262B33" font-weight="600" text-anchor="start">Vextrus</text>
+<text x="484.0" y="314.0" font-size="20" fill="#262B33" font-weight="600" text-anchor="start">Sign in</text>
+<text x="484.0" y="344.0" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Email</text>
+<rect x="484.0" y="350.0" width="312" height="32" rx="4" fill="#FFFFFF" stroke="#7F868D" stroke-width="1"/>
+<text x="494.0" y="371.0" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">nusrat@shapla-homes.example</text>
+<text x="484.0" y="406.0" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Password</text>
+<rect x="484.0" y="412.0" width="312" height="32" rx="4" fill="#FFFFFF" stroke="#7F868D" stroke-width="1"/>
+<text x="494.0" y="433.0" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">••••••••••</text>
+<rect x="484.0" y="462.0" width="312" height="32" rx="4" fill="#5A4FB0"/>
+<text x="640.0" y="482.5" font-size="13" fill="#fff" font-weight="500" text-anchor="middle">Sign in</text>
+<text x="484.0" y="524.0" font-size="12" fill="#5F6772" font-weight="400" text-anchor="start">Forgot your password? Ask your MD, or Vextrus,</text>
+<text x="484.0" y="540.0" font-size="12" fill="#5F6772" font-weight="400" text-anchor="start">to set a new one.</text>
+</svg>

@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900" font-family="Archivo, Arial, sans-serif">
+<title>Projects at 1440x900 (invented)</title>
+<rect x="0" y="0" width="1440" height="900" rx="0" fill="#E9EBEA"/>
+<rect x="0" y="0" width="1440" height="40" rx="0" fill="#F4F5F4"/>
+<line x1="0" y1="40" x2="1440" y2="40" stroke="#D6D9D8" stroke-width="1"/>
+<rect x="12" y="10" width="20" height="20" rx="3" fill="#5A4FB0"/>
+<text x="42" y="25" font-size="13" fill="#262B33" font-weight="600" text-anchor="start">Shapla Homes Ltd ▾</text>
+<rect x="1000" y="6" width="220" height="28" rx="4" fill="#FFFFFF" stroke="#BFC4C3" stroke-width="1"/>
+<text x="1010" y="25" font-size="13" fill="#5F6772" font-weight="400" text-anchor="start">Jump to…</text>
+<text x="1208" y="24" font-size="11" fill="#5F6772" font-weight="500" text-anchor="end">Ctrl K</text>
+<text x="1428" y="25" font-size="13" fill="#262B33" font-weight="400" text-anchor="end">Nusrat Jahan, QS ▾</text>
+<text x="160.0" y="82" font-size="20" fill="#262B33" font-weight="600" text-anchor="start">Projects</text>
+<text x="160.0" y="102" font-size="13" fill="#5F6772" font-weight="400" text-anchor="start">3 projects at Shapla Homes Ltd</text>
+<rect x="1164.0" y="64" width="116" height="28" rx="4" fill="#5A4FB0"/>
+<text x="1222.0" y="82.5" font-size="13" fill="#fff" font-weight="500" text-anchor="middle">New project</text>
+<rect x="1006.0" y="64" width="150" height="28" rx="4" fill="none"/>
+<text x="1081.0" y="82.5" font-size="13" fill="#262B33" font-weight="500" text-anchor="middle">Members and access</text>
+<rect x="160.0" y="126" width="1120" height="28" rx="0" fill="#EFF0EF"/>
+<text x="168.0" y="144" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Code</text>
+<text x="258.0" y="144" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Name</text>
+<text x="478.0" y="144" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Address</text>
+<text x="808.0" y="144" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Drawing Set</text>
+<text x="1008.0" y="144" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Takeoff</text>
+<text x="1272.0" y="144" font-size="12" fill="#4A515B" font-weight="600" text-anchor="end">Updated</text>
+<rect x="160.0" y="154" width="1120" height="28" rx="0" fill="#ECEAFA"/>
+<rect x="160.0" y="154" width="2" height="28" rx="0" fill="#5A4FB0"/>
+<line x1="160.0" y1="182" x2="1280.0" y2="182" stroke="#D6D9D8" stroke-width="1"/>
+<text x="168.0" y="172" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">KR-01</text>
+<text x="258.0" y="172" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">Kadam Residence</text>
+<text x="478.0" y="172" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">Plot 14, Road 7, Block C, Dhaka</text>
+<text x="808.0" y="172" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">5 files read, 1 set aside</text>
+<text x="1008.0" y="172" font-size="13" fill="#8A5100" font-weight="400" text-anchor="start"> 5 Questions open</text>
+<text x="1272.0" y="172" font-size="13" fill="#262B33" font-weight="400" text-anchor="end">26 Sep 2026</text>
+<rect x="160.0" y="182" width="1120" height="28" rx="0" fill="#FFFFFF"/>
+<line x1="160.0" y1="210" x2="1280.0" y2="210" stroke="#D6D9D8" stroke-width="1"/>
+<text x="168.0" y="200" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">BP-02</text>
+<text x="258.0" y="200" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">Bokul Place</text>
+<text x="478.0" y="200" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">House 3, Lane 2, Dhaka</text>
+<text x="808.0" y="200" font-size="13" fill="#5F6772" font-weight="400" text-anchor="start">Reading 1 file, sheet 7 of 12</text>
+<text x="1008.0" y="200" font-size="13" fill="#5F6772" font-weight="400" text-anchor="start">Not started</text>
+<text x="1272.0" y="200" font-size="13" fill="#262B33" font-weight="400" text-anchor="end">25 Sep 2026</text>
+<rect x="160.0" y="210" width="1120" height="28" rx="0" fill="#FFFFFF"/>
+<line x1="160.0" y1="238" x2="1280.0" y2="238" stroke="#D6D9D8" stroke-width="1"/>
+<text x="168.0" y="228" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">SG-03</text>
+<text x="258.0" y="228" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">Shimul Garden</text>
+<text x="478.0" y="228" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">Plot 9, Sector 4, Dhaka</text>
+<text x="808.0" y="228" font-size="13" fill="#5F6772" font-weight="400" text-anchor="start">No drawings yet</text>
+<text x="1008.0" y="228" font-size="13" fill="#5F6772" font-weight="400" text-anchor="start">Not started</text>
+<text x="1272.0" y="228" font-size="13" fill="#262B33" font-weight="400" text-anchor="end">24 Sep 2026</text>
+<text x="160.0" y="250" font-size="12" fill="#5F6772" font-weight="400" text-anchor="start">↑ ↓ move, Enter opens. MD: the same list, without “New project”.</text>
+</svg>
