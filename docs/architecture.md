@@ -38,8 +38,25 @@ browser (React SPA) ──REST/OpenAPI──▶ Django + Ninja (web) ──▶ P
 | 0 | `platform` | Tenancy and row-level security, memberships (Vextrus Engineers by invitation), auth, units and money formatting, storage, the job-queue wrapper, the event outbox, the Jev client, its answer cache, override log and fallback |
 | — | `engine` | Pure Python, no Django: `read/` (behind one reader interface), `recognise/` (candidates plus judgement requests), `families/<family>/` (recognise, check, geometry, measure, dispatched by a registry generated from the directory), `assemble/` |
 
-Each module has the same anatomy: `models.py` and `migrations/` (private); `services.py` and
-`schemas.py` (public); `http.py` (the Ninja router); `admin.py`; `tasks.py`; `tests/`.
+**Where the code lives.** One uv project: the Django modules under `vextrus/<module>/`; `engine/` is a
+top-level package beside `vextrus/` (no Django, no module imports). The platform module is always
+imported as `vextrus.platform` (a bare `platform` is Python's standard library).
+
+**Each module has the same anatomy** (ADR 0034, with packages so parallel tickets never share a file;
+the M0 plan):
+- `models.py` and `migrations/`: private. Only the one ticket per wave that adds a migration to the
+  module edits `models.py`.
+- `services/`, `schemas/`, `http/`, `admin/`, `tasks/`: packages, each ticket owning its own submodule
+  (`platform/services/jobs.py`, `platform/http/auth.py`).
+- The public surface stays `services` and `schemas`: `services/__init__.py` and `schemas/__init__.py`
+  re-export, and a re-export line is the only shared edit. `http/__init__.py` exposes one `router`
+  that includes the submodules' routers.
+- `tests/`.
+
+**Settings are a package,** `vextrus/settings/` (`base`, `db`, `auth`, `tenancy`, `jobs`, `storage`,
+`uploads`, `jev`, `test`): every setting's name and default is written once in its submodule, and a
+ticket changes values only in the submodule it owns.
+
 import-linter enforces the layers, the independence of siblings, the privacy of models, and
 `engine`'s isolation. The shared files (INSTALLED_APPS, the root router, the import-linter config)
 change only when a module is added, never per feature.
@@ -78,6 +95,21 @@ change only when a module is added, never per feature.
   the tenant id and ids; the CAD queue runs at concurrency 1 under its own memory cap.
 - Generated files (the OpenAPI schema and TS types) are never committed. Each worktree gets its own
   database, named by an environment variable; test databases are named by a hash of the migrations.
+
+## The harness around the product (ADRs 0025, 0026, 0030; docs/sdlc.md)
+Not part of the product and never imported by it: `scripts/score/` (vx-score, the blind scorer),
+`scripts/real-drawings` with `scripts/real_drawings/` (the owner's real-drawing command),
+`scripts/owner/`, `scripts/cloud/` and `.github/`. The owner reads these and `engine/read/sandbox.py`
+in full.
+- **The real-drawing command runs as the owner, inside bwrap:** no network, environment cleared,
+  read-only `/usr`, the toolchain, a scratch checkout of the PR's head and the Development Sets;
+  writable only one scratch directory and the drop folder `/srv/vextrus-drop`; neither the owner's
+  home nor the key user's home is mounted. It writes the export and the run's metadata to the drop
+  folder.
+- **Only the scorer runs as the key user,** with the owner's password: it takes no path, reads the drop
+  folder and the Answer Keys, prints aggregates only, and posts the `real-drawings` status.
+- **The status is posted by the owner's private GitHub App** (commit statuses only, its key with the
+  key user), so a status posted with any other identity shows a different author.
 
 ## Stages
 Development is native and free; the beta runs in AWS Mumbai on x86; scale grows on measured triggers

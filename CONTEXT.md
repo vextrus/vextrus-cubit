@@ -87,6 +87,33 @@ electrical). The MVP reads structural and architectural; MEP enters the Priced B
 items the QS types.
 _Avoid_: trade (a trade is a BOQ grouping, not a drawing family), lane
 
+**Sheet**:
+One drawing sheet of a Drawing Set, known by its Discipline and its number (a sheet may have no
+number), with its title, and a revision mark, issue date and source file for each issue.
+_Avoid_: page (a page is the PDF's), drawing (alone), layout
+
+**View**:
+One part of a sheet: a plan, section, elevation, schedule, detail, notes, legend, title block, key
+plan or 3D/perspective view. A plan view's storeys are an explicit list that means either the storeys
+floor to floor or the members at those floor levels.
+_Avoid_: viewport, drawing, region
+
+**Drawing List**:
+The consultant's list of a Drawing Set's sheets, read from a sheet of the set or pasted or typed by
+the QS, with its source shown; it gives the number of sheets expected, and the sheets found are
+checked against it both ways.
+_Avoid_: register (on screen), index, transmittal (the transmittal is one source of it)
+
+**Plot**:
+The consultant's own PDF page of a sheet, registered beneath Vextrus's drawing of it, so what was
+read can be compared with what was plotted.
+_Avoid_: underlay, PDF view
+
+**As read**:
+The on-screen name of Vextrus's own drawing of a sheet, beside Plot and Compare: the sheet exactly as
+Vextrus read it.
+_Avoid_: engine, render (on screen)
+
 **Sample Project**:
 A typical Dhaka RCC-framed Developer project that Vextrus owns outright, made with an agent's help as a
 clean set with planted contradictions; a Development Set for regression, and the sample project
@@ -217,8 +244,8 @@ a Question, or for a sanity range a flag.
 _Avoid_: validation, gate, test, rule (a rule is a Measurement Rule)
 
 **Coverage**:
-The account of every view on every sheet of a Drawing Set: used by a Takeoff Step, or excluded with a
-reason; nothing is silently unread.
+The account of every view on every sheet of a Drawing Set: assigned to the Takeoff Steps that will
+read it, used by them, or excluded with a reason; nothing is silently unread.
 _Avoid_: completeness, progress
 
 **Trace**:

@@ -54,3 +54,7 @@ by the owner, and the design gate on every UI PR (docs/sdlc.md).
 - 26 Sep 2026: the owner re-ran the sheet and 3D prototypes on the reference setup and reported they
   "still it's managing to hold up and it'll do the work" (figures not captured; to be recorded at
   M0's budget check).
+- 26 Sep 2026 (owner's decision, M0 spec, ruling 4): the render check and the sheet's frame budget.
+  Every sheet scores F1 ≥ 0.90 against its Plot (within 2 px) and the median ≥ 0.95; pan and zoom on
+  the densest sheet hold p95 ≤ 16.7 ms a frame on the reference setup, beside the 1.5 s for a cached
+  sheet. The owner's ruling: "Agree with 1–5, No laptop - it was assumed." (docs/specs/M0.md).

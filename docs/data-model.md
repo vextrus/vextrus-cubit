@@ -5,6 +5,10 @@ Draft of 26 Sep 2026, session 01, for the owner to review. It starts from the sk
 0016, 0021, 0026–0029 and 0031, plus `docs/specs/bd-defaults.md`. Where this page and an ADR
 disagree, the ADR wins; report the mismatch. Terms are `CONTEXT.md`'s; proposed new ones are
 listed in §1.3. It is a guide for build sessions, so it gives key fields, not every column.
+M0's additions (the M0 plan's step D0, 26 Sep 2026, from the M0 spec's "Amendments after sign-off"
+and the plan's rulings) are in §3.0, §3.2 and §3.4: invitation fields, the drawings tables' M0
+fields, the lists M0 fixes, Coverage with `assigned` and one row per Takeoff Step, and the drawing
+list.
 
 ## 1. Conclusions
 
@@ -129,7 +133,7 @@ first use.
 |---|---|---|---|---|
 | Developer | name, market (`BD`), is_library bool | id (it *is* the tenant) | T (row = own) | — |
 | User | email citext, name, phone, is_vextrus_staff | email | G (visible through Membership) | — |
-| Membership | role (`qs`/`md`/`vextrus_engineer`), invited_by, starts_at, expires_at (required for a Vextrus Engineer, default +30 days), revoked_at | (tenant, user) | T | User, Developer |
+| Membership | role (`qs`/`md`/`vextrus_engineer`), invited_by, starts_at, expires_at (required for a Vextrus Engineer, default +30 days), revoked_at; the invitation: invited_email, invite_token_hash, accepted_at (M0) | (tenant, user) | T | User, Developer |
 | StoredFile | sha256, key, kind (`original`/`derived`/`export`), media_type, size, producer + producer_version, source_sha256 | (tenant, key) | T | project_id (upward stamp, used for the key prefix) |
 | DomainEvent | kind (`confirmation.recorded`, `revision.read`, `market_prices.frozen`…), project_id, subject_type + subject_id, actor_user_id, payload (ids and counts only), occurred_at | id (time-ordered) | T | — |
 | JevAnswer | cache_key = sha256(facts, question, options, model), node, model_version, options, choice, confidence dec(5,4) | (tenant, cache_key) | T | — |
@@ -148,19 +152,34 @@ reads Membership to see who from Vextrus has access, and until when.
 |---|---|---|---|---|
 | DrawingSet | name, current_state_id | (tenant, project_id): one per project in the MVP | T | project_id ↓ |
 | Revision | label as the consultant marks it (`A`, `B`), kind (`first_issue`/`reissue`), received_at, received_by | (set, label) | T | DrawingSet |
-| DrawingFile | sha256, format (`dwg`/`pdf`), original_name, writer fingerprint, read_status (`queued`/`reading`/`read`/`quarantined`/`failed`), cross_check jsonb (LibreDWG vs ACadSharp: handles, counts per type and per layer), upload_report jsonb (PDF: producer, SHX comments per page, fonts, rotation, images), ansi_bangla_flag | (set, sha256) | T | Revision; stored_file_id ↓ |
-| Sheet | number (from the title block), title, discipline (`structural`/`architectural`/`mep`), confirmed bool, excluded_reason | (set, number) | T | DrawingSet |
-| SheetRevision | revision_mark as printed, location (DWG layout or model-space box; PDF page), content_hash of its entities | (sheet, revision) | T | Sheet, Revision, DrawingFile |
+| DrawingFile | sha256, format (`dwg`/`pdf`), original_name, writer fingerprint, read_status (`queued`/`reading`/`read`/`quarantined`/`failed`/`cancelled`, and `refused` for a scanned PDF), cross_check jsonb (LibreDWG vs ACadSharp: handles, counts per type and per layer), upload_report jsonb (PDF: producer, SHX comments per page, fonts, rotation, layer names, images and their area, the scan refusal and its reason). M0 adds: discipline_default (from the file name and its sheet numbers' prefix; the QS may change it), read_step and sheets_done / sheets_total (progress in words), font_report jsonb (each font asked for, what draws it, how close, the sheets using it), bangla_ansi jsonb (the Bangla-ANSI Check's finding: fonts named, texts and sheets affected, or found by byte pattern only) | (set, sha256) | T | Revision; stored_file_id ↓ |
+| Sheet | number (as printed; may be empty), title (decoded, 1.3 of docs/design/m0-screens.md), discipline (`structural`/`architectural`/`mep`; from the file first, the number's prefix second), storeys_as_stated (the title's storey words, verbatim, for the Check of the title against the view titles), confirmed bool, excluded_reason (the fixed list below) + excluded_text (for `other`). A sheet's storeys are not stored: they are its views' lists together | (set, discipline, number); a sheet with no number: (set, source file, location) | T | DrawingSet |
+| SheetRevision | revision_mark as printed, issue_date as printed, source file (the DrawingFile it was read from), location (DWG layout or model-space box; PDF page), sources jsonb (where each value was read: title-block attribute, text in the title block, the file), content_hash of its entities | (sheet, revision) | T | Sheet, Revision, DrawingFile |
 | DrawingSetState | seq, cause (`revision`/`reader_upgrade`), reader + reader_version, status (`reading`/`read`/`current`/`superseded`), parent_state_id | (set, seq) | T | DrawingSet, Revision (nullable) |
-| StateSheet | the map row | (state, sheet) | T | DrawingSetState, Sheet, SheetRevision; artefact_file_id ↓ (the entity dump @ reader version) |
-| View | ordinal, kind as read + confirmed_kind (`plan`/`section`/`schedule`/`detail`/`notes`/`title_block`), title, box in drawing units, drawing_unit (`inch`/`mm`/`m`/`ft`), confirmed_scale dec, predecessor_view_id | (sheet_revision, reader_version, ordinal) | T | SheetRevision, View |
+| StateSheet | the map row. M0 adds: render_file_id ↓ (the per-sheet render artefact, 11's buffer format and its version); the Plot: plot_file_id (the PDF's DrawingFile), plot_page, plot_transform (scale, rotation in 90° steps, offset), plot_residual, render_f1; or plot_none_reason (no PDF for the Discipline; no page matched; the PDF was refused; the sheet has no number) | (state, sheet) | T | DrawingSetState, Sheet, SheetRevision; artefact_file_id ↓ (the entity dump @ reader version) |
+| View | ordinal (reading order), kind as read + confirmed_kind (the one list below), title (decoded), box in drawing units, drawing_unit (`inch`/`mm`/`m`/`ft`), not_to_scale bool, stated_scale_text (verbatim: metric, imperial or N.T.S.), confirmed_scale dec (empty until M1), storeys_as_stated (verbatim), storeys (an explicit list of canonical levels, never a first–last range), storeys_meaning (`at_floor_level`: the members at those floor levels / `floor_to_floor`: the storeys, floor to floor), predecessor_view_id | (sheet_revision, reader_version, ordinal) | T | SheetRevision, View |
 
-**The Trace anchor** is a value type, not a table: `sheet_revision_id`, `source_sha256` and
-`reader_version` as real columns wherever it is stored (so "which Traces use this artefact" is a
-query), plus the rest in jsonb: insert-handle chain and entity handle (DWG), or page, path index and
-box (PDF). `drawings.services.resolve(anchor)` opens it. An artefact any anchor names is never
-deleted (ADR 0031 §2). `drawings` raises no Questions itself; `takeoff` reads quarantined files and
-raises them (ADR 0029).
+**The Trace anchor** is a value type, not a table. Its type (DWG: source sha256, reader and version,
+sheet, insert-handle chain, entity handle; PDF: page, path index, box; to and from JSON) is defined
+in `engine/read/anchor.py`; `drawings` stores and resolves it. Wherever it is stored,
+`sheet_revision_id`, `source_sha256` and `reader_version` are real columns (so "which Traces use
+this artefact" is a query), and the rest is jsonb. `drawings.services.resolve(anchor)` opens it. An
+artefact any anchor names is never deleted (ADR 0031 §2). `drawings` raises no Questions itself;
+`takeoff` reads quarantined files and raises them (ADR 0029).
+
+**The lists M0 fixes** (the spec's amendments after sign-off, 26 Sep 2026; the engine's candidate types
+in `engine/recognise/types.py` use the same lists):
+- **View kinds, one list:** plan, section, elevation, schedule, detail, notes, legend, title block, key
+  plan, 3D/perspective. 3D/perspective is excluded by default (amendment 6). A detail drawn inside a
+  plan is its own view.
+- **Storeys, the canonical levels** (amendment 3; code owns them, `engine/recognise/storeys.py`):
+  pile, pile cap, plinth / grade-beam level, foundation, basement n, semi-basement / lower ground,
+  ground, mezzanine, podium, 1st…nth, roof, stair-room roof, lift machine room and its roof, overhead
+  tank and tank roof; a "Level n" or EL title kept as stated until Step 3 binds it; "typical (range
+  from Step 3)"; "not stated". Per plan view as an explicit list with its meaning (amendments 1–2);
+  a boundary storey is a Question.
+- **Exclusion reasons, a fixed list** (amendment 9), for sheets and views alike: `mep`, `superseded`,
+  `duplicate`, `cover_index`, `3d_perspective`, `reference_only`, `other` (with text).
 
 ### 3.3 `building_model` (layer 3): confirmed facts only, SI
 | Entity | Key fields | Identity | Tenant | References |
@@ -193,7 +212,10 @@ are export files built from that (`engine`), never the store.
 | Check | code, version, family_key, words, milestone | (code, version) | L | — |
 | CheckRun | trigger (`read`/`confirmation`/`boq`), passed n, total N | id | T | Check; confirmation_id or state id |
 | CheckFinding | subject ids, detail | id | T | CheckRun, Question |
-| Coverage | status (`used`/`excluded`/`unaccounted`), step, reason, confirmed_by | (state, view) | T | view_id ↓, drawing_set_state_id ↓ |
+| Coverage | status (`unaccounted`/`assigned`/`used`/`excluded`), reason (the fixed list) + reason_text, confirmed_by. A view is accounted for once assigned to a Takeoff Step that will read it, used, or excluded with a reason (ADR 0027 as amended). Step 1's screen also counts views "proposed" (docs/design/m0-screens.md 6.11); how that count maps onto these statuses is not yet decided | (state, view) | T | view_id ↓, drawing_set_state_id ↓ |
+| CoverageStep | step; used bool (set when that step's Confirmation draws on the view, from M1). A view may be assigned to several Takeoff Steps, each marking it used separately (amendment 5) | (coverage, step) | T | Coverage |
+| DrawingRegister | a drawing list for one Discipline: discipline, source (`sheet`: read from a sheet of the set; `pasted` or `typed` by the QS), source_sheet_id ↓ or entered_by + at, raw_text as pasted (amendment 7). Which list sets N when a read one and a pasted one disagree is not yet decided | id | T | project_id ↓ |
+| RegisterEntry | number, title and revision mark as listed, line in the source | (register, number) | T | DrawingRegister |
 | DeveloperSpecification + SpecificationLine | name; room_type × surface (`floor`/`skirting`/`wall`/`ceiling`/`door`/`window`/`fitting`) → item_code | (tenant, name); (spec, room_type, surface) | T | item_code (the Rule Set's code, by value) |
 | ProjectTakeoffSetup | specification_id, precedence jsonb (plan vs section, confirmed once per consultant, ADR 0010) | project | T | DeveloperSpecification |
 
@@ -341,7 +363,9 @@ erDiagram
     CHECK ||--o{ CHECK_RUN : ""
     CHECK_RUN ||--o{ CHECK_FINDING : "fired"
     CHECK_FINDING }o--o| QUESTION : "raises"
-    COVERAGE }o..|| VIEW : "used / excluded"
+    COVERAGE }o..|| VIEW : "assigned / used / excluded"
+    COVERAGE ||--o{ COVERAGE_STEP : "one per Takeoff Step"
+    DRAWING_REGISTER ||--o{ REGISTER_ENTRY : "the drawing list"
     DEVELOPER_SPECIFICATION ||--o{ SPECIFICATION_LINE : "room type x surface"
     STEP_PROGRESS }o..|| PROJECT : ""
 ```

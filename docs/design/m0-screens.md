@@ -16,13 +16,14 @@ from a real Drawing Set.
 
 ## What is not settled or not proven (read first)
 
-- **Step 1's layout is not settled.** Step 1 was never prototyped (ux-critic #2). Its screen waits on
-  the Step 1 prototype being built now and the owner's judgement of it; section 6 lists the
-  questions that prototype must answer. Ticket 22 is not cut until then.
+- **Step 1's layout is settled (layout A, the owner's ruling), but not every detail.** Section 6 is
+  written from the Step 1 prototype; 6.18 lists what the prototype, the rulings and sections 4–5
+  leave open for the owner.
 - **No QS has read any of this wording.** Every message below is my reading of a QS's words, not a
   QS's. The owner's walk and the timed Step 1 by a QS who did not build it (spec amendment 10) test it.
-- **The key map is designed, not measured.** Only the Takeoff prototype's keys were measured
-  (screens.md: 25 keystrokes for a whole step). The Step 1 keystroke count is still unknown.
+- **The key map is measured only on prototypes:** the Takeoff's 25 keystrokes for a whole step, and
+  Step 1's 2 keystrokes for a clean set and 14 for a messy one (screens.md), on invented data, by
+  the people who built them.
 - **The exact AutoCAD wording for the SHX-text plot option** ("Include SHX text as comments", the
   `PDFSHX` system variable) must be checked against Autodesk's documentation by ticket 12 before the
   PDF report ships; I have not verified the dialog label.
@@ -40,15 +41,17 @@ from a real Drawing Set.
 4. The screens: 4.1 app frame and shell · 4.2 sign-in · 4.3 projects · 4.4 members and access ·
    4.5 the Drawing Set · 4.6 the sheet viewer · 4.7 Step 1's shell
 5. Step 1: what is settled regardless of layout
-6. Step 1 layout: pending the owner's judgement of the Step 1 prototype
+6. Step 1 on layout A, "List ⇄ Sheet" (from the Step 1 prototype)
 7. The seeded demo project
 8. The design gate
 9. Open questions for the owner
 
 Wireframes (SVG, invented data) sit beside this file in `docs/design/m0-wireframes/`, each at
 1440×900 and 1280×800: `sign-in-*.svg`, `projects-*.svg`, `members-*.svg`, `drawing-set-*.svg`,
-`drawing-set-empty-*.svg`, `sheet-viewer-*.svg`, `step1-shell-*.svg`, and `phone-notice-390.svg`.
-They fix proportions and content, not pixels; the tokens in docs/design/system.md fix the pixels.
+`drawing-set-empty-*.svg`, `sheet-viewer-*.svg`, `step1-shell-*.svg`, `step1-list-*.svg`,
+`step1-sheet-*.svg`, `step1-question-1280.svg`, and `phone-notice-390.svg`; beside them, screenshots
+of the Step 1 prototype (`step1-proto-*.png`, invented data). They fix proportions and content, not
+pixels; the tokens in docs/design/system.md fix the pixels.
 
 ---
 
@@ -162,10 +165,10 @@ add a `keydown` listener of their own. This answers ux-critic #5.
 | `↑` `↓` | region: canvas (Step 1) | The same as in the list: previous / next sheet, so paging works wherever focus is | 22 | yes |
 | `Home` `End` | region: list | First / last row | 03 | yes |
 | `Enter` | region: list (projects, Drawing Set) | Open the project; open the file's report | 20 | yes |
-| `Enter` | screen (Step 1) | Confirm the focused group, sheet or selection, from the list or the canvas; with an answer picked on the active Question card, answer it | 22 | yes |
-| `Space` | region: list | Add the focused row to the selection or take it out | 03, 22 | yes |
+| `Enter` | screen (Step 1) | What the Confirmation bar says: in list mode the bulk act (proposed exclusions included) or the focused Question's answer; in sheet mode confirm the sheet and open the next one needing the QS (6.4, 6.5) | 22 | yes |
+| `Space` | region: list | Add the focused row to the selection or take it out. **In Step 1 (screen scope): List ⇄ Sheet** (6.1; selection there is open, 6.18) | 03, 22 | yes |
 | `Shift ↑` `Shift ↓` | region: list | Extend the selection | 03, 22 | yes |
-| `→` `←` | region: list (Step 1) | On a group: review its sheets one by one; `←` back to the group | 22 | yes |
+| `→` `←` | screen (Step 1, sheet mode) | Next / previous view on the sheet, flying to it; nothing in list mode (6.15; replaces "review a group one by one") | 22 | yes |
 | `[` `]`, `PageUp` `PageDown` | screen (any sheet) | Previous / next sheet in the list's order | 16 | yes |
 | `F` | region: canvas | Fit the whole sheet | 16 | yes |
 | `Shift F` | region: canvas | Back to the working view (the fit the sheet opened with) | 16 | yes |
@@ -174,10 +177,11 @@ add a `keydown` listener of their own. This answers ux-critic #5.
 | `O` | screen (any sheet) | Show or hide the view outlines | 16 | yes |
 | `Z` | region: canvas | Zoom to the selected view | 16 | yes |
 | `+` `−` | region: canvas | Zoom in / out about the centre (the wheel zooms about the pointer; drag with the left or middle button pans) | 16 | yes |
-| `S` | screen (Step 1) | Put focus in the sheet list | 22 | yes |
+| `S` | screen (Step 1, sheet mode) | Open the sheet picker (in list mode the list already has focus) | 22 | yes |
 | `Q` | screen (Step 1) | Go to the next open Question | 22 | yes |
 | `X` | screen (Step 1) | Exclude the focused sheet(s) or the selected view, with a reason (opens the picker) | 22 | yes |
-| `E` | screen (Step 1) | Edit the focused sheet's number, title, Discipline or storeys in place; `Enter` saves, `Esc` cancels | 22 | yes |
+| `E` | screen (Step 1) | Correct the focused sheet's number, title or storeys, in the inspector; `Enter` saves, `Esc` cancels | 22 | yes |
+| `A` | screen (Step 1, sheet mode, a view selected) | Assign the view to one or more Takeoff Steps (6.9) | 22 | yes |
 | `1`–`9` | mode: exclusion picker | Pick a reason | 22 | yes |
 | `1`–`9` | screen (Step 1) | Pick an answer on the active Question card | 22 | yes |
 | `V` `W` `H` `M` `L` | canvas | Select, select by window, pan tool, measure, layers | M1 | reserved |
@@ -190,7 +194,8 @@ add a `keydown` listener of their own. This answers ux-critic #5.
    rows, and in Step 1 a row is a sheet, so `↑ ↓` page sheets from the list or the canvas; `[ ]` page
    sheets on any screen that shows one, including where there is no list; `← →` enter and leave a
    group, as in the Takeoff; Trace-source stepping moves into a Trace mode in M1, where no row
-   selection is live.
+   selection is live. In Step 1 (layout A) `← →` step through the views of the open sheet instead
+   (6.15).
 2. **F.** The sheet prototype fitted the paper; the Takeoff prototype fitted the working view;
    screens.md ruling 6 says "F fits the whole sheet". Now: `F` whole sheet, `Shift F` working view.
 3. **Enter on the sheet.** The sheet prototype confirmed a figure with Enter. In M0 only Step 1
@@ -201,8 +206,8 @@ add a `keydown` listener of their own. This answers ux-critic #5.
    the same time.
 5. **Esc.** Both prototypes overloaded Esc (close a drawer, leave a Trace, clear the selection). Now
    one stack, in the order in 2.2.
-6. **S.** The sheet prototype's `S` opened a 420 px drawer over the canvas. In Step 1 the sheet list
-   is always there (layout pending), so `S` moves focus to it.
+6. **S.** The sheet prototype's `S` opened a 420 px drawer over the canvas. In Step 1 (layout A)
+   `Space` swaps the list and the sheet, and `S` opens the sheet picker in sheet mode (6.15).
 7. **Z and Ctrl Z.** `Z` zooms to the selected view; `Ctrl Z` only ever undoes.
 8. **Letters while typing** (a sheet title with a D in it): typing wins (2.1).
 9. **`?` on keyboards where it is not Shift /:** matched on `event.key`.
@@ -595,8 +600,10 @@ opens looking empty" (screens.md, "How M0's screens keep this quality" 5).
 ### 4.7 Step 1's shell (frame by 03; filled by 22)
 
 **Purpose.** The canvas screen Step 1 lives in. Its frame is settled (4.1); what fills its list,
-canvas foot and inspector waits on the Step 1 prototype (section 6). Wireframes:
-`step1-shell-1440.svg`, `step1-shell-1280.svg` (the inspector's content is marked pending).
+canvas foot and inspector is section 6 (layout A). Wireframes: `step1-shell-1440.svg`,
+`step1-shell-1280.svg` (drawn before the prototype: their inspector is marked pending and their
+switch says "Engine"; `step1-list-*`, `step1-sheet-*` and `step1-question-1280.svg` supersede them,
+with "As read").
 
 **Settled.**
 - Toolbar: "Step 1", "Sheets", "Confirmed 0 / 24" (sheets confirmed or excluded / sheets found;
@@ -681,40 +688,411 @@ Jahan, 26 Sep 2026" or "Excluded by Arif Rahman (Vextrus), 26 Sep 2026: supersed
 
 ---
 
-## 6. Step 1 layout: pending the owner's judgement of the Step 1 prototype
+## 6. Step 1 on layout A, "List ⇄ Sheet"
 
-Ticket 22 is not cut until the owner has judged the Step 1 prototype on invented sheets
-(`.private/work/session-01/proto-step1/`, in progress) and the rulings are added here. The prototype
-must answer, with measurements where a number exists:
+The owner judged the Step 1 prototype (private, `.private/work/session-01/proto-step1/`) and chose
+layout A, then agreed five more choices (docs/design/screens.md, "Takeoff Step 1"). This section is
+the behaviour spec ticket 22 builds to, written from a walk of that prototype on 26 Sep 2026 at
+1280×800 and 1440×900 and from its code. **Precedence:** the owner's rulings (screens.md) first, then
+sections 1–5 of this page, then the prototype. Where the prototype breaks a ruling or an earlier
+section, this section says what to build and 6.17 lists the correction. What the prototype leaves
+open is in 6.18, for the owner.
 
-1. **Where the sheet list lives,** and what the canvas keeps. Options: a docked list beside the
-   canvas (at 1280 with a 360 px list, the canvas falls to about 552 px, 43%); the list inside the
-   inspector's Selection tab (the canvas keeps 71%); or a list-first page with the sheet as a large
-   preview. The accepted rule is canvas ≥ 70% of the width with the inspector open (system.md);
-   ux-critic #2 measured about 490 px of sheet at 1280 with a 420 px drawer.
-2. **What a 28 px row shows** of: number, title, Discipline, storeys (stated → normalised), revision
-   mark, date, source file, "read from" (attribute or title-block text), status; and what moves to
-   the inspector.
-3. **Grouping:** exceptions first, then by Discipline in natural sheet order; or Disciplines with
-   their exceptions inside. Where each Discipline's n / N shows, and how N's source ("from the
-   drawing list on S-01", "from the Plot's pages", "—") is marked.
-4. **Bulk scope:** one "Confirm 20 ↵" for the whole set, or one per Discipline group; whether a
-   proposed MEP exclusion rides in the bulk Confirmation.
-5. **Edit in place (`E`):** in the row or in the inspector; the storey-list editor with the "members
-   at floor level / storey" choice (amendments 1–3).
-6. **Views:** how the QS sees a sheet's views (outlines only, or a list in the inspector too), how
-   the keyboard moves between views (no key is assigned yet; `,` and `.` are free), and how a view is
-   assigned to several Takeoff Steps (amendment 5).
-7. **The Question card's place:** the inspector's Questions tab, or inline under the sheet it holds.
-8. **The drawing list:** where the QS pastes or types it (amendment 7) and how its source is marked.
-9. **The exclusion picker at 1280:** seven reasons do not fit one row of the 720 px bar; two rows, or
-   a numbered menu.
-10. **Coverage in the inspector:** per sheet, then views with their status and Takeoff Steps.
-11. **The MD's view** of the list and of an answered Question.
-12. **Keystrokes and clicks for the whole of Step 1 on the seed** (the Takeoff prototype's measure:
-    25 keystrokes for a whole step), and key-to-screen time.
-13. **Whether the Step 1 keys in section 2 survive** (`↑ ↓` paging, `→ ←` groups, `S`, `X`, `E`, `Q`,
-    digits), or which change.
+Examples use the prototype's invented set, "Nilachal Tower" (Basement + Ground + Mezzanine + 9 floors;
+68 sheets: 40 structural including a duplicated S-19, 28 architectural; four files, one held; eight
+Questions). Every UI PR is still walked on the seed (section 7). Measured on the prototype
+(screens.md): a clean set's list confirmed in 2 keystrokes (1 once ruling 1 is built), a messy one
+(8 Questions) in 14, no clicks; 8–35 ms key to frame, 40–146 ms at 4× CPU slowdown.
+
+Wireframes (invented data, the rulings applied): `step1-list-1440.svg`, `step1-list-1280.svg`,
+`step1-sheet-1440.svg`, `step1-sheet-1280.svg`, `step1-question-1280.svg`. Screenshots of the
+prototype itself (invented data; they show the prototype's faults listed in 6.17, such as "Engine"
+and "model space"): `step1-proto-list-q3-1280.png`, `step1-proto-list-q6-1440.png`,
+`step1-proto-sheet-1280.png`, `step1-proto-sheet-1440.png`, `step1-proto-md-confirmed-1280.png`,
+`step1-proto-reading-1280.png`.
+
+### 6.1 The two modes
+- **List mode** (Step 1 opens in it): the sheet list fills the whole canvas region (912 px wide at
+  1280, 1072 px at 1440), under the toolbar, with the rail and the 320 px inspector unchanged. The
+  Confirmation bar floats at its foot over a white fade.
+- **Sheet mode:** the focused sheet fills the same region (912 × 704 px at 1280×800, 1072 × 804 at
+  1440×900; 71 % and 74 % of the width), with the viewer of 4.6 and the bar at its foot. The list is
+  not visible; the inspector still shows the sheet's facts.
+- **Between them:** `Space` opens the focused sheet (with nothing focused, the first sheet row) and
+  goes back; `Esc` returns to the list from a sheet (after first leaving a selected view); a
+  double-click on a row opens it; the toolbar's segmented "List | Sheet" does the same by mouse.
+  Focus and the selected row survive the switch, so the list scrolls back to where the QS was.
+- `↑ ↓` move through rows in list mode and through sheets (sheet rows only, in list order) in sheet
+  mode, so paging works in both.
+
+### 6.2 List mode: rows and columns
+Rows are 28 px; a sticky 28 px header, then sticky 26 px section headings.
+
+Above the header, **the files band**: one chip per file, clickable to open that file's report (4.5's
+wording, shown in the inspector as other panels are, 4.1): "✓ NT-STR-R1.dwg 40 sheets, two readers
+agree"; "✓ NT-STR-R1.pdf Plot for 37 of 38 pages"; "✓ NT-ARCH-R1.dwg 28 sheets, two readers agree"
+with an amber "Bangla font" mark when the Bangla-ANSI Check flagged it; a held file as an amber chip
+"NT-ARCH-Details-R1.dwg held"; a reading file with a spinner and "reading sheet 14 of 28". It wraps
+to a second line at 1280 and 1440.
+
+| Column | 1280 (list 912 px) | 1440 (list 1072 px) | Content |
+|---|---|---|---|
+| (mark) | 24 | 24 | The status glyph: Proposal, Confirmed, Question, Excluded (3) |
+| Number | 62 | 62 | Bold. A sheet with no number shows "none" in amber |
+| Title, as drawn | the rest (about 260) | the rest (about 260) | DrawingText (3), cut with an ellipsis, tooltip with the full title |
+| Discipline | 78 | 78 | "Structural"; tooltip "Structural, from the file NT-STR-R1.dwg" |
+| Revision and date | 106 | 106 | "R1, 14 Sep 2026"; the older copy of a duplicated number in amber |
+| Storeys | 180, headed "Storeys per view" | 232, headed with the strip's key: "▮ floor to floor  ▁ at floor level" | The storey strip (6.8) and the storeys as text: "3rd, 5th, 7th"; "not stated" and "typical (range from Step 3)" in amber; "—" for a sheet with no plan view |
+| Views | 40 | 40 | The number of views, title block included |
+| File | not shown | 104 | The source file; tooltip adds where in it ("laid out in the drawing", "layout "A-24"") |
+| State | 150 | 150 | "Proposal" (", corrected" after an edit) · "Question Q3" · "Q3 kept open" · "Leave out, MEP" · "Confirmed" with the actor's initials chip ("RH"; a Vextrus Engineer's chip reads "TA Vextrus") · "Excluded, superseded" |
+
+The file column appears when the list is at least 1000 px wide. An excluded sheet's number is struck
+through, its title and strip muted. Rows that are not sheets use the same height: a held file
+("File · NT-ARCH-Details-R1.dwg Held: the two readers disagree · Question Q1"); a drawing-list entry
+with no sheet ("A-28 · Facade lighting details · Question Q2", after its answer "missing, in the
+count"); while a file reads, one skeleton row per sheet still to come, with "reading…" in the State
+column.
+
+### 6.3 Grouping and order
+Sections, top to bottom:
+1. **Needs you** (amber band): "8 Questions open, in the order Enter takes them"; one row per row an
+   open Question holds, Questions in the queue order below. A Question's rows leave the section when
+   it is answered.
+2. **Proposed to leave out:** "Excluded sheets stay in the count with their reason"; sheets Vextrus
+   proposes to exclude (MEP, 3D or perspective, cover or index), each with its reason.
+3. **Each Discipline in turn,** Structural, then Architectural (MEP sheets, in M0, arrive as proposed
+   exclusions): the heading "Structural 40 found, 39 on the drawing list on S-01 | 0 / 40 settled"
+   ("settled" = confirmed or excluded); for a pasted list, "28 found, 29 on the pasted drawing list"
+   and at the heading's right the link "Paste the drawing list" or "The pasted drawing list" (6.10).
+   Inside, sheets in natural order of their numbers (S-2 before S-10; a sheet with no number last;
+   of two copies of one number, the later revision first); a held file whose Question is answered
+   heads its Discipline; drawing-list entries with no sheet close it.
+
+**The queue Enter walks** (and `Q` follows, and the inspector's overview lists): first the bulk act
+(6.4), then the Questions: the held file; the count (the drawing list or Plot against the sheets);
+numbers (two sheets one number, no number); storeys (boundary storey, floors that do not run, the
+typical floor, a level title). The inspector words it "Answer 8 Questions: the files and the count
+first, then numbers, then storeys". (Section 5's rule orders by sheets held, then kind; see 6.18.)
+
+### 6.4 The Confirmation bar and what Enter does
+The bar is 44 px, centred at the canvas foot: a glyph, "what" on the first line, "why" on the second,
+actions on the right; one copper button at most. It always says what `Enter` will do.
+
+**Ruling 1: proposed exclusions join the bulk Confirmation.** With nothing focused, or with focus on
+any agreeing sheet or proposed exclusion, the bar reads:
+- what: "Confirm 56 sheets that agree, and leave out 5 as 3D or perspective, cover or index, MEP"
+  (the reasons named, each once; ", S-04 among them" is added when the focused sheet is one of them);
+- why: "Each has a number and title from its title block and is on its drawing list; storeys from its
+  view titles. Left-out sheets stay in the count with their reason.";
+- button: "Confirm 56, leave out 5 ↵"; in list mode with a sheet focused, also the ghost "Open S-04
+  Space".
+
+`Enter` confirms and excludes them in one act; the toast reads "Confirmed 56 sheets; left out 5, each
+with its reason." with "Undo  Ctrl Z", and one undo reverses both. A clean set therefore confirms in
+one key. (The prototype still takes two: a "Confirm 56" act, then "Leave out 5"; this wording was
+not prototyped, 6.18.) While a file is still reading: why = "NT-ARCH-R1.dwg is still reading (13 of
+28); confirm its sheets when they arrive".
+
+**Other bar states** (list mode, by what is focused):
+| Focus | What · why | Button |
+|---|---|---|
+| A Question's row | "Question Q3: Two sheets are numbered S-19" · the card's first line (6.7) | "Answer Q3 ↵"; with nothing picked, disabled and showing "Pick an answer 1 2 3" |
+| A Question kept open | "Question Q5 is kept open for the consultant" · "Its sheets are not read until it is answered. Pick another answer in the card to settle it." | ghost "Next open Question Q" |
+| A confirmed sheet | "S-20 is confirmed by Rafiq Hasan" (", Vextrus Engineer" after an Engineer's name) · "26 Sep 2026, 10:42. X excludes it, with a reason." | "Next open item ↵" |
+| An excluded sheet | "S-19 is excluded: superseded" · "By Rafiq Hasan, 26 Sep 2026, 10:50. It stays in the count." | "Confirm back in ↵" |
+| A row with nothing to act on | e.g. "On the drawing list, in no file. It stays in the count." · "Nothing to confirm here." | none |
+| Nothing left, files reading | "Reading NT-ARCH-R1.dwg: sheet 14 of 28" · "Its sheets join the list as they are read." | none |
+| Nothing left, Questions kept open | "2 Questions kept open for the consultant: Q5, Q7" · "Step 1 is confirmed once they are answered." | ghost "Next open Question Q" |
+| Nothing left, Coverage not complete | "Coverage has a view that is neither assigned nor excluded" · "Open Coverage on the status bar to find it." | none |
+| Step 1 confirmed | "Step 1 is confirmed: every sheet is confirmed or excluded, and Coverage has none unaccounted" · "Step 2, General notes and specification, comes in M1." | none |
+
+After an act in list mode, focus moves to the first row of the next item in the queue. `Enter` on a
+row with nothing to act on, a confirmed sheet or a kept Question does the queue's next item.
+Answering with nothing picked shows the toast "Pick an answer to Q2 first: 1, 2, 3".
+
+The bar is as wide as the prototype's: the canvas less 32 px, at most 820 px in list mode and 800 px
+in sheet mode (4.7 said at most 720 px; 6.18). The toast sits just above it.
+
+### 6.5 Sheet mode
+- **Opening:** fitted to the working view (the plan with its title; several plans of one kind side by
+  side are fitted together, never one of three), with 4.6's insets (the legend above, 72 px for the
+  bar below) and 4.6's first-open state.
+- **Toolbar:** "Step 1  Sheets  Confirmed 1 / 68, 1 excluded", then the sheet label as a button
+  ("S-20 8th & 9th floor beam layout ▾", at most 250 px, cut first) that opens the sheet picker
+  ("Sheets, in list order", grouped as the list), then "‹ ›"; on the right "List | Sheet", then the
+  viewer's switches (6.14) and the keys button.
+- **On the canvas:** 4.6's legend, but counting views as "Proposal 2 · Assigned 0 · Question 0 ·
+  Excluded 0" (a view on a confirmed sheet is assigned, 6.11); the outlines of 4.6, with the tag
+  "Plan, 1:100" or "Detail, not to scale" above each outline's top-left corner; a view held by an
+  open Question is drawn with the amber revision cloud. Clicking an outline selects the view; `→ ←`
+  step through the sheet's views in reading order and fly to each (the view padded to about 3×,
+  screens.md sheet ruling 1); `Esc` fits back to the working view; past the last view, no view is
+  selected.
+- **The bar (ruling 5): Enter confirms the sheet and opens the next one needing the QS.** For an
+  agreeing sheet: "S-20 agrees: number and title from the title block, on the drawing list" · "3 views;
+  storeys 8th, 9th. Enter confirms it and opens the next open sheet." with the ghost "Confirm all 56
+  that agree" (the bulk act of 6.4, by mouse) and "Confirm S-20 ↵". For a proposed exclusion: "Leave
+  out S-39: 3D or perspective" · "It stays in the count with its reason. X picks another reason." ·
+  "Leave out S-39 ↵". For a sheet a Question holds: that Question's bar. After the act, the next
+  sheet in list order that is still a Proposal (wrapping to the top; skipping sheets whose Question
+  is kept open) opens, and the toast names the act ("Confirmed S-20.", "Q3 answered. Confirms S-19 R1
+  and excludes R0 as superseded.").
+
+### 6.6 The inspector (320 px; tabs "Selection" and "Questions" with the open count)
+**Selection, nothing focused: the overview.** "Nilachal Tower's sheets" / "Read from 2 DWG files; 1
+file held." / "Enter takes them in this order": 1 "Confirm the 56 sheets that agree and leave out 5:
+3D or perspective, cover or index, MEP"; 2 "Answer 8 Questions: the files and the count first, then
+numbers, then storeys" / "↓ walks the list; Space opens a sheet; a Proposal counts toward nothing
+until you confirm it." / "Expected sheets": "Structural: 39 on the drawing list on S-01; 40 found."
+"Architectural: 29 on the drawing list pasted by Rafiq Hasan, 26 Sep 2026 09:58; 28 found (see the
+list)." With nothing waiting: "Nothing is waiting."
+
+**Selection, a sheet focused,** top to bottom:
+1. The Question card holding it, if any (6.7).
+2. Header: number and title; the state and when ("Confirmed RH 26 Sep 2026, 10:42"). In list mode
+   only, a 294 px thumbnail of the sheet with its view outlines.
+3. **Proposal**, "where each was read": Number ("S-20 title-block attribute" / "text in the title
+   block" / "not found"); Title (the same); Discipline ("Structural from the file; the prefix
+   agrees"); Revision ("R1, 14 Sep 2026"); File ("NT-STR-R1.dwg" / "laid out in the drawing" or
+   "layout "A-24""); Storeys (text, meaning, strip); Plot ("NT-STR-R1.pdf page 20, registered to
+   0.2 mm", or "None: " and the reason, 6.13); the Bangla note where flagged (6.13).
+4. **Views** (their count), "→ walks them; A assigns; X excludes": per view its mark, kind ("Plan",
+   "Detail inside the plan"), title, stated scale or "not to scale"; under it the storeys and meaning
+   ("8th, at floor level"), then a chip per assigned step ("7 Beams") or "excluded: reference only" or
+   amber "no step: unaccounted", and "proposed" until the sheet is confirmed. A selected view shows
+   the buttons "Assign steps A" and "Exclude X".
+5. **Who did what:** every act on the sheet, oldest first, each "what" over "name, role, time" with the
+   initials chip: "Confirmed in bulk with 55 other sheets / Rafiq Hasan, QS, 26 Sep 2026, 10:42";
+   "Excluded: reference only"; "Confirmed back in: Step 14 reads the driveway and boundary for external
+   works / Tanvir Ahmed, Vextrus Engineer, 26 Sep 2026, 11:20". None yet: "Proposed by Vextrus from
+   the file; no one has acted on it yet."
+6. Actions (not for the MD): "Correct E", and "Exclude X" or, for an excluded sheet, "Confirm back in".
+
+**Selection, a file or drawing-list row focused:** its Question card; for a held file, "Open the
+file's report".
+
+**Questions tab:** every open or kept Question's card in queue order (a click on "Question Q3" in a
+card's header focuses its row), then "Answered": one line each, "Q3 Keep R1 (14 Sep 2026); leave R0
+out as superseded. Rafiq Hasan, 26 Sep 2026, 10:50". None open: "No open Questions."
+
+### 6.7 Questions
+**The card** (as 5, with these details): amber header "Question Q3", the kind in words ("Two sheets,
+one number"), and "Answer once" (or "Kept open"); **first, what answering does** in a grey band,
+updated as the pick changes; with nothing picked, what it settles and "Pick an answer: 1, 2, 3." (a
+Question holding no sheet: "Answering confirms no sheets. Pick an answer: 1, 2, 3."); the title; the
+body; for a duplicate, a table of the copies; the Trace line; the options as radio rows with their
+number keys; "Answer Q3 ↵" and "Ask later" (moves to the next open Question). **Pre-pick only when
+two or more independent sources agree** (screens.md Takeoff ruling 2, and 5's list of sources); the
+pre-picked option carries "Picked for you:" and the agreeing sources. A pick changes nothing until
+Enter or "Answer". Answering records who and when and confirms or excludes what the Question held.
+"Keep open, ask the consultant" keeps the Question (state "Q5 kept open", card "Kept open"); its
+sheets stay unread, and Step 1 cannot be confirmed while any Question is open or kept.
+
+The eight Questions of the prototype's messy set (the seed's Questions, section 7, follow the same
+templates):
+| Kind (header) | Title | Body and Trace | Options (pre-pick) | First line after the pick |
+|---|---|---|---|---|
+| This file may be misread (`file_misread`) | "NT-ARCH-Details-R1.dwg may be misread" | "Two readers read the file and disagree: one found 312 more items, all on one layer. Nothing from this file enters the sheet list until it reads cleanly." Trace: the file, and the two readers' counts in words | 1 "Re-save it in AutoCAD (Save As, AutoCAD 2018 DWG) and upload it again" · 2 "Send it to Vextrus to check" · 3 "Leave it out: its sheets are not part of this Takeoff" (none pre-picked; ruling 3 asks for "read anyway" and "set this file aside", 6.18) | 1, 2: "Answering confirms no sheets. The file stays held until it reads cleanly." · 3: "Answering records the file as left out (other: may be misread). It confirms no sheets." |
+| On the drawing list, in no file (Check) | "A-28 is on the drawing list but in no file" | "The drawing list you pasted names 29 architectural sheets. 28 were found in NT-ARCH-R1.dwg; A-28 Facade lighting details was not." Trace: "Pasted drawing list, line 30: "A-28 FACADE LIGHTING DETAILS"". Raised only once every file is read | 1 "Not sent yet: keep it in the count and ask the consultant" · 2 "Not part of this set: take it off the list" · 3 "It is in another file: I will upload it" (none) | 2: "Answering takes A-28 off the list: 28 sheets expected." · 1, 3: "Answering keeps A-28 in the count as missing. Step 1 can still be confirmed." |
+| Two sheets, one number (`conflict`) | "Two sheets are numbered S-19" | "Both are titled "4th & 6th floor beam layout". Only one can be read." A table: Copy · Date · File, where: "R1 · 14 Sep 2026 · NT-STR-R1.dwg, laid out in the drawing, x 2,460′"; "R0 · 02 Aug 2026 · NT-STR-R1.dwg, laid out in the drawing, x −1,180′". Trace: "Title blocks of both copies; the drawing list on S-01, row 19: "S-19 R1"" | 1 "Keep R1 (14 Sep 2026); leave R0 out as superseded" (pre-picked: "the later revision mark, the later date and the drawing list on S-01 agree") · 2 "Keep R0 (02 Aug 2026); leave R1 out as superseded" · 3 "Keep both: they are different sheets" · 4 "Keep open, ask the consultant" | 1: "Answering confirms S-19 R1 and excludes R0 as superseded." · 3: "Answering confirms both copies." · 4: "Answering keeps both copies open. Neither is read until the consultant replies." |
+| No number (`missing`) | "This sheet has no number" | "A sheet titled "Lift pit and sump details" in NT-STR-R1.dwg has an empty number in its title block. The drawing list on S-01 names S-12 "Lift pit and sump details", and no sheet carries S-12." Trace: "Title block text (the number field is empty); the drawing list on S-01, row 12" | 1 "S-12, as the drawing list names it" (pre-picked: "the title in the title block and the title on the drawing list agree"; offered only when a list names it) · 2 "Leave it without a number" · 3 "Keep open, ask the consultant" | 1: "Answering confirms the sheet as S-12." · 2: "Answering confirms the sheet without a number." |
+| Boundary storey (amendment 2) | "Does "Basement to 1st floor" include the 1st storey?" | "S-07 is a column plan, read storey by storey (floor to floor). Its columns may stop at the 1st floor slab or run through the 1st storey. S-08 "Column layout plan, 1st to 9th floor" also starts at the 1st." Trace: "S-07 title block; S-08 title block" | 1 "Basement and Ground: the columns stop at the 1st floor slab" · 2 "Basement, Ground and 1st" · 3 "Keep open, ask the consultant" (none) | "Answering confirms S-07 for Basement and Ground, storey by storey." |
+| Floors that do not run | "3rd, 5th & 7th: three floors, or 3rd to 7th?" | "The title lists floors that do not run: "3rd, 5th & 7th floor beam layout". Vextrus read it as three floors. S-19 draws the 4th and 6th." Trace: "S-18 title block; the drawing list on S-01, row 18; S-19 title block" | 1 "3rd, 5th and 7th only, as written" (pre-picked: "the title and the drawing list agree, and S-19 draws the 4th and 6th") · 2 "3rd to 7th, five floors" · 3 "Keep open, ask the consultant" | "Answering confirms S-18 for the 3rd, 5th and 7th floor levels." |
+| Typical floor | "Which floors are "typical" on S-21?" | "S-21 "Typical floor slab layout" names no floors." Trace: "S-21 title block; the drawing list on S-01, row 21; A-5 title block" | 1 "2nd to 8th floor" (pre-picked: "the drawing list on S-01 ("typical floor, 2nd–8th") and A-5 "Typical floor plan, 2nd to 8th floor" agree") · 2 "Typical: take the floors from Step 3 (Storeys and levels)" · 3 "Keep open, ask the consultant" | 1: "Answering confirms S-21 for the 2nd to 8th floor levels." · 2: "Answering confirms S-21 as typical; its floors come from Step 3." |
+| Storey not read (an EL title) | "Which storey is EL +16′-6″?" | "S-22's title names a level, not a storey: "Beam layout plan at EL. +16′-6″". No title in the set names that level." Trace: "S-22 title block; S-38 building section" | 1 "Mezzanine: the building section on S-38 marks +16′-6″ as the mezzanine floor" · 2 "Keep "EL +16′-6″"; bind it to a storey in Step 3" · 3 "Keep open, ask the consultant" (none: one source only) | 1: "Answering confirms S-22 at the Mezzanine floor level." · 2: "Answering confirms S-22 at EL +16′-6″; Step 3 binds it to a storey." |
+
+Every "Keep open" option's first line reads "Answering keeps S-18 open." (or the file or copies it
+holds). A Plot page with no sheet ("Page 12 of … shows S-13, which no DWG has") uses the drawing-list
+card's options (5).
+
+### 6.8 Storeys and the storey strip
+- **Storeys are an explicit list per plan view,** with its meaning: "at floor level" (members at that
+  floor level: beam and slab layouts) or "floor to floor" (the storey: column plans, architectural
+  plans, sections). A sheet's storeys are its views' storeys together; its meaning is the views'
+  meaning, or "mixed". Shown compactly: a run of three or more storeys one above another reads
+  "2nd–8th"; anything else is listed ("3rd, 5th, 7th"). The roofs above the roof never form a run.
+- **Ruling 2: a missing storey is a Question only on plan views.** A sheet with a plan view whose title
+  states no storey shows amber "not stated" (and a Question when no second source settles it); a sheet
+  with no plan view (notes, details, schedules, elevations) shows "—" and raises nothing. An untitled
+  typical floor shows amber "typical (range from Step 3)" until answered.
+- **Ruling 4: the storey strip stays.** A row of slots, one per storey of the building, low to high:
+  foundations (pile, pile cap, grade beam) as one slot, Basement, Ground, Mezzanine, 1st…9th, Roof,
+  and the roofs above (stair-room, lift machine room, overhead tank) as one slot; 5 px slots with a
+  1 px gap in the list (6 px in the inspector), Ground and Roof slots a shade darker as landmarks.
+  **"Floor to floor" fills the slot; "at floor level" is a 3 px bar at the slot's foot;** a typical
+  floor is hatched over the typical range. An excluded sheet's strip is at 40 % opacity. The
+  header's key at 1440 (and its tooltip at both sizes) explains the two marks: "Each slot is a storey:
+  foundations, Basement, Ground, Mezzanine, 1st to 9th, Roof, the roofs above. A full slot is floor to
+  floor; a bar at its foot is members at that floor level."
+- The storey vocabulary is the spec's (amendment 3).
+
+### 6.9 Exclusion, assignment, corrections and undo
+- **Exclusion (`X`), per sheet or per view.** With a view selected (sheet mode), `X` excludes the view;
+  otherwise the focused sheet. The bar becomes the picker: "Exclude S-20. Why?" (or "Exclude the view
+  "8th floor beam layout". Why?") with "Coverage keeps the reason. Esc cancels" at the right, and the
+  seven reasons as seven numbered buttons in one row (at 1280 the longer labels wrap to two lines):
+  1 MEP · 2 superseded · 3 duplicate · 4 cover or index · 5 3D or perspective · 6 reference only ·
+  7 other, with text. `1`–`7` pick; 7 opens a field "The reason, in a few words" with "Exclude ↵".
+  Toasts: "S-20 excluded: superseded. It stays in the count." / ""8th floor beam layout" excluded:
+  MEP. Coverage keeps the reason." An excluded view stays listed, struck through, "excluded: MEP".
+  "Confirm back in" (or `Enter` on an excluded sheet) reverses it under the actor's name: "A-24
+  confirmed back in, under Tanvir Ahmed's name."
+- **Assigning a view to several Takeoff Steps (`A`,** sheet mode, a view selected; else the toast
+  "Pick a view first: → moves through the views on the sheet."): a 420 px dialog "Which steps read "8th
+  floor beam layout"?", "A view may feed several steps; each marks it used on its own. S-20, plan.",
+  fourteen checkboxes "1 Sheets … 14 Site and MEP" with "M1 onwards" beside 2–14; with none ticked,
+  "No step: Coverage will count this view unaccounted unless it is excluded."; keys `↑ ↓` move, `Space`
+  ticks, `Enter` saves, `Esc` cancels; "Cancel" and "Save ↵". Toast: ""8th floor beam layout" assigned
+  to 2 steps." or "… is assigned to no step and not excluded: Coverage counts it unaccounted."
+- **Corrections (`E`):** "Correct the Proposal" opens in the inspector in place of the Proposal block:
+  Number, Title, and for each plan view "Storeys of "<view title>", each listed" (placeholder "3rd,
+  5th, 7th"); "Save ↵" and "Cancel Esc". A correction leaves the sheet a Proposal: toast "Corrected
+  S-18: storeys of "3rd, 5th & 7th floor beam layout". Still a Proposal until confirmed."; the State
+  column adds ", corrected"; "Who did what" records "Corrected: number — → S-12; title; storeys of
+  "…"". Corrections are counted for the owner (never shown to the client).
+- **Undo (`Ctrl Z`):** undoes the last act (a bulk act, a single Confirmation, an answer, an exclusion,
+  an assignment, a correction, a pasted list), repeatedly; the toast names what it undid (5).
+
+### 6.10 The drawing list (amendment 7)
+Each Discipline's N comes from a drawing list: one read on a sheet ("39 on the drawing list on S-01")
+or one the QS pastes or types. Where a file carries none, the Discipline's heading offers "Paste the
+drawing list"; afterwards "The pasted drawing list" reopens it. The dialog "The architectural drawing
+list": "NT-ARCH-R1.dwg carries no drawing list. Paste the consultant's list (the transmittal or an
+email) and Vextrus checks it against the sheets found, both ways. Its source is marked as pasted."; a
+text area; "29 sheet lines found; other lines are ignored."; "Close" and "Use as the drawing list".
+Toast "Drawing list set: 29 architectural sheets." Its source is shown wherever N is:
+"29 on the drawing list pasted by Rafiq Hasan, 26 Sep 2026 09:58". The Check against it (6.7, "On the
+drawing list, in no file") runs once every file is read.
+
+### 6.11 Coverage
+- **Status bar** (right): "Coverage 170 views: 0 assigned, 0 excluded, 170 proposed, 0 unaccounted";
+  amber while any view is unaccounted. A view is **proposed** while its sheet is a Proposal and it has
+  a proposed step or exclusion; **assigned** once its sheet is confirmed with at least one step;
+  **excluded** when its sheet or itself is excluded, with the reason; **unaccounted** when it has no
+  step and no exclusion. "Used" stays 0 in M0. The views of a held file are not counted until it reads
+  cleanly.
+- **Coverage panel** (a click on it; in the inspector, 4.1): "Coverage, every view on every sheet
+  read"; "A view counts once it is assigned to a step that will read it, or excluded with a reason.
+  Used is 0: no step after Step 1 runs in M0. A view may feed several steps, so the steps below add up
+  to more than the views."; "Unaccounted" (each "S-20 8th floor beam layout", in amber); "Views by the
+  step that will read them, proposed or assigned" (step and count, two columns); "Excluded, by reason";
+  the held-file line "NT-ARCH-Details-R1.dwg is held: its views are not counted until it reads
+  cleanly."; while reading, "NT-ARCH-R1.dwg is still reading; its views join as its sheets arrive."
+- **Step 1 is confirmed** when no file is reading, every sheet is confirmed or excluded, no Question is
+  open or kept open, and Coverage has none unaccounted. The toolbar then reads "✓ Step 1 confirmed,
+  62 / 68, 6 excluded" and the rail marks Step 1 confirmed.
+
+### 6.12 Roles
+- **The MD (read-only):** everything is visible; no act. The bar: "You are reading this as the MD." (or
+  "Step 1 is confirmed. You are reading it as the MD.") / "Rafiq Hasan (QS) confirms the sheet list;
+  every act shows who did it.", with the ghost "Next open Question Q" while any is open. Question cards
+  show their options disabled and "Waiting for the QS. The MD reads Questions and cannot answer them."
+  The paste dialog is read-only; "Correct", "Exclude", "Assign steps" and "Confirm back in" are absent.
+  A key that would change something (Enter, X, E, A, digits, Ctrl Z) shows the toast of 1.4. Plus 4.7's
+  ReadOnlyChip in the toolbar. The top bar shows who from Vextrus has access: "TA Vextrus Tanvir Ahmed,
+  Vextrus Engineer, has access until 26 Oct 2026" with "Revoke".
+- **The Vextrus Engineer (a visible act):** works as a QS. The top bar carries the AccessChip (3; the
+  prototype's words: "Working in Nilachal Developers' data by their invitation, until 26 Oct 2026").
+  Every act shows under their own name with the indigo "TA Vextrus" chip in the State column and in
+  "Who did what", and the bar says "confirmed by Tanvir Ahmed, Vextrus Engineer". In the prototype's
+  confirmed set, the QS had excluded A-24 as reference only and the Engineer confirmed it back in:
+  "Confirmed back in: Step 14 reads the driveway and boundary for external works", which the MD sees.
+
+### 6.13 States
+| State | What shows |
+|---|---|
+| **First open of Step 1** | List mode, nothing focused: the overview in the inspector; the bar offers the bulk act |
+| **Files still reading** | Sheets from read files are workable. The reading file's chip spins ("reading sheet 14 of 28"); one skeleton row per sheet to come, "reading…"; the bulk act excludes them and its why says so; the drawing-list Check waits; Step 1 cannot be confirmed |
+| **First open of a sheet** | 4.6: the paper outline with a shimmer and "Opening S-04 for the first time…"; from the browser's cache next time |
+| **A held file (ruling 3)** | Its row heads "Needs you" with Question Q1; nothing from it is listed or counted; Coverage says so. Step 1 may be confirmed once Q1 is answered; the file's chip and row stay marked ("Held: waiting for the re-saved file" / "Held: sent to Vextrus to check" / "Left out: may be misread") |
+| **No Plot, and why** | "As read" only; Plot and Compare disabled with the reason as tooltip; `P` shows the note "No Plot for this sheet:" and the reason, top-left: "NT-ARCH-R1.dwg came with no PDF" · "the sheet has no number, so no PDF page could be matched to it" · "the PDF has no page for S-19 R0; its page 19 matched R1" · "PDF page 21 could not be matched: its title block is drawn as strokes, so there is no text to match". The inspector's Plot line repeats it ("None: …") |
+| **Bangla-font flag** | The file's chip "Bangla font" (amber); on an affected sheet, a canvas note "Bangla in a legacy font reads as "…"" and in the inspector "Bangla text here is set in SutonnyMJ, a legacy ANSI font. Vextrus reads it as "…", not as Bangla. The title and number are not affected." The file's report uses 4.5's wording |
+| **Kept open** | 6.7 |
+| **All confirmed** | 6.11 |
+| **TypeSafe unavailable** | 4.7: no pre-pick where Jev would have been a source; nothing else changes |
+
+### 6.14 As read, Plot, Compare and CAD-dark
+In sheet mode only (in list mode `D`, `P` and `F` do nothing): the toolbar's segmented **"As read |
+Plot | Compare"** (the owner's ruling, 9.4: "As read", never "Engine"), `P` cycling it; on Plot and
+Compare a note top-left "Plot: NT-STR-R1.pdf page 18, registered to 0.3 mm" or "Compare: what was read
+in red over the Plot"; the CAD-dark toggle (`D`); Fit (`F`, 6.15). Everything else about the viewer is
+4.6's.
+
+### 6.15 The keys Step 1 registers (through the key map, 2)
+| Key | Where | What it does |
+|---|---|---|
+| `Enter` | screen | What the bar says (6.4, 6.5) |
+| `Space` | screen | List ⇄ Sheet: open the focused sheet (none focused: the first sheet row), or go back |
+| `↑` `↓` | screen | List mode: previous / next row. Sheet mode: previous / next sheet in list order |
+| `[` `]` | sheet mode | Previous / next sheet (16's binding) |
+| `→` `←` | sheet mode | Next / previous view on the sheet; the canvas flies to it. Nothing in list mode |
+| `Esc` | stack (2.2) | Close the picker, dialog, panel or overlay; else leave the selected view and fit back; else sheet → list; else clear the focus |
+| `X` | screen | Exclude the focused sheet, or the selected view, with a reason |
+| `1`–`7` | mode: exclusion picker | Pick a reason; `7` asks for the text |
+| `1`–`9` | screen | Pick an answer on the focused Question |
+| `A` | sheet mode, a view selected | Assign the view to Takeoff Steps (dialog: `↑ ↓` move, `Space` ticks, `Enter` saves) |
+| `E` | screen | Correct the focused sheet's number, title or storeys, in the inspector |
+| `Q` | screen | Next open Question (from sheet mode, a Question on a file or list row returns to the list) |
+| `S` | sheet mode | The sheet picker |
+| `D`, `P` | sheet mode | CAD-dark; As read → Plot → Compare |
+| `F`, `Shift F` | sheet mode | The whole sheet; the working view (2.2 and screens.md sheet ruling 6; the prototype had them reversed) |
+| `?` | global | The keys overlay |
+| `Ctrl Z` | screen | Undo the last act |
+
+Also kept from 2.2: `Ctrl K`, `F6`, `Home` `End`, `Z`, `O`, `+` `−`. A mouse click on a row focuses it;
+a double-click opens it.
+
+### 6.16 Performance readouts only behind `?perf`
+With `?perf` (1.6) the status bar also shows "perf: 42 keys; key to frame last 12 ms, p95 31 ms" (keys
+pressed on this screen, the last key-to-frame time, its p95), beside 4.6's readouts. Without the flag
+none of it is in the DOM.
+
+### 6.17 Where the prototype breaks this spec (build the corrected form)
+| In the prototype | Build |
+|---|---|
+| "Engine" in the segmented control and "the engine in red over the Plot" | "As read"; "what was read in red over the Plot" (9.4 ruling) |
+| Proposed exclusions as a second act after "Confirm 56" | One bulk act (ruling 1, 6.4) |
+| `F` fits the working view, `Shift F` the whole sheet | The reverse (2.2) |
+| "model space, x 2,460′" in "where" and the copies table | "laid out in the drawing, x 2,460′" (1.1) |
+| "entities", "LibreDWG 48,210 entities, ACadSharp 48,522", "layer A-DETL-DOOR" in Q1 and the file report; "Drawing S-04 for the first time: 12,345 entities" | Items and readers in words (4.5's readers wording); 4.6's first-open line |
+| "Two decoders agree" / "the two decoders disagree" | "two readers agree" / "the two readers disagree" (4.5) |
+| "Drawing Set: first issue, 26 Sep 2026" in the top bar | No revision label in M0 (4.1) |
+| Coverage as a popover over the status bar | In the inspector (4.1) |
+| The file report as a modal | 4.5's report, in the inspector |
+| The MD's toast "Read only: the MD views the sheet list; a QS confirms it." | 1.4's toast |
+| Scale note "Stated 1:100, confirmed in Step 4" / "Not to scale: only its text is read" | 4.6's scale bar |
+| "Undone." | The toast names what it undid (5) |
+| The prototype's switcher pill and "Prototype: in memory only" | Absent |
+
+### 6.18 Not settled: for the owner (the prototype, the rulings and sections 4–5 differ)
+1. **The held file's answers (ruling 3).** The ruling names "read anyway" and "set this file aside" and
+   says the held file's sheets "stay marked"; the prototype offers re-save, send to Vextrus, or leave
+   it out, and lists none of the file's sheets; 5's template has four options including "Keep open".
+   Which options, and whether "read anyway" lists its sheets marked, is open.
+2. **The combined bar's exact words** (ruling 1) were not prototyped; 6.4 gives a draft.
+3. **Which views are excluded by default.** 5 and the seed (7) exclude title blocks, legends, key plans
+   and 3D views; the prototype assigns title blocks to Step 1 and legends to their step, and excludes
+   key plans and 3D views; the plan's D0 names only 3D/perspective as excluded by default.
+4. **The toolbar's count:** 4.7 counts "confirmed or excluded / found"; the prototype counts
+   "confirmed / found, n excluded".
+5. **The bar's width:** 4.7 says at most 720 px; the prototype's is 800–820 px, which is what lets the
+   seven reasons fit on one row.
+6. **The Questions' order:** 5 orders by the sheets a Question holds, then kind; the prototype orders
+   files, count, numbers, storeys.
+7. **Question wording:** the prototype's cards differ from 5's templates (the drawing-list card's
+   options; the no-number card has no "Type a number" (`E` corrects instead); the boundary-storey card
+   asks which storeys, not "members at floor level or the storey"). 6.7 records the prototype's.
+8. **The meaning of a storey list** ("at floor level" / "floor to floor") is shown but not editable in
+   the prototype's correction form; how the QS changes it is open.
+9. **The storey strip's slots** are fixed to the invented building in the prototype; for a real set the
+   storeys are not known until Step 3. How the slots are chosen before then is open.
+10. **Multi-select:** 2.2 binds `Space` and `Shift ↑ ↓` to selection; `Space` now switches modes, and
+    the prototype has no multi-select. Whether Step 1 needs one is open.
+11. **The "done" wording:** 4.7 says "Every sheet is confirmed or excluded: 21 in, 3 excluded."; the
+    prototype says 6.4's last row.
+12. **The inspector's placement of the file report and Coverage** follows 4.1 here, but was not
+    prototyped there.
 
 ---
 
@@ -816,3 +1194,21 @@ looking empty (screens.md 5); its screenshots stay under `.private/`.
   across the canvas; Esc returns), with the five choices recorded in docs/design/screens.md
   ("Takeoff Step 1"). The Step 1 prototype (private, `.private/work/session-01/proto-step1/`) is the
   reference; ticket 22 builds to it and to that section.
+
+### 6.19 The 6.18 gaps, resolved by the orchestrator (26 Sep 2026; the owner may overrule)
+Each takes the committed spec's side unless a ruling says otherwise; ticket 22's design gate checks
+them, and the owner judges them at the M0 walk.
+1. **A held file's Question** offers "Read it anyway" and "Set this file aside"; the held file's sheets
+   carry a "held" mark in the list and their figures are flagged later (the owner's ruling 3).
+2. **Views excluded by default:** title blocks, legends, key plans and 3D/perspective (§5 and the
+   seed); the prototype and D0 are updated to match.
+3. **The toolbar counts sheets accounted for** (confirmed or excluded), as §4.7; the bar is capped at
+   720 px at 1280.
+4. **Question order and wording** follow §5's templates.
+5. **The combined bulk bar** uses 6.4's wording, first judged at ticket 22's gate.
+6. **Editing a storey list's meaning** is a two-choice toggle in the inspector; the strip's slots before
+   Step 3 come from the canonical vocabulary in title order; multi-select is Shift-click and Shift-↑↓
+   in list mode only.
+7. **F fits the whole sheet, Shift F returns to the working view** (§2.2; the owner's ruling 6).
+8. **Coverage's "proposed"** counts views assigned but not yet confirmed. **When a read drawing list and
+   a pasted one disagree,** it is a Question; until answered, N shows "—".

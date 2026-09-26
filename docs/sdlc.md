@@ -17,22 +17,32 @@ configuration and prose, not code. It must never become the product (docs/postmo
 5. **Ticket** with `/to-tickets` into GitHub Issues, the only work state: vertical slices that own
    disjoint files, with blocking links. Labels:
    - the five triage states;
-   - **`cloud`**: fully provable by committed tests;
-   - **`local`**: needs real drawings or the owner's eyes (reading, recognition, model assembly);
+   - **`cloud`**: built in a cloud session and fully provable by committed tests;
+   - **`cloud+local`**: built in a cloud session, but it cannot merge without the owner's machine:
+     the real-drawing check (every engine PR), a check on the real files, the design gate, or a walk
+     on a real set. The ticket names its local step and who does it;
+   - **`local`**: needs real drawings or the owner's eyes throughout (reading, recognition, model
+     assembly); built in a local session;
+   - **`owner`**: the owner does it; an agent may prepare it;
    - the effort: `high` by default, `medium` for small, fully specified `cloud` tickets.
 6. **Build each ticket:** `/implement`, then `/tdd`, then the fast check (the module's tests, mypy,
    `lint-imports`), then `/code-review`, then a PR that closes the issue. The PR body **leads with what
    was not verified**, then what was verified and how.
 7. **Gate each PR** (ADR 0025's ruleset: a PR, CI green, up to date with `main`):
-   - **engine PRs** (by path: `engine/**` and the reading modules) carry the `real-drawings` status,
-     which the owner starts with one command and which runs as the key user (ADR 0030);
-   - **UI PRs** pass the design gate: `ux-critic` walks the running product at 1440×900 and
-     1280×800 (and 390×844 for the Project Summary and share link) with screenshots and checks the
-     design system; findings above minor block; the
-     screenshots go in the PR body;
+   - **engine PRs** (by path: `engine/**` and the reading modules, the list in the milestone's plan)
+     carry the `real-drawings` status, which the owner starts with one command: the pipeline runs as
+     the owner inside bwrap (no network, neither home mounted) and writes its export to a drop
+     folder; only the scorer runs as the key user, with the owner's password, and the owner's GitHub
+     App posts the status (ADR 0030);
+   - **UI PRs** pass the design gate: `ux-critic` reads docs/design/system.md, docs/design/screens.md
+     and docs/design/m0-screens.md (the behaviour spec), runs the PR on the seeded demo project and
+     walks it at 1440×900 and 1280×800 (and 390×844 for the Project Summary and share link) with
+     screenshots; findings above minor block; the screenshots go in the PR body;
    - ultrareview (free runs only) on risky PRs: money, geometry, the data spine;
    - **the owner merges.** Only the owner; the guard refuses agent merges. The owner reviews evidence
-     and behaviour, and reads in full only `.github/`, `.claude/`, migrations and tests.
+     and behaviour, and reads in full only `.github/`, `.claude/`, migrations and tests, and the
+     harness scripts and the sandbox (`scripts/real-drawings`, `scripts/real_drawings/`,
+     `scripts/score/`, `scripts/owner/`, `scripts/cloud/`, `engine/read/sandbox.py`; ADR 0025).
 8. **Close the milestone:** the owner and the team walk the running product on the Development Sets
    and Held-out Sets, with a timed Takeoff, and score against the Hand Takeoff blind (ADRs 0005,
    0033, 0026). Only that walk says "done".
