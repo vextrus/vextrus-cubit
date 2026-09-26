@@ -805,3 +805,14 @@ looking empty (screens.md 5); its screenshots stay under `.private/`.
    projects and files; ticket 21 extends it with sheets, views and Questions; ticket 03 ships a
    static copy of the same data for shell work before the API exists. Why: the plan gives the seed no
    ticket, and each piece has a natural first builder.
+
+## The owner's rulings (26 Sep 2026)
+- **§9, all five: "Agree with all five".** The MD manages members and access and is otherwise
+  read-only; the MD invites QSs, MDs and Vextrus Engineers, a QS invites only a Vextrus Engineer; the
+  MD revokes anyone and a QS may revoke an Engineer they invited; an invitation link works once, for
+  7 days; the read drawing is labelled **"As read"** on screen (not "Engine"); the seed is written by
+  ticket 20, extended by 21, with a static copy shipped by 03.
+- **§6, the Step 1 layout, is settled:** layout A, "List ⇄ Sheet" (Space opens the focused sheet
+  across the canvas; Esc returns), with the five choices recorded in docs/design/screens.md
+  ("Takeoff Step 1"). The Step 1 prototype (private, `.private/work/session-01/proto-step1/`) is the
+  reference; ticket 22 builds to it and to that section.
