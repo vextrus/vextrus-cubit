@@ -39,3 +39,9 @@ Developers ask for.
 - 26 Sep 2026: the Priced BOQ structure and the Material Schedule's materials, as verified. Evidence:
   docs/specs/bd-defaults.md, docs/research/qs-defaults.md. The owner's rulings: "Agree" (structure);
   "Agree" (Material Schedule).
+- 26 Sep 2026 (owner's decision, reopening the allowance-switch ruling on prototype evidence):
+  allowances are held **per Takeoff Step**, not per Trade: each step carries an allowance in ৳/sft of
+  Gross Floor Area for everything it brings, replaced whole by its measured figure when the step is
+  confirmed. Held per Trade, concrete and rod stayed allowances until steps 5–10 were all confirmed,
+  and the Project Summary prototype showed 7 % measured with most of the frame done. Defaults are
+  Vextrus's (set by the owner), then the Developer's past projects. The owner's ruling: "Agree".

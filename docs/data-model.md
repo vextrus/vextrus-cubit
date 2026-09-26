@@ -604,6 +604,8 @@ prices them.
 2. **Allowance to measured:** a Trade keeps its allowance until every Takeoff Step feeding it is
    confirmed, with "measured so far: ৳X of an allowance of ৳Y" beside it; Vextrus proposes the switch
    and the QS may switch earlier (recorded). "Agree".
+   **Superseded the same day:** allowances are held per Takeoff Step, not per Trade (ADR 0002 history),
+   because per Trade the Summary prototype showed 7 % measured with most of the frame done.
 3. **Labour Contracts** belong to the Developer, with a per-project override of rate or scope; for
    the Benchmark, a contract's ৳ is shared across its covered items in proportion to the labour their
    own Rate Analyses would have carried at Market Prices. "Agree".

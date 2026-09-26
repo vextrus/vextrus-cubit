@@ -33,7 +33,7 @@ _Avoid_: bill, chapter, trade (a trade is a kind of work)
 
 **Trade**:
 A kind of work (concrete, formwork, rod work, brickwork, plaster, flooring…) as PWD's chapters and
-Labour Contracts divide it; the Priced BOQ can be viewed by Trade, and a Cost Basis is set per Trade.
+Labour Contracts divide it; the Priced BOQ can be viewed by Trade.
 _Avoid_: discipline (a family of drawings), section, package
 
 **BOQ Item**:
@@ -148,9 +148,9 @@ not enter the Developer's Material Schedule.
 _Avoid_: turnkey, subcontract (alone)
 
 **Cost Basis**:
-Whether a trade's money in the Priced BOQ is "measured" (from confirmed elements) or an "allowance"
-(৳ per sft of floor area, for a trade not yet measured, clearly marked); the measured share rises as
-the Takeoff proceeds.
+Whether a Takeoff Step's money in the Priced BOQ is "measured" (from its confirmed elements) or an
+"allowance" (৳ per sft of Gross Floor Area for everything the step will bring, clearly marked, until
+the step is confirmed); the measured share rises step by step.
 _Avoid_: provisional sum (a PWD term for a different thing), estimate, placeholder
 
 **Benchmark Rate**:
