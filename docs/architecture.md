@@ -11,8 +11,8 @@ Postgres, one file store and one React web app. Nothing else until a measurement
 
 ```
 browser (React SPA) ──REST/OpenAPI──▶ Django + Ninja (web) ──▶ Postgres 16 (data, jobs, events, search;
-     │ (viewers: pending ADR 0022 amendment)  │                  row-level security from M0)
-     │                                        └─ enqueue ─▶ worker ──▶ files (FS dev / S3 beta)
+     │ (sheet: engine buffers per sheet;       │                  row-level security from M0)
+     │  3D: three.js per storey, ADR 0022)     └─ enqueue ─▶ worker ──▶ files (FS dev / S3 beta)
      │                                                        └─ engine (pure Python)
      │                                                             read/: LibreDWG 0.14 (dwgread JSON,
      │                                                               DXF → ezdxf) + ACadSharp cross-check,
@@ -20,7 +20,8 @@ browser (React SPA) ──REST/OpenAPI──▶ Django + Ninja (web) ──▶ P
      │                                                               read-only FS); pdfplumber / pypdfium2
      │                                                             recognise/, families/<family>/,
      │                                                             measuring and Checks (pure functions),
-     │                                                             assemble/ (IfcOpenShell, GLB: pending ADR 0022 amendment)
+     │                                                             assemble/ (parametric elements; IfcOpenShell and GLB for export),
+     │                                                             render/ (per-sheet buffers + font table)
      └────────────── Jev (TypeSafe, US) ◀── platform's Jev client (answer cache, override log, fallback)
 ```
 
@@ -28,10 +29,10 @@ browser (React SPA) ──REST/OpenAPI──▶ Django + Ninja (web) ──▶ P
 
 | Layer | Modules | Own |
 |---|---|---|
-| 6 | `summary`, `exports`, `assistant`, `revisions` | The Project Summary, Target Cost warning, ৳ by stage, consumption ranges; Excel, PDF and the 3D share link (viewer: pending ADR 0022 amendment); the Level 2 assistant; every comparison (Revision, rule re-measure, price update) split into quantity and price effect |
+| 6 | `summary`, `exports`, `assistant`, `revisions` | The Project Summary, Target Cost warning, ৳ by stage, consumption ranges; Excel, PDF and the 3D share link (ADR 0022); the Level 2 assistant; every comparison (Revision, rule re-measure, price update) split into quantity and price effect |
 | 5 | `boq` | The Priced BOQ computed on read (a Measurement Line cache), Cost Basis per Trade, Estimate layers, Lump Sums and Provisional Sums, Construction Stage names, the Material Schedule, Issued Estimates |
 | 4 | `takeoff`, `measurement`, `rates` | Takeoff Steps, Proposals with candidate geometry and their Traces, Confirmations, Questions, the Check catalogue with its runs and findings, Coverage, the Developer's Specification; Rule Set versions, Measurement Rules (junction ownership, rod detailing), BOQ Items and Billing Units, Rod Ratios by Storey Band, diameter splits; Resources, Market Price sets, Rate Analyses, Labour Contracts, Benchmark Rates and mark-ups, tax rates |
-| 3 | `building_model` | Confirmed facts only, in SI: Element Families (as data), Elements with identity per family, Element States over Model Versions, confirmed reinforcement (rod bars), Element Traces, storeys, Storey Bands, grid; IFC and GLB through `engine` (pending ADR 0022 amendment) |
+| 3 | `building_model` | Confirmed facts only, in SI: Element Families (as data), Elements with identity per family, Element States over Model Versions, confirmed reinforcement (rod bars), Element Traces, storeys, Storey Bands, grid; parametric element data for the browser's 3D; IFC and GLB through `engine` for export (ADR 0022) |
 | 2 | `drawings` | Drawing Sets, Revisions, Sheets, Sheet Revisions, Drawing Set States, Views with confirmed scale, all in drawing units; files with the two-decoder cross-check, quarantine and the PDF upload report; the read job; the Trace anchor type |
 | 1 | `projects` | Project, Display Units, market, Target Cost, Saleable Area |
 | 0 | `platform` | Tenancy and row-level security, memberships (Vextrus Engineers by invitation), auth, units and money formatting, storage, the job-queue wrapper, the event outbox, the Jev client, its answer cache, override log and fallback |

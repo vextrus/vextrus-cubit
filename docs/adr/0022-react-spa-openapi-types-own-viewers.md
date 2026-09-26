@@ -1,27 +1,47 @@
-# The frontend is a React SPA on generated OpenAPI types, with our own viewers
+# The frontend is a React SPA on generated OpenAPI types, with our own sheet and 3D renderers
 
-- **The app:** React 19 + TypeScript + Vite, running in the browser only. TanStack Router and
-  Query, React Hook Form + Zod, and Tailwind v4 design tokens with shadcn/ui components copied into
-  the app.
-- **The API contract:** it talks to the Django API through TypeScript types generated from its
-  OpenAPI schema (openapi-typescript and openapi-fetch). The generated file is never committed.
-- **The BOQ grid:** TanStack Table and Virtual, in one module we own. AG Grid Enterprise is the
-  fallback if keyboard and paste behaviour takes more than a few days.
-- **Sheets:** dxf-viewer for DWG-derived sheets, pdf.js for vector PDFs, and our own Trace overlay.
-- **The Building Model:** plain Three.js over a GLB the backend builds, one node per element id, so
-  Proposals show and elements recolour on Confirmation. That Open is kept for viewing clients' own IFC.
-- **Documents:** built on the server, XlsxWriter for Excel and WeasyPrint for PDF, with a Bengali
-  font embedded so ৳ renders.
-- **Money:** lakh grouping through `en-IN`, never `en-BD`. Screen, Excel and PDF are checked against
-  one shared table of expected formats.
+- **The app:** React 19 + TypeScript + Vite, in the browser only. TanStack Router and Query, React
+  Hook Form + Zod, Tailwind v4 tokens from the design system (docs/design/system.md) with shadcn/ui
+  components copied in.
+- **The API contract:** TypeScript types generated from the Django API's OpenAPI schema
+  (openapi-typescript and openapi-fetch). The generated file is never committed.
+- **The BOQ grid:** TanStack Table and Virtual in one module we own; AG Grid Enterprise is the
+  fallback if keyboard and paste take more than a few days.
+- **The sheet:** the engine's own render buffers, one sheet at a time (never a whole file): thin lines
+  as GL_LINES, lines of visible plotted width as quads, text as SDF glyphs, every primitive carrying
+  its top-level and nested handles; picking by a CPU R-tree. The QS sees exactly what was read, and a
+  Trace highlights exactly that entity. A **Plot** switch shows the consultant's own PDF page
+  registered beneath, where one exists. pdf.js serves only that underlay and PDF-only sets.
+- **Fonts:** one substitution table with redistributable fonts only (Liberation Sans, Serif and Sans
+  Narrow; DejaVu; a single-stroke font for SHX); every upload lists the fonts it substituted. Never
+  Autodesk, Bitstream or Monotype files.
+- **The Building Model:** plain three.js (WebGL), merged per storey, with a per-element state texture.
+  The browser builds the RCC geometry from parametric element data, so a Confirmation is a colour
+  patch, never new geometry. GLB and IFC are built on the server for export and the share link; a CI
+  test checks the browser's geometry against the server's per-element volume and bounds. That Open
+  is kept only for viewing clients' own IFC.
+- **Budgets** (a mid-range Windows laptop, checked on a real one in M0): 3D model on screen ≤ 1.5 s
+  warm and ≤ 3 s cold on 10 Mbps, 60 fps with ≤ 8 ms GPU a frame, a Confirmation painted ≤ 16 ms,
+  picking ≤ 2 ms, ≤ 100 draw calls; a cached sheet interactive ≤ 1.5 s.
+- **Documents:** built on the server, XlsxWriter for Excel and WeasyPrint for PDF, with the ৳ glyph
+  embedded.
+- **Numbers:** money and quantities group in lakh and crore through `en-IN`, never `en-BD`;
+  coordinates and dimensions never group (ADR 0008). Screen, Excel and PDF are checked against one
+  shared table of expected formats.
 
-Web only. Rejected:
-- Next.js: a second server in front of Python.
-- tRPC: it needs a TypeScript server.
-- GraphQL codegen: the old ERP's pain.
-- A separate design-system package and Electron: the old ERP again.
-- xeokit: AGPL.
+Web only. Rejected: Next.js (a second server), tRPC (a TypeScript server), GraphQL codegen and a
+separate design-system package and Electron (the old ERP), xeokit (AGPL), dxf-viewer as the sheet
+renderer (measured below), one GLB node per element (measured below).
 
-The stack alone will not make the UI good; OpenConstructionERP runs almost this stack. Quality comes
-from practice: tokens first, visual review in a real browser, keyboard tests.
-Details: docs/research/stack-frontend.md.
+The stack alone will not make the UI good; quality comes from the design system, prototypes judged
+by the owner, and the design gate on every UI PR (docs/sdlc.md).
+
+## History
+- 25 Sep 2026: decided (React SPA on generated types; dxf-viewer for sheets, pdf.js for PDFs; plain
+  Three.js over a backend GLB with one node per element). Evidence: docs/research/stack-frontend.md.
+- 26 Sep 2026 (owner's decision): the sheet and 3D renderers and the font policy, on measurements.
+  Evidence: docs/research/viewer-2d-fidelity.md (dxf-viewer hid 2,568 / 2,568 title-block attributes
+  and drew no leaders, linetypes or lineweights, F1 0.78–0.93; engine buffers 0.83–0.97; the plot
+  1.000 but 0.1–1.3 s to re-render) and docs/research/viewer-3d-budgets.md (one node per element:
+  5,846 draw calls, under 60 fps; merged per storey: 1.3 ms GPU with edges, a Confirmation in 17 ms).
+  Answers plan review M9 and M10 and architecture critic #8 and #9. The owner's ruling: "Agree".
