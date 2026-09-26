@@ -95,3 +95,10 @@ The 3D Building Model:
 4. `ux-critic` checks this file and the behaviour spec, not only the tokens.
 5. A `local` walk on a real set before tickets 16 and 22 merge: no sheet opens looking empty.
 6. Performance readouts only behind a `?perf` flag, never on by default.
+
+## Takeoff Step 1, "Sheets" (prototype: invented G+9 set, layouts A, B, C)
+The owner's ruling, 26 Sep 2026: "I was checking out the Step 1 prototype and really loved the 'A'".
+**Layout A, "List ⇄ Sheet":** the sheet list and the sheet swap places; Space opens the focused sheet
+across the whole canvas (912 px at 1280, 71 %; 1072 px at 1440, 74 %) with the inspector and rail
+unchanged; Esc returns to the list. Measured: a clean set's sheet list confirmed in 2 keystrokes, a
+messy one (8 Questions) in 14, no clicks; 8–35 ms key to frame (40–146 ms at 4× CPU slowdown).
