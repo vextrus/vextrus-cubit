@@ -236,21 +236,17 @@ sudo install -d -o "$KEY_USER" -g "$KEY_USER" -m 700 "$KEY_DIR"
 printf '  %s✓%s /home/%s is 700; %s exists\n' "$GREEN" "$RESET" "$KEY_USER" "$KEY_DIR"
 pause
 
-stage "Install the scorer and its one sudo rule"
-say "The blind scorer is a placeholder until M0 builds it. It is the ONLY thing"
-say "you may run as $KEY_USER without a password."
+stage "Install the scorer"
+say "The blind scorer is a placeholder until M0 builds it. You run it as $KEY_USER with your"
+say "password (sudo -u $KEY_USER $SCORER); there is no password-free rule (ADR 0026, amended)."
 tmp=$(mktemp)
 printf '#!/usr/bin/env bash\necho "vx-score: scorer not built yet (ADR 0026)"\n' > "$tmp"
 sudo install -o root -g root -m 755 "$tmp" "$SCORER"
-printf '%s ALL=(%s) NOPASSWD: %s\n' "$ME" "$KEY_USER" "$SCORER" > "$tmp"
-if sudo visudo -cf "$tmp" >/dev/null; then
-  sudo install -o root -g root -m 440 "$tmp" "$SCORER_RULE"
-  printf '  %s✓ installed%s %s and %s\n' "$GREEN" "$RESET" "$SCORER" "$SCORER_RULE"
-else
-  warn "The sudo rule did not validate; nothing installed. Tell Claude."
-  exit 1
-fi
 rm -f "$tmp"
+if sudo test -f "$SCORER_RULE"; then
+  warn "An old password-free rule exists at $SCORER_RULE: run scripts/owner/scorer-rule-remove.sh."
+fi
+printf '  %s✓ installed%s %s\n' "$GREEN" "$RESET" "$SCORER"
 pause
 
 stage "Move your Answer Keys in"
@@ -317,7 +313,7 @@ check() {
 }
 check "your user cannot list $KEY_DIR"      "! ls '$KEY_DIR'"
 check "sudo without a password is refused"  "! sudo -n true"
-check "the scorer runs as $KEY_USER"         "sudo -n -u '$KEY_USER' '$SCORER'"
+check "the scorer does not run without a password" "! sudo -n -u '$KEY_USER' '$SCORER'"
 say ""
 say "$pass passed, $fail failed."
 note "Known residual hole: Windows interop can run 'wsl.exe -u root' from inside Linux."

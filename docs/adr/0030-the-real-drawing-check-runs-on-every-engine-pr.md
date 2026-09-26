@@ -28,3 +28,9 @@ it would run, beside `.private/` and the secrets (docs/research/sdlc-waves-and-c
   change to `.github/` in full (ADR 0025), so an agent cannot quietly widen "not applicable".
 - 26 Sep 2026 (owner's decision, M0 spec): each Takeoff Step's expected N values are written when that
   step's milestone starts, not all in M0. The owner's ruling: "Agree with 1–5".
+- 26 Sep 2026 (owner's decision, from the M0 plan reviews): **the pipeline no longer runs as the key
+  user.** It runs as the owner, inside bwrap with no network and the key user's home hidden, and
+  writes its export to a drop folder; only the scorer runs as the key user, with the owner's
+  password, reading that export and the keys. Running the PR's own code as the key holder would have
+  let it copy a key (architecture critic #3, refuter #1). The owner's ruling: "Agree, write the
+  script to remove the rule".

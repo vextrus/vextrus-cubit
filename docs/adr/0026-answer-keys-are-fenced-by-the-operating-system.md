@@ -31,3 +31,10 @@ needed no password and `~/vextrus-cad` was world-readable. Rejected: deny rules 
   `/home/vxkeys/keys` were both refused by the permission layer before reaching the operating
   system; the operating-system fence itself was checked by the script's own stage 7, whose three
   lines the orchestrator did not see. The owner's words: "I ran the bash script: Setup complete".
+- 26 Sep 2026 (owner's decision, from the M0 plan reviews): **the password-free rule is removed.** It
+  let any process run the scorer as the key user with any input, so an agent could score crafted
+  exports one sheet at a time and rebuild a key (refuter #5; the guard, which checked `sudo` only at a
+  command's start, was tightened the same day to refuse it anywhere). The owner now types a password
+  once per scoring run (`scripts/owner/scorer-rule-remove.sh`). The scorer reads only the export in
+  the drop folder and the keys, and prints aggregates only; the Edison key-drafting script lives with
+  the keys, never in the repo. The owner's ruling: "Agree, write the script to remove the rule".
