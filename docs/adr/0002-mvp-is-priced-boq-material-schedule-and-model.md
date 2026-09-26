@@ -6,10 +6,11 @@ buy, and before which Construction Stage) and the Building Model in 3D (the visi
 in M1, not deferred behind a perfect Takeoff; deferring it is part of why Vextrus Cubit failed
 (docs/postmortem.md).
 
-**A whole-building figure from M1.** Every Trade carries a Cost Basis: measured, or an allowance in
-৳/sft of floor area (Vextrus's default or the Developer's past projects), clearly marked. A Trade
-keeps its allowance until every Takeoff Step feeding it is confirmed, with "measured so far: ৳X of an
-allowance of ৳Y" beside it; Vextrus proposes the switch and the QS may switch earlier (recorded). The
+**A whole-building figure from M1.** Every Takeoff Step carries a Cost Basis: measured, or an
+allowance held as consumption per sft of Gross Floor Area priced at current Market Prices (Vextrus's
+default, then the Developer's past projects), clearly marked. A step keeps its allowance, whole, until
+it is confirmed, with "measured so far" beside it and a "likely over allowance" flag when the
+projection passes it. The
 Target Cost is tested against measured + allowance, so it warns early. M1 prices the frame, piles and
 pile caps by Rate Analyses on the Developer's editable Market Prices; mat foundations and derived
 earthwork are M2.

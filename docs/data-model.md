@@ -46,7 +46,7 @@ first use.
 | 9 | Market Price history by effective date per Resource; `EXPORT_ISSUE` | Dated Market Price sets; an Issued Estimate is a frozen snapshot with its pins; exports point to it | 0028 |
 | 10 | Direct cost only | Estimate Layers (preliminaries, site overheads, contingency, taxes at dated Tax Rates); the Benchmark Rate printed and net, with its mark-up as data per SoR edition | 0006 am. |
 | 11 | A labour line inside each Rate Analysis | A Labour Contract has its own unit, its own BOQ line and a list of the items it covers; a covered item's labour lines drop out | 0006 am. |
-| 12 | — | Cost Basis per Trade (measured or allowance ৳/sft); Construction Stages (fixed order, renamable); procurement lead time per Resource | 0002 am. |
+| 12 | — | Cost Basis per Takeoff Step (measured, or an allowance held as consumption per sft priced at Market Prices; owner's rulings 26 Sep 2026); Construction Stages (fixed order, renamable); procurement lead time per Resource | 0002 am. |
 | 13 | A single Rebar Basis and quantity on the state | Three Rebar Bases. Rebar Ratios by element type × Storey Band and an assumed diameter split, both in the Rule Set version. Confirmed bars are held in `building_model` | 0010 am., 0031 §4 |
 | 14 | — | Junction ownership is a Measurement Rule, not an engine constant | 0009 am. |
 | 15 | `QUESTION` unblocks Element States | Questions unblock Proposals; a Check catalogue, Check runs and findings; Coverage per view | 0027 |
@@ -168,8 +168,8 @@ raises them (ADR 0029).
 | Family | key (`storey`, `grid_line`, `spec_note`, `pile`, `pile_cap`, `column`, `shear_wall`, `lift_core`, `beam`, `slab`, `slab_edge`, `stair`, `tank`, `wall`, `opening`, `room`, `roof`…), takeoff_step 1–14, label, identity_rule, milestone | key | L | — |
 | ModelVersion | seq, cause (`confirmation`/`carry_over`/`unconfirm`), facts_changed bool, facts_seq (last seq that changed facts: the cache key), complete_for_state bool | (project, seq) | T | confirmation_id ↑, drawing_set_state_id ↓ |
 | Element | family_key, identity_key (normalised: `col|B/2|GF..3F`), mark_hint, created_seq, retired_seq | (project, family_key, identity_key); overlap families match in code first | T | Family |
-| ElementState | valid_from_seq, valid_to_seq; storey_from_id, storey_to_id (the Storey Band; Elements of family `storey`); grid_ref; position x, y m; mix (from General Notes: decides the BOQ Item); rod_basis (`by_ratio`/`from_drawing`/`from_drawing_rules`/`none`); params jsonb in SI (column b, d; beam axis, width, depth; slab polygon, thickness; storey level, height, index; room type, polygon); facts_hash | (element, valid_from_seq) | T | Element; confirmation_id ↑, drawing_set_state_id ↓ |
-| RodBar | bar_mark, role (`main`/`stirrup`/`tie`/`extra`), diameter_mm, count, cutting_length m, shape_code, laps (count, length m, source: drawing or rule code) | (state, bar_mark) | T | ElementState |
+| ElementState | valid_from_seq, valid_to_seq; storey_from_id, storey_to_id (the Storey Band; Elements of family `storey`); grid_ref; position x, y m; mix (from General Notes: decides the BOQ Item); rebar_basis (`by_ratio`/`from_drawing`/`from_drawing_rules`/`none`); params jsonb in SI (column b, d; beam axis, width, depth; slab polygon, thickness; storey level, height, index; room type, polygon); facts_hash | (element, valid_from_seq) | T | Element; confirmation_id ↑, drawing_set_state_id ↓ |
+| RebarBar | bar_mark, role (`main`/`stirrup`/`tie`/`extra`), diameter_mm, count, cutting_length m, shape_code, laps (count, length m, source: drawing or rule code) | (state, bar_mark) | T | ElementState |
 | ElementTrace | fact (`size`, `position`, `mix`, `level`, `bar:<mark>`…), kind (`sheet_entity`/`question`/`qs_typed`/`default`/`developer_specification`), anchor, valid_from_seq, valid_to_seq | id | T | Element; question_id ↑ |
 | ViewPlacement | storey_from_id, storey_to_id (the storeys a plan view shows; code owns storey ranges, ADR 0011 am.), valid range | (view, valid_from_seq) | T | view_id ↓, Element (storeys) |
 
@@ -185,7 +185,7 @@ are export files built from that (`engine`), never the store.
 | StepProgress | status (`not_started`/`reading`/`in_review`/`confirmed`/`reopened`), placed n, total N (from the drawing), open_questions, active_seconds (ADR 0012 telemetry) | (project, step) | T | project_id ↓ |
 | RecogniseRun | family_key, cache_key = (read-artefact keys, confirmed-facts hash, Jev model version), status, candidates, reused_answers | (project, family, cache_key) | T | drawing_set_state_id ↓ |
 | MatchResult | outcome (`unchanged`/`changed`/`removed`), old_facts_hash, new_facts_hash | (run, element) | T | RecogniseRun; element_id ↓ |
-| Proposal | subject (`element`/`sheet`/`view`), family_key, outcome (`first_read`/`new`/`changed`/`removed`), values jsonb in *drawing units, named*, with verbatim text kept; source (`reader`/`code`/`jev`/`default`/`rod_ratio`/`developer_specification`/`question_answer`/`qs_typed`), confidence, reader + version, candidate_geometry jsonb, status (`open`/`blocked`/`confirmed`/`rejected`/`superseded`), supersedes_id | (run, candidate_key) | T | RecogniseRun, Confirmation, Proposal; element_id ↓, jev_answer_id ↓ |
+| Proposal | subject (`element`/`sheet`/`view`), family_key, outcome (`first_read`/`new`/`changed`/`removed`), values jsonb in *drawing units, named*, with verbatim text kept; source (`reader`/`code`/`jev`/`default`/`rebar_ratio`/`developer_specification`/`question_answer`/`qs_typed`), confidence, reader + version, candidate_geometry jsonb, status (`open`/`blocked`/`confirmed`/`rejected`/`superseded`), supersedes_id | (run, candidate_key) | T | RecogniseRun, Confirmation, Proposal; element_id ↓, jev_answer_id ↓ |
 | ProposalTrace | fact, anchor | id | T | Proposal, Question |
 | Confirmation | step, user, kind (`bulk`/`single`/`question_answer`/`revision`/`unconfirm`), proposals n, model_version_seq it produced, at | id | T | Question (nullable) |
 | Question | step, kind (`missing`/`conflict`/`low_confidence`/`check`/`file_misread`/`labour_source`), question_key = hash(kind, subject identity, evidence content), text, options jsonb (candidates code found), check_code, status (`open`/`answered`/`withdrawn`), answer jsonb, answered_by + at | (project, question_key) | T | — |
@@ -207,9 +207,9 @@ quantities on Proposals by calling `measurement` on their facts; the preview is 
 |---|---|---|---|---|
 | RuleSet | name; project_id nullable (a project fork, used for Storey Band overrides); based_on_id | (tenant, name) | L | RuleSet |
 | RuleSetVersion | number, status (`draft`/`published`), parent_version_id, content_hash, published_by + at | (rule_set, number) | L | RuleSet |
-| MeasurementRule | code (G1, F1, FW4, J1, R3, CA1…), kind (`quantity`/`junction`/`rod_detailing`/`stage`/`rounding`), family_key, words (as a QS reads it), params jsonb (`{"threshold_m2": "0.4"}`), source label | (version, code) | L | RuleSetVersion |
+| MeasurementRule | code (G1, F1, FW4, J1, R3, CA1…), kind (`quantity`/`junction`/`rebar_detailing`/`stage`/`rounding`), family_key, words (as a QS reads it), params jsonb (`{"threshold_m2": "0.4"}`), source label | (version, code) | L | RuleSetVersion |
 | BoqItem | item_code (stable across versions: `RCC-COL-1:1.5:3`), description, trade, boq_section, group (element class), billing_unit_imperial + billing_unit_metric, quantity_dp (2), stage_kind, basis_kind (`measured`/`lump_sum`/`provisional`), labour_measure bool | (version, item_code) | L | RuleSetVersion |
-| RodRatio | family_key, band (null = the default; storey ids only in a project fork), value dec(10,4), unit as set (`kg/cft` or `kg/m3`) | (version, family, band) | L | RuleSetVersion |
+| RebarRatio | family_key, band (null = the default; storey ids only in a project fork), value dec(10,4), unit as set (`kg/cft` or `kg/m3`) | (version, family, band) | L | RuleSetVersion |
 | DiameterSplit | family_key, diameter_mm, share dec(6,4), Σ = 1 | (version, family, diameter) | L | RuleSetVersion |
 | ProjectRulePin | from_at, to_at, pinned_by | (project) where to_at is null | T | RuleSetVersion; project_id ↓ |
 
@@ -244,7 +244,7 @@ in the unit the owner set it in (kg/cft), because bd-defaults' kg/m³ column is 
 | Entity | Key fields | Identity | Tenant | References |
 |---|---|---|---|---|
 | MeasureCache | computed_at, status | (project, facts_seq, rule_set_version, display_units) | T | ids ↓ |
-| MeasurementLine | item_code, stage_kind, nos, l / b / h m (or area), qty_si dec(18,6), qty_billed dec(14,2), rule_codes text[], rod_basis, diameter_mm, assumed_split bool | id | T | MeasureCache; element_id ↓, storey_id ↓ |
+| MeasurementLine | item_code, stage_kind, nos, l / b / h m (or area), qty_si dec(18,6), qty_billed dec(14,2), rule_codes text[], rebar_basis, diameter_mm, assumed_split bool | id | T | MeasureCache; element_id ↓, storey_id ↓ |
 | TradeBasis (Cost Basis) | trade, basis (`measured`/`allowance`), allowance ৳/sft dec(10,2), source (`vextrus_default`/`past_project`/`typed`), switched_by + at | (project, trade) | T | project_id ↓ |
 | StageName | stage_kind (`piling`/`substructure`/`slab_casting`/`masonry`/`finishes`/`services`/`external`), label | (tenant, stage_kind) | L | — |
 | EstimateLayer | order, kind (`preliminaries`/`site_overheads`/`contingency`/`tax`), percent or amount ৳, applies_to (`direct`/`subtotal`/`labour`), label | (project, order) | T | tax_rate_id ↓ |

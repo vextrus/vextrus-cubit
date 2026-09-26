@@ -5,7 +5,8 @@ Takeoffs, the Held-out Sets, the Sample Project's generating inputs and any Revi
 (ADR 0004), the expected N values of the real-drawing check (ADR 0030), and the laboratory's verified
 Edison model if it is used as a check. `sudo` asks for a password again. One narrow sudoers rule lets
 the owner's user run a single blind scorer as `vxkeys` without a password. The scorer compares a
-Vextrus export with a key and returns only aggregates per Element Family (n / N and % difference),
+Vextrus export with a key and returns only aggregates (n / N and % difference per Element Family, per BOQ Item line and per zone's ৳
+total, as ADR 0005's tolerances need),
 never a key's values. The guard refuses `sudo` and `su` in agent sessions.
 
 The laboratory (`~/vextrus-cad`) keeps running as the owner. It is fenced by deny rules in the
