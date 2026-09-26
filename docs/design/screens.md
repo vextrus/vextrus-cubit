@@ -41,3 +41,22 @@ The owner's ruling on nine design choices, 26 Sep 2026: "Q49 Agree".
 8. **Exports default to the latest Issued Estimate;** a working export says "Working — not issued"; the
    MD may issue from the Summary.
 9. **A floor's ৳/sft shows "—"** where its area is too small to mean anything, with a note.
+
+## The Priced BOQ grid (prototype: TanStack Table v9 + Virtual; AG Grid not needed)
+Measured (production build, headless Chrome): 804 items and 47,959 Measurement Lines (53,358 rows
+open) scroll with no dropped frames at wheel speed; editing a rate recomputes in 6–22 ms; opening every
+line costs about 20 ms. Not proven: the real Windows Excel clipboard, screen readers and IME, and a
+4×-throttled fast fling (15–20 fps). The owner's rulings, 26 Sep 2026: "Agree with 1–6"; on 7, "Not
+that much, we should offer a 'per floor' item layout as a view"; on 8, "Yeah you're correct, currently
+most probably 10% which was 7.5% before".
+1. **Paste lines up as Excel does;** headings count as cells, are skipped as read-only, and the grid
+   says what it skipped.
+2. **Floor rows show quantities only;** amounts at item level; the Summary's "by floor" is labelled as
+   shares.
+3. **No rate typed over its Rate Analysis:** F2 on a rate opens the item's Rate Analysis inline.
+4. **A Lump Sum's changed amount is a price effect** unless the QS marks it a scope change.
+5. **Tab stays in the grid;** F6 leaves it.
+6. **Rod Measurement Lines to 2 decimals of a kg; the item total in whole kg.**
+7. **About 270 items per building is right;** a "per floor" item layout is offered as a view.
+8. **The tax layer:** VAT and AIT deducted on Labour Contract bills. VAT at 10 % (7.5 % before);
+   the AIT rate is to be confirmed from NBR and held as dated data.

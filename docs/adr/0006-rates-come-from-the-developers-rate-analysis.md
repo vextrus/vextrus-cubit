@@ -41,3 +41,7 @@ re-expressed; its CWICR data has no Bangladesh base and is non-commercial.
   owner's ruling: "Yes agree with the shape and your four recommendations".
 - 26 Sep 2026: an Issued Estimate freezes prices (ADR 0028 amends the "one change updates everything"
   rule for issued figures).
+- 26 Sep 2026 (owner's decision): the Estimate's tax layer is VAT and AIT deducted on Labour Contract
+  bills; VAT 10 % (7.5 % before), the AIT rate to be confirmed from NBR, both dated data. A rate is
+  never typed over its Rate Analysis in the grid. The owner's ruling: "Yeah you're correct, currently
+  most probably 10% which was 7.5% before".

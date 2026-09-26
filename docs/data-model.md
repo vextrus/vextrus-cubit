@@ -615,6 +615,8 @@ prices them.
    Material Schedule rounds up. "Agree".
 5. **Market Price sets:** edits go into the current working set; a new set is copied only when an
    Issued Estimate freezes the current one; each price keeps its last-changed date. "Agree".
+6. **Rod Measurement Lines** are held to 2 decimals of a kg and the item total to whole kg (refines 4;
+   the BOQ grid prototype showed whole-kg lines up to 8 % off). "Agree with 1–6".
 
 ## 7. Deliberately left out of the MVP
 - **Answer Keys and Hand Takeoffs** never enter the product database (ADR 0026).
