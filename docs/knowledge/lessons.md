@@ -25,3 +25,10 @@ fix that taught it (ADR 0030). Read the area you are working in before you start
 - **dxf-viewer hides ATTRIBs carrying an embedded xrecord and draws no leaders:** it is not our sheet
   renderer.
 - **Thin CAD lines as GL_LINES, never one quad per segment** (242 ms vs 19 ms a frame).
+- **Aligned TEXT and ATTRIB from LibreDWG carry start point = alignment point** (all 3,016 non-left
+  aligned ones in the Sample Project); AutoCAD plots from the start point, so draw from it, not from
+  ezdxf's alignment placement (proto-sheet, 26 Sep 2026).
+- **Every recognised figure must record its source handles** when it is read; re-finding them later
+  by re-running rules is fragile (ADR 0031's Trace anchor).
+- **SHX text drawn as single strokes (Hershey simplex) matched the plot's width at 0.997 (median of 78
+  lines);** outline substitutes run 13–19 % narrow.
