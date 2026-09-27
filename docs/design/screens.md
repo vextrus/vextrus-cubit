@@ -110,3 +110,20 @@ The owner's ruling on five more choices, 26 Sep 2026: "Agree with all five".
    ("read anyway" or "set this file aside"); the held file's sheets stay marked.
 4. **The storey strip stays,** showing "floor to floor" and "at floor level" differently.
 5. **In sheet view, Enter confirms the sheet and opens the next one needing the QS.**
+
+## Session 02 prototypes (27 Sep 2026; private, `.private/work/session-02/`)
+
+### The whole building, read and live (read-structural + read-architectural, port 5301)
+The Sample Project read from its DWGs through all fourteen Takeoff Steps into one Live Model of 3,450
+Elements with 45 Questions; the viewer is an inspector of the read, not the destination. The owner's
+judgement: "yes it's good as the first prototype … liked most of it but the 3D functionality and
+features are lacking here than the first session 3D prototype we created, hopefully this is not the
+final prototype." Ruling taken: the product's 3D keeps every capability of session 01's (rulings 6–11
+above) and adds the tools.
+
+### The component store (port 5320)
+A query bar that reads plain words into a structured query, a result grid, an inspector grouping an
+Element's Attributes by cost, construction and O&M with each value's Life Phase and source, a History tab
+showing one identity through As designed, As built and As maintained, "Record a floor cast", and "Add
+attribute" (live at once in the grid, the inspector and "Colour the model by"). The owner's judgement:
+"yes, the inspector, the query and the three-phase history read as I'd want, looks good."

@@ -278,6 +278,16 @@ The link from any figure back to where on which sheet it was read, or to the Que
 it.
 _Avoid_: provenance, source, lineage
 
+**Attribute**:
+A named fact an Element carries (its grade, its casting stage, its warranty), defined once as data per
+Element Family and market, with values per Life Phase; a Developer may add its own.
+_Avoid_: parameter, property (IFC's word), field, column
+
+**Record**:
+The dated act that writes an As built or As maintained value of an Attribute, naming who, when and on
+what evidence; it never changes an As designed value.
+_Avoid_: log entry, update, observation
+
 **Deviation**:
 An As built or As maintained value that differs from its As designed value beyond a tolerance; shown,
 never absorbed.

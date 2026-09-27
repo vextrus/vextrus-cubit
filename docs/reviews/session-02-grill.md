@@ -149,3 +149,14 @@ G+9 reference building as the fastest test (10 mm 41 %, 16 mm 22 %, 20 mm 18 %, 
 **Recommended.** Accept as Low defaults, share of kg, marked "assumed" on every figure.
 **The owner's ruling.** "Agree with your recommendation on Q13."
 **Written into.** docs/specs/bd-defaults.md; ADR 0010 history.
+
+## Q14. How the Live Model holds its attributes (27 Sep 2026)
+**Asked.** Five parts from the component-store prototype and the standards research: permanent identity
+(= IFC GlobalId); Attribute Definitions as data per family and market with permanent keys; As designed
+as a typed core plus checked JSONB (option C); As built and As maintained as append-only Records; empty
+tables in M0, content with each module. Measured: C2 query C 1.6 ms, all-JSONB 1.9 ms, EAV 5.2 ms (66
+cold); storage 1.9 / 2.5 / 8.0 GB.
+**Recommended.** All five with option C; the terms Attribute and Record.
+**The owner's ruling.** "Agree with your recommendation on Q14. Judgement on the prototype itself: yes,
+the inspector, the query and the three-phase history read as I'd want, looks good."
+**Written into.** ADR 0037; `CONTEXT.md` (Attribute, Record); docs/design/screens.md (the prototype).
