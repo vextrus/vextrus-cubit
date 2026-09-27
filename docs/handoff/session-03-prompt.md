@@ -4,8 +4,9 @@ You are the orchestrator of the first build session of the new Vextrus. Session 
 grilled the plan; session 02 (27–28 Sep 2026), the final grill, settled what Vextrus is and redrew
 everything around it: the product is the **Live Model** (ADR 0035), every discipline including MEP is
 read into it (ADR 0040), markets are data from the first line (ADR 0038), and the build targets Python
-3.14 and PostgreSQL 18 (ADR 0034). The M0 plan was revised, attacked by four reviewers and re-signed
-under the owner's delegation; the issues were re-cut. **This session builds.** Effort is `high`; small,
+3.14 and PostgreSQL 18 (ADR 0034). The M0 plan was revised, attacked by four reviewers (40 findings, every
+one resolved: docs/reviews/M0-plan-s02-resolution.md) and re-signed under the owner's delegation; the
+issues were re-cut (32 open M0 tickets; the scorer and keys moved to M1). **This session builds.** Effort is `high`; small,
 fully specified `cloud` tickets may run at `medium` as each issue says.
 
 ## Read first, in this order
@@ -25,10 +26,20 @@ fully specified `cloud` tickets may run at `medium` as each issue says.
 ## What is broken, unmeasured or waiting (read before acting)
 - **PostgreSQL 18 is not installed locally yet** (only 16 on 5544). 01a needs it: the owner installs it
   from the PostgreSQL apt repository (the command is in docs/research/stack-versions.md) and says its port.
-- **The cloud environments are on Python 3.13 and PostgreSQL 16.** They are rebuilt on 3.14 and 18 after
-  wave 0 (`apt.postgresql.org` on each environment's allowlist), before wave 1's cloud tickets.
-- **ezdxf has no Python 3.14 wheel:** it is built from source (hash-pinned, the one source build the
-  sandbox allows) until upstream ships one.
+- **The toolchain must move out of the owner's home:** Python 3.14, LibreDWG and .NET under
+  `/opt/vextrus/{python,libredwg,dotnet}` (an owner script, before 06a), so the real-drawing check's
+  sandbox can bind it read-only (review A3, R5).
+- **The cloud environments are on Python 3.13 and PostgreSQL 16.** One is rebuilt on 3.14 and 18 with a
+  throwaway setup **before wave 0** (timing the five-minute setup budget; `apt.postgresql.org` and uv's
+  Python host on its allowlist); the other after wave 0, before any cloud ticket builds in it.
+- **ezdxf has no Python 3.14 wheel:** 01a pins the pure wheel from the registry; 01c's
+  `toolchain-ezdxf` workflow builds the cp314 wheel once per pin and installs it by hash (the check
+  itself builds nothing).
+- **Row-level security is enabled without FORCE** (review A1, A2): `vextrus` owns and migrates,
+  `vextrus_app` connects and refuses to start as anything else, cross-tenant reads only through named
+  functions. Ticket 02 carries the tests that the measured cross-tenant insert fails.
+- **The guard's `/statuses` check is a tripwire only:** 01c tightens it; the owner merges only on the
+  App's status author.
 - **The cloud credit** must be claimed on both accounts by 7 Oct 2026 and reportedly expires on 4 Nov;
   waves 1–4 are cloud-heavy so it is spent, not saved.
 - **The GitHub ruleset** is set after wave 0 merges; the private GitHub App that posts the
@@ -45,12 +56,15 @@ fully specified `cloud` tickets may run at `medium` as each issue says.
   decisions are written in the committed docs. Never copy their code wholesale.
 
 ## The finish line of this session
-1. **The owner's steps before wave 0** done or recorded: PostgreSQL 18 installed; the credit claimed on
-   both accounts; the GitHub App created (any time before the baseline run).
+1. **The owner's steps before wave 0** done or recorded: PostgreSQL 18 installed; the toolchain under
+   `/opt/vextrus`; one cloud environment rebuilt on 3.14 and 18 and its setup timed; the credit claimed
+   on both accounts; the GitHub App created (any time before the baseline run; it also posts the
+   `design-gate` status). The plan's "Before wave 0" is the checklist.
 2. **Wave 0 merged:** 01a (backend skeleton, settings, ids, i18n settings, Python CI on 3.14 and 18)
    first, then 01b (web scaffold, message catalogues, logical CSS and its lint, canvases fixed left to
    right) and 01c (toolchain CI, cloud setup and database roles, merged with the old 01d), all `local`.
    CI green on an empty product; a wrong import fails `lint-imports`; a market literal fails its scan;
+   the key-map test fails on two bindings for one key in one scope; the doc lint fails on stale paths;
    `CLAUDE.md` gains the build and test commands.
 3. **The ruleset set**, the cloud environments rebuilt on 3.14 and 18, and the first-session checklist
    run on both accounts, its answers recorded in the M0 milestone issue.
@@ -70,7 +84,8 @@ fully specified `cloud` tickets may run at `medium` as each issue says.
 - **Engine PRs** carry the `real-drawings` status from the baseline run on; before it, they say "not
   measured on real drawings".
 - **UI PRs** pass the design gate: `ux-critic` on the seeded demo project at 1440×900 and 1280×800,
-  against `screens.md`, `m0-screens.md` and ADR 0038's rules.
+  against `screens.md`, `m0-screens.md` and ADR 0038's rules (the pseudo-RTL test language included);
+  the owner's App posts `design-gate`, required for `web/**`.
 - **Ask one question at a time, recommendation first.** Push only with the owner's yes, every time.
 
 ## Law in force
