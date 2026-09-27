@@ -80,7 +80,8 @@ The sheet:
 The 3D Building Model:
 6. **Proposals are opaque cyan with dashed edges,** never translucent.
 7. **A column is one Element per Storey Band,** drawn and measured storey by storey, selected and
-   confirmed as one.
+   confirmed as one. *Refined in session 02 (Q5): one Element per storey, the Storey Band a fact and the
+   group the QS selects and confirms as one; the screen is unchanged.*
 8. **The QS's view opens orthographic;** the MD's share link opens in perspective.
 9. **Piles are shown;** the opening fit frames the building above ground; a Foundations toggle.
 10. **A Question tints every element it holds amber;** its origin carries the revision-cloud marker.

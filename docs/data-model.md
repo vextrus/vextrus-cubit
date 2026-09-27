@@ -1,163 +1,275 @@
-# Vextrus — the data model (draft)
+# Vextrus — the data model
 
-Draft of 26 Sep 2026, session 01, for the owner to review. It starts from the sketch in
-`docs/research/stack-data.md` §10 and applies every ADR that overrides it: 0002, 0005–0011, 0015,
-0016, 0021, 0026–0029 and 0031, plus `docs/specs/bd-defaults.md`. Where this page and an ADR
-disagree, the ADR wins; report the mismatch. Terms are `CONTEXT.md`'s; proposed new ones are
-listed in §1.3. It is a guide for build sessions, so it gives key fields, not every column.
-M0's additions (the M0 plan's step D0, 26 Sep 2026, from the M0 spec's "Amendments after sign-off"
-and the plan's rulings) are in §3.0, §3.2 and §3.4: invitation fields, the drawings tables' M0
-fields, the lists M0 fixes, Coverage with `assigned` and one row per Takeoff Step, and the drawing
-list.
+Revised in session 02 (28 Sep 2026); re-signed under the owner's delegation: "Take every necessary
+actions, update and write all files to end the session." First drafted on 26 Sep 2026 in session 01 for
+the owner's review; the owner's rulings on its open questions are in §6.
+
+It starts from the sketch in `docs/research/stack-data.md` §10 and applies every ADR that overrides it:
+0002, 0005–0011, 0015, 0016, 0026–0031, 0033 and 0034 (which merged 0020, 0021 and 0023), and from
+session 02 ADRs 0035–0040 with the amendments of 27–28 Sep 2026 (0002, 0003, 0006, 0007, 0008, 0010,
+0011, 0014, 0015, 0016, 0022, 0028, 0030, 0033, 0034), plus `docs/specs/bd-defaults.md`. Where this page
+and an ADR disagree, the ADR wins; report the mismatch. Terms are `CONTEXT.md`'s (§1.3). It is a guide
+for build sessions, so it gives key fields, not every column.
+- **M0's additions** (the M0 plan's step D0, 26 Sep 2026, from the M0 spec's "Amendments after
+  sign-off" and the plan's rulings) are in §3.0, §3.2 and §3.4: invitation fields, the drawings tables'
+  M0 fields, the lists M0 fixes, Coverage with `assigned` and one row per Takeoff Step, and the drawing
+  list.
+- **Session 02's changes** are marked "(s02)" with the grill question that ruled them
+  (`docs/reviews/session-02-grill.md` holds each ruling in the owner's words) and the ADR. The largest:
+  the Building Model is the **Live Model** (`building_model` → `live_model`), with Life Phases,
+  Attributes, Records, Discipline Parts and Element Relations; a Project holds a Site and Buildings;
+  Markets are data; an Element is one physical piece; issuing freezes each Element's Measurement Lines.
+  "Live" in its old sense of working or unfrozen is now "working".
 
 ## 1. Conclusions
 
 ### 1.1 The shape
-The data sits in four bands, in one Postgres with row-level security on every tenant table.
-- **Drawings stay as read.** A Drawing Set has Sheets. Each Sheet has one Sheet Revision per
-  consultant re-issue. A **Drawing Set State** maps every sheet to its current revision and names
-  the reader version, and a Revision or a reader upgrade makes a new state.
+The data sits in one Postgres with row-level security on every tenant table.
+- **Markets are data** (s02 Q15; ADR 0038). A Market row (Bangladesh the only one) holds the currency,
+  the format profile, the unit systems, the languages, the time zone, the work week and the home
+  region. Every Developer and Project points to one, and each Market has its own Library.
+- **A Project holds a Site and one or more Buildings** (s02 Q4; ADR 0036). Every building-scoped row
+  carries its Building from M0, and M0 makes one Building per Project.
+- **Drawings stay as read.** A Drawing Set (one per Project, across its Buildings and Disciplines) has
+  Sheets, each with its Discipline and its Building. Each Sheet has one Sheet Revision per consultant
+  re-issue. A **Drawing Set State** maps every sheet to its current revision and names the reader
+  version, and a Revision or a reader upgrade makes a new state. A **Drafting Profile** holds one
+  consultant office's conventions for one Discipline (s02 Q16; ADR 0039).
 - **`takeoff` holds what the machine says**, in drawing units: Proposals with their Traces,
   Questions, Checks, Coverage and the append-only Confirmations.
-- **`building_model` holds only what the QS confirmed**, in SI.
-  - An **Element** has a stable identity for its family.
-  - Its **Element States** carry a validity range in Model Versions, and a new one is written only
-    when a fact changes.
+- **`live_model` holds the Live Model: only what the QS confirmed, in SI** (s02 Q1, Q2, Q31; ADRs 0035,
+  0040).
+  - There is one Live Model per Building, in one coordinate frame and one identity space. It is made of
+    **Discipline Parts** (Structural, Architectural, Electrical, Plumbing and sanitary, Fire, other
+    MEP) that share the Building's storeys and grid. Typed, versioned **Element Relations** join
+    Elements, often across Parts.
+  - An **Element** is one physical piece (a column in one storey, s02 Q5). Its UUIDv7 is permanent
+    across Revisions and Life Phases and is also its IFC GlobalId.
+  - Its **As designed** facts are **Element States** with a validity range in Model Versions: a typed
+    core plus `attrs` checked against **Attribute Definitions** (s02 Q14; ADR 0037). A new state is
+    written only when a fact changes, and only `takeoff`'s confirm service writes one.
+  - Its **As built** and **As maintained** values are **Records**: append-only, each naming who, when,
+    on what evidence and the design version in force. A Record never makes a Model Version and never
+    moves a figure. A **Deviation** is computed on read (s02 Q6).
   - Traces are copied in on Confirmation.
-- **Money is computed on read.** Measuring is a pure function of (confirmed facts, pinned Rule Set
-  version). Pricing applies the Developer's Rate Analyses at the current Market Price set.
-  - `boq` caches the measurement lines and stores nothing else live.
-  - An **Issued Estimate** freezes the result together with its four pins: the facts version, the
-    Drawing Set State, the Rule Set version and the Market Price set.
+- **Money is computed on read, and carries its currency.** Measuring is a pure function of (confirmed
+  facts, pinned Rule Set version). Pricing applies the Developer's Rate Analyses at the current Market
+  Price set.
+  - `boq` caches the Measurement Lines, keyed by a hash of the figure-feeding facts, and stores no
+    working figure.
+  - An **Issued Estimate** freezes the result with its four pins (each Building's Model Version, the
+    Drawing Set State, the Rule Set version and the Market Price set), down to each Element's
+    Measurement Lines. So every Element has a working cost and an issued cost (s02 Q7; ADR 0028).
   - Every comparison splits the quantity effect from the price effect.
 
-Library data (the Bangladeshi default Rule Set, Rate Analyses, Rebar Ratios and Benchmark Rates) lives
-under one system tenant, the Vextrus Library. Tenants can read it, and a Developer gets a copy on
-first use.
+Library data lives under one system tenant per Market, that Market's Vextrus Library (s02 Q15; ADR 0038:
+a Market "with its own Library"). It holds the default Rule Set, Rate Analyses, Rebar Ratios, the
+benchmark, tax kinds, Construction Stage names, allowances, starter prices, Attribute Definitions and,
+once published, Drafting Profiles. A tenant reads its own Market's Library, never writes it, and gets a
+copy on first use.
 
 ### 1.2 Where the sketch had to change
+Rows 1–21 compare the sketch in `stack-data.md` §10 with session 01's draft of this page. Stale entries
+in them are amended in place and marked (s02). Rows 22–35 are session 02's changes to that draft.
 
-| # | Sketch (stack-data.md §10) | Now | Forced by |
+| # | Before | Now | Forced by |
 |---|---|---|---|
 | 1 | `DRAWING_SET_REVISION`: one letter for the whole set | Revision (the consultant's re-issue), Sheet Revision per sheet, and a Drawing Set State mapping each sheet to its revision | 0015 am. |
 | 2 | Reader versions only on derived files | A reader upgrade makes a new Drawing Set State and runs through the same matching; every Trace names its reader and version | 0015 am., 0029, 0031 §3 |
-| 3 | `ELEMENT_STATE` with status proposed / confirmed / removed; Proposals hang off it | Proposals and candidate geometry live in `takeoff`. `building_model` has no "proposed" status, only confirmed states | 0031 §4 |
+| 3 | `ELEMENT_STATE` with status proposed / confirmed / removed; Proposals hang off it | Proposals and candidate geometry live in `takeoff`. `live_model` has no "proposed" status, only confirmed states (s02: and states "awaiting answer", row 33) | 0031 §4 |
 | 4 | One Element State per Element per Revision | A validity range `[valid_from_seq, valid_to_seq)` in Model Versions, written only on change. Reissuing 3 sheets writes rows only for what changed | 0015 am. (per-sheet revisions) |
-| 5 | Identity from type, mark and anchor | Identity per element family (column: grid intersection + Storey Band; beam: axis segment; wall: axis overlap; slab: polygon overlap; opening: host wall + position). A mark is only a hint | 0015 am. |
-| 6 | One `TRACE` table keyed by entity handle + bbox, owned ambiguously | A Trace anchor is a value type owned by `drawings`: DWG (file sha256, reader + version, sheet, insert-handle chain, entity handle); PDF (…, page, path index, box). `ProposalTrace` lives in `takeoff`; `ElementTrace` lives in `building_model`, copied in on Confirmation | 0031 §2, §4; 0029 |
-| 7 | `BOQ_ITEM` per Revision and a stored `QUANTITY_SOURCE` | The live Priced BOQ is computed on read; its Measurement Lines are a cache keyed by (facts version, Rule Set version, Display Units). Each project pins a Rule Set version, and published versions are immutable | 0031 §1 |
-| 8 | "SI in every numeric column" | Drawings and Proposals stay in the drawing's units, and only `building_model` is SI. Market Prices are held in their quoted unit. A BOQ Item has a Billing Unit, set in the Rule Set, and its quantity is rounded per item | 0008 am. |
+| 5 | Identity from type, mark and anchor | Identity per Element Family (column, shear wall, core: grid intersection + storey, one Element per storey, the Storey Band a fact (s02); beam: axis segment; wall: axis overlap; slab: polygon overlap; opening: host wall + position). A mark is only a hint | 0015 am. |
+| 6 | One `TRACE` table keyed by entity handle + bbox, owned ambiguously | A Trace anchor is a value type owned by `drawings`: DWG (file sha256, reader + version, sheet, insert-handle chain, entity handle); PDF (…, page, path index, box). `ProposalTrace` lives in `takeoff`; `ElementTrace` lives in `live_model`, copied in on Confirmation | 0031 §2, §4; 0029 |
+| 7 | `BOQ_ITEM` per Revision and a stored `QUANTITY_SOURCE` | The working Priced BOQ is computed on read; its Measurement Lines are a cache keyed by (Building, a hash of the figure-feeding facts, Rule Set version, unit system) (s02, row 26). Each project pins a Rule Set version, and published versions are immutable | 0031 §1 |
+| 8 | "SI in every numeric column" | Drawings and Proposals stay in the drawing's units, and only `live_model` is SI. Market Prices are held in their quoted unit and their set's currency. A BOQ Item has a Billing Unit per unit system, set in the Rule Set, and its quantity is rounded per item | 0008 am. |
 | 9 | Market Price history by effective date per Resource; `EXPORT_ISSUE` | Dated Market Price sets; an Issued Estimate is a frozen snapshot with its pins; exports point to it | 0028 |
-| 10 | Direct cost only | Estimate Layers (preliminaries, site overheads, contingency, taxes at dated Tax Rates); the Benchmark Rate printed and net, with its mark-up as data per SoR edition | 0006 am. |
+| 10 | Direct cost only | Estimate Layers (preliminaries, site overheads, contingency, taxes at dated Tax Rates); the Benchmark Rate printed and net, with its mark-up as data per benchmark edition (s02: the benchmark source is the Market's, PWD's SoR for Bangladesh) | 0006 am. |
 | 11 | A labour line inside each Rate Analysis | A Labour Contract has its own unit, its own BOQ line and a list of the items it covers; a covered item's labour lines drop out | 0006 am. |
-| 12 | — | Cost Basis per Takeoff Step (measured, or an allowance held as consumption per sft priced at Market Prices; owner's rulings 26 Sep 2026); Construction Stages (fixed order, renamable); procurement lead time per Resource | 0002 am. |
-| 13 | A single Rebar Basis and quantity on the state | Three Rebar Bases. Rebar Ratios by element type × Storey Band and an assumed diameter split, both in the Rule Set version. Confirmed bars are held in `building_model` | 0010 am., 0031 §4 |
+| 12 | — | Cost Basis per Takeoff Step (measured, or an allowance held as consumption per unit of Gross Floor Area priced at Market Prices; owner's rulings 26 Sep 2026); `CostBasis` in §3.5 replaces the draft's `TradeBasis` per Trade (s02). Construction Stages (fixed order, renamable); procurement lead time per Resource | 0002 am. |
+| 13 | A single Rebar Basis and quantity on the state | Three Rebar Bases. Rebar Ratios by element type × Storey Band and an assumed diameter split, both in the Rule Set version. Confirmed bars are held in `live_model` | 0010 am., 0031 §4 |
 | 14 | — | Junction ownership is a Measurement Rule, not an engine constant | 0009 am. |
 | 15 | `QUESTION` unblocks Element States | Questions unblock Proposals; a Check catalogue, Check runs and findings; Coverage per view | 0027 |
 | 16 | — | A per-tenant Jev answer cache and a log of the QS's overrides | 0011 am. |
-| 17 | RLS "from the beta" | RLS from M0; a Vextrus Engineer's Membership is by invitation, time-bound and revocable | 0021 am. |
-| 18 | Element type as a column | Element families are data rows (`Family`), mirroring `engine/families/<family>/` | 0031 §5 |
+| 17 | RLS "from the beta" | RLS from M0; a Vextrus Engineer's Membership is by invitation, time-bound and revocable | 0034 (was 0021) am. |
+| 18 | Element type as a column | Element Families are data rows (`ElementFamily`), mirroring `engine/families/<family>/`, each with its Discipline Part, IFC class and classification references (s02) | 0031 §5 |
 | 19 | — | Per upload: the LibreDWG vs ACadSharp cross-check with quarantine, a PDF upload report and a flag for Bangla text in ANSI fonts | 0029, 0014 am., 0031 §11 |
-| 20 | — | The fourteen Takeoff Steps; the Developer's Specification by room type; a template of MEP lump-sum lines with ৳/sft sanity ranges | 0007 am. |
-| 21 | Tenant-less library tables, copied on first use | The same tables, with the Library as a tenant whose rows every tenant may read but not write; copying is then a row copy. *My recommendation; no ADR forces it* | — |
+| 20 | — | The fourteen Takeoff Steps, then each MEP Part's own steps from M3 (s02); the Developer's Specification by room type; a template of MEP lines with ৳/sft sanity ranges, which are the MEP Parts' allowances until they are read (s02) | 0007 am., 0040 |
+| 21 | Tenant-less library tables, copied on first use | The same tables, with a Library tenant per Market (s02) whose rows that Market's tenants may read but not write; copying is then a row copy. *The Library-as-tenant shape is my recommendation; ADR 0038 fixes one Library per Market* | 0038 |
+| 22 | "Building Model": confirmed facts only | The **Live Model**: one identity per Element across three Life Phases; As designed on Element States, As built and As maintained as Records; a Deviation shown, never absorbed | 0035 (Q1, Q2, Q6) |
+| 23 | One building per Project (§7) | A Project holds a Site and one or more Buildings; every building-scoped row carries `building_id`; M0 makes one Building per Project; a Sheet is assigned to a Building | 0036 (Q4) |
+| 24 | A column Element per Storey Band (`col\|B/2\|GF..3F`) | One Element per physical piece (`col\|B/2\|4F`); the Storey Band is a fact of each piece and the QS's group. A Revision that moves a band boundary changes facts instead of removing and adding Elements | 0015 am. (Q5) |
+| 25 | Family facts in `params` jsonb | A typed core plus `attrs` JSONB whose every key is an Attribute Definition's; definitions as Library data per Market with permanent keys; Records for later Life Phases; classification references (Uniclass 2015, PWD SoR) on the Family or the Element | 0037 (Q14, Q19) |
+| 26 | The cache keyed by `facts_seq` | Keyed by a hash of the figure-feeding facts: a casting-stage edit makes a Model Version and moves no figure | 0037, 0031 am. |
+| 27 | An Issued Estimate froze per item and per storey | It also freezes each Measurement Line (Element, BOQ Item, quantity, frozen rate): each Element's issued cost | 0028 am. (Q7) |
+| 28 | `market` a `BD` literal; money "৳ `dec(16,2)`"; `billing_unit_imperial` + `_metric`; PWD-named benchmark columns; `TaxRate.kind` `vat`/`ait`; `Question.text` in English; one Library | A Market row; the currency on money-owning rows, scale ≥ 3, rounding to the currency's minor unit; Billing Units as rows per unit system; a generic benchmark source; tax kinds as data; machine sentences as a message code and parameters; a Library per Market; times in UTC | 0038 (Q15), 0008 am. |
+| 29 | Membership per Developer | Plus an optional list of Projects; people from outside the Developer only by named, scoped, time-bound invitation into its tenant | 0034 am. (Q11) |
+| 30 | UUIDv7 "generated by the app on PG16"; policy `current_setting('app.tenant_id')` | `ids.new_id()` over Python 3.14's `uuid.uuid7` on PostgreSQL 18; the policy reads the setting through `nullif`; constraints on populated tables need a role that bypasses RLS | 0034 am. (Q18) |
+| 31 | — | Drafting Profiles per consultant office and Discipline, in `drawings`: proposed, confirmed, reused, and published to the Library only with permission and review | 0039 (Q16) |
+| 32 | MEP as template lump sums; Sheet discipline `mep`; `mep` an exclusion reason | Discipline Parts in one Live Model per Building; six Disciplines on Sheets; Element Relations; MEP families and steps from M3; the MEP template's lines as the MEP Parts' allowances until read; `mep` withdrawn from the exclusion reasons | 0040, 0003 am., 0007 am. (Q29, Q31, Q32) |
+| 33 | A step keeps its whole allowance until confirmed | A step may close with Questions open: held Elements written at their best candidate, flagged "awaiting answer"; failed Elements typed or excluded first | 0002 am. (Q22) |
+| 34 | The assistant's eight templates and an `AskLog` | The Live Model's query: one structured query for the assistant and the viewer's filters; the log keeps the parsed query | 0011 am. (Q17) |
+| 35 | IFC and GLB as export files built from the model | IFC-ready data (an IFC class per Family, a mapping per Attribute Definition, the Element's id as GlobalId); no IFC export or import in the MVP; GLB for the share link | 0035, 0022 am. (Q12) |
 
-### 1.3 Terms (most now in `CONTEXT.md`, added 26 Sep 2026; the rest are implementation words)
-- **Element**: one confirmed thing in the Building Model with a stable identity across Revisions (a
-  column over a Storey Band, a beam, a storey, a grid line, a General Notes fact). *Avoid*: object,
-  entity.
-- **Element Family**: the kind of Element that one package in `engine/families/` recognises,
-  checks and measures. CONTEXT.md already uses the phrase in "Takeoff Step" without defining it.
-- **Element State**: an Element's confirmed facts over a range of Model Versions.
-- **Model Version**: a numbered state of a project's Building Model. Each Confirmation or carry-over
-  makes one.
-- **Sheet Revision**: one issue of one sheet ("S-201 rev B").
+### 1.3 Terms
+The domain words these tables need are in `CONTEXT.md`: session 01 added the first batch (26 Sep 2026),
+and session 02 added Live Model, Life Phase, Deviation, Attribute, Record, Discipline Part, Element
+Relation, Drafting Profile, Market, Site, Building, Point and Run, and widened Element, Project,
+Discipline, Takeoff Step and Check. Use them exactly. What remains here are implementation words:
+- **Element State**: an Element's As designed facts over a range of Model Versions.
+- **Model Version**: a numbered state of one Building's Live Model. Each Confirmation or carry-over
+  makes one; a Record never does.
 - **Drawing Set State**: the map from each sheet to its current Sheet Revision, read by one reader
   version.
-- **BOQ Item**: one line kind of the Priced BOQ. It carries a description (with the Mix, grade and
-  element class), a Billing Unit, a BOQ Section and a Trade. It is defined in the Rule Set and priced
-  by its Rate Analysis. CONTEXT.md uses "BOQ item" loosely.
-- **Measurement Line**: one line of the measurement sheet: element, Nos × L × B × H = quantity in the
-  Billing Unit, and the rules that produced it (ADR 0016's "Measurement" sheet).
+- **Attribute Definition** (s02): one kind of fact an Element can carry, defined once as data (key,
+  type, unit dimension, labels, Families, Life Phases, IFC mapping). CONTEXT.md's Attribute is the fact;
+  this is its definition. **Family Attribute**: a definition's applicability to one Element Family.
+- **Figures hash** (s02): a hash of the facts that feed a figure; `boq`'s cache key.
+- **Issued Measurement Line** (s02): one Measurement Line frozen by an Issued Estimate, with its
+  Element, BOQ Item, quantity and frozen rate.
 - **Estimate Layer**: one step of the Estimate above direct cost (preliminaries, site overheads,
   contingency, a tax).
-- From `docs/research/qs-defaults.md` §6, and needed by these tables: **Mix**, **Wastage**, **Lap**,
-  **Lump Sum**, **Provisional Sum**, **Mark-up**.
-- **Two clashes with "Check".** CONTEXT.md defines a Check as a comparison *with the source
-  drawings*, but ADRs 0006 and 0009 also call these Checks:
-  - "labour from exactly one source";
-  - "owned volumes sum to the union".
-
-  Neither compares with the drawings. ADR 0016's "consumption checks" (rebar kg per sft against a
-  range) clash with the term too. I recommend widening the definition to "…with the source drawings
-  or with the confirmed model's own totals" and calling the MD's figures **Consumption Ranges**.
+- **Library**: a Market's system tenant holding what Vextrus ships for that Market.
+- **Consumption Range**: the MD's per-area sanity range (rebar kg, cement bags, bricks, concrete per
+  sft of Gross Floor Area); a Check of the sanity kind.
+- **"Awaiting answer"** (s02 Q22) and **"changed in rev B, awaiting Confirmation"** (§6 ruling 1): the
+  two flags on a figure that rests on something the QS has not yet settled.
+- From `docs/research/qs-defaults.md` §6, not in CONTEXT.md: **Lap**, **Mark-up**.
+- Proposed for M3, not yet in CONTEXT.md: **MEP System** and **Circuit** (groups of Equipment,
+  Terminals and Runs; `docs/research/mep-measurement-and-model.md` §1.9).
+- **The Check clash is closed.** CONTEXT.md now defines a Check against the source drawings, a
+  conservation, or a sanity range (ADR 0027, 26 Sep 2026), which covers "labour from exactly one
+  source", "owned volumes sum to the union" and the MD's consumption checks.
 
 ## 2. Conventions every module follows
-- **Identity.** Every row has an `id uuid` (UUIDv7, generated by the app on PG16). Business keys are
-  unique *within the tenant*, so a unique index never leaks another tenant's values (stack-data §6.1).
-- **Tenancy.** Every tenant table has `tenant_id uuid NOT NULL`, and its policy is forced:
-  - `tenant_id = current_setting('app.tenant_id')`, set per transaction;
-  - the app connects as a non-owner role;
-  - a CI test checks that every table has a policy (ADR 0021).
+- **Identity** (s02 Q14, Q18; ADRs 0034, 0037).
+  - Every row has an `id uuid`, a UUIDv7 made in the app by `ids.new_id()` over Python 3.14's
+    `uuid.uuid7`, with no database-side default. Migrations name only `ids.new_id`: a migration naming
+    `uuid.uuid7` fails to load where that name differs (`docs/research/stack-versions.md`).
+  - An Element's id is permanent across Revisions and Life Phases and is its IFC GlobalId (IFC's
+    22-character form at export). Anything an export splits out of one Element (a bar mark's bars, a
+    door leaf) gets an id derived from the Element's id and a local name, never a random one.
+  - Business keys are unique *within the tenant*, so a unique index never leaks another tenant's
+    values (stack-data §6.1).
+- **Tenancy** (ADR 0034 as amended).
+  - Every tenant table has `tenant_id uuid NOT NULL` and a forced policy (`FORCE ROW LEVEL SECURITY`)
+    in its first migration: `tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid`,
+    set per transaction. The `nullif` is needed because a transaction-local setting reads back as `''`
+    on a pooled connection, and `''::uuid` raises (reproduced on PostgreSQL 16.15 and 18.6).
+  - The app connects as a non-owner role without `BYPASSRLS`; the Django admin runs under the same
+    policies.
+  - A policy compares with the settings only: no joins, sub-selects or other function calls. Every
+    tenant index leads with `tenant_id`, so the policy becomes an index condition (measured,
+    `docs/research/global-markets-foundation.md` item 11).
+  - A CI test checks that every table has a forced policy.
+  - **Constraints on populated tables** (s02 finding). Under forced RLS, a migration run as the table
+    owner that adds a foreign key to a table holding rows fails, because the owner cannot see the
+    parent rows (the component-store prototype, `.private/work/session-02/component-store/REPORT.md`).
+    Such a migration runs as a migration role that bypasses RLS (never the app's role), or the
+    constraint is added before data exists.
+  - **Project scope** (s02 Q11). A Membership may list Projects (none = all). RLS stays per tenant;
+    every project-scoped service filters by the Membership's list, through the API and the admin alike
+    (as the M0 spec has it).
 
   Markers in the tables below:
   - **T**: tenant only;
-  - **L**: the SELECT policy also admits the Library tenant, and writes stay own-tenant only;
-  - **G**: global, with no tenant (only `User` and `ShareLink` lookups).
+  - **L**: the SELECT policy also admits the acting tenant's Market Library, through a second setting,
+    `… OR tenant_id = nullif(current_setting('app.library_id', true), '')::uuid`, set per transaction
+    from the Developer's own row; writes stay own-tenant only. *The second setting is my
+    recommendation: it keeps the policy free of joins*;
+  - **G**: global, with no tenant (only the `User` and `ShareLink` lookups), kept inside each cell
+    (ADR 0038 item 8).
 - **Types.**
-  - Money in ৳ is `dec(16,2)`.
-  - Prices and rates are `dec(14,4)` per their quoted unit.
+  - **Money** (s02 Q15; ADR 0038). Amounts are `dec(18,4)` with a currency. The currency (an ISO 4217
+    code) sits on the owning row: the Project, the Market Price set, the Issued Estimate and the
+    benchmark edition. Every money value in the API is `{amount, currency}`. Amounts and rates round
+    to the currency's minor unit (2 for ৳; 3 for KWD, BHD and OMR), which the Market row gives. Money
+    columns keep a scale of at least 3, so a 3-decimal currency needs no migration.
+  - Prices and rates are `dec(14,4)` per their quoted unit, in their set's currency.
   - SI lengths are `dec(12,6)` m, and SI quantities `dec(18,6)`.
-  - Billed quantities are `dec(14,2)` in the Billing Unit.
+  - Billed quantities are `dec(16,3)` in the Billing Unit, rounded to that unit's decimals (2 by
+    default, whole for countable units, 3 for tons; §6 rulings 4 and 6). *(s02: the draft's `dec(14,2)`
+    could not hold tons to 3 dp.)*
   - Percentages are `dec(7,4)`.
+  - Per-area figures (allowance consumptions, ৳ per sft lines, consumption ranges) keep their area
+    unit (`sft` or `m2`), as a Rebar Ratio keeps the unit it was set in.
   - Nothing that feeds a figure is a float. Drawing geometry stays float inside the read-artefact
     files.
-  - JSONB is used only for family-specific facts, rule parameters, raw readings and Trace anchor
-    detail. Numbers inside it are decimal strings.
-- **Across modules.** The only foreign keys are within a module; ADR 0020 forbids joins across
-  modules.
+  - JSONB is used only for `attrs` (checked against Attribute Definitions), rule parameters, raw
+    readings, Trace anchor detail, Drafting Profile conventions and message parameters. Numbers inside
+    it are decimal strings.
+  - **Times** are `timestamptz`, stored in UTC and shown in the Market's time zone; the work week is
+    Market data (ADR 0038 item 7).
+  - **Words** (ADR 0038 item 2). A sentence the machine writes (a Question, a Check finding, an upload
+    report, an exclusion or Coverage reason) is stored as a message code and parameters, never as
+    English prose; the catalogues are code, English the only one shipped. Labels defined as data
+    (Attribute Definitions, Element Families, BOQ Items, Construction Stage names, rule words) are
+    `labels jsonb` per language, English required. Text a person types (an exclusion's "other" text, a
+    note) is kept as typed.
+- **Across modules.** The only foreign keys are within a module; ADR 0034 forbids joins across modules.
   - A *downward* id (to a lower layer) is read through that module's `services.py`.
   - An *upward* id (for example `ModelVersion.confirmation_id`) is an opaque audit stamp: stored and
     returned, never resolved by the lower module.
+  - Every building-scoped row carries `building_id` from M0 (ADR 0036): a downward id to `projects`.
 - **Append-only.** These tables are append-only:
   - Confirmation, DomainEvent and JevOverride;
-  - Element States and Traces (only `valid_to_seq` is ever set);
-  - published Rule Set versions, frozen Market Price sets and Issued Estimates.
-- **Events.** Every domain act writes one `platform.DomainEvent` in its own transaction. Jobs are
-  deferred in the same transaction (Procrastinate, in its own schema). A job's arguments carry only
-  `tenant_id` and ids, and the job sets `app.tenant_id` before it touches data.
+  - Element States, Element Relations and Traces (only `valid_to_seq` is ever set);
+  - Records (s02: a correction is a new Record that supersedes the old one);
+  - published Rule Set versions, confirmed Drafting Profile versions, frozen Market Price sets, and
+    Issued Estimates with all their frozen rows, Issued Measurement Lines included (s02).
+- **Events.** Every domain act writes one `platform.DomainEvent` in its own transaction; writing a
+  Record is such an act. Jobs are deferred in the same transaction (Procrastinate, in its own schema).
+  A job's arguments carry only `tenant_id` and ids, and the job sets `app.tenant_id` and
+  `app.library_id` before it touches data.
 
 ## 3. The modules, in layer order
 
 ### 3.0 `platform` (layer 0)
 | Entity | Key fields | Identity | Tenant | References |
 |---|---|---|---|---|
-| Developer | name, market (`BD`), is_library bool | id (it *is* the tenant) | T (row = own) | — |
+| Market (s02 Q15) | code (`BD`), labels; currency (ISO 4217 code, minor units, symbol and its position per language); format profile (grouping, e.g. lakh and crore; digit systems; the locale each language borrows: `en-IN` for Bangladesh's English, since Chrome has no `en-BD` formats; short-form scales); unit systems offered and default (Bangladesh: `imperial` by default, `metric`); languages offered and default (English the only one shipped); time zone (`Asia/Dhaka`); work week; default home region; benchmark source; library_id (its Library tenant) | code | L (a row of its own Library) | Developer (the Library) |
+| Developer | name, market_id; library_id (its Market's Library, copied here so a request sets both policy settings from the tenant's own row; s02); home_region (the cell it lives in; s02); is_library bool | id (it *is* the tenant) | T (row = own) | Market |
 | User | email citext, name, phone, is_vextrus_staff | email | G (visible through Membership) | — |
-| Membership | role (`qs`/`md`/`vextrus_engineer`), invited_by, starts_at, expires_at (required for a Vextrus Engineer, default +30 days), revoked_at; the invitation: invited_email, invite_token_hash, accepted_at (M0) | (tenant, user) | T | User, Developer |
-| StoredFile | sha256, key, kind (`original`/`derived`/`export`), media_type, size, producer + producer_version, source_sha256 | (tenant, key) | T | project_id (upward stamp, used for the key prefix) |
-| DomainEvent | kind (`confirmation.recorded`, `revision.read`, `market_prices.frozen`…), project_id, subject_type + subject_id, actor_user_id, payload (ids and counts only), occurred_at | id (time-ordered) | T | — |
+| Membership | role (`qs`/`md`/`vextrus_engineer`/`guest`; s02, the orchestrator's decision: a guest is read-only unless given the QS role instead; each Membership optionally scoped to Projects, below); outside_org (s02: the invited person's firm, a consultant's or contractor's office; empty for the Developer's own staff); invited_by, starts_at, expires_at (required for a Vextrus Engineer, default +30 days, renewable; for a Guest, set where the Developer wants it, as ADR 0034 rules: "time-bound where the Developer wants it"), revoked_at; the invitation: invited_email, invite_token_hash, accepted_at (M0) | (tenant, user) | T | User, Developer |
+| MembershipProject (s02 Q11) | project_id (an upward stamp): a Project this Membership may open; none = all | (membership, project) | T | Membership |
+| StoredFile | sha256, key (starting with the tenant id, then the project id; s02), kind (`original`/`derived`/`export`/`evidence`, s02: a Record's evidence), media_type, size, producer + producer_version, source_sha256 | (tenant, key) | T | project_id (upward stamp) |
+| DomainEvent | kind (`confirmation.recorded`, `revision.read`, `market_prices.frozen`, `record.written`…), project_id, building_id, subject_type + subject_id, actor_user_id, payload (ids and counts only), occurred_at | id (time-ordered) | T | — |
 | JevAnswer | cache_key = sha256(facts, question, options, model), node, model_version, options, choice, confidence dec(5,4) | (tenant, cache_key) | T | — |
 | JevOverride | node, model_version, subject_id (a Proposal, upward stamp), jev choice, QS choice, user, at | id | T | JevAnswer |
 
-Every action is recorded under the acting user's own name (a Vextrus Engineer included). The client
-reads Membership to see who from Vextrus has access, and until when.
+Every action is recorded under the acting user's own name (a Vextrus Engineer or an outsider
+included). The client reads Membership to see who from outside has access, to which Projects, and
+until when.
+
+**Not tables** (s02 Q15, Q18; ADR 0038): `ids.new_id()`; the message catalogues (English only); one
+formatter per value kind, driven by the Project's Market and the user's language, with drawing notation
+(dimensions, marks, grid labels, sheet numbers) isolated left to right; the unit systems and their
+exact SI factors, which are engineering, not a market's choice.
 
 ### 3.1 `projects` (layer 1)
 | Entity | Key fields | Identity | Tenant | References |
 |---|---|---|---|---|
-| Project | code, name, address, market, sor_zone (PWD zone for the Benchmark, default Dhaka), display_units (`imperial`/`metric`), status; target_cost ৳ + set_by (the MD) + set_at; saleable_area m² dec + entered_by; gfa_entered m² dec (provisional, see walk-through a) | (tenant, code) | T | — |
+| Project | code, name, address, market_id; currency (the Market's, stored; s02); unit_system (one its Market offers, default the Market's; was `display_units`, s02); benchmark_zone (a zone of the Market's benchmark source, default from the Market; was `sor_zone`, s02); status; target_cost amount + set_by (the MD) + set_at; saleable_area m² dec + entered_by | (tenant, code) | T | market_id ↓ |
+| Site (s02 Q4) | name; boundary and site area once read or entered (empty in the MVP). External works and site services belong here | (project): one per Project | T | Project |
+| Building (s02 Q4) | code, name ("Building 1" until named), ordinal; gfa_entered m² dec + entered_by (provisional, see walk-through a; moved here from Project, since Gross Floor Area is per Building) | (project, code) | T | Project |
+
+Creating a Project creates its Site and one Building in the same transaction. No screen shows a
+Building picker until a second exists, which M4 reads (ADR 0036). Each Building has its own storeys,
+grid, Live Model and Gross Floor Area, and Vextrus's price is per Building (ADR 0033).
 
 ### 3.2 `drawings` (layer 2)
 | Entity | Key fields | Identity | Tenant | References |
 |---|---|---|---|---|
-| DrawingSet | name, current_state_id | (tenant, project_id): one per project in the MVP | T | project_id ↓ |
-| Revision | label as the consultant marks it (`A`, `B`), kind (`first_issue`/`reissue`), received_at, received_by | (set, label) | T | DrawingSet |
-| DrawingFile | sha256, format (`dwg`/`pdf`), original_name, writer fingerprint, read_status (`queued`/`reading`/`read`/`quarantined`/`failed`/`cancelled`, and `refused` for a scanned PDF), cross_check jsonb (LibreDWG vs ACadSharp: handles, counts per type and per layer), upload_report jsonb (PDF: producer, SHX comments per page, fonts, rotation, layer names, images and their area, the scan refusal and its reason). M0 adds: discipline_default (from the file name and its sheet numbers' prefix; the QS may change it), read_step and sheets_done / sheets_total (progress in words), font_report jsonb (each font asked for, what draws it, how close, the sheets using it), bangla_ansi jsonb (the Bangla-ANSI Check's finding: fonts named, texts and sheets affected, or found by byte pattern only) | (set, sha256) | T | Revision; stored_file_id ↓ |
-| Sheet | number (as printed; may be empty), title (decoded, 1.3 of docs/design/m0-screens.md), discipline (`structural`/`architectural`/`mep`; from the file first, the number's prefix second), storeys_as_stated (the title's storey words, verbatim, for the Check of the title against the view titles), confirmed bool, excluded_reason (the fixed list below) + excluded_text (for `other`). A sheet's storeys are not stored: they are its views' lists together | (set, discipline, number); a sheet with no number: (set, source file, location) | T | DrawingSet |
+| DrawingSet | name, current_state_id | (tenant, project_id): one per Project, across its Buildings and Disciplines | T | project_id ↓ |
+| Revision | seq; label as the consultant marks it (`A`, `B`); disciplines (the Disciplines it carries; s02: each Discipline Part has its own Revisions, ADR 0040, so labels repeat across Disciplines); kind (`first_issue`/`reissue`), received_at, received_by | (set, seq) | T | DrawingSet |
+| DrawingFile | sha256, format (`dwg`/`pdf`), original_name, writer fingerprint, read_status (`queued`/`reading`/`read`/`quarantined`/`failed`/`cancelled`, and `refused` for a scanned PDF), cross_check jsonb (LibreDWG vs ACadSharp: handles, counts per type and per layer), upload_report (PDF: producer, SHX comments per page, fonts, rotation, layer names, images and their area, the scan refusal and its reason; as message codes and parameters, s02). M0 adds: discipline_default (one of the six Disciplines, from the file name and its sheet numbers' prefix; the QS may change it), read_step and sheets_done / sheets_total (progress in words), font_report jsonb (each font asked for, what draws it, how close, the sheets using it), bangla_ansi jsonb (the Bangla-ANSI Check's finding: fonts named, texts and sheets affected, or found by byte pattern only) | (set, sha256) | T | Revision; stored_file_id ↓ |
+| Sheet | number (as printed; may be empty), title (decoded, 1.3 of docs/design/m0-screens.md), discipline (s02: `structural`/`architectural`/`electrical`/`plumbing`/`fire`/`other_mep`; from the file first, the number's prefix second), building_id (s02: the Building it belongs to, default the only one; empty for a sheet of the Site or the whole Project), consultant_office (s02: as read from the title block and confirmed with the sheet list; it picks the Drafting Profile), storeys_as_stated (the title's storey words, verbatim, for the Check of the title against the view titles), confirmed bool, excluded_reason (the fixed list below) + excluded_text (for `other`). A sheet's storeys are not stored: they are its views' lists together | (set, discipline, number); a sheet with no number: (set, source file, location) | T | DrawingSet; building_id ↓ |
 | SheetRevision | revision_mark as printed, issue_date as printed, source file (the DrawingFile it was read from), location (DWG layout or model-space box; PDF page), sources jsonb (where each value was read: title-block attribute, text in the title block, the file), content_hash of its entities | (sheet, revision) | T | Sheet, Revision, DrawingFile |
 | DrawingSetState | seq, cause (`revision`/`reader_upgrade`), reader + reader_version, status (`reading`/`read`/`current`/`superseded`), parent_state_id | (set, seq) | T | DrawingSet, Revision (nullable) |
 | StateSheet | the map row. M0 adds: render_file_id ↓ (the per-sheet render artefact, 11's buffer format and its version); the Plot: plot_file_id (the PDF's DrawingFile), plot_page, plot_transform (scale, rotation in 90° steps, offset), plot_residual, render_f1; or plot_none_reason (no PDF for the Discipline; no page matched; the PDF was refused; the sheet has no number) | (state, sheet) | T | DrawingSetState, Sheet, SheetRevision; artefact_file_id ↓ (the entity dump @ reader version) |
 | View | ordinal (reading order), kind as read + confirmed_kind (the one list below), title (decoded), box in drawing units, drawing_unit (`inch`/`mm`/`m`/`ft`), not_to_scale bool, stated_scale_text (verbatim: metric, imperial or N.T.S.), confirmed_scale dec (empty until M1), storeys_as_stated (verbatim), storeys (an explicit list of canonical levels, never a first–last range), storeys_meaning (`at_floor_level`: the members at those floor levels / `floor_to_floor`: the storeys, floor to floor), predecessor_view_id | (sheet_revision, reader_version, ordinal) | T | SheetRevision, View |
+| DraftingProfile (s02 Q16) | consultant_office, discipline, origin (`learnt` in this tenant / `library`: published, or pre-built by Vextrus from sets it holds with permission), status (`proposed`/`confirmed`), current_version_id | (tenant, consultant_office, discipline) | L | — |
+| DraftingProfileVersion (s02) | number; conventions jsonb (layer → role or Element Family; label, mark and level-mark patterns; sheet-number pattern; title-block field positions; schedule form; storey words; for MEP, the legend's symbol map and mounting heights; tolerances); proposed_by (`code`/`jev`); confirmed_by + at; parent_version_id. Immutable once confirmed | (profile, number) | L | DraftingProfile |
+| ProfilePublication (s02) | the client's written permission (permission_file_id ↓ and its scope), reviewed_by (a Vextrus reviewer) + at, the verdict ("conventions only"), library_version_id (the copy made in the Market's Library) | (profile_version) | T | DraftingProfileVersion |
 
 **The Trace anchor** is a value type, not a table. Its type (DWG: source sha256, reader and version,
 sheet, insert-handle chain, entity handle; PDF: page, path index, box; to and from JSON) is defined
@@ -167,8 +279,22 @@ this artefact" is a query), and the rest is jsonb. `drawings.services.resolve(an
 artefact any anchor names is never deleted (ADR 0031 §2). `drawings` raises no Questions itself;
 `takeoff` reads quarantined files and raises them (ADR 0029).
 
+**Drafting Profiles** (s02 Q16; ADR 0039; from M1) hold conventions only, never drawing content.
+- On an office's first set, code proposes the conventions it infers (Jev picks among candidates) as a
+  `takeoff.Proposal` of subject `drafting_profile`. The QS confirms them early in the Takeoff, and the
+  confirm service writes a DraftingProfileVersion through `drawings.services`.
+- A later set from the same office reads with that version; only what differs becomes a Question (kind
+  `convention`), whose answer makes the next version.
+- Each `takeoff.RecogniseRun` names the version it applied, or none. So a Held-out Set can be scored
+  first as an unknown office's first read, then with a profile.
+- Publishing to the Market's Library (M5) needs the client's written permission and a Vextrus review
+  that nothing but conventions leaves (layer names and label patterns can carry names). It copies the
+  version into the Library tenant.
+
 **The lists M0 fixes** (the spec's amendments after sign-off, 26 Sep 2026; the engine's candidate types
 in `engine/recognise/types.py` use the same lists):
+- **Disciplines, one list** (s02 Q29, Q31): structural, architectural, electrical, plumbing and
+  sanitary (`plumbing`), fire, other MEP (`other_mep`).
 - **View kinds, one list:** plan, section, elevation, schedule, detail, notes, legend, title block, key
   plan, 3D/perspective. 3D/perspective is excluded by default (amendment 6). A detail drawn inside a
   plan is its own view.
@@ -178,149 +304,283 @@ in `engine/recognise/types.py` use the same lists):
   tank and tank roof; a "Level n" or EL title kept as stated until Step 3 binds it; "typical (range
   from Step 3)"; "not stated". Per plan view as an explicit list with its meaning (amendments 1–2);
   a boundary storey is a Question.
-- **Exclusion reasons, a fixed list** (amendment 9), for sheets and views alike: `mep`, `superseded`,
-  `duplicate`, `cover_index`, `3d_perspective`, `reference_only`, `other` (with text).
+- **Exclusion reasons, a fixed list** (amendment 9), for sheets and views alike: `superseded`,
+  `duplicate`, `cover_index`, `3d_perspective`, `reference_only`, `other` (with text). *(s02: `mep`
+  withdrawn. An MEP sheet is confirmed like any other, and its views are assigned to their Discipline
+  Part, §3.4's Coverage; ADR 0040.)*
 
-### 3.3 `building_model` (layer 3): confirmed facts only, SI
+### 3.3 `live_model` (layer 3, was `building_model`): confirmed facts only, SI
 | Entity | Key fields | Identity | Tenant | References |
 |---|---|---|---|---|
-| Family | key (`storey`, `grid_line`, `spec_note`, `pile`, `pile_cap`, `column`, `shear_wall`, `lift_core`, `beam`, `slab`, `slab_edge`, `stair`, `tank`, `wall`, `opening`, `room`, `roof`…), takeoff_step 1–14, label, identity_rule, milestone | key | L | — |
-| ModelVersion | seq, cause (`confirmation`/`carry_over`/`unconfirm`), facts_changed bool, facts_seq (last seq that changed facts: the cache key), complete_for_state bool | (project, seq) | T | confirmation_id ↑, drawing_set_state_id ↓ |
-| Element | family_key, identity_key (normalised: `col|B/2|GF..3F`), mark_hint, created_seq, retired_seq | (project, family_key, identity_key); overlap families match in code first | T | Family |
-| ElementState | valid_from_seq, valid_to_seq; storey_from_id, storey_to_id (the Storey Band; Elements of family `storey`); grid_ref; position x, y m; mix (from General Notes: decides the BOQ Item); rebar_basis (`by_ratio`/`from_drawing`/`from_drawing_rules`/`none`); params jsonb in SI (column b, d; beam axis, width, depth; slab polygon, thickness; storey level, height, index; room type, polygon); facts_hash | (element, valid_from_seq) | T | Element; confirmation_id ↑, drawing_set_state_id ↓ |
+| ElementFamily | key (`storey`, `grid_line`, `spec_note`, `pile`, `pile_cap`, `column`, `shear_wall`, `lift_core`, `beam`, `slab`, `slab_edge`, `stair`, `tank`, `wall`, `opening`, `room`, `roof`…; the MEP families from M3; `apartment` sketched, read by nothing in the MVP, s02 Q3), discipline (s02: `building` for the Building's own storeys and grid; `structural`, `architectural`, `electrical`, `plumbing`, `fire`, `other_mep`), takeoff_step, labels, identity_rule, ifc_class + predefined type (s02 Q12: `IfcColumn` `COLUMN`), milestone | key | L | — |
+| DisciplinePart (s02 Q31) | discipline; responsible_user_id (nullable: the lock ADR 0040 allows, unused while one QS measures every Part). Made now so no Element needs a foreign key added once populated (§2) | (building, discipline) | T | building_id ↓ |
+| ModelVersion | seq, cause (`confirmation`/`carry_over`/`unconfirm`), figures_changed bool, figures_hash (s02: a hash over every valid state's `figures_hash`, `boq`'s cache key; replaces `facts_seq`), complete_for_state bool | (building, seq) | T | building_id ↓, confirmation_id ↑, drawing_set_state_id ↓ |
+| Element | family_key, discipline_part_id (empty for the Building's storeys and grid lines), identity_key (normalised: `col\|B/2\|4F`, one per storey; s02 Q5), mark_hint, created_seq, retired_seq | (building, family_key, identity_key); overlap families match in code first | T | ElementFamily, DisciplinePart; building_id ↓ |
+| ElementState | valid_from_seq, valid_to_seq. **The typed core** (s02 Q14): mark; storey_id (the storey Element it is in); band_from_id, band_to_id (its Storey Band: a fact and the QS's group, never identity); grid_ref; position x, y m and rotation in the Building's frame; mix (from General Notes: decides the BOQ Item); grade; rebar_basis (`by_ratio`/`from_drawing`/`from_drawing_rules`/`none`); construction_stage; casting_stage_id (the storey whose slab casting it is poured with, filled by the Rule Set's `stage` rule, editable). **attrs** jsonb in SI, keyed by Attribute Definition keys and checked by the confirm service (column b, d; beam axis, width, depth; slab polygon, thickness; a storey's slab level, finished floor level, height and index; room type, polygon…). held_by_question_id ↑ (s02 Q22: set while the state is a best candidate "awaiting answer"). facts_hash (every fact: Revision matching); figures_hash (the figure-feeding facts only) | (element, valid_from_seq) | T | Element; confirmation_id ↑, drawing_set_state_id ↓ |
 | RebarBar | bar_mark, role (`main`/`stirrup`/`tie`/`extra`), diameter_mm, count, cutting_length m, shape_code, laps (count, length m, source: drawing or rule code) | (state, bar_mark) | T | ElementState |
-| ElementTrace | fact (`size`, `position`, `mix`, `level`, `bar:<mark>`…), kind (`sheet_entity`/`question`/`qs_typed`/`default`/`developer_specification`), anchor, valid_from_seq, valid_to_seq | id | T | Element; question_id ↑ |
-| ViewPlacement | storey_from_id, storey_to_id (the storeys a plan view shows; code owns storey ranges, ADR 0011 am.), valid range | (view, valid_from_seq) | T | view_id ↓, Element (storeys) |
+| ElementTrace | fact (`size`, `position`, `mix`, `level`, `bar:<mark>`, `relation:<kind>`…), kind (`sheet_entity`/`question`/`best_candidate`/`qs_typed`/`default`/`derived`/`developer_specification`; s02 adds `best_candidate` and `derived`, a value a rule derived from confirmed facts, such as a casting stage or E3's sand-filling depth), anchor, valid_from_seq, valid_to_seq | id | T | Element; question_id ↑ |
+| ViewPlacement | meaning (`at_floor_level`/`floor_to_floor`), valid range; the storeys a plan view shows, as an explicit list of ViewPlacementStorey rows, never a first–last range (s02: the draft's `storey_from_id`/`storey_to_id` contradicted the M0 ruling; code owns storey lists, ADR 0011 am.) | (view, valid_from_seq) | T | view_id ↓ |
+| ViewPlacementStorey (s02) | storey_element_id | (placement, storey) | T | ViewPlacement, Element |
+| AttributeDefinition (s02 Q14) | key (permanent, namespaced ASCII: `vx.column.section_b`; a Developer's own `t.<code>.…`; never renamed or reused: a change of meaning is a new key that `replaces` the old); version, status (`preview`/`active`/`inactive`), replaces_key; data_type (decimal, integer, text, date, boolean, enum, reference) + allowed_values (codes with labels); dimension and storage unit (SI; money takes the Project's currency); labels per language; storage (`core`: a typed column of the state; `attrs`; `derived`: computed on read, never stored); life_phases (which Life Phases may hold a value, and who writes each: a Confirmation for As designed, a site or maintenance Record for the others); source (`drawing`/`rule`/`qs`/`supplier`/`site`/`maintenance`) + source_ref; feeds_figures bool; deviation_tolerance (absolute or relative); market_scope (Market codes; empty = every Market); ifc jsonb (IFC version, entity and predefined type, property or quantity set, property, measure type, bSDD URI) | (tenant, key) | L (a Market's Library rows, and a Developer's own) | — |
+| FamilyAttribute (s02) | family_key, required bool, sort order, group (`identity`/`geometry`/`cost`/`construction`/`om`), level (`occurrence`/`type`), a per-family override of allowed values or range | (definition, family) | L | AttributeDefinition, ElementFamily |
+| Record (s02 Q6, Q14) | element_id; attribute_key (by value: keys are permanent); life_phase (`as_built`/`as_maintained`); value jsonb (typed as its definition says); observed_on (when it happened, e.g. a cast date); recorded_by + recorded_at; evidence (stored_file_id ↓ and a note); design_version_seq (the Model Version in force); source (`site_record`/`maintenance_record`/`handover`); supersedes_id | id | T | Element, Record; stored_file_id ↓ |
+| ElementRelation (s02 Q31) | kind (`hosted_in`/`passes_through`/`in_room`/`spans_storeys`/`same_thing_as`/`junction`), from_element_id, to_element_id, detail jsonb (the host face and the position along it; a junction's members), valid_from_seq, valid_to_seq | (from, kind, to, valid_from_seq) | T | Element ×2; confirmation_id ↑ |
+| ClassificationSystem (s02 Q19) | name (Uniclass 2015; PWD SoR; Vextrus's family list), publisher, edition + date, licence, attribution text, may_ship bool, market_scope, uri | (name, edition) | L | — |
+| ClassificationReference (s02) | code as published (`EF_20_05`), name as published, uri. Never a code of ours inside another's table (Uniclass is CC BY-ND 4.0) | (system, code) | L | ClassificationSystem |
+| FamilyClassification / ElementClassification (s02) | a Family's default reference in a system (L); an Element's own where it differs (T) | (family, system) / (element, system) | L / T | ClassificationReference; ElementFamily / Element |
 
-The Building Model at version *v* is every state with `valid_from_seq ≤ v < valid_to_seq`. IFC and GLB
-are export files built from that (`engine`), never the store.
+- **Who writes** (s02 Q6; ADR 0037). Only `takeoff`'s confirm service writes As designed values
+  (Element States, Element Relations, Traces, rebar bars), through `live_model.services.apply(...)`.
+  Records are written through `live_model.services.record(...)` by later modules (cost control,
+  after-sales); in the MVP nothing writes a Record.
+- **Validation.** The confirm service checks every `attrs` key: it exists, applies to the Family and
+  is active; the value's type, dimension, range and allowed values fit; the Life Phase is allowed.
+  `record(...)` checks a Record the same way. An ad hoc key is refused, since append-only rows cannot
+  be repaired.
+- **Figures** (s02 Q14; ADR 0037). Only a change to a figure-feeding fact changes a state's
+  `figures_hash`, and so the Model Version's and `boq`'s cache key. Figure-feeding facts are the
+  definitions marked `feeds_figures` and the typed core except mark, Construction Stage and casting
+  stage, which `boq` joins at read. A casting-stage edit makes a Model Version and moves no figure (the
+  component-store prototype: 6 rows written, cache key held).
+- **Storeys and grid belong to the Building** (s02 Q31; ADR 0040). They are Elements of the families
+  `storey` and `grid_line` with no Discipline Part, confirmed once (Steps 3–4) from whichever sheets
+  state them, and every Part's sheets register to them. A storey holds its slab level and its finished
+  floor level as two facts, never as two storeys. A Part whose sheets disagree with them raises a
+  Question. Positions are in the Building's one coordinate frame.
+- **Element Relations** (s02 Q31; ADR 0040) are confirmed like facts, versioned with the Model Version,
+  and checked, one Check per kind (ADR 0027 as amended): a hosted Element without a host; a run through
+  a beam or slab without its groove, sleeve or hole; the architect's and the plumber's fixture
+  disagreeing; a riser outside a slab void.
+  - `same_thing_as` relates two Elements of different Parts (the architect's WC and the plumber's WC),
+    priced once, on the side a Measurement Rule names.
+  - `junction` holds the meetings junction ownership uses: from M1 the structural ones (a beam into a
+    column, a slab over a beam), from M2 a wall with the beam or slab above it and the columns in it
+    (the M2 spec). An opening's host wall is `hosted_in`.
+  - When a Revision changes or retires one end, a Question is raised (kind `relation`); nothing is
+    silently orphaned (walk-through f).
+  - The kinds are code, each with its Check and its IFC relation.
+  - **Who writes which kind, when** (the orchestrator's decision, 28 Sep 2026): the table is created
+    empty in M0; M1 writes the structural junctions; M2 writes `hosted_in` and `in_room` (openings in
+    their walls and rooms) and the junctions of walls with the structure; M3 writes the MEP relations
+    (`passes_through`, `spans_storeys`, `same_thing_as`, and MEP Elements `hosted_in` and `in_room`).
+- **M0 creates every `live_model` table empty, each with its forced policy** (s02 Q24; ADR 0037; the
+  orchestrator's decision, 28 Sep 2026): ElementFamily, Element, ElementState, ModelVersion,
+  AttributeDefinition, FamilyAttribute, Record, ElementRelation, ClassificationSystem and
+  ClassificationReference. Every reference is whole from the first migration, so no foreign key is ever
+  added to a populated table (§2). M1 starts writing. The other tables on this page (DisciplinePart,
+  RebarBar, ElementTrace, ViewPlacement and its storeys, the classification links) follow the same rule
+  if M0 creates them; the M0 plan settles the exact list.
+- **MEP families** (M3; proposed in `docs/research/mep-measurement-and-model.md` §1.3, fixed by the M3
+  spec): equipment, distribution boards, terminals (one per storey per symbol), runs and risers (one
+  per storey), and chambers on the Site, each with its IFC class. A Point is a Measurement Rule over
+  terminal Elements, never an Element.
+
+A Building's Live Model at version *v* is every state and relation with `valid_from_seq ≤ v <
+valid_to_seq`, plus the Records written so far, each read against the state valid at its
+`design_version_seq`. The share link's GLB is built from it by `engine`. IFC is not exported in the MVP,
+but from M1 every Family carries its IFC class and every Attribute Definition its mapping (s02 Q12; ADRs
+0035, 0022).
 
 ### 3.4 Layer 4: `takeoff`, `measurement`, `rates` (independent siblings)
 
 **`takeoff`**: what the machine says, and what the QS decided
 | Entity | Key fields | Identity | Tenant | References |
 |---|---|---|---|---|
-| TakeoffStep | number 1–14, key, label, milestone | number | L | — |
-| StepProgress | status (`not_started`/`reading`/`in_review`/`confirmed`/`reopened`), placed n, total N (from the drawing), open_questions, active_seconds (ADR 0012 telemetry) | (project, step) | T | project_id ↓ |
-| RecogniseRun | family_key, cache_key = (read-artefact keys, confirmed-facts hash, Jev model version), status, candidates, reused_answers | (project, family, cache_key) | T | drawing_set_state_id ↓ |
+| TakeoffStep | number (the building-first order), key, labels, discipline (s02: `building` for steps 1–4, then the Part's), milestone. The fourteen steps, then each MEP Part's own steps from M3 (s02 Q29; ADR 0007 am.; the exact steps are the M3 spec's) | key | L | — |
+| StepProgress | status (`not_started`/`reading`/`in_review`/`confirmed`/`closed_with_questions`/`reopened`; s02 Q22), placed n, total N (from the drawing), open_questions, awaiting_answer (Elements held), active_seconds (ADR 0033 telemetry) | (project, building, step); the Building empty for Step 1, which reads the Project's Drawing Set | T | project_id ↓, building_id ↓ |
+| RecogniseRun | family_key, drafting_profile_version_id ↓ (or none; s02), cache_key = (read-artefact keys, confirmed-facts hash, Drafting Profile version, Jev model version), status, candidates, reused_answers | (building, family, cache_key) | T | drawing_set_state_id ↓ |
 | MatchResult | outcome (`unchanged`/`changed`/`removed`), old_facts_hash, new_facts_hash | (run, element) | T | RecogniseRun; element_id ↓ |
-| Proposal | subject (`element`/`sheet`/`view`), family_key, outcome (`first_read`/`new`/`changed`/`removed`), values jsonb in *drawing units, named*, with verbatim text kept; source (`reader`/`code`/`jev`/`default`/`rebar_ratio`/`developer_specification`/`question_answer`/`qs_typed`), confidence, reader + version, candidate_geometry jsonb, status (`open`/`blocked`/`confirmed`/`rejected`/`superseded`), supersedes_id | (run, candidate_key) | T | RecogniseRun, Confirmation, Proposal; element_id ↓, jev_answer_id ↓ |
+| Proposal | subject (`element`/`relation`/`sheet`/`view`/`drafting_profile`; s02 adds `relation` and `drafting_profile`), family_key, outcome (`first_read`/`new`/`changed`/`removed`), values jsonb in *drawing units, named*, with verbatim text kept; source (`reader`/`code`/`jev`/`default`/`rebar_ratio`/`developer_specification`/`question_answer`/`qs_typed`), confidence, reader + version, candidate_geometry jsonb, status (`open`/`blocked`/`held`/`confirmed`/`rejected`/`superseded`; s02 `held`: written at its best candidate when its step closed with the Question open), rejected_reason (a code: a failed Element excluded before its step closes), supersedes_id | (run, candidate_key) | T | RecogniseRun, Confirmation, Proposal; element_id ↓, jev_answer_id ↓ |
 | ProposalTrace | fact, anchor | id | T | Proposal, Question |
-| Confirmation | step, user, kind (`bulk`/`single`/`question_answer`/`revision`/`unconfirm`), proposals n, model_version_seq it produced, at | id | T | Question (nullable) |
-| Question | step, kind (`missing`/`conflict`/`low_confidence`/`check`/`file_misread`/`labour_source`), question_key = hash(kind, subject identity, evidence content), text, options jsonb (candidates code found), check_code, status (`open`/`answered`/`withdrawn`), answer jsonb, answered_by + at | (project, question_key) | T | — |
+| Confirmation | step, building_id, user, kind (`bulk`/`single`/`question_answer`/`step_close`/`revision`/`unconfirm`; s02 `step_close`), proposals n, model_version_seq it produced, at | id | T | Question (nullable) |
+| Question | step, building_id, kind (`missing`/`conflict`/`low_confidence`/`check`/`file_misread`/`labour_source`; s02 adds `relation`, `missing_discipline`, `convention`), question_key = hash(kind, subject identity, evidence content), message_code + params (s02: never English prose), options jsonb (candidates code found, the pre-picked best one marked), check_code, status (`open`/`answered`/`withdrawn`), answer jsonb, answered_by + at | (project, question_key) | T | — |
 | QuestionLink | the Proposals a Question blocks | (question, proposal) | T | Question, Proposal |
-| Check | code, version, family_key, words, milestone | (code, version) | L | — |
+| Check | code, version, family_key, kind (`source`/`conservation`/`sanity`/`relation`), message_code (its words), milestone | (code, version) | L | — |
 | CheckRun | trigger (`read`/`confirmation`/`boq`), passed n, total N | id | T | Check; confirmation_id or state id |
-| CheckFinding | subject ids, detail | id | T | CheckRun, Question |
-| Coverage | status (`unaccounted`/`assigned`/`used`/`excluded`), reason (the fixed list) + reason_text, confirmed_by. A view is accounted for once assigned to a Takeoff Step that will read it, used, or excluded with a reason (ADR 0027 as amended). Step 1's screen also counts views "proposed" (docs/design/m0-screens.md 6.11); how that count maps onto these statuses is not yet decided | (state, view) | T | view_id ↓, drawing_set_state_id ↓ |
-| CoverageStep | step; used bool (set when that step's Confirmation draws on the view, from M1). A view may be assigned to several Takeoff Steps, each marking it used separately (amendment 5) | (coverage, step) | T | Coverage |
+| CheckFinding | subject ids, message_code + params | id | T | CheckRun, Question |
+| Coverage | status (`unaccounted`/`assigned`/`used`/`excluded`), part_key (s02: the Discipline Part an MEP view is `assigned` to until that Part's Takeoff Steps exist in M3, when CoverageStep rows join; "MEP" is no longer an exclusion reason), reason code (the fixed list) + reason_text, confirmed_by. A view is accounted for once assigned to a Takeoff Step (or, before its steps open, to its Part) that will read it, used, or excluded with a reason (ADR 0027 as amended). Step 1's screen also counts views "proposed" (docs/design/m0-screens.md 6.11); how that count maps onto these statuses is not yet decided | (state, view) | T | view_id ↓, drawing_set_state_id ↓ |
+| CoverageStep | step; used bool (set when that step's Confirmation draws on the view, from M1). A view may be assigned to several Takeoff Steps, each marking it used separately (amendment 5). When a Part's steps exist (MEP in M3), rows join here for the views assigned to that Part | (coverage, step) | T | Coverage |
 | DrawingRegister | a drawing list for one Discipline: discipline, source (`sheet`: read from a sheet of the set; `pasted` or `typed` by the QS), source_sheet_id ↓ or entered_by + at, raw_text as pasted (amendment 7). Which list sets N when a read one and a pasted one disagree is not yet decided | id | T | project_id ↓ |
 | RegisterEntry | number, title and revision mark as listed, line in the source | (register, number) | T | DrawingRegister |
 | DeveloperSpecification + SpecificationLine | name; room_type × surface (`floor`/`skirting`/`wall`/`ceiling`/`door`/`window`/`fitting`) → item_code | (tenant, name); (spec, room_type, surface) | T | item_code (the Rule Set's code, by value) |
 | ProjectTakeoffSetup | specification_id, precedence jsonb (plan vs section, confirmed once per consultant, ADR 0010) | project | T | DeveloperSpecification |
+| Annotation (s02 Q25; M2) | kind (`dimension`/`note`), anchors jsonb (one Element id per end for a dimension, one for a note, each with a local face or point reference on that Element), number (a note's pin number), text (as typed), author, created_at + updated_at, element_removed_seq (set when an anchored Element is retired: the annotation is kept and marked "its Element was removed") | id | T | building_id ↓; element ids ↓ |
 
-The confirm service is the only path into `building_model`. It converts drawing units to SI with
-exact factors (ADR 0008), copies the anchors, and calls `building_model.services.apply(...)`
-(downward). That call opens and closes states and writes a Model Version. `takeoff` previews
-quantities on Proposals by calling `measurement` on their facts; the preview is not stored.
+- **The confirm service** is the only path into `live_model`'s As designed values. It converts drawing
+  units to SI with exact factors (ADR 0008), checks `attrs` against their definitions, copies the
+  anchors, and calls `live_model.services.apply(...)` (downward). That call opens and closes states and
+  relations and writes a Model Version. `takeoff` previews quantities on Proposals by calling
+  `measurement` on their facts; the preview is not stored.
+- **Closing a step with Questions open** (s02 Q22; ADR 0002 as amended).
+  - Before a step closes, every failed Element (one with no candidate) is typed (`qs_typed`) or
+    excluded with a reason.
+  - The QS's `step_close` Confirmation then writes each held Proposal's best candidate (the pre-picked
+    one where two sources agree) as an Element State with `held_by_question_id`, and marks the Proposal
+    `held`.
+  - The step's Cost Basis switches from allowance to measured. Its held Elements are priced at that
+    candidate, flagged "awaiting answer" in the grid, the Project Summary and exports, and count in the
+    measured share only once answered.
+  - The answer writes a new state without the flag (walk-through a).
+- **MEP** (s02 Q29, Q31; ADR 0040; M3). An MEP Proposal whose host (a wall, a slab, a room) is not yet
+  confirmed waits, blocked, with that as its Question. A Drawing Set with no drawings of a Discipline
+  (often fire) raises a `missing_discipline` Question, never a zero.
+- **Annotations** (s02 Q25; ADR 0022; M2) are the QS's placed dimensions and note pins. They live in
+  `takeoff`, not `live_model`, because they are not confirmed facts (the orchestrator's decision,
+  28 Sep 2026; docs/architecture.md). Each anchors to an Element's permanent id plus a local face or
+  point on it, so it follows the Element when its confirmed facts change and survives a re-read and,
+  from M5, a Revision. It is edited in place (not append-only), since it feeds no figure.
 
 **`measurement`**: the Rule Set and measuring
 | Entity | Key fields | Identity | Tenant | References |
 |---|---|---|---|---|
-| RuleSet | name; project_id nullable (a project fork, used for Storey Band overrides); based_on_id | (tenant, name) | L | RuleSet |
+| RuleSet | name; market_id ↓ (s02: a Rule Set per Market, in its Library); project_id nullable (a project fork, used for Storey Band overrides); based_on_id | (tenant, name) | L | RuleSet |
 | RuleSetVersion | number, status (`draft`/`published`), parent_version_id, content_hash, published_by + at | (rule_set, number) | L | RuleSet |
-| MeasurementRule | code (G1, F1, FW4, J1, R3, CA1…), kind (`quantity`/`junction`/`rebar_detailing`/`stage`/`rounding`), family_key, words (as a QS reads it), params jsonb (`{"threshold_m2": "0.4"}`), source label | (version, code) | L | RuleSetVersion |
-| BoqItem | item_code (stable across versions: `RCC-COL-1:1.5:3`), description, trade, boq_section, group (element class), billing_unit_imperial + billing_unit_metric, quantity_dp (2), stage_kind, basis_kind (`measured`/`lump_sum`/`provisional`), labour_measure bool | (version, item_code) | L | RuleSetVersion |
+| MeasurementRule | code (G1, F1, FW4, J1, R3, CA1, P3, E3, E4…; MEP rules from M3), kind (`quantity`/`junction`/`rebar_detailing`/`stage`/`rounding`/`run_by_rule`), family_key, words (labels per language: Vextrus's own words, citing clause numbers only, never a standard's text; s02 Q15), cites (`IS 1200 Pt 2 cl. 4.2.2`, `PWD E/M 1.6`), params jsonb (`{"threshold_m2": "0.4"}`), source label | (version, code) | L | RuleSetVersion |
+| BoqItem | item_code (stable across versions: `RCC-COL-1:1.5:3`), labels (the description per language), trade, boq_section, group (element class), stage_kind, basis_kind (`measured`/`lump_sum`/`provisional`), supply_kind (`developer_materials` / `material_and_labour`: one rate, its materials outside the Material Schedule; every MEP item by default, s02 Q32), labour_measure bool | (version, item_code) | L | RuleSetVersion |
+| BoqItemBillingUnit (s02 Q15) | unit_system (`imperial`/`metric`), billing_unit, line_decimals (2), total_decimals (2; whole for countable units, kg of rebar included; 3 for tons; §6 rulings 4 and 6) | (item, unit_system) | L | BoqItem |
 | RebarRatio | family_key, band (null = the default; storey ids only in a project fork), value dec(10,4), unit as set (`kg/cft` or `kg/m3`) | (version, family, band) | L | RuleSetVersion |
 | DiameterSplit | family_key, diameter_mm, share dec(6,4), Σ = 1 | (version, family, diameter) | L | RuleSetVersion |
 | ProjectRulePin | from_at, to_at, pinned_by | (project) where to_at is null | T | RuleSetVersion; project_id ↓ |
 
-`measurement.services.measure(project, facts_seq, version)` reads facts from `building_model`, calls
-the pure `engine` function and returns Measurement Lines. It stores nothing. Each Rebar Ratio is kept
-in the unit the owner set it in (kg/cft), because bd-defaults' kg/m³ column is rounded
-(1.7 kg/cft = 60.03 kg/m³, not 60).
+- `measurement.services.measure(building, model_version, rule_set_version)` reads facts from
+  `live_model`, calls the pure `engine` function and returns Measurement Lines. It stores nothing.
+- Each Rebar Ratio is kept in the unit the owner set it in (kg/cft), because bd-defaults' kg/m³ column
+  is rounded (1.7 kg/cft = 60.03 kg/m³, not 60).
+- **MEP rules** (s02 Q32; bd-defaults, "MEP conventions"; M3).
+  - A point is PWD's point: its circuit wiring from the board to the switch board and the box, not
+    the switch. It is counted from terminal Elements, and a Check stops that wiring being billed again
+    per metre.
+  - Runs are priced by QS-confirmed rules per point and per fixture (`run_by_rule`) until true run
+    lengths are read after the MVP (ADR 0040).
+  - The fire allowance follows the storey count (§3.5).
 
 **`rates`**: Resources, prices, Rate Analyses, Benchmarks
 | Entity | Key fields | Identity | Tenant | References |
 |---|---|---|---|---|
-| Resource | code, name, kind (`material`/`labour`/`plant`/`labour_contract`/`material_and_labour`), quoted_unit (`bag`/`cft`/`kg`/`ton`/`nos`/`sft`/`litre`…), schedule_group ("Cement OPC", "Rebar"), in_material_schedule bool, procurement_lead_days | (tenant, code) | L | — |
-| MarketPriceSet | effective_date, label, status (`open`/`frozen`), parent_set_id | (tenant, effective_date, label) | L | MarketPriceSet |
-| MarketPrice | price ৳ dec(14,4) per the Resource's quoted unit | (set, resource) | L | MarketPriceSet, Resource |
-| RateAnalysis | item_code, per_unit (the unit it is analysed in), shown_per (100), mix, dry_volume_factor, benchmark_code (PWD) | (tenant, item_code) | L | — |
+| Resource | code, labels, kind (`material`/`labour`/`plant`/`labour_contract`/`material_and_labour`), quoted_unit (`bag`/`cft`/`kg`/`ton`/`nos`/`sft`/`litre`…), schedule_group ("Cement OPC", "Rebar"), in_material_schedule bool, procurement_lead_days | (tenant, code) | L | — |
+| MarketPriceSet | effective_date, label, currency (s02 Q15), status (`open`/`frozen`), parent_set_id, source (the starter: PWD SoR 2022, 2nd Revised, Dhaka column) | (tenant, effective_date, label) | L | MarketPriceSet |
+| MarketPrice | price dec(14,4) in the set's currency per the Resource's quoted unit, or empty: "rate not entered", never a silent ৳0 (s02 Q30); changed_at (§6 ruling 5); source_ref (the SoR page) | (set, resource) | L | MarketPriceSet, Resource |
+| RateAnalysis | item_code, per_unit (the unit it is analysed in), shown_per (100), mix, dry_volume_factor, benchmark_ref (the Market's benchmark item code, e.g. PWD `07.3.2`; was `benchmark_code`, s02) | (tenant, item_code) | L | — |
 | RateAnalysisLine | kind (`material`/`labour`/`plant`), qty_per_unit dec(14,6) in the Resource's unit, wastage_pct | id | L | RateAnalysis, Resource |
-| LabourContract | name, contractor, own_item_code (the labour-measure BoqItem that gives its quantity), trade; project_id nullable (null = Developer-wide) | (tenant, project, own_item_code) | T | Resource (kind `labour_contract`: its rate is a Market Price) |
+| LabourContract | name, contractor, own_item_code (the labour-measure BoqItem that gives its quantity), trade; project_id nullable (null = Developer-wide; a project row overrides rate or scope, §6 ruling 3) | (tenant, project, own_item_code) | T | Resource (kind `labour_contract`: its rate is a Market Price) |
 | LabourContractCover | item_code covered | (contract, item_code) | T | LabourContract |
-| BenchmarkRate | sor_edition, zone, pwd_code, description, metric unit, printed_rate ৳ | (edition, zone, code) | L (Library only) | — |
-| BenchmarkMarkup | sor_edition, profit, overhead, VAT %, factor (1.2611), source | edition | L (Library only) | — |
-| TaxRate | kind (`vat`/`ait`), applies_to, rate_pct, effective_from, source | (tenant, kind, applies_to, from) | L | — |
+| BenchmarkSource (s02 Q15) | code (`pwd_sor`), labels, publisher, market_id ↓ | code | L (Library only) | — |
+| BenchmarkEdition (s02) | edition (`2022, 2nd Revised`), currency, zones, mark-up (profit, overhead, VAT %, factor 1.2611), source | (source, edition) | L (Library only) | BenchmarkSource |
+| BenchmarkRate | zone, item_code, labels, unit, printed_rate | (edition, zone, item_code) | L (Library only) | BenchmarkEdition |
+| TaxKind (s02 Q15) | code (Bangladesh: `vat`, `ait`), labels, default applies_to | (tenant, code) | L | — |
+| TaxRate | kind (a TaxKind code), applies_to, rate_pct, effective_from, source | (tenant, kind, applies_to, from) | L | TaxKind |
 
 - **Working rate** per Billing Unit = Σ material (qty × (1 + wastage) × price) + labour + plant,
-  times the exact unit factor, rounded to the paisa.
+  times the exact unit factor, rounded to the currency's minor unit (the paisa for ৳).
   - An item's labour lines drop out while a Labour Contract covers that item in the project.
   - A Material-and-Labour Contract is a Resource of that kind on one Rate Analysis line; its
     materials never reach the Material Schedule.
-- **Library prices.** The Library holds Rate Analyses and a starter price set, but no Labour
-  Contract rates (bd-defaults).
+- **Library prices** (s02 Q21, Q30). The Library holds the Rate Analyses, the starter price set (PWD
+  SoR 2022 input prices, Dhaka column: `docs/research/pwd-sor-2022-input-prices.md`) and Vextrus's
+  starter labour rates, all Low, each Developer's own replacing them. Three labour items have no figure
+  and show "rate not entered".
 
 ### 3.5 `boq` (layer 5)
 | Entity | Key fields | Identity | Tenant | References |
 |---|---|---|---|---|
-| MeasureCache | computed_at, status | (project, facts_seq, rule_set_version, display_units) | T | ids ↓ |
-| MeasurementLine | item_code, stage_kind, nos, l / b / h m (or area), qty_si dec(18,6), qty_billed dec(14,2), rule_codes text[], rebar_basis, diameter_mm, assumed_split bool | id | T | MeasureCache; element_id ↓, storey_id ↓ |
-| TradeBasis (Cost Basis) | trade, basis (`measured`/`allowance`), allowance ৳/sft dec(10,2), source (`vextrus_default`/`past_project`/`typed`), switched_by + at | (project, trade) | T | project_id ↓ |
-| StageName | stage_kind (`piling`/`substructure`/`slab_casting`/`masonry`/`finishes`/`services`/`external`), label | (tenant, stage_kind) | L | — |
-| EstimateLayer | order, kind (`preliminaries`/`site_overheads`/`contingency`/`tax`), percent or amount ৳, applies_to (`direct`/`subtotal`/`labour`), label | (project, order) | T | tax_rate_id ↓ |
-| LumpSumTemplateLine | code, trade, description, sanity range ৳/sft low–high | (tenant, code) | L | — |
-| LumpSum | kind (`lump_sum`/`provisional`), trade, boq_section, description, amount ৳, entered_by + at | id | T | LumpSumTemplateLine |
-| IssuedEstimate | issue_no, issued_at, issued_by; pins: facts_seq, drawing_set_state_id, rule_set_version_id, market_price_set_id; display_units; totals ৳ (direct, each layer, grand) | (project, issue_no) | T | pins ↓ |
-| IssuedLine | number as shown (2.1.1), item_code, description, billing_unit, qty, rate, amount, benchmark printed + net, basis, cost basis | (issue, item_code) | T | IssuedEstimate |
+| MeasureCache | computed_at, status | (building, figures_hash, rule_set_version, unit_system) | T | ids ↓ |
+| MeasurementLine | item_code, stage_kind, nos, l / b / h m (or area), qty_si dec(18,6), qty_billed dec(16,3), rule_codes text[], rebar_basis, diameter_mm, assumed_split bool | id | T | MeasureCache; element_id ↓, storey_id ↓ |
+| CostBasis (s02: replaces `TradeBasis` per Trade) | takeoff_step, basis (`measured`/`allowance`), switched_by + at (Vextrus proposes the switch; the QS may switch earlier), gfa_basis (`entered`/`measured`) | (building, step) | T | building_id ↓ |
+| CostBasisLine (s02) | this Building's own allowance line where the QS changed the default: an item's consumption per area unit, a ৳ per area unit, an amount, or "not in this project" with a reason | (cost_basis, line) | T | CostBasis |
+| AllowanceDefault (s02 Q8, Q10, Q29) | takeoff_step; kind (`consumption`: item_code + quantity per area unit in the item's Billing Unit, priced through its Rate Analysis at current Market Prices; `money`: an amount per area unit, the MEP template's lines); area unit (`sft`/`m2`); storey-count band (the fire line: below 7 storeys, from 7; s02 Q32); sanity range low–high; source (`vextrus_default`/`past_project`); confidence | (tenant, step, line) | L | — |
+| StageName | stage_kind (`piling`/`substructure`/`slab_casting`/`masonry`/`finishes`/`services`/`external`), labels | (tenant, stage_kind) | L | — |
+| EstimateLayer | order, kind (`preliminaries`/`site_overheads`/`contingency`/`tax`), percent or amount (the Project's currency), applies_to (`direct`/`subtotal`/`labour`), labels | (project, order) | T | tax_kind ↓ |
+| LumpSumTemplateLine | code, trade, boq_section (External works for site works, which belong to the Site), labels, default per area unit, sanity range low–high | (tenant, code) | L | — |
+| LumpSum | kind (`lump_sum`/`provisional`), trade, boq_section, description (labels or as typed), amount (the Project's currency), entered_by + at | id | T | LumpSumTemplateLine; building_id ↓ |
+| IssuedEstimate | issue_no, issued_at, issued_by; currency; unit_system; pins: drawing_set_state_id, rule_set_version_id, market_price_set_id, and each Building's Model Version (IssuedPin); at issue: the measured share, open Questions and Elements awaiting answer; totals (direct, each layer, grand) | (project, issue_no) | T | pins ↓ |
+| IssuedPin (s02) | building_id, model_version_seq, figures_hash | (issue, building) | T | IssuedEstimate |
+| IssuedLine | building_id, number as shown (2.1.1), item_code, description, billing_unit, qty, rate, amount, benchmark printed + net, basis, cost basis | (issue, building, item_code) | T | IssuedEstimate |
+| IssuedMeasurementLine (s02 Q7) | element_id, storey_id, qty_billed, frozen rate, amount (the Element's issued cost on this line), rule_codes, rebar_basis, flag at issue (`awaiting_answer`/`awaiting_confirmation`/none) | id | T | IssuedLine; element_id ↓ |
 | IssuedLineStorey, IssuedRateLine, IssuedMaterial, IssuedLayer | the per-floor breakdown; the Rate Analysis lines as priced (resource, qty/unit, wastage, price, covered_by); materials by storey × stage (with diameter and assumed flag); the layers | — | T | IssuedEstimate / IssuedLine |
 
-- **The live Priced BOQ is computed on read.** Quantity per BoqItem = Σ of its Measurement Lines,
-  each rounded to 2 dp in the Billing Unit. Amount = quantity × rate, rounded to the paisa.
+- **The working Priced BOQ is computed on read**, per Building. Quantity per BoqItem = Σ of its
+  Measurement Lines, each rounded in the Billing Unit. Amount = quantity × rate, rounded to the
+  currency's minor unit.
   - An item without a Rate Analysis shows as unpriced under a visible "Unclassified" heading.
+  - **Flags are joined at read, never cached** (s02). "Awaiting answer" comes from a state's
+    `held_by_question_id`; "changed in rev B, awaiting Confirmation" comes from `takeoff`'s open
+    `changed` and `removed` Proposals (§6 ruling 1). An answer that keeps the best candidate changes no
+    figure, so the cache must not hold the flag.
+  - **The Construction Stage and the casting stage** are joined at read from the Element State, so the
+    Material Schedule by stage follows a casting-stage edit without re-measuring.
   - The Material Schedule is Σ quantity × Rate Analysis line × (1 + wastage), by Resource, storey
-    and stage. It is gross, excludes Material-and-Labour materials, and is never stored live.
-- **Frozen rows in an Issued Estimate.** Rate Analyses are edited in place (audited by events), so
-  an Issued Estimate keeps its own rate and material rows.
+    and stage. It is gross, excludes Material-and-Labour materials (every MEP item by default), and is
+    never stored.
+- **Cost Basis per Takeoff Step** (ADR 0002; s02 Q8, Q22, Q29).
+  - Until a step is confirmed (or closed with Questions open), its allowance is Σ over its lines of
+    consumption × the Building's Gross Floor Area × the item's working rate, so a price change moves
+    unmeasured steps too; `money` lines are the amount per area × the Gross Floor Area.
+  - The Gross Floor Area is the Building's entered figure until slabs are measured.
+  - The MEP Parts' steps carry the MEP template's lines until M3 reads them. The fire line follows the
+    confirmed storey count, and the project's clearance Question sizes the reservoir (bd-defaults, "MEP
+    conventions").
+  - Site works stay Lump Sums of step 14.
+- **Frozen rows in an Issued Estimate.** Rate Analyses are edited in place (audited by events), so an
+  Issued Estimate keeps its own rate and material rows. Each IssuedLine's quantity is the sum of its
+  Issued Measurement Lines, which a test asserts; each Element's issued cost is the sum of its lines,
+  which cost control compares As built against (s02 Q7).
 - **Issuing freezes the price set.** Issuing calls `rates.services.freeze_set(set_id)`.
+- **Project and Building.** The Priced BOQ, the Cost Basis and the cache are per Building. The
+  Estimate's layers and its issues are per Project, summing its Buildings, as the M2 spec's
+  `estimate(project)` and `issue(project)` have it. With one Building until M4 the two are the same
+  (§6, "left for the specs").
 
 ### 3.6 Layer 6: `revisions`, `summary`, `exports`, `assistant`
 | Module | Entity | Key fields | Identity | Tenant | References |
 |---|---|---|---|---|---|
-| revisions | Comparison | kind (`revision`/`rule_remeasure`/`price_update`/`any`); baseline (`model_state`: facts_seq + rule version + price set; or `issued_estimate`); target pins; computed_at, by | id | T | ids ↓ |
-| revisions | ComparisonItem | item_code, q0, r0, q1, r1, quantity_effect ৳ = (q1 − q0) × r0, price_effect ৳ = (r1 − r0) × q1 | (comparison, item) | T | Comparison |
-| revisions | ComparisonElement | change (`new`/`removed`/`changed`), changed_facts jsonb, quantity_effect ৳ | (comparison, element) | T | Comparison; element_id ↓ |
-| summary | ConsumptionRange | measure (rebar kg, cement bags, bricks, concrete cft per sft of Gross Floor Area), low, high, source | (tenant, measure) | L | — |
-| exports | Export | kind (`excel`/`pdf`), input_hash, created_by + at; issued_estimate_id nullable (null = the working Estimate, printed "not issued") | id | T | file_id ↓, issued_estimate_id ↓ |
-| exports | ShareLink | token_hash, facts_seq (pinned) or live, expires_at, revoked_at | token_hash (global unique) | T + a G lookup | project_id ↓ |
-| assistant | AskLog | text, route, jev_answer_id, service answered from, at | id | T | ids ↓ |
+| revisions | Comparison | kind (`revision`/`rule_remeasure`/`price_update`/`any`); baseline (`model_state`: each Building's Model Version + rule version + price set; or `issued_estimate`); target pins; computed_at, by | id | T | ids ↓ |
+| revisions | ComparisonItem | item_code, q0, r0, q1, r1, quantity_effect = (q1 − q0) × r0, price_effect = (r1 − r0) × q1, in the Project's currency | (comparison, item) | T | Comparison |
+| revisions | ComparisonElement | change (`new`/`removed`/`changed`), changed_facts jsonb, quantity_effect (against an Issued Estimate, from its Issued Measurement Lines; s02) | (comparison, element) | T | Comparison; element_id ↓ |
+| summary | ConsumptionRange | measure (rebar kg, cement bags, bricks, concrete cft per area of Gross Floor Area), area unit, low, high, source | (tenant, measure) | L | — |
+| exports | Export | kind (`excel`/`pdf`), language (`en`, the only catalogue shipped; s02), unit_system, input_hash, created_by + at; issued_estimate_id nullable (null = the working Estimate, printed "Working — not issued") | id | T | file_id ↓, issued_estimate_id ↓ |
+| exports | ShareLink | token_hash, building_id, a pinned Model Version or `working` (s02: was "live"), expires_at, revoked_at | token_hash (global unique) | T + a G lookup | project_id ↓ |
+| assistant | AskLog | text, language, query jsonb (the structured query the words became: family, marks, storeys, Discipline Part, Attributes, Life Phase, measures; s02 Q17), chips shown and edited, jev_answer_id (only where the words were ambiguous), services answered from, at | id | T | ids ↓ |
 
 - **The two effects add up.** Quantity effect + price effect = q1·r1 − q0·r0 exactly. A new item
   has only a quantity effect, at r1; a removed item has only a quantity effect of −q0·r0. Rate
   Analysis edits and Market Prices are price effects; facts and Rule Set edits are quantity effects.
-- **What `summary` stores.** Nothing but ConsumptionRange. The Project Summary, the Target Cost
-  warning (tested on measured + allowance) and ৳ by stage are computed on read.
+- **What `summary` stores.** Nothing but ConsumptionRange. The Project Summary (summing its Buildings),
+  the Target Cost warning (tested on measured + allowance) and ৳ by stage are computed on read.
 - **How a share link reaches its data.** A share link is opened with no session, so its token is
   resolved by one narrow SECURITY DEFINER lookup (token hash → tenant, project). The request then
-  runs under that tenant, read-only.
+  runs under that tenant, read-only. No link shows money; presentation for the Developer's marketing
+  is a mode of the same link (s02 Q3; ADR 0035).
+- **The Live Model's query** (s02 Q17; ADR 0011). One structured query over Elements, Attributes (a
+  Developer's own included), Life Phases (Records) and money, run by `assistant` through
+  `live_model.services` and `boq.services`. Code parses the words; Jev picks only among ambiguous
+  meanings; the query is shown back as chips. The viewer's colour, isolate and filter run the same
+  query. Nothing is stored but the log, and every number is the Priced BOQ's own with its Trace.
+- **Placed dimensions and note pins** are `takeoff.Annotation` rows (§3.4). **Saved views** (M3's
+  Discipline filter, ADR 0040) are not yet placed in a module; see §6, "left for the specs".
 
 ## 4. ER diagrams
 Solid lines are foreign keys inside a module. Dotted lines are ids across modules, read through the
-owning module's services.
+owning module's services, or business keys held by value.
 
 **Platform, projects, drawings**
 ```mermaid
 erDiagram
-    DEVELOPER ||--o{ MEMBERSHIP : "QS / MD / Vextrus Engineer"
+    MARKET ||--o{ DEVELOPER : "home Market; one Library tenant each"
+    DEVELOPER ||--o{ MEMBERSHIP : "QS / MD / Vextrus Engineer / outsider"
     USER ||--o{ MEMBERSHIP : ""
-    DEVELOPER ||--o{ STORED_FILE : ""
+    MEMBERSHIP ||--o{ MEMBERSHIP_PROJECT : "scope (none = all)"
+    MEMBERSHIP_PROJECT }o..|| PROJECT : "project_id"
+    DEVELOPER ||--o{ STORED_FILE : "tenant-prefixed keys"
     DEVELOPER ||--o{ DOMAIN_EVENT : "outbox"
     JEV_ANSWER ||--o{ JEV_OVERRIDE : "QS disagreed"
     PROJECT }o..|| DEVELOPER : "tenant"
-    DRAWING_SET }o..|| PROJECT : "project_id"
-    DRAWING_SET ||--o{ REVISION : "consultant re-issues"
+    PROJECT }o..|| MARKET : "currency, unit system"
+    PROJECT ||--|| SITE : "its land"
+    PROJECT ||--|{ BUILDING : "one made with it"
+    DRAWING_SET }o..|| PROJECT : "one per Project"
+    DRAWING_SET ||--o{ REVISION : "per Discipline re-issue"
     DRAWING_SET ||--o{ SHEET : "stable sheet identity"
+    SHEET }o..o| BUILDING : "building_id"
     REVISION ||--o{ DRAWING_FILE : "uploaded with"
     DRAWING_FILE }o..|| STORED_FILE : "original"
     SHEET ||--o{ SHEET_REVISION : "one per re-issue"
@@ -331,33 +591,54 @@ erDiagram
     STATE_SHEET }o--|| SHEET_REVISION : ""
     STATE_SHEET }o..|| STORED_FILE : "read artefact @ reader"
     SHEET_REVISION ||--o{ VIEW : "per reader version"
+    DRAFTING_PROFILE ||--o{ DRAFTING_PROFILE_VERSION : "immutable once confirmed"
+    DRAFTING_PROFILE_VERSION ||--o| PROFILE_PUBLICATION : "permission + review"
 ```
 
-**Building Model**
+**The Live Model**
 ```mermaid
 erDiagram
-    FAMILY ||--o{ ELEMENT : "identity rule"
-    ELEMENT ||--o{ ELEMENT_STATE : "valid_from..valid_to"
+    ELEMENT_FAMILY ||--o{ ELEMENT : "identity rule"
+    DISCIPLINE_PART ||--o{ ELEMENT : "Structural, Architectural, Electrical..."
+    DISCIPLINE_PART }o..|| BUILDING : "building_id"
+    ELEMENT }o..|| BUILDING : "storeys and grid owned by the Building"
+    ELEMENT ||--o{ ELEMENT_STATE : "As designed, valid_from..valid_to"
     ELEMENT ||--o{ ELEMENT_TRACE : "per fact, with validity"
-    ELEMENT_STATE ||--o{ ROD_BAR : "confirmed reinforcement"
-    ELEMENT_STATE }o--o| ELEMENT : "storey_from / storey_to (storey Elements)"
+    ELEMENT ||--o{ RECORD : "As built / As maintained"
+    ELEMENT ||--o{ ELEMENT_RELATION : "from / to"
+    ELEMENT_STATE ||--o{ REBAR_BAR : "confirmed reinforcement"
+    ELEMENT_STATE }o--o| ELEMENT : "storey, Storey Band, casting stage"
     MODEL_VERSION ||--o{ ELEMENT_STATE : "seq opens / closes"
-    VIEW_PLACEMENT }o--|| ELEMENT : "storeys a view shows"
+    MODEL_VERSION ||--o{ ELEMENT_RELATION : "seq opens / closes"
+    ATTRIBUTE_DEFINITION ||--o{ FAMILY_ATTRIBUTE : "applies to"
+    FAMILY_ATTRIBUTE }o--|| ELEMENT_FAMILY : ""
+    RECORD }o..|| ATTRIBUTE_DEFINITION : "key (by value)"
+    CLASSIFICATION_SYSTEM ||--o{ CLASSIFICATION_REFERENCE : "Uniclass 2015, PWD SoR"
+    CLASSIFICATION_REFERENCE ||--o{ FAMILY_CLASSIFICATION : "default"
+    FAMILY_CLASSIFICATION }o--|| ELEMENT_FAMILY : ""
+    CLASSIFICATION_REFERENCE ||--o{ ELEMENT_CLASSIFICATION : "where it differs"
+    ELEMENT_CLASSIFICATION }o--|| ELEMENT : ""
+    VIEW_PLACEMENT ||--|{ VIEW_PLACEMENT_STOREY : "explicit storey list"
+    VIEW_PLACEMENT_STOREY }o--|| ELEMENT : "a storey"
     VIEW_PLACEMENT }o..|| VIEW : "view_id"
     ELEMENT_TRACE }o..o| SHEET_REVISION : "anchor"
+    RECORD }o..o| STORED_FILE : "evidence"
     MODEL_VERSION }o..o| CONFIRMATION : "stamp"
 ```
 
 **Takeoff**
 ```mermaid
 erDiagram
+    TAKEOFF_STEP ||--o{ STEP_PROGRESS : "per Building"
+    STEP_PROGRESS }o..|| BUILDING : "building_id"
     RECOGNISE_RUN ||--o{ PROPOSAL : "candidates"
+    RECOGNISE_RUN }o..o| DRAFTING_PROFILE_VERSION : "applied, or none"
     RECOGNISE_RUN ||--o{ MATCH_RESULT : "unchanged / changed / removed"
     MATCH_RESULT }o..|| ELEMENT : "element_id"
     PROPOSAL ||--o{ PROPOSAL_TRACE : ""
     PROPOSAL }o..o| ELEMENT : "matched element"
     PROPOSAL }o..o| JEV_ANSWER : ""
-    CONFIRMATION ||--o{ PROPOSAL : "accepted in this act"
+    CONFIRMATION ||--o{ PROPOSAL : "confirmed, or held at step close"
     QUESTION ||--o{ QUESTION_LINK : "unblocks"
     QUESTION_LINK }o--|| PROPOSAL : ""
     CHECK ||--o{ CHECK_RUN : ""
@@ -367,35 +648,45 @@ erDiagram
     COVERAGE ||--o{ COVERAGE_STEP : "one per Takeoff Step"
     DRAWING_REGISTER ||--o{ REGISTER_ENTRY : "the drawing list"
     DEVELOPER_SPECIFICATION ||--o{ SPECIFICATION_LINE : "room type x surface"
-    STEP_PROGRESS }o..|| PROJECT : ""
+    ANNOTATION }o..|{ ELEMENT : "anchored by id + face or point"
 ```
 
 **Measurement and rates**
 ```mermaid
 erDiagram
+    RULE_SET }o..|| MARKET : "its Library"
     RULE_SET ||--o{ RULE_SET_VERSION : "immutable when published"
     RULE_SET_VERSION ||--o{ MEASUREMENT_RULE : "words + params"
-    RULE_SET_VERSION ||--o{ BOQ_ITEM : "Billing Unit"
-    RULE_SET_VERSION ||--o{ ROD_RATIO : "type x Storey Band"
+    RULE_SET_VERSION ||--o{ BOQ_ITEM : ""
+    BOQ_ITEM ||--|{ BOQ_ITEM_BILLING_UNIT : "one per unit system"
+    RULE_SET_VERSION ||--o{ REBAR_RATIO : "type x Storey Band"
     RULE_SET_VERSION ||--o{ DIAMETER_SPLIT : "assumed"
     PROJECT_RULE_PIN }o--|| RULE_SET_VERSION : "pinned"
     RESOURCE ||--o{ MARKET_PRICE : ""
-    MARKET_PRICE_SET ||--o{ MARKET_PRICE : "dated set"
+    MARKET_PRICE_SET ||--o{ MARKET_PRICE : "dated set, one currency"
     RATE_ANALYSIS ||--o{ RATE_ANALYSIS_LINE : "qty per unit + wastage"
     RATE_ANALYSIS_LINE }o--|| RESOURCE : ""
     RATE_ANALYSIS }o..|| BOQ_ITEM : "item_code (by value)"
-    RATE_ANALYSIS }o--o| BENCHMARK_RATE : "benchmark_code"
-    BENCHMARK_RATE }o--|| BENCHMARK_MARKUP : "sor_edition"
+    RATE_ANALYSIS }o..o| BENCHMARK_RATE : "benchmark_ref (by value)"
+    BENCHMARK_SOURCE ||--o{ BENCHMARK_EDITION : "PWD SoR 2022"
+    BENCHMARK_EDITION ||--o{ BENCHMARK_RATE : "per zone"
     LABOUR_CONTRACT }o--|| RESOURCE : "its rate"
     LABOUR_CONTRACT ||--o{ LABOUR_CONTRACT_COVER : "items covered"
+    TAX_KIND ||--o{ TAX_RATE : "dated"
 ```
 
 **BOQ and the top layer**
 ```mermaid
 erDiagram
-    MEASURE_CACHE ||--o{ MEASUREMENT_LINE : "(facts_seq, rule version, units)"
+    COST_BASIS }o..|| BUILDING : "one per Takeoff Step"
+    COST_BASIS ||--o{ COST_BASIS_LINE : "the QS's own lines"
+    ALLOWANCE_DEFAULT }o..o| BOQ_ITEM : "consumption per area (by value)"
+    MEASURE_CACHE ||--o{ MEASUREMENT_LINE : "(figures hash, rule version, unit system)"
     MEASUREMENT_LINE }o..|| ELEMENT : "element_id"
+    ISSUED_ESTIMATE ||--|{ ISSUED_PIN : "each Building's Model Version"
     ISSUED_ESTIMATE ||--o{ ISSUED_LINE : "frozen"
+    ISSUED_LINE ||--o{ ISSUED_MEASUREMENT_LINE : "each Element's issued cost"
+    ISSUED_MEASUREMENT_LINE }o..|| ELEMENT : "element_id"
     ISSUED_LINE ||--o{ ISSUED_LINE_STOREY : ""
     ISSUED_LINE ||--o{ ISSUED_RATE_LINE : ""
     ISSUED_ESTIMATE ||--o{ ISSUED_MATERIAL : ""
@@ -407,65 +698,94 @@ erDiagram
     COMPARISON ||--o{ COMPARISON_ELEMENT : "new / removed / changed"
     COMPARISON }o..o| ISSUED_ESTIMATE : "baseline"
     EXPORT }o..o| ISSUED_ESTIMATE : ""
-    SHARE_LINK }o..|| PROJECT : ""
+    SHARE_LINK }o..|| BUILDING : "pinned Model Version or working"
+    ASK_LOG }o..o| JEV_ANSWER : "only where words were ambiguous"
 ```
 
 ## 5. Walk-throughs
 Rows are written as `module.Entity`. Each step also writes one `platform.DomainEvent`; those are not
-repeated below.
+repeated below. Every figure and name here is invented.
 
-### (a) The QS confirms 86 columns in bulk, answers one Question, and the Priced BOQ updates
-Given: storeys, grid and General Notes are confirmed (Model Version 7). The project pins Rule Set
-version 3, and the current Market Price set is PS5.
-1. `takeoff.RecogniseRun` R1 (family `column`, Drawing Set State S1, cache key) finds 89
-   candidates, each a grid intersection over a Storey Band.
+### (a) The QS confirms the columns in bulk, closes the step with one Question open, then answers it
+Given: Building B1 (the Project's only one, made by M0) has storeys, grid and General Notes confirmed
+(its Model Version 7). The project pins Rule Set version 3, and the current Market Price set is PS5
+(BDT). B1 has 26 column positions over 10 storeys (GF + 9).
+1. `takeoff.RecogniseRun` R1 (family `column`, Drawing Set State S1, the structural office's Drafting
+   Profile version DP1, cache key) finds 260 candidates: one piece per grid position per storey,
+   grouped into 89 Storey Band groups from the column schedule (s02 Q5).
 2. `platform.JevAnswer` rows are written for label binding (cache misses; later reads hit).
-3. `takeoff.Proposal` ×89 (`first_read`; values in inches as drawn; mix from the notes; rebar basis
-   "by ratio"), with `takeoff.ProposalTrace` ×~180 (size from the schedule cell, position from the
-   layout insert).
-4. `takeoff.CheckRun` (schedule against plan) passes 86 of 89. One `CheckFinding` becomes
-   `takeoff.Question` Q1 ("C7, 4F–9F: the schedule's size cell is blank"; options that code found:
-   400×400, 450×450). `QuestionLink` ×3 marks those Proposals `blocked`.
-5. `takeoff.StepProgress` (step 6): 86 / 89, 1 Question open.
+3. `takeoff.Proposal` ×260 (`first_read`; values in inches as drawn; the Storey Band as a fact; mix
+   from the notes; rebar basis "by ratio"), with `takeoff.ProposalTrace` ×~520 (size from the schedule
+   cell, position from the layout insert).
+4. `takeoff.CheckRun` (schedule against plan) passes 86 of 89 groups. One `CheckFinding` becomes
+   `takeoff.Question` Q1 (message code and parameters for "C7, 4F–9F: the schedule's size cell is
+   blank"; options that code found: 400×400, and 450×450, pre-picked because the plan's outline and the
+   band below agree). `QuestionLink` ×18 marks those Proposals `blocked` (C7 at three positions × six
+   storeys).
+5. `takeoff.StepProgress` (B1, step 6): 242 / 260, 1 Question open.
 6. **Bulk act.**
-   - `takeoff.Confirmation` K1 (`bulk`, 86); the 86 Proposals become `confirmed` with K1.
-   - The confirm service converts inches to metres exactly and calls `building_model`, which writes:
-     - `ModelVersion` 8 (`facts_changed`);
-     - `Element` ×86 (identity `col|<grid>|<band>`);
-     - `ElementState` ×86 (valid from 8);
-     - `ElementTrace` ×~172 (anchors copied).
+   - `takeoff.Confirmation` K1 (`bulk`, 242); the 242 Proposals become `confirmed` with K1.
+   - The confirm service converts inches to metres exactly, checks `attrs` against their definitions,
+     and calls `live_model`, which writes:
+     - `ModelVersion` 8 (`figures_changed`);
+     - `Element` ×242 (identity `col|<grid>|<storey>`);
+     - `ElementState` ×242 (valid from 8): storey, Storey Band, grid, position, mix, grade, rebar
+       basis, Construction Stage `slab_casting`, casting stage (the slab above, by the Rule Set's
+       `stage` rule), and `attrs` b and d;
+     - `ElementTrace` ×~730 (anchors copied, and a `derived` Trace for each casting stage naming its
+       rule).
 7. `takeoff.CheckRun` re-runs at the Confirmation (owned volumes sum to the union): passes.
-8. **Q1 answered (450×450).**
-   - `Question` Q1 becomes `answered`.
-   - Three new `Proposal` rows (`question_answer`) supersede the blocked ones.
-   - `Confirmation` K2 (`question_answer`, 3, linked to Q1) is written.
-   - `ModelVersion` 9, `Element` ×3 and `ElementState` ×3 follow. The size Trace is
-     `ElementTrace(kind=question, question_id=Q1)`.
-   - StepProgress shows 89 / 89 and 0 Questions.
+8. **The QS closes step 6 with Q1 open** (s02 Q22). No Element failed, so nothing needs typing or
+   excluding first.
+   - `Confirmation` K2 (`step_close`, 18): the 18 blocked Proposals become `held`.
+   - `live_model` writes `ModelVersion` 9, `Element` ×18 and `ElementState` ×18 at the best candidate,
+     450×450, each with `held_by_question_id` = Q1 and a size Trace of kind `best_candidate`.
+   - `StepProgress`: `closed_with_questions`, 18 awaiting answer. `boq.CostBasis` (B1, step 6)
+     switches from allowance to measured, recorded as switched by K2.
 9. **The Priced BOQ is opened.**
-   - `boq.MeasureCache` misses (project, facts 9, RSv3, imperial) and calls
-     `measurement.measure`, which returns lines written as `boq.MeasurementLine` ×~1,100: each
-     column per storey, for concrete (cft), formwork (sft), and rebar by ratio split per the assumed
+   - `boq.MeasureCache` misses (B1, the figures hash at Model Version 9, RSv3, imperial) and calls
+     `measurement.measure`, which returns lines written as `boq.MeasurementLine` ×~1,500: each column
+     piece, for concrete (cft), formwork (sft), and rebar by ratio split per the assumed
      `DiameterSplit`. Rules applied: F1, F2, G3, FW2, R2, J1.
    - `rates` computes the working rates at PS5.
+   - The 18 held pieces are priced at 450×450 and flagged "awaiting answer" in the grid, the Project
+     Summary and exports; the measured share counts them only once answered. The flag is joined at
+     read.
    - No other row is written: the amounts, the Material Schedule by storey × slab casting, the
      Target Cost warning and the Project Summary are all computed on read.
+10. **Q1 answered (450×450).**
+    - `Question` Q1 becomes `answered`.
+    - `Confirmation` K3 (`question_answer`, 18, linked to Q1) is written; the held Proposals become
+      `confirmed`.
+    - `ModelVersion` 10 (figures unchanged): the 18 states close, and 18 new ones open without the
+      flag. The size Trace is `ElementTrace(kind=question, question_id=Q1)`.
+    - The figures hash is unchanged, so the cache hits; only the flag clears and the measured share
+      rises. StepProgress shows 260 / 260, 0 Questions, `confirmed`. Had the answer been 400×400, the
+      states would have changed size and the figures hash would have moved.
 
 **Gaps this exposed, and how they were closed.**
-- **Answering unblocks and confirms in one act** (K2), so the QS is not asked twice.
+- **Answering unblocks and confirms in one act** (K3), so the QS is not asked twice.
 - **Early allowances need a Gross Floor Area before there are slabs to measure it from.** Allowances
-  are ৳/sft of Gross Floor Area, but the GFA is measured from confirmed slabs, and in M1 slabs come
-  after columns. Closed with `projects.Project.gfa_entered`, a provisional figure the QS types from
-  the area statement, marked "entered" until the measured area replaces it.
-- **A part-measured trade** (concrete from columns only) needs a rule: open question 2.
+  are per unit of Gross Floor Area, but the GFA is measured from confirmed slabs, and in M1 slabs come
+  after columns. Closed with `projects.Building.gfa_entered` (on the Project in session 01), a
+  provisional figure the QS types from the area statement, marked "entered" until the measured area
+  replaces it.
+- **A part-measured trade** was open question 2: ruled (§6 ruling 2), then superseded by allowances
+  per Takeoff Step, held as consumption per unit of floor area.
 - **Which slab casting a column belongs to** is a Rule Set `stage` rule (default: a column belongs
-  to the casting of the slab above it), not a hidden constant.
+  to the casting of the slab above it), not a hidden constant. It fills the state's casting stage at
+  Confirmation with a `derived` Trace; the QS may change it, which makes a Model Version and moves no
+  figure (s02).
+- **One Question held a whole step** (s02). In the session-02 priced prototype, 157 held Elements kept
+  99 % of the measured money on allowance ("1.1 % measured"). Closed by `step_close` (Q22).
+- **An answer that keeps the best candidate moves no figure** (s02), so the flag is joined at read and
+  never cached.
 
-### (b) A Revision reissues 3 sheets, 2 columns change size, and the Revision Comparison against an Issued Estimate
-Given: Issued Estimate IE1 (facts 40, State S1, RSv3, PS5, now frozen). Since then the rebar price has
-moved (current set PS7).
-1. **The re-issue arrives.** `drawings.Revision` B is written, then `DrawingFile` ×1 (the
-   reissued DWG) and `platform.StoredFile` (original). The cross-check passes.
+### (b) A Revision reissues 3 sheets, 12 column pieces change size, and the Revision Comparison against an Issued Estimate
+Given: Issued Estimate IE1 (B1 at Model Version 40, State S1, RSv3, PS5, now frozen). Since then the
+rebar price has moved (current set PS7).
+1. **The re-issue arrives.** `drawings.Revision` 2 (label B, Discipline structural) is written, then
+   `DrawingFile` ×1 (the reissued DWG) and `platform.StoredFile` (original). The cross-check passes.
 2. The read job writes derived `StoredFile`s (DXF and entity dump @ LibreDWG 0.14.x), then
    `SheetRevision` ×3 (S-201 column schedule, S-102 and S-103 column layouts, matched to their Sheets
    by number) and `View` rows with `predecessor_view_id`.
@@ -473,30 +793,37 @@ moved (current set PS7).
    the rest are the same as S1. `DrawingSet.current_state_id` = S2.
 4. `takeoff.Coverage` for the new views is proposed from their predecessors, and the QS confirms it
    with the sheet list.
-5. Only families with a View or a live Trace on the 3 sheets re-run: `RecogniseRun` R40 (`column`).
-6. `takeoff.MatchResult` ×89 by family identity: 87 `unchanged` (same facts hash in SI) and 2
-   `changed` (C5 at C/3 and C5 at D/3, 4F–9F: 400×400 → 450×450). There are 0 new and 0 removed.
-7. `Proposal` ×2 (`changed`, old and new facts, Traces into rev B).
+5. Only families with a View or a current Trace on the 3 sheets re-run: `RecogniseRun` R40 (`column`,
+   DP1 again).
+6. `takeoff.MatchResult` ×260 by family identity: 248 `unchanged` (same facts hash in SI) and 12
+   `changed` (C5 at C/3 and at D/3, 4F–9F: 400×400 → 450×450, one piece per storey). There are 0 new
+   and 0 removed. Had the revision moved a band boundary, the storeys affected would change their
+   facts, not be removed and added (s02 Q5).
+7. `Proposal` ×12 (`changed`, old and new facts, Traces into rev B), shown to the QS as two Storey
+   Band groups.
    - Q1's evidence is unchanged (the cell is still blank), so its `question_key` matches and the
      answer is reused. The run counts it in `reused_answers`, and no new Question is written.
 8. **Carry-over:**
-   - `building_model.ModelVersion` 41 (`carry_over`, facts unchanged);
-   - for the 87 unchanged columns, `ElementTrace` rows re-anchored to rev B (new rows valid from 41;
+   - `live_model.ModelVersion` 41 (`carry_over`, figures unchanged);
+   - for the 248 unchanged pieces, `ElementTrace` rows re-anchored to rev B (new rows valid from 41;
      the old ones closed at 41);
-   - no Element State is written.
-9. The QS confirms the 2: `Confirmation` K30 (`revision`, 2), then `ModelVersion` 42 (facts
-   changed; complete for S2). The 2 old `ElementState`s close at 42, and 2 new ones open with their
-   Traces. `CheckRun` re-runs.
+   - no Element State is written. Element Relations with an end on a changed piece are re-checked
+     (none here; see f).
+9. The QS confirms the two groups: `Confirmation` K30 (`revision`, 12), then `ModelVersion` 42
+   (figures changed; complete for S2). The 12 old `ElementState`s close at 42, and 12 new ones open
+   with their Traces. `CheckRun` re-runs.
    - The beams that frame into them need no re-confirmation: their length between column faces is
      measured by rule, so it follows.
 10. **The MD picks IE1 as the baseline.**
-    - `boq.MeasureCache` computes (facts 42, RSv3) if missing.
-    - `revisions.Comparison` C1 (baseline IE1, target facts 42 + RSv3 + PS7).
-    - `ComparisonElement` ×2 (changed b, d; quantity effect ৳).
+    - `boq.MeasureCache` computes (B1, the figures hash at 42, RSv3) if missing.
+    - `revisions.Comparison` C1 (baseline IE1, target B1 at 42 + RSv3 + PS7).
+    - `ComparisonElement` ×12 (changed b, d; each piece's quantity effect against its own Issued
+      Measurement Lines in IE1, s02).
     - `ComparisonItem` for each touched item: column concrete, formwork and rebar have a quantity
       effect of (q1 − q0) × r0 using IE1's frozen rates. Every rebar item also has a price effect of
       (r1 − r0) × q1 from PS7.
-    - q0 is IE1's `IssuedLine`, and a test asserts it equals the recomputation at (facts 40, RSv3).
+    - q0 is IE1's `IssuedLine`, the sum of its Issued Measurement Lines, and a test asserts it equals
+      the recomputation at (Model Version 40, RSv3).
 
 **Gaps this exposed, and how they were closed.**
 - **Traces left on superseded sheets.** Unchanged elements whose Traces sat on a reissued sheet
@@ -504,10 +831,10 @@ moved (current set PS7).
   re-anchoring on carry-over.
 - **Questions asked again.** Answered Questions would be asked again on every re-read. Closed by
   `question_key`, which reuses an answer only while its evidence is unchanged.
-- **A carry-over busting the BOQ cache.** Closed by keying the cache on `facts_seq`, not on every
-  Model Version.
-- **What the BOQ shows between steps 7 and 9** (changed columns awaiting Confirmation): open
-  question 1.
+- **A carry-over busting the BOQ cache.** Closed by keying the cache on the figures hash, not on
+  every Model Version (s02; session 01 used `facts_seq`).
+- **What the BOQ shows between steps 7 and 9** (changed pieces awaiting Confirmation) was open
+  question 1: ruled (§6 ruling 1).
 
 ### (c) A reader upgrade re-reads a Drawing Set and yields zero changes
 1. The reader goes from 0.14.2 to 0.14.3 (a constant in `engine/read`). The project is offered
@@ -517,18 +844,19 @@ moved (current set PS7).
 3. `drawings.DrawingSetState` S3 (cause `reader_upgrade`, no Revision) and `StateSheet` ×N (the same
    Sheet Revisions, new artefact ids). New `View` rows are matched 1:1 to their predecessors, and
    Coverage and confirmed scales carry over.
-4. A `takeoff.RecogniseRun` per family confirmed so far. The cache key misses on the artefact key,
-   but every Jev call hits `platform.JevAnswer` (same facts, question, options and model), so it
-   costs nothing and gives the same answers.
+4. A `takeoff.RecogniseRun` per family confirmed so far, each with the same Drafting Profile version
+   (conventions are the office's, not the reader's). The cache key misses on the artefact key, but
+   every Jev call hits `platform.JevAnswer` (same facts, question, options and model), so it costs
+   nothing and gives the same answers.
 5. `MatchResult` ×every element: all `unchanged`. Proposals: 0. Questions: 0 new (every key matches
    an answered one). `CheckRun`s: all pass, n / N unchanged.
-6. `building_model.ModelVersion` 43 (`carry_over`, facts unchanged). `ElementTrace` rows re-anchored
+6. `live_model.ModelVersion` 43 (`carry_over`, figures unchanged). `ElementTrace` rows re-anchored
    to reader 0.14.3, so each Trace names the reader that now vouches for it (ADR 0029).
-7. `boq.MeasureCache` hits (facts_seq is unchanged). The Priced BOQ is byte-identical.
+7. `boq.MeasureCache` hits (the figures hash is unchanged). The Priced BOQ is byte-identical.
 
 The M1 test for ADR 0015 ("re-reading gives zero changes") asserts on the DB:
-- 0 Proposals, 0 Element States and 0 Questions written;
-- `facts_seq` unchanged;
+- 0 Proposals, 0 Element States, 0 Element Relations and 0 Questions written;
+- the figures hash unchanged;
 - every new anchor resolves.
 
 **Gaps this exposed, and how they were closed.**
@@ -538,9 +866,9 @@ The M1 test for ADR 0015 ("re-reading gives zero changes") asserts on the DB:
 
 ### (d) The Developer edits a Market Price and a Measurement Rule after issuing an Estimate
 Given: IE1 issued on PS5 and RSv3, so PS5 is `frozen`.
-1. **The Market Price edit.** The QS changes rebar from ৳95,000 to ৳102,000 per ton. PS5 is frozen,
-   so `rates.MarketPriceSet` PS6 (`open`, parent PS5, today's date) is written, with `MarketPrice`
-   ×~150 copied and rebar changed.
+1. **The Market Price edit.** The QS changes rebar from ৳95,000 to ৳1,02,000 per ton. PS5 is frozen,
+   so `rates.MarketPriceSet` PS6 (`open`, BDT, parent PS5, today's date) is written, with
+   `MarketPrice` ×~150 copied and rebar changed (its `changed_at` set).
    - The working Estimate reprices on read. IE1 is untouched: it keeps PS5 and its frozen rows.
    - Further edits go into PS6 in place, until something is issued on it.
 2. **The Measurement Rule edit.** The Developer's QS edits FW4 (openings not deducted from slab
@@ -550,9 +878,9 @@ Given: IE1 issued on PS5 and RSv3, so PS5 is `frozen`.
    - The project still pins RSv3, and nothing moves. The project shows "Rule Set v4 changes FW4:
      re-measure?"
 3. **The preview.**
-   - `boq.MeasureCache` (facts 42, RSv4) is computed.
-   - `revisions.Comparison` (kind `rule_remeasure`, baseline = working facts 42 + RSv3 + PS6)
-     shows only a quantity effect, on the slab formwork items.
+   - `boq.MeasureCache` (B1, the figures hash at 42, RSv4) is computed.
+   - `revisions.Comparison` (kind `rule_remeasure`, baseline = B1 at 42 + RSv3 + PS6) shows only a
+     quantity effect, on the slab formwork items.
 4. **The QS accepts.** `measurement.ProjectRulePin` closes RSv3 and opens RSv4.
 5. **The MD compares against IE1.** A `Comparison` against IE1 shows the formwork change as a
    quantity effect and the rebar change as a price effect, separately.
@@ -563,42 +891,104 @@ Given: IE1 issued on PS5 and RSv3, so PS5 is `frozen`.
   Unit is compared by converting the baseline quantity exactly into the new unit.
 - **Issued Estimates that could not be reproduced.** Rate Analyses are edited in place, so an Issued
   Estimate could not be reproduced without its own `IssuedRateLine` rows; added.
-- **How often a new price set is made.** This walk-through makes a new set only when the current one
-  is frozen. That narrows ADR 0028's "an update makes a new set": open question 6.
+- **How often a new price set is made** was open question 6: ruled (§6 ruling 5), a new set only when
+  an Issued Estimate freezes the current one.
 
 ### (e) A Labour Contract per sft of casting area covers three items
 Given: the default Rule Set ships the labour-measure BOQ Item `LAB-CAST` ("per sft of casting area";
-Billing Unit sft / m²) and its rule CA1 (casting area = each slab's area over beams and columns, per
+Billing Units sft and m²) and its rule CA1 (casting area = each slab's area over beams and columns, per
 floor). It produces Measurement Lines, but they appear in the Priced BOQ only when a Labour Contract
 prices them.
 1. **The contract is set up.**
    - `rates.Resource` R-LC1 (`labour_contract`, quoted unit sft).
-   - `rates.MarketPrice` R-LC1 = ৳150 per sft in the open set.
-   - `rates.LabourContract` LC1 (project P, own_item_code `LAB-CAST`, contractor, trade).
+   - `rates.MarketPrice` R-LC1 = ৳170 per sft in the open set (the starter rate, s02 Q30).
+   - `rates.LabourContract` LC1 (Developer-wide: project_id empty, §6 ruling 3; own_item_code
+     `LAB-CAST`, contractor, trade). A project row may override its rate or scope.
    - `rates.LabourContractCover` ×3: the frame's casting (`RCC-SLB-BM-1:1.5:3`), its shuttering
-     (`FW-SLB-BM`) and its rebar binding (`ROD-500W`).
+     (`FW-SLB-BM`) and its rebar binding (`REBAR-500W`).
 2. On read, the `boq` Measurement Lines for `LAB-CAST` (one per slab per storey, in sft) become their
-   own Priced BOQ line at ৳150. They are staged per slab casting, which matches Dhaka instalments.
+   own Priced BOQ line at ৳170. They are staged per slab casting, which matches Dhaka instalments.
 3. `rates` computes the three covered items' working rates without their labour lines. The Rate
-   Analyses themselves are unchanged, so other projects without LC1 still carry labour.
+   Analyses themselves are unchanged, so projects without LC1 still carry labour.
 4. **The labour-source check.** A `takeoff.CheckRun` (trigger `boq`; check "labour from exactly one
    source", ADR 0006) counts each priced item's labour sources: its own labour lines plus the
    contracts covering it.
    - One source passes.
    - Zero or two sources raises a `Question` (`labour_source`), raised by `boq` through
      `takeoff.services` (a downward call).
-5. **The Benchmark column.** Each covered item shows its allocated share of LC1, computed on read
-   (the basis is open question 4). The Material Schedule is unchanged, since labour never enters it.
+5. **The Benchmark column.** Each covered item shows its allocated share of LC1, computed on read in
+   proportion to the labour its own Rate Analysis would have carried at Market Prices (§6 ruling 3).
+   The Material Schedule is unchanged, since labour never enters it.
 
 **Gaps this exposed, and how they were closed.**
 - **Where the contract's quantity comes from.** A Labour Contract needs a quantity rule and a Billing
   Unit, so labour-measure BOQ Items ship in the default Rule Set rather than being invented per
   contract.
-- **The check does not match CONTEXT's "Check".** The labour check is not against the source
-  drawings (§1.3 terms).
-- **Whether a Labour Contract is per project or Developer-wide** is open question 3.
+- **The check did not match CONTEXT's "Check".** CONTEXT.md now includes conservation Checks (§1.3).
+- **Whether a Labour Contract is per project or Developer-wide** was open question 3: ruled (§6 ruling
+  3).
 
-## 6. Open questions for the owner (one at a time, each with a recommendation)
+### (f) A floor's cast dates recorded As built, and a socket whose host wall moves in a Revision (s02)
+Given: after M3, Building B1 has its structure, architecture and Electrical Part confirmed (Model
+Version 60), and Issued Estimate IE2 pins it. Records are written by cost control, the first new module
+after the MVP (docs/milestones.md); in the MVP the table exists, empty, from M0. This walk-through shows
+the path it was built for (s02 Q6, Q14, Q31; ADRs 0035, 0037, 0040).
+1. **The 3rd floor's slab casting is poured.** The site engineer, invited into the Developer's tenant
+   and scoped to this Project (s02 Q11), records the pour with a photo of the pour register.
+   - `platform.StoredFile` (the photo, kind `evidence`, under the tenant's key prefix).
+   - `live_model.Record` ×115 through `live_model.services.record(...)`: one per RCC Element of that
+     casting (the 3F column pieces, beams and slab panels), attribute `vx.construction.cast_on`, Life
+     Phase `as_built`, observed_on 12 Mar 2027, recorded_by, recorded_at (UTC), evidence the photo,
+     design_version_seq 60.
+   - No Model Version, no Element State, no Trace. The figures hash is unchanged, so the Priced BOQ's
+     cache hits and IE2 is untouched (measured 9 of 9 runs in the component-store prototype).
+2. **One column piece was cast larger.** C2 at B/2 on the 5th floor, drawn 12″×20″, was cast 14″×20″
+   (the grill's own example, Q6). The engineer records `vx.column.section_b` As built = 0.3556 m, with
+   the measurement sheet as evidence.
+   - The Attribute Definition's tolerance is exceeded, so the inspector, the query ("Deviations on
+     5F") and the 3D ("as built where recorded") show a **Deviation**, computed on read.
+   - It is never absorbed: the Priced BOQ still measures As designed 12″×20″, and cost control
+     compares As built against IE2's Issued Measurement Lines for that piece.
+3. **A mistyped date** is corrected by a new `Record` with `supersedes_id`; nothing is edited.
+4. **The socket and its wall.** In the Electrical Part, `live_model.Element` S-117 (family
+   `mep_terminal`, a 13 A socket on 5F) has two `ElementRelation`s valid from 55: `hosted_in` wall
+   W-5-23 (Architectural Part) and `in_room` bedroom R-5B-2. The Rule Set's MEP rules count it as a
+   socket item and its wiring by rule per point.
+5. **Architectural Revision 7 (label C) reissues the 5th-floor plan.** The read and `RecogniseRun`
+   (`wall`) give `MatchResult` W-5-23 `changed`: the wall moved 450 mm to enlarge a bathroom. No
+   electrical sheet was reissued, so S-117's own facts are unchanged.
+6. **The relation Check fires.** The `hosted_in` Check (a hosted Element lies on its host's face)
+   runs against the changed wall's Proposal: S-117 now sits 450 mm off the wall.
+   - `takeoff.Proposal` (subject `relation`, outcome `changed`: S-117 hosted in W-5-23).
+   - `takeoff.Question` Q9 (kind `relation`; message code and parameters: the socket, the wall, the
+     distance; options code found: move with the wall; re-host to wall W-5-24 where it stands; hold for
+     the electrical consultant). `QuestionLink` blocks the relation's Proposal, not the wall's.
+7. **The QS confirms the wall.** `Confirmation` K40 (`revision`) → `ModelVersion` 61: W-5-23's old
+   state closes and a new one opens. The `hosted_in` relation stays open while Q9 is, and S-117 keeps
+   its last confirmed figure, flagged "awaiting answer" wherever it appears (as a Revision's awaiting
+   Elements are, ADR 0015). Nothing is silently orphaned.
+8. **Q9 answered "move with the wall"** (the electrical consultant confirmed it). `Confirmation` K41
+   (`question_answer`, linked to Q9) → `ModelVersion` 62: S-117's state closes and one at the new
+   position opens (its Trace of kind `question`); the `hosted_in` relation closes at 62 and a new
+   version opens (same ends, new position along the face). Had the wall been removed, the answer
+   "re-host to W-5-24" would have closed the relation and opened one to W-5-24.
+9. **The Revision Comparison against IE2** shows W-5-23's brickwork and plaster as quantity effects,
+   and S-117 as changed with no ৳ effect (a socket is enumerated, and the point's wiring is priced by
+   rule).
+
+**Gaps this exposed, and how they were closed.**
+- **A value from the site must not become the design.** Closed by Records beside Model Versions: a
+  Record names the design version in force, so As built compares with the state valid at that seq,
+  even after later Revisions.
+- **Evidence has to live somewhere.** A Record's evidence is a `StoredFile` of kind `evidence` under
+  the tenant's prefix, kept like any artefact an anchor names.
+- **A relation needs its own versions.** Closed by giving `ElementRelation` a validity range, so the
+  3D, the query and the Comparison read the relation valid at a Model Version.
+- **A Part that did not change still gets a Question.** The relation Checks run on every Confirmation
+  of either end, so an architectural Revision raises an electrical Question. It is keyed like any
+  other (`question_key`), so a re-read reuses its answer.
+
+## 6. Open questions for the owner (session 01, one at a time, each with a recommendation)
 1. **What the Priced BOQ shows while a Revision's changes await the QS.** Recommendation: keep the
    last confirmed figure for changed and removed elements, flagged "changed in rev B, awaiting
    Confirmation"; a new element counts for nothing until it is confirmed. The whole-building figure
@@ -629,34 +1019,99 @@ prices them.
    confirmed, with "measured so far: ৳X of an allowance of ৳Y" beside it; Vextrus proposes the switch
    and the QS may switch earlier (recorded). "Agree".
    **Superseded the same day:** allowances are held per Takeoff Step, not per Trade (ADR 0002 history),
-   because per Trade the Summary prototype showed 7 % measured with most of the frame done.
+   because per Trade the Summary prototype showed 7 % measured with most of the frame done; each step's
+   allowance is held as consumption per sft of Gross Floor Area priced at current Market Prices ("Q49
+   Agree"). Session 02 lets a step close with Questions open (Q22, below).
 3. **Labour Contracts** belong to the Developer, with a per-project override of rate or scope; for
    the Benchmark, a contract's ৳ is shared across its covered items in proportion to the labour their
    own Rate Analyses would have carried at Market Prices. "Agree".
 4. **Rounding:** each Measurement Line to 2 dp in its Billing Unit, the item quantity their sum;
    countable units (nos, bags, kg of rebar) to whole numbers, tons to 3 dp (a Rule Set parameter); rates
    to the paisa; amount = ROUND(qty × rate, 2); the Estimate's layers on the rounded amounts; the
-   Material Schedule rounds up. "Agree".
+   Material Schedule rounds up. "Agree". *(Session 02 Q15, ADR 0038: "the paisa" is now the currency's
+   minor unit, which for ৳ is the paisa.)*
 5. **Market Price sets:** edits go into the current working set; a new set is copied only when an
    Issued Estimate freezes the current one; each price keeps its last-changed date. "Agree".
 6. **Rebar Measurement Lines** are held to 2 decimals of a kg and the item total to whole kg (refines 4;
    the BOQ grid prototype showed whole-kg lines up to 8 % off). "Agree with 1–6".
 
+### Session 02's rulings behind this revision (27–28 Sep 2026)
+Each in the owner's words; the full question and recommendation are in
+`docs/reviews/session-02-grill.md`.
+- **Q1, Q2: the Live Model and its Life Phases** (ADR 0035): "Agree with B. And yes, now a days lots of
+  Dhaka Developers we know run after-sales or facility management for their buildings …"; "Agree with B,
+  Live Model and Life Phase".
+- **Q4: a Site and Buildings** (ADR 0036): "Agree with B on Q4 … the Developers we'd onboard first have a
+  multi-building project on their books are low but they are the most premium client whom we priorities
+  most."
+- **Q5: one Element per physical piece** (ADR 0015): "Agree with B on Q5".
+- **Q6: values layered by Life Phase, Deviations shown** (ADR 0035): "Agree with B on Q6, agree on
+  Deviation joins the glossary …".
+- **Q7: each Element's issued cost** (ADR 0028): "Agree with B on Q7".
+- **Q11: Memberships scoped to Projects, outsiders by invitation** (ADR 0034): "Agree with B on Q11."
+- **Q12: IFC-ready, no export in the MVP** (ADRs 0035, 0022): "Agree with A on Q12".
+- **Q14: Attributes and Records** (ADR 0037): "Agree with your recommendation on Q14. …".
+- **Q15: Markets as data** (ADR 0038): "Agree with your recommendation on Q15".
+- **Q16: Drafting Profiles, pooled with permission** (ADR 0039): "I think we can go for C for Q16 …".
+- **Q17: the assistant is the Live Model's query** (ADR 0011): "Agree with B on Q17".
+- **Q18: Python 3.14, PostgreSQL 18, `ids.new_id()`, `nullif`** (ADR 0034): "Agree with your
+  recommendation on Q18".
+- **Q19: Uniclass 2015 and PWD SoR references** (ADR 0037): "Agree with your recommendation on Q19".
+- **Q22: a step may close with Questions open** (ADR 0002): "Agree with B on Q22".
+- **Q29: MEP read in M3** (ADRs 0040, 0007): "Agree with your recommendation B on Q29."
+- **Q31: Discipline Parts in one Live Model** (ADR 0040): "Agree with D on Q31."
+- **Q32: the MEP conventions** (bd-defaults): "Agree with your recommendation on Q32: all four as
+  proposed."
+- **The finish:** "Take every necessary actions, update and write all files to end the session."
+
+### Left for the specs after session 02 (my recommendations; the specs decide)
+1. **An outsider's end date.** The grill's Q11 put outsiders in "only as named, scoped, time-bound
+   invitations"; ADR 0034 says "time-bound where the Developer wants it", and the M0 spec gives every
+   invitation an optional end date (story 101, ticket 07). Recommendation: an end date required for a
+   `guest` and for anyone else from outside the Developer, as the grill ruled.
+2. **Project or Building.** The Priced BOQ, the Cost Basis and the cache are per Building; the
+   Estimate's layers and issues are per Project, summing its Buildings (§3.5). CONTEXT.md's "the total
+   cost of a building" holds while a Project has one. The M4 spec decides how two Buildings show and
+   where the Site's works are priced; until then the one Building carries them.
+3. **Elements of the Site** (site services, chambers; M3). Recommendation: `Element.site_id` when
+   `building_id` is empty, and their Relations may cross into a Building.
+4. **Saved views** (M3). Recommendation: saved queries in `assistant`, since the query is its own.
+   (Placed dimensions and note pins are settled: `takeoff.Annotation`, §3.4.)
+5. **Which side of a `same_thing_as` pair is priced.** Recommendation: a Measurement Rule; by default
+   the plumbing Part's Element for sanitary ware (Q32: sanitary ware in, under plumbing).
+6. **MEP Systems and Circuits** (groups, "in system" in the research). For the M3 spec, with the board
+   schedules that check N.
+
 ## 7. Deliberately left out of the MVP
 - **Answer Keys and Hand Takeoffs** never enter the product database (ADR 0026).
-- **One building, one Drawing Set per project.** Multi-building projects wait.
+- **A second Building read and priced** waits for M4; its seam is in from M0 (ADR 0036). One Drawing
+  Set per Project stays.
+- **IFC export and import** (s02 Q12; ADRs 0035, 0022). The data is IFC-ready from M1; an exporter comes
+  when the first client or market asks, behind ADR 0031's validation gate. The share link is GLB.
+- **MEP run lengths** (ADR 0040). Runs are priced by QS-confirmed rules per point and per fixture; true
+  lengths are read after the MVP. Hard-clash detection between MEP runs and structure waits too.
+- **Writing Records.** The As built and As maintained tables exist, empty, from M0; cost control and
+  after-sales write them after the MVP (docs/milestones.md). No As maintained content (O&M Attribute
+  Definitions, COBie export, maintained-asset groupings, an Element Type table) ships in the MVP.
+- **The Apartment family** is sketched in the family list, and nothing reads it (s02 Q3).
+- **A Discipline Part's lock** is a column, unused while one QS measures every Part (s02 Q31).
+- **A second Market** (ADR 0038): translations and their fonts, right-to-left testing, the digit
+  switch, that Market's Rule Set, rates and price book, calendars, exchange rates, and the PDF engine for
+  non-Latin scripts. Only the English catalogue ships.
+- **A cross-cell directory** (one login across cells), a global share-link router, and moving a tenant
+  between cells (ADR 0038).
+- **OmniClass and MasterFormat** (s02 Q19; ADR 0037), until a North American customer and a lawyer.
 - **Rate Analysis alternatives.** A per-project alternative Rate Analysis (for example, ready-mix for
   one project only) waits; the Developer's one Rate Analysis per item is used.
 - **Rebar prices.** Per-diameter rebar prices wait: one rebar Resource per grade, with the diameter as a
   split of the quantity.
 - **PWD added rates** per floor and per metre over 4 m (Benchmark only).
-- **Construction baselines.** Cast stages marked done, and the construction baseline after work
-  starts (QS critic #16).
+- **Construction baselines** after work starts (QS critic #16) wait with cost control.
 - **The watcher.** Watch rules and alert rows wait: the Target Cost warning is computed on read.
   The DomainEvent outbox is already there for the watcher.
 - **Project memory:** `Document` and `DocumentChunk` with pgvector.
 - **Row-history triggers** on money tables.
-- **Billing Developers.** Vextrus's own per-project billing records (ADR 0012) wait.
+- **Billing Developers.** Vextrus's own per-project billing records (ADR 0033) wait.
 - **Re-anchoring old Traces** so old artefacts can be deleted. Every artefact is kept; the trigger
   to revisit is measured storage cost.
-- **IFC import** and scanned drawings.
+- **Scanned drawings** (ADR 0014).

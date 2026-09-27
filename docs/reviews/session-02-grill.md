@@ -411,3 +411,13 @@ inputs on last small remaining things … Take every necessary actions", each op
   (ADR 0034 as amended in Q11); `CONTEXT.md` gains the term.
 - Placed dimensions and note pins (M2) belong to `takeoff` as annotations anchored to Element identity.
 - ADR 0022's budgets line now names the reference setup, not a laptop.
+- A Guest's end date is the Developer's choice ("time-bound where the Developer wants it", as Q11's option
+  B was put); a Vextrus Engineer's stays required.
+- The Priced BOQ, Cost Basis and Model Versions are per Building; the Estimate's layers and Issued
+  Estimates per Project (its Buildings and Site), each pinning every Building's Model Version.
+- Elements a closed step holds "awaiting answer" enter the Live Model and the Priced BOQ flagged
+  (Q22); `CONTEXT.md`'s Confirmation says so.
+- In M1, steps not yet read have no geometry and are absent from the 3D; the design system's pale-grey
+  context applies once geometry exists.
+- M4 reads shear-wall and core rebar from the drawing after beams and slabs; Rebar Ratio overrides per
+  Storey Band are M2's.

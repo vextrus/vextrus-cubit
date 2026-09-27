@@ -247,8 +247,8 @@ totalled on.
 _Avoid_: SoR rate (as if it were the working rate), standard rate
 
 **Estimate**:
-The total cost of a building: the Priced BOQ's direct cost plus preliminaries and site overheads,
-contingency and taxes, each layer shown and editable by the Developer.
+The total cost of a Project (its Buildings and its Site): the Priced BOQ's direct cost plus
+preliminaries and site overheads, contingency and taxes, each layer shown and editable by the Developer.
 _Avoid_: budget, quotation, bid
 
 ### Takeoff
@@ -290,7 +290,8 @@ _Avoid_: suggestion, candidate, detection, draft
 
 **Confirmation**:
 The QS's acceptance of Proposals, made in bulk for the ones that agree and one by one for the
-exceptions; only confirmed elements enter the Live Model and the Priced BOQ.
+exceptions; only confirmed elements enter the Live Model and the Priced BOQ, save those a closed Takeoff
+Step holds at their best candidate, flagged "awaiting answer" until their Question is answered.
 _Avoid_: approval, sign-off, commit, act
 
 **Question**:
