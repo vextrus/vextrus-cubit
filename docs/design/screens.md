@@ -61,7 +61,7 @@ most probably 10% which was 7.5% before".
 8. **The tax layer:** VAT and AIT deducted on Labour Contract bills. VAT at 10 % (7.5 % before);
    the AIT rate is to be confirmed from NBR and held as dated data.
 
-## The sheet (prototype: 38 real structural sheets from engine buffers) and the 3D Building Model
+## The sheet (prototype: 38 real structural sheets from engine buffers) and the 3D Live Model (then called the Building Model)
 ## (prototype: 1,269 elements from the real read)
 The owner judged both in the browser and ran them on the reference setup (integrated GPU, low
 performance): "still it's managing to hold up and it'll do the work" (26 Sep 2026; the figures of that
@@ -77,7 +77,7 @@ The sheet:
 4. **The sheet opens on Engine;** Plot and Compare one key away (P).
 5. **A sheet opens fitted to its working view** (the plan and its title).
 
-The 3D Building Model:
+The 3D Live Model:
 6. **Proposals are opaque cyan with dashed edges,** never translucent.
 7. **A column is one Element per Storey Band,** drawn and measured storey by storey, selected and
    confirmed as one. *Refined in session 02 (Q5): one Element per storey, the Storey Band a fact and the
