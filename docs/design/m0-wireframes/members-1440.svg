@@ -9,79 +9,112 @@
 <text x="1010" y="25" font-size="13" fill="#5F6772" font-weight="400" text-anchor="start">Jump to…</text>
 <text x="1208" y="24" font-size="11" fill="#5F6772" font-weight="500" text-anchor="end">Ctrl K</text>
 <text x="1428" y="25" font-size="13" fill="#262B33" font-weight="400" text-anchor="end">Kamal Uddin, MD ▾</text>
-<text x="160.0" y="82" font-size="20" fill="#262B33" font-weight="600" text-anchor="start">Members and access</text>
-<text x="160.0" y="102" font-size="13" fill="#5F6772" font-weight="400" text-anchor="start">Who can open Shapla Homes Ltd&#x27;s projects</text>
-<rect x="1200.0" y="64" width="80" height="28" rx="4" fill="#5A4FB0"/>
-<text x="1240.0" y="82.5" font-size="13" fill="#fff" font-weight="500" text-anchor="middle">Invite</text>
-<text x="160.0" y="130" font-size="14" fill="#262B33" font-weight="600" text-anchor="start">People at Shapla Homes Ltd</text>
-<rect x="160.0" y="140" width="1120" height="28" rx="0" fill="#EFF0EF"/>
-<text x="168.0" y="158" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Name</text>
-<text x="408.0" y="158" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Email</text>
-<text x="768.0" y="158" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Role</text>
-<text x="1272.0" y="158" font-size="12" fill="#4A515B" font-weight="600" text-anchor="end">Since</text>
-<rect x="160.0" y="168" width="1120" height="28" rx="0" fill="#FFFFFF"/>
-<line x1="160.0" y1="196" x2="1280.0" y2="196" stroke="#D6D9D8" stroke-width="1"/>
-<text x="168.0" y="186" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">Kamal Uddin (you)</text>
-<text x="408.0" y="186" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">kamal@shapla-homes.example</text>
-<text x="768.0" y="186" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">MD</text>
-<text x="1272.0" y="186" font-size="13" fill="#262B33" font-weight="400" text-anchor="end">1 Sep 2026</text>
-<rect x="160.0" y="196" width="1120" height="28" rx="0" fill="#FFFFFF"/>
-<line x1="160.0" y1="224" x2="1280.0" y2="224" stroke="#D6D9D8" stroke-width="1"/>
-<text x="168.0" y="214" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">Nusrat Jahan</text>
-<text x="408.0" y="214" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">nusrat@shapla-homes.example</text>
-<text x="768.0" y="214" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">QS</text>
-<text x="1272.0" y="214" font-size="13" fill="#262B33" font-weight="400" text-anchor="end">3 Sep 2026</text>
-<text x="160.0" y="252" font-size="14" fill="#262B33" font-weight="600" text-anchor="start">Vextrus access</text>
-<text x="290.0" y="252" font-size="12" fill="#5F6772" font-weight="400" text-anchor="start">Vextrus sees your data only while an invitation below is live. You can end it at any time.</text>
-<rect x="160.0" y="262" width="1120" height="28" rx="0" fill="#EFF0EF"/>
-<text x="168.0" y="280" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Vextrus Engineer</text>
-<text x="368.0" y="280" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Invited by</text>
-<text x="518.0" y="280" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">From</text>
-<text x="638.0" y="280" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Until</text>
-<text x="788.0" y="280" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Acts</text>
-<text x="1272.0" y="280" font-size="12" fill="#4A515B" font-weight="600" text-anchor="end"></text>
-<rect x="160.0" y="290" width="1120" height="28" rx="0" fill="#FFFFFF"/>
-<line x1="160.0" y1="318" x2="1280.0" y2="318" stroke="#D6D9D8" stroke-width="1"/>
-<text x="168.0" y="308" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">Arif Rahman</text>
-<text x="368.0" y="308" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">Kamal Uddin</text>
-<text x="518.0" y="308" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">26 Sep 2026</text>
-<text x="638.0" y="308" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">26 Oct 2026</text>
-<text x="788.0" y="308" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">12 acts, last 26 Sep 2026</text>
-<text x="1272.0" y="308" font-size="13" fill="#262B33" font-weight="400" text-anchor="end"></text>
-<rect x="1080.0" y="292" width="112" height="24" rx="4" fill="#FFFFFF" stroke="#BFC4C3" stroke-width="1"/>
-<text x="1136.0" y="308.5" font-size="13" fill="#262B33" font-weight="500" text-anchor="middle">Renew 30 days</text>
-<rect x="1200.0" y="292" width="72" height="24" rx="4" fill="#FFFFFF" stroke="#BFC4C3" stroke-width="1"/>
-<text x="1236.0" y="308.5" font-size="13" fill="#262B33" font-weight="500" text-anchor="middle">Revoke</text>
-<text x="160.0" y="346" font-size="14" fill="#262B33" font-weight="600" text-anchor="start">Invitations not used yet</text>
-<rect x="160.0" y="356" width="1120" height="28" rx="0" fill="#EFF0EF"/>
-<text x="168.0" y="374" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Email</text>
-<text x="528.0" y="374" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Role</text>
-<text x="728.0" y="374" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Link works until</text>
-<text x="1272.0" y="374" font-size="12" fill="#4A515B" font-weight="600" text-anchor="end"></text>
-<rect x="160.0" y="384" width="1120" height="28" rx="0" fill="#FFFFFF"/>
-<line x1="160.0" y1="412" x2="1280.0" y2="412" stroke="#D6D9D8" stroke-width="1"/>
-<text x="168.0" y="402" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">rumana@shapla-homes.example</text>
-<text x="528.0" y="402" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">QS</text>
-<text x="728.0" y="402" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">3 Oct 2026</text>
-<text x="1272.0" y="402" font-size="13" fill="#262B33" font-weight="400" text-anchor="end"></text>
-<rect x="1080.0" y="386" width="96" height="24" rx="4" fill="#FFFFFF" stroke="#BFC4C3" stroke-width="1"/>
-<text x="1128.0" y="402.5" font-size="13" fill="#262B33" font-weight="500" text-anchor="middle">Copy link</text>
-<rect x="1184.0" y="386" width="88" height="24" rx="4" fill="none"/>
-<text x="1228.0" y="402.5" font-size="13" fill="#262B33" font-weight="500" text-anchor="middle">Withdraw</text>
-<rect x="860.0" y="452" width="420" height="250" rx="8" fill="#FFFFFF" stroke="#D6D9D8" stroke-width="1"/>
-<text x="876.0" y="480" font-size="16" fill="#262B33" font-weight="500" text-anchor="start">Invite someone to Shapla Homes Ltd</text>
-<text x="876.0" y="510" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Email</text>
-<rect x="876.0" y="516" width="388" height="28" rx="4" fill="#FFFFFF" stroke="#7F868D" stroke-width="1"/>
-<text x="876.0" y="566" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Role</text>
-<rect x="876.0" y="572" width="120" height="28" rx="4" fill="#FFFFFF" stroke="#BFC4C3" stroke-width="1"/>
-<text x="936.0" y="590" font-size="13" fill="#262B33" font-weight="400" text-anchor="middle">QS</text>
-<rect x="1004.0" y="572" width="120" height="28" rx="4" fill="#FFFFFF" stroke="#BFC4C3" stroke-width="1"/>
-<text x="1064.0" y="590" font-size="13" fill="#262B33" font-weight="400" text-anchor="middle">MD</text>
-<rect x="1132.0" y="572" width="120" height="28" rx="4" fill="#ECEAFA" stroke="#5A4FB0" stroke-width="1"/>
-<text x="1192.0" y="590" font-size="13" fill="#262B33" font-weight="400" text-anchor="middle">Vextrus Engineer</text>
-<text x="876.0" y="626" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Access ends on</text>
-<rect x="876.0" y="632" width="160" height="28" rx="4" fill="#FFFFFF" stroke="#7F868D" stroke-width="1"/>
-<text x="886.0" y="651" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">26 Oct 2026 (30 days)</text>
-<rect x="1136.0" y="664" width="128" height="28" rx="4" fill="#5A4FB0"/>
-<text x="1200.0" y="682.5" font-size="13" fill="#fff" font-weight="500" text-anchor="middle">Create link</text>
+<text x="160" y="82" font-size="20" fill="#262B33" font-weight="600" text-anchor="start">Members and access</text>
+<text x="160" y="102" font-size="13" fill="#5F6772" font-weight="400" text-anchor="start">Who can open Shapla Homes Ltd&#x27;s projects</text>
+<rect x="1200" y="64" width="80" height="28" rx="4" fill="#5A4FB0"/>
+<text x="1240" y="82.5" font-size="13" fill="#fff" font-weight="500" text-anchor="middle">Invite</text>
+<text x="160" y="130" font-size="14" fill="#262B33" font-weight="600" text-anchor="start">People at Shapla Homes Ltd</text>
+<rect x="160" y="140" width="1120" height="28" rx="0" fill="#EFF0EF"/>
+<text x="168" y="158" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Name</text>
+<text x="348" y="158" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Email</text>
+<text x="588" y="158" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Role</text>
+<text x="668" y="158" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Projects</text>
+<text x="788" y="158" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Since</text>
+<text x="898" y="158" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Until</text>
+<rect x="160" y="168" width="1120" height="28" rx="0" fill="#FFFFFF"/>
+<line x1="160" y1="196" x2="1280" y2="196" stroke="#D6D9D8" stroke-width="1"/>
+<text x="168" y="186" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">Kamal Uddin (you)</text>
+<text x="348" y="186" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">kamal@shapla-homes.example</text>
+<text x="588" y="186" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">MD</text>
+<text x="668" y="186" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">All projects</text>
+<text x="788" y="186" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">1 Sep 2026</text>
+<text x="898" y="186" font-size="13" fill="#5F6772" font-weight="400" text-anchor="start">—</text>
+<rect x="160" y="196" width="1120" height="28" rx="0" fill="#FFFFFF"/>
+<line x1="160" y1="224" x2="1280" y2="224" stroke="#D6D9D8" stroke-width="1"/>
+<text x="168" y="214" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">Nusrat Jahan</text>
+<text x="348" y="214" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">nusrat@shapla-homes.example</text>
+<text x="588" y="214" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">QS</text>
+<text x="668" y="214" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">All projects</text>
+<text x="788" y="214" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">3 Sep 2026</text>
+<text x="898" y="214" font-size="13" fill="#5F6772" font-weight="400" text-anchor="start">—</text>
+<rect x="1200" y="198" width="72" height="24" rx="4" fill="#FFFFFF" stroke="#BFC4C3" stroke-width="1"/>
+<text x="1236.0" y="214.5" font-size="13" fill="#262B33" font-weight="500" text-anchor="middle">Revoke</text>
+<rect x="160" y="224" width="1120" height="28" rx="0" fill="#FFFFFF"/>
+<line x1="160" y1="252" x2="1280" y2="252" stroke="#D6D9D8" stroke-width="1"/>
+<text x="168" y="242" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">Farhana Kabir</text>
+<text x="348" y="242" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">farhana@padma-builders.example</text>
+<text x="588" y="242" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">Guest</text>
+<text x="668" y="242" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">KR-01</text>
+<text x="788" y="242" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">26 Sep 2026</text>
+<text x="898" y="242" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">26 Oct 2026</text>
+<rect x="1200" y="226" width="72" height="24" rx="4" fill="#FFFFFF" stroke="#BFC4C3" stroke-width="1"/>
+<text x="1236.0" y="242.5" font-size="13" fill="#262B33" font-weight="500" text-anchor="middle">Revoke</text>
+<rect x="1080" y="226" width="112" height="24" rx="4" fill="#FFFFFF" stroke="#BFC4C3" stroke-width="1"/>
+<text x="1136.0" y="242.5" font-size="13" fill="#262B33" font-weight="500" text-anchor="middle">Renew 30 days</text>
+<text x="160" y="280" font-size="14" fill="#262B33" font-weight="600" text-anchor="start">Vextrus access</text>
+<text x="290" y="280" font-size="12" fill="#5F6772" font-weight="400" text-anchor="start">Vextrus sees your data only while an invitation below is current. You can end it at any time.</text>
+<rect x="160" y="290" width="1120" height="28" rx="0" fill="#EFF0EF"/>
+<text x="168" y="308" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Vextrus Engineer</text>
+<text x="308" y="308" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Invited by</text>
+<text x="428" y="308" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Projects</text>
+<text x="538" y="308" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">From</text>
+<text x="638" y="308" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Until</text>
+<text x="738" y="308" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Acts</text>
+<rect x="160" y="318" width="1120" height="28" rx="0" fill="#FFFFFF"/>
+<line x1="160" y1="346" x2="1280" y2="346" stroke="#D6D9D8" stroke-width="1"/>
+<text x="168" y="336" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">Arif Rahman</text>
+<text x="308" y="336" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">Kamal Uddin</text>
+<text x="428" y="336" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">All projects</text>
+<text x="538" y="336" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">26 Sep 2026</text>
+<text x="638" y="336" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">26 Oct 2026</text>
+<text x="738" y="336" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">12 acts, last 26 Sep 2026</text>
+<rect x="1200" y="320" width="72" height="24" rx="4" fill="#FFFFFF" stroke="#BFC4C3" stroke-width="1"/>
+<text x="1236.0" y="336.5" font-size="13" fill="#262B33" font-weight="500" text-anchor="middle">Revoke</text>
+<rect x="1080" y="320" width="112" height="24" rx="4" fill="#FFFFFF" stroke="#BFC4C3" stroke-width="1"/>
+<text x="1136.0" y="336.5" font-size="13" fill="#262B33" font-weight="500" text-anchor="middle">Renew 30 days</text>
+<text x="160" y="374" font-size="14" fill="#262B33" font-weight="600" text-anchor="start">Invitations not used yet</text>
+<rect x="160" y="384" width="1120" height="28" rx="0" fill="#EFF0EF"/>
+<text x="168" y="402" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Email</text>
+<text x="468" y="402" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Role</text>
+<text x="568" y="402" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Projects</text>
+<text x="728" y="402" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Link works until</text>
+<rect x="160" y="412" width="1120" height="28" rx="0" fill="#FFFFFF"/>
+<line x1="160" y1="440" x2="1280" y2="440" stroke="#D6D9D8" stroke-width="1"/>
+<text x="168" y="430" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">rumana@shapla-homes.example</text>
+<text x="468" y="430" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">QS</text>
+<text x="568" y="430" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">All projects</text>
+<text x="728" y="430" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">3 Oct 2026</text>
+<rect x="1184" y="414" width="88" height="24" rx="4" fill="none"/>
+<text x="1228.0" y="430.5" font-size="13" fill="#262B33" font-weight="500" text-anchor="middle">Withdraw</text>
+<rect x="1080" y="414" width="96" height="24" rx="4" fill="#FFFFFF" stroke="#BFC4C3" stroke-width="1"/>
+<text x="1128.0" y="430.5" font-size="13" fill="#262B33" font-weight="500" text-anchor="middle">Copy link</text>
+<rect x="860" y="446" width="420" height="342" rx="8" fill="#FFFFFF" stroke="#D6D9D8" stroke-width="1"/>
+<text x="876" y="472" font-size="16" fill="#262B33" font-weight="500" text-anchor="start">Invite someone to Shapla Homes Ltd</text>
+<text x="876" y="494" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Email</text>
+<rect x="876" y="500" width="388" height="28" rx="4" fill="#FFFFFF" stroke="#7F868D" stroke-width="1"/>
+<text x="886" y="519" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">jamal@padma-builders.example</text>
+<text x="876" y="546" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Role</text>
+<rect x="876" y="552" width="56" height="28" rx="4" fill="#FFFFFF" stroke="#BFC4C3" stroke-width="1"/>
+<text x="904" y="570" font-size="13" fill="#262B33" font-weight="400" text-anchor="middle">QS</text>
+<rect x="940" y="552" width="56" height="28" rx="4" fill="#FFFFFF" stroke="#BFC4C3" stroke-width="1"/>
+<text x="968" y="570" font-size="13" fill="#262B33" font-weight="400" text-anchor="middle">MD</text>
+<rect x="1004" y="552" width="80" height="28" rx="4" fill="#ECEAFA" stroke="#5A4FB0" stroke-width="1"/>
+<text x="1044" y="570" font-size="13" fill="#262B33" font-weight="400" text-anchor="middle">Guest</text>
+<rect x="1092" y="552" width="172" height="28" rx="4" fill="#FFFFFF" stroke="#BFC4C3" stroke-width="1"/>
+<text x="1178" y="570" font-size="13" fill="#262B33" font-weight="400" text-anchor="middle">Vextrus Engineer</text>
+<text x="876" y="596" font-size="11" fill="#5F6772" font-weight="400" text-anchor="start">Read only: a Guest can look at the drawings and the Takeoff of the</text>
+<text x="876" y="609" font-size="11" fill="#5F6772" font-weight="400" text-anchor="start">chosen projects, and change nothing.</text>
+<text x="876" y="629" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Projects</text>
+<rect x="876" y="635" width="120" height="28" rx="4" fill="#FFFFFF" stroke="#BFC4C3" stroke-width="1"/>
+<text x="936" y="653" font-size="13" fill="#262B33" font-weight="400" text-anchor="middle">All projects</text>
+<rect x="1004" y="635" width="140" height="28" rx="4" fill="#ECEAFA" stroke="#5A4FB0" stroke-width="1"/>
+<text x="1074" y="653" font-size="13" fill="#262B33" font-weight="400" text-anchor="middle">Chosen projects</text>
+<text x="880" y="681" font-size="12" fill="#262B33" font-weight="400" text-anchor="start">☑  KR-01  Kadam Residence</text>
+<text x="880" y="699" font-size="12" fill="#262B33" font-weight="400" text-anchor="start">☐  BP-02  Bokul Place</text>
+<text x="880" y="717" font-size="12" fill="#262B33" font-weight="400" text-anchor="start">☐  SG-03  Shimul Garden</text>
+<text x="880" y="739" font-size="12" fill="#262B33" font-weight="400" text-anchor="start">☑  End their access on a date</text>
+<rect x="900" y="746" width="160" height="28" rx="4" fill="#FFFFFF" stroke="#7F868D" stroke-width="1"/>
+<text x="910" y="765" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">26 Oct 2026 (30 days)</text>
+<rect x="1136" y="746" width="128" height="28" rx="4" fill="#5A4FB0"/>
+<text x="1200" y="764.5" font-size="13" fill="#fff" font-weight="500" text-anchor="middle">Create link</text>
 </svg>

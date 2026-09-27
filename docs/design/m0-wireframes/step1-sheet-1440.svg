@@ -53,23 +53,29 @@
 <text x="156" y="61" font-size="13" fill="#4A515B" font-weight="400" text-anchor="start">Confirmed 1 / 68, 1 excluded</text>
 <rect x="1084" y="44" width="24" height="24" rx="3" fill="none" stroke="#D6D9D8" stroke-width="1"/>
 <text x="1096" y="60" font-size="12" fill="#4A515B" font-weight="500" text-anchor="middle">?</text>
-<rect x="1044" y="44" width="30" height="24" rx="3" fill="#F4F5F4" stroke="#D6D9D8" stroke-width="1"/>
-<text x="1059" y="60" font-size="12" fill="#4A515B" font-weight="500" text-anchor="middle">Fit</text>
-<rect x="974" y="44" width="66" height="24" rx="3" fill="#F4F5F4" stroke="#D6D9D8" stroke-width="1"/>
-<text x="1007" y="60" font-size="12" fill="#4A515B" font-weight="500" text-anchor="middle">CAD-dark</text>
-<rect x="904" y="44" width="66" height="24" rx="3" fill="#F4F5F4"/>
-<text x="937" y="60" font-size="12" fill="#5F6772" font-weight="500" text-anchor="middle">Compare</text>
-<rect x="860" y="44" width="44" height="24" rx="3" fill="#F4F5F4"/>
-<text x="882" y="60" font-size="12" fill="#5F6772" font-weight="500" text-anchor="middle">Plot</text>
-<rect x="798" y="44" width="62" height="24" rx="3" fill="#FFFFFF" stroke="#BFC4C3" stroke-width="1"/>
-<text x="829" y="60" font-size="12" fill="#262B33" font-weight="500" text-anchor="middle">As read</text>
-<rect x="730" y="44" width="58" height="24" rx="3" fill="#FFFFFF" stroke="#BFC4C3" stroke-width="1"/>
-<text x="759" y="60" font-size="12" fill="#262B33" font-weight="500" text-anchor="middle">▤ Sheet</text>
-<rect x="680" y="44" width="50" height="24" rx="3" fill="#F4F5F4"/>
-<text x="705" y="60" font-size="12" fill="#5F6772" font-weight="500" text-anchor="middle">≡ List</text>
+<rect x="1052" y="44" width="28" height="24" rx="3" fill="none" stroke="#D6D9D8" stroke-width="1"><title>More: Fonts</title></rect>
+<text x="1066" y="60" font-size="13" fill="#4A515B" font-weight="500" text-anchor="middle">…</text>
+<rect x="1020" y="44" width="28" height="24" rx="3" fill="none" stroke="#D6D9D8" stroke-width="1"><title>View outlines  O</title></rect>
+<text x="1034" y="60" font-size="13" fill="#4A515B" font-weight="500" text-anchor="middle">▭</text>
+<rect x="988" y="44" width="28" height="24" rx="3" fill="none" stroke="#D6D9D8" stroke-width="1"><title>Zoom to the selected view  Z</title></rect>
+<text x="1002" y="60" font-size="13" fill="#4A515B" font-weight="500" text-anchor="middle">⊡</text>
+<rect x="956" y="44" width="28" height="24" rx="3" fill="none" stroke="#D6D9D8" stroke-width="1"><title>Fit the whole sheet  F</title></rect>
+<text x="970" y="60" font-size="13" fill="#4A515B" font-weight="500" text-anchor="middle">⤢</text>
+<rect x="924" y="44" width="28" height="24" rx="3" fill="none" stroke="#D6D9D8" stroke-width="1"><title>CAD-dark  D</title></rect>
+<text x="938" y="60" font-size="13" fill="#4A515B" font-weight="500" text-anchor="middle">◐</text>
+<rect x="850" y="44" width="66" height="24" rx="3" fill="#F4F5F4"/>
+<text x="883" y="60" font-size="12" fill="#5F6772" font-weight="500" text-anchor="middle">Compare</text>
+<rect x="806" y="44" width="44" height="24" rx="3" fill="#F4F5F4"/>
+<text x="828" y="60" font-size="12" fill="#5F6772" font-weight="500" text-anchor="middle">Plot</text>
+<rect x="744" y="44" width="62" height="24" rx="3" fill="#FFFFFF" stroke="#BFC4C3" stroke-width="1"/>
+<text x="775" y="60" font-size="12" fill="#262B33" font-weight="500" text-anchor="middle">As read</text>
+<rect x="676" y="44" width="58" height="24" rx="3" fill="#FFFFFF" stroke="#BFC4C3" stroke-width="1"/>
+<text x="705" y="60" font-size="12" fill="#262B33" font-weight="500" text-anchor="middle">▤ Sheet</text>
+<rect x="626" y="44" width="50" height="24" rx="3" fill="#F4F5F4"/>
+<text x="651" y="60" font-size="12" fill="#5F6772" font-weight="500" text-anchor="middle">≡ List</text>
 <line x1="369.2" y1="50" x2="369.2" y2="64" stroke="#D6D9D8" stroke-width="1"/>
-<text x="379.2" y="61" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">▤ S-20  8th &amp; 9th floor beam l…</text>
-<text x="622" y="61" font-size="14" fill="#4A515B" font-weight="400" text-anchor="start">‹   ›</text>
+<text x="379.2" y="61" font-size="13" fill="#262B33" font-weight="400" text-anchor="start">▤ S-20  8th &amp; 9th floor…</text>
+<text x="572" y="61" font-size="14" fill="#4A515B" font-weight="400" text-anchor="start">‹   ›</text>
 <rect x="48" y="72" width="1072" height="804" rx="0" fill="#FFFFFF"/>
 <rect x="56" y="80" width="392" height="24" rx="4" fill="#FFFFFF" stroke="#D6D9D8" stroke-width="1"/>
 <text x="66" y="96" font-size="12" fill="#4A515B" font-weight="400" text-anchor="start">Views</text>
@@ -213,7 +219,7 @@
 <text x="1214" y="348" font-size="12" fill="#262B33" font-weight="400" text-anchor="start">NT-STR-R1.pdf page 20, registe…</text>
 <line x1="1120" y1="367" x2="1440" y2="367" stroke="#D6D9D8" stroke-width="1"/>
 <text x="1132" y="387" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Views  3</text>
-<text x="1428" y="387" font-size="11" fill="#5F6772" font-weight="400" text-anchor="end">→ walks them; A assigns; X excludes</text>
+<text x="1428" y="387" font-size="11" fill="#5F6772" font-weight="400" text-anchor="end">→ walks them; X excludes</text>
 <rect x="1132" y="398" width="10" height="10" rx="1" fill="none" stroke="#0A6C80" stroke-width="1.2" stroke-dasharray="2 1.5"/>
 <text x="1148" y="407" font-size="11" fill="#5F6772" font-weight="400" text-anchor="start">Plan</text>
 <text x="1178.8" y="407" font-size="12" fill="#262B33" font-weight="400" text-anchor="start">8th floor beam layout</text>
@@ -233,9 +239,9 @@
 <rect x="1132" y="476" width="10" height="10" rx="1" fill="none" stroke="#0A6C80" stroke-width="1.2" stroke-dasharray="2 1.5"/>
 <text x="1148" y="485" font-size="11" fill="#5F6772" font-weight="400" text-anchor="start">Title block</text>
 <text x="1222.2" y="485" font-size="12" fill="#262B33" font-weight="400" text-anchor="start">Title block</text>
-<rect x="1148" y="491" width="58" height="15" rx="2" fill="#FFFFFF" stroke="#BFC4C3" stroke-width="1"/>
-<text x="1153" y="502" font-size="10" fill="#4A515B" font-weight="400" text-anchor="start">1 Sheets</text>
-<text x="1212" y="502" font-size="11" fill="#5F6772" font-weight="400" text-anchor="start">proposed</text>
+<rect x="1148" y="491" width="132" height="15" rx="2" fill="#FFFFFF" stroke="#BFC4C3" stroke-width="1"/>
+<text x="1153" y="502" font-size="10" fill="#4A515B" font-weight="400" text-anchor="start">excluded: for information</text>
+<text x="1286" y="502" font-size="11" fill="#5F6772" font-weight="400" text-anchor="start">proposed</text>
 <line x1="1120" y1="524" x2="1440" y2="524" stroke="#D6D9D8" stroke-width="1"/>
 <text x="1132" y="544" font-size="12" fill="#4A515B" font-weight="600" text-anchor="start">Who did what</text>
 <text x="1132" y="562" font-size="11" fill="#5F6772" font-weight="400" text-anchor="start">Proposed by Vextrus from the file; no one has acted</text>

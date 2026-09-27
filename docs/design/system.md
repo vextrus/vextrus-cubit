@@ -5,6 +5,14 @@
 > Owner's rulings since: quantities group in lakh like money (ADR 0008), only coordinates and
 > dimensions never group. "Canvas ≥ 70 %" is measured by width with the inspector open (≥ 90 %
 > with it collapsed).
+>
+> **Revised in session 02 (28 Sep 2026); re-signed under the owner's delegation: "Take every necessary
+> actions, update and write all files to end the session."** The 2D sheet section is corrected to the
+> owner's sheet rulings 2 and 3 of 26 Sep 2026 (docs/design/screens.md: fine lines drawn as plotted,
+> faint by lineweight; a Proposal's outline 2 px outside, no white casing, a casing only in CAD-dark),
+> which this page contradicted (the plan's UX review, U5, docs/reviews/M0-plan-s02-resolution.md); the
+> method is docs/design/m0-screens.md §4.6. "Building Model" reads "Live Model" (session 02 Q2, ADR
+> 0035).
 
 Draft of 26 Sep 2026, for the owner's judgement in the browser. The tokens are one CSS file,
 `.private/work/session-01/design/src/tokens.css` (to be copied into the product's `src/ui/`). The
@@ -23,10 +31,12 @@ defects.
 - **The canvas share is 74% of the width at 1440 and 71% at 1280 (measured in the browser), but
   66.5% of the area,** because the inspector is docked. "Canvas ≥ 70%" holds by width only.
 - **The 2D sheet and the 3D model in the mock are hand-drawn SVG,** not dxf-viewer, pdf.js or
-  Three.js. The tokens they read are real; the rendering is not.
+  Three.js. The tokens they read are real; the rendering is not. (The session-01 sheet prototype later
+  drew real sheets from the engine's buffers in WebGL, and the owner ruled on what it showed,
+  docs/design/screens.md; its method is in docs/design/m0-screens.md §4.6.)
 - **The CAD-dark overlay colours can collide with AutoCAD layer colours** (our Proposal cyan is
-  close to ACI 4). The mitigation (a dark casing under every overlay stroke, and line type carrying
-  the meaning) is designed but not tested on a real consultant's sheet.
+  close to ACI 4). The mitigation (a dark casing under every overlay stroke in CAD-dark, and line type
+  carrying the meaning) is designed but not tested on a real consultant's sheet.
 - **Reduced motion** is in the tokens and the CSS but was not emulated in the walk.
 - **The ৳ face at small sizes** was checked by eye at 13–32 px in Chrome on Linux only, not on
   Windows ClearType, where the owner and the QS will see it.
@@ -125,24 +135,39 @@ a 2 px indigo outline that holds its width at every zoom (non-scaling stroke) ov
 (`--selection-halo`). 3D: indigo tint with indigo edges. Selecting in any one selects in all three.
 Hover: the halo alone (`--hover-halo`, 16% indigo), never the outline.
 
-### The 2D sheet (ADR 0032)
+### The 2D sheet (ADR 0032; the owner's sheet rulings, docs/design/screens.md)
 
 - **Paper (default):** white ground, every layer plots black (`--layer-*` all resolve to
-  `--canvas-ink` #000), lineweights from the drawing drawn as non-scaling strokes. Overlays sit on a
-  white casing (`--overlay-casing`) so they lift off black linework.
+  `--canvas-ink` #000). **Linework is drawn as plotted** (sheet ruling 2): each line at its plotted
+  lineweight, scaled with the zoom as paper would be; a line thinner than 1.5 device pixels on screen
+  is drawn 1 px wide and **faint by lineweight** (its alpha follows its width), so at fit a fine line
+  reads grey and a heavy one black, as on the consultant's plot. Linework is never a non-scaling
+  stroke, which would draw every line equally heavy at fit. The method, with its figures, is
+  docs/design/m0-screens.md §4.6.
+- **Overlays on Paper** (sheet ruling 3): a Proposal's outline, and every view outline, sits 2 px
+  outside the element on screen, in its status colour and line type, with **no casing**: no white
+  edge under it. Overlays (outlines, clouds, tags, the selection) hold their width at every zoom
+  (non-scaling), unlike linework.
 - **CAD-dark (one switch, key D):** ground #101318, AutoCAD's layer colours back (ACI 1–7 tokens,
   plus a lifted red for 4.5:1), overlays brighter (Proposal #3FC7E0 9.3:1, Confirmed #4CC38A 8.4:1,
   Question #F2A93B 9.3:1, selection #9D95F0 7.1:1) on a dark casing. ACI hues can match ours; line
-  type carries the meaning.
+  type carries the meaning. **`--overlay-casing` exists only in CAD-dark** (#101318, drawn 3.5 px
+  under each overlay stroke); the specimen's Paper value (#FFFFFF, "a white edge under overlay
+  strokes") is dropped when 01b copies the tokens, and nothing on Paper reads the token.
 - **Opening a sheet:** fit to the view being worked on, not the paper, and leave room for floating
   bars (the fit area excludes the legend strip and the Confirmation bar). A sheet never opens as a
   speck. Text under 6 px at the current zoom draws as a grey bar (`--canvas-dim-greek`).
-- **Drawing text** is decoded before anyone sees it (`%%C` → Ø, `%%D` → °, `%%P` → ±) and set in
-  Archivo at 87.5% width, like CAD lettering.
+- **A Trace flies tight to its source** (sheet ruling 1): the source's box padded to about 3×, never
+  under 100 mm of paper, in `--motion-flyto`.
+- **Drawing text** is decoded on the server before anyone sees it (`%%C` → Ø, `%%D` → °, `%%P` → ±)
+  and drawn as glyphs from the engine's buffers, in the free font the drawing's font report names for
+  each of its fonts (AutoCAD's stroke fonts as single strokes, like the plot); Archivo is the chrome's
+  face, not the drawing's.
 - **Legend strip** top-left of every canvas: each status with its glyph and count.
-- **Scale bar** with the confirmed drawing scale ("1:50"), never a zoom factor.
+- **Scale bar** with the drawing's scale, never a zoom factor: in M0 the stated scale ("1:100, as
+  stated"), and once a later Takeoff Step confirms it, the confirmed scale ("1:50").
 
-### The 3D Building Model (ADR 0032)
+### The Live Model in 3D (ADR 0032)
 
 Light ground (gradient #F7F8F8 → #DFE3E5), "shaded with edges" (edges #262B33), coloured by
 status as in the table above; context not yet taken off in pale grey #E4E7E6.
@@ -316,11 +341,12 @@ Built in the specimen as React + Tailwind v4 on the tokens; the product copies s
   the sheet at the place, Esc closes.
 - **Project Summary tiles:** Estimate (compact ৳, measured-share bar), per sft of Gross Floor Area,
   per sft of Saleable Area, Target Cost with "Over Target Cost by ৳42,65,400.00" and a triangle.
-  Below: cost by trade in work order (hatch for allowance), the Building Model (static sketch in the
+  Below: cost by trade in work order (hatch for allowance), the Live Model (static sketch in the
   mock), Takeoff counts, and consumption per sft of Gross Floor Area against sanity ranges. Works
   from 390 px (two-column tiles, stacked panels).
-- **Also used:** segmented control (Sheet | 3D, Paper | CAD-dark), icon tool buttons with pressed
-  state, legend strip, scale bar, Kbd.
+- **Also used:** segmented control (Sheet | 3D, List | Sheet, As read | Plot | Compare), icon tool
+  buttons with pressed state (CAD-dark is one: a toggle, not a "Paper | CAD-dark" segment, since
+  session 02; m0-screens §4.1's width budget), legend strip, scale bar, Kbd.
 
 ## 9. How the post-mortem's visible defects become impossible
 
