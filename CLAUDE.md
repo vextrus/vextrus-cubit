@@ -36,8 +36,6 @@ civil engineer and the CEO and co-founder. The previous product (Vextrus Cubit) 
     recursive `rm`. Delete files by name, or leave build output and say so.
   - Parallel agents share one chrome-devtools browser: select your own page by URL before every
     action; per-page viewport emulation only; never touch another agent's page.
-  - An app restart kills every background agent (27 Sep 2026): each long agent keeps a `NOTES.txt`
-    progress log and is told how to resume from it.
 
 ## Law
 - **Secrets** are never printed, written or committed (`TYPESAFE_API_KEY` lives in `~/.bashrc`).
@@ -65,6 +63,8 @@ after each commit. There are no build or test commands yet; M0 adds them here.
 - **Skills:** Matt Pocock's (`/ask-matt` routes; his review skill is `/spec-review`), plus our
   `product-review` and `real-drawings`. The built-in `/code-review` and `/code-review ultra` review PRs.
 - **MCP:** `chrome-devtools` (a headless browser for walking products).
+- **Background agents** die when the app restarts: each long one keeps a `NOTES.txt` progress log
+  and is told how to resume from it.
 
 ## Compact instructions
 When the context is compacted, keep: the session's goal and each finish-line condition's state; the
