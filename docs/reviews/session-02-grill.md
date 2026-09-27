@@ -197,3 +197,13 @@ an LLM (Level 3).
 **The owner's ruling.** "Agree with B on Q17"
 **Written into.** ADR 0011; the M2 spec's assistant section changes when levelled (routing ≥ 90 % on
 English and Bangla-script asks still applies).
+
+## Q18. Python 3.14 and PostgreSQL 18 (27 Sep 2026)
+**Asked.** A measured check (docs/research/stack-versions.md): nothing blocks; PG 18 supported to 2030 with
+native UUIDv7; Python 3.13's last bugfix 6 Oct 2026; costs: ezdxf without a cp314 wheel (build from
+source), PG 18 on every environment, all environments switching together; RDS 18.6 in the chosen region
+unconfirmed. Plus a tenant-policy bug on either version (`nullif`).
+**Recommended.** Yes, 3.14 and 18.6 everywhere before wave 0; `ids.new_id()`; ezdxf from source.
+**The owner's ruling.** "Agree with your recommendation on Q18"
+**Written into.** ADR 0034; docs/architecture.md. Owner's step: install PostgreSQL 18 locally (the
+command is in the research file); CLAUDE.md's machine line changes when it is installed.

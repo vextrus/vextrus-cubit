@@ -1,6 +1,6 @@
 # The stack: one Django modular monolith, one Postgres, native development and a Mumbai beta
 
-**The backend** is Python 3.13, Django 6.1 with Django Ninja (REST, OpenAPI 3.1), uv, ruff, mypy with
+**The backend** is Python 3.14, Django 6.1 with Django Ninja (REST, OpenAPI 3.1), uv, ruff, mypy with
 django-stubs and pytest-django; it moves to Django 6.2 LTS when it ships. It is one application of 13
 modules in one-way layers, enforced by import-linter (the map: docs/architecture.md). Each module owns
 its tables and its own migration chain and exposes only `services.py` and `schemas.py`. The CAD work
@@ -9,13 +9,14 @@ same package; the DWG readers are sandboxed subprocesses (ADRs 0029, 0031). No O
 across modules, no in-process event bus; a cross-module read goes through the owner's `services.py`.
 The frontend and viewers are ADR 0022.
 
-**All state lives in one Postgres 16:** typed tables with foreign keys inside a module, exact
+**All state lives in one PostgreSQL 18:** typed tables with foreign keys inside a module, exact
 decimals in the units ADR 0008 sets; Elements with a stable identity and states over a range of Model
 Versions; Proposals, Confirmations, Questions and Traces as real tables (docs/data-model.md). Jobs are
 Procrastinate, queued in the same transaction as their data. Search is full-text and trigram now,
 pgvector later. Each change writes an event row in its own transaction; LISTEN/NOTIFY only nudges.
 **Tenancy from M0:** a tenant column on every tenant table, row-level security with a policy in the
-table's first migration, the app connecting as a non-owner role, and a CI test that every table has a
+table's first migration (reading the tenant as `nullif(current_setting('app.tenant_id', true), '')::uuid`,
+since a transaction-local setting reads back as `''` on a pooled connection), the app connecting as a non-owner role, and a CI test that every table has a
 policy. A Vextrus Engineer enters a Developer's data only by its invitation: a named QS member,
 time-bound (30 days by default, renewable), revocable, every action under their own name, visible to
 the client. **Every Membership may be scoped to a list of Projects** (none = all), and anyone from
@@ -64,3 +65,8 @@ Bangalore for the beta.
 - 27 Sep 2026 (owner's decision, session 02 Q15): UUIDv7 ids everywhere, file keys prefixed by the tenant,
   and a home region (cell) per Developer (ADR 0038); where the Gulf's cell goes waits for the hosting
   research (docs/research/global-markets-foundation.md §0: AWS's UAE region damaged, Bahrain unavailable).
+- 27 Sep 2026 (owner's decision, session 02 Q18): Python 3.14 and PostgreSQL 18.6 everywhere before wave 0
+  (local, cloud environments, CI, the beta's managed Postgres); ids made in the app through one
+  `ids.new_id()` over `uuid.uuid7`, no database-side default; ezdxf built from source until its cp314
+  wheel ships; the tenant policy reads the setting through `nullif`. Evidence: docs/research/stack-versions.md.
+  The owner's ruling: "Agree with your recommendation on Q18".

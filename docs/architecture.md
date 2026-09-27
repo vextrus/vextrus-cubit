@@ -10,7 +10,7 @@ One Django modular monolith (the web process plus worker processes from the same
 Postgres, one file store and one React web app. Nothing else until a measurement says otherwise.
 
 ```
-browser (React SPA) ──REST/OpenAPI──▶ Django + Ninja (web) ──▶ Postgres 16 (data, jobs, events, search;
+browser (React SPA) ──REST/OpenAPI──▶ Django + Ninja (web) ──▶ Postgres 18 (data, jobs, events, search;
      │ (sheet: engine buffers per sheet;       │                  row-level security from M0)
      │  3D: three.js per storey, ADR 0022)     └─ enqueue ─▶ worker ──▶ files (FS dev / S3 beta)
      │                                                        └─ engine (pure Python)
