@@ -153,3 +153,13 @@ derived plans; key clashes with the design system (V, H, D, P) to settle in the 
 brick vs plaster and paint as the presentation finish. Ruling (session 02 Q25): all tools in the MVP, M1
 the QS's checking tools, M2 derived drawings, placed dimensions and notes, presentation, each within the
 budgets on the reference setup.
+
+### MEP in the one scene (port 5310, `?building=edison`)
+Edison's 4,580 MEP Elements in the same viewer: a Discipline filter (show, ghost or hide per Discipline,
+with counts) and saved views like Revit's view disciplines ("All disciplines", "Structure", "Architecture
+over structure", "MEP over a ghosted building", "Electrical", "Plumbing"); points coloured by kind, runs by
+service; a Services section in Properties (kind, service, tag, room, mounting height read or assumed,
+diameter, material, length in plan). Merged per storey with the Discipline as per-Element state, every
+discipline stayed within the draw-call budget (42–73); merging per discipline doubled calls (up to 131).
+MEP runs as boxes were 80 % of triangles: draw them as lines or instanced. Ruling (session 02 Q29, Q31):
+the Discipline filter and saved views are M3's, with ADR 0040's one scene.

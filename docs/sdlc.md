@@ -1,7 +1,7 @@
 # Vextrus — how we build (the AI-native SDLC)
 
-Agreed by the owner on 25 Sep 2026 and rewritten after session 01's rulings (26 Sep 2026): ADRs 0025,
-0026 and 0030. Evidence: docs/research/sdlc-claude-code.md and sdlc-waves-and-cloud.md. The harness is
+Agreed by the owner on 25 Sep 2026, rewritten after session 01's rulings (26 Sep 2026) and levelled in
+session 02 (28 Sep 2026): ADRs 0025, 0026 and 0030. Evidence: docs/research/sdlc-claude-code.md and sdlc-waves-and-cloud.md. The harness is
 configuration and prose, not code. It must never become the product (docs/postmortem.md, cause 3).
 
 ## Per milestone
@@ -32,8 +32,12 @@ configuration and prose, not code. It must never become the product (docs/postmo
    - **engine PRs** (by path: `engine/**` and the reading modules, the list in the milestone's plan)
      carry the `real-drawings` status, which the owner starts with one command: the pipeline runs as
      the owner inside bwrap (no network, neither home mounted) and writes its export to a drop
-     folder; only the scorer runs as the key user, with the owner's password, and the owner's GitHub
-     App posts the status (ADR 0030);
+     folder; in M0 the status reports the element-by-element change against the last merged run
+     (regression, no Answer Keys); from M1 the scorer also runs as the key user, with the owner's
+     password, and the owner's GitHub App posts the status (ADR 0030, amended in session 02);
+   - **every PR** keeps markets as data (ADR 0038): no market literal, every visible string a message,
+     every figure through its formatter, logical CSS only (CI's lint and the shared expected-strings
+     table);
    - **UI PRs** pass the design gate: `ux-critic` reads docs/design/system.md, docs/design/screens.md
      and docs/design/m0-screens.md (the behaviour spec), runs the PR on the seeded demo project and
      walks it at 1440×900 and 1280×800 (and 390×844 for the Project Summary and share link) with
@@ -65,7 +69,11 @@ configuration and prose, not code. It must never become the product (docs/postmo
   orchestrator, ledger, state store, locked paths or evidence packs. A harness change needs an
   owner-approved issue and should remove as much as it adds.
 - **Green is not done.** CI is necessary, never sufficient; the owner's walk decides.
-- **Real drawings from M0.** Synthetic fixtures only for unit mechanics, never offered as proof.
+- **Real drawings from M0.** Synthetic fixtures only for unit mechanics, never offered as proof. The
+  clean Sample Project flatters a reader: it read through all fourteen steps while Edison read nothing
+  until 31 fittings (docs/research/edison-check-session-02.md), so a consultant office's conventions go
+  into its Drafting Profile, never into reader code, and Held-out Sets are scored first as an unknown
+  office's first read.
 - **Answer Keys are out of reach** (ADR 0026): a separate user, `sudo` with a password, a blind scorer
   that returns aggregates; no session reads the laboratory.
 - **Plan one milestone at a time.** Everything later stays rough until its turn.
@@ -96,3 +104,10 @@ configuration and prose, not code. It must never become the product (docs/postmo
   `real-drawings`. The built-in `/code-review` and ultrareview review PRs.
 - **MCP:** `chrome-devtools`, through the small wrapper in `.claude/mcp/`.
 - **Jev:** in the product per ADR 0011, and in development sessions where a closed question helps.
+
+## Environments (session 02)
+Python 3.14 and PostgreSQL 18.6 everywhere before wave 0: locally (the owner installs PostgreSQL 18 from
+the PostgreSQL apt repository), in both cloud environments (`apt.postgresql.org` on their allowlist) and
+in CI (a `postgres:18.6` service container); ezdxf built from source until its cp314 wheel ships; ids
+through `ids.new_id()` (docs/research/stack-versions.md). Background agents keep a `NOTES.txt` progress
+log so an app restart cannot lose their work (docs/knowledge/lessons.md).

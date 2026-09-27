@@ -379,6 +379,9 @@ Each becomes a concrete proposal in §6.
   builder, not an EPC contractor.
 - **Design-to-O&M and digital twins** (p.32–34). Developers hand flats to buyers and owners'
   associations and do not run the buildings, so O&M is not their business.
+  *Corrected by the owner (session 02 Q1, 27 Sep 2026):* "now a days lots of Dhaka Developers we know run
+  after-sales or facility management for their buildings … if we offer 'as maintained' we will find
+  buyers." As maintained is in the plan after cost control (ADR 0035).
 - **Performance simulation and generative master-planning** (p.24–25). These serve design
   institutes and large sites, not a Developer's G+6 to G+14 plot.
 - **Heavy site technology.** Intelligent tower cranes, IoT, CV safety cameras and GIS digital

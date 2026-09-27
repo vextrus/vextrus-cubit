@@ -32,3 +32,30 @@ fix that taught it (ADR 0030). Read the area you are working in before you start
   by re-running rules is fragile (ADR 0031's Trace anchor).
 - **SHX text drawn as single strokes (Hershey simplex) matched the plot's width at 0.997 (median of 78
   lines);** outline substitutes run 13–19 % narrow.
+
+## Session 02 (27–28 Sep 2026)
+- **An app restart kills every background agent.** All nine died mid-task once; the partial work in their
+  folders survived. Every long agent keeps a `NOTES.txt` progress log after each milestone and is told how
+  to resume from it.
+- **Vite's hot reload loops a page in the shared chrome-devtools browser** (its watcher sees its own log);
+  prototypes run with HMR off or with the log ignored. A background tab is throttled to about one frame a
+  second, so fps read from it is not real: measure render cost, not frame interval.
+- **Headless Chrome in WSL has only SwiftShader:** every GPU figure an agent takes is relative; the
+  reference-setup number needs the owner's PC.
+- **Reading real drawings:** apply every insert's object-to-world transform (mirrored inserts put 25 of 47
+  Edison piles 77,000 in away); read an MTEXT angle from its direction vector (98 of 139 beam labels
+  unbound otherwise); MTEXT inside blocks may have no height; guard every geometry repair
+  (self-intersecting outlines collapse to empty); never hard-code an N or a storey count; MEP symbol base
+  points can lie far from their geometry, so locate by the geometry's centre; the same MEP point repeats
+  on up to three sheets.
+- **Row-level security:** after a transaction-local `set_config`, the setting reads back as `''` on a
+  pooled connection, so policies read `nullif(current_setting('app.tenant_id', true), '')::uuid`; under
+  FORCE RLS a foreign key added to a populated table as its owner fails (parent rows hidden).
+- **WeasyPrint breaks Bangla conjuncts** (Chrome's print does not); dimensions inside Arabic text read
+  backwards unless isolated left to right; Chrome has no `en-BD` formats.
+- **A python edit that fails its assertion writes nothing, and a `;`-chained commit still runs:** chain
+  the commit with `&&` after an edit script, never `;` (a research file was once committed without its
+  corrections).
+- **Refuters earn their cost on research:** four of five research files needed corrections before
+  commit (a lift price rise overstated from 22 % to 81 %; a fire gap from 2.4× to 3×; an iTwin claim
+  reversed; a groove item's scope).
