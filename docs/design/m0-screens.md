@@ -132,7 +132,7 @@ Coordinates, lengths, levels and scales come out of their formatter already isol
 (1.8). M0 shows no money and no quantities; their formatters exist, with rows in the table (docs/specs/M0.md).
 
 ### 1.3 The decode rule: no CAD code ever shows
-All drawing text is decoded on the server, by one function in `engine/render/text.py` (ticket 11),
+All drawing text is decoded on the server, by one function in `engine/text/decode.py` (ticket 11),
 before it is stored, sent or drawn; tickets 13 and 21 and the export call the same function. The web
 app never decodes; it shows what the API sends.
 
@@ -429,7 +429,7 @@ is green; focus ring visible on every control; phone notice at 390 px; narrow no
 no `?perf` readout without the flag; no building picker (1.10); `lang="en"` and `dir="ltr"` on the page
 from the language's data (1.8).
 
-### 4.2 Sign-in (ticket 20; auth by 07)
+### 4.2 Sign-in (ticket 20a; auth by 07)
 
 **Purpose.** Email and password in, to the user's Developer's projects and no one else's (story 1).
 Wireframes: `sign-in-1440.svg`, `sign-in-1280.svg`.
@@ -453,7 +453,7 @@ to set a new one." (M0 has no email; M5 brings a reset link.)
 **Design gate.** Both sizes and 390 px; the wrong-password message never names the field; the page
 title is "Sign in · Vextrus".
 
-### 4.3 Projects (ticket 20; data by 08)
+### 4.3 Projects (ticket 20a; data by 08)
 
 **Purpose.** The Developer's projects in one list, only those the member may open; create one
 (stories 2–4, 56, 99, 102). Wireframes: `projects-1440.svg`, `projects-1280.svg`.
@@ -490,7 +490,7 @@ formatted; a second Developer's projects never appear (the isolation test is the
 repeats it); a member given one project sees only it, and another project's address shows "Page not
 found"; no Market or Building field or column.
 
-### 4.4 Members and access (ticket 20; data by 07)
+### 4.4 Members and access (ticket 20a; data by 07)
 
 **Purpose.** Who can open this Developer's projects, and which; invite; see and end Vextrus access
 (stories 58–62, 64, 101; finish line step 10). Wireframes: `members-1440.svg`, `members-1280.svg`
@@ -539,7 +539,7 @@ listed here under their name, revoke, the Engineer's next request refused with 4
 sign in as the seed's outside member given one project (7) and see only that project, its end date
 in the AccessChip.
 
-### 4.5 The Drawing Set (ticket 20; data by 14, the job by 09 and 21)
+### 4.5 The Drawing Set (ticket 20b; data by 14, the job by 09 and 21a–21c)
 
 **Purpose.** Add the Drawing Set's files, watch them read, stop or restart one, and read what
 Vextrus found about each file, in a QS's words (stories 6–20). **Sheets do not live here; they live
@@ -1381,3 +1381,12 @@ them, and the owner judges them at the M0 walk.
 7. **F fits the whole sheet, Shift F returns to the working view** (§2.2; the owner's ruling 6).
 8. **Coverage's "proposed"** counts views assigned but not yet confirmed. **When a read drawing list and
    a pasted one disagree,** it is a Question; until answered, N shows "—".
+
+## Levelled to the revised M0 plan (28 Sep 2026, session 02's S0)
+Where this page and docs/plans/M0.md disagree on who builds what, the plan wins: its tickets 20a (sign-in,
+projects, members) and 20b (the Drawing Set) replace "ticket 20"; `web/src/ui/` and the key map
+(`web/src/ui/keys/`) are 01b's, not 03's; the decode function is `engine/text/decode.py`; the seed is
+written per module with 03's static copy (the plan's "The shape of M0's code"); the invite dialog offers
+the read-only Guest role beside QS and MD, with its Projects and optional end date (4.4). The wireframe
+SVGs in `m0-wireframes/` predate session 02 (an "MEP" exclusion reason, no Projects column): this page
+wins over them.
