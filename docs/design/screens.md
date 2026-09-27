@@ -140,3 +140,16 @@ The Priced BOQ (BOQ Sections, items, Measurement Lines naming their Element and 
 Benchmark), the Material Schedule by floor and Construction Stage, the Project Summary, the allowance
 cross-check and an Element's working cost, from the real read with placeholder prices. The owner's
 judgement: "Both read well, global and priced look right."
+
+### The viewer's tools (port 5310)
+Session 01's 3D kept whole (ortho default, view cube, storeys with isolate and plan cut, Foundations
+toggle, section box, isolate/hide/ghost, Status and Family colouring, the Confirm bar) plus: M measure and
+A area (snaps, axis lock, chains, ft-in with mm), T an Element's own dimensions with beam clear spans, D
+placed dimensions, S/B section plane and box with material cuts and dimensions on the cut, V derived
+storey plans and elevations (printable A3), C colour/isolate/hide by any Attribute with a legend, N note
+pins, P presentation (finished materials, shadows, SSAO, turntable, build-up by Construction Stage,
+2×/4× PNG), `?bench` and `?perf`. Found by looking and still open: slab tags printing over room names on
+derived plans; key clashes with the design system (V, H, D, P) to settle in the behaviour spec; face
+brick vs plaster and paint as the presentation finish. Ruling (session 02 Q25): all tools in the MVP, M1
+the QS's checking tools, M2 derived drawings, placed dimensions and notes, presentation, each within the
+budgets on the reference setup.

@@ -275,3 +275,12 @@ to M1's first wave (M0 keeps 06a and 06b: regression by element diff, no keys); 
 about 30 tickets, 8 machinery, the same finish line.
 **The owner's ruling.** "Agree with your recommendation on Q24"
 **Written into.** ADR 0030; docs/plans/M0.md when it is revised.
+
+## Q25. Which viewer tools go into the MVP, and when (28 Sep 2026)
+**Asked.** A, the QS's subset only; B, all of it: M1 the checking tools (measure, area, dimensions,
+sections with cut dimensions, properties and filters), M2 derived plans and elevations, placed dimensions
+and notes anchored to Element identity, presentation with its look set by the owner's bench; C, all in M1.
+**Recommended.** B.
+**The owner's ruling.** "Agree with B on Q25"
+**Written into.** ADR 0022; docs/design/screens.md. Open for the owner: the ?bench run on the reference
+setup; a judgement on the prototype itself.

@@ -20,6 +20,16 @@
   patch, never new geometry. A GLB per storey is built on the server for the share link (no IFC export in the MVP; ADR 0035); a CI
   test checks the browser's geometry against the server's per-element volume and bounds. That Open
   is kept only for viewing clients' own IFC.
+- **The viewer's tools** (the owner wants Revit/CAD-grade tools, the session-02 prototype the
+  destination): **M1** measure and area (snaps to corners, edges, faces and grid intersections; axis
+  lock; chains; feet-inches with mm), an Element's own dimensions (clear spans between column faces),
+  section plane and box with cut faces coloured by material and dimensions on the cut, properties with
+  colour, isolate and hide by any Attribute and a legend, and everything session 01's 3D had; **M2** plans
+  per storey and elevations derived from the model, printable, labels placed without overlap; placed
+  dimensions and note pins anchored to an Element's permanent identity so they survive Revisions; and
+  presentation on the share link (finished materials, shadows, turntable, build-up in Construction
+  Stage order, 2×/4× stills), its look set by the owner's bench on the reference setup (ambient occlusion
+  only if it fits the budget). Every tool passes the budgets below before its milestone closes.
 - **Budgets** (a mid-range Windows laptop, checked on a real one in M0): 3D model on screen ≤ 1.5 s
   warm and ≤ 3 s cold on 10 Mbps, 60 fps with ≤ 8 ms GPU a frame, a Confirmation painted ≤ 16 ms,
   picking ≤ 2 ms, ≤ 100 draw calls; a cached sheet interactive ≤ 1.5 s.
@@ -66,3 +76,8 @@ by the owner, and the design gate on every UI PR (docs/sdlc.md).
   ruling: "Agree with A on Q12".
 - 27 Sep 2026 (owner's decision, session 02 Q15): amended by ADR 0038 (markets are data). The owner's
   ruling: "Agree with your recommendation on Q15".
+- 28 Sep 2026 (owner's decision, session 02 Q25): all the prototype's tools in the MVP, spread over M1
+  (the QS's checking tools) and M2 (derived drawings, placed dimensions and notes, presentation), each
+  passing the budgets on the reference setup. Evidence: the session-02 viewer-tools prototype
+  (`.private/work/session-02/viewer-tools/`; SwiftShader only: presentation ≈ 5× an orbit, the one budget
+  risk). The owner's ruling: "Agree with B on Q25".
