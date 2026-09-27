@@ -227,3 +227,20 @@ fixtures from the Specification.
 **The owner's ruling.** "Agree with your recommendation on Q20" (no pipework-only figure given, so the
 fallback holds: fixtures stay in the Lump Sum; the draft's other choices stand).
 **Written into.** docs/specs/bd-defaults.md. Every owed business input of the brief is now verified.
+
+## Prototype: the whole Takeoff priced end to end (port 5340, 27 Sep 2026)
+The chain runs: 3,583 Elements → 11,218 Measurement Lines → 72 BOQ Items + 9 Lump Sums → Material Schedule
+→ Project Summary in ~8 s; Estimate ৳8.71 crore, ৳3,082/sft of measured GFA (28,266 sft); every Check
+passes (owned concrete = union exactly, 33,869.19 cft); allowances vs measured across steps 5–13 within
+0.16 % (piles +34 %, the core 4.5×, stair and lift room 6×, the frame within ~10 %). Broken: prices (no PWD
+input prices transcribed; earthwork, painting, roof treatment, pile-head breaking at ৳0); sunshades not
+read; rebar from the drawing columns only; P3 would drop grade beams that sit on caps.
+
+## Q21. Where the starter Market Prices come from (27 Sep 2026)
+**Asked.** The ruled starter set (PWD SoR 2022 input prices) was never transcribed; prices are now the
+weakest link.
+**Recommended.** An agent transcribes PWD's material input prices from the owner's copy of the SoR PDF
+into a Library price set, each cited to its page, a refuter spot-checking 20; the owner then confirms
+the labour rates Developers pay that PWD does not state, in one checklist.
+**The owner's ruling.** "Agree with your recommendation on Q21, yes read the PDF"
+**Written into.** This file; the transcription lands in docs/research/pwd-sor-2022-input-prices.md.
