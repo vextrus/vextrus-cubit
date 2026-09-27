@@ -84,8 +84,24 @@ _Avoid_: phase or stage (alone), lifecycle status, version
 
 ### Drawings and projects
 
+**Project**:
+One Developer's development on one plot of land, sold and managed as one: its Site, one or more
+Buildings, and one Drawing Set.
+_Avoid_: job, scheme, site (the Site is part of a Project)
+
+**Building**:
+One structure of a Project, with its own storeys, grid and Live Model; what Vextrus prices per sft of
+Gross Floor Area. Most Dhaka Projects have one; a premium Developer's may have several (towers, a
+podium, a car park).
+_Avoid_: tower, block (a Building need not be either)
+
+**Site**:
+The Project's land outside its Buildings: the boundary wall, external works and site services, where
+site works belong.
+_Avoid_: plot (the land parcel itself), campus
+
 **Drawing Set**:
-All the drawings issued for one building project, across its disciplines, as the files the
+All the drawings issued for one Project, across its Buildings and disciplines, as the files the
 consultant or team produced (DWG, PDF, and where they exist RVT and IFC).
 _Avoid_: drawings (loosely), package, fixture
 
@@ -342,7 +358,7 @@ _Avoid_: support agent, consultant, admin
 
 **Project Summary**:
 The MD's page for one project: total cost and cost per sft, cost by trade and by floor, what is
-confirmed and what is open, the rebar from the drawing, the latest Revision Comparison, the Building
+confirmed and what is open, the rebar from the drawing, the latest Revision Comparison, the Live
 Model in 3D, and the Target Cost warning.
 _Avoid_: dashboard, home, overview
 

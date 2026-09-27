@@ -44,3 +44,15 @@ is sketched in the data but not read in the MVP.
 **The owner's ruling.** "Agree with your recommendation on Q3"
 **Written into.** ADR 0035 (its readers); ADR 0016 (what leaves Vextrus: the share link's
 presentation) and the M2 spec when they are levelled.
+
+## Q4. One building or several per Project (27 Sep 2026)
+**Asked.** A, one building per Project as planned (data-model §7); B, cut the seam now: a Project holds
+a Site and one or more Buildings, each with its own storeys, grid, Live Model, Gross Floor Area and
+price, M0 creating one Building automatically; C, B plus multi-building reading in M1–M2.
+**Recommended.** B.
+**The owner's ruling.** "Agree with B on Q4, on reply of your question: the Developers we'd onboard
+first have a multi-building project on their books are low but they are the most premium client whom
+we priorities most."
+**Consequences.** Multi-building reading needs an early milestone slot, set in the MVP line (tree
+item 6), because the clients who need it are the ones prioritised.
+**Written into.** ADR 0036; `CONTEXT.md` (Project, Building, Site; Drawing Set per Project).
