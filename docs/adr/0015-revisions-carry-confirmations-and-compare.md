@@ -5,7 +5,7 @@ unchanged elements keep their Confirmation, and only new, removed or changed ele
 as Proposals. The MD then sees a Revision Comparison: what changed, element by element, and its effect
 on the Priced BOQ in quantities and ৳, split into quantity and price effect against a baseline the MD
 picks (ADR 0028). Matching needs no LLM.
-- **Identity per Element Family:** columns by grid intersection and Storey Band; beams by axis
+- **Identity per Element Family:** columns, shear walls and the core by grid position and storey (one Element per storey, the Storey Band a fact of each); beams by axis
   segment; walls by axis overlap; slabs by polygon overlap; openings by host wall and position. A mark
   is a hint, never the key.
 - **Revisions are per sheet:** a Drawing Set's state maps each sheet to its Sheet Revision, and a
@@ -33,3 +33,9 @@ after the MVP (ADR 0011).
 - 26 Sep 2026: while a Revision awaits the QS. Evidence: docs/data-model.md §6. The owner's ruling:
   "Agree".
 - 26 Sep 2026: baselines and the quantity / price split move to ADR 0028; milestone renumbered (M4).
+- 27 Sep 2026 (owner's decision, session 02 Q5): an Element is the physical piece, so a column,
+  shear wall or the core is one Element per storey, not per Storey Band; the band stays a fact and the
+  QS's group (selected, confirmed and asked about as one, as docs/design/screens.md ruling 7 has it). A
+  Revision that moves a band boundary then changes the facts of the storeys affected instead of
+  removing and adding Elements, and As built facts (a floor's cast date) have one piece to attach to
+  (ADR 0035). The owner's ruling: "Agree with B on Q5".

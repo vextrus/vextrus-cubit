@@ -218,8 +218,9 @@ _Avoid_: budget, quotation, bid
 ### Takeoff
 
 **Element**:
-One confirmed thing in the Live Model with a stable identity across Revisions: a column over a
-Storey Band, a beam, a slab panel, a wall run, an opening, a storey, a grid line.
+One confirmed physical piece of the Live Model with a stable identity across Revisions and Life
+Phases: a column or shear wall in one storey, a beam, a slab panel, a wall run, an opening, a storey,
+a grid line; what is cast, inspected and maintained.
 _Avoid_: object, entity, member (a member is structural only)
 
 **Element Family**:
@@ -278,8 +279,9 @@ it.
 _Avoid_: provenance, source, lineage
 
 **Storey Band**:
-The range of storeys over which an element keeps one size or specification, as a column schedule
-gives it; a column's size is known per Storey Band, not once.
+The range of storeys over which a column (or shear wall, or the core) keeps one size or
+specification, as a column schedule gives it: a fact of each storey's piece and the group the QS
+selects, confirms and is asked about as one; never part of an Element's identity.
 _Avoid_: level range, floor group
 
 **Display Units**:

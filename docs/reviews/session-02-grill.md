@@ -56,3 +56,14 @@ we priorities most."
 **Consequences.** Multi-building reading needs an early milestone slot, set in the MVP line (tree
 item 6), because the clients who need it are the ones prioritised.
 **Written into.** ADR 0036; `CONTEXT.md` (Project, Building, Site; Drawing Set per Project).
+
+## Q5. What one Element is (27 Sep 2026)
+**Asked.** A column is one Element per Storey Band today (`col|B/2|GF..3F`), but each floor is cast
+separately, and a Revision that moves a band boundary reads as removed plus new. A, keep the band
+Element with (Element × storey) sub-rows; B, one Element per physical piece (a column per storey), the
+Storey Band a fact and the QS's group; C, per casting pour.
+**Recommended.** B: what is cast, inspected and maintained; Revisions report the true change; the
+QS's screen is unchanged; pours are site facts recorded under B later if needed.
+**The owner's ruling.** "Agree with B on Q5"
+**Written into.** `CONTEXT.md` (Element, Storey Band); ADR 0015 (identity per family). The data model
+and M1 spec's identity rules follow when levelled.
