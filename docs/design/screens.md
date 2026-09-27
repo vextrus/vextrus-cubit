@@ -153,7 +153,9 @@ pins, P presentation (finished materials, shadows, SSAO, turntable, build-up by 
 derived plans; key clashes with the design system (V, H, D, P) to settle in the behaviour spec; face
 brick vs plaster and paint as the presentation finish. Ruling (session 02 Q25): all tools in the MVP, M1
 the QS's checking tools, M2 derived drawings, placed dimensions and notes, presentation, each within the
-budgets on the reference setup.
+budgets on the reference setup. The owner's own line on this prototype and its `?bench` run on the
+reference setup were delegated ("Don't bother for my inputs on last small remaining things like bench
+and etc."): the bench is ticket 24's, with the owner's run.
 
 ### MEP in the one scene (port 5310, `?building=edison`)
 Edison's 4,580 MEP Elements in the same viewer: a Discipline filter (show, ghost or hide per Discipline,
