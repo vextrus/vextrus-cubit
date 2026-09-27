@@ -22,3 +22,14 @@ if we offer "as maintained" we will find buyers."
 there). The data spine carries the phase from M0 (Q2 onwards settles how); the MVP fills "as designed";
 "as maintained" has buyers, so it is a module to sequence after cost control, not a maybe.
 Written into: this file; `CONTEXT.md` and a new ADR once the name is settled (Q2).
+
+## Q2. What we call it (27 Sep 2026)
+**Asked.** A, keep "Building Model" ("live" in marketing only); B, rename it the "Live Model"
+everywhere (glossary, ADRs by amendment, screens, the code module); C, a coined name. The three phases
+named **Life Phase** (As designed, As built, As maintained), since "phase" and "stage" alone are taken.
+"Digital twin" kept off screens and documents until As built data flows.
+**Recommended.** B with Life Phase and the digital-twin rule.
+**The owner's ruling.** "Agree with B, Live Model and Life Phase"
+**Written into.** `CONTEXT.md` (Live Model replaces Building Model; Life Phase added); ADR 0035 (Q1
+and Q2). The sweep of "Building Model" through the other documents is done when they are levelled
+(finish line 3).

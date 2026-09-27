@@ -1,8 +1,8 @@
 # Vextrus
 
-Vextrus is an AI-native platform for the AEC business, starting in Bangladesh: one project dataset,
-built first from a client's 2D drawings, that every department and professional on a project works
-from.
+Vextrus is an AI-native platform for the AEC business, starting in Bangladesh: one Live Model of each
+building, built first from a client's 2D drawings, that every department and professional on a
+project works from, through the building's whole life.
 
 ## Language
 
@@ -69,10 +69,18 @@ slab casting; masonry; finishes; services; external works); the Material Schedul
 are broken down by it. It is a sequence, not a date.
 _Avoid_: phase, milestone (a milestone is ours), activity, schedule
 
-**Building Model**:
-The 3D model of the building assembled from the QS-confirmed takeoff; the project dataset that the
-Priced BOQ, the Material Schedule and every later module are read from.
-_Avoid_: BIM (as a noun for our object), 3D view, digital twin
+**Live Model**:
+The building as one dataset of confirmed Elements, each with a stable identity, its geometry, its
+Trace, and its cost, construction and O&M attributes across its Life Phases; the Priced BOQ, the
+Material Schedule, the 3D and every later module are readings of it.
+_Avoid_: BIM, Building Model (the old term), digital twin (on screens and in documents; marketing may
+use it once As built data flows), 3D view
+
+**Life Phase**:
+Which part of an Element's life an attribute belongs to: As designed (from the drawings, Revisions and
+prices), As built (what was actually cast and spent on site) or As maintained (warranty, expected life
+and upkeep after handover); one Element keeps one identity through all three.
+_Avoid_: phase or stage (alone), lifecycle status, version
 
 ### Drawings and projects
 
@@ -194,7 +202,7 @@ _Avoid_: budget, quotation, bid
 ### Takeoff
 
 **Element**:
-One confirmed thing in the Building Model with a stable identity across Revisions: a column over a
+One confirmed thing in the Live Model with a stable identity across Revisions: a column over a
 Storey Band, a beam, a slab panel, a wall run, an opening, a storey, a grid line.
 _Avoid_: object, entity, member (a member is structural only)
 
@@ -204,7 +212,7 @@ own identity rule across Revisions.
 _Avoid_: category, class, type (alone)
 
 **Takeoff**:
-The QS's work of turning a Drawing Set into the confirmed Building Model, one Takeoff Step at a time,
+The QS's work of turning a Drawing Set into the confirmed Live Model, one Takeoff Step at a time,
 with the machine proposing and the QS confirming.
 _Avoid_: extraction, reading, campaign, measurement run
 
@@ -228,7 +236,7 @@ _Avoid_: suggestion, candidate, detection, draft
 
 **Confirmation**:
 The QS's acceptance of Proposals, made in bulk for the ones that agree and one by one for the
-exceptions; only confirmed elements enter the Building Model and the Priced BOQ.
+exceptions; only confirmed elements enter the Live Model and the Priced BOQ.
 _Avoid_: approval, sign-off, commit, act
 
 **Question**:
@@ -272,7 +280,7 @@ rate = amount exactly.
 _Avoid_: UoM, display unit
 
 **Measurement Rule**:
-One rule, written in words a QS reads, for turning the Building Model into a BOQ quantity (for
+One rule, written in words a QS reads, for turning the Live Model into a BOQ quantity (for
 example: deduct openings over 0.1 m² from brickwork); every figure's Trace names the rules that
 produced it.
 _Avoid_: quantity rule, formula, method
@@ -311,14 +319,14 @@ current Sheet Revision.
 _Avoid_: sheet version
 
 **Revision Comparison**:
-The element-by-element difference between the Building Model of one Revision and a baseline the MD
+The element-by-element difference between the Live Model of one Revision and a baseline the MD
 picks (the previous Revision or an Issued Estimate): new, removed and changed elements, with their
 effect on the Priced BOQ split into quantity effect and price effect, in quantities and ৳.
 _Avoid_: diff, delta report, change log
 
 **Issued Estimate**:
 A frozen snapshot of the Estimate (the Priced BOQ, the Material Schedule, the Market Price set, the
-Rule Set version and the Building Model's state) with an issue number and date; the figure the MD
+Rule Set version and the Live Model's state) with an issue number and date; the figure the MD
 takes to the board, which later changes are compared against.
 _Avoid_: version, baseline (alone), final estimate
 
@@ -340,7 +348,7 @@ _Avoid_: dashboard, home, overview
 
 **Gross Floor Area**:
 The area of every floor of a building, basement and parking included, measured to the outside of the
-walls from the confirmed Building Model; what Vextrus's price and the consumption checks are per sft of.
+walls from the confirmed Live Model; what Vextrus's price and the consumption checks are per sft of.
 _Avoid_: GFA (in screens), built-up area, plinth area
 
 **Saleable Area**:

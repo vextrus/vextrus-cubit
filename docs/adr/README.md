@@ -2,7 +2,7 @@
 
 Each ADR states the decision as it now stands; its `## History` lists every amendment with its date,
 evidence and the owner's ruling, quoted. A superseded ADR keeps its file as a stub so old links
-resolve. Format: `.claude/skills/domain-modeling/ADR-FORMAT.md`. Updated 26 Sep 2026, after session 01.
+resolve. Format: `.claude/skills/domain-modeling/ADR-FORMAT.md`. Updated 27 Sep 2026, during session 02.
 
 | # | Title | Status | The decision in one line |
 |---|---|---|---|
@@ -40,3 +40,4 @@ resolve. Format: `.claude/skills/domain-modeling/ADR-FORMAT.md`. Updated 26 Sep 
 | [0032](0032-light-chrome-paper-sheet-cad-dark-switch.md) | The app is light, the sheet opens as plotted, a CAD-dark canvas is one switch away | current | Light chrome and paper sheet; CAD-dark as a switch. |
 | [0033](0033-the-business.md) | The business: the Developer first, priced per project, Bangladesh first | current | The Developer; ৳4/sft of Gross Floor Area per project; Bangladesh until ten paying Developers. |
 | [0034](0034-the-stack.md) | The stack: one Django modular monolith, one Postgres, native development and a Mumbai beta | current | Django + Ninja monolith, one Postgres with row-level security from M0, AWS Mumbai beta. |
+| [0035](0035-the-live-model-is-the-product.md) | The Live Model is the product: one identity for each Element across its Life Phases | current | The product is the Live Model (not BIM); As designed, As built, As maintained on one identity; the MVP fills As designed. |
