@@ -97,3 +97,20 @@ eight assumptions to mark ✓ or correct (floor plate, columns and core, beams, 
 the Sample Project's measured consumption to be set beside them.
 **The owner's ruling.** "Agree with your recommendation on Q8, all ✓"
 **Written into.** docs/specs/bd-defaults.md (Allowances per Takeoff Step); ADR 0002 history.
+
+## Q9. The tax layer's facts of practice (27 Sep 2026)
+**Asked.** Six facts (tax-and-allowances.md, "For the owner to verify"): Labour Contracts quoted net;
+S004.00 at 10 %, not S072.00; no input credit; AIT on the bill net of VAT; Market Prices entered gross;
+utility connections inside the Estimate, RAJUK/design fees, land, registration and sales VAT outside.
+**Recommended.** ✓ all six; drop "AIT to be confirmed from NBR" (FY 2025-26 primary; FY 2026-27
+Medium), each rate as dated data.
+**The owner's ruling.** "Agree with your recommendation on Q9, all ✓"
+**Written into.** ADR 0006 history; the M2 spec's "pending NBR" lines go when levelled.
+
+## Prototype judged: the whole building, read and live (port 5301, 27 Sep 2026)
+**The owner's words.** "yes it's good as the first prototype, went through most of it as I could now,
+liked most of it but the 3D functionality and features are lacking here than the first session 3D
+prototype we created, hopefully this is not the final prototype."
+**Taken as.** The read (all fourteen steps, 3,450 Elements, 45 Questions) is accepted as a first
+prototype; its viewer is an inspector, not the destination. The viewer-tools prototype keeps every
+session-01 3D capability and adds the tools, on the full read.

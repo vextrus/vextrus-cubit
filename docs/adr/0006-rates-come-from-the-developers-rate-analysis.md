@@ -45,3 +45,11 @@ re-expressed; its CWICR data has no Bangladesh base and is non-commercial.
   bills; VAT 10 % (7.5 % before), the AIT rate to be confirmed from NBR, both dated data. A rate is
   never typed over its Rate Analysis in the grid. The owner's ruling: "Yeah you're correct, currently
   most probably 10% which was 7.5% before".
+- 27 Sep 2026 (owner's decision, session 02 Q9): the tax layer's practice facts, as drafted in
+  docs/research/tax-and-allowances.md §A: Labour Contracts mostly quoted net (the flag defaults to
+  "no"); a labour-only contractor billed per unit is S004.00 at 10 %, not S072.00; the Developer gets no
+  input credit, so the VAT is a cost; AIT 5 % on the bill net of VAT (ITA 2023 s.89; SRO 157 of 26 May
+  2025, primary; FY 2026-27 at 5 % Medium until its SRO is read), both held as dated data; Market Prices
+  are entered gross; utility connection charges sit in the Estimate, while RAJUK and design fees, land,
+  registration and sales VAT stay outside. "AIT to be confirmed from NBR" is withdrawn. The owner's
+  ruling: "Agree with your recommendation on Q9, all ✓".
