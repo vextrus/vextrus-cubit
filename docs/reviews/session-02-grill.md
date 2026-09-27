@@ -186,3 +186,14 @@ review (layer names and label patterns can carry names); a Held-out Set is score
 office's first read, then with a profile if one exists; no build session builds a profile from a
 Held-out Set.
 **Written into.** ADR 0039; `CONTEXT.md` (Drafting Profile).
+
+## Q17. Is the Level 2 assistant the Live Model's query (27 Sep 2026)
+**Asked.** The M2 spec trims the assistant to eight fixed templates; the component-store prototype
+parsed the owner's sentence into a structured query by code alone. A, eight templates; B, one query over
+the Live Model for the assistant, the viewer's filters, marketing and later modules (code parses, Jev
+picks only among ambiguous meanings, chips shown back, every number the BOQ's with its Trace); C, B plus
+an LLM (Level 3).
+**Recommended.** B.
+**The owner's ruling.** "Agree with B on Q17"
+**Written into.** ADR 0011; the M2 spec's assistant section changes when levelled (routing ≥ 90 % on
+English and Bangla-script asks still applies).

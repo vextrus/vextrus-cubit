@@ -8,6 +8,13 @@ revision C, and what does it cost?"). The MVP ships Levels 1 and 2 on TypeSafe's
 judgment model, with no LLM. Level 3 comes after the MVP and combines Jev with a System Two LLM
 (Claude), used only where reasoning or generation is genuinely needed.
 
+**Level 2 is the Live Model's query.** One structured query over Elements (family, mark, storeys, any
+Attribute including a Developer's own, Life Phase, money) serves the assistant, the viewer's colour,
+isolate and filter by attribute, marketing's selections and later modules. Plain words are parsed by
+code first; Jev picks the meaning only where words are ambiguous; the question comes back as editable
+chips; results show as a grid, isolated in 3D and totalled, every number the Priced BOQ's own with its
+Trace. The price what-if and "why is this so" stay as they are.
+
 **The rule for every node:** code finds the candidates and computes every number; Jev picks one with a
 confidence; the QS confirms. A low-confidence answer becomes a Question. If TypeSafe is unavailable,
 the QS picks; the Takeoff never stops.
@@ -36,3 +43,7 @@ helps development sessions where a closed question fits (docs/sdlc.md).
   the real Edison set (storey ranges right 19 / 38; section letters confused with grid labels; review
   queues of several hundred items), docs/reviews/plan-review-ledger.md. The owner's ruling: "Agree".
 - Open: we ask TypeSafe about concurrency limits for thousands of calls per drawing.
+- 27 Sep 2026 (owner's decision, session 02 Q17): Level 2 is the Live Model's query, replacing the M2
+  spec's fixed catalogue of eight templates. Evidence: the component-store prototype parsed "every C2
+  column on levels 3–6: its concrete, rebar, cost, casting stage and maintenance notes" by code alone and
+  answered in 1.6 ms. The owner's ruling: "Agree with B on Q17".
