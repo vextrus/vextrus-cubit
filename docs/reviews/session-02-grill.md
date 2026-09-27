@@ -439,3 +439,22 @@ later; seven exclusion reasons a QS uses; Disciplines as data per Market, adding
 - The pumps/intercom/CCTV template line (৳40, verified as one line) stays an allowance until both the
   Plumbing and sanitary and the Electrical Parts are read; Mechanical (HVAC) replaces no allowance (AC
   units are out of scope).
+
+## The finish line, as left at the end of session 02 (28 Sep 2026)
+1. `docs/intent.md` rewritten as the final intent.
+2. Every ADR re-read; six new (0035 the Live Model, 0036 Project/Site/Buildings, 0037 Attributes and
+   Records, 0038 markets as data, 0039 Drafting Profiles, 0040 Discipline Parts and Element Relations);
+   0003 amended (MEP read), and 0002, 0005–0011, 0014–0016, 0018, 0022, 0025–0028, 0030, 0031, 0033, 0034
+   amended with the owner's words.
+3. `CONTEXT.md`, `docs/architecture.md`, `docs/data-model.md` and `docs/milestones.md` (M0–M6) level.
+4. Every prototype judged or its judgement delegated; rulings in `docs/design/screens.md`; the behaviour
+   spec `docs/design/m0-screens.md`, `system.md` and the wireframes fixed to the plan's reviews.
+5. The M0, M1 and M2 specs revised and re-signed under the owner's delegation; M3–M6 sketched
+   (`docs/specs/M3-M6-sketch.md`); the M0 plan revised, attacked by the four reviewers (40 findings, every
+   one resolved: `docs/reviews/M0-plan-s02-*.md`) and re-signed under the delegation; the issues re-cut
+   (32 open M0 tickets, #41 new, 8 closed as merged or moved to M1) and the hold lifted.
+6. Every owed business input verified (bd-defaults: allowances, tax facts, MEP template and ranges,
+   diameter splits, the Developer's Specification, PWD prices, labour rates, MEP conventions).
+7. `docs/handoff/session-03-prompt.md` level: session 03 builds wave 0 and wave 1.
+Flagged for the owner: the tank reversal of amendment 3 (above); the owner's steps before wave 0 (the plan's
+"Before wave 0").
