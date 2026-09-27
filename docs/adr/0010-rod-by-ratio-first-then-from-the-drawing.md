@@ -40,3 +40,6 @@ early estimates; marking the basis keeps the product honest with the MD.
   Basis, rebar by diameter), on every screen and document; PWD's item text keeps its own wording.
   Quoted rulings and research files keep the words they were written in. The owner's ruling:
   "\"Rebar\" it is, I'm sure."
+- 27 Sep 2026 (owner's decision, session 02 Q13): the assumed diameter splits per Element Family, as a
+  share of kg, all Low (docs/specs/bd-defaults.md; docs/research/diameter-splits-and-specification.md).
+  The owner's ruling: "Agree with your recommendation on Q13."

@@ -149,3 +149,27 @@ typed including VAT; the range is each line's sanity Check (ADR 0027).
 **The MD's consumption ranges** (ADR 0016; per sft of Gross Floor Area; outside is a flag, never a
 block): rebar 4.5–6 kg (set 26 Sep); cement 0.36–0.52 bags; concrete 1.25–1.85 cft; bricks 8.4–11.6
 (±15 % around the reference building's G+6 to G+14 points).
+
+## Rebar diameter splits for rebar by ratio (ADR 0010; owner's ruling, 27 Sep 2026, session 02 Q13: "Agree with your recommendation on Q13.")
+The assumed split of ratio rebar by diameter, **share of kg**, per Element Family; each row sums to 1;
+22 mm is 0 everywhere; all **Low** (no source gives shares by diameter: arithmetic on typical Dhaka
+sections, docs/research/diameter-splits-and-specification.md §1). Every figure using them is marked
+"assumed"; rebar read from the drawing replaces them element type by element type.
+| Family | 8 | 10 | 12 | 16 | 20 | 25 |
+|---|---|---|---|---|---|---|
+| Bored pile | – | 0.35 | 0.05 | 0.60 | – | – |
+| Pile cap | – | – | 0.20 | 0.10 | 0.55 | 0.15 |
+| Footing | – | – | 0.30 | 0.55 | 0.15 | – |
+| Raft / mat | – | – | 0.05 | 0.10 | 0.40 | 0.45 |
+| Grade beam | – | 0.30 | 0.05 | 0.20 | 0.45 | – |
+| Column (until read from the drawing) | – | 0.25 | – | 0.15 | 0.35 | 0.25 |
+| Shear wall / lift core | – | 0.25 | 0.35 | 0.30 | 0.10 | – |
+| Beam | – | 0.35 | 0.05 | 0.40 | 0.20 | – |
+| Slab | – | 0.80 | 0.20 | – | – | – |
+| Stair | – | 0.35 | 0.55 | 0.10 | – | – |
+| Basement wall, tanks | – | 0.05 | 0.45 | 0.45 | 0.05 | – |
+| Lintel | 0.40 | 0.30 | 0.30 | – | – | – |
+| Sunshade, drop wall, parapet | 0.25 | 0.75 | – | – | – | – |
+| Slab on grade | – | 1.00 | – | – | – | – |
+Weighted over the G+9 reference building: 10 mm 41 %, 16 mm 22 %, 20 mm 18 %, 12 mm 11 %, 25 mm 7 %,
+8 mm 0.5 %. A split cannot vary by Storey Band (columns are read from the drawing from M1).

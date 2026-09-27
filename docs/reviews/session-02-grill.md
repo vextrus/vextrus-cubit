@@ -141,3 +141,11 @@ IFC 4.3 export in M2 behind the validation gate; C, B plus IFC import.
 **The owner's ruling.** "Agree with A on Q12"
 **Written into.** ADR 0022 (the share link is GLB only), ADR 0035 (IFC-ready). ADR 0031's validation
 gate applies when an exporter arrives.
+
+## Q13. The rebar diameter splits (27 Sep 2026)
+**Asked.** No draft existed; an agent drafted splits per family by arithmetic on typical Dhaka
+sections (all Low; the mills' sizes and BNBC's minimum tie sizes sourced); the purchase mix over the
+G+9 reference building as the fastest test (10 mm 41 %, 16 mm 22 %, 20 mm 18 %, 12 mm 11 %, 25 mm 7 %).
+**Recommended.** Accept as Low defaults, share of kg, marked "assumed" on every figure.
+**The owner's ruling.** "Agree with your recommendation on Q13."
+**Written into.** docs/specs/bd-defaults.md; ADR 0010 history.
