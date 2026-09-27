@@ -377,3 +377,12 @@ PDFs, M6 beta, founding Developers after M4; C, after the MVP.
 **The owner's ruling.** "Agree with your recommendation B on Q29."
 **Written into.** docs/milestones.md (M3–M6); ADR 0040 (depth); ADR 0007 (MEP steps); milestone numbers in
 ADRs 0010, 0014, 0015, 0022. The owner obtains a Held-out Set with MEP drawings, ideally with fire.
+
+## Q32. Four MEP conventions (28 Sep 2026)
+**Asked.** PWD's point (wiring to the switch board inside, switch outside) with a double-billing Check; MEP
+items Material-and-Labour by default; scope (fittings and AC out, sanitary ware in plumbing, lift in); fire
+allowance by storey count (৳50 below 7, ৳120 net from 7, the Fire Rules 2014 applying by law) with a
+per-project clearance Question sizing the reservoir.
+**Recommended.** All four.
+**The owner's ruling.** "Agree with your recommendation on Q32: all four as proposed."
+**Written into.** docs/specs/bd-defaults.md (MEP conventions).

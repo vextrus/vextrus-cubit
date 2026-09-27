@@ -210,3 +210,20 @@ binding outside the contract, brick flat soling and painting labour have no figu
 and flagged "rate not entered", never a silent ৳0, until a figure is entered.
 The starter Market Price set is PWD SoR 2022 (2nd Revised), Dhaka column
 (docs/research/pwd-sor-2022-input-prices.md, refuter-checked), with brick chips derived at ৳120.20/cft.
+
+## MEP conventions (owner's ruling, 28 Sep 2026, session 02 Q32: "Agree with your recommendation on Q32: all four as proposed.")
+Source: docs/research/mep-measurement-and-model.md (refuter-checked). Each is a Rule Set parameter the
+Developer can change.
+1. **A point is PWD's point:** an electrical point includes its circuit wiring from the board to the
+   switch board and the switch-board box, not the switch; switches and sockets are separate items;
+   sub-mains and feeders are per metre. A Measurement Rule counts terminal Elements as points, and a Check
+   stops a point's wiring from also being billed per metre.
+2. **MEP items are Material-and-Labour by default** (supply and fix, as every PWD MEP item is): their
+   materials stay out of the Developer's Material Schedule.
+3. **Scope:** light fittings and AC units out (their points and AC sockets in); sanitary ware in, under
+   plumbing; the lift in, as supply and installation.
+4. **Fire for buildings of 7 or more storeys:** the Fire Rules 2014 apply by law on top of BNBC (Fire Act
+   2003 ss. 2, 7). The fire allowance follows the storey count: ৳50/sft (net) below 7 storeys, ৳120/sft
+   (net) from 7 up, until the Fire Part is read; each project answers one Question, "does this project
+   carry the Fire Service's clearance set?", whose answer also sizes the underground reservoir in step 10
+   (≥ 50,000 gallons under the Rules).
