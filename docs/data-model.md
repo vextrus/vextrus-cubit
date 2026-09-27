@@ -363,13 +363,13 @@ in `engine/recognise/types.py` use the same lists):
     empty in M0; M1 writes the structural junctions; M2 writes `hosted_in` and `in_room` (openings in
     their walls and rooms) and the junctions of walls with the structure; M3 writes the MEP relations
     (`passes_through`, `spans_storeys`, `same_thing_as`, and MEP Elements `hosted_in` and `in_room`).
-- **M0 creates every `live_model` table empty, each with its forced policy** (s02 Q24; ADR 0037; the (all of them, the ten named and DisciplinePart, RebarBar, ElementTrace, ViewPlacement with its storey rows and the classification links: the orchestrator's decision)
+- **M0 creates every `live_model` table empty, each with its forced policy** (s02 Q24; ADR 0037; the
   orchestrator's decision, 28 Sep 2026): ElementFamily, Element, ElementState, ModelVersion,
   AttributeDefinition, FamilyAttribute, Record, ElementRelation, ClassificationSystem and
   ClassificationReference. Every reference is whole from the first migration, so no foreign key is ever
   added to a populated table (§2). M1 starts writing. The other tables on this page (DisciplinePart,
-  RebarBar, ElementTrace, ViewPlacement and its storeys, the classification links) follow the same rule
-  if M0 creates them; the M0 plan settles the exact list.
+  RebarBar, ElementTrace, ViewPlacement and its storeys, the classification links) are created empty in
+  M0 too: every `live_model` table, no exceptions.
 - **MEP families** (M3; proposed in `docs/research/mep-measurement-and-model.md` §1.3, fixed by the M3
   spec): equipment, distribution boards, terminals (one per storey per symbol), runs and risers (one
   per storey), and chambers on the Site, each with its IFC class. A Point is a Measurement Rule over
