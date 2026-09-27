@@ -100,3 +100,8 @@ drawing list and a stroked Plot; notes come as their own file; the architect dra
 later as another office's set with its own legend). With Q1–Q3 and Q5 in tickets 13, 17 and 19b and the
 walk's scope, a Discipline key on Step 1's progress (Q6), and the General Note and MEP files measured, M0's
 Step 1 is one a Dhaka QS would work and sign.
+
+**Orchestrator's correction (28 Sep 2026).** Q4's "title blocks stroked with 0 SHX annotations on 141
+pages" is wrong: measured with pypdf, Edison's structural PDF carries 4,868 and its architectural PDF
+5,133 SHX comment annotations (/Square), on every page, as docs/research/vector-pdf-evidence.md recorded.
+Whether they cover the title-block text is unverified; Q4's fix (match by body text, no-list rules) stands.
