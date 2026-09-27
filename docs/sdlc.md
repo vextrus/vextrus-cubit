@@ -34,14 +34,21 @@ configuration and prose, not code. It must never become the product (docs/postmo
      the owner inside bwrap (no network, neither home mounted) and writes its export to a drop
      folder; in M0 the status reports the element-by-element change against the last merged run
      (regression, no Answer Keys); from M1 the scorer also runs as the key user, with the owner's
-     password, and the owner's GitHub App posts the status (ADR 0030, amended in session 02);
+     password, and the owner's GitHub App posts the status (ADR 0030, amended in session 02). A PR
+     that touches no engine path gets `real-drawings` "not applicable" from a job that runs on
+     `pull_request_target`, so `main`'s copy of the workflow runs, reading only the changed-file list;
+     and a CI check fails any workflow that requests `statuses: write` or names `real-drawings`, so a
+     PR's own workflow cannot post the status (s02 review R3);
    - **every PR** keeps markets as data (ADR 0038): no market literal, every visible string a message,
      every figure through its formatter, logical CSS only (CI's lint and the shared expected-strings
      table);
    - **UI PRs** pass the design gate: `ux-critic` reads docs/design/system.md, docs/design/screens.md
      and docs/design/m0-screens.md (the behaviour spec), runs the PR on the seeded demo project and
      walks it at 1440×900 and 1280×800 (and 390×844 for the Project Summary and share link) with
-     screenshots; findings above minor block; the screenshots go in the PR body;
+     screenshots; findings above minor block; the screenshots go in the PR body. After the pass, the
+     owner's GitHub App posts a **`design-gate`** status carrying the checklist's items passed and
+     failed (docs/design/m0-screens.md §8, which marks each item automated or judged by eye), not the
+     screenshots; the ruleset requires it for any PR touching `web/**` (s02 review U10);
    - ultrareview (free runs only) on risky PRs: money, geometry, the data spine;
    - **the owner merges.** Only the owner; the guard refuses agent merges. The owner reviews evidence
      and behaviour, and reads in full only `.github/`, `.claude/`, migrations and tests, and the
@@ -107,7 +114,20 @@ configuration and prose, not code. It must never become the product (docs/postmo
 
 ## Environments (session 02)
 Python 3.14 and PostgreSQL 18.6 everywhere before wave 0: locally (the owner installs PostgreSQL 18 from
-the PostgreSQL apt repository), in both cloud environments (`apt.postgresql.org` on their allowlist) and
-in CI (a `postgres:18.6` service container); ezdxf built from source until its cp314 wheel ships; ids
-through `ids.new_id()` (docs/research/stack-versions.md). Background agents keep a `NOTES.txt` progress
-log so an app restart cannot lose their work (docs/knowledge/lessons.md).
+the PostgreSQL apt repository), in the cloud environments (`apt.postgresql.org` on their allowlist; one
+before wave 0, the other after it, below) and in CI (a `postgres:18.6` service container); ids through
+`ids.new_id()` (docs/research/stack-versions.md). Revised by the M0 plan's reviews (s02 review A3, R5,
+R8; docs/reviews/M0-plan-s02-resolution.md):
+- **Locally, the toolchain lives outside home:** an owner script installs Python 3.14, LibreDWG and
+  .NET under `/opt/vextrus/{python,libredwg,dotnet}` before ticket 06a, so the real-drawing sandbox can
+  bind them read-only (docs/architecture.md, Stages).
+- **ezdxf** has no cp314 wheel: a `toolchain-ezdxf` workflow builds one once per pin with pinned, hashed
+  build constraints, installed by hash (the check builds nothing); if that build fails, the pure
+  `py3-none-any` wheel is used and its speed cost recorded.
+- **One cloud environment is rebuilt before wave 0,** on Python 3.14 and PostgreSQL 18 with a throwaway
+  setup script: the owner's step, which keeps Q18's "before wave 0" and times the setup against its
+  five-minute budget (docs/research/sdlc-waves-and-cloud.md §1.4). The other environment follows after
+  wave 0, before any cloud ticket builds in it.
+
+Background agents keep a `NOTES.txt` progress log so an app restart cannot lose their work
+(docs/knowledge/lessons.md).

@@ -82,3 +82,11 @@ Bangalore for the beta.
   stale: about $158–174 at the real beta shape; AWS's UAE region damaged and Bahrain down). The owner asked:
   "why not try GCP instead of AWS as we've already used GCP previously … and currently we're under
   subscribed to GCP payment". The owner's ruling: "Agree with your recommendation on Q26".
+- 28 Sep 2026 (session 02, the M0 plan's reviews, decided under the owner's delegation): row-level
+  security is enabled without FORCE — migrations run as the table owner, the app as a non-owner role
+  without BYPASSRLS that refuses to start otherwise; cross-tenant reads only through three named
+  functions (docs/reviews/M0-plan-s02-resolution.md A1, A2).
+- 28 Sep 2026 (session 02, the M0 plan's reviews, A3): ezdxf's compiled cp314 build comes from a
+  `toolchain-ezdxf` workflow that builds the wheel once per pin with pinned, hashed build constraints and
+  installs it by hash (the real-drawing check builds nothing); if that build fails, the pure wheel is used
+  and its speed cost recorded. The toolchain lives under `/opt/vextrus`, outside any home.
