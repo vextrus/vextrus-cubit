@@ -205,8 +205,9 @@ shipping the table [C8][C9][C10]. IFC 5 does the same with a `code` and a bSDD `
 1. **Key drift.** Renaming a key orphans every value written under it, and Element States and
    Issued Estimates are append-only. The key rule (item 2) and the validator (item 3) are the
    defence. bSDD and iTwin both treat a rename as a replacement or a major change [C22][C55].
-2. **Mapping errors propagate.** The Dubai example shows that a mapping can name properties IFC does
-   not have [C26]. A CI check against bSDD's IFC 4.3 dictionary catches this. Note that the IFC 4.3
+2. **Mapping errors propagate.** The Dubai example shows a mapping can put an IFC property in a set IFC
+   does not put it in (`Pset_ColumnCommon.Capacity`, `Qto_ColumnBaseQuantities.Area`) [C26], so the check
+   tests the set-plus-property pair, not the property URI alone. A CI check against bSDD's IFC 4.3 dictionary catches this. Note that the IFC 4.3
    dictionary itself is listed as "Preview" in bSDD [C24].
 3. **Standards are moving under us.**
    - ISO 19650-1 and -2 are "to be revised". A draft 19650-2, "Information management process",
@@ -221,8 +222,11 @@ shipping the table [C8][C9][C10]. IFC 5 does the same with a `code` and a bSDD `
      codes must not be added to its tables [C38][C39].
    - OmniClass's EULA forbids, without CSI's written approval, redistributing it "through a web
      service or by access to an application programming interface", publishing crosswalks to other
-     systems, and selling "information products that use OmniClass numbers and titles" [C40]. A
-     hosted product showing OmniClass codes needs that approval.
+     systems (making one privately is not barred), and selling "information products that use OmniClass
+     numbers and titles" [C40]. CSI's current download licence (Version 4/1/2022) is stricter: never
+     "Incorporate all or any portion of the CSI Product into commercial construction software or other
+     information products" without written permission [C40b]. A hosted product showing OmniClass codes
+     needs that approval.
    - MasterFormat's numbers, titles and taxonomy were held not protected by copyright in one US
      court [C42]; the trademarks remain.
 5. **Granularity.** iTwin warns that one real thing modelled at two granularities, or from two
@@ -703,6 +707,7 @@ COBie
 Classification and markets
 - [C38] NBS, Uniclass download (licence, quarterly updates, release of 1 Jul 2026, tables): https://uniclass.thenbs.com/download
 - [C39] NBS, "What is Uniclass?" (30 Mar 2022): https://www.thenbs.com/knowledge/what-is-uniclass
+- [C40b] CSI, Single User Access & Download License for OmniClass, Version 4/1/2022: https://www.csiresources.org/csistore/oc-eula
 - [C40] CSI, End User License for OmniClass, version 2019-07-01: https://higherlogicdownload.s3.amazonaws.com/CSIRESOURCES/b00cc178-1ca0-4e36-aeae-82edcd55c99c/UploadedImages/PDFs/OmniClass_EULA_2019-07-01.pdf
 - [C41] NBIMS-US V3 §2.4, OmniClass introduction: https://nibs.org/wp-content/uploads/2025/04/NBIMS-US_V3_2.4_OmniClass_Intro.pdf
 - [C42] *The Construction Specifications Institute, Inc. v. Zerodocs.com, Inc.*, C.D. Cal. No. 8:25-cv-00475, Order on Motions for Summary Judgment (ECF 74), 1 Sep 2026: https://storage.courtlistener.com/recap/gov.uscourts.cacd.961501/gov.uscourts.cacd.961501.74.0.pdf; docket: https://www.courtlistener.com/docket/69727432/the-construction-specifications-institute-incorporated-v-zerodocscom/
@@ -739,3 +744,13 @@ PostgreSQL
 Repository documents: `docs/adr/0031-the-engine-and-the-data-spine.md`, `docs/adr/0034-the-stack.md`,
 `docs/adr/0035-the-live-model-is-the-product.md`, `docs/adr/0036-a-project-holds-a-site-and-buildings.md`,
 `docs/data-model.md` §2 and §3.3, `docs/research/glodon-bim-2.md`, `docs/research/global-markets-foundation.md`.
+
+**Verified by a refuter (27 Sep 2026, session 02).** Confirmed from primary sources: CSI v. Zerodocs
+(ECF 74 and 75, 1 Sep 2026; no notice of appeal on the docket by 25 Sep, the window closing about 1 Oct);
+Uniclass CC BY-ND 4.0; Ashghal's ABIMS D1001 COBie guide (Uniclass 2015 categories); IFC 4.3's
+PILE_CAP, FOOTING_BEAM, LANDING and SHEAR and the absence of a whole-stair base quantity set; ISO
+23387:2025 replacing 2020 and ISO/DIS 19650-2 at 40.93 replacing 19650-2 and -3; the GlobalId "has to be
+persistent" and COBie's ExtIdentifier rule. Corrected above: the Dubai dictionary puts IFC properties in
+sets IFC does not (not properties IFC lacks); OmniClass's current 2022 licence is stricter than the 2019
+EULA; only publishing a crosswalk needs approval. Also note: ADR 0035/0022 (session 02 Q12) rule no IFC
+export in the MVP, so §1.5 item 8's export waits; the mapping rows still arrive in M1.
