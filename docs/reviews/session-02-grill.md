@@ -306,3 +306,25 @@ on GCP Mumbai.
 **Recommended.** Agree.
 **The owner's ruling.** "Agree with your recommendation on Q27"
 **Written into.** docs/milestones.md (rewritten). The specs M0–M2 and the M0 plan are revised to it next.
+
+## Q28. Where "As maintained" goes after the MVP (28 Sep 2026)
+**Asked.** A, third (Level 3 → cost control → As maintained → project memory → watcher → 4D/5D); B,
+second; C, last.
+**Recommended.** A: cost control's As built Records feed a good handover package; moved forward if a beta
+Developer asks for FM on existing buildings.
+**The owner's ruling.** "Agree with your recommendation on Q28."
+**Written into.** docs/milestones.md (after the MVP).
+
+## Q29 (opened by the owner). MEP read into the Live Model, not lump sums (28 Sep 2026)
+**The owner's words.** "I'm also another critical decision of "MEP"; today they're only lump sums but in
+reality without proper MEP implementation our total product value would not fulfill our premium clients
+as they are really serious regarding MEP. At what point we can include MEP equipment (study 2 MEP related
+DWG files from Edison which you can say pretty standard) as Elements with identity?? Please revise the
+plan and milestones including MEP; so basically we'll not left nothing in a Building: Everything
+Structural, Architectural and MEP have will be extracted from DWGs, PDFs and will be in live model as
+Elements with identity and with priced BOQ."
+**Taken as.** The direction is ruled: every Discipline (structural, architectural, MEP) is read into the
+Live Model as Elements with identity and a Priced BOQ; this reverses ADR 0003's "MEP as lump sums". Open:
+at which milestone and to what depth. Evidence being gathered before the recommendation: Edison's
+ELECTRICAL and PLUMBING DWGs studied by a drawing analyst; Dhaka's MEP measurement and pricing practice
+researched.

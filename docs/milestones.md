@@ -25,11 +25,14 @@ blind (ADR 0026). M1 needs one Held-out Set, M2 two; each is scored first as an 
 read (no Drafting Profile of its office), then with one if it exists (ADR 0039). The M1 and M2 walks each
 include a timed Takeoff by a QS who did not build the product (ADR 0033).
 
-## After the MVP (the order is settled in session 02; see docs/reviews/session-02-grill.md)
+## After the MVP (the owner's ruling, session 02 Q28: "Agree with your recommendation on Q28")
 1. Level 3: a written explanation of each Revision Comparison (ADR 0015).
 2. Cost control during construction: As built Records (ADR 0037).
-3. Project memory: per-tenant history and semantic search over old documents.
-4. The watcher that wakes to flag anomalies and notify.
-5. 4D Schedule and 5D Cost, built with the project's engineers.
+3. As maintained: after-sales and facility management (warranty, expected life, maintenance, condition
+   as Records), the handover package for the owners' association, the buyer's view of their own flat,
+   and Live Models of buildings a Developer already maintains; moved forward if a beta Developer asks.
+4. Project memory: per-tenant history and semantic search over old documents.
+5. The watcher that wakes to flag anomalies and notify.
+6. 4D Schedule and 5D Cost, built with the project's engineers.
 
 Each is chosen and refined by what beta Developers ask for (ADR 0002).
