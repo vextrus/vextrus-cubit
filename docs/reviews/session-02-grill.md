@@ -432,3 +432,10 @@ Definitions, Family Attributes, Records, classification, Element Relations and t
 rest returning to M1. The QS critic reset Step 1 to Dhaka practice (continuation sheets and several plans
 per storey are normal; sets can come with no drawing list; Step 1 per Discipline Part since MEP arrives
 later; seven exclusion reasons a QS uses; Disciplines as data per Market, adding Mechanical, Lift and Gas).
+- **One of the owner's own session-01 rulings reversed under delegation (flagged for the owner):** the M0
+  spec's amendment 3 listed "overhead tank and tank roof" among the canonical storey words; review Q1
+  makes the overhead tank and the underground reservoir structures read in Step 10, never storeys, since
+  their levels are written relative to the roof. The owner may restore amendment 3 in one line.
+- The pumps/intercom/CCTV template line (৳40, verified as one line) stays an allowance until both the
+  Plumbing and sanitary and the Electrical Parts are read; Mechanical (HVAC) replaces no allowance (AC
+  units are out of scope).

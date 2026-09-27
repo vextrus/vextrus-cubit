@@ -140,17 +140,30 @@ All Low confidence; each Developer's past projects replace them. Source: docs/re
 
 **MEP and site-works template** (ADR 0007 step 14): ৳ per sft of Gross Floor Area (PWD 2022 ÷ 1.227),
 typed including VAT; the range is each line's sanity Check (ADR 0027).
-| Line | Default | Range |
-|---|---|---|
-| Plumbing and sanitary | 170 | 100–205 |
-| Electrical | 190 | 160–210 |
-| Lift | 105 | 80–200 |
-| Generator | 80 (no source; the least sure) | 50–100 |
-| Substation and utility connections | 90 | 70–120 |
-| Fire protection | 50 | 30–120 |
-| Pumps, intercom, CCTV | 40 | 30–60 |
-| Gas | 0 | 0–17 |
-| Site works | 60 | 40–100 |
+**Each MEP line names the Discipline Part whose reading replaces its allowance** (review Q8 of
+docs/reviews/M0-plan-s02-resolution.md, 28 Sep 2026; the column is the session's, under the owner's
+delegation: "Take every necessary actions, update and write all files to end the session." The ৳
+figures and ranges stay the owner's, unchanged). The Parts are the Bangladesh Market's Disciplines,
+Library rows with one name each everywhere. Once a Part is read, the lines it names stop being
+allowances and its measured figure stands in their place; a line is never both.
+| Line | Default | Range | Replaced by reading the Part |
+|---|---|---|---|
+| Plumbing and sanitary | 170 | 100–205 | Plumbing and sanitary |
+| Electrical | 190 | 160–210 | Electrical |
+| Lift | 105 | 80–200 | Lift |
+| Generator | 80 (no source; the least sure) | 50–100 | Electrical |
+| Substation and utility connections | 90 | 70–120 | Electrical |
+| Fire protection | 50 | 30–120 | Fire |
+| Pumps, intercom, CCTV | 40 | 30–60 | split: the pumps by Plumbing and sanitary; intercom and CCTV by Electrical |
+| Gas | 0 | 0–17 | Gas |
+| Site works | 60 | 40–100 | none: they stay Lump Sums on the Site |
+
+- **The split line.** The owner verified ৳40 for pumps, intercom and CCTV together, with no share for
+  each. Until the owner sets the pumps' share, the whole line stays an allowance until both Plumbing
+  and sanitary and Electrical are read, so the figure never understates (open for the owner).
+- **Mechanical (HVAC)** names no line: the template has none, since AC units are out of scope (MEP
+  convention 3 below), their points and sockets being Electrical's. Reading that Part replaces no
+  allowance.
 
 **The Estimate's layers** (ADR 0006): preliminaries and site overheads 6 % of direct cost; contingency
 5 %. PWD's caps for reference: testing 1 %, price contingency ≤ 8 %, physical ≤ 2 %.
