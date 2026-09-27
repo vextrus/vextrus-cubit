@@ -125,3 +125,27 @@ Developer's past projects. The owner verified the reference building they are co
   now the owner's).
 Cross-check owed: the Sample Project's measured consumption per step beside these (session 02's
 priced prototype).
+
+## MEP and site-works template, the Estimate's layers, the MD's consumption ranges (owner's ruling, 27 Sep 2026, session 02 Q10: "Agree with your recommendation on Q10, all ✓")
+All Low confidence; each Developer's past projects replace them. Source: docs/research/tax-and-allowances.md §B.
+
+**MEP and site-works template** (ADR 0007 step 14): ৳ per sft of Gross Floor Area (PWD 2022 ÷ 1.227),
+typed including VAT; the range is each line's sanity Check (ADR 0027).
+| Line | Default | Range |
+|---|---|---|
+| Plumbing and sanitary | 170 | 100–205 |
+| Electrical | 190 | 160–210 |
+| Lift | 105 | 80–200 |
+| Generator | 80 (no source; the least sure) | 50–100 |
+| Substation and utility connections | 90 | 70–120 |
+| Fire protection | 50 | 30–120 |
+| Pumps, intercom, CCTV | 40 | 30–60 |
+| Gas | 0 | 0–17 |
+| Site works | 60 | 40–100 |
+
+**The Estimate's layers** (ADR 0006): preliminaries and site overheads 6 % of direct cost; contingency
+5 %. PWD's caps for reference: testing 1 %, price contingency ≤ 8 %, physical ≤ 2 %.
+
+**The MD's consumption ranges** (ADR 0016; per sft of Gross Floor Area; outside is a flag, never a
+block): rebar 4.5–6 kg (set 26 Sep); cement 0.36–0.52 bags; concrete 1.25–1.85 cft; bricks 8.4–11.6
+(±15 % around the reference building's G+6 to G+14 points).

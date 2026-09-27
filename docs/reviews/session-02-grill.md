@@ -114,3 +114,11 @@ prototype we created, hopefully this is not the final prototype."
 **Taken as.** The read (all fourteen steps, 3,450 Elements, 45 Questions) is accepted as a first
 prototype; its viewer is an inspector, not the destination. The viewer-tools prototype keeps every
 session-01 3D capability and adds the tools, on the full read.
+
+## Q10. The MEP template, the Estimate's layers, the consumption ranges (27 Sep 2026)
+**Asked.** The MEP and site-works ৳/sft defaults and ranges; preliminaries 6 %, contingency 5 %; the MD's
+consumption ranges for cement, concrete and bricks at ±15 % around the reference points (rebar 4.5–6
+already set). All Low.
+**Recommended.** ✓ as drafted; the priced prototype sets the Sample Project against each.
+**The owner's ruling.** "Agree with your recommendation on Q10, all ✓"
+**Written into.** docs/specs/bd-defaults.md.
