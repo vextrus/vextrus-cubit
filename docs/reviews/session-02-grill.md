@@ -261,3 +261,6 @@ FW6 measures no soffit; E3 depth from ground level to the GF slab soffit, derive
 retuning of allowance defaults from one agent-made building.
 **The owner's ruling.** "Agree with your recommendation on Q23"
 **Written into.** docs/specs/bd-defaults.md (Rule Set).
+
+## Prototypes judged: global (5330) and priced (5340) (27 Sep 2026)
+The owner's words: "Both read well, global and priced look right". Written into docs/design/screens.md.

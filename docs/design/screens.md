@@ -127,3 +127,16 @@ Element's Attributes by cost, construction and O&M with each value's Life Phase 
 showing one identity through As designed, As built and As maintained, "Record a floor cast", and "Add
 attribute" (live at once in the grid, the inspector and "Colour the model by"). The owner's judgement:
 "yes, the inspector, the query and the three-phase history read as I'd want, looks good."
+
+### Global in miniature (port 5330)
+One shell rendered for Bangladesh in English and in Bangla (Bengali or Latin digits), the Gulf in Arabic
+(right to left) and English, and a 3-decimal-currency test market, switched by data alone; the chrome
+mirrors, the drawing never does; switching units re-bills. The owner's judgement: "Both read well, global
+and priced look right." Rulings follow ADR 0038; two wait until a Bangla screen ships (৳ before or after
+the figure in Bangla; the Bangla word for Rebar).
+
+### The whole Takeoff priced (port 5340)
+The Priced BOQ (BOQ Sections, items, Measurement Lines naming their Element and rules, Cost Basis,
+Benchmark), the Material Schedule by floor and Construction Stage, the Project Summary, the allowance
+cross-check and an Element's working cost, from the real read with placeholder prices. The owner's
+judgement: "Both read well, global and priced look right."
