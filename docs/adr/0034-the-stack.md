@@ -1,4 +1,4 @@
-# The stack: one Django modular monolith, one Postgres, native development and a Mumbai beta
+# The stack: one Django modular monolith, one Postgres, native development and a Mumbai beta on GCP
 
 **The backend** is Python 3.14, Django 6.1 with Django Ninja (REST, OpenAPI 3.1), uv, ruff, mypy with
 django-stubs and pytest-django; it moves to Django 6.2 LTS when it ships. It is one application of 13
@@ -23,17 +23,22 @@ the client. **Every Membership may be scoped to a list of Projects** (none = all
 outside the Developer (a consultant's engineer, a contractor's QS, later a site engineer or facility
 staff) enters the same way: a named person invited into the Developer's tenant, scoped to Projects and
 a role, time-bound where the Developer wants it; the data never leaves the tenant; the Django admin obeys the same policies, and operators reach raw data only through the
-beta's audited database path. Files go to the local filesystem in development and S3 from the beta.
+beta's audited database path. Files go to the local filesystem in development and object storage (Cloud Storage) from the beta.
 
 **Stages.** Development is native on WSL2, about $0, no Docker; cloud sessions serve as previews; CI
-is GitHub Actions, which builds LibreDWG once; Logfire and Sentry free tiers. The beta runs in AWS
-ap-south-1 (Mumbai, 44 ms from Dhaka), about $87–123 a month: one x86 VM with web and worker
-containers, RDS Postgres (14 days point-in-time restore), S3, and a small staging VM with its own
-small database (about $15 a month). Targets: 99.5 % uptime, about 5 minutes of data loss at most,
+is GitHub Actions, which builds LibreDWG once; Logfire and Sentry free tiers. The beta runs on Google
+Cloud in asia-south1 (Mumbai, about 42–45 ms from Dhaka), about $164–209 a month: one x86 VM with web
+and worker containers deployed by us, Cloud SQL for PostgreSQL 18 (Enterprise: 7 days of point-in-time
+restore, plus 30 days of daily backups kept in Delhi, asia-south2), a dual-region Mumbai + Delhi bucket,
+and a small staging VM with its own small database. Before provisioning: one small VM in Mumbai for an
+hour to confirm latency, the N2D price checked in the console, and whether the billing account is
+self-serve (the sustained-use discount). Targets: 99.5 % uptime, about 5 minutes of data loss at most,
 restored within 4 hours. Beta hardening: a monthly restore drill, staff MFA, rate limits and an audit
-table, client terms naming where data is processed. Scale (about $860–1,110 a month for Bangladesh):
-the same image on ECS Fargate, Multi-AZ RDS, queue-scaled workers; the Gulf gets its own deployment
-in AWS's UAE region. Every addition needs a measured trigger. Bangladesh's Personal Data Protection
+table, client terms naming where data is processed. Scale (about $760–1,050 a month for Bangladesh,
+$970–1,255 with Cloud SQL Enterprise Plus): the same image on more VMs or a sandbox-capable container
+service (GKE Sandbox), a high-availability database, queue-scaled workers; the Gulf gets its own cell
+where Google has regions (Doha, Dammam) when the Gulf opens. Postgres is never self-run: the hours of
+drills, patching and on-call outweigh the savings. Every addition needs a measured trigger. Bangladesh's Personal Data Protection
 Act 2026 allows data abroad with consent or under contract (our reading; a lawyer checks before the
 beta).
 
@@ -70,3 +75,10 @@ Bangalore for the beta.
   `ids.new_id()` over `uuid.uuid7`, no database-side default; ezdxf built from source until its cp314
   wheel ships; the tenant policy reads the setting through `nullif`. Evidence: docs/research/stack-versions.md.
   The owner's ruling: "Agree with your recommendation on Q18".
+- 28 Sep 2026 (owner's decision, session 02 Q26): the beta moves from AWS to **Google Cloud Mumbai**, the
+  owner's existing account: one VM, Cloud SQL Enterprise with 7 days of point-in-time restore plus 30 days
+  of daily backups in Delhi (replacing "14 days"), a dual-region bucket; the Gulf's cell on Google's
+  Middle East regions when it opens. Evidence: docs/research/deploy-providers.md (the $87–123 AWS figure was
+  stale: about $158–174 at the real beta shape; AWS's UAE region damaged and Bahrain down). The owner asked:
+  "why not try GCP instead of AWS as we've already used GCP previously … and currently we're under
+  subscribed to GCP payment". The owner's ruling: "Agree with your recommendation on Q26".

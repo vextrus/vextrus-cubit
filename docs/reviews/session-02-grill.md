@@ -284,3 +284,12 @@ and notes anchored to Element identity, presentation with its look set by the ow
 **The owner's ruling.** "Agree with B on Q25"
 **Written into.** ADR 0022; docs/design/screens.md. Open for the owner: the ?bench run on the reference
 setup; a judgement on the prototype itself.
+
+## Q26. Where the beta runs (28 Sep 2026)
+**Asked.** GCP Mumbai (the owner's account; ~$164–209; 7-day PITR, 14 days ≈ +$190; Gulf regions open) vs
+AWS Mumbai (~$158–174; 35 days; UAE damaged) vs DigitalOcean Bangalore (~$112–163; fewer controls) vs
+self-run Postgres (saves $15–60, costs 6–10 engineer-hours a month).
+**Recommended.** GCP Mumbai: one VM, Cloud SQL Enterprise, 7 days PITR + 30 days daily backups in Delhi;
+confirm latency, the N2D price and billing type before provisioning; never self-run Postgres.
+**The owner's ruling.** "Agree with your recommendation on Q26"
+**Written into.** ADR 0034 (and its index line).
