@@ -37,3 +37,10 @@ it would run, beside `.private/` and the secrets (docs/research/sdlc-waves-and-c
 - 26 Sep 2026 (owner's decision, M0 plan): the `real-drawings` status is posted by a small private
   GitHub App the owner holds (commit statuses only, its key with the key user), so a forged status
   shows a different author. The owner's ruling: "Agree with all four".
+- 28 Sep 2026 (owner's decision, session 02 Q24): **in M0 the check runs without Answer Keys**: the
+  real-drawing command runs the pipeline on the Development Sets for every engine PR and posts the
+  element-by-element change against the last merged run (regression); the blind scorer and the keys
+  (the Sample Project's, Edison's at sheet and view level, the first scored run) move to M1's first wave,
+  when the first Held-out Set and Edison's Hand Takeoff arrive. M0's correctness rests on the owner's walk
+  and the render check against the consultant's own Plots. The owner's ruling: "Agree with your
+  recommendation on Q24".

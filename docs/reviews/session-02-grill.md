@@ -264,3 +264,14 @@ retuning of allowance defaults from one agent-made building.
 
 ## Prototypes judged: global (5330) and priced (5340) (27 Sep 2026)
 The owner's words: "Both read well, global and priced look right". Written into docs/design/screens.md.
+
+## Q24. M0's weight (28 Sep 2026)
+**Asked.** 40 tickets: 20 visible, 5 foundation, 15 machinery (8 scoring, keys and harness). The blind
+scorer and keys exist to score Held-out Sets and Hand Takeoffs, which arrive in M1; session 02 added M0
+work.
+**Recommended.** Drop P1; merge 01c+01d, 06d1+06d2, 24+25; fold 27 into 22; move 05, 06c, 06d1/2, 06e
+to M1's first wave (M0 keeps 06a and 06b: regression by element diff, no keys); keep the one Jev node (15
++ 23); put the new work into 01a, 01b, 03, 08 plus one small ticket for the Live Model's empty tables:
+about 30 tickets, 8 machinery, the same finish line.
+**The owner's ruling.** "Agree with your recommendation on Q24"
+**Written into.** ADR 0030; docs/plans/M0.md when it is revised.
