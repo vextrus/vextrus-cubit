@@ -122,3 +122,13 @@ already set). All Low.
 **Recommended.** ✓ as drafted; the priced prototype sets the Sample Project against each.
 **The owner's ruling.** "Agree with your recommendation on Q10, all ✓"
 **Written into.** docs/specs/bd-defaults.md.
+
+## Q11. How consultants, contractors and site engineers get in (27 Sep 2026)
+**Asked.** A, Membership per Developer only; B, Membership per Developer with an optional list of
+Projects from M0, outsiders only as named, scoped, time-bound invitations into the Developer's tenant;
+C, cross-organisation sharing.
+**Recommended.** B.
+**The owner's ruling.** "Agree with B on Q11."
+**Written into.** ADR 0034. The owner then asked whether GCP (already subscribed) or a cheaper
+reliable provider, or self-managed DevOps, should replace AWS: researched before it is put as a
+question.

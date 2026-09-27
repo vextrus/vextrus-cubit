@@ -18,7 +18,10 @@ pgvector later. Each change writes an event row in its own transaction; LISTEN/N
 table's first migration, the app connecting as a non-owner role, and a CI test that every table has a
 policy. A Vextrus Engineer enters a Developer's data only by its invitation: a named QS member,
 time-bound (30 days by default, renewable), revocable, every action under their own name, visible to
-the client; the Django admin obeys the same policies, and operators reach raw data only through the
+the client. **Every Membership may be scoped to a list of Projects** (none = all), and anyone from
+outside the Developer (a consultant's engineer, a contractor's QS, later a site engineer or facility
+staff) enters the same way: a named person invited into the Developer's tenant, scoped to Projects and
+a role, time-bound where the Developer wants it; the data never leaves the tenant; the Django admin obeys the same policies, and operators reach raw data only through the
 beta's audited database path. Files go to the local filesystem in development and S3 from the beta.
 
 **Stages.** Development is native on WSL2, about $0, no Docker; cloud sessions serve as previews; CI
@@ -54,3 +57,7 @@ Bangalore for the beta.
   (ADR 0031). The owner's ruling: "Agree with the bundle".
 - 26 Sep 2026: units follow ADR 0008 (not "SI everywhere"); Element states carry validity ranges
   (docs/data-model.md). 0020, 0021 and 0023 merged into this ADR (session 01 brief, finish line 8).
+- 27 Sep 2026 (owner's decision, session 02 Q11): Memberships may be scoped to Projects from M0, and
+  outside parties enter only by named, scoped invitation into the Developer's tenant (the Vextrus
+  Engineer pattern generalised); cross-organisation sharing is rejected until consultants pay
+  themselves. The owner's ruling: "Agree with B on Q11."
