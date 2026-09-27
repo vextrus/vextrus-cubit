@@ -293,3 +293,16 @@ self-run Postgres (saves $15–60, costs 6–10 engineer-hours a month).
 confirm latency, the N2D price and billing type before provisioning; never self-run Postgres.
 **The owner's ruling.** "Agree with your recommendation on Q26"
 **Written into.** ADR 0034 (and its index line).
+
+## Q27. The milestones, redrawn (28 Sep 2026)
+**Asked.** Every ruling Q1–Q26 placed: M0 the global habits, versions, seams and empty Live Model tables,
+no keys (~30 tickets); M1 reading beyond the Sample Project (generic bugs, no hard-coded counts, graphical
+schedules, notes tables, levels from architecture), Drafting Profiles, the scorer and keys, per-storey
+Elements, As designed Attributes with IFC mapping and Uniclass, steps closing with Questions open, PWD
+starter prices, the viewer's M1 tools, and a Held-out Set scored first as an unknown office's first read;
+M2 the Live Model query, derived drawings, placed dimensions and notes, presentation within budget; M3 +
+multi-building reading before the founding clients; M4 + publishing Drafting Profiles once permitted; M5
+on GCP Mumbai.
+**Recommended.** Agree.
+**The owner's ruling.** "Agree with your recommendation on Q27"
+**Written into.** docs/milestones.md (rewritten). The specs M0–M2 and the M0 plan are revised to it next.
