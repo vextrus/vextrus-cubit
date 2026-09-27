@@ -78,3 +78,13 @@ designed; a difference beyond tolerance is a Deviation); C, a separate model per
 maintained value that differs from its As designed value beyond a tolerance; shown, never absorbed"."
 **Written into.** ADR 0035; `CONTEXT.md` (Deviation). docs/architecture.md's "only the confirm
 service writes" becomes "only the confirm service writes As designed" when levelled.
+
+## Q7. What cost an Element carries (27 Sep 2026)
+**Asked.** An Issued Estimate froze only per BOQ Item and per storey, so an Element's issued cost was
+lost. A, as now; B, issuing also freezes the Measurement Lines (Element, BOQ Item, quantity, frozen
+rate), so each Element has a working cost (on read) and an issued cost per Issued Estimate; C, cost
+stored live on the Element (breaks ADR 0031).
+**Recommended.** B: the per-Element budget cost control needs, and every issued figure reproducible.
+**The owner's ruling.** "Agree with B on Q7"
+**Written into.** ADR 0028; `CONTEXT.md` (Issued Estimate). data-model §3.5 gains the frozen lines
+when levelled.

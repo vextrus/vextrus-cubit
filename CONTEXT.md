@@ -349,7 +349,8 @@ _Avoid_: diff, delta report, change log
 
 **Issued Estimate**:
 A frozen snapshot of the Estimate (the Priced BOQ, the Material Schedule, the Market Price set, the
-Rule Set version and the Live Model's state) with an issue number and date; the figure the MD
+Rule Set version and the Live Model's state, down to each Element's Measurement Lines) with an issue
+number and date; the figure the MD
 takes to the board, which later changes are compared against.
 _Avoid_: version, baseline (alone), final estimate
 

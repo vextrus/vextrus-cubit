@@ -1,8 +1,10 @@
 # An Issued Estimate is frozen; every comparison splits quantity from price
 
 The QS or the MD issues the Estimate, which freezes a snapshot of the Priced BOQ, the Material
-Schedule, the Market Price set, the Rule Set version and the Building Model's state, with an issue
-number and date. Exports carry the issue's number and date; the working Estimate stays live beside
+Schedule, the Market Price set, the Rule Set version and the Live Model's state, with an issue
+number and date, down to its Measurement Lines: each line keeps its Element, BOQ Item, quantity in the
+Billing Unit and frozen rate, so every Element has a working cost (computed on read) and an issued
+cost under each Issued Estimate (frozen), the budget cost control compares As built against. Exports carry the issue's number and date; the working Estimate stays live beside
 it. Every comparison (a Revision Comparison, a re-measure after a rule edit, a price update) shows the
 quantity effect and the price effect separately, against a baseline the MD picks: the previous
 Revision or any Issued Estimate.
@@ -23,3 +25,6 @@ change was due to).
   owner's ruling (26 Sep 2026): "Agree".
 - 26 Sep 2026 (owner's decision): sets are copied on issue, not on every edit. Evidence:
   docs/data-model.md §6. The owner's ruling: "Agree".
+- 27 Sep 2026 (owner's decision, session 02 Q7): issuing also freezes the Measurement Lines, so each
+  Element has an issued cost; live money is still never stored (ADR 0031). Evidence: docs/data-model.md
+  §3.5 froze only per item and per storey. The owner's ruling: "Agree with B on Q7".
