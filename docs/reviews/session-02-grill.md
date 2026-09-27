@@ -386,3 +386,15 @@ per-project clearance Question sizing the reservoir.
 **Recommended.** All four.
 **The owner's ruling.** "Agree with your recommendation on Q32: all four as proposed."
 **Written into.** docs/specs/bd-defaults.md (MEP conventions).
+
+## The shared understanding (28 Sep 2026)
+The design tree emptied at Q32. The orchestrator summarised it (the product, the global and scale
+foundations, the line M0–M6, the evidence, what stays the owner's) and asked for confirmation.
+**The owner's words.** "Yes push them. Yes definitely we have reached a shared understanding. Don't bother
+for my inputs on last small remaining things like bench and etc. Please start writing the final
+documents, it was really a fantastic grilling session that shaped our product as I wanted finally. Take
+every necessary actions, update and write all files to end the session."
+**Taken as.** Push done (749bec71..9656aa49); the final documents are written from this ledger; the
+owner delegates the remaining small inputs (the bench run, the viewer prototype's own judgement) and the
+sign-off of the revised specs and plan to the session, the plan still attacked by the four reviewers
+before it is signed.
