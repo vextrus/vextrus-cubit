@@ -14,6 +14,43 @@ and a walk of the three prototypes at 1280×800 on 26 Sep 2026.
 Every name, number, sheet and file on this page and in `m0-wireframes/` is invented. Nothing comes
 from a real Drawing Set.
 
+**Revised in session 02 (28 Sep 2026)** under the owner's delegation: "Take every necessary actions,
+update and write all files to end the session." The revision follows the revised docs/specs/M0.md.
+
+## Session 02 revision (28 Sep 2026)
+
+What session 02 changed on these screens, each with its ruling (the owner's words are in
+docs/reviews/session-02-grill.md). The English wording on this page stays as specified except where
+listed here.
+1. **Every string is a message in a catalogue** (Q15, ADR 0038): the wording on this page is the
+   English catalogue's text; machine-written sentences arrive as a code and parameters. New rule 1.7.
+2. **Drawing notation is isolated left to right, and CSS is logical** (Q15, ADR 0038): sheet numbers,
+   marks, dimensions, coordinates, levels and scales sit in left-to-right isolates, titles in isolates
+   of their own direction; the sheet canvas is fixed left to right. Nothing visible changes in
+   English. New rule 1.8; 1.2, 3 and 4.6.
+3. **The Market drives figures, dates and unit choices** (Q15, ADR 0038): nothing visible changes for
+   Bangladesh, and no screen offers a market choice while there is one Market. New rule 1.9.
+4. **One Building, no picker** (Q4, ADR 0036): a Project's Site and one Building are made with it, and
+   no screen shows a building picker, column or name until a second Building exists. New rule 1.10.
+   The Projects empty state now says "for each development", not "for each building" (4.3).
+5. **Members given chosen projects; outsiders by invitation** (Q11, ADR 0034): the Members page and the
+   invite dialog gain Projects and an end date for anyone; a member sees only their projects; the
+   AccessChip shows for anyone with an end date (1.4, 3, 4.1, 4.3, 4.4); the seed gains such a member
+   (7).
+6. **MEP sheets have their own Disciplines and are not left out** (Q29, Q31; ADRs 0007, 0040):
+   Electrical, Plumbing and sanitary, Fire and Other MEP join Structural and Architectural; MEP
+   sheets are confirmed like the rest and their views assigned to their Discipline Part (read from
+   M3); "MEP" leaves the exclusion reasons, which become six (`1`–`6`). Sections 4.5, 4.7, 5, 6.2,
+   6.3, 6.4, 6.6, 6.9, 6.11, 6.15 and the seed (7), whose electrical file is now `KR-ELE-R0.dwg` and
+   whose A-07 is now proposed to leave out, so the combined bulk act still has something to leave out.
+7. **Words:** where "live" meant open or current, it now says so ("Step 1 is open", "a current
+   invitation"), so the word stays the Live Model's (Q2, ADR 0035).
+8. **The design gate** gains the checks for 1–6 (8, item 10).
+
+The wireframes in `m0-wireframes/` predate session 02: they show MEP sheets as proposed exclusions
+("Leave out, MEP"; "3 MEP sheets excluded" in `step1-shell-*`), `KR-MEP-R0.dwg` in `drawing-set-*`,
+and no Projects column on the Members page. This page wins where they differ.
+
 ## What is not settled or not proven (read first)
 
 - **Step 1's layout is settled (layout A, the owner's ruling), but not every detail.** Section 6 is
@@ -29,6 +66,13 @@ from a real Drawing Set.
   PDF report ships; I have not verified the dialog label.
 - **The cursor readout's origin on a layout-tab sheet** (paper units or model units) is not decided;
   model-space sheets show the drawing's own coordinates.
+- **The market habits are unwalked on these screens.** They were proven only in the private session-02
+  global prototype (docs/research/global-markets-foundation.md). With English the only catalogue, a
+  string outside the catalogue, a physical CSS property or an unisolated dimension looks right on
+  every M0 screen; only the lints and the design gate's checks (8) catch them.
+- **How Coverage stores an MEP view's assignment** to a Discipline Part whose Takeoff Steps are not yet
+  defined (M3) is the data model's to settle (docs/specs/M0.md, `takeoff`); the screens below show it
+  as the Part's name with "M3 onwards".
 - **The prototypes break this spec in places** and must not be copied blindly: the sheet prototype
   showed performance readouts and a renderer string by default, entity types, layers and handles on
   hover, font file names and "SDF glyphs" in its font panel, and "Rod" for Rebar; the Takeoff
@@ -59,7 +103,10 @@ pixels; the tokens in docs/design/system.md fix the pixels.
 
 ### 1.1 Words
 - **CONTEXT.md's terms, exactly:** Drawing Set, Discipline, Takeoff, Takeoff Step, Proposal,
-  Confirmation, Question, Check, Coverage, Trace, QS, MD, Vextrus Engineer, Display Units, Rebar.
+  Confirmation, Question, Check, Coverage, Trace, QS, MD, Vextrus Engineer, Display Units, Rebar, and
+  from session 02 Project, Building, Site, Market, Live Model and Discipline Part (none of the last
+  five is shown on an M0 screen while a Project has one Building and there is one Market, except a
+  Discipline Part's name in the assign dialog, 6.9).
   "Plot" is the consultant's PDF page registered beneath a sheet. "View" is a part of a sheet (a
   plan, a section, a schedule, a detail, notes, a title block, a legend, an elevation, a key plan, a
   3D view).
@@ -68,7 +115,8 @@ pixels; the tokens in docs/design/system.md fix the pixels.
 - **Never shown to a QS or an MD** (the design gate greps the DOM for them): handle, entity, SDF,
   DXF, LibreDWG, ACadSharp, ezdxf, pdf.js, WebGL, buffer, artefact, render (as a noun), parse, JSON,
   sandbox, worker, job, queue, hash, sha256, tenant, RLS, API, null, undefined, NaN, stack traces,
-  error codes, "Rod" (the word is Rebar), "model space" (say "laid out in the drawing"), font file
+  error codes, a message code or catalogue key (1.7), UUID, locale, cell or home region, "Rod" (the
+  word is Rebar), "model space" (say "laid out in the drawing"), font file
   names with extensions (`romans.shx`: say "Romans (AutoCAD lettering)"), and any path. The only
   file names shown are the QS's own uploaded files, as the label of that file. "SHX" appears only
   inside the name of the AutoCAD setting the PDF report tells the QS to ask for.
@@ -76,10 +124,12 @@ pixels; the tokens in docs/design/system.md fix the pixels.
   sentences. No "Error:", no "Oops", no exclamation marks, no apologies.
 
 ### 1.2 Figures
-One formatter per kind (ticket 03, `web/src/format/`, with its table of expected strings): coordinate
-and length in ft-in (`42′-7½″`, never grouped); count as n / N (`12 / 13`), unknown N as `—`; date as
-`26 Sep 2026`; share as a whole percent beside what it is a share of; empty figure `—`. M0 shows no
-money and no quantities.
+One formatter per kind (ticket 03, `web/src/format/`, with its table of expected strings), driven by
+the Market's format profile (1.9): coordinate and length in ft-in (`42′-7½″`, never grouped); count
+as n / N (`12 / 13`), unknown N as `—`; date as `26 Sep 2026` and time as `10:42`, in the Market's
+time zone (stored in UTC); share as a whole percent beside what it is a share of; empty figure `—`.
+Coordinates, lengths, levels and scales come out of their formatter already isolated left to right
+(1.8). M0 shows no money and no quantities; their formatters exist, with rows in the table (docs/specs/M0.md).
 
 ### 1.3 The decode rule: no CAD code ever shows
 All drawing text is decoded on the server, by one function in `engine/render/text.py` (ticket 11),
@@ -110,11 +160,14 @@ drawing shows it, and the Bangla-ANSI Check flags it (4.5).
 
 ### 1.4 Roles on screen
 - **QS:** everything on these screens, except inviting a QS or an MD (see open question 2).
+- **A member given chosen projects** (session 02 Q11, ADR 0034; any role) sees only those projects:
+  the project list, the project switcher, `Ctrl K` and every address; any other project's address
+  shows 4.1's "Page not found".
 - **MD: read-only everywhere except Members and access** (story 57; open question 1). Buttons that
   change the Takeoff or the Drawing Set are absent, not disabled. A key that would change something
   shows the toast "As MD you can look at the Takeoff but not change it." Every confirmed item shows
   who confirmed it and when ("Confirmed by Nusrat Jahan, 26 Sep 2026").
-- **Vextrus Engineer:** works as a QS inside a live invitation (story 63). The top bar carries the
+- **Vextrus Engineer:** works as a QS inside a current invitation (story 63). The top bar carries the
   access chip (section 3). Every act shows under their own name with "(Vextrus)" after it.
 
 ### 1.5 Desktop only
@@ -129,6 +182,69 @@ the viewer toolbar shows "Measure" (the scripted 360-frame zoom, pan and zoom ou
 report shows read time and peak memory per file, and upload-to-sheet-list time. Without the flag
 none of these exist in the DOM; a test in each of 16 and 20 checks that (ux-critic #8; the
 post-mortem's test artefacts in the demo).
+
+### 1.7 Every string is a message (session 02 Q15, ADR 0038)
+- **Every string on these screens** (labels, headings, buttons, tooltips, accessible names, toasts,
+  errors, empty and loading states, status cells, the Question templates, the reports' wording, the
+  keys overlay) is a message in the English catalogue, the only one shipped. The wording on this page
+  is that catalogue's English text, unchanged by the move.
+- **Names, numbers, dates, file names and drawing text enter a message as named placeholders,**
+  formatted by their kind (1.2), never concatenated around it. A count's words come from the
+  catalogue's plural rule ("1 file", "3 files"), never an "s" added by code; lists join by the
+  catalogue's list pattern ("A, B and C").
+- **Sentences the machine writes** (Questions, Check findings, the file reports of 4.5, exclusion
+  reasons, status cells, "Who did what", the Engineer's acts, toasts naming an act) come from the API
+  as a message code and parameters and are worded here from the catalogue. Nothing the machine stores
+  is English prose.
+- **Text a person typed** (a corrected title, a pasted drawing list, an "other" reason, a name, an
+  address) and drawing text are data: shown as entered, never translated.
+- **A missing message is a bug:** a test fails when a code the API can send, or a key the web app
+  uses, has no English message; the DOM never shows a key. The catalogue lint (no visible string
+  literal in UI code outside the catalogue) runs in CI, and the design gate checks it (8).
+
+### 1.8 Left to right where it must be (session 02 Q15, ADR 0038)
+- **Drawing notation is always isolated left to right,** whatever the language around it: feet-inch
+  lengths and coordinates, levels ("EL +16′-6″"), scales ("1:100"), sheet numbers, revision marks,
+  marks, grid labels and file names. The formatter, or `DrawingText` for a sheet number, wraps each in
+  `<bdi dir="ltr">` (LRI…PDI in plain text, such as a tooltip or the clipboard). In English nothing
+  visible changes; in a right-to-left language it stops `14′-6″` reading as `″6-′14`, as the
+  session-02 global prototype measured.
+- **Other drawing text** (a sheet or view title, a room name) is isolated in its own direction
+  (`<bdi>`, direction from its first strong letter), so a title in another script neither reorders
+  the sentence around it nor is forced left to right.
+- **The sheet canvas, its thumbnails and its outlines' chips are fixed left to right** (`dir="ltr"`)
+  and never mirrored; the chrome around them may mirror in a right-to-left language.
+- **CSS uses logical properties only** (start and end: `ms-`, `me-`, `ps-`, `pe-`, `start-`, `end-`,
+  `text-start`); a lint bans `ml-`, `mr-`, `pl-`, `pr-`, `left-`, `right-` and their like in UI code,
+  the canvases excepted. The page's `lang` and `dir` come from the language's data (`en`, `ltr`).
+- "Left", "right" and "left to right" on this page describe the English layout; in the chrome's code
+  they are start and end.
+
+### 1.9 What the Market changes on screen (session 02 Q15, ADR 0038)
+Every Developer and Project points to a Market. Bangladesh is the only one, and on these screens it
+changes nothing a Dhaka QS would see. It sets:
+- the language (English) and direction (left to right) of every page;
+- figures and dates, through the formatters (1.2). Bangladesh's English borrows `en-IN`, whose short
+  month for September is "Sept"; the date formatter still writes `26 Sep 2026`, and the table of
+  expected strings holds that row;
+- the time zone dates and times are shown in (Dhaka's), though every time is stored in UTC; no screen
+  names the zone;
+- the unit systems the New project dialog offers and the one it picks (4.3: Imperial, then Metric),
+  and the unit system's name the status bar shows ("Imperial");
+- that the Bangla-ANSI Check runs (4.5), which is Bangladesh's.
+
+**No market choice anywhere while there is one Market:** no Market field in the New project dialog, no
+Market name on any screen, and no currency (M0 shows no money).
+
+### 1.10 One Building, no picker (session 02 Q4, ADR 0036)
+- A Project holds its Site and one or more Buildings. M0 makes the Site and one Building with each new
+  Project, without a word to the QS.
+- **While a Project has one Building, no screen shows a building picker, a Building column or filter,
+  or the Building's name,** and nothing asks the QS about it; every sheet is assigned to that Building
+  silently.
+- A second Building appears only in M4, which reads one; nothing in M0 makes one. M4's behaviour spec
+  designs the picker and where the Building shows. The design gate checks that on the seed the DOM
+  holds no building picker, column or name (8).
 
 ---
 
@@ -194,7 +310,7 @@ add a `keydown` listener of their own. This answers ux-critic #5.
    rows, and in Step 1 a row is a sheet, so `↑ ↓` page sheets from the list or the canvas; `[ ]` page
    sheets on any screen that shows one, including where there is no list; `← →` enter and leave a
    group, as in the Takeoff; Trace-source stepping moves into a Trace mode in M1, where no row
-   selection is live. In Step 1 (layout A) `← →` step through the views of the open sheet instead
+   selection is active. In Step 1 (layout A) `← →` step through the views of the open sheet instead
    (6.15).
 2. **F.** The sheet prototype fitted the paper; the Takeoff prototype fitted the working view;
    screens.md ruling 6 says "F fits the whole sheet". Now: `F` whole sheet, `Shift F` working view.
@@ -234,10 +350,11 @@ restyle.
 | **PhoneNotice** | Full screen under 640 px | "Vextrus needs a desktop" / "Open it on a screen 1280 px wide or more. Your work is saved; nothing is lost." / link "Sign out" (`m0-wireframes/phone-notice-390.svg`) |
 | **NarrowNotice** | A 28 px bar at the top, 640–1279 px | "This screen is built for 1280 px or wider. Some of it may be cut off; scroll sideways to see it." |
 | **ReadOnlyChip** | In the toolbar or page header, for the MD | "Read only: MD" with tooltip "You can look at the Takeoff but not change it." |
-| **AccessChip** | In the top bar, for a Vextrus Engineer | "Vextrus access to Shapla Homes Ltd until 26 Oct 2026"; amber when 3 days or fewer are left: "Vextrus access ends in 2 days" |
-| **DrawingText** | Shows a drawing string (number, title, view title) in the drawing's case, ellipsis plus tooltip when cut | In development builds, logs any `%%`, `\P`, `\f`, `\S`, `^J`, `{\` it is given |
+| **AccessChip** | In the top bar, for a Vextrus Engineer, and for anyone else whose access has an end date (session 02 Q11) | "Vextrus access to Shapla Homes Ltd until 26 Oct 2026"; amber when 3 days or fewer are left: "Vextrus access ends in 2 days". For anyone else: "Access to Shapla Homes Ltd until 26 Oct 2026" / "Access ends in 2 days" |
+| **DrawingText** | Shows a drawing string (number, title, view title) in the drawing's case, ellipsis plus tooltip when cut, isolated (1.8: a number left to right, a title in its own direction) | In development builds, logs any `%%`, `\P`, `\f`, `\S`, `^J`, `{\` it is given |
 | **Progress line** | A 3 px bar under a status text, plus the words | Determinate when steps are counted, else a slow indeterminate sweep; still under reduced motion |
-| **Formatters** | `web/src/format/` | 1.2 |
+| **Formatters** | `web/src/format/` | 1.2, driven by the Market (1.9); drawing notation isolated (1.8) |
+| **Messages** | The English catalogue and its helpers | 1.7; no visible literal outside it |
 
 ---
 
@@ -260,18 +377,20 @@ Membership; the switcher changes it.
   docked 320 px inspector; a 24 px status bar. Canvas at 1440×900: 1072 × 804 px (74% of the width);
   at 1280×800: 912 × 704 (71%). The inspector never floats, so selecting never moves the drawing.
 
-**Top bar, left to right.** Brand mark; the project switcher ("Kadam Residence ▾"; on `/projects`
-and `/members`, the Developer's name instead); text navigation with **only Takeoff and Drawing Set**
+**Top bar, left to right.** Brand mark; the project switcher ("Kadam Residence ▾", listing only the
+projects the member may open; on `/projects` and `/members`, the Developer's name instead; no building
+picker beside it, 1.10); text navigation with **only Takeoff and Drawing Set**
 in M0 (ux-critic #13; Priced BOQ, Material Schedule and Project Summary appear with their milestones,
 never as dead links); the AccessChip for a Vextrus Engineer; on the right, "Jump to…  Ctrl K" (220 px)
 and the user menu ("Nusrat Jahan, QS ▾": the Developer switcher when the user has more than one
 Membership, "Members and access", "Keys  ?", "Sign out"). No Revision label in M0: one issue only.
 
 **Step rail (48 px, 288 px open, overlaying the canvas, never reflowing it).** All 14 Takeoff Steps
-in building-first order, numbered. Step 1 is live; its state mark follows screens.md (Question wins,
+in building-first order, numbered. Step 1 is open; its state mark follows screens.md (Question wins,
 then all confirmed, then Proposals ready, none for not started). Steps 2–14 are muted with the
 tooltip "Step 7, Beams: not open yet"; clicking one shows the canvas empty state "Step 7, Beams, is
-not open yet. It will read the sheets you confirm in Step 1." with the action "Back to Step 1".
+not open yet. It will read the sheets you confirm in Step 1." with the action "Back to Step 1". The
+MEP Parts' own Takeoff Steps join the rail in M3 (ADR 0007), not before.
 
 **Toolbar (32 px, one line at 1280, always).** Left: "Step 1", "Sheets", the step's Count
 ("Confirmed 0 / 24"); then the sheet label (DrawingText, cut with an ellipsis before anything else
@@ -286,7 +405,8 @@ replacing its content until Esc (ux-critic #14: the Coverage popover covered the
 
 **Status bar (24 px, canvas screens only), left to right.** Cursor "X 42′-7½″  Y 18′-3″" (coordinate
 kind; "X —  Y —" off the sheet); the stated scale ("1:100, as stated", or "Not to scale"); "Imperial"
-(the project's Display Units); then on the right Coverage and the save state: "All changes saved" /
+(the name of the project's Display Units, a unit system its Market offers, 1.9); then on the right
+Coverage and the save state: "All changes saved" /
 "Saving…" / "Not saved: the connection dropped. Trying again." `?perf` readouts sit at the far right
 (1.6).
 
@@ -298,7 +418,7 @@ kind; "X —  Y —" off the sheet); the stated scale ("1:100, as stated", or "N
 | Access ended (Vextrus Engineer) | Full page: "Your access to Shapla Homes Ltd has ended. Kamal Uddin revoked it on 26 Sep 2026. What you did before then is kept under your name." [Choose another Developer] [Sign out]. Expired: "…ended on 26 Oct 2026. Ask Shapla Homes Ltd to renew it." |
 | No access to anything | "You have no access to any Developer at the moment. Ask your MD, or Vextrus, for an invitation." [Sign out] |
 | Server unreachable | ErrorBar under the top bar: "Vextrus can't be reached. Check your connection; this page keeps trying." |
-| Page not found | Empty: "There is nothing at this address. It may have been a link to another Developer's project." [Your projects] |
+| Page not found | Empty: "There is nothing at this address. It may have been a link to another Developer's project, or to a project you have not been given." [Your projects] (the second clause added in session 02 for members given chosen projects, 1.4) |
 
 **Keys registered:** `?`, `Ctrl K`, `Esc`, `F6`, `Shift F6`, the list primitive's keys.
 
@@ -306,7 +426,8 @@ kind; "X —  Y —" off the sheet); the stated scale ("1:100, as stated", or "N
 canvas width share ≥ 70% with the inspector open at both sizes; only Takeoff and Drawing Set in the
 top bar; the `?` overlay lists every active key and each one works; the key-registry duplicate test
 is green; focus ring visible on every control; phone notice at 390 px; narrow notice at 1100 px;
-no `?perf` readout without the flag.
+no `?perf` readout without the flag; no building picker (1.10); `lang="en"` and `dir="ltr"` on the page
+from the language's data (1.8).
 
 ### 4.2 Sign-in (ticket 20; auth by 07)
 
@@ -334,10 +455,11 @@ title is "Sign in · Vextrus".
 
 ### 4.3 Projects (ticket 20; data by 08)
 
-**Purpose.** The Developer's projects in one list; create one (stories 2–4, 56). Wireframes:
-`projects-1440.svg`, `projects-1280.svg`.
+**Purpose.** The Developer's projects in one list, only those the member may open; create one
+(stories 2–4, 56, 99, 102). Wireframes: `projects-1440.svg`, `projects-1280.svg`.
 
-**Layout.** Page header: "Projects" (text-xl) with "3 projects at Shapla Homes Ltd" under it; on the
+**Layout.** Page header: "Projects" (text-xl) with "3 projects at Shapla Homes Ltd" under it (for a
+member given chosen projects: "2 projects at Shapla Homes Ltd are open to you"); on the
 right "Members and access" (ghost) and "New project" (primary; absent for the MD). The table (28 px
 rows): Code · Name · Address · Drawing Set · Takeoff · Updated.
 
@@ -350,40 +472,53 @@ rows): Code · Name · Address · Drawing Set · Takeoff · Updated.
 **New project dialog.** Title "New project". Fields: Name (required), Code (required, unique in the
 Developer: "Short, like KR-01"), Address, Display Units (segmented "Imperial (cft, sft, rft)" |
 "Metric", Imperial chosen, with the line "How quantities will be billed. You can change it later.").
-Buttons "Create project" and "Cancel". Errors under fields: "Give the project a name." / "Give it a
-short code, like KR-01." / "KR-01 is already used by Kadam Residence. Choose another code."
-After create: straight to its Drawing Set (empty state).
+The Display Units offered and the one chosen are the Market's (1.9); for Bangladesh they are exactly
+these. No Market, currency or Building field (1.9, 1.10). Buttons "Create project" and "Cancel".
+Errors under fields: "Give the project a name." / "Give it a short code, like KR-01." / "KR-01 is
+already used by Kadam Residence. Choose another code." Creating the project also makes its Site and
+one Building, unseen (1.10). After create: straight to its Drawing Set (empty state).
 
 **States.** Loading: five Skeleton rows. Empty: glyph, "No projects yet. Create one for each
-building whose drawings you will take off." [New project] (MD: "No projects yet. Your QS creates
-them.").
+development whose drawings you will take off." [New project] (MD: "No projects yet. Your QS creates
+them."). *(Session 02: "each building" became "each development", since a Project may hold several
+Buildings, ADR 0036.)*
 
 **Keys.** List keys (`↑ ↓ Home End`, `Enter` opens).
 
 **Design gate.** The empty, loading and seeded states; MD sees no create button; codes and dates
 formatted; a second Developer's projects never appear (the isolation test is the API's, the walk
-repeats it).
+repeats it); a member given one project sees only it, and another project's address shows "Page not
+found"; no Market or Building field or column.
 
 ### 4.4 Members and access (ticket 20; data by 07)
 
-**Purpose.** Who can open this Developer's projects; invite; see and end Vextrus access (stories
-58–62, 64; finish line step 10). Wireframes: `members-1440.svg`, `members-1280.svg`.
+**Purpose.** Who can open this Developer's projects, and which; invite; see and end Vextrus access
+(stories 58–62, 64, 101; finish line step 10). Wireframes: `members-1440.svg`, `members-1280.svg`
+(drawn before session 02: no Projects column, and no Until column for people).
 
 **Layout.** Header "Members and access" / "Who can open Shapla Homes Ltd's projects", "Invite" on
 the right. Three sections, each a table:
-1. **People at Shapla Homes Ltd:** Name · Email · Role · Since.
-2. **Vextrus access**, with the line "Vextrus sees your data only while an invitation below is live.
-   You can end it at any time.": Vextrus Engineer · Invited by · From · Until · Acts · actions
+1. **People at Shapla Homes Ltd:** Name · Email · Role · Projects · Since · Until. Projects reads
+   "All projects" or the codes ("KR-01, BP-02"); Until reads "—" when the access has no end date.
+   Someone from outside the Developer (a consultant's engineer, a contractor's QS) is listed here
+   too, invited like anyone else (session 02 Q11, ADR 0034).
+2. **Vextrus access**, with the line "Vextrus sees your data only while an invitation below is
+   current. You can end it at any time.": Vextrus Engineer · Invited by · Projects · From · Until · Acts · actions
    "Renew 30 days" and "Revoke". "Acts" reads "12 acts, last 26 Sep 2026" and opens, in a side panel,
    the Engineer's acts from the event log in words, newest first ("Confirmed S-07 back in, excluded
    before as superseded · Kadam Residence · 26 Sep 2026, 15:42"). Ended access stays listed, muted:
    "Revoked by Kamal Uddin, 26 Sep 2026" or "Ended 26 Oct 2026".
-3. **Invitations not used yet:** Email · Role · Link works until · "Copy link", "Withdraw".
+3. **Invitations not used yet:** Email · Role · Projects · Link works until · "Copy link", "Withdraw".
 
 **Invite dialog.** "Invite someone to Shapla Homes Ltd". Email; Role (QS | MD | Vextrus Engineer,
-as allowed for the inviter); for a Vextrus Engineer, "Access ends on" (required, 30 days ahead by
-default: "26 Oct 2026 (30 days)"). "Create link". Then: "Copy this link and send it to Arif Rahman.
-It works once, until 3 Oct 2026." [Copy link] → toast "Link copied".
+as allowed for the inviter); **Projects** (session 02 Q11): segmented "All projects" | "Chosen
+projects", All chosen, and with "Chosen projects" a checklist of the projects by code and name (a QS
+inviting sees only the projects the QS may open); for a Vextrus Engineer, "Access ends on" (required,
+30 days ahead by default: "26 Oct 2026 (30 days)"); for anyone else, the checkbox "End their access
+on a date", off by default, with the line "For someone from outside Shapla Homes Ltd, such as a
+consultant's engineer, set an end date." "Create link". Then: "Copy this link and send it to Arif
+Rahman. It works once, until 3 Oct 2026." [Copy link] → toast "Link copied". With "Chosen projects"
+and none ticked, under the list: "Choose at least one project."
 
 **Wording of acts.**
 | Act | Wording |
@@ -395,11 +530,14 @@ It works once, until 3 Oct 2026." [Copy link] → toast "Link copied".
 | Email already a member | Under the field: "rumana@shapla-homes.example is already a member." |
 
 **States.** Loading: Skeleton rows per section. No Vextrus access: "No one from Vextrus has access."
-QS view: the same page; the QS's Invite offers only Vextrus Engineer (open question 2) and without Revoke on access
+QS view: the same page; the QS's Invite offers only Vextrus Engineer (open question 2), only the
+projects the QS may open, and without Revoke on access
 the MD created (open question 2). Vextrus Engineer: the people section only.
 
 **Design gate.** Finish line step 10 on the seed: invite, sign in as the Engineer, act, see the act
-listed here under their name, revoke, the Engineer's next request refused with 4.1's wording.
+listed here under their name, revoke, the Engineer's next request refused with 4.1's wording; then
+sign in as the seed's outside member given one project (7) and see only that project, its end date
+in the AccessChip.
 
 ### 4.5 The Drawing Set (ticket 20; data by 14, the job by 09 and 21)
 
@@ -418,7 +556,9 @@ Status · Sheets found. A DWG's PDF sits under it once its pages match its sheet
 least 752 px at 1280.
 
 **Discipline** defaults from the file (spec amendment 8; proposed from the sheet numbers' prefix and
-the file name), shown as a quiet select the QS may change on the row; Step 1 starts from it.
+the file name), shown as a quiet select the QS may change on the row; Step 1 starts from it. Its
+options (session 02, ADR 0040): Structural, Architectural, Electrical, Plumbing and sanitary, Fire,
+Other MEP.
 
 **The file's life, and its exact wording.** The Status cell holds the words and, while moving, a
 3 px progress line; the report panel's header repeats them.
@@ -439,7 +579,7 @@ the file name), shown as a quiet select the QS may change on the row; Step 1 sta
 | Read, readers agree | "Read. Two readers agree" | "Open in Step 1" |
 | Read, with flags | "Read. Two readers agree. 1 flag: Bangla text" | "Open in Step 1" |
 | Set aside | "Set aside: the two readers disagree, so it may be misread" (amber, Question glyph) | "Open the Question" |
-| MEP | "Read. MEP: listed, not measured" | "Open in Step 1" |
+| MEP | *(Row removed in session 02: an MEP file reads like any other, "Read. Two readers agree", its Discipline in the Discipline column; its sheets are confirmed in Step 1, ADR 0040.)* | |
 | PDF matched | "Plot: 11 of 12 pages matched" (+ "; lettering as lines" when so) | |
 | PDF before its DWG | "Plot: waiting for its DWG. Its pages are matched when the DWG is read." | |
 | Refused scan | "Refused: a scan, not a drawing" (muted, Excluded glyph) | |
@@ -539,6 +679,8 @@ disabled with no view selected); "Outlines" (`O`, pressed by default). Every too
 tooltip with its key.
 
 **On the canvas.**
+- **Fixed left to right:** the canvas, its chips, legend and scale bar carry `dir="ltr"` and are never
+  mirrored, whatever the page's direction (1.8, ADR 0038).
 - **Paper (default):** white ground, all linework black at its plotted lineweight, fine lines faint
   by lineweight as plotted (ruling 2). **CAD-dark:** ground #101318, AutoCAD's layer colours.
 - **Opening a sheet:** fitted to the working view box, else the whole paper with a 2% margin; the fit
@@ -573,7 +715,8 @@ tooltip with its key.
 | Poor fit | On Plot and Compare: "The Plot is off by up to 6 mm on paper here. Use it to compare, not to measure." (the threshold is ticket 18's) |
 
 **Status bar items it registers:** the cursor in ft-in (model-space sheets: the drawing's own
-coordinates; layout tabs: see "not settled"); the stated scale under the cursor's view.
+coordinates; layout tabs: see "not settled"), isolated left to right (1.8); the stated scale under
+the cursor's view.
 
 **Fonts on this sheet.** A "Fonts" item in the toolbar's overflow opens, in the inspector, "Fonts on
 this sheet": the rows of the file's font report that this sheet uses, with a link "Font report for
@@ -593,7 +736,8 @@ KR-ARC-R0.dwg" to the Drawing Set.
 
 **Design gate.** On the seed at both sizes: every sheet opens fitted and legible, never a speck; `D`,
 `P` (including every no-Plot reason), `F`, `Shift F`, `Z`, `O`, `[ ]` work; no `%%` or `\` code in
-the DOM or on the canvas's text runs; no perf readout without the flag. **Before 16 merges, a
+the DOM or on the canvas's text runs; no perf readout without the flag; the canvas carries
+`dir="ltr"`. **Before 16 merges, a
 `local` walk on a real Development Set:** every sheet's first open is checked by eye; "no sheet
 opens looking empty" (screens.md, "How M0's screens keep this quality" 5).
 
@@ -610,8 +754,10 @@ with "As read").
   per-Discipline N from the drawing list or the Plot sits in the list, section 5), the sheet label and
   the viewer's switches.
 - The Confirmation bar floats at the canvas foot, 44 px, at most 720 px wide, centred: what ("20
-  sheets agree: Structural, Architectural, MEP"), why ("Read from their title blocks; 3 MEP sheets
-  excluded"), "Review one by one" (ghost), and the screen's one copper button "Confirm 20 ↵".
+  sheets agree: Structural, Architectural, Electrical"), why ("Read from their title blocks; 1 left
+  out as 3D or perspective"), "Review one by one" (ghost), and the screen's one copper button
+  "Confirm 19, leave out 1 ↵" (6.4's wording). *(Session 02: the example's 3 MEP sheets were
+  excluded; now they are confirmed, ADR 0040.)*
 - Status bar Coverage (story 43): "Coverage: 70 views — 52 assigned, 16 excluded, 2 unaccounted";
   "unaccounted" in amber while above 0; clicking opens Coverage in the inspector.
 - Step states on the rail: Question glyph while any Question is open; Confirmed when every sheet is
@@ -621,9 +767,9 @@ with "As read").
 | State | What shows |
 |---|---|
 | No files | Canvas empty state: "No sheets yet. Add the Drawing Set's files first." [Go to the Drawing Set] |
-| Files still reading | Sheets from read files are workable; a row above the list: "Still reading KR-MEP-R0.dwg: sheet 2 of 3. Its sheets join the list when it is read." Step 1 cannot show confirmed until it is done |
+| Files still reading | Sheets from read files are workable; a row above the list: "Still reading KR-ELE-R0.dwg: sheet 2 of 3. Its sheets join the list when it is read." Step 1 cannot show confirmed until it is done |
 | A file set aside | Its Question heads the Questions (section 5); its sheets are not in the list or the counts |
-| All confirmed | The bar: "Every sheet is confirmed or excluded: 21 in, 3 excluded." (no button) |
+| All confirmed | The bar: "Every sheet is confirmed or excluded: 22 in, 2 excluded." (no button) |
 | MD | ReadOnlyChip in the toolbar; no Confirmation bar; Question cards without answer controls, with "The QS answers this."; who confirmed each sheet in the inspector |
 | TypeSafe unavailable | Nothing tells the QS about TypeSafe; low-confidence items simply have no pre-pick (story 86) |
 
@@ -675,10 +821,18 @@ sheet order (natural sort: S-2 before S-10). `Q` follows this order.
 first–last (amendment 1): shown as stated and normalised, "3RD, 5TH & 7TH FLOOR → 3rd, 5th, 7th";
 "not stated" when the title states none; "typical (range from Step 3)" for an untitled typical floor.
 
-**Exclusion reasons: a fixed pick list** (amendment 9), numbered: 1 MEP · 2 Superseded · 3
-Duplicate · 4 Cover or index · 5 3D or perspective · 6 Reference only · 7 Other (type why). Views
-excluded by default (title block, legend, key plan, 3D) carry "Reference only" or "3D or
-perspective". An excluded sheet stays in the count with its reason (ruling 4, story 30).
+**Exclusion reasons: a fixed pick list** (amendment 9, as session 02 left it), numbered: 1
+Superseded · 2 Duplicate · 3 Cover or index · 4 3D or perspective · 5 Reference only · 6 Other (type
+why). "MEP" was the first reason until session 02: MEP sheets are now confirmed, and their views
+assigned to their Discipline Part, read from M3 (Q29, Q31; ADR 0040). Views excluded by default
+(title block, legend, key plan, 3D) carry "Reference only" or "3D or perspective". An excluded sheet
+stays in the count with its reason (ruling 4, story 30). Reasons are stored as codes (1.7); an
+"Other" reason's text is kept as typed.
+
+**MEP sheets** are proposed and confirmed like any other, under their own Discipline (Electrical,
+Plumbing and sanitary, Fire, Other MEP). Their views are proposed as assigned to their Discipline
+Part, shown as the Part's name with "M3 onwards" ("Electrical, M3 onwards"), and Coverage counts them
+assigned (6.11). Nothing reads their content in M0.
 
 **Undo:** `Ctrl Z` undoes the last Confirmation, answer or exclusion; the toast names what it undid
 ("Undone: confirmed 20 sheets").
@@ -740,12 +894,12 @@ to a second line at 1280 and 1440.
 | (mark) | 24 | 24 | The status glyph: Proposal, Confirmed, Question, Excluded (3) |
 | Number | 62 | 62 | Bold. A sheet with no number shows "none" in amber |
 | Title, as drawn | the rest (about 260) | the rest (about 260) | DrawingText (3), cut with an ellipsis, tooltip with the full title |
-| Discipline | 78 | 78 | "Structural"; tooltip "Structural, from the file NT-STR-R1.dwg" |
+| Discipline | 78 | 78 | "Structural"; tooltip "Structural, from the file NT-STR-R1.dwg". From session 02 also "Electrical", "Plumbing" (tooltip "Plumbing and sanitary, …"), "Fire", "Other MEP" |
 | Revision and date | 106 | 106 | "R1, 14 Sep 2026"; the older copy of a duplicated number in amber |
 | Storeys | 180, headed "Storeys per view" | 232, headed with the strip's key: "▮ floor to floor  ▁ at floor level" | The storey strip (6.8) and the storeys as text: "3rd, 5th, 7th"; "not stated" and "typical (range from Step 3)" in amber; "—" for a sheet with no plan view |
 | Views | 40 | 40 | The number of views, title block included |
 | File | not shown | 104 | The source file; tooltip adds where in it ("laid out in the drawing", "layout "A-24"") |
-| State | 150 | 150 | "Proposal" (", corrected" after an edit) · "Question Q3" · "Q3 kept open" · "Leave out, MEP" · "Confirmed" with the actor's initials chip ("RH"; a Vextrus Engineer's chip reads "TA Vextrus") · "Excluded, superseded" |
+| State | 150 | 150 | "Proposal" (", corrected" after an edit) · "Question Q3" · "Q3 kept open" · "Leave out, cover or index" · "Confirmed" with the actor's initials chip ("RH"; a Vextrus Engineer's chip reads "TA Vextrus") · "Excluded, superseded" |
 
 The file column appears when the list is at least 1000 px wide. An excluded sheet's number is struck
 through, its title and strip muted. Rows that are not sheets use the same height: a held file
@@ -760,9 +914,11 @@ Sections, top to bottom:
    open Question holds, Questions in the queue order below. A Question's rows leave the section when
    it is answered.
 2. **Proposed to leave out:** "Excluded sheets stay in the count with their reason"; sheets Vextrus
-   proposes to exclude (MEP, 3D or perspective, cover or index), each with its reason.
-3. **Each Discipline in turn,** Structural, then Architectural (MEP sheets, in M0, arrive as proposed
-   exclusions): the heading "Structural 40 found, 39 on the drawing list on S-01 | 0 / 40 settled"
+   proposes to exclude (3D or perspective, cover or index), each with its reason.
+3. **Each Discipline in turn,** Structural, then Architectural, then each MEP Discipline present
+   (Electrical, Plumbing and sanitary, Fire, Other MEP), in the Takeoff's order (ADR 0040). MEP sheets
+   are confirmed like the rest (session 02; before it they arrived as proposed exclusions). The
+   heading "Structural 40 found, 39 on the drawing list on S-01 | 0 / 40 settled"
    ("settled" = confirmed or excluded); for a pasted list, "28 found, 29 on the pasted drawing list"
    and at the heading's right the link "Paste the drawing list" or "The pasted drawing list" (6.10).
    Inside, sheets in natural order of their numbers (S-2 before S-10; a sheet with no number last;
@@ -781,7 +937,7 @@ actions on the right; one copper button at most. It always says what `Enter` wil
 
 **Ruling 1: proposed exclusions join the bulk Confirmation.** With nothing focused, or with focus on
 any agreeing sheet or proposed exclusion, the bar reads:
-- what: "Confirm 56 sheets that agree, and leave out 5 as 3D or perspective, cover or index, MEP"
+- what: "Confirm 56 sheets that agree, and leave out 5 as 3D or perspective, cover or index"
   (the reasons named, each once; ", S-04 among them" is added when the focused sheet is one of them);
 - why: "Each has a number and title from its title block and is on its drawing list; storeys from its
   view titles. Left-out sheets stay in the count with their reason.";
@@ -842,7 +998,7 @@ in sheet mode (4.7 said at most 720 px; 6.18). The toast sits just above it.
 ### 6.6 The inspector (320 px; tabs "Selection" and "Questions" with the open count)
 **Selection, nothing focused: the overview.** "Nilachal Tower's sheets" / "Read from 2 DWG files; 1
 file held." / "Enter takes them in this order": 1 "Confirm the 56 sheets that agree and leave out 5:
-3D or perspective, cover or index, MEP"; 2 "Answer 8 Questions: the files and the count first, then
+3D or perspective, cover or index"; 2 "Answer 8 Questions: the files and the count first, then
 numbers, then storeys" / "↓ walks the list; Space opens a sheet; a Proposal counts toward nothing
 until you confirm it." / "Expected sheets": "Structural: 39 on the drawing list on S-01; 40 found."
 "Architectural: 29 on the drawing list pasted by Rafiq Hasan, 26 Sep 2026 09:58; 28 found (see the
@@ -931,17 +1087,20 @@ card's options (5).
 - **Exclusion (`X`), per sheet or per view.** With a view selected (sheet mode), `X` excludes the view;
   otherwise the focused sheet. The bar becomes the picker: "Exclude S-20. Why?" (or "Exclude the view
   "8th floor beam layout". Why?") with "Coverage keeps the reason. Esc cancels" at the right, and the
-  seven reasons as seven numbered buttons in one row (at 1280 the longer labels wrap to two lines):
-  1 MEP · 2 superseded · 3 duplicate · 4 cover or index · 5 3D or perspective · 6 reference only ·
-  7 other, with text. `1`–`7` pick; 7 opens a field "The reason, in a few words" with "Exclude ↵".
-  Toasts: "S-20 excluded: superseded. It stays in the count." / ""8th floor beam layout" excluded:
-  MEP. Coverage keeps the reason." An excluded view stays listed, struck through, "excluded: MEP".
+  six reasons as six numbered buttons in one row (at 1280 the longer labels wrap to two lines):
+  1 superseded · 2 duplicate · 3 cover or index · 4 3D or perspective · 5 reference only · 6 other,
+  with text (session 02 removed "MEP", 5). `1`–`6` pick; 6 opens a field "The reason, in a few words"
+  with "Exclude ↵". Toasts: "S-20 excluded: superseded. It stays in the count." / ""8th floor beam
+  layout" excluded: reference only. Coverage keeps the reason." An excluded view stays listed, struck
+  through, "excluded: reference only".
   "Confirm back in" (or `Enter` on an excluded sheet) reverses it under the actor's name: "A-24
   confirmed back in, under Tanvir Ahmed's name."
 - **Assigning a view to several Takeoff Steps (`A`,** sheet mode, a view selected; else the toast
   "Pick a view first: → moves through the views on the sheet."): a 420 px dialog "Which steps read "8th
   floor beam layout"?", "A view may feed several steps; each marks it used on its own. S-20, plan.",
-  fourteen checkboxes "1 Sheets … 14 Site and MEP" with "M1 onwards" beside 2–14; with none ticked,
+  fourteen checkboxes "1 Sheets … 14 Site works and MEP allowances" with "M1 onwards" beside 2–14, then, from session
+  02, one per MEP Discipline Part ("Electrical", "Plumbing and sanitary", "Fire", "Other MEP") with "M3
+  onwards" beside each (a view on an MEP sheet is proposed for its own Discipline's Part; 5); with none ticked,
   "No step: Coverage will count this view unaccounted unless it is excluded."; keys `↑ ↓` move, `Space`
   ticks, `Enter` saves, `Esc` cancels; "Cancel" and "Save ↵". Toast: ""8th floor beam layout" assigned
   to 2 steps." or "… is assigned to no step and not excluded: Coverage counts it unaccounted."
@@ -971,7 +1130,9 @@ drawing list, in no file") runs once every file is read.
   a proposed step or exclusion; **assigned** once its sheet is confirmed with at least one step;
   **excluded** when its sheet or itself is excluded, with the reason; **unaccounted** when it has no
   step and no exclusion. "Used" stays 0 in M0. The views of a held file are not counted until it reads
-  cleanly.
+  cleanly. A view on an MEP sheet counts as assigned once its sheet is confirmed with its Discipline
+  Part (5); in the panel's "Views by the step that will read them" its Part is a row of its own
+  ("Electrical, M3 onwards").
 - **Coverage panel** (a click on it; in the inspector, 4.1): "Coverage, every view on every sheet
   read"; "A view counts once it is assigned to a step that will read it, or excluded with a reason.
   Used is 0: no step after Step 1 runs in M0. A view may feed several steps, so the steps below add up
@@ -1029,7 +1190,7 @@ in red over the Plot"; the CAD-dark toggle (`D`); Fit (`F`, 6.15). Everything el
 | `→` `←` | sheet mode | Next / previous view on the sheet; the canvas flies to it. Nothing in list mode |
 | `Esc` | stack (2.2) | Close the picker, dialog, panel or overlay; else leave the selected view and fit back; else sheet → list; else clear the focus |
 | `X` | screen | Exclude the focused sheet, or the selected view, with a reason |
-| `1`–`7` | mode: exclusion picker | Pick a reason; `7` asks for the text |
+| `1`–`6` | mode: exclusion picker | Pick a reason; `6` asks for the text (seven reasons until session 02 removed "MEP") |
 | `1`–`9` | screen | Pick an answer on the focused Question |
 | `A` | sheet mode, a view selected | Assign the view to Takeoff Steps (dialog: `↑ ↓` move, `Space` ticks, `Enter` saves) |
 | `E` | screen | Correct the focused sheet's number, title or storeys, in the inspector |
@@ -1077,7 +1238,7 @@ none of it is in the DOM.
 4. **The toolbar's count:** 4.7 counts "confirmed or excluded / found"; the prototype counts
    "confirmed / found, n excluded".
 5. **The bar's width:** 4.7 says at most 720 px; the prototype's is 800–820 px, which is what lets the
-   seven reasons fit on one row.
+   seven reasons fit on one row (six since session 02).
 6. **The Questions' order:** 5 orders by the sheets a Question holds, then kind; the prototype orders
    files, count, numbers, storeys.
 7. **Question wording:** the prototype's cards differ from 5's templates (the drawing-list card's
@@ -1104,6 +1265,8 @@ synthetic-fixture script (ticket 04's `tests/fixtures/make_dwg.py`, extended) an
 product's real upload and read job. Where a state cannot be produced on demand (a set-aside file, a
 stalled read), the seed uses the same stubs the API tests use, enabled only in development settings.
 Passwords come from `VEXTRUS_DEMO_PASSWORD`; the seed never prints one. Ownership is open question 5.
+Both Developers are on the Bangladesh Market, the only one; every project has its Site and one
+Building, made with it (session 02).
 
 **Developers and people.**
 | Developer | Person | Email | Role |
@@ -1111,6 +1274,7 @@ Passwords come from `VEXTRUS_DEMO_PASSWORD`; the seed never prints one. Ownershi
 | Shapla Homes Ltd | Nusrat Jahan | nusrat@shapla-homes.example | QS |
 | Shapla Homes Ltd | Kamal Uddin | kamal@shapla-homes.example | MD |
 | Shapla Homes Ltd | Arif Rahman | arif@vextrus.example | Vextrus Engineer, invited by Kamal Uddin, 30 days |
+| Shapla Homes Ltd | Farhana Kabir | farhana@kabir-consult.example | QS given only KR-01, until 26 Oct 2026: a consultant's engineer from outside, invited by Kamal Uddin (session 02 Q11) |
 | Shapla Homes Ltd | rumana@shapla-homes.example | (an unused QS invitation) | — |
 | Meghna Properties Ltd | Tanvir Ahmed | tanvir@meghna.example | QS (the isolation check) |
 
@@ -1123,22 +1287,23 @@ Heights (one small DWG read).
 |---|---|---|
 | KR-STR-R0.dwg | 13 sheet borders laid out in the drawing: S-01 general notes with a drawing list naming S-01 to S-13; S-02 pile layout; S-03 pile cap layout; S-04 ground floor beam layout, with a lift pit detail drawn inside the plan and a tie detail marked N.T.S.; S-05 1st floor beam layout; S-06 "3RD, 5TH & 7TH FLOOR BEAM LAYOUT" (a non-run list); S-07 rev B "TYPICAL FLOOR SLAB LAYOUT" (an untitled typical floor) and S-07 rev A, superseded, beside it; S-08 column layout, pile cap to 2nd floor; S-09 column schedule; S-10 stair details with a burst title block (no attributes); S-11 roof beam layout; S-12 overhead tank and lift machine room. Text uses `%%C`, `%%D`, `%%P`, MTEXT `\P` and a stacked ½ | Read; two readers agree; fonts Arial, Romans (AutoCAD lettering), Swiss 721 Condensed |
 | KR-STR-R0.pdf | 12 pages plotted from it: 11 match; page 12 shows S-13 (in no DWG); 2 pages turned 90°; AutoCAD lettering kept as text; layers kept; one logo | Plot: 11 of 12 matched |
-| KR-ARC-R0.dwg | 8 sheets: A-01 site plan, A-02 ground floor plan, A-03 typical floor plan, A-04 roof plan, A-05 "SECTION A-A & ELEVATION" (kind unclear), a door and window schedule with no number (burst title block), and on layout tabs A-06 and A-07 (a 3D view, excluded by default). Room names on A-02 and A-03 typed in SutonnyMJ | Read; two readers agree; 1 flag: Bangla text (9 texts on 2 sheets) |
+| KR-ARC-R0.dwg | 8 sheets: A-01 site plan, A-02 ground floor plan, A-03 typical floor plan, A-04 roof plan, A-05 "SECTION A-A & ELEVATION" (kind unclear), a door and window schedule with no number (burst title block), and on layout tabs A-06 and A-07 (a 3D view alone on its sheet: the view excluded by default, the sheet proposed to leave out as 3D or perspective). Room names on A-02 and A-03 typed in SutonnyMJ | Read; two readers agree; 1 flag: Bangla text (9 texts on 2 sheets) |
 | KR-ARC-R0.pdf | 8 pages, all matched; made by a PDF tool other than AutoCAD; lettering drawn as lines; no layers | Plot: 8 of 8 matched; lettering as lines |
-| KR-MEP-R0.dwg | 3 MEP sheets, M-01 to M-03 | Read; proposed excluded: MEP. (The Drawing Set wireframe shows it mid-read) |
+| KR-ELE-R0.dwg | 3 electrical sheets, E-01 to E-03 | Read; two readers agree; Discipline Electrical; its sheets confirmed like the rest, their views assigned to the Electrical Part, "M3 onwards". (The Drawing Set wireframe shows it mid-read, under its pre-session-02 name `KR-MEP-R0.dwg`) |
 | KR-STR-old.dwg | an older structural file | Set aside: the readers disagree (the planted-disagreement stub) |
 | site-photos.pdf | pictures only | Refused: a scan |
 
 **KR-01 after reading.** 24 sheets found (13 + 8 + 3); 20 agree and can be confirmed in one act
-(17 in, 3 MEP excluded). 5 Questions open: Q1 KR-STR-old.dwg may be misread; Q2 two sheets numbered
+(19 in, the 3 electrical sheets among them; A-07 left out as 3D or perspective). 5 Questions open: Q1 KR-STR-old.dwg may be misread; Q2 two sheets numbered
 S-07 (pre-picked "keep rev B": the revision mark and the drawing list agree); Q3 the unnumbered
 architectural sheet (no pre-pick); Q4 the kind of A-05 (no pre-pick); Q5 the drawing list and the
-Plot both name S-13, which no DWG has. About 70 views: 52 assigned, 16 excluded by default (title
-blocks, legends, the 3D view), 2 unaccounted (on the burst-title-block sheet) until the QS acts. The
-QS's work ends with 0 unaccounted.
+Plot both name S-13, which no DWG has. About 70 views: 52 assigned (the electrical sheets' to the
+Electrical Part), 16 excluded by default (title blocks, legends, the 3D view), 2 unaccounted (on the
+burst-title-block sheet) until the QS acts. The QS's work ends with 0 unaccounted.
 
 **The walks the seed must support:** every state in 4.2–4.7; the finish line's steps 2–8 and 10–11
-in miniature; the spec's six traps (amendment 10: a multi-plan sheet, a non-run floor list, a
+in miniature, the outside member given one project included; no building picker, market or currency
+anywhere (1.9, 1.10); the spec's six traps (amendment 10: a multi-plan sheet, a non-run floor list, a
 superseded duplicate, an untitled typical floor, the count against the drawing list, a view excluded
 now and needed later).
 
@@ -1160,6 +1325,10 @@ now and needed later).
    motion stills every shimmer and pulse.
 8. The MD's read-only state on every screen the PR touches.
 9. The phone notice at 390 px and the narrow notice at 1100 px.
+10. From session 02 (ADRs 0034, 0036, 0038): the catalogue lint and the logical-CSS lint green; no
+    message key in the DOM; every sheet number, length, coordinate, level and scale in the DOM inside
+    a left-to-right isolate, and the canvas `dir="ltr"`; no building picker, Building column or name,
+    no Market name and no currency anywhere on the seed; a member given one project sees only it.
 
 Before tickets 16 and 22 merge, a `local` walk on a real Development Set confirms that no sheet opens
 looking empty (screens.md 5); its screenshots stay under `.private/`.

@@ -406,6 +406,12 @@ The Developer's managing director or director who buys Vextrus and reads the Pro
 and sets the Target Cost, does not edit the Takeoff.
 _Avoid_: owner, admin, manager
 
+**Guest**:
+A person from outside the Developer (a consultant's engineer, a contractor's QS, later a site engineer)
+invited into its data by name, scoped to chosen Projects and time-bound where the Developer wants it;
+read-only unless the Developer gives the QS role; every action under their own name.
+_Avoid_: external user, collaborator, partner
+
 **Vextrus Engineer**:
 A Vextrus team member who sits with a client's QS through their first Takeoff ("done with you"),
 inside the Developer's data only by its time-bound invitation.

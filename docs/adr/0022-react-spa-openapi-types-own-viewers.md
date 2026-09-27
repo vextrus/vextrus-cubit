@@ -30,7 +30,8 @@
   presentation on the share link (finished materials, shadows, turntable, build-up in Construction
   Stage order, 2×/4× stills), its look set by the owner's bench on the reference setup (ambient occlusion
   only if it fits the budget). Every tool passes the budgets below before its milestone closes.
-- **Budgets** (a mid-range Windows laptop, checked on a real one in M0): 3D model on screen ≤ 1.5 s
+- **Budgets** (on the reference setup: the owner's PC with Chrome on its integrated GPU and a 4× CPU
+  throttle; no laptop, as ruled below): 3D model on screen ≤ 1.5 s
   warm and ≤ 3 s cold on 10 Mbps, 60 fps with ≤ 8 ms GPU a frame, a Confirmation painted ≤ 16 ms,
   picking ≤ 2 ms, ≤ 100 draw calls; a cached sheet interactive ≤ 1.5 s.
 - **Documents:** built on the server, XlsxWriter for Excel and WeasyPrint for PDF, with the ৳ glyph

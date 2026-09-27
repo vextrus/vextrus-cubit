@@ -398,3 +398,16 @@ every necessary actions, update and write all files to end the session."
 owner delegates the remaining small inputs (the bench run, the viewer prototype's own judgement) and the
 sign-off of the revised specs and plan to the session, the plan still attacked by the four reviewers
 before it is signed.
+
+## Defaults the session settled under the owner's delegation (28 Sep 2026)
+Small choices the writers surfaced, settled by the orchestrator under the owner's words "Don't bother for my
+inputs on last small remaining things … Take every necessary actions", each open to the owner's reversal:
+- MEP sheets are confirmed in Step 1 under their own Discipline and their views assigned to their
+  Discipline Part ("M3 onwards"); "MEP" leaves Step 1's exclusion reasons (ADR 0040).
+- M0 creates every `live_model` table empty (Element Family, Element, Element State, Model Version,
+  Attribute Definition, Family Attribute, Record, Element Relation, classification) with its policy, so
+  references are whole from the first migration.
+- A read-only **Guest** role for outsiders (a consultant's engineer, a contractor's QS), scoped to Projects
+  (ADR 0034 as amended in Q11); `CONTEXT.md` gains the term.
+- Placed dimensions and note pins (M2) belong to `takeoff` as annotations anchored to Element identity.
+- ADR 0022's budgets line now names the reference setup, not a laptop.
