@@ -421,3 +421,14 @@ inputs on last small remaining things … Take every necessary actions", each op
   context applies once geometry exists.
 - M4 reads shear-wall and core rebar from the drawing after beams and slabs; Rebar Ratio overrides per
   Storey Band are M2's.
+
+## The M0 plan's reviews (28 Sep 2026)
+Four reviewers attacked the revised plan (docs/reviews/M0-plan-s02-*.md: 12 architecture, 10 QS, 10 UX
+and 8 refuter findings). Every finding is accepted (docs/reviews/M0-plan-s02-resolution.md). Two of the
+session's own delegated defaults are reversed on evidence: **row-level security is enabled without FORCE**
+(measured: FORCE blinded constraint checks and emptied the chooser, and the app role could write itself
+into another Developer), and **M0's ticket 28 creates only the tables the owner ruled** (Attribute
+Definitions, Family Attributes, Records, classification, Element Relations and the rows they point to), the
+rest returning to M1. The QS critic reset Step 1 to Dhaka practice (continuation sheets and several plans
+per storey are normal; sets can come with no drawing list; Step 1 per Discipline Part since MEP arrives
+later; seven exclusion reasons a QS uses; Disciplines as data per Market, adding Mechanical, Lift and Gas).

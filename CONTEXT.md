@@ -134,9 +134,10 @@ consultant or team produced (DWG, PDF, and where they exist RVT and IFC).
 _Avoid_: drawings (loosely), package, fixture
 
 **Discipline**:
-One family of drawings in a Drawing Set: structural, architectural, or MEP (electrical, plumbing and
-sanitary, fire and others), usually from different consultant offices and revised separately; each is
-read into its own Discipline Part of the Live Model.
+One family of drawings in a Drawing Set: structural, architectural, or one of the MEP Disciplines
+(electrical, plumbing and sanitary, fire, mechanical (HVAC), lift, gas), held as data per Market, usually
+from different consultant offices and revised or received separately; each is read into its own
+Discipline Part of the Live Model.
 _Avoid_: trade (a trade is a BOQ grouping, not a drawing family), lane
 
 **Sheet**:
