@@ -82,6 +82,17 @@ Material Schedule, the 3D and every later module are readings of it.
 _Avoid_: BIM, Building Model (the old term), digital twin (on screens and in documents; marketing may
 use it once As built data flows), 3D view
 
+**Discipline Part**:
+The part of a Building's Live Model read from one Discipline's drawings (Structural, Architectural,
+Electrical, Plumbing, Fire…), with its own Revisions, Drafting Profile, Takeoff Steps, Element Families
+and Confirmations, sharing the Building's storeys and grid with every other Part.
+_Avoid_: model (alone), linked model, layer, workset
+
+**Element Relation**:
+A typed, checked link between two Elements, often of different Discipline Parts: hosted in, passes
+through, in room, spans storeys, same thing as; when one end changes or disappears, a Question is raised.
+_Avoid_: link, reference, association
+
 **Life Phase**:
 Which part of an Element's life an attribute belongs to: As designed (from the drawings, Revisions and
 prices), As built (what was actually cast and spent on site) or As maintained (warranty, expected life
@@ -112,9 +123,9 @@ consultant or team produced (DWG, PDF, and where they exist RVT and IFC).
 _Avoid_: drawings (loosely), package, fixture
 
 **Discipline**:
-One family of drawings in a Drawing Set: structural, architectural, or MEP (plumbing, sanitary,
-electrical). The MVP reads structural and architectural; MEP enters the Priced BOQ as lump-sum
-items the QS types.
+One family of drawings in a Drawing Set: structural, architectural, or MEP (electrical, plumbing and
+sanitary, fire and others), usually from different consultant offices and revised separately; each is
+read into its own Discipline Part of the Live Model.
 _Avoid_: trade (a trade is a BOQ grouping, not a drawing family), lane
 
 **Sheet**:

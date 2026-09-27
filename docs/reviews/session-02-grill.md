@@ -349,3 +349,19 @@ accurate and overall serve our ultimate purpose, if we do wrong planning on this
 theory/algorithm it will suffer us in the wrong run. Please do research on it and propose your best
 recommendation, don't yet finalize our final plan yet."
 **Taken as.** Research before a recommendation; the plan stays open until it is ruled.
+
+## Q31. One Live Model, or discipline models linked (28 Sep 2026)
+**Asked.** After research and a refuter's check: A, one merged model; B, separate linked discipline
+models (Revit, Glodon); D, discipline models inside one Live Model (iTwin's shape): Discipline Parts with
+their own drawings, Revisions, Drafting Profile, Steps, template, Confirmations and optional lock; shared
+storeys and grid owned by the Building; typed Element Relations (hosted in, passes through, in room,
+spans storeys, same thing as); one query, scene and Priced BOQ.
+**Recommended.** D.
+**The owner's ruling.** "Agree with D on Q31." With the owner's facts: "Dhaka Developers usually don't have
+a separate MEP QS or engineer measuring MEP, in almost all cases the same QS measure everything. The MEP
+drawings usually arrive later than the structural and architectural sets, or sometimes with them - mostly
+arrive later."
+**Consequences.** No per-Part write lock is needed now (one QS measures all; the lock stays possible);
+MEP Parts usually start later, carrying their allowance until read.
+**Written into.** ADR 0040; ADR 0003 amended; `CONTEXT.md` (Discipline, Discipline Part, Element
+Relation).
