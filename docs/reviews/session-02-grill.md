@@ -160,3 +160,14 @@ cold); storage 1.9 / 2.5 / 8.0 GB.
 **The owner's ruling.** "Agree with your recommendation on Q14. Judgement on the prototype itself: yes,
 the inspector, the query and the three-phase history read as I'd want, looks good."
 **Written into.** ADR 0037; `CONTEXT.md` (Attribute, Record); docs/design/screens.md (the prototype).
+
+## Q15. What "global from the first line" puts into M0 (27 Sep 2026)
+**Asked.** Eight habits from the global prototype and research (a Market row with its Library;
+catalogues and machine sentences as codes; formatters per Market with drawing notation isolated LTR;
+logical CSS; money with its currency and minor units, 3-decimal columns; Billing Units per unit system;
+UTC and the work week; UUIDv7, tenant-prefixed keys, a home region); what waits.
+**Recommended.** All eight in M0.
+**The owner's ruling.** "Agree with your recommendation on Q15"
+**Written into.** ADR 0038; amendments to 0008, 0016, 0022, 0033, 0034; `CONTEXT.md` (Market; Display
+Units). Two rulings wait until a Bangla screen ships: ৳ before or after the figure in Bangla; the Bangla
+word for Rebar (রড?).

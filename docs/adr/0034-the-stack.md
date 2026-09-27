@@ -61,3 +61,6 @@ Bangalore for the beta.
   outside parties enter only by named, scoped invitation into the Developer's tenant (the Vextrus
   Engineer pattern generalised); cross-organisation sharing is rejected until consultants pay
   themselves. The owner's ruling: "Agree with B on Q11."
+- 27 Sep 2026 (owner's decision, session 02 Q15): UUIDv7 ids everywhere, file keys prefixed by the tenant,
+  and a home region (cell) per Developer (ADR 0038); where the Gulf's cell goes waits for the hosting
+  research (docs/research/global-markets-foundation.md §0: AWS's UAE region damaged, Bahrain unavailable).

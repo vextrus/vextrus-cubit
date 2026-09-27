@@ -4,18 +4,20 @@
   scale; spacing text stays verbatim. They convert to SI with exact factors only when the confirm
   service writes the Building Model. The Building Model and the engineering are SI.
 - **Money stays in the unit it is quoted in:** each Market Price and rate is an exact decimal per cft,
-  bag, sft or whatever unit the market quotes. Money is always ৳.
+  bag, sft or whatever unit the market quotes, in the Project's Market currency (৳ in Bangladesh;
+  ADR 0038).
 - **Each BOQ Item has a Billing Unit, set in the Rule Set** (10" brickwork in cft, 5" in sft, bricks
   in nos, doors in sft; defaults in docs/specs/bd-defaults.md). The Benchmark Rate is converted to the
   same unit so it sits beside the working rate.
 - **Rounding as a QS rounds:** each Measurement Line to two decimals in its Billing Unit, and the
   item's quantity is their sum; countable units (nos, bags, kg of rebar) to whole numbers, tons to
-  three decimals (a Rule Set parameter); rates to the paisa; amount = ROUND(quantity × rate, 2); the
+  three decimals (a Rule Set parameter); rates to the currency's minor unit (the paisa for ৳); amount = ROUND(quantity × rate) to that unit; the
   Estimate's layers on the rounded amounts; the Material Schedule rounds up. Excel carries the same
   values with live formulas, and a test checks quantity × rate = amount on every row.
-- **Display Units are one switch per project:** the market's imperial (cft, sft, rft, bags, ton) by
-  default, metric one switch away; the switch re-bills the Priced BOQ, never relabels it.
-- **Grouping:** money and quantities group in lakh and crore (`1,24,500 kg`), at the edge only.
+- **Display Units are one switch per project** among the unit systems the Market offers (Bangladesh:
+  imperial cft, sft, rft, bags, ton by default, metric one switch away); the switch re-bills the Priced BOQ, never relabels it.
+- **Grouping:** money and quantities group as the Market does, in lakh and crore in Bangladesh
+  (`1,24,500 kg`), at the edge only.
   Coordinates and dimensions (drawing positions, lengths such as 14'-6") never group.
 
 Why: private Dhaka practice measures in imperial while PWD and the codes are metric, so a BOQ in m³
@@ -33,3 +35,5 @@ grouping on millimetre coordinates.
   owner's ruling: "Agree".
 - 26 Sep 2026 (owner's decision): quantities group in lakh too. Evidence: docs/design/system.md §10.
   The owner's ruling: "Lakh".
+- 27 Sep 2026 (owner's decision, session 02 Q15): amended by ADR 0038 (markets are data). The owner's
+  ruling: "Agree with your recommendation on Q15".

@@ -24,8 +24,10 @@
   warm and ≤ 3 s cold on 10 Mbps, 60 fps with ≤ 8 ms GPU a frame, a Confirmation painted ≤ 16 ms,
   picking ≤ 2 ms, ≤ 100 draw calls; a cached sheet interactive ≤ 1.5 s.
 - **Documents:** built on the server, XlsxWriter for Excel and WeasyPrint for PDF, with the ৳ glyph
-  embedded.
-- **Numbers:** money and quantities group in lakh and crore through `en-IN`, never `en-BD`;
+  embedded. WeasyPrint breaks Bangla conjuncts (session 02), so the PDF engine for non-Latin scripts is
+  decided before the first non-English document (headless Chrome printed them correctly; ADR 0038).
+- **Numbers:** money and quantities group as the Market's format profile says; Bangladesh's is lakh and
+  crore through `en-IN` (Chrome has no `en-BD` formats; ADR 0038);
   coordinates and dimensions never group (ADR 0008). Screen, Excel and PDF are checked against one
   shared table of expected formats.
 
@@ -62,3 +64,5 @@ by the owner, and the design gate on every UI PR (docs/sdlc.md).
   its IFC class and every attribute definition its IFC property mapping, as data from M1, so an exporter
   is added when the first client or market asks; the share link stays a GLB per storey. The owner's
   ruling: "Agree with A on Q12".
+- 27 Sep 2026 (owner's decision, session 02 Q15): amended by ADR 0038 (markets are data). The owner's
+  ruling: "Agree with your recommendation on Q15".

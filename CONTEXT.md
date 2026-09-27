@@ -8,6 +8,12 @@ project works from, through the building's whole life.
 
 ### People and organisations
 
+**Market**:
+One country's (or region's) way of building, measuring, pricing and speaking, held as data: its
+currency, languages, number format, unit systems, Rule Set, rates, benchmark, taxes and Construction
+Stages. Bangladesh is the first.
+_Avoid_: region (where data is hosted), locale, country (alone)
+
 **Developer**:
 A real-estate development firm that builds and sells residential or commercial buildings; Vextrus's
 first paying customer.
@@ -300,10 +306,10 @@ selects, confirms and is asked about as one; never part of an Element's identity
 _Avoid_: level range, floor group
 
 **Display Units**:
-The unit system a project is billed and shown in, chosen per project by the Developer: the market's
-imperial (cft, sft, rft, bags, ton) by default, metric one switch away; switching re-bills the Priced
-BOQ rather than relabelling it. Money is always ৳; money and quantities group in lakh and crore,
-coordinates and dimensions never.
+The unit system a project is billed and shown in, chosen per project by the Developer among those its
+Market offers (in Bangladesh, imperial cft, sft, rft, bags, ton by default, metric one switch away); switching re-bills the Priced
+BOQ rather than relabelling it. Money is in the Market's currency (৳ in Bangladesh); money and
+quantities group as the Market does (lakh and crore in Bangladesh), coordinates and dimensions never.
 _Avoid_: unit system, locale
 
 **Billing Unit**:

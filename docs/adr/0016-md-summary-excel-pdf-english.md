@@ -25,7 +25,8 @@ carries the Issued Estimate's number and date (ADR 0028). A test opens it and ch
 reproduces the screen's figures to the paisa. The PDF carries the summary, the abstract and the
 Material Schedule, the measurement sheet optional.
 
-**English only:** no Bangla screens or documents in the MVP.
+**English only:** no Bangla screens or documents in the MVP; this is scope, not code: every string is a
+message in a catalogue from M0 (ADR 0038).
 
 Why: Dhaka Developers rework BOQs in Excel; values alone kill the rework and lose the Trace. The
 Target Cost warning is cheap and makes the MD's page matter early (docs/research/glodon-bim-2.md).
@@ -39,3 +40,5 @@ Target Cost warning is cheap and makes the MD's page matter early (docs/research
 - 26 Sep 2026 (owner's decision): the MD's pages work on a phone. The owner's ruling: "Agree".
 - 26 Sep 2026 (clarification, no new decision): an export of the working Estimate is printed
   "Working — not issued"; only an Issued Estimate's export carries an issue number and date.
+- 27 Sep 2026 (owner's decision, session 02 Q15): amended by ADR 0038 (markets are data). The owner's
+  ruling: "Agree with your recommendation on Q15".
