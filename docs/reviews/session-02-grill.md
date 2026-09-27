@@ -171,3 +171,18 @@ UTC and the work week; UUIDv7, tenant-prefixed keys, a home region); what waits.
 **Written into.** ADR 0038; amendments to 0008, 0016, 0022, 0033, 0034; `CONTEXT.md` (Market; Display
 Units). Two rulings wait until a Bangla screen ships: ৳ before or after the figure in Bangla; the Bangla
 word for Rebar (রড?).
+
+## Q16. How Vextrus learns a consultant's way of drawing (27 Sep 2026)
+**Asked.** On Edison, 27 of 31 fittings were one office's conventions. A, generic readers, a Question
+every time; B, a Drafting Profile per consultant office, proposed by code and Jev, confirmed by the QS,
+reused on that office's next set; C, B pooled across Developers and pre-built for leading Dhaka offices,
+with clients' permission.
+**Recommended.** B from M1; C after the beta with written permission.
+**The owner's ruling.** "I think we can go for C for Q16 which I know going extra mile and as you told
+that needs client's permission which we'll manage hopefully and with cooperation our product quality will
+be at top quality and can be real moat."
+**Consequences written with it.** Publishing a profile needs the client's permission and a Vextrus
+review (layer names and label patterns can carry names); a Held-out Set is scored first as an unknown
+office's first read, then with a profile if one exists; no build session builds a profile from a
+Held-out Set.
+**Written into.** ADR 0039; `CONTEXT.md` (Drafting Profile).

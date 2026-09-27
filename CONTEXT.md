@@ -134,6 +134,13 @@ the QS, with its source shown; it gives the number of sheets expected, and the s
 checked against it both ways.
 _Avoid_: register (on screen), index, transmittal (the transmittal is one source of it)
 
+**Drafting Profile**:
+The drafting conventions of one consultant office (which layers hold which members, how labels, levels
+and sheet numbers are written, where title-block fields sit, how schedules are drawn), proposed by the
+machine, confirmed by the QS, reused on that office's next set and Revision, and shared with every
+Developer once permission allows; conventions only, never drawing content.
+_Avoid_: template, style, layer map (one part of it), fitting
+
 **Plot**:
 The consultant's own PDF page of a sheet, registered beneath Vextrus's drawing of it, so what was
 read can be compared with what was plotted.
