@@ -57,5 +57,5 @@ fix that taught it (ADR 0030). Read the area you are working in before you start
   the commit with `&&` after an edit script, never `;` (a research file was once committed without its
   corrections).
 - **Refuters earn their cost on research:** four of five research files needed corrections before
-  commit (a lift price rise overstated from 22 % to 81 %; a fire gap from 2.4× to 3×; an iTwin claim
-  reversed; a groove item's scope).
+  commit (a lift price rise stated as 81 % that was 22 %; a fire gap stated as 3× that was 2.4×; an
+  iTwin claim reversed; a groove item's scope).
