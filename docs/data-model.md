@@ -363,7 +363,7 @@ in `engine/recognise/types.py` use the same lists):
     empty in M0; M1 writes the structural junctions; M2 writes `hosted_in` and `in_room` (openings in
     their walls and rooms) and the junctions of walls with the structure; M3 writes the MEP relations
     (`passes_through`, `spans_storeys`, `same_thing_as`, and MEP Elements `hosted_in` and `in_room`).
-- **M0 creates every `live_model` table empty, each with its forced policy** (s02 Q24; ADR 0037; the
+- **M0 creates every `live_model` table empty, each with its forced policy** (s02 Q24; ADR 0037; the (all of them, the ten named and DisciplinePart, RebarBar, ElementTrace, ViewPlacement with its storey rows and the classification links: the orchestrator's decision)
   orchestrator's decision, 28 Sep 2026): ElementFamily, Element, ElementState, ModelVersion,
   AttributeDefinition, FamilyAttribute, Record, ElementRelation, ClassificationSystem and
   ClassificationReference. Every reference is whole from the first migration, so no foreign key is ever
@@ -1065,10 +1065,9 @@ Each in the owner's words; the full question and recommendation are in
 - **The finish:** "Take every necessary actions, update and write all files to end the session."
 
 ### Left for the specs after session 02 (my recommendations; the specs decide)
-1. **An outsider's end date.** The grill's Q11 put outsiders in "only as named, scoped, time-bound
-   invitations"; ADR 0034 says "time-bound where the Developer wants it", and the M0 spec gives every
-   invitation an optional end date (story 101, ticket 07). Recommendation: an end date required for a
-   `guest` and for anyone else from outside the Developer, as the grill ruled.
+1. **An outsider's end date. Settled (28 Sep 2026):** Q11's option B, as the owner agreed to it, read
+   "time-bound where the Developer wants it" (ADR 0034); the ledger's shorter "time-bound" summarised it.
+   A Guest's end date is optional, the Developer's choice; a Vextrus Engineer's stays required.
 2. **Project or Building.** The Priced BOQ, the Cost Basis and the cache are per Building; the
    Estimate's layers and issues are per Project, summing its Buildings (§3.5). CONTEXT.md's "the total
    cost of a building" holds while a Project has one. The M4 spec decides how two Buildings show and
