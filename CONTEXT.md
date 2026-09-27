@@ -218,9 +218,9 @@ _Avoid_: budget, quotation, bid
 ### Takeoff
 
 **Element**:
-One confirmed physical piece of the Live Model with a stable identity across Revisions and Life
-Phases: a column or shear wall in one storey, a beam, a slab panel, a wall run, an opening, a storey,
-a grid line; what is cast, inspected and maintained.
+One confirmed thing in the Live Model with a stable identity across Revisions and Life Phases: a
+physical piece, the unit that is cast, inspected and maintained (a column or shear wall in one storey,
+a beam, a slab panel, a wall run, an opening), or a reference (a storey, a grid line).
 _Avoid_: object, entity, member (a member is structural only)
 
 **Element Family**:
