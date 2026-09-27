@@ -216,3 +216,14 @@ Bangladeshi, Indian or Saudi mandate found.
 Bangladesh's reference; OmniClass and MasterFormat out until a North American customer and a lawyer.
 **The owner's ruling.** "Agree with your recommendation on Q19"
 **Written into.** ADR 0037.
+
+## Q20. The starter Developer's Specification (27 Sep 2026)
+**Asked.** The drafted starter (seven brochures; Low); four choices: sanitary ware in the Specification
+or the plumbing Lump Sum (not both); ceiling paint; floor tile size; verandah door and railing, kitchen
+door.
+**Recommended.** Accept the draft as the starter; sanitary ware in the Specification with a pipework-only
+Lump Sum default from the owner, or, without a figure, keep ৳170 as "plumbing and sanitary" and omit
+fixtures from the Specification.
+**The owner's ruling.** "Agree with your recommendation on Q20" (no pipework-only figure given, so the
+fallback holds: fixtures stay in the Lump Sum; the draft's other choices stand).
+**Written into.** docs/specs/bd-defaults.md. Every owed business input of the brief is now verified.

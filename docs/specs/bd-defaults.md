@@ -173,3 +173,19 @@ sections, docs/research/diameter-splits-and-specification.md §1). Every figure 
 | Slab on grade | – | 1.00 | – | – | – | – |
 Weighted over the G+9 reference building: 10 mm 41 %, 16 mm 22 %, 20 mm 18 %, 12 mm 11 %, 25 mm 7 %,
 8 mm 0.5 %. A split cannot vary by Storey Band (columns are read from the drawing from M1).
+
+## The starter Developer's Specification (owner's ruling, 27 Sep 2026, session 02 Q20: "Agree with your recommendation on Q20")
+Vextrus's starter, typical Dhaka mid-range, is the table in
+docs/research/diameter-splits-and-specification.md §2 (room type × surface, with the PWD SoR benchmark of
+each), **Low**, replaced by each Developer's own brochure. In one breath: 600×600 GP homogeneous floor tile
+in beds, living and verandah (4″ tile skirting), 300×300 in toilets and kitchen, 18 mm granite in the
+ground-floor lobby, cement tiles in parking, lime terracing ~100 mm on the roof; 12 mm plaster with
+plastic emulsion inside, weather coat outside, toilets and kitchen tiled 300×600 to 7′-0″; ceilings 6 mm
+plaster with plastic emulsion; a solid Chattogram teak entrance door, teak-veneered flush room and
+kitchen doors, uPVC toilet and verandah doors, MS grill on the verandah parapet; 4″ aluminium sliding
+windows, 5 mm glass, MS grills; a granite kitchen worktop and a stainless sink; stair treads in GP
+homogeneous tiles with an MS railing.
+**Sanitary ware and taps are not in the starter's "fitting" lines**: the MEP template's "plumbing and
+sanitary" Lump Sum (৳170/sft, Q10) keeps them, so nothing is counted twice. They move into the
+Specification (counted per confirmed toilet) only when the owner sets a pipework-only default for the
+plumbing Lump Sum.
