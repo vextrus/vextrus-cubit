@@ -132,3 +132,12 @@ C, cross-organisation sharing.
 **Written into.** ADR 0034. The owner then asked whether GCP (already subscribed) or a cheaper
 reliable provider, or self-managed DevOps, should replace AWS: researched before it is put as a
 question.
+
+## Q12. Does the MVP export IFC (27 Sep 2026)
+**Asked.** No milestone owned IFC export though ADRs 0022 and 0031 assumed it. A, no export in the MVP,
+IFC-ready data from M1 (IFC class per Element Family, property mapping per attribute definition); B,
+IFC 4.3 export in M2 behind the validation gate; C, B plus IFC import.
+**Recommended.** A: the mapping is what is expensive to retrofit; the exporter has no user yet.
+**The owner's ruling.** "Agree with A on Q12"
+**Written into.** ADR 0022 (the share link is GLB only), ADR 0035 (IFC-ready). ADR 0031's validation
+gate applies when an exporter arrives.

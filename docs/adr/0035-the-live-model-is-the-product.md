@@ -25,6 +25,10 @@ money, no new role). Later, each with its module: site engineers (As built, with
 and facility management (As maintained), and a buyer's view of their own flat (it needs an Apartment
 family nothing reads yet).
 
+**IFC-ready, not IFC-exporting.** Each Element Family carries its IFC class and each attribute its IFC
+property mapping, as data, from M1; the MVP ships no IFC export (added when the first client or market
+asks) and no IFC import.
+
 It is not called BIM, and "Building Model" is retired. "Digital twin" stays off the screens and out
 of the documents; marketing may use it once As built data flows, and not before.
 
@@ -55,3 +59,5 @@ coined brand name (explained every time).
 - 27 Sep 2026 (owner's decision, session 02 Q6): values layered by Life Phase, As designed only from
   Confirmation, other phases by recorded acts with evidence; Deviations shown, never absorbed. The
   owner's ruling: "Agree with B on Q6, agree on Deviation joins the glossary".
+- 27 Sep 2026 (owner's decision, session 02 Q12): IFC-ready data from M1, no IFC export or import in the
+  MVP. The owner's ruling: "Agree with A on Q12".

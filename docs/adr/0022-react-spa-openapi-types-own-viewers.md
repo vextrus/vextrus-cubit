@@ -17,7 +17,7 @@
   Autodesk, Bitstream or Monotype files.
 - **The Building Model:** plain three.js (WebGL), merged per storey, with a per-element state texture.
   The browser builds the RCC geometry from parametric element data, so a Confirmation is a colour
-  patch, never new geometry. GLB and IFC are built on the server for export and the share link; a CI
+  patch, never new geometry. A GLB per storey is built on the server for the share link (no IFC export in the MVP; ADR 0035); a CI
   test checks the browser's geometry against the server's per-element volume and bounds. That Open
   is kept only for viewing clients' own IFC.
 - **Budgets** (a mid-range Windows laptop, checked on a real one in M0): 3D model on screen ≤ 1.5 s
@@ -58,3 +58,7 @@ by the owner, and the design gate on every UI PR (docs/sdlc.md).
   Every sheet scores F1 ≥ 0.90 against its Plot (within 2 px) and the median ≥ 0.95; pan and zoom on
   the densest sheet hold p95 ≤ 16.7 ms a frame on the reference setup, beside the 1.5 s for a cached
   sheet. The owner's ruling: "Agree with 1–5, No laptop - it was assumed." (docs/specs/M0.md).
+- 27 Sep 2026 (owner's decision, session 02 Q12): no IFC export in the MVP. Every Element Family carries
+  its IFC class and every attribute definition its IFC property mapping, as data from M1, so an exporter
+  is added when the first client or market asks; the share link stays a GLB per storey. The owner's
+  ruling: "Agree with A on Q12".
