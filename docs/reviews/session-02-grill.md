@@ -244,3 +244,11 @@ into a Library price set, each cited to its page, a refuter spot-checking 20; th
 the labour rates Developers pay that PWD does not state, in one checklist.
 **The owner's ruling.** "Agree with your recommendation on Q21, yes read the PDF"
 **Written into.** This file; the transcription lands in docs/research/pwd-sor-2022-input-prices.md.
+
+## Q22. When one Question holds a step (27 Sep 2026)
+**Asked.** A, whole allowance until the step is confirmed; B, the QS may close a step with Questions open,
+held Elements priced at their best candidate and flagged "awaiting answer", failed Elements typed or
+excluded first; C, pro-rata allowance (rejected before).
+**Recommended.** B.
+**The owner's ruling.** "Agree with B on Q22"
+**Written into.** ADR 0002.

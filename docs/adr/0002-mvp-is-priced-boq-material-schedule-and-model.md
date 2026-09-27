@@ -15,6 +15,12 @@ Target Cost is tested against measured + allowance, so it warns early. M1 prices
 pile caps by Rate Analyses on the Developer's editable Market Prices; mat foundations and derived
 earthwork are M2.
 
+**A step may close while Questions are open.** The QS may close a Takeoff Step with Questions still
+open: the step switches from allowance to measured, and each Element a Question holds is priced at its
+best candidate (the pre-picked one where two sources agree) and flagged "awaiting answer" in the grid,
+the Project Summary and exports, counting in the measured share only once answered. An Element that
+failed (no candidate) is typed or excluded with a reason before the step closes.
+
 **"When" is a Construction Stage, not a date.** The Material Schedule runs materials down the side and
 stages and floors across the top, in a fixed sequence the Developer may rename but not reorder:
 piling; substructure; the frame, one stage per slab casting; masonry; finishes; services; external
@@ -57,3 +63,7 @@ Developers ask for.
   consumptions in docs/research/tax-and-allowances.md §B.2 on its reference building, every assumption
   verified, Low confidence, replaced by the Developer's past projects (docs/specs/bd-defaults.md). The
   owner's ruling: "Agree with your recommendation on Q8, all ✓".
+- 27 Sep 2026 (owner's decision, session 02 Q22): a step may close with Questions open, held Elements
+  priced at their best candidate and flagged "awaiting answer" (as a Revision awaiting the QS is), failed
+  Elements typed or excluded first. Evidence: the session-02 priced prototype, where 157 held Elements kept
+  99 % of the measured money on allowance ("1.1 % measured"). The owner's ruling: "Agree with B on Q22".
