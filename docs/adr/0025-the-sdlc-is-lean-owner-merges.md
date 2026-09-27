@@ -41,3 +41,8 @@ green while the product failed (docs/postmortem.md; docs/research/sdlc-claude-co
 - 26 Sep 2026 (owner's decision, M0 plan): the owner also reads in full the harness scripts and the
   sandbox (`scripts/real-drawings`, `scripts/real_drawings/`, `scripts/score/`, `scripts/owner/`,
   `scripts/cloud/`, `engine/read/sandbox.py`). The owner's ruling: "Agree with all four".
+- 27 Sep 2026 (done): GitHub Pro is bought (the rulesets API answers; the ruleset is set after 01a
+  merges). The cloud environments exist on both accounts: Python 3.13, Node 24, .NET 10.0, Postgres
+  (5432 in the cloud) and LibreDWG 0.14 ok; the LibreDWG release asset did not download inside the
+  setup script, which built it from source within its time budget; the TypeSafe credential returned
+  422 on an empty body (likely attached, unconfirmed until a real-body 200).

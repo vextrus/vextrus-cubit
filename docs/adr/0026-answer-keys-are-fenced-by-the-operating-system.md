@@ -38,3 +38,5 @@ needed no password and `~/vextrus-cad` was world-readable. Rejected: deny rules 
   once per scoring run (`scripts/owner/scorer-rule-remove.sh`). The scorer reads only the export in
   the drop folder and the keys, and prints aggregates only; the Edison key-drafting script lives with
   the keys, never in the repo. The owner's ruling: "Agree, write the script to remove the rule".
+- 27 Sep 2026 (done): the owner ran `scripts/owner/scorer-rule-remove.sh`; the scorer now runs only
+  with the owner's password. The owner's words: "I bought GitHub Pro and ran the point 3 script."

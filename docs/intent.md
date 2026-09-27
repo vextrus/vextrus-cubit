@@ -81,3 +81,27 @@ It is broad (194 modules) and free, but shallow where our clients live
 - **Continuous development driven by client feedback** is itself part of what changes the industry.
 - Glodon's "Evolving into BIM 2.0" (owner's copy in ~/reference/) describes much of this vision
   already running in Glodon's products. Its study is in docs/research/glodon-bim-2.md.
+
+### After session 01 (27 Sep 2026, the owner's words, condensed; to be grilled in session 02)
+- **The live model is the product.** Seeing the sheet and 3D prototypes "opened my mind of the actual
+  full potential of our product". Our market does not use BIM, so turning 2D drawings into a working
+  Building Model is both the core and the moat, and "this could be the next BIG thing for our
+  industry". Revit and the big BIM players serve every project size with strong enterprise systems;
+  Vextrus need not, but for small to medium projects it can become what Glodon's "BIM 2.0" meant,
+  though not exactly that.
+- **Not called BIM.** "It would be wise to not call Vextrus BIM or BIM 2.0." Instead, name and design
+  it creatively as **a component-level data store with cost, construction and O&M attributes**: a
+  **"live model"**, delivering a digital twin whose live 3D model serves many parts of the business,
+  in the usual ERP and beyond, even in marketing.
+- **Revit/CAD-grade tools in the viewer.** The 3D prototype was "extraordinary", but the small
+  features usual BIM and CAD tools offer, "like dimensions and other things", can push it to the
+  ultimate stage. The real challenge is taking the prototype as the destination and building it at
+  production grade, "at any cost".
+- **Global from the first line.** Vextrus is an AI-native platform for the AEC business, starting with
+  Bangladeshi real-estate Developers, but "going global is a matter of time", so the product is built
+  that way from the very beginning.
+- **This is the last reset.** "This is the last time we're going through to plan and actually build the
+  product from resetting to zero." The foundation and the MVP must let the rest of the product be
+  built in depth, go global and scale without a rewrite.
+- **One more grill, with intense prototyping.** Before any build, a final `/grill-with-docs` at xHigh
+  effort, with more intensive prototyping on the Sample Project, settles the revised spec and plan.
