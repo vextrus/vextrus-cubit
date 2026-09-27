@@ -252,3 +252,12 @@ excluded first; C, pro-rata allowance (rejected before).
 **Recommended.** B.
 **The owner's ruling.** "Agree with B on Q22"
 **Written into.** ADR 0002.
+
+## Q23. Three Rule Set rules the real read did not fit (27 Sep 2026)
+**Asked.** P3 drops grade beams that sit on caps; FW6/E4 shutter grade-beam soffits where no soling or
+blinding is drawn; E3 has no sand-filling depth when none is stated.
+**Recommended.** P3 between column faces where the beam bears on the cap; E4 extended to grade beams so
+FW6 measures no soffit; E3 depth from ground level to the GF slab soffit, derived with a Question; no
+retuning of allowance defaults from one agent-made building.
+**The owner's ruling.** "Agree with your recommendation on Q23"
+**Written into.** docs/specs/bd-defaults.md (Rule Set).

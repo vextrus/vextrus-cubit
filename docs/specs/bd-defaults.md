@@ -24,6 +24,15 @@ A Developer edits its own copy (ADR 0009).
   - FW5 slab and step edges under 200 mm: measured as area (a stated departure from IS 1200's rm);
   - F6 slabs of different thickness over a beam: each runs to the beam's centre line;
   - PT1 painting: the plaster area it covers, per face.
+- **Three rules refined on the real read** (owner's ruling, 27 Sep 2026, session 02 Q23: "Agree with your
+  recommendation on Q23"; source: practice; evidence: the session-02 priced prototype):
+  - P3 grade (tie) beams: clear between the faces of the pile caps or footings they connect; **where a
+    grade beam bears on the cap** (its soffit at the cap's top), clear between the faces of the columns it
+    connects, the cap measured to its own top;
+  - E4 extends to grade beams: brick flat soling and CC blinding under grade beams as under caps and
+    footings, drawn or not (Dhaka practice); FW6 then measures no grade-beam soffit;
+  - E3 sand filling where no depth is stated: from existing ground level to the underside of the
+    ground-floor slab, marked "derived", with a Question where a section disagrees.
 - The Hand Takeoff is measured under these same written rules (ADR 0005).
 
 ## Rebar Ratios (ADR 0010)
