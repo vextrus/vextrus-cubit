@@ -17,6 +17,11 @@ How the Live Model (ADR 0035) holds its cost, construction and O&M attributes:
 4. **As built and As maintained values** are **Records**: one append-only row per value, naming who, when
    and on what evidence, stamped with the design version in force. A Record never makes a Model Version
    and never moves a figure; a Deviation is shown, never absorbed.
+**Classification systems carried:** Uniclass 2015 references for every Element Family from M1
+(unmodified, attributed, with the edition; CC BY-ND 4.0, so no codes of ours inside its tables); PWD SoR
+item codes as Bangladesh's reference where an item maps; our own Element Family list. OmniClass and
+MasterFormat stay out until a North American customer asks and a lawyer has read OmniClass's licence and
+the 1 Sep 2026 MasterFormat ruling (docs/research/component-attributes-and-classification.md).
 5. **When.** M0 creates the tables empty (Attribute Definitions and their family applicability, Records,
    classification systems and references), with their row-level security policies; M1 fills the As
    designed definitions for its families with their IFC mappings and Uniclass references; cost control and
@@ -39,3 +44,5 @@ data).
 - 27 Sep 2026 (owner's decision, session 02 Q14), with the prototype judged: "Agree with your
   recommendation on Q14. Judgement on the prototype itself: yes, the inspector, the query and the
   three-phase history read as I'd want, looks good."
+- 27 Sep 2026 (owner's decision, session 02 Q19): Uniclass 2015 and PWD SoR references from M1; OmniClass
+  and MasterFormat out for now. The owner's ruling: "Agree with your recommendation on Q19".

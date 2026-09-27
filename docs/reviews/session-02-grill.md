@@ -207,3 +207,12 @@ unconfirmed. Plus a tenant-policy bug on either version (`nullif`).
 **The owner's ruling.** "Agree with your recommendation on Q18"
 **Written into.** ADR 0034; docs/architecture.md. Owner's step: install PostgreSQL 18 locally (the
 command is in the research file); CLAUDE.md's machine line changes when it is installed.
+
+## Q19. Which classification systems the Live Model carries (27 Sep 2026)
+**Asked.** Uniclass 2015 shippable (CC BY-ND, Ashghal names it); OmniClass's licence forbids what a
+hosted product does; MasterFormat's numbers unprotected in one US ruling (appeal window open); no
+Bangladeshi, Indian or Saudi mandate found.
+**Recommended.** Uniclass 2015 references for M1's families, attributed and unmodified; PWD SoR codes as
+Bangladesh's reference; OmniClass and MasterFormat out until a North American customer and a lawyer.
+**The owner's ruling.** "Agree with your recommendation on Q19"
+**Written into.** ADR 0037.
