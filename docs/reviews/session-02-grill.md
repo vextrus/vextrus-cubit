@@ -67,3 +67,14 @@ QS's screen is unchanged; pours are site facts recorded under B later if needed.
 **The owner's ruling.** "Agree with B on Q5"
 **Written into.** `CONTEXT.md` (Element, Storey Band); ADR 0015 (identity per family). The data model
 and M1 spec's identity rules follow when levelled.
+
+## Q6. When the site differs from the drawings (27 Sep 2026)
+**Asked.** C2 at B/2, 5th floor, drawn 12″×20″, cast 14″×20″. A, As built overwrites; B, values
+layered by Life Phase, nothing overwrites (As designed only from Confirmation; As built and As
+maintained by recorded acts naming who, when and on what evidence; the Priced BOQ measures As
+designed; a difference beyond tolerance is a Deviation); C, a separate model per phase.
+**Recommended.** B.
+**The owner's ruling.** "Agree with B on Q6, agree on Deviation joins the glossary: "an As built or As
+maintained value that differs from its As designed value beyond a tolerance; shown, never absorbed"."
+**Written into.** ADR 0035; `CONTEXT.md` (Deviation). docs/architecture.md's "only the confirm
+service writes" becomes "only the confirm service writes As designed" when levelled.

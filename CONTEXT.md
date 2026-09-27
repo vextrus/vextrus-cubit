@@ -278,6 +278,11 @@ The link from any figure back to where on which sheet it was read, or to the Que
 it.
 _Avoid_: provenance, source, lineage
 
+**Deviation**:
+An As built or As maintained value that differs from its As designed value beyond a tolerance; shown,
+never absorbed.
+_Avoid_: change (a change comes with a Revision), error, variance (a cost term)
+
 **Storey Band**:
 The range of storeys over which a column (or shear wall, or the core) keeps one size or
 specification, as a column schedule gives it: a fact of each storey's piece and the group the QS
