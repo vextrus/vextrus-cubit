@@ -328,3 +328,24 @@ Live Model as Elements with identity and a Priced BOQ; this reverses ADR 0003's 
 at which milestone and to what depth. Evidence being gathered before the recommendation: Edison's
 ELECTRICAL and PLUMBING DWGs studied by a drawing analyst; Dhaka's MEP measurement and pricing practice
 researched.
+
+## Q30. The labour rates PWD does not state (28 Sep 2026)
+**Asked.** Drafts (casting ৳170/sft, brickwork ৳40/cft and ৳20/sft, plaster ৳15, tiles ৳30, pile boring
+৳450/rft) and PWD-derived per-unit figures (earthwork ৳3.88, backfill ৳4.78, sand filling ৳6.88,
+shuttering ৳18, pile heads ৳345, casting ৳31.50); three with no figure.
+**Recommended.** Accept as Low starters; the three without a figure stay flagged "rate not entered", never
+a silent ৳0.
+**The owner's ruling.** "Agree with your recommendation on Q30."
+**Written into.** docs/specs/bd-defaults.md (with the PWD starter price set).
+
+## Q31 (opened by the owner). One Live Model or discipline models linked (28 Sep 2026)
+**The owner's words.** "will it be too much to include Structural, Architectural and MEP in a single model
+or it'll be better if we create a model based on Structural or Architectural whichever would be
+convenient, and later MEP model on top of it or at different state if we go with different model. Like in
+Revit there are option and different templates for model creation as Architecture, Structure and MEP …
+these models are best to produce separately in real life where they can be linked to each other which is
+the best practice I think. In our case exactly what solution we're gonna provide that will be most
+accurate and overall serve our ultimate purpose, if we do wrong planning on this kind of fundamental
+theory/algorithm it will suffer us in the wrong run. Please do research on it and propose your best
+recommendation, don't yet finalize our final plan yet."
+**Taken as.** Research before a recommendation; the plan stays open until it is ruled.

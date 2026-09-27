@@ -198,3 +198,15 @@ homogeneous tiles with an MS railing.
 sanitary" Lump Sum (৳170/sft, Q10) keeps them, so nothing is counted twice. They move into the
 Specification (counted per confirmed toilet) only when the owner sets a pipework-only default for the
 plumbing Lump Sum.
+
+## Starter labour rates (owner's ruling, 27–28 Sep 2026, session 02 Q30: "Agree with your recommendation on Q30.")
+PWD prices labour per day only (docs/research/pwd-sor-2022-input-prices.md §5). Vextrus's starter labour
+rates, all **Low**, each Developer's own replacing them: casting-area Labour Contract ৳170/sft of casting
+area; brickwork ৳40/cft (10″) and ৳20/sft (5″); plaster ৳15/sft; tile laying ৳30/sft; pile boring and
+casting ৳450/rft; from PWD's per-unit items (net of mark-ups): earthwork in excavation ৳3.88/cft,
+backfill ৳4.78/cft, sand filling labour ৳6.88/cft (derived), shuttering outside the contract ৳18/sft,
+pile-head breaking ৳345 per head, concrete casting outside the contract ৳31.50/cft (derived). Rebar
+binding outside the contract, brick flat soling and painting labour have no figure: they stay unpriced
+and flagged "rate not entered", never a silent ৳0, until a figure is entered.
+The starter Market Price set is PWD SoR 2022 (2nd Revised), Dhaka column
+(docs/research/pwd-sor-2022-input-prices.md, refuter-checked), with brick chips derived at ৳120.20/cft.
