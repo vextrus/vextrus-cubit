@@ -2,7 +2,7 @@
 
 Each element gets rebar by Rebar Ratio as soon as it is confirmed, so the Priced BOQ and the Material
 Schedule are whole from the first milestone. Rebar read from the drawing then replaces the ratio one
-element type at a time: columns in M1, then beams, then slabs in M3. **The owner's condition: rebar from
+element type at a time: columns in M1, then beams, then slabs in M4. **The owner's condition: rebar from
 the drawing is a must, not an option;** ratio rebar must not become the permanent answer. Each of
 columns, beams and slabs is a finish line judged on the Development Sets and the Held-out Sets
 (ADR 0005).
@@ -43,3 +43,5 @@ early estimates; marking the basis keeps the product honest with the MD.
 - 27 Sep 2026 (owner's decision, session 02 Q13): the assumed diameter splits per Element Family, as a
   share of kg, all Low (docs/specs/bd-defaults.md; docs/research/diameter-splits-and-specification.md).
   The owner's ruling: "Agree with your recommendation on Q13."
+- 28 Sep 2026 (session 02 Q29): milestones renumbered: MEP read is M3, rebar from the drawing and more
+  than one Building M4, Revisions and vector PDFs M5, the beta M6 (docs/milestones.md).

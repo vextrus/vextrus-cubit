@@ -20,6 +20,10 @@ and openings, with lintels (a stated reason for every opening without one), para
 MEP: lump sums from a template of expected lines, each with a ৳/sft sanity range.
 
 **M1 takes steps 1–4, piles and pile caps from step 5, and steps 6–8; M2 the rest** (ADR 0002).
+**MEP Parts add their own Takeoff Steps after the architecture** (ADR 0040), in M3: electrical
+(equipment and boards; points), plumbing and sanitary (fixtures, risers, equipment), and fire (devices and
+equipment, where drawn); step 14 keeps site works, and its MEP template lines become the MEP Parts'
+allowances until they are read. The exact steps are the M3 spec's.
 
 Rejected: sheet by sheet (Bluebeam/PlanSwift style: one element confirmed three times, the model whole
 only at the end); fully automatic, reviewed at the end (Vextrus Cubit refused every line missing one
@@ -33,3 +37,6 @@ into Questions (docs/research/2d-to-bim-prototype-lessons.md).
   M7 and the QS critic #6, #12, #13 (docs/reviews/). The owner's ruling: "Agree".
 - 26 Sep 2026: "M1 takes steps 1–4 and 6–8" corrected to include piles and pile caps, which ADR 0002
   (amended) and docs/milestones.md put in M1.
+- 28 Sep 2026 (owner's decision, session 02 Q29, Q31): MEP Parts add their own Takeoff Steps in M3; step
+  14's MEP lines become allowances until those Parts are read. The owner's ruling: "Agree with your
+  recommendation B on Q29."

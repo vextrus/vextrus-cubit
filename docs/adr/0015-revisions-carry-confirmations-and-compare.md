@@ -15,7 +15,7 @@ picks (ADR 0028). Matching needs no LLM.
 - **While a Revision awaits the QS,** changed and removed elements keep their last confirmed figure,
   flagged "changed in rev B, awaiting Confirmation" wherever it appears (the grid, the Project Summary,
   exports); new elements count for nothing until confirmed.
-- **A real revision pair** from a founding client or Edison is an explicit dependency of M4; M4 does
+- **A real revision pair** from a founding client or Edison is an explicit dependency of M5; M5 does
   not pass on a revision the team drew.
 
 Why: in Dhaka the revised drawing is the instruction, and revisions are included in the price for 6
@@ -39,3 +39,5 @@ after the MVP (ADR 0011).
   Revision that moves a band boundary then changes the facts of the storeys affected instead of
   removing and adding Elements, and As built facts (a floor's cast date) have one piece to attach to
   (ADR 0035). The owner's ruling: "Agree with B on Q5".
+- 28 Sep 2026 (session 02 Q29): milestones renumbered: MEP read is M3, rebar from the drawing and more
+  than one Building M4, Revisions and vector PDFs M5, the beta M6 (docs/milestones.md).

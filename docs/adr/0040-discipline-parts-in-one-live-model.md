@@ -31,7 +31,18 @@ Element came from); separate linked discipline models (copied grids and storeys,
 stores for every quantity); structure and architecture as one model with MEP linked (Glodon's snapshot).
 
 Supersedes ADR 0003's "MEP as lump sums": MEP Parts are read into the Live Model as Elements with
-identity and priced; how deep and in which milestone is session 02 Q29.
+identity and priced, in their own milestone after M2 (M3): equipment (lifts, generator, substation,
+boards, pumps) and terminals (electrical points, which PWD prices with their wiring back to the board;
+sanitary fixtures through the architectural reader; fire devices where drawn) as Elements; risers by
+diameter and storey; pipes and sub-mains priced by QS-confirmed rules per point and per fixture until
+true run lengths are read after the MVP (Dhaka MEP drawings draw runs schematically: lengths from them
+would be invented); the legend proposes the office's Drafting Profile; board schedules and single-line
+diagrams check N; a missing discipline is a Question, never zero. Until a Part is read, the MEP
+template's ৳/sft lines are its allowance. Evidence: docs/research/edison-mep-read.md,
+docs/research/mep-measurement-and-model.md. In one viewer scene merged per storey with the Discipline as
+per-Element state, every discipline stayed within the draw-call budget (42–73), while merging per
+discipline (what linked models would do) nearly doubled draw calls (up to 131); MEP runs should be drawn
+as lines or instanced (80 % of triangles as boxes).
 
 ## History
 - 28 Sep 2026 (owner's decision, session 02 Q31, on the owner's own question). The owner asked: "will it be
@@ -41,3 +52,6 @@ identity and priced; how deep and in which milestone is session 02 Q29.
   Q31." The owner's facts: "Dhaka Developers usually don't have a separate MEP QS or engineer measuring
   MEP, in almost all cases the same QS measure everything. The MEP drawings usually arrive later than the
   structural and architectural sets, or sometimes with them - mostly arrive later."
+- 28 Sep 2026 (owner's decision, session 02 Q29): MEP as its own milestone right after M2, read to the
+  depth above; one Held-out Set with MEP drawings before it closes. The owner's ruling: "Agree with your
+  recommendation B on Q29."

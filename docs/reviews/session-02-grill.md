@@ -365,3 +365,15 @@ arrive later."
 MEP Parts usually start later, carrying their allowance until read.
 **Written into.** ADR 0040; ADR 0003 amended; `CONTEXT.md` (Discipline, Discipline Part, Element
 Relation).
+
+## Q29. How deep MEP is read, and in which milestone (28 Sep 2026)
+**Asked.** With Edison's MEP study (points very readable; risers readable; runs schematic; no fire; sanitary
+fixtures on the architect's plan) and the refuter-checked pricing research (equipment ~45 %, points ~23 %,
+runs ~27 % of MEP money, Low; PWD's point includes its wiring): A, MEP inside M2; B, a new milestone right
+after M2 (M3 MEP read: equipment, points, sanitary fixtures, risers; runs by rule per point and fixture;
+fire where drawn; a Held-out Set with MEP), then M4 rebar and more than one Building, M5 Revisions and
+PDFs, M6 beta, founding Developers after M4; C, after the MVP.
+**Recommended.** B.
+**The owner's ruling.** "Agree with your recommendation B on Q29."
+**Written into.** docs/milestones.md (M3–M6); ADR 0040 (depth); ADR 0007 (MEP steps); milestone numbers in
+ADRs 0010, 0014, 0015, 0022. The owner obtains a Held-out Set with MEP drawings, ideally with fire.

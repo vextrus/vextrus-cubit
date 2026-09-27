@@ -59,7 +59,7 @@ by the owner, and the design gate on every UI PR (docs/sdlc.md).
   Answers plan review M9 and M10 and architecture critic #8 and #9. The owner's ruling: "Agree".
 - 26 Sep 2026 (owner's decision): the budgets hold on the owner's PC with Chrome forced onto the
   integrated GPU (Intel UHD 770, Windows "Power saving") and DevTools' 4× CPU throttle, for M0–M2; and
-  on a founding client's own QS computer before M5. The RTX 3060 Ti is never the reference. The
+  on a founding client's own QS computer before M6. The RTX 3060 Ti is never the reference. The
   owner's ruling: "Q55: Agree". The owner's first run was on the RTX 3060 Ti (not the reference):
   sheet S-08 GPU p95 0.87 ms at 60 fps; 3D model on screen 0.32 s, GPU moving p95 1.23 ms,
   Confirmation painted 2.7 ms, pick p95 1.30 ms, 29 draw calls, idle MSAA frame 24 ms.
@@ -81,3 +81,5 @@ by the owner, and the design gate on every UI PR (docs/sdlc.md).
   passing the budgets on the reference setup. Evidence: the session-02 viewer-tools prototype
   (`.private/work/session-02/viewer-tools/`; SwiftShader only: presentation ≈ 5× an orbit, the one budget
   risk). The owner's ruling: "Agree with B on Q25".
+- 28 Sep 2026 (session 02 Q29): milestones renumbered: MEP read is M3, rebar from the drawing and more
+  than one Building M4, Revisions and vector PDFs M5, the beta M6 (docs/milestones.md).

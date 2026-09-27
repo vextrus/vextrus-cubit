@@ -11,7 +11,7 @@ blocks, circles and hatches are lost or degraded; many pages are rotated. Layers
    fonts; rotated and mirrored text; images, telling a scan from a gradient fill. Without the SHX
    comments, Vextrus says the text cannot be read reliably and asks for the DWG, or a re-plot with the
    option on, giving the exact AutoCAD setting.
-2. **M4's PDF finish line is a differential test:** the same set as DWG and as PDF through the same
+2. **M5's PDF finish line is a differential test:** the same set as DWG and as PDF through the same
    steps, with a loss table per step (recovered, and the extra Questions raised).
 3. **The readers are pdfplumber / pdfminer.six and pypdfium2** (permissive; about 0.1 s a page).
    PyMuPDF is AGPL and not used.
@@ -27,3 +27,5 @@ needs an LLM that ADR 0011 keeps out of the MVP).
   each DWG's strings recoverable without SHX comments, 98.8 % and 99.8 % with them; 103 of 208 pages
   rotated; all 337 layer names match the DWG); plan review C6. The owner's ruling: "Agree".
 - 26 Sep 2026: milestone renumbered (PDFs are M4, with Revisions).
+- 28 Sep 2026 (session 02 Q29): milestones renumbered: MEP read is M3, rebar from the drawing and more
+  than one Building M4, Revisions and vector PDFs M5, the beta M6 (docs/milestones.md).
