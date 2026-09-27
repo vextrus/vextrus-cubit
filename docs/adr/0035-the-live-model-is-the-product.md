@@ -9,6 +9,14 @@ maintained* (warranty, expected life, upkeep; filled at handover, for owners' as
 buildings a Developer keeps). The data carries the Life Phase from M0; construction facts known at
 design time (Construction Stage, casting stage, mix, grade, Rebar Basis) are filled from M1.
 
+**Its readers.** In the MVP: the QS (the Takeoff, the Priced BOQ, the Rate Analyses), the MD (the
+Project Summary, the Revision Comparison, the 3D share link), procurement (the Material Schedule by
+Construction Stage) and the Developer's marketing (a presentation mode on the share link: finished
+materials, a turntable, the build-up in Construction Stage order, stills for brochures and fairs; no
+money, no new role). Later, each with its module: site engineers (As built, with cost control), after-sales
+and facility management (As maintained), and a buyer's view of their own flat (it needs an Apartment
+family nothing reads yet).
+
 It is not called BIM, and "Building Model" is retired. "Digital twin" stays off the screens and out
 of the documents; marketing may use it once As built data flows, and not before.
 
@@ -31,3 +39,6 @@ coined brand name (explained every time).
   buyers."
 - 27 Sep 2026 (owner's decision, session 02 Q2): the names Live Model and Life Phase; the rule on
   "digital twin". The owner's ruling: "Agree with B, Live Model and Life Phase".
+- 27 Sep 2026 (owner's decision, session 02 Q3): the MVP's readers are the QS, the MD, procurement and
+  marketing through presentation on the share link; site, facility management and the buyer's flat
+  view come later with their modules. The owner's ruling: "Agree with your recommendation on Q3".

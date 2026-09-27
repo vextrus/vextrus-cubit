@@ -33,3 +33,14 @@ named **Life Phase** (As designed, As built, As maintained), since "phase" and "
 **Written into.** `CONTEXT.md` (Live Model replaces Building Model; Life Phase added); ADR 0035 (Q1
 and Q2). The sweep of "Building Model" through the other documents is done when they are levelled
 (finish line 3).
+
+## Q3. Who reads the Live Model in the MVP (27 Sep 2026)
+**Asked.** Today's readers are the QS, the MD and procurement. Candidates: marketing (presentation
+mode on the existing share link), a buyer-facing flat view (needs an Apartment family), site engineers
+(As built, cost control), after-sales / facility management (As maintained).
+**Recommended.** The MVP serves the QS, the MD, procurement and marketing through presentation on
+the share link (no new role, no money); the rest come later with their modules; the Apartment family
+is sketched in the data but not read in the MVP.
+**The owner's ruling.** "Agree with your recommendation on Q3"
+**Written into.** ADR 0035 (its readers); ADR 0016 (what leaves Vextrus: the share link's
+presentation) and the M2 spec when they are levelled.
