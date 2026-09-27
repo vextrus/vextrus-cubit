@@ -1,6 +1,6 @@
 # Measurement Rules are data the Developer can read and edit, defaulting to IS 1200 with PWD's conventions
 
-The quantities in the Priced BOQ come from the Building Model through Measurement Rules held as data,
+The quantities in the Priced BOQ come from the Live Model through Measurement Rules held as data,
 not code. Each rule is written in words a QS reads. Each Developer has its own Rule Set, a copy of the
 Bangladeshi default: about 50 rules, IS 1200 as written with PWD's item conventions on top, each
 labelled with its source, with Dhaka-practice parameters (docs/specs/bd-defaults.md; for example 450 mm
@@ -29,3 +29,7 @@ applies no measurement standard (docs/research/oce-algorithms.md).
 - 26 Sep 2026: the default Rule Set is IS 1200 as written with PWD's item conventions, with the
   practice parameters set. Evidence: docs/research/qs-defaults.md §1, docs/specs/bd-defaults.md. The
   owner's ruling: "Agree, 450".
+- 28 Sep 2026 (owner's decisions, session 02 Q15, Q23, Q32): a Rule Set per Market in the Library, rules
+  in Vextrus's own words citing clause numbers (NRM and IS 1200 texts are copyrighted; ADR 0038); three
+  rules refined on the real read (P3 grade beams bearing on caps, E4 soling and blinding under grade beams,
+  E3 sand-filling depth; docs/specs/bd-defaults.md); MEP rules join for M3, a point being PWD's point.

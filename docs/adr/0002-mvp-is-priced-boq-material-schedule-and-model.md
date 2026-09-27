@@ -1,8 +1,8 @@
-# The MVP delivers the Priced BOQ, the Material Schedule and the Building Model together
+# The MVP delivers the Priced BOQ, the Material Schedule and the Live Model together
 
 The MVP's paid result, for a Developer's MD, is three things from one QS-confirmed Takeoff of the
 building's 2D drawings: the Priced BOQ (what the building will cost), the Material Schedule (what to
-buy, and before which Construction Stage) and the Building Model in 3D (the visible proof). Money is
+buy, and before which Construction Stage) and the Live Model in 3D, every discipline once read (ADRs 0035, 0040). Money is
 in M1, not deferred behind a perfect Takeoff; deferring it is part of why Vextrus Cubit failed
 (docs/postmortem.md).
 
@@ -67,3 +67,5 @@ Developers ask for.
   priced at their best candidate and flagged "awaiting answer" (as a Revision awaiting the QS is), failed
   Elements typed or excluded first. Evidence: the session-02 priced prototype, where 157 held Elements kept
   99 % of the measured money on allowance ("1.1 % measured"). The owner's ruling: "Agree with B on Q22".
+- 28 Sep 2026 (session 02): the three outputs read from the Live Model (ADR 0035), every Discipline Part
+  included once read (MEP from M3, ADR 0040); "Building Model" renamed.

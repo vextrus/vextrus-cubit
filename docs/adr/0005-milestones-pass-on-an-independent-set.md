@@ -8,7 +8,8 @@ the team:
   committed or put in an issue, and shown only with the owner's permission.
 - **On the Held-out Sets:** real sets from other consultants that no build session ever opens,
   scored only by the owner. They are the proof that Vextrus reads Dhaka drawings. One is required
-  before M1 closes, two before M2. Client Developers' sets join as they arrive, with permission.
+  before M1 closes, two before M2, and one with MEP drawings before M3; each is scored first as an
+  unknown office's first read (ADR 0039). Client Developers' sets join as they arrive, with permission.
 
 **Agreement is measured against a Hand Takeoff:** a team engineer's manual measurement of five zones
 (foundations and substructure; the ground / podium floor; one typical floor; one non-typical upper
@@ -38,3 +39,6 @@ and rules fitted to one office fail at the next, so prove it "on two or three re
   are scored blind against its generating agent's inputs (an Answer Key, ADR 0026); its quantities
   are checked only as arithmetic, never as proof. Edison and each Held-out Set keep their five-zone
   Hand Takeoffs. The owner's ruling: "Agree".
+- 28 Sep 2026 (owner's decisions, session 02 Q16, Q29): each Held-out Set is scored first as an unknown
+  office's first read (no Drafting Profile of its office), then with one if it exists (ADR 0039); M3 (MEP)
+  needs one Held-out Set with MEP drawings. The blind scoring starts in M1 (ADR 0030).

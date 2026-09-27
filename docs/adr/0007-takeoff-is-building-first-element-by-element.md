@@ -1,6 +1,6 @@
 # Takeoff is building-first, element by element, with bulk Confirmation
 
-The QS builds the Building Model one Takeoff Step at a time, in the order a building is built and
+The QS builds the Live Model one Takeoff Step at a time, in the order a building is built and
 measured. Each step draws on every sheet that carries its Element Family (layout, schedule, section).
 The machine proposes; the QS confirms in bulk ("86 columns match the schedule; 3 need you"), with the
 exceptions pulled out. A fact the machine cannot read, or a Check that fires (ADR 0027), becomes one

@@ -2,18 +2,18 @@
 
 Each ADR states the decision as it now stands; its `## History` lists every amendment with its date,
 evidence and the owner's ruling, quoted. A superseded ADR keeps its file as a stub so old links
-resolve. Format: `.claude/skills/domain-modeling/ADR-FORMAT.md`. Updated 27 Sep 2026, during session 02.
+resolve. Format: `.claude/skills/domain-modeling/ADR-FORMAT.md`. Updated 28 Sep 2026, at the end of session 02 (every ADR re-read against its rulings).
 
 | # | Title | Status | The decision in one line |
 |---|---|---|---|
 | [0001](0001-first-customer-is-the-developer.md) | The first customer is the real-estate Developer | superseded by 0033 | The Bangladeshi real-estate Developer is the first paying customer: its MD buys, its QS uses Vextrus daily. |
-| [0002](0002-mvp-is-priced-boq-material-schedule-and-model.md) | The MVP delivers the Priced BOQ, the Material Schedule and the Building Model together | current | Three outputs from one Takeoff, with a whole-building figure (Cost Basis) from M1 and the Material Schedule by Construction Stage. |
+| [0002](0002-mvp-is-priced-boq-material-schedule-and-model.md) | The MVP delivers the Priced BOQ, the Material Schedule and the Live Model together | current | Three outputs from one Takeoff, with a whole-building figure (Cost Basis) from M1 and the Material Schedule by Construction Stage. |
 | [0003](0003-mvp-reads-rcc-structural-and-architectural.md) | The MVP reads RCC-framed buildings from structural and architectural drawings | amended by 0040 | RCC frames; MEP no longer lump sums (ADR 0040). |
 | [0004](0004-the-sample-project-is-drawn-by-the-team.md) | The Sample Project is Vextrus's own clean set | current | A clean set with planted contradictions: a Development Set and the sample clients see, never proof of reading. |
 | [0005](0005-milestones-pass-on-an-independent-set.md) | Milestones are proven on Held-out Sets and measured against a Hand Takeoff | current | Development Sets prove no regression; Held-out Sets (one by M1, two by M2) prove reading; stated tolerances over five zones. |
 | [0006](0006-rates-come-from-the-developers-rate-analysis.md) | Working rates come from the Developer's Rate Analysis; the Estimate is a build-up | current | Rate Analyses at Market Prices; Estimate layers; Labour Contracts; the PWD Benchmark printed and net. |
 | [0007](0007-takeoff-is-building-first-element-by-element.md) | Takeoff is building-first, element by element, with bulk Confirmation | current | Fourteen Takeoff Steps in building order; bulk Confirmation; Questions at the point of need. |
-| [0008](0008-si-inside-display-units-outside.md) | Units: drawing units until assembly, SI in the Building Model, money in its quoted unit | current | Billing Units, rounding as a QS rounds, one imperial/metric switch, lakh for money and quantities. |
+| [0008](0008-si-inside-display-units-outside.md) | Units: drawing units until assembly, SI in the Live Model, money in its quoted unit | current | Billing Units, rounding as a QS rounds, one imperial/metric switch, lakh for money and quantities. |
 | [0009](0009-measurement-rules-are-data-pwd-default.md) | Measurement Rules are data, defaulting to IS 1200 with PWD's conventions | current | An editable, versioned Rule Set; junction ownership is a rule. |
 | [0010](0010-rod-by-ratio-first-then-from-the-drawing.md) | Rebar is priced by ratio first, and read from the drawing | current | Three Rebar Bases; ratios by Storey Band; rebar from the drawing is a must (columns M1, beams and slabs M3). |
 | [0011](0011-mvp-ai-is-jev-no-llm.md) | The MVP's AI is Jev only; an LLM joins at Level 3 | current | Code finds and counts, Jev picks, the QS confirms; every node spot-checked on real items. |

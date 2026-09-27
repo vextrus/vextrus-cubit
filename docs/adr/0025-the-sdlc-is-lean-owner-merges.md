@@ -46,3 +46,5 @@ green while the product failed (docs/postmortem.md; docs/research/sdlc-claude-co
   (5432 in the cloud) and LibreDWG 0.14 ok; the LibreDWG release asset did not download inside the
   setup script, which built it from source within its time budget; the TypeSafe credential returned
   422 on an empty body (likely attached, unconfirmed until a real-body 200).
+- 28 Sep 2026 (session 02 Q18, Q24): the cloud environments move to Python 3.14 and PostgreSQL 18 before
+  wave 0 (apt.postgresql.org on their allowlist); M0 runs without Answer Keys (ADR 0030).

@@ -24,3 +24,7 @@ export is unusually clean, and our product exists because Revit is rare in Bangl
   (about 20 s of editing per DWG, a default creation date, files saved 24 s apart, geometry exact to
   the inch). The owner's answer: "Tbh I took help from another agent". The relabelling follows the Q1
   ruling (ADR 0005) and stands unless the owner rules otherwise.
+- 28 Sep 2026 (evidence, session 02): session 02's readers took the Sample Project through all fourteen
+  steps in about three seconds, and read nothing of the Edison set until 31 fittings
+  (docs/research/edison-check-session-02.md): the Sample Project proves regression and contradiction
+  handling, never reading. It has no MEP drawings; Edison's are the MEP Development Set.

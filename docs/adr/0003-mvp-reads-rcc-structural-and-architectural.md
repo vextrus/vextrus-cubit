@@ -9,7 +9,7 @@ columns, beams, slabs, stairs, schedules) and architectural (walls, openings, fl
 MEP enters the Priced BOQ as lump-sum items the QS types from a template (ADR 0007, step 14), not as
 read or modelled elements.
 
-Rejected: structural-only (the Building Model would not look like the Developer's building, and the
+Rejected: structural-only (the Live Model would not look like the Developer's building, and the
 Priced BOQ would miss masonry, finishes, doors and windows); reading MEP now (MEP drawings are
 schematic, and turning them into 3D is a separate hard problem). Steel-framed and industrial
 buildings also wait.

@@ -12,7 +12,7 @@ From the architecture critic's sweep (docs/reviews/session-01-architecture-criti
 3. **`recognise` returns candidates plus judgement requests,** which `takeoff` answers (Jev or the
    QS). Its cache key is (read-artefact key, hash of confirmed facts, Jev model version); a reader
    upgrade runs through Revision matching (ADR 0015).
-4. **Ownership:** Proposals and candidate geometry live in `takeoff`; `building_model` holds only
+4. **Ownership:** Proposals and candidate geometry live in `takeoff`; `live_model` holds only
    confirmed elements, confirmed reinforcement included, with Trace anchors copied in by the confirm
    service; `drawings` owns only the anchor type.
 5. **Element families are packages:** `engine/families/<family>/` (recognise, check, geometry,
@@ -44,3 +44,9 @@ Viewers and fonts are ADR 0022 (being amended). The table-level shape is docs/da
   every third-party library's licence is checked before first use (Shewchuk's Triangle restricts
   commercial use; IfcOpenShell's bundled libraries are reviewed before any dedicated deployment);
   every IFC export passes a validation gate.
+- 28 Sep 2026 (session 02 Q5, Q14, Q16, Q18, Q31): `building_model` is `live_model`; `boq`'s cache is
+  keyed by a hash of the figure-feeding facts (a casting-stage edit moves nothing); families include MEP
+  families, each a package; `recognise` applies a consultant office's Drafting Profile, never set-specific
+  rules in code; the reader applies every insert's object-to-world transform (mirrored inserts too), reads
+  MTEXT angles from direction vectors and guards every geometry repair; worker pools never rely on fork
+  (Python 3.14's forkserver).

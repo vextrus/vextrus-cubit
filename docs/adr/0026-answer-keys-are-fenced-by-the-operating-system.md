@@ -40,3 +40,5 @@ needed no password and `~/vextrus-cad` was world-readable. Rejected: deny rules 
   the keys, never in the repo. The owner's ruling: "Agree, write the script to remove the rule".
 - 27 Sep 2026 (done): the owner ran `scripts/owner/scorer-rule-remove.sh`; the scorer now runs only
   with the owner's password. The owner's words: "I bought GitHub Pro and ran the point 3 script."
+- 28 Sep 2026 (owner's decision, session 02 Q24): the keys (the Sample Project's, Edison's at sheet and
+  view level) and the scorer's first run arrive in M1's first wave, not M0; the fence is unchanged.

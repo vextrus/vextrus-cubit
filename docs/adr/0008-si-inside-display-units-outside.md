@@ -1,8 +1,8 @@
-# Units: drawing units until assembly, SI in the Building Model, money in its quoted unit, each BOQ Item in its Billing Unit
+# Units: drawing units until assembly, SI in the Live Model, money in its quoted unit, each BOQ Item in its Billing Unit
 
 - **Drawings stay in their own units** (the Edison set is in inches), each view with its confirmed
   scale; spacing text stays verbatim. They convert to SI with exact factors only when the confirm
-  service writes the Building Model. The Building Model and the engineering are SI.
+  service writes the Live Model. The Live Model and the engineering are SI.
 - **Money stays in the unit it is quoted in:** each Market Price and rate is an exact decimal per cft,
   bag, sft or whatever unit the market quotes, in the Project's Market currency (৳ in Bangladesh;
   ADR 0038).

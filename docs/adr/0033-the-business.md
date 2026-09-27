@@ -44,3 +44,7 @@ weeks of slow work; cutting that time is the lever in the bargain.
 - 26 Sep 2026: 0001, 0012 and 0017 merged into this ADR (session 01 brief, finish line 8).
 - 27 Sep 2026 (owner's decision, session 02 Q15): "everything that differs by country is data" is made
   concrete by ADR 0038 (the Market row and its Library); a price book per Market when a second opens.
+- 28 Sep 2026 (session 02 Q16, Q29, Q31): the founding Developers are onboarded after M4 (MEP and rebar
+  both read); their agreement gains the clause permitting their confirmed Drafting Profiles to be pooled
+  (ADR 0039); the price stands, now for every discipline read, until the owner revisits it after the timed
+  walks.

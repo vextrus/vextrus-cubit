@@ -23,3 +23,5 @@ separate upgrade and support burden.
 - 25 Sep 2026: decided.
 - 26 Sep 2026: correction: a dedicated deployment conveys LibreDWG but does not bind our code.
   Evidence: docs/research/dwg-reader-options.md.
+- 28 Sep 2026 (session 02, ADR 0038): a dedicated deployment is a cell with one tenant; every Developer
+  has a home region, so a second region is a new cell, not a different product.

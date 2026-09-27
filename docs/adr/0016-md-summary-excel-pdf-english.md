@@ -4,7 +4,7 @@
 Vextrus Engineer works beside the client's QS during onboarding (ADR 0034 sets how they enter).
 
 **The Project Summary** shows cost per sft on two defined areas: the Gross Floor Area (every floor,
-basement and parking included, to the outside of the walls, from the confirmed Building Model; the
+basement and parking included, to the outside of the walls, from the confirmed Live Model; the
 area Vextrus's price uses, ADR 0033) and the Saleable Area (entered or confirmed by the QS). It carries
 the MD's consumption checks per sft of Gross Floor Area (rebar kg, cement bags, bricks, concrete cft),
 each a sanity-range Check (ADR 0027) against Vextrus's default range, then the Developer's past
@@ -16,7 +16,7 @@ the QS does (the Takeoff, the sheet, the BOQ grid, Rate Analyses) is desktop-onl
 and says so plainly on a phone. The design gate adds a 390×844 walk for those two screens.
 
 **What leaves Vextrus:** the Priced BOQ as Excel; the Priced BOQ and the Material Schedule as PDF; a
-read-only 3D link. The Excel file has five sheets, cross-referenced by item number: (1) Summary, the
+read-only 3D link with presentation for marketing (ADR 0035). The Excel file has five sheets, cross-referenced by item number: (1) Summary, the
 Estimate's layers by Trade; (2) Abstract, each item's quantity, Billing Unit, rate and amount as a live
 formula, the Benchmark Rate printed and net, and the Cost Basis; (3) Measurement, one Measurement Line
 per element, Nos × L × B × H = Qty, naming its rules and sheet, linked to its Trace; (4) Rate Analysis,
@@ -42,3 +42,6 @@ Target Cost warning is cheap and makes the MD's page matter early (docs/research
   "Working — not issued"; only an Issued Estimate's export carries an issue number and date.
 - 27 Sep 2026 (owner's decision, session 02 Q15): amended by ADR 0038 (markets are data). The owner's
   ruling: "Agree with your recommendation on Q15".
+- 28 Sep 2026 (owner's decision, session 02 Q3, Q25): the share link carries presentation for the
+  Developer's marketing (finished materials, a turntable, the build-up by Construction Stage, stills); no
+  money, no new role.

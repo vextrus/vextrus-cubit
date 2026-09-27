@@ -33,3 +33,10 @@ Confirmation as the one safeguard: exactly where plausible, systematic errors pa
   and 0016 already used; this ADR now says so (docs/data-model.md §1.3).
 - 26 Sep 2026 (owner's decision, M0 spec): a view is accounted for in Coverage once it is used,
   excluded, or assigned to the Takeoff Step that will read it. The owner's ruling: "Agree with 1–5".
+- 28 Sep 2026 (session 02, from the prototypes and Edison): the catalogue gains Checks the real reads
+  showed are needed: sheets whose titles claim the same floor or repeat, stale duplicate layers, a label
+  bound to the wrong family (the lift core bound to column marks), a room's stated clear size against its
+  walls, a schedule's TOTAL against the sum of its cells, points against board schedules, an Element
+  Relation whose end changed or disappeared, a hosted Element without a host, a run through a beam or slab
+  without its groove, sleeve or hole, the architect's and the plumber's fixture disagreeing (ADR 0040);
+  and a discipline missing from a set is a Question, never zero. Counts are never hard-coded.

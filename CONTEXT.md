@@ -54,9 +54,20 @@ Billing Unit, and the Measurement Rules that produced it.
 _Avoid_: calculation, dimension line
 
 **Lump Sum**:
-A BOQ Item priced as one typed amount (unit "LS") with no Rate Analysis, such as a lift or the
-plumbing; it counts toward the Estimate but not the measured subtotal.
+A BOQ Item priced as one typed amount (unit "LS") with no Rate Analysis, such as a utility connection
+charge; it counts toward the Estimate but not the measured subtotal.
 _Avoid_: allowance (that is a Cost Basis), provisional sum
+
+**Point**:
+One electrical outlet counted and priced as PWD prices it: a light, fan, socket or similar outlet with its
+circuit wiring back to the board and its switch-board box, the switch priced apart; a Measurement Rule
+counts terminal Elements as points.
+_Avoid_: outlet (alone), fixture, terminal (the Element's word)
+
+**Run**:
+A length of pipe, conduit, cable or duct between two points of a system; Dhaka MEP drawings draw runs
+schematically, so until run lengths are read a run is priced by rule per point and per fixture.
+_Avoid_: line, segment, wiring (alone)
 
 **Provisional Sum**:
 An amount set aside for work whose scope is not yet known, shown at the end of the BOQ Section it
@@ -180,7 +191,8 @@ _Avoid_: test set, training set, golden
 
 **Held-out Set**:
 An Independent Set from another consultant that no build session ever opens, scored only by the
-owner; the proof that Vextrus reads Dhaka drawings. One is required before M1 closes, two before M2.
+owner; the proof that Vextrus reads Dhaka drawings. One is required before M1 closes, two before M2,
+and one with MEP drawings before M3; each is scored first as an unknown office's first read.
 _Avoid_: blind set, validation set, holdout (one word)
 
 ### Money
@@ -260,8 +272,9 @@ _Avoid_: extraction, reading, campaign, measurement run
 **Takeoff Step**:
 One element family in the building-first order (sheets; general notes and specification; storeys and
 levels; grid; foundations and substructure; columns, shear walls and core; beams; slabs and slab-edge
-members; stairs; tanks; walls and openings; rooms and finishes; roof; site works and MEP); it draws on
-every sheet that carries that family.
+members; stairs; tanks; walls and openings; rooms and finishes; roof; site works and the MEP allowances),
+then each MEP Discipline Part's own steps (electrical, plumbing and sanitary, fire); it draws on every
+sheet that carries that family.
 _Avoid_: stage, phase, lane, class
 
 **Developer's Specification**:

@@ -15,7 +15,7 @@
 - **Fonts:** one substitution table with redistributable fonts only (Liberation Sans, Serif and Sans
   Narrow; DejaVu; a single-stroke font for SHX); every upload lists the fonts it substituted. Never
   Autodesk, Bitstream or Monotype files.
-- **The Building Model:** plain three.js (WebGL), merged per storey, with a per-element state texture.
+- **The Live Model:** plain three.js (WebGL), merged per storey, with a per-element state texture.
   The browser builds the RCC geometry from parametric element data, so a Confirmation is a colour
   patch, never new geometry. A GLB per storey is built on the server for the share link (no IFC export in the MVP; ADR 0035); a CI
   test checks the browser's geometry against the server's per-element volume and bounds. That Open
