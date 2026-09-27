@@ -88,3 +88,12 @@ stored live on the Element (breaks ADR 0031).
 **The owner's ruling.** "Agree with B on Q7"
 **Written into.** ADR 0028; `CONTEXT.md` (Issued Estimate). data-model §3.5 gains the frozen lines
 when levelled.
+
+## Q8. The default allowances' reference building (27 Sep 2026)
+**Asked.** The drafts (tax-and-allowances.md §B, all Low) are arithmetic on one assumed G+9 building;
+eight assumptions to mark ✓ or correct (floor plate, columns and core, beams, piles, walls and bricks
+≈ 10 per sft, ceiling plaster, windows/doors/tanks, two researcher's Rebar Ratios).
+**Recommended.** Accept as Vextrus's starting defaults, Low, replaced by the Developer's past projects;
+the Sample Project's measured consumption to be set beside them.
+**The owner's ruling.** "Agree with your recommendation on Q8, all ✓"
+**Written into.** docs/specs/bd-defaults.md (Allowances per Takeoff Step); ADR 0002 history.

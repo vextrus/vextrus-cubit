@@ -103,3 +103,25 @@ cell opens to the BOQ items that produced it.
 | Binding wire | kg | — |
 | Floor tiles | sft (m²) | size |
 | Ready-mix concrete | cft (m³) | grade; listed apart, its cement and aggregates not above |
+
+## Allowances per Takeoff Step (ADR 0002; owner's ruling, 27 Sep 2026, session 02 Q8: "Agree with your recommendation on Q8, all ✓")
+Vextrus's starting allowances are the consumptions per sft of Gross Floor Area in
+docs/research/tax-and-allowances.md §B.2 (G+9, with G+6 and G+14 where they differ), priced at current
+Market Prices through their Rate Analyses. They are **Low confidence** and are replaced by each
+Developer's past projects. The owner verified the reference building they are computed on
+(§B.1), every item as drafted:
+- typical floor 60′×64′ = 3,840 sft, ground floor parking, 4 flats per floor, 10′ floor to floor, 6″
+  two-way beam-and-slab (the default floor type);
+- 26 columns, average section 2.0 / 2.6 / 3.6 sft (G+6 / G+9 / G+14); core 25 rft of 8″ wall (one
+  lift) or 50 rft of 10″ wall (two lifts);
+- 800 rft of beams per floor, about 10–12″ × 14–15″ below the slab;
+- piles 20″ × 60–70′ at 110–140 kips (G+6/G+9), 24″ × 80′ at 220 kips (G+14); 220 psf service load;
+  caps 70 / 115 cft per pile; grade beams 500 rft of 12″×24″;
+- walls per flat floor 250 rft of 10″ external and 700 rft of 5″ internal, so **bricks ≈ 10 per sft**
+  of Gross Floor Area (above the Indian 7.3: the BDS brick is smaller and Dhaka flats are wall-dense);
+- **ceiling plaster included** (1.13 sft per sft);
+- windows 13 % of floor area, doors 11 per 1,000 sft, tanks about 30 cft of RCC per flat;
+- Rebar Ratios slab on grade 1.5 kg/cft and roof stair and lift room 4.0 kg/cft (the researcher's,
+  now the owner's).
+Cross-check owed: the Sample Project's measured consumption per step beside these (session 02's
+priced prototype).

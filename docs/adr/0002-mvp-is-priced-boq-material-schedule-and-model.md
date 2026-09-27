@@ -53,3 +53,7 @@ Developers ask for.
   Project Summary prototype (docs/design/screens.md). The owner's ruling: "Q49 Agree".
 - 26 Sep 2026 (owner's decision): after the MVP, Level 3 first, then cost control, matching
   docs/milestones.md. The owner's ruling: "Agree, Level 3 first".
+- 27 Sep 2026 (owner's decision, session 02 Q8): the default allowances per Takeoff Step are the
+  consumptions in docs/research/tax-and-allowances.md §B.2 on its reference building, every assumption
+  verified, Low confidence, replaced by the Developer's past projects (docs/specs/bd-defaults.md). The
+  owner's ruling: "Agree with your recommendation on Q8, all ✓".
