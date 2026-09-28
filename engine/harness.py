@@ -47,6 +47,25 @@ memory is not in the peak). A child that runs past `--file-timeout` is killed wi
 that dies leaves its stages as far as it got: the stage it was in is `failed`, the rest `skipped`, and
 stages whose results never reached the harness `failed`. Nothing one file does stops the run.
 
+**A file's process gets only the environment it needs** (`CHILD_ENV`): it reads hostile input, so it
+does not inherit a key (`TYPESAFE_API_KEY`), a database address or any other variable of the caller's.
+It gets `PATH`, `HOME`, `TMPDIR` and `LANG` where the caller has them; `PYTHONPATH`, the checkout
+first (the launcher's own environment has it already, so a file's may name it twice, which is
+harmless); the two variables its stages read, `VEXTRUS_LIBREDWG` (where the pinned LibreDWG is) and
+`VEXTRUS_SANDBOX` (so the reader refuses by name, as it would anywhere); and BLAS pinned to one thread
+(`ONE_THREAD`; the owner's ruling, 28 Sep 2026): numpy, which ezdxf imports, would otherwise start a
+spinning OpenBLAS thread per core, seconds of CPU per file on many cores before any reading (#66).
+The run's identity (`VEXTRUS_RUN_ID` and the others) is read by the harness before any file is, and
+never reaches one.
+
+The allow-list is defence in depth, not the boundary: it stops a file's process from inheriting
+secrets through its environment, nothing more. The boundary against hostile input is bubblewrap: the
+real-drawing check's sandbox around the whole harness, and the reader's own sandbox around `dwgread`.
+Run directly from a developer's shell, a file's process runs as that user in the same PID namespace
+and can read whatever the user can: another process's `/proc/<pid>/environ` (the harness's, holding
+the caller's whole environment), `~/.bashrc`, `~/.pgpass`. So real drawings are read through the
+check, never by running the harness directly from a shell that holds secrets.
+
 **The file's Discipline default** comes from its path and the conventions' Disciplines (the engine
 holds no list of them): a Discipline whose key is a word of the path (a folder named for it), or one of
 whose prefixes, with or without digits after it, is the file name's first word. One match gives the
@@ -433,10 +452,14 @@ def child_main(job_path: str) -> int:
 _CHILD = "import sys; from engine.harness import child_main; sys.exit(child_main(sys.argv[1]))"
 _LAUNCHER = "from engine.harness import launcher_main; launcher_main()"
 _PR_SET_CHILD_SUBREAPER = 36
+ONE_THREAD = {"OPENBLAS_NUM_THREADS": "1", "OMP_NUM_THREADS": "1", "MKL_NUM_THREADS": "1"}
+"""What each file's process runs BLAS with (the owner's ruling, 28 Sep 2026: "Pin to 1 thread")."""
+CHILD_ENV = ("PATH", "HOME", "TMPDIR", "LANG", "PYTHONPATH", "VEXTRUS_LIBREDWG", "VEXTRUS_SANDBOX")
+"""The caller's variables a file's process gets, where set; nothing else of the caller's reaches it."""
 
 
 def _child_env() -> dict[str, str]:
-    env = dict(os.environ)
+    env = {name: os.environ[name] for name in CHILD_ENV if name in os.environ} | ONE_THREAD
     env["PYTHONPATH"] = os.pathsep.join(filter(None, [str(ROOT), env.get("PYTHONPATH")]))
     return env
 
