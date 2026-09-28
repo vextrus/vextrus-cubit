@@ -16,7 +16,7 @@ original's key names the contents' sha256). The same contents added to the set a
 copy replaces it, and a reading that stopped is started again. A file with the same name and other
 contents is added beside it. Two adds of one file at once wait for each other: one row.
 
-**Its Discipline** comes from its name (`services.disciplines.from_name`), else from its sheets'
+**Its Discipline** comes from its name (`services.library_disciplines.from_name`), else from its sheets'
 numbers when they are read (`record_sheets`), and the QS may change it; the QS's choice is never
 overwritten. A file of a Discipline the set does not yet hold is that Discipline's first issue, never a
 Revision of another, and touches no other Discipline's rows (the plan's review Q6). Changing it after
@@ -45,9 +45,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 from pathlib import PurePosixPath
-from typing import BinaryIO
+from typing import Any, BinaryIO, cast
 
 from django.conf import settings
+from django.core.files import File as DjangoFile
 from django.db import transaction
 from django.db.models import Max, Q
 from django.utils import timezone
@@ -71,7 +72,7 @@ from vextrus.drawings.models import (
     StateCause,
     StateStatus,
 )
-from vextrus.drawings.services import _access, disciplines
+from vextrus.drawings.services import _access, library_disciplines
 from vextrus.platform.services import auth, events, jobs, storage, tenancy
 from vextrus.projects import services as projects
 
@@ -120,6 +121,10 @@ class FileState(StrEnum):
     HELD = "held"
     REFUSED = "refused"
 
+
+type Content = BinaryIO | DjangoFile[Any]
+"""What a file is added from: a binary file (Django's uploaded file among them), readable
+and seekable."""
 
 IN_PROGRESS = frozenset({FileState.WAITING, FileState.READING, FileState.STOPPING, FileState.RETRYING})
 
@@ -400,7 +405,7 @@ def _ahead(row: DrawingFile) -> int:
 # Adding a file ------------------------------------------------------------------------------------
 
 
-def add_file(project_id: uuid.UUID, *, name: str, content: BinaryIO, actor_name: str = "") -> Added:
+def add_file(project_id: uuid.UUID, *, name: str, content: Content, actor_name: str = "") -> Added:
     """Add one file to the Project's Drawing Set (made with its first file), inside the caller's
     transaction. `content` is readable and seekable (Django's uploaded file is); `actor_name` the
     acting person's name, shown as who added it. Refused as `auth.Refused`, keeping nothing."""
@@ -424,13 +429,13 @@ def add_file(project_id: uuid.UUID, *, name: str, content: BinaryIO, actor_name:
             return _again(existing, key, content, label)
         stored = storage.put(
             key,
-            content,
+            cast(BinaryIO, content),
             kind="original",
             media_type=_MEDIA_TYPES[kind],
             producer="upload",
         )
-        market = disciplines.market()
-        discipline = disciplines.from_name(label, market)
+        market = library_disciplines.market()
+        discipline = library_disciplines.from_name(label, market)
         buildings = projects.buildings(project_id)
         building_id = buildings[0].id if len(buildings) == 1 else None
         acting = tenancy.current()
@@ -475,7 +480,7 @@ def clean_name(name: str) -> str:
     return text
 
 
-def _measure(content: BinaryIO, label: str) -> tuple[str, int, bytes]:
+def _measure(content: Content, label: str) -> tuple[str, int, bytes]:
     """The contents' sha256, size and first bytes, read in chunks; refused as soon as they pass the
     limit, before anything is written."""
     limit = settings.VEXTRUS_UPLOAD_MAX_BYTES
@@ -517,7 +522,7 @@ def _original_key(project_id: uuid.UUID, sha256: str, kind: str) -> str:
     return storage.key(project_id, "drawings", sha256, f"original.{kind}")
 
 
-def _again(existing: DrawingFile, key: str, content: BinaryIO, label: str) -> Added:
+def _again(existing: DrawingFile, key: str, content: Content, label: str) -> Added:
     """The same contents again: nothing is added, unless Vextrus's copy is missing or damaged, when
     this one replaces it and a reading that stopped starts again."""
     if _intact(key):
@@ -533,7 +538,7 @@ def _again(existing: DrawingFile, key: str, content: BinaryIO, label: str) -> Ad
     content.seek(0)
     storage.put(
         key,
-        content,
+        cast(BinaryIO, content),
         kind="original",
         media_type=_MEDIA_TYPES[FileFormat(existing.format)],
         producer="upload",
@@ -629,7 +634,7 @@ def set_discipline(file_id: uuid.UUID, key: str) -> FileView:
     """The QS's choice of the file's Discipline: its sheets move with it (see the module)."""
     with transaction.atomic():
         row = _access.drawing_file(file_id, lock=True)
-        discipline = disciplines.by_key(key)
+        discipline = library_disciplines.by_key(key)
         if discipline is None:
             raise auth.Refused(said.DISCIPLINE_UNKNOWN(), status=400)
         if row.discipline_id == discipline.id:

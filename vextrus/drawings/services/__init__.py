@@ -43,8 +43,7 @@ For 19a and 21c (Step 1):
 
 from vextrus.drawings.models import HeldAnswer, PlotNone
 from vextrus.drawings.services.anchors import Resolved, resolve
-from vextrus.drawings.services.disciplines import DisciplineView, conventions, disciplines
-from vextrus.drawings.services.files import (
+from vextrus.drawings.services.drawing_files import (
     FINISHING,
     MATCHING,
     OPENING,
@@ -67,6 +66,7 @@ from vextrus.drawings.services.files import (
     sheet_step,
     summary,
 )
+from vextrus.drawings.services.library_disciplines import DisciplineView, conventions, disciplines
 from vextrus.drawings.services.reads import (
     ArtefactRef,
     answer_held,
@@ -82,7 +82,8 @@ from vextrus.drawings.services.reads import (
     step_store,
     store_artefact,
 )
-from vextrus.drawings.services.sheets import (
+from vextrus.drawings.services.reports import FontRow, Report, report
+from vextrus.drawings.services.sheet_list import (
     PlotView,
     SheetView,
     ViewView,
@@ -94,10 +95,12 @@ from vextrus.drawings.services.sheets import (
     record_sheets,
     record_views,
     render,
+    sheet,
     sheets,
     undo,
     views,
 )
+from vextrus.drawings.services.stored_anchor import StoredAnchor
 
 __all__ = [
     "FINISHING",
@@ -111,12 +114,15 @@ __all__ = [
     "DisciplineView",
     "FileState",
     "FileView",
+    "FontRow",
     "HeldAnswer",
     "PlotNone",
     "PlotView",
+    "Report",
     "Resolved",
     "SetView",
     "SheetView",
+    "StoredAnchor",
     "ViewView",
     "add_file",
     "answer_held",
@@ -144,10 +150,12 @@ __all__ = [
     "record_sheets",
     "record_views",
     "render",
+    "report",
     "resolve",
     "restart",
     "set_discipline",
     "set_of",
+    "sheet",
     "sheet_step",
     "sheets",
     "step_store",

@@ -14,10 +14,12 @@ itself; a refusal is an `auth.Refused` with a `drawings.reads.*` code, and keeps
 - **The StepStore** keeps a step once, keyed by (tenant, file, step, input hash), and never changes or
   deletes it (vextrus_app may only insert); its progress writes the file's step and counts while the
   file is waiting or reading, and nothing once it is cancelled.
-- **The artefact** is kept as canonical JSON (sorted keys, no spaces) under a key naming its reader,
-  reader version and artefact version (`ReadArtefact.to_json`'s own), so a retry writes the same bytes
-  and another version keeps its own copy; whatever the version, it is loaded back by
-  `ReadArtefact.from_json`. Its source must be the file (its sha256).
+- **The artefact** is kept as a file, the JSON `ReadArtefact.to_json` gives written with sorted keys and
+  no spaces, under a key naming its reader, reader version and artefact version (the one its own JSON
+  names), so a retry writes the same bytes and another version keeps its own copy; whatever the
+  version, it is loaded back by `ReadArtefact.from_json`. An entity's values may hold NaN (the reader
+  keeps what the file holds), so it is never re-dumped with NaN refused and never kept in a jsonb
+  column, which refuses NaN. Its source must be the file (its sha256).
 - **A file's end** is written under the file's row lock and only while it is waiting or reading: a
   file cancelled meanwhile stays cancelled (the step then rolls back, since its job is cancelled).
   `mark_read` belongs in the last step's transaction. A file that could not be read ends failed with
@@ -54,7 +56,7 @@ from vextrus.drawings.models import (
     ReadStatus,
     ReadStep,
 )
-from vextrus.drawings.services import _access, files
+from vextrus.drawings.services import _access, drawing_files
 from vextrus.platform.services import auth, jobs, storage
 
 _UNIT_STEP = re.compile(r"(?:sheet|page)_([1-9][0-9]{0,5})")
@@ -154,7 +156,7 @@ def store_artefact(file_id: uuid.UUID, artefact: ReadArtefact) -> ArtefactRef:
         raise auth.Refused(refusal.NOT_ITS_READING(file=row.original_name), status=400)
     data = artefact.to_json()
     schema_version = int(data["version"])
-    content = canonical(data)
+    content = artefact_bytes(data)
     project_id = row.drawing_set.project_id
     name = (
         f"artefact@{_access.key_name(summary.reader)}@{_access.key_name(summary.reader_version)}"
@@ -189,10 +191,16 @@ def store_artefact(file_id: uuid.UUID, artefact: ReadArtefact) -> ArtefactRef:
 
 
 def canonical(data: Any) -> bytes:
-    """JSON as one text only: sorted keys, no spaces, no NaN."""
+    """JSON as one text only: sorted keys, no spaces, no NaN (a key or a jsonb value)."""
     return json.dumps(
         data, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False
     ).encode()
+
+
+def artefact_bytes(data: Any) -> bytes:
+    """An artefact's JSON as one text only (sorted keys, no spaces), its NaN kept as JSON's `NaN`
+    token, which `json.loads` reads back (an entity's values are the file's, whatever they hold)."""
+    return json.dumps(data, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
 
 
 def artefact(file_id: uuid.UUID, reader_version: str | None = None) -> ReadArtefact:
@@ -234,7 +242,7 @@ def record_reports(
     upload_report: PdfReport | None = None,
     font_report: FontReport | None = None,
     bangla_ansi: BanglaAnsi | None = None,
-) -> files.FileView:
+) -> drawing_files.FileView:
     """Keep a file's reports as codes and parameters: a DWG's second-reader check, fonts and
     Bangla-ANSI Check; a PDF's upload report (whose pages count its pages). A PDF the report refuses
     (a scan) is refused, with its reason as the finding."""
@@ -268,7 +276,7 @@ def record_reports(
             row.bangla_ansi = bangla_ansi.to_json()
             fields.append("bangla_ansi")
         row.save(update_fields=fields)
-    return files.file(row.id)
+    return drawing_files.file(row.id)
 
 
 def record_bangla_lines(file_id: uuid.UUID, lines: Sequence[Message]) -> None:
@@ -296,23 +304,23 @@ def attach_read_job(file_id: uuid.UUID, job_id: int) -> None:
     DrawingFile.objects.filter(id=row.id).update(read_job_id=job_id)
 
 
-def mark_read(file_id: uuid.UUID) -> files.FileView:
+def mark_read(file_id: uuid.UUID) -> drawing_files.FileView:
     """The file is read (in the last step's transaction). A file cancelled meanwhile stays so."""
     return _end(file_id, ReadStatus.READ, None)
 
 
-def quarantine(file_id: uuid.UUID, finding: Message) -> files.FileView:
+def quarantine(file_id: uuid.UUID, finding: Message) -> drawing_files.FileView:
     """Hold the file with its finding: its two readers disagree (ADR 0029). 21c raises its Question."""
     return _end(file_id, ReadStatus.QUARANTINED, finding)
 
 
-def mark_failed(file_id: uuid.UUID, finding: Message) -> files.FileView:
+def mark_failed(file_id: uuid.UUID, finding: Message) -> drawing_files.FileView:
     """The file could not be read, with why: read by one reader only (engine.decoders_agree's
     `not_installed` and the like), or saved by an AutoCAD too old (`drawings.files.old_version`)."""
     return _end(file_id, ReadStatus.FAILED, finding)
 
 
-def answer_held(file_id: uuid.UUID, answer: HeldAnswer | str) -> files.FileView:
+def answer_held(file_id: uuid.UUID, answer: HeldAnswer | str) -> drawing_files.FileView:
     """What the QS decided about a held file (21c, answering its Question): read anyway (its sheets
     are used, marked) or set aside."""
     chosen = HeldAnswer(answer)
@@ -322,10 +330,10 @@ def answer_held(file_id: uuid.UUID, answer: HeldAnswer | str) -> files.FileView:
             raise auth.NotFound
         row.held_answer = chosen
         row.save(update_fields=["held_answer"])
-    return files.file(row.id)
+    return drawing_files.file(row.id)
 
 
-def _end(file_id: uuid.UUID, status: ReadStatus, finding: Message | None) -> files.FileView:
+def _end(file_id: uuid.UUID, status: ReadStatus, finding: Message | None) -> drawing_files.FileView:
     with transaction.atomic():
         row = _access.drawing_file(file_id, lock=True)
         if row.read_status in _IN_FLIGHT:
@@ -335,4 +343,4 @@ def _end(file_id: uuid.UUID, status: ReadStatus, finding: Message | None) -> fil
             if status == ReadStatus.READ and row.sheets_total is not None:
                 row.sheets_done = row.sheets_total
             row.save(update_fields=["read_status", "read_step", "finding", "sheets_done"])
-    return files.file(row.id)
+    return drawing_files.file(row.id)

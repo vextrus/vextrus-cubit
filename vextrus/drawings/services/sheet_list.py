@@ -62,8 +62,8 @@ from vextrus.drawings.models import (
     View,
     ViewKind,
 )
-from vextrus.drawings.schemas.anchors import StoredAnchor
-from vextrus.drawings.services import _access, disciplines, files, reads
+from vextrus.drawings.services import _access, drawing_files, library_disciplines, reads
+from vextrus.drawings.services.stored_anchor import StoredAnchor
 from vextrus.platform.services import auth, markets, storage, tenancy
 
 _RAW_CODES = ("%%", "\\P", "\\f", "\\S", "^J", "{\\")
@@ -167,8 +167,8 @@ def record_sheets(
         kept = reads._artefact_row(row)
         if kept is None:
             raise auth.Refused(refusal.NO_READING(file=name), status=409)
-        group = files.group_of(row)
-        market = {d.key: d for d in disciplines.market()}
+        group = drawing_files.group_of(row)
+        market = {d.key: d for d in library_disciplines.market()}
         for candidate in candidates:
             if not isinstance(candidate, SheetCandidate) or candidate.group != group:
                 raise auth.Refused(refusal.WRONG_GROUP(file=name), status=400)
@@ -225,7 +225,7 @@ def _default_discipline(
     discipline = market[keys.pop()]
     row.discipline = discipline
     row.discipline_source = DisciplineSource.SHEET_NUMBERS
-    row.revision = files._first_issue(row.drawing_set, discipline, tenancy.current().user_id)
+    row.revision = drawing_files._first_issue(row.drawing_set, discipline, tenancy.current().user_id)
     row.save(update_fields=["discipline", "discipline_source", "revision"])
 
 
@@ -414,7 +414,7 @@ def record_views(sheet_revision_id: uuid.UUID, candidates: Sequence[ViewCandidat
         kept = reads._artefact_row(row)
         if kept is None:
             raise auth.Refused(refusal.NO_READING(file=name), status=409)
-        market = {d.key: d for d in disciplines.market()}
+        market = {d.key: d for d in library_disciplines.market()}
         for candidate in candidates:
             if not isinstance(candidate, ViewCandidate):
                 raise auth.Refused(refusal.NOT_ITS_READING(file=name), status=400)
@@ -585,7 +585,7 @@ def sheets(set_id: uuid.UUID, discipline: str | None = None) -> list[SheetView]:
     found = _printed().filter(sheet__drawing_set=drawing_set)
     if discipline is not None:
         found = found.filter(sheet__discipline__key=discipline)
-    order = {d.key: d.sort_order for d in disciplines.market()}
+    order = {d.key: d.sort_order for d in library_disciplines.market()}
 
     def placed(view: SheetView) -> tuple[Any, ...]:
         return (
@@ -599,6 +599,11 @@ def sheets(set_id: uuid.UUID, discipline: str | None = None) -> list[SheetView]:
         )  # fmt: skip
 
     return sorted((_sheet_view(sr) for sr in found), key=placed)
+
+
+def sheet(sheet_revision_id: uuid.UUID) -> SheetView:
+    """One printed sheet of the sheet list (in the acting Membership's scope); else not found."""
+    return _sheet_view(_all().get(id=_listed(sheet_revision_id).id))
 
 
 def _all() -> QuerySet[SheetRevision]:
@@ -672,7 +677,7 @@ def _plot(sr: SheetRevision) -> PlotView:
     reason = sr.plot_none_reason
     if sr.plot_page is None:
         if reason == PlotNone.NO_PDF:
-            labels = disciplines.labels_of(sr.sheet.discipline_id)
+            labels = library_disciplines.labels_of(sr.sheet.discipline_id)
             none = said.PLOT_NO_PDF(discipline=_label(labels))
         elif reason == PlotNone.NO_PAGE and sr.plot_file is not None:
             none = said.PLOT_NO_PAGE(plot_file=sr.plot_file.original_name)

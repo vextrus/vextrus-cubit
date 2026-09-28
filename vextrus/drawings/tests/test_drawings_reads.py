@@ -10,7 +10,9 @@ import pytest
 from django.db import connection
 
 from engine.check.bangla_ansi import BanglaAnsi, Flagged, FoundBy
+from engine.read.artefact import VERSION
 from engine.recognise.types import CheckOutcome, CheckResult
+from engine.render.fixtures.artefacts import Drawing
 from vextrus.drawings import services
 from vextrus.drawings.messages import files as said
 from vextrus.platform.services import auth, jobs, storage
@@ -61,6 +63,33 @@ def test_an_artefact_is_kept_as_canonical_json_under_its_reader_and_versions(
     )
     assert loaded.to_json() == artefact.to_json()
     assert counted == 1
+
+
+def test_an_artefact_holding_nan_is_kept_and_loaded_back_as_written(
+    dwg: tuple[Member, services.FileView],
+) -> None:
+    member, found = dwg
+    d = Drawing()
+    d.text("NO HEIGHT KNOWN", (0.0, 0.0, 0.0), kind="MTEXT", height=float("nan"))
+    d.entity("CIRCLE", {"center": [0.0, 0.0, 0.0], "radius": float("nan")})
+    made = d.artefact()
+    s = made.summary
+    artefact = type(made).build(
+        source_sha256=found.sha256, source_name=found.name, format=s.format, reader=s.reader,
+        reader_version=s.reader_version, layouts=s.layouts, insunits=s.insunits, notes=s.notes,
+        blocks=made.blocks.values(), entities=made.entities.values(),
+    )  # fmt: skip
+    with member.acting():
+        ref = services.store_artefact(found.id, artefact)
+        again = services.store_artefact(found.id, artefact)
+        loaded = services.artefact(found.id)
+
+    written = json.dumps(artefact.to_json(), sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    back = json.dumps(loaded.to_json(), sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    assert ref == again
+    assert "NaN" in written
+    assert back == written
+    assert artefact.to_json()["version"] == VERSION
 
 
 def test_another_reader_version_keeps_its_own_copy(dwg: tuple[Member, services.FileView]) -> None:

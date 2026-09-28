@@ -1,8 +1,9 @@
 """A file's status and the acts on files (ticket 14), in docs/design/m0-screens.md 4.5's words.
 
 Worded in `web/src/messages/drawings/files/en.po`. A file's row is worded from these codes, never from
-a job's (`platform.jobs.*`): `services.files` reads the file's own columns, and its read job's state
-over them while it has one (`jobs.state`), so a job that crashed still reads "Could not be read".
+a job's (`platform.jobs.*`): `services.drawing_files` reads the file's own columns, and its read
+job's state over them while it has one (`jobs.state`), so a job that crashed still reads "Could not
+be read".
 
 Parameters follow the web's naming (web/src/format/machine.tsx): `actor` a person's name as it was at
 the act; a name ending `_date` an instant in UTC, shown in the Market's time zone; `file` a file's

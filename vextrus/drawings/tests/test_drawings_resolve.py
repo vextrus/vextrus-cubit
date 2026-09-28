@@ -14,7 +14,7 @@ from engine.read.pdf.types import Page
 from engine.recognise.types import PlotMatch
 from engine.render.fixtures.artefacts import Drawing
 from vextrus.drawings import services
-from vextrus.drawings.schemas.anchors import StoredAnchor
+from vextrus.drawings.services.stored_anchor import StoredAnchor
 from vextrus.platform.services import auth
 from vextrus.projects import services as projects
 from vextrus.testing.drawings import QsProject, add, drawing, pdf_report, sheet_candidate

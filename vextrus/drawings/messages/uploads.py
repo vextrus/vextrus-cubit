@@ -32,3 +32,5 @@ ONE_AT_A_TIME = MessageCode("drawings.uploads.one_at_a_time")
 """More than one file sent in one request (400): the web sends each file on its own."""
 STOPPED = MessageCode("drawings.uploads.stopped")
 """No whole file arrived: the connection dropped before the end of it (400)."""
+MALFORMED = MessageCode("drawings.uploads.malformed")
+"""The body was no well-formed upload (a part's headers too long, too many fields) (400)."""

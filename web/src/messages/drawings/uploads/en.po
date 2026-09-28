@@ -10,6 +10,9 @@ msgstr ""
 msgid "drawings.uploads.already_here"
 msgstr "{file} is already in this Drawing Set (added {added_date} by {actor}). Nothing was added."
 
+msgid "drawings.uploads.malformed"
+msgstr "The upload could not be read, so nothing was added. Try again."
+
 msgid "drawings.uploads.not_a_drawing"
 msgstr "{file} is not a DWG or a PDF, so it was not added. Vextrus reads DWG and PDF files."
 

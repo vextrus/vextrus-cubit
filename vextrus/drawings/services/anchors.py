@@ -21,14 +21,14 @@ from dataclasses import dataclass
 from engine.read.anchor import Anchor, DwgAnchor, PdfAnchor
 from engine.read.artefact import AnyEntity, Insert
 from vextrus.drawings.models import DrawingFile, FileFormat
-from vextrus.drawings.services import _access, files, reads, sheets
+from vextrus.drawings.services import _access, drawing_files, reads, sheet_list
 from vextrus.platform.services import auth
 
 
 @dataclass(frozen=True)
 class Resolved:
-    file: files.FileView
-    sheet: sheets.SheetView
+    file: drawing_files.FileView
+    sheet: sheet_list.SheetView
     entity: AnyEntity | None = None
     chain: tuple[Insert, ...] = ()
     page: int | None = None
@@ -47,8 +47,8 @@ def resolve(anchor: Anchor, *, sheet_revision_id: uuid.UUID) -> Resolved:
 
 
 def _resolve(anchor: Anchor, sheet_revision_id: uuid.UUID) -> Resolved:
-    listed = sheets._listed(sheet_revision_id)
-    sheet = sheets._sheet_view(sheets._all().get(id=listed.id))
+    listed = sheet_list._listed(sheet_revision_id)
+    sheet = sheet_list._sheet_view(sheet_list._all().get(id=listed.id))
     if isinstance(anchor, DwgAnchor):
         row = listed.source_file
         if anchor.source_sha256 != row.sha256:
@@ -69,7 +69,7 @@ def _resolve(anchor: Anchor, sheet_revision_id: uuid.UUID) -> Resolved:
             block = artefact.blocks.get(holder)
             if block is None or inner.handle not in block.entities:
                 raise auth.NotFound
-        return Resolved(files.file(row.id), sheet, entity=entity, chain=chain)
+        return Resolved(drawing_files.file(row.id), sheet, entity=entity, chain=chain)
     if isinstance(anchor, PdfAnchor):
         pdf = DrawingFile.objects.filter(
             drawing_set_id=listed.source_file.drawing_set_id,
@@ -85,7 +85,11 @@ def _resolve(anchor: Anchor, sheet_revision_id: uuid.UUID) -> Resolved:
         if listed.plot_file_id != pdf.id or listed.plot_page != anchor.page:
             raise auth.NotFound
         return Resolved(
-            files.file(pdf.id), sheet, page=anchor.page, path_index=anchor.path_index, box=anchor.box
+            drawing_files.file(pdf.id),
+            sheet,
+            page=anchor.page,
+            path_index=anchor.path_index,
+            box=anchor.box,
         )
     raise auth.NotFound
 
