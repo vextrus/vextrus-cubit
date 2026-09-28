@@ -1274,7 +1274,7 @@ while open(f"/proc/{p}/stat").read().rsplit(")", 1)[1].split()[0] != "Z":
 
 from engine import harness
 
-killed, running = harness._clear(None)
+killed, running = harness._clear()
 print(json.dumps({"q": q, "running": running}))
 """
 

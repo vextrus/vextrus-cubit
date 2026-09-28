@@ -486,18 +486,19 @@ def _reap() -> int:
             killed += 1
 
 
-def _clear(group: int | None) -> tuple[int, bool]:
-    """Kill and reap every orphan the launcher took in, for up to `CLEAR_SECONDS`: what a file's
-    child, whose process group was `group`, left behind. How many were killed, and whether some are
-    still running (a process that forks faster than it can be killed).
+def _clear() -> tuple[int, bool]:
+    """Kill and reap every orphan the launcher took in, for up to `CLEAR_SECONDS`: what the files'
+    children left behind. How many were killed, and whether some are still running (a process that
+    forks faster than it can be killed). The file's own group was killed before its child was reaped.
 
     A fork chain's processes each live for one fork, less time than a scan of /proc takes: seen
     running, one has exited before it can be killed, and the one it forked was not in the listing. So
     each orphan's process group is killed as well, which the kernel does at once, forks included, and
-    which the chain's zombies still name. Only groups a file made are killed: the file's own, one led
-    by an orphan (living or a zombie), or one in a session a file's process began (nothing from
-    outside a session can join its groups). An orphan in another group of the launcher's session is
-    killed alone.
+    which the chain's zombies still name. Only groups a file made are killed: one led by an orphan
+    (living or a zombie), or one in a session a file's process began (nothing from outside a session
+    can join its groups). An orphan in another group of the launcher's session is killed alone.
+    No guard spares the launcher's own group, as none is needed: that group is in the launcher's
+    session and led by the launcher's ancestor, never by one of its orphans.
     """
     session = os.getsid(0)
     deadline = time.monotonic() + CLEAR_SECONDS
@@ -507,7 +508,7 @@ def _clear(group: int | None) -> tuple[int, bool]:
             return killed + _reap(), any(state != "Z" for _, state, _, _ in left)
         leaders = {pid for pid, _, _, _ in left}
         for pid, state, pgid, sid in left:
-            if pgid == group or sid != session or pgid in leaders:
+            if sid != session or pgid in leaders:
                 with contextlib.suppress(ProcessLookupError, PermissionError):
                     os.killpg(pgid, signal.SIGKILL)
             if state != "Z":
@@ -524,7 +525,7 @@ def _launch(request: Mapping[str, Any]) -> dict[str, Any]:
         (os.POSIX_SPAWN_OPEN, 1, request["log"], os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600),
         (os.POSIX_SPAWN_DUP2, 1, 2),
     ]
-    _clear(None)  # what an earlier file left that could not be stopped then is not this file's
+    _clear()  # what an earlier file left that could not be stopped then is not this file's
     start = time.monotonic()
     argv = [sys.executable, "-c", _CHILD, request["job"]]
     pid = os.posix_spawn(sys.executable, argv, _child_env(), file_actions=actions, setpgroup=0)
@@ -555,7 +556,7 @@ def _launch(request: Mapping[str, Any]) -> dict[str, Any]:
     finally:
         os.close(handle)
     seconds = time.monotonic() - start
-    left_behind, left_running = _clear(pid)
+    left_behind, left_running = _clear()
     if parent_gone:
         raise SystemExit(1)
     return {
