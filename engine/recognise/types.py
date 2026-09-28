@@ -30,16 +30,17 @@ from enum import StrEnum
 from typing import Any
 
 from engine.messages import Message, Param
-from engine.read.anchor import Anchor
+from engine.read.anchor import Anchor, DwgAnchor, PdfAnchor
 
 _KEY = re.compile(r"[a-z][a-z0-9_]*")
+_CODE = re.compile(r"[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+")
 
 type Group = str
 """A candidate's group: an opaque key its caller stamps from the file (M0: one group per set)."""
 
 
 def _key(value: str, what: str) -> str:
-    if not _KEY.fullmatch(value):
+    if not isinstance(value, str) or not _KEY.fullmatch(value):
         raise ValueError(f"{what} {value!r} is not a lower-case key")
     return value
 
@@ -53,8 +54,39 @@ def _unique(values: Sequence[str], what: str) -> None:
 
 
 def _text(value: str | None, what: str) -> None:
+    if value is not None and not isinstance(value, str):
+        raise TypeError(f"{what} is text, not {type(value).__name__}")
     if value is not None and not value.strip():
         raise ValueError(f"{what} is empty; leave it out instead")
+
+
+def _is(value: object, kind: Any, what: str) -> None:
+    """Refuse a value of the wrong type, so a stage returning one fails there, not in the export."""
+    if not isinstance(value, kind):
+        raise TypeError(f"{what} is not {getattr(kind, '__name__', kind)}: {type(value).__name__}")
+
+
+def _tuple_of(values: object, kind: Any, what: str) -> None:
+    _is(values, tuple, what)
+    for value in values:  # type: ignore[attr-defined]
+        _is(value, kind, f"an item of {what}")
+
+
+def _number(value: object, what: str) -> None:
+    if isinstance(value, bool) or not isinstance(value, int | float) or not math.isfinite(value):
+        raise ValueError(f"{what} is a finite number, not {value!r}")
+
+
+def _anchors(anchors: object) -> None:
+    _tuple_of(anchors, DwgAnchor | PdfAnchor, "the anchors")
+
+
+def _params(params: object, what: str) -> None:
+    _is(params, Mapping, what)
+    for name, value in params.items():  # type: ignore[attr-defined]
+        _is(name, str, f"a name in {what}")
+        if isinstance(value, bool) or not isinstance(value, str | int):
+            raise TypeError(f"{what}' {name} is a string or an integer, not {value!r}")
 
 
 # The lists M0 fixes -------------------------------------------------------------------------------
@@ -140,8 +172,8 @@ class Box:
     y1: float
 
     def __post_init__(self) -> None:
-        if not all(math.isfinite(v) for v in (self.x0, self.y0, self.x1, self.y1)):
-            raise ValueError(f"{self} has a coordinate that is not a finite number")
+        for v in (self.x0, self.y0, self.x1, self.y1):
+            _number(v, "a box's coordinate")
         if self.x0 > self.x1 or self.y0 > self.y1:
             raise ValueError(f"{self} has a corner past its opposite")
 
@@ -170,6 +202,7 @@ class Sourced:
     source: ValueSource
 
     def __post_init__(self) -> None:
+        _is(self.value, str, "a sourced value")
         _text(self.value, "a sourced value")
         ValueSource(self.source)
 
@@ -185,6 +218,8 @@ class SheetLocation:
         if (self.layout is None) == (self.box is None):
             raise ValueError("a sheet is in a layout or in a model-space box, exactly one")
         _text(self.layout, "a layout's name")
+        if self.box is not None:
+            _is(self.box, Box, "a sheet's box")
 
 
 @dataclass(frozen=True)
@@ -221,6 +256,26 @@ class SheetCandidate:
     anchors: tuple[Anchor, ...] = ()
     group: Group | None = None
 
+    def __post_init__(self) -> None:
+        _is(self.location, SheetLocation, "a sheet's location")
+        for name in (
+            "number",
+            "title",
+            "discipline",
+            "revision_mark",
+            "issue_date",
+            "storeys_as_stated",
+        ):
+            value = getattr(self, name)
+            if value is not None:
+                _is(value, Sourced, f"a sheet's {name}")
+        if self.discipline is not None:
+            _key(self.discipline.value, "a sheet's Discipline")
+        if self.exclusion is not None:
+            _is(self.exclusion, Exclusion, "a sheet's exclusion")
+        _anchors(self.anchors)
+        _text(self.group, "a sheet's group")
+
 
 @dataclass(frozen=True)
 class ViewCandidate:
@@ -248,14 +303,33 @@ class ViewCandidate:
     anchors: tuple[Anchor, ...] = ()
 
     def __post_init__(self) -> None:
+        _is(self.box, Box, "a view's box")
         ViewKind(self.kind)
+        _is(self.not_to_scale, bool, "a view's not-to-scale")
         _text(self.title, "a view's title")
         _text(self.stated_scale, "a stated scale")
         _text(self.storeys_as_stated, "a view's storeys as stated")
         if bool(self.storeys) != (self.storeys_meaning is not None):
             raise ValueError("a view's storey list and its meaning come together")
+        _tuple_of(self.storeys, str, "a view's storeys")
+        _tuple_of(self.steps, str, "a view's Takeoff Steps")
+        for storey in self.storeys:
+            _key(storey, "a storey")
+        for step in self.steps:
+            _key(step, "a Takeoff Step")
         _unique(self.storeys, "the storey")
         _unique(self.steps, "the Takeoff Step")
+        if self.storeys_meaning is not None:
+            StoreysMeaning(self.storeys_meaning)
+        if self.subject is not None:
+            _key(self.subject, "a view's subject")
+        if self.layer is not None:
+            Layer(self.layer)
+        if self.part is not None:
+            _key(self.part, "a view's Part")
+        if self.exclusion is not None:
+            _is(self.exclusion, Exclusion, "a view's exclusion")
+        _anchors(self.anchors)
         if self.exclusion is not None and (self.steps or self.part is not None):
             raise ValueError("an excluded view is proposed to no Takeoff Step and no Part")
 
@@ -271,6 +345,14 @@ class RegisterEntry:
     revision_mark: str | None = None
     anchors: tuple[Anchor, ...] = ()
 
+    def __post_init__(self) -> None:
+        _is(self.sheet, SheetCandidate, "a register entry's sheet")
+        _is(self.row_box, Box, "a register entry's row box")
+        _text(self.number, "a register entry's number")
+        _text(self.title, "a register entry's title")
+        _text(self.revision_mark, "a register entry's revision mark")
+        _anchors(self.anchors)
+
 
 @dataclass(frozen=True)
 class Conflict:
@@ -283,6 +365,8 @@ class Conflict:
 
     def __post_init__(self) -> None:
         _key(self.kind, "a conflict's kind")
+        _tuple_of(self.candidates, SheetCandidate | ViewCandidate, "a conflict's candidates")
+        _params(self.evidence, "a conflict's evidence")
         if len(self.candidates) < 2:
             raise ValueError("a conflict names two candidates or more")
 
@@ -296,7 +380,9 @@ class Continuation:
     """In number order."""
 
     def __post_init__(self) -> None:
+        _is(self.title, str, "a continuation's title")
         _text(self.title, "a continuation's title")
+        _tuple_of(self.sheets, SheetCandidate, "a continuation's sheets")
         if len(self.sheets) < 2:
             raise ValueError("a continuation runs over two sheets or more")
 
@@ -325,12 +411,15 @@ class PlotTransform:
     offset: tuple[float, float]
 
     def __post_init__(self) -> None:
-        if not (math.isfinite(self.scale) and self.scale > 0):
+        _number(self.scale, "a Plot's scale")
+        if not self.scale > 0:
             raise ValueError("a Plot's scale is a positive number")
-        if self.rotation not in (0, 90, 180, 270):
+        if isinstance(self.rotation, bool) or self.rotation not in (0, 90, 180, 270):
             raise ValueError("a Plot turns in 90° steps: 0, 90, 180 or 270")
-        if not all(math.isfinite(v) for v in self.offset):
+        if not isinstance(self.offset, tuple) or len(self.offset) != 2:
             raise ValueError("a Plot's offset is two finite numbers")
+        for v in self.offset:
+            _number(v, "a Plot's offset")
 
 
 @dataclass(frozen=True)
@@ -349,6 +438,14 @@ class PlotMatch:
             raise ValueError("a page matches a sheet or says why it matched none, exactly one")
         if self.sheet is None and (self.transform is not None or self.residual is not None):
             raise ValueError("a page that matched no sheet has no transform and no residual")
+        if self.sheet is not None:
+            _is(self.sheet, SheetCandidate, "a Plot's sheet")
+        if self.transform is not None:
+            _is(self.transform, PlotTransform, "a Plot's transform")
+        if self.residual is not None:
+            _number(self.residual, "a Plot's residual")
+            if self.residual < 0:
+                raise ValueError("a Plot's residual is not negative")
         if self.reason is not None:
             _key(self.reason, "a Plot's reason")
 
@@ -363,9 +460,19 @@ class CheckResult:
     finding: Message | None = None
 
     def __post_init__(self) -> None:
+        _is(self.code, str, "a Check's code")
         _text(self.code, "a Check's code")
         if (CheckOutcome(self.outcome) == CheckOutcome.FIRED) != (self.finding is not None):
             raise ValueError("a Check that fired has a finding, and one that passed has none")
+        if self.subject is not None:
+            _is(self.subject, SheetCandidate | ViewCandidate | RegisterEntry | PlotMatch, "a subject")
+        if self.finding is not None:
+            _is(self.finding, Mapping, "a finding")
+            if set(self.finding) != {"code", "params"} or not isinstance(self.finding["code"], str):
+                raise ValueError("a finding is a message: its code and its params")
+            if not _CODE.fullmatch(self.finding["code"]):
+                raise ValueError(f"{self.finding['code']!r} is not a message code")
+            _params(self.finding["params"], "a finding's params")
 
 
 @dataclass(frozen=True)
@@ -373,6 +480,9 @@ class SetReading:
     """What was read from a set, for the Checks (`engine.check.catalogue.run_all(reading)`, 19b).
 
     `views[i]` are the views of `sheets[i]`; `conflicts.find(sheets, views)` takes the same pair.
+    `read` names the stages whose results it carries from every file of the set (`views`,
+    `register`, `plot`, `conflicts`): a Check whose input is not among them was not read, so it
+    says nothing, rather than passing on an empty list.
     """
 
     sheets: tuple[SheetCandidate, ...] = ()
@@ -381,6 +491,7 @@ class SetReading:
     plot: tuple[PlotMatch, ...] = ()
     conflicts: tuple[Conflict, ...] = ()
     continuations: tuple[Continuation, ...] = ()
+    read: frozenset[str] = frozenset()
 
     def __post_init__(self) -> None:
         if len(self.views) != len(self.sheets):

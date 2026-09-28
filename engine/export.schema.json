@@ -85,10 +85,10 @@
       }
     },
     "process": {
-      "description": "The file's own child process, measured by os.wait4: its rusage counts the children it waited for.",
+      "description": "The file's own child process, started by the harness's launcher and measured by os.wait4: its rusage counts the children it waited for; left_behind counts those it did not, killed when it ended.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["status", "exit_code", "signal", "seconds", "cpu_seconds", "peak_rss_kib", "log_tail"],
+      "required": ["status", "exit_code", "signal", "seconds", "cpu_seconds", "peak_rss_kib", "left_behind", "log_tail"],
       "properties": {
         "status": {"enum": ["ok", "failed", "timed_out"]},
         "exit_code": {"type": ["integer", "null"]},
@@ -96,6 +96,7 @@
         "seconds": {"$ref": "#/$defs/seconds"},
         "cpu_seconds": {"$ref": "#/$defs/seconds"},
         "peak_rss_kib": {"$ref": "#/$defs/count"},
+        "left_behind": {"$ref": "#/$defs/count"},
         "log_tail": {"type": ["string", "null"]}
       }
     },
@@ -224,8 +225,8 @@
         "storeys_meaning": {"enum": ["at_floor_level", "floor_to_floor", null]},
         "subject": {"anyOf": [{"$ref": "#/$defs/key"}, {"type": "null"}]},
         "layer": {"enum": ["top", "bottom", null]},
-        "steps": {"type": "array", "items": {"type": "string", "minLength": 1}},
-        "part": {"type": ["string", "null"], "minLength": 1},
+        "steps": {"type": "array", "items": {"$ref": "#/$defs/key"}},
+        "part": {"anyOf": [{"$ref": "#/$defs/key"}, {"type": "null"}]},
         "exclusion": {"$ref": "#/$defs/exclusion"},
         "coverage": {"enum": ["assigned", "excluded", "unaccounted"]},
         "anchors": {"$ref": "#/$defs/anchors"}

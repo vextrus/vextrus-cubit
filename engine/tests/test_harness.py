@@ -81,6 +81,11 @@ FAKES = {
                     raise RuntimeError("the fake reader failed")
                 elif word == "nosummary":
                     return object()
+                elif word == "orphan":
+                    stray = subprocess.Popen(
+                        [sys.executable, "-c", "import time; time.sleep(600)"], start_new_session=True
+                    )
+                    Path(arg).write_text(str(stray.pid))
             return Artefact(path)
     """,
     "decoders.py": """
@@ -139,7 +144,13 @@ FAKES = {
             ]
     """,
     "buffers.py": """
+        class Odd(Exception):
+            def __init__(self, a, b):
+                super().__init__(a)
+
         def build(artefact, sheet):
+            if "odd" in artefact.path.read_text():
+                return Odd(1, 2)  # pickles, and cannot be unpickled
             return {"layout": sheet.location.layout}
     """,
     "raster.py": """
@@ -187,6 +198,7 @@ FAKES = {
 
         def run_all(reading):
             assert isinstance(reading, SetReading)
+            assert reading.read == {"views", "register", "plot", "conflicts"}, reading.read
             results = [
                 CheckResult("coverage", "fired", subject=reading.views[0][2],
                             finding={"code": "engine.coverage.unaccounted", "params": {"views": 1}}),
@@ -761,8 +773,10 @@ def test_one_object_standing_for_two_candidates_is_refused() -> None:
         views=[[], []],
     )
 
-    with pytest.raises(ExportError, match="two candidates"):
-        export.References([reading])
+    refs = export.References([reading])
+
+    with pytest.raises(ExportError, match="two places"):
+        refs.of(sheet)
 
 
 def test_to_json_takes_dataclasses_mappings_enums_and_refuses_the_rest() -> None:
@@ -903,3 +917,176 @@ def test_conventions_round_trip_through_json_and_refuse_what_they_do_not_hold() 
     for bad, match in bad_views:
         with pytest.raises(ValueError, match=match):
             ViewConventions.from_json(bad)
+
+
+# What the refuters found (review before the PR) -----------------------------------------------------
+
+
+def test_a_files_peak_is_not_the_harnesss_own(
+    tmp_path: Path, fakes: Callable[..., tuple[Stage, ...]], conventions: Path
+) -> None:
+    # Linux copies the starter's high-water mark into a child's ru_maxrss at exec: a harness that
+    # has grown must not lend its peak to the files it starts.
+    grown = bytearray(b"\x01") * (400 * MiB)
+    del grown
+
+    document = run(tmp_path, fakes(), {"a.dwg": "", "b.pdf": ""}, conventions=conventions)
+
+    for reading in document["files"]:
+        assert reading["process"]["peak_rss_kib"] < 128 * 1024, reading["path"]
+
+
+def test_what_a_file_leaves_running_is_killed_and_counted(
+    tmp_path: Path, fakes: Callable[..., tuple[Stage, ...]], conventions: Path
+) -> None:
+    stray = tmp_path / "stray.pid"
+
+    document = run(tmp_path, fakes(), {"a.dwg": f"orphan {stray}"}, conventions=conventions)
+
+    pid = int(stray.read_text())
+    with pytest.raises(ProcessLookupError):
+        os.kill(pid, 0)
+    assert by_path(document)["a.dwg"]["process"]["left_behind"] >= 1
+    assert by_path(document)["a.dwg"]["process"]["status"] == "ok"
+
+
+def test_results_that_never_reach_the_harness_fail_their_stages_not_the_run(
+    tmp_path: Path, fakes: Callable[..., tuple[Stage, ...]], conventions: Path
+) -> None:
+    document = run(tmp_path, fakes(), {"a.dwg": "odd", "b.dwg": ""}, conventions=conventions)
+
+    assert validate(document, load_schema()) == []
+    lost, fine = by_path(document)["a.dwg"], by_path(document)["b.dwg"]
+    assert lost["process"]["status"] == "failed"
+    assert set(states(lost).values()) == {"failed"}
+    assert "its results were lost" in lost["stages"]["sheets"]["error"]
+    assert "could not be read" in lost["stages"]["sheets"]["error"]
+    assert set(states(fine).values()) == {"ok"}
+    assert document["set_stages"]["checks"] == {
+        "state": "skipped",
+        "calls": 0,
+        "failed_calls": 0,
+        "seconds": 0.0,
+        "error": "needs sheets (not read in 1 of the files)",
+    }
+
+
+def test_a_set_stage_never_runs_on_part_of_the_set(
+    tmp_path: Path, fakes: Callable[..., tuple[Stage, ...]], conventions: Path
+) -> None:
+    document = run(tmp_path, fakes(), {"a.dwg": "badsheets", "b.dwg": ""}, conventions=conventions)
+
+    assert {n: r["state"] for n, r in document["set_stages"].items()} == dict.fromkeys(
+        harness.SET_STAGES, "skipped"
+    )
+    assert document["checks"] == []
+    assert document["conflicts"] == []
+
+
+def test_one_object_in_two_places_fails_the_stage_naming_it_and_the_run_is_written(
+    tmp_path: Path, fakes: Callable[..., tuple[Stage, ...]], conventions: Path
+) -> None:
+    blank_pages = "def report(path):\n    return {}\n\ndef page_text(path):\n    return ['', '']\n"
+
+    document = run(tmp_path, fakes(pdf=blank_pages), {"a.dwg": "", "b.pdf": ""}, conventions=conventions)
+
+    assert document["set_stages"]["plot"]["state"] == "failed"
+    assert "two places" in document["set_stages"]["plot"]["error"]
+    assert by_path(document)["b.pdf"]["pages"] == 2
+    assert validate(document, load_schema()) == []
+
+
+@pytest.mark.parametrize(
+    ("value", "pattern"),
+    [
+        ("a" * 40 + "\n", "^[0-9a-f]{40}$"),
+        ("structural\n", "^[a-z][a-z0-9_]*$"),
+        ("\u09e8\u09e6\u09e8\u09ec", "^\\d{4}$"),  # Bengali digits: JSON Schema's \\d is ASCII
+    ],
+)
+def test_patterns_are_read_as_json_schema_reads_them(value: str, pattern: str) -> None:
+    assert validate(value, {"type": "string", "pattern": pattern}) != []
+    assert validate(value.strip(), {"type": "string", "pattern": pattern}) == [] or "\\d" in pattern
+    assert validate("$", {"type": "string", "pattern": "^[$]$"}) == []  # a `$` in a class is itself
+
+
+def test_a_stage_missing_under_a_package_that_fails_to_import_is_not_built(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder = tmp_path / "brokenpkg"
+    folder.mkdir()
+    (folder / "__init__.py").write_text("import a_dependency_nobody_installed\n")
+    (folder / "present.py").write_text("def run():\n    return 1\n")
+    monkeypatch.syspath_prepend(str(tmp_path))
+
+    assert harness.resolve("brokenpkg.pdf:report") == (None, "brokenpkg.pdf does not exist")
+    with pytest.raises(ModuleNotFoundError):
+        harness.resolve("brokenpkg.present:run")
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        {"commit": "a" * 40 + "\n"},
+        {"commit": "HEAD"},
+        {"code_hash": "two words"},
+        {"run_id": ""},
+        {"file_timeout": float("inf")},
+        {"file_timeout": float("nan")},
+        {"file_timeout": 0},
+    ],
+)
+def test_a_run_asked_for_what_it_cannot_do_stops_before_reading(
+    tmp_path: Path, options: dict[str, Any]
+) -> None:
+    with pytest.raises(harness.UsageError):
+        harness.run(tmp_path, tmp_path / "out.json", **options)
+    assert not (tmp_path / "out.json").exists()
+
+
+def test_the_command_says_why_it_will_not_run(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code = harness.main(
+        ["--set", str(tmp_path), "--out", str(tmp_path / "o.json"), "--file-timeout", "inf"]
+    )
+
+    assert code == 2
+    assert "file timeout" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ("make", "error"),
+    [
+        (lambda: ViewCandidate(box=Box(0, 0, 1, 1), kind=ViewKind.PLAN, subject="slab\n"), ValueError),
+        (
+            lambda: ViewCandidate(
+                box=Box(0, 0, 1, 1), kind=ViewKind.PLAN, storeys=("ground\n",),
+                storeys_meaning=StoreysMeaning.AT_FLOOR_LEVEL,
+            ),
+            ValueError,
+        ),
+        (lambda: ViewCandidate(box=(0, 0, 1, 1), kind=ViewKind.PLAN), TypeError),  # type: ignore[arg-type]
+        (lambda: SheetCandidate(location=SheetLocation(layout="L"), number="S-101"), TypeError),  # type: ignore[arg-type]
+        (lambda: SheetCandidate(location=SheetLocation(layout="L"), anchors=("here",)), TypeError),  # type: ignore[arg-type]
+        (
+            lambda: SheetCandidate(
+                location=SheetLocation(layout="L"), discipline=Sourced("Structural", ValueSource.FILE)
+            ),
+            ValueError,
+        ),
+        (lambda: PlotTransform(scale=1.0, rotation=0, offset=(1.0, 2.0, 3.0)), ValueError),  # type: ignore[arg-type]
+        (lambda: Conflict("same_number", candidates=("a", "b")), TypeError),  # type: ignore[arg-type]
+        (
+            lambda: CheckResult(
+                "c", CheckOutcome.FIRED, finding={"code": "not a code", "params": {}}
+            ),
+            ValueError,
+        ),
+    ],
+)  # fmt: skip
+def test_a_candidate_of_the_wrong_shape_fails_where_it_is_made(
+    make: Callable[[], object], error: type[Exception]
+) -> None:
+    with pytest.raises(error):
+        make()

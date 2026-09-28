@@ -118,6 +118,9 @@ class ProcessReport:
     """Wall-clock seconds from its start to its end: the file's read seconds."""
     cpu_seconds: float
     peak_rss_kib: int
+    left_behind: int = 0
+    """Processes it left running (a grandchild it did not wait for), killed when it ended; their
+    memory is not in `peak_rss_kib`."""
     log_tail: str | None = None
     """The end of what it printed, when it did not end well."""
 
@@ -129,6 +132,7 @@ class ProcessReport:
             "seconds": round(self.seconds, 6),
             "cpu_seconds": round(self.cpu_seconds, 6),
             "peak_rss_kib": self.peak_rss_kib,
+            "left_behind": self.left_behind,
             "log_tail": self.log_tail,
         }
 
@@ -197,7 +201,7 @@ class References:
     """Where each candidate of a reading sits in the document, by the object's identity."""
 
     def __init__(self, files: Sequence[FileReading]) -> None:
-        self._refs: dict[int, dict[str, int]] = {}
+        self._refs: dict[int, dict[str, int] | None] = {}
         self._held: list[object] = []
         for i, reading in enumerate(files):
             for j, sheet in enumerate(reading.sheets):
@@ -220,16 +224,20 @@ class References:
         raise ExportError(f"{reading.path}: a register entry is on a sheet the file did not produce")
 
     def _add(self, item: object, ref: dict[str, int]) -> None:
-        if id(item) in self._refs:
-            raise ExportError(f"one object stands for two candidates: {ref} and {self._refs[id(item)]}")
-        self._refs[id(item)] = ref
+        # One object in two places (two blank pages as one interned string) cannot be referred to:
+        # it is marked, and a stage naming it fails, while the rest of the run is written.
+        self._refs[id(item)] = None if id(item) in self._refs else ref
         self._held.append(item)
 
     def of(self, item: object) -> dict[str, JSON]:
-        try:
-            return dict(self._refs[id(item)])
-        except KeyError:
-            raise ExportError(f"{type(item).__name__} is not a candidate this run produced") from None
+        if id(item) not in self._refs:
+            raise ExportError(f"{type(item).__name__} is not a candidate this run produced")
+        ref = self._refs[id(item)]
+        if ref is None:
+            raise ExportError(
+                f"one {type(item).__name__} object stands in two places; it cannot be named"
+            )
+        return dict[str, JSON](ref)
 
 
 def build(run: RunInfo, files: Sequence[FileReading], outcome: SetOutcome) -> dict[str, JSON]:
@@ -405,6 +413,8 @@ def _plot(match: PlotMatch, refs: References) -> dict[str, JSON]:
 
 def anchor_json(anchor: DwgAnchor | PdfAnchor) -> dict[str, JSON]:
     """An anchor as `{"kind": "dwg" | "pdf", "value": …}`, the value its own JSON (04's `to_json`)."""
+    if not isinstance(anchor, DwgAnchor | PdfAnchor):
+        raise TypeError(f"{type(anchor).__name__} is not an anchor")
     kind = "dwg" if isinstance(anchor, DwgAnchor) else "pdf"
     return {"kind": kind, "value": to_json(anchor)}
 
@@ -535,7 +545,7 @@ def _check(value: Any, schema: Any, root: Mapping[str, Any], path: str, errors: 
     if isinstance(value, str):
         if "minLength" in schema and len(value) < schema["minLength"]:
             errors.append(f"{path}: is shorter than {schema['minLength']}")
-        if "pattern" in schema and not re.search(schema["pattern"], value):
+        if "pattern" in schema and not _pattern(schema["pattern"]).search(value):
             errors.append(f"{path}: {value[:60]!r} does not match {schema['pattern']}")
     if isinstance(value, list):
         if "minItems" in schema and len(value) < schema["minItems"]:
@@ -563,6 +573,27 @@ def _check(value: Any, schema: Any, root: Mapping[str, Any], path: str, errors: 
         passing = sum(1 for sub in schema[name] if not _errors(value, sub, root, path))
         if (needed is None and passing == 0) or (needed is not None and passing != needed):
             errors.append(f"{path}: matches {passing} of its {name} alternatives")
+
+
+@cache
+def _pattern(pattern: str) -> re.Pattern[str]:
+    """A schema's pattern (ECMA-262, as JSON Schema has it) as Python's: `$` only at the very end,
+    never before a final line break, and `\\d` and `\\w` in ASCII only (the schema has no `\\s`)."""
+    out: list[str] = []
+    i, in_class = 0, False
+    while i < len(pattern):
+        char = pattern[i]
+        if char == "\\":
+            out.append(pattern[i : i + 2])
+            i += 2
+            continue
+        if char == "[":
+            in_class = True
+        elif char == "]":
+            in_class = False
+        out.append(r"\Z" if char == "$" and not in_class else char)
+        i += 1
+    return re.compile("".join(out), re.ASCII)
 
 
 def _errors(value: Any, schema: Any, root: Mapping[str, Any], path: str) -> list[str]:
