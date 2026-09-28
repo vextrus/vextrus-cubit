@@ -416,7 +416,9 @@ _Avoid_: external user, collaborator, partner
 
 **Vextrus Engineer**:
 A Vextrus team member who sits with a client's QS through their first Takeoff ("done with you"),
-inside the Developer's data only by its time-bound invitation.
+entering the Developer's data by its time-bound invitation. In M0, as Vextrus staff, they can also
+open any Developer's data (to be limited before the beta); every such opening is recorded where the
+MD sees it.
 _Avoid_: support agent, consultant, admin
 
 **Project Summary**:

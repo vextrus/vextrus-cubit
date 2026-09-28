@@ -38,6 +38,8 @@ civil engineer and the CEO and co-founder. The previous product (Vextrus Cubit) 
     action; per-page viewport emulation only; never touch another agent's page.
   - The design gate's first walk failed both UI tickets (01b, 03; 28 Sep 2026) on keys, empty routes
     and focus rings: a UI ticket walks m0-screens §8 by keyboard itself before its PR.
+  - The design gate failed twice on the same class (wave 1's walks; wave 2a's words): a backend ticket
+    that words codes in `web/src/messages/` gets a `ux-critic` review of those words before its PR.
 
 ## Law
 - **Secrets** are never printed, written or committed (`TYPESAFE_API_KEY` lives in `~/.bashrc`).
