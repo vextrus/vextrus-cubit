@@ -6,7 +6,7 @@
  * (§1.9, §1.10): the API makes the Site and one Building unseen. "Create project" and "Cancel".
  *
  * A refusal is shown under its field in the API's words ("Give the project a name.", "KR-01 is already
- * used by Kadam Residence. Choose another code."); any other in an ErrorBar. Created, the list is read
+ * used by Kadam Residence. Choose another code."); any other in an ErrorBar, a server fault included. Created, the list is read
  * again and the project opens (`/p/<code>`; the Drawing Set's own address once 20b builds it).
  */
 import { useId, useState, type FormEvent } from 'react'
@@ -17,7 +17,8 @@ import { PATHS, useGo } from '@/app/AppLink'
 import { sessionQuery, type Session } from '@/app/session'
 import { unitSystem } from '@/format/units'
 import { MachineText, type MachineMessage } from '@/format/machine'
-import { Button, ErrorBar, Segmented, TextField } from '@/ui'
+import { ProblemBar, problemOf, type Problem } from '@/auth'
+import { Button, Segmented, TextField } from '@/ui'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/ui/primitives/dialog'
 import { DiscardBar, useDiscardGuard } from './discard'
 
@@ -33,8 +34,7 @@ export function NewProjectDialog({ session, open, onOpenChange }: { session: Ses
   const [values, setValues] = useState(EMPTY)
   const [unit, setUnit] = useState(units.default)
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<Field, MachineMessage>>>({})
-  const [refusal, setRefusal] = useState<MachineMessage | null>(null)
-  const [unreachable, setUnreachable] = useState(false)
+  const [problem, setProblem] = useState<Problem>(null)
   const [saving, setSaving] = useState(false)
   const formId = useId()
 
@@ -43,8 +43,7 @@ export function NewProjectDialog({ session, open, onOpenChange }: { session: Ses
     setValues(EMPTY)
     setUnit(units.default)
     setFieldErrors({})
-    setRefusal(null)
-    setUnreachable(false)
+    setProblem(null)
   }
   const guard = useDiscardGuard(dirty && !saving, () => {
     reset()
@@ -55,8 +54,7 @@ export function NewProjectDialog({ session, open, onOpenChange }: { session: Ses
     event.preventDefault()
     if (saving) return
     setFieldErrors({})
-    setRefusal(null)
-    setUnreachable(false)
+    setProblem(null)
     setSaving(true)
     try {
       const project = await unwrap(api.POST('/api/projects', { body: { name: values.name, code: values.code, address: values.address, unit_system: unit } }))
@@ -65,13 +63,10 @@ export function NewProjectDialog({ session, open, onOpenChange }: { session: Ses
       onOpenChange(false)
       go(PATHS.project(project.code))
     } catch (error) {
-      if (error instanceof ApiRefused && error.refusal) {
-        if (error.field) {
-          setFieldErrors({ [error.field as Field]: error.refusal })
-          document.querySelector<HTMLElement>(`#${CSS.escape(`${formId}-${error.field}`)}`)?.focus()
-        } else setRefusal(error.refusal)
-      } else if (error instanceof TypeError) setUnreachable(true)
-      else throw error
+      if (error instanceof ApiRefused && error.refusal && error.field) {
+        setFieldErrors({ [error.field as Field]: error.refusal })
+        document.querySelector<HTMLElement>(`#${CSS.escape(`${formId}-${error.field}`)}`)?.focus()
+      } else setProblem(problemOf(error))
     } finally {
       setSaving(false)
     }
@@ -121,16 +116,7 @@ export function NewProjectDialog({ session, open, onOpenChange }: { session: Ses
             </p>
             {under('unit_system') ? <p className="text-xs text-destructive">{under('unit_system')}</p> : null}
           </div>
-          {refusal ? (
-            <ErrorBar>
-              <MachineText message={refusal} />
-            </ErrorBar>
-          ) : null}
-          {unreachable ? (
-            <ErrorBar>
-              <Trans>Vextrus can’t be reached. Check your connection and try again.</Trans>
-            </ErrorBar>
-          ) : null}
+          <ProblemBar problem={problem} />
           <DiscardBar guard={guard} />
           <div className="flex justify-end gap-2 pt-1">
             <Button onClick={guard.requestClose}>

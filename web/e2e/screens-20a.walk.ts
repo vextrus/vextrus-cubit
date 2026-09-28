@@ -223,7 +223,7 @@ for (const who of ['md', 'qs', 'guest', 'engineer'] as Who[]) {
           await shot(page, `${who}-invite-${size[0]}`)
           await dialog.getByLabel('Email').fill('someone@padma-builders.example')
           await page.keyboard.press('Escape')
-          await expect(dialog.getByText('Close without saving what you typed?')).toBeVisible()
+          await expect(dialog.getByText('Close without saving what you entered?')).toBeVisible()
           await page.keyboard.press('Escape')
           await expect(dialog.getByLabel('Email')).toHaveValue('someone@padma-builders.example')
           await dialog.getByRole('button', { name: 'Cancel' }).click()
@@ -394,6 +394,15 @@ test('#75’s seed: an expired Guest signs in to "Access ended", and the MD sees
   await expect(row.getByRole('button', { name: 'Renew 30 days' })).toBeVisible()
   await shot(md, 'members-ended-row')
   await md.context().close()
+})
+
+test('`?next=` never leaves the app (the trust boundary): a dot segment, a protocol-relative address, a script', async ({ browser }) => {
+  for (const next of ['/.//evil.example', '//evil.example', 'https://evil.example', 'javascript:alert(1)', '/a/..//x/sign-in']) {
+    const page = await newPage(browser, SIZES[0])
+    await signIn(page, PEOPLE.qs.email, `/sign-in?next=${encodeURIComponent(next)}`)
+    await expect(page).toHaveURL(/^http:\/\/127\.0\.0\.1:\d+\/projects$/)
+    await page.context().close()
+  }
 })
 
 test('the frame’s notices on the projects page (§1.5): narrow at 1100, phone at 390', async ({ browser }) => {

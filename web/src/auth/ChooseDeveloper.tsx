@@ -12,7 +12,7 @@ import { meQuery, type MembershipSummary } from '@/app/session'
 import { Button, List } from '@/ui'
 import { useChooseDeveloper, useSignOut } from './actions'
 import { OutsidePage } from './OutsidePage'
-import { ProblemBar, problemOf, type SignInProblem } from './SignIn'
+import { ProblemBar, problemOf, type Problem } from './problem'
 
 export function ChooseDeveloperPage() {
   const { t, i18n } = useLingui()
@@ -20,7 +20,7 @@ export function ChooseDeveloperPage() {
   const { next } = useSearch({ strict: false }) as { next?: string }
   const choose = useChooseDeveloper()
   const signOut = useSignOut()
-  const [problem, setProblem] = useState<SignInProblem>(null)
+  const [problem, setProblem] = useState<Problem>(null)
   const [busy, setBusy] = useState(false)
   const memberships = me?.memberships ?? []
 

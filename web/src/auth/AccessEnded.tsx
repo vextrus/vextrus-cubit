@@ -15,7 +15,7 @@ import { Button, SkeletonBar, buttonVariants } from '@/ui'
 import { useSignOut } from './actions'
 import { CodeList } from './lists'
 import { OutsidePage } from './OutsidePage'
-import { ProblemBar, problemOf, type SignInProblem } from './SignIn'
+import { ProblemBar, problemOf, type Problem } from './problem'
 
 /** A scoped Membership's project codes, from #75's `/api/ended-access/projects`. */
 export const endedProjectsQuery = {
@@ -66,7 +66,7 @@ export function EndedWords({ ended, codes }: { ended: EndedAccess; codes: readon
 
 function Actions({ another }: { another: boolean }) {
   const signOut = useSignOut()
-  const [problem, setProblem] = useState<SignInProblem>(null)
+  const [problem, setProblem] = useState<Problem>(null)
   return (
     <div className="mt-5 flex flex-col gap-3">
       <ProblemBar problem={problem} />

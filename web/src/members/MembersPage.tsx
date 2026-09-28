@@ -19,17 +19,15 @@ import { ApiRefused } from '@/api/client'
 import { PageLayout } from '@/app/Frame'
 import { roleName } from '@/app/roles'
 import { sessionQuery, type Session } from '@/app/session'
-import { can, usePageTitle } from '@/auth'
+import { LoadProblem, ProblemBar, can, problemOf, usePageTitle, type Problem } from '@/auth'
 import { EMPTY, useFormat } from '@/format'
-import { MachineText, type MachineMessage } from '@/format/machine'
-import { Button, ErrorBar, Skeleton, cn, useToast } from '@/ui'
+import { Button, Skeleton, cn, useToast } from '@/ui'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/primitives/dialog'
 import { ActsPanel } from './ActsPanel'
 import { InviteDialog } from './InviteDialog'
 import { LinkShown } from './LinkShown'
 import { inviteLink, membersFrom, membersQuery, newLink, renew, revoke, withdraw, type InvitationRow, type MemberAction, type Members, type PersonRow } from './data'
 
-type Problem = MachineMessage | 'unreachable' | null
 
 /** "All projects", or the codes: "KR-01, BP-02". */
 function ProjectsCell({ projects }: { projects: readonly string[] | 'all' }) {
@@ -310,7 +308,7 @@ export function MembersLoading() {
  * The page: its header once, whatever the data's state (so the heading and Invite never remount when
  * the rows arrive), then the rows, their loading skeleton, or the API's refusal.
  */
-export function MembersView({ session, members, refused }: { session: Session; members: Members | undefined; refused?: MachineMessage | null }) {
+export function MembersView({ session, members, failed, onRetry }: { session: Session; members: Members | undefined; failed?: unknown; onRetry?: () => void }) {
   const f = useFormat()
   const toast = useToast()
   const queryClient = useQueryClient()
@@ -330,9 +328,7 @@ export function MembersView({ session, members, refused }: { session: Session; m
     try {
       await work()
     } catch (error) {
-      if (error instanceof ApiRefused && error.refusal) setProblem(error.refusal)
-      else if (error instanceof TypeError) setProblem('unreachable')
-      else throw error
+      setProblem(problemOf(error))
     } finally {
       setBusy(null)
       await queryClient.invalidateQueries({ queryKey: membersQuery.queryKey })
@@ -368,7 +364,7 @@ export function MembersView({ session, members, refused }: { session: Session; m
   }
 
   const revokingName = revoking?.name ?? ''
-  const shownEmail = shown?.email ?? ''
+  const email = shown?.email ?? ''
   return (
     <PageLayout
       panel={
@@ -398,9 +394,7 @@ export function MembersView({ session, members, refused }: { session: Session; m
           </Button>
         ) : null}
       </header>
-      {problem ? (
-        <ErrorBar className="mb-4">{problem === 'unreachable' ? <Trans>Vextrus can’t be reached. Check your connection and try again.</Trans> : <MachineText message={problem} />}</ErrorBar>
-      ) : null}
+      <ProblemBar problem={problem} className="mb-4" />
       {members ? (
         <div className="flex flex-col gap-6">
           <Section id="people" title={<Trans>People at {developer}</Trans>}>
@@ -425,10 +419,8 @@ export function MembersView({ session, members, refused }: { session: Session; m
             </>
           ) : null}
         </div>
-      ) : refused ? (
-        <ErrorBar>
-          <MachineText message={refused} />
-        </ErrorBar>
+      ) : failed ? (
+        <LoadProblem error={failed} onRetry={() => onRetry?.()} />
       ) : (
         <MembersLoading />
       )}
@@ -472,7 +464,7 @@ export function MembersView({ session, members, refused }: { session: Session; m
         <DialogContent className="sm:max-w-[480px]" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>
-              <Trans>New link for {shownEmail}</Trans>
+              <Trans>New link for {email}</Trans>
             </DialogTitle>
           </DialogHeader>
           {shown ? <LinkShown email={shown.email} link={shown.link} worksUntil={shown.worksUntil} replaced /> : null}
@@ -487,6 +479,8 @@ export function MembersPage() {
   const { data: session } = useSuspenseQuery(sessionQuery)
   usePageTitle(t`Members and access`)
   const members = useQuery({ ...membersQuery, select: (out) => membersFrom(out, session) })
-  const refused = members.error instanceof ApiRefused ? members.error.refusal : null
-  return <MembersView session={session} members={members.data} refused={refused} />
+  // Out of reach, the query keeps trying and the frame says so, over the skeleton; a refusal or a
+  // server fault is said in place.
+  const failed = members.error instanceof ApiRefused ? members.error : null
+  return <MembersView session={session} members={members.data} failed={failed} onRetry={() => void members.refetch()} />
 }

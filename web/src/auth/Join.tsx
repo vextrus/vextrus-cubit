@@ -33,7 +33,7 @@ import { forgetAll, signIn, useEnter, useHeld, type Held } from './actions'
 import { InMarket } from './AccessEnded'
 import { ProjectNameList } from './lists'
 import { OutsidePage } from './OutsidePage'
-import { ProblemBar, problemOf, type SignInProblem } from './SignIn'
+import { ProblemBar, problemOf, type Problem } from './problem'
 
 /** What the link's page knows once looked up. */
 export interface Invitation {
@@ -91,12 +91,7 @@ export function GuestLine({ projects }: { projects: number }) {
 }
 
 /** The page's stage; the token lives only here, in memory, once read from the fragment. */
-type Stage =
-  | { at: 'reading' }
-  | { at: 'unusable' }
-  | { at: 'unreachable' }
-  | { at: 'refused'; refusal: MachineMessage | null }
-  | { at: 'ready'; invitation: Invitation; token: string }
+type Stage = { at: 'reading' } | { at: 'unusable' } | { at: 'failed'; problem: Problem } | { at: 'ready'; invitation: Invitation; token: string }
 
 export function JoinPage() {
   const { t } = useLingui()
@@ -122,16 +117,20 @@ export function JoinPage() {
       clear()
       return
     }
+    // The address is cleared once the look-up has answered for good: the link found, or "not found".
+    // Out of reach, refused for another reason (a stale page's CSRF) or failed, it stays, so the reload
+    // the words ask for opens the same link (the fragment never reaches a server).
     lookUp(token)
-      .then((invitation) => setStage({ at: 'ready', invitation, token }))
-      // Only "not found" is a link that cannot be used; any other refusal (a stale page's CSRF) is said
-      // in its own words, never as the link's.
-      .catch((error: unknown) =>
-        setStage(
-          error instanceof ApiRefused ? (error.status === 404 ? { at: 'unusable' } : { at: 'refused', refusal: error.refusal }) : { at: 'unreachable' },
-        ),
-      )
-      .finally(clear)
+      .then((invitation) => {
+        clear()
+        setStage({ at: 'ready', invitation, token })
+      })
+      .catch((error: unknown) => {
+        if (error instanceof ApiRefused && error.status === 404) {
+          clear()
+          setStage({ at: 'unusable' })
+        } else setStage({ at: 'failed', problem: problemOf(error) })
+      })
   }, [router, queryClient, token])
 
   const developer = stage.at === 'ready' ? stage.invitation.link.developer_name : ''
@@ -141,10 +140,8 @@ export function JoinPage() {
         <Skeleton rows={3} status={<Trans>Opening the invitation…</Trans>} />
       ) : stage.at === 'unusable' ? (
         <Unusable />
-      ) : stage.at === 'unreachable' ? (
-        <ProblemBar problem={{ unreachable: true }} />
-      ) : stage.at === 'refused' ? (
-        <ErrorBar>{stage.refusal ? <MachineText message={stage.refusal} /> : <Trans>That did not work. Reload the page and try again.</Trans>}</ErrorBar>
+      ) : stage.at === 'failed' ? (
+        <ProblemBar problem={stage.problem} />
       ) : (
         <Ready
           invitation={stage.invitation}
@@ -206,7 +203,7 @@ function Ready({
   // The inviting Developer's Market words the line's date (the orchestrator's ruling, 29 Sep 2026).
   const market = useMemo(() => (link.market ? marketFormat(link.market) : null), [link.market])
   const [refusal, setRefusal] = useState<MachineMessage | null>(null)
-  const [problem, setProblem] = useState<SignInProblem>(null)
+  const [problem, setProblem] = useState<Problem>(null)
   const [busy, setBusy] = useState(false)
   const [name, setName] = useState('')
   const [password, setPassword] = useState('')
@@ -345,7 +342,12 @@ function Ready({
           ) : null}
           {refusal ? (
             <ErrorBar>
-              <MachineText message={refusal} />
+              {refusal.code === 'platform.auth.csrf_failed' ? (
+                // Not the API's "Reload it": the link has left the address bar, so a reload would lose it.
+                <Trans>This page is out of date. Open the invitation link again from the message it came in.</Trans>
+              ) : (
+                <MachineText message={refusal} />
+              )}
             </ErrorBar>
           ) : null}
           <ProblemBar problem={problem} />

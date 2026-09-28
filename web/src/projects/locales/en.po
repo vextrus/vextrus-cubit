@@ -104,10 +104,6 @@ msgid "Members and access"
 msgstr "Members and access"
 
 #: src/projects/NewProjectDialog.tsx
-msgid "Vextrus can’t be reached. Check your connection and try again."
-msgstr "Vextrus can’t be reached. Check your connection and try again."
-
-#: src/projects/NewProjectDialog.tsx
 msgid "Short, like KR-01"
 msgstr "Short, like KR-01"
 

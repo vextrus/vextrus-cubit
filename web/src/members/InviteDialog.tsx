@@ -20,10 +20,10 @@ import { useQueryClient } from '@tanstack/react-query'
 import { ApiRefused } from '@/api/client'
 import { roleName } from '@/app/roles'
 import type { Role, Session } from '@/app/session'
-import { invitableRoles } from '@/auth'
+import { ProblemBar, invitableRoles, problemOf, type Problem } from '@/auth'
 import { MachineText, type MachineMessage } from '@/format/machine'
 import { DiscardBar, useDiscardGuard } from '@/projects'
-import { Button, Checkbox, ErrorBar, FieldError, Segmented, TextField } from '@/ui'
+import { Button, Checkbox, FieldError, Segmented, TextField } from '@/ui'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/ui/primitives/dialog'
 import { addDays, dayIn, endOfDay, type Day } from './dates'
 import { DateField } from './DateField'
@@ -73,7 +73,7 @@ export function InviteDialog({ session, open, onOpenChange }: { session: Session
   const [endDay, setEndDay] = useState<Day | null>(addDays(today, DEFAULT_DAYS))
   const [touched, setTouched] = useState({ mode: false, end: false })
   const [errors, setErrors] = useState<Partial<Record<Field, Words>>>({})
-  const [bar, setBar] = useState<MachineMessage | 'unreachable' | null>(null)
+  const [bar, setBar] = useState<Problem>(null)
   const [tried, setTried] = useState(false)
   const [saving, setSaving] = useState(false)
   const [created, setCreated] = useState<Created | null>(null)
@@ -133,14 +133,11 @@ export function InviteDialog({ session, open, onOpenChange }: { session: Session
       await queryClient.invalidateQueries({ queryKey: membersQuery.queryKey })
       setCreated({ email: email.trim(), link: inviteLink(link.token), worksUntil: link.link_expires_at })
     } catch (error) {
-      if (error instanceof ApiRefused && error.refusal) {
-        const field = FIELD_OF[error.refusal.code]
-        if (field) {
-          setErrors({ [field]: error.refusal })
-          focus(field)
-        } else setBar(error.refusal)
-      } else if (error instanceof TypeError) setBar('unreachable')
-      else throw error
+      const field = error instanceof ApiRefused && error.refusal ? FIELD_OF[error.refusal.code] : undefined
+      if (field && error instanceof ApiRefused && error.refusal) {
+        setErrors({ [field]: error.refusal })
+        focus(field)
+      } else setBar(problemOf(error))
     } finally {
       setSaving(false)
     }
@@ -291,7 +288,7 @@ export function InviteDialog({ session, open, onOpenChange }: { session: Session
               ) : null}
             </div>
 
-            {bar ? <ErrorBar>{bar === 'unreachable' ? <Trans>Vextrus can’t be reached. Check your connection and try again.</Trans> : <MachineText message={bar} />}</ErrorBar> : null}
+            <ProblemBar problem={bar} />
             <DiscardBar guard={guard} />
             <div className="flex justify-end gap-2 pt-1">
               <Button onClick={guard.requestClose}>

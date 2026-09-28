@@ -65,6 +65,10 @@ msgstr "Open this Developer’s projects"
 msgid "This invitation is for a Vextrus Engineer, but {email} has no Vextrus account. Ask whoever sent it to invite your Vextrus email, or to invite you in another role."
 msgstr "This invitation is for a Vextrus Engineer, but {email} has no Vextrus account. Ask whoever sent it to invite your Vextrus email, or to invite you in another role."
 
+#: src/auth/problem.tsx
+msgid "Vextrus can’t be reached. Check your connection; this page keeps trying."
+msgstr "Vextrus can’t be reached. Check your connection; this page keeps trying."
+
 #: src/auth/Join.tsx
 #: src/auth/SignIn.tsx
 msgid "Password"
@@ -137,6 +141,10 @@ msgstr "Opening the invitation…"
 msgid "Your access to {developer} has ended. {revoker} revoked it on {date}. What you did before then is kept under your name."
 msgstr "Your access to {developer} has ended. {revoker} revoked it on {date}. What you did before then is kept under your name."
 
+#: src/auth/problem.tsx
+msgid "Try again"
+msgstr "Try again"
+
 #: src/auth/Join.tsx
 msgid "Invitation"
 msgstr "Invitation"
@@ -186,6 +194,14 @@ msgstr "No access"
 msgid "{role, select, qs {a QS} md {an MD} guest {a Guest} vextrus_engineer {a Vextrus Engineer} other {a member}}"
 msgstr "{role, select, qs {a QS} md {an MD} guest {a Guest} vextrus_engineer {a Vextrus Engineer} other {a member}}"
 
+#: src/auth/problem.tsx
+msgid "Vextrus could not do that just now. Try again in a minute."
+msgstr "Vextrus could not do that just now. Try again in a minute."
+
+#: src/auth/problem.tsx
+msgid "Vextrus could not open this just now. Try again in a minute."
+msgstr "Vextrus could not open this just now. Try again in a minute."
+
 #: src/auth/Join.tsx
 msgid "You were invited as {as} until {date}."
 msgstr "You were invited as {as} until {date}."
@@ -207,9 +223,8 @@ msgid "You can look at the drawings and Takeoff of every project but not change 
 msgstr "You can look at the drawings and Takeoff of every project but not change them."
 
 #: src/auth/Join.tsx
-#: src/auth/sayRefused.ts
-msgid "That did not work. Reload the page and try again."
-msgstr "That did not work. Reload the page and try again."
+msgid "This page is out of date. Open the invitation link again from the message it came in."
+msgstr "This page is out of date. Open the invitation link again from the message it came in."
 
 #: src/auth/Join.tsx
 msgid "{inviter} invited you as {as} until {date}."
@@ -235,9 +250,8 @@ msgstr "Join {developer}"
 msgid "This invitation is for {email}. Sign out, then sign in here as {email} to join."
 msgstr "This invitation is for {email}. Sign out, then sign in here as {email} to join."
 
+#: src/auth/problem.tsx
 #: src/auth/RouteError.tsx
-#: src/auth/sayRefused.ts
-#: src/auth/SignIn.tsx
 msgid "Vextrus can’t be reached. Check your connection and try again."
 msgstr "Vextrus can’t be reached. Check your connection and try again."
 

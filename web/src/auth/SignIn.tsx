@@ -11,29 +11,12 @@
 import { useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Trans, useLingui } from '@lingui/react/macro'
 import { useSearch } from '@tanstack/react-router'
-import { ApiRefused } from '@/api/client'
-import { MachineText } from '@/format/machine'
-import { Button, ErrorBar, TextField } from '@/ui'
+import { Button, TextField } from '@/ui'
 import { signIn, useEnter } from './actions'
 import { OutsidePage } from './OutsidePage'
+import { ProblemBar, problemOf, type Problem } from './problem'
 
-/** Why the last try failed: the API's refusal, or the server out of reach. */
-export type SignInProblem = { refusal: ApiRefused['refusal'] } | { unreachable: true } | null
-
-export function problemOf(error: unknown): SignInProblem {
-  if (error instanceof ApiRefused && error.refusal) return { refusal: error.refusal }
-  if (error instanceof TypeError) return { unreachable: true }
-  throw error
-}
-
-export function ProblemBar({ problem }: { problem: SignInProblem }) {
-  if (!problem) return null
-  let words: ReactNode
-  if ('unreachable' in problem) words = <Trans>Vextrus can’t be reached. Check your connection and try again.</Trans>
-  else if (problem.refusal) words = <MachineText message={problem.refusal} />
-  else return null
-  return <ErrorBar>{words}</ErrorBar>
-}
+export { ProblemBar, problemOf, type Problem as SignInProblem } from './problem'
 
 /** Email and password; `onSignedIn` gets `/api/me` from the API. Used by the page and the Signed-out dialog. */
 export function SignInForm({
@@ -49,7 +32,7 @@ export function SignInForm({
   const [email, setEmail] = useState(initialEmail)
   const [password, setPassword] = useState('')
   const [missing, setMissing] = useState<{ email: boolean; password: boolean }>({ email: false, password: false })
-  const [problem, setProblem] = useState<SignInProblem>(null)
+  const [problem, setProblem] = useState<Problem>(null)
   const [busy, setBusy] = useState(false)
   const emailRef = useRef<HTMLInputElement>(null)
   const passwordRef = useRef<HTMLInputElement>(null)

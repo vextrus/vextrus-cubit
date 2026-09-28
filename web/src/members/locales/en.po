@@ -52,9 +52,9 @@ msgstr "Their next click is refused. What they did stays under their name."
 msgid "Name"
 msgstr "Name"
 
-#: src/members/ActsPanel.tsx
-msgid "Vextrus can’t be reached. Check your connection; this page keeps trying."
-msgstr "Vextrus can’t be reached. Check your connection; this page keeps trying."
+#: src/members/MembersPage.tsx
+msgid "New link for {email}"
+msgstr "New link for {email}"
 
 #: src/members/LinkShown.tsx
 msgid "Copy this link and send it to {email}. It works once, until {date}."
@@ -233,10 +233,6 @@ msgid "{joined}, {code}"
 msgstr "{joined}, {code}"
 
 #: src/members/MembersPage.tsx
-msgid "New link for {shownEmail}"
-msgstr "New link for {shownEmail}"
-
-#: src/members/MembersPage.tsx
 msgid "{name}’s access now ends on {date}."
 msgstr "{name}’s access now ends on {date}."
 
@@ -256,11 +252,6 @@ msgstr "Copy link"
 #: src/members/DateField.tsx
 msgid "Enter a date like {example}."
 msgstr "Enter a date like {example}."
-
-#: src/members/InviteDialog.tsx
-#: src/members/MembersPage.tsx
-msgid "Vextrus can’t be reached. Check your connection and try again."
-msgstr "Vextrus can’t be reached. Check your connection and try again."
 
 #: src/members/MembersPage.tsx
 msgid "Link works until"

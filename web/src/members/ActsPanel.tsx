@@ -13,9 +13,10 @@ import { ApiRefused, api, unwrap } from '@/api/client'
 import type { components } from '@/api/schema.gen'
 import { sessionQuery } from '@/app/session'
 import { useCloseOnEsc } from '@/app/shell'
+import { LoadProblem } from '@/auth'
 import { useFormat } from '@/format'
 import { MachineText, type MachineMessage } from '@/format/machine'
-import { Button, Empty, ErrorBar, IconButton, Skeleton } from '@/ui'
+import { Button, Empty, IconButton, Skeleton } from '@/ui'
 import { History } from 'lucide-react'
 import { ACTS_PAGE, type PersonRow } from './data'
 
@@ -75,7 +76,7 @@ export function ActsPanel({ person, onClose }: { person: PersonRow; onClose: () 
         {acts.isPending ? (
           <Skeleton rows={6} status={<Trans>Reading their acts…</Trans>} />
         ) : acts.isError ? (
-          <ErrorBar>{acts.error instanceof ApiRefused && acts.error.refusal ? <MachineText message={acts.error.refusal} /> : <Trans>Vextrus can’t be reached. Check your connection; this page keeps trying.</Trans>}</ErrorBar>
+          <LoadProblem error={acts.error} onRetry={() => void acts.refetch()} />
         ) : all.length === 0 ? (
           <Empty glyph={<History />}>
             <Trans>No acts yet.</Trans>
