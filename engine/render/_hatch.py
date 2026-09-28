@@ -4,8 +4,8 @@ A HATCH's values (engine/read/libredwg/dxf.py) hold its boundary paths (polyline
 edges: lines, arcs, ellipse arcs and splines) in its OCS, `solid_fill`, and, for a pattern, only its
 `pattern_name`, `pattern_scale` and `pattern_angle`: the pattern's own lines are not read, so a pattern
 is drawn from the standard definitions of that name (ezdxf's table of AutoCAD's standard patterns,
-`ezdxf.tools.pattern`, used at run time and never copied; metric or imperial by the drawing's units).
-A name the table lacks is not drawn, and counted.
+`ezdxf.tools.pattern`, used at run time and never copied; acadiso.pat's or acad.pat's by the
+drawing's units). A name the table lacks is not drawn, and counted.
 
 Both fills follow the **even-odd rule** (a hatch's normal island style: an island inside a boundary is
 left empty, and one inside that is filled). The fill is cut into horizontal trapezoids between
@@ -181,20 +181,20 @@ def fill(loops: list[Points]) -> NDArray[np.float64]:
 
 
 @cache
-def _table(metric: bool) -> dict[str, Any]:
-    table: dict[str, Any] = patterns.load(measurement=1 if metric else 0)
+def _table(iso: bool) -> dict[str, Any]:
+    table: dict[str, Any] = patterns.load(measurement=1 if iso else 0)
     return {name.upper(): lines for name, lines in table.items()}
 
 
-def has_pattern(name: str, metric: bool) -> bool:
-    return name.upper() in _table(metric)
+def has_pattern(name: str, iso: bool) -> bool:
+    return name.upper() in _table(iso)
 
 
 def pattern(
-    loops: list[Points], name: str, scale: float, angle_degrees: float, metric: bool
+    loops: list[Points], name: str, scale: float, angle_degrees: float, iso: bool
 ) -> NDArray[np.float64]:
     """The pattern's line segments clipped to the loops (even-odd), Kx4 (x0, y0, x1, y1)."""
-    definition = _table(metric).get(name.upper())
+    definition = _table(iso).get(name.upper())
     if definition is None:
         raise Undrawable("a pattern not in the standard table")
     if not loops or not math.isfinite(scale) or scale <= 0 or not math.isfinite(angle_degrees):

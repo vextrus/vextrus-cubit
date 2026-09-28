@@ -140,7 +140,7 @@ _FIXED = {b"LINE": LINE, b"TRIS": TRIS, b"GLYF": GLYF, b"AGLY": AGLY, b"PRIM": P
 
 UNIT_MM = {1: 25.4, 2: 304.8, 4: 1.0, 5: 10.0, 6: 1000.0, 8: 0.0000254, 9: 0.0254, 10: 914.4, 14: 100.0}
 """Millimetres per drawing unit, by the header's INSUNITS; unknown units are taken as millimetres."""
-_METRIC = frozenset({4, 5, 6, 14})
+_MILLIMETRE_UNITS = frozenset({4, 5, 6, 14})
 SHEETS_MM = (
     (1189.0, 841.0), (841.0, 594.0), (594.0, 420.0), (420.0, 297.0), (297.0, 210.0), (210.0, 148.0),
     (279.4, 215.9), (431.8, 279.4), (558.8, 431.8), (863.6, 558.8), (1117.6, 863.6),
@@ -727,7 +727,7 @@ class _Sheet:
         self.counts = {"lines": 0, "triangles": 0}
         self.truncated = False
         self.heights = Heights(artefact)
-        self.metric = artefact.summary.insunits in _METRIC
+        self.iso = artefact.summary.insunits in _MILLIMETRE_UNITS  # acadiso.lin and .pat, not acad
         self.bounds = _bounds_of(artefact)
         self.deadline = time.monotonic() + limits.seconds
 
@@ -1052,8 +1052,10 @@ class _Drawer:
             and scale > 0
             else 1.0
         )
-        if self.sheet.metric and not name.upper().startswith("ACAD_ISO"):
-            scale *= 25.4  # acad.lin's patterns are in inches; a metric drawing's (acadiso.lin) in mm
+        if self.sheet.iso and not name.upper().startswith("ACAD_ISO"):
+            scale *= (
+                25.4  # acad.lin's patterns are in inches; a millimetre drawing's (acadiso.lin) in mm
+            )
         dashes = [x * scale * placed.xy_scale for x in pattern[1:]]
         if sum(abs(x) for x in dashes) < MIN_DASH_PERIOD_MM:
             self.sheet.stats["linetype_too_fine"] += 1
@@ -1073,14 +1075,14 @@ class _Drawer:
                     sheet.add_triangles(flat, colour, prim, self.clip)
                 return
             name = values.get("pattern_name")
-            if not isinstance(name, str) or not _hatch.has_pattern(name, sheet.metric):
+            if not isinstance(name, str) or not _hatch.has_pattern(name, sheet.iso):
                 sheet.stats["hatch_pattern_unknown"] += 1
                 return
             scale = values.get("pattern_scale", 1.0)
             angle = values.get("pattern_angle", 0.0)
             segments = _hatch.pattern(
                 loops, name, float(scale) if isinstance(scale, int | float) else 1.0,
-                float(angle) if isinstance(angle, int | float) else 0.0, sheet.metric,
+                float(angle) if isinstance(angle, int | float) else 0.0, sheet.iso,
             )  # fmt: skip
         except _hatch.TooComplex:
             sheet.stats["hatch_too_complex"] += 1
