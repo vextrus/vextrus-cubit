@@ -4,6 +4,7 @@ import contextlib
 import math
 import random
 import struct
+from typing import Any
 
 import numpy as np
 import pytest
@@ -328,6 +329,39 @@ def test_a_twisted_viewport_maps_model_space_as_ezdxf_does() -> None:
 def test_a_viewport_whose_values_cannot_be_read_shows_no_window(values: dict[str, object]) -> None:
     assert viewport_window(values) is None
     assert viewport_transform(values) is None
+
+
+@pytest.mark.parametrize(
+    ("kind", "values"),
+    [
+        ("HATCH", {"elevation": [0.0, 0.0, 0.0], "paths": [{"type": "polyline", "vertices":
+            [[5000.0, 5000.0, 0.0], [5100.0, 5000.0, 0.0], [5100.0, 5100.0, 0.0]]}]}),
+        ("IMAGE", {"insert": [5000.0, 5000.0, 0.0], "image_size": [237.0, 12.0],
+                   "u_pixel": [1.0, 0.0, 0.0], "v_pixel": [0.0, 1.0, 0.0]}),
+        ("LEADER", {"vertices": [[5000.0, 5000.0, 0.0], [5100.0, 5100.0, 0.0]],
+                    "leader_offset_block_ref": [0.0, 0.0, 0.0],
+                    "leader_offset_annotation_placement": [0.0, 0.0, 0.0]}),
+        ("MULTILEADER", {"context": {"base_point": [5000.0, 5000.0, 0.0]},
+                         "block_scale_vector": [1.0, 1.0, 1.0]}),
+        ("POLYLINE", {"location": [0.0, 0.0, 0.0], "elevation": [0.0, 0.0, 0.0],
+                      "vertices": [[5000.0, 5000.0, 0.0], [5100.0, 5100.0, 0.0]]}),
+    ],
+)  # fmt: skip
+def test_a_value_that_is_no_location_does_not_stretch_an_entitys_bounds(
+    kind: str, values: dict[str, Any]
+) -> None:
+    """11's bounds took every list of two to five numbers for a point: a hatch's elevation (0, 0, z),
+    an image's size in pixels, a leader's zero offsets and a polyline's dummy location stretched
+    boxes to the origin (13's analysts: 591 entities of one real file past 20,000 units), so culling
+    let every such block in and a sheet's render walked the whole drawing."""
+    from engine.read.artefact import Entity
+    from engine.render import _shapes
+
+    found = _shapes.bounds(Entity("1A", kind, "0", "1F", values))
+
+    assert found is not None
+    assert found[0] >= 4000
+    assert found[1] >= 4000
 
 
 def test_types_not_drawn_are_counted_not_dropped_silently() -> None:
