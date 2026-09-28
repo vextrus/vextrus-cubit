@@ -1,0 +1,14 @@
+msgid ""
+msgstr ""
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: en\n"
+
+#. engine/messages/plot_pages.py (ticket 19b): a sheet of a Discipline whose PDF matched pages, with no page of its own.
+msgid "engine.plot_pages.no_page"
+msgstr "{number} is in the drawings but on no page of the PDF"
+
+#. A page no sheet matched (m0-screens §5's "Page 12 of KR-STR-R0.pdf shows S-13, which no DWG has": the file and the number on the page are the Question's, 21c's).
+msgid "engine.plot_pages.no_sheet"
+msgstr "Page {page} of the PDF shows a sheet that no DWG has"

@@ -34,7 +34,8 @@ from typing import Any
 from engine import messages
 from engine.collect import submodules
 from engine.messages import MessageCode
-from engine.recognise.conflicts import Recognisers, given, recognisers
+from engine.recognise import conflicts
+from engine.recognise.conflicts import Recognisers, given
 from engine.recognise.types import CheckResult, SetReading
 
 PACKAGE = "engine.check"
@@ -117,7 +118,7 @@ def entries() -> tuple[Entry, ...]:
 def run_all(reading: SetReading) -> list[CheckResult]:
     """The harness's stage: `run` with 13's readers bound to the conventions the sheets were read
     with (engine.recognise.conflicts.recognisers)."""
-    return run(reading, recognisers=recognisers(reading.conventions))
+    return run(reading, recognisers=conflicts.recognisers(reading.conventions))
 
 
 def run(reading: SetReading, *, recognisers: Recognisers, package: str = PACKAGE) -> list[CheckResult]:

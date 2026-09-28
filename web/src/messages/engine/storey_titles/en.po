@@ -1,0 +1,10 @@
+msgid ""
+msgstr ""
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: en\n"
+
+#. engine/messages/storey_titles.py (ticket 19b): the storeys a sheet's title names against those its plans' titles name.
+msgid "engine.storey_titles.differ"
+msgstr "The title of {named, select, title {“{sheet}”} other {{sheet}}} names “{stated}”, but its plans name other storeys: {not_drawn, plural, =0 {} one {# storey in the title has no plan} other {# storeys in the title have no plan}}{not_drawn, plural, =0 {} other {{not_named, plural, =0 {} other {, and }}}}{not_named, plural, =0 {} one {# storey on a plan is not in the title} other {# storeys on the plans are not in the title}}. Check which is right before the sheet is confirmed."

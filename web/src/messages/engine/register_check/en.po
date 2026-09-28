@@ -1,0 +1,39 @@
+msgid ""
+msgstr ""
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: en\n"
+
+#. engine/messages/register_check.py (ticket 19b): with no drawing list, a gap in a Discipline's numbering (m0-screens 6.3's "no drawing list; numbering runs 01–57; 14 and 31 missing").
+msgid "engine.register_check.gap"
+msgstr "No drawing list, and the numbering skips from {after} to {before}: {missing, plural, one {# number is} other {# numbers are}} missing."
+
+#. The drawing list against the sheets, both ways: m0-screens §5's Question title, verbatim.
+msgid "engine.register_check.not_found"
+msgstr "{number} is on the drawing list but in no file"
+
+msgid "engine.register_check.not_listed"
+msgstr "{number} is in a file but not on the drawing list"
+
+#. The drawing-list dialog's refusals (m0-screens 6.10), for the QS who pasted or typed the list.
+msgid "engine.register_check.nothing_found"
+msgstr "No line here reads as a sheet. Start each line with its sheet number, as in S-01 General notes, or type a range, as in 01 to 57."
+
+msgid "engine.register_check.range_backwards"
+msgstr "Line {line} runs backwards, from {first} to {last}. Type the lower number first: {last} to {first}."
+
+msgid "engine.register_check.range_hyphen"
+msgstr "Line {line}, {first}-{last}, could be one sheet's number or a range. For a range, type {first} to {last}."
+
+msgid "engine.register_check.range_mixed"
+msgstr "Line {line} runs from {first} to {last}, which are numbered differently, so it cannot be one range. Type a range for each on its own line."
+
+msgid "engine.register_check.range_too_long"
+msgstr "Line {line}, {first} to {last}, holds more than {limit, number} sheet numbers, more than one drawing list takes. Check the two numbers, or type the list in parts."
+
+msgid "engine.register_check.text_too_long"
+msgstr "This is longer than a drawing list: Vextrus reads up to {limit, number} characters. Paste the list on its own, without the rest of the email."
+
+msgid "engine.register_check.too_many"
+msgstr "This names more than {limit, number} sheets, more than one drawing list takes. Paste or type one Discipline's list at a time."

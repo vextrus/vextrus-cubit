@@ -142,8 +142,8 @@ def one_check(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, body: str) -> str
         ("return [CheckResult('other', CheckOutcome.PASSED)]", ValueError, "not its own"),
         (
             (
-                "return [CheckResult('probe', CheckOutcome.FIRED, finding={'code': 'engine.nowhere.said', "
-                "'params': {}})]"
+                "return [CheckResult('probe', CheckOutcome.FIRED, finding={"
+                "'code': 'engine.nowhere.said', 'params': {}})]"
             ),
             ValueError,
             "no engine code",

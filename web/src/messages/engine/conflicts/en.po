@@ -1,0 +1,18 @@
+msgid ""
+msgstr ""
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: en\n"
+
+#. engine/messages/conflicts.py (ticket 19b): two sheets with one number, m0-screens §5's Question title, verbatim for two.
+msgid "engine.conflicts.same_number"
+msgstr "{copies, plural, =2 {Two sheets are} other {# sheets are}} numbered {number}"
+
+#. The views' Discipline, subject and storey are keys the Question (21c) words through the product's names; the words here use the layer only.
+msgid "engine.conflicts.same_storey"
+msgstr "{views, plural, =2 {Two plans} other {# plans}} on different sheets draw the same thing on the same storey{layer, select, top {, top layer} bottom {, bottom layer} other {}}"
+
+#. A title on sheets whose numbers do not run on (m0-screens §5: one title on consecutive numbers is a continuation, with no Question).
+msgid "engine.conflicts.same_title"
+msgstr "{sheets, plural, =2 {Two sheets are titled “{title}” but are not numbered one after the other} other {# sheets are titled “{title}” but are not all numbered one after the other}}"
