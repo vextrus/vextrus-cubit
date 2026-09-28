@@ -149,3 +149,15 @@ much parallel work as that quality allows, and each wave applies the last one's 
   threads exhausted its memory cap. A setting made in one process does not cross a sandbox that clears
   the environment: every sandboxed Python child sets its own pin, and a test asserts one thread from
   `/proc/self/task` rather than relying on the runner's core count.
+- **A setting you think is on may not be.** The owner's "high by default" ruling lived as
+  `effortLevel: "high"` in the project settings, yet Opus 5.5 starts at `medium` unless a level is saved
+  for it per model, and the docs disagree on whether the top-level key covers it. Cloud tickets read only
+  the repository's `.claude/settings.json`. Set `modelSettings` per model, and check `/status` at the
+  start of a session.
+- **A new measure's first real run is where real files surprise.** 10's second reader agreed on every
+  synthetic file and stopped on one real DWG (a Z scale of 0 its library refuses); 12's PDF reads took
+  30 s where fixtures took a second. Read the exports' states and error kinds before the owner accepts,
+  and diagnose locally before deciding.
+- **The Desktop app and the CLI keep separate configs.** The CLI's default config was not signed in, and
+  account B's config dir held none of the Desktop's settings (auto mode, the classifier's environment,
+  prompt caching). A move between surfaces carries its user settings over by hand.

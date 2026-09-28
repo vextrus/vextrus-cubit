@@ -76,6 +76,22 @@ configuration and prose, not code. It must never become the product (docs/postmo
 - **Collisions:** tickets in a wave own disjoint files; at most one ticket per wave adds migrations to
   a given module. Record the account and cost of each merged PR in the milestone's issue.
 
+## The review loop (session 04; the `orchestrate-wave` skill runs it)
+Every PR, before the owner merges it, goes through the same loop. It found a real fault in ten of eleven
+session-04 PRs, three of them in fixes of earlier findings.
+- **First head:** the `pr-reviewer` agent (five passes, a bug scan that attacks the PR's trust boundary in a
+  scratch test, scores 0–100, claims verified by running them on the owner's machine, merged with any PR or
+  `main` it meets) and, for a PR touching `web/**`, `ux-critic` as the words-only design gate. In parallel.
+- **One message per round** to the ticket's session: what held, the findings (score, scenario, fix
+  direction), the gate's musts and mays, and any owner ruling in their words. Findings at 50 and above are
+  fixed; below 50, fixed when cheap and in reach.
+- **Every fix is re-checked** by the same agents on the new head: each finding re-attacked, its test red
+  without the fix, the round's diff scanned, the earlier attacks re-run.
+- **The owner's steps, in order:** update the branch; any root step (`toolchain.sh`); the `design-gate`
+  post on the final head; the real-drawing posting run, whose table and export states the orchestrator reads
+  before the owner accepts; the merge.
+- **Measures** go to the milestone issue per PR and per wave.
+
 ## Rules against the Builder's failure modes
 - **The harness stays small:** three hooks (guard, state, after-bash) and the blind scorer; no
   orchestrator, ledger, state store, locked paths or evidence packs. A harness change needs an
@@ -112,8 +128,11 @@ configuration and prose, not code. It must never become the product (docs/postmo
   `domain-modeling`, `to-spec`, `to-tickets`, `triage`, `wayfinder`, `implement`, `tdd`,
   `diagnosing-bugs`, `codebase-design`, `prototype`, `research`, `handoff`,
   `resolving-merge-conflicts`, `writing-for-agents`, `wizard`, `ask-matt`,
-  `improve-codebase-architecture`; his review skill is `spec-review`), plus `product-review` and
-  `real-drawings`. The built-in `/code-review` and ultrareview review PRs.
+  `improve-codebase-architecture`; his review skill is `spec-review`), plus `product-review`,
+  `real-drawings` and `orchestrate-wave` (the orchestrator's runbook). The built-in `/code-review` and
+  ultrareview review PRs.
+- **Agents:** `pr-reviewer` (every PR, and every fix round), `refuter` (one claim), `ux-critic` (a walk,
+  or the words-only gate), `qs-critic` and `drawing-analyst` (local, real drawings).
 - **MCP:** `chrome-devtools`, through the small wrapper in `.claude/mcp/`.
 - **Jev:** in the product per ADR 0011, and in development sessions where a closed question helps.
 

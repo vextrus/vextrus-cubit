@@ -24,9 +24,10 @@ lines.push(`tree: ${tracked === 0 ? "clean" : `${tracked} tracked change(s)`} ·
 const pr = read("gh", ["pr", "view", "--json", "number,title,state", "--jq", '"#\\(.number) \\(.state) \\(.title)"']);
 if (pr) lines.push(`pr: ${pr}`);
 
-const ports = [...new Set([process.env.PGPORT, "5544", "5432"].filter(Boolean))];
-const up = ports.find((port) => spawnSync("pg_isready", ["-h", "127.0.0.1", "-p", port, "-q"], { timeout: 5_000 }).status === 0);
-lines.push(`postgres: ${up ? `up on ${up}` : `not answering on ${ports.join("/")}`}`);
+// PostgreSQL 18 on 5432 is this product's; 5544 is the old product's and never ours (CLAUDE.md).
+const port = process.env.PGPORT ?? "5432";
+const up = spawnSync("pg_isready", ["-h", "127.0.0.1", "-p", port, "-q"], { timeout: 5_000 }).status === 0;
+lines.push(`postgres 18: ${up ? `up on ${port}` : `not answering on ${port}`}`);
 
 lines.push(`real drawings (.private/): ${existsSync(join(ROOT, ".private")) ? "present (local session)" : "absent (cloud session: committed tests only)"}`);
 
