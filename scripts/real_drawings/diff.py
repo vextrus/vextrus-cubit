@@ -8,7 +8,9 @@ by (file, type); a font, PDF or Bangla-ANSI count by (file, its name); a Check r
 its joined subject); a conflict or a continuation by (kind, its joined candidates); render F1 by the
 joined sheet. An item that joins nothing is gained or lost; a joined item whose named values differ is
 changed. A sheet's render F1 is changed when it moves by more than 0.005 and lost when it falls by more
-than 0.01. Read time and peak memory are shown, never counted.
+than 0.01, the move taken to nine decimal places (exactly on an edge is not past it). A stage that fails
+where it did not is lost, joined by (file, stage) or (the set, stage). Read time and peak memory are
+shown, never counted.
 
 The export is the engine's (06b: engine/export.py and engine/export.schema.json), read as it is:
 - `files`, each with `sha256`, `path`, `decoders_agree`, `entity_counts`, `font_report`, `pdf_report`
@@ -73,6 +75,10 @@ VIEW_IOU = 0.8
 ROW_IOU = 0.8
 F1_CHANGED = 0.005
 F1_LOST = 0.01
+# A render F1 move is compared to nine decimal places, so a move exactly on an edge in decimal is on it
+# and not past it by the subtraction's float error (0.505 - 0.5 is 0.0050000000000000044). The edges
+# themselves are fixed above and never tuned.
+F1_DIGITS = 9
 
 
 @dataclass(frozen=True)
@@ -318,9 +324,11 @@ def _render_f1(diff: Diff, key: str, old: float | None, new: float | None) -> No
     fields = {"render_f1": [old, new]}
     if old is None:
         diff.items.append(Change("render_f1", "gained", key, fields))
-    elif new is None or new < old - F1_LOST:
+        return
+    move = None if new is None else round(new - old, F1_DIGITS)
+    if move is None or -move > F1_LOST:
         diff.items.append(Change("render_f1", "lost", key, fields))
-    elif abs(new - old) > F1_CHANGED:
+    elif abs(move) > F1_CHANGED:
         diff.items.append(Change("render_f1", "changed", key, fields))
 
 
