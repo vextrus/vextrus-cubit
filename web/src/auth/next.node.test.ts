@@ -39,6 +39,12 @@ describe('safeNext', () => {
     '/a/..//x/join',
     '/members/../sign-in',
     '/members/%2e%2e/sign-in',
+    // Encoded dot segments that survive parsing and are decoded later (review 20a r1).
+    '/%2e%2e%2f/evil.example',
+    '/%252e%252e//evil.example',
+    '/members/..%2f..%2f/evil',
+    '/members/%2e',
+    '/p/KR-01/%2F/x',
     'javascript:alert(1)',
     'JaVaScRiPt:alert(1)',
     'javascript%3Aalert(1)',

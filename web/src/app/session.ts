@@ -222,6 +222,9 @@ export const sessionQuery = queryOptions({
     return sessionFrom(me, projects)
   },
   staleTime: Infinity,
+  // Read again whenever the tab comes back into view (another tab may have signed out, or switched
+  // the Developer the session works in), as well as on every move inside the frame (auth/gate.ts).
+  refetchOnWindowFocus: 'always',
   retry,
   retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 30_000),
 })

@@ -6,6 +6,8 @@
  */
 import { useId, useState } from 'react'
 import { Trans, useLingui } from '@lingui/react/macro'
+import { useQueryClient } from '@tanstack/react-query'
+import { sameSession } from '@/auth'
 import { useFormat } from '@/format'
 import { Button, useToast } from '@/ui'
 
@@ -13,6 +15,7 @@ export function LinkShown({ email, link, worksUntil, replaced = false }: { email
   const { t } = useLingui()
   const f = useFormat()
   const toast = useToast()
+  const queryClient = useQueryClient()
   const id = useId()
   const [refused, setRefused] = useState(false)
   const date = f.date(worksUntil)
@@ -24,10 +27,11 @@ export function LinkShown({ email, link, worksUntil, replaced = false }: { email
     }
   }
   async function copy() {
+    const current = sameSession(queryClient)
     try {
       await navigator.clipboard.writeText(link)
       setRefused(false)
-      toast.show({ message: <Trans>Link copied</Trans> })
+      if (current()) toast.show({ message: <Trans>Link copied</Trans> })
     } catch {
       setRefused(true)
       select()

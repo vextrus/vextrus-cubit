@@ -4,14 +4,16 @@
  *
  * Its door (src/auth/gate.ts): signed out goes to /sign-in with the address to come back to; signed in
  * with no Developer to work in, to "Which Developer?", "Access ended" or "No access to anything". The
- * frame then watches the session (src/auth/SessionWatch.tsx): signed out while working, access ended.
+ * frame then watches the session (src/auth/SessionWatch.tsx): signed out while working, access ended,
+ * another tab's act; and it is drawn for one person in one Developer at a time: when the session read
+ * again names another, the frame waits, forgets, and starts again for them (`useFrameIdentity`).
  */
 import { Outlet, createFileRoute } from '@tanstack/react-router'
 import { AppFrame, NotFound } from '@/app/Frame'
-import { FramePending, SessionWatch, enterFrame, RouteError } from '@/auth'
+import { FramePending, SessionWatch, enterFrame, RouteError, useFrameIdentity } from '@/auth'
 
 export const Route = createFileRoute('/_app')({
-  beforeLoad: ({ context, location }) => enterFrame(context.queryClient, location),
+  beforeLoad: ({ context, location, cause }) => enterFrame(context.queryClient, location, cause),
   pendingComponent: FramePending,
   component: AppLayout,
   errorComponent: RouteError,
@@ -20,8 +22,10 @@ export const Route = createFileRoute('/_app')({
 })
 
 function AppLayout() {
+  const identity = useFrameIdentity()
+  if (identity === null) return <FramePending />
   return (
-    <AppFrame>
+    <AppFrame key={identity}>
       <Outlet />
       <SessionWatch />
     </AppFrame>

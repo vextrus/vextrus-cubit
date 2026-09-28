@@ -17,7 +17,7 @@ import { PATHS, useGo } from '@/app/AppLink'
 import { sessionQuery, type Session } from '@/app/session'
 import { unitSystem } from '@/format/units'
 import { MachineText, type MachineMessage } from '@/format/machine'
-import { ProblemBar, problemOf, type Problem } from '@/auth'
+import { ProblemBar, problemOf, sameSession, type Problem } from '@/auth'
 import { Button, Segmented, TextField } from '@/ui'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/ui/primitives/dialog'
 import { DiscardBar, useDiscardGuard } from './discard'
@@ -56,13 +56,17 @@ export function NewProjectDialog({ session, open, onOpenChange }: { session: Ses
     setFieldErrors({})
     setProblem(null)
     setSaving(true)
+    const current = sameSession(queryClient)
     try {
       const project = await unwrap(api.POST('/api/projects', { body: { name: values.name, code: values.code, address: values.address, unit_system: unit } }))
+      // Signed out, switched or someone else meanwhile: the new project's page is not theirs to open.
+      if (!current()) return
       await queryClient.invalidateQueries({ queryKey: sessionQuery.queryKey })
       reset()
       onOpenChange(false)
       go(PATHS.project(project.code))
     } catch (error) {
+      if (!current()) return
       if (error instanceof ApiRefused && error.refusal && error.field) {
         setFieldErrors({ [error.field as Field]: error.refusal })
         document.querySelector<HTMLElement>(`#${CSS.escape(`${formId}-${error.field}`)}`)?.focus()

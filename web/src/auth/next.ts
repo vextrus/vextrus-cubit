@@ -34,6 +34,9 @@ export function safeNext(next: unknown): string {
   if (!next.startsWith('/') || next.startsWith('//')) return fallback
   const decoded = decodeFully(next)
   if (decoded === null || decoded.startsWith('//') || /[\u0000- \u007f-\u009f\\]/.test(decoded)) return fallback // eslint-disable-line no-control-regex -- as above
+  // A dot segment or an empty one, however encoded ("/%2e%2e%2f/evil.example" is "/..//evil.example"
+  // once decoded): no address in the app has one, so none is followed (review 20a r1).
+  if (/\/\.{1,2}(?=\/|$)|\/\//.test(decoded.split(/[?#]/)[0]!)) return fallback
   let url: URL
   try {
     url = new URL(next, BASE)

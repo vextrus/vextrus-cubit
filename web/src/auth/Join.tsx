@@ -5,7 +5,8 @@
  *
  * The token is read from the fragment only (the browser never sends a fragment, so no server logs it),
  * held in this page's memory, sent only in a POST body, and cleared from the address bar once looked
- * up. It never enters a query string, `?next=`, the router's search, a query key or a log.
+ * up. It never enters a query string, `?next=`, the router's search, a query key or a log. A new link
+ * pasted into the open page (only the fragment changes, so nothing reloads) is looked up in its turn.
  *
  * - Signed in as the invited email: [Join].
  * - Signed in as someone else: the API's `wrong_account` words and [Sign out], after which the page
@@ -21,7 +22,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Plural, Select, Trans, useLingui } from '@lingui/react/macro'
 import { useQueryClient } from '@tanstack/react-query'
-import { useRouter } from '@tanstack/react-router'
+import { useRouter, useRouterState } from '@tanstack/react-router'
 import { ApiRefused, api, unwrap } from '@/api/client'
 import type { components } from '@/api/schema.gen'
 import { AppLink, PATHS } from '@/app/AppLink'
@@ -98,20 +99,34 @@ export function JoinPage() {
   const queryClient = useQueryClient()
   const held = useHeld()
   const enter = useEnter()
-  // Read once, from the fragment, and held only here.
-  const [token] = useState(() => tokenOf(router.state.location.hash))
+  // Read from the fragment, and held only here.
+  const hash = useRouterState({ select: (s) => s.location.hash })
+  const [token, setToken] = useState(() => tokenOf(hash))
   const [stage, setStage] = useState<Stage>(() => (token ? { at: 'reading' } : { at: 'unusable' }))
   const [me, setMe] = useState<Me | null | undefined>(undefined)
-  const started = useRef(false)
+  const asked = useRef(false)
+
+  // Another link pasted into this open page: only the fragment changes, and nothing reloads.
+  const pasted = tokenOf(hash)
+  if (pasted && pasted !== token) {
+    setToken(pasted)
+    setStage({ at: 'reading' })
+  }
 
   useEffect(() => {
-    if (started.current) return
-    started.current = true
-    const clear = () => router.history.replace(PATHS.join)
+    if (asked.current) return
+    asked.current = true
     void queryClient
       .fetchQuery({ ...meQuery, retry: false })
       .then(setMe)
       .catch(() => setMe(null))
+  }, [queryClient])
+
+  useEffect(() => {
+    let current = true
+    const clear = () => {
+      if (current) router.history.replace(PATHS.join)
+    }
     if (!token) {
       clear()
       return
@@ -121,16 +136,21 @@ export function JoinPage() {
     // the words ask for opens the same link (the fragment never reaches a server).
     lookUp(token)
       .then((invitation) => {
+        if (!current) return
         clear()
         setStage({ at: 'ready', invitation, token })
       })
       .catch((error: unknown) => {
+        if (!current) return
         if (error instanceof ApiRefused && error.status === 404) {
           clear()
           setStage({ at: 'unusable' })
         } else setStage({ at: 'failed', problem: problemOf(error) })
       })
-  }, [router, queryClient, token])
+    return () => {
+      current = false
+    }
+  }, [router, token])
 
   const developer = stage.at === 'ready' ? stage.invitation.link.developer_name : ''
   return (

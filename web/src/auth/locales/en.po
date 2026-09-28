@@ -35,6 +35,10 @@ msgstr "{inviter} invited you as {as}."
 msgid "{head}, {item}"
 msgstr "{head}, {item}"
 
+#: src/auth/SessionWatch.tsx
+msgid "Switched to {developer} in another tab."
+msgstr "Switched to {developer} in another tab."
+
 #: src/auth/RouteError.tsx
 msgid "Page could not be opened"
 msgstr "Page could not be opened"
@@ -263,3 +267,7 @@ msgstr "Choose another Developer"
 #: src/auth/OutsidePage.tsx
 msgid "Vextrus"
 msgstr "Vextrus"
+
+#: src/auth/SessionWatch.tsx
+msgid "Signed in as {name} in another tab."
+msgstr "Signed in as {name} in another tab."

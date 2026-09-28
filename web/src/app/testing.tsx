@@ -8,13 +8,15 @@
  *   api.calls()                                                       // ['GET /api/me', …]
  *
  * `step1` puts Step 1's counts on the session's projects, which 19a will send; `session` replaces the
- * session outright (the Market's language, say). The API is restored when the test finishes.
+ * session outright (the Market's language, say). Either holds until the first move inside the frame,
+ * which reads the session again from the API (auth/gate.ts). The API is restored when the test finishes.
  */
 import { onTestFinished } from 'vitest'
 import { render } from '@testing-library/react'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider, createMemoryHistory } from '@tanstack/react-router'
 import { setTransport } from '@/api/client'
+import { nameTabChannel } from '@/auth/tabs'
 import { KeyMap } from '@/ui/keys/registry'
 import { UiProviders } from '@/ui/UiProviders'
 import { createAppRouter, createQueryClient } from './router'
@@ -22,6 +24,9 @@ import { FakeApi, PEOPLE } from './seed/api.fixture'
 import { sessionQuery, type ProjectSummary, type Session } from './session'
 
 export { FakeApi, PEOPLE }
+
+// Each test file's apps talk to one another as tabs do (auth/tabs.ts), never to another file's.
+nameTabChannel(`vextrus-session-test-${crypto.randomUUID()}`)
 
 function clearCsrfCookie() {
   document.cookie = 'csrftoken=; Max-Age=0; path=/' // eslint-disable-line lingui/no-unlocalized-strings -- a cookie, not words

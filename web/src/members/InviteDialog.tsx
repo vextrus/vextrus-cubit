@@ -20,7 +20,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { ApiRefused } from '@/api/client'
 import { roleName } from '@/app/roles'
 import type { Role, Session } from '@/app/session'
-import { ProblemBar, invitableRoles, problemOf, type Problem } from '@/auth'
+import { ProblemBar, invitableRoles, problemOf, sameSession, type Problem } from '@/auth'
 import { MachineText, type MachineMessage } from '@/format/machine'
 import { DiscardBar, useDiscardGuard } from '@/projects'
 import { Button, Checkbox, FieldError, Segmented, TextField } from '@/ui'
@@ -123,6 +123,7 @@ export function InviteDialog({ session, open, onOpenChange }: { session: Session
     const firstBad = (['email', 'role', 'projects', 'end'] as const).find((f) => f in found)
     if (firstBad) return focus(firstBad)
     setSaving(true)
+    const current = sameSession(queryClient)
     try {
       const link = await invite({
         email: email.trim(),
@@ -130,9 +131,12 @@ export function InviteDialog({ session, open, onOpenChange }: { session: Session
         projectIds: mode === 'all' ? null : session.projects.filter((p) => chosen.has(p.id)).map((p) => p.id),
         expiresAt: ending && endDay ? endOfDay(endDay, timeZone) : null,
       })
+      // Signed out, switched or someone else meanwhile: the link is not theirs to see.
+      if (!current()) return
       await queryClient.invalidateQueries({ queryKey: membersQuery.queryKey })
       setCreated({ email: email.trim(), link: inviteLink(link.token), worksUntil: link.link_expires_at })
     } catch (error) {
+      if (!current()) return
       const field = error instanceof ApiRefused && error.refusal ? FIELD_OF[error.refusal.code] : undefined
       if (field && error instanceof ApiRefused && error.refusal) {
         setErrors({ [field]: error.refusal })

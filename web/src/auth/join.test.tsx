@@ -22,6 +22,7 @@ afterEach(() => {
 })
 
 const clean = (s: string | null | undefined) => (s ?? '').replace(/[⁦-⁩]/g, '')
+const named = (re: RegExp) => (name: string) => re.test(clean(name))
 const UNUSABLE = 'This invitation can no longer be used. Ask whoever sent it for a new one.'
 const END_26_OCT = '2026-10-26T17:59:00Z'
 
@@ -73,6 +74,19 @@ describe('the link’s page (§4.2)', () => {
     await join(`/join#${token}`, { as: null, api })
     expect(screen.getByText(UNUSABLE)).toBeVisible()
     expect(document.body.textContent).not.toContain('Shapla')
+  })
+
+  it('looks up a new link pasted into the page that said the last one could not be used (only the fragment changes)', async () => {
+    const api = new FakeApi()
+    const used = api.tokenFor('rumana@shapla-homes.example')
+    api.memberships.filter((m) => m.token === used).forEach((m) => ((m.userId = api.user(PEOPLE.qs).id), (m.token = null)))
+    const token = await invited(api, { email: 'sadia@shapla-homes.example', role: 'qs' })
+    const { router } = await join(`/join#${used}`, { as: null, api })
+    expect(screen.getByText(UNUSABLE)).toBeVisible()
+    await router.history.push(`/join#${token}`)
+    expect(await screen.findByRole('heading', { name: named(/^Join Shapla Homes Ltd$/) })).toBeVisible()
+    expect(screen.queryByText(UNUSABLE)).toBeNull()
+    await waitFor(() => expect(router.state.location.hash).toBe(''))
   })
 
   it('joins a new person: name and a password of at least 12 characters, in the API’s words, then their projects', async () => {

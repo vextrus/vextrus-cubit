@@ -19,7 +19,7 @@ import { ApiRefused } from '@/api/client'
 import { PageLayout } from '@/app/Frame'
 import { roleName } from '@/app/roles'
 import { sessionQuery, type Session } from '@/app/session'
-import { LoadProblem, ProblemBar, can, problemOf, usePageTitle, type Problem } from '@/auth'
+import { LoadProblem, ProblemBar, can, problemOf, sameSession, usePageTitle, type Problem } from '@/auth'
 import { EMPTY, useFormat } from '@/format'
 import { Button, Skeleton, cn, useToast } from '@/ui'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/primitives/dialog'
@@ -322,16 +322,21 @@ export function MembersView({ session, members, failed, onRetry }: { session: Se
   const developer = session.developer.name
   const manages = can(session, 'access')
 
-  async function run(key: string, work: () => Promise<void>) {
+  /**
+   * One row's act. Its answer is said, and the rows read again, only while the session is still the one
+   * that asked: signed out, switched or someone else meanwhile, the answer belongs to no one on screen.
+   */
+  async function run(key: string, work: (current: () => boolean) => Promise<void>) {
+    const current = sameSession(queryClient)
     setBusy(key)
     setProblem(null)
     try {
-      await work()
+      await work(current)
     } catch (error) {
-      setProblem(problemOf(error))
+      if (current()) setProblem(problemOf(error))
     } finally {
       setBusy(null)
-      await queryClient.invalidateQueries({ queryKey: membersQuery.queryKey })
+      if (current()) await queryClient.invalidateQueries({ queryKey: membersQuery.queryKey })
     }
   }
 
@@ -342,22 +347,22 @@ export function MembersView({ session, members, failed, onRetry }: { session: Se
       if (action === 'revoke' && row.kind === 'person') return setRevoking(row)
       if (action === 'renew' && row.kind === 'person') {
         const name = row.name
-        return void run(key, async () => {
+        return void run(key, async (current) => {
           const { expires_at } = await renew(row.membershipId)
           const date = f.date(expires_at)
-          toast.show({ message: <Trans>{name}’s access now ends on {date}.</Trans> })
+          if (current()) toast.show({ message: <Trans>{name}’s access now ends on {date}.</Trans> })
         })
       }
       if (action === 'withdraw') {
-        return void run(key, async () => {
+        return void run(key, async (current) => {
           await withdraw(row.membershipId)
-          toast.show({ message: <Trans>Invitation withdrawn. The link no longer works.</Trans> })
+          if (current()) toast.show({ message: <Trans>Invitation withdrawn. The link no longer works.</Trans> })
         })
       }
       if (action === 'copy_link' && row.kind === 'invitation') {
-        return void run(key, async () => {
+        return void run(key, async (current) => {
           const link = await newLink(row.membershipId)
-          setShown({ email: row.email, link: inviteLink(link.token), worksUntil: link.link_expires_at })
+          if (current()) setShown({ email: row.email, link: inviteLink(link.token), worksUntil: link.link_expires_at })
         })
       }
     },
@@ -448,9 +453,9 @@ export function MembersView({ session, members, failed, onRetry }: { session: Se
                 setRevoking(null)
                 if (!row) return
                 const name = row.name
-                void run(`revoke:${row.membershipId}`, async () => {
+                void run(`revoke:${row.membershipId}`, async (current) => {
                   await revoke(row.membershipId)
-                  toast.show({ message: <Trans>{name}’s access has ended.</Trans> })
+                  if (current()) toast.show({ message: <Trans>{name}’s access has ended.</Trans> })
                 })
               }}
             >
