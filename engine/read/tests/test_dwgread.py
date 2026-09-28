@@ -11,6 +11,7 @@ from typing import Any
 
 import pytest
 
+from engine.read.errors import ReadError
 from engine.read.libredwg import dwgread
 
 
@@ -294,3 +295,54 @@ def test_loading_keeps_only_what_is_read(tmp_path: Path) -> None:
         {"entity": "LINE", "handle": [0, 1, 0x90], "layer": [5, 1, 0x10, 0x10]}
     ]
     assert dwgread.decode(loaded) == dwgread.decode(drawing(line))
+
+
+def test_an_attdefs_text_is_its_default_value() -> None:
+    data = drawing()
+    (attdef,) = [o for o in data["OBJECTS"] if o.get("entity") == "ATTDEF"]
+    attdef["default_value"] = "S-101"
+
+    assert dwgread.decode(data).texts["32"].text == "S-101"
+
+
+def test_a_file_whose_records_list_objects_dwgread_lost_is_refused() -> None:
+    # A damaged file: dwgread exits 0 and says SUCCESS, yet decodes almost nothing.
+    data = drawing(model_space=[0x90, 0x91])
+
+    with pytest.raises(ReadError) as raised:
+        dwgread.decode(data)
+
+    assert raised.value.message == {"code": "engine.read.objects_missing", "params": {"count": 2}}
+
+
+def test_two_entities_with_one_handle_are_refused() -> None:
+    twice = [{"entity": "LINE", "handle": own(0x90), "layer": ref(0x10)} for _ in range(2)]
+
+    with pytest.raises(ValueError, match="handle"):
+        dwgread.decode(drawing(*twice))
+
+
+def test_without_record_lists_blocks_and_inserts_hold_what_names_them_as_owner() -> None:
+    # R2000's records and inserts keep no lists: the owner handles give them.
+    data = drawing(insert(0x40, []), attrib(0x41, 0x40, "SHEET_NO", NULL))
+    for item in data["OBJECTS"]:
+        item.pop("entities", None)
+        item.pop("attribs", None)
+        if item.get("entity") == "INSERT":
+            item["entmode"] = 2
+
+    decoded = dwgread.decode(data)
+
+    blocks = {block.handle: block for block in decoded.blocks}
+    assert (blocks["30"].entities, blocks["1F"].entities) == (("32",), ("40",))
+    assert decoded.inserts["40"].attribs == ("41",)
+    assert (decoded.texts["41"].style, decoded.texts["41"].style_source) == ("TITLE", "attdef")
+
+
+def test_a_layer_the_file_does_not_hold_is_empty_and_counted() -> None:
+    stray = {"entity": "LINE", "handle": own(0x90), "layer": ref(0x99)}
+
+    decoded = dwgread.decode(drawing(stray))
+
+    assert {p.handle: p.layer for p in decoded.entities}["90"] == ""
+    assert decoded.notes == ({"code": "engine.read.layer_unresolved", "params": {"count": 1}},)

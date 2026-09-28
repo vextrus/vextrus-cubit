@@ -254,3 +254,31 @@ def test_a_damaged_dwg_is_a_reader_failure_with_its_finding(tmp_path: Path) -> N
 
     assert raised.value.message["code"] in {"engine.read.reader_failed", "engine.read.output_unreadable"}
     assert raised.value.message["params"]["program"] == "dwgread"
+
+
+@pytest.mark.needs_toolchain
+def test_a_file_dwgread_half_decodes_is_refused_not_read_in_part(
+    dwg_fixture: Fixture, tmp_path: Path
+) -> None:
+    # 64 bytes flipped in the middle: dwgread exits 0 and says SUCCESS, having lost the objects the
+    # block records list (found by the reader's refuter, 28 Sep 2026).
+    data = bytearray(dwg_fixture("title_block").read_bytes())
+    middle = len(data) // 2
+    data[middle : middle + 64] = bytes(b ^ 0xFF for b in data[middle : middle + 64])
+    damaged = tmp_path / "damaged.dwg"
+    damaged.write_bytes(bytes(data))
+
+    with pytest.raises(ReadError) as raised:
+        read(damaged)
+
+    assert raised.value.message["code"] == "engine.read.objects_missing"
+
+
+@pytest.mark.needs_toolchain
+def test_an_attdef_carries_its_default_text(dwg_fixture: Fixture) -> None:
+    artefact = read(dwg_fixture("title_block"))
+
+    attdefs = {
+        e.tag: e.text for e in artefact.entities.values() if isinstance(e, Text) and e.type == "ATTDEF"
+    }
+    assert attdefs == {"SHEET_NO": "X-00", "SHEET_TITLE": ""}

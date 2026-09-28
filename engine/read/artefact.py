@@ -217,7 +217,7 @@ class ReadArtefact:
             format=file_format,
             reader=s.string("reader"),
             reader_version=s.string("reader_version"),
-            layouts=[str(name) for name in s.array("layouts")],
+            layouts=[_string(name, "a layout's name") for name in s.array("layouts")],
             insunits=s.integer("insunits"),
             notes=[_message(note) for note in s.array("notes")],
             blocks=blocks,
@@ -231,6 +231,8 @@ class ReadArtefact:
         top.done()
         if len(artefact.entities) != len(entities):
             raise ValueError("read artefact: an entity handle is repeated")
+        if len(artefact.blocks) != len(blocks):
+            raise ValueError("read artefact: a block handle is repeated")
         return artefact
 
 
@@ -267,6 +269,12 @@ def _optional_int(value: object, what: str) -> int | None:
         return None
     if not isinstance(value, int) or isinstance(value, bool):
         raise ValueError(f"read artefact: {what} must be an integer, got {value!r}")
+    return value
+
+
+def _string(value: object, what: str) -> str:
+    if not isinstance(value, str):
+        raise ValueError(f"read artefact: {what} must be a string, got {value!r}")
     return value
 
 

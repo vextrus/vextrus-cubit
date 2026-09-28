@@ -23,7 +23,7 @@ def draw() -> Drawing:
 
     attributed = doc.blocks.new("TB-ATTR", base_point=(0, 0))
     attributed.add_lwpolyline([(0, 0), (180, 0), (180, 40), (0, 40)], close=True)
-    attributed.add_attdef("SHEET_NO", (10, 25), dxfattribs={"height": 5, "style": "TITLE"})
+    attributed.add_attdef("SHEET_NO", (10, 25), "X-00", dxfattribs={"height": 5, "style": "TITLE"})
     attributed.add_attdef("SHEET_TITLE", (10, 10), dxfattribs={"height": 3.5, "style": "TITLE"})
 
     plain = doc.blocks.new("TB-PLAIN", base_point=(0, 0))

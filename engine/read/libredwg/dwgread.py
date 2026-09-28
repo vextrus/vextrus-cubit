@@ -20,7 +20,7 @@ which the DXF supplies, is dropped as it is parsed rather than held.
 """
 
 import json
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
@@ -28,6 +28,7 @@ from typing import Any
 from engine.messages import Message
 from engine.messages import read as codes
 from engine.read.artefact import TEXT_TYPES, Block, Insert, Point, Text
+from engine.read.errors import ReadError
 
 UNKNOWN_OWNER = "0"  # no record lists the entity, it names no owner and states no space
 STRUCTURE = frozenset({"BLOCK", "ENDBLK", "SEQEND"})  # markers, not drawing entities
@@ -35,8 +36,9 @@ _ENTITY_KEEP = frozenset({"entity", "handle", "layer", "ownerhandle", "entmode",
 _TEXT_KEEP = _ENTITY_KEEP | {
     "text_value", "text", "style", "height", "text_height", "ins_pt", "alignment_pt", "elevation",
     "horiz_alignment", "vert_alignment", "rotation", "x_axis_dir", "width_factor", "rect_width",
-    "attachment", "tag", "extrusion",
+    "attachment", "tag", "extrusion", "default_value",
 }  # fmt: skip
+_TEXT_FIELD = {"MTEXT": "text", "ATTDEF": "default_value"}  # else "text_value"
 _INSERT_KEEP = _ENTITY_KEEP | {"ins_pt", "scale", "rotation", "extrusion", "block_header", "attribs"}
 _OBJECT_KEEP = {
     "LAYER": frozenset({"object", "handle", "name"}),
@@ -127,28 +129,22 @@ def decode(data: Mapping[str, Any]) -> Decoded:
     }
 
     owner_of: dict[str, str] = {}
+    listed_missing = 0
     for header_handle, header in headers.items():
         for ref in header.get("entities", []):
             if child := handle(ref):
                 owner_of[child] = header_handle
+                listed_missing += child not in by_handle
+    if listed_missing:  # dwgread said SUCCESS, yet lost objects the file's own records list
+        raise ReadError(codes.OBJECTS_MISSING(count=listed_missing))
     header_vars: Mapping[str, Any] = data.get("HEADER", {})
     space_of = {  # an entity's entmode when no record lists it: 2 model space, 1 paper space
         2: handle(header_vars.get("BLOCK_RECORD_MSPACE")),
         1: handle(header_vars.get("BLOCK_RECORD_PSPACE")),
     }
 
-    blocks = tuple(
-        Block(
-            handle=h,
-            name=_block_name(header, by_handle),
-            base_point=_point3(header.get("base_pt")),
-            layout=layout_of.get(h),
-            entities=tuple(c for ref in header.get("entities", []) if (c := handle(ref))),
-        )
-        for h, header in headers.items()
-    )
-
     placed: list[Placed] = []
+    unresolved_layers = 0
     for item in objects:
         kind = item.get("entity")
         h = handle(item.get("handle"))
@@ -157,12 +153,34 @@ def decode(data: Mapping[str, Any]) -> Decoded:
         owner = (
             owner_of.get(h) or handle(item.get("ownerhandle")) or space_of.get(item.get("entmode", -1))
         )
-        layer = names.get(handle(item.get("layer")) or "", "")
-        placed.append(Placed(h, dxf_type(kind), layer, owner or UNKNOWN_OWNER))
-    where = {p.handle: p for p in placed}
+        layer = names.get(handle(item.get("layer")) or "")
+        unresolved_layers += layer is None
+        placed.append(Placed(h, dxf_type(kind), layer or "", owner or UNKNOWN_OWNER))
+    if len({p.handle for p in placed}) != len(placed):
+        raise ValueError("dwgread gave two entities one handle")
+
+    # What each record or insert holds: its own list where the file keeps one (R2004 on), else the
+    # entities that name it as their owner, in file order (R2000's records keep no list).
+    children: dict[str, list[str]] = {}
+    for p in placed:
+        children.setdefault(p.owner, []).append(p.handle)
+    for h, header in headers.items():
+        if "entities" in header:
+            children[h] = [c for ref in header["entities"] if (c := handle(ref))]
+
+    blocks = tuple(
+        Block(
+            handle=h,
+            name=_block_name(header, by_handle),
+            base_point=_point3(header.get("base_pt")),
+            layout=layout_of.get(h),
+            entities=tuple(children.get(h, ())),
+        )
+        for h, header in headers.items()
+    )
 
     inserts = {
-        p.handle: _insert(by_handle[p.handle], p, headers, by_handle)
+        p.handle: _insert(by_handle[p.handle], p, headers, by_handle, children)
         for p in placed
         if p.type in ("INSERT", "MINSERT")
     }
@@ -173,7 +191,7 @@ def decode(data: Mapping[str, Any]) -> Decoded:
             continue
         text = _text(by_handle[p.handle], p, styles)
         if text.type == "ATTRIB" and text.style is None:
-            attdef = _attdef_style(text, where, inserts, headers, by_handle, styles)
+            attdef = _attdef_style(text, inserts, children, by_handle, styles)
             if attdef is not None:
                 text = attdef
                 from_attdef += 1
@@ -186,6 +204,8 @@ def decode(data: Mapping[str, Any]) -> Decoded:
         notes.append(codes.ATTRIB_STYLE_FROM_ATTDEF(count=from_attdef))
     if aligned:
         notes.append(codes.ALIGNED_TEXT_FROM_START(count=aligned))
+    if unresolved_layers:
+        notes.append(codes.LAYER_UNRESOLVED(count=unresolved_layers))
     file_header: Mapping[str, Any] = data.get("FILEHEADER", {})
     return Decoded(
         version=str(file_header.get("version", "")),
@@ -237,6 +257,7 @@ def _insert(
     placed: Placed,
     headers: Mapping[str, Mapping[str, Any]],
     by_handle: Mapping[str, Mapping[str, Any]],
+    children: Mapping[str, Sequence[str]],
 ) -> Insert:
     block = handle(item.get("block_header")) or "0"
     header = headers.get(block)
@@ -252,8 +273,19 @@ def _insert(
         scale=_point3(scale, 1.0) if isinstance(scale, list) else (1.0, 1.0, 1.0),
         rotation_radians=_number(item.get("rotation")),
         extrusion=_point3(item.get("extrusion"), 1.0) if item.get("extrusion") else (0.0, 0.0, 1.0),
-        attribs=tuple(a for ref in item.get("attribs", []) if (a := handle(ref))),
+        attribs=_attribs(item, placed.handle, children, by_handle),
     )
+
+
+def _attribs(
+    item: Mapping[str, Any],
+    insert: str,
+    children: Mapping[str, Sequence[str]],
+    by_handle: Mapping[str, Mapping[str, Any]],
+) -> tuple[str, ...]:
+    if "attribs" in item:  # R2004 on: the insert's own list
+        return tuple(a for ref in item["attribs"] if (a := handle(ref)))
+    return tuple(c for c in children.get(insert, ()) if by_handle[c].get("entity") == "ATTRIB")
 
 
 def _text(item: Mapping[str, Any], placed: Placed, styles: Mapping[str, Mapping[str, Any]]) -> Text:
@@ -267,7 +299,7 @@ def _text(item: Mapping[str, Any], placed: Placed, styles: Mapping[str, Mapping[
         type=placed.type,
         layer=placed.layer,
         owner=placed.owner,
-        text=str(item.get("text" if is_mtext else "text_value", "")),
+        text=str(item.get(_TEXT_FIELD.get(placed.type, "text_value"), "")),
         style=str(style["name"]) if style else None,
         style_source="own" if style else "none",
         font=_font(style, "font_file"),
@@ -293,16 +325,15 @@ def _font(style: Mapping[str, Any] | None, key: str) -> str | None:
 
 def _attdef_style(
     attrib: Text,
-    where: Mapping[str, Placed],
     inserts: Mapping[str, Insert],
-    headers: Mapping[str, Mapping[str, Any]],
+    children: Mapping[str, Sequence[str]],
     by_handle: Mapping[str, Mapping[str, Any]],
     styles: Mapping[str, Mapping[str, Any]],
 ) -> Text | None:
     insert = inserts.get(attrib.owner)
     if insert is None or attrib.tag is None:
         return None
-    for child in _block_entities(headers.get(insert.block)):
+    for child in children.get(insert.block, ()):
         item = by_handle.get(child, {})
         if item.get("entity") == "ATTDEF" and item.get("tag") == attrib.tag:
             style = styles.get(handle(item.get("style")) or "")
@@ -316,9 +347,3 @@ def _attdef_style(
                 bigfont=_font(style, "bigfont_file"),
             )
     return None
-
-
-def _block_entities(header: Mapping[str, Any] | None) -> Iterator[str]:
-    for ref in (header or {}).get("entities", []):
-        if child := handle(ref):
-            yield child

@@ -18,8 +18,14 @@ msgstr "The drawing's geometry was read in recovery mode ({errors, plural, one {
 msgid "engine.read.geometry_missing"
 msgstr "{count, plural, one {# entity was read without its geometry} other {# entities were read without their geometry}}"
 
+msgid "engine.read.layer_unresolved"
+msgstr "{count, plural, one {# entity names a layer the file does not hold} other {# entities name a layer the file does not hold}}"
+
 msgid "engine.read.limit_reached"
 msgstr "{limit, select, cpu {The drawing could not be read: {program} used all the processing time it is given} wall {The drawing could not be read: {program} was stopped at its time limit} killed {The drawing could not be read: {program} was stopped at a limit of the machine's} other {The drawing could not be read: {program} reached a limit}}"
+
+msgid "engine.read.objects_missing"
+msgstr "The drawing could not be read: {count, plural, one {# object it lists is} other {# objects it lists are}} missing, so the file may be damaged"
 
 msgid "engine.read.output_unreadable"
 msgstr "The drawing could not be read: what {program} produced could not be understood"

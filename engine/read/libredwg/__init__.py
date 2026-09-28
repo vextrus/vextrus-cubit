@@ -67,11 +67,10 @@ def read(path: Path, *, source_name: str, limits: Limits = DEFAULT_LIMITS) -> Re
             entities.append(decoded.texts[placed.handle])
             continue
         values = geometry.get(placed.handle)
+        missing += values is None
         if placed.handle in decoded.inserts:
             entities.append(replace(decoded.inserts[placed.handle], values=values or {}))
             continue
-        if values is None:
-            missing += 1
         entities.append(Entity(placed.handle, placed.type, placed.layer, placed.owner, values or {}))
     notes = [*decoded.notes, *dxf_notes]
     if missing:
