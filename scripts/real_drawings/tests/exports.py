@@ -83,6 +83,12 @@ def process(seconds: float, peak_rss_kib: int) -> JSON:
     }
 
 
+def stage(state: str = "ok", error: str | None = None) -> JSON:
+    """One stage's report, as a file's `stages` or the export's `set_stages` hold it."""
+    failed = state == "failed"
+    return {"state": state, "calls": 1, "failed_calls": int(failed), "seconds": 0.1, "error": error}
+
+
 def sourced(value: str, source: str = "title_block_text") -> JSON:
     return {"value": value, "source": source}
 

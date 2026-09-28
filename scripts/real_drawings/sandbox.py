@@ -2,10 +2,12 @@
 
 As the owner, inside bwrap: every namespace unshared (no network), the environment cleared, bound
 read-only: /usr, the toolchain (/opt/vextrus), the scratch checkout, the wheel folder, the requirements
-and the Development Sets; writable: one fresh scratch folder, and nothing else (the root is remounted
-read-only). Neither home and not the drop folder is mounted. Inside, a new environment is made from the
-toolchain's Python and the locked wheels are installed offline from the wheel folder only, by hash,
-binary only (nothing is built); then the engine harness reads each set into `export-<set>.json`.
+and the Development Sets; writable: one fresh scratch folder and a private, in-memory /tmp (a bwrap
+started inside, as 04's reader starts one, needs it; the host's /tmp is never seen), and nothing else
+(the root is remounted read-only). Neither home and not the drop folder is mounted. Inside, a new
+environment is made from the toolchain's Python and the locked wheels are installed offline from the
+wheel folder only, by hash, binary only (nothing is built); then the engine harness reads each set into
+`export-<set>.json`.
 """
 
 import re
@@ -41,6 +43,10 @@ def argv(job: Job) -> list[str]:
         *("--symlink", "usr/lib64", "/lib64"),
         *("--symlink", "usr/bin", "/bin"),
         *("--proc", "/proc", "--dev", "/dev"),
+        *(
+            "--tmpfs",
+            "/tmp",
+        ),  # private and in memory: 04's reader starts its own bwrap, which needs /tmp
         *("--ro-bind", str(job.toolchain), str(job.toolchain)),
         *("--ro-bind", str(job.checkout), "/work/src"),
         *("--ro-bind", str(job.wheels), "/work/wheels"),

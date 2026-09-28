@@ -29,8 +29,9 @@ under the owner's cache; the counts are what may leave the machine.
 """
 
 import json
+import re
 import unicodedata
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
@@ -40,6 +41,7 @@ Position = tuple[int, ...]
 
 MEASURES = (
     "files",
+    "failed_stages",
     "entity_counts",
     "report_counts",
     "sheets",
@@ -129,6 +131,7 @@ def compare(old: JSON, new: JSON) -> Diff:
     for j in gained:
         diff.items.append(Change("files", "gained", joins.new_labels[j]))
         _file(diff, joins, None, (j, new_files[j]))
+    _failed(diff, "the set", old.get("set_stages"), new.get("set_stages"))
     _keyed(diff, "plot_matches", _plot(old, joins, True), _plot(new, joins, False))
     _keyed(diff, "checks", _checks(old, joins, True), _checks(new, joins, False))
     _keyed(
@@ -152,6 +155,7 @@ def sizes(export: JSON) -> dict[str, int]:
     sheets = [s for f in files for s in _list(f, "sheets")]
     return {
         "files": len(files),
+        "failed_stages": sum(failures(export).values()),
         "entity_counts": sum(len(f.get("entity_counts") or {}) for f in files),
         "report_counts": sum(len(_report_counts(f)) for f in files),
         "sheets": len(sheets),
@@ -181,6 +185,7 @@ def _file(diff: Diff, joins: _Joins, old: tuple[int, JSON] | None, new: tuple[in
         _prefixed(label, _report_counts(before)),
         _prefixed(label, _report_counts(after)),
     )
+    _failed(diff, label, before.get("stages"), after.get("stages"))
     old_sheets, new_sheets = _list(before, "sheets"), _list(after, "sheets")
     pairs, lost, gained = _join_sheets(old_sheets, new_sheets)
     for s, t in pairs:  # pairs only when both runs have the file
@@ -396,6 +401,60 @@ def _report_counts(file: JSON) -> dict[str, Any]:
     for key, prefix in (("font_report", "font"), ("pdf_report", "pdf"), ("bangla_ansi", "bangla_ansi")):
         found |= {f"{prefix} {name}": n for name, n in (file.get(key) or {}).items()}
     return found
+
+
+def failures(export: JSON) -> Counter[tuple[str, str]]:
+    """The stages that failed, as (stage, error kind) -> how many files; a set stage is named
+    "set <stage>" and counts once."""
+    found: Counter[tuple[str, str]] = Counter()
+    for file in _list(export, "files"):
+        found.update(
+            (n, error_kind(r.get("error")))
+            for n, r in (file.get("stages") or {}).items()
+            if _is_failed(r)
+        )
+    stages = export.get("set_stages") or {}
+    found.update((f"set {n}", error_kind(r.get("error"))) for n, r in stages.items() if _is_failed(r))
+    return found
+
+
+KIND = re.compile(r"^([A-Za-z_][A-Za-z0-9_.]*)(?::|$)")
+
+
+def error_kind(error: str | None) -> str:
+    """A failure's kind: the exception's class name, or a fixed word for the harness's own sentences;
+    never the message, which may quote a drawing."""
+    if not error:
+        return "unknown"
+    if error.startswith("it returned"):
+        return "broke its contract"
+    if error.startswith("the file's process ended"):
+        return "process ended"
+    named = KIND.match(error)
+    return named[1] if named else "other"
+
+
+def _failed(
+    diff: Diff, label: str, old: Mapping[str, Any] | None, new: Mapping[str, Any] | None
+) -> None:
+    """A stage failed now that did not fail before is lost; the reverse is gained; failing another
+    way (another error kind) is changed."""
+    before = {name: error_kind(r.get("error")) for name, r in (old or {}).items() if _is_failed(r)}
+    after = {name: error_kind(r.get("error")) for name, r in (new or {}).items() if _is_failed(r)}
+    for name in sorted(before.keys() | after.keys()):
+        key = f"{label} {name}"
+        if name not in before:
+            diff.items.append(Change("failed_stages", "lost", key, {"kind": [None, after[name]]}))
+        elif name not in after:
+            diff.items.append(Change("failed_stages", "gained", key, {"kind": [before[name], None]}))
+        elif before[name] != after[name]:
+            diff.items.append(
+                Change("failed_stages", "changed", key, {"kind": [before[name], after[name]]})
+            )
+
+
+def _is_failed(report: Any) -> bool:
+    return isinstance(report, Mapping) and report.get("state") == "failed"
 
 
 def _list(item: JSON, key: str) -> list[Any]:

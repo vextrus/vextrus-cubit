@@ -1,0 +1,587 @@
+{
+ "version": 1,
+ "run": {
+  "id": "20260928T094516Z-5a7569559b0c-c6c9",
+  "commit": "5a7569559b0c6a4a47fe0c6ebdb80d2b44006d7a",
+  "code_hash": "6f2278b46abefbbe13bd03193ac8d6c99d656d87b36285a98eec9aa8aa0c6b6b",
+  "started_at": "2026-09-28T09:45:26.739280Z",
+  "seconds": 0.792015
+ },
+ "stages": {
+  "read": {
+   "target": "engine.read:read",
+   "ticket": "04",
+   "built": true
+  },
+  "decoders_agree": {
+   "target": "engine.check.decoders_agree:run",
+   "ticket": "10",
+   "built": true
+  },
+  "font_report": {
+   "target": "engine.render.fonts:report",
+   "ticket": "11",
+   "built": true
+  },
+  "bangla_ansi": {
+   "target": "engine.check.bangla_ansi:run",
+   "ticket": "11",
+   "built": true
+  },
+  "sheets": {
+   "target": "engine.recognise.sheets:find",
+   "ticket": "13",
+   "built": true
+  },
+  "register": {
+   "target": "engine.recognise.register:find",
+   "ticket": "13",
+   "built": true
+  },
+  "views": {
+   "target": "engine.recognise.views:find",
+   "ticket": "17",
+   "built": true
+  },
+  "render_buffers": {
+   "target": "engine.render.buffers:build",
+   "ticket": "11",
+   "built": true
+  },
+  "rasterise": {
+   "target": "engine.render.raster:rasterise",
+   "ticket": "11",
+   "built": true
+  },
+  "pdf_report": {
+   "target": "engine.read.pdf:report",
+   "ticket": "12",
+   "built": true
+  },
+  "page_text": {
+   "target": "engine.read.pdf:page_text",
+   "ticket": "12",
+   "built": true
+  },
+  "plot": {
+   "target": "engine.plot.registration:match",
+   "ticket": "18",
+   "built": true
+  },
+  "render_f1": {
+   "target": "engine.check.render_f1:score",
+   "ticket": "18",
+   "built": true
+  },
+  "conflicts": {
+   "target": "engine.recognise.conflicts:find",
+   "ticket": "19b",
+   "built": true
+  },
+  "checks": {
+   "target": "engine.check.catalogue:run_all",
+   "ticket": "19b",
+   "built": true
+  }
+ },
+ "files": [
+  {
+   "path": "A-201.dwg",
+   "name": "A-201.dwg",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "format": "dwg",
+   "read_format": "AC1032",
+   "discipline_default": "architectural",
+   "group": "set",
+   "conventions_applied": "5f4d140673dab282d7efb662eb2351647f3b6124ea9013d20ecdf80c5785ad9b",
+   "process": {
+    "status": "ok",
+    "exit_code": 0,
+    "signal": null,
+    "seconds": 0.196347,
+    "cpu_seconds": 0.217944,
+    "peak_rss_kib": 29644,
+    "left_behind": 0,
+    "left_running": false,
+    "log_tail": null
+   },
+   "stages": {
+    "read": {
+     "state": "ok",
+     "calls": 1,
+     "failed_calls": 0,
+     "seconds": 2.3e-05,
+     "error": null
+    },
+    "decoders_agree": {
+     "state": "ok",
+     "calls": 1,
+     "failed_calls": 0,
+     "seconds": 1e-06,
+     "error": null
+    },
+    "font_report": {
+     "state": "ok",
+     "calls": 1,
+     "failed_calls": 0,
+     "seconds": 1e-06,
+     "error": null
+    },
+    "bangla_ansi": {
+     "state": "ok",
+     "calls": 1,
+     "failed_calls": 0,
+     "seconds": 0.0,
+     "error": null
+    },
+    "sheets": {
+     "state": "ok",
+     "calls": 1,
+     "failed_calls": 0,
+     "seconds": 4.1e-05,
+     "error": null
+    },
+    "register": {
+     "state": "ok",
+     "calls": 1,
+     "failed_calls": 0,
+     "seconds": 1.1e-05,
+     "error": null
+    },
+    "views": {
+     "state": "ok",
+     "calls": 2,
+     "failed_calls": 0,
+     "seconds": 4.4e-05,
+     "error": null
+    },
+    "render_buffers": {
+     "state": "ok",
+     "calls": 2,
+     "failed_calls": 0,
+     "seconds": 1.8e-05,
+     "error": null
+    },
+    "rasterise": {
+     "state": "ok",
+     "calls": 2,
+     "failed_calls": 0,
+     "seconds": 1e-06,
+     "error": null
+    }
+   },
+   "decoders_agree": true,
+   "entity_counts": {
+    "LINE": 3,
+    "TEXT": 2
+   },
+   "font_report": {
+    "fonts": 3,
+    "substituted": 1
+   },
+   "pdf_report": null,
+   "bangla_ansi": {
+    "fonts": 0,
+    "texts": 0
+   },
+   "pages": null,
+   "sheets": [
+    {
+     "location": {
+      "layout": "Layout1",
+      "box": null
+     },
+     "number": {
+      "value": "S-101",
+      "source": "title_block_text"
+     },
+     "title": {
+      "value": "Column layout",
+      "source": "title_block_attribute"
+     },
+     "discipline": {
+      "value": "architectural",
+      "source": "file"
+     },
+     "revision_mark": {
+      "value": "R0",
+      "source": "file_name"
+     },
+     "issue_date": null,
+     "storeys_as_stated": null,
+     "exclusion": null,
+     "group": "set",
+     "anchors": [],
+     "views": [
+      {
+       "box": [
+        0,
+        0,
+        100,
+        80
+       ],
+       "kind": "plan",
+       "title": "Ground floor column layout",
+       "not_to_scale": false,
+       "stated_scale": null,
+       "storeys_as_stated": null,
+       "storeys": [
+        "ground"
+       ],
+       "storeys_meaning": "at_floor_level",
+       "subject": null,
+       "layer": null,
+       "steps": [
+        "columns"
+       ],
+       "part": null,
+       "exclusion": null,
+       "coverage": "assigned",
+       "anchors": []
+      },
+      {
+       "box": [
+        100,
+        0,
+        120,
+        20
+       ],
+       "kind": "title_block",
+       "title": null,
+       "not_to_scale": false,
+       "stated_scale": null,
+       "storeys_as_stated": null,
+       "storeys": [],
+       "storeys_meaning": null,
+       "subject": null,
+       "layer": null,
+       "steps": [],
+       "part": null,
+       "exclusion": {
+        "reason": "for_information",
+        "text": null
+       },
+       "coverage": "excluded",
+       "anchors": []
+      },
+      {
+       "box": [
+        0,
+        80,
+        40,
+        100
+       ],
+       "kind": "notes",
+       "title": null,
+       "not_to_scale": false,
+       "stated_scale": null,
+       "storeys_as_stated": null,
+       "storeys": [],
+       "storeys_meaning": null,
+       "subject": null,
+       "layer": null,
+       "steps": [],
+       "part": null,
+       "exclusion": null,
+       "coverage": "unaccounted",
+       "anchors": []
+      }
+     ],
+     "register": [
+      {
+       "row_box": [
+        0,
+        0,
+        10,
+        1
+       ],
+       "number": "S-101",
+       "title": "x",
+       "revision_mark": null,
+       "anchors": []
+      }
+     ],
+     "render_f1": null
+    },
+    {
+     "location": {
+      "layout": "Layout2",
+      "box": null
+     },
+     "number": {
+      "value": "S-102",
+      "source": "title_block_text"
+     },
+     "title": {
+      "value": "Column layout",
+      "source": "title_block_attribute"
+     },
+     "discipline": {
+      "value": "architectural",
+      "source": "file"
+     },
+     "revision_mark": {
+      "value": "R0",
+      "source": "file_name"
+     },
+     "issue_date": null,
+     "storeys_as_stated": null,
+     "exclusion": null,
+     "group": "set",
+     "anchors": [],
+     "views": [
+      {
+       "box": [
+        0,
+        0,
+        100,
+        80
+       ],
+       "kind": "plan",
+       "title": "Ground floor column layout",
+       "not_to_scale": false,
+       "stated_scale": null,
+       "storeys_as_stated": null,
+       "storeys": [
+        "ground"
+       ],
+       "storeys_meaning": "at_floor_level",
+       "subject": null,
+       "layer": null,
+       "steps": [
+        "columns"
+       ],
+       "part": null,
+       "exclusion": null,
+       "coverage": "assigned",
+       "anchors": []
+      },
+      {
+       "box": [
+        100,
+        0,
+        120,
+        20
+       ],
+       "kind": "title_block",
+       "title": null,
+       "not_to_scale": false,
+       "stated_scale": null,
+       "storeys_as_stated": null,
+       "storeys": [],
+       "storeys_meaning": null,
+       "subject": null,
+       "layer": null,
+       "steps": [],
+       "part": null,
+       "exclusion": {
+        "reason": "for_information",
+        "text": null
+       },
+       "coverage": "excluded",
+       "anchors": []
+      },
+      {
+       "box": [
+        0,
+        80,
+        40,
+        100
+       ],
+       "kind": "notes",
+       "title": null,
+       "not_to_scale": false,
+       "stated_scale": null,
+       "storeys_as_stated": null,
+       "storeys": [],
+       "storeys_meaning": null,
+       "subject": null,
+       "layer": null,
+       "steps": [],
+       "part": null,
+       "exclusion": null,
+       "coverage": "unaccounted",
+       "anchors": []
+      }
+     ],
+     "register": [],
+     "render_f1": null
+    }
+   ]
+  },
+  {
+   "path": "plot.pdf",
+   "name": "plot.pdf",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "format": "pdf",
+   "read_format": null,
+   "discipline_default": null,
+   "group": "set",
+   "conventions_applied": "5f4d140673dab282d7efb662eb2351647f3b6124ea9013d20ecdf80c5785ad9b",
+   "process": {
+    "status": "ok",
+    "exit_code": 0,
+    "signal": null,
+    "seconds": 0.190842,
+    "cpu_seconds": 0.21126,
+    "peak_rss_kib": 29644,
+    "left_behind": 0,
+    "left_running": false,
+    "log_tail": null
+   },
+   "stages": {
+    "pdf_report": {
+     "state": "ok",
+     "calls": 1,
+     "failed_calls": 0,
+     "seconds": 1e-06,
+     "error": null
+    },
+    "page_text": {
+     "state": "ok",
+     "calls": 1,
+     "failed_calls": 0,
+     "seconds": 1e-06,
+     "error": null
+    }
+   },
+   "decoders_agree": null,
+   "entity_counts": null,
+   "font_report": null,
+   "pdf_report": {
+    "pages": 2,
+    "shx_comments": 0
+   },
+   "bangla_ansi": null,
+   "pages": 2,
+   "sheets": []
+  },
+  {
+   "path": "structural/S-101.dwg",
+   "name": "S-101.dwg",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "format": "dwg",
+   "read_format": null,
+   "discipline_default": "structural",
+   "group": "set",
+   "conventions_applied": "5f4d140673dab282d7efb662eb2351647f3b6124ea9013d20ecdf80c5785ad9b",
+   "process": {
+    "status": "ok",
+    "exit_code": 0,
+    "signal": null,
+    "seconds": 0.191008,
+    "cpu_seconds": 0.211858,
+    "peak_rss_kib": 29644,
+    "left_behind": 0,
+    "left_running": false,
+    "log_tail": null
+   },
+   "stages": {
+    "read": {
+     "state": "failed",
+     "calls": 1,
+     "failed_calls": 1,
+     "seconds": 6e-06,
+     "error": "RuntimeError: the fake reader failed on S-101.dwg"
+    },
+    "decoders_agree": {
+     "state": "skipped",
+     "calls": 0,
+     "failed_calls": 0,
+     "seconds": 0.0,
+     "error": "needs read"
+    },
+    "font_report": {
+     "state": "skipped",
+     "calls": 0,
+     "failed_calls": 0,
+     "seconds": 0.0,
+     "error": "needs read"
+    },
+    "bangla_ansi": {
+     "state": "skipped",
+     "calls": 0,
+     "failed_calls": 0,
+     "seconds": 0.0,
+     "error": "needs read"
+    },
+    "sheets": {
+     "state": "skipped",
+     "calls": 0,
+     "failed_calls": 0,
+     "seconds": 0.0,
+     "error": "needs read"
+    },
+    "register": {
+     "state": "skipped",
+     "calls": 0,
+     "failed_calls": 0,
+     "seconds": 0.0,
+     "error": "needs sheets"
+    },
+    "views": {
+     "state": "skipped",
+     "calls": 0,
+     "failed_calls": 0,
+     "seconds": 0.0,
+     "error": "needs sheets"
+    },
+    "render_buffers": {
+     "state": "skipped",
+     "calls": 0,
+     "failed_calls": 0,
+     "seconds": 0.0,
+     "error": "needs sheets"
+    },
+    "rasterise": {
+     "state": "skipped",
+     "calls": 0,
+     "failed_calls": 0,
+     "seconds": 0.0,
+     "error": "needs render_buffers"
+    }
+   },
+   "decoders_agree": null,
+   "entity_counts": null,
+   "font_report": null,
+   "pdf_report": null,
+   "bangla_ansi": null,
+   "pages": null,
+   "sheets": []
+  }
+ ],
+ "set_stages": {
+  "plot": {
+   "state": "skipped",
+   "calls": 0,
+   "failed_calls": 0,
+   "seconds": 0.0,
+   "error": "needs sheets (not read in 1 of the files)"
+  },
+  "render_f1": {
+   "state": "skipped",
+   "calls": 0,
+   "failed_calls": 0,
+   "seconds": 0.0,
+   "error": "needs plot"
+  },
+  "conflicts": {
+   "state": "skipped",
+   "calls": 0,
+   "failed_calls": 0,
+   "seconds": 0.0,
+   "error": "needs sheets (not read in 1 of the files)"
+  },
+  "checks": {
+   "state": "skipped",
+   "calls": 0,
+   "failed_calls": 0,
+   "seconds": 0.0,
+   "error": "needs sheets (not read in 1 of the files)"
+  }
+ },
+ "plot": [],
+ "conflicts": [],
+ "continuations": [],
+ "checks": []
+}

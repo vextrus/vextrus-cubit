@@ -27,8 +27,17 @@ PIN = (ROOT / "toolchain" / "python.version").read_text().strip()
 PYTHON = TOOLCHAIN / "python" / f"cpython-{PIN}-linux-x86_64-gnu" / "bin" / "python3"
 
 PROBE = """
-import json, os, socket, sys
+import json, os, socket, subprocess, sys
 from pathlib import Path
+
+def nested():
+    # A bwrap started inside, as 04's reader starts one: its exit code and its network interfaces.
+    inner = ["/usr/bin/bwrap", "--unshare-all", "--die-with-parent", "--ro-bind", "/usr", "/usr",
+             "--symlink", "usr/lib", "/lib", "--symlink", "usr/lib64", "/lib64", "--symlink", "usr/bin",
+             "/bin", "--proc", "/proc", "--dev", "/dev", "/usr/bin/cat", "/proc/net/dev"]
+    done = subprocess.run(inner, capture_output=True, text=True)
+    names = [line.split(":")[0].strip() for line in done.stdout.splitlines()[2:]]
+    return {"code": done.returncode, "interfaces": names, "error": done.stderr.strip()}
 
 def writable(path):
     try:
@@ -45,9 +54,13 @@ def connects():
         return False
 
 import invented_probe
-PLACES = ("/work/src", "/work/wheels", "/opt/vextrus", "/usr", "/", "/work/out")
+PLACES = ("/work/src", "/work/wheels", "/opt/vextrus", "/usr", "/", "/work/out", "/tmp")
 out = Path(sys.argv[sys.argv.index("--out") + 1])
+tmp_before = sorted(os.listdir("/tmp"))
 out.write_text(json.dumps({"files": [], "probe": {
+    "tmp_before": tmp_before,
+    "host_tmp_visible": os.path.exists(HOST_TMP),
+    "nested": nested(),
     "installed": invented_probe.VALUE,
     "connects": connects(),
     "interfaces": [name for _, name in socket.if_nameindex()],
@@ -89,7 +102,9 @@ def job(tmp_path: Path, requirements: str) -> Job:
     (checkout / "engine" / "__init__.py").write_text("")
     drop = tmp_path / "drop"
     drop.mkdir()
-    probe = f"HOME = {str(Path.home())!r}\nDROP = {str(drop)!r}\n" + PROBE
+    marker = tmp_path / "host-tmp-marker"  # pytest's tmp_path is under the host's /tmp
+    marker.write_text("the host's /tmp")
+    probe = f"HOME = {str(Path.home())!r}\nDROP = {str(drop)!r}\nHOST_TMP = {str(marker)!r}\n" + PROBE
     (checkout / "engine" / "harness.py").write_text(probe)
     wheels.mkdir()
     (sets / "invented").mkdir(parents=True)
@@ -133,8 +148,19 @@ def test_the_pipeline_runs_offline_with_only_its_scratch_writable(tmp_path: Path
         "/usr": False,
         "/": False,
         "/work/out": True,
+        "/tmp": True,  # a private tmpfs, in memory, gone when the sandbox ends
     }
+    assert found["tmp_before"] == []
+    assert found["host_tmp_visible"] is False
     assert set(found["env"]) <= {"HOME", "LANG", "PATH", "PWD", "TMPDIR", "LC_CTYPE", "VEXTRUS_RUN_ID"}
+
+
+def test_a_bwrap_started_inside_runs_and_sees_no_network(tmp_path: Path) -> None:
+    run(job(tmp_path, "invented-probe==1.0 --hash=sha256:{sha}\n"), tmp_path / "sandbox.log")
+
+    nested = probe(tmp_path)["nested"]
+    assert (nested["code"], nested["error"]) == (0, "")
+    assert nested["interfaces"] == ["lo"]
 
 
 def test_a_wheel_whose_hash_is_not_the_locked_one_is_not_installed(tmp_path: Path) -> None:

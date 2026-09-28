@@ -45,6 +45,7 @@ class World:
     drop: Path
     cache: Path
     answers: list[str] = field(default_factory=list)
+    prompts: list[str] = field(default_factory=list)
     said: list[str] = field(default_factory=list)
     posted: list[str] = field(default_factory=list)
     sandbox_runs: list[Job] = field(default_factory=list)
@@ -82,6 +83,10 @@ class World:
         """The owner's checkout on another branch (HEAD only; this repository has no working tree)."""
         run_git(self.repo, "symbolic-ref", "HEAD", f"refs/heads/{branch}")
 
+    def answer(self, prompt: str) -> str:
+        self.prompts.append(prompt)
+        return self.answers.pop(0)
+
     def machine(self) -> Machine:
         def fetch(checkout: Path, wheels: Path, python: Path, requirements: Path) -> None:
             requirements.write_text("")
@@ -111,7 +116,7 @@ class World:
             sandbox=fake_sandbox,
             fetch=fetch,
             post=post,
-            ask=lambda prompt: self.answers.pop(0),
+            ask=self.answer,
             say=self.said.append,
         )
 

@@ -49,9 +49,12 @@ unseen; it does not prove a reading right. That rests on the owner's walk.
    or `[tool.uv]`, installs the locked wheels offline inside bwrap, runs the harness on both sets,
    checks each export against main's schema (against the head's own when the head changes it, which it
    prints: then read the schema's diff) and diffs it against main's run (cached by code hash).
-2. Read the printed table: per measure (files, entity counts, report counts, sheets, views, register,
+2. Read "Failed on the head" and "Failed on main" first: a stage that failed (by stage, file count and
+   error kind) means that run read less than it should, however empty the table looks. Then the
+   table: per measure (files, failed stages, entity counts, report counts, sheets, views, register,
    Plot matches, render F1, Checks, conflicts, continuations), the items gained, lost and changed,
-   and the items held now. Read time and peak memory are shown, never counted.
+   and the items held now. A stage failing where main's did not counts as lost. Read time and peak
+   memory are shown, never counted.
 3. The item list (`items.json` under `~/.cache/vextrus-real-drawings/runs/<run id>/`) names each
    changed sheet and view, so it holds drawing text: read it to understand a change, and carry out
    only the convention it teaches.

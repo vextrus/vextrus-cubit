@@ -13,7 +13,7 @@ from typing import Any
 
 import pytest
 
-from scripts.real_drawings.diff import MEASURES, compare, sizes
+from scripts.real_drawings.diff import MEASURES, compare, error_kind, failures, sizes
 from scripts.real_drawings.schema import problems
 from scripts.real_drawings.tests.exports import (
     SHA_A,
@@ -30,6 +30,7 @@ from scripts.real_drawings.tests.exports import (
     row,
     sheet,
     sourced,
+    stage,
     view,
 )
 
@@ -399,3 +400,124 @@ def test_two_copies_of_one_file_join_by_their_paths() -> None:
     new = export(dwg(SHA_A, path="copy.dwg"), dwg(SHA_A, sheet("L1")))
 
     assert compare(old, new).counts() == dict.fromkeys(MEASURES, NOTHING)
+
+
+# Stages that failed ------------------------------------------------------------------------------------
+
+SANDBOX = "SandboxUnavailable: bwrap: Failed to mount tmpfs: the drawing A-201's words"
+
+
+def failing(*shas: str, **stages: dict[str, Any]) -> dict[str, Any]:
+    return export(*[dwg(sha, stages=dict(stages)) for sha in shas])
+
+
+def test_a_stage_failed_on_the_head_where_main_had_it_ok_is_lost() -> None:
+    ok, failed = (
+        failing(SHA_A, SHA_B, read=stage()),
+        failing(SHA_A, SHA_B, read=stage("failed", SANDBOX)),
+    )
+
+    assert counts(ok, failed, "failed_stages") == (0, 2, 0)
+    assert counts(failed, ok, "failed_stages") == (2, 0, 0)
+    assert counts(failed, failed, "failed_stages") == (0, 0, 0)
+
+
+def test_a_stage_newly_built_that_fails_is_lost_too() -> None:
+    unbuilt = failing(SHA_A, read=stage("not_built", "no module engine.read"))
+    failed = failing(SHA_A, read=stage("failed", SANDBOX))
+
+    assert counts(unbuilt, failed, "failed_stages") == (0, 1, 0)
+
+
+def test_a_stage_failing_another_way_is_changed() -> None:
+    before = failing(SHA_A, read=stage("failed", SANDBOX))
+    after = failing(SHA_A, read=stage("failed", "RuntimeError: another"))
+
+    assert counts(before, after, "failed_stages") == (0, 0, 1)
+
+
+def test_a_set_stage_that_fails_is_counted_once_for_the_set() -> None:
+    ok, failed = export(dwg(SHA_A)), export(dwg(SHA_A))
+    ok["set_stages"] = {"checks": stage()}
+    failed["set_stages"] = {"checks": stage("failed", "TypeError: bad")}
+
+    assert counts(ok, failed, "failed_stages") == (0, 1, 0)
+
+
+def test_failures_name_the_stage_the_file_count_and_the_error_kind_never_its_message() -> None:
+    document = failing(SHA_A, SHA_B, read=stage("failed", SANDBOX))
+    document["files"].append(
+        dwg("d" * 64, stages={"read": stage("failed", "it returned str, not a list")})
+    )
+    document["set_stages"] = {"checks": stage("failed", "TypeError: a title from a drawing")}
+
+    assert failures(document) == {
+        ("read", "SandboxUnavailable"): 2,
+        ("read", "broke its contract"): 1,
+        ("set checks", "TypeError"): 1,
+    }
+
+
+@pytest.mark.parametrize(
+    ("error", "kind"),
+    [
+        ("SandboxUnavailable: bwrap: Failed to mount tmpfs", "SandboxUnavailable"),
+        ("engine.read.errors.ReadError: the words of a drawing", "engine.read.errors.ReadError"),
+        ("MemoryError", "MemoryError"),
+        ("it returned str, not a list of SheetCandidate", "broke its contract"),
+        ("the file's process ended during this stage (killed by signal 9)", "process ended"),
+        ("A-201 Column Layout: something", "other"),
+        (None, "unknown"),
+    ],
+)
+def test_the_error_kind_is_a_class_name_or_a_fixed_word(error: str | None, kind: str) -> None:
+    assert error_kind(error) == kind
+
+
+# The fixed thresholds, at their edges ----------------------------------------------------------------
+# Each pair of boxes shares its lower-left corner and its width, so its IoU is the height ratio:
+# [0, 0, 100, 100] against [0, 0, 100, h] is h / 100, exactly representable at 90 and 80.
+
+
+@pytest.mark.parametrize(("height", "joins"), [(90.0, True), (89.99, False)])
+def test_a_sheets_frame_joins_at_iou_09_and_not_just_under(height: float, joins: bool) -> None:
+    old = export(dwg(SHA_A, sheet(box=[0, 0, 100, 100])))
+    new = export(dwg(SHA_A, sheet(box=[0, 0, 100, height])))
+
+    assert counts(old, new, "sheets") == ((0, 0, 0) if joins else (1, 1, 0))
+
+
+@pytest.mark.parametrize(("height", "joins"), [(80.0, True), (79.99, False)])
+def test_a_views_box_joins_at_iou_08_and_not_just_under(height: float, joins: bool) -> None:
+    old = export(dwg(SHA_A, sheet("L1", views=[view([0, 0, 100, 100])])))
+    new = export(dwg(SHA_A, sheet("L1", views=[view([0, 0, 100, height])])))
+
+    assert counts(old, new, "views") == ((0, 0, 0) if joins else (1, 1, 0))
+
+
+@pytest.mark.parametrize(("height", "joins"), [(80.0, True), (79.99, False)])
+def test_a_register_row_joins_at_iou_08_and_not_just_under(height: float, joins: bool) -> None:
+    old = export(dwg(SHA_A, sheet("L1", register=[row([0, 0, 100, 100])])))
+    new = export(dwg(SHA_A, sheet("L1", register=[row([0, 0, 100, height])])))
+
+    assert counts(old, new, "register") == ((0, 0, 0) if joins else (1, 1, 0))
+
+
+@pytest.mark.parametrize(
+    ("after", "expected"),
+    [
+        (0.5051, (0, 0, 1)),  # up 0.0051: changed
+        (0.5049, (0, 0, 0)),  # up 0.0049: still
+        (0.4951, (0, 0, 0)),  # down 0.0049: still
+        (0.4949, (0, 0, 1)),  # down 0.0051: changed
+        (0.4901, (0, 0, 1)),  # down 0.0099: changed, not lost
+        (0.4899, (0, 1, 0)),  # down 0.0101: lost
+    ],
+)
+def test_render_f1_changes_past_0005_and_is_lost_past_a_001_fall(
+    after: float, expected: tuple[int, int, int]
+) -> None:
+    old = export(dwg(SHA_A, sheet("L1", render_f1=0.5)))
+    new = export(dwg(SHA_A, sheet("L1", render_f1=after)))
+
+    assert counts(old, new, "render_f1") == expected
