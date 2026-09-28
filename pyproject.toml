@@ -1,0 +1,90 @@
+# Vextrus's backend: one uv project on Python 3.14 (ADR 0034). The Django modules live under
+# vextrus/<module>/ and the engine under engine/ (docs/architecture.md). Every M0 dependency is pinned
+# exactly here and locked with hashes in uv.lock, every source the package registry's; the project
+# itself is never built or installed (package = false), and uv never builds a sdist (no-build), so an
+# install runs no package's build script (the M0 plan, the real-drawing check, step 2).
+[project]
+name = "vextrus"
+version = "0.0.0"
+description = "Vextrus: the Live Model from a Developer's drawings"
+requires-python = "==3.14.*"
+dependencies = [
+  "django==6.1.1",
+  "django-ninja==1.7.1",
+  "procrastinate[django]==3.10.0",
+  "psycopg[binary]==3.3.6",
+  # ezdxf from the registry: on 3.14 only its pure py3-none-any wheel exists; 01c's toolchain-ezdxf
+  # workflow builds the compiled wheel, installed over this one by hash (the M0 plan, review R1).
+  "ezdxf==1.4.4",
+  "fonttools==4.66.0",
+  "pdfplumber==0.11.10",
+  "pdfminer.six==20260107",
+  "pypdfium2==5.13.0",
+  "numpy==2.5.3",
+  "pillow==12.3.0",
+  "httpx==0.28.1",
+]
+
+[dependency-groups]
+dev = [
+  "pytest==9.1.1",
+  "pytest-django==4.14.0",
+  "mypy==2.3.1",
+  "django-stubs==6.1.1",
+  "ruff==0.16.9",
+  "import-linter==2.15",
+]
+
+[tool.uv]
+package = false
+no-build = true
+
+[tool.ruff]
+line-length = 105
+target-version = "py314"
+extend-exclude = ["web"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "DJ", "RUF", "SIM", "PT", "C4", "PIE", "RET", "ISC"]
+ignore = ["SIM905"]  # a list of words written as one split string reads better
+
+[tool.ruff.format]
+# Django writes migrations in its own style; the owner reads them as Django writes them.
+exclude = ["vextrus/*/migrations/*"]
+
+[tool.ruff.lint.per-file-ignores]
+"vextrus/*/migrations/*" = ["E501", "RUF012"]
+# The settings package assembles its submodules with star imports (docs/architecture.md, Settings).
+"vextrus/settings/__init__.py" = ["F403", "F401"]
+"vextrus/settings/test.py" = ["F403", "F405"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["vextrus", "engine", "tools"]
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
+plugins = ["mypy_django_plugin.main"]
+files = ["vextrus", "engine", "tools", "conftest.py", "manage.py"]
+exclude = ["^web/"]
+
+[[tool.mypy.overrides]]
+# Django's generated migrations are not written to mypy's strictness.
+module = ["vextrus.*.migrations.*"]
+ignore_errors = true
+
+[tool.django-stubs]
+django_settings_module = "vextrus.settings"
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "vextrus.settings.test"
+pythonpath = ["."]
+testpaths = ["vextrus", "engine", "tools"]
+# The toolchain's and live tests run only when asked for (engine.yml: -m "needs_toolchain or needs_bwrap").
+addopts = ["--strict-markers", "--strict-config", "-ra", "-m", "not needs_toolchain and not needs_bwrap and not live"]
+markers = [
+  "needs_toolchain: needs LibreDWG, .NET and the rest of the toolchain under /opt/vextrus (run by engine.yml)",
+  "needs_bwrap: needs bubblewrap able to unshare the network (run by engine.yml)",
+  "live: calls a live outside service (TypeSafe's Jev); never run in CI or the cloud by default",
+]
+filterwarnings = ["error"]
