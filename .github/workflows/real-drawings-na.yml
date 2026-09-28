@@ -1,0 +1,76 @@
+# Posts "not applicable" for the two statuses a PR may not need (the M0 plan, Labels and 01c; s02
+# reviews R3, U10): `real-drawings` success when no changed file matches an engine path
+# (.github/engine-paths.txt), and `design-gate` success when none matches web/**. Otherwise it posts
+# nothing, and the owner's GitHub App posts the status after the check or the gate.
+#
+# It runs on pull_request_target, so main's copy of this file, of engine-paths.txt and of the matcher
+# runs, never the PR's. It reads only the PR's changed-file list through the API; it never checks out,
+# builds or runs the PR's code, and no PR text reaches a shell. It is the only workflow allowed to
+# request statuses: write or name either status (tools/lint/workflows.py fails any other, and fails
+# this one if it runs on anything but pull_request_target).
+name: real-drawings-na
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: read
+  statuses: write
+
+concurrency:
+  group: real-drawings-na-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  not-applicable:
+    # Only PRs into main: pull_request_target runs the base branch's copy of this file, so a PR into
+    # any other branch would run that branch's copy.
+    if: github.event.pull_request.base.ref == github.event.repository.default_branch
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Main's copy of the engine paths and the matcher, never the PR's
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+          sparse-checkout: |
+            .github/engine-paths.txt
+            tools/lint/engine_paths.py
+          sparse-checkout-cone-mode: false
+      - name: The PR's changed files, through the API (a renamed file counts under both names)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          gh api --paginate "repos/$REPO/pulls/$PR/files" \
+            --jq '.[] | .filename, (.previous_filename // empty)' > "$RUNNER_TEMP/changed.txt"
+          wc -l < "$RUNNER_TEMP/changed.txt"
+      - name: Post "not applicable" where no changed file needs the status
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          CHANGED_FILES: ${{ github.event.pull_request.changed_files }}
+        run: |
+          # The API lists at most 3000 files; a longer PR is never called not applicable.
+          if [ "$CHANGED_FILES" -ge 3000 ]; then echo "$CHANGED_FILES files: too many to list; nothing posted"; exit 0; fi
+          touches() { python3 tools/lint/engine_paths.py "$@" < "$RUNNER_TEMP/changed.txt"; }
+          post() {
+            gh api -X POST "repos/$REPO/statuses/$HEAD_SHA" \
+              -f state=success -f context="$1" -f description="Not applicable: $2" > /dev/null
+            echo "posted $1: not applicable ($2)"
+          }
+          if [ -z "$(touches --patterns .github/engine-paths.txt)" ]; then
+            post real-drawings "no engine path changed"
+          else
+            echo "an engine PR: the owner's check posts real-drawings"
+          fi
+          if [ -z "$(touches --pattern 'web/**')" ]; then
+            post design-gate "nothing under web/ changed"
+          else
+            echo "a UI PR: the owner's design gate posts design-gate"
+          fi

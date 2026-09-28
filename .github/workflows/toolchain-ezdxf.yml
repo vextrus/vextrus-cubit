@@ -1,0 +1,87 @@
+# Builds ezdxf's compiled cp314 wheel once per pin, on demand (the M0 plan, 01c; s02 reviews A3, R1):
+# ezdxf has no cp314 wheel on PyPI, and nothing else ever builds it. The build takes uv.lock's sdist by
+# its hash and the build requirements from toolchain/ezdxf-build-constraints.txt, each by its hash;
+# the wheel is published as a release asset, and the run's summary prints the lines to commit into
+# toolchain/ezdxf.lock. If the build fails, the lock keeps naming the registry's pure wheel and ticket
+# 24 records the speed cost. A published wheel is never replaced: delete the asset to rebuild.
+name: toolchain-ezdxf
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: toolchain-ezdxf
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.12.5"
+      - name: Read ezdxf's pin from uv.lock
+        run: |
+          python3 - >> "$GITHUB_ENV" <<'PY'
+          import tomllib
+          with open("uv.lock", "rb") as f:
+              (p,) = [p for p in tomllib.load(f)["package"] if p["name"] == "ezdxf"]
+          print(f"V={p['version']}")
+          print(f"SDIST_URL={p['sdist']['url']}")
+          print(f"SDIST_SHA256={p['sdist']['hash'].removeprefix('sha256:')}")
+          PY
+      - name: Fetch the sdist and check its hash
+        run: |
+          curl -fsSL "$SDIST_URL" -o "ezdxf-$V.tar.gz"
+          echo "$SDIST_SHA256  ezdxf-$V.tar.gz" | sha256sum -c
+      - name: Build the wheel from the hashed build constraints
+        run: |
+          uv build --wheel --python "$(tr -d '[:space:]' < toolchain/python.version)" \
+            --build-constraints toolchain/ezdxf-build-constraints.txt --require-hashes \
+            --out-dir dist "ezdxf-$V.tar.gz"
+          ls dist
+      - name: Check every Cython module compiled (each is optional, so a failed one fails silently)
+        run: |
+          WHEEL=$(cd dist && ls ezdxf-"$V"-cp314-cp314-*.whl)
+          echo "WHEEL=$WHEEL" >> "$GITHUB_ENV"
+          want=$(tar -tzf "ezdxf-$V.tar.gz" | grep -c '/src/ezdxf/acc/[^/]*\.pyx$')
+          got=$(unzip -l "dist/$WHEEL" | grep -c 'ezdxf/acc/[^/]*\.so$')
+          echo "Cython modules: $want in the sdist, $got compiled in the wheel"
+          [ "$want" -gt 0 ] && [ "$got" = "$want" ]
+          uv venv --python "$(tr -d '[:space:]' < toolchain/python.version)" check-venv
+          uv pip install --python check-venv "dist/$WHEEL"
+          check-venv/bin/python -c "import ezdxf.acc.vector, ezdxf.acc.matrix44; print(ezdxf.__version__)"
+      - name: Publish as a release asset (never replacing one)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd dist
+          sha256sum "$WHEEL" > "$WHEEL.sha256"
+          gh release view "toolchain-ezdxf-$V" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+            || gh release create "toolchain-ezdxf-$V" -R "$GITHUB_REPOSITORY" --prerelease \
+                 --title "Toolchain: ezdxf $V (cp314)" --notes "ezdxf's compiled wheel for Python 3.14, built by toolchain-ezdxf."
+          gh release upload "toolchain-ezdxf-$V" "$WHEEL" "$WHEEL.sha256" -R "$GITHUB_REPOSITORY"
+      - name: The lines for toolchain/ezdxf.lock
+        run: |
+          {
+            echo "Commit these into toolchain/ezdxf.lock:"
+            echo '```toml'
+            echo "version = \"$V\""
+            echo "sdist_sha256 = \"$SDIST_SHA256\""
+            echo "constraints_sha256 = \"$(sha256sum toolchain/ezdxf-build-constraints.txt | cut -d' ' -f1)\""
+            echo "wheel = \"$WHEEL\""
+            echo "wheel_sha256 = \"$(sha256sum "dist/$WHEEL" | cut -d' ' -f1)\""
+            echo "release = \"toolchain-ezdxf-$V\""
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: If the build failed
+        if: failure()
+        run: |
+          echo "The build failed: toolchain/ezdxf.lock keeps the registry's pure py3-none-any wheel, and ticket 24 records its speed cost." >> "$GITHUB_STEP_SUMMARY"

@@ -9,16 +9,20 @@
 #
 # Run by the owner, as root:   ! sudo bash scripts/owner/toolchain.sh
 # Idempotent: a piece already at its pin is kept. Owned by root, readable by all, writable by none.
-# Ticket 01c takes this script over and moves the LibreDWG pin into toolchain/libredwg.version.
+# The pins live in toolchain/ (ticket 01c), which engine.yml and the cloud's session start read too:
+#   python.version    3.14.7
+#   libredwg.version  0.14, and libredwg.sha256, GNU's tarball, checked on 28 Sep 2026 against
+#                     libredwg-0.14.tar.xz.sig ("Good signature from <reini.urban@gmail.com>", RSA key
+#                     38A4167B0DB69E49C5F7216CB8C28866AB27A7A2, gnu-keyring.gpg)
+#   dotnet.version    10.0.401, the latest .NET 10 SDK on 8 Sep 2026 (release-metadata/10.0/releases.json)
 set -euo pipefail
 
 PREFIX=${VEXTRUS_TOOLCHAIN_PREFIX:-/opt/vextrus}   # overridable only to test this script
-PY_VERSION=3.14.7
-LIBREDWG_VERSION=0.14
-# GNU's tarball, checked on 28 Sep 2026 against libredwg-0.14.tar.xz.sig ("Good signature from
-# <reini.urban@gmail.com>", RSA key 38A4167B0DB69E49C5F7216CB8C28866AB27A7A2, gnu-keyring.gpg).
-LIBREDWG_SHA256=62ebb73b984f865960f20ed26619ea5f8789d5e3fd088fa40a2598384da81275
-DOTNET_SDK_VERSION=10.0.401   # latest .NET 10 SDK on 8 Sep 2026 (release-metadata/10.0/releases.json)
+PINS=$(cd "$(dirname "$0")/../../toolchain" && pwd)
+pin() { tr -d '[:space:]' < "$PINS/$1"; }
+PY_VERSION=$(pin python.version)
+LIBREDWG_VERSION=$(pin libredwg.version)
+DOTNET_SDK_VERSION=$(pin dotnet.version)
 
 say()  { printf '[toolchain] %s\n' "$*"; }
 fail() { printf '[toolchain] FAILED: %s\n' "$*" >&2; exit 1; }
@@ -54,7 +58,7 @@ install_libredwg() {
   say "libredwg $LIBREDWG_VERSION: downloading and checking the source"
   local tarball="$WORK/libredwg-$LIBREDWG_VERSION.tar.xz"
   curl -fsSL "https://ftp.gnu.org/gnu/libredwg/libredwg-$LIBREDWG_VERSION.tar.xz" -o "$tarball"
-  echo "$LIBREDWG_SHA256  $tarball" | sha256sum -c --quiet - || fail "libredwg tarball hash differs from the pin"
+  (cd "$WORK" && sha256sum -c --quiet "$PINS/libredwg.sha256") || fail "libredwg tarball hash differs from the pin"
   tar -xJf "$tarball" -C "$WORK" --no-same-owner
   say "libredwg $LIBREDWG_VERSION: building (about two minutes)"
   ( cd "$WORK/libredwg-$LIBREDWG_VERSION" &&

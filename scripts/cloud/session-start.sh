@@ -1,18 +1,55 @@
 #!/bin/bash
-# Per-session start in cloud VMs only (docs/research/sdlc-waves-and-cloud.md §6.4); local sessions
-# exit at once. Puts the toolchain on PATH, starts Postgres, fetches LibreDWG if the setup script
-# could not, and prints the setup status so a failed install is never hidden.
+# Per-session start in cloud VMs only (docs/research/sdlc-waves-and-cloud.md §6.4; the M0 plan, 01c);
+# local sessions exit at once. Puts the toolchain setup.sh left under /opt/vextrus on PATH, starts
+# PostgreSQL 18, fetches LibreDWG if the setup could not, installs the dependencies and ezdxf's wheel
+# by its pinned hash, says where the installed toolchain differs from toolchain/'s pins, and prints the
+# setup's status, so a failed install is never hidden. It never blocks a session. NOT YET RUN IN A VM.
 [ "${CLAUDE_CODE_REMOTE:-}" = "true" ] || exit 0
-{ echo 'export PATH=/opt/node24/bin:/opt/libredwg/bin:/opt/dotnet:$PATH'
-  echo 'export DOTNET_ROOT=/opt/dotnet'
-  echo 'export UV_PYTHON_INSTALL_DIR=/opt/uv-python'; } >> "$CLAUDE_ENV_FILE"
-service postgresql start >/dev/null 2>&1 || echo "WARN: postgres did not start"
-V=$(tr -d '[:space:]' < "$CLAUDE_PROJECT_DIR/toolchain/libredwg.version" 2>/dev/null || echo 0.14)
-if [ ! -x /opt/libredwg/bin/dwg2dxf ]; then
-  gh release download "toolchain-libredwg-$V" -R vextrus/vextrus-cubit \
-     -p "libredwg-$V-ubuntu24.04-x86_64.tar.gz" -D /tmp --clobber &&
-  tar -xzf "/tmp/libredwg-$V-ubuntu24.04-x86_64.tar.gz" -C / || echo "WARN: LibreDWG missing"
+V=/opt/vextrus
+cd "$CLAUDE_PROJECT_DIR" || exit 0
+pin() { tr -d '[:space:]' < "toolchain/$1" 2>/dev/null; }
+warn() { echo "WARN: $*"; }
+
+{ echo "export PATH=$V/node/bin:$V/libredwg/bin:$V/dotnet:\$PATH"
+  echo "export DOTNET_ROOT=$V/dotnet DOTNET_CLI_TELEMETRY_OPTOUT=1"
+  echo "export UV_PYTHON_INSTALL_DIR=$V/python UV_PYTHON_PREFERENCE=only-managed"
+  echo "export PLAYWRIGHT_BROWSERS_PATH=$V/ms-playwright"; } >> "$CLAUDE_ENV_FILE"
+export UV_PYTHON_INSTALL_DIR=$V/python UV_PYTHON_PREFERENCE=only-managed
+
+pg_ctlcluster 18 main start >/dev/null 2>&1 || service postgresql start >/dev/null 2>&1 ||
+  warn "PostgreSQL 18 did not start"
+
+LIBREDWG=$(pin libredwg.version)
+if [ ! -x "$V/libredwg/bin/dwgread" ]; then     # the GitHub proxy is live by now
+  asset="libredwg-$LIBREDWG-ubuntu24.04-x86_64.tar.gz"
+  tmp=$(mktemp -d)
+  if ! { gh release download "toolchain-libredwg-$LIBREDWG" -R vextrus/vextrus-cubit -p "$asset" -p "$asset.sha256" -D "$tmp" &&
+         (cd "$tmp" && sha256sum -c --quiet "$asset.sha256") &&
+         tar -xzf "$tmp/$asset" -C / --no-same-owner opt/vextrus/libredwg; }; then
+    warn "LibreDWG missing"
+  fi
 fi
-cd "$CLAUDE_PROJECT_DIR" && [ -f uv.lock ] && uv sync --frozen -q || true
-cat /opt/vextrus-setup.status 2>/dev/null
+
+uv sync --locked -q || warn "uv sync failed"
+read -r wheel sha < <(python3 -c "import tomllib; l = tomllib.load(open('toolchain/ezdxf.lock', 'rb'));
+print(l['wheel'], l['wheel_sha256'])")
+if [ "$wheel" != "${wheel%-py3-none-any.whl}" ]; then
+  :                                              # the pure wheel: uv.lock installed it
+elif echo "$sha  $V/wheels/$wheel" | sha256sum -c --quiet - 2>/dev/null; then
+  # A later `uv run` that syncs may put the pure wheel back: the same code, slower.
+  uv pip install -q --no-deps --reinstall "$V/wheels/$wheel" || warn "ezdxf's wheel did not install"
+else
+  warn "ezdxf's compiled wheel $wheel is missing: the pure wheel runs (slower); re-save the setup script"
+fi
+
+# Drift: a pin changed in toolchain/ but the cached setup predates it. Re-saving the setup script
+# (with the new pins) rebuilds the cache.
+[ "$("$V/libredwg/bin/dwgread" --version 2>/dev/null)" = "dwgread $LIBREDWG" ] ||
+  warn "dwgread is not LibreDWG $LIBREDWG"
+"$V/dotnet/dotnet" --list-sdks 2>/dev/null | grep -q "^$(pin dotnet.version) " ||
+  warn ".NET SDK $(pin dotnet.version) is not installed"
+uv python find --managed-python "$(pin python.version)" >/dev/null 2>&1 ||
+  warn "Python $(pin python.version) is not installed"
+
+cat /opt/vextrus-setup.status 2>/dev/null || warn "no setup status: the setup script did not run"
 exit 0

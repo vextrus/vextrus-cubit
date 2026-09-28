@@ -59,6 +59,22 @@ jobs:
       - name: Market-literal scan
         run: python -m tools.lint.market_literals
 
+  harness:
+    # The workflow check and the guard's test (01c; s02 review R3), on every change: both are quick.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+      - name: Workflow check (only main's not-applicable workflow may post those two statuses)
+        run: python3 -m tools.lint.workflows
+      - name: The guard's test
+        run: node --test .claude/hooks/guard.test.mjs
+
   python:
     needs: changes
     if: needs.changes.outputs.python == 'true'
@@ -135,15 +151,16 @@ jobs:
   ci:
     # The one check to require: green when every job passed or was skipped as not concerned.
     if: always()
-    needs: [changes, markets, python]
+    needs: [changes, markets, harness, python]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
       - env:
           CHANGES: ${{ needs.changes.result }}
           MARKETS: ${{ needs.markets.result }}
+          HARNESS: ${{ needs.harness.result }}
           PYTHON: ${{ needs.python.result }}
         run: |
-          echo "changes=$CHANGES markets=$MARKETS python=$PYTHON"
-          [ "$CHANGES" = success ] && [ "$MARKETS" = success ] \
+          echo "changes=$CHANGES markets=$MARKETS harness=$HARNESS python=$PYTHON"
+          [ "$CHANGES" = success ] && [ "$MARKETS" = success ] && [ "$HARNESS" = success ] \
             && { [ "$PYTHON" = success ] || [ "$PYTHON" = skipped ]; }
