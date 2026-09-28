@@ -352,7 +352,7 @@ def report(artefact: ReadArtefact) -> FontReport:
     """The font report of a drawing (the module's docstring)."""
     tally = FontTally()
     heights = Heights(artefact)
-    texts = defaulted = missing = 0
+    texts = defaulted = from_style = missing = 0
     for entity in artefact.entities.values():
         if not isinstance(entity, Text):
             continue
@@ -364,7 +364,9 @@ def report(artefact: ReadArtefact) -> FontReport:
             lacking = lacking or not all(drawable(used.key, c) for c in characters)
         tally.add(named)
         missing += lacking
-        defaulted += heights.local(entity)[1] is HeightSource.DEFAULT
+        source = heights.local(entity)[1]
+        defaulted += source is HeightSource.DEFAULT
+        from_style += source is HeightSource.STYLE
     rows = tally.rows()
     by_close = Counter(str(row.substitute.how_close) for row in rows)
     counts = {
@@ -372,6 +374,7 @@ def report(artefact: ReadArtefact) -> FontReport:
         **{str(how): by_close.get(str(how), 0) for how in HowClose},
         "texts": texts,
         "texts_height_defaulted": defaulted,
+        "texts_height_from_style": from_style,  # #82: the check's view of the style step
         "texts_glyphs_missing": missing,
     }
     return FontReport(rows, texts, defaulted, missing, counts)
