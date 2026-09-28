@@ -1,0 +1,297 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-09-29 02:50+0600\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: en\n"
+
+#: src/members/MembersPage.tsx
+msgid "No one from Vextrus has access."
+msgstr "No one from Vextrus has access."
+
+#: src/members/LinkShown.tsx
+msgid "Your browser did not let Vextrus copy it. The link is selected above: copy it from there."
+msgstr "Your browser did not let Vextrus copy it. The link is selected above: copy it from there."
+
+#: src/members/InviteDialog.tsx
+#: src/members/MembersPage.tsx
+msgid "Projects"
+msgstr "Projects"
+
+#: src/members/MembersPage.tsx
+msgid "{name} (you)"
+msgstr "{name} (you)"
+
+#: src/members/MembersPage.tsx
+msgid "Revoked by {by}, {date}"
+msgstr "Revoked by {by}, {date}"
+
+#: src/members/MembersPage.tsx
+msgid "People at {developer}"
+msgstr "People at {developer}"
+
+#: src/members/MembersPage.tsx
+msgid "Acts on this access"
+msgstr "Acts on this access"
+
+#: src/members/MembersPage.tsx
+msgid "End {revokingName}’s access now?"
+msgstr "End {revokingName}’s access now?"
+
+#: src/members/ActsPanel.tsx
+msgid "{date}, {time}"
+msgstr "{date}, {time}"
+
+#: src/members/DateField.tsx
+msgid "{days, plural, =0 {(today)} one {(# day)} other {(# days)}}"
+msgstr "{days, plural, =0 {(today)} one {(# day)} other {(# days)}}"
+
+#: src/members/MembersPage.tsx
+msgid "Their next click is refused. What they did stays under their name."
+msgstr "Their next click is refused. What they did stays under their name."
+
+#: src/members/MembersPage.tsx
+msgid "Name"
+msgstr "Name"
+
+#: src/members/ActsPanel.tsx
+msgid "Vextrus can’t be reached. Check your connection; this page keeps trying."
+msgstr "Vextrus can’t be reached. Check your connection; this page keeps trying."
+
+#: src/members/LinkShown.tsx
+msgid "Copy this link and send it to {email}. It works once, until {date}."
+msgstr "Copy this link and send it to {email}. It works once, until {date}."
+
+#. placeholder {0}: all.length
+#: src/members/ActsPanel.tsx
+msgid "{0, plural, one {# act shown} other {# acts shown}}"
+msgstr "{0, plural, one {# act shown} other {# acts shown}}"
+
+#: src/members/ActsPanel.tsx
+msgid "Show earlier acts"
+msgstr "Show earlier acts"
+
+#: src/members/MembersPage.tsx
+msgid "Revoked {date}"
+msgstr "Revoked {date}"
+
+#: src/members/MembersPage.tsx
+msgid "Renew 30 days"
+msgstr "Renew 30 days"
+
+#: src/members/InviteDialog.tsx
+#: src/members/MembersPage.tsx
+msgid "Cancel"
+msgstr "Cancel"
+
+#: src/members/ActsPanel.tsx
+msgid "{name} (Vextrus)"
+msgstr "{name} (Vextrus)"
+
+#: src/members/LinkShown.tsx
+msgid "Link copied"
+msgstr "Link copied"
+
+#: src/members/MembersPage.tsx
+msgid "From"
+msgstr "From"
+
+#: src/members/ActsPanel.tsx
+msgid "No acts yet."
+msgstr "No acts yet."
+
+#: src/members/MembersPage.tsx
+msgid "End access"
+msgstr "End access"
+
+#: src/members/MembersPage.tsx
+msgid "Acts on this invitation"
+msgstr "Acts on this invitation"
+
+#: src/members/MembersPage.tsx
+msgid "Invited by"
+msgstr "Invited by"
+
+#: src/members/InviteDialog.tsx
+#: src/members/MembersPage.tsx
+msgid "Role"
+msgstr "Role"
+
+#: src/members/InviteDialog.tsx
+msgid "Role: {roleWord}"
+msgstr "Role: {roleWord}"
+
+#: src/members/MembersPage.tsx
+msgid "Revoke"
+msgstr "Revoke"
+
+#: src/members/MembersPage.tsx
+msgid "Ended {date}"
+msgstr "Ended {date}"
+
+#: src/members/InviteDialog.tsx
+msgid "End their access on a date"
+msgstr "End their access on a date"
+
+#: src/members/MembersPage.tsx
+msgid "{name}’s access has ended."
+msgstr "{name}’s access has ended."
+
+#: src/members/InviteDialog.tsx
+msgid "Read only: a Guest can look at the drawings and the Takeoff of the chosen projects, and change nothing."
+msgstr "Read only: a Guest can look at the drawings and the Takeoff of the chosen projects, and change nothing."
+
+#: src/members/InviteDialog.tsx
+msgid "Invite someone to {developer}"
+msgstr "Invite someone to {developer}"
+
+#: src/members/ActsPanel.tsx
+msgid "Their acts, newest first"
+msgstr "Their acts, newest first"
+
+#: src/members/MembersPage.tsx
+msgid "Invitation withdrawn. The link no longer works."
+msgstr "Invitation withdrawn. The link no longer works."
+
+#: src/members/MembersPage.tsx
+msgid "Since"
+msgstr "Since"
+
+#: src/members/MembersPage.tsx
+msgid "Invite"
+msgstr "Invite"
+
+#: src/members/MembersPage.tsx
+msgid "Opening Members and access…"
+msgstr "Opening Members and access…"
+
+#: src/members/MembersPage.tsx
+msgid "Invitations not used yet"
+msgstr "Invitations not used yet"
+
+#: src/members/InviteDialog.tsx
+msgid "For someone from outside {developer}, such as a consultant’s engineer or a contractor’s QS, set an end date."
+msgstr "For someone from outside {developer}, such as a consultant’s engineer or a contractor’s QS, set an end date."
+
+#: src/members/MembersPage.tsx
+msgid "Vextrus Engineer"
+msgstr "Vextrus Engineer"
+
+#: src/members/MembersPage.tsx
+msgid "Acts on this person"
+msgstr "Acts on this person"
+
+#: src/members/InviteDialog.tsx
+#: src/members/MembersPage.tsx
+msgid "Email"
+msgstr "Email"
+
+#: src/members/MembersPage.tsx
+msgid "Withdraw"
+msgstr "Withdraw"
+
+#: src/members/InviteDialog.tsx
+msgid "Access ends on"
+msgstr "Access ends on"
+
+#: src/members/MembersPage.tsx
+msgid "Members and access"
+msgstr "Members and access"
+
+#: src/members/MembersPage.tsx
+msgid "Acts"
+msgstr "Acts"
+
+#: src/members/MembersPage.tsx
+msgid "No acts yet"
+msgstr "No acts yet"
+
+#: src/members/MembersPage.tsx
+msgid "No invitations are waiting to be used."
+msgstr "No invitations are waiting to be used."
+
+#: src/members/InviteDialog.tsx
+msgid "Chosen projects"
+msgstr "Chosen projects"
+
+#: src/members/MembersPage.tsx
+msgid "Who can open {developer}’s projects"
+msgstr "Who can open {developer}’s projects"
+
+#: src/members/MembersPage.tsx
+msgid "{joined}, {code}"
+msgstr "{joined}, {code}"
+
+#: src/members/MembersPage.tsx
+msgid "{name}’s access now ends on {date}."
+msgstr "{name}’s access now ends on {date}."
+
+#. placeholder {0}: row.acts
+#: src/members/MembersPage.tsx
+msgid "{0, plural, one {# act, last {last}} other {# acts, last {last}}}"
+msgstr "{0, plural, one {# act, last {last}} other {# acts, last {last}}}"
+
+#: src/members/InviteDialog.tsx
+msgid "Create link"
+msgstr "Create link"
+
+#: src/members/ActsPanel.tsx
+msgid "Reading their acts…"
+msgstr "Reading their acts…"
+
+#: src/members/LinkShown.tsx
+#: src/members/MembersPage.tsx
+msgid "Copy link"
+msgstr "Copy link"
+
+#: src/members/DateField.tsx
+msgid "Enter a date like {example}."
+msgstr "Enter a date like {example}."
+
+#: src/members/InviteDialog.tsx
+#: src/members/MembersPage.tsx
+msgid "Vextrus can’t be reached. Check your connection and try again."
+msgstr "Vextrus can’t be reached. Check your connection and try again."
+
+#: src/members/MembersPage.tsx
+msgid "Link works until"
+msgstr "Link works until"
+
+#: src/members/InviteDialog.tsx
+msgid "Choose at least one project."
+msgstr "Choose at least one project."
+
+#: src/members/ActsPanel.tsx
+msgid "Close"
+msgstr "Close"
+
+#: src/members/LinkShown.tsx
+msgid "The link made before no longer works."
+msgstr "The link made before no longer works."
+
+#: src/members/MembersPage.tsx
+msgid "Until"
+msgstr "Until"
+
+#: src/members/InviteDialog.tsx
+#: src/members/MembersPage.tsx
+msgid "All projects"
+msgstr "All projects"
+
+#: src/members/MembersPage.tsx
+msgid "Vextrus access"
+msgstr "Vextrus access"
+
+#: src/members/MembersPage.tsx
+msgid "Vextrus sees your data only while an invitation below is current. You can end it at any time."
+msgstr "Vextrus sees your data only while an invitation below is current. You can end it at any time."
+
+#: src/members/LinkShown.tsx
+msgid "The invitation link"
+msgstr "The invitation link"
+
+#: src/members/ActsPanel.tsx
+msgid "{n} (Vextrus)"
+msgstr "{n} (Vextrus)"
