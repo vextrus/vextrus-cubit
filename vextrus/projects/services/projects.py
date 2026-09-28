@@ -14,16 +14,20 @@ The Market, the currency and the Display Units come from the acting Developer's 
 the caller: `create` takes no Market or currency, and a unit system the Market does not offer is
 refused. Creating a Project makes its Site and one Building in the same transaction; nothing else
 makes a Building in M0.
+
+The app role may update only the columns a person may change (`code`, `code_key`, `name`, `address`,
+`unit_system`; migration 0001): a Project's Market and currency are fixed when it is made. A later
+update service saves with `update_fields`, and keeps `code_key` and the Market's unit systems.
 """
 
 import builtins
+import unicodedata
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
 
 from django.db import IntegrityError, transaction
-from django.db.models import CharField, QuerySet, Value
-from django.db.models.functions import Upper
+from django.db.models import CharField, QuerySet
 
 from engine.messages import Message
 from vextrus.platform.services import events, markets, tenancy
@@ -83,7 +87,7 @@ class Refused(ValueError):
 
 def list() -> builtins.list[ProjectView]:
     """The Projects the current Membership may open, by code."""
-    return [_view(project) for project in _open().order_by(Upper("code"), "id")]
+    return [_view(project) for project in _open().order_by("code_key", "id")]
 
 
 def get(project_id: uuid.UUID) -> ProjectView:
@@ -144,7 +148,9 @@ def create(*, code: str, name: str, address: str = "", unit_system: str | None =
     membership = tenancy.current_membership()
     if membership is not None and membership.project_ids:
         raise Refused(None, said.SCOPED_MEMBER_CANNOT_CREATE())
-    code, name, address = code.strip(), name.strip(), address.strip()
+    code, name, address = (
+        unicodedata.normalize("NFC", value).strip() for value in (code, name, address)
+    )
     if not name:
         raise Refused("name", said.NAME_MISSING())
     if not code:
@@ -153,18 +159,23 @@ def create(*, code: str, name: str, address: str = "", unit_system: str | None =
         limit = _max_length(field)
         if len(value) > limit:
             raise Refused(field, said.TOO_LONG(limit=limit))
+    key = code_key(code)
+    if len(key) > _max_length("code_key"):
+        # A few characters grow many-fold when folded (NFKC): refused as too long, at the code's limit.
+        raise Refused("code", said.TOO_LONG(limit=_max_length("code")))
     market = markets.of_developer(tenant_id)
     system = market.default_unit_system if unit_system is None else unit_system
     if system not in market.unit_systems:
         raise Refused("unit_system", said.UNIT_SYSTEM_NOT_OFFERED())
 
     with transaction.atomic():
-        _refuse_taken(tenant_id, code)
+        _refuse_taken(tenant_id, key, code)
         try:
             with transaction.atomic():
                 project = Project.objects.create(
                     tenant_id=tenant_id,
                     code=code,
+                    code_key=key,
                     name=name,
                     address=address,
                     market_id=market.id,
@@ -173,7 +184,7 @@ def create(*, code: str, name: str, address: str = "", unit_system: str | None =
                 )
         except IntegrityError:
             # A concurrent create took the code between the check and the insert.
-            _refuse_taken(tenant_id, code)
+            _refuse_taken(tenant_id, key, code)
             raise
         Site.objects.create(tenant_id=tenant_id, project=project)
         Building.objects.create(
@@ -200,13 +211,15 @@ def _max_length(field: str) -> int:
     return column.max_length
 
 
-def _refuse_taken(tenant_id: uuid.UUID, code: str) -> None:
+def code_key(code: str) -> str:
+    """A code as its uniqueness sees it: compatibility-normalised and case-folded in the app (so
+    "KR-01", "kr-01" and "ẞ-1", "ß-1" are one code on every database, whatever its collation)."""
+    return unicodedata.normalize("NFKC", unicodedata.normalize("NFKC", code.strip()).casefold())
+
+
+def _refuse_taken(tenant_id: uuid.UUID, key: str, code: str) -> None:
     holder = (
-        Project.objects.filter(tenant_id=tenant_id)
-        .annotate(upper_code=Upper("code"))
-        .filter(upper_code=Upper(Value(code)))
-        .values_list("name", flat=True)
-        .first()
+        Project.objects.filter(tenant_id=tenant_id, code_key=key).values_list("name", flat=True).first()
     )
     if holder is not None:
         raise Refused("code", said.CODE_TAKEN(code=code, name=holder))

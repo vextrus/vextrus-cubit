@@ -50,15 +50,15 @@ def cursor() -> Iterator[Any]:
 
 
 INSERT_PROJECT = """insert into projects_project
-  (id, tenant_id, code, name, address, market_id, currency_code, unit_system, created_at)
-  values (%s, %s, %s, 'A project', '', %s, 'XXX', 'x', now())"""
+  (id, tenant_id, code, code_key, name, address, market_id, currency_code, unit_system, created_at)
+  values (%s, %s, %s, lower(%s), 'A project', '', %s, 'XXX', 'x', now())"""
 INSERT_BUILDING = """insert into projects_building (id, tenant_id, project_id, code, name, ordinal)
   values (%s, %s, %s, 'B2', 'A second', 2)"""
 
 
 def insert_project(cursor: Any, tenant: uuid.UUID, market: MarketProfile, code: str) -> uuid.UUID:
     project_id = uuid.uuid4()
-    cursor.execute(INSERT_PROJECT, [project_id, tenant, code, market.id])
+    cursor.execute(INSERT_PROJECT, [project_id, tenant, code, code, market.id])
     return project_id
 
 
@@ -95,7 +95,7 @@ def test_the_app_cannot_write_a_project_into_another_developer(
     theirs = insert_project(cursor, b, market, "MG-01")
     act(cursor, tenant=a)
 
-    assert RLS_REFUSED in refused(cursor, INSERT_PROJECT, [uuid.uuid4(), b, "X-01", market.id])
+    assert RLS_REFUSED in refused(cursor, INSERT_PROJECT, [uuid.uuid4(), b, "X-01", "X-01", market.id])
     cursor.execute("update projects_project set name = 'Taken' where id = %s", [theirs])
     assert cursor.rowcount == 0
     cursor.execute("delete from projects_project where id = %s", [theirs])
@@ -114,7 +114,65 @@ def test_the_app_cannot_move_its_project_into_another_developer(
 
     error = refused(cursor, "update projects_project set tenant_id = %s where id = %s", [b, mine])
 
-    assert RLS_REFUSED in error
+    assert "permission denied" in error
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    ("column", "value"),
+    [("market_id", uuid.uuid4()), ("currency_code", "XTS"), ("created_at", "2020-01-01T00:00Z")],
+)
+def test_the_app_cannot_rewrite_a_projects_market_or_currency(
+    two: tuple[uuid.UUID, uuid.UUID], cursor: Any, market: MarketProfile, column: str, value: Any
+) -> None:
+    a, _b = two
+    act(cursor, tenant=a)
+    mine = insert_project(cursor, a, market, "KR-01")
+
+    error = refused(cursor, f"update projects_project set {column} = %s where id = %s", [value, mine])
+
+    assert "permission denied" in error
+
+
+@pytest.mark.django_db
+def test_the_app_may_change_what_a_person_may_change(
+    two: tuple[uuid.UUID, uuid.UUID], cursor: Any, market: MarketProfile
+) -> None:
+    a, _b = two
+    act(cursor, tenant=a)
+    mine = insert_project(cursor, a, market, "KR-01")
+
+    cursor.execute(
+        "update projects_project set code = 'KR-02', code_key = 'kr-02', name = 'Renamed',"
+        " address = 'Elsewhere', unit_system = 'y' where id = %s",
+        [mine],
+    )
+
+    assert cursor.rowcount == 1
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("table", ["projects_site", "projects_building"])
+def test_the_app_cannot_move_a_site_or_building_to_another_project(
+    two: tuple[uuid.UUID, uuid.UUID], cursor: Any, market: MarketProfile, table: str
+) -> None:
+    a, _b = two
+    act(cursor, tenant=a)
+    first = insert_project(cursor, a, market, "KR-01")
+    second = insert_project(cursor, a, market, "BP-02")
+    cursor.execute(
+        "insert into projects_site (id, tenant_id, project_id, name) values (%s, %s, %s, '')",
+        [uuid.uuid4(), a, first],
+    )
+    cursor.execute(
+        "insert into projects_building (id, tenant_id, project_id, code, name, ordinal)"
+        " values (%s, %s, %s, 'B1', 'x', 1)",
+        [uuid.uuid4(), a, first],
+    )
+
+    for column, value in (("project_id", second), ("tenant_id", _b)):
+        error = refused(cursor, f"update {table} set {column} = %s", [value])
+        assert "permission denied" in error
 
 
 @pytest.mark.django_db
@@ -155,14 +213,14 @@ def test_a_site_cannot_be_hung_on_another_developers_project(
 
 
 @pytest.mark.django_db
-def test_a_code_is_unique_in_a_developer_whatever_its_case_but_not_across_developers(
+def test_a_code_key_is_unique_in_a_developer_but_not_across_developers(
     two: tuple[uuid.UUID, uuid.UUID], cursor: Any, market: MarketProfile
 ) -> None:
     a, b = two
     act(cursor, tenant=a)
     insert_project(cursor, a, market, "KR-01")
 
-    error = refused(cursor, INSERT_PROJECT, [uuid.uuid4(), a, "kr-01", market.id])
+    error = refused(cursor, INSERT_PROJECT, [uuid.uuid4(), a, "KR-01", "KR-01", market.id])
 
     assert "projects_project_code_unique" in error
     act(cursor, tenant=b)

@@ -6,11 +6,13 @@
 #   Developer's only.
 # - Composite keys hold a Site and a Building to a Project of their own tenant.
 # - vextrus_app's rights come from platform's default privileges (platform 0003): select, insert,
-#   update and delete, never TRUNCATE.
+#   update and delete, never TRUNCATE; updates are then narrowed to the columns a person may change,
+#   so the app can never rewrite a Project's Market or currency, nor move a Site or a Building to
+#   another Project.
 
 import django.db.models.deletion
-import django.db.models.functions.text
 import django.utils.timezone
+from django.conf import settings
 from django.db import migrations, models
 
 import vextrus.platform.ids
@@ -27,6 +29,19 @@ POLICIES_REVERSE = [
     *(f"drop policy own_tenant on {table}" for table in TABLES),
     *(f"alter table {table} disable row level security" for table in TABLES),
 ]
+
+APP = settings.VEXTRUS_APP_ROLE
+
+GRANTS = [
+    f"revoke update on {table} from {APP}" for table in TABLES
+] + [
+    f"grant update (code, code_key, name, address, unit_system) on projects_project to {APP}",
+    f"grant update (name) on projects_site to {APP}",
+    f"grant update (code, name, ordinal) on projects_building to {APP}",
+]
+GRANTS_REVERSE = [
+    f"revoke update on {table} from {APP}" for table in TABLES
+] + [f"grant update on {table} to {APP}" for table in TABLES]
 
 KEYS = [
     f"""alter table {table} add constraint {table}_own_tenant
@@ -64,6 +79,14 @@ class Migration(migrations.Migration):
                 ),
                 ("tenant_id", models.UUIDField(editable=False)),
                 ("code", models.CharField(max_length=32)),
+                (
+                    "code_key",
+                    models.CharField(
+                        editable=False,
+                        help_text="The code folded (NFKC, then case-folded), unique in the Developer.",
+                        max_length=128,
+                    ),
+                ),
                 ("name", models.CharField(max_length=200)),
                 ("address", models.CharField(blank=True, max_length=500)),
                 ("market_id", models.UUIDField(editable=False)),
@@ -84,8 +107,7 @@ class Migration(migrations.Migration):
             options={
                 "constraints": [
                     models.UniqueConstraint(
-                        models.F("tenant_id"),
-                        django.db.models.functions.text.Upper("code"),
+                        fields=("tenant_id", "code_key"),
                         name="projects_project_code_unique",
                     ),
                     models.UniqueConstraint(
@@ -174,4 +196,5 @@ class Migration(migrations.Migration):
         ),
         migrations.RunSQL(POLICIES, POLICIES_REVERSE),
         migrations.RunSQL(KEYS, KEYS_REVERSE),
+        migrations.RunSQL(GRANTS, GRANTS_REVERSE),
     ]

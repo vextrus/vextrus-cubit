@@ -42,6 +42,43 @@ def test_a_retried_create_is_refused_naming_the_project_that_has_the_code(
 
 
 @pytest.mark.django_db
+@pytest.mark.parametrize(
+    ("first", "again"),
+    [
+        ("KR-01", "kr-01"),
+        ("ẞ-1", "ß-1"),  # upper() leaves ß alone: both fold to "ss-1"
+        ("ϴ-1", "θ-1"),
+        ("\u017f-1", "S-1"),  # a long s
+        ("\uff2b-1", "K-1"),  # a full-width K, as some keyboards type it
+        ("e\u0301-1", "\u00e9-1"),  # é decomposed and composed
+    ],
+)
+def test_codes_that_differ_only_in_case_or_form_are_one_code(
+    make_developer: Callable[..., uuid.UUID], first: str, again: str
+) -> None:
+    shapla = make_developer()
+    with tenancy.acting_in(shapla):
+        services.create(code=first, name="Kadam Residence")
+
+    with tenancy.acting_in(shapla), pytest.raises(services.Refused) as refused:
+        services.create(code=again, name="Another")
+
+    assert refused.value.message["code"] == "projects.projects.code_taken"
+    assert counts(shapla) == (1, 1, 1)
+
+
+@pytest.mark.django_db
+def test_a_code_folding_past_its_key_is_refused_as_too_long(
+    make_developer: Callable[..., uuid.UUID],
+) -> None:
+    # U+FDFA folds (NFKC) to 18 characters: 8 of them fit the code's 32 but not the key's 128.
+    with tenancy.acting_in(make_developer()), pytest.raises(services.Refused) as refused:
+        services.create(code="\ufdfa" * 8, name="Kadam Residence")
+
+    assert refused.value.message == {"code": "projects.projects.too_long", "params": {"limit": 32}}
+
+
+@pytest.mark.django_db
 def test_two_developers_may_each_have_the_same_code(
     make_developer: Callable[..., uuid.UUID],
 ) -> None:

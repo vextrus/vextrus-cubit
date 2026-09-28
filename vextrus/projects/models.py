@@ -10,7 +10,6 @@ Project of its own tenant by a composite key (`(tenant_id, project_id)`), beside
 from typing import ClassVar
 
 from django.db import models
-from django.db.models.functions import Upper
 from django.utils import timezone
 
 from vextrus.platform.ids import new_id
@@ -21,13 +20,19 @@ class Project(models.Model):
 
     `market_id` is the Developer's Market (a downward id to `platform`, read through its services);
     `currency_code` is that Market's currency, stored when the Project is made; `unit_system` is its
-    Display Units, one its Market offers. Its code is unique in the Developer whatever its case.
+    Display Units, one its Market offers. Its code is unique in the Developer whatever its case
+    (`code_key`: folded in the app, so the rule is the same on every database's collation).
     Target Cost and Saleable Area are M1 to M2 fields.
     """
 
     id = models.UUIDField(primary_key=True, default=new_id, editable=False)
     tenant_id = models.UUIDField(editable=False)
     code = models.CharField(max_length=32)
+    code_key = models.CharField(
+        max_length=128,
+        editable=False,
+        help_text="The code folded (NFKC, then case-folded), unique in the Developer.",
+    )
     name = models.CharField(max_length=200)
     address = models.CharField(max_length=500, blank=True)
     market_id = models.UUIDField(editable=False)
@@ -38,7 +43,7 @@ class Project(models.Model):
     class Meta:
         constraints: ClassVar = [
             models.UniqueConstraint(
-                models.F("tenant_id"), Upper("code"), name="projects_project_code_unique"
+                fields=["tenant_id", "code_key"], name="projects_project_code_unique"
             ),
             models.UniqueConstraint(fields=["tenant_id", "id"], name="projects_project_tenant_id"),
             models.CheckConstraint(
