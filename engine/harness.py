@@ -45,7 +45,10 @@ file's peak is its own, never the harness's or an earlier file's. The launcher i
 subreaper: what a file's child leaves running is killed when it ends and counted (`left_behind`; its
 memory is not in the peak). A child that runs past `--file-timeout` is killed with its group. A child
 that dies leaves its stages as far as it got: the stage it was in is `failed`, the rest `skipped`, and
-stages whose results never reached the harness `failed`. Nothing one file does stops the run.
+stages whose results never reached the harness `failed`. Nothing one file does stops the run. Each
+file's process gets the harness's environment with BLAS pinned to one thread (`ONE_THREAD`; the
+owner's ruling, 28 Sep 2026): numpy, which ezdxf imports, would otherwise start a spinning OpenBLAS
+thread per core, seconds of CPU per file on many cores before any reading (#66).
 
 **The file's Discipline default** comes from its path and the conventions' Disciplines (the engine
 holds no list of them): a Discipline whose key is a word of the path (a folder named for it), or one of
@@ -433,10 +436,12 @@ def child_main(job_path: str) -> int:
 _CHILD = "import sys; from engine.harness import child_main; sys.exit(child_main(sys.argv[1]))"
 _LAUNCHER = "from engine.harness import launcher_main; launcher_main()"
 _PR_SET_CHILD_SUBREAPER = 36
+ONE_THREAD = {"OPENBLAS_NUM_THREADS": "1", "OMP_NUM_THREADS": "1", "MKL_NUM_THREADS": "1"}
+"""What each file's process runs BLAS with (the owner's ruling, 28 Sep 2026: "Pin to 1 thread")."""
 
 
 def _child_env() -> dict[str, str]:
-    env = dict(os.environ)
+    env = dict(os.environ) | ONE_THREAD
     env["PYTHONPATH"] = os.pathsep.join(filter(None, [str(ROOT), env.get("PYTHONPATH")]))
     return env
 

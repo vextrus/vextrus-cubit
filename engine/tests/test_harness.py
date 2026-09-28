@@ -56,7 +56,7 @@ MiB = 1 << 20
 
 FAKES = {
     "read.py": """
-        import os, signal, subprocess, sys, time
+        import json, os, signal, subprocess, sys, time
         from pathlib import Path
 
         class Artefact:
@@ -85,6 +85,16 @@ FAKES = {
                         pass
                 elif word == "raise":
                     raise RuntimeError("the fake reader failed")
+                elif word == "blas":  # what BLAS is told, and the threads once numpy has loaded it
+                    import numpy  # as the reader's ezdxf does
+
+                    names = ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS")
+                    seen = {
+                        "blas": {name: os.environ.get(name) for name in names},
+                        "passed": os.environ.get("VEXTRUS_PASSED_THROUGH"),
+                        "threads": len(os.listdir("/proc/self/task")),
+                    }
+                    Path(arg).write_text(json.dumps(seen))
                 elif word == "nosummary":
                     return object()
                 elif word == "forkchain":
@@ -664,14 +674,11 @@ def test_read_seconds_and_cpu_seconds_are_each_files_own(
     tmp_path: Path,
     fakes: Callable[..., tuple[Stage, ...]],
     conventions: Path,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    # A file's process imports numpy (through ezdxf), whose BLAS starts a thread per core that spins
-    # for a while: on a machine with many cores that is seconds of CPU, more than the wall time, and
-    # it varies from file to file (#66). With one BLAS thread, starting costs every file about the
-    # same CPU, on any machine; the comparisons below are between files of the same run.
-    monkeypatch.setenv("OPENBLAS_NUM_THREADS", "1")
-    monkeypatch.setenv("OMP_NUM_THREADS", "1")
+    # A file's process imports numpy (through ezdxf), whose BLAS would start a thread per core that
+    # spins for a while: seconds of CPU on many cores, varying from file to file (#66). The harness
+    # runs it on one thread (the next test), so starting costs every file about the same CPU, on any
+    # machine; the comparisons below are between files of the same run.
     document = run(
         tmp_path,
         fakes(),
@@ -690,6 +697,30 @@ def test_read_seconds_and_cpu_seconds_are_each_files_own(
     assert busy["cpu_seconds"] - idle["cpu_seconds"] >= 0.75
     # And it is CPU, not wall time: time asleep costs no CPU.
     assert asleep["cpu_seconds"] - idle["cpu_seconds"] < 0.75
+
+
+def test_each_files_process_runs_blas_on_one_thread(
+    tmp_path: Path,
+    fakes: Callable[..., tuple[Stage, ...]],
+    conventions: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The owner's ruling (28 Sep 2026): "Pin to 1 thread". A file's process imports numpy through
+    # ezdxf, and numpy's OpenBLAS starts a spinning thread per core: seconds of CPU on many cores,
+    # before any reading (#66). What the caller set does not unpin it; the rest of the environment
+    # reaches the file as before.
+    for name in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS"):
+        monkeypatch.setenv(name, "8")
+    monkeypatch.setenv("VEXTRUS_PASSED_THROUGH", "kept")
+    seen = tmp_path / "blas.json"
+
+    run(tmp_path, fakes(), {"a.dwg": f"blas {seen}"}, conventions=conventions)
+
+    found = json.loads(seen.read_text())
+    assert found["blas"] == {"OPENBLAS_NUM_THREADS": "1", "OMP_NUM_THREADS": "1", "MKL_NUM_THREADS": "1"}
+    assert found["passed"] == "kept"
+    # numpy loaded, the file's process still runs one thread: BLAS started none of its own.
+    assert found["threads"] == 1
 
 
 def test_a_child_that_dies_is_reported_as_far_as_it_got(
