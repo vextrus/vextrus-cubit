@@ -272,7 +272,8 @@ Discipline, Takeoff Step and Check. Use them exactly. What remains here are impl
     returned, never resolved by the lower module.
   - Every building-scoped row carries `building_id` from M0 (ADR 0036): a downward id to `projects`.
 - **Append-only.** These tables are append-only:
-  - Confirmation, DomainEvent and JevOverride;
+  - Confirmation, DomainEvent, JevOverride and JevAnswer (s05: an answer never changes, since its
+    key includes the model);
   - Element States, Element Relations and Traces (only `valid_to_seq` is ever set);
   - Records (s02: a correction is a new Record that supersedes the old one);
   - published Rule Set versions, confirmed Drafting Profile versions, frozen Market Price sets, and
@@ -295,8 +296,8 @@ Discipline, Takeoff Step and Check. Use them exactly. What remains here are impl
 | MembershipProject (s02 Q11) | project_id (an upward stamp): a Project this Membership may open; none = all | (membership, project) | T | Membership |
 | StoredFile | sha256, key (starting with the tenant id, then the project id; s02), kind (`original`/`derived`/`export`/`evidence`, s02: a Record's evidence), media_type, size, producer + producer_version, source_sha256 | (tenant, key) | T | project_id (upward stamp) |
 | DomainEvent | kind (`confirmation.recorded`, `revision.read`, `market_prices.frozen`, `record.written`…), project_id, building_id, subject_type + subject_id, actor_user_id, payload (ids and counts only), occurred_at | id (time-ordered) | T | — |
-| JevAnswer | cache_key = sha256(facts, question, options, model), node, model_version, options, choice, confidence dec(5,4) | (tenant, cache_key) | T | — |
-| JevOverride | node, model_version, subject_id (a Proposal, upward stamp), jev choice, QS choice, user, at | id | T | JevAnswer |
+| JevAnswer | cache_key = sha256 of canonical JSON (sorted keys) over node, facts, question, options (with their descriptions, in the order offered) and model (s05, ticket 15: the node too, so no two nodes share a row), node, model_version (pinned, never an alias), options (the keys offered, in order), choice (one of them), confidence dec(5,4) from 0 to 1, **probabilities** (s05, ticket 15: JSONB, each option's probability as a decimal string, for "the kinds, most likely first", m0-screens 5) | (tenant, cache_key) | T | — |
+| JevOverride | node, model_version, subject_id (a Proposal, upward stamp), jev choice, QS choice (never Jev's; one the answer offered), user, at; its (tenant, answer, node, model, jev choice) is its answer's, by a composite key (s05) | id | T | JevAnswer |
 
 Every action is recorded under the acting user's own name (a Vextrus Engineer or an outsider
 included). The client reads Membership to see who from outside has access, to which Projects, and

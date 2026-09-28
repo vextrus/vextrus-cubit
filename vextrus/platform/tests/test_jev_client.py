@@ -240,6 +240,23 @@ def test_an_answer_python_s_json_would_take_is_malformed(body: bytes) -> None:
     assert judge(client(Script(httpx.Response(200, content=body)))) == jev.Unavailable(jev.Why.MALFORMED)
 
 
+@pytest.mark.parametrize("text", ["NaN", "Infinity", "-Infinity", "[1, NaN]", '{"a": 1, "a": 2}'])
+def test_the_parser_itself_refuses_what_python_s_json_takes(text: str) -> None:
+    assert json.loads(text) is not None  # Python's own json takes each of these
+
+    with pytest.raises(ValueError, match="not a number JSON allows|appears twice"):
+        jev._strict_json(text)
+
+
+def test_the_parser_reads_every_fraction_as_a_decimal() -> None:
+    assert jev._strict_json('{"p": 0.1, "q": 1e-7, "n": 1}') == {
+        "p": Decimal("0.1"),
+        "q": Decimal("1E-7"),
+        "n": 1,
+    }
+    assert type(jev._strict_json("0.5")) is Decimal
+
+
 def test_whole_numbers_are_taken_for_a_confidence_and_probabilities() -> None:
     answer = judge(
         client(
@@ -691,6 +708,10 @@ def test_the_committed_recordings_hold_bodies_only() -> None:
 
 
 # TLS, the URL, proxies ------------------------------------------------------------------------------
+
+
+def test_the_setting_names_typesafe_s_endpoint_over_https() -> None:
+    assert settings.VEXTRUS_JEV_URL == "https://api.typesafe.ai/v1/systemone"
 
 
 @pytest.mark.parametrize(
