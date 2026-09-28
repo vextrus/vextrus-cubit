@@ -1,0 +1,411 @@
+"""The ReadArtefact: everything a reader took from one drawing file, and its versioned JSON.
+
+The contract (docs/plans/M0.md, "The ReadArtefact and the anchors"; review A7) fixes its **summary**:
+`source_sha256`, `source_name` (the file's name as uploaded), `format` (the kind and, for a DWG, its
+version such as `AC1032`), `reader` and `reader_version`, `entity_counts` per type, `layer_counts` per
+layer, `layouts` (their names, in tab order) and `insunits`; plus `notes`, the repairs the reader made
+(message codes with counts, engine/messages/read.py).
+
+Its **body** holds every entity, with **raw placement values, unresolved** (s02; 11 resolves them in
+`engine.geometry.placement` and `engine.text.mtext`):
+- an `Insert` keeps its point, scale, rotation and extrusion exactly as the file stores them (a
+  mirrored insert keeps its extrusion (0, 0, -1)); nothing is transformed to world coordinates;
+- a `Text` (TEXT, ATTRIB, ATTDEF, MTEXT) keeps its text exactly as `dwgread` decoded it (raw line
+  breaks and `\\P` codes included), its height as stored (`None` when the file stores none, as MTEXT
+  inside a block may), an MTEXT's direction vector as stored (never an angle), and its style and
+  font. `position` is where the text is drawn from: its start point, whatever its alignment
+  (docs/knowledge/lessons.md: AutoCAD plots aligned TEXT and ATTRIB from it);
+- every other `Entity` keeps its DXF values as ezdxf read them, by DXF name, with its vertices,
+  control points or boundary paths where it has them.
+
+Every entity names its `owner`: the handle of the block record it lies in (a layout's, or a block
+definition's), or for an ATTRIB its INSERT's handle. `blocks` maps each block record to its name,
+base point, layout and entities in drawing order, which is how a Trace's insert chain is walked.
+
+Coordinates are floats in drawing units: drawing geometry stays float inside the read-artefact file
+(docs/data-model.md §2). Rotations are named with their unit.
+
+`to_json` writes `{"schema": SCHEMA, "version": VERSION, ...}`; `from_json` refuses any other schema
+or version, so a change to this shape is a new VERSION and never a silent reinterpretation.
+"""
+
+from collections import Counter
+from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass, field
+from typing import Any, Literal
+
+from engine.messages import Message
+from engine.read._json import Fields, Json
+from engine.read.anchor import is_handle
+
+SCHEMA = "engine.read.artefact"
+VERSION = 1
+
+type Point = tuple[float, float, float]
+type StyleSource = Literal["own", "attdef", "none"]
+
+_STYLE_SOURCES: dict[str, StyleSource] = {"own": "own", "attdef": "attdef", "none": "none"}
+TEXT_TYPES = frozenset({"TEXT", "ATTRIB", "ATTDEF", "MTEXT"})
+INSERT_TYPES = frozenset({"INSERT", "MINSERT"})
+
+
+@dataclass(frozen=True)
+class Format:
+    kind: Literal["dwg"]
+    version: str  # the file's own version string (AC1021, AC1032…)
+
+
+@dataclass(frozen=True)
+class Entity:
+    """Any entity that is neither text nor an insert: its DXF values as ezdxf read them."""
+
+    handle: str
+    type: str
+    layer: str
+    owner: str
+    values: Mapping[str, Json] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class Insert:
+    """A block reference, with its placement exactly as stored (DWG: rotation in radians)."""
+
+    handle: str
+    type: str  # INSERT or MINSERT
+    layer: str
+    owner: str
+    block: str  # the inserted block record's handle
+    name: str  # its name
+    point: Point
+    scale: Point
+    rotation_radians: float
+    extrusion: Point
+    attribs: tuple[str, ...] = ()
+    values: Mapping[str, Json] = field(default_factory=dict)  # MINSERT's rows and columns
+
+
+@dataclass(frozen=True)
+class Text:
+    """TEXT, ATTRIB, ATTDEF or MTEXT, as `dwgread` decoded it."""
+
+    handle: str
+    type: str
+    layer: str
+    owner: str
+    text: str
+    style: str | None
+    style_source: StyleSource  # "attdef": an ATTRIB's style taken from its ATTDEF (LibreDWG drops it)
+    font: str | None  # the style's font file
+    bigfont: str | None
+    height: float | None  # as stored; None when the file stores none
+    position: Point  # the start point: where the text is drawn from
+    alignment_point: Point | None  # as stored, for reference only
+    halign: int
+    valign: int
+    rotation_radians: float  # TEXT, ATTRIB, ATTDEF; 0 for MTEXT, whose angle is its direction
+    direction: Point | None  # MTEXT's direction vector (x axis), as stored
+    width: float | None  # TEXT's width factor; MTEXT's reference rectangle width
+    attachment: int | None  # MTEXT's attachment point (1 to 9)
+    tag: str | None  # ATTRIB and ATTDEF
+    extrusion: Point
+
+
+type AnyEntity = Entity | Insert | Text
+
+
+@dataclass(frozen=True)
+class Block:
+    """A block record: model space, a paper-space layout, or a block definition."""
+
+    handle: str
+    name: str
+    base_point: Point
+    layout: str | None  # the layout's name when this record is a layout's
+    entities: tuple[str, ...]  # handles in drawing order
+
+
+@dataclass(frozen=True)
+class Summary:
+    source_sha256: str
+    source_name: str
+    format: Format
+    reader: str
+    reader_version: str
+    entity_counts: Mapping[str, int]
+    layer_counts: Mapping[str, int]
+    layouts: tuple[str, ...]
+    insunits: int
+    notes: tuple[Message, ...]
+
+
+@dataclass(frozen=True)
+class ReadArtefact:
+    summary: Summary
+    blocks: Mapping[str, Block]
+    entities: Mapping[str, AnyEntity]
+
+    @classmethod
+    def build(
+        cls,
+        *,
+        source_sha256: str,
+        source_name: str,
+        format: Format,
+        reader: str,
+        reader_version: str,
+        layouts: Sequence[str],
+        insunits: int,
+        notes: Iterable[Message],
+        blocks: Iterable[Block],
+        entities: Iterable[AnyEntity],
+    ) -> ReadArtefact:
+        """An artefact with its counts taken from its entities, so the two can never disagree."""
+        by_handle = {entity.handle: entity for entity in entities}
+        summary = Summary(
+            source_sha256=source_sha256,
+            source_name=source_name,
+            format=format,
+            reader=reader,
+            reader_version=reader_version,
+            entity_counts=_count(entity.type for entity in by_handle.values()),
+            layer_counts=_count(entity.layer for entity in by_handle.values()),
+            layouts=tuple(layouts),
+            insunits=insunits,
+            notes=tuple(notes),
+        )
+        return cls(summary, {block.handle: block for block in blocks}, by_handle)
+
+    def to_json(self) -> dict[str, Any]:
+        s = self.summary
+        return {
+            "schema": SCHEMA,
+            "version": VERSION,
+            "summary": {
+                "source_sha256": s.source_sha256,
+                "source_name": s.source_name,
+                "format": {"kind": s.format.kind, "version": s.format.version},
+                "reader": s.reader,
+                "reader_version": s.reader_version,
+                "entity_counts": dict(s.entity_counts),
+                "layer_counts": dict(s.layer_counts),
+                "layouts": list(s.layouts),
+                "insunits": s.insunits,
+                "notes": [dict(note) for note in s.notes],
+            },
+            "blocks": [_block_json(block) for block in self.blocks.values()],
+            "entities": [_entity_json(entity) for entity in self.entities.values()],
+        }
+
+    @classmethod
+    def from_json(cls, data: Mapping[str, Any]) -> ReadArtefact:
+        top = Fields(data, "read artefact")
+        if top.string("schema") != SCHEMA:
+            raise top.fail("schema", repr(SCHEMA))
+        if top.integer("version") != VERSION:
+            raise top.fail("version", f"{VERSION} (this code reads no other)")
+        s = Fields(top.mapping("summary"), "read artefact summary")
+        f = Fields(s.mapping("format"), "read artefact format")
+        if f.string("kind") != "dwg":
+            raise f.fail("kind", "'dwg'")
+        file_format = Format("dwg", f.string("version"))
+        f.done()
+        blocks = [_block_from_json(item) for item in top.array("blocks")]
+        entities = [_entity_from_json(item) for item in top.array("entities")]
+        artefact = cls.build(
+            source_sha256=s.string("source_sha256"),
+            source_name=s.string("source_name"),
+            format=file_format,
+            reader=s.string("reader"),
+            reader_version=s.string("reader_version"),
+            layouts=[str(name) for name in s.array("layouts")],
+            insunits=s.integer("insunits"),
+            notes=[_message(note) for note in s.array("notes")],
+            blocks=blocks,
+            entities=entities,
+        )
+        if dict(s.mapping("entity_counts")) != artefact.summary.entity_counts:
+            raise s.fail("entity_counts", "the counts of the entities it holds")
+        if dict(s.mapping("layer_counts")) != artefact.summary.layer_counts:
+            raise s.fail("layer_counts", "the counts of the entities it holds")
+        s.done()
+        top.done()
+        if len(artefact.entities) != len(entities):
+            raise ValueError("read artefact: an entity handle is repeated")
+        return artefact
+
+
+def _count(keys: Iterable[str]) -> dict[str, int]:
+    return dict(sorted(Counter(keys).items()))
+
+
+def _point(value: object, what: str) -> Point:
+    if (
+        not isinstance(value, list | tuple)
+        or len(value) != 3
+        or not all(isinstance(v, int | float) and not isinstance(v, bool) for v in value)
+    ):
+        raise ValueError(f"read artefact: {what} must be three numbers, got {value!r}")
+    return (float(value[0]), float(value[1]), float(value[2]))
+
+
+def _optional_point(value: object, what: str) -> Point | None:
+    return None if value is None else _point(value, what)
+
+
+def _number(value: object, what: str) -> float:
+    if not isinstance(value, int | float) or isinstance(value, bool):
+        raise ValueError(f"read artefact: {what} must be a number, got {value!r}")
+    return float(value)
+
+
+def _optional_number(value: object, what: str) -> float | None:
+    return None if value is None else _number(value, what)
+
+
+def _optional_int(value: object, what: str) -> int | None:
+    if value is None:
+        return None
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise ValueError(f"read artefact: {what} must be an integer, got {value!r}")
+    return value
+
+
+def _handle(value: object, what: str) -> str:
+    if not is_handle(value):
+        raise ValueError(f"read artefact: {what} must be an upper-case hex handle, got {value!r}")
+    assert isinstance(value, str)
+    return value
+
+
+def _message(value: object) -> Message:
+    fields = Fields(value, "read artefact note")
+    note: Message = {"code": fields.string("code"), "params": dict(fields.mapping("params"))}
+    fields.done()
+    return note
+
+
+def _block_json(block: Block) -> dict[str, Any]:
+    return {
+        "handle": block.handle,
+        "name": block.name,
+        "base_point": list(block.base_point),
+        "layout": block.layout,
+        "entities": list(block.entities),
+    }
+
+
+def _block_from_json(value: object) -> Block:
+    fields = Fields(value, "read artefact block")
+    block = Block(
+        handle=_handle(fields.raw("handle"), "a block's handle"),
+        name=fields.string("name"),
+        base_point=_point(fields.raw("base_point"), "a block's base point"),
+        layout=fields.optional_string("layout"),
+        entities=tuple(_handle(h, "a block's entity") for h in fields.array("entities")),
+    )
+    fields.done()
+    return block
+
+
+def _entity_json(entity: AnyEntity) -> dict[str, Any]:
+    common: dict[str, Any] = {
+        "handle": entity.handle,
+        "type": entity.type,
+        "layer": entity.layer,
+        "owner": entity.owner,
+    }
+    match entity:
+        case Text():
+            return {
+                "kind": "text",
+                **common,
+                "text": entity.text,
+                "style": entity.style,
+                "style_source": entity.style_source,
+                "font": entity.font,
+                "bigfont": entity.bigfont,
+                "height": entity.height,
+                "position": list(entity.position),
+                "alignment_point": _list_or_none(entity.alignment_point),
+                "halign": entity.halign,
+                "valign": entity.valign,
+                "rotation_radians": entity.rotation_radians,
+                "direction": _list_or_none(entity.direction),
+                "width": entity.width,
+                "attachment": entity.attachment,
+                "tag": entity.tag,
+                "extrusion": list(entity.extrusion),
+            }
+        case Insert():
+            return {
+                "kind": "insert",
+                **common,
+                "block": entity.block,
+                "name": entity.name,
+                "point": list(entity.point),
+                "scale": list(entity.scale),
+                "rotation_radians": entity.rotation_radians,
+                "extrusion": list(entity.extrusion),
+                "attribs": list(entity.attribs),
+                "values": dict(entity.values),
+            }
+        case Entity():
+            return {"kind": "entity", **common, "values": dict(entity.values)}
+
+
+def _list_or_none(point: Point | None) -> list[float] | None:
+    return None if point is None else list(point)
+
+
+def _entity_from_json(value: object) -> AnyEntity:
+    fields = Fields(value, "read artefact entity")
+    kind = fields.string("kind")
+    handle = _handle(fields.raw("handle"), "an entity's handle")
+    common = {
+        "handle": handle,
+        "type": fields.string("type"),
+        "layer": fields.string("layer"),
+        "owner": _handle(fields.raw("owner"), f"entity {handle}'s owner"),
+    }
+    entity: AnyEntity
+    if kind == "entity":
+        entity = Entity(**common, values=dict(fields.mapping("values")))
+    elif kind == "insert":
+        entity = Insert(
+            **common,
+            block=_handle(fields.raw("block"), f"insert {handle}'s block"),
+            name=fields.string("name"),
+            point=_point(fields.raw("point"), f"insert {handle}'s point"),
+            scale=_point(fields.raw("scale"), f"insert {handle}'s scale"),
+            rotation_radians=_number(fields.raw("rotation_radians"), f"insert {handle}'s rotation"),
+            extrusion=_point(fields.raw("extrusion"), f"insert {handle}'s extrusion"),
+            attribs=tuple(_handle(h, f"insert {handle}'s attrib") for h in fields.array("attribs")),
+            values=dict(fields.mapping("values")),
+        )
+    elif kind == "text":
+        style_source = _STYLE_SOURCES.get(fields.string("style_source"))
+        if style_source is None:
+            raise fields.fail("style_source", "own, attdef or none")
+        entity = Text(
+            **common,
+            text=fields.string("text"),
+            style=fields.optional_string("style"),
+            style_source=style_source,
+            font=fields.optional_string("font"),
+            bigfont=fields.optional_string("bigfont"),
+            height=_optional_number(fields.raw("height"), f"text {handle}'s height"),
+            position=_point(fields.raw("position"), f"text {handle}'s position"),
+            alignment_point=_optional_point(fields.raw("alignment_point"), f"text {handle}'s alignment"),
+            halign=fields.integer("halign"),
+            valign=fields.integer("valign"),
+            rotation_radians=_number(fields.raw("rotation_radians"), f"text {handle}'s rotation"),
+            direction=_optional_point(fields.raw("direction"), f"text {handle}'s direction"),
+            width=_optional_number(fields.raw("width"), f"text {handle}'s width"),
+            attachment=_optional_int(fields.raw("attachment"), f"text {handle}'s attachment"),
+            tag=fields.optional_string("tag"),
+            extrusion=_point(fields.raw("extrusion"), f"text {handle}'s extrusion"),
+        )
+    else:
+        raise fields.fail("kind", "entity, insert or text")
+    fields.done()
+    return entity
