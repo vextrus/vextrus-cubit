@@ -81,6 +81,17 @@ FAKES = {
                     raise RuntimeError("the fake reader failed")
                 elif word == "nosummary":
                     return object()
+                elif word == "forkchain":
+                    # A process that forks and exits for a while: its pid never stays still.
+                    chain = (
+                        "import os, time\\n"
+                        "end = time.monotonic() + 3\\n"
+                        "while time.monotonic() < end:\\n"
+                        "    if os.fork():\\n"
+                        "        os._exit(0)\\n"
+                    )
+                    for _ in range(int(arg)):
+                        subprocess.Popen([sys.executable, "-c", chain], start_new_session=True)
                 elif word == "orphan":
                     stray = subprocess.Popen(
                         [sys.executable, "-c", "import time; time.sleep(600)"], start_new_session=True
@@ -1090,3 +1101,14 @@ def test_a_candidate_of_the_wrong_shape_fails_where_it_is_made(
 ) -> None:
     with pytest.raises(error):
         make()
+
+
+def test_a_fork_chain_a_file_leaves_is_stopped_and_never_charged_to_the_next_file(
+    tmp_path: Path, fakes: Callable[..., tuple[Stage, ...]], conventions: Path
+) -> None:
+    document = run(tmp_path, fakes(), {"a.dwg": "forkchain 4", "b.dwg": ""}, conventions=conventions)
+
+    first, second = (by_path(document)[name]["process"] for name in ("a.dwg", "b.dwg"))
+    assert first["left_behind"] >= 1
+    assert second["left_behind"] == 0
+    assert second["left_running"] is False

@@ -121,6 +121,8 @@ class ProcessReport:
     left_behind: int = 0
     """Processes it left running (a grandchild it did not wait for), killed when it ended; their
     memory is not in `peak_rss_kib`."""
+    left_running: bool = False
+    """Whether some of them could not be stopped (they forked faster than they were killed)."""
     log_tail: str | None = None
     """The end of what it printed, when it did not end well."""
 
@@ -133,6 +135,7 @@ class ProcessReport:
             "cpu_seconds": round(self.cpu_seconds, 6),
             "peak_rss_kib": self.peak_rss_kib,
             "left_behind": self.left_behind,
+            "left_running": self.left_running,
             "log_tail": self.log_tail,
         }
 

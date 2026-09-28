@@ -85,10 +85,10 @@
       }
     },
     "process": {
-      "description": "The file's own child process, started by the harness's launcher and measured by os.wait4: its rusage counts the children it waited for; left_behind counts those it did not, killed when it ended.",
+      "description": "The file's own child process, started by the harness's launcher and measured by os.wait4: its rusage counts the children it waited for; left_behind counts those it did not, killed when it ended, and left_running says some could not be stopped.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["status", "exit_code", "signal", "seconds", "cpu_seconds", "peak_rss_kib", "left_behind", "log_tail"],
+      "required": ["status", "exit_code", "signal", "seconds", "cpu_seconds", "peak_rss_kib", "left_behind", "left_running", "log_tail"],
       "properties": {
         "status": {"enum": ["ok", "failed", "timed_out"]},
         "exit_code": {"type": ["integer", "null"]},
@@ -97,6 +97,7 @@
         "cpu_seconds": {"$ref": "#/$defs/seconds"},
         "peak_rss_kib": {"$ref": "#/$defs/count"},
         "left_behind": {"$ref": "#/$defs/count"},
+        "left_running": {"type": "boolean"},
         "log_tail": {"type": ["string", "null"]}
       }
     },

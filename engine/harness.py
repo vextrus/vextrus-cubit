@@ -117,6 +117,8 @@ PX_PER_MM = 4.0
 """The density the harness rasterises each sheet at, to run the stage; F1 is scored by 18's stage."""
 FILE_TIMEOUT = 3600.0
 LOG_TAIL = 4000
+CLEAR_SECONDS = 10.0
+"""How long the launcher tries to stop what a file's process left running before it gives up."""
 _HANDOVER = "(handing over)"
 
 
@@ -446,8 +448,8 @@ def _kill(pid: int) -> None:
             kill(pid, signal.SIGKILL)
 
 
-def _children() -> list[int]:
-    """This process's children, from /proc (the orphans a subreaper takes in included)."""
+def _children() -> list[tuple[int, str]]:
+    """This process's children and their states, from /proc (a subreaper's orphans included)."""
     me, found = os.getpid(), []
     try:
         entries = list(os.scandir("/proc"))
@@ -460,24 +462,31 @@ def _children() -> list[int]:
             stat = Path(entry.path, "stat").read_text()
         except OSError:
             continue
-        if int(stat[stat.rindex(")") + 2 :].split()[1]) == me:
-            found.append(int(entry.name))
+        state, parent = stat[stat.rindex(")") + 2 :].split()[:2]
+        if int(parent) == me:
+            found.append((int(entry.name), state))
     return found
 
 
-def _clear() -> int:
-    """Kill and reap every process a file's child left behind; how many there were."""
+def _clear(group: int | None) -> tuple[int, bool]:
+    """Kill and reap what a file's child left behind: its process group first, then every orphan
+    the launcher took in, for up to `CLEAR_SECONDS`. How many were running, and whether some
+    still are (a process that forks faster than it can be killed)."""
+    if group is not None:
+        _kill(group)
+    deadline = time.monotonic() + CLEAR_SECONDS
     cleared: set[int] = set()
-    for _ in range(100):
-        left = _children()
-        if not left:
-            break
-        for pid in left:
-            _kill(pid)
+    while left := _children():
+        if time.monotonic() > deadline:
+            return len(cleared), True
+        for pid, state in left:
+            if state != "Z":
+                _kill(pid)
+                cleared.add(pid)
             with contextlib.suppress(ChildProcessError):
-                os.waitpid(pid, 0)
-            cleared.add(pid)
-    return len(cleared)
+                os.waitpid(pid, os.WNOHANG)
+        time.sleep(0.001)
+    return len(cleared), False
 
 
 def _launch(request: Mapping[str, Any]) -> dict[str, Any]:
@@ -486,6 +495,7 @@ def _launch(request: Mapping[str, Any]) -> dict[str, Any]:
         (os.POSIX_SPAWN_OPEN, 1, request["log"], os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600),
         (os.POSIX_SPAWN_DUP2, 1, 2),
     ]
+    _clear(None)  # what an earlier file left that could not be stopped then is not this file's
     start = time.monotonic()
     argv = [sys.executable, "-c", _CHILD, request["job"]]
     pid = os.posix_spawn(sys.executable, argv, _child_env(), file_actions=actions, setpgroup=0)
@@ -513,7 +523,7 @@ def _launch(request: Mapping[str, Any]) -> dict[str, Any]:
     finally:
         os.close(handle)
     seconds = time.monotonic() - start
-    left_behind = _clear()
+    left_behind, left_running = _clear(pid)
     if parent_gone:
         raise SystemExit(1)
     return {
@@ -523,6 +533,7 @@ def _launch(request: Mapping[str, Any]) -> dict[str, Any]:
         "cpu_seconds": usage.ru_utime + usage.ru_stime,
         "peak_rss_kib": usage.ru_maxrss,
         "left_behind": left_behind,
+        "left_running": left_running,
     }
 
 
@@ -729,6 +740,7 @@ def _read_file(
         cpu_seconds=reply["cpu_seconds"],
         peak_rss_kib=reply["peak_rss_kib"],
         left_behind=reply["left_behind"],
+        left_running=reply["left_running"],
         log_tail=None if ended is ProcessStatus.OK else _tail(log),
     )
     reports = _file_stages(kind, found, progress, how)
