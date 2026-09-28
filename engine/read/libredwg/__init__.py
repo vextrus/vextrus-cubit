@@ -17,6 +17,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import replace
 from functools import cache
 from pathlib import Path
+from typing import BinaryIO
 
 from engine.messages import Message
 from engine.messages import read as codes
@@ -24,7 +25,7 @@ from engine.read._json import Json
 from engine.read.artefact import AnyEntity, Entity, Format, ReadArtefact
 from engine.read.errors import ReadError
 from engine.read.libredwg import dwgread, dxf
-from engine.read.sandbox import DEFAULT_LIMITS, Limits, run
+from engine.read.sandbox import DEFAULT_LIMITS, Limits, open_output, run
 
 READER = "libredwg"
 
@@ -55,10 +56,12 @@ def read(path: Path, *, source_name: str, limits: Limits = DEFAULT_LIMITS) -> Re
     reader_version = version()
     with tempfile.TemporaryDirectory(prefix="vextrus-read-") as scratch:
         json_file = _convert(path, "dwgread", ["-O", "JSON", "-o"], Path(scratch, "json"), limits)
-        decoded = _parse("dwgread", lambda: dwgread.decode(dwgread.load(json_file)))
-        json_file.unlink()
+        with open_output(json_file, "dwgread") as stream:
+            decoded = _parse("dwgread", lambda: dwgread.decode(dwgread.load(stream)))
+        json_file.unlink()  # the name only; a link is never followed
         dxf_file = _convert(path, "dwg2dxf", ["-y", "-o"], Path(scratch, "dxf"), limits)
-        geometry, dxf_notes = _parse("dwg2dxf", lambda: _geometry(dxf_file))
+        with open_output(dxf_file, "dwg2dxf") as stream:
+            geometry, dxf_notes = _parse("dwg2dxf", lambda: _geometry(stream))
 
     entities: list[AnyEntity] = []
     missing = 0
@@ -100,13 +103,11 @@ def _convert(source: Path, program: str, options: Sequence[str], folder: Path, l
     )
     if finished.exit_code != 0:
         raise ReadError(codes.READER_FAILED(program=program, exit_code=finished.exit_code))
-    if not target.is_file():
-        raise ReadError(codes.OUTPUT_UNREADABLE(program=program))
-    return target
+    return target  # opened only through sandbox.open_output
 
 
-def _geometry(dxf_file: Path) -> tuple[dict[str, dict[str, Json]], list[Message]]:
-    doc, notes = dxf.load(dxf_file)
+def _geometry(stream: BinaryIO) -> tuple[dict[str, dict[str, Json]], list[Message]]:
+    doc, notes = dxf.load(stream)
     return dxf.values_by_handle(doc), notes  # the ezdxf document is freed on return
 
 

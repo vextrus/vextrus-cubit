@@ -19,6 +19,10 @@ ACadSharp's dumper, 10) are C and .NET parsers. Each runs here, under bubblewrap
   left running dies with it (the PID namespace ends). At its CPU limit the program gets SIGXCPU
   (`LimitReached("cpu")`), and SIGKILL a second later if it ignores that; a run killed by SIGKILL
   that the timeout did not kill (that, or the kernel's memory killer) is `LimitReached("killed")`.
+  Not limited: the output folder's total size (the file-size limit is per file, so many files can
+  fill the disk it lives on) and the number of processes (`RLIMIT_NPROC` counts every process of the
+  calling user, not only the run's, so a low one would refuse the run on a busy worker; the PID
+  namespace and the wall clock end them all).
 
 The program is started with `posix_spawn` (never a fork of this process: Python 3.14's pools start
 with forkserver, and the worker may hold threads). Its CPU time and peak memory are not reported:
@@ -27,19 +31,26 @@ reported for a 1 s loop), and the peak that matters is the parse in the worker (
 
 `bwrap` and `prlimit` are taken from `/usr/bin` by their full paths, never from `PATH`.
 
+**What the program wrote is untrusted too.** The caller reads it outside the sandbox, so a compromised
+program could leave a link to a host file where its output should be. `open_output` opens an output
+without following a link (`O_NOFOLLOW`) and, on the open descriptor, requires a regular file with one
+link; the caller parses that open stream and never opens the output by its path again.
+
 **It refuses to run unsandboxed.** Without a working bubblewrap it raises `SandboxUnavailable`. Only
 when `VEXTRUS_SANDBOX` is exactly `off` *and* the call happens inside a pytest test (pytest is
 imported and `PYTEST_CURRENT_TEST` is set, which pytest does only while a test runs) does it run the
 program directly, for a developer's machine without bubblewrap; `VEXTRUS_SANDBOX=off` anywhere else
 raises `SandboxRefused`. That check guards against the setting reaching a server by mistake; code
 running inside the worker could fake it, but such code needs no sandbox to escape. Run directly, the
-limits and the timeout still apply, but a child that leaves the process group escapes the kill.
+limits and the timeout still apply, but a child that leaves the process group escapes the kill, and
+the program's working folder is the caller's.
 """
 
 import contextlib
 import os
 import shutil
 import signal
+import stat
 import sys
 import tempfile
 import threading
@@ -47,7 +58,7 @@ import time
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import BinaryIO, Literal
 
 from engine.messages import read as codes
 from engine.read.errors import ReadError
@@ -92,16 +103,29 @@ class SandboxUnavailable(SandboxError):
         super().__init__(codes.SANDBOX_UNAVAILABLE())
         self.detail = detail
 
+    def __reduce__(self) -> tuple[type, tuple[object, ...]]:
+        return (SandboxUnavailable, (self.detail,))
+
 
 class SandboxRefused(SandboxError):
     def __init__(self) -> None:
         super().__init__(codes.SANDBOX_REFUSED())
 
+    def __reduce__(self) -> tuple[type, tuple[object, ...]]:
+        return (SandboxRefused, ())
+
+
+type Limit = Literal["cpu", "wall", "killed"]
+
 
 class LimitReached(SandboxError):
-    def __init__(self, program: str, limit: Literal["cpu", "wall", "killed"]) -> None:
+    def __init__(self, program: str, limit: Limit) -> None:
         super().__init__(codes.LIMIT_REACHED(program=program, limit=limit))
+        self.program = program
         self.limit = limit
+
+    def __reduce__(self) -> tuple[type, tuple[object, ...]]:
+        return (LimitReached, (self.program, self.limit))
 
 
 def run(
@@ -225,6 +249,20 @@ def _spawn(
         wall_seconds=wall,
         sandboxed=sandboxed,
     )
+
+
+def open_output(path: Path, program: str) -> BinaryIO:
+    """Open what `program` wrote at `path` for reading, as the file itself: never through a link, and
+    only a regular file with one name. Raises `ReadError` (`output_unreadable`) otherwise."""
+    try:
+        descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+    except OSError as error:  # missing, or a symbolic link (ELOOP)
+        raise ReadError(codes.OUTPUT_UNREADABLE(program=program)) from error
+    status = os.fstat(descriptor)
+    if not stat.S_ISREG(status.st_mode) or status.st_nlink != 1:  # a folder, a FIFO, a hard link
+        os.close(descriptor)
+        raise ReadError(codes.OUTPUT_UNREADABLE(program=program))
+    return os.fdopen(descriptor, "rb")
 
 
 def _signalled(exit_code: int, number: int) -> bool:

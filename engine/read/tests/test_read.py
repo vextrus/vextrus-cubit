@@ -17,6 +17,7 @@ from typing import Any
 import pytest
 from ezdxf.filemanagement import readfile
 
+from engine.fixtures.dwg import new_drawing
 from engine.read import ReadError, read
 from engine.read.anchor import DwgAnchor, anchor_from_json
 from engine.read.artefact import Entity, Insert, ReadArtefact, Text
@@ -282,3 +283,98 @@ def test_an_attdef_carries_its_default_text(dwg_fixture: Fixture) -> None:
         e.tag: e.text for e in artefact.entities.values() if isinstance(e, Text) and e.type == "ATTDEF"
     }
     assert attdefs == {"SHEET_NO": "X-00", "SHEET_TITLE": ""}
+
+
+# -- a compromised program's output is never followed out of its folder -----------------------------
+
+EMPTY_DRAWING = '{"FILEHEADER": {"version": "AC1032"}, "HEADER": {}, "OBJECTS": []}'
+
+
+def stand_in_libredwg(tmp_path: Path, dwgread_plants: str, dwg2dxf_plants: str) -> Path:
+    """A LibreDWG whose programs write `plants` as their output: `file` (an honest file), `symlink`
+    (a link to a host file), or `hard link` (a second name for a file it made)."""
+    host = tmp_path / "host"
+    host.mkdir()
+    (host / "secret.json").write_text(EMPTY_DRAWING)
+    new_drawing().saveas(host / "secret.dxf")
+    honest_dxf = (host / "secret.dxf").read_text()
+    prefix = tmp_path / "libredwg"
+    (prefix / "bin").mkdir(parents=True)
+
+    def script(program: str, plants: str, content: str, host_file: Path) -> str:
+        target = {"dwgread": "$4", "dwg2dxf": "$3"}[program]  # -O JSON -o T S; -y -o T S
+        write = {
+            "file": f"cat > \"{target}\" <<'END'\n{content}\nEND",
+            "symlink": f'ln -s "{host_file}" "{target}"',
+            "hard link": (
+                f'made="$(dirname "{target}")/made"\n'
+                f'cat > "$made" <<\'END\'\n{content}\nEND\nln "$made" "{target}"'
+            ),
+        }[plants]
+        return f'#!/bin/sh\nif [ "$1" = "--version" ]; then echo "{program} 0.14"; exit 0; fi\n{write}\n'
+
+    for program, plants, content, host_file in (
+        ("dwgread", dwgread_plants, EMPTY_DRAWING, host / "secret.json"),
+        ("dwg2dxf", dwg2dxf_plants, honest_dxf, host / "secret.dxf"),
+    ):
+        path = prefix / "bin" / program
+        path.write_text(script(program, plants, content, host_file))
+        path.chmod(0o755)
+    return prefix
+
+
+@pytest.mark.parametrize(
+    ("dwgread_plants", "dwg2dxf_plants", "program"),
+    [
+        ("symlink", "file", "dwgread"),
+        ("hard link", "file", "dwgread"),
+        ("file", "symlink", "dwg2dxf"),
+        ("file", "hard link", "dwg2dxf"),
+    ],
+)
+@pytest.mark.parametrize("sandboxed", [False, pytest.param(True, marks=pytest.mark.needs_bwrap)])
+def test_a_link_planted_as_the_output_is_refused_never_followed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    dwgread_plants: str,
+    dwg2dxf_plants: str,
+    program: str,
+    sandboxed: bool,
+) -> None:
+    # The sandbox's threat model is a compromised dwgread or dwg2dxf: it may write its output as a
+    # link to a host file, which the reader opens outside the sandbox (the orchestrator's review).
+    if sandboxed:
+        monkeypatch.delenv("VEXTRUS_SANDBOX", raising=False)
+    else:
+        monkeypatch.setenv("VEXTRUS_SANDBOX", "off")
+    monkeypatch.setenv(
+        "VEXTRUS_LIBREDWG", str(stand_in_libredwg(tmp_path, dwgread_plants, dwg2dxf_plants))
+    )
+    drawing = tmp_path / "drawing.dwg"
+    drawing.write_bytes(b"AC1032" + bytes(64))
+
+    with pytest.raises(ReadError) as raised:
+        read(drawing)
+
+    assert raised.value.message == {
+        "code": "engine.read.output_unreadable",
+        "params": {"program": program},
+    }
+
+
+@pytest.mark.parametrize("sandboxed", [False, pytest.param(True, marks=pytest.mark.needs_bwrap)])
+def test_the_stand_in_reads_when_its_outputs_are_honest_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, sandboxed: bool
+) -> None:
+    # The control for the test above: the same stand-in, writing plain files, reads.
+    if sandboxed:
+        monkeypatch.delenv("VEXTRUS_SANDBOX", raising=False)
+    else:
+        monkeypatch.setenv("VEXTRUS_SANDBOX", "off")
+    monkeypatch.setenv("VEXTRUS_LIBREDWG", str(stand_in_libredwg(tmp_path, "file", "file")))
+    drawing = tmp_path / "drawing.dwg"
+    drawing.write_bytes(b"AC1032" + bytes(64))
+
+    artefact = read(drawing)
+
+    assert (artefact.summary.format.version, len(artefact.entities)) == ("AC1032", 0)

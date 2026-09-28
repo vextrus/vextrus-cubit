@@ -22,8 +22,7 @@ which the DXF supplies, is dropped as it is parsed rather than held.
 import json
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
-from pathlib import Path
-from typing import Any
+from typing import Any, BinaryIO
 
 from engine.messages import Message
 from engine.messages import read as codes
@@ -51,10 +50,10 @@ _OBJECT_KEEP = {
 _OBJECT_ONLY = frozenset({"object", "handle"})
 
 
-def load(path: Path) -> dict[str, Any]:
-    """The JSON `dwgread` wrote, keeping only what this module reads."""
-    with path.open("rb") as file:
-        data: dict[str, Any] = json.load(file, object_pairs_hook=_slim)
+def load(stream: BinaryIO) -> dict[str, Any]:
+    """The JSON `dwgread` wrote, from its open stream (sandbox.open_output), keeping only what this
+    module reads."""
+    data: dict[str, Any] = json.load(stream, object_pairs_hook=_slim)
     return data
 
 

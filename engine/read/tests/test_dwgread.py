@@ -289,7 +289,8 @@ def test_loading_keeps_only_what_is_read(tmp_path: Path) -> None:
     path = tmp_path / "file.json"
     path.write_text(json.dumps(drawing(line)))
 
-    loaded = dwgread.load(path)
+    with path.open("rb") as stream:
+        loaded = dwgread.load(stream)
 
     assert [o for o in loaded["OBJECTS"] if o.get("entity") == "LINE"] == [
         {"entity": "LINE", "handle": [0, 1, 0x90], "layer": [5, 1, 0x10, 0x10]}

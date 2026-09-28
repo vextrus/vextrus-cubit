@@ -362,3 +362,39 @@ def test_no_engine_code_starts_a_process_pool_with_fork() -> None:
     assert multiprocessing.get_start_method() == "forkserver"
     assert offenders == []
     assert os.name == "posix"
+
+
+# -- reading what the program wrote: everywhere ------------------------------------------------------
+
+
+def test_an_output_file_is_opened_as_the_file_itself(tmp_path: Path) -> None:
+    (tmp_path / "file.json").write_bytes(b"{}")
+
+    with sandbox.open_output(tmp_path / "file.json", "dwgread") as stream:
+        assert stream.read() == b"{}"
+
+
+@pytest.mark.parametrize("plant", ["symlink", "hard link", "folder", "fifo", "missing"])
+def test_an_output_that_is_not_one_regular_file_is_refused(tmp_path: Path, plant: str) -> None:
+    host_file = tmp_path / "host-secret.json"
+    host_file.write_bytes(b'{"secret": true}')
+    output = tmp_path / "out"
+    output.mkdir()
+    target = output / "file.json"
+    if plant == "symlink":
+        target.symlink_to(host_file)
+    elif plant == "hard link":
+        (output / "made.json").write_bytes(b"{}")
+        os.link(output / "made.json", target)
+    elif plant == "folder":
+        target.mkdir()
+    elif plant == "fifo":
+        os.mkfifo(target)
+
+    with pytest.raises(ReadError) as raised:
+        sandbox.open_output(target, "dwgread")
+
+    assert raised.value.message == {
+        "code": "engine.read.output_unreadable",
+        "params": {"program": "dwgread"},
+    }

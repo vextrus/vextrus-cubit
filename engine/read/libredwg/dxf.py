@@ -9,32 +9,48 @@ A DXF that ezdxf refuses is read again with `ezdxf.recover` (on 0.14 one real fi
 text with raw line breaks; docs/research/dwg-reader-evidence.md), and the recovery is noted.
 """
 
+import io
 from collections.abc import Iterable, Mapping
 from enum import Enum
-from pathlib import Path
-from typing import Any
+from typing import Any, BinaryIO
 
 from ezdxf import recover
 from ezdxf.document import Drawing
 from ezdxf.entities.dxfgfx import DXFGraphic
-from ezdxf.filemanagement import readfile
+from ezdxf.filemanagement import dxf_stream_info, read
 from ezdxf.lldxf.const import DXFStructureError
+from ezdxf.lldxf.tagger import binary_tags_loader
 from ezdxf.math import Vec2, Vec3
 
 from engine.messages import Message
 from engine.messages import read as codes
 from engine.read._json import Json
 
+_BINARY_SENTINEL = b"AutoCAD Binary DXF"
 _NOT_VALUES = frozenset({"handle", "owner", "layer"})
 _GRID = ("row_count", "column_count", "row_spacing", "column_spacing")
 
 
-def load(path: Path) -> tuple[Drawing, list[Message]]:
+def load(stream: BinaryIO) -> tuple[Drawing, list[Message]]:
+    """The DXF `dwg2dxf` wrote, from its open stream (sandbox.open_output; never reopened by path),
+    in the encoding its header names, as ezdxf's `readfile` would read it."""
+    if stream.read(len(_BINARY_SENTINEL)) == _BINARY_SENTINEL:
+        stream.seek(0)
+        return Drawing.load(binary_tags_loader(stream.read(), errors="surrogateescape")), []
+    stream.seek(0)
+    probe = io.TextIOWrapper(stream, encoding="utf-8", errors="ignore")
+    encoding = dxf_stream_info(probe).encoding
+    probe.detach()
+    stream.seek(0)
+    text = io.TextIOWrapper(stream, encoding=encoding, errors="surrogateescape")
     try:
-        return readfile(path), []
+        return read(text), []
     except DXFStructureError:
-        doc, auditor = recover.readfile(path)
+        stream.seek(0)
+        doc, auditor = recover.read(stream)
         return doc, [codes.DXF_RECOVERED(errors=len(auditor.errors) + len(auditor.fixes))]
+    finally:
+        text.detach()
 
 
 def values_by_handle(doc: Drawing) -> dict[str, dict[str, Json]]:
