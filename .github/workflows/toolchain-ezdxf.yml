@@ -42,8 +42,10 @@ jobs:
           curl -fsSL "$SDIST_URL" -o "ezdxf-$V.tar.gz"
           echo "$SDIST_SHA256  ezdxf-$V.tar.gz" | sha256sum -c
       - name: Build the wheel from the hashed build constraints
+        # --no-config: the checkout's pyproject.toml sets `no-build = true` (nothing is ever built
+        # in the project), which uv would otherwise apply to this one deliberate build.
         run: |
-          uv build --wheel --python "$(tr -d '[:space:]' < toolchain/python.version)" \
+          uv build --no-config --wheel --python "$(tr -d '[:space:]' < toolchain/python.version)" \
             --build-constraints toolchain/ezdxf-build-constraints.txt --require-hashes \
             --out-dir dist "ezdxf-$V.tar.gz"
           ls dist
