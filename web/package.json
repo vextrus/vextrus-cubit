@@ -15,7 +15,7 @@
     "messages:extract": "lingui extract --clean",
     "messages:compile": "lingui compile --strict && lingui compile --strict --config lingui.messages.config.ts",
     "messages:check": "node scripts/check-messages.mjs",
-    "api:types": "openapi-typescript \"${OPENAPI_SCHEMA:?set OPENAPI_SCHEMA to the schema file or URL}\" -o src/api/schema.gen.ts",
+    "api:types": "node scripts/api-types.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "build": "vite build && node scripts/check-dist.mjs",

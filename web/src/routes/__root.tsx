@@ -1,7 +1,13 @@
 /*
- * The root route. Ticket 03 builds the frame (web/src/app/, routes/_app/) and its "Page not found";
- * this route only holds the outlet. Routes hold no words (eslint.config.js).
+ * The root route: the query client travels in the router's context (src/app/router.ts), and an
+ * address nothing matches shows "Page not found" inside the frame (docs/design/m0-screens.md §4.1).
+ * Routes hold no words (eslint.config.js).
  */
-import { Outlet, createRootRoute } from '@tanstack/react-router'
+import { Outlet, createRootRouteWithContext } from '@tanstack/react-router'
+import type { RouterContext } from '@/app/router'
+import { NotFoundInFrame } from '@/app/routes'
 
-export const Route = createRootRoute({ component: Outlet })
+export const Route = createRootRouteWithContext<RouterContext>()({
+  component: Outlet,
+  notFoundComponent: NotFoundInFrame,
+})

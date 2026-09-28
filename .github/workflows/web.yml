@@ -1,9 +1,10 @@
 # The web's checks (docs/plans/M0.md, ticket 01b): typecheck, lint, Vitest, the catalogue check and
-# the build for any change under web/, and the design-docs lint on every PR.
+# the build for any change under web/ (or to the backend and the engine's messages, which make the API
+# types), and the design-docs lint on every PR.
 #
 # Never filtered by path at the workflow level (a skipped workflow leaves a required check waiting):
 # the `web` job skips by `if:` from the `changes` job instead, which also saves minutes.
-# Ticket 03 adds the step that generates the API types (a named shared edit).
+# The API types are generated from the backend's schema before the typecheck (ticket 03).
 name: web
 
 on:
@@ -35,7 +36,9 @@ jobs:
         run: |
           if [ "$EVENT" != "pull_request" ]; then
             echo "web=true" >> "$GITHUB_OUTPUT"
-          elif git diff --name-only "$BASE"...HEAD | grep -qE '^(web/|\.github/workflows/web\.yml$)'; then
+          # The backend and the engine's messages too: they make the API types, and a code added
+          # without English must fail its own PR (the message-code test; the reviews A5, R7).
+          elif git diff --name-only "$BASE"...HEAD | grep -qE '^(web/|\.github/workflows/web\.yml$|vextrus/|engine/messages/|engine/collect\.py$)'; then
             echo "web=true" >> "$GITHUB_OUTPUT"
           else
             echo "web=false" >> "$GITHUB_OUTPUT"
@@ -62,6 +65,26 @@ jobs:
         run: npm ci
       - name: Chromium for Vitest's browser mode
         run: npx playwright install --with-deps chromium
+      # The generated API types (ticket 03; a named shared edit, the reviews A5): the backend exports
+      # its OpenAPI schema (no database needed) and openapi-typescript writes src/api/schema.gen.ts,
+      # never committed. The message-code test reads its MessageCode enum.
+      - id: python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version-file: .python-version
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.12.5"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - name: Install the backend's locked dependencies, building nothing
+        working-directory: .
+        env:
+          UV_PYTHON: ${{ steps.python.outputs.python-path }}
+          UV_PYTHON_DOWNLOADS: never
+        run: uv sync --locked --no-build
+      - name: API types (from the backend's OpenAPI schema)
+        run: npm run api:types
       - name: Typecheck
         run: npm run typecheck
       - name: Lint (the catalogue lint, the logical-CSS lint, one key map)

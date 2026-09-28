@@ -1,0 +1,269 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-09-28 08:13+0000\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: en\n"
+
+#: src/app/CanvasFrame.tsx
+msgid "Step {number}, {name}"
+msgstr "Step {number}, {name}"
+
+#: src/app/JumpTo.tsx
+msgid "Projects"
+msgstr "Projects"
+
+#: src/app/steps.ts
+msgctxt "Takeoff Step"
+msgid "Stairs"
+msgstr "Stairs"
+
+#: src/app/JumpTo.tsx
+#: src/app/TopBar.tsx
+msgid "Drawing Set"
+msgstr "Drawing Set"
+
+#: src/app/steps.ts
+msgctxt "Takeoff Step"
+msgid "Levels"
+msgstr "Levels"
+
+#: src/app/steps.ts
+msgctxt "Takeoff Step"
+msgid "Slabs"
+msgstr "Slabs"
+
+#: src/app/steps.ts
+msgctxt "Takeoff Step"
+msgid "Tanks"
+msgstr "Tanks"
+
+#: src/app/JumpTo.tsx
+msgid "Step 1, Sheets"
+msgstr "Step 1, Sheets"
+
+#: src/app/Frame.tsx
+msgid "Vextrus can’t be reached. Check your connection; this page keeps trying."
+msgstr "Vextrus can’t be reached. Check your connection; this page keeps trying."
+
+#: src/app/CanvasFrame.tsx
+msgid "Inspector"
+msgstr "Inspector"
+
+#: src/app/JumpTo.tsx
+msgid "Go to a project, or to a place in this one."
+msgstr "Go to a project, or to a place in this one."
+
+#: src/app/shell.tsx
+msgid "Move to the previous region"
+msgstr "Move to the previous region"
+
+#: src/app/CanvasFrame.tsx
+msgid "Questions open"
+msgstr "Questions open"
+
+#: src/app/CanvasFrame.tsx
+msgid "Back to Step 1"
+msgstr "Back to Step 1"
+
+#: src/app/steps.ts
+msgctxt "Takeoff Step"
+msgid "Rooms"
+msgstr "Rooms"
+
+#: src/app/steps.ts
+msgctxt "Takeoff Step"
+msgid "Roof"
+msgstr "Roof"
+
+#: src/app/TopBar.tsx
+msgid "Project"
+msgstr "Project"
+
+#: src/app/TopBar.tsx
+msgid "{name}, {role}"
+msgstr "{name}, {role}"
+
+#: src/app/steps.ts
+msgctxt "Takeoff Step"
+msgid "Foundations"
+msgstr "Foundations"
+
+#: src/app/CanvasFrame.tsx
+msgid "Questions"
+msgstr "Questions"
+
+#: src/app/roles.ts
+msgctxt "role"
+msgid "MD"
+msgstr "MD"
+
+#: src/app/TopBar.tsx
+msgid "Sign out"
+msgstr "Sign out"
+
+#: src/app/CanvasFrame.tsx
+msgid "Step {number}, {name}: not open yet"
+msgstr "Step {number}, {name}: not open yet"
+
+#: src/app/steps.ts
+msgctxt "Takeoff Step"
+msgid "Beams"
+msgstr "Beams"
+
+#: src/app/roles.ts
+msgctxt "role"
+msgid "QS"
+msgstr "QS"
+
+#: src/app/CanvasFrame.tsx
+msgid "Step {number}, {name}, is not open yet. It will read the sheets you confirm in Step 1."
+msgstr "Step {number}, {name}, is not open yet. It will read the sheets you confirm in Step 1."
+
+#: src/app/routes.tsx
+msgid "Opening {name}…"
+msgstr "Opening {name}…"
+
+#: src/app/steps.ts
+msgctxt "Takeoff Step"
+msgid "Notes"
+msgstr "Notes"
+
+#: src/app/steps.ts
+msgctxt "Takeoff Step"
+msgid "Walls"
+msgstr "Walls"
+
+#: src/app/CanvasFrame.tsx
+msgid ", {excluded} excluded"
+msgstr ", {excluded} excluded"
+
+#: src/app/TopBar.tsx
+msgid "Project: {name}. Switch project"
+msgstr "Project: {name}. Switch project"
+
+#: src/app/CanvasFrame.tsx
+msgid "Close the step rail"
+msgstr "Close the step rail"
+
+#: src/app/CanvasFrame.tsx
+msgid "Confirmed"
+msgstr "Confirmed"
+
+#: src/app/JumpTo.tsx
+msgid "Nothing here by that name."
+msgstr "Nothing here by that name."
+
+#: src/app/steps.ts
+msgctxt "Takeoff Step"
+msgid "Columns"
+msgstr "Columns"
+
+#: src/app/JumpTo.tsx
+msgid "Jump to"
+msgstr "Jump to"
+
+#: src/app/steps.ts
+msgctxt "Takeoff Step"
+msgid "Grid"
+msgstr "Grid"
+
+#: src/app/shell.tsx
+msgid "Move to the next region"
+msgstr "Move to the next region"
+
+#: src/app/CanvasFrame.tsx
+msgid "Selection"
+msgstr "Selection"
+
+#: src/app/CanvasFrame.tsx
+msgid "Takeoff Steps"
+msgstr "Takeoff Steps"
+
+#: src/app/steps.ts
+msgctxt "Takeoff Step"
+msgid "Site"
+msgstr "Site"
+
+#: src/app/JumpTo.tsx
+#: src/app/TopBar.tsx
+msgid "Members and access"
+msgstr "Members and access"
+
+#: src/app/CanvasFrame.tsx
+msgid "Confirmed <0/>"
+msgstr "Confirmed <0/>"
+
+#: src/app/JumpTo.tsx
+msgid "In {name}"
+msgstr "In {name}"
+
+#: src/app/roles.ts
+msgctxt "role"
+msgid "Guest"
+msgstr "Guest"
+
+#: src/app/CanvasFrame.tsx
+msgid "Step {number}"
+msgstr "Step {number}"
+
+#: src/app/Frame.tsx
+msgid "There is nothing at this address. It may have been a link to another Developer’s project, or to a project you have not been given."
+msgstr "There is nothing at this address. It may have been a link to another Developer’s project, or to a project you have not been given."
+
+#: src/app/shell.tsx
+msgid "Jump to a project, or a place in this one"
+msgstr "Jump to a project, or a place in this one"
+
+#: src/app/TopBar.tsx
+msgid "Jump to…"
+msgstr "Jump to…"
+
+#: src/app/Frame.tsx
+msgid "Your projects"
+msgstr "Your projects"
+
+#: src/app/steps.ts
+msgctxt "Takeoff Step"
+msgid "Sheets"
+msgstr "Sheets"
+
+#: src/app/CanvasFrame.tsx
+#: src/app/TopBar.tsx
+msgid "Keys"
+msgstr "Keys"
+
+#: src/app/CanvasFrame.tsx
+msgid "Proposals ready"
+msgstr "Proposals ready"
+
+#: src/app/CanvasFrame.tsx
+msgid "Open the step rail"
+msgstr "Open the step rail"
+
+#: src/app/shell.tsx
+msgid "Open the keys overlay"
+msgstr "Open the keys overlay"
+
+#: src/app/JumpTo.tsx
+msgid "Jump to a project or a place…"
+msgstr "Jump to a project or a place…"
+
+#: src/app/roles.ts
+msgctxt "role"
+msgid "Vextrus Engineer"
+msgstr "Vextrus Engineer"
+
+#: src/app/TopBar.tsx
+msgid "Takeoff"
+msgstr "Takeoff"
+
+#: src/app/TopBar.tsx
+msgid "All projects"
+msgstr "All projects"
+
+#: src/app/TopBar.tsx
+msgid "{name}, {role}: your menu"
+msgstr "{name}, {role}: your menu"
