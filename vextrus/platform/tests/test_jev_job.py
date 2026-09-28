@@ -10,6 +10,7 @@ import pytest
 from django.conf import settings
 from django.db import connections
 
+from engine.recognise.types import JudgementRequest
 from vextrus.platform.database import OWNER_ALIAS
 from vextrus.platform.services import jev, jobs
 from vextrus.testing.jev import (
@@ -43,6 +44,31 @@ def _kind_of(sheet: int) -> jobs.StepResult:
 def kind_of_one_sheet(run: jobs.Run, *, subject_id: uuid.UUID) -> None:
     steps = run.steps(TableStepStore(), subject_id, total=1)
     steps.run("kind", lambda: _kind_of(0), inputs={"subject": subject_id})
+
+
+def _kind_from_13s_old_facts() -> jobs.StepResult:
+    """A step asking with the facts 13's head emitted before the ruling (review round 1)."""
+    request = JudgementRequest(
+        node="sheet_type",
+        facts={
+            "discipline": "structural",
+            "title": "BEAM LAYOUT",
+            "number": "S-07",
+            "view_title_1": "BEAM LAYOUT PLAN",
+        },
+        question=STAND_IN_QUESTION,
+        options=("beam_layout", "column_layout"),
+    )
+    answer = jev.ask_judgement(request)
+    if isinstance(answer, jev.Unavailable):
+        return {"picked_by": "qs", "why": answer.why.value}
+    return {"picked_by": "jev", "choice": answer.choice}
+
+
+@jobs.job(queue=TEST_QUEUE)
+def kind_from_13s_old_facts(run: jobs.Run, *, subject_id: uuid.UUID) -> None:
+    steps = run.steps(TableStepStore(), subject_id, total=1)
+    steps.run("kind", _kind_from_13s_old_facts, inputs={"subject": subject_id})
 
 
 @jobs.job(queue=TEST_QUEUE)
@@ -119,4 +145,16 @@ def test_sixty_sheets_in_an_outage_cost_seconds_and_three_calls(
     assert [steps[f"sheet_{n}"]["why"] for n in range(4)] == ["timed_out"] * 3 + ["cooling_off"]
     assert len(tried) == 3
     assert jev_clock.now - start <= 3 * settings.VEXTRUS_JEV_DEADLINE_SECONDS
+    assert answers_committed() == 0
+
+
+@pytest.mark.django_db(transaction=True, databases=BOTH)
+def test_a_question_the_node_does_not_take_leaves_the_step_done_and_the_qs_to_pick(
+    make_developer: Callable[..., uuid.UUID], step_store: TableStepStore
+) -> None:
+    subject = uuid.uuid4()
+
+    run_inline(kind_from_13s_old_facts, tenant_id=make_developer(), subject_id=subject)
+
+    assert recorded_steps(subject) == {"kind": {"picked_by": "qs", "why": "bad_question"}}
     assert answers_committed() == 0

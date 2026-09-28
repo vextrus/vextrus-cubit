@@ -6,14 +6,17 @@
 any call or write). It answers from the tenant's cache (JevAnswer) when the same node, facts, question,
 options and pinned model were asked before; else it asks TypeSafe and caches the answer in the
 caller's transaction. Otherwise it returns `Unavailable` within its deadline: it caches nothing,
-raises nothing into its caller, and the QS picks (ADR 0011: "the Takeoff never stops"). A caller's
-mistake (an undeclared node or fact, bad option keys) raises `ValueError` or `TypeError`; drawing
-text too large to send is `Unavailable`, never cut.
+raises nothing into its caller, and the QS picks (ADR 0011: "the Takeoff never stops"). A question
+the node does not take (an undeclared or missing fact, bad option keys, an undeclared node) is the
+caller's mistake: logged as an error and answered `Unavailable(bad_question)`, so a job step still
+ends (only `prepare` raises it); drawing text too large to send is `Unavailable`, never cut.
 
 - **The node** is declared once (`NODES`): its facts, its pinned model, the setting holding the
   confidence at which a caller proposes its answer rather than asks, and how a pre-pick names it. M0
-  has one, `sheet_type`, from code's facts: the title, the Discipline and the view titles. The
-  question and the options are the caller's (the sheet kinds are 13's conventions).
+  has one, `sheet_type`, from code's facts, all three always given: `title` (the sheet's title),
+  `discipline` (its Discipline's key) and `view_titles` (its view titles in reading order, a list or
+  text holding a JSON array; `"[]"` when there are none). The question and the options are the
+  caller's (the sheet kinds are 13's conventions).
 - **Facts go only into the state**, as JSON values; the question and the options' descriptions are
   sent exactly as given (drawing text is data, never an instruction).
 - **What comes back is checked** against what was asked: the pinned model, the one question, a
@@ -186,6 +189,10 @@ def _node(key: str | Node) -> Node:
 class Why(StrEnum):
     """Why Jev is unavailable: a closed list, for logs and callers. Never shown, never stored."""
 
+    BAD_QUESTION = "bad_question"
+    """Not a question the node takes (an undeclared or missing fact, one of the wrong type, option
+    keys that are not unique lower-case keys, an undeclared node): the caller's mistake, logged as an
+    error; nothing was sent."""
     NO_KEY = "no_key"
     """No usable key in the environment: nothing was sent."""
     COOLING_OFF = "cooling_off"
@@ -210,8 +217,12 @@ class Why(StrEnum):
     """The answer was not an answer to what was asked."""
 
 
-_NOT_COUNTED = frozenset({Why.NO_KEY, Why.COOLING_OFF, Why.TOO_LARGE, Why.REQUEST_REFUSED})
-"""Failures that say nothing of TypeSafe's health, so never bring on a cool-off."""
+_NOT_COUNTED = frozenset(
+    {Why.BAD_QUESTION, Why.NO_KEY, Why.COOLING_OFF, Why.TOO_LARGE, Why.REQUEST_REFUSED}
+)
+"""Failures that say nothing of TypeSafe's health, so never bring on a cool-off. A 422 among them:
+it says one request is wrong, which a cool-off would punish every other, sound question for (60 s
+of the QS picking), and it answers at once, so it costs no time to save."""
 
 
 @dataclass(frozen=True)
@@ -303,6 +314,17 @@ def prepare(node: str | Node, facts: Facts, question: str, options: Options) -> 
     return Request(declared, tuple(criteria), body, cache_key)
 
 
+def _prepared(node: str | Node, facts: Facts, question: str, options: Options) -> Request | Unavailable:
+    """`prepare`, with a question the node does not take answered `Unavailable(bad_question)` and
+    logged as the caller's mistake: a job step that asks one still ends, and the QS picks."""
+    try:
+        return prepare(node, facts, question, options)
+    except ValueError, TypeError:
+        key = node.key if isinstance(node, Node) else node
+        logger.exception("A %s question is not one its node takes: the caller's mistake", key)
+        return Unavailable(Why.BAD_QUESTION)
+
+
 def _encode(value: object, *, sort_keys: bool = False) -> bytes:
     """Compact JSON in ASCII: control characters, quotes and lone surrogates escaped, never raw."""
     text = json.dumps(
@@ -317,12 +339,12 @@ def _state(node: Node, facts: Facts) -> dict[str, str | list[str]]:
     undeclared = sorted(str(name) for name in facts if name not in node.facts)
     if undeclared:
         raise ValueError(f"{node.key} takes no fact named {', '.join(undeclared)}")
-    if not facts:
-        raise ValueError(f"{node.key} was given no facts")
+    missing = [name for name in node.facts if name not in facts]
+    if missing:
+        noun = "fact" if len(missing) == 1 else "facts"
+        raise ValueError(f"{node.key} needs the {noun} {', '.join(missing)}")
     state: dict[str, str | list[str]] = {}
     for name in node.facts:
-        if name not in facts:
-            continue
         value = facts[name]
         if name in node.lists:
             state[name] = _texts(value, name)
@@ -685,8 +707,9 @@ class Client:
     def judge(
         self, node: str | Node, facts: Facts, question: str, options: Options
     ) -> Judgement | Unavailable:
-        """Ask TypeSafe (never the cache); `Unavailable` within the deadline when it does not answer."""
-        request = prepare(node, facts, question, options)
+        """Ask TypeSafe (never the cache); `Unavailable` within the deadline when it does not answer,
+        and `Unavailable(bad_question)` for a question the node does not take."""
+        request = _prepared(node, facts, question, options)
         if isinstance(request, Unavailable):
             return request
         return self.send(request)
@@ -833,9 +856,10 @@ def using(replacement: Client) -> Iterator[Client]:
 
 def ask(node: str | Node, facts: Facts, question: str, options: Options) -> Answer | Unavailable:
     """Jev's answer from the acting tenant's cache or from TypeSafe; else `Unavailable`, with nothing
-    cached. Raises `NoTenant` outside a tenant, before any call or write."""
+    cached, a question the node does not take among its reasons (`bad_question`, logged as the
+    caller's mistake). Raises `NoTenant` outside a tenant, before any call or write."""
     tenant_id = _acting_tenant()
-    request = prepare(node, facts, question, options)
+    request = _prepared(node, facts, question, options)
     if isinstance(request, Unavailable):
         return request
     cached = _cached(tenant_id, request.cache_key)

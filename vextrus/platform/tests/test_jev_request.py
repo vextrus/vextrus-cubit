@@ -57,12 +57,28 @@ def test_an_undeclared_fact_is_refused_by_name() -> None:
         )
 
 
-def test_no_facts_is_refused() -> None:
-    with pytest.raises(ValueError, match="no facts"):
-        jev.prepare("sheet_type", {}, STAND_IN_QUESTION, STAND_IN_KINDS)
+@pytest.mark.parametrize(
+    ("facts", "missing"),
+    [
+        ({}, "title, discipline, view_titles"),
+        ({"title": "B", "discipline": "structural"}, "view_titles"),
+        ({"view_titles": "[]"}, "title, discipline"),
+    ],
+)
+def test_every_fact_is_given_view_titles_as_an_empty_array_when_there_are_none(
+    facts: dict[str, str], missing: str
+) -> None:
+    with pytest.raises(ValueError, match=f"needs the facts? {missing}$"):
+        jev.prepare("sheet_type", facts, STAND_IN_QUESTION, STAND_IN_KINDS)
+
+    none = jev.prepare("sheet_type", {**FACTS, "view_titles": "[]"}, STAND_IN_QUESTION, STAND_IN_KINDS)
+    assert isinstance(none, jev.Request)
+    assert json.loads(none.body)["state"]["view_titles"] == []
 
 
-@pytest.mark.parametrize("facts", [{"title": 12}, {"discipline": None}, {"title": ["BEAM LAYOUT"]}])
+@pytest.mark.parametrize(
+    "facts", [{**FACTS, "title": 12}, {**FACTS, "discipline": None}, {**FACTS, "title": ["BEAM LAYOUT"]}]
+)
 def test_a_text_fact_must_be_text(facts: dict[str, object]) -> None:
     with pytest.raises(TypeError, match="is text"):
         jev.prepare("sheet_type", facts, STAND_IN_QUESTION, STAND_IN_KINDS)  # type: ignore[arg-type]
@@ -92,8 +108,10 @@ def test_view_titles_as_a_list_or_as_a_json_array_in_text_make_one_request() -> 
     ],
 )
 def test_view_titles_are_a_list_of_text(view_titles: object, error: type[Exception]) -> None:
+    facts: dict[str, Any] = {**FACTS, "view_titles": view_titles}
+
     with pytest.raises(error, match="view_titles"):
-        jev.prepare("sheet_type", {"view_titles": view_titles}, STAND_IN_QUESTION, STAND_IN_KINDS)  # type: ignore[dict-item]
+        jev.prepare("sheet_type", facts, STAND_IN_QUESTION, STAND_IN_KINDS)
 
 
 @pytest.mark.parametrize(
@@ -143,7 +161,11 @@ def test_options_without_descriptions_are_sent_with_none() -> None:
 def test_the_engine_s_judgement_request_is_taken_as_it_is() -> None:
     request = JudgementRequest(
         node="sheet_type",
-        facts={"title": FACTS["title"], "view_titles": json.dumps(FACTS["view_titles"])},
+        facts={
+            "title": FACTS["title"],
+            "discipline": "structural",
+            "view_titles": json.dumps(FACTS["view_titles"]),
+        },
         question=STAND_IN_QUESTION,
         options=("beam_layout", "floor_plan", "other"),
     )
@@ -153,6 +175,7 @@ def test_the_engine_s_judgement_request_is_taken_as_it_is() -> None:
     assert isinstance(made, jev.Request)
     assert json.loads(made.body)["state"] == {
         "title": FACTS["title"],
+        "discipline": "structural",
         "view_titles": FACTS["view_titles"],
     }
 
@@ -216,9 +239,9 @@ def test_the_request_s_repr_holds_no_drawing_text() -> None:
 
 
 def test_a_megabyte_title_is_refused_before_sending() -> None:
-    assert jev.prepare("sheet_type", {"title": "A" * 1_000_000}, STAND_IN_QUESTION, STAND_IN_KINDS) == (
-        jev.Unavailable(jev.Why.TOO_LARGE)
-    )
+    assert jev.prepare(
+        "sheet_type", {**FACTS, "title": "A" * 1_000_000}, STAND_IN_QUESTION, STAND_IN_KINDS
+    ) == (jev.Unavailable(jev.Why.TOO_LARGE))
 
 
 def test_ten_thousand_view_titles_are_refused_before_sending() -> None:
@@ -231,11 +254,11 @@ def test_ten_thousand_view_titles_are_refused_before_sending() -> None:
 
 def test_a_request_at_the_limit_is_sent_whole_and_one_byte_more_is_refused() -> None:
     limit = settings.VEXTRUS_JEV_MAX_REQUEST_BYTES
-    base = len(prepared({"title": ""}).body)
+    base = len(prepared({**FACTS, "title": ""}).body)
     title = "B" * (limit - base)
 
-    at_limit = prepared({"title": title})
-    over = jev.prepare("sheet_type", {"title": title + "B"}, STAND_IN_QUESTION, STAND_IN_KINDS)
+    at_limit = prepared({**FACTS, "title": title})
+    over = jev.prepare("sheet_type", {**FACTS, "title": title + "B"}, STAND_IN_QUESTION, STAND_IN_KINDS)
 
     assert len(at_limit.body) == limit
     assert json.loads(at_limit.body)["state"]["title"] == title  # never cut
@@ -245,7 +268,7 @@ def test_a_request_at_the_limit_is_sent_whole_and_one_byte_more_is_refused() -> 
 def test_bangla_text_counts_as_it_is_sent() -> None:
     title = "বিম" * 2_000  # 6,000 letters, each sent as a 6-byte escape
 
-    assert jev.prepare("sheet_type", {"title": title}, STAND_IN_QUESTION, STAND_IN_KINDS) == (
+    assert jev.prepare("sheet_type", {**FACTS, "title": title}, STAND_IN_QUESTION, STAND_IN_KINDS) == (
         jev.Unavailable(jev.Why.TOO_LARGE)
     )
 
@@ -276,7 +299,7 @@ def test_the_cache_key_changes_with_each_of_facts_question_options_and_model(
         prepared({**FACTS, "title": "SECOND FLOOR BEAM LAYOUT PLAN"}).cache_key,
         prepared({**FACTS, "discipline": "architectural"}).cache_key,
         prepared({**FACTS, "view_titles": []}).cache_key,
-        prepared({"title": FACTS["title"]}).cache_key,
+        prepared({**FACTS, "view_titles": list(reversed(FACTS["view_titles"]))}).cache_key,
         prepared(question=STAND_IN_QUESTION + " ").cache_key,
         prepared(options={**STAND_IN_KINDS, "other": "Anything else"}).cache_key,
         prepared(options=tuple(STAND_IN_KINDS)).cache_key,

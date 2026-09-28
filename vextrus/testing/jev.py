@@ -7,9 +7,10 @@
   recording fails the test, naming its hash.
 - **The recordings** (`jev_recordings.json`, beside this file) keep bodies only, the request as sent
   and TypeSafe's answer: no header, so no key. They were made live, from invented sheets
-  (`INVENTED_SHEETS`), never drawing text: `VEXTRUS_JEV_RECORD=1 uv run pytest -m live
-  vextrus/platform/tests/test_jev_live.py` makes them again with the owner's key (ADR 0013), and
-  `-m live` alone checks that TypeSafe still answers them so.
+  (`INVENTED_SHEETS`, each asked twice: with the stand-in kinds' descriptions, then with their keys
+  alone, as a `JudgementRequest` sends them), never drawing text: `VEXTRUS_JEV_RECORD=1 uv run
+  pytest -m live vextrus/platform/tests/test_jev_live.py` makes them again with the owner's key
+  (ADR 0013), and `-m live` alone checks that TypeSafe still answers them so.
 - **`jev_down(way)`**: TypeSafe down one way (`WAYS`), for a test of the fallback (21c's, 22's):
   `jev_down("timeout")`, then `ask` answers `Unavailable(DOWN[way])` without sleeping (the clock is
   `jev_clock`, a `FakeClock`).

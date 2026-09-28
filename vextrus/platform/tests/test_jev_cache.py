@@ -3,6 +3,7 @@ again is the cached row, never a second call; one tenant's answer never serves a
 cached when Jev is unavailable, and nothing is left when the caller's transaction rolls back."""
 
 import json
+import logging
 import uuid
 from collections.abc import Callable
 from decimal import Decimal
@@ -85,13 +86,13 @@ def test_the_cached_row_holds_the_answer_as_decimals_and_decimal_strings(
 
     assert isinstance(answer, jev.Answer)
     assert (row.node, row.model_version, row.choice) == ("sheet_type", "jev-1.13.0", "slab_layout")
-    assert row.confidence == Decimal("0.4300")
-    assert answer.confidence == Decimal("0.4300")
+    assert row.confidence == Decimal("0.3700")
+    assert answer.confidence == Decimal("0.3700")
     assert row.options == list(STAND_IN_KINDS)
-    assert row.probabilities["slab_layout"] == "0.49"
+    assert row.probabilities["slab_layout"] == "0.43"
     assert row.probabilities["cover_index"] == "0"
     assert all(isinstance(p, str) for p in row.probabilities.values())
-    assert answer.ranked()[:3] == ("slab_layout", "other", "beam_layout")
+    assert answer.ranked()[:3] == ("slab_layout", "beam_layout", "other")
     assert row.cache_key == key_of(INVENTED_SHEETS[5])
 
 
@@ -217,7 +218,7 @@ def test_a_request_too_large_is_neither_sent_nor_cached(
 ) -> None:
     developer = make_developer()
     with tenancy.acting_in(developer):
-        assert asked({"title": "A" * 1_000_000}) == jev.Unavailable(jev.Why.TOO_LARGE)
+        assert asked({**SHEET, "title": "A" * 1_000_000}) == jev.Unavailable(jev.Why.TOO_LARGE)
         assert asked({**SHEET, "view_titles": ["BEAM LAYOUT PLAN"] * 10_000}) == jev.Unavailable(
             jev.Why.TOO_LARGE
         )
@@ -321,18 +322,122 @@ def test_the_engine_s_judgement_request_is_asked_in_one_line(
     assert json.loads(request_sent.content)["state"]["view_titles"] == ["BEAM LAYOUT PLAN"]
 
 
+# The review of round 1: 13's head emitted `number` and `view_title_1…12`, and `ask_judgement`
+# raised out of the job step. A question the node does not take is the caller's mistake: logged, and
+# answered Unavailable, so the step still ends and the QS picks.
+NOT_THE_NODE_S = {
+    "13's facts before the ruling": {
+        "discipline": "structural",
+        "title": "BEAM LAYOUT",
+        "number": "S-07",
+        "view_title_1": "BEAM LAYOUT PLAN",
+        "view_title_2": "SECTION 1-1",
+    },
+    "a fact missing": {"title": "BEAM LAYOUT", "discipline": "structural"},
+    "an undeclared fact beside the three": {
+        "title": "B",
+        "discipline": "structural",
+        "view_titles": "[]",
+        "storeys": "1st",
+    },
+    "view titles not a JSON array": {
+        "title": "B",
+        "discipline": "structural",
+        "view_titles": "BEAM LAYOUT PLAN",
+    },
+}
+
+
 @pytest.mark.django_db
-def test_an_undeclared_fact_in_the_engine_s_request_is_refused(
+@pytest.mark.parametrize("facts", NOT_THE_NODE_S.values(), ids=NOT_THE_NODE_S.keys())
+def test_a_question_the_node_does_not_take_is_unavailable_logged_and_never_raised(
+    facts: dict[str, str],
     make_developer: Callable[..., uuid.UUID],
+    jev_offline: Offline,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
+    developer = make_developer()
     request = JudgementRequest(
         node="sheet_type",
-        facts={"title": "BEAM LAYOUT", "storeys": "1st to 9th"},
+        facts=facts,
         question="A stand-in question, not 13's",
         options=("beam_layout", "column_layout"),
     )
-    with tenancy.acting_in(make_developer()), pytest.raises(ValueError, match="storeys"):
-        jev.ask_judgement(request)
+    with tenancy.acting_in(developer):
+        answer = jev.ask_judgement(request)
+
+    assert answer == jev.Unavailable(jev.Why.BAD_QUESTION)
+    assert calls(jev_offline) == 0
+    assert cached(developer) == []
+    [error] = [record for record in caplog.records if record.levelno == logging.ERROR]
+    assert "sheet_type" in error.getMessage()
+    assert "the caller's mistake" in error.getMessage()
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    ("node", "question", "options"),
+    [
+        ("storey", STAND_IN_QUESTION, ("beam_layout", "other")),
+        ("sheet_type", "", ("beam_layout", "other")),
+        ("sheet_type", STAND_IN_QUESTION, ("Beam Layout", "other")),
+        ("sheet_type", STAND_IN_QUESTION, ("beam_layout",)),
+    ],
+)
+def test_a_bad_node_question_or_options_is_unavailable_never_raised(
+    node: str,
+    question: str,
+    options: tuple[str, ...],
+    make_developer: Callable[..., uuid.UUID],
+    jev_offline: Offline,
+) -> None:
+    with tenancy.acting_in(make_developer()):
+        answer = jev.ask(node, SHEET, question, options)
+
+    assert answer == jev.Unavailable(jev.Why.BAD_QUESTION)
+    assert calls(jev_offline) == 0
+
+
+@pytest.mark.django_db
+def test_the_three_facts_13_gives_are_asked(
+    make_developer: Callable[..., uuid.UUID], jev_offline: Offline
+) -> None:
+    sent: list[httpx.Request] = []
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        sent.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "model": "jev-1.13.0",
+                "answers": {
+                    "sheet_type": {
+                        "type": "choice",
+                        "choice": "general_notes",
+                        "confidence": 0.9,
+                        "probabilities": {"general_notes": 0.95, "beam_layout": 0.05},
+                    }
+                },
+            },
+        )
+
+    jev_offline.use(httpx.MockTransport(answer))
+    request = JudgementRequest(
+        node="sheet_type",
+        facts={"title": "GENERAL NOTES", "discipline": "structural", "view_titles": "[]"},
+        question="A stand-in question, not 13's",
+        options=("general_notes", "beam_layout"),
+    )
+    with tenancy.acting_in(make_developer()):
+        judged = jev.ask_judgement(request)
+
+    assert isinstance(judged, jev.Answer)
+    [request_sent] = sent
+    assert json.loads(request_sent.content)["state"] == {
+        "title": "GENERAL NOTES",
+        "discipline": "structural",
+        "view_titles": [],
+    }
 
 
 @pytest.mark.django_db
@@ -345,7 +450,7 @@ def test_the_propose_threshold_is_the_node_s_setting(
     assert isinstance(unsure, jev.Answer)
 
     assert (jev.SHEET_TYPE.proposes(sure), jev.SHEET_TYPE.proposes(unsure)) == (True, False)
-    settings.VEXTRUS_JEV_SHEET_TYPE_PROPOSE_AT = Decimal("0.43")
+    settings.VEXTRUS_JEV_SHEET_TYPE_PROPOSE_AT = Decimal("0.37")
     assert jev.SHEET_TYPE.proposes(unsure)
     other = jev.Judgement(
         "another_node", "jev-1.13.0", "a", Decimal(1), (("a", Decimal(1)), ("b", Decimal(0)))

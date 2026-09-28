@@ -100,12 +100,12 @@ def test_a_recorded_answer_is_read_whole_every_number_a_decimal(jev_offline: Off
 
     assert isinstance(answer, jev.Judgement)
     assert (answer.node, answer.model, answer.choice) == ("sheet_type", "jev-1.13.0", "services_layout")
-    assert answer.confidence == Decimal("0.91")
+    assert answer.confidence == Decimal("0.93")
     assert [option for option, _p in answer.probabilities] == list(STAND_IN_KINDS)
     assert all(type(p) is Decimal for _o, p in answer.probabilities)
     assert type(answer.confidence) is Decimal
     assert answer.ranked()[:2] == ("services_layout", "other")
-    assert answer.probability("other") == Decimal("0.07")
+    assert answer.probability("other") == Decimal("0.06")
 
 
 def test_ranked_puts_the_most_likely_first_and_ties_in_the_order_offered() -> None:
@@ -720,8 +720,48 @@ def test_what_says_nothing_of_typesafe_never_brings_a_cool_off(key: Callable[[],
         assert judge(made) == jev.Unavailable(jev.Why.REQUEST_REFUSED)
         assert judge(without_key) == jev.Unavailable(jev.Why.NO_KEY)
         assert judge(made, too_large) == jev.Unavailable(jev.Why.TOO_LARGE)
+        assert judge(made, {"title": "B"}) == jev.Unavailable(jev.Why.BAD_QUESTION)
 
     assert len(refused.requests) == 5
+
+
+# The review of round 1: nothing held MALFORMED and OVERSIZED among the failures that count.
+COUNTED = sorted({way for way, why in DOWN.items() if why is not jev.Why.REQUEST_REFUSED})
+
+
+@pytest.mark.parametrize("way", COUNTED)
+def test_every_failure_of_typesafe_s_own_brings_the_cool_off(way: str) -> None:
+    clock = FakeClock()
+    made = jev.Client(transport=down(way, clock), clock=clock, sleep=clock.sleep, key=lambda: SENTINEL)
+
+    outcomes = [judge(made) for _ in range(4)]
+
+    assert outcomes == [jev.Unavailable(DOWN[way])] * 3 + [jev.Unavailable(jev.Why.COOLING_OFF)]
+
+
+def test_the_failures_that_count_are_every_way_typesafe_fails_but_a_422() -> None:
+    assert {DOWN[way] for way in COUNTED} == {
+        jev.Why.TIMED_OUT,
+        jev.Why.UNREACHABLE,
+        jev.Why.FAILED,
+        jev.Why.BUSY,
+        jev.Why.KEY_REFUSED,
+        jev.Why.MALFORMED,
+        jev.Why.OVERSIZED,
+    }
+
+
+def test_a_question_the_node_does_not_take_is_unavailable_from_judge_too() -> None:
+    script = Script(ok(good()))
+    made = client(script)
+
+    assert made.judge("sheet_type", {"title": "B", "number": "S-07"}, STAND_IN_QUESTION, OPTIONS) == (
+        jev.Unavailable(jev.Why.BAD_QUESTION)
+    )
+    assert made.judge("storey", FACTS, STAND_IN_QUESTION, OPTIONS) == jev.Unavailable(
+        jev.Why.BAD_QUESTION
+    )
+    assert script.requests == []
 
 
 # The key --------------------------------------------------------------------------------------------
@@ -806,7 +846,7 @@ def test_the_key_is_in_no_log_exception_repr_or_recording(
 def test_the_committed_recordings_hold_bodies_only() -> None:
     recordings = load_recordings()
 
-    assert len(recordings) == len(INVENTED_SHEETS)
+    assert len(recordings) == 2 * len(INVENTED_SHEETS)  # with descriptions, then keys only
     assert all(set(recording) == {"request", "response"} for recording in recordings)
     assert all(set(recording["request"]) == {"model", "state", "questions"} for recording in recordings)
     text = json.dumps(recordings).lower()
@@ -860,7 +900,7 @@ def test_the_owner_s_key_is_not_in_an_unmarked_test_s_environment() -> None:
 
 
 def test_an_unrecorded_request_fails_the_test_naming_its_hash(jev_offline: Offline) -> None:
-    facts = {"title": "A SHEET NOBODY RECORDED"}
+    facts = {**FACTS, "title": "A SHEET NOBODY RECORDED"}
     request = jev.prepare("sheet_type", facts, STAND_IN_QUESTION, STAND_IN_KINDS)
     assert isinstance(request, jev.Request)
 

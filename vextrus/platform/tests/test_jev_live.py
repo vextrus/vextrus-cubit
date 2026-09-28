@@ -31,16 +31,22 @@ def the_owner_s_key() -> None:
         pytest.fail("a live test needs the owner's development key in the environment (ADR 0013)")
 
 
+OFFERS: tuple[jev.Options, ...] = (STAND_IN_KINDS, tuple(STAND_IN_KINDS))
+"""Each sheet is asked twice: with the kinds' descriptions, and with the keys alone, as 13's
+`JudgementRequest` sends them (`"criteria": {key: null}`)."""
+
+
 def test_typesafe_answers_each_invented_sheet_as_recorded() -> None:
     recording = Recording(jev._network())
     with jev.Client(transport=recording) as live:
         judged = [
-            live.judge(jev.SHEET_TYPE, facts, STAND_IN_QUESTION, STAND_IN_KINDS)
+            live.judge(jev.SHEET_TYPE, facts, STAND_IN_QUESTION, options)
+            for options in OFFERS
             for facts in INVENTED_SHEETS
         ]
 
     assert all(isinstance(answer, jev.Judgement) for answer in judged), judged
-    assert len(recording.exchanges) == len(INVENTED_SHEETS)
+    assert len(recording.exchanges) == len(OFFERS) * len(INVENTED_SHEETS)
     if os.environ.get("VEXTRUS_JEV_RECORD") == "1":
         write_recordings(recording.exchanges)
     recorded = {
