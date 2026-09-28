@@ -945,7 +945,8 @@ def pre_pick(answer: Judgement | Unavailable, sources: Sequence[Source]) -> PreP
     - two sources read from nothing in common must name one option;
     - Jev's answer counts as one source at any confidence;
     - beside Jev's answer, a source read from any fact its node takes (the title it read) never
-      counts: it is dropped, neither agreeing nor dissenting;
+      counts: it is dropped, neither agreeing nor dissenting. The sheet-type node takes the
+      Discipline too, so a source read from the file's Discipline is dropped beside it;
     - with Jev unavailable, the others decide;
     - any counted source naming another option means no pick.
     """

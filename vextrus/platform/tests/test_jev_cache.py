@@ -174,6 +174,24 @@ def test_with_no_key_nothing_is_sent_and_nothing_cached(
 
 
 @pytest.mark.django_db
+def test_the_key_sent_is_in_no_row(
+    make_developer: Callable[..., uuid.UUID], jev_offline: Offline
+) -> None:
+    sentinel = "sentinel-key-3c59dc048e8850243be8079a5c74d079"
+    developer = make_developer()
+    transport = Recorded()
+    jev_offline.use(transport, key=lambda: sentinel)
+    with tenancy.acting_in(developer):
+        answer = asked()
+        rows = list(JevAnswer.objects.values())
+
+    assert isinstance(answer, jev.Answer)
+    assert transport.requests[0].headers["authorization"] == f"Bearer {sentinel}"
+    assert len(rows) == 1
+    assert sentinel not in json.dumps(rows, default=str)
+
+
+@pytest.mark.django_db
 def test_a_request_too_large_is_neither_sent_nor_cached(
     make_developer: Callable[..., uuid.UUID], jev_offline: Offline
 ) -> None:
