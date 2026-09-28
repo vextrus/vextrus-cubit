@@ -27,7 +27,9 @@ class UserManager(BaseUserManager["User"]):
     def create_superuser(
         self, email: str, name: str, password: str | None = None, **fields: Any
     ) -> User:
-        """`createsuperuser` makes a member of Vextrus's staff (there is no other superuser)."""
+        """`createsuperuser` makes a member of Vextrus's staff (there is no other superuser). Run it
+        as the owner, `manage.py createsuperuser --database owner`: `vextrus_app` may never make a
+        user staff (the staff wall, migration 0005); `manage.py set_staff` flips an existing user."""
         return self.create_user(email, name, password, is_vextrus_staff=True, **fields)
 
 

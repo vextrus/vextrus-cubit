@@ -277,3 +277,63 @@ def test_the_app_may_still_sign_a_user_in_and_rename_them(cursor: Any) -> None:
     cursor.execute("update platform_user set last_login = now() where id = %s", [user.pk])
 
     assert User.objects.get(id=user.pk).name == "Nusrat J."
+
+
+STAFF_WALL = "vextrus_app may not make a user staff or change whether one is staff or active"
+
+
+@pytest.mark.django_db
+def test_the_app_cannot_insert_a_user_who_is_staff(cursor: Any) -> None:
+    with pytest.raises(DatabaseError, match=STAFF_WALL), transaction.atomic():
+        User.objects.create_user("mallory@example.com", "Mallory", is_vextrus_staff=True)
+
+    assert STAFF_WALL in refused(
+        cursor,
+        "insert into platform_user (id, password, email, name, phone, is_vextrus_staff, is_active)"
+        " values (%s, '', 'eve@example.com', 'Eve', '', true, true)",
+        [uuid.uuid4()],
+    )
+
+
+@pytest.mark.django_db
+def test_an_ordinary_sign_up_inserts_a_user_who_is_not_staff() -> None:
+    made = User.objects.create_user("nusrat@shapla-homes.example", "Nusrat Jahan", "a password 12")
+
+    assert (made.is_vextrus_staff, made.is_active) == (False, True)
+    assert User.objects.get(id=made.pk).check_password("a password 12")
+
+
+@pytest.fixture
+def flags_granted() -> Iterator[None]:
+    """The column grant taken off for a moment (committed), so the trigger alone must refuse."""
+    with connections["owner"].cursor() as owner:
+        owner.execute("grant update (is_vextrus_staff, is_active) on platform_user to vextrus_app")
+    try:
+        yield
+    finally:
+        with connections["owner"].cursor() as owner:
+            owner.execute(
+                "revoke update (is_vextrus_staff, is_active) on platform_user from vextrus_app"
+            )
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "owner"])
+@pytest.mark.usefixtures("flags_granted")
+@pytest.mark.parametrize(("column", "value"), [("is_vextrus_staff", True), ("is_active", False)])
+def test_the_trigger_alone_refuses_the_app_changing_a_user_s_flags(column: str, value: bool) -> None:
+    user = User.objects.create_user("nusrat@shapla-homes.example", "Nusrat Jahan")
+
+    with pytest.raises(DatabaseError, match=STAFF_WALL), transaction.atomic():
+        User.objects.filter(id=user.pk).update(**{column: value})
+
+    User.objects.filter(id=user.pk).update(name="Nusrat J.")  # an ordinary update still passes
+    assert User.objects.values_list(column, "name").get(id=user.pk) == (not value, "Nusrat J.")
+
+
+@pytest.mark.django_db(databases=["default", "owner"])
+def test_the_owner_still_makes_and_unmakes_staff() -> None:
+    users = User.objects.db_manager("owner")
+    made = users.create_user("arif2@vextrus.example", "Arif", is_vextrus_staff=True)
+    users.filter(id=made.pk).update(is_vextrus_staff=False, is_active=False)
+
+    assert users.values_list("is_vextrus_staff", "is_active").get(id=made.pk) == (False, False)

@@ -22,11 +22,6 @@ from vextrus.testing.tenancy import Member, add_member
 
 
 @pytest.fixture
-def staff() -> User:
-    return User.objects.create_user("arif@vextrus.example", "Arif Rahman", is_vextrus_staff=True)
-
-
-@pytest.fixture
 def staff_client(db: None, staff: User) -> Client:
     client = Client()
     client.force_login(staff)
@@ -187,10 +182,10 @@ def test_staff_create_the_first_md_invitation_and_nothing_more(
 
 @pytest.mark.django_db
 @pytest.mark.parametrize("email", ["arif@vextrus.example", "ARIF@vextrus.example", "other"])
+@pytest.mark.usefixtures("other_staff")
 def test_staff_never_invite_themselves_or_another_of_vextrus_s_staff(
     staff_client: Client, shapla: uuid.UUID, email: str
 ) -> None:
-    User.objects.create_user("other@vextrus.example", "Other", is_vextrus_staff=True)
     pick(staff_client, shapla)
 
     response = staff_client.post(
@@ -318,12 +313,12 @@ def test_the_staff_flag_changes_only_through_the_owner_s_command(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     users = User.objects.db_manager("owner")
-    made = users.create_user("arif@vextrus.example", "Arif Rahman")
+    made = users.create_user("rafiq@vextrus.example", "Rafiq Islam")
 
-    call_command("set_staff", "ARIF@vextrus.example")
+    call_command("set_staff", "RAFIQ@vextrus.example")
     promoted = users.get(id=made.pk).is_vextrus_staff
-    call_command("set_staff", "arif@vextrus.example", "--off")
+    call_command("set_staff", "rafiq@vextrus.example", "--off")
 
     assert promoted is True
     assert users.get(id=made.pk).is_vextrus_staff is False
-    assert "arif@vextrus.example: not staff" in capsys.readouterr().out
+    assert "rafiq@vextrus.example: not staff" in capsys.readouterr().out

@@ -90,26 +90,23 @@ def test_user_developers_lists_several_by_name_and_never_a_library(
 
 @pytest.mark.django_db
 def test_staff_developers_gives_every_developer_to_staff_and_nothing_to_anyone_else(
-    make_developer: Callable[..., uuid.UUID],
+    make_developer: Callable[..., uuid.UUID], staff: User, former_staff: User
 ) -> None:
     make_developer("Shapla Homes Ltd")
     meghna = make_developer("Meghna Properties Ltd")
     member, _ = add_member(meghna, role="md")
-    staff = User.objects.create_user("staff@vextrus.example", "Staff", is_vextrus_staff=True)
-    gone = User.objects.create_user(
-        "gone@vextrus.example", "Gone", is_vextrus_staff=True, is_active=False
-    )
 
     assert staff_sees(staff) == ["Meghna Properties Ltd", "Shapla Homes Ltd"]
     assert staff_sees(member) == []
-    assert staff_sees(gone) == []
+    assert staff_sees(former_staff) == []
     assert staff_sees(None) == []
 
 
 @pytest.fixture
-def invitation(make_developer: Callable[..., uuid.UUID]) -> tuple[uuid.UUID, tenancy.Invitation]:
+def invitation(
+    make_developer: Callable[..., uuid.UUID], staff: User
+) -> tuple[uuid.UUID, tenancy.Invitation]:
     developer = make_developer("Shapla Homes Ltd")
-    staff = User.objects.create_user("staff@vextrus.example", "Staff", is_vextrus_staff=True)
     with tenancy.acting_in(developer, user_id=staff.pk):
         made = tenancy.invite_first_md("kamal@shapla-homes.example", invited_by=staff)
         MembershipProject.objects.create(

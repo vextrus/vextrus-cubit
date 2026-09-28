@@ -7,9 +7,13 @@
   Developer, so the tenant middleware sets the tenant for every request. It returns a `Member`,
   whose `acting()` sets the same tenant for calling services directly.
 
-Every row is written through the `default` alias as `vextrus_app`, under row-level security, inside
-the test's transaction. After a flush (a `transaction=True` test empties every table), the Markets
-and the Library rows are put back, as the migrations and `sync_library` made them.
+- `staff`, `other_staff`, `former_staff`: members of Vextrus's staff (the last one no longer
+  active). `vextrus_app` can never make a user staff (docs/data-model.md §3.0; the staff wall in
+  platform's migration 0005), so these are written by the owner, committed, and shared by every test.
+
+Every other row is written through the `default` alias as `vextrus_app`, under row-level security,
+inside the test's transaction. After `migrate` and after a flush (a `transaction=True` test empties
+every table), the Markets, the Library rows and the staff users are put back.
 """
 
 import itertools
@@ -43,6 +47,36 @@ def put_back_the_library(sender: AppConfig, using: str, **kwargs: Any) -> None:
         return
     import_module(_MARKET_MIGRATION).seed(Market, Developer, using)
     library.sync(using)
+    for email, (name, active) in STAFF.items():
+        User.objects.using(using).update_or_create(
+            email=email,
+            defaults={"name": name, "is_vextrus_staff": True, "is_active": active},
+        )
+
+
+STAFF_EMAIL = "arif@vextrus.example"
+OTHER_STAFF_EMAIL = "other@vextrus.example"
+FORMER_STAFF_EMAIL = "gone@vextrus.example"
+STAFF = {
+    STAFF_EMAIL: ("Arif Rahman", True),
+    OTHER_STAFF_EMAIL: ("Other Staff", True),
+    FORMER_STAFF_EMAIL: ("Former Staff", False),
+}
+
+
+@pytest.fixture
+def staff(db: None) -> User:
+    return User.objects.get(email=STAFF_EMAIL)
+
+
+@pytest.fixture
+def other_staff(db: None) -> User:
+    return User.objects.get(email=OTHER_STAFF_EMAIL)
+
+
+@pytest.fixture
+def former_staff(db: None) -> User:
+    return User.objects.get(email=FORMER_STAFF_EMAIL)
 
 
 @dataclass(frozen=True)

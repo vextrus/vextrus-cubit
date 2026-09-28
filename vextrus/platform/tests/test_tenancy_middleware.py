@@ -133,10 +133,9 @@ def test_a_membership_that_is_not_current_sets_no_tenant_and_the_session_forgets
 
 @pytest.mark.django_db
 def test_in_the_admin_staff_act_in_the_developer_they_picked_without_a_membership(
-    make_developer: Callable[..., uuid.UUID],
+    make_developer: Callable[..., uuid.UUID], staff: User
 ) -> None:
     developer = make_developer()
-    staff = User.objects.create_user("staff@vextrus.example", "Staff", is_vextrus_staff=True)
     picked = {tenancy.STAFF_SESSION_TENANT: str(developer)}
 
     in_admin = serve(request_for(staff, picked, "/admin/platform/membership/"))
@@ -147,9 +146,10 @@ def test_in_the_admin_staff_act_in_the_developer_they_picked_without_a_membershi
 
 
 @pytest.mark.django_db
-def test_the_admin_is_found_under_a_script_prefix(make_developer: Callable[..., uuid.UUID]) -> None:
+def test_the_admin_is_found_under_a_script_prefix(
+    make_developer: Callable[..., uuid.UUID], staff: User
+) -> None:
     developer = make_developer()
-    staff = User.objects.create_user("staff@vextrus.example", "Staff", is_vextrus_staff=True)
     request = RequestFactory().get("/admin/", SCRIPT_NAME="/app")
     request.user = staff
     request.session = SessionStore()
