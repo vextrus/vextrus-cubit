@@ -1,7 +1,7 @@
-# Session 05: M0 wave 3
+# Session 05: M0 wave 3, built locally
 
 ## Starting the session (the owner)
-In a terminal, **not** the Desktop app, from the main checkout on `main`, pulled:
+In a terminal, from the main checkout on `main`, pulled:
 
 ```bash
 cd ~/vextrus-cubit && git switch main && git pull --ff-only
@@ -11,51 +11,128 @@ cd ~/vextrus-cubit && git switch main && git pull --ff-only
 CLAUDE_CONFIG_DIR=~/.claude-b claude --model claude-opus-5-5 --effort xhigh
 ```
 
-Account B is the vextrus.com login; the CLI's default config is not signed in. Check `/status` shows Opus 5.5
+Account B is the vextrus.com login; the CLI's default config is not signed in. Check that `/status` shows Opus 5.5
 at xhigh and permission mode auto, then say: "Read docs/handoff/session-05-prompt.md and run it."
 
 ---
 
 You are the orchestrator of the third build session of the new Vextrus. You run in the CLI, on **account B**, at
-**xhigh** effort, and your job is to **orchestrate**. Many parallel cloud sessions build, local agents review and
-verify, and you keep your own context for decisions, contracts and the owner.
+**xhigh**. **Everything runs on this machine: no cloud sessions.** The owner, 29 Sep 2026: "instead of Cloud
+sessions the main sessions on xHigh will orchestrate everything just like we planned, the multi-agent sessions can
+do whatever extend to accomplish the goal, everything will be run in locally."
 
-The owner's words (session 04, 28 Sep 2026): "orchestrate as many parallel sessions possible mostly in Cloud
-sessions (No Worries on Tokens or Limit, go for as much as spending on tokens) to achieve the highest code quality
-with production grade output in shortest time possible." Quality on every merge comes first, then speed. Spend
-tokens on it freely.
+Your job is to orchestrate:
+- each ticket is built by its own **background Claude Code session**, in its own worktree, which may use subagents
+  and workflows as it needs;
+- local agents review and verify;
+- you keep your own context for decisions, contracts and the owner.
+
+Quality on every merge comes first, then speed ("the highest code quality with production grade output in
+shortest time possible"; tokens are no constraint).
+
+## You are resuming: session 05 began in the CLI and stopped at its cloud launch
+- **Read first:** `.private/work/session-05/STATE.md`. It holds:
+  - the finish line and the tickets;
+  - the orchestrator's decisions **D1–D10** (the wave's contracts, merge edges and shared data, each open to the
+    owner's reversal);
+  - the owner's rulings, in their words;
+  - the log.
+- **The preparation stands:**
+  - `wave3/contracts.md`: the contracts map;
+  - `wave3/drafts/` and `wave3/final/*.prompt`: every ticket's prompt, drafted against `main` with contracts cited
+    by path and line;
+  - `wave3/common.md`: the shared rules.
+- **Only the launch failed.** Account B's `claude --cloud` uploaded a local copy instead of linking the GitHub repo:
+  the sessions had no remote. The owner then chose to build everything locally.
+- **Adapt before launching:** replace `common.md`'s cloud "This environment" paragraph with the local one below,
+  re-run `wave3/finalize.py` (or reassemble each prompt as its part plus `common.md`), and remove every cloud line
+  from the parts.
+- **13 was already building locally.** Its background session `21ab7611` is stopped, with uncommitted edits in
+  `.claude/worktrees/13-sheet-segmentation` (placement's `Transform.inverse`, buffers). Resume it
+  (`claude --bg --resume 21ab7611-1e38-4c48-ac72-823fbda64c63 "<the next step>"`) rather than starting over.
+  Its analysts' reports are under `.private/work/session-05/13/`.
+- **Clean-up the owner may ask for:**
+  - the diagnostic cloud sessions on B and A;
+  - the branch `claude/diag-*`, if one appears on GitHub;
+  - the 24 `scratch-*` folders under `.private/work/session-04/` and `/home/riz/review70-scratch` (the guard
+    refuses `rm -r`: give the owner the command).
 
 ## Done means (check each, and keep checking until all hold)
 1. **Wave 3 merged:** 13, 14, 15, 19b, 20a (docs/plans/M0.md, "Wave 3"). Each PR:
    - went through the review loop (`docs/sdlc.md`, "The review loop");
    - was fixed and re-checked;
    - has its local step done (13's real sheets looked at; 19b's check on the real sets; 20a's design-gate walk).
-2. **#75 and #82 merged,** scheduled into this wave: #75 before 20a's design gate.
+2. **#75 and #82 merged,** in the order D2 sets: #75 before 15 and before 20a's gate.
 3. **Wave 3's measures in #45:** per PR and per wave, and the widening gate decided.
 4. **Session 06's brief written** (`docs/handoff/session-06-prompt.md`), the lessons added, the PR opened.
 
-**Do not end your turn while any of these is owed.** Nothing that is a summary, a question you could answer
-yourself, a finished milestone or a background agent still running counts as done. When you must wait for the
-owner, say exactly what you need, then keep every other track moving.
+**Do not end your turn while any of these is owed.** A summary, a question you could answer yourself, a finished
+milestone and a background session still running are not done. When you must wait for the owner, say exactly what
+you need, then keep every other track moving.
+
+## How the local build runs
+- **One background session per ticket,** started from the main checkout with its complete prompt:
+  `claude --bg --name w3-<ticket> "$(cat .private/work/session-05/wave3/final/<ticket>.prompt)"`.
+  - It moves itself into its own worktree under `.claude/worktrees/` before editing.
+  - It reads the project settings, so Opus 5.5 runs at xhigh, and account B's user settings, so it runs in auto
+    mode.
+  - It is a full session: it may spawn its own subagents and workflows.
+  - Start the independent tickets together.
+  - The machine: 24 cores, 26 GB RAM, 146 GB free. Watch memory with `free -g` as sessions build web code and
+    run browsers. If it runs low, hold one ticket rather than risk the rest.
+- **The local environment** (for `common.md`):
+  - you work in your own worktree of this repository;
+  - your own database comes from `uv run manage.py ensure_database && uv run manage.py migrate` (named for the
+    worktree);
+  - PostgreSQL 18 on 127.0.0.1:5432;
+  - the toolchain under `/opt/vextrus`;
+  - make the venv with `UV_PYTHON_INSTALL_DIR=/opt/vextrus/python`;
+  - lay the compiled ezdxf from `~/.cache/vextrus-real-drawings/wheels/` over it, checked against
+    `toolchain/ezdxf.lock`, and run with `uv run --no-sync`;
+  - 24 cores (CI has 4: run the suites here);
+  - the real Development Sets are at `/home/riz/vextrus-cubit/.private/reference/` (read-only; nothing from them
+    enters git, an issue or a PR; only conventions and counts leave). `scripts/real-drawings <branch> --no-post`
+    runs the check on your branch.
+- **The builders never push, open a PR or merge.** A builder commits on its branch with explicit paths and tells
+  you it is ready. You review it, then push and open the PR with the owner's yes, batched.
+- **Talk to them with `SendMessage`** (the cross-session messaging `ListAgents` and `SendMessage`; ask for
+  `notify_when_idle`, so you learn when a session finishes or waits). Watch with `claude agents --json`. A session
+  that "Needs input" gets your answer, or the owner's, fast.
+- **The review loop is unchanged** (the `orchestrate-wave` skill, and `docs/sdlc.md` "The review loop"). A review
+  starts on the builder's committed head, before the PR: `pr-reviewer`, plus `ux-critic` as the words gate or the
+  walk, in parallel. Then one message per round to the builder, and every fix re-checked. Use workflows for
+  fan-outs; the owner authorises them.
+- **The owner's steps are unchanged:** update the branch, any root step, the `design-gate` post, the real-drawing
+  posting run, the merge. Batch them into one message with exact commands for exact SHAs, and read every posting
+  run's table and `states.py` before the owner accepts.
 
 ## State lives in files, not in your context
-- Keep `.private/work/session-05/STATE.md` from your first action:
-  - the finish-line checklist;
-  - each ticket's session id, PR, head, round and next step;
-  - every owner ruling, in their words;
-  - every open question.
-  Update it after each event.
-- **To resume** after a compaction or a restart: read STATE.md, then #45's newest comments, then
-  `gh pr list --json number,headRefOid,title`, then each agent's NOTES.txt.
-- Every local agent keeps a NOTES.txt under `.private/work/session-05/` and puts its scratch copies there, never in
-  `/tmp`. A restart kills local agents and `/tmp`; cloud sessions carry on.
+Keep `.private/work/session-05/STATE.md` current after every event: the ticket table (session name and id,
+branch, head, round, next step), rulings and open questions. **To resume** after a compaction or restart:
+1. read STATE.md;
+2. then #45's newest comments;
+3. then `claude agents --json`;
+4. then `gh pr list`;
+5. then each agent's NOTES.txt.
 
-## The owner's rulings in force (all 28 Sep 2026 unless marked; #45 has them in full)
-- **Accounts:** everything on B until the owner says to switch. Cost is not the constraint; quality is.
-  Continuations need no asking.
+Background sessions survive a closed terminal. A reboot stops them, and they restart where they left off when
+attached or messaged.
+
+## Read first
+1. `CLAUDE.md`, `docs/sdlc.md` ("Waves", "The review loop"), `docs/knowledge/lessons.md` (sessions 03 and 04,
+   all of them).
+2. The `orchestrate-wave` skill: your runbook. Load it before launching.
+3. `.private/work/session-05/STATE.md`, and #45 (waves 2a and 2b; its newest comments).
+4. `docs/plans/M0.md`: "Wave 3", "The contracts fixed here", "Labels".
+5. `docs/research/opus-5-5-agentic-orchestration.md` §7: how this model is best driven.
+
+## The owner's rulings in force (#45 and STATE.md have them in full)
+- **Accounts:** everything on B. Cost is not the constraint; quality is. Everything local (29 Sep).
+- **Review minutes:** "Under 30 min a wave" (29 Sep).
+- **Sheet kinds:** "Per-Discipline kinds" (29 Sep; see STATE.md).
 - **Access:**
-  - A Vextrus Engineer must be staff ("Require staff").
-  - Staff reach in the admin is accepted for M0 ("Accept, record it"; #74 before the beta).
+  - A Vextrus Engineer must be staff.
+  - Staff reach in the admin is accepted for M0 (#74 before the beta).
   - Activity is for the MD and the QS.
   - The unusable-link words name no Developer.
 - **Reading:**
@@ -64,90 +141,19 @@ owner, say exactly what you need, then keep every other track moving.
   - `failed_stages` counts a killed file.
   - BLAS runs on one thread per file.
 
-## Read first
-1. `CLAUDE.md`, `docs/sdlc.md` ("Waves", "The review loop"), `docs/knowledge/lessons.md` (sessions 03 and 04,
-   all of them).
-2. The `orchestrate-wave` skill: your runbook. Load it before launching anything.
-3. **#45:** waves 2a and 2b: tables, rounds, measures, rulings.
-4. `docs/plans/M0.md`:
-   - "Wave 3", and every entry and document the entries name;
-   - "The contracts fixed here";
-   - "Labels".
-5. `docs/research/opus-5-5-agentic-orchestration.md` §7 and `docs/research/claude-code-harness-2026-09.md`: how
-   this harness and this model are best driven.
-6. Session 04's working files, under `.private/work/session-04/`:
-   - `wave2b/common.md`: the shared ticket prompt to start from;
-   - `fix-*.md`: how a round's message reads;
-   - the review reports: what a thorough review found.
-
-## Wave 3: what to find before launching
-- **The tickets:**
-  - 13 Sheet segmentation (`local`: it needs the real sets; build it locally, in a worktree agent, or as a cloud
-    ticket with a local step, and say which and why);
-  - 14 `drawings` (`cloud`);
-  - 15 Jev client and the sheet-type node (`cloud`);
-  - 19b the M0 Checks and conflicts (`cloud+local`);
-  - 20a Screens: sign-in, projects, members, access and activity (`cloud+local`; a UI ticket: it walks
-    m0-screens §8 by keyboard itself before its PR, and the design gate walks it on a served copy);
-  - plus **#75** (platform's next migration: the "Access ended" facts, and a Developer's Market fixed once it
-    holds data; the only platform migration this wave);
-  - plus **#82** (the ReadArtefact's style table: 04's reader, an engine PR).
-- **Contracts inside the wave** (the skill's step 1). The obvious ones:
-  - 20a builds on 07's `/api/me` and needs #75's facts;
-  - 14 implements 09's `StepStore` and stores 11's buffers;
-  - 13 uses 11's `decode`, `placement` and `mtext.height` (keyword `artefact`) and #82's style table if it lands
-    first;
-  - 19b reads 13's candidates.
-  Find the rest. Declare every "merges after" in the prompts and in STATE.md.
-- **The render stages have never met real drawings.** 13 is the first ticket whose output makes them run in the
-  check. Its review renders real sheets locally and looks at them.
-
-## How to orchestrate at this scale
-- **Launch in parallel.** Every independent ticket starts in the same message. Aim to have every wave-3 ticket
-  building within your first hour. Each cloud ticket's prompt is its part plus `common.md`, and each is a
-  complete brief: the objective, what done means, the contracts with paths, what is out of scope, the trust
-  boundary to attack, and how to report. The session sees nothing but its prompt and the repository.
-- **Add these to `common.md`** (from the research and session 04):
-  - "Audit each claim in your PR body against a tool result from this session; say plainly what failed or was
-    not run."
-  - "Never hard-code to a test, edit or delete a test to make it pass, or skip hooks; if a test is wrong, say so."
-  - "Before your PR, run the `ux-critic` words-only gate on your catalogue and fix what it finds."
-  - "Re-check every fix against a real run."
-- **Use workflows for fan-outs** (the owner authorises it: "use a workflow" where a step needs many agents), for
-  example:
-  - one PR's round: `pr-reviewer`, `ux-critic` words gate and a `refuter` on each finding scored 75 or more, in
-    parallel, then one merged report;
-  - several PRs' reviews at once;
-  - a regression sweep across the engine.
-  Save one that proves itself (`/workflows`, `s`) as `.claude/workflows/<name>.js` in a PR. Keep the size to the
-  task.
-- **Delegate what is independent and sizeable; do small reads yourself.** Never redo an agent's work: treat its
-  report as evidence to check (read the file it cites, re-run its one decisive command), not as truth.
-- **One message per round** to each cloud session (the skill's step 4), and re-check every fix (step 5).
-- **Keep the owner's queue short and ordered.** Batch the owner's steps (update branch, root steps, gate posts,
-  posting runs, merges) into one message with exact commands for exact SHAs. Read every posting run's table and
-  export states (`states.py`) before the owner accepts.
-
-## What is broken, unmeasured or waiting (read before acting)
-- **The widening gate failed in both of session 04's waves:** 2 of 4, then 3 of 3 PRs needed a second round.
-  The causes:
+## What is broken, unmeasured or waiting
+- **The widening gate failed in both of session 04's waves** (2 of 4, then 3 of 3). The causes:
   - words that failed their first gate;
   - fixes that brought new faults;
   - bugs passing CI's 4 cores and failing on the owner's 24.
-  The skill and `common.md` now meet each cause; measure whether they worked.
-- **#77:** the harness's direct path gives a file's process no namespace of its own. Real drawings go only
-  through the check until it is fixed.
-- **#73** (rate limits) and **#74** (staff reach) come before the beta.
-- **PDF reads** take 0.4–0.5 s per page on the Edison plots. The second reader adds 0.3–2.5 s per DWG. For 24's
-  budgets.
-- **Leftovers of session 04** (ask the owner before removing anything):
-  - its agent worktrees and branches (all merged);
-  - scratch copies under `.private/work/session-04/` (keep the reports);
-  - `/home/riz/review70-scratch`;
-  - the owner's `~/pr79` worktree.
-- **Ask the owner once:** a rough figure for their review minutes per wave (never recorded).
-- **Before M1:** the U+2068/U+2069 isolates in copied values.
-- **The cloud setup** takes 235–250 s of its 300 s budget.
+  Measure whether the new rules met each cause.
+- **#77:** the harness's direct path gives a file's process no namespace of its own. Real drawings go only through
+  the check.
+- **Analysts' findings on 11's merged code** (in STATE.md; give them to 13, or file them):
+  - `_shapes` bounds treat a 2–5 number list as a point;
+  - a viewport ignores its view target;
+  - an inch layout's paper is read in mm.
+- **#73** (rate limits) and **#74** (staff reach) come before the beta. **Before M1:** the U+2068/U+2069 isolates.
 
 ## Law in force
 - Secrets are never printed or written.

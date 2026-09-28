@@ -1,6 +1,6 @@
 ---
 name: orchestrate-wave
-description: The orchestrator's runbook for building one wave of a milestone with cloud sessions and local agents: find the contracts inside the wave, write and launch each ticket, watch for PRs, review each PR and gate its words, send one combined fix message per round, re-check every fix, walk the owner through the gate post and the real-drawing posting run, and record measures in the milestone issue. Use when launching or running a wave (a session brief says "build wave N").
+description: The orchestrator's runbook for building one wave of a milestone with local background sessions (one per ticket, each in its own worktree) and local review agents: find the contracts inside the wave, write and launch each ticket, watch the builders, review each PR and gate its words, send one combined fix message per round, re-check every fix, walk the owner through the gate post and the real-drawing posting run, and record measures in the milestone issue. Use when launching or running a wave (a session brief says "build wave N").
 ---
 # Orchestrating a wave
 
@@ -20,16 +20,36 @@ agent, each returning a file under `.private/work/<session>/`.
 - **The prompt** = the ticket's part (the plan's entry, the trust boundary to attack, the contracts it meets,
   who builds on it) + the wave's `common.md` (copy the last wave's; it carries every lesson). Keep them under
   `.private/work/<session>/<wave>/`.
-- **Launch** each (the brief names the account):
-  `script -q -e -c 'CLAUDE_CONFIG_DIR=$HOME/.claude-b claude --cloud "$(cat <ticket>.prompt)"' launch-<t>.log`
-  and read the session id from the log. Record ticket, time and session id in the milestone issue.
+- **The local environment paragraph** in `common.md`:
+  - the builder's own worktree and database (`ensure_database`);
+  - the venv from `/opt/vextrus/python`, with the compiled ezdxf laid over it and `uv run --no-sync`;
+  - 24 cores;
+  - the real sets at `/home/riz/vextrus-cubit/.private/reference/`, read-only, only counts and conventions leaving;
+  - `scripts/real-drawings <branch> --no-post` for engine work.
+  - And the rule: **commit on your branch with explicit paths, and never push, open a PR or merge; say when you
+    are ready.**
+- **Launch** each ticket as a background session from the main checkout (the brief names the account):
+  `claude --bg --name w<wave>-<ticket> "$(cat <ticket>.prompt)"`. It moves into its own worktree under
+  `.claude/worktrees/` and reads the project settings (xhigh) and the account's user settings (auto mode).
+  Start the independent tickets together; watch memory (`free -g`) and hold one ticket rather than starve the
+  rest. Record ticket, time, session name and id in the milestone issue and STATE.md.
+- **An earlier session's builder** resumes rather than restarts: `claude --bg --resume <id> "<next step>"`.
+- **Cloud sessions are not used** (the owner, 29 Sep 2026: "everything will be run in locally"). Account B's
+  `claude --cloud` uploaded a local copy with no git remote; see the lessons.
 
 ## 2. Watch without polling by hand
-A background Bash loop that exits when something changes wakes you: new PRs above N
-(`gh pr list --json number --jq '.[]|select(.number>N)'`), or a PR's head moving
-(`gh pr view P --json headRefOid`). Re-arm after each wake. Never sleep in the foreground.
+- `SendMessage` to a builder with `notify_when_idle` wakes you when it finishes or waits.
+- `claude agents --json` (with `--all` for completed ones) lists every session's `state` and `waitingFor`. A
+  session that "Needs input" gets an answer fast: yours, or the owner's, asked in one question.
+- A background Bash loop that exits when something changes (a branch's head moving, a new PR) covers the rest.
+  Re-arm it after each wake. Never sleep in the foreground.
 
-## 3. Each PR, first head: two agents in parallel
+## 3. Each builder's committed head: review before the PR
+When a builder says it is ready, review its committed head (`git -C .claude/worktrees/<name> log -1`) in a
+scratch copy, before anything is pushed. Then push and open the PR with the owner's yes, batched with the other
+PRs that are ready (`git push -u origin <branch>`; `gh pr create --body-file <the builder's body>`).
+
+The two agents, in parallel:
 - `pr-reviewer` with the PR, its authority, and a **focus**: the trust boundary to attack, plus "run it merged
   with <open PR or main> where they meet". Name the report file.
 - `ux-critic` in words-only gate mode on the PR's catalogue, if it touches `web/**`.
@@ -38,10 +58,11 @@ A background Bash loop that exits when something changes wakes you: new PRs abov
 ## 4. One combined message per round
 Write `fix-<PR>[b|c].md`: what held (so it is not undone), then each finding with its score, failing scenario
 and fix direction, then the gate's musts and mays, then any owner ruling in their words, then "each with a
-test that fails without the fix; the suites; correct the PR body; push". Send it
-(`CLAUDE_CONFIG_DIR=$HOME/.claude-b claude -p "$(cat fix.md)" --cloud <session> < /dev/null`), then log the
-continuation in the milestone issue. One round, one message: never a second message while the session works,
-unless it carries a ruling it must build on. Send a decision **before** posting any PR comment.
+test that fails without the fix; the suites; correct the PR body; commit and say when ready". Send it with
+`SendMessage` to the builder's session (or `claude --bg --resume <id> "$(cat fix.md)"` if it has stopped), then
+log the continuation in the milestone issue. After the fix is re-checked, you push the new head with the owner's
+yes. One round, one message: never a second message while the session works, unless it carries a ruling it
+must build on.
 
 ## 5. Re-check every fix round
 `pr-reviewer` in re-check mode on the new head (each finding re-attacked, its test red without the fix, the
@@ -67,5 +88,6 @@ posting-run outcomes. Per wave: second continuations against ADR 0025's "at most
 conflicts, cost if readable. Record them in the milestone issue before the next wave.
 
 ## When the machine restarts
-Local agents and `/tmp` are gone; cloud sessions carry on. Read each agent's NOTES.txt, re-launch fresh agents
-pointed at the earlier reports, and re-check PR heads.
+`/tmp` is gone. Background sessions survive a closed terminal; a reboot stops them, and they restart where
+they left off when attached or messaged (`claude agents`). Subagents of the orchestrator do not survive: read
+each one's NOTES.txt, re-launch fresh agents pointed at the earlier reports, and re-check every branch head.
