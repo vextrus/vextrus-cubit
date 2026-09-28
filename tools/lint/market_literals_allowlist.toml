@@ -1,0 +1,8 @@
+# The market-literal scan's allowlist (tools/lint/market_literals.py; ADR 0038).
+# Each entry: `path`, a glob from the repository's root; `reason`, why a market is written there
+# (required); and optionally `literal`, the one literal it allows. An entry matching no file fails.
+
+[[allow]]
+path = "vextrus/seed/**"
+reason = """The demo seed is data: the invented demo project on the Bangladesh Market \
+(docs/design/m0-screens.md §7), for walking the product."""

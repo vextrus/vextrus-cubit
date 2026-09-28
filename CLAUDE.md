@@ -49,11 +49,25 @@ civil engineer and the CEO and co-founder. The previous product (Vextrus Cubit) 
   never route around it (the owner runs Windows commands with `! <command>`). Only the owner merges.
 
 ## The machine
-WSL2 with mirrored networking: use `127.0.0.1`, never `localhost`. Postgres 16 runs natively on 5544
-(superuser in `~/.pgpass`); the build targets PostgreSQL 18 and Python 3.14 (ADR 0034), which the owner
-installs before wave 0 (`uv run --python 3.14` works today). Node 24. The harness's `grep` is ugrep. `/tmp` does
-not survive a reboot. Commit with explicit paths (the guard refuses `git add -A`); a hook runs `sync`
-after each commit. There are no build or test commands yet; M0 adds them here.
+WSL2 with mirrored networking: use `127.0.0.1`, never `localhost`. PostgreSQL 18 runs natively on 5432
+with two roles, `vextrus` (owns the schema, migrates) and `vextrus_app` (the app), passwords in
+`~/.pgpass`; PostgreSQL 16 on 5544 is the old product's: never touch it. The toolchain (Python 3.14,
+LibreDWG, .NET) lives under `/opt/vextrus`; make the venv with `UV_PYTHON_INSTALL_DIR=/opt/vextrus/python`
+(ADR 0034). Node 24. The harness's `grep` is ugrep. `/tmp` does not survive a reboot. Commit with
+explicit paths (the guard refuses `git add -A`); a hook runs `sync` after each commit.
+
+## Commands (backend, from the checkout's root)
+- `uv sync --locked` (nothing is ever built). `uv run manage.py ensure_database && uv run manage.py
+  migrate`: this worktree's own database (`vextrus`, or `vextrus_<worktree>`; `VEXTRUS_DB_NAME`
+  overrides); `migrate` and `flush` always run as `vextrus`. `uv run manage.py seed_demo`: the demo.
+- `VEXTRUS_DEBUG=1 uv run manage.py runserver 127.0.0.1:8000`: the API at `/api/`, the admin at `/admin/`.
+- `uv run pytest`: as `vextrus_app`, on a test database named by the migrations' hash (`-m
+  needs_toolchain`, `needs_bwrap` or `live` runs those left out). **Fast check:** `uv run pytest
+  vextrus/<module> && uv run mypy && uv run lint-imports`.
+- **Lints and scans** (as `ci.yml` runs them): `uv run ruff check . && uv run ruff format --check .`;
+  `uv run python -m tools.lint.<scan>` (`market_literals`, `migration_ids`, `migration_leaves`,
+  `lock_sources`); `uv run manage.py makemigrations --check --dry-run`. The OpenAPI schema:
+  `uv run manage.py export_openapi_schema --api vextrus.api.api` (never committed).
 
 ## The harness
 - **Hooks** (`.claude/hooks/`): `guard.mjs` refuses secrets printed, staging everything, staging
