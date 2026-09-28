@@ -175,7 +175,7 @@ msgid "engine.sheets.kind_roof_structure_details"
 msgstr "Roof structure details (stair room, lift machine room)"
 
 msgid "engine.sheets.kind_sanitary_fixture_details"
-msgstr "Sanitary fixture details"
+msgstr "Sanitary fittings details"
 
 msgid "engine.sheets.kind_section"
 msgstr "Section"
