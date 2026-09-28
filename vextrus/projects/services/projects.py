@@ -15,9 +15,11 @@ the caller: `create` takes no Market or currency, and a unit system the Market d
 refused. Creating a Project makes its Site and one Building in the same transaction; nothing else
 makes a Building in M0.
 
-The app role may update only the columns a person may change (`code`, `code_key`, `name`, `address`,
-`unit_system`; migration 0001): a Project's Market and currency are fixed when it is made. A later
-update service saves with `update_fields`, and keeps `code_key` and the Market's unit systems.
+The database holds this too (migration 0001): the app role may UPDATE only the columns a person may
+change (`code`, `code_key`, `name`, `address`, `unit_system`), and a trigger refuses any INSERT or
+UPDATE whose Market, currency or unit system is not its Developer's Market's, so deleting a Project
+and inserting it again cannot swap them either. A later update service saves with `update_fields`
+and recomputes `code_key`.
 """
 
 import builtins
@@ -30,7 +32,7 @@ from django.db import IntegrityError, transaction
 from django.db.models import CharField, QuerySet
 
 from engine.messages import Message
-from vextrus.platform.services import events, markets, tenancy
+from vextrus.platform.services import auth, events, markets, tenancy
 from vextrus.projects.messages import projects as said
 from vextrus.projects.models import Building, Project, Site
 
@@ -63,23 +65,28 @@ class BuildingView:
     ordinal: int
 
 
-class ProjectNotFound(LookupError):
-    """No such Project in the acting Developer, or one the Membership may not open."""
+class ProjectNotFound(auth.NotFound):
+    """No such Project in the acting Developer, or one the Membership may not open: 07's one answer
+    for every "not found" (404, `platform.auth.not_found`), whichever layer finds it."""
 
-    message: Message = said.NOT_FOUND()
+    def __init__(self, project_id: uuid.UUID | None = None) -> None:
+        super().__init__()
+        self.project_id = project_id
 
 
 class NoDeveloper(RuntimeError):
-    """A Project was asked for outside any Developer."""
+    """A Project was asked for outside any Developer (a caller's mistake: a declared operation has
+    refused an act outside a Developer before its service runs)."""
 
 
-class Refused(ValueError):
-    """A create refused: the field at fault (None for the whole act) and the reason as a message."""
+class Refused(auth.Refused):
+    """A create refused: the field at fault (None for the whole act), the reason as a message, and
+    the HTTP status it answers with (400 a value, 409 a code taken, 403 a member given chosen
+    Projects)."""
 
-    def __init__(self, field: str | None, message: Message) -> None:
-        super().__init__(message["code"])
+    def __init__(self, field: str | None, message: Message, status: int = 400) -> None:
+        super().__init__(message, status=status)
         self.field = field
-        self.message = message
 
 
 # Reading ----------------------------------------------------------------------------------------
@@ -147,7 +154,7 @@ def create(*, code: str, name: str, address: str = "", unit_system: str | None =
         raise NoDeveloper
     membership = tenancy.current_membership()
     if membership is not None and membership.project_ids:
-        raise Refused(None, said.SCOPED_MEMBER_CANNOT_CREATE())
+        raise Refused(None, said.SCOPED_MEMBER_CANNOT_CREATE(), status=403)
     code, name, address = (
         unicodedata.normalize("NFC", value).strip() for value in (code, name, address)
     )
@@ -169,7 +176,7 @@ def create(*, code: str, name: str, address: str = "", unit_system: str | None =
         raise Refused("unit_system", said.UNIT_SYSTEM_NOT_OFFERED())
 
     with transaction.atomic():
-        _refuse_taken(tenant_id, key, code)
+        _refuse_taken(tenant_id, key)
         try:
             with transaction.atomic():
                 project = Project.objects.create(
@@ -184,7 +191,7 @@ def create(*, code: str, name: str, address: str = "", unit_system: str | None =
                 )
         except IntegrityError:
             # A concurrent create took the code between the check and the insert.
-            _refuse_taken(tenant_id, key, code)
+            _refuse_taken(tenant_id, key)
             raise
         Site.objects.create(tenant_id=tenant_id, project=project)
         Building.objects.create(
@@ -217,9 +224,11 @@ def code_key(code: str) -> str:
     return unicodedata.normalize("NFKC", unicodedata.normalize("NFKC", code.strip()).casefold())
 
 
-def _refuse_taken(tenant_id: uuid.UUID, key: str, code: str) -> None:
+def _refuse_taken(tenant_id: uuid.UUID, key: str) -> None:
+    """Refuse a code another Project holds, naming that Project by its own code and name."""
     holder = (
-        Project.objects.filter(tenant_id=tenant_id, code_key=key).values_list("name", flat=True).first()
+        Project.objects.filter(tenant_id=tenant_id, code_key=key).values_list("code", "name").first()
     )
     if holder is not None:
-        raise Refused("code", said.CODE_TAKEN(code=code, name=holder))
+        held_code, held_name = holder
+        raise Refused("code", said.CODE_TAKEN(code=held_code, name=held_name), status=409)

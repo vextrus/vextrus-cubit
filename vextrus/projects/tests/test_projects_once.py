@@ -30,11 +30,13 @@ def test_a_retried_create_is_refused_naming_the_project_that_has_the_code(
     for retried in ("KR-01", "kr-01", " Kr-01 "):
         with tenancy.acting_in(shapla), pytest.raises(services.Refused) as refused:
             services.create(code=retried, name="Kadam Residence")
-        assert (refused.value.field, refused.value.message) == (
+        # The holder's own code, as stored: "kr-01" typed reads "KR-01 is already used by …".
+        assert (refused.value.field, refused.value.status, refused.value.message) == (
             "code",
+            409,
             {
                 "code": "projects.projects.code_taken",
-                "params": {"code": retried.strip(), "name": "Kadam Residence"},
+                "params": {"code": "KR-01", "name": "Kadam Residence"},
             },
         )
 

@@ -6,11 +6,15 @@ A Project outside the scope, another Developer's, and one that never existed are
 
 import uuid
 from collections.abc import Callable
+from datetime import timedelta
 from typing import Any
 
 import pytest
-from django.db import connection
+from django.contrib.sessions.backends.db import SessionStore
+from django.db import connection, transaction
+from django.test import RequestFactory
 from django.test.utils import CaptureQueriesContext
+from django.utils import timezone
 
 from vextrus.platform.services import tenancy
 from vextrus.projects import services
@@ -140,20 +144,31 @@ def test_outside_the_scope_another_developers_and_none_at_all_are_the_same_answe
 
     assert len(set(answers.values())) == 1, answers
     message, queries = answers["none at all"]
-    assert message == repr({"code": "projects.projects.not_found", "params": {}})
+    # 07's one answer for every "not found", which the guard gives too (m0-screens 4.1's words).
+    assert message == repr({"code": "platform.auth.not_found", "params": {}})
     assert len(queries) == 1
 
 
 @pytest.mark.django_db
-def test_a_member_given_chosen_projects_cannot_create_one(guest: Member) -> None:
-    with guest.acting(), pytest.raises(services.Refused) as refused:
-        services.create(code="NW-04", name="A new one")
+@pytest.mark.parametrize("role", ["qs", "vextrus_engineer"])
+@pytest.mark.parametrize("code", ["NW-04", "BP-02", "bp-02"])
+def test_a_member_given_chosen_projects_cannot_create_one_and_learns_no_code(
+    sign_in: Callable[..., Member], shapla: uuid.UUID, made: dict[str, uuid.UUID], role: str, code: str
+) -> None:
+    # A role that may change, given only KR-01 (the Guest and the MD are refused by role, by 07's
+    # guard, before this service runs). A taken code (BP-02, outside the scope) is refused the same
+    # way as a free one, never as "taken", which would name a Project the member may not open.
+    member = sign_in(role=role, developer_id=shapla, projects=[made["KR-01"]])
 
-    assert (refused.value.field, refused.value.message) == (
+    with member.acting(), pytest.raises(services.Refused) as refused:
+        services.create(code=code, name="A new one")
+
+    assert (refused.value.field, refused.value.status, refused.value.message) == (
         None,
+        403,
         {"code": "projects.projects.scoped_member_cannot_create", "params": {}},
     )
-    with guest.acting():
+    with member.acting():
         assert codes(services.list()) == ["KR-01"]
 
 
@@ -169,7 +184,30 @@ def test_outside_any_developer_nothing_is_listed_or_found(made: dict[str, uuid.U
 def test_staff_in_the_admin_see_the_developer_they_opened(
     staff: Any, shapla: uuid.UUID, made: dict[str, uuid.UUID]
 ) -> None:
-    # Staff act with no Membership: the scope is the tenant they opened, and row-level security holds it.
-    with tenancy.acting_in(shapla, user_id=staff.pk):
-        assert tenancy.current_membership() is None
-        assert codes(services.list()) == ["BP-02", "KR-01", "SG-03"]
+    # Staff act in the admin with no Membership, as the tenant middleware enters their request: the
+    # scope is the tenant they opened, and row-level security holds it.
+    request = RequestFactory().get("/admin/")
+    request.user = staff
+    request.session = SessionStore()
+    request.session[tenancy.STAFF_SESSION_TENANT] = str(shapla)
+
+    with transaction.atomic():
+        entered = tenancy.enter_request(request)
+        try:
+            assert (entered.tenant_id, entered.membership) == (shapla, None)
+            assert codes(services.list()) == ["BP-02", "KR-01", "SG-03"]
+        finally:
+            tenancy.leave_request()
+
+
+@pytest.mark.django_db
+def test_a_user_whose_membership_ended_acts_in_no_developer(
+    sign_in: Callable[..., Member], shapla: uuid.UUID, made: dict[str, uuid.UUID]
+) -> None:
+    # 07 closed 02's fail-open: a user with no current Membership there acts in no tenant at all.
+    ended = sign_in(role="qs", developer_id=shapla, expires_at=timezone.now() - timedelta(seconds=1))
+
+    with ended.acting():
+        assert services.list() == []
+        with pytest.raises(services.ProjectNotFound):
+            services.get(made["KR-01"])

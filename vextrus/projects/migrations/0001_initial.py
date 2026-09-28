@@ -6,9 +6,16 @@
 #   Developer's only.
 # - Composite keys hold a Site and a Building to a Project of their own tenant.
 # - vextrus_app's rights come from platform's default privileges (platform 0003): select, insert,
-#   update and delete, never TRUNCATE; updates are then narrowed to the columns a person may change,
-#   so the app can never rewrite a Project's Market or currency, nor move a Site or a Building to
-#   another Project.
+#   update and delete, never TRUNCATE; UPDATE is then narrowed to the columns a person may change,
+#   so the app cannot UPDATE a Project's Market or currency, nor move a Site or a Building to
+#   another Project by UPDATE.
+# - A trigger holds a Project to its Developer's Market on every INSERT and UPDATE, whoever writes:
+#   its market_id is the Developer's Market, its currency that Market's, its unit system one that
+#   Market offers. So the app cannot swap them by deleting a Project and inserting it again either
+#   (the staff flag's hole in 02 was "by UPDATE, then by INSERT"; session 03's lessons). Its function
+#   is owned by vextrus, SECURITY DEFINER with search_path pinned, so it reads the Developer and its
+#   Market whatever the tenant settings say: the one place projects reads platform's tables, for
+#   integrity only, never for data.
 
 import django.db.models.deletion
 import django.utils.timezone
@@ -43,6 +50,48 @@ GRANTS_REVERSE = [
     f"revoke update on {table} from {APP}" for table in TABLES
 ] + [f"grant update on {table} to {APP}" for table in TABLES]
 
+FOLLOWS_MARKET = [
+    """
+    create function public.projects_project_follows_market()
+    returns trigger
+    language plpgsql security definer
+    set search_path = pg_catalog, pg_temp
+    as $$
+    declare
+      market record;
+    begin
+      select m.id, m.currency_code, m.unit_systems into market
+        from public.platform_developer d
+        join public.platform_market m on m.id = d.market_id
+       where d.id = new.tenant_id and not d.is_library;
+      if not found then
+        raise exception 'projects_project_follows_market: % is not a Developer', new.tenant_id
+          using errcode = 'check_violation';
+      end if;
+      if new.market_id is distinct from market.id
+         or new.currency_code is distinct from market.currency_code
+         or not (market.unit_systems ? new.unit_system) then
+        raise exception 'projects_project_follows_market: a Project takes its Developer''s Market, '
+                        'its currency and one of its unit systems'
+          using errcode = 'check_violation';
+      end if;
+      return new;
+    end
+    $$
+    """,
+    "revoke all on function public.projects_project_follows_market() from public",
+    """
+    create trigger projects_project_follows_market
+      before insert or update of tenant_id, market_id, currency_code, unit_system
+      on projects_project
+      for each row execute function public.projects_project_follows_market()
+    """,
+]
+FOLLOWS_MARKET_REVERSE = [
+    "drop trigger projects_project_follows_market on projects_project",
+    "drop function public.projects_project_follows_market()",
+]
+
 KEYS = [
     f"""alter table {table} add constraint {table}_own_tenant
          foreign key (tenant_id, project_id) references projects_project (tenant_id, id)
@@ -60,7 +109,8 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        # Its default privileges give vextrus_app its rights on these tables.
+        # Its default privileges give vextrus_app its rights on these tables; the trigger reads
+        # its Developers and Markets.
         ("platform", "0003_row_level_security"),
     ]
 
@@ -197,4 +247,5 @@ class Migration(migrations.Migration):
         migrations.RunSQL(POLICIES, POLICIES_REVERSE),
         migrations.RunSQL(KEYS, KEYS_REVERSE),
         migrations.RunSQL(GRANTS, GRANTS_REVERSE),
+        migrations.RunSQL(FOLLOWS_MARKET, FOLLOWS_MARKET_REVERSE),
     ]

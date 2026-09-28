@@ -7,7 +7,7 @@ from collections.abc import Callable
 from dataclasses import replace
 
 import pytest
-from django.db import connection
+from django.db import IntegrityError, connection
 
 from vextrus.platform.services import markets, tenancy
 from vextrus.platform.services.markets import MarketProfile
@@ -91,21 +91,29 @@ def test_a_unit_system_the_market_does_not_offer_is_refused_and_nothing_is_made(
 
 
 @pytest.mark.django_db
-def test_the_currency_and_units_follow_the_market_not_the_caller(
+def test_the_default_units_follow_the_market_not_the_code(
     qs: Member, market: MarketProfile, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # A Market whose default and currency differ from the seeded one's: whatever the Market says wins.
-    other = replace(
-        market,
-        currency=replace(market.currency, code="XTS"),
-        default_unit_system=market.unit_systems[-1],
-    )
+    # A Market whose default is its last unit system: whatever the Market says wins.
+    other = replace(market, default_unit_system=market.unit_systems[-1])
     monkeypatch.setattr(markets, "of_developer", lambda developer_id: other)
 
     with qs.acting():
         project = services.create(code="KR-01", name="Kadam Residence")
 
-    assert (project.currency, project.unit_system) == ("XTS", market.unit_systems[-1])
+    assert project.unit_system == market.unit_systems[-1]
+
+
+@pytest.mark.django_db
+def test_a_currency_other_than_the_developers_markets_is_refused_by_the_database(
+    qs: Member, market: MarketProfile, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Even were the service handed another currency, the database's check refuses the row.
+    other = replace(market, currency=replace(market.currency, code="XTS"))
+    monkeypatch.setattr(markets, "of_developer", lambda developer_id: other)
+
+    with qs.acting(), pytest.raises(IntegrityError, match="projects_project_follows_market"):
+        services.create(code="KR-01", name="Kadam Residence")
 
 
 def test_create_takes_no_market_or_currency_from_its_caller() -> None:

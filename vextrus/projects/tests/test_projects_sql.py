@@ -51,14 +51,27 @@ def cursor() -> Iterator[Any]:
 
 INSERT_PROJECT = """insert into projects_project
   (id, tenant_id, code, code_key, name, address, market_id, currency_code, unit_system, created_at)
-  values (%s, %s, %s, lower(%s), 'A project', '', %s, 'XXX', 'x', now())"""
+  values (%s, %s, %s, lower(%s), 'A project', '', %s, %s, %s, now())"""
 INSERT_BUILDING = """insert into projects_building (id, tenant_id, project_id, code, name, ordinal)
   values (%s, %s, %s, 'B2', 'A second', 2)"""
 
 
+def project_row(
+    project_id: uuid.UUID, tenant: uuid.UUID, market: MarketProfile, code: str, **changed: Any
+) -> list[Any]:
+    """INSERT_PROJECT's values: on the Market's own currency and default unit system unless changed."""
+    values = {
+        "market_id": market.id,
+        "currency_code": market.currency.code,
+        "unit_system": market.default_unit_system,
+        **changed,
+    }
+    return [project_id, tenant, code, code, *values.values()]
+
+
 def insert_project(cursor: Any, tenant: uuid.UUID, market: MarketProfile, code: str) -> uuid.UUID:
     project_id = uuid.uuid4()
-    cursor.execute(INSERT_PROJECT, [project_id, tenant, code, code, market.id])
+    cursor.execute(INSERT_PROJECT, project_row(project_id, tenant, market, code))
     return project_id
 
 
@@ -95,7 +108,7 @@ def test_the_app_cannot_write_a_project_into_another_developer(
     theirs = insert_project(cursor, b, market, "MG-01")
     act(cursor, tenant=a)
 
-    assert RLS_REFUSED in refused(cursor, INSERT_PROJECT, [uuid.uuid4(), b, "X-01", "X-01", market.id])
+    assert RLS_REFUSED in refused(cursor, INSERT_PROJECT, project_row(uuid.uuid4(), b, market, "X-01"))
     cursor.execute("update projects_project set name = 'Taken' where id = %s", [theirs])
     assert cursor.rowcount == 0
     cursor.execute("delete from projects_project where id = %s", [theirs])
@@ -144,11 +157,76 @@ def test_the_app_may_change_what_a_person_may_change(
 
     cursor.execute(
         "update projects_project set code = 'KR-02', code_key = 'kr-02', name = 'Renamed',"
-        " address = 'Elsewhere', unit_system = 'y' where id = %s",
-        [mine],
+        " address = 'Elsewhere', unit_system = %s where id = %s",
+        [market.unit_systems[-1], mine],
     )
 
     assert cursor.rowcount == 1
+
+
+FOLLOWS_MARKET = "projects_project_follows_market"
+
+
+@pytest.mark.django_db
+def test_the_app_cannot_swap_a_projects_currency_by_deleting_and_inserting_it_again(
+    two: tuple[uuid.UUID, uuid.UUID], cursor: Any, market: MarketProfile
+) -> None:
+    a, _b = two
+    act(cursor, tenant=a)
+    mine = insert_project(cursor, a, market, "KR-01")
+    cursor.execute("delete from projects_project where id = %s", [mine])
+
+    for changed in (
+        {"currency_code": "XTS"},
+        {"market_id": uuid.uuid4()},
+        {"unit_system": "cubits"},
+        {"unit_system": ""},
+    ):
+        error = refused(cursor, INSERT_PROJECT, project_row(mine, a, market, "KR-01", **changed))
+        assert FOLLOWS_MARKET in error, changed
+    cursor.execute(INSERT_PROJECT, project_row(mine, a, market, "KR-01"))
+
+
+@pytest.mark.django_db
+def test_the_app_cannot_set_a_unit_system_the_market_does_not_offer(
+    two: tuple[uuid.UUID, uuid.UUID], cursor: Any, market: MarketProfile
+) -> None:
+    a, _b = two
+    act(cursor, tenant=a)
+    mine = insert_project(cursor, a, market, "KR-01")
+
+    error = refused(cursor, "update projects_project set unit_system = 'cubits' where id = %s", [mine])
+
+    assert FOLLOWS_MARKET in error
+
+
+@pytest.mark.django_db(databases=["default", "owner"])
+def test_the_market_check_holds_the_owner_too(market: MarketProfile, make_developer: Any) -> None:
+    # The trigger fires for every writer, the owner (migrations, the operators' path) included.
+    row = project_row(uuid.uuid4(), make_developer(), market, "KR-01", currency_code="XTS")
+
+    with (
+        connections["owner"].cursor() as owner,
+        pytest.raises(DatabaseError, match=FOLLOWS_MARKET),
+        transaction.atomic(using="owner"),
+    ):
+        owner.execute(INSERT_PROJECT, row)
+
+
+@pytest.mark.django_db
+def test_the_market_check_is_the_owners_and_nobody_may_call_it(cursor: Any) -> None:
+    owner, security_definer, pinned = rows(
+        cursor,
+        "select pg_get_userbyid(proowner), prosecdef, proconfig from pg_proc where proname = %s",
+        [FOLLOWS_MARKET],
+    )[0]
+
+    assert (owner, security_definer, pinned) == ("vextrus", True, ["search_path=pg_catalog, pg_temp"])
+    assert rows(
+        cursor,
+        "select has_function_privilege('vextrus_app', %s, 'execute')",
+        [f"public.{FOLLOWS_MARKET}()"],
+    ) == [(False,)]
 
 
 @pytest.mark.django_db
@@ -220,7 +298,7 @@ def test_a_code_key_is_unique_in_a_developer_but_not_across_developers(
     act(cursor, tenant=a)
     insert_project(cursor, a, market, "KR-01")
 
-    error = refused(cursor, INSERT_PROJECT, [uuid.uuid4(), a, "KR-01", "KR-01", market.id])
+    error = refused(cursor, INSERT_PROJECT, project_row(uuid.uuid4(), a, market, "KR-01"))
 
     assert "projects_project_code_unique" in error
     act(cursor, tenant=b)

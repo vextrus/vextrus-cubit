@@ -18,14 +18,11 @@ msgstr "{actor} created this project"
 msgid "projects.projects.name_missing"
 msgstr "Give the project a name."
 
-msgid "projects.projects.not_found"
-msgstr "Project not found."
-
 msgid "projects.projects.scoped_member_cannot_create"
-msgstr "You were given chosen projects, so you cannot create one. Ask your MD."
+msgstr "You can open only the projects you were given, so you cannot create one here. To create projects, ask your MD for access to all projects."
 
 msgid "projects.projects.too_long"
-msgstr "Shorten this to {limit} characters or fewer."
+msgstr "{limit, plural, one {Shorten this to # character or fewer.} other {Shorten this to # characters or fewer.}}"
 
 msgid "projects.projects.unit_system_not_offered"
-msgstr "Choose one of the Display Units shown."
+msgstr "These Display Units are not offered for this project. Choose one of the options shown."
