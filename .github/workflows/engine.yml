@@ -1,0 +1,150 @@
+# The engine's toolchain job (the M0 plan, 01c): the tests marked needs_toolchain or needs_bwrap, run
+# against the toolchain at its pins in toolchain/, installed under /opt/vextrus as it is locally
+# (scripts/owner/toolchain.sh) and in the cloud (scripts/cloud/setup.sh): Python from uv, LibreDWG from
+# its release asset (toolchain-libredwg.yml), ezdxf's wheel by the hash toolchain/ezdxf.lock pins, the
+# .NET SDK, and bubblewrap, with the runner's AppArmor limit on user namespaces lifted so it can run.
+#
+# Required checks are never filtered by path at the workflow level: the `changes` job reads the engine
+# paths (.github/engine-paths.txt) and the toolchain job skips by `if:`. The `engine` job at the end is
+# the one to require. Actions are pinned by commit, with their version in a comment.
+name: engine
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: engine-${{ github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  changes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      engine: ${{ steps.paths.outputs.engine }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: paths
+        name: Does this change touch an engine path?
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ "$EVENT" != pull_request ]; then echo engine=true >> "$GITHUB_OUTPUT"; exit 0; fi
+          touched=$(git diff --name-only "$BASE"...HEAD | python3 tools/lint/engine_paths.py \
+            --patterns .github/engine-paths.txt --pattern .github/workflows/engine.yml)
+          if [ -n "$touched" ]; then echo engine=true; else echo engine=false; fi >> "$GITHUB_OUTPUT"
+
+  toolchain:
+    needs: changes
+    if: needs.changes.outputs.engine == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:18.6
+        env:
+          # Throwaway values for this job's container only; never a real secret.
+          POSTGRES_PASSWORD: ci-throwaway-superuser
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://vextrus_app:ci-throwaway-app@127.0.0.1:5432/vextrus
+      DATABASE_OWNER_URL: postgresql://vextrus:ci-throwaway-owner@127.0.0.1:5432/vextrus
+      UV_PYTHON_INSTALL_DIR: /opt/vextrus/python
+      UV_PYTHON_PREFERENCE: only-managed
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.12.5"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - name: Make /opt/vextrus for the installs (it goes back to root before the tests)
+        run: sudo install -d -o "$(id -u)" -g "$(id -g)" /opt/vextrus
+      - name: Python at its pin
+        run: uv python install --no-bin "$(tr -d '[:space:]' < toolchain/python.version)"
+      - name: LibreDWG from its release asset, by the sha256 published with it
+        run: |
+          V=$(tr -d '[:space:]' < toolchain/libredwg.version)
+          ASSET="libredwg-$V-ubuntu24.04-x86_64.tar.gz"
+          gh release download "toolchain-libredwg-$V" -R "$GITHUB_REPOSITORY" -p "$ASSET" -p "$ASSET.sha256" -D "$RUNNER_TEMP"
+          (cd "$RUNNER_TEMP" && sha256sum -c "$ASSET.sha256")
+          tar -xzf "$RUNNER_TEMP/$ASSET" -C / --no-same-owner opt/vextrus/libredwg
+      - name: The .NET SDK at its pin
+        run: |
+          curl -fsSL https://dot.net/v1/dotnet-install.sh -o "$RUNNER_TEMP/dotnet-install.sh"
+          bash "$RUNNER_TEMP/dotnet-install.sh" --version "$(tr -d '[:space:]' < toolchain/dotnet.version)" \
+            --install-dir /opt/vextrus/dotnet --no-path
+      - name: Bubblewrap, and the AppArmor limit on unprivileged user namespaces lifted
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq bubblewrap
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: Install the locked dependencies, building nothing
+        env:
+          UV_PYTHON_DOWNLOADS: never
+        run: uv sync --locked --no-build --python "$(tr -d '[:space:]' < toolchain/python.version)"
+      - name: ezdxf's wheel by the hash toolchain/ezdxf.lock pins
+        run: |
+          eval "$(python3 - <<'PY'
+          import shlex, tomllib
+          with open("toolchain/ezdxf.lock", "rb") as f:
+              lock = tomllib.load(f)
+          for key in ("version", "wheel", "wheel_sha256", "release"):
+              print(f"{key.upper()}={shlex.quote(lock[key])}")
+          PY
+          )"
+          if [ -z "$RELEASE" ]; then echo "the lock names the registry's pure wheel, $WHEEL: uv.lock installed it"; exit 0; fi
+          gh release download "$RELEASE" -R "$GITHUB_REPOSITORY" -p "$WHEEL" -D "$RUNNER_TEMP"
+          echo "$WHEEL_SHA256  $RUNNER_TEMP/$WHEEL" | sha256sum -c
+          uv pip install --no-deps --reinstall "$RUNNER_TEMP/$WHEEL"
+      - name: Hand /opt/vextrus to root, readable by all and writable by none
+        run: |
+          sudo chown -R root:root /opt/vextrus
+          sudo chmod -R a+rX,go-w /opt/vextrus
+      - name: Create the two roles (scripts/owner/db-roles.sql), with throwaway passwords
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: "5432"
+          PGUSER: postgres
+          PGPASSWORD: ci-throwaway-superuser
+        run: |
+          psql -v ON_ERROR_STOP=1 -d postgres -f scripts/owner/db-roles.sql
+          psql -v ON_ERROR_STOP=1 -d postgres \
+            -c "ALTER ROLE vextrus PASSWORD 'ci-throwaway-owner'" \
+            -c "ALTER ROLE vextrus_app PASSWORD 'ci-throwaway-app'"
+      - name: The toolchain's and the sandbox's tests
+        run: uv run --no-sync pytest -m "needs_toolchain or needs_bwrap"
+
+  engine:
+    # The one check to require: green when the toolchain job passed or was skipped as not concerned.
+    if: always()
+    needs: [changes, toolchain]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - env:
+          CHANGES: ${{ needs.changes.result }}
+          TOOLCHAIN: ${{ needs.toolchain.result }}
+        run: |
+          echo "changes=$CHANGES toolchain=$TOOLCHAIN"
+          [ "$CHANGES" = success ] && { [ "$TOOLCHAIN" = success ] || [ "$TOOLCHAIN" = skipped ]; }
