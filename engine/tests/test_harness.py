@@ -18,7 +18,7 @@ import time
 import token
 import tokenize
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
@@ -118,7 +118,39 @@ FAKES = {
                         start_new_session=word == "orphan",
                     )
                     Path(arg).write_text(str(stray.pid))
+                elif word in TRESPASSES:
+                    trespass(word, arg)
             return Artefact(path)
+
+        TRESPASSES = {"joinlauncher", "grandjoin", "joinunrelated", "chaininlauncher"}
+
+        def trespass(word, arg):
+            # Processes that move into a group the file did not make; the launcher is the parent.
+            launcher_group = os.getpgid(os.getppid())
+            if word == "joinlauncher":  # the file's child joins the launcher's group, forks there
+                os.setpgid(0, launcher_group)
+            elif word == "chaininlauncher":  # a fork chain in the launcher's group, for 3 s
+                os.setpgid(0, launcher_group)
+                if os.fork() == 0:
+                    end = time.monotonic() + 3
+                    while time.monotonic() < end:
+                        if os.fork():
+                            os._exit(0)
+                    os._exit(0)
+                time.sleep(0.3)
+                return
+            pid = os.fork()
+            if pid == 0:
+                if word == "grandjoin":  # a grandchild leads a group, then joins the launcher's
+                    os.setpgid(0, 0)
+                    time.sleep(0.05)
+                    os.setpgid(0, launcher_group)
+                elif word == "joinunrelated":  # a grandchild joins a group an unrelated process leads
+                    os.setpgid(0, int(arg.split()[0]))
+                time.sleep(600)
+                os._exit(0)
+            time.sleep(0.3)
+            Path(arg.split()[-1]).write_text(str(pid))
     """,
     "decoders.py": """
         def run(path, artefact):
@@ -1271,6 +1303,77 @@ def test_clear_kills_what_a_zombie_orphans_group_still_holds(where: str) -> None
 
     assert found["running"] is False
     assert q_running == [], f"Q ({found['q']}) outlived _clear"
+
+
+# Only groups a file made are killed ---------------------------------------------------------------
+
+
+def alive(pid: int) -> bool:
+    try:
+        stat = Path(f"/proc/{pid}/stat").read_text()
+    except OSError:
+        return False
+    return stat[stat.rindex(")") + 2] != "Z"
+
+
+@pytest.fixture
+def sentinel() -> Iterator[subprocess.Popen[bytes]]:
+    """A process in pytest's own process group, which is the launcher's too, and no file's."""
+    process = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(600)"])
+    assert os.getpgid(process.pid) == os.getpgrp()
+    yield process
+    process.kill()
+    process.wait()
+
+
+@pytest.mark.parametrize("word", ["joinlauncher", "grandjoin"])
+def test_a_process_that_joins_the_launchers_group_is_killed_alone(
+    tmp_path: Path,
+    fakes: Callable[..., tuple[Stage, ...]],
+    conventions: Path,
+    sentinel: subprocess.Popen[bytes],
+    word: str,
+) -> None:
+    stray = tmp_path / "stray.pid"
+
+    document = run(tmp_path, fakes(), {"a.dwg": f"{word} {stray}", "b.dwg": ""}, conventions=conventions)
+
+    assert alive(sentinel.pid)
+    assert not alive(int(stray.read_text()))
+    assert by_path(document)["a.dwg"]["process"]["left_behind"] >= 1
+
+
+def test_a_process_that_joins_an_unrelated_group_is_killed_alone(
+    tmp_path: Path, fakes: Callable[..., tuple[Stage, ...]], conventions: Path
+) -> None:
+    command = [sys.executable, "-c", "import time; time.sleep(600)"]
+    leader = subprocess.Popen(command, process_group=0)
+    member = subprocess.Popen(command, process_group=leader.pid)
+    stray = tmp_path / "stray.pid"
+    try:
+        document = run(
+            tmp_path, fakes(), {"a.dwg": f"joinunrelated {leader.pid} {stray}"}, conventions=conventions
+        )
+
+        assert alive(leader.pid)
+        assert alive(member.pid)
+        assert not alive(int(stray.read_text()))
+        assert by_path(document)["a.dwg"]["process"]["left_behind"] >= 1
+    finally:
+        for process in (leader, member):
+            process.kill()
+            process.wait()
+
+
+def test_a_fork_chain_in_the_launchers_group_never_takes_the_group_with_it(
+    tmp_path: Path,
+    fakes: Callable[..., tuple[Stage, ...]],
+    conventions: Path,
+    sentinel: subprocess.Popen[bytes],
+) -> None:
+    run(tmp_path, fakes(), {"a.dwg": "chaininlauncher", "b.dwg": ""}, conventions=conventions)
+
+    assert alive(sentinel.pid)
 
 
 def test_the_runs_identity_comes_from_the_environment_the_check_sets(
