@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.real_drawings import sandbox
+from scripts.real_drawings import command, sandbox
 from scripts.real_drawings.command import Machine, run
 from scripts.real_drawings.source import Refused
 from scripts.real_drawings.tests.world import FAKE_EXPORT, PYPROJECT, World, invented, make_world
@@ -175,6 +175,80 @@ def test_an_export_read_in_another_sandbox_is_never_reused(world: World) -> None
     run("main", no_post=True, m=dataclasses.replace(world.machine(), sandbox_version="without-tmp"))
     run("main", no_post=True, m=dataclasses.replace(world.machine(), sandbox_version="with-tmp"))
     run("main", no_post=True, m=dataclasses.replace(world.machine(), sandbox_version="with-tmp"))
+
+    assert len(world.sandbox_runs) == 2
+
+
+def test_an_export_with_a_failed_stage_is_read_again_every_run(world: World) -> None:
+    # A failure the code causes simply repeats, at the cost of one more run.
+    world.commit("main", {FAKE_EXPORT: (FIXTURES / "export-fakes-read-fails.json").read_text()})
+
+    run("main", no_post=True, m=world.machine())
+    run("main", no_post=True, m=world.machine())
+
+    assert len(world.sandbox_runs) == 2
+
+
+def test_mains_run_failed_by_the_machine_is_not_the_next_runs_baseline(world: World) -> None:
+    # Main's run fails for a reason outside the code (a timeout, an OOM kill, SandboxUnavailable);
+    # the machine is then fixed. A non-engine PR must not take that failure as main's, nor as its own.
+    world.commit("main", {FAKE_EXPORT: (FIXTURES / "export-fakes.json").read_text()})
+    failed = (FIXTURES / "export-fakes-read-fails.json").read_bytes()
+
+    def the_machine_fails(scratch: Path) -> None:
+        for export in scratch.glob("export-*.json"):
+            export.write_bytes(failed)
+
+    world.plant = the_machine_fails
+    run("main", no_post=True, m=world.machine())
+    assert "Failed on the head: read on 2 files (RuntimeError)" in world.said
+
+    world.plant, world.said = None, []
+    world.commit("tuning", {"docs.md": "no engine change\n"})
+    run("tuning", no_post=True, m=world.machine())
+
+    assert len(world.sandbox_runs) == 2  # read again, once: main then reuses the head's clean read
+    assert not any(line.startswith("Failed on") for line in world.said)
+    assert any(line.split()[:4] == ["failed_stages", "0", "0", "0"] for line in world.said)
+
+
+def test_a_failed_export_already_in_the_cache_is_not_reused(world: World) -> None:
+    # As #64's code cached one: the check reads what it finds, not only what it wrote.
+    run("main", no_post=True, m=world.machine())
+    for cached in (world.cache / "exports").rglob("*.json"):
+        cached.write_bytes((FIXTURES / "export-fakes-read-fails.json").read_bytes())
+
+    run("main", no_post=True, m=world.machine())
+
+    assert len(world.sandbox_runs) == 2
+    assert not any(line.startswith("Failed on") for line in world.said)
+
+
+def test_a_clean_export_is_still_reused(world: World) -> None:
+    world.commit("main", {FAKE_EXPORT: (FIXTURES / "export-fakes.json").read_text()})
+
+    run("main", no_post=True, m=world.machine())
+    run("main", no_post=True, m=world.machine())
+
+    assert len(world.sandbox_runs) == 1
+
+
+def test_fresh_reads_again_though_the_export_is_cached(world: World) -> None:
+    run("main", no_post=True, m=world.machine())
+    run("main", no_post=True, m=world.machine(), fresh=True)
+    world.commit("tuning", {"engine/read.py": "X = 2\n"})
+    run("tuning", no_post=True, m=world.machine(), fresh=True)  # the head and main, both read
+
+    assert len(world.sandbox_runs) == 4
+    run("main", no_post=True, m=world.machine())  # a fresh read is cached for the runs after it
+    assert len(world.sandbox_runs) == 4
+
+
+def test_the_command_takes_fresh(world: World, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(command, "owners_machine", world.machine)
+
+    assert command.main(["main", "--no-post"]) == 0
+    assert command.main(["main", "--no-post", "--fresh"]) == 0
 
     assert len(world.sandbox_runs) == 2
 

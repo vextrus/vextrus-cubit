@@ -83,10 +83,13 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="scripts/real-drawings", description=__doc__.split("\n\n")[0])
     parser.add_argument("target", help="a PR number, a local branch, or main")
     parser.add_argument("--no-post", action="store_true", help="measure and diff only; never post")
+    parser.add_argument(
+        "--fresh", action="store_true", help="read the head and main again, ignoring the cache"
+    )
     args = parser.parse_args(argv)
     machine = owners_machine()
     try:
-        return run(args.target, no_post=args.no_post, m=machine)
+        return run(args.target, no_post=args.no_post, m=machine, fresh=args.fresh)
     except Refused as refused:
         print(f"real-drawings: refused: {refused}", file=sys.stderr)
         return 2
@@ -114,7 +117,7 @@ def owners_machine() -> Machine:
     )
 
 
-def run(target: str, *, no_post: bool, m: Machine) -> int:
+def run(target: str, *, no_post: bool, m: Machine, fresh: bool = False) -> int:
     started = time.monotonic()
     posting = target.isdigit() and not no_post
     with drop.posting_lock(m.drop) if posting else nullcontext():
@@ -132,10 +135,10 @@ def run(target: str, *, no_post: bool, m: Machine) -> int:
         work.mkdir(parents=True)
         digests = {name: set_digest(folder) for name, folder in sorted(m.sets.items())}
         m.say(f"real-drawings {run_id}: {head.target} at {head.commit[:12]}, main at {base.commit[:12]}")
-        head_hash, head_exports = measure(m, head, main, work / "head", run_id, digests)
+        head_hash, head_exports = measure(m, head, main, work / "head", run_id, digests, fresh)
         main_hash, main_exports = head_hash, head_exports
         if head.commit != base.commit:
-            main_hash, main_exports = measure(m, base, main, work / "main", run_id, digests)
+            main_hash, main_exports = measure(m, base, main, work / "main", run_id, digests, fresh)
         counts, items = report(m, main_exports, head_exports, head.commit == base.commit)
         head_failed = failed_text(head_exports)
         drop.write_new(work / "items.json", _json(items))  # holds drawing text: the owner's cache only
@@ -190,9 +193,16 @@ def mains(repo: Path, commit: str) -> Mains:
 
 
 def measure(
-    m: Machine, head: Head, main: Mains, work: Path, run_id: str, digests: Mapping[str, str]
+    m: Machine,
+    head: Head,
+    main: Mains,
+    work: Path,
+    run_id: str,
+    digests: Mapping[str, str],
+    fresh: bool = False,
 ) -> tuple[str, dict[str, Path]]:
-    """One commit's exports, from the cache when its code hash has read these sets before."""
+    """One commit's exports, from the cache when its code hash has read these sets before in the same
+    sandbox and no stage failed; `fresh` reads them again whatever the cache holds."""
     main_pyproject, schema_text = main.pyproject, main.schema
     files = engine_files(m.repo, head.commit, main.patterns.decode())
     hashed = code_hash(files)
@@ -216,9 +226,17 @@ def measure(
         name: m.cache / "exports" / hashed / m.sandbox_version / f"{name}-{digest}.json"
         for name, digest in digests.items()
     }
-    if all(path.exists() for path in cached.values()):
-        m.say(f"{head.target}: code hash {hashed[:12]} is cached; not run again")
-        return hashed, cached
+    # A cached export with a failed stage is never reused: the failure may be the machine's (a timeout,
+    # an OOM kill, SandboxUnavailable), not the code's, and reused it would stand as main's run, and as a
+    # non-engine PR's own, until the code hash changed. A failure the code causes repeats, at one run's
+    # cost.
+    if fresh:
+        m.say(f"{head.target}: --fresh, so read again whatever the cache holds")
+    elif all(path.exists() for path in cached.values()):
+        if not any(_failed(path) for path in cached.values()):
+            m.say(f"{head.target}: code hash {hashed[:12]} is cached; not run again")
+            return hashed, cached
+        m.say(f"{head.target}: the cached run of code hash {hashed[:12]} had a failed stage; read again")
     requirements = work / "requirements.txt"
     m.fetch(checkout, m.cache / "wheels", python, requirements)
     scratch = work / "out"
@@ -321,6 +339,11 @@ def verdict(
         "reason": reason,
         "measures": {measure: dict(counts[measure]) for measure in MEASURES},
     }
+
+
+def _failed(export: Path) -> bool:
+    """Whether any stage failed in this export (a file's or the set's)."""
+    return bool(failures(json.loads(export.read_bytes())))
 
 
 def _pin(checkout: Path, name: str) -> str:
