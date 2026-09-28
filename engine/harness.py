@@ -47,15 +47,24 @@ memory is not in the peak). A child that runs past `--file-timeout` is killed wi
 that dies leaves its stages as far as it got: the stage it was in is `failed`, the rest `skipped`, and
 stages whose results never reached the harness `failed`. Nothing one file does stops the run.
 
-**A file's process gets only the environment it needs** (`CHILD_ENV`), since it reads hostile input:
-no key (`TYPESAFE_API_KEY`), database address or other variable of the caller's reaches it. It gets
-`PATH`, `HOME`, `TMPDIR` and `LANG` where the caller has them; `PYTHONPATH`, the checkout first; the
-two variables its stages read, `VEXTRUS_LIBREDWG` (where the pinned LibreDWG is) and
+**A file's process gets only the environment it needs** (`CHILD_ENV`): it reads hostile input, so it
+does not inherit a key (`TYPESAFE_API_KEY`), a database address or any other variable of the caller's.
+It gets `PATH`, `HOME`, `TMPDIR` and `LANG` where the caller has them; `PYTHONPATH`, the checkout
+first (the launcher's own environment has it already, so a file's may name it twice, which is
+harmless); the two variables its stages read, `VEXTRUS_LIBREDWG` (where the pinned LibreDWG is) and
 `VEXTRUS_SANDBOX` (so the reader refuses by name, as it would anywhere); and BLAS pinned to one thread
 (`ONE_THREAD`; the owner's ruling, 28 Sep 2026): numpy, which ezdxf imports, would otherwise start a
 spinning OpenBLAS thread per core, seconds of CPU per file on many cores before any reading (#66).
 The run's identity (`VEXTRUS_RUN_ID` and the others) is read by the harness before any file is, and
 never reaches one.
+
+The allow-list is defence in depth, not the boundary: it stops a file's process from inheriting
+secrets through its environment, nothing more. The boundary against hostile input is bubblewrap: the
+real-drawing check's sandbox around the whole harness, and the reader's own sandbox around `dwgread`.
+Run directly from a developer's shell, a file's process runs as that user in the same PID namespace
+and can read whatever the user can: another process's `/proc/<pid>/environ` (the harness's, holding
+the caller's whole environment), `~/.bashrc`, `~/.pgpass`. So real drawings are read through the
+check, never by running the harness directly from a shell that holds secrets.
 
 **The file's Discipline default** comes from its path and the conventions' Disciplines (the engine
 holds no list of them): a Discipline whose key is a word of the path (a folder named for it), or one of
