@@ -146,7 +146,8 @@ pixels; the tokens in docs/design/system.md fix the pixels.
   except a Discipline Part's name beside a view it is proposed to, "Electrical, M3 onwards", 5).
 - **A Discipline has one name everywhere** (the plan's QS review, Q8): Structural, Architectural,
   Electrical, Plumbing and sanitary, Fire, Mechanical (HVAC), Lift, Gas. They are Library rows per
-  Market, worded by the catalogue; a narrow column cuts a name with an ellipsis and shows it whole in
+  Market, their names Library data (`labels`, one per language), not catalogue words; a narrow column
+  cuts a name with an ellipsis and shows it whole in
   the tooltip, never an abbreviation or a second name ("Plumbing" alone is wrong).
   "Plot" is the consultant's PDF page registered beneath a sheet. "View" is a part of a sheet (a
   plan, a section, a schedule, a detail, notes, a title block, a legend, an elevation, a key plan, a
@@ -587,7 +588,8 @@ The Display Units offered and the one chosen are the Market's (1.9); for Banglad
 these. No Market, currency or Building field (1.9, 1.10). Buttons "Create project" and "Cancel".
 Errors under fields: "Give the project a name." / "Give it a short code, like KR-01." / "KR-01 is
 already used by Kadam Residence. Choose another code." Creating the project also makes its Site and
-one Building, unseen (1.10). After create: straight to its Drawing Set (empty state).
+one Building, unseen (1.10). After create: straight to its Drawing Set (empty state); until 20b builds
+the Drawing Set, to the project's frame, `/p/<code>`.
 
 **States.** Loading: five Skeleton rows. Empty: glyph, "No projects yet. Create one for each
 development whose drawings you will take off." [New project] (MD: "No projects yet. Your QS creates
@@ -637,7 +639,8 @@ ends on" (required, 30 days ahead by default: "26 Oct 2026 (30 days)"); for anyo
 is ticked by default for a Guest and off for a QS or an MD, with the line "For someone from outside
 Shapla Homes Ltd, such as a consultant's engineer or a contractor's QS, set an end date." A Guest's end
 date stays optional: unticking it is the Developer's choice (session 02's delegated default).
-"Create link". Then: "Copy this link and send it to Arif Rahman. It works once, until 3 Oct 2026."
+"Create link". Then: "Copy this link and send it to arif@vextrus.example. It works once, until 3 Oct
+2026." (the email typed above: the dialog asks for no name)
 [Copy link] → toast "Link copied". With "Chosen projects" and none ticked, under the list: "Choose at
 least one project."
 
@@ -1012,7 +1015,7 @@ options; names and numbers invented; 6.7 shows each filled in):
 | Two sheets, one number (`conflict`) | "Two sheets are numbered S-07" (each with revision mark, date and file) | 1 "Keep rev B (20 Aug 2026); exclude rev A as superseded" · 2 "Keep rev A; exclude rev B" · 3 "They are different sheets: keep both" · 4 "Keep open, ask the consultant" |
 | Two plans draw one thing (`conflict`; the plan's QS review, Q3) | "S-14 and S-15 both draw the 5th floor slab, bottom layer" (raised only when the Discipline, the subject, what the plan draws, and the layer, top or bottom, all match) | 1 "Keep S-15 (R1, 14 Sep 2026); exclude S-14 as superseded" · 2 "Keep S-14; exclude S-15" · 3 "They draw different things: keep both" · 4 "Keep open, ask the consultant" |
 | No number (`missing`) | "This sheet has no number in its title block" | 1 "A-08, as the drawing list names it" (only when a list names it) · 2 "Leave it without a number" · 3 "Type a number" · 4 "Keep open, ask the consultant" |
-| Sheet kind unclear (`low_confidence`) | "What kind of sheet is A-05?" | the kinds, most likely first, none pre-picked unless a second source agrees · "Keep open, ask the consultant" |
+| Sheet kind unclear (`low_confidence`) | "What kind of sheet is A-05?" | the kinds of sheet its Discipline has (conventions data; the owner's ruling, 29 Sep 2026: "Per-Discipline kinds"), most likely first, none pre-picked unless a second source agrees · "Keep open, ask the consultant" |
 | Drawing list against sheets (Check) | "S-13 is on the drawing list but in no file" | 1 "Not sent yet: keep it in the count as missing and ask the consultant" · 2 "Not part of this set: take it off the list" · 3 "It is in a file I haven't added yet" · 4 "Keep open, ask the consultant" |
 | Plot pages against sheets (Check) | "Page 12 of KR-STR-R0.pdf shows S-13, which no DWG has" | as above |
 | Read and pasted drawing lists disagree (`conflict`) | "The drawing list on S-01 and the one you pasted differ" (N shows "—" until answered) | 1 "Use the list on S-01" · 2 "Use the pasted list" · 3 "Keep open, ask the consultant" |
@@ -1570,23 +1573,26 @@ owner's reversal at the M0 walk; ticket 22's design gate checks every row.
 
 Every UI PR is walked on this seed at 1440×900 and 1280×800 (screens.md, "How M0's screens keep this
 quality" 3; ux-critic #4). All of it is invented; nothing comes from a real Drawing Set. Passwords come
-from `VEXTRUS_DEMO_PASSWORD`; the seed never prints one. Both Developers are on the Bangladesh Market,
+from `VEXTRUS_DEMO_PASSWORD`; the seed never prints one. Every Developer is on the Bangladesh Market,
 the only one; every project has its Site and one Building, "Building 1", made with it (session 02;
-1.10).
+1.10). `seed_demo` runs `sync_library` first (or refuses, naming it), since the Disciplines are
+Library rows.
 
 **Who writes it** (the plan's "The shape of M0's code"; the plan's UX review, U2). `uv run manage.py
 seed_demo` (01a writes the command and the `vextrus/seed/<module>.py` stubs); each ticket fills its
 module's part: 02 the two Developers on the Market; 07 the people, the Vextrus access and the unused
-invitation; 08 the projects, each with its Site and Building; **14 KR-01's files and, as rows at this
-section's state, their reports, sheets, views and render buffers** (the buffers made from 11's
-synthetic generators); **19a the Proposals, the five Questions, the Coverage rows and the step's
-progress, at the same state**; 03 ships a static copy of the same data for shell work before the API
-exists. **From 21c** the seed's files, made by the committed fixture generators
-(`engine/fixtures/dwg/<name>.py` and `engine/fixtures/pdf/<name>.py`), go through the product's real
-upload and read job instead of 14's and 19a's rows, and 21c's test asserts that the job produces this
-section's counts exactly: sheets per Discipline, views by status, Questions by kind, the bulk act.
-Where a state cannot be produced on demand (a held file, a stalled read), the seed uses the same stubs
-the API tests use, enabled only in development settings.
+invitation; 08 the projects, each with its Site and Building; **#75 the access states** (below the
+people; named edits to `vextrus/seed/platform.py` and `vextrus/seed/projects.py`); **14
+KR-01's files and, as rows at this section's state, their reports, sheets, views and render buffers**
+(the buffers made from 11's synthetic generators), **and BP-02's and MG-01's files in the states
+"Projects" names** (`vextrus/seed/drawings.py`); **19a the Proposals, the five Questions, the
+Coverage rows and the step's progress, at the same state**; 03 ships a static copy of the same data
+for shell work before the API exists. **From 21c** the seed's files, made by the committed fixture
+generators (`engine/fixtures/dwg/<name>.py` and `engine/fixtures/pdf/<name>.py`), go through the
+product's real upload and read job instead of 14's and 19a's rows, and 21c's test asserts that the
+job produces this section's counts exactly: sheets per Discipline, views by status, Questions by
+kind, the bulk act. Where a state cannot be produced on demand (a held file, a stalled read), the seed
+uses the same stubs the API tests use, enabled only in development settings.
 
 **Developers and people.**
 | Developer | Person | Email | Role |
@@ -1598,9 +1604,16 @@ the API tests use, enabled only in development settings.
 | Shapla Homes Ltd | rumana@shapla-homes.example | (an unused QS invitation) | — |
 | Meghna Properties Ltd | Tanvir Ahmed | tanvir@meghna.example | QS (the isolation check) |
 
+**The access states** (#75; invented like the rest, each signing in with the demo password): a person
+with current Memberships in two Developers (the "Which Developer?" chooser, 4.2, and the switcher); a
+third Developer with no Projects (4.3's empty state); and a Membership whose end date has passed (4.1's
+expired state, 4.4's refused state).
+
 **Projects.** KR-01 Kadam Residence (everything below); BP-02 Bokul Place (one structural DWG left
 stalled at "sheet 7 of 12", for the retrier); SG-03 Shimul Garden (empty). Meghna: MG-01 Meghna
-Heights (one small DWG read).
+Heights (one small DWG read). Across BP-02 and MG-01, 14 also seeds a file in each of 4.5's states
+KR-01 lacks: Waiting; Cancelled; Interrupted, retrying; Failed; Old AutoCAD version; PDF before its
+DWG; and Held, answered.
 
 **KR-01's files.**
 | File | What it carries | Its states |
