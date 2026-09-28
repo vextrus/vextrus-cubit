@@ -1,11 +1,18 @@
-"""The demo seed's `platform` rows: the two Developers on the Bangladesh Market (02), and the
-people of docs/design/m0-screens.md §7, the Guest among them (07).
+"""The demo seed's `platform` rows: the Developers on the Bangladesh Market (02), and the people of
+docs/design/m0-screens.md §7, the Guest among them (07), with three more for 20a's screens (#75).
 
 Kamal Uddin, Shapla's first MD, and Tanvir Ahmed, Meghna's QS, are written as current Memberships;
 everyone Kamal brings in comes through the product's own invitations, so their acts are in the
 event log: Nusrat Jahan (QS), Arif Rahman (Vextrus Engineer, 30 days), Farhana Kabir (a Guest from
 Padma Builders, a contractor, until 26 Oct 2026) and rumana@shapla-homes.example (a QS invitation
 not used yet).
+
+For 20a's screens (#75), all invented like the rest:
+- Chameli Homes Ltd, a third Developer with no Projects (4.3's empty state);
+- Sharmin Akter, a QS in both Chameli Homes Ltd and Meghna Properties Ltd (the "Which Developer?"
+  chooser and the switcher), a current Membership in each from the start, as Tanvir's;
+- Rafiq Islam, a Guest from Jamuna Consultants, a consultant, invited by Kamal to Shapla, whose end
+  date has passed (4.1's expired "Access ended" and 4.4's ended row). projects' seed gives him KR-01.
 
 The Guest's Membership is made for every Project: KR-01 does not exist until projects' seed runs.
 That seed (08) scopes it through the service an MD uses, acting as Kamal:
@@ -44,6 +51,7 @@ PASSWORD_VARIABLE = "VEXTRUS_DEMO_PASSWORD"
 DEVELOPERS = {
     "developer:shapla": "Shapla Homes Ltd",
     "developer:meghna": "Meghna Properties Ltd",
+    "developer:chameli": "Chameli Homes Ltd",
 }
 
 ENGINEER = ("arif@vextrus.example", "Arif Rahman")
@@ -53,6 +61,12 @@ GUEST_UNTIL = date(2026, 10, 26)
 """The Guest's last day (m0-screens §7). Seeded after it, the Guest gets 28 days from the seeding
 instead, so the Guest's walk still works."""
 GUEST_DAYS_AFTER = 28
+
+ENDED_ON = date(2026, 9, 25)
+"""The last day of Rafiq Islam's access, already passed (m0-screens §4.1, expired). Seeded before
+it, the day before the seeding instead, so his access has always ended."""
+ENDED_DAYS = 30
+"""How long his access had lasted when it ended."""
 
 
 def run(demo: Demo) -> None:
@@ -68,6 +82,10 @@ def run(demo: Demo) -> None:
     shapla, meghna = demo["developer:shapla"], demo["developer:meghna"]
     demo["user:kamal"] = _member(shapla, "kamal@shapla-homes.example", "Kamal Uddin", "md", password)
     demo["user:tanvir"] = _member(meghna, "tanvir@meghna.example", "Tanvir Ahmed", "qs", password)
+    for developer in (demo["developer:chameli"], meghna):
+        demo["user:sharmin"] = _member(
+            developer, "sharmin@chameli-homes.example", "Sharmin Akter", "qs", password
+        )
 
     with tenancy.acting_in(shapla, user_id=demo["user:kamal"]):
         demo["user:nusrat"], demo["membership:qs"] = _invited(
@@ -86,6 +104,15 @@ def run(demo: Demo) -> None:
             expires_at=_guest_until(market.time_zone),
         )
         demo["invitation:rumana"] = invitations.invite("rumana@shapla-homes.example", "qs").membership_id
+        demo["user:rafiq"], demo["membership:ended_guest"] = _invited(
+            "rafiq@jamuna-consultants.example",
+            "Rafiq Islam",
+            "guest",
+            password,
+            outside_org="Jamuna Consultants",
+            expires_at=timezone.now() + timedelta(days=1),
+        )
+    _end(shapla, demo["membership:ended_guest"], _ended_on(market.time_zone))
 
 
 def _staff_account(email: str, name: str, password: str | None) -> User:
@@ -138,6 +165,25 @@ def _invited(
     link = invitations.invite(email, role, expires_at=expires_at, outside_org=outside_org)
     invitations.accept(link.token, _account(email, name, password))
     return User.objects.get(email__iexact=email).pk, link.membership_id
+
+
+def _end(developer_id: uuid.UUID, membership_id: uuid.UUID, end: datetime) -> None:
+    """Move an accepted Membership back so it ended at `end`, having lasted `ENDED_DAYS` (an
+    invitation's end date must lie ahead, so none can be made already ended)."""
+    with tenancy.acting_in(developer_id):
+        began = end - timedelta(days=ENDED_DAYS)
+        Membership.objects.filter(id=membership_id).update(
+            starts_at=began, accepted_at=began, expires_at=end
+        )
+
+
+def _ended_on(time_zone: str) -> datetime:
+    """The end of Rafiq Islam's last day in the Market's time zone, in the past."""
+    zone = ZoneInfo(time_zone)
+    last_day = ENDED_ON
+    if datetime.combine(last_day, time.max, zone) >= timezone.now():
+        last_day = timezone.now().astimezone(zone).date() - timedelta(days=1)
+    return datetime.combine(last_day, time(23, 59), zone)
 
 
 def _guest_until(time_zone: str) -> datetime:

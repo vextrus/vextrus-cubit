@@ -22,9 +22,10 @@ for build sessions, so it gives key fields, not every column.
   "Live" in its old sense of working or unfrozen is now "working".
 - **The M0 plan's reviews** (28 Sep 2026; `docs/reviews/M0-plan-s02-resolution.md`, decided under the
   owner's delegation and open to the owner's reversal) are marked "(s02 review" and the finding's id.
-  The largest: row-level security is enabled without FORCE, with cross-tenant reads only through three
-  named functions (§2, §3.0); one Library rule (§2); M0 creates only the `live_model` tables the owner
-  ruled (§3.3); Disciplines are Library rows per Market, and Step 1 runs per Discipline (§3.2, §3.4).
+  The largest: row-level security is enabled without FORCE, with cross-tenant reads only through
+  named functions (three then; six since #75: §2, §3.0, §3.1); one Library rule (§2); M0 creates
+  only the `live_model` tables the owner ruled (§3.3); Disciplines are Library rows per Market, and
+  Step 1 runs per Discipline (§3.2, §3.4).
 
 ## 1. Conclusions
 
@@ -37,8 +38,10 @@ The data sits in one Postgres with row-level security on every tenant table.
   carries its Building from M0, and M0 makes one Building per Project.
 - **Drawings stay as read.** A Drawing Set (one per Project, across its Buildings and Disciplines) has
   Sheets, each with its Discipline and its Building (or the Site). Each Sheet has one Sheet Revision
-  per consultant re-issue. A **Drawing Set State** maps every sheet to its current revision and names
-  the reader version, and a Revision or a reader upgrade makes a new state. A **Drafting Profile** holds
+  per printed copy, keyed by (sheet, source file, location), so a re-issue or a second copy in one file
+  is its own. A **Drawing Set State** holds the printed sheets it reads, keyed by their Sheet
+  Revisions, and names the reader version; a Revision or a reader upgrade makes a new state (M0 has
+  one). A **Drafting Profile** holds
   one consultant office's conventions for one Discipline (s02 Q16; ADR 0039).
 - **`takeoff` holds what the machine says**, in drawing units: Proposals with their Traces,
   Questions, Checks, Coverage and the append-only Confirmations.
@@ -117,7 +120,7 @@ rows 36–39 the M0 plan's reviews (28 Sep 2026).
 | 33 | A step keeps its whole allowance until confirmed | A step may close with Questions open: held Elements written at their best candidate, flagged "awaiting answer"; failed Elements typed or excluded first | 0002 am. (Q22) |
 | 34 | The assistant's eight templates and an `AskLog` | The Live Model's query: one structured query for the assistant and the viewer's filters; the log keeps the parsed query | 0011 am. (Q17) |
 | 35 | IFC and GLB as export files built from the model | IFC-ready data (an IFC class per Family, a mapping per Attribute Definition, the Element's id as GlobalId); no IFC export or import in the MVP; GLB for the share link | 0035, 0022 am. (Q12) |
-| 36 | Forced policies (`FORCE ROW LEVEL SECURITY`); a migration role that bypasses RLS for constraints on populated tables; widening clauses inside the one policy | Row-level security enabled without FORCE: `vextrus` owns the tables and migrates, `vextrus_app` connects and refuses to start otherwise; widening (the Library, a user's own Memberships) as separate `FOR SELECT` policies, every write own-tenant; three named SECURITY DEFINER functions for cross-tenant reads; settings made `is_local` inside `transaction.atomic()`; no TRUNCATE grant (§2, §3.0) | 0034 am.; s02 review A1, A2 (measured) |
+| 36 | Forced policies (`FORCE ROW LEVEL SECURITY`); a migration role that bypasses RLS for constraints on populated tables; widening clauses inside the one policy | Row-level security enabled without FORCE: `vextrus` owns the tables and migrates, `vextrus_app` connects and refuses to start otherwise; widening (the Library, a user's own Memberships) as separate `FOR SELECT` policies, every write own-tenant; named SECURITY DEFINER functions for cross-tenant reads (six in M0, §2); settings made `is_local` inside `transaction.atomic()`; no TRUNCATE grant (§2, §3.0) | 0034 am.; s02 review A1, A2 (measured) |
 | 37 | Library tables keyed by bare keys; every `live_model` table created in M0 | Every Library table's identity is `(tenant_id, key)`, and a tenant row refers to a Library row by id (§2); M0 creates only the `live_model` tables the owner ruled, the rest in M1 ticket 08 (§3.3) | 0037; s02 review A6 |
 | 38 | Sheet identity (set, discipline, number); a Site sheet undefined; Step 1 one step across Disciplines, its progress unique on (project, building, step) with the Building empty | Sheet identity (set, building, discipline, number); `DrawingFile.building_id`; Site sheets are a Site file's; Step 1's progress per Discipline, unique with nulls not distinct (§3.2, §3.4) | 0036, 0040; s02 review A10, Q6 |
 | 39 | Six Disciplines in code; six exclusion reasons; the storey words of amendment 3; a drawing list read or pasted; the revision mark from the title block | Disciplines as Library rows per Market (eight for Bangladesh); seven exclusion reasons a Dhaka QS uses; "top" and "below ground floor" read, tanks never storeys; a typed range as a drawing list; the revision mark also from the file name (§3.2, §3.4) | 0038, 0040; s02 review Q1, Q4, Q8, Q9, Q10 |
@@ -130,8 +133,8 @@ Discipline, Takeoff Step and Check. Use them exactly. What remains here are impl
 - **Element State**: an Element's As designed facts over a range of Model Versions.
 - **Model Version**: a numbered state of one Building's Live Model. Each Confirmation or carry-over
   makes one; a Record never does.
-- **Drawing Set State**: the map from each sheet to its current Sheet Revision, read by one reader
-  version.
+- **Drawing Set State**: the printed sheets a Drawing Set holds at one point, each by its Sheet
+  Revision (the printed-sheet identity, §3.2), read by one reader version.
 - **Attribute Definition** (s02): one kind of fact an Element can carry, defined once as data (key,
   type, unit dimension, labels, Families, Life Phases, IFC mapping). CONTEXT.md's Attribute is the fact;
   this is its definition. **Family Attribute**: a definition's applicability to one Element Family.
@@ -197,7 +200,10 @@ Discipline, Takeoff Step and Check. Use them exactly. What remains here are impl
     a `user_id` clause inside the one policy let the app role insert itself as `md` into another
     Developer, since `WITH CHECK` defaults to `USING`.)
   - **Cross-tenant reads** go only through named SECURITY DEFINER functions, each with its own test.
-    M0 has three: `user_developers`, `staff_developers` and `invitation_by_token` (§3.0). Each is owned
+    M0 has six: `platform`'s four, `user_developers`, `staff_developers`, `invitation_by_token` and
+    `ended_access` (§3.0), and `projects`' two, `ended_access_projects` and `invitation_projects`
+    (§3.1), which read `platform` only through its own (a Project's code is `projects`' to resolve,
+    Across modules below). Each is owned
     by `vextrus` (which the policies, without FORCE, do not filter), pins its `search_path`, returns only
     what its caller needs, and has EXECUTE revoked from PUBLIC and granted only to `vextrus_app`. The
     share link's lookup (§3.6) joins them under the same rules when share links are built.
@@ -307,14 +313,26 @@ until when.
   the signed-in user's own rows, `user_id = nullif(current_setting('app.user_id', true), '')::uuid`, so
   the middleware finds a user's Memberships before a tenant is set. Writing a Membership stays
   own-tenant: a test repeats the review's measured cross-tenant insert and asserts that it fails.
-- **The three named functions**, each owned by `vextrus` with `search_path` pinned, EXECUTE only to
-  `vextrus_app`, each tested:
+- **The four named functions**, each owned by `vextrus` with `search_path` pinned, every name
+  qualified, EXECUTE only to `vextrus_app`, each tested:
   - `user_developers`: the Developers of the signed-in user's current Memberships (id and name), for
     the "Which Developer?" chooser and `/api/me`;
   - `staff_developers`: every Developer (id and name), returned only when the signed-in user
     `is_vextrus_staff`, for the admin's pick (each pick writes a DomainEvent that Developer's MD sees);
   - `invitation_by_token`: the one pending invitation a token names, since that Membership has no user
-    yet; the token carries its tenant, so the lookup is by tenant and token hash.
+    yet; the token carries its tenant, so the lookup is by tenant and token hash. It gives the
+    Developer's Market's code too (#75), so the link's page is worded and formatted in that Market.
+  - `ended_access` (#75): one row per Developer where the signed-in user's access has ended and they
+    hold no current Membership now: their latest-ended Membership there, with the Developer's name,
+    how and when it ended (its end date, if that passed first; else revoked), the name of whoever
+    revoked it (the actor of its latest revoked act) and its Projects as ids, for the "Access ended"
+    page on a fresh load (m0-screens §4.1), and the Developer's Market's code, since no Developer
+    is current while that page shows. It takes no parameter, so nobody can ask about a Developer
+    they never held.
+- **A Developer's Market is fixed** (#75): `vextrus_app` may UPDATE a Developer's `name` only, and
+  never DELETE one, so neither an update nor a delete and re-insert moves it to another Market while
+  its Projects stay on the old one's currency. Its Market changes only by a migration, which must then
+  re-check `projects_project_follows_market` against the Projects already made.
 - **Staff and invitations.** In the admin, Vextrus staff create only a Developer's first MD invitation,
   never an active Membership of their own; a Vextrus Engineer enters a Developer's data only by that
   Developer's invitation (ADR 0034).
@@ -338,21 +356,34 @@ Creating a Project creates its Site and one Building in the same transaction. No
 Building picker until a second exists, which M4 reads (ADR 0036). Each Building has its own storeys,
 grid, Live Model and Gross Floor Area, and Vextrus's price is per Building (ADR 0033).
 
+**`projects`' two named functions** (#75), under §2's rules (owned by `vextrus`, `search_path`
+pinned, every name qualified, EXECUTE only to `vextrus_app`, each tested), name Projects of a
+Developer whose rows the reader cannot open. Each reads `platform` only through `platform`'s own named
+function, and otherwise only `projects_project`:
+- `ended_access_projects()`: the code of each Project each of the signed-in user's ended access gave
+  (`ended_access`), for "Your access to KR-01 at Shapla Homes Ltd has ended" (m0-screens §4.1);
+- `invitation_projects(tenant_id, token_hash)`: the code and name of each Project the one pending
+  invitation a link names gives (`invitation_by_token`), for "…invited you as a Guest to KR-01 Kadam
+  Residence" (§4.2).
+
 ### 3.2 `drawings` (layer 2)
 | Entity | Key fields | Identity | Tenant | References |
 |---|---|---|---|---|
-| Discipline (s02 review Q8) | key (permanent: Bangladesh's `structural`, `architectural`, `electrical`, `plumbing`, `fire`, `mechanical`, `lift`, `gas`), labels per language (one name each, used everywhere: Structural, Architectural, Electrical, Plumbing and sanitary, Fire, Mechanical (HVAC), Lift, Gas), kind (`structural`/`architectural`/`mep`), sort order. A Library row per Market; `drawings`' rows refer to it by id, other modules hold its key by value (§2). *Placing it in `drawings`, the lowest module that uses it, is my recommendation* | (tenant, key) | L (Library only) | — |
+| Discipline (s02 review Q8) | key (permanent: Bangladesh's `structural`, `architectural`, `electrical`, `plumbing`, `fire`, `mechanical`, `lift`, `gas`), labels per language (one name each, used everywhere: Structural, Architectural, Electrical, Plumbing and sanitary, Fire, Mechanical (HVAC), Lift, Gas), prefixes (the sheet-number prefixes it is known by; Bangladesh's defaults below), kind (`structural`/`architectural`/`mep`), sort order. A Library row per Market; `drawings`' rows refer to it by id, other modules hold its key by value (§2). *Placing it in `drawings`, the lowest module that uses it, is my recommendation* | (tenant, key) | L (Library only) | — |
 | DrawingSet | name, current_state_id | (tenant, project_id): one per Project, across its Buildings and Disciplines | T | project_id ↓ |
 | Revision | seq; label as the consultant marks it (`A`, `B`); disciplines (the Disciplines it carries; s02: each Discipline Part has its own Revisions, ADR 0040, so labels repeat across Disciplines); kind (`first_issue`/`reissue`), received_at, received_by | (set, seq) | T | DrawingSet |
 | DrawingFile | sha256, format (`dwg`/`pdf`), original_name, writer fingerprint, read_status (`queued`/`reading`/`read`/`quarantined`/`failed`/`cancelled`, and `refused` for a scanned PDF), cross_check jsonb (LibreDWG vs ACadSharp: handles, counts per type and per layer), upload_report (PDF: producer, SHX comments per page, fonts, rotation, layer names, images and their area, the scan refusal and its reason; as message codes and parameters, s02). M0 adds: discipline_default (a Discipline of the Project's Market, by id, from the file name and its sheet numbers' prefix; the QS may change it), building_id (s02 review A10: the Building whose sheets the file holds, M0's only one by default, the QS may change it; empty for a file of the Site, whose sheets are Site sheets, below), read_step and sheets_done / sheets_total (progress in words), font_report jsonb (each font asked for, what draws it, how close, the sheets using it), bangla_ansi jsonb (the Bangla-ANSI Check's finding: fonts named, texts and sheets affected, or found by byte pattern only) | (set, sha256) | T | Revision, Discipline; stored_file_id ↓, building_id ↓ |
-| Sheet | number (as printed; may be empty), title (decoded, 1.3 of docs/design/m0-screens.md), discipline_id (s02 review Q8: a Discipline of the Project's Market; from the file first, the number's prefix second), building_id (s02: its file's Building, default the only one; empty only on a Site sheet, s02 review A10), consultant_office (s02: as read from the title block and confirmed with the sheet list; it picks the Drafting Profile), storeys_as_stated (the title's storey words, verbatim, for the Check of the title against the view titles), confirmed bool, excluded_reason (the fixed list below) + excluded_text (for `other`). A sheet's storeys are not stored: they are its views' lists together | (set, building, discipline, number), unique with `nulls_distinct=False` since a Site sheet's Building is empty (s02 review A10); a sheet with no number: (set, source file, location) | T | DrawingSet, Discipline; building_id ↓ |
-| SheetRevision | revision_mark as printed, issue_date as printed, source file (the DrawingFile it was read from), location (DWG layout or model-space box; PDF page), sources jsonb (where each value was read: title-block attribute, text in the title block, the file name, the file; s02 review Q10: the revision mark is also read from the file name as a named source, "R0, from the file name", and "Final" is not a mark), content_hash of its entities | (sheet, revision) | T | Sheet, Revision, DrawingFile |
+| Sheet | number (as printed; may be empty), title (decoded, 1.3 of docs/design/m0-screens.md), discipline_id (s02 review Q8: a Discipline of the Project's Market; from the file first, the number's prefix second), building_id (s02: its file's Building, default the only one; empty only on a Site sheet, s02 review A10), consultant_office (s02: as read from the title block and confirmed with the sheet list; it picks the Drafting Profile), storeys_as_stated (the title's storey words, verbatim, for the Check of the title against the view titles). A sheet's storeys are not stored: they are its views' lists together. Its confirmation, exclusion, kind, render and Plot sit on each printed copy, its SheetRevision | (set, building, discipline, number), unique with `nulls_distinct=False` since a Site sheet's Building is empty (s02 review A10); a sheet with no number: (set, source file, location), a second partial unique index | T | DrawingSet, Discipline; building_id ↓ |
+| SheetRevision | one row per printed sheet: revision_mark as printed, issue_date as printed, source file (the DrawingFile it was read from), location (DWG layout or model-space box; PDF page), sources jsonb (where each value was read: title-block attribute, text in the title block, the file name, the file; s02 review Q10: the revision mark is also read from the file name as a named source, "R0, from the file name", and "Final" is not a mark), content_hash of its entities. M0 adds: kind (the sheet's kind as read) and confirmed_kind, nullable keys of its Discipline's kinds of sheet, held by value (conventions data; no kinds table in M0) and validated as keys only (the owner's ruling, 29 Sep 2026: "Per-Discipline kinds"); confirmed bool, excluded_reason (the fixed list below) + excluded_text (for `other`); render_file_id ↓ (the per-sheet render artefact, 11's buffer format and its version); the Plot: plot_file_id (the PDF's DrawingFile), plot_page, plot_transform (scale, rotation in 90° steps, offset), plot_residual, render_f1; or plot_none_reason (no PDF for the Discipline; no page matched; the PDF was refused; the sheet has no number) | (sheet, source file, location): two printed copies of one number in one file (m0-screens §7's S-07 rev A and rev B) are two rows of one Sheet | T | Sheet, Revision, DrawingFile |
 | DrawingSetState | seq, cause (`revision`/`reader_upgrade`), reader + reader_version, status (`reading`/`read`/`current`/`superseded`), parent_state_id | (set, seq) | T | DrawingSet, Revision (nullable) |
-| StateSheet | the map row. M0 adds: render_file_id ↓ (the per-sheet render artefact, 11's buffer format and its version); the Plot: plot_file_id (the PDF's DrawingFile), plot_page, plot_transform (scale, rotation in 90° steps, offset), plot_residual, render_f1; or plot_none_reason (no PDF for the Discipline; no page matched; the PDF was refused; the sheet has no number) | (state, sheet) | T | DrawingSetState, Sheet, SheetRevision; artefact_file_id ↓ (the entity dump @ reader version) |
+| StateSheet | the map row: one per printed sheet the state holds, so two printed copies of one number in one file (m0-screens §7's S-07s) are both in the state, one of them excluded. A printed sheet's render, Plot, confirmation and exclusion sit on its SheetRevision | (state, sheet_revision) | T | DrawingSetState, SheetRevision; artefact_file_id ↓ (the entity dump @ reader version) |
 | View | ordinal (reading order), kind as read + confirmed_kind (the one list below), title (decoded), box in drawing units, drawing_unit (`inch`/`mm`/`m`/`ft`), not_to_scale bool, stated_scale_text (verbatim: metric, imperial or N.T.S.), confirmed_scale dec (empty until M1), storeys_as_stated (verbatim), storeys (an explicit list of canonical levels, never a first–last range), storeys_meaning (`at_floor_level`: the members at those floor levels / `floor_to_floor`: the storeys, floor to floor), predecessor_view_id | (sheet_revision, reader_version, ordinal) | T | SheetRevision, View |
 | DraftingProfile (s02 Q16) | consultant_office, discipline, origin (`learnt` in this tenant / `library`: published, or pre-built by Vextrus from sets it holds with permission), status (`proposed`/`confirmed`), current_version_id | (tenant, consultant_office, discipline) | L | — |
 | DraftingProfileVersion (s02) | number; conventions jsonb (layer → role or Element Family; label, mark and level-mark patterns; sheet-number pattern; title-block field positions; schedule form; storey words; for MEP, the legend's symbol map and mounting heights; tolerances); proposed_by (`code`/`jev`); confirmed_by + at; parent_version_id. Immutable once confirmed | (profile, number) | L | DraftingProfile |
 | ProfilePublication (s02) | the client's written permission (permission_file_id ↓ and its scope), reviewed_by (a Vextrus reviewer) + at, the verdict ("conventions only"), library_version_id (the copy made in the Market's Library) | (profile_version) | T | DraftingProfileVersion |
+
+**One state in M0.** M0 has one DrawingSetState per Drawing Set (seq 1, the first read). A render per
+reader version (walk-through c, a reader upgrade) is a later milestone's, when a second state exists.
 
 **Sheets, Buildings and the Site** (s02 review A10; ADR 0036).
 - Every sheet takes its file's Building. **Site sheets** are the sheets of a file assigned to the Site
@@ -388,9 +419,13 @@ lists):
 - **Disciplines are data, not a list in code** (s02 Q29, Q31; s02 review Q8). They are the Market's
   `Discipline` Library rows (above); for Bangladesh: Structural, Architectural, Electrical, Plumbing and
   sanitary, Fire, Mechanical (HVAC), Lift, Gas, each with one name used everywhere. The engine takes
-  them as data, never as a literal. Each line of the MEP template names the Discipline Part whose
-  reading replaces its allowance (bd-defaults). *(The draft's six, ending in "other MEP" (`other_mep`),
-  are withdrawn: "other MEP" is not a QS's word.)*
+  them as data, never as a literal. Their keys and default number prefixes are one list, written in
+  13's `sheet-default.json` and 14's `drawings/library.py`: `structural` S, ST, STR; `architectural` A,
+  AR, ARC, ARCH; `electrical` E, EL, ELE, ELEC; `plumbing` P, PL, PLB, SAN; `fire` F, FF, FP, FS;
+  `mechanical` M, MEC, MECH, HVAC; `lift` L, LF, LIFT; `gas` G, GS, GAS. 13 may widen a prefix list from
+  the Development Sets' evidence, naming each change in its PR, and 14 mirrors it. Each line of the MEP
+  template names the Discipline Part whose reading replaces its allowance (bd-defaults). *(The draft's
+  six, ending in "other MEP" (`other_mep`), are withdrawn: "other MEP" is not a QS's word.)*
 - **View kinds, one list:** plan, section, elevation, schedule, detail, notes, legend, title block, key
   plan, 3D/perspective. 3D/perspective is excluded by default (amendment 6). A detail drawn inside a
   plan is its own view.
@@ -708,11 +743,11 @@ erDiagram
     REVISION ||--o{ DRAWING_FILE : "uploaded with"
     DRAWING_FILE }o..o| BUILDING : "building_id (empty: the Site's file)"
     DRAWING_FILE }o..|| STORED_FILE : "original"
-    SHEET ||--o{ SHEET_REVISION : "one per re-issue"
+    SHEET ||--o{ SHEET_REVISION : "one per printed copy"
     REVISION ||--o{ SHEET_REVISION : ""
     DRAWING_FILE ||--o{ SHEET_REVISION : "located in"
     DRAWING_SET ||--o{ DRAWING_SET_STATE : "seq 1, 2, 3"
-    DRAWING_SET_STATE ||--o{ STATE_SHEET : "sheet -> revision"
+    DRAWING_SET_STATE ||--o{ STATE_SHEET : "the printed sheets it holds"
     STATE_SHEET }o--|| SHEET_REVISION : ""
     STATE_SHEET }o..|| STORED_FILE : "read artefact @ reader"
     SHEET_REVISION ||--o{ VIEW : "per reader version"
