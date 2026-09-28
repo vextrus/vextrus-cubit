@@ -449,3 +449,25 @@ def test_signing_in_again_as_the_same_user_still_gives_a_new_key(api: Api) -> No
     assert api.session_key not in (None, first)
     assert not Session.objects.filter(session_key=first).exists()
     assert api.get("/api/me").status_code == 200
+
+
+def test_the_session_keeps_the_ended_membership_of_the_developer_it_forgot_not_the_newest(
+    sign_in: Callable[..., Member], make_developer: Callable[..., uuid.UUID]
+) -> None:
+    worked_in = make_developer("Shapla Homes Ltd")
+    guest = sign_in(role="guest", developer_id=worked_in, expires_at=timezone.now() + timedelta(days=1))
+    with guest.acting():
+        Membership.objects.filter(id=guest.membership_id).update(
+            expires_at=timezone.now() - timedelta(days=1)
+        )
+    elsewhere = make_developer("Meghna Properties Ltd")
+    _user, newer = add_member(elsewhere, role="qs", user=guest.user)
+    with tenancy.acting_in(elsewhere):
+        Membership.objects.filter(id=newer).update(revoked_at=timezone.now())
+    api = api_as(guest)
+
+    api.get("/api/projects")  # the session forgets Shapla here
+    me = api.get("/api/me").json()
+
+    assert [e["membership_id"] for e in me["ended"]] == [str(newer), str(guest.membership_id)]
+    assert me["ended_membership_id"] == str(guest.membership_id)

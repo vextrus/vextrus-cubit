@@ -165,7 +165,7 @@ def test_invitation_by_token_gives_nothing_without_its_exact_token(
     other = make_developer("Meghna Properties Ltd")
     _tenant, secret = made.token.split(".", 1)
 
-    assert lookup(f"{developer}.{secret[:-1]}x") is None
+    assert lookup(f"{developer}.{secret[:-1]}{'y' if secret.endswith('x') else 'x'}") is None
     assert lookup(f"{other}.{secret}") is None
     assert lookup(secret) is None
     assert lookup("") is None
@@ -484,3 +484,38 @@ def test_a_table_the_caller_makes_with_a_platform_table_s_name_shadows_nothing(
         after = tenancy.ended_access()
 
     assert after == before
+
+
+@pytest.mark.django_db
+def test_each_revoker_is_named_on_the_membership_its_act_names_and_on_no_other(
+    shapla: tuple[uuid.UUID, User],
+) -> None:
+    """Two MDs revoke one each; one Membership is revoked with no act; one invited and accepted
+    (acts by others about it) is revoked with no act: only a revoked act about it names anyone."""
+    developer, kamal = shapla
+    rahim = person("rahim@shapla-homes.example", "Rahim Chowdhury")
+    add_member(developer, role="md", user=rahim)
+    by_kamal, by_kamal_id = add_member(developer, role="guest")
+    by_rahim, by_rahim_id = add_member(developer, role="guest")
+    unnamed, unnamed_id = add_member(developer, role="guest")
+    invited = person("farhana@padma-builders.example", "Farhana Kabir")
+    with tenancy.acting_in(developer, user_id=kamal.pk):
+        link = invitations.invite(invited.email, "guest")
+    with tenancy.acting_in(None):
+        invitations.accept(link.token, invited)
+
+    revoke_as(kamal, developer, by_kamal_id)
+    revoke_as(rahim, developer, by_rahim_id)
+    set_membership(developer, unnamed_id, revoked_at=timezone.now())
+    set_membership(developer, link.membership_id, revoked_at=timezone.now())
+
+    named = {
+        user.name: [e.revoked_by for e in ended_for(user)]
+        for user in (by_kamal, by_rahim, unnamed, invited)
+    }
+    assert named == {
+        by_kamal.name: ["Kamal Uddin"],
+        by_rahim.name: ["Rahim Chowdhury"],
+        unnamed.name: [None],
+        "Farhana Kabir": [None],
+    }

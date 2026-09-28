@@ -289,7 +289,7 @@ def test_an_unusable_link_is_refused_as_the_look_up_refuses_it_byte_for_byte(
                 invite_expires_at=timezone.now() - timedelta(seconds=1)
             )
     elif case == "guessed":
-        token = f"{tenant}.{secret[:-2]}xx"
+        token = f"{tenant}.{secret[:-1]}{'y' if secret.endswith('x') else 'x'}"
     elif case == "another developer's":
         token = f"{make_developer('Meghna Properties Ltd')}.{secret}"
     elif case == "malformed":
@@ -338,7 +338,7 @@ def test_as_sql_only_the_exact_token_hash_names_projects(
         assert cursor.fetchall() == [("KR-01", "Kadam Residence")]
         for wrong in (
             (tenant_id, ""),
-            (tenant_id, token_hash[:-1] + "0"),
+            (tenant_id, token_hash[:-1] + ("1" if token_hash.endswith("0") else "0")),
             (market.library_id, token_hash),
         ):
             cursor.execute("select * from public.invitation_projects(%s, %s)", list(wrong))
@@ -353,3 +353,41 @@ def test_as_sql_only_the_exact_token_hash_names_projects(
         )
         cursor.execute("select * from public.invitation_projects(%s, %s)", [tenant_id, token_hash])
         assert cursor.fetchall() == [("KR-01", "Kadam Residence")]
+
+
+# Another Developer's Project id, planted where only the id is checked -----------------------------
+
+
+@pytest.fixture
+def meghna_secret(make_developer: Callable[..., uuid.UUID]) -> uuid.UUID:
+    """Another Developer's Project, whose id an MD could name (a Project id is an upward stamp in
+    platform: nothing there resolves it)."""
+    meghna = make_developer("Meghna Properties Ltd")
+    with tenancy.acting_in(meghna):
+        return services.create(code="MX-77", name="Meghna Secret Tower").id
+
+
+def test_a_link_never_names_another_developer_s_project_it_was_given_by_id(
+    md: Member, made: dict[str, uuid.UUID], meghna_secret: uuid.UUID
+) -> None:
+    _, both = invitation(
+        md, "farhana@padma-builders.example", "guest", project_ids=[made["KR-01"], meghna_secret]
+    )
+    _, only_theirs = invitation(md, "rafiq@padma-builders.example", "guest", project_ids=[meghna_secret])
+
+    assert look_up_projects(both).json() == [{"code": "KR-01", "name": "Kadam Residence"}]
+    assert look_up_projects(only_theirs).json() == []
+
+
+def test_ended_access_never_names_another_developer_s_project_it_was_given_by_id(
+    shapla: uuid.UUID, made: dict[str, uuid.UUID], meghna_secret: uuid.UUID
+) -> None:
+    guest, membership = ended_guest(shapla, [made["KR-01"], meghna_secret])
+    other, _ = ended_guest(shapla, [meghna_secret], email="rafiq@padma-builders.example")
+
+    assert signed_in(guest.email).get("/api/ended-access/projects").json() == [
+        {"membership_id": str(membership), "codes": ["KR-01"]}
+    ]
+    body = signed_in(other.email).get("/api/ended-access/projects")
+    assert body.json() == []
+    assert "MX-77" not in body.content.decode()
