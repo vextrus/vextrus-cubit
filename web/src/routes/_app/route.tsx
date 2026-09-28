@@ -8,12 +8,13 @@
  */
 import { Outlet, createFileRoute } from '@tanstack/react-router'
 import { AppFrame, NotFound } from '@/app/Frame'
-import { FramePending, SessionWatch, enterFrame } from '@/auth'
+import { FramePending, SessionWatch, enterFrame, RouteError } from '@/auth'
 
 export const Route = createFileRoute('/_app')({
   beforeLoad: ({ context, location }) => enterFrame(context.queryClient, location),
   pendingComponent: FramePending,
   component: AppLayout,
+  errorComponent: RouteError,
   // Inside the layout, which already draws the frame: never a second frame (the root's is whole).
   notFoundComponent: NotFound,
 })

@@ -361,7 +361,12 @@ export class FakeApi {
     return this.memberships.find((m) => m.userId === userId && m.tenant === developerId && this.isCurrent(m)) ?? null
   }
 
-  private require(grant: Grant, projectId?: string): Membership {
+  /** The user's own account's acts (who they are, choosing, signing out): signed in is enough. */
+  private requireAccount(): void {
+    if (!this.session.userId) throw new Refused(401, refusal('platform.auth.signed_out'))
+  }
+
+  private require(grant: Exclude<Grant, 'account'>, projectId?: string): Membership {
     if (!this.session.userId) throw new Refused(401, refusal('platform.auth.signed_out'))
     const membership = this.acting()
     if (!membership) {
@@ -598,7 +603,7 @@ export class FakeApi {
       return [200, this.me()]
     }
     if (method === 'POST' && path === '/api/auth/sign-out') {
-      this.require('account')
+      this.requireAccount()
       this.session = { userId: null, developerId: null }
       this.rotateCsrf()
       return [204, null]
@@ -645,18 +650,18 @@ export class FakeApi {
       return [200, this.me()]
     }
     if (method === 'GET' && path === '/api/me') {
-      this.require('account')
+      this.requireAccount()
       return [200, this.me()]
     }
     if (method === 'POST' && path === '/api/me/developer') {
-      this.require('account')
+      this.requireAccount()
       const found = this.currentMemberships(this.session.userId!).find((m) => m.tenant === body.developer_id)
       if (!found) throw new Refused(404, refusal('platform.auth.not_found'))
       this.session.developerId = found.tenant
       return [200, this.me()]
     }
     if (method === 'GET' && path === '/api/ended-access/projects') {
-      this.require('account')
+      this.requireAccount()
       const ended = this.me().ended.filter((e) => e.project_ids.length > 0)
       return [
         200,

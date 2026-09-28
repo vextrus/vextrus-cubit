@@ -79,6 +79,10 @@ msgstr "You have no access to any Developer at the moment. Ask your MD, or Vextr
 msgid "At least 12 characters"
 msgstr "At least 12 characters"
 
+#: src/auth/RouteError.tsx
+msgid "This page could not be opened. Reload it to try again."
+msgstr "This page could not be opened. Reload it to try again."
+
 #: src/auth/Join.tsx
 msgid "Enter your name."
 msgstr "Enter your name."
@@ -109,6 +113,10 @@ msgstr "Your access to {list} at {developer} ended on {date}. Ask {developer} to
 #: src/auth/SignIn.tsx
 msgid "Enter your password."
 msgstr "Enter your password."
+
+#: src/auth/RouteError.tsx
+msgid "Reload"
+msgstr "Reload"
 
 #: src/auth/AccessEnded.tsx
 msgid "Your access to {list} at {developer} has ended. {revoker} revoked it on {date}. What you did before then is kept under your name."
@@ -207,10 +215,15 @@ msgstr "Which Developer?"
 msgid "{inviter} invited you as {as} to {list}."
 msgstr "{inviter} invited you as {as} to {list}."
 
+#: src/auth/RouteError.tsx
+msgid "Your projects"
+msgstr "Your projects"
+
 #: src/auth/Join.tsx
 msgid "Join {developer}"
 msgstr "Join {developer}"
 
+#: src/auth/RouteError.tsx
 #: src/auth/SignIn.tsx
 msgid "Vextrus can’t be reached. Check your connection and try again."
 msgstr "Vextrus can’t be reached. Check your connection and try again."
@@ -220,5 +233,6 @@ msgid "Choose another Developer"
 msgstr "Choose another Developer"
 
 #: src/auth/OutsidePage.tsx
+#: src/auth/RouteError.tsx
 msgid "Vextrus"
 msgstr "Vextrus"

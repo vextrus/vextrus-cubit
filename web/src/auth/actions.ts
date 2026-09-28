@@ -18,11 +18,22 @@ type Router = ReturnType<typeof useRouter>
 /** After signing in, joining or choosing: forget everything held, keep the new `/api/me`, and go on. */
 export async function enter(queryClient: QueryClient, router: Router, out: MeOut75, next?: string): Promise<Me> {
   const me = meFrom(out)
-  queryClient.clear()
+  await forgetAll(queryClient)
   queryClient.setQueryData(meQuery.queryKey, me)
   if (me.market) rememberMarket(me.market)
   await router.navigate({ href: gateHref(me, next) })
   return me
+}
+
+/**
+ * Forgets every query's data. Those a screen shows now are reset, so the screen waits for them to be
+ * read again (a skeleton, never the old rows) rather than being cut loose from the cache still
+ * showing them, as `clear()` would; the rest are dropped.
+ */
+export async function forgetAll(queryClient: QueryClient): Promise<void> {
+  queryClient.removeQueries({ type: 'inactive' })
+  await queryClient.resetQueries({ type: 'active' }).catch(() => undefined)
+  queryClient.removeQueries({ type: 'inactive' })
 }
 
 /** Signs in with an email and password; a refusal is thrown as an `ApiRefused`. */
@@ -37,9 +48,8 @@ export async function signOut(queryClient: QueryClient, router: Router): Promise
   } catch (error) {
     if (!(error instanceof ApiRefused && error.status === 401)) throw error
   }
-  queryClient.clear()
   await router.navigate({ href: PATHS.signIn })
-  queryClient.clear()
+  await forgetAll(queryClient)
 }
 
 /** Works in another of the user's Developers; the cache is cleared and the projects list opens. */

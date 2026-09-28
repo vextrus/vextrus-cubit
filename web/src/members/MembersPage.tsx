@@ -208,6 +208,7 @@ function VextrusTable({ rows, acts, onActs, actsOpen }: { rows: readonly PersonR
       ) : (
         rows.map((row) => {
           const last = row.lastActAt ? f.date(row.lastActAt) : ''
+          const count = row.acts
           return (
             <tr key={row.membershipId} className={cn('border-b border-border last:border-b-0', row.ended && 'text-muted-foreground')}>
               <Cell title={row.name}>
@@ -228,7 +229,7 @@ function VextrusTable({ rows, acts, onActs, actsOpen }: { rows: readonly PersonR
                   onClick={(event) => onActs(row, event.currentTarget)}
                   className="rounded-xs text-start text-primary underline-offset-2 hover:underline"
                 >
-                  {row.acts === 0 ? <Trans>No acts yet</Trans> : <Plural value={row.acts} one={`# act, last ${last}`} other={`# acts, last ${last}`} />}
+                  {count === 0 ? <Trans>No acts yet</Trans> : <Plural value={count} one={`# act, last ${last}`} other={`# acts, last ${last}`} />}
                 </button>
               </Cell>
               <Cell className="text-end">

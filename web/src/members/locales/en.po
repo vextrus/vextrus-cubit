@@ -86,6 +86,10 @@ msgstr "Renew 30 days"
 msgid "Cancel"
 msgstr "Cancel"
 
+#: src/members/MembersPage.tsx
+msgid "{count, plural, one {# act, last {last}} other {# acts, last {last}}}"
+msgstr "{count, plural, one {# act, last {last}} other {# acts, last {last}}}"
+
 #: src/members/ActsPanel.tsx
 msgid "{name} (Vextrus)"
 msgstr "{name} (Vextrus)"
@@ -228,11 +232,6 @@ msgstr "{joined}, {code}"
 msgid "{name}’s access now ends on {date}."
 msgstr "{name}’s access now ends on {date}."
 
-#. placeholder {0}: row.acts
-#: src/members/MembersPage.tsx
-msgid "{0, plural, one {# act, last {last}} other {# acts, last {last}}}"
-msgstr "{0, plural, one {# act, last {last}} other {# acts, last {last}}}"
-
 #: src/members/InviteDialog.tsx
 msgid "Create link"
 msgstr "Create link"
@@ -291,7 +290,3 @@ msgstr "Vextrus sees your data only while an invitation below is current. You ca
 #: src/members/LinkShown.tsx
 msgid "The invitation link"
 msgstr "The invitation link"
-
-#: src/members/ActsPanel.tsx
-msgid "{n} (Vextrus)"
-msgstr "{n} (Vextrus)"

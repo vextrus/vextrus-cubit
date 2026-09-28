@@ -29,7 +29,7 @@ import { meFrom, meQuery, type Me } from '@/app/session'
 import { useFormat } from '@/format'
 import { MachineText, type MachineMessage } from '@/format/machine'
 import { Button, ErrorBar, Skeleton, TextField, buttonVariants } from '@/ui'
-import { enter, signIn } from './actions'
+import { enter, forgetAll, signIn } from './actions'
 import { ProjectNameList } from './lists'
 import { OutsidePage } from './OutsidePage'
 import { ProblemBar, problemOf, type SignInProblem } from './SignIn'
@@ -151,7 +151,7 @@ async function signOutHere(queryClient: ReturnType<typeof useQueryClient>): Prom
   } catch (error) {
     if (!(error instanceof ApiRefused && error.status === 401)) throw error
   }
-  queryClient.clear()
+  await forgetAll(queryClient)
 }
 
 function Unusable() {
@@ -309,7 +309,7 @@ function Ready({
               value={password}
               readOnly={busy}
               onChange={(event) => setPassword(event.currentTarget.value)}
-              hint={newAccount ? t`At least 12 characters` : undefined}
+              hint={newAccount && !fieldError.password ? t`At least 12 characters` : undefined}
               error={words(fieldError.password)}
             />
           ) : null}

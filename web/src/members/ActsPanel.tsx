@@ -47,7 +47,10 @@ export function ActsPanel({ person, onClose }: { person: PersonRow; onClose: () 
 
   const name = person.name
   const title = person.role === 'vextrus_engineer' ? t`${name} (Vextrus)` : name
-  const vextrusName = (n: string) => t`${n} (Vextrus)`
+  const vextrusName = (actor: string) => {
+    const name = actor
+    return t`${name} (Vextrus)`
+  }
   const projectName = (id: string | null | undefined) => session.projects.find((p) => p.id === id)?.name ?? null
   const all = acts.data?.pages.flat() ?? []
 
