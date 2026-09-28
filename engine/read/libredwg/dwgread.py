@@ -135,8 +135,18 @@ class Decoded:
 
 def decode(data: Mapping[str, Any]) -> Decoded:
     objects: list[dict[str, Any]] = data["OBJECTS"]
-    by_handle = {h: item for item in objects if (h := handle(item.get("handle")))}
-    of_kind = _objects_of_kind(by_handle)
+    # Objects and entities apart: an object given an entity's handle, or an entity an object's (a
+    # hostile file's), is never read as the other (#82's refuter and review).
+    object_items = {
+        h: item for item in objects if "object" in item and (h := handle(item.get("handle")))
+    }
+    entity_handles = {h for item in objects if "entity" in item and (h := handle(item.get("handle")))}
+    block_entities = {
+        h: item
+        for item in objects
+        if item.get("entity") == "BLOCK" and (h := handle(item.get("handle")))
+    }
+    of_kind = _objects_of_kind(object_items)
     names = {h: str(item.get("name", "")) for h, item in of_kind("LAYER").items()}
     styles = {h: _style(h, item) for h, item in of_kind("STYLE").items()}
     headers = of_kind("BLOCK_HEADER")
@@ -154,7 +164,7 @@ def decode(data: Mapping[str, Any]) -> Decoded:
         for ref in header.get("entities", []):
             if child := handle(ref):
                 owner_of[child] = header_handle
-                listed_missing += child not in by_handle
+                listed_missing += child not in entity_handles
     if listed_missing:  # dwgread said SUCCESS, yet lost objects the file's own records list
         raise ReadError(codes.OBJECTS_MISSING(count=listed_missing))
     header_vars: Mapping[str, Any] = data.get("HEADER", {})
@@ -193,7 +203,7 @@ def decode(data: Mapping[str, Any]) -> Decoded:
     blocks = tuple(
         Block(
             handle=h,
-            name=_block_name(header, by_handle),
+            name=_block_name(header, block_entities),
             base_point=_point3(header.get("base_pt")),
             layout=layout_of.get(h),
             entities=tuple(children.get(h, ())),
@@ -202,7 +212,7 @@ def decode(data: Mapping[str, Any]) -> Decoded:
     )
 
     inserts = {
-        p.handle: _insert(items[p.handle], p, headers, by_handle, items, children)
+        p.handle: _insert(items[p.handle], p, headers, block_entities, items, children)
         for p in placed
         if p.type in ("INSERT", "MINSERT")
     }
@@ -243,18 +253,18 @@ def decode(data: Mapping[str, Any]) -> Decoded:
 
 
 def _objects_of_kind(
-    by_handle: Mapping[str, dict[str, Any]],
+    object_items: Mapping[str, dict[str, Any]],
 ) -> Callable[[str], dict[str, dict[str, Any]]]:
     def of_kind(kind: str) -> dict[str, dict[str, Any]]:
-        return {h: item for h, item in by_handle.items() if item.get("object") == kind}
+        return {h: item for h, item in object_items.items() if item.get("object") == kind}
 
     return of_kind
 
 
-def _block_name(header: Mapping[str, Any], by_handle: Mapping[str, Mapping[str, Any]]) -> str:
+def _block_name(header: Mapping[str, Any], block_entities: Mapping[str, Mapping[str, Any]]) -> str:
     # The BLOCK entity carries the name DXF uses (a second paper space's is *Paper_Space0, while its
     # record may say *Paper_Space).
-    block_entity = by_handle.get(handle(header.get("block_entity")) or "")
+    block_entity = block_entities.get(handle(header.get("block_entity")) or "")
     if block_entity is not None and block_entity.get("name"):
         return str(block_entity["name"])
     return str(header.get("name", ""))
@@ -279,7 +289,7 @@ def _insert(
     item: Mapping[str, Any],
     placed: Placed,
     headers: Mapping[str, Mapping[str, Any]],
-    by_handle: Mapping[str, Mapping[str, Any]],
+    block_entities: Mapping[str, Mapping[str, Any]],
     items: Mapping[str, Mapping[str, Any]],
     children: Mapping[str, Sequence[str]],
 ) -> Insert:
@@ -292,7 +302,7 @@ def _insert(
         layer=placed.layer,
         owner=placed.owner,
         block=block,
-        name=_block_name(header, by_handle) if header is not None else "",
+        name=_block_name(header, block_entities) if header is not None else "",
         point=_point3(item.get("ins_pt")),
         scale=_point3(scale, 1.0) if isinstance(scale, list) else (1.0, 1.0, 1.0),
         rotation_radians=_number(item.get("rotation")),

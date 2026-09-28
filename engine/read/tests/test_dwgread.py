@@ -6,12 +6,13 @@ DWGs in test_read.py.
 """
 
 import json
+import random
 from pathlib import Path
 from typing import Any
 
 import pytest
 
-from engine.read.artefact import TextStyle
+from engine.read.artefact import Entity, Format, Insert, ReadArtefact, Text, TextStyle
 from engine.read.errors import ReadError
 from engine.read.libredwg import dwgread
 
@@ -512,6 +513,112 @@ def test_an_object_given_an_entitys_handle_never_lends_it_its_values(value: obje
     found = decoded.texts["50"]
     assert (found.text, found.width, found.height, found.position) == ("MINE", 0.9, 2.0, (1.0, 2.0, 0.0))
     assert (decoded.inserts["40"].block, decoded.inserts["40"].point) == ("30", (200.0, 0.0, 0.0))
+
+
+def test_an_object_given_a_block_entitys_handle_never_renames_its_block() -> None:
+    """The review's case (round 1): a STYLE given a BLOCK entity's handle, after it, renamed its block
+    and every insert of it. The BLOCK entity's own name is read (paper space's differs from its
+    record's here, as a second paper space's does)."""
+    data = with_styles(
+        style(0x20, "CLASH"), style(0x1C, "CLASH"), style(0x31, "CLASH"), entities=(insert(0x40, []),)
+    )
+    (paper,) = [o for o in data["OBJECTS"] if o.get("entity") == "BLOCK" and o["name"] == "*Paper_Space"]
+    paper["name"] = "*Paper_Space0"
+
+    decoded = dwgread.decode(data)
+
+    blocks = {b.handle: b.name for b in decoded.blocks}
+    assert (blocks["1F"], blocks["1B"], blocks["30"]) == ("*Model_Space", "*Paper_Space0", "TB")
+    assert decoded.inserts["40"].name == "TB"
+
+
+def test_an_entity_given_a_styles_handle_never_hides_the_style() -> None:
+    """The mirror of the case above: a LINE given a STYLE's handle, after it, took the STYLE out of
+    the table, so the text on that style had none. Objects are read from object items only."""
+    data = drawing(text_entity(0x50, text_value="T", style=ref(0x13)))
+    data["OBJECTS"].append({"entity": "LINE", "handle": own(0x13), "layer": ref(0x10), "entmode": 2})
+
+    decoded = dwgread.decode(data)
+
+    assert "13" in styles_of(decoded)
+    assert (decoded.texts["50"].style, decoded.texts["50"].style_handle) == ("TITLE", "13")
+
+
+def test_an_object_given_a_lost_entitys_handle_does_not_hide_the_loss() -> None:
+    """The review's case (round 1): a record lists an entity dwgread lost, and an object holds its
+    handle; the loss is still refused, not read as the object."""
+    data = drawing(model_space=[0x90])
+    data["OBJECTS"].append(style(0x90, "CLASH"))
+
+    with pytest.raises(ReadError) as raised:
+        dwgread.decode(data)
+
+    assert raised.value.message == {"code": "engine.read.objects_missing", "params": {"count": 1}}
+
+
+HOSTILE: list[object] = [
+    None, "x", "", "3.5", [], {}, [1], True, False, 0, -1, 1, 0.0, -0.0, 1e-320, 5e-324, 1e308, NAN, INF,
+    -INF, 10**400, -(10**400), 2**53 + 1, "\ud800", "a\x00b", "romans.shx",
+]  # fmt: skip
+STYLE_KEYS = [
+    "name",
+    "text_size",
+    "width_factor",
+    "oblique_angle",
+    "font_file",
+    "bigfont_file",
+    "is_shape",
+]
+
+
+def artefact_of(decoded: dwgread.Decoded) -> ReadArtefact:
+    """The artefact `libredwg.read` builds from `decoded` (with no geometry)."""
+    entities: list[Text | Insert | Entity] = []
+    for p in decoded.entities:
+        found = decoded.texts.get(p.handle) or decoded.inserts.get(p.handle)
+        entities.append(found or Entity(p.handle, p.type, p.layer, p.owner, {}))
+    return ReadArtefact.build(
+        source_sha256="0" * 64,
+        source_name="fuzz.dwg",
+        format=Format("dwg", decoded.version),
+        reader="libredwg",
+        reader_version="0.14",
+        layouts=decoded.layouts,
+        insunits=decoded.insunits,
+        notes=decoded.notes,
+        blocks=decoded.blocks,
+        entities=entities,
+        styles=decoded.styles,
+    )
+
+
+def test_hostile_style_values_never_fail_the_read_and_the_artefact_survives_its_json() -> None:
+    """The refuter's fuzz (29 Sep 2026), bounded and seeded: every STYLE key given each hostile value,
+    each key missing, and 300 random STYLEs, each with a text or an ATTRIB naming it. `decode` never
+    raises, the table never holds NaN or an infinity, and the artefact survives its JSON text."""
+    cases: list[dict[str, Any]] = []
+    for key in STYLE_KEYS:
+        for value in HOSTILE:
+            cases.append({**style(0x14, "S"), key: value})
+        cases.append({k: v for k, v in style(0x14, "S").items() if k != key})
+    chosen = random.Random(82)
+    for _ in range(300):
+        odd = style(chosen.randint(0x14, 0x60), chosen.choice([*HOSTILE, "N"]))
+        odd.update(
+            {k: chosen.choice(HOSTILE) for k in chosen.sample(STYLE_KEYS[1:], chosen.randint(0, 6))}
+        )
+        cases.append(odd)
+
+    for number, odd in enumerate(cases):
+        at = ref(odd["handle"][2])
+        for data in (
+            with_styles(odd, entities=(text_entity(0x50, text_value="T", style=at),)),
+            with_styles(odd, entities=(insert(0x40, [0x41]), attrib(0x41, 0x40, "SHEET_NO", NULL))),
+        ):
+            artefact = artefact_of(dwgread.decode(data))
+            json.dumps(artefact.to_json()["styles"], allow_nan=False)  # raises on NaN or an infinity
+            stored = json.dumps(artefact.to_json())
+            assert ReadArtefact.from_json(json.loads(stored)) == artefact, number
 
 
 def test_two_styles_with_one_name_stay_two_and_each_text_names_its_own() -> None:
