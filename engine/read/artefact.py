@@ -26,9 +26,10 @@ base point, layout and entities in drawing order, which is how a Trace's insert 
 
 `styles` is the text style table (#82): every STYLE the file holds, by handle, shape-file entries
 (which have no name) included and marked. A style's name is not a key: shape-file entries share the
-empty name and a file may repeat one, so a text names its style by handle. Each number is kept only
-when it is usable (`usable_size`, `usable_angle`), else `None`, so the JSON never holds NaN or
-Infinity: a fixed height of 0 is AutoCAD's "not fixed".
+empty name and a file may repeat one, so a text names its style by handle. The reader keeps each
+number only when it is usable (`usable_size`, `usable_angle`), else `None` (a fixed height of 0 is
+AutoCAD's "not fixed"), and `from_json` refuses any other, so a read artefact's table never holds NaN
+or Infinity; a style built in code keeps what it is given.
 
 Coordinates are floats in drawing units: drawing geometry stays float inside the read-artefact file
 (docs/data-model.md §2). Rotations are named with their unit.
