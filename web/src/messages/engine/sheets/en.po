@@ -109,7 +109,7 @@ msgid "engine.sheets.kind_lift_section"
 msgstr "Lift section"
 
 msgid "engine.sheets.kind_lighting_layout"
-msgstr "Light fixture layout"
+msgstr "Lighting layout"
 
 msgid "engine.sheets.kind_lightning_protection"
 msgstr "Lightning protection layout"
@@ -154,7 +154,7 @@ msgid "engine.sheets.kind_presentation_plan"
 msgstr "Presentation plan"
 
 msgid "engine.sheets.kind_pump_details"
-msgstr "Pump and water lifting details"
+msgstr "Water pump details"
 
 msgid "engine.sheets.kind_rainwater_details"
 msgstr "Rainwater details"
@@ -196,7 +196,7 @@ msgid "engine.sheets.kind_site_plan"
 msgstr "Site plan"
 
 msgid "engine.sheets.kind_slab_layout"
-msgstr "Slab layout and reinforcement"
+msgstr "Slab layout and rebar"
 
 msgid "engine.sheets.kind_slab_outline_layout"
 msgstr "Slab outline and beam layout"
