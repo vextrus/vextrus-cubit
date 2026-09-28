@@ -59,18 +59,23 @@ configuration and prose, not code. It must never become the product (docs/postmo
    0033, 0026). Only that walk says "done".
 
 ## Waves (ADR 0025)
-- **Cloud tickets:** one `claude --cloud` command each (it needs a terminal: the orchestrator runs it
-  under `script`); follow-ups go into the running session with `claude -p "<message>" --cloud <session>`.
-  **Accounts:** the owner, 28 Sep 2026 (session 04): "From the next session the local and all cloud
-  sessions will be run on Account B until I told you to switch." So local and cloud sessions run on
-  **account B** (`CLAUDE_CONFIG_DIR=~/.claude-b`; default environment `vextrus`). **Cost is not the
-  constraint:** the cloud credit is promotional and cloud sessions continue on the subscription after
-  it; what limits a wave is the quality of every merge (the owner, 28 Sep 2026: "focus on producing
-  production grade highest code quality on every merge, every wave and every sessions").
-- **Unattended local tickets:** the Workflow tool, as a launcher with no state of its own, one
-  worktree per ticket, each ending in a PR. Local tickets that need the owner run interactively.
-- **Size:** wave 1 is four cloud and one or two local tickets, measuring cost per merged PR, time to
-  PR, the owner's review minutes and second continuations. Widen to 6–8 cloud once the review queue
+- **Everything is built locally** (the owner, 29 Sep 2026: "instead of Cloud sessions the main sessions
+  on xHigh will orchestrate everything just like we planned, the multi-agent sessions can do whatever
+  extend to accomplish the goal, everything will be run in locally"):
+  - The orchestrator runs in the CLI at xhigh.
+  - Each ticket is built by its own background session, `claude --bg --name <ticket> "<prompt>"`, in its own
+    worktree. It is a full session that may use its own subagents and workflows.
+  - The orchestrator talks to builders with `SendMessage` and watches them with `claude agents --json`.
+  - Builders commit and never push. The orchestrator reviews each committed head, then pushes and opens the PR
+    with the owner's yes.
+  - Cloud sessions are not used: account B's `claude --cloud` uploaded local copies with no git remote
+    (session 05; the lessons).
+- **Accounts:** the owner, 28 Sep 2026: "From the next session the local and all cloud sessions will be
+  run on Account B until I told you to switch." (`CLAUDE_CONFIG_DIR=~/.claude-b`.) **Cost is not the
+  constraint:** what limits a wave is the quality of every merge (the owner, 28 Sep 2026: "focus on
+  producing production grade highest code quality on every merge, every wave and every sessions").
+- **Size:** wave 1 was four cloud and one or two local tickets, measuring cost per merged PR, time to
+  PR, the owner's review minutes and second continuations. Widen to 6–8 tickets once the review queue
   stays under a day, at most one PR in four needs a second continuation, and conflicts stay trivial.
   The ceiling (about 10–12) is the owner's review.
 - **Collisions:** tickets in a wave own disjoint files; at most one ticket per wave adds migrations to
