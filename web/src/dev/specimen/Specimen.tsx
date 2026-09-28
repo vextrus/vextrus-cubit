@@ -80,7 +80,7 @@ function useSpecimenLanguage(lang: string | undefined): boolean {
 
 function Section({ id, title, children, note }: { id: string; title: ReactNode; children: ReactNode; note?: ReactNode }) {
   return (
-    <section id={id} aria-labelledby={`${id}-title`} className="scroll-mt-4 border-t border-border-strong pt-5 pb-8">
+    <section id={id} aria-labelledby={`${id}-title`} className="scroll-mt-(--topbar) border-t border-border-strong pt-5 pb-8">
       <h2 id={`${id}-title`} className="text-xl">
         {title}
       </h2>
@@ -302,6 +302,7 @@ function ControlsSection() {
   const [mode, setMode] = useState<'list' | 'sheet'>('list')
   const [view, setView] = useState<'read' | 'plot' | 'compare'>('read')
   const [dark, setDark] = useState(false)
+  const [outlines, setOutlines] = useState(true)
   return (
     <Section id="controls" title={<Trans>Buttons and switches</Trans>}>
       <Row label={<Trans>Button</Trans>}>
@@ -337,7 +338,7 @@ function ControlsSection() {
         <IconButton label={t`Zoom to view`} combo="Z">
           <Crosshair />
         </IconButton>
-        <IconButton label={t`Outlines`} combo="O">
+        <IconButton label={t`Outlines`} combo="O" pressed={outlines} onClick={() => setOutlines((o) => !o)}>
           <Layers />
         </IconButton>
         <IconButton label={t`More`}>
@@ -443,7 +444,7 @@ function CanvasSketch() {
       )}
       <rect x={200 - 9} y={130 - 11} width={18} height={22} fill="none" stroke="var(--canvas-proposal)" strokeWidth={1.5} strokeDasharray="4 3" />
       <rect x={80 - 9} y={70 - 11} width={18} height={22} fill="none" stroke="var(--canvas-confirmed)" strokeWidth={1.5} />
-      <path d={Glyph.cloudPath(420 - 16, 190 - 16, 32, 32, 9)} fill="none" stroke="var(--canvas-question)" strokeWidth={1.5} />
+      <path d={Glyph.cloudPath(440 - 16, 190 - 16, 32, 32, 9)} fill="none" stroke="var(--canvas-question)" strokeWidth={1.5} />
       <text x={w - 12} y={h - 8} textAnchor="end" fontSize={10} fill="var(--canvas-ink-muted)">
         1:100
       </text>
@@ -540,6 +541,11 @@ function ListSection() {
 function StatesSection() {
   const toast = useToast()
   const { t } = useLingui()
+  // Names, file names and figures enter a message as placeholders (m0-screens §1.7, design gate m6).
+  const project = Data.PROJECT_NAME
+  const file = <DrawingText kind="file-name" text={Data.FILE_NAME} />
+  const sheet = 12
+  const sheets = 38
   return (
     <Section id="states" title={<Trans>Empty, loading, progress, error and toast</Trans>}>
       <div className="grid grid-cols-2 gap-4">
@@ -556,11 +562,13 @@ function StatesSection() {
           </Empty>
         </Tile>
         <Tile>
-          <Skeleton status={<Trans>Opening Kadam Residence…</Trans>} rows={5} />
+          <Skeleton status={<Trans>Opening {project}…</Trans>} rows={5} />
         </Tile>
         <Tile className="flex flex-col gap-4">
           <ProgressLine value={12 / 38}>
-            <Trans>Reading KR-STR-R0.dwg, sheet 12 of 38</Trans>
+            <Trans>
+              Reading {file}, sheet {sheet} of {sheets}
+            </Trans>
           </ProgressLine>
           <ProgressLine>
             <Trans>Checking the file</Trans>

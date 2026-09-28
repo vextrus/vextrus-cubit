@@ -116,10 +116,6 @@ msgid "The sheet canvas mounts inside it: fixed left to right and never mirrored
 msgstr "The sheet canvas mounts inside it: fixed left to right and never mirrored, while the chrome around it mirrors."
 
 #: src/dev/specimen/Specimen.tsx
-msgid "Reading KR-STR-R0.dwg, sheet 12 of 38"
-msgstr "Reading KR-STR-R0.dwg, sheet 12 of 38"
-
-#: src/dev/specimen/Specimen.tsx
 msgid "Page title, once a screen"
 msgstr "Page title, once a screen"
 
@@ -302,6 +298,10 @@ msgstr "Button"
 #: src/dev/specimen/Specimen.tsx
 msgid "Compact, with tooltip"
 msgstr "Compact, with tooltip"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Opening {project}…"
+msgstr "Opening {project}…"
 
 #: src/dev/specimen/Specimen.tsx
 msgid "Dialog, Popover, Menu, Tabs, Tooltip and Command"
@@ -520,10 +520,6 @@ msgid "Tools, icon only"
 msgstr "Tools, icon only"
 
 #: src/dev/specimen/Specimen.tsx
-msgid "Opening Kadam Residence…"
-msgstr "Opening Kadam Residence…"
-
-#: src/dev/specimen/Specimen.tsx
 msgid "DrawingText"
 msgstr "DrawingText"
 
@@ -578,6 +574,10 @@ msgstr "Count"
 #: src/dev/specimen/Specimen.tsx
 msgid "Walls"
 msgstr "Walls"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Reading {file}, sheet {sheet} of {sheets}"
+msgstr "Reading {file}, sheet {sheet} of {sheets}"
 
 #: src/dev/specimen/Specimen.tsx
 msgid "Segmented"
