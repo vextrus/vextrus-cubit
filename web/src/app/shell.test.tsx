@@ -153,11 +153,17 @@ describe('"Page not found" (§4.1; the Project scope)', () => {
     ['a project the Guest was not given', '/p/BP-02/takeoff/1', GUEST],
     ['a step that does not exist', '/p/KR-01/takeoff/15', QS],
     ['an address nothing matches', '/nowhere', QS],
+    ['a place in a project not built yet (the top bar’s Drawing Set link, until 20b)', '/p/KR-01/drawing-set', QS],
+    ['an address under a project that nothing matches', '/p/KR-01/nothing/here', QS],
   ])('for %s, inside the frame', async (_, path, as) => {
-    await mountApp(path, { as })
+    const { keyMap } = await mountApp(path, { as })
     expect(await screen.findByText(/There is nothing at this address\. It may have been a link to another Developer’s project, or to a project you have not been given\./)).toBeVisible()
     expect(screen.getByRole('link', { name: 'Your projects' })).toHaveAttribute('href', '/projects')
     expect(region('top-bar')).toBeVisible()
+    // One frame, never a frame inside a frame (two top bars would bind every global key twice).
+    expect(document.querySelectorAll('[data-region="top-bar"]')).toHaveLength(1)
+    expect(document.querySelectorAll('[data-frame]')).toHaveLength(1)
+    expectKeyMapSound(keyMap)
     expect(document.body.textContent).not.toContain('Meghna Heights')
   })
 })

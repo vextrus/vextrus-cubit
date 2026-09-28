@@ -57,6 +57,11 @@
     { "market": "bangladesh", "unitSystem": "metric", "kind": "length", "input": { "mm": 3050 }, "expected": "3050\u00a0mm", "plain": "3050 mm", "why": "Bangladesh also offers metric: integer millimetres, never grouped" },
     { "market": "bangladesh", "unitSystem": "metric", "kind": "level", "input": { "mm": -3200 }, "expected": "−3.200\u00a0m", "plain": "-3.200 m", "why": "metric levels in metres to 3 decimals" },
     { "market": "bangladesh", "kind": "scale", "input": { "ratio": 100 }, "expected": "1:100", "plain": "1:100", "why": "a stated scale" },
+    { "market": "bangladesh", "unitSystem": "imperial", "kind": "machine", "input": { "message": "Which storey is EL {level}?", "params": { "level": 5029.2 } }, "expected": "Which storey is EL +16′-6″?", "plain": "Which storey is EL +16'-6\"?", "why": "a machine message's level (in millimetres) through the level formatter (m0-screens §6.7)" },
+    { "market": "bangladesh", "kind": "machine", "input": { "message": "The drawing list names {count} sheets.", "params": { "count": 124842 } }, "expected": "The drawing list names 1,24,842 sheets.", "plain": "The drawing list names 1,24,842 sheets.", "why": "a machine message's count grouped as the Market groups" },
+    { "market": "bangladesh", "kind": "machine", "input": { "message": "{count, plural, one {# sheet read} other {# sheets read}}", "params": { "count": 124842 } }, "expected": "1,24,842 sheets read", "plain": "1,24,842 sheets read", "why": "a plural's count, grouped as the Market groups" },
+    { "market": "bangladesh", "kind": "machine", "input": { "message": "{count, plural, one {# sheet read} other {# sheets read}}", "params": { "count": 1 } }, "expected": "1 sheet read", "plain": "1 sheet read", "why": "the plural still chooses its form" },
+    { "market": "bangladesh", "kind": "machine", "input": { "message": "Drawn at {scale}, as stated.", "params": { "scale": 100 } }, "expected": "Drawn at 1:100, as stated.", "plain": "Drawn at 1:100, as stated.", "why": "a stated scale" },
     { "market": "bangladesh", "kind": "unit-system-name", "input": {}, "expected": "Imperial", "why": "the status bar's name for the default unit system" },
 
     { "market": "test", "kind": "money", "input": { "amount": "1234567.8915", "currency": "KWD" }, "expected": "KWD\u00a01,234,567.892", "why": "three minor units, thousands grouping" },
@@ -73,6 +78,8 @@
     { "market": "test", "unitSystem": "metric", "kind": "coordinate", "input": { "mm": 1234567 }, "expected": "1234.567\u00a0m", "plain": "1234.567 m", "why": "never grouped" },
     { "market": "test", "unitSystem": "metric", "kind": "level", "input": { "mm": -3200 }, "expected": "−3.200\u00a0m", "plain": "-3.200 m", "why": "signed" },
     { "market": "test", "unitSystem": "metric", "kind": "level", "input": { "mm": 0 }, "expected": "±0.000\u00a0m", "plain": "±0.000 m", "why": "the datum" },
+    { "market": "test", "unitSystem": "metric", "kind": "machine", "input": { "message": "Which storey is EL {level}?", "params": { "level": 5029.2 } }, "expected": "Which storey is EL +5.029\u00a0m?", "plain": "Which storey is EL +5.029 m?", "why": "the same level in a metric Market" },
+    { "market": "test", "kind": "machine", "input": { "message": "The drawing list names {count} sheets.", "params": { "count": 1234567 } }, "expected": "The drawing list names 1,234,567 sheets.", "plain": "The drawing list names 1,234,567 sheets.", "why": "thousands grouping" },
     { "market": "test", "kind": "unit-system-name", "input": {}, "expected": "Metric", "why": "metric only" }
   ]
 }

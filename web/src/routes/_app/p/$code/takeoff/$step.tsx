@@ -9,7 +9,8 @@ import { stepFor } from '@/app/steps'
 
 export const Route = createFileRoute('/_app/p/$code/takeoff/$step')({
   beforeLoad: ({ params }) => {
-    if (!stepFor(params.step)) throw notFound()
+    // Handled by the project's route, inside the frame (see its route file).
+    if (!stepFor(params.step)) throw notFound({ routeId: '/_app/p/$code' })
   },
   component: StepCanvas,
 })

@@ -46,8 +46,12 @@ describe('the machine-message renderer: {code, params} to catalogue text (m0-scr
   it('reads a parameter’s kind from its name', () => {
     expect(paramKind('read_date')).toEqual({ kind: 'date' })
     expect(paramKind('time')).toEqual({ kind: 'time' })
-    expect(paramKind('sheet')).toEqual({ kind: 'notation', notation: 'sheet-number' })
-    expect(paramKind('other_file')).toEqual({ kind: 'notation', notation: 'file-name' })
+    expect(paramKind('sheet')).toEqual({ kind: 'drawing-text', notation: 'sheet-number' })
+    expect(paramKind('other_file')).toEqual({ kind: 'drawing-text', notation: 'file-name' })
+    expect(paramKind('top_level')).toEqual({ kind: 'figure', figure: 'level' })
+    expect(paramKind('length')).toEqual({ kind: 'figure', figure: 'length' })
+    expect(paramKind('cursor_coordinate')).toEqual({ kind: 'figure', figure: 'coordinate' })
+    expect(paramKind('scale')).toEqual({ kind: 'figure', figure: 'scale' })
     expect(paramKind('name')).toEqual({ kind: 'as-sent' })
   })
 
