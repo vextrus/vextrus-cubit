@@ -70,7 +70,7 @@ def test_the_harness_runs_11s_stages_and_writes_a_valid_export(
     folder.mkdir()
     (folder / "S-01.dwg").write_bytes(b"AC1032 stand-in")
     out = tmp_path / "out" / "export.json"
-    document = harness.run(folder, out, stages=stages, conventions=_conventions(tmp_path))
+    document: Any = harness.run(folder, out, stages=stages, conventions=_conventions(tmp_path))
 
     states = _states(document)
     for stage in ("font_report", "bangla_ansi", "render_buffers", "rasterise"):
@@ -98,7 +98,7 @@ def test_on_real_reads_of_the_fixture_dwgs(
     box = "-100000, -100000, 100000, 100000"
     stages = _stages(tmp_path, monkeypatch, sheets=STAND_IN_SHEETS.format(box=box))
     out = tmp_path / "out" / "export.json"
-    document = harness.run(dwg_set, out, stages=stages, conventions=_conventions(tmp_path))
+    document: Any = harness.run(dwg_set, out, stages=stages, conventions=_conventions(tmp_path))
 
     for reading in document["files"]:
         states = {name: report["state"] for name, report in reading["stages"].items()}
