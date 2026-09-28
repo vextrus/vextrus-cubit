@@ -32,5 +32,8 @@ TEXT_ONLY_FOR_OTHER = MessageCode("drawings.sheets.text_only_for_other")
 """Words given with a reason from the list: only "other" takes words (400)."""
 KIND_UNKNOWN = MessageCode("drawings.sheets.kind_unknown")
 """A sheet's or a view's kind that is not one of those offered (400)."""
+TEXT_UNREADABLE = MessageCode("drawings.sheets.text_unreadable")
+"""An exclusion's words holding a character that cannot be kept (a control, a lone surrogate): refused,
+never cleaned behind the QS's back (400)."""
 REASON_UNKNOWN = MessageCode("drawings.sheets.reason_unknown")
 """A reason to leave out that is not one of the seven (400)."""

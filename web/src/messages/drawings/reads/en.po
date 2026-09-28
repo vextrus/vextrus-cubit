@@ -7,11 +7,17 @@ msgstr ""
 "Language: en\n"
 
 #. vextrus/drawings/messages/reads.py (ticket 14): what reading a file handed over but Vextrus would not keep. A fault on Vextrus's side, never the QS's.
+msgid "drawings.reads.bad_reader"
+msgstr "Vextrus could not keep what it read from {file}: the reading did not say plainly which reader made it. This is a fault on Vextrus's side, not in your file. Mark the file for Vextrus."
+
 msgid "drawings.reads.bad_render"
 msgstr "Vextrus could not keep its drawing of a sheet of {file}: it was not complete. This is a fault on Vextrus's side, not in your file. Mark it for Vextrus."
 
 msgid "drawings.reads.decided"
 msgstr "Reading {file} again would have changed a sheet or view already confirmed or left out in Step 1, so nothing was changed. Mark it for Vextrus."
+
+msgid "drawings.reads.kind_unknown"
+msgstr "Vextrus could not keep what it read from {file}: it gave a sheet a kind Vextrus does not offer. This is a fault on Vextrus's side, not in your file. Mark the file for Vextrus."
 
 msgid "drawings.reads.no_reading"
 msgstr "Vextrus could not keep the views of a sheet of {file}: the file's reading had not been kept yet. This is a fault on Vextrus's side, not in your file. Mark it for Vextrus."

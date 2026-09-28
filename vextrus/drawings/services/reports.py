@@ -16,7 +16,7 @@ from collections import Counter
 from dataclasses import dataclass
 from typing import Any
 
-from django.db.models import Q
+from django.db.models import Q, Sum
 
 from engine.messages import Message
 from vextrus.drawings.messages import reports as said
@@ -115,6 +115,11 @@ def _sheets(row: DrawingFile) -> list[Message]:
         lines.append(said.SHEETS_FOUND_DRAWN(sheets=total))
     if row.empty_layouts:
         lines.append(said.EMPTY_LAYOUTS(layouts=row.empty_layouts))
+    if row.sheets_refused:
+        lines.append(said.SHEETS_NOT_KEPT(sheets=row.sheets_refused))
+    views = SheetRevision.objects.filter(source_file=row).aggregate(n=Sum("views_refused"))["n"]
+    if views:
+        lines.append(said.VIEWS_NOT_KEPT(views=views))
     return lines
 
 

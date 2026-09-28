@@ -21,6 +21,10 @@ RAW_CODES = MessageCode("drawings.reads.raw_codes", params=("file",))
 """A title or a view's words still holding a drawing's codes (`%%C`, `\\P`): not decoded."""
 BAD_RENDER = MessageCode("drawings.reads.bad_render", params=("file",))
 """A sheet's drawing that is not a sheet buffer Vextrus can draw."""
+KIND_UNKNOWN = MessageCode("drawings.reads.kind_unknown", params=("file",))
+"""The read job gave a printed sheet a kind that is no key Vextrus keeps (400)."""
+BAD_READER = MessageCode("drawings.reads.bad_reader", params=("file",))
+"""A reading whose reader's name or version is past what Vextrus keeps (400)."""
 NO_READING = MessageCode("drawings.reads.no_reading", params=("file",))
 """Views asked to be kept before the file's reading was kept."""
 DECIDED = MessageCode("drawings.reads.decided", params=("file",))

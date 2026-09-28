@@ -69,3 +69,9 @@ msgstr "{sheets, plural, one {# sheet found, laid out in the drawing.} other {# 
 
 msgid "drawings.reports.sheets_found_layouts"
 msgstr "{sheets, plural, one {# sheet found, on a layout tab.} other {# sheets found, all on layout tabs.}}"
+
+msgid "drawings.reports.sheets_not_kept"
+msgstr "{sheets, plural, one {# sheet was not kept: a text on it is longer than Vextrus keeps.} other {# sheets were not kept: a text on each is longer than Vextrus keeps.}} Mark the file for Vextrus."
+
+msgid "drawings.reports.views_not_kept"
+msgstr "{views, plural, one {# view was not kept: a text in it is longer than Vextrus keeps.} other {# views were not kept: a text in each is longer than Vextrus keeps.}} Mark the file for Vextrus."

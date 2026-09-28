@@ -25,6 +25,8 @@ For 21b (sheets, views, render and Plot):
 
     services.conventions(file_id)                        # the Market's Disciplines, key and prefixes
     [sr] = services.record_sheets(file_id, candidates)   # each candidate.group == file(file_id).group
+    # sr.ordinal: its candidate's place in candidates (from 1); a sheet or view whose text is past
+    # its column is not kept, alone, and the file's report counts it (views likewise, per sheet)
     services.record_views(sr.id, view_candidates)
     services.record_render(sr.id, buffers)
     services.record_plot(sr.id, plot_match)              # or services.PlotNone.NO_PDF, …

@@ -344,9 +344,9 @@ PRINTED_SHEET = (
     " location_key, location, sheet_key, ordinal, title, revision_mark, issue_date,"
     " storeys_as_stated, sources, content_hash, kind, confirmed_kind, source_sha256,"
     " reader_version, anchors, proposed_exclusion, proposed_exclusion_text,"
-    " render_key, plot_none_reason, decision, excluded_reason, excluded_text) values"
-    " (%s, %s, %s, %s, %s, %s, %s, '', 2, '', '', '', '', '{}', '', '', '', %s, %s, '[]',"
-    " '', '', '', '', '', '', '')"
+    " render_key, plot_none_reason, decision, excluded_reason, excluded_text, views_refused)"
+    " values (%s, %s, %s, %s, %s, %s, %s, '', 2, '', '', '', '', '{}', '', '', '', %s, %s, '[]',"
+    " '', '', '', '', '', '', '', 0)"
 )
 
 
@@ -474,8 +474,9 @@ def test_a_file_inserted_with_a_chosen_id_names_only_its_markets_discipline_and_
             " original_name, size, stored_file_id, discipline_id, discipline_source, building_id,"
             " read_status, read_step, sheets_done, bangla_lines, unmatched_pages, empty_layouts,"
             " added_by_name, added_by_vextrus, added_at, cancelled_by_name, cancelled_by_vextrus,"
-            " held_answer, read_tries, revision_id) values (%s, %s, %s, %s, 'dwg', 'x.dwg', %s, %s,"
-            " %s, %s, %s, 'queued', '', 0, '[]', '[]', 0, '', false, now(), '', false, '', 0, %s)"
+            " held_answer, read_tries, revision_id, sheets_refused) values (%s, %s, %s, %s, 'dwg',"
+            " 'x.dwg', %s, %s, %s, %s, %s, 'queued', '', 0, '[]', '[]', 0, '', false, now(), '', false,"
+            " '', 0, %s, 0)"
         )
         with refused("names a Discipline of another Market"):
             sql(

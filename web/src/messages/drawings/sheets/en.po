@@ -39,3 +39,6 @@ msgstr "That reason is not one Vextrus offers, so nothing was changed. Choose on
 
 msgid "drawings.sheets.text_only_for_other"
 msgstr "Nothing was left out: only \"Other\" takes words of its own. Choose \"Other\" to give your reason, or leave the words out."
+
+msgid "drawings.sheets.text_unreadable"
+msgstr "Those words hold a character that cannot be kept, so nothing was left out. Type them again, or paste them as plain text."

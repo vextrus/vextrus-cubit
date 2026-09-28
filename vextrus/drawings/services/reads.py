@@ -56,12 +56,14 @@ from vextrus.drawings.models import (
     ReadStatus,
     ReadStep,
 )
-from vextrus.drawings.services import _access, drawing_files
+from vextrus.drawings.services import _access, _text, drawing_files
 from vextrus.platform.services import auth, jobs, storage
 
 _UNIT_STEP = re.compile(r"(?:sheet|page)_([1-9][0-9]{0,5})")
 _IN_FLIGHT = (ReadStatus.QUEUED, ReadStatus.READING)
 ARTEFACT_MEDIA_TYPE = "application/json"
+_READER_LENGTH = 64
+"""A reader's name or version as a kept artefact and its StoredFile hold it (64 characters each)."""
 
 
 # The StepStore -------------------------------------------------------------------------------------
@@ -154,6 +156,10 @@ def store_artefact(file_id: uuid.UUID, artefact: ReadArtefact) -> ArtefactRef:
     summary = artefact.summary
     if summary.source_sha256 != row.sha256:
         raise auth.Refused(refusal.NOT_ITS_READING(file=row.original_name), status=400)
+    # The reader's name and version are kept as they are (the anchors carry them), never cleaned.
+    for said_by in (summary.reader, summary.reader_version):
+        if not said_by or _text.read(said_by) != said_by or len(said_by) > _READER_LENGTH:
+            raise auth.Refused(refusal.BAD_READER(file=row.original_name), status=400)
     data = artefact.to_json()
     schema_version = int(data["version"])
     content = artefact_bytes(data)
@@ -170,8 +176,8 @@ def store_artefact(file_id: uuid.UUID, artefact: ReadArtefact) -> ArtefactRef:
                 content,
                 kind="derived",
                 media_type=ARTEFACT_MEDIA_TYPE,
-                producer=summary.reader[:64],
-                producer_version=summary.reader_version[:64],
+                producer=summary.reader,
+                producer_version=summary.reader_version,
                 source_sha256=row.sha256,
             )
         except storage.KeyTaken:
@@ -257,25 +263,27 @@ def record_reports(
         if upload_report is not None:
             if upload_report.source_sha256 != row.sha256:
                 raise auth.Refused(refusal.NOT_ITS_READING(file=row.original_name), status=400)
-            row.upload_report = upload_report.to_json()
+            row.upload_report = _text.read_json(upload_report.to_json())
             row.sheets_total = len(upload_report.pages)
             fields += ["upload_report", "sheets_total"]
             if upload_report.refused is not None and row.read_status in _IN_FLIGHT:
                 row.read_status = ReadStatus.REFUSED
-                row.finding = dict(upload_report.refused)
+                row.finding = _text.read_json(dict(upload_report.refused))
                 fields += ["read_status", "finding"]
         if cross_check is not None:
-            row.cross_check = {
-                "code": cross_check.code,
-                "outcome": str(cross_check.outcome),
-                "finding": cross_check.finding,
-            }
+            row.cross_check = _text.read_json(
+                {
+                    "code": cross_check.code,
+                    "outcome": str(cross_check.outcome),
+                    "finding": cross_check.finding,
+                }
+            )
             fields.append("cross_check")
         if font_report is not None:
-            row.font_report = font_report.to_json()
+            row.font_report = _text.read_json(font_report.to_json())
             fields.append("font_report")
         if bangla_ansi is not None:
-            row.bangla_ansi = bangla_ansi.to_json()
+            row.bangla_ansi = _text.read_json(bangla_ansi.to_json())
             fields.append("bangla_ansi")
         row.save(update_fields=fields)
     return drawing_files.file(row.id)
@@ -285,7 +293,8 @@ def record_bangla_lines(file_id: uuid.UUID, lines: Sequence[Message]) -> None:
     """The Bangla-ANSI Check's lines for the report, once its texts' sheets are known (21b:
     `BanglaAnsi.findings(sheet_of)`)."""
     row = _access.drawing_file(file_id)
-    DrawingFile.objects.filter(id=row.id).update(bangla_lines=[dict(line) for line in lines])
+    kept = [_text.read_json(dict(line)) for line in lines]
+    DrawingFile.objects.filter(id=row.id).update(bangla_lines=kept)
 
 
 def record_page_reasons(file_id: uuid.UUID, lines: Sequence[Message]) -> None:
@@ -294,7 +303,8 @@ def record_page_reasons(file_id: uuid.UUID, lines: Sequence[Message]) -> None:
     row = _access.drawing_file(file_id)
     if row.format != FileFormat.PDF:
         raise auth.Refused(refusal.WRONG_KIND(file=row.original_name), status=400)
-    DrawingFile.objects.filter(id=row.id).update(unmatched_pages=[dict(line) for line in lines])
+    kept = [_text.read_json(dict(line)) for line in lines]
+    DrawingFile.objects.filter(id=row.id).update(unmatched_pages=kept)
 
 
 def attach_read_job(file_id: uuid.UUID, job_id: int) -> None:
@@ -347,7 +357,7 @@ def _end(
         if row.read_status in _IN_FLIGHT:
             row.read_status = status
             row.read_step = ""
-            row.finding = None if finding is None else dict(finding)
+            row.finding = None if finding is None else _text.read_json(dict(finding))
             row.read_tries = tries
             if status == ReadStatus.READ and row.sheets_total is not None:
                 row.sheets_done = row.sheets_total

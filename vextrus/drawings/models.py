@@ -297,6 +297,9 @@ class DrawingFile(models.Model):
     bangla_lines = models.JSONField(default=list, blank=True)
     unmatched_pages = models.JSONField(default=list, blank=True)
     empty_layouts = models.PositiveIntegerField(default=0)
+    sheets_refused = models.PositiveIntegerField(
+        default=0, help_text="Sheets the reading found and did not keep: a text past its column."
+    )
     added_by = models.UUIDField(null=True, blank=True, editable=False)
     added_by_name = models.CharField(
         max_length=200, blank=True, editable=False, help_text="Their name at the time, as shown."
@@ -549,6 +552,9 @@ class SheetRevision(models.Model):
         max_length=16, choices=ExclusionReason.choices, blank=True, default=""
     )
     proposed_exclusion_text = models.TextField(blank=True)
+    views_refused = models.PositiveIntegerField(
+        default=0, help_text="Its views the reading found and did not keep: a text past its column."
+    )
     render_file_id = models.UUIDField(null=True, blank=True)
     render_key = models.CharField(max_length=1200, blank=True, help_text="Its render's storage key.")
     plot_file = models.ForeignKey(

@@ -35,7 +35,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
-from django.db import transaction
+from django.db import models, transaction
 from django.db.models import Q, QuerySet
 from django.utils import timezone
 
@@ -62,7 +62,7 @@ from vextrus.drawings.models import (
     View,
     ViewKind,
 )
-from vextrus.drawings.services import _access, drawing_files, library_disciplines, reads
+from vextrus.drawings.services import _access, _text, drawing_files, library_disciplines, reads
 from vextrus.drawings.services.stored_anchor import StoredAnchor
 from vextrus.platform.services import auth, storage, tenancy
 
@@ -178,16 +178,27 @@ def record_sheets(
             _decoded(name, *_sheet_words(candidate))
         _default_discipline(row, candidates, market)
         _access.lock("sheets", row.drawing_set_id)
-        places = [_location_key(c.location) for c in candidates]
-        if len(set(places)) != len(places):
+        read_places = [repr((c.location.layout, c.location.box)) for c in candidates]
+        if len(set(read_places)) != len(read_places):
             raise auth.Refused(refusal.NOT_ITS_READING(file=name), status=400)
+        # A sheet a text of which is past its column is not kept, alone; so is one whose place,
+        # cleaned, is another's. Each kept sheet's ordinal is its candidate's place in `candidates`.
+        places: dict[str, int] = {}
         recorded = []
-        for ordinal, (candidate, place) in enumerate(zip(candidates, places, strict=True), start=1):
-            recorded.append(_keep_sheet(row, kept.reader_version, candidate, place, ordinal, market))
+        for ordinal, candidate in enumerate(candidates, start=1):
+            texts = _sheet_texts(candidate)
+            place = _location_key(candidate.location, texts.layout)
+            if not texts.fits or place in places:
+                continue
+            places[place] = ordinal
+            recorded.append(
+                _keep_sheet(row, kept.reader_version, candidate, texts, place, ordinal, market)
+            )
         _drop_stale(row, set(places))
-        row.sheets_total = len(candidates)
+        row.sheets_total = len(recorded)
+        row.sheets_refused = len(candidates) - len(recorded)
         row.empty_layouts = max(0, int(empty_layouts))
-        row.save(update_fields=["sheets_total", "empty_layouts"])
+        row.save(update_fields=["sheets_total", "sheets_refused", "empty_layouts"])
     return [_sheet_view(sr) for sr in _all().filter(id__in=[sr.id for sr in recorded])
             .order_by("ordinal")]  # fmt: skip
 
@@ -204,6 +215,50 @@ def _sheet_words(candidate: SheetCandidate) -> list[str]:
         )
         if field is not None
     ]
+
+
+@dataclass(frozen=True)
+class _SheetTexts:
+    """A sheet candidate's texts as they may be kept (`_text.read`)."""
+
+    number: str
+    title: str
+    revision_mark: str
+    issue_date: str
+    storeys: str
+    layout: str | None
+    exclusion_text: str
+
+    @property
+    def fits(self) -> bool:
+        return _text.fits(
+            (self.number, _length(Sheet, "number")),
+            (self.revision_mark, _length(SheetRevision, "revision_mark")),
+            (self.issue_date, _length(SheetRevision, "issue_date")),
+        )
+
+
+def _sheet_texts(candidate: SheetCandidate) -> _SheetTexts:
+    def value(field: Any) -> str:
+        return _text.read(field.value) if field is not None else ""
+
+    layout = candidate.location.layout
+    return _SheetTexts(
+        number=value(candidate.number),
+        title=value(candidate.title),
+        revision_mark=value(candidate.revision_mark),
+        issue_date=value(candidate.issue_date),
+        storeys=value(candidate.storeys_as_stated),
+        layout=None if layout is None else _text.read(layout),
+        exclusion_text=_text.read(candidate.exclusion.text) if candidate.exclusion else "",
+    )
+
+
+def _length(model: type[models.Model], name: str) -> int:
+    field = model._meta.get_field(name)
+    assert isinstance(field, models.Field)
+    assert field.max_length is not None
+    return field.max_length
 
 
 def _decoded(file_name: str, *texts: str | None) -> None:
@@ -229,9 +284,10 @@ def _default_discipline(
     row.save(update_fields=["discipline", "discipline_source", "revision"])
 
 
-def _location_key(location: SheetLocation) -> str:
-    if location.layout is not None:
-        return reads.canonical({"layout": location.layout}).decode()
+def _location_key(location: SheetLocation, layout: str | None) -> str:
+    """Its place as one text (`layout`: its layout's name as kept, `_text.read`)."""
+    if layout is not None:
+        return reads.canonical({"layout": layout}).decode()
     assert location.box is not None
     box = location.box
     return reads.canonical({"box": [_decimal(v) for v in (box.x0, box.y0, box.x1, box.y1)]}).decode()
@@ -248,14 +304,16 @@ def _anchors_of(
     printed sheet has one, its key); else refused."""
     found = set()
     for anchor in anchors:
+        if not isinstance(anchor, DwgAnchor):
+            raise auth.Refused(refusal.NOT_ITS_READING(file=row.original_name), status=400)
+        sheet = None if anchor.sheet is None else _text.read(anchor.sheet)
         if (
-            not isinstance(anchor, DwgAnchor)
-            or anchor.source_sha256 != row.sha256
+            anchor.source_sha256 != row.sha256
             or anchor.reader_version != reader_version
-            or (sheet_key is not None and anchor.sheet != sheet_key)
+            or (sheet_key is not None and sheet != sheet_key)
         ):
             raise auth.Refused(refusal.NOT_ITS_READING(file=row.original_name), status=400)
-        found.add(anchor.sheet)
+        found.add(sheet)
     if len(found) > 1:
         raise auth.Refused(refusal.NOT_ITS_READING(file=row.original_name), status=400)
     return found.pop() if found else None
@@ -265,18 +323,17 @@ def _keep_sheet(
     row: DrawingFile,
     reader_version: str,
     candidate: SheetCandidate,
+    texts: _SheetTexts,
     place: str,
     ordinal: int,
     market: dict[str, Discipline],
 ) -> SheetRevision:
     location = candidate.location
     sheet_key = _anchors_of(row, reader_version, candidate.anchors, None)
-    if sheet_key is None and location.layout is not None:
-        sheet_key = location.layout
+    if sheet_key is None and texts.layout is not None:
+        sheet_key = texts.layout
     discipline = row.discipline or (market[candidate.discipline.value] if candidate.discipline else None)
-    number = candidate.number.value if candidate.number else ""
-    title = candidate.title.value if candidate.title else ""
-    storeys = candidate.storeys_as_stated.value if candidate.storeys_as_stated else ""
+    number, title, storeys = texts.number, texts.title, texts.storeys
     if number:
         sheet, _ = Sheet.objects.get_or_create(
             tenant_id=row.tenant_id,
@@ -304,21 +361,21 @@ def _keep_sheet(
     values = {
         "sheet": sheet,
         "revision_id": row.revision_id,
-        "location": _location_json(location),
+        "location": _location_json(location, texts.layout),
         "sheet_key": sheet_key or "",
         "ordinal": ordinal,
         "title": title,
-        "revision_mark": candidate.revision_mark.value if candidate.revision_mark else "",
-        "issue_date": candidate.issue_date.value if candidate.issue_date else "",
+        "revision_mark": texts.revision_mark,
+        "issue_date": texts.issue_date,
         "storeys_as_stated": storeys,
-        "sources": _sources(candidate),
+        "sources": _text.read_json(_sources(candidate)),
         "source_sha256": row.sha256,
         "reader_version": reader_version,
         "proposed_exclusion": str(exclusion.reason) if exclusion else "",
-        "proposed_exclusion_text": (exclusion.text or "") if exclusion else "",
+        "proposed_exclusion_text": texts.exclusion_text,
     }
     existing = SheetRevision.objects.filter(source_file=row, location_key=place).first()
-    anchors = [_detail(a) for a in candidate.anchors]
+    anchors = [_text.read_json(_detail(a)) for a in candidate.anchors]
     if existing is None:
         created = SheetRevision.objects.create(
             tenant_id=row.tenant_id,
@@ -371,9 +428,9 @@ def _detail(anchor: Anchor) -> dict[str, Any]:
     return StoredAnchor.of(anchor, sheet_revision_id=uuid.UUID(int=0)).detail
 
 
-def _location_json(location: SheetLocation) -> dict[str, Any]:
-    if location.layout is not None:
-        return {"layout": location.layout}
+def _location_json(location: SheetLocation, layout: str | None) -> dict[str, Any]:
+    if layout is not None:
+        return {"layout": layout}
     assert location.box is not None
     b = location.box
     return {"box": [_decimal(v) for v in (b.x0, b.y0, b.x1, b.y1)]}
@@ -422,6 +479,8 @@ def record_views(sheet_revision_id: uuid.UUID, candidates: Sequence[ViewCandidat
         for candidate in candidates:
             if not isinstance(candidate, ViewCandidate):
                 raise auth.Refused(refusal.NOT_ITS_READING(file=name), status=400)
+            if str(candidate.kind) not in ViewKind.values:
+                raise auth.Refused(refusal.KIND_UNKNOWN(file=name), status=400)
             _decoded(name, candidate.title, candidate.stated_scale, candidate.storeys_as_stated)
             if candidate.part is not None and candidate.part not in market:
                 raise auth.Refused(refusal.UNKNOWN_DISCIPLINE(file=name), status=400)
@@ -431,8 +490,19 @@ def record_views(sheet_revision_id: uuid.UUID, candidates: Sequence[ViewCandidat
             raise auth.Refused(refusal.DECIDED(file=name), status=409)
         earlier.delete()
         made = []
-        for ordinal, candidate in enumerate(candidates, start=1):
+        for ordinal, candidate in enumerate(candidates, start=1):  # its candidate's place, kept or not
             exclusion = candidate.exclusion
+            scale = _text.read(candidate.stated_scale)
+            subject = _text.read(candidate.subject)
+            layer = _text.read(candidate.layer)
+            meaning = _text.read(candidate.storeys_meaning)
+            if not _text.fits(
+                (scale, _length(View, "stated_scale_text")),
+                (subject, _length(View, "subject")),
+                (layer, _length(View, "layer")),
+                (meaning, _length(View, "storeys_meaning")),
+            ):
+                continue
             made.append(
                 View(
                     tenant_id=row.tenant_id,
@@ -440,25 +510,27 @@ def record_views(sheet_revision_id: uuid.UUID, candidates: Sequence[ViewCandidat
                     reader_version=kept.reader_version,
                     ordinal=ordinal,
                     kind=str(candidate.kind),
-                    title=candidate.title or "",
+                    title=_text.read(candidate.title),
                     box=[_decimal(v) for v in _box(candidate)],
                     drawing_unit=_UNITS.get(kept.insunits, ""),
                     not_to_scale=candidate.not_to_scale,
-                    stated_scale_text=candidate.stated_scale or "",
-                    storeys_as_stated=candidate.storeys_as_stated or "",
-                    storeys=list(candidate.storeys),
-                    storeys_meaning=str(candidate.storeys_meaning or ""),
-                    subject=candidate.subject or "",
-                    layer=str(candidate.layer) if candidate.layer else "",
-                    steps=list(candidate.steps),
+                    stated_scale_text=scale,
+                    storeys_as_stated=_text.read(candidate.storeys_as_stated),
+                    storeys=_text.read_json(list(candidate.storeys)),
+                    storeys_meaning=meaning,
+                    subject=subject,
+                    layer=layer,
+                    steps=_text.read_json(list(candidate.steps)),
                     part=market[candidate.part] if candidate.part else None,
                     proposed_exclusion=str(exclusion.reason) if exclusion else "",
-                    proposed_exclusion_text=(exclusion.text or "") if exclusion else "",
+                    proposed_exclusion_text=_text.read(exclusion.text) if exclusion else "",
                     source_sha256=row.sha256,
-                    anchors=[_detail(a) for a in candidate.anchors],
+                    anchors=[_text.read_json(_detail(a)) for a in candidate.anchors],
                 )
             )
         View.objects.bulk_create(made)
+        sheet_revision.views_refused = len(candidates) - len(made)
+        sheet_revision.save(update_fields=["views_refused"])
     return _views_of(sheet_revision)
 
 
@@ -778,13 +850,23 @@ def _view_view(view: View) -> ViewView:
 # Decisions: confirm, leave out, undo ----------------------------------------------------------------
 
 
+def _is_kind(kind: object) -> bool:
+    """A sheet's kind: a key, held by value, no longer than its column."""
+    return (
+        isinstance(kind, str)
+        and len(kind) <= _length(SheetRevision, "kind")
+        and _KEY.fullmatch(kind) is not None
+    )
+
+
 def record_kind(sheet_revision_id: uuid.UUID, kind: str | None) -> SheetView:
     """Keep a printed sheet's kind as read (21b: the one 15's Jev picks, among the Discipline's kinds
     13 drafts, held by value as a key; None: not known). Never changes one the QS has decided."""
-    if kind is not None and not (isinstance(kind, str) and _KEY.fullmatch(kind)):
-        raise auth.Refused(said.KIND_UNKNOWN(), status=400)
     with transaction.atomic():
         sheet_revision = _access.sheet_revision(sheet_revision_id, lock=True)
+        if kind is not None and not _is_kind(kind):
+            file_name = sheet_revision.source_file.original_name
+            raise auth.Refused(refusal.KIND_UNKNOWN(file=file_name), status=400)
         if sheet_revision.decision and sheet_revision.kind != (kind or ""):
             file_name = sheet_revision.source_file.original_name
             raise auth.Refused(refusal.DECIDED(file=file_name), status=409)
@@ -798,7 +880,7 @@ def confirm_sheet(
 ) -> SheetView:
     """The QS confirms a printed sheet (and its kind, a key, when given): stamped with the
     Confirmation's id, which `undo` reverses. Confirming a sheet left out brings it back in."""
-    if kind is not None and not (isinstance(kind, str) and _KEY.fullmatch(kind)):
+    if kind is not None and not _is_kind(kind):
         raise auth.Refused(said.KIND_UNKNOWN(), status=400)
     with transaction.atomic():
         sheet_revision = _listed(sheet_revision_id, lock=True)
@@ -836,6 +918,8 @@ def exclude(
     except ValueError:
         raise auth.Refused(said.REASON_UNKNOWN(), status=400) from None
     words = (text or "").strip()
+    if not _text.typed(words):
+        raise auth.Refused(said.TEXT_UNREADABLE(), status=400)
     if chosen == ExclusionReason.OTHER and not words:
         raise auth.Refused(said.OTHER_NEEDS_TEXT(), status=400)
     if chosen != ExclusionReason.OTHER and words:
@@ -925,4 +1009,4 @@ def _decide(
 
 def location_key(location: SheetLocation) -> str:
     """A location as its canonical key (the seed and the tests find a printed sheet by it)."""
-    return _location_key(location)
+    return _location_key(location, None if location.layout is None else _text.read(location.layout))
