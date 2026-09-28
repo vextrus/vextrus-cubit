@@ -1,0 +1,53 @@
+msgid ""
+msgstr ""
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: en\n"
+
+#. vextrus/drawings/messages/reports.py (ticket 14): a file's report panel, in m0-screens 4.5's words.
+msgid "drawings.reports.empty_layouts"
+msgstr "{layouts, plural, one {# layout tab shows nothing, so it is not a sheet.} other {# layout tabs show nothing, so they are not sheets.}}"
+
+msgid "drawings.reports.no_dwg_for_pages"
+msgstr "No DWG has been added for these pages yet."
+
+msgid "drawings.reports.no_plot"
+msgstr "No PDF added for these sheets. Add the PDFs plotted from this file to compare them with what Vextrus read."
+
+msgid "drawings.reports.no_sheets"
+msgstr "Vextrus found no sheet borders or layout tabs in this file. If it has sheets, mark it for Vextrus."
+
+msgid "drawings.reports.page_sheet_not_in_dwg"
+msgstr "Page {page} shows sheet {sheet}, which is not in any DWG added so far."
+
+msgid "drawings.reports.page_title_block_unread"
+msgstr "Page {page}: its title block could not be read."
+
+msgid "drawings.reports.pages_matched"
+msgstr "{matched} of {pages, plural, one {# page} other {# pages}} matched to a sheet."
+
+msgid "drawings.reports.pages_same_sheet"
+msgstr "Pages {first_page} and {used_page} both show {sheet}; page {used_page} is used."
+
+msgid "drawings.reports.plot_of_dwg"
+msgstr "Its Plot is {plot_file}: {with_page} of {sheets, plural, one {# sheet has} other {# sheets have}} a page."
+
+msgid "drawings.reports.readers_agree"
+msgstr "✓ Read twice, by two independent readers, and they agree. Nothing in the file was skipped."
+
+msgid "drawings.reports.sheet_revision_without_page"
+msgstr "{sheet} (rev {revision}) has no page in this PDF."
+
+msgid "drawings.reports.sheet_without_page"
+msgstr "{sheet} has no page in this PDF."
+
+msgid "drawings.reports.sheets_found"
+msgstr "{sheets, plural, one {# sheet found} other {# sheets found}}: {drawn} laid out in the drawing, {layouts} on layout tabs."
+
+msgid "drawings.reports.sheets_found_drawn"
+msgstr "{sheets, plural, one {# sheet found, laid out in the drawing.} other {# sheets found, all laid out in the drawing.}}"
+
+msgid "drawings.reports.sheets_found_layouts"
+msgstr "{sheets, plural, one {# sheet found, on a layout tab.} other {# sheets found, all on layout tabs.}}"

@@ -1,5 +1,158 @@
 """`drawings`'s public services: other modules call only these and `schemas`.
 
 Each ticket writes its own submodule (`services/<name>.py`); this file re-exports them, and a
-re-export line is the only shared edit.
+re-export line is the only shared edit. Every service acts in the acting tenant (row-level security)
+and checks the acting Membership's Project scope itself, a job step's included; what it does not find
+there is `auth.NotFound`, one answer. Its refusals are `auth.Refused` with a `drawings.*` code.
+
+For 21a (the upload operation and the read job, in `takeoff`):
+
+    added = services.add_file(project_id, name=upload.name, content=upload, actor_name=user.name)
+    job_id = read_file.defer(file_id=added.file.id)      # in the same transaction
+    services.attach_read_job(added.file.id, job_id)
+    # the job:
+    steps = run.steps(services.step_store(), subject_id=file_id, total=…)
+    with services.original(file_id) as path: …           # the upload, checked, as a private copy
+    services.store_artefact(file_id, artefact)           # a ReadArtefact, as JSON, per reader version
+    services.record_reports(file_id, cross_check=…, font_report=…, bangla_ansi=…)  # or upload_report=
+    services.quarantine(file_id, finding)                # held (the two readers disagree)
+    services.mark_failed(file_id, finding)               # or failed, with why
+    services.mark_read(file_id)                          # in the last step's transaction
+    # step names these words know: services.OPENING, READING, SECOND_READER, SHEETS,
+    # sheet_step(n), FINISHING; a PDF's OPENING, page_step(n), MATCHING
+
+For 21b (sheets, views, render and Plot):
+
+    services.conventions(file_id)                        # the Market's Disciplines, key and prefixes
+    [sr] = services.record_sheets(file_id, candidates)   # each candidate.group == file(file_id).group
+    services.record_views(sr.id, view_candidates)
+    services.record_render(sr.id, buffers)
+    services.record_plot(sr.id, plot_match)              # or services.PlotNone.NO_PDF, …
+    services.artefact(file_id)                           # the kept ReadArtefact, loaded back
+
+For 19a and 21c (Step 1):
+
+    services.files(set_id); services.sheets(set_id, "structural"); services.views(sr.id)
+    services.confirm_sheet(sr.id, confirmation_id=c, kind="beam_layout")
+    services.confirm_view(view.id, confirmation_id=c)
+    services.exclude(view.id, "other", "The QS's words", confirmation_id=c)
+    services.undo(c)                                     # every decision stamped with c
+    services.resolve(anchor, sheet_revision_id=sr.id)    # file, printed sheet, entity and chain
+    services.answer_held(file_id, "read_anyway")         # a held file's Question answered
 """
+
+from vextrus.drawings.models import HeldAnswer, PlotNone
+from vextrus.drawings.services.anchors import Resolved, resolve
+from vextrus.drawings.services.disciplines import DisciplineView, conventions, disciplines
+from vextrus.drawings.services.files import (
+    FINISHING,
+    MATCHING,
+    OPENING,
+    READING,
+    SECOND_READER,
+    SHEETS,
+    Added,
+    FileState,
+    FileView,
+    SetView,
+    add_file,
+    cancel,
+    clean_name,
+    file,
+    files,
+    page_step,
+    restart,
+    set_discipline,
+    set_of,
+    sheet_step,
+    summary,
+)
+from vextrus.drawings.services.reads import (
+    ArtefactRef,
+    answer_held,
+    artefact,
+    attach_read_job,
+    mark_failed,
+    mark_read,
+    original,
+    quarantine,
+    record_bangla_lines,
+    record_page_reasons,
+    record_reports,
+    step_store,
+    store_artefact,
+)
+from vextrus.drawings.services.sheets import (
+    PlotView,
+    SheetView,
+    ViewView,
+    confirm_sheet,
+    confirm_view,
+    exclude,
+    record_plot,
+    record_render,
+    record_sheets,
+    record_views,
+    render,
+    sheets,
+    undo,
+    views,
+)
+
+__all__ = [
+    "FINISHING",
+    "MATCHING",
+    "OPENING",
+    "READING",
+    "SECOND_READER",
+    "SHEETS",
+    "Added",
+    "ArtefactRef",
+    "DisciplineView",
+    "FileState",
+    "FileView",
+    "HeldAnswer",
+    "PlotNone",
+    "PlotView",
+    "Resolved",
+    "SetView",
+    "SheetView",
+    "ViewView",
+    "add_file",
+    "answer_held",
+    "artefact",
+    "attach_read_job",
+    "cancel",
+    "clean_name",
+    "confirm_sheet",
+    "confirm_view",
+    "conventions",
+    "disciplines",
+    "exclude",
+    "file",
+    "files",
+    "mark_failed",
+    "mark_read",
+    "original",
+    "page_step",
+    "quarantine",
+    "record_bangla_lines",
+    "record_page_reasons",
+    "record_plot",
+    "record_render",
+    "record_reports",
+    "record_sheets",
+    "record_views",
+    "render",
+    "resolve",
+    "restart",
+    "set_discipline",
+    "set_of",
+    "sheet_step",
+    "sheets",
+    "step_store",
+    "store_artefact",
+    "summary",
+    "undo",
+    "views",
+]

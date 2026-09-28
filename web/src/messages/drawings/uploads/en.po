@@ -1,0 +1,32 @@
+msgid ""
+msgstr ""
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: en\n"
+
+#. vextrus/drawings/messages/uploads.py (ticket 14): what adding a file answers, in m0-screens 4.5's toast words.
+msgid "drawings.uploads.already_here"
+msgstr "{file} is already in this Drawing Set (added {added_date} by {actor}). Nothing was added."
+
+msgid "drawings.uploads.not_a_drawing"
+msgstr "{file} is not a DWG or a PDF, so it was not added. Vextrus reads DWG and PDF files."
+
+msgid "drawings.uploads.one_at_a_time"
+msgstr "Several files arrived together, so none was added. Add them again one at a time."
+
+msgid "drawings.uploads.replaced"
+msgstr "{file} is already in this Drawing Set, but Vextrus's copy of it was missing or damaged. This one replaces that copy; nothing else was added."
+
+msgid "drawings.uploads.same_name_kept"
+msgstr "A file with this name is already here. This one is different, so both are kept."
+
+msgid "drawings.uploads.stopped"
+msgstr "Upload stopped: the connection dropped."
+
+msgid "drawings.uploads.too_large"
+msgstr "{file} is larger than {megabytes} MB, so it was not added. Tell Vextrus if your drawings need more."
+
+msgid "drawings.uploads.zip"
+msgstr "{file} is a zip file. Unzip it and drop the DWG and PDF files inside."

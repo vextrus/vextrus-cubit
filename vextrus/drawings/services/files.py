@@ -1,0 +1,767 @@
+"""Drawing Sets and their files (ticket 14; docs/data-model.md §3.2; docs/design/m0-screens.md 4.5).
+
+    added = drawings.services.add_file(project_id, name=upload.name, content=upload, actor_name=…)
+    added.outcome          # "added", "already_here" or "replaced"; added.message: the toast's words
+    drawings.services.files(set_id)          # each with its status in 4.5's words
+    drawings.services.cancel(file_id, actor_name=…)   # the file's own read job, never a client's
+    drawings.services.restart(file_id)                # only a failed or cancelled reading, once
+
+**Adding a file** (`add_file`): a file is known by its contents. Its first bytes say what it is (a
+DWG, a PDF, a zip), never its name or the type the browser gave; anything else, an empty file among
+them, is refused, and so is a file over the limit (`VEXTRUS_UPLOAD_MAX_BYTES`); a refusal keeps
+nothing, no row, no StoredFile and no file. Its name is the QS's label for it and nothing more: path
+pieces, control and direction characters are taken out and it is never a path or a storage key (the
+original's key names the contents' sha256). The same contents added to the set again add nothing
+("already here", when and by whom), unless Vextrus's copy of them is missing or damaged: then the new
+copy replaces it, and a reading that stopped is started again. A file with the same name and other
+contents is added beside it. Two adds of one file at once wait for each other: one row.
+
+**Its Discipline** comes from its name (`services.disciplines.from_name`), else from its sheets'
+numbers when they are read (`record_sheets`), and the QS may change it; the QS's choice is never
+overwritten. A file of a Discipline the set does not yet hold is that Discipline's first issue, never a
+Revision of another, and touches no other Discipline's rows (the plan's review Q6). Changing it after
+its sheets are read moves them with it, unless one is confirmed or left out in Step 1, or the chosen
+Discipline already has a sheet of that number: then nothing changes (409).
+
+**Its status** is 4.5's row, as `drawings.files.*` codes: the file's own columns, and its read job's
+state over them while it has one (`jobs.state`), so a job that crashed reads "Could not be read" though
+it never wrote so. "Waiting (2 files ahead)" counts the Developer's own files only.
+
+**Cancel and restart** act on the file's own read job, under its row lock: a second cancel writes
+nothing, and a cancel that lost the race to the last step (which marks the file read in its own
+transaction) leaves the file read; only a failed or cancelled reading is started again, once however
+many clicks. Until the read job exists (21a) a file waits with none, and cancelling it marks it
+cancelled.
+"""
+
+import hashlib
+import math
+import re
+import unicodedata
+import uuid
+from collections import Counter
+from collections.abc import Iterable
+from dataclasses import dataclass
+from datetime import datetime
+from enum import StrEnum
+from pathlib import PurePosixPath
+from typing import BinaryIO
+
+from django.conf import settings
+from django.db import transaction
+from django.db.models import Max, Q
+from django.utils import timezone
+
+from engine.messages import Message, MessageCode
+from vextrus.drawings.messages import files as said
+from vextrus.drawings.messages import uploads as toasts
+from vextrus.drawings.models import (
+    Discipline,
+    DisciplineSource,
+    DrawingFile,
+    DrawingSet,
+    DrawingSetState,
+    FileFormat,
+    HeldAnswer,
+    ReadStatus,
+    Revision,
+    RevisionKind,
+    Sheet,
+    SheetRevision,
+    StateCause,
+    StateStatus,
+)
+from vextrus.drawings.services import _access, disciplines
+from vextrus.platform.services import auth, events, jobs, storage, tenancy
+from vextrus.projects import services as projects
+
+_CHUNK = 1 << 20
+_HEAD = 512
+_NAME_LIMIT = 255
+_DWG = re.compile(rb"AC[0-9.]{4}")
+_OFFICE_ENTRIES = (b"[Content_Types].xml", b"mimetype")
+"""A zip whose first entry is one of these is an office document, not a zip of drawings."""
+_STEP_UNIT = re.compile(r"(sheet|page)_([1-9][0-9]{0,5})")
+_SITE_GROUP = "site"
+_MEDIA_TYPES = {FileFormat.DWG: "image/vnd.dwg", FileFormat.PDF: "application/pdf"}
+
+# The read job's step names these words know (21a, 21b name their steps from these) ------------------
+
+OPENING = "opening"
+READING = "reading"
+SECOND_READER = "second_reader"
+SHEETS = "sheets"
+FINISHING = "finishing"
+MATCHING = "matching"
+
+
+def sheet_step(position: int) -> str:
+    """The step reading a DWG's sheet `position` of its `sheets_total` ("Reading sheet 12 of 38")."""
+    return f"sheet_{position}"
+
+
+def page_step(position: int) -> str:
+    """The step reading a PDF's page `position` of its pages ("Reading page 12 of 57")."""
+    return f"page_{position}"
+
+
+class FileState(StrEnum):
+    """Which of 4.5's rows a file is on, for the actions the web offers beside its words."""
+
+    WAITING = "waiting"
+    READING = "reading"
+    STOPPING = "stopping"
+    RETRYING = "retrying"
+    CANCELLED = "cancelled"
+    FAILED = "failed"
+    UNREADABLE = "unreadable"
+    """Saved by an AutoCAD too old to read: nothing to try again."""
+    READ = "read"
+    HELD = "held"
+    REFUSED = "refused"
+
+
+IN_PROGRESS = frozenset({FileState.WAITING, FileState.READING, FileState.STOPPING, FileState.RETRYING})
+
+
+@dataclass(frozen=True)
+class SetView:
+    id: uuid.UUID
+    project_id: uuid.UUID
+    name: str
+
+
+@dataclass(frozen=True)
+class FileView:
+    id: uuid.UUID
+    set_id: uuid.UUID
+    project_id: uuid.UUID
+    name: str
+    """The QS's label for it: never a path."""
+    format: str
+    size: int
+    sha256: str
+    discipline: str | None
+    """Its Discipline's key, or None."""
+    discipline_source: str | None
+    building_id: uuid.UUID | None
+    group: str
+    """The group its sheets are stamped with (its Building's id; "site" for the Site's)."""
+    added_at: datetime
+    added_by_name: str
+    state: FileState
+    status: Message
+    finding: Message | None
+    sheets_found: int | None
+    """Its printed sheets, once it is read (a DWG); None otherwise."""
+    plot_for: tuple[uuid.UUID, ...]
+    """For a PDF: the DWGs whose sheets its pages matched (4.5 shows it under them)."""
+    read_job_id: int | None
+
+
+@dataclass(frozen=True)
+class Added:
+    file: FileView
+    outcome: str
+    """`added`, `already_here` (nothing was added: `file` is the one already there) or `replaced`
+    (Vextrus's missing or damaged copy was replaced)."""
+    message: Message | None
+    """The toast's words, when 4.5 has any."""
+
+
+# Reading ------------------------------------------------------------------------------------------
+
+
+def set_of(project_id: uuid.UUID) -> SetView | None:
+    """The Project's Drawing Set, or None before its first file."""
+    _access.in_scope(project_id)
+    found = DrawingSet.objects.filter(tenant_id=_access.tenant_id(), project_id=project_id).first()
+    return None if found is None else SetView(found.id, found.project_id, found.name)
+
+
+def files(set_id: uuid.UUID) -> list[FileView]:
+    """The set's files, in the order they were added, each with its status."""
+    drawing_set = _access.drawing_set(set_id)
+    rows = list(
+        DrawingFile.objects.select_related("drawing_set", "discipline")
+        .filter(drawing_set=drawing_set)
+        .order_by("added_at", "id")
+    )
+    return _views(rows)
+
+
+def file(file_id: uuid.UUID) -> FileView:
+    return _views([_access.drawing_file(file_id)])[0]
+
+
+def summary(views: Iterable[FileView]) -> Message:
+    """The page's one-line summary ("7 files: 21 sheets read, 1 file reading, 1 held, 1 refused")."""
+    shown = list(views)
+    states = Counter(view.state for view in shown)
+    return said.SUMMARY(
+        files=len(shown),
+        sheets=sum(view.sheets_found or 0 for view in shown if view.state == FileState.READ),
+        reading=sum(states[state] for state in IN_PROGRESS),
+        held=states[FileState.HELD],
+        refused=states[FileState.REFUSED],
+    )
+
+
+def group_of(row: DrawingFile) -> str:
+    return _SITE_GROUP if row.building_id is None else str(row.building_id)
+
+
+def _views(rows: list[DrawingFile]) -> list[FileView]:
+    ids = [row.id for row in rows]
+    found = dict(
+        Counter(
+            SheetRevision.objects.filter(source_file_id__in=ids).values_list("source_file_id", flat=True)
+        )
+    )
+    plotted = SheetRevision.objects.filter(plot_file_id__in=ids, plot_page__isnull=False)
+    matched_pages: dict[uuid.UUID, set[int]] = {}
+    plot_for: dict[uuid.UUID, list[uuid.UUID]] = {}
+    for pdf_id, page, dwg_id in plotted.order_by("source_file__added_at").values_list(
+        "plot_file_id", "plot_page", "source_file_id"
+    ):
+        assert pdf_id is not None
+        assert page is not None
+        matched_pages.setdefault(pdf_id, set()).add(page)
+        if dwg_id not in plot_for.setdefault(pdf_id, []):
+            plot_for[pdf_id].append(dwg_id)
+    now = timezone.now()
+    shown = []
+    for row in rows:
+        job = jobs.state(row.read_job_id) if row.read_job_id is not None else None
+        state, status = _status(row, job, now, len(matched_pages.get(row.id, ())))
+        readable = state == FileState.READ or (
+            row.read_status == ReadStatus.QUARANTINED and row.held_answer == HeldAnswer.READ_ANYWAY
+        )
+        shown.append(
+            FileView(
+                id=row.id,
+                set_id=row.drawing_set_id,
+                project_id=row.drawing_set.project_id,
+                name=row.original_name,
+                format=row.format,
+                size=row.size,
+                sha256=row.sha256,
+                discipline=row.discipline.key if row.discipline else None,
+                discipline_source=row.discipline_source or None,
+                building_id=row.building_id,
+                group=group_of(row),
+                added_at=row.added_at,
+                added_by_name=row.added_by_name,
+                state=state,
+                status=status,
+                finding=row.finding,
+                sheets_found=found.get(row.id, 0) if readable and row.format == FileFormat.DWG else None,
+                plot_for=tuple(plot_for.get(row.id, ())),
+                read_job_id=row.read_job_id,
+            )
+        )
+    return shown
+
+
+def _status(
+    row: DrawingFile, job: jobs.JobState | None, now: datetime, pages_matched: int
+) -> tuple[FileState, Message]:
+    """4.5's row: the file's columns, with its job's state over them while it is in flight."""
+    status = row.read_status
+    if status == ReadStatus.REFUSED:
+        return FileState.REFUSED, said.REFUSED_SCAN()
+    if status == ReadStatus.QUARANTINED:
+        answer = HeldAnswer(row.held_answer) if row.held_answer else None
+        return FileState.HELD, _HELD[answer]()
+    if status == ReadStatus.READ:
+        return FileState.READ, _read(row, pages_matched)
+    if status == ReadStatus.FAILED:
+        if row.finding and row.finding.get("code") == said.OLD_VERSION.code:
+            return FileState.UNREADABLE, said.OLD_VERSION()
+        tries = job.attempt if job is not None and job.status == "failed" else 1
+        return FileState.FAILED, said.FAILED(tries=max(tries, 1))
+    if status == ReadStatus.CANCELLED:
+        if job is not None and job.status == "stopping":
+            return FileState.STOPPING, said.STOPPING()
+        return FileState.CANCELLED, _cancelled(row)
+    if job is not None:
+        match job.status:
+            case "waiting":
+                return FileState.WAITING, said.WAITING(ahead=_ahead(row))
+            case "retrying":
+                return FileState.RETRYING, said.RETRYING(attempt=job.attempt, tries=job.tries)
+            case "stopping":
+                return FileState.STOPPING, said.STOPPING()
+            case "cancelled":
+                return FileState.CANCELLED, _cancelled(row)
+            case "failed":
+                return FileState.FAILED, said.FAILED(tries=max(job.attempt, 1))
+            case "done":
+                return FileState.READING, said.FINISHING()
+        return FileState.READING, _step(row, now)
+    if status == ReadStatus.QUEUED:
+        return FileState.WAITING, said.WAITING(ahead=_ahead(row))
+    return FileState.READING, _step(row, now)
+
+
+_HELD = {
+    None: said.HELD,
+    HeldAnswer.READ_ANYWAY: said.HELD_READ_ANYWAY,
+    HeldAnswer.AWAIT_RESAVED: said.AWAIT_RESAVED,
+    HeldAnswer.SENT_TO_VEXTRUS: said.SENT_TO_VEXTRUS,
+}
+
+
+def _read(row: DrawingFile, pages_matched: int) -> Message:
+    if row.format == FileFormat.PDF:
+        pages = row.sheets_total or 0
+        if pages_matched == 0:
+            return said.PLOT_WAITING()
+        report = row.upload_report or {}
+        lines = any(page.get("lettering") == "lines" for page in report.get("pages", ()))
+        code = said.PLOT_MATCHED_LINES if lines else said.PLOT_MATCHED
+        return code(matched=pages_matched, pages=max(pages, pages_matched))
+    counts = (row.bangla_ansi or {}).get("counts", {})
+    return said.READ_BANGLA() if counts.get("texts", 0) else said.READ()
+
+
+def _cancelled(row: DrawingFile) -> Message:
+    if row.cancelled_by_name and row.cancelled_at is not None:
+        return said.CANCELLED(actor=row.cancelled_by_name, cancelled_date=row.cancelled_at.isoformat())
+    return said.CANCELLED_UNNAMED()
+
+
+def _step(row: DrawingFile, now: datetime) -> Message:
+    """The step's words: 4.5's "Reading a DWG" and "Reading a PDF" rows; an unknown step reads
+    "Reading the drawing"."""
+    pdf = row.format == FileFormat.PDF
+    step = row.read_step
+    unit = _STEP_UNIT.fullmatch(step)
+    total = row.sheets_total or 0
+    if unit is not None and (unit[1] == "page") == pdf and 0 < int(unit[2]) <= total:
+        position = int(unit[2])
+        minutes = _minutes_left(row, now, total)
+        if minutes is not None:
+            left = said.READING_PAGE_LEFT if pdf else said.READING_SHEET_LEFT
+            return left(position=position, total=total, minutes=minutes)
+        return (said.READING_PAGE if pdf else said.READING_SHEET)(position=position, total=total)
+    if step == OPENING:
+        return said.OPENING_PDF() if pdf else said.OPENING_FILE()
+    if pdf and step == MATCHING:
+        return said.MATCHING_PAGES()
+    if not pdf and step in _DWG_STEPS:
+        return _DWG_STEPS[step]()
+    return said.READING_DRAWING()
+
+
+_DWG_STEPS = {
+    READING: said.READING_DRAWING,
+    SECOND_READER: said.SECOND_READER,
+    SHEETS: said.FINDING_SHEETS,
+    FINISHING: said.FINISHING,
+}
+
+
+STEADY = 3
+"""A read whose current sheet has taken this many times its sheets' mean so far is not steady."""
+
+
+def _minutes_left(row: DrawingFile, now: datetime, total: int) -> int | None:
+    """Once 3 sheets (or pages) are read and the rate is steady: the minutes left at the rate so far,
+    rounded up. The rate is the mean time of the sheets read; it is steady while the sheet reading
+    now has taken at most `STEADY` times that (a stalled read shows no time left)."""
+    done = row.sheets_done
+    if done < 3 or done >= total or row.sheets_started_at is None or row.progress_at is None:
+        return None
+    per_sheet = (row.progress_at - row.sheets_started_at).total_seconds() / done
+    current = (now - row.progress_at).total_seconds()
+    if per_sheet <= 0 or current > STEADY * per_sheet:
+        return None
+    left = per_sheet * (total - done) - current
+    return max(1, math.ceil(left / 60))
+
+
+def _ahead(row: DrawingFile) -> int:
+    """How many of the Developer's own files are read before this one (never another's)."""
+    active = DrawingFile.objects.filter(read_status__in=(ReadStatus.QUEUED, ReadStatus.READING)).exclude(
+        id=row.id
+    )
+    if row.read_job_id is None:
+        earlier = Q(added_at__lt=row.added_at) | Q(added_at=row.added_at, id__lt=row.id)
+        return active.filter(earlier, read_job_id__isnull=True).count()
+    ahead = 0
+    for job_id in active.filter(read_job_id__lt=row.read_job_id).values_list("read_job_id", flat=True):
+        found = jobs.state(job_id) if job_id is not None else None
+        if found is not None and found.status in ("waiting", "running", "retrying", "stopping"):
+            ahead += 1
+    return ahead
+
+
+# Adding a file ------------------------------------------------------------------------------------
+
+
+def add_file(project_id: uuid.UUID, *, name: str, content: BinaryIO, actor_name: str = "") -> Added:
+    """Add one file to the Project's Drawing Set (made with its first file), inside the caller's
+    transaction. `content` is readable and seekable (Django's uploaded file is); `actor_name` the
+    acting person's name, shown as who added it. Refused as `auth.Refused`, keeping nothing."""
+    _access.in_scope(project_id)
+    tenant_id = _access.tenant_id()
+    label = clean_name(name)
+    if not label:
+        raise auth.Refused(toasts.STOPPED(), status=400)
+    sha256, size, head = _measure(content, label)
+    kind = _kind(head, label)
+    with transaction.atomic():
+        drawing_set = _set_for(tenant_id, project_id)
+        _access.lock("file", drawing_set.id, sha256)
+        existing = (
+            DrawingFile.objects.select_related("drawing_set", "discipline")
+            .filter(drawing_set=drawing_set, sha256=sha256)
+            .first()
+        )
+        key = _original_key(project_id, sha256, kind)
+        if existing is not None:
+            return _again(existing, key, content, label)
+        stored = storage.put(
+            key,
+            content,
+            kind="original",
+            media_type=_MEDIA_TYPES[kind],
+            producer="upload",
+        )
+        market = disciplines.market()
+        discipline = disciplines.from_name(label, market)
+        buildings = projects.buildings(project_id)
+        building_id = buildings[0].id if len(buildings) == 1 else None
+        acting = tenancy.current()
+        row = DrawingFile.objects.create(
+            tenant_id=tenant_id,
+            drawing_set=drawing_set,
+            revision=_first_issue(drawing_set, discipline, acting.user_id) if discipline else None,
+            sha256=sha256,
+            format=kind,
+            original_name=label,
+            size=size,
+            stored_file_id=stored.id,
+            discipline=discipline,
+            discipline_source=DisciplineSource.FILE_NAME if discipline else "",
+            building_id=building_id,
+            added_by=acting.user_id,
+            added_by_name=actor_name[:200],
+        )
+        _record(said.ADDED, row)
+        same_name = (
+            DrawingFile.objects.filter(drawing_set=drawing_set, original_name__iexact=label)
+            .exclude(id=row.id)
+            .exists()
+        )
+    return Added(file(row.id), "added", toasts.SAME_NAME_KEPT() if same_name else None)
+
+
+def clean_name(name: str) -> str:
+    """A file's name as its label: the last part of any path, without control, format (direction)
+    or unassigned characters, trimmed, at most 255 characters with its extension kept."""
+    if not isinstance(name, str):
+        return ""
+    text = unicodedata.normalize("NFC", name)
+    text = re.split(r"[/\\]", text)[-1]
+    text = "".join(ch for ch in text if unicodedata.category(ch)[0] not in "CZ" or ch == " ")
+    text = " ".join(text.split())
+    if text in ("", ".", ".."):
+        return ""
+    if len(text) > _NAME_LIMIT:
+        suffix = PurePosixPath(text).suffix[:16]
+        text = text[: _NAME_LIMIT - len(suffix)] + suffix
+    return text
+
+
+def _measure(content: BinaryIO, label: str) -> tuple[str, int, bytes]:
+    """The contents' sha256, size and first bytes, read in chunks; refused as soon as they pass the
+    limit, before anything is written."""
+    limit = settings.VEXTRUS_UPLOAD_MAX_BYTES
+    content.seek(0)
+    digest = hashlib.sha256()
+    size = 0
+    head = b""
+    while chunk := content.read(_CHUNK):
+        size += len(chunk)
+        if size > limit:
+            raise auth.Refused(toasts.TOO_LARGE(file=label, megabytes=megabytes(limit)), status=413)
+        if len(head) < _HEAD:
+            head += chunk[: _HEAD - len(head)]
+        digest.update(chunk)
+    content.seek(0)
+    return digest.hexdigest(), size, head
+
+
+def megabytes(limit: int) -> int:
+    return limit // (1024 * 1024)
+
+
+def _kind(head: bytes, label: str) -> FileFormat:
+    """What the first bytes say the file is; anything but a DWG or a PDF is refused."""
+    if _DWG.match(head[:6]) and len(head) >= 6:
+        return FileFormat.DWG
+    if head.startswith(b"%PDF-"):
+        return FileFormat.PDF
+    if head[:4] in (b"PK\x03\x04", b"PK\x05\x06", b"PK\x07\x08"):
+        if head[:4] == b"PK\x03\x04" and len(head) >= 30:
+            length = int.from_bytes(head[26:28], "little")
+            if head[30 : 30 + length] in _OFFICE_ENTRIES:
+                raise auth.Refused(toasts.NOT_A_DRAWING(file=label), status=415)
+        raise auth.Refused(toasts.ZIP(file=label), status=415)
+    raise auth.Refused(toasts.NOT_A_DRAWING(file=label), status=415)
+
+
+def _original_key(project_id: uuid.UUID, sha256: str, kind: str) -> str:
+    return storage.key(project_id, "drawings", sha256, f"original.{kind}")
+
+
+def _again(existing: DrawingFile, key: str, content: BinaryIO, label: str) -> Added:
+    """The same contents again: nothing is added, unless Vextrus's copy is missing or damaged, when
+    this one replaces it and a reading that stopped starts again."""
+    if _intact(key):
+        return Added(
+            file(existing.id),
+            "already_here",
+            toasts.ALREADY_HERE(
+                file=label,
+                added_date=existing.added_at.isoformat(),
+                actor=existing.added_by_name,
+            ),
+        )
+    content.seek(0)
+    storage.put(
+        key,
+        content,
+        kind="original",
+        media_type=_MEDIA_TYPES[FileFormat(existing.format)],
+        producer="upload",
+    )
+    row = (
+        DrawingFile.objects.select_related("drawing_set")
+        .select_for_update(of=("self",))
+        .get(id=existing.id)
+    )
+    job = jobs.state(row.read_job_id) if row.read_job_id is not None else None
+    if row.read_status == ReadStatus.FAILED or (job is not None and job.status == "failed"):
+        _start_again(row, job)
+    return Added(file(existing.id), "replaced", toasts.REPLACED(file=label))
+
+
+def _intact(key: str) -> bool:
+    try:
+        with storage.local_copy(key):
+            return True
+    except storage.FileMissing, storage.FileChanged, storage.UnsafePath:
+        return False
+
+
+def _set_for(tenant_id: uuid.UUID, project_id: uuid.UUID) -> DrawingSet:
+    """The Project's Drawing Set, made with its first state when its first file comes."""
+    found = DrawingSet.objects.filter(tenant_id=tenant_id, project_id=project_id).first()
+    if found is not None:
+        return found
+    _access.lock("set", tenant_id, project_id)
+    found = DrawingSet.objects.filter(tenant_id=tenant_id, project_id=project_id).first()
+    if found is not None:
+        return found
+    drawing_set = DrawingSet.objects.create(tenant_id=tenant_id, project_id=project_id)
+    state = DrawingSetState.objects.create(
+        tenant_id=tenant_id,
+        drawing_set=drawing_set,
+        seq=1,
+        cause=StateCause.REVISION,
+        status=StateStatus.CURRENT,
+    )
+    drawing_set.current_state = state
+    drawing_set.save(update_fields=["current_state"])
+    return drawing_set
+
+
+def _first_issue(drawing_set: DrawingSet, discipline: Discipline, by: uuid.UUID | None) -> Revision:
+    """The Discipline's first issue in the set, made when its first file comes (the review Q6)."""
+    _access.lock("revisions", drawing_set.id)
+    found = Revision.objects.filter(
+        drawing_set=drawing_set, discipline=discipline, kind=RevisionKind.FIRST_ISSUE
+    ).first()
+    if found is not None:
+        return found
+    seq = Revision.objects.filter(drawing_set=drawing_set).aggregate(last=Max("seq"))["last"] or 0
+    return Revision.objects.create(
+        tenant_id=drawing_set.tenant_id,
+        drawing_set=drawing_set,
+        seq=seq + 1,
+        discipline=discipline,
+        kind=RevisionKind.FIRST_ISSUE,
+        received_by=by,
+    )
+
+
+def _drop_if_empty(revision_id: uuid.UUID | None) -> None:
+    """A first issue left with no file (its only file moved to another Discipline) is no issue."""
+    if revision_id is None:
+        return
+    if (
+        DrawingFile.objects.filter(revision_id=revision_id).exists()
+        or SheetRevision.objects.filter(revision_id=revision_id).exists()
+        or DrawingSetState.objects.filter(revision_id=revision_id).exists()
+    ):
+        return
+    Revision.objects.filter(id=revision_id).delete()
+
+
+def _record(kind: MessageCode, row: DrawingFile) -> None:
+    events.record(
+        kind,
+        subject_type="drawing_file",
+        subject_id=row.id,
+        actor_user_id=tenancy.current().user_id,
+        project_id=row.drawing_set.project_id,
+        building_id=row.building_id,
+    )
+
+
+# The Discipline ------------------------------------------------------------------------------------
+
+
+def set_discipline(file_id: uuid.UUID, key: str) -> FileView:
+    """The QS's choice of the file's Discipline: its sheets move with it (see the module)."""
+    with transaction.atomic():
+        row = _access.drawing_file(file_id, lock=True)
+        discipline = disciplines.by_key(key)
+        if discipline is None:
+            raise auth.Refused(said.DISCIPLINE_UNKNOWN(), status=400)
+        if row.discipline_id == discipline.id:
+            if row.discipline_source != DisciplineSource.QS:
+                row.discipline_source = DisciplineSource.QS
+                row.save(update_fields=["discipline_source"])
+            return file(row.id)
+        _access.lock("revisions", row.drawing_set_id)
+        _move_sheets(row, discipline)
+        old_revision = row.revision_id
+        row.discipline = discipline
+        row.discipline_source = DisciplineSource.QS
+        row.revision = _first_issue(row.drawing_set, discipline, tenancy.current().user_id)
+        row.save(update_fields=["discipline", "discipline_source", "revision"])
+        SheetRevision.objects.filter(source_file=row).update(revision=row.revision)
+        _drop_if_empty(old_revision)
+        _record(said.DISCIPLINE_CHANGED, row)
+    return file(row.id)
+
+
+def _move_sheets(row: DrawingFile, discipline: Discipline) -> None:
+    printed = list(SheetRevision.objects.select_related("sheet").filter(source_file=row))
+    for sheet_revision in printed:
+        if sheet_revision.decision:
+            number = sheet_revision.sheet.number
+            if not number:
+                raise auth.Refused(said.DISCIPLINE_UNNUMBERED_DECIDED(), status=409)
+            raise auth.Refused(said.DISCIPLINE_SHEET_DECIDED(sheet=number), status=409)
+    sheets = {sr.sheet_id: sr.sheet for sr in printed}
+    for sheet in sheets.values():
+        if not sheet.number:
+            continue
+        taken = (
+            Sheet.objects.filter(
+                drawing_set_id=sheet.drawing_set_id,
+                building_id=sheet.building_id,
+                discipline=discipline,
+                number=sheet.number,
+            )
+            .exclude(id=sheet.id)
+            .exists()
+        )
+        if taken:
+            raise auth.Refused(said.DISCIPLINE_SHEET_TAKEN(sheet=sheet.number), status=409)
+    for sheet in sheets.values():
+        shared = SheetRevision.objects.filter(sheet=sheet).exclude(source_file=row).exists()
+        if not shared:
+            Sheet.objects.filter(id=sheet.id).update(discipline=discipline)
+            continue
+        moved = Sheet.objects.create(
+            tenant_id=sheet.tenant_id,
+            drawing_set_id=sheet.drawing_set_id,
+            building_id=sheet.building_id,
+            discipline=discipline,
+            number=sheet.number,
+            title=sheet.title,
+            storeys_as_stated=sheet.storeys_as_stated,
+        )
+        SheetRevision.objects.filter(sheet=sheet, source_file=row).update(sheet=moved)
+
+
+# Cancel and restart --------------------------------------------------------------------------------
+
+
+def cancel(file_id: uuid.UUID, *, actor_name: str = "") -> FileView:
+    """Cancel the file's reading: a waiting read never runs, a running one stops at its next step and
+    its current step rolls back. A file whose reading has ended (read, held, failed, refused or
+    cancelled already) is left as it is, and nothing is written."""
+    with transaction.atomic():
+        row = _access.drawing_file(file_id, lock=True)
+        if row.read_status not in (ReadStatus.QUEUED, ReadStatus.READING):
+            return file(row.id)
+        if row.read_job_id is not None:
+            job = jobs.state(row.read_job_id)
+            if job is None or job.status not in ("waiting", "running", "retrying"):
+                return file(row.id)
+            if not jobs.cancel(row.read_job_id):
+                return file(row.id)
+        row.read_status = ReadStatus.CANCELLED
+        row.cancelled_by = tenancy.current().user_id
+        row.cancelled_by_name = actor_name[:200]
+        row.cancelled_at = timezone.now()
+        row.save(update_fields=["read_status", "cancelled_by", "cancelled_by_name", "cancelled_at"])
+        _record(said.READ_CANCELLED, row)
+    return file(row.id)
+
+
+def restart(file_id: uuid.UUID) -> FileView:
+    """Read a file again whose reading failed or was cancelled: its read job is started again with
+    the same ids, its completed steps skipped. Anything else is 409, and two clicks start it once."""
+    with transaction.atomic():
+        row = _access.drawing_file(file_id, lock=True)
+        job = jobs.state(row.read_job_id) if row.read_job_id is not None else None
+        stopped = (
+            job.status in ("failed", "cancelled")
+            if job is not None
+            else (row.read_status in (ReadStatus.FAILED, ReadStatus.CANCELLED))
+        )
+        unreadable = row.finding and row.finding.get("code") == said.OLD_VERSION.code
+        if not stopped or unreadable or row.read_status in _ENDED_FOR_GOOD:
+            raise auth.Refused(said.NOT_STOPPED(), status=409)
+        _start_again(row, job)
+        _record(said.READ_RESTARTED, row)
+    return file(row.id)
+
+
+_ENDED_FOR_GOOD = frozenset({ReadStatus.READ, ReadStatus.QUARANTINED, ReadStatus.REFUSED})
+
+
+def _start_again(row: DrawingFile, job: jobs.JobState | None) -> None:
+    if job is not None and job.status in ("failed", "cancelled"):
+        row.read_job_id = jobs.restart(job.id)
+    row.read_status = ReadStatus.QUEUED
+    row.read_step = ""
+    row.sheets_done = 0
+    row.progress_at = None
+    row.sheets_started_at = None
+    row.finding = None
+    row.cancelled_by = None
+    row.cancelled_by_name = ""
+    row.cancelled_at = None
+    row.save(
+        update_fields=[
+            "read_job_id",
+            "read_status",
+            "read_step",
+            "sheets_done",
+            "progress_at",
+            "sheets_started_at",
+            "finding",
+            "cancelled_by",
+            "cancelled_by_name",
+            "cancelled_at",
+        ]
+    )

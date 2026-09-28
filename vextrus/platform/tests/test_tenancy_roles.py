@@ -131,6 +131,14 @@ NARROWER = {
     "projects_project": {"SELECT", "INSERT", "DELETE"},
     "projects_site": {"SELECT", "INSERT", "DELETE"},
     "projects_building": {"SELECT", "INSERT", "DELETE"},
+    "drawings_discipline": {"SELECT"},  # Library rows: only sync_library writes them, as the owner (14)
+    "drawings_readstep": {"SELECT", "INSERT"},  # a read job's steps: insert-only (14)
+    "drawings_artefact": {"SELECT", "INSERT"},  # a kept ReadArtefact: an anchor may name it (14)
+    # Never deleted; UPDATE only on its reading's columns, never its contents or its set (14).
+    "drawings_drawingfile": {"SELECT", "INSERT"},
+    "drawings_drawingset": {"SELECT", "INSERT"},  # UPDATE only its name and state (14)
+    "drawings_drawingsetstate": {"SELECT", "INSERT"},  # UPDATE only its status and reader (14)
+    "drawings_revision": {"SELECT", "INSERT", "DELETE"},  # never updated (14)
 }
 
 
