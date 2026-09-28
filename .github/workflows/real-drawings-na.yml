@@ -50,6 +50,10 @@ jobs:
             --jq '.[] | .filename, (.previous_filename // empty)' > "$RUNNER_TEMP/changed.txt"
           wc -l < "$RUNNER_TEMP/changed.txt"
       - name: Post "not applicable" where no changed file needs the status
+        # Fails closed: both matchers run as their own commands under `shell: bash` (-e -o pipefail),
+        # before anything is posted, so a failed one (the list missing, a Python error) fails the step
+        # and posts nothing: the statuses stay pending, never read as "nothing matched".
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -64,12 +68,14 @@ jobs:
               -f state=success -f context="$1" -f description="Not applicable: $2" > /dev/null
             echo "posted $1: not applicable ($2)"
           }
-          if [ -z "$(touches --patterns .github/engine-paths.txt)" ]; then
+          engine=$(touches --patterns .github/engine-paths.txt)
+          web=$(touches --pattern 'web/**')
+          if [ -z "$engine" ]; then
             post real-drawings "no engine path changed"
           else
             echo "an engine PR: the owner's check posts real-drawings"
           fi
-          if [ -z "$(touches --pattern 'web/**')" ]; then
+          if [ -z "$web" ]; then
             post design-gate "nothing under web/ changed"
           else
             echo "a UI PR: the owner's design gate posts design-gate"
