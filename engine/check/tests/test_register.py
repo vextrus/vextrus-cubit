@@ -539,3 +539,32 @@ def test_a_format_character_inside_a_listed_number_is_read_as_its_normal_form() 
     listed = typed("set", "structural", zero_width)
     results = check(reading([sheet("S-10")], lists=(listed,)), recognisers=READERS)
     assert [str(r.outcome) for r in results] == ["passed", "passed"]
+
+
+@pytest.mark.parametrize(
+    ("text", "numbers"),
+    [
+        # The refuter's round 2: a title starting with a count keeps its sheet number.
+        ("01 5 STOREY SECTION", ["01"]),
+        ("01 1250 SFT TYPICAL FLOOR PLAN\n02 GROUND FLOOR PLAN", ["01", "02"]),
+        ("07\t2\tR1", ["07"]),
+        ("05  12 STOREY ELEVATION", ["05"]),
+        ("01 2ND FLOOR BEAM LAYOUT\n02 3RD FLOOR BEAM LAYOUT", ["01", "02"]),  # ordinals
+        ("1\tS-01\tNotes", ["1"]),  # one counted line: its count is its number
+        # A serial column, decided for the paste: counts one apart, each before a number.
+        ("1\tS 01\tNotes\n2\tS-02\tPiles", ["S 01", "S-02"]),
+        ("1 SD-01 SHOP DRAWING\n2 SD-02 SHOP DRAWING", ["SD-01", "SD-02"]),
+        ("1 01 2ND FLOOR\n2 02 3RD FLOOR", ["01", "02"]),
+        ("1 S-01 Notes\n3 S-02 Piles", ["1", "3"]),  # counts that do not run one apart
+        ("S 01\tGENERAL NOTES", ["S 01"]),  # two words, the first a Discipline's prefix
+    ],
+)
+def test_a_serial_column_is_decided_for_the_whole_paste(text: str, numbers: list[str]) -> None:
+    assert [e.number for e in parsed(text).entries] == numbers
+
+
+def test_a_title_starting_with_a_count_raises_no_false_finding() -> None:
+    listed = parsed("01 1250 SFT TYPICAL FLOOR PLAN\n02 GROUND FLOOR PLAN")
+    drawing_list = DrawingList("set", "structural", listed.source, listed.entries)
+    results = check(reading([sheet("01"), sheet("02")], lists=(drawing_list,)), recognisers=READERS)
+    assert [str(r.outcome) for r in results] == ["passed"] * 4

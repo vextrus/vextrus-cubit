@@ -45,11 +45,14 @@ sheet's number: the refusal asks for "01 to 57". Any other line is a sheet line 
 (cells split by tabs, as a spreadsheet pastes; else its first word) reads as a sheet number through
 13's `sequence`: its next cell or the rest of the line is the title, and a later cell that is a revision
 mark by the conventions' pattern (on at most `MARK_LIMIT` characters) is its revision mark. Other lines
-are ignored and counted; a sheet number is one word. A leading serial number (digits only) is set
-aside when the next word is digits only or a number carrying a Discipline's prefix ("1  S-01  General
-notes", "1  01  General notes"); before a title that merely ends in a digit it is the sheet's number
-("02  COLUMN SCHEDULE SHEET 1"). The source is `typed` when every sheet line is
-a range, else `pasted`.
+are ignored and counted. A sheet number is one word, or two in a cell whose first is a Discipline's
+prefix ("S 01"). A serial column is decided once for the paste (`_serial_column`): two lines or more
+start with counts that run one apart, each followed by a number with a prefix or of digits only, so
+"1  S-01  General notes" and "2  S-02 …" lose their counts, while "01  1250 SFT TYPICAL FLOOR PLAN",
+"01  2ND FLOOR BEAM LAYOUT" and a single counted line keep theirs as the sheet's number. A pasted list is
+its Discipline's, as the QS chose it: an entry carrying another Discipline's prefix is compared with
+this Discipline's sheets (a list read on a sheet is split by prefix instead). The source is `typed`
+when every sheet line is a range, else `pasted`.
 """
 
 import re
@@ -316,8 +319,8 @@ def parse(text: str, conventions: SheetConventions, *, recognisers: Recognisers)
         raise Refused(codes.TEXT_TOO_LONG(limit=TEXT_LIMIT))
     revision = _revision_mark(conventions.revision_mark_pattern)
     prefixes = frozenset(mark(p) for d in conventions.disciplines for p in d.prefixes) - {""}
-    entries: list[ListEntry] = []
-    ignored = ranges = sheet_lines = 0
+    read: list[tuple[int, list[str] | None, tuple[list[str], bool]]] = []  # a range, or cells
+    ignored = 0
     for index, raw in enumerate(text.splitlines(), start=1):
         line = raw.strip()
         if not line:
@@ -326,11 +329,17 @@ def parse(text: str, conventions: SheetConventions, *, recognisers: Recognisers)
             ignored += 1
             continue
         numbers = _range(line, index, recognisers)
+        read.append((index, numbers, ([], False) if numbers is not None else _cells(line)))
+    lines = [cells for _, numbers, cells in read if numbers is None]
+    serial = _serial_column(lines, recognisers, prefixes)
+    entries: list[ListEntry] = []
+    ranges = sheet_lines = 0
+    for index, numbers, cells in read:
         if numbers is not None:
             ranges += 1
             sheet_lines += 1
             entries.extend(ListEntry(number, index) for number in numbers)
-        elif (entry := _sheet_line(line, index, recognisers, revision, prefixes)) is not None:
+        elif (entry := _sheet_line(cells, index, recognisers, revision, prefixes, serial)) is not None:
             sheet_lines += 1
             entries.append(entry)
         else:
@@ -405,35 +414,68 @@ def _hyphenated(line: str, index: int, recognisers: Recognisers) -> None:
             raise Refused(codes.RANGE_HYPHEN(line=index, first=first, last=last))
 
 
+def _cells(line: str) -> tuple[list[str], bool]:
+    """A line's cells, and whether they are tabbed: split by tabs, as a spreadsheet pastes; else the
+    line's first two words and the rest."""
+    if "\t" in line:
+        return [cell.strip() for cell in line.split("\t") if cell.strip()], True
+    return line.split(maxsplit=2), False
+
+
+def _number_cell(cell: str, recognisers: Recognisers, prefixes: frozenset[str]) -> bool:
+    """Whether a cell is a sheet number: it reads as one, and it is one word, or two words whose first
+    is a Discipline's prefix ("S 01"). A heading ("Drawing no 1") or a title that ends in a digit is
+    not."""
+    if not _is_number(cell, recognisers):
+        return False
+    if not any(char.isspace() for char in cell):
+        return True
+    parts = number_parts(recognisers, cell)
+    return parts is not None and mark(parts[0]) in prefixes
+
+
+def _serial_column(
+    lines: list[tuple[list[str], bool]], recognisers: Recognisers, prefixes: frozenset[str]
+) -> bool:
+    """Whether the paste has a serial column before its sheet numbers, decided once for the paste and
+    never line by line (a title may start with a count: "01  1250 SFT TYPICAL FLOOR PLAN"): two lines
+    or more start with a word of digits only, those counts run one apart in line order, and every one
+    of them is followed by a sheet number that has a prefix or is digits only (never an ordinal, as
+    "2ND" in "01  2ND FLOOR BEAM LAYOUT")."""
+    counted = [cells for cells, _ in lines if len(cells) > 1 and cells[0].isdecimal()]
+    if len(counted) < 2 or any(int(b[0]) - int(a[0]) != 1 for a, b in pairwise(counted)):
+        return False
+    for cells in counted:
+        number = cells[1]
+        if not _number_cell(number, recognisers, prefixes):
+            return False
+        parts = number_parts(recognisers, number)
+        if not (number.isdecimal() or (parts is not None and mark(parts[0]))):
+            return False
+    return True
+
+
 def _sheet_line(
-    line: str,
+    line: tuple[list[str], bool],
     index: int,
     recognisers: Recognisers,
     revision: Callable[[str], bool],
     prefixes: frozenset[str],
+    serial: bool,
 ) -> ListEntry | None:
-    tabbed = "\t" in line
-    cells = [c.strip() for c in line.split("\t") if c.strip()] if tabbed else line.split(maxsplit=2)
-    if len(cells) > 1 and cells[0].isdecimal() and _serial_before(cells[1], recognisers, prefixes):
-        cells = cells[1:]  # a serial number column ("1  S-01  General notes") is set aside
+    cells, tabbed = line
+    if serial and len(cells) > 1 and cells[0].isdecimal():
+        cells = cells[1:]  # the paste's serial column ("1  S-01  General notes") is set aside
     number = cells[0]
-    if any(char.isspace() for char in number) or not _is_number(number, recognisers):
+    if not _number_cell(number, recognisers, prefixes):
         return None
-    rest = (cells[1:] if tabbed else [" ".join(cells[1:])]) or [""]
-    title = rest[0].strip().lstrip(_SEPARATORS).strip() or None
-    mark_cell = next((c for c in reversed(rest[1:]) if revision(c)), None) if tabbed else None
+    if tabbed:
+        text = cells[1] if len(cells) > 1 else ""
+        mark_cell = next((c for c in reversed(cells[2:]) if revision(c)), None)
+    else:
+        text, mark_cell = " ".join(cells[1:]), None
+    title = text.strip().lstrip(_SEPARATORS).strip() or None
     return ListEntry(number, index, title=title, revision_mark=mark_cell)
-
-
-def _serial_before(cell: str, recognisers: Recognisers, prefixes: frozenset[str]) -> bool:
-    """Whether the cell after a leading count is the sheet number, so the count is a serial column:
-    one word that is digits only ("1  01  General notes") or a number carrying a Discipline's prefix
-    ("1  S-01  General notes"). A title that ends in a digit ("02  COLUMN SCHEDULE SHEET 1") or a
-    word with digits ("01  TYPE-2 FOUNDATION") is not: its count is the sheet's number."""
-    if any(char.isspace() for char in cell) or not _is_number(cell, recognisers):
-        return False
-    parts = number_parts(recognisers, cell)
-    return cell.isdecimal() or (parts is not None and mark(parts[0]) in prefixes)
 
 
 def _revision_mark(pattern: str | None) -> Callable[[str], bool]:
