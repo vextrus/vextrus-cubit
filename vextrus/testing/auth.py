@@ -61,6 +61,8 @@ class Api:
         return self.send("post", path, body, csrf=csrf)
 
     def send(self, method: str, path: str, body: Any = None, *, csrf: bool = True) -> Any:
+        if method.upper() in ("GET", "HEAD"):
+            return getattr(self.client, method.lower())(path)
         headers = {"X-CSRFToken": self.csrf_token()} if csrf else {}
         return getattr(self.client, method)(
             path,
