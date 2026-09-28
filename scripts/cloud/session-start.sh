@@ -3,18 +3,20 @@
 # local sessions exit at once. Puts the toolchain setup.sh left under /opt/vextrus on PATH, starts
 # PostgreSQL 18, fetches LibreDWG if the setup could not, installs the dependencies and ezdxf's wheel
 # by its pinned hash, says where the installed toolchain differs from toolchain/'s pins, and prints the
-# setup's status, so a failed install is never hidden. It never blocks a session. NOT YET RUN IN A VM.
+# setup's status, so a failed install is never hidden. It never blocks a session. First run in a VM
+# on 28 Sep 2026; since then it uses setup.sh's own uv under /opt/vextrus/uv, never the image's.
 [ "${CLAUDE_CODE_REMOTE:-}" = "true" ] || exit 0
 V=/opt/vextrus
 cd "$CLAUDE_PROJECT_DIR" || exit 0
 pin() { tr -d '[:space:]' < "toolchain/$1" 2>/dev/null; }
 warn() { echo "WARN: $*"; }
 
-{ echo "export PATH=$V/node/bin:$V/libredwg/bin:$V/dotnet:\$PATH"
+{ echo "export PATH=$V/uv/bin:$V/node/bin:$V/libredwg/bin:$V/dotnet:\$PATH"
   echo "export DOTNET_ROOT=$V/dotnet DOTNET_CLI_TELEMETRY_OPTOUT=1"
   echo "export UV_PYTHON_INSTALL_DIR=$V/python UV_PYTHON_PREFERENCE=only-managed"
   echo "export PLAYWRIGHT_BROWSERS_PATH=$V/ms-playwright"; } >> "$CLAUDE_ENV_FILE"
 export UV_PYTHON_INSTALL_DIR=$V/python UV_PYTHON_PREFERENCE=only-managed
+export PATH=$V/uv/bin:$PATH                      # setup.sh's uv, never the image's older one
 
 pg_ctlcluster 18 main start >/dev/null 2>&1 || service postgresql start >/dev/null 2>&1 ||
   warn "PostgreSQL 18 did not start"
@@ -23,7 +25,8 @@ LIBREDWG=$(pin libredwg.version)
 if [ ! -x "$V/libredwg/bin/dwgread" ]; then     # the GitHub proxy is live by now
   asset="libredwg-$LIBREDWG-ubuntu24.04-x86_64.tar.gz"
   tmp=$(mktemp -d)
-  if ! { gh release download "toolchain-libredwg-$LIBREDWG" -R vextrus/vextrus-cubit -p "$asset" -p "$asset.sha256" -D "$tmp" &&
+  if ! { command -v gh >/dev/null &&         # the image has no gh: setup.sh's source build is the path
+         gh release download "toolchain-libredwg-$LIBREDWG" -R vextrus/vextrus-cubit -p "$asset" -p "$asset.sha256" -D "$tmp" &&
          (cd "$tmp" && sha256sum -c --quiet "$asset.sha256") &&
          tar -xzf "$tmp/$asset" -C / --no-same-owner opt/vextrus/libredwg; }; then
     warn "LibreDWG missing"
