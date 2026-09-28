@@ -29,8 +29,10 @@ civil engineer and the CEO and co-founder. The previous product (Vextrus Cubit) 
 - **Plain words.** Say what you did, what you found and what you need, briefly.
 - **Keep the context for the owner.** Fan read-heavy work out to background agents, one question
   each, each returning a cited file.
-- **Effort:** `high` by default (the owner's ruling, 26 Sep 2026: the project is complex). Small,
-  fully specified cloud tickets may run at `medium` to stretch the cloud credit; each ticket says so.
+- **Effort:** the orchestrator runs at `xhigh` in the CLI (the owner, session 04: "next session we'll
+  run the main session on xHigh effort … No Worries on Tokens"); build sessions at `xhigh` too
+  (`modelSettings` in `.claude/settings.json`, which cloud sessions read); reviewers at `high`. Opus 5.5
+  starts at `medium` unless a level is saved for it, so the level is always set, never assumed.
 - **A mistake made twice goes into this file.**
   - Agents deleted their own build output recursively twice (26 Sep 2026); the guard now refuses a
     recursive `rm`. Delete files by name, or leave build output and say so.
@@ -89,12 +91,16 @@ explicit paths (the guard refuses `git add -A`); a hook runs `sync` after each c
 - **Hooks** (`.claude/hooks/`): `guard.mjs` refuses secrets printed, staging everything, staging
   `.private/` or drawings, deleting untracked files, history rewrites, skipped hooks, PowerShell and
   edits to reference drawings; `state.mjs` prints the checkout's state at session start.
-- **Agents:** `refuter`, `qs-critic`, `ux-critic` (read-only reviewers) and `drawing-analyst` (local).
+- **Agents:** `pr-reviewer` (every PR and every fix round), `refuter` (one claim), `ux-critic` (a walk,
+  or the words-only design gate), `qs-critic` (read-only reviewers) and `drawing-analyst` (local).
 - **Skills:** Matt Pocock's (`/ask-matt` routes; his review skill is `/spec-review`), plus our
+  `orchestrate-wave` (the orchestrator's runbook: launch, review loop, owner steps, measures),
   `product-review` and `real-drawings`. The built-in `/code-review` and `/code-review ultra` review PRs.
 - **MCP:** `chrome-devtools` (a headless browser for walking products).
 - **Background agents** die when the app restarts: each long one keeps a `NOTES.txt` progress log
-  and is told how to resume from it.
+  and is told how to resume from it. Their scratch copies live under `.private/work/`, never `/tmp`.
+- **Accounts:** the CLI's default config is not signed in; account B is `CLAUDE_CONFIG_DIR=~/.claude-b`
+  (every session from session 05), account A `~/.claude-a`.
 
 ## Compact instructions
 When the context is compacted, keep: the session's goal and each finish-line condition's state; the
