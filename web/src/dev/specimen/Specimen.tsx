@@ -11,6 +11,7 @@ import { Crosshair, Download, Layers, MoreHorizontal, Moon, Search, Square } fro
 import { activateLanguage, currentLanguage, useLanguage } from '@/i18n/activate'
 import { addCatalogue, englishMessages } from '@/i18n/catalogues'
 import { ENGLISH } from '@/i18n/languages'
+import { PSEUDO_RTL_CODE } from '@/i18n/pseudo-tag'
 import * as Glyph from '@/ui/glyphs'
 import {
   AccessChip,
@@ -56,7 +57,7 @@ import * as Data from './specimen.fixture'
 addCatalogue('dev', { messages: specimenMessages })
 if (currentLanguage().code === ENGLISH.code) activateLanguage(ENGLISH, englishMessages())
 
-export const PSEUDO = 'en-XB'
+export const PSEUDO = PSEUDO_RTL_CODE
 
 /** Switches between English and the test-only pseudo right-to-left language; true once active. */
 function useSpecimenLanguage(lang: string | undefined): boolean {

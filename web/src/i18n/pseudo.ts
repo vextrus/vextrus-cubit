@@ -6,14 +6,15 @@
  *
  * Never shipped and never offered: only tests, 22's end-to-end run and the development-only specimen
  * route import this file, and `npm run build` fails if its tag reaches the production bundle
- * (scripts/check-dist.mjs). `en-XB` is the pseudo-bidi tag Android and Chromium use for the same job.
+ * (scripts/check-dist.mjs). Its tag lives in pseudo-tag.ts.
  */
 import type { Messages } from '@lingui/core'
 import { activateLanguage } from './activate'
 import { englishMessages } from './catalogues'
 import type { Language } from './languages'
+import { PSEUDO_RTL_CODE } from './pseudo-tag'
 
-export const PSEUDO_RTL: Language = { code: 'en-XB', dir: 'rtl' }
+export const PSEUDO_RTL: Language = { code: PSEUDO_RTL_CODE, dir: 'rtl' }
 
 const PLAIN = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
 const ACCENTED = 'áƀçðéƒĝĥîĵķļɱñóþǫŕšţûṽŵẋýžÁƁÇÐÉƑĜĤÎĴĶĻṀÑÓÞǪŔŠŢÛṼŴẊÝŽ'
