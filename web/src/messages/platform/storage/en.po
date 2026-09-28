@@ -1,0 +1,13 @@
+msgid ""
+msgstr ""
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: en\n"
+
+msgid "platform.storage.changed"
+msgstr "This file has changed since it was saved, so Vextrus does not use it. Add it again."
+
+msgid "platform.storage.missing"
+msgstr "This file is missing from storage. Add it again."
