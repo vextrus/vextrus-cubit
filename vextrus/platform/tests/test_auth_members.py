@@ -11,9 +11,9 @@ from django.utils import timezone
 
 from vextrus.platform.messages import invitations as codes
 from vextrus.platform.messages import tenancy as tenancy_codes
-from vextrus.platform.models import DomainEvent, Membership
+from vextrus.platform.models import DomainEvent, Membership, User
 from vextrus.platform.services import events
-from vextrus.testing.auth import Api, api_as, invitation, served_operations
+from vextrus.testing.auth import accept_as, api_as, invitation, served_operations
 from vextrus.testing.tenancy import Member, add_member
 
 PASSWORD = "a long enough passphrase 7"
@@ -21,17 +21,12 @@ PASSWORD = "a long enough passphrase 7"
 pytestmark = pytest.mark.django_db
 
 
-def join(token: str, name: str) -> None:
-    response = Api().post(
-        "/api/invitations/accept", {"token": token, "name": name, "password": PASSWORD}
-    )
-    assert response.status_code == 200, response.content
-
-
-def test_the_md_sees_people_vextrus_access_and_unused_invitations(team: dict[str, Member]) -> None:
+def test_the_md_sees_people_vextrus_access_and_unused_invitations(
+    team: dict[str, Member], other_staff: User
+) -> None:
     md = team["md"]
-    engineer_id, token = invitation(md, "sadia@vextrus.example")
-    join(token, "Sadia Islam")
+    engineer_id, token = invitation(md, other_staff.email)
+    accept_as(token, other_staff)
     pending_id, _ = invitation(md, "rumana@example.com", "qs")
 
     seen = api_as(md).get("/api/members").json()
@@ -43,7 +38,7 @@ def test_the_md_sees_people_vextrus_access_and_unused_invitations(team: dict[str
     ) == sorted(
         [
             (team["vextrus_engineer"].user.name, "", str(team["vextrus_engineer"].membership_id)),
-            ("Sadia Islam", md.user.name, str(engineer_id)),
+            (other_staff.name, md.user.name, str(engineer_id)),
         ]
     )
     assert [(i["email"], i["role"], i["membership_id"]) for i in seen["invitations"]] == [
@@ -105,10 +100,12 @@ def test_a_member_given_chosen_projects_sees_only_those_they_share(
 # The activity API ---------------------------------------------------------------------------------
 
 
-def test_the_md_reads_the_acts_as_codes_with_the_actor_s_name_and_role(team: dict[str, Member]) -> None:
+def test_the_md_reads_the_acts_as_codes_with_the_actor_s_name_and_role(
+    team: dict[str, Member], other_staff: User
+) -> None:
     md = team["md"]
-    engineer_id, token = invitation(md, "sadia@vextrus.example")
-    join(token, "Sadia Islam")
+    engineer_id, token = invitation(md, other_staff.email)
+    accept_as(token, other_staff)
     api_as(md).post(f"/api/members/{engineer_id}/revoke")
 
     acts = api_as(md).get("/api/activity").json()
@@ -117,9 +114,9 @@ def test_the_md_reads_the_acts_as_codes_with_the_actor_s_name_and_role(team: dic
         (a["code"], a["actor"]["name"] if a["actor"] else None, a["params"]["subject"]) for a in acts
     ]
     assert named[:3] == [
-        (codes.REVOKED.code, md.user.name, "Sadia Islam"),
-        (codes.ACCEPTED.code, "Sadia Islam", "Sadia Islam"),
-        (codes.INVITED.code, md.user.name, "Sadia Islam"),  # the person, once they joined
+        (codes.REVOKED.code, md.user.name, other_staff.name),
+        (codes.ACCEPTED.code, other_staff.name, other_staff.name),
+        (codes.INVITED.code, md.user.name, other_staff.name),  # the person, once they joined
     ]
     assert named[-1][0] == tenancy_codes.DEVELOPER_CREATED.code
     first = acts[0]
@@ -185,12 +182,15 @@ def test_a_member_given_chosen_projects_reads_only_their_acts(
 
 
 def test_no_read_returns_anything_of_another_developer(
-    team: dict[str, Member], sign_in: Callable[..., Member], make_developer: Callable[..., uuid.UUID]
+    team: dict[str, Member],
+    sign_in: Callable[..., Member],
+    make_developer: Callable[..., uuid.UUID],
+    staff: User,
 ) -> None:
     meghna = make_developer("Meghna Properties Ltd")
     tanvir = sign_in(role="md", developer_id=meghna, email="tanvir@meghna.example")
-    their_engineer, token = invitation(tanvir, "their-engineer@example.com")
-    join(token, "Their Engineer")
+    their_engineer, token = invitation(tanvir, staff.email)
+    accept_as(token, staff)
     their_pending, _ = invitation(tanvir, "their-pending@example.com", "qs")
     with tanvir.acting():
         their_events = [str(e) for e in DomainEvent.objects.values_list("id", flat=True)]
@@ -199,8 +199,8 @@ def test_no_read_returns_anything_of_another_developer(
         tanvir.user.name,
         str(tanvir.user.pk),
         str(tanvir.membership_id),
-        "their-engineer@example.com",
-        "Their Engineer",
+        staff.email,
+        staff.name,
         str(their_engineer),
         "their-pending@example.com",
         str(their_pending),

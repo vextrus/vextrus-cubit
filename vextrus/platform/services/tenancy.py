@@ -26,7 +26,8 @@ from django.conf import settings
 from django.contrib.sessions.backends.base import SessionBase
 from django.core.exceptions import PermissionDenied
 from django.db import connection, transaction
-from django.db.models import Q
+from django.db.models import DateTimeField, Q
+from django.db.models.expressions import RawSQL
 from django.http import HttpRequest
 from django.urls import reverse
 from django.utils import timezone
@@ -35,6 +36,11 @@ from vextrus.platform.ids import new_id
 from vextrus.platform.messages import tenancy as acts
 from vextrus.platform.models import Developer, Market, Membership, MembershipProject, Role, User
 from vextrus.platform.services import events
+
+DATABASE_NOW = RawSQL("pg_catalog.now()", [], output_field=DateTimeField())
+"""The transaction's start by the database's clock: the "now" the named functions compare with
+(`user_developers` holds a Membership current from its `starts_at` until its `expires_at`). Django's
+`Now()` is the statement's time and the app's clock is its own; neither agrees with it (07)."""
 
 SESSION_TENANT = "vextrus.tenant_id"
 """The session key naming the Developer a member works in (the chooser writes it)."""
@@ -232,19 +238,21 @@ def _is_developer(tenant_id: uuid.UUID) -> bool:
 
 
 def _membership(user_id: uuid.UUID | None, tenant_id: uuid.UUID | None) -> CurrentMembership | None:
-    """The user's current Membership in the Developer, read through the user's own rows."""
+    """The user's current Membership in the Developer, read through the user's own rows.
+
+    "Current" is judged by the database's clock, `DATABASE_NOW`, as `user_developers()` judges it,
+    so the two never disagree about one Membership (the app's clock runs a little ahead)."""
     if user_id is None or tenant_id is None:
         return None
-    now = timezone.now()
     found = (
         Membership.objects.filter(
             tenant_id=tenant_id,
             user_id=user_id,
             accepted_at__isnull=False,
             revoked_at__isnull=True,
-            starts_at__lte=now,
+            starts_at__lte=DATABASE_NOW,
         )
-        .exclude(expires_at__lte=now)
+        .exclude(expires_at__lte=DATABASE_NOW)
         .values_list("id", "role", "expires_at")
         .first()
     )

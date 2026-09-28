@@ -12,9 +12,16 @@ from django.contrib import admin
 from django.http import HttpRequest
 from django.urls import URLPattern, path
 from ninja import NinjaAPI, Router, Schema
-from ninja.security import SessionAuth
 
-from vextrus.platform.http.acts import SAFE_METHODS, Refusal, declaration_of, declare, public
+from vextrus.platform.http.acts import (
+    SAFE_METHODS,
+    Refusal,
+    Session,
+    declaration_of,
+    declare,
+    install,
+    public,
+)
 from vextrus.platform.services import auth, tenancy
 from vextrus.platform.services.auth import ROLES, Act, Grant
 from vextrus.testing.auth import Api, api_as, other_views, served_operations
@@ -151,7 +158,8 @@ def later_module() -> Router:
 
 @pytest.fixture
 def later_urls(settings: Any) -> Iterator[None]:
-    api = NinjaAPI(auth=SessionAuth(csrf=True), urls_namespace=f"later-{uuid.uuid4().hex}")
+    api = NinjaAPI(auth=Session(), urls_namespace=f"later-{uuid.uuid4().hex}")
+    install(api)
     api.add_router("", later_module())
     module = types.ModuleType("later_urls")
     module.urlpatterns = [path("api/", api.urls), path("admin/", admin.site.urls)]  # type: ignore[attr-defined]
@@ -224,7 +232,7 @@ def test_signed_out_or_without_a_developer_a_declared_act_is_refused(
 
         Membership.objects.filter(id=member.membership_id).update(revoked_at="2026-01-01T00:00Z")
 
-    assert Api().get(f"/api/later/{uuid.uuid4()}").status_code == 401
+    assert status(Api().get(f"/api/later/{uuid.uuid4()}")) == (401, SIGNED_OUT)
     assert status(api_as(member).get(f"/api/later/{uuid.uuid4()}")) == (
         403,
         {"code": "platform.auth.no_developer", "params": {}},
@@ -369,6 +377,59 @@ def test_every_unsafe_operation_refuses_a_request_without_the_csrf_token(
         # as unreadable (422) first; the view never runs either way.
         allowed = {403, 422} if declaration is not None and declaration.public else {403}
         assert response.status_code in allowed, (served.method, served.route, response.content)
+        if response.status_code == 403:  # the documented `Refusal`, whoever refused
+            assert response.json() == CSRF_FAILED, (served.method, served.route)
+
+
+CSRF_FAILED = {"code": "platform.auth.csrf_failed", "params": {}}
+SIGNED_OUT = {"code": "platform.auth.signed_out", "params": {}}
+
+
+@pytest.mark.django_db
+def test_every_operation_refuses_the_signed_out_with_a_refusal() -> None:
+    anyone = Api()
+    guarded = [
+        served
+        for served in served_operations()
+        if (found := declaration_of(served.operation.view_func)) is None or not found.public
+    ]
+    assert guarded
+
+    for served in guarded:
+        response = anyone.send(served.method.lower(), fill(served.route), {})
+        assert (response.status_code, response.json()) == (401, SIGNED_OUT), (
+            served.method,
+            served.route,
+        )
+
+
+@pytest.mark.django_db
+def test_every_refusal_documented_as_a_refusal_answers_as_one(
+    sign_in: Callable[..., Member],
+) -> None:
+    """The statuses the schema documents as `Refusal` for each operation carry `{code, params}`."""
+    schema = served_operations()[0].operation.api.get_openapi_schema()
+    guest = api_as(sign_in(role="guest"))
+    checked = 0
+    for route, operations in schema["paths"].items():
+        for method, documented in operations.items():
+            for status, answer in documented["responses"].items():
+                reference = str(answer.get("content", {}).get("application/json", {}).get("schema"))
+                if "Refusal" not in reference or int(status) not in (401, 403):
+                    continue
+                client = Api() if int(status) == 401 else guest
+                response = client.send(method, fill_schema(route), {}, csrf=int(status) != 403)
+                if response.status_code == int(status):
+                    assert set(response.json()) == {"code", "params"}, (method, route, status)
+                    checked += 1
+    assert checked
+
+
+def fill_schema(route: str) -> str:
+    """An OpenAPI path with every parameter filled by a fresh id."""
+    import re
+
+    return re.sub(r"\{[^}]+\}", lambda _: str(uuid.uuid4()), route)
 
 
 # Ways an operation might escape the walk (the refuter's, 28 Sep 2026) ------------------------------
@@ -405,7 +466,8 @@ def evasive_module() -> tuple[Router, NinjaAPI]:
     def at_the_url(request: HttpRequest) -> dict[str, str]:
         return {}
 
-    api = NinjaAPI(auth=SessionAuth(csrf=True), urls_namespace=f"evasive-{uuid.uuid4().hex}")
+    api = NinjaAPI(auth=Session(), urls_namespace=f"evasive-{uuid.uuid4().hex}")
+    install(api)
     api.add_router("", router)
     return router, api
 

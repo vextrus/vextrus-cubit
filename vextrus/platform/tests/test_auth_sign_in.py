@@ -219,7 +219,7 @@ def test_me_after_the_end_date_says_it_expired(sign_in: Callable[..., Member]) -
     guest = sign_in(role="guest", expires_at=timezone.now() + timedelta(days=1))
     with guest.acting():
         Membership.objects.filter(id=guest.membership_id).update(
-            expires_at=timezone.now() - timedelta(minutes=1)
+            expires_at=timezone.now() - timedelta(days=1)
         )
 
     me = api_as(guest).get("/api/me").json()

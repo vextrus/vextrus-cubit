@@ -43,6 +43,9 @@ UNUSABLE = MessageCode("platform.invitations.unusable")
 """The link was used, withdrawn or expired, or never existed; never says which."""
 WRONG_ACCOUNT = MessageCode("platform.invitations.wrong_account", params=("email",))
 """Signed in as someone other than the invited email."""
+ENGINEER_NOT_STAFF = MessageCode("platform.invitations.engineer_not_staff")
+"""A Vextrus Engineer's invitation is accepted only with an account of Vextrus's staff (the owner's
+ruling, 28 Sep 2026)."""
 SIGN_IN_FIRST = MessageCode("platform.invitations.sign_in_first", params=("email",))
 """The invited email has an account: sign in with it to accept."""
 NAME_REQUIRED = MessageCode("platform.invitations.name_required")

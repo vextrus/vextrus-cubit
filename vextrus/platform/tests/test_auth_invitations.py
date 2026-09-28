@@ -13,7 +13,7 @@ from django.utils import timezone
 from vextrus.platform.messages import invitations as codes
 from vextrus.platform.models import DomainEvent, Membership, MembershipProject, User
 from vextrus.platform.services import auth, invitations, tenancy
-from vextrus.testing.auth import Api, api_as, invitation
+from vextrus.testing.auth import Api, accept_as, api_as, invitation
 from vextrus.testing.tenancy import Member, add_member
 
 PASSWORD = "a long enough passphrase 7"
@@ -131,7 +131,7 @@ def test_someone_already_a_member_or_invited_is_refused(
         expires_at=timezone.now() + timedelta(seconds=1),
     )
     with team["md"].acting():
-        Membership.objects.filter(user=ended).update(expires_at=timezone.now())
+        Membership.objects.filter(user=ended).update(expires_at=timezone.now() - timedelta(days=1))
     invite(md, "pending@example.com", "qs")
 
     assert refusal(invite(md, team["qs"].user.email.upper(), "guest")) == (
@@ -146,7 +146,7 @@ def test_someone_already_a_member_or_invited_is_refused(
 
 
 def test_only_the_token_s_hash_is_kept_and_no_event_holds_it(team: dict[str, Member]) -> None:
-    membership_id, token = invitation(team["md"], "arif@example.com")
+    membership_id, token = invitation(team["md"], "arif@example.com", "guest")
 
     made = membership(team["md"], membership_id)
     assert made.invite_token_hash == hashlib.sha256(token.encode()).hexdigest()
@@ -184,7 +184,7 @@ def accept_new(token: str, name: str = "Arif Rahman", password: str = PASSWORD) 
 
 
 def test_a_new_person_joins_by_the_link_and_works_in_the_developer(team: dict[str, Member]) -> None:
-    membership_id, token = invitation(team["md"], "arif@example.com")
+    membership_id, token = invitation(team["md"], "arif@example.com", "guest")
 
     api, response = accept_new(token)
 
@@ -192,12 +192,12 @@ def test_a_new_person_joins_by_the_link_and_works_in_the_developer(team: dict[st
     me = response.json()  # type: ignore[attr-defined]
     assert me["developer_id"] == str(team["md"].developer_id)
     assert me["user"]["email"] == "arif@example.com"
-    assert [m["role"] for m in me["memberships"]] == ["vextrus_engineer"]
+    assert [m["role"] for m in me["memberships"]] == ["guest"]
     joined = membership(team["md"], membership_id)
     assert joined.user is not None
     assert joined.user.check_password(PASSWORD)
     assert (joined.invite_token_hash, joined.accepted_at is not None) == ("", True)
-    assert api.get("/api/members").status_code == 200
+    assert api.get("/api/me").json()["developer_id"] == str(team["md"].developer_id)
     with team["md"].acting():
         assert DomainEvent.objects.filter(
             kind=codes.ACCEPTED.code, subject_id=membership_id, actor_user_id=joined.user_id
@@ -205,7 +205,7 @@ def test_a_new_person_joins_by_the_link_and_works_in_the_developer(team: dict[st
 
 
 def test_a_link_works_once(team: dict[str, Member]) -> None:
-    _, token = invitation(team["md"], "arif@example.com")
+    _, token = invitation(team["md"], "arif@example.com", "guest")
     accept_new(token)
 
     assert refusal(accept_new(token, name="Someone Else")[1]) == (404, codes.UNUSABLE.code)
@@ -216,7 +216,7 @@ def test_a_link_works_once(team: dict[str, Member]) -> None:
 
 
 def test_a_link_stops_working_after_7_days(team: dict[str, Member]) -> None:
-    membership_id, token = invitation(team["md"], "arif@example.com")
+    membership_id, token = invitation(team["md"], "arif@example.com", "guest")
     with team["md"].acting():
         Membership.objects.filter(id=membership_id).update(
             invite_expires_at=timezone.now() - timedelta(seconds=1)
@@ -227,7 +227,7 @@ def test_a_link_stops_working_after_7_days(team: dict[str, Member]) -> None:
 
 
 def test_a_withdrawn_link_stops_working(team: dict[str, Member]) -> None:
-    membership_id, token = invitation(team["md"], "arif@example.com")
+    membership_id, token = invitation(team["md"], "arif@example.com", "guest")
 
     assert (
         api_as(team["md"]).post(f"/api/members/invitations/{membership_id}/withdraw").status_code == 204
@@ -241,7 +241,7 @@ def test_a_link_whose_access_would_already_have_ended_is_not_taken(team: dict[st
         team["md"], "g@example.com", "guest", expires_at=timezone.now() + timedelta(hours=1)
     )
     with team["md"].acting():
-        Membership.objects.filter(id=membership_id).update(expires_at=timezone.now())
+        Membership.objects.filter(id=membership_id).update(expires_at=timezone.now() - timedelta(days=1))
 
     assert refusal(accept_new(token)[1]) == (404, codes.UNUSABLE.code)
 
@@ -250,7 +250,7 @@ def test_a_link_names_its_own_developer_only(
     team: dict[str, Member], make_developer: Callable[..., uuid.UUID]
 ) -> None:
     other = make_developer()
-    _, token = invitation(team["md"], "arif@example.com")
+    _, token = invitation(team["md"], "arif@example.com", "guest")
     moved = f"{other}.{token.split('.', 1)[1]}"
 
     assert refusal(accept_new(moved)[1]) == (404, codes.UNUSABLE.code)
@@ -259,7 +259,7 @@ def test_a_link_names_its_own_developer_only(
 
 
 def test_a_new_link_replaces_the_old_one_and_keeps_its_end(team: dict[str, Member]) -> None:
-    membership_id, old = invitation(team["md"], "arif@example.com")
+    membership_id, old = invitation(team["md"], "arif@example.com", "guest")
     before = membership(team["md"], membership_id).invite_expires_at
 
     response = api_as(team["md"]).post(f"/api/members/invitations/{membership_id}/link")
@@ -275,7 +275,7 @@ def test_a_new_link_replaces_the_old_one_and_keeps_its_end(team: dict[str, Membe
 
 
 def test_accepting_needs_the_csrf_token(team: dict[str, Member]) -> None:
-    membership_id, token = invitation(team["md"], "arif@example.com")
+    membership_id, token = invitation(team["md"], "arif@example.com", "guest")
 
     response = Api().post(
         "/api/invitations/accept",
@@ -288,7 +288,7 @@ def test_accepting_needs_the_csrf_token(team: dict[str, Member]) -> None:
 
 
 def test_a_short_password_or_no_name_is_refused(team: dict[str, Member]) -> None:
-    _, token = invitation(team["md"], "arif@example.com")
+    _, token = invitation(team["md"], "arif@example.com", "guest")
 
     short = accept_new(token, password="short")[1]
     assert (short.status_code, short.json()) == (  # type: ignore[attr-defined]
@@ -305,7 +305,7 @@ def test_someone_with_an_account_signs_in_to_accept(
     elsewhere = make_developer()
     user = User.objects.create_user("arif@example.com", "Arif Rahman", PASSWORD)
     add_member(elsewhere, role="qs", user=user)
-    membership_id, token = invitation(team["md"], "arif@example.com")
+    membership_id, token = invitation(team["md"], "arif@example.com", "guest")
 
     assert refusal(accept_new(token)[1]) == (409, codes.SIGN_IN_FIRST.code)
     other = api_as(team["qs"])
@@ -325,7 +325,7 @@ def test_someone_with_an_account_signs_in_to_accept(
 
 
 def test_a_member_cannot_accept_a_second_membership_in_one_developer(team: dict[str, Member]) -> None:
-    _, token = invitation(team["md"], "arif@example.com")
+    _, token = invitation(team["md"], "arif@example.com", "guest")
     with team["md"].acting():
         Membership.objects.filter(invited_email="arif@example.com").update(
             invited_email=team["qs"].user.email
@@ -371,7 +371,7 @@ def test_expired_access_refuses_the_next_request(team: dict[str, Member]) -> Non
 
     with team["md"].acting():
         Membership.objects.filter(id=team["vextrus_engineer"].membership_id).update(
-            expires_at=timezone.now()
+            expires_at=timezone.now() - timedelta(days=1)
         )
 
     assert refusal(engineer.get("/api/members")) == (403, "platform.auth.no_developer")
@@ -405,13 +405,13 @@ def test_access_without_an_end_date_is_not_renewed(team: dict[str, Member]) -> N
     assert refusal(response) == (409, codes.NO_END_DATE.code)
 
 
-def test_a_qs_ends_only_an_engineer_they_invited(team: dict[str, Member]) -> None:
+def test_a_qs_ends_only_an_engineer_they_invited(team: dict[str, Member], other_staff: User) -> None:
     qs = api_as(team["qs"])
     mine, _ = invitation(team["qs"], "mine@example.com")
     theirs, _ = invitation(team["md"], "theirs@example.com")
-    _, token = invitation(team["qs"], "joined@example.com")
-    accept_new(token, name="Joined")
-    joined = membership(team["md"], _id_of(team["md"], "joined@example.com"))
+    _, token = invitation(team["qs"], other_staff.email)
+    accept_as(token, other_staff)
+    joined = membership(team["md"], _id_of(team["md"], other_staff.email))
 
     assert qs.post(f"/api/members/invitations/{mine}/withdraw").status_code == 204
     assert refusal(qs.post(f"/api/members/invitations/{theirs}/withdraw")) == (
@@ -499,3 +499,45 @@ def test_a_project_outside_the_inviter_s_scope_is_not_found_before_the_role_is_a
     response = invite(qs, "q@example.com", "qs", project_ids=[str(uuid.uuid4())])
 
     assert refusal(response) == (404, "platform.auth.not_found")
+
+
+# A Vextrus Engineer is one of Vextrus's staff (the owner's ruling, 28 Sep 2026) ------------------
+
+
+def signed_in_as(user: User) -> Api:
+    user.set_password(PASSWORD)  # the app may set a password, never the staff flag
+    user.save(update_fields=["password"])
+    api = Api()
+    assert api.post("/api/auth/sign-in", {"email": user.email, "password": PASSWORD}).status_code == 200
+    return api
+
+
+def test_a_vextrus_engineer_s_invitation_is_accepted_with_a_staff_account(
+    team: dict[str, Member], staff: User
+) -> None:
+    membership_id, token = invitation(team["md"], staff.email)
+
+    accepted = signed_in_as(staff).post("/api/invitations/accept", {"token": token})
+
+    assert accepted.status_code == 200
+    assert accepted.json()["developer_id"] == str(team["md"].developer_id)
+    assert membership(team["md"], membership_id).user_id == staff.pk
+
+
+def test_anyone_else_is_refused_a_vextrus_engineer_s_invitation_which_stays_unused(
+    team: dict[str, Member],
+) -> None:
+    membership_id, token = invitation(team["md"], "outsider@example.com")
+    User.objects.create_user("outsider@example.com", "Outsider", PASSWORD)
+
+    signed_in = signed_in_as(User.objects.get(email="outsider@example.com"))
+    refused = signed_in.post("/api/invitations/accept", {"token": token})
+    other_id, other_token = invitation(team["md"], "newcomer@example.com")
+    joined = accept_new(other_token, name="Newcomer")[1]
+
+    assert refusal(refused) == (403, codes.ENGINEER_NOT_STAFF.code)
+    assert refusal(joined) == (403, codes.ENGINEER_NOT_STAFF.code)
+    assert not User.objects.filter(email="newcomer@example.com").exists()
+    for held, link in ((membership_id, token), (other_id, other_token)):
+        assert membership(team["md"], held).user_id is None
+        assert Api().post("/api/invitations/look-up", {"token": link}).status_code == 200

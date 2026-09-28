@@ -8,7 +8,9 @@ when platform knows it (a person, a Developer); and the event's own payload of i
 carries the actor's name and role, and whether they are of Vextrus, so the web shows "(Vextrus)".
 
 Only the acting Developer's events are read (row-level security holds that), and a member given
-chosen Projects sees the acts on those Projects and the Developer's own, never another Project's.
+chosen Projects sees what `/api/members` shows them and no more: the acts on those Projects and the
+Developer's own, never another Project's, nor one about or by a person hidden from them there
+(`invitations.visible_events`).
 The actors named are the Developer's members, and Vextrus's staff who opened it in the admin: the MD
 sees those picks by name (ADR 0034).
 """
@@ -21,7 +23,7 @@ from django.db.models import Q
 
 from engine.messages import Param
 from vextrus.platform.models import Developer, DomainEvent, Membership, Role, User
-from vextrus.platform.services import auth
+from vextrus.platform.services import auth, invitations
 
 MAX_LIMIT = 200
 
@@ -60,9 +62,7 @@ def acts(
     an act's id to read on from it."""
     viewer = auth.require(auth.SEE_ACTS, project_id)
     assert viewer is not None
-    found = DomainEvent.objects.filter(tenant_id=viewer.tenant_id)
-    if viewer.project_ids:
-        found = found.filter(Q(project_id__isnull=True) | Q(project_id__in=viewer.project_ids))
+    found = invitations.visible_events(viewer)
     if actor_user_id is not None:
         found = found.filter(actor_user_id=actor_user_id)
     if project_id is not None:

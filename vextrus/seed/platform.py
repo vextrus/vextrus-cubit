@@ -13,18 +13,26 @@ That seed (08) scopes it through the service an MD uses, acting as Kamal:
     with tenancy.acting_in(demo["developer:shapla"], user_id=demo["user:kamal"]):
         invitations.set_projects(demo["membership:guest"], [kr01_id])
 
+Arif Rahman is one of Vextrus's staff, since only staff accept a Vextrus Engineer's invitation (the
+owner's ruling, 28 Sep 2026). The app can never mark anyone staff, so his account is made and marked
+as the owner does it: through the owner alias and `manage.py set_staff`. Those two writes are the
+owner's own, committed at once, and stay if the rest of the seed fails.
+
 Passwords come from `VEXTRUS_DEMO_PASSWORD`, never printed; without it the people cannot sign in. A
-person whose email already has an account (Vextrus's staff, say) keeps it and its password.
+person whose email already has an account keeps it and its password.
 """
 
+import io
 import logging
 import os
 import uuid
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
+from django.core.management import call_command
 from django.utils import timezone
 
+from vextrus.platform.database import OWNER_ALIAS
 from vextrus.platform.models import Membership, User
 from vextrus.platform.services import invitations, markets, tenancy
 from vextrus.seed.demo import Demo
@@ -37,6 +45,9 @@ DEVELOPERS = {
     "developer:shapla": "Shapla Homes Ltd",
     "developer:meghna": "Meghna Properties Ltd",
 }
+
+ENGINEER = ("arif@vextrus.example", "Arif Rahman")
+"""The seed's Vextrus Engineer: one of Vextrus's staff."""
 
 GUEST_UNTIL = date(2026, 10, 26)
 """The Guest's last day (m0-screens §7). Seeded after it, the Guest gets 28 days from the seeding
@@ -62,8 +73,9 @@ def run(demo: Demo) -> None:
         demo["user:nusrat"], demo["membership:qs"] = _invited(
             "nusrat@shapla-homes.example", "Nusrat Jahan", "qs", password
         )
+        engineer = _staff_account(*ENGINEER, password)
         demo["user:arif"], demo["membership:engineer"] = _invited(
-            "arif@vextrus.example", "Arif Rahman", "vextrus_engineer", password
+            engineer.email, engineer.name, "vextrus_engineer", password
         )
         demo["user:farhana"], demo["membership:guest"] = _invited(
             "farhana@padma-builders.example",
@@ -74,6 +86,18 @@ def run(demo: Demo) -> None:
             expires_at=_guest_until(market.time_zone),
         )
         demo["invitation:rumana"] = invitations.invite("rumana@shapla-homes.example", "qs").membership_id
+
+
+def _staff_account(email: str, name: str, password: str | None) -> User:
+    """One of Vextrus's staff: made if new, and marked, as the owner does both (the owner alias,
+    `manage.py set_staff`); an account already staff is kept as it is."""
+    found = User.objects.filter(email__iexact=email).first()
+    if found is not None and found.is_vextrus_staff:
+        return found
+    if found is None:
+        User.objects.db_manager(OWNER_ALIAS).create_user(email, name, password)
+    call_command("set_staff", email, stdout=io.StringIO())
+    return User.objects.get(email__iexact=email)
 
 
 def _account(email: str, name: str, password: str | None) -> User:
@@ -91,9 +115,12 @@ def _member(
     staff's invitation is accepted."""
     user = _account(email, name, password)
     with tenancy.acting_in(developer_id):
-        now = timezone.now()
         Membership.objects.create(
-            tenant_id=developer_id, user=user, role=role, starts_at=now, accepted_at=now
+            tenant_id=developer_id,
+            user=user,
+            role=role,
+            starts_at=tenancy.DATABASE_NOW,
+            accepted_at=tenancy.DATABASE_NOW,
         )
     return user.pk
 

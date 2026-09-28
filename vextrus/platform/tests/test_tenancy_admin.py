@@ -154,8 +154,9 @@ def test_creating_a_developer_makes_its_id_the_tenant_in_the_same_transaction(
 
 @pytest.mark.django_db
 def test_staff_create_the_first_md_invitation_and_nothing_more(
-    staff_client: Client, staff: User, shapla: uuid.UUID
+    staff_client: Client, staff: User, shapla: uuid.UUID, settings: Any
 ) -> None:
+    settings.VEXTRUS_WEB_ORIGIN = "https://app.vextrus.example/"
     pick(staff_client, shapla)
     add_page = staff_client.get("/admin/platform/membership/add/")
 
@@ -170,7 +171,8 @@ def test_staff_create_the_first_md_invitation_and_nothing_more(
 
     assert add_page.status_code == 200
     assert first.redirect_chain == [("/admin/platform/membership/", 302)]
-    assert f"{shapla}.".encode() in first.content  # the token, shown once
+    # The whole link, on the web's origin, shown once (07)
+    assert f"https://app.vextrus.example/join#{shapla}.".encode() in first.content
     assert second.status_code == 403
     with tenancy.acting_in(shapla):
         [invitation] = Membership.objects.all()

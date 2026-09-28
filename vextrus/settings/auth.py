@@ -33,6 +33,9 @@ CSRF_TRUSTED_ORIGINS = [
     if origin
 ]
 
+# The web app's own origin, where an invitation link opens: `<origin>/join#<token>` (07).
+VEXTRUS_WEB_ORIGIN = os.environ.get("VEXTRUS_WEB_ORIGIN") or "http://127.0.0.1:5410"
+
 # Invitations (07; docs/design/m0-screens.md §9, ruling 3): a link works once, for 7 days.
 VEXTRUS_INVITATION_DAYS = 7
 # A Vextrus Engineer's Membership ends after 30 days by default, renewable (ADR 0034).

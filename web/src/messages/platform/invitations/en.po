@@ -27,6 +27,9 @@ msgstr "Choose at least one project."
 msgid "platform.invitations.end_in_past"
 msgstr "Choose a date after today."
 
+msgid "platform.invitations.engineer_not_staff"
+msgstr "A Vextrus Engineer's invitation is accepted only with a Vextrus staff account. Sign in with yours, or ask Vextrus."
+
 msgid "platform.invitations.invalid_email"
 msgstr "Enter an email address, like name@example.com."
 

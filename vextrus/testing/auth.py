@@ -7,7 +7,8 @@
 - `team`: one Developer with a member in each role (`team["qs"]`, `["md"]`, `["vextrus_engineer"]`,
   `["guest"]`), each a signed-in `Member`.
 - `invitation(member, email, role, ...)`: an invitation made by `member` through the service,
-  `(membership id, token)`.
+  `(membership id, token)`; `accept_as(token, user)` accepts it as an existing account (a Vextrus
+  Engineer's only as one of Vextrus's staff, the fixtures `staff` and `other_staff`).
 - `served_operations()`: every Ninja operation the URLs serve, found through Django's URL resolver,
   so the walking tests see every module's operations with no list to edit; `other_views()`: every
   other route served outside the admin (a plain view, or an operation wrapped at the URL).
@@ -30,7 +31,8 @@ from django.urls import URLPattern, URLResolver, get_resolver
 from django.utils.crypto import get_random_string
 from ninja.operation import Operation, PathView
 
-from vextrus.platform.services import invitations
+from vextrus.platform.models import User
+from vextrus.platform.services import invitations, tenancy
 from vextrus.testing.tenancy import Member
 
 ROLES = ("qs", "md", "vextrus_engineer", "guest")
@@ -106,6 +108,13 @@ def invitation(
     with member.acting():
         link = invitations.invite(email, role, project_ids=project_ids, expires_at=expires_at)
     return link.membership_id, link.token
+
+
+def accept_as(token: str, user: User) -> uuid.UUID:
+    """Accept a link as an existing account, as signing in and accepting would: a Vextrus Engineer's
+    only with one of Vextrus's staff (`staff`, `other_staff`). The Developer's id."""
+    with tenancy.acting_in(None):
+        return invitations.accept(token, user)
 
 
 # Every operation the URLs serve -------------------------------------------------------------------

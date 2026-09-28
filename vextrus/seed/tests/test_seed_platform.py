@@ -129,3 +129,26 @@ def test_without_the_demo_password_no_one_can_sign_in(
 
     assert not signs_in("kamal@shapla-homes.example", "")
     assert seed_platform.PASSWORD_VARIABLE in caplog.text
+
+
+@pytest.mark.django_db
+def test_the_seed_s_engineer_is_one_of_vextrus_s_staff(seeded: Demo) -> None:
+    with tenancy.acting_in(None, user_id=seeded["user:arif"]):
+        assert [choice.name for choice in tenancy.staff_developers()]  # staff see every Developer
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "owner"])
+def test_a_new_engineer_is_made_staff_the_owner_s_way_then_accepted(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(seed_platform.PASSWORD_VARIABLE, DEMO_PASSWORD)
+    monkeypatch.setattr(seed_platform, "ENGINEER", ("sadia@vextrus.example", "Sadia Islam"))
+    demo: Demo = {}
+
+    seed_platform.run(demo)
+
+    [engineer] = members_as_md(demo).vextrus_access
+    assert (engineer.email, engineer.name) == ("sadia@vextrus.example", "Sadia Islam")
+    with tenancy.acting_in(None, user_id=demo["user:arif"]):
+        assert tenancy.staff_developers()  # marked staff by the owner, through set_staff
+    assert signs_in("sadia@vextrus.example", DEMO_PASSWORD)

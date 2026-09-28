@@ -36,7 +36,7 @@ def test_a_user_without_a_current_membership_acts_in_no_tenant(
     developer = member.developer_id
     now = timezone.now()
     change = {
-        "lapsed": {"expires_at": now - timedelta(seconds=1)},
+        "lapsed": {"expires_at": now - timedelta(days=1)},
         "revoked": {"revoked_at": now},
         "not started": {"starts_at": now + timedelta(hours=1)},
         "never a member": {},
@@ -135,3 +135,33 @@ def test_the_app_cannot_write_a_library_row_by_any_entry_point(
         Developer.objects.filter(id=market.library_id).update(name="rewritten")
     library = Developer.objects.using(OWNER_ALIAS).get(id=market.library_id)
     assert library.name != "rewritten"
+
+
+# The two readers of "current" read one clock (the orchestrator's review) --------------------------
+
+
+@pytest.mark.parametrize(
+    ("change", "current"),
+    [
+        ("starts after the transaction began", False),  # the app's clock would call it current
+        ("ends after the transaction began", True),  # the app's clock may call it ended
+    ],
+)
+def test_the_membership_and_user_developers_agree_on_now(
+    sign_in: Callable[..., Member], change: str, current: bool
+) -> None:
+    member = sign_in(role="qs")
+    with connection.cursor() as cursor:
+        cursor.execute("select pg_catalog.now()")
+        began = cursor.fetchone()[0]
+    moment = began + timedelta(microseconds=1)  # later than the database's now(), however little
+    field = "starts_at" if change.startswith("starts") else "expires_at"
+    with tenancy.acting_in(member.developer_id):
+        Membership.objects.filter(id=member.membership_id).update(**{field: moment})
+
+    with tenancy.acting_in(member.developer_id, user_id=member.user.pk) as acting:
+        by_membership = acting.membership is not None
+    with tenancy.acting_in(None, user_id=member.user.pk):
+        by_function = member.developer_id in {d.id for d in tenancy.user_developers()}
+
+    assert (by_membership, by_function) == (current, current)

@@ -39,6 +39,10 @@ guard:
 
 A refusal's body is the machine's sentence, `Refusal` (`{code, params}`), documented on the operation
 for 401, 403 and 404; an operation declares any other status its service refuses with (409, 400).
+Refusals made before the guard answer the same way: the API authenticates with `Session`, whose
+missing CSRF token is a `Refused`, and `install(api)` answers a failed sign-in check (401
+`platform.auth.signed_out`) and any `Refused` raised outside a guard as `Refusal`s. Only Ninja's own
+validation (422) keeps its shape.
 A Project named another way (by its code) is declared without `project`; the service resolves it
 and calls `require(act, project_id)` itself.
 
@@ -55,8 +59,10 @@ from dataclasses import dataclass
 from typing import Any, cast
 
 from django.http import HttpRequest, HttpResponse, JsonResponse
-from ninja import Schema
+from ninja import NinjaAPI, Schema
+from ninja.errors import AuthenticationError
 from ninja.operation import Operation
+from ninja.security import SessionAuth
 from ninja.utils import check_csrf, contribute_operation_callback
 
 from engine.messages import Message
@@ -64,7 +70,17 @@ from vextrus.platform.messages import auth as codes
 from vextrus.platform.services import auth
 from vextrus.platform.services.auth import Act, Grant
 
-__all__ = ["Act", "Declaration", "Grant", "Refusal", "declaration_of", "declare", "public"]
+__all__ = [
+    "Act",
+    "Declaration",
+    "Grant",
+    "Refusal",
+    "Session",
+    "declaration_of",
+    "declare",
+    "install",
+    "public",
+]
 
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS", "TRACE"})
 _ATTRIBUTE = "vextrus_declaration"
@@ -174,3 +190,38 @@ def _document(declaration: Declaration, operation: Operation) -> None:
     for status in statuses:
         if status not in operation.response_models:
             operation.response_models[status] = operation._create_response_model(Refusal)
+
+
+# The API's own refusals ---------------------------------------------------------------------------
+
+
+class Session(SessionAuth):
+    """The API's authentication: the signed-in session, with the CSRF token on every unsafe method.
+
+    Ninja's own refuses a missing token with a bare `{"detail": ...}`; this raises a `Refused`, which
+    `install` answers as a `Refusal`. The guard checks the token again, so a public operation (no
+    authentication) is held to it too.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(csrf=True)
+
+    def _get_key(self, request: HttpRequest) -> str | None:
+        if request.method not in SAFE_METHODS and check_csrf(request) is not None:
+            raise auth.Refused(codes.CSRF_FAILED(), status=403)
+        return request.COOKIES.get(self.param_name)
+
+
+def install(api: NinjaAPI) -> None:
+    """Answer the API's refusals made outside a guard as `Refusal`s: no one signed in (401), and a
+    `Refused` raised by authentication (a missing CSRF token, 403)."""
+
+    def signed_out(request: HttpRequest, exc: object) -> HttpResponse:
+        return refusal(401, codes.SIGNED_OUT())
+
+    def refused(request: HttpRequest, exc: object) -> HttpResponse:
+        assert isinstance(exc, auth.Refused)
+        return refusal(exc.status, exc.message)
+
+    api.add_exception_handler(AuthenticationError, signed_out)
+    api.add_exception_handler(auth.Refused, refused)

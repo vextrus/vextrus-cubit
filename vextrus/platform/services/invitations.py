@@ -13,6 +13,10 @@ only those, or fewer; one outside them is "not found", like any Project outside 
 `tenancy.invitation_by_token`. Its token carries its tenant and is shown once; only its hash is kept,
 and accepting clears even that. A lost link is replaced (`reissue_link`), which stops the old one.
 
+**A Vextrus Engineer** is one of Vextrus's staff: their invitation is accepted only with an account
+the owner marked `is_vextrus_staff` (`manage.py set_staff`); anyone else is refused and the
+invitation stays unused (the owner's ruling, 28 Sep 2026).
+
 **End dates:** a Vextrus Engineer's access always ends (30 days by default, renewable); anyone
 else's where the Developer wants it. The tenant middleware checks every request, so the next request
 after a revocation or an end is refused, an existing session's included.
@@ -29,8 +33,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.db import IntegrityError, transaction
-from django.db.models import Count, DateTimeField, Max, Q
-from django.db.models.expressions import RawSQL
+from django.db.models import Count, Max, Q, QuerySet
 from django.db.models.functions import Now
 from django.utils import timezone
 from django.views.decorators.debug import sensitive_variables
@@ -44,10 +47,6 @@ from vextrus.platform.services.tenancy import CurrentMembership
 
 RENEW_DAYS: int = settings.VEXTRUS_ENGINEER_MEMBERSHIP_DAYS
 """A renewal adds this many days (m0-screens §4.4, "Renew 30 days")."""
-
-_TRANSACTION_NOW = RawSQL("pg_catalog.now()", [], output_field=DateTimeField())
-"""The transaction's start, as the named functions read "now" (`user_developers` holds a Membership
-current from its `starts_at`): Django's `Now()` is the statement's time, later in the same request."""
 
 _INVITES: dict[str, frozenset[str]] = {
     Role.MD: frozenset(Role.values),
@@ -63,6 +62,12 @@ class NewLink:
     """Shown once, for the link; only its hash is kept. The web puts it after `#` in the link, so
     it never reaches a server's log."""
     link_expires_at: datetime
+
+
+def link(token: str) -> str:
+    """The invitation link: the web's origin (`VEXTRUS_WEB_ORIGIN`), `/join`, and the token after
+    `#`, a fragment the browser never sends, so no server logs it."""
+    return f"{settings.VEXTRUS_WEB_ORIGIN.rstrip('/')}/join#{token}"
 
 
 # Inviting -----------------------------------------------------------------------------------------
@@ -221,6 +226,8 @@ def accept(token: str, user: User) -> uuid.UUID:
         raise Refused(codes.UNUSABLE(), status=404)
     if user.email.lower() != found.invited_email.lower():
         raise Refused(codes.WRONG_ACCOUNT(email=found.invited_email))
+    if found.role == Role.VEXTRUS_ENGINEER and not _is_staff(user):
+        raise Refused(codes.ENGINEER_NOT_STAFF())  # the invitation stays unused
     tenant_id, token_hash = parts
     try:
         # Not yet a member: the system acts in the invitation's Developer, under the user's name.
@@ -241,8 +248,8 @@ def accept(token: str, user: User) -> uuid.UUID:
                 .filter(Q(expires_at__isnull=True) | Q(expires_at__gt=Now()))
                 .update(
                     user=user,
-                    accepted_at=_TRANSACTION_NOW,
-                    starts_at=_TRANSACTION_NOW,
+                    accepted_at=tenancy.DATABASE_NOW,
+                    starts_at=tenancy.DATABASE_NOW,
                     invite_token_hash="",
                 )
             )
@@ -272,6 +279,8 @@ def join(token: str, name: str, password: str) -> tuple[User, uuid.UUID]:
     email = found.invited_email
     if User.objects.filter(email__iexact=email).exists():
         raise Refused(codes.SIGN_IN_FIRST(email=email), status=409)
+    if found.role == Role.VEXTRUS_ENGINEER:  # a new account is never staff: only the owner makes one
+        raise Refused(codes.ENGINEER_NOT_STAFF())
     name = name.strip()
     if not name:
         raise Refused(codes.NAME_REQUIRED(), status=400)
@@ -412,7 +421,47 @@ def members() -> Members:
     return Members(tuple(people), tuple(vextrus), tuple(pending))
 
 
+@dataclass(frozen=True)
+class Hidden:
+    """What a member given chosen Projects may not see of their Developer's people: the Memberships
+    `members()` leaves out (none of their Projects is the viewer's), and the users holding only
+    those. A viewer with every Project sees everyone."""
+
+    memberships: frozenset[uuid.UUID]
+    users: frozenset[uuid.UUID]
+
+
+def hidden_from(viewer: CurrentMembership) -> Hidden:
+    if not viewer.project_ids:
+        return Hidden(frozenset(), frozenset())
+    rows = list(Membership.objects.filter(tenant_id=viewer.tenant_id).values_list("id", "user_id"))
+    projects = _projects_of(viewer.tenant_id, [row[0] for row in rows])
+    hidden = {m for m, _ in rows if _seen_projects(viewer, projects.get(m, frozenset())) is None}
+    seen_users = {u for m, u in rows if u is not None and m not in hidden}
+    users = {u for m, u in rows if u is not None and m in hidden} - seen_users
+    return Hidden(frozenset(hidden), frozenset(users))
+
+
+def visible_events(viewer: CurrentMembership) -> QuerySet[DomainEvent]:
+    """The Developer's events the viewer may see: for a member given chosen Projects, those on their
+    Projects or on none, and never one about, or by, someone `members()` hides from them."""
+    found = DomainEvent.objects.filter(tenant_id=viewer.tenant_id)
+    if not viewer.project_ids:
+        return found
+    hidden = hidden_from(viewer)
+    return (
+        found.filter(Q(project_id__isnull=True) | Q(project_id__in=viewer.project_ids))
+        .exclude(subject_type="membership", subject_id__in=hidden.memberships)
+        .exclude(actor_user_id__in=hidden.users)
+    )
+
+
 # Helpers ------------------------------------------------------------------------------------------
+
+
+def _is_staff(user: User) -> bool:
+    """Whether the account is one of Vextrus's staff now, read from its row (the owner sets it)."""
+    return User.objects.filter(pk=user.pk, is_vextrus_staff=True, is_active=True).exists()
 
 
 def _clean_email(email: str) -> str:
@@ -480,8 +529,8 @@ def _changeable(actor: CurrentMembership, membership_id: uuid.UUID) -> Membershi
     a Vextrus Engineer's the QS invited. Another Developer's is not found (the user's own rows in
     other Developers are readable, so the tenant is named here, not left to the policy)."""
     membership = Membership.objects.filter(id=membership_id, tenant_id=actor.tenant_id).first()
-    if membership is None:
-        raise auth.NotFound
+    if membership is None or membership.id in hidden_from(actor).memberships:
+        raise auth.NotFound  # one the actor could not see in `members()` is not found, as missing
     if membership.user_id == actor.user_id:
         raise Refused(codes.NOT_YOURSELF())
     if actor.role == Role.MD:
@@ -578,9 +627,7 @@ def _acts_by_actor(viewer: CurrentMembership) -> dict[uuid.UUID, tuple[int, date
     """Each actor's count of acts and their latest, among the acts the viewer may see."""
     if not auth.allows(viewer.role, auth.SEE_ACTS):
         return {}
-    visible = DomainEvent.objects.filter(tenant_id=viewer.tenant_id, actor_user_id__isnull=False)
-    if viewer.project_ids:
-        visible = visible.filter(Q(project_id__isnull=True) | Q(project_id__in=viewer.project_ids))
+    visible = visible_events(viewer).filter(actor_user_id__isnull=False)
     return {
         row["actor_user_id"]: (row["count"], row["last"])
         for row in visible.order_by()

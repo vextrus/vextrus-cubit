@@ -7,6 +7,7 @@ import re
 import uuid
 from collections.abc import Callable
 from datetime import timedelta
+from typing import Any
 
 import pytest
 from django.utils import timezone
@@ -94,7 +95,7 @@ def test_a_stale_read_of_a_taken_link_cannot_take_it_again(
     team: dict[str, Member], monkeypatch: pytest.MonkeyPatch, sign_in: Callable[..., Member]
 ) -> None:
     """Two accepts at once: each read the pending invitation; the second finds it taken."""
-    _, token = invitation(team["md"], "arif@example.com")
+    _, token = invitation(team["md"], "arif@example.com", "guest")
     with tenancy.acting_in(None):
         stale = tenancy.invitation_by_token(token)
     assert stale is not None
@@ -118,7 +119,7 @@ def test_a_stale_read_of_a_taken_link_cannot_take_it_again(
 
 def test_the_token_is_never_logged(team: dict[str, Member], caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.DEBUG)
-    membership_id, token = invitation(team["md"], "arif@example.com")
+    membership_id, token = invitation(team["md"], "arif@example.com", "guest")
     api = Api()
 
     api.post("/api/invitations/look-up", {"token": token})
@@ -151,7 +152,7 @@ def test_a_withdraw_that_loses_the_race_to_an_accept_changes_nothing(
     team: dict[str, Member], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The withdraw read the invitation as pending; the accept committed before its write."""
-    membership_id, token = invitation(team["md"], "arif@example.com")
+    membership_id, token = invitation(team["md"], "arif@example.com", "guest")
     with team["md"].acting():
         stale = Membership.objects.get(id=membership_id)
     Api().post("/api/invitations/accept", {"token": token, "name": "A", "password": PASSWORD})
@@ -180,3 +181,67 @@ def test_a_renew_that_loses_the_race_to_a_revoke_changes_nothing(
     assert refused.value.message["code"] == codes.ALREADY_ENDED.code
     with team["md"].acting():
         assert Membership.objects.get(id=target).expires_at == stale.expires_at
+
+
+# A member given chosen Projects: nothing about people outside them (the orchestrator's review) ---
+
+
+@pytest.fixture
+def scoped(sign_in: Callable[..., Member], make_developer: Callable[..., uuid.UUID]) -> dict[str, Any]:
+    """An MD given P1, and around them a QS given P2 only, a pending Guest invited to P2 only, and
+    a QS with every Project."""
+    developer = make_developer()
+    p1, p2 = uuid.uuid4(), uuid.uuid4()
+    md = sign_in(role="md", developer_id=developer, projects=[p1])
+    boss = sign_in(role="md", developer_id=developer)
+    apart = sign_in(role="qs", developer_id=developer, projects=[p2], email="apart@example.com")
+    everywhere = sign_in(role="qs", developer_id=developer, email="everywhere@example.com")
+    pending, _ = invitation(boss, "guest-p2@example.com", "guest", project_ids=[p2])
+    return {"md": md, "boss": boss, "apart": apart, "everywhere": everywhere, "pending": pending}
+
+
+def test_a_scoped_md_acts_on_no_one_it_cannot_see(scoped: dict[str, Any]) -> None:
+    md = api_as(scoped["md"])
+    apart = scoped["apart"].membership_id
+    pending = scoped["pending"]
+    shown = {p["email"] for p in md.get("/api/members").json()["people"]}
+    assert "apart@example.com" not in shown
+
+    for path in (f"/api/members/{apart}/revoke", f"/api/members/{apart}/renew"):
+        response = md.post(path)
+        assert (response.status_code, response.json()["code"]) == (404, "platform.auth.not_found")
+    for path in (
+        f"/api/members/invitations/{pending}/withdraw",
+        f"/api/members/invitations/{pending}/link",
+    ):
+        response = md.post(path)
+        assert (response.status_code, response.json()["code"]) == (404, "platform.auth.not_found")
+    with scoped["boss"].acting():
+        assert Membership.objects.get(id=apart).revoked_at is None
+        assert Membership.objects.get(id=pending).revoked_at is None
+    renewed = md.post(f"/api/members/{scoped['everywhere'].membership_id}/revoke")
+    assert renewed.status_code == 204  # one it can see
+
+
+def test_a_scoped_member_reads_no_act_about_or_by_someone_it_cannot_see(
+    scoped: dict[str, Any],
+) -> None:
+    boss, md = scoped["boss"], scoped["md"]
+    _, token = invitation(boss, "joiner-p2@example.com", "guest", project_ids=[uuid.uuid4()])
+    Api().post("/api/invitations/accept", {"token": token, "name": "Joiner", "password": PASSWORD})
+    with boss.acting():
+        invitations.set_projects(
+            scoped["apart"].membership_id,
+            list(scoped["apart"].project_ids),
+        )
+
+    everything = api_as(boss).get("/api/activity", limit=200).content.decode()
+    seen = api_as(md).get("/api/activity", limit=200).content.decode()
+    counted = {p["email"]: p["acts"] for p in api_as(md).get("/api/members").json()["people"]}
+
+    apart = str(scoped["apart"].membership_id)
+    for hidden in ("guest-p2@example.com", "Joiner", apart, str(scoped["pending"])):
+        assert hidden in everything
+        assert hidden not in seen, hidden
+    assert "everywhere@example.com" in counted
+    assert "joiner-p2@example.com" not in counted
