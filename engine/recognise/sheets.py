@@ -53,10 +53,15 @@ handles stable within the file. 14's `resolve` treats it as opaque.
 **Hostile input is bounded** (a ReadArtefact is the drawing's): model space and each layout are walked
 once each through `placement.Walk` with a visit budget (`MAX_VISITS`); an insert with a scale of 0 or
 not finite, or a viewport whose values are not finite or past `MAX_COORDINATE`, is skipped and counted,
-never divided by; a text longer than `MAX_RAW_TEXT` is not decoded; texts and drawn points are indexed
-once per artefact, sorted, so a frame or viewport query is a search, not a scan per layout; a
-layout's name that is empty, or one repeated, is counted and read once. `Segmentation.counts` says what
-was skipped, by name.
+never divided by; a text longer than `MAX_RAW_TEXT` is not decoded; texts, drawn points and frames
+are indexed once per space in a two-dimensional tree (`_Index`), so a frame or viewport query visits
+the tree's nodes that meet it, however the drawing lays them out (review round 1: an index by x alone
+scanned a whole column); a sheet is read by at most `MAX_LABELS` labels and `MAX_VALUES` values, a
+viewport weighs at most `MAX_WINDOW_FRAMES` frames, and each space's reading takes at most a budget
+in proportion to its texts (`READS_PER_TEXT`, `PAIRS_PER_TEXT`: frames stacked over the same texts
+cost their texts' work, not the product); past a cap or the budget, what is left is counted and not
+read. A layout's name that is empty or holds a control character, or one repeated, is counted and
+read once. `Segmentation.counts` says what was skipped, by name.
 
 **Numbers** (`sequence`; the ruling with 19b, review round 1): the last run of digits is the running
 number, what comes before it the prefix and what follows the suffix ("S1-01" is "S1-", 1, ""); a last
@@ -68,7 +73,6 @@ format characters (zero width, bidi) are not part of a number; a run of more tha
 digits is no number.
 """
 
-import bisect
 import json
 import math
 import re
@@ -78,6 +82,9 @@ from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from functools import cache
 from pathlib import Path, PureWindowsPath
+from typing import Any
+
+import numpy as np
 
 from engine.geometry.placement import (
     IDENTITY,
@@ -140,6 +147,23 @@ MAX_RUNNING_DIGITS = 9
 """The most digits a running number holds (`int()` is never given more)."""
 MAX_COORDINATE = 1e12
 """A viewport value past this (drawing units) is not read."""
+MAX_LABELS = 64
+"""The most labels one sheet's title block is read by (the real sets' most in a frame: 21); past it,
+the rest are left out and counted (`frame_labels_capped`)."""
+MAX_VALUES = 4096
+"""The most texts one sheet weighs as its values (the real sets' most in a frame: 442); past it,
+counted (`frame_values_capped`)."""
+MAX_WINDOW_FRAMES = 64
+"""The most model-space frames one viewport is asked about (a layout needs only whether it shows
+none, one or more); past it, counted (`layout_frames_capped`)."""
+READS_PER_TEXT = 16
+MIN_READS = 100_000
+"""A space's reading budget: the texts and frames its queries may give, `READS_PER_TEXT` per text and
+candidate frame it holds, plus `MIN_READS` (the real sets read at most 1.2 per text, measured)."""
+PAIRS_PER_TEXT = 64
+MIN_PAIRS = 1_000_000
+"""A space's budget of label and value pairs weighed: `PAIRS_PER_TEXT` per text, plus `MIN_PAIRS`
+(the real sets weigh at most 12.8 per text, measured)."""
 MAX_FACTS = 12
 """The most view titles a judgement request carries."""
 MAX_FACT = 256
@@ -361,35 +385,127 @@ def _unit(v: tuple[float, float]) -> tuple[float, float]:
 
 
 class _Index:
-    """Points sorted by x, for counting and listing what lies in a box (a search, not a scan)."""
+    """Points in a static two-dimensional tree (a k-d tree): each node holds a run of the points and
+    the box around them, and is split at the median of its wider side, so a query visits only the
+    nodes whose box meets its own, however the points lie (in a row, in a column, in one heap), never
+    a scan of a strip (review round 1: an index sorted by x alone scanned a whole column). `work`
+    counts the nodes visited and the points given: the tests count it, never time."""
+
+    LEAF = 32
 
     def __init__(self, items: Iterable[tuple[float, float, int]]) -> None:
-        ordered = sorted(items)
-        self.xs = [p[0] for p in ordered]
-        self.items = ordered
+        rows = [r for r in items if math.isfinite(r[0]) and math.isfinite(r[1])]
+        self.work = 0
+        n = len(rows)
+        xs = np.fromiter((r[0] for r in rows), dtype=np.float64, count=n)
+        ys = np.fromiter((r[1] for r in rows), dtype=np.float64, count=n)
+        order = np.arange(n)
+        self.nodes: list[tuple[int, int, float, float, float, float, int, int]] = []
+        if n:
+            self._build(xs, ys, order, 0, n)
+        at = order.tolist()
+        self.xs: list[float] = xs[order].tolist()
+        self.ys: list[float] = ys[order].tolist()
+        self.ids = [rows[k][2] for k in at]
 
-    def within(self, box: tuple[float, float, float, float]) -> Iterator[int]:
-        x0, y0, x1, y1 = box
-        start = bisect.bisect_left(self.xs, x0)
-        stop = bisect.bisect_right(self.xs, x1)
-        for _x, y, i in self.items[start:stop]:
-            if y0 <= y <= y1:
-                yield i
+    def _build(self, xs: Any, ys: Any, order: Any, lo: int, hi: int) -> int:
+        run = order[lo:hi]
+        x, y = xs[run], ys[run]
+        x0, x1, y0, y1 = float(x.min()), float(x.max()), float(y.min()), float(y.max())
+        node = len(self.nodes)
+        self.nodes.append((lo, hi, x0, y0, x1, y1, -1, -1))
+        if hi - lo > self.LEAF:
+            half = (hi - lo) // 2
+            order[lo:hi] = run[np.argpartition(x if x1 - x0 >= y1 - y0 else y, half)]
+            left = self._build(xs, ys, order, lo, lo + half)
+            right = self._build(xs, ys, order, lo + half, hi)
+            self.nodes[node] = (lo, hi, x0, y0, x1, y1, left, right)
+        return node
 
-    def entries(self, box: tuple[float, float, float, float]) -> Iterator[tuple[float, float, int]]:
-        x0, y0, x1, y1 = box
-        start = bisect.bisect_left(self.xs, x0)
-        stop = bisect.bisect_right(self.xs, x1)
-        for x, y, i in self.items[start:stop]:
-            if y0 <= y <= y1:
-                yield x, y, i
+    def _positions(self, box: tuple[float, float, float, float]) -> Iterator[int]:
+        """The positions of the points in the box, in no order, lazily."""
+        bx0, by0, bx1, by1 = box
+        if not self.nodes or not all(math.isfinite(v) for v in box):
+            return
+        xs, ys, nodes = self.xs, self.ys, self.nodes
+        stack = [0]
+        while stack:
+            lo, hi, x0, y0, x1, y1, left, right = nodes[stack.pop()]
+            self.work += 1
+            if x0 > bx1 or x1 < bx0 or y0 > by1 or y1 < by0:
+                continue
+            if bx0 <= x0 and x1 <= bx1 and by0 <= y0 and y1 <= by1:
+                self.work += hi - lo
+                yield from range(lo, hi)
+            elif left < 0:
+                self.work += hi - lo
+                for k in range(lo, hi):
+                    if bx0 <= xs[k] <= bx1 and by0 <= ys[k] <= by1:
+                        yield k
+            else:
+                stack.append(right)
+                stack.append(left)
+
+    def _sorted(self, positions: list[int]) -> list[int]:
+        xs, ys, ids = self.xs, self.ys, self.ids
+        positions.sort(key=lambda k: (xs[k], ys[k], ids[k]))
+        return positions
+
+    def within(self, box: tuple[float, float, float, float]) -> list[int]:
+        """What lies in the box, in the order of x, then y, then the item."""
+        return [self.ids[k] for k in self._sorted(list(self._positions(box)))]
+
+    def upto(self, box: tuple[float, float, float, float], limit: int) -> list[int] | None:
+        """`within`, or none when more than `limit` lie in the box (a budget's rest)."""
+        found: list[int] = []
+        for k in self._positions(box):
+            if len(found) >= limit:
+                return None
+            found.append(k)
+        return [self.ids[k] for k in self._sorted(found)]
+
+    def each(self, box: tuple[float, float, float, float]) -> Iterator[int]:
+        """What lies in the box, in no order, lazily (for a caller that stops early)."""
+        ids = self.ids
+        for k in self._positions(box):
+            yield ids[k]
+
+    def entries(self, box: tuple[float, float, float, float]) -> list[tuple[float, float, int]]:
+        xs, ys, ids = self.xs, self.ys, self.ids
+        return [(xs[k], ys[k], ids[k]) for k in self._sorted(list(self._positions(box)))]
 
     def count(self, box: tuple[float, float, float, float], enough: int) -> int:
         found = 0
-        for _ in self.within(box):
+        for _ in self._positions(box):
             found += 1
             if found >= enough:
                 break
+        return found
+
+
+class _Budget:
+    """Counted work a space may still take (`READS_PER_TEXT`, `PAIRS_PER_TEXT`): once spent, what is
+    left is not read, and each refusal is counted (`read_budget`), so frames stacked over the same
+    texts cost work in proportion to the texts, not to their product."""
+
+    def __init__(self, allowed: int, counts: Counter[str]) -> None:
+        self.left = allowed
+        self.counts = counts
+
+    def take(self, amount: int) -> bool:
+        if amount > self.left:
+            self.counts["read_budget"] += 1
+            return False
+        self.left -= amount
+        return True
+
+    def within(self, index: _Index, box: Bounds) -> list[int] | None:
+        """What `index` holds in `box`, taken from the budget; none, counted, past it."""
+        found = index.upto(box, self.left)
+        if found is None:
+            self.counts["read_budget"] += 1
+            return None
+        self.left -= len(found)
         return found
 
 
@@ -606,7 +722,10 @@ class _Space:
     candidates: list[_Frame]
     labels: _Index  # the texts that are labels, by their origin
     text_index: _Index  # every text, by its origin
+    reads: _Budget
+    pairs: _Budget
     frames: list[_Frame] = field(default_factory=list)
+    centres: _Index | None = None  # the frames, by their centres (model space's, for its layouts)
 
 
 class _Segmenter:
@@ -681,10 +800,16 @@ class _Segmenter:
             candidates,
             labels,
             _Index((t.origin[0], t.origin[1], i) for i, t in enumerate(texts)),
+            _Budget(READS_PER_TEXT * (len(texts) + len(candidates)) + MIN_READS, self.counts),
+            _Budget(PAIRS_PER_TEXT * len(texts) + MIN_PAIRS, self.counts),
         )
         for frame in candidates:
             frame.evidence = self._evidence(frame, space)
-        space.frames = self._resolve(candidates)
+        space.frames = self._resolve(candidates, space.reads)
+        space.centres = _Index(
+            ((f.bbox[0] + f.bbox[2]) / 2, (f.bbox[1] + f.bbox[3]) / 2, i)
+            for i, f in enumerate(space.frames)
+        )
         return space
 
     def _enter(self, new: object, inner: Chain) -> bool:
@@ -764,7 +889,9 @@ class _Segmenter:
         block's attribute definitions'); the label texts found are kept on the frame."""
         found: set[str] = set()
         texts: set[int] = set()
-        for i in space.labels.within(frame.bbox):
+        for i in space.labels.each(frame.bbox):
+            if not space.reads.take(1):
+                break
             text = space.texts[i]
             label = self.labels.label(text.shown)
             if label is not None and frame.contains(text.origin):
@@ -783,7 +910,7 @@ class _Segmenter:
                     found.add(word)
         return frozenset(found)
 
-    def _resolve(self, candidates: list[_Frame]) -> list[_Frame]:
+    def _resolve(self, candidates: list[_Frame], budget: _Budget) -> list[_Frame]:
         """The frames that are sheets, from the titled candidates, largest first: one inside a kept
         frame is part of it (one sheet); one holding two or more that lie apart is a box around a row
         of sheets, and one holding a single frame whose labels are all its own is a box around that
@@ -797,9 +924,13 @@ class _Segmenter:
             if i in inside_kept:
                 self.counts["frame_inside_frame"] += 1
                 continue
+            near = budget.within(index, f.bbox)
+            if near is None:
+                kept.append(f)  # past the budget: kept as it is, counted
+                continue
             inner = [
                 j
-                for j in index.within(f.bbox)
+                for j in near
                 if j != i
                 and (titled[j].area < f.area * 0.999 or j > i)  # a frame drawn twice is one
                 and f.holds(titled[j])
@@ -832,24 +963,42 @@ class _Segmenter:
                 continue
             x0, y0, x1, y1 = f.bbox
             reach = (x0 - high, y0 - high, x1, y1)
+            near = space.reads.within(frame_index, reach)
+            if near is None:
+                continue
             if any(_box_share(frames[j].bbox, f.bbox) > 0 or _box_share(f.bbox, frames[j].bbox) > 0
-                   for j in frame_index.within(reach)):  # fmt: skip
+                   for j in near):  # fmt: skip
                 continue
             plain.append(f)
         plain.sort(key=lambda f: -f.area)
+        plain_index = _Index((f.bbox[0], f.bbox[1], i) for i, f in enumerate(plain))
+        held: set[int] = set()
         found: list[_Frame] = []
-        for f in plain:
-            if any(g.holds(f) for g in found):
+        for i, f in enumerate(plain):
+            if i in held:
+                continue  # inside a cover found: part of it
+            if self._cover_lines(f, space) < MIN_COVER_CONTENT:
                 continue
-            lines = sum(
-                space.texts[i].shown.count("\n") + 1
-                for x, y, i in space.text_index.entries(f.bbox)
-                if f.contains((x, y))
-            )
-            if lines >= MIN_COVER_CONTENT:
-                found.append(f)
+            found.append(f)
+            inner = space.reads.within(plain_index, f.bbox)
+            if inner is None:
+                continue
+            held.update(j for j in inner if j != i and f.holds(plain[j]))
         self.counts["cover"] += len(found)
         return found
+
+    def _cover_lines(self, f: _Frame, space: _Space) -> int:
+        """The lines of text inside a rectangle, counted to `MIN_COVER_CONTENT` only."""
+        lines = 0
+        for i in space.text_index.each(f.bbox):
+            if not space.reads.take(1):
+                break
+            text = space.texts[i]
+            if f.contains(text.origin):
+                lines += text.shown.count("\n") + 1
+                if lines >= MIN_COVER_CONTENT:
+                    break
+        return lines
 
     # The run
 
@@ -870,11 +1019,12 @@ class _Segmenter:
         if space is not None:
             reader = _Reader(self, space)
             height = sorted(f.sides[1] for f in frames)[len(frames) // 2] if frames else 1.0
+            titled = {id(f) for f in frames}
             for f in sorted([*frames, *covers], key=lambda f: _reading_order(f, height)):
                 if id(f) in plotted:
                     self.counts["frame_plotted_by_layout"] += 1
                     continue
-                sheets.append(reader.model_sheet(f, titled=f in frames))
+                sheets.append(reader.model_sheet(f, titled=id(f) in titled))
         sheets.extend(layout_sheets)
         return Segmentation(sheets, self.counts)
 
@@ -925,11 +1075,7 @@ class _Segmenter:
             label[0] for t in (paper.texts if paper else []) if (label := self.labels.label(t.shown))
         }
         titled = bool(paper and paper.frames) or len(title_words) >= MIN_EVIDENCE
-        frames_shown = [
-            f
-            for f in (model.frames if model is not None else [])
-            if any(w is not None and _box_share(f.bbox, w) >= 0.5 for w in windows)
-        ]
+        frames_shown = self._frames_shown(model, windows)
         drawn = len(own_entities) - (len(paper.frames) if paper else 0) - len(title_words)
         if titled and unknown and shown < MIN_SHOWN:
             self.counts["layout_viewport_unknown"] += 1  # cannot be told empty: a sheet
@@ -969,6 +1115,27 @@ class _Segmenter:
             )
         self.counts["layout_shows_unknown" if unknown else "layout_shows_nothing"] += 1
         return None, []
+
+    def _frames_shown(self, model: _Space | None, windows: list[Bounds | None]) -> list[_Frame]:
+        """The model-space frames the windows show (half a frame's box or more inside one), up to two:
+        a layout needs only whether it shows none, one or more. A frame with half its box inside a
+        window has its centre there, so each window asks the frames by their centres, and weighs at
+        most `MAX_WINDOW_FRAMES` of them."""
+        if model is None or model.centres is None:
+            return []
+        shown: dict[int, _Frame] = {}
+        for window in windows:
+            if window is None:
+                continue
+            for weighed, i in enumerate(model.centres.each(window)):
+                if weighed >= MAX_WINDOW_FRAMES:
+                    self.counts["layout_frames_capped"] += 1
+                    break
+                if i not in shown and _box_share(model.frames[i].bbox, window) >= 0.5:
+                    shown[i] = model.frames[i]
+                    if len(shown) >= 2:
+                        return list(shown.values())
+        return list(shown.values())
 
     def _windows(self, viewports: list[Entity]) -> list[Bounds | None]:
         """The model region each of a layout's viewports shows (none where its values cannot be
@@ -1090,11 +1257,10 @@ class _Reader:
 
     def model_sheet(self, frame: _Frame, *, titled: bool) -> SheetCandidate:
         key = frame.key()
-        inside = [
-            self.space.texts[i]
-            for i in self.index.within(frame.bbox)
-            if frame.contains(self.space.texts[i].origin)
-        ]
+        near = self.space.reads.within(self.index, frame.bbox) if titled else []
+        if near is None:
+            near, titled = [], False  # past the space's budget: counted, read with no value
+        inside = [self.space.texts[i] for i in near if frame.contains(self.space.texts[i].origin)]
         values = self._fields(frame, inside) if titled else {}
         anchors = [self.s.anchor(key, frame.chain_handles(), frame.handle)]
         return self._candidate(SheetLocation(box=Box(*frame.bbox)), key, values, anchors)
@@ -1177,8 +1343,17 @@ class _Reader:
         loose = [t for t in inside if t.loose]
         if not attdefs or frame.insert.attribs or not loose:
             return {}
+        named = [a for a in attdefs if _tag_words(a.tag or "")[0] in self.s.labels.fields]
+        if len(named) > MAX_LABELS:
+            self.s.counts["frame_labels_capped"] += 1
+            named = named[:MAX_LABELS]
+        if len(loose) > MAX_VALUES:
+            self.s.counts["frame_values_capped"] += 1
+            loose = loose[:MAX_VALUES]
+        if not self.space.pairs.take(len(named) * len(loose)):
+            return {}
         by_field: dict[SheetField, list[tuple[int, int, str, list[_Placed]]]] = {}
-        for attdef in attdefs:
+        for attdef in named:
             word, line = _tag_words(attdef.tag or "")
             held = self.s.labels.fields.get(word)
             if held is None:
@@ -1201,6 +1376,15 @@ class _Reader:
                 labels.append((text, *found))
             elif len(text.shown) <= MAX_FIELD[SheetField.TITLE]:
                 values.append(text)
+        if len(labels) > MAX_LABELS:
+            self.s.counts["frame_labels_capped"] += 1
+            labels = labels[:MAX_LABELS]
+        if len(values) > MAX_VALUES:
+            self.s.counts["frame_values_capped"] += 1
+            values = values[:MAX_VALUES]
+        weighed = sum(1 for _, _, inline in labels if inline is None) * len(values)
+        if not self.space.pairs.take(weighed):
+            return {}
         owner: dict[int, tuple[float, int]] = {}
         for li, (label_text, _, inline) in enumerate(labels):
             if inline is not None:
@@ -1362,7 +1546,9 @@ def texts_on(
         space = segmenter.space(model)
         for i, box in boxes:
             assert box is not None
-            within = space.text_index.within((box.x0, box.y0, box.x1, box.y1))
+            within = space.reads.within(space.text_index, (box.x0, box.y0, box.x1, box.y1))
+            if within is None:
+                within = []  # past the space's budget: the register reads nothing here
             out[i] = [space.texts[j] for j in within]
     names = {b.layout: h for h, b in artefact.blocks.items() if b.layout not in (None, "Model")}
     for i, sheet in enumerate(sheets):

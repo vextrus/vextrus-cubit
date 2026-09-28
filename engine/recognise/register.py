@@ -52,6 +52,9 @@ MAX_ROW_GAP = 4.0
 """The widest gap between two rows, in rows, before the register is taken to end."""
 MAX_HEADING = 200
 """The longest heading text, in characters."""
+MAX_HEADINGS = 16
+"""The most headings one sheet is read under (review round 1: 2,000 took 5 s, each a pass over the
+sheet's texts); the rest are left out."""
 MAX_CELL_GAP = 20.0
 """The widest gap between two texts of one row with no header, in the heading's heights."""
 SPAN = 120.0
@@ -92,13 +95,14 @@ def find(
     for i, sheet in enumerate(sheets):
         on_sheet = texts.get(i, [])
         own = {a.handle for a in sheet.anchors if isinstance(a, DwgAnchor)}
-        tables = [
-            (heading, _table(heading, on_sheet, labels, held))
+        found = [
+            heading
             for heading in on_sheet
             if len(heading.shown) <= MAX_HEADING
             and _normal(heading.shown).startswith(headings)
             and heading.entity.handle not in own  # the sheet's own title is no heading
         ]
+        tables = [(heading, _table(heading, on_sheet, labels, held)) for heading in found[:MAX_HEADINGS]]
         in_rows = {
             id(cell.text)
             for _, rows in tables
