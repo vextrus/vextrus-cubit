@@ -22,11 +22,13 @@ Takeoff Steps, canonical storeys, subjects and conflict kinds are keys held by v
 Library rows (19a), the storeys `engine/recognise/storeys.py`'s (13), the subjects the conventions'.
 """
 
+import functools
 import math
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
+from re import _constants, _parser  # type: ignore[attr-defined]  # a pattern parsed to bound it
 from typing import Any
 
 from engine.messages import Message, Param
@@ -561,16 +563,53 @@ class SheetConventions:
 
     M0 reads with the default, `engine/recognise/conventions/sheet-default.json` (13's; generic, no
     office's literal), over which the product puts the Market's Disciplines (21b); from M1 a Drafting
-    Profile passes the same object. Patterns are regular expressions (Python's `re`).
+    Profile passes the same object. Patterns are regular expressions (Python's `re`), bounded when
+    they are loaded (`_pattern`) and run only on text up to `MAX_PATTERN_TEXT` long
+    (`pattern_search`).
+
+    Words are matched whole, ignoring case and punctuation ("Sheet No." is `sheet no`). The storey
+    words (13's `storeys.py` reads them; the M0 plan's review Q1) are data a Drafting Profile extends:
+    `storey_words` names each canonical level by its words (tie, grade and plinth beams name the
+    plinth level; `basement` names the numbered family); a `weak_storey_words` word ("ground", "top",
+    "typical") names its storey only in a phrase with a floor word, as an ordinal does ("1st flight"
+    names no floor), and "typical" only in a plan's title beside a floor or plan word;
+    `structure_words` (tanks, the underground reservoir) are structures for Step 10, never storeys;
+    `below_ground_words` read foundation to ground; a `level_words` word with a figure ("EL +16'-6\"")
+    is kept as stated, with no storey.
     """
 
     disciplines: tuple[DisciplineConvention, ...] = ()
     number_patterns: tuple[str, ...] = ()
     title_block_fields: tuple[TitleBlockField, ...] = ()
+    """Each field's label words, in order of preference ("sheet title" before "drawing title")."""
     revision_mark_pattern: str | None = None
     storey_words: tuple[StoreyWords, ...] = ()
     frame_hints: tuple[str, ...] = ()
     """Words that name a sheet's frame in block or layer names."""
+    title_block_words: tuple[str, ...] = ()
+    """The other labels a title block prints (scale, drawn by): evidence of a title block, never a
+    field's value."""
+    floor_words: tuple[str, ...] = ()
+    plan_words: tuple[str, ...] = ()
+    level_words: tuple[str, ...] = ()
+    weak_storey_words: tuple[str, ...] = ()
+    structure_words: tuple[str, ...] = ()
+    below_ground_words: tuple[str, ...] = ()
+    ordinal_words: tuple[str, ...] = ()
+    """Ordinals written as words, in order: the n-th names floor n."""
+    ordinal_suffixes: tuple[str, ...] = ()
+    """What follows a figure to make it an ordinal ("st" in "1st")."""
+    range_words: tuple[str, ...] = ()
+    """Words that join a range's ends ("to"); a dash does too, between two storeys."""
+    list_words: tuple[str, ...] = ()
+    """Words that join a list ("and"); a comma, "&", "+" and "/" do too."""
+    register_words: tuple[str, ...] = ()
+    """A drawing register's heading words ("drawing list")."""
+    sheet_kinds: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
+    """The kinds of sheet a QS names in each Discipline, by the Discipline's key (the owner's ruling
+    of 29 Sep 2026, "Per-Discipline kinds")."""
+    common_sheet_kinds: tuple[str, ...] = ()
+    """The kinds every Discipline has (a cover or index, general notes, other)."""
 
     def __post_init__(self) -> None:
         _unique([d.key for d in self.disciplines], "the Discipline")
@@ -578,11 +617,37 @@ class SheetConventions:
         _unique([s.storey for s in self.storey_words], "the storey")
         for pattern in (*self.number_patterns, *filter(None, [self.revision_mark_pattern])):
             _pattern(pattern)
+        for name in _WORD_FIELDS:
+            for word in getattr(self, name):
+                _text(word, f"a word of {name}")
+        for discipline, kinds in self.sheet_kinds.items():
+            _key(discipline, "a Discipline")
+            for kind in kinds:
+                _key(kind, "a sheet kind")
+            _unique(kinds, f"the {discipline} sheet kind")
+        for kind in self.common_sheet_kinds:
+            _key(kind, "a sheet kind")
+        _unique(self.common_sheet_kinds, "the common sheet kind")
 
     def discipline_keys(self) -> tuple[str, ...]:
         return tuple(d.key for d in self.disciplines)
 
+    def kinds(self, discipline: str) -> tuple[str, ...]:
+        """The kinds of sheet a Discipline has: its own, then the common ones."""
+        own = self.sheet_kinds.get(discipline, ())
+        return (*own, *(k for k in self.common_sheet_kinds if k not in own))
+
     def to_json(self) -> dict[str, Any]:
+        """The conventions as JSON; a field 13 added is written only when it holds something, so a
+        file written before them round-trips unchanged."""
+        added: dict[str, Any] = {
+            **{name: list(getattr(self, name)) for name in _WORD_FIELDS if name != "frame_hints"},
+            "sheet_kinds": {k: list(v) for k, v in self.sheet_kinds.items()},
+            "common_sheet_kinds": list(self.common_sheet_kinds),
+        }
+        return self._to_json() | {name: value for name, value in added.items() if value}
+
+    def _to_json(self) -> dict[str, Any]:
         return {
             "disciplines": [{"key": d.key, "prefixes": list(d.prefixes)} for d in self.disciplines],
             "number_patterns": list(self.number_patterns),
@@ -633,6 +698,16 @@ class SheetConventions:
                 )
             ),
             frame_hints=_words(data, "frame_hints", "the frame hints"),
+            **{
+                name: _words(data, name, f"the {name.replace('_', ' ')}")
+                for name in _WORD_FIELDS
+                if name != "frame_hints"
+            },
+            sheet_kinds={
+                k: _word_list(v, f"the {k} sheet kinds")
+                for k, v in _mapping(data, "sheet_kinds").items()
+            },
+            common_sheet_kinds=_words(data, "common_sheet_kinds", "the common sheet kinds"),
         )
 
 
@@ -687,22 +762,113 @@ class ViewConventions:
         )
 
 
+_WORD_FIELDS = (
+    "frame_hints",
+    "title_block_words",
+    "floor_words",
+    "plan_words",
+    "level_words",
+    "weak_storey_words",
+    "structure_words",
+    "below_ground_words",
+    "ordinal_words",
+    "ordinal_suffixes",
+    "range_words",
+    "list_words",
+    "register_words",
+)
+"""SheetConventions' fields that are lists of words."""
 _SHEET_KEYS = {
     "disciplines",
     "number_patterns",
     "title_block_fields",
     "revision_mark_pattern",
     "storey_words",
-    "frame_hints",
+    *_WORD_FIELDS,
+    "sheet_kinds",
+    "common_sheet_kinds",
 }
 _VIEW_KEYS = {"kind_words", "subject_words", "layer_words", "scale_patterns"}
 
 
+# Patterns, bounded -----------------------------------------------------------------------------------
+
+MAX_PATTERN = 200
+"""The longest pattern a conventions file may hold, in characters."""
+MAX_PATTERN_TEXT = 256
+"""The longest text a conventions pattern runs on: a longer text is never matched (`pattern_search`),
+so it is no field's value."""
+MAX_OPEN_REPEATS = 3
+"""The most repeats of more than `MAX_REPEAT` times (`+`, `*`, `{1,}`) one pattern may hold."""
+MAX_REPEAT = 64
+
+_SINGLE = frozenset({_constants.LITERAL, _constants.NOT_LITERAL, _constants.ANY, _constants.IN,
+                     _constants.CATEGORY})  # fmt: skip
+_REPEATS = frozenset({_constants.MAX_REPEAT, _constants.MIN_REPEAT, _constants.POSSESSIVE_REPEAT})
+_BACKREFERENCES = frozenset({_constants.GROUPREF, _constants.GROUPREF_EXISTS})
+
+
 def _pattern(pattern: str) -> None:
+    """Refuse a pattern that cannot be bounded: longer than `MAX_PATTERN`, a backreference, a repeat
+    of anything but one character (`(a+)+`, `(a|aa)*`, `(.*a){12}`: the nested and overlapping
+    repeats that backtrack exponentially), or more than `MAX_OPEN_REPEATS` long repeats (whose
+    backtracking grows as a power of the text's length). With the text capped at
+    `MAX_PATTERN_TEXT`, what is left is bounded by that length to at most that power."""
+    if not isinstance(pattern, str) or len(pattern) > MAX_PATTERN:
+        raise ValueError(f"a pattern is text of at most {MAX_PATTERN} characters")
     try:
-        re.compile(pattern)
+        parsed = _parser.parse(pattern)
     except re.error as error:
         raise ValueError(f"the pattern {pattern!r} is not a regular expression: {error}") from None
+    open_repeats = _bound(parsed, pattern)
+    if open_repeats > MAX_OPEN_REPEATS:
+        raise ValueError(
+            f"the pattern {pattern!r} repeats without bound {open_repeats} times; at most"
+            f" {MAX_OPEN_REPEATS} may be (a pattern is bounded before any drawing is read)"
+        )
+
+
+def _bound(parsed: Any, pattern: str) -> int:
+    """Walk a parsed pattern, refusing what cannot be bounded; the count of its long repeats."""
+    open_repeats = 0
+    for op, value in parsed:
+        if op in _BACKREFERENCES:
+            raise ValueError(f"the pattern {pattern!r} refers back to a group, which cannot be bounded")
+        if op in _REPEATS:
+            _low, high, body = value
+            if high > 1:
+                if not (len(body) == 1 and body[0][0] in _SINGLE):
+                    raise ValueError(
+                        f"the pattern {pattern!r} repeats a group or a repeat, which can take"
+                        " exponential time; repeat single characters only"
+                    )
+                if high == _constants.MAXREPEAT or high > MAX_REPEAT:
+                    open_repeats += 1
+            else:
+                open_repeats += _bound(body, pattern)
+        elif op == _constants.SUBPATTERN:
+            open_repeats += _bound(value[-1], pattern)
+        elif op == _constants.BRANCH:
+            open_repeats += max((_bound(item, pattern) for item in value[1]), default=0)
+        elif op in (_constants.ASSERT, _constants.ASSERT_NOT):
+            open_repeats += _bound(value[1], pattern)
+        elif op == _constants.ATOMIC_GROUP:
+            open_repeats += _bound(value, pattern)
+    return open_repeats
+
+
+@functools.lru_cache(maxsize=256)
+def _compiled(pattern: str) -> re.Pattern[str]:
+    _pattern(pattern)
+    return re.compile(pattern)
+
+
+def pattern_search(pattern: str, text: str) -> re.Match[str] | None:
+    """`re.search` for a conventions pattern, on text of at most `MAX_PATTERN_TEXT` characters only;
+    longer text never matches. The pattern is checked and compiled once."""
+    if len(text) > MAX_PATTERN_TEXT:
+        return None
+    return _compiled(pattern).search(text)
 
 
 def _object(value: Any, what: str, keys: set[str]) -> dict[str, Any]:
