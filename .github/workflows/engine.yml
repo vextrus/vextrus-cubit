@@ -41,6 +41,9 @@ jobs:
           persist-credentials: false
       - id: paths
         name: Does this change touch an engine path?
+        # `shell: bash` runs with -o pipefail: a failed `git diff` (a bad BASE) fails the step, and so
+        # the `engine` job, instead of reading as "nothing touched" and skipping the tests.
+        shell: bash
         env:
           EVENT: ${{ github.event_name }}
           BASE: ${{ github.event.pull_request.base.sha }}
@@ -52,7 +55,9 @@ jobs:
       - id: check
         name: Does this change touch the real-drawing check or the reader's sandbox?
         # `?` stands for the hyphen in the command's name: the workflow check (tools/lint/workflows.py)
-        # refuses the check's status name in any workflow but the not-applicable one.
+        # refuses the check's status name in any workflow but the not-applicable one. Fails closed, as
+        # the step above.
+        shell: bash
         env:
           EVENT: ${{ github.event_name }}
           BASE: ${{ github.event.pull_request.base.sha }}
