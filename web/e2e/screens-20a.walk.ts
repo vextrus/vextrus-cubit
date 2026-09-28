@@ -330,8 +330,15 @@ test('finish line step 10 (§4.4): invite an Engineer, they act, the act is list
     .poll(textOf(engineer.getByRole('main').locator('p').first()))
     .toMatch(/^Your access to Shapla Homes Ltd has ended\. Kamal Uddin revoked it on \d{1,2} [A-Z][a-z]{2} \d{4}\. What you did before then is kept under your name\.$/)
   await shot(engineer, 'step10-access-ended')
-  await md.context().close()
   await engineer.context().close()
+
+  // The refuter's finding, on the server: the MD's toast never follows into the next person's session.
+  await signOut(md, 'Kamal Uddin, MD')
+  await signIn(md, PEOPLE.guest.email)
+  await expect(md.getByRole('button', { name: loose('Farhana Kabir, Guest') })).toBeVisible()
+  expect(clean(await md.getByRole('status').innerText())).toBe('')
+  expect(clean(await md.locator('body').innerText())).not.toContain('access has ended')
+  await md.context().close()
 })
 
 test('the Guest’s walk (§4.4): KR-01 only, the chip, BP-02 and /members not found, read only', async ({ browser }) => {
