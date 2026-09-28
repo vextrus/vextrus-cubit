@@ -300,7 +300,7 @@ def test_a_pasted_spreadsheet_is_read_by_its_cells_with_its_serial_column_set_as
         "1\tS-01\tGeneral notes\tR2\n"
         "2\tS-02\tPile layout\tRev B\n"
         "\n"
-        "3\t03\t2nd floor beam layout\n"
+        "3\tS-03\t2nd floor beam layout\n"
     )
 
     result = parsed(text)
@@ -310,7 +310,7 @@ def test_a_pasted_spreadsheet_is_read_by_its_cells_with_its_serial_column_set_as
         (
             ListEntry("S-01", 3, "General notes", "R2"),
             ListEntry("S-02", 4, "Pile layout", "Rev B"),
-            ListEntry("03", 6, "2nd floor beam layout"),
+            ListEntry("S-03", 6, "2nd floor beam layout"),
         ),
         ignored=2,
     )
@@ -521,7 +521,7 @@ def test_a_title_ending_in_a_digit_never_takes_the_number_s_place() -> None:
     assert parsed("01 TYPE-2 FOUNDATION").entries == (ListEntry("01", 1, "TYPE-2 FOUNDATION"),)
     assert parsed("01\tSECTION 2").entries == (ListEntry("01", 1, "SECTION 2"),)
     serials = parsed("1\tS-01\tGeneral notes\n2\t02\tPile layout\n3 ST-03 Beams")
-    assert [e.number for e in serials.entries] == ["S-01", "02", "ST-03"]
+    assert [e.number for e in serials.entries] == ["S-01", "2", "ST-03"]  # the documented ambiguity
     listed = DrawingList("set", "structural", ListSource.PASTED, parsed(text).entries)
     sheets = [sheet("01", "GENERAL NOTES"), sheet("02"), sheet("03")]
     results = check(reading(sheets, lists=(listed,)), recognisers=READERS)
@@ -550,21 +550,25 @@ def test_a_format_character_inside_a_listed_number_is_read_as_its_normal_form() 
         ("07\t2\tR1", ["07"]),
         ("05  12 STOREY ELEVATION", ["05"]),
         ("01 2ND FLOOR BEAM LAYOUT\n02 3RD FLOOR BEAM LAYOUT", ["01", "02"]),  # ordinals
-        ("1\tS-01\tNotes", ["1"]),  # one counted line: its count is its number
-        # A serial column, decided for the paste: counts one apart, each before a number.
+        # The refuter's round 3: titles of unit sizes; serials that skip or restart.
+        ("01 1250 SFT TYPE-A PLAN\n02 1450 SFT TYPE-B PLAN", ["01", "02"]),
+        ("1\tS-01\tA\n2\tS-02\tB\n4\tS-03\tC", ["S-01", "S-02", "S-03"]),
+        ("1\tS-01\tA\n2\tS-02\tB\n1\tST-01\tC", ["S-01", "S-02", "ST-01"]),
+        # A count is set aside only before a number carrying a Discipline's prefix.
+        ("1\tS-01\tNotes", ["S-01"]),
         ("1\tS 01\tNotes\n2\tS-02\tPiles", ["S 01", "S-02"]),
-        ("1 SD-01 SHOP DRAWING\n2 SD-02 SHOP DRAWING", ["SD-01", "SD-02"]),
-        ("1 01 2ND FLOOR\n2 02 3RD FLOOR", ["01", "02"]),
-        ("1 S-01 Notes\n3 S-02 Piles", ["1", "3"]),  # counts that do not run one apart
         ("S 01\tGENERAL NOTES", ["S 01"]),  # two words, the first a Discipline's prefix
+        # The documented ambiguity: before a bare or unknown-prefixed number, the count stays.
+        ("1 01 2ND FLOOR\n2 02 3RD FLOOR", ["1", "2"]),
+        ("1 SD-01 SHOP DRAWING\n2 SD-02 SHOP DRAWING", ["1", "2"]),
     ],
 )
-def test_a_serial_column_is_decided_for_the_whole_paste(text: str, numbers: list[str]) -> None:
+def test_a_count_is_set_aside_only_before_a_disciplines_number(text: str, numbers: list[str]) -> None:
     assert [e.number for e in parsed(text).entries] == numbers
 
 
 def test_a_title_starting_with_a_count_raises_no_false_finding() -> None:
-    listed = parsed("01 1250 SFT TYPICAL FLOOR PLAN\n02 GROUND FLOOR PLAN")
+    listed = parsed("01 1250 SFT TYPE-A PLAN\n02 1450 SFT TYPE-B PLAN")
     drawing_list = DrawingList("set", "structural", listed.source, listed.entries)
     results = check(reading([sheet("01"), sheet("02")], lists=(drawing_list,)), recognisers=READERS)
     assert [str(r.outcome) for r in results] == ["passed"] * 4

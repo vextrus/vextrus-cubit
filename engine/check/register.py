@@ -46,10 +46,12 @@ sheet's number: the refusal asks for "01 to 57". Any other line is a sheet line 
 13's `sequence`: its next cell or the rest of the line is the title, and a later cell that is a revision
 mark by the conventions' pattern (on at most `MARK_LIMIT` characters) is its revision mark. Other lines
 are ignored and counted. A sheet number is one word, or two in a cell whose first is a Discipline's
-prefix ("S 01"). A serial column is decided once for the paste (`_serial_column`): two lines or more
-start with counts that run one apart, each followed by a number with a prefix or of digits only, so
-"1  S-01  General notes" and "2  S-02 …" lose their counts, while "01  1250 SFT TYPICAL FLOOR PLAN",
-"01  2ND FLOOR BEAM LAYOUT" and a single counted line keep theirs as the sheet's number. A pasted list is
+prefix ("S 01"). A leading count (digits only) is set aside as a serial column only before a number
+carrying a Discipline's prefix ("1  S-01  General notes"). Text alone cannot tell a count before a bare
+number ("1  01  General notes") from a bare number before a title that starts with a count ("01  1250
+SFT TYPICAL FLOOR PLAN", an ordinary title), so the first is read as sheet "1": the QS pastes such a
+list without its serial column (three rounds of a wider rule each misread a real list, the review of
+29 Sep 2026). A pasted list is
 its Discipline's, as the QS chose it: an entry carrying another Discipline's prefix is compared with
 this Discipline's sheets (a list read on a sheet is split by prefix instead). The source is `typed`
 when every sheet line is a range, else `pasted`.
@@ -330,8 +332,6 @@ def parse(text: str, conventions: SheetConventions, *, recognisers: Recognisers)
             continue
         numbers = _range(line, index, recognisers)
         read.append((index, numbers, ([], False) if numbers is not None else _cells(line)))
-    lines = [cells for _, numbers, cells in read if numbers is None]
-    serial = _serial_column(lines, recognisers, prefixes)
     entries: list[ListEntry] = []
     ranges = sheet_lines = 0
     for index, numbers, cells in read:
@@ -339,7 +339,7 @@ def parse(text: str, conventions: SheetConventions, *, recognisers: Recognisers)
             ranges += 1
             sheet_lines += 1
             entries.extend(ListEntry(number, index) for number in numbers)
-        elif (entry := _sheet_line(cells, index, recognisers, revision, prefixes, serial)) is not None:
+        elif (entry := _sheet_line(cells, index, recognisers, revision, prefixes)) is not None:
             sheet_lines += 1
             entries.append(entry)
         else:
@@ -434,25 +434,13 @@ def _number_cell(cell: str, recognisers: Recognisers, prefixes: frozenset[str]) 
     return parts is not None and mark(parts[0]) in prefixes
 
 
-def _serial_column(
-    lines: list[tuple[list[str], bool]], recognisers: Recognisers, prefixes: frozenset[str]
-) -> bool:
-    """Whether the paste has a serial column before its sheet numbers, decided once for the paste and
-    never line by line (a title may start with a count: "01  1250 SFT TYPICAL FLOOR PLAN"): two lines
-    or more start with a word of digits only, those counts run one apart in line order, and every one
-    of them is followed by a sheet number that has a prefix or is digits only (never an ordinal, as
-    "2ND" in "01  2ND FLOOR BEAM LAYOUT")."""
-    counted = [cells for cells, _ in lines if len(cells) > 1 and cells[0].isdecimal()]
-    if len(counted) < 2 or any(int(b[0]) - int(a[0]) != 1 for a, b in pairwise(counted)):
+def _prefixed(cell: str, recognisers: Recognisers, prefixes: frozenset[str]) -> bool:
+    """Whether a cell is a sheet number carrying a Discipline's prefix: after a count, the one sign
+    the count is a serial column rather than the sheet's own number."""
+    if not _number_cell(cell, recognisers, prefixes):
         return False
-    for cells in counted:
-        number = cells[1]
-        if not _number_cell(number, recognisers, prefixes):
-            return False
-        parts = number_parts(recognisers, number)
-        if not (number.isdecimal() or (parts is not None and mark(parts[0]))):
-            return False
-    return True
+    parts = number_parts(recognisers, cell)
+    return parts is not None and mark(parts[0]) in prefixes
 
 
 def _sheet_line(
@@ -461,11 +449,10 @@ def _sheet_line(
     recognisers: Recognisers,
     revision: Callable[[str], bool],
     prefixes: frozenset[str],
-    serial: bool,
 ) -> ListEntry | None:
     cells, tabbed = line
-    if serial and len(cells) > 1 and cells[0].isdecimal():
-        cells = cells[1:]  # the paste's serial column ("1  S-01  General notes") is set aside
+    if len(cells) > 1 and cells[0].isdecimal() and _prefixed(cells[1], recognisers, prefixes):
+        cells = cells[1:]  # a serial column ("1  S-01  General notes") is set aside
     number = cells[0]
     if not _number_cell(number, recognisers, prefixes):
         return None
