@@ -8,11 +8,10 @@ import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 from scripts.real_drawings.command import Machine
 from scripts.real_drawings.sandbox import Job
-from scripts.real_drawings.tests.exports import SHA_A, dwg, export, sheet
+from scripts.real_drawings.tests.exports import SHA_A, dwg, export, sheet, sourced
 
 REPO = Path(__file__).resolve().parents[3]
 PYPROJECT = '[project]\nname = "vextrus"\n\n[tool.uv]\npackage = false\nno-build = true\n'
@@ -117,8 +116,9 @@ class World:
         )
 
 
-def invented(title: str = "Invented floor plan", **values: Any) -> str:
-    return json.dumps(export(dwg(SHA_A, sheet("s1", layout="Invented layout", title=title, **values))))
+def invented(title: str = "Invented floor plan", number: str = "X-101") -> str:
+    one = sheet("Invented layout", title=sourced(title), number=sourced(number))
+    return json.dumps(export(dwg(SHA_A, one)))
 
 
 def make_world(root: Path) -> World:
