@@ -1,22 +1,32 @@
-# Builds LibreDWG (ADR 0029) once and publishes it as a release asset that CI and cloud sessions
-# download, so no session spends minutes compiling it. The version is pinned in
-# toolchain/libredwg.version: changing it is a reader upgrade (ADR 0015) and must pass the
-# real-drawing check (ADR 0030) before merge.
+# Builds LibreDWG (ADR 0029) once per pin and publishes it as a release asset that engine.yml and the
+# cloud's setup download, so no run spends minutes compiling it. The pin is toolchain/libredwg.version,
+# with the source's sha256 in toolchain/libredwg.sha256: changing it is a reader upgrade (ADR 0015) and
+# must pass the real-drawing check (ADR 0030) before merge. The asset unpacks to /opt/vextrus/libredwg,
+# the one layout used locally (scripts/owner/toolchain.sh), in CI and in the cloud.
 name: toolchain-libredwg
+
 on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['toolchain/libredwg.version', '.github/workflows/toolchain-libredwg.yml']
+    paths: ['toolchain/libredwg.version', 'toolchain/libredwg.sha256', '.github/workflows/toolchain-libredwg.yml']
+
 permissions:
   contents: write
+
+concurrency:
+  group: toolchain-libredwg
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - name: Build static LibreDWG
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Fetch GNU's source and check its signature and the pinned sha256
         run: |
           V=$(tr -d '[:space:]' < toolchain/libredwg.version)
           echo "V=$V" >> "$GITHUB_ENV"
@@ -24,24 +34,27 @@ jobs:
           curl -fsSLO "https://ftp.gnu.org/gnu/libredwg/libredwg-$V.tar.xz.sig"
           curl -fsSL https://ftp.gnu.org/gnu/gnu-keyring.gpg -o gnu-keyring.gpg
           gpg --no-default-keyring --keyring ./gnu-keyring.gpg --verify "libredwg-$V.tar.xz.sig" "libredwg-$V.tar.xz"
-          sha256sum "libredwg-$V.tar.xz"
+          sha256sum -c toolchain/libredwg.sha256
+      - name: Build it static under /opt/vextrus/libredwg
+        run: |
           tar -xJf "libredwg-$V.tar.xz"
           cd "libredwg-$V"
-          ./configure --prefix=/opt/libredwg --disable-shared --disable-bindings --disable-docs
+          ./configure --prefix=/opt/vextrus/libredwg --disable-shared --disable-bindings --disable-docs
           make -j"$(nproc)"
           sudo make install
-      - name: Check the tools we use exist and report their version
+      - name: Check the tools we use exist and report the pinned version
         run: |
-          /opt/libredwg/bin/dwg2dxf --version
-          /opt/libredwg/bin/dwgread --version
-      - name: Publish as a release asset
+          /opt/vextrus/libredwg/bin/dwg2dxf --version
+          [ "$(/opt/vextrus/libredwg/bin/dwgread --version)" = "dwgread $V" ]
+      - name: Publish as a release asset, with its sha256
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           ASSET="libredwg-$V-ubuntu24.04-x86_64.tar.gz"
-          tar -C / -czf "$ASSET" opt/libredwg
+          tar -C / --owner=0 --group=0 -czf "$ASSET" opt/vextrus/libredwg
           sha256sum "$ASSET" > "$ASSET.sha256"
-          gh release view "toolchain-libredwg-$V" >/dev/null 2>&1 \
-            || gh release create "toolchain-libredwg-$V" --prerelease \
+          cat "$ASSET.sha256"
+          gh release view "toolchain-libredwg-$V" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+            || gh release create "toolchain-libredwg-$V" -R "$GITHUB_REPOSITORY" --prerelease \
                  --title "Toolchain: LibreDWG $V" --notes "Static build for CI and cloud sessions (ADR 0029)."
-          gh release upload "toolchain-libredwg-$V" "$ASSET" "$ASSET.sha256" --clobber
+          gh release upload "toolchain-libredwg-$V" "$ASSET" "$ASSET.sha256" -R "$GITHUB_REPOSITORY" --clobber
