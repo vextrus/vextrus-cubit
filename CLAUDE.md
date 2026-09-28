@@ -63,6 +63,9 @@ explicit paths (the guard refuses `git add -A`); a hook runs `sync` after each c
   migrate`: this worktree's own database (`vextrus`, or `vextrus_<worktree>`; `VEXTRUS_DB_NAME`
   overrides); `migrate` and `flush` always run as `vextrus`. `uv run manage.py seed_demo`: the demo.
 - `VEXTRUS_DEBUG=1 uv run manage.py runserver 127.0.0.1:8000`: the API at `/api/`, the admin at `/admin/`.
+- `uv run manage.py worker`: the job worker on the default queue (it runs the stalled-job retrier);
+  `uv run manage.py worker --queue cad`: the CAD queue's, one job at a time under its memory cap. Both
+  refuse to start unless connected as `vextrus_app`.
 - `uv run pytest`: as `vextrus_app`, on a test database named by the migrations' hash (`-m
   needs_toolchain`, `needs_bwrap` or `live` runs those left out). **Fast check:** `uv run pytest
   vextrus/<module> && uv run mypy && uv run lint-imports`.

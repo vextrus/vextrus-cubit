@@ -1,0 +1,684 @@
+"""Jobs: Procrastinate, wrapped so a job acts in its tenant and nowhere else (ticket 09; ADR 0034;
+docs/data-model.md §2, Events; the M0 plan, "Tenancy").
+
+A job is a function declared with `@job`, given a `Run` and its ids:
+
+    @jobs.job(queue=settings.VEXTRUS_CAD_QUEUE)
+    def read_file(run: jobs.Run, *, file_id: uuid.UUID) -> None:
+        steps = run.steps(drawings.services.step_store(), subject_id=file_id, total=2)
+        read = steps.run("read", lambda: read_it(file_id), inputs=lambda: {"sha256": sha_of(file_id)})
+        steps.run("check", lambda: check_it(read), inputs={"read": read["artefact_sha256"]})
+
+- **Deferring** (`read_file.defer(file_id=…)`) happens inside the data's own transaction, acting in
+  its tenant: the job is a row of that transaction, so a rollback takes it away and the worker never
+  sees data that was not committed. Its arguments are the tenant's id, the acting user's id (when
+  there is one) and the job's own ids: UUIDs, never data, a path or a model. The database holds the
+  same line (the job wall, platform's migration 0006): the app may defer a job only for the tenant
+  it acts in, and never rewrite a job's arguments.
+- **Running**: the worker checks the arguments again before anything else (a job refused for its
+  arguments is never retried). The job's function runs with every database query refused, except
+  inside a step: a step runs in its own transaction, `tenancy.acting_in(tenant_id, user_id=…)`, which
+  sets `app.tenant_id`, `app.user_id` and `app.library_id` with `is_local = true` before the step
+  reads anything. After each step the connection must carry none of the three (a step that set one
+  for its session fails the job), and the worker closes its connections after each job.
+- **Steps** are kept by the caller through a `StepStore`, keyed by subject, step and a hash of the
+  step's inputs: a step already recorded under the same key is skipped and its result returned, so a
+  restart or a retry resumes where the last try stopped. Each step returns a JSON object, recorded in
+  the step's own transaction. **Progress** is written to the store in its own transaction when a
+  step starts and when the last one ends.
+- **Cancel** is Procrastinate's abort: `cancel(job_id)` stops a waiting job and asks a running one
+  to stop. A running job stops at its next step, or inside a step at `run.check_cancelled()`; and a
+  step never commits after a cancel: its transaction reads the job's row `FOR SHARE` just before
+  committing, so a cancel either committed first (the step rolls back) or waits for the step's commit.
+- **Restart** (`restart(job_id)`) defers a failed or cancelled job again with the same ids; its
+  completed steps skip. A job that raised is tried again by itself up to `VEXTRUS_JOB_TRIES`; a job
+  whose worker stopped mid-way (a server restart) is found by the stalled-job retrier, a periodic
+  task on the default queue (`platform/tasks/jobs.py`), and tried again the same way.
+- **The worker** (`run_worker`, which `manage.py worker` runs) refuses to start unless 02's startup
+  check passes, then runs Procrastinate's worker inside the Django process through the worker
+  connector (docs/research/stack-versions.md, problem 8b). The `cad` queue's worker runs alone on
+  its queue at concurrency 1, under an address-space cap (`VEXTRUS_CAD_WORKER_MEMORY_BYTES`, set at
+  its start and never raised again); it refuses Python's `fork` start method, and a child forked
+  inside it exits at once, so no pool relies on fork. A `cad` job run by any other worker is refused.
+
+`state`, `cancel` and `restart` act only on the acting tenant's jobs: another tenant's job id reads
+as no job. They know nothing of Projects: the caller checks the subject's Project first.
+"""
+
+import contextlib
+import hashlib
+import inspect
+import json
+import logging
+import multiprocessing
+import os
+import re
+import resource
+import sys
+import uuid
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from contextvars import ContextVar
+from dataclasses import dataclass
+from typing import Any, Protocol
+
+from django.conf import settings
+from django.db import connections
+from procrastinate import exceptions as procrastinate_errors
+from procrastinate import jobs as procrastinate_jobs
+from procrastinate.contrib.django import app
+from procrastinate.contrib.django.django_connector import DjangoConnector
+from procrastinate.job_context import AbortReason, JobContext
+from procrastinate.manager import JobManager
+from procrastinate.retry import BaseRetryStrategy, RetryDecision
+
+from engine.messages import Message
+from vextrus.platform import startup
+from vextrus.platform.messages import jobs as words
+from vextrus.platform.services import events, tenancy
+
+logger = logging.getLogger(__name__)
+
+type Json = bool | int | float | str | list[Json] | dict[str, Json] | None
+type StepResult = dict[str, Json]
+"""What a step returns and its store keeps: a JSON object (ids, hashes, counts; never a model)."""
+type Inputs = Mapping[str, object] | Callable[[], Mapping[str, object]] | None
+"""What a step's result depends on, hashed into its key: a mapping, or a function of the data read
+inside the step's transaction. JSON values and UUIDs."""
+
+JobId = int
+
+_NAME = re.compile(r"[a-z][a-z0-9_]{0,63}")
+_ID_ARGUMENT = re.compile(r"[a-z][a-z0-9_]*_id")
+_FORKED_CHILD_EXIT = 70
+
+
+# The caller's store --------------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class StepKey:
+    subject_id: uuid.UUID
+    step: str
+    input_hash: str
+    """sha256 of the step's inputs as canonical JSON (sorted keys, UUIDs as text)."""
+
+
+@dataclass(frozen=True)
+class Progress:
+    done: int
+    """Steps finished (run or skipped) before this report."""
+    total: int
+    step: str | None
+    """The step starting now; None once the last has ended."""
+
+
+class StepStore(Protocol):
+    """Where a job's completed steps are kept: the caller's table (14's ReadStep), under row-level
+    security. Every method is called inside a transaction acting in the job's tenant."""
+
+    def completed(self, key: StepKey) -> StepResult | None:
+        """The result recorded under `key`, or None if the step has not completed."""
+        ...
+
+    def record(self, key: StepKey, result: StepResult) -> None:
+        """Keep a step's result; called in the step's own transaction, which may still roll back."""
+        ...
+
+    def progress(self, subject_id: uuid.UUID, progress: Progress) -> None:
+        """Note how far the subject's steps have come; called in a transaction of its own."""
+        ...
+
+
+# Refusals -------------------------------------------------------------------------------------------
+
+
+class JobRefused(Exception):
+    """A job that must not run: arguments other than a tenant id and ids, an unknown tenant, a
+    `cad` job outside the `cad` worker. Never tried again."""
+
+
+class NotInTransaction(RuntimeError):
+    """A job is deferred only inside its data's transaction, acting in its tenant."""
+
+
+class OutsideStep(RuntimeError):
+    """A job touched the database outside a step, or through an alias other than the app's."""
+
+
+class TenancyLeaked(RuntimeError):
+    """A step left a tenant setting on its connection beyond its transaction. Never tried again."""
+
+
+class Cancelled(procrastinate_errors.JobAborted):
+    """The job was cancelled: it stops, and its current step rolls back."""
+
+
+class NotRestartable(RuntimeError):
+    """Only a failed or cancelled job is restarted."""
+
+
+class WorkerRefused(RuntimeError):
+    """A worker asked to run as it must not (its queues, its concurrency, its start method)."""
+
+
+# Declaring and deferring a job ----------------------------------------------------------------------
+
+_registered: dict[str, Job] = {}
+
+
+def job(*, queue: str | None = None) -> Callable[[Callable[..., None]], Job]:
+    """Declare a job: `fn(run, *, <name>_id: uuid.UUID, …)`, on `queue` (the default queue if none)."""
+
+    def declare(fn: Callable[..., None]) -> Job:
+        return Job(fn, queue=queue or settings.VEXTRUS_DEFAULT_QUEUE)
+
+    return declare
+
+
+class Job:
+    """A declared job: `defer(**ids)` queues it; the worker runs it."""
+
+    def __init__(self, fn: Callable[..., None], *, queue: str) -> None:
+        self.fn = fn
+        self.queue = queue
+        self.name = f"{fn.__module__}.{fn.__qualname__}"
+        self.ids = _declared_ids(fn)
+        if self.name in _registered:
+            raise ValueError(f"a job named {self.name} is already declared")
+        _registered[self.name] = self
+        self.task = app.task(name=self.name, queue=queue, pass_context=True, retry=_Retry())(
+            self._run_in_worker
+        )
+
+    def __repr__(self) -> str:
+        return f"<Job {self.name} on {self.queue}>"
+
+    def defer(self, **ids: uuid.UUID) -> JobId:
+        """Queue the job in the current transaction, acting in its tenant, for the acting user."""
+        alias = settings.PROCRASTINATE_DATABASE_ALIAS
+        if not connections[alias].in_atomic_block:
+            raise NotInTransaction(f"{self.name} is deferred inside its data's transaction.atomic()")
+        acting = tenancy.current()
+        if acting.tenant_id is None or events.acting_tenant_id() != acting.tenant_id:
+            raise NotInTransaction(f"{self.name} is deferred while acting in its tenant")
+        if set(ids) != self.ids:
+            raise JobRefused(f"{self.name} takes {sorted(self.ids)}, was given {sorted(ids)}")
+        for name, value in ids.items():
+            if type(value) is not uuid.UUID:
+                raise JobRefused(f"{self.name}: {name} must be a UUID, not {type(value).__name__}")
+        arguments = {"tenant_id": str(acting.tenant_id), **{k: str(v) for k, v in ids.items()}}
+        if acting.user_id is not None:
+            arguments["user_id"] = str(acting.user_id)
+        # Always through Django's connection, so the job is a row of the data's transaction, even
+        # inside a worker, whose Procrastinate app runs on a pool of its own.
+        deferrer = self.task.configure(lock=self._lock(arguments))
+        manager = JobManager(DjangoConnector(alias))
+        deferred = manager.defer_job(deferrer.make_new_job(**arguments))
+        assert deferred.id is not None
+        return deferred.id
+
+    def _lock(self, arguments: Mapping[str, str]) -> str:
+        """Jobs of one task on the same ids run one at a time (a restart waits for the last try)."""
+        ids = ",".join(f"{k}={arguments[k]}" for k in sorted(arguments) if k != "user_id")
+        return f"{self.name}:{ids}"
+
+    def _run_in_worker(self, context: JobContext, /, **raw: object) -> None:
+        """Procrastinate's entry: check the arguments, run, and close the connections after."""
+        try:
+            arguments = self.parse(raw)
+            if self.queue == settings.VEXTRUS_CAD_QUEUE and not _cad_worker.ready:
+                raise JobRefused(f"{self.name} runs only in the {self.queue} queue's own worker")
+            run = Run(
+                job_id=context.job.id,
+                tenant_id=arguments.tenant_id,
+                user_id=arguments.user_id,
+                abort_reason=context.abort_reason,
+            )
+            self.call(run, arguments.ids)
+        finally:
+            for connection in connections.all(initialized_only=True):
+                connection.close()
+
+    def parse(self, raw: Mapping[str, object]) -> Arguments:
+        """The job's arguments, or JobRefused: a tenant id, an optional user id and the job's ids,
+        each a UUID in its canonical text, and nothing else."""
+        required = {"tenant_id", *self.ids}
+        if not required <= raw.keys() <= required | {"user_id"}:
+            raise JobRefused(f"{self.name}: arguments {sorted(raw)}, expected {sorted(required)}")
+        parsed = {name: _uuid(name, value) for name, value in raw.items()}
+        tenant_id = parsed.pop("tenant_id")
+        user_id = parsed.pop("user_id", None)
+        return Arguments(tenant_id, user_id, parsed)
+
+    def call(self, run: Run, ids: Mapping[str, uuid.UUID]) -> None:
+        """Run the job's function with every query refused outside its steps."""
+        with _only_in_steps():
+            self.fn(run, **ids)
+
+
+@dataclass(frozen=True)
+class Arguments:
+    tenant_id: uuid.UUID
+    user_id: uuid.UUID | None
+    ids: dict[str, uuid.UUID]
+
+
+def _declared_ids(fn: Callable[..., None]) -> frozenset[str]:
+    parameters = list(inspect.signature(fn).parameters.values())
+    if not parameters or parameters[0].kind != inspect.Parameter.POSITIONAL_OR_KEYWORD:
+        raise TypeError(f"{fn.__qualname__} takes the Run first")
+    ids = []
+    for parameter in parameters[1:]:
+        if (
+            parameter.kind != inspect.Parameter.KEYWORD_ONLY
+            or parameter.default is not inspect.Parameter.empty
+            or not _ID_ARGUMENT.fullmatch(parameter.name)
+            or parameter.name in ("tenant_id", "user_id")
+        ):
+            raise TypeError(
+                f"{fn.__qualname__}: after the Run, a job takes only keyword ids named *_id "
+                f"(not tenant_id or user_id), with no default; {parameter.name!r} is not one"
+            )
+        ids.append(parameter.name)
+    return frozenset(ids)
+
+
+def _uuid(name: str, value: object) -> uuid.UUID:
+    if not isinstance(value, str):
+        raise JobRefused(f"{name} is not an id: {type(value).__name__}")
+    try:
+        parsed = uuid.UUID(value)
+    except ValueError:
+        raise JobRefused(f"{name} is not an id") from None
+    if str(parsed) != value:
+        raise JobRefused(f"{name} is not an id in its canonical form")
+    return parsed
+
+
+# Running: the Run, its steps, and the wall around them ----------------------------------------------
+
+_in_step: ContextVar[bool] = ContextVar("vextrus_job_in_step", default=False)
+_guarded: ContextVar[bool] = ContextVar("vextrus_job_guarded", default=False)
+
+
+@contextlib.contextmanager
+def _only_in_steps() -> Iterator[None]:
+    """Refuse every query outside a step, and every query through an alias but the app's."""
+    alias = settings.PROCRASTINATE_DATABASE_ALIAS
+
+    def guard(name: str) -> Callable[..., Any]:
+        def check(execute: Callable[..., Any], sql: str, *args: Any) -> Any:
+            if name != alias:
+                raise OutsideStep(f"a job queried the {name!r} alias; jobs use only {alias!r}")
+            if not _in_step.get():
+                raise OutsideStep("a job read or wrote data outside a step (the tenant is not set)")
+            return execute(sql, *args)
+
+        return check
+
+    token = _guarded.set(True)
+    try:
+        with contextlib.ExitStack() as stack:
+            for name in connections:
+                stack.enter_context(connections[name].execute_wrapper(guard(name)))
+            yield
+    finally:
+        _guarded.reset(token)
+
+
+@contextlib.contextmanager
+def _queries_allowed() -> Iterator[None]:
+    token = _in_step.set(True)
+    try:
+        yield
+    finally:
+        _in_step.reset(token)
+
+
+class Run:
+    """What a job's function is given: its tenant, its user, its steps, and whether to stop."""
+
+    def __init__(
+        self,
+        *,
+        job_id: JobId | None,
+        tenant_id: uuid.UUID,
+        user_id: uuid.UUID | None,
+        abort_reason: Callable[[], AbortReason | None],
+    ) -> None:
+        self.job_id = job_id
+        self.tenant_id = tenant_id
+        self.user_id = user_id
+        self._abort_reason = abort_reason
+
+    def steps(self, store: StepStore, subject_id: uuid.UUID, *, total: int) -> Steps:
+        """The steps of one subject (a file), kept in `store`; `total` is how many it expects."""
+        return Steps(self, store, subject_id, total)
+
+    def check_cancelled(self) -> None:
+        """Raise Cancelled if the job was cancelled or its worker is stopping (call it inside a
+        long step; the runner calls it between steps)."""
+        if self._abort_reason() is not None or self._abort_requested(lock=False):
+            raise Cancelled(f"job {self.job_id} was cancelled")
+
+    def _cancelled_before_commit(self) -> bool:
+        """Whether a cancel came before this step's commit (a stopping worker lets the step commit
+        and stops after it). The job's row is held until the commit, so a cancel after this waits."""
+        return self._abort_reason() == AbortReason.USER_REQUEST or self._abort_requested(lock=True)
+
+    @contextlib.contextmanager
+    def acting(self) -> Iterator[None]:
+        """One step's transaction, acting in the job's tenant as its user (the system: no user)."""
+        with _queries_allowed(), tenancy.acting_in(self.tenant_id, user_id=self.user_id) as acting:
+            if acting.library_id is None:
+                raise JobRefused(f"no Developer {self.tenant_id} to act in")
+            yield
+        self._check_no_tenant_left()
+
+    def _abort_requested(self, *, lock: bool) -> bool:
+        """Whether the job's row asks it to stop; with `lock`, the row is held until the commit."""
+        if self.job_id is None:
+            return False
+        alias = settings.PROCRASTINATE_DATABASE_ALIAS
+        suffix = " for share" if lock else ""
+        with _queries_allowed(), connections[alias].cursor() as cursor:
+            cursor.execute(
+                f"select abort_requested from procrastinate_jobs where id = %s{suffix}",
+                [self.job_id],
+            )
+            row = cursor.fetchone()
+        return bool(row and row[0])
+
+    def _check_no_tenant_left(self) -> None:
+        alias = settings.PROCRASTINATE_DATABASE_ALIAS
+        connection = connections[alias]
+        if connection.in_atomic_block:
+            return  # inside an outer transaction (a test), the settings end with it
+        with _queries_allowed(), connection.cursor() as cursor:
+            cursor.execute(
+                "select coalesce(current_setting(%s, true), ''),"
+                " coalesce(current_setting(%s, true), ''),"
+                " coalesce(current_setting(%s, true), '')",
+                [
+                    settings.VEXTRUS_TENANT_SETTING,
+                    settings.VEXTRUS_USER_SETTING,
+                    settings.VEXTRUS_LIBRARY_SETTING,
+                ],
+            )
+            left = cursor.fetchone()
+        if left is None or any(left):
+            connection.close()
+            raise TenancyLeaked("a step left a tenant setting on its connection after its commit")
+
+
+class Steps:
+    """The steps of one subject: each run once, in its own transaction, and skipped once recorded."""
+
+    def __init__(self, run: Run, store: StepStore, subject_id: uuid.UUID, total: int) -> None:
+        self._run = run
+        self._store = store
+        self.subject_id = subject_id
+        self.total = total
+        self.done = 0
+
+    def expect(self, total: int) -> None:
+        """Change how many steps the subject expects (once a step has found how many sheets)."""
+        self.total = total
+
+    def run(self, name: str, fn: Callable[[], StepResult], *, inputs: Inputs = None) -> StepResult:
+        """Run step `name` unless its store holds it under the same inputs; its result either way.
+
+        `fn` and `inputs` (when a function) run inside the step's transaction, acting in the tenant.
+        """
+        if not _NAME.fullmatch(name):
+            raise ValueError(f"a step's name is lower-case words: {name!r}")
+        self._run.check_cancelled()
+        with self._run.acting():
+            recorded = self._store.completed(self._key(name, inputs))
+            if recorded is None:
+                self._store.progress(self.subject_id, Progress(self.done, self.total, name))
+        if recorded is None:
+            with self._run.acting():
+                key = self._key(name, inputs)
+                recorded = self._store.completed(key)  # a try that raced this one
+                if recorded is None:
+                    recorded = _as_json_object(fn(), name)
+                    self._store.record(key, recorded)
+                    if self._run._cancelled_before_commit():
+                        raise Cancelled(f"job {self._run.job_id} was cancelled")
+        self.done += 1
+        if self.done == self.total:
+            with self._run.acting():
+                self._store.progress(self.subject_id, Progress(self.done, self.total, None))
+        return recorded
+
+    def _key(self, name: str, inputs: Inputs) -> StepKey:
+        values = inputs() if callable(inputs) else (inputs or {})
+        return StepKey(self.subject_id, name, input_hash(values))
+
+
+def input_hash(inputs: Mapping[str, object]) -> str:
+    """sha256 of the inputs as canonical JSON: sorted keys, no spaces, UUIDs as text."""
+    text = json.dumps(inputs, sort_keys=True, separators=(",", ":"), default=_json_default)
+    return hashlib.sha256(text.encode()).hexdigest()
+
+
+def _as_json_object(result: object, step: str) -> StepResult:
+    """The step's result as its store gives it back on a restart: a JSON object."""
+    if not isinstance(result, dict):
+        raise TypeError(f"step {step!r} returns a JSON object (a dict), not {type(result).__name__}")
+    text = json.dumps(result, sort_keys=True, allow_nan=False, default=_json_default)
+    parsed: StepResult = json.loads(text)
+    return parsed
+
+
+def _json_default(value: object) -> str:
+    if isinstance(value, uuid.UUID):
+        return str(value)
+    raise TypeError(f"not JSON: {type(value).__name__}")
+
+
+# State, cancel and restart, within the acting tenant -------------------------------------------------
+
+
+@dataclass(frozen=True)
+class JobState:
+    id: JobId
+    task: str
+    status: str
+    """`waiting`, `running`, `retrying`, `stopping`, `cancelled`, `failed` or `done`."""
+    attempt: int
+    """The try running or last run, from 1 (0 while it waits for its first)."""
+    tries: int
+    message: Message
+
+
+def state(job_id: JobId) -> JobState | None:
+    """The acting tenant's job, or None (no such job, or another tenant's)."""
+    row = _own_job(job_id)
+    if row is None:
+        return None
+    task, status, attempts, abort_requested = row
+    tries = settings.VEXTRUS_JOB_TRIES
+    if status == "todo":
+        name, attempt = ("retrying", attempts + 1) if attempts else ("waiting", 0)
+    elif status == "doing":
+        name, attempt = ("stopping" if abort_requested else "running"), attempts + 1
+    elif status == "aborting":
+        name, attempt = "stopping", attempts + 1
+    else:
+        name = {"succeeded": "done", "failed": "failed"}.get(status, "cancelled")
+        attempt = attempts
+    message = {
+        "waiting": words.WAITING(),
+        "running": words.RUNNING(),
+        "retrying": words.RETRYING(attempt=attempt, tries=tries),
+        "stopping": words.STOPPING(),
+        "cancelled": words.CANCELLED(),
+        "failed": words.FAILED(tries=attempt),
+        "done": words.DONE(),
+    }[name]
+    return JobState(job_id, task, name, attempt, tries, message)
+
+
+def cancel(job_id: JobId) -> bool:
+    """Cancel the acting tenant's job: a waiting one never runs, a running one stops and its current
+    step rolls back. False if there is no such job, or it has already ended."""
+    if _own_job(job_id) is None:
+        return False
+    with connections[settings.PROCRASTINATE_DATABASE_ALIAS].cursor() as cursor:
+        cursor.execute("select procrastinate_cancel_job_v1(%s, true, false)", [job_id])
+        row = cursor.fetchone()
+    return bool(row and row[0] is not None)
+
+
+def restart(job_id: JobId) -> JobId:
+    """Defer a failed or cancelled job of the acting tenant again, with the same ids, for the acting
+    user; its completed steps skip. Inside the data's transaction, as `defer`."""
+    row = _own_job(job_id)
+    if row is None:
+        raise NotRestartable(f"no job {job_id}")
+    task, status, _attempts, _abort = row
+    if status not in ("failed", "cancelled", "aborted"):
+        raise NotRestartable(f"job {job_id} is {status}")
+    declared = _registered.get(task)
+    if declared is None:
+        raise NotRestartable(f"job {job_id}'s task {task} is not declared here")
+    with connections[settings.PROCRASTINATE_DATABASE_ALIAS].cursor() as cursor:
+        cursor.execute("select args from procrastinate_jobs where id = %s", [job_id])
+        (raw,) = cursor.fetchone() or ({},)
+    arguments = declared.parse(json.loads(raw) if isinstance(raw, str) else raw)
+    return declared.defer(**arguments.ids)
+
+
+def _own_job(job_id: JobId) -> tuple[str, str, int, bool] | None:
+    tenant_id = tenancy.current_tenant_id()
+    if tenant_id is None or type(job_id) is not int:
+        return None
+    with connections[settings.PROCRASTINATE_DATABASE_ALIAS].cursor() as cursor:
+        cursor.execute(
+            "select task_name, status::text, attempts, abort_requested from procrastinate_jobs"
+            " where id = %s and args ->> 'tenant_id' = %s",
+            [job_id, str(tenant_id)],
+        )
+        row = cursor.fetchone()
+    return None if row is None else (row[0], row[1], row[2], row[3])
+
+
+# Retries ---------------------------------------------------------------------------------------------
+
+
+class _Retry(BaseRetryStrategy):
+    """Try a job up to VEXTRUS_JOB_TRIES times, unless it was refused or leaked a setting."""
+
+    def get_retry_decision(
+        self, *, exception: BaseException, job: procrastinate_jobs.Job
+    ) -> RetryDecision | None:
+        if isinstance(exception, JobRefused | TenancyLeaked):
+            return None
+        if job.attempts + 1 >= settings.VEXTRUS_JOB_TRIES:
+            return None
+        return RetryDecision(retry_in={"seconds": settings.VEXTRUS_JOB_RETRY_SECONDS})
+
+
+async def retry_stalled(manager: JobManager) -> list[JobId]:
+    """Try again every running job whose worker stopped beating (a server restart): the ids tried.
+
+    A stalled job that was cancelled ends as cancelled; one on its last try ends as failed.
+    """
+    retried = []
+    stalled = await manager.get_stalled_jobs(
+        seconds_since_heartbeat=settings.VEXTRUS_JOB_STALLED_SECONDS
+    )
+    for found in stalled:
+        assert found.id is not None
+        try:
+            [current] = await manager.list_jobs_async(id=found.id)
+            if current.status != "doing":
+                continue
+            if current.abort_requested:
+                await manager.finish_job_by_id_async(
+                    found.id, status=procrastinate_jobs.Status.ABORTED, delete_job=False
+                )
+            elif current.attempts + 1 >= settings.VEXTRUS_JOB_TRIES:
+                await manager.finish_job_by_id_async(
+                    found.id, status=procrastinate_jobs.Status.FAILED, delete_job=False
+                )
+            else:
+                await manager.retry_job(current)
+                retried.append(found.id)
+        except Exception:  # it moved on meanwhile; the next round sees it again
+            logger.exception("could not retry stalled job %s", found.id)
+    return retried
+
+
+# The worker ------------------------------------------------------------------------------------------
+
+
+@dataclass
+class _CadWorker:
+    ready: bool = False
+    fork_guard: bool = False
+
+
+_cad_worker = _CadWorker()
+
+
+def run_worker(queues: Sequence[str], *, concurrency: int | None = None, wait: bool = True) -> None:
+    """Run a worker in this process on `queues` until stopped (or, without `wait`, until none is
+    left). Refuses to start unless row-level security binds it (02's startup check)."""
+    queues = list(queues)
+    cad = settings.VEXTRUS_CAD_QUEUE
+    if not queues:
+        raise WorkerRefused("name the queues this worker runs")
+    if cad in queues:
+        if queues != [cad]:
+            raise WorkerRefused(f"the {cad} queue's worker runs that queue alone")
+        if concurrency not in (None, settings.VEXTRUS_CAD_WORKER_CONCURRENCY):
+            raise WorkerRefused(
+                f"the {cad} queue runs at concurrency {settings.VEXTRUS_CAD_WORKER_CONCURRENCY}"
+            )
+        concurrency = settings.VEXTRUS_CAD_WORKER_CONCURRENCY
+    startup.check(settings.PROCRASTINATE_DATABASE_ALIAS)
+    if cad in queues:
+        prepare_cad_worker()
+    for connection in connections.all(initialized_only=True):
+        connection.close()
+    worker_connector = app.connector.get_worker_connector()  # type: ignore[attr-defined]
+    with app.replace_connector(worker_connector):
+        app.run_worker(queues=queues, concurrency=concurrency or 1, wait=wait)
+
+
+def prepare_cad_worker() -> None:
+    """Make this process the `cad` queue's worker: no fork, and the address-space cap set now.
+
+    The cap bounds this process and, since a limit is inherited, every reader it starts (each on its
+    own); it is lowered for good (the hard limit too), so no job can raise it again.
+    """
+    if multiprocessing.get_start_method() == "fork":
+        raise WorkerRefused("the cad worker refuses the fork start method (forkserver or spawn)")
+    cap = settings.VEXTRUS_CAD_WORKER_MEMORY_BYTES
+    if cap is not None:
+        if type(cap) is not int or cap <= 0:
+            raise WorkerRefused("VEXTRUS_CAD_WORKER_MEMORY_BYTES is a positive number of bytes")
+        _soft, hard = resource.getrlimit(resource.RLIMIT_AS)
+        limit = cap if hard == resource.RLIM_INFINITY else min(cap, hard)
+        resource.setrlimit(resource.RLIMIT_AS, (limit, limit))
+    else:
+        logger.warning(
+            "the cad worker runs without a memory cap: VEXTRUS_CAD_WORKER_MEMORY_BYTES is unset"
+        )
+    if not _cad_worker.fork_guard:
+        os.register_at_fork(after_in_child=_refuse_forked_child)
+        _cad_worker.fork_guard = True
+    _cad_worker.ready = True
+
+
+def _refuse_forked_child() -> None:
+    """A child forked in the cad worker exits at once: no pool relies on fork (a forked copy of a
+    threaded, capped process may deadlock). A program started by `subprocess` without a
+    `preexec_fn` is exec'd without this hook and runs as normal."""
+    with contextlib.suppress(Exception):
+        sys.stderr.write("vextrus: a process forked inside the cad worker is refused\n")
+        sys.stderr.flush()
+    os._exit(_FORKED_CHILD_EXIT)
