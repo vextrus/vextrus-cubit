@@ -68,6 +68,10 @@ msgstr "Renew 30 days for {who}"
 msgid "Copy this link and send it to {email}. It works once, until {date}."
 msgstr "Copy this link and send it to {email}. It works once, until {date}."
 
+#: src/members/MembersPage.tsx
+msgid "Revoke access for {who}"
+msgstr "Revoke access for {who}"
+
 #: src/members/LinkShown.tsx
 msgid "Your browser did not let Vextrus copy it. The link is selected above; press Ctrl C to copy it."
 msgstr "Your browser did not let Vextrus copy it. The link is selected above; press Ctrl C to copy it."
@@ -208,10 +212,6 @@ msgid "Members and access"
 msgstr "Members and access"
 
 #: src/members/MembersPage.tsx
-msgid "Revoke {who}"
-msgstr "Revoke {who}"
-
-#: src/members/MembersPage.tsx
 msgid "Acts"
 msgstr "Acts"
 
@@ -243,6 +243,10 @@ msgstr "{joined}, {code}"
 #: src/members/MembersPage.tsx
 msgid "{name}’s access now ends on {date}."
 msgstr "{name}’s access now ends on {date}."
+
+#: src/members/MembersPage.tsx
+msgid "{count, plural, one {# act, last {last}, by {who}} other {# acts, last {last}, by {who}}}"
+msgstr "{count, plural, one {# act, last {last}, by {who}} other {# acts, last {last}, by {who}}}"
 
 #: src/members/InviteDialog.tsx
 msgid "Create link"

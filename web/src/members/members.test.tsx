@@ -623,7 +623,7 @@ describe('finish line step 10 in miniature: invite, act as the Engineer, see the
     // The MD sees the act listed under the Engineer's name, marked (Vextrus).
     api.signInAs(PEOPLE.md)
     await queryClient.invalidateQueries()
-    const acts = await waitFor(() => within(row(/^Vextrus access$/, 'Sadia Karim')).getByRole('button', { name: named(/^2 acts, last 28 Sep 2026$/) }))
+    const acts = await waitFor(() => within(row(/^Vextrus access$/, 'Sadia Karim')).getByRole('button', { name: named(/^2 acts, last 28 Sep 2026, by Sadia Karim$/) }))
     await userEvent.click(acts)
     expect(acts).toHaveAttribute('aria-expanded', 'true')
     const panel = await screen.findByRole('region', { name: named(/^Sadia Karim \(Vextrus\)$/) })
@@ -652,14 +652,19 @@ describe('finish line step 10 in miniature: invite, act as the Engineer, see the
     expect(me.ended_membership_id).toBe(api.membershipOf('sadia@vextrus.example', SHAPLA).id)
   })
 
-  it('says "No acts yet" for someone who has done nothing', async () => {
+  it('says "No acts yet" for someone who has done nothing, as words: there is nothing to open (words gate 20a r1)', async () => {
     const api = new FakeApi()
     api.acts = api.acts.filter((a) => a.actorId !== api.user(PEOPLE.engineer).id)
     await members(PEOPLE.md, api)
-    const button = within(row(/^Vextrus access$/, 'Arif Rahman')).getByRole('button', { name: 'No acts yet' })
-    await userEvent.click(button)
-    const panel = await screen.findByRole('region', { name: named(/^Arif Rahman \(Vextrus\)$/) })
-    expect(await within(panel).findByText('No acts yet')).toBeVisible()
+    const arif = row(/^Vextrus access$/, 'Arif Rahman')
+    expect(cells(arif)[5]).toBe('No acts yet')
+    expect(within(arif).queryByRole('button', { name: named(/acts/) })).toBeNull()
+  })
+
+  it('names whose acts the Acts button opens, its words first (words gate 20a r1)', async () => {
+    await members(PEOPLE.md)
+    expect(within(row(/^Vextrus access$/, 'Arif Rahman')).getByRole('button', { name: named(/^2 acts, last 26 Sep 2026, by Arif Rahman$/) })).toBeVisible()
+    expect(within(row(/^People at/, 'Farhana Kabir')).getByRole('button', { name: named(/^Revoke access for Farhana Kabir$/) })).toBeVisible()
   })
 })
 

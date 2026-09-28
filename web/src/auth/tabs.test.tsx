@@ -111,7 +111,7 @@ describe('another tab of the same browser', () => {
 
     await waitFor(() => expect(screen.queryByRole('dialog', { name: named(/^Invite someone to Meghna Properties Ltd$/) })).toBeNull())
     await waitFor(() => expect(a.router.state.location.pathname).toBe('/projects'))
-    await waitFor(() => expect(said(a.container)).toBe('Switched to Kanchan Homes Ltd in another tab.'))
+    await waitFor(() => expect(said(a.container)).toBe('You switched to Kanchan Homes Ltd in another tab, so this tab has switched too.'))
     expect(said(b.container)).toBe('')
     expect(topBar(a.container)).toContain('Kanchan Homes Ltd')
     expect(api.calls().filter((call) => call.startsWith('POST /api/invitations'))).toEqual([])
@@ -127,7 +127,7 @@ describe('another tab of the same browser', () => {
     // The tab comes back into view, as the browser says it.
     document.dispatchEvent(new Event('visibilitychange', { bubbles: true }))
     await waitFor(() => expect(router.state.location.pathname).toBe('/projects'))
-    await waitFor(() => expect(said(container)).toBe('Switched to Kanchan Homes Ltd in another tab.'))
+    await waitFor(() => expect(said(container)).toBe('You switched to Kanchan Homes Ltd in another tab, so this tab has switched too.'))
   })
 
   it('learns it on the next move inside the frame', async () => {
@@ -141,7 +141,7 @@ describe('another tab of the same browser', () => {
     await userEvent.click(within(container).getByRole('link', { name: /Meghna Heights/ }))
     await waitFor(() => expect(topBar(container)).toContain('Kanchan Homes Ltd'))
     expect(router.state.location.pathname).toBe('/projects')
-    await waitFor(() => expect(said(container)).toBe('Switched to Kanchan Homes Ltd in another tab.'))
+    await waitFor(() => expect(said(container)).toBe('You switched to Kanchan Homes Ltd in another tab, so this tab has switched too.'))
     text.stop()
     expect(text.saw('MG-01')).toBe(false)
   })
@@ -180,7 +180,7 @@ describe('another tab of the same browser', () => {
     await enter(heldBy(b), await signIn(PEOPLE.guest, PASSWORD))
 
     await waitFor(() => expect(a.router.state.location.pathname).toBe('/projects'))
-    await waitFor(() => expect(said(a.container)).toBe('Signed in as Farhana Kabir in another tab.'))
+    await waitFor(() => expect(said(a.container)).toBe('Farhana Kabir signed in from another tab, so this tab is theirs now.'))
     expect(topBar(a.container)).toContain('Farhana Kabir')
     text.stop()
     expect(text.saw('rumana@shapla-homes.example')).toBe(false)

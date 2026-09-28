@@ -521,7 +521,7 @@ test('two tabs of one browser (review 20a r1, finding 1): a switch in one, and t
 
   // This tab heard it: its dialog for Chameli is gone, it works in Meghna, and it says why.
   await expect(dialog).toHaveCount(0)
-  await expect.poll(textOf(a.getByRole('status').filter({ hasText: /another tab/ }))).toBe('Switched to Meghna Properties Ltd in another tab.')
+  await expect.poll(textOf(a.getByRole('status').filter({ hasText: /another tab/ }))).toBe('You switched to Meghna Properties Ltd in another tab, so this tab has switched too.')
   await expect(a).toHaveURL(/\/projects$/)
   await expect.poll(textOf(a.locator('[data-region="top-bar"]'))).toContain('Meghna Properties Ltd')
   await shot(a, 'two-tabs-switched')

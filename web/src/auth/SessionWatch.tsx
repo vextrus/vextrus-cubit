@@ -72,7 +72,13 @@ export function useFrameIdentity(): string | null {
         const name = now.user.name
         setShown(identity)
         toast.show({
-          message: now.user.id === shownUser ? <Trans>Switched to {developer} in another tab.</Trans> : <Trans>Signed in as {name} in another tab.</Trans>,
+          // What it means for this tab, not only where it happened (words gate 20a r1).
+          message:
+            now.user.id === shownUser ? (
+              <Trans>You switched to {developer} in another tab, so this tab has switched too.</Trans>
+            ) : (
+              <Trans>{name} signed in from another tab, so this tab is theirs now.</Trans>
+            ),
         })
       })
     return () => {

@@ -35,10 +35,6 @@ msgstr "{inviter} invited you as {as}."
 msgid "{head}, {item}"
 msgstr "{head}, {item}"
 
-#: src/auth/SessionWatch.tsx
-msgid "Switched to {developer} in another tab."
-msgstr "Switched to {developer} in another tab."
-
 #: src/auth/RouteError.tsx
 msgid "Page could not be opened"
 msgstr "Page could not be opened"
@@ -60,6 +56,10 @@ msgstr "Sign in"
 #: src/auth/Join.tsx
 msgid "Name"
 msgstr "Name"
+
+#: src/auth/SessionWatch.tsx
+msgid "{name} signed in from another tab, so this tab is theirs now."
+msgstr "{name} signed in from another tab, so this tab is theirs now."
 
 #: src/auth/ChooseDeveloper.tsx
 msgid "Open this Developer’s projects"
@@ -153,6 +153,10 @@ msgstr "Your access to {developer} has ended. {revoker} revoked it on {date}. Wh
 #: src/auth/problem.tsx
 msgid "Try again"
 msgstr "Try again"
+
+#: src/auth/SessionWatch.tsx
+msgid "You switched to {developer} in another tab, so this tab has switched too."
+msgstr "You switched to {developer} in another tab, so this tab has switched too."
 
 #: src/auth/Join.tsx
 msgid "Invitation"
@@ -267,7 +271,3 @@ msgstr "Choose another Developer"
 #: src/auth/OutsidePage.tsx
 msgid "Vextrus"
 msgstr "Vextrus"
-
-#: src/auth/SessionWatch.tsx
-msgid "Signed in as {name} in another tab."
-msgstr "Signed in as {name} in another tab."

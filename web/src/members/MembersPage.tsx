@@ -13,6 +13,7 @@
  * "Revoke", "Copy link", "Withdraw"); an act the API refuses meanwhile is said in its words.
  */
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { plural } from '@lingui/core/macro'
 import { Plural, Trans, useLingui } from '@lingui/react/macro'
 import { useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
 import { ApiRefused } from '@/api/client'
@@ -165,7 +166,7 @@ function Acts({ row, acts }: { row: PersonRow | InvitationRow; acts: RowActs }) 
   const who = row.kind === 'person' ? row.name : row.email
   const named: Record<MemberAction, string> = {
     renew: t`Renew 30 days for ${who}`,
-    revoke: t`Revoke ${who}`,
+    revoke: t`Revoke access for ${who}`,
     copy_link: t`Copy link for ${who}`,
     withdraw: t`Withdraw the invitation for ${who}`,
   }
@@ -266,6 +267,7 @@ function VextrusTable({
         rows.map((row) => {
           const last = row.lastActAt ? f.date(row.lastActAt) : ''
           const count = row.acts
+          const who = row.name
           return (
             <tr key={row.membershipId} className={cn('border-b border-border last:border-b-0', row.ended && 'text-muted-foreground')}>
               <Cell title={row.name}>
@@ -277,16 +279,24 @@ function VextrusTable({
               </Cell>
               {compact ? null : <Cell className="num">{f.date(row.since)}</Cell>}
               <UntilCell row={row} />
-              {/* Whole, never cut: it may wrap. */}
+              {/* Whole, never cut: it may wrap. With none, words only: there is nothing to open. */}
               <td className="h-row px-2 py-1 align-middle">
-                <button
-                  type="button"
-                  aria-expanded={actsOpen === row.membershipId}
-                  onClick={(event) => onActs(row, event.currentTarget)}
-                  className="rounded-xs text-start text-primary underline-offset-2 hover:underline"
-                >
-                  {count === 0 ? <Trans>No acts yet</Trans> : <Plural value={count} one={`# act, last ${last}`} other={`# acts, last ${last}`} />}
-                </button>
+                {count === 0 ? (
+                  <span className="text-muted-foreground">
+                    <Trans>No acts yet</Trans>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    aria-expanded={actsOpen === row.membershipId}
+                    // Whose acts, its words first (words gate 20a r1): several rows can read "4 acts, last …".
+                    aria-label={t({ message: plural(count, { one: `# act, last ${last}, by ${who}`, other: `# acts, last ${last}, by ${who}` }) })}
+                    onClick={(event) => onActs(row, event.currentTarget)}
+                    className="rounded-xs text-start text-primary underline-offset-2 hover:underline"
+                  >
+                    <Plural value={count} one={`# act, last ${last}`} other={`# acts, last ${last}`} />
+                  </button>
+                )}
               </td>
               <ActsCell>
                 <Acts row={row} acts={acts} />
