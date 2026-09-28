@@ -1,0 +1,61 @@
+{
+  "disciplines": [
+    {"key": "structural", "prefixes": ["S", "ST", "STR"]},
+    {"key": "architectural", "prefixes": ["A", "AR", "ARC", "ARCH"]},
+    {"key": "electrical", "prefixes": ["E", "EL", "ELE", "ELEC"]},
+    {"key": "plumbing", "prefixes": ["P", "PL", "PLB", "SAN"]},
+    {"key": "fire", "prefixes": ["F", "FF", "FP", "FS"]},
+    {"key": "mechanical", "prefixes": ["M", "MEC", "MECH", "HVAC"]},
+    {"key": "lift", "prefixes": ["L", "LF", "LIFT"]},
+    {"key": "gas", "prefixes": ["G", "GS", "GAS"]}
+  ],
+  "number_patterns": [],
+  "title_block_fields": [
+    {"field": "number", "words": ["sheet no", "sheet number", "drawing no", "drawing number", "dwg no", "drg no"], "position": null},
+    {"field": "title", "words": ["sheet title", "drawing title", "title", "drawing name", "sheet name", "title of drawing", "name of drawing"], "position": null},
+    {"field": "revision_mark", "words": ["revision", "rev", "rev no", "revision no"], "position": null},
+    {"field": "issue_date", "words": ["issue date", "date of issue", "date"], "position": null}
+  ],
+  "revision_mark_pattern": "(?i)(?:^|[\\s_.-])(R\\d{1,2}|REV[\\s._-]?[A-Z0-9]{1,2})(?=$|[\\s_.-])",
+  "storey_words": [
+    {"storey": "pile", "words": ["pile", "piles", "pile head"]},
+    {"storey": "pile_cap", "words": ["pile cap", "pile caps", "pilecap", "pilecaps"]},
+    {"storey": "foundation", "words": ["foundation", "foundations", "footing", "footings"]},
+    {"storey": "plinth", "words": ["plinth", "plinth level", "plinth beam", "plinth beams", "tie beam", "tie beams", "grade beam", "grade beams"]},
+    {"storey": "basement", "words": ["basement", "basements", "cellar"]},
+    {"storey": "lower_ground", "words": ["lower ground", "semi basement"]},
+    {"storey": "ground", "words": ["ground", "gf", "grd"]},
+    {"storey": "mezzanine", "words": ["mezzanine", "mezz"]},
+    {"storey": "podium", "words": ["podium"]},
+    {"storey": "roof", "words": ["roof", "roof top", "rooftop"]},
+    {"storey": "stair_room_roof", "words": ["stair room roof", "stair roof", "stair case roof", "staircase roof", "mumty roof"]},
+    {"storey": "lift_machine_room", "words": ["lift machine room", "machine room", "lmr"]},
+    {"storey": "lift_machine_room_roof", "words": ["lift machine room roof", "machine room roof", "lmr roof", "lift machine room top", "machine room top"]},
+    {"storey": "typical", "words": ["typical", "typ"]},
+    {"storey": "top", "words": ["top"]}
+  ],
+  "frame_hints": ["frame", "border", "title block", "titleblock"],
+  "title_block_words": ["scale", "drawn by", "drawn", "checked by", "checked", "approved by", "approved", "designed by", "designed", "project", "project name", "client", "owner", "land owner", "developer", "consultant", "architect", "engineer", "job no", "project no", "file no", "seal", "signature", "north", "sheet size", "paper size"],
+  "floor_words": ["floor", "floors", "flr", "fl", "storey", "storeys", "story", "stories"],
+  "plan_words": ["plan", "plans", "layout", "layouts"],
+  "level_words": ["level", "lvl", "el"],
+  "weak_storey_words": ["ground", "grd", "top", "typical", "typ"],
+  "structure_words": ["tank", "tanks", "water tank", "overhead tank", "over head tank", "overhead water tank", "over head water tank", "overhead water reservoir", "over head water reservoir", "ohwt", "ohwr", "oht", "ugwt", "ugwr", "underground water tank", "underground water reservoir", "underground reservoir", "reservoir", "septic tank", "soak well", "soak pit", "sump", "sump pit", "lift pit", "pump house", "canopy", "canopy roof"],
+  "below_ground_words": ["below ground floor", "below ground level", "below ground", "below gf"],
+  "ordinal_words": ["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth", "eleventh", "twelfth", "thirteenth", "fourteenth", "fifteenth", "sixteenth", "seventeenth", "eighteenth", "nineteenth", "twentieth"],
+  "ordinal_suffixes": ["st", "nd", "rd", "th"],
+  "range_words": ["to", "thru", "through", "upto", "up to", "till", "until"],
+  "list_words": ["and"],
+  "register_words": ["drawing list", "list of drawings", "drawing register", "drawing index", "index of drawings", "sheet index", "list of sheets", "sheet list", "schedule of drawings", "drawing schedule"],
+  "sheet_kinds": {
+    "structural": ["site_plan", "grid_layout", "pile_layout", "pile_details", "pile_cap_layout", "foundation_details", "column_layout", "column_schedule", "shear_wall_details", "beam_layout", "beam_details", "slab_layout", "stair_details", "tank_details", "details"],
+    "architectural": ["site_plan", "floor_plan", "presentation_plan", "roof_plan", "elevation", "section", "door_window_layout", "door_window_schedule", "door_window_details", "floor_finish_layout", "lintel_layout", "slab_outline_layout", "column_layout", "toilet_details", "kitchen_details", "stair_details", "details", "perspective"],
+    "electrical": ["legend", "lighting_layout", "point_wiring_layout", "power_wiring_layout", "low_voltage_layout", "ac_pipe_layout", "solar_layout", "single_line_diagram", "distribution_board_details", "earthing_details", "lightning_protection", "details"],
+    "plumbing": ["legend", "plumbing_layout", "toilet_details", "riser_diagram", "sanitary_fixture_details", "pit_chamber_details", "septic_tank_details", "water_tank_details", "pump_details", "rainwater_details", "details"],
+    "fire": ["legend", "fire_detection_layout", "sprinkler_layout", "fire_hydrant_layout", "riser_diagram", "fire_pump_details", "details"],
+    "mechanical": ["legend", "hvac_layout", "ventilation_layout", "ac_pipe_layout", "equipment_schedule", "details"],
+    "lift": ["lift_layout", "lift_section", "machine_room_details", "details"],
+    "gas": ["legend", "gas_line_layout", "riser_diagram", "details"]
+  },
+  "common_sheet_kinds": ["cover_index", "general_notes", "other"]
+}
