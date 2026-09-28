@@ -6,11 +6,13 @@
  *   try { await act() } catch (error) { setProblem(problemOf(error)) }
  *   <ProblemBar problem={problem} />
  */
-import type { ReactNode } from 'react'
+import { useEffect, type Dispatch, type ReactNode, type SetStateAction } from 'react'
 import { Trans } from '@lingui/react/macro'
 import type { I18n } from '@lingui/core'
 import { msg } from '@lingui/core/macro'
 import { ApiRefused } from '@/api/client'
+import { onSessionEvent } from '@/api/events'
+import { sessionEventOf } from '@/api/refusal'
 import type { Format } from '@/format'
 import { MachineText, machineText, type MachineMessage } from '@/format/machine'
 import { Button, ErrorBar } from '@/ui'
@@ -45,6 +47,24 @@ export function ProblemBar({ problem, className, action }: { problem: Problem; c
     <ErrorBar className={className} action={action}>
       <ProblemWords problem={problem} />
     </ErrorBar>
+  )
+}
+
+/**
+ * A problem that said "signed out" is gone once the person is signed in again, in the Signed-out dialog
+ * or another tab: it has nothing left to say (design gate 20a r1).
+ *
+ *   const [problem, setProblem] = useState<Problem>(null)
+ *   useSignedInAgain(setProblem)
+ */
+export function useSignedInAgain(setProblem: Dispatch<SetStateAction<Problem>>): void {
+  useEffect(
+    () =>
+      onSessionEvent((event) => {
+        if (event !== 'signed-in') return
+        setProblem((p) => (p && 'refusal' in p && sessionEventOf(p.refusal.code) === 'signed-out' ? null : p))
+      }),
+    [setProblem],
   )
 }
 

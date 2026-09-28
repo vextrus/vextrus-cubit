@@ -20,7 +20,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { ApiRefused } from '@/api/client'
 import { roleName } from '@/app/roles'
 import type { Role, Session } from '@/app/session'
-import { ProblemBar, invitableRoles, problemOf, sameSession, type Problem } from '@/auth'
+import { ProblemBar, invitableRoles, problemOf, sameSession, useSignedInAgain, type Problem } from '@/auth'
 import { MachineText, type MachineMessage } from '@/format/machine'
 import { DiscardBar, useDiscardGuard } from '@/projects'
 import { Button, Checkbox, FieldError, Segmented, TextField } from '@/ui'
@@ -68,12 +68,15 @@ export function InviteDialog({ session, open, onOpenChange }: { session: Session
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<Role>(first)
   const [mode, setMode] = useState(defaults(first).mode)
-  const [chosen, setChosen] = useState<ReadonlySet<string>>(new Set())
+  // An inviter given one project has one to give: it is ticked already (design gate 20a r1).
+  const only = scoped && session.projects.length === 1 ? session.projects[0]!.id : null
+  const [chosen, setChosen] = useState<ReadonlySet<string>>(() => new Set(only ? [only] : []))
   const [endOn, setEndOn] = useState(defaults(first).endOn)
   const [endDay, setEndDay] = useState<Day | null>(addDays(today, DEFAULT_DAYS))
   const [touched, setTouched] = useState({ mode: false, end: false })
   const [errors, setErrors] = useState<Partial<Record<Field, Words>>>({})
   const [bar, setBar] = useState<Problem>(null)
+  useSignedInAgain(setBar)
   const [tried, setTried] = useState(false)
   const [saving, setSaving] = useState(false)
   const [created, setCreated] = useState<Created | null>(null)
@@ -86,7 +89,7 @@ export function InviteDialog({ session, open, onOpenChange }: { session: Session
     setEmail('')
     setRole(first)
     setMode(defaults(first).mode)
-    setChosen(new Set())
+    setChosen(new Set(only ? [only] : []))
     setEndOn(defaults(first).endOn)
     setEndDay(addDays(today, DEFAULT_DAYS))
     setTouched({ mode: false, end: false })
@@ -238,14 +241,16 @@ export function InviteDialog({ session, open, onOpenChange }: { session: Session
                     <Checkbox
                       key={p.id}
                       checked={chosen.has(p.id)}
-                      onCheckedChange={(on) =>
+                      onCheckedChange={(on) => {
                         setChosen((set) => {
                           const next = new Set(set)
                           if (on) next.add(p.id)
                           else next.delete(p.id)
                           return next
                         })
-                      }
+                        // A project ticked answers "Choose at least one project." (design gate 20a r1).
+                        if (on) setErrors(({ projects: _answered, ...rest }) => rest)
+                      }}
                       label={
                         <>
                           <bdi dir="ltr" className="num">

@@ -15,7 +15,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Trans } from '@lingui/react/macro'
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { onSessionEvent } from '@/api/events'
+import { emitSessionEvent, onSessionEvent } from '@/api/events'
 import { PATHS } from '@/app/AppLink'
 import { NoDeveloper, meQuery, sessionQuery } from '@/app/session'
 import { Skeleton, useToast } from '@/ui'
@@ -113,11 +113,8 @@ export function SessionWatch() {
   useEffect(
     () =>
       onSessionEvent((event) => {
-        if (event === 'signed-out') {
-          setSignedOut(true)
-          return
-        }
-        leave()
+        if (event === 'signed-out') setSignedOut(true)
+        if (event === 'no-developer') leave()
       }),
     [leave],
   )
@@ -134,7 +131,10 @@ export function SessionWatch() {
   useEffect(() => {
     if (!signedOut) return
     return queryClient.getQueryCache().subscribe((event) => {
-      if (event.type === 'updated' && event.action.type === 'success' && event.query.queryKey[0] === sessionQuery.queryKey[0]) setSignedOut(false)
+      if (event.type === 'updated' && event.action.type === 'success' && event.query.queryKey[0] === sessionQuery.queryKey[0]) {
+        setSignedOut(false)
+        emitSessionEvent('signed-in')
+      }
     })
   }, [signedOut, queryClient])
 
@@ -146,6 +146,7 @@ export function SessionWatch() {
       onSignedIn={async (out) => {
         if (out.user.id === session.user.id && out.developer_id === session.developer.id) {
           setSignedOut(false)
+          emitSessionEvent('signed-in')
           await queryClient.invalidateQueries()
           return
         }

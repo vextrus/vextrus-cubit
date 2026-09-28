@@ -6,6 +6,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { PASSWORD } from '@/app/seed/api.fixture'
 import { FakeApi, PEOPLE, mountApp } from '@/app/testing'
 import { UiProviders } from '@/ui/UiProviders'
 import { expectKeyMapSound, notationProblems } from '@/ui'
@@ -186,6 +187,12 @@ describe('the MD’s page (§4.4)', () => {
     expect(buttons(arif)).toEqual(['2 acts, last 26 Sep 2026', 'Renew 30 days', 'Revoke'])
   })
 
+  it('tells a QS the access they may end, and their MD any (the owner’s ruling, 29 Sep 2026)', async () => {
+    await members(PEOPLE.qs)
+    expect(screen.getByText('Vextrus sees your data only while an invitation below is current. You can end the access you gave; your MD can end any.')).toBeVisible()
+    expect(screen.queryByText(/You can end it at any time/)).toBeNull()
+  })
+
   it('lists the invitations not used yet, with Copy link and Withdraw', async () => {
     await members(PEOPLE.md)
     expect(screen.getByRole('heading', { name: 'Invitations not used yet' })).toBeVisible()
@@ -268,6 +275,8 @@ describe('the role matrix (§1.4)', () => {
       .getAllByRole('checkbox')
       .map((c) => text(c.closest('label')))
     expect(choices).toEqual(['BP-02 Bokul Place'])
+    // Their one project is theirs to give: ticked already (design gate 20a r1).
+    expect(within(dialog).getByRole('checkbox', { name: named(/^BP-02 Bokul Place$/) })).toBeChecked()
   })
 
   it('Vextrus Engineer: the people only, no Invite, and no call the API would refuse', async () => {
@@ -339,7 +348,7 @@ describe('the invite dialog (§4.4)', () => {
     await userEvent.type(within(dialog).getByLabelText('Email'), 'sadia@vextrus.example')
     await userEvent.click(within(dialog).getByRole('button', { name: 'Create link' }))
     await waitFor(() => expect(date).toHaveAttribute('aria-invalid', 'true'))
-    await seen(within(dialog).getByText(exactly('Enter a date like 28 Sep 2026.')))
+    await seen(within(dialog).getByText(exactly('Enter a date like 28 Oct 2026.')))
     expect(within(dialog).queryByText(/^Copy this link/)).toBeNull()
   })
 
@@ -369,6 +378,25 @@ describe('the invite dialog (§4.4)', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: 'Create link' }))
     await seen(await within(dialog).findByText('Choose at least one project.'))
     expect(api.calls()).not.toContain('POST /api/members/invitations')
+    // Ticking a project answers it: the words go (design gate 20a r1).
+    await userEvent.click(within(dialog).getByRole('checkbox', { name: named(/^KR-01 Kadam Residence$/) }))
+    await waitFor(() => expect(within(dialog).queryByText('Choose at least one project.')).toBeNull())
+  })
+
+  it('moves the Role and Projects choices with the arrow keys, as radios do (design gate 20a r1)', async () => {
+    await members(PEOPLE.md)
+    const dialog = await openInvite()
+    const roles = within(dialog).getByRole('radiogroup', { name: 'Role' })
+    within(roles).getByRole('radio', { name: 'QS' }).focus()
+    await userEvent.keyboard('{ArrowRight}')
+    await waitFor(() => expect(within(roles).getByRole('radio', { name: 'MD' })).toHaveAttribute('aria-checked', 'true'))
+    await userEvent.keyboard('{ArrowRight}')
+    await waitFor(() => expect(within(roles).getByRole('radio', { name: 'Guest' })).toHaveAttribute('aria-checked', 'true'))
+    // A Guest's projects are chosen ones; the arrow goes back to All.
+    const projects = within(dialog).getByRole('radiogroup', { name: 'Projects' })
+    within(projects).getByRole('radio', { name: 'Chosen projects' }).focus()
+    await userEvent.keyboard('{ArrowLeft}')
+    await waitFor(() => expect(within(projects).getByRole('radio', { name: 'All projects' })).toHaveAttribute('aria-checked', 'true'))
   })
 
   it('says under the Email field that someone is already a member, in the API’s words', async () => {
@@ -472,7 +500,7 @@ describe('the acts on a row (§4.4, "Wording of acts")', () => {
   it('Revoke asks first, then ends the access: the toast, and the row "Revoked by Kamal Uddin, 28 Sep 2026", muted', async () => {
     const api = new FakeApi()
     await members(PEOPLE.md, api)
-    await userEvent.click(within(row(/^Vextrus access$/, 'Arif Rahman')).getByRole('button', { name: 'Revoke' }))
+    await userEvent.click(within(row(/^Vextrus access$/, 'Arif Rahman')).getByRole('button', { name: /^Revoke / }))
     const confirm = await screen.findByRole('dialog', { name: named(/^End Arif Rahman’s access now\?$/) })
     await seen(within(confirm).getByText('Their next click is refused. What they did stays under their name.'))
     expect(api.calls()).not.toContain(`POST /api/members/${api.membershipOf(PEOPLE.engineer, SHAPLA).id}/revoke`)
@@ -487,7 +515,7 @@ describe('the acts on a row (§4.4, "Wording of acts")', () => {
   it('Cancel on the confirm ends nothing', async () => {
     const api = new FakeApi()
     await members(PEOPLE.md, api)
-    await userEvent.click(within(row(/^People at/, 'Nusrat Jahan')).getByRole('button', { name: 'Revoke' }))
+    await userEvent.click(within(row(/^People at/, 'Nusrat Jahan')).getByRole('button', { name: /^Revoke / }))
     const confirm = await screen.findByRole('dialog', { name: named(/^End Nusrat Jahan’s access now\?$/) })
     await userEvent.click(within(confirm).getByRole('button', { name: 'Cancel' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
@@ -496,20 +524,20 @@ describe('the acts on a row (§4.4, "Wording of acts")', () => {
 
   it('Renew 30 days: "Farhana Kabir’s access now ends on 25 Nov 2026."', async () => {
     await members(PEOPLE.md)
-    await userEvent.click(within(row(/^People at/, 'Farhana Kabir')).getByRole('button', { name: 'Renew 30 days' }))
+    await userEvent.click(within(row(/^People at/, 'Farhana Kabir')).getByRole('button', { name: /^Renew 30 days for / }))
     await seen(await screen.findByText(exactly('Farhana Kabir’s access now ends on 25 Nov 2026.', 'SPAN')))
     await waitFor(() => expect(cells(row(/^People at/, 'Farhana Kabir'))[5]).toBe('25 Nov 2026'))
   })
 
   it('Renew 30 days on expired access counts from today', async () => {
     await members(PEOPLE.md)
-    await userEvent.click(within(row(/^People at/, 'Jamal Hossain')).getByRole('button', { name: 'Renew 30 days' }))
+    await userEvent.click(within(row(/^People at/, 'Jamal Hossain')).getByRole('button', { name: /^Renew 30 days for / }))
     await seen(await screen.findByText(exactly('Jamal Hossain’s access now ends on 28 Oct 2026.', 'SPAN')))
   })
 
   it('Withdraw: "Invitation withdrawn. The link no longer works." and the row gone', async () => {
     await members(PEOPLE.md)
-    await userEvent.click(within(row(/^Invitations not used yet$/, 'rumana@shapla-homes.example')).getByRole('button', { name: 'Withdraw' }))
+    await userEvent.click(within(row(/^Invitations not used yet$/, 'rumana@shapla-homes.example')).getByRole('button', { name: /^Withdraw the invitation for / }))
     await seen(await screen.findByText('Invitation withdrawn. The link no longer works.'))
     await waitFor(() => expect(within(table(/^Invitations not used yet$/)).getByText('No invitations are waiting to be used.')).toBeVisible())
   })
@@ -518,7 +546,7 @@ describe('the acts on a row (§4.4, "Wording of acts")', () => {
     const api = new FakeApi()
     const before = api.tokenFor('rumana@shapla-homes.example')
     await members(PEOPLE.md, api)
-    await userEvent.click(within(row(/^Invitations not used yet$/, 'rumana@shapla-homes.example')).getByRole('button', { name: 'Copy link' }))
+    await userEvent.click(within(row(/^Invitations not used yet$/, 'rumana@shapla-homes.example')).getByRole('button', { name: /^Copy link for / }))
     const dialog = await screen.findByRole('dialog', { name: (n) => clean(n) === 'New link for rumana@shapla-homes.example' })
     expect(text(within(dialog).getByText(/^Copy this link/))).toBe(
       'Copy this link and send it to rumana@shapla-homes.example. It works once, until 3 Oct 2026. The link sent before no longer works. Send this one instead.',
@@ -532,9 +560,40 @@ describe('the acts on a row (§4.4, "Wording of acts")', () => {
     const api = new FakeApi()
     api.failOnce((method, path) => method === 'POST' && path.endsWith('/withdraw'), 409, { code: 'platform.invitations.no_longer_open', params: {} })
     await members(PEOPLE.md, api)
-    await userEvent.click(within(row(/^Invitations not used yet$/, 'rumana@shapla-homes.example')).getByRole('button', { name: 'Withdraw' }))
+    await userEvent.click(within(row(/^Invitations not used yet$/, 'rumana@shapla-homes.example')).getByRole('button', { name: /^Withdraw the invitation for / }))
     const bar = await screen.findByRole('alert')
     expect(text(bar)).toBe('This invitation is no longer open: it was used, withdrawn or has run out. Invite them again if they still need access.')
+  })
+})
+
+describe('where focus and words go after an act (design gate 20a r1)', () => {
+  it('puts focus on the section’s heading once the row it was on is gone: after Withdraw, and after Revoke', async () => {
+    await members(PEOPLE.md)
+    const rumana = row(/^Invitations not used yet$/, 'rumana@shapla-homes.example')
+    await userEvent.click(within(rumana).getByRole('button', { name: /^Withdraw the invitation for / }))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Invitations not used yet' })).toHaveFocus())
+
+    const arif = row(/^Vextrus access$/, 'Arif Rahman')
+    await userEvent.click(within(arif).getByRole('button', { name: /^Revoke / }))
+    await userEvent.click(await screen.findByRole('button', { name: 'End access' }))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Vextrus access' })).toHaveFocus())
+  })
+
+  it('drops the invite dialog’s "signed out" words once signed in again', async () => {
+    const api = new FakeApi()
+    await members(PEOPLE.md, api)
+    const dialog = await openInvite()
+    await userEvent.type(within(dialog).getByLabelText('Email'), 'sadia@shapla-homes.example')
+    api.session = { userId: null, developerId: null }
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Create link' }))
+    const signedOut = await screen.findByRole('dialog', { name: 'You were signed out.' })
+    // Under the Signed-out dialog, the invite dialog is hidden from the accessibility tree meanwhile.
+    await waitFor(() => expect(within(dialog).getByRole('alert', { hidden: true })).toBeInTheDocument())
+    await userEvent.type(within(signedOut).getByLabelText('Password'), PASSWORD)
+    await userEvent.click(within(signedOut).getByRole('button', { name: 'Sign in' }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'You were signed out.' })).toBeNull())
+    await waitFor(() => expect(within(dialog).queryByRole('alert', { hidden: true })).toBeNull())
+    expect(within(dialog).getByLabelText('Email')).toHaveValue('sadia@shapla-homes.example')
   })
 })
 
@@ -581,7 +640,7 @@ describe('finish line step 10 in miniature: invite, act as the Engineer, see the
     expect(document.activeElement).toBe(acts)
 
     // Revoke; the Engineer's next request, on the session they already hold, is refused.
-    await userEvent.click(within(row(/^Vextrus access$/, 'Sadia Karim')).getByRole('button', { name: 'Revoke' }))
+    await userEvent.click(within(row(/^Vextrus access$/, 'Sadia Karim')).getByRole('button', { name: /^Revoke / }))
     await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'End access' }))
     await screen.findByText(exactly('Sadia Karim’s access has ended.', 'SPAN'))
     api.session = { userId: sadia.id, developerId: api.developer(SHAPLA).id }
@@ -593,14 +652,14 @@ describe('finish line step 10 in miniature: invite, act as the Engineer, see the
     expect(me.ended_membership_id).toBe(api.membershipOf('sadia@vextrus.example', SHAPLA).id)
   })
 
-  it('says "No acts yet." for someone who has done nothing', async () => {
+  it('says "No acts yet" for someone who has done nothing', async () => {
     const api = new FakeApi()
     api.acts = api.acts.filter((a) => a.actorId !== api.user(PEOPLE.engineer).id)
     await members(PEOPLE.md, api)
     const button = within(row(/^Vextrus access$/, 'Arif Rahman')).getByRole('button', { name: 'No acts yet' })
     await userEvent.click(button)
     const panel = await screen.findByRole('region', { name: named(/^Arif Rahman \(Vextrus\)$/) })
-    expect(await within(panel).findByText('No acts yet.')).toBeVisible()
+    expect(await within(panel).findByText('No acts yet')).toBeVisible()
   })
 })
 

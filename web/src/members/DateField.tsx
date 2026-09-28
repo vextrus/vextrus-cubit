@@ -8,7 +8,7 @@ import { Plural, useLingui } from '@lingui/react/macro'
 import { SHORT_MONTHS } from '@/format/dates'
 import { useFormat } from '@/format'
 import { TextField } from '@/ui'
-import { daysBetween, endOfDay, parseDay, type Day } from './dates'
+import { addDays, daysBetween, endOfDay, parseDay, type Day } from './dates'
 
 /** Formats a day as 1.2 writes it, through 03's date formatter in the Market's time zone. */
 export function useDayText(): (day: Day) => string {
@@ -43,7 +43,8 @@ export function DateField({
   const months = SHORT_MONTHS.map((m) => i18n._(m))
   const unreadable = value === null && (left || showError)
   const days = value ? daysBetween(today, value) : null
-  const example = dayText(today)
+  // A day the field takes (after today), never one it refuses (design gate 20a r1).
+  const example = dayText(addDays(today, 30))
   return (
     <TextField
       id={id}
@@ -51,7 +52,7 @@ export function DateField({
       value={text}
       inputMode="text"
       autoComplete="off"
-      placeholder={dayText(today)}
+      placeholder={example}
       fieldClassName="max-w-[160px]"
       onChange={(event) => {
         const next = event.currentTarget.value

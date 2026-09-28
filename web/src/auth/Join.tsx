@@ -197,6 +197,10 @@ async function signOutHere(held: Held): Promise<void> {
 function Unusable() {
   return (
     <div className="flex flex-col gap-4">
+      {/* The page's heading, as every page outside the frame has one (design gate 20a r1). */}
+      <h1 className="text-xl">
+        <Trans>Invitation</Trans>
+      </h1>
       <p className="text-sm text-foreground">
         <Trans>This invitation can no longer be used. Ask whoever sent it for a new one.</Trans>
       </p>
@@ -313,7 +317,7 @@ function Ready({
               invited person signs in right here, with no need to open the link again. */}
           <ErrorBar>
             <Trans>
-              This invitation is for {email}. Sign out, then sign in here as {email} to join.
+              This invitation is for {email}. Sign out, then join here as {email}.
             </Trans>
           </ErrorBar>
           <Button

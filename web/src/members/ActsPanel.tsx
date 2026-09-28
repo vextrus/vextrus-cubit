@@ -56,6 +56,7 @@ export function ActsPanel({ person, onClose }: { person: PersonRow; onClose: () 
   }
   const projectName = (id: string | null | undefined) => session.projects.find((p) => p.id === id)?.name ?? null
   const all = acts.data?.pages.flat() ?? []
+  const count = all.length
 
   return (
     <section aria-labelledby="acts-heading" className="flex h-full flex-col">
@@ -79,12 +80,12 @@ export function ActsPanel({ person, onClose }: { person: PersonRow; onClose: () 
           <LoadProblem error={acts.error} onRetry={() => void acts.refetch()} />
         ) : all.length === 0 ? (
           <Empty glyph={<History />}>
-            <Trans>No acts yet.</Trans>
+            <Trans>No acts yet</Trans>
           </Empty>
         ) : (
           <>
             <p className="sr-only">
-              <Plural value={all.length} one="# act shown" other="# acts shown" />
+              <Plural value={count} one="# act shown" other="# acts shown" />
             </p>
             <ol className="flex flex-col">
               {all.map((act) => {

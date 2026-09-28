@@ -54,7 +54,7 @@ describe('sign-in (§4.2)', () => {
     expect(router.state.location.search).toEqual({ next: '/members' })
     expect(document.title).toBe('Sign in · Vextrus')
     expect(screen.getByRole('heading', { name: 'Sign in' })).toBeVisible()
-    expect(screen.getByText('Forgot your password? Ask your MD, or Vextrus, to set a new one.')).toBeVisible()
+    expect(screen.getByText('Forgot your password? Ask Vextrus to set a new one.')).toBeVisible()
     await signIn(PEOPLE.md)
     await waitFor(() => expect(router.state.location.pathname).toBe('/members'))
     expect(await screen.findByRole('heading', { name: 'Members and access' })).toBeVisible()

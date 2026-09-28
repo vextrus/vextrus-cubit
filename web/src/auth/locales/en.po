@@ -90,6 +90,10 @@ msgstr "You have no access to any Developer at the moment. Ask your MD, or Vextr
 msgid "At least 12 characters"
 msgstr "At least 12 characters"
 
+#: src/auth/Join.tsx
+msgid "This invitation is for {email}. Sign out, then join here as {email}."
+msgstr "This invitation is for {email}. Sign out, then join here as {email}."
+
 #: src/auth/RouteError.tsx
 msgid "This page could not be opened. Reload it to try again."
 msgstr "This page could not be opened. Reload it to try again."
@@ -158,6 +162,10 @@ msgstr "Invitation"
 msgid "You were invited as {as} to {list}."
 msgstr "You were invited as {as} to {list}."
 
+#: src/auth/SignIn.tsx
+msgid "Forgot your password? Ask Vextrus to set a new one."
+msgstr "Forgot your password? Ask Vextrus to set a new one."
+
 #: src/auth/Join.tsx
 msgid "This invitation can no longer be used. Ask whoever sent it for a new one."
 msgstr "This invitation can no longer be used. Ask whoever sent it for a new one."
@@ -169,10 +177,6 @@ msgstr "Signing in…"
 #: src/auth/AccessEnded.tsx
 msgid "Your access to {list} at {developer} was ended on {date}. What you did before then is kept under your name."
 msgstr "Your access to {list} at {developer} was ended on {date}. What you did before then is kept under your name."
-
-#: src/auth/SignIn.tsx
-msgid "Forgot your password? Ask your MD, or Vextrus, to set a new one."
-msgstr "Forgot your password? Ask your MD, or Vextrus, to set a new one."
 
 #: src/auth/AccessEnded.tsx
 msgid "Your access to {developer} was ended on {date}. What you did before then is kept under your name."
@@ -250,10 +254,6 @@ msgstr "Your projects"
 #: src/auth/Join.tsx
 msgid "Join {developer}"
 msgstr "Join {developer}"
-
-#: src/auth/Join.tsx
-msgid "This invitation is for {email}. Sign out, then sign in here as {email} to join."
-msgstr "This invitation is for {email}. Sign out, then sign in here as {email} to join."
 
 #: src/auth/problem.tsx
 #: src/auth/RouteError.tsx

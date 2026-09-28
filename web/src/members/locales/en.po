@@ -25,6 +25,10 @@ msgid "Revoked by {by}, {date}"
 msgstr "Revoked by {by}, {date}"
 
 #: src/members/MembersPage.tsx
+msgid "Vextrus sees your data only while an invitation below is current. You can end the access you gave; your MD can end any."
+msgstr "Vextrus sees your data only while an invitation below is current. You can end the access you gave; your MD can end any."
+
+#: src/members/MembersPage.tsx
 msgid "People at {developer}"
 msgstr "People at {developer}"
 
@@ -56,6 +60,10 @@ msgstr "Name"
 msgid "New link for {email}"
 msgstr "New link for {email}"
 
+#: src/members/MembersPage.tsx
+msgid "Renew 30 days for {who}"
+msgstr "Renew 30 days for {who}"
+
 #: src/members/LinkShown.tsx
 msgid "Copy this link and send it to {email}. It works once, until {date}."
 msgstr "Copy this link and send it to {email}. It works once, until {date}."
@@ -63,11 +71,6 @@ msgstr "Copy this link and send it to {email}. It works once, until {date}."
 #: src/members/LinkShown.tsx
 msgid "Your browser did not let Vextrus copy it. The link is selected above; press Ctrl C to copy it."
 msgstr "Your browser did not let Vextrus copy it. The link is selected above; press Ctrl C to copy it."
-
-#. placeholder {0}: all.length
-#: src/members/ActsPanel.tsx
-msgid "{0, plural, one {# act shown} other {# acts shown}}"
-msgstr "{0, plural, one {# act shown} other {# acts shown}}"
 
 #: src/members/ActsPanel.tsx
 msgid "Show earlier acts"
@@ -102,10 +105,6 @@ msgstr "Link copied"
 msgid "From"
 msgstr "From"
 
-#: src/members/ActsPanel.tsx
-msgid "No acts yet."
-msgstr "No acts yet."
-
 #: src/members/MembersPage.tsx
 msgid "End access"
 msgstr "End access"
@@ -138,6 +137,10 @@ msgstr "End their access on a date"
 #: src/members/LinkShown.tsx
 msgid "The link sent before no longer works. Send this one instead."
 msgstr "The link sent before no longer works. Send this one instead."
+
+#: src/members/MembersPage.tsx
+msgid "Withdraw the invitation for {who}"
+msgstr "Withdraw the invitation for {who}"
 
 #: src/members/MembersPage.tsx
 msgid "{name}’s access has ended."
@@ -205,9 +208,14 @@ msgid "Members and access"
 msgstr "Members and access"
 
 #: src/members/MembersPage.tsx
+msgid "Revoke {who}"
+msgstr "Revoke {who}"
+
+#: src/members/MembersPage.tsx
 msgid "Acts"
 msgstr "Acts"
 
+#: src/members/ActsPanel.tsx
 #: src/members/MembersPage.tsx
 msgid "No acts yet"
 msgstr "No acts yet"
@@ -260,6 +268,14 @@ msgstr "Link works until"
 #: src/members/InviteDialog.tsx
 msgid "Choose at least one project."
 msgstr "Choose at least one project."
+
+#: src/members/MembersPage.tsx
+msgid "Copy link for {who}"
+msgstr "Copy link for {who}"
+
+#: src/members/ActsPanel.tsx
+msgid "{count, plural, one {# act shown} other {# acts shown}}"
+msgstr "{count, plural, one {# act shown} other {# acts shown}}"
 
 #: src/members/ActsPanel.tsx
 msgid "Close"

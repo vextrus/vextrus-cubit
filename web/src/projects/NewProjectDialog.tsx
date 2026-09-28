@@ -17,7 +17,7 @@ import { PATHS, useGo } from '@/app/AppLink'
 import { sessionQuery, type Session } from '@/app/session'
 import { unitSystem } from '@/format/units'
 import { MachineText, type MachineMessage } from '@/format/machine'
-import { ProblemBar, problemOf, sameSession, type Problem } from '@/auth'
+import { ProblemBar, problemOf, sameSession, useSignedInAgain, type Problem } from '@/auth'
 import { Button, Segmented, TextField } from '@/ui'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/ui/primitives/dialog'
 import { DiscardBar, useDiscardGuard } from './discard'
@@ -35,6 +35,7 @@ export function NewProjectDialog({ session, open, onOpenChange }: { session: Ses
   const [unit, setUnit] = useState(units.default)
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<Field, MachineMessage>>>({})
   const [problem, setProblem] = useState<Problem>(null)
+  useSignedInAgain(setProblem)
   const [saving, setSaving] = useState(false)
   const formId = useId()
 

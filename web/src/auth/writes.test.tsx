@@ -117,9 +117,9 @@ describe.each(FAILURES)('each write says %s in place', (_how, status, body, word
   })
 
   it.each([
-    ['a new link', /\/link$/, 'Copy link'],
-    ['withdrawing', /\/withdraw$/, 'Withdraw'],
-    ['renewing', /\/renew$/, 'Renew 30 days'],
+    ['a new link', /\/link$/, /^Copy link for /],
+    ['withdrawing', /\/withdraw$/, /^Withdraw the invitation for /],
+    ['renewing', /\/renew$/, /^Renew 30 days for /],
   ])('%s, on its row', async (_, path, button) => {
     const api = new FakeApi()
     await mountApp('/members', { as: PEOPLE.md, api })
@@ -134,7 +134,7 @@ describe.each(FAILURES)('each write says %s in place', (_how, status, body, word
     await mountApp('/members', { as: PEOPLE.md, api })
     await screen.findByText('rumana@shapla-homes.example')
     refuseOnce(api, /\/revoke$/)
-    await userEvent.click(screen.getAllByRole('button', { name: 'Revoke' })[0]!)
+    await userEvent.click(screen.getAllByRole('button', { name: /^Revoke / })[0]!)
     await userEvent.click(await screen.findByRole('button', { name: 'End access' }))
     await said()
   })
@@ -166,8 +166,8 @@ describe('the token on every write', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }))
     await userEvent.click(await screen.findByRole('link', { name: 'Members and access' }))
     await screen.findByText('rumana@shapla-homes.example')
-    await userEvent.click(screen.getAllByRole('button', { name: 'Renew 30 days' })[0]!)
-    await userEvent.click(screen.getAllByRole('button', { name: 'Withdraw' })[0]!)
+    await userEvent.click(screen.getAllByRole('button', { name: /^Renew 30 days for / })[0]!)
+    await userEvent.click(screen.getAllByRole('button', { name: /^Withdraw the invitation for / })[0]!)
     await waitFor(() => expect(sent.map(([p]) => p)).toEqual(['/api/auth/sign-in', expect.stringMatching(/\/renew$/), expect.stringMatching(/\/withdraw$/)]))
     for (const [path, header, current] of sent) expect(header, path).toBe(current)
     expect(sent[0]![1]).not.toBe(sent[1]![1])

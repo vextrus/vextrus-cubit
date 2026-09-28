@@ -1,9 +1,10 @@
 /*
  * The session's events, announced by the client (client.ts) whatever made the request: signed out
  * (the frame opens 4.1's "Signed out while working" dialog) and no Developer to work in (a revoked or
- * ended Membership: the frame clears what it held and goes to 4.1's "Access ended" or the chooser).
+ * ended Membership: the frame clears what it held and goes to 4.1's "Access ended" or the chooser);
+ * and, from the frame's watch, signed in again after being signed out (a problem that said so is gone).
  */
-export type SessionEvent = 'signed-out' | 'no-developer'
+export type SessionEvent = 'signed-out' | 'no-developer' | 'signed-in'
 
 type Listener = (event: SessionEvent) => void
 

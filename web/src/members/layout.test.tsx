@@ -21,7 +21,7 @@ afterEach(() => {
 
 const clean = (s: string | null | undefined) => (s ?? '').replace(/[⁦-⁩]/g, '')
 const named = (re: RegExp) => (name: string) => re.test(clean(name))
-const ACTS = /^(Renew 30 days|Revoke|Copy link|Withdraw)$/
+const ACTS = /^(Renew 30 days for|Revoke|Copy link for|Withdraw the invitation for) /
 
 function table(name: RegExp) {
   return screen.getByRole('table', { name: named(name) })
@@ -83,7 +83,7 @@ describe('Members and access in the room it has (design gate 20a r1)', () => {
 
   it('keeps a focused row act’s ring whole at 1280 with the acts open', async () => {
     await membersAt(1280, true)
-    const revoke = within(table(/^People at /)).getAllByRole('button', { name: 'Revoke' })[0]!
+    const revoke = within(table(/^People at /)).getAllByRole('button', { name: /^Revoke / })[0]!
     revoke.focus()
     await waitFor(() => expect(revoke).toHaveFocus())
     const ring = revoke.getBoundingClientRect()

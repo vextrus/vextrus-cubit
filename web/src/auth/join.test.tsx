@@ -58,6 +58,7 @@ describe('the link’s page (§4.2)', () => {
   ])('says a link cannot be used, naming no Developer, for %s', async (_, path) => {
     const { router, keyMap } = await join(path, { as: null })
     expect(screen.getByText(UNUSABLE)).toBeVisible()
+    expect(screen.getByRole('heading', { level: 1, name: 'Invitation' })).toBeInTheDocument()
     expect(document.body.textContent).not.toContain('Shapla')
     expect(router.state.location.hash).toBe('')
     expectKeyMapSound(keyMap)
@@ -182,7 +183,7 @@ describe('the link’s page (§4.2)', () => {
     const token = api.tokenFor('rumana@shapla-homes.example')
     await join(`/join#${token}`, { as: PEOPLE.qs, api })
     expect(clean(screen.getByRole('alert').textContent)).toBe(
-      'This invitation is for rumana@shapla-homes.example. Sign out, then sign in here as rumana@shapla-homes.example to join.',
+      'This invitation is for rumana@shapla-homes.example. Sign out, then join here as rumana@shapla-homes.example.',
     )
     await userEvent.click(screen.getByRole('button', { name: 'Sign out' }))
     expect(await screen.findByLabelText('Name')).toBeVisible()

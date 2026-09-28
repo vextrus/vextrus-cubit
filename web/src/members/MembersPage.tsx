@@ -12,14 +12,14 @@
  * Each row offers exactly the acts the API says the signed-in user may do on it ("Renew 30 days",
  * "Revoke", "Copy link", "Withdraw"); an act the API refuses meanwhile is said in its words.
  */
-import { useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Plural, Trans, useLingui } from '@lingui/react/macro'
 import { useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
 import { ApiRefused } from '@/api/client'
 import { PageLayout } from '@/app/Frame'
 import { roleName } from '@/app/roles'
 import { sessionQuery, type Session } from '@/app/session'
-import { LoadProblem, ProblemBar, can, problemOf, sameSession, usePageTitle, type Problem } from '@/auth'
+import { LoadProblem, ProblemBar, can, problemOf, sameSession, usePageTitle, useSignedInAgain, type Problem } from '@/auth'
 import { EMPTY, useFormat } from '@/format'
 import { Button, Skeleton, cn, useToast } from '@/ui'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/primitives/dialog'
@@ -125,7 +125,8 @@ function Section({ id, title, line, children }: { id: string; title: ReactNode; 
   return (
     <section aria-labelledby={id} className="flex flex-col gap-2">
       <div className="flex items-baseline gap-3">
-        <h2 id={id} className="text-md">
+        {/* Focusable, for where focus goes when the row it was on is gone (after Revoke or Withdraw). */}
+        <h2 id={id} tabIndex={-1} className="text-md">
           {title}
         </h2>
         {line ? <p className="text-xs text-ink-secondary">{line}</p> : null}
@@ -151,11 +152,21 @@ interface RowActs {
 }
 
 function Acts({ row, acts }: { row: PersonRow | InvitationRow; acts: RowActs }) {
+  const { t } = useLingui()
   const label: Record<MemberAction, ReactNode> = {
     renew: <Trans>Renew 30 days</Trans>,
     revoke: <Trans>Revoke</Trans>,
     copy_link: <Trans>Copy link</Trans>,
     withdraw: <Trans>Withdraw</Trans>,
+  }
+  // Each button names whom it acts on, its words first (design gate 20a r1): four "Revoke"s tell a
+  // screen reader nothing.
+  const who = row.kind === 'person' ? row.name : row.email
+  const named: Record<MemberAction, string> = {
+    renew: t`Renew 30 days for ${who}`,
+    revoke: t`Revoke ${who}`,
+    copy_link: t`Copy link for ${who}`,
+    withdraw: t`Withdraw the invitation for ${who}`,
   }
   return (
     <span className="inline-flex justify-end gap-1.5">
@@ -164,6 +175,7 @@ function Acts({ row, acts }: { row: PersonRow | InvitationRow; acts: RowActs }) 
           key={action}
           variant={action === 'withdraw' ? 'ghost' : 'secondary'}
           className="h-6"
+          aria-label={named[action]}
           disabled={acts.busy !== null}
           saving={acts.busy === `${action}:${row.membershipId}`}
           onClick={() => acts.act(action, row)}
@@ -350,7 +362,20 @@ export function MembersView({ session, members, failed, onRetry }: { session: Se
   const [revoking, setRevoking] = useState<PersonRow | null>(null)
   const [shown, setShown] = useState<{ email: string; link: string; worksUntil: string } | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
+  // After Revoke or Withdraw, the row's button is gone with its row: focus goes to its section's heading
+  // rather than to nowhere (design gate 20a r1).
+  const refocus = useRef<string | null>(null)
+  useEffect(() => {
+    const id = refocus.current
+    if (!id || !members) return
+    const lost = document.activeElement === null || document.activeElement === document.body
+    if (lost) {
+      refocus.current = null
+      document.getElementById(id)?.focus()
+    }
+  }, [members])
   const [problem, setProblem] = useState<Problem>(null)
+  useSignedInAgain(setProblem)
   const developer = session.developer.name
   const manages = can(session, 'access')
 
@@ -386,6 +411,7 @@ export function MembersView({ session, members, failed, onRetry }: { session: Se
         })
       }
       if (action === 'withdraw') {
+        refocus.current = 'invitations'
         return void run(key, async (current) => {
           await withdraw(row.membershipId)
           if (current()) toast.show({ message: <Trans>Invitation withdrawn. The link no longer works.</Trans> })
@@ -439,7 +465,18 @@ export function MembersView({ session, members, failed, onRetry }: { session: Se
           </Section>
           {manages ? (
             <>
-              <Section id="vextrus" title={<Trans>Vextrus access</Trans>} line={<Trans>Vextrus sees your data only while an invitation below is current. You can end it at any time.</Trans>}>
+              <Section
+                id="vextrus"
+                title={<Trans>Vextrus access</Trans>}
+                line={
+                  // The owner's ruling (29 Sep 2026): the MD can end any Vextrus access, a QS only the access they gave.
+                  session.role === 'md' ? (
+                    <Trans>Vextrus sees your data only while an invitation below is current. You can end it at any time.</Trans>
+                  ) : (
+                    <Trans>Vextrus sees your data only while an invitation below is current. You can end the access you gave; your MD can end any.</Trans>
+                  )
+                }
+              >
                 <VextrusTable
                   compact={actsOf !== null}
                   rows={members.vextrus}
@@ -466,7 +503,18 @@ export function MembersView({ session, members, failed, onRetry }: { session: Se
       {manages ? <InviteDialog session={session} open={inviting} onOpenChange={setInviting} /> : null}
 
       <Dialog open={revoking !== null} onOpenChange={(open) => (open ? undefined : setRevoking(null))}>
-        <DialogContent className="sm:max-w-[420px]">
+        <DialogContent
+          className="sm:max-w-[420px]"
+          onCloseAutoFocus={(event) => {
+            // Confirmed: the Revoke button goes with its row, so focus goes to the section's heading;
+            // cancelled, back to the Revoke button, as a dialog's close does.
+            const id = refocus.current
+            if (!id) return
+            event.preventDefault()
+            refocus.current = null
+            document.getElementById(id)?.focus()
+          }}
+        >
           <DialogHeader>
             <DialogTitle>
               <Trans>End {revokingName}’s access now?</Trans>
@@ -484,6 +532,7 @@ export function MembersView({ session, members, failed, onRetry }: { session: Se
               onClick={() => {
                 const row = revoking
                 setRevoking(null)
+                if (row) refocus.current = row.role === 'vextrus_engineer' ? 'vextrus' : 'people'
                 if (!row) return
                 const name = row.name
                 void run(`revoke:${row.membershipId}`, async (current) => {

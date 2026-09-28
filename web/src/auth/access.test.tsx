@@ -155,7 +155,7 @@ describe('Signed out while working (§4.1)', () => {
     const { router } = await mountApp('/members', { api, as: PEOPLE.md })
     expect(await screen.findByText('rumana@shapla-homes.example')).toBeVisible()
     api.session = { userId: null, developerId: null }
-    await userEvent.click(screen.getAllByRole('button', { name: 'Renew 30 days' })[0]!)
+    await userEvent.click(screen.getAllByRole('button', { name: /^Renew 30 days for / })[0]!)
     const signedOut = await screen.findByRole('dialog', { name: 'You were signed out.' })
     await userEvent.clear(within(signedOut).getByLabelText('Email'))
     await userEvent.type(within(signedOut).getByLabelText('Email'), PEOPLE.guest)

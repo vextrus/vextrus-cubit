@@ -100,7 +100,7 @@ export function SignInPage() {
       </h1>
       <SignInForm onSignedIn={(out) => enter(out, next)} />
       <p className="mt-4 text-xs text-muted-foreground">
-        <Trans>Forgot your password? Ask your MD, or Vextrus, to set a new one.</Trans>
+        <Trans>Forgot your password? Ask Vextrus to set a new one.</Trans>
       </p>
     </OutsidePage>
   )
