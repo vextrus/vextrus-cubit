@@ -1,0 +1,11 @@
+# ezdxf's wheel (the M0 plan, 01c; s02 reviews A3, R1): what engine.yml, the cloud and the real-drawing
+# check install over uv.lock's pure wheel, by this hash; nothing builds it but the toolchain-ezdxf
+# workflow, which builds the cp314 wheel from the sdist with the hashed build constraints and prints
+# the lines to put here. Until it has run, or if its build fails, this names the registry's pure
+# py3-none-any wheel, which uv.lock installs anyway (ticket 24 records its speed cost).
+version = "1.4.4"
+sdist_sha256 = "da5a5e0e6bdbb6656f9c017b47edc7eafceb419d61a2b5de64ffb344c168e593"
+constraints_sha256 = "ae96d091d823c96510596f3ab847c8959d5887a3d8f3b07e75792cfea7477e2b"  # toolchain/ezdxf-build-constraints.txt
+wheel = "ezdxf-1.4.4-py3-none-any.whl"
+wheel_sha256 = "666edda631ba717270293b734f5d58dd97a1d1aba4787187f09d0cc584645865"
+release = ""  # the GitHub release holding the compiled wheel ("toolchain-ezdxf-1.4.4"); empty: the registry's
