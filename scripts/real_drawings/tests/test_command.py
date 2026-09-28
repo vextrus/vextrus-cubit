@@ -75,6 +75,9 @@ def test_a_no_post_run_diffs_the_head_against_main_and_posts_nothing(world: Worl
     assert os.listdir(world.drop) == [".lock"]
     assert any(line.split()[:4] == ["sheets", "0", "0", "2"] for line in world.said)  # two sets
     folder = run_folder(world)
+    assert not (
+        folder / "head" / "out"
+    ).exists()  # the sandbox's scratch is gone once its exports are out
     metadata = only_file(folder, "metadata.json")
     assert metadata["commit"] == world.repo_commit("tuning")
     items = json.loads((folder / "items.json").read_text())

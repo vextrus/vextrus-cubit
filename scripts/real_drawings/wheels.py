@@ -43,6 +43,7 @@ def fetch(checkout: Path, wheels: Path, python: Path, requirements: Path) -> Non
                 "--no-deps",
             ),
             *("--only-binary", ":all:", "--require-hashes", "-r", str(requirements), "-d", str(wheels)),
+            *("--find-links", str(wheels)),  # the compiled ezdxf wheel, which the registry does not have
         ],
         "pip download",
     )

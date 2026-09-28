@@ -19,6 +19,7 @@ import hashlib
 import json
 import os
 import secrets
+import shutil
 import subprocess
 import sys
 import time
@@ -235,6 +236,7 @@ def measure(
         if breaches:
             raise Refused(f"{head.target}: export-{name}.json breaks the schema at {breaches[0]}")
         exports[name] = taken
+    shutil.rmtree(scratch)  # the environment the sandbox made (about 300 MB); links are never followed
     for name, path in exports.items():  # cached only once every set's export passed
         cached[name].parent.mkdir(parents=True, exist_ok=True)
         cached[name].unlink(missing_ok=True)
