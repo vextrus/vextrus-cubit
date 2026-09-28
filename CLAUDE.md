@@ -31,8 +31,11 @@ civil engineer and the CEO and co-founder. The previous product (Vextrus Cubit) 
   each, each returning a cited file.
 - **Effort:** the orchestrator runs at `xhigh` in the CLI (the owner, session 04: "next session we'll
   run the main session on xHigh effort … No Worries on Tokens"); build sessions at `xhigh` too
-  (`modelSettings` in `.claude/settings.json`, which cloud sessions read); reviewers at `high`. Opus 5.5
-  starts at `medium` unless a level is saved for it, so the level is always set, never assumed.
+  (`modelSettings` in `.claude/settings.json`); reviewers at `high`. Opus 5.5 starts at `medium` unless a
+  level is saved for it, so the level is always set, never assumed.
+- **Everything runs locally** (the owner, 29 Sep 2026): each ticket in its own background session and
+  worktree (`claude --bg`); no cloud sessions. Builders commit and never push; the orchestrator pushes
+  and opens PRs with the owner's yes.
 - **A mistake made twice goes into this file.**
   - Agents deleted their own build output recursively twice (26 Sep 2026); the guard now refuses a
     recursive `rm`. Delete files by name, or leave build output and say so.

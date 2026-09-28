@@ -161,3 +161,12 @@ much parallel work as that quality allows, and each wave applies the last one's 
 - **The Desktop app and the CLI keep separate configs.** The CLI's default config was not signed in, and
   account B's config dir held none of the Desktop's settings (auto mode, the classifier's environment,
   prompt caching). A move between surfaces carries its user settings over by hand.
+
+## Session 05 (29 Sep 2026): the cloud launch that was not
+- **A `claude --cloud` session can come up with no git remote.** When the Claude GitHub App does not cover
+  the repository for the signed-in account, the CLI uploads a local copy instead of linking GitHub, "even
+  if you connected GitHub with `/web-setup`" (code.claude.com/docs/en/claude-code-on-the-web). Account B's
+  six wave-3 sessions came up that way: they could not push, and all were deleted. The signs: a launch that
+  took 30–39 s (account A's took 3 s), and the session filed under "other" rather than the repository.
+  Installing the App did not change it within the session. Check one launch's remote before fanning out;
+  the owner then chose to build everything locally.
