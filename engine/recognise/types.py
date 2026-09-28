@@ -798,9 +798,12 @@ MAX_PATTERN = 200
 MAX_PATTERN_TEXT = 256
 """The longest text a conventions pattern runs on: a longer text is never matched (`pattern_search`),
 so it is no field's value."""
-MAX_OPEN_REPEATS = 3
-"""The most repeats of more than `MAX_REPEAT` times (`+`, `*`, `{1,}`) one pattern may hold."""
-MAX_REPEAT = 64
+MAX_PATHS = 4096
+"""The most ways a pattern may try to match at one place in a text (`_paths`). Python's `re`
+backtracks: every optional item, repeat and alternative multiplies the ways, and a search tries them
+all at each of the text's places before it fails. At this bound the worst pattern that loads fails a
+search of `MAX_PATTERN_TEXT` characters in about 13 ms of CPU at most (measured; review round 1
+measured six chained `\\d{0,64}` at 55 s before the bound counted bounded repeats)."""
 
 _SINGLE = frozenset({_constants.LITERAL, _constants.NOT_LITERAL, _constants.ANY, _constants.IN,
                      _constants.CATEGORY})  # fmt: skip
@@ -811,50 +814,55 @@ _BACKREFERENCES = frozenset({_constants.GROUPREF, _constants.GROUPREF_EXISTS})
 def _pattern(pattern: str) -> None:
     """Refuse a pattern that cannot be bounded: longer than `MAX_PATTERN`, a backreference, a repeat
     of anything but one character (`(a+)+`, `(a|aa)*`, `(.*a){12}`: the nested and overlapping
-    repeats that backtrack exponentially), or more than `MAX_OPEN_REPEATS` long repeats (whose
-    backtracking grows as a power of the text's length). With the text capped at
-    `MAX_PATTERN_TEXT`, what is left is bounded by that length to at most that power."""
+    repeats that backtrack exponentially), or one that can try more than `MAX_PATHS` ways to match at
+    one place (`\\d{0,64}` six times, `\\d?` sixteen, `\\d*\\d*`: chained repeats, optional
+    items and alternatives, whose ways multiply). With the text capped at `MAX_PATTERN_TEXT`, a search
+    then tries at most `MAX_PATHS` ways at each of its places."""
     if not isinstance(pattern, str) or len(pattern) > MAX_PATTERN:
         raise ValueError(f"a pattern is text of at most {MAX_PATTERN} characters")
     try:
         parsed = _parser.parse(pattern)
     except re.error as error:
         raise ValueError(f"the pattern {pattern!r} is not a regular expression: {error}") from None
-    open_repeats = _bound(parsed, pattern)
-    if open_repeats > MAX_OPEN_REPEATS:
+    if _paths(parsed, pattern) > MAX_PATHS:
         raise ValueError(
-            f"the pattern {pattern!r} repeats without bound {open_repeats} times; at most"
-            f" {MAX_OPEN_REPEATS} may be (a pattern is bounded before any drawing is read)"
+            f"the pattern {pattern!r} can try more than {MAX_PATHS} ways to match at one place in a"
+            " text; bound its repeats ({0,8} rather than *) and its optional parts (a pattern is"
+            " bounded before any drawing is read)"
         )
 
 
-def _bound(parsed: Any, pattern: str) -> int:
-    """Walk a parsed pattern, refusing what cannot be bounded; the count of its long repeats."""
-    open_repeats = 0
+def _paths(parsed: Any, pattern: str) -> int:
+    """Walk a parsed pattern, refusing what cannot be bounded; the most ways it can try to match at
+    one place, counted as if every repeat could take its whole range on a text of
+    `MAX_PATTERN_TEXT` characters (capped just past `MAX_PATHS`). A lookaround's ways multiply
+    those around it, as if it were tried at every one of them."""
+    ways = 1
     for op, value in parsed:
         if op in _BACKREFERENCES:
             raise ValueError(f"the pattern {pattern!r} refers back to a group, which cannot be bounded")
         if op in _REPEATS:
-            _low, high, body = value
+            low, high, body = value
             if high > 1:
                 if not (len(body) == 1 and body[0][0] in _SINGLE):
                     raise ValueError(
                         f"the pattern {pattern!r} repeats a group or a repeat, which can take"
                         " exponential time; repeat single characters only"
                     )
-                if high == _constants.MAXREPEAT or high > MAX_REPEAT:
-                    open_repeats += 1
+                ways *= max(min(high, MAX_PATTERN_TEXT) - min(low, MAX_PATTERN_TEXT) + 1, 1)
             else:
-                open_repeats += _bound(body, pattern)
+                taken = _paths(body, pattern) if high == 1 else 0
+                ways *= max(taken + (1 if low == 0 else 0), 1)
         elif op == _constants.SUBPATTERN:
-            open_repeats += _bound(value[-1], pattern)
+            ways *= _paths(value[-1], pattern)
         elif op == _constants.BRANCH:
-            open_repeats += max((_bound(item, pattern) for item in value[1]), default=0)
+            ways *= sum(_paths(item, pattern) for item in value[1])
         elif op in (_constants.ASSERT, _constants.ASSERT_NOT):
-            open_repeats += _bound(value[1], pattern)
+            ways *= _paths(value[1], pattern)
         elif op == _constants.ATOMIC_GROUP:
-            open_repeats += _bound(value, pattern)
-    return open_repeats
+            ways *= _paths(value, pattern)
+        ways = min(ways, MAX_PATHS + 1)
+    return ways
 
 
 @functools.lru_cache(maxsize=256)

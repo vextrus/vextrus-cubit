@@ -4,6 +4,7 @@ Hand-built artefacts (engine/recognise/tests/drawing.py): invented frames and va
 of every rule in the module's docstring, each through `find` or `segment`, the stage's interface.
 """
 
+import json
 import math
 
 import pytest
@@ -628,12 +629,38 @@ def test_the_sheet_type_request_offers_the_disciplines_kinds_with_code_facts() -
     assert "pile_cap_layout" in request.options
     assert request.options[-3:] == ("cover_index", "general_notes", "other")
     assert dict(request.facts) == {
-        "discipline": "structural",
         "title": "PILE CAP LAYOUT PLAN",
-        "number": "S-12",
-        "view_title_1": "PILE CAP LAYOUT",
-        "view_title_2": "SECTION A-A",
+        "discipline": "structural",
+        "view_titles": '["PILE CAP LAYOUT", "SECTION A-A"]',
     }
+
+
+def test_the_request_always_gives_the_three_facts_the_node_takes_and_no_number() -> None:
+    """The ruling with 15 (review round 1): exactly `title` ("" when none), `discipline` and
+    `view_titles` (a JSON array's text, "[]" when none); 15 refuses any other fact as a bad question."""
+    numbered = SheetCandidate(
+        SheetLocation(layout="L"),
+        number=Sourced("S-12", ValueSource.TITLE_BLOCK_TEXT),
+        title=Sourced("BEAM LAYOUT", ValueSource.TITLE_BLOCK_TEXT),
+        discipline=Sourced("structural", ValueSource.FILE),
+    )
+    untitled = SheetCandidate(
+        SheetLocation(layout="L"), discipline=Sourced("structural", ValueSource.FILE)
+    )
+
+    titled = sheets.judgement(numbered)
+    viewed = sheets.judgement(untitled, ["BEAM LAYOUT", 'A "QUOTED" VIEW'])
+
+    assert titled is not None
+    assert viewed is not None
+    assert dict(titled.facts) == {
+        "title": "BEAM LAYOUT",
+        "discipline": "structural",
+        "view_titles": "[]",
+    }
+    assert viewed.facts["title"] == ""
+    assert json.loads(viewed.facts["view_titles"]) == ["BEAM LAYOUT", 'A "QUOTED" VIEW']
+    assert set(viewed.facts) == {"title", "discipline", "view_titles"}
 
 
 def test_the_request_is_bounded_and_none_without_a_discipline_or_anything_to_judge() -> None:
@@ -646,8 +673,10 @@ def test_the_request_is_bounded_and_none_without_a_discipline_or_anything_to_jud
     request = sheets.judgement(long, [f"VIEW {i}" for i in range(100)])
 
     assert request is not None
-    assert all(len(v) <= sheets.MAX_FACT for v in request.facts.values())
-    assert sum(1 for k in request.facts if k.startswith("view_title")) == sheets.MAX_FACTS
+    assert len(request.facts["title"]) == sheets.MAX_FACT
+    views = json.loads(request.facts["view_titles"])
+    assert len(views) == sheets.MAX_FACTS
+    assert all(len(v) <= sheets.MAX_FACT for v in views)
     assert sheets.judgement(SheetCandidate(location, title=long.title)) is None
     assert sheets.judgement(SheetCandidate(location, discipline=long.discipline)) is None
 

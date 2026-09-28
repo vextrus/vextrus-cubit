@@ -55,9 +55,11 @@ once per artefact, sorted, so a frame or viewport query is a search, not a scan 
 layout's name that is empty, or one repeated, is counted and read once. `Segmentation.counts` says what
 was skipped, by name.
 
-**Numbers** (`sequence`): the first run of digits is the running number, what comes before it the
-prefix and what follows the suffix ("S-01/1" is "S-", 1, "/1"), unless a conventions pattern with the
-groups `prefix`, `running` and `suffix` matches first. Numbers are never normalised ("S-O1" has the
+**Numbers** (`sequence`; the ruling with 19b, review round 1): the last run of digits is the running
+number, what comes before it the prefix and what follows the suffix ("S1-01" is "S1-", 1, ""); a last
+run right after a `/` is a part, so the run before it is the running number ("S-01/1" is "S-", 1,
+"/1"). A conventions pattern with the groups `prefix`, `running` and `suffix` that matches the whole
+number decides first. Numbers are never normalised ("S-O1" has the
 prefix "S-O"). A digit is a Unicode decimal digit of any script; a superscript is not one. Invisible
 format characters (zero width, bidi) are not part of a number; a run of more than `MAX_RUNNING_DIGITS`
 digits is no number.
@@ -170,16 +172,30 @@ def sequence(number: str, conventions: SheetConventions) -> NumberParts | None:
             value = _digits(running)
             if value is not None and match.group(0) == shown:
                 return NumberParts(match.group("prefix") or "", value, match.group("suffix") or "")
-    for i, c in enumerate(shown):
-        if unicodedata.category(c) == "Nd":
-            j = i
-            while j < len(shown) and unicodedata.category(shown[j]) == "Nd":
-                j += 1
-            value = _digits(shown[i:j])
-            if value is None:
-                return None
-            return NumberParts(shown[:i], value, shown[j:])
-    return None
+    runs = _runs(shown)
+    if not runs:
+        return None
+    i, j = runs[-1]
+    if len(runs) > 1 and i > 0 and shown[i - 1] == "/":
+        i, j = runs[-2]
+    value = _digits(shown[i:j])
+    return None if value is None else NumberParts(shown[:i], value, shown[j:])
+
+
+def _runs(text: str) -> list[tuple[int, int]]:
+    """Each run of decimal digits in `text`, as its start and end."""
+    runs: list[tuple[int, int]] = []
+    i = 0
+    while i < len(text):
+        if unicodedata.category(text[i]) != "Nd":
+            i += 1
+            continue
+        j = i
+        while j < len(text) and unicodedata.category(text[j]) == "Nd":
+            j += 1
+        runs.append((i, j))
+        i = j
+    return runs
 
 
 def _digits(run: str) -> int | None:
@@ -1269,12 +1285,14 @@ def judgement(
     conventions: SheetConventions | None = None,
 ) -> JudgementRequest | None:
     """The sheet-type question for Jev (15's `ask`; ADR 0011: code gives the facts, Jev picks among
-    the options). The node is `sheet_type`; the facts are code's only, each bounded to `MAX_FACT`
-    characters (the title, the Discipline, the number, and up to `MAX_FACTS` view titles when given);
-    the options are the kinds of the sheet's Discipline, then the kinds every Discipline has (the
-    owner's ruling of 29 Sep 2026, "Per-Discipline kinds"), from `conventions` (the default when
-    none are given); ranking them is Jev's. None when the sheet has no Discipline, its Discipline
-    has no kinds, or there is nothing to judge from (no title and no view title)."""
+    the options). The node is `sheet_type`; its facts are exactly the three the node takes (the
+    ruling with 15), all code's: `title` (the sheet's title, `""` when it has none), `discipline` (its
+    Discipline's key) and `view_titles` (the view titles in reading order, at most `MAX_FACTS`, as the
+    text of a JSON array, `"[]"` when there are none); each title bounded to `MAX_FACT` characters.
+    The number is no fact. The options are the kinds of the sheet's Discipline, then the kinds every
+    Discipline has (the owner's ruling of 29 Sep 2026, "Per-Discipline kinds"), from `conventions`
+    (the default when none are given); ranking them is Jev's. None when the sheet has no Discipline,
+    its Discipline has no kinds, or there is nothing to judge from (no title and no view title)."""
     held = conventions if conventions is not None else default_conventions()
     if sheet.discipline is None:
         return None
@@ -1283,13 +1301,11 @@ def judgement(
     title = _fact(sheet.title.value) if sheet.title is not None else ""
     if len(options) < 2 or not (title or titles):
         return None
-    facts: dict[str, str] = {"discipline": sheet.discipline.value}
-    if title:
-        facts["title"] = title
-    if sheet.number is not None and (number := _fact(sheet.number.value)):
-        facts["number"] = number
-    for i, view in enumerate(titles, 1):
-        facts[f"view_title_{i}"] = view
+    facts = {
+        "title": title,
+        "discipline": sheet.discipline.value,
+        "view_titles": json.dumps(titles, ensure_ascii=False),
+    }
     return JudgementRequest(NODE, facts, QUESTION, options)
 
 

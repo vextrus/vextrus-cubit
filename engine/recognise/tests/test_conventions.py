@@ -7,6 +7,7 @@ before any file is read: what cannot be bounded is refused (`ValueError`, which 
 
 import json
 import re
+import time
 from pathlib import Path
 from typing import Any
 
@@ -104,6 +105,15 @@ BLOWING_UP = [
     r"a*b*c*d*e",
     "a" * (MAX_PATTERN + 1),
     r"(",
+    # review round 1: bounded repeats, optional items and alternatives multiply the ways too
+    r"\d{0,64}" * 6 + "x",
+    r"\d{0,64}" * 12 + "x",
+    r"\d*\d*x",
+    r"\d?" * 16 + "x",
+    r"(?:1|12)" * 14 + "x",
+    r"(?=\d*\d*\d*x)\d*",
+    r"(?P<prefix>\D*)(?P<running>\d{0,64}\d{0,64})(?P<suffix>x)",
+    r"^\s*[A-Z]{1,4}\s*[-./]?\s*\d{1,4}[A-Z]?$",
 ]
 
 
@@ -128,7 +138,7 @@ def test_the_run_stops_before_any_file_is_read(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     "pattern",
     [
-        r"^\s*[A-Z]{1,4}\s*[-./]?\s*\d{1,4}[A-Z]?$",
+        r"^\s{0,2}[A-Z]{1,4}\s{0,2}[-./]?\s{0,2}\d{1,4}[A-Z]?$",
         r"(?i)(?:^|[_\s.-])(R(?:EV)?[\s._-]?\d{1,2})(?=$|[_\s.-])",
         r"(?:[A-Z]{1,3}-)?\d{1,3}(?:/\d{1,2})?",
         r"^(?P<prefix>\D{0,8}?)(?P<running>\d{1,6})(?P<suffix>.{0,8})$",
@@ -136,6 +146,41 @@ def test_the_run_stops_before_any_file_is_read(tmp_path: Path) -> None:
 )
 def test_a_pattern_a_drafting_office_would_write_loads(pattern: str) -> None:
     SheetConventions.from_json({**FULL, "number_patterns": [pattern]})
+
+
+# The worst patterns that load: each tries `MAX_PATHS` ways at every place in the text, by optional
+# items, bounded repeats, alternatives, or a mix; each doubled is refused.
+AT_THE_BOUND = [
+    (r"\d?" * 12 + "x", r"\d?" * 13 + "x"),
+    (r"(?:1|11)" * 12 + "x", r"(?:1|11)" * 13 + "x"),
+    (r"\d{0,63}\d{0,63}x", r"\d{0,127}\d{0,63}x"),
+    (r"\d{0,15}\d{0,15}\d{0,15}x", r"\d{0,31}\d{0,15}\d{0,15}x"),
+    (r".{0,255}\d{0,15}x", r".{0,255}\d{0,31}x"),
+    (r"(?=\d{0,63}x)\d{0,63}x", r"(?=\d{0,63}x)\d{0,127}x"),
+    (r"\d{0,3}(?:1|11|111|1111)\d{0,15}\d{0,15}x", r"\d{0,7}(?:1|11|111|1111)\d{0,15}\d{0,15}x"),
+]
+
+
+@pytest.mark.parametrize(("worst", "doubled"), AT_THE_BOUND)
+def test_the_worst_pattern_that_loads_stays_bounded_on_the_longest_text(
+    worst: str, doubled: str
+) -> None:
+    """Review round 1: a pattern is bounded by the ways it can try to match at one place (every
+    optional item, repeat and alternative multiplies them), capped at `MAX_PATHS`; so the worst that
+    loads, searched over the longest text any pattern runs on (`MAX_PATTERN_TEXT` characters, all of
+    which it backtracks over), takes CPU time far under the bound here (13 ms at most, measured; six
+    chained `\\d{0,64}` took 55 s before). CPU time, never wall time."""
+    SheetConventions.from_json({**FULL, "number_patterns": [worst]})
+    with pytest.raises(ValueError, match="ways"):
+        SheetConventions.from_json({**FULL, "number_patterns": [doubled]})
+    text = "1" * MAX_PATTERN_TEXT
+
+    start = time.process_time()
+    found = pattern_search(worst, text)
+    spent = time.process_time() - start
+
+    assert found is None
+    assert spent < 0.25
 
 
 def test_a_pattern_runs_on_capped_text_only() -> None:

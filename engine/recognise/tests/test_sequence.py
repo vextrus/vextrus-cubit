@@ -2,7 +2,8 @@
 suffix, the shape 19b's numbering Check and conflicts build on (fixed by the orchestrator, 29 Sep 2026).
 
 Each side of every edge is decided here: zero padding, no digit, a run too long for `int()`, Unicode
-digits, a part number after a slash, and a letter O that looks like a zero.
+digits, which run is the running number (the last, unless a slash makes it a part), and a letter O
+that looks like a zero.
 """
 
 import pytest
@@ -33,12 +34,33 @@ def parts(number: str) -> tuple[str, int, str] | None:
         ("STR 007", ("STR ", 7, "")),
         ("  E-05  ", ("E-", 5, "")),
         ("A-100", ("A-", 100, "")),
+        ("S1-01", ("S1-", 1, "")),
+        ("S-1.01", ("S-1.", 1, "")),
+        ("S-1.01/2", ("S-1.", 1, "/2")),
+        ("2-S-015", ("2-S-", 15, "")),
+        ("S/1", ("S/", 1, "")),
     ],
 )
 def test_a_number_splits_into_prefix_running_number_and_suffix(
     number: str, expected: tuple[str, int, str]
 ) -> None:
     assert parts(number) == expected
+
+
+def test_the_running_number_is_the_last_run_of_digits_unless_a_slash_makes_it_a_part() -> None:
+    """The ruling with 19b (review round 1 of 13): with no pattern in the conventions, the running
+    number is the last run of digits; a run right after a `/` is a part suffix, and the running
+    number is then the run before it. A run after a `/` with none before it is the running number."""
+    assert parts("S1-01") == ("S1-", 1, "")
+    assert parts("S-1.01") == ("S-1.", 1, "")
+    assert parts("S-01/1") == ("S-", 1, "/1")
+    assert parts("S-101A") == ("S-", 101, "A")
+    for a, b in (("S1-09", "S1-10"), ("S-1.09", "S-1.10"), ("S-09/1", "S-10/1")):
+        first, second = sequence(a, PLAIN), sequence(b, PLAIN)
+        assert first is not None
+        assert second is not None
+        assert first.prefix == second.prefix
+        assert second.running - first.running == 1
 
 
 def test_consecutive_numbers_share_a_prefix_and_step_by_one() -> None:
@@ -66,6 +88,8 @@ def test_a_number_with_no_digit_has_no_parts(number: str) -> None:
 def test_a_run_too_long_is_refused_before_it_is_counted() -> None:
     """`int()` refuses past 4,300 digits; a run past `MAX_RUNNING_DIGITS` is never turned into one."""
     assert sequence("S-" + "9" * 5000, PLAIN) is None
+    assert sequence("S-1-" + "9" * 5000, PLAIN) is None
+    assert sequence("S-" + "9" * 5000 + "/1", PLAIN) is None
     assert sequence("S-" + "9" * (MAX_RUNNING_DIGITS + 1), PLAIN) is None
     longest = sequence("S-" + "9" * MAX_RUNNING_DIGITS, PLAIN)
     assert longest is not None
@@ -93,11 +117,12 @@ def test_invisible_characters_are_not_part_of_a_number() -> None:
 
 
 def test_a_pattern_in_the_conventions_decides_where_the_running_number_is() -> None:
-    """An office numbering "2024-S-015" names its parts by pattern (data a Drafting Profile holds)."""
+    """An office numbering "S-015-2024" (a running number, then a year) names its parts by pattern
+    (data a Drafting Profile holds)."""
     office = SheetConventions(
-        number_patterns=(r"^(?P<prefix>\d{4}-[A-Z]-)(?P<running>\d{1,4})(?P<suffix>.{0,4})$",)
+        number_patterns=(r"^(?P<prefix>[A-Z]-)(?P<running>\d{1,4})(?P<suffix>-\d{4})$",)
     )
 
-    assert sequence("2024-S-015", office) == NumberParts("2024-S-", 15, "")
-    assert sequence("2024-S-015", PLAIN) == NumberParts("", 2024, "-S-015")
+    assert sequence("S-015-2024", office) == NumberParts("S-", 15, "-2024")
+    assert sequence("S-015-2024", PLAIN) == NumberParts("S-015-", 2024, "")
     assert sequence("S-02", office) == NumberParts("S-", 2, "")
