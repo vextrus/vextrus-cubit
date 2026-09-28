@@ -7,28 +7,36 @@ stamped them, and each entry's `sheet` is the very object passed in (the export 
 identity). 19b compares the entries with the sheets found, both ways, and 21c raises what disagrees.
 
 **How a register is read.** On each sheet, a text that begins with one of the conventions'
-`register_words` ("LIST OF DRAWINGS", "DRAWING LIST") is a register's heading. Under it, in the
-heading's own direction (a turned sheet reads as an upright one), texts are gathered into rows by
-their line, top to bottom, until a gap of more than `MAX_ROW_GAP` rows or `MAX_ROWS` rows. A row whose
-texts are the title block's labels ("SHEET NO.", "DRAWING TITLE", "REV.") is the header: it names each
-column, and a row's texts are read into the column whose header they stand under. With no header, a
-row's number is its first text that reads as a number (`sheets.sequence`, at most
-`MAX_FIELD[NUMBER]` long), its revision mark a short text matching the conventions' revision-mark
-pattern, and its title its longest other text. A row with no number is no entry. Each entry's box is
-its texts' box in the sheet's drawing units (paper units in a layout), so a run joins it to the last
-run's by its place; its anchors are its texts'.
+`register_words` ("LIST OF DRAWINGS", "DRAWING LIST") is a register's heading. The texts under it, in
+the heading's own direction (a turned sheet reads as an upright one) and within `SPAN` of its
+heights either side, are gathered into lines, top to bottom. **With a header**: among the first
+`HEADER_LINES` lines, the first holding two or more of the title block's labels, one of them the
+number's ("SHEET NO.", "DRAWING TITLE", "REV."), names the columns: each header text starts one, which
+runs to where the next begins (the last to its header's end and as far again), and a line's text
+belongs to the column it overlaps most (a text outside every column, a general note beside the
+register, to none). **With none**: a line's number is its first text that reads as a number
+(`sheets.sequence`, at most `MAX_FIELD[NUMBER]` long), and what follows it without a gap wider than
+`MAX_CELL_GAP` is its revision mark (a short text matching the conventions' revision-mark pattern) and
+its title (its longest other text), and such a register has `MIN_ROWS` rows or more. The rows end at
+a gap of more than `MAX_ROW_GAP` rows, or at `MAX_ROWS`. A line with no number is no row. A heading that
+is a cell of another heading's rows (a row titled "Drawing list and notes"), or the sheet's own value
+(its title), is no heading.
+
+Each entry's box is its texts' box in the sheet's drawing units (paper units in a layout), so a run
+joins it to the last run's by its place; its anchors are its texts', on the sheet's own key.
 
 The conventions are the default sheet conventions unless given (21b passes the Market's).
 """
 
 import math
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from functools import partial
 
 from engine.read.anchor import DwgAnchor
 from engine.read.artefact import ReadArtefact
 from engine.recognise import sheets as sheet_finder
-from engine.recognise.sheets import MAX_FIELD, _normal, _Placed, sequence
+from engine.recognise.sheets import MAX_FIELD, _Labels, _normal, _Placed, sequence
 from engine.recognise.types import (
     Box,
     RegisterEntry,
@@ -45,7 +53,13 @@ MAX_ROW_GAP = 4.0
 MAX_HEADING = 200
 """The longest heading text, in characters."""
 MAX_CELL_GAP = 20.0
-"""The widest gap between two texts of one row, in the heading's heights."""
+"""The widest gap between two texts of one row with no header, in the heading's heights."""
+SPAN = 120.0
+"""How far either side of its heading a register is looked for, in the heading's heights."""
+HEADER_LINES = 3
+"""The lines under a heading where its header is looked for."""
+MIN_ROWS = 3
+"""The fewest rows a register with no header is taken to have (a list of the set's sheets)."""
 
 
 @dataclass(frozen=True)
@@ -54,6 +68,11 @@ class _Cell:
     u0: float  # in the heading's axes, in its heights: along its line
     u1: float
     v: float  # the line's middle
+    height: float
+
+
+type _Row = dict[SheetField, tuple[str, list[_Cell]]]
+type _Column = tuple[float, float, SheetField | None]
 
 
 def find(
@@ -67,145 +86,157 @@ def find(
     headings = tuple(_normal(w) for w in held.register_words if _normal(w))
     if not headings or not sheets:
         return []
+    labels = _Labels.of(held)
     texts = sheet_finder.texts_on(artefact, sheets, held)
     entries: list[RegisterEntry] = []
     for i, sheet in enumerate(sheets):
         on_sheet = texts.get(i, [])
-        found = [
-            (heading, _rows(heading, on_sheet))
+        own = {a.handle for a in sheet.anchors if isinstance(a, DwgAnchor)}
+        tables = [
+            (heading, _table(heading, on_sheet, labels, held))
             for heading in on_sheet
-            if len(heading.shown) <= MAX_HEADING and _normal(heading.shown).startswith(headings)
+            if len(heading.shown) <= MAX_HEADING
+            and _normal(heading.shown).startswith(headings)
+            and heading.entity.handle not in own  # the sheet's own title is no heading
         ]
-        in_rows = {id(c.text) for _, rows in found for row in rows for c in row}
-        for heading, rows in found:
-            if id(heading) not in in_rows:  # a row's title that begins like a heading is a row
-                entries.extend(_entries(sheet, rows, held))
+        in_rows = {
+            id(cell.text)
+            for _, rows in tables
+            for row in rows
+            for _, cells in row.values()
+            for cell in cells
+        }
+        for heading, rows in tables:
+            if id(heading) in in_rows:
+                continue  # a row whose title begins like a heading is a row
+            entries.extend(entry for row in rows if (entry := _entry(sheet, row)) is not None)
     return entries
 
 
-def _entries(
-    sheet: SheetCandidate, rows: list[list[_Cell]], conventions: SheetConventions
-) -> list[RegisterEntry]:
-    if not rows:
-        return []
-    labels = sheet_finder._Labels.of(conventions)
-    columns: list[tuple[float, SheetField | None]] = []
-    header = [(c, labels.label(c.text.shown)) for c in rows[0]]
-    if all(label is not None for _, label in header):
-        for cell, label in header:
-            assert label is not None
-            held = labels.fields.get(label[0])
-            columns.append((cell.u0, held[0] if held is not None else None))
-        rows = rows[1:]
-    entries: list[RegisterEntry] = []
-    for row in rows:
-        values = _by_column(row, columns) if columns else _by_shape(row, conventions)
-        number = values.get(SheetField.NUMBER)
-        if number is None or sequence(number[0], conventions) is None:
-            continue
-        used = [c.text for _, cells in values.values() for c in cells]
-        box = _box(row)
-        if box is None:
-            continue
-        entries.append(
-            RegisterEntry(
-                sheet=sheet,
-                row_box=box,
-                number=number[0],
-                title=values[SheetField.TITLE][0] if SheetField.TITLE in values else None,
-                revision_mark=(
-                    values[SheetField.REVISION_MARK][0] if SheetField.REVISION_MARK in values else None
-                ),
-                anchors=_anchors(sheet, used),
-            )
-        )
-    return entries
+def _entry(sheet: SheetCandidate, row: _Row) -> RegisterEntry | None:
+    number = row.get(SheetField.NUMBER)
+    cells = [cell for _, found in row.values() for cell in found]
+    box = _box(cells)
+    if number is None or box is None:
+        return None
+    title = row.get(SheetField.TITLE)
+    mark = row.get(SheetField.REVISION_MARK)
+    return RegisterEntry(
+        sheet=sheet,
+        row_box=box,
+        number=number[0],
+        title=title[0] if title else None,
+        revision_mark=mark[0] if mark else None,
+        anchors=_anchors(sheet, [cell.text for cell in cells]),
+    )
 
 
-def _rows(heading: _Placed, texts: list[_Placed]) -> list[list[_Cell]]:
-    """The texts under the heading, in its axes, gathered into lines top to bottom; a line is the
-    run of texts that begins under the heading, cut where a gap wider than `MAX_CELL_GAP` opens (the
-    title block beside a register is not part of it)."""
-    _, _, width, _ = heading.box
-    lines: list[list[_Cell]] = []
-    for text in sorted(texts, key=lambda t: -t.in_frame_of(heading)[3]):
+def _lines(heading: _Placed, texts: list[_Placed]) -> list[list[_Cell]]:
+    """The texts under the heading and within `SPAN` of it, in its axes, gathered into lines top
+    to bottom (two texts share a line when their middles lie within half the smaller's height)."""
+    cells: list[_Cell] = []
+    for text in texts:
         if text is heading:
             continue
         u0, v0, u1, v1 = text.in_frame_of(heading)
-        if v1 >= 0.5 or u1 < -MAX_CELL_GAP:
-            continue
-        cell = _Cell(text, u0, u1, (v0 + v1) / 2)
-        if lines and abs(lines[-1][0].v - cell.v) <= 0.6:
-            lines[-1].append(cell)
+        if v1 < 0.5 and u1 > -SPAN and u0 < SPAN:
+            cells.append(_Cell(text, u0, u1, (v0 + v1) / 2, v1 - v0))
+    cells.sort(key=lambda c: -c.v)
+    lines: list[list[_Cell]] = []
+    for cell in cells:
+        last = lines[-1] if lines else None
+        if last is not None and abs(last[0].v - cell.v) <= 0.5 * min(last[0].height, cell.height):
+            last.append(cell)
         else:
             lines.append([cell])
-    rows: list[list[_Cell]] = []
+    return [sorted(line, key=lambda c: c.u0) for line in lines]
+
+
+def _table(
+    heading: _Placed, texts: list[_Placed], labels: _Labels, conventions: SheetConventions
+) -> list[_Row]:
+    lines = _lines(heading, texts)
+    for i, line in enumerate(lines[:HEADER_LINES]):
+        columns = _columns(line, labels)
+        if columns:
+            return _rows(lines[i + 1 :], partial(_by_column, columns=columns), conventions)
+    rows = _rows(lines, partial(_by_shape, conventions=conventions), conventions)
+    return rows if len(rows) >= MIN_ROWS else []
+
+
+def _columns(line: list[_Cell], labels: _Labels) -> list[_Column]:
+    """A header line's columns (start, end, field), or none when the line is no header."""
+    header: list[tuple[_Cell, SheetField | None]] = []
+    for cell in line:
+        label = labels.label(cell.text.shown)
+        if label is not None:
+            held = labels.fields.get(label[0])
+            header.append((cell, held[0] if held is not None else None))
+    if len(header) < 2 or SheetField.NUMBER not in {name for _, name in header}:
+        return []
+    columns: list[_Column] = []
+    for j, (cell, name) in enumerate(header):
+        end = header[j + 1][0].u0 if j + 1 < len(header) else cell.u1 + (cell.u1 - cell.u0)
+        columns.append((cell.u0, end, name))
+    return columns
+
+
+def _rows(
+    lines: list[list[_Cell]], read: Callable[[list[_Cell]], _Row], conventions: SheetConventions
+) -> list[_Row]:
+    rows: list[_Row] = []
+    last: float | None = None
     pitch = math.inf  # the closest two rows have stood so far
     for line in lines:
-        row = _run(sorted(line, key=lambda c: c.u0), width)
-        if not row:
+        row = read(line)
+        number = row.get(SheetField.NUMBER)
+        if number is None or sequence(number[0], conventions) is None:
             continue
-        if rows:
-            gap = rows[-1][0].v - row[0].v
+        v = number[1][0].v
+        if last is not None:
+            gap = last - v
             if gap > MAX_ROW_GAP * pitch:
                 break
             pitch = min(pitch, gap)
         if len(rows) >= MAX_ROWS:
             break
         rows.append(row)
+        last = v
     return rows
 
 
-def _run(line: list[_Cell], width: float) -> list[_Cell]:
-    """The texts of a line that begin under the heading and follow one another without a wide gap."""
-    start = next((i for i, c in enumerate(line) if -MAX_CELL_GAP <= c.u0 <= width + 1.0), None)
+def _by_column(line: list[_Cell], columns: list[_Column]) -> _Row:
+    """Each text into the column it overlaps most; a column that names no field (a scale) and a
+    text outside every column are left out."""
+    found: dict[SheetField, list[_Cell]] = {}
+    for cell in line:
+        overlap, name = max(
+            ((min(cell.u1, end) - max(cell.u0, start), name) for start, end, name in columns),
+            key=lambda o: o[0],
+        )
+        if overlap > 0 and name is not None:
+            found.setdefault(name, []).append(cell)
+    return {name: (value, cells) for name, cells in found.items() if (value := _joined(name, cells))}
+
+
+def _by_shape(line: list[_Cell], conventions: SheetConventions) -> _Row:
+    """With no header: the first text that is a number, then what follows it without a wide gap: a
+    revision mark by the conventions' pattern, and the longest other text as the title."""
+    start = next((i for i, cell in enumerate(line) if _number(cell, conventions)), None)
     if start is None:
-        return []
+        return {}
     run = [line[start]]
     for cell in line[start + 1 :]:
         if cell.u0 - run[-1].u1 > MAX_CELL_GAP:
             break
         run.append(cell)
-    return run
-
-
-def _by_column(
-    row: list[_Cell], columns: list[tuple[float, SheetField | None]]
-) -> dict[SheetField, tuple[str, list[_Cell]]]:
-    """Each text into the column whose header it stands under (the nearest header by its start); a
-    column that names no field (a scale) is left out."""
-    found: dict[SheetField, list[_Cell]] = {}
-    for cell in row:
-        _, name = min(columns, key=lambda column: abs(column[0] - cell.u0))
-        if name is not None:
-            found.setdefault(name, []).append(cell)
-    return {
-        name: (value, cells)
-        for name, cells in found.items()
-        if (value := _joined(name, cells)) is not None
-    }
-
-
-def _by_shape(
-    row: list[_Cell], conventions: SheetConventions
-) -> dict[SheetField, tuple[str, list[_Cell]]]:
-    """With no header: the first text that is a number, a revision mark, and the longest other."""
-    found: dict[SheetField, tuple[str, list[_Cell]]] = {}
-    rest = list(row)
-    for cell in row:
-        text = " ".join(cell.text.shown.split())
-        if len(text) <= MAX_FIELD[SheetField.NUMBER] and sequence(text, conventions) is not None:
-            found[SheetField.NUMBER] = (text, [cell])
-            rest.remove(cell)
-            break
+    found: _Row = {SheetField.NUMBER: (" ".join(run[0].text.shown.split()), [run[0]])}
+    rest = run[1:]
     pattern = conventions.revision_mark_pattern
     for cell in list(rest):
         text = " ".join(cell.text.shown.split())
-        if (
-            pattern
-            and len(text) <= MAX_FIELD[SheetField.REVISION_MARK]
-            and pattern_search(pattern, text)
-        ):
+        short = len(text) <= MAX_FIELD[SheetField.REVISION_MARK]
+        if pattern and short and pattern_search(pattern, text):
             found[SheetField.REVISION_MARK] = (text, [cell])
             rest.remove(cell)
             break
@@ -217,6 +248,11 @@ def _by_shape(
     return found
 
 
+def _number(cell: _Cell, conventions: SheetConventions) -> bool:
+    text = " ".join(cell.text.shown.split())
+    return len(text) <= MAX_FIELD[SheetField.NUMBER] and sequence(text, conventions) is not None
+
+
 def _joined(name: SheetField, cells: list[_Cell]) -> str | None:
     text = " ".join(" ".join(c.text.shown.split()) for c in sorted(cells, key=lambda c: c.u0))
     if not text or len(text) > MAX_FIELD[name] or not any(ch.isalnum() for ch in text):
@@ -224,9 +260,11 @@ def _joined(name: SheetField, cells: list[_Cell]) -> str | None:
     return text
 
 
-def _box(row: list[_Cell]) -> Box | None:
+def _box(cells: list[_Cell]) -> Box | None:
+    if not cells:
+        return None
     xs, ys = [], []
-    for cell in row:
+    for cell in cells:
         for x, y in cell.text.corners():
             xs.append(x)
             ys.append(y)

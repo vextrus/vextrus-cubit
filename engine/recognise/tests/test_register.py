@@ -171,3 +171,39 @@ def test_a_register_is_read_to_its_bound() -> None:
     entries = register.find(d.artefact(), [bare])
 
     assert len(entries) == register.MAX_ROWS
+
+
+def test_a_header_names_the_columns_wherever_the_heading_stands() -> None:
+    """The heading over the table's right half, a note column beside it, and a sheet whose own title
+    begins like a heading: the rows are the header's columns' texts only, read once."""
+    d = Sheets()
+    block = frame_block(d, labels=("SHEET TITLE", "SCALE", "SHEET NO"))
+    placed_frame(d, block, (0, 0), {0: "DRAWING LIST & NOTES", 2: "A-00"})
+    d.text("LIST OF DRAWINGS", (200, 500, 0), height=5.0)
+    for u, label in ((0, "SHEET NO."), (40, "DRAWING TITLE"), (200, "SCALE"), (240, "REV.")):
+        d.text(label, (u, 480, 0), height=3.0)
+    for i, (number, title, scale, mark) in enumerate(ROWS):
+        y = 470 - 8.0 * i
+        for u, value in ((0, number), (40, title), (200, scale), (240, mark)):
+            d.text(value, (u, y, 0), height=3.0)
+        d.text(f"{i + 1}. ALL SIZES IN MILLIMETRES", (300, y, 0), height=3.0)
+    artefact = d.artefact()
+    sheets = find(artefact, None, DEFAULT)
+
+    entries = register.find(artefact, sheets)
+
+    assert [(e.number, e.title, e.revision_mark) for e in entries] == [
+        ("A-00", "DRAWING LIST & NOTES", "R0"),
+        ("A-01", "SITE PLAN", "R0"),
+        ("A-02", "GROUND FLOOR PLAN", "R1"),
+    ]
+
+
+def test_a_list_of_two_numbered_lines_with_no_header_is_no_register() -> None:
+    d = Sheets()
+    d.text("DRAWING LIST", (0, 0, 0), height=5.0)
+    d.text("S-01", (0, -10, 0), height=3.0)
+    d.text("S-02", (0, -18, 0), height=3.0)
+    bare = SheetCandidate(SheetLocation(box=Box(-10, -100, 500, 10)))
+
+    assert register.find(d.artefact(), [bare]) == []
