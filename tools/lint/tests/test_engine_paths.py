@@ -85,3 +85,21 @@ def test_the_command_takes_one_pattern(
 
     assert main(["--pattern", "web/**"]) == 0
     assert capsys.readouterr().out == ""
+
+
+def test_one_star_stays_inside_one_folder_and_two_span_folders() -> None:
+    assert matching(["tools/b.py", "tools/a/b.py"], ["tools/*.py"]) == ["tools/b.py"]
+    assert matching(
+        ["vextrus/tasks/x.py", "vextrus/takeoff/tasks/x.py", "vextrus/takeoff/x.py"],
+        ["vextrus/**/tasks/*.py"],
+    ) == ["vextrus/tasks/x.py", "vextrus/takeoff/tasks/x.py"]
+    assert matching(["engine.py", "a.lock"], ["engine?py", "*.lock"]) == ["engine.py", "a.lock"]
+
+
+def test_the_command_takes_a_file_and_more_patterns_together(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(sys, "stdin", io.StringIO("docs/a.md\n.github/workflows/engine.yml\nuv.lock\n"))
+
+    assert main(["--patterns", str(ENGINE_PATHS), "--pattern", ".github/workflows/engine.yml"]) == 0
+    assert capsys.readouterr().out == ".github/workflows/engine.yml\nuv.lock\n"
