@@ -56,7 +56,7 @@ MiB = 1 << 20
 
 FAKES = {
     "read.py": """
-        import os, signal, subprocess, sys, time
+        import json, os, signal, subprocess, sys, time
         from pathlib import Path
 
         class Artefact:
@@ -85,6 +85,20 @@ FAKES = {
                         pass
                 elif word == "raise":
                     raise RuntimeError("the fake reader failed")
+                elif word == "env":  # the environment's names (never a value it was not given
+                    # plainly) and the threads once numpy has loaded its BLAS
+                    import numpy  # as the reader's ezdxf does
+
+                    plain = (
+                        "OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS", "PATH", "HOME",
+                        "TMPDIR", "LANG", "PYTHONPATH", "VEXTRUS_LIBREDWG", "VEXTRUS_SANDBOX",
+                    )
+                    seen = {
+                        "names": sorted(os.environ),
+                        "values": {name: os.environ.get(name) for name in plain},
+                        "threads": len(os.listdir("/proc/self/task")),
+                    }
+                    Path(arg).write_text(json.dumps(seen))
                 elif word == "nosummary":
                     return object()
                 elif word == "forkchain":
@@ -664,14 +678,11 @@ def test_read_seconds_and_cpu_seconds_are_each_files_own(
     tmp_path: Path,
     fakes: Callable[..., tuple[Stage, ...]],
     conventions: Path,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    # A file's process imports numpy (through ezdxf), whose BLAS starts a thread per core that spins
-    # for a while: on a machine with many cores that is seconds of CPU, more than the wall time, and
-    # it varies from file to file (#66). With one BLAS thread, starting costs every file about the
-    # same CPU, on any machine; the comparisons below are between files of the same run.
-    monkeypatch.setenv("OPENBLAS_NUM_THREADS", "1")
-    monkeypatch.setenv("OMP_NUM_THREADS", "1")
+    # A file's process imports numpy (through ezdxf), whose BLAS would start a thread per core that
+    # spins for a while: seconds of CPU on many cores, varying from file to file (#66). The harness
+    # runs it on one thread (the next test), so starting costs every file about the same CPU, on any
+    # machine; the comparisons below are between files of the same run.
     document = run(
         tmp_path,
         fakes(),
@@ -690,6 +701,67 @@ def test_read_seconds_and_cpu_seconds_are_each_files_own(
     assert busy["cpu_seconds"] - idle["cpu_seconds"] >= 0.75
     # And it is CPU, not wall time: time asleep costs no CPU.
     assert asleep["cpu_seconds"] - idle["cpu_seconds"] < 0.75
+
+
+def test_each_files_process_runs_blas_on_one_thread(
+    tmp_path: Path,
+    fakes: Callable[..., tuple[Stage, ...]],
+    conventions: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The owner's ruling (28 Sep 2026): "Pin to 1 thread". A file's process imports numpy through
+    # ezdxf, and numpy's OpenBLAS starts a spinning thread per core: seconds of CPU on many cores,
+    # before any reading (#66). What the caller set does not unpin it.
+    for name in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS"):
+        monkeypatch.setenv(name, "8")
+    seen = tmp_path / "env.json"
+
+    run(tmp_path, fakes(), {"a.dwg": f"env {seen}"}, conventions=conventions)
+
+    found = json.loads(seen.read_text())
+    blas = {name: found["values"][name] for name in harness.ONE_THREAD}
+    assert blas == {"OPENBLAS_NUM_THREADS": "1", "OMP_NUM_THREADS": "1", "MKL_NUM_THREADS": "1"}
+    # numpy loaded, the file's process still runs one thread: BLAS started none of its own.
+    assert found["threads"] == 1
+
+
+def test_a_files_process_gets_only_the_environment_it_needs(
+    tmp_path: Path,
+    fakes: Callable[..., tuple[Stage, ...]],
+    conventions: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # A file's process reads hostile input: no key, database address or anything else of the
+    # caller's reaches it, only what it needs to run and read.
+    monkeypatch.setenv("TYPESAFE_API_KEY", "not-a-real-key")
+    monkeypatch.setenv("DATABASE_URL", "postgresql://nobody@127.0.0.1:1/none")
+    monkeypatch.setenv("VEXTRUS_UNKNOWN_TO_THE_HARNESS", "x")
+    monkeypatch.setenv("VEXTRUS_RUN_ID", "run-1")  # read by the harness before any file, not by one
+    allowed = {
+        "PATH": "/usr/bin:/bin",
+        "HOME": str(tmp_path / "home"),
+        "TMPDIR": str(tmp_path / "tmp"),
+        "LANG": "C.UTF-8",
+        "VEXTRUS_LIBREDWG": str(tmp_path / "libredwg"),
+        "VEXTRUS_SANDBOX": "off",
+    }
+    for name, value in allowed.items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.setenv("PYTHONPATH", str(tmp_path / "extra"))
+    seen = tmp_path / "env.json"
+
+    run(tmp_path, fakes(), {"a.dwg": f"env {seen}"}, conventions=conventions)
+
+    found = json.loads(seen.read_text())
+    kept_out = {"TYPESAFE_API_KEY", "DATABASE_URL", "VEXTRUS_UNKNOWN_TO_THE_HARNESS", "VEXTRUS_RUN_ID"}
+    assert kept_out.isdisjoint(found["names"])
+    blas = {"OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS"}
+    assert found["names"] == sorted({*allowed, "PYTHONPATH", *blas})
+    assert {name: found["values"][name] for name in allowed} == allowed
+    # The checkout first (the launcher's own environment has it already), then the caller's.
+    path = found["values"]["PYTHONPATH"].split(os.pathsep)
+    assert path[0] == str(harness.ROOT)
+    assert set(path) == {str(harness.ROOT), str(tmp_path / "extra")}
 
 
 def test_a_child_that_dies_is_reported_as_far_as_it_got(
