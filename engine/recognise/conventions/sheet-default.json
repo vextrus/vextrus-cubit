@@ -12,7 +12,7 @@
   "number_patterns": [],
   "title_block_fields": [
     {"field": "number", "words": ["sheet no", "sheet number", "drawing no", "drawing number", "dwg no", "drg no"], "position": null},
-    {"field": "title", "words": ["sheet title", "drawing title", "title", "drawing name", "sheet name", "title of drawing", "name of drawing"], "position": null},
+    {"field": "title", "words": ["sheet title", "title", "drawing title", "drawing name", "sheet name", "title of drawing", "name of drawing"], "position": null},
     {"field": "revision_mark", "words": ["revision", "rev", "rev no", "revision no"], "position": null},
     {"field": "issue_date", "words": ["issue date", "date of issue", "date"], "position": null}
   ],
