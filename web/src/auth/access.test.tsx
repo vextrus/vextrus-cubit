@@ -8,7 +8,6 @@ import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { page } from 'vitest/browser'
 import { FakeApi, PASSWORD } from '@/app/seed/api.fixture'
-import { BANGLADESH } from '@/app/seed/demo.fixture'
 import { PEOPLE, mountApp } from '@/app/testing'
 import { TOAST_MS, UiProviders, expectKeyMapSound } from '@/ui'
 import { useReadOnlyToast } from './readOnly'
@@ -56,22 +55,22 @@ describe('Access ended (§4.1)', () => {
     const api = new FakeApi()
     api.signInAs(PEOPLE.engineer)
     api.revoke(PEOPLE.engineer, 'Shapla Homes Ltd', null)
-    await mountApp('/projects', { as: null, api, market: BANGLADESH })
+    await mountApp('/projects', { as: null, api })
     await screen.findByRole('heading', { name: 'Access ended' })
     expect(sentence()).toBe('Your access to Shapla Homes Ltd was ended on 28 Sep 2026. What you did before then is kept under your name.')
   })
 
-  it('formats its date, in a browser that never worked in a Market, in the language’s own form and the browser’s zone: the API sends no Market with ended access (a gap this ticket reports)', async () => {
+  it('words its date with the ended Developer’s Market, even in a browser that never worked in one', async () => {
     const api = new FakeApi()
     api.signInAs(PEOPLE.engineer)
-    api.revoke(PEOPLE.engineer, 'Shapla Homes Ltd', null)
-    await mountApp('/projects', { as: null, api })
+    api.revoke(PEOPLE.engineer, 'Shapla Homes Ltd', PEOPLE.md)
+    await mountApp('/access-ended', { as: null, api })
     await screen.findByRole('heading', { name: 'Access ended' })
-    expect(sentence()).toBe('Your access to Shapla Homes Ltd was ended on Sep 28, 2026. What you did before then is kept under your name.')
+    expect(sentence()).toContain('Kamal Uddin revoked it on 28 Sep 2026.')
   })
 
   it('names an expired Guest’s chosen projects and asks the Developer to renew, on signing in', async () => {
-    const { router } = await mountApp('/sign-in', { as: null, market: BANGLADESH })
+    const { router } = await mountApp('/sign-in', { as: null })
     await userEvent.type(await screen.findByLabelText('Email'), PEOPLE.expiredGuest)
     await userEvent.type(screen.getByLabelText('Password'), PASSWORD)
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }))

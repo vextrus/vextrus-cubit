@@ -10,7 +10,7 @@ import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
 import { endedAccessProjects } from '@/api/until75'
 import { AppLink, PATHS } from '@/app/AppLink'
 import { gateOf, meQuery, type EndedAccess } from '@/app/session'
-import { useFormat } from '@/format'
+import { FormatProvider, useFormat, type MarketFormat } from '@/format'
 import { Button, SkeletonBar, buttonVariants } from '@/ui'
 import { useSignOut } from './actions'
 import { CodeList } from './lists'
@@ -84,6 +84,14 @@ function Actions({ another }: { another: boolean }) {
   )
 }
 
+/**
+ * The Developer's own Market for a page outside the frame (the orchestrator's ruling, 29 Sep 2026):
+ * its locale and time zone for every date, never the browser's. Only an API before #75 sends none.
+ */
+export function InMarket({ market, children }: { market: MarketFormat | null; children: ReactNode }) {
+  return market ? <FormatProvider profile={market}>{children}</FormatProvider> : <>{children}</>
+}
+
 function Sentence({ children }: { children: ReactNode }) {
   return <p className="text-sm leading-relaxed text-foreground">{children}</p>
 }
@@ -106,9 +114,11 @@ export function AccessEndedPage() {
           {scoped && projects.isPending ? (
             <SkeletonBar className="h-4 w-[80%]" />
           ) : (
-            <Sentence>
-              <EndedWords ended={ended} codes={codes} />
-            </Sentence>
+            <InMarket market={ended.market}>
+              <Sentence>
+                <EndedWords ended={ended} codes={codes} />
+              </Sentence>
+            </InMarket>
           )}
           <Actions another={(me?.memberships.length ?? 0) > 0} />
         </>

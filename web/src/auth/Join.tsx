@@ -18,18 +18,19 @@
  *   sent it for a new one." (it names no Developer: the owner's ruling, 28 Sep 2026); so does `/join`
  *   with no token.
  */
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Plural, Select, Trans, useLingui } from '@lingui/react/macro'
 import { useQueryClient } from '@tanstack/react-query'
 import { useRouter } from '@tanstack/react-router'
 import { ApiRefused, api, unwrap } from '@/api/client'
 import { lookUpProjects, type LinkProjectOut, type LookUpOut, type MeOut75 } from '@/api/until75'
 import { AppLink, PATHS } from '@/app/AppLink'
-import { meFrom, meQuery, type Me } from '@/app/session'
+import { marketFormat, meFrom, meQuery, type Me } from '@/app/session'
 import { useFormat } from '@/format'
 import { MachineText, type MachineMessage } from '@/format/machine'
 import { Button, ErrorBar, Skeleton, TextField, buttonVariants } from '@/ui'
 import { enter, forgetAll, signIn } from './actions'
+import { InMarket } from './AccessEnded'
 import { ProjectNameList } from './lists'
 import { OutsidePage } from './OutsidePage'
 import { ProblemBar, problemOf, type SignInProblem } from './SignIn'
@@ -187,6 +188,8 @@ function Ready({
   const { t } = useLingui()
   const { link, projects } = invitation
   const developer = link.developer_name
+  // The inviting Developer's Market words the line's date (the orchestrator's ruling, 29 Sep 2026).
+  const market = useMemo(() => (link.market ? marketFormat(link.market) : null), [link.market])
   const [refusal, setRefusal] = useState<MachineMessage | null>(null)
   const [problem, setProblem] = useState<SignInProblem>(null)
   const [busy, setBusy] = useState(false)
@@ -252,7 +255,9 @@ function Ready({
           <Trans>Join {developer}</Trans>
         </h1>
         <p className="text-sm text-foreground">
-          <InvitedLine invitation={invitation} />
+          <InMarket market={market}>
+            <InvitedLine invitation={invitation} />
+          </InMarket>
           {link.role === 'guest' ? (
             <>
               {' '}

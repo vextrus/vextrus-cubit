@@ -8,13 +8,13 @@ import { useMemo, type ReactNode } from 'react'
 import { useLingui } from '@lingui/react/macro'
 import { FormatProvider } from '@/format'
 import { BrandMark, cn } from '@/ui'
-import { outsideMarket } from './market'
+import { neutralFormat } from './market'
 import { usePageTitle } from './title'
 
 export function OutsidePage({ title, wide = false, children }: { title: string; wide?: boolean; children: ReactNode }) {
   const { t } = useLingui()
   usePageTitle(title)
-  const market = useMemo(() => outsideMarket(), [])
+  const market = useMemo(() => neutralFormat(), [])
   return (
     <FormatProvider profile={market}>
       <main data-outside-frame="" className="flex min-h-dvh items-center justify-center bg-background px-4 py-10">

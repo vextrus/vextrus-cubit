@@ -33,6 +33,7 @@ const ENDED: EndedOut75 = {
   how: 'revoked',
   revoked_by: 'Kamal Uddin',
   project_ids: [],
+  market: BANGLADESH_OUT,
 }
 
 describe('marketFormat (the Market on the web)', () => {
@@ -61,10 +62,24 @@ describe('meFrom', () => {
   it('reads #75’s ended access with its Developer, who revoked it and its projects', () => {
     const read = meFrom(me({ developer_id: null, market: null, memberships: [], ended: [{ ...ENDED, project_ids: ['p-1'] }], ended_membership_id: 'm-9' }))
     expect(read.ended).toEqual([
-      { membershipId: 'm-9', developer: { id: SHAPLA, name: 'Shapla Homes Ltd' }, role: 'vextrus_engineer', endedAt: ENDED.ended_at, how: 'revoked', revokedBy: 'Kamal Uddin', projectIds: ['p-1'] },
+      {
+        membershipId: 'm-9',
+        developer: { id: SHAPLA, name: 'Shapla Homes Ltd' },
+        role: 'vextrus_engineer',
+        endedAt: ENDED.ended_at,
+        how: 'revoked',
+        revokedBy: 'Kamal Uddin',
+        projectIds: ['p-1'],
+        market: BANGLADESH,
+      },
     ])
     expect(read.endedMembershipId).toBe('m-9')
     expect(read.market).toBeNull()
+  })
+
+  it('reads an ended row without #75’s Market (its branch before the ruling) as none', () => {
+    const { market: _dropped, ...before } = ENDED
+    expect(meFrom(me({ ended: [before] })).ended[0]!.market).toBeNull()
   })
 })
 

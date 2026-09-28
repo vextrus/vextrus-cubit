@@ -11,7 +11,6 @@ import type { MeOut75 } from '@/api/until75'
 import { PATHS } from '@/app/AppLink'
 import { meFrom, meQuery, type Me } from '@/app/session'
 import { gateHref } from './gate'
-import { rememberMarket } from './market'
 
 type Router = ReturnType<typeof useRouter>
 
@@ -20,7 +19,6 @@ export async function enter(queryClient: QueryClient, router: Router, out: MeOut
   const me = meFrom(out)
   await forgetAll(queryClient)
   queryClient.setQueryData(meQuery.queryKey, me)
-  if (me.market) rememberMarket(me.market)
   await router.navigate({ href: gateHref(me, next) })
   return me
 }

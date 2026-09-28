@@ -405,6 +405,7 @@ export class FakeApi {
         how: end.how,
         revoked_by: end.how === 'revoked' && revoker ? this.users.find((u) => u.id === revoker.actorId)!.name : null,
         project_ids: [...m.projectIds],
+        market: BANGLADESH_OUT,
       })
     }
     const ended = [...latest.values()].sort((a, b) => Date.parse(b.ended_at) - Date.parse(a.ended_at))
@@ -621,12 +622,14 @@ export class FakeApi {
           expires_at: m.expiresAt,
           link_expires_at: m.inviteExpiresAt,
           has_account: this.users.some((u) => u.email.toLowerCase() === m.invitedEmail.toLowerCase()),
+          market: BANGLADESH_OUT,
         },
       ]
     }
     if (method === 'POST' && path === '/api/invitations/look-up/projects') {
       const m = this.lookUp(body.token)
-      const projects = this.projects.filter((p) => p.tenant === m.tenant && (m.projectIds.length === 0 || m.projectIds.includes(p.id)))
+      // A link to every Project names none, as the server answers (#75).
+      const projects = this.projects.filter((p) => p.tenant === m.tenant && m.projectIds.includes(p.id))
       return [200, projects.map((p) => ({ code: p.code, name: p.name })).sort((a, b) => a.code.localeCompare(b.code))]
     }
     if (method === 'POST' && path === '/api/invitations/accept') {

@@ -60,6 +60,8 @@ export interface EndedAccess {
   revokedBy: string | null
   /** The Projects it gave, by id; empty means every Project. */
   projectIds: readonly string[]
+  /** Its Developer's Market, which its dates are worded with; null only from an API before #75. */
+  market: MarketFormat | null
 }
 
 /** `/api/me`, as the web reads it. */
@@ -126,6 +128,7 @@ function endedFrom(out: EndedOut75): EndedAccess {
     how: out.how,
     revokedBy: out.revoked_by,
     projectIds: out.project_ids,
+    market: out.market ? marketFormat(out.market) : null,
   }
 }
 

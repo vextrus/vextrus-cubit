@@ -293,7 +293,11 @@ export function MembersLoading() {
   )
 }
 
-export function MembersView({ session, members }: { session: Session; members: Members }) {
+/**
+ * The page: its header once, whatever the data's state (so the heading and Invite never remount when
+ * the rows arrive), then the rows, their loading skeleton, or the API's refusal.
+ */
+export function MembersView({ session, members, refused }: { session: Session; members: Members | undefined; refused?: MachineMessage | null }) {
   const f = useFormat()
   const toast = useToast()
   const queryClient = useQueryClient()
@@ -383,29 +387,37 @@ export function MembersView({ session, members }: { session: Session; members: M
       {problem ? (
         <ErrorBar className="mb-4">{problem === 'unreachable' ? <Trans>Vextrus can’t be reached. Check your connection and try again.</Trans> : <MachineText message={problem} />}</ErrorBar>
       ) : null}
-      <div className="flex flex-col gap-6">
-        <Section id="people" title={<Trans>People at {developer}</Trans>}>
-          <PeopleTable session={session} rows={members.people} acts={acts} />
-        </Section>
-        {manages ? (
-          <>
-            <Section id="vextrus" title={<Trans>Vextrus access</Trans>} line={<Trans>Vextrus sees your data only while an invitation below is current. You can end it at any time.</Trans>}>
-              <VextrusTable
-                rows={members.vextrus}
-                acts={acts}
-                actsOpen={actsOf?.membershipId ?? null}
-                onActs={(row, from) => {
-                  actsOpener.current = from
-                  setActsOf(row)
-                }}
-              />
-            </Section>
-            <Section id="invitations" title={<Trans>Invitations not used yet</Trans>}>
-              <InvitationsTable rows={members.invitations} acts={acts} />
-            </Section>
-          </>
-        ) : null}
-      </div>
+      {members ? (
+        <div className="flex flex-col gap-6">
+          <Section id="people" title={<Trans>People at {developer}</Trans>}>
+            <PeopleTable session={session} rows={members.people} acts={acts} />
+          </Section>
+          {manages ? (
+            <>
+              <Section id="vextrus" title={<Trans>Vextrus access</Trans>} line={<Trans>Vextrus sees your data only while an invitation below is current. You can end it at any time.</Trans>}>
+                <VextrusTable
+                  rows={members.vextrus}
+                  acts={acts}
+                  actsOpen={actsOf?.membershipId ?? null}
+                  onActs={(row, from) => {
+                    actsOpener.current = from
+                    setActsOf(row)
+                  }}
+                />
+              </Section>
+              <Section id="invitations" title={<Trans>Invitations not used yet</Trans>}>
+                <InvitationsTable rows={members.invitations} acts={acts} />
+              </Section>
+            </>
+          ) : null}
+        </div>
+      ) : refused ? (
+        <ErrorBar>
+          <MachineText message={refused} />
+        </ErrorBar>
+      ) : (
+        <MembersLoading />
+      )}
 
       {manages ? <InviteDialog session={session} open={inviting} onOpenChange={setInviting} /> : null}
 
@@ -461,21 +473,6 @@ export function MembersPage() {
   const { data: session } = useSuspenseQuery(sessionQuery)
   usePageTitle(t`Members and access`)
   const members = useQuery({ ...membersQuery, select: (out) => membersFrom(out, session) })
-  if (members.data) return <MembersView session={session} members={members.data} />
-  return (
-    <PageLayout>
-      <header className="mb-5">
-        <h1 className="text-xl">
-          <Trans>Members and access</Trans>
-        </h1>
-      </header>
-      {members.error instanceof ApiRefused && members.error.refusal ? (
-        <ErrorBar>
-          <MachineText message={members.error.refusal} />
-        </ErrorBar>
-      ) : (
-        <MembersLoading />
-      )}
-    </PageLayout>
-  )
+  const refused = members.error instanceof ApiRefused ? members.error.refusal : null
+  return <MembersView session={session} members={members.data} refused={refused} />
 }

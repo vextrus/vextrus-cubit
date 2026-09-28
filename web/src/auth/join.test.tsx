@@ -8,7 +8,6 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { page } from 'vitest/browser'
 import { FakeApi, PASSWORD } from '@/app/seed/api.fixture'
-import { BANGLADESH } from '@/app/seed/demo.fixture'
 import { PEOPLE, mountApp } from '@/app/testing'
 import { expectKeyMapSound } from '@/ui'
 
@@ -43,7 +42,7 @@ async function invited(api: FakeApi, body: { email: string; role: string; projec
 }
 
 async function join(path: string, options: Parameters<typeof mountApp>[1]) {
-  const app = await mountApp(path, { market: BANGLADESH, ...options })
+  const app = await mountApp(path, options)
   await waitFor(() => expect(screen.queryByText('Opening the invitation…')).toBeNull())
   return app
 }

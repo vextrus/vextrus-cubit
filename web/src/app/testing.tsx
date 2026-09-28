@@ -15,8 +15,6 @@ import { render } from '@testing-library/react'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider, createMemoryHistory } from '@tanstack/react-router'
 import { setTransport } from '@/api/client'
-import { forgetMarket, rememberMarket } from '@/auth/market'
-import type { MarketFormat } from '@/format/profile'
 import { KeyMap } from '@/ui/keys/registry'
 import { UiProviders } from '@/ui/UiProviders'
 import { createAppRouter, createQueryClient } from './router'
@@ -37,8 +35,6 @@ export interface MountOptions {
   /** Step 1's counts by project code, until 19a sends them. */
   step1?: Readonly<Record<string, ProjectSummary['step1']>>
   session?: Session
-  /** The Market this browser last worked in (the pages outside the frame format with it); none unless given. */
-  market?: MarketFormat
 }
 
 /** The session the API gives a seeded person, built as the app builds it. */
@@ -53,10 +49,8 @@ export async function sessionAs(email: string, api: FakeApi = new FakeApi()): Pr
   }
 }
 
-export async function mountApp(path: string, { as = PEOPLE.qs, api, step1, session, market }: MountOptions = {}) {
+export async function mountApp(path: string, { as = PEOPLE.qs, api, step1, session }: MountOptions = {}) {
   clearCsrfCookie()
-  forgetMarket()
-  if (market) rememberMarket(market)
   const fake = api ?? new FakeApi()
   if (as) fake.signInAs(as)
   const restore = setTransport(fake.handle)

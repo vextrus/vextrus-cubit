@@ -24,6 +24,12 @@ export interface EndedOut75 {
   revoked_by: string | null
   /** The Projects it gave; empty means every Project. */
   project_ids: string[]
+  /**
+   * The ended Developer's Market, which "Access ended" words its dates with, its locale and time zone
+   * (the orchestrator's ruling, 29 Sep 2026, added to #75 in its review; `/api/me`'s own `market` is
+   * null there). Optional here only until #75's branch sends it.
+   */
+  market?: Schemas['MarketOut']
 }
 
 /** `/api/me` with #75's fields. */
@@ -61,6 +67,11 @@ export interface LookUpOut {
   expires_at: string | null
   link_expires_at: string
   has_account: boolean
+  /**
+   * The inviting Developer's Market, which the link's page words its dates with (the orchestrator's
+   * ruling, 29 Sep 2026, added to #75 in its review). Optional here only until #75's branch sends it.
+   */
+  market?: Schemas['MarketOut']
 }
 
 export interface MembersOut75 {

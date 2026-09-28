@@ -6,7 +6,6 @@
  *   someone else, everything held is cleared first and the page is theirs to open.
  * - **Access ended:** any request refused for want of a Developer (a revoked or ended Membership) sends
  *   the user to 4.1's page for it; what the frame held is cleared once it has gone.
- * - It remembers the Developer's Market for the pages outside the frame (market.ts).
  */
 import { useEffect, useRef, useState } from 'react'
 import { Trans } from '@lingui/react/macro'
@@ -18,7 +17,6 @@ import { Skeleton } from '@/ui'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/ui/primitives/dialog'
 import { enter } from './actions'
 import { gateHref, signInHref } from './gate'
-import { rememberMarket } from './market'
 import { SignInForm } from './SignIn'
 
 export function SessionWatch() {
@@ -27,8 +25,6 @@ export function SessionWatch() {
   const router = useRouter()
   const [signedOut, setSignedOut] = useState(false)
   const leaving = useRef(false)
-
-  useEffect(() => rememberMarket(session.market), [session.market])
 
   useEffect(
     () =>
