@@ -19,7 +19,7 @@ PAGE_UNREADABLE = MessageCode("engine.pdf_report.page_unreadable", params=("page
 
 # Lettering: whether AutoCAD's lettering reached the PDF as text (the rule: engine/read/pdf).
 LETTERING_KEPT = MessageCode("engine.pdf_report.lettering_kept")
-LETTERING_PARTLY = MessageCode("engine.pdf_report.lettering_partly", params=("pages", "of"))
+LETTERING_PARTLY = MessageCode("engine.pdf_report.lettering_partly", params=("pages", "drawn"))
 LETTERING_LINES = MessageCode("engine.pdf_report.lettering_lines", params=("pages",))
 # No page carries SHX comments or hidden text, yet some carry real text: AutoCAD's own lettering,
 # if the drawings use it, is lines there, and the PDF cannot say whether they do.
@@ -27,7 +27,7 @@ LETTERING_UNCONFIRMED = MessageCode("engine.pdf_report.lettering_unconfirmed", p
 UNMAPPED_TEXT = MessageCode("engine.pdf_report.unmapped_text", params=("chars",))
 
 # Layers: the drawing's layers, as named in the pages' resources.
-LAYERS_KEPT = MessageCode("engine.pdf_report.layers_kept", params=("layers",))
+LAYERS_KEPT = MessageCode("engine.pdf_report.layers_kept")
 LAYERS_FLATTENED = MessageCode("engine.pdf_report.layers_flattened")
 
 # Pictures: raster images and the share of a page they cover. (What else the PDF holds, scripts,
@@ -50,3 +50,5 @@ LOCKED = MessageCode("engine.pdf_report.locked")
 UNREADABLE = MessageCode("engine.pdf_report.unreadable")
 TOO_MANY_PAGES = MessageCode("engine.pdf_report.too_many_pages", params=("limit",))
 LIMIT_REACHED = MessageCode("engine.pdf_report.limit_reached", params=("limit",))
+# The reader stopped in a way the file did not cause: a fault of Vextrus's own, tried again next time.
+READER_FAILED = MessageCode("engine.pdf_report.reader_failed")

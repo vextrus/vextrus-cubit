@@ -94,9 +94,7 @@ def report(facts: DocumentFacts, source_sha256: str) -> PdfReport:
     messages += [codes.PAGE_UNREADABLE(page=p.number) for p in pages if not p.readable]
     if refused is None:
         messages += _lettering(pages)
-        messages.append(
-            codes.LAYERS_KEPT(layers=len(layers)) if len(layers) > 1 else codes.LAYERS_FLATTENED()
-        )
+        messages.append(codes.LAYERS_KEPT() if len(layers) > 1 else codes.LAYERS_FLATTENED())
         messages += _pictures(pages)
         messages += _font_messages(fonts)
     if refused is not None:
@@ -175,7 +173,7 @@ def _lettering(pages: Sequence[PageReport]) -> list[Message]:
     if kept == len(drawn):
         messages.append(codes.LETTERING_KEPT())
     elif kept:
-        messages.append(codes.LETTERING_PARTLY(pages=kept, of=len(drawn)))
+        messages.append(codes.LETTERING_PARTLY(pages=kept, drawn=len(drawn)))
     if lines:
         messages.append(codes.LETTERING_LINES(pages=lines))
     if unconfirmed and not lines:  # with lines as well, their message already asks for the setting

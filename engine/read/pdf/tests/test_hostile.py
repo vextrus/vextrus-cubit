@@ -128,13 +128,91 @@ def test_noise_after_a_pdf_header_is_refused_as_damaged(pdf_fixture: Fixture) ->
     assert refused(pdf_fixture("damaged", kind="garbage")) == codes.UNREADABLE()
 
 
-def test_a_child_that_crashes_is_a_damaged_file(
+def test_a_child_that_crashes_is_a_fault_of_vextrus_and_tried_again(
     pdf_fixture: Fixture, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    path = pdf_fixture("plot", producer="crash")
+    real = pdf.CHILD
     monkeypatch.setattr(pdf, "CHILD", "import sys; sys.exit(3)")
     with pytest.raises(ReadError) as raised:
-        pdf.report(pdf_fixture("plot"), limits=SMALL)
-    assert raised.value.message == codes.UNREADABLE()
+        pdf.report(path, limits=SMALL)
+    assert raised.value.message == codes.READER_FAILED()
+    monkeypatch.setattr(pdf, "CHILD", real)
+    assert pdf.report(path, limits=SMALL).counts["pages"] == 3
+
+
+# One thread, whatever the machine (the review of #80: OpenBLAS started a thread per core in the child,
+# and numpy needed more than a gibibyte to load on 24 cores).
+
+_THREADS = (
+    "import engine.read.pdf.child, numpy, os\n"
+    "threads = len(os.listdir('/proc/self/task'))\n"
+    "reason = 'locked' if threads == 1 else 'unreadable'\n"
+    "open(sys.argv[3], 'w').write('{\"refused\": \"%s\"}' % reason)\n"
+)
+
+
+def test_the_child_runs_blas_on_one_thread(
+    pdf_fixture: Fixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The child's own first statements, then numpy loaded through the child's own imports.
+    monkeypatch.setattr(pdf, "CHILD", pdf.PRELUDE + "\n" + _THREADS)
+    assert refused(pdf_fixture("plot", producer="threads")) == codes.LOCKED()
+
+
+def test_the_child_s_pin_is_the_harness_s() -> None:
+    from engine import harness
+
+    assert pdf.ONE_THREAD == harness.ONE_THREAD
+    assert pdf.CHILD.startswith(pdf.PRELUDE)
+
+
+# Output past what this process parses (the review of #80: it was refused as a damaged file, and kept).
+
+
+def test_facts_past_the_output_limit_are_too_large_not_damaged_and_are_tried_again(
+    pdf_fixture: Fixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    small = SMALL.__class__(
+        cpu_seconds=SMALL.cpu_seconds,
+        memory_bytes=SMALL.memory_bytes,
+        wall_seconds=SMALL.wall_seconds,
+        output_bytes=1000,  # the plot's facts are some 4,000 bytes
+    )
+    path = pdf_fixture("plot", producer="large")
+    calls: list[Path] = []
+    real = pdf._read
+
+    def counted(source: Path, scratch: Path, limits: object) -> object:
+        calls.append(source)
+        return real(source, scratch, limits)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(pdf, "_read", counted)
+    for _ in range(2):
+        with pytest.raises(ReadError) as raised:
+            pdf.report(path, limits=small)
+        assert raised.value.message == codes.LIMIT_REACHED(limit="output")
+    assert len(calls) == 2
+
+
+def test_a_write_past_the_sandbox_s_file_size_limit_says_too_large(
+    pdf_fixture: Fixture, tmp_path: Path
+) -> None:
+    import subprocess
+    import sys
+
+    target = tmp_path / "facts.json"
+    script = (
+        "import resource, sys; resource.setrlimit(resource.RLIMIT_FSIZE, (200, 200)); "
+        "from engine.read.pdf.child import main; sys.exit(main(sys.argv[1:]))"
+    )
+    done = subprocess.run(
+        [sys.executable, "-c", script, str(pdf_fixture("plot")), str(target), str(10**9)],
+        cwd=pdf.ROOT,
+        check=False,
+    )
+    assert done.returncode == 0
+    assert target.read_bytes() == b'{"refused": "too_large"}'
 
 
 def test_a_child_that_runs_past_the_wall_clock_is_stopped(
@@ -307,6 +385,12 @@ class TestInTheSandbox:
         )
         monkeypatch.setattr(pdf, "CHILD", probe)
         assert refused(pdf_fixture("plot", producer="binds")) == codes.LOCKED()
+
+    def test_the_child_runs_blas_on_one_thread_in_the_sandbox(
+        self, pdf_fixture: Fixture, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(pdf, "CHILD", pdf.PRELUDE + "\n" + _THREADS)
+        assert refused(pdf_fixture("plot", producer="threads, sandboxed")) == codes.LOCKED()
 
     def test_the_child_cannot_reach_the_network(
         self, pdf_fixture: Fixture, monkeypatch: pytest.MonkeyPatch

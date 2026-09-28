@@ -24,7 +24,7 @@ def test_a_plot_with_shx_comments_reports_what_a_qs_reads(pdf_fixture: Fixture) 
         codes.MADE_BY_AUTOCAD(),
         codes.PAGES(pages=3, turned=1),
         codes.LETTERING_KEPT(),
-        codes.LAYERS_KEPT(layers=2),
+        codes.LAYERS_KEPT(),
         codes.PICTURES(pages=1, percent=1),
     )
     assert found.layers == ("A-TEXT", "A-WALL")
@@ -116,7 +116,7 @@ def test_hidden_text_is_page_text_and_keeps_the_lettering(pdf_fixture: Fixture) 
 def test_comments_on_some_pages_leave_the_rest_as_lines(pdf_fixture: Fixture) -> None:
     found = pdf.report(pdf_fixture("lettering", comments=2, pages=3, comment_pages=1))
 
-    assert codes.LETTERING_PARTLY(pages=1, of=3) in found.messages
+    assert codes.LETTERING_PARTLY(pages=1, drawn=3) in found.messages
     assert codes.LETTERING_LINES(pages=2) in found.messages
 
 

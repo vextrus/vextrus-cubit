@@ -65,36 +65,32 @@ corner at the origin, y up, in points; `Page.crop` is the visible CropBox in it.
 PDF holds it, raw codes (`%%C`) included: 11's decode function reads it, not this module.
 
 **The AutoCAD setting to ask for** when the lettering is lines: the system variable **PDFSHX at 1**,
-which stores text in SHX fonts as comments when a drawing is exported or plotted to PDF (2 stores it as
-hidden text, from AutoCAD 2024). Sources, all Autodesk's, as found on 28 Sep 2026:
-- "PDFSHX (System Variable)", AutoCAD 2026 Help,
-  https://help.autodesk.com/view/ACD/2026/ENU/?guid=GUID-56EA988C-A1DA-4E85-8765-B3F31A01AB02
-  (also the 2025 and 2021 editions of the same topic): "Controls whether text objects using SHX fonts
-  are stored in PDF files as comments or hidden text when you export a drawing as a PDF file"; the
-  comments are labelled "AutoCAD SHX Text"; initial value 1; saved in the registry.
-- "What's New in AutoCAD 2024", https://help.autodesk.com/cloudhelp/2024/ENU/AutoCAD-WhatsNew/files/
-  GUID-3890D5F7-04CB-4F3B-97FF-7A9577D41852.htm: value 2 stores SHX text as hidden text.
-- "Drawing text appears as comments in a PDF created by AutoCAD or DWG TrueView",
-  https://www.autodesk.com/support/technical/article/caas/sfdcarticles/sfdcarticles/Drawing-text-appears-as-Comments-in-a-PDF-created-by-AutoCAD.html
-  (plot, publish and export alike; since AutoCAD 2016).
-- "PDF Options Dialog Box" (the DWG To PDF plotter), AutoCAD 2020 Help,
-  https://help.autodesk.com/cloudhelp/2020/ENU/AutoCAD-Core/files/GUID-BE373C38-678A-4AF9-96AB-4195FFD6F806.htm:
-  "Text in SHX fonts is always converted to geometry … Additionally, the text is copied to the PDF file
-  as a comment." The report therefore asks for a plot through AutoCAD's DWG To PDF plotter with PDFSHX
-  at 1: a print driver outside AutoCAD writes no such comments whatever the setting.
-**Not verified:** this environment's network refuses Autodesk's sites, so these pages were not opened;
-the text above is the search engine's copy of them. No page date was seen. Autodesk's exact words for
-values 0 and 1, and any checkbox label in the PDF options dialog for this setting, were not found (the
-label "Include SHX text as comments" in m0-screens 4.5 is unconfirmed and is not used), and whether
-2016 SP1's name for it, EPDFSHX, still applies on older installs is not checked. A local session with a
-browser reads the pages and confirms the words before the catalogue's wording is final.
+plotted through AutoCAD's DWG To PDF plotter. Sources, Autodesk's own:
+- "PDFSHX (System Variable)", AutoCAD 2026 Help, https://help.autodesk.com/cloudhelp/2026/ENU/
+  AutoCAD-Core/files/GUID-56EA988C-A1DA-4E85-8765-B3F31A01AB02.htm, read on 28 Sep 2026 by the
+  orchestrator's review of this ticket (this session's network refuses Autodesk's sites): initial
+  value 1; 0 stores no SHX text; 1 stores it as comments, labelled "AutoCAD SHX Text"; 2 stores it as
+  hidden text.
+- "PDF Options Dialog Box" (the DWG To PDF plotter), AutoCAD 2020 Help, https://help.autodesk.com/
+  cloudhelp/2020/ENU/AutoCAD-Core/files/GUID-BE373C38-678A-4AF9-96AB-4195FFD6F806.htm, confirmed by
+  the same review: text in SHX fonts is drawn as geometry, and with the plotter it is also copied into
+  the PDF as a comment. A print driver outside AutoCAD writes no such comments whatever the setting, so
+  the report names the plotter. The same dialog's "Convert all text to geometry" is asked to be off
+  (the design gate's reading of Autodesk's pages, 28 Sep 2026).
+**Not verified:** Autodesk's support article "Drawing text appears as comments in a PDF created by
+AutoCAD or DWG TrueView" (https://www.autodesk.com/support/technical/article/caas/sfdcarticles/
+sfdcarticles/Drawing-text-appears-as-Comments-in-a-PDF-created-by-AutoCAD.html) answered 403, so its
+claims (that plot, publish and export alike write the comments, and since AutoCAD 2016) rest on a search
+engine's copy only. No dialog label for PDFSHX exists: m0-screens 4.5's "Include SHX text as comments"
+names none of AutoCAD's, and is not used.
 
 **The trust boundary.** A PDF is hostile input. This process only copies it (a regular file only, never
 a FIFO, a device or a folder), hashing it as it copies, so the child reads exactly the bytes the sha256
 names. The whole reading runs in a child Python process in `engine.read.sandbox` (bubblewrap: no
 network, a read-only file system but one output folder, a cleared environment, and CPU, memory,
 file-size and wall-clock limits, `LIMITS`), the pattern 04 uses for LibreDWG. The child sees the copy,
-the engine's own code and Python, never the rest of the checkout (so never `.private/`). Its JSON is
+the engine's own code, and Python (the interpreter and its environment, which may lie inside the
+checkout as `.venv`), never the rest of the checkout (so never `.private/`). Its JSON is
 read back without following a link, parsed only under `MAX_OUTPUT` bytes and `MAX_CONTAINERS` objects
 (so a compromised child cannot exhaust this process), and checked field by field (`facts.py`). Inside,
 nothing is executed or fetched: no script is run, no action followed, no attached or external file
@@ -158,18 +154,30 @@ Edison page, of 57 to 84 pages a file); ticket 24 measures them."""
 MAX_OUTPUT = 16 * 2**20
 """The most JSON this process parses from the child, whatever its limits say: parsed JSON takes many
 times its size in memory, and this process is the caller's (the CAD worker's). A text item is about
-200 bytes, so this holds some 80,000 items, where Edison's densest set has some 55,000 glyphs and 5,000
-comments in all. Measured on 28 Sep 2026, the worst it lets through (16 MiB of numbers in one list)
-grew this process by 175 MiB; 32 MiB had grown it by 322 MiB."""
+200 bytes, so this holds some 80,000 items; the densest set the research measured, Edison's
+architecture, has 55,347 characters and 5,133 SHX comments over 84 pages
+(docs/research/vector-pdf-evidence.md), and characters join into fewer items. A PDF past it is
+refused as too large, never as damaged, and tried again next time (the child says so itself, in a
+few bytes). Measured on 28 Sep 2026, the worst it lets through (16 MiB of numbers in one list) grew
+this process by 175 MiB; 32 MiB had grown it by 322 MiB."""
 MAX_CONTAINERS = 1_000_000
 """…and the most objects and lists in it, counted before it is parsed (an empty object is 2 bytes of
 JSON and some 64 of memory)."""
 
 ROOT = Path(__file__).resolve().parents[3]
-CHILD = (
-    "import sys; sys.path.insert(0, sys.argv[1]); "
-    "from engine.read.pdf.child import main; sys.exit(main(sys.argv[2:]))"
+ONE_THREAD = {"OPENBLAS_NUM_THREADS": "1", "OMP_NUM_THREADS": "1", "MKL_NUM_THREADS": "1"}
+"""What the child runs BLAS with: the harness's own pin (`engine.harness.ONE_THREAD`; the owner's
+ruling, 28 Sep 2026: "Pin to 1 thread"). The sandbox clears the child's environment, so the harness's
+pin never reaches it; and numpy (`coverage.py`, and ezdxf, which the `engine` package imports) would
+otherwise start an OpenBLAS thread per core as it loads, and need more than a gibibyte of address
+space to do it on a machine of 24 cores (measured by the orchestrator's review of this ticket)."""
+PRELUDE = (
+    "import os, sys; "
+    + "; ".join(f"os.environ[{name!r}] = {value!r}" for name, value in ONE_THREAD.items())
+    + "; sys.path.insert(0, sys.argv[1]); "
 )
+"""The child's first statements, before anything can load numpy: the pin, then the engine's path."""
+CHILD = PRELUDE + "from engine.read.pdf.child import main; sys.exit(main(sys.argv[2:]))"
 
 
 def report(path: Path, *, limits: Limits = LIMITS) -> PdfReport:
@@ -193,8 +201,8 @@ class _Reading:
 _lock = threading.Lock()
 _last: tuple[tuple[str, Limits], _Reading | ReadError] | None = None
 _LASTING = {codes.LOCKED.code, codes.UNREADABLE.code, codes.TOO_MANY_PAGES.code}
-"""Refusals the file itself decides, kept for the next call; a limit reached or a sandbox that could
-not start may be the machine's, and is tried again."""
+"""Refusals the file itself decides, kept for the next call; a limit reached (the output's among them),
+a reader that failed or a sandbox that could not start may be the machine's, and is tried again."""
 
 
 def _reading(path: Path, limits: Limits) -> _Reading:
@@ -230,9 +238,10 @@ def _read(source: Path, scratch: Path, limits: Limits) -> DocumentFacts:
     output = scratch / "out"
     output.mkdir()
     target = output / "facts.json"
+    cap = min(limits.output_bytes, MAX_OUTPUT)
     try:
         finished = run(
-            [str(python), "-I", "-B", "-c", CHILD, str(ROOT), str(source), str(target)],
+            [str(python), "-I", "-B", "-c", CHILD, str(ROOT), str(source), str(target), str(cap)],
             reads=_distinct(reads),
             output=output,
             limits=limits,
@@ -240,10 +249,11 @@ def _read(source: Path, scratch: Path, limits: Limits) -> DocumentFacts:
     except LimitReached as reached:
         raise ReadError(codes.LIMIT_REACHED(limit=reached.limit)) from reached
     if finished.exit_code != 0:
+        # The child exits 0 whatever the file holds; any other exit is a fault of Vextrus's own.
         detail = finished.stderr.decode(errors="replace")[-2000:]
-        raise ReadError(codes.UNREADABLE()) from RuntimeError(detail)
+        raise ReadError(codes.READER_FAILED()) from RuntimeError(detail)
     with open_output(target, "pdf reader") as stream:
-        data = _load(stream.read(min(limits.output_bytes, MAX_OUTPUT) + 1), limits)
+        data = _load(stream.read(cap + 1), limits)
     reason = child_facts.refusal(data) if isinstance(data, dict) else None
     if reason is not None:
         raise ReadError(_refusal(reason))
@@ -271,6 +281,8 @@ def _refusal(reason: str) -> Message:
         return codes.TOO_MANY_PAGES(limit=MAX_PAGES)
     if reason == "memory":
         return codes.LIMIT_REACHED(limit="memory")
+    if reason == "too_large":
+        return codes.LIMIT_REACHED(limit="output")
     return codes.UNREADABLE()
 
 

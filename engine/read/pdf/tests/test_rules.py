@@ -170,7 +170,7 @@ def test_with_comments_anywhere_a_page_of_real_text_counts_as_kept() -> None:
 
 def test_lettering_partly_kept_names_the_pages_drawn_as_lines() -> None:
     assert lettering_messages(commented, commented, lines) == [
-        codes.LETTERING_PARTLY(pages=2, of=3),
+        codes.LETTERING_PARTLY(pages=2, drawn=3),
         codes.LETTERING_LINES(pages=1),
     ]
 
@@ -239,7 +239,7 @@ def test_the_report_names_another_maker_and_counts_turned_pages() -> None:
 
 @pytest.mark.parametrize(
     ("layers", "message"),
-    [(("0",), codes.LAYERS_FLATTENED()), (("0", "A-WALL"), codes.LAYERS_KEPT(layers=2))],
+    [(("0",), codes.LAYERS_FLATTENED()), (("0", "A-WALL"), codes.LAYERS_KEPT())],
 )
 def test_layers_are_kept_when_there_are_two_or_more(layers: tuple[str, ...], message: Message) -> None:
     assert message in rules.report(facts(page(layers=layers)), SHA).messages
