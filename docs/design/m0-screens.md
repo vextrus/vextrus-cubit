@@ -725,9 +725,13 @@ Messages that do not make a row (a toast, or an ErrorBar for several files at on
 **The report panel for a DWG** (sections in this order, each hidden when it has nothing to say):
 - **Header:** the file's name; "Architectural. Added 26 Sep 2026 by Nusrat Jahan"; "Close  Esc".
 - **Readers.** Agree: "✓ Read twice, by two independent readers, and they agree. Nothing in the file
-  was skipped." Disagree: "The two readers found different contents in this file: one found 212
-  more items, on 3 layers. It is held, so nothing from it reaches the sheet list while it may be
-  misread. Question Q1 asks what to do." [Open the Question] Read once (the "Failed" row): "This file
+  was skipped." Disagree (the engine's words since #79): "The two readers found different contents in
+  this file: 212 items were found by only one of them, on 3 layers. It is held, so nothing from it
+  reaches the sheet list while it may be misread." When the second reader could not read some items
+  (the owner's ruling "Hold it", at the end of this page): "The two readers found different contents in
+  this file: 1 item was found by only one of them, on 1 layer; the second reader could not read 1
+  item. It is held, …". The panel adds "Question Q1 asks what to do." [Open the Question], and the
+  Question's evidence (6.7's held-file row) carries the same counts. Read once (the "Failed" row): "This file
   was read once, not twice: … a fault on Vextrus's side, not in your file." [Mark for Vextrus]
 - **Sheets.** "8 sheets found: 6 laid out in the drawing, 2 on layout tabs." [Open in Step 1]. A
   layout tab whose viewports show nothing is never counted as a sheet (no phantom sheets; the plan's QS
@@ -764,7 +768,7 @@ versions, the attribute-style repair count, handle counts, read time, peak memor
   show S-04; page 5 is used." · "No DWG has been added for these pages yet." Then sheets with no page:
   "S-07 (rev A) has no page in this PDF."
 - **Lettering.** Kept: "The AutoCAD lettering is kept as text on every page." Partly: "…on 40 of 57
-  pages." Lost: "On 8 pages the lettering is drawn as lines, not text. The Plot still looks right,
+  drawn pages." (blank and scanned pages are not counted; #80's gate) Lost: "On 8 pages the lettering is drawn as lines, not text. The Plot still looks right,
   but a machine cannot read that text. If you ask the consultant for a new PDF, ask them to plot it with
   AutoCAD's DWG To PDF plotter, with PDFSHX set to 1 and \"Convert all text to geometry\" off, so the
   lettering stays text." (Corrected on 28 Sep 2026 to #80's wording from Autodesk's help, read by its
@@ -1741,3 +1745,7 @@ looking empty (screens.md 5); its screenshots stay under `.private/`.
   reader not installed, not the pinned build, stopped, or the file over its limit: the row is "Failed",
   with "Try again" and "Mark for Vextrus", the report panel says the file was read once, and nothing
   reaches the sheet list. "Held" stays only for readers that disagree, with its Question.
+- **4.5, an item the second reader cannot read: "Hold it"** (on #79's first posting run). When the
+  second reader reads a file but provably cannot read some of its items (a real Edison DWG holds one
+  INSERT with a Z scale of 0 that ACadSharp 3.8.0 refuses), the readers found different contents: the
+  file is held, with its Question, and the unread count is shown (4.5's Readers section).
