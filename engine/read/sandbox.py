@@ -6,25 +6,34 @@ ACadSharp's dumper, 10) are C and .NET parsers. Each runs here, under bubblewrap
 - **no network:** every namespace is unshared (network, IPC, PID, UTS, cgroup, user), so the program
   sees only its own loopback; no new user namespace can be made inside; every capability is dropped;
 - **a read-only file system but one output folder:** the root is empty and read-only; `/usr` (with the
-  `/bin` and `/lib` links), a minimal `/proc` and `/dev`, and the paths the caller names are bound
-  read-only; only `output` is writable. No home folder, no `/etc`, no `/tmp`;
+  `/bin` and `/lib` links), the sandbox's own `/proc`, the paths the caller names and four devices
+  (`null`, `zero`, `random`, `urandom`) are bound read-only; only `output` is writable. No home
+  folder, no `/etc`, no `/tmp`, and no `/dev/shm` or other memory-backed folder to fill. A path to
+  read that lies inside `output`, or holds it, is refused, since the writable bind would cover it;
 - **a cleared environment:** no variable of the caller's reaches the program (so no key or database
   address), only `PATH`, `LANG`, `HOME` and `TMPDIR`, the last two pointing at `output`;
-- **limits:** CPU seconds, address space (memory), the largest file it may write (all three set by
-  `prlimit` on the process before bubblewrap starts, so they hold for everything inside), and a
-  wall-clock timeout after which the whole run is killed; when the program ends, anything it left
-  running dies with it (the PID namespace ends). At its CPU limit the program gets SIGXCPU, and
-  SIGKILL a second later if it ignores that.
+- **limits:** CPU seconds, address space (memory) and the largest file it may write, set by `prlimit`
+  before bubblewrap starts and inherited by every process inside, **each process's own** (a program
+  that forks shares nothing, so its children may use as much again); and a wall-clock timeout after
+  which the whole run is killed, which bounds the run as a whole. When the program ends, anything it
+  left running dies with it (the PID namespace ends). At its CPU limit the program gets SIGXCPU
+  (`LimitReached("cpu")`), and SIGKILL a second later if it ignores that; a run killed by SIGKILL
+  that the timeout did not kill (that, or the kernel's memory killer) is `LimitReached("killed")`.
 
 The program is started with `posix_spawn` (never a fork of this process: Python 3.14's pools start
 with forkserver, and the worker may hold threads). Its CPU time and peak memory are not reported:
 bubblewrap's PID namespace keeps the program's rusage from reaching this process (measured: 0.005 s
 reported for a 1 s loop), and the peak that matters is the parse in the worker (ticket 24).
 
+`bwrap` and `prlimit` are taken from `/usr/bin` by their full paths, never from `PATH`.
+
 **It refuses to run unsandboxed.** Without a working bubblewrap it raises `SandboxUnavailable`. Only
-when `VEXTRUS_SANDBOX` is exactly `off` *and* the call happens inside a pytest test does it run the
-program directly (the limits and the timeout still apply), for a developer's machine without
-bubblewrap; `VEXTRUS_SANDBOX=off` anywhere else raises `SandboxRefused`.
+when `VEXTRUS_SANDBOX` is exactly `off` *and* the call happens inside a pytest test (pytest is
+imported and `PYTEST_CURRENT_TEST` is set, which pytest does only while a test runs) does it run the
+program directly, for a developer's machine without bubblewrap; `VEXTRUS_SANDBOX=off` anywhere else
+raises `SandboxRefused`. That check guards against the setting reaching a server by mistake; code
+running inside the worker could fake it, but such code needs no sandbox to escape. Run directly, the
+limits and the timeout still apply, but a child that leaves the process group escapes the kill.
 """
 
 import contextlib
@@ -43,8 +52,9 @@ from typing import Literal
 from engine.messages import read as codes
 from engine.read.errors import ReadError
 
-BWRAP = "bwrap"
-PRLIMIT = "prlimit"
+BWRAP = "/usr/bin/bwrap"
+PRLIMIT = "/usr/bin/prlimit"
+_DEVICES = ("null", "zero", "random", "urandom")
 _KEPT = 64 * 1024  # bytes of stdout and stderr kept (the end of each)
 
 
@@ -89,7 +99,7 @@ class SandboxRefused(SandboxError):
 
 
 class LimitReached(SandboxError):
-    def __init__(self, program: str, limit: Literal["cpu", "wall"]) -> None:
+    def __init__(self, program: str, limit: Literal["cpu", "wall", "killed"]) -> None:
         super().__init__(codes.LIMIT_REACHED(program=program, limit=limit))
         self.limit = limit
 
@@ -103,6 +113,10 @@ def run(
     if not output.is_dir():
         raise ValueError(f"the sandbox's output folder {output} does not exist")
     program = Path(argv[0]).name
+    for path in reads:
+        resolved = Path(path).resolve()
+        if resolved.is_relative_to(output) or output.is_relative_to(resolved):
+            raise ValueError(f"{resolved} would be writable: a path to read must lie outside {output}")
     if _unsandboxed_permitted():
         return _spawn(program, argv, output, limits, sandboxed=False)
     if os.environ.get("VEXTRUS_SANDBOX") == "off":
@@ -138,7 +152,12 @@ def _bwrap_arguments(reads: Sequence[Path], output: Path) -> list[str]:
         resolved = str(Path(path).resolve())
         arguments += ["--ro-bind", resolved, resolved]
     arguments += [
-        "--proc", "/proc", "--dev", "/dev",
+        "--proc", "/proc",
+        *(item for name in _DEVICES for item in ("--dev-bind", f"/dev/{name}", f"/dev/{name}")),
+        "--symlink", "/proc/self/fd", "/dev/fd",
+        "--symlink", "/proc/self/fd/0", "/dev/stdin",
+        "--symlink", "/proc/self/fd/1", "/dev/stdout",
+        "--symlink", "/proc/self/fd/2", "/dev/stderr",
         "--bind", str(output), str(output),
         "--remount-ro", "/",
         "--chdir", str(output),
@@ -179,22 +198,26 @@ def _spawn(
         ]
         started = time.monotonic()
         pid = os.posix_spawn(command[0], command, environment, file_actions=actions, setpgroup=0)
-        timed_out = threading.Event()
-        timer = threading.Timer(limits.wall_seconds, _kill, (pid, timed_out))
+        run = _Run(pid)
+        timer = threading.Timer(limits.wall_seconds, run.kill)
         timer.start()
         try:
-            _, status = os.waitpid(pid, 0)
+            status = run.wait()
         finally:
             timer.cancel()
         wall = time.monotonic() - started
         stdout, stderr = _tail(out), _tail(err)
-    if timed_out.is_set():
+    if run.killed:
         raise LimitReached(program, "wall")
     exit_code = os.waitstatus_to_exitcode(status)
-    if sandboxed and exit_code == 1 and stderr.startswith(b"bwrap: "):  # it could not build the sandbox
-        raise SandboxUnavailable(stderr.decode(errors="replace").strip())
-    if exit_code in (-signal.SIGXCPU, 128 + signal.SIGXCPU):  # bubblewrap reports 128 + the signal
+    if sandboxed and exit_code == 1 and stderr.startswith(b"bwrap: "):
+        if stderr.startswith(b"bwrap: execvp"):  # the sandbox was built; the program is not there
+            raise ReadError(codes.READER_FAILED(program=program, exit_code=127))
+        raise SandboxUnavailable(stderr.decode(errors="replace").strip())  # it could not build it
+    if _signalled(exit_code, signal.SIGXCPU):
         raise LimitReached(program, "cpu")
+    if _signalled(exit_code, signal.SIGKILL):
+        raise LimitReached(program, "killed")
     return Finished(
         exit_code=exit_code,
         stdout=stdout,
@@ -204,10 +227,34 @@ def _spawn(
     )
 
 
-def _kill(pid: int, timed_out: threading.Event) -> None:
-    timed_out.set()
-    with contextlib.suppress(ProcessLookupError):
-        os.killpg(pid, signal.SIGKILL)  # the run's own process group: bubblewrap, or the program
+def _signalled(exit_code: int, number: int) -> bool:
+    return exit_code in (-number, 128 + number)  # run directly, minus it; bubblewrap reports 128 + it
+
+
+class _Run:
+    """One spawned run, killed at most once and never after it has ended: the process is waited on
+    without being reaped, so its id cannot be reused before `kill` has seen that it ended."""
+
+    def __init__(self, pid: int) -> None:
+        self.pid = pid
+        self.killed = False
+        self._ended = False
+        self._lock = threading.Lock()
+
+    def wait(self) -> int:
+        os.waitid(os.P_PID, self.pid, os.WEXITED | os.WNOWAIT)
+        with self._lock:
+            self._ended = True
+        _, status = os.waitpid(self.pid, 0)
+        return status
+
+    def kill(self) -> None:
+        with self._lock:
+            if self._ended:
+                return
+            self.killed = True
+            with contextlib.suppress(ProcessLookupError):
+                os.killpg(self.pid, signal.SIGKILL)  # its own process group: bubblewrap, or the program
 
 
 def _tail(path: Path) -> bytes:

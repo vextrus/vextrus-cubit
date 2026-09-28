@@ -14,6 +14,7 @@ from pathlib import Path
 import pytest
 
 from engine.read import sandbox
+from engine.read.errors import ReadError
 from engine.read.sandbox import LimitReached, Limits, SandboxRefused, SandboxUnavailable
 
 PYTHON_HOME = Path(sys.base_prefix).resolve()
@@ -90,6 +91,21 @@ def test_only_the_exact_word_off_turns_the_sandbox_off(
 def test_the_output_folder_must_exist(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="output"):
         python("print(1)", tmp_path / "missing")
+
+
+@pytest.mark.parametrize("inside", [True, False], ids=["read-inside-output", "output-inside-read"])
+def test_a_path_to_read_that_the_output_would_cover_is_refused(tmp_path: Path, inside: bool) -> None:
+    output = tmp_path / "out"
+    (output / "input").mkdir(parents=True)
+    reads = (output / "input",) if inside else (tmp_path,)
+
+    with pytest.raises(ValueError, match="writable"):
+        python("print(1)", output, reads=reads)
+
+
+def test_bwrap_and_prlimit_are_never_taken_from_path() -> None:
+    assert Path(sandbox.BWRAP).is_absolute()
+    assert Path(sandbox.PRLIMIT).is_absolute()
 
 
 def test_unsandboxed_runs_keep_the_wall_clock_limit(
@@ -236,6 +252,51 @@ def test_it_is_killed_at_its_cpu_limit(tmp_path: Path) -> None:
         python("while True: pass", tmp_path, Limits(cpu_seconds=1, wall_seconds=30))
 
     assert raised.value.limit == "cpu"
+
+
+@pytest.mark.needs_bwrap
+@pytest.mark.usefixtures("sandboxed")
+def test_a_program_that_ignores_its_cpu_limit_is_killed_and_said_so(tmp_path: Path) -> None:
+    code = "import signal\nsignal.signal(signal.SIGXCPU, signal.SIG_IGN)\nwhile True: pass"
+
+    with pytest.raises(LimitReached) as raised:
+        python(code, tmp_path, Limits(cpu_seconds=1, wall_seconds=30))
+
+    assert raised.value.limit == "killed"
+
+
+@pytest.mark.needs_bwrap
+@pytest.mark.usefixtures("sandboxed")
+def test_it_has_no_memory_backed_folder_to_fill(tmp_path: Path) -> None:
+    code = """
+import os
+for target in ["/dev/shm/fill", "/dev/fill", "/run/fill", "/tmp/fill"]:
+    try:
+        with open(target, "wb") as file:
+            file.write(b"x" * (1 << 20))
+    except OSError as error:
+        print("refused", error.errno)
+    else:
+        print("wrote", target)
+print(sorted(os.listdir("/dev")))
+"""
+    finished = python(code, tmp_path)
+
+    lines = finished.stdout.decode().splitlines()
+    assert all(line.startswith("refused") for line in lines[:4]), lines
+    assert lines[4] == str(["fd", "null", "random", "stderr", "stdin", "stdout", "urandom", "zero"])
+
+
+@pytest.mark.needs_bwrap
+@pytest.mark.usefixtures("sandboxed")
+def test_a_program_the_sandbox_cannot_find_is_a_reader_failure(tmp_path: Path) -> None:
+    with pytest.raises(ReadError) as raised:
+        sandbox.run(["/opt/nowhere/dwgread"], reads=(), output=tmp_path)
+
+    assert raised.value.message == {
+        "code": "engine.read.reader_failed",
+        "params": {"program": "dwgread", "exit_code": 127},
+    }
 
 
 @pytest.mark.needs_bwrap

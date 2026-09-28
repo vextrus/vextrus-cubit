@@ -19,7 +19,7 @@ msgid "engine.read.geometry_missing"
 msgstr "{count, plural, one {# entity was read without its geometry} other {# entities were read without their geometry}}"
 
 msgid "engine.read.limit_reached"
-msgstr "{limit, select, cpu {The drawing could not be read: {program} used all the processing time it is given} wall {The drawing could not be read: {program} was stopped at its time limit} other {The drawing could not be read: {program} reached a limit}}"
+msgstr "{limit, select, cpu {The drawing could not be read: {program} used all the processing time it is given} wall {The drawing could not be read: {program} was stopped at its time limit} killed {The drawing could not be read: {program} was stopped at a limit of the machine's} other {The drawing could not be read: {program} reached a limit}}"
 
 msgid "engine.read.output_unreadable"
 msgstr "The drawing could not be read: what {program} produced could not be understood"
