@@ -1,0 +1,83 @@
+msgid ""
+msgstr ""
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: en\n"
+
+#. engine/messages/pdf_report.py (ticket 12): the PDF upload report, after m0-screens 4.5.
+#. PDFSHX at 1 is from Autodesk's "PDFSHX (System Variable)" help page (engine/read/pdf says how it was checked).
+msgid "engine.pdf_report.extras_ignored"
+msgstr "{count, plural, one {The PDF also holds # item that is not part of the drawing (a script, a link or an attached file). Vextrus does not run or open it.} other {The PDF also holds # items that are not part of the drawing (scripts, links or attached files). Vextrus does not run or open them.}}"
+
+msgid "engine.pdf_report.fonts_drawn"
+msgstr "{fonts, plural, one {Text in # font is drawn as small pictures of letters, so it may not read as text.} other {Text in # fonts is drawn as small pictures of letters, so it may not read as text.}}"
+
+msgid "engine.pdf_report.fonts_not_embedded"
+msgstr "{fonts, plural, one {# font is not included in the PDF. Its text still reads as text, but may look different here than in the consultant's PDF.} other {# fonts are not included in the PDF. Their text still reads as text, but may look different here than in the consultant's PDF.}}"
+
+msgid "engine.pdf_report.fonts_unreadable"
+msgstr "{fonts, plural, one {# font in the PDF is damaged, so its text cannot be read. The rest of the page is read.} other {# fonts in the PDF are damaged, so their text cannot be read. The rest of the page is read.}}"
+
+msgid "engine.pdf_report.layers_flattened"
+msgstr "The layers were flattened: everything is on one layer. The Plot is still fine to look at."
+
+msgid "engine.pdf_report.layers_kept"
+msgstr "The drawing's layers are kept in the PDF ({layers, plural, one {# layer} other {# layers}})."
+
+msgid "engine.pdf_report.lettering_kept"
+msgstr "The AutoCAD lettering is kept as text on every page."
+
+msgid "engine.pdf_report.lettering_lines"
+msgstr "{pages, plural, one {On # page the lettering is drawn as lines, not text.} other {On # pages the lettering is drawn as lines, not text.}} The Plot still looks right, but a machine cannot read that text. If you ask the consultant for a new PDF, ask them to set AutoCAD's PDFSHX to 1 before they plot, so the lettering stays text."
+
+msgid "engine.pdf_report.lettering_partly"
+msgstr "The AutoCAD lettering is kept as text on {pages} of {of} pages."
+
+msgid "engine.pdf_report.lettering_unconfirmed"
+msgstr "{pages, plural, one {# page has text, but no AutoCAD lettering kept as text.} other {# pages have text, but no AutoCAD lettering kept as text.}} If the drawings use AutoCAD's own lettering, that text is drawn as lines and a machine cannot read it. If you ask the consultant for a new PDF, ask them to set AutoCAD's PDFSHX to 1 before they plot."
+
+msgid "engine.pdf_report.limit_reached"
+msgstr "{limit, select, memory {This PDF could not be read: it needs more memory than Vextrus gives one file.} cpu {This PDF could not be read: it needs more time than Vextrus gives one file.} wall {This PDF could not be read: reading it did not finish in the time Vextrus gives one file.} other {This PDF could not be read: reading it was stopped.}} It may be damaged. Ask the consultant for the PDF again, or for the DWG files."
+
+msgid "engine.pdf_report.locked"
+msgstr "This PDF is locked with a password, so Vextrus cannot read it. Ask the consultant for a copy without a password, or for the DWG files."
+
+msgid "engine.pdf_report.made_by_autocad"
+msgstr "Made by AutoCAD's PDF plotter."
+
+msgid "engine.pdf_report.made_by_other"
+msgstr "Made by {producer}, not AutoCAD: it may have been merged or re-saved. Its lines are still the plot's, but a page may not line up exactly with its sheet."
+
+msgid "engine.pdf_report.made_by_unknown"
+msgstr "The PDF does not say what made it."
+
+msgid "engine.pdf_report.mostly_picture"
+msgstr "Page {page} is mostly a picture ({percent}%): it may be a scan."
+
+msgid "engine.pdf_report.no_pictures"
+msgstr "No pictures."
+
+msgid "engine.pdf_report.page_unreadable"
+msgstr "Page {page} is damaged, so only part of it could be read. The other pages are read."
+
+msgid "engine.pdf_report.pages"
+msgstr "{pages, plural, one {# page.} other {# pages.}}{turned, plural, =0 {} one { # is turned; Vextrus turns it to match its sheet.} other { # are turned; Vextrus turns them to match their sheets.}}"
+
+msgid "engine.pdf_report.pictures"
+msgstr "{pages, plural, one {Pictures on # page} other {Pictures on # pages}}, covering at most {percent}% of a page (logos, stamps or photos)."
+
+msgid "engine.pdf_report.scan"
+msgstr "This PDF is a scan: its pages are pictures, with no lines or text to read. Vextrus reads drawings, not scans. Ask the Developer or the consultant for the DWG files, or for a PDF plotted from AutoCAD."
+
+msgid "engine.pdf_report.scan_page"
+msgstr "Page {page} is a scan: a picture, with no lines or text to read. The other pages are read."
+
+msgid "engine.pdf_report.too_many_pages"
+msgstr "This PDF has more than {limit} pages, so Vextrus did not read it. Ask the consultant for one PDF per Discipline, or for the DWG files."
+
+msgid "engine.pdf_report.unmapped_text"
+msgstr "{chars, plural, one {# letter is set in a font that does not say which letter it is, so it cannot be read as text.} other {# letters are set in fonts that do not say which letters they are, so they cannot be read as text.}}"
+
+msgid "engine.pdf_report.unreadable"
+msgstr "This PDF could not be read: it may be damaged. Ask the consultant for the PDF again, or for the DWG files."
