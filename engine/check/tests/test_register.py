@@ -1,6 +1,7 @@
 """The drawing-list Check, the numbering's run and `parse` (ticket 19b), on hand-made candidates and
 13's stand-in readers. Every finding is asserted by its code, params and subject."""
 
+import re
 from typing import Any
 
 import pytest
@@ -442,3 +443,63 @@ def test_two_sets_drawn_differently_read_alike() -> None:
             ("runs", [(3, [1])]),
         ]
     )
+
+
+def test_parse_runs_no_regular_expression_over_a_line(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Work linear in the text: a pattern like \\s+to\\s+ backtracks over a line of spaces (a 1 MB
+    paste of such lines took 3 s of CPU); only the conventions' revision-mark pattern is compiled, and
+    it meets short cells only."""
+
+    class NoPatterns:
+        compile = staticmethod(__import__("re").compile)
+
+        def __getattr__(self, name: str) -> Any:
+            raise AssertionError(f"parse used re.{name}")
+
+    patterns = [name for name, value in vars(register).items() if isinstance(value, re.Pattern)]
+    assert patterns == []  # none compiled at import either
+    monkeypatch.setattr(register, "re", NoPatterns())
+    lines = ["a" + " " * 997 + "b", "-" + " " * 997 + "-", "a" + " -" * 498 + "b", "01 - 57"]
+    for line in lines[:3]:
+        assert parsed("\n".join([line] * 999) + "\nS-01 x").ignored == 999
+    assert refusal(lines[3])["code"] == "engine.register_check.range_hyphen"
+    assert parsed("A-01   TO   A-02").entries == (ListEntry("A-01", 1), ListEntry("A-02", 1))
+
+
+def test_an_entry_on_an_equal_copy_of_a_sheet_is_refused() -> None:
+    cover = sheet("S-01", "List")
+    copy = SheetCandidate(**{f: getattr(cover, f) for f in cover.__dataclass_fields__})
+    with pytest.raises(ValueError, match="does not hold"):
+        check(reading([cover], (entry(copy, "S-01"),)), recognisers=READERS)
+
+
+def _lines(action: Any) -> int:
+    """How many lines of engine/check/register.py ran: work counted, never timed."""
+    import sys
+
+    count = 0
+
+    def tracer(frame: Any, event: str, arg: object) -> Any:
+        nonlocal count
+        if frame.f_code.co_filename != register.__file__:
+            return None
+        count += event == "line"
+        return tracer
+
+    sys.settrace(tracer)
+    try:
+        action()
+    finally:
+        sys.settrace(None)
+    return count
+
+
+def test_the_check_and_the_numbering_do_linear_work() -> None:
+    def work(n: int) -> int:
+        sheets = [sheet(f"S-{2 * k}") for k in range(n)]
+        listed = typed("set", "structural", *(f"S-{2 * k + 1}" for k in range(n)))
+        a = _lines(lambda: check(reading(sheets, lists=(listed,)), recognisers=READERS))
+        return a + _lines(lambda: numbering(sheets, conventions=CONVENTIONS, recognisers=READERS))
+
+    small, large = work(1_000), work(2_000)
+    assert large < 2.2 * small, (small, large)

@@ -94,7 +94,6 @@ MARK_LIMIT = 16
 """The longest cell the revision-mark pattern is tried on (the pattern is the conventions')."""
 
 _DASHES = ("\u2013", "\u2014")  # en dash, em dash
-_TO = re.compile(r"\s+to\s+", re.IGNORECASE)
 _SEPARATORS = "-\u2013\u2014:|.,;"
 
 type Key = tuple[Hashable, ...]
@@ -347,11 +346,12 @@ def _is_number(token: str, recognisers: Recognisers) -> bool:
 def _range(line: str, index: int, recognisers: Recognisers) -> list[str] | None:
     """A range line's numbers, or none when the line is no range; `Refused` when it is a range that
     cannot be read."""
-    halves = _TO.split(line)
-    if len(halves) != 2:
-        dashed = [line.split(dash) for dash in _DASHES if dash in line]
-        halves = dashed[0] if len(dashed) == 1 else []
-    halves = [half.strip() for half in halves]
+    words = line.split()  # never a regular expression over the line: the work stays linear
+    if len(words) == 3 and words[1].casefold() == "to":
+        halves = [words[0], words[2]]
+    else:
+        dashed = [dash for dash in _DASHES if dash in line]
+        halves = [half.strip() for half in line.split(dashed[0])] if len(dashed) == 1 else []
     if len(halves) != 2 or not all(h and not any(c.isspace() for c in h) for h in halves):
         _hyphenated(line, index, recognisers)
         return None
@@ -384,8 +384,11 @@ def _form(printed: str, parts: tuple[str, int, str]) -> tuple[str, str, int]:
 def _hyphenated(line: str, index: int, recognisers: Recognisers) -> None:
     """Refuse a line that is two numbers of one kind joined by a hyphen ("01-57"): one number, or a
     range? The QS is asked to write "01 to 57"."""
-    token = re.sub(r"\s*-\s*", "-", line)
-    if len(token) > 2 * NUMBER_LIMIT + 1 or any(c.isspace() for c in token):
+    words = line.split()
+    if not all(a.endswith("-") or b.startswith("-") for a, b in pairwise(words)):
+        return  # a space not beside a hyphen: words, not one token
+    token = "".join(words)
+    if len(token) > 2 * NUMBER_LIMIT + 1:
         return
     for at in (i for i, char in enumerate(token) if char == "-"):
         first, last = token[:at], token[at + 1 :]

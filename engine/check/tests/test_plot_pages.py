@@ -98,3 +98,11 @@ def test_a_match_the_check_cannot_name_is_refused(plot: Any, error: type[Excepti
             SetReading(sheets=(s1,), views=((),), plot=tuple(plot(s1)), read=frozenset({"plot"})),
             recognisers=READERS,
         )
+
+
+def test_a_match_naming_an_equal_copy_of_a_sheet_is_refused() -> None:
+    s1 = sheet("S-01")
+    copy = SheetCandidate(**{f: getattr(s1, f) for f in s1.__dataclass_fields__})
+    assert copy == s1
+    with pytest.raises(ValueError, match="does not hold"):
+        check(reading([s1], [matched(1, copy)]), recognisers=READERS)

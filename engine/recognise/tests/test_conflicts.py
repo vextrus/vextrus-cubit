@@ -534,3 +534,19 @@ def test_two_sets_drawn_differently_read_alike() -> None:
             "Conflict:same_storey",
         ]
     )
+
+
+@pytest.mark.parametrize(
+    ("a", "b", "one_number"),
+    [
+        ("S-\u00b2", "S-2", True),  # a superscript two is a two in normal form (NFKC)
+        ("\u00bd", "1\u20442", True),  # a vulgar half is 1, a fraction slash, 2
+        ("\u00bd", "1/2", False),  # the fraction slash is not a solidus
+        ("S-\u09e6\u09ed", "S-07", False),  # Bengali digits are their own characters as printed
+    ],
+)
+def test_numbers_that_are_not_plain_digits_compare_in_normal_form(
+    a: str, b: str, one_number: bool
+) -> None:
+    found = run([sheet(a), sheet(b)])
+    assert [c.kind for c in found] == (["same_number"] if one_number else [])
