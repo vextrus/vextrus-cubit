@@ -2,14 +2,17 @@
 1-7): a fake harness writes invented exports, a fake poster records what it is asked to post.
 No test raises privilege or names the key user."""
 
+import dataclasses
 import fcntl
+import hashlib
 import json
 import os
 from pathlib import Path
 
 import pytest
 
-from scripts.real_drawings.command import run
+from scripts.real_drawings import sandbox
+from scripts.real_drawings.command import Machine, run
 from scripts.real_drawings.source import Refused
 from scripts.real_drawings.tests.world import FAKE_EXPORT, PYPROJECT, World, invented, make_world
 
@@ -164,6 +167,25 @@ def test_mains_run_is_cached_by_code_hash_and_reused_after_a_non_engine_merge(wo
     run("tuning", no_post=True, m=world.machine())
 
     assert len(world.sandbox_runs) == 1  # the head and main share main's code hash: nothing ran
+
+
+def test_an_export_read_in_another_sandbox_is_never_reused(world: World) -> None:
+    # The owner's first baseline was read in a sandbox without /tmp, where 04's reader could not
+    # start: the same code in the fixed sandbox must read again, not reuse that export.
+    run("main", no_post=True, m=dataclasses.replace(world.machine(), sandbox_version="without-tmp"))
+    run("main", no_post=True, m=dataclasses.replace(world.machine(), sandbox_version="with-tmp"))
+    run("main", no_post=True, m=dataclasses.replace(world.machine(), sandbox_version="with-tmp"))
+
+    assert len(world.sandbox_runs) == 2
+
+
+def test_the_sandbox_version_is_its_codes_own_hash() -> None:
+    source = (Path(sandbox.__file__)).read_bytes()
+
+    assert (
+        Machine.__dataclass_fields__["sandbox_version"].default
+        == hashlib.sha256(source).hexdigest()[:16]
+    )
 
 
 def test_an_engine_change_runs_the_head_and_diffs_against_mains_cached_run(world: World) -> None:

@@ -7,7 +7,8 @@ sandbox, the exports taken out link-free and checked against main's schema (or, 
 the schema, against its own, which the run says so the diff is read). It measures main the same
 way when main's code hash is not cached, and diffs each Development Set's export against main's under
 the fixed matching, printing the counts gained, lost and changed per measure; the item list, which
-holds drawing text, stays under the owner's cache. Exports are cached by (code hash, set content).
+holds drawing text, stays under the owner's cache. Exports are cached by (code hash, the sandbox's
+version, set content).
 
 A posting run is a PR without `--no-post`: under the drop folder's lock, the owner accepts or rejects
 the changes (a lost item only with a reason), the command writes the run's own folder in the drop
@@ -56,6 +57,9 @@ SCHEMA = "engine/export.schema.json"
 PATTERNS = ".github/engine-paths.txt"
 POSTER_CONFIG = "scripts/owner/post-status.toml"
 REASON_MOST = 100
+# What the sandbox gives the harness also decides what it reads (the first baseline's sandbox had no
+# /tmp, so 04's reader could not start): an export is reused only by the same sandbox.
+SANDBOX_VERSION = hashlib.sha256(Path(sandbox.__file__).read_bytes()).hexdigest()[:16]
 
 
 @dataclass(frozen=True)
@@ -72,6 +76,7 @@ class Machine:
     post: Callable[[str], int] = field(default=lambda run_id: 1)
     ask: Callable[[str], str] = input
     say: Callable[[str], None] = print
+    sandbox_version: str = SANDBOX_VERSION
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -208,7 +213,8 @@ def measure(
     if found:
         raise Refused(f"{head.target}: " + "; ".join(found))
     cached = {
-        name: m.cache / "exports" / hashed / f"{name}-{digest}.json" for name, digest in digests.items()
+        name: m.cache / "exports" / hashed / m.sandbox_version / f"{name}-{digest}.json"
+        for name, digest in digests.items()
     }
     if all(path.exists() for path in cached.values()):
         m.say(f"{head.target}: code hash {hashed[:12]} is cached; not run again")
