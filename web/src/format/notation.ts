@@ -85,7 +85,7 @@ function feetInches(mm: number, mode: Sign): NotationText {
 }
 
 /** Whole millimetres (3050 mm) or metres to 3 decimals (152.400 m), rounded once, in millimetres. */
-function metric(mm: number, unit: 'mm' | 'm', mode: Sign): NotationText {
+function siText(mm: number, unit: 'mm' | 'm', mode: Sign): NotationText {
   if (!Number.isFinite(mm)) return NONE
   const whole = halfUp(Math.abs(mm))
   const figure = unit === 'mm' ? String(whole) : `${Math.floor(whole / 1000)}.${String(whole % 1000).padStart(3, '0')}`
@@ -95,17 +95,17 @@ function metric(mm: number, unit: 'mm' | 'm', mode: Sign): NotationText {
 
 /** A length: 10′-4½″, or whole millimetres (3050 mm). */
 export function lengthText(length: Length, notation: LengthNotation): NotationText {
-  return notation === 'feet-inches' ? feetInches(length.mm, 'negative') : metric(length.mm, 'mm', 'negative')
+  return notation === 'feet-inches' ? feetInches(length.mm, 'negative') : siText(length.mm, 'mm', 'negative')
 }
 
 /** A coordinate, its own kind: 42′-7½″, −3′-6″, or metres to 3 decimals (152.400 m). */
 export function coordinateText(coordinate: Length, notation: LengthNotation): NotationText {
-  return notation === 'feet-inches' ? feetInches(coordinate.mm, 'negative') : metric(coordinate.mm, 'm', 'negative')
+  return notation === 'feet-inches' ? feetInches(coordinate.mm, 'negative') : siText(coordinate.mm, 'm', 'negative')
 }
 
 /** A level, always signed: +56′-6″, ±0′-0″, −3.200 m. */
 export function levelText(level: Length, notation: LengthNotation): NotationText {
-  return notation === 'feet-inches' ? feetInches(level.mm, 'always') : metric(level.mm, 'm', 'always')
+  return notation === 'feet-inches' ? feetInches(level.mm, 'always') : siText(level.mm, 'm', 'always')
 }
 
 /** A stated scale: 1:100 from its denominator, or the drawing's own words for it as read. */
