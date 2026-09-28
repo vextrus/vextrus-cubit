@@ -51,6 +51,9 @@ export function List<T>(props: ListProps<T>) {
   const [focusedKey, setFocusedKey] = useControlled<string | null>(props.focusedKey, props.onFocusedKeyChange, null)
   const [selected, setSelected] = useControlled<ReadonlySet<string>>(props.selectedKeys, props.onSelectedKeysChange, new Set())
   const anchor = useRef<string | null>(null)
+  // What was selected when the anchor was set: a Shift range is drawn on top of it, so extending
+  // back towards the anchor shrinks the range instead of only ever growing it.
+  const beforeRange = useRef<ReadonlySet<string>>(new Set())
   const lastIndex = useRef(0)
 
   const keysOf = items.map(getKey)
@@ -83,7 +86,11 @@ export function List<T>(props: ListProps<T>) {
     const a = keysOf.indexOf(from)
     const b = keysOf.indexOf(to)
     if (a < 0 || b < 0) return
-    const next = new Set(selected)
+    if (anchor.current === null) {
+      anchor.current = from
+      beforeRange.current = selected
+    }
+    const next = new Set(beforeRange.current)
     for (let i = Math.min(a, b); i <= Math.max(a, b); i++) next.add(keysOf[i]!)
     setSelected(next)
   }
@@ -93,6 +100,7 @@ export function List<T>(props: ListProps<T>) {
     if (next.has(key)) next.delete(key)
     else next.add(key)
     anchor.current = key
+    beforeRange.current = next
     setSelected(next)
   }
 
@@ -130,6 +138,7 @@ export function List<T>(props: ListProps<T>) {
                 selectRange(anchor.current ?? focused ?? key, key)
               } else if (selectable) {
                 anchor.current = key
+                beforeRange.current = new Set([key])
                 setSelected(new Set([key]))
               }
               setFocusedKey(key)

@@ -85,6 +85,27 @@ describe('the list every table uses (m0-screens §3, §2.2)', () => {
     expect(option('S-04')).toHaveAttribute('aria-selected', 'true')
   })
 
+  it('shrinks a Shift range back towards its anchor, keeping what was chosen before the anchor', async () => {
+    renderList(<Sheets selectable />)
+    const user = userEvent.setup()
+    const chosen = () => ['S-01', 'S-02', 'S-03', 'S-04', 'S-05'].filter((n) => option(n).getAttribute('aria-selected') === 'true')
+    await user.click(option('S-03'))
+    await user.keyboard('{Shift>}{ArrowDown}{ArrowDown}{/Shift}')
+    expect(chosen()).toEqual(['S-03', 'S-04', 'S-05'])
+    await user.keyboard('{Shift>}{ArrowUp}{/Shift}')
+    expect(chosen()).toEqual(['S-03', 'S-04'])
+    await user.keyboard('{Shift>}')
+    await user.click(option('S-02'))
+    await user.keyboard('{/Shift}')
+    expect(chosen()).toEqual(['S-02', 'S-03'])
+    await user.click(option('S-05'))
+    await user.keyboard('{ArrowUp}{ArrowUp}{ArrowUp}{ArrowUp} ')
+    await user.keyboard('{Shift>}{ArrowDown}{/Shift}')
+    expect(chosen()).toEqual(['S-01', 'S-02', 'S-05'])
+    await user.keyboard('{Shift>}{ArrowUp}{/Shift}')
+    expect(chosen()).toEqual(['S-01', 'S-05'])
+  })
+
   it('leaves Space to the feature when the list does not opt in (Step 1 claims it)', async () => {
     const open = vi.fn()
     const { map } = renderList(<Sheets keys={[{ key: 'Space', label: 'Open the focused sheet', group: 'screen', run: open }]} />)
