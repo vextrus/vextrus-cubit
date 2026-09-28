@@ -1,5 +1,6 @@
-"""`scripts/real-drawings <PR number | branch | main> [--no-post]`: the real-drawing check, regression
-only (the M0 plan, "The real-drawing check", steps 1-7; ADRs 0026 and 0030 as amended in session 02).
+"""`scripts/real-drawings <PR number | branch | main> [--no-post] [--fresh]`: the real-drawing check,
+regression only (the M0 plan, "The real-drawing check", steps 1-7; ADRs 0026 and 0030 as amended in
+session 02).
 
 Run from the owner's checkout of main. It measures the head: the engine paths' files into a scratch
 checkout, the refusals, the locked wheels fetched by hash, the install and the harness inside the
@@ -8,7 +9,8 @@ the schema, against its own, which the run says so the diff is read). It measure
 way when main's code hash is not cached, and diffs each Development Set's export against main's under
 the fixed matching, printing the counts gained, lost and changed per measure; the item list, which
 holds drawing text, stays under the owner's cache. Exports are cached by (code hash, the sandbox's
-version, set content).
+version, set content); one is reused only when it passes the schema again and nothing in it failed (a
+stage, or a file's process), and `--fresh` reads both runs again.
 
 A posting run is a PR without `--no-post`: under the drop folder's lock, the owner accepts or rejects
 the changes (a lost item only with a reason), the command writes the run's own folder in the drop
@@ -58,8 +60,24 @@ PATTERNS = ".github/engine-paths.txt"
 POSTER_CONFIG = "scripts/owner/post-status.toml"
 REASON_MOST = 100
 # What the sandbox gives the harness also decides what it reads (the first baseline's sandbox had no
-# /tmp, so 04's reader could not start): an export is reused only by the same sandbox.
-SANDBOX_VERSION = hashlib.sha256(Path(sandbox.__file__).read_bytes()).hexdigest()[:16]
+# /tmp, so 04's reader could not start): an export is reused only by the same sandbox. These are the
+# files of main's check that shape what runs inside it: the Job (this file), the bwrap arguments and
+# the script (sandbox.py), the checkout's files and modes (source.py), and the requirements and the
+# wheels, the compiled or the pure ezdxf (wheels.py). The rest reads what the sandbox left, after it.
+SHAPING = ("command.py", "sandbox.py", "source.py", "wheels.py")
+
+
+def sandbox_version(folder: Path) -> str:
+    """The sandbox's version: every shaping file's name and content, in `folder`."""
+    digest = hashlib.sha256()
+    for name in SHAPING:
+        content = (folder / name).read_bytes()
+        digest.update(f"{name} {len(content)}\n".encode())
+        digest.update(content)
+    return digest.hexdigest()[:16]
+
+
+SANDBOX_VERSION = sandbox_version(Path(__file__).parent)
 
 
 @dataclass(frozen=True)
@@ -83,10 +101,13 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="scripts/real-drawings", description=__doc__.split("\n\n")[0])
     parser.add_argument("target", help="a PR number, a local branch, or main")
     parser.add_argument("--no-post", action="store_true", help="measure and diff only; never post")
+    parser.add_argument(
+        "--fresh", action="store_true", help="read the head and main again, ignoring the cache"
+    )
     args = parser.parse_args(argv)
     machine = owners_machine()
     try:
-        return run(args.target, no_post=args.no_post, m=machine)
+        return run(args.target, no_post=args.no_post, m=machine, fresh=args.fresh)
     except Refused as refused:
         print(f"real-drawings: refused: {refused}", file=sys.stderr)
         return 2
@@ -114,7 +135,7 @@ def owners_machine() -> Machine:
     )
 
 
-def run(target: str, *, no_post: bool, m: Machine) -> int:
+def run(target: str, *, no_post: bool, m: Machine, fresh: bool = False) -> int:
     started = time.monotonic()
     posting = target.isdigit() and not no_post
     with drop.posting_lock(m.drop) if posting else nullcontext():
@@ -132,10 +153,10 @@ def run(target: str, *, no_post: bool, m: Machine) -> int:
         work.mkdir(parents=True)
         digests = {name: set_digest(folder) for name, folder in sorted(m.sets.items())}
         m.say(f"real-drawings {run_id}: {head.target} at {head.commit[:12]}, main at {base.commit[:12]}")
-        head_hash, head_exports = measure(m, head, main, work / "head", run_id, digests)
+        head_hash, head_exports = measure(m, head, main, work / "head", run_id, digests, fresh)
         main_hash, main_exports = head_hash, head_exports
         if head.commit != base.commit:
-            main_hash, main_exports = measure(m, base, main, work / "main", run_id, digests)
+            main_hash, main_exports = measure(m, base, main, work / "main", run_id, digests, fresh)
         counts, items = report(m, main_exports, head_exports, head.commit == base.commit)
         head_failed = failed_text(head_exports)
         drop.write_new(work / "items.json", _json(items))  # holds drawing text: the owner's cache only
@@ -190,9 +211,16 @@ def mains(repo: Path, commit: str) -> Mains:
 
 
 def measure(
-    m: Machine, head: Head, main: Mains, work: Path, run_id: str, digests: Mapping[str, str]
+    m: Machine,
+    head: Head,
+    main: Mains,
+    work: Path,
+    run_id: str,
+    digests: Mapping[str, str],
+    fresh: bool = False,
 ) -> tuple[str, dict[str, Path]]:
-    """One commit's exports, from the cache when its code hash has read these sets before."""
+    """One commit's exports, from the cache when its code hash has read these sets before in the same
+    sandbox and no stage failed; `fresh` reads them again whatever the cache holds."""
     main_pyproject, schema_text = main.pyproject, main.schema
     files = engine_files(m.repo, head.commit, main.patterns.decode())
     hashed = code_hash(files)
@@ -216,9 +244,24 @@ def measure(
         name: m.cache / "exports" / hashed / m.sandbox_version / f"{name}-{digest}.json"
         for name, digest in digests.items()
     }
-    if all(path.exists() for path in cached.values()):
-        m.say(f"{head.target}: code hash {hashed[:12]} is cached; not run again")
-        return hashed, cached
+    schema = json.loads(schema_text)
+    head_schema = (checkout / SCHEMA).read_bytes() if (checkout / SCHEMA).exists() else schema_text
+    if head_schema != schema_text:
+        m.say(f"{head.target} changes {SCHEMA}: its export is checked against its own; read that diff")
+        schema = json.loads(head_schema)
+    # A cached export is reused only when it passes the schema again and nothing in it failed. The
+    # cache is shared with every local copy of the command, so this copy checks what it reads, not only
+    # what it wrote. A failure may be the machine's (a timeout, an OOM kill, SandboxUnavailable), not the
+    # code's: reused, it would stand as main's run, and as a non-engine PR's own, until the code hash
+    # changed. A failure the code causes repeats, at one run's cost.
+    if fresh:
+        m.say(f"{head.target}: --fresh, so read again whatever the cache holds")
+    elif all(path.exists() for path in cached.values()):
+        why = next(filter(None, (_unusable(path, schema) for path in cached.values())), "")
+        if not why:
+            m.say(f"{head.target}: code hash {hashed[:12]} is cached; not run again")
+            return hashed, cached
+        m.say(f"{head.target}: the cached run of code hash {hashed[:12]} {why}; read again")
     requirements = work / "requirements.txt"
     m.fetch(checkout, m.cache / "wheels", python, requirements)
     scratch = work / "out"
@@ -229,11 +272,6 @@ def measure(
     )
     m.say(f"{head.target}: installing and reading {len(m.sets)} sets in the sandbox (log in {work})")
     m.sandbox(job, work / "sandbox.log")
-    schema = json.loads(schema_text)
-    head_schema = (checkout / SCHEMA).read_bytes() if (checkout / SCHEMA).exists() else schema_text
-    if head_schema != schema_text:
-        m.say(f"{head.target} changes {SCHEMA}: its export is checked against its own; read that diff")
-        schema = json.loads(head_schema)
     exports = {}
     for name in sorted(m.sets):
         taken = work / f"export-{name}.json"
@@ -291,7 +329,8 @@ def report(
 
 def failed_text(exports: Mapping[str, Path]) -> str:
     """The stages that failed in these exports, by stage, file count and error kind (never the error's
-    message, which may quote a drawing); empty when none failed."""
+    message, which may quote a drawing), a file's process that did not end ok among them as "process";
+    empty when none failed."""
     found: Counter[tuple[str, str]] = Counter()
     for path in exports.values():
         found += failures(json.loads(path.read_bytes()))
@@ -321,6 +360,20 @@ def verdict(
         "reason": reason,
         "measures": {measure: dict(counts[measure]) for measure in MEASURES},
     }
+
+
+def _unusable(export: Path, schema: Mapping[str, Any]) -> str:
+    """Why a cached export may not be reused, or "" when it may: it cannot be read or checked, it
+    breaks the schema, or something in it failed (a stage, a file's or the set's, or a file's process:
+    `failures`, where a process whose status is not ok, or not said, counts)."""
+    try:
+        document = json.loads(export.read_bytes())
+        breaches = problems(document, schema)
+    except ValueError, SchemaError:
+        return "cannot be checked"
+    if breaches:
+        return "breaks the schema"
+    return "had a failure" if failures(document) else ""
 
 
 def _pin(checkout: Path, name: str) -> str:
