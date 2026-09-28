@@ -13,10 +13,15 @@
  * ended on 20 Sep 2026.
  */
 import type { components } from '@/api/schema.gen'
-import type { EndedOut75, MeOut75, MemberAction, MembersOut75, PendingOut75, PersonOut75 } from '@/api/until75'
 import type { Role } from '@/app/session'
 
 type Schemas = components['schemas']
+type MeOut = Schemas['MeOut']
+type EndedOut = Schemas['EndedOut']
+type MemberAction = Schemas['MemberAction']
+type MembersOut = Schemas['MembersOut']
+type PersonOut = Schemas['PersonOut']
+type PendingOut = Schemas['PendingOut']
 
 export const PASSWORD = 'correct horse battery'
 
@@ -384,12 +389,12 @@ export class FakeApi {
     return m.projectIds.length === 0 || m.projectIds.includes(projectId)
   }
 
-  private me(): MeOut75 {
+  private me(): MeOut {
     const user = this.users.find((u) => u.id === this.session.userId)!
     const current = this.currentMemberships(user.id)
     const acting = this.acting()
     const currentTenants = new Set(current.map((m) => m.tenant))
-    const latest = new Map<string, EndedOut75>()
+    const latest = new Map<string, EndedOut>()
     for (const m of this.memberships.filter((x) => x.userId === user.id && !currentTenants.has(x.tenant))) {
       const end = this.ending(m)
       if (!end) continue
@@ -451,11 +456,11 @@ export class FakeApi {
     return m.expiresAt !== null ? ['renew', 'revoke'] : ['revoke']
   }
 
-  private members(viewer: Membership): MembersOut75 {
+  private members(viewer: Membership): MembersOut {
     const seesAccess = ROLES.access.includes(viewer.role)
-    const people: PersonOut75[] = []
-    const vextrus: PersonOut75[] = []
-    const invitations: PendingOut75[] = []
+    const people: PersonOut[] = []
+    const vextrus: PersonOut[] = []
+    const invitations: PendingOut[] = []
     for (const m of this.memberships.filter((x) => x.tenant === viewer.tenant)) {
       const seen = this.seenProjects(viewer, m.projectIds)
       if (!seen) continue
@@ -483,7 +488,7 @@ export class FakeApi {
       const end = this.ending(m)
       const mine = this.acts.filter((a) => a.tenant === viewer.tenant && a.actorId === user.id)
       const revoker = this.acts.find((a) => a.code === 'platform.invitations.revoked' && a.subjectId === m.id && a.actorId)
-      const person: PersonOut75 = {
+      const person: PersonOut = {
         membership_id: m.id,
         user_id: user.id,
         name: user.name,

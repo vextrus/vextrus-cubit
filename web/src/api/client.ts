@@ -19,7 +19,7 @@
  */
 import createClient, { type Middleware } from 'openapi-fetch'
 import { emitSessionEvent } from './events'
-import { refusalCode, sessionEventOf, unwrap } from './refusal'
+import { refusalCode, sessionEventOf } from './refusal'
 import type { paths } from './schema.gen'
 
 export { ApiRefused, readRefusal, unwrap } from './refusal'
@@ -91,21 +91,3 @@ export function createApi<Paths extends {}>() {
 
 /** The app's one client. */
 export const api = createApi<paths>()
-
-/**
- * A request to an operation the generated types do not hold yet (ticket #75's, until it merges; then
- * each caller moves to `api`). The same transport, CSRF and session watch; the body is JSON.
- */
-export async function callLoose<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
-  const request = new Request(path, {
-    method,
-    credentials: 'same-origin',
-    headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  })
-  const prepared = (await csrf.onRequest?.({ request } as Parameters<NonNullable<Middleware['onRequest']>>[0])) ?? request
-  const response = await transport(prepared as Request)
-  await sessionWatch.onResponse?.({ request, response } as Parameters<NonNullable<Middleware['onResponse']>>[0])
-  const parsed = response.status === 204 ? undefined : await response.json().catch(() => undefined)
-  return unwrap(Promise.resolve(response.ok ? { data: parsed as T, response } : { error: parsed, response }))
-}

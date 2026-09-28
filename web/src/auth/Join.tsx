@@ -23,7 +23,7 @@ import { Plural, Select, Trans, useLingui } from '@lingui/react/macro'
 import { useQueryClient } from '@tanstack/react-query'
 import { useRouter } from '@tanstack/react-router'
 import { ApiRefused, api, unwrap } from '@/api/client'
-import { lookUpProjects, type LinkProjectOut, type LookUpOut, type MeOut75 } from '@/api/until75'
+import type { components } from '@/api/schema.gen'
 import { AppLink, PATHS } from '@/app/AppLink'
 import { marketFormat, meFrom, meQuery, type Me } from '@/app/session'
 import { useFormat } from '@/format'
@@ -37,9 +37,9 @@ import { ProblemBar, problemOf, type Problem } from './problem'
 
 /** What the link's page knows once looked up. */
 export interface Invitation {
-  link: LookUpOut
+  link: components['schemas']['InvitationLookUpOut']
   /** Its projects by code and name; empty when it gives every project. */
-  projects: readonly LinkProjectOut[]
+  projects: readonly components['schemas']['InvitationProjectOut'][]
 }
 
 const MAX_TOKEN = 200
@@ -51,9 +51,8 @@ export function tokenOf(hash: string): string | null {
 }
 
 async function lookUp(token: string): Promise<Invitation> {
-  // The generated type of this answer is wrong (until75.ts, LookUpOut).
-  const link = (await unwrap(api.POST('/api/invitations/look-up', { body: { token } }))) as unknown as LookUpOut
-  const projects = link.project_ids.length > 0 ? await lookUpProjects(token) : []
+  const link = await unwrap(api.POST('/api/invitations/look-up', { body: { token } }))
+  const projects = link.project_ids.length > 0 ? await unwrap(api.POST('/api/invitations/look-up/projects', { body: { token } })) : []
   return { link, projects }
 }
 
@@ -194,14 +193,14 @@ function Ready({
   token: string
   onSignedIn: (me: Me) => void
   onSignedOut: () => void
-  onJoined: (out: MeOut75) => Promise<unknown>
+  onJoined: (out: components['schemas']['MeOut']) => Promise<unknown>
   onSignOut: () => Promise<void>
 }) {
   const { t } = useLingui()
   const { link } = invitation
   const developer = link.developer_name
   // The inviting Developer's Market words the line's date (the orchestrator's ruling, 29 Sep 2026).
-  const market = useMemo(() => (link.market ? marketFormat(link.market) : null), [link.market])
+  const market = useMemo(() => marketFormat(link.market), [link.market])
   const [refusal, setRefusal] = useState<MachineMessage | null>(null)
   const [problem, setProblem] = useState<Problem>(null)
   const [busy, setBusy] = useState(false)
@@ -241,7 +240,7 @@ function Ready({
       if (me === null && link.has_account) onSignedIn(meFrom(await signIn(link.email, password)))
       // A name and password make a new account; for an existing one they are left empty, as the API's defaults.
       const body = newAccount ? { token, name, password } : { token, name: '', password: '' }
-      const out = (await unwrap(api.POST('/api/invitations/accept', { body }))) as MeOut75
+      const out = await unwrap(api.POST('/api/invitations/accept', { body }))
       await onJoined(out)
     } catch (error) {
       setBusy(false)

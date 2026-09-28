@@ -7,7 +7,10 @@
 import { queryOptions } from '@tanstack/react-query'
 import { ApiRefused, api, unwrap } from '@/api/client'
 import type { components } from '@/api/schema.gen'
-import type { MemberAction, MembersOut75, PendingOut75, PersonOut75 } from '@/api/until75'
+type MemberAction = components['schemas']['MemberAction']
+type MembersOut = components['schemas']['MembersOut']
+type PersonOut = components['schemas']['PersonOut']
+type PendingOut = components['schemas']['PendingOut']
 import type { Role, Session } from '@/app/session'
 
 export type { MemberAction }
@@ -65,7 +68,7 @@ function codes(all: boolean, ids: readonly string[], session: Session): readonly
   return session.projects.filter((p) => ids.includes(p.id)).map((p) => p.code)
 }
 
-function person(out: PersonOut75, session: Session): PersonRow {
+function person(out: PersonOut, session: Session): PersonRow {
   const how = out.how_ended === 'revoked' || out.how_ended === 'expired' ? out.how_ended : null
   return {
     kind: 'person',
@@ -86,7 +89,7 @@ function person(out: PersonOut75, session: Session): PersonRow {
   }
 }
 
-function invitation(out: PendingOut75, session: Session): InvitationRow {
+function invitation(out: PendingOut, session: Session): InvitationRow {
   return {
     kind: 'invitation',
     membershipId: out.membership_id,
@@ -101,7 +104,7 @@ function invitation(out: PendingOut75, session: Session): InvitationRow {
 }
 
 /** `/api/members` as the page reads it. */
-export function membersFrom(out: MembersOut75, session: Session): Members {
+export function membersFrom(out: MembersOut, session: Session): Members {
   return {
     people: out.people.map((p) => person(p, session)),
     vextrus: out.vextrus_access.map((p) => person(p, session)),
@@ -117,8 +120,7 @@ export function retry(failures: number, error: unknown): boolean {
 
 export const membersQuery = queryOptions({
   queryKey: ['members'],
-  // Until #75 is on main, its `invited_by_id` and `actions` are typed in until75.ts.
-  queryFn: async () => (await unwrap(api.GET('/api/members'))) as unknown as MembersOut75,
+  queryFn: () => unwrap(api.GET('/api/members')),
   staleTime: 0,
   retry,
 })

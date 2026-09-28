@@ -7,7 +7,7 @@
 import { useState, type ReactNode } from 'react'
 import { Trans, useLingui } from '@lingui/react/macro'
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
-import { endedAccessProjects } from '@/api/until75'
+import { api, unwrap } from '@/api/client'
 import { AppLink, PATHS } from '@/app/AppLink'
 import { gateOf, meQuery, type EndedAccess } from '@/app/session'
 import { FormatProvider, useFormat, type MarketFormat } from '@/format'
@@ -17,10 +17,10 @@ import { CodeList } from './lists'
 import { OutsidePage } from './OutsidePage'
 import { ProblemBar, problemOf, type Problem } from './problem'
 
-/** A scoped Membership's project codes, from #75's `/api/ended-access/projects`. */
+/** A scoped Membership's project codes (`/api/ended-access/projects`). */
 export const endedProjectsQuery = {
   queryKey: ['ended-access-projects'] as const,
-  queryFn: endedAccessProjects,
+  queryFn: () => unwrap(api.GET('/api/ended-access/projects')),
   staleTime: Infinity,
 }
 

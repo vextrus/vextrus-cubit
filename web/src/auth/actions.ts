@@ -7,13 +7,14 @@ import { useCallback, useMemo } from 'react'
 import { useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { useRouter } from '@tanstack/react-router'
 import { ApiRefused, api, unwrap } from '@/api/client'
-import type { MeOut75 } from '@/api/until75'
+import type { components } from '@/api/schema.gen'
 import { PATHS } from '@/app/AppLink'
 import { meFrom, meQuery, type Me } from '@/app/session'
 import { useToast } from '@/ui'
 import { gateHref } from './gate'
 
 type Router = ReturnType<typeof useRouter>
+type MeOut = components['schemas']['MeOut']
 
 /** What the session's acts clear: the query cache, the router's cached pages, and the toast. */
 export interface Held {
@@ -38,7 +39,7 @@ export async function forgetAll({ queryClient, router, clearToast }: Held): Prom
 }
 
 /** After signing in, joining or choosing: forget everything held, keep the new `/api/me`, and go on. */
-export async function enter(held: Held, out: MeOut75, next?: string): Promise<Me> {
+export async function enter(held: Held, out: MeOut, next?: string): Promise<Me> {
   const me = meFrom(out)
   await forgetAll(held)
   held.queryClient.setQueryData(meQuery.queryKey, me)
@@ -49,8 +50,8 @@ export async function enter(held: Held, out: MeOut75, next?: string): Promise<Me
 }
 
 /** Signs in with an email and password; a refusal is thrown as an `ApiRefused`. */
-export async function signIn(email: string, password: string): Promise<MeOut75> {
-  return (await unwrap(api.POST('/api/auth/sign-in', { body: { email, password } }))) as MeOut75
+export async function signIn(email: string, password: string): Promise<MeOut> {
+  return (await unwrap(api.POST('/api/auth/sign-in', { body: { email, password } })))
 }
 
 /** Signs out: the API ends the session (already ended is fine), then /sign-in, and everything held is forgotten. */
@@ -66,7 +67,7 @@ export async function signOut(held: Held): Promise<void> {
 
 /** Works in another of the user's Developers; everything held is forgotten and the projects list opens. */
 export async function chooseDeveloper(held: Held, developerId: string, next?: string): Promise<Me> {
-  const out = (await unwrap(api.POST('/api/me/developer', { body: { developer_id: developerId } }))) as MeOut75
+  const out = (await unwrap(api.POST('/api/me/developer', { body: { developer_id: developerId } })))
   return enter(held, out, next)
 }
 
@@ -77,7 +78,7 @@ export function useHeld(): Held {
   return useMemo(() => ({ queryClient, router, clearToast: clear }), [queryClient, router, clear])
 }
 
-export function useEnter(): (out: MeOut75, next?: string) => Promise<Me> {
+export function useEnter(): (out: MeOut, next?: string) => Promise<Me> {
   const held = useHeld()
   return useCallback((out, next) => enter(held, out, next), [held])
 }

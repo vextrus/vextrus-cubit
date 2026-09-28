@@ -3,7 +3,7 @@
  * #75's "Access ended" facts), and where each signed-in user belongs (m0-screens §4.1, §4.2).
  */
 import { describe, expect, it } from 'vitest'
-import type { EndedOut75, MeOut75 } from '@/api/until75'
+import type { components } from '@/api/schema.gen'
 import { ENGLISH, type Language } from '@/i18n/languages'
 import { BANGLADESH_OUT } from './seed/api.fixture'
 import { BANGLADESH } from './seed/demo.fixture'
@@ -12,7 +12,10 @@ import { gateOf, marketFormat, meFrom, sessionFrom, NoDeveloper } from './sessio
 const SHAPLA = 'd-shapla'
 const MEGHNA = 'd-meghna'
 
-function me(over: Partial<MeOut75> = {}): MeOut75 {
+type MeOut = components['schemas']['MeOut']
+type EndedOut = components['schemas']['EndedOut']
+
+function me(over: Partial<MeOut> = {}): MeOut {
   return {
     user: { id: 'u-1', name: 'Nusrat Jahan', email: 'nusrat@shapla-homes.example' },
     developer_id: SHAPLA,
@@ -24,7 +27,7 @@ function me(over: Partial<MeOut75> = {}): MeOut75 {
   }
 }
 
-const ENDED: EndedOut75 = {
+const ENDED: EndedOut = {
   membership_id: 'm-9',
   developer_id: SHAPLA,
   developer_name: 'Shapla Homes Ltd',
@@ -77,10 +80,6 @@ describe('meFrom', () => {
     expect(read.market).toBeNull()
   })
 
-  it('reads an ended row without #75’s Market (its branch before the ruling) as none', () => {
-    const { market: _dropped, ...before } = ENDED
-    expect(meFrom(me({ ended: [before] })).ended[0]!.market).toBeNull()
-  })
 })
 
 describe('gateOf: where a signed-in user belongs', () => {

@@ -18,7 +18,6 @@
 import { queryOptions } from '@tanstack/react-query'
 import { ApiRefused, api, unwrap } from '@/api/client'
 import type { components } from '@/api/schema.gen'
-import type { EndedOut75, MeOut75 } from '@/api/until75'
 import type { Grouping, MarketFormat } from '@/format/profile'
 import { knownUnitSystem } from '@/format/units'
 import { SHIPPED_LANGUAGES, type Language } from '@/i18n/languages'
@@ -26,6 +25,8 @@ import { SHIPPED_LANGUAGES, type Language } from '@/i18n/languages'
 export type Role = 'qs' | 'md' | 'vextrus_engineer' | 'guest'
 
 type MarketOut = components['schemas']['MarketOut']
+type MeOut = components['schemas']['MeOut']
+type EndedOut = components['schemas']['EndedOut']
 type ProjectOut = components['schemas']['ProjectOut']
 
 export interface ProjectSummary {
@@ -60,8 +61,8 @@ export interface EndedAccess {
   revokedBy: string | null
   /** The Projects it gave, by id; empty means every Project. */
   projectIds: readonly string[]
-  /** Its Developer's Market, which its dates are worded with; null only from an API before #75. */
-  market: MarketFormat | null
+  /** Its Developer's Market, which its dates are worded with. */
+  market: MarketFormat
 }
 
 /** `/api/me`, as the web reads it. */
@@ -119,7 +120,7 @@ export function marketFormat(out: MarketOut, shipped: readonly Language[] = SHIP
   }
 }
 
-function endedFrom(out: EndedOut75): EndedAccess {
+function endedFrom(out: EndedOut): EndedAccess {
   return {
     membershipId: out.membership_id,
     developer: { id: out.developer_id, name: out.developer_name },
@@ -128,12 +129,12 @@ function endedFrom(out: EndedOut75): EndedAccess {
     how: out.how,
     revokedBy: out.revoked_by,
     projectIds: out.project_ids,
-    market: out.market ? marketFormat(out.market) : null,
+    market: marketFormat(out.market),
   }
 }
 
 /** `/api/me` as the web reads it (the one mapping from its shape). */
-export function meFrom(out: MeOut75): Me {
+export function meFrom(out: MeOut): Me {
   return {
     user: { id: out.user.id, name: out.user.name, email: out.user.email },
     developerId: out.developer_id ?? null,
@@ -202,7 +203,7 @@ export function sessionFrom(me: Me, projects: readonly ProjectOut[]): Session {
 }
 
 async function fetchMe(): Promise<Me> {
-  return meFrom((await unwrap(api.GET('/api/me'))) as MeOut75)
+  return meFrom(await unwrap(api.GET('/api/me')))
 }
 
 /** A refusal or a missing Developer is an answer, not a failure to retry; an unreachable server keeps being tried. */
