@@ -1,6 +1,7 @@
 /*
  * shadcn/ui's Dialog (initialised with `rtl: true`, components.json), restyled on the tokens
- * (docs/design/system.md §4: radius-panel, elev-3) and closed on Esc through the key map.
+ * (docs/design/system.md §4: radius-panel, elev-3) and closed on Esc through the key map; on close,
+ * focus returns to the element that had it when the dialog opened (layer.tsx, useReturnFocus).
  * Centred without a transform, so nothing in the chrome is `translate-x`.
  */
 import type { ComponentProps } from 'react'
@@ -8,7 +9,7 @@ import { XIcon } from 'lucide-react'
 import { Dialog as DialogPrimitive } from 'radix-ui'
 import { useLingui } from '@lingui/react/macro'
 import { cn } from '@/ui/cn'
-import { LayerCloseProvider, LayerKeys, leaveEscToKeyMap, useLayerOpen } from './layer'
+import { LayerCloseProvider, LayerKeys, leaveEscToKeyMap, useLayerOpen, useReturnFocus } from './layer'
 
 function Dialog({ open, defaultOpen, onOpenChange, ...props }: ComponentProps<typeof DialogPrimitive.Root>) {
   const [isOpen, setOpen] = useLayerOpen(open, defaultOpen, onOpenChange)
@@ -45,14 +46,19 @@ function DialogContent({
   children,
   showCloseButton = true,
   onEscapeKeyDown,
+  onOpenAutoFocus,
+  onCloseAutoFocus,
   ...props
 }: ComponentProps<typeof DialogPrimitive.Content> & { showCloseButton?: boolean }) {
   const { t } = useLingui()
+  const returnFocus = useReturnFocus({ onOpenAutoFocus, onCloseAutoFocus })
   return (
     <DialogPrimitive.Portal data-slot="dialog-portal">
       <DialogOverlay />
       <DialogPrimitive.Content
         data-slot="dialog-content"
+        onOpenAutoFocus={returnFocus.onOpenAutoFocus}
+        onCloseAutoFocus={returnFocus.onCloseAutoFocus}
         onEscapeKeyDown={(event) => {
           leaveEscToKeyMap(event)
           onEscapeKeyDown?.(event)

@@ -4,7 +4,7 @@
  * content mounts a dialog scope whose Esc closes it. Radix is told to ignore Esc
  * (`onEscapeKeyDown` prevents its default).
  */
-import { createContext, useCallback, useContext, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react'
 import { useLingui } from '@lingui/react/macro'
 import { KeyScope, useKeys } from '../keys/KeyMapProvider'
 
@@ -43,6 +43,34 @@ export function LayerKeys({ name, children }: { name: string; children: ReactNod
       {children}
     </KeyScope>
   )
+}
+
+/**
+ * Where focus goes when a layer closes: back to the element that had it when the layer opened
+ * (design gate M1). Radix returns focus to the layer's trigger, and a dialog opened by a key (the ?
+ * overlay, Jump to) has none, so focus fell to the page and the list's keys stopped working. Pass
+ * both handlers to the Radix content: `onOpenAutoFocus` runs as it mounts, before it moves focus.
+ */
+export function useReturnFocus(handlers: {
+  onOpenAutoFocus?: (event: Event) => void
+  onCloseAutoFocus?: (event: Event) => void
+}): { onOpenAutoFocus: (event: Event) => void; onCloseAutoFocus: (event: Event) => void } {
+  const opener = useRef<Element | null>(null)
+  return {
+    onOpenAutoFocus(event) {
+      opener.current = document.activeElement
+      handlers.onOpenAutoFocus?.(event)
+    },
+    onCloseAutoFocus(event) {
+      handlers.onCloseAutoFocus?.(event)
+      if (event.defaultPrevented) return
+      const el = opener.current
+      if (el instanceof HTMLElement && el !== document.body && el.isConnected) {
+        event.preventDefault()
+        el.focus({ preventScroll: true })
+      }
+    },
+  }
 }
 
 /** Pass to a Radix content's `onEscapeKeyDown`: the key map closes the layer instead. */

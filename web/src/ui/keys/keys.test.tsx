@@ -7,6 +7,8 @@ import { KeyMap } from './registry'
 import { KeyMapProvider, KeyRegion, KeyScope, useKeys } from './KeyMapProvider'
 import { KeysOverlay } from './KeysOverlay'
 import { expectKeyMapSound } from './testing'
+import { List } from '../List'
+import { Dialog, DialogContent, DialogTitle } from '../primitives/dialog'
 
 function Bind({ keys, label, run }: { keys: string; label: string; run: () => void }) {
   useKeys([{ key: keys, label, group: 'screen', run }])
@@ -163,5 +165,62 @@ describe('the ? overlay lists every active key, drawn from the map (m0-screens �
     expect(dialog).not.toHaveTextContent('Fit the whole sheet')
     await userEvent.keyboard('{Escape}')
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  })
+})
+
+describe('a layer opened by a key gives focus back when it closes (design gate M1; m0-screens §2.1)', () => {
+  const SHEETS = ['S-01', 'S-02', 'S-03'].map((number) => ({ number }))
+
+  function Harness() {
+    const [open, setOpen] = useState(false)
+    const [focused, setFocused] = useState<string | null>(null)
+    useKeys([{ key: '?', label: 'Show the keys', group: 'global', run: () => setOpen(true) }])
+    return (
+      <KeyScope level="screen" name="step1">
+        <List label="Sheets" items={SHEETS} getKey={(s) => s.number} renderItem={(s) => s.number} focusedKey={focused} onFocusedKeyChange={setFocused} />
+        <KeysOverlay open={open} onOpenChange={setOpen} />
+      </KeyScope>
+    )
+  }
+
+  it('returns focus to the list after ? then Esc, so ↑ still moves the list', async () => {
+    renderWith(<Harness />)
+    const list = screen.getByRole('listbox', { name: 'Sheets' })
+    list.focus()
+    await userEvent.keyboard('{ArrowDown}{ArrowDown}')
+    expect(list).toHaveAttribute('aria-activedescendant', screen.getByRole('option', { name: 'S-02' }).id)
+    await userEvent.keyboard('?')
+    await screen.findByRole('dialog', { name: 'Keys' })
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(document.activeElement).toBe(list)
+    await userEvent.keyboard('{ArrowUp}')
+    expect(list).toHaveAttribute('aria-activedescendant', screen.getByRole('option', { name: 'S-01' }).id)
+  })
+
+  it('returns focus the same way for any dialog opened without a trigger', async () => {
+    function Plain() {
+      const [open, setOpen] = useState(false)
+      return (
+        <>
+          <button type="button" onClick={() => setOpen(true)}>
+            opener
+          </button>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogContent>
+              <DialogTitle>Jump to</DialogTitle>
+              <input aria-label="Search" />
+            </DialogContent>
+          </Dialog>
+        </>
+      )
+    }
+    renderWith(<Plain />)
+    const opener = screen.getByRole('button', { name: 'opener' })
+    await userEvent.click(opener)
+    await screen.findByRole('dialog')
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(document.activeElement).toBe(opener)
   })
 })
