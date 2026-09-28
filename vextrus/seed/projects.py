@@ -5,7 +5,8 @@ takes its Developer's Market, currency and default Display Units. The addresses 
 
 Then the seed's Guest (07 made her Membership for every Project, since KR-01 did not exist yet) is
 given only KR-01, through the service an MD uses, acting as Kamal Uddin, Shapla's MD: the act is in
-the event log as his.
+the event log as his; so is Rafiq Islam, the Guest whose access has ended (#75). Chameli Homes Ltd
+has no Project (4.3's empty state).
 
 For later seeds, `demo` gains `project:<code>` and `building:<code>` (the one Building's id).
 """
@@ -23,7 +24,8 @@ PROJECTS: dict[str, tuple[tuple[str, str, str], ...]] = {
     "developer:meghna": (("MG-01", "Meghna Heights", "Plot 22, Road 11, Block D, Dhaka"),),
 }
 GUEST_PROJECTS = ("KR-01",)
-"""The Projects the seed's Guest, a contractor's QS, is given (m0-screens §7)."""
+"""The Projects the seed's Guest, a contractor's QS, is given (m0-screens §7), and those the Guest
+whose access has ended had been given ("Your access to KR-01 at Shapla Homes Ltd has ended…")."""
 
 
 def run(demo: Demo) -> None:
@@ -35,6 +37,5 @@ def run(demo: Demo) -> None:
                 demo[f"project:{code}"] = project.id
                 demo[f"building:{code}"] = building.id
     with tenancy.acting_in(demo["developer:shapla"], user_id=demo["user:kamal"]):
-        invitations.set_projects(
-            demo["membership:guest"], [demo[f"project:{code}"] for code in GUEST_PROJECTS]
-        )
+        for guest in ("membership:guest", "membership:ended_guest"):
+            invitations.set_projects(demo[guest], [demo[f"project:{code}"] for code in GUEST_PROJECTS])

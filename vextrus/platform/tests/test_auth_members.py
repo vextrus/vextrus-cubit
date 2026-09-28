@@ -5,15 +5,17 @@ import json
 import uuid
 from collections.abc import Callable
 from datetime import timedelta
+from typing import Any
 
 import pytest
+from django.db import transaction
 from django.utils import timezone
 
 from vextrus.platform.messages import invitations as codes
 from vextrus.platform.messages import tenancy as tenancy_codes
 from vextrus.platform.models import DomainEvent, Membership, User
-from vextrus.platform.services import events
-from vextrus.testing.auth import accept_as, api_as, invitation, served_operations
+from vextrus.platform.services import events, invitations
+from vextrus.testing.auth import Api, accept_as, api_as, invitation, served_operations
 from vextrus.testing.tenancy import Member, add_member
 
 PASSWORD = "a long enough passphrase 7"
@@ -242,3 +244,150 @@ def test_an_act_says_who_acted_or_that_no_one_did_and_an_invitation_its_role(
     assert (invited["params"]["by"], invited["params"]["role"]) == ("person", "guest")
     assert invited["params"]["subject"] == "g@example.com"
     assert (created["actor"], created["params"]["by"]) == (None, "vextrus")  # made by no user
+
+
+# What each viewer may do to each row: the server's rules, never the web's (#75) --------------------
+
+ACTIONS = ("revoke", "renew", "copy_link", "withdraw")
+ACT_PATHS = {
+    "revoke": "/api/members/{}/revoke",
+    "renew": "/api/members/{}/renew",
+    "copy_link": "/api/members/invitations/{}/link",
+    "withdraw": "/api/members/invitations/{}/withdraw",
+}
+
+
+class _Undo(Exception):
+    """Raised to roll an act back once its answer is read."""
+
+
+def act_succeeds(api: Api, action: str, membership_id: str) -> bool:
+    """Whether the act succeeds, rolled back after, so each is tried on the same rows."""
+    succeeded = False
+    try:
+        with transaction.atomic():
+            response = api.post(ACT_PATHS[action].format(membership_id))
+            succeeded = 200 <= response.status_code < 300
+            raise _Undo
+    except _Undo:
+        pass
+    return succeeded
+
+
+@pytest.fixture
+def matrix(
+    sign_in: Callable[..., Member],
+    make_developer: Callable[..., uuid.UUID],
+    staff: User,
+    other_staff: User,
+) -> dict[str, Any]:
+    """One Developer: an MD, a QS, a QS given P1 only, an Engineer as a member viewing, Engineers
+    each QS invited, Guests with and without an end date, a revoked QS, and unused invitations the
+    MD and each QS made."""
+    developer = make_developer()
+    p1, p2 = uuid.uuid4(), uuid.uuid4()
+    viewers = {
+        "md": sign_in(role="md", developer_id=developer),
+        "qs": sign_in(role="qs", developer_id=developer),
+        "scoped qs": sign_in(role="qs", developer_id=developer, projects=[p1]),
+        "engineer": sign_in(role="vextrus_engineer", developer_id=developer),
+        "guest": sign_in(role="guest", developer_id=developer),
+    }
+    rows: dict[str, uuid.UUID] = {name: viewer.membership_id for name, viewer in viewers.items()}
+    by_qs, token = invitation(viewers["qs"], staff.email)
+    accept_as(token, staff)
+    by_scoped, token = invitation(viewers["scoped qs"], other_staff.email, project_ids=[p1])
+    accept_as(token, other_staff)
+    _, rows["guest until, P2"] = add_member(
+        developer, role="guest", projects=[p2], expires_at=timezone.now() + timedelta(days=9)
+    )
+    _, rows["revoked qs"] = add_member(developer, role="qs")
+    with viewers["md"].acting():
+        invitations.revoke(rows["revoked qs"])
+    rows["engineer by qs"], rows["engineer by scoped qs"] = by_qs, by_scoped
+    rows["invitation by md"], _ = invitation(viewers["md"], "rumana@example.com", "qs")
+    rows["invitation by qs"], _ = invitation(viewers["qs"], "e1@example.com")
+    rows["invitation by scoped qs"], _ = invitation(
+        viewers["scoped qs"], "e2@example.com", project_ids=[p1]
+    )
+    return {"viewers": viewers, "rows": rows}
+
+
+EXPECTED: dict[str, dict[str, tuple[str, ...]]] = {
+    "md": {
+        "qs": ("revoke",),
+        "scoped qs": ("revoke",),
+        "engineer": ("revoke", "renew"),
+        "guest": ("revoke",),
+        "guest until, P2": ("revoke", "renew"),
+        "engineer by qs": ("revoke", "renew"),
+        "engineer by scoped qs": ("revoke", "renew"),
+        "invitation by md": ("copy_link", "withdraw"),
+        "invitation by qs": ("copy_link", "withdraw"),
+        "invitation by scoped qs": ("copy_link", "withdraw"),
+    },
+    "qs": {
+        "engineer by qs": ("revoke", "renew"),
+        "invitation by qs": ("copy_link", "withdraw"),
+    },
+    "scoped qs": {
+        "engineer by scoped qs": ("revoke", "renew"),
+        "invitation by scoped qs": ("copy_link", "withdraw"),
+    },
+    "engineer": {},
+}
+"""Each viewer's actions on each row they see (a row not named: none)."""
+HIDDEN_FROM_SCOPED = {"guest until, P2"}
+"""The scoped QS shares no Project with it, so `members()` leaves it out."""
+
+
+@pytest.mark.parametrize("viewer", ["md", "qs", "scoped qs", "engineer"])
+def test_each_row_offers_exactly_the_acts_the_server_would_accept(
+    matrix: dict[str, Any], viewer: str
+) -> None:
+    api = api_as(matrix["viewers"][viewer])
+    api.csrf_token()
+    names = {str(membership): name for name, membership in matrix["rows"].items()}
+    seen = api.get("/api/members").json()
+    shown = [*seen["people"], *seen["vextrus_access"], *seen["invitations"]]
+
+    offered = {names[row["membership_id"]]: tuple(row["actions"]) for row in shown}
+
+    assert {name: acts for name, acts in offered.items() if acts} == EXPECTED[viewer]
+    for name, membership in matrix["rows"].items():
+        for action in ACTIONS:
+            succeeds = act_succeeds(api, action, str(membership))
+            assert succeeds == (action in offered.get(name, ())), (viewer, name, action)
+    hidden = set(matrix["rows"]) - set(offered)
+    if viewer == "scoped qs":
+        assert hidden >= HIDDEN_FROM_SCOPED
+    if viewer == "engineer":  # the people only: no Vextrus access, no invitations
+        assert (seen["vextrus_access"], seen["invitations"]) == ([], [])
+
+
+def test_a_guest_sees_no_row_and_every_act_is_refused(matrix: dict[str, Any]) -> None:
+    api = api_as(matrix["viewers"]["guest"])
+    api.csrf_token()
+
+    refused = api.get("/api/members")
+
+    assert (refused.status_code, refused.json()) == (
+        403,
+        {"code": "platform.auth.not_allowed", "params": {"role": "guest"}},
+    )
+    for membership in matrix["rows"].values():
+        for action in ACTIONS:
+            assert not act_succeeds(api, action, str(membership))
+
+
+def test_each_row_names_who_invited_it_by_id(matrix: dict[str, Any], staff: User) -> None:
+    viewers, rows = matrix["viewers"], matrix["rows"]
+    seen = api_as(viewers["md"]).get("/api/members").json()
+    by_id = {
+        row["membership_id"]: row["invited_by_id"]
+        for row in [*seen["people"], *seen["vextrus_access"], *seen["invitations"]]
+    }
+
+    assert by_id[str(rows["engineer by qs"])] == str(viewers["qs"].user.pk)
+    assert by_id[str(rows["invitation by md"])] == str(viewers["md"].user.pk)
+    assert by_id[str(rows["md"])] is None  # made a member directly, invited by no one
