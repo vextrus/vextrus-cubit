@@ -375,7 +375,8 @@ def test_no_reference_crosses_from_one_projects_drawing_set_to_another(qs_projec
             ("sheet_id", their_sheet.sheet_id),
             ("revision_id", their_revision),
         ):
-            with refused("_own_set"):
+            # Their Sheet is of their Building too, so its own check may refuse first: both hold.
+            with refused("_own_set", "names a Sheet of another Building"):
                 # Without its render (whose own check would refuse first), so the key is what holds.
                 sql(
                     "update drawings_sheetrevision set render_file_id = null where id = %s", [printed.id]
@@ -389,7 +390,8 @@ def test_no_reference_crosses_from_one_projects_drawing_set_to_another(qs_projec
                 [their_revision, ours.id],
             )
         location = one("select location from drawings_sheetrevision where id = %s", [printed.id])
-        with refused("_own_set"):  # our set's id, their Sheet: a chosen id across Projects
+        # Our set's id, their Sheet: a chosen id across Projects (their Building's, so either holds).
+        with refused("_own_set", "names a Sheet of another Building"):
             sql(
                 PRINTED_SHEET,
                 [uuid.uuid4(), member.developer_id, our_set, their_sheet.sheet_id, ours.id,
@@ -432,7 +434,10 @@ def test_a_printed_sheet_never_names_another_developers_sheet(
     [their_sheet] = read_dwg(stranger, their_file.id, ["T-01"])
     # Their own printed sheet moved onto our Sheet by UPDATE: refused (the render's trigger no
     # longer finds its Project's set, and the same-tenant key refuses the Sheet).
-    with stranger.acting(), refused("violates foreign key", "own_tenant", "names a render"):
+    with (
+        stranger.acting(),
+        refused("violates foreign key", "own_tenant", "names a render", "names a Sheet of another"),
+    ):
         sql(
             "update drawings_sheetrevision set sheet_id = %s where id = %s",
             [printed.sheet_id, their_sheet.id],
@@ -803,3 +808,32 @@ def test_a_views_predecessor_is_never_remade_in_one_statement_in_another_set(
         sql(VIEW, [uuid.uuid4(), member.developer_id, printed.id, None, earlier])
         with refused("drawings_view_predecessor_view_own_tenant"):
             remade("drawings_view", earlier, sheet_revision_id=their_printed.id, ordinal=77)
+
+
+def test_a_printed_sheet_names_only_a_sheet_of_its_files_building(qs_project: QsProject) -> None:
+    """A reading may point a printed sheet at another Sheet of its set, never one of another Building
+    (here the Site's, no Building), by UPDATE or by INSERT with a chosen id."""
+    member = qs_project.member
+    ours = add(member, qs_project.project_id, "KR-STR-R0.dwg", drawing("dwg")).file
+    [printed] = read_dwg(member, ours.id, ["S-01"])
+    with member.acting():
+        set_id, discipline_id, location = sql(
+            "select r.drawing_set_id, s.discipline_id, r.location from drawings_sheetrevision r"
+            " join drawings_sheet s on s.id = r.sheet_id where r.id = %s",
+            [printed.id],
+        )[0]
+        on_site = uuid.uuid4()
+        sql(
+            "insert into drawings_sheet (id, tenant_id, drawing_set_id, building_id, discipline_id,"
+            " number, title, consultant_office, storeys_as_stated, location_key) values"
+            " (%s, %s, %s, null, %s, 'S-02', '', '', '', '')",
+            [on_site, member.developer_id, set_id, discipline_id],
+        )
+        with refused("names a Sheet of another Building than its file's"):
+            sql("update drawings_sheetrevision set sheet_id = %s where id = %s", [on_site, printed.id])
+        with refused("names a Sheet of another Building than its file's"):
+            sql(
+                PRINTED_SHEET,
+                [uuid.uuid4(), member.developer_id, set_id, on_site, ours.id,
+                 '{"layout":"Y"}', location, ours.sha256, "1"],
+            )  # fmt: skip

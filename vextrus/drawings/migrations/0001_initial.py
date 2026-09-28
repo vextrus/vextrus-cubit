@@ -24,7 +24,9 @@
 #       sha256 and size; its Building is one of the set's Project; its Revision is of its own
 #       Discipline;
 #     - a kept ReadArtefact is a StoredFile of the set's Project derived from the file's sha256;
-#     - a Sheet's Building is one of the set's Project; a printed sheet's render a StoredFile of it;
+#     - a Sheet's Building is one of the set's Project; a printed sheet's Sheet is of its file's
+#       Building (a reading may point it at another Sheet, never across Buildings); its render a
+#       StoredFile of the set's Project;
 #     - a view's predecessor is a view of its own Drawing Set.
 # - vextrus_app's rights come from platform's default privileges (platform 0003): select, insert,
 #   update and delete, never TRUNCATE. Then narrowed: the Disciplines it may only read; a read job's
@@ -278,8 +280,16 @@ CHECKS = (
     (
         "drawings_sheetrevision_in_reach",
         "drawings_sheetrevision",
-        ("tenant_id", "sheet_id", "render_file_id"),
+        ("tenant_id", "sheet_id", "source_file_id", "render_file_id"),
         (
+            (
+                (
+                    "exists (select 1 from public.drawings_sheet h join public.drawings_drawingfile f"
+                    " on f.id = new.source_file_id where h.id = new.sheet_id"
+                    " and h.building_id is not distinct from f.building_id)"
+                ),
+                "names a Sheet of another Building than its file's",
+            ),
             (
                 (
                     "new.render_file_id is null or exists (select 1 from public.platform_storedfile o"
