@@ -631,6 +631,12 @@ jobs:
 
 ### 6.5 First-session checklist (run once on each account before wave 1)
 
+**Superseded (28 Sep 2026).** This checklist predates the stack's revision (ADR 0034, session 02 Q18)
+and names Python 3.13. The cloud runs used a revised checklist: Python 3.14.7 exactly, PostgreSQL 18,
+the toolchain under `/opt/vextrus`, each environment built by `scripts/cloud/setup.sh`. Its runs and
+answers are recorded in the M0 milestone issue, #45 (environment B's run 5 and A's run 1 passed). The
+list below is kept as first written.
+
 1. `check-tools`, `psql --version` and `uv python find 3.13`. Is `node -v` v24?
 2. `cat /opt/vextrus-setup.status`: every line is `ok`.
 3. `dwg2dxf --version` reports 0.14.
