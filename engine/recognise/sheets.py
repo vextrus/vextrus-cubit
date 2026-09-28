@@ -21,7 +21,8 @@
   renderer's rule (`buffers.is_main_viewport`), and a viewport's region is found as the renderer finds
   it (`buffers.viewport_window`). **A layout whose viewports show nothing is not a sheet:** it is
   dropped, or, where it carries a title block, proposed out as `blank`, with no value read from it
-  (a stale layout's title block is a template's; the QS review, Q7). A layout that shows a
+  (a stale layout's title block is a template's; the QS review, Q7); one with no viewport of its own
+  that draws only a title block is a template's tab, and dropped. A layout that shows a
   model-space frame, with no title block of its own, is that frame's plot: the frame is the sheet
   (one sheet, not two); one with its own title block showing one frame is the sheet, and the frame
   is not.
@@ -899,6 +900,9 @@ class _Segmenter:
                 else self._bare(name, entities)
             )
             return sheet, frames_shown if titled and len(frames_shown) == 1 else []
+        if titled and views == 0:
+            self.counts["layout_title_block_only"] += 1  # a template tab: nothing to propose
+            return None, []
         if titled:
             self.counts["layout_blank"] += 1
             first = paper.frames[0].handle if paper and paper.frames else entities[0].handle
@@ -1232,12 +1236,14 @@ def _continuation(first: _Placed, rest: list[_Placed]) -> list[_Placed]:
 
 def _value(name: SheetField, text: str) -> str | None:
     """A field's value as stated, its lines joined by a space; none when it is longer than the
-    field's bound, shows nothing, or is no more than punctuation (an empty field's dash)."""
+    field's bound, shows nothing, is no more than punctuation (an empty field's dash), or is a
+    number or a date with no digit."""
     shown = " ".join(text.split())
     if len(shown) > MAX_FIELD[name] or not any(c.isalnum() for c in _visible(shown)):
         return None
-    if name == SheetField.ISSUE_DATE and not any(unicodedata.category(c) == "Nd" for c in shown):
-        return None
+    digit = any(unicodedata.category(c) == "Nd" for c in shown)
+    if name in (SheetField.NUMBER, SheetField.ISSUE_DATE) and not digit:
+        return None  # a number and a date hold a digit: a path or a word is neither
     return shown
 
 
