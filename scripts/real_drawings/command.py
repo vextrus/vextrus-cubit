@@ -25,6 +25,7 @@ import subprocess
 import sys
 import time
 import tomllib
+from collections import Counter
 from collections.abc import Callable, Mapping
 from contextlib import nullcontext
 from dataclasses import dataclass, field
@@ -33,7 +34,7 @@ from pathlib import Path
 from typing import Any
 
 from scripts.real_drawings import drop, sandbox, wheels
-from scripts.real_drawings.diff import MEASURES, compare, sizes
+from scripts.real_drawings.diff import MEASURES, compare, failures, sizes
 from scripts.real_drawings.schema import SchemaError, problems
 from scripts.real_drawings.source import (
     MAIN,
@@ -131,6 +132,7 @@ def run(target: str, *, no_post: bool, m: Machine) -> int:
         if head.commit != base.commit:
             main_hash, main_exports = measure(m, base, main, work / "main", run_id, digests)
         counts, items = report(m, main_exports, head_exports, head.commit == base.commit)
+        head_failed = failed_text(head_exports)
         drop.write_new(work / "items.json", _json(items))  # holds drawing text: the owner's cache only
         metadata = {
             "run_id": run_id,
@@ -151,7 +153,7 @@ def run(target: str, *, no_post: bool, m: Machine) -> int:
         if not posting:
             m.say("Nothing posted (a posting run is a PR without --no-post).")
             return 0
-        summary = verdict(m, run_id, counts)
+        summary = verdict(m, run_id, counts, head_failed)
         folder = m.drop / run_id
         folder.mkdir(mode=0o750)
         for name, path in head_exports.items():
@@ -267,6 +269,9 @@ def report(
             m.say(f"  {name} {sha[:12]}: read {s0} -> {s1} s, peak {r0} -> {r1} KiB (not counted)")
     if unbuilt:
         m.say(f"Not built on the head: {', '.join(sorted(unbuilt))}")
+    for run, exports in (("the head", after), ("main", {} if baseline else before)):
+        if failed := failed_text(exports):
+            m.say(f"Failed on {run}: {failed}")
     m.say(
         "The baseline: items per measure"
         if baseline
@@ -278,9 +283,26 @@ def report(
     return total, items
 
 
-def verdict(m: Machine, run_id: str, counts: Mapping[str, Mapping[str, int]]) -> dict[str, Any]:
+def failed_text(exports: Mapping[str, Path]) -> str:
+    """The stages that failed in these exports, by stage, file count and error kind (never the error's
+    message, which may quote a drawing); empty when none failed."""
+    found: Counter[tuple[str, str]] = Counter()
+    for path in exports.values():
+        found += failures(json.loads(path.read_bytes()))
+    return "; ".join(
+        f"{stage} ({kind})"
+        if stage.startswith("set ")
+        else f"{stage} on {n} {'file' if n == 1 else 'files'} ({kind})"
+        for (stage, kind), n in sorted(found.items())
+    )
+
+
+def verdict(
+    m: Machine, run_id: str, counts: Mapping[str, Mapping[str, int]], head_failed: str = ""
+) -> dict[str, Any]:
     lost = sum(c["lost"] for c in counts.values())
-    accepted = m.ask("Accept these changes? [y/N] ").strip().lower() in ("y", "yes")
+    warning = f"Stages failed on the head: {head_failed}. " if head_failed else ""
+    accepted = m.ask(f"{warning}Accept these changes? [y/N] ").strip().lower() in ("y", "yes")
     prompt = "Why is what was lost acceptable? " if accepted and lost else "A reason (optional): "
     reason = " ".join(m.ask(prompt).split())
     if accepted and lost and not reason:

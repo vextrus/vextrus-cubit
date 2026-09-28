@@ -100,6 +100,38 @@ def test_the_stages_the_head_has_not_built_are_named(world: World) -> None:
     assert "Not built on the head: sheets, views" in world.said
 
 
+FIXTURES = Path(__file__).resolve().parent / "fixtures"
+
+
+def test_a_stage_failed_on_the_head_is_named_counted_and_shown_at_the_verdict(world: World) -> None:
+    # 06b's harness with its fake stages; on the head its reader fails on one invented drawing,
+    # in each of the made-up machine's two sets.
+    world.commit("main", {FAKE_EXPORT: (FIXTURES / "export-fakes.json").read_text()})
+    world.pr(57, {FAKE_EXPORT: (FIXTURES / "export-fakes-read-fails.json").read_text()})
+    world.answers = ["y", "the invented reader fails on purpose"]
+
+    run("57", no_post=False, m=world.machine())
+
+    assert "Failed on the head: read on 2 files (RuntimeError)" in world.said
+    assert not any(line.startswith("Failed on main") for line in world.said)
+    assert "Stages failed on the head: read on 2 files (RuntimeError)." in world.prompts[0]
+    (run_id,) = world.posted
+    summary = only_file(world.drop / run_id, "summary.json")
+    assert summary["measures"]["failed_stages"] == {"gained": 0, "lost": 2, "changed": 0}  # type: ignore[index]
+    shown = "\n".join(world.said + world.prompts) + (world.drop / run_id / "summary.json").read_text()
+    assert "the fake reader failed" not in shown  # the kind only, never the message
+
+
+def test_a_stage_failed_on_main_is_named_too(world: World) -> None:
+    world.commit("main", {FAKE_EXPORT: (FIXTURES / "export-fakes-read-fails.json").read_text()})
+    world.commit("tuning", {FAKE_EXPORT: (FIXTURES / "export-fakes.json").read_text()})
+
+    run("tuning", no_post=True, m=world.machine())
+
+    assert "Failed on main: read on 2 files (RuntimeError)" in world.said
+    assert not any(line.startswith("Failed on the head") for line in world.said)
+
+
 def test_a_pr_with_no_post_never_posts(world: World) -> None:
     world.pr(57, {FAKE_EXPORT: invented(title="Invented section")})
 

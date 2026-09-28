@@ -284,6 +284,52 @@ def test_a_design_gate_result_that_does_not_account_for_each_item_once_is_refuse
     assert github.calls == []
 
 
+def test_an_item_not_applicable_is_posted_as_such_and_the_gate_can_pass(tmp_path: Path) -> None:
+    github = FakeGitHub()
+
+    argv = ["design-gate", "57", HEAD, "--passed", "1-10", "--not-applicable", "11"]
+    assert post(tmp_path, argv, github) == 0
+
+    assert github.posted() == [
+        {"state": "success", "context": "design-gate", "description": "passed 1-10; not applicable 11"}
+    ]
+
+
+def test_a_failed_item_still_fails_the_gate_beside_items_not_applicable(tmp_path: Path) -> None:
+    github = FakeGitHub()
+
+    argv = ["design-gate", "57", HEAD, "--passed", "1-8", "--failed", "10", "--not-applicable", "9,11"]
+    post(tmp_path, argv, github)
+
+    assert github.posted() == [
+        {
+            "state": "failure",
+            "context": "design-gate",
+            "description": "passed 1-8; failed 10; not applicable 9, 11",
+        }
+    ]
+
+
+@pytest.mark.parametrize(
+    ("passed", "failed", "not_applicable"),
+    [
+        ("1-10", "", "10-11"),  # 10 both passed and not applicable
+        ("1-9", "11", "11"),  # 11 both failed and not applicable, and 10 missing
+        ("1-9", "", "11"),  # 10 missing
+        ("1-10", "", "12"),  # no item 12
+        ("1-10", "", "the sheet"),  # words, not item numbers
+    ],
+)
+def test_each_item_must_be_passed_failed_or_not_applicable_exactly_once(
+    tmp_path: Path, passed: str, failed: str, not_applicable: str
+) -> None:
+    github = FakeGitHub()
+    argv = ["design-gate", "57", HEAD, "--passed", passed, "--failed", failed]
+
+    assert post(tmp_path, [*argv, "--not-applicable", not_applicable], github) == 2
+    assert github.calls == []
+
+
 def test_the_design_gate_is_posted_only_on_the_prs_head(tmp_path: Path) -> None:
     github = FakeGitHub(head="f" * 40)
 

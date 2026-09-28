@@ -9,9 +9,10 @@ this file reads the settings beside itself:
     post-status real-drawings <run id>
         Reads only that run's summary.json and metadata.json in the drop folder, checks that the run's
         commit is the PR's head now, and posts the verdict and the counts (and the owner's reason).
-    post-status design-gate <PR> <commit> --passed 1-9,11 --failed 10
-        Checks that the commit is the PR's head now, and posts the checklist items passed and failed,
-        by number, and nothing else.
+    post-status design-gate <PR> <commit> --passed 1-9 --failed 10 --not-applicable 11
+        Checks that the commit is the PR's head now, and posts the checklist items passed, failed and
+        not applicable, by number, and nothing else. Each item is in exactly one of the three; the
+        status is success only when none failed.
 
 Standard library only; the App's token is signed with `openssl`. It prints no secret.
 """
@@ -38,6 +39,7 @@ RUN_ID = re.compile(r"^\d{8}T\d{6}Z-[0-9a-f]{12}-[0-9a-f]{4}$")
 COMMIT = re.compile(r"^[0-9a-f]{40}$")
 MEASURES = {
     "files",
+    "failed_stages",
     "entity_counts",
     "report_counts",
     "sheets",
@@ -75,11 +77,12 @@ def main(
     kinds = parser.add_subparsers(dest="kind", required=True)
     real = kinds.add_parser("real-drawings", help="post a real-drawing run's verdict and counts")
     real.add_argument("run_id")
-    gate = kinds.add_parser("design-gate", help="post the design gate's items passed and failed")
+    gate = kinds.add_parser("design-gate", help="post the design gate's items, by number")
     gate.add_argument("pr", type=int)
     gate.add_argument("commit")
     gate.add_argument("--passed", default="", help="item numbers and ranges, e.g. 1-9,11")
     gate.add_argument("--failed", default="", help="item numbers and ranges, e.g. 10")
+    gate.add_argument("--not-applicable", default="", help="item numbers and ranges, e.g. 11")
     args = parser.parse_args(argv)
     config = tomllib.loads(config_path.read_text())
     try:
@@ -88,7 +91,8 @@ def main(
             context = "real-drawings"
         else:
             pr, commit = args.pr, args.commit
-            state, description = design_gate(args.passed, args.failed, int(config["design_gate_items"]))
+            items = int(config["design_gate_items"])
+            state, description = design_gate(args.passed, args.failed, args.not_applicable, items)
             context = "design-gate"
         if not COMMIT.match(commit):
             raise Refused(f"not a full commit id: {commit!r}")
@@ -151,16 +155,26 @@ def describe(summary: dict[str, Any]) -> tuple[str, str]:
     return ("success" if verdict == "accepted" else "failure"), shorten(text)
 
 
-def design_gate(passed: str, failed: str, items: int) -> tuple[str, str]:
-    passing, failing = numbers(passed), numbers(failed)
-    if passing & failing:
-        raise Refused(f"items both passed and failed: {spans(passing & failing)}")
-    if passing | failing != set(range(1, items + 1)):
-        raise Refused(f"every item 1-{items} is passed or failed; missing or unknown items were given")
-    text = f"passed {spans(passing)}" if passing else "passed none"
-    if failing:
-        text += f"; failed {spans(failing)}"
-    return ("failure" if failing else "success"), shorten(text)
+def design_gate(passed: str, failed: str, not_applicable: str, items: int) -> tuple[str, str]:
+    """Every item 1-`items` in exactly one of passed, failed and not applicable; success only when
+    none failed. The description is item numbers and these words only."""
+    groups = {
+        "passed": numbers(passed),
+        "failed": numbers(failed),
+        "not applicable": numbers(not_applicable),
+    }
+    seen: set[int] = set()
+    for group in groups.values():
+        if group & seen:
+            raise Refused(f"items given twice: {spans(group & seen)}")
+        seen |= group
+    if seen != set(range(1, items + 1)):
+        raise Refused(f"every item 1-{items} is passed, failed or not applicable, once; it was not so")
+    text = f"passed {spans(groups['passed'])}" if groups["passed"] else "passed none"
+    for name in ("failed", "not applicable"):
+        if groups[name]:
+            text += f"; {name} {spans(groups[name])}"
+    return ("failure" if groups["failed"] else "success"), shorten(text)
 
 
 def numbers(text: str) -> set[int]:
