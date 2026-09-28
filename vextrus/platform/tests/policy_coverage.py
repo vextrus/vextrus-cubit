@@ -5,12 +5,19 @@ For every table in the `public` schema that is not on the allowlist of global ta
 - row-level security is enabled and **not forced** (the owner's constraint checks must see every
   row; the M0 plan's reviews A1, A2);
 - it has its own-tenant policy for every command, reading the tenant as
-  `tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid` for reads and writes alike
-  (a widening is a separate `FOR SELECT` policy, which this check allows beside it);
+  `tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid` for reads and writes alike;
+- every other policy on it is a widening that admits reads only: a permissive `FOR SELECT` policy
+  for every role, reading the own tenant or the Market's Library
+  (`tenant_id = nullif(current_setting('app.library_id', true), '')::uuid`, any module's L table,
+  with no edit here), or one declared below with its expression and reason. Any other policy
+  (for writes, for one role, restrictive, or reading anything else) is a problem, since permissive
+  policies are ORed and one more could admit what the own-tenant policy refuses. A table without
+  its own-tenant policy fails on that alone; its other policies are judged once it has one;
 - every index but the primary key is led by `tenant_id`, so the policy becomes an index condition,
   unless the index is on the allowlist of index exceptions with its reason.
 
-Every allowlist entry gives its reason, and an entry naming no table or index is stale and fails.
+Every allowlist entry gives its reason, and an entry naming no table, index or policy is stale and
+fails.
 """
 
 import re
@@ -55,17 +62,40 @@ INDEX_EXCEPTIONS: Mapping[str, str] = {
     ),
 }
 
-_OWN_TENANT = "tenant_id=nullifcurrent_setting'app.tenant_id'::text,true,''::text::uuid"
+# Declared FOR SELECT widenings beyond the own tenant and the Library: (table, policy) to (its
+# expression as written, its reason).
+WIDENINGS: Mapping[tuple[str, str], tuple[str, str]] = {
+    ("platform_market", "every_market_reads"): (
+        "true",
+        (
+            "Every Market is readable by everyone: each is the index of its Library and holds "
+            "no tenant's data; only the owner writes Markets (docs/data-model.md §3.0)."
+        ),
+    ),
+    ("platform_membership", "own_user_reads"): (
+        "user_id = nullif(current_setting('app.user_id', true), '')::uuid",
+        (
+            "The signed-in user's own Memberships, read before a tenant is set (the middleware "
+            "and user_developers; docs/data-model.md §3.0)."
+        ),
+    ),
+}
+
+_OWN_TENANT = "tenant_id=nullifcurrent_setting'app.tenant_id',true,''::uuid"
+_LIBRARY = _OWN_TENANT.replace("app.tenant_id", "app.library_id")
 
 
 def _normalise(expression: str | None) -> str:
-    return re.sub(r"[\s()]", "", expression or "").lower()
+    """An expression without spaces or brackets, lowercased, and without the `::text` pg_policies
+    prints after a string literal: the same whether written in a migration or printed back."""
+    return re.sub(r"[\s()]|(?<=')::text", "", expression or "").lower()
 
 
 def coverage_problems(
     cursor: Any,
     global_tables: Mapping[str, str] = GLOBAL_TABLES,
     index_exceptions: Mapping[str, str] = INDEX_EXCEPTIONS,
+    widenings: Mapping[tuple[str, str], tuple[str, str]] = WIDENINGS,
 ) -> tuple[list[str], list[str]]:
     """(the tenant tables checked, the problems found) for the database the cursor is connected to."""
     cursor.execute(
@@ -89,16 +119,24 @@ def coverage_problems(
         if not reason.strip()
     )
     problems.extend(
+        f"{table}.{policy}: on the declared widenings without its reason"
+        for (table, policy), (_expression, reason) in sorted(widenings.items())
+        if not reason.strip()
+    )
+    problems.extend(
         f"{name}: on the global allowlist but no such table (stale entry)"
         for name in sorted(set(global_tables) - names)
     )
     checked = []
     indexes_seen: set[str] = set()
+    widenings_seen: set[tuple[str, str]] = set()
     for oid, name, enabled, forced in tables:
         if name in global_tables:
             continue
         checked.append(name)
-        problems.extend(_table_problems(cursor, oid, name, enabled, forced))
+        table_problems, seen_widenings = _table_problems(cursor, oid, name, enabled, forced, widenings)
+        problems.extend(table_problems)
+        widenings_seen |= seen_widenings
         index_problems, seen = _index_problems(cursor, oid, name, index_exceptions)
         problems.extend(index_problems)
         indexes_seen |= seen
@@ -106,10 +144,21 @@ def coverage_problems(
         f"{index}: on the index exceptions but no such index on a tenant table (stale entry)"
         for index in sorted(set(index_exceptions) - indexes_seen)
     )
+    problems.extend(
+        f"{table}.{policy}: on the declared widenings but no such policy (stale entry)"
+        for table, policy in sorted(set(widenings) - widenings_seen)
+    )
     return checked, problems
 
 
-def _table_problems(cursor: Any, oid: int, name: str, enabled: bool, forced: bool) -> list[str]:
+def _table_problems(
+    cursor: Any,
+    oid: int,
+    name: str,
+    enabled: bool,
+    forced: bool,
+    widenings: Mapping[tuple[str, str], tuple[str, str]],
+) -> tuple[list[str], set[tuple[str, str]]]:
     problems = []
     cursor.execute(
         """
@@ -127,23 +176,47 @@ def _table_problems(cursor: Any, oid: int, name: str, enabled: bool, forced: boo
         problems.append(f"{name}: row-level security is forced (enable it, never force it)")
     cursor.execute(
         """
-        select cmd, permissive, roles::text[], qual, with_check from pg_policies
+        select policyname, cmd, permissive, roles::text[], qual, with_check from pg_policies
          where schemaname = 'public' and tablename = %s
+         order by policyname
         """,
         [name],
     )
+    policies = cursor.fetchall()
     own_tenant = [
         policy
-        for policy in cursor.fetchall()
-        if policy[0] == "ALL"
-        and policy[1] == "PERMISSIVE"
-        and policy[2] == ["public"]
-        and _normalise(policy[3]) == _OWN_TENANT
-        and policy[4] in (None, policy[3])
+        for policy in policies
+        if policy[1] == "ALL"
+        and policy[2] == "PERMISSIVE"
+        and policy[3] == ["public"]
+        and _normalise(policy[4]) == _OWN_TENANT
+        and policy[5] in (None, policy[4])
     ]
+    seen = {(name, policy[0]) for policy in policies if (name, policy[0]) in widenings}
     if not own_tenant:
         problems.append(f"{name}: has no own-tenant policy for all commands")
-    return problems
+        return problems, seen
+    problems.extend(
+        f"{name}: policy {policy[0]} is neither the own-tenant policy nor a FOR SELECT widening "
+        "it may have"
+        for policy in policies
+        if policy is not own_tenant[0] and not _reads_only(name, policy, widenings)
+    )
+    return problems, seen
+
+
+def _reads_only(
+    table: str, policy: tuple[Any, ...], widenings: Mapping[tuple[str, str], tuple[str, str]]
+) -> bool:
+    """A permissive FOR SELECT policy for every role, reading the own tenant, the Library, or
+    the expression declared for it."""
+    name, command, permissive, roles, qual, check = policy
+    if (command, permissive, roles, check) != ("SELECT", "PERMISSIVE", ["public"], None):
+        return False
+    allowed = {_OWN_TENANT, _LIBRARY}
+    if (table, name) in widenings:
+        allowed.add(_normalise(widenings[table, name][0]))
+    return _normalise(qual) in allowed
 
 
 def _index_problems(
