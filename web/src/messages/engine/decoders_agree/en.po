@@ -1,0 +1,19 @@
+msgid ""
+msgstr ""
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: en\n"
+
+#. engine/messages/decoders_agree.py (ticket 10): the decoder cross-check's codes.
+msgid "engine.decoders_agree.disagree"
+msgstr "The two readers found different contents in this file: {only_first, plural, one {# item} other {# items}} only the first found, {only_second, plural, one {# item} other {# items}} only the second found, and different counts for {kinds, plural, one {# kind of item} other {# kinds of item}} and on {layers, plural, one {# layer} other {# layers}}. It is held, so nothing from it reaches the sheet list while it may be misread."
+
+msgid "engine.decoders_agree.not_installed"
+msgstr "This file was read once, not twice: the second reader is not installed here. It is held until it can be checked; mark it for Vextrus."
+
+msgid "engine.decoders_agree.not_pinned"
+msgstr "This file was read once, not twice: the second reader installed here is not the version Vextrus tested, so it was not used. It is held until it can be checked; mark it for Vextrus."
+
+msgid "engine.decoders_agree.too_many"
+msgstr "This file was read once, not twice: it holds more than {limit, number} items, more than the second reader's check takes. It is held until it can be checked; mark it for Vextrus."

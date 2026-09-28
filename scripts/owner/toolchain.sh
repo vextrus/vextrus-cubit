@@ -6,6 +6,8 @@
 #   /opt/vextrus/python    Python 3.14 (uv's managed build)
 #   /opt/vextrus/libredwg  LibreDWG at its pin, built static from GNU's signed source
 #   /opt/vextrus/dotnet    the .NET 10 SDK (ACadSharp, the second decoder; ADR 0029)
+#   /opt/vextrus/acadsharp-dump  the ACadSharp dumper (ticket 10): built here from tools/acadsharp-dump/
+#                          with that SDK, and installed only when its sha256 is the pin
 #
 # Run by the owner, as root:   ! sudo bash scripts/owner/toolchain.sh
 # Idempotent: a piece already at its pin is kept. Owned by root, readable by all, writable by none.
@@ -15,6 +17,9 @@
 #                     libredwg-0.14.tar.xz.sig ("Good signature from <reini.urban@gmail.com>", RSA key
 #                     38A4167B0DB69E49C5F7216CB8C28866AB27A7A2, gnu-keyring.gpg)
 #   dotnet.version    10.0.401, the latest .NET 10 SDK on 8 Sep 2026 (release-metadata/10.0/releases.json)
+#   acadsharp-dump.sha256  the dumper's own sha256: its build is reproducible (the same source, SDK and
+#                     hash-locked packages give the same bytes), so a build here that differs from
+#                     the pin is refused, never installed
 set -euo pipefail
 
 PREFIX=${VEXTRUS_TOOLCHAIN_PREFIX:-/opt/vextrus}   # overridable only to test this script
@@ -78,9 +83,33 @@ install_dotnet() {
     --version "$DOTNET_SDK_VERSION" --install-dir "$dest" --no-path > /dev/null
 }
 
+install_acadsharp_dump() {
+  local dest="$PREFIX/acadsharp-dump" pinned
+  pinned=$(cut -d' ' -f1 "$PINS/acadsharp-dump.sha256")
+  if [ -f "$dest/acadsharp-dump" ] && [ "$(sha256sum "$dest/acadsharp-dump" | cut -d' ' -f1)" = "$pinned" ]; then
+    say "acadsharp-dump: already installed at its pin"; return
+  fi
+  say "acadsharp-dump: building from tools/acadsharp-dump/ (packages restored by the hashes its lock pins)"
+  local source="$WORK/acadsharp-dump-src" out="$WORK/acadsharp-dump-out"
+  mkdir -p "$source"
+  cp "$PINS/../tools/acadsharp-dump/acadsharp-dump.csproj" "$PINS/../tools/acadsharp-dump/Program.cs" \
+     "$PINS/../tools/acadsharp-dump/packages.lock.json" "$source/"
+  DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1 DOTNET_CLI_HOME="$WORK/dotnet-home" \
+    NUGET_PACKAGES="$WORK/nuget" "$PREFIX/dotnet/dotnet" publish "$source" -c Release -o "$out" \
+    > "$WORK/acadsharp-dump-build.log" 2>&1 ||
+    { tail -30 "$WORK/acadsharp-dump-build.log" >&2; fail "acadsharp-dump build (log: $WORK/acadsharp-dump-build.log)"; }
+  local built
+  built=$(sha256sum "$out/acadsharp-dump" | cut -d' ' -f1)
+  [ "$built" = "$pinned" ] ||
+    fail "acadsharp-dump built as $built, not the pin $pinned: not installed (the build is not reproducible here; tell the session that pinned it)"
+  install -d -m 0755 "$dest"
+  install -m 0755 "$out/acadsharp-dump" "$dest/acadsharp-dump"
+}
+
 install_python
 install_libredwg
 install_dotnet
+install_acadsharp_dump
 
 chown -R root:root "$PREFIX"
 chmod -R a+rX,go-w "$PREFIX"
@@ -91,6 +120,7 @@ py=$(UV_PYTHON_INSTALL_DIR="$PREFIX/python" "$(command -v uv || echo "$OWNER_HOM
 printf '  %-10s %s (%s)\n' python "$("$py" --version 2>&1)" "$py"
 printf '  %-10s %s\n' libredwg "$("$PREFIX/libredwg/bin/dwgread" --version 2>&1 | head -1)"
 printf '  %-10s %s\n' dotnet "$(DOTNET_CLI_TELEMETRY_OPTOUT=1 "$PREFIX/dotnet/dotnet" --list-sdks | tr '\n' ' ')"
+printf '  %-10s %s\n' acadsharp "$(sha256sum "$PREFIX/acadsharp-dump/acadsharp-dump" | cut -d' ' -f1) (the pin)"
 cat <<EOF
 
 Add these lines to $OWNER_HOME/.bashrc (this script does not edit it), then open a new shell:

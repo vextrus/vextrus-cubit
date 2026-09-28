@@ -1,0 +1,60 @@
+<!--
+  The ACadSharp dumper (ticket 10; ADR 0029): Program.cs says what it writes.
+
+  Published as one self-contained file for linux-x64: the .NET runtime is inside it, so the machine
+  that runs it needs no .NET, and nothing is restored or compiled where it runs. The build is
+  reproducible: the same source, SDK (toolchain/dotnet.version) and packages (packages.lock.json,
+  restored in locked mode against each package's hash) give the same bytes, whose sha256 is pinned in
+  toolchain/acadsharp-dump.sha256. scripts/owner/toolchain.sh builds it and installs it only when its
+  hash is the pin; the reader (engine/read/acadsharp/) runs it only when its hash is the pin.
+
+  What ships inside it, and each licence (checked 28 Sep 2026): ACadSharp 3.8.0, MIT (its NuGet
+  package's `<license type="expression">MIT</license>`, "Copyright (c) 2026 Albert Domenech"; its
+  net10.0 build depends on no other package); the .NET 10 runtime (Microsoft.NETCore.App.Runtime and
+  its single-file host), MIT, with the third-party notices of dotnet/runtime. MIT asks that the
+  copyright and permission notice go with every copy: a dedicated deployment ships them beside it.
+
+  It runs in the reader's sandbox, which passes it no environment, so what it needs is fixed here:
+  invariant globalization (no ICU) and workstation GC with no background thread. Measured on 28 Sep
+  2026 (the entity_kinds fixture): it starts under an address-space limit of 1 GiB and is killed under
+  512 MiB (the runtime's own reservations), so the sandbox's 3 GiB default leaves room. The runtime
+  makes its diagnostics socket and debugger pipes in TMPDIR, which the sandbox points at the output
+  folder; no runtimeconfig setting turns them off (only DOTNET_EnableDiagnostics, an environment
+  variable the sandbox does not pass), they vanish when it exits, and the reader opens only the file
+  it named, never following a link.
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RuntimeIdentifier>linux-x64</RuntimeIdentifier>
+    <AssemblyName>acadsharp-dump</AssemblyName>
+    <RootNamespace>AcadSharpDump</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <PublishTrimmed>false</PublishTrimmed>
+    <EnableCompressionInSingleFile>false</EnableCompressionInSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>false</IncludeNativeLibrariesForSelfExtract>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+    <DebugType>none</DebugType>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <RestoreLockedMode>true</RestoreLockedMode>
+
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <UseSystemResourceKeys>true</UseSystemResourceKeys>
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="ACadSharp" Version="[3.8.0]" />
+  </ItemGroup>
+</Project>
