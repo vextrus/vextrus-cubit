@@ -118,6 +118,9 @@ NARROWER = {
     "django_migrations": {"SELECT"},  # only the owner migrates
     "platform_market": {"SELECT"},  # Markets are the owner's data
     "platform_domainevent": {"SELECT", "INSERT"},  # append-only
+    "live_model_record": {"SELECT", "INSERT"},  # append-only: a correction is a new Record
+    # Append-only but for closing its validity: UPDATE of valid_to_seq alone (live_model 0001).
+    "live_model_elementrelation": {"SELECT", "INSERT"},
     # UPDATE only on the columns the app may change (below): never the staff flag.
     "platform_user": {"SELECT", "INSERT", "DELETE"},
     # UPDATE only on what a person may change: never a Project's Market or currency, nor which

@@ -107,7 +107,7 @@ def invitation(
     make_developer: Callable[..., uuid.UUID], staff: User
 ) -> tuple[uuid.UUID, tenancy.Invitation]:
     developer = make_developer("Shapla Homes Ltd")
-    with tenancy.acting_in(developer, user_id=staff.pk):
+    with tenancy.acting_in(developer):
         made = tenancy.invite_first_md("kamal@shapla-homes.example", invited_by=staff)
         MembershipProject.objects.create(
             tenant_id=developer, membership_id=made.membership_id, project_id=uuid.UUID(int=7)

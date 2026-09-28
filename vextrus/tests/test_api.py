@@ -82,3 +82,54 @@ def test_the_packages_assembled_are_the_engine_s_and_every_module_s() -> None:
         *(f"vextrus.{module}.messages" for module in MODULES),
     ) == api_module.MESSAGE_PACKAGES
     message_codes()  # every real package collects without error
+
+
+# Ninja's schema pages only in development; every refusal a `Refusal` (07) --------------------------
+
+
+@pytest.mark.django_db
+def test_the_schema_and_docs_pages_are_not_served_outside_development() -> None:
+    from django.test import Client
+
+    client = Client()
+
+    assert client.get("/api/openapi.json").status_code == 404
+    assert client.get("/api/docs").status_code == 404
+
+
+def test_in_development_the_schema_pages_are_served() -> None:
+    from vextrus.api import VextrusAPI, schema_url
+
+    shown = VextrusAPI(urls_namespace="api-development-check", openapi_url=schema_url(True))
+    hidden = VextrusAPI(urls_namespace="api-production-check", openapi_url=schema_url(False))
+
+    def names(built: VextrusAPI) -> set[str | None]:
+        return {getattr(pattern, "name", None) for pattern in built.urls[0]}
+
+    assert names(shown) >= {"openapi-json", "openapi-view"}
+    assert not names(hidden) & {"openapi-json", "openapi-view"}
+
+
+@pytest.mark.django_db
+def test_the_schema_is_still_exported_for_the_web_s_types(tmp_path: Path) -> None:
+    import json
+
+    from django.core.management import call_command
+
+    output = tmp_path / "schema.json"
+    call_command("export_openapi_schema", "--api", "vextrus.api.api", "--output", str(output))
+
+    schema = json.loads(output.read_text())
+    assert "/api/me" in schema["paths"]
+    assert "Refusal" in schema["components"]["schemas"]
+
+
+def test_the_api_answers_its_own_refusals_as_refusals() -> None:
+    from ninja.errors import AuthenticationError
+
+    from vextrus.platform.http import acts
+    from vextrus.platform.services import auth as auth_services
+
+    assert isinstance(api.auth, list)
+    assert isinstance(api.auth[0], acts.Session)
+    assert {AuthenticationError, auth_services.Refused} <= set(api._exception_handlers)

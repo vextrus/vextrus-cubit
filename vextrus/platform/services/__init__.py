@@ -6,4 +6,6 @@ re-export line is the only shared edit.
 
 from vextrus.platform.services import events, library, markets, tenancy
 
-__all__ = ["events", "library", "markets", "tenancy"]
+from vextrus.platform.services import activity, auth, invitations  # isort: skip  (07)
+
+__all__ = ["activity", "auth", "events", "invitations", "library", "markets", "tenancy"]

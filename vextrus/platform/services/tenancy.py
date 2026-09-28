@@ -26,7 +26,8 @@ from django.conf import settings
 from django.contrib.sessions.backends.base import SessionBase
 from django.core.exceptions import PermissionDenied
 from django.db import connection, transaction
-from django.db.models import Q
+from django.db.models import DateTimeField, Q
+from django.db.models.expressions import RawSQL
 from django.http import HttpRequest
 from django.urls import reverse
 from django.utils import timezone
@@ -35,6 +36,11 @@ from vextrus.platform.ids import new_id
 from vextrus.platform.messages import tenancy as acts
 from vextrus.platform.models import Developer, Market, Membership, MembershipProject, Role, User
 from vextrus.platform.services import events
+
+DATABASE_NOW = RawSQL("pg_catalog.now()", [], output_field=DateTimeField())
+"""The transaction's start by the database's clock: the "now" the named functions compare with
+(`user_developers` holds a Membership current from its `starts_at` until its `expires_at`). Django's
+`Now()` is the statement's time and the app's clock is its own; neither agrees with it (07)."""
 
 SESSION_TENANT = "vextrus.tenant_id"
 """The session key naming the Developer a member works in (the chooser writes it)."""
@@ -113,15 +119,31 @@ def _text(value: uuid.UUID | None) -> str:
     return "" if value is None else str(value)
 
 
+class LibraryNotATenant(PermissionDenied):
+    """A Library is never the acting tenant: its rows are written only by `sync_library`, through
+    the owner alias, and the own-tenant policy would let code acting in it write them (07)."""
+
+
 def _enter(tenancy: Tenancy) -> Tenancy:
-    """Act as `tenancy`; its library is read from the tenant's own row when not given."""
+    """Act as `tenancy`; its library is read from the tenant's own row when not given.
+
+    Every way of acting in a tenant comes here (`acting_in`, `enter_request`, `choose_developer`,
+    `staff_open`, `create_developer`), so a Library is refused here, whoever asks.
+    """
     _set(Tenancy(user_id=tenancy.user_id))
-    if tenancy.tenant_id is not None and tenancy.library_id is None:
+    if tenancy.tenant_id is not None:
         _set(Tenancy(user_id=tenancy.user_id, tenant_id=tenancy.tenant_id))
-        library_id = (
-            Developer.objects.filter(id=tenancy.tenant_id).values_list("library_id", flat=True).first()
+        found = (
+            Developer.objects.filter(id=tenancy.tenant_id)
+            .values_list("library_id", "is_library")
+            .first()
         )
-        tenancy = Tenancy(tenancy.user_id, tenancy.tenant_id, library_id, tenancy.membership)
+        if found is not None and found[1]:
+            _set(Tenancy(user_id=tenancy.user_id))
+            raise LibraryNotATenant(tenancy.tenant_id)
+        if tenancy.library_id is None:
+            library_id = found[0] if found is not None else None
+            tenancy = Tenancy(tenancy.user_id, tenancy.tenant_id, library_id, tenancy.membership)
     _set(tenancy)
     _current.set(tenancy)
     return tenancy
@@ -132,13 +154,19 @@ def acting_in(tenant_id: uuid.UUID | None, *, user_id: uuid.UUID | None = None) 
     """Act in a Developer inside a new atomic block (a job step, the seed, a test).
 
     On leaving normally, the settings and `current()` go back to what they were; on an error the
-    block rolls back, and the settings with it. The Membership is looked up when the user holds a
-    current one in that Developer.
+    block rolls back, and the settings with it.
+
+    With no user (a job step of the system, the seed), it acts in the Developer. With a user, it acts
+    in the Developer only through that user's current Membership there, as `enter_request` does: a
+    user whose Membership there lapsed, was revoked, has not started or never existed acts in no
+    tenant, seeing no tenant's rows and writing none, never the whole tenant with no scope (07).
     """
     before = _current.get()
     with transaction.atomic():
         _set(Tenancy(user_id=user_id))
         membership = _membership(user_id, tenant_id)
+        if user_id is not None and membership is None:
+            tenant_id = None
         try:
             yield _enter(Tenancy(user_id=user_id, tenant_id=tenant_id, membership=membership))
         finally:
@@ -163,7 +191,11 @@ def enter_request(request: HttpRequest) -> Tenancy:
     session: SessionBase = request.session
     if user.is_vextrus_staff and _in_admin(request):
         tenant_id = _uuid(session.get(STAFF_SESSION_TENANT))
-        tenancy = _enter(Tenancy(user_id=user_id, tenant_id=tenant_id))
+        try:
+            tenancy = _enter(Tenancy(user_id=user_id, tenant_id=tenant_id))
+        except LibraryNotATenant:
+            tenant_id, tenancy = None, _enter(Tenancy(user_id=user_id))
+            session.pop(STAFF_SESSION_TENANT, None)
         if tenant_id is not None and not _is_developer(tenant_id):
             session.pop(STAFF_SESSION_TENANT, None)
             return _enter(Tenancy(user_id=user_id))
@@ -206,19 +238,21 @@ def _is_developer(tenant_id: uuid.UUID) -> bool:
 
 
 def _membership(user_id: uuid.UUID | None, tenant_id: uuid.UUID | None) -> CurrentMembership | None:
-    """The user's current Membership in the Developer, read through the user's own rows."""
+    """The user's current Membership in the Developer, read through the user's own rows.
+
+    "Current" is judged by the database's clock, `DATABASE_NOW`, as `user_developers()` judges it,
+    so the two never disagree about one Membership (the app's clock runs a little ahead)."""
     if user_id is None or tenant_id is None:
         return None
-    now = timezone.now()
     found = (
         Membership.objects.filter(
             tenant_id=tenant_id,
             user_id=user_id,
             accepted_at__isnull=False,
             revoked_at__isnull=True,
-            starts_at__lte=now,
+            starts_at__lte=DATABASE_NOW,
         )
-        .exclude(expires_at__lte=now)
+        .exclude(expires_at__lte=DATABASE_NOW)
         .values_list("id", "role", "expires_at")
         .first()
     )
