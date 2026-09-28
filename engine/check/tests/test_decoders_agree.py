@@ -383,6 +383,26 @@ def test_an_insert_with_a_zero_z_scale_holds_the_file_with_one_unread_item(
 
 @pytest.mark.needs_toolchain
 @pytest.mark.usefixtures("real_dumper")
+def test_an_error_notification_of_another_shape_fails_the_file_not_unread_not_agree(
+    dwg_fixture: Fixture,  # noqa: F811
+) -> None:
+    # The stricter rule (the owner's ruling, "Hold it"): only an entity the second reader could not
+    # read holds a file; two layers with one name raise another Error notification, and the stage
+    # fails. The dumper built before the ruling read this file whole, and the two agreed.
+    path = dwg_fixture("duplicate_layer")
+    first = read_dwg(path)
+    assert first.summary.entity_counts == {"LINE": 2}
+    assert first.summary.layer_counts == {"WALLS-KEEP": 2}
+
+    with pytest.raises(acadsharp.DumperStopped) as raised:
+        run(path, first)
+
+    assert raised.value.message == {"code": "engine.decoders_agree.stopped", "params": {}}
+    assert raised.value.why == "exit 1"
+
+
+@pytest.mark.needs_toolchain
+@pytest.mark.usefixtures("real_dumper")
 def test_a_file_only_the_first_reader_reads_is_a_failure_never_agreement(
     dwg_fixture: Fixture,  # noqa: F811
 ) -> None:

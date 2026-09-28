@@ -216,6 +216,22 @@ def test_the_real_dumper_on_an_error_about_anything_but_an_entity_is_a_failure(
 
 
 @pytest.mark.needs_toolchain
+def test_the_real_dumper_on_an_error_notification_of_another_shape_is_a_failure(
+    dumper_prefix: Path, dwg_fixture: Fixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Two layers with one name: ACadSharp's table template raises "already exists", an Error
+    # notification that is not "Could not read <entity>", whatever its Failsafe setting.
+    monkeypatch.setenv("VEXTRUS_ACADSHARP_DUMP", str(dumper_prefix))
+    monkeypatch.delenv("VEXTRUS_SANDBOX", raising=False)
+
+    with pytest.raises(DumperStopped) as raised:
+        acadsharp.dump(dwg_fixture("duplicate_layer"))
+
+    assert raised.value.message == {"code": "engine.decoders_agree.stopped", "params": {}}
+    assert raised.value.why == "exit 1"
+
+
+@pytest.mark.needs_toolchain
 def test_the_real_dumper_on_garbage_is_a_failure(
     dumper_prefix: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
