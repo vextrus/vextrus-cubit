@@ -15,12 +15,12 @@ request itself:
   framing is refused before a byte of it is read (`drawings.uploads.too_large_unnamed`, 413);
 - **nothing kept on a refusal**: each file is spooled to a private temporary file, and every file the
   request had, whole or half-written, is closed (and so deleted) by the handler itself before the
-  refusal is raised. A body cut short never gives a file: Django drops a part whose closing boundary
-  never came, and the operation then answers "Upload stopped" (`drawings.uploads.stopped`); a
-  connection that dropped as the body was read is refused so here; a body that is no well-formed form
-  (no boundary or a bad one, a negative length, a part's headers past Django's 1 KB as a
-  1,000-character name makes them, a part's base64 that does not decode) is refused as unreadable
-  (`drawings.uploads.malformed`), in these words, never Django's error page.
+  refusal (or a fault) is raised. A body cut short never gives a file: Django drops a part whose
+  closing boundary never came, and the operation then answers "Upload stopped"
+  (`drawings.uploads.stopped`); a connection that dropped as the body was read is refused so here; a
+  body that is no well-formed form (no boundary or a bad one, a negative length, a part's headers past
+  Django's 1 KB as a 1,000-character name makes them, a part's base64 that does not decode) is refused
+  as unreadable (`drawings.uploads.malformed`), in these words, never Django's error page.
 
 A refusal is an `UploadRefused`: an `auth.Refused` (so an API operation answers `{code, params}`) and a
 `SuspiciousOperation` (so any other view answers 400, never 500). The file's name is only a label.
@@ -100,6 +100,9 @@ class DrawingUploadHandler(TemporaryFileUploadHandler):
             self._refuse(said.STOPPED(), 400)
         except MultiPartParserError, SuspiciousOperation:
             self._refuse(said.MALFORMED(), 400)
+        except BaseException:
+            self._close()  # anything else is a fault, raised as it is; its files go first
+            raise
         finally:
             self._parsing = False
 
@@ -129,11 +132,14 @@ class DrawingUploadHandler(TemporaryFileUploadHandler):
 
     def _refuse(self, message: Message, status: int) -> NoReturn:
         """Close (and so delete) every file of this request, then refuse it."""
+        self._close()
+        raise UploadRefused(message, status)
+
+    def _close(self) -> None:
         for kept in (*self._files, getattr(self, "file", None)):
             if kept is not None:
                 kept.close()
         self._files.clear()
-        raise UploadRefused(message, status)
 
 
 def _check_form(request: HttpRequest) -> None:

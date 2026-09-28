@@ -16,7 +16,7 @@ For 21a (the upload operation and the read job, in `takeoff`):
     services.store_artefact(file_id, artefact)           # a ReadArtefact, as JSON, per reader version
     services.record_reports(file_id, cross_check=…, font_report=…, bangla_ansi=…)  # or upload_report=
     services.quarantine(file_id, finding)                # held (the two readers disagree)
-    services.mark_failed(file_id, finding)               # or failed, with why
+    services.mark_failed(file_id, finding, tries=attempt)  # or failed: why, after how many tries
     services.mark_read(file_id)                          # in the last step's transaction
     # step names these words know: services.OPENING, READING, SECOND_READER, SHEETS,
     # sheet_step(n), FINISHING; a PDF's OPENING, page_step(n), MATCHING

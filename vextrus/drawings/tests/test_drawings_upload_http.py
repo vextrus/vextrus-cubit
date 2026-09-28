@@ -464,3 +464,24 @@ def test_a_file_whose_name_cleans_to_nothing_is_refused_without_a_name(
     )
     assert refusal(small) == (400, {"code": "drawings.uploads.no_name", "params": {}})
     assert kept(qs_project.member, upload_urls) == NOTHING
+
+
+def test_a_fault_while_a_file_streams_leaves_no_file_behind(
+    upload_urls: Path, qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from vextrus.drawings.uploads import DrawingUploadHandler
+
+    written = DrawingUploadHandler.receive_data_chunk
+
+    def fails_after_the_first_chunk(self: DrawingUploadHandler, raw_data: bytes, start: int) -> None:
+        if start > 0:
+            raise RuntimeError("a fault")
+        written(self, raw_data, start)
+
+    monkeypatch.setattr(DrawingUploadHandler, "receive_data_chunk", fails_after_the_first_chunk)
+    body = multipart(("KR-STR-R0.dwg", drawing().ljust(200 * 1024, b"\x00")))
+
+    with pytest.raises(RuntimeError):
+        post(qs_project.member, qs_project.project_id, body)
+
+    assert kept(qs_project.member, upload_urls) == NOTHING
