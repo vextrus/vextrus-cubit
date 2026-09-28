@@ -1,0 +1,260 @@
+#!/opt/vextrus/python/cpython-3.14-linux-x86_64-gnu/bin/python3 -I
+"""The poster: posts `real-drawings` and `design-gate` through the owner's GitHub App (ADR 0030; the M0
+plan, the real-drawing check, step 6, and 06a; docs/design/m0-screens.md §8).
+
+Run as the key user, whose home holds the App's key, with the owner's password; never from a checkout.
+scripts/owner/drop-setup.sh installs this file and post-status.toml, root-owned, beside each other, and
+this file reads the settings beside itself:
+
+    post-status real-drawings <run id>
+        Reads only that run's summary.json and metadata.json in the drop folder, checks that the run's
+        commit is the PR's head now, and posts the verdict and the counts (and the owner's reason).
+    post-status design-gate <PR> <commit> --passed 1-9,11 --failed 10
+        Checks that the commit is the PR's head now, and posts the checklist items passed and failed,
+        by number, and nothing else.
+
+Standard library only; the App's token is signed with `openssl`. It prints no secret.
+"""
+
+import argparse
+import base64
+import json
+import os
+import re
+import stat
+import subprocess
+import sys
+import time
+import tomllib
+import urllib.error
+import urllib.request
+from collections.abc import Callable
+from pathlib import Path
+from typing import Any
+
+CONFIG = Path(__file__).resolve().with_name("post-status.toml")
+API = "https://api.github.com"
+RUN_ID = re.compile(r"^\d{8}T\d{6}Z-[0-9a-f]{12}-[0-9a-f]{4}$")
+COMMIT = re.compile(r"^[0-9a-f]{40}$")
+MEASURES = {
+    "files",
+    "entity_counts",
+    "report_counts",
+    "sheets",
+    "views",
+    "register",
+    "plot_matches",
+    "render_f1",
+    "checks",
+    "conflicts",
+    "continuations",
+}
+CHANGES = {"gained", "lost", "changed"}
+REASON_MOST = 100
+DESCRIPTION_MOST = 140  # GitHub's limit on a status's description
+READ_MOST = 1 << 16
+
+# (method, path, bearer token, JSON body or None) -> the decoded JSON reply
+Transport = Callable[[str, str, str, dict[str, Any] | None], Any]
+Signer = Callable[[bytes], bytes]
+
+
+class Refused(Exception):
+    """Nothing is posted, and this says why."""
+
+
+def main(
+    argv: list[str] | None = None,
+    *,
+    config_path: Path = CONFIG,
+    transport: Transport | None = None,
+    sign: Signer | None = None,
+    now: Callable[[], float] = time.time,
+) -> int:
+    parser = argparse.ArgumentParser(prog="post-status", description=__doc__.split("\n\n")[0])
+    kinds = parser.add_subparsers(dest="kind", required=True)
+    real = kinds.add_parser("real-drawings", help="post a real-drawing run's verdict and counts")
+    real.add_argument("run_id")
+    gate = kinds.add_parser("design-gate", help="post the design gate's items passed and failed")
+    gate.add_argument("pr", type=int)
+    gate.add_argument("commit")
+    gate.add_argument("--passed", default="", help="item numbers and ranges, e.g. 1-9,11")
+    gate.add_argument("--failed", default="", help="item numbers and ranges, e.g. 10")
+    args = parser.parse_args(argv)
+    config = tomllib.loads(config_path.read_text())
+    try:
+        if args.kind == "real-drawings":
+            pr, commit, state, description = real_drawings(Path(config["drop"]), args.run_id)
+            context = "real-drawings"
+        else:
+            pr, commit = args.pr, args.commit
+            state, description = design_gate(args.passed, args.failed, int(config["design_gate_items"]))
+            context = "design-gate"
+        if not COMMIT.match(commit):
+            raise Refused(f"not a full commit id: {commit!r}")
+        signer = sign or (lambda data: openssl_sign(Path(config["key"]), data))
+        token = installation_token(config, transport or https, signer, now())
+        send = transport or https
+        head = send("GET", f"/repos/{config['repository']}/pulls/{pr}", token, None)["head"]["sha"]
+        if head != commit:
+            raise Refused(
+                f"PR {pr}'s head is {head[:12]}, not the checked commit {commit[:12]}: run again"
+            )
+        body = {"state": state, "context": context, "description": description}
+        send("POST", f"/repos/{config['repository']}/statuses/{commit}", token, body)
+    except Refused as refused:
+        print(f"post-status: nothing posted: {refused}", file=sys.stderr)
+        return 2
+    print(f"post-status: {context} {state} on PR {pr} at {commit[:12]}: {description}")
+    return 0
+
+
+def real_drawings(drop: Path, run_id: str) -> tuple[int, str, str, str]:
+    """The PR, the commit, the state and the description, from that run's summary and metadata only."""
+    if not RUN_ID.match(run_id):
+        raise Refused(f"not a run id: {run_id!r}")
+    metadata = read_json(drop / run_id, "metadata.json")
+    summary = read_json(drop / run_id, "summary.json")
+    if metadata.get("run_id") != run_id or summary.get("run_id") != run_id:
+        raise Refused("the run's metadata or summary names another run")
+    pr = metadata.get("pr")
+    if not isinstance(pr, int) or isinstance(pr, bool) or pr <= 0:
+        raise Refused("the run measured no PR: a branch or main is never posted")
+    state, description = describe(summary)
+    return pr, str(metadata.get("commit")), state, description
+
+
+def describe(summary: dict[str, Any]) -> tuple[str, str]:
+    """The verdict and the counts, and the owner's reason: never anything else from the run."""
+    if set(summary) != {"run_id", "verdict", "reason", "measures"}:
+        raise Refused("the summary holds more or less than the run id, verdict, reason and counts")
+    verdict, reason, measures = summary["verdict"], summary["reason"], summary["measures"]
+    if verdict not in ("accepted", "rejected"):
+        raise Refused("the summary's verdict is neither accepted nor rejected")
+    if not isinstance(reason, str) or len(reason) > REASON_MOST or not reason.isprintable():
+        raise Refused(f"the reason must be plain text of at most {REASON_MOST} characters")
+    if not isinstance(measures, dict) or set(measures) != MEASURES:
+        raise Refused("the summary's measures are not the check's")
+    total = dict.fromkeys(sorted(CHANGES), 0)
+    for counts in measures.values():
+        if not isinstance(counts, dict) or set(counts) != CHANGES:
+            raise Refused("a measure's counts are not gained, lost and changed")
+        for change, n in counts.items():
+            if not isinstance(n, int) or isinstance(n, bool) or n < 0:
+                raise Refused("a count is not a whole number")
+            total[change] += n
+    if verdict == "accepted" and total["lost"] and not reason:
+        raise Refused("a lost item is accepted only with a reason")
+    text = f"{verdict}: {total['gained']} gained, {total['lost']} lost, {total['changed']} changed"
+    if reason:
+        text += f"; {reason}"
+    return ("success" if verdict == "accepted" else "failure"), shorten(text)
+
+
+def design_gate(passed: str, failed: str, items: int) -> tuple[str, str]:
+    passing, failing = numbers(passed), numbers(failed)
+    if passing & failing:
+        raise Refused(f"items both passed and failed: {spans(passing & failing)}")
+    if passing | failing != set(range(1, items + 1)):
+        raise Refused(f"every item 1-{items} is passed or failed; missing or unknown items were given")
+    text = f"passed {spans(passing)}" if passing else "passed none"
+    if failing:
+        text += f"; failed {spans(failing)}"
+    return ("failure" if failing else "success"), shorten(text)
+
+
+def numbers(text: str) -> set[int]:
+    found: set[int] = set()
+    for part in filter(None, text.replace(" ", "").split(",")):
+        match = re.fullmatch(r"(\d+)(?:-(\d+))?", part)
+        if not match:
+            raise Refused(f"not an item number or range: {part!r}")
+        first, last = int(match[1]), int(match[2] or match[1])
+        found |= set(range(first, last + 1))
+    return found
+
+
+def spans(values: set[int]) -> str:
+    runs: list[list[int]] = []
+    for n in sorted(values):
+        if runs and n == runs[-1][1] + 1:
+            runs[-1][1] = n
+        else:
+            runs.append([n, n])
+    return ", ".join(f"{a}" if a == b else f"{a}-{b}" for a, b in runs)
+
+
+def shorten(text: str) -> str:
+    return text if len(text) <= DESCRIPTION_MOST else text[: DESCRIPTION_MOST - 1] + "…"
+
+
+def read_json(folder: Path, name: str) -> dict[str, Any]:
+    """A small regular file in the run's folder, opened without following a link."""
+    try:
+        directory = os.open(folder, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    except OSError as error:
+        raise Refused(f"no run folder {folder} ({error.strerror})") from None
+    try:
+        handle = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory)
+    except OSError as error:
+        raise Refused(f"no regular file {name} in the run's folder ({error.strerror})") from None
+    finally:
+        os.close(directory)
+    with os.fdopen(handle, "rb") as file:
+        info = os.fstat(file.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_size > READ_MOST:
+            raise Refused(f"the run's {name} is not a small regular file")
+        try:
+            value = json.loads(file.read())
+        except ValueError:
+            raise Refused(f"the run's {name} is not JSON") from None
+    if not isinstance(value, dict):
+        raise Refused(f"the run's {name} is not a JSON object")
+    return value
+
+
+def installation_token(config: dict[str, Any], send: Transport, sign: Signer, now: float) -> str:
+    """A token for the App's installation, from a JWT the App's key signs (valid ten minutes at most)."""
+    header = _b64(json.dumps({"alg": "RS256", "typ": "JWT"}).encode())
+    claims = {"iat": int(now) - 60, "exp": int(now) + 540, "iss": str(config["app_id"])}
+    payload = _b64(json.dumps(claims).encode())
+    signing_input = f"{header}.{payload}".encode()
+    jwt = f"{header}.{payload}.{_b64(sign(signing_input))}"
+    reply = send("POST", f"/app/installations/{config['installation_id']}/access_tokens", jwt, {})
+    return str(reply["token"])
+
+
+def openssl_sign(key: Path, data: bytes) -> bytes:
+    done = subprocess.run(
+        ["openssl", "dgst", "-sha256", "-sign", str(key)], input=data, capture_output=True, check=False
+    )
+    if done.returncode != 0:
+        raise Refused("openssl could not sign with the App's key (is this the key user?)")
+    return done.stdout
+
+
+def https(method: str, path: str, token: str, body: dict[str, Any] | None) -> Any:
+    request = urllib.request.Request(
+        API + path,
+        method=method,
+        data=None if body is None else json.dumps(body).encode(),
+        headers={
+            "Accept": "application/vnd.github+json",
+            "Authorization": f"Bearer {token}",
+            "User-Agent": "vextrus-post-status",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=30) as reply:
+            return json.load(reply)
+    except urllib.error.HTTPError as error:
+        raise Refused(f"GitHub answered {error.code} to {method} {path}") from None
+
+
+def _b64(data: bytes) -> str:
+    return base64.urlsafe_b64encode(data).rstrip(b"=").decode()
+
+
+if __name__ == "__main__":
+    sys.exit(main())
