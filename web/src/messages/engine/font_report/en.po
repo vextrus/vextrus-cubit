@@ -10,10 +10,10 @@ msgid "engine.font_report.asked"
 msgstr "{kind, select, shx {{asked} (AutoCAD lettering)} other {{asked}}}"
 
 msgid "engine.font_report.glyphs_missing"
-msgstr "{count, plural, one {# text has letters or symbols Vextrus has no font for; they show as empty boxes. The Plot shows them as drawn.} other {# texts have letters or symbols Vextrus has no font for; they show as empty boxes. The Plot shows them as drawn.}}"
+msgstr "{count, plural, one {# text has letters or symbols Vextrus has no font for.} other {# texts have letters or symbols Vextrus has no font for.}} In As read each shows as an empty box; the text itself is kept in full. In AutoCAD and on the Plot they show as drawn."
 
 msgid "engine.font_report.height_defaulted"
-msgstr "{count, plural, one {Except for # text: the drawing gives it no size, so Vextrus draws it at AutoCAD's standard size. It may look larger or smaller than on the Plot.} other {Except for # texts: the drawing gives them no size, so Vextrus draws them at AutoCAD's standard size. They may look larger or smaller than on the Plot.}}"
+msgstr "{count, plural, one {# text stores no size Vextrus can find, so Vextrus draws it at AutoCAD's standard size. It may look larger or smaller than in AutoCAD.} other {# texts store no size Vextrus can find, so Vextrus draws them at AutoCAD's standard size. They may look larger or smaller than in AutoCAD.}}"
 
 msgid "engine.font_report.how_close"
 msgstr "{how_close, select, same_widths {Same widths} single_stroke {Single-stroke, like the plot} wider {A little wider: a line of text may run slightly long} narrower {A little narrower} bangla_ansi {Bangla in an old font: see above} not_found {Not found: drawn with {drawn_with}; letters may differ} other {Not found: drawn with {drawn_with}; letters may differ}}"

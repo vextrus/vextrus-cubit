@@ -76,7 +76,9 @@ def test_the_harness_runs_11s_stages_and_writes_a_valid_export(
     for stage in ("font_report", "bangla_ansi", "render_buffers", "rasterise"):
         assert states[stage] == "ok", (stage, document["files"][0]["stages"][stage])
     reading = document["files"][0]
-    assert reading["font_report"]["fonts_named"] == 3
+    assert (
+        reading["font_report"]["fonts_named"] == 2
+    )  # Arial (by its style and in bold inline) and Romans
     assert reading["bangla_ansi"] == {"by_font": 0, "by_pattern": 0, "fonts": 0, "texts": 0}
     assert validate(document, load_schema()) == []
 

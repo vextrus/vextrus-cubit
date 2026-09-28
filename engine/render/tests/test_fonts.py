@@ -6,9 +6,11 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from engine.recognise.types import Box, SheetCandidate, SheetLocation
 from engine.render import fonts
+from engine.render.buffers import build
 from engine.render.fixtures.artefacts import Drawing
-from engine.render.fonts import HowClose, report, substitute
+from engine.render.fonts import Face, HowClose, report, substitute
 from engine.render.fonts.glyphs import (
     FILES,
     SDF_PX_PER_UNIT,
@@ -51,13 +53,13 @@ def test_inline_bold_draws_the_bold_face() -> None:
 @pytest.mark.parametrize(
     ("name", "asked"),
     [
-        ("../../etc/passwd", "passwd"),
-        ("/etc/shadow", "shadow"),
+        ("../../etc/passwd", "Passwd"),
+        ("/etc/shadow", "Shadow"),
         ("C:\\Windows\\Fonts\\arial.ttf", "Arial"),
-        ("http://example.invalid/evil.ttf?x=1", "evil"),
-        ("file:///etc/passwd#frag", "passwd"),
+        ("http://example.invalid/evil.ttf?x=1", "Evil"),
+        ("file:///etc/passwd#frag", "Passwd"),
         ("\x00\x1b[31mred", "[31mred"),
-        ("A" * 5000 + ".ttf", "A" * 64),
+        ("A" * 5000 + ".ttf", "A" + "a" * 63),
     ],
 )
 def test_a_font_name_that_is_a_path_or_url_is_only_a_name(
@@ -173,15 +175,14 @@ def test_the_report_counts_fonts_by_style_and_inline() -> None:
     drawing.text("X", kind="MTEXT", height=None, font="arial.ttf", owner=drawing.block("EMPTY"))
     found = report(drawing.artefact())
 
-    rows = {(u.substitute.asked, u.substitute.key): u.texts for u in found.fonts}
+    rows = {u.substitute.asked: (u.texts, u.substitute.drawn_with) for u in found.fonts}
     assert rows == {
-        ("Romans", FontKey.STROKE): 2,
-        ("Arial", FontKey.SANS_BOLD): 1,
-        ("Swiss 721", FontKey.SANS): 1,
-        ("Nikosh", FontKey.SANS): 1,
-        ("Arial", FontKey.SANS): 1,
+        "Romans": (2, "Hershey Simplex"),
+        "Arial": (2, "Liberation Sans"),  # one inline in bold, one by its style
+        "Swiss 721": (1, "Liberation Sans"),
+        "Nikosh": (1, "Liberation Sans"),
     }
-    assert found.counts["fonts_named"] == 5
+    assert found.counts["fonts_named"] == 4
     assert found.counts["single_stroke"] == 1
     assert found.counts["texts"] == 5
     assert found.counts["texts_height_defaulted"] == 1
@@ -202,3 +203,46 @@ def test_the_harness_reads_the_reports_counts() -> None:
     counts = _counts(to_json(fonts.report(drawing.artefact())))
     assert counts is not None
     assert counts["fonts_named"] == 1
+
+
+def test_a_font_named_by_a_style_and_inline_in_bold_is_one_font_with_its_faces() -> None:
+    """The design gate's item: Arial named by a style and by `{\\fArial|b1;…}` showed twice and the
+    summary said "2 fonts named". A row is the name the drawing asks for; the face is its detail."""
+    drawing = Drawing()
+    drawing.text("PLAIN", font="arial.ttf")
+    drawing.text("{\\fArial|b1;BOLD} {\\fARIAL|i1;SLANTED}", kind="MTEXT", font="arial.ttf")
+    found = report(drawing.artefact())
+
+    assert [(u.substitute.asked, u.texts, u.faces) for u in found.fonts] == [
+        ("Arial", 2, (Face.REGULAR, Face.BOLD, Face.ITALIC))
+    ]
+    assert found.counts["fonts_named"] == 1
+    assert found.messages()[0] == {"code": "engine.font_report.summary", "params": {"fonts": 1}}
+    assert found.fonts[0].to_json()["faces"] == ["regular", "bold", "italic"]
+
+
+def test_a_sheets_font_rows_are_grouped_as_the_reports_are() -> None:
+    drawing = Drawing()
+    drawing.text("PLAIN", (10.0, 10.0, 0.0), font="arial.ttf")
+    drawing.text("{\\fArial|b1;BOLD}", (10.0, 30.0, 0.0), kind="MTEXT", font="arial.ttf")
+    built = build(drawing.artefact(), SheetCandidate(SheetLocation(box=Box(0, 0, 297, 210))))
+    rows = [
+        (built.strings[r["asked"]], built.strings[r["drawn_with"]], int(r["texts"])) for r in built.fonts
+    ]
+    assert rows == [("Arial", "Liberation Sans", 2)]
+
+
+@pytest.mark.parametrize(
+    ("name", "shown"),
+    [
+        ("sutonnymj.ttf", "SutonnyMJ"),
+        ("SUTONNYMJ.TTF", "SutonnyMJ"),
+        ("SutonnyMJ.ttf", "SutonnyMJ"),
+        ("nikosh.ttf", "Nikosh"),
+        ("kalpurush ansi.ttf", "Kalpurush Ansi"),
+        ("MyCompanyFont.ttf", "MyCompanyFont"),  # mixed case is the drawing's own
+        ("ROMANS.SHX", "Romans"),
+    ],
+)
+def test_a_name_typed_in_one_case_is_capitalised_as_its_family_is_written(name: str, shown: str) -> None:
+    assert substitute(name).asked == shown

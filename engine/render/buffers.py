@@ -110,7 +110,7 @@ from engine.read.artefact import AnyEntity, Entity, Insert, ReadArtefact, Text
 from engine.recognise.types import SheetCandidate
 from engine.render import _hatch, _shapes
 from engine.render._text import Laid, lay_out
-from engine.render.fonts import Substitute
+from engine.render.fonts import Face, FontTally
 from engine.render.fonts.glyphs import SDF_PX_PER_UNIT, Field, FontKey, notdef, outline, sdf
 from engine.text.mtext import Heights, HeightSource, frame
 
@@ -842,7 +842,7 @@ class _Sheet:
         self.block_names = {b.name: h for h, b in artefact.blocks.items()}
         self.atlas_index: dict[tuple[FontKey, str | None], int] = {}
         self.atlas_fields: list[Field] = []
-        self.fonts: Counter[Substitute] = Counter()
+        self.fonts = FontTally()
         self.stats: Counter[str] = Counter()
         self.counts = {"lines": 0, "triangles": 0}
         self.truncated = False
@@ -1304,9 +1304,7 @@ class _Drawer:
         if prim < 0:
             return
         colour = 0
-        for used in laid.fonts:
-            if used.asked:
-                sheet.fonts[used] += 1
+        sheet.fonts.add((used, Face.REGULAR) for used in laid.fonts)
         if laid.missing:
             sheet.stats["glyphs_missing"] += laid.missing
         if laid.cut:
@@ -1407,13 +1405,13 @@ def _finish(sheet: _Sheet) -> SheetBuffers:
     fonts = np.array(
         [
             (
-                sheet.string(s.asked),
-                sheet.string(s.drawn_with),
-                sheet.string(str(s.how_close)),
-                sheet.string(s.kind),
-                n,
+                sheet.string(use.substitute.asked),
+                sheet.string(use.substitute.drawn_with),
+                sheet.string(str(use.substitute.how_close)),
+                sheet.string(use.substitute.kind),
+                use.texts,
             )
-            for s, n in sorted(sheet.fonts.items(), key=lambda i: (i[0].asked.casefold(), i[0].key))
+            for use in sheet.fonts.rows()
         ],
         dtype=FONT,
     ) if sheet.fonts else np.zeros(0, dtype=FONT)  # fmt: skip

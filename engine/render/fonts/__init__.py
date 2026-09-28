@@ -11,7 +11,8 @@ font (`\\fArial|b1;`, `\\Fromans|c0;`) names it. **A name is only ever a key int
 its last path component, cut at a `?` or `#`, without its extension, folded to lower case and with its
 spaces removed. It never reaches the file system, so `../../etc/passwd`, `/etc/passwd` or a URL is an
 unknown font, drawn with Liberation Sans. The name shown to a QS is the same last component, without
-its extension, cut to `MAX_NAME` characters.
+its extension, cut to `MAX_NAME` characters, and capitalised as its family is written when it is typed
+all in one case, as file names usually are (`romans.shx`: Romans; `sutonnymj.ttf`: SutonnyMJ).
 
 **How close** (m0-screens 4.5's six answers; `HowClose`) is claimed only from a measurement or from a
 certainty, never guessed (docs/research/viewer-2d-fidelity.md, "Font policy"):
@@ -29,12 +30,14 @@ certainty, never guessed (docs/research/viewer-2d-fidelity.md, "Font policy"):
 `report(artefact)` is the stage the harness calls (the M0 plan's contract). It lists every font the
 drawing's texts name, by style and inline, with its substitute and how close, and counts them; the
 harness reads `counts`, and the product stores the report's rows as message codes and parameters
-(engine/messages/font_report.py).
+(engine/messages/font_report.py). **A row is a name the drawing asks for** (and its kind): Arial named
+by a style and `{\\fArial|b1;…}` inline are one row, one font, whose faces (bold, italic) are the row's
+detail, and "drawn with" is the free font's family (Liberation Sans, whichever of its faces draws it).
 """
 
 import unicodedata
 from collections import Counter
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
 from enum import StrEnum
 from functools import lru_cache
@@ -42,7 +45,7 @@ from functools import lru_cache
 from engine.messages import Message
 from engine.messages import font_report as codes
 from engine.read.artefact import ReadArtefact, Text
-from engine.render.fonts.glyphs import NAME_OF, FontKey, _true_type, strokes
+from engine.render.fonts.glyphs import FontKey, _true_type, strokes
 from engine.text.decode import decode, runs
 from engine.text.mtext import Heights, HeightSource
 
@@ -118,7 +121,36 @@ class Substitute:
 
     @property
     def drawn_with(self) -> str:
-        return NAME_OF[self.key]
+        """The free font's family (Liberation Sans for its regular and bold faces alike)."""
+        return FAMILY_OF[self.key]
+
+    @property
+    def row(self) -> tuple[str, str]:
+        """The report's row it belongs to: the name the drawing asks for, in any case, and its kind."""
+        return (self.asked.casefold(), self.kind)
+
+
+FAMILY_OF = {
+    FontKey.SANS: "Liberation Sans",
+    FontKey.SANS_BOLD: "Liberation Sans",
+    FontKey.SERIF: "Liberation Serif",
+    FontKey.STROKE: "Hershey Simplex",
+}
+"""The family of each font Vextrus draws with, as the report names it."""
+
+
+class Face(StrEnum):
+    """How a run asks for its font: a detail of the report's row, never a row of its own."""
+
+    REGULAR = "regular"
+    BOLD = "bold"
+    ITALIC = "italic"
+    BOLD_ITALIC = "bold_italic"
+
+    @classmethod
+    def of(cls, bold: bool, italic: bool) -> Face:
+        return {(False, False): cls.REGULAR, (True, False): cls.BOLD, (False, True): cls.ITALIC,
+                (True, True): cls.BOLD_ITALIC}[(bold, italic)]  # fmt: skip
 
 
 def _component(name: str) -> str:
@@ -142,6 +174,17 @@ def normalise(name: str) -> str:
     return "".join(stem.split()).casefold()
 
 
+def _capitalised(name: str) -> str:
+    """A name typed all in one case, capitalised as its family is written: each word's first letter,
+    and a Bijoy-style font's MJ (sutonnymj: SutonnyMJ). A name in mixed case is the drawing's own."""
+    if not (name.islower() or name.isupper()):
+        return name
+    name = " ".join(word[:1].upper() + word[1:].lower() for word in name.split(" "))
+    if is_bangla_ansi_font(name):
+        name = name[:-2] + "MJ"
+    return name
+
+
 def is_bangla_ansi_font(name: str) -> bool:
     """A Bijoy-style font: its family ends in `MJ`, but not `OMJ` (Mustafa Jabbar's Unicode OpenType
     fonts, which must not be flagged). The evidence is in `engine.check.bangla_ansi`'s docstring."""
@@ -155,12 +198,13 @@ def substitute(name: str | None, bold: bool = False) -> Substitute:
     if name is None or not _component(name):
         return Substitute("", "other", FontKey.SANS, HowClose.NOT_FOUND)
     stem, extension = _split(name)
-    asked = stem[:MAX_NAME]
     key = normalise(name)
     if extension == "shx" or (extension is None and key in KNOWN_SHX):
+        asked = stem[:MAX_NAME]
         return Substitute(
             asked[:1].upper() + asked[1:].lower(), "shx", FontKey.STROKE, HowClose.SINGLE_STROKE
         )
+    asked = _capitalised(stem[:MAX_NAME])
     if is_bangla_ansi_font(name):
         return Substitute(asked, "other", FontKey.SANS, HowClose.BANGLA_ANSI)
     entry = TABLE.get(key)
@@ -190,10 +234,12 @@ def drawable(key: FontKey, char: str) -> bool:
 
 @dataclass(frozen=True)
 class FontUse:
-    """One row of the report: a font the drawing names, what draws it and in how many texts."""
+    """One row of the report: a name the drawing asks for, what draws it, in how many texts and in
+    which faces."""
 
     substitute: Substitute
     texts: int
+    faces: tuple[Face, ...] = (Face.REGULAR,)
 
     def to_json(self) -> dict[str, object]:
         s = self.substitute
@@ -203,6 +249,7 @@ class FontUse:
             "drawn_with": s.drawn_with,
             "how_close": str(s.how_close),
             "texts": self.texts,
+            "faces": [str(face) for face in self.faces],
             "asked_message": codes.ASKED(asked=s.asked, kind=s.kind),
             "how_close_message": codes.HOW_CLOSE(how_close=str(s.how_close), drawn_with=s.drawn_with),
         }
@@ -235,40 +282,80 @@ class FontReport:
         }
 
 
-def fonts_of(text: Text) -> Iterator[tuple[Substitute, str]]:
-    """Each font a text is drawn with and the characters it draws with it (an MTEXT's inline fonts
-    included; a run with no inline font uses the style's)."""
+def uses_of(text: Text) -> Iterator[tuple[Substitute, str, Face]]:
+    """Each font a text is drawn with, the characters it draws with it and the face they ask for (an
+    MTEXT's inline fonts included; a run with no inline font uses the style's)."""
     if text.type != "MTEXT":
-        yield substitute(text.font), decode(text.text)
+        yield substitute(text.font), decode(text.text), Face.REGULAR
         return
     for run in runs(text.text):
         name = run.style.font if run.style.font is not None else text.font
-        yield substitute(name, run.style.bold), run.text
+        yield substitute(name, run.style.bold), run.text, Face.of(run.style.bold, run.style.italic)
+
+
+def fonts_of(text: Text) -> Iterator[tuple[Substitute, str]]:
+    """`uses_of` without the faces."""
+    for used, characters, _ in uses_of(text):
+        yield used, characters
+
+
+class FontTally:
+    """Texts counted per row of the report (the module's docstring): a text naming Arial by its style
+    and again inline in bold counts once, in one row, with both faces."""
+
+    def __init__(self) -> None:
+        self._texts: Counter[tuple[str, str]] = Counter()
+        self._named: dict[tuple[str, str], Substitute] = {}
+        self._faces: dict[tuple[str, str], set[Face]] = {}
+
+    def __bool__(self) -> bool:
+        return bool(self._texts)
+
+    def add(self, uses: Iterable[tuple[Substitute, Face]]) -> None:
+        """One text's fonts."""
+        rows = set()
+        for used, face in uses:
+            if not used.asked:
+                continue
+            row = used.row
+            rows.add(row)
+            self._faces.setdefault(row, set()).add(face)
+            shown = self._named.get(row)
+            if shown is None or _rank(used) < _rank(shown):
+                self._named[row] = used
+        self._texts.update(rows)
+
+    def rows(self) -> tuple[FontUse, ...]:
+        order = list(Face)
+        return tuple(
+            FontUse(self._named[row], n, tuple(sorted(self._faces[row], key=order.index)))
+            for row, n in sorted(self._texts.items())
+        )
+
+
+def _rank(used: Substitute) -> tuple[bool, str]:
+    """Which of a row's substitutes it shows: the regular face's, then its name's first spelling."""
+    return (used.key is FontKey.SANS_BOLD, used.asked)
 
 
 def report(artefact: ReadArtefact) -> FontReport:
     """The font report of a drawing (the module's docstring)."""
-    uses: Counter[Substitute] = Counter()
+    tally = FontTally()
     heights = Heights(artefact)
     texts = defaulted = missing = 0
     for entity in artefact.entities.values():
         if not isinstance(entity, Text):
             continue
         texts += 1
-        named: set[Substitute] = set()
+        named: list[tuple[Substitute, Face]] = []
         lacking = False
-        for used, characters in fonts_of(entity):
-            named.add(used)
+        for used, characters, face in uses_of(entity):
+            named.append((used, face))
             lacking = lacking or not all(drawable(used.key, c) for c in characters)
-        for used in named:
-            if used.asked:
-                uses[used] += 1
+        tally.add(named)
         missing += lacking
         defaulted += heights.local(entity)[1] is HeightSource.DEFAULT
-    rows = tuple(
-        FontUse(s, n)
-        for s, n in sorted(uses.items(), key=lambda item: (item[0].asked.casefold(), item[0].key))
-    )
+    rows = tally.rows()
     by_close = Counter(str(row.substitute.how_close) for row in rows)
     counts = {
         "fonts_named": len(rows),

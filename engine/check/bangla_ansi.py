@@ -3,9 +3,10 @@
 Bijoy's fonts (SutonnyMJ and its kin) draw Bangla letters on the code points of Windows-1252's Latin
 letters and signs, so a text typed in one is stored as Latin characters: it shows as Bangla only where
 the font is installed, and no machine can read it. `run(artefact)` flags each such text, **by its
-fonts' names** (the style's and the inline ones) **or by its characters' pattern**, and counts them; the
-finding names the texts, the sheets they are on and the font, in a QS's words
-(engine/messages/bangla_ansi.py). Texts in a Unicode Bangla font are never flagged.
+fonts' names** (the style's and the inline ones) **or by its characters' pattern**, and counts them.
+`findings(sheet_of)` gives one line for the texts found by their font (naming the font) and another
+for those found only by their characters, each with the texts it counts and the sheets they are on, in
+a QS's words (engine/messages/bangla_ansi.py). Texts in a Unicode Bangla font are never flagged.
 
 **The rules, and their evidence** (a research agent's report of 28 Sep 2026, from the fonts' own
 tables and two independent converters; no real drawing was seen):
@@ -29,6 +30,7 @@ Declares `CODE`, `VERSION` and `MILESTONE` (the M0 plan's contract for a Check).
 
 import re
 from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
 
@@ -80,16 +82,28 @@ class BanglaAnsi:
             "fonts": len(self.fonts),
         }
 
-    def finding(self, sheets: int) -> Message | None:
-        """The finding for a file whose flagged texts lie on `sheets` sheets; none when none."""
-        if not self.texts:
-            return None
-        fonts = self.fonts
-        if fonts:
-            return codes.FOUND(
-                texts=len(self.texts), sheets=sheets, font=fonts[0], other_fonts=len(fonts) - 1
+    def findings(self, sheet_of: Callable[[str], str | None]) -> list[Message]:
+        """The file's lines: the texts found by their font, then those found only by their characters,
+        each counted with the sheets they lie on (`sheet_of` gives a text's sheet by its handle, none
+        when it is on none); no line for a kind with no text."""
+        found = []
+        by_font = [t.handle for t in self.texts if t.by is FoundBy.FONT]
+        by_pattern = [t.handle for t in self.texts if t.by is FoundBy.PATTERN]
+        if by_font:
+            fonts = self.fonts
+            found.append(
+                codes.FOUND(
+                    texts=len(by_font),
+                    sheets=_sheets(by_font, sheet_of),
+                    font=fonts[0],
+                    other_fonts=len(fonts) - 1,
+                )
             )
-        return codes.FOUND_BY_PATTERN(texts=len(self.texts), sheets=sheets)
+        if by_pattern:
+            found.append(
+                codes.FOUND_BY_PATTERN(texts=len(by_pattern), sheets=_sheets(by_pattern, sheet_of))
+            )
+        return found
 
     def to_json(self) -> dict[str, object]:
         return {
@@ -97,6 +111,10 @@ class BanglaAnsi:
             "fonts": list(self.fonts),
             "texts": [{"handle": t.handle, "by": str(t.by), "font": t.font} for t in self.texts],
         }
+
+
+def _sheets(handles: list[str], sheet_of: Callable[[str], str | None]) -> int:
+    return len({sheet for h in handles if (sheet := sheet_of(h)) is not None})
 
 
 def sheet_line(sheet: str, texts: int) -> Message:
