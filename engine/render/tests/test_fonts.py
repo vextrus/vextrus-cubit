@@ -240,6 +240,7 @@ def test_a_sheets_font_rows_are_grouped_as_the_reports_are() -> None:
         ("SutonnyMJ.ttf", "SutonnyMJ"),
         ("nikosh.ttf", "Nikosh"),
         ("kalpurush ansi.ttf", "Kalpurush Ansi"),
+        ("arial unicode ms.ttf", "Arial Unicode MS"),  # a foundry's initials stay capitals
         ("MyCompanyFont.ttf", "MyCompanyFont"),  # mixed case is the drawing's own
         ("ROMANS.SHX", "Romans"),
     ],

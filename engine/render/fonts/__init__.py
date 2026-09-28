@@ -174,12 +174,19 @@ def normalise(name: str) -> str:
     return "".join(stem.split()).casefold()
 
 
+_INITIALS = frozenset({"ms", "mt", "bt", "itc"})
+"""Words a font's name writes in capitals: its foundry's initials (Arial Unicode MS, Swiss 721 BT)."""
+
+
 def _capitalised(name: str) -> str:
     """A name typed all in one case, capitalised as its family is written: each word's first letter,
     and a Bijoy-style font's MJ (sutonnymj: SutonnyMJ). A name in mixed case is the drawing's own."""
     if not (name.islower() or name.isupper()):
         return name
-    name = " ".join(word[:1].upper() + word[1:].lower() for word in name.split(" "))
+    name = " ".join(
+        word.upper() if word.casefold() in _INITIALS else word[:1].upper() + word[1:].lower()
+        for word in name.split(" ")
+    )
     if is_bangla_ansi_font(name):
         name = name[:-2] + "MJ"
     return name

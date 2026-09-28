@@ -84,25 +84,23 @@ class BanglaAnsi:
 
     def findings(self, sheet_of: Callable[[str], str | None]) -> list[Message]:
         """The file's lines: the texts found by their font, then those found only by their characters,
-        each counted with the sheets they lie on (`sheet_of` gives a text's sheet by its handle, none
-        when it is on none); no line for a kind with no text."""
-        found = []
+        each counted with the sheets they lie on and how many lie on none (`sheet_of` gives a text's
+        sheet by its handle, none when it is on none); no line for a kind with no text. When both show,
+        `also` is `yes`, so the second closes the pair and the first does not say nothing else is
+        affected before the second shows more."""
         by_font = [t.handle for t in self.texts if t.by is FoundBy.FONT]
         by_pattern = [t.handle for t in self.texts if t.by is FoundBy.PATTERN]
+        also = "yes" if by_font and by_pattern else "no"
+        found = []
         if by_font:
             fonts = self.fonts
             found.append(
                 codes.FOUND(
-                    texts=len(by_font),
-                    sheets=_sheets(by_font, sheet_of),
-                    font=fonts[0],
-                    other_fonts=len(fonts) - 1,
+                    **_where(by_font, sheet_of), font=fonts[0], other_fonts=len(fonts) - 1, also=also
                 )
             )
         if by_pattern:
-            found.append(
-                codes.FOUND_BY_PATTERN(texts=len(by_pattern), sheets=_sheets(by_pattern, sheet_of))
-            )
+            found.append(codes.FOUND_BY_PATTERN(**_where(by_pattern, sheet_of), also=also))
         return found
 
     def to_json(self) -> dict[str, object]:
@@ -113,8 +111,13 @@ class BanglaAnsi:
         }
 
 
-def _sheets(handles: list[str], sheet_of: Callable[[str], str | None]) -> int:
-    return len({sheet for h in handles if (sheet := sheet_of(h)) is not None})
+def _where(handles: list[str], sheet_of: Callable[[str], str | None]) -> dict[str, int]:
+    sheets = [sheet_of(h) for h in handles]
+    return {
+        "texts": len(handles),
+        "sheets": len({s for s in sheets if s is not None}),
+        "outside": sum(s is None for s in sheets),
+    }
 
 
 def sheet_line(sheet: str, texts: int) -> Message:
