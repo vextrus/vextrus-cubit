@@ -360,7 +360,7 @@ def test_each_row_offers_exactly_the_acts_the_server_would_accept(
             assert succeeds == (action in offered.get(name, ())), (viewer, name, action)
     hidden = set(matrix["rows"]) - set(offered)
     if viewer == "scoped qs":
-        assert HIDDEN_FROM_SCOPED <= hidden
+        assert hidden >= HIDDEN_FROM_SCOPED
     if viewer == "engineer":  # the people only: no Vextrus access, no invitations
         assert (seen["vextrus_access"], seen["invitations"]) == ([], [])
 
