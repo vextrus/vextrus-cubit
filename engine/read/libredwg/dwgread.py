@@ -164,6 +164,7 @@ def decode(data: Mapping[str, Any]) -> Decoded:
     }
 
     placed: list[Placed] = []
+    items: dict[str, dict[str, Any]] = {}  # each entity's own item: never an object given its handle
     unresolved_layers = 0
     for item in objects:
         kind = item.get("entity")
@@ -176,6 +177,7 @@ def decode(data: Mapping[str, Any]) -> Decoded:
         layer = names.get(handle(item.get("layer")) or "")
         unresolved_layers += layer is None
         placed.append(Placed(h, dxf_type(kind), layer or "", owner or UNKNOWN_OWNER))
+        items[h] = item
     if len({p.handle for p in placed}) != len(placed):
         raise ValueError("dwgread gave two entities one handle")
 
@@ -200,7 +202,7 @@ def decode(data: Mapping[str, Any]) -> Decoded:
     )
 
     inserts = {
-        p.handle: _insert(by_handle[p.handle], p, headers, by_handle, children)
+        p.handle: _insert(items[p.handle], p, headers, by_handle, items, children)
         for p in placed
         if p.type in ("INSERT", "MINSERT")
     }
@@ -209,9 +211,9 @@ def decode(data: Mapping[str, Any]) -> Decoded:
     for p in placed:
         if p.type not in TEXT_TYPES:
             continue
-        text = _text(by_handle[p.handle], p, styles)
+        text = _text(items[p.handle], p, styles)
         if text.type == "ATTRIB" and text.style is None:
-            attdef = _attdef_style(text, inserts, children, by_handle, styles)
+            attdef = _attdef_style(text, inserts, children, items, styles)
             if attdef is not None:
                 text = attdef
                 from_attdef += 1
@@ -278,6 +280,7 @@ def _insert(
     placed: Placed,
     headers: Mapping[str, Mapping[str, Any]],
     by_handle: Mapping[str, Mapping[str, Any]],
+    items: Mapping[str, Mapping[str, Any]],
     children: Mapping[str, Sequence[str]],
 ) -> Insert:
     block = handle(item.get("block_header")) or "0"
@@ -294,7 +297,7 @@ def _insert(
         scale=_point3(scale, 1.0) if isinstance(scale, list) else (1.0, 1.0, 1.0),
         rotation_radians=_number(item.get("rotation")),
         extrusion=_point3(item.get("extrusion"), 1.0) if item.get("extrusion") else (0.0, 0.0, 1.0),
-        attribs=_attribs(item, placed.handle, children, by_handle),
+        attribs=_attribs(item, placed.handle, children, items),
     )
 
 
@@ -302,11 +305,11 @@ def _attribs(
     item: Mapping[str, Any],
     insert: str,
     children: Mapping[str, Sequence[str]],
-    by_handle: Mapping[str, Mapping[str, Any]],
+    items: Mapping[str, Mapping[str, Any]],
 ) -> tuple[str, ...]:
     if "attribs" in item:  # R2004 on: the insert's own list
         return tuple(a for ref in item["attribs"] if (a := handle(ref)))
-    return tuple(c for c in children.get(insert, ()) if by_handle[c].get("entity") == "ATTRIB")
+    return tuple(c for c in children.get(insert, ()) if items.get(c, {}).get("entity") == "ATTRIB")
 
 
 def _style(h: str, item: Mapping[str, Any]) -> TextStyle:
@@ -362,14 +365,14 @@ def _attdef_style(
     attrib: Text,
     inserts: Mapping[str, Insert],
     children: Mapping[str, Sequence[str]],
-    by_handle: Mapping[str, Mapping[str, Any]],
+    items: Mapping[str, Mapping[str, Any]],
     styles: Mapping[str, TextStyle],
 ) -> Text | None:
     insert = inserts.get(attrib.owner)
     if insert is None or attrib.tag is None:
         return None
     for child in children.get(insert.block, ()):
-        item = by_handle.get(child, {})
+        item = items.get(child, {})
         if item.get("entity") == "ATTDEF" and item.get("tag") == attrib.tag:
             style = styles.get(handle(item.get("style")) or "")
             if style is None:

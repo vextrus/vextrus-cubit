@@ -495,6 +495,25 @@ def test_a_style_with_an_empty_or_missing_name_is_named_by_its_handle() -> None:
     assert [s.name for s in decoded.styles[2:]] == ["", "", ""]
 
 
+@pytest.mark.parametrize("value", [NAN, 10**400, "x"])
+def test_an_object_given_an_entitys_handle_never_lends_it_its_values(value: object) -> None:
+    """The refuter's case (29 Sep 2026): a STYLE given a TEXT's handle, after it in the file, was read
+    as the text, and a STYLE now keeps `width_factor`, a TEXT's key too (NaN broke the round trip, an
+    integer no float holds escaped `read` uncaught). Each entity is read from its own item."""
+    text = text_entity(0x50, text_value="MINE", ins_pt=[1.0, 2.0], width_factor=0.9, height=2.0)
+    clashes = (
+        style(0x50, "CLASH", width_factor=value, text_size=value),
+        style(0x40, "CLASH", width_factor=value),
+    )
+    data = with_styles(*clashes, entities=(insert(0x40, []), text))
+
+    decoded = dwgread.decode(data)
+
+    found = decoded.texts["50"]
+    assert (found.text, found.width, found.height, found.position) == ("MINE", 0.9, 2.0, (1.0, 2.0, 0.0))
+    assert (decoded.inserts["40"].block, decoded.inserts["40"].point) == ("30", (200.0, 0.0, 0.0))
+
+
 def test_two_styles_with_one_name_stay_two_and_each_text_names_its_own() -> None:
     small = style(0x14, "NOTES", text_size=1.8)
     large = style(0x15, "NOTES", text_size=5.0)

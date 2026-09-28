@@ -332,12 +332,15 @@ def test_an_attdef_carries_its_default_text(dwg_fixture: Fixture) -> None:
 EMPTY_DRAWING = '{"FILEHEADER": {"version": "AC1032"}, "HEADER": {}, "OBJECTS": []}'
 
 
-def stand_in_libredwg(tmp_path: Path, dwgread_plants: str, dwg2dxf_plants: str) -> Path:
+def stand_in_libredwg(
+    tmp_path: Path, dwgread_plants: str, dwg2dxf_plants: str, dwgread_writes: str = EMPTY_DRAWING
+) -> Path:
     """A LibreDWG whose programs write `plants` as their output: `file` (an honest file), `symlink`
-    (a link to a host file), or `hard link` (a second name for a file it made)."""
+    (a link to a host file), or `hard link` (a second name for a file it made); dwgread's JSON is
+    `dwgread_writes`."""
     host = tmp_path / "host"
     host.mkdir()
-    (host / "secret.json").write_text(EMPTY_DRAWING)
+    (host / "secret.json").write_text(dwgread_writes)
     new_drawing().saveas(host / "secret.dxf")
     honest_dxf = (host / "secret.dxf").read_text()
     prefix = tmp_path / "libredwg"
@@ -356,7 +359,7 @@ def stand_in_libredwg(tmp_path: Path, dwgread_plants: str, dwg2dxf_plants: str) 
         return f'#!/bin/sh\nif [ "$1" = "--version" ]; then echo "{program} 0.14"; exit 0; fi\n{write}\n'
 
     for program, plants, content, host_file in (
-        ("dwgread", dwgread_plants, EMPTY_DRAWING, host / "secret.json"),
+        ("dwgread", dwgread_plants, dwgread_writes, host / "secret.json"),
         ("dwg2dxf", dwg2dxf_plants, honest_dxf, host / "secret.dxf"),
     ):
         path = prefix / "bin" / program
@@ -420,3 +423,25 @@ def test_the_stand_in_reads_when_its_outputs_are_honest_files(
     artefact = read(drawing)
 
     assert (artefact.summary.format.version, len(artefact.entities)) == ("AC1032", 0)
+
+
+def test_a_number_no_float_holds_in_dwgreads_output_is_the_files_finding(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An OverflowError while parsing escaped `read` uncaught (#82's refuter); it is the file's
+    finding, as any other output the reader cannot parse."""
+    huge = "1" + "0" * 400
+    text = f'{{"entity": "TEXT", "handle": [0, 1, 80], "height": {huge}, "entmode": 2}}'
+    monkeypatch.setenv("VEXTRUS_SANDBOX", "off")
+    writes = EMPTY_DRAWING.replace('"OBJECTS": []', f'"OBJECTS": [{text}]')
+    monkeypatch.setenv("VEXTRUS_LIBREDWG", str(stand_in_libredwg(tmp_path, "file", "file", writes)))
+    drawing = tmp_path / "drawing.dwg"
+    drawing.write_bytes(b"AC1032" + bytes(64))
+
+    with pytest.raises(ReadError) as raised:
+        read(drawing)
+
+    assert raised.value.message == {
+        "code": "engine.read.output_unreadable",
+        "params": {"program": "dwgread"},
+    }
