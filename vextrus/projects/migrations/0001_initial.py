@@ -13,13 +13,15 @@
 #   its market_id is the Developer's Market, its currency that Market's, its unit system one that
 #   Market offers. So the app cannot swap them by deleting a Project and inserting it again either
 #   (the staff flag's hole in 02 was "by UPDATE, then by INSERT"; session 03's lessons). Its function
-#   is owned by vextrus, SECURITY DEFINER with search_path pinned, so it reads the Developer and its
-#   Market whatever the tenant settings say: the one place projects reads platform's tables, for
-#   integrity only, never for data.
-# - Its twin, on platform_developer, holds the other side: a Developer that holds Projects cannot
-#   move to another Market (nor change its id), so its Projects never fall off their Developer's
-#   Market by a write to the Developer (the refuter's finding on part 2: platform's grants let the
-#   app update its own Developer row). It guards projects' rule, so it lives here, not in platform.
+#   is SECURITY INVOKER with search_path pinned: it reads the Developer as the writer may (the app its
+#   own Developer's row, under its own-tenant policy; every Market; the owner every row), so it is
+#   no cross-tenant read (the Tenancy contract allows only platform's three named functions). Every
+#   refusal is one message, so a tenant writing with another's tenant_id learns nothing of it (row
+#   level security refuses that row anyway). It is projects' one read of platform's tables, for
+#   integrity only.
+# - The other side, a Developer's Market fixed once it holds data (the app may today update, or
+#   delete and insert again, its own Developer row), is platform's rule, closed in platform's next
+#   migration (the orchestrator's decision on #68, open to the owner's reversal), not here.
 
 import django.db.models.deletion
 import django.utils.timezone
@@ -58,7 +60,7 @@ FOLLOWS_MARKET = [
     """
     create function public.projects_project_follows_market()
     returns trigger
-    language plpgsql security definer
+    language plpgsql security invoker
     set search_path = pg_catalog, pg_temp
     as $$
     declare
@@ -68,13 +70,11 @@ FOLLOWS_MARKET = [
         from public.platform_developer d
         join public.platform_market m on m.id = d.market_id
        where d.id = new.tenant_id and not d.is_library;
-      if not found then
-        raise exception 'projects_project_follows_market: % is not a Developer', new.tenant_id
-          using errcode = 'check_violation';
-      end if;
-      if new.market_id is distinct from market.id
+      -- One refusal for every case: no Developer the writer may see, or not its Market's values.
+      if not found
+         or new.market_id is distinct from market.id
          or new.currency_code is distinct from market.currency_code
-         or not (market.unit_systems ? new.unit_system) then
+         or not coalesce(market.unit_systems ? new.unit_system, false) then
         raise exception 'projects_project_follows_market: a Project takes its Developer''s Market, '
                         'its currency and one of its unit systems'
           using errcode = 'check_violation';
@@ -94,36 +94,6 @@ FOLLOWS_MARKET = [
 FOLLOWS_MARKET_REVERSE = [
     "drop trigger projects_project_follows_market on projects_project",
     "drop function public.projects_project_follows_market()",
-]
-
-KEEPS_ITS_MARKET = [
-    """
-    create function public.projects_developer_keeps_its_market()
-    returns trigger
-    language plpgsql security definer
-    set search_path = pg_catalog, pg_temp
-    as $$
-    begin
-      if (new.market_id is distinct from old.market_id or new.id is distinct from old.id)
-         and exists (select 1 from public.projects_project p where p.tenant_id = old.id) then
-        raise exception 'projects_developer_keeps_its_market: % holds Projects on its Market', old.id
-          using errcode = 'check_violation';
-      end if;
-      return new;
-    end
-    $$
-    """,
-    "revoke all on function public.projects_developer_keeps_its_market() from public",
-    """
-    create trigger projects_developer_keeps_its_market
-      before update of id, market_id, library_id
-      on platform_developer
-      for each row execute function public.projects_developer_keeps_its_market()
-    """,
-]
-KEEPS_ITS_MARKET_REVERSE = [
-    "drop trigger projects_developer_keeps_its_market on platform_developer",
-    "drop function public.projects_developer_keeps_its_market()",
 ]
 
 KEYS = [
@@ -282,5 +252,4 @@ class Migration(migrations.Migration):
         migrations.RunSQL(KEYS, KEYS_REVERSE),
         migrations.RunSQL(GRANTS, GRANTS_REVERSE),
         migrations.RunSQL(FOLLOWS_MARKET, FOLLOWS_MARKET_REVERSE),
-        migrations.RunSQL(KEEPS_ITS_MARKET, KEEPS_ITS_MARKET_REVERSE),
     ]

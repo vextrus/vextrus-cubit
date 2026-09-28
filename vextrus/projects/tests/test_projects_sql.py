@@ -108,7 +108,10 @@ def test_the_app_cannot_write_a_project_into_another_developer(
     theirs = insert_project(cursor, b, market, "MG-01")
     act(cursor, tenant=a)
 
-    assert RLS_REFUSED in refused(cursor, INSERT_PROJECT, project_row(uuid.uuid4(), b, market, "X-01"))
+    error = refused(cursor, INSERT_PROJECT, project_row(uuid.uuid4(), b, market, "X-01"))
+    # The Market check runs first (a BEFORE trigger) and, seeing no Developer b as a, refuses it;
+    # row-level security would refuse it next.
+    assert RLS_REFUSED in error or "projects_project_follows_market" in error
     cursor.execute("update projects_project set name = 'Taken' where id = %s", [theirs])
     assert cursor.rowcount == 0
     cursor.execute("delete from projects_project where id = %s", [theirs])
@@ -213,52 +216,53 @@ def test_the_market_check_holds_the_owner_too(market: MarketProfile, make_develo
         owner.execute(INSERT_PROJECT, row)
 
 
-KEEPS_ITS_MARKET = "projects_developer_keeps_its_market"
-
-
 @pytest.mark.django_db
-@pytest.mark.parametrize("column", ["market_id", "id"])
-def test_a_developer_holding_projects_cannot_move_off_its_market(
-    two: tuple[uuid.UUID, uuid.UUID], cursor: Any, market: MarketProfile, column: str
+def test_a_tenant_writing_another_tenant_id_learns_nothing_of_it(
+    two: tuple[uuid.UUID, uuid.UUID], cursor: Any, market: MarketProfile
 ) -> None:
-    # The refuter's attack on part 2: the app updating its own Developer row strands its Projects.
-    a, _b = two
-    act(cursor, tenant=a)
-    insert_project(cursor, a, market, "KR-01")
-
-    error = refused(
-        cursor, f"update platform_developer set {column} = %s where id = %s", [uuid.uuid4(), a]
-    )
-
-    assert KEEPS_ITS_MARKET in error
-
-
-@pytest.mark.django_db
-def test_a_developer_without_projects_is_not_held_by_projects(
-    two: tuple[uuid.UUID, uuid.UUID], cursor: Any
-) -> None:
-    # Projects' rule says nothing of a Developer with none (platform's own keys still apply).
-    a, _b = two
+    # The Market check reads the Developer as the writer may (SECURITY INVOKER): as a, Developer b
+    # on the right Market, b with a wrong currency, the Market's Library and no Developer at all
+    # are one answer, so the check is no oracle of which Developers exist or on which Market.
+    a, b = two
     act(cursor, tenant=a)
 
-    cursor.execute("update platform_developer set market_id = market_id where id = %s", [a])
+    answers = {
+        name: refused(
+            cursor, INSERT_PROJECT, project_row(uuid.uuid4(), tenant, market, "X-01", **changed)
+        )
+        for name, tenant, changed in (
+            ("a Developer on the right Market", b, {}),
+            ("a Developer, a wrong currency", b, {"currency_code": "XTS"}),
+            ("the Market's Library", market.library_id, {}),
+            ("no Developer", uuid.uuid4(), {}),
+        )
+    }
 
-    assert cursor.rowcount == 1
+    assert len(set(answers.values())) == 1, answers
+    assert FOLLOWS_MARKET in answers["no Developer"]
 
 
 @pytest.mark.django_db
-@pytest.mark.parametrize("function", [FOLLOWS_MARKET, KEEPS_ITS_MARKET])
-def test_the_market_checks_are_the_owners_and_nobody_may_call_them(cursor: Any, function: str) -> None:
+def test_the_market_check_is_the_owners_invoker_and_nobody_may_call_it(cursor: Any) -> None:
+    # SECURITY INVOKER: the Tenancy contract allows only platform's three named functions to read
+    # across tenants; this one reads only what its writer may.
     owner, security_definer, pinned = rows(
         cursor,
         "select pg_get_userbyid(proowner), prosecdef, proconfig from pg_proc where proname = %s",
-        [function],
+        [FOLLOWS_MARKET],
     )[0]
 
-    assert (owner, security_definer, pinned) == ("vextrus", True, ["search_path=pg_catalog, pg_temp"])
+    assert (owner, security_definer, pinned) == ("vextrus", False, ["search_path=pg_catalog, pg_temp"])
     assert rows(
-        cursor, "select has_function_privilege('vextrus_app', %s, 'execute')", [f"public.{function}()"]
+        cursor,
+        "select has_function_privilege('vextrus_app', %s, 'execute')",
+        [f"public.{FOLLOWS_MARKET}()"],
     ) == [(False,)]
+    assert rows(
+        cursor,
+        "select count(*) from pg_trigger where tgrelid = 'platform_developer'::regclass"
+        " and not tgisinternal",
+    ) == [(0,)]
 
 
 @pytest.mark.django_db
