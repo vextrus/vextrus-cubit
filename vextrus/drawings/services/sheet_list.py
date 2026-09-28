@@ -755,6 +755,21 @@ def _view_view(view: View) -> ViewView:
 # Decisions: confirm, leave out, undo ----------------------------------------------------------------
 
 
+def record_kind(sheet_revision_id: uuid.UUID, kind: str | None) -> SheetView:
+    """Keep a printed sheet's kind as read (21b: the one 15's Jev picks, among the Discipline's kinds
+    13 drafts, held by value as a key; None: not known). Never changes one the QS has decided."""
+    if kind is not None and not (isinstance(kind, str) and _KEY.fullmatch(kind)):
+        raise auth.Refused(said.KIND_UNKNOWN(), status=400)
+    with transaction.atomic():
+        sheet_revision = _access.sheet_revision(sheet_revision_id, lock=True)
+        if sheet_revision.decision and sheet_revision.kind != (kind or ""):
+            file_name = sheet_revision.source_file.original_name
+            raise auth.Refused(refusal.DECIDED(file=file_name), status=409)
+        sheet_revision.kind = kind or ""
+        sheet_revision.save(update_fields=["kind"])
+    return _sheet_view(_all().get(id=sheet_revision.id))
+
+
 def confirm_sheet(
     sheet_revision_id: uuid.UUID, *, confirmation_id: uuid.UUID, kind: str | None = None
 ) -> SheetView:

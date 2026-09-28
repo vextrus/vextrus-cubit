@@ -28,6 +28,7 @@ For 21b (sheets, views, render and Plot):
     services.record_views(sr.id, view_candidates)
     services.record_render(sr.id, buffers)
     services.record_plot(sr.id, plot_match)              # or services.PlotNone.NO_PDF, …
+    services.record_kind(sr.id, "beam_layout")           # the kind as read (a key)
     services.artefact(file_id)                           # the kept ReadArtefact, loaded back
 
 For 19a and 21c (Step 1):
@@ -90,6 +91,7 @@ from vextrus.drawings.services.sheet_list import (
     confirm_sheet,
     confirm_view,
     exclude,
+    record_kind,
     record_plot,
     record_render,
     record_sheets,
@@ -143,6 +145,7 @@ __all__ = [
     "page_step",
     "quarantine",
     "record_bangla_lines",
+    "record_kind",
     "record_page_reasons",
     "record_plot",
     "record_render",
