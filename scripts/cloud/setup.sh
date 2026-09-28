@@ -4,7 +4,9 @@
 # It runs as root on Ubuntu 24.04 x86_64 after the clone and before Claude Code starts; the filesystem
 # it leaves is cached for about 7 days and rebuilt when this script or the network list changes; it
 # must exit 0 and should finish within five minutes. Every piece is timed into /opt/vextrus-setup.status,
-# which scripts/cloud/session-start.sh prints at each session's start. NOT YET RUN IN A CLOUD VM.
+# which scripts/cloud/session-start.sh prints at each session's start. First run in a VM on 28 Sep 2026
+# (account B): the clone is /home/user/vextrus-cubit and $CLAUDE_PROJECT_DIR is empty here; the image's
+# Launchpad PPAs answer 403, its uv is too old for Python 3.14.7, and it has no `gh` (fixed below).
 #
 # The layout is the local one (scripts/owner/toolchain.sh), /opt/vextrus/...: python, libredwg, dotnet,
 # plus node, ms-playwright (Chromium) and wheels (ezdxf's compiled wheel). The pins below must equal
@@ -29,6 +31,7 @@
 set -uo pipefail
 
 PY_VERSION=3.14.7
+UV_VERSION=0.12.5                           # the image's uv predates 3.14.7; this one, from PyPI, knows it
 NODE_MAJOR=24
 DOTNET_SDK_VERSION=10.0.401
 LIBREDWG_VERSION=0.14
@@ -43,6 +46,14 @@ mkdir -p "$V/wheels" && : > "$STATUS" && : > "$STATUS.parts"
 T0=$(date +%s)
 # Parallel installs share apt's lock: each apt call waits for it rather than failing.
 echo 'DPkg::Lock::Timeout "240";' > /etc/apt/apt.conf.d/90vextrus-lock-wait
+# The image lists Launchpad PPAs (deadsnakes, ondrej/php) that the network policy answers with 403, which
+# makes every `apt-get update` fail; nothing here needs them, so they are set aside before any install.
+mkdir -p /etc/apt/sources.list.d.vextrus-disabled
+for f in /etc/apt/sources.list.d/*; do
+  if [ -f "$f" ] && grep -qE 'ppa\.launchpad(content)?\.net' "$f"; then
+    mv "$f" /etc/apt/sources.list.d.vextrus-disabled/ && echo "apt: set aside $(basename "$f") (403)" >> "$STATUS"
+  fi
+done
 
 timed() {                                   # timed NAME: runs install_NAME, records ok/FAILED and seconds
   local t r
@@ -59,13 +70,20 @@ for dir in "${CLAUDE_PROJECT_DIR:-}" "$PWD" /home/*/* /root/* /workspace/* /code
 done
 
 release_asset() {                           # release_asset TAG FILE DEST: our private release, read-only
-  local token=${VEXTRUS_RELEASE_TOKEN:-${GH_TOKEN:-}}
-  GH_TOKEN=$token gh release download "$1" -R "$REPO" -p "$2" -D "$3" --clobber
+  # Through GitHub's API with curl (the image has no `gh`), with the read-only token when one is set;
+  # without one the request may still pass the session's GitHub proxy, or fail and the caller falls back.
+  local auth=() id
+  [ -n "${VEXTRUS_RELEASE_TOKEN:-}" ] && auth=(-H "Authorization: Bearer $VEXTRUS_RELEASE_TOKEN")
+  id=$(curl -fsSL "${auth[@]}" "https://api.github.com/repos/$REPO/releases/tags/$1" |
+       python3 -c "import json,sys; print(next(a['id'] for a in json.load(sys.stdin)['assets'] if a['name'] == sys.argv[1]))" "$2") ||
+    return 1
+  curl -fsSL "${auth[@]}" -H 'Accept: application/octet-stream' -o "$3/$2" \
+    "https://api.github.com/repos/$REPO/releases/assets/$id"
 }
 
-install_python() {
-  command -v uv >/dev/null || python3 -m pip install -q --break-system-packages --upgrade uv || return 1
-  uv python install --no-bin "$PY_VERSION"
+install_python() {                          # a pinned uv of our own under $V/uv, first on PATH (session-start)
+  python3 -m pip install -q --break-system-packages --target "$V/uv" "uv==$UV_VERSION" || return 1  # --target: $V/uv/bin/uv (Debian bends --prefix into local/)
+  "$V/uv/bin/uv" python install --no-bin "$PY_VERSION"
 }
 
 install_node() {                            # Node 24, then Chromium through Playwright's own installer
@@ -107,7 +125,12 @@ install_ezdxf() {                           # the compiled wheel by the hash too
 print(l['wheel'], l['wheel_sha256'], l['release'])" "$CHECKOUT/toolchain/ezdxf.lock") || return 1
   read -r wheel sha release <<< "$lock"
   [ "$wheel" != "${wheel%-py3-none-any.whl}" ] && { echo "the lock names the pure wheel, which uv.lock installs"; return 0; }
-  release_asset "$release" "$wheel" "$V/wheels" && echo "$sha  $V/wheels/$wheel" | sha256sum -c -
+  if release_asset "$release" "$wheel" "$V/wheels"; then
+    echo "$sha  $V/wheels/$wheel" | sha256sum -c -        # a download that fails its hash is a failure
+  else                                      # no access to the release: the pure wheel runs, slower
+    rm -f "$V/wheels/$wheel"
+    echo "ezdxf: NOTE the compiled wheel was not reachable (no VEXTRUS_RELEASE_TOKEN?); the pure wheel runs" >> "$STATUS.parts"
+  fi
 }
 
 install_postgres() {                        # 18 from apt.postgresql.org; 16's cluster dropped so 18 takes 5432
