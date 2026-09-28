@@ -89,10 +89,30 @@ def test_the_cached_row_holds_the_answer_as_decimals_and_decimal_strings(
     assert answer.confidence == Decimal("0.4300")
     assert row.options == list(STAND_IN_KINDS)
     assert row.probabilities["slab_layout"] == "0.49"
-    assert row.probabilities["cover_index"] == "0.0"
+    assert row.probabilities["cover_index"] == "0"
     assert all(isinstance(p, str) for p in row.probabilities.values())
     assert answer.ranked()[:3] == ("slab_layout", "other", "beam_layout")
     assert row.cache_key == key_of(INVENTED_SHEETS[5])
+
+
+@pytest.mark.django_db
+def test_a_vanishing_probability_is_stored_in_a_few_characters(
+    make_developer: Callable[..., uuid.UUID], jev_offline: Offline
+) -> None:
+    # Found by the refuter (round 0): 1e-999999999 was taken, then written out as a billion-digit
+    # string that PostgreSQL refused inside the caller's transaction.
+    body = (
+        b'{"model":"jev-1.13.0","answers":{"sheet_type":{"type":"choice","choice":"beam_layout",'
+        b'"confidence":0.97,"probabilities":{"beam_layout":0.99999999,"floor_plan":1e-999999999}}}}'
+    )
+    jev_offline.use(httpx.MockTransport(lambda request: httpx.Response(200, content=body)))
+    with tenancy.acting_in(make_developer()):
+        answer = jev.ask("sheet_type", SHEET, STAND_IN_QUESTION, ("beam_layout", "floor_plan"))
+        row = JevAnswer.objects.get()
+
+    assert isinstance(answer, jev.Answer)
+    assert row.probabilities == {"beam_layout": "1", "floor_plan": "0"}
+    assert answer.probabilities == (("beam_layout", Decimal(1)), ("floor_plan", Decimal(0)))
 
 
 @pytest.mark.django_db

@@ -244,8 +244,16 @@ def test_an_answer_python_s_json_would_take_is_malformed(body: bytes) -> None:
 def test_the_parser_itself_refuses_what_python_s_json_takes(text: str) -> None:
     assert json.loads(text) is not None  # Python's own json takes each of these
 
-    with pytest.raises(ValueError, match="not a number JSON allows|appears twice"):
+    with pytest.raises(ValueError, match=r"not a number JSON allows|appears twice"):
         jev._strict_json(text)
+
+
+def test_brackets_inside_text_are_not_nesting() -> None:
+    title = '[{"[' * 50 + '\\"]'
+
+    assert jev._strict_json(json.dumps({"t": [[title]]})) == {"t": [[title]]}
+    with pytest.raises(ValueError, match="nested too deep"):
+        jev._strict_json(json.dumps({"t": [[[[[[[[title]]]]]]]]}))
 
 
 def test_the_parser_reads_every_fraction_as_a_decimal() -> None:
@@ -255,6 +263,59 @@ def test_the_parser_reads_every_fraction_as_a_decimal() -> None:
         "n": 1,
     }
     assert type(jev._strict_json("0.5")) is Decimal
+
+
+# Found by the refuter (round 0): answers that made `send` raise, or that it took and `ask` could
+# not store.
+HOSTILE_NUMBERS = {
+    "an exponent past Decimal's range": raw(
+        f'{CHOICE},"confidence":1,"probabilities":'
+        '{"floor_plan":1e-9999999999999999999,"beam_layout":1,"other":0}'
+    ),
+    "a confidence past Decimal's range": raw(
+        f'{CHOICE},"confidence":1e99999999999999999999,{PROBABILITIES}'
+    ),
+    "a fraction of a thousand digits": raw(f'{CHOICE},"confidence":0.{"0" * 1000}1,{PROBABILITIES}'),
+    "an integer of four thousand digits": raw(f'{CHOICE},"confidence":1{"0" * 3999},{PROBABILITIES}'),
+    "nesting within the cap, never closed": b"[" * 65_536,
+    "nesting closed, deeper than an answer": (
+        b'{"model":"jev-1.13.0","answers":{"sheet_type":' + b"[" * 30 + b"]" * 30 + b"}}"
+    ),
+}
+
+
+@pytest.mark.parametrize("body", HOSTILE_NUMBERS.values(), ids=HOSTILE_NUMBERS.keys())
+def test_an_answer_that_would_break_the_parser_is_malformed_never_raised(body: bytes) -> None:
+    assert len(body) <= CAP
+
+    assert judge(client(Script(httpx.Response(200, content=body)))) == jev.Unavailable(jev.Why.MALFORMED)
+
+
+def test_a_vanishing_probability_is_read_to_six_places() -> None:
+    body = raw(
+        f'{CHOICE},"confidence":0.9999999,"probabilities":'
+        '{"floor_plan":1e-999999999,"beam_layout":0.99999999,"other":0e-999999999}'
+    )
+
+    answer = judge(client(Script(httpx.Response(200, content=body))))
+
+    assert isinstance(answer, jev.Judgement)
+    assert answer.probabilities == (
+        ("beam_layout", Decimal("1.000000")),
+        ("floor_plan", Decimal("0.000000")),
+        ("other", Decimal("0.000000")),
+    )
+    assert answer.confidence == Decimal(1)
+    assert all(p.as_tuple().exponent == -6 for _o, p in answer.probabilities)
+
+
+def test_a_fault_reading_an_answer_is_failed_never_raised(monkeypatch: pytest.MonkeyPatch) -> None:
+    def broken(body: bytes, request: jev.Request) -> jev.Judgement | None:
+        raise RecursionError("as a decoder might")
+
+    monkeypatch.setattr(jev, "_judgement", broken)
+
+    assert judge(client(Script(ok(good())))) == jev.Unavailable(jev.Why.FAILED)
 
 
 def test_whole_numbers_are_taken_for_a_confidence_and_probabilities() -> None:

@@ -366,12 +366,36 @@ def _criteria(options: Options) -> dict[str, str | None]:
 # Reading an answer ------------------------------------------------------------------------------------
 
 
+_LONGEST_NUMBER = 40
+"""The most characters a number in an answer may take (TypeSafe writes two decimal places)."""
+_DEEPEST = 8
+"""The deepest an answer may nest (a Choice's probabilities are four deep); deeper is refused before
+parsing, since Python's decoder recurses and could exhaust the stack."""
+_PLACES = Decimal("0.000001")
+"""Probabilities and confidences are read to six decimal places, so none is stored at any length."""
+
+
 class _Refused(ValueError):
     pass
 
 
 def _refuse_constant(name: str) -> Any:
     raise _Refused(f"{name} is not a number JSON allows")
+
+
+def _decimal(text: str) -> Decimal:
+    if len(text) > _LONGEST_NUMBER:
+        raise _Refused("a number too long")
+    try:
+        return Decimal(text)
+    except ArithmeticError:  # an exponent past Decimal's range
+        raise _Refused("a number out of range") from None
+
+
+def _integer(text: str) -> int:
+    if len(text) > _LONGEST_NUMBER:
+        raise _Refused("a number too long")
+    return int(text)
 
 
 def _no_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -383,23 +407,50 @@ def _no_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     return found
 
 
+def _nests_deeper_than(text: str, most: int) -> bool:
+    """Whether JSON text opens more than `most` arrays or objects within one another."""
+    depth = 0
+    quoted = escaped = False
+    for char in text:
+        if quoted:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                quoted = False
+        elif char == '"':
+            quoted = True
+        elif char in "[{":
+            depth += 1
+            if depth > most:
+                return True
+        elif char in "]}":
+            depth -= 1
+    return False
+
+
 def _strict_json(text: str) -> Any:
-    """JSON with no NaN or Infinity (Python's `json` takes both), no duplicate key, and every number
-    with a fraction a `Decimal`, never a float."""
+    """JSON with no NaN or Infinity (Python's `json` takes both), no duplicate key, no number longer
+    than 40 characters or past Decimal's range, no nesting deeper than 8, and every number with a
+    fraction a `Decimal`, never a float. Anything else raises `ValueError`."""
+    if _nests_deeper_than(text, _DEEPEST):
+        raise _Refused("nested too deep")
     return json.loads(
         text,
-        parse_float=Decimal,
+        parse_float=_decimal,
+        parse_int=_integer,
         parse_constant=_refuse_constant,
         object_pairs_hook=_no_duplicates,
     )
 
 
 def _unit(value: object) -> Decimal | None:
-    """A number from 0 to 1 as a Decimal; None for anything else (a bool, a string, NaN)."""
+    """A number from 0 to 1 as a Decimal to six places; None for anything else (a bool, a string)."""
     if type(value) is int or type(value) is Decimal:
         number = Decimal(value)
         if number.is_finite() and 0 <= number <= 1:
-            return number
+            return number.quantize(_PLACES, ROUND_HALF_EVEN)
     return None
 
 
@@ -633,21 +684,20 @@ class Client:
             return Unavailable(Why.COOLING_OFF)
         deadline = self._clock() + settings.VEXTRUS_JEV_DEADLINE_SECONDS
         token = _DEADLINE.set((self._clock, deadline))
+        outcome: Judgement | Why
         try:
-            outcome = self._post(request, key, deadline)
-        except Exception:  # nothing TypeSafe does may raise into the caller
+            body = self._post(request, key, deadline)
+            outcome = body if isinstance(body, Why) else (_judgement(body, request) or Why.MALFORMED)
+        except Exception:  # nothing TypeSafe sends may raise into the caller, its answer included
             logger.exception("The Jev client failed on a %s question", request.node.key)
             outcome = Why.FAILED
         finally:
             _DEADLINE.reset(token)
         if isinstance(outcome, Why):
             return self._failed(request, outcome)
-        judgement = _judgement(outcome, request)
-        if judgement is None:
-            return self._failed(request, Why.MALFORMED)
         with self._lock:
             self._failures, self._cool_until = 0, None
-        return judgement
+        return outcome
 
     def _post(self, request: Request, key: str, deadline: float) -> bytes | Why:
         """The answer's body, trying again after 429, 529 or a dropped connection while the deadline
@@ -790,7 +840,7 @@ def ask(node: str | Node, facts: Facts, question: str, options: Options) -> Answ
                 options=list(request.options),
                 choice=judged.choice,
                 confidence=judged.confidence.quantize(Decimal("0.0001"), ROUND_HALF_EVEN),
-                probabilities={option: format(p, "f") for option, p in judged.probabilities},
+                probabilities={option: format(p.normalize(), "f") for option, p in judged.probabilities},
             )
         ],
         ignore_conflicts=True,
@@ -843,7 +893,10 @@ def record_override(
     Project; its id. The node, model and Jev's choice are the answer's; the user is the acting one.
 
     Refused as `auth.require` refuses (signed out, no current Membership, a Project outside the
-    scope, a role that may not change: a Guest or the MD); an answer not the tenant's is not found."""
+    scope, a role that may not change: a Guest or the MD); an answer not the tenant's is not found.
+
+    `project_id` must be the subject's own Project, which the caller resolves from the Proposal
+    (platform cannot read `takeoff`), never one a request names: the scope is checked against it."""
     membership = auth.require(OVERRIDE, project_id)
     if membership is None:
         raise auth.NoDeveloper

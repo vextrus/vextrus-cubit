@@ -2,6 +2,7 @@
 server dripping bytes (each read inside httpx's read timeout) is cut too, and each of a name's
 addresses is tried within it."""
 
+import os
 import socket
 import ssl
 import threading
@@ -220,6 +221,7 @@ def dripping_server() -> Iterator[int]:
 
 def test_a_real_socket_dripping_bytes_is_cut_at_the_deadline_though_each_read_is_quick() -> None:
     with dripping_server() as port, httpx.Client(transport=jev._Transport()) as http:
+        threads_before = threads()
         token = jev._DEADLINE.set((time.monotonic, time.monotonic() + 0.3))
         start = time.monotonic()
         try:
@@ -232,7 +234,14 @@ def test_a_real_socket_dripping_bytes_is_cut_at_the_deadline_though_each_read_is
         finally:
             jev._DEADLINE.reset(token)
         took = time.monotonic() - start
+        threads_after = threads()
 
     # Each byte comes within 20 ms, far inside the 4 s read timeout: only the deadline ends it (the
     # whole body would take 2,000 s). The bound is loose so no machine's speed matters.
     assert took < 4.0
+    assert threads_after == threads_before  # the client started none (the server's is the test's)
+
+
+def threads() -> int:
+    """This process's threads, as the kernel counts them (a pool's idle threads included)."""
+    return len(os.listdir("/proc/self/task"))
