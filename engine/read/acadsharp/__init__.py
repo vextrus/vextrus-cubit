@@ -7,11 +7,13 @@ output folder writable, the same limits), and reads what it wrote strictly (dump
 
 **How the dumper arrives, and why it is trusted** (the M0 plan, ticket 10: pinned and verifiable, as
 LibreDWG is). The dumper is one self-contained file, the .NET runtime inside it, built reproducibly
-from tools/acadsharp-dump/ with the pinned SDK (toolchain/dotnet.version) and the packages its lock
-file pins by hash; the file's sha256 is pinned in `toolchain/acadsharp-dump.sha256`.
-scripts/owner/toolchain.sh builds it and installs it under `/opt/vextrus/acadsharp-dump/` only when
-its hash is the pin (`VEXTRUS_ACADSHARP_DUMP` names another folder, for tests and a machine that
-installs it elsewhere). Nothing is restored, compiled or downloaded when a file is read.
+from tools/acadsharp-dump/ with the pinned SDK (its global.json) and the packages its lock file pins
+by hash; the file's sha256 is pinned in `toolchain/acadsharp-dump.sha256`, read from the checkout
+this code runs from. scripts/owner/toolchain.sh builds it and installs it under
+`/opt/vextrus/acadsharp-dump/` only when its hash is the pin; that is the one install today (the
+product's worker, when it is built, installs it the same way). `VEXTRUS_ACADSHARP_DUMP` names another
+folder, for tests and a machine that installs it elsewhere: it moves where the program is looked
+for, never the pin. Nothing is restored, built or downloaded when a file is read.
 
 **Every run checks the program's hash against the pin first** and refuses a program that is missing
 (`DumperNotInstalled`) or differs (`DumperNotPinned`): a swapped or rebuilt dumper never reads a file.

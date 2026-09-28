@@ -7,7 +7,8 @@
 #   /opt/vextrus/libredwg  LibreDWG at its pin, built static from GNU's signed source
 #   /opt/vextrus/dotnet    the .NET 10 SDK (ACadSharp, the second decoder; ADR 0029)
 #   /opt/vextrus/acadsharp-dump  the ACadSharp dumper (ticket 10): built here from tools/acadsharp-dump/
-#                          with that SDK, and installed only when its sha256 is the pin
+#                          with that SDK, and installed only when its sha256 is the pin, beside
+#                          the licences and notices of what is built into it
 #
 # Run by the owner, as root:   ! sudo bash scripts/owner/toolchain.sh
 # Idempotent: a piece already at its pin is kept. Owned by root, readable by all, writable by none.
@@ -90,20 +91,40 @@ install_acadsharp_dump() {
     say "acadsharp-dump: already installed at its pin"; return
   fi
   say "acadsharp-dump: building from tools/acadsharp-dump/ (packages restored by the hashes its lock pins)"
-  local source="$WORK/acadsharp-dump-src" out="$WORK/acadsharp-dump-out"
+  # Built in a folder of its own under $PREFIX, whose parents only root can write, never under /tmp:
+  # MSBuild reads Directory.Build.* files from every folder above the project, so a file planted in a
+  # folder anyone can write would run code in this root build. Those imports and MSBuild's response
+  # files are turned off as well. The folder is deleted once the dumper is installed or refused.
+  local build source out built runtime
+  build=$(mktemp -d "$PREFIX/.acadsharp-dump-build.XXXXXX")
+  source="$build/src"
+  out="$build/out"
   mkdir -p "$source"
   cp "$PINS/../tools/acadsharp-dump/acadsharp-dump.csproj" "$PINS/../tools/acadsharp-dump/Program.cs" \
-     "$PINS/../tools/acadsharp-dump/packages.lock.json" "$source/"
-  DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1 DOTNET_CLI_HOME="$WORK/dotnet-home" \
-    NUGET_PACKAGES="$WORK/nuget" "$PREFIX/dotnet/dotnet" publish "$source" -c Release -o "$out" \
-    > "$WORK/acadsharp-dump-build.log" 2>&1 ||
-    { tail -30 "$WORK/acadsharp-dump-build.log" >&2; fail "acadsharp-dump build (log: $WORK/acadsharp-dump-build.log)"; }
-  local built
+     "$PINS/../tools/acadsharp-dump/packages.lock.json" "$PINS/../tools/acadsharp-dump/global.json" \
+     "$source/"
+  if ! ( cd "$source" && DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1 DOTNET_CLI_HOME="$build/home" \
+         NUGET_PACKAGES="$build/nuget" "$PREFIX/dotnet/dotnet" publish "$source" -c Release -o "$out" \
+         -noAutoResponse -p:ImportDirectoryBuildProps=false -p:ImportDirectoryBuildTargets=false \
+         -p:ImportDirectoryPackagesProps=false ) > "$WORK/acadsharp-dump-build.log" 2>&1; then
+    tail -30 "$WORK/acadsharp-dump-build.log" >&2
+    rm -rf -- "$build"
+    fail "acadsharp-dump build (log: $WORK/acadsharp-dump-build.log)"
+  fi
   built=$(sha256sum "$out/acadsharp-dump" | cut -d' ' -f1)
-  [ "$built" = "$pinned" ] ||
+  if [ "$built" != "$pinned" ]; then
+    rm -rf -- "$build"
     fail "acadsharp-dump built as $built, not the pin $pinned: not installed (the build is not reproducible here; tell the session that pinned it)"
+  fi
+  # Every copy carries its notices: ACadSharp's MIT licence, and the .NET runtime's licence and its
+  # third-party notices (MIT, BSD, zlib, Apache-2.0, Unicode), from the runtime pack built into it.
+  runtime=$(echo "$build"/nuget/microsoft.netcore.app.runtime.linux-x64/*)
   install -d -m 0755 "$dest"
+  install -m 0644 "$PINS/../tools/acadsharp-dump/ACADSHARP-LICENSE.txt" "$dest/ACADSHARP-LICENSE.txt"
+  install -m 0644 "$runtime/LICENSE.TXT" "$dest/DOTNET-LICENSE.TXT"
+  install -m 0644 "$runtime/THIRD-PARTY-NOTICES.TXT" "$dest/DOTNET-THIRD-PARTY-NOTICES.TXT"
   install -m 0755 "$out/acadsharp-dump" "$dest/acadsharp-dump"
+  rm -rf -- "$build"
 }
 
 install_python

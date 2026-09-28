@@ -13,7 +13,7 @@ from pathlib import Path
 from engine.fixtures.dwg import dotnet
 
 SOURCE = Path(__file__).resolve().parents[4] / "tools" / "acadsharp-dump"
-FILES = ("acadsharp-dump.csproj", "Program.cs", "packages.lock.json")
+FILES = ("acadsharp-dump.csproj", "Program.cs", "packages.lock.json", "global.json")
 
 
 def build_dumper(folder: Path) -> Path:
@@ -31,8 +31,14 @@ def build_dumper(folder: Path) -> Path:
         "DOTNET_CLI_HOME": str(folder / "dotnet-home"),
         "NUGET_PACKAGES": str(folder / "nuget"),
     }
-    command = [str(dotnet()), "publish", str(source), "-c", "Release", "-o", str(prefix)]
-    done = subprocess.run(command, capture_output=True, text=True, timeout=600, env=environment)
+    command = [
+        str(dotnet()), "publish", str(source), "-c", "Release", "-o", str(prefix), "-noAutoResponse",
+        "-p:ImportDirectoryBuildProps=false", "-p:ImportDirectoryBuildTargets=false",
+        "-p:ImportDirectoryPackagesProps=false",
+    ]  # fmt: skip
+    done = subprocess.run(
+        command, capture_output=True, text=True, timeout=600, env=environment, cwd=source
+    )
     if done.returncode != 0:
         raise RuntimeError(
             f"the dumper's build failed ({done.returncode}):\n{done.stdout}\n{done.stderr}"

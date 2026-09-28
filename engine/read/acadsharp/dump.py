@@ -11,7 +11,8 @@ is read as untrusted input, from the stream `sandbox.open_output` opened:
   line is about 40 bytes, and `MAX_BYTES` allows about 67 a line on average;
 - **exact:** a header line with exactly its four fields, one line per entity that is a JSON array of
   exactly three strings, and an end line whose count is the number of entity lines, then nothing. A
-  handle is 1 to 16 upper-case hexadecimal digits (a DWG handle is at most 8 bytes) and not 0; a type
+  handle is 1 to 16 upper-case hexadecimal digits with no leading zero (a DWG handle is at most 8
+  bytes, and never 0), so one handle has one spelling; lines end with a bare line feed; a type
   is 1 to 256 characters, a layer at most 1,024. Two entities with one handle are refused. Anything
   else raises `ValueError`, which the reader reports as `output_unreadable`;
 - **inert:** each line is parsed with `json.loads`, which builds only strings, numbers, lists and
@@ -42,7 +43,7 @@ MAX_LINE = 8 * 1024
 MAX_TYPE = 256
 MAX_LAYER = 1024
 
-_HANDLE = re.compile(r"[0-9A-F]{1,16}")
+_HANDLE = re.compile(r"[1-9A-F][0-9A-F]{0,15}")  # no leading zero, so one handle has one form
 _VERSION = re.compile(r"[0-9]{1,4}\.[0-9]{1,4}\.[0-9]{1,6}")
 _DWG_VERSION = re.compile(r"[A-Za-z0-9_]{1,16}")
 
@@ -90,12 +91,14 @@ def parse(
             raise ValueError(f"a line of the dump is longer than {max_line} bytes")
         if read and not read.endswith(b"\n"):
             raise ValueError("the dump does not end with a line break")
+        if read.endswith(b"\r\n"):
+            raise ValueError("the dump's lines end with a carriage return")
         return read
 
     header = _object(line(), "the header")
     if set(header) != {"dumper", "format", "acadsharp", "dwg_version"}:
         raise ValueError(f"the header's fields are {sorted(header)}")
-    if header["dumper"] != DUMPER or header["format"] != FORMAT or isinstance(header["format"], bool):
+    if header["dumper"] != DUMPER or type(header["format"]) is not int or header["format"] != FORMAT:
         raise ValueError("the dump is not this dumper's format")
     acadsharp, dwg_version = header["acadsharp"], header["dwg_version"]
     if not isinstance(acadsharp, str) or not _VERSION.fullmatch(acadsharp):
@@ -149,7 +152,7 @@ def _entity(read: bytes) -> tuple[int, str, str]:
     if not (isinstance(value, list) and len(value) == 3 and all(isinstance(v, str) for v in value)):
         raise ValueError("an entity line is not three strings")
     handle, kind, layer = value
-    if not _HANDLE.fullmatch(handle) or int(handle, 16) == 0:
+    if not _HANDLE.fullmatch(handle):
         raise ValueError("an entity's handle is not a handle")
     if not 0 < len(kind) <= MAX_TYPE or len(layer) > MAX_LAYER:
         raise ValueError("an entity's type or layer is out of bounds")

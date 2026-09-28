@@ -2,17 +2,23 @@
   The ACadSharp dumper (ticket 10; ADR 0029): Program.cs says what it writes.
 
   Published as one self-contained file for linux-x64: the .NET runtime is inside it, so the machine
-  that runs it needs no .NET, and nothing is restored or compiled where it runs. The build is
-  reproducible: the same source, SDK (toolchain/dotnet.version) and packages (packages.lock.json,
-  restored in locked mode against each package's hash) give the same bytes, whose sha256 is pinned in
-  toolchain/acadsharp-dump.sha256. scripts/owner/toolchain.sh builds it and installs it only when its
-  hash is the pin; the reader (engine/read/acadsharp/) runs it only when its hash is the pin.
+  that runs it needs no .NET, and nothing is restored or built where it runs (the runtime still JIT-
+  compiles the code as it runs, as .NET does). The build is reproducible: the same source, SDK
+  (global.json, which never rolls forward, and toolchain/dotnet.version, a test holding the two
+  equal) and packages (packages.lock.json, restored in locked mode against each package's hash) give
+  the same bytes, whose sha256 is pinned in toolchain/acadsharp-dump.sha256. scripts/owner/toolchain.sh
+  builds it and installs it only when its hash is the pin; the reader (engine/read/acadsharp/) runs
+  it only when its hash is the pin.
 
-  What ships inside it, and each licence (checked 28 Sep 2026): ACadSharp 3.8.0, MIT (its NuGet
+  What is inside it, and the licences (checked 28 Sep 2026): ACadSharp 3.8.0, MIT (its NuGet
   package's `<license type="expression">MIT</license>`, "Copyright (c) 2026 Albert Domenech"; its
-  net10.0 build depends on no other package); the .NET 10 runtime (Microsoft.NETCore.App.Runtime and
-  its single-file host), MIT, with the third-party notices of dotnet/runtime. MIT asks that the
-  copyright and permission notice go with every copy: a dedicated deployment ships them beside it.
+  net10.0 build depends on no other package; ACADSHARP-LICENSE.txt); and the .NET 10 runtime
+  (Microsoft.NETCore.App.Runtime.linux-x64 10.0.12 and its single-file host), MIT, which itself
+  carries third-party code under MIT, BSD, zlib (zlib-ng), Apache-2.0 and the Unicode licence, listed
+  in its THIRD-PARTY-NOTICES.TXT: permissive, none copyleft. Each asks that its notice go with every
+  copy, so toolchain.sh installs ACADSHARP-LICENSE.txt and the runtime's LICENSE.TXT and
+  THIRD-PARTY-NOTICES.TXT beside the program. ICU is not inside it (invariant globalization). The
+  build-only package Microsoft.NET.ILLink.Tasks (MIT) ships nothing.
 
   It runs in the reader's sandbox, which passes it no environment, so what it needs is fixed here:
   invariant globalization (no ICU) and workstation GC with no background thread. Measured on 28 Sep

@@ -38,9 +38,18 @@ def test_toolchain_sh_installs_the_dumper_only_at_its_pin() -> None:
     script = (SOURCE.parents[1] / "scripts" / "owner" / "toolchain.sh").read_text()
     body = script[script.index("install_acadsharp_dump() {") :]
 
-    assert 'NUGET_PACKAGES="$WORK/nuget"' in body
-    assert '[ "$built" = "$pinned" ] ||' in body
-    assert body.index('[ "$built" = "$pinned" ]') < body.index('install -m 0755 "$out/acadsharp-dump"')
+    assert 'build=$(mktemp -d "$PREFIX/' in body  # never under /tmp, which anyone can write
+    assert "-p:ImportDirectoryBuildProps=false -p:ImportDirectoryBuildTargets=false" in body
+    assert "global.json" in body
+    checked = body.index('if [ "$built" != "$pinned" ]')
+    assert checked < body.index('install -m 0755 "$out/acadsharp-dump"')
+
+
+def test_the_sdk_is_the_pinned_one_and_never_rolls_forward() -> None:
+    sdk = json.loads((SOURCE / "global.json").read_text())["sdk"]
+    pinned = (SOURCE.parents[1] / "toolchain" / "dotnet.version").read_text().strip()
+
+    assert sdk == {"version": pinned, "rollForward": "disable"}
 
 
 @pytest.mark.needs_toolchain
