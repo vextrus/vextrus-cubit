@@ -444,6 +444,51 @@ def test_a_set_stage_that_fails_is_counted_once_for_the_set() -> None:
     assert counts(ok, failed, "failed_stages") == (0, 1, 0)
 
 
+def killed(sha: str, status: str = "timed_out") -> dict[str, Any]:
+    """A file whose process was killed before its first stage: every stage skipped, none failed
+    (engine/harness.py, _file_stages); only the process's status says it."""
+    ended = "the file's process ended before this stage (it ran past the file timeout)"
+    return dwg(
+        sha,
+        process=process(1.5, 1000) | {"status": status, "exit_code": None, "signal": 9},
+        stages={"read": stage("skipped", ended)},
+        entity_counts=None,
+    )
+
+
+def test_a_file_whose_process_did_not_end_ok_counts_as_a_failed_stage() -> None:
+    # The owner's ruling (28 Sep 2026): "Count it".
+    ok, timed_out, failed = (
+        export(dwg(SHA_A)),
+        export(killed(SHA_A)),
+        export(killed(SHA_A, "failed")),
+    )
+
+    assert counts(ok, timed_out, "failed_stages") == (0, 1, 0)
+    assert counts(timed_out, ok, "failed_stages") == (1, 0, 0)
+    assert counts(timed_out, failed, "failed_stages") == (0, 0, 1)
+    assert failures(timed_out) == {("process", "timed_out"): 1}
+    assert sizes(timed_out)["failed_stages"] == 1
+
+
+@pytest.mark.parametrize("missing", ["process", "status"])
+def test_a_file_whose_process_status_is_missing_counts_as_failed(missing: str) -> None:
+    file = dwg(SHA_A)
+    if missing == "process":
+        del file["process"]
+    else:
+        del file["process"]["status"]
+
+    assert failures(export(file)) == {("process", "unknown"): 1}
+
+
+def test_a_gained_or_lost_file_whose_process_ended_ok_brings_no_failed_stage() -> None:
+    one, two = export(dwg(SHA_A)), export(dwg(SHA_A), dwg(SHA_B))
+
+    assert counts(one, two, "failed_stages") == (0, 0, 0)
+    assert counts(two, one, "failed_stages") == (0, 0, 0)
+
+
 def test_failures_name_the_stage_the_file_count_and_the_error_kind_never_its_message() -> None:
     document = failing(SHA_A, SHA_B, read=stage("failed", SANDBOX))
     document["files"].append(
@@ -521,3 +566,31 @@ def test_render_f1_changes_past_0005_and_is_lost_past_a_001_fall(
     new = export(dwg(SHA_A, sheet("L1", render_f1=after)))
 
     assert counts(old, new, "render_f1") == expected
+
+
+# Exactly on an edge, in decimal, is on it: a move of 0.005 is not changed and a fall of 0.01 is not
+# lost, whatever the subtraction's float error (0.505 - 0.5 is 0.0050000000000000044; 0.105 - 0.1 is
+# 0.0049999999999999906). Just either side is 0.0000001 away.
+@pytest.mark.parametrize("old", [0.1, 0.5, 0.9])
+@pytest.mark.parametrize(
+    ("move", "expected"),
+    [
+        ("+0.005", (0, 0, 0)),  # up exactly 0.005: still
+        ("+0.0050001", (0, 0, 1)),  # just past: changed
+        ("+0.0049999", (0, 0, 0)),  # just short: still
+        ("-0.005", (0, 0, 0)),  # down exactly 0.005: still
+        ("-0.0050001", (0, 0, 1)),
+        ("-0.0049999", (0, 0, 0)),
+        ("-0.01", (0, 0, 1)),  # down exactly 0.01: changed, not lost
+        ("-0.0100001", (0, 1, 0)),  # just past: lost
+        ("-0.0099999", (0, 0, 1)),
+    ],
+)
+def test_render_f1_on_each_edge_is_not_past_it_and_just_past_it_is(
+    old: float, move: str, expected: tuple[int, int, int]
+) -> None:
+    after = float(f"{old + float(move):.7f}")  # the new F1 as the decimal it is, e.g. 0.505
+    before = export(dwg(SHA_A, sheet("L1", render_f1=old)))
+    now = export(dwg(SHA_A, sheet("L1", render_f1=after)))
+
+    assert counts(before, now, "render_f1") == expected

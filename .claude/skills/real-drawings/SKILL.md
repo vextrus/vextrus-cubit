@@ -48,13 +48,20 @@ unseen; it does not prove a reading right. That rests on the owner's walk.
    It checks out the branch's engine paths, refuses a `dwgread` off the pin or a changed lock source
    or `[tool.uv]`, installs the locked wheels offline inside bwrap, runs the harness on both sets,
    checks each export against main's schema (against the head's own when the head changes it, which it
-   prints: then read the schema's diff) and diffs it against main's run (cached by code hash).
+   prints: then read the schema's diff) and diffs it against main's run (cached by code hash, the
+   sandbox's version and the set's content; a cached export is checked against the schema again, and
+   one with a failed stage, or a file whose process timed out or failed, is never reused).
 2. Read "Failed on the head" and "Failed on main" first: a stage that failed (by stage, file count and
-   error kind) means that run read less than it should, however empty the table looks. Then the
-   table: per measure (files, failed stages, entity counts, report counts, sheets, views, register,
-   Plot matches, render F1, Checks, conflicts, continuations), the items gained, lost and changed,
-   and the items held now. A stage failing where main's did not counts as lost. Read time and peak
-   memory are shown, never counted.
+   error kind; "process" is a file's process that timed out or failed, counted like a stage) means
+   that run read less than it should, however empty the table looks. A failed run is never taken
+   from the cache, so the failure happened in this run. If it may be the machine's (a
+   timeout or an OOM kill while the machine was busy, `SandboxUnavailable`), run again. `--fresh`
+   reads the head and main again even when their clean exports are cached: use it when something the
+   key does not cover changed (the host's bwrap, a toolchain rebuilt at the same pin). Never delete
+   the cache. Then the table: per measure (files, failed stages, entity counts, report counts, sheets,
+   views, register, Plot matches, render F1, Checks, conflicts, continuations), the items gained, lost
+   and changed, and the items held now. A stage failing where main's did not counts as lost. Read time
+   and peak memory are shown, never counted.
 3. The item list (`items.json` under `~/.cache/vextrus-real-drawings/runs/<run id>/`) names each
    changed sheet and view, so it holds drawing text: read it to understand a change, and carry out
    only the convention it teaches.

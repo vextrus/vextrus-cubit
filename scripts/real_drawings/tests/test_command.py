@@ -4,15 +4,14 @@ No test raises privilege or names the key user."""
 
 import dataclasses
 import fcntl
-import hashlib
 import json
 import os
 from pathlib import Path
 
 import pytest
 
-from scripts.real_drawings import sandbox
-from scripts.real_drawings.command import Machine, run
+from scripts.real_drawings import command, sandbox
+from scripts.real_drawings.command import Machine, run, sandbox_version
 from scripts.real_drawings.source import Refused
 from scripts.real_drawings.tests.world import FAKE_EXPORT, PYPROJECT, World, invented, make_world
 
@@ -179,13 +178,164 @@ def test_an_export_read_in_another_sandbox_is_never_reused(world: World) -> None
     assert len(world.sandbox_runs) == 2
 
 
-def test_the_sandbox_version_is_its_codes_own_hash() -> None:
-    source = (Path(sandbox.__file__)).read_bytes()
+def test_an_export_with_a_failed_stage_is_read_again_every_run(world: World) -> None:
+    # A failure the code causes simply repeats, at the cost of one more run.
+    world.commit("main", {FAKE_EXPORT: (FIXTURES / "export-fakes-read-fails.json").read_text()})
 
-    assert (
-        Machine.__dataclass_fields__["sandbox_version"].default
-        == hashlib.sha256(source).hexdigest()[:16]
-    )
+    run("main", no_post=True, m=world.machine())
+    run("main", no_post=True, m=world.machine())
+
+    assert len(world.sandbox_runs) == 2
+
+
+def test_a_file_whose_process_was_killed_before_any_stage_is_a_failure_too(world: World) -> None:
+    # Killed before its first stage (or between two), a file's stages are all skipped, none failed
+    # (engine/harness.py, _file_stages): only its process's status says it timed out.
+    document = json.loads((FIXTURES / "export-fakes.json").read_text())
+    killed = document["files"][0]
+    killed["process"] |= {"status": "timed_out", "exit_code": None, "signal": 9}
+    ended = "the file's process ended before this stage (it ran past the file timeout)"
+    killed["stages"] = {
+        name: {**report, "state": "skipped", "error": ended} for name, report in killed["stages"].items()
+    }
+    world.pr(57, {FAKE_EXPORT: json.dumps(document)})
+    world.answers = ["y", "the invented file is killed on purpose"] * 2
+
+    run("57", no_post=False, m=world.machine())
+    run("57", no_post=False, m=world.machine())
+
+    assert len(world.sandbox_runs) == 3  # main once (clean, then reused), the head twice
+    assert "Failed on the head: process on 2 files (timed_out)" in world.said
+    # The owner's ruling (28 Sep 2026): "Count it". The summary, and so the status, carries it.
+    summary = only_file(world.drop / world.posted[0], "summary.json")
+    assert summary["measures"]["failed_stages"] == {"gained": 0, "lost": 2, "changed": 0}  # type: ignore[index]
+
+
+def test_mains_run_failed_by_the_machine_is_not_the_next_runs_baseline(world: World) -> None:
+    # Main's run fails for a reason outside the code (a timeout, an OOM kill, SandboxUnavailable);
+    # the machine is then fixed. A non-engine PR must not take that failure as main's, nor as its own.
+    world.commit("main", {FAKE_EXPORT: (FIXTURES / "export-fakes.json").read_text()})
+    failed = (FIXTURES / "export-fakes-read-fails.json").read_bytes()
+
+    def the_machine_fails(scratch: Path) -> None:
+        for export in scratch.glob("export-*.json"):
+            export.write_bytes(failed)
+
+    world.plant = the_machine_fails
+    run("main", no_post=True, m=world.machine())
+    assert "Failed on the head: read on 2 files (RuntimeError)" in world.said
+
+    world.plant, world.said = None, []
+    world.commit("tuning", {"docs.md": "no engine change\n"})
+    run("tuning", no_post=True, m=world.machine())
+
+    assert len(world.sandbox_runs) == 2  # read again, once: main then reuses the head's clean read
+    assert not any(line.startswith("Failed on") for line in world.said)
+    assert any(line.split()[:4] == ["failed_stages", "0", "0", "0"] for line in world.said)
+
+
+def test_a_failed_export_already_in_the_cache_is_not_reused(world: World) -> None:
+    # As #64's code cached one: the check reads what it finds, not only what it wrote.
+    run("main", no_post=True, m=world.machine())
+    for cached in (world.cache / "exports").rglob("*.json"):
+        cached.write_bytes((FIXTURES / "export-fakes-read-fails.json").read_bytes())
+
+    run("main", no_post=True, m=world.machine())
+
+    assert len(world.sandbox_runs) == 2
+    assert not any(line.startswith("Failed on") for line in world.said)
+
+
+def plant_in_the_cache(world: World, document: object) -> None:
+    """What a looser copy of the command (a local branch's --no-post, with its own schema.py or diff.py
+    but the same sandbox version) could leave under main's key."""
+    for cached in (world.cache / "exports").rglob("*.json"):
+        cached.write_text(json.dumps(document))
+
+
+@pytest.mark.parametrize("missing", ["process", "status"])
+def test_a_cached_export_whose_process_status_is_missing_is_not_reused(
+    world: World, missing: str
+) -> None:
+    run("main", no_post=True, m=world.machine())
+    document = json.loads(invented())
+    if missing == "process":
+        del document["files"][0]["process"]
+    else:
+        del document["files"][0]["process"]["status"]
+    plant_in_the_cache(world, document)
+
+    run("main", no_post=True, m=world.machine())
+
+    assert len(world.sandbox_runs) == 2
+
+
+def test_a_cached_export_that_breaks_mains_schema_is_read_again(world: World) -> None:
+    run("main", no_post=True, m=world.machine())
+    plant_in_the_cache(world, {"sheets": []})  # no files: main's schema requires them
+
+    run("main", no_post=True, m=world.machine())
+
+    assert len(world.sandbox_runs) == 2
+    assert any("breaks the schema; read again" in line for line in world.said)
+    assert not any(line.startswith("Failed on") for line in world.said)
+
+
+def test_a_clean_export_is_still_reused(world: World) -> None:
+    world.commit("main", {FAKE_EXPORT: (FIXTURES / "export-fakes.json").read_text()})
+
+    run("main", no_post=True, m=world.machine())
+    run("main", no_post=True, m=world.machine())
+
+    assert len(world.sandbox_runs) == 1
+
+
+def test_fresh_reads_again_though_the_export_is_cached(world: World) -> None:
+    run("main", no_post=True, m=world.machine())
+    run("main", no_post=True, m=world.machine(), fresh=True)
+    world.commit("tuning", {"engine/read.py": "X = 2\n"})
+    run("tuning", no_post=True, m=world.machine(), fresh=True)  # the head and main, both read
+
+    assert len(world.sandbox_runs) == 4
+    run("main", no_post=True, m=world.machine())  # a fresh read is cached for the runs after it
+    assert len(world.sandbox_runs) == 4
+
+
+def test_the_command_takes_fresh(world: World, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(command, "owners_machine", world.machine)
+
+    assert command.main(["main", "--no-post"]) == 0
+    assert command.main(["main", "--no-post", "--fresh"]) == 0
+
+    assert len(world.sandbox_runs) == 2
+
+
+# The files of main's check that shape what runs inside the sandbox: the Job (command.py), the bwrap
+# arguments and the script (sandbox.py), the checkout's files and modes (source.py), the requirements and
+# the wheels, compiled or pure ezdxf (wheels.py). The rest reads what the sandbox left, after it ended.
+SHAPING = {"command.py", "sandbox.py", "source.py", "wheels.py"}
+PACKAGE = Path(sandbox.__file__).parent
+
+
+@pytest.mark.parametrize("name", sorted(p.name for p in PACKAGE.glob("*.py")))
+def test_the_sandbox_version_changes_with_every_file_that_shapes_the_sandbox_and_no_other(
+    tmp_path: Path, name: str
+) -> None:
+    for path in PACKAGE.glob("*.py"):
+        (tmp_path / path.name).write_bytes(path.read_bytes())
+    before = sandbox_version(tmp_path)
+
+    with (tmp_path / name).open("a") as file:
+        file.write("# a comment\n")
+
+    assert (sandbox_version(tmp_path) != before) == (name in SHAPING)
+
+
+def test_the_machine_uses_the_version_of_mains_own_files(tmp_path: Path) -> None:
+    for name in SHAPING:
+        (tmp_path / name).write_bytes((PACKAGE / name).read_bytes())
+
+    assert Machine.__dataclass_fields__["sandbox_version"].default == sandbox_version(tmp_path)
 
 
 def test_an_engine_change_runs_the_head_and_diffs_against_mains_cached_run(world: World) -> None:

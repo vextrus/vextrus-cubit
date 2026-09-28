@@ -8,7 +8,10 @@ by (file, type); a font, PDF or Bangla-ANSI count by (file, its name); a Check r
 its joined subject); a conflict or a continuation by (kind, its joined candidates); render F1 by the
 joined sheet. An item that joins nothing is gained or lost; a joined item whose named values differ is
 changed. A sheet's render F1 is changed when it moves by more than 0.005 and lost when it falls by more
-than 0.01. Read time and peak memory are shown, never counted.
+than 0.01, the move taken to nine decimal places (exactly on an edge is not past it). A stage that fails
+where it did not is lost, joined by (file, stage) or (the set, stage); a file's process that did not end
+ok (or does not say) is its stage "process" (the owner's ruling, 28 Sep 2026: "Count it"). Read time
+and peak memory are shown, never counted.
 
 The export is the engine's (06b: engine/export.py and engine/export.schema.json), read as it is:
 - `files`, each with `sha256`, `path`, `decoders_agree`, `entity_counts`, `font_report`, `pdf_report`
@@ -73,6 +76,10 @@ VIEW_IOU = 0.8
 ROW_IOU = 0.8
 F1_CHANGED = 0.005
 F1_LOST = 0.01
+# A render F1 move is compared to nine decimal places, so a move exactly on an edge in decimal is on it
+# and not past it by the subtraction's float error (0.505 - 0.5 is 0.0050000000000000044). The edges
+# themselves are fixed above and never tuned.
+F1_DIGITS = 9
 
 
 @dataclass(frozen=True)
@@ -185,7 +192,7 @@ def _file(diff: Diff, joins: _Joins, old: tuple[int, JSON] | None, new: tuple[in
         _prefixed(label, _report_counts(before)),
         _prefixed(label, _report_counts(after)),
     )
-    _failed(diff, label, before.get("stages"), after.get("stages"))
+    _failed_files(diff, label, old[1] if old else None, new[1] if new else None)
     old_sheets, new_sheets = _list(before, "sheets"), _list(after, "sheets")
     pairs, lost, gained = _join_sheets(old_sheets, new_sheets)
     for s, t in pairs:  # pairs only when both runs have the file
@@ -318,9 +325,11 @@ def _render_f1(diff: Diff, key: str, old: float | None, new: float | None) -> No
     fields = {"render_f1": [old, new]}
     if old is None:
         diff.items.append(Change("render_f1", "gained", key, fields))
-    elif new is None or new < old - F1_LOST:
+        return
+    move = None if new is None else round(new - old, F1_DIGITS)
+    if move is None or -move > F1_LOST:
         diff.items.append(Change("render_f1", "lost", key, fields))
-    elif abs(new - old) > F1_CHANGED:
+    elif abs(move) > F1_CHANGED:
         diff.items.append(Change("render_f1", "changed", key, fields))
 
 
@@ -408,11 +417,7 @@ def failures(export: JSON) -> Counter[tuple[str, str]]:
     "set <stage>" and counts once."""
     found: Counter[tuple[str, str]] = Counter()
     for file in _list(export, "files"):
-        found.update(
-            (n, error_kind(r.get("error")))
-            for n, r in (file.get("stages") or {}).items()
-            if _is_failed(r)
-        )
+        found.update(_file_failures(file).items())
     stages = export.get("set_stages") or {}
     found.update((f"set {n}", error_kind(r.get("error"))) for n, r in stages.items() if _is_failed(r))
     return found
@@ -434,6 +439,31 @@ def error_kind(error: str | None) -> str:
     return named[1] if named else "other"
 
 
+PROCESS_KINDS = ("failed", "timed_out")
+
+
+def _file_failures(file: JSON) -> dict[str, str]:
+    """A file's failed stages, stage -> error kind, and its process as the stage "process" when it did
+    not end ok (the owner's ruling, 28 Sep 2026: a process killed before its first stage, or between
+    two, leaves its stages skipped, none failed, and counts): by its status, and "unknown" when the
+    export does not say."""
+    found = {
+        n: error_kind(r.get("error")) for n, r in (file.get("stages") or {}).items() if _is_failed(r)
+    }
+    process = file.get("process")
+    status = process.get("status") if isinstance(process, Mapping) else None
+    if status != "ok":
+        found["process"] = status if status in PROCESS_KINDS else "unknown"
+    return found
+
+
+def _failed_files(diff: Diff, label: str, old: JSON | None, new: JSON | None) -> None:
+    """A file's failures in each run it is in (none in a run without it), compared as stages are."""
+    before = _file_failures(old) if old is not None else {}
+    after = _file_failures(new) if new is not None else {}
+    _compare_failures(diff, label, before, after)
+
+
 def _failed(
     diff: Diff, label: str, old: Mapping[str, Any] | None, new: Mapping[str, Any] | None
 ) -> None:
@@ -441,6 +471,12 @@ def _failed(
     way (another error kind) is changed."""
     before = {name: error_kind(r.get("error")) for name, r in (old or {}).items() if _is_failed(r)}
     after = {name: error_kind(r.get("error")) for name, r in (new or {}).items() if _is_failed(r)}
+    _compare_failures(diff, label, before, after)
+
+
+def _compare_failures(
+    diff: Diff, label: str, before: Mapping[str, str], after: Mapping[str, str]
+) -> None:
     for name in sorted(before.keys() | after.keys()):
         key = f"{label} {name}"
         if name not in before:
