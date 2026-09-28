@@ -453,11 +453,12 @@ def _strict_json(text: str) -> Any:
 
 
 def _unit(value: object) -> Decimal | None:
-    """A number from 0 to 1 as a Decimal, as written; None for anything else (a bool, a string)."""
+    """A number from 0 to 1 as a Decimal, as written (-0 as 0); None for anything else (a bool, a
+    string)."""
     if type(value) is int or type(value) is Decimal:
         number = Decimal(value)
         if number.is_finite() and 0 <= number <= 1:
-            return number
+            return number.copy_abs()
     return None
 
 

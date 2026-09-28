@@ -361,6 +361,20 @@ def test_whole_numbers_are_taken_for_a_confidence_and_probabilities() -> None:
     assert (answer.confidence, answer.probability("beam_layout")) == (Decimal(1), Decimal(1))
 
 
+def test_a_negative_zero_is_read_as_zero() -> None:
+    # Found by the refuter (round 3): -0.0 read as Decimal('-0.0000') through judge, 0.0000 through ask.
+    body = raw(
+        '"type":"choice","choice":"beam_layout","confidence":-0.0,'
+        + PROBABILITIES.replace("0,", "-0.0,")
+    )
+
+    answer = judge(client(Script(httpx.Response(200, content=body))))
+
+    assert isinstance(answer, jev.Judgement)
+    assert str(answer.confidence) == "0.0000"
+    assert str(answer.probability("floor_plan")) == "0.000000"
+
+
 # Statuses, retries and the deadline -------------------------------------------------------------------
 
 
