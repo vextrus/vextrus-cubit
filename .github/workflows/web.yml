@@ -1,0 +1,87 @@
+# The web's checks (docs/plans/M0.md, ticket 01b): typecheck, lint, Vitest, the catalogue check and
+# the build for any change under web/, and the design-docs lint on every PR.
+#
+# Never filtered by path at the workflow level (a skipped workflow leaves a required check waiting):
+# the `web` job skips by `if:` from the `changes` job instead, which also saves minutes.
+# Ticket 03 adds the step that generates the API types (a named shared edit).
+name: web
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: web-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    runs-on: ubuntu-24.04
+    outputs:
+      web: ${{ steps.diff.outputs.web }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: diff
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ "$EVENT" != "pull_request" ]; then
+            echo "web=true" >> "$GITHUB_OUTPUT"
+          elif git diff --name-only "$BASE"...HEAD | grep -qE '^(web/|\.github/workflows/web\.yml$)'; then
+            echo "web=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "web=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  web:
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Chromium for Vitest's browser mode
+        run: npx playwright install --with-deps chromium
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint (the catalogue lint, the logical-CSS lint, one key map)
+        run: npm run lint
+      - name: Catalogue check (extracted and compiled strictly)
+        run: npm run messages:check
+      - name: Vitest (node and Chromium)
+        run: npm test
+      - name: Build (fails if the specimen or the pseudo language ships)
+        run: npm run build
+
+  design-docs:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      - name: Design-docs lint
+        run: node web/scripts/lint-design-docs.mjs
