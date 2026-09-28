@@ -2,9 +2,16 @@
 
 `dwgread` decodes the DWG itself, so everything but geometry is taken from its JSON (ADR 0029; the M0
 spec: text never from the DXF, which corrupts raw line breaks): the version, the header's units, the
-layouts and block records, every entity's handle, type, layer and owner, every text entity's text,
-style and placement, and every insert's placement, all as stored. Geometry comes from the DXF
-(`dxf.py`), joined by handle.
+layouts and block records, the text style table, every entity's handle, type, layer and owner, every
+text entity's text, style and placement, and every insert's placement, all as stored. Geometry comes
+from the DXF (`dxf.py`), joined by handle.
+
+The style table (#82) holds every STYLE object by its handle, with `dwgread`'s `text_size` as its
+fixed height and its oblique angle in radians, as LibreDWG 0.14 writes them (measured on
+engine/fixtures/dwg/text_style_height.py at AC1018, AC1024 and AC1032). A value that is not a usable
+number (NaN, an infinity, 0 or less for a size, a string) is kept as `None`, never raised: a raise here
+would lose the whole file (`output_unreadable`). A text's style is the STYLE object its handle names,
+or none: a handle naming a layer, a block, nothing or a null reference gives no style.
 
 Two repairs are made here, each counted in the artefact's notes:
 - **an ATTRIB's style from its ATTDEF.** LibreDWG 0.14 decodes a null style handle on ATTRIBs (all
@@ -26,7 +33,16 @@ from typing import Any, BinaryIO
 
 from engine.messages import Message
 from engine.messages import read as codes
-from engine.read.artefact import TEXT_TYPES, Block, Insert, Point, Text
+from engine.read.artefact import (
+    TEXT_TYPES,
+    Block,
+    Insert,
+    Point,
+    Text,
+    TextStyle,
+    usable_angle,
+    usable_size,
+)
 from engine.read.errors import ReadError
 
 UNKNOWN_OWNER = "0"  # no record lists the entity, it names no owner and states no space
@@ -39,9 +55,13 @@ _TEXT_KEEP = _ENTITY_KEEP | {
 }  # fmt: skip
 _TEXT_FIELD = {"MTEXT": "text", "ATTDEF": "default_value"}  # else "text_value"
 _INSERT_KEEP = _ENTITY_KEEP | {"ins_pt", "scale", "rotation", "extrusion", "block_header", "attribs"}
+_STYLE_KEEP = frozenset({
+    "object", "handle", "name", "font_file", "bigfont_file", "text_size", "width_factor",
+    "oblique_angle", "is_shape",
+})  # fmt: skip
 _OBJECT_KEEP = {
     "LAYER": frozenset({"object", "handle", "name"}),
-    "STYLE": frozenset({"object", "handle", "name", "font_file", "bigfont_file"}),
+    "STYLE": _STYLE_KEEP,
     "BLOCK_HEADER": frozenset(
         {"object", "handle", "name", "base_pt", "entities", "block_entity", "layout"}
     ),
@@ -106,6 +126,7 @@ class Decoded:
     insunits: int
     layouts: tuple[str, ...]
     blocks: tuple[Block, ...]
+    styles: tuple[TextStyle, ...]  # every STYLE object, in file order
     entities: tuple[Placed, ...]  # every drawing entity, text and inserts included
     texts: Mapping[str, Text]
     inserts: Mapping[str, Insert]
@@ -114,10 +135,20 @@ class Decoded:
 
 def decode(data: Mapping[str, Any]) -> Decoded:
     objects: list[dict[str, Any]] = data["OBJECTS"]
-    by_handle = {h: item for item in objects if (h := handle(item.get("handle")))}
-    of_kind = _objects_of_kind(by_handle)
+    # Objects and entities apart: an object given an entity's handle, or an entity an object's (a
+    # hostile file's), is never read as the other (#82's refuter and review).
+    object_items = {
+        h: item for item in objects if "object" in item and (h := handle(item.get("handle")))
+    }
+    entity_handles = {h for item in objects if "entity" in item and (h := handle(item.get("handle")))}
+    block_entities = {
+        h: item
+        for item in objects
+        if item.get("entity") == "BLOCK" and (h := handle(item.get("handle")))
+    }
+    of_kind = _objects_of_kind(object_items)
     names = {h: str(item.get("name", "")) for h, item in of_kind("LAYER").items()}
-    styles = of_kind("STYLE")
+    styles = {h: _style(h, item) for h, item in of_kind("STYLE").items()}
     headers = of_kind("BLOCK_HEADER")
     layout_objects = sorted(
         (item for item in objects if item.get("object") == "LAYOUT"),
@@ -133,7 +164,7 @@ def decode(data: Mapping[str, Any]) -> Decoded:
         for ref in header.get("entities", []):
             if child := handle(ref):
                 owner_of[child] = header_handle
-                listed_missing += child not in by_handle
+                listed_missing += child not in entity_handles
     if listed_missing:  # dwgread said SUCCESS, yet lost objects the file's own records list
         raise ReadError(codes.OBJECTS_MISSING(count=listed_missing))
     header_vars: Mapping[str, Any] = data.get("HEADER", {})
@@ -143,6 +174,7 @@ def decode(data: Mapping[str, Any]) -> Decoded:
     }
 
     placed: list[Placed] = []
+    items: dict[str, dict[str, Any]] = {}  # each entity's own item: never an object given its handle
     unresolved_layers = 0
     for item in objects:
         kind = item.get("entity")
@@ -155,6 +187,7 @@ def decode(data: Mapping[str, Any]) -> Decoded:
         layer = names.get(handle(item.get("layer")) or "")
         unresolved_layers += layer is None
         placed.append(Placed(h, dxf_type(kind), layer or "", owner or UNKNOWN_OWNER))
+        items[h] = item
     if len({p.handle for p in placed}) != len(placed):
         raise ValueError("dwgread gave two entities one handle")
 
@@ -170,7 +203,7 @@ def decode(data: Mapping[str, Any]) -> Decoded:
     blocks = tuple(
         Block(
             handle=h,
-            name=_block_name(header, by_handle),
+            name=_block_name(header, block_entities),
             base_point=_point3(header.get("base_pt")),
             layout=layout_of.get(h),
             entities=tuple(children.get(h, ())),
@@ -179,7 +212,7 @@ def decode(data: Mapping[str, Any]) -> Decoded:
     )
 
     inserts = {
-        p.handle: _insert(by_handle[p.handle], p, headers, by_handle, children)
+        p.handle: _insert(items[p.handle], p, headers, block_entities, items, children)
         for p in placed
         if p.type in ("INSERT", "MINSERT")
     }
@@ -188,9 +221,9 @@ def decode(data: Mapping[str, Any]) -> Decoded:
     for p in placed:
         if p.type not in TEXT_TYPES:
             continue
-        text = _text(by_handle[p.handle], p, styles)
+        text = _text(items[p.handle], p, styles)
         if text.type == "ATTRIB" and text.style is None:
-            attdef = _attdef_style(text, inserts, children, by_handle, styles)
+            attdef = _attdef_style(text, inserts, children, items, styles)
             if attdef is not None:
                 text = attdef
                 from_attdef += 1
@@ -211,6 +244,7 @@ def decode(data: Mapping[str, Any]) -> Decoded:
         insunits=int(header_vars.get("INSUNITS", 0)),
         layouts=tuple(str(item.get("layout_name", "")) for item in layout_objects),
         blocks=blocks,
+        styles=tuple(styles.values()),
         entities=tuple(placed),
         texts=texts,
         inserts=inserts,
@@ -219,18 +253,18 @@ def decode(data: Mapping[str, Any]) -> Decoded:
 
 
 def _objects_of_kind(
-    by_handle: Mapping[str, dict[str, Any]],
+    object_items: Mapping[str, dict[str, Any]],
 ) -> Callable[[str], dict[str, dict[str, Any]]]:
     def of_kind(kind: str) -> dict[str, dict[str, Any]]:
-        return {h: item for h, item in by_handle.items() if item.get("object") == kind}
+        return {h: item for h, item in object_items.items() if item.get("object") == kind}
 
     return of_kind
 
 
-def _block_name(header: Mapping[str, Any], by_handle: Mapping[str, Mapping[str, Any]]) -> str:
+def _block_name(header: Mapping[str, Any], block_entities: Mapping[str, Mapping[str, Any]]) -> str:
     # The BLOCK entity carries the name DXF uses (a second paper space's is *Paper_Space0, while its
     # record may say *Paper_Space).
-    block_entity = by_handle.get(handle(header.get("block_entity")) or "")
+    block_entity = block_entities.get(handle(header.get("block_entity")) or "")
     if block_entity is not None and block_entity.get("name"):
         return str(block_entity["name"])
     return str(header.get("name", ""))
@@ -255,7 +289,8 @@ def _insert(
     item: Mapping[str, Any],
     placed: Placed,
     headers: Mapping[str, Mapping[str, Any]],
-    by_handle: Mapping[str, Mapping[str, Any]],
+    block_entities: Mapping[str, Mapping[str, Any]],
+    items: Mapping[str, Mapping[str, Any]],
     children: Mapping[str, Sequence[str]],
 ) -> Insert:
     block = handle(item.get("block_header")) or "0"
@@ -267,12 +302,12 @@ def _insert(
         layer=placed.layer,
         owner=placed.owner,
         block=block,
-        name=_block_name(header, by_handle) if header is not None else "",
+        name=_block_name(header, block_entities) if header is not None else "",
         point=_point3(item.get("ins_pt")),
         scale=_point3(scale, 1.0) if isinstance(scale, list) else (1.0, 1.0, 1.0),
         rotation_radians=_number(item.get("rotation")),
         extrusion=_point3(item.get("extrusion"), 1.0) if item.get("extrusion") else (0.0, 0.0, 1.0),
-        attribs=_attribs(item, placed.handle, children, by_handle),
+        attribs=_attribs(item, placed.handle, children, items),
     )
 
 
@@ -280,16 +315,34 @@ def _attribs(
     item: Mapping[str, Any],
     insert: str,
     children: Mapping[str, Sequence[str]],
-    by_handle: Mapping[str, Mapping[str, Any]],
+    items: Mapping[str, Mapping[str, Any]],
 ) -> tuple[str, ...]:
     if "attribs" in item:  # R2004 on: the insert's own list
         return tuple(a for ref in item["attribs"] if (a := handle(ref)))
-    return tuple(c for c in children.get(insert, ()) if by_handle[c].get("entity") == "ATTRIB")
+    return tuple(c for c in children.get(insert, ()) if items.get(c, {}).get("entity") == "ATTRIB")
 
 
-def _text(item: Mapping[str, Any], placed: Placed, styles: Mapping[str, Mapping[str, Any]]) -> Text:
-    style_handle = handle(item.get("style"))
-    style = styles.get(style_handle or "")
+def _style(h: str, item: Mapping[str, Any]) -> TextStyle:
+    name = item.get("name")
+    shape = item.get("is_shape")
+    return TextStyle(
+        handle=h,
+        name=name if isinstance(name, str) else "",
+        fixed_height=usable_size(item.get("text_size")),
+        width_factor=usable_size(item.get("width_factor")),
+        oblique_radians=usable_angle(item.get("oblique_angle")),
+        font=_font(item.get("font_file")),
+        bigfont=_font(item.get("bigfont_file")),
+        shape=type(shape) in (int, bool) and shape == 1,
+    )
+
+
+def _font(value: object) -> str | None:
+    return value if isinstance(value, str) and value else None
+
+
+def _text(item: Mapping[str, Any], placed: Placed, styles: Mapping[str, TextStyle]) -> Text:
+    style = styles.get(handle(item.get("style")) or "")
     is_mtext = placed.type == "MTEXT"
     elevation = _number(item.get("elevation"))
     stored_height = _number(item.get("text_height" if is_mtext else "height"))
@@ -299,10 +352,11 @@ def _text(item: Mapping[str, Any], placed: Placed, styles: Mapping[str, Mapping[
         layer=placed.layer,
         owner=placed.owner,
         text=str(item.get(_TEXT_FIELD.get(placed.type, "text_value"), "")),
-        style=str(style["name"]) if style else None,
-        style_source="own" if style else "none",
-        font=_font(style, "font_file"),
-        bigfont=_font(style, "bigfont_file"),
+        style=style.name if style is not None else None,
+        style_source="own" if style is not None else "none",
+        font=style.font if style is not None else None,
+        bigfont=style.bigfont if style is not None else None,
+        style_handle=style.handle if style is not None else None,
         height=stored_height or None,
         position=_point3(item.get("ins_pt"), elevation),
         alignment_point=None if is_mtext else _optional_point3(item.get("alignment_pt"), elevation),
@@ -317,32 +371,28 @@ def _text(item: Mapping[str, Any], placed: Placed, styles: Mapping[str, Mapping[
     )
 
 
-def _font(style: Mapping[str, Any] | None, key: str) -> str | None:
-    value = style.get(key) if style else None
-    return str(value) if value else None
-
-
 def _attdef_style(
     attrib: Text,
     inserts: Mapping[str, Insert],
     children: Mapping[str, Sequence[str]],
-    by_handle: Mapping[str, Mapping[str, Any]],
-    styles: Mapping[str, Mapping[str, Any]],
+    items: Mapping[str, Mapping[str, Any]],
+    styles: Mapping[str, TextStyle],
 ) -> Text | None:
     insert = inserts.get(attrib.owner)
     if insert is None or attrib.tag is None:
         return None
     for child in children.get(insert.block, ()):
-        item = by_handle.get(child, {})
+        item = items.get(child, {})
         if item.get("entity") == "ATTDEF" and item.get("tag") == attrib.tag:
             style = styles.get(handle(item.get("style")) or "")
             if style is None:
                 return None
             return replace(
                 attrib,
-                style=str(style["name"]),
+                style=style.name,
                 style_source="attdef",
-                font=_font(style, "font_file"),
-                bigfont=_font(style, "bigfont_file"),
+                font=style.font,
+                bigfont=style.bigfont,
+                style_handle=style.handle,
             )
     return None

@@ -29,6 +29,7 @@ def test_the_seed_makes_each_developers_projects_with_their_site_and_building(de
     expected = {
         "developer:shapla": ["BP-02", "KR-01", "SG-03"],
         "developer:meghna": ["MG-01"],
+        "developer:chameli": [],  # 4.3's empty state (#75)
     }
     for developer, codes in expected.items():
         with tenancy.acting_in(demo[developer]):
@@ -87,3 +88,19 @@ def test_the_seeds_guest_sees_another_projects_address_as_not_found(demo: Demo) 
         404,
         {"code": "platform.auth.not_found", "params": {}},
     )
+
+
+@pytest.mark.django_db
+def test_the_seed_s_ended_guest_had_been_given_kr_01_by_the_md(demo: Demo) -> None:
+    api = Api()
+    password = "a demo password for the tests"
+    signed = api.post(
+        "/api/auth/sign-in", {"email": "rafiq@jamuna-consultants.example", "password": password}
+    )
+    assert signed.status_code == 200
+
+    [ended] = api.get("/api/me").json()["ended"]
+    codes = api.get("/api/ended-access/projects").json()
+
+    assert ended["project_ids"] == [str(demo["project:KR-01"])]
+    assert codes == [{"membership_id": str(demo["membership:ended_guest"]), "codes": ["KR-01"]}]

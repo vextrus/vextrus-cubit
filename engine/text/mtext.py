@@ -11,15 +11,21 @@ direction (a text inside an insert scaled 50 is 50 times taller):
 1. `own`: the height the file stores for it;
 2. `inline`: for an MTEXT stored without one, the absolute height its text sets before its first
    character (`{\\H2.5;…}`), which is its own too;
-3. `style`: its text style's fixed height, given as `style_heights` (style name to height). **The
-   ReadArtefact carries no style table** (04's shape, version 1), so the harness passes none and this
-   step finds nothing until the artefact carries the styles' heights;
+3. `style`: the fixed height of its text style, the one its `style_handle` names in the artefact's
+   style table (#82; by handle, never by name, which is not unique); a style with no fixed height
+   gives none;
 4. `block`: the height most of the other texts in its block (or layout) are stored with, the smaller
-   one on a tie; the "block's" height of the contract. The artefact the entity came from is its
-   source, so `artefact` is required (keyword-only): a call cannot leave this step out unnoticed;
+   one on a tie; the "block's" height of the contract;
 5. `default`: AutoCAD's default text size for the drawing's units (0.2 for inches and feet, 2.5
    otherwise), and the caller reports it: `resolve` says which step gave the height, and the font
-   report counts the texts that fell to the default (`engine.font_report.height_defaulted`).
+   report counts the texts that fell to the default (`engine.font_report.height_defaulted`) and those
+   whose style gave it.
+
+Every step takes a height only when it is a finite number above 0. The artefact the entity came from
+is the source of the style and block steps, so `artefact` is required (keyword-only): a call cannot
+leave either out unnoticed. A chain whose scale the floats cannot carry the height through (a world
+height that would be infinite or 0) is passed over, as a scale of 0 is: the world height is then the
+local one, so `height` is always finite and above 0.
 
 **`angle(entity)`** is the direction of the text's baseline in its block's coordinates, in radians: an
 MTEXT's from its direction vector (as stored, in the world of its block), a TEXT's from its rotation in
@@ -34,7 +40,6 @@ draws text inside blocks).
 
 import math
 from collections import Counter
-from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 
@@ -69,9 +74,8 @@ class Height:
 class Heights:
     """Resolves text heights over one artefact, remembering each block's usual height."""
 
-    def __init__(self, artefact: ReadArtefact, style_heights: Mapping[str, float] | None = None) -> None:
+    def __init__(self, artefact: ReadArtefact) -> None:
         self.artefact = artefact
-        self.style_heights = {k: v for k, v in (style_heights or {}).items() if _positive(v)}
         self._blocks: dict[str, float | None] = {}
         units = artefact.summary.insunits
         self.default = IMPERIAL_DEFAULT if units in _IMPERIAL_UNITS else METRIC_DEFAULT
@@ -83,8 +87,10 @@ class Heights:
             first = next((run for run in runs(entity.text) if run.text.strip()), None)
             if first is not None and first.style.height is not None and _positive(first.style.height):
                 return first.style.height, HeightSource.INLINE
-        if entity.style is not None and entity.style in self.style_heights:
-            return self.style_heights[entity.style], HeightSource.STYLE
+        style = self.artefact.styles.get(entity.style_handle) if entity.style_handle else None
+        fixed = style.fixed_height if style is not None else None
+        if fixed is not None and _positive(fixed):
+            return float(fixed), HeightSource.STYLE
         usual = self._usual(entity.owner)
         if usual is not None:
             return usual, HeightSource.BLOCK
@@ -92,11 +98,12 @@ class Heights:
 
     def resolve(self, entity: Text, chain: Chain = ()) -> Height:
         local, source = self.local(entity)
-        up = _up(entity)
-        x, y, _ = (chain_transform(chain) @ own_ocs(entity)).vector(up)
-        scale = math.hypot(x, y)
-        value = local * scale if _positive(scale) else local
-        return Height(value, local, source)
+        try:
+            x, y, _ = (chain_transform(chain) @ own_ocs(entity)).vector(_up(entity))
+        except ValueError, ArithmeticError:  # an insert turned by an infinite angle: cos(inf)
+            return Height(local, local, source)
+        value = local * math.hypot(x, y)
+        return Height(value if _positive(value) else local, local, source)
 
     def _usual(self, block: str) -> float | None:
         if block in self._blocks:
@@ -115,35 +122,23 @@ class Heights:
         return usual
 
 
-def height(
-    entity: Text,
-    chain: Chain = (),
-    *,
-    artefact: ReadArtefact,
-    style_heights: Mapping[str, float] | None = None,
-) -> float:
+def height(entity: Text, chain: Chain = (), *, artefact: ReadArtefact) -> float:
     """The text's height in the world, never none (the module's docstring gives the order)."""
-    return Heights(artefact, style_heights).resolve(entity, chain).value
+    return Heights(artefact).resolve(entity, chain).value
 
 
-def resolve(
-    entity: Text,
-    chain: Chain = (),
-    *,
-    artefact: ReadArtefact,
-    style_heights: Mapping[str, float] | None = None,
-) -> Height:
+def resolve(entity: Text, chain: Chain = (), *, artefact: ReadArtefact) -> Height:
     """`height`, with the text's local height and the step that gave it."""
-    return Heights(artefact, style_heights).resolve(entity, chain)
+    return Heights(artefact).resolve(entity, chain)
 
 
 def _positive(value: object) -> bool:
-    return (
-        isinstance(value, int | float)
-        and not isinstance(value, bool)
-        and math.isfinite(value)
-        and value > 0
-    )
+    if not isinstance(value, int | float) or isinstance(value, bool):
+        return False
+    try:
+        return math.isfinite(value) and value > 0
+    except OverflowError:  # an integer no float holds
+        return False
 
 
 def _unit3(v: tuple[float, float, float] | None) -> tuple[float, float, float] | None:

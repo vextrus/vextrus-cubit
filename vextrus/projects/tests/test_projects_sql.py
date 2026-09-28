@@ -244,8 +244,8 @@ def test_a_tenant_writing_another_tenant_id_learns_nothing_of_it(
 
 @pytest.mark.django_db
 def test_the_market_check_is_the_owners_invoker_and_nobody_may_call_it(cursor: Any) -> None:
-    # SECURITY INVOKER: the Tenancy contract allows only platform's three named functions to read
-    # across tenants; this one reads only what its writer may.
+    # SECURITY INVOKER: the Tenancy contract allows only the named functions to read across
+    # tenants; this one reads only what its writer may.
     owner, security_definer, pinned = rows(
         cursor,
         "select pg_get_userbyid(proowner), prosecdef, proconfig from pg_proc where proname = %s",

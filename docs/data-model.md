@@ -22,9 +22,10 @@ for build sessions, so it gives key fields, not every column.
   "Live" in its old sense of working or unfrozen is now "working".
 - **The M0 plan's reviews** (28 Sep 2026; `docs/reviews/M0-plan-s02-resolution.md`, decided under the
   owner's delegation and open to the owner's reversal) are marked "(s02 review" and the finding's id.
-  The largest: row-level security is enabled without FORCE, with cross-tenant reads only through three
-  named functions (§2, §3.0); one Library rule (§2); M0 creates only the `live_model` tables the owner
-  ruled (§3.3); Disciplines are Library rows per Market, and Step 1 runs per Discipline (§3.2, §3.4).
+  The largest: row-level security is enabled without FORCE, with cross-tenant reads only through
+  named functions (three then; six since #75: §2, §3.0, §3.1); one Library rule (§2); M0 creates
+  only the `live_model` tables the owner ruled (§3.3); Disciplines are Library rows per Market, and
+  Step 1 runs per Discipline (§3.2, §3.4).
 
 ## 1. Conclusions
 
@@ -199,7 +200,10 @@ Discipline, Takeoff Step and Check. Use them exactly. What remains here are impl
     a `user_id` clause inside the one policy let the app role insert itself as `md` into another
     Developer, since `WITH CHECK` defaults to `USING`.)
   - **Cross-tenant reads** go only through named SECURITY DEFINER functions, each with its own test.
-    M0 has three: `user_developers`, `staff_developers` and `invitation_by_token` (§3.0). Each is owned
+    M0 has six: `platform`'s four, `user_developers`, `staff_developers`, `invitation_by_token` and
+    `ended_access` (§3.0), and `projects`' two, `ended_access_projects` and `invitation_projects`
+    (§3.1), which read `platform` only through its own (a Project's code is `projects`' to resolve,
+    Across modules below). Each is owned
     by `vextrus` (which the policies, without FORCE, do not filter), pins its `search_path`, returns only
     what its caller needs, and has EXECUTE revoked from PUBLIC and granted only to `vextrus_app`. The
     share link's lookup (§3.6) joins them under the same rules when share links are built.
@@ -310,14 +314,26 @@ until when.
   the signed-in user's own rows, `user_id = nullif(current_setting('app.user_id', true), '')::uuid`, so
   the middleware finds a user's Memberships before a tenant is set. Writing a Membership stays
   own-tenant: a test repeats the review's measured cross-tenant insert and asserts that it fails.
-- **The three named functions**, each owned by `vextrus` with `search_path` pinned, EXECUTE only to
-  `vextrus_app`, each tested:
+- **The four named functions**, each owned by `vextrus` with `search_path` pinned, every name
+  qualified, EXECUTE only to `vextrus_app`, each tested:
   - `user_developers`: the Developers of the signed-in user's current Memberships (id and name), for
     the "Which Developer?" chooser and `/api/me`;
   - `staff_developers`: every Developer (id and name), returned only when the signed-in user
     `is_vextrus_staff`, for the admin's pick (each pick writes a DomainEvent that Developer's MD sees);
   - `invitation_by_token`: the one pending invitation a token names, since that Membership has no user
-    yet; the token carries its tenant, so the lookup is by tenant and token hash.
+    yet; the token carries its tenant, so the lookup is by tenant and token hash. It gives the
+    Developer's Market's code too (#75), so the link's page is worded and formatted in that Market.
+  - `ended_access` (#75): one row per Developer where the signed-in user's access has ended and they
+    hold no current Membership now: their latest-ended Membership there, with the Developer's name,
+    how and when it ended (its end date, if that passed first; else revoked), the name of whoever
+    revoked it (the actor of its latest revoked act) and its Projects as ids, for the "Access ended"
+    page on a fresh load (m0-screens §4.1), and the Developer's Market's code, since no Developer
+    is current while that page shows. It takes no parameter, so nobody can ask about a Developer
+    they never held.
+- **A Developer's Market is fixed** (#75): `vextrus_app` may UPDATE a Developer's `name` only, and
+  never DELETE one, so neither an update nor a delete and re-insert moves it to another Market while
+  its Projects stay on the old one's currency. Its Market changes only by a migration, which must then
+  re-check `projects_project_follows_market` against the Projects already made.
 - **Staff and invitations.** In the admin, Vextrus staff create only a Developer's first MD invitation,
   never an active Membership of their own; a Vextrus Engineer enters a Developer's data only by that
   Developer's invitation (ADR 0034).
@@ -340,6 +356,16 @@ exact SI factors, which are engineering, not a market's choice.
 Creating a Project creates its Site and one Building in the same transaction. No screen shows a
 Building picker until a second exists, which M4 reads (ADR 0036). Each Building has its own storeys,
 grid, Live Model and Gross Floor Area, and Vextrus's price is per Building (ADR 0033).
+
+**`projects`' two named functions** (#75), under §2's rules (owned by `vextrus`, `search_path`
+pinned, every name qualified, EXECUTE only to `vextrus_app`, each tested), name Projects of a
+Developer whose rows the reader cannot open. Each reads `platform` only through `platform`'s own named
+function, and otherwise only `projects_project`:
+- `ended_access_projects()`: the code of each Project each of the signed-in user's ended access gave
+  (`ended_access`), for "Your access to KR-01 at Shapla Homes Ltd has ended" (m0-screens §4.1);
+- `invitation_projects(tenant_id, token_hash)`: the code and name of each Project the one pending
+  invitation a link names gives (`invitation_by_token`), for "…invited you as a Guest to KR-01 Kadam
+  Residence" (§4.2).
 
 ### 3.2 `drawings` (layer 2)
 | Entity | Key fields | Identity | Tenant | References |

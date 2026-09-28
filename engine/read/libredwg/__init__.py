@@ -89,6 +89,7 @@ def read(path: Path, *, source_name: str, limits: Limits = DEFAULT_LIMITS) -> Re
         notes=notes,
         blocks=decoded.blocks,
         entities=entities,
+        styles=decoded.styles,
     )
 
 
@@ -114,7 +115,7 @@ def _geometry(stream: BinaryIO) -> tuple[dict[str, dict[str, Json]], list[Messag
 def _parse[T](program: str, parse: Callable[[], T]) -> T:
     try:
         return parse()
-    except (ValueError, KeyError, TypeError, OSError, UnicodeError) as error:
+    except (ValueError, KeyError, TypeError, ArithmeticError, OSError, UnicodeError) as error:
         raise ReadError(codes.OUTPUT_UNREADABLE(program=program)) from error
 
 
