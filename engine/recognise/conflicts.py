@@ -26,15 +26,18 @@ two equal-by-value copies of a sheet in two files are two sheets, so nothing her
 - **`same_number`:** two or more sheets whose numbers have one normal form ("S-07" twice; "S-O1" is not
   "S-01"). One Conflict per number; evidence: the number as the first copy prints it, and the copies.
 - **A continuation** ("Column schedule, 3 sheets"; no Question): sheets of one title whose numbers run
-  on. A number is read only by 13's `sheets.sequence` (`Recognisers.sequence`), never here. Two numbers
+  on. A number is read only by 13's `sheets.sequence` (`Recognisers.sequence`), never here, and is
+  given to it in its clean form (`clean`: the normal form before case folding). Two numbers
   run on when their prefixes and suffixes match (by their letters and digits, case folded) and their
   running numbers are one apart: "09"/"10", "S-09"/"S-10" and "9"/"10" (padding is no part of a
   running number); or when their running numbers match and their suffixes are single Latin letters one
   apart: "S-101A"/"S-101B". "S-101"/"S-101A" do not run on; a number with no running number (no digit,
   or one of `RUNNING_LIMIT` or more) runs on with none. Copies of one number are one place in a run.
-- **`same_title`:** one title on places that do not all run on: one Conflict naming every sheet of the
-  title, in number order (a run among them is also a Continuation); evidence: the title as the first
-  sheet draws it, and how many sheets. Copies of one number under one title are only `same_number`.
+- **`same_title`:** one title on places that do not all run on, or on two numbers that share one place
+  (one running number printed two ways, "S-09" and "S-9": not copies, since their normal forms differ,
+  and not two places): one Conflict naming every sheet of the title, in number order (a run among them
+  is also a Continuation); evidence: the title as the first sheet draws it, and how many sheets.
+  Copies of one number under one title are only `same_number`.
 - **`same_storey`** (one storey drawn twice; the M0 plan's review Q3): plan views of one Discipline
   (their sheets'), one subject (known: none matches nothing) and one layer (none matches none: a beam
   plan has no layer) whose storey lists share a storey that is not symbolic ("typical", "top" and "not
@@ -50,7 +53,8 @@ number is read once.
 
 **The trust boundary** (each refused with a `ValueError` or `TypeError`, so the stage fails, never
 passes): `views` not one list per sheet; one sheet or view object given twice; a sheet with no group;
-a candidate of the wrong type; a reader returning what 13's contract does not allow.
+a candidate of the wrong type (a sheet in a list of views among them); a reader returning what 13's
+contract does not allow.
 """
 
 import unicodedata
@@ -180,7 +184,7 @@ def compare(
         units = _grouped((i, numbers[i]) for i in group)
         if len(units) < 2:
             continue
-        runs = _runs(units, [reader.parts(sheets[unit[0]]) for unit in units])
+        runs, shared = _runs(units, [reader.parts(sheets[unit[0]]) for unit in units])
         for run in runs:
             members = [i for unit in run for i in unit]
             places.join(members)
@@ -189,7 +193,7 @@ def compare(
                 assert title is not None
                 continuation = Continuation(title.value, tuple(sheets[i] for i in members))
                 continuations.append((min(members), continuation))
-        if len(runs) > 1:
+        if len(runs) > 1 or shared:
             ordered = [i for run in runs for unit in run for i in unit]
             title = sheets[ordered[0]].title
             assert title is not None
@@ -219,21 +223,25 @@ def given(sheets: Sequence[SheetCandidate], views: Sequence[Sequence[ViewCandida
             raise TypeError(f"a sheet is a SheetCandidate, not {type(sheet).__name__}")
         if sheet.group is None:
             raise ValueError("a sheet has no group: its caller stamps each sheet with its file's group")
+        for view in sheet_views:
+            if not isinstance(view, ViewCandidate):
+                raise TypeError(f"a view is a ViewCandidate, not {type(view).__name__}")
         for item in (sheet, *sheet_views):
-            if not isinstance(item, SheetCandidate | ViewCandidate):
-                raise TypeError(f"a view is a ViewCandidate, not {type(item).__name__}")
             if id(item) in seen:
                 raise ValueError(f"one {type(item).__name__} object is given twice")
             seen.add(id(item))
 
 
+def clean(text: str) -> str:
+    """The normal form before its case is folded: NFKC, format characters dropped, whitespace made
+    single spaces. What 13's reader is given, so it reads the number the comparisons compare."""
+    folded = unicodedata.normalize("NFKC", text)
+    return " ".join("".join(char for char in folded if unicodedata.category(char) != "Cf").split())
+
+
 def normal(text: str | None) -> str | None:
     """A number's or title's normal form (the module's rules), or none when nothing is left."""
-    if text is None:
-        return None
-    folded = unicodedata.normalize("NFKC", text)
-    kept = "".join(char for char in folded if unicodedata.category(char) != "Cf")
-    return " ".join(kept.casefold().split()) or None
+    return None if text is None else clean(text).casefold() or None
 
 
 def sheet_name(sheet: SheetCandidate) -> tuple[str, str] | None:
@@ -275,10 +283,11 @@ class _Reader:
 
 
 def number_parts(recognisers: Recognisers, number: str) -> tuple[str, int, str] | None:
-    """13's reading of a number, checked: its prefix, running number and suffix as printed, or none
-    when it has no running number below `RUNNING_LIMIT`. What 13's contract does not allow is
-    refused."""
-    parts = recognisers.sequence(number)
+    """13's reading of a number in its clean form ("S-1\u200b0" is read as "S-10", as its copies'
+    normal form has it), checked: its prefix, running number and suffix as the clean form prints
+    them, or none when it has no running number below `RUNNING_LIMIT`. What 13's contract does not
+    allow is refused."""
+    parts = recognisers.sequence(clean(number))
     if parts is None:
         return None
     prefix, running, suffix = (getattr(parts, name, None) for name in ("prefix", "running", "suffix"))
@@ -327,8 +336,11 @@ def _grouped(keyed: Iterable[tuple[int, Hashable]]) -> list[list[int]]:
     return list(groups.values())
 
 
-def _runs(units: list[list[int]], parts: list[tuple[str, int, str] | None]) -> list[list[list[int]]]:
-    """The units (copies of one number) joined into runs of numbers that run on, in number order."""
+def _runs(
+    units: list[list[int]], parts: list[tuple[str, int, str] | None]
+) -> tuple[list[list[list[int]]], bool]:
+    """The units (copies of one number) joined into runs of numbers that run on, in number order, and
+    whether two units share one place (one running number, printed two ways: "S-09" and "S-9")."""
     parent = list(range(len(units)))
 
     def root(u: int) -> int:
@@ -367,7 +379,8 @@ def _runs(units: list[list[int]], parts: list[tuple[str, int, str] | None]) -> l
     runs: dict[int, list[int]] = {}
     for u in sorted(range(len(units)), key=order):
         runs.setdefault(root(u), []).append(u)
-    return [[units[u] for u in run] for run in runs.values()]
+    shared = any(len(members) > 1 for members in by_running.values())
+    return [[units[u] for u in run] for run in runs.values()], shared
 
 
 def _same_storey(
@@ -398,12 +411,13 @@ def _same_storey(
             sets.setdefault((bucket, tuple(sharers)), []).append(storey)
     found = []
     for ((_, discipline, subject, layer), members), storeys in sets.items():
-        first = flat[members[0]][0].storeys
+        # The set's storeys were met first in its first view, in that view's order: the first of
+        # them is the first it lists (no scan of the view's list per storey: that is quadratic).
         evidence = codes.SAME_STOREY(
             discipline=discipline,
             subject=subject,
             layer=layer,
-            storey=min(storeys, key=first.index),
+            storey=storeys[0],
             views=len(members),
         )["params"]
         candidates = tuple(flat[v][0] for v in members)

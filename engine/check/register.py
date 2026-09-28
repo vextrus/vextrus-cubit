@@ -45,8 +45,10 @@ sheet's number: the refusal asks for "01 to 57". Any other line is a sheet line 
 (cells split by tabs, as a spreadsheet pastes; else its first word) reads as a sheet number through
 13's `sequence`: its next cell or the rest of the line is the title, and a later cell that is a revision
 mark by the conventions' pattern (on at most `MARK_LIMIT` characters) is its revision mark. Other lines
-are ignored and counted. A leading serial number (digits only) before a cell that reads as a number
-with no suffix is set aside ("1  S-01  General notes"). The source is `typed` when every sheet line is
+are ignored and counted; a sheet number is one word. A leading serial number (digits only) is set
+aside when the next word is digits only or a number carrying a Discipline's prefix ("1  S-01  General
+notes", "1  01  General notes"); before a title that merely ends in a digit it is the sheet's number
+("02  COLUMN SCHEDULE SHEET 1"). The source is `typed` when every sheet line is
 a range, else `pasted`.
 """
 
@@ -59,6 +61,7 @@ from engine.messages import Message
 from engine.messages import register_check as codes
 from engine.recognise.conflicts import (
     Recognisers,
+    clean,
     given,
     mark,
     normal,
@@ -312,6 +315,7 @@ def parse(text: str, conventions: SheetConventions, *, recognisers: Recognisers)
     if len(text) > TEXT_LIMIT:
         raise Refused(codes.TEXT_TOO_LONG(limit=TEXT_LIMIT))
     revision = _revision_mark(conventions.revision_mark_pattern)
+    prefixes = frozenset(mark(p) for d in conventions.disciplines for p in d.prefixes) - {""}
     entries: list[ListEntry] = []
     ignored = ranges = sheet_lines = 0
     for index, raw in enumerate(text.splitlines(), start=1):
@@ -326,7 +330,7 @@ def parse(text: str, conventions: SheetConventions, *, recognisers: Recognisers)
             ranges += 1
             sheet_lines += 1
             entries.extend(ListEntry(number, index) for number in numbers)
-        elif (entry := _sheet_line(line, index, recognisers, revision)) is not None:
+        elif (entry := _sheet_line(line, index, recognisers, revision, prefixes)) is not None:
             sheet_lines += 1
             entries.append(entry)
         else:
@@ -367,7 +371,7 @@ def _range(line: str, index: int, recognisers: Recognisers) -> list[str] | None:
         raise Refused(codes.RANGE_BACKWARDS(line=index, first=first, last=last))
     if high[1] - low[1] + 1 > ENTRY_LIMIT:
         raise Refused(codes.RANGE_TOO_LONG(line=index, first=first, last=last, limit=ENTRY_LIMIT))
-    prefix, suffix, width = _form(first, low)
+    prefix, suffix, width = _form(clean(first), low)
     return [f"{prefix}{str(running).zfill(width)}{suffix}" for running in range(low[1], high[1] + 1)]
 
 
@@ -402,14 +406,18 @@ def _hyphenated(line: str, index: int, recognisers: Recognisers) -> None:
 
 
 def _sheet_line(
-    line: str, index: int, recognisers: Recognisers, revision: Callable[[str], bool]
+    line: str,
+    index: int,
+    recognisers: Recognisers,
+    revision: Callable[[str], bool],
+    prefixes: frozenset[str],
 ) -> ListEntry | None:
     tabbed = "\t" in line
     cells = [c.strip() for c in line.split("\t") if c.strip()] if tabbed else line.split(maxsplit=2)
-    if len(cells) > 1 and cells[0].isdecimal() and _serial_before(cells[1], recognisers):
+    if len(cells) > 1 and cells[0].isdecimal() and _serial_before(cells[1], recognisers, prefixes):
         cells = cells[1:]  # a serial number column ("1  S-01  General notes") is set aside
     number = cells[0]
-    if not _is_number(number, recognisers):
+    if any(char.isspace() for char in number) or not _is_number(number, recognisers):
         return None
     rest = (cells[1:] if tabbed else [" ".join(cells[1:])]) or [""]
     title = rest[0].strip().lstrip(_SEPARATORS).strip() or None
@@ -417,10 +425,15 @@ def _sheet_line(
     return ListEntry(number, index, title=title, revision_mark=mark_cell)
 
 
-def _serial_before(cell: str, recognisers: Recognisers) -> bool:
-    """Whether a cell after a leading count is the sheet number: a number with no suffix."""
-    parts = number_parts(recognisers, cell) if len(cell) <= NUMBER_LIMIT else None
-    return parts is not None and not parts[2]
+def _serial_before(cell: str, recognisers: Recognisers, prefixes: frozenset[str]) -> bool:
+    """Whether the cell after a leading count is the sheet number, so the count is a serial column:
+    one word that is digits only ("1  01  General notes") or a number carrying a Discipline's prefix
+    ("1  S-01  General notes"). A title that ends in a digit ("02  COLUMN SCHEDULE SHEET 1") or a
+    word with digits ("01  TYPE-2 FOUNDATION") is not: its count is the sheet's number."""
+    if any(char.isspace() for char in cell) or not _is_number(cell, recognisers):
+        return False
+    parts = number_parts(recognisers, cell)
+    return cell.isdecimal() or (parts is not None and mark(parts[0]) in prefixes)
 
 
 def _revision_mark(pattern: str | None) -> Callable[[str], bool]:

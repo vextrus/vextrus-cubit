@@ -508,3 +508,34 @@ def test_the_check_and_the_numbering_do_linear_work() -> None:
 def test_a_hyphenated_number_with_its_title_is_one_sheet_as_the_refusal_says() -> None:
     assert refusal("01-57")["code"] == "engine.register_check.range_hyphen"
     assert parsed("01-57 GENERAL NOTES").entries == (ListEntry("01-57", 1, "GENERAL NOTES"),)
+
+
+def test_a_title_ending_in_a_digit_never_takes_the_number_s_place() -> None:
+    """The refuter's round 1: a bare number before such a title was set aside as a serial number."""
+    text = "01\tGENERAL NOTES\n02\tCOLUMN SCHEDULE SHEET 1\n03\tCOLUMN SCHEDULE SHEET 2\n"
+    assert parsed(text).entries == (
+        ListEntry("01", 1, "GENERAL NOTES"),
+        ListEntry("02", 2, "COLUMN SCHEDULE SHEET 1"),
+        ListEntry("03", 3, "COLUMN SCHEDULE SHEET 2"),
+    )
+    assert parsed("01 TYPE-2 FOUNDATION").entries == (ListEntry("01", 1, "TYPE-2 FOUNDATION"),)
+    assert parsed("01\tSECTION 2").entries == (ListEntry("01", 1, "SECTION 2"),)
+    serials = parsed("1\tS-01\tGeneral notes\n2\t02\tPile layout\n3 ST-03 Beams")
+    assert [e.number for e in serials.entries] == ["S-01", "02", "ST-03"]
+    listed = DrawingList("set", "structural", ListSource.PASTED, parsed(text).entries)
+    sheets = [sheet("01", "GENERAL NOTES"), sheet("02"), sheet("03")]
+    results = check(reading(sheets, lists=(listed,)), recognisers=READERS)
+    assert [str(r.outcome) for r in results] == ["passed"] * 6
+
+
+def test_a_cell_of_several_words_is_no_sheet_number() -> None:
+    assert parsed("Drawing no 1\tTitle\nS-01\tNotes").entries == (ListEntry("S-01", 2, "Notes"),)
+
+
+def test_a_format_character_inside_a_listed_number_is_read_as_its_normal_form() -> None:
+    zero_width = "S-1\u200b0"
+    assert parsed(f"{zero_width} Notes").entries == (ListEntry(zero_width, 1, "Notes"),)
+    assert [e.number for e in parsed(f"S-08 to {zero_width}").entries] == ["S-08", "S-09", "S-10"]
+    listed = typed("set", "structural", zero_width)
+    results = check(reading([sheet("S-10")], lists=(listed,)), recognisers=READERS)
+    assert [str(r.outcome) for r in results] == ["passed", "passed"]

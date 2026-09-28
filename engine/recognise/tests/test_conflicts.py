@@ -550,3 +550,68 @@ def test_numbers_that_are_not_plain_digits_compare_in_normal_form(
 ) -> None:
     found = run([sheet(a), sheet(b)])
     assert [c.kind for c in found] == (["same_number"] if one_number else [])
+
+
+# Round 1 of the refuter (each test failed before its fix) ----------------------------------------------
+
+
+def test_a_format_character_inside_a_number_is_read_as_its_normal_form() -> None:
+    zero_width = "S-1\u200b0"  # "S-10" with a zero-width space in its digits
+    nine, ten = sheet("S-09", "T"), sheet(zero_width, "T")
+    [continuation] = run([nine, ten])
+    assert isinstance(continuation, Continuation)
+
+    for order in ([sheet("S-10", "T"), sheet(zero_width, "T"), sheet("S-09", "T")],
+                  [sheet(zero_width, "T"), sheet("S-10", "T"), sheet("S-09", "T")]):  # fmt: skip
+        found = run(order)
+        assert [type(c).__name__ + getattr(c, "kind", "") for c in found] == [
+            "Continuation",
+            "Conflictsame_number",
+        ]
+
+
+def test_two_numbers_at_one_place_under_one_title_stay_a_conflict_beside_a_run() -> None:
+    padded, bare, ten = sheet("S-09", "T"), sheet("S-9", "T"), sheet("S-10", "T")
+
+    [conflict] = run([padded, bare])
+    assert conflict.kind == "same_title"
+
+    found = run([padded, bare, ten])
+    assert [type(c).__name__ for c in found] == ["Continuation", "Conflict"]
+    assert found[1].kind == "same_title"
+    assert same(found[1].candidates, [padded, bare, ten])
+
+
+def test_a_sheet_in_a_list_of_views_is_refused() -> None:
+    for discipline in (None, "structural"):
+        with pytest.raises(TypeError, match="ViewCandidate"):
+            run([sheet("S-1", "A", discipline=discipline)], [[sheet("S-2", "B")]])  # type: ignore[list-item]
+
+
+class _Counted(str):
+    """A storey key that counts its comparisons: work done in C, which line counts cannot see."""
+
+    compared = 0
+
+    def __eq__(self, other: object) -> bool:
+        _Counted.compared += 1
+        return str.__eq__(self, other)
+
+    __hash__ = str.__hash__
+
+
+def test_the_storeys_shared_by_a_set_of_views_are_compared_in_linear_work() -> None:
+    def work(n: int) -> int:
+        keys = [_Counted(f"floor_{k}") for k in range(n)]
+        many = plan(keys)
+        singles = [plan([key]) for key in keys]
+        sheets = [sheet("S-1", "A"), *(sheet(f"S-{k + 10}", f"P{k}") for k in range(n))]
+        _Counted.compared = 0
+        found = run(sheets, [[many], *([s] for s in singles)])
+        assert len(found) == n
+        two = run([sheet("S-1", "A"), sheet("S-5", "B")], [[plan(keys)], [plan(keys)]])
+        assert len(two) == 1
+        return _Counted.compared
+
+    small, large = work(1_000), work(2_000)
+    assert large <= 2.2 * small + 100, (small, large)
