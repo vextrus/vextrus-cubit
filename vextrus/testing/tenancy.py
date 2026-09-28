@@ -124,13 +124,13 @@ def add_member(
     if expires_at is None and role == "vextrus_engineer":
         expires_at = timezone.now() + timedelta(days=30)
     with tenancy.acting_in(developer_id):
-        now = timezone.now()
         membership = Membership.objects.create(
             tenant_id=developer_id,
             user=user,
             role=role,
-            starts_at=now - timedelta(seconds=1),
-            accepted_at=now,
+            # The database's clock, as `user_developers()` reads it: current from this transaction on.
+            starts_at=tenancy.DATABASE_NOW,
+            accepted_at=tenancy.DATABASE_NOW,
             expires_at=expires_at,
         )
         MembershipProject.objects.bulk_create(

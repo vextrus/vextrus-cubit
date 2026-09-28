@@ -31,7 +31,7 @@ from django.utils.translation import gettext_lazy
 from django.views.decorators.http import require_POST
 
 from vextrus.platform.models import Developer, Membership
-from vextrus.platform.services import tenancy
+from vextrus.platform.services import invitations, tenancy
 
 INDEX = """{% extends "admin/index.html" %}{% block sidebar %}{% endblock %}"""
 
@@ -246,8 +246,8 @@ class MembershipAdmin(TenantModelAdmin):
         obj.__dict__.update(Membership.objects.get(id=invitation.membership_id).__dict__)
         messages.warning(
             request,
-            _("Send this invitation token to the MD; it is shown only now: %(token)s")
-            % {"token": invitation.token},
+            _("Send this invitation link to the MD; it is shown only now: %(link)s")
+            % {"link": invitations.link(invitation.token)},
         )
 
     def response_add(

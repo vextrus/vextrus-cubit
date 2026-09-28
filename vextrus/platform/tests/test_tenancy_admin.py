@@ -154,8 +154,9 @@ def test_creating_a_developer_makes_its_id_the_tenant_in_the_same_transaction(
 
 @pytest.mark.django_db
 def test_staff_create_the_first_md_invitation_and_nothing_more(
-    staff_client: Client, staff: User, shapla: uuid.UUID
+    staff_client: Client, staff: User, shapla: uuid.UUID, settings: Any
 ) -> None:
+    settings.VEXTRUS_WEB_ORIGIN = "https://app.vextrus.example/"
     pick(staff_client, shapla)
     add_page = staff_client.get("/admin/platform/membership/add/")
 
@@ -170,7 +171,8 @@ def test_staff_create_the_first_md_invitation_and_nothing_more(
 
     assert add_page.status_code == 200
     assert first.redirect_chain == [("/admin/platform/membership/", 302)]
-    assert f"{shapla}.".encode() in first.content  # the token, shown once
+    # The whole link, on the web's origin, shown once (07)
+    assert f"https://app.vextrus.example/join#{shapla}.".encode() in first.content
     assert second.status_code == 403
     with tenancy.acting_in(shapla):
         [invitation] = Membership.objects.all()
@@ -205,7 +207,7 @@ def test_the_service_refuses_a_second_invitation_and_one_with_no_developer(
 ) -> None:
     with tenancy.acting_in(None, user_id=staff.pk), pytest.raises(tenancy.FirstInvitationRefused):
         tenancy.invite_first_md("kamal@shapla-homes.example", invited_by=staff)
-    with tenancy.acting_in(shapla, user_id=staff.pk):
+    with tenancy.acting_in(shapla):
         tenancy.invite_first_md("kamal@shapla-homes.example", invited_by=staff)
         with pytest.raises(tenancy.FirstInvitationRefused) as refused:
             tenancy.invite_first_md("rumana@shapla-homes.example", invited_by=staff)
@@ -253,7 +255,7 @@ def test_staff_cannot_rename_the_developer_they_act_in(staff_client: Client, sha
 
 
 def invite(staff: User, developer: uuid.UUID, email: str) -> tenancy.Invitation:
-    with tenancy.acting_in(developer, user_id=staff.pk):
+    with tenancy.acting_in(developer):
         return tenancy.invite_first_md(email, invited_by=staff)
 
 

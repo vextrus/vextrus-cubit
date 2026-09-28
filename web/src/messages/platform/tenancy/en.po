@@ -7,7 +7,7 @@ msgstr ""
 "Language: en\n"
 
 msgid "platform.tenancy.developer_created"
-msgstr "{actor} of Vextrus created this Developer"
+msgstr "{by, select, vextrus {Vextrus created this Developer} other {{actor} of Vextrus created this Developer}}"
 
 msgid "platform.tenancy.first_md_invited"
 msgstr "{actor} of Vextrus invited the first MD"
