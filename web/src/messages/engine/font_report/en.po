@@ -10,13 +10,13 @@ msgid "engine.font_report.asked"
 msgstr "{kind, select, shx {{asked} (AutoCAD lettering)} other {{asked}}}"
 
 msgid "engine.font_report.glyphs_missing"
-msgstr "{count, plural, one {# text has letters none of Vextrus's fonts can draw, so they show as empty boxes.} other {# texts have letters none of Vextrus's fonts can draw, so they show as empty boxes.}}"
+msgstr "{count, plural, one {# text has letters or symbols Vextrus has no font for; they show as empty boxes. The Plot shows them as drawn.} other {# texts have letters or symbols Vextrus has no font for; they show as empty boxes. The Plot shows them as drawn.}}"
 
 msgid "engine.font_report.height_defaulted"
-msgstr "{count, plural, one {# text has no size in the drawing, so it is drawn at AutoCAD's usual size and may look too large or too small.} other {# texts have no size in the drawing, so they are drawn at AutoCAD's usual size and may look too large or too small.}}"
+msgstr "{count, plural, one {Except for # text: the drawing gives it no size, so Vextrus draws it at AutoCAD's standard size. It may look larger or smaller than on the Plot.} other {Except for # texts: the drawing gives them no size, so Vextrus draws them at AutoCAD's standard size. They may look larger or smaller than on the Plot.}}"
 
 msgid "engine.font_report.how_close"
-msgstr "{how_close, select, same_widths {Same widths} single_stroke {Single-stroke, like the plot} wider {A little wider: a line of text may run slightly long} narrower {A little narrower} bangla_ansi {Bangla in an old font: see above} other {Not found: drawn with {drawn_with}; letters may differ}}"
+msgstr "{how_close, select, same_widths {Same widths} single_stroke {Single-stroke, like the plot} wider {A little wider: a line of text may run slightly long} narrower {A little narrower} bangla_ansi {Bangla in an old font: see above} not_found {Not found: drawn with {drawn_with}; letters may differ} other {Not found: drawn with {drawn_with}; letters may differ}}"
 
 msgid "engine.font_report.summary"
-msgstr "{fonts, plural, one {# font named in the drawing.} other {# fonts named in the drawing.}} Vextrus cannot use AutoCAD's own fonts, so it draws each with a free font of the same shape. Positions, sizes and line breaks are the drawing's own; only the letter shapes differ."
+msgstr "{fonts, plural, one {# font named in the drawing. Vextrus cannot use AutoCAD's own fonts, so it draws it with a free font of the same shape.} other {# fonts named in the drawing. Vextrus cannot use AutoCAD's own fonts, so it draws each with a free font of the same shape.}} Positions, sizes and line breaks are the drawing's own; only the letter shapes differ."

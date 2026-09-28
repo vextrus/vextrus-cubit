@@ -219,7 +219,8 @@ class FontReport:
     counts: dict[str, int] = field(default_factory=dict)
 
     def messages(self) -> list[Message]:
-        found = [codes.SUMMARY(fonts=len(self.fonts))]
+        """The section's lines; none when the drawing names no font (the section is hidden)."""
+        found = [codes.SUMMARY(fonts=len(self.fonts))] if self.fonts else []
         if self.height_defaulted:
             found.append(codes.HEIGHT_DEFAULTED(count=self.height_defaulted))
         if self.glyphs_missing:
