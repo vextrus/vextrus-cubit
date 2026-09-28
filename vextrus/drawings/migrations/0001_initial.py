@@ -38,10 +38,11 @@
 #   row is never updated. Since a file is never deleted by the app and its steps' key to it takes
 #   no action, its steps cannot be removed with it either.
 # - A reading's own rows the app may delete (a Sheet, a printed sheet, a view, a map row: a reading
-#   again replaces them), so the keys naming a Sheet, a printed sheet or a view are checked at each
-#   statement, never deferred (IMMEDIATE): a row something still names cannot be deleted and made
-#   again under its id in another set, Building or place with what names it following. A row nothing
-#   names can be deleted and inserted again, as any new row can: every insert wall holds for it.
+#   again replaces them), so the keys naming a Sheet, a printed sheet or a view RESTRICT, never
+#   deferred (IMMEDIATE): a row something still names cannot be deleted, even to come back under its
+#   id in the same statement, so never made again in another set, Building or place with what names
+#   it following. A row nothing names can be deleted and inserted again, as any new row can: every
+#   insert wall holds for it.
 # - Held by projects, not here: a Building's Project. A Building is named by id (a downward id), and
 #   the triggers check it at each write of a drawings row; projects' own rights decide whether a
 #   Building can move to another Project afterwards (vextrus_app may today delete a Building and
@@ -149,13 +150,16 @@ IMMEDIATE = {
     ("drawings_view", ("tenant_id", "sheet_revision_id")),
     ("drawings_view", ("tenant_id", "predecessor_view_id")),
 }
-"""The keys naming a Sheet, a printed sheet or a view, which the app may delete: checked at each
-statement, never deferred, so a row something still names cannot be deleted even for a moment, nor
-made again elsewhere under its id with what names it following."""
+"""The keys naming a Sheet, a printed sheet or a view, which the app may delete: RESTRICT, never
+deferred, so a row something still names cannot be deleted, not even to be inserted again under its
+id in the same statement (a NO ACTION key, even immediate, lets a row whose key is back by the
+statement's end pass), nor made again elsewhere with what names it following."""
 
 
 def _timing(table: str, columns: tuple[str, ...]) -> str:
-    return "not deferrable" if (table, columns) in IMMEDIATE else "deferrable initially deferred"
+    if (table, columns) in IMMEDIATE:
+        return "on delete restrict on update restrict not deferrable"
+    return "deferrable initially deferred"
 
 
 KEYS = [

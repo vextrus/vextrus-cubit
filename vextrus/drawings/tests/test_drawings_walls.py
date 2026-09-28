@@ -722,3 +722,84 @@ def test_a_views_predecessor_is_never_deleted_and_made_again_in_another_set(
         with refused("drawings_view_predecessor_view_own_tenant"):
             sql("delete from drawings_view where id = %s", [earlier])
             sql(VIEW, [earlier, member.developer_id, their_printed.id, None, None])
+
+
+def remade(table: str, row_id: Any, **changed: Any) -> None:
+    """Delete a row and insert it again under its id, some columns changed, in ONE statement (a
+    data-modifying CTE): a key that lets a row whose key is back by the statement's end pass would
+    let this through."""
+    columns = sql(
+        "select attname, format_type(atttypid, atttypmod) from pg_attribute"
+        " where attrelid = %s::regclass and attnum > 0 and not attisdropped order by attnum",
+        [table],
+    )
+    items = [f"%s::{kind}" if name in changed else name for name, kind in columns]
+    names = ", ".join(name for name, _ in columns)
+    sql(
+        f"with d as (delete from {table} where id = %s returning *)"
+        f" insert into {table} ({names}) select {', '.join(items)} from d",
+        [row_id, *(changed[name] for name, _ in columns if name in changed)],
+    )
+
+
+def test_a_sheet_is_never_remade_in_one_statement_in_another_building(qs_project: QsProject) -> None:
+    member = qs_project.member
+    ours = add(member, qs_project.project_id, "KR-STR-R0.dwg", drawing("dwg")).file
+    [printed] = read_dwg(member, ours.id, ["S-01"])
+    with member.acting(), refused("drawings_sheetrevision_sheet_own_set"):
+        remade("drawings_sheet", printed.sheet_id, building_id=None)
+
+
+def test_a_printed_sheet_is_never_remade_in_one_statement_in_another_place(
+    qs_project: QsProject,
+) -> None:
+    member = qs_project.member
+    ours = add(member, qs_project.project_id, "KR-STR-R0.dwg", drawing("dwg")).file
+    [printed] = read_dwg(member, ours.id, ["S-01"])
+    with (
+        member.acting(),
+        refused("drawings_statesheet_sheet_revision_own_set", "drawings_view_sheet_revision_own_tenant"),
+    ):
+        remade("drawings_sheetrevision", printed.id, location_key='{"layout":"ELSEWHERE"}')
+
+
+def test_a_printed_sheet_is_never_remade_in_one_statement_in_another_set_with_its_views(
+    qs_project: QsProject,
+) -> None:
+    member = qs_project.member
+    ours = add(member, qs_project.project_id, "KR-STR-R0.dwg", drawing("dwg")).file
+    [printed] = read_dwg(member, ours.id, ["S-01"])
+    theirs, their_printed = their_printed_sheet(member)
+    with member.acting():
+        their_set = one(
+            "select drawing_set_id from drawings_sheetrevision where id = %s", [their_printed.id]
+        )
+        with refused("drawings_view_sheet_revision_own_tenant"):
+            sql("delete from drawings_statesheet where sheet_revision_id = %s", [printed.id])
+            remade(
+                "drawings_sheetrevision",
+                printed.id,
+                drawing_set_id=their_set,
+                sheet_id=their_printed.sheet_id,
+                source_file_id=theirs.id,
+                source_sha256=theirs.sha256,
+                location_key='{"layout":"MOVED"}',
+                revision_id=None,
+                plot_file_id=None,
+                render_file_id=None,
+                render_key="",
+            )
+
+
+def test_a_views_predecessor_is_never_remade_in_one_statement_in_another_set(
+    qs_project: QsProject,
+) -> None:
+    member = qs_project.member
+    ours = add(member, qs_project.project_id, "KR-STR-R0.dwg", drawing("dwg")).file
+    [printed] = read_dwg(member, ours.id, ["S-01"])
+    _theirs, their_printed = their_printed_sheet(member)
+    with member.acting():
+        earlier = one("select id from drawings_view where sheet_revision_id = %s limit 1", [printed.id])
+        sql(VIEW, [uuid.uuid4(), member.developer_id, printed.id, None, earlier])
+        with refused("drawings_view_predecessor_view_own_tenant"):
+            remade("drawings_view", earlier, sheet_revision_id=their_printed.id, ordinal=77)
