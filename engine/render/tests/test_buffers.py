@@ -394,6 +394,19 @@ def test_a_block_with_a_great_many_entities_is_cut_at_the_budget() -> None:
     assert struct.unpack_from("<H", data, 6)[0] & 1
 
 
+def test_a_sheet_that_takes_too_long_is_cut_at_its_time_budget() -> None:
+    drawing = Drawing()
+    many = drawing.block("MANY")
+    for i in range(3000):
+        drawing.line((i % 200, 0), (i % 200, 1), owner=many)
+    values = {"row_count": 100, "column_count": 100, "row_spacing": 1.0, "column_spacing": 1.0}
+    drawing.insert(many, values=values, kind="MINSERT")  # 30 million entities to visit
+    built = build(drawing.artefact(), model_sheet(0, 0, 297, 210), limits=Limits(seconds=0.5))
+
+    assert built.truncated
+    assert built.stats["budget_seconds"] == 1
+
+
 def test_an_insert_loop_is_drawn_once_and_counted() -> None:
     drawing = Drawing()
     a = drawing.block("A")

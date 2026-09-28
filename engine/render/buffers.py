@@ -69,14 +69,16 @@ section outside it or overlapping the table, a record count that does not fill i
 past its table) with `BufferError`, never reading past the data. The committed fixture
 `engine/render/fixtures/tiny-sheet.bin` is decoded by the viewer's own test (16).
 
-**Budgets** (`Limits`): a sheet stops adding a kind of primitive at its budget and says so (flag bit
-0 and its counts), so a block with millions of entities cannot exhaust memory.
+**Budgets** (`Limits`): a sheet stops adding a kind of primitive at its budget, stops walking after
+`Limits.visits` entities or `Limits.seconds`, and says so (flag bit 0 and its counts), so a block with
+millions of entities can exhaust neither memory nor time.
 """
 
 import itertools
 import json
 import math
 import struct
+import time
 import weakref
 from collections import Counter
 from collections.abc import Callable, Iterable
@@ -160,6 +162,8 @@ class Limits:
     glyphs: int = 1_000_000
     atlas_height: int = 4096
     visits: int = 10_000_000
+    seconds: float = 300.0
+    """How long one sheet may take; past it the sheet is cut (flag bit 0, `budget_seconds`)."""
 
 
 DEFAULT_LIMITS = Limits()
@@ -725,6 +729,7 @@ class _Sheet:
         self.heights = Heights(artefact)
         self.metric = artefact.summary.insunits in _METRIC
         self.bounds = _bounds_of(artefact)
+        self.deadline = time.monotonic() + limits.seconds
 
     def string(self, value: str) -> int:
         if value not in self.string_index:
@@ -965,6 +970,10 @@ class _Drawer:
         for entity, chain in walk.entities(block):
             if isinstance(entity, Insert):
                 continue
+            if walk.visits % 1024 == 0 and time.monotonic() > self.sheet.deadline:
+                self.sheet.truncated = True
+                self.sheet.stats["budget_seconds"] += 1
+                break
             if self.sheet.full("lines") and self.sheet.full("triangles"):
                 self.sheet.stats["budget_entities_left"] += 1
                 continue
