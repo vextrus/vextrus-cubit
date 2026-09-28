@@ -9,15 +9,24 @@ import pytest
 
 from engine.read.acadsharp.dump import DumpTooLarge, parse
 
-HEADER = {"dumper": "acadsharp-dump", "format": 1, "acadsharp": "3.8.0", "dwg_version": "AC1032"}
+HEADER = {"dumper": "acadsharp-dump", "format": 2, "acadsharp": "3.8.0", "dwg_version": "AC1032"}
+END_1 = {"end": 1, "unread": 0}
+UNREAD = {"unread": "8C", "type": "INSERT", "error": "ArgumentOutOfRangeException"}
 
 
 def lines(*values: object) -> bytes:
     return b"".join(json.dumps(value).encode() + b"\n" for value in values)
 
 
-def dump_of(*entities: Sequence[object], header: object = HEADER, end: object = None) -> bytes:
-    return lines(header, *entities, {"end": len(entities)} if end is None else end)
+def dump_of(
+    *entities: Sequence[object],
+    header: object = HEADER,
+    unread: Sequence[object] = (),
+    end: object = None,
+) -> bytes:
+    """A dump: its header, its unread lines, its entity lines and its end line."""
+    counted = {"end": len(entities), "unread": len(unread)}
+    return lines(header, *unread, *entities, counted if end is None else end)
 
 
 def test_it_keeps_the_handles_and_counts_per_type_and_per_layer() -> None:
@@ -34,7 +43,19 @@ def test_it_keeps_the_handles_and_counts_per_type_and_per_layer() -> None:
 def test_an_empty_drawing_is_a_dump_of_nothing() -> None:
     read = parse(io.BytesIO(dump_of()))
 
-    assert (read.handles, read.types, read.layers) == (frozenset(), {}, {})
+    assert (read.handles, read.types, read.layers, read.unread) == (frozenset(), {}, {}, {})
+
+
+def test_an_entity_the_second_reader_could_not_read_is_kept_apart_from_those_it_read() -> None:
+    # The owner's ruling (28 Sep 2026, "Hold it"): the dumper names each entity ACadSharp could not
+    # read (an INSERT with a Z scale of 0), and the comparison holds the file on it.
+    other = {"unread": "1F", "type": "MULTILEADER", "error": "EndOfStreamException"}
+
+    read = parse(io.BytesIO(dump_of(["8D", "LINE", "0"], unread=[UNREAD, other])))
+
+    assert read.unread == {0x8C: "INSERT", 0x1F: "MULTILEADER"}
+    assert read.handles == frozenset({0x8D})
+    assert read.types == {"LINE": 1}
 
 
 def test_a_layer_name_is_kept_as_text_whatever_it_holds() -> None:
@@ -52,9 +73,26 @@ def test_a_layer_name_is_kept_as_text_whatever_it_holds() -> None:
         pytest.param(dump_of(["1", "LINE", "0"])[:-1], id="no-final-line-break"),
         pytest.param(dump_of(end={"end": 2}), id="end-counts-wrong"),
         pytest.param(dump_of(end={"end": True}), id="end-not-a-number"),
-        pytest.param(dump_of(end={"end": 0, "more": 1}), id="end-extra-field"),
+        pytest.param(dump_of(end={"end": 0, "unread": 0, "more": 1}), id="end-extra-field"),
+        pytest.param(dump_of(end={"end": 0}), id="end-without-its-unread-count"),
+        pytest.param(dump_of(unread=[UNREAD], end={"end": 0, "unread": 0}), id="unread-count-wrong"),
+        pytest.param(
+            lines(HEADER, ["1", "LINE", "0"], UNREAD, {"end": 1, "unread": 1}), id="unread-after-entity"
+        ),
+        pytest.param(dump_of(unread=[UNREAD, UNREAD]), id="one-unread-handle-twice"),
+        pytest.param(dump_of(["8C", "INSERT", "0"], unread=[UNREAD]), id="unread-and-read"),
+        pytest.param(dump_of(unread=[{**UNREAD, "unread": "08C"}]), id="unread-handle-leading-zero"),
+        pytest.param(dump_of(unread=[{**UNREAD, "type": ""}]), id="unread-without-a-type"),
+        pytest.param(dump_of(unread=[{**UNREAD, "type": "T" * 257}]), id="unread-type-too-long"),
+        pytest.param(dump_of(unread=[{**UNREAD, "error": "Bad message: x"}]), id="unread-error-text"),
+        pytest.param(dump_of(unread=[{**UNREAD, "error": 1}]), id="unread-error-not-a-name"),
+        pytest.param(dump_of(unread=[{**UNREAD, "more": 1}]), id="unread-extra-field"),
+        pytest.param(
+            dump_of(unread=[{"unread": "8C", "type": "INSERT"}]), id="unread-missing-its-error"
+        ),
         pytest.param(dump_of() + b"\n", id="after-the-end"),
-        pytest.param(dump_of(header={**HEADER, "format": 2}), id="another-format"),
+        pytest.param(dump_of(header={**HEADER, "format": 1}), id="the-old-format"),
+        pytest.param(dump_of(header={**HEADER, "format": 3}), id="another-format"),
         pytest.param(dump_of(header={**HEADER, "format": True}), id="format-a-boolean"),
         pytest.param(dump_of(header={**HEADER, "format": 1.0}), id="format-a-float"),
         pytest.param(dump_of(["1", "LINE", "0"]).replace(b"\n", b"\r\n"), id="crlf-line-ends"),
@@ -66,8 +104,8 @@ def test_a_layer_name_is_kept_as_text_whatever_it_holds() -> None:
         pytest.param(dump_of(header={**HEADER, "dwg_version": "AC1032/.."}), id="dwg-version-odd"),
         pytest.param(dump_of(header=[1, 2]), id="header-not-an-object"),
         pytest.param(
-            b'{"dumper": "acadsharp-dump", "dumper": "acadsharp-dump", "format": 1, '
-            b'"acadsharp": "3.8.0", "dwg_version": "AC1032"}\n{"end": 0}\n',
+            b'{"dumper": "acadsharp-dump", "dumper": "acadsharp-dump", "format": 2, '
+            b'"acadsharp": "3.8.0", "dwg_version": "AC1032"}\n{"end": 0, "unread": 0}\n',
             id="a-field-named-twice",
         ),
         pytest.param(dump_of(["1", "LINE"]), id="two-strings"),
@@ -82,10 +120,10 @@ def test_a_layer_name_is_kept_as_text_whatever_it_holds() -> None:
         pytest.param(dump_of(["1", "T" * 257, "0"]), id="type-too-long"),
         pytest.param(dump_of(["1", "LINE", "L" * 1025]), id="layer-too-long"),
         pytest.param(dump_of(["1", "LINE", "0"], ["1", "ARC", "0"]), id="one-handle-twice"),
-        pytest.param(lines(HEADER) + b"[NaN, 1, 2]\n" + lines({"end": 1}), id="nan"),
-        pytest.param(lines(HEADER) + b'["1", "LINE", "\xff"]\n' + lines({"end": 1}), id="not-utf8"),
-        pytest.param(lines(HEADER) + b"[" * 100_000 + b"\n" + lines({"end": 1}), id="deep-nesting"),
-        pytest.param(lines(HEADER) + b"__import__('os')\n" + lines({"end": 1}), id="python-code"),
+        pytest.param(lines(HEADER) + b"[NaN, 1, 2]\n" + lines(END_1), id="nan"),
+        pytest.param(lines(HEADER) + b'["1", "LINE", "\xff"]\n' + lines(END_1), id="not-utf8"),
+        pytest.param(lines(HEADER) + b"[" * 100_000 + b"\n" + lines(END_1), id="deep-nesting"),
+        pytest.param(lines(HEADER) + b"__import__('os')\n" + lines(END_1), id="python-code"),
     ],
 )
 def test_anything_but_the_exact_format_is_refused(text: bytes) -> None:
@@ -109,6 +147,25 @@ def test_more_entities_than_the_check_reads_is_too_large() -> None:
         parse(io.BytesIO(dump_of(*entities)), max_entities=10)
 
     assert raised.value.message == {"code": "engine.decoders_agree.too_many", "params": {"limit": 10}}
+
+
+@pytest.mark.parametrize("reordered", [False, True], ids=["as-written", "fields-reordered"])
+def test_unread_lines_count_toward_the_bound_too(reordered: bool) -> None:
+    unread: list[dict[str, str]] = [{**UNREAD, "unread": f"{n:X}"} for n in range(1, 12)]
+    if reordered:  # a hostile dump's field order cannot slip past the bound
+        unread = [dict(reversed(list(line.items()))) for line in unread]
+
+    with pytest.raises(DumpTooLarge):
+        parse(io.BytesIO(dump_of(unread=unread)), max_entities=10)
+
+
+def test_the_bound_counts_both_kinds_of_line() -> None:
+    entities = [[f"{n:X}", "LINE", "0"] for n in range(1, 6)]
+    unread = [{**UNREAD, "unread": f"{n:X}"} for n in range(100, 106)]
+
+    with pytest.raises(DumpTooLarge):
+        parse(io.BytesIO(dump_of(*entities, unread=unread)), max_entities=10)
+    assert len(parse(io.BytesIO(dump_of(*entities, unread=unread[:5])), max_entities=10).unread) == 5
 
 
 def test_more_bytes_than_the_check_reads_is_too_large() -> None:

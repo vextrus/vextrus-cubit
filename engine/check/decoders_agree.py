@@ -3,21 +3,23 @@
 `run(path, artefact)` is the stage the harness calls (the M0 plan, the contracts): LibreDWG's reading
 is the artefact (engine.read), ACadSharp's is `engine.read.acadsharp.dump(path)`, and the result is a
 Check result: `passed` when the two agree, `fired` with the file's finding when they do not. A fired
-result **holds** the file (m0-screens 4.5's "Held" row, with its Question). When the second reader
-cannot run or does not finish (not installed, not the pinned build, stopped by an error or a limit,
-no readable output, too large) the stage raises its `ReadError`: the file was read once, which is
-never agreement, and it **fails** (4.5's "Failed" row, the owner's ruling of 28 Sep 2026), never held.
+result **holds** the file (m0-screens 4.5's "Held" row, with its Question): the two readers disagree, or
+the second read the file but could not read some of its entities (below). When the second reader cannot
+run or does not finish (not installed, not the pinned build, stopped by an error or a limit, no readable
+output, too large) the stage raises its `ReadError`: the file was read once, which is never agreement,
+and it **fails** (4.5's "Failed" row, the owner's ruling of 28 Sep 2026), never held.
 engine/messages/decoders_agree.py lists which finding is which.
 
-**The rule** (the plan's): the two agree when they hold **the same set of handles**, **the same
-number of entities of each type** and **the same number of entities on each layer**. The finding
-counts what differed (`engine/messages/decoders_agree.py`): the handles only the first reader found,
-those only the second found, the types counted differently and the layers counted differently.
-Never drawing text. The rule compares counts, not each entity: two entities whose layers (or types)
-are swapped leave every count as it was, and agree (a test says so). A per-entity rule is stricter;
-it is not the plan's, and no evidence yet asks for it. The check catches a decoder's mistakes, not a
-file built to fool it: a file that takes over the dumper can write any dump, an agreeing one too; the
-sandbox keeps it from doing more than that.
+**The rule** (the plan's, with the owner's ruling on unread entities): the two agree when the second
+reader read every entity it met, and the two hold **the same set of handles**, **the same number of
+entities of each type** and **the same number of entities on each layer**. The finding counts what
+differed (`engine/messages/decoders_agree.py`): the handles only the first reader found, those only the
+second found, the types counted differently, the layers counted differently and the entities the second
+could not read. Never drawing text. The rule compares counts, not each entity: two entities whose layers
+(or types) are swapped leave every count as it was, and agree (a test says so). A per-entity rule is
+stricter; it is not the plan's, and no evidence yet asks for it. The check catches a decoder's mistakes,
+not a file built to fool it: a file that takes over the dumper can write any dump, an agreeing one too;
+the sandbox keeps it from doing more than that.
 
 **Where the two differ by design**, each with its evidence from a synthetic fixture
 (engine/fixtures/dwg/), and each a test (engine/check/tests/test_decoders_agree.py):
@@ -49,12 +51,20 @@ fixture writer drops them), and any AC1021 file (the writer cannot write that ve
 holding one of them may disagree on its type; the owner's real-drawing check shows it, and a rule is
 added only with a fixture that proves it.
 
-**A disagreement already known on real files:** ACadSharp 3.8.0 "drops one INSERT with a Z scale of 0"
-on one of the seven real files measured in session 01 (docs/research/dwg-reader-evidence.md, conclusion
-4). Under this rule that file is held (an INSERT only the first reader found): a flaw in the second
-reader, not in this check. It is not mapped: an INSERT with a Z scale of 0 drawn by a synthetic fixture
-did not reproduce it at AC1018, AC1027 or AC1032 (the review of #79, 28 Sep 2026), and no rule is
-written without a fixture that shows it.
+**An entity the second reader could not read** (the owner's ruling of 28 Sep 2026, "Hold it"). One real
+file of the Development Sets holds an INSERT whose stored Z scale is 0 (the owner's diagnosis on #79;
+the case of docs/research/dwg-reader-evidence.md, conclusion 4). LibreDWG reads it; ACadSharp 3.8.0's
+`Insert.ZScale` refuses 0 and throws. The dumper reads with `Failsafe` on, so ACadSharp leaves that
+INSERT out, reads the rest and reports it; the dumper names it as `unread`
+(tools/acadsharp-dump/Program.cs), and the file **disagrees and is held**, with one unread item (an
+INSERT only the first reader found; `unread` 1 in the finding). Every other file of the sets agreed at
+330c490a. An unread entity is always disagreement, even one the first reader's list leaves out (a
+polyline's vertex). The evidence is the `zero_z_scale` fixture (an AC1015 DWG with its INSERT's stored Z
+scale overwritten with 0, since neither writer stores one) and its tests. It is not mapped to agreement:
+the second reader provably did not read the whole file. The fix is ACadSharp's: the open
+DomCR/ACadSharp#1205 reads a 0 scale as 1 (as AutoCAD's AUDIT repairs such a scale and keeps the
+insert). When a release includes it, the pin is bumped (toolchain/acadsharp-dump.sha256), and this file
+should then agree with no special rule here.
 
 Handles are compared as integers: the artefact's (hexadecimal strings, from the reader's own output)
 are converted here, the dump's were converted as it was read (engine/read/acadsharp/dump.py). Every
@@ -88,10 +98,16 @@ class Difference:
     only_second: int  # handles in the dump and not in the artefact
     kinds: int  # types whose counts differ
     layers: int  # layers whose counts differ
+    unread: int = 0  # entities the second reader could not read (each also counts in only_first)
+
+    @property
+    def items(self) -> int:
+        """Items only one reader found."""
+        return self.only_first + self.only_second
 
     @property
     def agree(self) -> bool:
-        return not (self.only_first or self.only_second or self.kinds or self.layers)
+        return not (self.items or self.kinds or self.layers or self.unread)
 
 
 def run(
@@ -103,23 +119,26 @@ def run(
     if difference.agree:
         return CheckResult(code=CODE, outcome=CheckOutcome.PASSED)
     finding = codes.DISAGREE(
-        items=difference.only_first + difference.only_second,
+        items=difference.items,
         only_first=difference.only_first,
         only_second=difference.only_second,
         kinds=difference.kinds,
         layers=difference.layers,
+        unread=difference.unread,
     )
     return CheckResult(code=CODE, outcome=CheckOutcome.FIRED, finding=finding)
 
 
 def compare(artefact: ReadArtefact, second: Dump) -> Difference:
-    """The rule: equal handle sets, equal counts per type (through `SAME_TYPE`) and per layer."""
+    """The rule: equal handle sets, equal counts per type (through `SAME_TYPE`) and per layer, and no
+    entity the second reader could not read."""
     first = frozenset(int(handle, 16) for handle in artefact.entities)
     return Difference(
         only_first=len(first - second.handles),
         only_second=len(second.handles - first),
         kinds=_differing(_same_types(artefact.summary.entity_counts), _same_types(second.types)),
         layers=_differing(artefact.summary.layer_counts, second.layers),
+        unread=len(second.unread),
     )
 
 

@@ -41,9 +41,13 @@ def dwg_fixture(tmp_path_factory: pytest.TempPathFactory) -> Callable[..., Path]
                 writer = dwg.build_writer(folder)
             setattr(module, "VERSION", version)  # noqa: B010
             try:
-                dwg.build(name, folder, writer).rename(target)
+                built = dwg.build(name, folder, writer)
             finally:
                 setattr(module, "VERSION", pinned)  # noqa: B010
+            patch = getattr(module, "patch", None)  # a change neither writer can make (zero_z_scale)
+            if patch is not None:
+                built.write_bytes(patch(built.read_bytes()))
+            built.rename(target)
         return target
 
     return get

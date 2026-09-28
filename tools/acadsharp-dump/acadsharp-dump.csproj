@@ -8,7 +8,9 @@
   equal) and packages give the same bytes, whose sha256 is pinned in toolchain/acadsharp-dump.sha256,
   wherever it is built, a git work tree included, since EnableSourceControlManagerQueries is off
   (with it on, the SDK stamps the enclosing repository's HEAD into the version: measured, another
-  hash). The packages: ACadSharp and the build's ILLink task are pinned by hash in packages.lock.json
+  hash) and PathMap maps the build folder to /_/ (a source generator's file-local types are named
+  after a hash of the source's path: measured, two folders gave two hashes; Program.cs uses no
+  generator, and PathMap keeps any path out). The packages: ACadSharp and the build's ILLink task are pinned by hash in packages.lock.json
   (restored in locked mode); the .NET runtime pack is not in the lock (NuGet's lock lists no runtime
   pack; the SDK chooses 10.0.12, the version it bundles), so its .nupkg is pinned by its sha512 in
   toolchain/acadsharp-dump.runtime.sha512, checked after the restore and before the build. The
@@ -59,6 +61,8 @@
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <!-- No git: inside a work tree the SDK's Source Link would stamp its HEAD into the version. -->
     <EnableSourceControlManagerQueries>false</EnableSourceControlManagerQueries>
+    <!-- No build path: whatever folder it is built in, the compiler sees it as /_/. -->
+    <PathMap>$(MSBuildProjectDirectory)=/_/</PathMap>
     <!-- No compiler server left running after the build (it runs as root in toolchain.sh). -->
     <UseSharedCompilation>false</UseSharedCompilation>
 

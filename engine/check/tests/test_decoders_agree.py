@@ -54,7 +54,7 @@ def artefact(items: Iterable[Item]) -> ReadArtefact:
     )
 
 
-def dump(items: Iterable[Item]) -> Dump:
+def dump(items: Iterable[Item], unread: Iterable[tuple[str, str]] = ()) -> Dump:
     listed = list(items)
     return Dump(
         acadsharp="3.8.0",
@@ -62,11 +62,12 @@ def dump(items: Iterable[Item]) -> Dump:
         handles=frozenset(int(h, 16) for h, _, _ in listed),
         types=dict(Counter(kind for _, kind, _ in listed)),
         layers=dict(Counter(layer for _, _, layer in listed)),
+        unread={int(h, 16): kind for h, kind in unread},
     )
 
 
-def second(items: Iterable[Item]) -> Callable[[Path], Dump]:
-    reading = dump(items)
+def second(items: Iterable[Item], unread: Iterable[tuple[str, str]] = ()) -> Callable[[Path], Dump]:
+    reading = dump(items, unread)
     return lambda path: reading
 
 
@@ -88,8 +89,34 @@ def test_a_planted_disagreement_holds_the_file_with_counts_of_what_differed() ->
     assert result.outcome == CheckOutcome.FIRED
     assert result.finding == {
         "code": "engine.decoders_agree.disagree",
-        "params": {"items": 1, "only_first": 1, "only_second": 0, "kinds": 1, "layers": 1},
-    }
+        "params": {
+            "items": 1, "only_first": 1, "only_second": 0, "kinds": 1, "layers": 1, "unread": 0,
+        },
+    }  # fmt: skip
+
+
+def test_an_entity_the_second_reader_could_not_read_holds_the_file_and_is_counted() -> None:
+    # The owner's ruling (28 Sep 2026, "Hold it"): the real file's INSERT with a Z scale of 0. The
+    # second reader read everything else and named the INSERT it could not read.
+    read = [item for item in DRAWING if item[0] != "90"]
+
+    result = run(Path("KR-STR-R0.dwg"), artefact(DRAWING), second=second(read, [("90", "INSERT")]))
+
+    assert result.outcome == CheckOutcome.FIRED
+    assert result.finding == {
+        "code": "engine.decoders_agree.disagree",
+        "params": {
+            "items": 1, "only_first": 1, "only_second": 0, "kinds": 1, "layers": 1, "unread": 1,
+        },
+    }  # fmt: skip
+
+
+def test_an_unread_entity_the_first_reader_does_not_list_still_disagrees() -> None:
+    # A vertex (the artefact lists none) the second reader could not read: every count agrees,
+    # yet the second reader provably did not read the whole file.
+    difference = compare(artefact(DRAWING), dump(DRAWING, unread=[("A0", "VERTEX_2D")]))
+
+    assert (difference.items, difference.unread, difference.agree) == (0, 1, False)
 
 
 def test_the_finding_carries_no_drawing_text() -> None:
@@ -328,6 +355,30 @@ def test_neither_reader_lists_a_polylines_vertices(dwg_fixture: Fixture) -> None
     reading = acadsharp.dump(path)
     assert reading.types["POLYLINE"] == 4
     assert not {"VERTEX", "SEQEND", "BLOCK", "ENDBLK"} & set(reading.types)
+
+
+@pytest.mark.needs_toolchain
+@pytest.mark.usefixtures("real_dumper")
+def test_an_insert_with_a_zero_z_scale_holds_the_file_with_one_unread_item(
+    dwg_fixture: Fixture,  # noqa: F811
+) -> None:
+    # The owner's ruling (28 Sep 2026, "Hold it"), on the real file's pattern: LibreDWG reads the
+    # INSERT (scale 1, 1, 0); ACadSharp 3.8.0 cannot (DomCR/ACadSharp#1205), reads the rest, and
+    # names it.
+    path = dwg_fixture("zero_z_scale")
+    first = read_dwg(path)
+    inserts = [e for e in first.entities.values() if e.type == "INSERT"]
+    assert [getattr(e, "scale", None) for e in inserts] == [(1.0, 1.0, 0.0)]
+
+    result = run(path, first)
+
+    assert result.outcome == CheckOutcome.FIRED
+    assert result.finding == {
+        "code": "engine.decoders_agree.disagree",
+        "params": {
+            "items": 1, "only_first": 1, "only_second": 0, "kinds": 1, "layers": 1, "unread": 1,
+        },
+    }  # fmt: skip
 
 
 @pytest.mark.needs_toolchain

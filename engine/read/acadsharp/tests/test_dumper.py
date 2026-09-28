@@ -26,8 +26,9 @@ from engine.read.sandbox import Limits, SandboxRefused, SandboxUnavailable
 
 STOPPED = {"code": "engine.decoders_agree.stopped", "params": {}}
 
-HEADER = '{"dumper":"acadsharp-dump","format":1,"acadsharp":"3.8.0","dwg_version":"AC1032"}'
-GOOD = f"""printf '%s\\n' '{HEADER}' '["8D","LINE","0"]' '{{"end":1}}' > "$2"\n"""
+HEADER = '{"dumper":"acadsharp-dump","format":2,"acadsharp":"3.8.0","dwg_version":"AC1032"}'
+END = '{"end":1,"unread":0}'
+GOOD = f"""printf '%s\\n' '{HEADER}' '["8D","LINE","0"]' '{END}' > "$2"\n"""
 
 
 def script(folder: Path, body: str, shell: str = "/bin/sh") -> tuple[Path, str]:
@@ -259,7 +260,7 @@ def test_the_dumper_cannot_reach_the_network_even_on_the_hosts_loopback(
     # The dump says whether the connection was made: its layer is "connected" or "refused".
     body = (
         f"if exec 3<>/dev/tcp/127.0.0.1/{port}; then layer=connected; else layer=refused; fi\n"
-        f"""printf '%s\\n' '{HEADER}' "[\\"1\\",\\"LINE\\",\\"$layer\\"]" '{{"end":1}}' > "$2"\n"""
+        f"""printf '%s\\n' '{HEADER}' "[\\"1\\",\\"LINE\\",\\"$layer\\"]" '{END}' > "$2"\n"""
     )
     program, digest = script(tmp_path / "bin", body, shell="/bin/bash")
 
@@ -311,7 +312,7 @@ def test_the_dumper_sees_no_environment_and_no_home(
     monkeypatch.setenv("VEXTRUS_SECRET_FOR_TEST", "must-not-reach")
     body = (
         "seen=$(env | grep -c VEXTRUS_SECRET_FOR_TEST); homes=$(ls /home /root 2>/dev/null | wc -l)\n"
-        f"""printf '%s\\n' '{HEADER}' "[\\"1\\",\\"$seen\\",\\"$homes\\"]" '{{"end":1}}' > "$2"\n"""
+        f"""printf '%s\\n' '{HEADER}' "[\\"1\\",\\"$seen\\",\\"$homes\\"]" '{END}' > "$2"\n"""
     )
     program, digest = script(tmp_path / "bin", body)
 

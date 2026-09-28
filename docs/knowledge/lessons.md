@@ -48,8 +48,10 @@ fix that taught it (ADR 0030). Read the area you are working in before you start
   TMPDIR, which only an environment variable turns off. A self-contained single-file publish with
   locked packages and the pinned SDK is byte-for-byte reproducible, so its sha256 can be the pin, but
   only with `EnableSourceControlManagerQueries` off: inside a git work tree the SDK's Source Link
-  stamps the repository's HEAD into the version (the owner's checkout gave another hash, twice). NuGet's
-  lock does not list the runtime pack a self-contained build downloads: pin its .nupkg by its own hash.
+  stamps the repository's HEAD into the version (the owner's checkout gave another hash, twice), and
+  only with no build path in it: a `[GeneratedRegex]` names its file-local types after a hash of the
+  source file's path, so two folders gave two hashes (set `PathMap`). NuGet's lock does not list the
+  runtime pack a self-contained build downloads: pin its .nupkg by its own hash.
 
 ## Session 02 (27–28 Sep 2026)
 - **An app restart kills every background agent.** All nine died mid-task once; the partial work in their

@@ -187,7 +187,22 @@ def test_the_real_dumper_reads_a_fixture_in_the_sandbox(
 
 
 @pytest.mark.needs_toolchain
-def test_the_real_dumper_on_a_file_it_cannot_read_is_a_failure(
+def test_the_real_dumper_names_an_entity_it_could_not_read_and_reads_the_rest(
+    dumper_prefix: Path, dwg_fixture: Fixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The real file's pattern (the owner's diagnosis on #79): an INSERT whose stored Z scale is 0.
+    monkeypatch.setenv("VEXTRUS_ACADSHARP_DUMP", str(dumper_prefix))
+    monkeypatch.delenv("VEXTRUS_SANDBOX", raising=False)
+
+    read = acadsharp.dump(dwg_fixture("zero_z_scale"))
+
+    assert list(read.unread.values()) == ["INSERT"]
+    assert read.types == {"LINE": 1, "CIRCLE": 1}  # the rest of the file, read
+    assert not read.handles & set(read.unread)
+
+
+@pytest.mark.needs_toolchain
+def test_the_real_dumper_on_an_error_about_anything_but_an_entity_is_a_failure(
     dumper_prefix: Path, dwg_fixture: Fixture, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("VEXTRUS_ACADSHARP_DUMP", str(dumper_prefix))

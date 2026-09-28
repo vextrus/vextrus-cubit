@@ -52,7 +52,8 @@ def test_each_message_uses_only_the_parameters_its_code_declares() -> None:
         if held.code.startswith(PREFIX):
             used = set(re.findall(r"\{(\w+)[,}]", worded()[held.code]))
             assert used <= set(held.params), held.code
-    assert set(re.findall(r"\{(\w+)[,}]", worded()[PREFIX + "disagree"])) == {"items", "layers"}
+    used = set(re.findall(r"\{(\w+)[,}]", worded()[PREFIX + "disagree"]))
+    assert used == {"items", "layers", "unread"}
 
 
 @pytest.mark.parametrize("word", NEVER)

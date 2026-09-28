@@ -1,10 +1,14 @@
-"""A file LibreDWG reads and ACadSharp cannot: a MULTILEADER saved as an AutoCAD 2000 DWG (AC1015).
+"""A file the second reader fails on: a MULTILEADER saved as an AutoCAD 2000 DWG (AC1015).
 
 Invented; no office's convention. AutoCAD 2000 predates the MULTILEADER, yet the fixture writer
-(ACadSharp) writes one into the file, and ACadSharp's own reader then stops on it (an
+(ACadSharp) writes one into the file, and ACadSharp's own reader cannot read it back (an
 EndOfStreamException; 28 Sep 2026, ACadSharp 3.8.0), while LibreDWG 0.14 reads the file (a LINE and
-the MULTILEADER). It is the
-cross-check's evidence that a file one decoder cannot read is a failure, never agreement.
+the MULTILEADER). With `Failsafe` on, ACadSharp reports it as "Could not read MULTILEADER number 515
+with handle: …", and the file's own class table, as ACadSharp's writer wrote it, marks every class
+(MULTILEADER's too) as an object, not an entity. So the dumper takes it for an object it could not
+read, which is any other Error notification: it exits 1, and the stage fails (`DumperStopped`). It is
+the cross-check's evidence that such an error is a failure, never agreement; an entity the second
+reader could not read is `zero_z_scale`'s case.
 """
 
 from ezdxf.document import Drawing

@@ -9,8 +9,10 @@ Worded in web/src/messages/engine/decoders_agree/en.po. Every parameter is a cou
   LibreDWG (the artefact's), the second ACadSharp (engine/read/acadsharp/). `items` is how many items
   (entities, by handle) only one reader found, `only_first` + `only_second`, kept apart as well;
   `kinds` how many kinds of item (entity types) the two count differently; `layers` how many layers
-  they count differently. All five stay in the params, for the export and the Question's Trace; the
-  words use `items` and `layers`.
+  they count differently; `unread` how many entities the second reader could not read (ACadSharp's
+  Failsafe notifications; the owner's ruling of 28 Sep 2026, "Hold it": such a file is held, with the
+  unread count shown). All six stay in the params, for the export and the Question's Trace; the words
+  use `items`, `layers` and, when it is not 0, `unread`.
 - The rest **fail** the file: it was read by one reader only, so it shows 4.5's "Failed" row ("Try
   again", "Mark for Vextrus"), never "Held". `not_installed`, `not_pinned` (the second reader could
   not run), `stopped` (it ran and stopped before it finished: an error, a limit, no readable output)
@@ -25,7 +27,7 @@ from engine.messages import MessageCode
 # Held: the two readers disagree.
 DISAGREE = MessageCode(
     "engine.decoders_agree.disagree",
-    params=("items", "only_first", "only_second", "kinds", "layers"),
+    params=("items", "only_first", "only_second", "kinds", "layers", "unread"),
 )
 
 # Failed: the file was read by one reader only.
