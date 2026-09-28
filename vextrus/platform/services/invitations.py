@@ -113,7 +113,7 @@ def reissue_link(membership_id: uuid.UUID) -> NewLink:
     actor = auth.acting_membership(auth.MANAGE_ACCESS)
     membership = _pending(actor, membership_id)
     token, token_hash = tenancy.new_invitation_token(actor.tenant_id)
-    Membership.objects.filter(id=membership.id).update(invite_token_hash=token_hash)
+    _still(_PENDING, membership.id, invite_token_hash=token_hash)
     _record(codes.LINK_REISSUED, membership.id, actor)
     assert membership.invite_expires_at is not None
     return NewLink(membership.id, token, membership.invite_expires_at)
@@ -123,7 +123,7 @@ def withdraw(membership_id: uuid.UUID) -> None:
     """Withdraw an invitation not used yet: its link no longer works."""
     actor = auth.acting_membership(auth.MANAGE_ACCESS)
     membership = _pending(actor, membership_id)
-    Membership.objects.filter(id=membership.id).update(revoked_at=Now())
+    _still(_PENDING, membership.id, revoked_at=Now())
     _record(codes.WITHDRAWN, membership.id, actor)
 
 
@@ -134,7 +134,7 @@ def revoke(membership_id: uuid.UUID) -> None:
     """End someone's access now: their next request is refused; what they did stays theirs."""
     actor = auth.acting_membership(auth.MANAGE_ACCESS)
     membership = _member(actor, membership_id)
-    Membership.objects.filter(id=membership.id).update(revoked_at=Now())
+    _still(_MEMBER, membership.id, revoked_at=Now())
     _record(codes.REVOKED, membership.id, actor)
 
 
@@ -145,7 +145,7 @@ def renew(membership_id: uuid.UUID) -> datetime:
     if membership.expires_at is None:
         raise Refused(codes.NO_END_DATE(), status=409)
     expires_at = max(membership.expires_at, timezone.now()) + timedelta(days=RENEW_DAYS)
-    Membership.objects.filter(id=membership.id).update(expires_at=expires_at)
+    _still(_MEMBER, membership.id, expires_at=expires_at)
     _record(codes.RENEWED, membership.id, actor)
     return expires_at
 
@@ -514,6 +514,17 @@ def _member(actor: CurrentMembership, membership_id: uuid.UUID) -> Membership:
     if membership.revoked_at is not None:
         raise Refused(codes.ALREADY_ENDED(), status=409)
     return membership
+
+
+_PENDING = Q(user__isnull=True, revoked_at__isnull=True)
+_MEMBER = Q(user__isnull=False, revoked_at__isnull=True)
+
+
+def _still(state: Q, membership_id: uuid.UUID, **changes: object) -> None:
+    """Change a Membership only while it is still in the state just checked: an accept or a
+    revocation committed in between refuses the act, rather than recording it on the wrong state."""
+    if Membership.objects.filter(state, id=membership_id).update(**changes) != 1:
+        raise Refused(codes.ALREADY_ENDED() if state is _MEMBER else codes.UNUSABLE(), status=409)
 
 
 def _record(kind: MessageCode, membership_id: uuid.UUID, actor: CurrentMembership) -> None:

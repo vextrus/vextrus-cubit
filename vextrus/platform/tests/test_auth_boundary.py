@@ -145,3 +145,38 @@ def test_an_engineer_s_end_date_cannot_be_removed_by_inviting_without_one(
         made = Membership.objects.get(id=response.json()["membership_id"])
     assert made.expires_at is not None
     assert made.expires_at > timezone.now() + timedelta(days=29)
+
+
+def test_a_withdraw_that_loses_the_race_to_an_accept_changes_nothing(
+    team: dict[str, Member], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The withdraw read the invitation as pending; the accept committed before its write."""
+    membership_id, token = invitation(team["md"], "arif@example.com")
+    with team["md"].acting():
+        stale = Membership.objects.get(id=membership_id)
+    Api().post("/api/invitations/accept", {"token": token, "name": "A", "password": PASSWORD})
+    monkeypatch.setattr(invitations, "_pending", lambda _actor, _id: stale)
+
+    with team["md"].acting(), pytest.raises(auth.Refused) as refused:
+        invitations.withdraw(membership_id)
+
+    assert refused.value.message["code"] == codes.UNUSABLE.code
+    with team["md"].acting():
+        assert Membership.objects.get(id=membership_id).revoked_at is None
+
+
+def test_a_renew_that_loses_the_race_to_a_revoke_changes_nothing(
+    team: dict[str, Member], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = team["vextrus_engineer"].membership_id
+    with team["md"].acting():
+        stale = Membership.objects.get(id=target)
+        invitations.revoke(target)
+    monkeypatch.setattr(invitations, "_member", lambda _actor, _id: stale)
+
+    with team["md"].acting(), pytest.raises(auth.Refused) as refused:
+        invitations.renew(target)
+
+    assert refused.value.message["code"] == codes.ALREADY_ENDED.code
+    with team["md"].acting():
+        assert Membership.objects.get(id=target).expires_at == stale.expires_at
