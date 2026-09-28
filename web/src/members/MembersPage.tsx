@@ -42,16 +42,29 @@ function ProjectsCell({ projects }: { projects: readonly string[] | 'all' }) {
 }
 
 /** Until: the end date, "—", or how the access ended. */
-function UntilCell({ row }: { row: PersonRow }) {
+function useUntilText(): (row: PersonRow) => string {
+  const { t } = useLingui()
   const f = useFormat()
-  if (row.ended) {
-    const date = f.date(row.ended.at)
-    const by = row.ended.by ?? ''
-    if (row.ended.how === 'expired') return <Trans>Ended {date}</Trans>
-    if (row.ended.by) return <Trans>Revoked by {by}, {date}</Trans>
-    return <Trans>Revoked {date}</Trans>
+  return (row) => {
+    if (row.ended) {
+      const date = f.date(row.ended.at)
+      const by = row.ended.by ?? ''
+      if (row.ended.how === 'expired') return t`Ended ${date}`
+      if (row.ended.by) return t`Revoked by ${by}, ${date}`
+      return t`Revoked ${date}`
+    }
+    return row.until ? f.date(row.until) : EMPTY
   }
-  return <>{row.until ? f.date(row.until) : EMPTY}</>
+}
+
+/** Until, in a cell that may cut it: the whole text in its tooltip. */
+function UntilCell({ row }: { row: PersonRow }) {
+  const text = useUntilText()(row)
+  return (
+    <Cell className="num" title={text.replace(/[\u2066-\u2069]/g, '')}>
+      {text}
+    </Cell>
+  )
 }
 
 function Cell({ children, className, title }: { children: ReactNode; className?: string; title?: string }) {
@@ -68,23 +81,27 @@ function Head({ children, className }: { children?: ReactNode; className?: strin
 
 function Table({ label, columns, children }: { label: string; columns: readonly [ReactNode, string][]; children: ReactNode }) {
   return (
-    <table aria-label={label} className="w-full table-fixed border-collapse overflow-hidden rounded-md border border-border bg-paper text-sm">
-      <colgroup>
-        {columns.map(([, width], i) => (
-          <col key={i} className={width} />
-        ))}
-      </colgroup>
-      <thead className="border-b border-border bg-chrome-sunken">
-        <tr>
-          {columns.map(([name], i) => (
-            <Head key={i} className={i === columns.length - 1 ? 'text-end' : undefined}>
-              {name}
-            </Head>
+    // Fixed columns that fit the page; with a person's acts open beside it the page narrows, and the
+    // table scrolls sideways within its section rather than cutting a column away.
+    <div className="overflow-x-auto rounded-md border border-border">
+      <table aria-label={label} className="w-full min-w-max table-fixed border-collapse bg-paper text-sm">
+        <colgroup>
+          {columns.map(([, width], i) => (
+            <col key={i} className={width} />
           ))}
-        </tr>
-      </thead>
-      <tbody>{children}</tbody>
-    </table>
+        </colgroup>
+        <thead className="border-b border-border bg-chrome-sunken">
+          <tr>
+            {columns.map(([name], i) => (
+              <Head key={i} className={i === columns.length - 1 ? 'text-end' : undefined}>
+                {name}
+              </Head>
+            ))}
+          </tr>
+        </thead>
+        <tbody>{children}</tbody>
+      </table>
+    </div>
   )
 }
 
@@ -150,13 +167,13 @@ function PeopleTable({ session, rows, acts }: { session: Session; rows: readonly
     <Table
       label={t`People at ${developer}`}
       columns={[
-        [t`Name`, 'w-[180px]'],
-        [t`Email`, 'w-[250px]'],
+        [t`Name`, 'w-[170px]'],
+        [t`Email`, 'w-[240px]'],
         [t`Role`, 'w-[80px]'],
-        [t`Projects`, 'w-[120px]'],
+        [t`Projects`, 'w-[110px]'],
         [t`Since`, 'w-[110px]'],
-        [t`Until`, 'w-auto'],
-        [<span className="sr-only">{t`Acts on this person`}</span>, 'w-[230px]'],
+        [t`Until`, 'w-[200px]'],
+        [<span className="sr-only">{t`Acts on this person`}</span>, 'w-[200px]'],
       ]}
     >
       {rows.map((row) => {
@@ -172,9 +189,7 @@ function PeopleTable({ session, rows, acts }: { session: Session; rows: readonly
               <ProjectsCell projects={row.projects} />
             </Cell>
             <Cell className="num">{f.date(row.since)}</Cell>
-            <Cell className="num">
-              <UntilCell row={row} />
-            </Cell>
+            <UntilCell row={row} />
             <Cell className="text-end">
               <Acts row={row} acts={acts} />
             </Cell>
@@ -192,13 +207,13 @@ function VextrusTable({ rows, acts, onActs, actsOpen }: { rows: readonly PersonR
     <Table
       label={t`Vextrus access`}
       columns={[
-        [t`Vextrus Engineer`, 'w-[160px]'],
-        [t`Invited by`, 'w-[130px]'],
-        [t`Projects`, 'w-[120px]'],
-        [t`From`, 'w-[110px]'],
-        [t`Until`, 'w-[190px]'],
-        [t`Acts`, 'w-auto'],
-        [<span className="sr-only">{t`Acts on this access`}</span>, 'w-[230px]'],
+        [t`Vextrus Engineer`, 'w-[150px]'],
+        [t`Invited by`, 'w-[120px]'],
+        [t`Projects`, 'w-[110px]'],
+        [t`From`, 'w-[100px]'],
+        [t`Until`, 'w-[230px]'],
+        [t`Acts`, 'w-[200px]'],
+        [<span className="sr-only">{t`Acts on this access`}</span>, 'w-[200px]'],
       ]}
     >
       {rows.length === 0 ? (
@@ -219,9 +234,7 @@ function VextrusTable({ rows, acts, onActs, actsOpen }: { rows: readonly PersonR
                 <ProjectsCell projects={row.projects} />
               </Cell>
               <Cell className="num">{f.date(row.since)}</Cell>
-              <Cell className="num">
-                <UntilCell row={row} />
-              </Cell>
+              <UntilCell row={row} />
               <Cell>
                 <button
                   type="button"
@@ -253,8 +266,8 @@ function InvitationsTable({ rows, acts }: { rows: readonly InvitationRow[]; acts
         [t`Email`, 'w-[300px]'],
         [t`Role`, 'w-[140px]'],
         [t`Projects`, 'w-[160px]'],
-        [t`Link works until`, 'w-auto'],
-        [<span className="sr-only">{t`Acts on this invitation`}</span>, 'w-[230px]'],
+        [t`Link works until`, 'w-[310px]'],
+        [<span className="sr-only">{t`Acts on this invitation`}</span>, 'w-[200px]'],
       ]}
     >
       {rows.length === 0 ? (
