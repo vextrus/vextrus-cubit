@@ -11,14 +11,22 @@ from django.db import connections
 from vextrus.platform import startup
 from vextrus.platform.startup import RoleFacts, StartupRefused
 
-GOOD = RoleFacts("vextrus_app", False, False, (), ())
+GOOD = RoleFacts("vextrus_app", "vextrus_app", False, False, (), ())
 
 
 @pytest.mark.django_db
 def test_vextrus_app_is_no_superuser_lacks_bypassrls_and_owns_no_table() -> None:
     role = startup.facts("default")
 
-    assert role == RoleFacts("vextrus_app", False, False, (), ())
+    assert role == GOOD
+
+
+@pytest.mark.django_db
+def test_a_session_s_temporary_table_is_not_a_table_the_app_owns() -> None:
+    with connections["default"].cursor() as cursor:
+        cursor.execute("create temporary table scratch (n int)")
+
+    assert startup.facts("default").tables_owned == ()
 
 
 @pytest.mark.django_db
@@ -37,15 +45,25 @@ def test_the_startup_check_refuses_the_owner() -> None:
 @pytest.mark.parametrize(
     ("role", "problem"),
     [
-        (RoleFacts("postgres", True, True, (), ()), "connected as postgres, not vextrus_app"),
-        (RoleFacts("vextrus_app", True, False, (), ()), "vextrus_app is a superuser"),
-        (RoleFacts("vextrus_app", False, True, (), ()), "vextrus_app has BYPASSRLS"),
         (
-            RoleFacts("vextrus_app", False, False, ("public.platform_user",), ()),
+            RoleFacts("postgres", "postgres", True, True, (), ()),
+            "connected as postgres, not vextrus_app",
+        ),
+        (
+            RoleFacts("vextrus_app", "vextrus", False, False, (), ()),
+            "signed in as vextrus, then switched to vextrus_app",
+        ),
+        (RoleFacts("vextrus_app", "vextrus_app", True, False, (), ()), "vextrus_app is a superuser"),
+        (
+            RoleFacts("vextrus_app", "vextrus_app", False, True, (), ()),
+            "vextrus_app has BYPASSRLS",
+        ),
+        (
+            RoleFacts("vextrus_app", "vextrus_app", False, False, ("public.platform_user",), ()),
             "vextrus_app owns 1 table(s): public.platform_user…",
         ),
         (
-            RoleFacts("vextrus_app", False, False, (), ("vextrus",)),
+            RoleFacts("vextrus_app", "vextrus_app", False, False, (), ("vextrus",)),
             "vextrus_app is a member of vextrus",
         ),
     ],

@@ -2,11 +2,14 @@
 (docs/data-model.md §2; the M0 plan's reviews A1, A2).
 
 They must be connected as `vextrus_app` (settings.VEXTRUS_APP_ROLE), which is not a superuser, lacks
-BYPASSRLS, owns no table and is a member of no role that is, has or does any of those. The owner
+BYPASSRLS, owns no table (a session's temporary tables aside) and is a member of no role that is,
+has or does any of those; and it must have signed in as that role, not switched to it. The owner
 bypasses row-level security (it is enabled, not forced), so running as it would show every tenant.
 
 `vextrus/wsgi.py` calls `check()` when the web starts (so does `runserver`, which loads it); the
-worker (09) calls it before taking a job.
+worker (09) calls it before taking a job. It checks the `default` alias only: the `owner` alias is
+built in every process, so a deployed web or worker must not be given `DATABASE_OWNER_URL`'s
+credentials (the beta's deploy; locally both roles are in `~/.pgpass`).
 """
 
 from dataclasses import dataclass
@@ -25,6 +28,8 @@ class RoleFacts:
     """What the database says about the role a connection runs as."""
 
     name: str
+    session_name: str
+    """The role the connection signed in as (`session_user`); it must be the same role."""
     superuser: bool
     bypasses_rls: bool
     tables_owned: tuple[str, ...]
@@ -36,10 +41,11 @@ def facts(using: str = "default") -> RoleFacts:
     with connections[using].cursor() as cursor:
         cursor.execute(
             """
-            select r.rolname, r.rolsuper, r.rolbypassrls,
+            select r.rolname, session_user, r.rolsuper, r.rolbypassrls,
                    array(select n.nspname || '.' || c.relname
                            from pg_class c join pg_namespace n on n.oid = c.relnamespace
                           where c.relowner = r.oid and c.relkind in ('r', 'p', 'v', 'm', 'f')
+                            and c.relpersistence <> 't'
                             and n.nspname not in ('pg_catalog', 'information_schema')
                           order by 1),
                    array(select m.rolname from pg_roles m
@@ -47,6 +53,7 @@ def facts(using: str = "default") -> RoleFacts:
                             and (m.rolsuper or m.rolbypassrls
                                  or exists (select 1 from pg_class c where c.relowner = m.oid
                                               and c.relkind in ('r', 'p', 'v', 'm', 'f')
+                                              and c.relpersistence <> 't'
                                               and c.relnamespace not in (
                                                 'pg_catalog'::regnamespace,
                                                 'information_schema'::regnamespace)))
@@ -57,14 +64,16 @@ def facts(using: str = "default") -> RoleFacts:
         row = cursor.fetchone()
     if row is None:
         raise StartupRefused("the database knows no role named current_user")
-    name, superuser, bypasses, owned, powerful = row
-    return RoleFacts(name, superuser, bypasses, tuple(owned), tuple(powerful))
+    name, session_name, superuser, bypasses, owned, powerful = row
+    return RoleFacts(name, session_name, superuser, bypasses, tuple(owned), tuple(powerful))
 
 
 def problems(role: RoleFacts, expected: str) -> list[str]:
     found = []
     if role.name != expected:
         found.append(f"connected as {role.name}, not {expected}")
+    if role.session_name != role.name:
+        found.append(f"signed in as {role.session_name}, then switched to {role.name}")
     if role.superuser:
         found.append(f"{role.name} is a superuser")
     if role.bypasses_rls:

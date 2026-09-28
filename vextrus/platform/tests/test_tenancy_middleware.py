@@ -13,6 +13,7 @@ from django.contrib.sessions.backends.db import SessionStore
 from django.db import connection
 from django.http import HttpRequest, HttpResponse, HttpResponseServerError, JsonResponse
 from django.test import RequestFactory
+from django.urls import set_script_prefix
 from django.utils import timezone
 
 from vextrus.platform.http.middleware import TenantMiddleware
@@ -146,6 +147,24 @@ def test_in_the_admin_staff_act_in_the_developer_they_picked_without_a_membershi
 
 
 @pytest.mark.django_db
+def test_the_admin_is_found_under_a_script_prefix(make_developer: Callable[..., uuid.UUID]) -> None:
+    developer = make_developer()
+    staff = User.objects.create_user("staff@vextrus.example", "Staff", is_vextrus_staff=True)
+    request = RequestFactory().get("/admin/", SCRIPT_NAME="/app")
+    request.user = staff
+    request.session = SessionStore()
+    request.session[tenancy.STAFF_SESSION_TENANT] = str(developer)
+    set_script_prefix("/app/")
+    try:
+        seen = serve(request)
+    finally:
+        set_script_prefix("/")
+
+    assert (request.path, request.path_info) == ("/app/admin/", "/admin/")
+    assert seen["tenant"] == str(developer)
+
+
+@pytest.mark.django_db
 def test_a_staff_pick_means_nothing_to_anyone_not_staff(
     sign_in: Callable[..., Member], make_developer: Callable[..., uuid.UUID]
 ) -> None:
@@ -183,11 +202,15 @@ def test_a_request_s_writes_are_kept_unless_it_fails(sign_in: Callable[..., Memb
     session = {tenancy.SESSION_TENANT: str(member.developer_id)}
 
     serve(request_for(member.user, session), record_then(200))
+    serve(request_for(member.user, session), record_then(302))
+    # An error the API's framework turned into a response inside the view: only its status is left.
+    serve(request_for(member.user, session), record_then(404))
+    serve(request_for(member.user, session), record_then(409))
     serve(request_for(member.user, session), record_then(500))
     with pytest.raises(RuntimeError):
         serve(request_for(member.user, session), raising)
 
-    assert recorded(member) == 1
+    assert recorded(member) == 2
 
 
 @pytest.mark.django_db

@@ -6,8 +6,14 @@ the Membership is current and sets `app.tenant_id` and `app.library_id`, all wit
 (`services.tenancy.enter_request`). Django's middleware otherwise runs outside the view's
 transaction, and a transaction-local setting made there would be gone before the view reads.
 
-A request that raises, or answers with a server error, is rolled back, as `ATOMIC_REQUESTS` would.
-It must come after the authentication middleware.
+A request that raises, or answers with any error (4xx or 5xx), is rolled back: the API's framework
+turns its errors into responses inside the view, so a status is the only sign left of a failure. An
+act that must be kept on a failed request writes in a transaction of its own.
+
+What it does not cover: a streaming response's body is produced after the block has ended, so it
+runs with no tenant and sees no tenant's rows (it fails closed); the session is saved after the
+block, so a failure in saving it cannot undo the request's committed writes. It must come after the
+authentication middleware.
 """
 
 from collections.abc import Callable
@@ -27,7 +33,7 @@ class TenantMiddleware:
             try:
                 tenancy.enter_request(request)
                 response = self.get_response(request)
-                if response.status_code >= 500:
+                if response.status_code >= 400:
                     transaction.set_rollback(True)
             finally:
                 tenancy.leave_request()

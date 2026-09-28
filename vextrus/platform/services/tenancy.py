@@ -189,7 +189,8 @@ def choose_developer(request: HttpRequest, developer_id: uuid.UUID) -> Tenancy:
 
 
 def _in_admin(request: HttpRequest) -> bool:
-    return request.path_info.startswith(reverse("admin:index"))
+    # `reverse` includes the script prefix, as `path` does (`path_info` does not).
+    return request.path.startswith(reverse("admin:index"))
 
 
 def _uuid(value: object) -> uuid.UUID | None:
