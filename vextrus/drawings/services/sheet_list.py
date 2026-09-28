@@ -498,7 +498,7 @@ def render(sheet_revision_id: uuid.UUID) -> bytes:
         raise auth.NotFound
     try:
         return storage.get(sheet_revision.render_key)
-    except storage.FileMissing:
+    except storage.StorageError:  # missing, damaged or planted: no render to give
         raise auth.NotFound from None
 
 
@@ -546,7 +546,12 @@ def record_plot(
                 values["plot_file"] = _pdf_of_set(row, sha256=sha256)
                 reason = PlotNone.NO_PAGE
             else:
-                reason = PlotNone(match)
+                try:
+                    reason = PlotNone(match)
+                except ValueError:
+                    raise auth.Refused(
+                        refusal.NOT_ITS_READING(file=row.original_name), status=400
+                    ) from None
                 if reason in (PlotNone.NO_PAGE, PlotNone.PDF_REFUSED):
                     values["plot_file"] = _pdf_of_set(row, file_id=pdf_file_id)
             values["plot_none_reason"] = reason

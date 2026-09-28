@@ -331,6 +331,9 @@ def test_one_file_dropped_twice_at_once_is_one_row(sign_in: Callable[..., Member
     member = sign_in(role="qs")
     with member.acting():
         project = projects.create(code="RC-1", name="Race")
+    # The Drawing Set exists already, so the two drops meet at the file, not at making the set.
+    with tenancy.acting_in(member.developer_id, user_id=member.user.pk):
+        services.add_file(project.id, name="KR-ARC-R0.dwg", content=io.BytesIO(drawing()))
     content = drawing()
     barrier = threading.Barrier(2)
     outcomes: list[str] = []
@@ -356,5 +359,7 @@ def test_one_file_dropped_twice_at_once_is_one_row(sign_in: Callable[..., Member
     assert errors == []
     assert sorted(outcomes) == ["added", "already_here"]
     with member.acting(), connection.cursor() as cursor:
-        cursor.execute("select count(*) from drawings_drawingfile")
+        cursor.execute(
+            "select count(*) from drawings_drawingfile where original_name = %s", ["KR-STR-R0.dwg"]
+        )
         assert cursor.fetchone() == (1,)

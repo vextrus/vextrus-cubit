@@ -323,7 +323,10 @@ def mark_failed(file_id: uuid.UUID, finding: Message) -> drawing_files.FileView:
 def answer_held(file_id: uuid.UUID, answer: HeldAnswer | str) -> drawing_files.FileView:
     """What the QS decided about a held file (21c, answering its Question): read anyway (its sheets
     are used, marked) or set aside."""
-    chosen = HeldAnswer(answer)
+    try:
+        chosen = HeldAnswer(answer)
+    except ValueError:
+        raise auth.NotFound from None
     with transaction.atomic():
         row = _access.drawing_file(file_id, lock=True)
         if row.read_status != ReadStatus.QUARANTINED:

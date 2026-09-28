@@ -106,8 +106,10 @@ def file_pdf(request: HttpRequest, project_id: uuid.UUID, file_id: uuid.UUID) ->
     try:
         with services.original(file_id) as path:
             content = path.read_bytes()
-    except (storage.FileMissing, storage.FileChanged) as error:
-        raise auth.Refused(error.message, status=409) from None
+    except storage.FileMissing as missing:
+        raise auth.Refused(missing.message, status=409) from None
+    except storage.StorageError:  # damaged, or something planted where the file goes
+        raise auth.Refused(storage.FileChanged.message, status=409) from None
     response = HttpResponse(content, content_type="application/pdf")
     response["Content-Disposition"] = "inline"
     response["X-Content-Type-Options"] = "nosniff"

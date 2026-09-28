@@ -370,3 +370,103 @@ def test_the_acting_tenant_never_sees_another_developers_drawings(
             assert one(f"select count(*) from drawings_{table}") == 0, table
     with tenancy.acting_in(None):
         assert one("select count(*) from drawings_drawingfile") == 0
+
+
+def test_a_file_inserted_with_a_chosen_id_names_only_its_markets_discipline_and_projects_building(
+    qs_project: QsProject, other_market: OtherMarket
+) -> None:
+    member = qs_project.member
+    first = add(member, qs_project.project_id, "A-01.dwg", drawing("dwg")).file
+    with member.acting():
+        other = projects.create(code="OT-8", name="Another")
+        [elsewhere] = projects.buildings(other.id)
+        set_id, stored_id, size, building_id = sql(
+            "select drawing_set_id, stored_file_id, size, building_id from drawings_drawingfile"
+            " where id = %s",
+            [first.id],
+        )[0]
+        insert = (
+            "insert into drawings_drawingfile (id, tenant_id, drawing_set_id, sha256, format,"
+            " original_name, size, stored_file_id, discipline_id, discipline_source, building_id,"
+            " read_status, read_step, sheets_done, bangla_lines, unmatched_pages, empty_layouts,"
+            " added_by_name, added_at, cancelled_by_name, held_answer) values (%s, %s, %s, %s, 'dwg',"
+            " 'x.dwg', %s, %s, %s, %s, %s, 'queued', '', 0, '[]', '[]', 0, '', now(), '', '')"
+        )
+        with refused("names a Discipline of another Market"):
+            sql(
+                insert,
+                [uuid.uuid4(), member.developer_id, set_id, "1" * 64, size, stored_id,
+                 other_market.discipline_ids["structural"], "qs", building_id],
+            )  # fmt: skip
+        with refused("names a Building of another Project"):
+            sql(
+                insert,
+                [uuid.uuid4(), member.developer_id, set_id, first.sha256, size, stored_id, None, "",
+                 elsewhere.id],
+            )  # fmt: skip
+
+
+def test_a_kept_artefact_names_only_a_file_derived_from_its_own(qs_project: QsProject) -> None:
+    member = qs_project.member
+    found = add(member, qs_project.project_id, "S.dwg", drawing("dwg")).file
+    with member.acting():
+        original = one("select stored_file_id from drawings_drawingfile where id = %s", [found.id])
+        with refused("names a kept file not derived from this file"):
+            sql(
+                "insert into drawings_artefact (id, tenant_id, file_id, reader, reader_version,"
+                " schema_version, insunits, stored_file_id, created_at) values"
+                " (%s, %s, %s, 'r', '1', 1, 4, %s, now())",
+                [uuid.uuid4(), member.developer_id, found.id, original],
+            )
+
+
+def test_a_render_is_a_kept_file_of_its_own_project(qs_project: QsProject) -> None:
+    member = qs_project.member
+    found = add(member, qs_project.project_id, "S.dwg", drawing("dwg")).file
+    [printed] = read_dwg(member, found.id, ["S-01"])
+    with member.acting():
+        other = projects.create(code="OT-7", name="Another")
+    theirs = add(member, other.id, "T.dwg", drawing("dwg")).file
+    [their_sheet] = read_dwg(member, theirs.id, ["T-01"])
+    with member.acting():
+        their_render = one(
+            "select render_file_id from drawings_sheetrevision where id = %s", [their_sheet.id]
+        )
+        original = one("select stored_file_id from drawings_drawingfile where id = %s", [found.id])
+        for stored in (their_render, original):
+            with refused("names a render that is not a kept file of its Project"):
+                sql(
+                    "update drawings_sheetrevision set render_file_id = %s where id = %s",
+                    [stored, printed.id],
+                )
+
+
+def test_one_unnumbered_sheet_per_place_in_a_file(qs_project: QsProject) -> None:
+    member = qs_project.member
+    found = add(member, qs_project.project_id, "S.dwg", drawing("dwg")).file
+    with member.acting():
+        set_id = one("select drawing_set_id from drawings_drawingfile where id = %s", [found.id])
+        insert = (
+            "insert into drawings_sheet (id, tenant_id, drawing_set_id, building_id, discipline_id,"
+            " number, title, consultant_office, storeys_as_stated, source_file_id, location_key)"
+            " values (%s, %s, %s, null, null, '', 'SCHEDULE', '', '', %s, '{\"layout\":\"L\"}')"
+        )
+        sql(insert, [uuid.uuid4(), member.developer_id, set_id, found.id])
+        with refused("drawings_sheet_unnumbered_identity"):
+            sql(insert, [uuid.uuid4(), member.developer_id, set_id, found.id])
+        with refused("drawings_sheet_number_or_place"):  # no number and no place
+            sql(
+                "insert into drawings_sheet (id, tenant_id, drawing_set_id, building_id, discipline_id,"
+                " number, title, consultant_office, storeys_as_stated, location_key) values"
+                " (%s, %s, %s, null, null, '', '', '', '', '')",
+                [uuid.uuid4(), member.developer_id, set_id],
+            )
+
+
+def test_drawings_holds_no_security_definer_function() -> None:
+    rows = sql(
+        "select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace"
+        " where n.nspname = 'public' and p.proname like 'drawings%%' and p.prosecdef"
+    )
+    assert rows == []
+    assert len(sql("select 1 from pg_proc where proname like 'drawings%%'")) == 7
