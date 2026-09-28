@@ -255,6 +255,69 @@ class MembershipProject(models.Model):
         return str(self.project_id)
 
 
+class StoredFileKind(models.TextChoices):
+    ORIGINAL = "original", _("Original")
+    DERIVED = "derived", _("Derived")
+    EXPORT = "export", _("Export")
+    EVIDENCE = "evidence", _("Evidence")
+
+
+STORED_FILE_KEY = (
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+    r"/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+    r"(/[A-Za-z0-9_][A-Za-z0-9._@+-]{0,127}){1,8}$"
+)
+"""A key: the tenant's id, the Project's id, then one to eight names. A name starts with a letter, a
+digit or `_`, so none is `.` or `..`, and holds no `/`, `\\` or NUL (`storage` checks the same)."""
+
+
+class StoredFile(models.Model):
+    """A file kept by key (docs/data-model.md §3.0): an upload (`original`), what a reader derived
+    from one, an export, or a Record's evidence.
+
+    Its key begins with its tenant's id, then its Project's (s02 Q15), which a check holds. A key
+    names one content for good: `storage.put` never replaces a file under a key (derived files of a
+    newer reader get new keys). `project_id` is an upward stamp (`projects` is a higher layer).
+    """
+
+    id = models.UUIDField(primary_key=True, default=new_id, editable=False)
+    tenant_id = models.UUIDField()
+    project_id = models.UUIDField()
+    key = models.CharField(max_length=1200)
+    sha256 = models.CharField(max_length=64)
+    kind = models.CharField(max_length=16, choices=StoredFileKind.choices)
+    media_type = models.CharField(max_length=127)
+    size = models.PositiveBigIntegerField()
+    producer = models.CharField(max_length=64, help_text="What made it: `upload`, a reader, …")
+    producer_version = models.CharField(max_length=64, blank=True)
+    source_sha256 = models.CharField(
+        max_length=64, blank=True, help_text="The file it was derived from, if any."
+    )
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+
+    class Meta:
+        indexes: ClassVar = [
+            models.Index(fields=["tenant_id", "sha256"], name="platform_storedfile_sha256"),
+        ]
+        constraints: ClassVar = [
+            models.UniqueConstraint(fields=["tenant_id", "key"], name="platform_storedfile_key"),
+            models.CheckConstraint(
+                condition=models.Q(kind__in=StoredFileKind.values), name="platform_storedfile_kind"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(key__regex=STORED_FILE_KEY), name="platform_storedfile_key_shape"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(sha256__regex=r"^[0-9a-f]{64}$")
+                & (models.Q(source_sha256="") | models.Q(source_sha256__regex=r"^[0-9a-f]{64}$")),
+                name="platform_storedfile_sha256_hex",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return self.key
+
+
 class DomainEvent(models.Model):
     """One domain act (docs/data-model.md §2, Events): append-only, its kind a message code with
     `event=True`, its payload ids and counts only, its time in UTC."""

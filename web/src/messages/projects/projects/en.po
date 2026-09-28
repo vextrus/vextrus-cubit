@@ -1,0 +1,28 @@
+msgid ""
+msgstr ""
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: en\n"
+
+msgid "projects.projects.code_missing"
+msgstr "Give it a short code, like KR-01."
+
+msgid "projects.projects.code_taken"
+msgstr "{code} is already used by {name}. Choose another code."
+
+msgid "projects.projects.created"
+msgstr "{actor} created this project"
+
+msgid "projects.projects.name_missing"
+msgstr "Give the project a name."
+
+msgid "projects.projects.scoped_member_cannot_create"
+msgstr "You can open only the projects you were given, so you cannot create one here. To create projects, ask your MD for access to all projects."
+
+msgid "projects.projects.too_long"
+msgstr "{limit, plural, one {Shorten this to # character or fewer.} other {Shorten this to # characters or fewer.}}"
+
+msgid "projects.projects.unit_system_not_offered"
+msgstr "These Display Units are not offered for this project. Choose one of the options shown."

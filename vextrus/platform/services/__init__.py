@@ -4,8 +4,18 @@ Each ticket writes its own submodule (`services/<name>.py`); this file re-export
 re-export line is the only shared edit.
 """
 
-from vextrus.platform.services import events, library, markets, tenancy
+from vextrus.platform.services import events, jobs, library, markets, storage, tenancy
 
 from vextrus.platform.services import activity, auth, invitations  # isort: skip  (07)
 
-__all__ = ["activity", "auth", "events", "invitations", "library", "markets", "tenancy"]
+__all__ = [
+    "activity",
+    "auth",
+    "events",
+    "invitations",
+    "jobs",
+    "library",
+    "markets",
+    "storage",
+    "tenancy",
+]
