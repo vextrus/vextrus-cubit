@@ -47,7 +47,7 @@ def read(text: str, *, plan_title: bool = True) -> Storeys:
         ("COLUMN PLAN (4TH FLOOR TO 7TH)", floors(4, 7), "4TH FLOOR TO 7TH"),
         ("GROUND FLOOR PLAN", ("ground",), "GROUND FLOOR"),
         ("G.F. PLAN", ("ground",), "G.F"),
-        ("GROUND & MEZZANINE FLOOR COLUMNS", ("ground", "mezzanine"), "GROUND & MEZZANINE FLOOR"),
+        ("MEZZANINE & GROUND FLOOR RAMP DETAIL", ("ground", "mezzanine"), "MEZZANINE & GROUND FLOOR"),
         ("MEZZANINE PLAN", ("mezzanine",), "MEZZANINE"),
         ("7TH FLOOR & MEZZANINE FLOOR DB DETAIL", ("mezzanine", "floor_7"),
          "7TH FLOOR & MEZZANINE FLOOR"),
@@ -56,10 +56,10 @@ def read(text: str, *, plan_title: bool = True) -> Storeys:
         ("ROOF BEAM LAYOUT", ("roof",), "ROOF"),
         ("ROOF FL. LIGHTING", ("roof",), "ROOF FL"),
         ("SOLAR PANELS ON ROOF TOP PLAN", ("roof",), "ROOF TOP"),
-        ("STAIR ROOM ROOF SLAB", ("stair_room_roof",), "STAIR ROOM ROOF"),
-        ("STAIR ROOM ROOF, LIFT MACHINE ROOM & O.H.W.T PLAN", ("stair_room_roof", "lift_machine_room"),
-         "STAIR ROOM ROOF, LIFT MACHINE ROOM"),
-        ("LIFT MACHINE ROOM TOP SLAB", ("lift_machine_room_roof",), "LIFT MACHINE ROOM TOP"),
+        ("STAIR ROOM ROOF PARAPET", ("stair_room_roof",), "STAIR ROOM ROOF"),
+        ("LIFT MACHINE ROOM, STAIR ROOM ROOF & O.H.W.T LAYOUT", ("stair_room_roof", "lift_machine_room"),
+         "LIFT MACHINE ROOM, STAIR ROOM ROOF"),
+        ("LIFT MACHINE ROOM TOP PARAPET", ("lift_machine_room_roof",), "LIFT MACHINE ROOM TOP"),
         ("PILE LAYOUT PLAN", ("pile",), "PILE"),
         ("PILE CAP DETAILS (PC-1, PC-2)", ("pile_cap",), "PILE CAP"),
         ("TIE BEAM LAYOUT PLAN", ("plinth",), "TIE BEAM"),
@@ -134,7 +134,7 @@ def test_the_top_floor_alone_is_the_symbolic_top() -> None:
 @pytest.mark.parametrize(
     "title",
     [
-        "COLUMN LAYOUT PLAN (BELOW GROUND FLOOR)",
+        "STUB WALL PLAN (BELOW GROUND FLOOR)",
         "COLUMNS BELOW GROUND",
         "STUB COLUMNS BELOW G.F",
     ],
@@ -154,8 +154,8 @@ def test_below_ground_floor_reads_foundation_to_ground_and_is_marked(title: str)
         ("TYPICAL FLOOR PLAN", True, ("typical",)),
         ("TYPICAL PLAN", True, ("typical",)),
         ("LINTEL LAYOUT PLAN (TYPICAL FLOOR)", True, ("typical",)),
-        ("TYPICAL FLOOR TOILET DETAILS", False, ()),
-        ("LINTEL, SUNSHADE & TYPICAL DETAILS", False, ()),
+        ("TYPICAL FLOOR KITCHEN SINK DETAILS", False, ()),
+        ("PARAPET, CORNICE & TYPICAL DETAILS", False, ()),
         ("TYPICAL DETAILS OF BEAM LAYOUT", True, ("not_stated",)),
         ("TYPICAL COLUMN SECTION", True, ("not_stated",)),
     ],
@@ -170,10 +170,10 @@ def test_typical_is_a_storey_only_in_a_plan_title_beside_a_floor_or_plan_word(
     "title",
     [
         "UNDERGROUND WATER RESERVOIR DETAILS",
-        "U.G.W.R REINFORCEMENT DETAILS",
-        "OVER HEAD TANK DETAIL",
+        "U.G.W.R WALL SECTIONS",
+        "OVER HEAD TANK LADDER DETAIL",
         "PUMP CONNECTION UGWT TO OVER HEAD TANK (OHT)",
-        "SEPTIC TANK SECTION",
+        "SEPTIC TANK BAFFLE SECTION",
         "LIFT PIT DETAILS",
     ],
 )
@@ -185,7 +185,7 @@ def test_tanks_and_the_reservoir_are_structures_never_storeys(title: str) -> Non
 
 
 def test_a_structure_beside_a_storey_leaves_the_storey() -> None:
-    found = read("GROUND FLOOR SLAB, LIFT PIT & U.G.W.R DETAILS")
+    found = read("GROUND FLOOR RAMP, LIFT PIT & U.G.W.R SECTIONS")
 
     assert found.keys == ("ground",)
     assert found.as_stated == "GROUND FLOOR"
@@ -199,12 +199,12 @@ def test_a_canopy_roof_is_not_the_roof() -> None:
     "title",
     [
         "1ST FLIGHT DETAILS",
-        "REINFORCEMENT DETAILS OF FLOOR BEAM",
+        "BAR BENDING OF FLOOR BEAM",
         "SLAB DETAILS (TOP LAYER)",
         "NATURAL GROUND LEVEL SECTION",
-        "SINGLE LINE DIAGRAM OF 150 KVA SUB-STATION",
-        "SECTION A-A (THROUGH STAIR)",
-        "FLOOR BEAM LONG SECTIONS (FB-1 - FB-5)",
+        "SINGLE LINE DIAGRAM OF 250 KVA GENERATOR",
+        "SECTION C-C (THROUGH RAMP)",
+        "FLOOR BEAM ELEVATIONS (B-12 - B-19)",
     ],
 )
 def test_words_that_only_look_like_storeys_name_none(title: str) -> None:
@@ -215,8 +215,8 @@ def test_words_that_only_look_like_storeys_name_none(title: str) -> None:
 
 
 def test_a_plan_title_that_states_no_storey_says_so() -> None:
-    assert read("SET BACK LAYOUT PLAN") == Storeys(as_stated=None, keys=("not_stated",))
-    assert read("SET BACK DETAILS", plan_title=False) == Storeys(as_stated=None, keys=())
+    assert read("DRIVEWAY LAYOUT PLAN") == Storeys(as_stated=None, keys=("not_stated",))
+    assert read("DRIVEWAY DETAILS", plan_title=False) == Storeys(as_stated=None, keys=())
 
 
 @pytest.mark.parametrize(

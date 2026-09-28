@@ -259,18 +259,20 @@ def test_attributes_are_read_first_a_titles_lines_in_order() -> None:
         d, attdefs=("TITLE", "TITLE2", "DRAWING_TITLE", "SHEET_NO", "REV", "REV1", "DATE")
     )
     insert = d.insert(block, (0, 0, 0))
-    for tag, text in (("TITLE2", "SCHEDULE OF BARS"), ("TITLE", "GENERAL NOTES &"),
+    for tag, text in (("TITLE2", "BAR BENDING SCHEDULE"), ("TITLE", "FOUNDATION NOTES &"),
                       ("DRAWING_TITLE", "NOTES"), ("SHEET_NO", "S-01"), ("REV", "R2"),
-                      ("REV1", "R0"), ("DATE", "14-08-2026")):  # fmt: skip
+                      ("REV1", "R0"), ("DATE", "27-11-2025")):  # fmt: skip
         d.attrib(insert, text, value_at(0), tag=tag)
     d.text("S-99", value_at(3))  # a loose text where the number sits: attributes come first
 
     (sheet,) = find(d.artefact(), None, DEFAULT)
 
-    assert sheet.title == Sourced("GENERAL NOTES & SCHEDULE OF BARS", ValueSource.TITLE_BLOCK_ATTRIBUTE)
+    assert sheet.title == Sourced(
+        "FOUNDATION NOTES & BAR BENDING SCHEDULE", ValueSource.TITLE_BLOCK_ATTRIBUTE
+    )
     assert sheet.number == Sourced("S-01", ValueSource.TITLE_BLOCK_ATTRIBUTE)
     assert sheet.revision_mark == Sourced("R2", ValueSource.TITLE_BLOCK_ATTRIBUTE)
-    assert sheet.issue_date == Sourced("14-08-2026", ValueSource.TITLE_BLOCK_ATTRIBUTE)
+    assert sheet.issue_date == Sourced("27-11-2025", ValueSource.TITLE_BLOCK_ATTRIBUTE)
 
 
 def test_an_empty_attribute_is_no_value_and_the_title_block_text_is_read() -> None:

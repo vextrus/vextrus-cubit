@@ -28,10 +28,10 @@ msgid "engine.sheets.kind_column_schedule"
 msgstr "Column schedule"
 
 msgid "engine.sheets.kind_cover_index"
-msgstr "Cover or index"
+msgstr "Cover or drawing list"
 
 msgid "engine.sheets.kind_details"
-msgstr "Typical and other details"
+msgstr "Typical and miscellaneous details"
 
 msgid "engine.sheets.kind_distribution_board_details"
 msgstr "Distribution board details"
@@ -52,7 +52,7 @@ msgid "engine.sheets.kind_elevation"
 msgstr "Elevation"
 
 msgid "engine.sheets.kind_elv_layout"
-msgstr "Extra-low-voltage layout (telephone, data, TV, CCTV, intercom)"
+msgstr "Telephone, data, TV, CCTV and intercom layout"
 
 msgid "engine.sheets.kind_equipment_schedule"
 msgstr "Equipment schedule"
@@ -79,7 +79,7 @@ msgid "engine.sheets.kind_foundation_details"
 msgstr "Foundation details"
 
 msgid "engine.sheets.kind_foundation_layout"
-msgstr "Foundation layout (mat, raft or footing)"
+msgstr "Foundation layout (raft or footing)"
 
 msgid "engine.sheets.kind_gas_line_layout"
 msgstr "Gas line layout"
@@ -112,7 +112,7 @@ msgid "engine.sheets.kind_lighting_layout"
 msgstr "Light fixture layout"
 
 msgid "engine.sheets.kind_lightning_protection"
-msgstr "Lightning protection"
+msgstr "Lightning protection layout"
 
 msgid "engine.sheets.kind_lintel_layout"
 msgstr "Lintel, sunshade and false slab layout"
@@ -172,7 +172,7 @@ msgid "engine.sheets.kind_roof_plan"
 msgstr "Roof plan"
 
 msgid "engine.sheets.kind_roof_structure_details"
-msgstr "Roof structure details (stair room, lift machine room, tank supports)"
+msgstr "Roof structure details (stair room, lift machine room)"
 
 msgid "engine.sheets.kind_sanitary_fixture_details"
 msgstr "Sanitary fixture details"
