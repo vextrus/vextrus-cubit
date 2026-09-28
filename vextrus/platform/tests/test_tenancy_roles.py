@@ -126,6 +126,11 @@ NARROWER = {
     "live_model_elementrelation": {"SELECT", "INSERT"},
     # UPDATE only on the columns the app may change (below): never the staff flag.
     "platform_user": {"SELECT", "INSERT", "DELETE"},
+    # UPDATE only on what a person may change: never a Project's Market or currency, nor which
+    # Project a Site or Building belongs to (projects 0001; ticket 08).
+    "projects_project": {"SELECT", "INSERT", "DELETE"},
+    "projects_site": {"SELECT", "INSERT", "DELETE"},
+    "projects_building": {"SELECT", "INSERT", "DELETE"},
 }
 
 
