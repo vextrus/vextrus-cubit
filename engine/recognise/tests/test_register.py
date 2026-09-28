@@ -210,13 +210,14 @@ def test_a_list_of_two_numbered_lines_with_no_header_is_no_register() -> None:
     assert register.find(d.artefact(), [bare]) == []
 
 
-def test_no_control_character_reaches_a_register_entry() -> None:
+@pytest.mark.parametrize("header", [True, False])
+def test_no_control_character_reaches_a_register_entry(header: bool) -> None:
     """Review round 1: a cell's NUL, ESC or DEL is dropped and a tab is a space, as in a sheet's values
-    (14 stores the entries; PostgreSQL refuses a NUL)."""
+    (14 stores the entries; PostgreSQL refuses a NUL), with a header naming the columns or without."""
     d = Sheets()
     placed_frame(d, frame_block(d), (0, 0), {2: "A-00"})
     rows = (("A-\x0001", "SITE\x00\tPLAN\x7f", "1:200", "R\x1b0"), *ROWS[1:])
-    _draw_register(d, (100.0, 500.0), rows=rows)
+    _draw_register(d, (100.0, 500.0), rows=rows, header=header)
     artefact = d.artefact()
 
     entries = register.find(artefact, find(artefact, None, DEFAULT))

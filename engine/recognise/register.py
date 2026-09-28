@@ -230,11 +230,14 @@ def _by_shape(line: list[_Cell], conventions: SheetConventions) -> _Row:
         if cell.u0 - run[-1].u1 > MAX_CELL_GAP:
             break
         run.append(cell)
-    found: _Row = {SheetField.NUMBER: (" ".join(run[0].text.shown.split()), [run[0]])}
+    number = _joined(SheetField.NUMBER, [run[0]])
+    if number is None:
+        return {}
+    found: _Row = {SheetField.NUMBER: (number, [run[0]])}
     rest = run[1:]
     pattern = conventions.revision_mark_pattern
     for cell in list(rest):
-        text = " ".join(cell.text.shown.split())
+        text = " ".join(_plain(cell.text.shown).split())
         short = len(text) <= MAX_FIELD[SheetField.REVISION_MARK]
         if pattern and short and pattern_search(pattern, text):
             found[SheetField.REVISION_MARK] = (text, [cell])
