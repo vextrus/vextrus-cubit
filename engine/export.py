@@ -5,22 +5,19 @@ real-drawing check (06a); M1's scorer extends it. Its schema is `export.schema.j
 does not accept. The document holds drawing text (titles, numbers), so it never leaves the owner's
 machine; only counts do (the M0 plan, "The real-drawing check").
 
-The document, in brief (the schema has every field), in the shape the real-drawing check reads
-(`scripts/real_drawings/diff.py`, 06a):
+The document, in brief (the schema has every field):
 - `run`: its id, the commit and code hash it read with (06a passes them), when it started, how long;
 - `stages`: the stage table, each stage's target, its ticket and whether it is built on this commit;
 - `files`: per file, in path order, its sha256, name, format, Discipline default, group, the
-  conventions applied (a hash of the conventions files), `read_seconds` and `peak_rss` (KiB) from its
-  own child process (`os.wait4`'s rusage), the rest of its process, each stage's report, decoders
-  agree, entity counts per type, the font, PDF and Bangla-ANSI counts (each left out when its stage
-  did not produce it), a PDF's `plot_matches` (page, the sheet's id or the reason, the residual), and
-  its sheets: each flat (its location as `layout` or `frame_box`, each value beside its `_source`,
-  its render F1), with its views (each with its Coverage) and its register entries;
-- `set_stages`, `conflicts`, `continuations` and `checks`: what was read across the set.
+  conventions applied (a hash of the conventions files), its process (read seconds, CPU seconds and
+  peak RSS, from `os.wait4`'s rusage for the file's own child process), each stage's report, decoders
+  agree, entity counts per type, the font, PDF and Bangla-ANSI counts, and its sheets, each with its
+  views (and each view's Coverage), its register entries and its render F1;
+- `set_stages`, `plot`, `conflicts`, `continuations` and `checks`: what was read across the set.
 
-Candidates carry ids unique in the document: a sheet `f0.s1` (file 0, sheet 1), a view `f0.s1.v2`,
-a register entry `f0.s1.r0`. Conflicts, continuations and Check results name them by id; a Check on
-a Plot page names the PDF by its sha256, and a Check on the set names nothing.
+A candidate is referred to by where it sits in this document: `{"file": i, "sheet": j}`, with
+`"view": k` or `"register": k` for a view or a register entry, and `{"file": i, "page": n}` for a PDF
+page (numbered from 1).
 
 `validate(document, schema)` checks a document against a schema in the subset of JSON Schema 2020-12
 the export's schema uses (`KEYWORDS`); a schema using any other keyword is refused rather than half
@@ -130,13 +127,13 @@ class ProcessReport:
     """The end of what it printed, when it did not end well."""
 
     def to_json(self) -> dict[str, JSON]:
-        """All but its seconds and peak, which the file's entry carries as `read_seconds` and
-        `peak_rss` (the names the check reads)."""
         return {
             "status": str(self.status),
             "exit_code": self.exit_code,
             "signal": self.signal,
+            "seconds": round(self.seconds, 6),
             "cpu_seconds": round(self.cpu_seconds, 6),
+            "peak_rss_kib": self.peak_rss_kib,
             "left_behind": self.left_behind,
             "left_running": self.left_running,
             "log_tail": self.log_tail,
@@ -204,13 +201,11 @@ class SetOutcome:
 
 
 class References:
-    """Where each candidate of a reading sits, by the object's identity: `of` gives its place
-    (`{"file": i, "sheet": j, …}`), `id_of` its id in the document."""
+    """Where each candidate of a reading sits in the document, by the object's identity."""
 
     def __init__(self, files: Sequence[FileReading]) -> None:
         self._refs: dict[int, dict[str, int] | None] = {}
         self._held: list[object] = []
-        self._sha = [reading.sha256 for reading in files]
         for i, reading in enumerate(files):
             for j, sheet in enumerate(reading.sheets):
                 self._add(sheet, {"file": i, "sheet": j})
@@ -237,7 +232,7 @@ class References:
         self._refs[id(item)] = None if id(item) in self._refs else ref
         self._held.append(item)
 
-    def of(self, item: object) -> dict[str, int]:
+    def of(self, item: object) -> dict[str, JSON]:
         if id(item) not in self._refs:
             raise ExportError(f"{type(item).__name__} is not a candidate this run produced")
         ref = self._refs[id(item)]
@@ -245,27 +240,13 @@ class References:
             raise ExportError(
                 f"one {type(item).__name__} object stands in two places; it cannot be named"
             )
-        return dict(ref)
-
-    def id_of(self, item: object) -> str:
-        """A sheet's, view's or register entry's id (`f0.s1`, `f0.s1.v2`, `f0.s1.r0`); a page is
-        named by its PDF's sha256, which the check joins across runs."""
-        ref = self.of(item)
-        if "page" in ref:
-            return self._sha[ref["file"]]
-        return ".".join(f"{letter}{ref[name]}" for name, letter in _ID_PARTS if name in ref)
-
-
-_ID_PARTS = (("file", "f"), ("sheet", "s"), ("view", "v"), ("register", "r"))
+        return dict[str, JSON](ref)
 
 
 def build(run: RunInfo, files: Sequence[FileReading], outcome: SetOutcome) -> dict[str, JSON]:
     """The export's document for a run; `ExportError` when it would not meet its schema."""
     refs = References(files)
     f1 = {id(sheet): score for sheet, score in outcome.render_f1}
-    plot: dict[int, list[JSON]] = {}
-    for match in outcome.plot:
-        plot.setdefault(refs.of(match.page)["file"], []).append(_plot(match, refs))
     document: dict[str, JSON] = {
         "version": VERSION,
         "run": {
@@ -279,19 +260,19 @@ def build(run: RunInfo, files: Sequence[FileReading], outcome: SetOutcome) -> di
             name: {"target": target, "ticket": ticket, "built": built}
             for name, (target, ticket, built) in run.stages.items()
         },
-        "files": [_file(i, reading, refs, f1, plot.get(i, [])) for i, reading in enumerate(files)],
+        "files": [_file(reading, f1) for reading in files],
         "set_stages": {name: report.to_json() for name, report in outcome.stages.items()},
+        "plot": [_plot(match, refs) for match in outcome.plot],
         "conflicts": [
             {
                 "kind": conflict.kind,
-                "candidates": [refs.id_of(c) for c in conflict.candidates],
+                "candidates": [refs.of(c) for c in conflict.candidates],
                 "evidence": dict(conflict.evidence),
             }
             for conflict in outcome.conflicts
         ],
         "continuations": [
-            {"title": c.title, "sheets": [refs.id_of(s) for s in c.sheets]}
-            for c in outcome.continuations
+            {"title": c.title, "sheets": [refs.of(s) for s in c.sheets]} for c in outcome.continuations
         ],
         "checks": [
             {
@@ -310,20 +291,14 @@ def build(run: RunInfo, files: Sequence[FileReading], outcome: SetOutcome) -> di
 
 
 def _subject(subject: object, refs: References) -> JSON:
-    """A Check's subject: a candidate's id, a Plot match's PDF (by its sha256), or none (the set)."""
+    """A Check's subject: a candidate, a Plot match (by its page), or none (the set)."""
     if subject is None:
         return None
-    return refs.id_of(subject.page if isinstance(subject, PlotMatch) else subject)
+    return refs.of(subject.page if isinstance(subject, PlotMatch) else subject)
 
 
-def _file(
-    index: int,
-    reading: FileReading,
-    refs: References,
-    f1: Mapping[int, float],
-    plot: list[JSON],
-) -> dict[str, JSON]:
-    found: dict[str, JSON] = {
+def _file(reading: FileReading, f1: Mapping[int, float]) -> dict[str, JSON]:
+    return {
         "path": reading.path,
         "name": reading.name,
         "sha256": reading.sha256,
@@ -332,71 +307,58 @@ def _file(
         "discipline_default": reading.discipline_default,
         "group": reading.group,
         "conventions_applied": reading.conventions_applied,
-        "read_seconds": round(reading.process.seconds, 6),
-        "peak_rss": reading.process.peak_rss_kib,
         "process": reading.process.to_json(),
         "stages": {name: report.to_json() for name, report in reading.stages.items()},
         "decoders_agree": reading.decoders_agree,
+        "entity_counts": _counts(reading.entity_counts),
+        "font_report": _counts(reading.font_report),
+        "pdf_report": _counts(reading.pdf_report),
+        "bangla_ansi": _counts(reading.bangla_ansi),
         "pages": reading.page_count,
-        "plot_matches": plot,
+        "sheets": [
+            _sheet(sheet, reading.views[j] if j < len(reading.views) else [], reading.register, f1)
+            for j, sheet in enumerate(reading.sheets)
+        ],
     }
-    # A count a stage did not produce is left out, never written empty (the check reads a missing
-    # key as a stage not built).
-    for name in ("entity_counts", "font_report", "pdf_report", "bangla_ansi"):
-        counts: Mapping[str, int] | None = getattr(reading, name)
-        if counts is not None:
-            found[name] = {key: counts[key] for key in sorted(counts)}
-    found["sheets"] = [
-        _sheet(sheet, reading.views[j] if j < len(reading.views) else [], reading.register, refs, f1)
-        for j, sheet in enumerate(reading.sheets)
-    ]
-    return found
 
 
-def _sourced(name: str, value: Sourced | None) -> dict[str, JSON]:
-    return {
-        name: None if value is None else value.value,
-        f"{name}_source": None if value is None else str(value.source),
-    }
+def _counts(counts: Mapping[str, int] | None) -> JSON:
+    return None if counts is None else {name: counts[name] for name in sorted(counts)}
+
+
+def _sourced(value: Sourced | None) -> JSON:
+    return None if value is None else {"value": value.value, "source": str(value.source)}
 
 
 def _box(box: Box | None) -> JSON:
     return None if box is None else list[JSON](box.to_json())
 
 
-def _exclusion(candidate: SheetCandidate | ViewCandidate) -> dict[str, JSON]:
-    e = candidate.exclusion
-    return {
-        "exclusion_reason": None if e is None else str(e.reason),
-        "exclusion_text": None if e is None else e.text,
-    }
+def _exclusion(view: SheetCandidate | ViewCandidate) -> JSON:
+    e = view.exclusion
+    return None if e is None else {"reason": str(e.reason), "text": e.text}
 
 
 def _sheet(
     sheet: SheetCandidate,
     views: Sequence[ViewCandidate],
     register: Sequence[RegisterEntry],
-    refs: References,
     f1: Mapping[int, float],
 ) -> dict[str, JSON]:
     return {
-        "id": refs.id_of(sheet),
-        "layout": sheet.location.layout,
-        "frame_box": _box(sheet.location.box),
-        **_sourced("number", sheet.number),
-        **_sourced("title", sheet.title),
-        **_sourced("discipline", sheet.discipline),
-        **_sourced("revision_mark", sheet.revision_mark),
-        **_sourced("issue_date", sheet.issue_date),
-        **_sourced("storeys_as_stated", sheet.storeys_as_stated),
-        **_exclusion(sheet),
+        "location": {"layout": sheet.location.layout, "box": _box(sheet.location.box)},
+        "number": _sourced(sheet.number),
+        "title": _sourced(sheet.title),
+        "discipline": _sourced(sheet.discipline),
+        "revision_mark": _sourced(sheet.revision_mark),
+        "issue_date": _sourced(sheet.issue_date),
+        "storeys_as_stated": _sourced(sheet.storeys_as_stated),
+        "exclusion": _exclusion(sheet),
         "group": sheet.group,
         "anchors": [anchor_json(a) for a in sheet.anchors],
-        "render_f1": f1.get(id(sheet)),
-        "views": [_view(view, refs) for view in views],
+        "views": [_view(view) for view in views],
         "register": [
             {
-                "id": refs.id_of(entry),
                 "row_box": _box(entry.row_box),
                 "number": entry.number,
                 "title": entry.title,
@@ -406,6 +368,7 @@ def _sheet(
             for entry in register
             if entry.sheet is sheet
         ],
+        "render_f1": f1.get(id(sheet)),
     }
 
 
@@ -418,9 +381,8 @@ def coverage(view: ViewCandidate) -> str:
     return "unaccounted"
 
 
-def _view(view: ViewCandidate, refs: References) -> dict[str, JSON]:
+def _view(view: ViewCandidate) -> dict[str, JSON]:
     return {
-        "id": refs.id_of(view),
         "box": _box(view.box),
         "kind": str(view.kind),
         "title": view.title,
@@ -431,9 +393,9 @@ def _view(view: ViewCandidate, refs: References) -> dict[str, JSON]:
         "storeys_meaning": None if view.storeys_meaning is None else str(view.storeys_meaning),
         "subject": view.subject,
         "layer": None if view.layer is None else str(view.layer),
-        "proposed_steps": list[JSON](view.steps),
+        "steps": list[JSON](view.steps),
         "part": view.part,
-        **_exclusion(view),
+        "exclusion": _exclusion(view),
         "coverage": coverage(view),
         "anchors": [anchor_json(a) for a in view.anchors],
     }
@@ -442,8 +404,8 @@ def _view(view: ViewCandidate, refs: References) -> dict[str, JSON]:
 def _plot(match: PlotMatch, refs: References) -> dict[str, JSON]:
     t = match.transform
     return {
-        "page": refs.of(match.page)["page"],
-        "sheet": None if match.sheet is None else refs.id_of(match.sheet),
+        "page": refs.of(match.page),
+        "sheet": None if match.sheet is None else refs.of(match.sheet),
         "reason": match.reason,
         "residual": match.residual,
         "transform": None
