@@ -43,6 +43,7 @@ no-build = true
 line-length = 105
 target-version = "py314"
 extend-exclude = ["web"]
+extend-include = ["scripts/owner/post-status"]  # the poster: Python without the .py (06a)
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "DJ", "RUF", "SIM", "PT", "C4", "PIE", "RET", "ISC"]
@@ -65,7 +66,7 @@ known-first-party = ["vextrus", "engine", "tools"]
 python_version = "3.14"
 strict = true
 plugins = ["mypy_django_plugin.main"]
-files = ["vextrus", "engine", "tools", "conftest.py", "manage.py"]
+files = ["vextrus", "engine", "tools", "scripts", "scripts/owner/post-status", "conftest.py", "manage.py"]
 exclude = ["^web/"]
 
 [[tool.mypy.overrides]]
@@ -79,7 +80,7 @@ django_settings_module = "vextrus.settings"
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "vextrus.settings.test"
 pythonpath = ["."]
-testpaths = ["vextrus", "engine", "tools"]
+testpaths = ["vextrus", "engine", "tools", "scripts"]
 # The toolchain's and live tests run only when asked for (engine.yml: -m "needs_toolchain or needs_bwrap").
 addopts = ["--strict-markers", "--strict-config", "-ra", "-m", "not needs_toolchain and not needs_bwrap and not live"]
 markers = [
