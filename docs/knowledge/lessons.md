@@ -170,3 +170,9 @@ much parallel work as that quality allows, and each wave applies the last one's 
   took 30–39 s (account A's took 3 s), and the session filed under "other" rather than the repository.
   Installing the App did not change it within the session. Check one launch's remote before fanning out;
   the owner then chose to build everything locally.
+- **Cross-session messaging does not cross config dirs.** From the default config, SendMessage to a
+  session started under `~/.claude-b` answered "No agent named … is reachable". Start the orchestrator and
+  its builders from one config.
+- **A builder's worktree isolation refuses a command that runs git in the shared checkout** (`cd <main>
+  && git …`, or `git -C <main>`). Give builders absolute paths to scripts, never a `cd` out of their
+  worktree.
