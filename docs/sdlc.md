@@ -78,8 +78,9 @@ configuration and prose, not code. It must never become the product (docs/postmo
   PR, the owner's review minutes and second continuations. Widen to 6–8 tickets once the review queue
   stays under a day, at most one PR in four needs a second continuation, and conflicts stay trivial.
   The ceiling (about 10–12) is the owner's review.
-- **Collisions:** tickets in a wave own disjoint files; at most one ticket per wave adds migrations to
-  a given module. Record the account and cost of each merged PR in the milestone's issue.
+- **Collisions:** tickets in a wave own disjoint files; at most one migration per module per wave,
+  unless a declared merge edge orders them (the second renumbered after the first merges). Record the
+  account and cost of each merged PR in the milestone's issue.
 
 ## The review loop (session 04; the `orchestrate-wave` skill runs it)
 Every PR, before the owner merges it, goes through the same loop. It found a real fault in ten of eleven

@@ -68,7 +68,9 @@ explicit paths (the guard refuses `git add -A`); a hook runs `sync` after each c
 ## Commands (backend, from the checkout's root)
 - `uv sync --locked` (nothing is ever built). `uv run manage.py ensure_database && uv run manage.py
   migrate`: this worktree's own database (`vextrus`, or `vextrus_<worktree>`; `VEXTRUS_DB_NAME`
-  overrides); `migrate` and `flush` always run as `vextrus`. `uv run manage.py seed_demo`: the demo.
+  overrides); `migrate` and `flush` always run as `vextrus`. `uv run manage.py sync_library`: every
+  module's Library rows (the Market's Disciplines among them), idempotent, as `vextrus`. `uv run manage.py
+  seed_demo`: the demo; it runs `sync_library` first (or refuses, naming it).
 - `VEXTRUS_DEBUG=1 uv run manage.py runserver 127.0.0.1:8000`: the API at `/api/`, the admin at `/admin/`.
 - `uv run manage.py worker`: the job worker on the default queue (it runs the stalled-job retrier);
   `uv run manage.py worker --queue cad`: the CAD queue's, one job at a time under its memory cap. Both
@@ -102,8 +104,10 @@ explicit paths (the guard refuses `git add -A`); a hook runs `sync` after each c
 - **MCP:** `chrome-devtools` (a headless browser for walking products).
 - **Background agents** die when the app restarts: each long one keeps a `NOTES.txt` progress log
   and is told how to resume from it. Their scratch copies live under `.private/work/`, never `/tmp`.
-- **Accounts:** the CLI's default config is not signed in; account B is `CLAUDE_CONFIG_DIR=~/.claude-b`
-  (every session from session 05), account A `~/.claude-a`.
+- **Accounts:** the CLI's default config is signed in to the same account and organisation as account
+  B's, `CLAUDE_CONFIG_DIR=~/.claude-b`; account A is `~/.claude-a`. A session can message (SendMessage,
+  idle notices) only sessions of its own config dir, so the orchestrator and its builders run from one
+  config.
 
 ## Compact instructions
 When the context is compacted, keep: the session's goal and each finish-line condition's state; the
