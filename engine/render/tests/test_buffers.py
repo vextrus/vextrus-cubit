@@ -11,6 +11,7 @@ import pytest
 from engine.recognise.types import Box, SheetCandidate, SheetLocation
 from engine.render.buffers import HEADER, SECTION, BufferError, Limits, PaperSource, SheetBuffers, build
 from engine.render.fixtures.artefacts import PAPER, Drawing
+from engine.render.raster import rasterise
 
 
 def model_sheet(x0: float, y0: float, x1: float, y1: float) -> SheetCandidate:
@@ -781,3 +782,91 @@ def test_a_layout_of_texts_alone_still_has_a_paper() -> None:
     built = build(drawing.artefact(), SheetCandidate(SheetLocation(layout="Layout1")))
     assert built.paper.mm_per_unit == pytest.approx(1.0)
     assert built.paper.width_mm > 0
+
+
+# The orchestrator's final re-check of 1d952548 (28 Sep 2026): the main viewport and a notes sheet.
+
+
+def _frame(drawing: Drawing, w: float, h: float) -> None:
+    frame = [[0, 0, 0, 0, 0], [w, 0, 0, 0, 0], [w, h, 0, 0, 0], [0, h, 0, 0, 0]]
+    drawing.entity("LWPOLYLINE", {"points": frame, "flags": 1}, owner=PAPER)
+
+
+@pytest.mark.parametrize(("w", "h", "mm_per_unit"), [(841.0, 594.0, 1.0), (34.0, 22.0, 25.4)])
+@pytest.mark.parametrize("number", [1, 0])
+def test_autocads_main_viewport_is_not_the_sheet(
+    w: float, h: float, mm_per_unit: float, number: int
+) -> None:
+    """Every layout AutoCAD saves has a main viewport, its window at the last save: 1.1 times an A1
+    frame gave a 925.1 x 653.4 paper, and around an ANSI D frame in inches drew it 25.4 times too
+    small. It is left out of the paper by id 1, or, where a reader gives every viewport id 0
+    (ACadSharp's DWGs), as the first viewport showing paper space itself."""
+    drawing = Drawing(insunits=4)
+    main = {"center": [w / 2, h / 2, 0.0], "width": w * 1.1, "height": h * 1.1, "id": number,
+            "view_center_point": [w / 2, h / 2, 0.0], "view_height": h * 1.1}  # fmt: skip
+    drawing.entity("VIEWPORT", main, owner=PAPER)
+    _frame(drawing, w, h)
+    built = build(drawing.artefact(), SheetCandidate(SheetLocation(layout="Layout1")))
+    assert built.paper.source == PaperSource.STANDARD
+    assert built.paper.mm_per_unit == pytest.approx(mm_per_unit)
+    assert (built.paper.width_mm, built.paper.height_mm) == pytest.approx(
+        (w * mm_per_unit, h * mm_per_unit)
+    )
+
+
+def test_a_first_viewport_with_id_0_that_shows_model_space_is_still_a_view() -> None:
+    """The id-0 rule rests on what the viewport shows, not on its place alone: a first viewport
+    looking at model space at 1:50 counts toward the paper and is drawn."""
+    drawing = Drawing(insunits=4)
+    _frame(drawing, 420.0, 297.0)
+    view = {"center": [210.0, 148.5, 0.0], "width": 400.0, "height": 280.0, "id": 0,
+            "view_center_point": [5000.0, 3000.0, 0.0], "view_height": 14000.0}  # fmt: skip
+    drawing.entity("VIEWPORT", view, owner=PAPER)
+    drawing.line((4000, 3000), (6000, 3000))
+    built = build(drawing.artefact(), SheetCandidate(SheetLocation(layout="Layout1")))
+    assert built.stats["viewports_drawn"] == 1
+    assert (built.paper.width_mm, built.paper.height_mm) == pytest.approx((420.0, 297.0))
+
+
+def test_a_sheet_of_notes_keeps_its_texts() -> None:
+    """21 note lines and a 20 mm circle took a 20 x 20 paper and drew none of their glyphs: when
+    the geometry leaves most of the layout's texts out, their reach is taken in."""
+    drawing = Drawing(insunits=4)
+    drawing.entity("CIRCLE", {"center": [10.0, 10.0, 0.0], "radius": 10.0}, owner=PAPER)
+    lines = [f"NOTE {i}: ALL DIMENSIONS ARE IN MILLIMETRES" for i in range(1, 22)]
+    for i, text in enumerate(lines):
+        drawing.text(text, (40.0, 20.0 + 8.0 * i, 0.0), height=3.5, font="arial.ttf", owner=PAPER)
+    built = build(drawing.artefact(), SheetCandidate(SheetLocation(layout="Layout1")))
+    drawn = sum(len(t.replace(" ", "")) for t in lines)
+    assert len(built.glyphs) == drawn
+    assert built.paper.width_mm > 200
+    assert built.paper.height_mm > 170
+
+
+def test_two_texts_and_a_rule_have_a_paper_the_decoder_takes() -> None:
+    """Two texts and one horizontal rule took a 200 x 0 paper, which the decoder then refused."""
+    drawing = Drawing(insunits=4)
+    drawing.line((0, 0), (200, 0), owner=PAPER)
+    drawing.text("TITLE", (10.0, 5.0, 0.0), height=5.0, owner=PAPER)
+    drawing.text("SUBTITLE", (10.0, -10.0, 0.0), height=3.5, owner=PAPER)
+    built = build(drawing.artefact(), SheetCandidate(SheetLocation(layout="Layout1")))
+    back = SheetBuffers.from_bytes(built.to_bytes())
+    assert back.paper.height_mm > 0
+    assert len(built.glyphs) == len("TITLE") + len("SUBTITLE")
+    assert rasterise(back, 1.0).pixels.size > 0
+
+
+def test_a_lone_line_is_padded_to_a_paper_and_says_it_is_assumed() -> None:
+    drawing = Drawing(insunits=4)
+    drawing.line((0, 0), (200, 0), owner=PAPER)
+    built = build(drawing.artefact(), SheetCandidate(SheetLocation(layout="Layout1")))
+    assert built.paper.source == PaperSource.ASSUMED
+    assert (built.paper.width_mm, built.paper.height_mm) == pytest.approx((200.0, 200 / math.sqrt(2)))
+    SheetBuffers.from_bytes(built.to_bytes())
+
+
+def test_a_model_space_box_of_no_area_is_refused() -> None:
+    drawing = Drawing()
+    drawing.line((0, 0), (200, 0))
+    with pytest.raises(ValueError, match="no area"):
+        build(drawing.artefact(), model_sheet(0, 0, 200, 0))

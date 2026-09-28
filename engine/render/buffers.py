@@ -86,8 +86,9 @@ import time
 import weakref
 from collections import Counter
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import cache, lru_cache
+from typing import Any
 
 import numpy as np
 from ezdxf.tools import standards
@@ -520,9 +521,10 @@ class _Bounds:
     Without `text`, texts are left out: a text's reach is generous (its height times its length, every
     way), so a layout's paper is measured from its geometry and viewports alone."""
 
-    def __init__(self, artefact: ReadArtefact, text: bool = True) -> None:
+    def __init__(self, artefact: ReadArtefact, text: bool = True, viewports: bool = True) -> None:
         self.artefact = artefact
         self.text = text
+        self.viewports = viewports
         self.cache: dict[str, tuple[float, float, float, float] | None] = {}
         self.entities: dict[str, tuple[float, float, float, float] | None] = {}
         self.open: set[str] = set()
@@ -572,7 +574,7 @@ class _Bounds:
             x, y, _ = own_ocs(entity).apply(entity.position)
             return (x - reach, y - reach, x + reach, y + reach)
         if entity.type == "VIEWPORT":  # its view centre and target are model space's, not the layout's
-            return _viewport_rect(entity)
+            return _viewport_rect(entity) if self.viewports else None
         local = _shapes.bounds(entity)
         return None if local is None else _transform_box(own_ocs(entity), local)
 
@@ -1063,19 +1065,13 @@ def _space(
         handle = next((h for h, b in artefact.blocks.items() if b.layout == location.layout), None)
         if handle is None:
             raise ValueError(f"the sheet's layout {location.layout!r} is not in the drawing")
-        # The layout's extents from its geometry and viewports, without the texts' generous reach
-        # (a title near the frame would push the box past every standard sheet); texts only when
-        # the layout holds nothing else.
-        box = _Bounds(artefact, text=False).block(handle) or _bounds_of(artefact).block(handle)
-        for h in artefact.blocks[handle].entities:
-            viewport = artefact.entities.get(h)
-            if isinstance(viewport, Entity) and viewport.type == "VIEWPORT":
-                box = _union(box, _viewport_rect(viewport))
-        box = box or (0.0, 0.0, 1.0, 1.0)
+        box, padded = _layout_box(artefact, handle)
         # Paper space's units are the layout's plot settings', which the artefact does not carry
         # (INSUNITS governs model space): a standard sheet in mm or in inches at 1:1, else one unit
         # a millimetre (assumed), as most layouts are drawn; never rescaled to a sheet's size.
         paper = _paper_for_box(box, 0, units_mm=(1.0, 25.4), scales=(1,), unmatched_mm_per_unit=1.0)
+        if padded:
+            paper = replace(paper, source=PaperSource.ASSUMED)
         return handle, paper, None
     assert location.box is not None
     handle = next((h for h, b in artefact.blocks.items() if b.layout == "Model"), None)
@@ -1086,6 +1082,75 @@ def _space(
     b = location.box
     window = (b.x0, b.y0, b.x1, b.y1)
     return handle, _paper_for_box(window, artefact.summary.insunits), window
+
+
+def _layout_box(artefact: ReadArtefact, handle: str) -> tuple[tuple[float, float, float, float], bool]:
+    """A layout's extents for its paper, and whether they were padded to have an area.
+
+    From its geometry and its viewports, without AutoCAD's main viewport (its window at the last
+    save, not the sheet) and without the texts' generous reach (a title near the frame would push
+    the box past every standard sheet). When that has no area, or leaves out most of the texts
+    placed in the layout itself (a sheet of notes), the texts' reach is taken in too. A side still
+    of no length (a lone line) is padded to A-series proportions, so no paper is ever without area.
+    """
+    entities = [e for h in artefact.blocks[handle].entities if (e := artefact.entities.get(h))]
+    box = _Bounds(artefact, text=False, viewports=False).block(handle)
+    first = True
+    for entity in entities:
+        if isinstance(entity, Entity) and entity.type == "VIEWPORT":
+            if not _is_main_viewport(dict(entity.values), first):
+                box = _union(box, _viewport_rect(entity))
+            first = False
+    points = [own_ocs(e).apply(e.position)[:2] for e in entities if isinstance(e, Text)]
+    if box is None or not _has_area(box) or _most_outside(points, box):
+        box = _union(box, _Bounds(artefact, viewports=False).block(handle))
+    if box is None:
+        return (0.0, 0.0, 1.0, 1.0), True
+    if _has_area(box):
+        return box, False
+    x0, y0, x1, y1 = box
+    long = max(x1 - x0, y1 - y0)
+    if not long > 0:
+        return (x0 - 0.5, y0 - 0.5, x0 + 0.5, y0 + 0.5), True
+    short = long / math.sqrt(2)
+    if x1 - x0 < short:
+        middle = (x0 + x1) / 2
+        return (middle - short / 2, y0, middle + short / 2, y1), True
+    middle = (y0 + y1) / 2
+    return (x0, middle - short / 2, x1, middle + short / 2), True
+
+
+def _has_area(box: tuple[float, float, float, float]) -> bool:
+    return box[2] - box[0] > 0 and box[3] - box[1] > 0
+
+
+def _most_outside(points: list[tuple[float, float]], box: tuple[float, float, float, float]) -> bool:
+    x0, y0, x1, y1 = box
+    outside = sum(not (x0 <= x <= x1 and y0 <= y <= y1) for x, y in points)
+    return outside * 2 > len(points)
+
+
+def _is_main_viewport(values: dict[str, Any], first: bool) -> bool:
+    """AutoCAD's main viewport of a layout: its window on paper space at the last save, not a view
+    of model space nor the sheet. It is id 1; a reader that gives no id, or 0 for every viewport
+    (ACadSharp's DWGs), leaves the layout's first viewport, when it shows paper space itself (its
+    view centred on its own centre at its own height) or carries no id at all."""
+    number = values.get("id")
+    if number == 1:
+        return True
+    if not first or (isinstance(number, int) and not isinstance(number, bool) and number >= 2):
+        return False
+    if number is None:
+        return True
+    try:
+        cx, cy, _ = _shapes._point(values, "center")
+        vx, vy, _ = _shapes._point(values, "view_center_point")
+        height = _shapes._number(values, "height")
+        view_height = _shapes._number(values, "view_height")
+    except _shapes.Undrawable:
+        return False
+    near = 1e-3 * max(abs(height), 1.0)
+    return abs(cx - vx) <= near and abs(cy - vy) <= near and abs(height - view_height) <= near
 
 
 def _viewport_rect(viewport: Entity) -> tuple[float, float, float, float] | None:
@@ -1346,11 +1411,10 @@ def _viewports(
         if not isinstance(viewport, Entity) or viewport.type != "VIEWPORT":
             continue
         values = dict(viewport.values)
-        number = values.get("id")
-        if number == 1 or (number is None and first):
-            first = False
-            continue  # the layout's own overall viewport shows paper space itself
+        main = _is_main_viewport(values, first)
         first = False
+        if main:
+            continue  # the layout's own overall viewport shows paper space itself
         try:
             cx, cy, _ = _shapes._point(values, "center")
             width, height = _shapes._number(values, "width"), _shapes._number(values, "height")
@@ -1398,6 +1462,8 @@ def build(
     """The sheet's buffers (the module's docstring)."""
     block, paper, window = _space(artefact, sheet)
     values = (paper.width_mm, paper.height_mm, paper.mm_per_unit, *paper.origin)
+    if min(paper.width_mm, paper.height_mm) <= 0:
+        raise ValueError("the sheet's paper has no area")
     if not all(math.isfinite(v) for v in values) or max(paper.width_mm, paper.height_mm) > MAX_PAPER_MM:
         size = f"{paper.width_mm:g} x {paper.height_mm:g} mm"
         raise ValueError(f"the sheet's paper, {size}, is larger than any sheet's")
