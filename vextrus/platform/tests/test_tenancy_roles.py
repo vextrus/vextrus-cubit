@@ -154,6 +154,48 @@ def test_a_table_the_owner_makes_later_gets_the_app_s_rights_but_never_truncate(
         assert privileges(cursor, "later_sample") == {"SELECT", "INSERT", "UPDATE", "DELETE"}
 
 
+FIXED_MARKET_MIGRATIONS = (
+    "vextrus.projects.migrations.0002_ended_access_and_invitation_projects",
+    "vextrus.platform.migrations.0007_ended_access_and_fixed_market",
+)
+"""Unapplied in this order (`migrate platform 0006` unapplies projects' 0002 first)."""
+
+
+def app_acl(cursor: Any, table: str) -> tuple[list[str], list[str]]:
+    """vextrus_app's entries in the table's ACL, and the columns carrying an ACL of their own."""
+    cursor.execute(
+        "select array(select a::text from unnest(relacl) a where a::text like 'vextrus_app=%%') "
+        "from pg_class where oid = %s::regclass",
+        [f"public.{table}"],
+    )
+    table_acl = list(cursor.fetchone()[0])
+    cursor.execute(
+        "select attname from pg_attribute where attrelid = %s::regclass and attacl is not null "
+        "order by attname",
+        [f"public.{table}"],
+    )
+    return table_acl, [name for (name,) in cursor.fetchall()]
+
+
+@pytest.mark.django_db(databases=["owner"])
+def test_the_fixed_market_s_reverse_gives_back_0003_s_rights_and_drops_the_functions() -> None:
+    """The reverse of platform 0007 (and projects 0002, unapplied before it) run as the owner, as
+    `migrate platform 0006` runs it, inside the test's transaction, which rolls it back."""
+    with connections["owner"].cursor() as owner:
+        assert app_acl(owner, "platform_developer") == (["vextrus_app=ar/vextrus"], ["name"])
+        for module in FIXED_MARKET_MIGRATIONS:
+            for operation in reversed(importlib.import_module(module).Migration.operations):
+                for statement in operation.reverse_sql:
+                    owner.execute(statement)
+
+        # 0003's grants exactly: every right at table level, no column of its own.
+        assert app_acl(owner, "platform_developer") == (["vextrus_app=arwd/vextrus"], [])
+        assert privileges(owner, "platform_developer") == {"SELECT", "INSERT", "UPDATE", "DELETE"}
+        for signature in ("ended_access()", "ended_access_projects()", "invitation_projects(uuid,text)"):
+            owner.execute("select to_regprocedure(%s)", [f"public.{signature}"])
+            assert owner.fetchone() == (None,), signature
+
+
 USER_COLUMNS = (
     "id",
     "password",
