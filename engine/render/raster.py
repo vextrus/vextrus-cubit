@@ -89,11 +89,16 @@ def size(buffers: SheetBuffers, px_per_mm: float) -> tuple[int, int]:
     if px_per_mm <= 0:
         raise RasterError("the pixels a millimetre must be more than 0")
     paper = buffers.paper
+    if not (paper.width_mm > 0 and paper.height_mm > 0):
+        raise RasterError("the paper has a side of no length")
     width = paper.width_mm * px_per_mm
     height = paper.height_mm * px_per_mm
-    if not (math.isfinite(width) and math.isfinite(height)) or width * height > MAX_PIXELS:
+    if not (math.isfinite(width) and math.isfinite(height)) or max(width, height) > MAX_PIXELS:
         raise RasterError(f"a {width:.0f} x {height:.0f} pixel raster is past its {MAX_PIXELS} pixels")
-    return max(1, math.ceil(width)), max(1, math.ceil(height))
+    columns, rows = max(1, math.ceil(width)), max(1, math.ceil(height))
+    if columns * rows > MAX_PIXELS:  # the sizes as drawn, each at least one pixel
+        raise RasterError(f"a {columns} x {rows} pixel raster is past its {MAX_PIXELS} pixels")
+    return columns, rows
 
 
 def rasterise(buffers: SheetBuffers, px_per_mm: float) -> Raster:

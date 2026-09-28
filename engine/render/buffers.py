@@ -94,6 +94,7 @@ from ezdxf.tools import standards
 from numpy.typing import NDArray
 
 from engine.geometry.placement import (
+    IDENTITY,
     Chain,
     Link,
     Refusal,
@@ -166,20 +167,28 @@ class BufferError(ValueError):
 
 @dataclass(frozen=True)
 class Limits:
-    lines: int = 4_000_000
-    triangles: int = 2_000_000
-    glyphs: int = 1_000_000
+    """A sheet's budgets. Memory is bounded by the counts: each segment, triangle and glyph gathered
+    takes at most about 100 bytes and each primitive about 400 (with its chain), so the defaults hold a
+    sheet's gathering under about 1 GB; time by `visits` (entities and MINSERT cells walked, for the
+    sheet and all its viewports together) and `seconds`, asked after every entity drawn."""
+
+    lines: int = 2_000_000
+    triangles: int = 1_000_000
+    glyphs: int = 500_000
+    primitives: int = 500_000
     atlas_height: int = 4096
     visits: int = 10_000_000
     seconds: float = 300.0
-    """How long one sheet may take; past it the sheet is cut (flag bit 0, `budget_seconds`)."""
+    """How long one sheet may take; past it the sheet is cut (flag bit 0, `budget_seconds`). One
+    entity's own cost is bounded apart (MAX_DASHES, the hatch budgets, MAX_POINTS), so the sheet ends
+    within that of its budget."""
 
 
 DEFAULT_LIMITS = Limits()
 
 
 class PaperSource:
-    LAYOUT = 0
+    LAYOUT = 0  # the layout's own plot settings: reserved, since the ReadArtefact does not carry them
     STANDARD = 1
     ASSUMED = 2
 
@@ -287,6 +296,8 @@ def _decode(data: bytes) -> SheetBuffers:
     for value in (width, height, mm_per_unit, ox, oy):
         if not math.isfinite(value):
             raise BufferError("its paper is not finite")
+    if not (0 < width <= MAX_PAPER_MM and 0 < height <= MAX_PAPER_MM and mm_per_unit > 0):
+        raise BufferError("its paper is no sheet's: each side from 0 to 100 m, and mm per unit above 0")
     if source not in (0, 1, 2) or flags > 1:
         raise BufferError("its paper source or flags are unknown")
     table_end = HEADER.size + count * SECTION.size
@@ -461,21 +472,39 @@ def _linetypes() -> dict[str, list[float]]:
     return {name.upper(): list(pattern) for name, _, pattern in standards.linetypes()}
 
 
-def _paper_for_box(box: tuple[float, float, float, float], insunits: int) -> Paper:
+def _standard_sheet(
+    long_units: float, short_units: float, units_mm: Iterable[float], scales: Iterable[float]
+) -> float | None:
+    """Millimetres a unit when the box is a standard sheet, within STANDARD_MATCH, for one of the
+    units (mm a drawing unit) at one of the scales; the closest match, or none."""
+    best: tuple[float, float] | None = None
+    for unit in units_mm:
+        for long_mm, short_mm in SHEETS_MM:
+            for scale in scales:
+                a = long_units * unit / scale
+                b = short_units * unit / scale
+                error = max(abs(a - long_mm) / long_mm, abs(b - short_mm) / short_mm)
+                if error <= STANDARD_MATCH and (best is None or error < best[0]):
+                    best = (error, unit / scale)
+    return None if best is None else best[1]
+
+
+def _paper_for_box(
+    box: tuple[float, float, float, float],
+    insunits: int,
+    units_mm: Iterable[float] | None = None,
+    scales: Iterable[float] = SCALES,
+) -> Paper:
+    """A box's paper: a standard sheet when it is one, else its long side taken as A1's (assumed).
+    A model-space box is tried in the drawing's units at the standard scales; a layout's, which
+    INSUNITS does not govern, as millimetres or inches at 1:1."""
     x0, y0, x1, y1 = box
     width, height = x1 - x0, y1 - y0
-    unit = UNIT_MM.get(insunits, 1.0)
     long_units, short_units = max(width, height), min(width, height)
-    best: tuple[float, float] | None = None
-    for long_mm, short_mm in SHEETS_MM:
-        for scale in SCALES:
-            a = long_units * unit / scale
-            b = short_units * unit / scale
-            error = max(abs(a - long_mm) / long_mm, abs(b - short_mm) / short_mm)
-            if error <= STANDARD_MATCH and (best is None or error < best[0]):
-                best = (error, unit / scale)
-    if best is not None:
-        mm_per_unit, source = best[1], PaperSource.STANDARD
+    units = units_mm if units_mm is not None else (UNIT_MM.get(insunits, 1.0),)
+    matched = _standard_sheet(long_units, short_units, units, scales)
+    if matched is not None:
+        mm_per_unit, source = matched, PaperSource.STANDARD
     else:
         mm_per_unit = ASSUMED_LONG_SIDE_MM / long_units if long_units > 0 else 1.0
         source = PaperSource.ASSUMED
@@ -616,20 +645,37 @@ def clip_mask(
     if not len(segments):
         return np.zeros(0, dtype=bool), segments
     x0, y0, x1, y1 = segments.T
-    dx, dy = x1 - x0, y1 - y0
+    # Half differences: x1 - x0 overflows for endpoints near the float range's ends, x1/2 - x0/2 never.
+    dx, dy = x1 / 2 - x0 / 2, y1 / 2 - y0 / 2
     xmin, ymin, xmax, ymax = rect
-    t0 = np.zeros(len(segments))
-    t1 = np.ones(len(segments))
-    keep = np.ones(len(segments), dtype=bool)
-    for p, q in ((-dx, x0 - xmin), (dx, xmax - x0), (-dy, y0 - ymin), (dy, ymax - y0)):
+    n = len(segments)
+    t0, t1 = np.zeros(n), np.ones(n)
+    keep = np.ones(n, dtype=bool)
+    # Where an edge cuts a segment, the cut point's coordinate on that edge's axis is the edge itself:
+    # set it exactly, since t times a difference near the float range loses the sheet's scale.
+    snapped = np.full((n, 4), np.nan)
+    halves = ((x0 / 2 - xmin / 2), (xmax / 2 - x0 / 2), (y0 / 2 - ymin / 2), (ymax / 2 - y0 / 2))
+    edges = (xmin, xmax, ymin, ymax)
+    for axis, edge, p, q in zip((0, 0, 1, 1), edges, (-dx, dx, -dy, dy), halves, strict=True):
         parallel = p == 0
         keep &= ~(parallel & (q < 0))
         with np.errstate(divide="ignore", invalid="ignore"):
             r = np.where(parallel, 0.0, q / np.where(parallel, 1.0, p))
-        t0 = np.where(~parallel & (p < 0), np.maximum(t0, r), t0)
-        t1 = np.where(~parallel & (p > 0), np.minimum(t1, r), t1)
+        enters = ~parallel & (p < 0) & (r > t0)
+        leaves = ~parallel & (p > 0) & (r < t1)
+        t0, t1 = np.where(enters, r, t0), np.where(leaves, r, t1)
+        snapped[enters, 0:2] = np.nan
+        snapped[enters, axis] = edge
+        snapped[leaves, 2:4] = np.nan
+        snapped[leaves, 2 + axis] = edge
     keep &= t0 <= t1
-    out = np.column_stack([x0 + t0 * dx, y0 + t0 * dy, x0 + t1 * dx, y0 + t1 * dy])
+    out = np.column_stack(
+        [x0 + t0 * dx + t0 * dx, y0 + t0 * dy + t0 * dy, x0 + t1 * dx + t1 * dx, y0 + t1 * dy + t1 * dy]
+    )
+    out = np.where(np.isnan(snapped), out, snapped)
+    with np.errstate(invalid="ignore"):
+        out = np.clip(out, (xmin, ymin, xmin, ymin), (xmax, ymax, xmax, ymax))
+    keep &= np.isfinite(out).all(axis=1)
     return keep, out
 
 
@@ -688,53 +734,85 @@ def clip_triangles(
     return np.concatenate(pieces).reshape(-1, 3, 2)
 
 
-def dash(
-    points: NDArray[np.float64], pattern: list[float], budget: int
-) -> list[NDArray[np.float64]] | None:
+def dash(points: NDArray[np.float64], pattern: list[float], budget: int) -> NDArray[np.float64] | None:
     """A polyline cut into a linetype's dashes (lengths along it: positive drawn, negative gaps, zero a
-    dot); none when it would take more than `budget` pieces."""
+    dot), as segments (N x 4); none when it would take more than `budget` dashes.
+
+    Vectorised: the cut points are the polyline's own vertices and every dash's ends, sorted along its
+    length, and a piece between two of them is drawn when its middle lies in a drawn dash. So the cost
+    is in proportion to the vertices plus the dashes, never their product."""
     steps = np.diff(points, axis=0)
     lengths = np.hypot(steps[:, 0], steps[:, 1])
     total = float(lengths.sum())
     period = sum(abs(x) for x in pattern)
-    if total <= 0 or period <= 0:
-        return [points]
-    if total / period * len(pattern) > budget:
+    if not (total > 0 and period > 0 and math.isfinite(total)):
+        return np.column_stack([points[:-1], points[1:]])
+    repeats = math.ceil(total / period)
+    if repeats * len(pattern) > budget:
         return None
     cumulative = np.concatenate([[0.0], np.cumsum(lengths)])
-    out = []
-    position = 0.0
-    index = 0
-    while position < total:
-        length = pattern[index % len(pattern)]
-        end = min(position + abs(length), total)
-        if length >= 0:
-            a, b = position, max(end, position)
-            inner = (cumulative > a) & (cumulative < b)
-            xs = np.concatenate(
-                [
-                    [np.interp(a, cumulative, points[:, 0])],
-                    points[inner, 0],
-                    [np.interp(b, cumulative, points[:, 0])],
-                ]
-            )
-            ys = np.concatenate(
-                [
-                    [np.interp(a, cumulative, points[:, 1])],
-                    points[inner, 1],
-                    [np.interp(b, cumulative, points[:, 1])],
-                ]
-            )
-            out.append(np.column_stack([xs, ys]))
-        position = end
-        index += 1
-    return out
+    edges = np.concatenate([[0.0], np.cumsum([abs(x) for x in pattern])])  # within one period
+    drawn = np.array([x > 0 for x in pattern])
+    offsets = np.arange(repeats)[:, None] * period
+    boundaries = (offsets + edges[None, :-1]).ravel()  # a period's end is the next one's start
+    cuts = np.unique(np.concatenate([cumulative, boundaries[boundaries < total], [total]]))
+    middle = (cuts[:-1] + cuts[1:]) / 2
+    phase = np.mod(middle, period)
+    which = np.clip(np.searchsorted(edges, phase, side="right") - 1, 0, len(pattern) - 1)
+    on = drawn[which] & (cuts[1:] > cuts[:-1])
+    xs = np.interp(cuts, cumulative, points[:, 0])
+    ys = np.interp(cuts, cumulative, points[:, 1])
+    pieces = np.column_stack([xs[:-1], ys[:-1], xs[1:], ys[1:]])[on]
+    dots = [edges[i] for i, x in enumerate(pattern) if x == 0]
+    if dots:
+        at = (offsets + np.array(dots)[None, :]).ravel()
+        at = at[at <= total]
+        dx, dy = np.interp(at, cumulative, points[:, 0]), np.interp(at, cumulative, points[:, 1])
+        pieces = np.concatenate([pieces, np.column_stack([dx, dy, dx, dy])])
+    return np.asarray(pieces, dtype=np.float64)
 
 
 @lru_cache(maxsize=16384)
 def _field(key: FontKey, char: str | None) -> Field | None:
     glyph = notdef(key) if char is None else outline(key, char)
     return None if glyph is None else sdf(glyph)
+
+
+_SEGMENT = np.dtype([("x0", "<f8"), ("y0", "<f8"), ("x1", "<f8"), ("y1", "<f8"), ("weight", "<f4"),
+                     ("colour", "<u4"), ("prim", "<u4"), ("clip", "<u4")])  # fmt: skip
+_TRIANGLE = np.dtype([("x0", "<f8"), ("y0", "<f8"), ("x1", "<f8"), ("y1", "<f8"), ("x2", "<f8"),
+                      ("y2", "<f8"), ("colour", "<u4"), ("prim", "<u4"), ("clip", "<u4")])  # fmt: skip
+
+
+class _Rows:
+    """A growing packed array of records (capacity doubling), so gathering costs its records' bytes,
+    not a Python object per entity."""
+
+    def __init__(self, dtype: np.dtype[np.void]) -> None:
+        self.data = np.zeros(256, dtype=dtype)
+        self.size = 0
+
+    def __len__(self) -> int:
+        return self.size
+
+    def add(self, count: int) -> NDArray[np.void]:
+        """`count` new records, to be filled in place."""
+        needed = self.size + count
+        if needed > len(self.data):
+            grown = np.zeros(max(needed, 2 * len(self.data)), dtype=self.data.dtype)
+            grown[: self.size] = self.data[: self.size]
+            self.data = grown
+        rows = self.data[self.size : needed]
+        self.size = needed
+        return rows
+
+    def view(self) -> NDArray[np.void]:
+        return self.data[: self.size]
+
+
+def _inside(corners: NDArray[np.float64], rect: tuple[float, float, float, float]) -> NDArray[np.bool_]:
+    lo, hi = corners.min(axis=1), corners.max(axis=1)
+    return (lo[:, 0] >= rect[0]) & (lo[:, 1] >= rect[1]) & (hi[:, 0] <= rect[2]) & (hi[:, 1] <= rect[3])
 
 
 class _Sheet:
@@ -754,16 +832,14 @@ class _Sheet:
         self.chain_index: dict[tuple[int, ...], int] = {(): 0}
         self.primitives: list[tuple[int, int, int, int, int]] = []
         self.primitive_index: dict[tuple[int, ...], int] = {}
-        # Gathered in chunks, each with its attributes and the rectangle it is cut to, and cut and
-        # packed once at the end (cutting each entity's few segments alone cost most of the time).
-        self.segment_chunks: list[
-            tuple[NDArray[np.float64], float, int, int, tuple[float, float, float, float]]
-        ] = []
-        self.triangle_chunks: list[
-            tuple[NDArray[np.float64], int, int, tuple[float, float, float, float]]
-        ] = []
+        # Gathered into growing packed arrays with their attributes and the rectangle each is cut to,
+        # and cut once at the end (cutting each entity's few segments alone cost most of the time).
+        self.clips: list[tuple[float, float, float, float]] = []
+        self.clip_index: dict[tuple[float, float, float, float], int] = {}
+        self.segments = _Rows(_SEGMENT)
+        self.triangles = _Rows(_TRIANGLE)
+        self.glyphs = _Rows(GLYF)
         self.block_names = {b.name: h for h, b in artefact.blocks.items()}
-        self.glyphs: list[tuple[object, ...]] = []
         self.atlas_index: dict[tuple[FontKey, str | None], int] = {}
         self.atlas_fields: list[Field] = []
         self.fonts: Counter[Substitute] = Counter()
@@ -774,6 +850,22 @@ class _Sheet:
         self.iso = artefact.summary.insunits in _MILLIMETRE_UNITS  # acadiso.lin and .pat, not acad
         self.bounds = _bounds_of(artefact)
         self.deadline = time.monotonic() + limits.seconds
+        self.visits_left = limits.visits
+
+    def over_time(self) -> bool:
+        if time.monotonic() > self.deadline:
+            if not self.stats["budget_seconds"]:
+                self.stats["budget_seconds"] = 1
+            self.truncated = True
+            return True
+        return False
+
+    def clip_id(self, clip: tuple[float, float, float, float] | None) -> int:
+        rect = clip or self.rect
+        if rect not in self.clip_index:
+            self.clip_index[rect] = len(self.clips)
+            self.clips.append(rect)
+        return self.clip_index[rect]
 
     def string(self, value: str) -> int:
         if value not in self.string_index:
@@ -782,6 +874,11 @@ class _Sheet:
         return self.string_index[value]
 
     def primitive(self, entity: AnyEntity, chain: Chain, via: AnyEntity | None) -> int:
+        """The primitive's index, or -1 once the primitive budget is spent (the entity is left out)."""
+        if len(self.primitives) >= self.limits.primitives:
+            self.truncated = True
+            self.stats["budget_primitives"] += 1
+            return -1
         chain_key = tuple(self.string(link.insert.handle) for link in chain)
         if chain_key not in self.chain_index:
             self.chain_index[chain_key] = len(self.chains)
@@ -823,7 +920,10 @@ class _Sheet:
         room = self._room("lines", len(segments))
         if room == 0:
             return
-        self.segment_chunks.append((segments[:room], weight, colour, prim, clip or self.rect))
+        rows = self.segments.add(room)
+        rows["x0"], rows["y0"], rows["x1"], rows["y1"] = segments[:room].T
+        rows["weight"], rows["colour"], rows["prim"] = weight, colour, prim
+        rows["clip"] = self.clip_id(clip)
         self.counts["lines"] += room
 
     def add_polyline(
@@ -840,16 +940,14 @@ class _Sheet:
             points = np.vstack([points, points[:1]])
         if len(points) < 2 or not np.isfinite(points).all():
             return
-        pieces = [points]
+        segments = None
         if pattern is not None:
-            cut = dash(points, pattern, min(MAX_DASHES, self.limits.lines - self.counts["lines"]))
-            if cut is None:
+            segments = dash(points, pattern, min(MAX_DASHES, self.limits.lines - self.counts["lines"]))
+            if segments is None:
                 self.stats["linetype_too_long"] += 1
-            else:
-                pieces = cut
-        for piece in pieces:
-            if len(piece) >= 2:
-                self.add_segments(np.column_stack([piece[:-1], piece[1:]]), weight, colour, prim, clip)
+        if segments is None:
+            segments = np.column_stack([points[:-1], points[1:]])
+        self.add_segments(segments, weight, colour, prim, clip)
 
     def add_triangles(
         self,
@@ -862,41 +960,56 @@ class _Sheet:
         room = self._room("triangles", len(triangles))
         if room == 0:
             return
-        self.triangle_chunks.append((triangles[:room], colour, prim, clip or self.rect))
+        rows = self.triangles.add(room)
+        flat = triangles[:room].reshape(-1, 6)
+        for i, name in enumerate(("x0", "y0", "x1", "y1", "x2", "y2")):
+            rows[name] = flat[:, i]
+        rows["colour"], rows["prim"], rows["clip"] = colour, prim, self.clip_id(clip)
         self.counts["triangles"] += room
 
     def packed_lines(self) -> NDArray[np.void]:
         """Every gathered segment, cut to its rectangle, as LINE records."""
-        groups: dict[tuple[float, float, float, float], list[int]] = {}
-        for i, chunk in enumerate(self.segment_chunks):
-            groups.setdefault(chunk[4], []).append(i)
+        rows = self.segments.view()
         records = []
-        for rect, members in groups.items():
-            chunks = [self.segment_chunks[i] for i in members]
-            sizes = [len(c[0]) for c in chunks]
-            segments = np.concatenate([c[0] for c in chunks]).reshape(-1, 4)
-            attributes = np.repeat(
-                np.array([(c[1], c[2], c[3]) for c in chunks], dtype=np.float64), sizes, axis=0
-            )
-            keep, cut = clip_mask(segments, rect)
+        for index, rect in enumerate(self.clips):
+            mine = rows[rows["clip"] == index]
+            if not len(mine):
+                continue
+            ends = np.column_stack([mine["x0"], mine["y0"], mine["x1"], mine["y1"]])
+            keep, cut = clip_mask(ends, rect)
             record = np.zeros(int(keep.sum()), dtype=LINE)
             record["x0"], record["y0"], record["x1"], record["y1"] = cut[keep].T
-            record["weight"] = attributes[keep, 0]
-            record["colour"] = attributes[keep, 1].astype(np.uint32)
-            record["prim"] = attributes[keep, 2].astype(np.uint32)
+            record["weight"], record["colour"], record["prim"] = (
+                mine["weight"][keep], mine["colour"][keep], mine["prim"][keep],
+            )  # fmt: skip
             records.append(record)
         return np.concatenate(records) if records else np.zeros(0, dtype=LINE)
 
     def packed_triangles(self) -> NDArray[np.void]:
+        rows = self.triangles.view()
         records = []
-        for triangles, colour, prim, rect in self.triangle_chunks:
-            cut = clip_triangles(triangles, rect)
-            record = np.zeros(len(cut), dtype=TRIS)
-            flat = cut.reshape(-1, 6)
-            for i, name in enumerate(("x0", "y0", "x1", "y1", "x2", "y2")):
-                record[name] = flat[:, i]
-            record["colour"], record["prim"] = colour, prim
-            records.append(record)
+        for index, rect in enumerate(self.clips):
+            mine = rows[rows["clip"] == index]
+            if not len(mine):
+                continue
+            names = ("x0", "y0", "x1", "y1", "x2", "y2")
+            corners = np.column_stack([mine[n] for n in names]).reshape(-1, 3, 2)
+            inside = _inside(corners, rect)
+            pieces = [(corners[inside], mine["colour"][inside], mine["prim"][inside])]
+            for k in np.flatnonzero(~inside):
+                cut = clip_triangles(corners[k : k + 1], rect)
+                pieces.append(
+                    (cut, np.full(len(cut), mine["colour"][k]), np.full(len(cut), mine["prim"][k]))
+                )
+            for cut, colour, prim in pieces:
+                cut = cut.reshape(-1, 3, 2)
+                keep = np.isfinite(cut).all(axis=(1, 2))
+                record = np.zeros(int(keep.sum()), dtype=TRIS)
+                flat = cut[keep].reshape(-1, 6)
+                for i, name in enumerate(names):
+                    record[name] = flat[:, i]
+                record["colour"], record["prim"] = colour[keep], prim[keep]
+                records.append(record)
         return np.concatenate(records) if records else np.zeros(0, dtype=TRIS)
 
     def add_glyph(
@@ -927,7 +1040,9 @@ class _Sheet:
                 return
             index = self.atlas_index[(key, char)] = len(self.atlas_fields)
             self.atlas_fields.append(found)
-        self.glyphs.append((index, *origin, *x_axis, *y_axis, colour, prim))
+        row = self.glyphs.add(1)
+        row["glyph"], row["colour"], row["prim"] = index, colour, prim
+        row["ox"], row["oy"], row["xx"], row["xy"], row["yx"], row["yy"] = (*origin, *x_axis, *y_axis)
 
 
 def _space(
@@ -945,15 +1060,9 @@ def _space(
             if isinstance(viewport, Entity) and viewport.type == "VIEWPORT":
                 box = _union(box, _viewport_rect(viewport))
         box = box or (0.0, 0.0, 1.0, 1.0)
-        unit = UNIT_MM.get(artefact.summary.insunits, 1.0)
-        paper = Paper(
-            (box[2] - box[0]) * unit,
-            (box[3] - box[1]) * unit,
-            unit,
-            PaperSource.LAYOUT,
-            (box[0], box[1]),
-        )
-        return handle, paper, None
+        # Paper space's units are the layout's plot settings', which the artefact does not carry
+        # (INSUNITS governs model space): a standard sheet in mm or in inches at 1:1, else assumed.
+        return handle, _paper_for_box(box, 0, units_mm=(1.0, 25.4), scales=(1,)), None
     assert location.box is not None
     handle = next((h for h, b in artefact.blocks.items() if b.layout == "Model"), None)
     if handle is None:
@@ -992,18 +1101,36 @@ class _Drawer:
         self.scale = outer.xy_scale or 1.0
 
     def transform(self, chain: Chain) -> Transform:
-        """The chain's transform, remembered for the walk (siblings share one chain object)."""
-        found = self._transforms.get(id(chain))
-        if found is None or found[0] is not chain:
-            found = self._transforms[id(chain)] = (chain, chain_transform(chain))
-        return found[1]
+        """The chain's transform. Only the walk's current path is remembered (the walk is depth
+        first, and siblings share one chain object), so memory stays in proportion to its depth."""
+        depth = len(chain)
+        if depth == 0:
+            return IDENTITY
+        path = self._path
+        found = path.get(depth)
+        if found is not None and found[0] is chain:
+            return found[1]
+        parent = path.get(depth - 1)
+        if (
+            parent is not None
+            and len(parent[0]) == depth - 1
+            and all(a is b for a, b in zip(parent[0], chain, strict=False))
+        ):
+            placed = parent[1] @ chain[-1].transform()
+        else:
+            placed = chain_transform(chain)
+        for deeper in [d for d in path if d >= depth]:
+            del path[deeper]
+        path[depth] = (chain, placed, False)
+        return placed
 
     def run(self, block: str) -> None:
         artefact = self.sheet.artefact
         bounds = self.sheet.bounds
         window = self.window
-        self._transforms: dict[int, tuple[Chain, Transform]] = {}
-        inside: dict[int, tuple[Chain, bool]] = {}  # chains whose whole block lies inside the window
+        # depth -> (chain, its transform, whether its block lies wholly inside the window)
+        self._path: dict[int, tuple[Chain, Transform, bool]] = {}
+        sheet = self.sheet
 
         def enter(link: Link, chain: Chain) -> bool:
             if window is None:
@@ -1011,37 +1138,45 @@ class _Drawer:
             inner = bounds.block(link.insert.block)
             placed = None if inner is None else _transform_box(self.transform(chain), inner)
             if placed is not None and _contains(window, placed):
-                inside[id(chain)] = (chain, True)
+                entry = self._path[len(chain)]
+                self._path[len(chain)] = (entry[0], entry[1], True)
             return _overlaps(placed, window)
 
-        deadline = self.sheet.deadline
-        walk = Walk(
-            artefact,
-            max_visits=self.sheet.limits.visits,
-            enter=enter,
-            stop=lambda: time.monotonic() > deadline,
-        )
+        walk = Walk(artefact, max_visits=sheet.visits_left, enter=enter, stop=sheet.over_time)
         for entity, chain in walk.entities(block):
             if isinstance(entity, Insert):
                 continue
-            if self.sheet.full("lines") and self.sheet.full("triangles"):
-                self.sheet.stats["budget_entities_left"] += 1
+            if sheet.over_time():
+                break
+            if sheet.full("lines") and sheet.full("triangles") and not isinstance(entity, Text):
+                sheet.stats["budget_entities_left"] += 1
                 continue
-            known = inside.get(id(chain))
-            if window is not None and not (known is not None and known[0] is chain):
+            entry = self._path.get(len(chain)) if chain else None
+            known = entry is not None and entry[0] is chain and entry[2]
+            if window is not None and not known:
                 local = bounds.entity(entity)
                 if local is not None and not _overlaps(
                     _transform_box(self.transform(chain), local), window
                 ):
                     continue
             self.draw(entity, chain, walk)
+        sheet.visits_left = max(0, sheet.visits_left - walk.visits)
         for reason, count in walk.refused.items():
-            if reason in (Refusal.STOPPED, Refusal.VISIT_LIMIT):
-                self.sheet.truncated = True
-            name = "budget_seconds" if reason is Refusal.STOPPED else f"refused_{reason}"
-            self.sheet.stats[name] += count
+            if reason is Refusal.STOPPED:
+                continue  # over_time has said so
+            if reason is Refusal.VISIT_LIMIT:
+                sheet.truncated = True
+            sheet.stats[f"refused_{reason}"] += count
 
     def draw(self, entity: AnyEntity, chain: Chain, walk: Walk, via: AnyEntity | None = None) -> None:
+        """Draw one entity. An arithmetic surprise in its values loses that entity, counted as
+        `failed_<TYPE>`, never the sheet."""
+        try:
+            self._draw(entity, chain, walk, via)
+        except ArithmeticError, ValueError, IndexError, RuntimeWarning:
+            self.sheet.stats[f"failed_{(via or entity).type}"] += 1
+
+    def _draw(self, entity: AnyEntity, chain: Chain, walk: Walk, via: AnyEntity | None = None) -> None:
         sheet = self.sheet
         if isinstance(entity, Text):
             if entity.type == "ATTDEF" and chain:
@@ -1068,6 +1203,8 @@ class _Drawer:
         prim = -1
         if kind == "HATCH":
             prim = sheet.primitive(entity, chain, via)
+            if prim < 0:
+                return
             self.hatch(entity, placed, tolerance, colour, prim)
             return
         found = _shapes.shape(entity, tolerance)
@@ -1075,6 +1212,8 @@ class _Drawer:
             sheet.stats[f"not_drawn_{kind}"] += 1
             return
         prim = sheet.primitive(entity, chain, via)
+        if prim < 0:
+            return
         weight = _lineweight(entity.values, sheet.stats)
         pattern = self.linetype(entity, placed)
         for points, closed in found.lines:
@@ -1162,6 +1301,8 @@ class _Drawer:
         if not all(math.isfinite(v) for v in (*o, *xv, *yv)):
             return
         prim = sheet.primitive(entity, chain, via)
+        if prim < 0:
+            return
         colour = 0
         for used in laid.fonts:
             if used.asked:
@@ -1260,7 +1401,7 @@ def build(
 
 def _finish(sheet: _Sheet) -> SheetBuffers:
     atlas, atlas_glyphs = _pack(sheet)
-    glyphs = np.array(sheet.glyphs, dtype=GLYF) if sheet.glyphs else np.zeros(0, dtype=GLYF)
+    glyphs = sheet.glyphs.view().copy()
     if len(glyphs) and len(atlas_glyphs) < len(sheet.atlas_fields):
         glyphs = glyphs[glyphs["glyph"] < len(atlas_glyphs)]
     fonts = np.array(

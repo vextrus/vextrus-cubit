@@ -5,35 +5,39 @@ import math
 import pytest
 
 from engine.geometry.placement import chain
-from engine.read.artefact import Text
+from engine.read.artefact import ReadArtefact, Text
 from engine.render.fixtures.artefacts import MODEL, Drawing
 from engine.text import mtext
 from engine.text.mtext import HeightSource
 
 
-def _text(drawing: Drawing, handle: str) -> Text:
-    found = drawing.artefact().entities[handle]
+def _text(drawing: Drawing, handle: str) -> tuple[Text, ReadArtefact]:
+    artefact = drawing.artefact()
+    found = artefact.entities[handle]
     assert isinstance(found, Text)
-    return found
+    return found, artefact
 
 
 def test_own_height_wins() -> None:
     drawing = Drawing()
     handle = drawing.text("A", kind="MTEXT", height=3.0)
-    assert mtext.resolve(_text(drawing, handle)) == mtext.Height(3.0, 3.0, HeightSource.OWN)
+    entity, artefact = _text(drawing, handle)
+    assert mtext.resolve(entity, artefact=artefact) == mtext.Height(3.0, 3.0, HeightSource.OWN)
 
 
 def test_an_mtext_without_height_takes_the_height_its_text_sets_first() -> None:
     drawing = Drawing()
     handle = drawing.text("{\\H4.5;BEAM} B1", kind="MTEXT", height=None)
-    assert mtext.resolve(_text(drawing, handle)).source is HeightSource.INLINE
-    assert mtext.height(_text(drawing, handle)) == 4.5
+    entity, artefact = _text(drawing, handle)
+    assert mtext.resolve(entity, artefact=artefact).source is HeightSource.INLINE
+    assert mtext.height(entity, artefact=artefact) == 4.5
 
 
 def test_a_style_height_is_used_when_given() -> None:
     drawing = Drawing()
     handle = drawing.text("A", kind="MTEXT", height=None, style="NOTES")
-    found = mtext.resolve(_text(drawing, handle), style_heights={"NOTES": 1.8})
+    entity, artefact = _text(drawing, handle)
+    found = mtext.resolve(entity, artefact=artefact, style_heights={"NOTES": 1.8})
     assert (found.local, found.source) == (1.8, HeightSource.STYLE)
 
 
@@ -48,7 +52,7 @@ def test_an_mtext_without_height_in_a_block_takes_its_blocks_usual_height_times_
     entity = artefact.entities[handle]
     assert isinstance(entity, Text)
 
-    found = mtext.resolve(entity, chain(artefact, [top]), artefact)
+    found = mtext.resolve(entity, chain(artefact, [top]), artefact=artefact)
 
     assert (found.local, found.value, found.source) == (3.0, 150.0, HeightSource.BLOCK)
 
@@ -63,34 +67,36 @@ def test_with_nothing_else_the_default_for_the_units_and_the_source_says_so(
     artefact = drawing.artefact()
     entity = artefact.entities[handle]
     assert isinstance(entity, Text)
-    assert mtext.resolve(entity, (), artefact) == mtext.Height(expected, expected, HeightSource.DEFAULT)
+    found = mtext.resolve(entity, (), artefact=artefact)
+    assert found == mtext.Height(expected, expected, HeightSource.DEFAULT)
 
 
 def test_the_height_is_never_none_or_zero_even_for_junk() -> None:
     drawing = Drawing()
     handle = drawing.text("{\\H-3;\\Hnan;X}", kind="MTEXT", height=float("nan"))
-    assert mtext.height(_text(drawing, handle)) > 0
+    entity, artefact = _text(drawing, handle)
+    assert mtext.height(entity, artefact=artefact) > 0
 
 
 def test_an_mtext_at_30_degrees_by_its_direction_vector() -> None:
     drawing = Drawing()
     thirty = (math.cos(math.radians(30)), math.sin(math.radians(30)), 0.0)
     handle = drawing.text("B1 (250 x 500)", kind="MTEXT", direction=thirty)
-    assert math.degrees(mtext.angle(_text(drawing, handle))) == pytest.approx(30.0)
+    assert math.degrees(mtext.angle(_text(drawing, handle)[0])) == pytest.approx(30.0)
 
 
 def test_an_mtext_direction_need_not_be_a_unit_vector() -> None:
     drawing = Drawing()
     handle = drawing.text("UP", kind="MTEXT", direction=(0.0, 7.0, 0.0))
-    assert math.degrees(mtext.angle(_text(drawing, handle))) == pytest.approx(90.0)
+    assert math.degrees(mtext.angle(_text(drawing, handle)[0])) == pytest.approx(90.0)
 
 
 def test_a_text_angle_is_its_rotation_mirrored_by_its_ocs() -> None:
     drawing = Drawing()
     plain = drawing.text("A", rotation_radians=math.radians(20))
     flipped = drawing.text("B", rotation_radians=math.radians(20), extrusion=(0.0, 0.0, -1.0))
-    assert math.degrees(mtext.angle(_text(drawing, plain))) == pytest.approx(20.0)
-    assert math.degrees(mtext.angle(_text(drawing, flipped))) == pytest.approx(160.0)
+    assert math.degrees(mtext.angle(_text(drawing, plain)[0])) == pytest.approx(20.0)
+    assert math.degrees(mtext.angle(_text(drawing, flipped)[0])) == pytest.approx(160.0)
 
 
 def test_the_world_angle_turns_with_the_insert() -> None:
@@ -129,7 +135,21 @@ def test_the_model_space_block_is_a_block_too() -> None:
     entity = artefact.entities[handle]
     assert isinstance(entity, Text)
     assert entity.owner == MODEL
-    assert mtext.height(entity, (), artefact) == 7.0
+    assert mtext.height(entity, (), artefact=artefact) == 7.0
+
+
+def test_the_height_cannot_be_asked_without_the_artefact_its_block_is_read_from() -> None:
+    """Review item 7: `height(entity, chain)` silently skipped the block step; now it cannot be called
+    so, and a positional artefact is refused too, so every caller names where the block comes from."""
+    drawing = Drawing()
+    drawing.text("SIBLING", height=7.0)
+    handle = drawing.text("X", kind="MTEXT", height=None)
+    entity, artefact = _text(drawing, handle)
+    with pytest.raises(TypeError):
+        mtext.height(entity, ())  # type: ignore[call-arg]
+    with pytest.raises(TypeError):
+        mtext.resolve(entity, (), artefact)  # type: ignore[call-arg]
+    assert mtext.resolve(entity, (), artefact=artefact).source is HeightSource.BLOCK
 
 
 def test_an_mtext_in_a_tilted_plane_keeps_its_axes_in_that_plane() -> None:
@@ -137,8 +157,8 @@ def test_an_mtext_in_a_tilted_plane_keeps_its_axes_in_that_plane() -> None:
     extrusion x direction = (-0.8, 0, 0.6), which the sheet sees as (-0.8, 0)."""
     drawing = Drawing()
     handle = drawing.text("T", kind="MTEXT", direction=(0.0, 1.0, 0.0), extrusion=(0.6, 0.0, 0.8))
-    placed = mtext.frame(_text(drawing, handle), (), 1.0)
+    placed = mtext.frame(_text(drawing, handle)[0], (), 1.0)
     assert placed.x_axis == pytest.approx((0.0, 1.0))
     assert placed.y_axis == pytest.approx((-0.8, 0.0))
     handle = drawing.text("T", kind="MTEXT", direction=(0.8, 0.0, -0.6), extrusion=(0.6, 0.0, 0.8))
-    assert mtext.frame(_text(drawing, handle), (), 1.0).x_axis == pytest.approx((0.8, 0.0))
+    assert mtext.frame(_text(drawing, handle)[0], (), 1.0).x_axis == pytest.approx((0.8, 0.0))

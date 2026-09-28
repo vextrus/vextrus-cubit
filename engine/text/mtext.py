@@ -5,7 +5,7 @@ height crashed Step 1, and MTEXT angles stored as a direction vector read as 0°
 labels unbound; docs/research/edison-check-session-02.md). The renderer (11) and the recognisers (13,
 17) take a text's height and angle from here, never computing either themselves.
 
-**`height(entity, chain, artefact)`** is the text's height in the world (drawing units), never none:
+**`height(entity, chain, *, artefact)`** is the text's height in the world (drawing units), never none:
 its local height, resolved in this order, times what the chain scales it by along its own up
 direction (a text inside an insert scaled 50 is 50 times taller):
 1. `own`: the height the file stores for it;
@@ -15,7 +15,8 @@ direction (a text inside an insert scaled 50 is 50 times taller):
    ReadArtefact carries no style table** (04's shape, version 1), so the harness passes none and this
    step finds nothing until the artefact carries the styles' heights;
 4. `block`: the height most of the other texts in its block (or layout) are stored with, the smaller
-   one on a tie; the "block's" height of the contract;
+   one on a tie; the "block's" height of the contract. The artefact the entity came from is its
+   source, so `artefact` is required (keyword-only): a call cannot leave this step out unnoticed;
 5. `default`: AutoCAD's default text size for the drawing's units (0.2 for inches and feet, 2.5
    otherwise), and the caller reports it: `resolve` says which step gave the height, and the font
    report counts the texts that fell to the default (`engine.font_report.height_defaulted`).
@@ -68,13 +69,11 @@ class Height:
 class Heights:
     """Resolves text heights over one artefact, remembering each block's usual height."""
 
-    def __init__(
-        self, artefact: ReadArtefact | None, style_heights: Mapping[str, float] | None = None
-    ) -> None:
+    def __init__(self, artefact: ReadArtefact, style_heights: Mapping[str, float] | None = None) -> None:
         self.artefact = artefact
         self.style_heights = {k: v for k, v in (style_heights or {}).items() if _positive(v)}
         self._blocks: dict[str, float | None] = {}
-        units = artefact.summary.insunits if artefact is not None else 0
+        units = artefact.summary.insunits
         self.default = IMPERIAL_DEFAULT if units in _IMPERIAL_UNITS else METRIC_DEFAULT
 
     def local(self, entity: Text) -> tuple[float, HeightSource]:
@@ -103,11 +102,11 @@ class Heights:
         if block in self._blocks:
             return self._blocks[block]
         usual = None
-        record = self.artefact.blocks.get(block) if self.artefact is not None else None
+        record = self.artefact.blocks.get(block)
         if record is not None:
             heights: Counter[float] = Counter()
             for handle in record.entities:
-                other = self.artefact.entities.get(handle)  # type: ignore[union-attr]
+                other = self.artefact.entities.get(handle)
                 if isinstance(other, Text) and _positive(other.height):
                     heights[float(other.height)] += 1  # type: ignore[arg-type]
             if heights:
@@ -119,8 +118,8 @@ class Heights:
 def height(
     entity: Text,
     chain: Chain = (),
-    artefact: ReadArtefact | None = None,
     *,
+    artefact: ReadArtefact,
     style_heights: Mapping[str, float] | None = None,
 ) -> float:
     """The text's height in the world, never none (the module's docstring gives the order)."""
@@ -130,8 +129,8 @@ def height(
 def resolve(
     entity: Text,
     chain: Chain = (),
-    artefact: ReadArtefact | None = None,
     *,
+    artefact: ReadArtefact,
     style_heights: Mapping[str, float] | None = None,
 ) -> Height:
     """`height`, with the text's local height and the step that gave it."""

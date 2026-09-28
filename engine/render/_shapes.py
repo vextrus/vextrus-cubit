@@ -26,6 +26,8 @@ MAX_SEGMENTS = 2048
 """The most segments one curve is cut into."""
 MAX_VERTICES = 200_000
 """The most vertices one polyline or spline is drawn with."""
+MAX_POINTS = 1_000_000
+"""The most points one entity's curves are cut into, bulges included."""
 
 type Points = NDArray[np.float64]
 type Box = tuple[float, float, float, float]
@@ -70,10 +72,18 @@ def _as_point(value: Any, what: str) -> tuple[float, float, float]:
 
 
 def arc_steps(radius: float, sweep: float, tolerance: float) -> int:
-    """How many chords keep an arc of `radius` and `sweep` radians within `tolerance` of its curve."""
+    """How many chords keep an arc of `radius` and `sweep` radians within `tolerance` of its curve:
+    from 1 to MAX_SEGMENTS, whatever the numbers (a radius so large that the tolerance vanishes
+    beside it takes MAX_SEGMENTS, never a division by zero)."""
+    if not (math.isfinite(sweep) and math.isfinite(radius) and math.isfinite(tolerance)):
+        return 1 if not math.isfinite(sweep) else MAX_SEGMENTS
     if radius <= tolerance or tolerance <= 0:
         return max(1, min(MAX_SEGMENTS, math.ceil(abs(sweep) / (math.pi / 4))))
-    step = 2 * math.acos(1 - tolerance / radius)
+    ratio = tolerance / radius
+    # 2·acos(1 - r) loses r to rounding below about 1e-8; 2·sqrt(2r) is its value there.
+    step = 2 * math.acos(1 - ratio) if ratio > 1e-8 else 2 * math.sqrt(2 * ratio)
+    if not step > 0:
+        return MAX_SEGMENTS
     return max(1, min(MAX_SEGMENTS, math.ceil(abs(sweep) / step)))
 
 
@@ -88,14 +98,17 @@ def bulge_path(vertices: Sequence[tuple[float, float, float]], closed: bool, tol
     if len(vertices) > MAX_VERTICES:
         raise Undrawable("too many vertices")
     out: list[Points] = []
+    points = 0
     count = len(vertices)
     for i in range(count if closed else count - 1):
         x0, y0, bulge = vertices[i]
         x1, y1, _ = vertices[(i + 1) % count]
-        if bulge == 0 or (x0 == x1 and y0 == y1):
+        chord = math.hypot(x1 - x0, y1 - y0)
+        # A bulge whose arc strays less than the tolerance from its chord is drawn straight (its
+        # sagitta is |bulge| x chord / 2); a tiny one would otherwise divide by a vanishing angle.
+        if not math.isfinite(bulge) or chord == 0 or abs(bulge) * chord / 2 <= tolerance:
             out.append(np.array([[x0, y0]]))
             continue
-        chord = math.hypot(x1 - x0, y1 - y0)
         sweep = 4 * math.atan(bulge)
         radius = chord / (2 * abs(math.sin(sweep / 2)))
         mx, my = (x0 + x1) / 2, (y0 + y1) / 2
@@ -106,7 +119,11 @@ def bulge_path(vertices: Sequence[tuple[float, float, float]], closed: bool, tol
             my + ny * sagitta_to_centre * math.copysign(1, bulge),
         )
         start = math.atan2(y0 - cy, x0 - cx)
-        out.append(arc(cx, cy, radius, start, sweep, tolerance)[:-1])
+        piece = arc(cx, cy, radius, start, sweep, tolerance)[:-1]
+        points += len(piece)
+        if points > MAX_POINTS:
+            raise Undrawable("too many points")
+        out.append(piece)
     if count:
         last = vertices[0] if closed else vertices[-1]
         out.append(np.array([[last[0], last[1]]]))

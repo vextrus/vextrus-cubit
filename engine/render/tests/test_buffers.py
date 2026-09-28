@@ -227,7 +227,7 @@ def test_a_layout_sheet_draws_model_space_through_its_viewports() -> None:
     )
     built = build(drawing.artefact(), SheetCandidate(SheetLocation(layout="Layout1")))
 
-    assert built.paper.source == PaperSource.LAYOUT
+    assert built.paper.source == PaperSource.STANDARD  # A3 in millimetres
     assert (built.paper.width_mm, built.paper.height_mm) == (420.0, 297.0)
     assert built.stats["viewports_drawn"] == 1
     model_line = built.lines[built.lines["y0"] == built.lines["y1"]]
@@ -538,9 +538,210 @@ def test_a_value_off_its_range_is_refused(table: str, field: str, value: float) 
         SheetBuffers.from_bytes(built.to_bytes())
 
 
-def test_a_paper_larger_than_any_sheet_is_refused() -> None:
+def test_a_layout_as_large_as_the_float_range_is_an_assumed_sheet_or_refused() -> None:
+    """A vast layout is no standard sheet, so its paper is assumed (A1's long side); one wider than a
+    float holds has no paper at all and is refused."""
     drawing = Drawing()
     drawing.line((0, 0), (1, 1), owner=PAPER)
     drawing.line((1e300, 1e300), (1e300, 1e300), owner=PAPER)
+    built = build(drawing.artefact(), SheetCandidate(SheetLocation(layout="Layout1")))
+    assert built.paper.source == PaperSource.ASSUMED
+    assert built.paper.width_mm == pytest.approx(841.0)
+    drawing.line((-1e308, -1e308), (-1e308, -1e308), owner=PAPER)
+    drawing.line((1e308, 1e308), (1e308, 1e308), owner=PAPER)
     with pytest.raises(ValueError, match="larger than any sheet"):
         build(drawing.artefact(), SheetCandidate(SheetLocation(layout="Layout1")))
+
+
+# The orchestrator's review of d4689726 (28 Sep 2026): each finding reproduced, then fixed.
+
+
+def _nested_minserts(levels: int = 5, grid: int = 100) -> Drawing:
+    """Nested grid x grid MINSERTs (`levels` deep, 0.0001 apart) over one line; inserted once."""
+    drawing = Drawing()
+    inner = drawing.block("LEAF")
+    drawing.line((1, 1), (2, 1), owner=inner)
+    cells = {"row_count": grid, "column_count": grid, "row_spacing": 0.0001, "column_spacing": 0.0001}
+    for level in range(levels):
+        outer = drawing.block(f"L{level}")
+        drawing.insert(inner, owner=outer, values=cells, kind="MINSERT")
+        inner = outer
+    drawing.insert(inner)
+    return drawing
+
+
+def test_a_tiny_crafted_file_cannot_take_memory_in_proportion_to_its_cells() -> None:
+    """Review item 1: every chain walked kept its transform for the whole walk (5.8 GB at 303 s)."""
+    import tracemalloc
+
+    artefact = _nested_minserts().artefact()
+    sheet = model_sheet(0, 0, 297, 210)
+    tracemalloc.start()
+    try:
+        built = build(artefact, sheet, limits=Limits(visits=150_000, seconds=1e9))
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+
+    assert built.truncated
+    assert peak < 40_000_000, f"{peak / 1e6:.0f} MB for 150,000 visits"
+
+
+@pytest.mark.parametrize("bulge", [1e-12, 1e-14, 1e-15, 1e-16, -1e-15])
+def test_a_tiny_bulge_is_a_straight_piece_not_a_crash(bulge: float) -> None:
+    """Review item 2: a bulge whose arc is flatter than the tolerance divided by zero in arc_steps."""
+    drawing = Drawing()
+    drawing.entity("LWPOLYLINE", {"points": [[10, 10, 0, 0, bulge], [200, 10, 0, 0, 0]], "flags": 0})
+    ring = [[20, 20, bulge], [60, 20, 0], [60, 60, 0], [20, 60, 0]]
+    path = {"type": "polyline", "flags": 1, "closed": True, "vertices": ring}
+    drawing.entity("HATCH", {"solid_fill": 1, "paths": [path]})
+    built = build(drawing.artefact(), model_sheet(0, 0, 297, 210))
+
+    np.testing.assert_allclose(_segments(built), [[10, 10, 200, 10]], atol=1e-6)
+    assert len(built.triangles) >= 2
+
+
+def test_a_huge_radius_does_not_lose_the_sheet() -> None:
+    drawing = Drawing()
+    drawing.entity("CIRCLE", {"center": [0.0, 0.0, 0.0], "radius": 1e300})
+    drawing.entity(
+        "ARC", {"center": [0.0, 0.0, 0.0], "radius": 1e300, "start_angle": 0.0, "end_angle": 90.0}
+    )
+    drawing.entity("ELLIPSE", {"center": [0.0, 0.0, 0.0], "major_axis": [1e300, 0.0, 0.0], "ratio": 0.5})
+    drawing.line((10, 10), (20, 10))
+    built = build(drawing.artefact(), model_sheet(0, 0, 297, 210))
+    assert any(np.allclose(s, [10, 10, 20, 10]) for s in _segments(built))
+    SheetBuffers.from_bytes(built.to_bytes())
+
+
+def test_an_unexpected_arithmetic_error_loses_one_entity_not_the_sheet(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from engine.render import _shapes
+
+    real = _shapes.shape
+
+    def shape(entity: object, tolerance: float) -> object:
+        if getattr(entity, "type", "") == "CIRCLE":
+            raise ZeroDivisionError("float division by zero")
+        return real(entity, tolerance)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(_shapes, "shape", shape)
+    drawing = Drawing()
+    drawing.entity("CIRCLE", {"center": [50.0, 50.0, 0.0], "radius": 5.0})
+    drawing.line((10, 10), (20, 10))
+    built = build(drawing.artefact(), model_sheet(0, 0, 297, 210))
+
+    assert built.stats["failed_CIRCLE"] == 1
+    np.testing.assert_allclose(_segments(built), [[10, 10, 20, 10]], atol=1e-6)
+
+
+def _timed_build(drawing: Drawing, seconds: float) -> tuple[SheetBuffers, float]:
+    import time
+
+    start = time.monotonic()
+    built = build(drawing.artefact(), model_sheet(0, 0, 297, 210), limits=Limits(seconds=seconds))
+    return built, time.monotonic() - start
+
+
+def test_one_long_dashed_polyline_costs_in_proportion_to_its_length() -> None:
+    """Review item 3: dashing scanned every vertex for every dash (28 s against a 5 s budget)."""
+    xs = np.linspace(0, 290, 200_000)
+    points = [[float(x), 100.0 + (i % 2) * 0.01, 0, 0, 0] for i, x in enumerate(xs)]
+    drawing = Drawing(insunits=4)
+    drawing.entity("LWPOLYLINE", {"points": points, "flags": 0, "linetype": "DASHED", "ltscale": 0.04})
+    built, took = _timed_build(drawing, seconds=2.0)
+
+    assert took < 2.0 + 4.0, f"{took:.1f} s"  # the budget, and one bounded entity's worth over it
+    assert len(built.lines) > 100
+
+
+def test_a_pattern_hatch_too_costly_is_refused_before_the_work() -> None:
+    """Review item 3: a 99k-edge GRAVEL hatch ran 96.8 s, and only then was refused."""
+    n = 99_000
+    ring = [
+        [math.cos(2 * math.pi * k / n) * 100 + 150, math.sin(2 * math.pi * k / n) * 100 + 105, 0]
+        for k in range(n)
+    ]
+    path = {"type": "polyline", "flags": 1, "closed": True, "vertices": ring}
+    drawing = Drawing(insunits=4)
+    values = {"solid_fill": 0, "pattern_name": "GRAVEL", "pattern_scale": 1.0, "paths": [path]}
+    drawing.entity("HATCH", values)
+    built, took = _timed_build(drawing, seconds=2.0)
+
+    assert took < 2.0 + 4.0, f"{took:.1f} s"
+    assert built.stats["hatch_too_complex"] == 1
+
+
+def test_viewports_share_one_visit_budget() -> None:
+    """Review item 3: each viewport's walk restarted its visit count at zero."""
+    drawing = Drawing(insunits=4)
+    for i in range(3000):
+        drawing.line((i * 0.1, 0), (i * 0.1, 1))
+    for number, cx in ((2, 100.0), (3, 300.0)):
+        viewport = {"center": [cx, 100.0, 0.0], "width": 150.0, "height": 150.0, "id": number,
+                    "view_center_point": [150.0, 0.5, 0.0], "view_height": 400.0}  # fmt: skip
+        drawing.entity("VIEWPORT", viewport, owner=PAPER)
+    frame = [[0, 0, 0, 0, 0], [420, 0, 0, 0, 0], [420, 297, 0, 0, 0], [0, 297, 0, 0, 0]]
+    drawing.entity("LWPOLYLINE", {"points": frame, "flags": 1}, owner=PAPER)
+    sheet = SheetCandidate(SheetLocation(layout="Layout1"))
+
+    built = build(drawing.artefact(), sheet, limits=Limits(visits=2000))
+
+    # 2,000 visits across both viewports and the layout: about 2,000 lines, not 2,000 a viewport.
+    assert len(built.lines) < 2100
+    assert built.truncated
+
+
+@pytest.mark.parametrize(
+    ("width", "height", "per_unit", "message"),
+    [(-1.0, 3e8, 1.0, "paper"), (0.0, 100.0, 1.0, "paper"), (1e6, 100.0, 1.0, "paper"),
+     (297.0, 210.0, 0.0, "paper"), (297.0, 210.0, -2.0, "paper")],
+)  # fmt: skip
+def test_a_paper_no_sheet_could_have_is_refused(
+    width: float, height: float, per_unit: float, message: str
+) -> None:
+    """Review item 4: a negative side passed the signed-product check and took 1.2 GB in rasterise."""
+    data = bytearray(_tiny().to_bytes())
+    struct.pack_into("<ffd", data, 16, width, height, per_unit)
+    with pytest.raises(BufferError, match=message):
+        SheetBuffers.from_bytes(bytes(data))
+
+
+def test_a_line_across_the_whole_float_range_is_cut_to_the_sheet() -> None:
+    """Review item 5: dx overflowed to inf, the cut point became NaN, and the decoder refused the
+    engine's own buffer."""
+    drawing = Drawing()
+    drawing.line((-1e308, 5), (1e308, 5))
+    built = build(drawing.artefact(), model_sheet(0, 0, 297, 210))
+    back = SheetBuffers.from_bytes(built.to_bytes())
+    np.testing.assert_allclose(_segments(back), [[0, 5, 297, 5]], atol=1e-3)
+
+
+def _layout_a1(scale: float, insunits: int) -> SheetBuffers:
+    """An A1 frame (841 x 594 mm) drawn in a layout in mm (scale 1) or in inches (1 / 25.4)."""
+    drawing = Drawing(insunits=insunits)
+    w, h = 841 * scale, 594 * scale
+    frame = [[0, 0, 0, 0, 0], [w, 0, 0, 0, 0], [w, h, 0, 0, 0], [0, h, 0, 0, 0]]
+    drawing.entity("LWPOLYLINE", {"points": frame, "flags": 1}, owner=PAPER)
+    return build(drawing.artefact(), SheetCandidate(SheetLocation(layout="Layout1")))
+
+
+@pytest.mark.parametrize("insunits", [0, 1, 4, 5, 6])
+@pytest.mark.parametrize("scale", [1.0, 1 / 25.4])
+def test_a_layouts_paper_is_the_standard_sheet_its_extents_are_whatever_insunits_says(
+    scale: float, insunits: int
+) -> None:
+    """Review item 6: INSUNITS does not govern paper space; at 1 an A1 in mm became 21,361 mm wide."""
+    built = _layout_a1(scale, insunits)
+    assert built.paper.source == PaperSource.STANDARD
+    assert (built.paper.width_mm, built.paper.height_mm) == pytest.approx((841.0, 594.0))
+
+
+def test_a_layout_matching_no_sheet_is_assumed_and_says_so() -> None:
+    drawing = Drawing(insunits=1)
+    frame = [[0, 0, 0, 0, 0], [500, 0, 0, 0, 0], [500, 123, 0, 0, 0], [0, 123, 0, 0, 0]]
+    drawing.entity("LWPOLYLINE", {"points": frame, "flags": 1}, owner=PAPER)
+    built = build(drawing.artefact(), SheetCandidate(SheetLocation(layout="Layout1")))
+    assert built.paper.source == PaperSource.ASSUMED
+    assert built.paper.width_mm == pytest.approx(841.0)

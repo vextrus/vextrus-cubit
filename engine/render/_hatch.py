@@ -33,6 +33,8 @@ MAX_EDGES = 100_000
 MAX_WORK = 20_000_000
 MAX_PATTERN_LINES = 5_000
 MAX_PATTERN_SEGMENTS = 500_000
+MAX_PATTERN_WORK = 20_000_000
+"""Pattern lines x boundary edges, counted before any line is cut, so a refusal costs nothing."""
 
 type Points = NDArray[np.float64]
 
@@ -204,7 +206,20 @@ def pattern(
     out: list[NDArray[np.float64]] = []
     total = 0
     turn = math.radians(angle_degrees)
+    families = []
+    work = 0
     for line_angle, base, offset, dashes in definition:
+        theta = math.radians(line_angle) + turn
+        n = np.array([-math.sin(theta), math.cos(theta)])
+        rot = np.array([[math.cos(turn), -math.sin(turn)], [math.sin(turn), math.cos(turn)]])
+        spacing = float((rot @ (np.array(offset, dtype=float) * scale)) @ n)
+        if abs(spacing) >= 1e-12:
+            reach = corners @ n
+            work += (int((reach.max() - reach.min()) / abs(spacing)) + 2) * len(a)
+        families.append((line_angle, base, offset, dashes))
+    if work > MAX_PATTERN_WORK:
+        raise TooComplex("pattern work")
+    for line_angle, base, offset, dashes in families:
         theta = math.radians(line_angle) + turn
         d = np.array([math.cos(theta), math.sin(theta)])
         n = np.array([-d[1], d[0]])

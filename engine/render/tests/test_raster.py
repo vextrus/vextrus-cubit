@@ -155,3 +155,16 @@ def test_glyphs_naming_what_the_atlas_lacks_are_left_out() -> None:
     built = _sheet(drawing)
     built.atlas_glyphs["u0"][0] = 65535
     assert rasterise(built, 2.0).pixels.min() == 255
+
+
+def test_a_paper_with_a_side_of_no_length_is_refused_before_any_memory() -> None:
+    """Review item 4: size() checked the signed product, then clamped each side to at least 1."""
+    from dataclasses import replace
+
+    built = _sheet(Drawing())
+    built.paper = replace(built.paper, width_mm=-1.0, height_mm=3e8)
+    with pytest.raises(RasterError):
+        rasterise(built, 4.0)
+    built.paper = replace(built.paper, width_mm=1e-9, height_mm=3e8)
+    with pytest.raises(RasterError, match="past its"):
+        rasterise(built, 4.0)
