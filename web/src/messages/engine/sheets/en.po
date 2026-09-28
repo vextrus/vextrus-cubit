@@ -1,0 +1,229 @@
+msgid ""
+msgstr ""
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: en\n"
+
+#. engine/messages/sheets.py (ticket 13): the kinds of sheet, the options of "What kind of sheet is A-05?".
+msgid "engine.sheets.kind_ac_pipe_layout"
+msgstr "AC pipe layout"
+
+msgid "engine.sheets.kind_beam_details"
+msgstr "Beam details and long sections"
+
+msgid "engine.sheets.kind_beam_layout"
+msgstr "Beam layout"
+
+msgid "engine.sheets.kind_boundary_wall_gate_details"
+msgstr "Boundary wall and gate details"
+
+msgid "engine.sheets.kind_ceiling_layout"
+msgstr "False ceiling layout"
+
+msgid "engine.sheets.kind_column_layout"
+msgstr "Column layout"
+
+msgid "engine.sheets.kind_column_schedule"
+msgstr "Column schedule"
+
+msgid "engine.sheets.kind_cover_index"
+msgstr "Cover or index"
+
+msgid "engine.sheets.kind_details"
+msgstr "Typical and other details"
+
+msgid "engine.sheets.kind_distribution_board_details"
+msgstr "Distribution board details"
+
+msgid "engine.sheets.kind_door_window_details"
+msgstr "Door and window details"
+
+msgid "engine.sheets.kind_door_window_layout"
+msgstr "Door and window layout"
+
+msgid "engine.sheets.kind_door_window_schedule"
+msgstr "Door and window schedule"
+
+msgid "engine.sheets.kind_earthing_details"
+msgstr "Earthing details"
+
+msgid "engine.sheets.kind_elevation"
+msgstr "Elevation"
+
+msgid "engine.sheets.kind_elv_layout"
+msgstr "Extra-low-voltage layout (telephone, data, TV, CCTV, intercom)"
+
+msgid "engine.sheets.kind_equipment_schedule"
+msgstr "Equipment schedule"
+
+msgid "engine.sheets.kind_extinguisher_signage_layout"
+msgstr "Fire extinguisher and exit sign layout"
+
+msgid "engine.sheets.kind_finish_schedule"
+msgstr "Wall and facade finish schedule"
+
+msgid "engine.sheets.kind_fire_alarm_layout"
+msgstr "Fire alarm layout"
+
+msgid "engine.sheets.kind_fire_hydrant_layout"
+msgstr "Fire hydrant layout"
+
+msgid "engine.sheets.kind_fire_pump_details"
+msgstr "Fire pump details"
+
+msgid "engine.sheets.kind_floor_finish_layout"
+msgstr "Floor finish layout"
+
+msgid "engine.sheets.kind_foundation_details"
+msgstr "Foundation details"
+
+msgid "engine.sheets.kind_foundation_layout"
+msgstr "Foundation layout (mat, raft or footing)"
+
+msgid "engine.sheets.kind_gas_line_layout"
+msgstr "Gas line layout"
+
+msgid "engine.sheets.kind_general_notes"
+msgstr "General notes"
+
+msgid "engine.sheets.kind_grid_layout"
+msgstr "Grid layout"
+
+msgid "engine.sheets.kind_hvac_layout"
+msgstr "HVAC duct layout"
+
+msgid "engine.sheets.kind_kitchen_details"
+msgstr "Kitchen details"
+
+msgid "engine.sheets.kind_legend"
+msgstr "Legend"
+
+msgid "engine.sheets.kind_lift_layout"
+msgstr "Lift shaft plan"
+
+msgid "engine.sheets.kind_lift_pit_details"
+msgstr "Lift pit details"
+
+msgid "engine.sheets.kind_lift_section"
+msgstr "Lift section"
+
+msgid "engine.sheets.kind_lighting_layout"
+msgstr "Light fixture layout"
+
+msgid "engine.sheets.kind_lightning_protection"
+msgstr "Lightning protection"
+
+msgid "engine.sheets.kind_lintel_layout"
+msgstr "Lintel, sunshade and false slab layout"
+
+msgid "engine.sheets.kind_machine_room_details"
+msgstr "Lift machine room details"
+
+msgid "engine.sheets.kind_other"
+msgstr "Other"
+
+msgid "engine.sheets.kind_perspective"
+msgstr "Perspective or 3D view"
+
+msgid "engine.sheets.kind_pile_cap_details"
+msgstr "Pile cap details"
+
+msgid "engine.sheets.kind_pile_cap_layout"
+msgstr "Pile cap layout"
+
+msgid "engine.sheets.kind_pile_details"
+msgstr "Pile details"
+
+msgid "engine.sheets.kind_pile_layout"
+msgstr "Pile layout"
+
+msgid "engine.sheets.kind_pit_chamber_details"
+msgstr "Inspection pit and chamber details"
+
+msgid "engine.sheets.kind_plumbing_layout"
+msgstr "Plumbing layout"
+
+msgid "engine.sheets.kind_point_wiring_layout"
+msgstr "Point wiring layout"
+
+msgid "engine.sheets.kind_power_wiring_layout"
+msgstr "Power wiring layout"
+
+msgid "engine.sheets.kind_presentation_plan"
+msgstr "Presentation plan"
+
+msgid "engine.sheets.kind_pump_details"
+msgstr "Pump and water lifting details"
+
+msgid "engine.sheets.kind_rainwater_details"
+msgstr "Rainwater details"
+
+msgid "engine.sheets.kind_retaining_wall_details"
+msgstr "Retaining wall details"
+
+msgid "engine.sheets.kind_riser_diagram"
+msgstr "Riser diagram"
+
+msgid "engine.sheets.kind_roof_details"
+msgstr "Roof details"
+
+msgid "engine.sheets.kind_roof_plan"
+msgstr "Roof plan"
+
+msgid "engine.sheets.kind_roof_structure_details"
+msgstr "Roof structure details (stair room, lift machine room, tank supports)"
+
+msgid "engine.sheets.kind_sanitary_fixture_details"
+msgstr "Sanitary fixture details"
+
+msgid "engine.sheets.kind_section"
+msgstr "Section"
+
+msgid "engine.sheets.kind_septic_tank_details"
+msgstr "Septic tank and soak well details"
+
+msgid "engine.sheets.kind_shear_wall_details"
+msgstr "Shear wall schedule and details"
+
+msgid "engine.sheets.kind_single_line_diagram"
+msgstr "Single-line diagram"
+
+msgid "engine.sheets.kind_site_drainage_layout"
+msgstr "Site drainage layout"
+
+msgid "engine.sheets.kind_site_plan"
+msgstr "Site plan"
+
+msgid "engine.sheets.kind_slab_layout"
+msgstr "Slab layout and reinforcement"
+
+msgid "engine.sheets.kind_slab_outline_layout"
+msgstr "Slab outline and beam layout"
+
+msgid "engine.sheets.kind_solar_layout"
+msgstr "Solar panel layout"
+
+msgid "engine.sheets.kind_sprinkler_layout"
+msgstr "Sprinkler layout"
+
+msgid "engine.sheets.kind_stair_details"
+msgstr "Stair and ramp details"
+
+msgid "engine.sheets.kind_substation_generator_layout"
+msgstr "Substation and generator room layout"
+
+msgid "engine.sheets.kind_tank_details"
+msgstr "Water reservoir, tank and pit details"
+
+msgid "engine.sheets.kind_toilet_details"
+msgstr "Toilet details"
+
+msgid "engine.sheets.kind_ventilation_layout"
+msgstr "Ventilation layout"
+
+msgid "engine.sheets.kind_water_tank_details"
+msgstr "Water tank details"
+
+msgid "engine.sheets.kind_working_plan"
+msgstr "Working plan"

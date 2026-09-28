@@ -1,0 +1,94 @@
+"""The sheet finder's codes (ticket 13): the kinds of sheet, worded for a QS.
+
+`sheets.find` returns candidates only, and says nothing to a QS itself; `sheets.judgement` offers the
+kinds of the sheet's Discipline as its options (the owner's ruling of 29 Sep 2026, "Per-Discipline
+kinds"), by key. Each kind the default conventions hold (`engine/recognise/conventions/
+sheet-default.json`) has its code here, `engine.sheets.kind_<key>`, worded in
+web/src/messages/engine/sheets/en.po: the options of 21c's "What kind of sheet is A-05?"
+(m0-screens §5) and the kind 14 stores as read and as confirmed. A kind a Drafting Profile adds in M1
+gains its code with it. `KINDS` finds a kind's code by its key.
+"""
+
+from engine.messages import MessageCode
+
+KIND_SITE_PLAN = MessageCode("engine.sheets.kind_site_plan")
+KIND_GRID_LAYOUT = MessageCode("engine.sheets.kind_grid_layout")
+KIND_PILE_LAYOUT = MessageCode("engine.sheets.kind_pile_layout")
+KIND_PILE_DETAILS = MessageCode("engine.sheets.kind_pile_details")
+KIND_PILE_CAP_LAYOUT = MessageCode("engine.sheets.kind_pile_cap_layout")
+KIND_PILE_CAP_DETAILS = MessageCode("engine.sheets.kind_pile_cap_details")
+KIND_FOUNDATION_LAYOUT = MessageCode("engine.sheets.kind_foundation_layout")
+KIND_FOUNDATION_DETAILS = MessageCode("engine.sheets.kind_foundation_details")
+KIND_COLUMN_LAYOUT = MessageCode("engine.sheets.kind_column_layout")
+KIND_COLUMN_SCHEDULE = MessageCode("engine.sheets.kind_column_schedule")
+KIND_SHEAR_WALL_DETAILS = MessageCode("engine.sheets.kind_shear_wall_details")
+KIND_BEAM_LAYOUT = MessageCode("engine.sheets.kind_beam_layout")
+KIND_BEAM_DETAILS = MessageCode("engine.sheets.kind_beam_details")
+KIND_SLAB_LAYOUT = MessageCode("engine.sheets.kind_slab_layout")
+KIND_STAIR_DETAILS = MessageCode("engine.sheets.kind_stair_details")
+KIND_RETAINING_WALL_DETAILS = MessageCode("engine.sheets.kind_retaining_wall_details")
+KIND_TANK_DETAILS = MessageCode("engine.sheets.kind_tank_details")
+KIND_ROOF_STRUCTURE_DETAILS = MessageCode("engine.sheets.kind_roof_structure_details")
+KIND_DETAILS = MessageCode("engine.sheets.kind_details")
+KIND_WORKING_PLAN = MessageCode("engine.sheets.kind_working_plan")
+KIND_PRESENTATION_PLAN = MessageCode("engine.sheets.kind_presentation_plan")
+KIND_ROOF_PLAN = MessageCode("engine.sheets.kind_roof_plan")
+KIND_ELEVATION = MessageCode("engine.sheets.kind_elevation")
+KIND_SECTION = MessageCode("engine.sheets.kind_section")
+KIND_DOOR_WINDOW_LAYOUT = MessageCode("engine.sheets.kind_door_window_layout")
+KIND_DOOR_WINDOW_SCHEDULE = MessageCode("engine.sheets.kind_door_window_schedule")
+KIND_DOOR_WINDOW_DETAILS = MessageCode("engine.sheets.kind_door_window_details")
+KIND_FLOOR_FINISH_LAYOUT = MessageCode("engine.sheets.kind_floor_finish_layout")
+KIND_FINISH_SCHEDULE = MessageCode("engine.sheets.kind_finish_schedule")
+KIND_CEILING_LAYOUT = MessageCode("engine.sheets.kind_ceiling_layout")
+KIND_LINTEL_LAYOUT = MessageCode("engine.sheets.kind_lintel_layout")
+KIND_SLAB_OUTLINE_LAYOUT = MessageCode("engine.sheets.kind_slab_outline_layout")
+KIND_TOILET_DETAILS = MessageCode("engine.sheets.kind_toilet_details")
+KIND_KITCHEN_DETAILS = MessageCode("engine.sheets.kind_kitchen_details")
+KIND_ROOF_DETAILS = MessageCode("engine.sheets.kind_roof_details")
+KIND_BOUNDARY_WALL_GATE_DETAILS = MessageCode("engine.sheets.kind_boundary_wall_gate_details")
+KIND_PERSPECTIVE = MessageCode("engine.sheets.kind_perspective")
+KIND_LEGEND = MessageCode("engine.sheets.kind_legend")
+KIND_LIGHTING_LAYOUT = MessageCode("engine.sheets.kind_lighting_layout")
+KIND_POINT_WIRING_LAYOUT = MessageCode("engine.sheets.kind_point_wiring_layout")
+KIND_POWER_WIRING_LAYOUT = MessageCode("engine.sheets.kind_power_wiring_layout")
+KIND_ELV_LAYOUT = MessageCode("engine.sheets.kind_elv_layout")
+KIND_AC_PIPE_LAYOUT = MessageCode("engine.sheets.kind_ac_pipe_layout")
+KIND_SOLAR_LAYOUT = MessageCode("engine.sheets.kind_solar_layout")
+KIND_SINGLE_LINE_DIAGRAM = MessageCode("engine.sheets.kind_single_line_diagram")
+KIND_RISER_DIAGRAM = MessageCode("engine.sheets.kind_riser_diagram")
+KIND_DISTRIBUTION_BOARD_DETAILS = MessageCode("engine.sheets.kind_distribution_board_details")
+KIND_SUBSTATION_GENERATOR_LAYOUT = MessageCode("engine.sheets.kind_substation_generator_layout")
+KIND_EARTHING_DETAILS = MessageCode("engine.sheets.kind_earthing_details")
+KIND_LIGHTNING_PROTECTION = MessageCode("engine.sheets.kind_lightning_protection")
+KIND_PLUMBING_LAYOUT = MessageCode("engine.sheets.kind_plumbing_layout")
+KIND_SITE_DRAINAGE_LAYOUT = MessageCode("engine.sheets.kind_site_drainage_layout")
+KIND_SANITARY_FIXTURE_DETAILS = MessageCode("engine.sheets.kind_sanitary_fixture_details")
+KIND_PIT_CHAMBER_DETAILS = MessageCode("engine.sheets.kind_pit_chamber_details")
+KIND_SEPTIC_TANK_DETAILS = MessageCode("engine.sheets.kind_septic_tank_details")
+KIND_WATER_TANK_DETAILS = MessageCode("engine.sheets.kind_water_tank_details")
+KIND_PUMP_DETAILS = MessageCode("engine.sheets.kind_pump_details")
+KIND_RAINWATER_DETAILS = MessageCode("engine.sheets.kind_rainwater_details")
+KIND_FIRE_ALARM_LAYOUT = MessageCode("engine.sheets.kind_fire_alarm_layout")
+KIND_SPRINKLER_LAYOUT = MessageCode("engine.sheets.kind_sprinkler_layout")
+KIND_FIRE_HYDRANT_LAYOUT = MessageCode("engine.sheets.kind_fire_hydrant_layout")
+KIND_EXTINGUISHER_SIGNAGE_LAYOUT = MessageCode("engine.sheets.kind_extinguisher_signage_layout")
+KIND_FIRE_PUMP_DETAILS = MessageCode("engine.sheets.kind_fire_pump_details")
+KIND_HVAC_LAYOUT = MessageCode("engine.sheets.kind_hvac_layout")
+KIND_VENTILATION_LAYOUT = MessageCode("engine.sheets.kind_ventilation_layout")
+KIND_EQUIPMENT_SCHEDULE = MessageCode("engine.sheets.kind_equipment_schedule")
+KIND_LIFT_LAYOUT = MessageCode("engine.sheets.kind_lift_layout")
+KIND_LIFT_SECTION = MessageCode("engine.sheets.kind_lift_section")
+KIND_LIFT_PIT_DETAILS = MessageCode("engine.sheets.kind_lift_pit_details")
+KIND_MACHINE_ROOM_DETAILS = MessageCode("engine.sheets.kind_machine_room_details")
+KIND_GAS_LINE_LAYOUT = MessageCode("engine.sheets.kind_gas_line_layout")
+KIND_COVER_INDEX = MessageCode("engine.sheets.kind_cover_index")
+KIND_GENERAL_NOTES = MessageCode("engine.sheets.kind_general_notes")
+KIND_OTHER = MessageCode("engine.sheets.kind_other")
+
+KINDS: dict[str, MessageCode] = {
+    code.code.removeprefix("engine.sheets.kind_"): code
+    for name, code in dict(globals()).items()
+    if name.startswith("KIND_") and isinstance(code, MessageCode)
+}
+"""Each kind's code, by the kind's key."""
