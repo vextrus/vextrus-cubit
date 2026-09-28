@@ -130,3 +130,15 @@ def test_the_model_space_block_is_a_block_too() -> None:
     assert isinstance(entity, Text)
     assert entity.owner == MODEL
     assert mtext.height(entity, (), artefact) == 7.0
+
+
+def test_an_mtext_in_a_tilted_plane_keeps_its_axes_in_that_plane() -> None:
+    """The placement refuter's case: extrusion (0.6, 0, 0.8), direction (0, 1, 0); up is
+    extrusion x direction = (-0.8, 0, 0.6), which the sheet sees as (-0.8, 0)."""
+    drawing = Drawing()
+    handle = drawing.text("T", kind="MTEXT", direction=(0.0, 1.0, 0.0), extrusion=(0.6, 0.0, 0.8))
+    placed = mtext.frame(_text(drawing, handle), (), 1.0)
+    assert placed.x_axis == pytest.approx((0.0, 1.0))
+    assert placed.y_axis == pytest.approx((-0.8, 0.0))
+    handle = drawing.text("T", kind="MTEXT", direction=(0.8, 0.0, -0.6), extrusion=(0.6, 0.0, 0.8))
+    assert mtext.frame(_text(drawing, handle), (), 1.0).x_axis == pytest.approx((0.8, 0.0))

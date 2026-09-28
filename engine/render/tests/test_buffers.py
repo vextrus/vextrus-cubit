@@ -474,3 +474,72 @@ def test_overlong_mtext_codes_and_huge_text_are_bounded() -> None:
 def test_the_sheets_layout_must_exist() -> None:
     with pytest.raises(ValueError, match="not in the drawing"):
         build(Drawing().artefact(), SheetCandidate(SheetLocation(layout="Nope")))
+
+
+# The format refuter's attacks (28 Sep 2026), each now refused with BufferError and nothing else.
+
+
+def _replace_section(data: bytes, fourcc: bytes, payload: bytes, count: int | None = None) -> bytes:
+    """The buffer with one section's bytes replaced (placed at the end, the table and total fixed)."""
+    entry = _section(data, fourcc)
+    _, _, _, records = SECTION.unpack_from(data, entry)
+    offset = (len(data) + 7) // 8 * 8
+    out = bytearray(data + b"\0" * (offset - len(data)) + payload)
+    struct.pack_into(
+        "<4sIII", out, entry, fourcc, offset, len(payload), records if count is None else count
+    )
+    struct.pack_into("<I", out, 12, len(out))
+    return bytes(out)
+
+
+@pytest.mark.parametrize(
+    ("fourcc", "payload", "count", "message"),
+    [
+        (b"STAT", b"[" * 100_000 + b"]" * 100_000, 1, "not JSON"),
+        (b"STAT", b"{" * 50_000, 1, "not JSON"),
+        (b"STAT", b'{"a": 1}', 999, "record count"),
+        (b"STAT", b"{}" + b" " * (2 << 20), 0, "megabyte"),
+        (b"ATLS", struct.pack("<II", 0, 0), 7, "record count is not 1"),
+        (b"ATLS", struct.pack("<II", 2**31, 2**31), 1, "size is not its pixels"),
+    ],
+)
+def test_a_hostile_section_is_refused(fourcc: bytes, payload: bytes, count: int, message: str) -> None:
+    data = _replace_section(_tiny().to_bytes(), fourcc, payload, count)
+    with pytest.raises(BufferError, match=message):
+        SheetBuffers.from_bytes(data)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"), [("u0", 65535), ("v0", 65535), ("u1", 0), ("x1", -10.0), ("y0", float("nan"))]
+)
+def test_an_atlas_glyph_outside_the_atlas_or_empty_is_refused(field: str, value: float) -> None:
+    built = _tiny()
+    built.atlas_glyphs[field][0] = value
+    with pytest.raises(BufferError, match=r"atlas glyph|not finite"):
+        SheetBuffers.from_bytes(built.to_bytes())
+
+
+@pytest.mark.parametrize(
+    ("table", "field", "value"),
+    [
+        ("lines", "x0", float("inf")),
+        ("lines", "weight", float("nan")),
+        ("lines", "weight", 50.0),
+        ("lines", "weight", -1.0),
+        ("triangles", "y2", float("-inf")),
+        ("glyphs", "xx", float("inf")),
+    ],
+)
+def test_a_value_off_its_range_is_refused(table: str, field: str, value: float) -> None:
+    built = _tiny()
+    getattr(built, table)[field][0] = value
+    with pytest.raises(BufferError, match=r"not finite|off its range"):
+        SheetBuffers.from_bytes(built.to_bytes())
+
+
+def test_a_paper_larger_than_any_sheet_is_refused() -> None:
+    drawing = Drawing()
+    drawing.line((0, 0), (1, 1), owner=PAPER)
+    drawing.line((1e300, 1e300), (1e300, 1e300), owner=PAPER)
+    with pytest.raises(ValueError, match="larger than any sheet"):
+        build(drawing.artefact(), SheetCandidate(SheetLocation(layout="Layout1")))

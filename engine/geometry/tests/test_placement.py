@@ -209,8 +209,9 @@ def test_a_walk_stops_at_its_visit_budget() -> None:
 
     found = list(walked.entities(MODEL))
 
-    assert len(found) == 1000
-    assert walked.refused[Refusal.VISIT_LIMIT] >= 1
+    assert walked.visits == 1000  # entities and the inserts' cells alike
+    assert len(found) < 1000
+    assert walked.refused[Refusal.VISIT_LIMIT] == 1
 
 
 def test_a_minsert_of_too_many_cells_is_drawn_once() -> None:
@@ -254,3 +255,45 @@ def test_attributes_come_after_their_insert_in_its_space() -> None:
     found = list(Walk(drawing.artefact()).entities(MODEL))
 
     assert [(e.handle, len(c)) for e, c in found] == [(top, 0), (attrib, 0)]
+
+
+def test_nested_minserts_of_empty_blocks_are_bounded_by_the_visit_budget() -> None:
+    """The placement refuter's attack: 100 x 100 cells of 100 x 100 cells of nothing (10^8 cells)."""
+    drawing = Drawing()
+    empty = drawing.block("C")
+    middle = drawing.block("B")
+    grid = {"row_count": 100, "column_count": 100, "row_spacing": 1.0, "column_spacing": 1.0}
+    drawing.insert(empty, owner=middle, values=grid, kind="MINSERT")
+    drawing.insert(middle, values=grid, kind="MINSERT")
+    walked = Walk(drawing.artefact(), max_visits=50_000)
+
+    list(walked.entities(MODEL))
+
+    assert walked.visits == 50_000
+    assert walked.refused[Refusal.VISIT_LIMIT] == 1
+
+
+def test_a_walk_stops_when_its_caller_says_so() -> None:
+    drawing = Drawing()
+    many = drawing.block("MANY")
+    drawing.line((0, 0), (1, 0), owner=many)
+    grid = {"row_count": 100, "column_count": 100, "row_spacing": 1.0, "column_spacing": 1.0}
+    drawing.insert(many, values=grid, kind="MINSERT")
+    walked = Walk(drawing.artefact(), stop=lambda: True)
+
+    list(walked.entities(MODEL))
+
+    assert walked.visits == 1024
+    assert walked.refused[Refusal.STOPPED] == 1
+
+
+def test_a_block_inserting_the_block_walked_from_is_a_loop() -> None:
+    drawing = Drawing()
+    drawing.line((0, 0), (1, 0))
+    drawing.insert(MODEL)
+    walked = Walk(drawing.artefact())
+
+    found = [(e.type, len(c)) for e, c in walked.entities(MODEL)]
+
+    assert found == [("LINE", 0), ("INSERT", 0)]
+    assert walked.refused[Refusal.LOOP] == 1

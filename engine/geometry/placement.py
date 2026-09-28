@@ -23,9 +23,11 @@ recognisers (13, 17) take positions through `world`, never computing a transform
   in the INSERT's space, where the file stores it).
 
 **A crafted file is refused or bounded, never followed:** an insert of a block already on its own
-chain (a loop), a chain deeper than `MAX_DEPTH`, a block the artefact does not hold, a MINSERT of
-more than `MAX_CELLS` cells, and a walk past its visit budget are each skipped and counted in the
-walk's `refused` (`Refusal`), never raised and never recursed into; `chain` raises `PlacementError`.
+chain or the block walked from (a loop), a chain deeper than `MAX_DEPTH`, a block the artefact does
+not hold, a MINSERT of more than `MAX_CELLS` cells, and a walk past its visit budget (entities and
+MINSERT cells alike, so nested MINSERTs of empty blocks are bounded too) or its caller's `stop` are
+each skipped and counted in the walk's `refused` (`Refusal`), never raised and never recursed into;
+`chain` raises `PlacementError`.
 
 Transforms are 3D affine (a 3x4 matrix), since an extrusion can tilt a plane; the sheet is its XY
 projection (`xy`). Floats throughout: geometry stays float (docs/data-model.md §2).
@@ -48,7 +50,8 @@ file's recursion)."""
 MAX_CELLS = 10_000
 """The most cells a MINSERT is drawn with."""
 MAX_VISITS = 10_000_000
-"""The most entities one walk visits before it stops."""
+"""The most entities and MINSERT cells one walk visits before it stops."""
+CHECK_EVERY = 1024
 
 WCS_TYPES = frozenset(
     {"LINE", "POINT", "3DFACE", "SPLINE", "ELLIPSE", "MTEXT", "LEADER", "MULTILEADER", "MLEADER",
@@ -72,6 +75,8 @@ class Refusal(StrEnum):
     BLOCK_MISSING = "block_missing"
     TOO_MANY_CELLS = "too_many_cells"
     VISIT_LIMIT = "visit_limit"
+    STOPPED = "stopped"
+    """The caller's `stop` said so (the renderer's time budget)."""
 
 
 @dataclass(frozen=True)
@@ -292,8 +297,27 @@ class Walk:
     enter: Callable[[Link, Chain], bool] | None = None
     """Asked before a block is walked into through an insert (the new link, and the chain it ends):
     false skips it (the renderer skips a block that falls outside its sheet)."""
+    stop: Callable[[], bool] | None = None
+    """Asked every `CHECK_EVERY` visits: true ends the walk (a caller's time budget)."""
     visits: int = 0
+    """Entities yielded and MINSERT cells entered: the work done, which `max_visits` bounds."""
     refused: Counter[Refusal] = field(default_factory=Counter)
+    ended: bool = False
+
+    def _visit(self) -> bool:
+        """Count one unit of work; false once the walk must end."""
+        if self.ended:
+            return False
+        if self.visits >= self.max_visits:
+            self.refused[Refusal.VISIT_LIMIT] += 1
+            self.ended = True
+            return False
+        self.visits += 1
+        if self.stop is not None and self.visits % CHECK_EVERY == 0 and self.stop():
+            self.refused[Refusal.STOPPED] += 1
+            self.ended = True
+            return False
+        return True
 
     def entities(self, block: str, chain: Chain = ()) -> Iterator[tuple[AnyEntity, Chain]]:
         """Every entity `block` draws, each with its chain: an insert, then (unless it is refused)
@@ -302,16 +326,14 @@ class Walk:
         if record is None:
             self.refused[Refusal.BLOCK_MISSING] += 1
             return
-        on_chain = {link.insert.block for link in chain}
+        on_chain = {link.insert.block for link in chain} | {block}
         entities = self.artefact.entities
         for handle in record.entities:
-            if self.visits >= self.max_visits:
-                self.refused[Refusal.VISIT_LIMIT] += 1
-                return
             entity = entities.get(handle)
             if entity is None or entity.type == "ATTRIB":
                 continue  # ATTRIBs come with their insert, placed in its space
-            self.visits += 1
+            if not self._visit():
+                return
             yield entity, chain
             if isinstance(entity, Insert):
                 yield from self._insert(entity, chain, on_chain)
@@ -337,6 +359,8 @@ class Walk:
             rows = columns = 1
         for row in range(rows):
             for column in range(columns):
+                if not self._visit():  # a cell is work even when its block draws nothing
+                    return
                 new = link(self.artefact, insert, row, column)
                 inner = (*chain, new)
                 if self.enter is None or self.enter(new, inner):

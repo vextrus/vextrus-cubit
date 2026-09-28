@@ -110,3 +110,48 @@ def test_the_harness_reads_its_counts() -> None:
     counts = _counts(to_json(rasterise(_sheet(drawing), 1.0)))
     assert counts is not None
     assert counts["ink_px"] > 0
+
+
+# The format refuter's attacks on the raster (28 Sep 2026): bounded, never followed.
+
+
+def _with_lines(ends: list[tuple[float, float, float, float]], weight: float) -> SheetBuffers:
+    built = _sheet(Drawing())
+    lines = np.zeros(len(ends), dtype=built.lines.dtype)
+    for name, column in zip(("x0", "y0", "x1", "y1"), np.array(ends).T, strict=True):
+        lines[name] = column
+    lines["weight"] = weight
+    built.lines = lines
+    return built
+
+
+def test_values_that_are_not_finite_are_left_out() -> None:
+    built = _with_lines([(float("inf"), 0, 1, 1), (float("nan"), 0, 1, 1), (10, 10, 100, 10)], 0.25)
+    built.lines["weight"][2] = float("nan")
+    tris = np.zeros(1, dtype=built.triangles.dtype)
+    tris["x0"] = float("inf")
+    built.triangles = tris
+    assert rasterise(built, 2.0).pixels.min() == 255
+
+
+def test_huge_thin_lines_are_cut_to_the_image_first() -> None:
+    built = _with_lines([(-1e30, 100 + i * 0.01, 1e30, 100 + i * 0.01) for i in range(2000)], 0.1)
+    image = rasterise(built, 4.0)
+    assert (image.pixels < 255).any()
+
+
+def test_a_sheet_drawn_over_itself_too_often_is_refused() -> None:
+    built = _with_lines([(0, 0, 297, 210)] * 20_000, 2.11)
+    with pytest.raises(RasterError, match="over itself"):
+        rasterise(built, 4.0)
+
+
+def test_glyphs_naming_what_the_atlas_lacks_are_left_out() -> None:
+    drawing = Drawing()
+    drawing.text("A", (10, 10, 0), font="arial.ttf")
+    built = _sheet(drawing)
+    built.glyphs["glyph"][0] = 99
+    assert rasterise(built, 2.0).pixels.min() == 255
+    built = _sheet(drawing)
+    built.atlas_glyphs["u0"][0] = 65535
+    assert rasterise(built, 2.0).pixels.min() == 255

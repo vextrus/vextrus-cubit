@@ -17,7 +17,10 @@ pixel (column, row)'s centre is at x = (column + 0.5) / px_per_mm, y = height - 
 in paper millimetres.
 
 **Bounded:** a density that is not a finite positive number, or an image of more than `MAX_PIXELS`
-pixels, is refused with `RasterError` before any memory is taken.
+pixels, is refused with `RasterError` before any memory is taken; a sheet that would draw over its
+image more than `WORK_PER_PIXEL` times is refused as it gets there; lines are cut to the image before
+they are drawn, and a value that is not finite is left out, so the time and memory taken stay in
+proportion to the image.
 """
 
 import io
@@ -28,7 +31,7 @@ import numpy as np
 from numpy.typing import NDArray
 from PIL import Image
 
-from engine.render.buffers import SheetBuffers
+from engine.render.buffers import SheetBuffers, clip_mask
 from engine.render.fonts.glyphs import SDF_PX_PER_UNIT, SDF_SPREAD
 
 MAX_PIXELS = 100_000_000
@@ -36,6 +39,11 @@ MAX_PIXELS = 100_000_000
 THICK_PX = 1.5
 MIN_ALPHA = 0.42
 ALPHA_GAIN = 1.1
+WORK_PER_PIXEL = 64
+"""How many times over its own pixels a raster may draw before it is refused."""
+SAMPLE_CHUNK = 250_000
+"""The thin-line samples drawn at once, bounding memory."""
+PIECE_PX = 32.0
 
 
 class RasterError(ValueError):
@@ -92,12 +100,26 @@ def rasterise(buffers: SheetBuffers, px_per_mm: float) -> Raster:
     """The sheet on Paper at `px_per_mm` (the module's docstring)."""
     width, height = size(buffers, px_per_mm)
     ink = np.zeros((height, width), dtype=np.float32)  # 0 paper, 1 black
+    work = _Work(WORK_PER_PIXEL * width * height + 1_000_000)
     top = buffers.paper.height_mm
-    _fills(ink, buffers, px_per_mm, top)
-    _lines(ink, buffers, px_per_mm, top)
-    _glyphs(ink, buffers, px_per_mm, top)
+    _fills(ink, buffers, px_per_mm, top, work)
+    _lines(ink, buffers, px_per_mm, top, work)
+    _glyphs(ink, buffers, px_per_mm, top, work)
     pixels = np.round(255.0 * (1.0 - np.clip(ink, 0.0, 1.0))).astype(np.uint8)
     return Raster(pixels, float(px_per_mm))
+
+
+class _Work:
+    """The pixels a raster may visit; past them it is refused (a sheet drawn over itself that often
+    is no drawing)."""
+
+    def __init__(self, budget: float) -> None:
+        self.left = budget
+
+    def spend(self, pixels: float) -> None:
+        self.left -= pixels
+        if self.left < 0:
+            raise RasterError("the sheet draws over itself too many times to rasterise")
 
 
 def _to_px(
@@ -119,48 +141,90 @@ def _mark(
     np.maximum.at(ink, (rows[ok], cols[ok]), values)
 
 
-def _lines(ink: NDArray[np.float32], buffers: SheetBuffers, s: float, top: float) -> None:
+def _lines(ink: NDArray[np.float32], buffers: SheetBuffers, s: float, top: float, work: _Work) -> None:
     lines = buffers.lines
     if not len(lines):
         return
     x0, y0 = _to_px(lines["x0"].astype(np.float64), lines["y0"].astype(np.float64), s, top)
     x1, y1 = _to_px(lines["x1"].astype(np.float64), lines["y1"].astype(np.float64), s, top)
     widths = lines["weight"].astype(np.float64) * s
-    thin = widths < THICK_PX
-    # Thin lines: 1 pixel wide, each pixel the line passes through at the ruling's alpha.
-    if thin.any():
-        a = np.clip(widths[thin] * ALPHA_GAIN, MIN_ALPHA, 1.0)
-        tx0, ty0, tx1, ty1 = x0[thin], y0[thin], x1[thin], y1[thin]
-        steps = np.ceil(np.maximum(np.abs(tx1 - tx0), np.abs(ty1 - ty0)) * 2).astype(np.int64) + 1
-        steps = np.minimum(steps, 4 * (ink.shape[0] + ink.shape[1]))
-        owner = np.repeat(np.arange(len(steps)), steps)
-        first = np.cumsum(steps) - steps
-        t = (np.arange(steps.sum()) - first[owner]) / np.maximum(steps[owner] - 1, 1)
-        px = tx0[owner] + t * (tx1 - tx0)[owner]
-        py = ty0[owner] + t * (ty1 - ty0)[owner]
-        _mark(ink, np.floor(py).astype(np.int64), np.floor(px).astype(np.int64), a[owner])
-    # Thick lines: capsules of their width, antialiased at the edge.
+    ends = np.column_stack([x0, y0, x1, y1])
+    finite = np.isfinite(ends).all(axis=1) & np.isfinite(widths) & (widths >= 0)
     h, w = ink.shape
-    for i in np.flatnonzero(~thin):
+    thin = finite & (widths < THICK_PX)
+    thick = finite & (widths >= THICK_PX)
+    # Thin lines: 1 pixel wide, each pixel the line passes through at the ruling's alpha; cut to the
+    # image first, and drawn in chunks, so memory stays bounded whatever the lines' lengths.
+    if thin.any():
+        keep, cut = clip_mask(ends[thin], (-1.0, -1.0, w + 1.0, h + 1.0))
+        cut, alpha = cut[keep], np.clip(widths[thin][keep] * ALPHA_GAIN, MIN_ALPHA, 1.0)
+        steps = np.ceil(np.maximum(np.abs(cut[:, 2] - cut[:, 0]), np.abs(cut[:, 3] - cut[:, 1])) * 2)
+        steps = steps.astype(np.int64) + 1
+        work.spend(float(steps.sum()))
+        start = 0
+        while start < len(steps):
+            stop = start + max(1, int(np.searchsorted(np.cumsum(steps[start:]), SAMPLE_CHUNK)))
+            _thin(ink, cut[start:stop], steps[start:stop], alpha[start:stop])
+            start = stop
+    # Thick lines: capsules of their width, antialiased at the edge, cut into pieces at most
+    # PIECE_PX long so each fills only its own neighbourhood.
+    for i in np.flatnonzero(thick):
         half = widths[i] / 2
-        c0 = max(0, math.floor(min(x0[i], x1[i]) - half - 1))
-        c1 = min(w, math.ceil(max(x0[i], x1[i]) + half + 1))
-        r0 = max(0, math.floor(min(y0[i], y1[i]) - half - 1))
-        r1 = min(h, math.ceil(max(y0[i], y1[i]) + half + 1))
-        if c0 >= c1 or r0 >= r1:
+        keep, cut = clip_mask(ends[i : i + 1], (-half - 1, -half - 1, w + half + 1, h + half + 1))
+        if not keep[0]:
             continue
-        cx = np.arange(c0, c1) + 0.5
-        cy = np.arange(r0, r1)[:, None] + 0.5
-        dx, dy = x1[i] - x0[i], y1[i] - y0[i]
-        length2 = dx * dx + dy * dy
-        t = np.clip(((cx - x0[i]) * dx + (cy - y0[i]) * dy) / length2, 0.0, 1.0) if length2 > 0 else 0.0
-        distance = np.hypot(cx - (x0[i] + t * dx), cy - (y0[i] + t * dy))
-        coverage = np.clip(half + 0.5 - distance, 0.0, 1.0).astype(np.float32)
-        region = ink[r0:r1, c0:c1]
-        np.maximum(region, coverage, out=region)
+        ax, ay, bx, by = cut[0]
+        pieces = max(1, math.ceil(math.hypot(bx - ax, by - ay) / PIECE_PX))
+        for k in range(pieces):
+            t0, t1 = k / pieces, (k + 1) / pieces
+            _capsule(
+                ink,
+                ax + (bx - ax) * t0,
+                ay + (by - ay) * t0,
+                ax + (bx - ax) * t1,
+                ay + (by - ay) * t1,
+                half,
+                work,
+            )
 
 
-def _fills(ink: NDArray[np.float32], buffers: SheetBuffers, s: float, top: float) -> None:
+def _thin(
+    ink: NDArray[np.float32],
+    ends: NDArray[np.float64],
+    steps: NDArray[np.int64],
+    alpha: NDArray[np.float64],
+) -> None:
+    owner = np.repeat(np.arange(len(steps)), steps)
+    first = np.cumsum(steps) - steps
+    t = (np.arange(int(steps.sum())) - first[owner]) / np.maximum(steps[owner] - 1, 1)
+    px = ends[owner, 0] + t * (ends[owner, 2] - ends[owner, 0])
+    py = ends[owner, 1] + t * (ends[owner, 3] - ends[owner, 1])
+    _mark(ink, np.floor(py).astype(np.int64), np.floor(px).astype(np.int64), alpha[owner])
+
+
+def _capsule(
+    ink: NDArray[np.float32], x0: float, y0: float, x1: float, y1: float, half: float, work: _Work
+) -> None:
+    h, w = ink.shape
+    c0 = max(0, math.floor(min(x0, x1) - half - 1))
+    c1 = min(w, math.ceil(max(x0, x1) + half + 1))
+    r0 = max(0, math.floor(min(y0, y1) - half - 1))
+    r1 = min(h, math.ceil(max(y0, y1) + half + 1))
+    if c0 >= c1 or r0 >= r1:
+        return
+    work.spend((c1 - c0) * (r1 - r0))
+    cx = np.arange(c0, c1) + 0.5
+    cy = np.arange(r0, r1)[:, None] + 0.5
+    dx, dy = x1 - x0, y1 - y0
+    length2 = dx * dx + dy * dy
+    t = np.clip(((cx - x0) * dx + (cy - y0) * dy) / length2, 0.0, 1.0) if length2 > 0 else 0.0
+    distance = np.hypot(cx - (x0 + t * dx), cy - (y0 + t * dy))
+    coverage = np.clip(half + 0.5 - distance, 0.0, 1.0).astype(np.float32)
+    region = ink[r0:r1, c0:c1]
+    np.maximum(region, coverage, out=region)
+
+
+def _fills(ink: NDArray[np.float32], buffers: SheetBuffers, s: float, top: float, work: _Work) -> None:
     triangles = buffers.triangles
     h, w = ink.shape
     for t in triangles:
@@ -170,10 +234,13 @@ def _fills(ink: NDArray[np.float32], buffers: SheetBuffers, s: float, top: float
             s,
             top,
         )
-        c0, c1 = max(0, math.floor(xs.min())), min(w, math.ceil(xs.max()) + 1)
-        r0, r1 = max(0, math.floor(ys.min())), min(h, math.ceil(ys.max()) + 1)
+        if not (np.isfinite(xs).all() and np.isfinite(ys).all()):
+            continue
+        c0, c1 = max(0, math.floor(max(xs.min(), -1.0))), min(w, math.ceil(min(xs.max(), w + 1.0)) + 1)
+        r0, r1 = max(0, math.floor(max(ys.min(), -1.0))), min(h, math.ceil(min(ys.max(), h + 1.0)) + 1)
         if c0 >= c1 or r0 >= r1:
             continue
+        work.spend((c1 - c0) * (r1 - r0))
         px = np.arange(c0, c1) + 0.5
         py = np.arange(r0, r1)[:, None] + 0.5
         edges = []
@@ -187,31 +254,47 @@ def _fills(ink: NDArray[np.float32], buffers: SheetBuffers, s: float, top: float
         region[inside] = 1.0
 
 
-def _glyphs(ink: NDArray[np.float32], buffers: SheetBuffers, s: float, top: float) -> None:
+def _glyphs(ink: NDArray[np.float32], buffers: SheetBuffers, s: float, top: float, work: _Work) -> None:
     atlas = buffers.atlas.astype(np.float32)
     table = buffers.atlas_glyphs
     h, w = ink.shape
     for g in buffers.glyphs:
-        entry = table[int(g["glyph"])]
+        index = int(g["glyph"])
+        if index >= len(table):
+            continue
+        entry = table[index]
         gx0, gy0, gx1, gy1 = (float(entry[k]) for k in ("x0", "y0", "x1", "y1"))
+        u0, v0, u1, v1 = int(entry["u0"]), int(entry["v0"]), int(entry["u1"]), int(entry["v1"])
+        if not (
+            0 <= u0 < u1 <= atlas.shape[1] and 0 <= v0 < v1 <= atlas.shape[0] and gx0 < gx1 and gy0 < gy1
+        ):
+            continue
         ox, oy = float(g["ox"]), float(g["oy"])
         ax, ay, bx, by = float(g["xx"]), float(g["xy"]), float(g["yx"]), float(g["yy"])
         det = ax * by - ay * bx
-        if det == 0 or not math.isfinite(det):
+        if det == 0 or not all(math.isfinite(v) for v in (det, ox, oy, gx0, gy0, gx1, gy1)):
             continue
         corners_x = [ox + gx * ax + gy * bx for gx in (gx0, gx1) for gy in (gy0, gy1)]
         corners_y = [oy + gx * ay + gy * by for gx in (gx0, gx1) for gy in (gy0, gy1)]
         px_x, px_y = _to_px(np.array(corners_x), np.array(corners_y), s, top)
-        c0, c1 = max(0, math.floor(px_x.min())), min(w, math.ceil(px_x.max()) + 1)
-        r0, r1 = max(0, math.floor(px_y.min())), min(h, math.ceil(px_y.max()) + 1)
+        if not (np.isfinite(px_x).all() and np.isfinite(px_y).all()):
+            continue
+        c0, c1 = (
+            max(0, math.floor(max(px_x.min(), -1.0))),
+            min(w, math.ceil(min(px_x.max(), w + 1.0)) + 1),
+        )
+        r0, r1 = (
+            max(0, math.floor(max(px_y.min(), -1.0))),
+            min(h, math.ceil(min(px_y.max(), h + 1.0)) + 1),
+        )
         if c0 >= c1 or r0 >= r1:
             continue
+        work.spend((c1 - c0) * (r1 - r0))
         # Pixel centres back to paper mm, then to the glyph's text units (the inverse of its axes).
         mx = (np.arange(c0, c1) + 0.5) / s - ox
         my = top - (np.arange(r0, r1)[:, None] + 0.5) / s - oy
         gx = (mx * by - my * bx) / det
         gy = (my * ax - mx * ay) / det
-        u0, v0, u1, v1 = int(entry["u0"]), int(entry["v0"]), int(entry["u1"]), int(entry["v1"])
         fu = u0 + (gx - gx0) / (gx1 - gx0) * (u1 - u0) - 0.5
         fv = v0 + (gy1 - gy) / (gy1 - gy0) * (v1 - v0) - 0.5
         value = _bilinear(atlas, fu, fv, u0, v0, u1, v1)

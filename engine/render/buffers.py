@@ -56,17 +56,21 @@ The buffer format, version 1 (all little-endian)
             u32 primitive. A glyph point (gx, gy) in text units lands at origin + gx·x axis + gy·y axis
       AGLY  count x 24: u16 u0, v0, u1, v1 (the glyph's pixels in the atlas, v from the top row),
             f32 x0, y0, x1, y1 (the same rectangle in text units; y0 at its bottom edge)
-      ATLS  u32 width, u32 height, then width x height u8 (rows from the top): the signed distance
-            field, 127.5 at the edge, ≥ 128 inside, `engine.render.fonts.glyphs.SDF_SPREAD` pixels
-            of range each way
+      ATLS  record count 1: u32 width, u32 height, then width x height u8 (rows from the top): the
+            signed distance field, 24 atlas pixels to a text unit, 127.5 at the edge, 255 at 4 atlas
+            pixels or more inside and 0 at 4 or more outside, linear between (a value v is
+            (v - 127.5) / 127.5 x 4 atlas pixels from the edge, positive inside)
       FONT  count x 20: u32 asked, drawn with, how close, kind (string indices), u32 texts
-      STAT  UTF-8 JSON: the counts, names to integers
+      STAT  record count: its names; UTF-8 JSON, at most 1 MB: one object, names to integers
+    Every f32 and f64 is finite; a lineweight is from 0 to 2.11 mm; an atlas glyph's pixels
+    (u0 < u1, v0 < v1) lie inside the atlas and its text-unit rectangle has x0 < x1, y0 < y1.
     A colour is a u32: its top byte 0 BYLAYER, 1 an AutoCAD colour index (the low byte), 2 an RGB true
     colour (the low 24 bits), 3 BYBLOCK left unresolved.
 
 `from_bytes` refuses a buffer that breaks any rule above (a length larger or smaller than itself, a
 section outside it or overlapping the table, a record count that does not fill its section, an index
-past its table) with `BufferError`, never reading past the data. The committed fixture
+past its table, a value off its range) with `BufferError` and nothing else, never reading past the
+data. The committed fixture
 `engine/render/fixtures/tiny-sheet.bin` is decoded by the viewer's own test (16).
 
 **Budgets** (`Limits`): a sheet stops adding a kind of primitive at its budget, stops walking after
@@ -92,6 +96,7 @@ from numpy.typing import NDArray
 from engine.geometry.placement import (
     Chain,
     Link,
+    Refusal,
     Transform,
     Walk,
     chain_transform,
@@ -123,6 +128,10 @@ MAX_DASHES = 100_000
 """The most dashes one polyline is cut into; past it, it is drawn continuous."""
 ATLAS_WIDTH = 1024
 ASSUMED_LONG_SIDE_MM = 841.0
+MAX_PAPER_MM = 100_000.0
+"""A sheet's paper past 100 m on a side is refused: no drawing is plotted on it, and float32 keeps a
+tenth of a millimetre only up to about that."""
+_F32_LIMIT = 1e7
 STANDARD_MATCH = 0.005
 
 LINE = np.dtype([("x0", "<f4"), ("y0", "<f4"), ("x1", "<f4"), ("y1", "<f4"), ("weight", "<f4"),
@@ -234,6 +243,8 @@ class SheetBuffers:
 
     @classmethod
     def from_bytes(cls, data: bytes) -> SheetBuffers:
+        if not isinstance(data, bytes | bytearray | memoryview):
+            raise BufferError(f"a buffer is bytes, not {type(data).__name__}")
         return _decode(bytes(data))
 
     def to_json(self) -> dict[str, object]:
@@ -303,15 +314,11 @@ def _decode(data: bytes) -> SheetBuffers:
         arrays[fourcc] = np.frombuffer(raw, dtype=dtype).copy()
     strings = _read_strings(*found[b"STRS"])
     chains = _read_chains(*found[b"CHNS"], len(strings))
+    if found[b"ATLS"][1] != 1:
+        raise BufferError("the atlas section's record count is not 1")
     atlas = _read_atlas(found[b"ATLS"][0])
-    try:
-        stats = json.loads(found[b"STAT"][0].decode())
-    except (UnicodeDecodeError, ValueError) as error:
-        raise BufferError("its counts are not JSON") from error
-    if not isinstance(stats, dict) or not all(
-        isinstance(k, str) and isinstance(v, int) and not isinstance(v, bool) for k, v in stats.items()
-    ):
-        raise BufferError("its counts are not names to integers")
+    stats = _read_stats(*found[b"STAT"])
+    _check_values(arrays)
     prims, n_strings = arrays[b"PRIM"], len(strings)
     for name in ("source", "type", "layer", "top"):
         if len(prims) and int(prims[name].max()) >= n_strings:
@@ -324,10 +331,16 @@ def _decode(data: bytes) -> SheetBuffers:
     glyphs, atlas_glyphs = arrays[b"GLYF"], arrays[b"AGLY"]
     if len(glyphs) and int(glyphs["glyph"].max()) >= len(atlas_glyphs):
         raise BufferError("a glyph names an atlas glyph past the table")
-    if len(atlas_glyphs) and (
-        int(atlas_glyphs["u1"].max()) > atlas.shape[1] or int(atlas_glyphs["v1"].max()) > atlas.shape[0]
+    a = atlas_glyphs
+    if len(a) and not (
+        (a["u0"] < a["u1"]).all()
+        and (a["v0"] < a["v1"]).all()
+        and int(a["u1"].max()) <= atlas.shape[1]
+        and int(a["v1"].max()) <= atlas.shape[0]
+        and (a["x0"] < a["x1"]).all()
+        and (a["y0"] < a["y1"]).all()
     ):
-        raise BufferError("an atlas glyph lies outside the atlas")
+        raise BufferError("an atlas glyph lies outside the atlas or is empty")
     fonts = arrays[b"FONT"]
     for name in ("asked", "drawn_with", "how_close", "kind"):
         if len(fonts) and int(fonts[name].max()) >= n_strings:
@@ -337,6 +350,37 @@ def _decode(data: bytes) -> SheetBuffers:
         paper, strings, chains, prims, arrays[b"LINE"], arrays[b"TRIS"], glyphs, atlas_glyphs, atlas,
         fonts, stats, bool(flags & 1),
     )  # fmt: skip
+
+
+MAX_STATS_BYTES = 1 << 20
+
+
+def _read_stats(raw: bytes, count: int) -> dict[str, int]:
+    if len(raw) > MAX_STATS_BYTES:
+        raise BufferError("its counts are larger than a megabyte")
+    try:
+        stats = json.loads(raw.decode())
+    except (UnicodeDecodeError, ValueError, RecursionError) as error:
+        raise BufferError("its counts are not JSON") from error
+    if not isinstance(stats, dict) or not all(
+        isinstance(k, str) and isinstance(v, int) and not isinstance(v, bool) for k, v in stats.items()
+    ):
+        raise BufferError("its counts are not names to integers")
+    if len(stats) != count:
+        raise BufferError("the counts section's record count is not its names'")
+    return stats
+
+
+def _check_values(arrays: dict[bytes, NDArray[np.void]]) -> None:
+    """Every float finite; every lineweight from 0 to MAX_LINEWEIGHT_MM."""
+    for fourcc, table in arrays.items():
+        for name in table.dtype.names or ():
+            column = table[name]
+            if column.dtype.kind == "f" and not np.isfinite(column).all():
+                raise BufferError(f"a {fourcc.decode()} value is not finite")
+    weights = arrays[b"LINE"]["weight"]
+    if len(weights) and not ((weights >= 0).all() and (weights <= MAX_LINEWEIGHT_MM + 1e-6).all()):
+        raise BufferError("a lineweight is off its range")
 
 
 def _read_strings(raw: bytes, count: int) -> list[str]:
@@ -775,6 +819,7 @@ class _Sheet:
         prim: int,
         clip: tuple[float, float, float, float] | None,
     ) -> None:
+        segments = segments[np.isfinite(segments).all(axis=1)]
         room = self._room("lines", len(segments))
         if room == 0:
             return
@@ -867,6 +912,9 @@ class _Sheet:
     ) -> None:
         rect = clip or self.rect
         if not (rect[0] <= origin[0] <= rect[2] and rect[1] <= origin[1] <= rect[3]):
+            return
+        if not all(abs(v) < _F32_LIMIT for v in (*x_axis, *y_axis)):
+            self.stats["text_too_large"] += 1
             return
         if len(self.glyphs) >= self.limits.glyphs:
             self.truncated = True
@@ -966,14 +1014,16 @@ class _Drawer:
                 inside[id(chain)] = (chain, True)
             return _overlaps(placed, window)
 
-        walk = Walk(artefact, max_visits=self.sheet.limits.visits, enter=enter)
+        deadline = self.sheet.deadline
+        walk = Walk(
+            artefact,
+            max_visits=self.sheet.limits.visits,
+            enter=enter,
+            stop=lambda: time.monotonic() > deadline,
+        )
         for entity, chain in walk.entities(block):
             if isinstance(entity, Insert):
                 continue
-            if walk.visits % 1024 == 0 and time.monotonic() > self.sheet.deadline:
-                self.sheet.truncated = True
-                self.sheet.stats["budget_seconds"] += 1
-                break
             if self.sheet.full("lines") and self.sheet.full("triangles"):
                 self.sheet.stats["budget_entities_left"] += 1
                 continue
@@ -986,7 +1036,10 @@ class _Drawer:
                     continue
             self.draw(entity, chain, walk)
         for reason, count in walk.refused.items():
-            self.sheet.stats[f"refused_{reason}"] += count
+            if reason in (Refusal.STOPPED, Refusal.VISIT_LIMIT):
+                self.sheet.truncated = True
+            name = "budget_seconds" if reason is Refusal.STOPPED else f"refused_{reason}"
+            self.sheet.stats[name] += count
 
     def draw(self, entity: AnyEntity, chain: Chain, walk: Walk, via: AnyEntity | None = None) -> None:
         sheet = self.sheet
@@ -1191,6 +1244,10 @@ def build(
 ) -> SheetBuffers:
     """The sheet's buffers (the module's docstring)."""
     block, paper, window = _space(artefact, sheet)
+    values = (paper.width_mm, paper.height_mm, paper.mm_per_unit, *paper.origin)
+    if not all(math.isfinite(v) for v in values) or max(paper.width_mm, paper.height_mm) > MAX_PAPER_MM:
+        size = f"{paper.width_mm:g} x {paper.height_mm:g} mm"
+        raise ValueError(f"the sheet's paper, {size}, is larger than any sheet's")
     gathered = _Sheet(artefact, paper, limits)
     _Drawer(gathered, gathered.to_paper, window, None).run(block)
     if sheet.location.layout is not None:

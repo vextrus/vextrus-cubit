@@ -147,25 +147,39 @@ def _positive(value: object) -> bool:
     )
 
 
+def _unit3(v: tuple[float, float, float] | None) -> tuple[float, float, float] | None:
+    if v is None or not all(math.isfinite(c) for c in v):
+        return None
+    length = math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2])
+    return None if length <= 1e-12 else (v[0] / length, v[1] / length, v[2] / length)
+
+
+def _normal(entity: Text) -> tuple[float, float, float]:
+    return _unit3(entity.extrusion) or (0.0, 0.0, 1.0)
+
+
 def _direction(entity: Text) -> tuple[float, float, float]:
-    """The unit baseline direction in the entity's own coordinates (an MTEXT's are its block's)."""
+    """The unit baseline direction in the entity's own coordinates: an MTEXT's direction vector as
+    stored, in its block's world (with none, its plane's own x axis); a TEXT's rotation in its OCS."""
     if entity.type == "MTEXT":
-        d = entity.direction
-        if d is not None and all(math.isfinite(v) for v in d):
-            length = math.hypot(d[0], d[1])
-            if length > 1e-12:
-                return (d[0] / length, d[1] / length, 0.0)
-        return (1.0, 0.0, 0.0)
+        found = _unit3(entity.direction)
+        if found is not None:
+            return found
+        x, y, z = ocs(_normal(entity)).vector((1.0, 0.0, 0.0))
+        return (x, y, z)
     r = entity.rotation_radians if math.isfinite(entity.rotation_radians) else 0.0
     return (math.cos(r), math.sin(r), 0.0)
 
 
 def _up(entity: Text) -> tuple[float, float, float]:
-    """The unit up direction, a quarter turn from the baseline in the text's plane."""
-    dx, dy, _ = _direction(entity)
-    if entity.type == "MTEXT" and entity.extrusion[2] < 0:
-        return (dy, -dx, 0.0)  # an MTEXT's plane faces -Z: up turns the other way in the world's XY
-    return (-dy, dx, 0.0)
+    """The unit up direction, a quarter turn from the baseline in the text's plane: for an MTEXT its
+    plane's normal (its extrusion) x its direction, so a plane facing -Z turns up the other way."""
+    dx, dy, dz = _direction(entity)
+    if entity.type != "MTEXT":
+        return (-dy, dx, 0.0)
+    nx, ny, nz = _normal(entity)
+    up = _unit3((ny * dz - nz * dy, nz * dx - nx * dz, nx * dy - ny * dx))
+    return up or (-dy, dx, 0.0)
 
 
 def angle(entity: Text) -> float:
