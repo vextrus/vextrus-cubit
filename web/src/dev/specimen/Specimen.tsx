@@ -16,6 +16,8 @@ import * as Glyph from '@/ui/glyphs'
 import {
   AccessChip,
   Button,
+  DESKTOP_FROM_PX,
+  PHONE_BELOW_PX,
   Count,
   DrawingText,
   Empty,
@@ -56,6 +58,23 @@ import * as Data from './specimen.fixture'
 
 addCatalogue('dev', { messages: specimenMessages })
 if (currentLanguage().code === ENGLISH.code) activateLanguage(ENGLISH, englishMessages())
+
+// Figures shown in the specimen's words enter their messages as values (m0-screens §1.7; design gate m12).
+const bodySize = 13
+const captionSize = 12
+const gridUnits = 24
+const stroke = 1.5
+const confirmCount = 14
+const cutWidth = 180
+const rowHeight = 28
+const firstStep = 1
+const beamStep = 7
+const excludedSheet = 'S-110'
+const phoneBelow = PHONE_BELOW_PX
+const narrowTo = DESKTOP_FROM_PX - 1
+const views = 70
+const proposed = 68
+const unaccounted = 2
 
 export const PSEUDO = PSEUDO_RTL_CODE
 
@@ -169,10 +188,10 @@ function TokensSection() {
             <Trans>Section title</Trans>
           </span>
           <span className="text-sm">
-            <Trans>Body, grid cells and controls at 13 px</Trans>
+            <Trans>Body, grid cells and controls at {bodySize} px</Trans>
           </span>
           <span className="text-xs text-muted-foreground">
-            <Trans>Captions and legends at 12 px</Trans>
+            <Trans>Captions and legends at {captionSize} px</Trans>
           </span>
           <span className="num text-sm">
             <bdi dir="ltr">0123456789 · 1,184 / 1,412</bdi>
@@ -211,7 +230,7 @@ function GlyphsSection() {
     ['site', t`Site`],
   ]
   return (
-    <Section id="glyphs" title={<Trans>Glyphs</Trans>} note={<Trans>Drawn on Lucide’s 24-unit grid with a 1.5 stroke. A glyph never stands alone: a word beside it, or an accessible name.</Trans>}>
+    <Section id="glyphs" title={<Trans>Glyphs</Trans>} note={<Trans>Drawn on Lucide’s {gridUnits}-unit grid with a {stroke} stroke. A glyph never stands alone: a word beside it, or an accessible name.</Trans>}>
       <Row top label={<Trans>Takeoff Steps</Trans>}>
         {steps.map(([key, name]) => {
           const G = Glyph.STEP_GLYPHS[key]
@@ -316,7 +335,7 @@ function ControlsSection() {
           <Trans>Ask later</Trans>
         </Button>
         <Button variant="commit" size="lg">
-          <Trans>Confirm 14</Trans> <KeyCombo combo="Enter" className="[&_kbd]:border-transparent [&_kbd]:bg-commit-hover [&_kbd]:text-commit-foreground" />
+          <Trans>Confirm {confirmCount}</Trans> <KeyCombo combo="Enter" className="[&_kbd]:border-transparent [&_kbd]:bg-commit-hover [&_kbd]:text-commit-foreground" />
         </Button>
         <Button variant="destructive">
           <Trans>End access</Trans>
@@ -390,7 +409,7 @@ function DrawingTextSection() {
         <DrawingText kind="title" text={Data.SHEETS[3]!.title} />
         <DrawingText kind="title" text={Data.TITLE_OTHER_SCRIPT} />
       </Row>
-      <Row label={<Trans>Cut to 180 px</Trans>}>
+      <Row label={<Trans>Cut to {cutWidth} px</Trans>}>
         <span className="block w-[180px]">
           <DrawingText kind="title" text={Data.SHEETS[6]!.title} />
         </span>
@@ -485,7 +504,7 @@ function ListSection() {
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set(['S-03']))
   const [focused, setFocused] = useState<string | null>('S-04')
   return (
-    <Section id="list" title={<Trans>List</Trans>} note={<Trans>28 px rows; ↑ ↓ Home End move the focused row. This list opts in to selection by Space, Shift ↑ ↓ and Shift-click.</Trans>}>
+    <Section id="list" title={<Trans>List</Trans>} note={<Trans>{rowHeight} px rows; ↑ ↓ Home End move the focused row. This list opts in to selection by Space, Shift ↑ ↓ and Shift-click.</Trans>}>
       <Tile className="w-full max-w-[760px] p-0">
         <div className="flex h-row items-center gap-2 border-b border-border-strong bg-band px-2 text-xs font-semibold text-ink-secondary">
           <span className="w-[72px]">
@@ -554,11 +573,11 @@ function StatesSection() {
             glyph={<Glyph.BeamGlyph />}
             action={
               <Button>
-                <Trans>Back to Step 1</Trans>
+                <Trans>Back to Step {firstStep}</Trans>
               </Button>
             }
           >
-            <Trans>Step 7, Beams, is not open yet. It will read the sheets you confirm in Step 1.</Trans>
+            <Trans>Step {beamStep}, Beams, is not open yet. It will read the sheets you confirm in Step {firstStep}.</Trans>
           </Empty>
         </Tile>
         <Tile>
@@ -585,10 +604,10 @@ function StatesSection() {
             <Trans>Vextrus can't be reached. Check your connection; this page keeps trying.</Trans>
           </ErrorBar>
           <div className="flex gap-2 p-4 pt-1">
-            <Button onClick={() => toast.show({ message: t`Confirmed 14 columns.`, onUndo: () => toast.show({ message: t`Undone.` }) })}>
+            <Button onClick={() => toast.show({ message: t`Confirmed ${confirmCount} columns.`, onUndo: () => toast.show({ message: t`Undone.` }) })}>
               <Trans>Show a toast with Undo</Trans>
             </Button>
-            <Button onClick={() => toast.show({ message: t`Excluded S-110: superseded.` })}>
+            <Button onClick={() => toast.show({ message: t`Excluded ${excludedSheet}: superseded.` })}>
               <Trans>Show a toast</Trans>
             </Button>
           </div>
@@ -622,7 +641,7 @@ function AccessSection() {
 
 function NoticesSection() {
   return (
-    <Section id="notices" title={<Trans>PhoneNotice and NarrowNotice</Trans>} note={<Trans>Under 640 px the phone notice replaces every screen after sign-in; from 640 to 1279 px the narrow notice sits above the page. Shown here in frames.</Trans>}>
+    <Section id="notices" title={<Trans>PhoneNotice and NarrowNotice</Trans>} note={<Trans>Under {phoneBelow} px the phone notice replaces every screen after sign-in; from {phoneBelow} to {narrowTo} px the narrow notice sits above the page. Shown here in frames.</Trans>}>
       <div className="flex items-start gap-6">
         <div className="h-[520px] w-[390px] overflow-hidden rounded-lg border border-border-strong shadow-1">
           <PhoneNotice onSignOut={() => {}} className="h-full" />
@@ -676,7 +695,7 @@ function PrimitivesSection() {
               <Trans>Coverage</Trans>
             </p>
             <p className="text-muted-foreground">
-              <Trans>70 views: 68 proposed, 2 unaccounted.</Trans>
+              <Trans>{views} views: {proposed} proposed, {unaccounted} unaccounted.</Trans>
             </p>
           </PopoverContent>
         </Popover>
