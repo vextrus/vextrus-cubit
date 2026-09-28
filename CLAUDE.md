@@ -36,6 +36,8 @@ civil engineer and the CEO and co-founder. The previous product (Vextrus Cubit) 
     recursive `rm`. Delete files by name, or leave build output and say so.
   - Parallel agents share one chrome-devtools browser: select your own page by URL before every
     action; per-page viewport emulation only; never touch another agent's page.
+  - The design gate's first walk failed both UI tickets (01b, 03; 28 Sep 2026) on keys, empty routes
+    and focus rings: a UI ticket walks m0-screens §8 by keyboard itself before its PR.
 
 ## Law
 - **Secrets** are never printed, written or committed (`TYPESAFE_API_KEY` lives in `~/.bashrc`).
