@@ -297,7 +297,7 @@ def test_an_unusable_link_is_refused_as_the_look_up_refuses_it_byte_for_byte(
     look_up = Api().post("/api/invitations/look-up", {"token": token})
 
     assert (projects.status_code, projects.content) == (look_up.status_code, look_up.content)
-    assert projects.json() == {"code": "platform.invitations.unusable", "params": {}}
+    assert projects.content == b'{"code": "platform.invitations.unusable", "params": {}}'
     assert "KR-01" not in projects.content.decode()
 
 
@@ -307,7 +307,8 @@ def test_a_token_too_long_is_refused_as_the_look_up_refuses_it() -> None:
     projects = look_up_projects(token)
     look_up = Api().post("/api/invitations/look-up", {"token": token})
 
-    assert projects.status_code == look_up.status_code == 422
+    assert projects.status_code == 422
+    assert (projects.status_code, projects.content) == (look_up.status_code, look_up.content)
 
 
 def test_the_link_s_projects_need_the_csrf_token(md: Member, made: dict[str, uuid.UUID]) -> None:

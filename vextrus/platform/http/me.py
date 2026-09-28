@@ -14,6 +14,7 @@ from ninja import Router, Schema
 
 from vextrus.platform.http.acts import Refusal, declare
 from vextrus.platform.services import auth
+from vextrus.platform.services.markets import MarketProfile
 
 router = Router()
 
@@ -34,23 +35,6 @@ class MembershipOut(Schema):
     project_ids: list[uuid.UUID]
     """The Projects it may open; empty means every Project."""
     expires_at: datetime | None
-
-
-class EndedOut(Schema):
-    """Access that has ended, in a Developer where the user holds no current Membership now (the
-    "Access ended" page, m0-screens §4.1)."""
-
-    membership_id: uuid.UUID
-    developer_id: uuid.UUID
-    developer_name: str
-    role: RoleName
-    ended_at: datetime
-    how: Literal["revoked", "expired"]
-    """By its end date, if that passed first; else revoked."""
-    revoked_by: str | None
-    """The name of whoever revoked it; None when it expired, or when no act names who did."""
-    project_ids: list[uuid.UUID]
-    """The Projects it gave; empty means every Project."""
 
 
 class LanguageOut(Schema):
@@ -85,6 +69,26 @@ class MarketOut(Schema):
     days_off: list[int]
 
 
+class EndedOut(Schema):
+    """Access that has ended, in a Developer where the user holds no current Membership now (the
+    "Access ended" page, m0-screens §4.1)."""
+
+    membership_id: uuid.UUID
+    developer_id: uuid.UUID
+    developer_name: str
+    role: RoleName
+    ended_at: datetime
+    how: Literal["revoked", "expired"]
+    """By its end date, if that passed first; else revoked."""
+    revoked_by: str | None
+    """The name of whoever revoked it; None when it expired, or when no act names who did."""
+    project_ids: list[uuid.UUID]
+    """The Projects it gave; empty means every Project."""
+    market: MarketOut
+    """The Developer's Market, to word and format the page with (`market` is null while no
+    Developer is current, as it is whenever this shows)."""
+
+
 class MeOut(Schema):
     user: UserOut
     developer_id: uuid.UUID | None
@@ -102,29 +106,34 @@ class ChooseIn(Schema):
     developer_id: uuid.UUID
 
 
+def market_out(market: MarketProfile, language: auth.Language) -> MarketOut:
+    """A Market for the web's formatters, in the language its pages are shown in."""
+    code = language.code
+    return MarketOut(
+        code=market.code,
+        name=market.labels.get(code, market.code),
+        language=LanguageOut(code=code, direction=language.direction),
+        locale=market.borrowed_locales.get(code, code),
+        grouping=market.grouping,
+        digits=market.digits,
+        currency=CurrencyOut(
+            code=market.currency.code,
+            minor_units=market.currency.minor_units,
+            symbol=market.currency_symbol,
+            symbol_position=market.currency_symbol_position.get(code, "before"),
+        ),
+        time_zone=market.time_zone,
+        unit_systems=UnitSystemsOut(
+            offered=list(market.unit_systems), default=market.default_unit_system
+        ),
+        days_off=list(market.days_off),
+    )
+
+
 def me_out(me: auth.Me) -> MeOut:
     market = None
     if me.market is not None and me.language is not None:
-        language = me.language.code
-        market = MarketOut(
-            code=me.market.code,
-            name=me.market.labels.get(language, me.market.code),
-            language=LanguageOut(code=language, direction=me.language.direction),
-            locale=me.market.borrowed_locales.get(language, language),
-            grouping=me.market.grouping,
-            digits=me.market.digits,
-            currency=CurrencyOut(
-                code=me.market.currency.code,
-                minor_units=me.market.currency.minor_units,
-                symbol=me.market.currency_symbol,
-                symbol_position=me.market.currency_symbol_position.get(language, "before"),
-            ),
-            time_zone=me.market.time_zone,
-            unit_systems=UnitSystemsOut(
-                offered=list(me.market.unit_systems), default=me.market.default_unit_system
-            ),
-            days_off=list(me.market.days_off),
-        )
+        market = market_out(me.market, me.language)
     return MeOut(
         user=UserOut(id=me.user_id, name=me.name, email=me.email),
         developer_id=me.developer_id,
@@ -141,14 +150,15 @@ def me_out(me: auth.Me) -> MeOut:
         ],
         ended=[
             EndedOut(
-                membership_id=ended.membership_id,
-                developer_id=ended.developer_id,
-                developer_name=ended.developer_name,
-                role=ended.role,  # type: ignore[arg-type]
-                ended_at=ended.ended_at,
-                how=ended.how,
-                revoked_by=ended.revoked_by,
-                project_ids=list(ended.project_ids),
+                membership_id=ended.access.membership_id,
+                developer_id=ended.access.developer_id,
+                developer_name=ended.access.developer_name,
+                role=ended.access.role,  # type: ignore[arg-type]
+                ended_at=ended.access.ended_at,
+                how=ended.access.how,
+                revoked_by=ended.access.revoked_by,
+                project_ids=list(ended.access.project_ids),
+                market=market_out(ended.market, ended.language),
             )
             for ended in me.ended
         ],

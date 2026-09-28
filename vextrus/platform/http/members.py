@@ -74,7 +74,9 @@ class InviteIn(Schema):
     """The invited person's firm, for someone from outside the Developer."""
 
 
-class LinkOut(Schema):
+class InvitationLinkOut(Schema):
+    """A new invitation link's token (an invitation made, or its link made again)."""
+
     membership_id: uuid.UUID
     token: str
     """Shown once: the web builds the link with it after `#`, so no server logs it."""
@@ -99,9 +101,9 @@ def list_members(request: HttpRequest) -> MembersOut:
     )
 
 
-@router.post("/members/invitations", response={201: LinkOut, **_REFUSALS})
+@router.post("/members/invitations", response={201: InvitationLinkOut, **_REFUSALS})
 @declare(auth.MANAGE_ACCESS)
-def invite(request: HttpRequest, payload: InviteIn) -> Status[LinkOut]:
+def invite(request: HttpRequest, payload: InviteIn) -> Status[InvitationLinkOut]:
     link = invitations.invite(
         payload.email,
         payload.role,
@@ -109,14 +111,14 @@ def invite(request: HttpRequest, payload: InviteIn) -> Status[LinkOut]:
         expires_at=payload.expires_at,
         outside_org=payload.outside_org,
     )
-    return Status(201, LinkOut(**vars(link)))
+    return Status(201, InvitationLinkOut(**vars(link)))
 
 
-@router.post("/members/invitations/{membership_id}/link", response={200: LinkOut, **_REFUSALS})
+@router.post("/members/invitations/{membership_id}/link", response={200: InvitationLinkOut, **_REFUSALS})
 @declare(auth.MANAGE_ACCESS)
-def reissue_link(request: HttpRequest, membership_id: uuid.UUID) -> LinkOut:
+def reissue_link(request: HttpRequest, membership_id: uuid.UUID) -> InvitationLinkOut:
     """A new link for an invitation not used yet ("Copy link"); the old link stops working."""
-    return LinkOut(**vars(invitations.reissue_link(membership_id)))
+    return InvitationLinkOut(**vars(invitations.reissue_link(membership_id)))
 
 
 @router.post("/members/invitations/{membership_id}/withdraw", response={204: None, **_REFUSALS})

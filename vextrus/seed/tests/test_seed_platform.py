@@ -197,6 +197,11 @@ def test_the_seed_s_ended_guest_signs_in_to_access_that_ended_on_its_date(seeded
         "expired",
         None,
     )
+    assert (ended["market"]["code"], ended["market"]["time_zone"], ended["market"]["locale"]) == (
+        seeded["market"].code,
+        seeded["market"].time_zone,
+        seeded["market"].borrowed_locales["en"],
+    )
     ended_at = datetime.fromisoformat(ended["ended_at"])
     local = ended_at.astimezone(ZoneInfo(seeded["market"].time_zone)).date()
     assert ended_at < timezone.now()

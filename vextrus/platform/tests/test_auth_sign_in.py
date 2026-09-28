@@ -254,6 +254,8 @@ def test_a_fresh_browser_of_a_revoked_engineer_is_told_the_developer_who_revoked
     staff.set_password(PASSWORD)
     staff.save(update_fields=["password"])
     _engineer, membership = add_member(developer, role="vextrus_engineer", user=staff)
+    shapla_market = md.get("/api/me").json()["market"]  # as the MD's /api/me gives it
+    assert shapla_market is not None
     assert md.post(f"/api/members/{membership}/revoke").status_code == 204
 
     browser = Api()
@@ -274,13 +276,14 @@ def test_a_fresh_browser_of_a_revoked_engineer_is_told_the_developer_who_revoked
         "how": "revoked",
         "revoked_by": "Kamal Uddin",
         "project_ids": [],
+        "market": shapla_market,  # formats the date while no Developer is current (#75)
     }
     assert datetime.fromisoformat(ended["ended_at"]) == to_the_millisecond(revoked_at)
     assert browser.get("/api/me").json()["ended"] == [ended]
 
 
 def test_a_fresh_browser_of_an_expired_scoped_guest_is_told_the_developer_the_date_and_projects(
-    make_developer: Callable[..., uuid.UUID],
+    make_developer: Callable[..., uuid.UUID], market: markets.MarketProfile
 ) -> None:
     developer = make_developer("Shapla Homes Ltd")
     kr01 = uuid.uuid4()
@@ -290,7 +293,12 @@ def test_a_fresh_browser_of_an_expired_scoped_guest_is_told_the_developer_the_da
     code, me = sign_in(Api(), "nusrat@example.com")
 
     assert code == 200
+    assert me["market"] is None  # no Developer is current: the ended row carries its Market
     [ended] = me["ended"]
+    assert (ended["market"]["code"], ended["market"]["time_zone"]) == (
+        market.code,
+        market.time_zone,
+    )
     assert (ended["developer_name"], ended["how"], ended["revoked_by"], ended["project_ids"]) == (
         "Shapla Homes Ltd",
         "expired",

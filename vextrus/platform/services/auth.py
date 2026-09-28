@@ -278,6 +278,22 @@ class Language:
 
 
 @dataclass(frozen=True)
+class EndedView:
+    """Ended access, with its Developer's Market and the language it is shown in: while "Access
+    ended" shows no Developer is current, so `Me.market` is None."""
+
+    access: EndedAccess
+    market: markets.MarketProfile
+    language: Language
+
+
+def language_of(market: markets.MarketProfile) -> Language:
+    """The language a Market's pages are shown in: its default (users choose none in M0)."""
+    bidi = get_language_info(market.default_language)["bidi"]
+    return Language(market.default_language, "rtl" if bidi else "ltr")
+
+
+@dataclass(frozen=True)
 class Me:
     user_id: uuid.UUID
     name: str
@@ -285,7 +301,7 @@ class Me:
     developer_id: uuid.UUID | None
     """The Developer the session works in, or None (none chosen, or its access ended)."""
     memberships: tuple[MembershipView, ...]
-    ended: tuple[EndedAccess, ...]
+    ended: tuple[EndedView, ...]
     """Where their access has ended and they hold no current Membership, newest first: the
     Developer's name, who revoked it and its Projects, read through `tenancy.ended_access`."""
     ended_membership_id: uuid.UUID | None
@@ -322,21 +338,23 @@ def me(request: HttpRequest) -> Me:
         )
     developer_id = acting.membership.tenant_id if acting.membership else None
     market = markets.of_developer(developer_id) if developer_id else None
-    language = None
-    if market is not None:
-        bidi = get_language_info(market.default_language)["bidi"]
-        language = Language(market.default_language, "rtl" if bidi else "ltr")
+    language = language_of(market) if market is not None else None
     current = {held.developer_id for held in memberships}
     # One snapshot never finds a Developer in both; a revocation committed between the two reads
     # above could, so a Developer listed as current is left out of `ended` until the next request.
     ended = tuple(held for held in tenancy.ended_access() if held.developer_id not in current)
+    ended_markets = {code: markets.by_code(code) for code in {held.market_code for held in ended}}
+    languages = {code: language_of(market) for code, market in ended_markets.items()}
     return Me(
         user_id=user.pk,
         name=user.name,
         email=user.email,
         developer_id=developer_id,
         memberships=tuple(memberships),
-        ended=ended,
+        ended=tuple(
+            EndedView(held, ended_markets[held.market_code], languages[held.market_code])
+            for held in ended
+        ),
         ended_membership_id=tenancy.session_ended(request, ended),
         market=market,
         language=language,

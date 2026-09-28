@@ -12,6 +12,11 @@
 #   revoked_by column), null when it expired or no event names one. Like 0003's three: SECURITY
 #   DEFINER, owned by vextrus, its search_path pinned, every name qualified, EXECUTE only to
 #   vextrus_app. It takes no parameter, so no one can ask about a Developer they never held.
+# - Both it and invitation_by_token() (0003's, made again here with one more column) give the
+#   Developer's Market's code, so the web formats "Access ended" and an invitation link's page in
+#   that Market's language, locale and time zone while no Developer is current (a Market is read by
+#   everyone; which Market a Developer is on is its tenant's row). Nothing else changes in
+#   invitation_by_token.
 # - A Developer's Market is fixed (the comment on #75; the review of #68): vextrus_app loses UPDATE
 #   of every column but `name`, and DELETE, on platform_developer. A column REVOKE alone does nothing
 #   while the table's grant stands (measured on PostgreSQL 18.6), so the table's UPDATE goes and only
@@ -40,8 +45,8 @@ FUNCTION = [
     f"""
     create function public.ended_access()
     returns table (
-      membership_id uuid, developer_id uuid, developer_name text, role text, ended_at timestamptz,
-      how text, revoked_by text, project_ids uuid[]
+      membership_id uuid, developer_id uuid, developer_name text, market_code text, role text,
+      ended_at timestamptz, how text, revoked_by text, project_ids uuid[]
     )
     language sql stable security definer
     set search_path = pg_catalog, pg_temp
@@ -60,7 +65,7 @@ FUNCTION = [
           from ended e
          order by e.tenant_id, e.ended_at desc, e.id desc
       )
-      select l.id, l.tenant_id, d.name::text, l.role::text, l.ended_at, l.how,
+      select l.id, l.tenant_id, d.name::text, mk.code::text, l.role::text, l.ended_at, l.how,
              case when l.how = 'revoked' then (
                select u.name::text
                  from (select ev.actor_user_id
@@ -79,6 +84,7 @@ FUNCTION = [
                     order by p.project_id)
         from latest l
         join public.platform_developer d on d.id = l.tenant_id and not d.is_library
+        join public.platform_market mk on mk.id = d.market_id
        where not exists (select 1 from public.platform_membership m
                           where m.tenant_id = l.tenant_id and m.user_id = {USER_SETTING}
                             and {CURRENT})
@@ -90,6 +96,50 @@ FUNCTION = [
 ]
 FUNCTION_REVERSE = [
     "drop function public.ended_access()",
+]
+
+# invitation_by_token's body; its result gains market_code (the owner drops and makes it again,
+# since a function's result columns cannot be replaced in place).
+INVITATION_BY_TOKEN = """
+    create function public.invitation_by_token(p_tenant_id uuid, p_token_hash text)
+    returns table (
+      id uuid, tenant_id uuid, developer_name text, role text, invited_email text,
+      invited_by_id uuid, outside_org text, starts_at timestamptz, expires_at timestamptz,
+      invite_expires_at timestamptz, project_ids uuid[]{market_code}
+    )
+    language sql stable security definer
+    set search_path = pg_catalog, pg_temp
+    as $$
+      select m.id, m.tenant_id, d.name::text, m.role::text, m.invited_email::text,
+             m.invited_by_id, m.outside_org::text, m.starts_at, m.expires_at, m.invite_expires_at,
+             array(select p.project_id from public.platform_membershipproject p
+                    where p.tenant_id = m.tenant_id and p.membership_id = m.id
+                    order by p.project_id){market_code_value}
+        from public.platform_membership m
+        join public.platform_developer d on d.id = m.tenant_id{market_join}
+       where m.tenant_id = p_tenant_id
+         and m.invite_token_hash = p_token_hash
+         and m.user_id is null and m.accepted_at is null and m.revoked_at is null
+         and m.invite_expires_at > pg_catalog.now()
+    $$
+    """
+INVITATION_GRANTS = [
+    "revoke all on function public.invitation_by_token(uuid, text) from public",
+    f"grant execute on function public.invitation_by_token(uuid, text) to {APP}",
+]
+INVITATION = [
+    "drop function public.invitation_by_token(uuid, text)",
+    INVITATION_BY_TOKEN.format(
+        market_code=", market_code text",
+        market_code_value=",\n             mk.code::text",
+        market_join="\n        join public.platform_market mk on mk.id = d.market_id",
+    ),
+    *INVITATION_GRANTS,
+]
+INVITATION_REVERSE = [
+    "drop function public.invitation_by_token(uuid, text)",
+    INVITATION_BY_TOKEN.format(market_code="", market_code_value="", market_join=""),  # 0003's
+    *INVITATION_GRANTS,
 ]
 
 MARKET_FIXED = [
@@ -110,5 +160,6 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.RunSQL(FUNCTION, FUNCTION_REVERSE),
+        migrations.RunSQL(INVITATION, INVITATION_REVERSE),
         migrations.RunSQL(MARKET_FIXED, MARKET_FIXED_REVERSE),
     ]

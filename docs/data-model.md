@@ -317,13 +317,15 @@ until when.
   - `staff_developers`: every Developer (id and name), returned only when the signed-in user
     `is_vextrus_staff`, for the admin's pick (each pick writes a DomainEvent that Developer's MD sees);
   - `invitation_by_token`: the one pending invitation a token names, since that Membership has no user
-    yet; the token carries its tenant, so the lookup is by tenant and token hash.
+    yet; the token carries its tenant, so the lookup is by tenant and token hash. It gives the
+    Developer's Market's code too (#75), so the link's page is worded and formatted in that Market.
   - `ended_access` (#75): one row per Developer where the signed-in user's access has ended and they
     hold no current Membership now: their latest-ended Membership there, with the Developer's name,
     how and when it ended (its end date, if that passed first; else revoked), the name of whoever
     revoked it (the actor of its latest revoked act) and its Projects as ids, for the "Access ended"
-    page on a fresh load (m0-screens §4.1). It takes no parameter, so nobody can ask about a
-    Developer they never held.
+    page on a fresh load (m0-screens §4.1), and the Developer's Market's code, since no Developer
+    is current while that page shows. It takes no parameter, so nobody can ask about a Developer
+    they never held.
 - **A Developer's Market is fixed** (#75): `vextrus_app` may UPDATE a Developer's `name` only, and
   never DELETE one, so neither an update nor a delete and re-insert moves it to another Market while
   its Projects stay on the old one's currency. Its Market changes only by a migration, which must then

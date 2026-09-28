@@ -324,6 +324,8 @@ class PendingInvitation:
     expires_at: datetime | None
     invite_expires_at: datetime
     project_ids: tuple[uuid.UUID, ...]
+    market_code: str
+    """The Developer's Market (the link's page is shown in its language, locale and time zone)."""
 
 
 @dataclass(frozen=True)
@@ -334,6 +336,9 @@ class EndedAccess:
     membership_id: uuid.UUID
     developer_id: uuid.UUID
     developer_name: str
+    market_code: str
+    """The Developer's Market, for the page's language, locale and time zone (no Developer is
+    current while "Access ended" shows)."""
     role: str
     ended_at: datetime
     how: Literal["revoked", "expired"]

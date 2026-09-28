@@ -42,7 +42,7 @@ from django.views.decorators.debug import sensitive_variables
 from engine.messages import MessageCode
 from vextrus.platform.messages import invitations as codes
 from vextrus.platform.models import Developer, DomainEvent, Membership, MembershipProject, Role, User
-from vextrus.platform.services import auth, events, tenancy
+from vextrus.platform.services import auth, events, markets, tenancy
 from vextrus.platform.services.auth import Refused
 from vextrus.platform.services.tenancy import CurrentMembership
 
@@ -194,6 +194,9 @@ class LinkDetails:
     link_expires_at: datetime
     has_account: bool
     """The email has an account already: sign in with it to accept; else choose a name and password."""
+    market: markets.MarketProfile
+    """The Developer's Market: the page is shown in its language, locale and time zone."""
+    language: auth.Language
 
 
 @sensitive_variables("token")
@@ -205,6 +208,7 @@ def look_up(token: str) -> LinkDetails:
     inviter = None
     if found.invited_by_id is not None:
         inviter = User.objects.filter(id=found.invited_by_id).values_list("name", flat=True).first()
+    market = markets.by_code(found.market_code)
     return LinkDetails(
         developer_name=found.developer_name,
         invited_by=inviter,
@@ -214,6 +218,8 @@ def look_up(token: str) -> LinkDetails:
         expires_at=found.expires_at,
         link_expires_at=found.invite_expires_at,
         has_account=User.objects.filter(email__iexact=found.invited_email).exists(),
+        market=market,
+        language=auth.language_of(market),
     )
 
 

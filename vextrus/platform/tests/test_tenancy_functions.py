@@ -141,7 +141,7 @@ def lookup(token: str) -> tenancy.PendingInvitation | None:
 
 @pytest.mark.django_db
 def test_invitation_by_token_gives_the_one_pending_invitation_its_token_names(
-    invitation: tuple[uuid.UUID, tenancy.Invitation],
+    invitation: tuple[uuid.UUID, tenancy.Invitation], market: MarketProfile
 ) -> None:
     developer, made = invitation
 
@@ -155,6 +155,7 @@ def test_invitation_by_token_gives_the_one_pending_invitation_its_token_names(
     )
     assert (found.role, found.invited_email) == ("md", "kamal@shapla-homes.example")
     assert found.project_ids == (uuid.UUID(int=7),)
+    assert found.market_code == market.code  # the Developer's Market (#75)
 
 
 @pytest.mark.django_db
@@ -228,7 +229,7 @@ def shapla(make_developer: Callable[..., uuid.UUID]) -> tuple[uuid.UUID, User]:
 
 @pytest.mark.django_db
 def test_ended_access_names_the_developer_who_revoked_it_when_and_its_projects(
-    shapla: tuple[uuid.UUID, User],
+    shapla: tuple[uuid.UUID, User], market: MarketProfile
 ) -> None:
     developer, kamal = shapla
     kr01, bp02 = sorted([uuid.uuid4(), uuid.uuid4()])
@@ -244,6 +245,7 @@ def test_ended_access_names_the_developer_who_revoked_it_when_and_its_projects(
         membership_id=membership,
         developer_id=developer,
         developer_name="Shapla Homes Ltd",
+        market_code=market.code,
         role="guest",
         ended_at=revoked_at,
         how="revoked",

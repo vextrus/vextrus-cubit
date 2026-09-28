@@ -183,6 +183,7 @@ def test_the_fixed_market_s_reverse_gives_back_0003_s_rights_and_drops_the_funct
     `migrate platform 0006` runs it, inside the test's transaction, which rolls it back."""
     with connections["owner"].cursor() as owner:
         assert app_acl(owner, "platform_developer") == (["vextrus_app=ar/vextrus"], ["name"])
+        assert invitation_by_token(owner) == (INVITATION_RESULT_0003 + ", market_code text", APP_ONLY)
         for module in FIXED_MARKET_MIGRATIONS:
             for operation in reversed(importlib.import_module(module).Migration.operations):
                 for statement in operation.reverse_sql:
@@ -194,6 +195,26 @@ def test_the_fixed_market_s_reverse_gives_back_0003_s_rights_and_drops_the_funct
         for signature in ("ended_access()", "ended_access_projects()", "invitation_projects(uuid,text)"):
             owner.execute("select to_regprocedure(%s)", [f"public.{signature}"])
             assert owner.fetchone() == (None,), signature
+        assert invitation_by_token(owner) == (INVITATION_RESULT_0003, APP_ONLY)
+
+
+INVITATION_RESULT_0003 = (
+    "TABLE(id uuid, tenant_id uuid, developer_name text, role text, invited_email text, "
+    "invited_by_id uuid, outside_org text, starts_at timestamp with time zone, expires_at timestamp "
+    "with time zone, invite_expires_at timestamp with time zone, project_ids uuid[]"
+)
+APP_ONLY = ["vextrus", "vextrus_app"]
+
+
+def invitation_by_token(cursor: Any) -> tuple[str, list[str]]:
+    """invitation_by_token's result (without its closing parenthesis) and who may run it."""
+    cursor.execute(
+        "select pg_get_function_result(p.oid), array(select coalesce(pg_get_userbyid(a.grantee), "
+        "'PUBLIC') from aclexplode(p.proacl) a where a.privilege_type = 'EXECUTE' order by 1) "
+        "from pg_proc p where p.oid = 'public.invitation_by_token(uuid, text)'::regprocedure"
+    )
+    result, executors = cursor.fetchone()
+    return result.removesuffix(")"), list(executors)
 
 
 USER_COLUMNS = (
