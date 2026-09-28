@@ -11,6 +11,8 @@ import { ReadOnlyChip } from './ReadOnlyChip'
 import { StatusMark } from './StatusMark'
 import { ToastProvider, useToast } from './Toast'
 import { TooltipProvider } from './primitives/tooltip'
+import { Command, CommandItem, CommandList } from './primitives/command'
+import { ProgressLine } from './ProgressLine'
 
 function wrap(ui: React.ReactNode) {
   return render(
@@ -44,6 +46,35 @@ describe('StatusMark and Count (m0-screens §3)', () => {
   it('shows an unknown N as a dash, never a guess', () => {
     wrap(<Count n={12} N={null} />)
     expect(screen.getByText(/\/ —/)).toBeInTheDocument()
+  })
+
+  it('keeps its status colour inside a Command item, which greys other icons (design gate m1)', () => {
+    wrap(
+      <Command>
+        <CommandList>
+          <CommandItem value="S-04">
+            <StatusMark status="question" compact />
+          </CommandItem>
+        </CommandList>
+      </Command>,
+    )
+    const mark = screen.getByText('Question').parentElement!
+    const glyph = mark.querySelector('svg')!
+    expect(getComputedStyle(glyph).color).toBe(getComputedStyle(mark).color)
+    expect(getComputedStyle(mark).color).not.toBe(getComputedStyle(document.body).color)
+  })
+})
+
+describe('ProgressLine (m0-screens §3)', () => {
+  it('names its progress bar by its status text (design gate m2)', () => {
+    wrap(
+      <>
+        <ProgressLine value={0.5}>Reading the file</ProgressLine>
+        <ProgressLine>Checking the file</ProgressLine>
+      </>,
+    )
+    expect(screen.getByRole('progressbar', { name: 'Reading the file' })).toHaveAttribute('aria-valuenow', '50')
+    expect(screen.getByRole('progressbar', { name: 'Checking the file' })).not.toHaveAttribute('aria-valuenow')
   })
 })
 
@@ -112,6 +143,21 @@ describe('ReadOnlyChip and AccessChip wording (m0-screens §3)', () => {
     expect(chip).toHaveAttribute('data-ending', 'true')
     wrap(<AccessChip developer={developer} vextrus={false} projects={['KR-01', 'BP-02']} until={null} daysLeft={null} />)
     expect(screen.getByText('BP-02').tagName).toBe('BDI')
+  })
+
+  it.each([
+    [
+      'four projects and an end date',
+      { vextrus: false, projects: ['KR-01', 'BP-02', 'GH-03', 'LM-04'], until, daysLeft: 20 },
+      'Your access to KR-01, BP-02, GH-03 and LM-04 at Shapla Homes Ltd ends on 26 Oct 2026.',
+    ],
+    ['an Engineer with every project', { vextrus: true, projects: 'all', until, daysLeft: 20 }, 'Vextrus access to Shapla Homes Ltd ends on 26 Oct 2026.'],
+    ['two projects and no end date', { vextrus: false, projects: ['KR-01', 'BP-02'], until: null, daysLeft: null }, 'Your access covers KR-01 and BP-02 at Shapla Homes Ltd.'],
+  ] as const)('words the tooltip for %s through the catalogue, the date unbroken (design gate m3, m4)', async (_, props, words) => {
+    wrap(<AccessChip developer={developer} {...props} projects={props.projects === 'all' ? 'all' : [...props.projects]} />)
+    screen.getByTestId('access-chip').focus()
+    const tooltip = await screen.findByRole('tooltip')
+    expect(tooltip.textContent?.replace(/[⁦-⁩]/g, '')).toBe(words)
   })
 
   it('shows nothing for a member with every project and no end date', () => {

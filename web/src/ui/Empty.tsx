@@ -8,7 +8,7 @@ import { cn } from './cn'
 export function Empty({ glyph, children, action, className }: { glyph: ReactNode; children: ReactNode; action?: ReactNode; className?: string }) {
   return (
     <div className={cn('flex flex-col items-center gap-3 px-6 py-10 text-center', className)}>
-      <span className="text-muted-foreground [&_svg]:size-5" aria-hidden>
+      <span className="text-muted-foreground [&_svg]:size-[20px]" aria-hidden>
         {glyph}
       </span>
       <p className="max-w-[48ch] text-sm text-ink-secondary">{children}</p>

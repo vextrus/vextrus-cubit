@@ -11,6 +11,10 @@ msgstr ""
 msgid "Access to {list} at {developer}"
 msgstr "Access to {list} at {developer}"
 
+#: src/ui/AccessChip.tsx
+msgid "{head}, {item}"
+msgstr "{head}, {item}"
+
 #: src/ui/List.tsx
 msgid "Next row"
 msgstr "Next row"
@@ -36,13 +40,13 @@ msgstr "Extend the selection up"
 msgid "Extend the selection down"
 msgstr "Extend the selection down"
 
-#: src/ui/AccessChip.tsx
-msgid "Your access to {developer} ends on {date}."
-msgstr "Your access to {developer} ends on {date}."
-
 #: src/ui/Toast.tsx
 msgid "Undo"
 msgstr "Undo"
+
+#: src/ui/AccessChip.tsx
+msgid "Vextrus access to {developer} ends on {day}."
+msgstr "Vextrus access to {developer} ends on {day}."
 
 #: src/ui/StatusMark.tsx
 msgid "Question"
@@ -76,10 +80,6 @@ msgstr "PageDown"
 msgid "Vextrus access to {developer} until {date}"
 msgstr "Vextrus access to {developer} until {date}"
 
-#: src/ui/AccessChip.tsx
-msgid "Vextrus access to {developer} ends on {date}."
-msgstr "Vextrus access to {developer} ends on {date}."
-
 #: src/ui/Kbd.tsx
 msgid "Tab"
 msgstr "Tab"
@@ -91,6 +91,14 @@ msgstr "Home"
 #: src/ui/AccessChip.tsx
 msgid "Access to {list} at {developer} until {date}"
 msgstr "Access to {list} at {developer} until {date}"
+
+#: src/ui/AccessChip.tsx
+msgid "{head} and {last}"
+msgstr "{head} and {last}"
+
+#: src/ui/AccessChip.tsx
+msgid "Your access to {codes} at {developer} ends on {day}."
+msgstr "Your access to {codes} at {developer} ends on {day}."
 
 #: src/ui/StatusMark.tsx
 msgid "Excluded"
@@ -108,6 +116,10 @@ msgstr "First row"
 msgid "Open it on a screen 1280 px wide or more. Your work is saved; nothing is lost."
 msgstr "Open it on a screen 1280 px wide or more. Your work is saved; nothing is lost."
 
+#: src/ui/AccessChip.tsx
+msgid "Vextrus access to {codes} at {developer} ends on {day}."
+msgstr "Vextrus access to {codes} at {developer} ends on {day}."
+
 #: src/ui/Kbd.tsx
 msgid "Alt"
 msgstr "Alt"
@@ -123,6 +135,14 @@ msgstr "{days, plural, =0 {Access ends today} one {Access ends in # day} other {
 #: src/ui/ReadOnlyChip.tsx
 msgid "Read only: Guest"
 msgstr "Read only: Guest"
+
+#: src/ui/AccessChip.tsx
+msgid "Vextrus access covers {codes} at {developer}."
+msgstr "Vextrus access covers {codes} at {developer}."
+
+#: src/ui/AccessChip.tsx
+msgid "Vextrus access to {developer}."
+msgstr "Vextrus access to {developer}."
 
 #: src/ui/Kbd.tsx
 msgid "Shift"
@@ -176,13 +196,17 @@ msgstr "You can look at the Takeoff but not change it."
 msgid "Keys"
 msgstr "Keys"
 
+#: src/ui/AccessChip.tsx
+msgid "Your access to {developer} ends on {day}."
+msgstr "Your access to {developer} ends on {day}."
+
+#: src/ui/AccessChip.tsx
+msgid "Your access covers {codes} at {developer}."
+msgstr "Your access covers {codes} at {developer}."
+
 #: src/ui/Kbd.tsx
 msgid "End"
 msgstr "End"
-
-#: src/ui/AccessChip.tsx
-msgid "Projects: {codes}"
-msgstr "Projects: {codes}"
 
 #: src/ui/AccessChip.tsx
 msgid "Vextrus access to {developer}"

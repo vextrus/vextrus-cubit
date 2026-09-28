@@ -67,13 +67,27 @@ export function AccessChip({ vextrus, developer, projects, until, daysLeft, clas
   else if (list) words = <Trans>Access to {list} at {developer}</Trans>
   else words = <Trans>Access to {developer} until {date}</Trans>
 
-  const codes = projects === 'all' ? '' : projects.map(isolateLtr).join(', ')
-  const tooltip = [
-    until ? (vextrus ? t`Vextrus access to ${developer} ends on ${date}.` : t`Your access to ${developer} ends on ${date}.`) : null,
-    projects !== 'all' ? t`Projects: ${codes}` : null,
-  ]
-    .filter(Boolean)
-    .join(' ')
+  // The tooltip: one message per case, every project named through the catalogue's list pattern,
+  // and the date kept on one line (design gate m3, m4).
+  // "A", "A and B", "A, B and C", "A, B, C and D": the catalogue's two list words, never a comma in code.
+  const joinList = (items: readonly string[]): string => {
+    if (items.length <= 1) return items[0] ?? ''
+    let head = items[0]!
+    for (const item of items.slice(1, -1)) head = t`${head}, ${item}`
+    const last = items[items.length - 1]!
+    return t`${head} and ${last}`
+  }
+  const codes = projects === 'all' ? '' : joinList(projects.map(isolateLtr))
+  const day = (until ?? '').replace(/ /g, ' ')
+  let tooltip: string
+  if (vextrus) {
+    if (projects !== 'all' && until) tooltip = t`Vextrus access to ${codes} at ${developer} ends on ${day}.`
+    else if (projects !== 'all') tooltip = t`Vextrus access covers ${codes} at ${developer}.`
+    else if (until) tooltip = t`Vextrus access to ${developer} ends on ${day}.`
+    else tooltip = t`Vextrus access to ${developer}.`
+  } else if (projects !== 'all' && until) tooltip = t`Your access to ${codes} at ${developer} ends on ${day}.`
+  else if (projects !== 'all') tooltip = t`Your access covers ${codes} at ${developer}.`
+  else tooltip = t`Your access to ${developer} ends on ${day}.`
 
   return (
     <Tooltip>

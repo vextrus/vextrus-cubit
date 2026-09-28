@@ -40,7 +40,8 @@ export function StatusMark({
   const { Glyph, colour } = LOOK[status]
   return (
     <span className={cn('inline-flex items-center gap-1.5 whitespace-nowrap', colour, className)} title={compact ? word : undefined}>
-      <Glyph size={14} className="shrink-0" />
+      {/* text-current: the glyph repeats the word's colour even where a parent greys icons (Command). */}
+      <Glyph size={14} className="shrink-0 text-current" />
       <span className={compact ? 'sr-only' : undefined}>{word}</span>
     </span>
   )
