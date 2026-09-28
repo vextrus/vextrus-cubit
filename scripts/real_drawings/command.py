@@ -3,7 +3,8 @@ only (the M0 plan, "The real-drawing check", steps 1-7; ADRs 0026 and 0030 as am
 
 Run from the owner's checkout of main. It measures the head: the engine paths' files into a scratch
 checkout, the refusals, the locked wheels fetched by hash, the install and the harness inside the
-sandbox, the exports taken out link-free and checked against main's schema. It measures main the same
+sandbox, the exports taken out link-free and checked against main's schema (or, when the head changes
+the schema, against its own, which the run says so the diff is read). It measures main the same
 way when main's code hash is not cached, and diffs each Development Set's export against main's under
 the fixed matching, printing the counts gained, lost and changed per measure; the item list, which
 holds drawing text, stays under the owner's cache. Exports are cached by (code hash, set content).

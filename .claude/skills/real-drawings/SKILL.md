@@ -47,7 +47,8 @@ unseen; it does not prove a reading right. That rests on the owner's walk.
 1. Commit the change, then run `scripts/real-drawings <your branch> --no-post` from your checkout.
    It checks out the branch's engine paths, refuses a `dwgread` off the pin or a changed lock source
    or `[tool.uv]`, installs the locked wheels offline inside bwrap, runs the harness on both sets,
-   checks each export against main's schema and diffs it against main's run (cached by code hash).
+   checks each export against main's schema (against the head's own when the head changes it, which it
+   prints: then read the schema's diff) and diffs it against main's run (cached by code hash).
 2. Read the printed table: per measure (files, entity counts, report counts, sheets, views, register,
    Plot matches, render F1, Checks, conflicts, continuations), the items gained, lost and changed,
    and the items held now. Read time and peak memory are shown, never counted.

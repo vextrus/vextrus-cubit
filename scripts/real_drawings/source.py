@@ -71,6 +71,11 @@ def engine_files(repo: Path, commit: str, patterns_text: str) -> list[Blob]:
         mode, _kind, oid = meta.split()
         blobs[path] = Blob(mode, oid, path)
     chosen = matching(sorted(blobs), read_patterns(patterns_text))
+    # ls-tree and cat-file, unlike a checkout, accept a tree entry named `..` or `.` (git mktree
+    # builds one), so a head's tree could name a file outside the scratch checkout (review of #58).
+    crafted = [p for p in chosen if any(part in ("", ".", "..") for part in p.split("/"))]
+    if crafted:
+        raise Refused(f"an engine path is not a plain path (an empty, . or .. part): {crafted[0]!r}")
     odd = [p for p in chosen if blobs[p].mode not in ("100644", "100755")]
     if odd:
         raise Refused(
@@ -88,6 +93,7 @@ def code_hash(files: list[Blob]) -> str:
 def write_checkout(repo: Path, files: list[Blob], into: Path) -> None:
     """The engine paths' files from git's objects (never a working tree), into a new folder."""
     into.mkdir(parents=True)
+    root = into.resolve()
     batch = git(repo, "cat-file", "--batch", stdin="".join(f"{f.oid}\n" for f in files).encode())
     at = 0
     for f in files:
@@ -96,6 +102,8 @@ def write_checkout(repo: Path, files: list[Blob], into: Path) -> None:
         body = batch[header_end + 1 : header_end + 1 + size]
         at = header_end + 1 + size + 1
         target = into / f.path
+        if not target.resolve().is_relative_to(root):  # a second wall behind engine_files' refusal
+            raise Refused(f"an engine path would be written outside the checkout: {f.path!r}")
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(body)
         os.chmod(target, 0o755 if f.mode == "100755" else 0o644)
