@@ -59,10 +59,16 @@ export function List<T>(props: ListProps<T>) {
   const focused = focusedIndex >= 0 ? keysOf[focusedIndex]! : null
   const optionId = (i: number) => `${base}-row-${i}`
 
+  const scrolledTo = useRef<string | null>(focused)
   useEffect(() => {
     if (focusedIndex >= 0) lastIndex.current = focusedIndex
     if (focused !== focusedKey && focused !== null) setFocusedKey(focused)
-    if (focusedIndex >= 0) document.getElementById(optionId(focusedIndex))?.scrollIntoView({ block: 'nearest' })
+    // Scroll only when the focused row changes, never on the first render, so opening a page
+    // with a focused row does not move the page.
+    if (focused !== scrolledTo.current) {
+      scrolledTo.current = focused
+      if (focusedIndex >= 0) document.getElementById(optionId(focusedIndex))?.scrollIntoView({ block: 'nearest' })
+    }
   })
 
   function focusAt(index: number, extend = false) {

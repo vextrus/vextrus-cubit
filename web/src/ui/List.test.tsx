@@ -125,6 +125,16 @@ describe('the list every table uses (m0-screens §3, §2.2)', () => {
     expect(listbox()).toHaveAttribute('aria-activedescendant', option('S-03').id)
   })
 
+  it('does not move the page when it first shows a focused row', () => {
+    const many = Array.from({ length: 60 }, (_, i) => ({ number: `S-${String(i + 1).padStart(2, '0')}` }))
+    renderList(
+      <div style={{ height: 140, overflow: 'auto' }} data-testid="scroller">
+        <List label="Sheets" items={many} getKey={(s) => s.number} renderItem={(s) => s.number} focusedKey="S-60" />
+      </div>,
+    )
+    expect(screen.getByTestId('scroller').scrollTop).toBe(0)
+  })
+
   it('scrolls the focused row into view', async () => {
     const many = Array.from({ length: 60 }, (_, i) => ({ number: `S-${String(i + 1).padStart(2, '0')}` }))
     renderList(
