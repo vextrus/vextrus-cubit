@@ -340,3 +340,101 @@ class DomainEvent(models.Model):
 
     def __str__(self) -> str:
         return self.kind
+
+
+JEV_KEY = r"^[a-z][a-z0-9_]{0,63}$"
+"""A node's key and an option's: lower-case words, as the engine names keys, at most 64 characters."""
+
+
+class JevAnswer(models.Model):
+    """One answer of Jev's, cached per tenant (ADR 0011 item 5; ticket 15): the same node, facts,
+    question, options and pinned model are answered from here, never asked again.
+
+    `cache_key` is the sha256 of those five as canonical JSON (`services.jev`); the facts themselves
+    are not kept. An answer never changes (its key includes the model), so `vextrus_app` may add a
+    row but never change or delete one. `options` are the option keys offered, in order;
+    `probabilities` maps each to its probability as a decimal string, for "the kinds, most likely
+    first" (m0-screens 5).
+    """
+
+    id = models.UUIDField(primary_key=True, default=new_id, editable=False)
+    tenant_id = models.UUIDField()
+    cache_key = models.CharField(max_length=64)
+    node = models.CharField(max_length=64)
+    model_version = models.CharField(max_length=64)
+    options = models.JSONField(help_text="The option keys offered, in order.")
+    choice = models.CharField(max_length=64)
+    confidence = models.DecimalField(max_digits=5, decimal_places=4)
+    probabilities = models.JSONField(help_text="{option: probability as a decimal string}.")
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+
+    class Meta:
+        indexes: ClassVar = [
+            models.Index(fields=["tenant_id", "node", "model_version"], name="platform_jevanswer_node"),
+        ]
+        constraints: ClassVar = [
+            models.UniqueConstraint(fields=["tenant_id", "cache_key"], name="platform_jevanswer_key"),
+            # The target of JevOverride's key, so an override carries its answer's node, model and
+            # choice and no other (migration 0008).
+            models.UniqueConstraint(
+                fields=["tenant_id", "id", "node", "model_version", "choice"],
+                name="platform_jevanswer_what",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(cache_key__regex=r"^[0-9a-f]{64}$"),
+                name="platform_jevanswer_key_shape",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(node__regex=JEV_KEY) & models.Q(choice__regex=JEV_KEY),
+                name="platform_jevanswer_keys",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(model_version__regex=r"^[a-z0-9][a-z0-9._-]{0,63}$"),
+                name="platform_jevanswer_model_shape",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(confidence__gte=0, confidence__lte=1),
+                name="platform_jevanswer_confidence",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.node}: {self.choice}"
+
+
+class JevOverride(models.Model):
+    """A QS's change of a Jev proposal (ADR 0011 item 4; story 85): the node's live error rate.
+
+    Append-only. Its node, model and Jev's choice are its answer's, which a composite key holds
+    (migration 0008); the QS's choice is never Jev's. `subject_id` is what the proposal was about (a
+    Proposal: an upward stamp, never resolved here).
+    """
+
+    id = models.UUIDField(primary_key=True, default=new_id, editable=False)
+    tenant_id = models.UUIDField()
+    answer = models.ForeignKey(JevAnswer, models.PROTECT, related_name="+", db_index=False)
+    node = models.CharField(max_length=64)
+    model_version = models.CharField(max_length=64)
+    subject_id = models.UUIDField()
+    jev_choice = models.CharField(max_length=64)
+    qs_choice = models.CharField(max_length=64)
+    user = models.ForeignKey(User, models.PROTECT, related_name="+", db_index=False)
+    at = models.DateTimeField(default=timezone.now, editable=False)
+
+    class Meta:
+        indexes: ClassVar = [
+            models.Index(fields=["tenant_id", "answer"], name="platform_jevoverride_answer"),
+            models.Index(
+                fields=["tenant_id", "node", "model_version"], name="platform_jevoverride_node"
+            ),
+        ]
+        constraints: ClassVar = [
+            models.CheckConstraint(
+                condition=models.Q(qs_choice__regex=JEV_KEY)
+                & ~models.Q(qs_choice=models.F("jev_choice")),
+                name="platform_jevoverride_qs_not_jev",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.node}: {self.jev_choice} to {self.qs_choice}"
