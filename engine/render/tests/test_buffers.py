@@ -495,8 +495,9 @@ def _replace_section(data: bytes, fourcc: bytes, payload: bytes, count: int | No
 @pytest.mark.parametrize(
     ("fourcc", "payload", "count", "message"),
     [
-        (b"STAT", b"[" * 100_000 + b"]" * 100_000, 1, "not JSON"),
-        (b"STAT", b"{" * 50_000, 1, "not JSON"),
+        # Deep nesting: a RecursionError on one Python, a parsed list on another; refused either way.
+        (b"STAT", b"[" * 100_000 + b"]" * 100_000, 1, "not JSON|not names to integers"),
+        (b"STAT", b"{" * 50_000, 1, "not JSON|not names to integers"),
         (b"STAT", b'{"a": 1}', 999, "record count"),
         (b"STAT", b"{}" + b" " * (2 << 20), 0, "megabyte"),
         (b"ATLS", struct.pack("<II", 0, 0), 7, "record count is not 1"),
