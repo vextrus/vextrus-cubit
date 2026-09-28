@@ -79,7 +79,7 @@ import re
 import unicodedata
 from collections import Counter
 from collections.abc import Iterable, Iterator, Mapping, Sequence
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from functools import cache
 from pathlib import Path, PureWindowsPath
 from typing import Any
@@ -645,12 +645,18 @@ def _finite_insert(insert: Insert) -> bool:
     return all(math.isfinite(v) for v in values) and insert.scale[0] != 0 and insert.scale[1] != 0
 
 
-def _flat(insert: Insert) -> Insert:
-    """An insert with a Z scale of 0 lies flat: its XY placement is its own, so it is placed with a Z
-    scale of 1 (10's reader met such a file); its frame is then never singular in XY."""
-    if insert.scale[2] != 0:
-        return insert
-    return replace(insert, scale=(insert.scale[0], insert.scale[1], 1.0))
+def _read_from_above(transform: Transform) -> bool:
+    """Whether a frame's placement can be read on the sheet: finite, and its XY part (what it draws
+    seen from above) undoable. Its Z part is never asked: a frame, or a block wrapping frames, at a Z
+    scale of 0 lies flat and is read (10's reader met such a file; review round 1); one at an X or Y
+    scale of 0, or stood on its edge, draws a line, and is not."""
+    m = transform.m
+    if not transform.is_finite:
+        return False
+    determinant = m[0] * m[5] - m[1] * m[4]
+    if determinant == 0 or not math.isfinite(determinant):
+        return False
+    return all(math.isfinite(v / determinant) for v in (m[0], m[1], m[4], m[5]))
 
 
 def _anchor_point(entity: Entity) -> tuple[float, float, float] | None:
@@ -873,10 +879,12 @@ class _Segmenter:
             self.counts["frame_degenerate"] += 1
             return None
         try:
-            transform = placed @ link(self.artefact, _flat(insert)).transform()
-            transform.inverse()  # a frame whose inverse does not exist cannot be read
-        except PlacementError:
+            transform = placed @ link(self.artefact, insert).transform()
+        except PlacementError, ValueError:
             self.counts["frame_degenerate"] += 1
+            return None
+        if not _read_from_above(transform):
+            self.counts["frame_degenerate"] += 1  # a frame not undoable from above cannot be read
             return None
         corners = tuple(transform.apply((x, y, 0.0))[:2] for x, y in local)
         if not all(math.isfinite(c) for p in corners for c in p):

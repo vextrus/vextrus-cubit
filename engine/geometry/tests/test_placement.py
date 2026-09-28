@@ -154,6 +154,34 @@ def test_xy_projects_many_points_as_apply_does() -> None:
 # The trust boundary: a crafted file's inserts are refused or bounded, never followed.
 
 
+@pytest.mark.parametrize(
+    "placed",
+    [
+        {"rotation_radians": math.inf},
+        {"rotation_radians": -math.inf},
+        {"rotation_radians": math.nan},
+        {"point": (math.inf, 0.0, 0.0)},
+        {"scale": (math.nan, 1.0, 1.0)},
+        {"extrusion": (0.0, math.inf, 1.0)},
+        {"kind": "MINSERT", "values": {"column_count": 2, "column_spacing": math.inf}},
+    ],
+)
+def test_an_insert_placed_by_values_not_finite_is_refused_not_followed(placed: dict[str, Any]) -> None:
+    """Review round 1 of 13: `rotation_z(inf)` raised out of the renderer's walk; a walk now refuses
+    an insert it cannot place, as it refuses a loop, and counts it."""
+    drawing = Drawing()
+    inner = drawing.block("INNER")
+    drawing.line((0, 0), (1, 0), owner=inner)
+    drawing.insert(inner, **placed)
+    drawing.line((5, 5), (6, 5))
+    walked = Walk(drawing.artefact())
+
+    found = list(walked.entities(MODEL))
+
+    assert walked.refused[Refusal.NOT_FINITE] == 1
+    assert [e.type for e, _ in found] == [placed.get("kind", "INSERT"), "LINE"]
+
+
 def test_an_insert_loop_is_refused_not_followed() -> None:
     drawing = Drawing()
     a = drawing.block("A")

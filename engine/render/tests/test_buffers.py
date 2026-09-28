@@ -534,6 +534,29 @@ def test_a_sheet_that_takes_too_long_is_cut_at_its_time_budget() -> None:
     assert built.stats["budget_seconds"] == 1
 
 
+@pytest.mark.parametrize("wrapped", [False, True])
+@pytest.mark.parametrize("angle", [math.inf, -math.inf, math.nan])
+def test_an_insert_at_an_angle_not_finite_is_refused_never_raised(angle: float, wrapped: bool) -> None:
+    """Review round 1 of 13: a frame (or a wrapper of frames) inserted at an infinite rotation made
+    `build` raise `ValueError` from `rotation_z`, losing the whole sheet; the walk now refuses the
+    insert, counted, and the rest is drawn."""
+    drawing = Drawing()
+    frame = drawing.block("FRAME")
+    drawing.line((0, 0), (100, 0), owner=frame)
+    if wrapped:
+        wrapper = drawing.block("WRAP")
+        drawing.insert(frame, owner=wrapper)
+        drawing.insert(wrapper, (10, 10, 0), rotation_radians=angle)
+    else:
+        drawing.insert(frame, (10, 10, 0), rotation_radians=angle)
+    drawing.line((0, 0), (50, 50))
+
+    built = build(drawing.artefact(), model_sheet(0, 0, 297, 210))
+
+    assert built.stats["refused_not_finite"] == 1
+    assert len(built.lines) == 1
+
+
 def test_an_insert_loop_is_drawn_once_and_counted() -> None:
     drawing = Drawing()
     a = drawing.block("A")

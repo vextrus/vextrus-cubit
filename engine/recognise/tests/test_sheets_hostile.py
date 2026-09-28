@@ -108,6 +108,39 @@ def test_a_frame_insert_lying_flat_with_a_z_scale_of_0_is_read() -> None:
     assert sheet.number.value == "S-03"
 
 
+@pytest.mark.parametrize("z", [0.0, 1.0])
+def test_frames_inside_a_wrapper_lying_flat_at_a_z_scale_of_0_are_read(z: float) -> None:
+    """Review round 1: three frames in a block inserted at scale (1, 1, 0) were all lost as singular
+    (`frame_degenerate`), while the renderer drew them; 10's reader has met a Z scale of 0 on a real
+    file. A frame is read from above: only its XY placement must be undoable."""
+    d = Sheets()
+    frame = frame_block(d)
+    wrapper = d.block("WRAP")
+    for k in range(3):
+        d.insert(frame, (k * 1000.0, 0.0, 0.0), owner=wrapper)
+        x, y, _ = value_at(2)
+        d.text(f"S-0{k + 1}", (k * 1000.0 + x, y, 0.0), height=5.0, owner=wrapper)
+    d.insert(wrapper, (0, 0, 0), scale=(1.0, 1.0, z))
+
+    result = segment(d.artefact(), None, DEFAULT)
+
+    assert [s.number.value if s.number else None for s in result.sheets] == ["S-01", "S-02", "S-03"]
+    assert result.counts["frame_degenerate"] == 0
+
+
+def test_a_frame_stood_on_its_edge_is_not_read() -> None:
+    """Seen from above, a frame whose plane holds the Z axis is a line: its XY placement cannot be
+    undone, and it is counted, never read."""
+    d = Sheets()
+    placed_frame(d, frame_block(d), (5000, 0), {2: "S-02"})
+    d.insert(frame_block(d, "EDGE"), (0, 0, 0), extrusion=(1.0, 0.0, 0.0))
+
+    result = segment(d.artefact(), None, DEFAULT)
+
+    assert [s.number.value for s in result.sheets if s.number] == ["S-02"]
+    assert result.counts["frame_degenerate"] == 1
+
+
 def test_a_walk_stops_at_its_visit_budget_and_says_so(monkeypatch: pytest.MonkeyPatch) -> None:
     """Work is bounded by counted steps, never wall time, so 4 cores and 24 read alike."""
     monkeypatch.setattr(sheets, "MAX_VISITS", 50)
