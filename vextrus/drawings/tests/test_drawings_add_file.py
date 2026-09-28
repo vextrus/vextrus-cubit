@@ -145,7 +145,7 @@ def _files_of(project: QsProject) -> list[Path]:
     base = (
         Path(settings.VEXTRUS_STORAGE_ROOT) / str(project.member.developer_id) / str(project.project_id)
     )
-    return [p for p in (base / "drawings").rglob("*")]
+    return list((base / "drawings").rglob("*"))
 
 
 def test_a_name_with_nothing_left_after_cleaning_is_refused(qs_project: QsProject) -> None:

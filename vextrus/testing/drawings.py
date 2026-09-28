@@ -22,7 +22,7 @@ import sys
 import time
 import uuid
 from collections.abc import Callable, Iterator, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 import pytest
@@ -33,6 +33,7 @@ from pytest_django.plugin import DjangoDbBlocker
 from engine.check.bangla_ansi import BanglaAnsi
 from engine.read.anchor import DwgAnchor
 from engine.read.artefact import ReadArtefact
+from engine.read.pdf.types import Lettering, MadeBy, PageReport, PdfReport
 from engine.recognise.types import (
     Box,
     CheckOutcome,
@@ -86,6 +87,29 @@ def add(member: Member, project_id: uuid.UUID, name: str, content: bytes) -> ser
         return services.add_file(
             project_id, name=name, content=io.BytesIO(content), actor_name=member.user.name
         )
+
+
+def pdf_report(
+    sha256: str, pages: int, *, lettering: Lettering = Lettering.TEXT, refused: bool = False
+) -> PdfReport:
+    """A PDF's upload report (12's shape) of `pages` drawn pages; a scan when `refused`."""
+    page = PageReport(
+        number=1, readable=True, rotate=0, width=1190.0, height=842.0, shx_comments=0, chars=10,
+        hidden_chars=0, unmapped_chars=0, mirrored_texts=0, strokes=100, fills=0, images=0,
+        picture_share=0.0, mostly_picture=False, layers=(), lettering=lettering, scan=refused,
+    )  # fmt: skip
+    return PdfReport(
+        source_sha256=sha256,
+        producer=None,
+        creator=None,
+        made_by=MadeBy.UNKNOWN,
+        pages=tuple(replace(page, number=n) for n in range(1, pages + 1)),
+        fonts=(),
+        layers=(),
+        extras={},
+        refused={"code": "engine.pdf_report.refused_scan", "params": {}} if refused else None,
+        messages=(),
+    )
 
 
 # A DWG taken to "read", through the services ----------------------------------------------------

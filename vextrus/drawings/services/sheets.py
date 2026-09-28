@@ -591,9 +591,9 @@ def sheets(set_id: uuid.UUID, discipline: str | None = None) -> list[SheetView]:
         return (
             view.discipline is None,
             order.get(view.discipline or "", 0),
+            view.number is None,
             [(0, int(p), "") if p.isdigit() else (1, 0, p.casefold())
              for p in _NATURAL.split(view.number or "") if p],
-            view.number is None,
             str(view.file_id),
             view.ordinal,
         )  # fmt: skip
