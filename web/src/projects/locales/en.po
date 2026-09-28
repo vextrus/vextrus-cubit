@@ -1,0 +1,112 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-09-29 02:44+0600\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: en\n"
+
+#: src/projects/ProjectsPage.tsx
+msgid "Projects"
+msgstr "Projects"
+
+#: src/projects/ProjectsPage.tsx
+msgid "Updated"
+msgstr "Updated"
+
+#: src/projects/discard.tsx
+msgid "Keep typing"
+msgstr "Keep typing"
+
+#: src/projects/ProjectsPage.tsx
+msgid "Drawing Set"
+msgstr "Drawing Set"
+
+#: src/projects/ProjectsPage.tsx
+msgid "No projects yet. Your QS creates them."
+msgstr "No projects yet. Your QS creates them."
+
+#: src/projects/NewProjectDialog.tsx
+#: src/projects/ProjectsPage.tsx
+msgid "Name"
+msgstr "Name"
+
+#: src/projects/ProjectsPage.tsx
+msgid "You have no access to any Developer at the moment. Ask your MD, or Vextrus, for an invitation."
+msgstr "You have no access to any Developer at the moment. Ask your MD, or Vextrus, for an invitation."
+
+#: src/projects/discard.tsx
+msgid "Discard"
+msgstr "Discard"
+
+#: src/projects/NewProjectDialog.tsx
+msgid "Cancel"
+msgstr "Cancel"
+
+#: src/projects/NewProjectDialog.tsx
+#: src/projects/ProjectsPage.tsx
+msgid "Address"
+msgstr "Address"
+
+#: src/projects/NewProjectDialog.tsx
+#: src/projects/ProjectsPage.tsx
+msgid "Code"
+msgstr "Code"
+
+#: src/projects/NewProjectDialog.tsx
+#: src/projects/ProjectsPage.tsx
+msgid "New project"
+msgstr "New project"
+
+#: src/projects/discard.tsx
+msgid "Close without saving what you typed?"
+msgstr "Close without saving what you typed?"
+
+#: src/projects/ProjectsPage.tsx
+msgid "Opening the projects…"
+msgstr "Opening the projects…"
+
+#: src/projects/ProjectsPage.tsx
+msgid "No projects yet. Create one for each development whose drawings you will take off."
+msgstr "No projects yet. Create one for each development whose drawings you will take off."
+
+#: src/projects/NewProjectDialog.tsx
+msgid "Display Units"
+msgstr "Display Units"
+
+#: src/projects/ProjectsPage.tsx
+msgid "Open the project"
+msgstr "Open the project"
+
+#: src/projects/NewProjectDialog.tsx
+msgid "Create project"
+msgstr "Create project"
+
+#: src/projects/ProjectsPage.tsx
+msgid "{n, plural, one {# project at {developer} is open to you} other {# projects at {developer} are open to you}}"
+msgstr "{n, plural, one {# project at {developer} is open to you} other {# projects at {developer} are open to you}}"
+
+#: src/projects/ProjectsPage.tsx
+msgid "{n, plural, one {# project at {developer}} other {# projects at {developer}}}"
+msgstr "{n, plural, one {# project at {developer}} other {# projects at {developer}}}"
+
+#: src/projects/ProjectsPage.tsx
+msgid "Members and access"
+msgstr "Members and access"
+
+#: src/projects/NewProjectDialog.tsx
+msgid "Vextrus can’t be reached. Check your connection and try again."
+msgstr "Vextrus can’t be reached. Check your connection and try again."
+
+#: src/projects/NewProjectDialog.tsx
+msgid "Short, like KR-01"
+msgstr "Short, like KR-01"
+
+#: src/projects/ProjectsPage.tsx
+msgid "Takeoff"
+msgstr "Takeoff"
+
+#: src/projects/NewProjectDialog.tsx
+msgid "How quantities will be billed. You can change it later."
+msgstr "How quantities will be billed. You can change it later."

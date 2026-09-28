@@ -1,0 +1,224 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-09-29 02:44+0600\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: en\n"
+
+#: src/auth/SessionWatch.tsx
+msgid "Sign in again to carry on; nothing you confirmed is lost."
+msgstr "Sign in again to carry on; nothing you confirmed is lost."
+
+#: src/auth/Join.tsx
+msgid "{inviter} invited you as {as} to {list} until {date}."
+msgstr "{inviter} invited you as {as} to {list} until {date}."
+
+#: src/auth/SessionWatch.tsx
+msgid "You were signed out."
+msgstr "You were signed out."
+
+#: src/auth/Join.tsx
+msgid "Join"
+msgstr "Join"
+
+#: src/auth/SignIn.tsx
+msgid "Enter your email."
+msgstr "Enter your email."
+
+#: src/auth/Join.tsx
+msgid "{inviter} invited you as {as}."
+msgstr "{inviter} invited you as {as}."
+
+#: src/auth/Join.tsx
+msgid "{role, select, qs {QS} md {MD} guest {a Guest} vextrus_engineer {a Vextrus Engineer} other {a member}}"
+msgstr "{role, select, qs {QS} md {MD} guest {a Guest} vextrus_engineer {a Vextrus Engineer} other {a member}}"
+
+#: src/auth/title.ts
+msgid "{page} · Vextrus"
+msgstr "{page} · Vextrus"
+
+#: src/auth/Join.tsx
+msgid "{projects, plural, one {You can look at its drawings and Takeoff but not change them.} other {You can look at their drawings and Takeoff but not change them.}}"
+msgstr "{projects, plural, one {You can look at its drawings and Takeoff but not change them.} other {You can look at their drawings and Takeoff but not change them.}}"
+
+#: src/auth/Join.tsx
+#: src/auth/SignIn.tsx
+msgid "Sign in"
+msgstr "Sign in"
+
+#: src/auth/lists.tsx
+msgid "{first} and {second}"
+msgstr "{first} and {second}"
+
+#: src/auth/Join.tsx
+msgid "Name"
+msgstr "Name"
+
+#. placeholder {0}: codes.length
+#. placeholder {0}: projects.length
+#: src/auth/lists.tsx
+msgid "{0, plural, one {# project} other {# projects}}"
+msgstr "{0, plural, one {# project} other {# projects}}"
+
+#: src/auth/Join.tsx
+#: src/auth/SignIn.tsx
+msgid "Password"
+msgstr "Password"
+
+#: src/auth/ChooseDeveloper.tsx
+msgid "Your Developers"
+msgstr "Your Developers"
+
+#: src/auth/AccessEnded.tsx
+msgid "You have no access to any Developer at the moment. Ask your MD, or Vextrus, for an invitation."
+msgstr "You have no access to any Developer at the moment. Ask your MD, or Vextrus, for an invitation."
+
+#: src/auth/Join.tsx
+msgid "At least 12 characters"
+msgstr "At least 12 characters"
+
+#: src/auth/Join.tsx
+msgid "Enter your name."
+msgstr "Enter your name."
+
+#: src/auth/readOnly.tsx
+msgid "As a Guest you can look at the Takeoff but not change it."
+msgstr "As a Guest you can look at the Takeoff but not change it."
+
+#: src/auth/readOnly.tsx
+msgid "As MD you can look at the Takeoff but not change it."
+msgstr "As MD you can look at the Takeoff but not change it."
+
+#: src/auth/AccessEnded.tsx
+#: src/auth/ChooseDeveloper.tsx
+#: src/auth/Join.tsx
+msgid "Sign out"
+msgstr "Sign out"
+
+#: src/auth/SessionWatch.tsx
+msgid "Opening Vextrus…"
+msgstr "Opening Vextrus…"
+
+#: src/auth/AccessEnded.tsx
+msgid "Your access to {list} at {developer} ended on {date}. Ask {developer} to renew it."
+msgstr "Your access to {list} at {developer} ended on {date}. Ask {developer} to renew it."
+
+#: src/auth/Join.tsx
+#: src/auth/SignIn.tsx
+msgid "Enter your password."
+msgstr "Enter your password."
+
+#: src/auth/AccessEnded.tsx
+msgid "Your access to {list} at {developer} has ended. {revoker} revoked it on {date}. What you did before then is kept under your name."
+msgstr "Your access to {list} at {developer} has ended. {revoker} revoked it on {date}. What you did before then is kept under your name."
+
+#: src/auth/Join.tsx
+msgid "Opening the invitation…"
+msgstr "Opening the invitation…"
+
+#: src/auth/AccessEnded.tsx
+msgid "Your access to {developer} has ended. {revoker} revoked it on {date}. What you did before then is kept under your name."
+msgstr "Your access to {developer} has ended. {revoker} revoked it on {date}. What you did before then is kept under your name."
+
+#: src/auth/Join.tsx
+msgid "Invitation"
+msgstr "Invitation"
+
+#: src/auth/Join.tsx
+msgid "You were invited as {as} to {list}."
+msgstr "You were invited as {as} to {list}."
+
+#: src/auth/Join.tsx
+msgid "This invitation can no longer be used. Ask whoever sent it for a new one."
+msgstr "This invitation can no longer be used. Ask whoever sent it for a new one."
+
+#: src/auth/SignIn.tsx
+msgid "Signing in…"
+msgstr "Signing in…"
+
+#: src/auth/AccessEnded.tsx
+msgid "Your access to {list} at {developer} was ended on {date}. What you did before then is kept under your name."
+msgstr "Your access to {list} at {developer} was ended on {date}. What you did before then is kept under your name."
+
+#: src/auth/SignIn.tsx
+msgid "Forgot your password? Ask your MD, or Vextrus, to set a new one."
+msgstr "Forgot your password? Ask your MD, or Vextrus, to set a new one."
+
+#: src/auth/AccessEnded.tsx
+msgid "Your access to {developer} was ended on {date}. What you did before then is kept under your name."
+msgstr "Your access to {developer} was ended on {date}. What you did before then is kept under your name."
+
+#: src/auth/AccessEnded.tsx
+msgid "Your access to {developer} ended on {date}. Ask {developer} to renew it."
+msgstr "Your access to {developer} ended on {date}. Ask {developer} to renew it."
+
+#: src/auth/Join.tsx
+msgid "You were invited as {as}."
+msgstr "You were invited as {as}."
+
+#: src/auth/Join.tsx
+#: src/auth/SignIn.tsx
+msgid "Email"
+msgstr "Email"
+
+#: src/auth/AccessEnded.tsx
+msgid "No access"
+msgstr "No access"
+
+#: src/auth/Join.tsx
+msgid "You were invited as {as} until {date}."
+msgstr "You were invited as {as} until {date}."
+
+#: src/auth/Join.tsx
+msgid "You were invited as {as} to {list} until {date}."
+msgstr "You were invited as {as} to {list} until {date}."
+
+#: src/auth/AccessEnded.tsx
+msgid "Access ended"
+msgstr "Access ended"
+
+#: src/auth/lists.tsx
+msgid "{first}, {second} and {third}"
+msgstr "{first}, {second} and {third}"
+
+#: src/auth/Join.tsx
+msgid "Joining…"
+msgstr "Joining…"
+
+#: src/auth/Join.tsx
+msgid "You can look at the drawings and Takeoff of every project but not change them."
+msgstr "You can look at the drawings and Takeoff of every project but not change them."
+
+#: src/auth/ChooseDeveloper.tsx
+msgid "Work in this Developer"
+msgstr "Work in this Developer"
+
+#: src/auth/Join.tsx
+msgid "{inviter} invited you as {as} until {date}."
+msgstr "{inviter} invited you as {as} until {date}."
+
+#: src/auth/ChooseDeveloper.tsx
+msgid "Which Developer?"
+msgstr "Which Developer?"
+
+#: src/auth/Join.tsx
+msgid "{inviter} invited you as {as} to {list}."
+msgstr "{inviter} invited you as {as} to {list}."
+
+#: src/auth/Join.tsx
+msgid "Join {developer}"
+msgstr "Join {developer}"
+
+#: src/auth/SignIn.tsx
+msgid "Vextrus can’t be reached. Check your connection and try again."
+msgstr "Vextrus can’t be reached. Check your connection and try again."
+
+#: src/auth/AccessEnded.tsx
+msgid "Choose another Developer"
+msgstr "Choose another Developer"
+
+#: src/auth/OutsidePage.tsx
+msgid "Vextrus"
+msgstr "Vextrus"

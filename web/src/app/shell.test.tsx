@@ -1,6 +1,7 @@
 /*
- * The app frame on the seed's static copy (docs/design/m0-screens.md §4.1, §4.7, §1.4, §1.5, §1.8–1.10,
- * §2.2), in Chromium at the design gate's sizes.
+ * The app frame on the seed (docs/design/m0-screens.md §4.1, §4.7, §1.4, §1.5, §1.8–1.10, §2.2), in
+ * Chromium at the design gate's sizes, signed in through the in-memory API (src/app/testing.tsx);
+ * Step 1's counts, which 19a will send, are the seed's static copy.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, render, screen, waitFor, within } from '@testing-library/react'
@@ -16,14 +17,13 @@ import { unmarkedNotation } from '@/format/unmarked'
 import { LtrCanvas, expectKeyMapSound, notationProblems } from '@/ui'
 import { i18n } from '@lingui/core'
 import { overrideLanguage } from './dev-language'
-import { BANGLADESH } from './seed/demo.fixture'
-import { staticSession } from './session'
-import { mountApp } from './testing'
+import { BANGLADESH, STEP1 } from './seed/demo.fixture'
+import { PEOPLE, mountApp, sessionAs } from './testing'
 
-const QS = 'nusrat@shapla-homes.example'
-const MD = 'kamal@shapla-homes.example'
-const ENGINEER = 'arif@vextrus.example'
-const GUEST = 'farhana@padma-builders.example'
+const QS = PEOPLE.qs
+const MD = PEOPLE.md
+const ENGINEER = PEOPLE.engineer
+const GUEST = PEOPLE.guest
 
 beforeEach(async () => {
   vi.useFakeTimers({ toFake: ['Date'] })
@@ -46,8 +46,8 @@ const named = (re: RegExp) => (name: string) => re.test(clean(name))
 const region = (name: string) => document.querySelector<HTMLElement>(`[data-region="${name}"]`)!
 const box = (el: Element) => el.getBoundingClientRect()
 
-async function takeoff(path = '/p/KR-01/takeoff/1', as = QS) {
-  const app = await mountApp(path, { as })
+async function takeoff(path = '/p/KR-01/takeoff/1', as: string = QS) {
+  const app = await mountApp(path, { as, step1: STEP1 })
   await waitFor(() => expect(document.querySelector('[data-region="rail"]')).not.toBeNull())
   return app
 }
@@ -322,11 +322,11 @@ describe('focus stays visible (§4.1, §8.7; WCAG 2.4.7)', () => {
 })
 
 describe('the gate’s minors', () => {
-  it('shows /projects as a plain Page not found until 20a builds it, with no link to itself', async () => {
-    const { router } = await mountApp('/projects')
-    expect(await screen.findByText(/There is nothing at this address/)).toBeVisible()
-    expect(router.state.location.pathname).toBe('/projects')
-    expect(screen.queryByRole('link', { name: 'Your projects' })).toBeNull()
+  it('leads from Page not found to the projects list, which 20a builds', async () => {
+    const { router } = await mountApp('/nowhere')
+    await userEvent.click(await screen.findByRole('link', { name: 'Your projects' }))
+    await waitFor(() => expect(router.state.location.pathname).toBe('/projects'))
+    expect(await screen.findByRole('heading', { name: 'Projects' })).toBeVisible()
     expect(document.querySelectorAll('[data-frame]')).toHaveLength(1)
   })
 
@@ -377,7 +377,7 @@ describe('the page’s language from the Market’s language data (§1.8, §1.9)
   })
 
   it('follows a Market whose language data is right to left', async () => {
-    const session = { ...staticSession(QS), market: { ...BANGLADESH, language: PSEUDO_RTL } }
+    const session = { ...(await sessionAs(QS)), market: { ...BANGLADESH, language: PSEUDO_RTL } }
     await mountApp('/p/KR-01/takeoff/1', { session })
     await waitFor(() => expect(document.documentElement.dir).toBe('rtl'))
     expect(document.documentElement.lang).toBe(PSEUDO_RTL.code)

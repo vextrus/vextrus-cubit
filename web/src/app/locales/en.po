@@ -52,6 +52,10 @@ msgstr "Vextrus can’t be reached. Check your connection; this page keeps tryin
 msgid "Inspector"
 msgstr "Inspector"
 
+#: src/app/TopBar.tsx
+msgid "Switch to {developer}"
+msgstr "Switch to {developer}"
+
 #: src/app/JumpTo.tsx
 msgid "Go to a project, or to a place in this one."
 msgstr "Go to a project, or to a place in this one."
@@ -250,6 +254,10 @@ msgstr "Proposals ready"
 #: src/app/CanvasFrame.tsx
 msgid "Open the step rail"
 msgstr "Open the step rail"
+
+#: src/app/TopBar.tsx
+msgid "Working in {current}"
+msgstr "Working in {current}"
 
 #: src/app/JumpTo.tsx
 msgid "Jump to a project or a place…"
