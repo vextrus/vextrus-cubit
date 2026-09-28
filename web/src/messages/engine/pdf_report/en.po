@@ -8,13 +8,13 @@ msgstr ""
 #. engine/messages/pdf_report.py (ticket 12): the PDF upload report, after m0-screens 4.5.
 #. PDFSHX at 1 is from Autodesk's "PDFSHX System Variable" page, AutoCAD 2026 Help, read 28 Sep 2026 (engine/read/pdf cites it).
 msgid "engine.pdf_report.fonts_drawn"
-msgstr "{fonts, plural, one {Text in # font is drawn as shapes, not letters, so Vextrus may not read it. The Plot still looks right.} other {Text in # fonts is drawn as shapes, not letters, so Vextrus may not read it. The Plot still looks right.}}"
+msgstr "{fonts, plural, one {Text in # font is drawn as shapes, not letters, so Vextrus may not read it. The Plot still looks right. If a page is not matched to its sheet, ask the consultant to plot it again.} other {Text in # fonts is drawn as shapes, not letters, so Vextrus may not read it. The Plot still looks right. If a page is not matched to its sheet, ask the consultant to plot it again.}}"
 
 msgid "engine.pdf_report.fonts_not_embedded"
 msgstr "{fonts, plural, one {# font is not included in the PDF. Its text still reads as text, but its letters may look slightly different in the Plot here than on the consultant's screen.} other {# fonts are not included in the PDF. Their text still reads as text, but their letters may look slightly different in the Plot here than on the consultant's screen.}}"
 
 msgid "engine.pdf_report.fonts_unreadable"
-msgstr "{fonts, plural, one {# font in the PDF is damaged, so its text cannot be read. The rest of the PDF is read. If that text matters, ask the consultant to plot the PDF again.} other {# fonts in the PDF are damaged, so their text cannot be read. The rest of the PDF is read. If that text matters, ask the consultant to plot the PDF again.}}"
+msgstr "{fonts, plural, one {# font in the PDF is damaged, so its text cannot be read; the rest of the PDF is read. If that text matters, ask the consultant to plot the PDF again.} other {# fonts in the PDF are damaged, so their text cannot be read; the rest of the PDF is read. If that text matters, ask the consultant to plot the PDF again.}}"
 
 msgid "engine.pdf_report.layers_flattened"
 msgstr "The layers were flattened: everything is on one layer. The Plot is still fine to look at."
@@ -26,13 +26,13 @@ msgid "engine.pdf_report.lettering_kept"
 msgstr "The AutoCAD lettering is kept as text on every page."
 
 msgid "engine.pdf_report.lettering_lines"
-msgstr "{pages, plural, one {On # page the lettering is drawn as lines, not text.} other {On # pages the lettering is drawn as lines, not text.}} The Plot still looks right, but a machine cannot read that text. If you ask the consultant for a new PDF, ask them to plot it with AutoCAD's DWG To PDF plotter, its PDFSHX setting at 1 and \"Convert all text to geometry\" off, so the lettering stays text."
+msgstr "{pages, plural, one {On # page the lettering is drawn as lines, not text.} other {On # pages the lettering is drawn as lines, not text.}} The Plot still looks right, but a machine cannot read that text. If you ask the consultant for a new PDF, ask them to plot it with AutoCAD's DWG To PDF plotter, with PDFSHX set to 1 and \"Convert all text to geometry\" off, so the lettering stays text."
 
 msgid "engine.pdf_report.lettering_partly"
 msgstr "The AutoCAD lettering is kept as text on {pages} of {drawn} drawn pages."
 
 msgid "engine.pdf_report.lettering_unconfirmed"
-msgstr "{pages, plural, one {# page has its text in ordinary fonts, and the PDF cannot show whether any AutoCAD lettering on it was kept.} other {# pages have their text in ordinary fonts, and the PDF cannot show whether any AutoCAD lettering on them was kept.}} If this file's DWG lists Romans or another AutoCAD lettering, that lettering is drawn as lines here: ask the consultant to plot with AutoCAD's DWG To PDF plotter and its PDFSHX setting at 1."
+msgstr "{pages, plural, one {# page has its text in ordinary fonts, and the PDF cannot show whether any AutoCAD lettering on it was kept.} other {# pages have their text in ordinary fonts, and the PDF cannot show whether any AutoCAD lettering on them was kept.}} If this file's DWG lists Romans or another AutoCAD lettering, that lettering is drawn as lines here: ask the consultant to plot with AutoCAD's DWG To PDF plotter, with PDFSHX set to 1 and \"Convert all text to geometry\" off."
 
 msgid "engine.pdf_report.limit_reached"
 msgstr "{limit, select, memory {This PDF needs more memory than Vextrus gives one file, so it was not read.} killed {This PDF needs more memory than Vextrus gives one file, so it was not read.} output {This PDF holds more text than Vextrus reads from one file, so it was not read.} other {Vextrus could not finish reading this PDF in the time it gives one file, so it was not read.}} Ask the consultant for one PDF per DWG, or for the DWG files; if you need this one, mark it for Vextrus."
@@ -65,7 +65,7 @@ msgid "engine.pdf_report.pictures"
 msgstr "{pages, plural, one {Pictures on # page} other {Pictures on # pages}}, covering at most {percent}% of a page (logos, stamps or photos)."
 
 msgid "engine.pdf_report.reader_failed"
-msgstr "This PDF could not be read because of a fault in Vextrus, not in the file. Try again, or mark it for Vextrus."
+msgstr "This PDF could not be read because of a fault in Vextrus, not in the file. The file is kept: try again, or mark it for Vextrus."
 
 msgid "engine.pdf_report.scan"
 msgstr "This PDF is a scan: its pages are pictures, with no lines or text to read. Vextrus reads drawings, not scans. Ask the Developer or the consultant for the DWG files, or for a PDF plotted from AutoCAD."
@@ -77,7 +77,7 @@ msgid "engine.pdf_report.too_many_pages"
 msgstr "This PDF has more than {limit} pages, so Vextrus did not read it. Ask the consultant for one PDF per DWG, or for the DWG files."
 
 msgid "engine.pdf_report.unmapped_text"
-msgstr "{chars, plural, one {# letter cannot be read: its font does not say which letter or figure it is.} other {# letters cannot be read: their fonts do not say which letters or figures they are.}} The Plot still shows them, but Vextrus cannot use them to match pages to sheets. If a sheet's number or title is among them, ask the consultant to plot it again."
+msgstr "{chars, plural, one {# letter cannot be read: its font does not say which letter or figure it is, so Vextrus cannot use it to match pages to sheets.} other {# letters cannot be read: their fonts do not say which letters or figures they are, so Vextrus cannot use them to match pages to sheets.}} If a page is not matched to its sheet, ask the consultant to plot it again with AutoCAD's DWG To PDF plotter."
 
 msgid "engine.pdf_report.unreadable"
 msgstr "This PDF could not be read: it may be damaged. Ask the consultant for the PDF again, or for the DWG files."
