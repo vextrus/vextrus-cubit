@@ -3,8 +3,9 @@
 
 Each act is its DomainEvent's kind, a message code every module declares with `event=True` (the
 OpenAPI schema lists them as `EventCode`, so this module names none of a higher module's), with its
-parameters filled in: `actor`, the acting user's name; `subject`, the name of what the act was about
-when platform knows it (a person, a Developer); and the event's own payload of ids and counts. Each
+parameters filled in: `actor`, the acting user's name; `by`, `person` or `vextrus` (no user acted);
+`subject`, the name of what the act was about when platform knows it (a person, a Developer), and
+`role` when it is a person's Membership; and the event's own payload of ids and counts. Each
 carries the actor's name and role, and whether they are of Vextrus, so the web shows "(Vextrus)".
 
 Only the acting Developer's events are read (row-level security holds that), and a member given
@@ -26,6 +27,19 @@ from vextrus.platform.models import Developer, DomainEvent, Membership, Role, Us
 from vextrus.platform.services import auth, invitations
 
 MAX_LIMIT = 200
+
+BY_PERSON = "person"
+BY_VEXTRUS = "vextrus"
+"""`by`, on every act: `person` when a user acted (named in `actor`), `vextrus` when none did (a
+step of the system, the seed), so a message words an act with no actor with a `select` on `by`
+instead of starting with an empty name."""
+
+
+@dataclass(frozen=True)
+class Subject:
+    name: str
+    role: str | None = None
+    """A Membership's role, for a person (`invited`'s "as a Guest")."""
 
 
 @dataclass(frozen=True)
@@ -89,7 +103,11 @@ def acts(
             )
         params: dict[str, Param] = dict(event.payload)
         params["actor"] = actor.name if actor else ""
-        params["subject"] = subjects.get((event.subject_type, event.subject_id), "")
+        params["by"] = BY_PERSON if actor else BY_VEXTRUS
+        subject = subjects.get((event.subject_type, event.subject_id))
+        params["subject"] = subject.name if subject else ""
+        if subject and subject.role:
+            params["role"] = subject.role
         shown.append(
             ActView(
                 id=event.id,
@@ -121,18 +139,20 @@ def _roles(tenant_id: uuid.UUID, user_ids: set[uuid.UUID]) -> dict[uuid.UUID, st
 
 def _subjects(
     tenant_id: uuid.UUID, events: list[DomainEvent]
-) -> dict[tuple[str, uuid.UUID | None], str]:
-    """The names of the people and Developers the acts were about (other subjects are the web's)."""
+) -> dict[tuple[str, uuid.UUID | None], Subject]:
+    """The people (with their role) and Developers the acts were about; other subjects are the
+    web's to name."""
     memberships = {e.subject_id for e in events if e.subject_type == "membership" and e.subject_id}
-    names: dict[tuple[str, uuid.UUID | None], str] = {}
+    found: dict[tuple[str, uuid.UUID | None], Subject] = {}
     rows = Membership.objects.filter(tenant_id=tenant_id, id__in=memberships).values_list(
-        "id", "user_id", "invited_email"
+        "id", "user_id", "invited_email", "role"
     )
     people = {row[1] for row in rows if row[1]}
     user_names = dict(User.objects.filter(id__in=people).values_list("id", "name"))
-    for membership_id, user_id, email in rows:
-        names["membership", membership_id] = user_names.get(user_id, email) if user_id else email
+    for membership_id, user_id, email, role in rows:
+        name = user_names.get(user_id, email) if user_id else email
+        found["membership", membership_id] = Subject(name, role)
     if any(e.subject_type == "developer" for e in events):
         for developer_id, name in Developer.objects.filter(id=tenant_id).values_list("id", "name"):
-            names["developer", developer_id] = name
-    return names
+            found["developer", developer_id] = Subject(name)
+    return found

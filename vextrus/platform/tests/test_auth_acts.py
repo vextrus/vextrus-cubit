@@ -235,7 +235,7 @@ def test_signed_out_or_without_a_developer_a_declared_act_is_refused(
     assert status(Api().get(f"/api/later/{uuid.uuid4()}")) == (401, SIGNED_OUT)
     assert status(api_as(member).get(f"/api/later/{uuid.uuid4()}")) == (
         403,
-        {"code": "platform.auth.no_developer", "params": {}},
+        {"code": "platform.auth.no_access", "params": {}},
     )
 
 

@@ -552,7 +552,7 @@ def _pending(actor: CurrentMembership, membership_id: uuid.UUID) -> Membership:
         or membership.invite_expires_at is None
         or membership.invite_expires_at <= timezone.now()
     ):
-        raise Refused(codes.UNUSABLE(), status=409)
+        raise Refused(codes.NO_LONGER_OPEN(), status=409)
     return membership
 
 
@@ -573,7 +573,7 @@ def _still(state: Q, membership_id: uuid.UUID, **changes: object) -> None:
     """Change a Membership only while it is still in the state just checked: an accept or a
     revocation committed in between refuses the act, rather than recording it on the wrong state."""
     if Membership.objects.filter(state, id=membership_id).update(**changes) != 1:
-        raise Refused(codes.ALREADY_ENDED() if state is _MEMBER else codes.UNUSABLE(), status=409)
+        raise Refused(codes.ALREADY_ENDED() if state is _MEMBER else codes.NO_LONGER_OPEN(), status=409)
 
 
 def _record(kind: MessageCode, membership_id: uuid.UUID, actor: CurrentMembership) -> None:

@@ -126,7 +126,7 @@ def test_a_user_with_several_developers_chooses_one(
     assert me["developer_id"] is None
     assert me["market"] is None
     assert sorted(m["developer_name"] for m in me["memberships"]) == ["Meghna", "Shapla"]
-    assert api.get("/api/members").json() == {"code": "platform.auth.no_developer", "params": {}}
+    assert api.get("/api/members").json() == {"code": "platform.auth.choose_developer", "params": {}}
 
     chosen = api.post("/api/me/developer", {"developer_id": str(meghna)})
     assert chosen.status_code == 200
@@ -205,7 +205,7 @@ def test_me_after_revocation_names_the_ended_access_and_no_developer(
         Membership.objects.filter(id=engineer.membership_id).update(revoked_at=timezone.now())
     api = api_as(engineer)
 
-    assert api.get("/api/members").json() == {"code": "platform.auth.no_developer", "params": {}}
+    assert api.get("/api/members").json() == {"code": "platform.auth.no_access", "params": {}}
     me = api.get("/api/me").json()
 
     assert me["developer_id"] is None

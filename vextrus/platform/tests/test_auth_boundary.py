@@ -161,7 +161,7 @@ def test_a_withdraw_that_loses_the_race_to_an_accept_changes_nothing(
     with team["md"].acting(), pytest.raises(auth.Refused) as refused:
         invitations.withdraw(membership_id)
 
-    assert refused.value.message["code"] == codes.UNUSABLE.code
+    assert refused.value.message["code"] == codes.NO_LONGER_OPEN.code
     with team["md"].acting():
         assert Membership.objects.get(id=membership_id).revoked_at is None
 

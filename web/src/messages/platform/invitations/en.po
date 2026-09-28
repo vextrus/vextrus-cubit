@@ -7,10 +7,10 @@ msgstr ""
 "Language: en\n"
 
 msgid "platform.invitations.accepted"
-msgstr "{actor} accepted the invitation and joined"
+msgstr "{actor} accepted the invitation"
 
 msgid "platform.invitations.access_ended"
-msgstr "{email}'s access has ended. Renew it from their row instead."
+msgstr "Access for {email} has ended. Renew it from their row under People instead of inviting them again."
 
 msgid "platform.invitations.already_ended"
 msgstr "This access has already ended."
@@ -28,13 +28,13 @@ msgid "platform.invitations.end_in_past"
 msgstr "Choose a date after today."
 
 msgid "platform.invitations.engineer_not_staff"
-msgstr "A Vextrus Engineer's invitation is accepted only with a Vextrus staff account. Sign in with yours, or ask Vextrus."
+msgstr "This invitation is for a Vextrus Engineer, so only a Vextrus account can take it. Sign in with yours, or ask whoever sent it to invite you in another role."
 
 msgid "platform.invitations.invalid_email"
 msgstr "Enter an email address, like name@example.com."
 
 msgid "platform.invitations.invited"
-msgstr "{actor} invited {subject}"
+msgstr "{actor} invited {subject} as {role, select, qs {QS} md {MD} guest {a Guest} vextrus_engineer {a Vextrus Engineer} other {a member}}"
 
 msgid "platform.invitations.link_reissued"
 msgstr "{actor} made a new invitation link for {subject}; the old link no longer works"
@@ -45,11 +45,14 @@ msgstr "Enter your name."
 msgid "platform.invitations.no_end_date"
 msgstr "This access has no end date to renew."
 
+msgid "platform.invitations.no_longer_open"
+msgstr "This invitation is no longer open: it was used, withdrawn or has run out. Invite them again if they still need access."
+
 msgid "platform.invitations.not_yours_to_change"
-msgstr "Only the MD can change this access. A QS changes only the access of a Vextrus Engineer the QS invited."
+msgstr "You can change only the access of a Vextrus Engineer you invited. Ask an MD to change this."
 
 msgid "platform.invitations.not_yourself"
-msgstr "You can't change your own access. Ask another MD."
+msgstr "You can't change your own access. Ask an MD to change it."
 
 msgid "platform.invitations.projects_not_yours"
 msgstr "You can give access only to projects you can open yourself."
@@ -64,7 +67,7 @@ msgid "platform.invitations.revoked"
 msgstr "{actor} ended {subject}'s access"
 
 msgid "platform.invitations.role_not_yours"
-msgstr "As QS you can invite only a Vextrus Engineer."
+msgstr "As QS you can invite only a Vextrus Engineer, not {role, select, qs {another QS} md {an MD} guest {a Guest} other {this role}}."
 
 msgid "platform.invitations.sign_in_first"
 msgstr "{email} already has an account. Sign in with it, then open this link again."
@@ -76,4 +79,4 @@ msgid "platform.invitations.withdrawn"
 msgstr "{actor} withdrew the invitation to {subject}"
 
 msgid "platform.invitations.wrong_account"
-msgstr "This invitation is for {email}. Sign out, then open the link again."
+msgstr "This invitation is for {email}. Sign out, then open the link again and sign in as {email}."

@@ -227,3 +227,18 @@ def test_no_read_returns_anything_of_another_developer(
             body = api.get("/api/activity", **query).content.decode()
             assert [s for s in secrets if s in body] == [], (role, query)
     assert json.loads(api_as(team["md"]).get("/api/activity", actor=str(tanvir.user.pk)).content) == []
+
+
+def test_an_act_says_who_acted_or_that_no_one_did_and_an_invitation_its_role(
+    team: dict[str, Member],
+) -> None:
+    md = team["md"]
+    invitation(md, "g@example.com", "guest")
+
+    acts = api_as(md).get("/api/activity").json()
+
+    invited = next(a for a in acts if a["code"] == codes.INVITED.code)
+    created = next(a for a in acts if a["code"] == tenancy_codes.DEVELOPER_CREATED.code)
+    assert (invited["params"]["by"], invited["params"]["role"]) == ("person", "guest")
+    assert invited["params"]["subject"] == "g@example.com"
+    assert (created["actor"], created["params"]["by"]) == (None, "vextrus")  # made by no user

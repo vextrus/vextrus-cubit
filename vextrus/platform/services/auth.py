@@ -123,10 +123,14 @@ class NotSignedIn(Refused):
 
 
 class NoDeveloper(Refused):
+    """Not working in a Developer: `choose_developer` while the user holds a current Membership
+    somewhere, `no_access` while they hold none. Either says only what is true of the user."""
+
     status = 403
 
     def __init__(self) -> None:
-        super().__init__(codes.NO_DEVELOPER())
+        holds_one = bool(tenancy.current().user_id and tenancy.user_developers())
+        super().__init__(codes.CHOOSE_DEVELOPER() if holds_one else codes.NO_ACCESS())
 
 
 class NotAllowed(Refused):

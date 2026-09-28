@@ -348,10 +348,10 @@ def test_revoked_access_refuses_the_next_request_of_an_existing_session(
     response = api_as(team["md"]).post(f"/api/members/{team['guest'].membership_id}/revoke")
 
     assert response.status_code == 204
-    assert refusal(guest.get("/api/members")) == (403, "platform.auth.no_developer")
+    assert refusal(guest.get("/api/members")) == (403, "platform.auth.no_access")
     assert refusal(guest.post("/api/members/invitations", {"email": "x@e.com", "role": "qs"})) == (
         403,
-        "platform.auth.no_developer",
+        "platform.auth.no_access",
     )
     assert refusal(
         guest.post("/api/me/developer", {"developer_id": str(team["guest"].developer_id)})
@@ -374,7 +374,7 @@ def test_expired_access_refuses_the_next_request(team: dict[str, Member]) -> Non
             expires_at=timezone.now() - timedelta(days=1)
         )
 
-    assert refusal(engineer.get("/api/members")) == (403, "platform.auth.no_developer")
+    assert refusal(engineer.get("/api/members")) == (403, "platform.auth.no_access")
 
 
 def test_the_md_renews_30_days_and_an_expired_engineer_works_again(team: dict[str, Member]) -> None:
@@ -541,3 +541,57 @@ def test_anyone_else_is_refused_a_vextrus_engineer_s_invitation_which_stays_unus
     for held, link in ((membership_id, token), (other_id, other_token)):
         assert membership(team["md"], held).user_id is None
         assert Api().post("/api/invitations/look-up", {"token": link}).status_code == 200
+
+
+# The words of each refusal, as the design gate read them (28 Sep 2026) ---------------------------
+
+
+def test_an_invitation_no_longer_open_is_said_so_to_its_sender_not_as_a_dead_link(
+    team: dict[str, Member],
+) -> None:
+    md = api_as(team["md"])
+    used, token = invitation(team["md"], "used@example.com", "guest")
+    accept_new(token, name="Used")
+    withdrawn, _ = invitation(team["md"], "withdrawn@example.com", "guest")
+    md.post(f"/api/members/invitations/{withdrawn}/withdraw")
+
+    for held in (used, withdrawn):
+        for act in ("withdraw", "link"):
+            response = md.post(f"/api/members/invitations/{held}/{act}")
+            assert refusal(response) == (409, codes.NO_LONGER_OPEN.code), (held, act)
+    assert refusal(accept_new(token)[1]) == (404, codes.UNUSABLE.code)  # the link's page keeps its own
+
+
+def test_no_developer_is_said_as_choose_one_or_no_access(
+    sign_in: Callable[..., Member], make_developer: Callable[..., uuid.UUID]
+) -> None:
+    held_elsewhere = sign_in(role="qs")
+    add_member(make_developer(), role="guest", user=held_elsewhere.user)
+    only_here = sign_in(role="qs")
+    for member in (held_elsewhere, only_here):
+        with member.acting():
+            Membership.objects.filter(id=member.membership_id).update(revoked_at=timezone.now())
+
+    assert refusal(api_as(held_elsewhere).get("/api/members")) == (
+        403,
+        "platform.auth.choose_developer",
+    )
+    assert refusal(api_as(only_here).get("/api/members")) == (403, "platform.auth.no_access")
+
+
+def test_a_qs_changing_their_own_access_is_told_to_ask_an_md(team: dict[str, Member]) -> None:
+    qs = api_as(team["qs"])
+
+    assert refusal(qs.post(f"/api/members/{team['qs'].membership_id}/revoke")) == (
+        403,
+        codes.NOT_YOURSELF.code,
+    )
+
+
+def test_a_qs_inviting_another_role_is_told_which_role(team: dict[str, Member]) -> None:
+    response = invite(api_as(team["qs"]), "x@example.com", "guest")
+
+    assert response.json() == {  # type: ignore[attr-defined]
+        "code": codes.ROLE_NOT_YOURS.code,
+        "params": {"role": "guest"},
+    }

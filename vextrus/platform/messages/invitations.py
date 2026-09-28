@@ -2,15 +2,16 @@
 recorded as DomainEvents the MD sees, and why such an act was refused.
 
 Worded in `web/src/messages/platform/invitations/en.po`. An event's `actor` is the acting user's
-name and its `subject` the person the act was about (their name, or the invited email), both filled
-in when the act is shown (`services.activity`); the event itself stores only ids.
+name, its `subject` the person the act was about (their name, or the invited email) and `role` that
+person's role, all filled in when the act is shown (`services.activity`); the event itself stores
+only ids.
 """
 
 from engine.messages import MessageCode
 
 # The acts (DomainEvents) --------------------------------------------------------------------------
 
-INVITED = MessageCode("platform.invitations.invited", params=("actor", "subject"), event=True)
+INVITED = MessageCode("platform.invitations.invited", params=("actor", "subject", "role"), event=True)
 LINK_REISSUED = MessageCode(
     "platform.invitations.link_reissued", params=("actor", "subject"), event=True
 )
@@ -40,7 +41,10 @@ ALREADY_ENDED = MessageCode("platform.invitations.already_ended")
 NO_END_DATE = MessageCode("platform.invitations.no_end_date")
 """Only access with an end date is renewed."""
 UNUSABLE = MessageCode("platform.invitations.unusable")
-"""The link was used, withdrawn or expired, or never existed; never says which."""
+"""On the link's page: the link was used, withdrawn or expired, or never existed; never says which."""
+NO_LONGER_OPEN = MessageCode("platform.invitations.no_longer_open")
+"""On the Members page: the invitation its sender would withdraw or re-link was used, withdrawn or
+ran out meanwhile (409)."""
 WRONG_ACCOUNT = MessageCode("platform.invitations.wrong_account", params=("email",))
 """Signed in as someone other than the invited email."""
 ENGINEER_NOT_STAFF = MessageCode("platform.invitations.engineer_not_staff")

@@ -12,8 +12,11 @@ WRONG_CREDENTIALS = MessageCode("platform.auth.wrong_credentials")
 """The email and password match no account; never says which was wrong (401)."""
 CSRF_FAILED = MessageCode("platform.auth.csrf_failed")
 """An unsafe request came without the CSRF token (403)."""
-NO_DEVELOPER = MessageCode("platform.auth.no_developer")
-"""Signed in, but not working in a Developer: none chosen, or the access to it has ended (403)."""
+CHOOSE_DEVELOPER = MessageCode("platform.auth.choose_developer")
+"""Signed in and holding current Memberships, but working in none of them: none chosen, or the one
+chosen has ended (403)."""
+NO_ACCESS = MessageCode("platform.auth.no_access")
+"""Signed in, holding no current Membership in any Developer (403; m0-screens §4.1)."""
 NOT_ALLOWED = MessageCode("platform.auth.not_allowed", params=("role",))
 """The role may not do this act, as the MD and a Guest may not change the Takeoff (403)."""
 NOT_FOUND = MessageCode("platform.auth.not_found")
