@@ -93,6 +93,14 @@ const BASH_RULES = [
     reason: "Only the owner merges (ADR 0025), and only the key user posts the real-drawing status (ADR 0030). Open the PR, state what was and was not verified, and stop.",
   },
   {
+    rule: "STATUS_POSTED",
+    // The commit-status endpoint anywhere in the command, whatever runs it (a variable-split `gh api`, a
+    // `curl` POST), after dropping quotes, backslashes and line continuations (s02 review R3). A tripwire,
+    // not a wall: a path built in pieces at run time still passes; the status's author is what holds.
+    fires: (_parts, command) => /\/statuses/i.test(command.replace(/\\\n|["'\\]/g, "")),
+    reason: "Commit statuses are posted only by the owner's GitHub App (ADR 0030) and by main's not-applicable workflow; an agent never posts or reads them through the API. Open the PR, state what was and was not verified, and stop.",
+  },
+  {
     rule: "PRIVILEGE_RAISED",
     // Anywhere in the command, not only at its start: `bash -c "sudo …"` is the same act.
     fires: (parts) =>
@@ -122,8 +130,9 @@ const FILE_RULES = [
 
 function judge(tool, input) {
   if (tool === "Bash") {
-    const parts = segments(typeof input.command === "string" ? input.command : "");
-    for (const { rule, fires, reason } of BASH_RULES) if (fires(parts)) return { rule, reason };
+    const command = typeof input.command === "string" ? input.command : "";
+    const parts = segments(command);
+    for (const { rule, fires, reason } of BASH_RULES) if (fires(parts, command)) return { rule, reason };
     return null;
   }
   if (tool === "Edit" || tool === "Write" || tool === "NotebookEdit") {
