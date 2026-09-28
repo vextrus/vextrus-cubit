@@ -133,8 +133,9 @@ a module is added, never per feature.
   - Every Library table's identity is `(tenant_id, key)`, and a tenant row refers to a Library row by
     id.
   - Append-only tables are only ever appended to. CI runs `makemigrations --check` and asserts one leaf
-    per module; at most one ticket per wave adds migrations to a module. Ids come from `ids.new_id()`;
-    migrations never name `uuid.uuid7`.
+    per module; at most one migration per module per wave, unless a declared merge edge orders them
+    (the second renumbered after the first merges). Ids come from `ids.new_id()`; migrations never
+    name `uuid.uuid7`.
 - **Jobs:** idempotent steps per file, then per sheet, with progress and cancel; arguments carry only the
   tenant id and ids; the CAD queue runs at concurrency 1 under its own memory cap; worker pools never rely
   on fork (Python 3.14 starts them with forkserver).

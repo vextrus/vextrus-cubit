@@ -1611,9 +1611,14 @@ expired state, 4.4's refused state).
 
 **Projects.** KR-01 Kadam Residence (everything below); BP-02 Bokul Place (one structural DWG left
 stalled at "sheet 7 of 12", for the retrier); SG-03 Shimul Garden (empty). Meghna: MG-01 Meghna
-Heights (one small DWG read). Across BP-02 and MG-01, 14 also seeds a file in each of 4.5's states
-KR-01 lacks: Waiting; Cancelled; Interrupted, retrying; Failed; Old AutoCAD version; PDF before its
-DWG; and Held, answered.
+Heights (one small DWG read). **Every row state of 4.5 is on the seed.** KR-01's files show Read,
+readers agree; Read, with flags; Held; PDF matched; and Refused scan, and BP-02's stalled DWG shows
+Reading a DWG. Across BP-02 and MG-01, 14 seeds a file in each of the rest: Waiting; Reading a PDF,
+with its time left (a file whose read job is left running on the seed); Cancelled; Interrupted,
+retrying; Failed; Read by one reader only (4.5's Failed row with the read-once reason: the owner's
+ruling of 28 Sep 2026, "4.5's 'Failed' row", at the end of this page); Old AutoCAD version; PDF before
+its DWG; and Held, answered. Uploading, Upload stopped and Stopping are moments, not rows: the seed
+holds none of them.
 
 **KR-01's files.**
 | File | What it carries | Its states |
