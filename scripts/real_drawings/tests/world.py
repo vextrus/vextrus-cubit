@@ -123,6 +123,7 @@ def invented(title: str = "Invented floor plan", **values: Any) -> str:
 
 def make_world(root: Path) -> World:
     repo, origin = root / "repo", root / "origin.git"
+    root.mkdir(parents=True, exist_ok=True)
     run_git(root, "init", "--quiet", "--bare", str(origin))
     run_git(root, "init", "--quiet", "-b", "main", str(repo))
     run_git(repo, "config", "user.email", "test@example.invalid")
