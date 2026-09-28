@@ -134,7 +134,10 @@ def test_the_drawing_list_findings_and_refusals_format() -> None:
     gaps = [said(r.finding) for r in register.check(reading, recognisers=READERS) if r.finding]
 
     skips = "No drawing list, and the numbering skips from"
-    ask = "Paste the drawing list, or ask the consultant whether those sheets were sent."
+    ask = (
+        "Until the drawing list is pasted or the consultant confirms those sheets were sent, "
+        "this Discipline's sheets have one source."
+    )
     assert gaps == [
         f"{skips} 01 to 04: 2 numbers are missing. {ask}",
         f"{skips} 04 to S-10: 5 numbers are missing. {ask}",
@@ -142,8 +145,8 @@ def test_the_drawing_list_findings_and_refusals_format() -> None:
     ]
     one: dict[str, str | int] = {"after": "13", "before": "15", "missing": 1}
     assert render(ALL["engine.register_check.gap"], one).endswith(
-        "15: 1 number is missing. Paste the drawing list, or ask the consultant whether that sheet was "
-        "sent."
+        "15: 1 number is missing. Until the drawing list is pasted or the consultant confirms that "
+        "sheet was sent, this Discipline's sheets have one source."
     )
     assert render(ALL["engine.register_check.not_found"], {"number": "S-13"}) == (
         "S-13 is on the drawing list but in no file"  # m0-screens \u00a75, verbatim
@@ -203,7 +206,7 @@ def test_the_storey_finding_formats_each_side(
 
     assert result.finding is not None
     middle = "names \u201c3RD, 5TH & 7TH FLOOR\u201d, but its plans do not agree"
-    end = " The sheet counts its plans' storeys; correct them if the title is right."
+    end = " The sheet counts its plans' storeys, which can be corrected if the title is right."
     start = "The title of " if number else "The sheet titled "
     assert said(result.finding) == start + expected.format(middle) + end
 
