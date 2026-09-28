@@ -2,14 +2,17 @@
 
 The command runs outside the sandbox on the owner's Python, with nothing installed, so it validates a
 declared subset of JSON Schema (2020-12): `type`, `enum`, `const`, `properties`, `required`,
-`additionalProperties`, `items`, `minItems`, `maxItems`, `minLength`, `maxLength`, `pattern`,
-`minimum`, `maximum`, `anyOf`, `oneOf` and local `$ref`s into `$defs`; `title`, `description`,
-`$comment`, `$schema`, `$id`, `default`, `examples` and `format` are read as notes. A schema that uses
-any other keyword is refused, so nothing in `engine/export.schema.json` goes unchecked unnoticed.
+`additionalProperties`, `propertyNames`, `items`, `minItems`, `maxItems`, `minLength`, `maxLength`,
+`pattern` (as JSON Schema reads it: `$` only at the very end, digits and word characters ASCII only),
+`minimum`, `exclusiveMinimum`, `maximum`, `anyOf`, `oneOf` and local `$ref`s into `$defs`; `title`,
+`description`, `$comment`, `$schema`, `$id`, `default`, `examples` and `format` are read as notes. A
+schema that uses any other keyword is refused, so nothing in `engine/export.schema.json` goes
+unchecked unnoticed.
 """
 
 import re
 from collections.abc import Mapping
+from functools import cache
 from typing import Any
 
 CHECKED = {
@@ -19,6 +22,7 @@ CHECKED = {
     "properties",
     "required",
     "additionalProperties",
+    "propertyNames",
     "items",
     "minItems",
     "maxItems",
@@ -26,6 +30,7 @@ CHECKED = {
     "maxLength",
     "pattern",
     "minimum",
+    "exclusiveMinimum",
     "maximum",
     "anyOf",
     "oneOf",
@@ -91,11 +96,13 @@ def _check(value: Any, schema: Any, root: Mapping[str, Any], where: str, found: 
     if isinstance(value, str):
         if len(value) < schema.get("minLength", 0) or len(value) > schema.get("maxLength", len(value)):
             found.append(f"{where}: a string of {len(value)} characters is outside the allowed length")
-        if "pattern" in schema and not re.search(schema["pattern"], value):
+        if "pattern" in schema and not _pattern(schema["pattern"]).search(value):
             found.append(f"{where}: does not match the pattern")
     if TYPES["number"](value):
         if "minimum" in schema and value < schema["minimum"]:
             found.append(f"{where}: below the minimum")
+        if "exclusiveMinimum" in schema and value <= schema["exclusiveMinimum"]:
+            found.append(f"{where}: not above the exclusive minimum")
         if "maximum" in schema and value > schema["maximum"]:
             found.append(f"{where}: above the maximum")
 
@@ -112,6 +119,8 @@ def _object(
             found.append(f"{where}: {name} is missing")
     properties = schema.get("properties", {})
     for name, item in value.items():
+        if "propertyNames" in schema and _alone(name, schema["propertyNames"], root, where):
+            found.append(f"{where}: the name {name!r} is not allowed")
         if name in properties:
             _check(item, properties[name], root, f"{where}.{name}", found)
         elif "additionalProperties" in schema:
@@ -125,6 +134,24 @@ def _alone(value: Any, schema: Any, root: Mapping[str, Any], where: str) -> list
     found: list[str] = []
     _check(value, schema, root, where, found)
     return found
+
+
+@cache
+def _pattern(pattern: str) -> re.Pattern[str]:
+    """ECMA-262's reading in Python's: `$` (outside a class) only at the very end, never before a
+    final line break, and `\\d` and `\\w` in ASCII only."""
+    out: list[str] = []
+    i, in_class = 0, False
+    while i < len(pattern):
+        char = pattern[i]
+        if char == "\\":
+            out.append(pattern[i : i + 2])
+            i += 2
+            continue
+        in_class = (in_class or char == "[") and char != "]"
+        out.append(r"\Z" if char == "$" and not in_class else char)
+        i += 1
+    return re.compile("".join(out), re.ASCII)
 
 
 def _resolve(ref: str, root: Mapping[str, Any]) -> Any:

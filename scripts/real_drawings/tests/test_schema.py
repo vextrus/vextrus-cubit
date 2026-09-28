@@ -1,11 +1,16 @@
 """The export's schema check, outside the sandbox: the subset of JSON Schema the command validates, and
 a schema that uses anything else refused rather than half-checked."""
 
+import json
+from pathlib import Path
 from typing import Any
 
 import pytest
 
 from scripts.real_drawings.schema import SchemaError, problems
+
+FIXTURES = Path(__file__).resolve().parent / "fixtures"
+EXPORT_SCHEMA = json.loads((FIXTURES / "export.schema.json").read_text())  # 06b's, at 1807a644
 
 SCHEMA: dict[str, Any] = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -81,3 +86,28 @@ def test_a_reference_outside_the_schema_is_refused() -> None:
 
     with pytest.raises(SchemaError, match=r"other\.json"):
         problems(GOOD, schema)
+
+
+def test_06bs_schema_is_one_the_check_validates() -> None:
+    assert problems({}, EXPORT_SCHEMA)[0] == "$: version is missing"
+
+
+def test_property_names_are_checked_against_their_schema() -> None:
+    schema = {"type": "object", "propertyNames": {"enum": ["read", "sheets"]}}
+
+    assert problems({"read": 1, "sheets": 2}, schema) == []
+    assert problems({"read": 1, "shapes": 2}, schema) == ["$: the name 'shapes' is not allowed"]
+
+
+def test_exclusive_minimum_refuses_the_bound_itself() -> None:
+    schema = {"type": "number", "exclusiveMinimum": 0}
+
+    assert problems(0.01, schema) == []
+    assert problems(0, schema) == ["$: not above the exclusive minimum"]
+
+
+@pytest.mark.parametrize(
+    "value", ["abc\n", "ab" + chr(0x0661)]
+)  # a final line break; an Arabic-Indic one
+def test_patterns_read_as_json_schema_reads_them(value: str) -> None:
+    assert problems(value, {"type": "string", "pattern": "^[a-z]+\\d?$"}) != []
