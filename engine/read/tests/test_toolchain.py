@@ -10,6 +10,7 @@ import hashlib
 import importlib
 import os
 import platform
+import re
 import subprocess
 import sys
 import tomllib
@@ -43,6 +44,18 @@ def test_the_libredwg_source_hash_names_the_pinned_version() -> None:
 
     assert name == f"libredwg-{pin('libredwg.version')}.tar.xz"
     assert len(digest) == 64
+
+
+def test_the_cloud_setup_carries_the_same_pins() -> None:
+    setup = (ROOT / "scripts" / "cloud" / "setup.sh").read_text()
+    carried = dict(re.findall(r"^([A-Z0-9_]+)=(\S+)$", setup, flags=re.MULTILINE))
+
+    assert {
+        "PY_VERSION": pin("python.version"),
+        "DOTNET_SDK_VERSION": pin("dotnet.version"),
+        "LIBREDWG_VERSION": pin("libredwg.version"),
+        "LIBREDWG_SHA256": pin("libredwg.sha256").split()[0],
+    }.items() <= carried.items()
 
 
 def test_the_ezdxf_lock_agrees_with_uv_lock_and_the_build_constraints() -> None:

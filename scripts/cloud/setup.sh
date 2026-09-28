@@ -1,82 +1,146 @@
 #!/bin/bash
-# Vextrus cloud environment setup (ADR 0025; docs/research/sdlc-waves-and-cloud.md §6).
+# Vextrus cloud environment setup (ADR 0025; the M0 plan, 01c; docs/research/sdlc-waves-and-cloud.md §6).
 # Paste this file's contents into the cloud environment's "Setup script" box on BOTH Claude accounts.
-# It runs as root on Ubuntu 24.04 x86_64 before Claude Code starts; its result is cached for about
-# 7 days; it must exit 0 and finish in under ~5 minutes. No secrets here: the TypeSafe cloud key is
-# an API credential in the environment settings, never a variable or a file (ADR 0013).
-# Network: Custom = the default package-manager list + releases.astral.sh, ftp.gnu.org,
-# builds.dotnet.microsoft.com, dot.net.
-# NOT YET RUN IN A CLOUD VM: the first session on each account runs the checklist in §6.5.
+# It runs as root on Ubuntu 24.04 x86_64 after the clone and before Claude Code starts; the filesystem
+# it leaves is cached for about 7 days and rebuilt when this script or the network list changes; it
+# must exit 0 and should finish within five minutes. Every piece is timed into /opt/vextrus-setup.status,
+# which scripts/cloud/session-start.sh prints at each session's start. NOT YET RUN IN A CLOUD VM.
+#
+# The layout is the local one (scripts/owner/toolchain.sh), /opt/vextrus/...: python, libredwg, dotnet,
+# plus node, ms-playwright (Chromium) and wheels (ezdxf's compiled wheel). The pins below must equal
+# toolchain/ (engine/read/tests/test_toolchain.py checks); a pasted script carries its own, so a pin
+# change is a re-paste, which also rebuilds the cache. ezdxf's lock, Playwright's version and the
+# database roles (scripts/owner/db-roles.sql) are read from the clone.
+#
+# Network: Custom, "Also include default list of common package managers" ticked, plus:
+#   releases.astral.sh  ftp.gnu.org  apt.postgresql.org  builds.dotnet.microsoft.com  dot.net
+#   ci.dot.net  cdn.playwright.dev  playwright.download.prss.microsoft.com
+# Environment variables (no secrets; the database passwords are throwaways that exist only in the VM):
+#   UV_PYTHON_INSTALL_DIR=/opt/vextrus/python
+#   UV_PYTHON_PREFERENCE=only-managed
+#   DATABASE_URL=postgresql://vextrus_app:vextrus_app@127.0.0.1:5432/vextrus
+#   DATABASE_OWNER_URL=postgresql://vextrus:vextrus@127.0.0.1:5432/vextrus
+#   TYPESAFE_API_KEY=proxy-injected       (the real key is an API credential, §6.2; ADR 0013)
+#   VEXTRUS_RELEASE_TOKEN=...             optional: a fine-grained token, this repository only,
+#                                         Contents read-only, for the release assets. Every session
+#                                         in the environment can read it; without it LibreDWG builds
+#                                         from source and ezdxf stays the pure wheel.
+# shellcheck disable=SC2329  # the install_* functions are called by name, through timed()
 set -uo pipefail
-STATUS=/opt/vextrus-setup.status
-mkdir -p /opt && : > "$STATUS"
-note() { echo "[vextrus-setup] $*"; echo "$*" >> "$STATUS"; }
 
-PY_VERSION=3.13
+PY_VERSION=3.14.7
 NODE_MAJOR=24
-DOTNET_CHANNEL=10.0
-LIBREDWG_VERSION=0.14          # keep equal to toolchain/libredwg.version
-LIBREDWG_PREFIX=/opt/libredwg
+DOTNET_SDK_VERSION=10.0.401
+LIBREDWG_VERSION=0.14
+LIBREDWG_SHA256=62ebb73b984f865960f20ed26619ea5f8789d5e3fd088fa40a2598384da81275
 REPO=vextrus/vextrus-cubit
-LIBREDWG_TAG="toolchain-libredwg-${LIBREDWG_VERSION}"
-LIBREDWG_ASSET="libredwg-${LIBREDWG_VERSION}-ubuntu24.04-x86_64.tar.gz"
-export UV_PYTHON_INSTALL_DIR=/opt/uv-python
+V=/opt/vextrus
+STATUS=/opt/vextrus-setup.status
+export UV_PYTHON_INSTALL_DIR=$V/python PLAYWRIGHT_BROWSERS_PATH=$V/ms-playwright
+export DOTNET_CLI_TELEMETRY_OPTOUT=1 DEBIAN_FRONTEND=noninteractive
 
-install_python() {
-  uv python find "$PY_VERSION" >/dev/null 2>&1 && return 0
-  uv python install "$PY_VERSION" && return 0
-  python3 -m pip install -q --break-system-packages --upgrade uv && uv python install "$PY_VERSION"
+mkdir -p "$V/wheels" && : > "$STATUS" && : > "$STATUS.parts"
+T0=$(date +%s)
+# Parallel installs share apt's lock: each apt call waits for it rather than failing.
+echo 'DPkg::Lock::Timeout "240";' > /etc/apt/apt.conf.d/90vextrus-lock-wait
+
+timed() {                                   # timed NAME: runs install_NAME, records ok/FAILED and seconds
+  local t r
+  t=$(date +%s)
+  if "install_$1" > "$V/setup-$1.log" 2>&1; then r=ok; else r=FAILED; fi
+  echo "$1: $r ($(( $(date +%s) - t ))s; log $V/setup-$1.log)" >> "$STATUS.parts"
 }
 
-install_node() {
-  local v
+# The clone, for db-roles.sql, ezdxf's lock and web/'s Playwright pin. Where the VM clones it is not
+# documented (research §8), so look where it could be.
+CHECKOUT=
+for dir in "${CLAUDE_PROJECT_DIR:-}" "$PWD" /home/*/* /root/* /workspace/* /code/* /repo/*; do
+  [ -n "$dir" ] && [ -f "$dir/scripts/owner/db-roles.sql" ] && [ -d "$dir/toolchain" ] && { CHECKOUT=$dir; break; }
+done
+
+release_asset() {                           # release_asset TAG FILE DEST: our private release, read-only
+  local token=${VEXTRUS_RELEASE_TOKEN:-${GH_TOKEN:-}}
+  GH_TOKEN=$token gh release download "$1" -R "$REPO" -p "$2" -D "$3" --clobber
+}
+
+install_python() {
+  command -v uv >/dev/null || python3 -m pip install -q --break-system-packages --upgrade uv || return 1
+  uv python install --no-bin "$PY_VERSION"
+}
+
+install_node() {                            # Node 24, then Chromium through Playwright's own installer
+  local v pw                                #   (Ubuntu 24.04's apt Chromium is a snap wrapper)
   v=$(curl -fsSL https://nodejs.org/dist/index.json | python3 -c \
       "import sys,json; print(next(r['version'] for r in json.load(sys.stdin) if r['version'].startswith('v${NODE_MAJOR}.')))") || return 1
   curl -fsSL "https://nodejs.org/dist/${v}/node-${v}-linux-x64.tar.xz" -o /tmp/node.tar.xz || return 1
-  rm -rf "/opt/node${NODE_MAJOR}" && mkdir -p "/opt/node${NODE_MAJOR}" &&
-    tar -xJf /tmp/node.tar.xz -C "/opt/node${NODE_MAJOR}" --strip-components=1
+  mkdir -p "$V/node" && tar -xJf /tmp/node.tar.xz -C "$V/node" --strip-components=1 --no-same-owner || return 1
+  [ -n "$CHECKOUT" ] && [ -f "$CHECKOUT/web/package.json" ] || { echo "no web/package.json: no Playwright pin"; return 1; }
+  pw=$("$V/node/bin/node" -p "const p = require('$CHECKOUT/web/package.json');
+    const d = {...p.dependencies, ...p.devDependencies}; d['@playwright/test'] || d.playwright || ''")
+  [[ $pw =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Playwright is not pinned exactly in web/package.json: '$pw'"; return 1; }
+  PATH=$V/node/bin:$PATH npx -y "playwright@$pw" install --with-deps chromium
 }
 
-install_dotnet() {                       # ACadSharp, the second DWG decoder (ADR 0029)
-  [ -x /opt/dotnet/dotnet ] && return 0
+install_dotnet() {                          # ACadSharp, the second DWG decoder (ADR 0029)
   curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh || return 1
-  bash /tmp/dotnet-install.sh --channel "$DOTNET_CHANNEL" --install-dir /opt/dotnet --no-path
+  bash /tmp/dotnet-install.sh --version "$DOTNET_SDK_VERSION" --install-dir "$V/dotnet" --no-path
 }
 
-prepare_postgres() {                     # PostgreSQL 16 is preinstalled, not running
-  service postgresql start || return 1
-  su postgres -c "psql -v ON_ERROR_STOP=1 -q" <<'SQL' || return 1
-DO $$ BEGIN
-  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'vextrus') THEN
-    CREATE ROLE vextrus LOGIN CREATEDB PASSWORD 'vextrus';   -- throwaway, VM-local only
-  END IF;
-END $$;
-SQL
-  su postgres -c "createdb -O vextrus vextrus" 2>/dev/null || true
-  su postgres -c "psql -q -d vextrus -c 'CREATE EXTENSION IF NOT EXISTS pg_trgm'" || true
-  service postgresql stop
-}
-
-install_libredwg() {                     # 1st: our release asset; 2nd: build from source
-  [ -x "$LIBREDWG_PREFIX/bin/dwg2dxf" ] && return 0
-  if gh release download "$LIBREDWG_TAG" -R "$REPO" -p "$LIBREDWG_ASSET" -D /tmp --clobber 2>/dev/null; then
-    tar -xzf "/tmp/$LIBREDWG_ASSET" -C / && return 0
+install_libredwg() {                        # 1st: our release asset, by its sha256; 2nd: GNU's source
+  local asset="libredwg-$LIBREDWG_VERSION-ubuntu24.04-x86_64.tar.gz" tag="toolchain-libredwg-$LIBREDWG_VERSION"
+  if release_asset "$tag" "$asset" /tmp && release_asset "$tag" "$asset.sha256" /tmp &&
+     (cd /tmp && sha256sum -c "$asset.sha256") && tar -xzf "/tmp/$asset" -C / --no-same-owner opt/vextrus/libredwg; then
+    return 0
   fi
-  note "libredwg: release asset unavailable, building from source (may exceed the time budget)"
-  cd /tmp && curl -fsSLO "https://ftp.gnu.org/gnu/libredwg/libredwg-${LIBREDWG_VERSION}.tar.xz" &&
-    tar -xJf "libredwg-${LIBREDWG_VERSION}.tar.xz" && cd "libredwg-${LIBREDWG_VERSION}" &&
-    ./configure -q --prefix="$LIBREDWG_PREFIX" --disable-shared --disable-bindings --disable-docs &&
+  echo "release asset unavailable: building from GNU's source"
+  cd /tmp && curl -fsSLO "https://ftp.gnu.org/gnu/libredwg/libredwg-$LIBREDWG_VERSION.tar.xz" || return 1
+  echo "$LIBREDWG_SHA256  libredwg-$LIBREDWG_VERSION.tar.xz" | sha256sum -c - || return 1
+  tar -xJf "libredwg-$LIBREDWG_VERSION.tar.xz" --no-same-owner && cd "libredwg-$LIBREDWG_VERSION" &&
+    ./configure -q --prefix="$V/libredwg" --disable-shared --disable-bindings --disable-docs &&
     make -s -j"$(nproc)" && make -s install
 }
 
-install_python   & p1=$!
-install_node     & p2=$!
-install_dotnet   & p3=$!
-prepare_postgres & p4=$!
-install_libredwg & p5=$!
-if wait $p1; then note "python ${PY_VERSION}: ok"; else note "python ${PY_VERSION}: FAILED"; fi
-if wait $p2; then note "node ${NODE_MAJOR}: ok"; else note "node ${NODE_MAJOR}: FAILED"; fi
-if wait $p3; then note "dotnet ${DOTNET_CHANNEL}: ok"; else note "dotnet ${DOTNET_CHANNEL}: FAILED"; fi
-if wait $p4; then note "postgres: ok"; else note "postgres: FAILED"; fi
-if wait $p5; then note "libredwg ${LIBREDWG_VERSION}: ok"; else note "libredwg ${LIBREDWG_VERSION}: FAILED"; fi
-exit 0   # never block the session; the SessionStart hook prints the status so failures are visible
+install_ezdxf() {                           # the compiled wheel by the hash toolchain/ezdxf.lock pins
+  local lock wheel sha release
+  [ -n "$CHECKOUT" ] || { echo "no clone found for toolchain/ezdxf.lock"; return 1; }
+  lock=$(python3 -c "import tomllib,sys; l = tomllib.load(open(sys.argv[1], 'rb'));
+print(l['wheel'], l['wheel_sha256'], l['release'])" "$CHECKOUT/toolchain/ezdxf.lock") || return 1
+  read -r wheel sha release <<< "$lock"
+  [ "$wheel" != "${wheel%-py3-none-any.whl}" ] && { echo "the lock names the pure wheel, which uv.lock installs"; return 0; }
+  release_asset "$release" "$wheel" "$V/wheels" && echo "$sha  $V/wheels/$wheel" | sha256sum -c -
+}
+
+install_postgres() {                        # 18 from apt.postgresql.org; 16's cluster dropped so 18 takes 5432
+  curl -fsSL https://apt.postgresql.org/pub/repos/apt/ACCC4CF8.asc |
+    gpg --dearmor --yes -o /usr/share/keyrings/pgdg.gpg || return 1
+  printf 'Types: deb\nURIs: https://apt.postgresql.org/pub/repos/apt\nSuites: noble-pgdg\nComponents: main\nArchitectures: amd64\nSigned-By: /usr/share/keyrings/pgdg.gpg\n' \
+    > /etc/apt/sources.list.d/pgdg.sources
+  service postgresql stop || true
+  pg_lsclusters -h | awk '$1 == "16" {print $2}' | while read -r c; do pg_dropcluster 16 "$c"; done
+  apt-get update -qq && apt-get install -y -qq postgresql-18 bubblewrap || return 1
+  pg_ctlcluster 18 main start 2>/dev/null   # the package may have started it already
+  for _ in $(seq 20); do pg_isready -q -h 127.0.0.1 -p 5432 && break; sleep 1; done
+  pg_isready -q -h 127.0.0.1 -p 5432 || return 1
+  prepare_postgres; local r=$?
+  pg_ctlcluster 18 main stop                # the cache keeps files, not processes
+  return "$r"
+}
+
+prepare_postgres() {                        # the roles exactly as db-roles.sql makes them (review A2)
+  [ -n "$CHECKOUT" ] || { echo "no clone found for scripts/owner/db-roles.sql"; return 1; }
+  su postgres -c "psql -q -d postgres" < "$CHECKOUT/scripts/owner/db-roles.sql" || return 1
+  # Throwaway passwords, known to the environment's variables and valid only inside this VM.
+  su postgres -c "psql -v ON_ERROR_STOP=1 -q -d postgres" <<'SQL'
+ALTER ROLE vextrus PASSWORD 'vextrus';
+ALTER ROLE vextrus_app PASSWORD 'vextrus_app';
+SQL
+}
+
+echo "clone: ${CHECKOUT:-NOT FOUND}" >> "$STATUS"
+for piece in python node dotnet libredwg ezdxf postgres; do timed "$piece" & done
+wait
+chown -R root:root "$V" && chmod -R a+rX,go-w "$V"
+cat "$STATUS.parts" >> "$STATUS"
+echo "total: $(( $(date +%s) - T0 ))s (budget 300s)" >> "$STATUS"
+cat "$STATUS"
+exit 0   # never block the session; session-start.sh prints the status, so a failure is seen
