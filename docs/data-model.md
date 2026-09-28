@@ -37,8 +37,10 @@ The data sits in one Postgres with row-level security on every tenant table.
   carries its Building from M0, and M0 makes one Building per Project.
 - **Drawings stay as read.** A Drawing Set (one per Project, across its Buildings and Disciplines) has
   Sheets, each with its Discipline and its Building (or the Site). Each Sheet has one Sheet Revision
-  per consultant re-issue. A **Drawing Set State** maps every sheet to its current revision and names
-  the reader version, and a Revision or a reader upgrade makes a new state. A **Drafting Profile** holds
+  per printed copy, keyed by (sheet, source file, location), so a re-issue or a second copy in one file
+  is its own. A **Drawing Set State** holds the printed sheets it reads, keyed by their Sheet
+  Revisions, and names the reader version; a Revision or a reader upgrade makes a new state (M0 has
+  one). A **Drafting Profile** holds
   one consultant office's conventions for one Discipline (s02 Q16; ADR 0039).
 - **`takeoff` holds what the machine says**, in drawing units: Proposals with their Traces,
   Questions, Checks, Coverage and the append-only Confirmations.
@@ -130,8 +132,8 @@ Discipline, Takeoff Step and Check. Use them exactly. What remains here are impl
 - **Element State**: an Element's As designed facts over a range of Model Versions.
 - **Model Version**: a numbered state of one Building's Live Model. Each Confirmation or carry-over
   makes one; a Record never does.
-- **Drawing Set State**: the map from each sheet to its current Sheet Revision, read by one reader
-  version.
+- **Drawing Set State**: the printed sheets a Drawing Set holds at one point, each by its Sheet
+  Revision (the printed-sheet identity, §3.2), read by one reader version.
 - **Attribute Definition** (s02): one kind of fact an Element can carry, defined once as data (key,
   type, unit dimension, labels, Families, Life Phases, IFC mapping). CONTEXT.md's Attribute is the fact;
   this is its definition. **Family Attribute**: a definition's applicability to one Element Family.

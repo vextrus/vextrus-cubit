@@ -1585,8 +1585,9 @@ invitation; 08 the projects, each with its Site and Building; **#75 the access s
 people; named edits to `vextrus/seed/platform.py` and `vextrus/seed/projects.py`); **14
 KR-01's files and, as rows at this section's state, their reports, sheets, views and render buffers**
 (the buffers made from 11's synthetic generators), **and BP-02's and MG-01's files in the states
-"Projects" names** (`vextrus/seed/drawings.py`); **19a the Proposals, the five Questions, the
-Coverage rows and the step's progress, at the same state**; 03 ships a static copy of the same data
+without a job that "Projects" gives it** (`vextrus/seed/drawings.py`); **19a the Proposals, the five
+Questions, the Coverage rows and the step's progress, at the same state, and "Held, answered"**;
+**21a the states a read job carries, once its job exists**; 03 ships a static copy of the same data
 for shell work before the API exists. **From 21c** the seed's files, made by the committed fixture
 generators (`engine/fixtures/dwg/<name>.py` and `engine/fixtures/pdf/<name>.py`), go through the
 product's real upload and read job instead of 14's and 19a's rows, and 21c's test asserts that the
@@ -1612,13 +1613,18 @@ expired state, 4.4's refused state).
 **Projects.** KR-01 Kadam Residence (everything below); BP-02 Bokul Place (one structural DWG left
 stalled at "sheet 7 of 12", for the retrier); SG-03 Shimul Garden (empty). Meghna: MG-01 Meghna
 Heights (one small DWG read). **Every row state of 4.5 is on the seed.** KR-01's files show Read,
-readers agree; Read, with flags; Held; PDF matched; and Refused scan, and BP-02's stalled DWG shows
-Reading a DWG. Across BP-02 and MG-01, 14 seeds a file in each of the rest: Waiting; Reading a PDF,
-with its time left (a file whose read job is left running on the seed); Cancelled; Interrupted,
-retrying; Failed; Read by one reader only (4.5's Failed row with the read-once reason: the owner's
-ruling of 28 Sep 2026, "4.5's 'Failed' row", at the end of this page); Old AutoCAD version; PDF before
-its DWG; and Held, answered. Uploading, Upload stopped and Stopping are moments, not rows: the seed
-holds none of them.
+readers agree; Read, with flags; Held; PDF matched; and Refused scan, and BP-02's stalled DWG (14's)
+shows Reading a DWG. The rest go on BP-02 and MG-01:
+- **14** seeds the states a file's own columns hold, with no job: Waiting; Read; Cancelled; Failed;
+  Read by one reader only (4.5's Failed row with the read-once reason: the owner's ruling of 28 Sep
+  2026, "4.5's 'Failed' row", at the end of this page); Old AutoCAD version; PDF before its DWG; and
+  Held.
+- **21a** seeds the states a read job carries, Reading a PDF with its time left and Interrupted,
+  retrying, once its read job exists; until then the API tests reach them through the stubs above.
+- **19a** seeds Held, answered: an answered `file_misread` Question (`takeoff`'s) on a file 14 seeds
+  as held.
+
+Uploading, Upload stopped and Stopping are moments, not rows: the seed holds none of them.
 
 **KR-01's files.**
 | File | What it carries | Its states |
