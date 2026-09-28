@@ -32,6 +32,10 @@ afterEach(() => {
 })
 
 const clean = (s: string | null | undefined) => (s ?? '').replace(/[⁦-⁩]/g, '')
+/** Dialogs fade in: wait until the element is seen, never only present. */
+async function shown(el: HTMLElement) {
+  await waitFor(() => expect(el).toBeVisible())
+}
 const named = (re: RegExp) => (name: string) => re.test(clean(name))
 const header = () => screen.getByRole('heading', { name: 'Projects' }).closest('header')!
 const countLine = () => clean(header().querySelector('p')?.textContent)
@@ -183,15 +187,15 @@ describe('the New project dialog (§4.3; stories 3, 4, 99)', () => {
   it('offers the Market’s Display Units, the default chosen, and no Market, currency or Building field', async () => {
     const { dialog, keyMap } = await open()
     await waitFor(() => expect(within(dialog).getByLabelText('Name')).toBeVisible())
-    expect(within(dialog).getByLabelText('Code')).toBeVisible()
-    expect(within(dialog).getByText('Short, like KR-01')).toBeVisible()
-    expect(within(dialog).getByLabelText('Address')).toBeVisible()
+    await shown(within(dialog).getByLabelText('Code'))
+    await shown(within(dialog).getByText('Short, like KR-01'))
+    await shown(within(dialog).getByLabelText('Address'))
     const units = within(dialog).getByRole('radiogroup', { name: 'Display Units' })
     expect(within(units).getAllByRole('radio').map((r) => [clean(r.textContent), r.getAttribute('aria-checked')])).toEqual([
       ['Imperial (cft, sft, rft)', 'true'],
       ['Metric', 'false'],
     ])
-    expect(within(dialog).getByText('How quantities will be billed. You can change it later.')).toBeVisible()
+    await shown(within(dialog).getByText('How quantities will be billed. You can change it later.'))
     expect(dialog.textContent).not.toMatch(/Market|currency|Currency|Building|BDT|৳|Bangladesh/)
     expect(within(dialog).getAllByRole('textbox')).toHaveLength(3)
     expectKeyMapSound(keyMap)
@@ -200,11 +204,11 @@ describe('the New project dialog (§4.3; stories 3, 4, 99)', () => {
   it('refuses a missing name and code under their fields in the API’s words', async () => {
     const { dialog } = await open()
     await userEvent.click(within(dialog).getByRole('button', { name: 'Create project' }))
-    expect(await within(dialog).findByText('Give the project a name.')).toBeVisible()
+    await shown(await within(dialog).findByText('Give the project a name.'))
     expect(within(dialog).getByLabelText('Name')).toHaveAttribute('aria-invalid', 'true')
     await userEvent.type(within(dialog).getByLabelText('Name'), 'Hasnahena Tower')
     await userEvent.click(within(dialog).getByRole('button', { name: 'Create project' }))
-    expect(await within(dialog).findByText('Give it a short code, like KR-01.')).toBeVisible()
+    await shown(await within(dialog).findByText('Give it a short code, like KR-01.'))
   })
 
   it('refuses a code already used, naming the project that has it', async () => {
@@ -213,7 +217,7 @@ describe('the New project dialog (§4.3; stories 3, 4, 99)', () => {
     await userEvent.type(within(dialog).getByLabelText('Code'), 'kr-01')
     await userEvent.click(within(dialog).getByRole('button', { name: 'Create project' }))
     const refused = await within(dialog).findByText((_, el) => el?.hasAttribute('data-field-error') === true && clean(el.textContent) === 'KR-01 is already used by Kadam Residence. Choose another code.')
-    expect(refused).toBeVisible()
+    await shown(refused)
   })
 
   it('creates the project with exactly its four fields, then opens it; the list and the switcher have it', async () => {
@@ -239,7 +243,7 @@ describe('the New project dialog (§4.3; stories 3, 4, 99)', () => {
     const { dialog } = await open()
     await userEvent.type(within(dialog).getByLabelText('Name'), 'Hasnahena Tower')
     await userEvent.keyboard('{Escape}')
-    expect(within(dialog).getByText('Close without saving what you entered?')).toBeVisible()
+    await shown(within(dialog).getByText('Close without saving what you entered?'))
     expect(document.activeElement).toBe(within(dialog).getByRole('button', { name: 'Keep editing' }))
     await userEvent.keyboard('{Escape}')
     expect(within(dialog).queryByText('Close without saving what you entered?')).toBeNull()

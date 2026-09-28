@@ -55,14 +55,10 @@ function useUntilText(): (row: PersonRow) => string {
   }
 }
 
-/** Until, in a cell that may cut it: the whole text in its tooltip. */
+/** Until, whole: "Revoked by Kamal Uddin, 26 Sep 2026" wraps in its cell rather than being cut (design gate 20a r1). */
 function UntilCell({ row }: { row: PersonRow }) {
   const text = useUntilText()(row)
-  return (
-    <Cell className="num" title={text.replace(/[\u2066-\u2069]/g, '')}>
-      {text}
-    </Cell>
-  )
+  return <td className="num h-row px-2 py-1 align-middle">{text}</td>
 }
 
 function Cell({ children, className, title }: { children: ReactNode; className?: string; title?: string }) {
@@ -73,26 +69,48 @@ function Cell({ children, className, title }: { children: ReactNode; className?:
   )
 }
 
+/**
+ * A row's acts: never cut, so each button and its focus ring show whole (design gate 20a r1, item 7),
+ * and held at the row's end when the table scrolls sideways, so they stay in reach.
+ */
+function ActsCell({ children }: { children: ReactNode }) {
+  return <td className="sticky end-0 h-row bg-paper px-2 py-1 text-end align-middle whitespace-nowrap">{children}</td>
+}
+
 function Head({ children, className }: { children?: ReactNode; className?: string }) {
   return <th className={cn('h-row px-2 text-start align-middle text-xs font-semibold text-ink-secondary', className)}>{children}</th>
 }
 
-function Table({ label, columns, children }: { label: string; columns: readonly [ReactNode, string][]; children: ReactNode }) {
+/** A column: its heading, its width, and whether it stays while a person's acts are open beside the page. */
+interface Column {
+  name: ReactNode
+  width: number
+  beside?: boolean
+}
+
+/** The columns shown: all of them, or, with a person's acts open beside the page, those that stay. */
+function shownColumns(columns: readonly Column[], compact: boolean): readonly Column[] {
+  return compact ? columns.filter((c) => c.beside) : columns
+}
+
+function Table({ label, columns, compact, children }: { label: string; columns: readonly Column[]; compact: boolean; children: ReactNode }) {
+  const shown = shownColumns(columns, compact)
   return (
-    // Fixed columns that fit 960 px, the page beside a person's acts at 1440 wide; narrower (1280 with the
-    // acts open) the table scrolls sideways within its section rather than cutting a column away.
+    // Every column fits the page (960 px of 1120), and with a person's acts open the columns that stay
+    // fit what is left at 1280. Narrower still, the table scrolls sideways within its section, its
+    // acts held at the row's end, rather than cutting a column away.
     <div className="overflow-x-auto rounded-md border border-border">
-      <table aria-label={label} className="w-full min-w-max table-fixed border-collapse bg-paper text-sm">
+      <table aria-label={label} style={{ minWidth: shown.reduce((sum, c) => sum + c.width, 0) }} className="w-full table-fixed border-collapse bg-paper text-sm">
         <colgroup>
-          {columns.map(([, width], i) => (
-            <col key={i} className={width} />
+          {shown.map((c, i) => (
+            <col key={i} style={{ width: c.width }} />
           ))}
         </colgroup>
         <thead className="border-b border-border bg-chrome-sunken">
           <tr>
-            {columns.map(([name], i) => (
-              <Head key={i} className={i === columns.length - 1 ? 'text-end' : undefined}>
-                {name}
+            {shown.map((c, i) => (
+              <Head key={i} className={i === shown.length - 1 ? 'sticky end-0 bg-chrome-sunken text-end' : undefined}>
+                {c.name}
               </Head>
             ))}
           </tr>
@@ -157,21 +175,22 @@ function Acts({ row, acts }: { row: PersonRow | InvitationRow; acts: RowActs }) 
   )
 }
 
-function PeopleTable({ session, rows, acts }: { session: Session; rows: readonly PersonRow[]; acts: RowActs }) {
+function PeopleTable({ session, rows, acts, compact }: { session: Session; rows: readonly PersonRow[]; acts: RowActs; compact: boolean }) {
   const { t, i18n } = useLingui()
   const f = useFormat()
   const developer = session.developer.name
   return (
     <Table
       label={t`People at ${developer}`}
+      compact={compact}
       columns={[
-        [t`Name`, 'w-[150px]'],
-        [t`Email`, 'w-[210px]'],
-        [t`Role`, 'w-[70px]'],
-        [t`Projects`, 'w-[100px]'],
-        [t`Since`, 'w-[100px]'],
-        [t`Until`, 'w-[150px]'],
-        [<span className="sr-only">{t`Renew or revoke`}</span>, 'w-[180px]'],
+        { name: t`Name`, width: 150, beside: true },
+        { name: t`Email`, width: 190 },
+        { name: t`Role`, width: 70, beside: true },
+        { name: t`Projects`, width: 100, beside: true },
+        { name: t`Since`, width: 100 },
+        { name: t`Until`, width: 150, beside: true },
+        { name: <span className="sr-only">{t`Renew or revoke`}</span>, width: 200, beside: true },
       ]}
     >
       {rows.map((row) => {
@@ -179,18 +198,20 @@ function PeopleTable({ session, rows, acts }: { session: Session; rows: readonly
         return (
           <tr key={row.membershipId} className={cn('border-b border-border last:border-b-0', row.ended && 'text-muted-foreground')}>
             <Cell title={row.name}>{row.you ? t`${name} (you)` : <bdi>{name}</bdi>}</Cell>
-            <Cell title={row.email}>
-              <bdi>{row.email}</bdi>
-            </Cell>
+            {compact ? null : (
+              <Cell title={row.email}>
+                <bdi>{row.email}</bdi>
+              </Cell>
+            )}
             <Cell>{roleName(row.role, i18n)}</Cell>
             <Cell>
               <ProjectsCell projects={row.projects} />
             </Cell>
-            <Cell className="num">{f.date(row.since)}</Cell>
+            {compact ? null : <Cell className="num">{f.date(row.since)}</Cell>}
             <UntilCell row={row} />
-            <Cell className="text-end">
+            <ActsCell>
               <Acts row={row} acts={acts} />
-            </Cell>
+            </ActsCell>
           </tr>
         )
       })}
@@ -198,24 +219,34 @@ function PeopleTable({ session, rows, acts }: { session: Session; rows: readonly
   )
 }
 
-function VextrusTable({ rows, acts, onActs, actsOpen }: { rows: readonly PersonRow[]; acts: RowActs; onActs: (row: PersonRow, from: HTMLElement) => void; actsOpen: string | null }) {
+function VextrusTable({
+  rows,
+  acts,
+  onActs,
+  actsOpen,
+  compact,
+}: {
+  rows: readonly PersonRow[]
+  acts: RowActs
+  onActs: (row: PersonRow, from: HTMLElement) => void
+  actsOpen: string | null
+  compact: boolean
+}) {
   const { t } = useLingui()
   const f = useFormat()
+  const columns: Column[] = [
+    { name: t`Vextrus Engineer`, width: 125, beside: true },
+    { name: t`Invited by`, width: 100 },
+    { name: t`Projects`, width: 95, beside: true },
+    { name: t`From`, width: 95 },
+    { name: t`Until`, width: 165, beside: true },
+    { name: t`Acts`, width: 160, beside: true },
+    { name: <span className="sr-only">{t`Renew or revoke`}</span>, width: 200, beside: true },
+  ]
   return (
-    <Table
-      label={t`Vextrus access`}
-      columns={[
-        [t`Vextrus Engineer`, 'w-[130px]'],
-        [t`Invited by`, 'w-[110px]'],
-        [t`Projects`, 'w-[100px]'],
-        [t`From`, 'w-[95px]'],
-        [t`Until`, 'w-[170px]'],
-        [t`Acts`, 'w-[175px]'],
-        [<span className="sr-only">{t`Renew or revoke`}</span>, 'w-[180px]'],
-      ]}
-    >
+    <Table label={t`Vextrus access`} compact={compact} columns={columns}>
       {rows.length === 0 ? (
-        <EmptyRow span={7}>
+        <EmptyRow span={shownColumns(columns, compact).length}>
           <Trans>No one from Vextrus has access.</Trans>
         </EmptyRow>
       ) : (
@@ -227,13 +258,14 @@ function VextrusTable({ rows, acts, onActs, actsOpen }: { rows: readonly PersonR
               <Cell title={row.name}>
                 <bdi>{row.name}</bdi>
               </Cell>
-              <Cell>{row.invitedBy ? <bdi>{row.invitedBy}</bdi> : EMPTY}</Cell>
+              {compact ? null : <Cell>{row.invitedBy ? <bdi>{row.invitedBy}</bdi> : EMPTY}</Cell>}
               <Cell>
                 <ProjectsCell projects={row.projects} />
               </Cell>
-              <Cell className="num">{f.date(row.since)}</Cell>
+              {compact ? null : <Cell className="num">{f.date(row.since)}</Cell>}
               <UntilCell row={row} />
-              <Cell>
+              {/* Whole, never cut: it may wrap. */}
+              <td className="h-row px-2 py-1 align-middle">
                 <button
                   type="button"
                   aria-expanded={actsOpen === row.membershipId}
@@ -242,10 +274,10 @@ function VextrusTable({ rows, acts, onActs, actsOpen }: { rows: readonly PersonR
                 >
                   {count === 0 ? <Trans>No acts yet</Trans> : <Plural value={count} one={`# act, last ${last}`} other={`# acts, last ${last}`} />}
                 </button>
-              </Cell>
-              <Cell className="text-end">
+              </td>
+              <ActsCell>
                 <Acts row={row} acts={acts} />
-              </Cell>
+              </ActsCell>
             </tr>
           )
         })
@@ -254,22 +286,20 @@ function VextrusTable({ rows, acts, onActs, actsOpen }: { rows: readonly PersonR
   )
 }
 
-function InvitationsTable({ rows, acts }: { rows: readonly InvitationRow[]; acts: RowActs }) {
+function InvitationsTable({ rows, acts, compact }: { rows: readonly InvitationRow[]; acts: RowActs; compact: boolean }) {
   const { t, i18n } = useLingui()
   const f = useFormat()
+  const columns: Column[] = [
+    { name: t`Email`, width: 240, beside: true },
+    { name: t`Role`, width: 100, beside: true },
+    { name: t`Projects`, width: 130 },
+    { name: t`Link works until`, width: 200, beside: true },
+    { name: <span className="sr-only">{t`Copy or withdraw`}</span>, width: 200, beside: true },
+  ]
   return (
-    <Table
-      label={t`Invitations not used yet`}
-      columns={[
-        [t`Email`, 'w-[280px]'],
-        [t`Role`, 'w-[130px]'],
-        [t`Projects`, 'w-[140px]'],
-        [t`Link works until`, 'w-[230px]'],
-        [<span className="sr-only">{t`Copy or withdraw`}</span>, 'w-[180px]'],
-      ]}
-    >
+    <Table label={t`Invitations not used yet`} compact={compact} columns={columns}>
       {rows.length === 0 ? (
-        <EmptyRow span={5}>
+        <EmptyRow span={shownColumns(columns, compact).length}>
           <Trans>No invitations are waiting to be used.</Trans>
         </EmptyRow>
       ) : (
@@ -279,13 +309,15 @@ function InvitationsTable({ rows, acts }: { rows: readonly InvitationRow[]; acts
               <bdi>{row.email}</bdi>
             </Cell>
             <Cell>{roleName(row.role, i18n)}</Cell>
-            <Cell>
-              <ProjectsCell projects={row.projects} />
-            </Cell>
+            {compact ? null : (
+              <Cell>
+                <ProjectsCell projects={row.projects} />
+              </Cell>
+            )}
             <Cell className="num">{f.date(row.linkWorksUntil)}</Cell>
-            <Cell className="text-end">
+            <ActsCell>
               <Acts row={row} acts={acts} />
-            </Cell>
+            </ActsCell>
           </tr>
         ))
       )}
@@ -403,12 +435,13 @@ export function MembersView({ session, members, failed, onRetry }: { session: Se
       {members ? (
         <div className="flex flex-col gap-6">
           <Section id="people" title={<Trans>People at {developer}</Trans>}>
-            <PeopleTable session={session} rows={members.people} acts={acts} />
+            <PeopleTable session={session} rows={members.people} acts={acts} compact={actsOf !== null} />
           </Section>
           {manages ? (
             <>
               <Section id="vextrus" title={<Trans>Vextrus access</Trans>} line={<Trans>Vextrus sees your data only while an invitation below is current. You can end it at any time.</Trans>}>
                 <VextrusTable
+                  compact={actsOf !== null}
                   rows={members.vextrus}
                   acts={acts}
                   actsOpen={actsOf?.membershipId ?? null}
@@ -419,7 +452,7 @@ export function MembersView({ session, members, failed, onRetry }: { session: Se
                 />
               </Section>
               <Section id="invitations" title={<Trans>Invitations not used yet</Trans>}>
-                <InvitationsTable rows={members.invitations} acts={acts} />
+                <InvitationsTable rows={members.invitations} acts={acts} compact={actsOf !== null} />
               </Section>
             </>
           ) : null}

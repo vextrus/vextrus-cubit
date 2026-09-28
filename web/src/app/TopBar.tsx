@@ -184,15 +184,16 @@ export function TopBar({ session, project }: { session: Session; project: Projec
           </NavLink>
         </nav>
       ) : null}
-      <AccessChip
-        className="ms-2"
-        vextrus={session.role === 'vextrus_engineer'}
-        developer={session.developer.name}
-        projects={session.scope}
-        until={until ? f.date(until) : null}
-        daysLeft={until ? f.daysUntil(until) : null}
-      />
-      <span className="flex-1" />
+      {/* The AccessChip takes the room there is, so its end date is never cut (design gate 20a r1). */}
+      <div className="ms-2 flex min-w-0 flex-1">
+        <AccessChip
+          vextrus={session.role === 'vextrus_engineer'}
+          developer={session.developer.name}
+          projects={session.scope}
+          until={until ? f.date(until) : null}
+          daysLeft={until ? f.daysUntil(until) : null}
+        />
+      </div>
       <button
         type="button"
         onClick={(event) => shell.openJump(event.currentTarget)}

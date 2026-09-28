@@ -40,9 +40,11 @@ describe('the invite dialog’s end date, in a browser away from Dhaka', () => {
     await mountApp('/members', { as: PEOPLE.md, api })
     await userEvent.click(await screen.findByRole('button', { name: 'Invite' }))
     const dialog = await screen.findByRole('dialog')
+    // The dialog fades in: act on it once it is seen.
+    await waitFor(() => expect(dialog).toBeVisible())
     await userEvent.click(within(dialog).getByRole('radio', { name: 'Guest' }))
-    const date = within(dialog).getByLabelText('Access ends on')
-    expect(date).toHaveValue('29 Oct 2026')
+    const date = await within(dialog).findByLabelText('Access ends on')
+    await waitFor(() => expect(date).toHaveValue('29 Oct 2026'))
     expect(clean(date.parentElement?.textContent)).toContain('(30 days)')
 
     await userEvent.type(within(dialog).getByLabelText('Email'), 'jamal.new@padma-builders.example')
