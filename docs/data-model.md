@@ -23,8 +23,9 @@ for build sessions, so it gives key fields, not every column.
 - **The M0 plan's reviews** (28 Sep 2026; `docs/reviews/M0-plan-s02-resolution.md`, decided under the
   owner's delegation and open to the owner's reversal) are marked "(s02 review" and the finding's id.
   The largest: row-level security is enabled without FORCE, with cross-tenant reads only through
-  named functions (three then; six since #75: §2, §3.0, §3.1); one Library rule (§2); M0 creates only the `live_model` tables the owner
-  ruled (§3.3); Disciplines are Library rows per Market, and Step 1 runs per Discipline (§3.2, §3.4).
+  named functions (three then; six since #75: §2, §3.0, §3.1); one Library rule (§2); M0 creates
+  only the `live_model` tables the owner ruled (§3.3); Disciplines are Library rows per Market, and
+  Step 1 runs per Discipline (§3.2, §3.4).
 
 ## 1. Conclusions
 
