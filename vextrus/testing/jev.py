@@ -1,8 +1,9 @@
 """Fixtures for Jev (ticket 15): recorded answers, so no test calls TypeSafe unless marked `live`.
 
 - **Every test not marked `live` is offline** (`jev_offline`, used by every test): the client `ask`
-  uses answers from the recordings on a `FakeClock`, every `jev.Client` the test makes answers from
-  them too, and the owner's key is taken out of the environment for the test. A request with no
+  uses answers from the recordings on a `FakeClock` with a test key; every `jev.Client` the test
+  makes goes to the recordings too; and the owner's key is taken out of the environment for the
+  test (so a client reading the environment answers `no_key` and sends nothing). A request with no
   recording fails the test, naming its hash.
 - **The recordings** (`jev_recordings.json`, beside this file) keep bodies only, the request as sent
   and TypeSafe's answer: no header, so no key. They were made live, from invented sheets
