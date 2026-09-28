@@ -37,7 +37,7 @@ function TabsTrigger({ className, ...props }: ComponentProps<typeof TabsPrimitiv
 }
 
 function TabsContent({ className, ...props }: ComponentProps<typeof TabsPrimitive.Content>) {
-  return <TabsPrimitive.Content data-slot="tabs-content" className={cn('flex-1 outline-none', className)} {...props} />
+  return <TabsPrimitive.Content data-slot="tabs-content" className={cn('flex-1 outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-ring', className)} {...props} />
 }
 
 export { Tabs, TabsContent, TabsList, TabsTrigger }

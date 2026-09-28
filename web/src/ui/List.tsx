@@ -113,7 +113,12 @@ export function List<T>(props: ListProps<T>) {
       aria-multiselectable={selectable || undefined}
       aria-activedescendant={focusedIndex >= 0 ? optionId(focusedIndex) : undefined}
       tabIndex={0}
-      className={cn('group/list outline-none', className)}
+      className={cn(
+        'group/list outline-none',
+        // With no focused row, the list itself shows where focus is; with one, the row does.
+        focusedIndex < 0 && 'focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-ring',
+        className,
+      )}
     >
       <ListKeys
         onMove={(delta, extend) => focusAt(current < 0 ? (delta > 0 ? 0 : items.length - 1) : current + delta, extend)}
