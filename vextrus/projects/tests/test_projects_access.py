@@ -9,16 +9,14 @@ from typing import Any
 
 import pytest
 from django.db import connections
+from django.test import Client
 from django.utils import timezone
 
-from vextrus.platform.models import Membership, User
 from vextrus.platform.services import invitations, markets, tenancy
 from vextrus.projects import services
 from vextrus.projects.models import Project
 from vextrus.testing.auth import Api, accept_as, api_as, invitation
 from vextrus.testing.tenancy import Member, add_member
-
-PASSWORD = "a long enough passphrase 7"
 
 pytestmark = pytest.mark.django_db
 
@@ -77,18 +75,18 @@ def md(sign_in: Callable[..., Member], shapla: uuid.UUID) -> Member:
 
 def ended_guest(
     developer: uuid.UUID, projects: list[uuid.UUID], email: str = "farhana@padma-builders.example"
-) -> tuple[User, uuid.UUID]:
-    """A Guest given `projects` (none: every Project), whose end date has passed."""
-    user = User.objects.create_user(email, "Farhana Kabir", PASSWORD)
+) -> tuple[Any, uuid.UUID]:
+    """A Guest given `projects` (none: every Project), whose end date has passed: (user, its id)."""
     until = timezone.now() - timedelta(days=1)
-    return add_member(developer, role="guest", user=user, projects=projects, expires_at=until)
+    return add_member(developer, role="guest", email=email, projects=projects, expires_at=until)
 
 
-def signed_in(email: str) -> Api:
-    """A fresh browser, signed in."""
-    api = Api()
-    assert api.post("/api/auth/sign-in", {"email": email, "password": PASSWORD}).status_code == 200
-    return api
+def signed_in(user: Any) -> Api:
+    """A fresh browser signed in as `user`: a new session, naming no Developer. (Signing in by
+    password, the same answers: platform's `test_auth_sign_in` and the seed's tests.)"""
+    client = Client()
+    client.force_login(user)
+    return Api(client)
 
 
 def delete_project(developer: uuid.UUID, project: uuid.UUID) -> None:
@@ -103,7 +101,7 @@ def test_a_fresh_browser_of_an_expired_scoped_guest_gets_its_projects_codes(
     shapla: uuid.UUID, made: dict[str, uuid.UUID]
 ) -> None:
     guest, membership = ended_guest(shapla, [made["KR-01"]])
-    api = signed_in(guest.email)
+    api = signed_in(guest)
 
     [ended] = api.get("/api/me").json()["ended"]
     response = api.get("/api/ended-access/projects")
@@ -120,9 +118,8 @@ def test_a_fresh_browser_of_an_expired_scoped_guest_gets_its_projects_codes(
 def test_codes_are_those_the_membership_gave_by_code_and_never_the_developer_s_others(
     shapla: uuid.UUID, made: dict[str, uuid.UUID], md: Member
 ) -> None:
-    guest, membership = ended_guest(shapla, [made["KR-01"], made["BP-02"]])
+    guest, membership = add_member(shapla, role="guest", projects=[made["KR-01"], made["BP-02"]])
     with md.acting():
-        Membership.objects.filter(id=membership).update(expires_at=None)
         invitations.revoke(membership)
 
     with tenancy.acting_in(None, user_id=guest.pk):
@@ -137,7 +134,7 @@ def test_access_to_every_project_and_current_access_have_no_codes(
     everything, _ = ended_guest(shapla, [])
     current = sign_in(role="guest", developer_id=shapla, projects=[made["KR-01"]])
 
-    assert signed_in(everything.email).get("/api/ended-access/projects").json() == []
+    assert signed_in(everything).get("/api/ended-access/projects").json() == []
     assert api_as(current).get("/api/ended-access/projects").json() == []
 
 
@@ -145,7 +142,7 @@ def test_a_project_deleted_since_drops_out_without_an_error(
     shapla: uuid.UUID, made: dict[str, uuid.UUID]
 ) -> None:
     guest, membership = ended_guest(shapla, [made["KR-01"], made["BP-02"]])
-    api = signed_in(guest.email)
+    api = signed_in(guest)
 
     delete_project(shapla, made["BP-02"])
     assert api.get("/api/ended-access/projects").json() == [
@@ -172,7 +169,7 @@ def test_another_user_s_ended_access_never_gives_its_codes(
     ended_guest(meghna, [mg01], email="third@example.com")
     stranger = sign_in(role="qs", developer_id=shapla)
 
-    assert signed_in(mine.email).get("/api/ended-access/projects").json() == [
+    assert signed_in(mine).get("/api/ended-access/projects").json() == [
         {"membership_id": str(my_membership), "codes": ["KR-01"]}
     ]
     body = api_as(stranger).get("/api/ended-access/projects")
@@ -273,7 +270,8 @@ def test_an_unusable_link_is_refused_as_the_look_up_refuses_it_byte_for_byte(
     made: dict[str, uuid.UUID],
     shapla: uuid.UUID,
     make_developer: Callable[..., uuid.UUID],
-    staff: User,
+    staff: Any,
+    settings: Any,
     case: str,
 ) -> None:
     membership, token = invitation(md, staff.email, "guest", project_ids=[made["KR-01"]])
@@ -283,11 +281,9 @@ def test_an_unusable_link_is_refused_as_the_look_up_refuses_it_byte_for_byte(
     elif case == "withdrawn":
         with md.acting():
             invitations.withdraw(membership)
-    elif case == "link expired":
-        with md.acting():
-            Membership.objects.filter(id=membership).update(
-                invite_expires_at=timezone.now() - timedelta(seconds=1)
-            )
+    elif case == "link expired":  # a link made to work until yesterday
+        settings.VEXTRUS_INVITATION_DAYS = -1
+        _, token = invitation(md, "late@example.com", "guest", project_ids=[made["KR-01"]])
     elif case == "guessed":
         token = f"{tenant}.{secret[:-1]}{'y' if secret.endswith('x') else 'x'}"
     elif case == "another developer's":
@@ -385,9 +381,9 @@ def test_ended_access_never_names_another_developer_s_project_it_was_given_by_id
     guest, membership = ended_guest(shapla, [made["KR-01"], meghna_secret])
     other, _ = ended_guest(shapla, [meghna_secret], email="rafiq@padma-builders.example")
 
-    assert signed_in(guest.email).get("/api/ended-access/projects").json() == [
+    assert signed_in(guest).get("/api/ended-access/projects").json() == [
         {"membership_id": str(membership), "codes": ["KR-01"]}
     ]
-    body = signed_in(other.email).get("/api/ended-access/projects")
+    body = signed_in(other).get("/api/ended-access/projects")
     assert body.json() == []
     assert "MX-77" not in body.content.decode()
