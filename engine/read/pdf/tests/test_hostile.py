@@ -1,0 +1,465 @@
+"""The trust boundary (engine/read/pdf): each attack as a generated hostile PDF, refused or bounded.
+
+Nothing a PDF names is run, followed or opened; a bomb stops at the memory limit, a loop at the CPU
+limit; a damaged page or font is marked and the rest read. The class at the end runs the worst of them
+in bubblewrap, as production does.
+"""
+
+import os
+import socket
+import time
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
+from pathlib import Path
+
+import pytest
+
+from engine.messages import pdf_report as codes
+from engine.read import pdf, sandbox
+from engine.read.errors import ReadError
+from engine.read.pdf.tests.conftest import SMALL
+from engine.read.sandbox import Finished
+
+type Fixture = Callable[..., Path]
+
+
+@contextmanager
+def listener() -> Iterator[tuple[str, Callable[[], int]]]:
+    """A local web address that counts the connections made to it."""
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.bind(("127.0.0.1", 0))
+    server.listen(8)
+    server.setblocking(False)
+
+    def accepted() -> int:
+        count = 0
+        while True:
+            try:
+                connection, _ = server.accept()
+            except BlockingIOError:
+                return count
+            connection.close()
+            count += 1
+
+    try:
+        yield f"http://127.0.0.1:{server.getsockname()[1]}/drawing.png", accepted
+    finally:
+        server.close()
+
+
+def refused(path: Path) -> dict[str, object]:
+    with pytest.raises(ReadError) as raised:
+        pdf.report(path, limits=SMALL)
+    return dict(raised.value.message)
+
+
+def test_scripts_actions_links_and_attached_files_are_counted_and_never_acted_on(tmp_path: Path) -> None:
+    fifo = tmp_path / "secret"
+    os.mkfifo(fifo)  # opening it to read would block until the wall-clock limit
+    with listener() as (url, accepted):
+        path = tmp_path / "extras.pdf"
+        from engine.fixtures.pdf import extras
+
+        path.write_bytes(extras.write(url=url, target=str(fifo)))
+        started = time.monotonic()
+        found = pdf.report(path, limits=SMALL)
+        text = pdf.page_text(path, limits=SMALL)
+        time.sleep(0.2)
+        assert accepted() == 0
+    assert time.monotonic() - started < SMALL.wall_seconds
+    assert found.extras == {"scripts": 3, "launches": 1, "links": 1, "remote": 3, "files": 2}
+    assert all("extras" not in message["code"] for message in found.messages)  # for Vextrus only
+    assert [item.text for item in text[0].items] == ["S-201", "FOUNDATION PLAN"]
+
+
+@pytest.mark.parametrize("where", ["content", "object_stream"])
+def test_a_stream_that_inflates_to_gigabytes_stops_at_the_memory_limit(
+    pdf_fixture: Fixture, where: str
+) -> None:
+    assert refused(pdf_fixture("inflate", where=where)) == codes.LIMIT_REACHED(limit="memory")
+
+
+def test_a_page_tree_that_loops_gives_each_page_once(pdf_fixture: Fixture) -> None:
+    found = pdf.report(pdf_fixture("page_tree", kind="loop"), limits=SMALL)
+
+    assert found.counts["pages"] == 2
+
+
+def test_a_page_tree_deeper_than_a_walk_is_refused_as_damaged(pdf_fixture: Fixture) -> None:
+    assert refused(pdf_fixture("page_tree", kind="deep")) == codes.UNREADABLE()
+
+
+def test_an_image_claiming_huge_dimensions_is_counted_and_never_decoded(pdf_fixture: Fixture) -> None:
+    found = pdf.report(pdf_fixture("damaged", kind="huge_image"), limits=SMALL)
+
+    assert found.counts["images"] == 1
+    assert found.pages[0].picture_share == pytest.approx(0.1)
+
+
+def test_a_font_with_a_malformed_table_is_marked_and_the_rest_read(pdf_fixture: Fixture) -> None:
+    path = pdf_fixture("bad_font", kind="table")
+    found = pdf.report(path, limits=SMALL)
+
+    assert [(f.name, f.kind) for f in found.fonts] == [
+        ("ArialNarrow", "truetype"),
+        ("Broken", "unreadable"),
+    ]
+    assert codes.FONTS_UNREADABLE(fonts=1) in found.messages
+    assert codes.UNMAPPED_TEXT(chars=4) in found.messages
+    assert [i.text for i in pdf.page_text(path, limits=SMALL)[0].items] == ["S-501", "STAIR DETAILS"]
+
+
+def test_a_font_table_that_would_loop_for_minutes_stops_at_the_cpu_limit(pdf_fixture: Fixture) -> None:
+    assert refused(pdf_fixture("bad_font", kind="cmap_loop")) == codes.LIMIT_REACHED(limit="cpu")
+
+
+def test_forms_nested_past_the_stack_mark_their_page_and_the_rest_is_read(pdf_fixture: Fixture) -> None:
+    found = pdf.report(pdf_fixture("damaged", kind="nested_forms"), limits=SMALL)
+
+    assert [p.readable for p in found.pages] == [True, False]
+    assert codes.PAGE_UNREADABLE(page=2) in found.messages
+
+
+def test_a_locked_pdf_is_refused(pdf_fixture: Fixture) -> None:
+    assert refused(pdf_fixture("damaged", kind="locked")) == codes.LOCKED()
+
+
+def test_noise_after_a_pdf_header_is_refused_as_damaged(pdf_fixture: Fixture) -> None:
+    assert refused(pdf_fixture("damaged", kind="garbage")) == codes.UNREADABLE()
+
+
+def test_a_child_that_crashes_is_a_fault_of_vextrus_and_tried_again(
+    pdf_fixture: Fixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = pdf_fixture("plot", producer="crash")
+    real = pdf.CHILD
+    monkeypatch.setattr(pdf, "CHILD", "import sys; sys.exit(3)")
+    with pytest.raises(ReadError) as raised:
+        pdf.report(path, limits=SMALL)
+    assert raised.value.message == codes.READER_FAILED()
+    monkeypatch.setattr(pdf, "CHILD", real)
+    assert pdf.report(path, limits=SMALL).counts["pages"] == 3
+
+
+# One thread, whatever the machine (the review of #80: OpenBLAS started a thread per core in the child,
+# and numpy needed more than a gibibyte to load on 24 cores).
+
+_THREADS = (
+    "import engine.read.pdf.child, numpy, os\n"
+    "threads = len(os.listdir('/proc/self/task'))\n"
+    "reason = 'locked' if threads == 1 else 'unreadable'\n"
+    "open(sys.argv[3], 'w').write('{\"refused\": \"%s\"}' % reason)\n"
+)
+
+
+def test_the_child_runs_blas_on_one_thread(
+    pdf_fixture: Fixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The child's own first statements, then numpy loaded through the child's own imports.
+    monkeypatch.setattr(pdf, "CHILD", pdf.PRELUDE + "\n" + _THREADS)
+    assert refused(pdf_fixture("plot", producer="threads")) == codes.LOCKED()
+
+
+def test_the_child_s_pin_is_the_harness_s() -> None:
+    from engine import harness
+
+    assert pdf.ONE_THREAD == harness.ONE_THREAD
+    assert pdf.CHILD.startswith(pdf.PRELUDE)
+
+
+# Output past what this process parses (the review of #80: it was refused as a damaged file, and kept).
+
+
+def test_facts_past_the_output_limit_are_too_large_not_damaged_and_are_tried_again(
+    pdf_fixture: Fixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    small = SMALL.__class__(
+        cpu_seconds=SMALL.cpu_seconds,
+        memory_bytes=SMALL.memory_bytes,
+        wall_seconds=SMALL.wall_seconds,
+        output_bytes=1000,  # the plot's facts are some 4,000 bytes
+    )
+    path = pdf_fixture("plot", producer="large")
+    calls: list[Path] = []
+    real = pdf._read
+
+    def counted(source: Path, scratch: Path, limits: object) -> object:
+        calls.append(source)
+        return real(source, scratch, limits)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(pdf, "_read", counted)
+    for _ in range(2):
+        with pytest.raises(ReadError) as raised:
+            pdf.report(path, limits=small)
+        assert raised.value.message == codes.LIMIT_REACHED(limit="output")
+    assert len(calls) == 2
+
+
+def test_a_write_past_the_sandbox_s_file_size_limit_says_too_large(
+    pdf_fixture: Fixture, tmp_path: Path
+) -> None:
+    import subprocess
+    import sys
+
+    target = tmp_path / "facts.json"
+    script = (
+        "import resource, sys; resource.setrlimit(resource.RLIMIT_FSIZE, (200, 200)); "
+        "from engine.read.pdf.child import main; sys.exit(main(sys.argv[1:]))"
+    )
+    done = subprocess.run(
+        [sys.executable, "-c", script, str(pdf_fixture("plot")), str(target), str(10**9)],
+        cwd=pdf.ROOT,
+        check=False,
+    )
+    assert done.returncode == 0
+    assert target.read_bytes() == b'{"refused": "too_large"}'
+
+
+def test_a_child_that_runs_past_the_wall_clock_is_stopped(
+    pdf_fixture: Fixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(pdf, "CHILD", "import time; time.sleep(60)")
+    limits = SMALL.__class__(
+        cpu_seconds=5, memory_bytes=SMALL.memory_bytes, wall_seconds=1.0, output_bytes=SMALL.output_bytes
+    )
+    with pytest.raises(ReadError) as raised:
+        pdf.report(pdf_fixture("plot", producer="wall"), limits=limits)
+    assert raised.value.message == codes.LIMIT_REACHED(limit="wall")
+
+
+@pytest.mark.parametrize(
+    "written",
+    [
+        '{"refused": "locked", "extra": 1}',
+        '{"producer": null}',
+        "[1, 2",
+        (
+            '{"producer": null, "creator": null, "pages": [], "extras": '
+            '{"scripts": -1, "launches": 0, "links": 0, "remote": 0, "files": 0}}'
+        ),
+    ],
+)
+def test_what_the_child_writes_is_refused_unless_it_is_what_walk_writes(
+    pdf_fixture: Fixture, monkeypatch: pytest.MonkeyPatch, written: str
+) -> None:
+    child = f"import sys; open(sys.argv[3], 'w').write({written!r})"
+    monkeypatch.setattr(pdf, "CHILD", child)
+    with pytest.raises(ReadError) as raised:
+        pdf.report(pdf_fixture("plot", producer=f"shape {len(written)}"), limits=SMALL)
+    assert raised.value.message == codes.UNREADABLE()
+
+
+def test_a_link_the_child_leaves_in_place_of_its_output_is_not_followed(
+    pdf_fixture: Fixture, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    secret = tmp_path / "secret.json"
+    secret.write_text('{"refused": "locked"}')
+    monkeypatch.setattr(pdf, "CHILD", f"import os, sys; os.symlink({str(secret)!r}, sys.argv[3])")
+    with pytest.raises(ReadError) as raised:
+        pdf.report(pdf_fixture("plot", producer="link"), limits=SMALL)
+    assert raised.value.message["code"] == "engine.read.output_unreadable"
+
+
+_PAGE = (
+    '{"number": 1, "readable": true, "rotate": 0, "width": WIDTH, "height": 1, "crop": [0, 0, 1, 1], '
+    '"objects": 0, "strokes": 0, "fills": 0, "chars": 0, "hidden_chars": 0, "unmapped_chars": 0, '
+    '"images": 0, "picture_share": 0, "fonts": [], "layers": [], "shx_comments": 0, "items": []}'
+)
+_FACTS = (
+    '{"producer": null, "creator": null, "extras": {"scripts": 0, "launches": 0, "links": 0, '
+    '"remote": 0, "files": 0}, "pages": [PAGE]}'
+)
+
+
+@pytest.mark.parametrize(
+    "written",
+    [
+        # what walk writes, whole: read
+        repr(_FACTS.replace("PAGE", _PAGE.replace("WIDTH", "1"))),
+        # an integer too large for a float, where a size belongs
+        repr(_FACTS.replace("PAGE", _PAGE)) + ".replace('WIDTH', '1' + '0' * 400)",
+        # more objects and lists than this process parses, in less than its byte limit
+        "'[' + '[],' * 1_000_001 + '[]]'",
+    ],
+)
+def test_the_child_s_json_is_parsed_only_when_it_is_small_and_right(
+    pdf_fixture: Fixture, monkeypatch: pytest.MonkeyPatch, written: str
+) -> None:
+    monkeypatch.setattr(pdf, "CHILD", f"import sys; open(sys.argv[3], 'w').write({written})")
+    path = pdf_fixture("plot", producer=f"json {len(written)}")
+    if written.startswith("'{") and "replace" not in written:
+        assert pdf.report(path, limits=SMALL).counts["pages"] == 1
+        return
+    assert refused(path) == codes.UNREADABLE()
+
+
+@pytest.mark.parametrize("kind", ["fifo", "folder"])
+def test_only_a_regular_file_is_read(tmp_path: Path, kind: str) -> None:
+    path = tmp_path / "plot.pdf"
+    if kind == "fifo":
+        os.mkfifo(path)  # opening it to read without O_NONBLOCK would block this process for good
+    else:
+        path.mkdir()
+    started = time.monotonic()
+    assert refused(path) == codes.UNREADABLE()
+    assert time.monotonic() - started < 5
+
+
+def test_the_child_reads_a_private_copy_so_what_is_hashed_is_what_is_read(
+    pdf_fixture: Fixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    probe = (
+        "import sys, pathlib\n"
+        "copy = pathlib.Path(sys.argv[2])\n"
+        "reason = 'locked' if copy.name == 'source.pdf' and copy.parent.name.startswith('vextrus-pdf-')"
+        " else 'unreadable'\n"
+        "open(sys.argv[3], 'w').write('{\"refused\": \"%s\"}' % reason)\n"
+    )
+    monkeypatch.setattr(pdf, "CHILD", probe)
+    assert refused(pdf_fixture("plot", producer="copy")) == codes.LOCKED()
+
+
+def test_a_limit_reached_is_not_kept_for_the_next_call(
+    pdf_fixture: Fixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = pdf_fixture("plot", producer="retried")
+    quick = SMALL.__class__(
+        cpu_seconds=5, memory_bytes=SMALL.memory_bytes, wall_seconds=1.0, output_bytes=SMALL.output_bytes
+    )
+    real = pdf.CHILD
+    monkeypatch.setattr(pdf, "CHILD", "import time; time.sleep(60)")
+    with pytest.raises(ReadError):
+        pdf.report(path, limits=quick)
+    monkeypatch.setattr(pdf, "CHILD", real)
+    assert pdf.report(path, limits=quick).counts["pages"] == 3
+
+
+@pytest.mark.needs_bwrap
+class TestInTheSandbox:
+    """The same reading in bubblewrap: no network, nothing but the PDF and Python bound."""
+
+    @pytest.fixture(autouse=True)
+    def runs(self, monkeypatch: pytest.MonkeyPatch) -> list[Finished]:
+        runs: list[Finished] = []
+        real = sandbox.run
+
+        def recorded(*args: object, **kwargs: object) -> Finished:
+            finished = real(*args, **kwargs)  # type: ignore[arg-type]
+            runs.append(finished)
+            return finished
+
+        monkeypatch.setattr("engine.read.pdf.run", recorded)
+        return runs
+
+    def test_a_plot_is_read_in_the_sandbox(self, pdf_fixture: Fixture, runs: list[Finished]) -> None:
+        found = pdf.report(pdf_fixture("plot", producer="sandboxed"))
+
+        assert found.counts["pages"] == 3
+        assert [run.sandboxed for run in runs] == [True]
+
+    def test_nothing_a_pdf_names_is_fetched_from_the_sandbox(self, tmp_path: Path) -> None:
+        from engine.fixtures.pdf import extras
+
+        with listener() as (url, accepted):
+            path = tmp_path / "extras.pdf"
+            path.write_bytes(extras.write(url=url, target=str(tmp_path / "missing")))
+            found = pdf.report(path, limits=SMALL)
+            time.sleep(0.2)
+            assert accepted() == 0
+        assert found.counts["extras_links"] == 1
+
+    def test_a_bomb_stops_at_the_memory_limit_in_the_sandbox(self, pdf_fixture: Fixture) -> None:
+        assert refused(pdf_fixture("inflate", where="content")) == codes.LIMIT_REACHED(limit="memory")
+
+    def test_the_child_sees_the_engine_and_nothing_else_of_the_checkout(
+        self, pdf_fixture: Fixture, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        probe = (
+            "import sys, pathlib\n"
+            "root = pathlib.Path(sys.argv[1])\n"
+            "engine = (root / 'engine' / '__init__.py').is_file()\n"
+            "hidden = [root / name for name in ('pyproject.toml', 'uv.lock', 'CLAUDE.md', '.git')]\n"
+            "seen = [p for p in hidden if p.exists()]\n"
+            "reason = 'locked' if engine and not seen else 'unreadable'\n"
+            "open(sys.argv[3], 'w').write('{\"refused\": \"%s\"}' % reason)\n"
+        )
+        monkeypatch.setattr(pdf, "CHILD", probe)
+        assert refused(pdf_fixture("plot", producer="binds")) == codes.LOCKED()
+
+    def test_the_child_runs_blas_on_one_thread_in_the_sandbox(
+        self, pdf_fixture: Fixture, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(pdf, "CHILD", pdf.PRELUDE + "\n" + _THREADS)
+        assert refused(pdf_fixture("plot", producer="threads, sandboxed")) == codes.LOCKED()
+
+    def test_the_child_cannot_reach_the_network(
+        self, pdf_fixture: Fixture, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        with listener() as (url, accepted):
+            port = int(url.split(":")[2].split("/")[0])
+            probe = (
+                "import socket, sys\n"
+                "try:\n"
+                f"    socket.create_connection(('127.0.0.1', {port}), timeout=2)\n"
+                "except OSError:\n"
+                "    sys.exit(4)\n"
+            )
+            monkeypatch.setattr(pdf, "CHILD", probe)
+            with pytest.raises(ReadError):
+                pdf.report(pdf_fixture("plot", producer="network"), limits=SMALL)
+            time.sleep(0.2)
+            assert accepted() == 0
+
+
+# A crash the file causes is the file's (the re-review of #80): refused as it, and kept.
+
+
+def test_a_comment_whose_box_overflows_on_the_page_is_dropped_and_the_pdf_read(tmp_path: Path) -> None:
+    from engine.fixtures.pdf._writer import Page, Pdf, document, nums, shx_comment, strokes
+
+    written = Pdf()
+    # Finite in the file; infinite once the page's frame moves it by the MediaBox's corner.
+    comment = shx_comment(written, "GRID A", (1.7e308, 0, 1.7e308, 10))
+    page = Page(content=strokes(3), annots=[comment], entries={"MediaBox": nums((-1e308, 0, 0, 100))})
+    path = tmp_path / "overflow.pdf"
+    path.write_bytes(document(written, [page]))
+
+    found = pdf.report(path, limits=SMALL)
+    assert (found.counts["pages"], found.counts["shx_comments"]) == (1, 0)
+    assert [p.items for p in pdf.page_text(path, limits=SMALL)] == [()]
+
+
+@pytest.mark.parametrize(
+    ("raised", "refusal"),
+    [
+        ("ValueError('Out of range float values are not JSON compliant')", codes.UNREADABLE()),
+        ("MemoryError()", codes.LIMIT_REACHED(limit="memory")),
+    ],
+)
+def test_what_encoding_the_facts_raises_is_the_file_s_refusal_and_kept(
+    pdf_fixture: Fixture, monkeypatch: pytest.MonkeyPatch, raised: str, refusal: object
+) -> None:
+    # The real child, whose encoding of the facts raises as the review's two files made it.
+    child = (
+        pdf.PRELUDE
+        + "\nimport engine.read.pdf.child as child\n"
+        + f"def failing(result):\n    raise {raised}\n"
+        + "child._encode = failing\n"
+        + "sys.exit(child.main(sys.argv[2:]))\n"
+    )
+    monkeypatch.setattr(pdf, "CHILD", child)
+    path = pdf_fixture("plot", producer=f"encode {raised[:5]}")
+    calls: list[Path] = []
+    real = pdf._read
+
+    def counted(source: Path, scratch: Path, limits: object) -> object:
+        calls.append(source)
+        return real(source, scratch, limits)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(pdf, "_read", counted)
+    for stage in (pdf.report, pdf.page_text):
+        with pytest.raises(ReadError) as caught:
+            stage(path, limits=SMALL)
+        assert caught.value.message == refusal
+    lasting = refusal == codes.UNREADABLE()
+    assert len(calls) == (1 if lasting else 2)  # the file's own refusal is kept; a limit is tried again
