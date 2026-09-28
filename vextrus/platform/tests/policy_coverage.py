@@ -43,8 +43,17 @@ GLOBAL_TABLES: Mapping[str, str] = {
     ),
 }
 
-# Indexes on tenant tables not led by tenant_id, each with its reason (02 adds the Market's code).
-INDEX_EXCEPTIONS: Mapping[str, str] = {}
+# Indexes on tenant tables not led by tenant_id, each with its reason.
+INDEX_EXCEPTIONS: Mapping[str, str] = {
+    "platform_market_code_unique": (
+        "The Market's code is the one key unique across every Library (docs/data-model.md §2, the "
+        "Library rule): there is one Market per code, whichever Library holds it."
+    ),
+    "platform_membership_user": (
+        "The signed-in user's own Memberships are found by user before any tenant is set (the "
+        "middleware, and user_developers); the own-user FOR SELECT policy reads user_id."
+    ),
+}
 
 _OWN_TENANT = "tenant_id=nullifcurrent_setting'app.tenant_id'::text,true,''::text::uuid"
 
