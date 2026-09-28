@@ -20,7 +20,9 @@
 #     lets go when the worker dies), so a retry never runs one job in two tries at once and a
 #     superseded try never ends the job its successor runs;
 #   - a worker's stop sends a job back to wait without counting a try (its retry asks for the
-#     stop's priority, int4's least; the trigger restores the priority and the tries).
+#     stop's priority, int4's least; the trigger restores the priority and the tries);
+#   - a waiting job is never finished (only cancelled): a try that resumed after its job was sent
+#     back to wait cannot end the queued retry.
 #   The function runs as its caller (not SECURITY DEFINER), so current_user is the app's role; the
 #   owner passes. Like row-level security, it holds the app's code to its tenant: a role that can run
 #   any SQL can also set app.tenant_id.
@@ -101,6 +103,12 @@ JOB_WALL = [
         if old.status = 'doing' and new.status = 'todo' and new.priority = -2147483648 then
           new.priority := old.priority;
           new.attempts := old.attempts;
+        end if;
+        -- A waiting job is ended only by a cancel (to 'cancelled'): no try runs it, so no try may
+        -- finish it (a resumed, superseded try's finish would otherwise end a queued retry).
+        if old.status = 'todo' and new.status in ('succeeded', 'failed', 'aborted') then
+          raise exception '{APP} may not finish a job that is waiting to run'
+            using errcode = '55P03';
         end if;
         if old.status in ('succeeded', 'failed', 'cancelled', 'aborted')
            and new.status is distinct from old.status then

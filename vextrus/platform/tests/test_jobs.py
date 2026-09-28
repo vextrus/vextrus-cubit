@@ -18,6 +18,7 @@ from unittest import mock
 import pytest
 from django.conf import settings
 from django.db import DatabaseError, connection, connections, transaction
+from django.test import override_settings
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from procrastinate import jobs as procrastinate_jobs
@@ -319,7 +320,8 @@ def test_the_app_may_not_retarget_reopen_rewind_delete_or_touch_another_tenant_s
             connection.cursor() as cursor,
         ):
             cursor.execute("delete from procrastinate_jobs where id = %s", [job_id])
-    with connection.cursor() as cursor:  # the worker's own path: it fails the job
+    with connection.cursor() as cursor:  # the worker's own path: it fetches, then fails the job
+        cursor.execute("update procrastinate_jobs set status = 'doing' where id = %s", [job_id])
         cursor.execute(
             "update procrastinate_jobs set status = 'failed', attempts = 3 where id = %s", [job_id]
         )
@@ -775,6 +777,13 @@ def test_cancelling_a_waiting_job_stops_it_and_a_restart_defers_it_again(
             {"code": "platform.jobs.retrying", "params": {"attempt": 2, "tries": 3}},
         ),
         ("doing", 0, False, "running", {"code": "platform.jobs.running", "params": {}}),
+        (
+            "doing",
+            1,
+            False,
+            "running",
+            {"code": "platform.jobs.running_again", "params": {"attempt": 2, "tries": 3}},
+        ),
         ("doing", 1, True, "stopping", {"code": "platform.jobs.stopping", "params": {}}),
         ("succeeded", 1, False, "done", {"code": "platform.jobs.done", "params": {}}),
         ("failed", 3, False, "failed", {"code": "platform.jobs.failed", "params": {"tries": 3}}),
@@ -792,7 +801,9 @@ def test_a_job_s_state_is_a_status_word_and_its_message(
     developer = make_developer()
     with tenancy.acting_in(developer):
         job_id = sample.two_steps.defer(subject_id=uuid.uuid4())
-        with connection.cursor() as cursor:
+        with connection.cursor() as cursor:  # as the worker: fetched, then where the case is
+            if status != "todo":
+                cursor.execute("update procrastinate_jobs set status = 'doing' where id = %s", [job_id])
             cursor.execute(
                 "update procrastinate_jobs set status = %s, attempts = %s, abort_requested = %s"
                 " where id = %s",
@@ -945,3 +956,68 @@ def test_the_job_wall_keeps_a_stopped_job_s_tries_and_priority_and_counts_a_fail
         rows = cursor.fetchall()
 
     assert rows == [(stopped, "todo", 0, 5), (failed, "todo", 1, 5)]
+
+
+@pytest.mark.django_db
+def test_nobody_may_finish_a_job_waiting_to_run_but_a_cancel_may_end_it(
+    make_developer: Callable[..., uuid.UUID],
+) -> None:
+    developer = make_developer()
+    with tenancy.acting_in(developer):
+        waiting = sample.two_steps.defer(subject_id=uuid.uuid4())
+        for end in ("aborted", "failed", "succeeded"):
+            with (
+                pytest.raises(DatabaseError, match="finish a job that is waiting to run"),
+                transaction.atomic(),
+                connection.cursor() as cursor,
+            ):
+                cursor.execute(
+                    "select procrastinate_finish_job_v1(%s, %s::procrastinate_job_status, false)",
+                    [waiting, end],
+                )
+
+        assert jobs.cancel(waiting) is True
+        state = jobs.state(waiting)
+
+    assert state is not None
+    assert state.status == "cancelled"
+
+
+@pytest.mark.django_db
+def test_a_stop_on_the_last_try_never_reads_a_try_beyond_the_last(
+    make_developer: Callable[..., uuid.UUID],
+) -> None:
+    developer = make_developer()
+    with tenancy.acting_in(developer):
+        job_id = sample.two_steps.defer(subject_id=uuid.uuid4())
+    with connection.cursor() as cursor:  # as the worker: the last try running, then a stop
+        cursor.execute(
+            "update procrastinate_jobs set status = 'doing', attempts = 2 where id = %s", [job_id]
+        )
+    with tenancy.acting_in(developer):
+        running = jobs.state(job_id)
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "select procrastinate_retry_job_v2(%s, now(), %s, null, null)",
+            [job_id, jobs.STOP_PRIORITY],
+        )
+    with tenancy.acting_in(developer):
+        stopped = jobs.state(job_id)
+        with override_settings(VEXTRUS_JOB_TRIES=2):  # tries lowered while the job waits
+            lowered = jobs.state(job_id)
+
+    assert running is not None
+    assert running.message == {
+        "code": "platform.jobs.running_again",
+        "params": {"attempt": 3, "tries": 3},
+    }
+    assert stopped is not None
+    assert stopped.message == {
+        "code": "platform.jobs.retrying",
+        "params": {"attempt": 3, "tries": 3},
+    }
+    assert lowered is not None
+    assert lowered.message == {
+        "code": "platform.jobs.retrying",
+        "params": {"attempt": 2, "tries": 2},
+    }

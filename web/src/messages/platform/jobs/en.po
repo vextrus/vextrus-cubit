@@ -13,13 +13,16 @@ msgid "platform.jobs.done"
 msgstr "Done"
 
 msgid "platform.jobs.failed"
-msgstr "Could not finish after {tries, plural, one {# try} other {# tries}}."
+msgstr "Could not finish after {tries, plural, one {# try} other {# tries}}. Nothing is lost: try again, or tell Vextrus."
 
 msgid "platform.jobs.retrying"
-msgstr "Interrupted. Trying again by itself (try {attempt} of {tries})."
+msgstr "It was interrupted. Trying again by itself (try {attempt} of {tries})."
 
 msgid "platform.jobs.running"
 msgstr "Working"
+
+msgid "platform.jobs.running_again"
+msgstr "Working (try {attempt} of {tries})"
 
 msgid "platform.jobs.stopping"
 msgstr "Stopping…"

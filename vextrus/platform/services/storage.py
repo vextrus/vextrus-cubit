@@ -15,8 +15,9 @@ behind the same functions.
 What is refused (the trust boundary; each attack has its test in `tests/test_storage.py`):
 - a key of another shape: `..`, `.`, an absolute key, a backslash, an empty name, a NUL, an upper-case
   id: every name starts with a letter, a digit or `_` and holds only `[A-Za-z0-9._@+-]`;
-- a key whose first id is not the acting tenant's; row-level security hides another tenant's rows
-  and a check holds every row's key to its own tenant and Project;
+- a key whose first id is not the acting tenant's (a read answers "missing", as for any file that
+  is not there; a write is refused); row-level security hides another tenant's rows and a check
+  holds every row's key to its own tenant and Project;
 - a key of a Project the acting Membership may not open (answered "missing", as `require` answers
   "not found", so its existence does not leak), and any key for a person acting with no current
   Membership (fail closed; a step for no user, the system, reads its tenant's);
@@ -170,12 +171,12 @@ def put(
 
 def info(key: str) -> StoredFileInfo:
     """The row of the file under `key` (FileMissing if the acting tenant may not read one)."""
-    return _info(_row(_parse(key)))
+    return _info(_row(_parse(key, reading=True)))
 
 
 def get(key: str) -> bytes:
     """The bytes under `key`, checked against the row's sha256 and size."""
-    parsed = _parse(key)
+    parsed = _parse(key, reading=True)
     row = _row(parsed)
     chunks = []
     digest = hashlib.sha256()
@@ -195,7 +196,7 @@ def local_copy(key: str) -> Iterator[Path]:
 
     For a reader that takes a path (the CAD readers run in a sandbox on a file).
     """
-    parsed = _parse(key)
+    parsed = _parse(key, reading=True)
     row = _row(parsed)
     suffix = Path(parsed.name).suffix
     handle, name = tempfile.mkstemp(prefix="vextrus-", suffix=suffix)
@@ -225,13 +226,21 @@ def _acting_tenant() -> uuid.UUID:
     return tenant_id
 
 
-def _parse(text: object) -> _Key:
+def _parse(text: object, *, reading: bool = False) -> _Key:
+    """The key, or a refusal: `KeyRefused` for what is not a key (a caller's mistake, never shown);
+    for a key of another tenant, or used acting in none, `KeyRefused` on a write and `FileMissing`
+    on a read, so a read never tells another tenant's file from a missing one."""
     if not isinstance(text, str) or not _KEY.fullmatch(text):
         raise KeyRefused(f"not a key: {text!r}")
     tenant, project, *names = text.split("/")
     if not all(_NAME.fullmatch(name) for name in names):  # the pattern holds this; kept explicit
         raise KeyRefused(f"not a key: {text!r}")
-    if uuid.UUID(tenant) != _acting_tenant():
+    acting = tenancy.current_tenant_id()
+    if uuid.UUID(tenant) != acting:
+        if reading:
+            raise FileMissing(text)
+        if acting is None:
+            raise KeyRefused("storage is used only while acting in a tenant")
         raise KeyRefused("the key is not the acting tenant's")
     return _Key(text, uuid.UUID(tenant), uuid.UUID(project), (tenant, project, *names[:-1]), names[-1])
 

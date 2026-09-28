@@ -7,7 +7,7 @@ msgstr ""
 "Language: en\n"
 
 msgid "platform.storage.changed"
-msgstr "This file has changed since it was saved, so Vextrus does not use it. Add it again."
+msgstr "Vextrus's copy of this file is damaged, so it is not used. Add the file again to replace it."
 
 msgid "platform.storage.missing"
-msgstr "This file is missing from storage. Add it again."
+msgstr "Vextrus no longer has this file. Add it again to replace it."

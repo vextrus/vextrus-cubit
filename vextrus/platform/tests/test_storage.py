@@ -164,7 +164,7 @@ def test_nothing_is_kept_or_read_outside_a_tenant(root: Path, developer: uuid.UU
 
     with pytest.raises(storage.KeyRefused, match="acting in a tenant"):
         put(key)
-    with pytest.raises(storage.KeyRefused):
+    with pytest.raises(storage.FileMissing):  # a read answers "missing", as for any file not yours
         storage.get(key)
     with pytest.raises(storage.KeyRefused):
         storage.key(PROJECT, "original.dwg")
@@ -247,12 +247,16 @@ def test_another_tenant_s_prefix_is_refused_even_when_its_file_exists(
         put(their_key, b"their drawing")
 
     with tenancy.acting_in(mine):
-        with pytest.raises(storage.KeyRefused, match="not the acting tenant's"):
-            storage.get(their_key)
+        # Read, another tenant's file is "missing", worded as any missing file, so no screen can
+        # tell it from one that does not exist; a write is refused.
+        for read in (storage.get, storage.info):
+            with pytest.raises(storage.FileMissing) as missing:
+                read(their_key)
+            assert missing.value.message == {"code": "platform.storage.missing", "params": {}}
+        with pytest.raises(storage.FileMissing), storage.local_copy(their_key):
+            pass
         with pytest.raises(storage.KeyRefused, match="not the acting tenant's"):
             put(their_key, b"overwritten")
-        with pytest.raises(storage.KeyRefused):
-            storage.info(their_key)
         assert not StoredFile.objects.filter(key=their_key).exists()  # row-level security
 
     with tenancy.acting_in(theirs):
@@ -292,13 +296,13 @@ def test_a_person_whose_membership_has_ended_neither_reads_nor_keeps_any_file(
         Membership.objects.filter(id=member.membership_id).update(revoked_at=timezone.now())
 
     planted = f"{member.developer_id}/{PROJECT}/planted.dwg"
-    # Refused whether acting_in keeps the tenant for such a user (main: "missing", as for a Project
-    # the Membership may not open) or drops it (07's fix: no tenant, so no key is theirs).
+    # 07's acting_in drops the tenant for such a user; storage fails closed on its own as well
+    # (a person with no current Membership reads and writes nothing). A read answers "missing".
     with tenancy.acting_in(member.developer_id, user_id=member.user.pk) as acting:
         assert acting.membership is None
-        with pytest.raises((storage.FileMissing, storage.KeyRefused)):
+        with pytest.raises(storage.FileMissing):
             storage.get(key)
-        with pytest.raises((storage.FileMissing, storage.KeyRefused)), storage.local_copy(key):
+        with pytest.raises(storage.FileMissing), storage.local_copy(key):
             pass
         with pytest.raises(storage.KeyRefused):
             put(planted)

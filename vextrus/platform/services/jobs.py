@@ -40,7 +40,9 @@ A job is a function declared with `@job`, given a `Run` and its ids:
   its own connection, let go when the try ends and by PostgreSQL when the worker dies). While it
   holds it, the job wall refuses to end the job or send it back to wait, and another try of it
   refuses to start (`TryStillRunning`, tried again later). So a retry never runs one job twice at
-  once, and a superseded try never ends the job its successor runs.
+  once, and a superseded try never ends the job its successor runs; nor does the wall let anyone
+  finish a job waiting to run. Job code still never catches a step's exception: a step that raised
+  has rolled back, and the job must end or be tried again as the runner decides.
 - **Restart** (`restart(job_id)`) defers a failed or cancelled job again with the same ids; its
   completed steps skip. A job that raised is tried again by itself up to `VEXTRUS_JOB_TRIES`. A job
   whose worker died, froze or was cut off mid-way is found by the stalled-job retrier, a periodic
@@ -585,24 +587,29 @@ def state(job_id: JobId) -> JobState | None:
         return None
     task, status, attempts, abort_requested = row
     tries = settings.VEXTRUS_JOB_TRIES
+    # `attempts` counts real tries only (a stop is none), so a waiting or running try is at most
+    # the last; `min` holds "try N of M" to N <= M even if VEXTRUS_JOB_TRIES is lowered later.
+    upcoming = min(attempts + 1, tries)
     if status == "todo":
-        name, attempt = ("retrying", attempts + 1) if attempts else ("waiting", 0)
-    elif status == "doing":
-        name, attempt = ("stopping" if abort_requested else "running"), attempts + 1
-    elif status == "aborting":
-        name, attempt = "stopping", attempts + 1
+        name, attempt = ("retrying", upcoming) if attempts else ("waiting", 0)
+    elif status in ("doing", "aborting"):
+        name = "stopping" if abort_requested or status == "aborting" else "running"
+        attempt = upcoming
     else:
         name = {"succeeded": "done", "failed": "failed"}.get(status, "cancelled")
-        attempt = attempts
-    message = {
-        "waiting": words.WAITING(),
-        "running": words.RUNNING(),
-        "retrying": words.RETRYING(attempt=attempt, tries=tries),
-        "stopping": words.STOPPING(),
-        "cancelled": words.CANCELLED(),
-        "failed": words.FAILED(tries=attempt),
-        "done": words.DONE(),
-    }[name]
+        attempt = attempts  # the tries made, as they were made
+    if name == "running" and attempt > 1:
+        message = words.RUNNING_AGAIN(attempt=attempt, tries=tries)
+    else:
+        message = {
+            "waiting": words.WAITING(),
+            "running": words.RUNNING(),
+            "retrying": words.RETRYING(attempt=attempt, tries=tries),
+            "stopping": words.STOPPING(),
+            "cancelled": words.CANCELLED(),
+            "failed": words.FAILED(tries=attempt),
+            "done": words.DONE(),
+        }[name]
     return JobState(job_id, task, name, attempt, tries, message)
 
 
