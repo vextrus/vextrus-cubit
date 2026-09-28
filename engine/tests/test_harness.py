@@ -5,6 +5,7 @@ a stage table that mirrors the real one, so nothing waits for the tickets that b
 Each run still spawns a real child process per file. Synthetic files prove mechanics only.
 """
 
+import contextlib
 import io
 import json
 import os
@@ -13,10 +14,11 @@ import stat
 import subprocess
 import sys
 import textwrap
+import time
 import token
 import tokenize
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
@@ -77,27 +79,78 @@ FAKES = {
                     os.kill(os.getpid(), signal.SIGKILL)
                 elif word == "sleep":
                     time.sleep(float(arg))
+                elif word == "spin":  # this thread's own CPU, whatever else the process runs
+                    end = time.thread_time() + float(arg)
+                    while time.thread_time() < end:
+                        pass
                 elif word == "raise":
                     raise RuntimeError("the fake reader failed")
                 elif word == "nosummary":
                     return object()
                 elif word == "forkchain":
-                    # A process that forks and exits for a while: its pid never stays still.
+                    # Processes that fork and exit for up to 30 s, each chain in a session of its own
+                    # or in a process group of its own in the harness's session: their pids never
+                    # stay still. The file ends only once every chain is forking.
+                    count, token, folder, where = arg.split()
                     chain = (
-                        "import os, time\\n"
-                        "end = time.monotonic() + 3\\n"
+                        "import os, sys, time\\n"
+                        "end, forks = time.monotonic() + 30, 0\\n"
                         "while time.monotonic() < end:\\n"
                         "    if os.fork():\\n"
                         "        os._exit(0)\\n"
+                        "    forks += 1\\n"
+                        "    if forks == 100:\\n"
+                        "        open(sys.argv[1], 'w').close()\\n"
                     )
-                    for _ in range(int(arg)):
-                        subprocess.Popen([sys.executable, "-c", chain], start_new_session=True)
-                elif word == "orphan":
+                    ready = [Path(folder) / f"{n}.forking" for n in range(int(count))]
+                    for flag in ready:
+                        command = [sys.executable, "-c", chain, str(flag), token]
+                        if where == "session":
+                            subprocess.Popen(command, start_new_session=True)
+                        else:
+                            subprocess.Popen(command, process_group=0)
+                    end = time.monotonic() + 20
+                    while not all(flag.exists() for flag in ready) and time.monotonic() < end:
+                        time.sleep(0.01)
+                elif word in ("orphan", "straggler"):  # in a session of its own, or in the file's
                     stray = subprocess.Popen(
-                        [sys.executable, "-c", "import time; time.sleep(600)"], start_new_session=True
+                        [sys.executable, "-c", "import time; time.sleep(600)"],
+                        start_new_session=word == "orphan",
                     )
                     Path(arg).write_text(str(stray.pid))
+                elif word in TRESPASSES:
+                    trespass(word, arg)
             return Artefact(path)
+
+        TRESPASSES = {"joinlauncher", "grandjoin", "joinunrelated", "chaininlauncher"}
+
+        def trespass(word, arg):
+            # Processes that move into a group the file did not make; the launcher is the parent.
+            launcher_group = os.getpgid(os.getppid())
+            if word == "joinlauncher":  # the file's child joins the launcher's group, forks there
+                os.setpgid(0, launcher_group)
+            elif word == "chaininlauncher":  # a fork chain in the launcher's group, for 3 s
+                os.setpgid(0, launcher_group)
+                if os.fork() == 0:
+                    end = time.monotonic() + 3
+                    while time.monotonic() < end:
+                        if os.fork():
+                            os._exit(0)
+                    os._exit(0)
+                time.sleep(0.3)
+                return
+            pid = os.fork()
+            if pid == 0:
+                if word == "grandjoin":  # a grandchild leads a group, then joins the launcher's
+                    os.setpgid(0, 0)
+                    time.sleep(0.05)
+                    os.setpgid(0, launcher_group)
+                elif word == "joinunrelated":  # a grandchild joins a group an unrelated process leads
+                    os.setpgid(0, int(arg.split()[0]))
+                time.sleep(600)
+                os._exit(0)
+            time.sleep(0.3)
+            Path(arg.split()[-1]).write_text(str(pid))
     """,
     "decoders.py": """
         def run(path, artefact):
@@ -297,6 +350,36 @@ def by_path(document: dict[str, Any]) -> dict[str, dict[str, Any]]:
 
 def states(reading: dict[str, Any]) -> dict[str, str]:
     return {name: report["state"] for name, report in reading["stages"].items()}
+
+
+def processes_naming(token: str) -> list[tuple[int, int]]:
+    """The live processes whose command line holds `token`, with their process groups."""
+    found = []
+    for entry in os.scandir("/proc"):
+        if not entry.name.isdigit():
+            continue
+        try:
+            command = Path(entry.path, "cmdline").read_bytes()
+            stat = Path(entry.path, "stat").read_text()
+        except OSError:
+            continue
+        state, _, group = stat[stat.rindex(")") + 2 :].split()[:3]
+        if token.encode() in command and state != "Z":
+            found.append((int(entry.name), int(group)))
+    return found
+
+
+def stop_processes_naming(token: str) -> None:
+    """Kill what a test started and a failing harness left running (a fork chain's whole group)."""
+    for _ in range(1000):
+        found = processes_naming(token)
+        if not found:
+            return
+        for pid, group in found:
+            for kill, target in ((os.killpg, group), (os.kill, pid)):
+                if target != os.getpgrp():
+                    with contextlib.suppress(ProcessLookupError, PermissionError):
+                        kill(target, signal.SIGKILL)
 
 
 # The stage table ------------------------------------------------------------------------------------
@@ -575,8 +658,38 @@ def test_peak_memory_is_each_files_own(
     assert small["peak_rss_kib"] < 128 * 1024
     # The rusage wait4 gives covers the children the file's process waited for (dwgread's, later).
     assert grandchild["peak_rss_kib"] >= 256 * 1024
-    assert big["cpu_seconds"] > 0
-    assert big["seconds"] >= big["cpu_seconds"] * 0.5
+
+
+def test_read_seconds_and_cpu_seconds_are_each_files_own(
+    tmp_path: Path,
+    fakes: Callable[..., tuple[Stage, ...]],
+    conventions: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # A file's process imports numpy (through ezdxf), whose BLAS starts a thread per core that spins
+    # for a while: on a machine with many cores that is seconds of CPU, more than the wall time, and
+    # it varies from file to file (#66). With one BLAS thread, starting costs every file about the
+    # same CPU, on any machine; the comparisons below are between files of the same run.
+    monkeypatch.setenv("OPENBLAS_NUM_THREADS", "1")
+    monkeypatch.setenv("OMP_NUM_THREADS", "1")
+    document = run(
+        tmp_path,
+        fakes(),
+        {"1-busy.dwg": "spin 1.5", "2-idle.dwg": "", "3-asleep.dwg": "sleep 1.5"},
+        conventions=conventions,
+    )
+
+    files = by_path(document)
+    busy, idle, asleep = (files[n]["process"] for n in ("1-busy.dwg", "2-idle.dwg", "3-asleep.dwg"))
+    # The wall time covers what the file's process did, from its start to its end.
+    assert busy["seconds"] >= 1.5
+    assert asleep["seconds"] >= 1.5
+    assert idle["seconds"] < busy["seconds"]
+    # Each file's CPU is its own process's: the busy file's is not the idle one's after it.
+    assert idle["cpu_seconds"] > 0
+    assert busy["cpu_seconds"] - idle["cpu_seconds"] >= 0.75
+    # And it is CPU, not wall time: time asleep costs no CPU.
+    assert asleep["cpu_seconds"] - idle["cpu_seconds"] < 0.75
 
 
 def test_a_child_that_dies_is_reported_as_far_as_it_got(
@@ -947,17 +1060,18 @@ def test_a_files_peak_is_not_the_harnesss_own(
         assert reading["process"]["peak_rss_kib"] < 128 * 1024, reading["path"]
 
 
+@pytest.mark.parametrize("word", ["orphan", "straggler"])
 def test_what_a_file_leaves_running_is_killed_and_counted(
-    tmp_path: Path, fakes: Callable[..., tuple[Stage, ...]], conventions: Path
+    tmp_path: Path, fakes: Callable[..., tuple[Stage, ...]], conventions: Path, word: str
 ) -> None:
     stray = tmp_path / "stray.pid"
 
-    document = run(tmp_path, fakes(), {"a.dwg": f"orphan {stray}"}, conventions=conventions)
+    document = run(tmp_path, fakes(), {"a.dwg": f"{word} {stray}"}, conventions=conventions)
 
     pid = int(stray.read_text())
     with pytest.raises(ProcessLookupError):
         os.kill(pid, 0)
-    assert by_path(document)["a.dwg"]["process"]["left_behind"] >= 1
+    assert by_path(document)["a.dwg"]["process"]["left_behind"] == 1
     assert by_path(document)["a.dwg"]["process"]["status"] == "ok"
 
 
@@ -1103,15 +1217,163 @@ def test_a_candidate_of_the_wrong_shape_fails_where_it_is_made(
         make()
 
 
+@pytest.mark.parametrize("where", ["session", "group"])
 def test_a_fork_chain_a_file_leaves_is_stopped_and_never_charged_to_the_next_file(
-    tmp_path: Path, fakes: Callable[..., tuple[Stage, ...]], conventions: Path
+    tmp_path: Path, fakes: Callable[..., tuple[Stage, ...]], conventions: Path, where: str
 ) -> None:
-    document = run(tmp_path, fakes(), {"a.dwg": "forkchain 4", "b.dwg": ""}, conventions=conventions)
+    token, flags = f"chain-{uuid.uuid4().hex}", tmp_path / "flags"
+    flags.mkdir()
+    try:
+        document = run(
+            tmp_path,
+            fakes(),
+            {"a.dwg": f"forkchain 4 {token} {flags} {where}", "b.dwg": ""},
+            conventions=conventions,
+        )
+        running_after = processes_naming(token)
+    finally:
+        stop_processes_naming(token)
 
+    assert len(list(flags.iterdir())) == 4  # every chain was forking when the file ended
     first, second = (by_path(document)[name]["process"] for name in ("a.dwg", "b.dwg"))
-    assert first["left_behind"] >= 1
+    assert first["left_behind"] >= 4  # one running process in each chain, at least
+    assert first["left_running"] is False
+    assert running_after == []
     assert second["left_behind"] == 0
     assert second["left_running"] is False
+
+
+# P, started by this helper, moves into a session or a process group of its own, starts Q and ends
+# without being reaped. The helper is no subreaper: Q goes to init, so the helper's only child is P's
+# zombie, and only a kill of the group P leads reaches Q. (Q is init's to reap, so the count `_clear`
+# returns cannot include it here; under the launcher, a subreaper, it would.)
+CLEAR_HELPER = """
+import json, os, sys, time
+
+where, token = sys.argv[1], sys.argv[2]
+r, w = os.pipe()
+p = os.fork()
+if p == 0:
+    os.close(r)
+    if where == "session":
+        os.setsid()
+    else:
+        os.setpgid(0, 0)
+    q = os.fork()
+    if q == 0:  # holds none of the helper's pipes, so a Q that survives cannot hold up the test
+        null = os.open(os.devnull, os.O_RDWR)
+        for fd in (0, 1, 2):
+            os.dup2(null, fd)
+        os.execv(sys.executable, [sys.executable, "-c", "import time; time.sleep(600)", token])
+    os.write(w, str(q).encode())
+    os._exit(0)
+os.close(w)
+q = int(os.read(r, 20))
+while open(f"/proc/{p}/stat").read().rsplit(")", 1)[1].split()[0] != "Z":
+    time.sleep(0.001)
+
+from engine import harness
+
+killed, running = harness._clear()
+print(json.dumps({"q": q, "running": running}))
+"""
+
+
+@pytest.mark.parametrize("where", ["session", "group"])
+def test_clear_kills_what_a_zombie_orphans_group_still_holds(where: str) -> None:
+    token = f"q-{uuid.uuid4().hex}"
+    env = {**os.environ, "PYTHONPATH": str(harness.ROOT)}
+    try:
+        done = subprocess.run(
+            [sys.executable, "-c", CLEAR_HELPER, where, token],
+            capture_output=True,
+            text=True,
+            check=True,
+            env=env,
+            timeout=60,
+        )
+        found = json.loads(done.stdout)
+        for _ in range(500):  # a killed Q is gone once init reaps it
+            if not processes_naming(token):
+                break
+            time.sleep(0.01)
+        q_running = processes_naming(token)
+    finally:
+        stop_processes_naming(token)
+
+    assert found["running"] is False
+    assert q_running == [], f"Q ({found['q']}) outlived _clear"
+
+
+# Only groups a file made are killed ---------------------------------------------------------------
+
+
+def alive(pid: int) -> bool:
+    try:
+        stat = Path(f"/proc/{pid}/stat").read_text()
+    except OSError:
+        return False
+    return stat[stat.rindex(")") + 2] != "Z"
+
+
+@pytest.fixture
+def sentinel() -> Iterator[subprocess.Popen[bytes]]:
+    """A process in pytest's own process group, which is the launcher's too, and no file's."""
+    process = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(600)"])
+    assert os.getpgid(process.pid) == os.getpgrp()
+    yield process
+    process.kill()
+    process.wait()
+
+
+@pytest.mark.parametrize("word", ["joinlauncher", "grandjoin"])
+def test_a_process_that_joins_the_launchers_group_is_killed_alone(
+    tmp_path: Path,
+    fakes: Callable[..., tuple[Stage, ...]],
+    conventions: Path,
+    sentinel: subprocess.Popen[bytes],
+    word: str,
+) -> None:
+    stray = tmp_path / "stray.pid"
+
+    document = run(tmp_path, fakes(), {"a.dwg": f"{word} {stray}", "b.dwg": ""}, conventions=conventions)
+
+    assert alive(sentinel.pid)
+    assert not alive(int(stray.read_text()))
+    assert by_path(document)["a.dwg"]["process"]["left_behind"] >= 1
+
+
+def test_a_process_that_joins_an_unrelated_group_is_killed_alone(
+    tmp_path: Path, fakes: Callable[..., tuple[Stage, ...]], conventions: Path
+) -> None:
+    command = [sys.executable, "-c", "import time; time.sleep(600)"]
+    leader = subprocess.Popen(command, process_group=0)
+    member = subprocess.Popen(command, process_group=leader.pid)
+    stray = tmp_path / "stray.pid"
+    try:
+        document = run(
+            tmp_path, fakes(), {"a.dwg": f"joinunrelated {leader.pid} {stray}"}, conventions=conventions
+        )
+
+        assert alive(leader.pid)
+        assert alive(member.pid)
+        assert not alive(int(stray.read_text()))
+        assert by_path(document)["a.dwg"]["process"]["left_behind"] >= 1
+    finally:
+        for process in (leader, member):
+            process.kill()
+            process.wait()
+
+
+def test_a_fork_chain_in_the_launchers_group_never_takes_the_group_with_it(
+    tmp_path: Path,
+    fakes: Callable[..., tuple[Stage, ...]],
+    conventions: Path,
+    sentinel: subprocess.Popen[bytes],
+) -> None:
+    run(tmp_path, fakes(), {"a.dwg": "chaininlauncher", "b.dwg": ""}, conventions=conventions)
+
+    assert alive(sentinel.pid)
 
 
 def test_the_runs_identity_comes_from_the_environment_the_check_sets(
