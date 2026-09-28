@@ -26,10 +26,10 @@ SESSION_COOKIE_SAMESITE = "Lax"
 SESSION_COOKIE_SECURE = env_flag("VEXTRUS_SECURE_COOKIES")
 CSRF_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SECURE = SESSION_COOKIE_SECURE
-# The web app's origins: the Vite dev server locally, the deployed origin elsewhere.
+# The web app's origins: the Vite dev server locally (web's `dev`, on 5410), the deployed one elsewhere.
 CSRF_TRUSTED_ORIGINS = [
     origin
-    for origin in os.environ.get("VEXTRUS_CSRF_TRUSTED_ORIGINS", "http://127.0.0.1:5173").split(",")
+    for origin in os.environ.get("VEXTRUS_CSRF_TRUSTED_ORIGINS", "http://127.0.0.1:5410").split(",")
     if origin
 ]
 

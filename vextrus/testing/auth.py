@@ -9,9 +9,11 @@
 - `invitation(member, email, role, ...)`: an invitation made by `member` through the service,
   `(membership id, token)`.
 - `served_operations()`: every Ninja operation the URLs serve, found through Django's URL resolver,
-  so the walking tests see every module's operations with no list to edit.
+  so the walking tests see every module's operations with no list to edit; `other_views()`: every
+  other route served outside the admin (a plain view, or an operation wrapped at the URL).
 """
 
+import functools
 import inspect
 import json
 import uuid
@@ -119,23 +121,57 @@ class Served:
 
 def served_operations() -> list[Served]:
     """Every Ninja operation the root URLconf serves, one per method."""
+    return _survey()[0]
+
+
+def other_views() -> list[str]:
+    """Every route the root URLconf serves that is not a Ninja operation's own view: a plain Django
+    view, or an operation's view wrapped at the URL (which would run before its guard). Ninja's
+    schema pages and the admin (Django's, run by 02's rules) are left out."""
+    return _survey()[1]
+
+
+def _survey() -> tuple[list[Served], list[str]]:
     found: list[Served] = []
+    others: list[str] = []
     seen: set[int] = set()
-    for route, callback in _walk(get_resolver().url_patterns, ""):
-        if not inspect.isfunction(callback):  # the schema's views are partials
+    for route, callback, in_admin in _walk(get_resolver().url_patterns, "", in_admin=False):
+        if in_admin or _ninja_page(callback):
             continue
-        path_view = inspect.getclosurevars(callback).nonlocals.get("self")
-        if not isinstance(path_view, PathView) or id(path_view) in seen:
+        path_view = _path_view(callback)
+        if path_view is None:
+            others.append(route)
+            continue
+        if id(path_view) in seen:
             continue
         seen.add(id(path_view))
         for operation in path_view.operations:
             found.extend(Served(route, method, operation) for method in operation.methods)
-    return found
+    return found, others
 
 
-def _walk(patterns: Iterable[URLPattern | URLResolver], prefix: str) -> Iterator[tuple[str, Any]]:
+def _ninja_page(callback: Any) -> bool:
+    """Ninja's own schema, docs and root pages: partials of its views, served as Ninja makes them."""
+    return isinstance(callback, functools.partial) and callback.func.__module__.startswith("ninja.")
+
+
+def _path_view(callback: Any) -> PathView | None:
+    """The PathView whose view this callback is, unwrapped by nothing; else None."""
+    if not inspect.isfunction(callback) or callback.__closure__ is None:
+        return None
+    found = inspect.getclosurevars(callback).nonlocals.get("self")
+    return found if isinstance(found, PathView) else None
+
+
+def _walk(
+    patterns: Iterable[URLPattern | URLResolver], prefix: str, *, in_admin: bool
+) -> Iterator[tuple[str, Any, bool]]:
     for pattern in patterns:
         if isinstance(pattern, URLResolver):
-            yield from _walk(pattern.url_patterns, prefix + str(pattern.pattern))
+            yield from _walk(
+                pattern.url_patterns,
+                prefix + str(pattern.pattern),
+                in_admin=in_admin or pattern.namespace == "admin",
+            )
         else:
-            yield prefix + str(pattern.pattern), pattern.callback
+            yield prefix + str(pattern.pattern), pattern.callback, in_admin

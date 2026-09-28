@@ -79,10 +79,10 @@ def invite(
     """Invite `email` into the acting Developer as `role`, to every Project (`None`) or the ones
     given, until `expires_at` (a Vextrus Engineer's defaults to 30 days ahead)."""
     inviter = auth.acting_membership(auth.MANAGE_ACCESS)
+    chosen = _scope(inviter, project_ids)  # a Project outside the scope: not found, before the role
     if role not in _INVITES.get(inviter.role, frozenset()):
         raise Refused(codes.ROLE_NOT_YOURS(role=role))
     email = _clean_email(email)
-    chosen = _scope(inviter, project_ids)
     now = timezone.now()
     if role == Role.VEXTRUS_ENGINEER and expires_at is None:
         expires_at = now + timedelta(days=RENEW_DAYS)

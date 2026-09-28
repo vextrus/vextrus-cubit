@@ -25,8 +25,10 @@ decorates its own operations; it never edits a list in `platform`:
     @declare(acts.CREATE)
     def create_project(request, payload: NewProject) -> ...: ...
 
-`declare` goes **below** the route decorator, so the router registers the guarded view. Before the
-view runs, the guard:
+`declare` goes **below** the route decorator, so the router registers the guarded view itself; no
+other decorator may sit between them, or around the operation (Ninja's `decorate_view`, a router's
+decorators), since it would run before the guard: the walk refuses both. Before the view runs, the
+guard:
 1. checks the CSRF token on every unsafe method (POST, PUT, PATCH, DELETE), whatever the route's
    `auth`, so no operation, a public one included, answers an unsafe request without it;
 2. calls `services.auth.require(act, project_id)`, the Project read from the named parameter (a
@@ -66,6 +68,7 @@ __all__ = ["Act", "Declaration", "Grant", "Refusal", "declaration_of", "declare"
 
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS", "TRACE"})
 _ATTRIBUTE = "vextrus_declaration"
+_GUARD = "vextrus_guard"
 
 
 class Refusal(Schema):
@@ -107,6 +110,8 @@ def declare[F: Callable[..., Any]](act: Act, *, project: str | None = None) -> C
     """Declare the operation's act, and the parameter naming its Project if it acts in one."""
     if not isinstance(act, Act):
         raise TypeError(f"declare() takes an Act, not {act!r}")
+    if act.grant is Grant.ACCOUNT and project is not None:
+        raise TypeError(f"{act.code} is the user's own account's: it acts in no Project")
 
     def decorate(view: F) -> F:
         return _guard(view, Declaration(act, project))
@@ -120,13 +125,14 @@ def public[F: Callable[..., Any]](view: F) -> F:
 
 
 def declaration_of(view: Callable[..., Any]) -> Declaration | None:
-    """The declaration an operation's view carries, looking through any decorator over the guard."""
-    seen: Callable[..., Any] | None = view
-    while seen is not None:
-        found = getattr(seen, _ATTRIBUTE, None)
-        if isinstance(found, Declaration):
-            return found
-        seen = getattr(seen, "__wrapped__", None)
+    """The declaration of an operation whose view is the guard itself, else None.
+
+    A decorator over the guard (a router's, say) could answer without calling it, and
+    `functools.wraps` would copy the declaration onto it: so only the guard's own counts.
+    """
+    found = getattr(view, _ATTRIBUTE, None)
+    if isinstance(found, Declaration) and getattr(view, _GUARD, None) is view:
+        return found
     return None
 
 
@@ -152,6 +158,7 @@ def _guard[F: Callable[..., Any]](view: F, declaration: Declaration) -> F:
             return refusal(refused.status, refused.message)
 
     setattr(guarded, _ATTRIBUTE, declaration)
+    setattr(guarded, _GUARD, guarded)
     contribute_operation_callback(guarded, functools.partial(_document, declaration))
     return cast(F, guarded)
 

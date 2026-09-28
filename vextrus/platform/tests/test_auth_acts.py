@@ -10,14 +10,14 @@ from typing import Any
 import pytest
 from django.contrib import admin
 from django.http import HttpRequest
-from django.urls import path
+from django.urls import URLPattern, path
 from ninja import NinjaAPI, Router, Schema
 from ninja.security import SessionAuth
 
 from vextrus.platform.http.acts import SAFE_METHODS, Refusal, declaration_of, declare, public
 from vextrus.platform.services import auth, tenancy
 from vextrus.platform.services.auth import ROLES, Act, Grant
-from vextrus.testing.auth import Api, api_as, served_operations
+from vextrus.testing.auth import Api, api_as, other_views, served_operations
 from vextrus.testing.tenancy import Member
 
 # The role-to-act rule -----------------------------------------------------------------------------
@@ -268,7 +268,8 @@ def test_declaring_twice_or_an_async_view_fails_at_import() -> None:
         declare("later.open")  # type: ignore[arg-type]
 
 
-def test_a_declaration_is_found_through_a_decorator_over_the_guard() -> None:
+def test_a_decorator_over_the_guard_is_not_a_declaration() -> None:
+    """It could answer without calling the guard; `functools.wraps` copies the guard's attributes."""
     import functools
 
     @declare(OPEN)
@@ -277,9 +278,23 @@ def test_a_declaration_is_found_through_a_decorator_over_the_guard() -> None:
     @functools.wraps(view)
     def outer(request: HttpRequest) -> None: ...
 
-    found = declaration_of(outer)
-    assert found is not None
-    assert found.act == OPEN
+    assert declaration_of(view) is not None
+    assert declaration_of(outer) is None
+
+
+def test_an_account_act_names_no_project() -> None:
+    with pytest.raises(TypeError, match="no Project"):
+
+        @declare(auth.ACCOUNT, project="project_id")
+        def view(request: HttpRequest, project_id: uuid.UUID) -> None: ...
+
+
+@pytest.mark.django_db
+def test_require_refuses_an_account_act_with_a_project(sign_in: Callable[..., Member]) -> None:
+    guest = sign_in(role="guest", projects=[uuid.uuid4()])
+
+    with guest.acting(), pytest.raises(TypeError, match="no Project"):
+        auth.require(auth.ACCOUNT, uuid.uuid4())
 
 
 # The walk over every operation --------------------------------------------------------------------
@@ -294,6 +309,21 @@ def test_the_walk_finds_platform_s_operations() -> None:
         ("api/members/<membership_id>/revoke", "POST"),
         ("api/activity", "GET"),
     } <= found
+
+
+def test_every_served_view_outside_the_admin_is_a_ninja_operation() -> None:
+    assert other_views() == []
+
+
+def test_no_decorator_runs_before_an_operation_s_guard() -> None:
+    """Ninja's `decorate_view` and a router's view decorators wrap `Operation.run`, before the guard."""
+    wrapped = [
+        f"{served.method} {served.route}"
+        for served in served_operations()
+        if getattr(served.operation.run, "__func__", None) is not type(served.operation).run
+    ]
+
+    assert wrapped == []
 
 
 def test_every_served_operation_declares_its_act_or_public() -> None:
@@ -339,3 +369,81 @@ def test_every_unsafe_operation_refuses_a_request_without_the_csrf_token(
         # as unreadable (422) first; the view never runs either way.
         allowed = {403, 422} if declaration is not None and declaration.public else {403}
         assert response.status_code in allowed, (served.method, served.route, response.content)
+
+
+# Ways an operation might escape the walk (the refuter's, 28 Sep 2026) ------------------------------
+
+
+def evasive_module() -> tuple[Router, NinjaAPI]:
+    import functools
+
+    from ninja.decorators import decorate_view
+
+    def answers_itself(view: Callable[..., Any]) -> Callable[..., Any]:
+        @functools.wraps(view)
+        def early(request: HttpRequest, *args: Any, **kwargs: Any) -> Any:
+            return {"answered": "without the guard"}
+
+        return early
+
+    router = Router()
+
+    @router.get("/evasive/around/{project_id}")
+    @answers_itself
+    @declare(OPEN, project="project_id")
+    def around(request: HttpRequest, project_id: uuid.UUID) -> dict[str, str]:
+        return {}
+
+    @router.post("/evasive/before-run")
+    @decorate_view(answers_itself)
+    @declare(EDIT)
+    def before_run(request: HttpRequest) -> dict[str, str]:
+        return {}
+
+    @router.post("/evasive/wrapped-at-the-url")
+    @declare(EDIT)
+    def at_the_url(request: HttpRequest) -> dict[str, str]:
+        return {}
+
+    api = NinjaAPI(auth=SessionAuth(csrf=True), urls_namespace=f"evasive-{uuid.uuid4().hex}")
+    api.add_router("", router)
+    return router, api
+
+
+@pytest.fixture
+def evasive_urls(settings: Any) -> Iterator[None]:
+    from django.http import HttpResponse
+    from django.views.decorators.cache import never_cache
+
+    _router, api = evasive_module()
+    patterns, app_name, namespace = api.urls
+    wrapped: list[Any] = []
+    for pattern in patterns:
+        if isinstance(pattern, URLPattern) and "wrapped-at-the-url" in str(pattern.pattern):
+            pattern = path(str(pattern.pattern), never_cache(pattern.callback), name=pattern.name)
+        wrapped.append(pattern)
+    module = types.ModuleType("evasive_urls")
+    module.urlpatterns = [  # type: ignore[attr-defined]
+        path("api/", (wrapped, app_name, namespace)),
+        path("api/plain", lambda request: HttpResponse("a plain Django view")),
+        path("admin/", admin.site.urls),
+    ]
+    sys.modules["evasive_urls"] = module
+    settings.ROOT_URLCONF = "evasive_urls"
+    yield
+    del sys.modules["evasive_urls"]
+
+
+@pytest.mark.usefixtures("evasive_urls")
+def test_the_walk_catches_every_way_around_the_guard() -> None:
+    served = served_operations()
+
+    assert sorted(s.route for s in served if declaration_of(s.operation.view_func) is None) == [
+        "api/evasive/around/<project_id>"
+    ]
+    assert [
+        s.route
+        for s in served
+        if getattr(s.operation.run, "__func__", None) is not type(s.operation).run
+    ] == ["api/evasive/before-run"]
+    assert sorted(other_views()) == ["api/evasive/wrapped-at-the-url", "api/plain"]

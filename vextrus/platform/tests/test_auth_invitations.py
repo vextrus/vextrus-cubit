@@ -489,3 +489,13 @@ def test_only_those_allowed_set_projects(team: dict[str, Member]) -> None:
     for actor in ("qs", "vextrus_engineer", "guest"):
         with team[actor].acting(), pytest.raises(auth.Refused):
             invitations.set_projects(team["md"].membership_id, [uuid.uuid4()])
+
+
+def test_a_project_outside_the_inviter_s_scope_is_not_found_before_the_role_is_asked(
+    sign_in: Callable[..., Member],
+) -> None:
+    qs = api_as(sign_in(role="qs", projects=[uuid.uuid4()]))
+
+    response = invite(qs, "q@example.com", "qs", project_ids=[str(uuid.uuid4())])
+
+    assert refusal(response) == (404, "platform.auth.not_found")

@@ -163,6 +163,8 @@ def require(act: Act, project_id: uuid.UUID | None = None) -> CurrentMembership 
         raise NotSignedIn
     membership = acting.membership
     if act.grant is Grant.ACCOUNT:
+        if project_id is not None:
+            raise TypeError(f"{act.code} is the user's own account's: it acts in no Project")
         return membership
     if membership is None or membership.tenant_id != acting.tenant_id:
         raise NoDeveloper
@@ -201,6 +203,8 @@ def sign_in(request: HttpRequest, email: str, password: str) -> User:
 def start_session(request: HttpRequest, user: User, developer_id: uuid.UUID | None = None) -> None:
     """Sign `user` in on this request, working in `developer_id`, or in their only Developer."""
     login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+    # `login` keeps the key when the same user signs in again on a signed-in session: never keep it.
+    request.session.cycle_key()
     request.session.pop(tenancy.SESSION_TENANT, None)
     tenancy.enter_request(request)
     if developer_id is None:

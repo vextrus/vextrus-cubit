@@ -233,3 +233,15 @@ def test_the_csrf_endpoint_sets_the_cookie(api: Api) -> None:
     assert response.status_code == 200
     assert api.client.cookies[settings.CSRF_COOKIE_NAME].value
     assert response.json()["token"]
+
+
+def test_signing_in_again_as_the_same_user_still_gives_a_new_key(api: Api) -> None:
+    person()
+    assert sign_in(api, "nusrat@example.com")[0] == 200
+    first = api.session_key
+
+    assert sign_in(api, "nusrat@example.com")[0] == 200
+
+    assert api.session_key not in (None, first)
+    assert not Session.objects.filter(session_key=first).exists()
+    assert api.get("/api/me").status_code == 200
