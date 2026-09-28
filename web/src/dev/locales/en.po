@@ -1,0 +1,612 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-09-28 09:26+0600\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: en\n"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "measured"
+msgstr "measured"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Specimen of the shared pieces"
+msgstr "Specimen of the shared pieces"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "70 views: 68 proposed, 2 unaccounted."
+msgstr "70 views: 68 proposed, 2 unaccounted."
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Notes"
+msgstr "Notes"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "PhoneNotice and NarrowNotice"
+msgstr "PhoneNotice and NarrowNotice"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Views"
+msgstr "Views"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "shadcn primitives on the tokens. Every close goes through the key map’s Esc."
+msgstr "shadcn primitives on the tokens. Every close goes through the key map’s Esc."
+
+#: src/dev/specimen/Specimen.tsx
+msgid "from the drawing"
+msgstr "from the drawing"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "List"
+msgstr "List"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "More"
+msgstr "More"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Development builds only. Every name and figure is invented."
+msgstr "Development builds only. Every name and figure is invented."
+
+#: src/dev/specimen/Specimen.tsx
+msgid "CAD-dark"
+msgstr "CAD-dark"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Tabs"
+msgstr "Tabs"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Kbd"
+msgstr "Kbd"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Empty, loading, progress, error and toast"
+msgstr "Empty, loading, progress, error and toast"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Answer"
+msgstr "Answer"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Nusrat Jahan, QS"
+msgstr "Nusrat Jahan, QS"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Sheet"
+msgstr "Sheet"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Tokens"
+msgstr "Tokens"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "List or sheet"
+msgstr "List or sheet"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Confirm"
+msgstr "Confirm"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "28 px rows; ↑ ↓ Home End move the focused row. This list opts in to selection by Space, Shift ↑ ↓ and Shift-click."
+msgstr "28 px rows; ↑ ↓ Home End move the focused row. This list opts in to selection by Space, Shift ↑ ↓ and Shift-click."
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Type: Archivo"
+msgstr "Type: Archivo"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Secondary text"
+msgstr "Secondary text"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Excluded S-110: superseded."
+msgstr "Excluded S-110: superseded."
+
+#: src/dev/specimen/Specimen.tsx
+msgid "The sheet canvas mounts inside it: fixed left to right and never mirrored, while the chrome around it mirrors."
+msgstr "The sheet canvas mounts inside it: fixed left to right and never mirrored, while the chrome around it mirrors."
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Reading KR-STR-R0.dwg, sheet 12 of 38"
+msgstr "Reading KR-STR-R0.dwg, sheet 12 of 38"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Page title, once a screen"
+msgstr "Page title, once a screen"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "How the sheet is drawn"
+msgstr "How the sheet is drawn"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Pseudo right to left"
+msgstr "Pseudo right to left"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "The ? overlay"
+msgstr "The ? overlay"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Press ? for the keys active where focus is. Focus the canvas above and press ? again: F joins the list."
+msgstr "Press ? for the keys active where focus is. Focus the canvas above and press ? again: F joins the list."
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Marks and counts"
+msgstr "Marks and counts"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Question"
+msgstr "Question"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "States"
+msgstr "States"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Back to Step 1"
+msgstr "Back to Step 1"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Paper is content, graphite is chrome, one indigo accent; copper once a screen."
+msgstr "Paper is content, graphite is chrome, one indigo accent; copper once a screen."
+
+#: src/dev/specimen/Specimen.tsx
+msgid "LtrCanvas"
+msgstr "LtrCanvas"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Jump to a project or a sheet…"
+msgstr "Jump to a project or a sheet…"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Grid"
+msgstr "Grid"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Sheet {number} is at revision {mark}; confirm it before the next one."
+msgstr "Sheet {number} is at revision {mark}; confirm it before the next one."
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Drawn on Lucide’s 24-unit grid with a 1.5 stroke. A glyph never stands alone: a word beside it, or an accessible name."
+msgstr "Drawn on Lucide’s 24-unit grid with a 1.5 stroke. A glyph never stands alone: a word beside it, or an accessible name."
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Cancel"
+msgstr "Cancel"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Buttons and switches"
+msgstr "Buttons and switches"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Layers"
+msgstr "Layers"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "by ratio"
+msgstr "by ratio"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Checking the file"
+msgstr "Checking the file"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Site"
+msgstr "Site"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Questions"
+msgstr "Questions"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Beams"
+msgstr "Beams"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "End access"
+msgstr "End access"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Open a menu"
+msgstr "Open a menu"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Chrome above the canvas: it runs from the start edge."
+msgstr "Chrome above the canvas: it runs from the start edge."
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Primitives"
+msgstr "Primitives"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Notation"
+msgstr "Notation"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Sign out"
+msgstr "Sign out"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Rooms"
+msgstr "Rooms"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Sheet, grid, tiles"
+msgstr "Sheet, grid, tiles"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Stairs"
+msgstr "Stairs"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Captions and legends at 12 px"
+msgstr "Captions and legends at 12 px"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Review one by one"
+msgstr "Review one by one"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Show a toast"
+msgstr "Show a toast"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Ask later"
+msgstr "Ask later"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Under 640 px the phone notice replaces every screen after sign-in; from 640 to 1279 px the narrow notice sits above the page. Shown here in frames."
+msgstr "Under 640 px the phone notice replaces every screen after sign-in; from 640 to 1279 px the narrow notice sits above the page. Shown here in frames."
+
+#: src/dev/specimen/Specimen.tsx
+msgid "sheets, no drawing list"
+msgstr "sheets, no drawing list"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Slabs"
+msgstr "Slabs"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "A Guest may look at the projects you choose, until the date you set."
+msgstr "A Guest may look at the projects you choose, until the date you set."
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Buttons"
+msgstr "Buttons"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Trace"
+msgstr "Trace"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Notices"
+msgstr "Notices"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Nothing matches."
+msgstr "Nothing matches."
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Button"
+msgstr "Button"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Compact, with tooltip"
+msgstr "Compact, with tooltip"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Dialog, Popover, Menu, Tabs, Tooltip and Command"
+msgstr "Dialog, Popover, Menu, Tabs, Tooltip and Command"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Tanks"
+msgstr "Tanks"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Levels"
+msgstr "Levels"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Status, Cost Basis, Rebar Basis"
+msgstr "Status, Cost Basis, Rebar Basis"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Columns"
+msgstr "Columns"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Invite a Guest"
+msgstr "Invite a Guest"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Saving…"
+msgstr "Saving…"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Fitted the whole sheet."
+msgstr "Fitted the whole sheet."
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Try again"
+msgstr "Try again"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Excluded"
+msgstr "Excluded"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "StatusMark, Count and Kbd"
+msgstr "StatusMark, Count and Kbd"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Confirmed"
+msgstr "Confirmed"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "columns placed"
+msgstr "columns placed"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Chips"
+msgstr "Chips"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "In a sentence"
+msgstr "In a sentence"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "As read"
+msgstr "As read"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Open a popover"
+msgstr "Open a popover"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Fit the whole sheet"
+msgstr "Fit the whole sheet"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "English"
+msgstr "English"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Invite"
+msgstr "Invite"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Title"
+msgstr "Title"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Confirm 14"
+msgstr "Confirm 14"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Confirmed 14 columns."
+msgstr "Confirmed 14 columns."
+
+#: src/dev/specimen/Specimen.tsx
+msgid "The key map"
+msgstr "The key map"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Section title"
+msgstr "Section title"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Body, grid cells and controls at 13 px"
+msgstr "Body, grid cells and controls at 13 px"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Hover for a tooltip"
+msgstr "Hover for a tooltip"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "ReadOnlyChip and AccessChip"
+msgstr "ReadOnlyChip and AccessChip"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "The table under the paper"
+msgstr "The table under the paper"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Step 7, Beams, is not open yet. It will read the sheets you confirm in Step 1."
+msgstr "Step 7, Beams, is not open yet. It will read the sheets you confirm in Step 1."
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Undone."
+msgstr "Undone."
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Vextrus Engineer"
+msgstr "Vextrus Engineer"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "from the drawing + rules"
+msgstr "from the drawing + rules"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "The one bulk Confirm"
+msgstr "The one bulk Confirm"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Selection"
+msgstr "Selection"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Roof"
+msgstr "Roof"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Brand"
+msgstr "Brand"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Guest and members"
+msgstr "Guest and members"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Foundations"
+msgstr "Foundations"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Proposal"
+msgstr "Proposal"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Glyphs"
+msgstr "Glyphs"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Takeoff Steps"
+msgstr "Takeoff Steps"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Sections"
+msgstr "Sections"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Vextrus can't be reached. Check your connection; this page keeps trying."
+msgstr "Vextrus can't be reached. Check your connection; this page keeps trying."
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Members and access"
+msgstr "Members and access"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Zoom to view"
+msgstr "Zoom to view"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Sheets"
+msgstr "Sheets"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Show a toast with Undo"
+msgstr "Show a toast with Undo"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Command"
+msgstr "Command"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Show the keys"
+msgstr "Show the keys"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Accent and commit"
+msgstr "Accent and commit"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Tools, icon only"
+msgstr "Tools, icon only"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Opening Kadam Residence…"
+msgstr "Opening Kadam Residence…"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "DrawingText"
+msgstr "DrawingText"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Selected row"
+msgstr "Selected row"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Bars, rail, inspector"
+msgstr "Bars, rail, inspector"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Status"
+msgstr "Status"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Act, focus, selection"
+msgstr "Act, focus, selection"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Read only"
+msgstr "Read only"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Rev."
+msgstr "Rev."
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Sheet numbers, marks and file names are isolated left to right; titles in their own direction. Cut with an ellipsis, the whole text in the tooltip."
+msgstr "Sheet numbers, marks and file names are isolated left to right; titles in their own direction. Cut with an ellipsis, the whole text in the tooltip."
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Cut to 180 px"
+msgstr "Cut to 180 px"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "StatusMark"
+msgstr "StatusMark"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Download the report"
+msgstr "Download the report"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Count"
+msgstr "Count"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Walls"
+msgstr "Walls"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Segmented"
+msgstr "Segmented"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Keys"
+msgstr "Keys"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Plot"
+msgstr "Plot"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Text"
+msgstr "Text"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Titles"
+msgstr "Titles"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Surfaces and ink"
+msgstr "Surfaces and ink"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Coverage"
+msgstr "Coverage"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Open a dialog"
+msgstr "Open a dialog"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Compare"
+msgstr "Compare"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Over Target Cost"
+msgstr "Over Target Cost"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "allowance"
+msgstr "allowance"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Outlines"
+msgstr "Outlines"
