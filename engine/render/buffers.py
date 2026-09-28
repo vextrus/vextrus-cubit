@@ -98,6 +98,7 @@ from engine.geometry.placement import (
     IDENTITY,
     Chain,
     Link,
+    PlacementError,
     Refusal,
     Transform,
     Walk,
@@ -1153,6 +1154,63 @@ def is_main_viewport(values: dict[str, Any], first: bool) -> bool:
     return abs(cx - vx) <= near and abs(cy - vy) <= near and abs(height - view_height) <= near
 
 
+MAX_VIEW_COORDINATE = 1e15
+"""A viewport whose model region or scale reaches past this is not read."""
+
+
+def viewport_transform(values: dict[str, Any]) -> Transform | None:
+    """A plan viewport's model-to-paper transform, as the DXF reference defines it (and ezdxf's
+    `Viewport.get_transformation_matrix` computes it): model space is taken from the view target,
+    scaled by the viewport's height over its view height, turned by the view twist, and moved so the
+    view centre (measured from the target, in the view's own turned axes) lands on the viewport's
+    centre on paper. None when a value is missing, not finite or of no size (13's analysts found real
+    layouts whose view target lies far from the origin, which 11's first renderer left out)."""
+    try:
+        cx, cy, _ = _shapes._point(values, "center")
+        width, height = _shapes._number(values, "width"), _shapes._number(values, "height")
+        vx, vy, _ = _shapes._point(values, "view_center_point")
+        view_height = _shapes._number(values, "view_height")
+        twist = math.radians(_shapes._number(values, "view_twist_angle", 0.0))
+        tx, ty = 0.0, 0.0
+        if values.get("view_target_point") is not None:
+            tx, ty, _ = _shapes._point(values, "view_target_point")
+    except _shapes.Undrawable:
+        return None
+    if not (width > 0 and height > 0 and view_height > 0):
+        return None
+    scale = height / view_height
+    numbers = (cx, cy, vx, vy, tx, ty, width, height, view_height, scale, 1.0 / scale)
+    if not all(math.isfinite(v) and abs(v) < MAX_VIEW_COORDINATE for v in numbers):
+        return None
+    return (
+        translation(cx - scale * vx, cy - scale * vy)
+        @ rotation_z(twist)
+        @ scaling(scale, scale)
+        @ translation(-tx, -ty)
+    )
+
+
+def viewport_window(values: dict[str, Any]) -> tuple[float, float, float, float] | None:
+    """The model region a plan viewport shows (the box around it, when the view is twisted), in
+    drawing units; none when `viewport_transform` has none. 13 asks it whether a layout's viewports
+    show anything, so the sheet finder and the renderer look at the same region."""
+    to_paper = viewport_transform(values)
+    if to_paper is None:
+        return None
+    try:
+        to_model = to_paper.inverse()
+    except PlacementError:
+        return None
+    cx, cy, _ = _shapes._point(values, "center")
+    half_w, half_h = _shapes._number(values, "width") / 2, _shapes._number(values, "height") / 2
+    corners = [to_model.apply((cx + sx * half_w, cy + sy * half_h)) for sx in (-1, 1) for sy in (-1, 1)]
+    xs, ys = [c[0] for c in corners], [c[1] for c in corners]
+    window = (min(xs), min(ys), max(xs), max(ys))
+    if not all(math.isfinite(v) and abs(v) < MAX_VIEW_COORDINATE for v in window):
+        return None
+    return window
+
+
 def _viewport_rect(viewport: Entity) -> tuple[float, float, float, float] | None:
     try:
         cx, cy, _ = _shapes._point(dict(viewport.values), "center")
@@ -1418,8 +1476,8 @@ def _viewports(
         try:
             cx, cy, _ = _shapes._point(values, "center")
             width, height = _shapes._number(values, "width"), _shapes._number(values, "height")
-            vx, vy, _ = _shapes._point(values, "view_center_point")
-            view_height = _shapes._number(values, "view_height")
+            _shapes._point(values, "view_center_point")
+            _shapes._number(values, "view_height")
             twist = math.radians(_shapes._number(values, "view_twist_angle", 0.0))
         except _shapes.Undrawable:
             sheet.stats["viewport_unreadable"] += 1
@@ -1428,19 +1486,14 @@ def _viewports(
         if isinstance(direction, list) and len(direction) == 3 and (direction[0] or direction[1]):
             sheet.stats["viewport_not_plan"] += 1
             continue
-        if width <= 0 or height <= 0 or view_height <= 0:
+        to_layout = viewport_transform(values)
+        window = viewport_window(values)
+        if to_layout is None or window is None:
             continue
         if values.get("clipping_boundary_handle") not in (None, "0", 0):
             sheet.stats["viewport_clip_as_rectangle"] += 1
         if twist:
             sheet.stats["viewport_twisted"] += 1
-        scale = height / view_height
-        to_layout = (
-            translation(cx, cy) @ rotation_z(twist) @ scaling(scale, scale) @ translation(-vx, -vy)
-        )
-        half_w, half_h = width / scale / 2, height / scale / 2
-        reach = math.hypot(half_w, half_h)
-        window = (vx - reach, vy - reach, vx + reach, vy + reach)
         corners = [
             sheet.to_paper.apply((cx + sx * width / 2, cy + sy * height / 2))
             for sx in (-1, 1)
@@ -1547,4 +1600,6 @@ __all__ = [
     "SheetBuffers",
     "build",
     "is_main_viewport",
+    "viewport_transform",
+    "viewport_window",
 ]

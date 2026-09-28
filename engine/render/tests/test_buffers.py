@@ -18,6 +18,8 @@ from engine.render.buffers import (
     SheetBuffers,
     build,
     is_main_viewport,
+    viewport_transform,
+    viewport_window,
 )
 from engine.render.fixtures.artefacts import PAPER, Drawing
 from engine.render.raster import rasterise
@@ -245,6 +247,87 @@ def test_a_layout_sheet_draws_model_space_through_its_viewports() -> None:
     # 1:10 through the viewport, cut to its 100 mm wide rectangle: from x 150 to 250.
     np.testing.assert_allclose(through, [[150, 150, 250, 150]], atol=1e-3)
     assert len(model_line) >= 1
+
+
+def _viewed(target: list[float], centre: list[float], twist: float = 0.0) -> Drawing:
+    """A layout whose one viewport looks, at 1:10, at a model line from (1000, 1000) to (2000,
+    1000), through a view target and a view centre that together name its middle."""
+    drawing = Drawing(insunits=4)
+    drawing.line((1000, 1000), (2000, 1000))
+    _frame(drawing, 420.0, 297.0)
+    drawing.entity("VIEWPORT", {"center": [210.0, 148.5, 0.0], "width": 420.0, "height": 297.0,
+                                "id": 1, "view_center_point": [0.0, 0.0, 0.0], "view_height": 297.0},
+                   owner=PAPER)  # fmt: skip
+    drawing.entity(
+        "VIEWPORT",
+        {"center": [200.0, 150.0, 0.0], "width": 100.0, "height": 50.0, "id": 2,
+         "view_center_point": centre, "view_target_point": target, "view_height": 500.0,
+         "view_twist_angle": twist},
+        owner=PAPER,
+    )  # fmt: skip
+    return drawing
+
+
+def test_a_viewport_looks_at_its_view_target_plus_its_view_centre() -> None:
+    """11's renderer took the view centre alone as the model point at a viewport's middle; the DXF
+    reference measures it from the view target (13's analysts found real layouts whose target is far
+    from the origin): a viewport targeting (1000, 0) with its centre at (500, 1000) shows the line."""
+    built = build(
+        _viewed([1000.0, 0.0, 0.0], [500.0, 1000.0, 0.0]).artefact(),
+        SheetCandidate(SheetLocation(layout="Layout1")),
+    )
+
+    through = [s for s in _segments(built) if abs(s[1] - 150) < 1e-3]
+    np.testing.assert_allclose(through, [[150, 150, 250, 150]], atol=1e-3)
+    assert viewport_window(
+        {"center": [200.0, 150.0, 0.0], "width": 100.0, "height": 50.0,
+         "view_center_point": [500.0, 1000.0, 0.0], "view_target_point": [1000.0, 0.0, 0.0],
+         "view_height": 500.0}
+    ) == pytest.approx((1000.0, 750.0, 2000.0, 1250.0))  # fmt: skip
+
+
+def test_a_twisted_viewport_maps_model_space_as_ezdxf_does() -> None:
+    """The oracle is ezdxf's own viewport matrix (`Viewport.get_transformation_matrix`)."""
+    from ezdxf.filemanagement import new
+
+    doc = new()
+    viewport = doc.paperspace().add_viewport(
+        center=(200, 150), size=(100, 50), view_center_point=(300, -200), view_height=500
+    )
+    viewport.dxf.view_target_point = (900, 1100, 0)
+    viewport.dxf.view_twist_angle = 30.0
+    oracle = viewport.get_transformation_matrix()
+    values = {"center": [200.0, 150.0, 0.0], "width": 100.0, "height": 50.0,
+              "view_center_point": [300.0, -200.0, 0.0], "view_target_point": [900.0, 1100.0, 0.0],
+              "view_height": 500.0, "view_twist_angle": 30.0}  # fmt: skip
+
+    to_paper = viewport_transform(values)
+
+    assert to_paper is not None
+    for point in ((0.0, 0.0), (1000.0, 1000.0), (1234.5, -678.9)):
+        expected = oracle.transform((*point, 0.0))
+        assert to_paper.apply(point)[:2] == pytest.approx((expected.x, expected.y), abs=1e-6)
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        {"center": [0.0, 0.0, 0.0], "width": 10.0, "height": 10.0, "view_height": 0.0,
+         "view_center_point": [0.0, 0.0, 0.0]},
+        {"center": [0.0, 0.0, 0.0], "width": 10.0, "height": 10.0, "view_height": math.inf,
+         "view_center_point": [0.0, 0.0, 0.0]},
+        {"center": [0.0, 0.0, 0.0], "width": 10.0, "height": 10.0, "view_height": 5.0,
+         "view_center_point": [math.nan, 0.0, 0.0]},
+        {"center": [0.0, 0.0, 0.0], "width": 1e308, "height": 1e-308, "view_height": 5.0,
+         "view_center_point": [0.0, 0.0, 0.0]},
+        {"width": 10.0, "height": 10.0, "view_height": 5.0},
+        {"center": [0.0, 0.0, 0.0], "width": 10.0, "height": 10.0, "view_height": 5.0,
+         "view_center_point": [0.0, 0.0, 0.0], "view_target_point": [1e308, 1e308, 0.0]},
+    ],
+)  # fmt: skip
+def test_a_viewport_whose_values_cannot_be_read_shows_no_window(values: dict[str, object]) -> None:
+    assert viewport_window(values) is None
+    assert viewport_transform(values) is None
 
 
 def test_types_not_drawn_are_counted_not_dropped_silently() -> None:
