@@ -18,10 +18,13 @@ import pytest
 from ezdxf.filemanagement import readfile
 
 from engine.fixtures.dwg import new_drawing
+from engine.geometry.placement import Walk
 from engine.read import ReadError, read
 from engine.read.anchor import DwgAnchor, anchor_from_json
 from engine.read.artefact import Entity, Insert, ReadArtefact, Text
 from engine.read.libredwg import prefix
+from engine.text import mtext
+from engine.text.mtext import HeightSource
 
 ROOT = Path(__file__).resolve().parents[3]
 Fixture = Callable[[str], Path]
@@ -276,6 +279,45 @@ def test_a_file_dwgread_half_decodes_is_refused_not_read_in_part(
 
 
 @pytest.mark.needs_toolchain
+def test_the_style_table_is_read_and_a_text_with_no_height_takes_its_styles(
+    dwg_fixture: Fixture,
+) -> None:
+    """#82, through the real reader: the fixture's texts with no height of their own, on a style
+    with a fixed height (3.7), in a block whose usual height is 1."""
+    artefact = read(dwg_fixture("text_style_height"))
+
+    by_name = {s.name: s for s in artefact.styles.values() if not s.shape}
+    fixed = by_name["FIXED"]
+    assert (fixed.fixed_height, fixed.width_factor, fixed.font, fixed.bigfont) == (
+        3.7,
+        0.8,
+        "romans.shx",
+        "bigfont.shx",
+    )
+    assert fixed.oblique_radians == pytest.approx(math.radians(15))
+    assert (by_name["LOOSE"].fixed_height, by_name["Standard"].fixed_height) == (None, None)
+    assert [(s.name, s.font) for s in artefact.styles.values() if s.shape] == [("", "ltypeshp.shx")]
+
+    model = next(h for h, b in artefact.blocks.items() if b.layout == "Model")
+    found = {
+        (entity.type, entity.text): mtext.resolve(entity, chain, artefact=artefact)
+        for entity, chain in Walk(artefact).entities(model)
+        if isinstance(entity, Text) and entity.text != "SIBLING"
+    }
+    assert {key: (h.source, h.value) for key, h in found.items()} == {
+        ("MTEXT", "MTEXT ON FIXED"): (HeightSource.STYLE, 3.7),
+        ("TEXT", "TEXT ON FIXED"): (HeightSource.STYLE, 3.7),
+        ("MTEXT", "MTEXT ON LOOSE"): (HeightSource.BLOCK, 1.0),
+        ("ATTDEF", "M-0"): (HeightSource.STYLE, 3.7),
+        ("ATTRIB", "M-1"): (HeightSource.STYLE, 3.7),  # its style repaired from its ATTDEF's
+    }
+    texts = {e.text: e for e in artefact.entities.values() if isinstance(e, Text)}
+    assert all(texts[text].height is None for _, text in found)
+    assert (texts["M-1"].style_source, texts["M-1"].style_handle) == ("attdef", fixed.handle)
+    assert ReadArtefact.from_json(json.loads(json.dumps(artefact.to_json()))) == artefact
+
+
+@pytest.mark.needs_toolchain
 def test_an_attdef_carries_its_default_text(dwg_fixture: Fixture) -> None:
     artefact = read(dwg_fixture("title_block"))
 
@@ -290,12 +332,15 @@ def test_an_attdef_carries_its_default_text(dwg_fixture: Fixture) -> None:
 EMPTY_DRAWING = '{"FILEHEADER": {"version": "AC1032"}, "HEADER": {}, "OBJECTS": []}'
 
 
-def stand_in_libredwg(tmp_path: Path, dwgread_plants: str, dwg2dxf_plants: str) -> Path:
+def stand_in_libredwg(
+    tmp_path: Path, dwgread_plants: str, dwg2dxf_plants: str, dwgread_writes: str = EMPTY_DRAWING
+) -> Path:
     """A LibreDWG whose programs write `plants` as their output: `file` (an honest file), `symlink`
-    (a link to a host file), or `hard link` (a second name for a file it made)."""
+    (a link to a host file), or `hard link` (a second name for a file it made); dwgread's JSON is
+    `dwgread_writes`."""
     host = tmp_path / "host"
     host.mkdir()
-    (host / "secret.json").write_text(EMPTY_DRAWING)
+    (host / "secret.json").write_text(dwgread_writes)
     new_drawing().saveas(host / "secret.dxf")
     honest_dxf = (host / "secret.dxf").read_text()
     prefix = tmp_path / "libredwg"
@@ -314,7 +359,7 @@ def stand_in_libredwg(tmp_path: Path, dwgread_plants: str, dwg2dxf_plants: str) 
         return f'#!/bin/sh\nif [ "$1" = "--version" ]; then echo "{program} 0.14"; exit 0; fi\n{write}\n'
 
     for program, plants, content, host_file in (
-        ("dwgread", dwgread_plants, EMPTY_DRAWING, host / "secret.json"),
+        ("dwgread", dwgread_plants, dwgread_writes, host / "secret.json"),
         ("dwg2dxf", dwg2dxf_plants, honest_dxf, host / "secret.dxf"),
     ):
         path = prefix / "bin" / program
@@ -378,3 +423,25 @@ def test_the_stand_in_reads_when_its_outputs_are_honest_files(
     artefact = read(drawing)
 
     assert (artefact.summary.format.version, len(artefact.entities)) == ("AC1032", 0)
+
+
+def test_a_number_no_float_holds_in_dwgreads_output_is_the_files_finding(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An OverflowError while parsing escaped `read` uncaught (#82's refuter); it is the file's
+    finding, as any other output the reader cannot parse."""
+    huge = "1" + "0" * 400
+    text = f'{{"entity": "TEXT", "handle": [0, 1, 80], "height": {huge}, "entmode": 2}}'
+    monkeypatch.setenv("VEXTRUS_SANDBOX", "off")
+    writes = EMPTY_DRAWING.replace('"OBJECTS": []', f'"OBJECTS": [{text}]')
+    monkeypatch.setenv("VEXTRUS_LIBREDWG", str(stand_in_libredwg(tmp_path, "file", "file", writes)))
+    drawing = tmp_path / "drawing.dwg"
+    drawing.write_bytes(b"AC1032" + bytes(64))
+
+    with pytest.raises(ReadError) as raised:
+        read(drawing)
+
+    assert raised.value.message == {
+        "code": "engine.read.output_unreadable",
+        "params": {"program": "dwgread"},
+    }

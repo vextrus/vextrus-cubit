@@ -121,9 +121,11 @@ a module is added, never per feature.
   - `vextrus` owns the tables and runs migrations, so a constraint added to a populated table validates
     every row. The web and worker processes connect as `vextrus_app` (not a superuser, no BYPASSRLS,
     owning nothing) and refuse to start as anyone else: a startup check, tested in CI.
-  - Cross-tenant reads go only through three named SECURITY DEFINER functions, `user_developers`,
-    `staff_developers` and `invitation_by_token`: owned by `vextrus`, `search_path` pinned, EXECUTE
-    only to `vextrus_app`, each tested.
+  - Cross-tenant reads go only through named SECURITY DEFINER functions (six in M0: `platform`'s
+    `user_developers`, `staff_developers`, `invitation_by_token` and `ended_access`; `projects`'
+    `ended_access_projects` and `invitation_projects`, which read `platform` only through its own):
+    owned by `vextrus`, `search_path` pinned, every name `public.`-qualified, EXECUTE only to
+    `vextrus_app`, each tested.
   - The tenant middleware opens `transaction.atomic()` and sets `app.tenant_id`, `app.user_id` and
     `app.library_id` with `is_local = true`; the job step runner does the same per transaction.
   - `vextrus_app` has no TRUNCATE grant (TRUNCATE bypasses row-level security); tests flush through an
@@ -131,8 +133,9 @@ a module is added, never per feature.
   - Every Library table's identity is `(tenant_id, key)`, and a tenant row refers to a Library row by
     id.
   - Append-only tables are only ever appended to. CI runs `makemigrations --check` and asserts one leaf
-    per module; at most one ticket per wave adds migrations to a module. Ids come from `ids.new_id()`;
-    migrations never name `uuid.uuid7`.
+    per module; at most one migration per module per wave, unless a declared merge edge orders them
+    (the second renumbered after the first merges). Ids come from `ids.new_id()`; migrations never
+    name `uuid.uuid7`.
 - **Jobs:** idempotent steps per file, then per sheet, with progress and cancel; arguments carry only the
   tenant id and ids; the CAD queue runs at concurrency 1 under its own memory cap; worker pools never rely
   on fork (Python 3.14 starts them with forkserver).

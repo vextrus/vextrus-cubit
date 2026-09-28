@@ -14,7 +14,9 @@ Its **body** holds every entity, with **raw placement values, unresolved** (s02;
   breaks and `\\P` codes included), its height as stored (`None` when the file stores none, as MTEXT
   inside a block may), an MTEXT's direction vector as stored (never an angle), and its style and
   font. `position` is where the text is drawn from: its start point, whatever its alignment
-  (docs/knowledge/lessons.md: AutoCAD plots aligned TEXT and ATTRIB from it);
+  (docs/knowledge/lessons.md: AutoCAD plots aligned TEXT and ATTRIB from it). Its style is named by
+  `style_handle`, a key of `styles` (None when the file names no style the table holds); `style`,
+  `font` and `bigfont` are that style's name and fonts, copied for readers that need only those;
 - every other `Entity` keeps its DXF values as ezdxf read them, by DXF name, with its vertices,
   control points or boundary paths where it has them.
 
@@ -22,15 +24,25 @@ Every entity names its `owner`: the handle of the block record it lies in (a lay
 definition's), or for an ATTRIB its INSERT's handle. `blocks` maps each block record to its name,
 base point, layout and entities in drawing order, which is how a Trace's insert chain is walked.
 
+`styles` is the text style table (#82): every STYLE the file holds, by handle, shape-file entries
+(which have no name) included and marked. A style's name is not a key: shape-file entries share the
+empty name and a file may repeat one, so a text names its style by handle. The reader keeps each
+number only when it is usable (`usable_size`, `usable_angle`), else `None` (a fixed height of 0 is
+AutoCAD's "not fixed"), and `from_json` refuses any other, so a read artefact's table never holds NaN
+or Infinity; a style built in code keeps what it is given.
+
 Coordinates are floats in drawing units: drawing geometry stays float inside the read-artefact file
 (docs/data-model.md §2). Rotations are named with their unit.
 
 `to_json` writes `{"schema": SCHEMA, "version": VERSION, ...}`; `from_json` refuses any other schema
-or version, so a change to this shape is a new VERSION and never a silent reinterpretation.
+or version, so a change to this shape is a new VERSION and never a silent reinterpretation. Version 2
+added the style table and `Text.style_handle` (#82); version 1 is refused, so an artefact stored
+before it is read again from its drawing.
 """
 
+import math
 from collections import Counter
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -39,7 +51,7 @@ from engine.read._json import Fields, Json
 from engine.read.anchor import is_handle
 
 SCHEMA = "engine.read.artefact"
-VERSION = 1
+VERSION = 2
 
 type Point = tuple[float, float, float]
 type StyleSource = Literal["own", "attdef", "none"]
@@ -108,9 +120,45 @@ class Text:
     attachment: int | None  # MTEXT's attachment point (1 to 9)
     tag: str | None  # ATTRIB and ATTDEF
     extrusion: Point
+    style_handle: str | None = None  # its style in the artefact's `styles`; for "attdef", the ATTDEF's
 
 
 type AnyEntity = Entity | Insert | Text
+
+
+@dataclass(frozen=True)
+class TextStyle:
+    """A text style (a STYLE table entry), its numbers kept only when usable (the module's docstring).
+
+    `fixed_height` is the height every text on the style is drawn at when the style fixes one (None:
+    not fixed); `width_factor` and `oblique_radians` are as stored; `font` and `bigfont` are file names,
+    data only (engine.render.fonts substitutes them and never opens one)."""
+
+    handle: str
+    name: str  # empty for a shape file's entry
+    fixed_height: float | None
+    width_factor: float | None
+    oblique_radians: float | None
+    font: str | None
+    bigfont: str | None
+    shape: bool = False  # a shape file's entry, not a style a text is drawn in
+
+
+def usable_size(value: object) -> float | None:
+    """A fixed height or width factor as the style table keeps it: a finite number above 0, else None."""
+    number = usable_angle(value)
+    return number if number is not None and number > 0 else None
+
+
+def usable_angle(value: object) -> float | None:
+    """An oblique angle as the style table keeps it: a finite number, else None."""
+    if not isinstance(value, int | float) or isinstance(value, bool):
+        return None
+    try:
+        number = float(value)
+    except OverflowError:  # an integer no float holds
+        return None
+    return number if math.isfinite(number) else None
 
 
 @dataclass(frozen=True)
@@ -143,6 +191,7 @@ class ReadArtefact:
     summary: Summary
     blocks: Mapping[str, Block]
     entities: Mapping[str, AnyEntity]
+    styles: Mapping[str, TextStyle] = field(default_factory=dict)
 
     @classmethod
     def build(
@@ -158,9 +207,19 @@ class ReadArtefact:
         notes: Iterable[Message],
         blocks: Iterable[Block],
         entities: Iterable[AnyEntity],
+        styles: Iterable[TextStyle] = (),
     ) -> ReadArtefact:
-        """An artefact with its counts taken from its entities, so the two can never disagree."""
+        """An artefact with its counts taken from its entities, so the two can never disagree; a text
+        naming a style handle the table does not hold is refused."""
         by_handle = {entity.handle: entity for entity in entities}
+        table = {style.handle: style for style in styles}
+        for entity in by_handle.values():
+            named = entity.style_handle if isinstance(entity, Text) else None
+            if named is not None and named not in table:
+                raise ValueError(
+                    f"read artefact: text {entity.handle}'s style handle {named!r} names no style "
+                    "in the table"
+                )
         summary = Summary(
             source_sha256=source_sha256,
             source_name=source_name,
@@ -173,7 +232,7 @@ class ReadArtefact:
             insunits=insunits,
             notes=tuple(notes),
         )
-        return cls(summary, {block.handle: block for block in blocks}, by_handle)
+        return cls(summary, {block.handle: block for block in blocks}, by_handle, table)
 
     def to_json(self) -> dict[str, Any]:
         s = self.summary
@@ -193,6 +252,7 @@ class ReadArtefact:
                 "notes": [dict(note) for note in s.notes],
             },
             "blocks": [_block_json(block) for block in self.blocks.values()],
+            "styles": [_style_json(style) for style in self.styles.values()],
             "entities": [_entity_json(entity) for entity in self.entities.values()],
         }
 
@@ -210,6 +270,7 @@ class ReadArtefact:
         file_format = Format("dwg", f.string("version"))
         f.done()
         blocks = [_block_from_json(item) for item in top.array("blocks")]
+        styles = [_style_from_json(item) for item in top.array("styles")]
         entities = [_entity_from_json(item) for item in top.array("entities")]
         artefact = cls.build(
             source_sha256=s.string("source_sha256"),
@@ -222,6 +283,7 @@ class ReadArtefact:
             notes=[_message(note) for note in s.array("notes")],
             blocks=blocks,
             entities=entities,
+            styles=styles,
         )
         if dict(s.mapping("entity_counts")) != artefact.summary.entity_counts:
             raise s.fail("entity_counts", "the counts of the entities it holds")
@@ -233,6 +295,8 @@ class ReadArtefact:
             raise ValueError("read artefact: an entity handle is repeated")
         if len(artefact.blocks) != len(blocks):
             raise ValueError("read artefact: a block handle is repeated")
+        if len(artefact.styles) != len(styles):
+            raise ValueError("read artefact: a style handle is repeated")
         return artefact
 
 
@@ -278,6 +342,10 @@ def _string(value: object, what: str) -> str:
     return value
 
 
+def _optional_handle(value: object, what: str) -> str | None:
+    return None if value is None else _handle(value, what)
+
+
 def _handle(value: object, what: str) -> str:
     if not is_handle(value):
         raise ValueError(f"read artefact: {what} must be an upper-case hex handle, got {value!r}")
@@ -315,6 +383,48 @@ def _block_from_json(value: object) -> Block:
     return block
 
 
+def _style_json(style: TextStyle) -> dict[str, Any]:
+    return {
+        "handle": style.handle,
+        "name": style.name,
+        "fixed_height": style.fixed_height,
+        "width_factor": style.width_factor,
+        "oblique_radians": style.oblique_radians,
+        "font": style.font,
+        "bigfont": style.bigfont,
+        "shape": style.shape,
+    }
+
+
+def _style_from_json(value: object) -> TextStyle:
+    fields = Fields(value, "read artefact style")
+    handle = _handle(fields.raw("handle"), "a style's handle")
+    fields.what = f"read artefact style {handle}"
+
+    def number(key: str, usable: Callable[[object], float | None], expected: str) -> float | None:
+        raw = fields.raw(key)
+        found = usable(raw)
+        if raw is not None and found is None:
+            raise fields.fail(key, f"{expected} or null")
+        return found
+
+    shape = fields.raw("shape")
+    if not isinstance(shape, bool):
+        raise fields.fail("shape", "true or false")
+    style = TextStyle(
+        handle=handle,
+        name=fields.string("name"),
+        fixed_height=number("fixed_height", usable_size, "a finite number above 0"),
+        width_factor=number("width_factor", usable_size, "a finite number above 0"),
+        oblique_radians=number("oblique_radians", usable_angle, "a finite number"),
+        font=fields.optional_string("font"),
+        bigfont=fields.optional_string("bigfont"),
+        shape=shape,
+    )
+    fields.done()
+    return style
+
+
 def _entity_json(entity: AnyEntity) -> dict[str, Any]:
     common: dict[str, Any] = {
         "handle": entity.handle,
@@ -330,6 +440,7 @@ def _entity_json(entity: AnyEntity) -> dict[str, Any]:
                 "text": entity.text,
                 "style": entity.style,
                 "style_source": entity.style_source,
+                "style_handle": entity.style_handle,
                 "font": entity.font,
                 "bigfont": entity.bigfont,
                 "height": entity.height,
@@ -399,6 +510,7 @@ def _entity_from_json(value: object) -> AnyEntity:
             text=fields.string("text"),
             style=fields.optional_string("style"),
             style_source=style_source,
+            style_handle=_optional_handle(fields.raw("style_handle"), f"text {handle}'s style handle"),
             font=fields.optional_string("font"),
             bigfont=fields.optional_string("bigfont"),
             height=_optional_number(fields.raw("height"), f"text {handle}'s height"),

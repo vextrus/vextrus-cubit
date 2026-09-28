@@ -194,6 +194,67 @@ def test_the_report_counts_fonts_by_style_and_inline() -> None:
     ]
 
 
+def test_the_report_counts_the_texts_whose_style_gave_their_height() -> None:
+    """#82: a count, so the real-drawing check shows the style step at work (no message: nothing
+    for a QS to do about it)."""
+    from engine.export import to_json
+    from engine.harness import _counts
+
+    drawing = Drawing()
+    fixed = drawing.style("FIXED", fixed_height=3.7, font="romans.shx")
+    loose = drawing.style("LOOSE", font="romans.shx")
+    drawing.text("SIBLING", height=1.0)
+    drawing.text("A", height=None, style_handle=fixed)
+    drawing.text("B", kind="MTEXT", height=None, style_handle=fixed)
+    drawing.text("C", kind="MTEXT", height=2.0, style_handle=fixed)  # its own height
+    drawing.text("D", kind="MTEXT", height=None, style_handle=loose)  # the block's
+    drawing.text("E", kind="MTEXT", height=None, style_handle=fixed, owner=drawing.block("ALONE"))
+    drawing.text("F", kind="MTEXT", height=None, owner=drawing.block("EMPTY"))  # the default
+    found = report(drawing.artefact())
+
+    assert found.counts["texts_height_from_style"] == 3
+    assert found.counts["texts_height_defaulted"] == 1
+    assert found.counts["texts"] == 7
+    assert [m["code"] for m in found.messages()] == [
+        "engine.font_report.summary",
+        "engine.font_report.height_defaulted",
+    ]
+    counts = _counts(to_json(found))
+    assert counts is not None
+    assert counts["texts_height_from_style"] == 3
+
+
+def test_a_style_named_like_a_path_with_fonts_named_like_urls_opens_nothing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    real_open = builtins.open
+
+    def guarded(file: object, *args: object, **kwargs: object) -> object:
+        path = Path(str(file)).resolve()
+        assert path.is_relative_to(FILES.resolve()), f"opened {path}"
+        return real_open(file, *args, **kwargs)  # type: ignore[call-overload]
+
+    def no_socket(*args: object, **kwargs: object) -> None:
+        raise AssertionError("a socket was opened")
+
+    monkeypatch.setattr(builtins, "open", guarded)
+    monkeypatch.setattr("socket.socket", no_socket)
+    drawing = Drawing()
+    odd = drawing.style(
+        "../../etc/passwd",
+        fixed_height=2.0,
+        font="https://fonts.example.invalid/evil.ttf?x=1",
+        bigfont="C:\\Windows\\Fonts\\big.shx",
+    )
+    drawing.text("TEXT", height=None, style_handle=odd)
+    found = report(drawing.artefact())
+
+    assert [(u.substitute.asked, u.substitute.how_close) for u in found.fonts] == [
+        ("Evil", HowClose.NOT_FOUND)
+    ]
+    assert found.counts["texts_height_from_style"] == 1
+
+
 def test_the_harness_reads_the_reports_counts() -> None:
     from engine.export import to_json
     from engine.harness import _counts

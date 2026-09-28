@@ -119,6 +119,8 @@ NARROWER = {
     "platform_market": {"SELECT"},  # Markets are the owner's data
     "platform_domainevent": {"SELECT", "INSERT"},  # append-only
     "platform_storedfile": {"SELECT", "INSERT"},  # a key names one content for good (09)
+    "platform_jevanswer": {"SELECT", "INSERT"},  # an answer never changes: its key has the model (15)
+    "platform_jevoverride": {"SELECT", "INSERT"},  # the override log: append-only (15)
     "procrastinate_events": {"SELECT", "INSERT"},  # a job's history, added to by triggers (09)
     "procrastinate_jobs": {"SELECT", "INSERT", "UPDATE"},  # the worker keeps every job (09)
     "live_model_record": {"SELECT", "INSERT"},  # append-only: a correction is a new Record
@@ -126,6 +128,9 @@ NARROWER = {
     "live_model_elementrelation": {"SELECT", "INSERT"},
     # UPDATE only on the columns the app may change (below): never the staff flag.
     "platform_user": {"SELECT", "INSERT", "DELETE"},
+    # A Developer's Market is fixed (platform 0007; #75): UPDATE of its name alone (below), and no
+    # DELETE, so no delete and re-insert moves it either.
+    "platform_developer": {"SELECT", "INSERT"},
     # UPDATE only on what a person may change: never a Project's Market or currency, nor which
     # Project a Site or Building belongs to (projects 0001; ticket 08).
     "projects_project": {"SELECT", "INSERT", "DELETE"},
@@ -163,6 +168,69 @@ def test_a_table_the_owner_makes_later_gets_the_app_s_rights_but_never_truncate(
         assert privileges(cursor, "later_sample") == {"SELECT", "INSERT", "UPDATE", "DELETE"}
 
 
+FIXED_MARKET_MIGRATIONS = (
+    "vextrus.projects.migrations.0002_ended_access_and_invitation_projects",
+    "vextrus.platform.migrations.0007_ended_access_and_fixed_market",
+)
+"""Unapplied in this order (`migrate platform 0006` unapplies projects' 0002 first)."""
+
+
+def app_acl(cursor: Any, table: str) -> tuple[list[str], list[str]]:
+    """vextrus_app's entries in the table's ACL, and the columns carrying an ACL of their own."""
+    cursor.execute(
+        "select array(select a::text from unnest(relacl) a where a::text like 'vextrus_app=%%') "
+        "from pg_class where oid = %s::regclass",
+        [f"public.{table}"],
+    )
+    table_acl = list(cursor.fetchone()[0])
+    cursor.execute(
+        "select attname from pg_attribute where attrelid = %s::regclass and attacl is not null "
+        "order by attname",
+        [f"public.{table}"],
+    )
+    return table_acl, [name for (name,) in cursor.fetchall()]
+
+
+@pytest.mark.django_db(databases=["owner"])
+def test_the_fixed_market_s_reverse_gives_back_0003_s_rights_and_drops_the_functions() -> None:
+    """The reverse of platform 0007 (and projects 0002, unapplied before it) run as the owner, as
+    `migrate platform 0006` runs it, inside the test's transaction, which rolls it back."""
+    with connections["owner"].cursor() as owner:
+        assert app_acl(owner, "platform_developer") == (["vextrus_app=ar/vextrus"], ["name"])
+        assert invitation_by_token(owner) == (INVITATION_RESULT_0003 + ", market_code text", APP_ONLY)
+        for module in FIXED_MARKET_MIGRATIONS:
+            for operation in reversed(importlib.import_module(module).Migration.operations):
+                for statement in operation.reverse_sql:
+                    owner.execute(statement)
+
+        # 0003's grants exactly: every right at table level, no column of its own.
+        assert app_acl(owner, "platform_developer") == (["vextrus_app=arwd/vextrus"], [])
+        assert privileges(owner, "platform_developer") == {"SELECT", "INSERT", "UPDATE", "DELETE"}
+        for signature in ("ended_access()", "ended_access_projects()", "invitation_projects(uuid,text)"):
+            owner.execute("select to_regprocedure(%s)", [f"public.{signature}"])
+            assert owner.fetchone() == (None,), signature
+        assert invitation_by_token(owner) == (INVITATION_RESULT_0003, APP_ONLY)
+
+
+INVITATION_RESULT_0003 = (
+    "TABLE(id uuid, tenant_id uuid, developer_name text, role text, invited_email text, "
+    "invited_by_id uuid, outside_org text, starts_at timestamp with time zone, expires_at timestamp "
+    "with time zone, invite_expires_at timestamp with time zone, project_ids uuid[]"
+)
+APP_ONLY = ["vextrus", "vextrus_app"]
+
+
+def invitation_by_token(cursor: Any) -> tuple[str, list[str]]:
+    """invitation_by_token's result (without its closing parenthesis) and who may run it."""
+    cursor.execute(
+        "select pg_get_function_result(p.oid), array(select coalesce(pg_get_userbyid(a.grantee), "
+        "'PUBLIC') from aclexplode(p.proacl) a where a.privilege_type = 'EXECUTE' order by 1) "
+        "from pg_proc p where p.oid = 'public.invitation_by_token(uuid, text)'::regprocedure"
+    )
+    result, executors = cursor.fetchone()
+    return result.removesuffix(")"), list(executors)
+
+
 USER_COLUMNS = (
     "id",
     "password",
@@ -173,6 +241,25 @@ USER_COLUMNS = (
     "is_vextrus_staff",
     "is_active",
 )
+
+
+def updatable_columns(cursor: Any, table: str) -> set[str]:
+    """The columns vextrus_app may UPDATE, read from the table's own columns (so a column added
+    later is judged too)."""
+    cursor.execute(
+        "select attname from pg_attribute where attrelid = %s::regclass and attnum > 0 "
+        "and not attisdropped",
+        [f"public.{table}"],
+    )
+    columns = [name for (name,) in cursor.fetchall()]
+    updatable = set()
+    for column in columns:
+        cursor.execute(
+            "select has_column_privilege('vextrus_app', %s, %s, 'UPDATE')", [f"public.{table}", column]
+        )
+        if cursor.fetchone()[0]:
+            updatable.add(column)
+    return updatable
 
 
 @pytest.mark.django_db
@@ -188,3 +275,32 @@ def test_vextrus_app_may_update_only_a_user_s_name_phone_password_and_last_sign_
                 updatable.add(column)
 
     assert updatable == {"name", "phone", "password", "last_login"}
+    with connections["default"].cursor() as cursor:
+        assert updatable_columns(cursor, "platform_user") == updatable
+
+
+DEVELOPER_COLUMNS = (
+    "id",
+    "tenant_id",
+    "name",
+    "library_id",
+    "home_region",
+    "is_library",
+    "created_at",
+    "market_id",
+)
+"""platform_developer's columns, in the table's order: one added later must be judged here."""
+
+
+@pytest.mark.django_db
+def test_vextrus_app_may_update_only_a_developer_s_name() -> None:
+    """Its Market, Library, home region, whether it is a Library, its tenant and id are the
+    owner's (platform 0007); its name stays, since `select … for update` needs one column."""
+    with connections["default"].cursor() as cursor:
+        cursor.execute(
+            "select attname from pg_attribute where attrelid = 'public.platform_developer'::regclass "
+            "and attnum > 0 and not attisdropped order by attnum"
+        )
+        assert tuple(name for (name,) in cursor.fetchall()) == DEVELOPER_COLUMNS
+
+        assert updatable_columns(cursor, "platform_developer") == {"name"}
