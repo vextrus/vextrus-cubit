@@ -1,0 +1,353 @@
+{
+ "version": 1,
+ "run": {
+  "id": "20260928T091000Z-084430114972-0141",
+  "commit": "084430114972b27eb697e7a3184511fc77d019bc",
+  "code_hash": "8ad603181ec7975b075f2eb938dbf31043c9b3c860e079aa429e04b804431aea",
+  "started_at": "2026-09-28T09:10:14.189014Z",
+  "seconds": 0.822799
+ },
+ "stages": {
+  "read": {
+   "target": "engine.read:read",
+   "ticket": "04",
+   "built": false
+  },
+  "decoders_agree": {
+   "target": "engine.check.decoders_agree:run",
+   "ticket": "10",
+   "built": false
+  },
+  "font_report": {
+   "target": "engine.render.fonts:report",
+   "ticket": "11",
+   "built": false
+  },
+  "bangla_ansi": {
+   "target": "engine.check.bangla_ansi:run",
+   "ticket": "11",
+   "built": false
+  },
+  "sheets": {
+   "target": "engine.recognise.sheets:find",
+   "ticket": "13",
+   "built": false
+  },
+  "register": {
+   "target": "engine.recognise.register:find",
+   "ticket": "13",
+   "built": false
+  },
+  "views": {
+   "target": "engine.recognise.views:find",
+   "ticket": "17",
+   "built": false
+  },
+  "render_buffers": {
+   "target": "engine.render.buffers:build",
+   "ticket": "11",
+   "built": false
+  },
+  "rasterise": {
+   "target": "engine.render.raster:rasterise",
+   "ticket": "11",
+   "built": false
+  },
+  "pdf_report": {
+   "target": "engine.read.pdf:report",
+   "ticket": "12",
+   "built": false
+  },
+  "page_text": {
+   "target": "engine.read.pdf:page_text",
+   "ticket": "12",
+   "built": false
+  },
+  "plot": {
+   "target": "engine.plot.registration:match",
+   "ticket": "18",
+   "built": false
+  },
+  "render_f1": {
+   "target": "engine.check.render_f1:score",
+   "ticket": "18",
+   "built": false
+  },
+  "conflicts": {
+   "target": "engine.recognise.conflicts:find",
+   "ticket": "19b",
+   "built": false
+  },
+  "checks": {
+   "target": "engine.check.catalogue:run_all",
+   "ticket": "19b",
+   "built": false
+  }
+ },
+ "files": [
+  {
+   "path": "A-201.dwg",
+   "name": "A-201.dwg",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "format": "dwg",
+   "read_format": null,
+   "discipline_default": null,
+   "group": "set",
+   "conventions_applied": null,
+   "process": {
+    "status": "ok",
+    "exit_code": 0,
+    "signal": null,
+    "seconds": 0.205184,
+    "cpu_seconds": 0.211559,
+    "peak_rss_kib": 29692,
+    "left_behind": 0,
+    "left_running": false,
+    "log_tail": null
+   },
+   "stages": {
+    "read": {
+     "state": "not_built",
+     "calls": 0,
+     "failed_calls": 0,
+     "seconds": 0.0,
+     "error": "engine.read:read does not exist"
+    },
+    "decoders_agree": {
+     "state": "not_built",
+     "calls": 0,
+     "failed_calls": 0,
+     "seconds": 0.0,
+     "error": "engine.check.decoders_agree does not exist"
+    },
+    "font_report": {
+     "state": "not_built",
+     "calls": 0,
+     "failed_calls": 0,
+     "seconds": 0.0,
+     "error": "engine.render.fonts does not exist"
+    },
+    "bangla_ansi": {
+     "state": "not_built",
+     "calls": 0,
+     "failed_calls": 0,
+     "seconds": 0.0,
+     "error": "engine.check.bangla_ansi does not exist"
+    },
+    "sheets": {
+     "state": "not_built",
+     "calls": 0,
+     "failed_calls": 0,
+     "seconds": 0.0,
+     "error": "engine.recognise.sheets does not exist"
+    },
+    "register": {
+     "state": "not_built",
+     "calls": 0,
+     "failed_calls": 0,
+     "seconds": 0.0,
+     "error": "engine.recognise.register does not exist"
+    },
+    "views": {
+     "state": "not_built",
+     "calls": 0,
+     "failed_calls": 0,
+     "seconds": 0.0,
+     "error": "engine.recognise.views does not exist"
+    },
+    "render_buffers": {
+     "state": "not_built",
+     "calls": 0,
+     "failed_calls": 0,
+     "seconds": 0.0,
+     "error": "engine.render.buffers does not exist"
+    },
+    "rasterise": {
+     "state": "not_built",
+     "calls": 0,
+     "failed_calls": 0,
+     "seconds": 0.0,
+     "error": "engine.render.raster does not exist"
+    }
+   },
+   "decoders_agree": null,
+   "entity_counts": null,
+   "font_report": null,
+   "pdf_report": null,
+   "bangla_ansi": null,
+   "pages": null,
+   "sheets": []
+  },
+  {
+   "path": "plot.pdf",
+   "name": "plot.pdf",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "format": "pdf",
+   "read_format": null,
+   "discipline_default": null,
+   "group": "set",
+   "conventions_applied": null,
+   "process": {
+    "status": "ok",
+    "exit_code": 0,
+    "signal": null,
+    "seconds": 0.204609,
+    "cpu_seconds": 0.210765,
+    "peak_rss_kib": 29692,
+    "left_behind": 0,
+    "left_running": false,
+    "log_tail": null
+   },
+   "stages": {
+    "pdf_report": {
+     "state": "not_built",
+     "calls": 0,
+     "failed_calls": 0,
+     "seconds": 0.0,
+     "error": "engine.read.pdf does not exist"
+    },
+    "page_text": {
+     "state": "not_built",
+     "calls": 0,
+     "failed_calls": 0,
+     "seconds": 0.0,
+     "error": "engine.read.pdf does not exist"
+    }
+   },
+   "decoders_agree": null,
+   "entity_counts": null,
+   "font_report": null,
+   "pdf_report": null,
+   "bangla_ansi": null,
+   "pages": null,
+   "sheets": []
+  },
+  {
+   "path": "structural/S-101.dwg",
+   "name": "S-101.dwg",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "format": "dwg",
+   "read_format": null,
+   "discipline_default": null,
+   "group": "set",
+   "conventions_applied": null,
+   "process": {
+    "status": "ok",
+    "exit_code": 0,
+    "signal": null,
+    "seconds": 0.206279,
+    "cpu_seconds": 0.212977,
+    "peak_rss_kib": 29692,
+    "left_behind": 0,
+    "left_running": false,
+    "log_tail": null
+   },
+   "stages": {
+    "read": {
+     "state": "not_built",
+     "calls": 0,
+     "failed_calls": 0,
+     "seconds": 0.0,
+     "error": "engine.read:read does not exist"
+    },
+    "decoders_agree": {
+     "state": "not_built",
+     "calls": 0,
+     "failed_calls": 0,
+     "seconds": 0.0,
+     "error": "engine.check.decoders_agree does not exist"
+    },
+    "font_report": {
+     "state": "not_built",
+     "calls": 0,
+     "failed_calls": 0,
+     "seconds": 0.0,
+     "error": "engine.render.fonts does not exist"
+    },
+    "bangla_ansi": {
+     "state": "not_built",
+     "calls": 0,
+     "failed_calls": 0,
+     "seconds": 0.0,
+     "error": "engine.check.bangla_ansi does not exist"
+    },
+    "sheets": {
+     "state": "not_built",
+     "calls": 0,
+     "failed_calls": 0,
+     "seconds": 0.0,
+     "error": "engine.recognise.sheets does not exist"
+    },
+    "register": {
+     "state": "not_built",
+     "calls": 0,
+     "failed_calls": 0,
+     "seconds": 0.0,
+     "error": "engine.recognise.register does not exist"
+    },
+    "views": {
+     "state": "not_built",
+     "calls": 0,
+     "failed_calls": 0,
+     "seconds": 0.0,
+     "error": "engine.recognise.views does not exist"
+    },
+    "render_buffers": {
+     "state": "not_built",
+     "calls": 0,
+     "failed_calls": 0,
+     "seconds": 0.0,
+     "error": "engine.render.buffers does not exist"
+    },
+    "rasterise": {
+     "state": "not_built",
+     "calls": 0,
+     "failed_calls": 0,
+     "seconds": 0.0,
+     "error": "engine.render.raster does not exist"
+    }
+   },
+   "decoders_agree": null,
+   "entity_counts": null,
+   "font_report": null,
+   "pdf_report": null,
+   "bangla_ansi": null,
+   "pages": null,
+   "sheets": []
+  }
+ ],
+ "set_stages": {
+  "plot": {
+   "state": "not_built",
+   "calls": 0,
+   "failed_calls": 0,
+   "seconds": 0.0,
+   "error": "engine.plot.registration does not exist"
+  },
+  "render_f1": {
+   "state": "not_built",
+   "calls": 0,
+   "failed_calls": 0,
+   "seconds": 0.0,
+   "error": "engine.check.render_f1 does not exist"
+  },
+  "conflicts": {
+   "state": "not_built",
+   "calls": 0,
+   "failed_calls": 0,
+   "seconds": 0.0,
+   "error": "engine.recognise.conflicts does not exist"
+  },
+  "checks": {
+   "state": "not_built",
+   "calls": 0,
+   "failed_calls": 0,
+   "seconds": 0.0,
+   "error": "engine.check.catalogue does not exist"
+  }
+ },
+ "plot": [],
+ "conflicts": [],
+ "continuations": [],
+ "checks": []
+}
