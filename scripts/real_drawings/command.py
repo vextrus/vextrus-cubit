@@ -1,5 +1,6 @@
-"""`scripts/real-drawings <PR number | branch | main> [--no-post]`: the real-drawing check, regression
-only (the M0 plan, "The real-drawing check", steps 1-7; ADRs 0026 and 0030 as amended in session 02).
+"""`scripts/real-drawings <PR number | branch | main> [--no-post] [--fresh]`: the real-drawing check,
+regression only (the M0 plan, "The real-drawing check", steps 1-7; ADRs 0026 and 0030 as amended in
+session 02).
 
 Run from the owner's checkout of main. It measures the head: the engine paths' files into a scratch
 checkout, the refusals, the locked wheels fetched by hash, the install and the harness inside the
@@ -8,7 +9,7 @@ the schema, against its own, which the run says so the diff is read). It measure
 way when main's code hash is not cached, and diffs each Development Set's export against main's under
 the fixed matching, printing the counts gained, lost and changed per measure; the item list, which
 holds drawing text, stays under the owner's cache. Exports are cached by (code hash, the sandbox's
-version, set content).
+version, set content); one with a failed stage is never reused, and `--fresh` reads both runs again.
 
 A posting run is a PR without `--no-post`: under the drop folder's lock, the owner accepts or rejects
 the changes (a lost item only with a reason), the command writes the run's own folder in the drop
@@ -58,8 +59,24 @@ PATTERNS = ".github/engine-paths.txt"
 POSTER_CONFIG = "scripts/owner/post-status.toml"
 REASON_MOST = 100
 # What the sandbox gives the harness also decides what it reads (the first baseline's sandbox had no
-# /tmp, so 04's reader could not start): an export is reused only by the same sandbox.
-SANDBOX_VERSION = hashlib.sha256(Path(sandbox.__file__).read_bytes()).hexdigest()[:16]
+# /tmp, so 04's reader could not start): an export is reused only by the same sandbox. These are the
+# files of main's check that shape what runs inside it: the Job (this file), the bwrap arguments and
+# the script (sandbox.py), the checkout's files and modes (source.py), and the requirements and the
+# wheels, the compiled or the pure ezdxf (wheels.py). The rest reads what the sandbox left, after it.
+SHAPING = ("command.py", "sandbox.py", "source.py", "wheels.py")
+
+
+def sandbox_version(folder: Path) -> str:
+    """The sandbox's version: every shaping file's name and content, in `folder`."""
+    digest = hashlib.sha256()
+    for name in SHAPING:
+        content = (folder / name).read_bytes()
+        digest.update(f"{name} {len(content)}\n".encode())
+        digest.update(content)
+    return digest.hexdigest()[:16]
+
+
+SANDBOX_VERSION = sandbox_version(Path(__file__).parent)
 
 
 @dataclass(frozen=True)

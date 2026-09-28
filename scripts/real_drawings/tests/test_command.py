@@ -4,7 +4,6 @@ No test raises privilege or names the key user."""
 
 import dataclasses
 import fcntl
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -12,7 +11,7 @@ from pathlib import Path
 import pytest
 
 from scripts.real_drawings import command, sandbox
-from scripts.real_drawings.command import Machine, run
+from scripts.real_drawings.command import Machine, run, sandbox_version
 from scripts.real_drawings.source import Refused
 from scripts.real_drawings.tests.world import FAKE_EXPORT, PYPROJECT, World, invented, make_world
 
@@ -253,13 +252,32 @@ def test_the_command_takes_fresh(world: World, monkeypatch: pytest.MonkeyPatch) 
     assert len(world.sandbox_runs) == 2
 
 
-def test_the_sandbox_version_is_its_codes_own_hash() -> None:
-    source = (Path(sandbox.__file__)).read_bytes()
+# The files of main's check that shape what runs inside the sandbox: the Job (command.py), the bwrap
+# arguments and the script (sandbox.py), the checkout's files and modes (source.py), the requirements and
+# the wheels, compiled or pure ezdxf (wheels.py). The rest reads what the sandbox left, after it ended.
+SHAPING = {"command.py", "sandbox.py", "source.py", "wheels.py"}
+PACKAGE = Path(sandbox.__file__).parent
 
-    assert (
-        Machine.__dataclass_fields__["sandbox_version"].default
-        == hashlib.sha256(source).hexdigest()[:16]
-    )
+
+@pytest.mark.parametrize("name", sorted(p.name for p in PACKAGE.glob("*.py")))
+def test_the_sandbox_version_changes_with_every_file_that_shapes_the_sandbox_and_no_other(
+    tmp_path: Path, name: str
+) -> None:
+    for path in PACKAGE.glob("*.py"):
+        (tmp_path / path.name).write_bytes(path.read_bytes())
+    before = sandbox_version(tmp_path)
+
+    with (tmp_path / name).open("a") as file:
+        file.write("# a comment\n")
+
+    assert (sandbox_version(tmp_path) != before) == (name in SHAPING)
+
+
+def test_the_machine_uses_the_version_of_mains_own_files(tmp_path: Path) -> None:
+    for name in SHAPING:
+        (tmp_path / name).write_bytes((PACKAGE / name).read_bytes())
+
+    assert Machine.__dataclass_fields__["sandbox_version"].default == sandbox_version(tmp_path)
 
 
 def test_an_engine_change_runs_the_head_and_diffs_against_mains_cached_run(world: World) -> None:

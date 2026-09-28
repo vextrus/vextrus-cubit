@@ -1,7 +1,7 @@
 #!/bin/bash
 # The real-drawing check, regression only (the M0 plan, "The real-drawing check"; ADRs 0026 and 0030):
 #
-#   scripts/real-drawings <PR number | branch | main> [--no-post]
+#   scripts/real-drawings <PR number | branch | main> [--no-post] [--fresh]
 #
 # The owner runs a PR's posting run from the checkout of main; a local session tunes with --no-post on
 # its own branch. The code is scripts/real_drawings/ (standard library only), run on the toolchain's
