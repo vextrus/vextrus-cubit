@@ -6,6 +6,9 @@
 #   /opt/vextrus/python    Python 3.14 (uv's managed build)
 #   /opt/vextrus/libredwg  LibreDWG at its pin, built static from GNU's signed source
 #   /opt/vextrus/dotnet    the .NET 10 SDK (ACadSharp, the second decoder; ADR 0029)
+#   /opt/vextrus/acadsharp-dump  the ACadSharp dumper (ticket 10): built here from tools/acadsharp-dump/
+#                          with that SDK, and installed only when its sha256 is the pin, beside
+#                          the licences and notices of what is built into it
 #
 # Run by the owner, as root:   ! sudo bash scripts/owner/toolchain.sh
 # Idempotent: a piece already at its pin is kept. Owned by root, readable by all, writable by none.
@@ -15,6 +18,12 @@
 #                     libredwg-0.14.tar.xz.sig ("Good signature from <reini.urban@gmail.com>", RSA key
 #                     38A4167B0DB69E49C5F7216CB8C28866AB27A7A2, gnu-keyring.gpg)
 #   dotnet.version    10.0.401, the latest .NET 10 SDK on 8 Sep 2026 (release-metadata/10.0/releases.json)
+#   acadsharp-dump.sha256  the dumper's own sha256: its build is reproducible (the same source, SDK and
+#                     hash-locked packages give the same bytes, git's state not stamped in), so a
+#                     build here that differs from the pin is refused, never installed
+#   acadsharp-dump.runtime.sha512  the .NET runtime pack built into the dumper (10.0.12, the version
+#                     SDK 10.0.401 bundles), which the NuGet lock does not list: checked after the
+#                     restore and before the build
 set -euo pipefail
 
 PREFIX=${VEXTRUS_TOOLCHAIN_PREFIX:-/opt/vextrus}   # overridable only to test this script
@@ -78,9 +87,74 @@ install_dotnet() {
     --version "$DOTNET_SDK_VERSION" --install-dir "$dest" --no-path > /dev/null
 }
 
+install_acadsharp_dump() {
+  local dest="$PREFIX/acadsharp-dump" pinned
+  pinned=$(cut -d' ' -f1 "$PINS/acadsharp-dump.sha256")
+  if [ -f "$dest/acadsharp-dump" ] && [ "$(sha256sum "$dest/acadsharp-dump" | cut -d' ' -f1)" = "$pinned" ]; then
+    say "acadsharp-dump: already installed at its pin"; return
+  fi
+  say "acadsharp-dump: building from tools/acadsharp-dump/ (packages restored by the hashes its lock pins)"
+  # Built in a folder of its own under $PREFIX, whose parents only root can write, never under /tmp:
+  # MSBuild reads Directory.Build.* files from every folder above the project, so a file planted in a
+  # folder anyone can write would run code in this root build. Those imports and MSBuild's response
+  # files are turned off as well, and NuGet, MSBuild and the runtime keep their temporary files in it
+  # (TMPDIR), never in /tmp. No compiler server or MSBuild node outlives the build (the project
+  # sets UseSharedCompilation=false; -nodeReuse:false here). The folder is deleted once the dumper is
+  # installed or refused.
+  local build source out built runtime
+  build=$(mktemp -d "$PREFIX/.acadsharp-dump-build.XXXXXX")
+  source="$build/src"
+  out="$build/out"
+  mkdir -p "$source" "$build/tmp"
+  cp "$PINS/../tools/acadsharp-dump/acadsharp-dump.csproj" "$PINS/../tools/acadsharp-dump/Program.cs" \
+     "$PINS/../tools/acadsharp-dump/packages.lock.json" "$PINS/../tools/acadsharp-dump/global.json" \
+     "$source/"
+  dotnet_here() {
+    ( cd "$source" && DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1 DOTNET_CLI_HOME="$build/home" \
+      NUGET_PACKAGES="$build/nuget" TMPDIR="$build/tmp" "$PREFIX/dotnet/dotnet" "$@" "$source" \
+      -noAutoResponse -nodeReuse:false -p:ImportDirectoryBuildProps=false \
+      -p:ImportDirectoryBuildTargets=false -p:ImportDirectoryPackagesProps=false )
+  }
+  # 1. Restore: the lock pins ACadSharp and the build's own package by hash. It does not list the
+  #    .NET runtime pack, which the SDK chooses by its bundled version, so that pack's .nupkg is
+  #    checked here against its own pin (toolchain/acadsharp-dump.runtime.sha512) before anything
+  #    from it is built into the program.
+  if ! dotnet_here restore > "$WORK/acadsharp-dump-build.log" 2>&1; then
+    tail -30 "$WORK/acadsharp-dump-build.log" >&2
+    rm -rf -- "$build"
+    fail "acadsharp-dump restore (log: $WORK/acadsharp-dump-build.log)"
+  fi
+  if ! ( cd "$build/nuget/microsoft.netcore.app.runtime.linux-x64/"*/ &&
+         sha512sum -c --quiet "$PINS/acadsharp-dump.runtime.sha512" ); then
+    rm -rf -- "$build"
+    fail "the .NET runtime pack NuGet gave is not the pin in toolchain/acadsharp-dump.runtime.sha512: nothing built"
+  fi
+  # 2. Build from what was restored and checked, restoring nothing more.
+  if ! dotnet_here publish -c Release -o "$out" --no-restore >> "$WORK/acadsharp-dump-build.log" 2>&1; then
+    tail -30 "$WORK/acadsharp-dump-build.log" >&2
+    rm -rf -- "$build"
+    fail "acadsharp-dump build (log: $WORK/acadsharp-dump-build.log)"
+  fi
+  built=$(sha256sum "$out/acadsharp-dump" | cut -d' ' -f1)
+  if [ "$built" != "$pinned" ]; then
+    rm -rf -- "$build"
+    fail "acadsharp-dump built as $built, not the pin $pinned: not installed (the build is not reproducible here; tell the session that pinned it)"
+  fi
+  # Every copy carries its notices: ACadSharp's MIT licence, and the .NET runtime's licence and its
+  # third-party notices (MIT, BSD, zlib, Apache-2.0, Unicode), from the runtime pack built into it.
+  runtime=$(echo "$build"/nuget/microsoft.netcore.app.runtime.linux-x64/*)
+  install -d -m 0755 "$dest"
+  install -m 0644 "$PINS/../tools/acadsharp-dump/ACADSHARP-LICENSE.txt" "$dest/ACADSHARP-LICENSE.txt"
+  install -m 0644 "$runtime/LICENSE.TXT" "$dest/DOTNET-LICENSE.TXT"
+  install -m 0644 "$runtime/THIRD-PARTY-NOTICES.TXT" "$dest/DOTNET-THIRD-PARTY-NOTICES.TXT"
+  install -m 0755 "$out/acadsharp-dump" "$dest/acadsharp-dump"
+  rm -rf -- "$build"
+}
+
 install_python
 install_libredwg
 install_dotnet
+install_acadsharp_dump
 
 chown -R root:root "$PREFIX"
 chmod -R a+rX,go-w "$PREFIX"
@@ -91,6 +165,7 @@ py=$(UV_PYTHON_INSTALL_DIR="$PREFIX/python" "$(command -v uv || echo "$OWNER_HOM
 printf '  %-10s %s (%s)\n' python "$("$py" --version 2>&1)" "$py"
 printf '  %-10s %s\n' libredwg "$("$PREFIX/libredwg/bin/dwgread" --version 2>&1 | head -1)"
 printf '  %-10s %s\n' dotnet "$(DOTNET_CLI_TELEMETRY_OPTOUT=1 "$PREFIX/dotnet/dotnet" --list-sdks | tr '\n' ' ')"
+printf '  %-10s %s\n' acadsharp "$(sha256sum "$PREFIX/acadsharp-dump/acadsharp-dump" | cut -d' ' -f1) (the pin)"
 cat <<EOF
 
 Add these lines to $OWNER_HOME/.bashrc (this script does not edit it), then open a new shell:

@@ -91,7 +91,8 @@ FAKES = {
 
                     plain = (
                         "OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS", "PATH", "HOME",
-                        "TMPDIR", "LANG", "PYTHONPATH", "VEXTRUS_LIBREDWG", "VEXTRUS_SANDBOX",
+                        "TMPDIR", "LANG", "PYTHONPATH", "VEXTRUS_LIBREDWG", "VEXTRUS_ACADSHARP_DUMP",
+                        "VEXTRUS_SANDBOX",
                     )
                     seen = {
                         "names": sorted(os.environ),
@@ -743,6 +744,7 @@ def test_a_files_process_gets_only_the_environment_it_needs(
         "TMPDIR": str(tmp_path / "tmp"),
         "LANG": "C.UTF-8",
         "VEXTRUS_LIBREDWG": str(tmp_path / "libredwg"),
+        "VEXTRUS_ACADSHARP_DUMP": str(tmp_path / "acadsharp-dump"),
         "VEXTRUS_SANDBOX": "off",
     }
     for name, value in allowed.items():
