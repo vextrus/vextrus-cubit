@@ -2,15 +2,25 @@
 
 A `Drawing` makes the artefact 04's reader would give for a small invented drawing, with no DWG and no
 toolchain: model space, one layout, blocks, and entities with the raw values the reader carries (an
-entity's DXF values by name; an insert's placement unresolved; a text's height as stored). It proves
-mechanics only, never a reading (docs/sdlc.md). The DWG fixtures (`engine/fixtures/dwg/`) prove the
-same mechanics through the real reader.
+entity's DXF values by name; an insert's placement unresolved; a text's height as stored), and a text
+style table when a test adds styles. It proves mechanics only, never a reading (docs/sdlc.md). The DWG
+fixtures (`engine/fixtures/dwg/`) prove the same mechanics through the real reader.
 """
 
 from dataclasses import dataclass, field
 from typing import Any
 
-from engine.read.artefact import AnyEntity, Block, Entity, Format, Insert, Point, ReadArtefact, Text
+from engine.read.artefact import (
+    AnyEntity,
+    Block,
+    Entity,
+    Format,
+    Insert,
+    Point,
+    ReadArtefact,
+    Text,
+    TextStyle,
+)
 
 MODEL = "1F"
 PAPER = "1E"
@@ -37,6 +47,7 @@ class Drawing:
             PAPER: _Record(PAPER, "*Paper_Space", (0.0, 0.0, 0.0), "Layout1"),
         }
         self.entities: dict[str, AnyEntity] = {}
+        self.styles: dict[str, TextStyle] = {}
 
     def _handle(self) -> str:
         self._next += 1
@@ -45,6 +56,25 @@ class Drawing:
     def block(self, name: str, base_point: Point = (0.0, 0.0, 0.0)) -> str:
         handle = self._handle()
         self.records[handle] = _Record(handle, name, base_point, None)
+        return handle
+
+    def style(
+        self,
+        name: str,
+        *,
+        fixed_height: float | None = None,
+        width_factor: float | None = 1.0,
+        oblique_radians: float | None = 0.0,
+        font: str | None = "arial.ttf",
+        bigfont: str | None = None,
+        shape: bool = False,
+    ) -> str:
+        """A text style in the table; returns its handle, which `text(style_handle=…)` names. Its
+        values are kept as given (the reader keeps only usable numbers; a test may give any)."""
+        handle = self._handle()
+        self.styles[handle] = TextStyle(
+            handle, name, fixed_height, width_factor, oblique_radians, font, bigfont, shape
+        )
         return handle
 
     def _add(self, entity: AnyEntity, owner: str) -> str:
@@ -114,8 +144,14 @@ class Drawing:
         layer: str = "0",
         extrusion: Point = (0.0, 0.0, 1.0),
         tag: str | None = None,
+        style_handle: str | None = None,
     ) -> str:
+        """A text; with `style_handle` (a `style`'s), its style's name and fonts are that style's, as
+        the reader gives them, and `style` and `font` are not used."""
         mtext = kind == "MTEXT"
+        bigfont = None
+        if (named := self.styles.get(style_handle or "")) is not None:
+            style, font, bigfont = named.name, named.font, named.bigfont
         entity = Text(
             handle=self._handle(),
             type=kind,
@@ -123,9 +159,9 @@ class Drawing:
             owner=owner,
             text=text,
             style=style,
-            style_source="own" if style else "none",
+            style_source="own" if style or named is not None else "none",
             font=font,
-            bigfont=None,
+            bigfont=bigfont,
             height=height,
             position=position,
             alignment_point=None,
@@ -137,6 +173,7 @@ class Drawing:
             attachment=(attachment or 1) if mtext else None,
             tag=tag,
             extrusion=extrusion,
+            style_handle=style_handle,
         )
         return self._add(entity, owner)
 
@@ -163,4 +200,5 @@ class Drawing:
                 for r in self.records.values()
             ],
             entities=self.entities.values(),
+            styles=self.styles.values(),
         )

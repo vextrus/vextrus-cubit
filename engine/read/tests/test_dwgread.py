@@ -11,6 +11,7 @@ from typing import Any
 
 import pytest
 
+from engine.read.artefact import TextStyle
 from engine.read.errors import ReadError
 from engine.read.libredwg import dwgread
 
@@ -347,3 +348,247 @@ def test_a_layer_the_file_does_not_hold_is_empty_and_counted() -> None:
 
     assert {p.handle: p.layer for p in decoded.entities}["90"] == ""
     assert decoded.notes == ({"code": "engine.read.layer_unresolved", "params": {"count": 1}},)
+
+
+# -- the text style table (#82) ---------------------------------------------------------------------
+
+
+def style(handle: int, name: object, **fields: Any) -> dict[str, Any]:
+    """A STYLE as LibreDWG 0.14 writes it (measured on the text_style_height fixture, 29 Sep 2026)."""
+    return {
+        "object": "STYLE",
+        "handle": own(handle),
+        "name": name,
+        "is_shape": 0,
+        "text_size": 0.0,
+        "width_factor": 1.0,
+        "oblique_angle": 0.0,
+        "font_file": "romans.shx",
+        "bigfont_file": "",
+        **fields,
+    }
+
+
+def with_styles(*styles: dict[str, Any], entities: tuple[dict[str, Any], ...] = ()) -> dict[str, Any]:
+    data = drawing(*entities)
+    data["OBJECTS"].extend(styles)
+    return data
+
+
+def styles_of(decoded: dwgread.Decoded) -> dict[str, TextStyle]:
+    return {s.handle: s for s in decoded.styles}
+
+
+def test_the_style_table_carries_every_style_as_stored_shape_files_marked() -> None:
+    fixed = style(
+        0x14,
+        "FIXED",
+        text_size=3.7,
+        width_factor=0.8,
+        oblique_angle=0.26179938779915,
+        bigfont_file="bigfont.shx",
+    )
+    shape = style(0x15, "", is_shape=1, font_file="ltypeshp.shx")
+
+    decoded = dwgread.decode(with_styles(fixed, shape))
+
+    assert decoded.styles[2:] == (
+        TextStyle("14", "FIXED", 3.7, 0.8, 0.26179938779915, "romans.shx", "bigfont.shx", shape=False),
+        TextStyle("15", "", None, 1.0, 0.0, "ltypeshp.shx", None, shape=True),
+    )
+    assert [s.name for s in decoded.styles[:2]] == ["Standard", "TITLE"]  # drawing()'s, in file order
+
+
+def test_a_text_names_its_style_by_handle_and_a_repaired_attrib_names_its_attdefs() -> None:
+    decoded = dwgread.decode(
+        drawing(
+            insert(0x40, [0x41, 0x42]),
+            attrib(0x41, 0x40, "SHEET_NO", NULL),
+            attrib(0x42, 0x40, "SHEET_NO", ref(0x12)),
+            text_entity(0x50, text_value="X", ins_pt=[0.0, 0.0]),
+        )
+    )
+
+    found = {h: (t.style, t.style_source, t.style_handle) for h, t in decoded.texts.items()}
+    assert found["50"] == ("Standard", "own", "12")
+    assert found["32"] == ("TITLE", "own", "13")  # the ATTDEF
+    assert found["41"] == ("TITLE", "attdef", "13")  # its null style taken from the ATTDEF
+    assert found["42"] == ("Standard", "own", "12")  # an ATTRIB that keeps its own
+
+
+NAN, INF = float("nan"), float("inf")
+
+
+@pytest.mark.parametrize("key", ["text_size", "width_factor"])
+@pytest.mark.parametrize("value", [NAN, INF, -INF, -3.7, 0.0, 0, "3.7", [3.7], True, None, 10**400])
+def test_a_style_size_that_is_no_finite_positive_number_is_none_and_never_fails_the_read(
+    key: str, value: object
+) -> None:
+    decoded = dwgread.decode(with_styles(style(0x14, "ODD", **{key: value})))
+
+    found = styles_of(decoded)["14"]
+    assert (found.fixed_height if key == "text_size" else found.width_factor) is None
+
+
+@pytest.mark.parametrize("key", ["text_size", "width_factor"])
+def test_a_huge_but_finite_style_size_is_kept(key: str) -> None:
+    found = styles_of(dwgread.decode(with_styles(style(0x14, "HUGE", **{key: 1e308}))))["14"]
+
+    assert (found.fixed_height if key == "text_size" else found.width_factor) == 1e308
+
+
+@pytest.mark.parametrize(("value", "expected"), [(NAN, None), (INF, None), ("0.2", None), (True, None),
+                                                 (-0.2, -0.2), (0.0, 0.0)])  # fmt: skip
+def test_an_oblique_angle_is_kept_only_when_finite(value: object, expected: float | None) -> None:
+    found = styles_of(dwgread.decode(with_styles(style(0x14, "ODD", oblique_angle=value))))["14"]
+
+    assert found.oblique_radians == expected
+
+
+def test_nan_and_infinity_in_dwgreads_json_text_are_read_as_none(tmp_path: Path) -> None:
+    path = tmp_path / "file.json"
+    path.write_text(json.dumps(with_styles(style(0x14, "ODD", text_size=NAN, width_factor=INF))))
+    assert "NaN" in path.read_text()
+
+    with path.open("rb") as stream:
+        found = styles_of(dwgread.decode(dwgread.load(stream)))["14"]
+
+    assert (found.fixed_height, found.width_factor) == (None, None)
+
+
+@pytest.mark.parametrize(
+    ("reference", "what"),
+    [
+        (ref(0x99), "nothing"),
+        (ref(0x10), "a LAYER"),
+        (ref(0x30), "a BLOCK_HEADER"),
+        (NULL, "a null reference"),
+        ([5, 1, -4, -4], "a negative handle"),
+        ("13", "a string"),
+    ],
+)
+def test_a_style_reference_that_names_no_style_gives_no_style_and_never_fails(
+    reference: object, what: str
+) -> None:
+    decoded = dwgread.decode(drawing(text_entity(0x50, text_value="X", style=reference)))
+
+    text = decoded.texts["50"]
+    found = (text.style, text.style_source, text.style_handle, text.font)
+    assert found == (None, "none", None, None), what
+
+
+def test_a_style_with_an_empty_or_missing_name_is_named_by_its_handle() -> None:
+    nameless = style(0x14, "")
+    unnamed = {k: v for k, v in style(0x15, "").items() if k != "name"}
+    odd = style(0x16, ["not", "a", "name"])
+    texts = [
+        text_entity(0x50 + i, text_value="X", style=ref(h)) for i, h in enumerate((0x14, 0x15, 0x16))
+    ]
+
+    decoded = dwgread.decode(with_styles(nameless, unnamed, odd, entities=tuple(texts)))
+
+    assert [(t.style, t.style_handle) for t in decoded.texts.values() if t.type == "TEXT"] == [
+        ("", "14"),
+        ("", "15"),
+        ("", "16"),
+    ]
+    assert [s.name for s in decoded.styles[2:]] == ["", "", ""]
+
+
+def test_two_styles_with_one_name_stay_two_and_each_text_names_its_own() -> None:
+    small = style(0x14, "NOTES", text_size=1.8)
+    large = style(0x15, "NOTES", text_size=5.0)
+    texts = (
+        text_entity(0x50, text_value="SMALL", style=ref(0x14)),
+        text_entity(0x51, text_value="LARGE", style=ref(0x15)),
+    )
+
+    decoded = dwgread.decode(with_styles(small, large, entities=texts))
+
+    assert (decoded.texts["50"].style_handle, decoded.texts["51"].style_handle) == ("14", "15")
+    assert (styles_of(decoded)["14"].fixed_height, styles_of(decoded)["15"].fixed_height) == (1.8, 5.0)
+
+
+def test_a_style_named_like_a_path_with_fonts_named_like_urls_is_kept_as_data(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    odd = style(
+        0x14,
+        "../../etc/passwd",
+        font_file="https://fonts.example.invalid/x.ttf",
+        bigfont_file="C:\\Windows\\Fonts\\big.shx",
+    )
+    data = with_styles(odd, entities=(text_entity(0x50, text_value="X", style=ref(0x14)),))
+
+    def refused(*args: object, **kwargs: object) -> None:
+        raise AssertionError(f"opened {args!r}")
+
+    for target in ("builtins.open", "io.open", "os.open", "socket.socket"):
+        monkeypatch.setattr(target, refused)
+    decoded = dwgread.decode(data)
+    monkeypatch.undo()
+
+    text = decoded.texts["50"]
+    assert (text.style, text.font, text.bigfont, text.style_handle) == (
+        "../../etc/passwd",
+        "https://fonts.example.invalid/x.ttf",
+        "C:\\Windows\\Fonts\\big.shx",
+        "14",
+    )
+    assert styles_of(decoded)["14"].font == "https://fonts.example.invalid/x.ttf"
+
+
+def test_loading_keeps_only_the_style_fields_read(tmp_path: Path) -> None:
+    stored = style(
+        0x14,
+        "FIXED",
+        text_size=3.7,
+        is_vertical=0,
+        generation=0,
+        last_height=2.5,
+        flag=0,
+        xdicobjhandle=[3, 0, 0],
+        eed=[{"size": 9000, "data": "x" * 64}],
+    )
+    path = tmp_path / "file.json"
+    path.write_text(json.dumps(with_styles(stored)))
+
+    with path.open("rb") as stream:
+        loaded = dwgread.load(stream)
+
+    kept = [o for o in loaded["OBJECTS"] if o.get("object") == "STYLE" and o["name"] == "FIXED"]
+    assert kept == [
+        {
+            "object": "STYLE",
+            "handle": [0, 1, 0x14],
+            "name": "FIXED",
+            "is_shape": 0,
+            "text_size": 3.7,
+            "width_factor": 1.0,
+            "oblique_angle": 0.0,
+            "font_file": "romans.shx",
+            "bigfont_file": "",
+        }
+    ]
+
+
+def test_a_hundred_thousand_styles_each_texts_style_is_found_by_handle(tmp_path: Path) -> None:
+    """A hostile file's table: every style is kept and each text finds its own (a lookup per text
+    that scanned the table would be 10^10 steps here, so the result alone shows there is none)."""
+    count = 100_000
+    first = 0x1000
+    styles = [style(first + i, f"S{i}", text_size=1.0 + i % 7) for i in range(count)]
+    texts = tuple(
+        text_entity(first + count + i, text_value="X", style=ref(first + i)) for i in range(count)
+    )
+    path = tmp_path / "file.json"
+    path.write_text(json.dumps(with_styles(*styles, entities=texts)))
+
+    with path.open("rb") as stream:
+        decoded = dwgread.decode(dwgread.load(stream))
+
+    assert [(s.handle, s.name) for s in decoded.styles[2:]] == [
+        (f"{first + i:X}", f"S{i}") for i in range(count)
+    ]
+    found = {t.handle: t.style_handle for t in decoded.texts.values() if t.type == "TEXT"}
+    assert found == {f"{first + count + i:X}": f"{first + i:X}" for i in range(count)}

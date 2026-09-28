@@ -33,12 +33,131 @@ def test_an_mtext_without_height_takes_the_height_its_text_sets_first() -> None:
     assert mtext.height(entity, artefact=artefact) == 4.5
 
 
-def test_a_style_height_is_used_when_given() -> None:
+def test_a_text_with_no_height_takes_its_styles_fixed_height_from_the_artefact() -> None:
+    drawing = Drawing()
+    notes = drawing.style("NOTES", fixed_height=1.8)
+    drawing.text("SIBLING", height=7.0)  # the block's usual height, which the style comes before
+    handle = drawing.text("A", kind="MTEXT", height=None, style_handle=notes)
+    entity, artefact = _text(drawing, handle)
+    found = mtext.resolve(entity, artefact=artefact)
+    assert (found.local, found.source) == (1.8, HeightSource.STYLE)
+
+
+def test_the_order_is_own_inline_style_block() -> None:
+    drawing = Drawing()
+    fixed = drawing.style("FIXED", fixed_height=3.7)
+    loose = drawing.style("LOOSE")
+    drawing.text("SIBLING", height=1.0)
+    handles = {
+        "own": drawing.text("OWN", kind="MTEXT", height=2.0, style_handle=fixed),
+        "inline": drawing.text("{\\H4.5;SET}", kind="MTEXT", height=None, style_handle=fixed),
+        "style": drawing.text("TEXT", height=None, style_handle=fixed),
+        "block": drawing.text("LOOSE", kind="MTEXT", height=None, style_handle=loose),
+    }
+    artefact = drawing.artefact()
+
+    found = {}
+    for step, handle in handles.items():
+        entity = artefact.entities[handle]
+        assert isinstance(entity, Text)
+        height = mtext.resolve(entity, artefact=artefact)
+        found[step] = (height.local, height.source)
+
+    assert found == {
+        "own": (2.0, HeightSource.OWN),
+        "inline": (4.5, HeightSource.INLINE),
+        "style": (3.7, HeightSource.STYLE),
+        "block": (1.0, HeightSource.BLOCK),
+    }
+
+
+@pytest.mark.parametrize("junk", [float("nan"), float("inf"), 0.0, -3.7])
+def test_a_style_height_that_is_no_finite_positive_number_is_passed_over(junk: float) -> None:
+    """The same rule as an own height: a style built in code (not read, which keeps none) that holds
+    one is passed over for the block's."""
+    drawing = Drawing()
+    odd = drawing.style("ODD", fixed_height=junk)
+    drawing.text("SIBLING", height=1.0)
+    handle = drawing.text("X", kind="MTEXT", height=None, style_handle=odd)
+    entity, artefact = _text(drawing, handle)
+    assert mtext.resolve(entity, artefact=artefact) == mtext.Height(1.0, 1.0, HeightSource.BLOCK)
+
+
+def test_two_styles_with_one_name_give_each_text_its_own_styles_height() -> None:
+    drawing = Drawing()
+    small = drawing.style("NOTES", fixed_height=1.8)
+    large = drawing.style("NOTES", fixed_height=5.0)
+    first = drawing.text("SMALL", height=None, style_handle=small)
+    second = drawing.text("LARGE", height=None, style_handle=large)
+    artefact = drawing.artefact()
+    heights = mtext.Heights(artefact)
+    found = [heights.resolve(e) for h in (first, second) if isinstance(e := artefact.entities[h], Text)]
+    assert [(h.local, h.source) for h in found] == [(1.8, HeightSource.STYLE), (5.0, HeightSource.STYLE)]
+
+
+def test_style_heights_are_the_artefacts_only() -> None:
+    """One source: the caller-supplied `style_heights` (name to height) is gone (#82)."""
     drawing = Drawing()
     handle = drawing.text("A", kind="MTEXT", height=None, style="NOTES")
     entity, artefact = _text(drawing, handle)
-    found = mtext.resolve(entity, artefact=artefact, style_heights={"NOTES": 1.8})
-    assert (found.local, found.source) == (1.8, HeightSource.STYLE)
+    with pytest.raises(TypeError):
+        mtext.resolve(entity, artefact=artefact, style_heights={"NOTES": 1.8})  # type: ignore[call-arg]
+    with pytest.raises(TypeError):
+        mtext.Heights(artefact, {"NOTES": 1.8})  # type: ignore[call-arg]
+    assert mtext.resolve(entity, artefact=artefact).source is HeightSource.DEFAULT
+
+
+def _in_a_block(step: HeightSource, local: float) -> tuple[Drawing, str, str]:
+    """A drawing with block `B` holding a text that `step` gives the local height `local` (the
+    default's is its own); returns the drawing, the block and the text."""
+    drawing = Drawing()
+    block = drawing.block("B")
+    if step is HeightSource.OWN:
+        handle = drawing.text("X", height=local, owner=block)
+    elif step is HeightSource.INLINE:
+        handle = drawing.text(f"{{\\H{local!r};X}}", kind="MTEXT", height=None, owner=block)
+    elif step is HeightSource.STYLE:
+        fixed = drawing.style("S", fixed_height=local)
+        handle = drawing.text("X", height=None, style_handle=fixed, owner=block)
+    else:
+        if step is HeightSource.BLOCK:
+            drawing.text("SIBLING", height=local, owner=block)
+        handle = drawing.text("X", height=None, owner=block)
+    return drawing, block, handle
+
+
+_OUT_OF_THE_FLOATS = [
+    # a world height that overflows to infinity, for every step
+    (HeightSource.OWN, 1e308, 1e10),
+    (HeightSource.INLINE, 1e11, 1e300),  # an inline height is read only below 1e12
+    (HeightSource.STYLE, 1e308, 1e10),
+    (HeightSource.BLOCK, 1e308, 1e10),
+    (HeightSource.DEFAULT, 2.5, 1e308),
+    # and one that underflows to 0 through a scale above 0 (a scale of 0 was passed over before)
+    (HeightSource.OWN, 1e-10, 1e-315),
+    (HeightSource.INLINE, 1e-10, 1e-315),
+    (HeightSource.STYLE, 1e-10, 1e-315),
+    (HeightSource.BLOCK, 1e-10, 1e-315),
+]
+
+
+@pytest.mark.parametrize(("step", "local", "scale"), _OUT_OF_THE_FLOATS)
+def test_the_world_height_is_finite_and_above_zero_whatever_the_insert_scales_it_by(
+    step: HeightSource, local: float, scale: float
+) -> None:
+    """On `main` an MTEXT of height 1e308 in an insert scaled 1e10 gave `value=inf` (measured 29 Sep
+    2026): a scale the floats cannot carry the height through is passed over, for every step."""
+    drawing, block, handle = _in_a_block(step, local)
+    top = drawing.insert(block, scale=(scale, scale, 1.0))
+    artefact = drawing.artefact()
+    entity = artefact.entities[handle]
+    assert isinstance(entity, Text)
+
+    found = mtext.resolve(entity, chain(artefact, [top]), artefact=artefact)
+
+    assert found == mtext.Height(local, local, step)
+    assert math.isfinite(found.value)
+    assert found.value > 0
 
 
 def test_an_mtext_without_height_in_a_block_takes_its_blocks_usual_height_times_the_insert() -> None:

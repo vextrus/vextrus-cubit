@@ -89,6 +89,7 @@ def read(path: Path, *, source_name: str, limits: Limits = DEFAULT_LIMITS) -> Re
         notes=notes,
         blocks=decoded.blocks,
         entities=entities,
+        styles=decoded.styles,
     )
 
 
