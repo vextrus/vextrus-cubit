@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest'
 import { i18n } from '@lingui/core'
 import { BANGLADESH } from '@/app/seed/demo.fixture'
 import { createFormat } from './Format'
-import { lengthFromInches, lengthFromMm, type Length } from './notation'
+import { lengthFromFeetInches, lengthFromInches, lengthFromMm, type Length } from './notation'
 import type { MarketFormat } from './profile'
 import table from './tests/expected-strings.json'
 import testMarket from './tests/test-market.json'
@@ -84,9 +84,32 @@ describe('the table of expected strings', () => {
   })
 })
 
+describe('an input that is no figure shows the empty figure, never NaN', () => {
+  const f = createFormat(BANGLADESH, 'imperial', i18n)
+  it.each([
+    ['a length', () => f.text.length(lengthFromMm(Number.NaN)).screen],
+    ['a plain length', () => f.text.length(lengthFromMm(Number.POSITIVE_INFINITY)).plain],
+    ['a level', () => f.text.level(lengthFromInches(Number.NaN)).screen],
+    ['money', () => f.money({ amount: 'abc', currency: 'BDT' })],
+    ['a quantity', () => f.quantity('12,5')],
+    ['an integer', () => f.integer(Number.NaN)],
+    ['a scale', () => f.text.scale(Number.NaN).screen],
+    ['a share of infinity', () => f.share(5, Number.POSITIVE_INFINITY)],
+  ])('%s', (_, run) => {
+    expect(run()).toBe('—')
+  })
+})
+
 describe('the formatters keep to the Market', () => {
   it('refuse a unit system the Market does not offer', () => {
     expect(() => createFormat(testMarket as MarketFormat, 'imperial', i18n)).toThrow(/does not offer/)
+  })
+
+  it('build a length from feet and inches as the drawing writes it, −0′-6″ included', () => {
+    const f = createFormat(BANGLADESH, 'imperial', i18n)
+    expect(f.text.level(lengthFromFeetInches(-0, 6)).screen).toBe('−0′-6″')
+    expect(f.text.level(lengthFromFeetInches(-3, 6)).screen).toBe('−3′-6″')
+    expect(f.text.length(lengthFromFeetInches(42, 7.5)).screen).toBe('42′-7½″')
   })
 
   it('count days in the Market’s time zone', () => {

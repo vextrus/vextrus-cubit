@@ -84,8 +84,12 @@ function write(profile: MarketFormat, value: Decimal, options: Intl.NumberFormat
     .join('')
 }
 
+const DECIMAL = /^[-+]?\d+(\.\d+)?$/
+
+/** No figure to show: nothing given, or something that is not a finite decimal (never "NaN"). */
 function isEmpty(value: Decimal | null | undefined): value is null | undefined {
-  return value === null || value === undefined || value === ''
+  if (value === null || value === undefined) return true
+  return typeof value === 'number' ? !Number.isFinite(value) : !DECIMAL.test(value.trim())
 }
 
 /** A whole number, grouped as the Market groups: 2,45,600. */
@@ -142,7 +146,7 @@ export function formatCount(n: number, N: number | null, profile: MarketFormat):
  * before the whole is reached, nor 0% once something has begun; with nothing to share of, "—".
  */
 export function formatShare(part: number, whole: number, profile: MarketFormat): string {
-  if (!(whole > 0) || !Number.isFinite(part)) return EMPTY
+  if (!(whole > 0) || !Number.isFinite(whole) || !Number.isFinite(part)) return EMPTY
   let percent = Math.round((part / whole) * 100)
   if (part < whole && percent >= 100) percent = 99
   if (part > 0 && percent <= 0) percent = 1

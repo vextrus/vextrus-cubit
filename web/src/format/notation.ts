@@ -22,8 +22,10 @@ export function lengthFromInches(inches: number): Length {
   return { mm: inches * 25.4 } as Length
 }
 
+/** Feet and inches as a drawing writes them: −0′-6″ is `lengthFromFeetInches(-0, 6)`. */
 export function lengthFromFeetInches(feet: number, inches = 0): Length {
-  return lengthFromInches(feet * 12 + Math.sign(feet || 1) * inches)
+  const negative = feet < 0 || Object.is(feet, -0)
+  return lengthFromInches((Math.abs(feet) * 12 + inches) * (negative ? -1 : 1))
 }
 
 /** A figure in both forms. */
@@ -36,6 +38,17 @@ const MINUS = '−'
 const PLUS = '+'
 const PLUS_MINUS = '±'
 const NBSP = '\u00a0'
+const EMPTY = '—'
+const NONE: NotationText = { screen: EMPTY, plain: EMPTY }
+
+/**
+ * Rounds a non-negative value half up. The small nudge lets a value a float holds just under its half
+ * (3/16″ in millimetres is 1.4999999999999998 eighths) round the same way as its exact twin, so one
+ * length never prints two ways.
+ */
+function halfUp(value: number): number {
+  return Math.floor(value + 0.5 + 1e-9)
+}
 
 /** Eighths of an inch: the glyph on screen and the plain form after the whole inches. */
 const EIGHTHS: readonly (readonly [string, string])[] = [
@@ -59,7 +72,8 @@ function sign(negative: boolean, zero: boolean, mode: Sign): { screen: string; p
 
 /** Feet and inches to the nearest 1/8″, inches always shown: 12′-0″, 42′-7½″. */
 function feetInches(mm: number, mode: Sign): NotationText {
-  const eighths = Math.round((Math.abs(mm) / 25.4) * 8)
+  if (!Number.isFinite(mm)) return NONE
+  const eighths = halfUp((Math.abs(mm) * 80) / 254)
   const feet = Math.floor(eighths / 96)
   const inches = Math.floor((eighths % 96) / 8)
   const [glyph, fraction] = EIGHTHS[eighths % 8]!
@@ -70,30 +84,33 @@ function feetInches(mm: number, mode: Sign): NotationText {
   }
 }
 
-function fixed(value: number, decimals: number, unit: string, mode: Sign): NotationText {
-  const rounded = Math.abs(value).toFixed(decimals)
-  const zero = Number(rounded) === 0
-  const s = sign(value < 0, zero, mode)
-  return { screen: `${s.screen}${rounded}${NBSP}${unit}`, plain: `${s.plain}${rounded} ${unit}` }
+/** Whole millimetres (3050 mm) or metres to 3 decimals (152.400 m), rounded once, in millimetres. */
+function metric(mm: number, unit: 'mm' | 'm', mode: Sign): NotationText {
+  if (!Number.isFinite(mm)) return NONE
+  const whole = halfUp(Math.abs(mm))
+  const figure = unit === 'mm' ? String(whole) : `${Math.floor(whole / 1000)}.${String(whole % 1000).padStart(3, '0')}`
+  const s = sign(mm < 0, whole === 0, mode)
+  return { screen: `${s.screen}${figure}${NBSP}${unit}`, plain: `${s.plain}${figure} ${unit}` }
 }
 
 /** A length: 10′-4½″, or whole millimetres (3050 mm). */
 export function lengthText(length: Length, notation: LengthNotation): NotationText {
-  return notation === 'feet-inches' ? feetInches(length.mm, 'negative') : fixed(length.mm, 0, 'mm', 'negative')
+  return notation === 'feet-inches' ? feetInches(length.mm, 'negative') : metric(length.mm, 'mm', 'negative')
 }
 
 /** A coordinate, its own kind: 42′-7½″, −3′-6″, or metres to 3 decimals (152.400 m). */
 export function coordinateText(coordinate: Length, notation: LengthNotation): NotationText {
-  return notation === 'feet-inches' ? feetInches(coordinate.mm, 'negative') : fixed(coordinate.mm / 1000, 3, 'm', 'negative')
+  return notation === 'feet-inches' ? feetInches(coordinate.mm, 'negative') : metric(coordinate.mm, 'm', 'negative')
 }
 
 /** A level, always signed: +56′-6″, ±0′-0″, −3.200 m. */
 export function levelText(level: Length, notation: LengthNotation): NotationText {
-  return notation === 'feet-inches' ? feetInches(level.mm, 'always') : fixed(level.mm / 1000, 3, 'm', 'always')
+  return notation === 'feet-inches' ? feetInches(level.mm, 'always') : metric(level.mm, 'm', 'always')
 }
 
 /** A stated scale: 1:100 from its denominator, or the drawing's own words for it as read. */
 export function scaleText(scale: number | string): NotationText {
+  if (typeof scale === 'number' && !Number.isFinite(scale)) return NONE
   const text = typeof scale === 'number' ? `1:${scale}` : scale.trim()
   return { screen: text, plain: text }
 }
