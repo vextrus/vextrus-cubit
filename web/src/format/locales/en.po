@@ -1,0 +1,82 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-09-28 08:13+0000\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: en\n"
+
+#: src/format/dates.ts
+msgctxt "short month"
+msgid "Dec"
+msgstr "Dec"
+
+#: src/format/units.ts
+msgctxt "unit system"
+msgid "Imperial"
+msgstr "Imperial"
+
+#: src/format/dates.ts
+msgctxt "short month"
+msgid "Jul"
+msgstr "Jul"
+
+#: src/format/dates.ts
+msgctxt "short month"
+msgid "Oct"
+msgstr "Oct"
+
+#: src/format/machine.tsx
+msgid "Vextrus has something to tell you here but no words for it yet."
+msgstr "Vextrus has something to tell you here but no words for it yet."
+
+#: src/format/dates.ts
+msgctxt "short month"
+msgid "Mar"
+msgstr "Mar"
+
+#: src/format/dates.ts
+msgctxt "short month"
+msgid "Jan"
+msgstr "Jan"
+
+#: src/format/dates.ts
+msgctxt "short month"
+msgid "May"
+msgstr "May"
+
+#: src/format/dates.ts
+msgctxt "short month"
+msgid "Jun"
+msgstr "Jun"
+
+#: src/format/dates.ts
+msgctxt "short month"
+msgid "Feb"
+msgstr "Feb"
+
+#: src/format/dates.ts
+msgctxt "short month"
+msgid "Sep"
+msgstr "Sep"
+
+#: src/format/units.ts
+msgctxt "unit system"
+msgid "Metric"
+msgstr "Metric"
+
+#: src/format/dates.ts
+msgctxt "short month"
+msgid "Nov"
+msgstr "Nov"
+
+#: src/format/dates.ts
+msgctxt "short month"
+msgid "Apr"
+msgstr "Apr"
+
+#: src/format/dates.ts
+msgctxt "short month"
+msgid "Aug"
+msgstr "Aug"

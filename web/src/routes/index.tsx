@@ -1,15 +1,11 @@
 /*
- * "/" until ticket 03's frame replaces it: the brand mark on the grey table, nothing to read.
+ * "/": the member's projects (ticket 20a builds /projects; until then it shows "Page not found").
  */
-import { createFileRoute } from '@tanstack/react-router'
-import { BrandMark } from '@/ui/glyphs'
+import { createFileRoute, redirect } from '@tanstack/react-router'
+import { PATHS } from '@/app/AppLink'
 
-export const Route = createFileRoute('/')({ component: Home })
-
-function Home() {
-  return (
-    <main className="flex min-h-dvh items-center justify-center bg-background">
-      <BrandMark size={48} />
-    </main>
-  )
-}
+export const Route = createFileRoute('/')({
+  beforeLoad: () => {
+    throw redirect({ to: PATHS.projects as '/' })
+  },
+})
