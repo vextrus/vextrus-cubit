@@ -118,6 +118,9 @@ NARROWER = {
     "django_migrations": {"SELECT"},  # only the owner migrates
     "platform_market": {"SELECT"},  # Markets are the owner's data
     "platform_domainevent": {"SELECT", "INSERT"},  # append-only
+    "platform_storedfile": {"SELECT", "INSERT"},  # a key names one content for good (09)
+    "procrastinate_events": {"SELECT", "INSERT"},  # a job's history, added to by triggers (09)
+    "procrastinate_jobs": {"SELECT", "INSERT", "UPDATE"},  # the worker keeps every job (09)
     "live_model_record": {"SELECT", "INSERT"},  # append-only: a correction is a new Record
     # Append-only but for closing its validity: UPDATE of valid_to_seq alone (live_model 0001).
     "live_model_elementrelation": {"SELECT", "INSERT"},
