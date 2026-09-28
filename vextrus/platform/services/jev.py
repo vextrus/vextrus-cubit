@@ -234,9 +234,13 @@ class Judgement:
     """Every option offered with its probability, in the order offered."""
 
     def ranked(self) -> tuple[str, ...]:
-        """The options, most likely first (ties in the order offered): "the kinds, most likely first"."""
+        """The options, most likely first: "the kinds, most likely first". Among equals the choice
+        leads (reading to six places can tie it with another), then the order offered."""
         order = {option: at for at, (option, _p) in enumerate(self.probabilities)}
-        ranked = sorted(self.probabilities, key=lambda pair: (-pair[1], order[pair[0]]))
+        ranked = sorted(
+            self.probabilities,
+            key=lambda pair: (-pair[1], pair[0] != self.choice, order[pair[0]]),
+        )
         return tuple(option for option, _p in ranked)
 
     def probability(self, option: str) -> Decimal:
@@ -446,12 +450,16 @@ def _strict_json(text: str) -> Any:
 
 
 def _unit(value: object) -> Decimal | None:
-    """A number from 0 to 1 as a Decimal to six places; None for anything else (a bool, a string)."""
+    """A number from 0 to 1 as a Decimal, as written; None for anything else (a bool, a string)."""
     if type(value) is int or type(value) is Decimal:
         number = Decimal(value)
         if number.is_finite() and 0 <= number <= 1:
-            return number.quantize(_PLACES, ROUND_HALF_EVEN)
+            return number
     return None
+
+
+def _six_places(number: Decimal) -> Decimal:
+    return number.quantize(_PLACES, ROUND_HALF_EVEN)
 
 
 def _judgement(body: bytes, request: Request) -> Judgement | None:
@@ -480,9 +488,11 @@ def _judgement(body: bytes, request: Request) -> Judgement | None:
         return None
     probabilities = tuple((option, _unit(given[option])) for option in request.options)
     checked = tuple((option, p) for option, p in probabilities if p is not None)
+    # The choice is the most probable as written, before rounding can tie it with another.
     if len(checked) != len(probabilities) or dict(checked)[choice] != max(p for _o, p in checked):
         return None
-    return Judgement(node.key, node.model, choice, confidence, checked)
+    read = tuple((option, _six_places(p)) for option, p in checked)
+    return Judgement(node.key, node.model, choice, _six_places(confidence), read)
 
 
 # The sockets: every wait cut to the call's deadline ---------------------------------------------------

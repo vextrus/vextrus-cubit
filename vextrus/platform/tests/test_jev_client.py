@@ -309,6 +309,38 @@ def test_a_vanishing_probability_is_read_to_six_places() -> None:
     assert all(p.as_tuple().exponent == -6 for _o, p in answer.probabilities)
 
 
+# Found by the refuter (round 1): reading to six places made a tie of a strictly smaller choice.
+TIED_BY_ROUNDING = '{"floor_plan":0.4999999,"beam_layout":0.4999996,"other":0.0000005}'
+
+
+def test_a_choice_less_probable_than_another_is_malformed_even_when_rounding_ties_them() -> None:
+    body = raw(f'{CHOICE},"confidence":0.1,"probabilities":{TIED_BY_ROUNDING}')
+
+    assert judge(client(Script(httpx.Response(200, content=body)))) == jev.Unavailable(jev.Why.MALFORMED)
+
+
+def test_the_choice_leads_the_ranking_when_rounding_ties_it_with_another() -> None:
+    body = raw(
+        '"type":"choice","choice":"floor_plan","confidence":0.1,"probabilities":'
+        '{"floor_plan":0.4999999,"beam_layout":0.4999996,"other":0.0000005}'
+    )
+
+    answer = judge(client(Script(httpx.Response(200, content=body))))
+
+    assert isinstance(answer, jev.Judgement)
+    assert answer.probability("floor_plan") == answer.probability("beam_layout") == Decimal("0.5")
+    assert answer.ranked() == ("floor_plan", "beam_layout", "other")
+    # and in the order offered, the choice leads its equals wherever it was offered
+    offered_later = jev.Judgement(
+        "sheet_type",
+        "jev-1.13.0",
+        "other",
+        Decimal("0.1"),
+        (("beam_layout", Decimal("0.4")), ("floor_plan", Decimal("0.2")), ("other", Decimal("0.4"))),
+    )
+    assert offered_later.ranked() == ("other", "beam_layout", "floor_plan")
+
+
 def test_a_fault_reading_an_answer_is_failed_never_raised(monkeypatch: pytest.MonkeyPatch) -> None:
     def broken(body: bytes, request: jev.Request) -> jev.Judgement | None:
         raise RecursionError("as a decoder might")
