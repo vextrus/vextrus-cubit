@@ -9,7 +9,16 @@ import numpy as np
 import pytest
 
 from engine.recognise.types import Box, SheetCandidate, SheetLocation
-from engine.render.buffers import HEADER, SECTION, BufferError, Limits, PaperSource, SheetBuffers, build
+from engine.render.buffers import (
+    HEADER,
+    SECTION,
+    BufferError,
+    Limits,
+    PaperSource,
+    SheetBuffers,
+    build,
+    is_main_viewport,
+)
 from engine.render.fixtures.artefacts import PAPER, Drawing
 from engine.render.raster import rasterise
 
@@ -812,6 +821,26 @@ def test_autocads_main_viewport_is_not_the_sheet(
     assert (built.paper.width_mm, built.paper.height_mm) == pytest.approx(
         (w * mm_per_unit, h * mm_per_unit)
     )
+
+
+@pytest.mark.parametrize(
+    ("values", "first", "main"),
+    [
+        ({"id": 1, "center": [0.0, 0.0, 0.0], "view_center_point": [9.0, 9.0, 0.0]}, False, True),
+        ({"id": 2, "center": [5.0, 5.0, 0.0], "height": 10.0,
+          "view_center_point": [5.0, 5.0, 0.0], "view_height": 10.0}, True, False),
+        ({}, True, True),
+        ({}, False, False),
+        ({"id": 0, "center": [5.0, 5.0, 0.0], "height": 10.0,
+          "view_center_point": [5.0, 5.0, 0.0], "view_height": 10.0}, True, True),
+        ({"id": 0, "center": [5.0, 5.0, 0.0], "height": 10.0,
+          "view_center_point": [500.0, 5.0, 0.0], "view_height": 1000.0}, True, False),
+    ],
+)  # fmt: skip
+def test_the_main_viewport_rule_is_public(values: dict[str, object], first: bool, main: bool) -> None:
+    """13 asks the renderer's own rule whether a viewport is AutoCAD's main one, so "a layout whose
+    viewports show nothing" and the paper the renderer draws agree on which viewports count."""
+    assert is_main_viewport(values, first) is main
 
 
 def test_a_first_viewport_with_id_0_that_shows_model_space_is_still_a_view() -> None:

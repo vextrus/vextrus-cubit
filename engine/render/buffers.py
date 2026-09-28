@@ -1098,7 +1098,7 @@ def _layout_box(artefact: ReadArtefact, handle: str) -> tuple[tuple[float, float
     first = True
     for entity in entities:
         if isinstance(entity, Entity) and entity.type == "VIEWPORT":
-            if not _is_main_viewport(dict(entity.values), first):
+            if not is_main_viewport(dict(entity.values), first):
                 box = _union(box, _viewport_rect(entity))
             first = False
     points = [own_ocs(e).apply(e.position)[:2] for e in entities if isinstance(e, Text)]
@@ -1130,7 +1130,7 @@ def _most_outside(points: list[tuple[float, float]], box: tuple[float, float, fl
     return outside * 2 > len(points)
 
 
-def _is_main_viewport(values: dict[str, Any], first: bool) -> bool:
+def is_main_viewport(values: dict[str, Any], first: bool) -> bool:
     """AutoCAD's main viewport of a layout: its window on paper space at the last save, not a view
     of model space nor the sheet. It is id 1; a reader that gives no id, or 0 for every viewport
     (ACadSharp's DWGs), leaves the layout's first viewport, when it shows paper space itself (its
@@ -1411,7 +1411,7 @@ def _viewports(
         if not isinstance(viewport, Entity) or viewport.type != "VIEWPORT":
             continue
         values = dict(viewport.values)
-        main = _is_main_viewport(values, first)
+        main = is_main_viewport(values, first)
         first = False
         if main:
             continue  # the layout's own overall viewport shows paper space itself
@@ -1546,4 +1546,5 @@ __all__ = [
     "Paper",
     "SheetBuffers",
     "build",
+    "is_main_viewport",
 ]

@@ -3,6 +3,7 @@
 import itertools
 import math
 import random
+from typing import Any
 
 import ezdxf
 import numpy as np
@@ -13,11 +14,15 @@ from engine.geometry.placement import (
     MAX_DEPTH,
     PlacementError,
     Refusal,
+    Transform,
     Walk,
     chain,
     chain_transform,
     link,
     ocs,
+    rotation_z,
+    scaling,
+    translation,
     world,
 )
 from engine.read.artefact import Insert
@@ -297,3 +302,70 @@ def test_a_block_inserting_the_block_walked_from_is_a_loop() -> None:
 
     assert found == [("LINE", 0), ("INSERT", 0)]
     assert walked.refused[Refusal.LOOP] == 1
+
+
+# Transform.inverse (13: text placed in a rotated, scaled or mirrored frame is read in the frame's
+# own coordinates).
+
+
+@pytest.mark.parametrize(
+    "attribs",
+    [
+        {"insert": (100, 200, 0)},
+        {"insert": (5, -7, 0), "rotation": 90, "xscale": 48, "yscale": 48},
+        {"insert": (1000, 0, 0), "rotation": 30, "xscale": 2, "yscale": -2, "zscale": 1},
+        {"insert": (-50, 25, 0), "extrusion": (0, 0, -1), "xscale": 96, "yscale": 96},
+        {"insert": (3, 4, 5), "rotation": 270, "extrusion": (0.6, 0, 0.8), "xscale": 0.5},
+    ],
+)
+def test_an_inverse_takes_a_world_point_back_to_the_block(attribs: dict[str, Any]) -> None:
+    """The oracle is ezdxf's own insert matrix: block point (1, 2, 0) lands where ezdxf puts it, and
+    the inverse brings that world point back to (1, 2, 0)."""
+    landed = _ezdxf_point(**dict(attribs))
+    drawing = Drawing()
+    block = drawing.block("B")
+    x, y, z = (float(v) for v in attribs["insert"])
+    ex, ey, ez = (float(v) for v in attribs.get("extrusion", (0, 0, 1)))
+    insert = drawing.insert(
+        block,
+        (x, y, z),
+        scale=(
+            float(attribs.get("xscale", 1)),
+            float(attribs.get("yscale", 1)),
+            float(attribs.get("zscale", 1)),
+        ),
+        rotation_radians=math.radians(float(attribs.get("rotation", 0))),
+        extrusion=(ex, ey, ez),
+    )
+    placed = chain_transform(chain(drawing.artefact(), [insert]))
+
+    assert _close(placed.apply((1, 2, 0)), landed, 1e-9)
+    assert _close(placed.inverse().apply(landed), (1.0, 2.0, 0.0), 1e-9)
+
+
+def test_an_inverse_undoes_its_transform_in_either_order() -> None:
+    placed = translation(10, -4, 2) @ rotation_z(1.1) @ scaling(3, -0.25, 7) @ ocs((0.3, -0.4, 0.8))
+    identity = (1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0)
+
+    assert _close((placed.inverse() @ placed).m, identity, 1e-12)
+    assert _close((placed @ placed.inverse()).m, identity, 1e-12)
+
+
+@pytest.mark.parametrize(
+    "placed",
+    [
+        scaling(0, 1),
+        scaling(1, 0),
+        scaling(1, 1, 0),
+        Transform((1.0, 2.0, 0.0, 0.0, 2.0, 4.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0)),
+        translation(math.inf, 0),
+        translation(0, math.nan),
+        scaling(1e-200, 1e-200, 1e-200),
+        scaling(1e200, 1e200, 1e200),
+    ],
+)
+def test_a_singular_or_non_finite_transform_has_no_inverse(placed: Transform) -> None:
+    """A frame inserted at a scale of 0, or at one whose inverse overflows, is refused, never
+    divided by."""
+    with pytest.raises(PlacementError):
+        placed.inverse()
