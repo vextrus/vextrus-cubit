@@ -375,7 +375,7 @@ class JevAnswer(models.Model):
         constraints: ClassVar = [
             models.UniqueConstraint(fields=["tenant_id", "cache_key"], name="platform_jevanswer_key"),
             # The target of JevOverride's key, so an override carries its answer's node, model and
-            # choice and no other (migration 0007).
+            # choice and no other (migration 0008).
             models.UniqueConstraint(
                 fields=["tenant_id", "id", "node", "model_version", "choice"],
                 name="platform_jevanswer_what",
@@ -406,7 +406,7 @@ class JevOverride(models.Model):
     """A QS's change of a Jev proposal (ADR 0011 item 4; story 85): the node's live error rate.
 
     Append-only. Its node, model and Jev's choice are its answer's, which a composite key holds
-    (migration 0007); the QS's choice is never Jev's. `subject_id` is what the proposal was about (a
+    (migration 0008); the QS's choice is never Jev's. `subject_id` is what the proposal was about (a
     Proposal: an upward stamp, never resolved here).
     """
 

@@ -86,7 +86,7 @@ OVERRIDE_REVERSE = [
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('platform', '0006_stored_file'),
+        ('platform', '0007_ended_access_and_fixed_market'),
     ]
 
     operations = [
