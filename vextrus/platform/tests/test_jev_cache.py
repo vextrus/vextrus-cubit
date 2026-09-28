@@ -352,3 +352,33 @@ def test_the_propose_threshold_is_the_node_s_setting(
     )
     with pytest.raises(ValueError, match="not sheet_type's"):
         jev.SHEET_TYPE.proposes(other)
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    ("written", "read"),
+    [("0.8999496", "0.8999"), ("0.89995", "0.8999"), ("0.89999999", "0.8999"), ("0.9", "0.9000")],
+)
+def test_a_confidence_is_read_once_to_four_places_rounding_down_so_judge_and_ask_agree(
+    written: str, read: str, make_developer: Callable[..., uuid.UUID], jev_offline: Offline
+) -> None:
+    # Found by the refuter (round 2): read to six places, then stored to four, 0.8999496 became
+    # 0.9000 and proposed through `ask` while `judge` on the same answer did not.
+    body = (
+        '{"model":"jev-1.13.0","answers":{"sheet_type":{"type":"choice","choice":"beam_layout",'
+        f'"confidence":{written},"probabilities":{{"beam_layout":0.95,"floor_plan":0.05}}}}}}}}'
+    ).encode()
+    options = ("beam_layout", "floor_plan")
+    jev_offline.use(httpx.MockTransport(lambda request: httpx.Response(200, content=body)))
+
+    judged = jev_offline.client.judge("sheet_type", SHEET, STAND_IN_QUESTION, options)
+    with tenancy.acting_in(make_developer()):
+        asked_now = jev.ask("sheet_type", SHEET, STAND_IN_QUESTION, options)
+        asked_again = jev.ask("sheet_type", SHEET, STAND_IN_QUESTION, options)
+
+    assert isinstance(judged, jev.Judgement)
+    assert isinstance(asked_now, jev.Answer)
+    assert isinstance(asked_again, jev.Answer)
+    assert judged.confidence == asked_now.confidence == asked_again.confidence == Decimal(read)
+    proposes = {jev.SHEET_TYPE.proposes(answer) for answer in (judged, asked_now, asked_again)}
+    assert proposes == {Decimal(written) >= Decimal("0.90")}

@@ -69,7 +69,7 @@ from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
-from decimal import ROUND_HALF_EVEN, Decimal
+from decimal import ROUND_DOWN, ROUND_HALF_EVEN, Decimal
 from enum import StrEnum
 from itertools import combinations
 from types import MappingProxyType, TracebackType
@@ -376,7 +376,10 @@ _DEEPEST = 8
 """The deepest an answer may nest (a Choice's probabilities are four deep); deeper is refused before
 parsing, since Python's decoder recurses and could exhaust the stack."""
 _PLACES = Decimal("0.000001")
-"""Probabilities and confidences are read to six decimal places, so none is stored at any length."""
+"""Probabilities are read to six decimal places, so none is stored at any length."""
+_CONFIDENCE_PLACES = Decimal("0.0001")
+"""A confidence is read once, to the four places JevAnswer keeps, rounding down: never up across a
+threshold, and the same whether it came from TypeSafe or the cache."""
 
 
 class _Refused(ValueError):
@@ -492,7 +495,8 @@ def _judgement(body: bytes, request: Request) -> Judgement | None:
     if len(checked) != len(probabilities) or dict(checked)[choice] != max(p for _o, p in checked):
         return None
     read = tuple((option, _six_places(p)) for option, p in checked)
-    return Judgement(node.key, node.model, choice, _six_places(confidence), read)
+    confidence = confidence.quantize(_CONFIDENCE_PLACES, ROUND_DOWN)
+    return Judgement(node.key, node.model, choice, confidence, read)
 
 
 # The sockets: every wait cut to the call's deadline ---------------------------------------------------
@@ -849,7 +853,7 @@ def ask(node: str | Node, facts: Facts, question: str, options: Options) -> Answ
                 model_version=judged.model,
                 options=list(request.options),
                 choice=judged.choice,
-                confidence=judged.confidence.quantize(Decimal("0.0001"), ROUND_HALF_EVEN),
+                confidence=judged.confidence,
                 probabilities={option: format(p.normalize(), "f") for option, p in judged.probabilities},
             )
         ],

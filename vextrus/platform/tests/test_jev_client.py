@@ -305,7 +305,7 @@ def test_a_vanishing_probability_is_read_to_six_places() -> None:
         ("floor_plan", Decimal("0.000000")),
         ("other", Decimal("0.000000")),
     )
-    assert answer.confidence == Decimal(1)
+    assert answer.confidence == Decimal("0.9999")  # read once to four places, rounding down
     assert all(p.as_tuple().exponent == -6 for _o, p in answer.probabilities)
 
 
