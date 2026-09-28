@@ -16,8 +16,9 @@ from unittest import mock
 import pytest
 from django.db import DatabaseError, IntegrityError, connection, transaction
 from django.test import override_settings
+from django.utils import timezone
 
-from vextrus.platform.models import StoredFile
+from vextrus.platform.models import Membership, StoredFile
 from vextrus.platform.services import storage, tenancy
 from vextrus.testing.tenancy import Member
 
@@ -278,6 +279,26 @@ def test_a_member_scoped_to_projects_neither_reads_nor_keeps_another_project_s_f
         own_key = storage.key(PROJECT, "original.dwg")
         put(own_key)
         assert storage.get(own_key) == CONTENT
+
+
+@pytest.mark.django_db
+def test_a_person_whose_membership_has_ended_neither_reads_nor_keeps_any_file(
+    root: Path, sign_in: Callable[..., Member]
+) -> None:
+    member = sign_in(role="qs")
+    with member.acting():
+        key = storage.key(PROJECT, "original.dwg")
+        put(key)
+        Membership.objects.filter(id=member.membership_id).update(revoked_at=timezone.now())
+
+    with tenancy.acting_in(member.developer_id, user_id=member.user.pk) as acting:
+        assert acting.membership is None
+        with pytest.raises(storage.FileMissing):
+            storage.get(key)
+        with pytest.raises(storage.KeyRefused):
+            put(storage.key(PROJECT, "planted.dwg"))
+    with tenancy.acting_in(member.developer_id):  # the system, for no user, still reads it
+        assert storage.get(key) == CONTENT
 
 
 @pytest.mark.django_db

@@ -19,10 +19,11 @@ import pytest
 from django.conf import settings
 from django.db import DatabaseError, connection, connections, transaction
 from django.test.utils import CaptureQueriesContext
+from django.utils import timezone
 from procrastinate import jobs as procrastinate_jobs
 from procrastinate.job_context import AbortReason
 
-from vextrus.platform.models import Developer
+from vextrus.platform.models import Developer, Membership
 from vextrus.platform.services import jobs, tenancy
 from vextrus.platform.startup import StartupRefused
 from vextrus.testing import jobs as sample
@@ -167,7 +168,8 @@ def test_a_deferred_job_carries_its_tenant_its_user_and_its_ids_as_text(
         "subject_id": str(subject),
     }
     assert row["lock"] == (
-        f"{sample.two_steps.name}:subject_id={subject},tenant_id={member.developer_id}"
+        f"{member.developer_id}:{sample.two_steps.name}:"
+        f"subject_id={subject},tenant_id={member.developer_id}"
     )
 
 
@@ -199,7 +201,14 @@ def test_the_app_may_insert_a_job_only_for_the_tenant_it_acts_in(
                 insert_job(cursor, args)
         with connection.cursor() as cursor:
             insert_job(cursor, f'{{"tenant_id": "{mine}", "subject_id": "{uuid.uuid4()}"}}')
-            insert_job(cursor, '{"timestamp": 1}')  # a periodic job names no tenant
+        with (
+            pytest.raises(DatabaseError, match="only for the tenant it acts in"),
+            transaction.atomic(),
+            connection.cursor() as cursor,
+        ):
+            insert_job(cursor, '{"timestamp": 1}')  # naming no tenant, while acting in one
+    with connection.cursor() as cursor:
+        insert_job(cursor, '{"timestamp": 1}')  # a periodic job, deferred by a worker (no tenant)
 
     with (
         pytest.raises(DatabaseError, match="only for the tenant it acts in"),
@@ -219,7 +228,7 @@ def test_the_app_may_never_rewrite_a_job_s_arguments(
     for acting in (mine, theirs, None):
         with (
             tenancy.acting_in(acting),
-            pytest.raises(DatabaseError, match="may not rewrite a job's arguments"),
+            pytest.raises(DatabaseError, match="task, queue, lock or arguments"),
             transaction.atomic(),
             connection.cursor() as cursor,
         ):
@@ -232,11 +241,107 @@ def test_the_app_may_never_rewrite_a_job_s_arguments(
         cursor.execute("update procrastinate_jobs set status = 'doing' where id = %s", [job_id])
 
 
+@pytest.mark.django_db
+def test_the_app_may_defer_a_job_only_as_the_user_it_acts_as_and_only_waiting(
+    make_developer: Callable[..., uuid.UUID],
+) -> None:
+    developer = make_developer()
+    user, _membership = add_member(developer)
+    someone_else, _other = add_member(make_developer())
+    subject = uuid.uuid4()
+    refusals = [
+        (
+            f'{{"tenant_id": "{developer}", "user_id": "{someone_else.pk}", "subject_id": "{subject}"}}',
+            "insert into procrastinate_jobs (queue_name, task_name, args) values (%s, %s, %s::jsonb)",
+            "only for the user it acts as",
+        ),
+        (
+            f'{{"tenant_id": "{developer}", "subject_id": "{subject}"}}',
+            (
+                "insert into procrastinate_jobs (queue_name, task_name, args, status)"
+                " values (%s, %s, %s::jsonb, 'doing')"
+            ),
+            "only as waiting",
+        ),
+        (
+            f'{{"tenant_id": "{developer}", "subject_id": "{subject}"}}',
+            (
+                "insert into procrastinate_jobs (queue_name, task_name, args, lock)"
+                f" values (%s, %s, %s::jsonb, '{uuid.uuid4()}:{sample.two_steps.name}:x')"
+            ),
+            "lock a job only under the tenant it acts in",
+        ),
+    ]
+    with tenancy.acting_in(developer, user_id=user.pk):
+        for args, sql, problem in refusals:
+            with (
+                pytest.raises(DatabaseError, match=problem),
+                transaction.atomic(),
+                connection.cursor() as cursor,
+            ):
+                cursor.execute(sql, [sample.TEST_QUEUE, sample.two_steps.name, args])
+        sample.two_steps.defer(subject_id=subject)  # the acting user, waiting, locked under its tenant
+
+
+@pytest.mark.django_db
+def test_the_app_may_not_retarget_reopen_rewind_delete_or_touch_another_tenant_s_job(
+    make_developer: Callable[..., uuid.UUID],
+) -> None:
+    mine, theirs = make_developer(), make_developer()
+    with tenancy.acting_in(theirs):
+        job_id = sample.two_steps.defer(subject_id=uuid.uuid4())
+    statements = [
+        ("update procrastinate_jobs set task_name = 'another.task' where id = %s", "task, queue"),
+        ("update procrastinate_jobs set queue_name = 'cad' where id = %s", "task, queue"),
+        ("update procrastinate_jobs set lock = 'x' where id = %s", "task, queue"),
+    ]
+    for sql, problem in statements:
+        with (
+            pytest.raises(DatabaseError, match=problem),
+            transaction.atomic(),
+            connection.cursor() as cursor,
+        ):
+            cursor.execute(sql, [job_id])
+    with tenancy.acting_in(mine):
+        for sql in (
+            "update procrastinate_jobs set status = 'cancelled' where id = %s",
+            "select procrastinate_cancel_job_v1(%s, true, false)",
+        ):
+            with (
+                pytest.raises(DatabaseError, match="only the jobs of the tenant it acts in"),
+                transaction.atomic(),
+                connection.cursor() as cursor,
+            ):
+                cursor.execute(sql, [job_id])
+        with (
+            pytest.raises(DatabaseError, match="permission denied"),
+            transaction.atomic(),
+            connection.cursor() as cursor,
+        ):
+            cursor.execute("delete from procrastinate_jobs where id = %s", [job_id])
+    with connection.cursor() as cursor:  # the worker's own path: it fails the job
+        cursor.execute(
+            "update procrastinate_jobs set status = 'failed', attempts = 3 where id = %s", [job_id]
+        )
+    for sql, problem in (
+        ("select procrastinate_retry_job_v2(%s, now(), null, null, null)", "reopen a job"),
+        ("update procrastinate_jobs set attempts = 0 where id = %s", "take back a job's tries"),
+    ):
+        with (
+            pytest.raises(DatabaseError, match=problem),
+            transaction.atomic(),
+            connection.cursor() as cursor,
+        ):
+            cursor.execute(sql, [job_id])
+
+
 # The worker's check of the arguments -------------------------------------------------------------
 
 
 def worker_context(job_id: int | None = None, task: str = sample.two_steps.name) -> Any:
-    return SimpleNamespace(job=SimpleNamespace(id=job_id, task_name=task), abort_reason=lambda: None)
+    return SimpleNamespace(
+        job=SimpleNamespace(id=job_id, task_name=task, attempts=0), abort_reason=lambda: None
+    )
 
 
 RAW_REFUSED = [
@@ -459,6 +564,58 @@ def test_no_setting_outlives_a_step_s_transaction(
         )
         assert cursor.fetchone() == ("", "", "")
     assert tenancy.current() == tenancy.Tenancy()
+
+
+@pytest.mark.django_db(transaction=True, databases=BOTH)
+def test_a_step_for_a_user_whose_membership_has_ended_is_refused(
+    make_developer: Callable[..., uuid.UUID], step_store: sample.TableStepStore
+) -> None:
+    developer = make_developer()
+    user, membership_id = add_member(developer)
+    with tenancy.acting_in(developer):
+        Membership.objects.filter(id=membership_id).update(revoked_at=timezone.now())
+    subject = uuid.uuid4()
+
+    with pytest.raises(jobs.JobRefused, match="no current Membership"):
+        sample.run_inline(sample.two_steps, tenant_id=developer, user_id=user.pk, subject_id=subject)
+    assert sample.committed_runs(subject) == []
+
+
+@pytest.mark.django_db(transaction=True, databases=BOTH)
+def test_a_step_may_not_leave_work_for_after_its_commit(
+    make_developer: Callable[..., uuid.UUID], step_store: sample.TableStepStore
+) -> None:
+    developer = make_developer()
+    subject = uuid.uuid4()
+    sample.script(developer, subject, first="on_commit")
+
+    with pytest.raises(jobs.OutsideStep, match="on_commit"):
+        sample.run_inline(sample.two_steps, tenant_id=developer, subject_id=subject)
+    assert sample.committed_runs(subject) == []
+
+
+@pytest.mark.django_db(transaction=True, databases=BOTH)
+@pytest.mark.parametrize("action", ["supersede", "vanish"])
+def test_a_try_that_was_superseded_or_whose_job_is_gone_commits_nothing(
+    make_developer: Callable[..., uuid.UUID],
+    step_store: sample.TableStepStore,
+    empty_test_queues: None,
+    action: str,
+) -> None:
+    developer = make_developer()
+    subject = uuid.uuid4()
+    sample.script(developer, subject, first=action)
+    with tenancy.acting_in(developer):
+        job_id = sample.two_steps.defer(subject_id=subject)
+    with connections["owner"].cursor() as cursor:  # as the worker's fetch leaves it
+        cursor.execute("update procrastinate_jobs set status = 'doing' where id = %s", [job_id])
+
+    with pytest.raises(jobs.Cancelled):
+        sample.run_inline(
+            sample.two_steps, tenant_id=developer, subject_id=subject, job_id=job_id, attempts=0
+        )
+    assert sample.recorded_steps(subject) == {}
+    assert sample.committed_runs(subject) == []
 
 
 @pytest.mark.django_db(transaction=True, databases=BOTH)

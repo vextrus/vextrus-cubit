@@ -18,7 +18,8 @@ What is refused (the trust boundary; each attack has its test in `tests/test_sto
 - a key whose first id is not the acting tenant's; row-level security hides another tenant's rows
   and a check holds every row's key to its own tenant and Project;
 - a key of a Project the acting Membership may not open (answered "missing", as `require` answers
-  "not found", so its existence does not leak);
+  "not found", so its existence does not leak), and any key for a person acting with no current
+  Membership (fail closed; a step for no user, the system, reads its tenant's);
 - a symbolic link, or anything but a directory or a regular file, planted anywhere under the root:
   every name is opened relative to its parent's descriptor with `O_NOFOLLOW`, never through a path.
 """
@@ -236,9 +237,13 @@ def _parse(text: object) -> _Key:
 
 
 def _check_scope(parsed: _Key, *, refuse: type[StorageError]) -> None:
-    """A Membership scoped to Projects reads and writes only theirs (its existence not leaked)."""
-    membership = tenancy.current_membership()
-    if membership is not None and not membership.may_open(parsed.project_id):
+    """A Membership scoped to Projects reads and writes only theirs (its existence not leaked); a
+    person acting with no current Membership (it ended, or staff in the admin) reads and writes none.
+    The system (a step for no user) reads its tenant's."""
+    acting = tenancy.current()
+    if acting.user_id is not None and acting.membership is None:
+        raise refuse(parsed.text)
+    if acting.membership is not None and not acting.membership.may_open(parsed.project_id):
         raise refuse(parsed.text)
 
 

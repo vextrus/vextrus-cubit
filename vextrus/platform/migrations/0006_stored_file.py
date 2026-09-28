@@ -7,15 +7,25 @@
 # - Procrastinate's tables stay global (the policy-coverage test's allowlist gives each reason): a
 #   worker takes any tenant's job, so no tenant setting can filter them. What keeps a tenant's jobs
 #   its own is the job wall below and the step runner (platform.services.jobs).
-# - The job wall: acting as vextrus_app, a job whose arguments name a tenant may be inserted only
-#   while acting in that tenant (app.tenant_id), and no job's arguments may ever be rewritten, so the
-#   app cannot make the worker act in another Developer. The function runs as its caller (not
-#   SECURITY DEFINER), so current_user is the app's role; the owner passes.
+# - The job wall (a trigger on procrastinate_jobs), so the app cannot make the worker act in another
+#   Developer or as another person, nor disturb another Developer's jobs. Acting as vextrus_app:
+#   - a job is inserted waiting, naming the tenant the app acts in (or, acting in none, no tenant:
+#     Procrastinate's periodic jobs), the user it acts as (or none), and, while acting in a tenant, a
+#     lock and queueing lock that begin with that tenant's id;
+#   - a job's arguments, task, queue and locks never change; an ended job never reopens; its tries
+#     never go back; and while acting in a tenant, only that tenant's jobs change (the worker, acting
+#     in none, fetches, finishes and retries any).
+#   The function runs as its caller (not SECURITY DEFINER), so current_user is the app's role; the
+#   owner passes. Like row-level security, it holds the app's code to its tenant: a role that can run
+#   any SQL can also set app.tenant_id.
+# - vextrus_app may not delete a job (the worker keeps every job: Procrastinate's `delete_jobs` is
+#   "never"); old jobs are the owner's to clear.
 # - procrastinate_events is a job's history: vextrus_app may add to it (Procrastinate's triggers do)
-#   but never change or delete it; deleting a job cascades to its events as the table's owner.
-# - vextrus_app keeps SELECT, INSERT, UPDATE and DELETE on Procrastinate's other tables, which the
-#   worker needs (it registers, beats and prunes workers, fetches and finishes jobs, defers periodic
-#   jobs); never TRUNCATE (migration 0003).
+#   but never change or delete it.
+# - vextrus_app keeps SELECT, INSERT, UPDATE and DELETE on procrastinate_workers and
+#   procrastinate_periodic_defers, and SELECT, INSERT and UPDATE on procrastinate_jobs, which the
+#   worker needs (it registers, beats and prunes workers, fetches, retries and finishes jobs, defers
+#   periodic jobs); never TRUNCATE (migration 0003).
 
 import django.utils.timezone
 from django.conf import settings
@@ -46,15 +56,49 @@ JOB_WALL = [
     language plpgsql
     set search_path = pg_catalog, pg_temp
     as $$
+    declare
+      acting_tenant text := nullif(current_setting('app.tenant_id', true), '');
+      acting_user text := nullif(current_setting('app.user_id', true), '');
     begin
-      if current_user = '{APP}' then
-        if tg_op = 'UPDATE' and new.args is distinct from old.args then
-          raise exception '{APP} may not rewrite a job''s arguments' using errcode = '42501';
-        end if;
-        if tg_op = 'INSERT' and new.args ? 'tenant_id'
-           and (new.args ->> 'tenant_id')
-               is distinct from nullif(current_setting('app.tenant_id', true), '') then
+      if current_user <> '{APP}' then
+        return new;
+      end if;
+      if tg_op = 'INSERT' then
+        if (new.args ->> 'tenant_id') is distinct from acting_tenant
+           and (new.args ? 'tenant_id' or acting_tenant is not null) then
           raise exception '{APP} may defer a job only for the tenant it acts in'
+            using errcode = '42501';
+        end if;
+        if new.args ? 'user_id' and (new.args ->> 'user_id') is distinct from acting_user then
+          raise exception '{APP} may defer a job only for the user it acts as'
+            using errcode = '42501';
+        end if;
+        if acting_tenant is not null
+           and not (coalesce(starts_with(new.lock, acting_tenant || ':'), true)
+                    and coalesce(starts_with(new.queueing_lock, acting_tenant || ':'), true)) then
+          raise exception '{APP} may lock a job only under the tenant it acts in'
+            using errcode = '42501';
+        end if;
+        if new.status <> 'todo' or new.attempts <> 0 or new.abort_requested
+           or new.worker_id is not null then
+          raise exception '{APP} defers a job only as waiting' using errcode = '42501';
+        end if;
+      else
+        if new.args is distinct from old.args or new.task_name is distinct from old.task_name
+           or new.queue_name is distinct from old.queue_name or new.lock is distinct from old.lock
+           or new.queueing_lock is distinct from old.queueing_lock then
+          raise exception '{APP} may not change a job''s task, queue, lock or arguments'
+            using errcode = '42501';
+        end if;
+        if old.status in ('succeeded', 'failed', 'cancelled', 'aborted')
+           and new.status is distinct from old.status then
+          raise exception '{APP} may not reopen a job that has ended' using errcode = '42501';
+        end if;
+        if new.attempts < old.attempts then
+          raise exception '{APP} may not take back a job''s tries' using errcode = '42501';
+        end if;
+        if acting_tenant is not null and (old.args ->> 'tenant_id') is distinct from acting_tenant then
+          raise exception '{APP} may change only the jobs of the tenant it acts in'
             using errcode = '42501';
         end if;
       end if;
@@ -68,10 +112,12 @@ JOB_WALL = [
       before insert or update on public.procrastinate_jobs
       for each row execute function public.platform_job_tenant_wall()
     """,
+    f"revoke delete on procrastinate_jobs from {APP}",
     f"revoke update, delete on procrastinate_events from {APP}",
 ]
 JOB_WALL_REVERSE = [
     f"grant update, delete on procrastinate_events to {APP}",
+    f"grant delete on procrastinate_jobs to {APP}",
     "drop trigger platform_job_tenant_wall on public.procrastinate_jobs",
     "drop function public.platform_job_tenant_wall()",
 ]

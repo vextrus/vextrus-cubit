@@ -12,7 +12,8 @@ in its own process.
 - The sample jobs, `two_steps` (the test queue) and `cad_steps` (the `cad` queue), run steps whose
   behaviour a test scripts per subject and step (`script(...)`): `ok`, `fail`, `cancel_self` (the
   step cancels its own job from another connection, then returns), `cancel_inline`,
-  `wait_for_cancel`, `hang`, `fork`, `leak` (a session-level tenant setting), `read_owner`.
+  `wait_for_cancel`, `hang`, `fork`, `leak` (a session-level tenant setting), `read_owner`,
+  `on_commit`, `supersede` (the retrier tries the job again meanwhile), `vanish` (its row is gone).
 """
 
 import asyncio
@@ -30,7 +31,7 @@ from urllib.parse import quote
 import psycopg
 import pytest
 from django.conf import settings
-from django.db import connections
+from django.db import connections, transaction
 from procrastinate.contrib.django import app
 from procrastinate.contrib.django.utils import connector_params
 from procrastinate.job_context import AbortReason
@@ -220,6 +221,17 @@ def _act(action: str, run: jobs.Run, subject_id: uuid.UUID, result: jobs.StepRes
         result["forked_child_exit"] = os.waitstatus_to_exitcode(status)
     elif action == "leak":
         _tenant_sql("select set_config('app.tenant_id', %s, false)", [str(uuid.uuid4())])
+    elif action == "on_commit":
+        transaction.on_commit(lambda: _tenant_sql("select count(*) from platform_user"))
+    elif action in ("supersede", "vanish"):
+        # As the retrier, from its own connection: the job is tried again, or its row is gone.
+        with psycopg.connect(**connector_params(OWNER_ALIAS), autocommit=True) as other:
+            if action == "supersede":
+                other.execute(
+                    "update procrastinate_jobs set attempts = attempts + 1 where id = %s", [run.job_id]
+                )
+            else:
+                other.execute("delete from procrastinate_jobs where id = %s", [run.job_id])
     elif action == "read_owner":
         with connections[OWNER_ALIAS].cursor() as cursor:
             cursor.execute("select count(*) from platform_developer")
@@ -255,6 +267,7 @@ def run_inline(
     user_id: uuid.UUID | None = None,
     abort_reason: Callable[[], AbortReason | None] = lambda: None,
     job_id: int | None = None,
+    attempts: int | None = None,
     **ids: uuid.UUID,
 ) -> None:
     """Run `job` here, in the caller's transaction, its arguments checked as the worker checks."""
@@ -267,6 +280,7 @@ def run_inline(
         tenant_id=arguments.tenant_id,
         user_id=arguments.user_id,
         abort_reason=abort_reason,
+        attempts=attempts,
     )
     job.call(run, arguments.ids)
 

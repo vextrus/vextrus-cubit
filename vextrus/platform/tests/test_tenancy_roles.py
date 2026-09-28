@@ -120,6 +120,7 @@ NARROWER = {
     "platform_domainevent": {"SELECT", "INSERT"},  # append-only
     "platform_storedfile": {"SELECT", "INSERT"},  # a key names one content for good (09)
     "procrastinate_events": {"SELECT", "INSERT"},  # a job's history, added to by triggers (09)
+    "procrastinate_jobs": {"SELECT", "INSERT", "UPDATE"},  # the worker keeps every job (09)
     # UPDATE only on the columns the app may change (below): never the staff flag.
     "platform_user": {"SELECT", "INSERT", "DELETE"},
 }

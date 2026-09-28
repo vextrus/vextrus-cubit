@@ -13,14 +13,19 @@ A job is a function declared with `@job`, given a `Run` and its ids:
   its tenant: the job is a row of that transaction, so a rollback takes it away and the worker never
   sees data that was not committed. Its arguments are the tenant's id, the acting user's id (when
   there is one) and the job's own ids: UUIDs, never data, a path or a model. The database holds the
-  same line (the job wall, platform's migration 0006): the app may defer a job only for the tenant
-  it acts in, and never rewrite a job's arguments.
+  same line (the job wall, platform's migration 0006): the app defers a job only for the tenant it
+  acts in and the user it acts as, never changes a job's task, queue, lock or arguments, never
+  reopens an ended one, and while acting in a tenant touches only that tenant's jobs.
 - **Running**: the worker checks the arguments again before anything else (a job refused for its
   arguments is never retried). The job's function runs with every database query refused, except
   inside a step: a step runs in its own transaction, `tenancy.acting_in(tenant_id, user_id=…)`, which
   sets `app.tenant_id`, `app.user_id` and `app.library_id` with `is_local = true` before the step
-  reads anything. After each step the connection must carry none of the three (a step that set one
-  for its session fails the job), and the worker closes its connections after each job.
+  reads anything; a step for a user with no current Membership there is refused (fail closed,
+  whatever `acting_in` does). After each step the connection must carry none of the three (a step
+  that set one for its session fails the job), a step may not leave `transaction.on_commit` work
+  (it would run with no tenant), and the worker closes its connections after each job. The guard
+  sees what passes through Django's cursor `execute`: a thread the job starts, or psycopg's
+  `cursor.copy`, is not seen, so job code uses neither.
 - **Steps** are kept by the caller through a `StepStore`, keyed by subject, step and a hash of the
   step's inputs: a step already recorded under the same key is skipped and its result returned, so a
   restart or a retry resumes where the last try stopped. Each step returns a JSON object, recorded in
@@ -30,6 +35,8 @@ A job is a function declared with `@job`, given a `Run` and its ids:
   to stop. A running job stops at its next step, or inside a step at `run.check_cancelled()`; and a
   step never commits after a cancel: its transaction reads the job's row `FOR SHARE` just before
   committing, so a cancel either committed first (the step rolls back) or waits for the step's commit.
+  The same read rolls the step back when its job has been tried again since (the retrier judged
+  this try's worker dead) or its row is gone.
 - **Restart** (`restart(job_id)`) defers a failed or cancelled job again with the same ids; its
   completed steps skip. A job that raised is tried again by itself up to `VEXTRUS_JOB_TRIES`; a job
   whose worker stopped mid-way (a server restart) is found by the stalled-job retrier, a periodic
@@ -220,7 +227,7 @@ class Job:
     def _lock(self, arguments: Mapping[str, str]) -> str:
         """Jobs of one task on the same ids run one at a time (a restart waits for the last try)."""
         ids = ",".join(f"{k}={arguments[k]}" for k in sorted(arguments) if k != "user_id")
-        return f"{self.name}:{ids}"
+        return f"{arguments['tenant_id']}:{self.name}:{ids}"  # the job wall: the tenant first
 
     def _run_in_worker(self, context: JobContext, /, **raw: object) -> None:
         """Procrastinate's entry: check the arguments, run, and close the connections after."""
@@ -233,6 +240,7 @@ class Job:
                 tenant_id=arguments.tenant_id,
                 user_id=arguments.user_id,
                 abort_reason=context.abort_reason,
+                attempts=context.job.attempts,
             )
             self.call(run, arguments.ids)
         finally:
@@ -345,11 +353,14 @@ class Run:
         tenant_id: uuid.UUID,
         user_id: uuid.UUID | None,
         abort_reason: Callable[[], AbortReason | None],
+        attempts: int | None = None,
     ) -> None:
         self.job_id = job_id
         self.tenant_id = tenant_id
         self.user_id = user_id
         self._abort_reason = abort_reason
+        self._attempts = attempts
+        """The job's tries before this one, as fetched: a later try (the retrier's) supersedes it."""
 
     def steps(self, store: StepStore, subject_id: uuid.UUID, *, total: int) -> Steps:
         """The steps of one subject (a file), kept in `store`; `total` is how many it expects."""
@@ -358,36 +369,51 @@ class Run:
     def check_cancelled(self) -> None:
         """Raise Cancelled if the job was cancelled or its worker is stopping (call it inside a
         long step; the runner calls it between steps)."""
-        if self._abort_reason() is not None or self._abort_requested(lock=False):
+        if self._abort_reason() is not None or self._stopped(lock=False):
             raise Cancelled(f"job {self.job_id} was cancelled")
 
     def _cancelled_before_commit(self) -> bool:
         """Whether a cancel came before this step's commit (a stopping worker lets the step commit
         and stops after it). The job's row is held until the commit, so a cancel after this waits."""
-        return self._abort_reason() == AbortReason.USER_REQUEST or self._abort_requested(lock=True)
+        return self._abort_reason() == AbortReason.USER_REQUEST or self._stopped(lock=True)
 
     @contextlib.contextmanager
     def acting(self) -> Iterator[None]:
         """One step's transaction, acting in the job's tenant as its user (the system: no user)."""
+        alias = settings.PROCRASTINATE_DATABASE_ALIAS
         with _queries_allowed(), tenancy.acting_in(self.tenant_id, user_id=self.user_id) as acting:
             if acting.library_id is None:
                 raise JobRefused(f"no Developer {self.tenant_id} to act in")
+            if self.user_id is not None and acting.membership is None:
+                # Fail closed: the person who asked no longer holds a current Membership here.
+                raise JobRefused(f"user {self.user_id} has no current Membership in {self.tenant_id}")
+            callbacks = len(connections[alias].run_on_commit)
             yield
+            if len(connections[alias].run_on_commit) != callbacks:
+                # It would run after the commit, with no tenant set and every query allowed.
+                raise OutsideStep("a step registered transaction.on_commit; do that work in a step")
         self._check_no_tenant_left()
 
-    def _abort_requested(self, *, lock: bool) -> bool:
-        """Whether the job's row asks it to stop; with `lock`, the row is held until the commit."""
+    def _stopped(self, *, lock: bool) -> bool:
+        """Whether this try must stop: its job's row is gone, is no longer running, asks it to stop,
+        or has been tried again since (the retrier judged this try's worker dead). With `lock`, the
+        row is held until the commit, so a cancel or a retry after this waits for it."""
         if self.job_id is None:
             return False
         alias = settings.PROCRASTINATE_DATABASE_ALIAS
         suffix = " for share" if lock else ""
         with _queries_allowed(), connections[alias].cursor() as cursor:
             cursor.execute(
-                f"select abort_requested from procrastinate_jobs where id = %s{suffix}",
+                f"select status::text, abort_requested, attempts from procrastinate_jobs"
+                f" where id = %s{suffix}",
                 [self.job_id],
             )
             row = cursor.fetchone()
-        return bool(row and row[0])
+        if row is None:
+            return True
+        status, abort_requested, attempts = row
+        superseded = self._attempts is not None and attempts != self._attempts
+        return status != "doing" or bool(abort_requested) or superseded
 
     def _check_no_tenant_left(self) -> None:
         alias = settings.PROCRASTINATE_DATABASE_ALIAS
