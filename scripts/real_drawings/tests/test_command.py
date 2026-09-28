@@ -246,6 +246,41 @@ def test_a_failed_export_already_in_the_cache_is_not_reused(world: World) -> Non
     assert not any(line.startswith("Failed on") for line in world.said)
 
 
+def plant_in_the_cache(world: World, document: object) -> None:
+    """What a looser copy of the command (a local branch's --no-post, with its own schema.py or diff.py
+    but the same sandbox version) could leave under main's key."""
+    for cached in (world.cache / "exports").rglob("*.json"):
+        cached.write_text(json.dumps(document))
+
+
+@pytest.mark.parametrize("missing", ["process", "status"])
+def test_a_cached_export_whose_process_status_is_missing_is_not_reused(
+    world: World, missing: str
+) -> None:
+    run("main", no_post=True, m=world.machine())
+    document = json.loads(invented())
+    if missing == "process":
+        del document["files"][0]["process"]
+    else:
+        del document["files"][0]["process"]["status"]
+    plant_in_the_cache(world, document)
+
+    run("main", no_post=True, m=world.machine())
+
+    assert len(world.sandbox_runs) == 2
+
+
+def test_a_cached_export_that_breaks_mains_schema_is_read_again(world: World) -> None:
+    run("main", no_post=True, m=world.machine())
+    plant_in_the_cache(world, {"sheets": []})  # no files: main's schema requires them
+
+    run("main", no_post=True, m=world.machine())
+
+    assert len(world.sandbox_runs) == 2
+    assert any("breaks the schema; read again" in line for line in world.said)
+    assert not any(line.startswith("Failed on") for line in world.said)
+
+
 def test_a_clean_export_is_still_reused(world: World) -> None:
     world.commit("main", {FAKE_EXPORT: (FIXTURES / "export-fakes.json").read_text()})
 

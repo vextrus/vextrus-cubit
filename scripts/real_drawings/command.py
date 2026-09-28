@@ -9,8 +9,8 @@ the schema, against its own, which the run says so the diff is read). It measure
 way when main's code hash is not cached, and diffs each Development Set's export against main's under
 the fixed matching, printing the counts gained, lost and changed per measure; the item list, which
 holds drawing text, stays under the owner's cache. Exports are cached by (code hash, the sandbox's
-version, set content); one with a failed stage or a file's failed process is never reused, and
-`--fresh` reads both runs again.
+version, set content); one is reused only when it passes the schema again and nothing in it failed (a
+stage, or a file's process), and `--fresh` reads both runs again.
 
 A posting run is a PR without `--no-post`: under the drop folder's lock, the owner accepts or rejects
 the changes (a lost item only with a reason), the command writes the run's own folder in the drop
@@ -244,17 +244,24 @@ def measure(
         name: m.cache / "exports" / hashed / m.sandbox_version / f"{name}-{digest}.json"
         for name, digest in digests.items()
     }
-    # A cached export with a failed stage, or a file whose process did not end ok, is never reused: the
-    # failure may be the machine's (a timeout, an OOM kill, SandboxUnavailable), not the code's, and
-    # reused it would stand as main's run, and as a non-engine PR's own, until the code hash changed. A
-    # failure the code causes repeats, at one run's cost.
+    schema = json.loads(schema_text)
+    head_schema = (checkout / SCHEMA).read_bytes() if (checkout / SCHEMA).exists() else schema_text
+    if head_schema != schema_text:
+        m.say(f"{head.target} changes {SCHEMA}: its export is checked against its own; read that diff")
+        schema = json.loads(head_schema)
+    # A cached export is reused only when it passes the schema again and nothing in it failed. The
+    # cache is shared with every local copy of the command, so this copy checks what it reads, not only
+    # what it wrote. A failure may be the machine's (a timeout, an OOM kill, SandboxUnavailable), not the
+    # code's: reused, it would stand as main's run, and as a non-engine PR's own, until the code hash
+    # changed. A failure the code causes repeats, at one run's cost.
     if fresh:
         m.say(f"{head.target}: --fresh, so read again whatever the cache holds")
     elif all(path.exists() for path in cached.values()):
-        if not any(_failed(path) for path in cached.values()):
+        why = next(filter(None, (_unusable(path, schema) for path in cached.values())), "")
+        if not why:
             m.say(f"{head.target}: code hash {hashed[:12]} is cached; not run again")
             return hashed, cached
-        m.say(f"{head.target}: the cached run of code hash {hashed[:12]} had a failure; read again")
+        m.say(f"{head.target}: the cached run of code hash {hashed[:12]} {why}; read again")
     requirements = work / "requirements.txt"
     m.fetch(checkout, m.cache / "wheels", python, requirements)
     scratch = work / "out"
@@ -265,11 +272,6 @@ def measure(
     )
     m.say(f"{head.target}: installing and reading {len(m.sets)} sets in the sandbox (log in {work})")
     m.sandbox(job, work / "sandbox.log")
-    schema = json.loads(schema_text)
-    head_schema = (checkout / SCHEMA).read_bytes() if (checkout / SCHEMA).exists() else schema_text
-    if head_schema != schema_text:
-        m.say(f"{head.target} changes {SCHEMA}: its export is checked against its own; read that diff")
-        schema = json.loads(head_schema)
     exports = {}
     for name in sorted(m.sets):
         taken = work / f"export-{name}.json"
@@ -360,10 +362,18 @@ def verdict(
     }
 
 
-def _failed(export: Path) -> bool:
-    """Whether anything failed in this export: a stage (a file's or the set's) or a file's process
-    (`failures`: one whose status is not ok, or not said, counts)."""
-    return bool(failures(json.loads(export.read_bytes())))
+def _unusable(export: Path, schema: Mapping[str, Any]) -> str:
+    """Why a cached export may not be reused, or "" when it may: it cannot be read or checked, it
+    breaks the schema, or something in it failed (a stage, a file's or the set's, or a file's process:
+    `failures`, where a process whose status is not ok, or not said, counts)."""
+    try:
+        document = json.loads(export.read_bytes())
+        breaches = problems(document, schema)
+    except ValueError, SchemaError:
+        return "cannot be checked"
+    if breaches:
+        return "breaks the schema"
+    return "had a failure" if failures(document) else ""
 
 
 def _pin(checkout: Path, name: str) -> str:
