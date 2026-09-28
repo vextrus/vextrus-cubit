@@ -9,6 +9,7 @@ binary only (nothing is built); then the engine harness reads each set into `exp
 """
 
 import re
+import shlex
 import subprocess
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -30,7 +31,7 @@ class Job:
     requirements: Path
     sets: Mapping[str, Path]
     scratch: Path
-    env: Mapping[str, str]  # the run's id, commit and code hash, for the export
+    env: Mapping[str, str]  # the run's id, commit and code hash: set, and passed to the harness as flags
 
 
 def argv(job: Job) -> list[str]:
@@ -79,10 +80,17 @@ def script(job: Job) -> str:
         f"{job.python} -m venv /work/out/venv",
         f"{python} -m pip install {quiet} {offline} -r /work/requirements.txt",
     ]
+    flags = {
+        "--run-id": "VEXTRUS_RUN_ID",
+        "--commit": "VEXTRUS_COMMIT",
+        "--code-hash": "VEXTRUS_CODE_HASH",
+    }
+    metadata = "".join(
+        f" {flag} {shlex.quote(job.env[key])}" for flag, key in flags.items() if key in job.env
+    )
     for name in sorted(job.sets):
-        lines.append(
-            f"{python} -m engine.harness --set /work/sets/{name} --out /work/out/export-{name}.json"
-        )
+        out = f"/work/out/export-{name}.json"
+        lines.append(f"{python} -m engine.harness --set /work/sets/{name} --out {out}{metadata}")
     return "\n".join(lines)
 
 
