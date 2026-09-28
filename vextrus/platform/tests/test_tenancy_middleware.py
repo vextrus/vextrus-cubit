@@ -111,7 +111,7 @@ def test_a_membership_that_is_not_current_sets_no_tenant_and_the_session_forgets
     now = timezone.now()
     change = {
         "revoked": {"revoked_at": now},
-        "expired": {"expires_at": now},
+        "expired": {"expires_at": now - timedelta(days=1)},  # before the database's now()
         "not started": {"starts_at": now + timedelta(hours=1)},
         "not theirs": {},
     }[ending]

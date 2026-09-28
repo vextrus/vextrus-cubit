@@ -6,6 +6,7 @@ from collections.abc import Callable
 
 import pytest
 
+from vextrus.platform.database import OWNER_ALIAS
 from vextrus.platform.models import Developer
 from vextrus.platform.money import Currency
 from vextrus.platform.services import markets, tenancy
@@ -27,10 +28,10 @@ def test_bangladesh_is_the_one_market_seeded(market: MarketProfile) -> None:
     assert market.default_home_region == "asia-south1"
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(databases=["default", "owner"])
 def test_its_library_is_a_library_tenant_with_a_fixed_id(market: MarketProfile) -> None:
-    with tenancy.acting_in(market.library_id):
-        library = Developer.objects.get()
+    # Read as the owner: no code acts in a Library (tenancy.LibraryNotATenant).
+    library = Developer.objects.using(OWNER_ALIAS).get(id=market.library_id)
 
     assert library.id == market.library_id == uuid.UUID("01a0e713-563c-74c4-9eb3-48f87fc1678e")
     assert (library.is_library, library.library_id, library.market_id) == (

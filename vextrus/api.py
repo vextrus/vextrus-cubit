@@ -1,4 +1,5 @@
-"""The one API (ADR 0022): Django Ninja, signed in by session with CSRF, every module's router.
+"""The one API (ADR 0022): Django Ninja, signed in by session with CSRF (07's `acts.Session`), every
+module's router, and every refusal as `{code, params}` (`acts.install`).
 
 It also assembles every module's message codes and the engine's into the OpenAPI schema, as two
 enums the web's generated types carry (the M0 plan's reviews A5, R7; story 92):
@@ -10,12 +11,13 @@ enums the web's generated types carry (the M0 plan's reviews A5, R7; story 92):
 from importlib import import_module
 from typing import Any
 
+from django.conf import settings
 from ninja import NinjaAPI
 from ninja.openapi.schema import OpenAPISchema
-from ninja.security import SessionAuth
 
 from engine.messages import MessageCode
 from vextrus.modules import MODULES
+from vextrus.platform.http import acts
 
 MESSAGE_PACKAGES: tuple[str, ...] = (
     "engine.messages",
@@ -54,7 +56,21 @@ class VextrusAPI(NinjaAPI):
         return schema
 
 
-api = VextrusAPI(title="Vextrus", version="0", auth=SessionAuth(csrf=True), urls_namespace="api")
+def schema_url(debug: bool) -> str | None:
+    """Ninja's schema and docs pages are served only in development (`VEXTRUS_DEBUG`); the web's
+    types come from `manage.py export_openapi_schema`, which reads the schema without them."""
+    return "/openapi.json" if debug else None
+
+
+api = VextrusAPI(
+    title="Vextrus",
+    version="0",
+    auth=acts.Session(),
+    urls_namespace="api",
+    openapi_url=schema_url(settings.DEBUG),
+)
+# Every refusal, the sign-in check's and the CSRF check's included, answers `{code, params}`.
+acts.install(api)
 
 for module in MODULES:
     api.add_router("", import_module(f"vextrus.{module}.http").router)
