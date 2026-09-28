@@ -36,7 +36,7 @@ import {
   useKeys,
   useToast,
 } from '@/ui'
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandShortcut } from '@/ui/primitives/command'
+import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandShortcut } from '@/ui/primitives/command'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/ui/primitives/dialog'
 import {
   DropdownMenu,
@@ -89,11 +89,11 @@ function Section({ id, title, children, note }: { id: string; title: ReactNode; 
   )
 }
 
-function Row({ label, children }: { label: ReactNode; children: ReactNode }) {
+function Row({ label, children, top }: { label: ReactNode; children: ReactNode; top?: boolean }) {
   return (
     <div className="grid grid-cols-[200px_1fr] items-start gap-4">
       <div className="pt-1 text-xs font-semibold text-ink-secondary">{label}</div>
-      <div className="flex min-w-0 flex-wrap items-center gap-3">{children}</div>
+      <div className={`flex min-w-0 flex-wrap gap-3 ${top ? 'items-start' : 'items-center'}`}>{children}</div>
     </div>
   )
 }
@@ -107,8 +107,8 @@ function Swatch({ token, children }: { token: string; children: ReactNode }) {
     <div className="w-[132px]">
       <div className="h-10 rounded-md border border-border" style={{ background: `var(${token})` }} />
       <div className="mt-1 text-xs font-medium">{children}</div>
-      <div className="text-2xs text-muted-foreground" dir="ltr">
-        {token}
+      <div className="text-2xs text-muted-foreground">
+        <bdi dir="ltr">{token}</bdi>
       </div>
     </div>
   )
@@ -117,7 +117,7 @@ function Swatch({ token, children }: { token: string; children: ReactNode }) {
 function TokensSection() {
   return (
     <Section id="tokens" title={<Trans>Tokens</Trans>} note={<Trans>Paper is content, graphite is chrome, one indigo accent; copper once a screen.</Trans>}>
-      <Row label={<Trans>Surfaces and ink</Trans>}>
+      <Row top label={<Trans>Surfaces and ink</Trans>}>
         <Swatch token="--background">
           <Trans>The table under the paper</Trans>
         </Swatch>
@@ -134,7 +134,7 @@ function TokensSection() {
           <Trans>Secondary text</Trans>
         </Swatch>
       </Row>
-      <Row label={<Trans>Accent and commit</Trans>}>
+      <Row top label={<Trans>Accent and commit</Trans>}>
         <Swatch token="--primary">
           <Trans>Act, focus, selection</Trans>
         </Swatch>
@@ -145,7 +145,7 @@ function TokensSection() {
           <Trans>The one bulk Confirm</Trans>
         </Swatch>
       </Row>
-      <Row label={<Trans>Status</Trans>}>
+      <Row top label={<Trans>Status</Trans>}>
         <Swatch token="--status-proposal">
           <Trans>Proposal</Trans>
         </Swatch>
@@ -211,7 +211,7 @@ function GlyphsSection() {
   ]
   return (
     <Section id="glyphs" title={<Trans>Glyphs</Trans>} note={<Trans>Drawn on Lucide’s 24-unit grid with a 1.5 stroke. A glyph never stands alone: a word beside it, or an accessible name.</Trans>}>
-      <Row label={<Trans>Takeoff Steps</Trans>}>
+      <Row top label={<Trans>Takeoff Steps</Trans>}>
         {steps.map(([key, name]) => {
           const G = Glyph.STEP_GLYPHS[key]
           return (
@@ -221,7 +221,7 @@ function GlyphsSection() {
           )
         })}
       </Row>
-      <Row label={<Trans>Status, Cost Basis, Rebar Basis</Trans>}>
+      <Row top label={<Trans>Status, Cost Basis, Rebar Basis</Trans>}>
         <GlyphCell name={<Trans>Proposal</Trans>}>
           <Glyph.ProposalGlyph size={20} className="text-proposal" />
         </GlyphCell>
@@ -387,7 +387,6 @@ function DrawingTextSection() {
       <Row label={<Trans>Titles</Trans>}>
         <DrawingText kind="title" text={Data.SHEETS[3]!.title} />
         <DrawingText kind="title" text={Data.TITLE_OTHER_SCRIPT} />
-        <DrawingText kind="title" text={Data.TITLE_BANGLA} />
       </Row>
       <Row label={<Trans>Cut to 180 px</Trans>}>
         <span className="block w-[180px]">
@@ -461,7 +460,7 @@ function CanvasSection() {
         </div>
         <LtrCanvas data-specimen-canvas="" className="border border-border">
           <CanvasSketch />
-          <div className="absolute left-3 top-3 flex gap-3 rounded-md bg-paper/90 px-2 py-1 text-2xs shadow-1">
+          <div className="absolute bottom-3 left-3 flex gap-3 rounded-md bg-paper/90 px-2 py-1 text-2xs shadow-1">
             <StatusMark status="proposal" />
             <StatusMark status="confirmed" />
             <StatusMark status="question" />
@@ -629,7 +628,6 @@ function NoticesSection() {
 }
 
 function PrimitivesSection() {
-  const { t } = useLingui()
   return (
     <Section id="primitives" title={<Trans>Dialog, Popover, Menu, Tabs, Tooltip and Command</Trans>} note={<Trans>shadcn primitives on the tokens. Every close goes through the key map’s Esc.</Trans>}>
       <Row label={<Trans>Layers</Trans>}>
@@ -731,30 +729,46 @@ function PrimitivesSection() {
         </Tile>
       </Row>
       <Row label={<Trans>Command</Trans>}>
-        <Tile className="w-[420px] p-0">
-          <Command>
-            <CommandInput placeholder={t`Jump to a project or a sheet…`} />
-            <CommandList>
-              <CommandEmpty>
-                <Trans>Nothing matches.</Trans>
-              </CommandEmpty>
-              <CommandGroup heading={t`Sheets`}>
-                {Data.SHEETS.slice(0, 4).map((s) => (
-                  <CommandItem key={s.number} value={`${s.number} ${s.title}`}>
-                    <Search />
-                    <DrawingText kind="sheet-number" text={s.number} />
-                    <DrawingText kind="title" text={s.title} className="text-muted-foreground" />
-                    <CommandShortcut>
-                      <StatusMark status={s.status} compact />
-                    </CommandShortcut>
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </Tile>
+        <JumpTo />
       </Row>
     </Section>
+  )
+}
+
+/** Command in its dialog, as ticket 03's "Jump to" uses it; inline, cmdk scrolls the page to its first item. */
+function JumpTo() {
+  const { t } = useLingui()
+  const [open, setOpen] = useState(false)
+  useKeys([{ key: 'Ctrl K', label: t`Jump to a project or a sheet`, group: 'global', run: () => setOpen(true) }])
+  return (
+    <>
+      <Button onClick={() => setOpen(true)} className="w-[220px] justify-between text-muted-foreground">
+        <span className="inline-flex items-center gap-1.5">
+          <Search aria-hidden className="size-3.5" />
+          <Trans>Jump to…</Trans>
+        </span>
+        <KeyCombo combo="Ctrl K" />
+      </Button>
+      <CommandDialog open={open} onOpenChange={setOpen} title={t`Jump to`} description={t`Find a project or a sheet by number or title.`}>
+        <CommandInput placeholder={t`Jump to a project or a sheet…`} />
+        <CommandList>
+          <CommandEmpty>
+            <Trans>Nothing matches.</Trans>
+          </CommandEmpty>
+          <CommandGroup heading={t`Sheets`}>
+            {Data.SHEETS.slice(0, 5).map((s) => (
+              <CommandItem key={s.number} value={`${s.number} ${s.title}`} onSelect={() => setOpen(false)}>
+                <DrawingText kind="sheet-number" text={s.number} className="font-medium" />
+                <DrawingText kind="title" text={s.title} className="text-muted-foreground" />
+                <CommandShortcut>
+                  <StatusMark status={s.status} compact />
+                </CommandShortcut>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        </CommandList>
+      </CommandDialog>
+    </>
   )
 }
 

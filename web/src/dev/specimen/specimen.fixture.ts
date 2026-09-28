@@ -26,7 +26,6 @@ export const SHEETS: readonly SpecimenSheet[] = [
 ]
 
 export const TITLE_OTHER_SCRIPT = 'مخطط الطابق الأرضي'
-export const TITLE_BANGLA = 'নিচতলার কলাম লেআউট'
 export const FILE_NAME = 'KR-STR-R0.dwg'
 
 export const DEVELOPER = 'Shapla Homes Ltd'

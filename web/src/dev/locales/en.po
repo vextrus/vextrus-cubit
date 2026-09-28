@@ -76,6 +76,10 @@ msgid "Nusrat Jahan, QS"
 msgstr "Nusrat Jahan, QS"
 
 #: src/dev/specimen/Specimen.tsx
+msgid "Jump to a project or a sheet"
+msgstr "Jump to a project or a sheet"
+
+#: src/dev/specimen/Specimen.tsx
 msgid "Sheet"
 msgstr "Sheet"
 
@@ -364,6 +368,10 @@ msgid "As read"
 msgstr "As read"
 
 #: src/dev/specimen/Specimen.tsx
+msgid "Find a project or a sheet by number or title."
+msgstr "Find a project or a sheet by number or title."
+
+#: src/dev/specimen/Specimen.tsx
 msgid "Open a popover"
 msgstr "Open a popover"
 
@@ -410,6 +418,10 @@ msgstr "Hover for a tooltip"
 #: src/dev/specimen/Specimen.tsx
 msgid "ReadOnlyChip and AccessChip"
 msgstr "ReadOnlyChip and AccessChip"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Jump to"
+msgstr "Jump to"
 
 #: src/dev/specimen/Specimen.tsx
 msgid "The table under the paper"
@@ -546,6 +558,10 @@ msgstr "Sheet numbers, marks and file names are isolated left to right; titles i
 #: src/dev/specimen/Specimen.tsx
 msgid "Cut to 180 px"
 msgstr "Cut to 180 px"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Jump to…"
+msgstr "Jump to…"
 
 #: src/dev/specimen/Specimen.tsx
 msgid "StatusMark"
