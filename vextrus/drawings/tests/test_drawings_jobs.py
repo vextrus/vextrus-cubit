@@ -94,6 +94,9 @@ def test_a_running_read_is_cancelled_its_step_rolls_back_and_it_reads_again_once
     stub.script(file_id, reading="wait_for_cancel")
     job_id = read_later(member, file_id)
     worker = stub.start_worker()
+    # The opening step committed, and the reading step began (its words alone would not say so:
+    # "Reading the drawing" is also what a running read says before its first step).
+    wait_until(lambda: steps_kept(member, file_id) == [services.OPENING], "the opening step")
     wait_until(lambda: shown(member, file_id).status == said.READING_DRAWING(), "the reading step")
 
     with member.acting():

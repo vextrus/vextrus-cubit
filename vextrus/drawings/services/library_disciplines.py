@@ -14,7 +14,7 @@ Discipline matched gives it; none, or several, gives none. "KR-STR-R0.dwg" is St
 
 import re
 import uuid
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import PurePosixPath
 
@@ -23,7 +23,7 @@ from django.db.models import QuerySet
 from engine.recognise.types import DisciplineConvention
 from vextrus.drawings.models import Discipline
 from vextrus.drawings.services import _access
-from vextrus.platform.services import tenancy
+from vextrus.platform.services import markets, tenancy
 
 _WORDS = re.compile(r"[^\W_]+")
 
@@ -55,6 +55,15 @@ def labels_of(discipline_id: uuid.UUID | None) -> dict[str, str]:
         return {}
     found = _library().filter(id=discipline_id).values_list("labels", flat=True).first()
     return dict(found or {})
+
+
+def name(labels: Mapping[str, str]) -> str:
+    """A Discipline's name in the Market's language (English is the one shipped)."""
+    acting = tenancy.current()
+    language = "en"
+    if acting.tenant_id is not None:
+        language = markets.of_developer(acting.tenant_id).default_language
+    return labels.get(language) or labels.get("en") or ""
 
 
 def by_key(key: str) -> Discipline | None:

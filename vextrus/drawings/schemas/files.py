@@ -49,6 +49,8 @@ class FileOut(Schema):
     """For a PDF: the DWGs whose sheets its pages matched (4.5 shows it under them)."""
     added_at: datetime
     added_by_name: str
+    added_by_vextrus: bool
+    """Added by a Vextrus Engineer: the name is shown with "(Vextrus)" (m0-screens 1.4)."""
 
     @classmethod
     def from_view(cls, view: FileView) -> FileOut:
@@ -65,6 +67,7 @@ class FileOut(Schema):
             plot_for=list(view.plot_for),
             added_at=view.added_at,
             added_by_name=view.added_by_name,
+            added_by_vextrus=view.added_by_vextrus,
         )
 
 

@@ -31,8 +31,17 @@ msgstr "{matched} of {pages, plural, one {# page} other {# pages}} matched to a 
 msgid "drawings.reports.pages_same_sheet"
 msgstr "Pages {first_page} and {used_page} both show {sheet}; page {used_page} is used."
 
+msgid "drawings.reports.plot_none_matched"
+msgstr "{plot_file} was added, but none of its pages matched these sheets. Its report says why for each page."
+
 msgid "drawings.reports.plot_of_dwg"
 msgstr "Its Plot is {plot_file}: {with_page} of {sheets, plural, one {# sheet has} other {# sheets have}} a page."
+
+msgid "drawings.reports.plot_part"
+msgstr "{plot_file} has a page for {with_page} of {sheets, plural, one {# sheet} other {# sheets}}."
+
+msgid "drawings.reports.plot_refused"
+msgstr "Its Plot, {plot_file}, was a scan and was refused. Ask the consultant for a PDF plotted from AutoCAD."
 
 msgid "drawings.reports.readers_agree"
 msgstr "✓ Read twice, by two independent readers, and they agree. Nothing in the file was skipped."
@@ -44,7 +53,7 @@ msgid "drawings.reports.sheet_without_page"
 msgstr "{sheet} has no page in this PDF."
 
 msgid "drawings.reports.sheets_found"
-msgstr "{sheets, plural, one {# sheet found} other {# sheets found}}: {drawn} laid out in the drawing, {layouts} on layout tabs."
+msgstr "{sheets, plural, one {# sheet found} other {# sheets found}}: {drawn} laid out in the drawing, {layouts, plural, one {# on a layout tab} other {# on layout tabs}}."
 
 msgid "drawings.reports.sheets_found_drawn"
 msgstr "{sheets, plural, one {# sheet found, laid out in the drawing.} other {# sheets found, all laid out in the drawing.}}"

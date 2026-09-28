@@ -58,7 +58,7 @@ def test_kr_01_is_at_section_7s_state(demo: Demo) -> None:
         "architectural": 8,
         "electrical": 3,
     }
-    assert summary == said.SUMMARY(files=7, sheets=24, reading=0, held=1, refused=1)
+    assert summary == said.SUMMARY(files=7, sheets=24, reading=0, failed=0, held=1, refused=1)
     assert shown["KR-STR-old.dwg"].sheets_found is None
     every_view = [v for listed in views.values() for v in listed]
     assert len(every_view) == 70
@@ -133,8 +133,10 @@ def test_bp_02_holds_the_rows_a_file_with_no_read_job_can_be_on(demo: Demo) -> N
         "BP-STR-R0.dwg": said.READING_SHEET(position=7, total=12),
         "BP-ARC-R0.dwg": said.WAITING(ahead=1),  # BP-STR-R0.dwg is read before it
         "BP-ARC-R0.pdf": said.PLOT_WAITING(),
-        "BP-ELE-R0.dwg": said.CANCELLED(actor="Nusrat Jahan", cancelled_date=_cancelled(shown)),
-        "BP-PLB-R0.dwg": said.FAILED(tries=1),
+        "BP-ELE-R0.dwg": said.CANCELLED(
+            actor="Nusrat Jahan", vextrus="no", cancelled_date=_cancelled(shown)
+        ),
+        "BP-PLB-R0.dwg": said.FAILED(tries=3),
         "BP-FIRE-R0.dwg": said.FAILED(tries=1),
         "BP-LIFT-R12.dwg": said.OLD_VERSION(),
     }

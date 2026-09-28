@@ -64,7 +64,7 @@ from vextrus.drawings.models import (
 )
 from vextrus.drawings.services import _access, drawing_files, library_disciplines, reads
 from vextrus.drawings.services.stored_anchor import StoredAnchor
-from vextrus.platform.services import auth, markets, storage, tenancy
+from vextrus.platform.services import auth, storage, tenancy
 
 _RAW_CODES = ("%%", "\\P", "\\f", "\\S", "^J", "{\\")
 _KEY = re.compile(r"[a-z][a-z0-9_]*")
@@ -322,6 +322,7 @@ def _keep_sheet(
     if existing is None:
         created = SheetRevision.objects.create(
             tenant_id=row.tenant_id,
+            drawing_set_id=row.drawing_set_id,
             source_file=row,
             location_key=place,
             anchors=anchors,
@@ -346,7 +347,10 @@ def _keep_sheet(
     state_id = row.drawing_set.current_state_id
     if state_id is not None:
         StateSheet.objects.get_or_create(
-            tenant_id=row.tenant_id, state_id=state_id, sheet_revision=existing
+            tenant_id=row.tenant_id,
+            drawing_set_id=row.drawing_set_id,
+            state_id=state_id,
+            sheet_revision=existing,
         )
     return existing
 
@@ -679,11 +683,12 @@ def _stored(
 
 def _plot(sr: SheetRevision) -> PlotView:
     none: Message | None = None
-    reason = sr.plot_none_reason
+    reason = sr.plot_none_reason or _no_plot_yet(sr)
     if sr.plot_page is None:
         if reason == PlotNone.NO_PDF:
             labels = library_disciplines.labels_of(sr.sheet.discipline_id)
-            none = said.PLOT_NO_PDF(discipline=_label(labels))
+            named = library_disciplines.name(labels)
+            none = said.PLOT_NO_PDF(discipline=named) if named else said.PLOT_NO_PDF_ANY()
         elif reason == PlotNone.NO_PAGE and sr.plot_file is not None:
             none = said.PLOT_NO_PAGE(plot_file=sr.plot_file.original_name)
         elif reason == PlotNone.PDF_REFUSED:
@@ -702,13 +707,18 @@ def _plot(sr: SheetRevision) -> PlotView:
     )
 
 
-def _label(labels: dict[str, str]) -> str:
-    """The Discipline's name in the Market's language (English is the one shipped)."""
-    acting = tenancy.current()
-    language = "en"
-    if acting.tenant_id is not None:
-        language = markets.of_developer(acting.tenant_id).default_language
-    return labels.get(language) or labels.get("en") or ""
+def _no_plot_yet(sr: SheetRevision) -> str:
+    """Why a sheet whose Plot is not recorded has none so far: no PDF of its Discipline (or of none)
+    is in the Drawing Set; only a refused one is; or one is, and its pages are not matched yet."""
+    pdfs = DrawingFile.objects.filter(drawing_set_id=sr.drawing_set_id, format=FileFormat.PDF)
+    if sr.sheet.discipline_id is not None:
+        pdfs = pdfs.filter(Q(discipline_id=sr.sheet.discipline_id) | Q(discipline__isnull=True))
+    statuses = set(pdfs.values_list("read_status", flat=True))
+    if not statuses:
+        return PlotNone.NO_PDF
+    if statuses == {ReadStatus.REFUSED}:
+        return PlotNone.PDF_REFUSED
+    return ""
 
 
 def views(sheet_revision_id: uuid.UUID) -> list[ViewView]:
@@ -787,7 +797,7 @@ def confirm_sheet(
         _decide(sheet_revision, Decision.CONFIRMED, confirmation_id)
         if kind is not None:
             sheet_revision.confirmed_kind = kind
-        sheet_revision.save()
+        sheet_revision.save(update_fields=[*_DECIDED, "confirmed_kind"])
     return _sheet_view(_all().get(id=sheet_revision.id))
 
 
@@ -800,7 +810,7 @@ def confirm_view(view_id: uuid.UUID, *, confirmation_id: uuid.UUID, kind: str | 
         _decide(view, Decision.CONFIRMED, confirmation_id)
         if kind is not None:
             view.confirmed_kind = kind
-        view.save()
+        view.save(update_fields=[*_DECIDED, "confirmed_kind"])
     return _view_view(View.objects.select_related("part").get(id=view.id))
 
 
@@ -816,7 +826,7 @@ def exclude(
     try:
         chosen = ExclusionReason(str(reason))
     except ValueError:
-        raise auth.Refused(said.KIND_UNKNOWN(), status=400) from None
+        raise auth.Refused(said.REASON_UNKNOWN(), status=400) from None
     words = (text or "").strip()
     if chosen == ExclusionReason.OTHER and not words:
         raise auth.Refused(said.OTHER_NEEDS_TEXT(), status=400)
@@ -826,11 +836,11 @@ def exclude(
         if SheetRevision.objects.filter(id=subject_id).exists():
             sheet_revision = _listed(subject_id, lock=True)
             _decide(sheet_revision, Decision.EXCLUDED, confirmation_id, chosen, words)
-            sheet_revision.save()
+            sheet_revision.save(update_fields=_DECIDED)
             return _sheet_view(_all().get(id=sheet_revision.id))
         view = _listed_view(subject_id)
         _decide(view, Decision.EXCLUDED, confirmation_id, chosen, words)
-        view.save()
+        view.save(update_fields=_DECIDED)
     return _view_view(View.objects.select_related("part").get(id=view.id))
 
 
@@ -875,6 +885,17 @@ def _listed_view(view_id: uuid.UUID) -> View:
     view = _access.view(view_id, lock=True)
     _listed(view.sheet_revision_id)
     return view
+
+
+_DECIDED = [
+    "decision",
+    "confirmation_id",
+    "decided_by",
+    "decided_at",
+    "excluded_reason",
+    "excluded_text",
+]
+"""The columns a decision writes (the only ones, with a confirmed kind, it may: migration 0001)."""
 
 
 def _decide(

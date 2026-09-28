@@ -14,7 +14,7 @@ msgid "drawings.files.await_resaved"
 msgstr "Set aside: waiting for the re-saved file"
 
 msgid "drawings.files.cancelled"
-msgstr "Cancelled by {actor}, {cancelled_date}. Nothing from it is in the sheet list."
+msgstr "Cancelled by {actor}{vextrus, select, yes { (Vextrus)} other {}}, {cancelled_date}. Nothing from it is in the sheet list."
 
 msgid "drawings.files.cancelled_unnamed"
 msgstr "Cancelled. Nothing from it is in the sheet list."
@@ -26,7 +26,7 @@ msgid "drawings.files.discipline_sheet_decided"
 msgstr "{sheet} from this file is already confirmed or left out in Step 1, so the file's Discipline was not changed. To change it, undo that decision in Step 1 first."
 
 msgid "drawings.files.discipline_sheet_taken"
-msgstr "That Discipline already has a sheet {sheet}, so this file's Discipline was not changed. Check which file holds the right {sheet}, or tell Vextrus."
+msgstr "{discipline} already has a sheet {sheet}, so this file's Discipline was not changed. Check which file holds the right {sheet}, or tell Vextrus."
 
 msgid "drawings.files.discipline_unknown"
 msgstr "That Discipline is not one Vextrus offers here, so nothing was changed. Choose one from the list."
@@ -53,7 +53,7 @@ msgid "drawings.files.matching_pages"
 msgstr "Matching pages to sheets"
 
 msgid "drawings.files.not_stopped"
-msgstr "This file's reading has not failed and was not cancelled, so there is nothing to start again."
+msgstr "This file is already waiting to be read, being read, or read, so it was not started again. Its row shows where it is."
 
 msgid "drawings.files.old_version"
 msgstr "Saved by a version of AutoCAD that Vextrus cannot read yet. Save it from AutoCAD as a 2018 DWG and add it again."
@@ -65,10 +65,10 @@ msgid "drawings.files.opening_pdf"
 msgstr "Opening the PDF"
 
 msgid "drawings.files.plot_matched"
-msgstr "Plot: {matched} of {pages} pages matched"
+msgstr "Plot: {matched} of {pages, plural, one {# page} other {# pages}} matched"
 
 msgid "drawings.files.plot_matched_lines"
-msgstr "Plot: {matched} of {pages} pages matched; lettering as lines"
+msgstr "Plot: {matched} of {pages, plural, one {# page} other {# pages}} matched; lettering as lines"
 
 msgid "drawings.files.plot_waiting"
 msgstr "Plot: waiting for its DWG. Its pages are matched when the DWG is read."
@@ -116,7 +116,7 @@ msgid "drawings.files.stopping"
 msgstr "Stopping…"
 
 msgid "drawings.files.summary"
-msgstr "{files, plural, one {# file} other {# files}}: {sheets, plural, one {# sheet read} other {# sheets read}}{reading, plural, =0 {} one {, # file reading} other {, # files reading}}{held, plural, =0 {} other {, # held}}{refused, plural, =0 {} other {, # refused}}"
+msgstr "{files, plural, one {# file} other {# files}}: {sheets, plural, one {# sheet read} other {# sheets read}}{reading, plural, =0 {} one {, # file reading} other {, # files reading}}{failed, plural, =0 {} other {, # could not be read}}{held, plural, =0 {} other {, # held}}{refused, plural, =0 {} other {, # refused}}"
 
 msgid "drawings.files.waiting"
 msgstr "Waiting to be read ({ahead, plural, =0 {next} one {# file ahead} other {# files ahead}})"

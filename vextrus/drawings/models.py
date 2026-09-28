@@ -5,9 +5,11 @@ that adds a migration to `drawings` edits this file. Every id comes from
 Ticket 14 (docs/data-model.md §2 and §3.2). Every table but `Discipline` is a tenant table: its
 `tenant_id`, row-level security with its own-tenant policy (migration 0001), every index led by
 `tenant_id`, and a reference inside `drawings` held to a row of the same tenant by a composite key
-(`(tenant_id, x_id)`), beside Django's. `Discipline` is a Library table: its rows are a Market's
-Library's, read through `app.library_id` and written only by `sync_library`, as the owner; a tenant
-row names one by id, and a trigger refuses one the writer cannot read (another Market's).
+(`(tenant_id, x_id)`), beside Django's, and a reference between two rows of one Drawing Set to a
+row of the same set (`(tenant_id, drawing_set_id, x_id)`), so no write crosses Projects.
+`Discipline` is a Library table: its rows are a Market's Library's, read through `app.library_id`
+and written only by `sync_library`, as the owner; a tenant row names one by id, and a trigger
+refuses one the writer cannot read (another Market's).
 
 **One row per printed sheet.** A `Sheet` is the drawing a number names, `(set, Building, Discipline,
 number)`; a `SheetRevision` is one printed issue of it, `(sheet, source file, location)`: S-07 rev A
@@ -30,6 +32,13 @@ _SHA256 = r"^[0-9a-f]{64}$"
 def _tenant_id_key(model: str) -> models.UniqueConstraint:
     """(tenant_id, id): what a composite key inside `drawings` names."""
     return models.UniqueConstraint(fields=["tenant_id", "id"], name=f"drawings_{model}_tenant_id")
+
+
+def _set_id_key(model: str) -> models.UniqueConstraint:
+    """(tenant_id, drawing_set, id): what a key holding a reference inside one Drawing Set names."""
+    return models.UniqueConstraint(
+        fields=["tenant_id", "drawing_set", "id"], name=f"drawings_{model}_set_id"
+    )
 
 
 # The Library: the Market's Disciplines ------------------------------------------------------------
@@ -143,6 +152,7 @@ class DrawingSetState(models.Model):
                 fields=["tenant_id", "drawing_set", "seq"], name="drawings_drawingsetstate_seq"
             ),
             _tenant_id_key("drawingsetstate"),
+            _set_id_key("drawingsetstate"),
             models.CheckConstraint(
                 condition=models.Q(cause__in=StateCause.values), name="drawings_drawingsetstate_cause"
             ),
@@ -187,6 +197,7 @@ class Revision(models.Model):
                 name="drawings_revision_one_first_issue",
             ),
             _tenant_id_key("revision"),
+            _set_id_key("revision"),
             models.CheckConstraint(
                 condition=models.Q(kind__in=RevisionKind.values), name="drawings_revision_kind"
             ),
@@ -274,6 +285,9 @@ class DrawingFile(models.Model):
     progress_at = models.DateTimeField(null=True, blank=True)
     sheets_started_at = models.DateTimeField(null=True, blank=True)
     read_job_id = models.BigIntegerField(null=True, blank=True)
+    read_tries = models.PositiveSmallIntegerField(
+        default=0, help_text="The tries its reading took, when it ended without a job to say so."
+    )
     finding = models.JSONField(null=True, blank=True, help_text="Why it is held or failed: a message.")
     held_answer = models.CharField(max_length=16, choices=HeldAnswer.choices, blank=True, default="")
     cross_check = models.JSONField(null=True, blank=True)
@@ -287,9 +301,13 @@ class DrawingFile(models.Model):
     added_by_name = models.CharField(
         max_length=200, blank=True, editable=False, help_text="Their name at the time, as shown."
     )
+    added_by_vextrus = models.BooleanField(
+        default=False, editable=False, help_text="Added by a Vextrus Engineer: shown with (Vextrus)."
+    )
     added_at = models.DateTimeField(default=timezone.now, editable=False)
     cancelled_by = models.UUIDField(null=True, blank=True)
     cancelled_by_name = models.CharField(max_length=200, blank=True)
+    cancelled_by_vextrus = models.BooleanField(default=False)
     cancelled_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
@@ -298,6 +316,7 @@ class DrawingFile(models.Model):
                 fields=["tenant_id", "drawing_set", "sha256"], name="drawings_drawingfile_once"
             ),
             _tenant_id_key("drawingfile"),
+            _set_id_key("drawingfile"),
             models.CheckConstraint(
                 condition=models.Q(sha256__regex=_SHA256), name="drawings_drawingfile_sha256_hex"
             ),
@@ -418,6 +437,7 @@ class Sheet(models.Model):
                 name="drawings_sheet_unnumbered_identity",
             ),
             _tenant_id_key("sheet"),
+            _set_id_key("sheet"),
             models.CheckConstraint(
                 condition=~models.Q(number="") & models.Q(source_file__isnull=True, location_key="")
                 | models.Q(number="", source_file__isnull=False) & ~models.Q(location_key=""),
@@ -504,6 +524,7 @@ class SheetRevision(models.Model):
 
     id = models.UUIDField(primary_key=True, default=new_id, editable=False)
     tenant_id = models.UUIDField(editable=False)
+    drawing_set = models.ForeignKey(DrawingSet, models.PROTECT, related_name="+", db_index=False)
     sheet = models.ForeignKey(Sheet, models.PROTECT, related_name="+", db_index=False)
     revision = models.ForeignKey(
         Revision, models.PROTECT, null=True, blank=True, related_name="+", db_index=False
@@ -558,6 +579,7 @@ class SheetRevision(models.Model):
                 name="drawings_sheetrevision_one_per_place",
             ),
             _tenant_id_key("sheetrevision"),
+            _set_id_key("sheetrevision"),
             models.CheckConstraint(
                 condition=models.Q(source_sha256__regex=_SHA256),
                 name="drawings_sheetrevision_sha256_hex",
@@ -591,6 +613,7 @@ class StateSheet(models.Model):
 
     id = models.UUIDField(primary_key=True, default=new_id, editable=False)
     tenant_id = models.UUIDField(editable=False)
+    drawing_set = models.ForeignKey(DrawingSet, models.PROTECT, related_name="+", db_index=False)
     state = models.ForeignKey(DrawingSetState, models.PROTECT, related_name="+", db_index=False)
     sheet_revision = models.ForeignKey(SheetRevision, models.PROTECT, related_name="+", db_index=False)
 

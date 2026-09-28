@@ -314,10 +314,11 @@ def quarantine(file_id: uuid.UUID, finding: Message) -> drawing_files.FileView:
     return _end(file_id, ReadStatus.QUARANTINED, finding)
 
 
-def mark_failed(file_id: uuid.UUID, finding: Message) -> drawing_files.FileView:
+def mark_failed(file_id: uuid.UUID, finding: Message, *, tries: int = 1) -> drawing_files.FileView:
     """The file could not be read, with why: read by one reader only (engine.decoders_agree's
-    `not_installed` and the like), or saved by an AutoCAD too old (`drawings.files.old_version`)."""
-    return _end(file_id, ReadStatus.FAILED, finding)
+    `not_installed` and the like), or saved by an AutoCAD too old (`drawings.files.old_version`).
+    `tries`: how many times its reading was tried (the read job's attempt), shown "after N tries"."""
+    return _end(file_id, ReadStatus.FAILED, finding, tries=max(1, tries))
 
 
 def answer_held(file_id: uuid.UUID, answer: HeldAnswer | str) -> drawing_files.FileView:
@@ -336,14 +337,17 @@ def answer_held(file_id: uuid.UUID, answer: HeldAnswer | str) -> drawing_files.F
     return drawing_files.file(row.id)
 
 
-def _end(file_id: uuid.UUID, status: ReadStatus, finding: Message | None) -> drawing_files.FileView:
+def _end(
+    file_id: uuid.UUID, status: ReadStatus, finding: Message | None, *, tries: int = 0
+) -> drawing_files.FileView:
     with transaction.atomic():
         row = _access.drawing_file(file_id, lock=True)
         if row.read_status in _IN_FLIGHT:
             row.read_status = status
             row.read_step = ""
             row.finding = None if finding is None else dict(finding)
+            row.read_tries = tries
             if status == ReadStatus.READ and row.sheets_total is not None:
                 row.sheets_done = row.sheets_total
-            row.save(update_fields=["read_status", "read_step", "finding", "sheets_done"])
+            row.save(update_fields=["read_status", "read_step", "finding", "read_tries", "sheets_done"])
     return drawing_files.file(row.id)

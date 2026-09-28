@@ -30,6 +30,18 @@ For 21b (sheets, views, render and Plot):
     services.record_plot(sr.id, plot_match)              # or services.PlotNone.NO_PDF, …
     services.record_kind(sr.id, "beam_layout")           # the kind as read (a key)
     services.artefact(file_id)                           # the kept ReadArtefact, loaded back
+    services.record_bangla_lines(file_id, flagged.findings(sheet_of))  # the Bangla-ANSI lines
+    services.record_page_reasons(pdf_id, [reports.PAGE_SHEET_NOT_IN_DWG(page=12, sheet="S-13")])
+
+For the page (20b), through `drawings/http/` (list, one file, cancel, restart, Discipline, report):
+
+    drawing_set = services.set_of(project_id)            # None before the first file
+    views = services.files(drawing_set.id); services.summary(views)
+    services.file(file_id); services.report(file_id)     # a file's status; its report panel
+    services.set_discipline(file_id, "electrical")       # its unconfirmed sheets move with it
+    services.cancel(file_id, actor_name=user.name); services.restart(file_id)
+    services.disciplines()                               # the Market's, one name each (labels)
+    services.sheet(sr.id); services.render(sr.id)        # a printed sheet; its render's bytes
 
 For 19a and 21c (Step 1):
 

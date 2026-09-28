@@ -46,6 +46,44 @@ def test_a_file_waits_behind_the_developers_own_files_only(
     assert status(qs_project.member, third.id) == ("waiting", said.WAITING(ahead=2))
 
 
+def test_a_member_of_some_projects_counts_only_their_files_ahead(
+    qs_project: QsProject, sign_in: Callable[..., Member]
+) -> None:
+    member = qs_project.member
+    with member.acting():
+        other = projects.create(code="OT-7", name="Other project")
+    add(member, other.id, "B.dwg", drawing())
+    add(member, qs_project.project_id, "A.dwg", drawing())
+    third = add(member, qs_project.project_id, "C.dwg", drawing()).file
+    scoped = sign_in(
+        role="vextrus_engineer", developer_id=member.developer_id, projects=[qs_project.project_id]
+    )
+
+    assert status(member, third.id) == ("waiting", said.WAITING(ahead=2))
+    assert status(scoped, third.id) == ("waiting", said.WAITING(ahead=1))
+
+
+def test_the_summary_counts_what_could_not_be_read_and_every_listed_sheet(
+    qs_project: QsProject,
+) -> None:
+    member = qs_project.member
+    held = add(member, qs_project.project_id, "KR-STR-R0.dwg", drawing()).file
+    read_dwg(member, held.id, ["S-01", "S-02"], mark_read=False)
+    failed = add(member, qs_project.project_id, "KR-ARC-R0.dwg", drawing()).file
+    old = add(member, qs_project.project_id, "KR-LIFT-R12.dwg", drawing()).file
+    with member.acting():
+        services.quarantine(held.id, {"code": "engine.decoders_agree.disagree", "params": {}})
+        services.answer_held(held.id, "read_anyway")
+        services.mark_failed(failed.id, {"code": "engine.read.reader_failed", "params": {}}, tries=3)
+        services.mark_failed(old.id, said.OLD_VERSION())
+        shown = services.files(held.set_id)
+
+    assert services.summary(shown) == said.SUMMARY(
+        files=3, sheets=2, reading=0, failed=2, held=1, refused=0
+    )
+    assert status(member, failed.id) == ("failed", said.FAILED(tries=3))
+
+
 @pytest.mark.parametrize(
     ("kind", "step", "words"),
     [
@@ -184,13 +222,17 @@ def test_a_pdf_says_its_plot_and_sits_under_its_dwg(qs_project: QsProject) -> No
     printed = read_dwg(member, dwg.id, ["A-01", "A-02"])
     lines = add(member, qs_project.project_id, "KR-ARC-R0.pdf", drawing("pdf")).file
     early = add(member, qs_project.project_id, "KR-STR-R0.pdf", drawing("pdf")).file
+    later = add(member, qs_project.project_id, "KR-ARC-R1.pdf", drawing("pdf")).file
+    loose = add(member, qs_project.project_id, "misc.pdf", drawing("pdf")).file
     with member.acting():
         services.record_reports(
             lines.id, upload_report=pdf_report(lines.sha256, 3, lettering=Lettering.LINES)
         )
         services.record_reports(early.id, upload_report=pdf_report(early.sha256, 12))
-        services.mark_read(lines.id)
-        services.mark_read(early.id)
+        services.record_reports(later.id, upload_report=pdf_report(later.sha256, 4))
+        services.record_reports(loose.id, upload_report=pdf_report(loose.sha256, 2))
+        for pdf in (lines, early, later, loose):
+            services.mark_read(pdf.id)
         from engine.read.pdf.types import Page
         from engine.recognise.types import PlotMatch
 
@@ -204,8 +246,12 @@ def test_a_pdf_says_its_plot_and_sits_under_its_dwg(qs_project: QsProject) -> No
         said.PLOT_MATCHED_LINES(matched=2, pages=3),
     )
     assert shown[lines.id].plot_for == (dwg.id,)
+    # No Structural DWG is read: its PDF waits. An Architectural one is: its other PDF, and one of
+    # no Discipline, matched none of its sheets.
     assert shown[early.id].status == said.PLOT_WAITING()
+    assert shown[later.id].status == said.PLOT_MATCHED(matched=0, pages=4)
+    assert shown[loose.id].status == said.PLOT_MATCHED(matched=0, pages=2)
     assert shown[dwg.id].sheets_found == 2
     assert services.summary(shown.values()) == said.SUMMARY(
-        files=3, sheets=2, reading=0, held=0, refused=0
+        files=5, sheets=2, reading=0, failed=0, held=0, refused=0
     )

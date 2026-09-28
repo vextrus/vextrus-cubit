@@ -16,6 +16,8 @@ from collections import Counter
 from dataclasses import dataclass
 from typing import Any
 
+from django.db.models import Q
+
 from engine.messages import Message
 from vextrus.drawings.messages import reports as said
 from vextrus.drawings.models import (
@@ -77,7 +79,8 @@ def _messages(stored: dict[str, Any] | None) -> tuple[Message, ...]:
 
 def _readers(row: DrawingFile) -> list[Message]:
     finding = row.finding
-    if finding and str(finding.get("code", "")).startswith("engine.decoders_agree."):
+    stopped = row.read_status in (ReadStatus.FAILED, ReadStatus.QUARANTINED)
+    if finding and (stopped or str(finding.get("code", "")).startswith("engine.decoders_agree.")):
         return [Message(code=finding["code"], params=finding["params"])]
     check = row.cross_check or {}
     if check.get("outcome") == "passed":
@@ -116,6 +119,9 @@ def _sheets(row: DrawingFile) -> list[Message]:
 
 
 def _plot(row: DrawingFile) -> list[Message]:
+    """The PDFs plotted from this file, first added first: the first with pages for its sheets is
+    its Plot, each later one a part of it; one with none says why (refused, or no page matched).
+    A PDF counts when a sheet names it, or when it is of this file's Discipline."""
     if not _listed(row):
         return []
     printed = list(
@@ -124,14 +130,28 @@ def _plot(row: DrawingFile) -> list[Message]:
     if not printed:
         return []
     with_page = Counter(pdf for pdf, page in printed if pdf is not None and page is not None)
-    if not with_page:
-        return [said.NO_PLOT()]
-    names = dict(DrawingFile.objects.filter(id__in=list(with_page)).values_list("id", "original_name"))
-    return [
-        said.PLOT_OF_DWG(plot_file=names[pdf], with_page=count, sheets=len(printed))
-        for pdf, count in with_page.items()
-        if pdf in names
-    ]
+    named = {pdf for pdf, _ in printed if pdf is not None}
+    pdfs = DrawingFile.objects.filter(drawing_set_id=row.drawing_set_id, format=FileFormat.PDF)
+    if row.discipline_id is not None:
+        pdfs = pdfs.filter(Q(id__in=named) | Q(discipline_id=row.discipline_id))
+    else:
+        pdfs = pdfs.filter(id__in=named)
+    lines: list[Message] = []
+    plotted = False
+    for pdf, name, status in pdfs.order_by("added_at", "id").values_list(
+        "id", "original_name", "read_status"
+    ):
+        if with_page[pdf]:
+            said_plot = said.PLOT_PART if plotted else said.PLOT_OF_DWG
+            lines.append(said_plot(plot_file=name, with_page=with_page[pdf], sheets=len(printed)))
+            plotted = True
+        elif status == ReadStatus.REFUSED:
+            lines.append(said.PLOT_REFUSED(plot_file=name))
+        elif status == ReadStatus.READ:
+            lines.append(said.PLOT_NONE_MATCHED(plot_file=name))
+    if not pdfs.exists():
+        lines.append(said.NO_PLOT())
+    return lines
 
 
 def _pages(row: DrawingFile) -> list[Message]:
@@ -144,7 +164,7 @@ def _pages(row: DrawingFile) -> list[Message]:
         .distinct()
         .count()
     )
-    if matched == 0:
+    if matched == 0 and not drawing_files.dwg_read_for(row):
         return [said.NO_DWG_FOR_PAGES()]
     lines = [said.PAGES_MATCHED(matched=matched, pages=max(pages, matched))]
     lines += [Message(code=m["code"], params=m["params"]) for m in row.unmatched_pages or ()]

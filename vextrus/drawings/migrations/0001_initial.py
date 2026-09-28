@@ -8,7 +8,10 @@
 #   Market's Disciplines and writes none (vextrus_app may only SELECT it; sync_library writes it as
 #   the owner). No policy holds a join, a sub-select or any other function call.
 # - A reference inside drawings names a row of the same tenant: a composite key on (tenant_id, x_id)
-#   beside Django's own, deferred, as projects' keys are.
+#   beside Django's own, deferred, as projects' keys are; and a reference between two rows of one
+#   Drawing Set names a row of the same set, (tenant_id, drawing_set_id, x_id), so a printed sheet,
+#   its Sheet, its file, its Revision and its Plot's PDF, a file and its Revision, a state and its
+#   map rows are all of one set: no write crosses Projects inside one Developer.
 # - What a key cannot hold, a trigger does, whoever writes, on INSERT and on UPDATE, so neither a
 #   chosen id nor deleting a row and inserting it again gets round it. Each trigger function runs as
 #   its caller (not SECURITY DEFINER), so its lookups see only what the writer's own policies admit;
@@ -18,16 +21,26 @@
 #       own Market's (another Market's Library is not);
 #     - a Drawing Set's Project is the writer's own;
 #     - a file's original is a StoredFile of the writer's, of the set's Project, with the file's
-#       sha256 and size; its Building is one of the set's Project;
+#       sha256 and size; its Building is one of the set's Project; its Revision is of its own
+#       Discipline;
 #     - a kept ReadArtefact is a StoredFile of the set's Project derived from the file's sha256;
-#     - a Sheet's Building is one of the set's Project; a printed sheet's render a StoredFile of it.
+#     - a Sheet's Building is one of the set's Project; a printed sheet's render a StoredFile of it;
+#     - a view's predecessor is a view of its own Drawing Set.
 # - vextrus_app's rights come from platform's default privileges (platform 0003): select, insert,
 #   update and delete, never TRUNCATE. Then narrowed: the Disciplines it may only read; a read job's
 #   steps and a kept ReadArtefact it may only add (never change or delete); a file it may never
 #   delete, and may UPDATE only its reading's columns (never its contents' sha256, its original, its
 #   name, its set or its Building); a set only its name and current state, and never delete; a
-#   state only its status and reader; a Revision it never updates. Since a file is never deleted by
-#   the app and its steps' key to it takes no action, its steps cannot be removed with it either.
+#   state only its status and reader; a Revision it never updates or deletes (a first issue left
+#   with no file stays, and is found again by its Discipline's next file); a Sheet never moves to
+#   another set, Building, source file or place, nor a printed sheet to another set, source file or
+#   place; a view only takes a decision (a reading replaces views, never moves one); a state's map
+#   row is never updated. Since a file is never deleted by the app and its steps' key to it takes
+#   no action, its steps cannot be removed with it either.
+# - Held by projects, not here: a Building's Project. A Building is named by id (a downward id), and
+#   the triggers check it at each write of a drawings row; projects' own rights decide whether a
+#   Building can move to another Project afterwards (vextrus_app may today delete a Building and
+#   insert it again: projects' rule, reported to its owner).
 
 import django.db.models.deletion
 import django.utils.timezone
@@ -70,43 +83,70 @@ POLICIES_REVERSE = [
     *(f"alter table {table} disable row level security" for table in TABLES),
 ]
 
-# (table, column, referenced table): each reference inside drawings held to its row's own tenant.
-SAME_TENANT = (
-    ("drawings_drawingset", "current_state_id", "drawings_drawingsetstate"),
-    ("drawings_drawingsetstate", "drawing_set_id", "drawings_drawingset"),
-    ("drawings_drawingsetstate", "revision_id", "drawings_revision"),
-    ("drawings_drawingsetstate", "parent_state_id", "drawings_drawingsetstate"),
-    ("drawings_revision", "drawing_set_id", "drawings_drawingset"),
-    ("drawings_drawingfile", "drawing_set_id", "drawings_drawingset"),
-    ("drawings_drawingfile", "revision_id", "drawings_revision"),
-    ("drawings_artefact", "file_id", "drawings_drawingfile"),
-    ("drawings_readstep", "file_id", "drawings_drawingfile"),
-    ("drawings_sheet", "drawing_set_id", "drawings_drawingset"),
-    ("drawings_sheet", "source_file_id", "drawings_drawingfile"),
-    ("drawings_sheetrevision", "sheet_id", "drawings_sheet"),
-    ("drawings_sheetrevision", "revision_id", "drawings_revision"),
-    ("drawings_sheetrevision", "source_file_id", "drawings_drawingfile"),
-    ("drawings_sheetrevision", "plot_file_id", "drawings_drawingfile"),
-    ("drawings_statesheet", "state_id", "drawings_drawingsetstate"),
-    ("drawings_statesheet", "sheet_revision_id", "drawings_sheetrevision"),
-    ("drawings_view", "sheet_revision_id", "drawings_sheetrevision"),
-    ("drawings_view", "predecessor_view_id", "drawings_view"),
+# Each reference inside drawings: (table, its columns, the table it names, their columns). A row names
+# one of its own tenant (tenant_id, x_id); a row of a Drawing Set names one of the same set
+# (tenant_id, drawing_set_id, x_id), so no write crosses Projects inside one Developer either.
+TENANT = ("tenant_id", "id")
+SET = ("tenant_id", "drawing_set_id", "id")
+REFERENCES = (
+    ("drawings_drawingset", ("tenant_id", "id", "current_state_id"), "drawings_drawingsetstate", SET),
+    ("drawings_drawingsetstate", ("tenant_id", "drawing_set_id"), "drawings_drawingset", TENANT),
+    ("drawings_drawingsetstate", ("tenant_id", "drawing_set_id", "revision_id"), "drawings_revision", SET),
+    (
+        "drawings_drawingsetstate",
+        ("tenant_id", "drawing_set_id", "parent_state_id"),
+        "drawings_drawingsetstate",
+        SET,
+    ),
+    ("drawings_revision", ("tenant_id", "drawing_set_id"), "drawings_drawingset", TENANT),
+    ("drawings_drawingfile", ("tenant_id", "drawing_set_id"), "drawings_drawingset", TENANT),
+    ("drawings_drawingfile", ("tenant_id", "drawing_set_id", "revision_id"), "drawings_revision", SET),
+    ("drawings_artefact", ("tenant_id", "file_id"), "drawings_drawingfile", TENANT),
+    ("drawings_readstep", ("tenant_id", "file_id"), "drawings_drawingfile", TENANT),
+    ("drawings_sheet", ("tenant_id", "drawing_set_id"), "drawings_drawingset", TENANT),
+    ("drawings_sheet", ("tenant_id", "drawing_set_id", "source_file_id"), "drawings_drawingfile", SET),
+    ("drawings_sheetrevision", ("tenant_id", "drawing_set_id"), "drawings_drawingset", TENANT),
+    ("drawings_sheetrevision", ("tenant_id", "drawing_set_id", "sheet_id"), "drawings_sheet", SET),
+    ("drawings_sheetrevision", ("tenant_id", "drawing_set_id", "revision_id"), "drawings_revision", SET),
+    (
+        "drawings_sheetrevision",
+        ("tenant_id", "drawing_set_id", "source_file_id"),
+        "drawings_drawingfile",
+        SET,
+    ),
+    (
+        "drawings_sheetrevision",
+        ("tenant_id", "drawing_set_id", "plot_file_id"),
+        "drawings_drawingfile",
+        SET,
+    ),
+    ("drawings_statesheet", ("tenant_id", "drawing_set_id"), "drawings_drawingset", TENANT),
+    ("drawings_statesheet", ("tenant_id", "drawing_set_id", "state_id"), "drawings_drawingsetstate", SET),
+    (
+        "drawings_statesheet",
+        ("tenant_id", "drawing_set_id", "sheet_revision_id"),
+        "drawings_sheetrevision",
+        SET,
+    ),
+    ("drawings_view", ("tenant_id", "sheet_revision_id"), "drawings_sheetrevision", TENANT),
+    ("drawings_view", ("tenant_id", "predecessor_view_id"), "drawings_view", TENANT),
 )
 
 
-def _key_name(table: str, column: str) -> str:
-    return f"{table}_{column.removesuffix('_id')}_own_tenant"[:63]
+def _key_name(table: str, columns: tuple[str, ...]) -> str:
+    kind = "own_set" if len(columns) == 3 else "own_tenant"
+    return f"{table}_{columns[-1].removesuffix('_id')}_{kind}"[:63]
 
 
 KEYS = [
-    f"""alter table {table} add constraint {_key_name(table, column)}
-          foreign key (tenant_id, {column}) references {target} (tenant_id, id)
+    f"""alter table {table} add constraint {_key_name(table, columns)}
+          foreign key ({", ".join(columns)}) references {target} ({", ".join(target_columns)})
           deferrable initially deferred"""
-    for table, column, target in SAME_TENANT
+    for table, columns, target, target_columns in REFERENCES
 ]
 KEYS_REVERSE = [
-    f"alter table {table} drop constraint {_key_name(table, column)}"
-    for table, column, _target in reversed(SAME_TENANT)
+    f"alter table {table} drop constraint {_key_name(table, columns)}"
+    for table, columns, _target, _target_columns in reversed(REFERENCES)
 ]
 
 # Each trigger: (function, table, the columns whose change fires it, the checks, each a condition the
@@ -135,11 +175,26 @@ CHECKS = (
     (
         "drawings_drawingfile_in_reach",
         "drawings_drawingfile",
-        ("tenant_id", "drawing_set_id", "discipline_id", "building_id", "stored_file_id", "sha256"),
+        (
+            "tenant_id",
+            "drawing_set_id",
+            "revision_id",
+            "discipline_id",
+            "building_id",
+            "stored_file_id",
+            "sha256",
+        ),
         (
             (
                 "new.discipline_id is null or " + IN_REACH.format(column="discipline_id"),
                 "names a Discipline of another Market",
+            ),
+            (
+                (
+                    "new.revision_id is null or exists (select 1 from public.drawings_revision r"
+                    " where r.id = new.revision_id and r.discipline_id = new.discipline_id)"
+                ),
+                "names a Revision of another Discipline",
             ),
             (
                 (
@@ -215,11 +270,20 @@ CHECKS = (
     (
         "drawings_view_in_reach",
         "drawings_view",
-        ("tenant_id", "part_id"),
+        ("tenant_id", "part_id", "predecessor_view_id", "sheet_revision_id"),
         (
             (
                 "new.part_id is null or " + IN_REACH.format(column="part_id"),
                 "names a Discipline of another Market",
+            ),
+            (
+                (
+                    "new.predecessor_view_id is null or exists (select 1 from public.drawings_view p"
+                    " join public.drawings_sheetrevision pr on pr.id = p.sheet_revision_id"
+                    " join public.drawings_sheetrevision nr on nr.id = new.sheet_revision_id"
+                    " where p.id = new.predecessor_view_id and pr.drawing_set_id = nr.drawing_set_id)"
+                ),
+                "names a view of another Drawing Set",
             ),
         ),
     ),
@@ -277,6 +341,7 @@ FILE_READING_COLUMNS = (
     "progress_at",
     "sheets_started_at",
     "read_job_id",
+    "read_tries",
     "finding",
     "held_answer",
     "cross_check",
@@ -288,8 +353,58 @@ FILE_READING_COLUMNS = (
     "empty_layouts",
     "cancelled_by",
     "cancelled_by_name",
+    "cancelled_by_vextrus",
     "cancelled_at",
 )
+SHEET_COLUMNS = ("discipline_id", "number", "title", "consultant_office", "storeys_as_stated")
+"""What reading a file again, or moving it to another Discipline, may change of a Sheet: never its
+set, its Building, its source file or its place."""
+PRINTED_SHEET_COLUMNS = (
+    "sheet_id",
+    "revision_id",
+    "location",
+    "sheet_key",
+    "ordinal",
+    "title",
+    "revision_mark",
+    "issue_date",
+    "storeys_as_stated",
+    "sources",
+    "content_hash",
+    "kind",
+    "confirmed_kind",
+    "source_sha256",
+    "reader_version",
+    "anchors",
+    "proposed_exclusion",
+    "proposed_exclusion_text",
+    "render_file_id",
+    "render_key",
+    "plot_file_id",
+    "plot_page",
+    "plot_transform",
+    "plot_residual",
+    "render_f1",
+    "plot_none_reason",
+    "decision",
+    "confirmation_id",
+    "decided_by",
+    "decided_at",
+    "excluded_reason",
+    "excluded_text",
+)
+"""What a reading, a Plot or a decision may change of a printed sheet: never its set, its source
+file or its place."""
+VIEW_COLUMNS = (
+    "confirmed_kind",
+    "decision",
+    "confirmation_id",
+    "decided_by",
+    "decided_at",
+    "excluded_reason",
+    "excluded_text",
+)
+"""What a decision may change of a view (a reading replaces views; it never moves one)."""
 RIGHTS = [
     f"revoke insert, update, delete on drawings_discipline from {APP}",
     f"revoke update, delete on drawings_readstep from {APP}",
@@ -300,10 +415,24 @@ RIGHTS = [
     f"grant update (name, current_state_id) on drawings_drawingset to {APP}",
     f"revoke update, delete on drawings_drawingsetstate from {APP}",
     f"grant update (status, reader, reader_version) on drawings_drawingsetstate to {APP}",
-    f"revoke update on drawings_revision from {APP}",
+    f"revoke update, delete on drawings_revision from {APP}",
+    f"revoke update on drawings_sheet from {APP}",
+    f"grant update ({', '.join(SHEET_COLUMNS)}) on drawings_sheet to {APP}",
+    f"revoke update on drawings_sheetrevision from {APP}",
+    f"grant update ({', '.join(PRINTED_SHEET_COLUMNS)}) on drawings_sheetrevision to {APP}",
+    f"revoke update on drawings_view from {APP}",
+    f"grant update ({', '.join(VIEW_COLUMNS)}) on drawings_view to {APP}",
+    f"revoke update on drawings_statesheet from {APP}",
 ]
 RIGHTS_REVERSE = [
-    f"grant update on drawings_revision to {APP}",
+    f"grant update on drawings_statesheet to {APP}",
+    f"revoke update ({', '.join(VIEW_COLUMNS)}) on drawings_view from {APP}",
+    f"grant update on drawings_view to {APP}",
+    f"revoke update ({', '.join(PRINTED_SHEET_COLUMNS)}) on drawings_sheetrevision from {APP}",
+    f"grant update on drawings_sheetrevision to {APP}",
+    f"revoke update ({', '.join(SHEET_COLUMNS)}) on drawings_sheet from {APP}",
+    f"grant update on drawings_sheet to {APP}",
+    f"grant update, delete on drawings_revision to {APP}",
     f"revoke update (status, reader, reader_version) on drawings_drawingsetstate from {APP}",
     f"grant update, delete on drawings_drawingsetstate to {APP}",
     f"revoke update (name, current_state_id) on drawings_drawingset from {APP}",
@@ -372,6 +501,7 @@ class Migration(migrations.Migration):
                 ('progress_at', models.DateTimeField(blank=True, null=True)),
                 ('sheets_started_at', models.DateTimeField(blank=True, null=True)),
                 ('read_job_id', models.BigIntegerField(blank=True, null=True)),
+                ('read_tries', models.PositiveSmallIntegerField(default=0, help_text='The tries its reading took, when it ended without a job to say so.')),
                 ('finding', models.JSONField(blank=True, help_text='Why it is held or failed: a message.', null=True)),
                 ('held_answer', models.CharField(blank=True, choices=[('read_anyway', 'Read Anyway'), ('await_resaved', 'Await Resaved'), ('sent_to_vextrus', 'Sent To Vextrus')], default='', max_length=16)),
                 ('cross_check', models.JSONField(blank=True, null=True)),
@@ -383,9 +513,11 @@ class Migration(migrations.Migration):
                 ('empty_layouts', models.PositiveIntegerField(default=0)),
                 ('added_by', models.UUIDField(blank=True, editable=False, null=True)),
                 ('added_by_name', models.CharField(blank=True, editable=False, help_text='Their name at the time, as shown.', max_length=200)),
+                ('added_by_vextrus', models.BooleanField(default=False, editable=False, help_text='Added by a Vextrus Engineer: shown with (Vextrus).')),
                 ('added_at', models.DateTimeField(default=django.utils.timezone.now, editable=False)),
                 ('cancelled_by', models.UUIDField(blank=True, null=True)),
                 ('cancelled_by_name', models.CharField(blank=True, max_length=200)),
+                ('cancelled_by_vextrus', models.BooleanField(default=False)),
                 ('cancelled_at', models.DateTimeField(blank=True, null=True)),
                 ('discipline', models.ForeignKey(blank=True, db_index=False, null=True, on_delete=django.db.models.deletion.PROTECT, related_name='+', to='drawings.discipline')),
                 ('drawing_set', models.ForeignKey(db_index=False, on_delete=django.db.models.deletion.PROTECT, related_name='+', to='drawings.drawingset')),
@@ -498,6 +630,7 @@ class Migration(migrations.Migration):
                 ('decided_at', models.DateTimeField(blank=True, null=True)),
                 ('excluded_reason', models.CharField(blank=True, choices=[('superseded', 'Superseded'), ('duplicate', 'Duplicate'), ('cover_index', 'Cover Index'), ('for_information', 'For Information'), ('by_others', 'By Others'), ('blank', 'Blank'), ('other', 'Other')], default='', max_length=16)),
                 ('excluded_text', models.TextField(blank=True)),
+                ('drawing_set', models.ForeignKey(db_index=False, on_delete=django.db.models.deletion.PROTECT, related_name='+', to='drawings.drawingset')),
                 ('plot_file', models.ForeignKey(blank=True, db_index=False, null=True, on_delete=django.db.models.deletion.PROTECT, related_name='+', to='drawings.drawingfile')),
                 ('revision', models.ForeignKey(blank=True, db_index=False, null=True, on_delete=django.db.models.deletion.PROTECT, related_name='+', to='drawings.revision')),
                 ('sheet', models.ForeignKey(db_index=False, on_delete=django.db.models.deletion.PROTECT, related_name='+', to='drawings.sheet')),
@@ -509,6 +642,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.UUIDField(default=vextrus.platform.ids.new_id, editable=False, primary_key=True, serialize=False)),
                 ('tenant_id', models.UUIDField(editable=False)),
+                ('drawing_set', models.ForeignKey(db_index=False, on_delete=django.db.models.deletion.PROTECT, related_name='+', to='drawings.drawingset')),
                 ('sheet_revision', models.ForeignKey(db_index=False, on_delete=django.db.models.deletion.PROTECT, related_name='+', to='drawings.sheetrevision')),
                 ('state', models.ForeignKey(db_index=False, on_delete=django.db.models.deletion.PROTECT, related_name='+', to='drawings.drawingsetstate')),
             ],
@@ -596,6 +730,10 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name='revision',
+            constraint=models.UniqueConstraint(fields=('tenant_id', 'drawing_set', 'id'), name='drawings_revision_set_id'),
+        ),
+        migrations.AddConstraint(
+            model_name='revision',
             constraint=models.CheckConstraint(condition=models.Q(('kind__in', ['first_issue', 'reissue'])), name='drawings_revision_kind'),
         ),
         migrations.AddConstraint(
@@ -605,6 +743,10 @@ class Migration(migrations.Migration):
         migrations.AddConstraint(
             model_name='drawingsetstate',
             constraint=models.UniqueConstraint(fields=('tenant_id', 'id'), name='drawings_drawingsetstate_tenant_id'),
+        ),
+        migrations.AddConstraint(
+            model_name='drawingsetstate',
+            constraint=models.UniqueConstraint(fields=('tenant_id', 'drawing_set', 'id'), name='drawings_drawingsetstate_set_id'),
         ),
         migrations.AddConstraint(
             model_name='drawingsetstate',
@@ -621,6 +763,10 @@ class Migration(migrations.Migration):
         migrations.AddConstraint(
             model_name='drawingfile',
             constraint=models.UniqueConstraint(fields=('tenant_id', 'id'), name='drawings_drawingfile_tenant_id'),
+        ),
+        migrations.AddConstraint(
+            model_name='drawingfile',
+            constraint=models.UniqueConstraint(fields=('tenant_id', 'drawing_set', 'id'), name='drawings_drawingfile_set_id'),
         ),
         migrations.AddConstraint(
             model_name='drawingfile',
@@ -660,6 +806,10 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name='sheet',
+            constraint=models.UniqueConstraint(fields=('tenant_id', 'drawing_set', 'id'), name='drawings_sheet_set_id'),
+        ),
+        migrations.AddConstraint(
+            model_name='sheet',
             constraint=models.CheckConstraint(condition=models.Q(models.Q(models.Q(('number', ''), _negated=True), ('location_key', ''), ('source_file__isnull', True)), models.Q(('number', ''), ('source_file__isnull', False), models.Q(('location_key', ''), _negated=True)), _connector='OR'), name='drawings_sheet_number_or_place'),
         ),
         migrations.AddConstraint(
@@ -673,6 +823,10 @@ class Migration(migrations.Migration):
         migrations.AddConstraint(
             model_name='sheetrevision',
             constraint=models.UniqueConstraint(fields=('tenant_id', 'id'), name='drawings_sheetrevision_tenant_id'),
+        ),
+        migrations.AddConstraint(
+            model_name='sheetrevision',
+            constraint=models.UniqueConstraint(fields=('tenant_id', 'drawing_set', 'id'), name='drawings_sheetrevision_set_id'),
         ),
         migrations.AddConstraint(
             model_name='sheetrevision',

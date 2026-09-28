@@ -558,7 +558,7 @@ def bokul(demo: Demo) -> None:
     cancelled = added(demo, code, project_id, "BP-ELE-R0.dwg", invented("dwg", "BP-ELE-R0"))
     services.cancel(cancelled.id, actor_name=NUSRAT)
     failed = added(demo, code, project_id, "BP-PLB-R0.dwg", invented("dwg", "BP-PLB-R0"))
-    services.mark_failed(failed.id, read_codes.OBJECTS_MISSING(count=3))
+    services.mark_failed(failed.id, read_codes.OBJECTS_MISSING(count=3), tries=3)
     once = added(demo, code, project_id, "BP-FIRE-R0.dwg", invented("dwg", "BP-FIRE-R0"))
     services.mark_failed(once.id, agree_codes.NOT_INSTALLED())
     old = added(

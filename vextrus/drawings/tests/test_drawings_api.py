@@ -65,12 +65,13 @@ def test_the_list_shows_every_file_in_its_words_and_the_summary(kr: dict[str, An
     assert waiting["status"] == {"code": "drawings.files.waiting", "params": {"ahead": 0}}
     assert body["summary"] == {
         "code": "drawings.files.summary",
-        "params": {"files": 3, "sheets": 2, "reading": 1, "held": 0, "refused": 0},
+        "params": {"files": 3, "sheets": 2, "reading": 1, "failed": 0, "held": 0, "refused": 0},
     }
     assert set(dwg) == {
         "id", "name", "format", "size", "discipline", "state", "status", "finding",
-        "sheets_found", "plot_for", "added_at", "added_by_name",
+        "sheets_found", "plot_for", "added_at", "added_by_name", "added_by_vextrus",
     }  # fmt: skip
+    assert dwg["added_by_vextrus"] is False
 
 
 def test_an_empty_project_lists_no_set(qs_project: QsProject) -> None:
@@ -80,7 +81,7 @@ def test_an_empty_project_lists_no_set(qs_project: QsProject) -> None:
         "set_id": None,
         "summary": {
             "code": "drawings.files.summary",
-            "params": {"files": 0, "sheets": 0, "reading": 0, "held": 0, "refused": 0},
+            "params": {"files": 0, "sheets": 0, "reading": 0, "failed": 0, "held": 0, "refused": 0},
         },
         "files": [],
     }

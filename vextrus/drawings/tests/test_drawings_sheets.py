@@ -31,6 +31,7 @@ from vextrus.testing.drawings import (
     artefact_for,
     drawing,
     frame,
+    pdf_report,
     read_dwg,
     sheet_candidate,
 )
@@ -280,6 +281,35 @@ def test_a_plot_page_must_be_of_a_pdf_of_the_same_set(qs_project: QsProject) -> 
     assert no_page.plot.none == said.PLOT_NO_PAGE(plot_file="KR-STR-R0.pdf")
 
 
+def test_a_sheet_with_no_plot_recorded_says_whether_a_pdf_is_there_to_match(
+    qs_project: QsProject,
+) -> None:
+    member = qs_project.member
+    found = add(member, qs_project.project_id, "KR-STR-R0.dwg", drawing()).file
+    [s1] = read_dwg(member, found.id, ["S-01"])
+    loose = add(member, qs_project.project_id, "plans.dwg", drawing()).file
+    [unfiled] = read_dwg(member, loose.id, ["X-01"])
+
+    def plots() -> tuple[Any, Any]:
+        with member.acting():
+            return services.sheet(s1.id).plot.none, services.sheet(unfiled.id).plot.none
+
+    before = plots()
+    add(member, qs_project.project_id, "KR-ARC-R0.pdf", drawing("pdf"))  # another Discipline's
+    other_discipline = plots()
+    scan = add(member, qs_project.project_id, "KR-STR-scan.pdf", drawing("pdf")).file
+    with member.acting():
+        services.record_reports(scan.id, upload_report=pdf_report(scan.sha256, 1, refused=True))
+    refused = plots()
+    add(member, qs_project.project_id, "KR-STR-R0.pdf", drawing("pdf"))
+    added = plots()
+
+    assert before == (said.PLOT_NO_PDF(discipline="Structural"), said.PLOT_NO_PDF_ANY())
+    assert other_discipline == (said.PLOT_NO_PDF(discipline="Structural"), said.PLOT_NOT_YET())
+    assert refused == (said.PLOT_PDF_REFUSED(), said.PLOT_NOT_YET())
+    assert added == (said.PLOT_NOT_YET(), said.PLOT_NOT_YET())
+
+
 # The sheet list --------------------------------------------------------------------------------------
 
 
@@ -363,7 +393,7 @@ def test_the_qs_confirms_leaves_out_and_undoes_by_confirmation(qs_project: QsPro
     [
         ("other", "  ", "drawings.sheets.other_needs_text"),
         ("superseded", "because", "drawings.sheets.text_only_for_other"),
-        ("mep", "", "drawings.sheets.kind_unknown"),
+        ("mep", "", "drawings.sheets.reason_unknown"),
     ],
 )
 def test_leaving_out_takes_one_of_the_seven_and_words_only_for_other(
@@ -412,12 +442,18 @@ def test_a_files_unconfirmed_sheets_move_with_its_discipline(qs_project: QsProje
         moved = services.set_discipline(found.id, "electrical")
         listed = services.sheets(found.set_id, "electrical")
         revisions = one(
-            "select array_agg(d.key) from drawings_revision r"
+            "select array_agg(d.key order by r.seq) from drawings_revision r"
             " join drawings_discipline d on d.id = r.discipline_id"
+        )
+        its_revision = one(
+            "select d.key from drawings_drawingfile f join drawings_revision r on r.id = f.revision_id"
+            " join drawings_discipline d on d.id = r.discipline_id where f.id = %s",
+            [found.id],
         )
     assert (moved.discipline, moved.discipline_source) == ("electrical", "qs")
     assert [s.number for s in listed] == ["E-01", "E-02"]
-    assert revisions == ["electrical"]
+    # Structural's first issue, left with no file, stays (a Revision is never deleted).
+    assert (revisions, its_revision) == (["structural", "electrical"], "electrical")
 
 
 def test_a_decided_or_colliding_sheet_keeps_the_files_discipline(qs_project: QsProject) -> None:
@@ -437,7 +473,10 @@ def test_a_decided_or_colliding_sheet_keeps_the_files_discipline(qs_project: QsP
         kept = (services.file(struct.id).discipline, services.file(arch.id).discipline)
     assert (taken.value.status, taken.value.message) == (
         409,
-        {"code": "drawings.files.discipline_sheet_taken", "params": {"sheet": "X-01"}},
+        {
+            "code": "drawings.files.discipline_sheet_taken",
+            "params": {"sheet": "X-01", "discipline": "Structural"},
+        },
     )
     assert (decided.value.status, decided.value.message) == (
         409,

@@ -220,7 +220,7 @@ def test_an_old_autocad_file_reads_its_own_row(dwg: tuple[Member, services.FileV
         with pytest.raises(auth.Refused) as restart:
             services.restart(found.id)
     assert (shown.state, shown.status) == ("unreadable", said.OLD_VERSION())
-    assert (restart.value.status, restart.value.message) == (409, said.NOT_STOPPED())
+    assert (restart.value.status, restart.value.message) == (409, said.OLD_VERSION())
 
 
 def test_a_read_job_is_attached_only_when_it_is_the_developers_own(

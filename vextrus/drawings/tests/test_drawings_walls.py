@@ -98,9 +98,10 @@ def test_a_file_never_names_another_markets_discipline_by_any_write(
             sql("update drawings_drawingfile set discipline_id = %s where id = %s", [theirs, file_id])
         revision_id = one("select revision_id from drawings_drawingfile where id = %s", [file_id])
         set_id = one("select drawing_set_id from drawings_drawingfile where id = %s", [file_id])
-        # A Revision may be deleted by the app (an emptied first issue): never re-made with theirs.
-        with refused("names a Discipline of another Market"):
+        # A Revision is never deleted (so never re-made with theirs), nor made anew with theirs.
+        with refused("permission denied"):
             sql("delete from drawings_revision where id = %s", [revision_id])
+        with refused("names a Discipline of another Market"):
             sql(
                 "insert into drawings_revision (id, tenant_id, drawing_set_id, seq, label,"
                 " discipline_id, kind, received_at) values (%s, %s, %s, 99, '', %s,"
@@ -127,11 +128,29 @@ def test_a_view_never_names_another_markets_discipline_as_its_part(
             " on r.id = v.sheet_revision_id where r.source_file_id = %s",
             [added.file.id],
         )
-        with refused("names a Discipline of another Market"):
+        with refused("permission denied"):  # a view's part is never updated
             sql(
                 "update drawings_view set part_id = %s where id = %s",
                 [other_market.discipline_ids["zz_only"], view_id],
             )
+        sheet_revision_id = one("select sheet_revision_id from drawings_view where id = %s", [view_id])
+        with refused("names a Discipline of another Market"):
+            sql(
+                VIEW,
+                [uuid.uuid4(), qs_project.member.developer_id, sheet_revision_id,
+                 other_market.discipline_ids["zz_only"], None],
+            )  # fmt: skip
+
+
+VIEW = (
+    "insert into drawings_view (id, tenant_id, sheet_revision_id, part_id, predecessor_view_id,"
+    " reader_version, ordinal, kind, confirmed_kind, title, box, drawing_unit, not_to_scale,"
+    " stated_scale_text, storeys_as_stated, storeys, storeys_meaning, subject, layer, steps,"
+    " proposed_exclusion, proposed_exclusion_text, source_sha256, anchors, decision,"
+    " excluded_reason, excluded_text) values (%s, %s, %s, %s, %s, '1', 99, 'plan', '', '',"
+    " '[\"0\", \"0\", \"1\", \"1\"]', '', false, '', '', '[]', '', '', '', '[]', '', '',"
+    " repeat('a', 64), '[]', '', '', '')"
+)
 
 
 # A file: its contents, its set and its reading --------------------------------------------------
@@ -306,24 +325,84 @@ def test_one_printed_sheet_per_place_in_a_file(qs_project: QsProject) -> None:
     [printed] = read_dwg(qs_project.member, added.file.id, ["S-01"])
     with qs_project.member.acting():
         row = sql(
-            "select sheet_id, location_key, location, source_sha256, reader_version"
+            "select sheet_id, location_key, location, source_sha256, reader_version, drawing_set_id"
             " from drawings_sheetrevision where id = %s",
             [printed.id],
         )[0]
         with refused("drawings_sheetrevision_one_per_place", "drawings_sheetrevision_identity"):
             sql(
-                "insert into drawings_sheetrevision (id, tenant_id, sheet_id, source_file_id,"
-                " location_key, location, sheet_key, ordinal, title, revision_mark, issue_date,"
-                " storeys_as_stated, sources, content_hash, kind, confirmed_kind, source_sha256,"
-                " reader_version, anchors, proposed_exclusion, proposed_exclusion_text,"
-                " render_key, plot_none_reason, decision, excluded_reason, excluded_text) values"
-                " (%s, %s, %s, %s, %s, %s, '', 2, '', '', '', '', '{}', '', '', '', %s, %s, '[]',"
-                " '', '', '', '', '', '', '')",
+                PRINTED_SHEET,
                 [
-                    uuid.uuid4(), qs_project.member.developer_id, row[0], added.file.id,
+                    uuid.uuid4(), qs_project.member.developer_id, row[5], row[0], added.file.id,
                     row[1], row[2], row[3], row[4],
                 ],
             )  # fmt: skip
+
+
+PRINTED_SHEET = (
+    "insert into drawings_sheetrevision (id, tenant_id, drawing_set_id, sheet_id, source_file_id,"
+    " location_key, location, sheet_key, ordinal, title, revision_mark, issue_date,"
+    " storeys_as_stated, sources, content_hash, kind, confirmed_kind, source_sha256,"
+    " reader_version, anchors, proposed_exclusion, proposed_exclusion_text,"
+    " render_key, plot_none_reason, decision, excluded_reason, excluded_text) values"
+    " (%s, %s, %s, %s, %s, %s, %s, '', 2, '', '', '', '', '{}', '', '', '', %s, %s, '[]',"
+    " '', '', '', '', '', '', '')"
+)
+
+
+def test_no_reference_crosses_from_one_projects_drawing_set_to_another(qs_project: QsProject) -> None:
+    """Within one Developer: a printed sheet, a file's Revision, a state's map row never name a row of
+    another Project's Drawing Set, by UPDATE or by INSERT with a chosen id."""
+    member = qs_project.member
+    ours = add(member, qs_project.project_id, "KR-STR-R0.dwg", drawing("dwg")).file
+    [printed] = read_dwg(member, ours.id, ["S-01"])
+    with member.acting():
+        other = projects.create(code="OT-6", name="Another project")
+    theirs = add(member, other.id, "BP-STR-R0.dwg", drawing("dwg")).file
+    [their_sheet] = read_dwg(member, theirs.id, ["S-01"])
+    with member.acting():
+        our_set, our_revision = sql(
+            "select drawing_set_id, revision_id from drawings_drawingfile where id = %s", [ours.id]
+        )[0]
+        their_revision = one("select revision_id from drawings_drawingfile where id = %s", [theirs.id])
+        with refused("permission denied"):  # a printed sheet never moves to another file
+            sql(
+                "update drawings_sheetrevision set source_file_id = %s where id = %s",
+                [theirs.id, printed.id],
+            )
+        for column, value in (
+            ("plot_file_id", theirs.id),
+            ("sheet_id", their_sheet.sheet_id),
+            ("revision_id", their_revision),
+        ):
+            with refused("_own_set"):
+                # Without its render (whose own check would refuse first), so the key is what holds.
+                sql(
+                    "update drawings_sheetrevision set render_file_id = null where id = %s", [printed.id]
+                )
+                sql(
+                    f"update drawings_sheetrevision set {column} = %s where id = %s", [value, printed.id]
+                )
+        with refused("_own_set"):
+            sql(
+                "update drawings_drawingfile set revision_id = %s where id = %s",
+                [their_revision, ours.id],
+            )
+        location = one("select location from drawings_sheetrevision where id = %s", [printed.id])
+        with refused("_own_set"):  # our set's id, their Sheet: a chosen id across Projects
+            sql(
+                PRINTED_SHEET,
+                [uuid.uuid4(), member.developer_id, our_set, their_sheet.sheet_id, ours.id,
+                 '{"layout":"X"}', location, ours.sha256, "1"],
+            )  # fmt: skip
+        state = one("select current_state_id from drawings_drawingset where id = %s", [our_set])
+        with refused("_own_set"):
+            sql(
+                "insert into drawings_statesheet (id, tenant_id, drawing_set_id, state_id,"
+                " sheet_revision_id) values (%s, %s, %s, %s, %s)",
+                [uuid.uuid4(), member.developer_id, our_set, state, their_sheet.id],
+            )
+    assert our_revision is not None
 
 
 def test_one_first_issue_per_discipline_in_a_set(dwg: tuple[QsProject, uuid.UUID]) -> None:
@@ -389,20 +468,29 @@ def test_a_file_inserted_with_a_chosen_id_names_only_its_markets_discipline_and_
             "insert into drawings_drawingfile (id, tenant_id, drawing_set_id, sha256, format,"
             " original_name, size, stored_file_id, discipline_id, discipline_source, building_id,"
             " read_status, read_step, sheets_done, bangla_lines, unmatched_pages, empty_layouts,"
-            " added_by_name, added_at, cancelled_by_name, held_answer) values (%s, %s, %s, %s, 'dwg',"
-            " 'x.dwg', %s, %s, %s, %s, %s, 'queued', '', 0, '[]', '[]', 0, '', now(), '', '')"
+            " added_by_name, added_by_vextrus, added_at, cancelled_by_name, cancelled_by_vextrus,"
+            " held_answer, read_tries, revision_id) values (%s, %s, %s, %s, 'dwg', 'x.dwg', %s, %s,"
+            " %s, %s, %s, 'queued', '', 0, '[]', '[]', 0, '', false, now(), '', false, '', 0, %s)"
         )
         with refused("names a Discipline of another Market"):
             sql(
                 insert,
                 [uuid.uuid4(), member.developer_id, set_id, "1" * 64, size, stored_id,
-                 other_market.discipline_ids["structural"], "qs", building_id],
+                 other_market.discipline_ids["structural"], "qs", building_id, None],
             )  # fmt: skip
         with refused("names a Building of another Project"):
             sql(
                 insert,
                 [uuid.uuid4(), member.developer_id, set_id, first.sha256, size, stored_id, None, "",
-                 elsewhere.id],
+                 elsewhere.id, None],
+            )  # fmt: skip
+        electrical = one("select id from drawings_discipline where key = 'electrical'")
+        revision_id = one("select revision_id from drawings_drawingfile where id = %s", [first.id])
+        with refused("names a Revision of another Discipline"):
+            sql(
+                insert,
+                [uuid.uuid4(), member.developer_id, set_id, first.sha256, size, stored_id,
+                 electrical, "qs", building_id, revision_id],
             )  # fmt: skip
 
 
@@ -470,3 +558,95 @@ def test_drawings_holds_no_security_definer_function() -> None:
     )
     assert rows == []
     assert len(sql("select 1 from pg_proc where proname like 'drawings%%'")) == 7
+
+
+def test_a_files_revision_is_one_of_its_own_discipline(dwg: tuple[QsProject, uuid.UUID]) -> None:
+    project, file_id = dwg
+    with project.member.acting():
+        set_id, revision_id = sql(
+            "select drawing_set_id, revision_id from drawings_drawingfile where id = %s", [file_id]
+        )[0]
+        electrical = one("select id from drawings_discipline where key = 'electrical'")
+        theirs = uuid.uuid4()
+        sql(
+            "insert into drawings_revision (id, tenant_id, drawing_set_id, seq, label,"
+            " discipline_id, kind, received_at) values (%s, %s, %s, 7, '', %s, 'first_issue', now())",
+            [theirs, project.member.developer_id, set_id, electrical],
+        )
+        with refused("names a Revision of another Discipline"):
+            sql("update drawings_drawingfile set revision_id = %s where id = %s", [theirs, file_id])
+        with refused("names a Revision of another Discipline"):  # its Discipline alone, not its Revision
+            sql(
+                "update drawings_drawingfile set discipline_id = %s where id = %s", [electrical, file_id]
+            )
+        with refused("permission denied"):
+            sql(
+                "update drawings_revision set discipline_id = %s where id = %s",
+                [electrical, revision_id],
+            )
+
+
+@pytest.mark.parametrize(
+    ("table", "column", "value"),
+    [
+        ("drawings_sheet", "drawing_set_id", "set"),
+        ("drawings_sheet", "building_id", "null"),
+        ("drawings_sheet", "source_file_id", "file"),
+        ("drawings_sheet", "location_key", "'elsewhere'"),
+        ("drawings_sheet", "tenant_id", "tenant"),
+        ("drawings_sheetrevision", "drawing_set_id", "set"),
+        ("drawings_sheetrevision", "source_file_id", "file"),
+        ("drawings_sheetrevision", "location_key", "'elsewhere'"),
+        ("drawings_sheetrevision", "tenant_id", "tenant"),
+        ("drawings_view", "sheet_revision_id", "printed"),
+        ("drawings_view", "box", "'[]'"),
+        ("drawings_view", "kind", "'section'"),
+        ("drawings_view", "predecessor_view_id", "null"),
+        ("drawings_view", "tenant_id", "tenant"),
+        ("drawings_statesheet", "sheet_revision_id", "printed"),
+        ("drawings_revision", "kind", "'reissue'"),
+    ],
+)
+def test_what_a_reading_holds_in_place_is_never_updated(
+    qs_project: QsProject, table: str, column: str, value: str
+) -> None:
+    """A Sheet never moves to another set, Building, file or place; a printed sheet never to another
+    set, file or place; a view takes only a decision; a state's map row and a Revision never change."""
+    member = qs_project.member
+    added = add(member, qs_project.project_id, "KR-STR-R0.dwg", drawing("dwg"))
+    [printed] = read_dwg(member, added.file.id, ["S-01"])
+    with member.acting():
+        set_id = one("select drawing_set_id from drawings_drawingfile where id = %s", [added.file.id])
+        values = {
+            "set": set_id,
+            "file": added.file.id,
+            "printed": printed.id,
+            "tenant": member.developer_id,
+        }
+        row_id = one(
+            f"select id from {table} where drawing_set_id = %s limit 1"
+            if table != "drawings_view"
+            else "select v.id from drawings_view v join drawings_sheetrevision r"
+            " on r.id = v.sheet_revision_id where r.drawing_set_id = %s limit 1",
+            [set_id],
+        )
+        literal = value if value not in values else "%s"
+        params = [values[value]] if value in values else []
+        with refused("permission denied"):
+            sql(f"update {table} set {column} = {literal} where id = %s", [*params, row_id])
+
+
+def test_a_views_predecessor_is_a_view_of_its_own_drawing_set(qs_project: QsProject) -> None:
+    member = qs_project.member
+    ours = add(member, qs_project.project_id, "KR-STR-R0.dwg", drawing("dwg")).file
+    [printed] = read_dwg(member, ours.id, ["S-01"])
+    with member.acting():
+        other = projects.create(code="OT-9", name="Another project")
+    theirs = add(member, other.id, "BP-STR-R0.dwg", drawing("dwg")).file
+    [their_printed] = read_dwg(member, theirs.id, ["S-01"])
+    with member.acting():
+        view_of = "select id from drawings_view where sheet_revision_id = %s limit 1"
+        our_view, their_view = one(view_of, [printed.id]), one(view_of, [their_printed.id])
+        with refused("names a view of another Drawing Set"):
+            sql(VIEW, [uuid.uuid4(), member.developer_id, printed.id, None, their_view])
+        sql(VIEW, [uuid.uuid4(), member.developer_id, printed.id, None, our_view])  # its own set's

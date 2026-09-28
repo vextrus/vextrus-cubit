@@ -15,7 +15,7 @@ from django.db import connection
 from vextrus.drawings import services
 from vextrus.platform.services import auth
 from vextrus.projects import services as projects
-from vextrus.testing.drawings import QsProject, add, drawing
+from vextrus.testing.drawings import QsProject, add, drawing, read_dwg
 from vextrus.testing.tenancy import Member
 
 pytestmark = pytest.mark.django_db
@@ -152,7 +152,7 @@ def test_a_name_with_nothing_left_after_cleaning_is_refused(qs_project: QsProjec
     with pytest.raises(auth.Refused) as refused:
         add(qs_project.member, qs_project.project_id, "../\u202e/", drawing("dwg"))
 
-    assert refused.value.message == {"code": "drawings.uploads.stopped", "params": {}}
+    assert refused.value.message == {"code": "drawings.uploads.no_name", "params": {}}
     assert kept(qs_project.member) == NOTHING
 
 
@@ -164,19 +164,43 @@ def test_the_same_contents_again_add_nothing_and_say_when_and_by_whom(qs_project
     first = add(qs_project.member, qs_project.project_id, "KR-STR-R0.dwg", content)
     before = kept(qs_project.member)
 
-    again = add(qs_project.member, qs_project.project_id, "copy of it.dwg", content)
+    again = add(qs_project.member, qs_project.project_id, "kr-str-r0.DWG", content)
+    renamed = add(qs_project.member, qs_project.project_id, "copy of it.dwg", content)
 
-    assert again.outcome == "already_here"
-    assert again.file.id == first.file.id
+    assert (again.outcome, renamed.outcome) == ("already_here", "already_here")
+    assert again.file.id == renamed.file.id == first.file.id
+    said = {
+        "added_date": first.file.added_at.isoformat(),
+        "actor": qs_project.member.user.name,
+        "vextrus": "no",
+    }
     assert again.message == {
         "code": "drawings.uploads.already_here",
-        "params": {
-            "file": "copy of it.dwg",
-            "added_date": first.file.added_at.isoformat(),
-            "actor": qs_project.member.user.name,
-        },
+        "params": {"file": "kr-str-r0.DWG", **said},
+    }
+    assert renamed.message == {
+        "code": "drawings.uploads.already_here_as",
+        "params": {"file": "copy of it.dwg", "existing_file": "KR-STR-R0.dwg", **said},
     }
     assert kept(qs_project.member) == before
+
+
+def test_what_a_vextrus_engineer_adds_says_so(
+    qs_project: QsProject, sign_in: Callable[..., Member]
+) -> None:
+    engineer = sign_in(role="vextrus_engineer", developer_id=qs_project.member.developer_id)
+    content = drawing("dwg")
+    first = add(engineer, qs_project.project_id, "KR-STR-R0.dwg", content)
+
+    again = add(qs_project.member, qs_project.project_id, "KR-STR-R0.dwg", content)
+    by_the_qs = add(qs_project.member, qs_project.project_id, "KR-ARC-R0.dwg", drawing("dwg"))
+
+    assert (first.file.added_by_vextrus, by_the_qs.file.added_by_vextrus) == (True, False)
+    assert again.message is not None
+    assert (again.message["params"]["actor"], again.message["params"]["vextrus"]) == (
+        engineer.user.name,
+        "yes",
+    )
 
 
 def test_the_same_contents_in_another_project_or_developer_are_their_own(
@@ -226,7 +250,10 @@ def test_the_same_contents_replace_a_missing_or_damaged_copy_and_read_again(
     again = add(qs_project.member, qs_project.project_id, "KR-STR-R0.dwg", content)
 
     assert again.outcome == "replaced"
-    assert again.message == {"code": "drawings.uploads.replaced", "params": {"file": "KR-STR-R0.dwg"}}
+    assert again.message == {
+        "code": "drawings.uploads.replaced_reading",
+        "params": {"file": "KR-STR-R0.dwg"},
+    }
     assert original.read_bytes() == content
     assert again.file.state == services.FileState.WAITING
     with qs_project.member.acting(), services.original(first.file.id) as path:
@@ -308,3 +335,31 @@ def test_the_upload_handler_s_file_is_read_as_given(qs_project: QsProject) -> No
 
     assert (added.file.size, added.file.format, added.file.added_by_name) == (len(content), "pdf", "N")
     assert added.file.id == uuid.UUID(str(added.file.id))
+
+
+def test_a_replaced_copy_of_a_read_file_is_not_read_again(qs_project: QsProject) -> None:
+    content = drawing("dwg")
+    first = add(qs_project.member, qs_project.project_id, "KR-STR-R0.dwg", content)
+    read_dwg(qs_project.member, first.file.id, ["S-01"])
+    [original] = [p for p in _files_of(qs_project) if p.name == "original.dwg"]
+    original.unlink()
+
+    again = add(qs_project.member, qs_project.project_id, "KR-STR-R0.dwg", content)
+
+    assert again.message == {"code": "drawings.uploads.replaced", "params": {"file": "KR-STR-R0.dwg"}}
+    assert again.file.state == services.FileState.READ
+    assert original.read_bytes() == content
+
+
+def test_a_replaced_copy_of_a_file_too_old_to_read_is_not_read_again(qs_project: QsProject) -> None:
+    content = drawing("dwg")
+    first = add(qs_project.member, qs_project.project_id, "KR-LIFT-R12.dwg", content)
+    with qs_project.member.acting():
+        services.mark_failed(first.file.id, {"code": "drawings.files.old_version", "params": {}})
+    [original] = [p for p in _files_of(qs_project) if p.name == "original.dwg"]
+    original.unlink()
+
+    again = add(qs_project.member, qs_project.project_id, "KR-LIFT-R12.dwg", content)
+
+    assert again.message == {"code": "drawings.uploads.replaced", "params": {"file": "KR-LIFT-R12.dwg"}}
+    assert again.file.state == services.FileState.UNREADABLE

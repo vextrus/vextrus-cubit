@@ -96,6 +96,10 @@ FINISHING = "finishing"
 MATCHING = "matching"
 
 
+VEXTRUS_ENGINEER = "vextrus_engineer"
+"""The Vextrus Engineer's role as a Membership holds it (platform's `Role`; its models are its own)."""
+
+
 def sheet_step(position: int) -> str:
     """The step reading a DWG's sheet `position` of its `sheets_total` ("Reading sheet 12 of 38")."""
     return f"sheet_{position}"
@@ -154,6 +158,8 @@ class FileView:
     """The group its sheets are stamped with (its Building's id; "site" for the Site's)."""
     added_at: datetime
     added_by_name: str
+    added_by_vextrus: bool
+    """Added by a Vextrus Engineer: shown with "(Vextrus)" after the name (m0-screens 1.4)."""
     state: FileState
     status: Message
     finding: Message | None
@@ -205,8 +211,9 @@ def summary(views: Iterable[FileView]) -> Message:
     states = Counter(view.state for view in shown)
     return said.SUMMARY(
         files=len(shown),
-        sheets=sum(view.sheets_found or 0 for view in shown if view.state == FileState.READ),
+        sheets=sum(view.sheets_found or 0 for view in shown),
         reading=sum(states[state] for state in IN_PROGRESS),
+        failed=states[FileState.FAILED] + states[FileState.UNREADABLE],
         held=states[FileState.HELD],
         refused=states[FileState.REFUSED],
     )
@@ -235,10 +242,12 @@ def _views(rows: list[DrawingFile]) -> list[FileView]:
         if dwg_id not in plot_for.setdefault(pdf_id, []):
             plot_for[pdf_id].append(dwg_id)
     now = timezone.now()
+    read_dwgs = _read_dwgs({row.drawing_set_id for row in rows if row.format == FileFormat.PDF})
     shown = []
     for row in rows:
         job = jobs.state(row.read_job_id) if row.read_job_id is not None else None
-        state, status = _status(row, job, now, len(matched_pages.get(row.id, ())))
+        dwg_read = _dwg_read(row, read_dwgs)
+        state, status = _status(row, job, now, len(matched_pages.get(row.id, ())), dwg_read)
         readable = state == FileState.READ or (
             row.read_status == ReadStatus.QUARANTINED and row.held_answer == HeldAnswer.READ_ANYWAY
         )
@@ -257,6 +266,7 @@ def _views(rows: list[DrawingFile]) -> list[FileView]:
                 group=group_of(row),
                 added_at=row.added_at,
                 added_by_name=row.added_by_name,
+                added_by_vextrus=row.added_by_vextrus,
                 state=state,
                 status=status,
                 finding=row.finding,
@@ -268,8 +278,37 @@ def _views(rows: list[DrawingFile]) -> list[FileView]:
     return shown
 
 
+def _read_dwgs(set_ids: set[uuid.UUID]) -> set[tuple[uuid.UUID, uuid.UUID | None]]:
+    """(set, Discipline) of each DWG read in these sets (a held file read anyway among them)."""
+    if not set_ids:
+        return set()
+    listed = Q(read_status=ReadStatus.READ) | Q(
+        read_status=ReadStatus.QUARANTINED, held_answer=HeldAnswer.READ_ANYWAY
+    )
+    return set(
+        DrawingFile.objects.filter(
+            listed, drawing_set_id__in=set_ids, format=FileFormat.DWG
+        ).values_list("drawing_set_id", "discipline_id")
+    )
+
+
+def _dwg_read(row: DrawingFile, read_dwgs: set[tuple[uuid.UUID, uuid.UUID | None]]) -> bool:
+    """Whether a DWG a PDF may plot is read: one of its Discipline, or, with none, any of its set."""
+    if row.discipline_id is None:
+        return any(set_id == row.drawing_set_id for set_id, _ in read_dwgs)
+    return (row.drawing_set_id, row.discipline_id) in read_dwgs
+
+
+def dwg_read_for(row: DrawingFile) -> bool:
+    return _dwg_read(row, _read_dwgs({row.drawing_set_id}))
+
+
 def _status(
-    row: DrawingFile, job: jobs.JobState | None, now: datetime, pages_matched: int
+    row: DrawingFile,
+    job: jobs.JobState | None,
+    now: datetime,
+    pages_matched: int,
+    dwg_read: bool = False,
 ) -> tuple[FileState, Message]:
     """4.5's row: the file's columns, with its job's state over them while it is in flight."""
     status = row.read_status
@@ -279,11 +318,11 @@ def _status(
         answer = HeldAnswer(row.held_answer) if row.held_answer else None
         return FileState.HELD, _HELD[answer]()
     if status == ReadStatus.READ:
-        return FileState.READ, _read(row, pages_matched)
+        return FileState.READ, _read(row, pages_matched, dwg_read)
     if status == ReadStatus.FAILED:
-        if row.finding and row.finding.get("code") == said.OLD_VERSION.code:
+        if unreadable(row):
             return FileState.UNREADABLE, said.OLD_VERSION()
-        tries = job.attempt if job is not None and job.status == "failed" else 1
+        tries = job.attempt if job is not None and job.status == "failed" else row.read_tries
         return FileState.FAILED, said.FAILED(tries=max(tries, 1))
     if status == ReadStatus.CANCELLED:
         if job is not None and job.status == "stopping":
@@ -317,10 +356,16 @@ _HELD = {
 }
 
 
-def _read(row: DrawingFile, pages_matched: int) -> Message:
+def unreadable(row: DrawingFile) -> bool:
+    """Saved by an AutoCAD too old to read: nothing to try again."""
+    finding = row.finding
+    return isinstance(finding, dict) and finding.get("code") == said.OLD_VERSION.code
+
+
+def _read(row: DrawingFile, pages_matched: int, dwg_read: bool) -> Message:
     if row.format == FileFormat.PDF:
         pages = row.sheets_total or 0
-        if pages_matched == 0:
+        if pages_matched == 0 and not dwg_read:
             return said.PLOT_WAITING()
         report = row.upload_report or {}
         lines = any(page.get("lettering") == "lines" for page in report.get("pages", ()))
@@ -332,7 +377,11 @@ def _read(row: DrawingFile, pages_matched: int) -> Message:
 
 def _cancelled(row: DrawingFile) -> Message:
     if row.cancelled_by_name and row.cancelled_at is not None:
-        return said.CANCELLED(actor=row.cancelled_by_name, cancelled_date=row.cancelled_at.isoformat())
+        return said.CANCELLED(
+            actor=row.cancelled_by_name,
+            vextrus=yes_no(row.cancelled_by_vextrus),
+            cancelled_date=row.cancelled_at.isoformat(),
+        )
     return said.CANCELLED_UNNAMED()
 
 
@@ -391,6 +440,9 @@ def _ahead(row: DrawingFile) -> int:
     active = DrawingFile.objects.filter(read_status__in=(ReadStatus.QUEUED, ReadStatus.READING)).exclude(
         id=row.id
     )
+    membership = tenancy.current_membership()
+    if membership is not None and membership.project_ids:
+        active = active.filter(drawing_set__project_id__in=membership.project_ids)
     if row.read_job_id is None:
         earlier = Q(added_at__lt=row.added_at) | Q(added_at=row.added_at, id__lt=row.id)
         return active.filter(earlier, read_job_id__isnull=True).count()
@@ -413,7 +465,7 @@ def add_file(project_id: uuid.UUID, *, name: str, content: Content, actor_name: 
     tenant_id = _access.tenant_id()
     label = clean_name(name)
     if not label:
-        raise auth.Refused(toasts.STOPPED(), status=400)
+        raise auth.Refused(toasts.NO_NAME(), status=400)
     sha256, size, head = _measure(content, label)
     kind = _kind(head, label)
     with transaction.atomic():
@@ -453,6 +505,7 @@ def add_file(project_id: uuid.UUID, *, name: str, content: Content, actor_name: 
             building_id=building_id,
             added_by=acting.user_id,
             added_by_name=actor_name[:200],
+            added_by_vextrus=is_vextrus(),
         )
         _record(said.ADDED, row)
         same_name = (
@@ -526,15 +579,19 @@ def _again(existing: DrawingFile, key: str, content: Content, label: str) -> Add
     """The same contents again: nothing is added, unless Vextrus's copy is missing or damaged, when
     this one replaces it and a reading that stopped starts again."""
     if _intact(key):
-        return Added(
-            file(existing.id),
-            "already_here",
-            toasts.ALREADY_HERE(
+        when, who = existing.added_at.isoformat(), existing.added_by_name
+        vextrus = yes_no(existing.added_by_vextrus)
+        if label.casefold() == existing.original_name.casefold():
+            said_here = toasts.ALREADY_HERE(file=label, added_date=when, actor=who, vextrus=vextrus)
+        else:
+            said_here = toasts.ALREADY_HERE_AS(
                 file=label,
-                added_date=existing.added_at.isoformat(),
-                actor=existing.added_by_name,
-            ),
-        )
+                existing_file=existing.original_name,
+                added_date=when,
+                actor=who,
+                vextrus=vextrus,
+            )
+        return Added(file(existing.id), "already_here", said_here)
     content.seek(0)
     storage.put(
         key,
@@ -549,8 +606,10 @@ def _again(existing: DrawingFile, key: str, content: Content, label: str) -> Add
         .get(id=existing.id)
     )
     job = jobs.state(row.read_job_id) if row.read_job_id is not None else None
-    if row.read_status == ReadStatus.FAILED or (job is not None and job.status == "failed"):
+    stopped = row.read_status == ReadStatus.FAILED or (job is not None and job.status == "failed")
+    if stopped and not unreadable(row):
         _start_again(row, job)
+        return Added(file(existing.id), "replaced", toasts.REPLACED_READING(file=label))
     return Added(file(existing.id), "replaced", toasts.REPLACED(file=label))
 
 
@@ -603,17 +662,14 @@ def _first_issue(drawing_set: DrawingSet, discipline: Discipline, by: uuid.UUID 
     )
 
 
-def _drop_if_empty(revision_id: uuid.UUID | None) -> None:
-    """A first issue left with no file (its only file moved to another Discipline) is no issue."""
-    if revision_id is None:
-        return
-    if (
-        DrawingFile.objects.filter(revision_id=revision_id).exists()
-        or SheetRevision.objects.filter(revision_id=revision_id).exists()
-        or DrawingSetState.objects.filter(revision_id=revision_id).exists()
-    ):
-        return
-    Revision.objects.filter(id=revision_id).delete()
+def is_vextrus() -> bool:
+    """Whether the acting person is a Vextrus Engineer (their acts show "(Vextrus)")."""
+    membership = tenancy.current_membership()
+    return membership is not None and membership.role == VEXTRUS_ENGINEER
+
+
+def yes_no(value: bool) -> str:
+    return "yes" if value else "no"
 
 
 def _record(kind: MessageCode, row: DrawingFile) -> None:
@@ -644,13 +700,13 @@ def set_discipline(file_id: uuid.UUID, key: str) -> FileView:
             return file(row.id)
         _access.lock("revisions", row.drawing_set_id)
         _move_sheets(row, discipline)
-        old_revision = row.revision_id
         row.discipline = discipline
         row.discipline_source = DisciplineSource.QS
         row.revision = _first_issue(row.drawing_set, discipline, tenancy.current().user_id)
         row.save(update_fields=["discipline", "discipline_source", "revision"])
+        # A first issue left with no file stays (a Revision is never deleted), and is found again
+        # by its Discipline's next file.
         SheetRevision.objects.filter(source_file=row).update(revision=row.revision)
-        _drop_if_empty(old_revision)
         _record(said.DISCIPLINE_CHANGED, row)
     return file(row.id)
 
@@ -678,7 +734,10 @@ def _move_sheets(row: DrawingFile, discipline: Discipline) -> None:
             .exists()
         )
         if taken:
-            raise auth.Refused(said.DISCIPLINE_SHEET_TAKEN(sheet=sheet.number), status=409)
+            name = library_disciplines.name(discipline.labels)
+            raise auth.Refused(
+                said.DISCIPLINE_SHEET_TAKEN(sheet=sheet.number, discipline=name), status=409
+            )
     for sheet in sheets.values():
         shared = SheetRevision.objects.filter(sheet=sheet).exclude(source_file=row).exists()
         if not shared:
@@ -716,8 +775,17 @@ def cancel(file_id: uuid.UUID, *, actor_name: str = "") -> FileView:
         row.read_status = ReadStatus.CANCELLED
         row.cancelled_by = tenancy.current().user_id
         row.cancelled_by_name = actor_name[:200]
+        row.cancelled_by_vextrus = is_vextrus()
         row.cancelled_at = timezone.now()
-        row.save(update_fields=["read_status", "cancelled_by", "cancelled_by_name", "cancelled_at"])
+        row.save(
+            update_fields=[
+                "read_status",
+                "cancelled_by",
+                "cancelled_by_name",
+                "cancelled_by_vextrus",
+                "cancelled_at",
+            ]
+        )
         _record(said.READ_CANCELLED, row)
     return file(row.id)
 
@@ -733,8 +801,9 @@ def restart(file_id: uuid.UUID) -> FileView:
             if job is not None
             else (row.read_status in (ReadStatus.FAILED, ReadStatus.CANCELLED))
         )
-        unreadable = row.finding and row.finding.get("code") == said.OLD_VERSION.code
-        if not stopped or unreadable or row.read_status in _ENDED_FOR_GOOD:
+        if unreadable(row):
+            raise auth.Refused(said.OLD_VERSION(), status=409)
+        if not stopped or row.read_status in _ENDED_FOR_GOOD:
             raise auth.Refused(said.NOT_STOPPED(), status=409)
         _start_again(row, job)
         _record(said.READ_RESTARTED, row)
@@ -753,8 +822,10 @@ def _start_again(row: DrawingFile, job: jobs.JobState | None) -> None:
     row.progress_at = None
     row.sheets_started_at = None
     row.finding = None
+    row.read_tries = 0
     row.cancelled_by = None
     row.cancelled_by_name = ""
+    row.cancelled_by_vextrus = False
     row.cancelled_at = None
     row.save(
         update_fields=[
@@ -765,8 +836,10 @@ def _start_again(row: DrawingFile, job: jobs.JobState | None) -> None:
             "progress_at",
             "sheets_started_at",
             "finding",
+            "read_tries",
             "cancelled_by",
             "cancelled_by_name",
+            "cancelled_by_vextrus",
             "cancelled_at",
         ]
     )

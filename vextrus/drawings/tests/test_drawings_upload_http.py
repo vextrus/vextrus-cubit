@@ -3,6 +3,7 @@ test-only operation shaped as 21a's will be (07's guard, then `drawings.services
 on a URLconf of its own. The body is parsed at the CSRF check, before sign-in and the guard, so the
 handler bounds everyone; on every refusal nothing is kept, not even a temporary file."""
 
+import base64
 import io
 import sys
 import threading
@@ -99,6 +100,7 @@ def post(
     *,
     csrf: bool = True,
     content_length: str | None = None,
+    content_type: str = MULTIPART_CONTENT,
 ) -> Any:
     client, token = csrf_client(member)
     extra: dict[str, Any] = {}
@@ -108,7 +110,7 @@ def post(
         "POST",
         f"/api/projects/{project_id}/upload",
         body,
-        content_type=MULTIPART_CONTENT,
+        content_type=content_type,
         headers={"X-CSRFToken": token} if csrf else {},
         **extra,
     )
@@ -363,3 +365,102 @@ def test_one_file_dropped_twice_at_once_is_one_row(sign_in: Callable[..., Member
             "select count(*) from drawings_drawingfile where original_name = %s", ["KR-STR-R0.dwg"]
         )
         assert cursor.fetchone() == (1,)
+
+
+# What Django's parser refuses, refused in the product's words, keeping nothing -----------------------
+
+
+def raw(*parts: bytes) -> bytes:
+    """A multipart body written by hand, part by part (each its headers, a blank line, its bytes)."""
+    b = BOUNDARY.encode()
+    return b"".join(b"--" + b + b"\r\n" + part + b"\r\n" for part in parts) + b"--" + b + b"--\r\n"
+
+
+FILE_HEADERS = b'Content-Disposition: form-data; name="file"; filename="KR-STR-R0.dwg"\r\n'
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        pytest.param(
+            raw(
+                FILE_HEADERS
+                + b"Content-Transfer-Encoding: base64\r\n\r\n"
+                + base64.b64encode(drawing().ljust(200 * 1024, b"\x00"))
+                + b"!!!!"
+            ),
+            id="base64_that_breaks_after_the_file_began",
+        ),
+        pytest.param(
+            raw(
+                FILE_HEADERS + b"\r\n" + drawing(),
+                b'Content-Disposition: form-data; name="' + b"n" * 2000 + b'"\r\n\r\nx',
+            ),
+            id="a_whole_file_then_headers_past_1_kb",
+        ),
+    ],
+)
+def test_a_form_that_breaks_as_it_streams_is_refused_and_no_file_is_left(
+    upload_urls: Path, qs_project: QsProject, body: bytes
+) -> None:
+    response = post(qs_project.member, qs_project.project_id, body)
+
+    assert refusal(response) == (400, {"code": "drawings.uploads.malformed", "params": {}})
+    assert kept(qs_project.member, upload_urls) == NOTHING
+
+
+@pytest.mark.parametrize(
+    ("content_type", "content_length"),
+    [
+        ("multipart/form-data", None),
+        ("multipart/form-data; boundary=", None),
+        ("multipart/form-data; boundary=\u00fc", None),
+        ("multipart/form-data; boundary=" + "b" * 202, None),
+        (MULTIPART_CONTENT, "-1"),
+    ],
+    ids=["no_boundary", "empty_boundary", "non_ascii_boundary", "boundary_too_long", "negative_length"],
+)
+def test_a_form_django_would_not_parse_is_refused_in_our_words(
+    upload_urls: Path, qs_project: QsProject, content_type: str, content_length: str | None
+) -> None:
+    response = post(
+        qs_project.member,
+        qs_project.project_id,
+        multipart(("KR-STR-R0.dwg", drawing())),
+        content_type=content_type,
+        content_length=content_length,
+    )
+
+    assert refusal(response) == (400, {"code": "drawings.uploads.malformed", "params": {}})
+    assert kept(qs_project.member, upload_urls) == NOTHING
+
+
+def test_a_body_that_says_it_is_larger_than_any_upload_is_refused_unread(
+    upload_urls: Path, qs_project: QsProject, limit: int, settings: Any
+) -> None:
+    most = limit + settings.DATA_UPLOAD_MAX_MEMORY_SIZE + 1024 * 1024
+    body = multipart(("KR-STR-R0.dwg", drawing()))
+
+    over = post(qs_project.member, qs_project.project_id, body, content_length=str(most + 1))
+    signed_out = post(None, qs_project.project_id, body, content_length=str(most + 1))
+
+    expected = (413, {"code": "drawings.uploads.too_large_unnamed", "params": {"megabytes": 0}})
+    assert refusal(over) == refusal(signed_out) == expected
+    assert kept(qs_project.member, upload_urls) == NOTHING
+
+
+def test_a_file_whose_name_cleans_to_nothing_is_refused_without_a_name(
+    upload_urls: Path, qs_project: QsProject, limit: int
+) -> None:
+    over = drawing().ljust(limit + 1, b"\x00")
+
+    # Django keeps a name of spaces (it drops what it cannot print, "." and ".."): the label trims it.
+    too_large = post(qs_project.member, qs_project.project_id, multipart(("   ", over)))
+    small = post(qs_project.member, qs_project.project_id, multipart(("   ", drawing())))
+
+    assert refusal(too_large) == (
+        413,
+        {"code": "drawings.uploads.too_large_unnamed", "params": {"megabytes": 0}},
+    )
+    assert refusal(small) == (400, {"code": "drawings.uploads.no_name", "params": {}})
+    assert kept(qs_project.member, upload_urls) == NOTHING

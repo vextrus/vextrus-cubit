@@ -10,11 +10,14 @@ from engine.messages import MessageCode
 # Why a printed sheet has no Plot ------------------------------------------------------------------
 
 PLOT_NO_PDF = MessageCode("drawings.sheets.plot_no_pdf", params=("discipline",))
+PLOT_NO_PDF_ANY = MessageCode("drawings.sheets.plot_no_pdf_any")
+"""As PLOT_NO_PDF, for a sheet with no Discipline: no PDF is in the Drawing Set."""
 PLOT_NO_PAGE = MessageCode("drawings.sheets.plot_no_page", params=("plot_file",))
 PLOT_PDF_REFUSED = MessageCode("drawings.sheets.plot_pdf_refused")
 PLOT_NO_NUMBER = MessageCode("drawings.sheets.plot_no_number")
 PLOT_NOT_YET = MessageCode("drawings.sheets.plot_not_yet")
-"""Its Plot is not matched yet: its PDF is still being read, or not yet added."""
+"""A PDF of its Discipline (or of none) is added and its pages are not matched yet; with no such
+PDF, the sheet says PLOT_NO_PDF, and with only a refused one, PLOT_PDF_REFUSED."""
 
 # Refusals ----------------------------------------------------------------------------------------
 
@@ -23,4 +26,6 @@ OTHER_NEEDS_TEXT = MessageCode("drawings.sheets.other_needs_text")
 TEXT_ONLY_FOR_OTHER = MessageCode("drawings.sheets.text_only_for_other")
 """Words given with a reason from the list: only "other" takes words (400)."""
 KIND_UNKNOWN = MessageCode("drawings.sheets.kind_unknown")
-"""A kind that is not one of the kinds offered (400)."""
+"""A sheet's or a view's kind that is not one of those offered (400)."""
+REASON_UNKNOWN = MessageCode("drawings.sheets.reason_unknown")
+"""A reason to leave out that is not one of the seven (400)."""

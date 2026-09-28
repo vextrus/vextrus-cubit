@@ -35,7 +35,9 @@ READING_PAGE_LEFT = MessageCode(
 )
 MATCHING_PAGES = MessageCode("drawings.files.matching_pages")
 STOPPING = MessageCode("drawings.files.stopping")
-CANCELLED = MessageCode("drawings.files.cancelled", params=("actor", "cancelled_date"))
+CANCELLED = MessageCode("drawings.files.cancelled", params=("actor", "vextrus", "cancelled_date"))
+"""`vextrus`: `yes` when a Vextrus Engineer cancelled it (shown "(Vextrus)", m0-screens 1.4), else
+`no`."""
 CANCELLED_UNNAMED = MessageCode("drawings.files.cancelled_unnamed")
 """Its read job was cancelled some other way than by a person on this page (no name to give)."""
 RETRYING = MessageCode("drawings.files.retrying", params=("attempt", "tries"))
@@ -58,8 +60,12 @@ PLOT_WAITING = MessageCode("drawings.files.plot_waiting")
 """A PDF read, but none of its pages matched a sheet yet: its DWG is not read."""
 REFUSED_SCAN = MessageCode("drawings.files.refused_scan")
 
-SUMMARY = MessageCode("drawings.files.summary", params=("files", "sheets", "reading", "held", "refused"))
-"""The page's one-line summary: every count the Developer may see in this Drawing Set."""
+SUMMARY = MessageCode(
+    "drawings.files.summary", params=("files", "sheets", "reading", "failed", "held", "refused")
+)
+"""The page's one-line summary: the files; the sheets in the sheet list (of read files, and held
+files read anyway); the files waiting or being read; those that could not be read (failed, or
+saved by an old AutoCAD); held; refused."""
 
 # The acts, in the event log -----------------------------------------------------------------------
 
@@ -71,12 +77,16 @@ DISCIPLINE_CHANGED = MessageCode("drawings.files.discipline_changed", params=("a
 # Refusals ----------------------------------------------------------------------------------------
 
 NOT_STOPPED = MessageCode("drawings.files.not_stopped")
-"""Read again or Try again on a file whose reading has not failed and was not cancelled (409)."""
+"""Read again or Try again on a file waiting, being read or read (409): most often a second click
+after the first started it again. A file saved by an old AutoCAD is refused with OLD_VERSION."""
 DISCIPLINE_UNKNOWN = MessageCode("drawings.files.discipline_unknown")
 """A Discipline this Market does not have (400)."""
 DISCIPLINE_SHEET_DECIDED = MessageCode("drawings.files.discipline_sheet_decided", params=("sheet",))
 """A sheet of the file is confirmed or left out in Step 1, so its Discipline stays (409)."""
-DISCIPLINE_SHEET_TAKEN = MessageCode("drawings.files.discipline_sheet_taken", params=("sheet",))
-"""The chosen Discipline already has a sheet with this number (409)."""
+DISCIPLINE_SHEET_TAKEN = MessageCode(
+    "drawings.files.discipline_sheet_taken", params=("sheet", "discipline")
+)
+"""The chosen Discipline (its name, as the Market's Library gives it) already has a sheet with this
+number (409)."""
 DISCIPLINE_UNNUMBERED_DECIDED = MessageCode("drawings.files.discipline_unnumbered_decided")
 """As DISCIPLINE_SHEET_DECIDED, for a sheet with no number."""

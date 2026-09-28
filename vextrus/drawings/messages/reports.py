@@ -23,7 +23,14 @@ EMPTY_LAYOUTS = MessageCode("drawings.reports.empty_layouts", params=("layouts",
 NO_SHEETS = MessageCode("drawings.reports.no_sheets")
 PLOT_OF_DWG = MessageCode("drawings.reports.plot_of_dwg", params=("plot_file", "with_page", "sheets"))
 """One PDF plotted from this file: how many of its sheets have a page in it."""
+PLOT_PART = MessageCode("drawings.reports.plot_part", params=("plot_file", "with_page", "sheets"))
+"""A second or later PDF with pages for this file's sheets: how many it has a page for."""
+PLOT_NONE_MATCHED = MessageCode("drawings.reports.plot_none_matched", params=("plot_file",))
+"""A PDF of this file's Discipline was added, and none of its pages matched these sheets."""
+PLOT_REFUSED = MessageCode("drawings.reports.plot_refused", params=("plot_file",))
+"""This file's PDF was a scan, and was refused."""
 NO_PLOT = MessageCode("drawings.reports.no_plot")
+"""No PDF was added for these sheets."""
 
 # A PDF --------------------------------------------------------------------------------------------
 

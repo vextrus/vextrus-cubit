@@ -11,12 +11,16 @@ request itself:
 - **each file at most `VEXTRUS_UPLOAD_MAX_BYTES`**, counted as its bytes arrive, whatever the
   Content-Length says (or whether it says anything): past the limit the request is refused there,
   without reading on;
+- **a body that says it is larger** than one file, the form's fields and 1 MB of the form's own
+  framing is refused before a byte of it is read (`drawings.uploads.too_large_unnamed`, 413);
 - **nothing kept on a refusal**: each file is spooled to a private temporary file, and every file the
-  request had is closed (and so deleted) before the refusal is raised. A body cut short never gives a
-  file: Django drops a part whose closing boundary never came, and the operation then answers
-  "Upload stopped" (`drawings.uploads.stopped`); a connection that dropped as the body was read is
-  refused so here; a body that is no well-formed form (a part's headers past Django's 1 KB, as a
-  1,000-character name makes them) is refused as unreadable (`drawings.uploads.malformed`).
+  request had, whole or half-written, is closed (and so deleted) by the handler itself before the
+  refusal is raised. A body cut short never gives a file: Django drops a part whose closing boundary
+  never came, and the operation then answers "Upload stopped" (`drawings.uploads.stopped`); a
+  connection that dropped as the body was read is refused so here; a body that is no well-formed form
+  (no boundary or a bad one, a negative length, a part's headers past Django's 1 KB as a
+  1,000-character name makes them, a part's base64 that does not decode) is refused as unreadable
+  (`drawings.uploads.malformed`), in these words, never Django's error page.
 
 A refusal is an `UploadRefused`: an `auth.Refused` (so an API operation answers `{code, params}`) and a
 `SuspiciousOperation` (so any other view answers 400, never 500). The file's name is only a label.
@@ -32,7 +36,8 @@ For 21a's upload operation (`takeoff/http/`), after the guard:
                                            actor_name=request.user.name)
 """
 
-from typing import Any
+import io
+from typing import Any, NoReturn
 
 from django.conf import settings
 from django.core.exceptions import SuspiciousOperation
@@ -54,6 +59,11 @@ class UploadRefused(auth.Refused, SuspiciousOperation):
         super().__init__(message, status=status)
 
 
+# What a whole request may carry past its one file: the form's fields (Django's own limit) and the
+# form's framing (each part's boundary and headers, at most 1 KB each by Django's parser).
+_FRAMING = 1024 * 1024
+
+
 class DrawingUploadHandler(TemporaryFileUploadHandler):
     """Every file of a request to a private temporary file, bounded as it streams (see the module)."""
 
@@ -63,6 +73,8 @@ class DrawingUploadHandler(TemporaryFileUploadHandler):
         self._count = 0
         self._received = 0
         self._parsing = False
+        if request is not None and request.content_type == "multipart/form-data":
+            _check_form(request)
 
     def handle_raw_input(
         self,
@@ -74,8 +86,9 @@ class DrawingUploadHandler(TemporaryFileUploadHandler):
     ) -> tuple[Any, Any] | None:
         """Parse the body here, so a body Django cannot parse is refused in the same words and
         status as every other refusal, never an error page: a body cut off as it came is "stopped";
-        one that is not a well-formed form (a part's headers past Django's 1 KB, too many fields)
-        could not be read. Django closes the files it had made before the error reaches here."""
+        one that is not a well-formed form (a part's headers past Django's 1 KB, a part's base64 that
+        does not decode, too many fields) could not be read. Every file is closed first, the one
+        being written too (Django closes only the files it finished)."""
         if self._parsing:
             return None
         self._parsing = True
@@ -84,9 +97,9 @@ class DrawingUploadHandler(TemporaryFileUploadHandler):
         except UploadRefused:
             raise
         except OSError:
-            raise UploadRefused(said.STOPPED(), 400) from None
+            self._refuse(said.STOPPED(), 400)
         except MultiPartParserError, SuspiciousOperation:
-            raise UploadRefused(said.MALFORMED(), 400) from None
+            self._refuse(said.MALFORMED(), 400)
         finally:
             self._parsing = False
 
@@ -102,7 +115,10 @@ class DrawingUploadHandler(TemporaryFileUploadHandler):
         limit = settings.VEXTRUS_UPLOAD_MAX_BYTES
         if self._received > limit:
             label = clean_name(self.file_name or "")
-            self._refuse(said.TOO_LARGE(file=label, megabytes=megabytes(limit)), 413)
+            size = megabytes(limit)
+            if label:
+                self._refuse(said.TOO_LARGE(file=label, megabytes=size), 413)
+            self._refuse(said.TOO_LARGE_UNNAMED(megabytes=size), 413)
         self.file.write(raw_data)
 
     def file_complete(self, file_size: int) -> UploadedFile[Any] | None:
@@ -111,10 +127,28 @@ class DrawingUploadHandler(TemporaryFileUploadHandler):
             self._files.append(done)
         return done
 
-    def _refuse(self, message: Message, status: int) -> None:
+    def _refuse(self, message: Message, status: int) -> NoReturn:
         """Close (and so delete) every file of this request, then refuse it."""
         for kept in (*self._files, getattr(self, "file", None)):
             if kept is not None:
                 kept.close()
         self._files.clear()
         raise UploadRefused(message, status)
+
+
+def _check_form(request: HttpRequest) -> None:
+    """Refuse, before a byte of the body is read, a form Django's parser would refuse with its error
+    page (its own checks, run on an empty body: the boundary, the length), and a body that says it
+    is larger than any upload may be."""
+    try:
+        MultiPartParser(request.META, io.BytesIO(), [], request.encoding)
+    except MultiPartParserError:
+        raise UploadRefused(said.MALFORMED(), 400) from None
+    try:
+        declared = int(request.META.get("CONTENT_LENGTH") or 0)
+    except ValueError, TypeError:
+        declared = 0
+    limit = settings.VEXTRUS_UPLOAD_MAX_BYTES
+    most = limit * settings.VEXTRUS_UPLOAD_MAX_FILES + settings.DATA_UPLOAD_MAX_MEMORY_SIZE + _FRAMING
+    if declared > most:
+        raise UploadRefused(said.TOO_LARGE_UNNAMED(megabytes=megabytes(limit)), 413)
