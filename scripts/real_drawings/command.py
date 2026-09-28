@@ -252,8 +252,10 @@ def report(
     total = {measure: {"gained": 0, "lost": 0, "changed": 0} for measure in MEASURES}
     items: list[dict[str, Any]] = []
     held = dict.fromkeys(MEASURES, 0)
+    unbuilt: set[str] = set()
     for name in sorted(after):
         old, new = json.loads(before[name].read_bytes()), json.loads(after[name].read_bytes())
+        unbuilt |= {stage for stage, row in (new.get("stages") or {}).items() if not row.get("built")}
         diff = compare(old, new)
         for measure, found in diff.counts().items():
             for change, n in found.items():
@@ -262,7 +264,9 @@ def report(
             held[measure] += n
         items += [{"set": name, **vars(item)} for item in diff.items]
         for sha, s0, s1, r0, r1 in diff.timings:
-            m.say(f"  {name} {sha[:12]}: read {s0} -> {s1} s, peak {r0} -> {r1} bytes (not counted)")
+            m.say(f"  {name} {sha[:12]}: read {s0} -> {s1} s, peak {r0} -> {r1} KiB (not counted)")
+    if unbuilt:
+        m.say(f"Not built on the head: {', '.join(sorted(unbuilt))}")
     m.say(
         "The baseline: items per measure"
         if baseline

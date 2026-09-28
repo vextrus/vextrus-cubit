@@ -1,29 +1,50 @@
-"""The run-to-run diff under the fixed matching (the M0 plan, "Run-to-run matching"), on invented
-exports.
+"""The run-to-run diff under the fixed matching (the M0 plan, "Run-to-run matching"), on the engine's
+export as 06b writes it: exports made by 06b's harness (fixtures/), and invented ones for the
+fine-grained cases.
 
 Items join by where they are, never by what they say; each measure counts what was gained, lost and
-changed. Every joined kind is shown gaining, losing and changing an item, except a continuation, for
-which the plan names no changed value.
+changed. Positions (`{file, sheet[, view | register]}`, `{file, page}`) are only addresses inside one
+export: they are mapped through the joins, so an item that moves to another position still joins.
 """
 
+import json
+from pathlib import Path
 from typing import Any
 
 import pytest
 
 from scripts.real_drawings.diff import MEASURES, compare, sizes
+from scripts.real_drawings.schema import problems
 from scripts.real_drawings.tests.exports import (
     SHA_A,
     SHA_B,
     SHA_PDF,
+    check,
     dwg,
     export,
+    match,
+    page,
     pdf,
+    process,
+    ref,
     row,
     sheet,
+    sourced,
     view,
 )
 
+ROOT = Path(__file__).resolve().parents[3]
+FIXTURES = Path(__file__).resolve().parent / "fixtures"
+SCHEMA = json.loads((FIXTURES / "export.schema.json").read_text())
 BOX = [0.0, 0.0, 100.0, 100.0]
+NOTHING = {"gained": 0, "lost": 0, "changed": 0}
+
+
+def fixture(name: str) -> dict[str, Any]:
+    """An export 06b's harness wrote at 1807a644, inside this check's sandbox, on an invented set:
+    `not-built` with no stage built; `fakes` with 06b's own fake stages at the stage table's targets;
+    `fakes-moved` the same with one sheet per drawing and the plan view moved off its place."""
+    return json.loads((FIXTURES / f"export-{name}.json").read_text())  # type: ignore[no-any-return]
 
 
 def counts(old: dict[str, Any], new: dict[str, Any], measure: str) -> tuple[int, int, int]:
@@ -31,17 +52,66 @@ def counts(old: dict[str, Any], new: dict[str, Any], measure: str) -> tuple[int,
     return found["gained"], found["lost"], found["changed"]
 
 
-def test_identical_runs_change_nothing() -> None:
-    run = export(dwg(SHA_A, sheet("s1", layout="L1", views=[view("v1", BOX)], register=[row(BOX)])))
+# The harness's own exports ---------------------------------------------------------------------------
 
-    assert compare(run, run).counts() == {m: {"gained": 0, "lost": 0, "changed": 0} for m in MEASURES}
+
+@pytest.mark.parametrize("name", ["not-built", "fakes", "fakes-moved"])
+def test_the_harnesss_exports_conform_to_its_schema(name: str) -> None:
+    assert problems(fixture(name), SCHEMA) == []
+    main_schema = ROOT / "engine" / "export.schema.json"  # once 06b is merged: main's own
+    if main_schema.exists():
+        assert problems(fixture(name), json.loads(main_schema.read_text())) == []
+
+
+@pytest.mark.parametrize("name", ["not-built", "fakes", "fakes-moved"])
+def test_an_export_diffed_against_itself_reports_nothing(name: str) -> None:
+    found = compare(fixture(name), fixture(name))
+
+    assert found.counts() == dict.fromkeys(MEASURES, NOTHING)
+    assert found.items == []
+
+
+def test_a_lost_sheet_and_a_moved_view_are_reported_so() -> None:
+    found = compare(fixture("fakes"), fixture("fakes-moved")).counts()
+
+    # Each of the two drawings loses Layout2 (and its three views) and its plan view moves off its
+    # place (lost there, gained where it went); the conflict that needed three sheets is lost, and
+    # the continuation, now over the two drawings' first sheets, is lost and gained.
+    assert found == dict.fromkeys(MEASURES, NOTHING) | {
+        "sheets": {"gained": 0, "lost": 2, "changed": 0},
+        "views": {"gained": 2, "lost": 8, "changed": 0},
+        "conflicts": {"gained": 0, "lost": 1, "changed": 0},
+        "continuations": {"gained": 1, "lost": 1, "changed": 0},
+    }
+
+
+def test_stages_not_built_give_empty_measures_never_a_crash() -> None:
+    bare, full = fixture("not-built"), fixture("fakes")
+
+    assert sizes(bare) == dict.fromkeys(MEASURES, 0) | {"files": 3}
+    assert compare(bare, full).counts()["sheets"] == {"gained": 4, "lost": 0, "changed": 0}
+    assert compare(full, bare).counts()["entity_counts"] == {"gained": 0, "lost": 4, "changed": 0}
+
+
+def test_every_invented_export_here_has_the_engines_shape() -> None:
+    document = export(
+        dwg(SHA_A, sheet("L1", views=[view(BOX)], register=[row(BOX)], render_f1=0.9)),
+        pdf(SHA_PDF),
+        plot=[match(page(1, 1), ref(0, 0)), match(page(1, 2), None)],
+        checks=[check("x", ref(0, 0, view=0), "fired", finding="engine.x.y", params={"n": 1})],
+        conflicts=[{"kind": "same_number", "candidates": [ref(0, 0), ref(0, 0)], "evidence": {}}],
+        continuations=[{"title": "Invented", "sheets": [ref(0, 0), ref(0, 0)]}],
+    )
+
+    assert problems(document, SCHEMA) == []
+
+
+# The fixed matching, item by item --------------------------------------------------------------------
 
 
 def test_sheets_join_by_layout_name_whatever_they_say() -> None:
-    old = export(dwg(SHA_A, sheet("s1", layout="L1"), sheet("s2", layout="L2")))
-    new = export(
-        dwg(SHA_A, sheet("n1", layout="L1", number="X-102", title="Another"), sheet("n3", layout="L3"))
-    )
+    old = export(dwg(SHA_A, sheet("L1"), sheet("L2")))
+    new = export(dwg(SHA_A, sheet("L1", number=sourced("X-102"), title=sourced("Another")), sheet("L3")))
 
     assert counts(old, new, "sheets") == (1, 1, 1)
     (changed,) = [c for c in compare(old, new).items if c.change == "changed"]
@@ -49,45 +119,49 @@ def test_sheets_join_by_layout_name_whatever_they_say() -> None:
 
 
 def test_a_title_differing_only_in_case_whitespace_or_symbol_form_is_not_changed() -> None:
-    old = export(dwg(SHA_A, sheet("s1", layout="L1", title="Column  Layout Ø16")))
-    new = export(dwg(SHA_A, sheet("s1", layout="L1", title=" column\tlayout Ø16")))
-    full_width = export(
-        dwg(SHA_A, sheet("s1", layout="L1", title="\uff23OLUMN LAYOUT Ø16"))
-    )  # full-width C
-    other = export(dwg(SHA_A, sheet("s1", layout="L1", title="Column Layout Ø20")))
+    def titled(text: str) -> dict[str, Any]:
+        return export(dwg(SHA_A, sheet("L1", title=sourced(text))))
 
-    assert counts(old, new, "sheets") == (0, 0, 0)
-    assert counts(old, full_width, "sheets") == (0, 0, 0)
-    assert counts(old, other, "sheets") == (0, 0, 1)
+    old = titled("Column  Layout Ø16")
+
+    assert counts(old, titled(" column\tlayout Ø16"), "sheets") == (0, 0, 0)
+    assert counts(old, titled(chr(0xFF23) + "OLUMN LAYOUT Ø16"), "sheets") == (0, 0, 0)  # a full-width C
+    assert counts(old, titled("Column Layout Ø20"), "sheets") == (0, 0, 1)
 
 
 @pytest.mark.parametrize(
-    "field",
+    ("field", "value"),
     [
-        "number",
-        "discipline",
-        "revision_mark",
-        "revision_mark_source",
-        "issue_date",
-        "storeys",
-        "storeys_meaning",
+        ("number", sourced("X-102")),
+        ("discipline", sourced("architectural", "file")),
+        ("revision_mark", sourced("R1", "file_name")),
+        ("revision_mark", sourced("R0", "title_block_attribute")),  # the mark's source
+        ("issue_date", None),
+        ("storeys_as_stated", sourced("first floor")),
     ],
 )
-def test_each_sheet_value_the_plan_names_counts_as_changed(field: str) -> None:
-    old = export(dwg(SHA_A, sheet("s1", layout="L1")))
-    changed: dict[str, Any] = {field: ["other"]}
-    new = export(dwg(SHA_A, sheet("s1", layout="L1", **changed)))
+def test_each_sheet_value_the_plan_names_counts_as_changed(field: str, value: object) -> None:
+    changed: dict[str, Any] = {field: value}
+    old = export(dwg(SHA_A, sheet("L1")))
+    new = export(dwg(SHA_A, sheet("L1", **changed)))
 
     assert counts(old, new, "sheets") == (0, 0, 1)
 
 
+def test_a_number_read_from_another_place_is_not_changed() -> None:
+    old = export(dwg(SHA_A, sheet("L1")))
+    new = export(dwg(SHA_A, sheet("L1", number=sourced("X-101", "title_block_attribute"))))
+
+    assert counts(old, new, "sheets") == (0, 0, 0)
+
+
 def test_model_space_sheets_join_by_frame_box_at_iou_09() -> None:
-    old = export(dwg(SHA_A, sheet("s1", box=[0, 0, 100, 100]), sheet("s2", box=[500, 0, 600, 100])))
+    old = export(dwg(SHA_A, sheet(box=[0, 0, 100, 100]), sheet(box=[500, 0, 600, 100])))
     new = export(
         dwg(
             SHA_A,
-            sheet("n1", box=[1, 1, 101, 101], title="Retitled"),  # IoU 0.96: joined
-            sheet("n2", box=[520, 0, 620, 100]),  # IoU 0.67: s2 lost, n2 gained
+            sheet(box=[1, 1, 101, 101], title=sourced("Retitled")),  # IoU 0.96: joined
+            sheet(box=[520, 0, 620, 100]),  # IoU 0.67: the other lost, this one gained
         )
     )
 
@@ -95,29 +169,23 @@ def test_model_space_sheets_join_by_frame_box_at_iou_09() -> None:
 
 
 def test_sheets_never_join_across_files() -> None:
-    old = export(dwg(SHA_A, sheet("s1", layout="L1")))
-    new = export(dwg(SHA_A), dwg(SHA_B, sheet("s1", layout="L1")))
+    old = export(dwg(SHA_A, sheet("L1")))
+    new = export(dwg(SHA_A), dwg(SHA_B, sheet("L1")))
 
     assert counts(old, new, "sheets") == (1, 1, 0)
     assert counts(old, new, "files") == (1, 0, 0)
 
 
 def test_views_join_inside_a_joined_sheet_at_iou_08() -> None:
-    old = export(
-        dwg(
-            SHA_A,
-            sheet("s1", layout="L1", views=[view("v1", [0, 0, 10, 10]), view("v2", [20, 0, 30, 10])]),
-        )
-    )
+    old = export(dwg(SHA_A, sheet("L1", views=[view([0, 0, 10, 10]), view([20, 0, 30, 10])])))
     new = export(
         dwg(
             SHA_A,
             sheet(
-                "s1",
-                layout="L1",
+                "L1",
                 views=[
-                    view("w1", [0, 0, 10, 10.5], kind="section"),  # IoU 0.95: joined, kind changed
-                    view("w3", [40, 0, 50, 10]),  # gained; v2 lost
+                    view([0, 0, 10, 10.5], kind="section"),  # IoU 0.95: joined, kind changed
+                    view([40, 0, 50, 10]),  # gained; the second old view lost
                 ],
             ),
         )
@@ -133,42 +201,45 @@ def test_views_join_inside_a_joined_sheet_at_iou_08() -> None:
         ("not_to_scale", True),
         ("stated_scale", "1:50"),
         ("storeys", ["first"]),
-        ("storeys_meaning", "range"),
+        ("storeys_meaning", "floor_to_floor"),
         ("subject", "beam"),
         ("layer", "bottom"),
-        ("proposed_steps", ["beams"]),
+        ("steps", ["beams"]),
         ("part", "electrical"),
-        ("exclusion_reason", "duplicate"),
+        ("exclusion", {"reason": "duplicate", "text": None}),
         ("coverage", "excluded"),
     ],
 )
 def test_each_view_value_the_plan_names_counts_as_changed(field: str, value: object) -> None:
-    old = export(dwg(SHA_A, sheet("s1", layout="L1", views=[view("v1", BOX)])))
-    new = export(dwg(SHA_A, sheet("s1", layout="L1", views=[view("v1", BOX, **{field: value})])))
+    changed: dict[str, Any] = {field: value}
+    old = export(dwg(SHA_A, sheet("L1", views=[view(BOX)])))
+    new = export(dwg(SHA_A, sheet("L1", views=[view(BOX, **changed)])))
 
     assert counts(old, new, "views") == (0, 0, 1)
 
 
+def test_an_exclusions_text_alone_is_not_changed() -> None:
+    old = export(dwg(SHA_A, sheet("L1", views=[view(BOX, exclusion={"reason": "other", "text": "a"})])))
+    new = export(dwg(SHA_A, sheet("L1", views=[view(BOX, exclusion={"reason": "other", "text": "b"})])))
+
+    assert counts(old, new, "views") == (0, 0, 0)
+
+
 def test_the_views_of_a_lost_sheet_are_lost_with_it() -> None:
-    old = export(dwg(SHA_A, sheet("s1", layout="L1", views=[view("v1", BOX), view("v2", BOX)])))
+    old = export(dwg(SHA_A, sheet("L1", views=[view(BOX), view(BOX)], register=[row(BOX)])))
     new = export(dwg(SHA_A))
 
     assert counts(old, new, "sheets") == (0, 1, 0)
     assert counts(old, new, "views") == (0, 2, 0)
+    assert counts(old, new, "register") == (0, 1, 0)
 
 
 def test_register_entries_join_by_row_box_at_iou_08() -> None:
-    old = export(
-        dwg(SHA_A, sheet("s1", layout="L1", register=[row([0, 0, 100, 5]), row([0, 5, 100, 10])]))
-    )
+    old = export(dwg(SHA_A, sheet("L1", register=[row([0, 0, 100, 5]), row([0, 5, 100, 10])])))
     new = export(
         dwg(
             SHA_A,
-            sheet(
-                "s1",
-                layout="L1",
-                register=[row([0, 0, 100, 5.2], revision_mark="R1"), row([0, 20, 100, 25])],
-            ),
+            sheet("L1", register=[row([0, 0, 100, 5.2], revision_mark="R1"), row([0, 20, 100, 25])]),
         )
     )
 
@@ -183,10 +254,25 @@ def test_entity_counts_join_by_file_and_type() -> None:
 
 
 def test_font_pdf_and_bangla_counts_join_by_file_and_name() -> None:
-    old = export(dwg(SHA_A, font_report={"missing": 0, "shx": 3}, pdf_report={}, bangla_ansi=2))
-    new = export(dwg(SHA_A, font_report={"missing": 1}, pdf_report={"pages": 4}, bangla_ansi=2))
+    old = export(
+        dwg(SHA_A, font_report={"missing": 0, "shx": 3}, pdf_report=None, bangla_ansi={"texts": 2})
+    )
+    new = export(
+        dwg(SHA_A, font_report={"missing": 1}, pdf_report={"pages": 4}, bangla_ansi={"texts": 2})
+    )
 
     assert counts(old, new, "report_counts") == (1, 1, 1)
+
+
+def test_a_stage_not_built_is_null_and_its_counts_are_empty() -> None:
+    built = export(dwg(SHA_A))
+    unbuilt = export(
+        dwg(SHA_A, entity_counts=None, font_report=None, bangla_ansi=None, decoders_agree=None)
+    )
+
+    assert counts(built, unbuilt, "entity_counts") == (0, 2, 0)
+    assert counts(built, unbuilt, "report_counts") == (0, 2, 0)
+    assert counts(built, unbuilt, "files") == (0, 0, 1)  # decoders agree: True, then null
 
 
 def test_decoders_agree_is_a_file_value() -> None:
@@ -198,22 +284,22 @@ def test_decoders_agree_is_a_file_value() -> None:
 
 def test_plot_matches_join_by_pdf_and_page_and_compare_the_joined_sheet() -> None:
     old = export(
-        dwg(SHA_A, sheet("s1", layout="L1"), sheet("s2", layout="L2")),
-        pdf(SHA_PDF, {"page": 1, "sheet": "s1"}, {"page": 2, "sheet": "s2"}, {"page": 3, "sheet": None}),
+        dwg(SHA_A, sheet("L1"), sheet("L2")),
+        pdf(SHA_PDF),
+        plot=[match(page(1, 1), ref(0, 0)), match(page(1, 2), ref(0, 1)), match(page(1, 3), None)],
     )
     new = export(
-        dwg(SHA_A, sheet("n1", layout="L1"), sheet("n2", layout="L2")),
-        pdf(SHA_PDF, {"page": 1, "sheet": "n1"}, {"page": 2, "sheet": "n1"}, {"page": 4, "sheet": "n2"}),
+        pdf(SHA_PDF),  # the files in another order: positions differ, joins do not
+        dwg(SHA_A, sheet("L0"), sheet("L1"), sheet("L2")),
+        plot=[match(page(0, 1), ref(1, 1)), match(page(0, 2), ref(1, 1)), match(page(0, 4), ref(1, 2))],
     )
 
-    assert counts(old, new, "plot_matches") == (1, 1, 1)  # page 4 gained, 3 lost, 2 moved
+    assert counts(old, new, "plot_matches") == (1, 1, 1)  # page 4 gained, 3 lost, 2 moved to L1
 
 
 def test_render_f1_moves_past_0005_to_change_and_falls_past_001_to_be_lost() -> None:
     def run(*f1: float | None) -> dict[str, Any]:
-        return export(
-            dwg(SHA_A, *[sheet(f"s{i}", layout=f"L{i}", render_f1=v) for i, v in enumerate(f1)])
-        )
+        return export(dwg(SHA_A, *[sheet(f"L{i}", render_f1=v) for i, v in enumerate(f1)]))
 
     old = run(0.900, 0.900, 0.900, None, 0.900)
     new = run(0.904, 0.906, 0.880, 0.800, None)  # still, changed, lost, gained, lost
@@ -222,61 +308,68 @@ def test_render_f1_moves_past_0005_to_change_and_falls_past_001_to_be_lost() -> 
     assert counts(old, new, "sheets") == (0, 0, 0)
 
 
-def test_checks_join_by_code_and_joined_subject() -> None:
+def test_checks_join_by_code_and_the_joined_subject_wherever_it_moved() -> None:
     old = export(
-        dwg(SHA_A, sheet("s1", layout="L1"), sheet("s2", layout="L2")),
+        dwg(SHA_A, sheet("L1", views=[view(BOX)]), sheet("L2")),
+        pdf(SHA_PDF),
         checks=[
-            {"code": "title_block", "subject": "s1", "outcome": "pass", "finding": None},
-            {"code": "title_block", "subject": "s2", "outcome": "pass", "finding": None},
-            {"code": "decoders_agree", "subject": SHA_A, "outcome": "pass", "finding": None},
+            check("coverage", ref(0, 0, view=0)),
+            check("title_block", ref(0, 1)),
+            check("numbering", None),
+            check("plot_pages", page(1, 1)),
+            check("decoders", ref(0, 1)),
         ],
     )
     new = export(
-        dwg(SHA_A, sheet("n1", layout="L1"), sheet("n2", layout="L2")),
+        pdf(SHA_PDF),
+        dwg(SHA_A, sheet("L0"), sheet("L1", views=[view(BOX)]), sheet("L2")),  # L1 and L2 shifted
         checks=[
-            {"code": "title_block", "subject": "n1", "outcome": "pass", "finding": None},  # same
-            {
-                "code": "title_block",
-                "subject": "n2",
-                "outcome": "finding",
-                "finding": {"code": "title_block.missing_number", "params": {}},
-            },
-            {"code": "bangla_ansi", "subject": SHA_A, "outcome": "pass", "finding": None},
+            check("coverage", ref(1, 1, view=0)),  # the same view: joined
+            check("title_block", ref(1, 2), "fired", finding="engine.title_block.no_number"),  # changed
+            check("numbering", None),
+            check("plot_pages", page(0, 1)),
+            check("bangla", ref(1, 2)),  # gained; "decoders" lost
         ],
     )
 
     assert counts(old, new, "checks") == (1, 1, 1)
 
 
-def test_a_check_finding_whose_parameters_move_is_changed() -> None:
+def test_a_check_findings_parameters_moving_is_changed() -> None:
     def run(n: int) -> dict[str, Any]:
-        finding = {"code": "x.count", "params": {"n": n}}
         return export(
-            dwg(SHA_A, sheet("s1", layout="L1")),
-            checks=[{"code": "x", "subject": "s1", "outcome": "finding", "finding": finding}],
+            dwg(SHA_A, sheet("L1")),
+            checks=[check("x", ref(0, 0), "fired", finding="engine.x.n", params={"n": n})],
         )
 
     assert counts(run(1), run(2), "checks") == (0, 0, 1)
 
 
-def test_conflicts_join_by_kind_and_joined_candidates() -> None:
-    def conflict(kind: str, ids: list[str], evidence: str) -> dict[str, Any]:
-        return {"kind": kind, "candidates": ids, "evidence": {"why": evidence}}
-
-    sheets = [sheet(f"s{i}", layout=f"L{i}") for i in range(4)]
-    renamed = [sheet(f"n{i}", layout=f"L{i}") for i in range(4)]
+def test_a_check_on_a_lost_sheet_is_lost_with_it() -> None:
     old = export(
-        dwg(SHA_A, *sheets),
+        dwg(SHA_A, sheet("L1"), sheet("L2")), checks=[check("x", ref(0, 0)), check("x", ref(0, 1))]
+    )
+    new = export(dwg(SHA_A, sheet("L1")), checks=[check("x", ref(0, 0))])
+
+    assert counts(old, new, "checks") == (0, 1, 0)
+
+
+def test_conflicts_join_by_kind_and_joined_candidates() -> None:
+    def conflict(kind: str, at: list[dict[str, Any]], evidence: str) -> dict[str, Any]:
+        return {"kind": kind, "candidates": at, "evidence": {"why": evidence}}
+
+    old = export(
+        dwg(SHA_A, *[sheet(f"L{i}") for i in range(4)]),
         conflicts=[
-            conflict("same_number", ["s0", "s1"], "a"),
-            conflict("same_number", ["s2", "s3"], "a"),
+            conflict("same_number", [ref(0, 0), ref(0, 1)], "a"),
+            conflict("same_number", [ref(0, 2), ref(0, 3)], "a"),
         ],
     )
     new = export(
-        dwg(SHA_A, *renamed),
+        dwg(SHA_A, sheet("L9"), *[sheet(f"L{i}") for i in range(4)]),  # every sheet one place on
         conflicts=[
-            conflict("same_number", ["n1", "n0"], "b"),
-            conflict("storey_twice", ["n2", "n3"], "a"),
+            conflict("same_number", [ref(0, 2), ref(0, 1)], "b"),  # the first, its evidence changed
+            conflict("storey_twice", [ref(0, 3), ref(0, 4)], "a"),  # gained; the second lost
         ],
     )
 
@@ -284,16 +377,16 @@ def test_conflicts_join_by_kind_and_joined_candidates() -> None:
 
 
 def test_continuations_join_by_their_joined_sheets() -> None:
-    sheets = [sheet(f"s{i}", layout=f"L{i}") for i in range(3)]
-    old = export(dwg(SHA_A, *sheets), continuations=[{"sheets": ["s0", "s1"]}])
-    new = export(dwg(SHA_A, *sheets), continuations=[{"sheets": ["s1", "s2"]}])
+    sheets = [sheet(f"L{i}") for i in range(3)]
+    old = export(dwg(SHA_A, *sheets), continuations=[{"title": "A", "sheets": [ref(0, 0), ref(0, 1)]}])
+    new = export(dwg(SHA_A, *sheets), continuations=[{"title": "A", "sheets": [ref(0, 1), ref(0, 2)]}])
 
     assert counts(old, new, "continuations") == (1, 1, 0)
 
 
 def test_read_time_and_peak_memory_are_shown_never_counted() -> None:
-    old = export(dwg(SHA_A, read_seconds=1.0, peak_rss=100))
-    new = export(dwg(SHA_A, read_seconds=9.0, peak_rss=900))
+    old = export(dwg(SHA_A, process=process(1.0, 100)))
+    new = export(dwg(SHA_A, process=process(9.0, 900)))
 
     found = compare(old, new)
 
@@ -301,17 +394,8 @@ def test_read_time_and_peak_memory_are_shown_never_counted() -> None:
     assert found.timings == [(SHA_A, 1.0, 9.0, 100, 900)]
 
 
-def test_a_stage_not_built_leaves_its_measure_empty_in_both_runs() -> None:
-    bare = {"files": [{"sha256": SHA_A, "entity_counts": {"LINE": 1}}]}
+def test_two_copies_of_one_file_join_by_their_paths() -> None:
+    old = export(dwg(SHA_A, sheet("L1")), dwg(SHA_A, path="copy.dwg"))
+    new = export(dwg(SHA_A, path="copy.dwg"), dwg(SHA_A, sheet("L1")))
 
-    assert compare(bare, bare).counts()["sheets"] == {"gained": 0, "lost": 0, "changed": 0}
-    assert sizes(bare)["sheets"] == 0
-    assert sizes(bare)["entity_counts"] == 1
-
-
-def test_a_check_on_a_file_joins_by_the_file_and_is_lost_with_it() -> None:
-    check = {"code": "decoders_agree", "outcome": "pass", "finding": None}
-    old = export(dwg(SHA_A), dwg(SHA_B), checks=[check | {"subject": SHA_A}, check | {"subject": SHA_B}])
-    new = export(dwg(SHA_A), checks=[check | {"subject": SHA_A}])
-
-    assert counts(old, new, "checks") == (0, 1, 0)
+    assert compare(old, new).counts() == dict.fromkeys(MEASURES, NOTHING)

@@ -87,6 +87,19 @@ def test_a_no_post_run_diffs_the_head_against_main_and_posts_nothing(world: Worl
     ]
 
 
+def test_the_stages_the_head_has_not_built_are_named(world: World) -> None:
+    document = json.loads(invented())
+    document["stages"] = {
+        name: {"target": f"engine.x:{name}", "ticket": "13", "built": built}
+        for name, built in (("read", True), ("sheets", False), ("views", False))
+    }
+    world.commit("tuning", {FAKE_EXPORT: json.dumps(document)})
+
+    run("tuning", no_post=True, m=world.machine())
+
+    assert "Not built on the head: sheets, views" in world.said
+
+
 def test_a_pr_with_no_post_never_posts(world: World) -> None:
     world.pr(57, {FAKE_EXPORT: invented(title="Invented section")})
 

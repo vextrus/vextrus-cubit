@@ -55,6 +55,7 @@ out.write_text(json.dumps({"files": [], "probe": {
     "home_visible": os.path.exists(HOME),
     "drop_visible": os.path.exists(DROP),
     "set_files": sorted(os.listdir(sys.argv[sys.argv.index("--set") + 1])),
+    "argv": sys.argv[1:],
     "writable": {p: writable(p) for p in PLACES},
 }}))
 """
@@ -124,6 +125,7 @@ def test_the_pipeline_runs_offline_with_only_its_scratch_writable(tmp_path: Path
     assert found["home_visible"] is False
     assert found["drop_visible"] is False
     assert found["set_files"] == ["sheet-1.bin"]
+    assert found["argv"][-2:] == ["--run-id", "invented-run"]  # the run's metadata, as flags
     assert found["writable"] == {
         "/work/src": False,
         "/work/wheels": False,
