@@ -215,3 +215,70 @@ def test_a_widening_granted_to_any_role_fails_its_kind(owner_cursor: Any, wideni
 
     assert len(problems) == 1
     assert problems[0].startswith(f"{table}: unexpected (")
+
+
+# Platform's coverage check refuses any policy but the own-tenant one and its read-only widenings,
+# on every module's tables (proved here on a scratch table; `main`'s tables pass above).
+
+SCRATCH = "live_model_scratch"
+
+
+@pytest.fixture
+def scratch(owner_cursor: Any) -> Any:
+    """A tenant table as a migration makes one, with its own-tenant policy (rolled back after)."""
+    owner_cursor.execute(f"create table {SCRATCH} (id uuid primary key, tenant_id uuid not null)")
+    owner_cursor.execute(f"alter table {SCRATCH} enable row level security")
+    owner_cursor.execute(f"create policy own_tenant on {SCRATCH} using ({OWN_TENANT})")
+    return owner_cursor
+
+
+def scratch_problems(cursor: Any, **allowlists: Any) -> list[str]:
+    _checked, problems = coverage_problems(cursor, **allowlists)
+    return [problem for problem in problems if problem.startswith(SCRATCH) or "stale" in problem]
+
+
+@pytest.mark.django_db(databases=["owner"])
+@pytest.mark.parametrize(
+    "extra",
+    [
+        "create policy extra on {table} to vextrus_app using (true) with check (true)",
+        "create policy extra on {table} for insert to vextrus_app with check (true)",
+        "create policy extra on {table} using (true) with check (true)",
+        "create policy extra on {table} for update using ({own}) with check (true)",
+        "create policy extra on {table} for select using (true)",
+        "create policy extra on {table} for select to vextrus_app using ({library})",
+        "create policy extra on {table} as restrictive using ({own})",
+        # Casts the normalising must not strip: not the own-tenant policy's text.
+        (
+            "create policy extra on {table} for select using (tenant_id::text = "
+            "nullif(current_setting('app.library_id', true), '')::uuid::text)"
+        ),
+    ],
+)
+def test_the_coverage_check_refuses_an_extra_policy_on_a_tenant_table(scratch: Any, extra: str) -> None:
+    scratch.execute(extra.format(table=SCRATCH, own=OWN_TENANT, library=LIBRARY))
+
+    assert scratch_problems(scratch) == [
+        f"{SCRATCH}: policy extra is neither the own-tenant policy nor a FOR SELECT widening it may have"
+    ]
+
+
+@pytest.mark.django_db(databases=["owner"])
+def test_the_coverage_check_passes_a_library_widening_on_any_module_s_table(scratch: Any) -> None:
+    scratch.execute(f"create policy library_reads on {SCRATCH} for select using ({LIBRARY})")
+
+    assert scratch_problems(scratch) == []
+
+
+@pytest.mark.django_db(databases=["owner"])
+def test_a_declared_widening_passes_only_on_its_table_and_a_stale_one_fails(scratch: Any) -> None:
+    scratch.execute(f"create policy everyone_reads on {SCRATCH} for select using (true)")
+    declared = {(SCRATCH, "everyone_reads"): ("true", "A scratch table's rows are public.")}
+
+    assert scratch_problems(scratch, widenings=declared) == []
+    assert scratch_problems(
+        scratch, widenings={**declared, (SCRATCH, "gone"): ("true", "Was here once.")}
+    ) == [f"{SCRATCH}.gone: on the declared widenings but no such policy (stale entry)"]
+    assert f"{SCRATCH}.everyone_reads: on the declared widenings without its reason" in (
+        scratch_problems(scratch, widenings={(SCRATCH, "everyone_reads"): ("true", " ")})
+    )

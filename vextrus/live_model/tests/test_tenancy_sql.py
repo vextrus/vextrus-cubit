@@ -7,7 +7,8 @@ the ORM. The attacks:
 - L tables: a tenant writing a Library row (insert, update, delete), including by pointing its own
   row's `tenant_id` at the Library;
 - a setting never set, or read back as `''`: no row is seen, none is written;
-- a reference naming another tenant's row, which a key check (run as the owner) would pass.
+- a reference naming another tenant's row, which a key check (run as the owner) would pass;
+- the append-only tables rewritten or deleted from.
 """
 
 import uuid
@@ -20,6 +21,8 @@ from django.db import connections
 from vextrus.live_model.models import Element
 from vextrus.live_model.tests import rows
 from vextrus.live_model.tests.attacks import (
+    APPEND_ONLY,
+    DENIED,
     L_TABLES,
     OUT_OF_REACH,
     REACH_CHECKED,
@@ -122,15 +125,23 @@ def test_a_tenant_updates_and_deletes_none_of_another_tenant_s_rows(
     in_a, _in_b = a_and_b
     a, b = two
     target = [in_a[table].pk]
-    update = f"update {table} set {UPDATES[table]} where id = %s"
+    update = f"update {table} set {UPDATES[table] or 'tenant_id = tenant_id'} where id = %s"
+    delete = f"delete from {table} where id = %s"
     act(cursor, tenant=b, library=market.library_id)
 
-    assert execute(cursor, update, target)() == 0
-    assert execute(cursor, f"delete from {table} where id = %s", target)() == 0
+    if UPDATES[table]:
+        assert execute(cursor, update, target)() == 0
+    else:  # a Record: no update at all
+        assert DENIED in refused(execute(cursor, update, target))
+    if table in APPEND_ONLY:
+        assert DENIED in refused(execute(cursor, delete, target))
+    else:
+        assert execute(cursor, delete, target)() == 0
 
     act(cursor, tenant=a, library=market.library_id)
     assert in_a[table].pk in ids(cursor, table)
-    assert execute(cursor, update, target)() == 1  # the same update passes for its own tenant
+    if UPDATES[table]:  # the same update passes for the row's own tenant
+        assert execute(cursor, update, target)() == 1
 
 
 @pytest.mark.django_db
@@ -166,7 +177,7 @@ def test_a_tenant_moves_none_of_its_own_rows_to_another_tenant(
         execute(cursor, f"update {table} set tenant_id = %s where id = %s", [a, in_b[table].pk])
     )
 
-    assert RLS_REFUSED in error
+    assert (DENIED if table in APPEND_ONLY else RLS_REFUSED) in error
 
 
 # No tenant set ---------------------------------------------------------------------------------
@@ -257,3 +268,32 @@ def test_no_reference_names_another_tenant_s_row(
                 family_id=theirs["live_model_elementfamily"].pk
             )
         )
+
+
+# Append-only -----------------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("table", sorted(APPEND_ONLY))
+def test_the_append_only_tables_refuse_update_and_delete_even_to_their_own_tenant(
+    a_and_b: tuple[dict[str, Any], dict[str, Any]],
+    two: tuple[uuid.UUID, uuid.UUID],
+    market: MarketProfile,
+    cursor: Any,
+    table: str,
+) -> None:
+    in_a, _in_b = a_and_b
+    a, _b = two
+    target = [in_a[table].pk]
+    act(cursor, tenant=a, library=market.library_id)
+    cursor.execute("select column_name from information_schema.columns where table_name = %s", [table])
+    columns = [column for (column,) in cursor.fetchall()]
+
+    for column in columns:
+        if column == "valid_to_seq":
+            continue
+        error = refused(execute(cursor, f"update {table} set {column} = {column} where id = %s", target))
+        assert DENIED in error, column
+    assert DENIED in refused(execute(cursor, f"delete from {table} where id = %s", target))
+    if "valid_to_seq" in columns:  # closing a relation's validity is its one update
+        assert execute(cursor, f"update {table} set valid_to_seq = 2 where id = %s", target)() == 1

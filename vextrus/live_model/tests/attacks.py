@@ -9,6 +9,7 @@ from django.db import DatabaseError, connections, transaction
 
 RLS_REFUSED = "new row violates row-level security policy"
 OUT_OF_REACH = "names a row neither this tenant's nor its Library's"
+DENIED = "permission denied for table"
 
 T_TABLES = ("live_model_element", "live_model_record", "live_model_elementrelation")
 L_TABLES = (
@@ -18,10 +19,11 @@ L_TABLES = (
     "live_model_classificationsystem",
     "live_model_classificationreference",
 )
-# An update each table allows its own tenant, so a refusal elsewhere is the policy's doing.
+# An update each table allows its own tenant, so a refusal elsewhere is the policy's doing. A Record
+# allows none (append-only); a relation, only closing its validity.
 UPDATES = {
     "live_model_element": "mark_hint = 'C1'",
-    "live_model_record": "evidence_note = 'Cube test'",
+    "live_model_record": None,
     "live_model_elementrelation": "valid_to_seq = 9",
     "live_model_elementfamily": "ifc_predefined_type = 'PILASTER'",
     "live_model_attributedefinition": "version = 2",
@@ -29,6 +31,8 @@ UPDATES = {
     "live_model_classificationsystem": "may_ship = false",
     "live_model_classificationreference": "name = 'Renamed'",
 }
+APPEND_ONLY = {"live_model_record", "live_model_elementrelation"}
+"""No UPDATE (but a relation's valid_to_seq) and no DELETE for vextrus_app (docs/data-model.md §2)."""
 REACH_CHECKED = {"live_model_element", "live_model_familyattribute"}
 """The tables whose rows name an Element Family or an Attribute Definition, checked by a trigger."""
 

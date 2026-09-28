@@ -1,6 +1,7 @@
 # The Live Model's empty tables (ticket 28; docs/data-model.md §2 and §3.3; ADR 0037). The tables are
 # generated from models.py; their row-level security, the keys that hold references inside one tenant,
-# and the reach triggers below are written by hand. Run as the owner.
+# the reach triggers and vextrus_app's rights on the append-only tables are written by hand below.
+# Run as the owner.
 #
 # - Every table has row-level security ENABLED, never forced, and its own-tenant policy for reads
 #   and writes alike. The L tables (the Library's kinds of row) add one FOR SELECT policy admitting
@@ -13,15 +14,18 @@
 #   tenant's: a key check runs as the owner and sees every row, so a trigger looks the row up as the
 #   caller, under the caller's own policies, and refuses what the caller cannot read.
 # - vextrus_app gets SELECT, INSERT, UPDATE and DELETE from platform's default privileges (0003),
-#   never TRUNCATE. Records and Element Relations are append-only by the services that will write
-#   them (M1): their rights are not narrowed here, since platform's test of the app's rights lists
-#   every narrower table.
+#   never TRUNCATE, except on the append-only tables (docs/data-model.md §2): a Record is never
+#   updated or deleted (a correction is a new Record that supersedes it), and an Element Relation
+#   only ever has its valid_to_seq set, so vextrus_app may update that column alone.
 
 import django.db.models.deletion
 import django.utils.timezone
+from django.conf import settings
 from django.db import migrations, models
 
 import vextrus.platform.ids
+
+APP = settings.VEXTRUS_APP_ROLE
 
 OWN_TENANT = "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
 LIBRARY = "tenant_id = nullif(current_setting('app.library_id', true), '')::uuid"
@@ -151,6 +155,18 @@ TRIGGERS_REVERSE = [
         f"drop function public.{function}()",
     )
 ]
+
+APPEND_ONLY = [
+    f"revoke update, delete on live_model_record from {APP}",
+    f"revoke update, delete on live_model_elementrelation from {APP}",
+    f"grant update (valid_to_seq) on live_model_elementrelation to {APP}",
+]
+APPEND_ONLY_REVERSE = [
+    f"revoke update (valid_to_seq) on live_model_elementrelation from {APP}",
+    f"grant update, delete on live_model_elementrelation to {APP}",
+    f"grant update, delete on live_model_record to {APP}",
+]
+
 
 class Migration(migrations.Migration):
 
@@ -722,4 +738,5 @@ class Migration(migrations.Migration):
         migrations.RunSQL(POLICIES, POLICIES_REVERSE),
         migrations.RunSQL(KEYS, KEYS_REVERSE),
         migrations.RunSQL(TRIGGERS, TRIGGERS_REVERSE),
+        migrations.RunSQL(APPEND_ONLY, APPEND_ONLY_REVERSE),
     ]
