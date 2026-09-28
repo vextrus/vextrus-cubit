@@ -17,3 +17,14 @@ never a Market's language, never shipped (web/scripts/check-dist.mjs fails the b
 path = "vextrus/platform/migrations/0004_bangladesh_market.py"
 reason = """The Bangladesh Market's data migration (ticket 02; ADR 0038): the Market row is where a \
 market's currency, borrowed locale, time zone and unit systems are written, as data."""
+
+[[allow]]
+path = "web/src/app/seed/**"
+reason = """The seed's static copy (docs/design/m0-screens.md §7, §9 ruling 5; ticket 03): the invented demo \
+project on the Bangladesh Market, with that Market's format profile, for the shell until /api/me (20a) \
+sends the Market; it must match the Market row ticket 02 seeds."""
+
+[[allow]]
+path = "web/src/format/units.ts"
+reason = """The unit systems' own definitions (ADR 0038 item 6): each one's key, its name in the catalogue and \
+how it writes drawing notation, the same for every Market. Which ones a Market offers is the Market's data."""

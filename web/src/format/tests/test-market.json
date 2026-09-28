@@ -1,0 +1,10 @@
+{
+  "//": "A test-only second Market (docs/plans/M0.md, ticket 03): a 3-decimal currency, thousands grouping, metric only. It never ships: only the table of expected strings reads it, and it lives under tests/, outside the market-literal scan.",
+  "language": { "code": "en", "dir": "ltr" },
+  "locale": "en-GB",
+  "grouping": "thousands",
+  "digits": "latn",
+  "currency": { "code": "KWD", "minorUnits": 3, "display": "code" },
+  "timeZone": "Asia/Kuwait",
+  "unitSystems": { "offered": ["metric"], "default": "metric" }
+}
