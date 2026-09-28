@@ -4,7 +4,9 @@
         [--run-id <id>] [--commit <sha>] [--code-hash <hash>] [--file-timeout <seconds>]
 
 The real-drawing check (06a) runs it inside its sandbox on both Development Sets until 21c, and passes
-the run id, commit and code hash it computed; a run without them gets a new id and none of the others.
+the run id, commit and code hash it computed as `VEXTRUS_RUN_ID`, `VEXTRUS_COMMIT` and
+`VEXTRUS_CODE_HASH`, each the default of its flag; a run with neither gets a new id and none of the
+others.
 It prints counts only; the export (`engine/export.py`, its schema beside it) holds drawing text.
 
 **The stage table** (`STAGES`; the M0 plan, "The contracts fixed here") names each stage's function and
@@ -996,9 +998,22 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--conventions", type=Path, help="a folder of conventions files over the defaults"
     )
-    parser.add_argument("--run-id", help="the run's id (default: a new UUIDv7)")
-    parser.add_argument("--commit", help="the commit read with")
-    parser.add_argument("--code-hash", help="the hash of the engine paths read with")
+    # The real-drawing check (06a) passes the run's identity in the environment; a flag still wins.
+    parser.add_argument(
+        "--run-id",
+        default=os.environ.get("VEXTRUS_RUN_ID"),
+        help="the run's id (default: $VEXTRUS_RUN_ID, else a new UUIDv7)",
+    )
+    parser.add_argument(
+        "--commit",
+        default=os.environ.get("VEXTRUS_COMMIT"),
+        help="the commit read with (default: $VEXTRUS_COMMIT)",
+    )
+    parser.add_argument(
+        "--code-hash",
+        default=os.environ.get("VEXTRUS_CODE_HASH"),
+        help="the hash of the engine paths read with (default: $VEXTRUS_CODE_HASH)",
+    )
     parser.add_argument("--file-timeout", type=float, default=FILE_TIMEOUT, help="seconds per file")
     options = parser.parse_args(argv)
     if not options.set.is_dir():

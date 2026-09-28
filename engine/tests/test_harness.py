@@ -1184,3 +1184,30 @@ def test_the_real_drawing_check_reads_a_run_with_nothing_built(
     assert compare(document, document).items == []
     assert sizes(document)["files"] == 2
     assert sum(sizes(document).values()) == 2
+
+
+def test_the_runs_identity_comes_from_the_environment_the_check_sets(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # 06a's sandbox passes the run's identity as environment variables (scripts/real_drawings).
+    set_dir = write_set(tmp_path / "set", {"a.dwg": "a"})
+    monkeypatch.setenv("VEXTRUS_RUN_ID", "run-from-env")
+    monkeypatch.setenv("VEXTRUS_COMMIT", "c" * 40)
+    monkeypatch.setenv("VEXTRUS_CODE_HASH", "d" * 64)
+
+    assert harness.main(["--set", str(set_dir), "--out", str(tmp_path / "env.json")]) == 0
+    assert (
+        harness.main(
+            ["--set", str(set_dir), "--out", str(tmp_path / "flag.json"), "--run-id", "run-from-flag"]
+        )
+        == 0
+    )
+
+    from_env = json.loads((tmp_path / "env.json").read_text())["run"]
+    assert (from_env["id"], from_env["commit"], from_env["code_hash"]) == (
+        "run-from-env",
+        "c" * 40,
+        "d" * 64,
+    )
+    from_flag = json.loads((tmp_path / "flag.json").read_text())["run"]
+    assert (from_flag["id"], from_flag["commit"]) == ("run-from-flag", "c" * 40)
