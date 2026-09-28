@@ -198,13 +198,17 @@ def test_a_file_whose_process_was_killed_before_any_stage_is_a_failure_too(world
     killed["stages"] = {
         name: {**report, "state": "skipped", "error": ended} for name, report in killed["stages"].items()
     }
-    world.commit("main", {FAKE_EXPORT: json.dumps(document)})
+    world.pr(57, {FAKE_EXPORT: json.dumps(document)})
+    world.answers = ["y", "the invented file is killed on purpose"] * 2
 
-    run("main", no_post=True, m=world.machine())
-    run("main", no_post=True, m=world.machine())
+    run("57", no_post=False, m=world.machine())
+    run("57", no_post=False, m=world.machine())
 
-    assert len(world.sandbox_runs) == 2
-    assert "Failed on the head: the file's process on 2 files (timed_out)" in world.said
+    assert len(world.sandbox_runs) == 3  # main once (clean, then reused), the head twice
+    assert "Failed on the head: process on 2 files (timed_out)" in world.said
+    # The owner's ruling (28 Sep 2026): "Count it". The summary, and so the status, carries it.
+    summary = only_file(world.drop / world.posted[0], "summary.json")
+    assert summary["measures"]["failed_stages"] == {"gained": 0, "lost": 2, "changed": 0}  # type: ignore[index]
 
 
 def test_mains_run_failed_by_the_machine_is_not_the_next_runs_baseline(world: World) -> None:

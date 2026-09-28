@@ -52,9 +52,9 @@ unseen; it does not prove a reading right. That rests on the owner's walk.
    sandbox's version and the set's content; an export with a failed stage, or a file whose process
    timed out or failed, is never reused).
 2. Read "Failed on the head" and "Failed on main" first: a stage that failed (by stage, file count and
-   error kind), or "the file's process" (timed out or failed, by file count), means that run read less
-   than it should, however empty the table looks. A failed run
-   is never taken from the cache, so the failure happened in this run. If it may be the machine's (a
+   error kind; "process" is a file's process that timed out or failed, counted like a stage) means
+   that run read less than it should, however empty the table looks. A failed run is never taken
+   from the cache, so the failure happened in this run. If it may be the machine's (a
    timeout or an OOM kill while the machine was busy, `SandboxUnavailable`), run again. `--fresh`
    reads the head and main again even when their clean exports are cached: use it when something the
    key does not cover changed (the host's bwrap, a toolchain rebuilt at the same pin). Never delete

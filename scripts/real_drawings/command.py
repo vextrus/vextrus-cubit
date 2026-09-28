@@ -327,12 +327,11 @@ def report(
 
 def failed_text(exports: Mapping[str, Path]) -> str:
     """The stages that failed in these exports, by stage, file count and error kind (never the error's
-    message, which may quote a drawing), and the files whose process did not end ok, by status (shown,
-    not counted); empty when none failed."""
+    message, which may quote a drawing), a file's process that did not end ok among them as "process";
+    empty when none failed."""
     found: Counter[tuple[str, str]] = Counter()
     for path in exports.values():
-        document = json.loads(path.read_bytes())
-        found += failures(document) + _ended(document)
+        found += failures(json.loads(path.read_bytes()))
     return "; ".join(
         f"{stage} ({kind})"
         if stage.startswith("set ")
@@ -362,19 +361,9 @@ def verdict(
 
 
 def _failed(export: Path) -> bool:
-    """Whether anything failed in this export: a stage (a file's or the set's) or a file's process."""
-    document = json.loads(export.read_bytes())
-    return bool(failures(document) or _ended(document))
-
-
-def _ended(export: Mapping[str, Any]) -> Counter[tuple[str, str]]:
-    """The files whose process did not end ok, by status. A process killed before its first stage, or
-    between two, leaves its stages skipped, none failed (engine/harness.py), so only this shows it."""
-    return Counter(
-        ("the file's process", status)
-        for file in export.get("files") or []
-        if (status := (file.get("process") or {}).get("status")) not in (None, "ok")
-    )
+    """Whether anything failed in this export: a stage (a file's or the set's) or a file's process
+    (`failures`: one whose status is not ok, or not said, counts)."""
+    return bool(failures(json.loads(export.read_bytes())))
 
 
 def _pin(checkout: Path, name: str) -> str:
