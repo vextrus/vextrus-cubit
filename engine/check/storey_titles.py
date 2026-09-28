@@ -20,6 +20,7 @@ The Check says nothing when the views were not read in every file (`reading.read
 
 from collections.abc import Collection
 
+from engine.messages import catalogue as names
 from engine.messages import storey_titles as codes
 from engine.recognise.conflicts import Recognisers, given, normal, sheet_name
 from engine.recognise.types import CheckOutcome, CheckResult, SetReading, ViewKind
@@ -28,7 +29,7 @@ CODE = "storey_titles"
 VERSION = 1
 MILESTONE = "M0"
 KIND = "source"
-MESSAGE = codes.DIFFER
+MESSAGE = names.STOREY_TITLES
 
 
 def check(reading: SetReading, *, recognisers: Recognisers) -> list[CheckResult]:

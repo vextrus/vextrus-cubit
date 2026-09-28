@@ -9,8 +9,8 @@ declaring, at module level:
 - `CODE`, its key (lower-case letters, digits and underscores), once in the catalogue;
 - `VERSION`, an integer from 1; `MILESTONE`, the milestone that brings it ("M0");
 - `KIND`, one of docs/data-model.md §3.4's: `source`, `conservation`, `sanity`, `relation`;
-- `MESSAGE`, its finding's `MessageCode`, one of the engine's (engine/messages/, and so worded): the
-  Library's words for the Check (one with several findings names the first a QS meets);
+- `MESSAGE`, its name in the Library: a `MessageCode` of the engine's (engine/messages/, and so
+  worded) with no parameters, since a screen shows it with no values (engine/messages/catalogue.py);
 - `SET`, optionally: its set function, `(reading, *, recognisers) -> list[CheckResult]`, which
   `run_all` runs. A Check without one is a stage of its own (10's `decoders_agree.run(path,
   artefact)`, 11's `bangla_ansi.run(artefact)`, 18's `render_f1.score`), listed and never run here.
@@ -103,6 +103,11 @@ def _check(module: ModuleType, declared: set[str]) -> Check:
         raise CatalogueError(f"{name}'s KIND {kind!r} is not one of {', '.join(KINDS)}")
     if not isinstance(message, MessageCode) or message.code not in declared:
         raise CatalogueError(f"{name}'s MESSAGE {message!r} is not a code of engine/messages/")
+    if message.params:
+        raise CatalogueError(
+            f"{name}'s MESSAGE {message.code} takes {', '.join(message.params)}: it is the Check's "
+            "name in the Library, a message with no parameters"
+        )
     run = getattr(module, "SET", None)
     if run is not None and not callable(run):
         raise CatalogueError(f"{name}'s SET is not a function")

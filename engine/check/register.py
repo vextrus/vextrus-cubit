@@ -58,20 +58,22 @@ when every sheet line is a range, else `pasted`.
 """
 
 import re
+import unicodedata
 from collections.abc import Callable, Hashable, Sequence
 from dataclasses import dataclass
 from itertools import pairwise
 
 from engine.messages import Message
+from engine.messages import catalogue as names
 from engine.messages import register_check as codes
 from engine.recognise.conflicts import (
+    Numbers,
     Recognisers,
     clean,
     given,
     mark,
     normal,
     number_parts,
-    read_number,
 )
 from engine.recognise.types import (
     CheckOutcome,
@@ -88,7 +90,7 @@ CODE = "register"
 VERSION = 1
 MILESTONE = "M0"
 KIND = "source"
-MESSAGE = codes.NOT_FOUND
+MESSAGE = names.REGISTER
 
 TEXT_LIMIT = 1_000_000
 """The most characters `parse` reads."""
@@ -156,7 +158,7 @@ def check(reading: SetReading, *, recognisers: Recognisers) -> list[CheckResult]
     given(reading.sheets, reading.views)
     if "register" not in reading.read or reading.conventions is None:
         return []
-    numbers = _Numbers(reading.conventions, recognisers)
+    numbers = Numbers(reading.conventions, recognisers)
     lists = _lists(reading, numbers)
     results: list[CheckResult] = []
     sheets_of: dict[tuple[str, str], list[SheetCandidate]] = {}
@@ -182,7 +184,9 @@ def check(reading: SetReading, *, recognisers: Recognisers) -> list[CheckResult]
         if not run.gaps:
             results.append(CheckResult(CODE, CheckOutcome.PASSED))
         for gap in run.gaps:
-            finding = codes.GAP(after=gap.after, before=gap.before, missing=gap.missing)
+            finding = codes.GAP(
+                after=gap.after, before=gap.before, missing=gap.missing, discipline=run.discipline
+            )
             results.append(CheckResult(CODE, CheckOutcome.FIRED, finding=finding))
     return results
 
@@ -203,48 +207,8 @@ def _printed(sheet: SheetCandidate) -> str | None:
     return sheet.number.value
 
 
-class _Numbers:
-    """Sheet numbers as the Check compares them, each read once through 13's `sequence`."""
-
-    def __init__(self, conventions: SheetConventions, recognisers: Recognisers) -> None:
-        self.recognisers = recognisers
-        self.own = {d.key: {mark(p) for p in d.prefixes} - {""} for d in conventions.disciplines}
-        owners: dict[str, set[str]] = {}
-        for key, marks in self.own.items():
-            for prefix in marks:
-                owners.setdefault(prefix, set()).add(key)
-        self.owner = {prefix: keys.pop() for prefix, keys in owners.items() if len(keys) == 1}
-        self._read: dict[str, tuple[str, int, str] | None] = {}
-
-    def parts(self, number: str) -> tuple[str, int, str] | None:
-        if number not in self._read:
-            self._read[number] = read_number(self.recognisers, number)
-        return self._read[number]
-
-    def key(self, number: str, discipline: str) -> Key:
-        """What a number is compared by within a Discipline."""
-        parts = self.parts(number)
-        if parts is None:
-            return ("text", normal(number))
-        prefix, running, suffix = parts
-        return ("parts", "" if prefix in self.own.get(discipline, set()) else prefix, running, suffix)
-
-    def series(self, number: str, discipline: str) -> tuple[str, int] | None:
-        """A number's series (its prefix, a Discipline's own as none) and running number."""
-        parts = self.parts(number)
-        if parts is None:
-            return None
-        prefix, running, _ = parts
-        return ("" if prefix in self.own.get(discipline, set()) else prefix), running
-
-    def discipline(self, number: str) -> str | None:
-        """The one Discipline whose prefix the number carries, if any."""
-        parts = self.parts(number)
-        return None if parts is None else self.owner.get(parts[0])
-
-
 def _lists(
-    reading: SetReading, numbers: _Numbers
+    reading: SetReading, numbers: Numbers
 ) -> dict[tuple[str, str], list[tuple[str, RegisterEntry | None]]]:
     """Each (group, Discipline)'s one list: its entries' numbers, each with its subject (a read entry,
     or none for a pasted or typed one). Refuses two lists for one (group, Discipline)."""
@@ -258,7 +222,7 @@ def _lists(
         if entry.number is None or normal(entry.number) is None:
             continue
         on = entry.sheet.discipline
-        discipline = numbers.discipline(entry.number) or (None if on is None else on.value)
+        discipline = numbers.owner(entry.number) or (None if on is None else on.value)
         if discipline is not None:
             read.setdefault((str(entry.sheet.group), discipline), []).append((entry.number, entry))
     lists = dict(read)
@@ -282,7 +246,7 @@ def numbering(
     """Each (group, Discipline)'s numbering, per series, in the order of each series' first sheet:
     its lowest and highest numbers and its gaps. Sheets with no Discipline, or no running number, sit
     out. Linear in the sheets, plus sorting each series' running numbers."""
-    numbers = _Numbers(conventions, recognisers)
+    numbers = Numbers(conventions, recognisers)
     series: dict[tuple[str, str, str], dict[int, str]] = {}
     counts: dict[tuple[str, str, str], int] = {}
     for sheet in sheets:
@@ -291,7 +255,7 @@ def numbering(
         printed = _printed(sheet)
         if sheet.discipline is None or printed is None:
             continue
-        read = numbers.series(printed, sheet.discipline.value)
+        read = numbers.parts_in(printed, sheet.discipline.value)
         if read is None:
             continue
         key = (sheet.group, sheet.discipline.value, read[0])
@@ -321,44 +285,62 @@ def parse(text: str, conventions: SheetConventions, *, recognisers: Recognisers)
         raise Refused(codes.TEXT_TOO_LONG(limit=TEXT_LIMIT))
     revision = _revision_mark(conventions.revision_mark_pattern)
     prefixes = frozenset(mark(p) for d in conventions.disciplines for p in d.prefixes) - {""}
-    read: list[tuple[int, list[str] | None, tuple[list[str], bool]]] = []  # a range, or cells
-    ignored = 0
-    for index, raw in enumerate(text.splitlines(), start=1):
-        line = raw.strip()
+    entries: list[ListEntry] = []
+    ignored = ranges = sheet_lines = 0
+    # Lines as the QS sees them: split on line feeds only (never NEL, U+2028 or a form feed).
+    for index, raw in enumerate(text.replace("\r\n", "\n").split("\n"), start=1):
+        line = _scrub(raw).strip()
         if not line:
             continue
         if len(line) > LINE_LIMIT:
             ignored += 1
             continue
-        numbers = _range(line, index, recognisers)
-        read.append((index, numbers, ([], False) if numbers is not None else _cells(line)))
-    entries: list[ListEntry] = []
-    ranges = sheet_lines = 0
-    for index, numbers, cells in read:
-        if numbers is not None:
+        found = _range(line, index, recognisers)
+        if found is not None:
+            first, low, high = found
+            if len(entries) + high[1] - low[1] + 1 > ENTRY_LIMIT:  # before a number is built
+                raise Refused(codes.TOO_MANY(limit=ENTRY_LIMIT))
             ranges += 1
             sheet_lines += 1
-            entries.extend(ListEntry(number, index) for number in numbers)
-        elif (entry := _sheet_line(cells, index, recognisers, revision, prefixes)) is not None:
+            entries.extend(ListEntry(number, index) for number in _numbers(first, low, high))
+        elif (entry := _sheet_line(_cells(line), index, recognisers, revision, prefixes)) is not None:
             sheet_lines += 1
             entries.append(entry)
+            if len(entries) > ENTRY_LIMIT:
+                raise Refused(codes.TOO_MANY(limit=ENTRY_LIMIT))
         else:
             ignored += 1
-        if len(entries) > ENTRY_LIMIT:
-            raise Refused(codes.TOO_MANY(limit=ENTRY_LIMIT))
     if not entries:
         raise Refused(codes.NOTHING_FOUND())
     source = ListSource.TYPED if ranges == sheet_lines else ListSource.PASTED
     return Parsed(source, tuple(entries), ignored)
 
 
+_BIDI = frozenset("\u200e\u200f\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069")
+"""The direction marks, embeddings, overrides and isolates: never part of a number or a title."""
+
+
+def _scrub(line: str) -> str:
+    """A line without control characters (a tab kept, between cells) or direction controls: a NUL
+    cannot be stored, and an override would reach a Question's words."""
+    return "".join(
+        char
+        for char in line
+        if char == "\t" or (unicodedata.category(char) != "Cc" and char not in _BIDI)
+    )
+
+
 def _is_number(token: str, recognisers: Recognisers) -> bool:
     return 0 < len(token) <= NUMBER_LIMIT and number_parts(recognisers, token) is not None
 
 
-def _range(line: str, index: int, recognisers: Recognisers) -> list[str] | None:
-    """A range line's numbers, or none when the line is no range; `Refused` when it is a range that
-    cannot be read."""
+type _Parts = tuple[str, int, str]
+
+
+def _range(line: str, index: int, recognisers: Recognisers) -> tuple[str, _Parts, _Parts] | None:
+    """A range line's first number and its two ends' parts, or none when the line is no range;
+    `Refused` when it is a range that cannot be read. Nothing is built here: the caller checks the
+    range's size against the list's limit first."""
     words = line.split()  # never a regular expression over the line: the work stays linear
     if len(words) == 3 and words[1].casefold() == "to":
         halves = [words[0], words[2]]
@@ -380,6 +362,11 @@ def _range(line: str, index: int, recognisers: Recognisers) -> list[str] | None:
         raise Refused(codes.RANGE_BACKWARDS(line=index, first=first, last=last))
     if high[1] - low[1] + 1 > ENTRY_LIMIT:
         raise Refused(codes.RANGE_TOO_LONG(line=index, first=first, last=last, limit=ENTRY_LIMIT))
+    return first, low, high
+
+
+def _numbers(first: str, low: _Parts, high: _Parts) -> list[str]:
+    """A range's numbers, printed as its first number is."""
     prefix, suffix, width = _form(clean(first), low)
     return [f"{prefix}{str(running).zfill(width)}{suffix}" for running in range(low[1], high[1] + 1)]
 
@@ -403,15 +390,18 @@ def _hyphenated(line: str, index: int, recognisers: Recognisers) -> None:
     token = "".join(words)
     if len(token) > 2 * NUMBER_LIMIT + 1:
         return
-    for at in (i for i, char in enumerate(token) if char == "-"):
-        first, last = token[:at], token[at + 1 :]
-        if not (_is_number(first, recognisers) and _is_number(last, recognisers)):
-            continue
-        low, high = number_parts(recognisers, first), number_parts(recognisers, last)
-        assert low is not None
-        assert high is not None
-        if (mark(low[0]), mark(low[2])) == (mark(high[0]), mark(high[2])):
-            raise Refused(codes.RANGE_HYPHEN(line=index, first=first, last=last))
+    hyphens = [i for i, char in enumerate(token) if char == "-"]
+    if len(hyphens) % 2 == 0:
+        return  # two numbers of one kind hold as many hyphens each: an odd count, split in the middle
+    at = hyphens[len(hyphens) // 2]  # one split tried, never one per hyphen
+    first, last = token[:at], token[at + 1 :]
+    if not (_is_number(first, recognisers) and _is_number(last, recognisers)):
+        return
+    low, high = number_parts(recognisers, first), number_parts(recognisers, last)
+    assert low is not None
+    assert high is not None
+    if (mark(low[0]), mark(low[2])) == (mark(high[0]), mark(high[2])):
+        raise Refused(codes.RANGE_HYPHEN(line=index, first=first, last=last))
 
 
 def _cells(line: str) -> tuple[list[str], bool]:

@@ -28,11 +28,20 @@ class StandInParts:
 
 
 def stand_in_sequence(number: str) -> StandInParts | None:
-    """A number's prefix, last run of digits and suffix; none without a digit or past the bound."""
-    match = re.fullmatch(r"(.*?)(\d+)(\D*)", number, re.DOTALL)
-    if match is None or len(match[2]) > STAND_IN_DIGITS:
+    """A number's prefix, running number and suffix, by the orchestrator's ruling of 29 Sep 2026 (13
+    builds the same rule): with no conventions pattern, the running number is the last run of digits,
+    unless that run comes right after a "/", which makes it a part suffix and the run before it the
+    running number ("S1-01": "S1-", 1; "S-1.01": "S-1.", 1; "S-01/1": "S-", 1, "/1"; "S-101A": "S-",
+    101, "A"). None without a digit, or past the bound."""
+    runs = list(re.finditer(r"\d+", number))
+    if not runs:
         return None
-    return StandInParts(match[1], int(match[2]), match[3])
+    chosen = runs[-1]
+    if len(runs) > 1 and chosen.start() > 0 and number[chosen.start() - 1] == "/":
+        chosen = runs[-2]
+    if len(chosen[0]) > STAND_IN_DIGITS:
+        return None
+    return StandInParts(number[: chosen.start()], int(chosen[0]), number[chosen.end() :])
 
 
 def stand_in_storeys(table: Mapping[str, Collection[str]]) -> Callable[[str], Collection[str]]:

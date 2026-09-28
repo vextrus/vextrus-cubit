@@ -18,6 +18,7 @@ read in every file (`reading.read`).
 """
 
 from engine.messages import Message
+from engine.messages import catalogue as names
 from engine.messages import plot_pages as codes
 from engine.recognise.conflicts import Recognisers, given, normal
 from engine.recognise.types import CheckOutcome, CheckResult, PlotMatch, SetReading, SheetCandidate
@@ -26,7 +27,7 @@ CODE = "plot_pages"
 VERSION = 1
 MILESTONE = "M0"
 KIND = "source"
-MESSAGE = codes.NO_SHEET
+MESSAGE = names.PLOT_PAGES
 
 
 def check(reading: SetReading, *, recognisers: Recognisers) -> list[CheckResult]:

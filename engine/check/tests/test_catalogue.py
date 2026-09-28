@@ -29,24 +29,24 @@ CONVENTIONS = SheetConventions(disciplines=(DisciplineConvention("structural", (
 
 def test_the_catalogue_lists_every_check_in_code_order_with_its_library_row() -> None:
     assert entries() == (
-        Entry("bangla_ansi", 1, "M0", "sanity", "engine.bangla_ansi.found", set=False),
-        Entry("coverage", 1, "M0", "conservation", "engine.coverage.unaccounted", set=True),
-        Entry("decoders_agree", 1, "M0", "source", "engine.decoders_agree.disagree", set=False),
-        Entry("plot_pages", 1, "M0", "source", "engine.plot_pages.no_sheet", set=True),
-        Entry("register", 1, "M0", "source", "engine.register_check.not_found", set=True),
-        Entry("storey_titles", 1, "M0", "source", "engine.storey_titles.differ", set=True),
+        Entry("bangla_ansi", 1, "M0", "sanity", "engine.catalogue.bangla_ansi", set=False),
+        Entry("coverage", 1, "M0", "conservation", "engine.catalogue.coverage", set=True),
+        Entry("decoders_agree", 1, "M0", "source", "engine.catalogue.decoders_agree", set=False),
+        Entry("plot_pages", 1, "M0", "source", "engine.catalogue.plot_pages", set=True),
+        Entry("register", 1, "M0", "source", "engine.catalogue.register", set=True),
+        Entry("storey_titles", 1, "M0", "source", "engine.catalogue.storey_titles", set=True),
     )
 
 
 # A stray file in engine/check/ ----------------------------------------------------------------------
 
 GOOD = """
-from engine.messages import coverage as codes
+from engine.messages import catalogue as names
 CODE = "{code}"
 VERSION = 1
 MILESTONE = "M0"
 KIND = "source"
-MESSAGE = codes.UNACCOUNTED
+MESSAGE = names.COVERAGE
 """
 
 
@@ -71,10 +71,16 @@ def package(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, modules: dict[str, 
         (GOOD.format(code="x").replace("VERSION = 1", 'VERSION = "1"'), "VERSION"),
         (GOOD.format(code="x").replace('"M0"', '"m0"'), "MILESTONE"),
         (GOOD.format(code="x").replace('KIND = "source"', 'KIND = "vibes"'), "KIND"),
-        (GOOD.format(code="x").replace("codes.UNACCOUNTED", '"engine.coverage.unaccounted"'), "MESSAGE"),
+        (GOOD.format(code="x").replace("names.COVERAGE", '"engine.catalogue.coverage"'), "MESSAGE"),
+        (  # a finding's code, with its values: the Library shows a name with none (review round 1)
+            GOOD.format(code="x").replace(
+                "names.COVERAGE", '__import__("engine.messages.coverage").messages.coverage.UNACCOUNTED'
+            ),
+            "no parameters",
+        ),
         (
             GOOD.format(code="x").replace(
-                "codes.UNACCOUNTED",
+                "names.COVERAGE",
                 '__import__("engine.messages").messages.MessageCode("engine.nowhere.said")',
             ),
             "MESSAGE",

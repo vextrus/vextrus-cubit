@@ -9,9 +9,9 @@ msgstr ""
 msgid "engine.conflicts.same_number"
 msgstr "{copies, plural, =2 {Two sheets are} other {# sheets are}} numbered {number}"
 
-#. The views' Discipline, subject and storey are keys the Question (21c) words through the product's names; the words here use the layer only.
+#. m0-screens §5 and 6.7: "S-14 and S-15 both draw the 5th floor slab, bottom layer". The plan's title as drawn states the storey and what it draws (the subject's word is the view conventions', which the conflicts do not hold).
 msgid "engine.conflicts.same_storey"
-msgstr "{views, plural, =2 {Two plans on different sheets} other {# plans on more than one sheet}} draw the same thing on the same storey{layer, select, top {, top layer} bottom {, bottom layer} other {}}"
+msgstr "{views, plural, offset:2 =2 {{first_named, select, title {“{first}”} other {{first}}} and {second_named, select, title {“{second}”} other {{second}}} both draw} one {{first_named, select, title {“{first}”} other {{first}}}, {second_named, select, title {“{second}”} other {{second}}} and # more plan draw} other {{first_named, select, title {“{first}”} other {{first}}}, {second_named, select, title {“{second}”} other {{second}}} and # more plans draw}} {titled, select, same {“{plan}”} differ {one storey, as “{plan}” and “{other}”} other {the same plan of one storey}}{layer, select, top {, top layer} bottom {, bottom layer} other {}}"
 
 #. A title on sheets whose numbers do not run on (m0-screens §5: one title on consecutive numbers is a continuation, with no Question).
 msgid "engine.conflicts.same_title"

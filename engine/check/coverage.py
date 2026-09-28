@@ -14,6 +14,7 @@ no title. The Check says nothing when the views were not read in every file (`re
 
 from engine import export
 from engine.messages import Message
+from engine.messages import catalogue as names
 from engine.messages import coverage as codes
 from engine.recognise.conflicts import Recognisers, given, normal, sheet_name
 from engine.recognise.types import (
@@ -28,7 +29,7 @@ CODE = "coverage"
 VERSION = 1
 MILESTONE = "M0"
 KIND = "conservation"
-MESSAGE = codes.UNACCOUNTED
+MESSAGE = names.COVERAGE
 
 UNACCOUNTED = "unaccounted"
 

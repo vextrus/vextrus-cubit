@@ -3,7 +3,8 @@ on a message that does not format (an unknown placeholder, a plural or select wi
 value, an unbalanced brace). The web formats them with Lingui; this proves the words hold for every
 value the code can pass, from Python, without a browser.
 
-Supported: `{name}`, `{name, number}`, `{name, plural, =N {…} one {…} other {…}}` with `#`, and
+Supported: `{name}`, `{name, number}`, `{name, plural, offset:K =N {…} one {…} other {…}}` with
+`#` (the value less the offset), and
 `{name, select, key {…} other {…}}`.
 """
 
@@ -11,6 +12,7 @@ import re
 from collections.abc import Mapping
 
 _OPTION = re.compile(r"\s*(=\d+|[A-Za-z_][A-Za-z0-9_]*)\s*\{")
+_OFFSET = re.compile(r"\s*offset:(\d+)")
 
 
 class FormatError(ValueError):
@@ -62,6 +64,10 @@ def _argument(message: str, at: int, params: Mapping[str, str | int]) -> tuple[s
     if kind not in ("plural", "select"):
         raise FormatError(f"{name}'s format {kind!r} is not supported")
     at = message.index(",", at) + 1
+    offset = 0
+    shifted = _OFFSET.match(message, at)
+    if kind == "plural" and shifted is not None:
+        offset, at = int(shifted[1]), shifted.end()
     options: dict[str, tuple[int, int]] = {}
     while True:
         match = _OPTION.match(message, at)
@@ -77,13 +83,14 @@ def _argument(message: str, at: int, params: Mapping[str, str | int]) -> tuple[s
     if kind == "plural":
         if isinstance(value, bool) or not isinstance(value, int):
             raise FormatError(f"{name} is a plural, and is {value!r}")
+        shown = value - offset  # an exact =N matches the value; `#` and one/other the value less offset
         key = (
             f"={value}"
             if f"={value}" in options
-            else ("one" if value == 1 and "one" in options else "other")
+            else ("one" if shown == 1 and "one" in options else "other")
         )
         start, end = options[key]
-        text, _ = _body(message, start, params, value)
+        text, _ = _body(message, start, params, shown)
         return text, at
     key = str(value) if str(value) in options else "other"
     start, end = options[key]
@@ -96,6 +103,8 @@ def branches(message: str, name: str) -> set[str]:
     found: set[str] = set()
     for match in re.finditer(r"\{\s*" + re.escape(name) + r"\s*,\s*(?:select|plural)\s*,", message):
         at = match.end()
+        if (shifted := _OFFSET.match(message, at)) is not None:
+            at = shifted.end()
         while (option := _OPTION.match(message, at)) is not None:
             found.add(option[1])
             depth, at = 1, option.end()
@@ -131,6 +140,8 @@ def _walk(message: str, at: int, found: set[str]) -> int:
         at = head_end + 1 + rest.index(kind) + len(kind)
         if kind in ("plural", "select"):
             at = message.index(",", at) + 1
+            if (shifted := _OFFSET.match(message, at)) is not None:
+                at = shifted.end()
             while (option := _OPTION.match(message, at)) is not None:
                 at = _walk(message, option.end(), found) + 1
         at = message.index("}", at) + 1

@@ -40,6 +40,12 @@ from engine.recognise.types import (
 )
 
 READERS = stand_ins()
+CONVENTIONS = SheetConventions(
+    disciplines=(
+        DisciplineConvention("structural", ("S",)),
+        DisciplineConvention("architectural", ("A",)),
+    )
+)
 
 
 def run(
@@ -47,7 +53,8 @@ def run(
     views: Sequence[Sequence[ViewCandidate]] | None = None,
     readers: Recognisers = READERS,
 ) -> list[Any]:  # Conflicts and Continuations; each test asserts which
-    return compare(sheets, views if views is not None else [()] * len(sheets), recognisers=readers)
+    views = views if views is not None else [()] * len(sheets)
+    return compare(sheets, views, conventions=CONVENTIONS, recognisers=readers)
 
 
 def conflicts_of(found: list[Conflict | Continuation], kind: str | None = None) -> list[Conflict]:
@@ -84,8 +91,8 @@ def test_numbers_are_compared_in_one_normal_form() -> None:
 
     [conflict] = run(sheets)
 
-    assert conflict.evidence == {"number": "S-07", "copies": 6}
-    assert same(conflict.candidates, sheets[:6])  # "S  -07" keeps a space: another number
+    assert conflict.evidence == {"number": "S-07", "copies": 7}
+    assert same(conflict.candidates, sheets)  # "S  -07" too: a prefix is compared by its letters
     assert normal("S  -07") == "s -07"
     assert normal("S-07") == "s-07"
 
@@ -97,7 +104,6 @@ def test_numbers_are_compared_in_one_normal_form() -> None:
         ("\u0421-01", "C-01"),  # a Cyrillic Es for a Latin C: letters that look alike stay apart
         ("S-01 R2", "S-01"),
         ("S-01/1", "S-01"),
-        ("S-01", "S-1"),  # padding is part of the number as printed
     ],
 )
 def test_numbers_that_differ_in_normal_form_are_not_one_number(a: str, b: str) -> None:
@@ -165,7 +171,7 @@ def test_one_title_on_numbers_that_run_on_is_one_continuation_and_no_conflict(
         (["S-101", "S-101A"], [0, 1]),  # a suffix added is not a next number
         (["S-101A", "S-101C"], [0, 1]),
         (["S-09A", "S-10B"], [0, 1]),  # suffixes differ
-        (["S-09", "A-10"], [1, 0]),  # prefixes differ; in number order, A before S
+        (["S-09", "A-10"], [0, 1]),  # prefixes differ; the Discipline's own sorts as none, first
         (["SK-B", "SK-A"], [0, 1]),  # no running number: last, in the order given
         (["S-9", "S-9A"], [0, 1]),
     ],
@@ -299,11 +305,18 @@ def test_two_plans_of_one_storey_subject_and_layer_on_two_sheets_are_one_conflic
     assert conflict.kind == "same_storey"
     assert same(conflict.candidates, [first, second])
     assert conflict.evidence == {
+        "first": "S-14",
+        "first_named": "number",
+        "second": "S-31",
+        "second_named": "number",
+        "plan": "",
+        "other": "",
+        "titled": "none",
+        "layer": "bottom",
+        "views": 2,
         "discipline": "structural",
         "subject": "slab",
-        "layer": "bottom",
         "storey": "floor_5",
-        "views": 2,
     }
     assert codes.SAME_STOREY(**conflict.evidence)["code"] == "engine.conflicts.same_storey"
 
@@ -408,7 +421,7 @@ def test_the_order_is_continuations_then_conflicts_by_kind_each_by_its_first_can
 
 
 def test_nothing_given_is_nothing_found() -> None:
-    assert compare([], [], recognisers=READERS) == []
+    assert compare([], [], conventions=None, recognisers=READERS) == []
     assert find([], [], None) == []
 
 
@@ -428,7 +441,7 @@ def test_what_the_contract_does_not_allow_is_refused(
 ) -> None:
     sheets, views = make(sheet("S-1", "Notes"))
     with pytest.raises(error, match=match):
-        compare(sheets, views, recognisers=READERS)
+        compare(sheets, views, conventions=CONVENTIONS, recognisers=READERS)
 
 
 def test_one_view_object_on_two_sheets_is_refused() -> None:
@@ -440,7 +453,9 @@ def test_one_view_object_on_two_sheets_is_refused() -> None:
 def test_the_harness_path_waits_for_13s_readers_and_needs_the_conventions() -> None:
     conventions = SheetConventions(disciplines=(DisciplineConvention("structural", ("S",)),))
     one = [sheet("S-01", "Notes")]
-    assert find(one, [()], conventions) == []  # one sheet reads no number
+    assert find([sheet(None, "Notes")], [()], conventions) == []  # no number to read
+    with pytest.raises(conflicts.NotWired, match="not wired"):
+        find(one, [()], conventions)  # every number is read, for `same_number` too
     with pytest.raises(conflicts.NotWired, match="not wired"):
         find([sheet("S-01", "Notes"), sheet("S-05", "Notes")], [(), ()], conventions)
     with pytest.raises(ValueError, match="conventions"):
@@ -542,7 +557,7 @@ def test_two_sets_drawn_differently_read_alike() -> None:
         ("S-\u00b2", "S-2", True),  # a superscript two is a two in normal form (NFKC)
         ("\u00bd", "1\u20442", True),  # a vulgar half is 1, a fraction slash, 2
         ("\u00bd", "1/2", False),  # the fraction slash is not a solidus
-        ("S-\u09e6\u09ed", "S-07", False),  # Bengali digits are their own characters as printed
+        ("S-\u09e6\u09ed", "S-07", True),  # Bengali digits read (by 13) as the same running number
     ],
 )
 def test_numbers_that_are_not_plain_digits_compare_in_normal_form(
@@ -570,16 +585,50 @@ def test_a_format_character_inside_a_number_is_read_as_its_normal_form() -> None
         ]
 
 
-def test_two_numbers_at_one_place_under_one_title_stay_a_conflict_beside_a_run() -> None:
+def test_one_number_printed_two_ways_is_one_number_as_the_register_check_reads_it() -> None:
+    """Finding 6: "13" and "S-13" in one Discipline (S its prefix) were two numbers here and one in the
+    register Check. Padding and a Discipline's own prefix are no part of a number."""
     padded, bare, ten = sheet("S-09", "T"), sheet("S-9", "T"), sheet("S-10", "T")
-
     [conflict] = run([padded, bare])
-    assert conflict.kind == "same_title"
+    assert (conflict.kind, conflict.evidence) == ("same_number", {"number": "S-09", "copies": 2})
 
     found = run([padded, bare, ten])
-    assert [type(c).__name__ for c in found] == ["Continuation", "Conflict"]
-    assert found[1].kind == "same_title"
-    assert same(found[1].candidates, [padded, bare, ten])
+    assert [type(c).__name__ + getattr(c, "kind", "") for c in found] == [
+        "Continuation",
+        "Conflictsame_number",
+    ]
+    for pair in (["13", "S-13"], ["S-13", "13"], ["07", "S-7"]):
+        [conflict] = run([sheet(pair[0]), sheet(pair[1])])
+        assert conflict.evidence == {"number": pair[0], "copies": 2}
+    assert run([sheet("13"), sheet("A-13")]) == []  # A is another Discipline's prefix
+    assert run([sheet("13"), sheet("SD-13")]) == []  # a prefix no Discipline owns is kept
+    other = [sheet("13", discipline="architectural"), sheet("S-13", discipline="architectural")]
+    assert run(other) == []  # S is not the architectural Discipline's prefix
+
+
+@pytest.mark.parametrize(
+    "numbers",
+    [
+        ["S1-01", "S1-02"],  # a digit before the running number (the orchestrator's ruling)
+        ["S-1.01", "S-1.02"],
+        ["S-01/1", "S-01/2"],  # a part suffix after a "/"
+        ["S-01/01", "S-01/02"],
+    ],
+)
+def test_numbers_with_a_digit_before_or_a_part_after_the_running_number_run_on(
+    numbers: list[str],
+) -> None:
+    sheets = [sheet(n, "Column schedule") for n in numbers]
+    [continuation] = run(sheets)
+    assert isinstance(continuation, Continuation)
+    assert same(continuation.sheets, sheets)
+
+
+def test_part_suffixes_that_do_not_run_on_are_a_title_conflict() -> None:
+    [conflict] = run([sheet("S-01/1", "T"), sheet("S-01/3", "T")])
+    assert conflict.kind == "same_title"
+    [conflict] = run([sheet("S-01/1", "T"), sheet("S-01A", "T")])  # a part and a letter
+    assert conflict.kind == "same_title"
 
 
 def test_a_sheet_in_a_list_of_views_is_refused() -> None:
@@ -615,3 +664,24 @@ def test_the_storeys_shared_by_a_set_of_views_are_compared_in_linear_work() -> N
 
     small, large = work(1_000), work(2_000)
     assert large <= 2.2 * small + 100, (small, large)
+
+
+def test_a_same_storey_conflict_names_its_sheets_and_the_first_titled_plan() -> None:
+    """The words gate's round 1: m0-screens §5's "S-14 and S-15 both draw the 5th floor slab, bottom
+    layer" names the sheets and what is drawn."""
+    untitled = plan(["floor_5"], layer=Layer.BOTTOM)
+    titled = plan(["floor_5"], layer=Layer.BOTTOM, title="5TH FLOOR SLAB, BOTTOM REINFORCEMENT")
+    twin = plan(["floor_5"], layer=Layer.BOTTOM, title="5th floor slab (bottom)")
+    sheets = [sheet("S-14", "Slab"), sheet(None, "Slab plan"), sheet("S-40", "Slab again")]
+
+    [conflict] = run(sheets, [[untitled, titled], [twin], [plan(["floor_5"], layer=Layer.BOTTOM)]])
+
+    evidence = conflict.evidence
+    assert (evidence["first"], evidence["second"], evidence["views"]) == ("S-14", "Slab plan", 4)
+    assert (evidence["plan"], evidence["titled"]) == ("5TH FLOOR SLAB, BOTTOM REINFORCEMENT", "differ")
+    assert (evidence["other"], evidence["second_named"]) == ("5th floor slab (bottom)", "title")
+
+
+def test_a_plan_on_a_sheet_with_neither_number_nor_title_sits_out_of_same_storey() -> None:
+    sheets = [sheet("S-14", "Slab"), sheet(None, None)]
+    assert run(sheets, [[plan(["floor_5"])], [plan(["floor_5"])]]) == []

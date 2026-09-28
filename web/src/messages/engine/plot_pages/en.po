@@ -7,8 +7,8 @@ msgstr ""
 
 #. engine/messages/plot_pages.py (ticket 19b): a sheet of a Discipline whose PDF matched pages, with no page of its own.
 msgid "engine.plot_pages.no_page"
-msgstr "{number} is in the DWG files but on no page of the PDF"
+msgstr "{number} is in the DWG files but on no page of its Discipline's PDF, so it has one source and is confirmed on its own."
 
-#. A page no sheet matched. The Check knows only that it matched none (18's reason may be a cover, or a page with no title block), so it does not claim what the page shows; m0-screens §5's "Page 12 of KR-STR-R0.pdf shows S-13, which no DWG has" is the Question's, 21c's, which knows the file and the number on the page.
+#. A page no sheet matched. The Check knows only that it matched none (18's reason may be a cover, or a page with no title block), so it does not claim what the page shows. 21c's Question title must use m0-screens §5's verbatim "Page 12 of KR-STR-R0.pdf shows S-13, which no DWG has": it knows the file and the number on the page.
 msgid "engine.plot_pages.no_sheet"
-msgstr "Page {page} of the PDF matches no sheet in the DWG files: it may show a sheet they do not have."
+msgstr "Page {page} of the PDF matches no sheet in the DWG files. Look at it: it may show a sheet they do not have."

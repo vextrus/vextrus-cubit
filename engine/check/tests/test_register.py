@@ -2,6 +2,7 @@
 13's stand-in readers. Every finding is asserted by its code, params and subject."""
 
 import re
+import unicodedata
 from typing import Any
 
 import pytest
@@ -224,7 +225,7 @@ def test_with_no_list_each_gap_fires_named_by_its_neighbours_and_a_run_without_o
     results = check(reading(structural + architectural), recognisers=READERS)
 
     def gap(after: str, before: str, missing: int) -> tuple[str, None, dict[str, Any]]:
-        params = {"after": after, "before": before, "missing": missing}
+        params = {"after": after, "before": before, "missing": missing, "discipline": "structural"}
         return ("fired", None, {"code": "engine.register_check.gap", "params": params})
 
     assert outcomes(results) == [
@@ -572,3 +573,84 @@ def test_a_title_starting_with_a_count_raises_no_false_finding() -> None:
     drawing_list = DrawingList("set", "structural", listed.source, listed.entries)
     results = check(reading([sheet("01"), sheet("02")], lists=(drawing_list,)), recognisers=READERS)
     assert [str(r.outcome) for r in results] == ["passed"] * 4
+
+
+# Review round 1 (each test failed before its fix) ----------------------------------------------------
+
+
+def test_ranges_past_the_entry_limit_are_refused_before_their_numbers_are_built() -> None:
+    """Finding 1: every range was built before the limit was checked (22 KB of text took 1.1 GB)."""
+    import tracemalloc
+
+    tracemalloc.start()
+    try:
+        assert refusal("01 to 9999\n" * 50)["code"] == "engine.register_check.too_many"
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+    assert peak < 16 * 2**20, peak  # one range of 9,999 entries at most, never 50
+
+
+@pytest.mark.parametrize(
+    ("text", "entries"),
+    [
+        ("S-01\x00 Plan", [("S-01", "Plan")]),
+        ("S-\x0002 Pl\x00an", [("S-02", "Plan")]),
+        ("\u202eS-02 Notes\u202c", [("S-02", "Notes")]),
+        ("\u2066S-03\u2069 \u200fNotes", [("S-03", "Notes")]),
+        ("S-01 to S-0\x003", [("S-01", None), ("S-02", None), ("S-03", None)]),
+    ],
+)
+def test_control_characters_and_bidi_controls_never_reach_an_entry(
+    text: str, entries: list[tuple[str, str | None]]
+) -> None:
+    """Finding 3: PostgreSQL refuses a NUL, and a direction override would reach a Question."""
+    assert [(e.number, e.title) for e in parsed(text).entries] == entries
+
+
+def test_an_escape_sequence_leaves_no_control_character_in_an_entry() -> None:
+    [entry] = parsed("S-01\x07\x1b[31m Title").entries
+    for value in (entry.number, entry.title or ""):
+        assert not any(unicodedata.category(char) == "Cc" for char in value), repr(value)
+
+
+def test_a_line_of_many_hyphens_is_tried_as_a_range_once() -> None:
+    """Finding 4: every hyphen was tried as a range's split (a crafted 1 MB paste took 7 s)."""
+    counted = Counted(stand_in_sequence)
+    lines = [("1 - " * 32) + "1", "A" + " - 1" * 31]  # 32 hyphens; 31, halves of two kinds
+    text = "\n".join(lines * 500) + "\nS-01 Notes"
+
+    parse(text, CONVENTIONS, recognisers=stand_ins(sequence=counted))
+
+    assert counted.calls <= 6 * 1000 + 10, counted.calls
+
+
+def test_a_refusal_counts_lines_as_the_qs_sees_them() -> None:
+    """Finding 7: `splitlines` also split on NEL, the line separator and form feeds."""
+    for joiner in ("\x85", "\u2028", "\x0c", "\x1c", "\r"):
+        found = refusal(f"S-01{joiner}S-02\n57 to 01")
+        assert found["params"]["line"] == 2, (repr(joiner), found)
+    assert refusal("S-01\r\n57 to 01")["params"]["line"] == 2
+
+
+@pytest.mark.parametrize(
+    ("text", "numbers"),
+    [
+        ("S1-01 to S1-03", ["S1-01", "S1-02", "S1-03"]),  # the orchestrator's ruling
+        ("S-1.08 to S-1.10", ["S-1.08", "S-1.09", "S-1.10"]),
+    ],
+)
+def test_ranges_of_numbers_with_a_digit_before_the_running_number(text: str, numbers: list[str]) -> None:
+    assert [e.number for e in parsed(text).entries] == numbers
+
+
+def test_a_range_over_part_suffixes_is_refused_as_mixed() -> None:
+    assert refusal("S-01/1 to S-01/3")["code"] == "engine.register_check.range_mixed"
+
+
+def test_gaps_in_numbers_with_a_digit_before_the_running_number() -> None:
+    sheets = [sheet(n) for n in ("S-1.01", "S-1.02", "S-1.05")]
+
+    [run] = numbering(sheets, conventions=CONVENTIONS, recognisers=READERS)
+
+    assert run == Run("set", "structural", "S-1.01", "S-1.05", 3, (Gap("S-1.02", "S-1.05", 2),))

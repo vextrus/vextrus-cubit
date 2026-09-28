@@ -44,8 +44,14 @@ two equal-by-value copies of a sheet in two files are two sheets, so nothing her
   stated" are Step 3's to resolve: never a conflict on them alone; `Recognisers.symbolic`). Never two
   views of one sheet, or of one continuation, alone: the views must lie on two places or more. One
   Conflict per set of views: those sharing a storey, grouped by the set, so two plans overlapping on
-  two floors are one Conflict. Evidence: the Discipline, subject and layer (`none` for none), the first
-  storey they share (in the first view's order) and how many views.
+  two floors are one Conflict. Evidence, for the words (m0-screens §5's "S-14 and S-15 both draw the
+  5th floor slab, bottom layer"): the first two sheets' numbers (else titles); the titles, as drawn,
+  of their plans in the set (they state the storey and what is drawn), one when they are alike, both
+  when they differ ("3RD, 5TH & 7TH FLOOR SLAB" beside "5TH FLOOR SLAB"), none when either plan has
+  no title (the words then name no plan: a title read on one sheet is never said of the other); the layer
+  (`none` for none) and how many views; and, for 21c, the Discipline's, the subject's and the first
+  shared storey's keys (in the first view's order). A plan on a sheet with neither number nor title
+  sits out (its Question is 21c's `missing`).
 
 **The work is linear** in sheets, views and storeys, plus sorting: candidates are grouped by keys and
 never compared pairwise (10,000 sheets of one title are one group, not 50 million pairs), and each
@@ -144,20 +150,22 @@ def find(
     with (none only when the run has no sheet conventions, and then it has no sheets)."""
     if sheets and conventions is None:
         raise ValueError("sheets are compared under the conventions they were read with; none given")
-    return compare(sheets, views, recognisers=recognisers(conventions))
+    return compare(sheets, views, conventions=conventions, recognisers=recognisers(conventions))
 
 
 def compare(
     sheets: Sequence[SheetCandidate],
     views: Sequence[Sequence[ViewCandidate]],
     *,
+    conventions: SheetConventions | None,
     recognisers: Recognisers,
 ) -> list[Conflict | Continuation]:
-    """The set's Continuations and Conflicts, by the rules above."""
+    """The set's Continuations and Conflicts, by the rules above; `conventions` give each
+    Discipline's prefixes (none: no prefix is a Discipline's own)."""
     given(sheets, views)
-    numbers = [_normal(sheet.number) for sheet in sheets]
+    reader = _Reader(recognisers, Numbers(conventions, recognisers))
+    numbers = [reader.key(sheet) for sheet in sheets]
     titles = [_normal(sheet.title) for sheet in sheets]
-    reader = _Reader(recognisers)
     places = _Places(len(sheets))  # where a sheet lies for `same_storey`: copies and runs are one
 
     by_number: list[tuple[int, Conflict]] = []
@@ -184,7 +192,7 @@ def compare(
         units = _grouped((i, numbers[i]) for i in group)
         if len(units) < 2:
             continue
-        runs, shared = _runs(units, [reader.parts(sheets[unit[0]]) for unit in units])
+        runs = _runs(units, [reader.parts(sheets[unit[0]]) for unit in units])
         for run in runs:
             members = [i for unit in run for i in unit]
             places.join(members)
@@ -193,7 +201,7 @@ def compare(
                 assert title is not None
                 continuation = Continuation(title.value, tuple(sheets[i] for i in members))
                 continuations.append((min(members), continuation))
-        if len(runs) > 1 or shared:
+        if len(runs) > 1:
             ordered = [i for run in runs for unit in run for i in unit]
             title = sheets[ordered[0]].title
             assert title is not None
@@ -253,25 +261,83 @@ def sheet_name(sheet: SheetCandidate) -> tuple[str, str] | None:
     return None
 
 
+def _title_on(flat: Sequence[tuple[ViewCandidate, int, int]], members: Sequence[int], place: int) -> str:
+    """The title, as drawn, of the set's first titled plan at one place; empty when it has none."""
+    return next((t for v in members if flat[v][1] == place and normal(t := flat[v][0].title or "")), "")
+
+
+def _name(sheet: SheetCandidate) -> tuple[str, str]:
+    name = sheet_name(sheet)
+    assert name is not None  # a sheet with neither number nor title sits out of `same_storey`
+    return name
+
+
 def mark(text: str) -> str:
     """A prefix's or suffix's letters and digits, in normal form: what two of them are compared by."""
     return "".join(char for char in normal(text) or "" if char.isalnum())
 
 
+class Numbers:
+    """Sheet numbers as the conflicts and the register Check compare them, each read once through 13's
+    `sequence`: by prefix, running number and suffix, a Discipline's own prefix counting as none (a
+    title block's bare "07" is the list's "S-07"), else in normal form."""
+
+    def __init__(self, conventions: SheetConventions | None, recognisers: Recognisers) -> None:
+        self.recognisers = recognisers
+        disciplines = () if conventions is None else conventions.disciplines
+        self.own = {d.key: {mark(p) for p in d.prefixes} - {""} for d in disciplines}
+        owners: dict[str, set[str]] = {}
+        for key, marks in self.own.items():
+            for prefix in marks:
+                owners.setdefault(prefix, set()).add(key)
+        self.owners = {prefix: keys.pop() for prefix, keys in owners.items() if len(keys) == 1}
+        self._read: dict[str, tuple[str, int, str] | None] = {}
+
+    def parts(self, number: str) -> tuple[str, int, str] | None:
+        """The number's (prefix mark, running number, suffix mark), or none."""
+        if number not in self._read:
+            self._read[number] = read_number(self.recognisers, number)
+        return self._read[number]
+
+    def parts_in(self, number: str, discipline: str) -> tuple[str, int, str] | None:
+        """The parts within a Discipline: its own prefix as none."""
+        parts = self.parts(number)
+        if parts is None:
+            return None
+        prefix, running, suffix = parts
+        return ("" if prefix in self.own.get(discipline, set()) else prefix), running, suffix
+
+    def key(self, number: str, discipline: str) -> Hashable:
+        """What a number is compared by within a Discipline."""
+        parts = self.parts_in(number, discipline)
+        return ("text", normal(number)) if parts is None else ("parts", *parts)
+
+    def owner(self, number: str) -> str | None:
+        """The one Discipline whose prefix the number carries, if any."""
+        parts = self.parts(number)
+        return None if parts is None else self.owners.get(parts[0])
+
+
 class _Reader:
     """13's readers, each number read once and each storey key judged once, their answers checked."""
 
-    def __init__(self, recognisers: Recognisers) -> None:
+    def __init__(self, recognisers: Recognisers, numbers: Numbers) -> None:
         self.recognisers = recognisers
-        self._parts: dict[int, tuple[str, int, str] | None] = {}
+        self.numbers = numbers
         self._symbolic: dict[str, bool] = {}
 
     def parts(self, sheet: SheetCandidate) -> tuple[str, int, str] | None:
-        """The sheet number's (prefix mark, running number, suffix mark), or none."""
-        if id(sheet) not in self._parts:
-            assert sheet.number is not None
-            self._parts[id(sheet)] = read_number(self.recognisers, sheet.number.value)
-        return self._parts[id(sheet)]
+        """The sheet number's parts within its Discipline (its own prefix as none), or none."""
+        assert sheet.number is not None
+        assert sheet.discipline is not None
+        return self.numbers.parts_in(sheet.number.value, sheet.discipline.value)
+
+    def key(self, sheet: SheetCandidate) -> Hashable | None:
+        """What the sheet's number is compared by, or none when it has no number (or no Discipline,
+        whose prefixes decide it)."""
+        if sheet.discipline is None or sheet.number is None or normal(sheet.number.value) is None:
+            return None
+        return self.numbers.key(sheet.number.value, sheet.discipline.value)
 
     def symbolic(self, storey: str) -> bool:
         if storey not in self._symbolic:
@@ -336,11 +402,8 @@ def _grouped(keyed: Iterable[tuple[int, Hashable]]) -> list[list[int]]:
     return list(groups.values())
 
 
-def _runs(
-    units: list[list[int]], parts: list[tuple[str, int, str] | None]
-) -> tuple[list[list[list[int]]], bool]:
-    """The units (copies of one number) joined into runs of numbers that run on, in number order, and
-    whether two units share one place (one running number, printed two ways: "S-09" and "S-9")."""
+def _runs(units: list[list[int]], parts: list[tuple[str, int, str] | None]) -> list[list[list[int]]]:
+    """The units (copies of one number) joined into runs of numbers that run on, in number order."""
     parent = list(range(len(units)))
 
     def root(u: int) -> int:
@@ -353,21 +416,22 @@ def _runs(
         parent[root(a)] = root(b)
 
     by_running: dict[tuple[str, str, int], list[int]] = {}
-    by_letter: dict[tuple[str, int, str], list[int]] = {}
+    by_part: dict[tuple[str, int, int], list[int]] = {}  # a letter or a part number after the running
     for u, p in enumerate(parts):
         if p is None:
             continue
         prefix, running, suffix = p
         by_running.setdefault((prefix, suffix, running), []).append(u)
-        if len(suffix) == 1 and "a" <= suffix <= "z":
-            by_letter.setdefault((prefix, running, suffix), []).append(u)
+        part = _part(suffix)
+        if part is not None:
+            by_part.setdefault((prefix, running, part), []).append(u)
     for (prefix, suffix, running), members in by_running.items():
         after = by_running.get((prefix, suffix, running + 1))
         if after is not None:
             for u in members:
                 join(u, after[0])
-    for (prefix, running, letter), members in by_letter.items():
-        after = by_letter.get((prefix, running, chr(ord(letter) + 1)))
+    for (prefix, running, part), members in by_part.items():
+        after = by_part.get((prefix, running, part + 1))
         if after is not None:
             for u in members:
                 join(u, after[0])
@@ -379,8 +443,23 @@ def _runs(
     runs: dict[int, list[int]] = {}
     for u in sorted(range(len(units)), key=order):
         runs.setdefault(root(u), []).append(u)
-    shared = any(len(members) > 1 for members in by_running.values())
-    return [[units[u] for u in run] for run in runs.values()], shared
+    return [[units[u] for u in run] for run in runs.values()]
+
+
+PART_DIGITS = 6
+"""The longest part number after a running number ("S-01/2") read as one."""
+
+
+def _part(suffix: str) -> int | None:
+    """A suffix's place in a sequence of parts: a single Latin letter (A, B, …, as letters count) or a
+    part number of digits ("S-01/1", "S-01/2": 13's reader, as ruled, reads a digit run after a "/" as
+    a part suffix, so the running number is the run before it); none for any other suffix. Letters
+    and numbers are kept apart (a letter's place is below 0)."""
+    if len(suffix) == 1 and "a" <= suffix <= "z":
+        return ord(suffix) - ord("a") - 1000
+    if 0 < len(suffix) <= PART_DIGITS and suffix.isascii() and suffix.isdigit():
+        return int(suffix)
+    return None
 
 
 def _same_storey(
@@ -391,17 +470,17 @@ def _same_storey(
 ) -> list[tuple[int, Conflict]]:
     """One storey drawn twice, by the module's rules: each (bucket, storey) gathers its views, and the
     views are grouped by the set they make."""
-    flat: list[tuple[ViewCandidate, int]] = []  # each plan view compared, with its sheet's place
+    flat: list[tuple[ViewCandidate, int, int]] = []  # each plan view: its sheet's place, its sheet
     sharing: dict[tuple[tuple[str, str, str, str], str], list[int]] = {}
     for i, sheet in enumerate(sheets):
-        if sheet.discipline is None:
+        if sheet.discipline is None or sheet_name(sheet) is None:
             continue
         for view in views[i]:
             if view.kind != ViewKind.PLAN or view.subject is None:
                 continue
             layer = NO_LAYER if view.layer is None else str(view.layer)
             bucket = (str(sheet.group), sheet.discipline.value, view.subject, layer)
-            flat.append((view, places.of(i)))
+            flat.append((view, places.of(i), i))
             for storey in view.storeys:
                 if not reader.symbolic(storey):
                     sharing.setdefault((bucket, storey), []).append(len(flat) - 1)
@@ -413,12 +492,29 @@ def _same_storey(
     for ((_, discipline, subject, layer), members), storeys in sets.items():
         # The set's storeys were met first in its first view, in that view's order: the first of
         # them is the first it lists (no scan of the view's list per storey: that is quadratic).
+        first = flat[members[0]]
+        second = next(flat[v] for v in members if flat[v][1] != first[1])
+        # The words quote the first two sheets' plans: alike, different, or (either untitled) neither.
+        plan, other = _title_on(flat, members, first[1]), _title_on(flat, members, second[1])
+        titled = "none" if not (plan and other) else "differ"
+        if titled == "differ" and normal(plan) == normal(other):
+            titled = "same"
+        if titled != "differ":
+            plan, other = (plan, "") if titled == "same" else ("", "")
+        first_name, second_name = _name(sheets[first[2]]), _name(sheets[second[2]])
         evidence = codes.SAME_STOREY(
+            first=first_name[0],
+            first_named=first_name[1],
+            second=second_name[0],
+            second_named=second_name[1],
+            plan=plan,
+            other=other,
+            titled=titled,
+            layer=layer,
+            views=len(members),
             discipline=discipline,
             subject=subject,
-            layer=layer,
             storey=storeys[0],
-            views=len(members),
         )["params"]
         candidates = tuple(flat[v][0] for v in members)
         found.append((members[0], Conflict(SAME_STOREY, candidates, evidence)))

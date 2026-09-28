@@ -76,6 +76,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
+from engine.messages import catalogue as names
 from engine.messages import decoders_agree as codes
 from engine.read import acadsharp
 from engine.read.acadsharp import Dump
@@ -87,7 +88,7 @@ VERSION = 1
 MILESTONE = "M0"
 KIND = "source"
 """Two readers of one file, against each other (the catalogue's kinds, engine/check/catalogue.py)."""
-MESSAGE = codes.DISAGREE
+MESSAGE = names.DECODERS_AGREE
 
 SAME_TYPE: Mapping[str, str] = {"MINSERT": "INSERT"}
 """A type one decoder names differently, to the name both are compared under (rule 1 above)."""
