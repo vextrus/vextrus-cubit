@@ -146,8 +146,9 @@ class Drawing:
         tag: str | None = None,
         style_handle: str | None = None,
     ) -> str:
-        """A text; with `style_handle` (a `style`'s), its style's name and fonts are that style's, as
-        the reader gives them, and `style` and `font` are not used."""
+        """A text; when `style_handle` names one of this drawing's styles (`style`'s return), its style
+        name and fonts are that style's, as the reader gives them, and `style` and `font` are not
+        used (a handle naming none is kept, and `artefact()` refuses it)."""
         mtext = kind == "MTEXT"
         bigfont = None
         if (named := self.styles.get(style_handle or "")) is not None:
