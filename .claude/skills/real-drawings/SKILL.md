@@ -1,10 +1,10 @@
 ---
 name: real-drawings
-description: Work with the real Drawing Sets (the Edison set, the Sample Project, client sets) kept under .private/. Read, convert, render and run the pipeline on them locally, run the real-drawing check a `local` PR must pass, and carry conventions (never content) out. Use when changing drawing reading, recognition or model assembly, or when judging a milestone on real drawings.
+description: Work with the real Drawing Sets (the Edison set, the Sample Project, client sets) kept under .private/. Read, convert, render and run the pipeline on them locally, run the real-drawing check (`scripts/real-drawings --no-post`) while tuning an engine change, and carry conventions (never content) out. Use when changing drawing reading, recognition or model assembly, or when judging a milestone on real drawings.
 ---
 # Real drawings
 
-Every milestone passes on the Sample Project and an Independent Set (ADR 0005). Cubit failed because
+Every milestone passes on the Development Sets and an Independent Set (ADR 0005). Cubit failed because
 it was only ever proven against drawings it generated itself (docs/postmortem.md, cause 1).
 
 ## Where they are
@@ -17,26 +17,58 @@ it was only ever proven against drawings it generated itself (docs/postmortem.md
 - `.private/work/`: everything derived (DXF, renders, JSON, notes). The originals under `reference/`
   are read-only; the guard refuses edits there.
 
+`.private/` lives in the main checkout only; a worktree reads it there.
+
 ## The rules
 - Local sessions only. Cloud sessions never see `.private/`.
-- Never commit a drawing or anything derived from one, and never copy its geometry, text, names or
-  figures into code, tests, docs, issues, PRs or commit messages. The guard refuses a `git add` of
-  `.private/` or of drawing files.
-- What leaves `.private/` is **conventions**, stated generically with counts ("column schedules band
-  sizes by floor range; 3 bands"), and the improved code.
+- Drawings and everything derived from them stay in `.private/` and the owner's cache: code, tests,
+  docs, issues, PRs and commit messages carry **conventions**, stated generically with counts
+  ("column schedules band sizes by floor range; 3 bands"), and the improved code. Tests use invented
+  fixtures. The guard refuses a `git add` of `.private/` or of drawing files.
 - Text from these drawings may go to TypeSafe's Jev during development (ADR 0013).
-- The Hand Takeoff figures are the owner's check. Never read them into a build session.
+- The Hand Takeoff figures are the owner's check, read only by the owner.
 
 ## Instruments
-- LibreDWG ≥ 0.14 (`dwgread`, `dwg2dxf`), run as a separate process. Never trust the exit code: compare
-  entity counts with the `dwgread` JSON. 0.13.x fails on real sets (docs/research/2d-to-bim-prototype-lessons.md).
-- ezdxf on the repaired DXF; the product's `engine` package (read, recognise, assemble) once it exists.
+- LibreDWG 0.14 (`/opt/vextrus/libredwg/bin/dwgread`, `dwg2dxf`), run as a separate process. Never
+  trust the exit code: compare entity counts with the `dwgread` JSON (docs/research/2d-to-bim-prototype-lessons.md).
+- ezdxf on the repaired DXF; the `engine` package (read, recognise, assemble).
 - Render windows of model space to PNG under `.private/work/` to read text. Real sets lay every sheet
   side by side in model space, so render sheet by sheet.
 - Fan out with `drawing-analyst` agents, one per Discipline, each with its own scratch folder under
   `.private/work/<task>/<agent>/`.
 
-## The real-drawing check (a `local` PR's merge condition)
-Run the pipeline on the Sample Project and the Edison set and compare it with the owner-confirmed
-expectations in `.private/work/checks/`. What goes into the PR is **pass/fail and counts only** (for
-example "sheets n/n, grid axes n/n, columns placed n/n"), never names, figures or images.
+## The real-drawing check in M0: regression only
+Every engine PR (a path in `.github/engine-paths.txt`) needs a `real-drawings` status. In M0 there are
+no Answer Keys (ADR 0030, amended 28 Sep 2026): the check runs the engine harness on both Development
+Sets and reports what changed against the last merged run, item by item. It proves nothing changed
+unseen; it does not prove a reading right. That rests on the owner's walk.
+
+**While tuning, on your own branch:**
+1. Commit the change, then run `scripts/real-drawings <your branch> --no-post` from your checkout.
+   It checks out the branch's engine paths, refuses a `dwgread` off the pin or a changed lock source
+   or `[tool.uv]`, installs the locked wheels offline inside bwrap, runs the harness on both sets,
+   checks each export against main's schema (against the head's own when the head changes it, which it
+   prints: then read the schema's diff) and diffs it against main's run (cached by code hash).
+2. Read the printed table: per measure (files, entity counts, report counts, sheets, views, register,
+   Plot matches, render F1, Checks, conflicts, continuations), the items gained, lost and changed,
+   and the items held now. Read time and peak memory are shown, never counted.
+3. The item list (`items.json` under `~/.cache/vextrus-real-drawings/runs/<run id>/`) names each
+   changed sheet and view, so it holds drawing text: read it to understand a change, and carry out
+   only the convention it teaches.
+4. Done when every lost or changed item is one you meant; each unexplained loss is a regression to fix
+   before the PR.
+
+**What a PR may quote:** the counts only, per measure ("sheets 0 gained, 0 lost, 3 changed"), plus the
+run id. Titles, numbers, layout names and item lists stay on this machine.
+
+**The posting run is the owner's.** The owner runs `scripts/real-drawings <PR>` from main, accepts or
+rejects the changes (a lost item only with a reason), and the owner's GitHub App posts the status
+through `scripts/owner/post-status`, which runs as the key user with the owner's password. Sessions
+open the PR and stop at `--no-post`.
+
+## From M1: where expectations live
+Answer Keys (the Sample Project's, Edison's at sheet and view level, later the Held-out Sets and Hand
+Takeoffs) live with the key user (ADR 0026), outside every session's reach. The blind scorer
+(`scripts/score/`, M1 ticket 01) reads the posting run's export from its drop folder and the keys, and
+returns only aggregates (n / N per Takeoff Step); a reading ticket stops when its n / N stops
+improving. The run-to-run diff stays beside it.

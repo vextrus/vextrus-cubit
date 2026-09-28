@@ -1,0 +1,12 @@
+# The poster's settings (ADR 0030; the M0 plan, 06a). Not secret: the App's key stays in the key user's
+# home and is read only by the poster, running as the key user. scripts/owner/drop-setup.sh installs this
+# file root-owned beside the poster; scripts/real-drawings reads the drop folder, the key user and the
+# installed poster's path from here.
+repository = "vextrus/vextrus-cubit"
+app_id = 5102506                          # the App "vextrus-status": commit statuses read and write
+installation_id = 165622751               # installed on vextrus-cubit only
+key_user = "vxkeys"                       # ADR 0026
+key = "/home/vxkeys/github-app/app.pem"   # the App's private key, readable by the key user only
+drop = "/srv/vextrus-drop"                # one folder per posting run, and the posting runs' lock
+installed = "/usr/local/lib/vextrus/post-status"
+design_gate_items = 11                    # docs/design/m0-screens.md §8's checklist

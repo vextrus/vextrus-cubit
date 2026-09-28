@@ -42,7 +42,8 @@ def test_a_flush_asked_of_the_app_runs_as_the_owner() -> None:
 
     call_command("flush", database="default", interactive=False, verbosity=0)
 
-    assert User.objects.using("owner").count() == 0
+    # Only the tests' own staff users, put back by the owner after every flush, remain.
+    assert not User.objects.using("owner").filter(email="flushed@example.com").exists()
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "owner"])

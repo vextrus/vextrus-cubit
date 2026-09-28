@@ -14,6 +14,11 @@ reason = """The test-only pseudo right-to-left language's tag (docs/design/m0-sc
 never a Market's language, never shipped (web/scripts/check-dist.mjs fails the build if it is)."""
 
 [[allow]]
+path = "vextrus/platform/migrations/0004_bangladesh_market.py"
+reason = """The Bangladesh Market's data migration (ticket 02; ADR 0038): the Market row is where a \
+market's currency, borrowed locale, time zone and unit systems are written, as data."""
+
+[[allow]]
 path = "web/src/app/seed/**"
 reason = """The seed's static copy (docs/design/m0-screens.md §7, §9 ruling 5; ticket 03): the invented demo \
 project on the Bangladesh Market, with that Market's format profile, for the shell until /api/me (20a) \
