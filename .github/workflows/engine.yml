@@ -81,7 +81,10 @@ jobs:
       - name: Make /opt/vextrus for the installs (it goes back to root before the tests)
         run: sudo install -d -o "$(id -u)" -g "$(id -g)" /opt/vextrus
       - name: Python at its pin
-        run: uv python install --no-bin "$(tr -d '[:space:]' < toolchain/python.version)"
+        # The install folder is named again here, in case setup-uv exported its own.
+        run: |
+          UV_PYTHON_INSTALL_DIR=/opt/vextrus/python \
+            uv python install --no-bin "$(tr -d '[:space:]' < toolchain/python.version)"
       - name: LibreDWG from its release asset, by the sha256 published with it
         run: |
           V=$(tr -d '[:space:]' < toolchain/libredwg.version)
@@ -102,7 +105,9 @@ jobs:
       - name: Install the locked dependencies, building nothing
         env:
           UV_PYTHON_DOWNLOADS: never
-        run: uv sync --locked --no-build --python "$(tr -d '[:space:]' < toolchain/python.version)"
+        run: |
+          UV_PYTHON_INSTALL_DIR=/opt/vextrus/python \
+            uv sync --locked --no-build --python "$(tr -d '[:space:]' < toolchain/python.version)"
       - name: ezdxf's wheel by the hash toolchain/ezdxf.lock pins
         run: |
           eval "$(python3 - <<'PY'
