@@ -85,6 +85,9 @@ from engine.recognise.types import CheckOutcome, CheckResult
 CODE = "decoders_agree"
 VERSION = 1
 MILESTONE = "M0"
+KIND = "source"
+"""Two readers of one file, against each other (the catalogue's kinds, engine/check/catalogue.py)."""
+MESSAGE = codes.DISAGREE
 
 SAME_TYPE: Mapping[str, str] = {"MINSERT": "INSERT"}
 """A type one decoder names differently, to the name both are compared under (rule 1 above)."""

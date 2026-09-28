@@ -475,14 +475,62 @@ class CheckResult:
             _params(self.finding["params"], "a finding's params")
 
 
+class ListSource(StrEnum):
+    """Where a drawing list the QS gave came from (one read on a sheet is its `RegisterEntry` rows)."""
+
+    PASTED = "pasted"
+    TYPED = "typed"
+    """Typed as a range ("01 to 57"): its entries are the range's numbers, without titles."""
+
+
+@dataclass(frozen=True)
+class ListEntry:
+    """One line of a pasted or typed drawing list: the number as listed, where it was, what it says."""
+
+    number: str
+    line: int
+    """The line of the text it was on, from 1 (a range's numbers share its line)."""
+    title: str | None = None
+    revision_mark: str | None = None
+
+    def __post_init__(self) -> None:
+        _is(self.number, str, "a list entry's number")
+        _text(self.number, "a list entry's number")
+        if isinstance(self.line, bool) or not isinstance(self.line, int) or self.line < 1:
+            raise ValueError(f"a list entry's line is counted from 1, not {self.line!r}")
+        _text(self.title, "a list entry's title")
+        _text(self.revision_mark, "a list entry's revision mark")
+
+
+@dataclass(frozen=True)
+class DrawingList:
+    """A Discipline's drawing list pasted or typed by the QS (docs/data-model.md §3.4, DrawingRegister),
+    in one group; the register Check (19b) takes at most one list per (group, Discipline)."""
+
+    group: Group
+    discipline: str
+    """The Discipline's key, one the conventions carry."""
+    source: ListSource
+    entries: tuple[ListEntry, ...]
+
+    def __post_init__(self) -> None:
+        _is(self.group, str, "a drawing list's group")
+        _text(self.group, "a drawing list's group")
+        _key(self.discipline, "a drawing list's Discipline")
+        ListSource(self.source)
+        _tuple_of(self.entries, ListEntry, "a drawing list's entries")
+
+
 @dataclass(frozen=True)
 class SetReading:
     """What was read from a set, for the Checks (`engine.check.catalogue.run_all(reading)`, 19b).
 
-    `views[i]` are the views of `sheets[i]`; `conflicts.find(sheets, views)` takes the same pair.
-    `read` names the stages whose results it carries from every file of the set (`views`,
+    `views[i]` are the views of `sheets[i]`; `conflicts.find(sheets, views, conventions)` takes the
+    same pair. `read` names the stages whose results it carries from every file of the set (`views`,
     `register`, `plot`, `conflicts`): a Check whose input is not among them was not read, so it
-    says nothing, rather than passing on an empty list.
+    says nothing, rather than passing on an empty list. `conventions` are the ones the sheets were
+    read with (the Disciplines' prefixes among them); `lists` the drawing lists the QS pasted or
+    typed, at most one per (group, Discipline), none where a list read on a sheet is used instead.
     """
 
     sheets: tuple[SheetCandidate, ...] = ()
@@ -492,10 +540,15 @@ class SetReading:
     conflicts: tuple[Conflict, ...] = ()
     continuations: tuple[Continuation, ...] = ()
     read: frozenset[str] = frozenset()
+    conventions: SheetConventions | None = None
+    lists: tuple[DrawingList, ...] = ()
 
     def __post_init__(self) -> None:
         if len(self.views) != len(self.sheets):
             raise ValueError("a reading holds one list of views per sheet")
+        if self.conventions is not None:
+            _is(self.conventions, SheetConventions, "a reading's conventions")
+        _tuple_of(self.lists, DrawingList, "a reading's drawing lists")
 
 
 # Conventions ----------------------------------------------------------------------------------------

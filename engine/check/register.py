@@ -1,0 +1,428 @@
+"""The drawing list against the sheets found, both ways; with no list, the numbering's continuity
+(ticket 19b; ADR 0027: a Check against the source; CONTEXT.md's Drawing List, which the code calls
+the register).
+
+    check(reading, recognisers=...)                 # the Check, run by engine.check.catalogue
+    numbering(sheets, conventions=..., recognisers=...)   # the run, for 19a and 22's heading
+    parse(text, conventions, recognisers=...)       # a pasted list or a typed range, for 19a
+
+**The lists.** A list read on a sheet is its `RegisterEntry` rows (13's), in the reading's `register`;
+a list the QS pasted or typed is a `DrawingList` in the reading's `lists`. The Check takes one list per
+(group, Discipline): the entries read on the sheets of a group make one list per Discipline (a list
+continued over two sheets is one list), and a reading that gives a pasted or typed list as well for
+that (group, Discipline), or two of them, is refused (the caller, 21c, holds both back while they
+disagree). A read entry belongs to the Discipline whose prefix its number carries, when exactly one
+Discipline of the conventions has that prefix, else to the Discipline of the sheet it is on (a cover
+sheet may list every Discipline's sheets); an entry with neither sits out.
+
+**Both ways**, within a (group, Discipline): each entry is found when a sheet's number is the same
+number, else it fires `not_found` ("S-13 is on the drawing list but in no file"); each numbered sheet
+is listed when an entry's number is the same number, else it fires `not_listed`. Numbers are compared
+through 13's `sheets.sequence`: the same prefix, running number and suffix, by their letters and
+digits (case folded), a Discipline's own prefix counting as none, so a title block's bare "07" is the
+list's "S-07" (the Edison set writes both), and "7" is "07"; a number with no running number is
+compared in its normal form (`engine.recognise.conflicts.normal`). Titles are not compared: a typed
+range has none, and a sheet agrees with a list by its number (m0-screens 6.10).
+
+**With no list** for a (group, Discipline) holding numbered sheets: its numbering (`numbering`) runs
+per series (the prefix, a Discipline's own counting as none; suffixes set aside, so "S-101A" is 101),
+and every gap fires `gap`, named by the numbers either side as their sheets print them and the count
+missing (a gap of millions is one finding); a series with no gap passes.
+
+**Every subject examined has a result**, passed or fired: a read entry (its `RegisterEntry`), a sheet,
+and, with no candidate to name, a pasted or typed entry and a series (the set: no subject). The Check
+says nothing when the register was not read in every file (`reading.read`) or the reading carries no
+conventions.
+
+**`parse`** reads a pasted list or a typed range, bounded (`TEXT_LIMIT` characters, `ENTRY_LIMIT`
+entries, lines of `LINE_LIMIT` characters, numbers of `NUMBER_LIMIT`), and refuses by code
+(engine/messages/register_check.py). A line of two numbers joined by an en or em dash, or by "to", is a
+range, read as every number in it (without titles): "A-01 to A-29", or the same with an en dash
+(U+2013) or an em dash between. A range that runs backwards ("57 to 01"), joins two kinds of number
+("A-01 to B-09") or holds more than `ENTRY_LIMIT`
+numbers is refused; so is one joined by a hyphen ("01-57", "A-01-A-29"), which cannot be told from one
+sheet's number: the refusal asks for "01 to 57". Any other line is a sheet line when its first cell
+(cells split by tabs, as a spreadsheet pastes; else its first word) reads as a sheet number through
+13's `sequence`: its next cell or the rest of the line is the title, and a later cell that is a revision
+mark by the conventions' pattern (on at most `MARK_LIMIT` characters) is its revision mark. Other lines
+are ignored and counted. A leading serial number (digits only) before a cell that reads as a number
+with no suffix is set aside ("1  S-01  General notes"). The source is `typed` when every sheet line is
+a range, else `pasted`.
+"""
+
+import re
+from collections.abc import Callable, Hashable, Sequence
+from dataclasses import dataclass
+from itertools import pairwise
+
+from engine.messages import Message
+from engine.messages import register_check as codes
+from engine.recognise.conflicts import (
+    Recognisers,
+    given,
+    mark,
+    normal,
+    number_parts,
+    read_number,
+)
+from engine.recognise.types import (
+    CheckOutcome,
+    CheckResult,
+    ListEntry,
+    ListSource,
+    RegisterEntry,
+    SetReading,
+    SheetCandidate,
+    SheetConventions,
+)
+
+CODE = "register"
+VERSION = 1
+MILESTONE = "M0"
+KIND = "source"
+MESSAGE = codes.NOT_FOUND
+
+TEXT_LIMIT = 1_000_000
+"""The most characters `parse` reads."""
+ENTRY_LIMIT = 10_000
+"""The most entries a list (a range among them) may hold."""
+LINE_LIMIT = 1_000
+"""A longer line is not read as a sheet line (it is ignored and counted)."""
+NUMBER_LIMIT = 64
+"""A longer first cell is no sheet number."""
+MARK_LIMIT = 16
+"""The longest cell the revision-mark pattern is tried on (the pattern is the conventions')."""
+
+_DASHES = ("\u2013", "\u2014")  # en dash, em dash
+_TO = re.compile(r"\s+to\s+", re.IGNORECASE)
+_SEPARATORS = "-\u2013\u2014:|.,;"
+
+type Key = tuple[Hashable, ...]
+
+
+class Refused(ValueError):
+    """What `parse` refuses, with the message that says why (a code and its params)."""
+
+    def __init__(self, finding: Message) -> None:
+        super().__init__(finding["code"])
+        self.finding = finding
+
+
+@dataclass(frozen=True)
+class Parsed:
+    """A pasted list or typed range, read: its entries, its source, and the lines not read."""
+
+    source: ListSource
+    entries: tuple[ListEntry, ...]
+    ignored: int
+    """Lines with text that are not sheet lines."""
+
+
+@dataclass(frozen=True)
+class Gap:
+    """Numbers missing from a series: none between `after` and `before`, as their sheets print them."""
+
+    after: str
+    before: str
+    missing: int
+
+
+@dataclass(frozen=True)
+class Run:
+    """One series of a Discipline's numbering, with no drawing list: 22's "numbering runs 01 to 57
+    without a gap", or with its gaps."""
+
+    group: str
+    discipline: str
+    first: str
+    last: str
+    """The lowest and highest numbers, as their sheets print them."""
+    sheets: int
+    gaps: tuple[Gap, ...]
+
+
+# The Check ------------------------------------------------------------------------------------------
+
+
+def check(reading: SetReading, *, recognisers: Recognisers) -> list[CheckResult]:
+    """The Check: every list against its sheets both ways, and the numbering where there is no list."""
+    given(reading.sheets, reading.views)
+    if "register" not in reading.read or reading.conventions is None:
+        return []
+    numbers = _Numbers(reading.conventions, recognisers)
+    lists = _lists(reading, numbers)
+    results: list[CheckResult] = []
+    sheets_of: dict[tuple[str, str], list[SheetCandidate]] = {}
+    for sheet in reading.sheets:
+        if sheet.discipline is not None and _printed(sheet) is not None:
+            sheets_of.setdefault((str(sheet.group), sheet.discipline.value), []).append(sheet)
+    for (group, discipline), entries in lists.items():
+        sheets = sheets_of.get((group, discipline), [])
+        found = {numbers.key(_printed(s) or "", discipline) for s in sheets}
+        listed = set()
+        for number, subject in entries:
+            key = numbers.key(number, discipline)
+            listed.add(key)
+            finding = None if key in found else codes.NOT_FOUND(number=number)
+            results.append(_result(subject, finding))
+        for sheet in sheets:
+            printed = _printed(sheet) or ""
+            known = numbers.key(printed, discipline) in listed
+            finding = None if known else codes.NOT_LISTED(number=printed)
+            results.append(_result(sheet, finding))
+    unlisted = [s for (g, d), group in sheets_of.items() if (g, d) not in lists for s in group]
+    for run in numbering(unlisted, conventions=reading.conventions, recognisers=recognisers):
+        if not run.gaps:
+            results.append(CheckResult(CODE, CheckOutcome.PASSED))
+        for gap in run.gaps:
+            finding = codes.GAP(after=gap.after, before=gap.before, missing=gap.missing)
+            results.append(CheckResult(CODE, CheckOutcome.FIRED, finding=finding))
+    return results
+
+
+SET = check
+"""The Check's set function, which `engine.check.catalogue.run_all` runs."""
+
+
+def _result(subject: SheetCandidate | RegisterEntry | None, finding: Message | None) -> CheckResult:
+    outcome = CheckOutcome.PASSED if finding is None else CheckOutcome.FIRED
+    return CheckResult(CODE, outcome, subject=subject, finding=finding)
+
+
+def _printed(sheet: SheetCandidate) -> str | None:
+    """A sheet's number as printed, when it has one that is not only format characters."""
+    if sheet.number is None or normal(sheet.number.value) is None:
+        return None
+    return sheet.number.value
+
+
+class _Numbers:
+    """Sheet numbers as the Check compares them, each read once through 13's `sequence`."""
+
+    def __init__(self, conventions: SheetConventions, recognisers: Recognisers) -> None:
+        self.recognisers = recognisers
+        self.own = {d.key: {mark(p) for p in d.prefixes} - {""} for d in conventions.disciplines}
+        owners: dict[str, set[str]] = {}
+        for key, marks in self.own.items():
+            for prefix in marks:
+                owners.setdefault(prefix, set()).add(key)
+        self.owner = {prefix: keys.pop() for prefix, keys in owners.items() if len(keys) == 1}
+        self._read: dict[str, tuple[str, int, str] | None] = {}
+
+    def parts(self, number: str) -> tuple[str, int, str] | None:
+        if number not in self._read:
+            self._read[number] = read_number(self.recognisers, number)
+        return self._read[number]
+
+    def key(self, number: str, discipline: str) -> Key:
+        """What a number is compared by within a Discipline."""
+        parts = self.parts(number)
+        if parts is None:
+            return ("text", normal(number))
+        prefix, running, suffix = parts
+        return ("parts", "" if prefix in self.own.get(discipline, set()) else prefix, running, suffix)
+
+    def series(self, number: str, discipline: str) -> tuple[str, int] | None:
+        """A number's series (its prefix, a Discipline's own as none) and running number."""
+        parts = self.parts(number)
+        if parts is None:
+            return None
+        prefix, running, _ = parts
+        return ("" if prefix in self.own.get(discipline, set()) else prefix), running
+
+    def discipline(self, number: str) -> str | None:
+        """The one Discipline whose prefix the number carries, if any."""
+        parts = self.parts(number)
+        return None if parts is None else self.owner.get(parts[0])
+
+
+def _lists(
+    reading: SetReading, numbers: _Numbers
+) -> dict[tuple[str, str], list[tuple[str, RegisterEntry | None]]]:
+    """Each (group, Discipline)'s one list: its entries' numbers, each with its subject (a read entry,
+    or none for a pasted or typed one). Refuses two lists for one (group, Discipline)."""
+    position = {id(sheet): i for i, sheet in enumerate(reading.sheets)}
+    read: dict[tuple[str, str], list[tuple[str, RegisterEntry | None]]] = {}
+    for entry in reading.register:
+        if not isinstance(entry, RegisterEntry):
+            raise TypeError(f"a register entry is a RegisterEntry, not {type(entry).__name__}")
+        if id(entry.sheet) not in position:
+            raise ValueError("a register entry is on a sheet the reading does not hold")
+        if entry.number is None or normal(entry.number) is None:
+            continue
+        on = entry.sheet.discipline
+        discipline = numbers.discipline(entry.number) or (None if on is None else on.value)
+        if discipline is not None:
+            read.setdefault((str(entry.sheet.group), discipline), []).append((entry.number, entry))
+    lists = dict(read)
+    for given_list in reading.lists:
+        key = (given_list.group, given_list.discipline)
+        if key in lists:
+            what = "a list read on a sheet" if key in read else "another pasted or typed list"
+            raise ValueError(
+                f"a pasted or typed list for {key[1]} in {key[0]} beside {what}: give one list"
+            )
+        lists[key] = [(entry.number, None) for entry in given_list.entries]
+    return lists
+
+
+# The numbering's continuity ------------------------------------------------------------------------
+
+
+def numbering(
+    sheets: Sequence[SheetCandidate], *, conventions: SheetConventions, recognisers: Recognisers
+) -> list[Run]:
+    """Each (group, Discipline)'s numbering, per series, in the order of each series' first sheet:
+    its lowest and highest numbers and its gaps. Sheets with no Discipline, or no running number, sit
+    out. Linear in the sheets, plus sorting each series' running numbers."""
+    numbers = _Numbers(conventions, recognisers)
+    series: dict[tuple[str, str, str], dict[int, str]] = {}
+    counts: dict[tuple[str, str, str], int] = {}
+    for sheet in sheets:
+        if sheet.group is None:
+            raise ValueError("a sheet has no group: its caller stamps each sheet with its file's group")
+        printed = _printed(sheet)
+        if sheet.discipline is None or printed is None:
+            continue
+        read = numbers.series(printed, sheet.discipline.value)
+        if read is None:
+            continue
+        key = (sheet.group, sheet.discipline.value, read[0])
+        series.setdefault(key, {}).setdefault(read[1], printed)
+        counts[key] = counts.get(key, 0) + 1
+    runs = []
+    for (group, discipline, _), printed_by_running in series.items():
+        runnings = sorted(printed_by_running)
+        gaps = tuple(
+            Gap(printed_by_running[low], printed_by_running[high], high - low - 1)
+            for low, high in pairwise(runnings)
+            if high - low > 1
+        )
+        first, last = printed_by_running[runnings[0]], printed_by_running[runnings[-1]]
+        runs.append(Run(group, discipline, first, last, counts[(group, discipline, _)], gaps))
+    return runs
+
+
+# Reading a pasted list or a typed range ------------------------------------------------------------
+
+
+def parse(text: str, conventions: SheetConventions, *, recognisers: Recognisers) -> Parsed:
+    """A pasted list or a typed range, read (the module's rules), or `Refused` with why."""
+    if not isinstance(text, str):
+        raise TypeError(f"a drawing list is text, not {type(text).__name__}")
+    if len(text) > TEXT_LIMIT:
+        raise Refused(codes.TEXT_TOO_LONG(limit=TEXT_LIMIT))
+    revision = _revision_mark(conventions.revision_mark_pattern)
+    entries: list[ListEntry] = []
+    ignored = ranges = sheet_lines = 0
+    for index, raw in enumerate(text.splitlines(), start=1):
+        line = raw.strip()
+        if not line:
+            continue
+        if len(line) > LINE_LIMIT:
+            ignored += 1
+            continue
+        numbers = _range(line, index, recognisers)
+        if numbers is not None:
+            ranges += 1
+            sheet_lines += 1
+            entries.extend(ListEntry(number, index) for number in numbers)
+        elif (entry := _sheet_line(line, index, recognisers, revision)) is not None:
+            sheet_lines += 1
+            entries.append(entry)
+        else:
+            ignored += 1
+        if len(entries) > ENTRY_LIMIT:
+            raise Refused(codes.TOO_MANY(limit=ENTRY_LIMIT))
+    if not entries:
+        raise Refused(codes.NOTHING_FOUND())
+    source = ListSource.TYPED if ranges == sheet_lines else ListSource.PASTED
+    return Parsed(source, tuple(entries), ignored)
+
+
+def _is_number(token: str, recognisers: Recognisers) -> bool:
+    return 0 < len(token) <= NUMBER_LIMIT and number_parts(recognisers, token) is not None
+
+
+def _range(line: str, index: int, recognisers: Recognisers) -> list[str] | None:
+    """A range line's numbers, or none when the line is no range; `Refused` when it is a range that
+    cannot be read."""
+    halves = _TO.split(line)
+    if len(halves) != 2:
+        dashed = [line.split(dash) for dash in _DASHES if dash in line]
+        halves = dashed[0] if len(dashed) == 1 else []
+    halves = [half.strip() for half in halves]
+    if len(halves) != 2 or not all(h and not any(c.isspace() for c in h) for h in halves):
+        _hyphenated(line, index, recognisers)
+        return None
+    first, last = halves
+    if not (_is_number(first, recognisers) and _is_number(last, recognisers)):
+        return None
+    low, high = number_parts(recognisers, first), number_parts(recognisers, last)
+    assert low is not None
+    assert high is not None
+    if (mark(low[0]), mark(low[2])) != (mark(high[0]), mark(high[2])):
+        raise Refused(codes.RANGE_MIXED(line=index, first=first, last=last))
+    if high[1] < low[1]:
+        raise Refused(codes.RANGE_BACKWARDS(line=index, first=first, last=last))
+    if high[1] - low[1] + 1 > ENTRY_LIMIT:
+        raise Refused(codes.RANGE_TOO_LONG(line=index, first=first, last=last, limit=ENTRY_LIMIT))
+    prefix, suffix, width = _form(first, low)
+    return [f"{prefix}{str(running).zfill(width)}{suffix}" for running in range(low[1], high[1] + 1)]
+
+
+def _form(printed: str, parts: tuple[str, int, str]) -> tuple[str, str, int]:
+    """How a range's numbers are printed: as its first number is, its padding kept ("A-01")."""
+    prefix, _, suffix = parts
+    if printed.startswith(prefix) and printed.endswith(suffix):
+        digits = printed[len(prefix) : len(printed) - len(suffix)]
+        if digits.isdigit():
+            return prefix, suffix, len(digits)
+    return prefix, suffix, 0
+
+
+def _hyphenated(line: str, index: int, recognisers: Recognisers) -> None:
+    """Refuse a line that is two numbers of one kind joined by a hyphen ("01-57"): one number, or a
+    range? The QS is asked to write "01 to 57"."""
+    token = re.sub(r"\s*-\s*", "-", line)
+    if len(token) > 2 * NUMBER_LIMIT + 1 or any(c.isspace() for c in token):
+        return
+    for at in (i for i, char in enumerate(token) if char == "-"):
+        first, last = token[:at], token[at + 1 :]
+        if not (_is_number(first, recognisers) and _is_number(last, recognisers)):
+            continue
+        low, high = number_parts(recognisers, first), number_parts(recognisers, last)
+        assert low is not None
+        assert high is not None
+        if (mark(low[0]), mark(low[2])) == (mark(high[0]), mark(high[2])):
+            raise Refused(codes.RANGE_HYPHEN(line=index, first=first, last=last))
+
+
+def _sheet_line(
+    line: str, index: int, recognisers: Recognisers, revision: Callable[[str], bool]
+) -> ListEntry | None:
+    tabbed = "\t" in line
+    cells = [c.strip() for c in line.split("\t") if c.strip()] if tabbed else line.split(maxsplit=2)
+    if len(cells) > 1 and cells[0].isdecimal() and _serial_before(cells[1], recognisers):
+        cells = cells[1:]  # a serial number column ("1  S-01  General notes") is set aside
+    number = cells[0]
+    if not _is_number(number, recognisers):
+        return None
+    rest = (cells[1:] if tabbed else [" ".join(cells[1:])]) or [""]
+    title = rest[0].strip().lstrip(_SEPARATORS).strip() or None
+    mark_cell = next((c for c in reversed(rest[1:]) if revision(c)), None) if tabbed else None
+    return ListEntry(number, index, title=title, revision_mark=mark_cell)
+
+
+def _serial_before(cell: str, recognisers: Recognisers) -> bool:
+    """Whether a cell after a leading count is the sheet number: a number with no suffix."""
+    parts = number_parts(recognisers, cell) if len(cell) <= NUMBER_LIMIT else None
+    return parts is not None and not parts[2]
+
+
+def _revision_mark(pattern: str | None) -> Callable[[str], bool]:
+    """Whether a cell is a revision mark by the conventions' pattern, tried on short cells only."""
+    if pattern is None:
+        return lambda cell: False
+    compiled = re.compile(pattern)
+    return lambda cell: len(cell) <= MARK_LIMIT and compiled.fullmatch(cell) is not None

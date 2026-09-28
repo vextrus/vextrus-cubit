@@ -22,12 +22,14 @@ what the contract does not allow, is `failed`, and the stages that need it are s
 - PDF: `pdf.report(path)` and `pdf.page_text(path)` (a list of pages).
 
 Then across the set: `registration.match(pages, sheets)`, `render_f1.score(buffers, page, transform)`
-per matched page, `conflicts.find(sheets, views)` (Conflicts and Continuations; `views[i]` are
-`sheets[i]`'s) and `catalogue.run_all(reading)` (a `SetReading`; Check results). **A set stage never
-runs on part of the set**: it is skipped unless each stage it needs (sheets for all; pages for the Plot;
-the Plot and the render buffers for F1) was read in every file. Conflicts and Checks need only the
-sheets; the reading's `read` names what else was read everywhere, so a Check can tell "not read" from
-"none found", and `conflicts.find` gets each sheet's views as read (none where views were not read).
+per matched page, `conflicts.find(sheets, views, sheet_conventions)` (Conflicts and Continuations;
+`views[i]` are `sheets[i]`'s) and `catalogue.run_all(reading)` (a `SetReading`, carrying the sheet
+conventions too; Check results). **A set stage never runs on part of the set**: it is skipped unless
+each stage it needs (sheets for all; pages for the Plot; the Plot and the render buffers for F1) was
+read in every file. Conflicts and Checks need only the sheets; the reading's `read` names what else was
+read everywhere, so a Check can tell "not read" from "none found", and `conflicts.find` gets each
+sheet's views as read (none where views were not read). Both get the conventions the sheets were read
+with (none when the run has no sheet conventions), since reading a sheet number takes them (19b).
 
 **What the harness reads from a result** it does not type itself, through its JSON form
 (`engine.export.to_json`): the artefact's `summary`, its `format` and its `entity_counts` (names to
@@ -860,7 +862,10 @@ def _file_stages(
 
 
 def _read_set(
-    files: Sequence[FileReading], targets: Mapping[str, str], built: Mapping[str, bool]
+    files: Sequence[FileReading],
+    targets: Mapping[str, str],
+    built: Mapping[str, bool],
+    conventions: SheetConventions | None,
 ) -> SetOutcome:
     stages = _Stages(targets, progress=None)
     refs = References(files)
@@ -930,7 +935,7 @@ def _read_set(
                 outcome.render_f1.append((m.sheet, float(value)))
 
     if find := stages.open("conflicts", needs("sheets")):
-        ok, result = stages.call("conflicts", find, sheets, views)
+        ok, result = stages.call("conflicts", find, sheets, views, conventions)
         found = _list_of(stages, "conflicts", result, object) if ok else None
         if found is not None and not all(isinstance(c, Conflict | Continuation) for c in found):
             stages.fail("conflicts", "it returned something other than Conflicts and Continuations")
@@ -954,6 +959,7 @@ def _read_set(
             read=frozenset(
                 name for name in ("views", "register", "plot", "conflicts") if not needs(name)
             ),
+            conventions=conventions,
         )
         ok, result = stages.call("checks", run_all, reading)
         results = _list_of(stages, "checks", result, CheckResult) if ok else None
@@ -1003,7 +1009,7 @@ def run(
             )
             for index, relative in enumerate(drawing_files(set_dir))
         ]
-    outcome = _read_set(files, targets, built)
+    outcome = _read_set(files, targets, built, applied.sheet_conventions)
     info = RunInfo(
         id=run_id or str(uuid.uuid7()),
         commit=commit,
