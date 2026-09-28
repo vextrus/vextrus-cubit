@@ -102,3 +102,15 @@ def test_a_stale_allowlist_entry_is_found(owner_cursor: Any) -> None:
     )
 
     assert problems == ["gone_table: on the global allowlist but no such table (stale entry)"]
+
+
+@pytest.mark.django_db(databases=["owner"])
+def test_an_allowlist_entry_without_its_reason_is_found(owner_cursor: Any) -> None:
+    _checked, problems = coverage_problems(
+        owner_cursor,
+        global_tables={**GLOBAL_TABLES, "django_session": " "},
+        index_exceptions={"sample_code_idx": ""},
+    )
+
+    assert "django_session: on the global allowlist without its reason" in problems
+    assert "sample_code_idx: on the index exceptions without its reason" in problems
