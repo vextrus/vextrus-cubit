@@ -1,0 +1,149 @@
+# The backend's CI (the M0 plan, 01a): Python 3.14 against PostgreSQL 18.6, the tests run as
+# vextrus_app, migrations and flushes through the owner alias (vextrus), and every lint and scan.
+# The web has its own workflow (web.yml, 01b); the engine's toolchain job is engine.yml (01c).
+#
+# Required checks are never filtered by path at the workflow level (a skipped workflow leaves a
+# required check waiting): the `changes` job decides, and jobs skip by `if:`. The `ci` job at the end
+# is the one to require. Actions are pinned by commit, with their version in a comment.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  changes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      python: ${{ steps.paths.outputs.python }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: paths
+        name: Does this change touch the backend?
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ "$EVENT" != pull_request ]; then echo python=true >> "$GITHUB_OUTPUT"; exit 0; fi
+          # Only the web, the documents and the harness's prose leave the backend untouched.
+          if git diff --name-only "$BASE"...HEAD | grep -qvE '^(web/|docs/|\.claude/(agents|skills)/|[^/]+\.md$)'; then
+            echo python=true >> "$GITHUB_OUTPUT"
+          else
+            echo python=false >> "$GITHUB_OUTPUT"
+          fi
+
+  markets:
+    # The market-literal scan reads vextrus/, engine/ and web/src/, so it runs on every change.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version-file: .python-version
+      - name: Market-literal scan
+        run: python -m tools.lint.market_literals
+
+  python:
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18.6
+        env:
+          # Throwaway values for this job's container only; never a real secret.
+          POSTGRES_PASSWORD: ci-throwaway-superuser
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://vextrus_app:ci-throwaway-app@127.0.0.1:5432/vextrus
+      DATABASE_OWNER_URL: postgresql://vextrus:ci-throwaway-owner@127.0.0.1:5432/vextrus
+      UV_PYTHON_DOWNLOADS: never
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version-file: .python-version
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.12.5"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - name: Install the locked dependencies, building nothing
+        env:
+          UV_PYTHON: ${{ steps.python.outputs.python-path }}
+        run: uv sync --locked --no-build
+      - name: Create the two roles (scripts/owner/db-roles.sql), with throwaway passwords
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: "5432"
+          PGUSER: postgres
+          PGPASSWORD: ci-throwaway-superuser
+        run: |
+          psql -v ON_ERROR_STOP=1 -d postgres -f scripts/owner/db-roles.sql
+          psql -v ON_ERROR_STOP=1 -d postgres \
+            -c "ALTER ROLE vextrus PASSWORD 'ci-throwaway-owner'" \
+            -c "ALTER ROLE vextrus_app PASSWORD 'ci-throwaway-app'"
+      - name: Ruff
+        run: uv run ruff check . && uv run ruff format --check .
+      - name: Mypy
+        run: uv run mypy
+      - name: Import contracts
+        run: uv run lint-imports
+      - name: Lock sources (the registry only; nothing built)
+        run: uv run python -m tools.lint.lock_sources
+      - name: Migration scan (no uuid7)
+        run: uv run python -m tools.lint.migration_ids
+      - name: One leaf migration per module
+        run: uv run python -m tools.lint.migration_leaves
+      - name: Django's checks
+        run: uv run manage.py check --fail-level WARNING
+      - name: No missing migration
+        run: uv run manage.py makemigrations --check --dry-run
+      - name: Migrate, as the owner
+        run: uv run manage.py migrate
+      - name: Tests, as vextrus_app
+        run: uv run pytest
+      - name: Policy coverage (row-level security on every tenant table)
+        run: uv run pytest vextrus/platform/tests/test_policy_coverage.py
+
+  ci:
+    # The one check to require: green when every job passed or was skipped as not concerned.
+    if: always()
+    needs: [changes, markets, python]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - env:
+          CHANGES: ${{ needs.changes.result }}
+          MARKETS: ${{ needs.markets.result }}
+          PYTHON: ${{ needs.python.result }}
+        run: |
+          echo "changes=$CHANGES markets=$MARKETS python=$PYTHON"
+          [ "$CHANGES" = success ] && [ "$MARKETS" = success ] \
+            && { [ "$PYTHON" = success ] || [ "$PYTHON" = skipped ]; }
