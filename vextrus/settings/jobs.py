@@ -28,6 +28,10 @@ VEXTRUS_CAD_WORKER_MEMORY_BYTES: int | None = None
 VEXTRUS_JOB_TRIES = 3
 # Seconds between tries after a job raised (a constant back-off).
 VEXTRUS_JOB_RETRY_SECONDS = 10
-# A running job whose worker has sent no heartbeat for this long is stalled: the retrier, run every
-# minute, tries it again (a worker's heartbeat is every 10 s by Procrastinate's default).
+# Seconds a stopping worker (Ctrl-C, SIGTERM) lets a running job go on; then the job stops after its
+# current step and is tried again, its completed steps skipped. 0: stop after the current step.
+VEXTRUS_WORKER_STOP_SECONDS = 0
+# A running job whose worker has sent no heartbeat for this long is a candidate: the retrier, run
+# every minute, tries it again once its try's hold on it is gone (the worker died), never while the
+# try lives (a worker's heartbeat is every 10 s by Procrastinate's default, and stops while it stops).
 VEXTRUS_JOB_STALLED_SECONDS = 60

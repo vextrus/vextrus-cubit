@@ -392,15 +392,53 @@ def test_a_cad_job_is_refused_by_any_worker_but_the_cad_queue_s(
 
 
 @pytest.mark.django_db(transaction=True, databases=BOTH)
-def test_the_worker_closes_its_connections_after_each_job(
-    make_developer: Callable[..., uuid.UUID], step_store: sample.TableStepStore
+def test_the_worker_closes_its_connections_after_each_job_and_lets_go_of_it(
+    make_developer: Callable[..., uuid.UUID],
+    step_store: sample.TableStepStore,
+    empty_test_queues: None,
 ) -> None:
     developer = make_developer()
     for _ in range(2):
+        subject = uuid.uuid4()
+        with tenancy.acting_in(developer):
+            job_id = sample.two_steps.defer(subject_id=subject)
+        with connections["owner"].cursor() as cursor:  # as the worker's fetch leaves it
+            cursor.execute("update procrastinate_jobs set status = 'doing' where id = %s", [job_id])
+
         sample.two_steps._run_in_worker(
-            worker_context(), tenant_id=str(developer), subject_id=str(uuid.uuid4())
+            worker_context(job_id), tenant_id=str(developer), subject_id=str(subject)
         )
+
         assert all(c.connection is None for c in connections.all(initialized_only=True))
+        with connections["owner"].cursor() as cursor:  # the try let go: its job may now end
+            cursor.execute(
+                "select pg_try_advisory_xact_lock(%s, %s)", [job_id >> 31, job_id & 0x7FFFFFFF]
+            )
+            assert cursor.fetchone() == (True,)
+        assert set(sample.recorded_steps(subject)) == {"first", "second"}
+
+
+@pytest.mark.django_db(transaction=True, databases=BOTH)
+def test_a_try_waits_its_turn_while_another_try_still_holds_its_job(
+    make_developer: Callable[..., uuid.UUID],
+    step_store: sample.TableStepStore,
+    empty_test_queues: None,
+) -> None:
+    developer = make_developer()
+    subject = uuid.uuid4()
+    with tenancy.acting_in(developer):
+        job_id = sample.two_steps.defer(subject_id=subject)
+    with connections["owner"].cursor() as cursor:
+        cursor.execute("select pg_advisory_lock(%s, %s)", [job_id >> 31, job_id & 0x7FFFFFFF])
+    try:
+        with pytest.raises(jobs.TryStillRunning):
+            sample.two_steps._run_in_worker(
+                worker_context(job_id), tenant_id=str(developer), subject_id=str(subject)
+            )
+    finally:
+        with connections["owner"].cursor() as cursor:
+            cursor.execute("select pg_advisory_unlock(%s, %s)", [job_id >> 31, job_id & 0x7FFFFFFF])
+    assert sample.committed_runs(subject) == []
 
 
 # The steps --------------------------------------------------------------------------------------
@@ -576,9 +614,18 @@ def test_a_step_for_a_user_whose_membership_has_ended_is_refused(
         Membership.objects.filter(id=membership_id).update(revoked_at=timezone.now())
     subject = uuid.uuid4()
 
-    with pytest.raises(jobs.JobRefused, match="no current Membership"):
+    # Refused whether acting_in keeps the tenant for such a user (main) or drops it (07's fix).
+    with pytest.raises(jobs.JobRefused, match="no longer has a current Membership") as refused:
         sample.run_inline(sample.two_steps, tenant_id=developer, user_id=user.pk, subject_id=subject)
     assert sample.committed_runs(subject) == []
+    assert sample.recorded_steps(subject) == {}
+    never_retried = jobs._Retry().get_retry_decision(
+        exception=refused.value,
+        job=procrastinate_jobs.Job(
+            queue=sample.TEST_QUEUE, lock=None, queueing_lock=None, task_name="t"
+        ),
+    )
+    assert never_retried is None
 
 
 @pytest.mark.django_db(transaction=True, databases=BOTH)
@@ -656,7 +703,7 @@ def test_a_stopping_worker_lets_the_running_step_commit_then_stops(
     def reason() -> AbortReason | None:
         return AbortReason.SHUTDOWN if subject in sample.INLINE_CANCELS else None
 
-    with pytest.raises(jobs.Cancelled):
+    with pytest.raises(jobs.Stopped):
         sample.run_inline(sample.two_steps, tenant_id=developer, subject_id=subject, abort_reason=reason)
 
     assert set(sample.recorded_steps(subject)) == {"first"}

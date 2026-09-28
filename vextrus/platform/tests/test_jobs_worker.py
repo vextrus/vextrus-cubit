@@ -20,6 +20,7 @@ from django.conf import settings
 
 from vextrus.platform.services import jobs, tenancy
 from vextrus.testing import jobs as sample
+from vextrus.testing.tenancy import add_member
 
 BOTH = ["default", "owner"]
 pytestmark = [
@@ -163,7 +164,15 @@ def test_a_job_whose_worker_was_killed_is_tried_again_and_resumes_after_its_last
     assert sample.retry_stalled_now() == []  # its heartbeat is still fresh
     make_stale(job_id)
 
-    assert sample.retry_stalled_now() == [job_id]
+    # The dead worker's backend lets go of the job a moment after its process dies.
+    retried: list[int] = []
+
+    def retried_once() -> bool:
+        retried.extend(sample.retry_stalled_now())
+        return bool(retried)
+
+    wait_until(retried_once, "the retry")
+    assert retried == [job_id]
 
     row = sample.job_row(job_id)
     assert (row["status"], row["attempts"]) == ("todo", 1)
@@ -175,6 +184,108 @@ def test_a_job_whose_worker_was_killed_is_tried_again_and_resumes_after_its_last
     output = sample.finish(sample.start_worker([sample.TEST_QUEUE]))
     assert sample.job_row(job_id)["status"] == "succeeded", output
     assert sample.committed_runs(subject) == ["first", "second"]  # first ran once
+
+
+def test_a_running_try_can_be_neither_retried_nor_ended_by_another_and_its_job_finishes(
+    make_developer: Callable[..., uuid.UUID],
+) -> None:
+    developer = make_developer()
+    subject = uuid.uuid4()
+    sample.script(developer, subject, first="retry_self")
+    job_id = defer(sample.two_steps, developer, subject)
+
+    output = sample.finish(sample.start_worker([sample.TEST_QUEUE]))
+
+    row = sample.job_row(job_id)
+    assert (row["status"], row["attempts"]) == ("succeeded", 1), output
+    first = sample.recorded_steps(subject)["first"]
+    assert (first["retry_refused"], first["end_refused"]) == (True, True), output
+    assert sample.committed_runs(subject) == ["first", "second"]
+    with tenancy.acting_in(developer):
+        state = jobs.state(job_id)
+    assert state is not None
+    assert state.status == "done"
+
+
+def test_the_retrier_leaves_a_live_try_alone_however_long_its_worker_is_silent(
+    make_developer: Callable[..., uuid.UUID],
+) -> None:
+    developer = make_developer()
+    subject = uuid.uuid4()
+    sample.script(developer, subject, second="sleep:6")
+    job_id = defer(sample.two_steps, developer, subject)
+    worker = sample.start_worker([sample.TEST_QUEUE], wait=True)
+    try:
+        wait_until(
+            lambda: jobs.Progress(1, 2, "second") in sample.progress_log(subject),
+            "the second step to start",
+        )
+        make_stale(job_id)  # as a worker that stopped beating, or was pruned by another
+
+        assert sample.retry_stalled_now() == []
+
+        assert sample.job_row(job_id)["status"] == "doing"
+        wait_until(lambda: sample.job_row(job_id)["status"] != "doing", "the try to finish")
+    finally:
+        worker.send_signal(signal.SIGTERM)
+        output = sample.finish(worker)
+    row = sample.job_row(job_id)
+    assert (row["status"], row["attempts"]) == ("succeeded", 1), output
+    assert sample.committed_runs(subject) == ["first", "second"]
+
+
+def test_a_stopped_worker_stops_after_the_current_step_and_the_job_resumes_after_it(
+    make_developer: Callable[..., uuid.UUID],
+) -> None:
+    developer = make_developer()
+    subject = uuid.uuid4()
+    sample.script(developer, subject, first="sleep:4")
+    job_id = defer(sample.two_steps, developer, subject)
+    worker = sample.start_worker([sample.TEST_QUEUE], wait=True)
+    try:
+        wait_until(
+            lambda: jobs.Progress(0, 2, "first") in sample.progress_log(subject),
+            "the first step to start",
+        )
+        worker.send_signal(signal.SIGTERM)  # Ctrl-C or a deploy's stop
+        time.sleep(0.5)
+        make_stale(job_id)  # Procrastinate stops the heartbeat while the worker drains
+        assert sample.retry_stalled_now() == []  # the draining try is alive: left alone
+        output = sample.finish(worker)
+    finally:
+        worker.kill()
+
+    row = sample.job_row(job_id)
+    assert (row["status"], row["attempts"]) == ("todo", 1), output
+    assert set(sample.recorded_steps(subject)) == {"first"}  # the current step committed
+    with tenancy.acting_in(developer):
+        state = jobs.state(job_id)
+    assert state is not None
+    assert state.message == {"code": "platform.jobs.retrying", "params": {"attempt": 2, "tries": 3}}
+
+    output = sample.finish(sample.start_worker([sample.TEST_QUEUE]))
+
+    assert sample.job_row(job_id)["status"] == "succeeded", output
+    assert sample.committed_runs(subject) == ["first", "second"]  # first ran once
+
+
+def test_a_job_for_a_user_whose_membership_has_ended_is_refused_once_and_commits_nothing(
+    make_developer: Callable[..., uuid.UUID],
+) -> None:
+    developer = make_developer()
+    user, membership_id = add_member(developer)
+    subject = uuid.uuid4()
+    with tenancy.acting_in(developer, user_id=user.pk):
+        job_id = sample.two_steps.defer(subject_id=subject)
+    _owner("update platform_membership set revoked_at = now() where id = %s", [membership_id])
+
+    output = sample.finish(sample.start_worker([sample.TEST_QUEUE]))
+
+    row = sample.job_row(job_id)
+    assert (row["status"], row["attempts"]) == ("failed", 1), output
+    assert "no longer has a current Membership" in output
+    assert sample.recorded_steps(subject) == {}
+    assert sample.committed_runs(subject) == []
 
 
 def test_a_stalled_job_that_was_cancelled_ends_cancelled_and_one_on_its_last_try_ends_failed(

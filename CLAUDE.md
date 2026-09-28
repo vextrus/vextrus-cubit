@@ -65,7 +65,8 @@ explicit paths (the guard refuses `git add -A`); a hook runs `sync` after each c
 - `VEXTRUS_DEBUG=1 uv run manage.py runserver 127.0.0.1:8000`: the API at `/api/`, the admin at `/admin/`.
 - `uv run manage.py worker`: the job worker on the default queue (it runs the stalled-job retrier);
   `uv run manage.py worker --queue cad`: the CAD queue's, one job at a time under its memory cap. Both
-  refuse to start unless connected as `vextrus_app`.
+  refuse to start unless connected as `vextrus_app`. Stop one with Ctrl-C or SIGTERM: a running job
+  finishes its current step and is tried again later, its completed steps skipped.
 - `uv run pytest`: as `vextrus_app`, on a test database named by the migrations' hash (`-m
   needs_toolchain`, `needs_bwrap` or `live` runs those left out). **Fast check:** `uv run pytest
   vextrus/<module> && uv run mypy && uv run lint-imports`.

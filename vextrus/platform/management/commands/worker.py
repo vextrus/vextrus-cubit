@@ -4,7 +4,8 @@
     uv run manage.py worker --queue cad   # the CAD queue: one job at a time, under its memory cap
 
 It refuses to start unless 02's startup check passes (connected as `vextrus_app`, which row-level
-security binds). Stop it with Ctrl-C or SIGTERM: a running job finishes its step and is tried again.
+security binds). Stop it with Ctrl-C or SIGTERM (a deploy's stop): a running job finishes its current
+step, then stops and waits to be tried again, its completed steps skipped.
 """
 
 from typing import Any

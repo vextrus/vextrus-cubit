@@ -14,7 +14,11 @@
 #     lock and queueing lock that begin with that tenant's id;
 #   - a job's arguments, task, queue and locks never change; an ended job never reopens; its tries
 #     never go back; and while acting in a tenant, only that tenant's jobs change (the worker, acting
-#     in none, fetches, finishes and retries any).
+#     in none, fetches, finishes and retries any);
+#   - a running job is neither ended nor sent back to wait while a try still holds it (the step
+#     runner holds a session advisory lock on the job's id for the try's life, which PostgreSQL
+#     lets go when the worker dies), so a retry never runs one job in two tries at once and a
+#     superseded try never ends the job its successor runs.
 #   The function runs as its caller (not SECURITY DEFINER), so current_user is the app's role; the
 #   owner passes. Like row-level security, it holds the app's code to its tenant: a role that can run
 #   any SQL can also set app.tenant_id.
@@ -96,6 +100,13 @@ JOB_WALL = [
         end if;
         if new.attempts < old.attempts then
           raise exception '{APP} may not take back a job''s tries' using errcode = '42501';
+        end if;
+        -- A running try holds its job (a session advisory lock on the job's id, taken by the
+        -- step runner); while it does, nobody else ends the job or sends it back to wait.
+        if old.status = 'doing' and new.status is distinct from 'doing'
+           and not pg_try_advisory_xact_lock((old.id >> 31)::int, (old.id & 2147483647)::int) then
+          raise exception '{APP} may not end or retry a job while a try is still running it'
+            using errcode = '55P03';
         end if;
         if acting_tenant is not null and (old.args ->> 'tenant_id') is distinct from acting_tenant then
           raise exception '{APP} may change only the jobs of the tenant it acts in'

@@ -291,14 +291,21 @@ def test_a_person_whose_membership_has_ended_neither_reads_nor_keeps_any_file(
         put(key)
         Membership.objects.filter(id=member.membership_id).update(revoked_at=timezone.now())
 
+    planted = f"{member.developer_id}/{PROJECT}/planted.dwg"
+    # Refused whether acting_in keeps the tenant for such a user (main: "missing", as for a Project
+    # the Membership may not open) or drops it (07's fix: no tenant, so no key is theirs).
     with tenancy.acting_in(member.developer_id, user_id=member.user.pk) as acting:
         assert acting.membership is None
-        with pytest.raises(storage.FileMissing):
+        with pytest.raises((storage.FileMissing, storage.KeyRefused)):
             storage.get(key)
+        with pytest.raises((storage.FileMissing, storage.KeyRefused)), storage.local_copy(key):
+            pass
         with pytest.raises(storage.KeyRefused):
-            put(storage.key(PROJECT, "planted.dwg"))
+            put(planted)
     with tenancy.acting_in(member.developer_id):  # the system, for no user, still reads it
         assert storage.get(key) == CONTENT
+        assert not StoredFile.objects.filter(key=planted).exists()
+    assert not (root / str(member.developer_id) / str(PROJECT) / "planted.dwg").exists()
 
 
 @pytest.mark.django_db

@@ -13,7 +13,8 @@ in its own process.
   behaviour a test scripts per subject and step (`script(...)`): `ok`, `fail`, `cancel_self` (the
   step cancels its own job from another connection, then returns), `cancel_inline`,
   `wait_for_cancel`, `hang`, `fork`, `leak` (a session-level tenant setting), `read_owner`,
-  `on_commit`, `supersede` (the retrier tries the job again meanwhile), `vanish` (its row is gone).
+  `on_commit`, `supersede` (the owner tries the job again meanwhile), `vanish` (its row is gone),
+  `sleep:<seconds>` (a long step), `retry_self` (the app tries to retry and end its running job).
 """
 
 import asyncio
@@ -206,6 +207,21 @@ def _act(action: str, run: jobs.Run, subject_id: uuid.UUID, result: jobs.StepRes
             other.execute("select procrastinate_cancel_job_v1(%s, true, false)", [run.job_id])
     elif action == "cancel_inline":
         INLINE_CANCELS.add(subject_id)
+    elif action.startswith("sleep:"):
+        time.sleep(float(action.split(":", 1)[1]))  # a long step that never checks for a stop
+    elif action == "retry_self":
+        # As the retrier and the worker would, from another connection of the app: send this
+        # running job back to wait, and end it. The job wall refuses both while this try lives.
+        for name, sql in (
+            ("retry_refused", "select procrastinate_retry_job_v2(%s, now(), null, null, null)"),
+            ("end_refused", "select procrastinate_finish_job_v1(%s, 'aborted', false)"),
+        ):
+            with psycopg.connect(**connector_params("default"), autocommit=True) as other:
+                try:
+                    other.execute(sql, [run.job_id])
+                    result[name] = False
+                except psycopg.errors.LockNotAvailable:
+                    result[name] = True
     elif action in ("wait_for_cancel", "hang"):
         deadline = time.monotonic() + 60
         while time.monotonic() < deadline:
