@@ -140,7 +140,15 @@ export function JoinPage() {
       ) : stage.at === 'unusable' ? (
         <Unusable />
       ) : stage.at === 'failed' ? (
-        <ProblemBar problem={stage.problem} />
+        // The link is still in the address (the look-up never answered for good): a reload opens it again.
+        <ProblemBar
+          problem={stage.problem}
+          action={
+            <Button onClick={() => window.location.reload()}>
+              <Trans>Try again</Trans>
+            </Button>
+          }
+        />
       ) : (
         <Ready
           invitation={stage.invitation}

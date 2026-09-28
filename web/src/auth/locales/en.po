@@ -141,6 +141,7 @@ msgstr "Opening the invitation…"
 msgid "Your access to {developer} has ended. {revoker} revoked it on {date}. What you did before then is kept under your name."
 msgstr "Your access to {developer} has ended. {revoker} revoked it on {date}. What you did before then is kept under your name."
 
+#: src/auth/Join.tsx
 #: src/auth/problem.tsx
 msgid "Try again"
 msgstr "Try again"
@@ -177,6 +178,10 @@ msgstr "Your access to {developer} was ended on {date}. What you did before then
 msgid "Your access to {developer} ended on {date}. Ask {developer} to renew it."
 msgstr "Your access to {developer} ended on {date}. Ask {developer} to renew it."
 
+#: src/auth/problem.tsx
+msgid "Vextrus could not open this just now. Try again shortly."
+msgstr "Vextrus could not open this just now. Try again shortly."
+
 #: src/auth/Join.tsx
 msgid "You were invited as {as}."
 msgstr "You were invited as {as}."
@@ -197,10 +202,6 @@ msgstr "{role, select, qs {a QS} md {an MD} guest {a Guest} vextrus_engineer {a 
 #: src/auth/problem.tsx
 msgid "Vextrus could not do that just now. Try again in a minute."
 msgstr "Vextrus could not do that just now. Try again in a minute."
-
-#: src/auth/problem.tsx
-msgid "Vextrus could not open this just now. Try again in a minute."
-msgstr "Vextrus could not open this just now. Try again in a minute."
 
 #: src/auth/Join.tsx
 msgid "You were invited as {as} until {date}."

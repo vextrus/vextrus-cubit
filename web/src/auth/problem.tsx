@@ -6,6 +6,7 @@
  *   try { await act() } catch (error) { setProblem(problemOf(error)) }
  *   <ProblemBar problem={problem} />
  */
+import type { ReactNode } from 'react'
 import { Trans } from '@lingui/react/macro'
 import type { I18n } from '@lingui/core'
 import { msg } from '@lingui/core/macro'
@@ -38,10 +39,10 @@ export function ProblemWords({ problem }: { problem: NonNullable<Problem> }) {
   return <Trans>Vextrus could not do that just now. Try again in a minute.</Trans>
 }
 
-export function ProblemBar({ problem, className }: { problem: Problem; className?: string }) {
+export function ProblemBar({ problem, className, action }: { problem: Problem; className?: string; action?: ReactNode }) {
   if (!problem) return null
   return (
-    <ErrorBar className={className}>
+    <ErrorBar className={className} action={action}>
       <ProblemWords problem={problem} />
     </ErrorBar>
   )
@@ -75,7 +76,7 @@ export function LoadProblem({ error, onRetry, className }: { error: unknown; onR
         </Button>
       }
     >
-      <Trans>Vextrus could not open this just now. Try again in a minute.</Trans>
+      <Trans>Vextrus could not open this just now. Try again shortly.</Trans>
     </ErrorBar>
   )
 }

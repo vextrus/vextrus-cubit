@@ -79,8 +79,8 @@ function Head({ children, className }: { children?: ReactNode; className?: strin
 
 function Table({ label, columns, children }: { label: string; columns: readonly [ReactNode, string][]; children: ReactNode }) {
   return (
-    // Fixed columns that fit the page; with a person's acts open beside it the page narrows, and the
-    // table scrolls sideways within its section rather than cutting a column away.
+    // Fixed columns that fit 960 px, the page beside a person's acts at 1440 wide; narrower (1280 with the
+    // acts open) the table scrolls sideways within its section rather than cutting a column away.
     <div className="overflow-x-auto rounded-md border border-border">
       <table aria-label={label} className="w-full min-w-max table-fixed border-collapse bg-paper text-sm">
         <colgroup>
@@ -165,13 +165,13 @@ function PeopleTable({ session, rows, acts }: { session: Session; rows: readonly
     <Table
       label={t`People at ${developer}`}
       columns={[
-        [t`Name`, 'w-[170px]'],
-        [t`Email`, 'w-[240px]'],
-        [t`Role`, 'w-[80px]'],
-        [t`Projects`, 'w-[110px]'],
-        [t`Since`, 'w-[110px]'],
-        [t`Until`, 'w-[200px]'],
-        [<span className="sr-only">{t`Renew or revoke`}</span>, 'w-[200px]'],
+        [t`Name`, 'w-[150px]'],
+        [t`Email`, 'w-[210px]'],
+        [t`Role`, 'w-[70px]'],
+        [t`Projects`, 'w-[100px]'],
+        [t`Since`, 'w-[100px]'],
+        [t`Until`, 'w-[150px]'],
+        [<span className="sr-only">{t`Renew or revoke`}</span>, 'w-[180px]'],
       ]}
     >
       {rows.map((row) => {
@@ -205,13 +205,13 @@ function VextrusTable({ rows, acts, onActs, actsOpen }: { rows: readonly PersonR
     <Table
       label={t`Vextrus access`}
       columns={[
-        [t`Vextrus Engineer`, 'w-[150px]'],
-        [t`Invited by`, 'w-[120px]'],
-        [t`Projects`, 'w-[110px]'],
-        [t`From`, 'w-[100px]'],
-        [t`Until`, 'w-[230px]'],
-        [t`Acts`, 'w-[200px]'],
-        [<span className="sr-only">{t`Renew or revoke`}</span>, 'w-[200px]'],
+        [t`Vextrus Engineer`, 'w-[130px]'],
+        [t`Invited by`, 'w-[110px]'],
+        [t`Projects`, 'w-[100px]'],
+        [t`From`, 'w-[95px]'],
+        [t`Until`, 'w-[170px]'],
+        [t`Acts`, 'w-[175px]'],
+        [<span className="sr-only">{t`Renew or revoke`}</span>, 'w-[180px]'],
       ]}
     >
       {rows.length === 0 ? (
@@ -261,11 +261,11 @@ function InvitationsTable({ rows, acts }: { rows: readonly InvitationRow[]; acts
     <Table
       label={t`Invitations not used yet`}
       columns={[
-        [t`Email`, 'w-[300px]'],
-        [t`Role`, 'w-[140px]'],
-        [t`Projects`, 'w-[160px]'],
-        [t`Link works until`, 'w-[310px]'],
-        [<span className="sr-only">{t`Copy or withdraw`}</span>, 'w-[200px]'],
+        [t`Email`, 'w-[280px]'],
+        [t`Role`, 'w-[130px]'],
+        [t`Projects`, 'w-[140px]'],
+        [t`Link works until`, 'w-[230px]'],
+        [<span className="sr-only">{t`Copy or withdraw`}</span>, 'w-[180px]'],
       ]}
     >
       {rows.length === 0 ? (
