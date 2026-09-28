@@ -231,7 +231,7 @@ Compact is the default (a comfortable 36 px row is a per-user switch later).
 | `--inspector` | 320 px (280–480) | Docked and always present on canvas screens, so selecting never moves the drawing |
 | `--confirm-bar` | 44 px | Floating at the canvas foot |
 | `--tile-min` | 72 px | Project Summary tiles |
-| Spacing | 4 px step | Tailwind's own; 8 px cell padding, 12–16 between groups, 24 between sections |
+| Spacing | 3.25 px step | Tailwind's own, on the page's 13 px root (`html { font-size: var(--fs-sm) }`), so one step is 0.25 rem = 3.25 px: `p-2` 6.5 px cell padding, `gap-4` 13 px between groups, `gap-6` 19.5 px between sections. The owner's ruling (28 Sep 2026, session 03): keep the approved prototype's tighter spacing exactly, rather than a 4 px step |
 | Icons | 14 / 16 / 20 px, 1.5 stroke | Inline / bars / rail |
 
 Canvas at 1440 × 900: 1440 − 48 − 320 = 1072 × 804 px (measured). At 1280 × 800: 912 × 704. The

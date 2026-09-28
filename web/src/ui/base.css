@@ -1,0 +1,123 @@
+/*
+ * The page's base styles and the few component classes the pieces in src/ui/ share. Logical
+ * properties only (docs/design/m0-screens.md §1.8; `npm run lint` checks this file).
+ */
+
+@layer base {
+  html {
+    font-family: var(--font-ui);
+    font-size: var(--fs-sm);
+    line-height: var(--lh-sm);
+    color: var(--foreground);
+    background: var(--background);
+    font-optical-sizing: auto;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    margin: 0;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-weight: var(--weight-semibold);
+  }
+  button {
+    cursor: default;
+  }
+  /* Focus: a 2 px indigo ring outside controls. Never removed, never a glow (system.md §7). */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: var(--radius);
+  }
+}
+
+@layer components {
+  /* Figures: the UI face with tabular lining numerals. Never a mono face. */
+  .num {
+    font-variant-numeric: tabular-nums lining-nums;
+    font-feature-settings:
+      "tnum" 1,
+      "lnum" 1;
+  }
+  .frac {
+    font-feature-settings:
+      "tnum" 1,
+      "frac" 1;
+    font-variant-numeric: diagonal-fractions;
+  }
+  .narrow {
+    font-stretch: var(--stretch-narrow);
+  }
+
+  /* A focus ring drawn inside the element, so a row or a cell can never clip it (system.md §7). */
+  .focus-inset:focus-visible,
+  .focus-inset[data-focus-inset="true"] {
+    outline: 2px solid var(--ring);
+    outline-offset: -2px;
+    border-radius: 0;
+  }
+
+  /* Skeleton bars: a shimmer that stops under reduced motion. */
+  @keyframes vx-shimmer {
+    from {
+      background-position: -200px 0;
+    }
+    to {
+      background-position: 200px 0;
+    }
+  }
+  .skeleton {
+    border-radius: var(--radius-chip);
+    background: linear-gradient(90deg, var(--graphite-100) 0, var(--graphite-50) 50%, var(--graphite-100) 100%);
+    background-size: 400px 100%;
+    animation: vx-shimmer 1.4s linear infinite;
+  }
+
+  /* The indeterminate progress line: a slow sweep along the inline axis, so it runs from the
+     start edge in either direction. Still under reduced motion. */
+  @keyframes vx-sweep {
+    from {
+      inset-inline-start: -30%;
+    }
+    to {
+      inset-inline-start: 100%;
+    }
+  }
+  .progress-sweep {
+    position: absolute;
+    inset-block: 0;
+    inline-size: 30%;
+    background: var(--primary);
+    animation: vx-sweep 1.8s var(--ease) infinite;
+  }
+
+  /* One pulse on arrival, then still. */
+  @keyframes vx-arrive {
+    0% {
+      box-shadow: 0 0 0 0 var(--selection-halo);
+    }
+    60% {
+      box-shadow: 0 0 0 8px transparent;
+    }
+    100% {
+      box-shadow: 0 0 0 0 transparent;
+    }
+  }
+  .arrive {
+    animation: vx-arrive var(--motion-pulse) var(--ease) 1;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .skeleton,
+    .progress-sweep,
+    .arrive {
+      animation: none;
+    }
+    .progress-sweep {
+      inset-inline-start: 0;
+    }
+  }
+}

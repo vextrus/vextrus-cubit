@@ -69,6 +69,14 @@ explicit paths (the guard refuses `git add -A`); a hook runs `sync` after each c
   `lock_sources`); `uv run manage.py makemigrations --check --dry-run`. The OpenAPI schema:
   `uv run manage.py export_openapi_schema --api vextrus.api.api` (never committed).
 
+## Commands (web, from the checkout's root; `npm --prefix web run <script>`)
+- `npm --prefix web ci`, then once `npx --prefix web playwright install chromium`. `dev`: 127.0.0.1:5410,
+  the shared pieces at `/dev/specimen` (`?lang=en-XB`: the test-only right-to-left language).
+- `web.yml`'s checks: `typecheck`, `lint` (the catalogue and logical-CSS lints), `messages:check`, `npm
+  --prefix web test`, `build`; and `lint:design-docs`, its own job. `messages:extract` after adding words; a
+  backend code's English goes in `web/src/messages/<module>/<submodule>/en.po`. API types:
+  `OPENAPI_SCHEMA=<file|URL> npm --prefix web run api:types`.
+
 ## The harness
 - **Hooks** (`.claude/hooks/`): `guard.mjs` refuses secrets printed, staging everything, staging
   `.private/` or drawings, deleting untracked files, history rewrites, skipped hooks, PowerShell and
