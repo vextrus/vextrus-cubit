@@ -33,8 +33,8 @@ def _normalise(expression: str | None) -> str:
     return re.sub(r"[\s()]|::text", "", expression or "").lower()
 
 
-def _policy(name: str, command: str, using: str) -> tuple[str, str, str, str, str]:
-    return (name, command, "PERMISSIVE", _normalise(using), "")
+def _policy(name: str, command: str, using: str) -> tuple[str, str, str, str, str, str]:
+    return (name, command, "PERMISSIVE", "public", _normalise(using), "")
 
 
 EXPECTED = {
@@ -44,7 +44,8 @@ EXPECTED = {
 
 
 def kind_problems(cursor: Any, table: str, kind: str) -> list[str]:
-    """What differs between a table's policies and its kind's, exactly (none added, none missing)."""
+    """What differs between a table's policies and its kind's, exactly: none added, none missing,
+    whatever its role (a policy granted to `vextrus_app` alone widens as much as one to public)."""
     cursor.execute(
         """
         select policyname, cmd, permissive, qual, with_check, roles::text[] from pg_policies
@@ -53,9 +54,8 @@ def kind_problems(cursor: Any, table: str, kind: str) -> list[str]:
         [table],
     )
     found = {
-        (name, command, permissive, _normalise(qual), _normalise(check))
+        (name, command, permissive, ",".join(roles), _normalise(qual), _normalise(check))
         for name, command, permissive, qual, check, roles in cursor.fetchall()
-        if roles == ["public"]
     }
     return [f"{table}: missing {policy}" for policy in sorted(EXPECTED[kind] - found)] + [
         f"{table}: unexpected {policy}" for policy in sorted(found - EXPECTED[kind])
@@ -196,3 +196,22 @@ def test_a_t_table_given_a_library_widening_fails_its_kind(owner_cursor: Any) ->
     assert kind_problems(owner_cursor, table, "T") == [
         f"{table}: unexpected {_policy('library_reads', 'SELECT', LIBRARY)}"
     ]
+
+
+@pytest.mark.django_db(databases=["owner"])
+@pytest.mark.parametrize(
+    "widening",
+    [
+        "create policy app_all on {table} to vextrus_app using (true) with check (true)",
+        "create policy app_inserts on {table} for insert to vextrus_app with check (true)",
+        "create policy everyone on {table} using (true) with check (true)",
+    ],
+)
+def test_a_widening_granted_to_any_role_fails_its_kind(owner_cursor: Any, widening: str) -> None:
+    table = "live_model_element"
+    owner_cursor.execute(widening.format(table=table))
+
+    problems = kind_problems(owner_cursor, table, "T")
+
+    assert len(problems) == 1
+    assert problems[0].startswith(f"{table}: unexpected (")
