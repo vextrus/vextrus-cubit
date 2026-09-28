@@ -1,0 +1,14 @@
+#!/bin/bash
+# The real-drawing check, regression only (the M0 plan, "The real-drawing check"; ADRs 0026 and 0030):
+#
+#   scripts/real-drawings <PR number | branch | main> [--no-post]
+#
+# The owner runs a PR's posting run from the checkout of main; a local session tunes with --no-post on
+# its own branch. The code is scripts/real_drawings/ (standard library only), run on the toolchain's
+# Python under /opt/vextrus, never a checkout's .venv.
+set -euo pipefail
+root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+pin=$(tr -d '[:space:]' < "$root/toolchain/python.version")
+python=/opt/vextrus/python/cpython-$pin-linux-x86_64-gnu/bin/python3
+cd "$root"
+exec "$python" -E -s -m scripts.real_drawings "$@"
