@@ -4,11 +4,15 @@ docs/data-model.md §3.0; the M0 plan, 02)."""
 
 import uuid
 from collections.abc import Callable
+from datetime import timedelta
+from typing import Any
 
 import pytest
 from django.contrib import admin
+from django.core.management import call_command
 from django.db import connections
 from django.test import Client, RequestFactory
+from django.utils import timezone
 
 from vextrus.platform.messages import tenancy as acts
 from vextrus.platform.models import Developer, DomainEvent, Membership, User
@@ -238,3 +242,88 @@ def test_vextrus_app_has_no_right_on_the_admin_log() -> None:
     with connections["default"].cursor() as cursor:
         cursor.execute("select has_table_privilege('vextrus_app', 'django_admin_log', 'SELECT,INSERT')")
         assert cursor.fetchone() == (False,)
+
+
+@pytest.mark.django_db
+def test_staff_cannot_rename_the_developer_they_act_in(staff_client: Client, shapla: uuid.UUID) -> None:
+    pick(staff_client, shapla)
+
+    shown = staff_client.get(f"/admin/platform/developer/{shapla}/change/")
+    response = staff_client.post(f"/admin/platform/developer/{shapla}/change/", {"name": "Renamed Ltd"})
+
+    assert shown.status_code == 200
+    assert response.status_code == 403
+    with tenancy.acting_in(shapla):
+        assert Developer.objects.get().name == "Shapla Homes Ltd"
+
+
+def invite(staff: User, developer: uuid.UUID, email: str) -> tenancy.Invitation:
+    with tenancy.acting_in(developer, user_id=staff.pk):
+        return tenancy.invite_first_md(email, invited_by=staff)
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("lapse", ["link expired", "withdrawn"])
+def test_a_lapsed_first_invitation_may_be_issued_again_and_the_md_sees_it(
+    staff_client: Client, staff: User, shapla: uuid.UUID, lapse: str
+) -> None:
+    first = invite(staff, shapla, "kamal@shapla-homes.example")
+    change: dict[str, Any] = (
+        {"invite_expires_at": timezone.now() - timedelta(seconds=1)}
+        if lapse == "link expired"
+        else {"revoked_at": timezone.now()}
+    )
+    with tenancy.acting_in(shapla):
+        Membership.objects.filter(id=first.membership_id).update(**change)
+    pick(staff_client, shapla)
+
+    response = staff_client.post(
+        "/admin/platform/membership/add/", {"invited_email": "kamal@shapla-homes.example"}
+    )
+
+    assert response.status_code == 302
+    with tenancy.acting_in(shapla):
+        assert Membership.objects.count() == 2
+    assert [kind for kind, _ in events_in(shapla)][-1] == acts.FIRST_MD_REISSUED.code
+
+
+@pytest.mark.django_db
+def test_a_pending_first_invitation_or_a_current_md_blocks_another(
+    staff: User, shapla: uuid.UUID, meghna: uuid.UUID
+) -> None:
+    invite(staff, shapla, "kamal@shapla-homes.example")
+    add_member(meghna, role="md")
+
+    for developer in (shapla, meghna):
+        with pytest.raises(tenancy.FirstInvitationRefused) as refused:
+            invite(staff, developer, "someone@example.com")
+        assert refused.value.reason == "not_first"
+
+
+@pytest.mark.django_db
+def test_a_developer_whose_every_membership_has_ended_may_have_its_first_md_invited_again(
+    staff: User, shapla: uuid.UUID
+) -> None:
+    _user, membership = add_member(shapla, role="md")
+    with tenancy.acting_in(shapla):
+        Membership.objects.filter(id=membership).update(expires_at=timezone.now())
+
+    invite(staff, shapla, "kamal@shapla-homes.example")
+
+    assert [kind for kind, _ in events_in(shapla)][-1] == acts.FIRST_MD_REISSUED.code
+
+
+@pytest.mark.django_db(databases=["owner"])
+def test_the_staff_flag_changes_only_through_the_owner_s_command(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    users = User.objects.db_manager("owner")
+    made = users.create_user("arif@vextrus.example", "Arif Rahman")
+
+    call_command("set_staff", "ARIF@vextrus.example")
+    promoted = users.get(id=made.pk).is_vextrus_staff
+    call_command("set_staff", "arif@vextrus.example", "--off")
+
+    assert promoted is True
+    assert users.get(id=made.pk).is_vextrus_staff is False
+    assert "arif@vextrus.example: not staff" in capsys.readouterr().out

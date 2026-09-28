@@ -13,7 +13,8 @@
 # - vextrus_app gets SELECT, INSERT, UPDATE and DELETE on every table, now and (by default
 #   privileges) on every table the owner makes later; never TRUNCATE. It has no rights on
 #   django_admin_log (the admin's LogEntry writes are off), cannot write django_migrations or the
-#   Markets, and cannot update or delete a DomainEvent (append-only).
+#   Markets, cannot update or delete a DomainEvent (append-only), and updates a user's name, phone,
+#   password and last sign-in only, never the staff flag or is_active.
 
 from django.conf import settings
 from django.db import migrations
@@ -140,6 +141,10 @@ GRANTS = [
     f"revoke insert, update, delete on django_migrations from {APP}",
     f"revoke insert, update, delete on platform_market from {APP}",
     f"revoke update, delete on platform_domainevent from {APP}",
+    # A user's staff flag and whether they may sign in change only through the owner
+    # (manage.py set_staff): the app updates only what a person and sign-in change.
+    f"revoke update on platform_user from {APP}",
+    f"grant update (name, phone, password, last_login) on platform_user to {APP}",
 ]
 GRANTS_REVERSE = [
     f"alter default privileges in schema public revoke usage, select on sequences from {APP}",

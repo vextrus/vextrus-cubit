@@ -13,6 +13,7 @@ import pytest
 from django.core.management import call_command
 from django.db import DatabaseError, connections, transaction
 
+from vextrus.platform.models import User
 from vextrus.platform.services.markets import MarketProfile
 from vextrus.platform.tests.policy_coverage import coverage_problems
 from vextrus.testing.tenancy import add_member
@@ -253,3 +254,26 @@ def test_after_a_flush_the_market_and_its_library_come_back(market: MarketProfil
 
     with connections["default"].cursor() as cursor:
         assert rows(cursor, "select code from platform_market") == [(market.code,)]
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("column", ["is_vextrus_staff", "is_active"])
+def test_the_app_cannot_make_anyone_staff_nor_revive_a_user(cursor: Any, column: str) -> None:
+    user = User.objects.create_user("nusrat@shapla-homes.example", "Nusrat Jahan")
+    act(cursor, user=user.pk)
+
+    error = refused(cursor, f"update platform_user set {column} = true where id = %s", [user.pk])
+
+    assert "permission denied for table platform_user" in error
+
+
+@pytest.mark.django_db
+def test_the_app_may_still_sign_a_user_in_and_rename_them(cursor: Any) -> None:
+    user = User.objects.create_user("nusrat@shapla-homes.example", "Nusrat Jahan")
+
+    user.set_password("a new long password 1")
+    user.save(update_fields=["password"])
+    User.objects.filter(id=user.pk).update(name="Nusrat J.", phone="01700000000")
+    cursor.execute("update platform_user set last_login = now() where id = %s", [user.pk])
+
+    assert User.objects.get(id=user.pk).name == "Nusrat J."

@@ -12,5 +12,8 @@ msgstr "{actor} of Vextrus created this Developer"
 msgid "platform.tenancy.first_md_invited"
 msgstr "{actor} of Vextrus invited the first MD"
 
+msgid "platform.tenancy.first_md_reissued"
+msgstr "{actor} of Vextrus invited a first MD again, after the last invitation lapsed"
+
 msgid "platform.tenancy.staff_opened"
 msgstr "{actor} of Vextrus opened this Developer in the admin"

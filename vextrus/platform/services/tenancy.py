@@ -26,6 +26,7 @@ from django.conf import settings
 from django.contrib.sessions.backends.base import SessionBase
 from django.core.exceptions import PermissionDenied
 from django.db import connection, transaction
+from django.db.models import Q
 from django.http import HttpRequest
 from django.urls import reverse
 from django.utils import timezone
@@ -321,7 +322,8 @@ class FirstInvitationRefused(PermissionDenied):
     """Staff may create only a Developer's first MD invitation, and never for one of Vextrus.
 
     `reason`: `no_developer` (none is picked), `staff` (the email is one of Vextrus's staff, the
-    inviter's own among them) or `not_first` (the Developer has a Membership or an invitation).
+    inviter's own among them) or `not_first` (the Developer has a current Membership or a pending
+    invitation: one lapsed or withdrawn does not count).
     """
 
     def __init__(self, reason: str) -> None:
@@ -394,14 +396,26 @@ def first_md_refusal(email: str, *, invited_by: User) -> FirstInvitationRefused 
         or User.objects.filter(email__iexact=email.strip(), is_vextrus_staff=True).exists()
     ):
         return FirstInvitationRefused("staff")
-    if Membership.objects.filter(tenant_id=tenant_id).exists():
+    if has_live_membership(tenant_id):
         return FirstInvitationRefused("not_first")
     return None
 
 
+def has_live_membership(tenant_id: uuid.UUID) -> bool:
+    """Whether the Developer has a Membership not ended (revoked or expired), or an invitation
+    still pending (not withdrawn, its link not expired). Only then may staff not invite its MD."""
+    now = timezone.now()
+    current = Q(user__isnull=False, revoked_at__isnull=True) & (
+        Q(expires_at__isnull=True) | Q(expires_at__gt=now)
+    )
+    pending = Q(user__isnull=True, revoked_at__isnull=True, invite_expires_at__gt=now)
+    return Membership.objects.filter(Q(tenant_id=tenant_id) & (current | pending)).exists()
+
+
 def invite_first_md(email: str, *, invited_by: User) -> Invitation:
     """Staff's one Membership act: the acting Developer's first MD invitation, while it has no
-    Membership at all, and never for a member of Vextrus's staff (ADR 0034)."""
+    current Membership nor pending invitation, and never for a member of Vextrus's staff (ADR
+    0034). Issued again after an earlier one lapsed, it is recorded as a reissue."""
     tenant_id = current_tenant_id()
     if tenant_id is not None:
         # Holding the Developer's row serialises two first invitations made at once.
@@ -410,6 +424,7 @@ def invite_first_md(email: str, *, invited_by: User) -> Invitation:
     if refused is not None:
         raise refused
     assert tenant_id is not None
+    reissued = Membership.objects.filter(tenant_id=tenant_id).exists()
     email = User.objects.normalize_email(email.strip())
     token, token_hash = new_invitation_token(tenant_id)
     membership = Membership.objects.create(
@@ -421,7 +436,7 @@ def invite_first_md(email: str, *, invited_by: User) -> Invitation:
         invite_expires_at=timezone.now() + timedelta(days=settings.VEXTRUS_INVITATION_DAYS),
     )
     events.record(
-        acts.FIRST_MD_INVITED,
+        acts.FIRST_MD_REISSUED if reissued else acts.FIRST_MD_INVITED,
         subject_type="membership",
         subject_id=membership.id,
         actor_user_id=invited_by.pk,

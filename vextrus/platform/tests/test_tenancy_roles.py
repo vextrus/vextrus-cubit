@@ -118,6 +118,8 @@ NARROWER = {
     "django_migrations": {"SELECT"},  # only the owner migrates
     "platform_market": {"SELECT"},  # Markets are the owner's data
     "platform_domainevent": {"SELECT", "INSERT"},  # append-only
+    # UPDATE only on the columns the app may change (below): never the staff flag.
+    "platform_user": {"SELECT", "INSERT", "DELETE"},
 }
 
 
@@ -136,3 +138,30 @@ def test_a_table_the_owner_makes_later_gets_the_app_s_rights_but_never_truncate(
         cursor.execute("create table later_sample (id uuid primary key, tenant_id uuid not null)")
 
         assert privileges(cursor, "later_sample") == {"SELECT", "INSERT", "UPDATE", "DELETE"}
+
+
+USER_COLUMNS = (
+    "id",
+    "password",
+    "last_login",
+    "email",
+    "name",
+    "phone",
+    "is_vextrus_staff",
+    "is_active",
+)
+
+
+@pytest.mark.django_db
+def test_vextrus_app_may_update_only_a_user_s_name_phone_password_and_last_sign_in() -> None:
+    with connections["default"].cursor() as cursor:
+        updatable = set()
+        for column in USER_COLUMNS:
+            cursor.execute(
+                "select has_column_privilege('vextrus_app', 'public.platform_user', %s, 'UPDATE')",
+                [column],
+            )
+            if cursor.fetchone()[0]:
+                updatable.add(column)
+
+    assert updatable == {"name", "phone", "password", "last_login"}

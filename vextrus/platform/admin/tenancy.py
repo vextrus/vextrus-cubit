@@ -100,27 +100,29 @@ class DeveloperForm(forms.ModelForm):  # type: ignore[type-arg]
 
 @admin.register(Developer)
 class DeveloperAdmin(TenantModelAdmin):
-    """The list is the pick; a Developer's page shows only the one staff act in."""
+    """The list is the pick; a Developer's page shows only the one staff act in, read-only (a
+    rename would be a domain act with no event: M0 has none)."""
 
     form = DeveloperForm
+
+    def has_change_permission(self, request: HttpRequest, obj: Model | None = None) -> bool:
+        return False
 
     def get_fields(self, request: HttpRequest, obj: Model | None = None) -> Any:
         return ["name", "market", "home_region"] if obj is None else ["name"]
 
     def get_readonly_fields(self, request: HttpRequest, obj: Model | None = None) -> list[str]:
-        return [] if obj is None else ["market", "home_region", "created_at"]
+        return [] if obj is None else ["name", "market", "home_region", "created_at"]
 
     def get_fieldsets(self, request: HttpRequest, obj: Model | None = None) -> Any:
-        fields = self.get_fields(request, obj) + list(self.get_readonly_fields(request, obj))
-        return [(None, {"fields": fields})]
+        if obj is not None:
+            return [(None, {"fields": self.get_readonly_fields(request, obj)})]
+        return [(None, {"fields": self.get_fields(request, obj)})]
 
     def get_queryset(self, request: HttpRequest) -> QuerySet[Developer]:
         return super().get_queryset(request).filter(is_library=False)
 
     def save_model(self, request: HttpRequest, obj: Developer, form: ModelForm, change: bool) -> None:  # type: ignore[type-arg]
-        if change:
-            obj.save(update_fields=["name"])
-            return
         developer_id = tenancy.create_developer(
             obj.name,
             obj.market_id,
@@ -201,14 +203,16 @@ REFUSALS = {
         "by a Developer's own invitation."
     ),
     "not_first": lambda: _(
-        "This Developer already has its first invitation. Its MD invites everyone else."
+        "This Developer already has a current Membership or a pending invitation. Its MD invites "
+        "everyone else."
     ),
 }
 
 
 @admin.register(Membership)
 class MembershipAdmin(TenantModelAdmin):
-    """The acting Developer's Memberships, read-only; staff add only its first MD invitation."""
+    """The acting Developer's Memberships, read-only; staff add only its first MD invitation (again,
+    once every Membership and invitation it had has ended)."""
 
     form = FirstInvitationForm
     list_display = ("role", "user", "invited_email", "accepted_at", "expires_at", "revoked_at")
@@ -225,7 +229,7 @@ class MembershipAdmin(TenantModelAdmin):
         return (
             super().has_add_permission(request)
             and tenant_id is not None
-            and not Membership.objects.filter(tenant_id=tenant_id).exists()
+            and not tenancy.has_live_membership(tenant_id)
         )
 
     def has_change_permission(self, request: HttpRequest, obj: Model | None = None) -> bool:
