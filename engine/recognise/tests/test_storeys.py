@@ -83,6 +83,23 @@ def test_a_title_reads_its_storeys_as_an_explicit_list(
     assert found.below_ground is False
 
 
+@pytest.mark.parametrize(
+    ("title", "keys"),
+    [
+        ("MAT FOUNDATION LAYOUT PLAN", ("foundation",)),
+        ("RAFT REINFORCEMENT DETAILS", ("foundation",)),
+        ("GROUND BEAM LAYOUT", ("plinth",)),
+        ("LGF PARKING PLAN", ("lower_ground",)),
+        ("MUMTY SLAB DETAILS", ("stair_room_roof",)),
+        ("PUMP MACHINE ROOM DETAILS", ()),
+    ],
+)
+def test_the_words_a_dhaka_qs_reviewed_name_their_storeys(title: str, keys: tuple[str, ...]) -> None:
+    """The QS critic's review of the default words (13's PR): mat and raft name the foundation, a
+    pump's machine room is no lift machine room."""
+    assert read(title, plan_title=False).keys == keys
+
+
 def test_the_keys_run_low_to_high() -> None:
     found = read("7TH FLOOR, GROUND, BASEMENT & ROOF")
 
