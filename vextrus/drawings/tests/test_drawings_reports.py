@@ -60,10 +60,23 @@ def test_a_dwg_says_what_became_of_a_pdf_with_no_page_for_it(qs_project: QsProje
         plot = services.report(dwg.id).plot
 
     assert plot == (
-        said.PLOT_REFUSED(plot_file="KR-ARC-scan.pdf"),
+        said.PLOT_REFUSED_UNUSED(plot_file="KR-ARC-scan.pdf"),  # another is being read
         said.PLOT_UNREAD(plot_file="KR-ARC-R0.pdf"),
         said.PLOT_READING(plot_file="KR-ARC-R1.pdf"),
     )
+
+
+def test_a_refused_pdf_with_nothing_beside_it_asks_for_one_plotted_from_autocad(
+    qs_project: QsProject,
+) -> None:
+    member = qs_project.member
+    dwg = add(member, qs_project.project_id, "KR-ARC-R0.dwg", drawing()).file
+    read_dwg(member, dwg.id, ["A-01"])
+    a_pdf(qs_project, "KR-ARC-scan.pdf", 1, refused=True)
+    with member.acting():
+        plot = services.report(dwg.id).plot
+
+    assert plot == (said.PLOT_REFUSED(plot_file="KR-ARC-scan.pdf"),)
 
 
 def test_a_pdf_waits_for_a_dwg_of_its_discipline_then_says_what_matched(qs_project: QsProject) -> None:

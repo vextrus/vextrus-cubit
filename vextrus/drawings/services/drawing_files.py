@@ -7,8 +7,8 @@
     drawings.services.restart(file_id)                # only a failed or cancelled reading, once
 
 **Adding a file** (`add_file`): a file is known by its contents. Its first bytes say what it is (a
-DWG, a PDF, a zip), never its name or the type the browser gave; anything else, an empty file among
-them, is refused, and so is a file over the limit (`VEXTRUS_UPLOAD_MAX_BYTES`); a refusal keeps
+DWG, a PDF, a zip), never its name or the type the browser gave; anything else is refused (an empty
+file in words of its own), and so is a file over the limit (`VEXTRUS_UPLOAD_MAX_BYTES`); a refusal keeps
 nothing, no row, no StoredFile and no file. Its name is the QS's label for it and nothing more: path
 pieces, control and direction characters are taken out and it is never a path or a storage key (the
 original's key names the contents' sha256). The same contents added to the set again add nothing

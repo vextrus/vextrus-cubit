@@ -35,7 +35,7 @@ REPLACED_READING = MessageCode("drawings.uploads.replaced_reading", params=("fil
 EMPTY = MessageCode("drawings.uploads.empty", params=("file",))
 """A file of no bytes (a cloud-sync placeholder, say) (400)."""
 NOT_A_DRAWING = MessageCode("drawings.uploads.not_a_drawing", params=("file",))
-"""Not a DWG or a PDF by its first bytes (an empty file among them) (415)."""
+"""Not a DWG or a PDF by its first bytes (415); an empty file is EMPTY."""
 ZIP = MessageCode("drawings.uploads.zip", params=("file",))
 """A zip (415)."""
 TOO_LARGE = MessageCode("drawings.uploads.too_large", params=("file", "megabytes"))

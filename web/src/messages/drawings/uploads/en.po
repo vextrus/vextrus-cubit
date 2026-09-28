@@ -7,7 +7,6 @@ msgstr ""
 "Language: en\n"
 
 #. vextrus/drawings/messages/uploads.py (ticket 14): what adding a file answers, in m0-screens 4.5's toast words.
-
 msgid "drawings.uploads.already_here"
 msgstr "{file} is already in this Drawing Set (added {added_date} by {actor}{vextrus, select, yes { (Vextrus)} other {}}). Nothing was added."
 

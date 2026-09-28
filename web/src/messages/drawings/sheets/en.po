@@ -7,7 +7,6 @@ msgstr ""
 "Language: en\n"
 
 #. vextrus/drawings/messages/sheets.py (ticket 14): why a sheet has no Plot (m0-screens 4.6), and refusals of a decision about a sheet or a view.
-
 msgid "drawings.sheets.kind_unknown"
 msgstr "That kind of sheet or view is not one Vextrus offers, so nothing was changed. Choose one from the list."
 
@@ -33,7 +32,7 @@ msgid "drawings.sheets.plot_pdf_refused"
 msgstr "No Plot for this sheet: its PDF was a scan and was refused."
 
 msgid "drawings.sheets.plot_pdf_unread"
-msgstr "No Plot for this sheet: its PDF could not be read. Its row on the Drawing Set page says why."
+msgstr "No Plot for this sheet: its PDF was not read. Its row on the Drawing Set page says why."
 
 msgid "drawings.sheets.reason_unknown"
 msgstr "That reason is not one Vextrus offers, so nothing was changed. Choose one from the list."

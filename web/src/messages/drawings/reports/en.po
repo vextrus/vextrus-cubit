@@ -7,7 +7,6 @@ msgstr ""
 "Language: en\n"
 
 #. vextrus/drawings/messages/reports.py (ticket 14): a file's report panel, in m0-screens 4.5's words.
-
 msgid "drawings.reports.empty_layouts"
 msgstr "{layouts, plural, one {# layout tab shows nothing, so it is not a sheet.} other {# layout tabs show nothing, so they are not sheets.}}"
 
@@ -51,7 +50,7 @@ msgid "drawings.reports.plot_refused_unused"
 msgstr "{plot_file} was a scan, so it was refused and is not used."
 
 msgid "drawings.reports.plot_unread"
-msgstr "{plot_file} could not be read. Its row says why."
+msgstr "{plot_file} was not read. Its row says why."
 
 msgid "drawings.reports.readers_agree"
 msgstr "✓ Read twice, by two independent readers, and they agree. Nothing in the file was skipped."

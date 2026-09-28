@@ -30,11 +30,11 @@ PLOT_NONE_MATCHED = MessageCode("drawings.reports.plot_none_matched", params=("p
 PLOT_REFUSED = MessageCode("drawings.reports.plot_refused", params=("plot_file",))
 """A PDF of this file's Discipline was a scan, and was refused (and no other has pages for it)."""
 PLOT_REFUSED_UNUSED = MessageCode("drawings.reports.plot_refused_unused", params=("plot_file",))
-"""As PLOT_REFUSED, when another PDF has pages for these sheets."""
+"""As PLOT_REFUSED, when another PDF has pages for these sheets or is being read."""
 PLOT_READING = MessageCode("drawings.reports.plot_reading", params=("plot_file",))
 """A PDF of this file's Discipline is waiting or being read."""
 PLOT_UNREAD = MessageCode("drawings.reports.plot_unread", params=("plot_file",))
-"""A PDF of this file's Discipline could not be read (failed, cancelled or held)."""
+"""A PDF of this file's Discipline was not read (it failed, was cancelled or is held)."""
 NO_PLOT = MessageCode("drawings.reports.no_plot")
 """No PDF was added for these sheets."""
 

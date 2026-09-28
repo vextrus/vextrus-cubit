@@ -7,7 +7,6 @@ msgstr ""
 "Language: en\n"
 
 #. vextrus/drawings/messages/reads.py (ticket 14): what reading a file handed over but Vextrus would not keep. A fault on Vextrus's side, never the QS's.
-
 msgid "drawings.reads.bad_render"
 msgstr "Vextrus could not keep its drawing of a sheet of {file}: it was not complete. This is a fault on Vextrus's side, not in your file. Mark it for Vextrus."
 

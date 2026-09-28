@@ -19,10 +19,10 @@ PLOT_NOT_YET = MessageCode("drawings.sheets.plot_not_yet")
 """A PDF of its Discipline (or of none) is waiting or being read. Without a Plot recorded, a sheet's
 line is worked out from its set's PDFs as they stand: one of its Discipline or of none being read,
 PLOT_NOT_YET; else one read, PLOT_NO_PAGE (none of its pages matched the sheet); else one of its
-Discipline that could not be read, PLOT_PDF_UNREAD; else only refused ones of its Discipline,
+Discipline that was not read, PLOT_PDF_UNREAD; else only refused ones of its Discipline,
 PLOT_PDF_REFUSED; else PLOT_NO_PDF. A sheet of no Discipline counts every PDF as its own."""
 PLOT_PDF_UNREAD = MessageCode("drawings.sheets.plot_pdf_unread")
-"""Its Discipline's PDFs there could not be read (failed, cancelled or held)."""
+"""Its Discipline's PDFs there were not read (they failed, were cancelled or are held)."""
 
 # Refusals ----------------------------------------------------------------------------------------
 
