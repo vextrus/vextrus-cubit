@@ -3,7 +3,7 @@
  * user belongs (never a blank page); `?next=` is the address to come back to, checked when followed.
  */
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { SignInPage, gateHref, RouteError } from '@/auth'
+import { SignInPage, gateHref, OutsideRouteError } from '@/auth'
 import { meQuery } from '@/app/session'
 
 export const Route = createFileRoute('/(auth)/sign-in')({
@@ -14,5 +14,5 @@ export const Route = createFileRoute('/(auth)/sign-in')({
     if (me) throw redirect({ href: gateHref(me, search.next) })
   },
   component: SignInPage,
-  errorComponent: RouteError,
+  errorComponent: OutsideRouteError,
 })

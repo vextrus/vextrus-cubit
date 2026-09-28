@@ -400,7 +400,7 @@ function FormsSection() {
     <Section id="forms" title={<Trans>Form fields</Trans>} note={<Trans>A label above, a hint under; refused, a red edge and the line saying what to do. No browser bubbles: a missing value is said under its field.</Trans>}>
       <Row top label={<Trans>Text field</Trans>}>
         <div className="grid w-full grid-cols-2 gap-4">
-          <TextField label={t`Email`} type="email" value={email} onChange={(event) => setEmail(event.currentTarget.value)} hint={t`The address the invitation is for.`} />
+          <TextField label={t`Email`} type="email" value={email} onChange={(event) => setEmail(event.currentTarget.value)} hint={t`The email the invitation is for.`} />
           <TextField label={t`Code`} defaultValue={Data.PROJECT_CODE} hint={t`Short, like KR-01`} fieldClassName="max-w-[160px]" />
           <TextField label={t`Name`} defaultValue="" error={t`Give the project a name.`} />
           <TextField label={t`Access ends on`} defaultValue={Data.UNTIL} after={<span className="text-xs text-muted-foreground">{t`(30 days)`}</span>} fieldClassName="max-w-[160px]" />

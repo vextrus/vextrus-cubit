@@ -425,7 +425,7 @@ describe('the invite dialog (§4.4)', () => {
       await userEvent.click(within(dialog).getByRole('button', { name: 'Create link' }))
       await within(dialog).findByText(/^Copy this link/)
       await userEvent.click(within(dialog).getByRole('button', { name: 'Copy link' }))
-      expect(await within(dialog).findByText('Your browser did not let Vextrus copy it. The link is selected above: copy it from there.')).toBeVisible()
+      expect(await within(dialog).findByText('Your browser did not let Vextrus copy it. The link is selected above; press Ctrl C to copy it.')).toBeVisible()
       const link = within(dialog).getByRole('textbox', { name: 'The invitation link' }) as HTMLInputElement
       expect(document.activeElement).toBe(link)
       expect(link.selectionStart).toBe(0)
@@ -436,21 +436,21 @@ describe('the invite dialog (§4.4)', () => {
     }
   })
 
-  it('never throws typed text away on Esc without asking; Keep typing returns, Discard closes', async () => {
+  it('never throws typed text away on Esc without asking; Keep editing returns, Discard closes', async () => {
     await members(PEOPLE.md)
     const dialog = await openInvite()
     await userEvent.type(within(dialog).getByLabelText('Email'), 'someone@example.com')
     await userEvent.keyboard('{Escape}')
-    expect(await within(dialog).findByText('Close without saving what you typed?')).toBeVisible()
+    expect(await within(dialog).findByText('Close without saving what you entered?')).toBeVisible()
     expect(screen.getByRole('dialog', { name: named(/^Invite someone to /) })).toBeVisible()
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Keep typing' }))
-    expect(within(dialog).queryByText('Close without saving what you typed?')).toBeNull()
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Keep editing' }))
+    expect(within(dialog).queryByText('Close without saving what you entered?')).toBeNull()
     expect(within(dialog).getByLabelText('Email')).toHaveValue('someone@example.com')
-    // Esc asks again; Esc once more is "Keep typing".
+    // Esc asks again; Esc once more is "Keep editing".
     await userEvent.keyboard('{Escape}')
-    await within(dialog).findByText('Close without saving what you typed?')
+    await within(dialog).findByText('Close without saving what you entered?')
     await userEvent.keyboard('{Escape}')
-    await waitFor(() => expect(within(dialog).queryByText('Close without saving what you typed?')).toBeNull())
+    await waitFor(() => expect(within(dialog).queryByText('Close without saving what you entered?')).toBeNull())
     expect(screen.getByRole('dialog')).toBeVisible()
     await userEvent.keyboard('{Escape}')
     await userEvent.click(await within(dialog).findByRole('button', { name: 'Discard' }))
@@ -514,14 +514,14 @@ describe('the acts on a row (§4.4, "Wording of acts")', () => {
     await waitFor(() => expect(within(table(/^Invitations not used yet$/)).getByText('No invitations are waiting to be used.')).toBeVisible())
   })
 
-  it('Copy link on an invitation makes a new link, shown with "The link made before no longer works."', async () => {
+  it('Copy link on an invitation makes a new link, shown with "The link sent before no longer works."', async () => {
     const api = new FakeApi()
     const before = api.tokenFor('rumana@shapla-homes.example')
     await members(PEOPLE.md, api)
     await userEvent.click(within(row(/^Invitations not used yet$/, 'rumana@shapla-homes.example')).getByRole('button', { name: 'Copy link' }))
-    const dialog = await screen.findByRole('dialog', { name: 'Copy link' })
+    const dialog = await screen.findByRole('dialog', { name: (n) => clean(n) === 'New link for rumana@shapla-homes.example' })
     expect(text(within(dialog).getByText(/^Copy this link/))).toBe(
-      'Copy this link and send it to rumana@shapla-homes.example. It works once, until 3 Oct 2026. The link made before no longer works.',
+      'Copy this link and send it to rumana@shapla-homes.example. It works once, until 3 Oct 2026. The link sent before no longer works. Send this one instead.',
     )
     const after = api.tokenFor('rumana@shapla-homes.example')
     expect(after).not.toBe(before)

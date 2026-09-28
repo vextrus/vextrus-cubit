@@ -3,9 +3,9 @@
  * token is in the fragment only; the page reads it and clears it (src/auth/Join.tsx).
  */
 import { createFileRoute } from '@tanstack/react-router'
-import { JoinPage, RouteError } from '@/auth'
+import { JoinPage, OutsideRouteError } from '@/auth'
 
 export const Route = createFileRoute('/(auth)/join')({
   component: JoinPage,
-  errorComponent: RouteError,
+  errorComponent: OutsideRouteError,
 })

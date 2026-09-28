@@ -15,13 +15,13 @@ msgstr "Projects"
 msgid "Updated"
 msgstr "Updated"
 
-#: src/projects/discard.tsx
-msgid "Keep typing"
-msgstr "Keep typing"
-
 #: src/projects/ProjectsPage.tsx
 msgid "Drawing Set"
 msgstr "Drawing Set"
+
+#: src/projects/discard.tsx
+msgid "Keep editing"
+msgstr "Keep editing"
 
 #: src/projects/ProjectsPage.tsx
 msgid "No projects yet. Your QS creates them."
@@ -31,6 +31,10 @@ msgstr "No projects yet. Your QS creates them."
 #: src/projects/ProjectsPage.tsx
 msgid "Name"
 msgstr "Name"
+
+#: src/projects/ProjectsPage.tsx
+msgid "No projects yet. You will see them here once {developer} creates them."
+msgstr "No projects yet. You will see them here once {developer} creates them."
 
 #: src/projects/ProjectsPage.tsx
 msgid "You have no access to any Developer at the moment. Ask your MD, or Vextrus, for an invitation."
@@ -49,6 +53,10 @@ msgstr "Cancel"
 msgid "Address"
 msgstr "Address"
 
+#: src/projects/discard.tsx
+msgid "Close without saving what you entered?"
+msgstr "Close without saving what you entered?"
+
 #: src/projects/NewProjectDialog.tsx
 #: src/projects/ProjectsPage.tsx
 msgid "Code"
@@ -58,10 +66,6 @@ msgstr "Code"
 #: src/projects/ProjectsPage.tsx
 msgid "New project"
 msgstr "New project"
-
-#: src/projects/discard.tsx
-msgid "Close without saving what you typed?"
-msgstr "Close without saving what you typed?"
 
 #: src/projects/ProjectsPage.tsx
 msgid "Opening the projects…"
@@ -78,6 +82,10 @@ msgstr "Display Units"
 #: src/projects/ProjectsPage.tsx
 msgid "Open the project"
 msgstr "Open the project"
+
+#: src/projects/ProjectsPage.tsx
+msgid "None of the projects you were given is open now. Ask whoever invited you to give you another."
+msgstr "None of the projects you were given is open now. Ask whoever invited you to give you another."
 
 #: src/projects/NewProjectDialog.tsx
 msgid "Create project"

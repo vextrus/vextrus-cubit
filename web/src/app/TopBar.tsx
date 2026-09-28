@@ -16,6 +16,7 @@ import { AccessChip, BrandMark, KeyCombo, cn } from '@/ui'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/ui/primitives/dropdown-menu'
 import { useChooseDeveloper, useSignOut } from '@/auth/actions'
 import { can } from '@/auth/can'
+import { useSayRefused } from '@/auth/sayRefused'
 import { AppLink, PATHS, useGo } from './AppLink'
 import { roleName } from './roles'
 import type { ProjectSummary, Session } from './session'
@@ -79,6 +80,7 @@ function UserMenu({ session }: { session: Session }) {
   const shell = useShell()
   const signOut = useSignOut()
   const choose = useChooseDeveloper()
+  const sayRefused = useSayRefused()
   const trigger = useRef<HTMLButtonElement>(null)
   // "Keys" opens the overlay once the menu has closed and focus is back on its trigger, so closing the
   // overlay returns focus there (03's design gate, minor N1).
@@ -121,7 +123,7 @@ function UserMenu({ session }: { session: Session }) {
             {others.map((m) => {
               const developer = m.developer.name
               return (
-                <DropdownMenuItem key={m.id} onSelect={() => void choose(m.developer.id)}>
+                <DropdownMenuItem key={m.id} onSelect={() => void choose(m.developer.id).catch(sayRefused)}>
                   <span className="min-w-0 flex-1 truncate">
                     <Trans>Switch to {developer}</Trans>
                   </span>
@@ -148,7 +150,7 @@ function UserMenu({ session }: { session: Session }) {
           <KeyCombo combo="?" />
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => void signOut()}>
+        <DropdownMenuItem onSelect={() => void signOut().catch(sayRefused)}>
           <Trans>Sign out</Trans>
         </DropdownMenuItem>
       </DropdownMenuContent>

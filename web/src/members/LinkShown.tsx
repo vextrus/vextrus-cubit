@@ -42,7 +42,7 @@ export function LinkShown({ email, link, worksUntil, replaced = false }: { email
         {replaced ? (
           <>
             {' '}
-            <Trans>The link made before no longer works.</Trans>
+            <Trans>The link sent before no longer works. Send this one instead.</Trans>
           </>
         ) : null}
       </p>
@@ -57,7 +57,7 @@ export function LinkShown({ email, link, worksUntil, replaced = false }: { email
       />
       {refused ? (
         <p className="text-xs text-ink-secondary">
-          <Trans>Your browser did not let Vextrus copy it. The link is selected above: copy it from there.</Trans>
+          <Trans>Your browser did not let Vextrus copy it. The link is selected above; press Ctrl C to copy it.</Trans>
         </p>
       ) : null}
       <Button variant="primary" className="self-end" onClick={() => void copy()}>

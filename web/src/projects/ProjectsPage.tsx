@@ -113,7 +113,14 @@ export function ProjectsEmpty({ session, onNew }: { session: Session; onNew: () 
       </Button>
     )
   } else if (session.role === 'md' && session.scope === 'all') words = <Trans>No projects yet. Your QS creates them.</Trans>
-  else words = <Trans>You have no access to any Developer at the moment. Ask your MD, or Vextrus, for an invitation.</Trans>
+  else if (session.scope === 'all') {
+    // A Guest given every project, at a Developer with none yet.
+    const developer = session.developer.name
+    words = <Trans>No projects yet. You will see them here once {developer} creates them.</Trans>
+  } else if (session.role === 'guest') {
+    // Every project a Guest was given is gone: 4.1's "No access to anything" (m0-screens §4.3).
+    words = <Trans>You have no access to any Developer at the moment. Ask your MD, or Vextrus, for an invitation.</Trans>
+  } else words = <Trans>None of the projects you were given is open now. Ask whoever invited you to give you another.</Trans>
   return (
     <div className="rounded-md border border-border bg-paper">
       <Empty glyph={<FolderPlus />} action={action}>

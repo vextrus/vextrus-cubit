@@ -9,20 +9,20 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { Trans } from '@lingui/react/macro'
-import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
-import { useRouter } from '@tanstack/react-router'
+import { useSuspenseQuery } from '@tanstack/react-query'
 import { onSessionEvent } from '@/api/events'
 import { meQuery, sessionQuery } from '@/app/session'
 import { Skeleton } from '@/ui'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/ui/primitives/dialog'
-import { enter } from './actions'
+import { useEnter, useHeld } from './actions'
 import { gateHref, signInHref } from './gate'
 import { SignInForm } from './SignIn'
 
 export function SessionWatch() {
   const { data: session } = useSuspenseQuery(sessionQuery)
-  const queryClient = useQueryClient()
-  const router = useRouter()
+  const held = useHeld()
+  const { queryClient, router } = held
+  const enter = useEnter()
   const [signedOut, setSignedOut] = useState(false)
   const leaving = useRef(false)
 
@@ -39,12 +39,17 @@ export function SessionWatch() {
         void queryClient
           .fetchQuery(meQuery)
           .then((me) => router.navigate({ href: me ? gateHref(me, here) : signInHref(here) }))
-          .then(() => queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== meQuery.queryKey[0] }))
+          .then(() => {
+            // Gone from the frame: nothing it held stays, neither its rows, its cached pages nor a toast.
+            held.clearToast()
+            router.clearCache()
+            queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== meQuery.queryKey[0] })
+          })
           .finally(() => {
             leaving.current = false
           })
       }),
-    [queryClient, router],
+    [held, queryClient, router],
   )
 
   return (
@@ -58,7 +63,7 @@ export function SessionWatch() {
           await queryClient.invalidateQueries()
           return
         }
-        await enter(queryClient, router, out)
+        await enter(out)
       }}
     />
   )

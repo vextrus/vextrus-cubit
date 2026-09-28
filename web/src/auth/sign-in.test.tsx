@@ -127,7 +127,7 @@ describe('sign-in (§4.2)', () => {
     expect((await screen.findByRole('alert')).textContent).toBe('Vextrus can’t be reached. Check your connection and try again.')
   })
 
-  it.each(['https://evil.example', '//evil.example', '/\\evil.example', 'javascript:alert(1)', '/sign-in', '%2F%2Fevil.example'])(
+  it.each(['https://evil.example', '//evil.example', '/\\evil.example', 'javascript:alert(1)', '/sign-in', '%2F%2Fevil.example', '/.//evil.example', '/a/..//x/sign-in'])(
     'goes to /projects, never to %j, after signing in',
     async (next) => {
       const { router } = await mountApp(`/sign-in?next=${encodeURIComponent(next)}`, { as: null })

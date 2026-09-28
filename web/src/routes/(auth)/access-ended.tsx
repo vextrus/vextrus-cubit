@@ -3,10 +3,10 @@
  * has ended; anyone else goes where they belong.
  */
 import { createFileRoute } from '@tanstack/react-router'
-import { AccessEndedPage, atGate, RouteError } from '@/auth'
+import { AccessEndedPage, atGate, OutsideRouteError } from '@/auth'
 
 export const Route = createFileRoute('/(auth)/access-ended')({
   beforeLoad: ({ context }) => atGate(context.queryClient, 'ended'),
   component: AccessEndedPage,
-  errorComponent: RouteError,
+  errorComponent: OutsideRouteError,
 })

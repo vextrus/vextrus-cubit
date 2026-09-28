@@ -40,6 +40,6 @@ describe('an invitation link’s end date, from a browser away from Dhaka', () =
     api.memberships.find((m) => m.token === token)!.expiresAt = '2026-10-26T20:00:00Z'
     await mountApp(`/join#${token}`, { as: null, api })
     await waitFor(() => expect(screen.queryByText('Opening the invitation…')).toBeNull())
-    expect(clean(screen.getByRole('heading', { level: 1 }).nextElementSibling?.textContent)).toBe('Kamal Uddin invited you as QS until 27 Oct 2026.')
+    expect(clean(screen.getByRole('heading', { level: 1 }).nextElementSibling?.textContent)).toBe('Kamal Uddin invited you as a QS until 27 Oct 2026.')
   })
 })

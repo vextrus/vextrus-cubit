@@ -11,10 +11,6 @@ msgstr ""
 msgid "No one from Vextrus has access."
 msgstr "No one from Vextrus has access."
 
-#: src/members/LinkShown.tsx
-msgid "Your browser did not let Vextrus copy it. The link is selected above: copy it from there."
-msgstr "Your browser did not let Vextrus copy it. The link is selected above: copy it from there."
-
 #: src/members/InviteDialog.tsx
 #: src/members/MembersPage.tsx
 msgid "Projects"
@@ -33,8 +29,8 @@ msgid "People at {developer}"
 msgstr "People at {developer}"
 
 #: src/members/MembersPage.tsx
-msgid "Acts on this access"
-msgstr "Acts on this access"
+msgid "Renew or revoke"
+msgstr "Renew or revoke"
 
 #: src/members/MembersPage.tsx
 msgid "End {revokingName}’s access now?"
@@ -63,6 +59,10 @@ msgstr "Vextrus can’t be reached. Check your connection; this page keeps tryin
 #: src/members/LinkShown.tsx
 msgid "Copy this link and send it to {email}. It works once, until {date}."
 msgstr "Copy this link and send it to {email}. It works once, until {date}."
+
+#: src/members/LinkShown.tsx
+msgid "Your browser did not let Vextrus copy it. The link is selected above; press Ctrl C to copy it."
+msgstr "Your browser did not let Vextrus copy it. The link is selected above; press Ctrl C to copy it."
 
 #. placeholder {0}: all.length
 #: src/members/ActsPanel.tsx
@@ -111,10 +111,6 @@ msgid "End access"
 msgstr "End access"
 
 #: src/members/MembersPage.tsx
-msgid "Acts on this invitation"
-msgstr "Acts on this invitation"
-
-#: src/members/MembersPage.tsx
 msgid "Invited by"
 msgstr "Invited by"
 
@@ -138,6 +134,10 @@ msgstr "Ended {date}"
 #: src/members/InviteDialog.tsx
 msgid "End their access on a date"
 msgstr "End their access on a date"
+
+#: src/members/LinkShown.tsx
+msgid "The link sent before no longer works. Send this one instead."
+msgstr "The link sent before no longer works. Send this one instead."
 
 #: src/members/MembersPage.tsx
 msgid "{name}’s access has ended."
@@ -179,13 +179,13 @@ msgstr "Invitations not used yet"
 msgid "For someone from outside {developer}, such as a consultant’s engineer or a contractor’s QS, set an end date."
 msgstr "For someone from outside {developer}, such as a consultant’s engineer or a contractor’s QS, set an end date."
 
+#: src/members/InviteDialog.tsx
+msgid "Read only: a Guest can look at the drawings and the Takeoff of every project, and change nothing."
+msgstr "Read only: a Guest can look at the drawings and the Takeoff of every project, and change nothing."
+
 #: src/members/MembersPage.tsx
 msgid "Vextrus Engineer"
 msgstr "Vextrus Engineer"
-
-#: src/members/MembersPage.tsx
-msgid "Acts on this person"
-msgstr "Acts on this person"
 
 #: src/members/InviteDialog.tsx
 #: src/members/MembersPage.tsx
@@ -213,6 +213,10 @@ msgid "No acts yet"
 msgstr "No acts yet"
 
 #: src/members/MembersPage.tsx
+msgid "Copy or withdraw"
+msgstr "Copy or withdraw"
+
+#: src/members/MembersPage.tsx
 msgid "No invitations are waiting to be used."
 msgstr "No invitations are waiting to be used."
 
@@ -227,6 +231,10 @@ msgstr "Who can open {developer}’s projects"
 #: src/members/MembersPage.tsx
 msgid "{joined}, {code}"
 msgstr "{joined}, {code}"
+
+#: src/members/MembersPage.tsx
+msgid "New link for {shownEmail}"
+msgstr "New link for {shownEmail}"
 
 #: src/members/MembersPage.tsx
 msgid "{name}’s access now ends on {date}."
@@ -265,10 +273,6 @@ msgstr "Choose at least one project."
 #: src/members/ActsPanel.tsx
 msgid "Close"
 msgstr "Close"
-
-#: src/members/LinkShown.tsx
-msgid "The link made before no longer works."
-msgstr "The link made before no longer works."
 
 #: src/members/MembersPage.tsx
 msgid "Until"

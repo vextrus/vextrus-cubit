@@ -10,12 +10,11 @@
  */
 import { useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Trans, useLingui } from '@lingui/react/macro'
-import { useQueryClient } from '@tanstack/react-query'
-import { useRouter, useSearch } from '@tanstack/react-router'
+import { useSearch } from '@tanstack/react-router'
 import { ApiRefused } from '@/api/client'
 import { MachineText } from '@/format/machine'
 import { Button, ErrorBar, TextField } from '@/ui'
-import { enter, signIn } from './actions'
+import { signIn, useEnter } from './actions'
 import { OutsidePage } from './OutsidePage'
 
 /** Why the last try failed: the API's refusal, or the server out of reach. */
@@ -109,15 +108,14 @@ export function SignInForm({
 
 export function SignInPage() {
   const { t } = useLingui()
-  const queryClient = useQueryClient()
-  const router = useRouter()
+  const enter = useEnter()
   const { next } = useSearch({ strict: false }) as { next?: string }
   return (
     <OutsidePage title={t`Sign in`}>
       <h1 className="mb-4 text-xl">
         <Trans>Sign in</Trans>
       </h1>
-      <SignInForm onSignedIn={(out) => enter(queryClient, router, out, next)} />
+      <SignInForm onSignedIn={(out) => enter(out, next)} />
       <p className="mt-4 text-xs text-muted-foreground">
         <Trans>Forgot your password? Ask your MD, or Vextrus, to set a new one.</Trans>
       </p>

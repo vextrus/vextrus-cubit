@@ -49,7 +49,7 @@ export function ChooseDeveloperPage() {
         focusedKey={focused}
         onFocusedKeyChange={setFocused}
         className="rounded-md border border-border"
-        keys={[{ key: 'Enter', label: t`Work in this Developer`, group: 'screen', run: () => void pick(memberships.find((m) => m.id === focused)) }]}
+        keys={[{ key: 'Enter', label: t`Open this Developer’s projects`, group: 'screen', run: () => void pick(memberships.find((m) => m.id === focused)) }]}
         renderItem={(m) => (
           <button type="button" tabIndex={-1} onClick={() => void pick(m)} className="flex h-full min-w-0 flex-1 items-center gap-3 text-start">
             <span className="min-w-0 flex-1 truncate font-medium">{m.developer.name}</span>

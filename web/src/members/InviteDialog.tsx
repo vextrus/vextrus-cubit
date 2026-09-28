@@ -200,7 +200,11 @@ export function InviteDialog({ session, open, onOpenChange }: { session: Session
               )}
               {role === 'guest' ? (
                 <p className="text-xs text-muted-foreground">
-                  <Trans>Read only: a Guest can look at the drawings and the Takeoff of the chosen projects, and change nothing.</Trans>
+                  {mode === 'all' ? (
+                    <Trans>Read only: a Guest can look at the drawings and the Takeoff of every project, and change nothing.</Trans>
+                  ) : (
+                    <Trans>Read only: a Guest can look at the drawings and the Takeoff of the chosen projects, and change nothing.</Trans>
+                  )}
                 </p>
               ) : null}
               <FieldError id={`${formId}-role`}>

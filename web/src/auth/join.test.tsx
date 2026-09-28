@@ -81,7 +81,7 @@ describe('the link’s page (§4.2)', () => {
     const { router, queryClient } = await join(`/join#${token}`, { as: null, api })
     expect(screen.getByRole('heading', { name: (n) => clean(n) === 'Join Shapla Homes Ltd' })).toBeVisible()
     expect(document.title).toBe('Join Shapla Homes Ltd · Vextrus')
-    expect(line()).toBe('Kamal Uddin invited you as QS.')
+    expect(line()).toBe('Kamal Uddin invited you as a QS.')
     // The token has left the address bar, and is in no query key, search or log.
     expect(router.state.location.hash).toBe('')
     expect(router.state.location.href).not.toContain(token)
@@ -120,14 +120,17 @@ describe('the link’s page (§4.2)', () => {
     expect(line()).toBe('Kamal Uddin invited you as a Guest to BP-02 Bokul Place and KR-01 Kadam Residence. You can look at their drawings and Takeoff but not change them.')
   })
 
-  it('gives a Vextrus Engineer’s invitation with no account only the API’s words, and no form', async () => {
+  it('gives a Vextrus Engineer’s invitation with no account words that say why and what to do, and no form', async () => {
     const api = new FakeApi()
     const token = await invited(api, { email: 'sabbir@vextrus.example', role: 'vextrus_engineer', expires_at: END_26_OCT })
     await join(`/join#${token}`, { as: null, api })
     expect(line()).toBe('Kamal Uddin invited you as a Vextrus Engineer until 26 Oct 2026.')
     expect(
       screen.getByText(
-        'This invitation is for a Vextrus Engineer, so only a Vextrus account can take it. Sign in with yours, or ask whoever sent it to invite you in another role.',
+        (_, el) =>
+          el?.tagName === 'P' &&
+          clean(el.textContent) ===
+            'This invitation is for a Vextrus Engineer, but sabbir@vextrus.example has no Vextrus account. Ask whoever sent it to invite your Vextrus email, or to invite you in another role.',
       ),
     ).toBeVisible()
     expect(screen.queryByLabelText('Password')).toBeNull()
@@ -165,7 +168,7 @@ describe('the link’s page (§4.2)', () => {
     const token = api.tokenFor('rumana@shapla-homes.example')
     await join(`/join#${token}`, { as: PEOPLE.qs, api })
     expect(clean(screen.getByRole('alert').textContent)).toBe(
-      'This invitation is for rumana@shapla-homes.example. Sign out, then open the link again and sign in as rumana@shapla-homes.example.',
+      'This invitation is for rumana@shapla-homes.example. Sign out, then sign in here as rumana@shapla-homes.example to join.',
     )
     await userEvent.click(screen.getByRole('button', { name: 'Sign out' }))
     expect(await screen.findByLabelText('Name')).toBeVisible()
@@ -180,7 +183,7 @@ describe('the link’s page (§4.2)', () => {
     await join(`/join#${token}`, { as: null, api })
     expect(document.querySelector('img')).toBeNull()
     expect(clean(screen.getByRole('heading', { level: 1 }).textContent)).toBe('Join <img src=x onerror=alert(1)>')
-    expect(line()).toBe('javascript:alert(1) invited you as QS.')
+    expect(line()).toBe('javascript:alert(1) invited you as a QS.')
     expect(document.querySelector('a[href^="javascript"]')).toBeNull()
   })
 

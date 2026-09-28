@@ -29,7 +29,7 @@ import { marketFormat, meFrom, meQuery, type Me } from '@/app/session'
 import { useFormat } from '@/format'
 import { MachineText, type MachineMessage } from '@/format/machine'
 import { Button, ErrorBar, Skeleton, TextField, buttonVariants } from '@/ui'
-import { enter, forgetAll, signIn } from './actions'
+import { forgetAll, signIn, useEnter, useHeld, type Held } from './actions'
 import { InMarket } from './AccessEnded'
 import { ProjectNameList } from './lists'
 import { OutsidePage } from './OutsidePage'
@@ -65,7 +65,7 @@ export function InvitedLine({ invitation }: { invitation: Invitation }) {
   const role = link.role
   const date = link.expires_at ? f.date(link.expires_at) : ''
   const list = projects.length > 0 ? <ProjectNameList projects={projects} /> : null
-  const as = <Select value={role} _qs="QS" _md="MD" _guest="a Guest" _vextrus_engineer="a Vextrus Engineer" other="a member" />
+  const as = <Select value={role} _qs="a QS" _md="an MD" _guest="a Guest" _vextrus_engineer="a Vextrus Engineer" other="a member" />
   if (link.invited_by) {
     if (list && date) return <Trans>{inviter} invited you as {as} to {list} until {date}.</Trans>
     if (list) return <Trans>{inviter} invited you as {as} to {list}.</Trans>
@@ -91,12 +91,19 @@ export function GuestLine({ projects }: { projects: number }) {
 }
 
 /** The page's stage; the token lives only here, in memory, once read from the fragment. */
-type Stage = { at: 'reading' } | { at: 'unusable' } | { at: 'unreachable' } | { at: 'ready'; invitation: Invitation; token: string }
+type Stage =
+  | { at: 'reading' }
+  | { at: 'unusable' }
+  | { at: 'unreachable' }
+  | { at: 'refused'; refusal: MachineMessage | null }
+  | { at: 'ready'; invitation: Invitation; token: string }
 
 export function JoinPage() {
   const { t } = useLingui()
   const router = useRouter()
   const queryClient = useQueryClient()
+  const held = useHeld()
+  const enter = useEnter()
   // Read once, from the fragment, and held only here.
   const [token] = useState(() => tokenOf(router.state.location.hash))
   const [stage, setStage] = useState<Stage>(() => (token ? { at: 'reading' } : { at: 'unusable' }))
@@ -117,7 +124,13 @@ export function JoinPage() {
     }
     lookUp(token)
       .then((invitation) => setStage({ at: 'ready', invitation, token }))
-      .catch((error: unknown) => setStage(error instanceof ApiRefused ? { at: 'unusable' } : { at: 'unreachable' }))
+      // Only "not found" is a link that cannot be used; any other refusal (a stale page's CSRF) is said
+      // in its own words, never as the link's.
+      .catch((error: unknown) =>
+        setStage(
+          error instanceof ApiRefused ? (error.status === 404 ? { at: 'unusable' } : { at: 'refused', refusal: error.refusal }) : { at: 'unreachable' },
+        ),
+      )
       .finally(clear)
   }, [router, queryClient, token])
 
@@ -130,6 +143,8 @@ export function JoinPage() {
         <Unusable />
       ) : stage.at === 'unreachable' ? (
         <ProblemBar problem={{ unreachable: true }} />
+      ) : stage.at === 'refused' ? (
+        <ErrorBar>{stage.refusal ? <MachineText message={stage.refusal} /> : <Trans>That did not work. Reload the page and try again.</Trans>}</ErrorBar>
       ) : (
         <Ready
           invitation={stage.invitation}
@@ -137,8 +152,8 @@ export function JoinPage() {
           token={stage.token}
           onSignedIn={setMe}
           onSignedOut={() => setMe(null)}
-          onJoined={(out) => enter(queryClient, router, out)}
-          onSignOut={() => signOutHere(queryClient)}
+          onJoined={(out) => enter(out)}
+          onSignOut={() => signOutHere(held)}
         />
       )}
     </OutsidePage>
@@ -146,13 +161,13 @@ export function JoinPage() {
 }
 
 /** Signs out without leaving the page, which keeps the token it holds. */
-async function signOutHere(queryClient: ReturnType<typeof useQueryClient>): Promise<void> {
+async function signOutHere(held: Held): Promise<void> {
   try {
     await unwrap(api.POST('/api/auth/sign-out'))
   } catch (error) {
     if (!(error instanceof ApiRefused && error.status === 401)) throw error
   }
-  await forgetAll(queryClient)
+  await forgetAll(held)
 }
 
 function Unusable() {
@@ -186,7 +201,7 @@ function Ready({
   onSignOut: () => Promise<void>
 }) {
   const { t } = useLingui()
-  const { link, projects } = invitation
+  const { link } = invitation
   const developer = link.developer_name
   // The inviting Developer's Market words the line's date (the orchestrator's ruling, 29 Sep 2026).
   const market = useMemo(() => (link.market ? marketFormat(link.market) : null), [link.market])
@@ -199,6 +214,7 @@ function Ready({
   const nameRef = useRef<HTMLInputElement>(null)
   const passwordRef = useRef<HTMLInputElement>(null)
 
+  const email = link.email
   const mine = me !== null && me.user.email.toLowerCase() === link.email.toLowerCase()
   const other = me !== null && !mine
   const newAccount = me === null && !link.has_account
@@ -261,7 +277,7 @@ function Ready({
           {link.role === 'guest' ? (
             <>
               {' '}
-              <GuestLine projects={projects.length} />
+              <GuestLine projects={link.project_ids.length} />
             </>
           ) : null}
         </p>
@@ -269,8 +285,12 @@ function Ready({
 
       {other ? (
         <>
+          {/* 20a's words, not 07's `wrong_account`: this page keeps the link, so after signing out the
+              invited person signs in right here, with no need to open the link again. */}
           <ErrorBar>
-            <MachineText message={{ code: 'platform.invitations.wrong_account', params: { email: link.email } }} />
+            <Trans>
+              This invitation is for {email}. Sign out, then sign in here as {email} to join.
+            </Trans>
           </ErrorBar>
           <Button
             variant="secondary"
@@ -286,8 +306,13 @@ function Ready({
           <ProblemBar problem={problem} />
         </>
       ) : engineerWithoutAccount ? (
+        // 20a's words, not 07's `engineer_not_staff` ("Sign in with yours"): this email has no account,
+        // and signing in with another would be refused as the wrong account.
         <p className="text-sm text-foreground">
-          <MachineText message={{ code: 'platform.invitations.engineer_not_staff', params: {} }} />
+          <Trans>
+            This invitation is for a Vextrus Engineer, but {email} has no Vextrus account. Ask whoever sent it to invite your Vextrus email, or to invite you in another
+            role.
+          </Trans>
         </p>
       ) : (
         <form noValidate onSubmit={(event) => void join(event)} className="flex flex-col gap-3">

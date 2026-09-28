@@ -173,7 +173,7 @@ function PeopleTable({ session, rows, acts }: { session: Session; rows: readonly
         [t`Projects`, 'w-[110px]'],
         [t`Since`, 'w-[110px]'],
         [t`Until`, 'w-[200px]'],
-        [<span className="sr-only">{t`Acts on this person`}</span>, 'w-[200px]'],
+        [<span className="sr-only">{t`Renew or revoke`}</span>, 'w-[200px]'],
       ]}
     >
       {rows.map((row) => {
@@ -213,7 +213,7 @@ function VextrusTable({ rows, acts, onActs, actsOpen }: { rows: readonly PersonR
         [t`From`, 'w-[100px]'],
         [t`Until`, 'w-[230px]'],
         [t`Acts`, 'w-[200px]'],
-        [<span className="sr-only">{t`Acts on this access`}</span>, 'w-[200px]'],
+        [<span className="sr-only">{t`Renew or revoke`}</span>, 'w-[200px]'],
       ]}
     >
       {rows.length === 0 ? (
@@ -267,7 +267,7 @@ function InvitationsTable({ rows, acts }: { rows: readonly InvitationRow[]; acts
         [t`Role`, 'w-[140px]'],
         [t`Projects`, 'w-[160px]'],
         [t`Link works until`, 'w-[310px]'],
-        [<span className="sr-only">{t`Acts on this invitation`}</span>, 'w-[200px]'],
+        [<span className="sr-only">{t`Copy or withdraw`}</span>, 'w-[200px]'],
       ]}
     >
       {rows.length === 0 ? (
@@ -368,6 +368,7 @@ export function MembersView({ session, members, refused }: { session: Session; m
   }
 
   const revokingName = revoking?.name ?? ''
+  const shownEmail = shown?.email ?? ''
   return (
     <PageLayout
       panel={
@@ -471,7 +472,7 @@ export function MembersView({ session, members, refused }: { session: Session; m
         <DialogContent className="sm:max-w-[480px]" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>
-              <Trans>Copy link</Trans>
+              <Trans>New link for {shownEmail}</Trans>
             </DialogTitle>
           </DialogHeader>
           {shown ? <LinkShown email={shown.email} link={shown.link} worksUntil={shown.worksUntil} replaced /> : null}

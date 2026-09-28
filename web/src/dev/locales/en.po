@@ -68,6 +68,10 @@ msgid "Answer"
 msgstr "Answer"
 
 #: src/dev/specimen/Specimen.tsx
+msgid "The email the invitation is for."
+msgstr "The email the invitation is for."
+
+#: src/dev/specimen/Specimen.tsx
 msgid "Nusrat Jahan, QS"
 msgstr "Nusrat Jahan, QS"
 
@@ -434,10 +438,6 @@ msgstr "English"
 #: src/dev/specimen/Specimen.tsx
 msgid "Invite"
 msgstr "Invite"
-
-#: src/dev/specimen/Specimen.tsx
-msgid "The address the invitation is for."
-msgstr "The address the invitation is for."
 
 #: src/dev/specimen/Specimen.tsx
 msgid "Title"

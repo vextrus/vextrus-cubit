@@ -41,7 +41,11 @@ export function safeNext(next: unknown): string {
     return fallback
   }
   if (url.origin !== BASE) return fallback
-  const path = (decodeFully(url.pathname) ?? '').toLowerCase().replace(/\/+$/, '')
+  // Dot segments normalise away in parsing: "/.//evil.example" becomes the protocol-relative
+  // "//evil.example". The address followed is the parsed one, so it is checked again as parsed.
+  const parsed = decodeFully(url.pathname)
+  if (parsed === null || url.pathname.startsWith('//') || parsed.startsWith('//') || /[\u0000- \u007f-\u009f\\]/.test(parsed)) return fallback // eslint-disable-line no-control-regex -- as above
+  const path = parsed.toLowerCase().replace(/\/+$/, '')
   if (OUTSIDE_THE_FRAME.some((p) => path === p || path.startsWith(`${p}/`))) return fallback
   return url.pathname + url.search
 }
