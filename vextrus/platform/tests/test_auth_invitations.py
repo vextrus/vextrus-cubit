@@ -595,3 +595,28 @@ def test_a_qs_inviting_another_role_is_told_which_role(team: dict[str, Member]) 
         "code": codes.ROLE_NOT_YOURS.code,
         "params": {"role": "guest"},
     }
+
+
+def test_the_link_page_carries_the_developer_s_market(team: dict[str, Member]) -> None:
+    """Signed out, the link's page has no current Developer: its answer carries the Developer's
+    Market, the same as its members' `/api/me` gives them (#75)."""
+    _, token = invitation(team["md"], "farhana@example.com", "guest")
+    theirs = api_as(team["md"]).get("/api/me").json()["market"]
+
+    page = Api().post("/api/invitations/look-up", {"token": token})
+
+    assert theirs is not None
+    assert page.json()["market"] == theirs
+
+
+def test_an_unusable_link_s_answer_is_still_the_bare_refusal(team: dict[str, Member]) -> None:
+    _, token = invitation(team["md"], "farhana@example.com", "guest")
+    tenant, secret = token.split(".", 1)
+    guessed = f"{tenant}.{secret[:-1]}{'y' if secret.endswith('x') else 'x'}"
+
+    for unusable in (guessed, secret, "", f"{uuid.uuid4()}.{secret}"):
+        page = Api().post("/api/invitations/look-up", {"token": unusable})
+        assert (page.status_code, page.content) == (
+            404,
+            b'{"code": "platform.invitations.unusable", "params": {}}',
+        ), unusable

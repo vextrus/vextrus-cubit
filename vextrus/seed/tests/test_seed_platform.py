@@ -1,7 +1,8 @@
-"""The demo seed's platform part: the two Developers on the Bangladesh Market (m0-screens §7)."""
+"""The demo seed's platform part: the Developers on the Bangladesh Market (m0-screens §7), their
+people, and the three pieces for 20a's screens (#75)."""
 
 import uuid
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -15,7 +16,7 @@ from vextrus.testing.auth import Api
 
 
 @pytest.mark.django_db
-def test_the_seed_makes_the_two_developers_on_the_market(staff: Any) -> None:
+def test_the_seed_makes_the_developers_on_the_market(staff: Any) -> None:
     demo: Demo = {}
 
     seed_platform.run(demo)
@@ -25,8 +26,9 @@ def test_the_seed_makes_the_two_developers_on_the_market(staff: Any) -> None:
     assert named == {
         demo["developer:shapla"]: "Shapla Homes Ltd",
         demo["developer:meghna"]: "Meghna Properties Ltd",
+        demo["developer:chameli"]: "Chameli Homes Ltd",
     }
-    for name in ("developer:shapla", "developer:meghna"):
+    for name in ("developer:shapla", "developer:meghna", "developer:chameli"):
         with tenancy.acting_in(demo[name]):
             assert markets.of_developer(demo[name]) == demo["market"]
     assert tenancy.current_tenant_id() is None
@@ -58,6 +60,7 @@ def test_the_seed_makes_the_people_of_m0_screens(seeded: Demo) -> None:
         ("kamal@shapla-homes.example", "Kamal Uddin", "md", None),
         ("nusrat@shapla-homes.example", "Nusrat Jahan", "qs", "Kamal Uddin"),
         ("farhana@padma-builders.example", "Farhana Kabir", "guest", "Kamal Uddin"),
+        ("rafiq@jamuna-consultants.example", "Rafiq Islam", "guest", "Kamal Uddin"),  # ended (#75)
     }
     assert [(p.email, p.name, p.invited_by) for p in found.vextrus_access] == [
         ("arif@vextrus.example", "Arif Rahman", "Kamal Uddin")
@@ -68,14 +71,17 @@ def test_the_seed_makes_the_people_of_m0_screens(seeded: Demo) -> None:
     with tenancy.acting_in(seeded["developer:meghna"], user_id=seeded["user:tanvir"]) as meghna:
         assert meghna.membership is not None
         assert meghna.membership.role == "qs"
-        assert [p.email for p in invitations.members().people] == ["tanvir@meghna.example"]
+        assert [p.email for p in invitations.members().people] == [
+            "sharmin@chameli-homes.example",  # also Chameli's QS (#75)
+            "tanvir@meghna.example",
+        ]
 
 
 @pytest.mark.django_db
 def test_the_seed_s_guest_is_from_outside_until_26_october_for_every_project_until_08(
     seeded: Demo,
 ) -> None:
-    [guest] = [p for p in members_as_md(seeded).people if p.role == "guest"]
+    [guest] = [p for p in members_as_md(seeded).people if p.email == "farhana@padma-builders.example"]
 
     assert guest.membership_id == seeded["membership:guest"]
     assert (guest.outside_org, guest.all_projects) == ("Padma Builders", True)
@@ -152,3 +158,55 @@ def test_a_new_engineer_is_made_staff_the_owner_s_way_then_accepted(
     with tenancy.acting_in(None, user_id=demo["user:arif"]):
         assert tenancy.staff_developers()  # marked staff by the owner, through set_staff
     assert signs_in("sadia@vextrus.example", DEMO_PASSWORD)
+
+
+# For 20a's screens (#75) ------------------------------------------------------------------------
+
+
+def signed_in(email: str) -> Api:
+    api = Api()
+    assert api.post("/api/auth/sign-in", {"email": email, "password": DEMO_PASSWORD}).status_code == 200
+    return api
+
+
+@pytest.mark.django_db
+def test_the_seed_s_qs_in_two_developers_chooses_between_them_and_switches(seeded: Demo) -> None:
+    api = signed_in("sharmin@chameli-homes.example")
+
+    me = api.get("/api/me").json()
+
+    assert me["developer_id"] is None
+    assert [(m["developer_name"], m["role"]) for m in me["memberships"]] == [
+        ("Chameli Homes Ltd", "qs"),
+        ("Meghna Properties Ltd", "qs"),
+    ]
+    for developer in ("developer:chameli", "developer:meghna"):
+        chosen = api.post("/api/me/developer", {"developer_id": str(seeded[developer])})
+        assert chosen.json()["developer_id"] == str(seeded[developer])
+
+
+@pytest.mark.django_db
+def test_the_seed_s_ended_guest_signs_in_to_access_that_ended_on_its_date(seeded: Demo) -> None:
+    me = signed_in("rafiq@jamuna-consultants.example").get("/api/me").json()
+
+    assert (me["developer_id"], me["memberships"]) == (None, [])
+    [ended] = me["ended"]
+    assert (ended["developer_name"], ended["role"], ended["how"], ended["revoked_by"]) == (
+        "Shapla Homes Ltd",
+        "guest",
+        "expired",
+        None,
+    )
+    assert (ended["market"]["code"], ended["market"]["time_zone"], ended["market"]["locale"]) == (
+        seeded["market"].code,
+        seeded["market"].time_zone,
+        seeded["market"].borrowed_locales["en"],
+    )
+    ended_at = datetime.fromisoformat(ended["ended_at"])
+    local = ended_at.astimezone(ZoneInfo(seeded["market"].time_zone)).date()
+    assert ended_at < timezone.now()
+    assert local == seed_platform.ENDED_ON or local == timezone.now().date() - timedelta(days=1)
+    [person] = [p for p in members_as_md(seeded).people if p.name == "Rafiq Islam"]
+    assert (person.outside_org, person.how_ended) == ("Jamuna Consultants", "expired")
+    assert person.until == person.ended_at
+    assert person.since < ended_at

@@ -133,3 +133,29 @@ def test_the_api_answers_its_own_refusals_as_refusals() -> None:
     assert isinstance(api.auth, list)
     assert isinstance(api.auth[0], acts.Session)
     assert {AuthenticationError, auth_services.Refused} <= set(api._exception_handlers)
+
+
+@pytest.mark.django_db
+def test_no_two_schemas_share_a_component_name(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Ninja keys each schema by its class's name and keeps the last one merged: two schemas of one
+    name would leave the web's generated types describing one of them for both (#75's review)."""
+    from django.core.management import call_command
+    from ninja.openapi.schema import OpenAPISchema
+
+    clashes: list[str] = []
+    merge = OpenAPISchema.add_schema_definitions
+
+    def checked(self: OpenAPISchema, definitions: dict[str, object]) -> None:
+        clashes.extend(
+            name
+            for name, definition in definitions.items()
+            if self.schemas.get(name, definition) != definition
+        )
+        merge(self, definitions)
+
+    monkeypatch.setattr(OpenAPISchema, "add_schema_definitions", checked)
+    call_command(
+        "export_openapi_schema", "--api", "vextrus.api.api", "--output", str(tmp_path / "schema.json")
+    )
+
+    assert sorted(set(clashes)) == []

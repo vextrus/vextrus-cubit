@@ -13,7 +13,7 @@ from django.middleware.csrf import get_token
 from ninja import Field, Router, Schema, Status
 
 from vextrus.platform.http.acts import Refusal, declare, public
-from vextrus.platform.http.me import MeOut, RoleName, me_out
+from vextrus.platform.http.me import MarketOut, MeOut, RoleName, market_out, me_out
 from vextrus.platform.models import User
 from vextrus.platform.services import auth, invitations, tenancy
 
@@ -42,7 +42,9 @@ class AcceptIn(Schema):
     """For a new account: its password."""
 
 
-class LinkOut(Schema):
+class InvitationLookUpOut(Schema):
+    """What an invitation link offers (`POST /api/invitations/look-up`)."""
+
     developer_name: str
     invited_by: str | None
     role: RoleName
@@ -52,6 +54,8 @@ class LinkOut(Schema):
     expires_at: datetime | None
     link_expires_at: datetime
     has_account: bool
+    market: MarketOut
+    """The Developer's Market, to word and format the page with (no Developer is current yet)."""
 
 
 @router.get("/auth/csrf", auth=None, response=CsrfOut)
@@ -65,7 +69,7 @@ def csrf(request: HttpRequest) -> CsrfOut:
 @public
 def sign_in(request: HttpRequest, payload: SignIn) -> MeOut:
     auth.sign_in(request, payload.email, payload.password)
-    return me_out(auth.me())
+    return me_out(auth.me(request))
 
 
 @router.post("/auth/sign-out", response={204: None})
@@ -75,12 +79,12 @@ def sign_out(request: HttpRequest) -> Status[None]:
     return Status(204, None)
 
 
-@router.post("/invitations/look-up", auth=None, response={200: LinkOut, 404: Refusal})
+@router.post("/invitations/look-up", auth=None, response={200: InvitationLookUpOut, 404: Refusal})
 @public
-def look_up(request: HttpRequest, payload: TokenIn) -> LinkOut:
+def look_up(request: HttpRequest, payload: TokenIn) -> InvitationLookUpOut:
     """What an invitation link offers, before joining."""
     found = invitations.look_up(payload.token)
-    return LinkOut(
+    return InvitationLookUpOut(
         developer_name=found.developer_name,
         invited_by=found.invited_by,
         role=found.role,  # type: ignore[arg-type]
@@ -89,6 +93,7 @@ def look_up(request: HttpRequest, payload: TokenIn) -> LinkOut:
         expires_at=found.expires_at,
         link_expires_at=found.link_expires_at,
         has_account=found.has_account,
+        market=market_out(found.market, found.language),
     )
 
 
@@ -109,4 +114,4 @@ def accept(request: HttpRequest, payload: AcceptIn) -> MeOut:
     else:
         new_user, developer_id = invitations.join(payload.token, payload.name, payload.password)
         auth.start_session(request, new_user, developer_id)
-    return me_out(auth.me())
+    return me_out(auth.me(request))
