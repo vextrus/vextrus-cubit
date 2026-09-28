@@ -32,6 +32,13 @@ fix that taught it (ADR 0030). Read the area you are working in before you start
   by re-running rules is fragile (ADR 0031's Trace anchor).
 - **SHX text drawn as single strokes (Hershey simplex) matched the plot's width at 0.997 (median of 78
   lines);** outline substitutes run 13–19 % narrow.
+- **LibreDWG's `dxf2dwg` is no fixture writer** (ticket 04, 28 Sep 2026): it writes only R2000 and
+  R2004, dropped every model-space layer and the MTEXT heights, and on R2004 lost model space. ACadSharp
+  writes the fixtures from ezdxf's DXF, but its DXF reader leaves ATTRIBs beside their INSERT, so the
+  writer moves them back (engine/fixtures/dwg/_writer/). LibreDWG 0.14 then decodes ACadSharp's
+  AC1024 and AC1032 ATTRIBs with a null style, as on real files; AC1018's keep theirs.
+- **bwrap's PID namespace hides the sandboxed program's rusage** from the caller (0.005 s reported for
+  a 1 s CPU loop): the sandbox tells a CPU kill by SIGXCPU, and peak memory is measured at the parse.
 
 ## Session 02 (27–28 Sep 2026)
 - **An app restart kills every background agent.** All nine died mid-task once; the partial work in their

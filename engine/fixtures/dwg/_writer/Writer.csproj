@@ -1,0 +1,19 @@
+<!--
+  The fixture writer (ticket 04): a DXF that ezdxf wrote, saved as a DWG by ACadSharp (MIT; the
+  licence is checked in engine/fixtures/dwg/__init__.py). Only tests build and run it; it never ships.
+  The package is pinned exactly and restored in locked mode against packages.lock.json's hash.
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <RestoreLockedMode>true</RestoreLockedMode>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="ACadSharp" Version="[3.8.0]" />
+  </ItemGroup>
+</Project>

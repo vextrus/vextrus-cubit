@@ -1,0 +1,43 @@
+msgid ""
+msgstr ""
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: en\n"
+
+#. engine/messages/read.py (ticket 04): the DWG reader's codes.
+msgid "engine.read.aligned_text_from_start"
+msgstr "{count, plural, one {# aligned text is drawn from its start point, as AutoCAD plots it} other {# aligned texts are drawn from their start points, as AutoCAD plots them}}"
+
+msgid "engine.read.attrib_style_from_attdef"
+msgstr "{count, plural, one {# attribute took its text style from its definition, which the reader had lost} other {# attributes took their text styles from their definitions, which the reader had lost}}"
+
+msgid "engine.read.dxf_recovered"
+msgstr "The drawing's geometry was read in recovery mode ({errors, plural, one {# error} other {# errors}} repaired)"
+
+msgid "engine.read.geometry_missing"
+msgstr "{count, plural, one {# entity was read without its geometry} other {# entities were read without their geometry}}"
+
+msgid "engine.read.layer_unresolved"
+msgstr "{count, plural, one {# entity names a layer the file does not hold} other {# entities name a layer the file does not hold}}"
+
+msgid "engine.read.limit_reached"
+msgstr "{limit, select, cpu {The drawing could not be read: {program} used all the processing time it is given} wall {The drawing could not be read: {program} was stopped at its time limit} killed {The drawing could not be read: {program} was stopped at a limit of the machine's} other {The drawing could not be read: {program} reached a limit}}"
+
+msgid "engine.read.objects_missing"
+msgstr "The drawing could not be read: {count, plural, one {# object it lists is} other {# objects it lists are}} missing, so the file may be damaged"
+
+msgid "engine.read.output_unreadable"
+msgstr "The drawing could not be read: what {program} produced could not be understood"
+
+msgid "engine.read.reader_failed"
+msgstr "The drawing could not be read: {program} stopped with code {exit_code}"
+
+msgid "engine.read.sandbox_refused"
+msgstr "Drawings cannot be read here: the reader would have run outside its sandbox"
+
+msgid "engine.read.sandbox_unavailable"
+msgstr "Drawings cannot be read here: the reader's sandbox is not available"
+
+msgid "engine.read.unsupported_format"
+msgstr "{format, select, pdf {This PDF is read as a Plot, not as a drawing} other {This file is not a DWG drawing}}"
