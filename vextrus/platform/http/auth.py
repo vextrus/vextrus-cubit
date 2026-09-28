@@ -65,7 +65,7 @@ def csrf(request: HttpRequest) -> CsrfOut:
 @public
 def sign_in(request: HttpRequest, payload: SignIn) -> MeOut:
     auth.sign_in(request, payload.email, payload.password)
-    return me_out(auth.me())
+    return me_out(auth.me(request))
 
 
 @router.post("/auth/sign-out", response={204: None})
@@ -109,4 +109,4 @@ def accept(request: HttpRequest, payload: AcceptIn) -> MeOut:
     else:
         new_user, developer_id = invitations.join(payload.token, payload.name, payload.password)
         auth.start_session(request, new_user, developer_id)
-    return me_out(auth.me())
+    return me_out(auth.me(request))

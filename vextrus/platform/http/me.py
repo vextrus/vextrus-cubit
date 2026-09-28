@@ -2,7 +2,7 @@
 Market (ticket 07; the M0 plan, "The Market on the web"); and choosing the current Developer.
 
 Each Membership carries its Projects as ids (`platform` imports no higher module; the web names them
-through `projects`' list).
+through `projects`' list, and an ended Membership's through `GET /api/ended-access/projects`).
 """
 
 import uuid
@@ -37,11 +37,20 @@ class MembershipOut(Schema):
 
 
 class EndedOut(Schema):
+    """Access that has ended, in a Developer where the user holds no current Membership now (the
+    "Access ended" page, m0-screens §4.1)."""
+
     membership_id: uuid.UUID
     developer_id: uuid.UUID
+    developer_name: str
     role: RoleName
     ended_at: datetime
     how: Literal["revoked", "expired"]
+    """By its end date, if that passed first; else revoked."""
+    revoked_by: str | None
+    """The name of whoever revoked it; None when it expired, or when no act names who did."""
+    project_ids: list[uuid.UUID]
+    """The Projects it gave; empty means every Project."""
 
 
 class LanguageOut(Schema):
@@ -82,6 +91,10 @@ class MeOut(Schema):
     """The Developer the session works in; None when none is chosen or its access has ended."""
     memberships: list[MembershipOut]
     ended: list[EndedOut]
+    """Newest first, one per Developer."""
+    ended_membership_id: uuid.UUID | None
+    """The ended Membership this session worked in, while it is one of `ended`: after a reload the
+    web still shows "Access ended" for it. Choosing a Developer or signing in again clears it."""
     market: MarketOut | None
 
 
@@ -130,12 +143,16 @@ def me_out(me: auth.Me) -> MeOut:
             EndedOut(
                 membership_id=ended.membership_id,
                 developer_id=ended.developer_id,
+                developer_name=ended.developer_name,
                 role=ended.role,  # type: ignore[arg-type]
                 ended_at=ended.ended_at,
                 how=ended.how,
+                revoked_by=ended.revoked_by,
+                project_ids=list(ended.project_ids),
             )
             for ended in me.ended
         ],
+        ended_membership_id=me.ended_membership_id,
         market=market,
     )
 
@@ -143,7 +160,7 @@ def me_out(me: auth.Me) -> MeOut:
 @router.get("/me", response=MeOut)
 @declare(auth.ACCOUNT)
 def get_me(request: HttpRequest) -> MeOut:
-    return me_out(auth.me())
+    return me_out(auth.me(request))
 
 
 @router.post("/me/developer", response={200: MeOut, 404: Refusal})
@@ -151,4 +168,4 @@ def get_me(request: HttpRequest) -> MeOut:
 def choose_developer(request: HttpRequest, payload: ChooseIn) -> MeOut:
     """Work in one of the user's Developers (the "Which Developer?" chooser and the switcher)."""
     auth.choose(request, payload.developer_id)
-    return me_out(auth.me())
+    return me_out(auth.me(request))

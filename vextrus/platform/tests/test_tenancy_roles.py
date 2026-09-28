@@ -126,6 +126,9 @@ NARROWER = {
     "live_model_elementrelation": {"SELECT", "INSERT"},
     # UPDATE only on the columns the app may change (below): never the staff flag.
     "platform_user": {"SELECT", "INSERT", "DELETE"},
+    # A Developer's Market is fixed (platform 0007; #75): UPDATE of its name alone (below), and no
+    # DELETE, so no delete and re-insert moves it either.
+    "platform_developer": {"SELECT", "INSERT"},
     # UPDATE only on what a person may change: never a Project's Market or currency, nor which
     # Project a Site or Building belongs to (projects 0001; ticket 08).
     "projects_project": {"SELECT", "INSERT", "DELETE"},
@@ -163,6 +166,25 @@ USER_COLUMNS = (
 )
 
 
+def updatable_columns(cursor: Any, table: str) -> set[str]:
+    """The columns vextrus_app may UPDATE, read from the table's own columns (so a column added
+    later is judged too)."""
+    cursor.execute(
+        "select attname from pg_attribute where attrelid = %s::regclass and attnum > 0 "
+        "and not attisdropped",
+        [f"public.{table}"],
+    )
+    columns = [name for (name,) in cursor.fetchall()]
+    updatable = set()
+    for column in columns:
+        cursor.execute(
+            "select has_column_privilege('vextrus_app', %s, %s, 'UPDATE')", [f"public.{table}", column]
+        )
+        if cursor.fetchone()[0]:
+            updatable.add(column)
+    return updatable
+
+
 @pytest.mark.django_db
 def test_vextrus_app_may_update_only_a_user_s_name_phone_password_and_last_sign_in() -> None:
     with connections["default"].cursor() as cursor:
@@ -176,3 +198,32 @@ def test_vextrus_app_may_update_only_a_user_s_name_phone_password_and_last_sign_
                 updatable.add(column)
 
     assert updatable == {"name", "phone", "password", "last_login"}
+    with connections["default"].cursor() as cursor:
+        assert updatable_columns(cursor, "platform_user") == updatable
+
+
+DEVELOPER_COLUMNS = (
+    "id",
+    "tenant_id",
+    "name",
+    "library_id",
+    "home_region",
+    "is_library",
+    "created_at",
+    "market_id",
+)
+"""platform_developer's columns, in the table's order: one added later must be judged here."""
+
+
+@pytest.mark.django_db
+def test_vextrus_app_may_update_only_a_developer_s_name() -> None:
+    """Its Market, Library, home region, whether it is a Library, its tenant and id are the
+    owner's (platform 0007); its name stays, since `select … for update` needs one column."""
+    with connections["default"].cursor() as cursor:
+        cursor.execute(
+            "select attname from pg_attribute where attrelid = 'public.platform_developer'::regclass "
+            "and attnum > 0 and not attisdropped order by attnum"
+        )
+        assert tuple(name for (name,) in cursor.fetchall()) == DEVELOPER_COLUMNS
+
+        assert updatable_columns(cursor, "platform_developer") == {"name"}

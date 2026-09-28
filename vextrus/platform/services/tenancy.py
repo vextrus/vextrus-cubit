@@ -9,18 +9,21 @@ policies read through `nullif`), inside a transaction, with `is_local = true`:
 - `create_developer` and `staff_open` switch the current transaction to the new Developer.
 
 `current_membership()` gives the request's current Membership with its Project scope (none = all).
-The only cross-tenant reads are the three named database functions, wrapped below:
-`user_developers`, `staff_developers` and `invitation_by_token`.
+The only cross-tenant reads are six named database functions: platform's four, wrapped below
+(`user_developers`, `staff_developers`, `invitation_by_token` and `ended_access`), and `projects`'
+two, which read platform only through them (`ended_access_projects` and `invitation_projects`,
+wrapped in `projects.services.access`).
 """
 
 import hashlib
 import secrets
 import uuid
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from typing import Literal
 
 from django.conf import settings
 from django.contrib.sessions.backends.base import SessionBase
@@ -44,6 +47,10 @@ DATABASE_NOW = RawSQL("pg_catalog.now()", [], output_field=DateTimeField())
 
 SESSION_TENANT = "vextrus.tenant_id"
 """The session key naming the Developer a member works in (the chooser writes it)."""
+SESSION_ENDED = "vextrus.ended_membership_id"
+"""The session key naming the Membership whose end made the session forget its Developer, so a
+reload still shows "Access ended" (m0-screens §4.1), not the chooser. Only `enter_request` writes it;
+choosing a Developer and signing in forget it, and signing out flushes the session."""
 STAFF_SESSION_TENANT = "vextrus.staff_tenant_id"
 """The session key naming the Developer a member of Vextrus's staff acts in, in the admin only."""
 
@@ -182,7 +189,8 @@ def enter_request(request: HttpRequest) -> Tenancy:
 
     Signed out: nobody. In the admin, a member of Vextrus's staff acts in the Developer they picked
     through `staff_developers` (no Membership). Elsewhere, the session names the Developer, and the
-    user's Membership there must be current; if it is not, the session forgets it.
+    user's Membership there must be current; if it is not, the session forgets it, and keeps the
+    Membership that ended there, if one did (`SESSION_ENDED`).
     """
     user = getattr(request, "user", None)
     if user is None or not user.is_authenticated:
@@ -205,8 +213,31 @@ def enter_request(request: HttpRequest) -> Tenancy:
     membership = _membership(user_id, tenant_id) if tenant_id else None
     if tenant_id is not None and membership is None:
         session.pop(SESSION_TENANT, None)
+        _keep_ended(session, tenant_id)
         return _enter(Tenancy(user_id=user_id))
     return _enter(Tenancy(user_id=user_id, tenant_id=tenant_id, membership=membership))
+
+
+def _keep_ended(session: SessionBase, tenant_id: uuid.UUID) -> None:
+    """Keep the Membership whose end the session's Developer was forgotten for (read, as
+    `ended_access` reads it, for the signed-in user alone); none, when none ended there."""
+    ended = next((held for held in ended_access() if held.developer_id == tenant_id), None)
+    if ended is None:
+        session.pop(SESSION_ENDED, None)
+    else:
+        session[SESSION_ENDED] = str(ended.membership_id)
+
+
+def session_ended(request: HttpRequest, ended: Iterable[EndedAccess]) -> uuid.UUID | None:
+    """The Membership whose end made this session forget its Developer, while it is still among the
+    user's `ended` access; else None, and the session forgets it (it is current again, or it was
+    never the user's)."""
+    session: SessionBase = request.session
+    kept = _uuid(session.get(SESSION_ENDED))
+    if kept is not None and kept in {held.membership_id for held in ended}:
+        return kept
+    session.pop(SESSION_ENDED, None)
+    return None
 
 
 def leave_request() -> None:
@@ -218,6 +249,7 @@ def choose_developer(request: HttpRequest, developer_id: uuid.UUID) -> Tenancy:
     if developer_id not in {choice.id for choice in user_developers()}:
         raise NotYours(developer_id)
     request.session[SESSION_TENANT] = str(developer_id)
+    request.session.pop(SESSION_ENDED, None)
     return enter_request(request)
 
 
@@ -270,7 +302,7 @@ def _membership(user_id: uuid.UUID | None, tenant_id: uuid.UUID | None) -> Curre
     return CurrentMembership(membership_id, tenant_id, user_id, role, expires_at, project_ids)
 
 
-# The three named cross-tenant functions ---------------------------------------------------------
+# platform's named cross-tenant functions -------------------------------------------------------
 
 
 @dataclass(frozen=True)
@@ -292,6 +324,24 @@ class PendingInvitation:
     expires_at: datetime | None
     invite_expires_at: datetime
     project_ids: tuple[uuid.UUID, ...]
+
+
+@dataclass(frozen=True)
+class EndedAccess:
+    """A Developer whose access has ended for the signed-in user, who holds no current Membership
+    there now: their latest-ended Membership in it (the "Access ended" page, m0-screens §4.1)."""
+
+    membership_id: uuid.UUID
+    developer_id: uuid.UUID
+    developer_name: str
+    role: str
+    ended_at: datetime
+    how: Literal["revoked", "expired"]
+    """By its end date, if that passed first; else revoked."""
+    revoked_by: str | None
+    """The name of whoever revoked it; None when it expired, or when no act names who did."""
+    project_ids: tuple[uuid.UUID, ...]
+    """The Projects it gave; empty means every Project (`projects` names them)."""
 
 
 class NotYours(PermissionDenied):
@@ -326,6 +376,16 @@ def invitation_by_token(token: str) -> PendingInvitation | None:
         return None
     found = dict(zip(names, row, strict=True))
     return PendingInvitation(**{**found, "project_ids": tuple(found["project_ids"])})
+
+
+def ended_access() -> list[EndedAccess]:
+    """The signed-in user's ended access, newest first: one per Developer where they held an
+    accepted Membership and now hold no current one (never a Library)."""
+    with connection.cursor() as cursor:
+        cursor.execute("select * from public.ended_access()")
+        names = [column.name for column in cursor.description or ()]
+        rows = [dict(zip(names, row, strict=True)) for row in cursor.fetchall()]
+    return [EndedAccess(**{**row, "project_ids": tuple(row["project_ids"])}) for row in rows]
 
 
 # Invitation tokens: "<tenant id>.<secret>"; only the token's hash is stored -----------------------

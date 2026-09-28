@@ -42,7 +42,7 @@ def rows(cursor: Any, sql: str, params: list[Any] | None = None) -> list[tuple[A
 
 def refused(cursor: Any, sql: str, params: list[Any]) -> str:
     """The error a statement raises, inside its own savepoint so the test goes on."""
-    with pytest.raises(DatabaseError) as raised, transaction.atomic():
+    with pytest.raises(DatabaseError) as raised, transaction.atomic(using=cursor.db.alias):
         cursor.execute(sql, params)
     return str(raised.value)
 
@@ -168,20 +168,121 @@ def test_a_membership_project_names_a_membership_of_its_own_tenant(
     assert "platform_membershipproject_own_tenant" in error
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(databases=["default", "owner"])
 def test_a_developer_cannot_point_at_another_library_or_become_one(
-    two: tuple[uuid.UUID, uuid.UUID], cursor: Any
+    two: tuple[uuid.UUID, uuid.UUID], cursor: Any, market: MarketProfile
 ) -> None:
     a, b = two
     act(cursor, tenant=a)
     cursor.execute("set constraints all immediate")
 
-    assert "platform_developer_market_library" in refused(
-        cursor, "update platform_developer set library_id = %s where id = %s", [b, a]
+    # The app may not even try (platform 0007: those columns are the owner's) ...
+    assert sqlstate(cursor, "update platform_developer set library_id = %s where id = %s", [b, a]) == (
+        PERMISSION_DENIED
     )
-    assert "platform_developer_library_is_itself" in refused(
-        cursor, "update platform_developer set is_library = true where id = %s", [a]
+    assert sqlstate(cursor, "update platform_developer set is_library = true where id = %s", [a]) == (
+        PERMISSION_DENIED
     )
+    # ... and the constraints still hold the owner, who may.
+    with connections["owner"].cursor() as owner:
+        c = uuid.uuid4()
+        owner.execute(
+            "insert into platform_developer (id, tenant_id, name, market_id, library_id, home_region, "
+            "is_library, created_at) values (%s, %s, 'Developer C', %s, %s, '', false, now())",
+            [c, c, market.id, market.library_id],
+        )
+        owner.execute("set constraints all immediate")
+        assert "platform_developer_market_library" in refused(
+            owner, "update platform_developer set library_id = %s where id = %s", [c, c]
+        )
+        assert "platform_developer_library_is_itself" in refused(
+            owner, "update platform_developer set is_library = true where id = %s", [c]
+        )
+
+
+# A Developer's Market is fixed (platform 0007; #75): every write that could move it, as the app in
+# the Developer's own tenant, is refused before it touches a row. -----------------------------------
+
+PERMISSION_DENIED = "42501"
+
+
+def sqlstate(cursor: Any, sql: str, params: list[Any]) -> str | None:
+    """The SQLSTATE a statement fails with, inside its own savepoint so the test goes on."""
+    with pytest.raises(DatabaseError) as raised, transaction.atomic(using=cursor.db.alias):
+        cursor.execute(sql, params)
+    cause = raised.value.__cause__
+    return getattr(cause, "sqlstate", None)
+
+
+DEVELOPER_ROW = "id, tenant_id, name, market_id, library_id, home_region, is_library, created_at"
+MOVES = {
+    "update market_id": "update platform_developer set market_id = %(market)s where id = %(id)s",
+    "update library_id": "update platform_developer set library_id = %(library)s where id = %(id)s",
+    "update home_region": "update platform_developer set home_region = 'elsewhere' where id = %(id)s",
+    "update is_library": "update platform_developer set is_library = true where id = %(id)s",
+    "update tenant_id": "update platform_developer set tenant_id = %(other)s where id = %(id)s",
+    "update id": "update platform_developer set id = %(other)s where id = %(id)s",
+    "update created_at": "update platform_developer set created_at = now() where id = %(id)s",
+    "update the name and the market at once": (
+        "update platform_developer set name = 'Renamed', market_id = %(market)s where id = %(id)s"
+    ),
+    "delete": "delete from platform_developer where id = %(id)s",
+    "delete, then insert again with the same id": f"""
+        delete from platform_developer where id = %(id)s;
+        insert into platform_developer ({DEVELOPER_ROW})
+        values (%(id)s, %(id)s, 'Developer A', %(market)s, %(library)s, '', false, now())""",
+    "insert on conflict update": f"""
+        insert into platform_developer ({DEVELOPER_ROW})
+        values (%(id)s, %(id)s, 'Developer A', %(market)s, %(library)s, '', false, now())
+        on conflict (id) do update set market_id = excluded.market_id""",
+    "merge, update when matched": """
+        merge into platform_developer d using (select %(id)s::uuid as id) s on d.id = s.id
+        when matched then update set market_id = %(market)s""",
+    "merge, delete when matched": """
+        merge into platform_developer d using (select %(id)s::uuid as id) s on d.id = s.id
+        when matched then delete""",
+    "a writable CTE deleting and inserting again": f"""
+        with gone as (delete from platform_developer where id = %(id)s returning *)
+        insert into platform_developer ({DEVELOPER_ROW})
+        select id, tenant_id, name, %(market)s, %(library)s, home_region, is_library, created_at
+          from gone""",
+}
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("move", MOVES)
+def test_the_app_cannot_move_its_own_developer_by_any_write(
+    two: tuple[uuid.UUID, uuid.UUID], cursor: Any, move: str
+) -> None:
+    a, b = two
+    act(cursor, tenant=a)
+    # Another Market's values are as good as any here: the privilege check comes first.
+    params = {"id": a, "other": b, "market": uuid.uuid4(), "library": uuid.uuid4()}
+    before = rows(cursor, "select * from platform_developer where id = %s", [a])
+
+    with pytest.raises(DatabaseError) as raised, transaction.atomic():
+        cursor.execute(MOVES[move], params)
+
+    assert getattr(raised.value.__cause__, "sqlstate", None) == PERMISSION_DENIED, raised.value
+    assert "permission denied for table platform_developer" in str(raised.value)
+    assert rows(cursor, "select * from platform_developer where id = %s", [a]) == before
+
+
+@pytest.mark.django_db
+def test_the_app_still_creates_renames_and_locks_its_own_developer(
+    two: tuple[uuid.UUID, uuid.UUID], cursor: Any
+) -> None:
+    a, b = two  # made by create_developer, as the admin's add and the seed make one
+    act(cursor, tenant=a)
+
+    assert rows(cursor, "select id from platform_developer where id = %s for update", [a]) == [(a,)]
+    cursor.execute(
+        "update platform_developer set name = 'Shapla Homes Ltd' where id in (%s, %s)", [a, b]
+    )
+    assert cursor.rowcount == 1  # its own row only: row-level security holds the rest
+    assert rows(cursor, "select name from platform_developer") == [("Shapla Homes Ltd",)]
+    act(cursor, tenant=b)
+    assert rows(cursor, "select name from platform_developer") == [("Developer B",)]
 
 
 @pytest.mark.django_db

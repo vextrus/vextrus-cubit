@@ -31,16 +31,14 @@ from typing import Literal
 
 from django.contrib.auth import authenticate, login, logout, password_validation
 from django.core.exceptions import ValidationError
-from django.db.models import Q
 from django.http import HttpRequest
-from django.utils import timezone
 from django.utils.translation import get_language_info
 
 from engine.messages import Message, MessageCode
 from vextrus.platform.messages import auth as codes
-from vextrus.platform.models import Membership, Role, User
+from vextrus.platform.models import Role, User
 from vextrus.platform.services import markets, tenancy
-from vextrus.platform.services.tenancy import CurrentMembership
+from vextrus.platform.services.tenancy import CurrentMembership, EndedAccess
 
 # Acts and the role-to-act rule --------------------------------------------------------------------
 
@@ -210,6 +208,7 @@ def start_session(request: HttpRequest, user: User, developer_id: uuid.UUID | No
     # `login` keeps the key when the same user signs in again on a signed-in session: never keep it.
     request.session.cycle_key()
     request.session.pop(tenancy.SESSION_TENANT, None)
+    request.session.pop(tenancy.SESSION_ENDED, None)
     tenancy.enter_request(request)
     if developer_id is None:
         choices = tenancy.user_developers()
@@ -273,19 +272,6 @@ class MembershipView:
 
 
 @dataclass(frozen=True)
-class EndedAccess:
-    """The latest ended Membership in a Developer where the user now holds none (the "Access ended"
-    page, m0-screens §4.1). Read through the user's own rows only: the Developer's name is the web's
-    to remember from when it was current."""
-
-    membership_id: uuid.UUID
-    developer_id: uuid.UUID
-    role: str
-    ended_at: datetime
-    how: Literal["revoked", "expired"]
-
-
-@dataclass(frozen=True)
 class Language:
     code: str
     direction: Literal["ltr", "rtl"]
@@ -300,13 +286,18 @@ class Me:
     """The Developer the session works in, or None (none chosen, or its access ended)."""
     memberships: tuple[MembershipView, ...]
     ended: tuple[EndedAccess, ...]
+    """Where their access has ended and they hold no current Membership, newest first: the
+    Developer's name, who revoked it and its Projects, read through `tenancy.ended_access`."""
+    ended_membership_id: uuid.UUID | None
+    """The ended Membership this session worked in, while it is still in `ended`: a reload shows
+    "Access ended" (m0-screens §4.1) for it, not the chooser."""
     market: markets.MarketProfile | None
     """The current Developer's Market, for the web's formatters."""
     language: Language | None
     """The language pages are shown in (the Market's default: users choose none in M0)."""
 
 
-def me() -> Me:
+def me(request: HttpRequest) -> Me:
     """The signed-in user, their current Memberships (each with its Projects as ids and end date),
     their ended access, and the current Developer's Market."""
     acting = tenancy.current()
@@ -335,35 +326,21 @@ def me() -> Me:
     if market is not None:
         bidi = get_language_info(market.default_language)["bidi"]
         language = Language(market.default_language, "rtl" if bidi else "ltr")
+    current = {held.developer_id for held in memberships}
+    # One snapshot never finds a Developer in both; a revocation committed between the two reads
+    # above could, so a Developer listed as current is left out of `ended` until the next request.
+    ended = tuple(held for held in tenancy.ended_access() if held.developer_id not in current)
     return Me(
         user_id=user.pk,
         name=user.name,
         email=user.email,
         developer_id=developer_id,
         memberships=tuple(memberships),
-        ended=_ended(user.pk, {m.developer_id for m in memberships}),
+        ended=ended,
+        ended_membership_id=tenancy.session_ended(request, ended),
         market=market,
         language=language,
     )
-
-
-def _ended(user_id: uuid.UUID, current: set[uuid.UUID]) -> tuple[EndedAccess, ...]:
-    now = timezone.now()
-    rows = (
-        Membership.objects.filter(user_id=user_id, accepted_at__isnull=False)
-        .filter(Q(revoked_at__isnull=False) | Q(expires_at__lte=now))
-        .exclude(tenant_id__in=current)
-        .values_list("id", "tenant_id", "role", "revoked_at", "expires_at")
-    )
-    latest: dict[uuid.UUID, EndedAccess] = {}
-    for membership_id, tenant_id, role, revoked_at, expires_at in rows:
-        end = ending(revoked_at, expires_at, now)
-        if end is None:
-            continue
-        ended = EndedAccess(membership_id, tenant_id, role, *end)
-        if tenant_id not in latest or latest[tenant_id].ended_at < ended.ended_at:
-            latest[tenant_id] = ended
-    return tuple(sorted(latest.values(), key=lambda e: (e.ended_at, e.membership_id), reverse=True))
 
 
 def ending(
