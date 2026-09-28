@@ -15,7 +15,7 @@
   part of it (one sheet); a rectangle holding two frames or more (a box around a row of sheets) is not
   a sheet. A closed rectangle with no title block is a sheet too when it stands outside every frame,
   is a sheet's shape (`COVER_ASPECT`) and between `COVER_SIZE` of the file's frames in size, and holds
-  drawing (a cover, or a contents sheet); it has no number.
+  `MIN_COVER_CONTENT` lines of text or more (a cover, or a contents sheet); it has no number.
 - **A layout** is a sheet when its viewports show model space (`MIN_SHOWN` drawn things or more), or
   when it draws a title block and more in paper space. AutoCAD's own main viewport is left out by the
   renderer's rule (`buffers.is_main_viewport`), and a viewport's region is found as the renderer finds
@@ -117,7 +117,7 @@ COVER_ASPECT = (1.2, 1.75)
 COVER_SIZE = (0.3, 2.0)
 """A rectangle with no title block, as a fraction of the file's frames' median long side."""
 MIN_COVER_CONTENT = 3
-"""The fewest texts a rectangle with no title block must hold to be a sheet (a cover)."""
+"""The fewest lines of text a rectangle with no title block must hold to be a sheet (a cover)."""
 MAX_VISITS = 5_000_000
 """The most entities one walk visits (placement's budget)."""
 MAX_VIEWPORTS = 10_000
@@ -807,8 +807,12 @@ class _Segmenter:
         for f in plain:
             if any(g.holds(f) for g in found):
                 continue
-            texts = sum(1 for x, y, _ in space.text_index.entries(f.bbox) if f.contains((x, y)))
-            if texts >= MIN_COVER_CONTENT:
+            lines = sum(
+                space.texts[i].shown.count("\n") + 1
+                for x, y, i in space.text_index.entries(f.bbox)
+                if f.contains((x, y))
+            )
+            if lines >= MIN_COVER_CONTENT:
                 found.append(f)
         self.counts["cover"] += len(found)
         return found

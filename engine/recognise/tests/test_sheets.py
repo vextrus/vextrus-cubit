@@ -382,6 +382,20 @@ def test_a_cover_with_no_title_block_is_a_sheet_with_no_number() -> None:
     assert result.counts["cover"] == 1
 
 
+def test_a_contents_sheet_written_as_one_text_of_many_lines_is_a_cover() -> None:
+    d = Sheets()
+    block = frame_block(d)
+    for i in range(2):
+        placed_frame(d, block, (1000 * (i + 1), 0), {2: f"0{i + 1}"})
+    d.entity("LWPOLYLINE", rectangle(0, 0, 0.6 * W, 0.6 * H))
+    d.text("CONTENTS\\PFOUNDATIONS\\PFRAME\\PFINISHES", (40, 300, 0), kind="MTEXT", height=12.0)
+
+    result = segment(d.artefact(), None, DEFAULT)
+
+    assert result.counts["cover"] == 1
+    assert len(result.sheets) == 3
+
+
 def test_a_boxed_note_inside_a_sheet_is_no_cover() -> None:
     d = Sheets()
     placed_frame(d, frame_block(d), (0, 0), {2: "01"})
