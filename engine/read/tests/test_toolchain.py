@@ -85,7 +85,11 @@ def test_the_toolchain_sits_under_opt_vextrus_read_only(piece: str) -> None:
 
     assert path.is_dir()
     assert path.is_relative_to(PREFIX)
-    assert not os.access(path, os.W_OK), f"{path} is writable by this user"
+    st = path.stat()
+    assert st.st_uid == 0, f"{path} is not owned by root"
+    assert not st.st_mode & 0o022, f"{path} is writable by its group or others"
+    if os.geteuid() != 0:  # root (a cloud session) may write anywhere; the owner's user must not
+        assert not os.access(path, os.W_OK), f"{path} is writable by this user"
 
 
 @pytest.mark.needs_toolchain

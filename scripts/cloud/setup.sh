@@ -46,6 +46,10 @@ mkdir -p "$V/wheels" && : > "$STATUS" && : > "$STATUS.parts"
 T0=$(date +%s)
 # Parallel installs share apt's lock: each apt call waits for it rather than failing.
 echo 'DPkg::Lock::Timeout "240";' > /etc/apt/apt.conf.d/90vextrus-lock-wait
+# That lock covers dpkg only, not apt's downloads and temporary files: in the second VM run a concurrent
+# apt (Playwright's --with-deps) removed the .debs PostgreSQL's install was unpacking. So every apt use
+# also holds this one lock, taken with flock.
+APT_LOCK=/run/vextrus-apt.lock
 # The image lists Launchpad PPAs (deadsnakes, ondrej/php) that the network policy answers with 403, which
 # makes every `apt-get update` fail; nothing here needs them, so they are set aside before any install.
 mkdir -p /etc/apt/sources.list.d.vextrus-disabled
@@ -96,7 +100,7 @@ install_node() {                            # Node 24, then Chromium through Pla
   pw=$("$V/node/bin/node" -p "const p = require('$CHECKOUT/web/package.json');
     const d = {...p.dependencies, ...p.devDependencies}; d['@playwright/test'] || d.playwright || ''")
   [[ $pw =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Playwright is not pinned exactly in web/package.json: '$pw'"; return 1; }
-  PATH=$V/node/bin:$PATH npx -y "playwright@$pw" install --with-deps chromium
+  flock "$APT_LOCK" env PATH="$V/node/bin:$PATH" npx -y "playwright@$pw" install --with-deps chromium
 }
 
 install_dotnet() {                          # ACadSharp, the second DWG decoder (ADR 0029)
@@ -140,7 +144,7 @@ install_postgres() {                        # 18 from apt.postgresql.org; 16's c
     > /etc/apt/sources.list.d/pgdg.sources
   service postgresql stop || true
   pg_lsclusters -h | awk '$1 == "16" {print $2}' | while read -r c; do pg_dropcluster 16 "$c"; done
-  apt-get update -qq && apt-get install -y -qq postgresql-18 bubblewrap || return 1
+  flock "$APT_LOCK" sh -c 'apt-get update -qq && apt-get install -y -qq postgresql-18 bubblewrap' || return 1
   pg_ctlcluster 18 main start 2>/dev/null   # the package may have started it already
   for _ in $(seq 20); do pg_isready -q -h 127.0.0.1 -p 5432 && break; sleep 1; done
   pg_isready -q -h 127.0.0.1 -p 5432 || return 1
