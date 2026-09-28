@@ -77,7 +77,7 @@ def test_a_files_kind_is_its_first_bytes(
         ("notes.docx", DOCX, "drawings.uploads.not_a_drawing", 415),
         ("KR-STR-R0.dwg", DOCX, "drawings.uploads.not_a_drawing", 415),
         ("site-plan.jpg", b"\xff\xd8\xff\xe0" + b"\x00" * 64, "drawings.uploads.not_a_drawing", 415),
-        ("empty.dwg", b"", "drawings.uploads.not_a_drawing", 415),
+        ("empty.dwg", b"", "drawings.uploads.empty", 400),
         ("text.pdf", b"%PD", "drawings.uploads.not_a_drawing", 415),
         ("AC10.dwg", b"AC10", "drawings.uploads.not_a_drawing", 415),
     ],

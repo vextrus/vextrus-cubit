@@ -683,20 +683,14 @@ def _stored(
 
 def _plot(sr: SheetRevision) -> PlotView:
     none: Message | None = None
-    reason = sr.plot_none_reason or _no_plot_yet(sr)
+    reason = sr.plot_none_reason
     if sr.plot_page is None:
-        if reason == PlotNone.NO_PDF:
-            labels = library_disciplines.labels_of(sr.sheet.discipline_id)
-            named = library_disciplines.name(labels)
-            none = said.PLOT_NO_PDF(discipline=named) if named else said.PLOT_NO_PDF_ANY()
-        elif reason == PlotNone.NO_PAGE and sr.plot_file is not None:
+        if reason == PlotNone.NO_PAGE and sr.plot_file is not None:
             none = said.PLOT_NO_PAGE(plot_file=sr.plot_file.original_name)
-        elif reason == PlotNone.PDF_REFUSED:
-            none = said.PLOT_PDF_REFUSED()
         elif reason == PlotNone.NO_NUMBER:
             none = said.PLOT_NO_NUMBER()
-        else:
-            none = said.PLOT_NOT_YET()
+        else:  # none recorded, or one about the set's PDFs, which change: as they stand now
+            none = _no_plot_yet(sr)
     return PlotView(
         file_id=sr.plot_file_id,
         page=sr.plot_page,
@@ -707,18 +701,32 @@ def _plot(sr: SheetRevision) -> PlotView:
     )
 
 
-def _no_plot_yet(sr: SheetRevision) -> str:
-    """Why a sheet whose Plot is not recorded has none so far: no PDF of its Discipline (or of none)
-    is in the Drawing Set; only a refused one is; or one is, and its pages are not matched yet."""
+def _no_plot_yet(sr: SheetRevision) -> Message:
+    """Why a sheet has no Plot, from its Drawing Set's PDFs of its Discipline (or of none) as they
+    stand (see PLOT_NOT_YET): a PDF of its own Discipline is named before one of none."""
+    discipline_id = sr.sheet.discipline_id
     pdfs = DrawingFile.objects.filter(drawing_set_id=sr.drawing_set_id, format=FileFormat.PDF)
-    if sr.sheet.discipline_id is not None:
-        pdfs = pdfs.filter(Q(discipline_id=sr.sheet.discipline_id) | Q(discipline__isnull=True))
-    statuses = set(pdfs.values_list("read_status", flat=True))
-    if not statuses:
-        return PlotNone.NO_PDF
-    if statuses == {ReadStatus.REFUSED}:
-        return PlotNone.PDF_REFUSED
-    return ""
+    if discipline_id is not None:
+        pdfs = pdfs.filter(Q(discipline_id=discipline_id) | Q(discipline__isnull=True))
+    found = sorted(
+        pdfs.values_list("discipline_id", "added_at", "original_name", "read_status"),
+        key=lambda pdf: (pdf[0] is None, pdf[1]),
+    )
+    statuses = {status for *_, status in found}
+    if statuses & {ReadStatus.QUEUED, ReadStatus.READING}:
+        return said.PLOT_NOT_YET()
+    read = [name for _, _, name, status in found if status == ReadStatus.READ]
+    if read:
+        return said.PLOT_NO_PAGE(plot_file=read[0])
+    # One that could not be read, or was refused, is its PDF only if of its Discipline (a PDF of
+    # none, a site photograph say, is not a sheet's Plot for being refused).
+    own = {status for d, *_, status in found if discipline_id is None or d == discipline_id}
+    if own - {ReadStatus.REFUSED}:
+        return said.PLOT_PDF_UNREAD()
+    if own:
+        return said.PLOT_PDF_REFUSED()
+    named = library_disciplines.name(library_disciplines.labels_of(sr.sheet.discipline_id))
+    return said.PLOT_NO_PDF(discipline=named) if named else said.PLOT_NO_PDF_ANY()
 
 
 def views(sheet_revision_id: uuid.UUID) -> list[ViewView]:

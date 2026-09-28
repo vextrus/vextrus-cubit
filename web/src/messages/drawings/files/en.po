@@ -7,6 +7,7 @@ msgstr ""
 "Language: en\n"
 
 #. vextrus/drawings/messages/files.py (ticket 14): a file's status in m0-screens 4.5's words, and the acts on files.
+
 msgid "drawings.files.added"
 msgstr "{actor} added a file to the Drawing Set"
 
@@ -53,7 +54,7 @@ msgid "drawings.files.matching_pages"
 msgstr "Matching pages to sheets"
 
 msgid "drawings.files.not_stopped"
-msgstr "This file is already waiting to be read, being read, or read, so it was not started again. Its row shows where it is."
+msgstr "This file's reading has not stopped, so it was not started again. Its row shows where it is."
 
 msgid "drawings.files.old_version"
 msgstr "Saved by a version of AutoCAD that Vextrus cannot read yet. Save it from AutoCAD as a 2018 DWG and add it again."

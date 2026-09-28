@@ -37,6 +37,7 @@ For 21a's upload operation (`takeoff/http/`), after the guard:
 """
 
 import io
+import logging
 from typing import Any, NoReturn
 
 from django.conf import settings
@@ -50,6 +51,8 @@ from engine.messages import Message
 from vextrus.drawings.messages import uploads as said
 from vextrus.drawings.services.drawing_files import clean_name, megabytes
 from vextrus.platform.services import auth
+
+log = logging.getLogger(__name__)
 
 
 class UploadRefused(auth.Refused, SuspiciousOperation):
@@ -100,8 +103,11 @@ class DrawingUploadHandler(TemporaryFileUploadHandler):
             self._refuse(said.STOPPED(), 400)
         except MultiPartParserError, SuspiciousOperation:
             self._refuse(said.MALFORMED(), 400)
+        except Exception:  # anything else Django's parser raised on this body: logged, and refused
+            log.exception("a multipart body could not be parsed")
+            self._refuse(said.MALFORMED(), 400)
         except BaseException:
-            self._close()  # anything else is a fault, raised as it is; its files go first
+            self._close()  # an interruption, raised as it is; its files go first
             raise
         finally:
             self._parsing = False
@@ -133,7 +139,7 @@ class DrawingUploadHandler(TemporaryFileUploadHandler):
     def _refuse(self, message: Message, status: int) -> NoReturn:
         """Close (and so delete) every file of this request, then refuse it."""
         self._close()
-        raise UploadRefused(message, status)
+        _refused(self.request, message, status)
 
     def _close(self) -> None:
         for kept in (*self._files, getattr(self, "file", None)):
@@ -149,7 +155,12 @@ def _check_form(request: HttpRequest) -> None:
     try:
         MultiPartParser(request.META, io.BytesIO(), [], request.encoding)
     except MultiPartParserError:
-        raise UploadRefused(said.MALFORMED(), 400) from None
+        _refused(request, said.MALFORMED(), 400)
+    encoding = request.encoding or settings.DEFAULT_CHARSET
+    try:  # a charset Python knows but that is no text encoding (rot13, base64, "undefined")
+        "field".encode(encoding).decode(encoding)
+    except LookupError, UnicodeError, ValueError:
+        _refused(request, said.MALFORMED(), 400)
     try:
         declared = int(request.META.get("CONTENT_LENGTH") or 0)
     except ValueError, TypeError:
@@ -157,4 +168,12 @@ def _check_form(request: HttpRequest) -> None:
     limit = settings.VEXTRUS_UPLOAD_MAX_BYTES
     most = limit * settings.VEXTRUS_UPLOAD_MAX_FILES + settings.DATA_UPLOAD_MAX_MEMORY_SIZE + _FRAMING
     if declared > most:
-        raise UploadRefused(said.TOO_LARGE_UNNAMED(megabytes=megabytes(limit)), 413)
+        _refused(request, said.TOO_LARGE_UNNAMED(megabytes=megabytes(limit)), 413)
+
+
+def _refused(request: HttpRequest | None, message: Message, status: int) -> NoReturn:
+    """Refuse the request's form, marking it unreadable first: whatever reads the form again (the
+    CSRF check of Django's own error views, say) finds it empty, never parses it twice."""
+    if request is not None:
+        request._mark_post_parse_error()  # type: ignore[attr-defined]  # as Django marks a form it cannot parse
+    raise UploadRefused(message, status)

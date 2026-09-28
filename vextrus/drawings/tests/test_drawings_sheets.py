@@ -277,7 +277,8 @@ def test_a_plot_page_must_be_of_a_pdf_of_the_same_set(qs_project: QsProject) -> 
     assert (matched.plot.file_id, matched.plot.page, matched.plot.none) == (pdf.id, 3, None)
     assert matched.plot.transform == {"scale": "2.5", "rotation": 90, "offset": ["10.0", "20.0"]}
     assert other_set.value.message["code"] == "drawings.reads.not_its_reading"
-    assert none.plot.none == said.PLOT_NO_PDF(discipline="Structural")
+    # "No PDF" is about the set's PDFs, which change: read as they stand (a Structural one waits).
+    assert none.plot.none == said.PLOT_NOT_YET()
     assert no_page.plot.none == said.PLOT_NO_PAGE(plot_file="KR-STR-R0.pdf")
 
 
@@ -301,13 +302,25 @@ def test_a_sheet_with_no_plot_recorded_says_whether_a_pdf_is_there_to_match(
     with member.acting():
         services.record_reports(scan.id, upload_report=pdf_report(scan.sha256, 1, refused=True))
     refused = plots()
-    add(member, qs_project.project_id, "KR-STR-R0.pdf", drawing("pdf"))
+    waiting = add(member, qs_project.project_id, "KR-STR-R0.pdf", drawing("pdf")).file
     added = plots()
+
+    with member.acting():
+        services.mark_failed(waiting.id, {"code": "engine.read.reader_failed", "params": {}})
+        services.record_plot(s1.id, services.PlotNone.NO_PDF)  # recorded before the PDF came
+    unread = plots()
+    later = add(member, qs_project.project_id, "KR-STR-R0 again.pdf", drawing("pdf")).file
+    with member.acting():
+        services.record_reports(later.id, upload_report=pdf_report(later.sha256, 1))
+        services.mark_read(later.id)
+    read = plots()
 
     assert before == (said.PLOT_NO_PDF(discipline="Structural"), said.PLOT_NO_PDF_ANY())
     assert other_discipline == (said.PLOT_NO_PDF(discipline="Structural"), said.PLOT_NOT_YET())
     assert refused == (said.PLOT_PDF_REFUSED(), said.PLOT_NOT_YET())
     assert added == (said.PLOT_NOT_YET(), said.PLOT_NOT_YET())
+    assert unread[0] == said.PLOT_PDF_UNREAD()  # failed and refused: none that could be read
+    assert read[0] == said.PLOT_NO_PAGE(plot_file="KR-STR-R0 again.pdf")
 
 
 # The sheet list --------------------------------------------------------------------------------------

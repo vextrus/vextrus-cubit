@@ -249,24 +249,25 @@ def test_the_limit_bounds_the_signed_out_before_they_are_refused(
 
 
 @pytest.mark.parametrize(
-    ("name", "content", "code"),
+    ("name", "content", "status", "code"),
     [
-        ("KR-STR-R0.dwg", drawing("pdf"), None),
-        ("KR-STR-R0.pdf", drawing("dwg"), None),
-        ("drawings.zip", b"PK\x03\x04" + b"\x00" * 60, "drawings.uploads.zip"),
-        ("KR.dwg", b"PK\x03\x04" + b"\x00" * 60, "drawings.uploads.zip"),
-        ("empty.dwg", b"", "drawings.uploads.not_a_drawing"),
+        ("KR-STR-R0.dwg", drawing("pdf"), 200, None),
+        ("KR-STR-R0.pdf", drawing("dwg"), 200, None),
+        ("drawings.zip", b"PK\x03\x04" + b"\x00" * 60, 415, "drawings.uploads.zip"),
+        ("KR.dwg", b"PK\x03\x04" + b"\x00" * 60, 415, "drawings.uploads.zip"),
+        ("notes.dwg", b"not a drawing at all", 415, "drawings.uploads.not_a_drawing"),
+        ("empty.dwg", b"", 400, "drawings.uploads.empty"),
     ],
 )
 def test_the_kind_is_the_first_bytes_through_the_real_parse(
-    upload_urls: Path, qs_project: QsProject, name: str, content: bytes, code: str | None
+    upload_urls: Path, qs_project: QsProject, name: str, content: bytes, status: int, code: str | None
 ) -> None:
     response = post(qs_project.member, qs_project.project_id, multipart((name, content)))
 
     if code is None:
-        assert response.status_code == 200
+        assert response.status_code == status
     else:
-        assert refusal(response) == (415, {"code": code, "params": {"file": name}})
+        assert refusal(response) == (status, {"code": code, "params": {"file": name}})
         assert kept(qs_project.member, upload_urls) == NOTHING
 
 
@@ -481,7 +482,70 @@ def test_a_fault_while_a_file_streams_leaves_no_file_behind(
     monkeypatch.setattr(DrawingUploadHandler, "receive_data_chunk", fails_after_the_first_chunk)
     body = multipart(("KR-STR-R0.dwg", drawing().ljust(200 * 1024, b"\x00")))
 
-    with pytest.raises(RuntimeError):
-        post(qs_project.member, qs_project.project_id, body)
+    response = post(qs_project.member, qs_project.project_id, body)
 
+    assert refusal(response) == (400, {"code": "drawings.uploads.malformed", "params": {}})
     assert kept(qs_project.member, upload_urls) == NOTHING
+
+
+@pytest.mark.parametrize("charset", ["rot13", "base64", "hex", "undefined"])
+@pytest.mark.parametrize("signed_in", [True, False])
+def test_a_charset_that_is_no_text_encoding_is_refused_in_our_words(
+    upload_urls: Path, qs_project: QsProject, charset: str, signed_in: bool
+) -> None:
+    response = post(
+        qs_project.member if signed_in else None,
+        qs_project.project_id,
+        multipart(("KR-STR-R0.dwg", drawing())),
+        content_type=f"{MULTIPART_CONTENT}; charset={charset}",
+    )
+
+    assert refusal(response) == (400, {"code": "drawings.uploads.malformed", "params": {}})
+    assert kept(qs_project.member, upload_urls) == NOTHING
+
+
+@pytest.fixture
+def spool(settings: Any, tmp_path: Path) -> Path:
+    """The product's own URLs, and a temporary folder of its own for uploads in flight."""
+    folder = tmp_path / "spool"
+    folder.mkdir()
+    settings.FILE_UPLOAD_TEMP_DIR = str(folder)
+    return folder
+
+
+@pytest.mark.parametrize(
+    ("content_type", "content_length", "over"),
+    [
+        (MULTIPART_CONTENT, None, True),
+        (MULTIPART_CONTENT, "1000000000000", False),
+        ("multipart/form-data", None, False),
+        (f"{MULTIPART_CONTENT}; charset=rot13", None, False),
+    ],
+    ids=["file_over_the_limit", "said_too_large", "no_boundary", "no_text_charset"],
+)
+def test_any_other_view_refuses_what_the_handler_refuses_with_a_400_never_a_500(
+    spool: Path,
+    qs_project: QsProject,
+    limit: int,
+    content_type: str,
+    content_length: str | None,
+    over: bool,
+) -> None:
+    """The admin (the product's other form) reads the body at its own CSRF check: it answers
+    Django's 400, and Django's error view, reading the form again, finds it empty."""
+    client, token = csrf_client(None)
+    client.raise_request_exception = True
+    content = drawing().ljust(limit + 1, b"\x00") if over else drawing()
+    extra: dict[str, Any] = {} if content_length is None else {"CONTENT_LENGTH": content_length}
+
+    response = client.generic(
+        "POST",
+        "/admin/login/",
+        multipart(("KR-STR-R0.dwg", content)),
+        content_type=content_type,
+        headers={"X-CSRFToken": token},
+        **extra,
+    )
+
+    assert response.status_code == 400
+    assert kept(qs_project.member, spool) == NOTHING

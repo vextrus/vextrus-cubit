@@ -467,6 +467,8 @@ def add_file(project_id: uuid.UUID, *, name: str, content: Content, actor_name: 
     if not label:
         raise auth.Refused(toasts.NO_NAME(), status=400)
     sha256, size, head = _measure(content, label)
+    if size == 0:
+        raise auth.Refused(toasts.EMPTY(file=label), status=400)
     kind = _kind(head, label)
     with transaction.atomic():
         drawing_set = _set_for(tenant_id, project_id)

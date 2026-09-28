@@ -650,3 +650,75 @@ def test_a_views_predecessor_is_a_view_of_its_own_drawing_set(qs_project: QsProj
         with refused("names a view of another Drawing Set"):
             sql(VIEW, [uuid.uuid4(), member.developer_id, printed.id, None, their_view])
         sql(VIEW, [uuid.uuid4(), member.developer_id, printed.id, None, our_view])  # its own set's
+
+
+# A reading's own rows, which the app may delete: never while something names them ----------------------
+
+
+def their_printed_sheet(member: Member) -> tuple[Any, Any]:
+    """A printed sheet of another Project's Drawing Set (the same Developer)."""
+    with member.acting():
+        other = projects.create(code="OT-10", name="Another project")
+    theirs = add(member, other.id, "BP-STR-R0.dwg", drawing("dwg")).file
+    [printed] = read_dwg(member, theirs.id, ["S-01"])
+    return theirs, printed
+
+
+@pytest.mark.parametrize("deferred", [False, True])
+def test_a_printed_sheet_is_never_deleted_and_made_again_in_another_set_with_its_views(
+    qs_project: QsProject, deferred: bool
+) -> None:
+    """The refuter's sequence: its map row, then the printed sheet, then it again under its id in
+    another Project's set, its views still naming it. The views' key is checked at the delete."""
+    member = qs_project.member
+    ours = add(member, qs_project.project_id, "KR-STR-R0.dwg", drawing("dwg")).file
+    [printed] = read_dwg(member, ours.id, ["S-01"])
+    theirs, their_printed = their_printed_sheet(member)
+    with member.acting():
+        their_set, location = sql(
+            "select drawing_set_id, location from drawings_sheetrevision where id = %s",
+            [their_printed.id],
+        )[0]
+        with refused("drawings_view_sheet_revision_own_tenant"):
+            if deferred:
+                sql("set constraints all deferred")
+            sql("delete from drawings_statesheet where sheet_revision_id = %s", [printed.id])
+            sql("delete from drawings_sheetrevision where id = %s", [printed.id])
+            sql(
+                PRINTED_SHEET,
+                [printed.id, member.developer_id, their_set, their_printed.sheet_id, theirs.id,
+                 '{"layout":"MOVED"}', location, theirs.sha256, "1"],
+            )  # fmt: skip
+
+
+def test_a_sheet_is_never_deleted_and_made_again_in_another_building(qs_project: QsProject) -> None:
+    member = qs_project.member
+    ours = add(member, qs_project.project_id, "KR-STR-R0.dwg", drawing("dwg")).file
+    [printed] = read_dwg(member, ours.id, ["S-01"])
+    with member.acting():
+        set_id, discipline_id = sql(
+            "select drawing_set_id, discipline_id from drawings_sheet where id = %s", [printed.sheet_id]
+        )[0]
+        with refused("drawings_sheetrevision_sheet_own_set"):
+            sql("delete from drawings_sheet where id = %s", [printed.sheet_id])
+            sql(
+                "insert into drawings_sheet (id, tenant_id, drawing_set_id, building_id,"
+                " discipline_id, number, title, consultant_office, storeys_as_stated,"
+                " location_key) values (%s, %s, %s, null, %s, 'S-01', '', '', '', '')",
+                [printed.sheet_id, member.developer_id, set_id, discipline_id],
+            )
+
+
+def test_a_views_predecessor_is_never_deleted_and_made_again_in_another_set(
+    qs_project: QsProject,
+) -> None:
+    member = qs_project.member
+    ours = add(member, qs_project.project_id, "KR-STR-R0.dwg", drawing("dwg")).file
+    [printed] = read_dwg(member, ours.id, ["S-01"])
+    _theirs, their_printed = their_printed_sheet(member)
+    with member.acting():
+        earlier = one("select id from drawings_view where sheet_revision_id = %s limit 1", [printed.id])
+        sql(VIEW, [uuid.uuid4(), member.developer_id, printed.id, None, earlier])
+        with refused("drawings_view_predecessor_view_own_tenant"):
+            sql("delete from drawings_view where id = %s", [earlier])
+            sql(VIEW, [earlier, member.developer_id, their_printed.id, None, None])

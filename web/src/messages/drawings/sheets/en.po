@@ -7,11 +7,12 @@ msgstr ""
 "Language: en\n"
 
 #. vextrus/drawings/messages/sheets.py (ticket 14): why a sheet has no Plot (m0-screens 4.6), and refusals of a decision about a sheet or a view.
+
 msgid "drawings.sheets.kind_unknown"
 msgstr "That kind of sheet or view is not one Vextrus offers, so nothing was changed. Choose one from the list."
 
 msgid "drawings.sheets.other_needs_text"
-msgstr "Say why it is left out: \"Other\" needs a few words."
+msgstr "Nothing was left out: \"Other\" needs a few words. Say why it is left out."
 
 msgid "drawings.sheets.plot_no_number"
 msgstr "No Plot for this sheet: the sheet has no number, so no PDF page could be matched to it."
@@ -31,8 +32,11 @@ msgstr "No Plot for this sheet yet: its PDF is still being read."
 msgid "drawings.sheets.plot_pdf_refused"
 msgstr "No Plot for this sheet: its PDF was a scan and was refused."
 
+msgid "drawings.sheets.plot_pdf_unread"
+msgstr "No Plot for this sheet: its PDF could not be read. Its row on the Drawing Set page says why."
+
 msgid "drawings.sheets.reason_unknown"
-msgstr "That reason is not one of the seven offered, so nothing was changed. Choose one from the list."
+msgstr "That reason is not one Vextrus offers, so nothing was changed. Choose one from the list."
 
 msgid "drawings.sheets.text_only_for_other"
-msgstr "Only \"Other\" takes words of its own. Choose \"Other\" to give your reason, or leave the words out."
+msgstr "Nothing was left out: only \"Other\" takes words of its own. Choose \"Other\" to give your reason, or leave the words out."

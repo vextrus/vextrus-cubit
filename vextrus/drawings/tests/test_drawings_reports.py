@@ -43,9 +43,27 @@ def test_a_dwg_names_each_pdf_plotted_from_it_first_added_first(qs_project: QsPr
         said.PLOT_OF_DWG(plot_file="KR-STR-R0.pdf", with_page=1, sheets=2),
         said.PLOT_PART(plot_file="KR-STR-R0 part 2.pdf", with_page=1, sheets=2),
         said.PLOT_NONE_MATCHED(plot_file="KR-STR-R0 old.pdf"),
-        said.PLOT_REFUSED(plot_file="KR-STR-scan.pdf"),
+        said.PLOT_REFUSED_UNUSED(plot_file="KR-STR-scan.pdf"),
     )
     assert (unmatched.discipline, scan.discipline) == ("structural", "structural")
+
+
+def test_a_dwg_says_what_became_of_a_pdf_with_no_page_for_it(qs_project: QsProject) -> None:
+    member = qs_project.member
+    dwg = add(member, qs_project.project_id, "KR-ARC-R0.dwg", drawing()).file
+    read_dwg(member, dwg.id, ["A-01"])
+    a_pdf(qs_project, "KR-ARC-scan.pdf", 1, refused=True)
+    failed = add(member, qs_project.project_id, "KR-ARC-R0.pdf", drawing("pdf")).file
+    add(member, qs_project.project_id, "KR-ARC-R1.pdf", drawing("pdf"))
+    with member.acting():
+        services.mark_failed(failed.id, {"code": "engine.read.reader_failed", "params": {}})
+        plot = services.report(dwg.id).plot
+
+    assert plot == (
+        said.PLOT_REFUSED(plot_file="KR-ARC-scan.pdf"),
+        said.PLOT_UNREAD(plot_file="KR-ARC-R0.pdf"),
+        said.PLOT_READING(plot_file="KR-ARC-R1.pdf"),
+    )
 
 
 def test_a_pdf_waits_for_a_dwg_of_its_discipline_then_says_what_matched(qs_project: QsProject) -> None:

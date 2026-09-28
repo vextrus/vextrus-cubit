@@ -37,6 +37,11 @@
 #   place; a view only takes a decision (a reading replaces views, never moves one); a state's map
 #   row is never updated. Since a file is never deleted by the app and its steps' key to it takes
 #   no action, its steps cannot be removed with it either.
+# - A reading's own rows the app may delete (a Sheet, a printed sheet, a view, a map row: a reading
+#   again replaces them), so the keys naming a Sheet, a printed sheet or a view are checked at each
+#   statement, never deferred (IMMEDIATE): a row something still names cannot be deleted and made
+#   again under its id in another set, Building or place with what names it following. A row nothing
+#   names can be deleted and inserted again, as any new row can: every insert wall holds for it.
 # - Held by projects, not here: a Building's Project. A Building is named by id (a downward id), and
 #   the triggers check it at each write of a drawings row; projects' own rights decide whether a
 #   Building can move to another Project afterwards (vextrus_app may today delete a Building and
@@ -138,10 +143,25 @@ def _key_name(table: str, columns: tuple[str, ...]) -> str:
     return f"{table}_{columns[-1].removesuffix('_id')}_{kind}"[:63]
 
 
+IMMEDIATE = {
+    ("drawings_sheetrevision", ("tenant_id", "drawing_set_id", "sheet_id")),
+    ("drawings_statesheet", ("tenant_id", "drawing_set_id", "sheet_revision_id")),
+    ("drawings_view", ("tenant_id", "sheet_revision_id")),
+    ("drawings_view", ("tenant_id", "predecessor_view_id")),
+}
+"""The keys naming a Sheet, a printed sheet or a view, which the app may delete: checked at each
+statement, never deferred, so a row something still names cannot be deleted even for a moment, nor
+made again elsewhere under its id with what names it following."""
+
+
+def _timing(table: str, columns: tuple[str, ...]) -> str:
+    return "not deferrable" if (table, columns) in IMMEDIATE else "deferrable initially deferred"
+
+
 KEYS = [
     f"""alter table {table} add constraint {_key_name(table, columns)}
           foreign key ({", ".join(columns)}) references {target} ({", ".join(target_columns)})
-          deferrable initially deferred"""
+          {_timing(table, columns)}"""
     for table, columns, target, target_columns in REFERENCES
 ]
 KEYS_REVERSE = [

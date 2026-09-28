@@ -7,14 +7,18 @@ msgstr ""
 "Language: en\n"
 
 #. vextrus/drawings/messages/uploads.py (ticket 14): what adding a file answers, in m0-screens 4.5's toast words.
+
 msgid "drawings.uploads.already_here"
 msgstr "{file} is already in this Drawing Set (added {added_date} by {actor}{vextrus, select, yes { (Vextrus)} other {}}). Nothing was added."
 
 msgid "drawings.uploads.already_here_as"
 msgstr "{file} is the same file as {existing_file}, already in this Drawing Set (added {added_date} by {actor}{vextrus, select, yes { (Vextrus)} other {}}). Nothing was added."
 
+msgid "drawings.uploads.empty"
+msgstr "{file} is empty, so it was not added. Copy it again from where it was saved and add it again."
+
 msgid "drawings.uploads.malformed"
-msgstr "The file could not be received, so nothing was added. If its name is very long, shorten it and add it again; if this keeps happening, tell Vextrus."
+msgstr "The file could not be received, so nothing was added. If its name is very long, shorten it and add it again. If this keeps happening, tell Vextrus."
 
 msgid "drawings.uploads.no_name"
 msgstr "The file had no name Vextrus could use, so it was not added. Rename it and add it again."

@@ -16,8 +16,13 @@ PLOT_NO_PAGE = MessageCode("drawings.sheets.plot_no_page", params=("plot_file",)
 PLOT_PDF_REFUSED = MessageCode("drawings.sheets.plot_pdf_refused")
 PLOT_NO_NUMBER = MessageCode("drawings.sheets.plot_no_number")
 PLOT_NOT_YET = MessageCode("drawings.sheets.plot_not_yet")
-"""A PDF of its Discipline (or of none) is added and its pages are not matched yet; with no such
-PDF, the sheet says PLOT_NO_PDF, and with only a refused one, PLOT_PDF_REFUSED."""
+"""A PDF of its Discipline (or of none) is waiting or being read. Without a Plot recorded, a sheet's
+line is worked out from its set's PDFs as they stand: one of its Discipline or of none being read,
+PLOT_NOT_YET; else one read, PLOT_NO_PAGE (none of its pages matched the sheet); else one of its
+Discipline that could not be read, PLOT_PDF_UNREAD; else only refused ones of its Discipline,
+PLOT_PDF_REFUSED; else PLOT_NO_PDF. A sheet of no Discipline counts every PDF as its own."""
+PLOT_PDF_UNREAD = MessageCode("drawings.sheets.plot_pdf_unread")
+"""Its Discipline's PDFs there could not be read (failed, cancelled or held)."""
 
 # Refusals ----------------------------------------------------------------------------------------
 

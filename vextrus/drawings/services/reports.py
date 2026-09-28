@@ -138,6 +138,7 @@ def _plot(row: DrawingFile) -> list[Message]:
         pdfs = pdfs.filter(id__in=named)
     lines: list[Message] = []
     plotted = False
+    used = any(with_page.values())
     for pdf, name, status in pdfs.order_by("added_at", "id").values_list(
         "id", "original_name", "read_status"
     ):
@@ -146,9 +147,14 @@ def _plot(row: DrawingFile) -> list[Message]:
             lines.append(said_plot(plot_file=name, with_page=with_page[pdf], sheets=len(printed)))
             plotted = True
         elif status == ReadStatus.REFUSED:
-            lines.append(said.PLOT_REFUSED(plot_file=name))
+            refused = said.PLOT_REFUSED_UNUSED if used else said.PLOT_REFUSED
+            lines.append(refused(plot_file=name))
         elif status == ReadStatus.READ:
             lines.append(said.PLOT_NONE_MATCHED(plot_file=name))
+        elif status in (ReadStatus.QUEUED, ReadStatus.READING):
+            lines.append(said.PLOT_READING(plot_file=name))
+        else:
+            lines.append(said.PLOT_UNREAD(plot_file=name))
     if not pdfs.exists():
         lines.append(said.NO_PLOT())
     return lines

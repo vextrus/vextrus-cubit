@@ -32,6 +32,8 @@ REPLACED_READING = MessageCode("drawings.uploads.replaced_reading", params=("fil
 
 # Refusals: nothing is kept -------------------------------------------------------------------------
 
+EMPTY = MessageCode("drawings.uploads.empty", params=("file",))
+"""A file of no bytes (a cloud-sync placeholder, say) (400)."""
 NOT_A_DRAWING = MessageCode("drawings.uploads.not_a_drawing", params=("file",))
 """Not a DWG or a PDF by its first bytes (an empty file among them) (415)."""
 ZIP = MessageCode("drawings.uploads.zip", params=("file",))

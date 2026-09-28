@@ -10,6 +10,7 @@ from django.db import connection
 from engine.render.buffers import SheetBuffers
 from vextrus.drawings import services
 from vextrus.drawings.messages import files as said
+from vextrus.drawings.messages import sheets as sheet_words
 from vextrus.platform.services import tenancy
 from vextrus.seed import drawings as seed_drawings
 from vextrus.seed import platform as seed_platform
@@ -60,6 +61,9 @@ def test_kr_01_is_at_section_7s_state(demo: Demo) -> None:
     }
     assert summary == said.SUMMARY(files=7, sheets=24, reading=0, failed=0, held=1, refused=1)
     assert shown["KR-STR-old.dwg"].sheets_found is None
+    # Electrical has no PDF: the refused site photographs (of no Discipline) are not its Plot.
+    electrical = [s.plot.none for s in sheets if s.discipline == "electrical"]
+    assert electrical == [sheet_words.PLOT_NO_PDF(discipline="Electrical")] * 3
     every_view = [v for listed in views.values() for v in listed]
     assert len(every_view) == 70
     assert sum(v.kind == "title_block" for v in every_view) == 23
