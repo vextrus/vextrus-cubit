@@ -34,15 +34,24 @@ if [ ! -x "$V/libredwg/bin/dwgread" ]; then     # the GitHub proxy is live by no
 fi
 
 uv sync --locked -q || warn "uv sync failed"
-read -r wheel sha < <(python3 -c "import tomllib; l = tomllib.load(open('toolchain/ezdxf.lock', 'rb'));
-print(l['wheel'], l['wheel_sha256'])")
-if [ "$wheel" != "${wheel%-py3-none-any.whl}" ]; then
-  :                                              # the pure wheel: uv.lock installed it
-elif echo "$sha  $V/wheels/$wheel" | sha256sum -c --quiet - 2>/dev/null; then
-  # A later `uv run` that syncs may put the pure wheel back: the same code, slower.
-  uv pip install -q --no-deps --reinstall "$V/wheels/$wheel" || warn "ezdxf's wheel did not install"
-else
-  warn "ezdxf's compiled wheel $wheel is missing: the pure wheel runs (slower); re-save the setup script"
+read -r wheel sha release < <(python3 -c "import tomllib; l = tomllib.load(open('toolchain/ezdxf.lock', 'rb'));
+print(l['wheel'], l['wheel_sha256'], l['release'])")
+have_wheel() { echo "$sha  $V/wheels/$wheel" | sha256sum -c --quiet - 2>/dev/null; }
+if [ "$wheel" = "${wheel%-py3-none-any.whl}" ]; then    # the lock pins the compiled wheel
+  if ! have_wheel; then
+    # The setup could not reach the private release (no token). By now the session's GitHub proxy is
+    # live and may authorise this attached repository: try once through the API; the hash decides.
+    api=https://api.github.com/repos/vextrus/vextrus-cubit/releases
+    id=$(curl -fsSL "$api/tags/$release" 2>/dev/null | python3 -c "import json,sys;
+print(next(a['id'] for a in json.load(sys.stdin)['assets'] if a['name'] == sys.argv[1]))" "$wheel" 2>/dev/null) &&
+      curl -fsSL -H 'Accept: application/octet-stream' -o "$V/wheels/$wheel" "$api/assets/$id" 2>/dev/null
+  fi
+  if have_wheel; then
+    # A later `uv run` that syncs may put the pure wheel back: the same code, slower.
+    uv pip install -q --no-deps --reinstall "$V/wheels/$wheel" || warn "ezdxf's wheel did not install"
+  else
+    warn "ezdxf's compiled wheel $wheel is unreachable: the pure wheel runs (slower); see setup.sh's VEXTRUS_RELEASE_TOKEN"
+  fi
 fi
 
 # Drift: a pin changed in toolchain/ but the cached setup predates it. Re-saving the setup script
@@ -51,7 +60,8 @@ fi
   warn "dwgread is not LibreDWG $LIBREDWG"
 "$V/dotnet/dotnet" --list-sdks 2>/dev/null | grep -q "^$(pin dotnet.version) " ||
   warn ".NET SDK $(pin dotnet.version) is not installed"
-uv python find --managed-python "$(pin python.version)" >/dev/null 2>&1 ||
+uv python find "$(pin python.version)" >/dev/null 2>&1 ||   # only-managed is exported above; uv refuses
+                                                             # --managed-python beside it
   warn "Python $(pin python.version) is not installed"
 
 cat /opt/vextrus-setup.status 2>/dev/null || warn "no setup status: the setup script did not run"
