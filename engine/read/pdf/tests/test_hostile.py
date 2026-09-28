@@ -409,3 +409,57 @@ class TestInTheSandbox:
                 pdf.report(pdf_fixture("plot", producer="network"), limits=SMALL)
             time.sleep(0.2)
             assert accepted() == 0
+
+
+# A crash the file causes is the file's (the re-review of #80): refused as it, and kept.
+
+
+def test_a_comment_whose_box_overflows_on_the_page_is_dropped_and_the_pdf_read(tmp_path: Path) -> None:
+    from engine.fixtures.pdf._writer import Page, Pdf, document, nums, shx_comment, strokes
+
+    written = Pdf()
+    # Finite in the file; infinite once the page's frame moves it by the MediaBox's corner.
+    comment = shx_comment(written, "GRID A", (1.7e308, 0, 1.7e308, 10))
+    page = Page(content=strokes(3), annots=[comment], entries={"MediaBox": nums((-1e308, 0, 0, 100))})
+    path = tmp_path / "overflow.pdf"
+    path.write_bytes(document(written, [page]))
+
+    found = pdf.report(path, limits=SMALL)
+    assert (found.counts["pages"], found.counts["shx_comments"]) == (1, 0)
+    assert [p.items for p in pdf.page_text(path, limits=SMALL)] == [()]
+
+
+@pytest.mark.parametrize(
+    ("raised", "refusal"),
+    [
+        ("ValueError('Out of range float values are not JSON compliant')", codes.UNREADABLE()),
+        ("MemoryError()", codes.LIMIT_REACHED(limit="memory")),
+    ],
+)
+def test_what_encoding_the_facts_raises_is_the_file_s_refusal_and_kept(
+    pdf_fixture: Fixture, monkeypatch: pytest.MonkeyPatch, raised: str, refusal: object
+) -> None:
+    # The real child, whose encoding of the facts raises as the review's two files made it.
+    child = (
+        pdf.PRELUDE
+        + "\nimport engine.read.pdf.child as child\n"
+        + f"def failing(result):\n    raise {raised}\n"
+        + "child._encode = failing\n"
+        + "sys.exit(child.main(sys.argv[2:]))\n"
+    )
+    monkeypatch.setattr(pdf, "CHILD", child)
+    path = pdf_fixture("plot", producer=f"encode {raised[:5]}")
+    calls: list[Path] = []
+    real = pdf._read
+
+    def counted(source: Path, scratch: Path, limits: object) -> object:
+        calls.append(source)
+        return real(source, scratch, limits)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(pdf, "_read", counted)
+    for stage in (pdf.report, pdf.page_text):
+        with pytest.raises(ReadError) as caught:
+            stage(path, limits=SMALL)
+        assert caught.value.message == refusal
+    lasting = refusal == codes.UNREADABLE()
+    assert len(calls) == (1 if lasting else 2)  # the file's own refusal is kept; a limit is tried again

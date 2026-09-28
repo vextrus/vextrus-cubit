@@ -257,7 +257,9 @@ def _shx_comment(annotation: Mapping[str, Any], ctm: Matrix) -> dict[str, Any] |
         corners = [float(_resolve(v)) for v in rect]  # type: ignore[arg-type]
     except TypeError, ValueError:
         return None
-    if not all(math.isfinite(v) for v in corners):
+    box = _transform_rect(ctm, corners)
+    # Checked on the page, not in the file: finite numbers can overflow once the page's frame moves them.
+    if not all(math.isfinite(v) for v in box):
         return None
     text = _decode(contents).strip()
     if not text:
@@ -265,7 +267,7 @@ def _shx_comment(annotation: Mapping[str, Any], ctm: Matrix) -> dict[str, Any] |
     return {
         "text": text,
         "source": "shx_comment",
-        "box": _box(_transform_rect(ctm, corners)),
+        "box": _box(box),
         "size": None,
         "angle": None,
         "mirrored": False,
