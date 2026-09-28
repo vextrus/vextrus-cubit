@@ -9,7 +9,7 @@ from engine.messages import Message
 from engine.messages import pdf_report as codes
 from engine.read.pdf import rules
 from engine.read.pdf.facts import DocumentFacts, ItemFacts, PageFacts
-from engine.read.pdf.rules import EXACT_UNION, FEW_CHARS, MOSTLY_PICTURE
+from engine.read.pdf.rules import FEW_CHARS, MOSTLY_PICTURE
 from engine.read.pdf.types import Lettering, MadeBy, TextSource
 
 SHA = "a" * 64
@@ -30,7 +30,8 @@ def page(**fields: Any) -> PageFacts:
         chars=FEW_CHARS,
         hidden_chars=0,
         unmapped_chars=0,
-        images=(),
+        images=0,
+        picture_share=0.0,
         fonts=(("Arial", "truetype", True),),
         layers=(),
         shx_comments=0,
@@ -47,12 +48,9 @@ def facts(
     return DocumentFacts(producer=producer, creator=None, extras=counts, pages=tuple(numbered))
 
 
-def picture(
-    share: float, *, pieces: int = 1
-) -> tuple[tuple[tuple[float, float, float, float], int, int], ...]:
-    """Pictures covering `share` of the page, from its left edge, in `pieces` side by side."""
-    strip = W * share / pieces
-    return tuple(((i * strip, 0.0, (i + 1) * strip, H), 100, 100) for i in range(pieces))
+def picture(share: float) -> dict[str, Any]:
+    """A page's fields for pictures covering `share` of it (`coverage.py` measures it)."""
+    return {"images": 1, "picture_share": share}
 
 
 def comment(text: str = "GRID A") -> ItemFacts:
@@ -68,10 +66,9 @@ def codes_of(messages: tuple[Message, ...] | list[Message]) -> list[str]:
 
 @pytest.mark.parametrize(("share", "mostly"), [(MOSTLY_PICTURE, False), (MOSTLY_PICTURE + 0.001, True)])
 def test_a_page_is_mostly_a_picture_past_half_its_area(share: float, mostly: bool) -> None:
-    found = page(images=picture(share), strokes=0, chars=0)
+    found = page(**picture(share), strokes=0, chars=0)
 
-    assert rules.picture_share(found) == pytest.approx(share)
-    assert rules.is_scan(found, rules.picture_share(found)) is mostly
+    assert rules.is_scan(found, found.picture_share) is mostly
 
 
 @pytest.mark.parametrize(
@@ -85,26 +82,13 @@ def test_a_page_is_mostly_a_picture_past_half_its_area(share: float, mostly: boo
     ],
 )
 def test_a_scan_draws_no_text_and_no_stroke(changes: dict[str, int], scan: bool) -> None:
-    found = page(**({"images": picture(0.9), "strokes": 0, "chars": 0} | changes))
+    found = page(**(picture(0.9) | {"strokes": 0, "chars": 0} | changes))
 
-    assert rules.is_scan(found, rules.picture_share(found)) is scan
-
-
-def test_pictures_are_clipped_to_the_page_and_overlaps_counted_once() -> None:
-    boxes = (((-100.0, -100.0, 300.0, 600.0), 1, 1), ((200.0, 0.0, 400.0, 500.0), 1, 1))
-
-    assert rules.picture_share(page(images=boxes)) == pytest.approx(0.4)
-
-
-@pytest.mark.parametrize("pieces", [EXACT_UNION, EXACT_UNION + 1])
-def test_tiles_that_do_not_overlap_cover_their_sum_on_either_side_of_the_exact_union(
-    pieces: int,
-) -> None:
-    assert rules.picture_share(page(images=picture(0.8, pieces=pieces))) == pytest.approx(0.8)
+    assert rules.is_scan(found, found.picture_share) is scan
 
 
 def test_a_pdf_whose_every_page_is_a_scan_is_refused_and_says_only_what_it_is() -> None:
-    scan = page(images=picture(1.0), strokes=0, chars=0)
+    scan = page(**picture(1.0), strokes=0, chars=0)
 
     found = rules.report(facts(scan, scan, producer="Scanner Suite 4"), SHA)
 
@@ -114,7 +98,7 @@ def test_a_pdf_whose_every_page_is_a_scan_is_refused_and_says_only_what_it_is() 
 
 
 def test_a_scan_page_among_drawn_pages_is_named_and_the_pdf_read() -> None:
-    found = rules.report(facts(page(), page(images=picture(1.0), strokes=0, chars=0)), SHA)
+    found = rules.report(facts(page(), page(**picture(1.0), strokes=0, chars=0)), SHA)
 
     assert found.refused is None
     assert codes.SCAN_PAGE(page=2) in found.messages
@@ -122,7 +106,7 @@ def test_a_scan_page_among_drawn_pages_is_named_and_the_pdf_read() -> None:
 
 
 def test_a_page_mostly_a_picture_with_strokes_may_be_a_scan_and_is_read() -> None:
-    found = rules.report(facts(page(images=picture(0.88))), SHA)
+    found = rules.report(facts(page(**picture(0.88))), SHA)
 
     assert codes.MOSTLY_PICTURE(page=1, percent=88) in found.messages
     assert found.refused is None
@@ -130,12 +114,15 @@ def test_a_page_mostly_a_picture_with_strokes_may_be_a_scan_and_is_read() -> Non
 
 
 def test_small_pictures_are_named_by_the_largest_share_a_page_has() -> None:
-    found = rules.report(facts(page(images=picture(0.031)), page(images=picture(0.004)), page()), SHA)
+    found = rules.report(
+        facts(page(**picture(0.031)), page(**picture(0.004)), page(**picture(0.88)), page()), SHA
+    )
 
+    # The page mostly a picture is named on its own, and counted with neither the pages nor the share.
     assert codes.PICTURES(pages=2, percent=3) in found.messages
+    assert codes.MOSTLY_PICTURE(page=3, percent=88) in found.messages
     assert (
-        codes.PICTURES(pages=1, percent=1)
-        in rules.report(facts(page(images=picture(0.001))), SHA).messages
+        codes.PICTURES(pages=1, percent=1) in rules.report(facts(page(**picture(0.001))), SHA).messages
     )
 
 
@@ -193,15 +180,16 @@ def test_lettering_lines_on_every_page() -> None:
 
 
 def test_without_comments_anywhere_real_text_leaves_the_lettering_unconfirmed() -> None:
-    assert lettering_messages(text_only, lines) == [
-        codes.LETTERING_LINES(pages=1),
-        codes.LETTERING_UNCONFIRMED(pages=1),
-    ]
+    assert lettering_messages(text_only, text_only) == [codes.LETTERING_UNCONFIRMED(pages=2)]
+
+
+def test_with_lines_as_well_the_setting_is_asked_for_once() -> None:
+    assert lettering_messages(text_only, lines) == [codes.LETTERING_LINES(pages=1)]
 
 
 def test_blank_pages_and_scans_say_nothing_of_lettering() -> None:
     blank = page(strokes=0, chars=0)
-    scan = page(images=picture(1.0), strokes=0, chars=0)
+    scan = page(**picture(1.0), strokes=0, chars=0)
 
     assert lettering_messages(blank, scan, commented) == [codes.LETTERING_KEPT()]
     assert lettering_messages(blank) == []
@@ -224,6 +212,23 @@ def test_made_by_is_the_producer_else_the_creator(
     producer: str | None, creator: str | None, made: MadeBy
 ) -> None:
     assert rules.made_by(producer, creator) is made
+
+
+@pytest.mark.parametrize(
+    ("producer", "named"),
+    [
+        (
+            "Adobe PDF Library 15.0; modified using iText 5.5.13 ©2000-2018 iText Group NV",
+            "Adobe PDF Library 15.0",
+        ),
+        ("PDF Merge Tool (x64)", "PDF Merge Tool"),
+        ("(anonymous)", "(anonymous)"),
+    ],
+)
+def test_another_maker_is_named_before_its_notes(producer: str, named: str) -> None:
+    found = rules.report(facts(page(), producer=producer), SHA)
+
+    assert found.messages[0] == codes.MADE_BY_OTHER(producer=named)
 
 
 def test_the_report_names_another_maker_and_counts_turned_pages() -> None:
@@ -253,11 +258,11 @@ def test_fonts_are_flagged_once_each_across_pages() -> None:
     ]
 
 
-def test_extras_are_counted_together_and_ignored() -> None:
+def test_extras_are_counted_for_vextrus_and_not_shown() -> None:
     found = rules.report(facts(page(), scripts=2, files=1), SHA)
 
-    assert codes.EXTRAS_IGNORED(count=3) in found.messages
     assert (found.counts["extras_scripts"], found.counts["extras_files"]) == (2, 1)
+    assert all("extras" not in m["code"] for m in found.messages)
 
 
 def test_a_damaged_page_is_named() -> None:

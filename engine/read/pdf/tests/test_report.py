@@ -186,9 +186,9 @@ def test_one_reading_serves_both_stages_and_a_changed_file_is_read_again(
     calls: list[Path] = []
     real = pdf._read
 
-    def counted(file: Path, limits: object) -> object:
+    def counted(file: Path, scratch: Path, limits: object) -> object:
         calls.append(file)
-        return real(file, limits)  # type: ignore[arg-type]
+        return real(file, scratch, limits)  # type: ignore[arg-type]
 
     monkeypatch.setattr(pdf, "_read", counted)
     pdf.report(path)

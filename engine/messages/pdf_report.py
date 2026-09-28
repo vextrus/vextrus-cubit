@@ -1,9 +1,9 @@
 """The PDF upload report's codes (ticket 12): what `engine.read.pdf` says about a PDF, for a QS.
 
 Worded in web/src/messages/engine/pdf_report/en.po, after m0-screens 4.5 ("The report panel for a
-PDF"). The report's sections, in order: made by, pages, lettering, layers, pictures, fonts, extras,
-refused. `producer` is the program the PDF names as its maker, as it names it; a page is its number,
-counting from 1; a percent is a whole number.
+PDF"). The report's sections, in order: made by, pages, lettering, layers, pictures, fonts, refused.
+`producer` is the program the PDF names as its maker, cut before any `;`, `(` or copyright sign; a
+page is its number, counting from 1; a percent is a whole number.
 """
 
 from engine.messages import MessageCode
@@ -30,7 +30,8 @@ UNMAPPED_TEXT = MessageCode("engine.pdf_report.unmapped_text", params=("chars",)
 LAYERS_KEPT = MessageCode("engine.pdf_report.layers_kept", params=("layers",))
 LAYERS_FLATTENED = MessageCode("engine.pdf_report.layers_flattened")
 
-# Pictures: raster images and the share of a page they cover.
+# Pictures: raster images and the share of a page they cover. (What else the PDF holds, scripts,
+# links and attached files, is counted in the report for Vextrus and never shown: none is ever run.)
 NO_PICTURES = MessageCode("engine.pdf_report.no_pictures")
 PICTURES = MessageCode("engine.pdf_report.pictures", params=("pages", "percent"))
 MOSTLY_PICTURE = MessageCode("engine.pdf_report.mostly_picture", params=("page", "percent"))
@@ -40,10 +41,6 @@ SCAN_PAGE = MessageCode("engine.pdf_report.scan_page", params=("page",))
 FONTS_NOT_EMBEDDED = MessageCode("engine.pdf_report.fonts_not_embedded", params=("fonts",))
 FONTS_DRAWN = MessageCode("engine.pdf_report.fonts_drawn", params=("fonts",))
 FONTS_UNREADABLE = MessageCode("engine.pdf_report.fonts_unreadable", params=("fonts",))
-
-# Extras: scripts, launch actions, links, actions naming another file and attached files, counted
-# together; none is ever run or opened.
-EXTRAS_IGNORED = MessageCode("engine.pdf_report.extras_ignored", params=("count",))
 
 # Refused: every page is a scan.
 SCAN = MessageCode("engine.pdf_report.scan")

@@ -183,7 +183,7 @@ class PdfReport:
     """Why the PDF is refused (a scan), or none."""
     messages: tuple[Message, ...]
     """What the QS reads, in the report's order: made by, pages, lettering, layers, pictures, fonts,
-    extras, and the refusal last."""
+    and the refusal last. The extras are counted here, never shown."""
 
     @property
     def counts(self) -> dict[str, int]:

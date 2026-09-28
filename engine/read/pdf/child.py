@@ -1,6 +1,6 @@
 """The sandboxed child: reads one PDF with `walk` and writes its facts as JSON (engine/read/pdf).
 
-    python -I -c <engine.read.pdf.CHILD> <checkout> <pdf> <output.json>
+    python -I -B -c <engine.read.pdf.CHILD> <checkout> <pdf> <output.json>
 
 It writes `{"refused": reason}` for a file it will not read (`locked`, `unreadable`,
 `too_many_pages`, `memory`), else the facts. It exits 0 either way; any other exit is the sandbox's

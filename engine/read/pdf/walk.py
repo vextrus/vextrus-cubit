@@ -12,7 +12,9 @@ at the angle it is seen at.
 **Drawing order** (`index`, the anchor's path index): every object the page's content stream paints
 counts one, in stream order, a Form XObject's contents in place: a path painted, a text shown (one
 per show operator, `Tj`, `TJ`, `'` or `"`), an image drawn. A page's annotations come after its
-content, as a viewer draws them: annotation k of the page's `/Annots` is `objects + k`.
+content, as a viewer draws them: annotation k of the page's `/Annots` is `objects + k`. Glyphs are
+placed as the PDF specification places them (9.4.4: the character spacing after every glyph, the word
+spacing after a single-byte space).
 """
 
 import logging
@@ -29,8 +31,9 @@ from pdfminer.pdfpage import PDFPage
 from pdfminer.pdfparser import PDFParser
 from pdfminer.pdftypes import PDFObjRef, PDFStream, resolve1
 from pdfminer.psparser import PSLiteral
-from pdfminer.utils import Matrix, apply_matrix_pt, decode_text
+from pdfminer.utils import Matrix, apply_matrix_pt, decode_text, mult_matrix, translate_matrix
 
+from engine.read.pdf import coverage
 from engine.read.pdf.text import UNKNOWN, Glyph, runs
 
 VERSION = 1
@@ -111,10 +114,17 @@ def _info(document: PDFDocument) -> dict[str, str]:
     return found
 
 
+def _decode(value: bytes) -> str:
+    """A PDF text string: UTF-16 with its mark, UTF-8 with its mark (PDF 2.0), else PDFDocEncoding."""
+    if value.startswith(b"\xef\xbb\xbf"):
+        return value[3:].decode("utf-8", errors="replace")
+    return decode_text(value)
+
+
 def _text(value: object) -> str | None:
     value = _resolve(value)
     if isinstance(value, bytes):
-        text = decode_text(value)
+        text = _decode(value)
     elif isinstance(value, str):
         text = value
     else:
@@ -155,6 +165,9 @@ def _page(number: int, page: PDFPage, resources: _Resources, extras: _Extras) ->
         readable = False
     ctm = device.page_ctm or (1, 0, 0, 1, 0, 0)
     width, height = _size(page, ctm)
+    if not (math.isfinite(width) and math.isfinite(height) and width > 0 and height > 0):
+        width = height = 0.0  # a page with no size: damaged
+        readable = False
     items = [_item(run) for run in runs(device.glyphs)]
     extras.actions(page.attrs.get("AA"))
     comments = 0
@@ -170,14 +183,15 @@ def _page(number: int, page: PDFPage, resources: _Resources, extras: _Extras) ->
         "rotate": page.rotate if page.rotate in (0, 90, 180, 270) else 0,
         "width": round(width, _ROUND),
         "height": round(height, _ROUND),
-        "crop": _box(_transform_rect(ctm, page.cropbox)),
+        "crop": _box(_crop(page, ctm, width, height)),
         "objects": device.objects,
         "strokes": device.strokes,
         "fills": device.fills,
         "chars": device.chars,
         "hidden_chars": device.hidden_chars,
         "unmapped_chars": device.unmapped,
-        "images": device.images,
+        "images": len(device.images),
+        "picture_share": round(coverage.share(device.images, width, height), 6),
         "fonts": sorted(device.fonts.values()),
         "layers": sorted(_layers(page)),
         "shx_comments": comments,
@@ -188,6 +202,13 @@ def _page(number: int, page: PDFPage, resources: _Resources, extras: _Extras) ->
 def _size(page: PDFPage, ctm: Matrix) -> tuple[float, float]:
     x0, y0, x1, y1 = _transform_rect(ctm, page.mediabox)
     return abs(x1 - x0), abs(y1 - y0)
+
+
+def _crop(page: PDFPage, ctm: Matrix, width: float, height: float) -> tuple[float, float, float, float]:
+    """The visible part of the page: its CropBox where it overlaps the MediaBox, else the whole page."""
+    x0, y0, x1, y1 = _transform_rect(ctm, page.cropbox)
+    x0, y0, x1, y1 = max(x0, 0.0), max(y0, 0.0), min(x1, width), min(y1, height)
+    return (x0, y0, x1, y1) if x1 > x0 and y1 > y0 else (0.0, 0.0, width, height)
 
 
 def _item(run: Any) -> dict[str, Any]:
@@ -238,7 +259,7 @@ def _shx_comment(annotation: Mapping[str, Any], ctm: Matrix) -> dict[str, Any] |
         return None
     if not all(math.isfinite(v) for v in corners):
         return None
-    text = decode_text(contents).strip()
+    text = _decode(contents).strip()
     if not text:
         return None
     return {
@@ -357,7 +378,7 @@ class _Device(PDFTextDevice):
         self.hidden_chars = 0
         self.unmapped = 0
         self.glyphs: list[Glyph] = []
-        self.images: list[list[float]] = []
+        self.images: list[coverage.Picture] = []
         self.fonts: dict[int, tuple[str, str, bool]] = {}
         self._figures: list[Matrix | None] = []
         self._hidden = False
@@ -388,83 +409,118 @@ class _Device(PDFTextDevice):
         self.objects += 1
         if self.ctm is None:
             return
-        box = _transform_rect(self.ctm, (0, 0, 1, 1))
-        width = _count(stream.get("Width", stream.get("W")))
-        height = _count(stream.get("Height", stream.get("H")))
-        self.images.append([*_box(box), width, height])
+        a, b, c, d, e, f = (float(v) for v in self.ctm)
+        if all(math.isfinite(v) for v in (a, b, c, d, e, f)):
+            # The image fills the unit square: the CTM gives its corner and its two edges on the page.
+            # Only where it lies is read; its pixels, and the size it claims, are never decoded.
+            self.images.append((e, f, a, b, c, d))
 
     def render_string(
         self, textstate: PDFTextState, seq: Any, ncs: Any, graphicstate: PDFGraphicState
     ) -> None:
+        """One show operator, placed as the PDF specification places it (9.4.4): each glyph moves the
+        pen by its width, then the character spacing, then the word spacing after a single-byte
+        space; a number in a `TJ` array moves it back by thousandths of the size. (pdfminer's own loop
+        leaves out the character spacing after the last glyph of each show.)"""
         self.objects += 1
         font = textstate.font
-        if font is None:
+        if font is None or self.ctm is None:
             return
         self._hidden = textstate.render in (3, 7)  # neither filled nor stroked: hidden text
         name = _font_name(getattr(font, "fontname", None))
         self._font_name = name
         self.fonts.setdefault(id(font), (name, _font_kind(font), _embedded(font)))
         self._index = self.objects - 1
-        super().render_string(textstate, seq, ncs, graphicstate)
+        matrix = mult_matrix(textstate.matrix, self.ctm)
+        size = float(textstate.fontsize)
+        scaling = float(textstate.scaling) * 0.01
+        charspace = float(textstate.charspace) * scaling
+        wordspace = 0.0 if font.is_multibyte() else float(textstate.wordspace) * scaling
+        rise = float(textstate.rise)
+        vertical = font.is_vertical()
+        x, y = textstate.linematrix
+        for item in seq:
+            if isinstance(item, int | float):
+                shift = float(item) * 0.001 * size * scaling
+                x, y = (x, y - shift) if vertical else (x - shift, y)
+            elif isinstance(item, bytes):
+                for cid in font.decode(item):
+                    spacing = charspace + (wordspace if cid == 32 else 0.0)
+                    step = self._glyph(matrix, (x, y), font, size, scaling, rise, cid, vertical, spacing)
+                    x, y = (x, y + step) if vertical else (x + step, y)
+        textstate.linematrix = (x, y)
 
-    def render_char(
+    def _glyph(
         self,
-        matrix: Matrix,
+        text_matrix: Matrix,
+        at: tuple[float, float],
         font: PDFFont,
-        fontsize: float,
+        size: float,
         scaling: float,
         rise: float,
         cid: int,
-        ncs: Any,
-        graphicstate: PDFGraphicState,
+        vertical: bool,
+        spacing: float,
     ) -> float:
+        """Keep one glyph drawn at `at` in text space; returns how far it moves the pen there: its
+        width, then `spacing` (the character and word spacing after it)."""
+        matrix = translate_matrix(text_matrix, at)
         try:
             text = font.to_unichr(cid)
         except PDFUnicodeNotDefined:
             text = UNKNOWN
             self.unmapped += 1
-        adv = float(font.char_width(cid)) * fontsize * scaling
+        width = float(font.char_width(cid)) * size * (1.0 if vertical else scaling)
         if self._hidden:
             self.hidden_chars += 1
         elif not text.isspace():
             self.chars += 1
-        vertical = font.is_vertical()
+        if vertical:
+            # A vertical glyph hangs from its position vector: half an em left, `vy` up (9.7.4.3).
+            disp = font.char_disp(cid)
+            vx, vy = disp if isinstance(disp, tuple) else (None, 880)
+            left = size * 0.5 if vx is None else float(vx) * size * 0.001
+            top = float(vy) * size * 0.001
+            descent = float(font.get_descent()) * size
+            box = _transform_rect(
+                matrix, (-left, rise - top + descent, size - left, rise - top + descent + size)
+            )
+            reading, em = (0.0, -1.0), (0.0, size)
+            advance = (0.0, width + spacing)
+        else:
+            descent = float(font.get_descent()) * size
+            box = _transform_rect(matrix, (0, descent + rise, width, descent + rise + size))
+            reading, em = (1.0, 0.0), (size * scaling, 0.0)
+            advance = (width + spacing, 0.0)
         origin = apply_matrix_pt(matrix, (0, rise))
-        axis = _linear(matrix, (0.0, -1.0) if vertical else (1.0, 0.0))
+        axis = _linear(matrix, reading)
         length = math.hypot(*axis)
         unit = (axis[0] / length, axis[1] / length) if length and math.isfinite(length) else (0.0, 0.0)
-        advance = _linear(matrix, (0.0, adv) if vertical else (adv, 0.0))
-        up = _linear(matrix, (0.0, fontsize))
-        descent = float(font.get_descent()) * fontsize
-        box = _glyph_box(matrix, adv, descent + rise, descent + rise + fontsize)
-        if all(math.isfinite(v) for v in (*origin, *advance, *up, *box)):
+        up = _linear(matrix, (0.0, size))
+        along = math.hypot(*_linear(matrix, em))
+        moved = _linear(matrix, advance)
+        if all(math.isfinite(v) for v in (*origin, *moved, *up, *box, along)):
             self.glyphs.append(
                 Glyph(
                     text=text,
                     origin=origin,
                     axis=unit,
-                    advance=advance,
+                    advance=moved,
                     up=up,
+                    em=along,
                     box=box,
                     index=self._index,
                     hidden=self._hidden,
                     font=self._font_name,
                 )
             )
-        return adv
+        return width + spacing
 
 
 def _linear(matrix: Matrix, vector: tuple[float, float]) -> tuple[float, float]:
     a, b, c, d, _, _ = matrix
     x, y = vector
     return (a * x + c * y, b * x + d * y)
-
-
-def _glyph_box(
-    matrix: Matrix, adv: float, bottom: float, top: float
-) -> tuple[float, float, float, float]:
-    x0, y0, x1, y1 = _transform_rect(matrix, (0, bottom, adv, top))
-    return x0, y0, x1, y1
 
 
 def _count(value: object) -> int:

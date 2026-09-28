@@ -2,17 +2,21 @@
 
 The rule (engine/read/pdf's docstring gives the evidence): glyphs are taken in content-stream order,
 never re-sorted by position, since a plot's stream order is the text's own order (a mirrored text reads
-right way round in it, and a rotated page's words stay whole). A glyph continues the item before it
-when it is drawn the same way and where that one's advance ends:
+right way round in it, and a rotated page's words stay whole). The glyphs of one show operator (one
+`Tj` or `TJ`) are always one item: the producer wrote them as one string. A glyph of the next show
+operator continues the item before it when it is drawn the same way and where that one's pen ended:
 - the same visibility (drawn, or hidden text), the same size (within `SIZE_TOLERANCE`), the same
   direction (within `ANGLE_TOLERANCE`) and the same mirroring;
 - its origin lies along the direction of reading between `GAP_BEFORE` and `GAP_AFTER` ems of where the
-  last glyph's advance ended, and within `ACROSS` ems of that line.
-A gap of `SPACE_GAP` ems or more between two glyphs that are not spaces is read as one space.
+  last glyph moved the pen (its width, the character spacing and any word spacing), and within
+  `ACROSS` of the text's size above or below that line.
+Within an item, a gap of `SPACE_GAP` ems or more between two glyphs that are not spaces is one space.
 
-Every threshold is fixed here before any real drawing was read through this code, and is not tuned to
-a result: an em is the text's own size, a word space in the fonts AutoCAD plots is about a quarter to
-a third of one, and a line of text sits a whole em or more below the last.
+An em along the line is the size as the line is scaled (horizontal scaling, AutoCAD's width factor,
+included), so a word gap written as a `TJ` number reads the same in narrow text; across the line it is
+the text's height. Every threshold is fixed here before any real drawing was read through this code,
+and is not tuned to a result: a word space in the fonts AutoCAD plots is about a quarter to a third of
+an em, and a line of text sits a whole em or more below the last.
 """
 
 import math
@@ -46,6 +50,8 @@ class Glyph:
     """Where the next glyph would start, relative to `origin` (zero for a glyph with no width)."""
     up: tuple[float, float]
     """One em upright from the baseline: its length is the glyph's size on the page."""
+    em: float
+    """One em along the line, on the page: the size as the line is scaled."""
     box: tuple[float, float, float, float]
     index: int
     """The drawing-order index of the text object that drew it."""
@@ -91,7 +97,7 @@ def _angle(direction: tuple[float, float]) -> float:
 def continues(last: Glyph, glyph: Glyph) -> tuple[bool, bool]:
     """Whether `glyph` continues the item `last` ends, and whether a space lies between them."""
     size, direction = _size(last), _direction(last)
-    if direction is None or size == 0 or glyph.hidden != last.hidden:
+    if direction is None or size == 0 or last.em == 0 or glyph.hidden != last.hidden:
         return False, False
     if abs(_size(glyph) - size) > SIZE_TOLERANCE * size or _mirrored(glyph) != _mirrored(last):
         return False, False
@@ -104,9 +110,10 @@ def continues(last: Glyph, glyph: Glyph) -> tuple[bool, bool]:
         return False, False
     end = (last.origin[0] + last.advance[0], last.origin[1] + last.advance[1])
     gap = (glyph.origin[0] - end[0], glyph.origin[1] - end[1])
-    along = (gap[0] * direction[0] + gap[1] * direction[1]) / size
+    along = (gap[0] * direction[0] + gap[1] * direction[1]) / last.em
     across = (gap[1] * direction[0] - gap[0] * direction[1]) / size
-    if not (GAP_BEFORE <= along <= GAP_AFTER and abs(across) <= ACROSS):
+    shown_together = glyph.index == last.index
+    if not shown_together and not (GAP_BEFORE <= along <= GAP_AFTER and abs(across) <= ACROSS):
         return False, False
     return True, along >= SPACE_GAP and not last.text.isspace() and not glyph.text.isspace()
 

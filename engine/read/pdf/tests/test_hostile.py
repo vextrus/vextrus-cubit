@@ -68,7 +68,7 @@ def test_scripts_actions_links_and_attached_files_are_counted_and_never_acted_on
         assert accepted() == 0
     assert time.monotonic() - started < SMALL.wall_seconds
     assert found.extras == {"scripts": 3, "launches": 1, "links": 1, "remote": 3, "files": 2}
-    assert codes.EXTRAS_IGNORED(count=10) in found.messages
+    assert all("extras" not in message["code"] for message in found.messages)  # for Vextrus only
     assert [item.text for item in text[0].items] == ["S-201", "FOUNDATION PLAN"]
 
 
@@ -182,6 +182,80 @@ def test_a_link_the_child_leaves_in_place_of_its_output_is_not_followed(
     assert raised.value.message["code"] == "engine.read.output_unreadable"
 
 
+_PAGE = (
+    '{"number": 1, "readable": true, "rotate": 0, "width": WIDTH, "height": 1, "crop": [0, 0, 1, 1], '
+    '"objects": 0, "strokes": 0, "fills": 0, "chars": 0, "hidden_chars": 0, "unmapped_chars": 0, '
+    '"images": 0, "picture_share": 0, "fonts": [], "layers": [], "shx_comments": 0, "items": []}'
+)
+_FACTS = (
+    '{"producer": null, "creator": null, "extras": {"scripts": 0, "launches": 0, "links": 0, '
+    '"remote": 0, "files": 0}, "pages": [PAGE]}'
+)
+
+
+@pytest.mark.parametrize(
+    "written",
+    [
+        # what walk writes, whole: read
+        repr(_FACTS.replace("PAGE", _PAGE.replace("WIDTH", "1"))),
+        # an integer too large for a float, where a size belongs
+        repr(_FACTS.replace("PAGE", _PAGE)) + ".replace('WIDTH', '1' + '0' * 400)",
+        # more objects and lists than this process parses, in less than its byte limit
+        "'[' + '[],' * 1_000_001 + '[]]'",
+    ],
+)
+def test_the_child_s_json_is_parsed_only_when_it_is_small_and_right(
+    pdf_fixture: Fixture, monkeypatch: pytest.MonkeyPatch, written: str
+) -> None:
+    monkeypatch.setattr(pdf, "CHILD", f"import sys; open(sys.argv[3], 'w').write({written})")
+    path = pdf_fixture("plot", producer=f"json {len(written)}")
+    if written.startswith("'{") and "replace" not in written:
+        assert pdf.report(path, limits=SMALL).counts["pages"] == 1
+        return
+    assert refused(path) == codes.UNREADABLE()
+
+
+@pytest.mark.parametrize("kind", ["fifo", "folder"])
+def test_only_a_regular_file_is_read(tmp_path: Path, kind: str) -> None:
+    path = tmp_path / "plot.pdf"
+    if kind == "fifo":
+        os.mkfifo(path)  # opening it to read without O_NONBLOCK would block this process for good
+    else:
+        path.mkdir()
+    started = time.monotonic()
+    assert refused(path) == codes.UNREADABLE()
+    assert time.monotonic() - started < 5
+
+
+def test_the_child_reads_a_private_copy_so_what_is_hashed_is_what_is_read(
+    pdf_fixture: Fixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    probe = (
+        "import sys, pathlib\n"
+        "copy = pathlib.Path(sys.argv[2])\n"
+        "reason = 'locked' if copy.name == 'source.pdf' and copy.parent.name.startswith('vextrus-pdf-')"
+        " else 'unreadable'\n"
+        "open(sys.argv[3], 'w').write('{\"refused\": \"%s\"}' % reason)\n"
+    )
+    monkeypatch.setattr(pdf, "CHILD", probe)
+    assert refused(pdf_fixture("plot", producer="copy")) == codes.LOCKED()
+
+
+def test_a_limit_reached_is_not_kept_for_the_next_call(
+    pdf_fixture: Fixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = pdf_fixture("plot", producer="retried")
+    quick = SMALL.__class__(
+        cpu_seconds=5, memory_bytes=SMALL.memory_bytes, wall_seconds=1.0, output_bytes=SMALL.output_bytes
+    )
+    real = pdf.CHILD
+    monkeypatch.setattr(pdf, "CHILD", "import time; time.sleep(60)")
+    with pytest.raises(ReadError):
+        pdf.report(path, limits=quick)
+    monkeypatch.setattr(pdf, "CHILD", real)
+    assert pdf.report(path, limits=quick).counts["pages"] == 3
+
+
 @pytest.mark.needs_bwrap
 class TestInTheSandbox:
     """The same reading in bubblewrap: no network, nothing but the PDF and Python bound."""
@@ -218,6 +292,21 @@ class TestInTheSandbox:
 
     def test_a_bomb_stops_at_the_memory_limit_in_the_sandbox(self, pdf_fixture: Fixture) -> None:
         assert refused(pdf_fixture("inflate", where="content")) == codes.LIMIT_REACHED(limit="memory")
+
+    def test_the_child_sees_the_engine_and_nothing_else_of_the_checkout(
+        self, pdf_fixture: Fixture, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        probe = (
+            "import sys, pathlib\n"
+            "root = pathlib.Path(sys.argv[1])\n"
+            "engine = (root / 'engine' / '__init__.py').is_file()\n"
+            "hidden = [root / name for name in ('pyproject.toml', 'uv.lock', 'CLAUDE.md', '.git')]\n"
+            "seen = [p for p in hidden if p.exists()]\n"
+            "reason = 'locked' if engine and not seen else 'unreadable'\n"
+            "open(sys.argv[3], 'w').write('{\"refused\": \"%s\"}' % reason)\n"
+        )
+        monkeypatch.setattr(pdf, "CHILD", probe)
+        assert refused(pdf_fixture("plot", producer="binds")) == codes.LOCKED()
 
     def test_the_child_cannot_reach_the_network(
         self, pdf_fixture: Fixture, monkeypatch: pytest.MonkeyPatch

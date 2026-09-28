@@ -43,8 +43,9 @@ class PageFacts:
     chars: int
     hidden_chars: int
     unmapped_chars: int
-    images: tuple[tuple[Box, int, int], ...]
-    """Each image's box on the page and the pixel size it claims (never decoded)."""
+    images: int
+    picture_share: float
+    """The share of the page its images cover, 0 to 1 (`coverage.py`)."""
     fonts: tuple[tuple[str, str, bool], ...]
     layers: tuple[str, ...]
     shx_comments: int
@@ -86,8 +87,8 @@ def _page(data: object) -> PageFacts:
         number=fields.integer("number"),
         readable=_boolean(fields, "readable"),
         rotate=rotate,
-        width=_positive(fields, "width"),
-        height=_positive(fields, "height"),
+        width=_size(fields, "width"),
+        height=_size(fields, "height"),
         crop=_box(fields.raw("crop"), "crop"),
         objects=_count(fields, "objects"),
         strokes=_count(fields, "strokes"),
@@ -95,7 +96,8 @@ def _page(data: object) -> PageFacts:
         chars=_count(fields, "chars"),
         hidden_chars=_count(fields, "hidden_chars"),
         unmapped_chars=_count(fields, "unmapped_chars"),
-        images=tuple(_image(image) for image in fields.array("images")),
+        images=_count(fields, "images"),
+        picture_share=_share(fields),
         fonts=tuple(_font(font) for font in fields.array("fonts")),
         layers=tuple(_string(name, "layer") for name in fields.array("layers")),
         shx_comments=_count(fields, "shx_comments"),
@@ -129,16 +131,6 @@ def _item(data: object) -> ItemFacts:
     return item
 
 
-def _image(data: object) -> tuple[Box, int, int]:
-    if not isinstance(data, list) or len(data) != 6:
-        raise ValueError(f"pdf image: expected a box and a pixel size, got {data!r}")
-    width, height = data[4], data[5]
-    for value in (width, height):
-        if not isinstance(value, int) or isinstance(value, bool) or value < 0:
-            raise ValueError(f"pdf image: a pixel size is a count, got {value!r}")
-    return _box(data[:4], "image box"), width, height
-
-
 def _font(data: object) -> tuple[str, str, bool]:
     if not isinstance(data, list) or len(data) != 3:
         raise ValueError(f"pdf font: expected a name, a kind and embedded, got {data!r}")
@@ -169,15 +161,28 @@ def _boolean(fields: Fields, key: str) -> bool:
 
 
 def _number(value: object, what: str) -> float:
-    if isinstance(value, bool) or not isinstance(value, int | float) or not math.isfinite(value):
+    if isinstance(value, bool) or not isinstance(value, int | float):
         raise ValueError(f"pdf {what}: expected a finite number, got {value!r}")
-    return float(value)
+    try:
+        number = float(value)  # an integer too large for a float raises OverflowError
+    except OverflowError:
+        raise ValueError(f"pdf {what}: {value!r} is too large") from None
+    if not math.isfinite(number):
+        raise ValueError(f"pdf {what}: expected a finite number, got {value!r}")
+    return number
 
 
-def _positive(fields: Fields, key: str) -> float:
+def _size(fields: Fields, key: str) -> float:
     value = _number(fields.raw(key), key)
-    if value <= 0:
-        raise fields.fail(key, "a positive number")
+    if value < 0:
+        raise fields.fail(key, "a size, 0 or more")
+    return value
+
+
+def _share(fields: Fields) -> float:
+    value = _number(fields.raw("picture_share"), "picture_share")
+    if not 0 <= value <= 1:
+        raise fields.fail("picture_share", "a share from 0 to 1")
     return value
 
 

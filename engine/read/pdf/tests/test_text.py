@@ -1,5 +1,6 @@
 """The joining rule: glyphs in stream order become text items; each threshold tested either side."""
 
+import itertools
 import math
 
 import pytest
@@ -16,6 +17,8 @@ from engine.read.pdf.text import (
     runs,
 )
 
+_shows = itertools.count(100)
+"""A glyph is its own show operator unless a test says otherwise."""
 EM = 10.0
 WIDTH = 6.0  # each glyph advances 0.6 em
 
@@ -29,20 +32,23 @@ def glyph(
     size: float = EM,
     mirrored: bool = False,
     hidden: bool = False,
-    index: int = 0,
+    index: int | None = None,
+    squeeze: float = 1.0,
 ) -> Glyph:
+    """A glyph `size` high, advancing 0.6 em; `squeeze` narrows it as a width factor does."""
     cos, sin = math.cos(math.radians(angle)), math.sin(math.radians(angle))
     axis = (-cos, -sin) if mirrored else (cos, sin)
     up = (-sin * size, cos * size)
-    advance = (axis[0] * WIDTH * size / EM, axis[1] * WIDTH * size / EM)
+    advance = (axis[0] * WIDTH * squeeze * size / EM, axis[1] * WIDTH * squeeze * size / EM)
     return Glyph(
         text=text,
         origin=(x, y),
         axis=axis,
         advance=advance,
         up=up,
+        em=size * squeeze,
         box=(min(x, x + advance[0]), y, max(x, x + advance[0]), y + size),
-        index=index,
+        index=next(_shows) if index is None else index,
         hidden=hidden,
         font="F",
     )
@@ -51,6 +57,16 @@ def glyph(
 def along(glyphs: str, *, gap: float = 0.0, **options: object) -> list[Glyph]:
     """The glyphs of `glyphs` one after another, each `gap` ems after the last one's advance."""
     return [glyph(c, i * (WIDTH + gap * EM), index=i, **options) for i, c in enumerate(glyphs)]  # type: ignore[arg-type]
+
+
+def shown_together(glyphs: str, gaps: dict[int, float], squeeze: float = 1.0) -> list[Glyph]:
+    """The glyphs of one show operator; `gaps[i]` ems (as the line is scaled) before glyph i."""
+    found, x = [], 0.0
+    for i, c in enumerate(glyphs):
+        x += gaps.get(i, 0.0) * EM * squeeze
+        found.append(glyph(c, x, index=7, squeeze=squeeze))
+        x += WIDTH * squeeze
+    return found
 
 
 def texts(glyphs: list[Glyph]) -> list[str]:
@@ -141,6 +157,21 @@ def test_an_item_of_spaces_or_unknown_letters_alone_is_dropped() -> None:
 
 
 def test_a_glyph_with_no_direction_stands_alone() -> None:
-    broken = Glyph("B", (WIDTH, 0), (0.0, 0.0), (0.0, 0.0), (0.0, EM), (0, 0, 0, 0), 1, False, "F")
+    broken = Glyph("B", (WIDTH, 0), (0.0, 0.0), (0.0, 0.0), (0.0, EM), EM, (0, 0, 0, 0), 1, False, "F")
 
     assert texts([glyph("A", 0), broken, glyph("C", 2 * WIDTH)]) == ["A", "B", "C"]
+
+
+def test_one_show_operator_is_one_item_however_wide_its_gaps() -> None:
+    # `[(LEVEL) -3000 (+3.00)] TJ`: a gap of three ems inside one string is one space.
+    assert texts(shown_together("LEVEL+3.00", {5: 3.0})) == ["LEVEL +3.00"]
+
+
+@pytest.mark.parametrize(("squeeze", "text"), [(1.0, "AB CD"), (0.5, "AB CD"), (0.8, "AB CD")])
+def test_a_word_gap_reads_the_same_in_narrow_text(squeeze: float, text: str) -> None:
+    # `80 Tz [(AB) -300 (CD)] TJ`: the gap is 0.3 em of the line as it is scaled.
+    assert texts(shown_together("ABCD", {2: 0.3}, squeeze=squeeze)) == [text]
+
+
+def test_a_gap_short_of_a_space_in_narrow_text_is_no_space() -> None:
+    assert texts(shown_together("ABCD", {2: 0.2}, squeeze=0.5)) == ["ABCD"]
