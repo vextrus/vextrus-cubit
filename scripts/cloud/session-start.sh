@@ -36,11 +36,12 @@ fi
 uv sync --locked -q || warn "uv sync failed"
 read -r wheel sha release < <(python3 -c "import tomllib; l = tomllib.load(open('toolchain/ezdxf.lock', 'rb'));
 print(l['wheel'], l['wheel_sha256'], l['release'])")
-have_wheel() { echo "$sha  $V/wheels/$wheel" | sha256sum -c --quiet - 2>/dev/null; }
+have_wheel() { echo "$sha  $V/wheels/$wheel" | sha256sum -c --status - 2>/dev/null; }   # silent
 if [ "$wheel" = "${wheel%-py3-none-any.whl}" ]; then    # the lock pins the compiled wheel
   if ! have_wheel; then
-    # The setup could not reach the private release (no token). By now the session's GitHub proxy is
-    # live and may authorise this attached repository: try once through the API; the hash decides.
+    # The setup cannot reach the private release; a session can: its GitHub proxy authorises this
+    # repository's API, which redirects to release-assets.githubusercontent.com (tested in a VM on
+    # 28 Sep 2026, no token). The hash decides.
     api=https://api.github.com/repos/vextrus/vextrus-cubit/releases
     id=$(curl -fsSL "$api/tags/$release" 2>/dev/null | python3 -c "import json,sys;
 print(next(a['id'] for a in json.load(sys.stdin)['assets'] if a['name'] == sys.argv[1]))" "$wheel" 2>/dev/null) &&

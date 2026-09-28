@@ -23,10 +23,11 @@
 #   DATABASE_URL=postgresql://vextrus_app:vextrus_app@127.0.0.1:5432/vextrus
 #   DATABASE_OWNER_URL=postgresql://vextrus:vextrus@127.0.0.1:5432/vextrus
 #   TYPESAFE_API_KEY=proxy-injected       (the real key is an API credential, §6.2; ADR 0013)
-#   VEXTRUS_RELEASE_TOKEN=...             optional: a fine-grained token, this repository only,
-#                                         Contents read-only, for the release assets. Every session
-#                                         in the environment can read it; without it LibreDWG builds
-#                                         from source and ezdxf stays the pure wheel.
+#   VEXTRUS_RELEASE_TOKEN=...             optional, and not needed: in the VM (28 Sep 2026) the setup
+#                                         got 403 from GitHub's API even with it set, while a session
+#                                         reaches the release with no token, so session-start fetches
+#                                         ezdxf's compiled wheel. Without the release, LibreDWG builds
+#                                         from source here (about 235 s of the 300 s budget).
 # shellcheck disable=SC2329  # the install_* functions are called by name, through timed()
 set -uo pipefail
 
@@ -79,7 +80,7 @@ release_asset() {                           # release_asset TAG FILE DEST: our p
   local auth=() id
   [ -n "${VEXTRUS_RELEASE_TOKEN:-}" ] && auth=(-H "Authorization: Bearer $VEXTRUS_RELEASE_TOKEN")
   id=$(curl -fsSL "${auth[@]}" "https://api.github.com/repos/$REPO/releases/tags/$1" |
-       python3 -c "import json,sys; print(next(a['id'] for a in json.load(sys.stdin)['assets'] if a['name'] == sys.argv[1]))" "$2") ||
+       python3 -c "import json,sys; print(next(a['id'] for a in json.load(sys.stdin)['assets'] if a['name'] == sys.argv[1]))" "$2" 2>/dev/null) ||
     return 1
   curl -fsSL "${auth[@]}" -H 'Accept: application/octet-stream' -o "$3/$2" \
     "https://api.github.com/repos/$REPO/releases/assets/$id"
@@ -133,7 +134,7 @@ print(l['wheel'], l['wheel_sha256'], l['release'])" "$CHECKOUT/toolchain/ezdxf.l
     echo "$sha  $V/wheels/$wheel" | sha256sum -c -        # a download that fails its hash is a failure
   else                                      # no access to the release: the pure wheel runs, slower
     rm -f "$V/wheels/$wheel"
-    echo "ezdxf: NOTE the compiled wheel was not reachable (no VEXTRUS_RELEASE_TOKEN?); the pure wheel runs" >> "$STATUS.parts"
+    echo "ezdxf: NOTE not reachable from the setup; session-start fetches the compiled wheel" >> "$STATUS.parts"
   fi
 }
 
