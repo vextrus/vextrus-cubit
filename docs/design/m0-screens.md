@@ -101,9 +101,6 @@ wins where they differ.
 - **The key map is measured only on prototypes:** the Takeoff's 25 keystrokes for a whole step, and
   Step 1's 2 keystrokes for a clean set and 14 for a messy one (screens.md), on invented data, by
   the people who built them.
-- **The exact AutoCAD wording for the SHX-text plot option** ("Include SHX text as comments", the
-  `PDFSHX` system variable) must be checked against Autodesk's documentation by ticket 12 before the
-  PDF report ships; I have not verified the dialog label.
 - **The cursor readout's origin on a layout-tab sheet** (paper units or model units) is not decided;
   model-space sheets show the drawing's own coordinates.
 - **The market habits are unwalked on these screens.** They were proven only in the private session-02
@@ -558,7 +555,7 @@ to set a new one." (M0 has no email; M5 brings a reset link.)
 | Wrong email or password | ErrorBar above the button: "That email and password don't match an account. Check them and try again." (never says which one was wrong) |
 | Signing in | The button shows its spinner and "Signing in…"; fields locked |
 | Invitation link opened | Title "Join Shapla Homes Ltd"; line "Kamal Uddin invited you as a Vextrus Engineer until 26 Oct 2026." (a Guest: "Kamal Uddin invited you as a Guest to KR-01 Kadam Residence until 26 Oct 2026. You can look at its drawings and Takeoff but not change them."; with no end date, the "until" clause is left out); for a new user, Name and a Password with "At least 12 characters"; button "Join" |
-| Invitation used, withdrawn or expired | "This invitation can no longer be used. Ask Shapla Homes Ltd for a new one." |
+| Invitation used, withdrawn or expired | "This invitation can no longer be used. Ask whoever sent it for a new one." (it names no Developer: the owner's ruling of 28 Sep 2026, at the end of this page) |
 | After sign-in | One Membership: `/projects`. Several: a list "Which Developer?" with each Developer and the role in it |
 
 **Keys.** Enter submits; Tab order Email → Password → Sign in.
@@ -704,6 +701,7 @@ of a Discipline that has no file yet opens only that Discipline's Step 1 (5); it
 | Cancelled | "Cancelled by Nusrat Jahan, 26 Sep 2026. Nothing from it is in the sheet list." | "Read again" |
 | Interrupted, retrying | "Reading was interrupted. Trying again by itself (try 2 of 3)." | "Cancel reading" |
 | Failed | "Could not be read after 3 tries. The file is kept." | "Try again", "Mark for Vextrus" |
+| Read by one reader only (the second reader not installed, not the pinned build, stopped, or the file over its limit) | The "Failed" row, with the reason under Readers in the report panel; nothing from the file reaches the sheet list. "Held" is only for two readers that disagree (the owner's ruling of 28 Sep 2026, at the end of this page) | "Try again", "Mark for Vextrus" |
 | Old AutoCAD version | "Saved by a version of AutoCAD that Vextrus cannot read yet. Save it from AutoCAD as a 2018 DWG and add it again." | |
 | Read, readers agree | "Read. Two readers agree" | "Open in Step 1" |
 | Read, with flags | "Read. Two readers agree. 1 flag: Bangla text" | "Open in Step 1" |
@@ -729,7 +727,8 @@ Messages that do not make a row (a toast, or an ErrorBar for several files at on
 - **Readers.** Agree: "✓ Read twice, by two independent readers, and they agree. Nothing in the file
   was skipped." Disagree: "The two readers found different contents in this file: one found 212
   more items, on 3 layers. It is held, so nothing from it reaches the sheet list while it may be
-  misread. Question Q1 asks what to do." [Open the Question]
+  misread. Question Q1 asks what to do." [Open the Question] Read once (the "Failed" row): "This file
+  was read once, not twice: … a fault on Vextrus's side, not in your file." [Mark for Vextrus]
 - **Sheets.** "8 sheets found: 6 laid out in the drawing, 2 on layout tabs." [Open in Step 1]. A
   layout tab whose viewports show nothing is never counted as a sheet (no phantom sheets; the plan's QS
   review, Q7): it is dropped, "1 layout tab shows nothing, so it is not a sheet.", or, where the reader
@@ -766,9 +765,14 @@ versions, the attribute-style repair count, handle counts, read time, peak memor
   "S-07 (rev A) has no page in this PDF."
 - **Lettering.** Kept: "The AutoCAD lettering is kept as text on every page." Partly: "…on 40 of 57
   pages." Lost: "On 8 pages the lettering is drawn as lines, not text. The Plot still looks right,
-  but a machine cannot read that text. If you ask the consultant for a new PDF, ask them to plot with
-  AutoCAD's PDFSHX setting at 1 (\"Include SHX text as comments\"), so the lettering stays text."
-  (the setting's name and label verified by ticket 12 against Autodesk's documentation first)
+  but a machine cannot read that text. If you ask the consultant for a new PDF, ask them to plot it with
+  AutoCAD's DWG To PDF plotter, with PDFSHX set to 1 and \"Convert all text to geometry\" off, so the
+  lettering stays text." (Corrected on 28 Sep 2026 to #80's wording from Autodesk's help, read by its
+  design gate; AutoCAD has no option named "Include SHX text as comments". "PDFSHX System Variable",
+  AutoCAD 2026 Help: initial value 1; 1 "Creates comments from text objects that use SHX fonts". "PDF
+  Options Dialog Box", AutoCAD 2020 Help: no SHX checkbox; "Text in SHX fonts is always converted to
+  geometry … Additionally, the text is copied to the PDF file as a comment"; its only text box is
+  "Convert all text to geometry".)
 - **Layers.** "The drawing's layers are kept in the PDF." / "The layers were flattened: everything
   is on one layer. The Plot is still fine to look at."
 - **Pictures.** "No pictures." / "Pictures on 3 pages, covering at most 4% of a page (logos, stamps
@@ -1728,3 +1732,12 @@ looking empty (screens.md 5); its screenshots stay under `.private/`.
   across the canvas; Esc returns), with the five choices recorded in docs/design/screens.md
   ("Takeoff Step 1"). The Step 1 prototype (private, `.private/work/session-01/proto-step1/`) is the
   reference; ticket 22 builds to it and to that section.
+
+## The owner's rulings (28 Sep 2026, session 04)
+- **4.2, the unusable invitation: "07's words; amend §4.2".** The sentence is "This invitation can no
+  longer be used. Ask whoever sent it for a new one." One answer covers a link never issued, so naming
+  the Developer would tell a guesser which Developer a link belongs to.
+- **4.5, a DWG read by only one reader: "4.5's 'Failed' row"** (on the design gate of #79). The second
+  reader not installed, not the pinned build, stopped, or the file over its limit: the row is "Failed",
+  with "Try again" and "Mark for Vextrus", the report panel says the file was read once, and nothing
+  reaches the sheet list. "Held" stays only for readers that disagree, with its Question.

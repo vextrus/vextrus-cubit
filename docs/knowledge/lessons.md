@@ -115,3 +115,35 @@ much parallel work as that quality allows, and each wave applies the last one's 
 - **Debian's pip bends `--prefix` into `local/`;** `--target` puts a tool where a script expects it.
 - **Diagnostics name exact paths:** a `cpython-3.14*` glob matched two folders and ran one interpreter
   on the other's binary, which read as a broken Python.
+
+## Session 04 (28 Sep 2026): wave 2a and 2b
+- **Machine words fail the design gate like screens do.** All three wave-2a tickets with catalogues
+  (07, 08, 09) failed their first gate on words: a refusal telling the sender to ask themselves; "ask
+  your MD" to create what the MD cannot; "Add it again", which 4.5 refuses. A backend ticket's words
+  get a `ux-critic` words review before its PR.
+- **Contracts inside a wave hide in the seed too.** 08 had to merge after 07 for two reasons: the
+  decorator its operations declare acts through, and the Guest's scope in the seed (platform's seed runs
+  before projects'). Look for both before launching.
+- **A fix can regress what it fixes.** 09's advisory lock stopped a superseded try, and made a frozen
+  worker hold its job for two hours (TCP keepalive) where the retrier had freed it in 60 s. Re-review
+  every fix against real processes, not only its tests.
+- **Refusals before the guard escape its shape.** Ninja's `SessionAuth(csrf=True)` answered 401/403 as
+  `{"detail"}` before 07's guard ran; tests checked statuses only. Assert refusal bodies, not statuses.
+- **"Blocked by UPDATE" is not "blocked".** 08's column grants stopped an UPDATE of a Project's
+  currency; delete and re-insert still rewrote it (the same shape as 02's staff flag). Attack a wall by
+  every write, not the one it names.
+- **A check that runs from `main` fails open in the shell.** `$(…)` inside `[ ]` and pipes inside `if`
+  escape `set -e`: the not-applicable workflow would have posted both required statuses on a failed
+  matcher. Capture a command's output as its own command under `shell: bash`.
+- **A test flaking on one machine can be a real bug.** #66's fork-chain flake was the harness failing
+  to stop fork chains; it failed on CI too once looked for. Diagnose before loosening.
+- **The App needs "pull requests: read"** to check a PR's head in a private repository; the first post
+  answered 403 and posted nothing (the check fails safe).
+- **A power cut kills local agents and `/tmp`.** Keep scratch copies and logs under `.private/`; every
+  agent keeps a NOTES.txt it can resume from.
+- **A thread count CI cannot see.** CI's runners have 4 cores; the owner's machine has 24, and numpy's
+  OpenBLAS spins a thread per core. #66's test failed only here, and #80's PDF child failed 13 tests
+  here while CI passed: 04's bwrap `--clearenv` drops the harness's one-thread pin, and the extra
+  threads exhausted its memory cap. A setting made in one process does not cross a sandbox that clears
+  the environment: every sandboxed Python child sets its own pin, and a test asserts one thread from
+  `/proc/self/task` rather than relying on the runner's core count.
