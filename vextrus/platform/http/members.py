@@ -3,6 +3,7 @@
 
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from django.http import HttpRequest
 from ninja import Field, Router, Schema, Status
@@ -12,6 +13,9 @@ from vextrus.platform.http.me import RoleName
 from vextrus.platform.services import auth, invitations
 
 router = Router()
+
+type MemberAction = Literal["revoke", "renew", "copy_link", "withdraw"]
+"""An act on a row of Members and access (`services.invitations.Action`)."""
 
 
 class PersonOut(Schema):
@@ -29,8 +33,12 @@ class PersonOut(Schema):
     how_ended: str | None
     revoked_by: str | None
     invited_by: str | None
+    invited_by_id: uuid.UUID | None
     acts: int
     last_act_at: datetime | None
+    actions: list[MemberAction]
+    """What the signed-in member may do to this access now, by the server's rules: `revoke`,
+    `renew`."""
 
 
 class PendingOut(Schema):
@@ -43,6 +51,10 @@ class PendingOut(Schema):
     until: datetime | None
     link_expires_at: datetime
     invited_by: str | None
+    invited_by_id: uuid.UUID | None
+    actions: list[MemberAction]
+    """What the signed-in member may do to this invitation now, by the server's rules: `copy_link`
+    (`POST …/link`), `withdraw`."""
 
 
 class MembersOut(Schema):

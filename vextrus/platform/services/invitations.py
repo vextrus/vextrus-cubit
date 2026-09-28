@@ -28,6 +28,7 @@ import uuid
 from collections.abc import Collection, Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import Literal
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -53,6 +54,10 @@ _INVITES: dict[str, frozenset[str]] = {
     Role.QS: frozenset({Role.VEXTRUS_ENGINEER}),
 }
 """The roles each role may give; a role absent here gives none."""
+
+type Action = Literal["revoke", "renew", "copy_link", "withdraw"]
+"""What the viewer may do to a row of Members and access: `revoke`, `renew`, `reissue_link` ("Copy
+link") and `withdraw`, by the rules those acts check (`_actions`)."""
 
 
 @dataclass(frozen=True)
@@ -318,9 +323,12 @@ class Person:
     """`revoked` or `expired`, once ended."""
     revoked_by: str | None
     invited_by: str | None
+    invited_by_id: uuid.UUID | None
     acts: int
     """How many acts the Developer's event log holds under their name (those the viewer may see)."""
     last_act_at: datetime | None
+    actions: tuple[Action, ...]
+    """What the viewer may do to it now: `revoke`, `renew`."""
 
 
 @dataclass(frozen=True)
@@ -336,6 +344,9 @@ class Pending:
     until: datetime | None
     link_expires_at: datetime
     invited_by: str | None
+    invited_by_id: uuid.UUID | None
+    actions: tuple[Action, ...]
+    """What the viewer may do to it now: `copy_link` (a new link), `withdraw`."""
 
 
 @dataclass(frozen=True)
@@ -388,6 +399,8 @@ def members() -> Members:
                         until=row.expires_at,
                         link_expires_at=row.invite_expires_at,
                         invited_by=inviter,
+                        invited_by_id=row.invited_by_id,
+                        actions=_actions(viewer, row, now),
                     )
                 )
             continue
@@ -409,8 +422,10 @@ def members() -> Members:
             how_ended=how,
             revoked_by=revoked_by.get(row.id),
             invited_by=inviter,
+            invited_by_id=row.invited_by_id,
             acts=count,
             last_act_at=last,
+            actions=_actions(viewer, row, now),
         )
         if row.role != Role.VEXTRUS_ENGINEER:
             people.append(person)
@@ -531,29 +546,58 @@ def _changeable(actor: CurrentMembership, membership_id: uuid.UUID) -> Membershi
     membership = Membership.objects.filter(id=membership_id, tenant_id=actor.tenant_id).first()
     if membership is None or membership.id in hidden_from(actor).memberships:
         raise auth.NotFound  # one the actor could not see in `members()` is not found, as missing
+    refused = _change_refused(actor, membership)
+    if refused is not None:
+        raise refused
+    return membership
+
+
+def _change_refused(actor: CurrentMembership, membership: Membership) -> Refused | None:
+    """Why the actor may not change this Membership (one they can see), or None when they may."""
     if membership.user_id == actor.user_id:
-        raise Refused(codes.NOT_YOURSELF())
+        return Refused(codes.NOT_YOURSELF())
     if actor.role == Role.MD:
-        return membership
+        return None
     if (
         actor.role == Role.QS
         and membership.role == Role.VEXTRUS_ENGINEER
         and membership.invited_by_id == actor.user_id
     ):
-        return membership
-    raise Refused(codes.NOT_YOURS_TO_CHANGE())
+        return None
+    return Refused(codes.NOT_YOURS_TO_CHANGE())
+
+
+def _open(membership: Membership, now: datetime) -> bool:
+    """An invitation not used, withdrawn or past its link's end."""
+    return (
+        membership.user_id is None
+        and membership.revoked_at is None
+        and membership.invite_expires_at is not None
+        and membership.invite_expires_at > now
+    )
 
 
 def _pending(actor: CurrentMembership, membership_id: uuid.UUID) -> Membership:
     membership = _changeable(actor, membership_id)
-    if (
-        membership.user_id is not None
-        or membership.revoked_at is not None
-        or membership.invite_expires_at is None
-        or membership.invite_expires_at <= timezone.now()
-    ):
+    if not _open(membership, timezone.now()):
         raise Refused(codes.NO_LONGER_OPEN(), status=409)
     return membership
+
+
+def _actions(viewer: CurrentMembership, membership: Membership, now: datetime) -> tuple[Action, ...]:
+    """What the viewer may do to a Membership `members()` shows them, by the rules each act checks
+    (`auth.MANAGE_ACCESS`, `_changeable`, then `_pending`, or `_member` and `renew`'s end date), so
+    the web never works a right out for itself."""
+    if (
+        not auth.allows(viewer.role, auth.MANAGE_ACCESS)
+        or _change_refused(viewer, membership) is not None
+    ):
+        return ()
+    if membership.user_id is None:
+        return ("copy_link", "withdraw") if _open(membership, now) else ()
+    if membership.revoked_at is not None:
+        return ()
+    return ("revoke", "renew") if membership.expires_at is not None else ("revoke",)
 
 
 def _member(actor: CurrentMembership, membership_id: uuid.UUID) -> Membership:
