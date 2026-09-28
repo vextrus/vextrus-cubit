@@ -156,7 +156,8 @@ AT_THE_BOUND = [
     (r"\d{0,63}\d{0,63}x", r"\d{0,127}\d{0,63}x"),
     (r"\d{0,15}\d{0,15}\d{0,15}x", r"\d{0,31}\d{0,15}\d{0,15}x"),
     (r".{0,255}\d{0,15}x", r".{0,255}\d{0,31}x"),
-    (r"(?=\d{0,63}x)\d{0,63}x", r"(?=\d{0,63}x)\d{0,127}x"),
+    (r"(?=\d{0,63}\d{0,63}x)\d", r"(?=\d{0,127}\d{0,63}x)\d"),
+    (r"\s*:\d{0,15}\d{0,255}x", r"\s*:\d{0,31}\d{0,255}x"),
     (r"\d{0,3}(?:1|11|111|1111)\d{0,15}\d{0,15}x", r"\d{0,7}(?:1|11|111|1111)\d{0,15}\d{0,15}x"),
 ]
 
@@ -173,7 +174,7 @@ def test_the_worst_pattern_that_loads_stays_bounded_on_the_longest_text(
     SheetConventions.from_json({**FULL, "number_patterns": [worst]})
     with pytest.raises(ValueError, match="ways"):
         SheetConventions.from_json({**FULL, "number_patterns": [doubled]})
-    text = "1" * MAX_PATTERN_TEXT
+    text = ":" + "1" * (MAX_PATTERN_TEXT - 1)  # every case backtracks over it all
 
     start = time.process_time()
     found = pattern_search(worst, text)
@@ -181,6 +182,37 @@ def test_the_worst_pattern_that_loads_stays_bounded_on_the_longest_text(
 
     assert found is None
     assert spent < 0.25
+
+
+@pytest.mark.parametrize(
+    "pattern",
+    [
+        r"1\s*:\s*(\d+)",
+        r"\s*:\s*:\s*:\s*:\d+",
+        r"[A-Z]*-\d*/\d+",
+        r"[^:]*:[^;]*;\d+",
+        r"(?a)\w*\s+\d+",
+    ],
+)
+def test_a_run_that_must_end_where_the_next_item_begins_adds_tries_not_ways(pattern: str) -> None:
+    """A repeat whose next item needs a character it never matches (`\\s*` before `:` or a digit)
+    ends where its run does: each of its other lengths fails at that item at once, so the tries add
+    up rather than multiply, and a scale pattern such as `1\\s*:\\s*(\\d+)` loads."""
+    SheetConventions.from_json({**FULL, "number_patterns": [pattern]})
+
+
+@pytest.mark.parametrize(
+    "pattern",
+    [
+        r"\s*\s*:\d{0,15}",  # the two runs share their characters: their ways multiply
+        r"\w*\d*\d{0,15}:",  # a digit is a word character
+        r"(?i)\d{0,63}k{0,63}\u212ax?",  # case-folding makes the Kelvin sign a k
+        r"[^:]*[^;]*;\d{0,15}",  # two negated classes share every other character
+    ],
+)
+def test_a_run_the_next_item_can_carry_on_still_multiplies_the_ways(pattern: str) -> None:
+    with pytest.raises(ValueError, match="ways"):
+        SheetConventions.from_json({**FULL, "number_patterns": [pattern]})
 
 
 def test_a_pattern_runs_on_capped_text_only() -> None:

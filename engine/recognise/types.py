@@ -799,7 +799,7 @@ MAX_PATTERN_TEXT = 256
 """The longest text a conventions pattern runs on: a longer text is never matched (`pattern_search`),
 so it is no field's value."""
 MAX_PATHS = 4096
-"""The most ways a pattern may try to match at one place in a text (`_paths`). Python's `re`
+"""The most ways a pattern may try to match at one place in a text (`_ways`). Python's `re`
 backtracks: every optional item, repeat and alternative multiplies the ways, and a search tries them
 all at each of the text's places before it fails. At this bound the worst pattern that loads fails a
 search of `MAX_PATTERN_TEXT` characters in about 13 ms of CPU at most (measured; review round 1
@@ -809,6 +809,25 @@ _SINGLE = frozenset({_constants.LITERAL, _constants.NOT_LITERAL, _constants.ANY,
                      _constants.CATEGORY})  # fmt: skip
 _REPEATS = frozenset({_constants.MAX_REPEAT, _constants.MIN_REPEAT, _constants.POSSESSIVE_REPEAT})
 _BACKREFERENCES = frozenset({_constants.GROUPREF, _constants.GROUPREF_EXISTS})
+_CATEGORIES = {
+    _constants.CATEGORY_DIGIT: "digit",
+    _constants.CATEGORY_NOT_DIGIT: "not_digit",
+    _constants.CATEGORY_SPACE: "space",
+    _constants.CATEGORY_NOT_SPACE: "not_space",
+    _constants.CATEGORY_WORD: "word",
+    _constants.CATEGORY_NOT_WORD: "not_word",
+}
+_APART = frozenset(
+    frozenset(pair)
+    for pair in (("digit", "space"), ("word", "space"), ("digit", "not_digit"),
+                 ("space", "not_space"), ("word", "not_word"), ("digit", "not_word"))
+)  # fmt: skip
+"""Pairs of classes no character is in both of (a digit is a word character, never a space)."""
+_LARGEST_RANGE = 256
+"""The widest range of characters a class is read to (a wider one is not told apart from others)."""
+
+type _Chars = tuple[bool, frozenset[str], frozenset[str]]
+"""A one-character item's class: negated, its characters, its categories ("digit", "not_space")."""
 
 
 def _pattern(pattern: str) -> None:
@@ -824,7 +843,7 @@ def _pattern(pattern: str) -> None:
         parsed = _parser.parse(pattern)
     except re.error as error:
         raise ValueError(f"the pattern {pattern!r} is not a regular expression: {error}") from None
-    if _paths(parsed, pattern) > MAX_PATHS:
+    if max(_ways(parsed, pattern, parsed.state.flags)) > MAX_PATHS:
         raise ValueError(
             f"the pattern {pattern!r} can try more than {MAX_PATHS} ways to match at one place in a"
             " text; bound its repeats ({0,8} rather than *) and its optional parts (a pattern is"
@@ -832,13 +851,17 @@ def _pattern(pattern: str) -> None:
         )
 
 
-def _paths(parsed: Any, pattern: str) -> int:
-    """Walk a parsed pattern, refusing what cannot be bounded; the most ways it can try to match at
-    one place, counted as if every repeat could take its whole range on a text of
-    `MAX_PATTERN_TEXT` characters (capped just past `MAX_PATHS`). A lookaround's ways multiply
-    those around it, as if it were tried at every one of them."""
-    ways = 1
-    for op, value in parsed:
+def _ways(parsed: Any, pattern: str, flags: int) -> tuple[int, int]:
+    """Walk a parsed pattern, refusing what cannot be bounded: the ways a match can go on past it
+    from one place, and the most times any one of its items is tried, as if every repeat could take
+    its whole range on a text of `MAX_PATTERN_TEXT` characters (each capped just past `MAX_PATHS`).
+    A repeat of one character whose next item needs a character it never matches (`\\s*` before
+    `:` or a digit) must end where its run does: the next item is tried after each of its lengths,
+    but only one goes on, so it adds tries rather than multiplying the ways. A lookaround or an
+    atomic group is tried by every way that reaches it, and lets one through."""
+    items = list(parsed)
+    going, most = 1, 1
+    for at, (op, value) in enumerate(items):
         if op in _BACKREFERENCES:
             raise ValueError(f"the pattern {pattern!r} refers back to a group, which cannot be bounded")
         if op in _REPEATS:
@@ -849,20 +872,134 @@ def _paths(parsed: Any, pattern: str) -> int:
                         f"the pattern {pattern!r} repeats a group or a repeat, which can take"
                         " exponential time; repeat single characters only"
                     )
-                ways *= max(min(high, MAX_PATTERN_TEXT) - min(low, MAX_PATTERN_TEXT) + 1, 1)
+                took = max(min(high, MAX_PATTERN_TEXT) - min(low, MAX_PATTERN_TEXT) + 1, 1)
+                after = items[at + 1] if at + 1 < len(items) else None
+                if after is not None and _stops_before(body[0], after, flags):
+                    most = max(most, going * took)
+                else:
+                    going *= took
             else:
-                taken = _paths(body, pattern) if high == 1 else 0
-                ways *= max(taken + (1 if low == 0 else 0), 1)
+                goes, tried = _ways(body, pattern, flags) if high == 1 else (0, 0)
+                most = max(most, going * tried)
+                going *= max(goes + (1 if low == 0 else 0), 1)
         elif op == _constants.SUBPATTERN:
-            ways *= _paths(value[-1], pattern)
+            _group, add, remove, body = value
+            goes, tried = _ways(body, pattern, (flags | add) & ~remove)
+            most = max(most, going * tried)
+            going *= goes
         elif op == _constants.BRANCH:
-            ways *= sum(_paths(item, pattern) for item in value[1])
+            found = [_ways(item, pattern, flags) for item in value[1]]
+            most = max(most, going * sum(tried for _, tried in found))
+            going *= sum(goes for goes, _ in found)
         elif op in (_constants.ASSERT, _constants.ASSERT_NOT):
-            ways *= _paths(value[1], pattern)
+            most = max(most, going * max(_ways(value[1], pattern, flags)))
         elif op == _constants.ATOMIC_GROUP:
-            ways *= _paths(value, pattern)
-        ways = min(ways, MAX_PATHS + 1)
-    return ways
+            most = max(most, going * max(_ways(value, pattern, flags)))
+        going = min(going, MAX_PATHS + 1)
+        most = min(max(most, going), MAX_PATHS + 1)
+    return going, most
+
+
+def _stops_before(item: tuple[Any, Any], after: tuple[Any, Any], flags: int) -> bool:
+    """Whether a run of `item`'s characters must end where `after` begins: `after` needs, first, a
+    character `item` never matches (a character or class, a repeat of one at least once, or a group
+    that begins so). Anything else, or a class that case-folding blurs, is not told apart."""
+    first = _first(after)
+    if first is None:
+        return False
+    a, b = _chars(item, flags), _chars(first, flags)
+    return a is not None and b is not None and _apart(a, b, bool(flags & re.ASCII))
+
+
+def _first(item: tuple[Any, Any]) -> tuple[Any, Any] | None:
+    op, value = item
+    if op in _SINGLE:
+        return item
+    if op in _REPEATS:
+        low, _high, body = value
+        return _first(body[0]) if low >= 1 and len(body) else None
+    if op == _constants.SUBPATTERN:
+        body = value[-1]
+        return _first(body[0]) if len(body) else None
+    return None
+
+
+def _chars(item: tuple[Any, Any], flags: int) -> _Chars | None:
+    """A one-character item's class, or none when it cannot be told exactly."""
+    op, value = item
+    negated, chars, categories = False, set[str](), set[str]()
+    if op == _constants.LITERAL:
+        chars.add(chr(value))
+    elif op == _constants.NOT_LITERAL:
+        negated = True
+        chars.add(chr(value))
+    elif op == _constants.ANY:
+        negated = True
+        if not flags & re.DOTALL:
+            chars.add("\n")
+    elif op == _constants.CATEGORY and value in _CATEGORIES:
+        categories.add(_CATEGORIES[value])
+    elif op == _constants.IN:
+        for part, held in value:
+            if part == _constants.NEGATE:
+                negated = True
+            elif part == _constants.LITERAL:
+                chars.add(chr(held))
+            elif part == _constants.RANGE and held[1] - held[0] < _LARGEST_RANGE:
+                chars.update(chr(c) for c in range(held[0], held[1] + 1))
+            elif part == _constants.CATEGORY and held in _CATEGORIES:
+                categories.add(_CATEGORIES[held])
+            else:
+                return None
+    else:
+        return None
+    if flags & re.IGNORECASE and any(c.lower() != c.upper() for c in chars):
+        return None  # case-folding joins characters (k and the Kelvin sign): not told apart
+    return negated, frozenset(chars), frozenset(categories)
+
+
+def _in(category: str, char: str, ascii_only: bool) -> bool:
+    kind = category.removeprefix("not_")
+    if ascii_only:
+        hit = {
+            "digit": "0" <= char <= "9",
+            "space": char in " \t\n\r\f\v",
+            "word": char.isascii() and (char.isalnum() or char == "_"),
+        }[kind]
+    else:
+        hit = {
+            "digit": char.isdecimal(),
+            "space": char.isspace(),
+            "word": char.isalnum() or char == "_",
+        }[kind]
+    return hit != category.startswith("not_")
+
+
+def _matches(chars: _Chars, char: str, ascii_only: bool) -> bool:
+    negated, held, categories = chars
+    return (char in held or any(_in(c, char, ascii_only) for c in categories)) != negated
+
+
+def _apart(a: _Chars, b: _Chars, ascii_only: bool) -> bool:
+    """Whether no character is in both classes."""
+    for one, other in ((a, b), (b, a)):
+        negated, held, categories = one
+        if not negated and not categories:  # a set of characters, each asked of the other class
+            return not any(_matches(other, char, ascii_only) for char in held)
+    if a[0] and b[0]:
+        return False  # two negated classes share every character neither names
+    if not a[0] and not b[0]:
+        return (
+            all(frozenset((p, q)) in _APART for p in a[2] for q in b[2])
+            and not any(_matches(b, char, ascii_only) for char in a[1])
+            and not any(_matches(a, char, ascii_only) for char in b[1])
+        )
+    against, plain = (a, b) if a[0] else (b, a)
+    left_out: _Chars = (False, against[1], against[2])  # what the negated class does not match
+    excluded = against[2]
+    return all(q in excluded or (q == "digit" and "word" in excluded) for q in plain[2]) and all(
+        _matches(left_out, char, ascii_only) for char in plain[1]
+    )
 
 
 @functools.lru_cache(maxsize=256)
