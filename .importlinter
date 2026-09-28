@@ -1,0 +1,147 @@
+# import-linter's contracts (docs/architecture.md, the module map; ADR 0034). Run: uv run lint-imports
+# They change only when a module is added, never per feature.
+
+[importlinter]
+root_packages =
+    vextrus
+    engine
+include_external_packages = True
+
+[importlinter:contract:layers]
+name = The modules import only lower layers; modules on one line are independent siblings
+type = layers
+containers = vextrus
+layers =
+    urls
+    api | seed
+    summary | exports | assistant | revisions
+    boq
+    takeoff | measurement | rates
+    live_model
+    drawings
+    projects
+    platform
+
+[importlinter:contract:engine]
+name = The engine imports no Django, no web framework and no Vextrus module
+type = forbidden
+source_modules =
+    engine
+forbidden_modules =
+    vextrus
+    django
+    ninja
+    procrastinate
+    psycopg
+
+[importlinter:contract:private-models-platform]
+name = Private models: only platform, its seed and the test fixtures import vextrus.platform.models
+type = protected
+protected_modules =
+    vextrus.platform.models
+allowed_importers =
+    vextrus.platform
+    vextrus.seed.platform
+    vextrus.testing
+
+[importlinter:contract:private-models-projects]
+name = Private models: only projects, its seed and the test fixtures import vextrus.projects.models
+type = protected
+protected_modules =
+    vextrus.projects.models
+allowed_importers =
+    vextrus.projects
+    vextrus.seed.projects
+    vextrus.testing
+
+[importlinter:contract:private-models-drawings]
+name = Private models: only drawings, its seed and the test fixtures import vextrus.drawings.models
+type = protected
+protected_modules =
+    vextrus.drawings.models
+allowed_importers =
+    vextrus.drawings
+    vextrus.seed.drawings
+    vextrus.testing
+
+[importlinter:contract:private-models-live-model]
+name = Private models: only live_model and the test fixtures import vextrus.live_model.models
+type = protected
+protected_modules =
+    vextrus.live_model.models
+allowed_importers =
+    vextrus.live_model
+    vextrus.testing
+
+[importlinter:contract:private-models-takeoff]
+name = Private models: only takeoff, its seed and the test fixtures import vextrus.takeoff.models
+type = protected
+protected_modules =
+    vextrus.takeoff.models
+allowed_importers =
+    vextrus.takeoff
+    vextrus.seed.takeoff
+    vextrus.testing
+
+[importlinter:contract:private-models-measurement]
+name = Private models: only measurement and the test fixtures import vextrus.measurement.models
+type = protected
+protected_modules =
+    vextrus.measurement.models
+allowed_importers =
+    vextrus.measurement
+    vextrus.testing
+
+[importlinter:contract:private-models-rates]
+name = Private models: only rates and the test fixtures import vextrus.rates.models
+type = protected
+protected_modules =
+    vextrus.rates.models
+allowed_importers =
+    vextrus.rates
+    vextrus.testing
+
+[importlinter:contract:private-models-boq]
+name = Private models: only boq and the test fixtures import vextrus.boq.models
+type = protected
+protected_modules =
+    vextrus.boq.models
+allowed_importers =
+    vextrus.boq
+    vextrus.testing
+
+[importlinter:contract:private-models-revisions]
+name = Private models: only revisions and the test fixtures import vextrus.revisions.models
+type = protected
+protected_modules =
+    vextrus.revisions.models
+allowed_importers =
+    vextrus.revisions
+    vextrus.testing
+
+[importlinter:contract:private-models-summary]
+name = Private models: only summary and the test fixtures import vextrus.summary.models
+type = protected
+protected_modules =
+    vextrus.summary.models
+allowed_importers =
+    vextrus.summary
+    vextrus.testing
+
+[importlinter:contract:private-models-exports]
+name = Private models: only exports and the test fixtures import vextrus.exports.models
+type = protected
+protected_modules =
+    vextrus.exports.models
+allowed_importers =
+    vextrus.exports
+    vextrus.testing
+
+[importlinter:contract:private-models-assistant]
+name = Private models: only assistant and the test fixtures import vextrus.assistant.models
+type = protected
+protected_modules =
+    vextrus.assistant.models
+allowed_importers =
+    vextrus.assistant
+    vextrus.testing
