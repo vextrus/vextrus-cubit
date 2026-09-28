@@ -72,8 +72,8 @@ explicit paths (the guard refuses `git add -A`); a hook runs `sync` after each c
 ## Commands (web, from the checkout's root; `npm --prefix web run <script>`)
 - `npm --prefix web ci`, then once `npx --prefix web playwright install chromium`. `dev`: 127.0.0.1:5410,
   the shared pieces at `/dev/specimen` (`?lang=en-XB`: the test-only right-to-left language).
-- As `web.yml` runs them: `typecheck`, `lint` (the catalogue and logical-CSS lints), `npm --prefix web
-  test`, `build`, `messages:check`, `lint:design-docs`. `messages:extract` after adding words; a
+- `web.yml`'s checks: `typecheck`, `lint` (the catalogue and logical-CSS lints), `messages:check`, `npm
+  --prefix web test`, `build`; and `lint:design-docs`, its own job. `messages:extract` after adding words; a
   backend code's English goes in `web/src/messages/<module>/<submodule>/en.po`. API types:
   `OPENAPI_SCHEMA=<file|URL> npm --prefix web run api:types`.
 

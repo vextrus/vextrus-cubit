@@ -15,8 +15,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: web-${{ github.ref }}
-  cancel-in-progress: true
+  group: web-${{ github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}   # as ci.yml: a run on main is never cancelled
 
 jobs:
   changes:

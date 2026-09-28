@@ -50,7 +50,8 @@ describe('the design-docs lint (docs/plans/M0.md, 01b; the reviews U3, U6)', () 
 
   it('passes MEP as a Discipline Part and Engine inside another word', () => {
     const root = designDir({
-      'm0-wireframes/step1-sheet-1280.svg': svgText('Electrical, M3 onwards') + svgText('Vextrus Engineer') + svgText('excluded: for information'),
+      'm0-wireframes/step1-sheet-1280.svg':
+        svgText('MEP · Electrical, M3 onwards') + svgText('Vextrus Engineer') + svgText('excluded: for information'),
     })
     expect(lintDesignDocs(root)).toEqual([])
   })
