@@ -6,10 +6,11 @@
  *   VEXTRUS_DEMO_PASSWORD=… uv run manage.py seed_demo
  *   VEXTRUS_DEBUG=1 uv run manage.py runserver 127.0.0.1:8000
  *   npm --prefix web run dev
- *   VEXTRUS_DEMO_PASSWORD=… npm --prefix web run e2e
+ *   VEXTRUS_DEMO_PASSWORD=… WALK_SHOTS=… npx --prefix web playwright test -c web/e2e/playwright.config.ts
  *
  * Screenshots go to WALK_SHOTS (never into git or a PR); the walk changes the database (it invites,
- * creates a project and revokes), so run it on a demo seed, never on real data.
+ * creates a project and revokes), so run it on a demo seed, never on real data. It makes its staff
+ * account through manage.py, so set VEXTRUS_DB_NAME as the API has it when that serves another database.
  */
 import { defineConfig, devices } from '@playwright/test'
 

@@ -9,7 +9,7 @@
  *
  *   VEXTRUS_DEMO_PASSWORD=… WALK_SHOTS=… npx --prefix web playwright test -c web/e2e/playwright.config.ts
  *
- * Step 10 needs a Vextrus Engineer who is one of Vextrus's staff and not yet invited: the walk makes
+ * (with VEXTRUS_DB_NAME as the API has it, when that serves another database). Step 10 needs a Vextrus Engineer who is one of Vextrus's staff and not yet invited: the walk makes
  * sabbir@vextrus.example as the owner does (manage.py, the owner alias, `set_staff`), once.
  */
 import { spawnSync } from 'node:child_process'
