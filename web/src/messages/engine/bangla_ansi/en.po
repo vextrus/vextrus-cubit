@@ -1,0 +1,16 @@
+msgid ""
+msgstr ""
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: en\n"
+
+#. engine/messages/bangla_ansi.py (ticket 11): the file report's Bangla text section (m0-screens 4.5).
+msgid "engine.bangla_ansi.found"
+msgstr "{texts, plural, one {# text} other {# texts}} on {sheets, plural, one {# sheet} other {# sheets}} {texts, plural, one {is} other {are}} Bangla typed in an old Bijoy-style font ({font}{other_fonts, plural, =0 {} one { and # other} other { and # others}}). Such fonts store Bangla as Latin letters, so these texts show as they do in AutoCAD and Vextrus cannot read them. Nothing else on those sheets is affected. If a room name or a note in Bangla matters, ask the consultant to set it in a Unicode Bangla font."
+
+msgid "engine.bangla_ansi.found_by_pattern"
+msgstr "{texts, plural, one {# text} other {# texts}} on {sheets, plural, one {# sheet} other {# sheets}} {texts, plural, one {looks} other {look}} like Bangla typed in an old font. Such fonts store Bangla as Latin letters, so these texts show as they do in AutoCAD and Vextrus cannot read them. Nothing else on those sheets is affected. If a room name or a note in Bangla matters, ask the consultant to set it in a Unicode Bangla font."
+
+msgid "engine.bangla_ansi.sheet"
+msgstr "{sheet}: {texts, plural, one {# text} other {# texts}}"

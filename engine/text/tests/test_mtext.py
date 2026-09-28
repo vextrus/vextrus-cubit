@@ -1,0 +1,132 @@
+"""MTEXT placement: a height that is never none, and the angle its direction vector gives."""
+
+import math
+
+import pytest
+
+from engine.geometry.placement import chain
+from engine.read.artefact import Text
+from engine.render.fixtures.artefacts import MODEL, Drawing
+from engine.text import mtext
+from engine.text.mtext import HeightSource
+
+
+def _text(drawing: Drawing, handle: str) -> Text:
+    found = drawing.artefact().entities[handle]
+    assert isinstance(found, Text)
+    return found
+
+
+def test_own_height_wins() -> None:
+    drawing = Drawing()
+    handle = drawing.text("A", kind="MTEXT", height=3.0)
+    assert mtext.resolve(_text(drawing, handle)) == mtext.Height(3.0, 3.0, HeightSource.OWN)
+
+
+def test_an_mtext_without_height_takes_the_height_its_text_sets_first() -> None:
+    drawing = Drawing()
+    handle = drawing.text("{\\H4.5;BEAM} B1", kind="MTEXT", height=None)
+    assert mtext.resolve(_text(drawing, handle)).source is HeightSource.INLINE
+    assert mtext.height(_text(drawing, handle)) == 4.5
+
+
+def test_a_style_height_is_used_when_given() -> None:
+    drawing = Drawing()
+    handle = drawing.text("A", kind="MTEXT", height=None, style="NOTES")
+    found = mtext.resolve(_text(drawing, handle), style_heights={"NOTES": 1.8})
+    assert (found.local, found.source) == (1.8, HeightSource.STYLE)
+
+
+def test_an_mtext_without_height_in_a_block_takes_its_blocks_usual_height_times_the_insert() -> None:
+    drawing = Drawing()
+    label = drawing.block("LABEL")
+    handle = drawing.text("NO HEIGHT", kind="MTEXT", height=None, owner=label)
+    for size in (3.0, 3.0, 5.0):
+        drawing.text("SIBLING", height=size, owner=label)
+    top = drawing.insert(label, scale=(50.0, 50.0, 1.0))
+    artefact = drawing.artefact()
+    entity = artefact.entities[handle]
+    assert isinstance(entity, Text)
+
+    found = mtext.resolve(entity, chain(artefact, [top]), artefact)
+
+    assert (found.local, found.value, found.source) == (3.0, 150.0, HeightSource.BLOCK)
+
+
+@pytest.mark.parametrize(("insunits", "expected"), [(1, 0.2), (4, 2.5), (0, 2.5)])
+def test_with_nothing_else_the_default_for_the_units_and_the_source_says_so(
+    insunits: int, expected: float
+) -> None:
+    drawing = Drawing(insunits=insunits)
+    alone = drawing.block("ALONE")
+    handle = drawing.text("X", kind="MTEXT", height=None, owner=alone)
+    artefact = drawing.artefact()
+    entity = artefact.entities[handle]
+    assert isinstance(entity, Text)
+    assert mtext.resolve(entity, (), artefact) == mtext.Height(expected, expected, HeightSource.DEFAULT)
+
+
+def test_the_height_is_never_none_or_zero_even_for_junk() -> None:
+    drawing = Drawing()
+    handle = drawing.text("{\\H-3;\\Hnan;X}", kind="MTEXT", height=float("nan"))
+    assert mtext.height(_text(drawing, handle)) > 0
+
+
+def test_an_mtext_at_30_degrees_by_its_direction_vector() -> None:
+    drawing = Drawing()
+    thirty = (math.cos(math.radians(30)), math.sin(math.radians(30)), 0.0)
+    handle = drawing.text("B1 (250 x 500)", kind="MTEXT", direction=thirty)
+    assert math.degrees(mtext.angle(_text(drawing, handle))) == pytest.approx(30.0)
+
+
+def test_an_mtext_direction_need_not_be_a_unit_vector() -> None:
+    drawing = Drawing()
+    handle = drawing.text("UP", kind="MTEXT", direction=(0.0, 7.0, 0.0))
+    assert math.degrees(mtext.angle(_text(drawing, handle))) == pytest.approx(90.0)
+
+
+def test_a_text_angle_is_its_rotation_mirrored_by_its_ocs() -> None:
+    drawing = Drawing()
+    plain = drawing.text("A", rotation_radians=math.radians(20))
+    flipped = drawing.text("B", rotation_radians=math.radians(20), extrusion=(0.0, 0.0, -1.0))
+    assert math.degrees(mtext.angle(_text(drawing, plain))) == pytest.approx(20.0)
+    assert math.degrees(mtext.angle(_text(drawing, flipped))) == pytest.approx(160.0)
+
+
+def test_the_world_angle_turns_with_the_insert() -> None:
+    drawing = Drawing()
+    label = drawing.block("LABEL")
+    thirty = (math.cos(math.radians(30)), math.sin(math.radians(30)), 0.0)
+    handle = drawing.text("B1", kind="MTEXT", direction=thirty, owner=label)
+    top = drawing.insert(label, rotation_radians=math.radians(45))
+    artefact = drawing.artefact()
+    entity = artefact.entities[handle]
+    assert isinstance(entity, Text)
+    assert math.degrees(mtext.world_angle(entity, chain(artefact, [top]))) == pytest.approx(75.0)
+
+
+def test_a_frame_places_glyph_space_in_the_world() -> None:
+    drawing = Drawing()
+    label = drawing.block("LABEL")
+    handle = drawing.text("A", (1.0, 0.0, 0.0), owner=label, height=2.0)
+    top = drawing.insert(label, (100.0, 0.0, 0.0), extrusion=(0.0, 0.0, -1.0))
+    artefact = drawing.artefact()
+    entity = artefact.entities[handle]
+    assert isinstance(entity, Text)
+
+    placed = mtext.frame(entity, chain(artefact, [top]), 2.0)
+
+    assert placed.origin == pytest.approx((-101.0, 0.0))
+    assert placed.x_axis == pytest.approx((-2.0, 0.0))  # the mirrored insert mirrors the text
+    assert placed.y_axis == pytest.approx((0.0, 2.0))
+
+
+def test_the_model_space_block_is_a_block_too() -> None:
+    drawing = Drawing()
+    drawing.text("SIBLING", height=7.0)
+    handle = drawing.text("X", kind="MTEXT", height=None)
+    artefact = drawing.artefact()
+    entity = artefact.entities[handle]
+    assert isinstance(entity, Text)
+    assert entity.owner == MODEL
+    assert mtext.height(entity, (), artefact) == 7.0

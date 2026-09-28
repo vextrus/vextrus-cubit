@@ -1,0 +1,22 @@
+msgid ""
+msgstr ""
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: en\n"
+
+#. engine/messages/font_report.py (ticket 11): the file report's Fonts section (m0-screens 4.5).
+msgid "engine.font_report.asked"
+msgstr "{kind, select, shx {{asked} (AutoCAD lettering)} other {{asked}}}"
+
+msgid "engine.font_report.glyphs_missing"
+msgstr "{count, plural, one {# text has letters none of Vextrus's fonts can draw, so they show as empty boxes.} other {# texts have letters none of Vextrus's fonts can draw, so they show as empty boxes.}}"
+
+msgid "engine.font_report.height_defaulted"
+msgstr "{count, plural, one {# text has no size in the drawing, so it is drawn at AutoCAD's usual size and may look too large or too small.} other {# texts have no size in the drawing, so they are drawn at AutoCAD's usual size and may look too large or too small.}}"
+
+msgid "engine.font_report.how_close"
+msgstr "{how_close, select, same_widths {Same widths} single_stroke {Single-stroke, like the plot} wider {A little wider: a line of text may run slightly long} narrower {A little narrower} bangla_ansi {Bangla in an old font: see above} other {Not found: drawn with {drawn_with}; letters may differ}}"
+
+msgid "engine.font_report.summary"
+msgstr "{fonts, plural, one {# font named in the drawing.} other {# fonts named in the drawing.}} Vextrus cannot use AutoCAD's own fonts, so it draws each with a free font of the same shape. Positions, sizes and line breaks are the drawing's own; only the letter shapes differ."
