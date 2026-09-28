@@ -33,17 +33,18 @@ jobs:
           persist-credentials: false
       - id: paths
         name: Does this change touch the backend?
+        # Fails closed: `git diff` runs as its own command under `shell: bash` (-e -o pipefail), so a
+        # failed one (a bad BASE) fails the step, and so `ci`, instead of reading as "backend untouched".
+        shell: bash
         env:
           EVENT: ${{ github.event_name }}
           BASE: ${{ github.event.pull_request.base.sha }}
         run: |
           if [ "$EVENT" != pull_request ]; then echo python=true >> "$GITHUB_OUTPUT"; exit 0; fi
+          changed=$(git diff --name-only "$BASE"...HEAD)
           # Only the web, the documents and the harness's prose leave the backend untouched.
-          if git diff --name-only "$BASE"...HEAD | grep -qvE '^(web/|docs/|\.claude/(agents|skills)/|[^/]+\.md$)'; then
-            echo python=true >> "$GITHUB_OUTPUT"
-          else
-            echo python=false >> "$GITHUB_OUTPUT"
-          fi
+          backend=$(grep -vE '^(web/|docs/|\.claude/(agents|skills)/|[^/]+\.md$)' <<< "$changed" || true)
+          if [ -n "$backend" ]; then echo python=true; else echo python=false; fi >> "$GITHUB_OUTPUT"
 
   markets:
     # The market-literal scan reads vextrus/, engine/ and web/src/, so it runs on every change.

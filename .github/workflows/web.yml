@@ -30,19 +30,19 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - id: diff
+        # Fails closed: `git diff` runs as its own command under `shell: bash` (-e -o pipefail), so a
+        # failed one (a bad BASE) fails the step, and so `web`, instead of reading as "nothing touched".
+        shell: bash
         env:
           EVENT: ${{ github.event_name }}
           BASE: ${{ github.event.pull_request.base.sha }}
         run: |
-          if [ "$EVENT" != "pull_request" ]; then
-            echo "web=true" >> "$GITHUB_OUTPUT"
+          if [ "$EVENT" != "pull_request" ]; then echo "web=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          changed=$(git diff --name-only "$BASE"...HEAD)
           # The backend and the engine's messages too: they make the API types, and a code added
           # without English must fail its own PR (the message-code test; the reviews A5, R7).
-          elif git diff --name-only "$BASE"...HEAD | grep -qE '^(web/|\.github/workflows/web\.yml$|vextrus/|engine/messages/|engine/collect\.py$)'; then
-            echo "web=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "web=false" >> "$GITHUB_OUTPUT"
-          fi
+          touched=$(grep -E '^(web/|\.github/workflows/web\.yml$|vextrus/|engine/messages/|engine/collect\.py$)' <<< "$changed" || true)
+          if [ -n "$touched" ]; then echo "web=true"; else echo "web=false"; fi >> "$GITHUB_OUTPUT"
 
   web:
     needs: changes
