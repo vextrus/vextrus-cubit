@@ -450,8 +450,9 @@ def _kill(pid: int) -> None:
             kill(pid, signal.SIGKILL)
 
 
-def _children() -> list[tuple[int, str]]:
-    """This process's children and their states, from /proc (a subreaper's orphans included)."""
+def _children() -> list[tuple[int, str, int, int]]:
+    """This process's children from /proc (a subreaper's orphans included): each one's pid, state,
+    process group and session."""
     me, found = os.getpid(), []
     try:
         entries = list(os.scandir("/proc"))
@@ -464,31 +465,58 @@ def _children() -> list[tuple[int, str]]:
             stat = Path(entry.path, "stat").read_text()
         except OSError:
             continue
-        state, parent = stat[stat.rindex(")") + 2 :].split()[:2]
+        state, parent, group, session = stat[stat.rindex(")") + 2 :].split()[:4]
         if int(parent) == me:
-            found.append((int(entry.name), state))
+            found.append((int(entry.name), state, int(group), int(session)))
     return found
 
 
-def _clear(group: int | None) -> tuple[int, bool]:
-    """Kill and reap what a file's child left behind: its process group first, then every orphan
-    the launcher took in, for up to `CLEAR_SECONDS`. How many were running, and whether some
-    still are (a process that forks faster than it can be killed)."""
-    if group is not None:
-        _kill(group)
+def _reap() -> int:
+    """Reap every child that has ended (the launcher has no others to wait for): how many were
+    killed with SIGKILL, the way it kills."""
+    killed = 0
+    while True:
+        try:
+            pid, status = os.waitpid(-1, os.WNOHANG)
+        except ChildProcessError:
+            return killed
+        if pid == 0:
+            return killed
+        if os.WIFSIGNALED(status) and os.WTERMSIG(status) == signal.SIGKILL:
+            killed += 1
+
+
+def _clear() -> tuple[int, bool]:
+    """Kill and reap every orphan the launcher took in, for up to `CLEAR_SECONDS`: what the files'
+    children left behind. How many were killed, and whether some are still running (a process that
+    forks faster than it can be killed). The file's own group was killed before its child was reaped.
+
+    A fork chain's processes each live for one fork, less time than a scan of /proc takes: seen
+    running, one has exited before it can be killed, and the one it forked was not in the listing. So
+    each orphan's process group is killed as well, which the kernel does at once, forks included, and
+    which the chain's zombies still name. Only groups a file made are killed: one led by an orphan
+    (living or a zombie), or one in a session a file's process began (nothing from outside a session
+    can join its groups). An orphan in another group of the launcher's session is killed alone.
+    No guard spares the launcher's own group, as none is needed: that group is in the launcher's
+    session and led by the launcher's ancestor, never by one of its orphans.
+    """
+    session = os.getsid(0)
     deadline = time.monotonic() + CLEAR_SECONDS
-    cleared: set[int] = set()
+    killed = 0
     while left := _children():
         if time.monotonic() > deadline:
-            return len(cleared), True
-        for pid, state in left:
+            return killed + _reap(), any(state != "Z" for _, state, _, _ in left)
+        leaders = {pid for pid, _, _, _ in left}
+        for pid, state, pgid, sid in left:
+            if sid != session or pgid in leaders:
+                with contextlib.suppress(ProcessLookupError, PermissionError):
+                    os.killpg(pgid, signal.SIGKILL)
             if state != "Z":
-                _kill(pid)
-                cleared.add(pid)
-            with contextlib.suppress(ChildProcessError):
-                os.waitpid(pid, os.WNOHANG)
+                with contextlib.suppress(ProcessLookupError, PermissionError):
+                    os.kill(pid, signal.SIGKILL)
+        killed += _reap()
         time.sleep(0.001)
-    return len(cleared), False
+    return killed, False
 
 
 def _launch(request: Mapping[str, Any]) -> dict[str, Any]:
@@ -497,7 +525,7 @@ def _launch(request: Mapping[str, Any]) -> dict[str, Any]:
         (os.POSIX_SPAWN_OPEN, 1, request["log"], os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600),
         (os.POSIX_SPAWN_DUP2, 1, 2),
     ]
-    _clear(None)  # what an earlier file left that could not be stopped then is not this file's
+    _clear()  # what an earlier file left that could not be stopped then is not this file's
     start = time.monotonic()
     argv = [sys.executable, "-c", _CHILD, request["job"]]
     pid = os.posix_spawn(sys.executable, argv, _child_env(), file_actions=actions, setpgroup=0)
@@ -521,11 +549,14 @@ def _launch(request: Mapping[str, Any]) -> dict[str, Any]:
                 break
         if timed_out or parent_gone:
             _kill(pid)
+        # The file's group is killed while its child is a zombie, which keeps the group's id from reuse.
+        with contextlib.suppress(ProcessLookupError, PermissionError):
+            os.killpg(pid, signal.SIGKILL)
         _, status, usage = os.wait4(pid, 0)
     finally:
         os.close(handle)
     seconds = time.monotonic() - start
-    left_behind, left_running = _clear(pid)
+    left_behind, left_running = _clear()
     if parent_gone:
         raise SystemExit(1)
     return {
