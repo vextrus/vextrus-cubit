@@ -9,7 +9,8 @@ check), so the limit bounds everyone, signed in or not.
 # The limit per file. Drawings run 5 to 20 MB (docs/research/dwg-reader-options.md: "$0.06-$0.25 per
 # 5-20 MB drawing"); the largest file of the two Development Sets is 27 MB (measured 29 Sep 2026).
 # 200 MB is seven times that, room for a whole set plotted to one PDF, while bounding what one
-# upload may cost in disk and in reading. m0-screens 4.5's toast names it ("larger than 200 MB").
+# upload may cost in disk and in reading. m0-screens 4.5 leaves the figure to this ticket (its toast's
+# "larger than 500 MB" is a placeholder); the toast shows this limit, `drawings.uploads.too_large`.
 VEXTRUS_UPLOAD_MAX_BYTES = 200 * 1024 * 1024
 # Files per request: the web sends each file on its own, with its own progress (m0-screens 4.5).
 VEXTRUS_UPLOAD_MAX_FILES = 1

@@ -55,12 +55,7 @@ def test_an_artefact_is_kept_as_canonical_json_under_its_reader_and_versions(
     version = artefact.to_json()["version"]
     assert ref == again
     assert ref.key.endswith(f"/drawings/{found.sha256}/artefact@synthetic@1@v{version}.json")
-    assert (
-        content
-        == json.dumps(
-            artefact.to_json(), sort_keys=True, separators=(",", ":"), ensure_ascii=False
-        ).encode()
-    )
+    assert content == json.dumps(artefact.to_json(), sort_keys=True, separators=(",", ":")).encode()
     assert loaded.to_json() == artefact.to_json()
     assert counted == 1
 
@@ -90,6 +85,30 @@ def test_an_artefact_holding_nan_is_kept_and_loaded_back_as_written(
     assert "NaN" in written
     assert back == written
     assert artefact.to_json()["version"] == VERSION
+
+
+def test_an_artefact_holding_a_lone_surrogate_is_kept_and_loaded_back_the_same(
+    dwg: tuple[Member, services.FileView],
+) -> None:
+    """The LibreDWG DXF path reads with errors="surrogateescape", and an entity keeps every value it
+    read: a byte it could not decode stays a lone surrogate, which UTF-8 cannot hold."""
+    member, found = dwg
+    d = Drawing()
+    d.text("T\udc81", (0.0, 0.0, 0.0), height=2.5)
+    d.entity("CIRCLE", {"center": [0.0, 0.0, 0.0], "radius": 1.0, "thickness": "style\udc81"})
+    made = d.artefact()
+    s = made.summary
+    artefact = type(made).build(
+        source_sha256=found.sha256, source_name=found.name, format=s.format, reader=s.reader,
+        reader_version=s.reader_version, layouts=s.layouts, insunits=s.insunits, notes=s.notes,
+        blocks=made.blocks.values(), entities=made.entities.values(),
+    )  # fmt: skip
+    with member.acting():
+        services.store_artefact(found.id, artefact)
+        loaded = services.artefact(found.id)
+
+    assert "style\udc81" in json.dumps(artefact.to_json(), ensure_ascii=False)
+    assert loaded.to_json() == artefact.to_json()
 
 
 def test_another_reader_version_keeps_its_own_copy(dwg: tuple[Member, services.FileView]) -> None:

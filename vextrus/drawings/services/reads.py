@@ -199,8 +199,10 @@ def canonical(data: Any) -> bytes:
 
 def artefact_bytes(data: Any) -> bytes:
     """An artefact's JSON as one text only (sorted keys, no spaces), its NaN kept as JSON's `NaN`
-    token, which `json.loads` reads back (an entity's values are the file's, whatever they hold)."""
-    return json.dumps(data, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+    token and every character past ASCII as a `\\u` escape, which `json.loads` reads back as it was
+    (an entity's values are the file's, whatever they hold: a lone surrogate too, which the
+    LibreDWG DXF path keeps from bytes it could not decode)."""
+    return json.dumps(data, sort_keys=True, separators=(",", ":")).encode()
 
 
 def artefact(file_id: uuid.UUID, reader_version: str | None = None) -> ReadArtefact:
