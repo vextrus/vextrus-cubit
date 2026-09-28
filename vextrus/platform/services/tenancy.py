@@ -113,15 +113,31 @@ def _text(value: uuid.UUID | None) -> str:
     return "" if value is None else str(value)
 
 
+class LibraryNotATenant(PermissionDenied):
+    """A Library is never the acting tenant: its rows are written only by `sync_library`, through
+    the owner alias, and the own-tenant policy would let code acting in it write them (07)."""
+
+
 def _enter(tenancy: Tenancy) -> Tenancy:
-    """Act as `tenancy`; its library is read from the tenant's own row when not given."""
+    """Act as `tenancy`; its library is read from the tenant's own row when not given.
+
+    Every way of acting in a tenant comes here (`acting_in`, `enter_request`, `choose_developer`,
+    `staff_open`, `create_developer`), so a Library is refused here, whoever asks.
+    """
     _set(Tenancy(user_id=tenancy.user_id))
-    if tenancy.tenant_id is not None and tenancy.library_id is None:
+    if tenancy.tenant_id is not None:
         _set(Tenancy(user_id=tenancy.user_id, tenant_id=tenancy.tenant_id))
-        library_id = (
-            Developer.objects.filter(id=tenancy.tenant_id).values_list("library_id", flat=True).first()
+        found = (
+            Developer.objects.filter(id=tenancy.tenant_id)
+            .values_list("library_id", "is_library")
+            .first()
         )
-        tenancy = Tenancy(tenancy.user_id, tenancy.tenant_id, library_id, tenancy.membership)
+        if found is not None and found[1]:
+            _set(Tenancy(user_id=tenancy.user_id))
+            raise LibraryNotATenant(tenancy.tenant_id)
+        if tenancy.library_id is None:
+            library_id = found[0] if found is not None else None
+            tenancy = Tenancy(tenancy.user_id, tenancy.tenant_id, library_id, tenancy.membership)
     _set(tenancy)
     _current.set(tenancy)
     return tenancy
@@ -169,7 +185,11 @@ def enter_request(request: HttpRequest) -> Tenancy:
     session: SessionBase = request.session
     if user.is_vextrus_staff and _in_admin(request):
         tenant_id = _uuid(session.get(STAFF_SESSION_TENANT))
-        tenancy = _enter(Tenancy(user_id=user_id, tenant_id=tenant_id))
+        try:
+            tenancy = _enter(Tenancy(user_id=user_id, tenant_id=tenant_id))
+        except LibraryNotATenant:
+            tenant_id, tenancy = None, _enter(Tenancy(user_id=user_id))
+            session.pop(STAFF_SESSION_TENANT, None)
         if tenant_id is not None and not _is_developer(tenant_id):
             session.pop(STAFF_SESSION_TENANT, None)
             return _enter(Tenancy(user_id=user_id))
