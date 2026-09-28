@@ -4,9 +4,14 @@
 # its release asset (toolchain-libredwg.yml), ezdxf's wheel by the hash toolchain/ezdxf.lock pins, the
 # .NET SDK, and bubblewrap, with the runner's AppArmor limit on user namespaces lifted so it can run.
 #
+# The check-sandbox job runs the real-drawing check's own sandbox tests (scripts/real_drawings/, with
+# LibreDWG, the compiled ezdxf and bubblewrap got as the toolchain job gets them) when the check or the
+# reader's sandbox changes. scripts/ is not an engine path, and stays out of .github/engine-paths.txt,
+# which decides which PRs need the check's status.
+#
 # Required checks are never filtered by path at the workflow level: the `changes` job reads the engine
-# paths (.github/engine-paths.txt) and the toolchain job skips by `if:`. The `engine` job at the end is
-# the one to require. Actions are pinned by commit, with their version in a comment.
+# paths (.github/engine-paths.txt) and the check's paths, and the jobs skip by `if:`. The `engine` job at
+# the end is the one to require. Actions are pinned by commit, with their version in a comment.
 name: engine
 
 on:
@@ -28,6 +33,7 @@ jobs:
     timeout-minutes: 5
     outputs:
       engine: ${{ steps.paths.outputs.engine }}
+      check: ${{ steps.check.outputs.check }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -43,6 +49,19 @@ jobs:
           touched=$(git diff --name-only "$BASE"...HEAD | python3 tools/lint/engine_paths.py \
             --patterns .github/engine-paths.txt --pattern .github/workflows/engine.yml)
           if [ -n "$touched" ]; then echo engine=true; else echo engine=false; fi >> "$GITHUB_OUTPUT"
+      - id: check
+        name: Does this change touch the real-drawing check or the reader's sandbox?
+        # `?` stands for the hyphen in the command's name: the workflow check (tools/lint/workflows.py)
+        # refuses the check's status name in any workflow but the not-applicable one.
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ "$EVENT" != pull_request ]; then echo check=true >> "$GITHUB_OUTPUT"; exit 0; fi
+          touched=$(git diff --name-only "$BASE"...HEAD | python3 tools/lint/engine_paths.py \
+            --pattern 'scripts/real?drawings' --pattern 'scripts/real_drawings/**' \
+            --pattern engine/read/sandbox.py --pattern .github/workflows/engine.yml)
+          if [ -n "$touched" ]; then echo check=true; else echo check=false; fi >> "$GITHUB_OUTPUT"
 
   toolchain:
     needs: changes
@@ -140,16 +159,93 @@ jobs:
       - name: The toolchain's and the sandbox's tests
         run: uv run --no-sync pytest -m "needs_toolchain or needs_bwrap"
 
+  check-sandbox:
+    # The check's sandbox tests (scripts/real_drawings/tests/test_sandbox.py): its bwrap, the offline
+    # install by hash, the private /tmp, a bwrap started inside. They need no database and no .NET.
+    needs: changes
+    if: needs.changes.outputs.check == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      UV_PYTHON_INSTALL_DIR: /opt/vextrus/python
+      UV_PYTHON_PREFERENCE: only-managed
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.12.5"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - name: Make /opt/vextrus for the installs (it goes back to root before the tests)
+        run: sudo install -d -o "$(id -u)" -g "$(id -g)" /opt/vextrus
+      - name: Python at its pin
+        run: |
+          UV_PYTHON_INSTALL_DIR=/opt/vextrus/python \
+            uv python install --no-bin "$(tr -d '[:space:]' < toolchain/python.version)"
+      - name: LibreDWG from its release asset, by the sha256 published with it
+        run: |
+          V=$(tr -d '[:space:]' < toolchain/libredwg.version)
+          ASSET="libredwg-$V-ubuntu24.04-x86_64.tar.gz"
+          gh release download "toolchain-libredwg-$V" -R "$GITHUB_REPOSITORY" -p "$ASSET" -p "$ASSET.sha256" -D "$RUNNER_TEMP"
+          (cd "$RUNNER_TEMP" && sha256sum -c "$ASSET.sha256")
+          tar -xzf "$RUNNER_TEMP/$ASSET" -C / --no-same-owner opt/vextrus/libredwg
+      - name: Bubblewrap, and the AppArmor limit on unprivileged user namespaces lifted
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq bubblewrap
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: Install the locked dependencies, building nothing
+        env:
+          UV_PYTHON_DOWNLOADS: never
+        run: |
+          UV_PYTHON_INSTALL_DIR=/opt/vextrus/python \
+            uv sync --locked --no-build --python "$(tr -d '[:space:]' < toolchain/python.version)"
+      - name: ezdxf's wheel by the hash toolchain/ezdxf.lock pins
+        run: |
+          eval "$(python3 - <<'PY'
+          import shlex, tomllib
+          with open("toolchain/ezdxf.lock", "rb") as f:
+              lock = tomllib.load(f)
+          for key in ("version", "wheel", "wheel_sha256", "release"):
+              print(f"{key.upper()}={shlex.quote(lock[key])}")
+          PY
+          )"
+          if [ -z "$RELEASE" ]; then echo "the lock names the registry's pure wheel, $WHEEL: uv.lock installed it"; exit 0; fi
+          gh release download "$RELEASE" -R "$GITHUB_REPOSITORY" -p "$WHEEL" -D "$RUNNER_TEMP"
+          echo "$WHEEL_SHA256  $RUNNER_TEMP/$WHEEL" | sha256sum -c
+          uv pip install --no-deps --reinstall "$RUNNER_TEMP/$WHEEL"
+      - name: Hand /opt/vextrus to root, readable by all and writable by none
+        run: |
+          sudo chown -R root:root /opt/vextrus
+          sudo chmod -R a+rX,go-w /opt/vextrus
+      - name: The check's sandbox tests (fails if none ran)
+        run: |
+          uv run --no-sync pytest -m "needs_toolchain or needs_bwrap" scripts -rs \
+            --junitxml "$RUNNER_TEMP/check-sandbox.xml"
+          python3 - "$RUNNER_TEMP/check-sandbox.xml" <<'PY'
+          import sys
+          import xml.etree.ElementTree as ET
+          suite = ET.parse(sys.argv[1]).getroot().find("testsuite")
+          ran = int(suite.get("tests")) - int(suite.get("skipped"))
+          print(f"{ran} of the check's sandbox tests ran")
+          sys.exit(0 if ran > 0 else 1)
+          PY
+
   engine:
-    # The one check to require: green when the toolchain job passed or was skipped as not concerned.
+    # The one check to require: green when each job passed or was skipped as not concerned.
     if: always()
-    needs: [changes, toolchain]
+    needs: [changes, toolchain, check-sandbox]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
       - env:
           CHANGES: ${{ needs.changes.result }}
           TOOLCHAIN: ${{ needs.toolchain.result }}
+          CHECK_SANDBOX: ${{ needs.check-sandbox.result }}
         run: |
-          echo "changes=$CHANGES toolchain=$TOOLCHAIN"
-          [ "$CHANGES" = success ] && { [ "$TOOLCHAIN" = success ] || [ "$TOOLCHAIN" = skipped ]; }
+          echo "changes=$CHANGES toolchain=$TOOLCHAIN check-sandbox=$CHECK_SANDBOX"
+          [ "$CHANGES" = success ] && { [ "$TOOLCHAIN" = success ] || [ "$TOOLCHAIN" = skipped ]; } \
+            && { [ "$CHECK_SANDBOX" = success ] || [ "$CHECK_SANDBOX" = skipped ]; }
