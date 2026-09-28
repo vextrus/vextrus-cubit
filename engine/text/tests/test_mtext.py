@@ -160,6 +160,40 @@ def test_the_world_height_is_finite_and_above_zero_whatever_the_insert_scales_it
     assert found.value > 0
 
 
+@pytest.mark.parametrize("turn", [float("inf"), float("-inf"), float("nan")])
+def test_an_insert_turned_by_no_finite_angle_leaves_the_local_height(turn: float) -> None:
+    """The refuter's case (29 Sep 2026): `from_json` accepts an insert rotated by infinity and the
+    chain builds, but its transform raised ValueError (cos(inf)) out of `resolve`."""
+    drawing = Drawing()
+    block = drawing.block("B")
+    handle = drawing.text("X", height=2.5, owner=block)
+    top = drawing.insert(block, rotation_radians=turn)
+    artefact = drawing.artefact()
+    entity = artefact.entities[handle]
+    assert isinstance(entity, Text)
+
+    found = mtext.resolve(entity, chain(artefact, [top]), artefact=artefact)
+
+    assert found == mtext.Height(2.5, 2.5, HeightSource.OWN)
+
+
+def test_a_height_no_float_holds_is_passed_over() -> None:
+    """An integer beyond the floats (only code can build one: the reader and `from_json` keep floats)
+    is no height, never an OverflowError."""
+    drawing = Drawing()
+    huge = drawing.style("HUGE", fixed_height=10**400)
+    drawing.text("SIBLING", height=1.0)
+    own = drawing.text("OWN", height=10**400)
+    styled = drawing.text("STYLED", height=None, style_handle=huge)
+    artefact = drawing.artefact()
+    found = []
+    for handle in (own, styled):
+        entity = artefact.entities[handle]
+        assert isinstance(entity, Text)
+        found.append(mtext.resolve(entity, artefact=artefact))
+    assert found == [mtext.Height(1.0, 1.0, HeightSource.BLOCK)] * 2
+
+
 def test_an_mtext_without_height_in_a_block_takes_its_blocks_usual_height_times_the_insert() -> None:
     drawing = Drawing()
     label = drawing.block("LABEL")

@@ -98,8 +98,10 @@ class Heights:
 
     def resolve(self, entity: Text, chain: Chain = ()) -> Height:
         local, source = self.local(entity)
-        up = _up(entity)
-        x, y, _ = (chain_transform(chain) @ own_ocs(entity)).vector(up)
+        try:
+            x, y, _ = (chain_transform(chain) @ own_ocs(entity)).vector(_up(entity))
+        except ValueError, ArithmeticError:  # an insert turned by an infinite angle: cos(inf)
+            return Height(local, local, source)
         value = local * math.hypot(x, y)
         return Height(value if _positive(value) else local, local, source)
 
@@ -131,12 +133,12 @@ def resolve(entity: Text, chain: Chain = (), *, artefact: ReadArtefact) -> Heigh
 
 
 def _positive(value: object) -> bool:
-    return (
-        isinstance(value, int | float)
-        and not isinstance(value, bool)
-        and math.isfinite(value)
-        and value > 0
-    )
+    if not isinstance(value, int | float) or isinstance(value, bool):
+        return False
+    try:
+        return math.isfinite(value) and value > 0
+    except OverflowError:  # an integer no float holds
+        return False
 
 
 def _unit3(v: tuple[float, float, float] | None) -> tuple[float, float, float] | None:
