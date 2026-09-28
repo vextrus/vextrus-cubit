@@ -60,8 +60,12 @@ scanned a whole column); a sheet is read by at most `MAX_LABELS` labels and `MAX
 viewport weighs at most `MAX_WINDOW_FRAMES` frames, and each space's reading takes at most a budget
 in proportion to its texts (`READS_PER_TEXT`, `PAIRS_PER_TEXT`: frames stacked over the same texts
 cost their texts' work, not the product); past a cap or the budget, what is left is counted and not
-read. A layout's name that is empty or holds a control character, or one repeated, is counted and
-read once. `Segmentation.counts` says what was skipped, by name.
+read. **What a file can make the finder hold is bounded too** (review round 2): a space places at
+most `MAX_TEXTS` texts and holds at most `MAX_FRAMES` candidate frames, its drawn points compactly;
+a file gives at most `MAX_SHEETS` sheets, of them at most `MAX_UNKNOWN_LAYOUTS` from layouts that
+cannot be told empty; a frame drawn again exactly where one was decided is that one. A layout's name
+that is empty or holds a control character, or one repeated, is counted and read once.
+`Segmentation.counts` says what was skipped, by name.
 
 **Numbers** (`sequence`; the ruling with 19b, review round 1): the last run of digits is the running
 number, what comes before it the prefix and what follows the suffix ("S1-01" is "S1-", 1, ""); a last
@@ -77,6 +81,7 @@ import json
 import math
 import re
 import unicodedata
+from array import array
 from collections import Counter
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -130,8 +135,26 @@ COVER_SIZE = (0.3, 2.0)
 """A rectangle with no title block, as a fraction of the file's frames' median long side."""
 MIN_COVER_CONTENT = 3
 """The fewest lines of text a rectangle with no title block must hold to be a sheet (a cover)."""
-MAX_VISITS = 5_000_000
-"""The most entities one walk visits (placement's budget)."""
+MAX_VISITS = 2_000_000
+"""The most entities one walk of a space visits: about ten times the real sets' largest space
+(190,127 visits), below the renderer's own budget (review round 2: a file of nested inserts made the
+finder hold what it placed for 5,000,000 visits, 6.6 GB at worst)."""
+MAX_SHEETS = 1_000
+"""The most sheets one file gives, the rest counted (`sheets_capped`): the real sets hold at most 87 a
+file, and 14 records 1,000 in under 9 s at its measured 8.5 ms a sheet (review round 2: a titled
+frame costs about 4 visits, so a file could have given a million)."""
+MAX_UNKNOWN_LAYOUTS = 200
+"""The most layouts one file keeps as sheets because a viewport of theirs cannot be read (they cannot be
+told empty), the rest counted (`layout_viewport_unknown_capped`): the real sets have none; the bound
+still keeps a file of 87 sheets, each on a layout the reader lost, twice over (review round 2: 5,000
+such stale layouts were 5,000 live sheets, past the one-blank cap)."""
+MAX_TEXTS = 100_000
+"""The most texts one space places, the rest counted (`texts_capped`): about twelve times the real
+sets' most (7,882); a placed text holds about 1.3 kB, so a space's texts stay near 130 MB (review
+round 2: texts nested under inserts placed a million at 1.34 GB from 1,117 entities)."""
+MAX_FRAMES = 100_000
+"""The most candidate frames one space holds, the rest counted (`frames_capped`): about eleven times
+the real sets' most (9,066)."""
 MAX_VIEWPORTS = 10_000
 """The most viewports one file's layouts are asked what they show."""
 MAX_RAW_TEXT = 4096
@@ -393,20 +416,34 @@ class _Index:
 
     LEAF = 32
 
-    def __init__(self, items: Iterable[tuple[float, float, int]]) -> None:
-        rows = [r for r in items if math.isfinite(r[0]) and math.isfinite(r[1])]
+    def __init__(
+        self,
+        items: Iterable[tuple[float, float, int]] = (),
+        *,
+        points: tuple[array[float], array[float]] | None = None,
+    ) -> None:
+        """From `items` (x, y, the item's number), or from `points`, two arrays of x and y, each
+        point numbered by its place; held compactly (8 bytes a number)."""
+        if points is not None:
+            xs = np.frombuffer(points[0], dtype=np.float64)
+            ys = np.frombuffer(points[1], dtype=np.float64)
+            ids = np.arange(len(xs), dtype=np.int64)
+        else:
+            rows = list(items)
+            xs = np.fromiter((r[0] for r in rows), dtype=np.float64, count=len(rows))
+            ys = np.fromiter((r[1] for r in rows), dtype=np.float64, count=len(rows))
+            ids = np.fromiter((r[2] for r in rows), dtype=np.int64, count=len(rows))
+        finite = np.isfinite(xs) & np.isfinite(ys)
+        xs, ys, ids = xs[finite], ys[finite], ids[finite]
         self.work = 0
-        n = len(rows)
-        xs = np.fromiter((r[0] for r in rows), dtype=np.float64, count=n)
-        ys = np.fromiter((r[1] for r in rows), dtype=np.float64, count=n)
+        n = len(xs)
         order = np.arange(n)
         self.nodes: list[tuple[int, int, float, float, float, float, int, int]] = []
         if n:
             self._build(xs, ys, order, 0, n)
-        at = order.tolist()
-        self.xs: list[float] = xs[order].tolist()
-        self.ys: list[float] = ys[order].tolist()
-        self.ids = [rows[k][2] for k in at]
+        self.xs = array("d", xs[order].tobytes())
+        self.ys = array("d", ys[order].tobytes())
+        self.ids = array("q", ids[order].tobytes())
 
     def _build(self, xs: Any, ys: Any, order: Any, lo: int, hi: int) -> int:
         run = order[lo:hi]
@@ -749,6 +786,7 @@ class _Segmenter:
         self.attdefs: dict[str, list[Text]] = {}
         self.viewports_asked = 0
         self.blank_proposed = False
+        self.unknown_kept = 0
 
     # Walking a space
 
@@ -766,31 +804,41 @@ class _Segmenter:
         """Walk one space once: its texts, its drawn points and its candidate frames."""
         walk = Walk(self.artefact, max_visits=MAX_VISITS, enter=self._enter)
         texts: list[_Placed] = []
-        points: list[tuple[float, float]] = []
+        xs, ys = array("d"), array("d")  # the drawn points, compactly
         candidates: list[_Frame] = []
         self.transforms.clear()
         for entity, chain in walk.entities(handle):
-            placed = self._transform(chain)
             if isinstance(entity, Text):
                 if entity.type == "ATTDEF":
                     continue  # a definition: drawn only through its insert's attribute
+                if len(texts) >= MAX_TEXTS:
+                    self.counts["texts_capped"] += 1
+                    continue
                 found = self._place(entity, chain)
                 if found is not None:
                     texts.append(found)
-                    points.append(found.origin)
-            elif isinstance(entity, Insert):
+                    xs.append(found.origin[0])
+                    ys.append(found.origin[1])
+                continue
+            placed = self._transform(chain)
+            frame: _Frame | None = None
+            if isinstance(entity, Insert):
                 frame = self._insert_frame(entity, chain, placed)
-                if frame is not None:
-                    candidates.append(frame)
             else:
                 point = _anchor_point(entity)
                 if point is not None:
                     x, y, _ = (placed @ own_ocs(entity)).apply(point)
                     if math.isfinite(x) and math.isfinite(y):
-                        points.append((x, y))
+                        xs.append(x)
+                        ys.append(y)
                 corners = _rectangle(entity) if not chain else None
                 if corners is not None:
-                    candidates.append(_Frame(corners, entity.handle, (), None, IDENTITY))
+                    frame = _Frame(corners, entity.handle, (), None, IDENTITY)
+            if frame is not None:
+                if len(candidates) >= MAX_FRAMES:
+                    self.counts["frames_capped"] += 1
+                else:
+                    candidates.append(frame)
         self.transforms.clear()
         for reason, count in walk.refused.items():
             self.counts[f"walk_{reason}"] += count
@@ -802,7 +850,7 @@ class _Segmenter:
         space = _Space(
             handle,
             texts,
-            _Index((x, y, i) for i, (x, y) in enumerate(points)),
+            _Index(points=(xs, ys)),
             candidates,
             labels,
             _Index((t.origin[0], t.origin[1], i) for i, t in enumerate(texts)),
@@ -927,11 +975,14 @@ class _Segmenter:
         titled.sort(key=lambda f: -f.area)
         index = _Index((f.bbox[0], f.bbox[1], i) for i, f in enumerate(titled))
         inside_kept: set[int] = set()
+        decided: set[tuple[tuple[float, float], ...]] = set()
         kept: list[_Frame] = []
         for i, f in enumerate(titled):
-            if i in inside_kept:
-                self.counts["frame_inside_frame"] += 1
+            drawn = tuple(sorted(f.corners))
+            if i in inside_kept or drawn in decided:
+                self.counts["frame_inside_frame"] += 1  # inside a kept frame, or drawn again
                 continue
+            decided.add(drawn)
             near = budget.within(index, f.bbox)
             if near is None:
                 kept.append(f)  # past the budget: kept as it is, counted
@@ -1031,9 +1082,15 @@ class _Segmenter:
             for f in sorted([*frames, *covers], key=lambda f: _reading_order(f, height)):
                 if id(f) in plotted:
                     self.counts["frame_plotted_by_layout"] += 1
-                    continue
-                sheets.append(reader.model_sheet(f, titled=id(f) in titled))
-        sheets.extend(layout_sheets)
+                elif len(sheets) >= MAX_SHEETS:
+                    self.counts["sheets_capped"] += 1  # never read
+                else:
+                    sheets.append(reader.model_sheet(f, titled=id(f) in titled))
+        for sheet in layout_sheets:
+            if len(sheets) >= MAX_SHEETS:
+                self.counts["sheets_capped"] += 1
+            else:
+                sheets.append(sheet)
         return Segmentation(sheets, self.counts)
 
     # Layouts
@@ -1086,6 +1143,10 @@ class _Segmenter:
         frames_shown = self._frames_shown(model, windows)
         drawn = len(own_entities) - (len(paper.frames) if paper else 0) - len(title_words)
         if titled and unknown and shown < MIN_SHOWN:
+            if self.unknown_kept >= MAX_UNKNOWN_LAYOUTS:
+                self.counts["layout_viewport_unknown_capped"] += 1
+                return None, []
+            self.unknown_kept += 1
             self.counts["layout_viewport_unknown"] += 1  # cannot be told empty: a sheet
         if (
             shown >= MIN_SHOWN
