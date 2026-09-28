@@ -66,7 +66,7 @@ describe('Members and access in the room it has (design gate 20a r1)', () => {
     }
 
     // A revoked row's Until whole.
-    const until = within(table(/^Vextrus access$/)).getByText((_, el) => el?.tagName === 'TD' && clean(el.textContent) === 'Revoked by Kamal Uddin, 28 Sep 2026')
+    const until = within(table(/^Vextrus access$/)).getByText((_, el) => el?.tagName === 'TD' && clean(el.textContent) === 'Revoked by Kamal Uddin, 28\u00a0Sep\u00a02026')
     expect(until.scrollWidth).toBeLessThanOrEqual(until.clientWidth + 0.5)
 
     // With the panel open, a 24 px gutter each side of the page's content.

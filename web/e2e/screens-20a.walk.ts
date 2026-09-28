@@ -4,13 +4,16 @@
  * English and the test-only right-to-left language (`?lang=en-XB`), as Kamal Uddin (MD), Nusrat Jahan
  * (QS), Farhana Kabir (Guest) and Arif Rahman (Vextrus Engineer); then 4.4's finish-line step 10 and
  * the Guest's walk. Each screen is screenshotted to WALK_SHOTS and checked: the words, the design
- * gate's DOM greps (§1.1, §1.9, §1.10), a focus ring on every control reached by Tab, and no call the
- * API refused.
+ * gate's DOM greps (§1.1, §1.9, §1.10), a focus ring, whole, on every control reached by Tab, and no
+ * call the API refused. The design gate's round 1 is walked too: Members and access whole with a
+ * person's acts open (1440, 1280, 1100, right to left), the revoked Engineer's next click refused with
+ * no reload, the AccessChip's date whole, two tabs of one browser, and a link pasted into an open /join.
  *
  *   VEXTRUS_DEMO_PASSWORD=… WALK_SHOTS=… npx --prefix web playwright test -c web/e2e/playwright.config.ts
  *
- * (with VEXTRUS_DB_NAME as the API has it, when that serves another database). Step 10 needs a Vextrus Engineer who is one of Vextrus's staff and not yet invited: the walk makes
- * sabbir@vextrus.example as the owner does (manage.py, the owner alias, `set_staff`), once.
+ * (with VEXTRUS_DB_NAME as the API has it, when that serves another database). Step 10 needs a Vextrus
+ * Engineer who is one of Vextrus's staff and not yet invited: the walk makes sabbir@vextrus.example as
+ * the owner does (manage.py, the owner alias, `set_staff`), once.
  */
 import { spawnSync } from 'node:child_process'
 import { mkdirSync } from 'node:fs'
@@ -87,14 +90,61 @@ async function ringsOnTab(page: Page, stops = 14) {
       const style = getComputedStyle(el)
       const r = el.getBoundingClientRect()
       const ring = style.outlineStyle !== 'none' && parseFloat(style.outlineWidth) >= 2
-      return { name: `${el.tagName.toLowerCase()} ${el.getAttribute('aria-label') ?? el.textContent?.trim().slice(0, 30) ?? ''}`, ring, inside: r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight }
+      // The ring whole: no ancestor that clips (overflow other than visible) cuts into it (gate 20a r1, item 7).
+      // How far the ring reaches outside the element: an inset ring (a negative offset) reaches less, or not at all.
+      const reach = Math.max(0, parseFloat(style.outlineWidth) + (parseFloat(style.outlineOffset) || 0))
+      let cut = false
+      for (let up = el.parentElement; up && up !== document.body; up = up.parentElement) {
+        const s = getComputedStyle(up)
+        if (s.overflowX === 'visible' && s.overflowY === 'visible') continue
+        const box = up.getBoundingClientRect()
+        if (r.left - reach < box.left - 0.5 || r.right + reach > box.right + 0.5 || r.top - reach < box.top - 0.5 || r.bottom + reach > box.bottom + 0.5) {
+          // A scrolling region clips what is scrolled out of it; only a ring cut at an edge it shows counts.
+          if (up.scrollHeight <= up.clientHeight && up.scrollWidth <= up.clientWidth) cut = true
+        }
+      }
+      return { name: `${el.tagName.toLowerCase()} ${el.getAttribute('aria-label') ?? el.textContent?.trim().slice(0, 30) ?? ''}`, ring, cut, inside: r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight }
     })
     if (!focus) continue
     seen.push(focus.name)
     expect(focus.ring, `a ring on ${focus.name}`).toBe(true)
+    expect(focus.cut, `${focus.name}'s ring whole`).toBe(false)
     expect(focus.inside, `${focus.name} inside the viewport`).toBe(true)
   }
   return seen
+}
+
+/**
+ * Members and access whole (design gate 20a r1, musts 4 to 7): every row act whole and in view, inside
+ * the page and its table's box; every Until whole; and, with a person's acts open, a 24 px gutter at
+ * both edges of the page's content (whichever the language's direction).
+ */
+async function membersWhole(page: Page, panelOpen: boolean) {
+  const problems = await page.evaluate((open) => {
+    const out: string[] = []
+    const pageBox = document.querySelector('[data-region="page"]')!.getBoundingClientRect()
+    for (const b of document.querySelectorAll<HTMLElement>('main table button[aria-label]')) {
+      const r = b.getBoundingClientRect()
+      const box = b.closest('table')!.parentElement!.getBoundingClientRect()
+      const name = b.getAttribute('aria-label')
+      if (r.width < 40) out.push(`${name}: ${r.width.toFixed(0)} px wide`)
+      if (r.left < Math.max(box.left, pageBox.left) - 0.5 || r.right > Math.min(box.right, pageBox.right) + 0.5) out.push(`${name}: out of view`)
+      if (getComputedStyle(b.closest('td')!).overflow !== 'visible') out.push(`${name}: its cell clips it`)
+    }
+    // A cell that does not truncate (with its tooltip) shows whole: Until, Acts and the row's acts.
+    for (const td of document.querySelectorAll<HTMLElement>('main table td:not(.truncate)')) {
+      if (td.scrollWidth > td.clientWidth + 0.5) out.push(`cut: ${td.textContent}`)
+    }
+    if (open) {
+      for (const t of document.querySelectorAll('main table')) {
+        const box = t.parentElement!.getBoundingClientRect()
+        if (box.left - pageBox.left < 23.5) out.push(`a table ${(box.left - pageBox.left).toFixed(1)} px from the left edge`)
+        if (pageBox.right - box.right < 23.5) out.push(`a table ${(pageBox.right - box.right).toFixed(1)} px from the right edge`)
+      }
+    }
+    return out
+  }, panelOpen)
+  expect(problems, 'Members and access whole').toEqual([])
 }
 
 async function signIn(page: Page, email: string, path = '/sign-in') {
@@ -212,6 +262,7 @@ for (const who of ['md', 'qs', 'guest', 'engineer'] as Who[]) {
         await expect(page.getByRole('heading', { name: 'Vextrus access' })).toHaveCount(who === 'engineer' ? 0 : 1)
         await expect(page.getByRole('button', { name: 'Invite' })).toHaveCount(who === 'engineer' ? 0 : 1)
         await greps(page)
+        await membersWhole(page, false)
         await shot(page, `${who}-members-${size[0]}`)
         if (who !== 'engineer') {
           await page.getByRole('button', { name: 'Invite' }).focus()
@@ -234,10 +285,15 @@ for (const who of ['md', 'qs', 'guest', 'engineer'] as Who[]) {
           const acts = page.getByRole('button', { name: /acts?, last|No acts yet/ }).first()
           await acts.click()
           await expect(page.getByText('Their acts, newest first')).toBeVisible()
+          await membersWhole(page, true)
           await shot(page, `${who}-acts-${size[0]}`)
           await page.keyboard.press('Escape')
           await expect(page.getByText('Their acts, newest first')).toHaveCount(0)
           await expect(acts).toBeFocused()
+          // With a person's acts open, every control Tab reaches shows its ring whole (gate item 7).
+          await acts.click()
+          await expect(page.getByText('Their acts, newest first')).toBeVisible()
+          await ringsOnTab(page, 24)
         }
       }
 
@@ -255,6 +311,27 @@ for (const who of ['md', 'qs', 'guest', 'engineer'] as Who[]) {
     }
   })
 }
+
+test('Members and access with a person’s acts open, at 1100 and right to left (design gate 20a r1, musts 4 to 7)', async ({ browser }) => {
+  for (const [size, lang] of [
+    [[1100, 800], ''],
+    [[1280, 800], '?lang=en-XB'],
+    [[1440, 900], '?lang=en-XB'],
+  ] as const) {
+    const page = await newPage(browser, size)
+    await signIn(page, PEOPLE.md.email)
+    await page.goto(`/members${lang}`)
+    await expect(page.locator('main table').first()).toBeVisible()
+    await membersWhole(page, false)
+    await page.locator('main table button[aria-expanded]').first().click()
+    await expect(page.locator('[data-region="panel"]')).toBeVisible()
+    await membersWhole(page, true)
+    await shot(page, `md-acts-${size[0]}${lang ? '-rtl' : ''}`)
+    // (The rings with a person's acts open are walked at 1440 and 1280 above; below 1280 the frame keeps
+    // its 1280 px and scrolls sideways, 03's narrow notice saying so.)
+    await page.context().close()
+  }
+})
 
 test('finish line step 10 (§4.4): invite an Engineer, they act, the act is listed under their name, revoke, their next click is refused', async ({ browser }) => {
   const md = await newPage(browser, SIZES[0])
@@ -304,6 +381,10 @@ test('finish line step 10 (§4.4): invite an Engineer, they act, the act is list
   await form.getByRole('button', { name: 'Create project' }).click()
   await engineer.waitForURL(new RegExp(`/p/${code}/takeoff/1$`))
   expect(engineerRefused).toEqual([])
+  // On the project's page, where the top bar is fullest, the AccessChip's date is whole (gate must 3).
+  const chip = engineer.getByTestId('access-chip')
+  await expect.poll(textOf(chip)).toMatch(/until \d{1,2} [A-Z][a-z]{2} \d{4}$/)
+  expect(await chip.locator('[data-words]').evaluate((el) => el.scrollWidth <= el.clientWidth + 0.5)).toBe(true)
 
   await md.goto('/members')
   // Only the current access: a walk run before leaves an ended one listed, muted (4.4).
@@ -320,12 +401,17 @@ test('finish line step 10 (§4.4): invite an Engineer, they act, the act is list
   await expect.poll(textOf(md.getByRole('status'))).toBe(`${STAFF.name}’s access has ended.`)
   await expect.poll(async () => (await md.getByRole('row', { name: new RegExp(STAFF.name) }).filter({ hasNotText: 'Revoked' }).count())).toBe(0)
   await expect.poll(textOf(md.getByRole('row', { name: new RegExp(STAFF.name) }).last())).toContain('Revoked by Kamal Uddin')
+  // The Revoke button went with the row: focus is on the section's heading, not lost (gate may).
+  await expect(md.getByRole('heading', { name: 'Vextrus access' })).toBeFocused()
   await shot(md, 'step10-revoked')
 
-  // The Engineer's next click, in the page they already had open: refused, to 4.1's page.
-  await engineer.getByRole('button', { name: loose('Sabbir Hossain, Vextrus Engineer') }).click()
-  await engineer.getByRole('menuitem', { name: 'Members and access' }).click()
+  // The Engineer's next click, in the page they already had open: the brand, which asks the API for
+  // nothing a page needs. Refused all the same, to 4.1's page, with no reload (gate must 1).
+  let reloaded = false
+  engineer.on('load', () => (reloaded = true))
+  await engineer.getByRole('link', { name: 'Vextrus' }).click()
   await engineer.waitForURL(/\/access-ended$/)
+  expect(reloaded, 'no reload').toBe(false)
   await expect
     .poll(textOf(engineer.getByRole('main').locator('p').first()))
     .toMatch(/^Your access to Shapla Homes Ltd has ended\. Kamal Uddin revoked it on \d{1,2} [A-Z][a-z]{2} \d{4}\. What you did before then is kept under your name\.$/)
@@ -397,19 +483,90 @@ test('#75’s seed: an expired Guest signs in to "Access ended", and the MD sees
   await signIn(md, PEOPLE.md.email)
   await md.goto('/members')
   const row = md.getByRole('row', { name: /Rafiq Islam/ })
-  await expect.poll(textOf(row)).toMatch(/Ended \d{1,2} [A-Z][a-z]{2} \d{4}/)
+  await expect.poll(textOf(row)).toMatch(/Ended \d{1,2}\u00a0[A-Z][a-z]{2}\u00a0\d{4}/)
   await expect(row.getByRole('button', { name: 'Renew 30 days' })).toBeVisible()
   await shot(md, 'members-ended-row')
   await md.context().close()
 })
 
 test('`?next=` never leaves the app (the trust boundary): a dot segment, a protocol-relative address, a script', async ({ browser }) => {
-  for (const next of ['/.//evil.example', '//evil.example', 'https://evil.example', 'javascript:alert(1)', '/a/..//x/sign-in']) {
+  for (const next of ['/.//evil.example', '//evil.example', 'https://evil.example', 'javascript:alert(1)', '/a/..//x/sign-in', '/%2e%2e%2f/evil.example', '/%252e%252e//evil.example', '/members/..%2f..%2f/evil']) {
     const page = await newPage(browser, SIZES[0])
     await signIn(page, PEOPLE.qs.email, `/sign-in?next=${encodeURIComponent(next)}`)
     await expect(page).toHaveURL(/^http:\/\/127\.0\.0\.1:\d+\/projects$/)
     await page.context().close()
   }
+})
+
+test('two tabs of one browser (review 20a r1, finding 1): a switch in one, and the other never writes into the new Developer', async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+  const a = await context.newPage()
+  await signIn(a, 'sharmin@chameli-homes.example')
+  await a.waitForURL(/\/choose-developer/)
+  await a.getByRole('listbox', { name: 'Your Developers' }).focus()
+  await a.keyboard.press('Enter')
+  await a.waitForURL(/\/projects$/)
+  await a.goto('/members')
+  await a.getByRole('button', { name: 'Invite' }).click()
+  const dialog = a.getByRole('dialog', { name: /^Invite someone to/ })
+  await expect.poll(textOf(dialog.getByRole('heading'))).toBe('Invite someone to Chameli Homes Ltd')
+  await dialog.getByLabel('Email').fill('walk-two-tabs@vextrus.example')
+
+  // The other tab switches the session to Meghna.
+  const b = await context.newPage()
+  await b.goto('/projects')
+  await b.getByRole('button', { name: loose('Sharmin Akter, QS') }).click()
+  await b.getByRole('menuitem', { name: loose('Switch to Meghna Properties Ltd') }).click()
+  await expect(b.getByText('Meghna Heights')).toBeVisible()
+
+  // This tab heard it: its dialog for Chameli is gone, it works in Meghna, and it says why.
+  await expect(dialog).toHaveCount(0)
+  await expect.poll(textOf(a.getByRole('status').filter({ hasText: /another tab/ }))).toBe('Switched to Meghna Properties Ltd in another tab.')
+  await expect(a).toHaveURL(/\/projects$/)
+  await expect.poll(textOf(a.locator('[data-region="top-bar"]'))).toContain('Meghna Properties Ltd')
+  await shot(a, 'two-tabs-switched')
+  // Nothing was invited into Meghna.
+  await b.goto('/members')
+  await expect(b.locator('main table').first()).toBeVisible()
+  expect(clean(await b.locator('main').innerText())).not.toContain('walk-two-tabs@vextrus.example')
+  await context.close()
+})
+
+test('a new link pasted into an open /join page that said the last could not be used (gate must 2)', async ({ browser }) => {
+  const md = await newPage(browser, SIZES[0])
+  await signIn(md, PEOPLE.md.email)
+  await md.goto('/members')
+  const email = `walk-paste-${Date.now() % 100000}@padma-builders.example`
+  await md.getByRole('button', { name: 'Invite' }).click()
+  const dialog = md.getByRole('dialog', { name: /^Invite someone to/ })
+  await dialog.getByLabel('Email').fill(email)
+  await dialog.getByRole('button', { name: 'Create link' }).click()
+  const first = await dialog.getByLabel('The invitation link').inputValue()
+  await md.keyboard.press('Escape')
+  // A new link for the same invitation ends the first (4.4's Copy link).
+  const row = md.getByRole('table', { name: 'Invitations not used yet' }).getByRole('row', { name: new RegExp(email.replace(/\./g, '\\.')) })
+  await row.getByRole('button', { name: 'Copy link' }).click()
+  const again = md.getByRole('dialog', { name: /^New link for/ })
+  const second = await again.getByLabel('The invitation link').inputValue()
+  await md.keyboard.press('Escape')
+
+  const page = await newPage(browser, SIZES[0])
+  await page.goto(first.replace(/^https?:\/\/[^/]+/, ''))
+  await expect(page.getByText('This invitation can no longer be used. Ask whoever sent it for a new one.')).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: 'Invitation' })).toBeVisible()
+  let reloaded = false
+  page.on('load', () => (reloaded = true))
+  // Pasted into the address bar: only the fragment differs, so nothing reloads.
+  await page.goto(second.replace(/^https?:\/\/[^/]+/, ''))
+  await expect.poll(textOf(page.getByRole('heading', { level: 1 }))).toBe('Join Shapla Homes Ltd')
+  expect(reloaded, 'no reload').toBe(false)
+  await shot(page, 'join-pasted')
+  await page.context().close()
+
+  // Leave nothing behind.
+  await row.getByRole('button', { name: 'Withdraw' }).click()
+  await expect(row).toHaveCount(0)
+  await md.context().close()
 })
 
 test('the frame’s notices on the projects page (§1.5): narrow at 1100, phone at 390', async ({ browser }) => {

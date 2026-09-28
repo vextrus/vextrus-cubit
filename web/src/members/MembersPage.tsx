@@ -45,7 +45,8 @@ function useUntilText(): (row: PersonRow) => string {
   const f = useFormat()
   return (row) => {
     if (row.ended) {
-      const date = f.date(row.ended.at)
+      // The line may wrap in its cell, but never inside the date.
+      const date = f.date(row.ended.at).replace(/ /g, ' ')
       const by = row.ended.by ?? ''
       if (row.ended.how === 'expired') return t`Ended ${date}`
       if (row.ended.by) return t`Revoked by ${by}, ${date}`

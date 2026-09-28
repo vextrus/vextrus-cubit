@@ -156,7 +156,7 @@ describe('the MD’s page (§4.4)', () => {
   it('keeps expired access listed, muted, "Ended 20 Sep 2026", renewable: the refused state after expiry', async () => {
     await members(PEOPLE.md)
     const jamal = row(/^People at/, 'Jamal Hossain')
-    expect(cells(jamal)[5]).toBe('Ended 20 Sep 2026')
+    expect(cells(jamal)[5]).toBe('Ended 20\u00a0Sep\u00a02026') // the date never breaks
     expect(jamal.className).toContain('text-muted-foreground')
     expect(buttons(jamal)).toEqual(['Renew 30 days', 'Revoke'])
     // Listed after everyone whose access is current.
@@ -506,7 +506,7 @@ describe('the acts on a row (§4.4, "Wording of acts")', () => {
     expect(api.calls()).not.toContain(`POST /api/members/${api.membershipOf(PEOPLE.engineer, SHAPLA).id}/revoke`)
     await userEvent.click(within(confirm).getByRole('button', { name: 'End access' }))
     await seen(await screen.findByText(exactly('Arif Rahman’s access has ended.', 'SPAN')))
-    await waitFor(() => expect(cells(row(/^Vextrus access$/, 'Arif Rahman'))[4]).toBe('Revoked by Kamal Uddin, 28 Sep 2026'))
+    await waitFor(() => expect(cells(row(/^Vextrus access$/, 'Arif Rahman'))[4]).toBe('Revoked by Kamal Uddin, 28\u00a0Sep\u00a02026'))
     const arif = row(/^Vextrus access$/, 'Arif Rahman')
     expect(arif.className).toContain('text-muted-foreground')
     expect(buttons(arif)).toEqual(['2 acts, last 26 Sep 2026'])
