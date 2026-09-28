@@ -87,6 +87,9 @@ def main(argv: list[str] | None = None) -> int:
 def owners_machine() -> Machine:
     config = tomllib.loads((ROOT / POSTER_CONFIG).read_text())
     cache = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache") / "vextrus-real-drawings"
+    # The sets live under the main checkout's .private/, which a worktree does not have.
+    common = git(ROOT, "rev-parse", "--path-format=absolute", "--git-common-dir").decode().strip()
+    sets_root = Path(common).parent
 
     def post(run_id: str) -> int:
         command = ["sudo", "-u", config["key_user"], config["installed"], "real-drawings", run_id]
@@ -98,7 +101,7 @@ def owners_machine() -> Machine:
         toolchain=Path("/opt/vextrus"),
         cache=cache,
         drop=Path(config["drop"]),
-        sets={name: ROOT / path for name, path in SETS.items()},
+        sets={name: sets_root / path for name, path in SETS.items()},
         post=post,
     )
 
@@ -113,17 +116,18 @@ def run(target: str, *, no_post: bool, m: Machine) -> int:
         base = resolve(m.repo, MAIN)
         stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
         run_id = f"{stamp}-{head.commit[:12]}-{secrets.token_hex(2)}"
-        work = m.cache / "runs" / run_id
-        work.mkdir(parents=True)
+        main = mains(m.repo, base.commit)
         missing = [str(folder) for folder in m.sets.values() if not folder.is_dir()]
         if missing:
             raise Refused(f"a Development Set is not where the check reads it: {missing[0]}")
+        work = m.cache / "runs" / run_id
+        work.mkdir(parents=True)
         digests = {name: set_digest(folder) for name, folder in sorted(m.sets.items())}
         m.say(f"real-drawings {run_id}: {head.target} at {head.commit[:12]}, main at {base.commit[:12]}")
-        head_hash, head_exports = measure(m, head, base.commit, work / "head", run_id, digests)
+        head_hash, head_exports = measure(m, head, main, work / "head", run_id, digests)
         main_hash, main_exports = head_hash, head_exports
         if head.commit != base.commit:
-            main_hash, main_exports = measure(m, base, base.commit, work / "main", run_id, digests)
+            main_hash, main_exports = measure(m, base, main, work / "main", run_id, digests)
         counts, items = report(m, main_exports, head_exports, head.commit == base.commit)
         drop.write_new(work / "items.json", _json(items))  # holds drawing text: the owner's cache only
         metadata = {
@@ -158,18 +162,30 @@ def run(target: str, *, no_post: bool, m: Machine) -> int:
         return code
 
 
+@dataclass(frozen=True)
+class Mains:
+    """What main decides for every run: the engine paths, `[tool.uv]` and the export's schema."""
+
+    patterns: bytes
+    pyproject: bytes
+    schema: bytes
+
+
+def mains(repo: Path, commit: str) -> Mains:
+    patterns, pyproject, schema = (show(repo, commit, p) for p in (PATTERNS, "pyproject.toml", SCHEMA))
+    if patterns is None or pyproject is None:
+        raise Refused(f"main has no {PATTERNS} or pyproject.toml")
+    if schema is None:
+        raise Refused(f"main has no {SCHEMA}: the engine harness (06b) is not merged")
+    return Mains(patterns, pyproject, schema)
+
+
 def measure(
-    m: Machine, head: Head, main_commit: str, work: Path, run_id: str, digests: Mapping[str, str]
+    m: Machine, head: Head, main: Mains, work: Path, run_id: str, digests: Mapping[str, str]
 ) -> tuple[str, dict[str, Path]]:
     """One commit's exports, from the cache when its code hash has read these sets before."""
-    patterns = show(m.repo, main_commit, PATTERNS)
-    main_pyproject = show(m.repo, main_commit, "pyproject.toml")
-    schema_text = show(m.repo, main_commit, SCHEMA)
-    if patterns is None or main_pyproject is None:
-        raise Refused(f"main has no {PATTERNS} or pyproject.toml")
-    if schema_text is None:
-        raise Refused(f"main has no {SCHEMA}: the engine harness (06b) is not merged")
-    files = engine_files(m.repo, head.commit, patterns.decode())
+    main_pyproject, schema_text = main.pyproject, main.schema
+    files = engine_files(m.repo, head.commit, main.patterns.decode())
     hashed = code_hash(files)
     checkout = work / "src"
     write_checkout(m.repo, files, checkout)
