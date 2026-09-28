@@ -320,7 +320,8 @@ def test_the_stage_table_is_the_contracts() -> None:
         ("conflicts", "engine.recognise.conflicts:find", "19b"),
         ("checks", "engine.check.catalogue:run_all", "19b"),
     ]
-    assert load_schema()["$defs"]["stage_name"]["enum"] == [s.name for s in STAGES]
+    assert list(load_schema()["properties"]["stages"]["properties"]) == [s.name for s in STAGES]
+    assert list(load_schema()["$defs"]["stage_reports"]["properties"]) == [s.name for s in STAGES]
 
 
 def test_a_missing_module_or_function_is_not_built_and_a_broken_import_is_raised(
@@ -395,45 +396,54 @@ def test_a_set_read_by_every_stage_is_written_to_the_export(
 
     sheet = architectural["sheets"][0]
     assert sheet["group"] == "set"
-    assert sheet["number"] == {"value": "S-101", "source": "title_block_text"}
-    assert sheet["discipline"] == {"value": "architectural", "source": "file"}
-    assert sheet["location"] == {"layout": "Layout1", "box": None}
+    assert sheet["id"] == "f0.s0"
+    assert (sheet["number"], sheet["number_source"]) == ("S-101", "title_block_text")
+    assert (sheet["discipline"], sheet["discipline_source"]) == ("architectural", "file")
+    assert (sheet["revision_mark"], sheet["revision_mark_source"]) == ("R0", "file_name")
+    assert (sheet["layout"], sheet["frame_box"]) == ("Layout1", None)
+    assert [v["id"] for v in sheet["views"]] == ["f0.s0.v0", "f0.s0.v1", "f0.s0.v2"]
     assert [v["coverage"] for v in sheet["views"]] == ["assigned", "excluded", "unaccounted"]
     assert sheet["views"][0]["storeys"] == ["ground"]
-    assert sheet["views"][1]["exclusion"] == {"reason": "for_information", "text": None}
+    assert sheet["views"][0]["proposed_steps"] == ["columns"]
+    assert sheet["views"][1]["exclusion_reason"] == "for_information"
     assert sheet["register"] == [
-        {"row_box": [0, 0, 10, 1], "number": "S-101", "title": "x", "revision_mark": None, "anchors": []}
+        {
+            "id": "f0.s0.r0",
+            "row_box": [0, 0, 10, 1],
+            "number": "S-101",
+            "title": "x",
+            "revision_mark": None,
+            "anchors": [],
+        }
     ]
     assert architectural["sheets"][1]["register"] == []
     assert sheet["render_f1"] == 0.9
     assert architectural["sheets"][1]["render_f1"] is None
 
-    assert document["plot"] == [
+    assert pdf["plot_matches"] == [
         {
-            "page": {"file": 1, "page": 1},
-            "sheet": {"file": 0, "sheet": 0},
+            "page": 1,
+            "sheet": "f0.s0",
             "reason": None,
             "residual": 0.4,
             "transform": {"scale": 0.01, "rotation": 90, "offset": [3.0, 4.0]},
         },
-        {"page": {"file": 1, "page": 2}, "sheet": None, "reason": "no_sheet_matched", "residual": None,
-         "transform": None},
-    ]  # fmt: skip
+        {"page": 2, "sheet": None, "reason": "no_sheet_matched", "residual": None, "transform": None},
+    ]
+    assert architectural["plot_matches"] == []
     assert document["conflicts"] == [
         {
             "kind": "same_number",
-            "candidates": [{"file": 0, "sheet": 0}, {"file": 2, "sheet": 0}],
+            "candidates": ["f0.s0", "f2.s0"],
             "evidence": {"files": 2},
         }
     ]
-    assert document["continuations"] == [
-        {"title": "Column schedule", "sheets": [{"file": 0, "sheet": 0}, {"file": 0, "sheet": 1}]}
-    ]
+    assert document["continuations"] == [{"title": "Column schedule", "sheets": ["f0.s0", "f0.s1"]}]
     assert [(c["code"], c["outcome"], c["subject"]) for c in document["checks"]] == [
-        ("coverage", "fired", {"file": 0, "sheet": 0, "view": 2}),
-        ("register", "passed", {"file": 0, "sheet": 0, "register": 0}),
+        ("coverage", "fired", "f0.s0.v2"),
+        ("register", "passed", "f0.s0.r0"),
         ("numbering", "passed", None),
-        ("plot_pages", "passed", {"file": 1, "page": 1}),
+        ("plot_pages", "passed", pdf["sha256"]),
     ]
     assert document["checks"][0]["finding"] == {
         "code": "engine.coverage.unaccounted",
@@ -460,7 +470,8 @@ def test_stages_not_built_are_reported_so_and_nothing_is_faked(
     assert list(files["a.dwg"]["stages"]) == list(harness.FILE_STAGES["dwg"])
     assert list(files["b.pdf"]["stages"]) == list(harness.FILE_STAGES["pdf"])
     assert {r["state"] for r in document["set_stages"].values()} == {"not_built"}
-    assert files["a.dwg"]["entity_counts"] is None
+    assert "entity_counts" not in files["a.dwg"]
+    assert "pdf_report" not in files["b.pdf"]
     assert files["a.dwg"]["sheets"] == []
     assert files["a.dwg"]["sha256"] == "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881"
     assert files["a.dwg"]["process"]["status"] == "ok"
@@ -567,16 +578,14 @@ def test_peak_memory_is_each_files_own(
     )
 
     files = by_path(document)
-    big, small, grandchild = (
-        files[n]["process"] for n in ("1-big.dwg", "2-small.dwg", "3-grandchild.dwg")
-    )
-    assert big["peak_rss_kib"] >= 256 * 1024
+    big, small, grandchild = (files[n] for n in ("1-big.dwg", "2-small.dwg", "3-grandchild.dwg"))
+    assert big["peak_rss"] >= 256 * 1024
     # ru_maxrss only rises within one process: the small file after the big one is measured alone.
-    assert small["peak_rss_kib"] < 128 * 1024
+    assert small["peak_rss"] < 128 * 1024
     # The rusage wait4 gives covers the children the file's process waited for (dwgread's, later).
-    assert grandchild["peak_rss_kib"] >= 256 * 1024
-    assert big["cpu_seconds"] > 0
-    assert big["seconds"] >= big["cpu_seconds"] * 0.5
+    assert grandchild["peak_rss"] >= 256 * 1024
+    assert big["process"]["cpu_seconds"] > 0
+    assert big["read_seconds"] >= big["process"]["cpu_seconds"] * 0.5
 
 
 def test_a_child_that_dies_is_reported_as_far_as_it_got(
@@ -605,7 +614,7 @@ def test_a_child_past_the_timeout_is_killed(
 
     slow = by_path(document)["a.dwg"]
     assert slow["process"]["status"] == "timed_out"
-    assert slow["process"]["seconds"] < 30
+    assert slow["read_seconds"] < 30
     assert slow["stages"]["read"]["error"] == (
         "the file's process ended during this stage (it ran past the file timeout)"
     )
@@ -819,9 +828,11 @@ def test_the_lists_m0_fixes() -> None:
     ]  # fmt: skip
     schema = load_schema()["$defs"]
     assert schema["view"]["properties"]["kind"]["enum"] == [str(k) for k in ViewKind]
-    exclusion = schema["exclusion"]["anyOf"][1]["properties"]["reason"]["enum"]
-    assert exclusion == [str(r) for r in ExclusionReason]
-    assert schema["sourced"]["anyOf"][1]["properties"]["source"]["enum"] == [str(s) for s in ValueSource]
+    for exclusion in (schema["view"], schema["sheet"]):
+        reasons = exclusion["properties"]["exclusion_reason"]["enum"]
+        assert reasons == [*(str(r) for r in ExclusionReason), None]
+    sources = schema["sheet"]["properties"]["number_source"]["enum"]
+    assert sources == [*(str(s) for s in ValueSource), None]
 
 
 BANGLADESH_DISCIPLINES = {"structural", "architectural", "electrical", "plumbing", "fire"}
@@ -944,7 +955,7 @@ def test_a_files_peak_is_not_the_harnesss_own(
     document = run(tmp_path, fakes(), {"a.dwg": "", "b.pdf": ""}, conventions=conventions)
 
     for reading in document["files"]:
-        assert reading["process"]["peak_rss_kib"] < 128 * 1024, reading["path"]
+        assert reading["peak_rss"] < 128 * 1024, reading["path"]
 
 
 def test_what_a_file_leaves_running_is_killed_and_counted(
@@ -1112,3 +1123,64 @@ def test_a_fork_chain_a_file_leaves_is_stopped_and_never_charged_to_the_next_fil
     assert first["left_behind"] >= 1
     assert second["left_behind"] == 0
     assert second["left_running"] is False
+
+
+# The real-drawing check (06a) reads this export ------------------------------------------------------
+
+
+def test_the_real_drawing_checks_own_schema_check_and_diff_read_the_export(
+    tmp_path: Path, fakes: Callable[..., tuple[Stage, ...]], conventions: Path
+) -> None:
+    from scripts.real_drawings.diff import compare, sizes
+    from scripts.real_drawings.schema import problems
+
+    # 06a's diff joins a Check's subject by a sheet's or view's id or a file's sha256, not yet by a
+    # register entry's (its `ids` map holds no rows), so these Checks name no register entry.
+    checks = FAKES["checks.py"].replace(
+        'CheckResult("register", "passed", subject=reading.register[0])',
+        'CheckResult("register", "passed", subject=reading.sheets[0])',
+    )
+    files = {"A-201.dwg": "a", "plot.pdf": "p", "structural/S-101.dwg": "s"}
+    document = run(tmp_path, fakes(checks=checks), files, conventions=conventions)
+
+    assert problems(document, load_schema()) == []
+    assert compare(document, document).items == []
+    assert sizes(document) == {
+        "files": 3,
+        "entity_counts": 4,
+        "report_counts": 8,
+        "sheets": 4,
+        "views": 12,
+        "register": 2,
+        "plot_matches": 2,
+        "render_f1": 1,
+        "checks": 4,
+        "conflicts": 1,
+        "continuations": 1,
+    }
+
+    changed = json.loads(json.dumps(document))
+    sheet = by_path(changed)["structural/S-101.dwg"]["sheets"][1]
+    sheet["title"] = "Beam layout"
+    sheet["views"][0]["proposed_steps"] = ["beams"]
+    by_path(changed)["plot.pdf"]["plot_matches"][1] |= {"sheet": "f2.s1", "reason": None}
+    counts = compare(document, changed).counts()
+
+    assert counts["sheets"] == {"gained": 0, "lost": 0, "changed": 1}
+    assert counts["views"] == {"gained": 0, "lost": 0, "changed": 1}
+    assert counts["plot_matches"] == {"gained": 0, "lost": 0, "changed": 1}
+
+
+def test_the_real_drawing_check_reads_a_run_with_nothing_built(
+    tmp_path: Path, conventions: Path
+) -> None:
+    from scripts.real_drawings.diff import compare, sizes
+    from scripts.real_drawings.schema import problems
+
+    absent = tuple(replace(s, target=f"absent_{uuid.uuid4().hex}.{s.name}:run") for s in STAGES)
+    document = run(tmp_path, absent, {"a.dwg": "a", "b.pdf": "b"}, conventions=conventions)
+
+    assert problems(document, load_schema()) == []
+    assert compare(document, document).items == []
+    assert sizes(document)["files"] == 2
+    assert sum(sizes(document).values()) == 2

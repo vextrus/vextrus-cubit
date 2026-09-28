@@ -1,363 +1,1299 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "The engine's export: one Drawing Set as the harness read it (engine/export.py)",
-  "description": "Written by engine/harness.py, diffed by the real-drawing check; holds drawing text, so it never leaves the owner's machine. A candidate is referred to by where it sits in this document.",
+  "description": "Written by engine/harness.py, diffed by the real-drawing check (scripts/real_drawings/diff.py); holds drawing text, so it never leaves the owner's machine. Candidates carry ids unique in the document (f0.s1, f0.s1.v2, f0.s1.r0).",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "run", "stages", "files", "set_stages", "plot", "conflicts", "continuations", "checks"],
+  "required": [
+    "version",
+    "run",
+    "stages",
+    "files",
+    "set_stages",
+    "conflicts",
+    "continuations",
+    "checks"
+  ],
   "properties": {
-    "version": {"const": 1},
-    "run": {"$ref": "#/$defs/run"},
+    "version": {
+      "const": 1
+    },
+    "run": {
+      "$ref": "#/$defs/run"
+    },
     "stages": {
       "description": "The stage table: each stage's target, the ticket that builds it, and whether it is built on this commit.",
       "type": "object",
-      "propertyNames": {"$ref": "#/$defs/stage_name"},
-      "additionalProperties": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["target", "ticket", "built"],
-        "properties": {
-          "target": {"type": "string", "pattern": "^[a-z_][a-z0-9_.]*:[a-z_][a-z0-9_]*$"},
-          "ticket": {"type": "string", "minLength": 1},
-          "built": {"type": "boolean"}
+      "additionalProperties": false,
+      "properties": {
+        "read": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "target",
+            "ticket",
+            "built"
+          ],
+          "properties": {
+            "target": {
+              "type": "string",
+              "pattern": "^[a-z_][a-z0-9_.]*:[a-z_][a-z0-9_]*$"
+            },
+            "ticket": {
+              "type": "string",
+              "minLength": 1
+            },
+            "built": {
+              "type": "boolean"
+            }
+          }
+        },
+        "decoders_agree": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "target",
+            "ticket",
+            "built"
+          ],
+          "properties": {
+            "target": {
+              "type": "string",
+              "pattern": "^[a-z_][a-z0-9_.]*:[a-z_][a-z0-9_]*$"
+            },
+            "ticket": {
+              "type": "string",
+              "minLength": 1
+            },
+            "built": {
+              "type": "boolean"
+            }
+          }
+        },
+        "font_report": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "target",
+            "ticket",
+            "built"
+          ],
+          "properties": {
+            "target": {
+              "type": "string",
+              "pattern": "^[a-z_][a-z0-9_.]*:[a-z_][a-z0-9_]*$"
+            },
+            "ticket": {
+              "type": "string",
+              "minLength": 1
+            },
+            "built": {
+              "type": "boolean"
+            }
+          }
+        },
+        "bangla_ansi": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "target",
+            "ticket",
+            "built"
+          ],
+          "properties": {
+            "target": {
+              "type": "string",
+              "pattern": "^[a-z_][a-z0-9_.]*:[a-z_][a-z0-9_]*$"
+            },
+            "ticket": {
+              "type": "string",
+              "minLength": 1
+            },
+            "built": {
+              "type": "boolean"
+            }
+          }
+        },
+        "sheets": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "target",
+            "ticket",
+            "built"
+          ],
+          "properties": {
+            "target": {
+              "type": "string",
+              "pattern": "^[a-z_][a-z0-9_.]*:[a-z_][a-z0-9_]*$"
+            },
+            "ticket": {
+              "type": "string",
+              "minLength": 1
+            },
+            "built": {
+              "type": "boolean"
+            }
+          }
+        },
+        "register": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "target",
+            "ticket",
+            "built"
+          ],
+          "properties": {
+            "target": {
+              "type": "string",
+              "pattern": "^[a-z_][a-z0-9_.]*:[a-z_][a-z0-9_]*$"
+            },
+            "ticket": {
+              "type": "string",
+              "minLength": 1
+            },
+            "built": {
+              "type": "boolean"
+            }
+          }
+        },
+        "views": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "target",
+            "ticket",
+            "built"
+          ],
+          "properties": {
+            "target": {
+              "type": "string",
+              "pattern": "^[a-z_][a-z0-9_.]*:[a-z_][a-z0-9_]*$"
+            },
+            "ticket": {
+              "type": "string",
+              "minLength": 1
+            },
+            "built": {
+              "type": "boolean"
+            }
+          }
+        },
+        "render_buffers": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "target",
+            "ticket",
+            "built"
+          ],
+          "properties": {
+            "target": {
+              "type": "string",
+              "pattern": "^[a-z_][a-z0-9_.]*:[a-z_][a-z0-9_]*$"
+            },
+            "ticket": {
+              "type": "string",
+              "minLength": 1
+            },
+            "built": {
+              "type": "boolean"
+            }
+          }
+        },
+        "rasterise": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "target",
+            "ticket",
+            "built"
+          ],
+          "properties": {
+            "target": {
+              "type": "string",
+              "pattern": "^[a-z_][a-z0-9_.]*:[a-z_][a-z0-9_]*$"
+            },
+            "ticket": {
+              "type": "string",
+              "minLength": 1
+            },
+            "built": {
+              "type": "boolean"
+            }
+          }
+        },
+        "pdf_report": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "target",
+            "ticket",
+            "built"
+          ],
+          "properties": {
+            "target": {
+              "type": "string",
+              "pattern": "^[a-z_][a-z0-9_.]*:[a-z_][a-z0-9_]*$"
+            },
+            "ticket": {
+              "type": "string",
+              "minLength": 1
+            },
+            "built": {
+              "type": "boolean"
+            }
+          }
+        },
+        "page_text": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "target",
+            "ticket",
+            "built"
+          ],
+          "properties": {
+            "target": {
+              "type": "string",
+              "pattern": "^[a-z_][a-z0-9_.]*:[a-z_][a-z0-9_]*$"
+            },
+            "ticket": {
+              "type": "string",
+              "minLength": 1
+            },
+            "built": {
+              "type": "boolean"
+            }
+          }
+        },
+        "plot": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "target",
+            "ticket",
+            "built"
+          ],
+          "properties": {
+            "target": {
+              "type": "string",
+              "pattern": "^[a-z_][a-z0-9_.]*:[a-z_][a-z0-9_]*$"
+            },
+            "ticket": {
+              "type": "string",
+              "minLength": 1
+            },
+            "built": {
+              "type": "boolean"
+            }
+          }
+        },
+        "render_f1": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "target",
+            "ticket",
+            "built"
+          ],
+          "properties": {
+            "target": {
+              "type": "string",
+              "pattern": "^[a-z_][a-z0-9_.]*:[a-z_][a-z0-9_]*$"
+            },
+            "ticket": {
+              "type": "string",
+              "minLength": 1
+            },
+            "built": {
+              "type": "boolean"
+            }
+          }
+        },
+        "conflicts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "target",
+            "ticket",
+            "built"
+          ],
+          "properties": {
+            "target": {
+              "type": "string",
+              "pattern": "^[a-z_][a-z0-9_.]*:[a-z_][a-z0-9_]*$"
+            },
+            "ticket": {
+              "type": "string",
+              "minLength": 1
+            },
+            "built": {
+              "type": "boolean"
+            }
+          }
+        },
+        "checks": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "target",
+            "ticket",
+            "built"
+          ],
+          "properties": {
+            "target": {
+              "type": "string",
+              "pattern": "^[a-z_][a-z0-9_.]*:[a-z_][a-z0-9_]*$"
+            },
+            "ticket": {
+              "type": "string",
+              "minLength": 1
+            },
+            "built": {
+              "type": "boolean"
+            }
+          }
         }
       }
     },
-    "files": {"type": "array", "items": {"$ref": "#/$defs/file"}},
-    "set_stages": {"$ref": "#/$defs/stage_reports"},
-    "plot": {"type": "array", "items": {"$ref": "#/$defs/plot_match"}},
-    "conflicts": {"type": "array", "items": {"$ref": "#/$defs/conflict"}},
-    "continuations": {"type": "array", "items": {"$ref": "#/$defs/continuation"}},
-    "checks": {"type": "array", "items": {"$ref": "#/$defs/check"}}
+    "files": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/file"
+      }
+    },
+    "set_stages": {
+      "$ref": "#/$defs/stage_reports"
+    },
+    "conflicts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/conflict"
+      }
+    },
+    "continuations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/continuation"
+      }
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/check"
+      }
+    }
   },
   "$defs": {
-    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-    "key": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
-    "text": {"type": ["string", "null"], "minLength": 1},
-    "seconds": {"type": "number", "minimum": 0},
-    "count": {"type": "integer", "minimum": 0},
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "key": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "text": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "seconds": {
+      "type": "number",
+      "minimum": 0
+    },
+    "count": {
+      "type": "integer",
+      "minimum": 0
+    },
     "counts": {
-      "type": ["object", "null"],
-      "propertyNames": {"type": "string", "minLength": 1},
-      "additionalProperties": {"$ref": "#/$defs/count"}
+      "description": "Names to counts; left out when the stage did not produce it.",
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/count"
+      }
     },
     "box": {
       "description": "[x0, y0, x1, y1]",
       "type": "array",
-      "items": {"type": "number"},
+      "items": {
+        "type": "number"
+      },
       "minItems": 4,
       "maxItems": 4
     },
-    "stage_name": {
-      "enum": [
-        "read", "decoders_agree", "font_report", "bangla_ansi", "sheets", "register", "views",
-        "render_buffers", "rasterise", "pdf_report", "page_text", "plot", "render_f1", "conflicts",
-        "checks"
-      ]
+    "sheet_id": {
+      "type": "string",
+      "pattern": "^f[0-9]+\\.s[0-9]+$"
+    },
+    "view_id": {
+      "type": "string",
+      "pattern": "^f[0-9]+\\.s[0-9]+\\.v[0-9]+$"
+    },
+    "register_id": {
+      "type": "string",
+      "pattern": "^f[0-9]+\\.s[0-9]+\\.r[0-9]+$"
     },
     "stage_report": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["state", "calls", "failed_calls", "seconds", "error"],
+      "required": [
+        "state",
+        "calls",
+        "failed_calls",
+        "seconds",
+        "error"
+      ],
       "properties": {
-        "state": {"enum": ["ok", "not_built", "failed", "skipped"]},
-        "calls": {"$ref": "#/$defs/count"},
-        "failed_calls": {"$ref": "#/$defs/count"},
-        "seconds": {"$ref": "#/$defs/seconds"},
-        "error": {"type": ["string", "null"]}
+        "state": {
+          "enum": [
+            "ok",
+            "not_built",
+            "failed",
+            "skipped"
+          ]
+        },
+        "calls": {
+          "$ref": "#/$defs/count"
+        },
+        "failed_calls": {
+          "$ref": "#/$defs/count"
+        },
+        "seconds": {
+          "$ref": "#/$defs/seconds"
+        },
+        "error": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
       }
     },
     "stage_reports": {
       "type": "object",
-      "propertyNames": {"$ref": "#/$defs/stage_name"},
-      "additionalProperties": {"$ref": "#/$defs/stage_report"}
+      "additionalProperties": false,
+      "properties": {
+        "read": {
+          "$ref": "#/$defs/stage_report"
+        },
+        "decoders_agree": {
+          "$ref": "#/$defs/stage_report"
+        },
+        "font_report": {
+          "$ref": "#/$defs/stage_report"
+        },
+        "bangla_ansi": {
+          "$ref": "#/$defs/stage_report"
+        },
+        "sheets": {
+          "$ref": "#/$defs/stage_report"
+        },
+        "register": {
+          "$ref": "#/$defs/stage_report"
+        },
+        "views": {
+          "$ref": "#/$defs/stage_report"
+        },
+        "render_buffers": {
+          "$ref": "#/$defs/stage_report"
+        },
+        "rasterise": {
+          "$ref": "#/$defs/stage_report"
+        },
+        "pdf_report": {
+          "$ref": "#/$defs/stage_report"
+        },
+        "page_text": {
+          "$ref": "#/$defs/stage_report"
+        },
+        "plot": {
+          "$ref": "#/$defs/stage_report"
+        },
+        "render_f1": {
+          "$ref": "#/$defs/stage_report"
+        },
+        "conflicts": {
+          "$ref": "#/$defs/stage_report"
+        },
+        "checks": {
+          "$ref": "#/$defs/stage_report"
+        }
+      }
     },
     "run": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "commit", "code_hash", "started_at", "seconds"],
+      "required": [
+        "id",
+        "commit",
+        "code_hash",
+        "started_at",
+        "seconds"
+      ],
       "properties": {
-        "id": {"type": "string", "minLength": 1},
-        "commit": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$"},
-        "code_hash": {"type": ["string", "null"], "minLength": 1},
-        "started_at": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"},
-        "seconds": {"$ref": "#/$defs/seconds"}
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "commit": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$"
+        },
+        "code_hash": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "started_at": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z$"
+        },
+        "seconds": {
+          "$ref": "#/$defs/seconds"
+        }
       }
     },
     "process": {
-      "description": "The file's own child process, started by the harness's launcher and measured by os.wait4: its rusage counts the children it waited for; left_behind counts those it did not, killed when it ended, and left_running says some could not be stopped.",
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["status", "exit_code", "signal", "seconds", "cpu_seconds", "peak_rss_kib", "left_behind", "left_running", "log_tail"],
-      "properties": {
-        "status": {"enum": ["ok", "failed", "timed_out"]},
-        "exit_code": {"type": ["integer", "null"]},
-        "signal": {"type": ["integer", "null"], "minimum": 1},
-        "seconds": {"$ref": "#/$defs/seconds"},
-        "cpu_seconds": {"$ref": "#/$defs/seconds"},
-        "peak_rss_kib": {"$ref": "#/$defs/count"},
-        "left_behind": {"$ref": "#/$defs/count"},
-        "left_running": {"type": "boolean"},
-        "log_tail": {"type": ["string", "null"]}
-      }
-    },
-    "file": {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "path", "name", "sha256", "format", "read_format", "discipline_default", "group",
-        "conventions_applied", "process", "stages", "decoders_agree", "entity_counts", "font_report",
-        "pdf_report", "bangla_ansi", "pages", "sheets"
+        "status",
+        "exit_code",
+        "signal",
+        "cpu_seconds",
+        "left_behind",
+        "left_running",
+        "log_tail"
       ],
       "properties": {
-        "path": {"type": "string", "minLength": 1},
-        "name": {"type": "string", "minLength": 1},
-        "sha256": {"$ref": "#/$defs/sha256"},
-        "format": {"enum": ["dwg", "pdf"]},
-        "read_format": {"description": "The format as the reader's summary states it (with the DWG version); null until read."},
-        "discipline_default": {"anyOf": [{"$ref": "#/$defs/key"}, {"type": "null"}]},
-        "group": {"type": "string", "minLength": 1},
-        "conventions_applied": {
-          "description": "The sha256 of the conventions files read with (M1 adds a Drafting Profile's version); null when there were none.",
-          "anyOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]
+        "status": {
+          "enum": [
+            "ok",
+            "failed",
+            "timed_out"
+          ]
         },
-        "process": {"$ref": "#/$defs/process"},
-        "stages": {"$ref": "#/$defs/stage_reports"},
-        "decoders_agree": {"type": ["boolean", "null"]},
-        "entity_counts": {"$ref": "#/$defs/counts"},
-        "font_report": {"$ref": "#/$defs/counts"},
-        "pdf_report": {"$ref": "#/$defs/counts"},
-        "bangla_ansi": {"$ref": "#/$defs/counts"},
-        "pages": {"type": ["integer", "null"], "minimum": 0},
-        "sheets": {"type": "array", "items": {"$ref": "#/$defs/sheet"}}
-      }
-    },
-    "sourced": {
-      "anyOf": [
-        {"type": "null"},
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["value", "source"],
-          "properties": {
-            "value": {"type": "string", "minLength": 1},
-            "source": {"enum": ["title_block_attribute", "title_block_text", "file_name", "file"]}
-          }
+        "exit_code": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "signal": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "cpu_seconds": {
+          "$ref": "#/$defs/seconds"
+        },
+        "left_behind": {
+          "$ref": "#/$defs/count"
+        },
+        "left_running": {
+          "type": "boolean"
+        },
+        "log_tail": {
+          "type": [
+            "string",
+            "null"
+          ]
         }
-      ]
+      },
+      "description": "The rest of the file's own child process, started by the harness's launcher and measured by os.wait4; left_behind counts what it left running, killed when it ended, and left_running says some could not be stopped."
     },
-    "exclusion": {
-      "anyOf": [
-        {"type": "null"},
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["reason", "text"],
-          "properties": {
-            "reason": {
-              "enum": ["superseded", "duplicate", "cover_index", "for_information", "by_others", "blank", "other"]
+    "plot_match": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "page",
+        "sheet",
+        "reason",
+        "residual",
+        "transform"
+      ],
+      "properties": {
+        "page": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sheet": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/sheet_id"
             },
-            "text": {"$ref": "#/$defs/text"}
-          }
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/key"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "residual": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "transform": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "scale",
+                "rotation",
+                "offset"
+              ],
+              "properties": {
+                "scale": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "rotation": {
+                  "enum": [
+                    0,
+                    90,
+                    180,
+                    270
+                  ]
+                },
+                "offset": {
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  },
+                  "minItems": 2,
+                  "maxItems": 2
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
-      ]
+      }
     },
     "anchor": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["kind", "value"],
+      "required": [
+        "kind",
+        "value"
+      ],
       "properties": {
-        "kind": {"enum": ["dwg", "pdf"]},
-        "value": {"description": "The anchor's own JSON (engine/read/anchor.py)."}
+        "kind": {
+          "enum": [
+            "dwg",
+            "pdf"
+          ]
+        },
+        "value": {
+          "description": "The anchor's own JSON (engine/read/anchor.py)."
+        }
       }
     },
-    "anchors": {"type": "array", "items": {"$ref": "#/$defs/anchor"}},
-    "sheet": {
+    "anchors": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/anchor"
+      }
+    },
+    "register_entry": {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "location", "number", "title", "discipline", "revision_mark", "issue_date", "storeys_as_stated",
-        "exclusion", "group", "anchors", "views", "register", "render_f1"
+        "id",
+        "row_box",
+        "number",
+        "title",
+        "revision_mark",
+        "anchors"
       ],
       "properties": {
-        "location": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["layout", "box"],
-          "properties": {
-            "layout": {"$ref": "#/$defs/text"},
-            "box": {"anyOf": [{"$ref": "#/$defs/box"}, {"type": "null"}]}
-          }
+        "id": {
+          "$ref": "#/$defs/register_id"
         },
-        "number": {"$ref": "#/$defs/sourced"},
-        "title": {"$ref": "#/$defs/sourced"},
-        "discipline": {"$ref": "#/$defs/sourced"},
-        "revision_mark": {"$ref": "#/$defs/sourced"},
-        "issue_date": {"$ref": "#/$defs/sourced"},
-        "storeys_as_stated": {"$ref": "#/$defs/sourced"},
-        "exclusion": {"$ref": "#/$defs/exclusion"},
-        "group": {"type": "string", "minLength": 1},
-        "anchors": {"$ref": "#/$defs/anchors"},
-        "views": {"type": "array", "items": {"$ref": "#/$defs/view"}},
-        "register": {"type": "array", "items": {"$ref": "#/$defs/register_entry"}},
-        "render_f1": {"type": ["number", "null"], "minimum": 0, "maximum": 1}
+        "row_box": {
+          "$ref": "#/$defs/box"
+        },
+        "number": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "title": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "revision_mark": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "anchors": {
+          "$ref": "#/$defs/anchors"
+        }
       }
     },
     "view": {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "box", "kind", "title", "not_to_scale", "stated_scale", "storeys_as_stated", "storeys",
-        "storeys_meaning", "subject", "layer", "steps", "part", "exclusion", "coverage", "anchors"
+        "id",
+        "box",
+        "kind",
+        "title",
+        "not_to_scale",
+        "stated_scale",
+        "storeys_as_stated",
+        "storeys",
+        "storeys_meaning",
+        "subject",
+        "layer",
+        "proposed_steps",
+        "part",
+        "exclusion_reason",
+        "exclusion_text",
+        "coverage",
+        "anchors"
       ],
       "properties": {
-        "box": {"$ref": "#/$defs/box"},
+        "id": {
+          "$ref": "#/$defs/view_id"
+        },
+        "box": {
+          "$ref": "#/$defs/box"
+        },
         "kind": {
           "enum": [
-            "plan", "section", "elevation", "schedule", "detail", "notes", "legend", "title_block",
-            "key_plan", "perspective"
+            "plan",
+            "section",
+            "elevation",
+            "schedule",
+            "detail",
+            "notes",
+            "legend",
+            "title_block",
+            "key_plan",
+            "perspective"
           ]
         },
-        "title": {"$ref": "#/$defs/text"},
-        "not_to_scale": {"type": "boolean"},
-        "stated_scale": {"$ref": "#/$defs/text"},
-        "storeys_as_stated": {"$ref": "#/$defs/text"},
-        "storeys": {"type": "array", "items": {"$ref": "#/$defs/key"}},
-        "storeys_meaning": {"enum": ["at_floor_level", "floor_to_floor", null]},
-        "subject": {"anyOf": [{"$ref": "#/$defs/key"}, {"type": "null"}]},
-        "layer": {"enum": ["top", "bottom", null]},
-        "steps": {"type": "array", "items": {"$ref": "#/$defs/key"}},
-        "part": {"anyOf": [{"$ref": "#/$defs/key"}, {"type": "null"}]},
-        "exclusion": {"$ref": "#/$defs/exclusion"},
-        "coverage": {"enum": ["assigned", "excluded", "unaccounted"]},
-        "anchors": {"$ref": "#/$defs/anchors"}
-      }
-    },
-    "register_entry": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["row_box", "number", "title", "revision_mark", "anchors"],
-      "properties": {
-        "row_box": {"$ref": "#/$defs/box"},
-        "number": {"type": ["string", "null"]},
-        "title": {"type": ["string", "null"]},
-        "revision_mark": {"type": ["string", "null"]},
-        "anchors": {"$ref": "#/$defs/anchors"}
-      }
-    },
-    "index": {"type": "integer", "minimum": 0},
-    "sheet_ref": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["file", "sheet"],
-      "properties": {"file": {"$ref": "#/$defs/index"}, "sheet": {"$ref": "#/$defs/index"}}
-    },
-    "view_ref": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["file", "sheet", "view"],
-      "properties": {
-        "file": {"$ref": "#/$defs/index"},
-        "sheet": {"$ref": "#/$defs/index"},
-        "view": {"$ref": "#/$defs/index"}
-      }
-    },
-    "register_ref": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["file", "sheet", "register"],
-      "properties": {
-        "file": {"$ref": "#/$defs/index"},
-        "sheet": {"$ref": "#/$defs/index"},
-        "register": {"$ref": "#/$defs/index"}
-      }
-    },
-    "page_ref": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["file", "page"],
-      "properties": {"file": {"$ref": "#/$defs/index"}, "page": {"type": "integer", "minimum": 1}}
-    },
-    "ref": {
-      "oneOf": [
-        {"$ref": "#/$defs/sheet_ref"},
-        {"$ref": "#/$defs/view_ref"},
-        {"$ref": "#/$defs/register_ref"},
-        {"$ref": "#/$defs/page_ref"}
-      ]
-    },
-    "plot_match": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["page", "sheet", "reason", "residual", "transform"],
-      "properties": {
-        "page": {"$ref": "#/$defs/page_ref"},
-        "sheet": {"anyOf": [{"$ref": "#/$defs/sheet_ref"}, {"type": "null"}]},
-        "reason": {"anyOf": [{"$ref": "#/$defs/key"}, {"type": "null"}]},
-        "residual": {"type": ["number", "null"], "minimum": 0},
-        "transform": {
+        "title": {
+          "$ref": "#/$defs/text"
+        },
+        "not_to_scale": {
+          "type": "boolean"
+        },
+        "stated_scale": {
+          "$ref": "#/$defs/text"
+        },
+        "storeys_as_stated": {
+          "$ref": "#/$defs/text"
+        },
+        "storeys": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/key"
+          }
+        },
+        "storeys_meaning": {
+          "enum": [
+            "at_floor_level",
+            "floor_to_floor",
+            null
+          ]
+        },
+        "subject": {
           "anyOf": [
-            {"type": "null"},
             {
-              "type": "object",
-              "additionalProperties": false,
-              "required": ["scale", "rotation", "offset"],
-              "properties": {
-                "scale": {"type": "number", "exclusiveMinimum": 0},
-                "rotation": {"enum": [0, 90, 180, 270]},
-                "offset": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2}
-              }
+              "$ref": "#/$defs/key"
+            },
+            {
+              "type": "null"
             }
           ]
+        },
+        "layer": {
+          "enum": [
+            "top",
+            "bottom",
+            null
+          ]
+        },
+        "proposed_steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/key"
+          }
+        },
+        "part": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/key"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "exclusion_reason": {
+          "enum": [
+            "superseded",
+            "duplicate",
+            "cover_index",
+            "for_information",
+            "by_others",
+            "blank",
+            "other",
+            null
+          ]
+        },
+        "exclusion_text": {
+          "$ref": "#/$defs/text"
+        },
+        "coverage": {
+          "enum": [
+            "assigned",
+            "excluded",
+            "unaccounted"
+          ]
+        },
+        "anchors": {
+          "$ref": "#/$defs/anchors"
+        }
+      }
+    },
+    "sheet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "layout",
+        "frame_box",
+        "number",
+        "number_source",
+        "title",
+        "title_source",
+        "discipline",
+        "discipline_source",
+        "revision_mark",
+        "revision_mark_source",
+        "issue_date",
+        "issue_date_source",
+        "storeys_as_stated",
+        "storeys_as_stated_source",
+        "exclusion_reason",
+        "exclusion_text",
+        "group",
+        "anchors",
+        "render_f1",
+        "views",
+        "register"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/sheet_id"
+        },
+        "layout": {
+          "$ref": "#/$defs/text"
+        },
+        "frame_box": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/box"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "number": {
+          "$ref": "#/$defs/text"
+        },
+        "number_source": {
+          "enum": [
+            "title_block_attribute",
+            "title_block_text",
+            "file_name",
+            "file",
+            null
+          ]
+        },
+        "title": {
+          "$ref": "#/$defs/text"
+        },
+        "title_source": {
+          "enum": [
+            "title_block_attribute",
+            "title_block_text",
+            "file_name",
+            "file",
+            null
+          ]
+        },
+        "discipline": {
+          "$ref": "#/$defs/text"
+        },
+        "discipline_source": {
+          "enum": [
+            "title_block_attribute",
+            "title_block_text",
+            "file_name",
+            "file",
+            null
+          ]
+        },
+        "revision_mark": {
+          "$ref": "#/$defs/text"
+        },
+        "revision_mark_source": {
+          "enum": [
+            "title_block_attribute",
+            "title_block_text",
+            "file_name",
+            "file",
+            null
+          ]
+        },
+        "issue_date": {
+          "$ref": "#/$defs/text"
+        },
+        "issue_date_source": {
+          "enum": [
+            "title_block_attribute",
+            "title_block_text",
+            "file_name",
+            "file",
+            null
+          ]
+        },
+        "storeys_as_stated": {
+          "$ref": "#/$defs/text"
+        },
+        "storeys_as_stated_source": {
+          "enum": [
+            "title_block_attribute",
+            "title_block_text",
+            "file_name",
+            "file",
+            null
+          ]
+        },
+        "exclusion_reason": {
+          "enum": [
+            "superseded",
+            "duplicate",
+            "cover_index",
+            "for_information",
+            "by_others",
+            "blank",
+            "other",
+            null
+          ]
+        },
+        "exclusion_text": {
+          "$ref": "#/$defs/text"
+        },
+        "group": {
+          "type": "string",
+          "minLength": 1
+        },
+        "anchors": {
+          "$ref": "#/$defs/anchors"
+        },
+        "render_f1": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "views": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/view"
+          }
+        },
+        "register": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/register_entry"
+          }
+        }
+      }
+    },
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "name",
+        "sha256",
+        "format",
+        "read_format",
+        "discipline_default",
+        "group",
+        "conventions_applied",
+        "read_seconds",
+        "peak_rss",
+        "process",
+        "stages",
+        "decoders_agree",
+        "pages",
+        "plot_matches",
+        "sheets"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "format": {
+          "enum": [
+            "dwg",
+            "pdf"
+          ]
+        },
+        "read_format": {
+          "description": "The format as the reader's summary states it (with the DWG version); null until read."
+        },
+        "discipline_default": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/key"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "group": {
+          "type": "string",
+          "minLength": 1
+        },
+        "conventions_applied": {
+          "description": "The sha256 of the conventions files read with (M1 adds a Drafting Profile's version); null when there were none.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "read_seconds": {
+          "description": "Wall-clock seconds of the file's own child process.",
+          "type": "number",
+          "minimum": 0
+        },
+        "peak_rss": {
+          "description": "The peak RSS of the file's own child process and the children it waited for, in KiB (os.wait4's ru_maxrss).",
+          "type": "integer",
+          "minimum": 0
+        },
+        "process": {
+          "$ref": "#/$defs/process"
+        },
+        "stages": {
+          "$ref": "#/$defs/stage_reports"
+        },
+        "decoders_agree": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "entity_counts": {
+          "$ref": "#/$defs/counts"
+        },
+        "font_report": {
+          "$ref": "#/$defs/counts"
+        },
+        "pdf_report": {
+          "$ref": "#/$defs/counts"
+        },
+        "bangla_ansi": {
+          "$ref": "#/$defs/counts"
+        },
+        "pages": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "plot_matches": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/plot_match"
+          }
+        },
+        "sheets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sheet"
+          }
         }
       }
     },
     "params": {
       "type": "object",
-      "additionalProperties": {"type": ["string", "integer"]}
+      "additionalProperties": {
+        "type": [
+          "string",
+          "integer"
+        ]
+      }
     },
     "conflict": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["kind", "candidates", "evidence"],
+      "required": [
+        "kind",
+        "candidates",
+        "evidence"
+      ],
       "properties": {
-        "kind": {"$ref": "#/$defs/key"},
+        "kind": {
+          "$ref": "#/$defs/key"
+        },
         "candidates": {
           "type": "array",
-          "items": {"oneOf": [{"$ref": "#/$defs/sheet_ref"}, {"$ref": "#/$defs/view_ref"}]},
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/sheet_id"
+              },
+              {
+                "$ref": "#/$defs/view_id"
+              }
+            ]
+          },
           "minItems": 2
         },
-        "evidence": {"$ref": "#/$defs/params"}
+        "evidence": {
+          "$ref": "#/$defs/params"
+        }
       }
     },
     "continuation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["title", "sheets"],
+      "required": [
+        "title",
+        "sheets"
+      ],
       "properties": {
-        "title": {"type": "string", "minLength": 1},
-        "sheets": {"type": "array", "items": {"$ref": "#/$defs/sheet_ref"}, "minItems": 2}
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sheets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sheet_id"
+          },
+          "minItems": 2
+        }
       }
     },
     "check": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["code", "outcome", "subject", "finding"],
+      "required": [
+        "code",
+        "outcome",
+        "subject",
+        "finding"
+      ],
       "properties": {
-        "code": {"type": "string", "minLength": 1},
-        "outcome": {"enum": ["passed", "fired"]},
-        "subject": {"anyOf": [{"$ref": "#/$defs/ref"}, {"type": "null"}]},
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "outcome": {
+          "enum": [
+            "passed",
+            "fired"
+          ]
+        },
+        "subject": {
+          "description": "A sheet's, view's or register entry's id, a PDF's sha256 (a Check on a Plot page), or null (the set).",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/sheet_id"
+            },
+            {
+              "$ref": "#/$defs/view_id"
+            },
+            {
+              "$ref": "#/$defs/register_id"
+            },
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "finding": {
           "anyOf": [
-            {"type": "null"},
             {
               "type": "object",
               "additionalProperties": false,
-              "required": ["code", "params"],
+              "required": [
+                "code",
+                "params"
+              ],
               "properties": {
-                "code": {"type": "string", "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$"},
-                "params": {"$ref": "#/$defs/params"}
+                "code": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$"
+                },
+                "params": {
+                  "$ref": "#/$defs/params"
+                }
               }
+            },
+            {
+              "type": "null"
             }
           ]
         }
