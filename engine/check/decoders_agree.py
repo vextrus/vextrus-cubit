@@ -14,7 +14,9 @@ counts what differed (`engine/messages/decoders_agree.py`): the handles only the
 those only the second found, the types counted differently and the layers counted differently.
 Never drawing text. The rule compares counts, not each entity: two entities whose layers (or types)
 are swapped leave every count as it was, and agree (a test says so). A per-entity rule is stricter;
-it is not the plan's, and no evidence yet asks for it.
+it is not the plan's, and no evidence yet asks for it. The check catches a decoder's mistakes, not a
+file built to fool it: a file that takes over the dumper can write any dump, an agreeing one too; the
+sandbox keeps it from doing more than that.
 
 **Where the two differ by design**, each with its evidence from a synthetic fixture
 (engine/fixtures/dwg/), and each a test (engine/check/tests/test_decoders_agree.py):
