@@ -16,6 +16,10 @@
 #   is owned by vextrus, SECURITY DEFINER with search_path pinned, so it reads the Developer and its
 #   Market whatever the tenant settings say: the one place projects reads platform's tables, for
 #   integrity only, never for data.
+# - Its twin, on platform_developer, holds the other side: a Developer that holds Projects cannot
+#   move to another Market (nor change its id), so its Projects never fall off their Developer's
+#   Market by a write to the Developer (the refuter's finding on part 2: platform's grants let the
+#   app update its own Developer row). It guards projects' rule, so it lives here, not in platform.
 
 import django.db.models.deletion
 import django.utils.timezone
@@ -90,6 +94,36 @@ FOLLOWS_MARKET = [
 FOLLOWS_MARKET_REVERSE = [
     "drop trigger projects_project_follows_market on projects_project",
     "drop function public.projects_project_follows_market()",
+]
+
+KEEPS_ITS_MARKET = [
+    """
+    create function public.projects_developer_keeps_its_market()
+    returns trigger
+    language plpgsql security definer
+    set search_path = pg_catalog, pg_temp
+    as $$
+    begin
+      if (new.market_id is distinct from old.market_id or new.id is distinct from old.id)
+         and exists (select 1 from public.projects_project p where p.tenant_id = old.id) then
+        raise exception 'projects_developer_keeps_its_market: % holds Projects on its Market', old.id
+          using errcode = 'check_violation';
+      end if;
+      return new;
+    end
+    $$
+    """,
+    "revoke all on function public.projects_developer_keeps_its_market() from public",
+    """
+    create trigger projects_developer_keeps_its_market
+      before update of id, market_id, library_id
+      on platform_developer
+      for each row execute function public.projects_developer_keeps_its_market()
+    """,
+]
+KEEPS_ITS_MARKET_REVERSE = [
+    "drop trigger projects_developer_keeps_its_market on platform_developer",
+    "drop function public.projects_developer_keeps_its_market()",
 ]
 
 KEYS = [
@@ -248,4 +282,5 @@ class Migration(migrations.Migration):
         migrations.RunSQL(KEYS, KEYS_REVERSE),
         migrations.RunSQL(GRANTS, GRANTS_REVERSE),
         migrations.RunSQL(FOLLOWS_MARKET, FOLLOWS_MARKET_REVERSE),
+        migrations.RunSQL(KEEPS_ITS_MARKET, KEEPS_ITS_MARKET_REVERSE),
     ]

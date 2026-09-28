@@ -213,19 +213,51 @@ def test_the_market_check_holds_the_owner_too(market: MarketProfile, make_develo
         owner.execute(INSERT_PROJECT, row)
 
 
+KEEPS_ITS_MARKET = "projects_developer_keeps_its_market"
+
+
 @pytest.mark.django_db
-def test_the_market_check_is_the_owners_and_nobody_may_call_it(cursor: Any) -> None:
+@pytest.mark.parametrize("column", ["market_id", "id"])
+def test_a_developer_holding_projects_cannot_move_off_its_market(
+    two: tuple[uuid.UUID, uuid.UUID], cursor: Any, market: MarketProfile, column: str
+) -> None:
+    # The refuter's attack on part 2: the app updating its own Developer row strands its Projects.
+    a, _b = two
+    act(cursor, tenant=a)
+    insert_project(cursor, a, market, "KR-01")
+
+    error = refused(
+        cursor, f"update platform_developer set {column} = %s where id = %s", [uuid.uuid4(), a]
+    )
+
+    assert KEEPS_ITS_MARKET in error
+
+
+@pytest.mark.django_db
+def test_a_developer_without_projects_is_not_held_by_projects(
+    two: tuple[uuid.UUID, uuid.UUID], cursor: Any
+) -> None:
+    # Projects' rule says nothing of a Developer with none (platform's own keys still apply).
+    a, _b = two
+    act(cursor, tenant=a)
+
+    cursor.execute("update platform_developer set market_id = market_id where id = %s", [a])
+
+    assert cursor.rowcount == 1
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("function", [FOLLOWS_MARKET, KEEPS_ITS_MARKET])
+def test_the_market_checks_are_the_owners_and_nobody_may_call_them(cursor: Any, function: str) -> None:
     owner, security_definer, pinned = rows(
         cursor,
         "select pg_get_userbyid(proowner), prosecdef, proconfig from pg_proc where proname = %s",
-        [FOLLOWS_MARKET],
+        [function],
     )[0]
 
     assert (owner, security_definer, pinned) == ("vextrus", True, ["search_path=pg_catalog, pg_temp"])
     assert rows(
-        cursor,
-        "select has_function_privilege('vextrus_app', %s, 'execute')",
-        [f"public.{FOLLOWS_MARKET}()"],
+        cursor, "select has_function_privilege('vextrus_app', %s, 'execute')", [f"public.{function}()"]
     ) == [(False,)]
 
 
