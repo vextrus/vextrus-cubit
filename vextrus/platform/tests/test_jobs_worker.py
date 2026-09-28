@@ -17,12 +17,15 @@ from typing import Any
 
 import pytest
 from django.conf import settings
+from django.test import override_settings
 
 from vextrus.platform.services import jobs, tenancy
 from vextrus.testing import jobs as sample
 from vextrus.testing.tenancy import add_member
 
 BOTH = ["default", "owner"]
+STALL = 3  # seconds: the stall time the tests' retrier uses
+FAST_BEAT: dict[str, object] = {"VEXTRUS_WORKER_HEARTBEAT_SECONDS": 1}  # a worker beating every second
 pytestmark = [
     pytest.mark.django_db(transaction=True, databases=BOTH),
     pytest.mark.usefixtures("empty_test_queues"),
@@ -207,22 +210,23 @@ def test_a_running_try_can_be_neither_retried_nor_ended_by_another_and_its_job_f
     assert state.status == "done"
 
 
-def test_the_retrier_leaves_a_live_try_alone_however_long_its_worker_is_silent(
+def test_the_retrier_leaves_a_live_try_alone_through_a_step_longer_than_the_stall_time(
     make_developer: Callable[..., uuid.UUID],
 ) -> None:
     developer = make_developer()
     subject = uuid.uuid4()
     sample.script(developer, subject, second="sleep:6")
     job_id = defer(sample.two_steps, developer, subject)
-    worker = sample.start_worker([sample.TEST_QUEUE], wait=True)
+    worker = sample.start_worker([sample.TEST_QUEUE], wait=True, overrides=FAST_BEAT)
     try:
         wait_until(
             lambda: jobs.Progress(1, 2, "second") in sample.progress_log(subject),
             "the second step to start",
         )
-        make_stale(job_id)  # as a worker that stopped beating, or was pruned by another
+        time.sleep(STALL + 1.5)  # the step runs longer than the stall time; its worker beats
 
-        assert sample.retry_stalled_now() == []
+        with override_settings(VEXTRUS_JOB_STALLED_SECONDS=STALL):
+            assert sample.retry_stalled_now() == []
 
         assert sample.job_row(job_id)["status"] == "doing"
         wait_until(lambda: sample.job_row(job_id)["status"] != "doing", "the try to finish")
@@ -239,6 +243,41 @@ def test_a_stopped_worker_stops_after_the_current_step_and_the_job_resumes_after
 ) -> None:
     developer = make_developer()
     subject = uuid.uuid4()
+    sample.script(developer, subject, first=f"sleep:{STALL + 2}")
+    job_id = defer(sample.two_steps, developer, subject)
+    worker = sample.start_worker([sample.TEST_QUEUE], wait=True, overrides=FAST_BEAT)
+    try:
+        wait_until(
+            lambda: jobs.Progress(0, 2, "first") in sample.progress_log(subject),
+            "the first step to start",
+        )
+        worker.send_signal(signal.SIGTERM)  # Ctrl-C or a deploy's stop
+        time.sleep(STALL + 0.5)  # it drains longer than the stall time, beating all along
+        with override_settings(VEXTRUS_JOB_STALLED_SECONDS=STALL):
+            assert sample.retry_stalled_now() == []  # the draining try is alive: left alone
+        output = sample.finish(worker)
+    finally:
+        worker.kill()
+
+    row = sample.job_row(job_id)
+    assert (row["status"], row["attempts"]) == ("todo", 0), output  # a stop is not a try
+    assert set(sample.recorded_steps(subject)) == {"first"}  # the current step committed
+    with tenancy.acting_in(developer):
+        state = jobs.state(job_id)
+    assert state is not None
+    assert state.status == "waiting"
+
+    output = sample.finish(sample.start_worker([sample.TEST_QUEUE]))
+
+    assert sample.job_row(job_id)["status"] == "succeeded", output
+    assert sample.committed_runs(subject) == ["first", "second"]  # first ran once
+
+
+def test_a_cancel_during_a_worker_s_stop_ends_the_job_cancelled(
+    make_developer: Callable[..., uuid.UUID],
+) -> None:
+    developer = make_developer()
+    subject = uuid.uuid4()
     sample.script(developer, subject, first="sleep:4")
     job_id = defer(sample.two_steps, developer, subject)
     worker = sample.start_worker([sample.TEST_QUEUE], wait=True)
@@ -247,26 +286,93 @@ def test_a_stopped_worker_stops_after_the_current_step_and_the_job_resumes_after
             lambda: jobs.Progress(0, 2, "first") in sample.progress_log(subject),
             "the first step to start",
         )
-        worker.send_signal(signal.SIGTERM)  # Ctrl-C or a deploy's stop
+        worker.send_signal(signal.SIGTERM)  # a deploy stops the worker
         time.sleep(0.5)
-        make_stale(job_id)  # Procrastinate stops the heartbeat while the worker drains
-        assert sample.retry_stalled_now() == []  # the draining try is alive: left alone
+        with tenancy.acting_in(developer):
+            assert jobs.cancel(job_id) is True  # the QS cancels while it drains
         output = sample.finish(worker)
     finally:
         worker.kill()
 
     row = sample.job_row(job_id)
+    assert (row["status"], row["attempts"]) == ("aborted", 1), output
+    with tenancy.acting_in(developer):
+        state = jobs.state(job_id)
+    assert state is not None
+    assert state.message == {"code": "platform.jobs.cancelled", "params": {}}
+    assert sample.recorded_steps(subject) == {}  # the step it cancelled rolled back
+    assert sample.committed_runs(subject) == []
+
+
+def test_a_frozen_worker_s_job_is_let_go_and_tried_again_within_the_stall_time(
+    make_developer: Callable[..., uuid.UUID],
+) -> None:
+    developer = make_developer()
+    subject = uuid.uuid4()
+    sample.script(developer, subject, second="hang")
+    job_id = defer(sample.two_steps, developer, subject)
+    worker = sample.start_worker([sample.TEST_QUEUE], wait=True, overrides=FAST_BEAT)
+    retried: list[int] = []
+    try:
+        wait_until(
+            lambda: jobs.Progress(1, 2, "second") in sample.progress_log(subject),
+            "the second step to start",
+        )
+        worker.send_signal(signal.SIGSTOP)  # frozen: its session and its hold stay open
+        frozen_at = time.monotonic()
+
+        def retried_once() -> bool:
+            with override_settings(VEXTRUS_JOB_STALLED_SECONDS=STALL):
+                retried.extend(sample.retry_stalled_now())
+            return bool(retried)
+
+        wait_until(retried_once, "the frozen worker's job to be tried again")
+        recovered_in = time.monotonic() - frozen_at
+    finally:
+        worker.send_signal(signal.SIGKILL)
+        sample.finish(worker)
+
+    assert retried == [job_id]
+    assert recovered_in < STALL + 3, recovered_in  # the stall time, not TCP's two hours
+    row = sample.job_row(job_id)
+    assert (row["status"], row["attempts"]) == ("todo", 1)
+    sample.script(developer, subject, second="ok")
+    output = sample.finish(sample.start_worker([sample.TEST_QUEUE]))
+    assert sample.job_row(job_id)["status"] == "succeeded", output
+    assert sample.committed_runs(subject) == ["first", "second"]  # first ran once
+
+
+def test_a_worker_s_stops_do_not_count_as_tries_and_a_real_failure_does(
+    make_developer: Callable[..., uuid.UUID],
+) -> None:
+    developer = make_developer()
+    subject = uuid.uuid4()
+    sample.script(developer, subject, first="wait_for_cancel")  # stops mid-step, as it checks
+    job_id = defer(sample.two_steps, developer, subject)
+    for stop in range(1, 4):
+
+        def started(times: int = stop) -> bool:
+            return sample.progress_log(subject).count(jobs.Progress(0, 2, "first")) == times
+
+        worker = sample.start_worker([sample.TEST_QUEUE], wait=True)
+        try:
+            wait_until(started, f"the first step to start, try {stop}")
+            worker.send_signal(signal.SIGTERM)
+            output = sample.finish(worker)
+        finally:
+            worker.kill()
+        row = sample.job_row(job_id)
+        assert (row["status"], row["attempts"]) == ("todo", 0), output
+
+    sample.script(developer, subject, first="ok", second="fail")
+    output = sample.finish(sample.start_worker([sample.TEST_QUEUE]))
+
+    row = sample.job_row(job_id)
     assert (row["status"], row["attempts"]) == ("todo", 1), output
-    assert set(sample.recorded_steps(subject)) == {"first"}  # the current step committed
     with tenancy.acting_in(developer):
         state = jobs.state(job_id)
     assert state is not None
     assert state.message == {"code": "platform.jobs.retrying", "params": {"attempt": 2, "tries": 3}}
-
-    output = sample.finish(sample.start_worker([sample.TEST_QUEUE]))
-
-    assert sample.job_row(job_id)["status"] == "succeeded", output
-    assert sample.committed_runs(subject) == ["first", "second"]  # first ran once
 
 
 def test_a_job_for_a_user_whose_membership_has_ended_is_refused_once_and_commits_nothing(

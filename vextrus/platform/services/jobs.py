@@ -43,12 +43,15 @@ A job is a function declared with `@job`, given a `Run` and its ids:
   once, and a superseded try never ends the job its successor runs.
 - **Restart** (`restart(job_id)`) defers a failed or cancelled job again with the same ids; its
   completed steps skip. A job that raised is tried again by itself up to `VEXTRUS_JOB_TRIES`. A job
-  whose worker died mid-way (a server restart) is found by the stalled-job retrier, a periodic task
-  on the default queue (`platform/tasks/jobs.py`), and tried again the same way once its try's hold
-  is gone; a live try is never retried, however long its worker is silent.
+  whose worker died, froze or was cut off mid-way is found by the stalled-job retrier, a periodic
+  task on the default queue (`platform/tasks/jobs.py`): a live worker beats even while it stops, so
+  one silent for `VEXTRUS_JOB_STALLED_SECONDS` is not live, and the retrier ends its session if it
+  still holds the job, then tries the job again (within about two minutes of the silence).
 - **Stopping a worker** (Ctrl-C or SIGTERM): after `VEXTRUS_WORKER_STOP_SECONDS` (0), a running job
-  stops after its current step (`Stopped`) and is tried again at once, its completed steps skipped;
-  a stop never ends a job, so a job reads "cancelled" only when someone cancelled it.
+  stops after its current step (`Stopped`) and is tried again at once, its completed steps skipped.
+  A stop is not the job's failure: it never counts against `VEXTRUS_JOB_TRIES` and never ends a job.
+  A person's cancel wins over a stop, even one made while the worker drains: the job ends
+  cancelled, and only then does it read "cancelled".
 - **The worker** (`run_worker`, which `manage.py worker` runs) refuses to start unless 02's startup
   check passes, then runs Procrastinate's worker inside the Django process through the worker
   connector (docs/research/stack-versions.md, problem 8b). The `cad` queue's worker runs alone on
@@ -60,6 +63,7 @@ A job is a function declared with `@job`, given a `Run` and its ids:
 as no job. They know nothing of Projects: the caller checks the subject's Project first.
 """
 
+import asyncio
 import contextlib
 import hashlib
 import inspect
@@ -413,11 +417,13 @@ class Run:
     def check_cancelled(self) -> None:
         """Raise Cancelled if the job was cancelled or its worker is stopping (call it inside a
         long step; the runner calls it between steps)."""
+        # A person's cancel wins over a stop: during a stop Procrastinate keeps the reason SHUTDOWN
+        # and ignores a later cancel, so the job's row is read as well.
         reason = self._abort_reason()
+        if reason == AbortReason.USER_REQUEST or self._stopped(lock=False):
+            raise Cancelled(f"job {self.job_id} was cancelled")
         if reason == AbortReason.SHUTDOWN:
             raise Stopped(f"job {self.job_id} stops with its worker")
-        if reason is not None or self._stopped(lock=False):
-            raise Cancelled(f"job {self.job_id} was cancelled")
 
     def _cancelled_before_commit(self) -> bool:
         """Whether a cancel came before this step's commit (a stopping worker lets the step commit
@@ -484,6 +490,8 @@ class Run:
             )
             left = cursor.fetchone()
         if left is None or any(left):
+            with contextlib.suppress(Exception), connection.cursor() as cursor:
+                cursor.execute("select pg_advisory_unlock_all()")  # before the job's end is recorded
             connection.close()
             raise TenancyLeaked("a step left a tenant setting on its connection after its commit")
 
@@ -645,6 +653,11 @@ def _own_job(job_id: JobId) -> tuple[str, str, int, bool] | None:
 # Retries ---------------------------------------------------------------------------------------------
 
 
+STOP_PRIORITY = -(2**31)
+"""The priority a stop's retry asks for: the job wall reads it as "a stop", keeps the job's priority
+and its tries as they were, so a worker's stop never counts against VEXTRUS_JOB_TRIES."""
+
+
 class _Retry(BaseRetryStrategy):
     """Try a job up to VEXTRUS_JOB_TRIES times, unless it was refused or leaked a setting; a job
     stopped with its worker is always tried again, at once."""
@@ -653,9 +666,10 @@ class _Retry(BaseRetryStrategy):
         self, *, exception: BaseException, job: procrastinate_jobs.Job
     ) -> RetryDecision | None:
         if isinstance(exception, Stopped):
-            return RetryDecision(retry_in={"seconds": 0})
-        if isinstance(exception, JobRefused | TenancyLeaked):
-            return None
+            # Tried again at once, and not counted: the job wall keeps its tries as they were.
+            return RetryDecision(retry_in={"seconds": 0}, priority=STOP_PRIORITY)
+        if isinstance(exception, Cancelled | JobRefused | TenancyLeaked):
+            return None  # a cancel ends cancelled, even during a stop
         if job.attempts + 1 >= settings.VEXTRUS_JOB_TRIES:
             return None
         return RetryDecision(retry_in={"seconds": settings.VEXTRUS_JOB_RETRY_SECONDS})
@@ -664,10 +678,12 @@ class _Retry(BaseRetryStrategy):
 async def retry_stalled(manager: JobManager) -> list[JobId]:
     """Try again every running job whose try is dead (a server restart): the ids tried.
 
-    A worker's silence only names the candidates (Procrastinate stops the heartbeat while a stopping
-    worker drains its jobs); a try is dead only when its hold on the job is gone, which PostgreSQL
-    lets go when the worker's process or connection ends. A live try is left alone. A dead try's
-    job that was cancelled ends as cancelled; one on its last try ends as failed.
+    A live worker beats every VEXTRUS_WORKER_HEARTBEAT_SECONDS, even while it stops (`run_worker`
+    keeps its own beat past Procrastinate's shutdown), so a worker silent for
+    VEXTRUS_JOB_STALLED_SECONDS is dead, frozen or cut off. If its session still holds the job, the
+    retrier ends that session (PostgreSQL would keep it for hours behind a half-open connection),
+    then tries the job again. A job that was cancelled ends as cancelled; one on its last try ends as
+    failed.
     """
     retried = []
     stalled = await manager.get_stalled_jobs(
@@ -677,11 +693,21 @@ async def retry_stalled(manager: JobManager) -> list[JobId]:
         assert found.id is not None
         try:
             hi, lo = _try_key(found.id)
-            probe = await manager.connector.execute_query_one_async(
-                query="select pg_try_advisory_xact_lock(%(hi)s, %(lo)s) as free", hi=hi, lo=lo
+            # Its worker has been silent for VEXTRUS_JOB_STALLED_SECONDS, though a live worker beats
+            # every VEXTRUS_WORKER_HEARTBEAT_SECONDS even while it stops: frozen, or cut off from
+            # its host. Its session still holds the job (PostgreSQL keeps a half-open connection for
+            # hours): end that session, as its own role may, and the job is let go at once.
+            ended = await manager.connector.execute_query_one_async(
+                query="""
+                    select count(pg_terminate_backend(pid, 5000)) as ended from pg_locks
+                     where locktype = 'advisory' and granted and classid = %(hi)s
+                       and objid = %(lo)s and objsubid = 2 and pid <> pg_backend_pid()
+                """,
+                hi=hi,
+                lo=lo,
             )
-            if not probe["free"]:
-                continue  # its try is alive: its worker is draining, or only slow to beat
+            if ended["ended"]:
+                logger.warning("ended the silent session holding stalled job %s", found.id)
             [current] = await manager.list_jobs_async(id=found.id)
             if current.status != "doing":
                 continue
@@ -735,14 +761,42 @@ def run_worker(queues: Sequence[str], *, concurrency: int | None = None, wait: b
         connection.close()
     worker_connector = app.connector.get_worker_connector()  # type: ignore[attr-defined]
     with app.replace_connector(worker_connector):
-        app.run_worker(
-            queues=queues,
-            concurrency=concurrency or 1,
-            wait=wait,
-            # On a stop, a running job gets this long, then stops after its current step and is
-            # tried again (its completed steps skip).
-            shutdown_graceful_timeout=settings.VEXTRUS_WORKER_STOP_SECONDS,
+        asyncio.run(
+            _run(
+                queues=queues,
+                concurrency=concurrency or 1,
+                wait=wait,
+                # On a stop, a running job gets this long, then stops after its current step and
+                # is tried again (its completed steps skip).
+                shutdown_graceful_timeout=settings.VEXTRUS_WORKER_STOP_SECONDS,
+                update_heartbeat_interval=settings.VEXTRUS_WORKER_HEARTBEAT_SECONDS,
+                stalled_worker_timeout=settings.VEXTRUS_JOB_STALLED_SECONDS,
+            )
         )
+
+
+async def _run(**options: Any) -> None:
+    """Procrastinate's worker, with a heartbeat of our own beside it: Procrastinate stops beating
+    when a stop begins, while its running jobs drain; ours beats until the worker has stopped, so
+    only a dead, frozen or cut-off worker ever falls silent."""
+    async with app.open_async():
+        app.perform_import_paths()  # type: ignore[no-untyped-call]
+        worker = app._worker(**options)
+        beat = asyncio.create_task(_beat(worker), name="vextrus heartbeat")
+        try:
+            await worker.run()  # type: ignore[no-untyped-call]
+        finally:
+            beat.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await beat
+
+
+async def _beat(worker: Any) -> None:
+    while True:
+        await asyncio.sleep(settings.VEXTRUS_WORKER_HEARTBEAT_SECONDS)
+        if worker.worker_id is not None:
+            with contextlib.suppress(Exception):  # a missed beat is only a late one
+                await app.job_manager.update_heartbeat(worker.worker_id)
 
 
 def prepare_cad_worker() -> None:

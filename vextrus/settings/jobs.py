@@ -23,15 +23,17 @@ VEXTRUS_CAD_QUEUE = "cad"
 VEXTRUS_CAD_WORKER_CONCURRENCY = 1
 VEXTRUS_CAD_WORKER_MEMORY_BYTES: int | None = None
 
-# A job is tried at most this many times, whether it raised or its worker stopped mid-way
-# ("Trying again by itself (try 2 of 3)": docs/design/m0-screens.md, the file's life).
+# A job is tried at most this many times, whether it raised or its worker died mid-way; a worker's
+# stop does not count ("Trying again by itself (try 2 of 3)": docs/design/m0-screens.md).
 VEXTRUS_JOB_TRIES = 3
 # Seconds between tries after a job raised (a constant back-off).
 VEXTRUS_JOB_RETRY_SECONDS = 10
 # Seconds a stopping worker (Ctrl-C, SIGTERM) lets a running job go on; then the job stops after its
 # current step and is tried again, its completed steps skipped. 0: stop after the current step.
 VEXTRUS_WORKER_STOP_SECONDS = 0
-# A running job whose worker has sent no heartbeat for this long is a candidate: the retrier, run
-# every minute, tries it again once its try's hold on it is gone (the worker died), never while the
-# try lives (a worker's heartbeat is every 10 s by Procrastinate's default, and stops while it stops).
+# A worker beats this often, even while it stops (`run_worker` keeps its own beat going).
+VEXTRUS_WORKER_HEARTBEAT_SECONDS = 10
+# A running job whose worker has been silent this long is stalled (the worker is dead, frozen or cut
+# off from its host): the retrier, run every minute, ends the silent session still holding the job,
+# if any, and tries the job again. A job stuck this way is picked up within about two minutes.
 VEXTRUS_JOB_STALLED_SECONDS = 60

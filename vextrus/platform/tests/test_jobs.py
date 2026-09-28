@@ -908,3 +908,40 @@ def test_the_worker_command_reports_a_refusal_as_its_error() -> None:
         pytest.raises(CommandError, match="runs that queue alone"),
     ):
         call_command("worker", "--queue", "cad", "--queue", "default")
+
+
+def test_a_cancel_is_never_retried_and_a_stop_is_retried_at_once_under_the_stop_s_priority() -> None:
+    job = procrastinate_jobs.Job(queue=sample.TEST_QUEUE, lock=None, queueing_lock=None, task_name="t")
+
+    assert jobs._Retry().get_retry_decision(exception=jobs.Cancelled("x"), job=job) is None
+    stop = jobs._Retry().get_retry_decision(exception=jobs.Stopped("x"), job=job)
+    assert stop is not None
+    assert stop.priority == jobs.STOP_PRIORITY
+
+
+@pytest.mark.django_db
+def test_the_job_wall_keeps_a_stopped_job_s_tries_and_priority_and_counts_a_failure_s(
+    make_developer: Callable[..., uuid.UUID],
+) -> None:
+    developer = make_developer()
+    with tenancy.acting_in(developer):
+        stopped = sample.two_steps.defer(subject_id=uuid.uuid4())
+        failed = sample.two_steps.defer(subject_id=uuid.uuid4())
+    with connection.cursor() as cursor:  # as the worker: fetched, then a stop and a failure
+        cursor.execute(
+            "update procrastinate_jobs set status = 'doing', priority = 5 where id = any(%s)",
+            [[stopped, failed]],
+        )
+        cursor.execute(
+            "select procrastinate_retry_job_v2(%s, now(), %s, null, null)",
+            [stopped, jobs.STOP_PRIORITY],
+        )
+        cursor.execute("select procrastinate_retry_job_v2(%s, now(), null, null, null)", [failed])
+        cursor.execute(
+            "select id, status::text, attempts, priority from procrastinate_jobs"
+            " where id = any(%s) order by id",
+            [[stopped, failed]],
+        )
+        rows = cursor.fetchall()
+
+    assert rows == [(stopped, "todo", 0, 5), (failed, "todo", 1, 5)]

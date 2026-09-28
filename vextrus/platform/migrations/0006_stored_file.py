@@ -18,7 +18,9 @@
 #   - a running job is neither ended nor sent back to wait while a try still holds it (the step
 #     runner holds a session advisory lock on the job's id for the try's life, which PostgreSQL
 #     lets go when the worker dies), so a retry never runs one job in two tries at once and a
-#     superseded try never ends the job its successor runs.
+#     superseded try never ends the job its successor runs;
+#   - a worker's stop sends a job back to wait without counting a try (its retry asks for the
+#     stop's priority, int4's least; the trigger restores the priority and the tries).
 #   The function runs as its caller (not SECURITY DEFINER), so current_user is the app's role; the
 #   owner passes. Like row-level security, it holds the app's code to its tenant: a role that can run
 #   any SQL can also set app.tenant_id.
@@ -93,6 +95,12 @@ JOB_WALL = [
            or new.queueing_lock is distinct from old.queueing_lock then
           raise exception '{APP} may not change a job''s task, queue, lock or arguments'
             using errcode = '42501';
+        end if;
+        -- A worker's stop sends its job back to wait with the stop's priority: that retry keeps
+        -- the job's priority and its tries as they were (a stop is not the job's failure).
+        if old.status = 'doing' and new.status = 'todo' and new.priority = -2147483648 then
+          new.priority := old.priority;
+          new.attempts := old.attempts;
         end if;
         if old.status in ('succeeded', 'failed', 'cancelled', 'aborted')
            and new.status is distinct from old.status then
