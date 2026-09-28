@@ -11,6 +11,7 @@ from vextrus.modules import MODULES
 
 
 def test_the_api_signs_in_by_session_and_checks_csrf() -> None:
+    assert isinstance(api.auth, list)
     assert len(api.auth) == 1
     auth = api.auth[0]
     assert isinstance(auth, SessionAuth)
