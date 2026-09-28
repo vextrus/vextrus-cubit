@@ -1,0 +1,413 @@
+/*
+ * Vextrus design tokens, accepted by the owner on 26 Sep 2026 and carried from the session-01
+ * specimen by ticket 01b (docs/design/system.md is the reference; change a value there first).
+ * Import after `@import "tailwindcss";`. One file: primitives, then roles (shadcn slot names plus
+ * our own), then the Tailwind v4 `@theme inline` mapping. Components use roles, never primitives,
+ * never raw hex. The 2D sheet and the 3D model read the same variables through getComputedStyle.
+ * Changes from the specimen: the Paper `--overlay-casing` is dropped (system.md, "The 2D sheet":
+ * a casing exists only in CAD-dark); "Rod" reads "Rebar"; the 3D Proposal is opaque (screens.md,
+ * ruling 6); the notice bar and progress line gained tokens.
+ */
+
+/* ── Fonts ─────────────────────────────────────────────────────────────────────────────────────
+ * Archivo (OFL 1.1) is the one family; it has tabular figures, `frac`, primes and a width axis but
+ * no taka sign. "Vextrus Taka" holds U+09F3 alone, subset from Noto Sans Bengali (OFL 1.1; its
+ * licence is fonts/vextrus-taka.OFL.txt), 1.7 KB, variable in weight, so the sign follows the
+ * surrounding weight. The browser falls through to it only for U+09F3.
+ */
+@font-face {
+  font-family: "Vextrus Taka";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("./fonts/vextrus-taka.woff2") format("woff2-variations");
+  unicode-range: U+09F3;
+}
+
+:root {
+  /* ── Primitives: graphite (cool neutral), kept from Cubit ───────────────────────────────── */
+  --graphite-0: #f4f5f4;
+  --graphite-50: #eff0ef;
+  --graphite-100: #e9ebea;
+  --graphite-150: #e4e7e6;
+  --graphite-200: #dde0e0;
+  --graphite-300: #c9cdd1;
+  --graphite-400: #b0b6bc;
+  --graphite-500: #7f868d;
+  --graphite-600: #5f6772;
+  --graphite-700: #4a515b;
+  --graphite-800: #363c45;
+  --graphite-900: #262b33;
+  --graphite-950: #191d24;
+  --graphite-1000: #101318;
+  --paper-white: #ffffff;
+
+  /* ── Primitives: indigo ("beam"), the one accent ─────────────────────────────────────────── */
+  --indigo-50: #f3f2fc;
+  --indigo-100: #eceafa;
+  --indigo-200: #d9d5f4;
+  --indigo-300: #b7b1e8;
+  --indigo-500: #5a4fb0;
+  --indigo-600: #473e92;
+  --indigo-700: #38316f;
+
+  /* ── Primitives: copper, scarce (brand spark; the one bulk Confirm button per screen) ────── */
+  --copper-50: #fbefe4;
+  --copper-500: #a85b28;
+  --copper-600: #9a5326;
+  --copper-700: #7f4420;
+
+  /* ── Primitives: status hues ─────────────────────────────────────────────────────────────── */
+  --cyan-50: #e4f2f5;
+  --cyan-500: #0891b2; /* strokes on white paper, 3.68:1 */
+  --cyan-700: #0a6c80; /* text, 6.05:1 on white, 5.05:1 on background */
+  --green-50: #e7f5ec;
+  --green-500: #2e9a5c;
+  --green-700: #18703f; /* 6.1:1 on paper, 5.1:1 on background */
+  --amber-50: #fcf2e3;
+  --amber-500: #b86e00; /* strokes on white paper, 3.99:1 */
+  --amber-700: #8a5100;
+  --red-50: #fbeaea;
+  --red-500: #d23b3b;
+  --red-700: #b32525; /* 6.6:1 on paper, 5.5:1 on background */
+
+  /* ── Roles: surfaces. Graphite is chrome; white paper is content. ────────────────────────── */
+  --background: var(--graphite-100); /* the table the paper lies on */
+  --chrome: var(--graphite-0); /* top bar, rail, toolbar, inspector, status bar */
+  --chrome-sunken: var(--graphite-50);
+  --paper: var(--paper-white); /* sheet, grid body, tiles, popovers: the only pure white */
+  --card: var(--paper);
+  --popover: var(--paper);
+  --band: var(--graphite-50); /* group rows, grid header, subtotal rows */
+  --hover: var(--graphite-150);
+  --pressed: var(--graphite-200);
+  --selected: var(--indigo-100);
+  --selected-strong: var(--indigo-200);
+  --inverse: var(--graphite-900);
+  --inverse-hover: var(--graphite-800);
+
+  /* ── Roles: ink ──────────────────────────────────────────────────────────────────────────── */
+  --foreground: var(--graphite-900); /* 14.2:1 on paper, 13.0:1 on chrome */
+  --ink-secondary: var(--graphite-700); /* 7.3:1 on chrome */
+  --muted-foreground: var(--graphite-600); /* 5.7:1 on paper, 4.8:1 on background */
+  --ink-disabled: var(--graphite-500); /* 3.7:1: disabled is exempt, still legible */
+  --ink-inverse: var(--graphite-0);
+  --ink-link: var(--indigo-600);
+
+  /* ── Roles: lines ────────────────────────────────────────────────────────────────────────── */
+  --border: var(--graphite-200); /* hairline seams between docked surfaces */
+  --border-strong: var(--graphite-300); /* grid column rules, card edges on background */
+  --input: var(--graphite-500); /* control edges: 3.7:1, meets WCAG 1.4.11 */
+  --border-raised: var(--graphite-400); /* floating panels' edge, with a shadow */
+
+  /* ── Roles: accent and action ────────────────────────────────────────────────────────────── */
+  --primary: var(--indigo-500); /* white on it 6.6:1 */
+  --primary-hover: var(--indigo-600);
+  --primary-pressed: var(--indigo-700);
+  --primary-foreground: var(--paper-white);
+  --accent: var(--graphite-150); /* shadcn's "accent" is a quiet hover surface, not the brand */
+  --accent-foreground: var(--graphite-900);
+  --secondary: var(--graphite-50);
+  --secondary-foreground: var(--graphite-900);
+  --muted: var(--graphite-50);
+  --commit: var(--copper-500); /* white on it 5.0:1; one per screen */
+  --commit-hover: var(--copper-600);
+  --commit-foreground: var(--paper-white);
+  --ring: var(--indigo-500); /* focus: 6.6:1 against paper */
+  --destructive: var(--red-700);
+
+  /* ── Roles: status, in CONTEXT.md's words. Each also has a glyph or pattern (system.md §1). */
+  --status-proposal: var(--cyan-700);
+  --status-proposal-surface: var(--cyan-50);
+  --status-proposal-stroke: var(--cyan-500);
+  --status-confirmed: var(--green-700);
+  --status-confirmed-surface: var(--green-50);
+  --status-confirmed-stroke: var(--green-500);
+  --status-question: var(--amber-700);
+  --status-question-surface: var(--amber-50);
+  --status-question-stroke: var(--amber-500);
+  --status-over-target: var(--red-700);
+  --status-over-target-surface: var(--red-50);
+  --status-over-target-stroke: var(--red-500);
+  --status-excluded: var(--graphite-600);
+  /* Cost Basis and Rebar Basis carry no hue of their own: pattern and words only. */
+  --basis-ink: var(--graphite-700);
+  --basis-hatch: repeating-linear-gradient(
+    135deg,
+    var(--graphite-500) 0 1px,
+    transparent 1px 4px
+  );
+
+  /* ── Selection: one language across grid, sheet and 3D ───────────────────────────────────── */
+  --selection: var(--indigo-500);
+  --selection-surface: var(--indigo-100);
+  --selection-halo: rgb(90 79 176 / 0.28);
+  --hover-halo: rgb(90 79 176 / 0.16);
+
+  /* ── Canvas: the 2D sheet opens as plotted (ADR 0032) ────────────────────────────────────── */
+  --canvas-ground: var(--paper-white);
+  --canvas-ink: #000000; /* monochrome plot: every ACI colour prints black */
+  --canvas-ink-muted: #6b7078; /* xref / greyed-out context */
+  --canvas-grid-line: #9aa0a6;
+  --canvas-proposal: var(--cyan-500);
+  --canvas-confirmed: var(--green-500);
+  --canvas-question: var(--amber-500);
+  --canvas-selection: var(--indigo-500);
+  --canvas-hover: var(--hover-halo);
+  --canvas-measure: #c13515;
+  --canvas-dim-greek: #b0b6bc; /* text below legible size is drawn as a bar */
+  --lineweight-scale: 1; /* plotted mm → px factor is set by the viewer at fit */
+  /* Layer colours: on paper every layer plots black (monochrome.ctb); CAD-dark gives ACI back. */
+  --layer-grid: var(--canvas-ink);
+  --layer-column: var(--canvas-ink);
+  --layer-dimension: var(--canvas-ink);
+  --layer-text: var(--canvas-ink);
+  --layer-border: var(--canvas-ink);
+  --layer-hatch: var(--canvas-ink);
+
+  /* ── 3D Live Model: light ground, shaded with edges, coloured by status ──────────────────── */
+  --model-ground-top: #f7f8f8;
+  --model-ground-bottom: #dfe3e5;
+  --model-edge: #262b33;
+  --model-confirmed: #c9ccc8; /* concrete: confirmed elements read as the building itself */
+  --model-proposal: #5ab8cc; /* opaque, dashed edges, never translucent (screens.md, ruling 6) */
+  --model-question: #e7a33a;
+  --model-selection: var(--indigo-500);
+  --model-hidden-context: #e4e7e6;
+
+  /* ── Charts (Project Summary): one hue family plus the allowance hatch ───────────────────── */
+  --chart-1: var(--indigo-500);
+  --chart-2: var(--indigo-300);
+  --chart-3: var(--graphite-600);
+  --chart-4: var(--graphite-400);
+  --chart-5: var(--copper-500);
+
+  /* ── Type ────────────────────────────────────────────────────────────────────────────────── */
+  --font-ui: "Archivo Variable", "Archivo", "Vextrus Taka", "Segoe UI", system-ui, sans-serif;
+  --font-sheet: var(--font-ui); /* sheet text: Archivo at 87.5% width, like CAD lettering */
+  --stretch-normal: 100%;
+  --stretch-narrow: 87.5%; /* grid column headers and sheet text only */
+  --fs-2xs: 11px; /* status bar only */
+  --fs-xs: 12px;
+  --fs-sm: 13px; /* body, grid cells, controls */
+  --fs-md: 14px; /* section titles */
+  --fs-lg: 16px;
+  --fs-xl: 20px; /* page title, once per screen */
+  --fs-2xl: 24px;
+  --fs-3xl: 32px; /* the MD's hero figure */
+  --lh-2xs: 16px;
+  --lh-xs: 16px;
+  --lh-sm: 18px;
+  --lh-md: 20px;
+  --lh-lg: 22px;
+  --lh-xl: 26px;
+  --lh-2xl: 30px;
+  --lh-3xl: 36px;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+
+  /* ── Density and frame geometry (compact is the default) ─────────────────────────────────── */
+  --row: 28px;
+  --row-comfortable: 36px;
+  --control: 28px;
+  --control-lg: 32px;
+  --cell-pad-x: 8px;
+  --topbar: 40px;
+  --toolbar: 32px;
+  --statusbar: 24px;
+  --rail: 48px;
+  --rail-expanded: 288px;
+  --inspector: 320px;
+  --inspector-min: 280px;
+  --inspector-max: 480px;
+  --confirm-bar: 44px;
+  --notice-bar: 28px; /* NarrowNotice, 640–1279 px (m0-screens §3) */
+  --progress-line: 3px;
+  --kbd: 16px; /* a key chip's height */
+  --toast: 32px;
+  --tile-min: 72px;
+  --icon-sm: 14px;
+  --icon: 16px;
+  --icon-lg: 20px;
+  --icon-stroke: 1.5;
+
+  /* ── Radii ───────────────────────────────────────────────────────────────────────────────── */
+  --radius-chip: 2px; /* chips, marks, grid focus */
+  --radius: 4px; /* controls, buttons, inputs */
+  --radius-panel: 8px; /* popovers, dialogs, tiles */
+
+  /* ── Elevation: docked surfaces are flat with hairlines; only overlays cast a shadow ─────── */
+  --elev-1: 0 1px 2px 0 rgb(16 20 26 / 0.06);
+  --elev-2: 0 2px 8px -2px rgb(16 20 26 / 0.12), 0 0 0 1px rgb(16 20 26 / 0.04);
+  --elev-3: 0 8px 24px -4px rgb(16 20 26 / 0.16), 0 0 0 1px rgb(16 20 26 / 0.05);
+  --elev-4: 0 16px 48px -8px rgb(16 20 26 / 0.22);
+  --z-base: 0;
+  --z-canvas-overlay: 50;
+  --z-sticky: 100;
+  --z-overlay: 200;
+  --z-toast: 300;
+
+  /* ── Motion: it only tells you where something went ──────────────────────────────────────── */
+  --motion-state: 160ms; /* hover, press, toggle */
+  --motion-panel: 240ms; /* drawer, rail expand, popover */
+  --motion-flyto: 320ms; /* Trace fly-to on the sheet */
+  --motion-camera: 480ms; /* 3D camera to a selection or a storey */
+  --motion-section: 240ms; /* 3D section box and storey isolate */
+  --motion-pulse: 900ms; /* one pulse on arrival, never looping */
+  --motion-confirm: 200ms; /* Proposal dashed → Confirmed solid */
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --ease-flyto: cubic-bezier(0.45, 0.05, 0.25, 1);
+}
+
+/* The CAD-dark canvas: one switch on the sheet, never the chrome (ADR 0032). */
+.canvas-cad-dark {
+  --canvas-ground: #101318;
+  --canvas-ink: #d5d9df; /* ACI 7 */
+  --canvas-ink-muted: #7e8899;
+  --canvas-grid-line: #4a515b;
+  --canvas-proposal: #3fc7e0; /* 9.3:1 on ground */
+  --canvas-confirmed: #4cc38a; /* 8.4:1 */
+  --canvas-question: #f2a93b; /* 9.3:1 */
+  --canvas-selection: #9d95f0; /* 7.1:1 */
+  --canvas-hover: rgb(157 149 240 / 0.26);
+  --canvas-measure: #ff7a4d;
+  --canvas-dim-greek: #414957;
+  /* AutoCAD Colour Index 1–7 as drawn on the dark ground */
+  --aci-1: #ff0000;
+  --aci-2: #ffff00;
+  --aci-3: #00ff00;
+  --aci-4: #00ffff;
+  --aci-5: #0000ff;
+  --aci-6: #ff00ff;
+  --aci-7: #ffffff;
+  --layer-grid: #ff5a5a; /* ACI 1, lifted for a 4.5:1 ground contrast */
+  --layer-column: #ff4dff; /* ACI 6 */
+  --layer-dimension: #4dff4d; /* ACI 3 */
+  --layer-text: #ffff66; /* ACI 2 */
+  --layer-border: #d5d9df; /* ACI 7 */
+  --layer-hatch: #8a8a8a; /* ACI 8, the usual poché grey */
+  --overlay-casing: #101318; /* a dark edge under every overlay stroke: ACI hues can match ours */
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-state: 0ms;
+    --motion-panel: 0ms;
+    --motion-flyto: 0ms;
+    --motion-camera: 0ms;
+    --motion-section: 0ms;
+    --motion-pulse: 0ms;
+    --motion-confirm: 0ms;
+  }
+}
+
+/* ── Tailwind v4: utilities from the roles (bg-paper, text-muted-foreground, h-row …) ───────── */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-chrome: var(--chrome);
+  --color-chrome-sunken: var(--chrome-sunken);
+  --color-paper: var(--paper);
+  --color-card: var(--card);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--foreground);
+  --color-band: var(--band);
+  --color-hover: var(--hover);
+  --color-pressed: var(--pressed);
+  --color-selected: var(--selected);
+  --color-selected-strong: var(--selected-strong);
+  --color-inverse: var(--inverse);
+  --color-inverse-hover: var(--inverse-hover);
+  --color-ink-secondary: var(--ink-secondary);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-ink-disabled: var(--ink-disabled);
+  --color-ink-inverse: var(--ink-inverse);
+  --color-ink-link: var(--ink-link);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-border-raised: var(--border-raised);
+  --color-input: var(--input);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-pressed: var(--primary-pressed);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-commit: var(--commit);
+  --color-commit-hover: var(--commit-hover);
+  --color-commit-foreground: var(--commit-foreground);
+  --color-ring: var(--ring);
+  --color-destructive: var(--destructive);
+  --color-proposal: var(--status-proposal);
+  --color-proposal-surface: var(--status-proposal-surface);
+  --color-proposal-stroke: var(--status-proposal-stroke);
+  --color-confirmed: var(--status-confirmed);
+  --color-confirmed-surface: var(--status-confirmed-surface);
+  --color-confirmed-stroke: var(--status-confirmed-stroke);
+  --color-question: var(--status-question);
+  --color-question-surface: var(--status-question-surface);
+  --color-question-stroke: var(--status-question-stroke);
+  --color-over-target: var(--status-over-target);
+  --color-over-target-surface: var(--status-over-target-surface);
+  --color-over-target-stroke: var(--status-over-target-stroke);
+  --color-card-foreground: var(--foreground);
+  --color-destructive-foreground: var(--paper-white);
+  --color-excluded: var(--status-excluded);
+  --color-basis: var(--basis-ink);
+  --color-selection: var(--selection);
+  --color-selection-surface: var(--selection-surface);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --font-sans: var(--font-ui);
+
+  --text-2xs: var(--fs-2xs);
+  --text-2xs--line-height: var(--lh-2xs);
+  --text-xs: var(--fs-xs);
+  --text-xs--line-height: var(--lh-xs);
+  --text-sm: var(--fs-sm);
+  --text-sm--line-height: var(--lh-sm);
+  --text-md: var(--fs-md);
+  --text-md--line-height: var(--lh-md);
+  --text-lg: var(--fs-lg);
+  --text-lg--line-height: var(--lh-lg);
+  --text-xl: var(--fs-xl);
+  --text-xl--line-height: var(--lh-xl);
+  --text-2xl: var(--fs-2xl);
+  --text-2xl--line-height: var(--lh-2xl);
+  --text-3xl: var(--fs-3xl);
+  --text-3xl--line-height: var(--lh-3xl);
+
+  --radius-xs: var(--radius-chip);
+  --radius-sm: var(--radius);
+  --radius-md: var(--radius);
+  --radius-lg: var(--radius-panel);
+
+  --shadow-1: var(--elev-1);
+  --shadow-2: var(--elev-2);
+  --shadow-3: var(--elev-3);
+  --shadow-4: var(--elev-4);
+
+  --spacing-row: var(--row);
+  --spacing-control: var(--control);
+  --spacing-control-lg: var(--control-lg);
+  --spacing-topbar: var(--topbar);
+  --spacing-toolbar: var(--toolbar);
+  --spacing-statusbar: var(--statusbar);
+  --spacing-rail: var(--rail);
+  --spacing-inspector: var(--inspector);
+  --spacing-notice-bar: var(--notice-bar);
+  --spacing-progress-line: var(--progress-line);
+  --spacing-kbd: var(--kbd);
+  --spacing-toast: var(--toast);
+
+  --ease-standard: var(--ease);
+  --ease-fly: var(--ease-flyto);
+}

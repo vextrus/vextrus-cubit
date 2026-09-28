@@ -1,0 +1,11 @@
+@import "@fontsource-variable/archivo/wdth.css";
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "./ui/tokens.css";
+@import "./ui/base.css";
+
+/* `rtl:` and `ltr:` follow each element's own directionality (`:dir()`), so an element inside
+   LtrCanvas is left to right even when the page is right to left (Tailwind's default variant also
+   matches `[dir="rtl"] *`, which would flip icons inside the canvas). */
+@custom-variant rtl (&:where(:dir(rtl)));
+@custom-variant ltr (&:where(:dir(ltr)));

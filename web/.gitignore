@@ -1,0 +1,17 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.vite/
+.vitest-attachments/
+__screenshots__/
+test-results/
+playwright-report/
+
+# Generated at build time, never committed (docs/plans/M0.md, "The shape of M0's code")
+src/routeTree.gen.ts
+src/api/schema.gen.ts
+
+# `lingui compile` output; the app compiles catalogues through the Vite plugin
+src/**/locales/*.js
+src/messages/**/*.js
+.vitest/
