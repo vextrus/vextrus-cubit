@@ -180,14 +180,17 @@ _INITIALS = frozenset({"ms", "mt", "bt", "itc"})
 
 def _capitalised(name: str) -> str:
     """A name typed all in one case, capitalised as its family is written: each word's first letter,
-    and a Bijoy-style font's MJ (sutonnymj: SutonnyMJ). A name in mixed case is the drawing's own."""
+    and Mustafa Jabbar's MJ or OMJ (sutonnymj: SutonnyMJ; sutonnyomj: SutonnyOMJ). A name in mixed
+    case is the drawing's own."""
     if not (name.islower() or name.isupper()):
         return name
     name = " ".join(
         word.upper() if word.casefold() in _INITIALS else word[:1].upper() + word[1:].lower()
         for word in name.split(" ")
     )
-    if is_bangla_ansi_font(name):
+    if name.casefold().endswith("omj") and len(name) > 3:
+        name = name[:-3] + "OMJ"  # Mustafa Jabbar's Unicode OpenType fonts: SutonnyOMJ
+    elif is_bangla_ansi_font(name):
         name = name[:-2] + "MJ"
     return name
 

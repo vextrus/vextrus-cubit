@@ -538,15 +538,14 @@ def test_a_value_off_its_range_is_refused(table: str, field: str, value: float) 
         SheetBuffers.from_bytes(built.to_bytes())
 
 
-def test_a_layout_as_large_as_the_float_range_is_an_assumed_sheet_or_refused() -> None:
-    """A vast layout is no standard sheet, so its paper is assumed (A1's long side); one wider than a
-    float holds has no paper at all and is refused."""
+def test_a_layout_larger_than_any_sheet_is_refused() -> None:
+    """A vast layout is no standard sheet, so it is taken a unit to the millimetre, which no sheet
+    is; one wider than a float holds has no paper at all. Both are refused."""
     drawing = Drawing()
     drawing.line((0, 0), (1, 1), owner=PAPER)
     drawing.line((1e300, 1e300), (1e300, 1e300), owner=PAPER)
-    built = build(drawing.artefact(), SheetCandidate(SheetLocation(layout="Layout1")))
-    assert built.paper.source == PaperSource.ASSUMED
-    assert built.paper.width_mm == pytest.approx(841.0)
+    with pytest.raises(ValueError, match="larger than any sheet"):
+        build(drawing.artefact(), SheetCandidate(SheetLocation(layout="Layout1")))
     drawing.line((-1e308, -1e308), (-1e308, -1e308), owner=PAPER)
     drawing.line((1e308, 1e308), (1e308, 1e308), owner=PAPER)
     with pytest.raises(ValueError, match="larger than any sheet"):
@@ -738,10 +737,47 @@ def test_a_layouts_paper_is_the_standard_sheet_its_extents_are_whatever_insunits
     assert (built.paper.width_mm, built.paper.height_mm) == pytest.approx((841.0, 594.0))
 
 
-def test_a_layout_matching_no_sheet_is_assumed_and_says_so() -> None:
+def test_a_layout_matching_no_sheet_is_a_unit_to_the_millimetre_and_says_so() -> None:
+    """The re-review of 3e8037cf: a layout matching no sheet was rescaled to an A1 long side; most
+    are drawn in millimetres (a frame inside the sheet's edge matches none), so it stays true size."""
     drawing = Drawing(insunits=1)
     frame = [[0, 0, 0, 0, 0], [500, 0, 0, 0, 0], [500, 123, 0, 0, 0], [0, 123, 0, 0, 0]]
     drawing.entity("LWPOLYLINE", {"points": frame, "flags": 1}, owner=PAPER)
     built = build(drawing.artefact(), SheetCandidate(SheetLocation(layout="Layout1")))
     assert built.paper.source == PaperSource.ASSUMED
-    assert built.paper.width_mm == pytest.approx(841.0)
+    assert (built.paper.width_mm, built.paper.mm_per_unit) == pytest.approx((500.0, 1.0))
+
+
+@pytest.mark.parametrize(
+    ("sheet", "title_height"), [((420, 297), 3.5), ((841, 594), 5.0), ((1189, 841), 3.5)]
+)
+@pytest.mark.parametrize("in_block", [False, True])
+def test_a_standard_frame_with_its_title_near_the_corner_is_drawn_true_size(
+    sheet: tuple[int, int], title_height: float, in_block: bool
+) -> None:
+    """The re-review of 3e8037cf: a title's generous reach pushed the layout's box past every
+    standard sheet, and the A3 drew at 841 x 668 (2.002 mm a unit). The paper is measured from the
+    geometry and viewports, not the texts, whether they lie in the layout or in a title block."""
+    w, h = sheet
+    drawing = Drawing(insunits=4)
+    frame = [[0, 0, 0, 0, 0], [w, 0, 0, 0, 0], [w, h, 0, 0, 0], [0, h, 0, 0, 0]]
+    drawing.entity("LWPOLYLINE", {"points": frame, "flags": 1}, owner=PAPER)
+    if in_block:
+        title = drawing.block("TITLE")
+        drawing.text("DRAWING NO.", (0, 0, 0), height=title_height, owner=title)
+        drawing.line((0, -2), (40, -2), owner=title)
+        drawing.insert(title, (w - 60, 10, 0), owner=PAPER)
+    else:
+        drawing.text("DRAWING NO.", (w - 60, 10, 0), height=title_height, owner=PAPER)
+    built = build(drawing.artefact(), SheetCandidate(SheetLocation(layout="Layout1")))
+    assert built.paper.source == PaperSource.STANDARD
+    assert built.paper.mm_per_unit == pytest.approx(1.0)
+    assert (built.paper.width_mm, built.paper.height_mm) == pytest.approx((w, h))
+
+
+def test_a_layout_of_texts_alone_still_has_a_paper() -> None:
+    drawing = Drawing()
+    drawing.text("NOTE", (10, 10, 0), height=5.0, owner=PAPER)
+    built = build(drawing.artefact(), SheetCandidate(SheetLocation(layout="Layout1")))
+    assert built.paper.mm_per_unit == pytest.approx(1.0)
+    assert built.paper.width_mm > 0

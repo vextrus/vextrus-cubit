@@ -113,10 +113,12 @@ class BanglaAnsi:
 
 def _where(handles: list[str], sheet_of: Callable[[str], str | None]) -> dict[str, int]:
     sheets = [sheet_of(h) for h in handles]
+    outside = sum(s is None for s in sheets)
     return {
         "texts": len(handles),
+        "on_sheets": len(handles) - outside,
         "sheets": len({s for s in sheets if s is not None}),
-        "outside": sum(s is None for s in sheets),
+        "outside": outside,
     }
 
 

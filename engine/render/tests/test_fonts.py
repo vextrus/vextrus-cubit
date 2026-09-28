@@ -238,6 +238,7 @@ def test_a_sheets_font_rows_are_grouped_as_the_reports_are() -> None:
         ("sutonnymj.ttf", "SutonnyMJ"),
         ("SUTONNYMJ.TTF", "SutonnyMJ"),
         ("SutonnyMJ.ttf", "SutonnyMJ"),
+        ("sutonnyomj.ttf", "SutonnyOMJ"),  # the Unicode OpenType font keeps its O
         ("nikosh.ttf", "Nikosh"),
         ("kalpurush ansi.ttf", "Kalpurush Ansi"),
         ("arial unicode ms.ttf", "Arial Unicode MS"),  # a foundry's initials stay capitals

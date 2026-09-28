@@ -494,10 +494,12 @@ def _paper_for_box(
     insunits: int,
     units_mm: Iterable[float] | None = None,
     scales: Iterable[float] = SCALES,
+    unmatched_mm_per_unit: float | None = None,
 ) -> Paper:
-    """A box's paper: a standard sheet when it is one, else its long side taken as A1's (assumed).
-    A model-space box is tried in the drawing's units at the standard scales; a layout's, which
-    INSUNITS does not govern, as millimetres or inches at 1:1."""
+    """A box's paper: a standard sheet when it is one, else assumed. A model-space box is tried in the
+    drawing's units at the standard scales, and one that matches none has its long side taken as A1's;
+    a layout's, which INSUNITS does not govern, as millimetres or inches at 1:1, and one that matches
+    none (a frame drawn inside the sheet's edge, as most are) is taken at `unmatched_mm_per_unit`."""
     x0, y0, x1, y1 = box
     width, height = x1 - x0, y1 - y0
     long_units, short_units = max(width, height), min(width, height)
@@ -505,6 +507,8 @@ def _paper_for_box(
     matched = _standard_sheet(long_units, short_units, units, scales)
     if matched is not None:
         mm_per_unit, source = matched, PaperSource.STANDARD
+    elif unmatched_mm_per_unit is not None:
+        mm_per_unit, source = unmatched_mm_per_unit, PaperSource.ASSUMED
     else:
         mm_per_unit = ASSUMED_LONG_SIDE_MM / long_units if long_units > 0 else 1.0
         source = PaperSource.ASSUMED
@@ -512,10 +516,13 @@ def _paper_for_box(
 
 
 class _Bounds:
-    """Each block's extents in its own coordinates, for culling a sheet (larger than exact is fine)."""
+    """Each block's extents in its own coordinates, for culling a sheet (larger than exact is fine).
+    Without `text`, texts are left out: a text's reach is generous (its height times its length, every
+    way), so a layout's paper is measured from its geometry and viewports alone."""
 
-    def __init__(self, artefact: ReadArtefact) -> None:
+    def __init__(self, artefact: ReadArtefact, text: bool = True) -> None:
         self.artefact = artefact
+        self.text = text
         self.cache: dict[str, tuple[float, float, float, float] | None] = {}
         self.entities: dict[str, tuple[float, float, float, float] | None] = {}
         self.open: set[str] = set()
@@ -558,6 +565,8 @@ class _Bounds:
                 )
             return box
         if isinstance(entity, Text):
+            if not self.text:
+                return None
             reach = (entity.height or 0.0) * (len(entity.text) + 2) + (entity.width or 0.0)
             reach = reach if math.isfinite(reach) else 0.0
             x, y, _ = own_ocs(entity).apply(entity.position)
@@ -1054,15 +1063,20 @@ def _space(
         handle = next((h for h, b in artefact.blocks.items() if b.layout == location.layout), None)
         if handle is None:
             raise ValueError(f"the sheet's layout {location.layout!r} is not in the drawing")
-        box = _bounds_of(artefact).block(handle)
+        # The layout's extents from its geometry and viewports, without the texts' generous reach
+        # (a title near the frame would push the box past every standard sheet); texts only when
+        # the layout holds nothing else.
+        box = _Bounds(artefact, text=False).block(handle) or _bounds_of(artefact).block(handle)
         for h in artefact.blocks[handle].entities:
             viewport = artefact.entities.get(h)
             if isinstance(viewport, Entity) and viewport.type == "VIEWPORT":
                 box = _union(box, _viewport_rect(viewport))
         box = box or (0.0, 0.0, 1.0, 1.0)
         # Paper space's units are the layout's plot settings', which the artefact does not carry
-        # (INSUNITS governs model space): a standard sheet in mm or in inches at 1:1, else assumed.
-        return handle, _paper_for_box(box, 0, units_mm=(1.0, 25.4), scales=(1,)), None
+        # (INSUNITS governs model space): a standard sheet in mm or in inches at 1:1, else one unit
+        # a millimetre (assumed), as most layouts are drawn; never rescaled to a sheet's size.
+        paper = _paper_for_box(box, 0, units_mm=(1.0, 25.4), scales=(1,), unmatched_mm_per_unit=1.0)
+        return handle, paper, None
     assert location.box is not None
     handle = next((h for h, b in artefact.blocks.items() if b.layout == "Model"), None)
     if handle is None:

@@ -21,8 +21,8 @@ def test_a_text_in_a_bijoy_font_is_flagged_by_its_name() -> None:
         {
             "code": "engine.bangla_ansi.found",
             "params": {
-                "texts": 1, "sheets": 1, "outside": 0, "font": "SutonnyMJ", "other_fonts": 0,
-                "also": "no",
+                "texts": 1, "on_sheets": 1, "sheets": 1, "outside": 0, "font": "SutonnyMJ",
+                "other_fonts": 0, "also": "no",
             },
         }
     ]  # fmt: skip
@@ -42,7 +42,7 @@ def test_a_text_in_another_font_is_flagged_by_its_pattern() -> None:
     assert result.findings(lambda _: None) == [
         {
             "code": "engine.bangla_ansi.found_by_pattern",
-            "params": {"texts": 1, "sheets": 0, "outside": 1, "also": "no"},
+            "params": {"texts": 1, "on_sheets": 0, "sheets": 0, "outside": 1, "also": "no"},
         }
     ]
 
@@ -107,13 +107,13 @@ def test_texts_found_by_their_font_and_by_their_characters_are_two_lines() -> No
         {
             "code": "engine.bangla_ansi.found",
             "params": {
-                "texts": 1, "sheets": 1, "outside": 0, "font": "SutonnyMJ", "other_fonts": 0,
-                "also": "yes",
+                "texts": 1, "on_sheets": 1, "sheets": 1, "outside": 0, "font": "SutonnyMJ",
+                "other_fonts": 0, "also": "yes",
             },
         },
         {
             "code": "engine.bangla_ansi.found_by_pattern",
-            "params": {"texts": 3, "sheets": 2, "outside": 1, "also": "yes"},
+            "params": {"texts": 3, "on_sheets": 2, "sheets": 2, "outside": 1, "also": "yes"},
         },
     ]  # fmt: skip
 
