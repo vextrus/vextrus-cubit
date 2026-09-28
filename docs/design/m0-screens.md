@@ -1586,14 +1586,15 @@ people; named edits to `vextrus/seed/platform.py` and `vextrus/seed/projects.py`
 KR-01's files and, as rows at this section's state, their reports, sheets, views and render buffers**
 (the buffers made from 11's synthetic generators), **and BP-02's and MG-01's files in the states
 without a job that "Projects" gives it** (`vextrus/seed/drawings.py`); **19a the Proposals, the five
-Questions, the Coverage rows and the step's progress, at the same state, and "Held, answered"**;
-**21a the states a read job carries, once its job exists**; 03 ships a static copy of the same data
-for shell work before the API exists. **From 21c** the seed's files, made by the committed fixture
-generators (`engine/fixtures/dwg/<name>.py` and `engine/fixtures/pdf/<name>.py`), go through the
-product's real upload and read job instead of 14's and 19a's rows, and 21c's test asserts that the
-job produces this section's counts exactly: sheets per Discipline, views by status, Questions by
-kind, the bulk act. Where a state cannot be produced on demand (a held file, a stalled read), the seed
-uses the same stubs the API tests use, enabled only in development settings.
+Questions, the Coverage rows and the step's progress, at the same state, and "Held, answered"**
+(`vextrus/seed/takeoff.py`); **21a the states a read job carries, once its job exists** (a named
+shared edit to 19a's `vextrus/seed/takeoff.py`, merged after 19a); 03 ships a static copy of the same
+data for shell work before the API exists. **From 21c** the seed's files, made by the committed
+fixture generators (`engine/fixtures/dwg/<name>.py` and `engine/fixtures/pdf/<name>.py`), go through
+the product's real upload and read job instead of 14's, 19a's and 21a's rows, and 21c's test asserts
+that the job produces this section's counts exactly: sheets per Discipline, views by status,
+Questions by kind, the bulk act. Where a state cannot be produced on demand (a held file, a stalled
+read), the seed uses the same stubs the API tests use, enabled only in development settings.
 
 **Developers and people.**
 | Developer | Person | Email | Role |
@@ -1620,7 +1621,8 @@ shows Reading a DWG. The rest go on BP-02 and MG-01:
   2026, "4.5's 'Failed' row", at the end of this page); Old AutoCAD version; PDF before its DWG; and
   Held.
 - **21a** seeds the states a read job carries, Reading a PDF with its time left and Interrupted,
-  retrying, once its read job exists; until then the API tests reach them through the stubs above.
+  retrying, once its read job exists (a named shared edit to 19a's `vextrus/seed/takeoff.py`; 21a
+  merges after 19a); until then the API tests reach them through the stubs above.
 - **19a** seeds Held, answered: an answered `file_misread` Question (`takeoff`'s) on a file 14 seeds
   as held.
 
