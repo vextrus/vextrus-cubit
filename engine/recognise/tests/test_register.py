@@ -27,6 +27,7 @@ def _draw_register(
     header: bool = True,
     rotation: float = 0.0,
     owner: str | None = None,
+    rows: tuple[tuple[str, str, str, str], ...] = ROWS,
 ) -> None:
     """A register's heading, a header row and three rows, each row 8 below the one before, turned
     about `origin` by `rotation` degrees."""
@@ -50,7 +51,7 @@ def _draw_register(
         for u, label in ((0, "SHEET NO."), (30, "DRAWING TITLE"), (120, "SCALE"), (150, "REV.")):
             d.text(label, at(u, top), rotation_radians=math.radians(rotation), height=3.0, owner=space)
         top -= 8.0
-    for i, row in enumerate(ROWS):
+    for i, row in enumerate(rows):
         for u, value in zip((0, 30, 120, 150), row, strict=True):
             d.text(
                 value,
@@ -207,3 +208,19 @@ def test_a_list_of_two_numbered_lines_with_no_header_is_no_register() -> None:
     bare = SheetCandidate(SheetLocation(box=Box(-10, -100, 500, 10)))
 
     assert register.find(d.artefact(), [bare]) == []
+
+
+def test_no_control_character_reaches_a_register_entry() -> None:
+    """Review round 1: a cell's NUL, ESC or DEL is dropped and a tab is a space, as in a sheet's values
+    (14 stores the entries; PostgreSQL refuses a NUL)."""
+    d = Sheets()
+    placed_frame(d, frame_block(d), (0, 0), {2: "A-00"})
+    rows = (("A-\x0001", "SITE\x00\tPLAN\x7f", "1:200", "R\x1b0"), *ROWS[1:])
+    _draw_register(d, (100.0, 500.0), rows=rows)
+    artefact = d.artefact()
+
+    entries = register.find(artefact, find(artefact, None, DEFAULT))
+
+    first = entries[0]
+    assert (first.number, first.title, first.revision_mark) == ("A-01", "SITE PLAN", "R0")
+    assert len(entries) == len(rows)

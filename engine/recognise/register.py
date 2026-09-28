@@ -36,7 +36,7 @@ from functools import partial
 from engine.read.anchor import DwgAnchor
 from engine.read.artefact import ReadArtefact
 from engine.recognise import sheets as sheet_finder
-from engine.recognise.sheets import MAX_FIELD, _Labels, _normal, _Placed, sequence
+from engine.recognise.sheets import MAX_FIELD, _Labels, _normal, _Placed, _plain, sequence
 from engine.recognise.types import (
     Box,
     RegisterEntry,
@@ -254,7 +254,7 @@ def _number(cell: _Cell, conventions: SheetConventions) -> bool:
 
 
 def _joined(name: SheetField, cells: list[_Cell]) -> str | None:
-    text = " ".join(" ".join(c.text.shown.split()) for c in sorted(cells, key=lambda c: c.u0))
+    text = " ".join(" ".join(_plain(c.text.shown).split()) for c in sorted(cells, key=lambda c: c.u0))
     if not text or len(text) > MAX_FIELD[name] or not any(ch.isalnum() for ch in text):
         return None
     return text

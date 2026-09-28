@@ -211,6 +211,20 @@ def _visible(text: str) -> str:
     return "".join(c for c in text if unicodedata.category(c) != "Cf")
 
 
+_CONTROLS = dict.fromkeys((*range(0x20), 0x7F)) | dict.fromkeys((0x09, 0x0A, 0x0B, 0x0C, 0x0D), " ")
+
+
+def _plain(text: str) -> str:
+    """The text without C0 control characters or DEL, a tab or line break a space: a drawing's text
+    may hold any (11's `decode` keeps NUL, ESC and DEL), none belongs in a value, and PostgreSQL
+    refuses a NUL in text (review round 1)."""
+    return text.translate(_CONTROLS)
+
+
+def _has_control(text: str) -> bool:
+    return any(ord(c) < 0x20 or c == "\x7f" for c in text)
+
+
 # The result --------------------------------------------------------------------------------------------
 
 
@@ -863,8 +877,9 @@ class _Segmenter:
     # Layouts
 
     def _layout_blocks(self) -> Iterator[tuple[str, str]]:
-        """Each layout once, in tab order: a name that is empty or all whitespace, or one given twice,
-        is counted and left out."""
+        """Each layout once, in tab order: a name that is empty or all whitespace, one holding a
+        control character (AutoCAD allows none; the name is its sheet's key, so never cleaned), or
+        one given twice, is counted and left out."""
         order = {name: i for i, name in enumerate(self.artefact.summary.layouts)}
         blocks = sorted(
             ((h, b.layout) for h, b in self.artefact.blocks.items() if b.layout not in (None, "Model")),
@@ -875,6 +890,8 @@ class _Segmenter:
             assert name is not None
             if not _visible(name).strip():
                 self.counts["layout_unnamed"] += 1
+            elif _has_control(name):
+                self.counts["layout_name_unreadable"] += 1
             elif name in seen:
                 self.counts["layout_repeated"] += 1
             else:
@@ -1006,7 +1023,7 @@ class _Segmenter:
         if match is None:
             return None
         mark = (match.group(1) if match.re.groups else match.group(0)) or ""
-        mark = _visible(mark).strip()
+        mark = _visible(_plain(mark)).strip()
         return Sourced(mark, ValueSource.FILE_NAME) if mark else None
 
 
@@ -1260,7 +1277,7 @@ def _value(name: SheetField, text: str) -> str | None:
     """A field's value as stated, its lines joined by a space; none when it is longer than the
     field's bound, shows nothing, is no more than punctuation (an empty field's dash), or is a
     number or a date with no digit."""
-    shown = " ".join(text.split())
+    shown = " ".join(_plain(text).split())
     if len(shown) > MAX_FIELD[name] or not any(c.isalnum() for c in _visible(shown)):
         return None
     digit = any(unicodedata.category(c) == "Nd" for c in shown)
@@ -1310,7 +1327,7 @@ def judgement(
 
 
 def _fact(text: str) -> str:
-    return " ".join(_visible(text).split())[:MAX_FACT]
+    return " ".join(_visible(_plain(text)).split())[:MAX_FACT]
 
 
 # Texts on a sheet, for the register (13's `register.find`) ---------------------------------------------

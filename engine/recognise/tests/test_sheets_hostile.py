@@ -9,6 +9,7 @@ import math
 import os
 import pathlib
 from collections.abc import Iterator
+from dataclasses import replace
 
 import pytest
 
@@ -16,9 +17,22 @@ from engine.geometry import placement
 from engine.read.artefact import AnyEntity
 from engine.recognise import sheets
 from engine.recognise.sheets import MAX_FIELD, MAX_RAW_TEXT, find, segment
-from engine.recognise.tests.drawing import DEFAULT, Sheets, frame_block, rectangle, value_at
+from engine.recognise.tests.drawing import (
+    DEFAULT,
+    Sheets,
+    frame_block,
+    label_at,
+    rectangle,
+    value_at,
+)
 from engine.recognise.tests.test_sheets import placed_frame
-from engine.recognise.types import SheetField
+from engine.recognise.types import (
+    SheetCandidate,
+    SheetField,
+    SheetLocation,
+    Sourced,
+    ValueSource,
+)
 
 
 @contextlib.contextmanager
@@ -361,3 +375,83 @@ def test_huge_and_tiny_coordinates_do_not_crash_the_reading() -> None:
     numbers = sorted(s.number.value for s in result.sheets if s.number)
     assert numbers == ["S-01", "S-02"]
     assert all(s.location.box is not None and math.isfinite(s.location.box.x1) for s in result.sheets)
+
+
+# Control characters: 11's `decode` keeps NUL, ESC and DEL, and PostgreSQL refuses a NUL, so one such
+# text made 14 store none of a file's sheets (review round 1). No value, fact or key holds a C0 control
+# character or DEL; a tab is a space.
+
+CONTROLS = "".join(chr(c) for c in (*range(0x20), 0x7F))
+
+
+def _plain(value: str) -> None:
+    assert not any(c in CONTROLS for c in value), repr(value)
+
+
+@pytest.mark.parametrize("route", ["attrib", "TEXT", "MTEXT", "burst"])
+def test_no_control_character_reaches_a_value_by_any_route(route: str) -> None:
+    d = Sheets()
+    title, number, date = "BEAM\x00LAYOUT\tPLAN\x1b\x7f", "S-\x0007\x01", "12.08.\x7f2026\x1f"
+    if route == "attrib":
+        insert = d.insert(frame_block(d, attdefs=("TITLE", "SHEET_NO", "DATE")), (0, 0, 0))
+        for tag, text in (("TITLE", title), ("SHEET_NO", number), ("DATE", date)):
+            d.attrib(insert, text, value_at(0), tag=tag)
+    elif route == "burst":
+        block = frame_block(d, labels=(), attdefs=("TITLE", "SCALE", "SHEET_NO", "DATE"))
+        d.text("SCALE", label_at(5), owner=block)
+        d.text("JOB NO", label_at(6), owner=block)
+        placed_frame(d, block, (500, 0), {0: title, 2: number, 3: date}, kind="TEXT")
+    else:
+        placed_frame(d, frame_block(d), (0, 0), {0: title, 2: number, 3: date}, kind=route)
+
+    (sheet,) = find(d.artefact(), None, DEFAULT)
+
+    assert sheet.title is not None
+    assert sheet.title.value == "BEAMLAYOUT PLAN"
+    assert sheet.number is not None
+    assert sheet.number.value == "S-07"
+    assert sheet.issue_date is not None
+    assert sheet.issue_date.value == "12.08.2026"
+
+
+def test_no_control_character_reaches_a_revision_mark_from_the_file_name() -> None:
+    own = replace(DEFAULT, revision_mark_pattern=r"_(R.{1,4})\Z")
+    d = Sheets(source_name="KR_R\x1b2\x7f\x08.dwg")
+    placed_frame(d, frame_block(d), (0, 0), {2: "S-01"})
+
+    (sheet,) = find(d.artefact(), None, own)
+
+    assert sheet.revision_mark == Sourced("R2", ValueSource.FILE_NAME)
+
+
+def test_no_control_character_reaches_a_judgement_fact() -> None:
+    sheet = SheetCandidate(
+        SheetLocation(layout="L"),
+        title=Sourced("BEAM\x00 LAYOUT\x7f", ValueSource.TITLE_BLOCK_TEXT),
+        discipline=Sourced("structural", ValueSource.FILE),
+    )
+
+    request = sheets.judgement(sheet, ["SECTION\tA-A\x1b", "\x00\x01"])
+
+    assert request is not None
+    for fact in request.facts.values():
+        _plain(fact)
+    assert request.facts["title"] == "BEAM LAYOUT"
+    assert request.facts["view_titles"] == '["SECTION A-A"]'
+
+
+@pytest.mark.parametrize("name", ["PLOT\x00A", "PLOT\x1b", "\x7fPLOT"])
+def test_a_layout_named_with_a_control_character_is_left_out_and_counted(name: str) -> None:
+    """A layout's name is its sheet's key, which must name the layout exactly, so it is never cleaned:
+    AutoCAD allows no control character in one, and a name holding one is left out, counted."""
+    d = Sheets()
+    for i in range(5):
+        d.line((i, 0), (i, 1))
+    tab = d.layout(name)
+    _looking(d, tab)
+    d.insert(frame_block(d), (0, 0, 0), owner=tab)
+
+    result = segment(d.artefact(), None, DEFAULT)
+
+    assert result.sheets == []
+    assert result.counts["layout_name_unreadable"] == 1
