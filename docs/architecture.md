@@ -121,9 +121,10 @@ a module is added, never per feature.
   - `vextrus` owns the tables and runs migrations, so a constraint added to a populated table validates
     every row. The web and worker processes connect as `vextrus_app` (not a superuser, no BYPASSRLS,
     owning nothing) and refuse to start as anyone else: a startup check, tested in CI.
-  - Cross-tenant reads go only through three named SECURITY DEFINER functions, `user_developers`,
-    `staff_developers` and `invitation_by_token`: owned by `vextrus`, `search_path` pinned, EXECUTE
-    only to `vextrus_app`, each tested.
+  - Cross-tenant reads go only through named SECURITY DEFINER functions (six in M0: `platform`'s
+    `user_developers`, `staff_developers`, `invitation_by_token` and `ended_access`; `projects`'
+    `ended_access_projects` and `invitation_projects`, which read `platform` only through its own):
+    owned by `vextrus`, `search_path` pinned, EXECUTE only to `vextrus_app`, each tested.
   - The tenant middleware opens `transaction.atomic()` and sets `app.tenant_id`, `app.user_id` and
     `app.library_id` with `is_local = true`; the job step runner does the same per transaction.
   - `vextrus_app` has no TRUNCATE grant (TRUNCATE bypasses row-level security); tests flush through an
