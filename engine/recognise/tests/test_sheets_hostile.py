@@ -170,6 +170,23 @@ def test_a_layout_named_empty_or_invisible_is_left_out_and_counted(name: str) ->
     assert result.counts["layout_unnamed"] == 1
 
 
+def test_a_viewport_whose_values_the_reader_lost_is_not_taken_for_autocads_own() -> None:
+    """The reader lost one viewport's values on a synthetic file: taken for the main viewport, its
+    layout read as a title block alone and was dropped; the finder cannot tell what it shows, so a
+    titled layout with such a viewport is proposed out as blank."""
+    d = Sheets()
+    tab = d.layout("S-102")
+    d.entity("VIEWPORT", {}, owner=tab)
+    d.insert(frame_block(d), (0, 0, 0), owner=tab)
+
+    result = segment(d.artefact(), None, DEFAULT)
+
+    (sheet,) = result.sheets
+    assert sheet.location.layout == "S-102"
+    assert sheet.exclusion is not None
+    assert result.counts["viewport_unreadable"] == 1
+
+
 def test_a_layout_name_given_twice_is_read_once() -> None:
     d = Sheets()
     for i in range(5):

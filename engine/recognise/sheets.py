@@ -924,15 +924,17 @@ class _Segmenter:
 
     def _windows(self, viewports: list[Entity]) -> list[Bounds | None]:
         """The model region each of a layout's viewports shows (none where its values cannot be
-        read), AutoCAD's main viewport left out, as the renderer does."""
+        read: the layout then cannot be told empty), AutoCAD's main viewport left out by the
+        renderer's rule; a viewport whose values the reader lost is never taken for the main one."""
         out: list[Bounds | None] = []
         first = True
         for viewport in viewports:
             values = dict(viewport.values)
-            main = is_main_viewport(values, first)
+            readable = values.get("center") is not None and values.get("view_center_point") is not None
+            main = readable and is_main_viewport(values, first)
             first = False
             if main:
-                continue
+                continue  # a viewport the reader could not read is not taken for AutoCAD's own
             if self.viewports_asked >= MAX_VIEWPORTS:
                 self.counts["viewport_budget"] += 1
                 out.append(None)
