@@ -70,9 +70,19 @@ def coverage_problems(
     tables = cursor.fetchall()
     names = {name for _oid, name, _enabled, _forced in tables}
     problems = [
+        f"{name}: on the global allowlist without its reason"
+        for name, reason in sorted(global_tables.items())
+        if not reason.strip()
+    ]
+    problems.extend(
+        f"{index}: on the index exceptions without its reason"
+        for index, reason in sorted(index_exceptions.items())
+        if not reason.strip()
+    )
+    problems.extend(
         f"{name}: on the global allowlist but no such table (stale entry)"
         for name in sorted(set(global_tables) - names)
-    ]
+    )
     checked = []
     indexes_seen: set[str] = set()
     for oid, name, enabled, forced in tables:
