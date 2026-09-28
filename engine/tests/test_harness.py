@@ -14,6 +14,7 @@ import stat
 import subprocess
 import sys
 import textwrap
+import time
 import token
 import tokenize
 import uuid
@@ -1208,6 +1209,68 @@ def test_a_fork_chain_a_file_leaves_is_stopped_and_never_charged_to_the_next_fil
     assert running_after == []
     assert second["left_behind"] == 0
     assert second["left_running"] is False
+
+
+# P, started by this helper, moves into a session or a process group of its own, starts Q and ends
+# without being reaped. The helper is no subreaper: Q goes to init, so the helper's only child is P's
+# zombie, and only a kill of the group P leads reaches Q. (Q is init's to reap, so the count `_clear`
+# returns cannot include it here; under the launcher, a subreaper, it would.)
+CLEAR_HELPER = """
+import json, os, sys, time
+
+where, token = sys.argv[1], sys.argv[2]
+r, w = os.pipe()
+p = os.fork()
+if p == 0:
+    os.close(r)
+    if where == "session":
+        os.setsid()
+    else:
+        os.setpgid(0, 0)
+    q = os.fork()
+    if q == 0:  # holds none of the helper's pipes, so a Q that survives cannot hold up the test
+        null = os.open(os.devnull, os.O_RDWR)
+        for fd in (0, 1, 2):
+            os.dup2(null, fd)
+        os.execv(sys.executable, [sys.executable, "-c", "import time; time.sleep(600)", token])
+    os.write(w, str(q).encode())
+    os._exit(0)
+os.close(w)
+q = int(os.read(r, 20))
+while open(f"/proc/{p}/stat").read().rsplit(")", 1)[1].split()[0] != "Z":
+    time.sleep(0.001)
+
+from engine import harness
+
+killed, running = harness._clear(None)
+print(json.dumps({"q": q, "running": running}))
+"""
+
+
+@pytest.mark.parametrize("where", ["session", "group"])
+def test_clear_kills_what_a_zombie_orphans_group_still_holds(where: str) -> None:
+    token = f"q-{uuid.uuid4().hex}"
+    env = {**os.environ, "PYTHONPATH": str(harness.ROOT)}
+    try:
+        done = subprocess.run(
+            [sys.executable, "-c", CLEAR_HELPER, where, token],
+            capture_output=True,
+            text=True,
+            check=True,
+            env=env,
+            timeout=60,
+        )
+        found = json.loads(done.stdout)
+        for _ in range(500):  # a killed Q is gone once init reaps it
+            if not processes_naming(token):
+                break
+            time.sleep(0.01)
+        q_running = processes_naming(token)
+    finally:
+        stop_processes_naming(token)
+
+    assert found["running"] is False
+    assert q_running == [], f"Q ({found['q']}) outlived _clear"
 
 
 def test_the_runs_identity_comes_from_the_environment_the_check_sets(
