@@ -1,0 +1,31 @@
+msgid ""
+msgstr ""
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: en\n"
+
+msgid "platform.jobs.cancelled"
+msgstr "Cancelled"
+
+msgid "platform.jobs.done"
+msgstr "Done"
+
+msgid "platform.jobs.failed"
+msgstr "Could not finish after {tries, plural, one {# try} other {# tries}}. Nothing is lost: try again, or tell Vextrus."
+
+msgid "platform.jobs.retrying"
+msgstr "It was interrupted. Trying again by itself (try {attempt} of {tries})."
+
+msgid "platform.jobs.running"
+msgstr "Working"
+
+msgid "platform.jobs.running_again"
+msgstr "Working (try {attempt} of {tries})"
+
+msgid "platform.jobs.stopping"
+msgstr "Stopping…"
+
+msgid "platform.jobs.waiting"
+msgstr "Waiting to start"
