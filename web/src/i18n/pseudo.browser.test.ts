@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { i18n } from '@lingui/core'
+import { i18n, type Messages } from '@lingui/core'
+import { isolatePlaceholders } from './isolate'
 import { activateLanguage } from './activate'
 import { englishMessages } from './catalogues'
 import { ENGLISH } from './languages'
@@ -68,6 +69,43 @@ function xs(el: HTMLElement, part: string): number[] {
 }
 
 const ascending = (v: number[]) => v.every((x, i) => i === 0 || x > v[i - 1]!)
+
+describe('every value in a message is isolated, in every language (design gate N1; m0-screens §1.7)', () => {
+  const FSI = '⁨'
+  const PDI = '⁩'
+  const probe = {
+    probe: ['Reading sheet ', ['sheet'], ' of ', ['sheets']],
+    days: [['n', 'plural', { offset: undefined, one: ['Ends in ', '#', ' day'], other: ['Ends in ', '#', ' days'] }]],
+  }
+
+  it('wraps each placeholder and a plural’s # in FSI … PDI', () => {
+    expect(isolatePlaceholders(probe as unknown as Messages)).toEqual({
+      probe: ['Reading sheet ', FSI, ['sheet'], PDI, ' of ', FSI, ['sheets'], PDI],
+      days: [['n', 'plural', { offset: undefined, one: ['Ends in ', FSI, '#', PDI, ' day'], other: ['Ends in ', FSI, '#', PDI, ' days'] }]],
+    })
+  })
+
+  it('leaves English as it reads, apart from the invisible isolates', () => {
+    activateLanguage(ENGLISH, { ...englishMessages(), ...(probe as unknown as Messages) })
+    expect(i18n._('probe', { sheet: 12, sheets: 38 })).toBe(`Reading sheet ${FSI}12${PDI} of ${FSI}38${PDI}`)
+    expect(i18n._('days', { n: 2 })).toBe(`Ends in ${FSI}2${PDI} days`)
+  })
+
+  it('draws "sheet 12 of 38" in order in the pseudo language: each number whole, 12 before 38 reading right to left', () => {
+    activateLanguage(PSEUDO_RTL, pseudoTranslate({ ...englishMessages(), ...(probe as unknown as Messages) }))
+    const p = document.createElement('p')
+    p.style.fontSize = '20px'
+    p.textContent = i18n._('probe', { sheet: 12, sheets: 38 })
+    document.body.append(p)
+    const twelve = xs(p, '12')
+    const thirtyEight = xs(p, '38')
+    expect(ascending(twelve)).toBe(true)
+    expect(ascending(thirtyEight)).toBe(true)
+    // Right to left: "sheet" is rightmost, then 12, "of", 38.
+    expect(twelve[0]!).toBeGreaterThan(thirtyEight[0]!)
+    p.remove()
+  })
+})
 
 describe('the pseudo language catches a length left unisolated (design gate M3; m0-screens §1.8)', () => {
   const LENGTH = '14′-6″'

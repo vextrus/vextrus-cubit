@@ -13,6 +13,14 @@ import { ToastProvider, useToast } from './Toast'
 import { TooltipProvider } from './primitives/tooltip'
 import { Command, CommandItem, CommandList } from './primitives/command'
 import { ProgressLine } from './ProgressLine'
+import { KeyCombo } from './Kbd'
+import { activatePseudoRtl } from '@/i18n/pseudo'
+import { activateLanguage } from '@/i18n/activate'
+import { englishMessages } from '@/i18n/catalogues'
+import { ENGLISH } from '@/i18n/languages'
+
+/** Text as read: the invisible isolates around each value (src/i18n/isolate.ts) removed. */
+const plain = (s: string) => s.replace(/[\u2066-\u2069]/g, '').replace(/\s+/g, ' ').trim()
 
 function wrap(ui: React.ReactNode) {
   return render(
@@ -26,6 +34,7 @@ function wrap(ui: React.ReactNode) {
 
 afterEach(async () => {
   await page.viewport(1440, 900)
+  activateLanguage(ENGLISH, englishMessages())
   vi.useRealTimers()
 })
 
@@ -37,7 +46,7 @@ describe('StatusMark and Count (m0-screens §3)', () => {
         <StatusMark status="confirmed" compact />
       </>,
     )
-    expect(screen.getByText('Question Q3')).toBeVisible()
+    expect(screen.getByText('Question Q3', { normalizer: plain })).toBeVisible()
     const compact = screen.getByText('Confirmed')
     expect(compact).toHaveClass('sr-only')
     expect(compact.parentElement).toHaveAttribute('title', 'Confirmed')
@@ -65,6 +74,18 @@ describe('StatusMark and Count (m0-screens §3)', () => {
   })
 })
 
+describe('Kbd (m0-screens §3)', () => {
+  it('shows key names as a keyboard prints them, left to right, in any language (design gate m13)', () => {
+    activatePseudoRtl()
+    wrap(<KeyCombo combo="Ctrl PageDown" />)
+    const ctrl = screen.getByText('Ctrl')
+    expect(screen.getByText('PageDown')).toBeInTheDocument()
+    const combo = ctrl.closest('bdi')!
+    expect(combo).toHaveAttribute('dir', 'ltr')
+    expect(getComputedStyle(combo).unicodeBidi).toBe('isolate')
+  })
+})
+
 describe('ProgressLine (m0-screens §3)', () => {
   it('names its progress bar by its status text (design gate m2)', () => {
     wrap(
@@ -85,14 +106,14 @@ describe('PhoneNotice and NarrowNotice below the widths m0-screens §1.5 sets', 
     await page.viewport(1280, 800)
     wrap(<DesktopOnly>{app}</DesktopOnly>)
     expect(screen.getByText('The screen')).toBeVisible()
-    expect(screen.queryByText(/built for 1280 px/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/built for 1280 px/, { normalizer: plain })).not.toBeInTheDocument()
   })
 
   it('puts the narrow notice above the screen from 640 to 1279 px', async () => {
     await page.viewport(1100, 800)
     wrap(<DesktopOnly>{app}</DesktopOnly>)
     expect(screen.getByText('The screen')).toBeVisible()
-    expect(screen.getByText(/This screen is built for 1280 px or wider/)).toBeVisible()
+    expect(screen.getByText(/This screen is built for 1280 px or wider/, { normalizer: plain })).toBeVisible()
   })
 
   it('replaces the screen with the phone notice under 640 px', async () => {
@@ -101,9 +122,25 @@ describe('PhoneNotice and NarrowNotice below the widths m0-screens §1.5 sets', 
     wrap(<DesktopOnly onSignOut={signOut}>{app}</DesktopOnly>)
     expect(screen.queryByText('The screen')).not.toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Vextrus needs a desktop' })).toBeVisible()
-    expect(screen.getByText('Open it on a screen 1280 px wide or more. Your work is saved; nothing is lost.')).toBeVisible()
+    expect(screen.getByText('Open it on a screen 1280 px wide or more. Your work is saved; nothing is lost.', { normalizer: plain })).toBeVisible()
     await userEvent.click(screen.getByRole('button', { name: 'Sign out' }))
     expect(signOut).toHaveBeenCalledOnce()
+  })
+
+  it('keeps the widths as values, so they read in order in a right-to-left language (design gate m12)', async () => {
+    activatePseudoRtl()
+    await page.viewport(390, 844)
+    wrap(<DesktopOnly onSignOut={() => {}}>{app}</DesktopOnly>)
+    const body = screen.getByText(/1280/)
+    const range = document.createRange()
+    const at = [...body.childNodes].flatMap((n) => (n.nodeType === Node.TEXT_NODE ? [n as Text] : [])).find((n) => n.data.includes('1280'))!
+    const i = at.data.indexOf('1280')
+    const xs = [0, 1, 2, 3].map((k) => {
+      range.setStart(at, i + k)
+      range.setEnd(at, i + k + 1)
+      return range.getBoundingClientRect().left
+    })
+    expect(xs).toEqual([...xs].sort((a, b) => a - b))
   })
 })
 
@@ -134,7 +171,7 @@ describe('ReadOnlyChip and AccessChip wording (m0-screens §3)', () => {
     ['a Guest with 1 day left', { vextrus: false, projects: ['KR-01'], until, daysLeft: 1 }, 'Access ends in 1 day'],
   ] as const)('words the chip for %s', (_, props, words) => {
     wrap(<AccessChip developer={developer} {...props} projects={props.projects === 'all' ? 'all' : [...props.projects]} />)
-    expect(screen.getByTestId('access-chip')).toHaveTextContent(words)
+    expect(plain(screen.getByTestId('access-chip').textContent ?? '')).toBe(words)
   })
 
   it('isolates project codes and turns amber with 3 days or fewer left', () => {
@@ -157,7 +194,9 @@ describe('ReadOnlyChip and AccessChip wording (m0-screens §3)', () => {
     wrap(<AccessChip developer={developer} {...props} projects={props.projects === 'all' ? 'all' : [...props.projects]} />)
     screen.getByTestId('access-chip').focus()
     const tooltip = await screen.findByRole('tooltip')
-    expect(tooltip.textContent?.replace(/[⁦-⁩]/g, '')).toBe(words)
+    expect(tooltip.textContent?.replace(/[\u2060\u2066-\u2069]/g, '')).toBe(words)
+    // A project code never breaks at its hyphen (design gate m4b): a word joiner follows it.
+    for (const code of props.projects === 'all' ? [] : props.projects) expect(tooltip.textContent).toContain(code.replace('-', '-\u2060'))
   })
 
   it('shows nothing for a member with every project and no end date', () => {

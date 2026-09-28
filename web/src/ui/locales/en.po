@@ -44,6 +44,10 @@ msgstr "Extend the selection down"
 msgid "Undo"
 msgstr "Undo"
 
+#: src/ui/DesktopOnly.tsx
+msgid "This screen is built for {width} px or wider. Some of it may be cut off; scroll sideways to see it."
+msgstr "This screen is built for {width} px or wider. Some of it may be cut off; scroll sideways to see it."
+
 #: src/ui/AccessChip.tsx
 msgid "Vextrus access to {developer} ends on {day}."
 msgstr "Vextrus access to {developer} ends on {day}."
@@ -64,29 +68,13 @@ msgstr "The keys that work here now."
 msgid "Vextrus access to {list} at {developer} until {date}"
 msgstr "Vextrus access to {list} at {developer} until {date}"
 
-#: src/ui/Kbd.tsx
-msgid "Ctrl"
-msgstr "Ctrl"
-
 #: src/ui/DesktopOnly.tsx
 msgid "Sign out"
 msgstr "Sign out"
 
-#: src/ui/Kbd.tsx
-msgid "PageDown"
-msgstr "PageDown"
-
 #: src/ui/AccessChip.tsx
 msgid "Vextrus access to {developer} until {date}"
 msgstr "Vextrus access to {developer} until {date}"
-
-#: src/ui/Kbd.tsx
-msgid "Tab"
-msgstr "Tab"
-
-#: src/ui/Kbd.tsx
-msgid "Home"
-msgstr "Home"
 
 #: src/ui/AccessChip.tsx
 msgid "Access to {list} at {developer} until {date}"
@@ -112,21 +100,9 @@ msgstr "Confirmed"
 msgid "First row"
 msgstr "First row"
 
-#: src/ui/DesktopOnly.tsx
-msgid "Open it on a screen 1280 px wide or more. Your work is saved; nothing is lost."
-msgstr "Open it on a screen 1280 px wide or more. Your work is saved; nothing is lost."
-
 #: src/ui/AccessChip.tsx
 msgid "Vextrus access to {codes} at {developer} ends on {day}."
 msgstr "Vextrus access to {codes} at {developer} ends on {day}."
-
-#: src/ui/Kbd.tsx
-msgid "Alt"
-msgstr "Alt"
-
-#: src/ui/DesktopOnly.tsx
-msgid "This screen is built for 1280 px or wider. Some of it may be cut off; scroll sideways to see it."
-msgstr "This screen is built for 1280 px or wider. Some of it may be cut off; scroll sideways to see it."
 
 #: src/ui/AccessChip.tsx
 msgid "{days, plural, =0 {Access ends today} one {Access ends in # day} other {Access ends in # days}}"
@@ -144,21 +120,9 @@ msgstr "Vextrus access covers {codes} at {developer}."
 msgid "Vextrus access to {developer}."
 msgstr "Vextrus access to {developer}."
 
-#: src/ui/Kbd.tsx
-msgid "Shift"
-msgstr "Shift"
-
-#: src/ui/Kbd.tsx
-msgid "Space"
-msgstr "Space"
-
 #: src/ui/StatusMark.tsx
 msgid "Proposal"
 msgstr "Proposal"
-
-#: src/ui/Kbd.tsx
-msgid "PageUp"
-msgstr "PageUp"
 
 #: src/ui/StatusMark.tsx
 msgid "Question {tag}"
@@ -167,6 +131,10 @@ msgstr "Question {tag}"
 #: src/ui/AccessChip.tsx
 msgid "{first}, {second} and {third}"
 msgstr "{first}, {second} and {third}"
+
+#: src/ui/DesktopOnly.tsx
+msgid "Open it on a screen {width} px wide or more. Your work is saved; nothing is lost."
+msgstr "Open it on a screen {width} px wide or more. Your work is saved; nothing is lost."
 
 #: src/ui/List.tsx
 msgid "Last row"
@@ -184,10 +152,6 @@ msgstr "Select the row, or take it out"
 msgid "Access to {developer} until {date}"
 msgstr "Access to {developer} until {date}"
 
-#: src/ui/Kbd.tsx
-msgid "Del"
-msgstr "Del"
-
 #: src/ui/ReadOnlyChip.tsx
 msgid "You can look at the Takeoff but not change it."
 msgstr "You can look at the Takeoff but not change it."
@@ -203,10 +167,6 @@ msgstr "Your access to {developer} ends on {day}."
 #: src/ui/AccessChip.tsx
 msgid "Your access covers {codes} at {developer}."
 msgstr "Your access covers {codes} at {developer}."
-
-#: src/ui/Kbd.tsx
-msgid "End"
-msgstr "End"
 
 #: src/ui/AccessChip.tsx
 msgid "Vextrus access to {developer}"
@@ -236,10 +196,6 @@ msgstr "Vextrus access to {list} at {developer}"
 #: src/ui/glyphs.tsx
 msgid "Vextrus"
 msgstr "Vextrus"
-
-#: src/ui/Kbd.tsx
-msgid "Esc"
-msgstr "Esc"
 
 #: src/ui/List.tsx
 msgid "Previous row"

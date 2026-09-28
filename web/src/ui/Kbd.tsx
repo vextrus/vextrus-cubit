@@ -1,7 +1,4 @@
 import type { ReactNode } from 'react'
-import { msg } from '@lingui/core/macro'
-import { useLingui } from '@lingui/react'
-import type { MessageDescriptor } from '@lingui/core'
 import { cn } from './cn'
 import { normaliseCombo } from './keys/registry'
 
@@ -19,19 +16,15 @@ export function Kbd({ children, className }: { children: ReactNode; className?: 
   )
 }
 
-/** Key names that are words go through the catalogue; arrows and ↵ are signs. */
-const NAMED: Record<string, MessageDescriptor | string> = {
-  Ctrl: msg`Ctrl`,
-  Alt: msg`Alt`,
-  Shift: msg`Shift`,
-  Escape: msg`Esc`,
-  Space: msg`Space`,
-  Tab: msg`Tab`,
-  Home: msg`Home`,
-  End: msg`End`,
-  PageUp: msg`PageUp`,
-  PageDown: msg`PageDown`,
-  Delete: msg`Del`,
+/*
+ * Key names are notation, as a keyboard prints them (design gate m13): keycaps stay Latin on an
+ * Arabic or Bangla keyboard, so the names are never translated, and a combination is isolated left
+ * to right. What a key does (its label in the ? overlay) is a message.
+ */
+/* eslint-disable lingui/no-unlocalized-strings -- keycap names, not prose */
+const NAMED: Record<string, string> = {
+  Escape: 'Esc',
+  Delete: 'Del',
   Enter: '↵',
   ArrowUp: '↑',
   ArrowDown: '↓',
@@ -40,18 +33,16 @@ const NAMED: Record<string, MessageDescriptor | string> = {
   Backspace: '⌫',
   '-': '−',
 }
+/* eslint-enable lingui/no-unlocalized-strings */
 
 /** A combination as Kbd chips: `Ctrl K`, `Shift F6`, `↵`. Takes the map's written form. */
 export function KeyCombo({ combo, className }: { combo: string; className?: string }) {
-  const { _ } = useLingui()
   const parts = normaliseCombo(combo).split(/\+(?=.)/)
   return (
-    <span className={cn('inline-flex items-center gap-0.5 whitespace-nowrap', className)} dir="ltr">
-      {parts.map((part) => {
-        const named = NAMED[part]
-        const text = named === undefined ? part : typeof named === 'string' ? named : _(named)
-        return <Kbd key={part}>{text}</Kbd>
-      })}
-    </span>
+    <bdi dir="ltr" className={cn('inline-flex items-center gap-0.5 whitespace-nowrap', className)}>
+      {parts.map((part) => (
+        <Kbd key={part}>{NAMED[part] ?? part}</Kbd>
+      ))}
+    </bdi>
   )
 }

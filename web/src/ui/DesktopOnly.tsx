@@ -27,6 +27,7 @@ function useMedia(query: string): boolean {
 
 /** "Vextrus needs a desktop": fills its container (the whole screen under 640 px). */
 export function PhoneNotice({ onSignOut, className }: { onSignOut?: () => void; className?: string }) {
+  const width = DESKTOP_FROM_PX
   return (
     <main className={cn('flex min-h-full flex-col items-center justify-center gap-4 bg-background px-8 py-12 text-center', className)}>
       <BrandMark size={32} />
@@ -34,7 +35,7 @@ export function PhoneNotice({ onSignOut, className }: { onSignOut?: () => void; 
         <Trans>Vextrus needs a desktop</Trans>
       </h1>
       <p className="max-w-[34ch] text-md text-ink-secondary">
-        <Trans>Open it on a screen 1280 px wide or more. Your work is saved; nothing is lost.</Trans>
+        <Trans>Open it on a screen {width} px wide or more. Your work is saved; nothing is lost.</Trans>
       </p>
       {onSignOut ? (
         <Button variant="ghost" onClick={onSignOut} className="text-ink-link underline underline-offset-2">
@@ -47,9 +48,10 @@ export function PhoneNotice({ onSignOut, className }: { onSignOut?: () => void; 
 
 /** The 28 px bar above a page seen at 640–1279 px. */
 export function NarrowNotice({ className }: { className?: string }) {
+  const width = DESKTOP_FROM_PX
   return (
     <div role="note" className={cn('flex h-notice-bar items-center border-b border-border bg-question-surface px-3 text-xs text-foreground', className)}>
-      <Trans>This screen is built for 1280 px or wider. Some of it may be cut off; scroll sideways to see it.</Trans>
+      <Trans>This screen is built for {width} px or wider. Some of it may be cut off; scroll sideways to see it.</Trans>
     </div>
   )
 }

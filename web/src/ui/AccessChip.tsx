@@ -77,7 +77,8 @@ export function AccessChip({ vextrus, developer, projects, until, daysLeft, clas
     const last = items[items.length - 1]!
     return t`${head} and ${last}`
   }
-  const codes = projects === 'all' ? '' : joinList(projects.map(isolateLtr))
+  // A code never breaks at its hyphen (a word joiner follows it; design gate m4b).
+  const codes = projects === 'all' ? '' : joinList(projects.map((c) => isolateLtr(c.replace(/-/g, '-\u2060'))))
   const day = (until ?? '').replace(/ /g, ' ')
   let tooltip: string
   if (vextrus) {
