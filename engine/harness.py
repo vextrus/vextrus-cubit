@@ -45,10 +45,17 @@ file's peak is its own, never the harness's or an earlier file's. The launcher i
 subreaper: what a file's child leaves running is killed when it ends and counted (`left_behind`; its
 memory is not in the peak). A child that runs past `--file-timeout` is killed with its group. A child
 that dies leaves its stages as far as it got: the stage it was in is `failed`, the rest `skipped`, and
-stages whose results never reached the harness `failed`. Nothing one file does stops the run. Each
-file's process gets the harness's environment with BLAS pinned to one thread (`ONE_THREAD`; the
-owner's ruling, 28 Sep 2026): numpy, which ezdxf imports, would otherwise start a spinning OpenBLAS
-thread per core, seconds of CPU per file on many cores before any reading (#66).
+stages whose results never reached the harness `failed`. Nothing one file does stops the run.
+
+**A file's process gets only the environment it needs** (`CHILD_ENV`), since it reads hostile input:
+no key (`TYPESAFE_API_KEY`), database address or other variable of the caller's reaches it. It gets
+`PATH`, `HOME`, `TMPDIR` and `LANG` where the caller has them; `PYTHONPATH`, the checkout first; the
+two variables its stages read, `VEXTRUS_LIBREDWG` (where the pinned LibreDWG is) and
+`VEXTRUS_SANDBOX` (so the reader refuses by name, as it would anywhere); and BLAS pinned to one thread
+(`ONE_THREAD`; the owner's ruling, 28 Sep 2026): numpy, which ezdxf imports, would otherwise start a
+spinning OpenBLAS thread per core, seconds of CPU per file on many cores before any reading (#66).
+The run's identity (`VEXTRUS_RUN_ID` and the others) is read by the harness before any file is, and
+never reaches one.
 
 **The file's Discipline default** comes from its path and the conventions' Disciplines (the engine
 holds no list of them): a Discipline whose key is a word of the path (a folder named for it), or one of
@@ -438,10 +445,12 @@ _LAUNCHER = "from engine.harness import launcher_main; launcher_main()"
 _PR_SET_CHILD_SUBREAPER = 36
 ONE_THREAD = {"OPENBLAS_NUM_THREADS": "1", "OMP_NUM_THREADS": "1", "MKL_NUM_THREADS": "1"}
 """What each file's process runs BLAS with (the owner's ruling, 28 Sep 2026: "Pin to 1 thread")."""
+CHILD_ENV = ("PATH", "HOME", "TMPDIR", "LANG", "PYTHONPATH", "VEXTRUS_LIBREDWG", "VEXTRUS_SANDBOX")
+"""The caller's variables a file's process gets, where set; nothing else of the caller's reaches it."""
 
 
 def _child_env() -> dict[str, str]:
-    env = dict(os.environ) | ONE_THREAD
+    env = {name: os.environ[name] for name in CHILD_ENV if name in os.environ} | ONE_THREAD
     env["PYTHONPATH"] = os.pathsep.join(filter(None, [str(ROOT), env.get("PYTHONPATH")]))
     return env
 
