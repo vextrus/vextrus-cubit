@@ -188,6 +188,25 @@ def test_an_export_with_a_failed_stage_is_read_again_every_run(world: World) -> 
     assert len(world.sandbox_runs) == 2
 
 
+def test_a_file_whose_process_was_killed_before_any_stage_is_a_failure_too(world: World) -> None:
+    # Killed before its first stage (or between two), a file's stages are all skipped, none failed
+    # (engine/harness.py, _file_stages): only its process's status says it timed out.
+    document = json.loads((FIXTURES / "export-fakes.json").read_text())
+    killed = document["files"][0]
+    killed["process"] |= {"status": "timed_out", "exit_code": None, "signal": 9}
+    ended = "the file's process ended before this stage (it ran past the file timeout)"
+    killed["stages"] = {
+        name: {**report, "state": "skipped", "error": ended} for name, report in killed["stages"].items()
+    }
+    world.commit("main", {FAKE_EXPORT: json.dumps(document)})
+
+    run("main", no_post=True, m=world.machine())
+    run("main", no_post=True, m=world.machine())
+
+    assert len(world.sandbox_runs) == 2
+    assert "Failed on the head: the file's process on 2 files (timed_out)" in world.said
+
+
 def test_mains_run_failed_by_the_machine_is_not_the_next_runs_baseline(world: World) -> None:
     # Main's run fails for a reason outside the code (a timeout, an OOM kill, SandboxUnavailable);
     # the machine is then fixed. A non-engine PR must not take that failure as main's, nor as its own.

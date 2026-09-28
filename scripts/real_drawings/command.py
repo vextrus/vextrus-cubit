@@ -9,7 +9,8 @@ the schema, against its own, which the run says so the diff is read). It measure
 way when main's code hash is not cached, and diffs each Development Set's export against main's under
 the fixed matching, printing the counts gained, lost and changed per measure; the item list, which
 holds drawing text, stays under the owner's cache. Exports are cached by (code hash, the sandbox's
-version, set content); one with a failed stage is never reused, and `--fresh` reads both runs again.
+version, set content); one with a failed stage or a file's failed process is never reused, and
+`--fresh` reads both runs again.
 
 A posting run is a PR without `--no-post`: under the drop folder's lock, the owner accepts or rejects
 the changes (a lost item only with a reason), the command writes the run's own folder in the drop
@@ -243,17 +244,17 @@ def measure(
         name: m.cache / "exports" / hashed / m.sandbox_version / f"{name}-{digest}.json"
         for name, digest in digests.items()
     }
-    # A cached export with a failed stage is never reused: the failure may be the machine's (a timeout,
-    # an OOM kill, SandboxUnavailable), not the code's, and reused it would stand as main's run, and as a
-    # non-engine PR's own, until the code hash changed. A failure the code causes repeats, at one run's
-    # cost.
+    # A cached export with a failed stage, or a file whose process did not end ok, is never reused: the
+    # failure may be the machine's (a timeout, an OOM kill, SandboxUnavailable), not the code's, and
+    # reused it would stand as main's run, and as a non-engine PR's own, until the code hash changed. A
+    # failure the code causes repeats, at one run's cost.
     if fresh:
         m.say(f"{head.target}: --fresh, so read again whatever the cache holds")
     elif all(path.exists() for path in cached.values()):
         if not any(_failed(path) for path in cached.values()):
             m.say(f"{head.target}: code hash {hashed[:12]} is cached; not run again")
             return hashed, cached
-        m.say(f"{head.target}: the cached run of code hash {hashed[:12]} had a failed stage; read again")
+        m.say(f"{head.target}: the cached run of code hash {hashed[:12]} had a failure; read again")
     requirements = work / "requirements.txt"
     m.fetch(checkout, m.cache / "wheels", python, requirements)
     scratch = work / "out"
@@ -326,10 +327,12 @@ def report(
 
 def failed_text(exports: Mapping[str, Path]) -> str:
     """The stages that failed in these exports, by stage, file count and error kind (never the error's
-    message, which may quote a drawing); empty when none failed."""
+    message, which may quote a drawing), and the files whose process did not end ok, by status (shown,
+    not counted); empty when none failed."""
     found: Counter[tuple[str, str]] = Counter()
     for path in exports.values():
-        found += failures(json.loads(path.read_bytes()))
+        document = json.loads(path.read_bytes())
+        found += failures(document) + _ended(document)
     return "; ".join(
         f"{stage} ({kind})"
         if stage.startswith("set ")
@@ -359,8 +362,19 @@ def verdict(
 
 
 def _failed(export: Path) -> bool:
-    """Whether any stage failed in this export (a file's or the set's)."""
-    return bool(failures(json.loads(export.read_bytes())))
+    """Whether anything failed in this export: a stage (a file's or the set's) or a file's process."""
+    document = json.loads(export.read_bytes())
+    return bool(failures(document) or _ended(document))
+
+
+def _ended(export: Mapping[str, Any]) -> Counter[tuple[str, str]]:
+    """The files whose process did not end ok, by status. A process killed before its first stage, or
+    between two, leaves its stages skipped, none failed (engine/harness.py), so only this shows it."""
+    return Counter(
+        ("the file's process", status)
+        for file in export.get("files") or []
+        if (status := (file.get("process") or {}).get("status")) not in (None, "ok")
+    )
 
 
 def _pin(checkout: Path, name: str) -> str:

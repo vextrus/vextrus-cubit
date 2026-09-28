@@ -49,9 +49,11 @@ unseen; it does not prove a reading right. That rests on the owner's walk.
    or `[tool.uv]`, installs the locked wheels offline inside bwrap, runs the harness on both sets,
    checks each export against main's schema (against the head's own when the head changes it, which it
    prints: then read the schema's diff) and diffs it against main's run (cached by code hash, the
-   sandbox's version and the set's content; an export with a failed stage is never reused).
+   sandbox's version and the set's content; an export with a failed stage, or a file whose process
+   timed out or failed, is never reused).
 2. Read "Failed on the head" and "Failed on main" first: a stage that failed (by stage, file count and
-   error kind) means that run read less than it should, however empty the table looks. A failed run
+   error kind), or "the file's process" (timed out or failed, by file count), means that run read less
+   than it should, however empty the table looks. A failed run
    is never taken from the cache, so the failure happened in this run. If it may be the machine's (a
    timeout or an OOM kill while the machine was busy, `SandboxUnavailable`), run again. `--fresh`
    reads the head and main again even when their clean exports are cached: use it when something the
