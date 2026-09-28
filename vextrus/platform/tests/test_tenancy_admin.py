@@ -205,7 +205,7 @@ def test_the_service_refuses_a_second_invitation_and_one_with_no_developer(
 ) -> None:
     with tenancy.acting_in(None, user_id=staff.pk), pytest.raises(tenancy.FirstInvitationRefused):
         tenancy.invite_first_md("kamal@shapla-homes.example", invited_by=staff)
-    with tenancy.acting_in(shapla, user_id=staff.pk):
+    with tenancy.acting_in(shapla):
         tenancy.invite_first_md("kamal@shapla-homes.example", invited_by=staff)
         with pytest.raises(tenancy.FirstInvitationRefused) as refused:
             tenancy.invite_first_md("rumana@shapla-homes.example", invited_by=staff)
@@ -253,7 +253,7 @@ def test_staff_cannot_rename_the_developer_they_act_in(staff_client: Client, sha
 
 
 def invite(staff: User, developer: uuid.UUID, email: str) -> tenancy.Invitation:
-    with tenancy.acting_in(developer, user_id=staff.pk):
+    with tenancy.acting_in(developer):
         return tenancy.invite_first_md(email, invited_by=staff)
 
 

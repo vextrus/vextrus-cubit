@@ -132,13 +132,19 @@ def acting_in(tenant_id: uuid.UUID | None, *, user_id: uuid.UUID | None = None) 
     """Act in a Developer inside a new atomic block (a job step, the seed, a test).
 
     On leaving normally, the settings and `current()` go back to what they were; on an error the
-    block rolls back, and the settings with it. The Membership is looked up when the user holds a
-    current one in that Developer.
+    block rolls back, and the settings with it.
+
+    With no user (a job step of the system, the seed), it acts in the Developer. With a user, it acts
+    in the Developer only through that user's current Membership there, as `enter_request` does: a
+    user whose Membership there lapsed, was revoked, has not started or never existed acts in no
+    tenant, seeing no tenant's rows and writing none, never the whole tenant with no scope (07).
     """
     before = _current.get()
     with transaction.atomic():
         _set(Tenancy(user_id=user_id))
         membership = _membership(user_id, tenant_id)
+        if user_id is not None and membership is None:
+            tenant_id = None
         try:
             yield _enter(Tenancy(user_id=user_id, tenant_id=tenant_id, membership=membership))
         finally:
