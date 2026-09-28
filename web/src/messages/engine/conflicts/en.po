@@ -11,7 +11,7 @@ msgstr "{copies, plural, =2 {Two sheets are} other {# sheets are}} numbered {num
 
 #. The views' Discipline, subject and storey are keys the Question (21c) words through the product's names; the words here use the layer only.
 msgid "engine.conflicts.same_storey"
-msgstr "{views, plural, =2 {Two plans} other {# plans}} on different sheets draw the same thing on the same storey{layer, select, top {, top layer} bottom {, bottom layer} other {}}"
+msgstr "{views, plural, =2 {Two plans on different sheets} other {# plans on more than one sheet}} draw the same thing on the same storey{layer, select, top {, top layer} bottom {, bottom layer} other {}}"
 
 #. A title on sheets whose numbers do not run on (m0-screens §5: one title on consecutive numbers is a continuation, with no Question).
 msgid "engine.conflicts.same_title"

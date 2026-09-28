@@ -112,7 +112,7 @@ def test_the_conflicts_format_as_m0_screens_words_them() -> None:
         "3 sheets are titled \u201cColumn schedule\u201d but are not all numbered one after the other",
         "Two plans on different sheets draw the same thing on the same storey, top layer",
         "Two plans on different sheets draw the same thing on the same storey, bottom layer",
-        "3 plans on different sheets draw the same thing on the same storey",
+        "3 plans on more than one sheet draw the same thing on the same storey",
     ]
     assert render(ALL["engine.conflicts.same_number"], {"number": "S-07", "copies": 2}) == (
         "Two sheets are numbered S-07"  # m0-screens \u00a75, verbatim
@@ -134,13 +134,17 @@ def test_the_drawing_list_findings_and_refusals_format() -> None:
     gaps = [said(r.finding) for r in register.check(reading, recognisers=READERS) if r.finding]
 
     skips = "No drawing list, and the numbering skips from"
+    ask = "Paste the drawing list, or ask the consultant whether those sheets were sent."
     assert gaps == [
-        f"{skips} 01 to 04: 2 numbers are missing.",
-        f"{skips} 04 to S-10: 5 numbers are missing.",
-        f"{skips} S-10 to S-5000001: 4,999,990 numbers are missing.",
+        f"{skips} 01 to 04: 2 numbers are missing. {ask}",
+        f"{skips} 04 to S-10: 5 numbers are missing. {ask}",
+        f"{skips} S-10 to S-5000001: 4,999,990 numbers are missing. {ask}",
     ]
     one: dict[str, str | int] = {"after": "13", "before": "15", "missing": 1}
-    assert render(ALL["engine.register_check.gap"], one).endswith("15: 1 number is missing.")
+    assert render(ALL["engine.register_check.gap"], one).endswith(
+        "15: 1 number is missing. Paste the drawing list, or ask the consultant whether that sheet was "
+        "sent."
+    )
     assert render(ALL["engine.register_check.not_found"], {"number": "S-13"}) == (
         "S-13 is on the drawing list but in no file"  # m0-screens \u00a75, verbatim
     )
@@ -166,8 +170,8 @@ def test_the_plot_findings_format() -> None:
     words = [said(r.finding) for r in plot_pages.check(reading, recognisers=READERS) if r.finding]
 
     assert words == [
-        "Page 12 of the PDF shows a sheet that no DWG has",
-        "S-02 is in the drawings but on no page of the PDF",
+        "Page 12 of the PDF matches no sheet in the DWG files: it may show a sheet they do not have.",
+        "S-02 is in the DWG files but on no page of the PDF",
     ]
 
 
@@ -198,9 +202,10 @@ def test_the_storey_finding_formats_each_side(
     [result] = storey_titles.check(reading, recognisers=READERS)
 
     assert result.finding is not None
-    middle = "names \u201c3RD, 5TH & 7TH FLOOR\u201d, but its plans name other storeys"
-    end = " Check which is right before the sheet is confirmed."
-    assert said(result.finding) == "The title of " + expected.format(middle) + end
+    middle = "names \u201c3RD, 5TH & 7TH FLOOR\u201d, but its plans do not agree"
+    end = " The sheet counts its plans' storeys; correct them if the title is right."
+    start = "The title of " if number else "The sheet titled "
+    assert said(result.finding) == start + expected.format(middle) + end
 
 
 def test_the_coverage_findings_format_for_every_kind_and_naming() -> None:

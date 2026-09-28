@@ -503,3 +503,8 @@ def test_the_check_and_the_numbering_do_linear_work() -> None:
 
     small, large = work(1_000), work(2_000)
     assert large < 2.2 * small, (small, large)
+
+
+def test_a_hyphenated_number_with_its_title_is_one_sheet_as_the_refusal_says() -> None:
+    assert refusal("01-57")["code"] == "engine.register_check.range_hyphen"
+    assert parsed("01-57 GENERAL NOTES").entries == (ListEntry("01-57", 1, "GENERAL NOTES"),)

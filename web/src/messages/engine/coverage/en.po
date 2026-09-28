@@ -7,7 +7,7 @@ msgstr ""
 
 #. engine/messages/coverage.py (ticket 19b): a view no step will read and nothing excludes, named as m0-screens 6.11's "Unaccounted" list names it ("S-20 8th floor beam layout").
 msgid "engine.coverage.unaccounted"
-msgstr "{named, select, number {{sheet} {view}} title {{view}, on “{sheet}”,} other {{view}, on a sheet with no number or title,}} is unaccounted: no step will read it and it is not excluded. Exclude it with a reason, or its Discipline cannot be confirmed."
+msgstr "{named, select, number {{sheet} {view}} title {{view}, on “{sheet}”,} other {{view}, on a sheet with no number or title,}} is unaccounted: no step will read it and it is not excluded. Until it is excluded with a reason, its Discipline cannot be confirmed."
 
 msgid "engine.coverage.unaccounted_untitled"
-msgstr "A {kind, select, plan {plan} section {section} elevation {elevation} schedule {schedule} detail {detail} notes {notes view} legend {legend} title_block {title block} key_plan {key plan} perspective {3D view} other {view}} with no title, {named, select, number {on {sheet}} title {on “{sheet}”} other {on a sheet with no number or title}}, is unaccounted: no step will read it and it is not excluded. Exclude it with a reason, or its Discipline cannot be confirmed."
+msgstr "A {kind, select, plan {plan} section {section} elevation {elevation} schedule {schedule} detail {detail} notes {notes view} legend {legend} title_block {title block} key_plan {key plan} perspective {3D view} other {view}} with no title, {named, select, number {on {sheet}} title {on “{sheet}”} other {on a sheet with no number or title}}, is unaccounted: no step will read it and it is not excluded. Until it is excluded with a reason, its Discipline cannot be confirmed."
