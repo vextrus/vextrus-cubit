@@ -472,3 +472,52 @@ def test_failures_name_the_stage_the_file_count_and_the_error_kind_never_its_mes
 )
 def test_the_error_kind_is_a_class_name_or_a_fixed_word(error: str | None, kind: str) -> None:
     assert error_kind(error) == kind
+
+
+# The fixed thresholds, at their edges ----------------------------------------------------------------
+# Each pair of boxes shares its lower-left corner and its width, so its IoU is the height ratio:
+# [0, 0, 100, 100] against [0, 0, 100, h] is h / 100, exactly representable at 90 and 80.
+
+
+@pytest.mark.parametrize(("height", "joins"), [(90.0, True), (89.99, False)])
+def test_a_sheets_frame_joins_at_iou_09_and_not_just_under(height: float, joins: bool) -> None:
+    old = export(dwg(SHA_A, sheet(box=[0, 0, 100, 100])))
+    new = export(dwg(SHA_A, sheet(box=[0, 0, 100, height])))
+
+    assert counts(old, new, "sheets") == ((0, 0, 0) if joins else (1, 1, 0))
+
+
+@pytest.mark.parametrize(("height", "joins"), [(80.0, True), (79.99, False)])
+def test_a_views_box_joins_at_iou_08_and_not_just_under(height: float, joins: bool) -> None:
+    old = export(dwg(SHA_A, sheet("L1", views=[view([0, 0, 100, 100])])))
+    new = export(dwg(SHA_A, sheet("L1", views=[view([0, 0, 100, height])])))
+
+    assert counts(old, new, "views") == ((0, 0, 0) if joins else (1, 1, 0))
+
+
+@pytest.mark.parametrize(("height", "joins"), [(80.0, True), (79.99, False)])
+def test_a_register_row_joins_at_iou_08_and_not_just_under(height: float, joins: bool) -> None:
+    old = export(dwg(SHA_A, sheet("L1", register=[row([0, 0, 100, 100])])))
+    new = export(dwg(SHA_A, sheet("L1", register=[row([0, 0, 100, height])])))
+
+    assert counts(old, new, "register") == ((0, 0, 0) if joins else (1, 1, 0))
+
+
+@pytest.mark.parametrize(
+    ("after", "expected"),
+    [
+        (0.5051, (0, 0, 1)),  # up 0.0051: changed
+        (0.5049, (0, 0, 0)),  # up 0.0049: still
+        (0.4951, (0, 0, 0)),  # down 0.0049: still
+        (0.4949, (0, 0, 1)),  # down 0.0051: changed
+        (0.4901, (0, 0, 1)),  # down 0.0099: changed, not lost
+        (0.4899, (0, 1, 0)),  # down 0.0101: lost
+    ],
+)
+def test_render_f1_changes_past_0005_and_is_lost_past_a_001_fall(
+    after: float, expected: tuple[int, int, int]
+) -> None:
+    old = export(dwg(SHA_A, sheet("L1", render_f1=0.5)))
+    new = export(dwg(SHA_A, sheet("L1", render_f1=after)))
+
+    assert counts(old, new, "render_f1") == expected
