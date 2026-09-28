@@ -6,6 +6,6 @@
 version = "1.4.4"
 sdist_sha256 = "da5a5e0e6bdbb6656f9c017b47edc7eafceb419d61a2b5de64ffb344c168e593"
 constraints_sha256 = "ae96d091d823c96510596f3ab847c8959d5887a3d8f3b07e75792cfea7477e2b"  # toolchain/ezdxf-build-constraints.txt
-wheel = "ezdxf-1.4.4-py3-none-any.whl"
-wheel_sha256 = "666edda631ba717270293b734f5d58dd97a1d1aba4787187f09d0cc584645865"
-release = ""  # the GitHub release holding the compiled wheel ("toolchain-ezdxf-1.4.4"); empty: the registry's
+wheel = "ezdxf-1.4.4-cp314-cp314-linux_x86_64.whl"
+wheel_sha256 = "239669206b7544b436d32fed20b58630c2a54f2c0e7336f961854715d0d07815"
+release = "toolchain-ezdxf-1.4.4"  # the GitHub release holding the compiled wheel ("toolchain-ezdxf-1.4.4"); empty: the registry's
