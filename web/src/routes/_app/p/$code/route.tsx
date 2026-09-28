@@ -11,6 +11,12 @@ import { projectFor, sessionQuery } from '@/app/session'
 import { ProjectPending } from '@/app/routes'
 
 export const Route = createFileRoute('/_app/p/$code')({
+  // Checked before any child's beforeLoad (the index's redirect), so a project the member may not
+  // open is refused where it was asked for, never redirected into.
+  beforeLoad: async ({ context, params }) => {
+    const session = await context.queryClient.ensureQueryData(sessionQuery)
+    if (!projectFor(session, params.code)) throw notFound({ routeId: '/_app/p/$code' })
+  },
   loader: async ({ context, params }) => {
     const session = await context.queryClient.ensureQueryData(sessionQuery)
     const project = projectFor(session, params.code)

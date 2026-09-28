@@ -228,7 +228,7 @@ describe('the global keys (§2.2)', () => {
     const everywhere = within(overlay).getByRole('region', { name: 'Everywhere' })
     expect(within(everywhere).getAllByRole('listitem').map((li) => li.textContent)).toEqual(
       expect.arrayContaining([
-        expect.stringContaining('Open the keys overlay'),
+        expect.stringContaining('Open or close the keys overlay'),
         expect.stringContaining('Jump to a project, or a place in this one'),
         expect.stringContaining('Move to the next region'),
         expect.stringContaining('Move to the previous region'),
@@ -248,6 +248,108 @@ describe('the global keys (§2.2)', () => {
     expect(order).toEqual(['top-bar', 'rail', 'toolbar', 'canvas', 'inspector', 'status-bar'])
     await userEvent.keyboard('{Shift>}{F6}{/Shift}')
     expect(document.activeElement?.closest('[data-region]')?.getAttribute('data-region')).toBe('inspector')
+  })
+})
+
+describe('the keys overlay opens and closes with ? (§2.2), and lists Esc (§2.1)', () => {
+  it('? opens it, ? again closes it; Esc is listed under Everywhere and closes it too', async () => {
+    const { keyMap } = await takeoff()
+    await userEvent.keyboard('?')
+    const overlay = await screen.findByRole('dialog', { name: 'Keys' })
+    const everywhere = within(overlay).getByRole('region', { name: 'Everywhere' })
+    const listed = within(everywhere).getAllByRole('listitem').map((li) => clean(li.textContent))
+    expect(listed).toEqual(expect.arrayContaining([expect.stringContaining('Open or close the keys overlay'), expect.stringContaining('Close the top-most layer')]))
+    await userEvent.keyboard('?')
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Keys' })).toBeNull())
+    await userEvent.keyboard('?')
+    await screen.findByRole('dialog', { name: 'Keys' })
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Keys' })).toBeNull())
+    expectKeyMapSound(keyMap)
+  })
+})
+
+describe('a project’s address opens its current Takeoff Step (screens.md 5: nothing opens looking empty)', () => {
+  it.each([['/p/KR-01'], ['/p/KR-01/'], ['/p/KR-01/takeoff'], ['/p/KR-01/takeoff/']])('%s goes to /p/KR-01/takeoff/1, with Takeoff current', async (path) => {
+    const { router } = await mountApp(path)
+    await waitFor(() => expect(router.state.location.pathname).toBe('/p/KR-01/takeoff/1'))
+    await waitFor(() => expect(document.querySelector('[data-region="rail"]')).not.toBeNull())
+    const nav = within(region('top-bar')).getByRole('navigation', { name: 'Project' })
+    expect(within(nav).getByRole('link', { name: 'Takeoff' })).toHaveAttribute('aria-current', 'page')
+  })
+
+  it('marks Takeoff current on every takeoff address', async () => {
+    await takeoff('/p/KR-01/takeoff/7')
+    const nav = within(region('top-bar')).getByRole('navigation', { name: 'Project' })
+    expect(within(nav).getByRole('link', { name: 'Takeoff' })).toHaveAttribute('aria-current', 'page')
+    expect(within(nav).getByRole('link', { name: 'Drawing Set' })).not.toHaveAttribute('aria-current')
+  })
+
+  it('shows another Developer’s project as Page not found, never redirecting into it', async () => {
+    const { router } = await mountApp('/p/MG-01')
+    expect(await screen.findByText(/There is nothing at this address/)).toBeVisible()
+    expect(router.state.location.pathname).toBe('/p/MG-01')
+  })
+})
+
+describe('focus stays visible (§4.1, §8.7; WCAG 2.4.7)', () => {
+  it.each([
+    [1440, 900],
+    [1280, 800],
+  ])('draws every F6 stop’s ring inside the viewport and inside its region at %i×%i', async (w, h) => {
+    await page.viewport(w, h)
+    await takeoff()
+    const seen: string[] = []
+    for (let i = 0; i < 6; i++) {
+      await userEvent.keyboard('{F6}')
+      const el = document.activeElement as HTMLElement
+      const regionEl = el.closest<HTMLElement>('[data-region]')!
+      seen.push(regionEl.getAttribute('data-region')!)
+      const style = getComputedStyle(el)
+      expect(el.matches(':focus-visible'), `${seen.at(-1)}: focus-visible`).toBe(true)
+      expect(style.outlineStyle, `${seen.at(-1)}: a ring`).not.toBe('none')
+      const reach = parseFloat(style.outlineWidth) + parseFloat(style.outlineOffset)
+      const r = el.getBoundingClientRect()
+      const ring = { left: r.left - reach, top: r.top - reach, right: r.right + reach, bottom: r.bottom + reach }
+      const inside = box(regionEl)
+      expect(ring.left, `${seen.at(-1)}: left`).toBeGreaterThanOrEqual(Math.max(0, inside.left))
+      expect(ring.top, `${seen.at(-1)}: top`).toBeGreaterThanOrEqual(Math.max(0, inside.top))
+      expect(ring.right, `${seen.at(-1)}: right`).toBeLessThanOrEqual(Math.min(w, inside.right))
+      expect(ring.bottom, `${seen.at(-1)}: bottom`).toBeLessThanOrEqual(Math.min(h, inside.bottom))
+    }
+    expect(seen).toEqual(['top-bar', 'rail', 'toolbar', 'canvas', 'inspector', 'status-bar'])
+  })
+})
+
+describe('the gate’s minors', () => {
+  it('shows /projects as a plain Page not found until 20a builds it, with no link to itself', async () => {
+    const { router } = await mountApp('/projects')
+    expect(await screen.findByText(/There is nothing at this address/)).toBeVisible()
+    expect(router.state.location.pathname).toBe('/projects')
+    expect(screen.queryByRole('link', { name: 'Your projects' })).toBeNull()
+    expect(document.querySelectorAll('[data-frame]')).toHaveLength(1)
+  })
+
+  it('names Jump to’s search box', async () => {
+    await takeoff()
+    await userEvent.keyboard('{Control>}k{/Control}')
+    const jump = await screen.findByRole('dialog')
+    expect(within(jump).getByRole('combobox', { name: 'Jump to' })).toBeInTheDocument()
+  })
+
+  it('gives the canvas screen a main landmark holding the toolbar and the canvas', async () => {
+    await takeoff()
+    const main = screen.getByRole('main')
+    expect(main.contains(region('toolbar'))).toBe(true)
+    expect(main.contains(region('canvas'))).toBe(true)
+  })
+
+  it('announces the ErrorBar: it is an alert', async () => {
+    await takeoff()
+    act(() => onlineManager.setOnline(false))
+    const bar = await screen.findByRole('alert')
+    expect(bar).toHaveAttribute('role', 'alert')
+    act(() => onlineManager.setOnline(true))
   })
 })
 

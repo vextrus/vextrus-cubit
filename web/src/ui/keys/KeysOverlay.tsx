@@ -1,16 +1,25 @@
 /*
  * The ? overlay (docs/design/m0-screens.md §2.1): drawn from the key map, so it lists exactly the
  * keys active where focus was when it opened, grouped "On this screen", "On the sheet", "Everywhere".
- * The shell (ticket 03) binds `?` to open it; the overlay closes itself on Esc.
+ * The shell (ticket 03) binds `?` to open it; the overlay closes itself on Esc, and on `?` again
+ * (m0-screens §2.2, "Open or close"), bound inside its own dialog scope, the only one active while
+ * it is open.
  */
 import { useState } from 'react'
 import { Trans, useLingui } from '@lingui/react/macro'
 import { KeyCombo } from '../Kbd'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../primitives/dialog'
-import { useActiveKeys } from './KeyMapProvider'
+import { useActiveKeys, useKeys } from './KeyMapProvider'
 import type { KeyGroup, RegisteredBinding } from './registry'
 
 const GROUP_ORDER: readonly KeyGroup[] = ['screen', 'sheet', 'global']
+
+/** `?` closes the overlay it opened; mounted inside the dialog's scope. */
+function QuestionMarkCloses({ close }: { close: () => void }) {
+  const { t } = useLingui()
+  useKeys([{ key: '?', label: t`Close the keys overlay`, group: 'global', run: close }])
+  return null
+}
 
 export function KeysOverlay({
   open,
@@ -38,6 +47,7 @@ export function KeysOverlay({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[520px]">
+        <QuestionMarkCloses close={() => onOpenChange(false)} />
         <DialogHeader>
           <DialogTitle>
             <Trans>Keys</Trans>

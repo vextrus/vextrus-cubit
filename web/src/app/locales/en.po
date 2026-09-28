@@ -78,6 +78,10 @@ msgctxt "Takeoff Step"
 msgid "Roof"
 msgstr "Roof"
 
+#: src/app/shell.tsx
+msgid "Open or close the keys overlay"
+msgstr "Open or close the keys overlay"
+
 #: src/app/TopBar.tsx
 msgid "Project"
 msgstr "Project"
@@ -178,6 +182,10 @@ msgstr "Move to the next region"
 msgid "Selection"
 msgstr "Selection"
 
+#: src/app/shell.tsx
+msgid "Close the top-most layer"
+msgstr "Close the top-most layer"
+
 #: src/app/CanvasFrame.tsx
 msgid "Takeoff Steps"
 msgstr "Takeoff Steps"
@@ -242,10 +250,6 @@ msgstr "Proposals ready"
 #: src/app/CanvasFrame.tsx
 msgid "Open the step rail"
 msgstr "Open the step rail"
-
-#: src/app/shell.tsx
-msgid "Open the keys overlay"
-msgstr "Open the keys overlay"
 
 #: src/app/JumpTo.tsx
 msgid "Jump to a project or a place…"

@@ -13,13 +13,13 @@ import { Trans, useLingui } from '@lingui/react/macro'
 import { ChevronRight, Keyboard } from 'lucide-react'
 import { useFormat } from '@/format'
 import { useLanguage } from '@/i18n/activate'
-import { Count, IconButton, ReadOnlyChip, STEP_GLYPHS, ConfirmedGlyph, ProposalGlyph, QuestionGlyph, Empty, buttonVariants, cn, useKeys } from '@/ui'
+import { Count, IconButton, ReadOnlyChip, STEP_GLYPHS, ConfirmedGlyph, ProposalGlyph, QuestionGlyph, Empty, buttonVariants, cn } from '@/ui'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/ui/primitives/tabs'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/primitives/tooltip'
 import { AppLink, PATHS } from './AppLink'
 import { usePerfFlag } from './perf'
 import type { ProjectSummary, Session } from './session'
-import { useShell } from './shell'
+import { useCloseOnEsc, useShell } from './shell'
 import { SlotOutlet } from './slots'
 import { TAKEOFF_STEPS, type TakeoffStep } from './steps'
 
@@ -46,14 +46,14 @@ function StepRail({ project, current }: { project: ProjectSummary; current: Take
   const f = useFormat()
   const language = useLanguage()
   const [open, setOpen] = useState(false)
-  useKeys([{ key: 'Escape', label: t`Close the step rail`, group: 'global', when: () => open, run: () => setOpen(false) }])
+  useCloseOnEsc(open, () => setOpen(false))
   const side = language.dir === 'rtl' ? 'left' : 'right'
   return (
     <nav
       data-region="rail"
       aria-label={t`Takeoff Steps`}
       className={cn(
-        'absolute inset-y-0 start-0 z-(--z-canvas-overlay) flex flex-col border-e border-border bg-chrome transition-[width] duration-(--motion-panel) ease-(--ease)',
+        'focus-inset absolute inset-y-0 start-0 z-(--z-canvas-overlay) flex flex-col border-e border-border bg-chrome transition-[width] duration-(--motion-panel) ease-(--ease)',
         open ? 'w-(--rail-expanded) shadow-3' : 'w-rail',
       )}
     >
@@ -128,7 +128,7 @@ function Toolbar({ session, project, step }: { session: Session; project: Projec
   const s = project.step1
   const excluded = s.excluded
   return (
-    <div data-region="toolbar" className="flex h-toolbar shrink-0 items-center gap-2 overflow-hidden border-b border-border bg-chrome px-2">
+    <div data-region="toolbar" className="focus-inset flex h-toolbar shrink-0 items-center gap-2 overflow-hidden border-b border-border bg-chrome px-2">
       <span className="text-sm whitespace-nowrap text-ink-secondary">
         <Trans>Step {number}</Trans>
       </span>
@@ -155,7 +155,7 @@ function Inspector({ project, step }: { project: ProjectSummary; step: TakeoffSt
   const { t } = useLingui()
   const questions = step.number === 1 ? project.step1.questionsOpen : 0
   return (
-    <aside data-region="inspector" aria-label={t`Inspector`} className="flex w-inspector shrink-0 flex-col border-s border-border bg-chrome">
+    <aside data-region="inspector" aria-label={t`Inspector`} className="focus-inset flex w-inspector shrink-0 flex-col border-s border-border bg-chrome">
       <Tabs defaultValue="selection" className="min-h-0 flex-1">
         <TabsList>
           <TabsTrigger value="selection">
@@ -185,7 +185,7 @@ function StatusBar() {
   const f = useFormat()
   const perf = usePerfFlag()
   return (
-    <footer data-region="status-bar" className="flex h-statusbar shrink-0 items-center gap-4 border-t border-border bg-chrome px-3 text-2xs whitespace-nowrap text-ink-secondary">
+    <footer data-region="status-bar" className="focus-inset flex h-statusbar shrink-0 items-center gap-4 border-t border-border bg-chrome px-3 text-2xs whitespace-nowrap text-ink-secondary">
       <SlotOutlet name="status.start" className="gap-4" />
       <span data-testid="unit-system">{f.unitSystemName}</span>
       <span className="flex-1" />
@@ -202,12 +202,12 @@ export function CanvasFrame({ session, project, step, children }: { session: Ses
         <div className="relative w-rail shrink-0">
           <StepRail project={project} current={step} />
         </div>
-        <div className="flex min-w-0 flex-1 flex-col">
+        <main className="flex min-w-0 flex-1 flex-col">
           <Toolbar session={session} project={project} step={step} />
-          <div data-region="canvas" data-canvas-area="" className="relative min-h-0 flex-1 overflow-hidden bg-background">
+          <div data-region="canvas" data-canvas-area="" className="focus-inset relative min-h-0 flex-1 overflow-hidden bg-background">
             {children}
           </div>
-        </div>
+        </main>
         <Inspector project={project} step={step} />
       </div>
       <StatusBar />

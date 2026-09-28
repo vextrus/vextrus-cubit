@@ -9,7 +9,7 @@ import { useLayoutEffect, useSyncExternalStore, type ReactNode } from 'react'
 import { Trans } from '@lingui/react/macro'
 import { i18n } from '@lingui/core'
 import { onlineManager, useQueryClient, useSuspenseQuery, type QueryClient } from '@tanstack/react-query'
-import { useParams } from '@tanstack/react-router'
+import { useParams, useRouterState } from '@tanstack/react-router'
 import { SearchX } from 'lucide-react'
 import { FormatProvider, type MarketFormat } from '@/format'
 import { activateLanguage, currentLanguage, useLanguage } from '@/i18n/activate'
@@ -106,11 +106,11 @@ export function AppFrame({ children }: { children: ReactNode }) {
 export function PageLayout({ children, panel }: { children: ReactNode; panel?: ReactNode }) {
   return (
     <div className="flex min-h-0 flex-1">
-      <main data-region="page" className="min-w-0 flex-1 overflow-auto">
+      <main data-region="page" className="focus-inset min-w-0 flex-1 overflow-auto">
         <div className="mx-auto w-[1120px] max-w-full py-6">{children}</div>
       </main>
       {panel ? (
-        <aside data-region="panel" className="w-[480px] shrink-0 overflow-auto border-s border-border bg-paper">
+        <aside data-region="panel" className="focus-inset w-[480px] shrink-0 overflow-auto border-s border-border bg-paper">
           {panel}
         </aside>
       ) : null}
@@ -123,9 +123,17 @@ export function PageLayout({ children, panel }: { children: ReactNode; panel?: R
  * one the member was not given, so a project's existence never leaks (docs/plans/M0.md, "Project scope").
  */
 export function NotFound() {
+  // Until 20a builds /projects, "Your projects" would lead back to this same page: no action there.
+  const here = useRouterState({ select: (s) => s.location.pathname })
+  const action =
+    here === PATHS.projects ? undefined : (
+      <AppLink to={PATHS.projects} className={buttonVariants({ variant: 'primary' })}>
+        <Trans>Your projects</Trans>
+      </AppLink>
+    )
   return (
     <PageLayout>
-      <Empty glyph={<SearchX />} action={<AppLink to={PATHS.projects} className={buttonVariants({ variant: 'primary' })}>{<Trans>Your projects</Trans>}</AppLink>}>
+      <Empty glyph={<SearchX />} action={action}>
         <Trans>
           There is nothing at this address. It may have been a link to another Developer’s project, or to a project you have not been given.
         </Trans>

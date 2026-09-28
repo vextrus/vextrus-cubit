@@ -38,3 +38,8 @@ export function stepFor(param: string): TakeoffStep | undefined {
   if (!/^(?:[1-9]|1[0-4])$/.test(param)) return undefined
   return TAKEOFF_STEPS[Number(param) - 1]
 }
+
+/** The step a project opens on: its first step still to confirm. In M0 always Step 1, the only one open. */
+export function currentStep(): TakeoffStep {
+  return TAKEOFF_STEPS.find((s) => s.open) ?? TAKEOFF_STEPS[0]!
+}

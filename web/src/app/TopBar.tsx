@@ -113,7 +113,7 @@ export function TopBar({ session, project }: { session: Session; project: Projec
   const path = useRouterState({ select: (s) => s.location.pathname })
   const until = session.until
   return (
-    <header data-region="top-bar" className="flex h-topbar shrink-0 items-center gap-2 border-b border-border bg-chrome ps-3 pe-2">
+    <header data-region="top-bar" className="focus-inset flex h-topbar shrink-0 items-center gap-2 border-b border-border bg-chrome ps-3 pe-2">
       <AppLink to={PATHS.projects} className="inline-flex size-control items-center justify-center rounded-md">
         <BrandMark size={22} />
       </AppLink>
@@ -124,7 +124,7 @@ export function TopBar({ session, project }: { session: Session; project: Projec
       )}
       {project ? (
         <nav aria-label={t`Project`} className="flex items-stretch">
-          <NavLink to={PATHS.takeoff(project.code, 1)} active={path.includes('/takeoff/')}>
+          <NavLink to={PATHS.takeoff(project.code, 1)} active={/\/takeoff(?:\/|$)/.test(path)}>
             <Trans>Takeoff</Trans>
           </NavLink>
           <NavLink to={PATHS.drawingSet(project.code)} active={path.endsWith('/drawing-set')}>

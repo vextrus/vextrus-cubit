@@ -1,10 +1,11 @@
 /*
  * F6 and Shift F6 (docs/design/m0-screens.md §2.2): focus moves to the next or previous region of the
  * frame (top bar, the step's list or rail, the canvas, the inspector, the status bar), each marked
- * `data-region`, in document order, wrapping round.
+ * `data-region`, in document order, wrapping round. The region itself takes focus, its ring drawn
+ * inside it (`focus-inset`, system.md §7), so no ring falls off the screen or under a neighbour; Tab
+ * then walks into it. A feature may mark the element F6 should land on instead with
+ * `data-region-focus` (22's sheet list), which then draws its own ring inside itself too.
  */
-
-const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select,textarea,[tabindex]:not([tabindex="-1"])'
 
 function visible(el: HTMLElement): boolean {
   return el.getClientRects().length > 0
@@ -17,11 +18,8 @@ export function moveToRegion(step: 1 | -1, root: ParentNode = document): HTMLEle
   const active = document.activeElement
   const current = regions.findIndex((r) => r.contains(active))
   const next = regions[(current + step + regions.length) % regions.length]!
-  const first = [...next.querySelectorAll<HTMLElement>(FOCUSABLE)].find(visible)
-  if (first) first.focus()
-  else {
-    if (!next.hasAttribute('tabindex')) next.tabIndex = -1
-    next.focus()
-  }
+  const target = [...next.querySelectorAll<HTMLElement>('[data-region-focus]')].find(visible) ?? next
+  if (!target.hasAttribute('tabindex')) target.tabIndex = -1
+  target.focus()
   return next
 }
