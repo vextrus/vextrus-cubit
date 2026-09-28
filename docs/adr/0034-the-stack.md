@@ -90,3 +90,9 @@ Bangalore for the beta.
   `toolchain-ezdxf` workflow that builds the wheel once per pin with pinned, hashed build constraints and
   installs it by hash (the real-drawing check builds nothing); if that build fails, the pure wheel is used
   and its speed cost recorded. The toolchain lives under `/opt/vextrus`, outside any home.
+- 28 Sep 2026 (owner's decisions, session 04, on ticket 07): accepting a Vextrus Engineer invitation
+  requires an account marked as Vextrus staff ("Require staff"). So every Vextrus Engineer is staff, and
+  staff can open any Developer in the admin (audited as a DomainEvent the MD sees): an Engineer's
+  invitation, with its chosen Projects and end date, does not limit that. The owner's ruling: "Accept,
+  record it" for M0; limiting staff reach before the beta is #74. The activity API is for the MD and the
+  QS. The owner's ruling: "MD and QS".

@@ -60,9 +60,10 @@ configuration and prose, not code. It must never become the product (docs/postmo
 
 ## Waves (ADR 0025)
 - **Cloud tickets:** one `claude --cloud` command each (it needs a terminal: the orchestrator runs it
-  under `script`), on **account A** (`CLAUDE_CONFIG_DIR=~/.claude-a`); follow-ups go into the running
-  session with `claude -p "<message>" --cloud <session>`. Account B runs the local sessions while its
-  plan lasts (the owner, 28 Sep 2026; the record in the M0 milestone issue, #45). **Cost is not the
+  under `script`); follow-ups go into the running session with `claude -p "<message>" --cloud <session>`.
+  **Accounts:** the owner, 28 Sep 2026 (session 04): "From the next session the local and all cloud
+  sessions will be run on Account B until I told you to switch." So local and cloud sessions run on
+  **account B** (`CLAUDE_CONFIG_DIR=~/.claude-b`; default environment `vextrus`). **Cost is not the
   constraint:** the cloud credit is promotional and cloud sessions continue on the subscription after
   it; what limits a wave is the quality of every merge (the owner, 28 Sep 2026: "focus on producing
   production grade highest code quality on every merge, every wave and every sessions").
