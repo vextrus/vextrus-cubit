@@ -148,6 +148,7 @@ NARROWER = {
     "drawings_sheetrevision": {"SELECT", "INSERT", "DELETE"},  # never moves set, file or place (14)
     "drawings_view": {"SELECT", "INSERT", "DELETE"},  # UPDATE only a decision (14)
     "drawings_statesheet": {"SELECT", "INSERT", "DELETE"},  # never updated (14)
+    "drawings_usedid": {"SELECT", "INSERT"},  # an id once used is never used again (14)
 }
 
 

@@ -719,3 +719,17 @@ class View(models.Model):
 
     def __str__(self) -> str:
         return f"{self.sheet_revision_id} #{self.ordinal}"
+
+
+class UsedId(models.Model):
+    """Every id a Sheet, a printed sheet, a view or a state's map row has had: written by the
+    tables' own trigger at each insert, never changed or deleted (migration 0001). The app may
+    delete those rows (a reading replaces them), so without this an id could come back naming
+    another row, and whatever names it (takeoff's Coverage, placements and Traces) would follow; an
+    id, once used, is never used again."""
+
+    id = models.UUIDField(primary_key=True, editable=False)
+    tenant_id = models.UUIDField(editable=False)
+
+    def __str__(self) -> str:
+        return str(self.id)

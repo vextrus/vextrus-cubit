@@ -43,8 +43,11 @@
 #   again replaces them), so the keys naming a Sheet, a printed sheet or a view RESTRICT, never
 #   deferred (IMMEDIATE): a row something still names cannot be deleted, even to come back under its
 #   id in the same statement, so never made again in another set, Building or place with what names
-#   it following. A row nothing names can be deleted and inserted again, as any new row can: every
-#   insert wall holds for it.
+#   it following.
+# - Those rows' ids are named outside drawings too (takeoff's Coverage, placements and Traces), and
+#   a row nothing in drawings names may still be deleted: so each of their ids is written to
+#   drawings_usedid (insert-only for the app) at its row's insert, and an id found there is refused,
+#   whatever was deleted first and even within one statement. An id, once used, never comes back.
 # - Held by projects, not here: a Building's Project. A Building is named by id (a downward id), and
 #   the triggers check it at each write of a drawings row; projects' own rights decide whether a
 #   Building can move to another Project afterwards (vextrus_app may today delete a Building and
@@ -74,6 +77,7 @@ TENANT_TABLES = (
     "drawings_sheetrevision",
     "drawings_statesheet",
     "drawings_view",
+    "drawings_usedid",
 )
 TABLES = LIBRARY_TABLES + TENANT_TABLES
 
@@ -354,8 +358,41 @@ def _trigger(function, table, columns, checks):
     ]
 
 
-TRIGGERS = [statement for spec in CHECKS for statement in _trigger(*spec)]
-TRIGGERS_REVERSE = [
+# The rows the app may delete (a reading replaces them) and other modules name by id: each id is
+# written to drawings_usedid at its row's insert, and refused if it was ever written before, so an id
+# once used never names another row, whatever was deleted first, even within one statement.
+USED_ID_TABLES = ("drawings_sheet", "drawings_sheetrevision", "drawings_view", "drawings_statesheet")
+USED_ID = [
+    """
+    create function public.drawings_used_id() returns trigger
+    language plpgsql
+    set search_path = pg_catalog, pg_temp
+    as $$
+    begin
+      if exists (select 1 from public.drawings_usedid u where u.id = new.id) then
+        raise exception '% names an id used before', tg_table_name using errcode = '42501';
+      end if;
+      insert into public.drawings_usedid (id, tenant_id) values (new.id, new.tenant_id);
+      return new;
+    end
+    $$
+    """,
+    "revoke all on function public.drawings_used_id() from public",
+    *(
+        f"""
+    create trigger drawings_used_id before insert on public.{table}
+      for each row execute function public.drawings_used_id()
+    """
+        for table in USED_ID_TABLES
+    ),
+]
+USED_ID_REVERSE = [
+    *(f"drop trigger drawings_used_id on public.{table}" for table in reversed(USED_ID_TABLES)),
+    "drop function public.drawings_used_id()",
+]
+
+TRIGGERS = [statement for spec in CHECKS for statement in _trigger(*spec)] + USED_ID
+TRIGGERS_REVERSE = USED_ID_REVERSE + [
     statement
     for function, table, _columns, _checks in reversed(CHECKS)
     for statement in (
@@ -457,8 +494,10 @@ RIGHTS = [
     f"revoke update on drawings_view from {APP}",
     f"grant update ({', '.join(VIEW_COLUMNS)}) on drawings_view to {APP}",
     f"revoke update on drawings_statesheet from {APP}",
+    f"revoke update, delete on drawings_usedid from {APP}",
 ]
 RIGHTS_REVERSE = [
+    f"grant update, delete on drawings_usedid to {APP}",
     f"grant update on drawings_statesheet to {APP}",
     f"revoke update ({', '.join(VIEW_COLUMNS)}) on drawings_view from {APP}",
     f"grant update on drawings_view to {APP}",
@@ -499,6 +538,13 @@ class Migration(migrations.Migration):
                 ('project_id', models.UUIDField(editable=False)),
                 ('name', models.CharField(blank=True, max_length=200)),
                 ('created_at', models.DateTimeField(default=django.utils.timezone.now, editable=False)),
+            ],
+        ),
+        migrations.CreateModel(
+            name='UsedId',
+            fields=[
+                ('id', models.UUIDField(editable=False, primary_key=True, serialize=False)),
+                ('tenant_id', models.UUIDField(editable=False)),
             ],
         ),
         migrations.CreateModel(

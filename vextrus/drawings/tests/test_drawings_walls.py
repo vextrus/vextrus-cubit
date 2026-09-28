@@ -15,7 +15,7 @@ from vextrus.drawings import services
 from vextrus.drawings.tests.conftest import OtherMarket
 from vextrus.platform.services import tenancy
 from vextrus.projects import services as projects
-from vextrus.testing.drawings import QsProject, add, drawing, read_dwg
+from vextrus.testing.drawings import QsProject, add, drawing, read_dwg, sheet_candidate
 from vextrus.testing.tenancy import Member
 
 pytestmark = pytest.mark.django_db
@@ -562,7 +562,9 @@ def test_drawings_holds_no_security_definer_function() -> None:
         " where n.nspname = 'public' and p.proname like 'drawings%%' and p.prosecdef"
     )
     assert rows == []
-    assert len(sql("select 1 from pg_proc where proname like 'drawings%%'")) == 7
+    # The reach checks, one per table that names another row, and the used-id check.
+    assert len(sql("select 1 from pg_proc where proname like 'drawings%%'")) == 8
+    assert sql("select 1 from pg_proc where proname = 'drawings_used_id' and not prosecdef") == [(1,)]
 
 
 def test_a_files_revision_is_one_of_its_own_discipline(dwg: tuple[QsProject, uuid.UUID]) -> None:
@@ -751,7 +753,7 @@ def test_a_sheet_is_never_remade_in_one_statement_in_another_building(qs_project
     member = qs_project.member
     ours = add(member, qs_project.project_id, "KR-STR-R0.dwg", drawing("dwg")).file
     [printed] = read_dwg(member, ours.id, ["S-01"])
-    with member.acting(), refused("drawings_sheetrevision_sheet_own_set"):
+    with member.acting(), refused("drawings_sheetrevision_sheet_own_set", USED_BEFORE):
         remade("drawings_sheet", printed.sheet_id, building_id=None)
 
 
@@ -763,7 +765,11 @@ def test_a_printed_sheet_is_never_remade_in_one_statement_in_another_place(
     [printed] = read_dwg(member, ours.id, ["S-01"])
     with (
         member.acting(),
-        refused("drawings_statesheet_sheet_revision_own_set", "drawings_view_sheet_revision_own_tenant"),
+        refused(
+            "drawings_statesheet_sheet_revision_own_set",
+            "drawings_view_sheet_revision_own_tenant",
+            USED_BEFORE,
+        ),
     ):
         remade("drawings_sheetrevision", printed.id, location_key='{"layout":"ELSEWHERE"}')
 
@@ -779,7 +785,7 @@ def test_a_printed_sheet_is_never_remade_in_one_statement_in_another_set_with_it
         their_set = one(
             "select drawing_set_id from drawings_sheetrevision where id = %s", [their_printed.id]
         )
-        with refused("drawings_view_sheet_revision_own_tenant"):
+        with refused("drawings_view_sheet_revision_own_tenant", USED_BEFORE):
             sql("delete from drawings_statesheet where sheet_revision_id = %s", [printed.id])
             remade(
                 "drawings_sheetrevision",
@@ -806,7 +812,7 @@ def test_a_views_predecessor_is_never_remade_in_one_statement_in_another_set(
     with member.acting():
         earlier = one("select id from drawings_view where sheet_revision_id = %s limit 1", [printed.id])
         sql(VIEW, [uuid.uuid4(), member.developer_id, printed.id, None, earlier])
-        with refused("drawings_view_predecessor_view_own_tenant"):
+        with refused("drawings_view_predecessor_view_own_tenant", USED_BEFORE):
             remade("drawings_view", earlier, sheet_revision_id=their_printed.id, ordinal=77)
 
 
@@ -837,3 +843,121 @@ def test_a_printed_sheet_names_only_a_sheet_of_its_files_building(qs_project: Qs
                 [uuid.uuid4(), member.developer_id, set_id, on_site, ours.id,
                  '{"layout":"Y"}', location, ours.sha256, "1"],
             )  # fmt: skip
+
+
+# An id, once used, is never used again ---------------------------------------------------------------
+
+USED_BEFORE = "names an id used before"
+
+
+def moved(table: str, row_id: Any, **changed: Any) -> None:
+    """The review's sequence: keep a copy of the row, delete it, insert the copy again under its id
+    with some columns changed (whatever named it deleted first)."""
+    sql(f"create temp table kept as select * from {table} where id = %s", [row_id])
+    sql(f"delete from {table} where id = %s", [row_id])
+    if changed:
+        sets = ", ".join(f"{column} = %s" for column in changed)
+        sql(f"update kept set {sets}", list(changed.values()))
+    sql(f"insert into {table} select * from kept")
+
+
+def test_a_views_id_is_never_used_again_on_another_projects_printed_sheet(
+    qs_project: QsProject,
+) -> None:
+    """A view nothing in drawings names (takeoff's placements will): deleted, then inserted again
+    under its id on another Project's printed sheet."""
+    member = qs_project.member
+    ours = add(member, qs_project.project_id, "KR-STR-R0.dwg", drawing("dwg")).file
+    [printed] = read_dwg(member, ours.id, ["S-01"])
+    _theirs, their_printed = their_printed_sheet(member)
+    with member.acting():
+        view = one("select id from drawings_view where sheet_revision_id = %s limit 1", [printed.id])
+        with refused(USED_BEFORE):
+            moved("drawings_view", view, sheet_revision_id=their_printed.id, ordinal=77)
+        with refused(USED_BEFORE):  # the same place, even: a deleted view's id never comes back
+            moved("drawings_view", view)
+
+
+def test_a_printed_sheets_id_is_never_used_again_in_another_projects_set(
+    qs_project: QsProject,
+) -> None:
+    """Its views and map row deleted first (leaves first), then the printed sheet, then it again under
+    its id with the other Project's set, Sheet and file."""
+    member = qs_project.member
+    ours = add(member, qs_project.project_id, "KR-STR-R0.dwg", drawing("dwg")).file
+    [printed] = read_dwg(member, ours.id, ["S-01"])
+    theirs, their_printed = their_printed_sheet(member)
+    with member.acting():
+        their_set = one(
+            "select drawing_set_id from drawings_sheetrevision where id = %s", [their_printed.id]
+        )
+        with refused(USED_BEFORE):
+            sql("delete from drawings_view where sheet_revision_id = %s", [printed.id])
+            sql("delete from drawings_statesheet where sheet_revision_id = %s", [printed.id])
+            moved(
+                "drawings_sheetrevision",
+                printed.id,
+                drawing_set_id=their_set,
+                sheet_id=their_printed.sheet_id,
+                source_file_id=theirs.id,
+                source_sha256=theirs.sha256,
+                location_key="moved",
+                revision_id=None,
+                render_file_id=None,
+                render_key="",
+                plot_file_id=None,
+            )
+
+
+def test_a_map_rows_id_is_never_used_again_naming_another_printed_sheet(qs_project: QsProject) -> None:
+    member = qs_project.member
+    ours = add(member, qs_project.project_id, "KR-STR-R0.dwg", drawing("dwg")).file
+    first, second = read_dwg(member, ours.id, ["S-01", "S-02"])
+    with member.acting():
+        row = one("select id from drawings_statesheet where sheet_revision_id = %s", [first.id])
+        sql("delete from drawings_statesheet where sheet_revision_id = %s", [second.id])
+        with refused(USED_BEFORE):
+            moved("drawings_statesheet", row, sheet_revision_id=second.id)
+
+
+def test_a_sheets_id_is_never_used_again_in_another_building(qs_project: QsProject) -> None:
+    member = qs_project.member
+    ours = add(member, qs_project.project_id, "KR-STR-R0.dwg", drawing("dwg")).file
+    [printed] = read_dwg(member, ours.id, ["S-01"])
+    with member.acting(), refused(USED_BEFORE):
+        sql("delete from drawings_view where sheet_revision_id = %s", [printed.id])
+        sql("delete from drawings_statesheet where sheet_revision_id = %s", [printed.id])
+        sql("delete from drawings_sheetrevision where id = %s", [printed.id])
+        moved("drawings_sheet", printed.sheet_id, building_id=None)
+
+
+def test_an_id_used_by_one_developer_is_never_used_by_another(
+    qs_project: QsProject, sign_in: Callable[..., Member]
+) -> None:
+    """Another Developer cannot see our used ids, and still cannot take one: the table's key holds
+    every Developer's ids."""
+    member = qs_project.member
+    ours = add(member, qs_project.project_id, "KR-STR-R0.dwg", drawing("dwg")).file
+    [printed] = read_dwg(member, ours.id, ["S-01"])
+    with member.acting():
+        view = one("select id from drawings_view where sheet_revision_id = %s limit 1", [printed.id])
+        sql("delete from drawings_view where id = %s", [view])
+    stranger = sign_in(role="qs")
+    with stranger.acting():
+        theirs = projects.create(code="TH-9", name="Theirs")
+    their_file = add(stranger, theirs.id, "T.dwg", drawing("dwg")).file
+    [their_printed] = read_dwg(stranger, their_file.id, ["S-01"])
+    with stranger.acting(), refused("drawings_usedid_pkey", USED_BEFORE):
+        sql(VIEW, [view, stranger.developer_id, their_printed.id, None, None])
+
+
+def test_a_reading_again_gives_its_new_rows_new_ids(qs_project: QsProject) -> None:
+    """The app never reuses an id: a sheet a reading drops and a later reading finds again is a new
+    row."""
+    member = qs_project.member
+    ours = add(member, qs_project.project_id, "KR-STR-R0.dwg", drawing("dwg")).file
+    [first] = read_dwg(member, ours.id, ["S-01"], mark_read=False)
+    with member.acting():
+        services.record_sheets(ours.id, [])
+        [again] = services.record_sheets(ours.id, [sheet_candidate(0, ours.group, number="S-01")])
+    assert again.id != first.id
