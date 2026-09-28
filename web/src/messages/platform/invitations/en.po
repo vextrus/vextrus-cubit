@@ -1,0 +1,82 @@
+msgid ""
+msgstr ""
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: en\n"
+
+msgid "platform.invitations.accepted"
+msgstr "{actor} accepted the invitation"
+
+msgid "platform.invitations.access_ended"
+msgstr "Access for {email} has ended. Renew it from their row under People instead of inviting them again."
+
+msgid "platform.invitations.already_ended"
+msgstr "This access has already ended."
+
+msgid "platform.invitations.already_invited"
+msgstr "{email} already has an invitation not used yet. Copy its link, or withdraw it first."
+
+msgid "platform.invitations.already_member"
+msgstr "{email} is already a member."
+
+msgid "platform.invitations.choose_a_project"
+msgstr "Choose at least one project."
+
+msgid "platform.invitations.end_in_past"
+msgstr "Choose a date after today."
+
+msgid "platform.invitations.engineer_not_staff"
+msgstr "This invitation is for a Vextrus Engineer, so only a Vextrus account can take it. Sign in with yours, or ask whoever sent it to invite you in another role."
+
+msgid "platform.invitations.invalid_email"
+msgstr "Enter an email address, like name@example.com."
+
+msgid "platform.invitations.invited"
+msgstr "{actor} invited {subject} as {role, select, qs {QS} md {MD} guest {a Guest} vextrus_engineer {a Vextrus Engineer} other {a member}}"
+
+msgid "platform.invitations.link_reissued"
+msgstr "{actor} made a new invitation link for {subject}; the old link no longer works"
+
+msgid "platform.invitations.name_required"
+msgstr "Enter your name."
+
+msgid "platform.invitations.no_end_date"
+msgstr "This access has no end date to renew."
+
+msgid "platform.invitations.no_longer_open"
+msgstr "This invitation is no longer open: it was used, withdrawn or has run out. Invite them again if they still need access."
+
+msgid "platform.invitations.not_yours_to_change"
+msgstr "You can change only the access of a Vextrus Engineer you invited. Ask an MD to change this."
+
+msgid "platform.invitations.not_yourself"
+msgstr "You can't change your own access. Ask an MD to change it."
+
+msgid "platform.invitations.projects_not_yours"
+msgstr "You can give access only to projects you can open yourself."
+
+msgid "platform.invitations.projects_set"
+msgstr "{actor} changed which projects {subject} can open"
+
+msgid "platform.invitations.renewed"
+msgstr "{actor} renewed {subject}'s access"
+
+msgid "platform.invitations.revoked"
+msgstr "{actor} ended {subject}'s access"
+
+msgid "platform.invitations.role_not_yours"
+msgstr "As QS you can invite only a Vextrus Engineer, not {role, select, qs {another QS} md {an MD} guest {a Guest} other {this role}}."
+
+msgid "platform.invitations.sign_in_first"
+msgstr "{email} already has an account. Sign in with it, then open this link again."
+
+msgid "platform.invitations.unusable"
+msgstr "This invitation can no longer be used. Ask whoever sent it for a new one."
+
+msgid "platform.invitations.withdrawn"
+msgstr "{actor} withdrew the invitation to {subject}"
+
+msgid "platform.invitations.wrong_account"
+msgstr "This invitation is for {email}. Sign out, then open the link again and sign in as {email}."

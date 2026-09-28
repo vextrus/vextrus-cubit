@@ -6,7 +6,8 @@ when the act is shown; the event itself stores only ids.
 
 from engine.messages import MessageCode
 
-DEVELOPER_CREATED = MessageCode("platform.tenancy.developer_created", params=("actor",), event=True)
+DEVELOPER_CREATED = MessageCode("platform.tenancy.developer_created", params=("actor", "by"), event=True)
+"""The one act of these that may have no acting user (the seed): worded on `by` (07's activity)."""
 STAFF_OPENED = MessageCode("platform.tenancy.staff_opened", params=("actor",), event=True)
 FIRST_MD_INVITED = MessageCode("platform.tenancy.first_md_invited", params=("actor",), event=True)
 FIRST_MD_REISSUED = MessageCode("platform.tenancy.first_md_reissued", params=("actor",), event=True)

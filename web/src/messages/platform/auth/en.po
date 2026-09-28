@@ -1,0 +1,43 @@
+msgid ""
+msgstr ""
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: en\n"
+
+msgid "platform.auth.choose_developer"
+msgstr "Choose which Developer to work in."
+
+msgid "platform.auth.csrf_failed"
+msgstr "This page is out of date. Reload it and try again."
+
+msgid "platform.auth.no_access"
+msgstr "You have no access to any Developer at the moment. Ask your MD, or Vextrus, for an invitation."
+
+msgid "platform.auth.not_allowed"
+msgstr "{role, select, md {As MD you can look at this but not change it. Your QS makes changes.} guest {As a Guest you can look at this but not change it.} qs {As QS you can't do this. Ask your MD.} vextrus_engineer {As a Vextrus Engineer you can't do this. Ask the QS who invited you.} other {You can't do this.}}"
+
+msgid "platform.auth.not_found"
+msgstr "There is nothing at this address. It may have been a link to another Developer's project, or to a project you have not been given."
+
+msgid "platform.auth.password_entirely_numeric"
+msgstr "Use letters as well as numbers."
+
+msgid "platform.auth.password_refused"
+msgstr "That password can't be used. Choose another."
+
+msgid "platform.auth.password_too_common"
+msgstr "That password is too common. Choose another."
+
+msgid "platform.auth.password_too_short"
+msgstr "At least {min} characters."
+
+msgid "platform.auth.password_too_similar"
+msgstr "That password is too close to your name or email. Choose another."
+
+msgid "platform.auth.signed_out"
+msgstr "You were signed out. Sign in again to carry on; nothing you confirmed is lost."
+
+msgid "platform.auth.wrong_credentials"
+msgstr "That email and password don't match an account. Check them and try again."
