@@ -27,6 +27,8 @@ from engine.recognise.tests.drawing import (
 )
 from engine.recognise.tests.test_sheets import placed_frame
 from engine.recognise.types import (
+    Exclusion,
+    ExclusionReason,
     SheetCandidate,
     SheetField,
     SheetLocation,
@@ -186,8 +188,8 @@ def test_a_layout_named_empty_or_invisible_is_left_out_and_counted(name: str) ->
 
 def test_a_viewport_whose_values_the_reader_lost_is_not_taken_for_autocads_own() -> None:
     """The reader lost one viewport's values on a synthetic file: taken for the main viewport, its
-    layout read as a title block alone and was dropped; the finder cannot tell what it shows, so a
-    titled layout with such a viewport is proposed out as blank."""
+    layout read as a title block alone and was dropped. The finder cannot tell what it shows, so the
+    titled layout stays a sheet (review round 1: never proposed out as blank on a guess)."""
     d = Sheets()
     tab = d.layout("S-102")
     d.entity("VIEWPORT", {}, owner=tab)
@@ -197,8 +199,116 @@ def test_a_viewport_whose_values_the_reader_lost_is_not_taken_for_autocads_own()
 
     (sheet,) = result.sheets
     assert sheet.location.layout == "S-102"
-    assert sheet.exclusion is not None
+    assert sheet.exclusion is None
     assert result.counts["viewport_unreadable"] == 1
+    assert result.counts["layout_viewport_unknown"] == 1
+
+
+def _titled(d: Sheets, name: str, viewport: dict[str, object]) -> str:
+    """A layout with a frame, its number and title, and one viewport besides AutoCAD's own."""
+    tab = d.layout(name)
+    d.entity(
+        "VIEWPORT",
+        {"center": [420.0, 297.0, 0.0], "width": 900.0, "height": 650.0, "id": 1,
+         "view_center_point": [420.0, 297.0, 0.0], "view_height": 650.0},
+        owner=tab,
+    )  # fmt: skip
+    d.entity("VIEWPORT", {"id": 2, **viewport}, owner=tab)
+    d.insert(frame_block(d), (0, 0, 0), owner=tab)
+    d.text("S-01", value_at(2), owner=tab)
+    d.text("BEAM LAYOUT PLAN", value_at(0), owner=tab)
+    return tab
+
+
+EMPTY_REGION = {"center": [300.0, 300.0, 0.0], "width": 400.0, "height": 400.0,
+                "view_center_point": [90_000.0, 50_000.0, 0.0], "view_height": 500.0}  # fmt: skip
+
+
+@pytest.mark.parametrize(
+    "lost",
+    [
+        {"view_center_point": None},
+        {"width": 0.0},
+        {"view_height": -1.0},
+        {"center": None},
+    ],
+)
+def test_a_titled_layout_whose_viewport_cannot_be_read_is_a_sheet_with_its_values(
+    lost: dict[str, object],
+) -> None:
+    """Review round 1, finding 4: a viewport whose window is unknown cannot be told empty, so its
+    titled layout is kept as a sheet and its values read; the same viewport, readable over an empty
+    region, is proposed out as blank."""
+    d = Sheets()
+    for i in range(5):
+        d.line((i, 0), (i, 1))
+    _titled(d, "S-01", {k: v for k, v in {**EMPTY_REGION, **lost}.items() if v is not None})
+
+    result = segment(d.artefact(), "structural", DEFAULT)
+
+    (sheet,) = result.sheets
+    assert sheet.exclusion is None
+    assert sheet.number == Sourced("S-01", ValueSource.TITLE_BLOCK_TEXT)
+    assert sheet.title == Sourced("BEAM LAYOUT PLAN", ValueSource.TITLE_BLOCK_TEXT)
+    assert result.counts["viewport_unreadable"] == 1
+    assert result.counts["layout_viewport_unknown"] == 1
+    assert result.counts["layout_blank"] == 0
+
+
+def test_a_titled_layout_past_the_viewport_budget_is_a_sheet_with_its_values(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(sheets, "MAX_VIEWPORTS", 1)
+    d = Sheets()
+    for i in range(5):
+        d.line((i, 0), (i, 1))
+    _titled(d, "First", EMPTY_REGION)
+    _titled(d, "Second", EMPTY_REGION)
+
+    result = segment(d.artefact(), "structural", DEFAULT)
+
+    first, second = result.sheets
+    assert first.exclusion == Exclusion(ExclusionReason.BLANK)
+    assert second.exclusion is None
+    assert second.number == Sourced("S-01", ValueSource.TITLE_BLOCK_TEXT)
+    assert result.counts["viewport_budget"] == 1
+    assert result.counts["layout_viewport_unknown"] == 1
+
+
+def test_an_untitled_layout_whose_viewport_cannot_be_read_is_no_sheet_and_is_counted() -> None:
+    d = Sheets()
+    for i in range(5):
+        d.line((i, 0), (i, 1))
+    tab = d.layout("Plot")
+    d.entity("VIEWPORT", {"id": 2, "center": [0.0, 0.0, 0.0], "width": 100.0}, owner=tab)
+    d.line((0, 0), (10, 0), owner=tab)
+
+    result = segment(d.artefact(), None, DEFAULT)
+
+    assert result.sheets == []
+    assert result.counts["layout_shows_unknown"] == 1
+
+
+def test_stale_layouts_propose_one_blank_and_count_the_rest() -> None:
+    """Review round 1, finding 7: 5,000 stale layouts (a viewport over an empty region and two
+    labels) gave 5,000 blank candidates, each a row 14 would store. The first in tab order is
+    proposed out as blank; the rest are counted, never listed."""
+    d = Sheets()
+    for i in range(5):
+        d.line((i, 0), (i, 1))
+    for i in range(5000):
+        tab = d.layout(f"Layout{i}")
+        d.entity("VIEWPORT", {"id": 2, **EMPTY_REGION}, owner=tab)
+        d.text("SHEET NO", (10.0, 10.0, 0.0), owner=tab)
+        d.text("SCALE", (10.0, 20.0, 0.0), owner=tab)
+
+    result = segment(d.artefact(), None, DEFAULT)
+
+    (sheet,) = result.sheets
+    assert sheet.location.layout == "Layout0"
+    assert sheet.exclusion == Exclusion(ExclusionReason.BLANK)
+    assert result.counts["layout_blank"] == 1
+    assert result.counts["layout_blank_not_proposed"] == 4999
 
 
 def test_a_layout_name_given_twice_is_read_once() -> None:
@@ -243,7 +353,8 @@ def test_a_viewport_with_values_not_finite_or_huge_is_skipped_and_counted(
     result = segment(d.artefact(), None, DEFAULT)
 
     assert result.counts["viewport_unreadable"] == 1
-    assert all(s.exclusion is not None for s in result.sheets)
+    (sheet,) = result.sheets  # its window unknown, the titled layout stays a sheet (review round 1)
+    assert sheet.exclusion is None
 
 
 # Values: paths, huge texts, invisible numbers ----------------------------------------------------------

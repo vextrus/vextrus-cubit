@@ -21,8 +21,11 @@
   renderer's rule (`buffers.is_main_viewport`), and a viewport's region is found as the renderer finds
   it (`buffers.viewport_window`). **A layout whose viewports show nothing is not a sheet:** it is
   dropped, or, where it carries a title block, proposed out as `blank`, with no value read from it
-  (a stale layout's title block is a template's; the QS review, Q7); one with no viewport of its own
-  that draws only a title block is a template's tab, and dropped. A layout that shows a
+  (a stale layout's title block is a template's; the QS review, Q7), the first such layout of a file
+  only, the rest counted (review round 1: 5,000 stale tabs were 5,000 rows); one with no viewport of
+  its own that draws only a title block is a template's tab, and dropped. Nothing is told empty on a
+  guess: a titled layout with a viewport whose region cannot be read (a value lost or of no size, or
+  past `MAX_VIEWPORTS`) stays a sheet, its values read, and is counted. A layout that shows a
   model-space frame, with no title block of its own, is that frame's plot: the frame is the sheet
   (one sheet, not two); one with its own title block showing one frame is the sheet, and the frame
   is not.
@@ -620,6 +623,7 @@ class _Segmenter:
         self.rectangles: dict[str, Corners | None] = {}
         self.attdefs: dict[str, list[Text]] = {}
         self.viewports_asked = 0
+        self.blank_proposed = False
 
     # Walking a space
 
@@ -908,6 +912,7 @@ class _Segmenter:
         own_entities = [e for e in entities if e not in viewports]
         windows = self._windows(viewports)
         views = sum(1 for _ in windows)
+        unknown = any(w is None for w in windows)
         shown = 0
         for window in windows:
             if window is not None and model is not None and shown < MIN_SHOWN:
@@ -926,7 +931,13 @@ class _Segmenter:
             if any(w is not None and _box_share(f.bbox, w) >= 0.5 for w in windows)
         ]
         drawn = len(own_entities) - (len(paper.frames) if paper else 0) - len(title_words)
-        if shown >= MIN_SHOWN or (views == 0 and titled and drawn >= MIN_PAPER_CONTENT):
+        if titled and unknown and shown < MIN_SHOWN:
+            self.counts["layout_viewport_unknown"] += 1  # cannot be told empty: a sheet
+        if (
+            shown >= MIN_SHOWN
+            or (views == 0 and titled and drawn >= MIN_PAPER_CONTENT)
+            or (titled and unknown)
+        ):
             if not titled and frames_shown:
                 self.counts["layout_plots_frames"] += 1
                 return None, []
@@ -940,7 +951,11 @@ class _Segmenter:
         if titled and views == 0:
             self.counts["layout_title_block_only"] += 1  # a template tab: nothing to propose
             return None, []
+        if titled and self.blank_proposed:
+            self.counts["layout_blank_not_proposed"] += 1  # one blank per file: the rest counted
+            return None, []
         if titled:
+            self.blank_proposed = True
             self.counts["layout_blank"] += 1
             first = paper.frames[0].handle if paper and paper.frames else entities[0].handle
             return (
@@ -952,13 +967,14 @@ class _Segmenter:
                 ),
                 [],
             )
-        self.counts["layout_shows_nothing"] += 1
+        self.counts["layout_shows_unknown" if unknown else "layout_shows_nothing"] += 1
         return None, []
 
     def _windows(self, viewports: list[Entity]) -> list[Bounds | None]:
         """The model region each of a layout's viewports shows (none where its values cannot be
-        read: the layout then cannot be told empty), AutoCAD's main viewport left out by the
-        renderer's rule; a viewport whose values the reader lost is never taken for the main one."""
+        read, or past `MAX_VIEWPORTS`: the layout then cannot be told empty, so a titled one stays a
+        sheet), AutoCAD's main viewport left out by the renderer's rule; a viewport whose values the
+        reader lost is never taken for the main one."""
         out: list[Bounds | None] = []
         first = True
         for viewport in viewports:
