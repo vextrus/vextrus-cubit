@@ -3,10 +3,11 @@
 `run(path, artefact)` is the stage the harness calls (the M0 plan, the contracts): LibreDWG's reading
 is the artefact (engine.read), ACadSharp's is `engine.read.acadsharp.dump(path)`, and the result is a
 Check result: `passed` when the two agree, `fired` with the file's finding when they do not. A fired
-result holds the file (the product quarantines it with the finding and asks a Question). When the
-second reader cannot run (not installed, not the pinned build, stopped at a limit, crashed, or wrote
-what cannot be read) the stage raises its `ReadError`: the file was read once, which is never
-agreement.
+result **holds** the file (m0-screens 4.5's "Held" row, with its Question). When the second reader
+cannot run or does not finish (not installed, not the pinned build, stopped by an error or a limit,
+no readable output, too large) the stage raises its `ReadError`: the file was read once, which is
+never agreement, and it **fails** (4.5's "Failed" row, the owner's ruling of 28 Sep 2026), never held.
+engine/messages/decoders_agree.py lists which finding is which.
 
 **The rule** (the plan's): the two agree when they hold **the same set of handles**, **the same
 number of entities of each type** and **the same number of entities on each layer**. The finding
@@ -47,6 +48,13 @@ keeps them under their class name; what LibreDWG names them is unmeasured), 3D s
 fixture writer drops them), and any AC1021 file (the writer cannot write that version). A real file
 holding one of them may disagree on its type; the owner's real-drawing check shows it, and a rule is
 added only with a fixture that proves it.
+
+**A disagreement already known on real files:** ACadSharp 3.8.0 "drops one INSERT with a Z scale of 0"
+on one of the seven real files measured in session 01 (docs/research/dwg-reader-evidence.md, conclusion
+4). Under this rule that file is held (an INSERT only the first reader found): a flaw in the second
+reader, not in this check. It is not mapped: an INSERT with a Z scale of 0 drawn by a synthetic fixture
+did not reproduce it at AC1018, AC1027 or AC1032 (the review of #79, 28 Sep 2026), and no rule is
+written without a fixture that shows it.
 
 Handles are compared as integers: the artefact's (hexadecimal strings, from the reader's own output)
 are converted here, the dump's were converted as it was read (engine/read/acadsharp/dump.py). Every
@@ -95,6 +103,7 @@ def run(
     if difference.agree:
         return CheckResult(code=CODE, outcome=CheckOutcome.PASSED)
     finding = codes.DISAGREE(
+        items=difference.only_first + difference.only_second,
         only_first=difference.only_first,
         only_second=difference.only_second,
         kinds=difference.kinds,

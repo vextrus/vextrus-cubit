@@ -88,7 +88,7 @@ def test_a_planted_disagreement_holds_the_file_with_counts_of_what_differed() ->
     assert result.outcome == CheckOutcome.FIRED
     assert result.finding == {
         "code": "engine.decoders_agree.disagree",
-        "params": {"only_first": 1, "only_second": 0, "kinds": 1, "layers": 1},
+        "params": {"items": 1, "only_first": 1, "only_second": 0, "kinds": 1, "layers": 1},
     }
 
 
@@ -157,14 +157,10 @@ def test_the_mapping_is_only_what_the_module_evidences() -> None:
         DumperNotInstalled(),
         acadsharp.DumperNotPinned(),
         acadsharp.DumpTooLarge(10),
-        ReadError(
-            {
-                "code": "engine.read.reader_failed",
-                "params": {"program": "acadsharp-dump", "exit_code": 1},
-            }
-        ),
+        acadsharp.DumperStopped("acadsharp-dump", "exit 139"),
+        acadsharp.DumperStopped("acadsharp-dump", "limit wall"),
     ],
-    ids=["not-installed", "not-pinned", "too-large", "crashed"],
+    ids=["not-installed", "not-pinned", "too-large", "crashed", "timed-out"],
 )
 def test_a_second_reader_that_cannot_read_is_a_failure_never_a_result(error: ReadError) -> None:
     def failing(path: Path) -> Dump:
@@ -343,9 +339,10 @@ def test_a_file_only_the_first_reader_reads_is_a_failure_never_agreement(
     first = read_dwg(path)
 
     assert first.summary.entity_counts == {"LINE": 1, "MULTILEADER": 1}
-    with pytest.raises(ReadError) as raised:
+    with pytest.raises(acadsharp.DumperStopped) as raised:
         run(path, first)
-    assert raised.value.message["code"] == "engine.read.reader_failed"
+    assert raised.value.message == {"code": "engine.decoders_agree.stopped", "params": {}}
+    assert raised.value.why == "exit 1"
 
 
 @pytest.mark.needs_toolchain

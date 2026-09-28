@@ -19,8 +19,11 @@
 #                     38A4167B0DB69E49C5F7216CB8C28866AB27A7A2, gnu-keyring.gpg)
 #   dotnet.version    10.0.401, the latest .NET 10 SDK on 8 Sep 2026 (release-metadata/10.0/releases.json)
 #   acadsharp-dump.sha256  the dumper's own sha256: its build is reproducible (the same source, SDK and
-#                     hash-locked packages give the same bytes), so a build here that differs from
-#                     the pin is refused, never installed
+#                     hash-locked packages give the same bytes, git's state not stamped in), so a
+#                     build here that differs from the pin is refused, never installed
+#   acadsharp-dump.runtime.sha512  the .NET runtime pack built into the dumper (10.0.12, the version
+#                     SDK 10.0.401 bundles), which the NuGet lock does not list: checked after the
+#                     restore and before the build
 set -euo pipefail
 
 PREFIX=${VEXTRUS_TOOLCHAIN_PREFIX:-/opt/vextrus}   # overridable only to test this script
@@ -94,19 +97,40 @@ install_acadsharp_dump() {
   # Built in a folder of its own under $PREFIX, whose parents only root can write, never under /tmp:
   # MSBuild reads Directory.Build.* files from every folder above the project, so a file planted in a
   # folder anyone can write would run code in this root build. Those imports and MSBuild's response
-  # files are turned off as well. The folder is deleted once the dumper is installed or refused.
+  # files are turned off as well, and NuGet, MSBuild and the runtime keep their temporary files in it
+  # (TMPDIR), never in /tmp. No compiler server or MSBuild node outlives the build (the project
+  # sets UseSharedCompilation=false; -nodeReuse:false here). The folder is deleted once the dumper is
+  # installed or refused.
   local build source out built runtime
   build=$(mktemp -d "$PREFIX/.acadsharp-dump-build.XXXXXX")
   source="$build/src"
   out="$build/out"
-  mkdir -p "$source"
+  mkdir -p "$source" "$build/tmp"
   cp "$PINS/../tools/acadsharp-dump/acadsharp-dump.csproj" "$PINS/../tools/acadsharp-dump/Program.cs" \
      "$PINS/../tools/acadsharp-dump/packages.lock.json" "$PINS/../tools/acadsharp-dump/global.json" \
      "$source/"
-  if ! ( cd "$source" && DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1 DOTNET_CLI_HOME="$build/home" \
-         NUGET_PACKAGES="$build/nuget" "$PREFIX/dotnet/dotnet" publish "$source" -c Release -o "$out" \
-         -noAutoResponse -p:ImportDirectoryBuildProps=false -p:ImportDirectoryBuildTargets=false \
-         -p:ImportDirectoryPackagesProps=false ) > "$WORK/acadsharp-dump-build.log" 2>&1; then
+  dotnet_here() {
+    ( cd "$source" && DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1 DOTNET_CLI_HOME="$build/home" \
+      NUGET_PACKAGES="$build/nuget" TMPDIR="$build/tmp" "$PREFIX/dotnet/dotnet" "$@" "$source" \
+      -noAutoResponse -nodeReuse:false -p:ImportDirectoryBuildProps=false \
+      -p:ImportDirectoryBuildTargets=false -p:ImportDirectoryPackagesProps=false )
+  }
+  # 1. Restore: the lock pins ACadSharp and the build's own package by hash. It does not list the
+  #    .NET runtime pack, which the SDK chooses by its bundled version, so that pack's .nupkg is
+  #    checked here against its own pin (toolchain/acadsharp-dump.runtime.sha512) before anything
+  #    from it is built into the program.
+  if ! dotnet_here restore > "$WORK/acadsharp-dump-build.log" 2>&1; then
+    tail -30 "$WORK/acadsharp-dump-build.log" >&2
+    rm -rf -- "$build"
+    fail "acadsharp-dump restore (log: $WORK/acadsharp-dump-build.log)"
+  fi
+  if ! ( cd "$build/nuget/microsoft.netcore.app.runtime.linux-x64/"*/ &&
+         sha512sum -c --quiet "$PINS/acadsharp-dump.runtime.sha512" ); then
+    rm -rf -- "$build"
+    fail "the .NET runtime pack NuGet gave is not the pin in toolchain/acadsharp-dump.runtime.sha512: nothing built"
+  fi
+  # 2. Build from what was restored and checked, restoring nothing more.
+  if ! dotnet_here publish -c Release -o "$out" --no-restore >> "$WORK/acadsharp-dump-build.log" 2>&1; then
     tail -30 "$WORK/acadsharp-dump-build.log" >&2
     rm -rf -- "$build"
     fail "acadsharp-dump build (log: $WORK/acadsharp-dump-build.log)"

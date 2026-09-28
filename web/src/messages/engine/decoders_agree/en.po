@@ -7,13 +7,16 @@ msgstr ""
 
 #. engine/messages/decoders_agree.py (ticket 10): the decoder cross-check's codes.
 msgid "engine.decoders_agree.disagree"
-msgstr "The two readers found different contents in this file: {only_first, plural, =0 {the first found nothing the second missed} one {the first found # item the second missed} other {the first found # items the second missed}}, {only_second, plural, =0 {the second nothing the first missed} one {the second # item the first missed} other {the second # items the first missed}}, and their counts differ for {kinds, plural, =0 {no kind of item} one {# kind of item} other {# kinds of item}} and on {layers, plural, =0 {no layer} one {# layer} other {# layers}}. It is held, so nothing from it reaches the sheet list while it may be misread. A Question asks what to do."
+msgstr "The two readers found different contents in this file: {items, plural, =0 {they found the same items but disagree on what some of them are} one {# item was found by only one of them} other {# items were found by only one of them}}{layers, plural, =0 {} one {, on # layer} other {, on # layers}}. It is held, so nothing from it reaches the sheet list while it may be misread."
 
 msgid "engine.decoders_agree.not_installed"
-msgstr "This file was read once, not twice: the second reader could not run, which is a fault on Vextrus's side, not in your file. It is held, so nothing from it reaches the sheet list; mark it for Vextrus so it can be checked."
+msgstr "This file was read once, not twice: the second reader could not run, which is a fault on Vextrus's side, not in your file. Nothing from it reaches the sheet list; mark it for Vextrus to check."
 
 msgid "engine.decoders_agree.not_pinned"
-msgstr "This file was read once, not twice: the second reader could not run, which is a fault on Vextrus's side, not in your file. It is held, so nothing from it reaches the sheet list; mark it for Vextrus so it can be checked."
+msgstr "This file was read once, not twice: the second reader could not run, which is a fault on Vextrus's side, not in your file. Nothing from it reaches the sheet list; mark it for Vextrus to check."
+
+msgid "engine.decoders_agree.stopped"
+msgstr "This file was read once, not twice: the second reader stopped before it finished, which is a fault on Vextrus's side, not in your file. Nothing from it reaches the sheet list; mark it for Vextrus to check."
 
 msgid "engine.decoders_agree.too_many"
-msgstr "This file was read once, not twice: it holds more than {limit, number} items, more than the second reader can check. It is held, so nothing from it reaches the sheet list; mark it for Vextrus so it can be checked."
+msgstr "This file was read once, not twice: it is larger than the second reader can check (up to {limit, number} items). Nothing from it reaches the sheet list; mark it for Vextrus to check."

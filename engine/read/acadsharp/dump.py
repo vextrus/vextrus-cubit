@@ -14,7 +14,7 @@ is read as untrusted input, from the stream `sandbox.open_output` opened:
   handle is 1 to 16 upper-case hexadecimal digits with no leading zero (a DWG handle is at most 8
   bytes, and never 0), so one handle has one spelling; lines end with a bare line feed; a type
   is 1 to 256 characters, a layer at most 1,024. Two entities with one handle are refused. Anything
-  else raises `ValueError`, which the reader reports as `output_unreadable`;
+  else raises `ValueError`, which the reader reports as the second reader having stopped;
 - **inert:** each line is parsed with `json.loads`, which builds only strings, numbers, lists and
   dicts; NaN, infinities and a field named twice are refused; nothing in the dump is ever used as a
   path, a command or code.

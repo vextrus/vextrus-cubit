@@ -15,9 +15,16 @@ from pathlib import Path
 import pytest
 
 from engine.read import acadsharp
-from engine.read.acadsharp import DumperNotInstalled, DumperNotPinned, DumpTooLarge, run_dumper
-from engine.read.errors import ReadError
-from engine.read.sandbox import LimitReached, Limits
+from engine.read.acadsharp import (
+    DumperNotInstalled,
+    DumperNotPinned,
+    DumperStopped,
+    DumpTooLarge,
+    run_dumper,
+)
+from engine.read.sandbox import Limits, SandboxRefused, SandboxUnavailable
+
+STOPPED = {"code": "engine.decoders_agree.stopped", "params": {}}
 
 HEADER = '{"dumper":"acadsharp-dump","format":1,"acadsharp":"3.8.0","dwg_version":"AC1032"}'
 GOOD = f"""printf '%s\\n' '{HEADER}' '["8D","LINE","0"]' '{{"end":1}}' > "$2"\n"""
@@ -120,67 +127,93 @@ def test_a_folder_or_a_fifo_in_the_dumpers_place_is_not_a_dumper(
 def test_a_refusal_survives_the_trip_back_from_a_worker() -> None:
     import pickle
 
-    for error in (DumperNotInstalled(), DumperNotPinned(), DumpTooLarge(10)):
+    for error in (
+        DumperNotInstalled(),
+        DumperNotPinned(),
+        DumpTooLarge(10),
+        DumperStopped("acadsharp-dump", "exit 139"),
+    ):
         again = pickle.loads(pickle.dumps(error))
-        assert (type(again), again.message) == (type(error), error.message)
+        assert (type(again), again.message, again.args) == (type(error), error.message, error.args)
+
+
+def test_a_stopped_dumper_keeps_its_program_and_why_for_the_log_never_in_its_finding() -> None:
+    error = DumperStopped("acadsharp-dump", "exit 139")
+
+    assert error.message == STOPPED
+    assert (error.program, error.why) == ("acadsharp-dump", "exit 139")
+    assert "exit 139" in str(error)
 
 
 # -- what the dumper did: run directly, where it needs no sandbox -----------------------------------
 
 
 @pytest.mark.parametrize(
-    ("body", "expected"),
+    ("body", "why"),
     [
-        pytest.param("exit 1\n", {"program": "acadsharp-dump", "exit_code": 1}, id="exit-1"),
-        pytest.param("kill -TERM $$\n", {"program": "acadsharp-dump", "exit_code": -15}, id="killed"),
+        pytest.param("exit 1\n", "exit 1", id="exit-1"),
+        pytest.param("kill -TERM $$\n", "exit -15", id="killed"),
+        pytest.param("exit 0\n", "output unreadable", id="wrote-nothing"),
+        pytest.param('printf garbage > "$2"\n', "output unreadable", id="wrote-garbage"),
+        pytest.param('ln -s /etc/passwd "$2"\n', "output unreadable", id="left-a-link"),
+        pytest.param('mkdir "$2"\n', "output unreadable", id="left-a-folder"),
     ],
 )
-def test_a_dumper_that_stops_is_a_failure_with_its_code(
-    tmp_path: Path, drawing: Path, monkeypatch: pytest.MonkeyPatch, body: str, expected: object
+def test_a_dumper_that_stops_or_leaves_no_readable_dump_has_stopped(
+    tmp_path: Path, drawing: Path, monkeypatch: pytest.MonkeyPatch, body: str, why: str
 ) -> None:
+    # The first reader read the file; the second stopped: never 04's "could not be read", and
+    # never the program's name or an exit code in the finding.
     monkeypatch.setenv("VEXTRUS_SANDBOX", "off")
-    program, digest = script(tmp_path / "bin", GOOD + body)
+    program, digest = script(tmp_path / "bin", (GOOD if why.startswith("exit") else "") + body)
 
-    with pytest.raises(ReadError) as raised:
+    with pytest.raises(DumperStopped) as raised:
         run_dumper(program, drawing, sha256=digest)
 
-    assert raised.value.message == {"code": "engine.read.reader_failed", "params": expected}
+    assert raised.value.message == STOPPED
+    assert raised.value.why == why
 
 
-@pytest.mark.parametrize(
-    "body",
-    [
-        pytest.param("exit 0\n", id="wrote-nothing"),
-        pytest.param('printf garbage > "$2"\n', id="wrote-garbage"),
-        pytest.param('ln -s /etc/passwd "$2"\n', id="left-a-link"),
-        pytest.param('mkdir "$2"\n', id="left-a-folder"),
-    ],
-)
-def test_a_dumper_that_leaves_no_readable_dump_is_a_failure(
-    tmp_path: Path, drawing: Path, monkeypatch: pytest.MonkeyPatch, body: str
-) -> None:
-    monkeypatch.setenv("VEXTRUS_SANDBOX", "off")
-    program, digest = script(tmp_path / "bin", body)
-
-    with pytest.raises(ReadError) as raised:
-        run_dumper(program, drawing, sha256=digest)
-
-    assert raised.value.message == {
-        "code": "engine.read.output_unreadable",
-        "params": {"program": "acadsharp-dump"},
-    }
-
-
-def test_a_dumper_past_its_time_is_stopped_and_never_agrees(
+def test_a_dumper_past_its_time_has_stopped_and_never_agrees(
     tmp_path: Path, drawing: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("VEXTRUS_SANDBOX", "off")
     program, digest = script(tmp_path / "bin", GOOD + "exec sleep 30\n")
 
-    with pytest.raises(LimitReached) as raised:
+    with pytest.raises(DumperStopped) as raised:
         run_dumper(program, drawing, sha256=digest, limits=Limits(wall_seconds=0.5))
 
-    assert raised.value.message["params"] == {"program": "acadsharp-dump", "limit": "wall"}
+    assert (raised.value.message, raised.value.why) == (STOPPED, "limit wall")
+
+
+def test_a_dumper_that_cannot_start_has_stopped(
+    tmp_path: Path, drawing: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("VEXTRUS_SANDBOX", "off")
+    program, digest = script(tmp_path / "bin", GOOD)
+    program.chmod(0o644)  # the pinned bytes, but not a program the sandbox can start
+
+    with pytest.raises(DumperStopped) as raised:
+        run_dumper(program, drawing, sha256=digest)
+
+    assert raised.value.message == STOPPED
+
+
+@pytest.mark.parametrize("refusal", [SandboxUnavailable("no bwrap"), SandboxRefused()])
+def test_a_machine_that_cannot_sandbox_keeps_the_sandboxs_own_words(
+    tmp_path: Path, drawing: Path, monkeypatch: pytest.MonkeyPatch, refusal: Exception
+) -> None:
+    # Decided: a missing or refused sandbox stops both readers, and the first reader, run first,
+    # fails on it before this one runs; 04's words ("Drawings cannot be read here…") stay true.
+    program, digest = script(tmp_path / "bin", GOOD)
+
+    def refuse(*args: object, **kwargs: object) -> None:
+        raise refusal
+
+    monkeypatch.setattr(acadsharp, "run", refuse)
+
+    with pytest.raises(type(refusal)):
+        run_dumper(program, drawing, sha256=digest)
 
 
 def test_a_dumper_that_writes_past_the_dumps_bound_is_stopped_as_too_large(
@@ -292,7 +325,7 @@ def test_the_dumper_sees_no_environment_and_no_home(
 def test_in_the_sandbox_a_dumper_past_its_time_never_agrees(tmp_path: Path, drawing: Path) -> None:
     program, digest = script(tmp_path / "bin", GOOD + "exec sleep 30\n")
 
-    with pytest.raises(LimitReached):
+    with pytest.raises(DumperStopped):
         run_dumper(program, drawing, sha256=digest, limits=Limits(wall_seconds=1))
 
 

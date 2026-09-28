@@ -1,28 +1,35 @@
 """The decoder cross-check's codes (ticket 10): what `engine.check.decoders_agree` says about a file.
 
 Worded in web/src/messages/engine/decoders_agree/en.po. Every parameter is a count, never drawing text
-(a layer's or a block's name is the drawing's, so none is carried).
+(a layer's or a block's name is the drawing's, so none is carried), and never a program's name.
 
-A disagreement is the file's finding: the file is held with it (ADR 0029). The first reader is
-LibreDWG (the artefact's), the second ACadSharp (engine/read/acadsharp/):
-- `only_first`, `only_second`: how many items (entities, by handle) one reader found and the other
-  did not;
-- `kinds`: how many kinds of item (entity types) the two count differently;
-- `layers`: how many layers the two count differently.
+**Held or failed** (the owner's ruling, 28 Sep 2026, "4.5's 'Failed' row"; for 20b and 21a):
+- `disagree` is the only finding that **holds** a file: both readers read it and they disagree, so it
+  is held with this finding and a Question (m0-screens 4.5's "Held" row). The first reader is
+  LibreDWG (the artefact's), the second ACadSharp (engine/read/acadsharp/). `items` is how many items
+  (entities, by handle) only one reader found, `only_first` + `only_second`, kept apart as well;
+  `kinds` how many kinds of item (entity types) the two count differently; `layers` how many layers
+  they count differently. All five stay in the params, for the export and the Question's Trace; the
+  words use `items` and `layers`.
+- The rest **fail** the file: it was read by one reader only, so it shows 4.5's "Failed" row ("Try
+  again", "Mark for Vextrus"), never "Held". `not_installed`, `not_pinned` (the second reader could
+  not run), `stopped` (it ran and stopped before it finished: an error, a limit, no readable output)
+  and `too_many` (the file is larger than it can check; `limit` is the most items it reads).
 
-When the second reader cannot run, the stage fails with one of the rest (or with a code of
-engine/messages/read.py, for the sandbox and a reader that stopped or wrote what cannot be read); the
-file is then checked by one reader only, which is never agreement.
+A machine without its sandbox fails with engine/messages/read.py's `sandbox_unavailable` or
+`sandbox_refused`, as the first reader already has.
 """
 
 from engine.messages import MessageCode
 
+# Held: the two readers disagree.
 DISAGREE = MessageCode(
-    "engine.decoders_agree.disagree", params=("only_first", "only_second", "kinds", "layers")
+    "engine.decoders_agree.disagree",
+    params=("items", "only_first", "only_second", "kinds", "layers"),
 )
 
-# The second reader could not run on this machine.
+# Failed: the file was read by one reader only.
 NOT_INSTALLED = MessageCode("engine.decoders_agree.not_installed")
 NOT_PINNED = MessageCode("engine.decoders_agree.not_pinned")
-# The second reader listed more than the check reads (`limit`: the most items it reads).
+STOPPED = MessageCode("engine.decoders_agree.stopped")
 TOO_MANY = MessageCode("engine.decoders_agree.too_many", params=("limit",))

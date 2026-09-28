@@ -6,14 +6,16 @@ output folder writable, the same limits), and reads what it wrote strictly (dump
 `ReadError` with the file's finding when it cannot; it never returns a reading it did not get.
 
 **How the dumper arrives, and why it is trusted** (the M0 plan, ticket 10: pinned and verifiable, as
-LibreDWG is). The dumper is one self-contained file, the .NET runtime inside it, built reproducibly
-from tools/acadsharp-dump/ with the pinned SDK (its global.json) and the packages its lock file pins
-by hash; the file's sha256 is pinned in `toolchain/acadsharp-dump.sha256`, read from the checkout
-this code runs from. scripts/owner/toolchain.sh builds it and installs it under
-`/opt/vextrus/acadsharp-dump/` only when its hash is the pin; that is the one install today (the
-product's worker, when it is built, installs it the same way). `VEXTRUS_ACADSHARP_DUMP` names another
-folder, for tests and a machine that installs it elsewhere: it moves where the program is looked
-for, never the pin. Nothing is restored, built or downloaded when a file is read.
+LibreDWG is). The dumper is one self-contained file, the .NET runtime inside it, built reproducibly from
+tools/acadsharp-dump/ with the pinned SDK (its global.json), the packages its lock file pins by hash,
+and the .NET runtime pack the lock does not list, pinned by its own sha512
+(`toolchain/acadsharp-dump.runtime.sha512`); the file's sha256 is pinned in
+`toolchain/acadsharp-dump.sha256`, read from the checkout this code runs from.
+scripts/owner/toolchain.sh builds it and installs it under `/opt/vextrus/acadsharp-dump/` only when its
+hash is the pin; that is the one install today (the product's worker, when it is built, installs it the
+same way). `VEXTRUS_ACADSHARP_DUMP` names another folder, for tests and a machine that installs it
+elsewhere: it moves where the program is looked for, never the pin. Nothing is restored, built or
+downloaded when a file is read.
 
 **Every run checks the program's hash against the pin first** and refuses a program that is missing
 (`DumperNotInstalled`) or differs (`DumperNotPinned`): a swapped or rebuilt dumper never reads a file.
@@ -31,12 +33,27 @@ from dataclasses import replace
 from pathlib import Path
 
 from engine.messages import decoders_agree as codes
-from engine.messages import read as read_codes
 from engine.read.acadsharp.dump import DUMPER, MAX_BYTES, MAX_ENTITIES, Dump, DumpTooLarge, parse
 from engine.read.errors import ReadError
-from engine.read.sandbox import DEFAULT_LIMITS, Limits, open_output, run
+from engine.read.sandbox import (
+    DEFAULT_LIMITS,
+    LimitReached,
+    Limits,
+    SandboxRefused,
+    SandboxUnavailable,
+    open_output,
+    run,
+)
 
-__all__ = ["Dump", "DumpTooLarge", "DumperNotInstalled", "DumperNotPinned", "dump", "run_dumper"]
+__all__ = [
+    "Dump",
+    "DumpTooLarge",
+    "DumperNotInstalled",
+    "DumperNotPinned",
+    "DumperStopped",
+    "dump",
+    "run_dumper",
+]
 
 READER = "acadsharp"
 PIN = Path(__file__).resolve().parents[3] / "toolchain" / "acadsharp-dump.sha256"
@@ -60,6 +77,23 @@ class DumperNotPinned(ReadError):
 
     def __reduce__(self) -> tuple[type, tuple[object, ...]]:
         return (DumperNotPinned, ())
+
+
+class DumperStopped(ReadError):
+    """The dumper ran and stopped before it finished: it exited with an error, could not start,
+    reached a limit, or left no dump that can be read. The first reader read the file, so the finding
+    is the cross-check's own (`stopped`), never 04's "could not be read". `program` and `why`
+    (`exit 139`, `limit wall`, `could not start`, `output unreadable`) are in its args for the log;
+    the finding carries neither (a program's name and an exit code are not for a QS)."""
+
+    def __init__(self, program: str, why: str) -> None:
+        super().__init__(codes.STOPPED())
+        self.program = program
+        self.why = why
+        self.args = (*self.args, program, why)
+
+    def __reduce__(self) -> tuple[type, tuple[object, ...]]:
+        return (DumperStopped, (self.program, self.why))
 
 
 def prefix() -> Path:
@@ -90,18 +124,32 @@ def run_dumper(program: Path, path: Path, *, sha256: str, limits: Limits = DEFAU
         folder = Path(scratch, "acadsharp")
         folder.mkdir()
         target = folder / "dump.jsonl"
-        finished = run(
-            [str(program), str(path), str(target)], reads=[program, path], output=folder, limits=capped
-        )
+        try:
+            finished = run(
+                [str(program), str(path), str(target)],
+                reads=[program, path],
+                output=folder,
+                limits=capped,
+            )
+        except SandboxUnavailable, SandboxRefused:
+            # The machine cannot read drawings at all: both readers stop on it, the first (run first)
+            # already has, and 04's words about it stay true. Kept as they are.
+            raise
+        except LimitReached as error:
+            raise DumperStopped(DUMPER, f"limit {error.limit}") from error
+        except ReadError as error:  # the sandbox was built; the program could not be started in it
+            raise DumperStopped(DUMPER, "could not start") from error
         if finished.exit_code != 0:
             if _reached(target, capped.output_bytes):
                 raise DumpTooLarge(MAX_ENTITIES)
-            raise ReadError(read_codes.READER_FAILED(program=DUMPER, exit_code=finished.exit_code))
-        with open_output(target, DUMPER) as stream:
-            try:
+            raise DumperStopped(DUMPER, f"exit {finished.exit_code}")
+        try:
+            with open_output(target, DUMPER) as stream:
                 return parse(stream, max_bytes=MAX_BYTES, max_entities=MAX_ENTITIES)
-            except (ValueError, OSError) as error:
-                raise ReadError(read_codes.OUTPUT_UNREADABLE(program=DUMPER)) from error
+        except DumpTooLarge:
+            raise
+        except (ReadError, ValueError, OSError) as error:
+            raise DumperStopped(DUMPER, "output unreadable") from error
 
 
 def _reached(target: Path, limit: int) -> bool:

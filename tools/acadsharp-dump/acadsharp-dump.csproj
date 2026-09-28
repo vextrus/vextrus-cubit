@@ -5,8 +5,14 @@
   that runs it needs no .NET, and nothing is restored or built where it runs (the runtime still JIT-
   compiles the code as it runs, as .NET does). The build is reproducible: the same source, SDK
   (global.json, which never rolls forward, and toolchain/dotnet.version, a test holding the two
-  equal) and packages (packages.lock.json, restored in locked mode against each package's hash) give
-  the same bytes, whose sha256 is pinned in toolchain/acadsharp-dump.sha256. scripts/owner/toolchain.sh
+  equal) and packages give the same bytes, whose sha256 is pinned in toolchain/acadsharp-dump.sha256,
+  wherever it is built, a git work tree included, since EnableSourceControlManagerQueries is off
+  (with it on, the SDK stamps the enclosing repository's HEAD into the version: measured, another
+  hash). The packages: ACadSharp and the build's ILLink task are pinned by hash in packages.lock.json
+  (restored in locked mode); the .NET runtime pack is not in the lock (NuGet's lock lists no runtime
+  pack; the SDK chooses 10.0.12, the version it bundles), so its .nupkg is pinned by its sha512 in
+  toolchain/acadsharp-dump.runtime.sha512, checked after the restore and before the build. The
+  ASP.NET pack is not fetched (DisableTransitiveFrameworkReferenceDownloads). scripts/owner/toolchain.sh
   builds it and installs it only when its hash is the pin; the reader (engine/read/acadsharp/) runs
   it only when its hash is the pin.
 
@@ -51,9 +57,15 @@
     <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
     <DebugType>none</DebugType>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!-- No git: inside a work tree the SDK's Source Link would stamp its HEAD into the version. -->
+    <EnableSourceControlManagerQueries>false</EnableSourceControlManagerQueries>
+    <!-- No compiler server left running after the build (it runs as root in toolchain.sh). -->
+    <UseSharedCompilation>false</UseSharedCompilation>
 
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <RestoreLockedMode>true</RestoreLockedMode>
+    <!-- Only the runtime pack this program ships is fetched, not ASP.NET's. -->
+    <DisableTransitiveFrameworkReferenceDownloads>true</DisableTransitiveFrameworkReferenceDownloads>
 
     <InvariantGlobalization>true</InvariantGlobalization>
     <UseSystemResourceKeys>true</UseSystemResourceKeys>
