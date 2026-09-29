@@ -118,7 +118,7 @@ def test_unsandboxed_runs_keep_the_wall_clock_limit(
 
     assert raised.value.message == {
         "code": "engine.read.limit_reached",
-        "params": {"program": "python3", "limit": "wall"},
+        "params": {"limit": "wall"},
     }
 
 
@@ -295,8 +295,9 @@ def test_a_program_the_sandbox_cannot_find_is_a_reader_failure(tmp_path: Path) -
 
     assert raised.value.message == {
         "code": "engine.read.reader_failed",
-        "params": {"program": "dwgread", "exit_code": 127},
+        "params": {},
     }
+    assert (raised.value.program, raised.value.exit_code) == ("dwgread", 127)
 
 
 @pytest.mark.needs_bwrap
@@ -396,5 +397,5 @@ def test_an_output_that_is_not_one_regular_file_is_refused(tmp_path: Path, plant
 
     assert raised.value.message == {
         "code": "engine.read.output_unreadable",
-        "params": {"program": "dwgread"},
+        "params": {},
     }

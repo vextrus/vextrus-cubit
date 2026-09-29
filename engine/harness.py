@@ -231,8 +231,16 @@ def _is_built(target: str) -> bool:
 
 
 def _describe(error: BaseException) -> str:
+    """The error's kind and text, and which converter failed and how, where the error says (a
+    ReadError's `program` and `exit_code`: for the log, never a finding's words)."""
     text = str(error)
-    return f"{type(error).__name__}: {text}" if text else type(error).__name__
+    described = f"{type(error).__name__}: {text}" if text else type(error).__name__
+    facts = [
+        f"{name} {value}"
+        for name in ("program", "exit_code")
+        if (value := getattr(error, name, None)) is not None
+    ]
+    return f"{described} ({', '.join(facts)})" if facts else described
 
 
 # One file, in its child process ---------------------------------------------------------------------
