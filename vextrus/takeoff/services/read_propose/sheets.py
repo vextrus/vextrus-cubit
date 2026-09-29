@@ -32,6 +32,7 @@ so the view finder's file-wide bounds are spent as in a run never stopped.
 
 import hashlib
 import json
+import time
 import uuid
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import replace
@@ -63,6 +64,22 @@ VIEW_LIMIT = "views_{}"
 """A view finder's limit, as `not_read_in_full` says it (its own keys: the sheet finder's
 `read_budget` is another limit)."""
 VIEW_LIMITS = tuple(VIEW_LIMIT.format(limit) for limit in view_finder.LIMITS)
+RENDER_BUDGET = "render_budget"
+"""The file's render time was spent: the sheets after it are kept with no render (said once)."""
+SHEET_STEP_LIMITS = (*VIEW_LIMITS, RENDER_BUDGET)
+"""What a sheet's step says in `not_read_in_full`, each once for the file."""
+UNREADABLE_TEXT = "sheet_text_unreadable"
+"""Sheets whose number, title or other words still hold a drawing's raw codes: not kept, counted in
+the `sheets` step's `sheet_report` and said once."""
+SHEETS_STEP_LIMITS = (*finder.LIMITS, UNREADABLE_TEXT)
+RENDER_SECONDS = 900.0
+"""What drawing one file's sheets may take together (11's `Limits.seconds` bounds one sheet, 300 s),
+spent across restarts: each sheet's render gets the smaller of the two."""
+GIVEN_DISCIPLINE = frozenset({"file_name", "qs"})
+"""A file's Discipline sources that come before its reading (`FileView.discipline_source`)."""
+RAW_CODES = ("%%", "\\P", "\\f", "\\S", "^J", "{\\")
+"""The codes `drawings` refuses in a sheet's words (`sheet_list._RAW_CODES`; a test holds them
+equal): a sheet holding one is left out alone, never the file's whole list."""
 _SOURCED = ("number", "title", "discipline", "revision_mark", "issue_date", "storeys_as_stated")
 
 
@@ -100,7 +117,9 @@ def read(
             return {
                 **keyed_by,
                 "conventions": digest(*held()),
-                "discipline": view.discipline,
+                # Only a Discipline given (by the QS or the file's name): the one the sheets step
+                # derives from the sheet numbers is written by that step itself.
+                "discipline": view.discipline if view.discipline_source in GIVEN_DISCIPLINE else None,
                 "group": view.group,
                 **more,
             }
@@ -112,6 +131,7 @@ def read(
     steps.expect(done_before + 1 + len(recorded) + after)
     seen: dict[str, int] = {}
     said_for_file: set[str] = set()
+    render_left = [RENDER_SECONDS]
     # The view finder's bounds are the file's, held by the artefact loaded in this run: sheets whose
     # steps were kept by an earlier run are walked again (nothing recorded) before the next sheet is
     # read, so a stop never hands the rest of the file a fresh budget.
@@ -126,7 +146,9 @@ def read(
             seen.clear()
             seen.update(spent or {})
         unwalked.clear()
-        return _read_sheet(sheet_id, candidate, artefact, view_conventions, seen, said_for_file)
+        return _read_sheet(
+            sheet_id, candidate, artefact, view_conventions, seen, said_for_file, render_left[0]
+        )
 
     for position, kept in enumerate(recorded, start=1):
         sheet_id = uuid.UUID(kept["id"])
@@ -141,6 +163,8 @@ def read(
         # A kept step's words count too: a restart never says a limit the file already said.
         said = cast(list[dict[str, Any]], done.get("not_read_in_full", []))
         said_for_file.update(str(m["params"]["limit"]) for m in said)
+        # A kept step's render time is spent too: a stop never hands the rest a fresh budget.
+        render_left[0] -= float(cast(float, done.get("render_seconds", 0.0)))
     return len(recorded)
 
 
@@ -161,17 +185,26 @@ def _find(
 ) -> jobs.StepResult:
     view = drawings.file(file_id)
     found = finder.find(artefact, view.discipline, sheet_conventions)
-    candidates = [replace(candidate, group=view.group) for candidate in found]
-    report = found.budget.report()
+    stamped = [replace(candidate, group=view.group) for candidate in found]
+    candidates = [c for c in stamped if not _has_raw_codes(c)]
+    report = {**found.budget.report(), UNREADABLE_TEXT: len(stamped) - len(candidates)}
     recorded = drawings.record_sheets(file_id, candidates, empty_layouts=report.get("layout_empty", 0))
     result: dict[str, Any] = {
         "sheet_report": report,
-        "not_read_in_full": not_read_in_full(report, finder.LIMITS),
+        "not_read_in_full": not_read_in_full(report, SHEETS_STEP_LIMITS),
         "sheets": [
             {"id": sr.id, "candidate": candidate_json(candidates[sr.ordinal - 1])} for sr in recorded
         ],
     }
     return result
+
+
+def _has_raw_codes(candidate: SheetCandidate) -> bool:
+    words = [getattr(candidate, name) for name in _SOURCED]
+    texts = [w.value for w in words if w is not None]
+    if candidate.exclusion is not None and candidate.exclusion.text:
+        texts.append(candidate.exclusion.text)
+    return any(code in text for text in texts for code in RAW_CODES)
 
 
 def _read_sheet(
@@ -181,6 +214,7 @@ def _read_sheet(
     view_conventions: ViewConventions,
     seen: dict[str, int],
     said_for_file: set[str],
+    render_left: float = RENDER_SECONDS,
 ) -> jobs.StepResult:
     """`seen`: the view finder's limits as the last sheet read with this artefact left them;
     `said_for_file`: the view limits an earlier sheet's step already said (once for the file: the
@@ -196,27 +230,34 @@ def _read_sheet(
     }
     seen.clear()
     seen.update(now)
-    has_render = _render(sheet_id, artefact, candidate)
+    started = time.monotonic()
+    has_render = render_left > 0 and _render(sheet_id, artefact, candidate, render_left)
+    render_seconds = time.monotonic() - started
+    cut[RENDER_BUDGET] = int(not has_render and render_left <= 0)
     if candidate.number is None:
         drawings.record_plot(sheet_id, drawings.PlotNone.NO_NUMBER)
     result: dict[str, Any] = {
         "views": len(kept),
         "view_report": cut,
         "not_read_in_full": not_read_in_full(
-            cut, [limit for limit in VIEW_LIMITS if limit not in said_for_file]
+            cut, [limit for limit in SHEET_STEP_LIMITS if limit not in said_for_file]
         ),
         "render": has_render,
+        "render_seconds": render_seconds,
     }
     return result
 
 
-def _render(sheet_id: uuid.UUID, artefact: ReadArtefact, candidate: SheetCandidate) -> bool:
+def _render(
+    sheet_id: uuid.UUID, artefact: ReadArtefact, candidate: SheetCandidate, seconds: float
+) -> bool:
     """Keep the sheet's render; a sheet whose paper cannot be drawn (none, or larger than any
     sheet's) or whose render cannot be written has none, and its step says so (`render`)."""
     try:
         # Encoded here: a name the file holds that no text can carry (a lone surrogate the reader
         # kept from bytes it could not decode) fails the encoding, a ValueError, not the job.
-        content = render.build(artefact, candidate).to_bytes()
+        limits = replace(render.DEFAULT_LIMITS, seconds=min(render.DEFAULT_LIMITS.seconds, seconds))
+        content = render.build(artefact, candidate, limits=limits).to_bytes()
     except ValueError:
         return False
     drawings.record_render(sheet_id, content)

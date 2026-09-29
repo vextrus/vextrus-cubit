@@ -8,6 +8,7 @@ have no title block, so the finder reads no sheet from them). Mechanics only, ne
 import hashlib
 import re
 import uuid
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -34,6 +35,7 @@ from engine.recognise.types import (
     Sourced,
     ValueSource,
 )
+from engine.render import buffers as render_buffers
 from engine.render import fonts
 from vextrus.drawings import library as drawings_library
 from vextrus.drawings import services as drawings
@@ -464,3 +466,97 @@ def test_a_changed_discipline_finds_the_sheets_again(
     found = [s for s in kept_steps(qs_project.member, file_id) if s.step == drawings.SHEETS]
     assert len(found) == 2  # the first reading's step, and the one under the new Discipline
     assert {s.discipline for s in printed(qs_project.member, file_id)} == {"architectural"}
+
+
+# Review round 1: a raw code in one sheet's words, a derived Discipline in the key, the render time ----
+
+
+def test_the_raw_codes_a_sheet_is_left_out_for_are_drawings_own() -> None:
+    from vextrus.drawings.services import sheet_list
+
+    assert sheets.RAW_CODES == sheet_list._RAW_CODES
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("title", ["SEE C:\\files\\S-101", "PLAN \\PART A", "50%% OPEN"])
+def test_a_sheet_whose_title_holds_a_raw_code_is_left_out_alone_and_the_file_is_read(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, title: str
+) -> None:
+    original = finder.find
+
+    def with_a_raw_title(*args: Any) -> Any:
+        found = original(*args)
+        found[1] = replace(found[1], title=Sourced(title, ValueSource.TITLE_BLOCK_TEXT))
+        return found
+
+    monkeypatch.setattr(finder, "find", with_a_raw_title)
+    file_id = added(qs_project)
+
+    run_job(qs_project.member, file_id, monkeypatch)  # raises if the job would be tried again
+
+    steps = kept(qs_project.member, file_id)
+    result = steps[drawings.SHEETS].result
+    assert result["sheet_report"][sheets.UNREADABLE_TEXT] == 1
+    assert [m["params"]["limit"] for m in result["not_read_in_full"]] == [sheets.UNREADABLE_TEXT]
+    assert len(result["sheets"]) == FRAMES - 1
+    with qs_project.member.acting():
+        assert drawings.file(file_id).state == drawings.FileState.READ
+    assert sorted(str(s.number) for s in printed(qs_project.member, file_id)) == ["S-101", "S-103"]
+
+
+@pytest.mark.django_db
+def test_a_file_whose_name_gives_no_discipline_is_found_once(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The sheets step derives the Discipline from the sheet numbers; a second read (and a resume)
+    finds the kept step, not a new one."""
+    file_id = add(qs_project.member, qs_project.project_id, "KR-GENERAL.dwg", drawing("dwg")).file.id
+    reads = SheetReads(monkeypatch)
+    with pytest.raises(jobs.Stopped):
+        run_job(
+            qs_project.member,
+            file_id,
+            monkeypatch,
+            abort_reason=lambda: AbortReason.SHUTDOWN if reads.count >= 1 else None,
+        )
+    run_job(qs_project.member, file_id, monkeypatch)
+    run_job(qs_project.member, file_id, monkeypatch)
+
+    rows = [s.step for s in kept_steps(qs_project.member, file_id)]
+    assert rows.count(drawings.SHEETS) == 1
+    assert len(rows) == len(set(rows))
+    assert reads.count == FRAMES
+
+
+@pytest.mark.django_db
+def test_the_files_render_time_is_bounded_across_its_sheets_and_said_once(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """With the file's render time spent, its sheets are kept with their views and no render, the
+    cut said once; while time is left, each sheet's render gets no more than what is left."""
+    given: list[float] = []
+    original = render_buffers.build
+
+    def build(*args: Any, limits: Any) -> Any:
+        given.append(limits.seconds)
+        return original(*args, limits=limits)
+
+    monkeypatch.setattr(render_buffers, "build", build)
+    monkeypatch.setattr(sheets, "RENDER_SECONDS", 5.0)
+    bounded = added(qs_project)
+    run_job(qs_project.member, bounded, monkeypatch)
+    assert given
+    assert all(0 < seconds <= 5.0 for seconds in given)
+
+    monkeypatch.setattr(sheets, "RENDER_SECONDS", 0.0)
+    spent = add(qs_project.member, qs_project.project_id, "KR-STR-R1.dwg", drawing("dwg")).file.id
+    run_job(qs_project.member, spent, monkeypatch)
+
+    steps = kept(qs_project.member, spent)
+    results = [steps[drawings.sheet_step(n)].result for n in range(1, FRAMES + 1)]
+    assert [r["render"] for r in results] == [False] * FRAMES
+    assert all(r["views"] == 1 for r in results)
+    said = [m["params"]["limit"] for r in results for m in r["not_read_in_full"]]
+    assert said == [sheets.RENDER_BUDGET]
+    with qs_project.member.acting():
+        assert drawings.file(spent).state == drawings.FileState.READ
