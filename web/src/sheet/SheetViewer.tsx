@@ -44,8 +44,6 @@ export function SheetViewer({ buffer, label, workingView = null, onRetry }: Shee
       return null
     }
   }, [buffer, attempt])
-  // A sheet number is drawing notation: left to right inside any sentence (m0-screens 1.8).
-  const sheetNumber = isolateLtr(label)
   const retry = useCallback(() => {
     setDrawFailed(false)
     if (onRetry) onRetry()
@@ -70,7 +68,7 @@ export function SheetViewer({ buffer, label, workingView = null, onRetry }: Shee
                 </Button>
               }
             >
-              <Trans>{sheetNumber} could not be drawn. The other sheets are not affected.</Trans>
+              <Trans><DrawingText text={label} kind="sheet-number" truncate={false} /> could not be drawn. The other sheets are not affected.</Trans>
             </ErrorBar>
           </div>
         )}
@@ -276,7 +274,7 @@ function SheetCanvas({ sheet, label, workingView, onFail }: { sheet: DecodedShee
               <Maximize strokeWidth={1.5} aria-hidden />
             </button>
           </TooltipTrigger>
-          <TooltipContent>
+          <TooltipContent className="max-w-none whitespace-nowrap">
             {fitLabel}
             <KeyCombo combo="F" className={TOOLTIP_KBD} />
             <span aria-hidden>·</span>
