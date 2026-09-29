@@ -17,8 +17,8 @@ does (a title block's number is its largest text). A page of a PDF whose file ha
 names that Discipline's sheets first: a number of another Discipline's sheet on it (a cross-reference,
 or a number two Disciplines share) is set aside when one of its own is there. A page whose surest
 number is two sheets' numbers equally, or whose number several sheets carry and whose size cannot
-tell them apart, names several (`names_several_sheets`); one naming none says so (`names_no_sheet`); a scan (`scan`) or a page with
-no text (`no_text`) is not searched.
+tell them apart, names several (`names_several_sheets`); one naming none says so (`names_no_sheet`);
+a scan (`scan`) or a page with no text (`no_text`) is not searched.
 
 **Where** (`PlotTransform`: sheet to page, a scale, a turn in 90° steps, then an offset in page units,
 points; the sheet in its paper millimetres, as the buffers draw it). From the sizes first: the sheet is
