@@ -11,7 +11,7 @@ import { MachineText } from '@/format/machine'
 import { DrawingText } from '@/ui'
 import { SheetName } from './acts'
 import type { ProposalOut } from './data'
-import type { QuestionEntry } from './model'
+import { compareNumbers, type DisciplineSection, type QuestionEntry, type Step1Model } from './model'
 import { disciplineName } from './SheetList'
 import { useHasEnglish } from './useHasEnglish'
 import { OPTION_NAMES, OTHER_OPTION, OTHER_QUESTION, QUESTION_KINDS, QUESTION_KIND_BY_CODE, SHEET_KIND_NAMES } from './words'
@@ -53,12 +53,108 @@ export function QuestionTitle({ entry, names }: { entry: QuestionEntry; names: R
   return <>{kind}</>
 }
 
-/** The body under the title, where the Question's own sentence is not its title (a held file's). */
-export function QuestionBody({ entry }: { entry: QuestionEntry }) {
+/** The drawing list's source in a sentence: "The drawing list read on a sheet", "… pasted by Nusrat Jahan". */
+function ListSource({ section }: { section: DisciplineSection | undefined }) {
+  const list = section?.list
+  const who = list?.entered_by ?? ''
+  if (list?.source === 'pasted' && who) return <Trans>The drawing list pasted by {who}</Trans>
+  if (list?.source === 'typed' && who) return <Trans>The drawing list typed by {who}</Trans>
+  if (list?.source === 'sheet') return <Trans>The drawing list read on a sheet</Trans>
+  return <Trans>The drawing list</Trans>
+}
+
+/** The body under the title (§5 item 3, 6.7): what was read, in words, with its figures. */
+export function QuestionBody({ entry, model }: { entry: QuestionEntry; model: Step1Model }) {
   const has = useHasEnglish()
+  const { i18n } = useLingui()
+  const f = useFormat()
   const q = entry.question
-  if (q.kind !== 'file_misread' || !has(q.code)) return null
-  return <MachineText message={{ code: q.code, params: params(entry) }} />
+  const sheet = entry.holds[0]
+  if (q.kind === 'file_misread') return has(q.code) ? <MachineText message={{ code: q.code, params: params(entry) }} /> : null
+  if (isCopies(entry)) {
+    const titles = [...new Set(entry.holds.map((s) => s.title))]
+    if (titles.length === 1) {
+      const title = <DrawingText kind="title" text={titles[0]!} truncate={false} />
+      return <Trans>Both are titled “{title}”. Only one can be read.</Trans>
+    }
+    return <Trans>Their titles differ. Only one can be read.</Trans>
+  }
+  if (q.code === 'takeoff.step1.no_number' && sheet) {
+    const title = <DrawingText kind="title" text={sheet.title} truncate={false} />
+    const file = <DrawingText kind="file-name" text={sheet.file_name} truncate={false} />
+    return <Trans>A sheet titled “{title}” in {file} has an empty number in its title block.</Trans>
+  }
+  if (q.kind === 'low_confidence' && sheet) {
+    const name = <SheetName sheets={[sheet]} />
+    const title = <DrawingText kind="title" text={sheet.title} truncate={false} />
+    const file = <DrawingText kind="file-name" text={sheet.file_name} truncate={false} />
+    return <Trans>{name} “{title}” in {file}: its title and views do not settle which kind of sheet it is.</Trans>
+  }
+  if (q.kind === 'check' && typeof q.params.number === 'string') {
+    const section = model.disciplines.find((d) => d.discipline === q.discipline)
+    const number = <DrawingText kind="sheet-number" text={q.params.number} truncate={false} />
+    const discipline = disciplineName(q.discipline, i18n).toLocaleLowerCase(i18n.locale)
+    const files = [...new Set((section?.rows ?? []).flatMap((r) => r.sheets.map((s) => s.file_name)))].sort()
+    const found = f.integer(section?.found ?? 0)
+    const named = <FileList names={files} />
+    if (section?.list) {
+      const listed = f.integer(section.list.numbers.length)
+      const source = <ListSource section={section} />
+      return files.length > 0 ? (
+        <Trans>
+          {source} names {listed} {discipline} sheets. {found} were found in {named}; {number} was not.
+        </Trans>
+      ) : (
+        <Trans>
+          {source} names {listed} {discipline} sheets; {number} is in no file.
+        </Trans>
+      )
+    }
+    return files.length > 0 ? (
+      <Trans>
+        The drawing list names {number}. {found} {discipline} sheets were found in {named}; {number} was not.
+      </Trans>
+    ) : (
+      <Trans>The drawing list names {number}, and no file has it.</Trans>
+    )
+  }
+  return null
+}
+
+function FileList({ names }: { names: readonly string[] }) {
+  const items = names.map((n) => <DrawingText key={n} kind="file-name" text={n} truncate={false} />)
+  return <>{items.flatMap((el, i) => (i === 0 ? [el] : [', ', el]))}</>
+}
+
+/** The Trace line (§5 item 3, 6.7): where each fact the Question stands on was read. */
+export function Trace({ entry, model }: { entry: QuestionEntry; model: Step1Model }) {
+  const q = entry.question
+  const sheet = entry.holds[0]
+  const section = model.disciplines.find((d) => d.discipline === q.discipline)
+  let where: ReactNode = null
+  if (q.kind === 'file_misread') {
+    const name = q.subject_id ? model.fileNames[q.subject_id] : undefined
+    const file = name ? <DrawingText kind="file-name" text={name} truncate={false} /> : null
+    where = file ? <Trans>{file}, as each of the two readers read it</Trans> : <Trans>The file, as each of the two readers read it</Trans>
+  } else if (isCopies(entry)) {
+    where = section?.list?.source === 'sheet' ? <Trans>Title blocks of both copies; the drawing list read on a sheet</Trans> : <Trans>Title blocks of both copies</Trans>
+  } else if (q.code === 'takeoff.step1.no_number') {
+    where = <Trans>Title block text (the number field is empty)</Trans>
+  } else if (q.kind === 'low_confidence' && sheet) {
+    const name = <SheetName sheets={[sheet]} />
+    where = <Trans>{name} title block and its views</Trans>
+  } else if (q.kind === 'check') {
+    where = <ListSource section={section} />
+  } else if (sheet) {
+    const name = <SheetName sheets={[sheet]} />
+    where = <Trans>{name} title block</Trans>
+  }
+  if (!where) return null
+  return (
+    <>
+      <Trans>Trace:</Trans> {where}
+    </>
+  )
 }
 
 /** A copy by its mark: "R1" as drawn, a bare letter as "rev B" (§5, §6.7); "no revision mark" for none. */
@@ -82,11 +178,29 @@ function CopyIn({ sheet, other, first }: { sheet: ProposalOut; other: ProposalOu
   return first ? <Trans>the first copy</Trans> : <Trans>the second copy</Trans>
 }
 
-/** The option picked for the QS, only where two independent sources that agree can be named (ruling 2). */
-export function usePick(_entry: QuestionEntry): { key: string; sources: string } | null {
-  // The title block's mark and date are one source (§5); the second, the drawing list naming the
-  // kept copy's mark, does not reach the web yet, so nothing is pre-picked (ruling 2).
-  return null
+/** The pick the server made for the QS (ruling 2: only where independent sources agree), with the sources the card names. */
+export function usePick(entry: QuestionEntry): { key: string; sources: ReactNode } | null {
+  const picked = optionsOf(entry).find((o) => o.picked && o.key)
+  if (!picked?.key) return null
+  return { key: picked.key, sources: <PickSources entry={entry} pick={picked.key} /> }
+}
+
+/** "the later revision mark and the later date agree" (6.7): what agrees on the kept copy. */
+function PickSources({ entry, pick }: { entry: QuestionEntry; pick: string }) {
+  const { i18n, t } = useLingui()
+  if (isCopies(entry) && (pick === 'keep_b' || pick === 'keep_a')) {
+    const [later, earlier] = entry.holds as [ProposalOut, ProposalOut]
+    const keep = pick === 'keep_b' ? later : earlier
+    const drop = pick === 'keep_b' ? earlier : later
+    const agree: string[] = []
+    if (keep.revision_mark.trim() && drop.revision_mark.trim() && compareNumbers(keep.revision_mark, drop.revision_mark) > 0) agree.push(t`the later revision mark`)
+    if (keep.issue_date && drop.issue_date && keep.issue_date > drop.issue_date) agree.push(t`the later date`)
+    if (agree.length > 0) {
+      const sources = new Intl.ListFormat(i18n.locale, { type: 'conjunction' }).format(agree)
+      return agree.length > 1 ? <Trans>{sources} agree</Trans> : <>{sources}</>
+    }
+  }
+  return <Trans>the sources Vextrus read agree</Trans>
 }
 
 /** An option's words, naming the copies' marks and dates for two sheets of one number. */

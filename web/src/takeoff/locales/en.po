@@ -123,6 +123,10 @@ msgstr "Two plans draw one thing"
 msgid "{n, plural, one {Confirm # sheet that agrees} other {Confirm # sheets that agree}}, and leave out {m}: {reasons}"
 msgstr "{n, plural, one {Confirm # sheet that agrees} other {Confirm # sheets that agree}}, and leave out {m}: {reasons}"
 
+#: src/takeoff/questionWords.tsx
+msgid "{name} title block"
+msgstr "{name} title block"
+
 #: src/takeoff/Step1Inspector.tsx
 msgid "Confirmed by {name}, {date}"
 msgstr "Confirmed by {name}, {date}"
@@ -158,6 +162,10 @@ msgstr "Presentation plan"
 #: src/takeoff/acts.tsx
 msgid "your last change to Step 1"
 msgstr "your last change to Step 1"
+
+#: src/takeoff/questionWords.tsx
+msgid "The drawing list names {number}, and no file has it."
+msgstr "The drawing list names {number}, and no file has it."
 
 #: src/takeoff/SheetList.tsx
 msgid "found, {listed} on the drawing list read on a sheet"
@@ -319,6 +327,7 @@ msgstr "{n, plural, one {Drawing list set: # {kind} sheet.} other {Drawing list 
 msgid "lift"
 msgstr "lift"
 
+#: src/takeoff/questionWords.tsx
 #: src/takeoff/words.tsx
 msgid "The drawing list"
 msgstr "The drawing list"
@@ -346,6 +355,10 @@ msgstr "plumbing and sanitary"
 #: src/takeoff/words.tsx
 msgid "Section"
 msgstr "Section"
+
+#: src/takeoff/questionWords.tsx
+msgid "A sheet titled “{title}” in {file} has an empty number in its title block."
+msgstr "A sheet titled “{title}” in {file} has an empty number in its title block."
 
 #: src/takeoff/Bar.tsx
 msgid "Leave out {name}: {reason}"
@@ -402,6 +415,10 @@ msgstr "Mechanical (HVAC)"
 #: src/takeoff/words.tsx
 msgid "Architectural"
 msgstr "Architectural"
+
+#: src/takeoff/questionWords.tsx
+msgid "The drawing list names {number}. {found} {discipline} sheets were found in {named}; {number} was not."
+msgstr "The drawing list names {number}. {found} {discipline} sheets were found in {named}; {number} was not."
 
 #: src/takeoff/words.tsx
 msgid "Solar layout"
@@ -523,6 +540,10 @@ msgstr "Finish schedule"
 msgid "{mark}, {date}"
 msgstr "{mark}, {date}"
 
+#: src/takeoff/questionWords.tsx
+msgid "Title blocks of both copies"
+msgstr "Title blocks of both copies"
+
 #: src/takeoff/Step1Inspector.tsx
 msgid "{mark}, from the file name; dated {date}"
 msgstr "{mark}, from the file name; dated {date}"
@@ -542,6 +563,10 @@ msgstr "{name} confirmed back in, under {backIn}’s name."
 #: src/takeoff/SheetList.tsx
 msgid "A file is held: the two readers disagree"
 msgstr "A file is held: the two readers disagree"
+
+#: src/takeoff/questionWords.tsx
+msgid "{name} “{title}” in {file}: its title and views do not settle which kind of sheet it is."
+msgstr "{name} “{title}” in {file}: its title and views do not settle which kind of sheet it is."
 
 #: src/takeoff/Step1Screen.tsx
 msgid "Exclude the focused sheet, with a reason"
@@ -574,6 +599,10 @@ msgstr "the drawing list you set"
 #: src/takeoff/SheetList.tsx
 msgid "found; no drawing list; numbering runs {range} without a gap"
 msgstr "found; no drawing list; numbering runs {range} without a gap"
+
+#: src/takeoff/questionWords.tsx
+msgid "{file}, as each of the two readers read it"
+msgstr "{file}, as each of the two readers read it"
 
 #: src/takeoff/Bar.tsx
 msgid "Confirm {name}"
@@ -638,6 +667,10 @@ msgstr "superseded"
 #: src/takeoff/acts.tsx
 msgid "{name} excluded: {short}. It stays in the count."
 msgstr "{name} excluded: {short}. It stays in the count."
+
+#: src/takeoff/questionWords.tsx
+msgid "the later revision mark"
+msgstr "the later revision mark"
 
 #: src/takeoff/words.tsx
 msgid "Point wiring layout"
@@ -724,6 +757,10 @@ msgstr "{name} {leftText} to confirm"
 msgid "{start} and {tail}"
 msgstr "{start} and {tail}"
 
+#: src/takeoff/questionWords.tsx
+msgid "The drawing list pasted by {who}"
+msgstr "The drawing list pasted by {who}"
+
 #: src/takeoff/Step1Screen.tsx
 msgid "Previous row; in a sheet, the previous sheet"
 msgstr "Previous row; in a sheet, the previous sheet"
@@ -747,6 +784,10 @@ msgstr "Answering confirms {number} ({kept}) and excludes {number} ({dropped}) a
 #: src/takeoff/words.tsx
 msgid "Set this file aside and mark it for Vextrus to look at"
 msgstr "Set this file aside and mark it for Vextrus to look at"
+
+#: src/takeoff/questionWords.tsx
+msgid "{sources} agree"
+msgstr "{sources} agree"
 
 #: src/takeoff/words.tsx
 msgid "Fire hydrant layout"
@@ -853,6 +894,10 @@ msgstr "The QS confirms the sheet list; every act shows who did it."
 msgid "{n, plural, one {Confirmed # sheet.} other {Confirmed # sheets.}}"
 msgstr "{n, plural, one {Confirmed # sheet.} other {Confirmed # sheets.}}"
 
+#: src/takeoff/questionWords.tsx
+msgid "The file, as each of the two readers read it"
+msgstr "The file, as each of the two readers read it"
+
 #: src/takeoff/words.tsx
 msgid "Legend"
 msgstr "Legend"
@@ -896,6 +941,10 @@ msgstr "Another Discipline"
 #: src/takeoff/words.tsx
 msgid "Kitchen details"
 msgstr "Kitchen details"
+
+#: src/takeoff/questionWords.tsx
+msgid "Trace:"
+msgstr "Trace:"
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "{file} is held: its views are not counted unless you read it anyway."
@@ -962,6 +1011,10 @@ msgstr "Back to the list"
 msgid "The pasted drawing list"
 msgstr "The pasted drawing list"
 
+#: src/takeoff/questionWords.tsx
+msgid "the sources Vextrus read agree"
+msgstr "the sources Vextrus read agree"
+
 #: src/takeoff/Bar.tsx
 msgid "Coverage has a view that is neither assigned nor excluded"
 msgstr "Coverage has a view that is neither assigned nor excluded"
@@ -1014,6 +1067,10 @@ msgstr "Pile cap details"
 msgid "duplicate"
 msgstr "duplicate"
 
+#: src/takeoff/questionWords.tsx
+msgid "Title blocks of both copies; the drawing list read on a sheet"
+msgstr "Title blocks of both copies; the drawing list read on a sheet"
+
 #: src/takeoff/SheetList.tsx
 msgid "{n} / {total} settled"
 msgstr "{n} / {total} settled"
@@ -1025,6 +1082,10 @@ msgstr "{n, plural, one {left out # sheet} other {left out # sheets}}"
 #: src/takeoff/Step1Inspector.tsx
 msgid "Picked for you: {sources}"
 msgstr "Picked for you: {sources}"
+
+#: src/takeoff/questionWords.tsx
+msgid "{source} names {listed} {discipline} sheets; {number} is in no file."
+msgstr "{source} names {listed} {discipline} sheets; {number} is in no file."
 
 #: src/takeoff/words.tsx
 msgid "Slab layout"
@@ -1077,6 +1138,14 @@ msgstr "{name}: {listed} on the pasted drawing list; {found} found."
 #: src/takeoff/words.tsx
 msgid "Duplicate or another Discipline’s copy"
 msgstr "Duplicate or another Discipline’s copy"
+
+#: src/takeoff/questionWords.tsx
+msgid "Both are titled “{title}”. Only one can be read."
+msgstr "Both are titled “{title}”. Only one can be read."
+
+#: src/takeoff/questionWords.tsx
+msgid "The drawing list typed by {who}"
+msgstr "The drawing list typed by {who}"
 
 #: src/takeoff/SheetList.tsx
 msgid "State"
@@ -1135,6 +1204,10 @@ msgid "Open {name}"
 msgstr "Open {name}"
 
 #: src/takeoff/questionWords.tsx
+msgid "{name} title block and its views"
+msgstr "{name} title block and its views"
+
+#: src/takeoff/questionWords.tsx
 msgid "Questions cannot be answered on this screen yet. Confirm the other sheets meanwhile."
 msgstr "Questions cannot be answered on this screen yet. Confirm the other sheets meanwhile."
 
@@ -1146,9 +1219,17 @@ msgstr "Lift pit details"
 msgid "Title, as drawn"
 msgstr "Title, as drawn"
 
+#: src/takeoff/questionWords.tsx
+msgid "Their titles differ. Only one can be read."
+msgstr "Their titles differ. Only one can be read."
+
 #: src/takeoff/words.tsx
 msgid "Plumbing layout"
 msgstr "Plumbing layout"
+
+#: src/takeoff/questionWords.tsx
+msgid "The drawing list read on a sheet"
+msgstr "The drawing list read on a sheet"
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "{mark}, from the file name"
@@ -1235,9 +1316,17 @@ msgstr "fire"
 msgid "General notes"
 msgstr "General notes"
 
+#: src/takeoff/questionWords.tsx
+msgid "Title block text (the number field is empty)"
+msgstr "Title block text (the number field is empty)"
+
 #: src/takeoff/Step1Screen.tsx
 msgid "Opening Step 1…"
 msgstr "Opening Step 1…"
+
+#: src/takeoff/questionWords.tsx
+msgid "the later date"
+msgstr "the later date"
 
 #: src/takeoff/Bar.tsx
 #: src/takeoff/Step1Inspector.tsx
@@ -1392,6 +1481,10 @@ msgstr "Pit and chamber details"
 #: src/takeoff/words.tsx
 msgid "Column schedule"
 msgstr "Column schedule"
+
+#: src/takeoff/questionWords.tsx
+msgid "{source} names {listed} {discipline} sheets. {found} were found in {named}; {number} was not."
+msgstr "{source} names {listed} {discipline} sheets. {found} were found in {named}; {number} was not."
 
 #: src/takeoff/acts.tsx
 msgid "{n, plural, one {confirmed # sheet} other {confirmed # sheets}} and left out {m}"

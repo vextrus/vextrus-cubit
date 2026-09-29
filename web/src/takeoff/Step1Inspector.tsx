@@ -16,7 +16,7 @@ import { QuestionGlyph } from '@/ui/glyphs'
 import { SheetName, SheetRange } from './acts'
 import type { CoverageOut, ProposalOut } from './data'
 import type { DisciplineSection, QuestionEntry, Row, Step1Model } from './model'
-import { Answering, CannotAnswer, Copy, OptionWords, QuestionBody, QuestionTitle, optionsOf, useKindLine, usePick } from './questionWords'
+import { Answering, CannotAnswer, Copy, OptionWords, QuestionBody, QuestionTitle, Trace, optionsOf, useKindLine, usePick } from './questionWords'
 import { disciplineName } from './SheetList'
 import { NOT_RECEIVED_NAMES, OTHER_DISCIPLINE, REASON_SHORT, UNKNOWN_REASON } from './words'
 
@@ -274,14 +274,15 @@ export function SheetFacts({ row, showTitle, readOnly }: { row: Row; showTitle: 
   )
 }
 
-export function QuestionCard({ entry, readOnly, names }: { entry: QuestionEntry; readOnly: 'md' | 'guest' | null; names: Readonly<Record<string, string>> }) {
+export function QuestionCard({ entry, readOnly, model }: { entry: QuestionEntry; readOnly: 'md' | 'guest' | null; model: Step1Model }) {
+  const names = model.fileNames
   const { t } = useLingui()
   const f = useFormat()
   const kind = useKindLine(entry)
   const tag = entry.tag
   const options = optionsOf(entry)
   const pick = usePick(entry)
-  const sources = pick?.sources ?? ''
+  const sources = pick?.sources ?? null
   const name = `question-${entry.question.id}`
   return (
     <section aria-label={t`Question ${tag}`} className="m-2 overflow-hidden rounded-md border border-question">
@@ -301,7 +302,7 @@ export function QuestionCard({ entry, readOnly, names }: { entry: QuestionEntry;
           <QuestionTitle entry={entry} names={names} />
         </p>
         <p className="text-xs text-ink-secondary empty:hidden">
-          <QuestionBody entry={entry} />
+          <QuestionBody entry={entry} model={model} />
         </p>
         {entry.holds.length > 1 ? (
           <ul className="text-xs">
@@ -313,6 +314,9 @@ export function QuestionCard({ entry, readOnly, names }: { entry: QuestionEntry;
             ))}
           </ul>
         ) : null}
+        <p className="text-xs text-muted-foreground empty:hidden">
+          <Trace entry={entry} model={model} />
+        </p>
         <fieldset className="flex flex-col gap-1" disabled>
           <legend className="sr-only">
             <Trans>Answers</Trans>
@@ -350,7 +354,7 @@ export function QuestionsTab({ model, readOnly }: { model: Step1Model; readOnly:
   return (
     <>
       {model.queue.map((entry) => (
-        <QuestionCard key={entry.question.id} entry={entry} readOnly={readOnly} names={model.fileNames} />
+        <QuestionCard key={entry.question.id} entry={entry} readOnly={readOnly} model={model} />
       ))}
     </>
   )

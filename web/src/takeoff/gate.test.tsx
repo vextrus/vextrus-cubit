@@ -54,7 +54,7 @@ function rowOf(text: string, nth = 0): HTMLElement {
   return inner[nth]!
 }
 
-const inspector = () => document.querySelector<HTMLElement>('[data-slot="inspector"], aside') ?? document.body
+const inspector = () => document.querySelector<HTMLElement>('[data-region="inspector"]') ?? document.body
 
 describe('M1: a drawn date is the API’s ISO date, shown as the Market writes a day', () => {
   it('shows S-07 rev B’s 2026-09-12 as "12 Sep 2026" in the list, the inspector and Q2’s card, never "9 Dec 2026"', async () => {
@@ -138,5 +138,61 @@ describe('M11: the MD’s and a Guest’s bar names the QS, and offers the next 
     const { api } = kr01([])
     await open(api, PEOPLE.md)
     await shows('The QS confirms the sheet list; every act shows who did it.')
+  })
+})
+
+async function questionsTab() {
+  const tab = await waitFor(() => {
+    const found = [...document.querySelectorAll<HTMLElement>('[role="tab"]')].find((t) => clean(t.textContent).startsWith('Questions'))
+    expect(found).toBeTruthy()
+    return found!
+  })
+  await userEvent.click(tab)
+  return waitFor(() => {
+    const cards = [...document.querySelectorAll<HTMLElement>('[data-region="inspector"] section[aria-label]')].filter((c) => clean(c.getAttribute('aria-label')).startsWith('Question Q'))
+    expect(cards).toHaveLength(5)
+    return cards
+  })
+}
+
+describe('M4: every Question card has its body and its Trace line', () => {
+  it('gives all five cards a Trace, and Q3, Q4 and Q5 a body saying what was read', async () => {
+    const { api } = kr01()
+    await open(api)
+    const cards = await questionsTab()
+    for (const card of cards) expect(clean(card.textContent)).toMatch(/Trace: \S/)
+    const text = cards.map((c) => clean(c.textContent))
+    const q = (tag: string) => text.find((t) => t.startsWith(`Question ${tag}`))!
+    expect(q('Q2')).toContain('Both are titled “TYPICAL FLOOR SLAB LAYOUT”. Only one can be read.')
+    expect(q('Q2')).toContain('Trace: Title blocks of both copies; the drawing list read on a sheet')
+    expect(text.join(' ')).toContain('A sheet titled “DOOR AND WINDOW SCHEDULE” in KR-ARC-R0.dwg has an empty number in its title block.')
+    expect(text.join(' ')).toContain('Trace: Title block text (the number field is empty)')
+    expect(text.join(' ')).toContain('A-05 “SECTION A-A & ELEVATION” in KR-ARC-R0.dwg: its title and views do not settle which kind of sheet it is.')
+    expect(text.join(' ')).toMatch(/The drawing list read on a sheet names 13 structural sheets\. \d+ were found in KR-STR-R0\.dwg; S-13 was not\./)
+  })
+})
+
+describe('M5: the pre-pick is shown with what agrees', () => {
+  it('marks Q2’s keep_b "Picked for you" and words the first line from it', async () => {
+    const { api, step1 } = kr01()
+    step1.proposals.find((p) => p.number === 'S-07' && p.revision_mark === 'A')!.issue_date = '2026-08-02'
+    await open(api)
+    const cards = await questionsTab()
+    const q2 = cards.find((c) => clean(c.textContent).startsWith('Question Q2'))!
+    const text = clean(q2.textContent)
+    expect(text).toContain('Picked for you: the later revision mark and the later date agree')
+    expect(text).toContain('Answering confirms S-07 (rev B) and excludes S-07 (rev A) as superseded.')
+    const checked = q2.querySelector<HTMLInputElement>('input[type="radio"]:checked')
+    expect(checked?.value).toBe('keep_b')
+  })
+
+  it('pre-picks nothing the server did not pick', async () => {
+    const { api } = kr01()
+    await open(api)
+    const cards = await questionsTab()
+    for (const card of cards.filter((c) => !clean(c.textContent).startsWith('Question Q2'))) {
+      expect(clean(card.textContent)).not.toContain('Picked for you')
+      expect(card.querySelector('input[type="radio"]:checked')).toBeNull()
+    }
   })
 })

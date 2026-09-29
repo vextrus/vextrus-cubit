@@ -267,7 +267,7 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
     />
   ) : focusedRow ? (
     <>
-      {focusedRow.question ? <QuestionCard entry={focusedRow.question} readOnly={readOnly} names={model.fileNames} /> : null}
+      {focusedRow.question ? <QuestionCard entry={focusedRow.question} readOnly={readOnly} model={model} /> : null}
       <SheetFacts row={focusedRow} showTitle={mode === 'list'} readOnly={readOnly !== null} />
     </>
   ) : (
