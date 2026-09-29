@@ -49,9 +49,9 @@
 #   drawings_usedid (insert-only for the app) at its row's insert, and an id found there is refused,
 #   whatever was deleted first and even within one statement. An id, once used, never comes back.
 # - Held by projects, not here: a Building's Project. A Building is named by id (a downward id), and
-#   the triggers check it at each write of a drawings row; projects' own rights decide whether a
-#   Building can move to another Project afterwards (vextrus_app may today delete a Building and
-#   insert it again: projects' rule, reported to its owner).
+#   the triggers check it at each write of a drawings row; projects' own rights keep it there
+#   afterwards: the app deletes no Project, Site or Building (projects 0003; #93), so no delete and
+#   re-insert moves a Building to another Project.
 
 import django.db.models.deletion
 import django.utils.timezone
