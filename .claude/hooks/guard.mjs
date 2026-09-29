@@ -34,6 +34,24 @@ const GIT = String.raw`^(?:[A-Z_]+=\S*\s+)*git\s+(?:-C\s+\S+\s+)?`;
 const gitVerb = (verb) => new RegExp(`${GIT}${verb}\\b(.*)$`);
 const args = (rest) => (rest ?? "").split(/\s+/).filter((arg) => arg !== "");
 
+// The only commands an agent may run as the key user (ADR 0041; scripts/owner/autonomy-setup.sh installs the
+// matching password-free rules): the poster, with a run id or a design-gate verdict by item number, and the
+// scorer, with one run id only. Each is matched against the whole command, so an appended `; cat …`,
+// `$(…)` or redirect never matches; the programs (and sudoers, for the scorer) check the arguments again.
+// Only the orchestrator's session, whose project is the main checkout, may run them: a builder's session
+// (a worktree under .claude/worktrees/, or a cloud copy) never posts its own gate. Within one Unix user
+// this is a tripwire, not a wall (ADR 0041).
+const AS_KEY_USER = String.raw`^sudo -n -u vxkeys `;
+const KEY_USER_COMMANDS = [
+  new RegExp(
+    AS_KEY_USER +
+      String.raw`/usr/local/lib/vextrus/post-status (?:-h|--help|real-drawings [0-9A-Za-z-]+|design-gate [0-9]+ [0-9a-f]{40}(?: --(?:passed|failed|not-applicable)[ =][0-9,-]+)*)$`,
+  ),
+  new RegExp(AS_KEY_USER + String.raw`/usr/local/bin/vx-score [0-9A-Za-z-]+$`),
+];
+const MAIN_CHECKOUT = "/home/riz/vextrus-cubit";
+const orchestrators = resolve(root) === MAIN_CHECKOUT;
+
 const BASH_RULES = [
   {
     rule: "SECRET_PRINTED",
@@ -71,7 +89,7 @@ const BASH_RULES = [
     rule: "RECURSIVE_DELETE",
     fires: (parts) =>
       parts.some((part) => /(?:^|\s)rm\s+(?:-[a-zA-Z]*[rR][a-zA-Z]*|--recursive)(?:\s|$)/.test(part) || /(?:^|\s)rm\s+.*\s-[a-zA-Z]*[rR]/.test(part)),
-    reason: "`rm -r` asks the owner (CLAUDE.md). Delete the files you made by name, or leave build output in place and say so.",
+    reason: "`rm -r` is refused (CLAUDE.md, the Permissions law). Delete the files you made by name, or leave build output in place and say so.",
   },
   {
     rule: "HISTORY_REWRITTEN",
@@ -87,25 +105,38 @@ const BASH_RULES = [
     reason: "`--no-verify` skips the checks a commit or push is owed. Fix what they refuse instead.",
   },
   {
-    rule: "MERGE_BY_AGENT",
-    fires: (parts) =>
-      parts.some((part) => /^(?:[A-Z_]+=\S*\s+)*gh\s+pr\s+merge\b/.test(part) || (/^(?:[A-Z_]+=\S*\s+)*gh\s+api\b/.test(part) && /\/(?:pulls\/\d+\/merge|statuses\/|check-runs)\b/.test(part))),
-    reason: "Only the owner merges (ADR 0025), and only the key user posts the real-drawing status (ADR 0030). Open the PR, state what was and was not verified, and stop.",
-  },
-  {
     rule: "STATUS_POSTED",
-    // The commit-status endpoint anywhere in the command, whatever runs it (a variable-split `gh api`, a
-    // `curl` POST), after dropping quotes, backslashes and line continuations (s02 review R3). A tripwire,
-    // not a wall: a path built in pieces at run time still passes; the status's author is what holds.
-    fires: (_parts, command) => /\/statuses/i.test(command.replace(/\\\n|["'\\]/g, "")),
-    reason: "Commit statuses are posted only by the owner's GitHub App (ADR 0030) and by main's not-applicable workflow; an agent never posts or reads them through the API. Open the PR, state what was and was not verified, and stop.",
+    // The commit-status and check-run endpoints anywhere in the command, whatever runs it (a variable-split
+    // `gh api`, a `curl` POST), after dropping quotes, backslashes and line continuations (s02 review R3). A
+    // tripwire, not a wall: a path built in pieces at run time still passes; the status's author is what
+    // holds. Merging is allowed (ADR 0041): the ruleset's required statuses are what a merge waits on.
+    fires: (_parts, command) => /\/(?:statuses|check-runs)/i.test(command.replace(/\\\n|["'\\]/g, "")),
+    reason: "Commit statuses are posted only through the owner's GitHub App, by `post-status` run as the key user (ADRs 0030, 0041), and by main's not-applicable workflow; never through the API. Post a gate with the exact post-status command the orchestrate-wave skill gives.",
   },
   {
     rule: "PRIVILEGE_RAISED",
-    // Anywhere in the command, not only at its start: `bash -c "sudo …"` is the same act.
-    fires: (parts) =>
+    // Anywhere in the command, not only at its start: `bash -c "sudo …"` is the same act. The one exception
+    // is a whole command that is exactly the poster or the scorer run as the key user, non-interactively,
+    // with plain arguments (ADR 0041): nothing before or after it, no shell metacharacter anywhere.
+    fires: (parts, command) =>
+      !(orchestrators && KEY_USER_COMMANDS.some((allowed) => allowed.test(command.trim()))) &&
       parts.some((part) => /(?:^|[\s"'`(=$])(?:sudo|su|doas|pkexec|(?:\S*\/)?wsl(?:\.exe)?)(?=\s|$|["'`;)])|vxkeys|vx-score/.test(part)),
-    reason: "Agent sessions never raise privilege, name the key user or run the scorer: Answer Keys live with another user and only the owner scores (ADRs 0026, 0030). If something needs root, say what and the owner runs it with `! <command>`.",
+    reason: "Agent sessions never raise privilege or name the key user, except the orchestrator's session (the main checkout) running exactly `post-status` or the scorer as the key user with `-n` (ADR 0041); a builder never posts its own gate. Answer Keys and the App's key stay with the key user (ADR 0026). If something needs root, say what and the owner runs it with `! <command>`.",
+  },
+  {
+    rule: "RULESET_CHANGED",
+    // The ruleset is what a merge waits on (ADR 0041), and the owner's token is an admin's: deleting or
+    // editing it, branch protection, or an admin merge would skip every required status. Reads pass.
+    fires: (parts, command) => {
+      const flat = command.replace(/\\\n|["'\\]/g, "");
+      const write = /(?:-X|--method)[\s=]*(?:DELETE|PUT|POST|PATCH)\b|\s(?:-f|-F|--field|--raw-field|--input)[\s=]/i;
+      return (
+        (/\/(?:rulesets|protection)\b/i.test(flat) && write.test(flat)) ||
+        /mutation[\s\S]*(?:Ruleset|BranchProtection)/i.test(flat) ||
+        parts.some((part) => /^(?:[A-Z_]+=\S*\s+)*gh\s+pr\s+merge\b/.test(part) && /\s--admin\b/.test(part))
+      );
+    },
+    reason: "The ruleset and branch protection are the owner's, and an admin merge skips the required checks (ADR 0041). Merge only with `gh pr merge <PR> --merge` once `uv run python -m scripts.merge_ready <PR>` passes.",
   },
   {
     rule: "LABORATORY_READ",

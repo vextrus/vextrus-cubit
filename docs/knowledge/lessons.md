@@ -1,7 +1,12 @@
 # Lessons, by area
 
-Short, dated lessons that cost us something once. Each is written in the same PR (or session) as the
-fix that taught it (ADR 0030). Read the area you are working in before you start.
+Short, dated lessons that cost us something once. Read the area you are working in before you start.
+
+**This file is becoming an index** (ADR 0041): every serious finding leaves a committed check (a test,
+lint or scan that fails on the class), and each lesson ends with `Check:` and that check's path. A lesson
+without a check is a debt, listed in the milestone issue until it has one. Lessons below written before
+29 Sep 2026 have no `Check:` yet: each is such a debt until the orchestrator adds one or marks it
+"no check can catch this" with the reason.
 
 ## Harness and agents
 - **Parallel agents share one chrome-devtools browser.** 26 Sep 2026: a prototype agent selected the
