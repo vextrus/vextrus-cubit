@@ -158,3 +158,46 @@ def test_a_key_phrase_maps_to_the_first_whole_subject_word_in_it(phrase: str, wo
 )
 def test_a_kind_is_folded_before_it_is_compared(kind: object, folded: str) -> None:
     assert score._kind(kind) == folded
+
+
+def test_every_key_phrase_is_mapped_whether_or_not_its_view_joins(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # 24g's refuter: a phrase mapped only for a joined view made a huge one fail the call only when
+    # its view joined, which tells a Held-out Set's joins by the exit code. A mapping that fails must
+    # fail the call whatever joins.
+    def refuse(phrase: str) -> str | None:
+        if phrase == "column layout":
+            raise MemoryError
+        return None
+
+    monkeypatch.setattr(score, "_subject_word", refuse)
+    place = Place(tmp_path)
+    place.write_keys(
+        [
+            key_sheet(
+                "Sheet A",
+                "QZ-1",
+                "Invented plan",
+                "first floor",
+                [key_view(A_BOX, "View A", subject="column layout")],
+            )
+        ],
+        held_out=True,
+    )
+    place.write_run([export_sheet("Sheet A", "QZ-1", "Invented plan", "first floor", [])])
+    assert place.score() == score.BROKEN
+
+
+def test_a_framed_sheet_with_no_key_views_still_counts_as_framed(
+    tmp_path: Path, capfd: pytest.CaptureFixture[str]
+) -> None:
+    place = Place(tmp_path)
+    place.write_keys(
+        [key_sheet("Model", "QZ-1", "Invented plan", "first floor", [], frame=[0.0, 0.0, 420.0, 297.0])]
+    )
+    place.write_run(
+        [export_sheet(None, "QZ-1", "Invented plan", "first floor", [], box=[0.0, 0.0, 420.0, 297.0])]  # type: ignore[arg-type]
+    )
+    assert place.score() == 0
+    assert "(lower-left, translation only): 0\n" in shown(capfd)

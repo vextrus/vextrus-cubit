@@ -122,6 +122,7 @@ SUBJECTS = (
     "opening",
 )
 # The key brief's "3D/perspective" and its parts, and the engine's `perspective`: one kind (R1).
+WORD = re.compile(r"[^\W_]+")  # a whole word of a phrase: letters and digits, `_` a separator
 PERSPECTIVE = re.compile(r"\A(?:3d ?/ ?perspective|3d|perspective)\Z")
 # A kind the diagnostic may name: a short plain word or two (the key brief's kinds); any other key
 # kind is named "another kind", so a mistyped key cannot put its text into an answer.
@@ -440,6 +441,10 @@ class _View:
         self.kind = _kind(view.get("kind"))
         self.title = _title(view.get("title"))
         self.subject = _underscored(view.get("subject"))
+        # The subject word a key's phrase names, found here, for every view, so its cost and any
+        # failure never depend on which views join (a Held-out Set's joins are never told; 24g's
+        # refuter: a huge phrase ran out of memory only when its view joined).
+        self.word = _subject_word(self.subject)
 
 
 def _moved(view: _View, scale: tuple[float, float], shift: tuple[float, float] = (0.0, 0.0)) -> _View:
@@ -451,6 +456,7 @@ def _moved(view: _View, scale: tuple[float, float], shift: tuple[float, float] =
     moved = _View({})
     moved.box = (x0 * sx + dx, y0 * sy + dy, x1 * sx + dx, y1 * sy + dy)
     moved.kind, moved.title, moved.subject = view.kind, view.title, view.subject
+    moved.word = view.word
     return moved
 
 
@@ -470,7 +476,7 @@ def _subject_word(phrase: str) -> str | None:
     """The engine's subject word a key's phrase names (spelt with spaces), or None when it names none:
     the first word of SUBJECTS found in the phrase, whole words only, left to right, the longest word
     first where two start at one place ("pile cap" is "pile cap", not "pile")."""
-    tokens = "".join(c if c.isalnum() else " " for c in phrase.replace("_", " ")).split()
+    tokens = WORD.findall(phrase)
     words = sorted((word.split("_") for word in SUBJECTS), key=len, reverse=True)
     for start in range(len(tokens)):
         for word in words:
@@ -580,7 +586,7 @@ def _score_views(score: Score, keyed: list[_View], found: list[_View]) -> tuple[
         titles += not title
         score.no_export_subject += not found[f].subject
         # A key phrase naming none of the engine's subject words is left out of the count (R1).
-        word = _subject_word(view.subject)
+        word = view.word
         if word is None:
             score.outside += 1
             continue
@@ -620,7 +626,7 @@ def _diagnose(
             score.export_causes[cause] = score.export_causes.get(cause, 0) + 1
     # Frames aligned: the export's views moved so its sheet box's lower-left corner (scaled as its
     # views are) meets the key frame's; translation only, and only a sheet the key frames.
-    if not sheet.framed or sheet.box is None or other.box is None or not keyed:
+    if not sheet.framed or sheet.box is None or other.box is None:
         return
     shift = (sheet.box[0] - other.box[0] * scale[0], sheet.box[1] - other.box[1] * scale[1])
     aligned = _one_to_one(_view_pairs(keyed, [_moved(view, (1.0, 1.0), shift) for view in found]))
