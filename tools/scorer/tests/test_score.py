@@ -444,3 +444,192 @@ def test_numbers_too_large_for_a_float_are_unusable_not_a_failure(
 
     assert place.score() == 0
     assert "paper unknown" in shown(capfd)
+
+
+# Ticket 24f: the edges its acceptance tests leave open.
+
+HEAD = "5e1f0c2a9b7d3e4f60718293a4b5c6d7e8f90123"  # the head `Place` writes
+EARLIER = f"20260928T090000Z-{HEAD[:12]}-cafe"  # an earlier run of the same head
+
+
+def recorded_export_run(place: Place, export_run: object, *, named: str = EARLIER) -> None:
+    """A run whose export names `named` and whose metadata records `export_run` for it."""
+    place.write_keys([plan()])
+    place.write_run([found_plan()], export_run_id=named)
+    metadata = json.loads((place.run / "metadata.json").read_text())
+    metadata["sets"]["invented-set"]["export_run"] = export_run
+    (place.run / "metadata.json").write_text(json.dumps(metadata))
+
+
+def test_an_export_of_the_recorded_earlier_run_is_scored(
+    tmp_path: Path, capfd: pytest.CaptureFixture[str]
+) -> None:
+    place = Place(tmp_path)
+    recorded_export_run(place, {"id": EARLIER, "commit": HEAD})
+
+    assert place.score() == 0
+    assert "sheet 1 (layout Sheet A): pass" in shown(capfd)
+
+
+@pytest.mark.parametrize(
+    "export_run",
+    [
+        "QZ-NOT-A-RUN",
+        {"id": EARLIER},
+        {"id": "QZ-NOT-A-RUN", "commit": HEAD},
+        {"id": EARLIER, "commit": "QZ"},
+        {"id": f"20260928T090000Z-{'0' * 12}-cafe", "commit": HEAD},  # the id is another head's
+    ],
+    ids=["not-an-object", "no-commit", "not-a-run-id", "not-a-commit", "another-head"],
+)
+def test_a_recorded_export_run_that_is_not_a_run_and_its_head_is_refused(
+    tmp_path: Path, capfd: pytest.CaptureFixture[str], export_run: object
+) -> None:
+    place = Place(tmp_path)
+    recorded_export_run(place, export_run)
+
+    assert place.score() == score.REFUSED
+    out = shown(capfd)
+    assert "export_run" in out, out
+    assert "QZ" not in out, out
+
+
+def test_a_recorded_export_run_is_the_only_run_the_export_may_name(
+    tmp_path: Path, capfd: pytest.CaptureFixture[str]
+) -> None:
+    """Once the metadata records an earlier run, an export naming this run itself is not that export."""
+    place = Place(tmp_path)
+    recorded_export_run(place, {"id": EARLIER, "commit": HEAD}, named=RUN_ID)
+
+    assert place.score() == score.REFUSED
+    assert "names another run" in shown(capfd)
+
+
+@pytest.mark.parametrize(
+    ("key", "stated"),
+    [
+        (["3rd", "5th floor"], "(3RD), 5TH FLOOR."),
+        ("3rd and 5th floor", "3rd, 5th floor"),
+        (["Grand hall"], "grand hall"),  # "and" inside a word separates nothing
+        (["1st-floor"], "1st-floor"),
+        ([], ", &"),
+        ([None, ""], None),
+    ],
+    ids=["punctuation", "string-key", "and-in-a-word", "inner-hyphen", "separators-only", "empties"],
+)
+def test_storeys_fold_punctuation_and_separators(
+    tmp_path: Path, capfd: pytest.CaptureFixture[str], key: object, stated: object
+) -> None:
+    place = Place(tmp_path)
+    one_sheet(
+        place, plan(storeys=key), found_plan(storeys_as_stated={"value": stated, "source": "file"})
+    )
+
+    place.score()
+    assert "sheet 1 (layout Sheet A): pass" in shown(capfd)
+
+
+def test_a_hyphen_inside_a_storey_is_kept(tmp_path: Path, capfd: pytest.CaptureFixture[str]) -> None:
+    place = Place(tmp_path)
+    one_sheet(
+        place,
+        plan(storeys=["1st-floor"]),
+        found_plan(storeys_as_stated={"value": "1st floor", "source": "file"}),
+    )
+
+    place.score()
+    assert "storeys wrong" in shown(capfd)
+
+
+def test_a_model_space_key_sheet_with_no_frame_joins_a_lone_model_space_sheet(
+    tmp_path: Path, capfd: pytest.CaptureFixture[str]
+) -> None:
+    place = Place(tmp_path)
+    found = found_plan()
+    found["location"] = {"layout": None, "box": A_BOX}
+    one_sheet(place, plan(layout="MODEL"), found)
+
+    place.score()
+    out = shown(capfd)
+    assert "sheet 1: pass" in out, out
+
+
+def test_a_layout_key_sheet_never_joins_a_model_space_sheet(
+    tmp_path: Path, capfd: pytest.CaptureFixture[str]
+) -> None:
+    place = Place(tmp_path)
+    found = found_plan()
+    found["location"] = {"layout": None, "box": A_BOX}
+    one_sheet(place, plan(frame=A_BOX), found)
+
+    place.score()
+    out = shown(capfd)
+    assert "the sheet missing" in out, out
+    assert "extra sheets 1" in out, out
+
+
+def test_a_refusal_with_a_log_that_cannot_be_written_says_only_that(
+    tmp_path: Path, capfd: pytest.CaptureFixture[str]
+) -> None:
+    place = Place(tmp_path)
+    one_sheet(place, plan(), found_plan())
+
+    code = score.main(
+        ["QZ-NOT-A-RUN"], drop=place.drop, keys=place.keys, log=Path("/dev/full"), writer=os.getuid()
+    )
+
+    output = capfd.readouterr()
+    assert code == score.REFUSED
+    assert output.out == ""
+    assert output.err == score.UNLOGGED + "\n"
+
+
+# The 24f refuter (50): an export value that failed the call only when its sheet joined a key sheet told
+# a Held-out Set's layout and frame by the exit code. Every value is now normalised before the join.
+
+POISON = "QZ-POISON"
+# Fields whose value goes through `_text` (`_number`, `_title` and `_storeys` look it up as a module
+# global): a value nested past the recursion limit fails there, but only where the C stack is small
+# enough (uv's clang build, not setup-python's), so the failure is forced on the sentinel instead.
+TEXT_FIELDS = ("storeys_as_stated", "number", "title", "revision_mark")
+
+
+def poisoned(place: Place, where: str) -> None:
+    """The run's one export sheet (null layout, at A_BOX), with one value no scorer could normalise."""
+    found = found_plan(views=[export_view(A_BOX, "Plan A")])
+    found["location"] = {"layout": None, "box": A_BOX}
+    if where == "views":
+        found["views"] = 1
+    elif where == "location":
+        found["location"] = POISON
+    else:
+        found[where] = {"value": POISON, "source": "file"}
+    place.write_run([found])
+
+
+@pytest.mark.parametrize("where", ["views", *TEXT_FIELDS, "location"])
+def test_what_an_export_does_to_the_call_never_depends_on_whether_its_sheet_joins(
+    tmp_path: Path, capfd: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch, where: str
+) -> None:
+    text = score._text
+
+    def overflowing(value: object) -> str:
+        if value == POISON:
+            raise RecursionError("maximum recursion depth exceeded")
+        return text(value)
+
+    monkeypatch.setattr(score, "_text", overflowing)
+    answers = []
+    for frame in (A_BOX, B_BOX):  # the key sheet joins the export sheet, then it does not
+        place = Place(tmp_path / str(frame[0]))
+        place.root.mkdir()
+        place.write_keys([plan(layout="model", frame=frame)], held_out=True)
+        poisoned(place, where)
+        code = place.score()
+        out = shown(capfd).replace(str(tmp_path / str(frame[0])), "")
+        answers.append((code, out))
+
+    assert answers[0] == answers[1], answers
+    # The poison fired (a text field fails the call) or was read as nothing (a views list that is a
+    # number, a location that is not an object): never a pass that proves nothing.
+    assert answers[0][0] == (score.BROKEN if where in TEXT_FIELDS else 0), answers

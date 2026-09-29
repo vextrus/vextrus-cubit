@@ -132,6 +132,10 @@
           "description": "The sheet finder's counts, each limit it or the register reached (sheets, layouts or texts not read) given even at 0; absent or null when the finder reports none (13).",
           "$ref": "#/$defs/counts"
         },
+        "view_report": {
+          "description": "The views stage's counts, each bound it reached (viewports or model space not read) given even at 0; absent or null when the stage reports none (17).",
+          "$ref": "#/$defs/counts"
+        },
         "pages": {"type": ["integer", "null"], "minimum": 0},
         "sheets": {"type": "array", "items": {"$ref": "#/$defs/sheet"}}
       }
@@ -203,6 +207,13 @@
         "group": {"type": "string", "minLength": 1},
         "anchors": {"$ref": "#/$defs/anchors"},
         "views": {"type": "array", "items": {"$ref": "#/$defs/view"}},
+        "working_view": {"anyOf": [{"$ref": "#/$defs/index"}, {"type": "null"}]},
+        "paper": {
+          "anyOf": [
+            {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "number", "exclusiveMinimum": 0}},
+            {"type": "null"}
+          ]
+        },
         "register": {"type": "array", "items": {"$ref": "#/$defs/register_entry"}},
         "render_f1": {"type": ["number", "null"], "minimum": 0, "maximum": 1}
       }
