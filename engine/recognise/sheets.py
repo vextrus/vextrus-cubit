@@ -50,22 +50,25 @@ model-space sheet's is `MODEL_SHEET` followed by its frame's handles, the insert
 through and then the frame's own, joined by "/" (`model/1A2B`): a `/` no layout name can hold, and
 handles stable within the file. 14's `resolve` treats it as opaque.
 
-**Hostile input is bounded** (a ReadArtefact is the drawing's): model space and each layout are walked
-once each through `placement.Walk` with a visit budget (`MAX_VISITS`); an insert with a scale of 0 or
-not finite, or a viewport whose values are not finite or past `MAX_COORDINATE`, is skipped and counted,
-never divided by; a text longer than `MAX_RAW_TEXT` is not decoded; texts, drawn points and frames
-are indexed once per space in a two-dimensional tree (`_Index`), so a frame or viewport query visits
-the tree's nodes that meet it, however the drawing lays them out (review round 1: an index by x alone
-scanned a whole column); a sheet is read by at most `MAX_LABELS` labels and `MAX_VALUES` values, a
-viewport weighs at most `MAX_WINDOW_FRAMES` frames, and each space's reading takes at most a budget
-in proportion to its texts (`READS_PER_TEXT`, `PAIRS_PER_TEXT`: frames stacked over the same texts
-cost their texts' work, not the product); past a cap or the budget, what is left is counted and not
-read. **What a file can make the finder hold is bounded too** (review round 2): a space places at
-most `MAX_TEXTS` texts and holds at most `MAX_FRAMES` candidate frames, its drawn points compactly;
-a file gives at most `MAX_SHEETS` sheets, of them at most `MAX_UNKNOWN_LAYOUTS` from layouts that
-cannot be told empty; a frame drawn again exactly where one was decided is that one. A layout's name
-that is empty or holds a control character, or one repeated, is counted and read once.
-`Segmentation.counts` says what was skipped, by name.
+**Hostile input is bounded, by one budget for the whole file** (a ReadArtefact is the drawing's;
+review rounds 1 to 3): a `FileBudget` holds what one file may cost the finder and its register
+together, and every walk of every space, the finder's and the register's, spends it: the entities
+visited (`MAX_VISITS`), the texts placed (`MAX_TEXTS`), the candidate frames held (`MAX_FRAMES`), the
+index reads (`MAX_READS`) and the label-value pairs weighed (`MAX_PAIRS`), so no number of spaces,
+layouts or calls multiplies it. Model space and each layout are walked once each through
+`placement.Walk`; an insert with a scale of 0 or not finite, or a viewport whose values are not
+finite or past `MAX_COORDINATE`, is skipped and counted, never divided by; a text longer than
+`MAX_RAW_TEXT` is not decoded; texts, drawn points and frames are indexed once per space in a
+two-dimensional tree (`_Index`), so a query visits the tree's nodes that meet it, however the drawing
+lays them out. A sheet is read by at most `MAX_LABELS` labels and `MAX_VALUES` values, a viewport
+weighs at most `MAX_WINDOW_FRAMES` frames, a file gives at most `MAX_SHEETS` sheets (layouts past
+them are never walked), of them at most `MAX_UNKNOWN_LAYOUTS` from layouts that cannot be told empty,
+and a frame drawn again exactly where one was decided is that one; the register holds one sheet's
+texts at a time. Past a cap or the budget, what is left is not read and is counted, and
+`FileBudget.report()` gives every count, each of `LIMITS` even at zero: the harness writes it into
+the file's export (`sheet_report`), so a file a limit cut never reads as having no sheets without its
+reason. A layout's name that is empty or holds a control character, or one repeated, is counted and
+read once.
 
 **Numbers** (`sequence`; the ruling with 19b, review round 1): the last run of digits is the running
 number, what comes before it the prefix and what follows the suffix ("S1-01" is "S1-", 1, ""); a last
