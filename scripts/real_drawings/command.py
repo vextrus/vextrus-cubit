@@ -38,7 +38,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from scripts.real_drawings import drop, sandbox, wheels
+from scripts.real_drawings import drop, runner, sandbox, wheels
 from scripts.real_drawings.diff import MEASURES, compare, failures, sizes
 from scripts.real_drawings.schema import SchemaError, problems
 from scripts.real_drawings.source import (
@@ -94,6 +94,10 @@ class Machine:
     sandbox: Callable[[sandbox.Job, Path], None] = sandbox.run
     fetch: Callable[[Path, Path, Path, Path], None] = wheels.fetch
     post: Callable[[str], int] = field(default=lambda run_id: 1)
+    # The blind scorer, run as the key user on the run's folder; None where the pipeline's user did not
+    # write the run (the owner's own runs), which the scorer would refuse.
+    score: Callable[[str], int] | None = None
+    fetch_prs: bool = True  # False for the pipeline's user, whose mirror already holds the PR's head
     ask: Callable[[str], str] = input
     say: Callable[[str], None] = print
     sandbox_version: str = SANDBOX_VERSION
@@ -105,6 +109,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--no-post", action="store_true", help="measure and diff only; never post")
     parser.add_argument(
         "--fresh", action="store_true", help="read the head and main again, ignoring the cache"
+    )
+    parser.add_argument(
+        "--score",
+        action="store_true",
+        help="a scored run of a branch or main (main's baseline): the pipeline's user reads it and"
+        " writes the run's folder, and the blind scorer scores it; nothing is posted",
     )
     how = parser.add_mutually_exclusive_group()
     how.add_argument(
@@ -120,8 +130,25 @@ def main(argv: list[str] | None = None) -> int:
         " orchestrator after judging the table",
     )
     args = parser.parse_args(argv)
+    if args.score and (args.no_post or args.target.isdigit()):
+        parser.error("--score is a scored run of a branch or main (a PR's posting run is scored anyway)")
     machine = owners_machine()
     try:
+        if args.score or (args.target.isdigit() and not args.no_post):
+            if runner.installed():
+                return runner.delegate(
+                    sys.argv[1:] if argv is None else argv,
+                    args.target,
+                    repo=machine.repo,
+                    sets=machine.sets,
+                    wheels=machine.cache / "wheels",
+                )
+            if args.score:
+                raise Refused(
+                    "a scored run is written by the pipeline's user, who is not set up here: the owner"
+                    " runs scripts/owner/keys-custody.sh"
+                )
+            machine.say("Not scored: the pipeline's user is not set up (scripts/owner/keys-custody.sh).")
         return run(
             args.target,
             no_post=args.no_post,
@@ -165,13 +192,14 @@ def run(
     fresh: bool = False,
     accept: str | None = None,
     accept_if_clean: bool = False,
+    score: bool = False,
 ) -> int:
     started = time.monotonic()
     posting = target.isdigit() and not no_post
     with drop.posting_lock(m.drop) if posting else nullcontext():
         if posting and git(m.repo, "symbolic-ref", "--short", "HEAD").decode().strip() != MAIN:
             raise Refused("a posting run runs main's copy of the command: check out main first")
-        head = resolve(m.repo, target)
+        head = resolve(m.repo, target, fetch=m.fetch_prs)
         base = resolve(m.repo, MAIN)
         stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
         run_id = f"{stamp}-{head.commit[:12]}-{secrets.token_hex(2)}"
@@ -206,23 +234,41 @@ def run(
         }
         drop.write_new(work / "metadata.json", _json(metadata))
         m.say(f"{metadata['seconds']} s; the item list and the exports are under {work}")
-        if not posting:
+        if not posting and not score:
             m.say("Nothing posted (a posting run is a PR without --no-post).")
             return 0
-        if accept_if_clean and (why := unclean(counts)):
+        if posting and accept_if_clean and (why := unclean(counts)):
             m.say(f"Not clean ({why}): nothing posted; judge the table and use --accept or reject.")
             return 3
-        summary = verdict(m, run_id, counts, head_failed, accept="" if accept_if_clean else accept)
+        # The run's folder before the verdict, so the scorer can read it: its exports and metadata.
         folder = m.drop / run_id
         folder.mkdir(mode=0o750)
         for name, path in head_exports.items():
             drop.write_new(folder / f"export-{name}.json", path.read_bytes())
         drop.write_new(folder / "metadata.json", _json(metadata))
+        scored = scored_by(m, run_id)
+        if not posting:
+            m.say("Nothing posted (a scored run of a branch or main).")
+            return scored
+        summary = verdict(m, run_id, counts, head_failed, accept="" if accept_if_clean else accept)
         drop.write_new(folder / "summary.json", _json(summary))
         drop.write_new(work / "summary.json", _json(summary))
         code = m.post(run_id)
         m.say("Posted." if code == 0 else f"The poster ended with exit code {code}: nothing was posted.")
         return code
+
+
+def scored_by(m: Machine, run_id: str) -> int:
+    """The blind scorer's answer on the run's folder, which it prints under the table itself; its exit
+    code (0 when scored)."""
+    if m.score is None:
+        m.say("Not scored: the pipeline's user did not write this run (scripts/owner/keys-custody.sh).")
+        return 1
+    m.say("The blind scorer, against the Development Sets' keys:")
+    code = m.score(run_id)
+    if code != 0:
+        m.say(f"Not scored: the scorer ended with exit code {code}.")
+    return code
 
 
 @dataclass(frozen=True)

@@ -46,9 +46,12 @@ def git(repo: Path, *args: str, stdin: bytes | None = None) -> bytes:
     return done.stdout
 
 
-def resolve(repo: Path, target: str) -> Head:
-    """A PR number (its head fetched from origin), `main`, or a local branch."""
+def resolve(repo: Path, target: str, *, fetch: bool = True) -> Head:
+    """A PR number (its head fetched from origin, or, without `fetch`, the head the pipeline's user's
+    mirror holds as `refs/pull/<n>/head`), `main`, or a local branch."""
     if target.isdigit():
+        if not fetch:
+            return Head(f"PR {target}", int(target), _commit(repo, f"refs/pull/{target}/head"))
         git(repo, "fetch", "--quiet", "origin", f"refs/pull/{target}/head")
         return Head(f"PR {target}", int(target), _commit(repo, "FETCH_HEAD"))
     if target == MAIN:
