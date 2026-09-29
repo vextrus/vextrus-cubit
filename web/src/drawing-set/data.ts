@@ -11,6 +11,8 @@
 import { queryOptions } from '@tanstack/react-query'
 import { ApiRefused, api, unwrap } from '@/api/client'
 import type { components } from '@/api/schema.gen'
+import { EMPTY } from '@/format/numbers'
+import type { MachineMessage } from '@/format/machine'
 
 export type FilesOut = components['schemas']['FilesOut']
 export type FileOut = components['schemas']['FileOut']
@@ -76,7 +78,61 @@ export function tableOrder(files: readonly FileOut[]): { file: FileOut; under: b
 /** A Discipline's name in the language shown: that language's label, else its base language's, else any. */
 export function disciplineName(discipline: DisciplineOut, locale: string): string {
   const { labels } = discipline
-  return labels[locale] ?? labels[locale.split('-')[0] ?? ''] ?? Object.values(labels)[0] ?? discipline.key
+  return labels[locale] ?? labels[locale.split('-')[0] ?? ''] ?? Object.values(labels)[0] ?? EMPTY
+}
+
+/** A PDF report's sections in §4.5's order ("The report panel for a PDF"). */
+export type PdfSection = 'made_by' | 'pages' | 'lettering' | 'layers' | 'pictures' | 'refused'
+export const PDF_SECTIONS: readonly PdfSection[] = ['made_by', 'pages', 'lettering', 'layers', 'pictures', 'refused']
+
+/** Which section an `engine.pdf_report` sentence belongs to, by its code; none for any other code. */
+export function pdfSectionOf(code: string): PdfSection | null {
+  const name = /^engine\.pdf_report\.([a-z_]+)$/.exec(code)?.[1]
+  if (!name) return null
+  if (name.startsWith('made_by_')) return 'made_by'
+  if (name === 'pages' || name === 'page_unreadable') return 'pages'
+  if (name.startsWith('lettering_') || name.startsWith('fonts_') || name === 'unmapped_text') return 'lettering'
+  if (name.startsWith('layers_')) return 'layers'
+  if (name === 'pictures' || name === 'no_pictures' || name === 'mostly_picture' || name === 'scan_page') return 'pictures'
+  return 'refused'
+}
+
+/**
+ * A PDF's report, its sentences in §4.5's sections: the API sends the PDF's own report as one list
+ * (`made_by`) beside the page matching (`pages`), so each `engine.pdf_report` sentence goes to its
+ * section by its code, the engine's page lines before the matching; any other sentence stays where
+ * the API put it.
+ */
+export function pdfSections(report: Pick<ReportOut, 'made_by' | 'pages'>): Record<PdfSection, MachineMessage[]> {
+  const out: Record<PdfSection, MachineMessage[]> = { made_by: [], pages: [], lettering: [], layers: [], pictures: [], refused: [] }
+  const matching: MachineMessage[] = []
+  for (const m of report.made_by) out[pdfSectionOf(m.code) ?? 'made_by'].push(m)
+  for (const m of report.pages) {
+    const section = pdfSectionOf(m.code)
+    if (section) out[section].push(m)
+    else matching.push(m)
+  }
+  out.pages.push(...matching)
+  return out
+}
+
+const same = (a: MachineMessage, b: MachineMessage) =>
+  a.code === b.code && JSON.stringify(Object.entries(a.params).sort()) === JSON.stringify(Object.entries(b.params).sort())
+
+/**
+ * Each sentence said once in the panel: `lists` with every sentence already said (by `said`, the
+ * header's status and top line, or an earlier list) left out. The API repeats a file's finding in its
+ * Readers section, and a failed file's reason is its status too.
+ */
+export function saidOnce(said: readonly MachineMessage[], lists: readonly (readonly MachineMessage[])[]): MachineMessage[][] {
+  const seen = [...said]
+  return lists.map((list) =>
+    list.filter((m) => {
+      if (seen.some((x) => same(x, m))) return false
+      seen.push(m)
+      return true
+    }),
+  )
 }
 
 /** A refusal is an answer, never tried again; an unreachable server keeps being tried. */

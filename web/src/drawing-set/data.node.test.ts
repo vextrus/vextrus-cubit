@@ -3,7 +3,7 @@
  * progress share and a Discipline's name in the language shown.
  */
 import { describe, expect, it } from 'vitest'
-import { disciplineName, progressShare, rowActs, tableOrder, type FileOut } from './data'
+import { disciplineName, pdfSections, progressShare, rowActs, saidOnce, tableOrder, type FileOut } from './data'
 
 const msg = (code: string, params: Record<string, string | number> = {}) => ({ code, params })
 
@@ -90,6 +90,43 @@ describe('disciplineName', () => {
     expect(disciplineName(d, 'bn')).toBe('প্লাম্বিং')
     expect(disciplineName(d, 'en-XB')).toBe('Plumbing and sanitary')
     expect(disciplineName({ key: 'x', labels: { fr: 'X' } }, 'en')).toBe('X')
-    expect(disciplineName({ key: 'x', labels: {} }, 'en')).toBe('x')
+    expect(disciplineName({ key: 'x', labels: {} }, 'en')).toBe('—')
+  })
+})
+
+describe('pdfSections', () => {
+  it("puts each of the PDF report's sentences in §4.5's section, the engine's page lines before the matching", () => {
+    const sections = pdfSections({
+      made_by: [
+        msg('engine.pdf_report.made_by_autocad'),
+        msg('engine.pdf_report.pages', { pages: 12, turned: 2 }),
+        msg('engine.pdf_report.lettering_kept'),
+        msg('engine.pdf_report.layers_kept'),
+        msg('engine.pdf_report.no_pictures'),
+        msg('engine.pdf_report.scan'),
+      ],
+      pages: [msg('drawings.reports.pages_matched', { matched: 11, pages: 12 }), msg('engine.pdf_report.page_unreadable', { page: 3 })],
+    })
+    expect(Object.fromEntries(Object.entries(sections).map(([k, v]) => [k, v.map((m) => m.code)]))).toEqual({
+      made_by: ['engine.pdf_report.made_by_autocad'],
+      pages: ['engine.pdf_report.pages', 'engine.pdf_report.page_unreadable', 'drawings.reports.pages_matched'],
+      lettering: ['engine.pdf_report.lettering_kept'],
+      layers: ['engine.pdf_report.layers_kept'],
+      pictures: ['engine.pdf_report.no_pictures'],
+      refused: ['engine.pdf_report.scan'],
+    })
+  })
+
+  it('keeps a sentence of any other code where the API put it', () => {
+    expect(pdfSections({ made_by: [msg('drawings.reports.plot_refused')], pages: [] }).made_by.map((m) => m.code)).toEqual(['drawings.reports.plot_refused'])
+  })
+})
+
+describe('saidOnce', () => {
+  it('leaves out of each list what the header or an earlier list already said, whatever the order of its parameters', () => {
+    const status = msg('drawings.files.old_version')
+    const finding = msg('engine.decoders_agree.disagree', { items: 212, layers: 3 })
+    const lists = saidOnce([status], [[status, finding], [msg('engine.decoders_agree.disagree', { layers: 3, items: 212 })], [msg('x', { a: 1 })]])
+    expect(lists).toEqual([[finding], [], [msg('x', { a: 1 })]])
   })
 })

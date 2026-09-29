@@ -24,7 +24,7 @@ import { ApiRefused } from '@/api/client'
 import { PATHS, useGo } from '@/app/AppLink'
 import { PageLayout } from '@/app/Frame'
 import { sessionQuery, type ProjectSummary } from '@/app/session'
-import { LoadProblem, ProblemBar, ProblemWords, can, problemOf, readOnlyRole, sameSession, usePageTitle, useSignedInAgain, type Problem } from '@/auth'
+import { LoadProblem, ProblemBar, ProblemWords, can, useReadOnlyToast, problemOf, readOnlyRole, sameSession, usePageTitle, useSignedInAgain, type Problem } from '@/auth'
 import { EMPTY, useFormat } from '@/format'
 import { MachineText, machineText } from '@/format/machine'
 import { Button, DrawingText, ErrorBar, ProgressLine, ExcludedGlyph, KeyRegion, QuestionGlyph, ReadOnlyChip, Skeleton, cn, useKeys, useToast } from '@/ui'
@@ -198,7 +198,7 @@ function FilesTable(props: TableProps) {
             </Head>
             <Head className="sticky end-0 bg-chrome-sunken">
               <span className="sr-only">
-                <Trans>Acts</Trans>
+                <Trans>Actions</Trans>
               </span>
             </Head>
           </tr>
@@ -266,6 +266,23 @@ function FilesTable(props: TableProps) {
 }
 
 /**
+ * Why one file of a drop was not added, naming it: a refusal that names the file says so itself; any
+ * other ("Upload stopped: the connection dropped.", out of reach, a fault) is put after the file's name,
+ * with what to do.
+ */
+function NotAdded({ file, problem }: { file: string; problem: NonNullable<Problem> }) {
+  if ('refusal' in problem && 'file' in problem.refusal.params) return <ProblemWords problem={problem} />
+  const name = <DrawingText kind="file-name" text={file} truncate={false} />
+  if ('unreachable' in problem) return <Trans>{name} was not added. Vextrus can’t be reached. Check your connection and add it again.</Trans>
+  if ('failed' in problem) return <Trans>{name} was not added. Vextrus could not add it just now. Add it again in a minute.</Trans>
+  return (
+    <Trans>
+      {name} was not added. <MachineText message={problem.refusal} />
+    </Trans>
+  )
+}
+
+/**
  * Whether a drag may carry files: it says so, or says nothing (a browser may not name what is dragged
  * until the drop). Text or a link dragged within the page names itself and is left alone.
  */
@@ -274,16 +291,37 @@ function carriesFiles(event: DragEvent): boolean {
   return types.length === 0 || types.includes('Files')
 }
 
-/** The whole page takes a drop while mounted: `onFiles` gets them; `dragging` shows the overlay. */
-function usePageDrop(enabled: boolean, onFiles: (files: File[]) => void): boolean {
+/**
+ * The whole page takes a drop while mounted: `onFiles` gets them; `dragging` shows the overlay. For a
+ * role that only looks (`accepts` false) a drop is refused: the browser neither opens the file in place
+ * of the page nor offers to drop, and a drop that lands anyway goes to `onRefused`.
+ */
+function usePageDrop(accepts: boolean, onFiles: (files: File[]) => void, onRefused: () => void): boolean {
   const [dragging, setDragging] = useState(false)
   const depth = useRef(0)
-  const latest = useRef(onFiles)
+  const latest = useRef({ onFiles, onRefused })
   useEffect(() => {
-    latest.current = onFiles
+    latest.current = { onFiles, onRefused }
   })
   useEffect(() => {
-    if (!enabled) return
+    if (!accepts) {
+      const refuse = (event: DragEvent) => {
+        if (!carriesFiles(event)) return
+        event.preventDefault()
+        if (event.dataTransfer) event.dataTransfer.dropEffect = 'none'
+      }
+      const dropped = (event: DragEvent) => {
+        if (!carriesFiles(event)) return
+        event.preventDefault()
+        latest.current.onRefused()
+      }
+      document.addEventListener('dragover', refuse)
+      document.addEventListener('drop', dropped)
+      return () => {
+        document.removeEventListener('dragover', refuse)
+        document.removeEventListener('drop', dropped)
+      }
+    }
     const enter = (event: DragEvent) => {
       if (!carriesFiles(event)) return
       event.preventDefault()
@@ -307,7 +345,7 @@ function usePageDrop(enabled: boolean, onFiles: (files: File[]) => void): boolea
       depth.current = 0
       setDragging(false)
       const files = Array.from(event.dataTransfer?.files ?? [])
-      if (files.length) latest.current(files)
+      if (files.length) latest.current.onFiles(files)
     }
     document.addEventListener('dragenter', enter)
     document.addEventListener('dragover', over)
@@ -321,7 +359,7 @@ function usePageDrop(enabled: boolean, onFiles: (files: File[]) => void): boolea
       depth.current = 0
       setDragging(false)
     }
-  }, [enabled])
+  }, [accepts])
   return dragging
 }
 
@@ -435,16 +473,23 @@ export function DrawingSetView({ project }: { project: ProjectSummary }) {
     const said = answers.flatMap((a) => ('problem' in a ? [{ key: a.file, problem: a.problem }] : []))
     setRefused(said)
     const outs = answers.flatMap((a) => ('out' in a ? [a.out] : []))
+    const added = outs.filter((o) => o.outcome === 'added').length
     const already = outs.filter((o) => o.outcome === 'already_here').length
     const again = outs.findLast((o) => o.outcome === 'already_here')
     if (again) setPulseId(again.file.id)
     // The toast is plain text: it shows outside the page, where only the words travel.
     const lines = outs.flatMap((o) => (o.message && (chosen.length === 1 || o.outcome !== 'already_here') ? [machineText(o.message, f, i18n)] : []))
-    if (chosen.length > 1) lines.unshift(severalAdded(outs.length - already, already, said.length))
+    // Several: what they came to, unless nothing was added or already here (each error bar says why).
+    if (chosen.length > 1 && added + already > 0) lines.unshift(severalAdded(added, already, said.length))
     if (lines.length) toast.show({ message: lines.join(' ') })
   }
 
-  const dragging = usePageDrop(changes, (dropped) => void add(dropped))
+  const refuseReadOnly = useReadOnlyToast()
+  const dragging = usePageDrop(
+    changes,
+    (dropped) => void add(dropped),
+    () => (readOnly ? refuseReadOnly(readOnly) : undefined),
+  )
 
   const list = files.data
   const rows = list ? tableOrder(list.files) : []
@@ -459,8 +504,8 @@ export function DrawingSetView({ project }: { project: ProjectSummary }) {
 
   const choose = () => chooser.current?.click()
   const upName = uploading?.name ?? ''
-  const upAt = uploading?.position ?? 0
-  const upOf = uploading?.total ?? 0
+  const upAt = f.integer(uploading?.position ?? 0)
+  const upOf = f.integer(uploading?.total ?? 0)
 
   return (
     <PageLayout
@@ -507,7 +552,7 @@ export function DrawingSetView({ project }: { project: ProjectSummary }) {
         <ProblemBar problem={problem} className="mb-2" />
         {refused.map((r, i) => (
           <ErrorBar key={`${r.key}-${i}`} className="mb-2">
-            <ProblemWords problem={r.problem} />
+            <NotAdded file={r.key} problem={r.problem} />
           </ErrorBar>
         ))}
       </div>

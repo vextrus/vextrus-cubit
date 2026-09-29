@@ -15,7 +15,7 @@ import { LoadProblem } from '@/auth'
 import { useFormat } from '@/format'
 import { MachineText, type MachineMessage } from '@/format/machine'
 import { DrawingText, IconButton, Skeleton } from '@/ui'
-import { isMoving, reportQuery, type DisciplineOut, type FileOut } from './data'
+import { isMoving, pdfSections, reportQuery, saidOnce, type DisciplineOut, type FileOut } from './data'
 import { useDisciplineName } from './discipline'
 
 function Section({ title, messages, children }: { title: ReactNode; messages: readonly MachineMessage[]; children?: ReactNode }) {
@@ -52,6 +52,13 @@ export function ReportPanel({
   useEffect(() => heading.current?.focus(), [file.id])
   const report = useQuery(reportQuery(projectId, file.id, isMoving(file)))
   const r = report.data
+  // The top line is 21a's alone (a file not read in full); every other finding is in the API's own
+  // sections. Each sentence is said once: the status in the header, then the sections in order.
+  const finding = file.finding && file.finding.code.startsWith('takeoff.read_file.') ? file.finding : null
+  const pdf = r ? pdfSections(r) : null
+  const [readers, sheets, bangla, fonts, plot, madeBy, pages, lettering, layers, pictures, refused] = r && pdf
+    ? saidOnce(finding ? [file.status, finding] : [file.status], [r.readers, r.sheets, r.bangla, r.fonts, r.plot, pdf.made_by, pdf.pages, pdf.lettering, pdf.layers, pdf.pictures, pdf.refused])
+    : []
 
   const date = f.date(file.added_at)
   const name = file.added_by_name
@@ -77,9 +84,9 @@ export function ReportPanel({
         </IconButton>
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-1">
-        {file.finding ? (
+        {finding ? (
           <p className="border-b border-border py-3 text-sm">
-            <MachineText message={file.finding} />
+            <MachineText message={finding} />
           </p>
         ) : null}
         {report.isPending ? (
@@ -88,10 +95,10 @@ export function ReportPanel({
           <LoadProblem error={report.error} onRetry={() => void report.refetch()} className="my-3" />
         ) : r ? (
           <>
-            <Section title={<Trans>Readers</Trans>} messages={r.readers} />
-            <Section title={<Trans>Sheets</Trans>} messages={r.sheets} />
-            <Section title={<Trans>Bangla text</Trans>} messages={r.bangla} />
-            <Section title={<Trans>Fonts</Trans>} messages={r.fonts}>
+            <Section title={<Trans>Readers</Trans>} messages={readers!} />
+            <Section title={<Trans>Sheets</Trans>} messages={sheets!} />
+            <Section title={<Trans>Bangla text</Trans>} messages={bangla!} />
+            <Section title={<Trans>Fonts</Trans>} messages={fonts!}>
               {r.font_rows.length ? (
                 <table aria-label={t`Fonts`} className="w-full table-fixed border-collapse text-sm">
                   <thead>
@@ -123,9 +130,13 @@ export function ReportPanel({
                 </table>
               ) : null}
             </Section>
-            <Section title={<Trans>Plot</Trans>} messages={r.plot} />
-            <Section title={<Trans>Made by</Trans>} messages={r.made_by} />
-            <Section title={<Trans>Pages</Trans>} messages={r.pages} />
+            <Section title={<Trans>Plot</Trans>} messages={plot!} />
+            <Section title={<Trans>Made by</Trans>} messages={madeBy!} />
+            <Section title={<Trans>Pages</Trans>} messages={pages!} />
+            <Section title={<Trans>Lettering</Trans>} messages={lettering!} />
+            <Section title={<Trans>Layers</Trans>} messages={layers!} />
+            <Section title={<Trans>Pictures</Trans>} messages={pictures!} />
+            <Section title={<Trans>Refused</Trans>} messages={refused!} />
           </>
         ) : null}
       </div>

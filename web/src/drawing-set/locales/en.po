@@ -15,6 +15,10 @@ msgstr "Discipline of {fileName}"
 msgid "Added {date} by {by}"
 msgstr "Added {date} by {by}"
 
+#: src/drawing-set/DrawingSetPage.tsx
+msgid "{name} was not added. Vextrus could not add it just now. Add it again in a minute."
+msgstr "{name} was not added. Vextrus could not add it just now. Add it again in a minute."
+
 #: src/drawing-set/ReportPanel.tsx
 msgid "The drawing asks for"
 msgstr "The drawing asks for"
@@ -30,6 +34,10 @@ msgstr "First file"
 #: src/drawing-set/DrawingSetPage.tsx
 msgid "Read again"
 msgstr "Read again"
+
+#: src/drawing-set/DrawingSetPage.tsx
+msgid "Actions"
+msgstr "Actions"
 
 #: src/drawing-set/DrawingSetPage.tsx
 msgid "Add files"
@@ -52,6 +60,10 @@ msgid "Drop to add to {projectName}'s Drawing Set"
 msgstr "Drop to add to {projectName}'s Drawing Set"
 
 #: src/drawing-set/ReportPanel.tsx
+msgid "Layers"
+msgstr "Layers"
+
+#: src/drawing-set/ReportPanel.tsx
 msgid "{name} (Vextrus)"
 msgstr "{name} (Vextrus)"
 
@@ -70,6 +82,14 @@ msgstr "Opening the file’s report…"
 #: src/drawing-set/DrawingSetPage.tsx
 msgid "{added, plural, =0 {No files added} one {# file added} other {# files added}}{already, plural, =0 {} one {; # was already here} other {; # were already here}}{notAdded, plural, =0 {} one {; # was not added} other {; # were not added}}."
 msgstr "{added, plural, =0 {No files added} one {# file added} other {# files added}}{already, plural, =0 {} one {; # was already here} other {; # were already here}}{notAdded, plural, =0 {} one {; # was not added} other {; # were not added}}."
+
+#: src/drawing-set/ReportPanel.tsx
+msgid "Lettering"
+msgstr "Lettering"
+
+#: src/drawing-set/ReportPanel.tsx
+msgid "Pictures"
+msgstr "Pictures"
 
 #: src/drawing-set/ReportPanel.tsx
 msgid "Fonts"
@@ -140,10 +160,6 @@ msgid "{discipline}. Added {date} by {by}"
 msgstr "{discipline}. Added {date} by {by}"
 
 #: src/drawing-set/DrawingSetPage.tsx
-msgid "Acts"
-msgstr "Acts"
-
-#: src/drawing-set/DrawingSetPage.tsx
 msgid "Files"
 msgstr "Files"
 
@@ -154,6 +170,10 @@ msgstr "Next file"
 #: src/drawing-set/DrawingSetPage.tsx
 msgid "Cancel reading"
 msgstr "Cancel reading"
+
+#: src/drawing-set/DrawingSetPage.tsx
+msgid "{name} was not added. Vextrus can’t be reached. Check your connection and add it again."
+msgstr "{name} was not added. Vextrus can’t be reached. Check your connection and add it again."
 
 #: src/drawing-set/DrawingSetPage.tsx
 msgid "Sheets found"
@@ -174,6 +194,14 @@ msgstr "Pages"
 #: src/drawing-set/ReportPanel.tsx
 msgid "Plot"
 msgstr "Plot"
+
+#: src/drawing-set/DrawingSetPage.tsx
+msgid "{name} was not added. <0/>"
+msgstr "{name} was not added. <0/>"
+
+#: src/drawing-set/ReportPanel.tsx
+msgid "Refused"
+msgstr "Refused"
 
 #: src/drawing-set/DrawingSetPage.tsx
 msgid "Discipline"
