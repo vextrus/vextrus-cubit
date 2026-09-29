@@ -246,7 +246,14 @@ describe('<SheetViewer>: a buffer it cannot draw', () => {
     const bad = await fixtureBuffer('tiny-sheet')
     new DataView(bad).setUint16(4, 2, true) // an unknown version
     await open(bad, 'S-04')
-    expect(await screen.findByText('S-04 could not be drawn. The other sheets are not affected.')).toBeVisible()
+    // The sheet number is an isolated value marked as notation (m0-screens 1.7–1.8, design gate N1), so
+    // the sentence is read from the alert with its isolate marks taken out.
+    const alert = await screen.findByRole('alert')
+    expect(alert).toBeVisible()
+    expect(alert.textContent?.replace(/[⁦-⁩]/g, '')).toContain(
+      'S-04 could not be drawn. The other sheets are not affected.',
+    )
+    expect(alert.querySelector('[data-notation="sheet-number"]')?.textContent).toBe('S-04')
     expect(screen.getByRole('button', { name: 'Try again' })).toBeVisible()
   })
 })
