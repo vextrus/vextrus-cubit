@@ -1,0 +1,10 @@
+msgid ""
+msgstr ""
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: en\n"
+
+#. engine/messages/storey_titles.py (ticket 19b): the storeys a sheet's title names against those its plans' titles name. A sheet's storeys are its plans' lists together (docs/data-model.md §3.2), which the QS may correct (story 28).
+msgid "engine.storey_titles.differ"
+msgstr "{named, select, title {The sheet titled “{sheet}”} other {The title of {sheet}}} names “{stated}”, but its plans do not agree: {not_drawn, plural, =0 {} one {# storey in the title has no plan} other {# storeys in the title have no plan}}{not_drawn, plural, =0 {} other {{not_named, plural, =0 {} other {, and }}}}{not_named, plural, =0 {} one {# storey on a plan is not in the title} other {# storeys on the plans are not in the title}}. Vextrus takes the storeys from its plans; if the title is right, correct the plans' storeys."

@@ -1,0 +1,43 @@
+msgid ""
+msgstr ""
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: en\n"
+
+#. engine/messages/register_check.py (ticket 19b): with no drawing list, a gap in a Discipline's numbering (m0-screens 6.3's "no drawing list; numbering runs 01–57; 14 and 31 missing"). A state, never a Question; the Discipline is a param 19a names.
+msgid "engine.register_check.gap"
+msgstr "No drawing list, and the numbering skips from {after} to {before}: {missing, plural, one {# number is} other {# numbers are}} missing, so these sheets have one source and are confirmed one by one. Paste the drawing list, or ask the consultant whether {missing, plural, one {that sheet exists} other {those sheets exist}}."
+
+#. The drawing list against the sheets, both ways: m0-screens §5's Question title, verbatim.
+msgid "engine.register_check.not_found"
+msgstr "{number} is on the drawing list but in no file"
+
+#. A state, "Proposal, one source", unless 21c writes options for it (m0-screens gives it no words).
+msgid "engine.register_check.not_listed"
+msgstr "{number} is in a file but not on the drawing list, so it has one source and is confirmed on its own."
+
+#. The drawing-list dialog's refusals (m0-screens 6.10), for the QS who pasted or typed the list. "to" and the examples are what the QS types: the dialog reads only the English "to", so keep them as they are in every language.
+msgid "engine.register_check.nothing_found"
+msgstr "No line starts with a sheet number, so there is no list to use. Start each line with its number, as in S-01 General notes, or type a range, as in 01 to 57."
+
+#. "to" is what the QS types: keep it as it is in every language.
+msgid "engine.register_check.range_backwards"
+msgstr "Line {line}, {first} to {last}, runs backwards. Type the lower number first: {last} to {first}."
+
+#. "to" is what the QS types: keep it as it is in every language.
+msgid "engine.register_check.range_hyphen"
+msgstr "Line {line}, {first}-{last}, could be one sheet's number or a range. For a range, type {first} to {last}; for one sheet, add its title after the number."
+
+#. "to" and the example are what the QS types: keep them as they are in every language.
+msgid "engine.register_check.range_mixed"
+msgstr "Line {line}, {first} to {last}, cannot be read as one range: only the running number may change from one end to the other. Give each run its own line, as in A-01 to A-29, or list the sheets one per line."
+
+msgid "engine.register_check.range_too_long"
+msgstr "Line {line}, {first} to {last}, holds more than {limit, number} sheet numbers, more than any drawing list. Check its first and last numbers."
+
+msgid "engine.register_check.text_too_long"
+msgstr "This is longer than a drawing list: Vextrus reads up to {limit, number} characters. Paste the list on its own, without the rest of the email."
+
+msgid "engine.register_check.too_many"
+msgstr "This names more than {limit, number} sheets, more than any drawing list. Paste only this Discipline's list."
