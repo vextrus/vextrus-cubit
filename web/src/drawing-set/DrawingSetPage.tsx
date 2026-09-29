@@ -15,7 +15,8 @@
  * other two have no operation yet.
  */
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { plural } from '@lingui/core/macro'
+import type { I18n } from '@lingui/core'
+import { msg, plural } from '@lingui/core/macro'
 import { Trans, useLingui } from '@lingui/react/macro'
 import { useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
 import { getRouteApi } from '@tanstack/react-router'
@@ -25,9 +26,9 @@ import { PATHS, useGo } from '@/app/AppLink'
 import { PageLayout } from '@/app/Frame'
 import { sessionQuery, type ProjectSummary } from '@/app/session'
 import { LoadProblem, ProblemBar, ProblemWords, can, useReadOnlyToast, problemOf, readOnlyRole, sameSession, usePageTitle, useSignedInAgain, type Problem } from '@/auth'
-import { EMPTY, useFormat } from '@/format'
+import { EMPTY, useFormat, type Format } from '@/format'
 import { MachineText, machineText } from '@/format/machine'
-import { Button, DrawingText, ErrorBar, ProgressLine, ExcludedGlyph, KeyRegion, QuestionGlyph, ReadOnlyChip, Skeleton, cn, useKeys, useToast } from '@/ui'
+import { Button, DrawingText, ErrorBar, isolateLtr, ProgressLine, ExcludedGlyph, KeyRegion, QuestionGlyph, ReadOnlyChip, Skeleton, cn, useKeys, useToast } from '@/ui'
 import {
   cancelReading,
   changeDiscipline,
@@ -305,6 +306,41 @@ function NotAdded({ file, problem }: { file: string; problem: NotAddedWhy }) {
 }
 
 /**
+ * NotAdded's words as plain text, for a toast shown after the page has gone (the file's name isolated
+ * as the message layer isolates it).
+ */
+function notAddedText(file: string, problem: NotAddedWhy, f: Format, i18n: I18n): string {
+  if ('refusal' in problem && 'file' in problem.refusal.params) return machineText(problem.refusal, f, i18n)
+  const name = isolateLtr(file)
+  if ('unsure' in problem) return i18n._(msg`Vextrus could not tell whether ${name} was added. If it is not in the list in a minute, add it again.`)
+  if ('unreachable' in problem) return i18n._(msg`${name} was not added. Vextrus can’t be reached. Check your connection and add it again.`)
+  if ('failed' in problem) return i18n._(msg`${name} was not added. Vextrus could not add it just now. Add it again in a minute.`)
+  const { code, params } = problem.refusal
+  const why = machineText(problem.refusal, f, i18n)
+  if (code === 'drawings.uploads.stopped') return i18n._(msg`${name} was not added. ${why} Add it again.`)
+  if (code === 'drawings.uploads.malformed')
+    return i18n._(msg`${name} was not added: it could not be received. If its name is very long, shorten it and add it again. If this keeps happening, tell Vextrus.`)
+  if (code === 'drawings.uploads.no_name') return i18n._(msg`${name} was not added: Vextrus cannot use its name. Rename it and add it again.`)
+  if (code === 'drawings.uploads.too_large_unnamed' && typeof params.megabytes === 'number') {
+    const megabytes = f.integer(params.megabytes)
+    return i18n._(msg`${name} is larger than ${megabytes} MB, so it was not added. Tell Vextrus if your drawings need more.`)
+  }
+  return i18n._(msg`${name} was not added. ${why}`)
+}
+
+/**
+ * Refusals whose file is already in the Drawing Set (21a: its reading could not be started): it was
+ * not added now, but it is here, so the line for several files does not count it as "not added".
+ */
+const ALREADY_HERE_REFUSALS = new Set(['takeoff.read_file.not_started_again', 'takeoff.read_file.not_started_waiting'])
+
+/** Whether a file's answer says for certain that it is not in the Drawing Set. */
+function surelyNotAdded(problem: NotAddedWhy): boolean {
+  if ('unsure' in problem) return false
+  return !('refusal' in problem && ALREADY_HERE_REFUSALS.has(problem.refusal.code))
+}
+
+/**
  * Whether a drag may carry files: it says so, or says nothing (a browser may not name what is dragged
  * until the drop). Text or a link dragged within the page names itself and is left alone.
  */
@@ -465,6 +501,13 @@ export function DrawingSetView({ project }: { project: ProjectSummary }) {
 
   /** Batches dropped and not yet answered: while one runs, a new drop keeps the bars already shown. */
   const inFlight = useRef(0)
+  const mounted = useRef(true)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
 
   function add(chosen: readonly File[]) {
     if (!changes || chosen.length === 0) return
@@ -496,11 +539,14 @@ export function DrawingSetView({ project }: { project: ProjectSummary }) {
 
   async function addEach(chosen: readonly File[], current: () => boolean) {
     const answers: Answer[] = []
+    // This page, for this project, still on screen: once it is gone (another page or project), the
+    // files still go up, and what they came to is said once, naming the project.
+    const here = () => mounted.current
     try {
       for (const [i, file] of chosen.entries()) {
         // Signed out, switched or someone else meanwhile: the files were chosen for no one on screen now.
         if (!current()) return
-        setUploading({ name: file.name, position: i + 1, total: chosen.length })
+        if (here()) setUploading({ name: file.name, position: i + 1, total: chosen.length })
         try {
           answers.push({ file: file.name, out: await upload(project.id, file) })
         } catch (error) {
@@ -509,25 +555,32 @@ export function DrawingSetView({ project }: { project: ProjectSummary }) {
         if (current()) await queryClient.invalidateQueries({ queryKey: filesKey })
       }
     } finally {
-      setUploading(null)
+      if (here()) setUploading(null)
     }
     if (!current()) return
     const said = answers.flatMap((a) => ('problem' in a ? [{ key: a.file, problem: a.problem }] : []))
-    setRefused((before) => [...before, ...said])
+    const notAdded = said.filter((r) => surelyNotAdded(r.problem)).length
+    if (here()) setRefused((before) => [...before, ...said])
     const outs = answers.flatMap((a) => ('out' in a ? [a.out] : []))
     const added = outs.filter((o) => o.outcome === 'added').length
     const already = outs.filter((o) => o.outcome === 'already_here').length
     const replaced = outs.filter((o) => o.outcome === 'replaced').length
     const again = outs.findLast((o) => o.outcome === 'already_here')
-    if (again) setPulseId(again.file.id)
+    if (again && here()) setPulseId(again.file.id)
     // The toast is plain text: it shows outside the page, where only the words travel.
     // Several: the count says "already here" and "replaced" itself; only other lines (both kept) follow it.
     const lines = outs.flatMap((o) =>
       o.message && (chosen.length === 1 || (o.outcome !== 'already_here' && o.outcome !== 'replaced')) ? [machineText(o.message, f, i18n)] : [],
     )
     // Several: what they came to, unless nothing was added or already here (each error bar says why).
-    if (chosen.length > 1 && added + already + replaced > 0) lines.unshift(severalAdded(added, already, replaced, said.length))
-    if (lines.length) toast.show({ message: lines.join(' ') })
+    if (chosen.length > 1 && added + already + replaced > 0) lines.unshift(severalAdded(added, already, replaced, notAdded))
+    if (here()) {
+      if (lines.length) toast.show({ message: lines.join(' ') })
+      return
+    }
+    // The page is gone: one toast, naming the project, with each file not added and why (its bar is gone).
+    lines.push(...said.map((r) => notAddedText(r.key, r.problem, f, i18n)))
+    if (lines.length) toast.show({ message: [t`${projectName}’s Drawing Set:`, ...lines].join(' ') })
   }
 
   const refuseReadOnly = useReadOnlyToast()
@@ -696,7 +749,9 @@ export function DrawingSetPage() {
   const { t } = useLingui()
   const project = projectRoute.useLoaderData()
   usePageTitle(t`Drawing Set`)
-  return <DrawingSetView project={project} />
+  // One page per project: moving from one project's Drawing Set to another's starts afresh, so nothing
+  // of the first (an upload under way, its bars, its open report) shows on the second.
+  return <DrawingSetView key={project.id} project={project} />
 }
 
 /** Loading (§4.5, "Page states"): the header, then four Skeleton rows. */

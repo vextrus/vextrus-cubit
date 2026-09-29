@@ -296,3 +296,87 @@ describe('a drop queued behind another (refuter, round 1)', () => {
     )
   })
 })
+
+describe('a batch that outlives its page (review round 1, finding 1)', () => {
+  /** KR-01's Drawing Set with its first upload held until `release()`, and BP-02's beside it. */
+  function heldKr() {
+    const api = new FakeApi()
+    const kr = new FakeDrawingSet(api, 'KR-01')
+    new FakeDrawingSet(api, 'BP-02')
+    kr.files.push(file({ name: 'KR-STR-R0.dwg', state: 'read', status: msg('drawings.files.read') }))
+    kr.answerUpload('site.jpg', 415, msg('drawings.uploads.not_a_drawing', { file: 'site.jpg' }))
+    let release = () => {}
+    const gate = new Promise<void>((r) => (release = r))
+    let first = true
+    const inner = api.handle
+    api.handle = async (request: Request) => {
+      if (first && request.method === 'POST' && new URL(request.url, location.origin).pathname.endsWith('/files')) {
+        first = false
+        await gate
+      }
+      return inner(request)
+    }
+    return { api, kr, release: () => release() }
+  }
+  const files = (...names: string[]) => names.map((n) => new File([new Uint8Array([0x41])], n))
+
+  it("says once, naming the project, what a batch came to after its page was left for another project's Step 1", async () => {
+    const { api, kr, release } = heldKr()
+    const app = await mountApp('/p/KR-01/drawing-set', { as: PEOPLE.qs, api })
+    await screen.findByRole('heading', { name: 'Drawing Set' })
+    await waitFor(() => rowOf('KR-STR-R0.dwg'))
+    await userEvent.upload(document.querySelector<HTMLInputElement>('input[type="file"]')!, files('KR-ARC-R0.dwg', 'site.jpg'))
+    await app.router.navigate({ to: '/p/$code/takeoff/$step', params: { code: 'BP-02', step: '1' } })
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Drawing Set' })).toBeNull())
+    release()
+    await waitFor(() => expect(kr.seen.filter((s) => s.call === 'POST /files')).toHaveLength(2))
+    await waitFor(() =>
+      expect(bodyText()).toContain(
+        "Kadam Residence’s Drawing Set: 1 file added; 1 was not added. site.jpg is not a DWG or a PDF, so it was not added. Vextrus reads DWG and PDF files.",
+      ),
+    )
+  })
+
+  it("starts another project's Drawing Set afresh: none of the first project's upload, bars or toast on it", async () => {
+    const { api, release } = heldKr()
+    const app = await mountApp('/p/KR-01/drawing-set', { as: PEOPLE.qs, api })
+    await screen.findByRole('heading', { name: 'Drawing Set' })
+    await waitFor(() => rowOf('KR-STR-R0.dwg'))
+    await userEvent.upload(document.querySelector<HTMLInputElement>('input[type="file"]')!, files('KR-ARC-R0.dwg', 'site.jpg'))
+    await waitFor(() => expect(bodyText()).toContain('Uploading'))
+    await app.router.navigate({ to: '/p/$code/drawing-set', params: { code: 'BP-02' } })
+    await waitFor(() => expect(bodyText()).toContain('No drawings yet.'))
+    expect(bodyText()).not.toContain('Uploading')
+    release()
+    await waitFor(() => expect(bodyText()).toContain('Kadam Residence’s Drawing Set: 1 file added; 1 was not added.'))
+    // Its reason is in the toast, never in a bar on Bokul Place's page.
+    expect(screen.queryAllByRole('alert').filter((a) => clean(a.textContent).includes('site.jpg'))).toEqual([])
+  })
+})
+
+describe('the count for several files never says "not added" of a file that may be here (finding 2)', () => {
+  it('leaves out an answer that could not be read and a file already here whose reading could not start', async () => {
+    const { api, set } = drawingSet()
+    const here = file({ name: 'KR-STR-R0.dwg', state: 'waiting', status: msg('drawings.files.waiting', { ahead: 0 }) })
+    set.files.push(here)
+    set.answerUpload('KR-STR-R0.dwg', 503, msg('takeoff.read_file.not_started_waiting', { file: 'KR-STR-R0.dwg' }))
+    const inner = api.handle
+    api.handle = async (request: Request) => {
+      if (request.method === 'POST' && request.headers.get('Content-Type')?.includes('multipart')) {
+        const name = ((await request.clone().formData()).get('file') as File).name
+        if (name === 'B.dwg') return new Response('<html>proxy</html>', { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      return inner(request)
+    }
+    await open(api)
+    await waitFor(() => rowOf('KR-STR-R0.dwg'))
+    await userEvent.upload(
+      document.querySelector<HTMLInputElement>('input[type="file"]')!,
+      ['A.dwg', 'B.dwg', 'KR-STR-R0.dwg'].map((n) => new File([new Uint8Array([0x41])], n)),
+    )
+    await waitFor(() => expect(bodyText()).toContain('1 file added.'))
+    expect(bodyText()).not.toContain('was not added;')
+    expect(bodyText()).not.toMatch(/\d+ (was|were) not added/)
+    expect(bodyText()).toContain('Vextrus could not tell whether B.dwg was added.')
+  })
+})

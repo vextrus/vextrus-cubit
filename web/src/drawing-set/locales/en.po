@@ -20,6 +20,10 @@ msgid "{name} was not added: it could not be received. If its name is very long,
 msgstr "{name} was not added: it could not be received. If its name is very long, shorten it and add it again. If this keeps happening, tell Vextrus."
 
 #: src/drawing-set/DrawingSetPage.tsx
+msgid "{name} was not added. {why} Add it again."
+msgstr "{name} was not added. {why} Add it again."
+
+#: src/drawing-set/DrawingSetPage.tsx
 msgid "{name} was not added. Vextrus could not add it just now. Add it again in a minute."
 msgstr "{name} was not added. Vextrus could not add it just now. Add it again in a minute."
 
@@ -42,6 +46,10 @@ msgstr "Read again"
 #: src/drawing-set/DrawingSetPage.tsx
 msgid "Actions"
 msgstr "Actions"
+
+#: src/drawing-set/DrawingSetPage.tsx
+msgid "{projectName}’s Drawing Set:"
+msgstr "{projectName}’s Drawing Set:"
 
 #: src/drawing-set/DrawingSetPage.tsx
 msgid "Add files"
@@ -170,6 +178,10 @@ msgstr "Choose files"
 #: src/drawing-set/ReportPanel.tsx
 msgid "Sheets"
 msgstr "Sheets"
+
+#: src/drawing-set/DrawingSetPage.tsx
+msgid "{name} was not added. {why}"
+msgstr "{name} was not added. {why}"
 
 #: src/drawing-set/ReportPanel.tsx
 msgid "{discipline}. Added {date} by {by}"
