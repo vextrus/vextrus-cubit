@@ -312,3 +312,24 @@ def test_a_unicode_digit_ordinal_reads_by_one_rule() -> None:
     """Decimal digits of any script are digits (a fullwidth one); a superscript is not one."""
     assert read("\uff11ST FLOOR PLAN").keys == ("floor_1",)
     assert read("²ND FLOOR PLAN").keys == ("not_stated",)
+
+
+@pytest.mark.parametrize(
+    ("title", "keys", "as_stated"),
+    [
+        ("GROUND FLOOR FLOOR FINISH LAYOUT PLAN", ("ground",), "GROUND FLOOR"),
+        ("2ND, 5TH & 6TH FLOOR FLOOR FINISHED LAYOUT PLAN", ("floor_2", "floor_5", "floor_6"),
+         "2ND, 5TH & 6TH FLOOR"),
+        ("ROOF FLOOR FLOOR FINISH PLAN", ("roof",), "ROOF FLOOR"),
+        ("MEZZANINE FLOOR FLOORING DETAILS", ("mezzanine",), "MEZZANINE FLOOR"),
+    ],
+)  # fmt: skip
+def test_a_floor_word_after_the_phrase_s_own_names_the_subject_not_the_storey(
+    title: str, keys: tuple[str, ...], as_stated: str
+) -> None:
+    """A phrase takes one floor word: in "GROUND FLOOR FLOOR FINISH" the second "FLOOR" begins the
+    subject (the floor finish), so the storey is stated as "GROUND FLOOR"."""
+    found = read(title)
+
+    assert found.keys == keys
+    assert found.as_stated == as_stated

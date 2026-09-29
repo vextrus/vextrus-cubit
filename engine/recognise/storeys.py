@@ -30,10 +30,11 @@ before "pile"; "canopy roof", a structure, before "roof"); dotted abbreviations 
 `gf`), and a figure glued to a word is split from it ("FOR1ST"). Storeys joined by a list word (",",
 "&", "+", "/", `list_words`) form a list, and two joined by a range word (`range_words`, or a dash
 between two storeys) a range; a floor word after them belongs to the whole phrase ("GROUND &
-MEZZANINE FLOOR"). A phrase of weak words (an ordinal, and `weak_storey_words`: "ground", "top",
-"typical") names storeys only with a floor word ("1st flight" and "top layer" name none); "typical"
-names one only when `plan_title` is set and a floor or plan word stands beside it. A structure word
-(a tank, the underground reservoir) ends a phrase and is never a storey.
+MEZZANINE FLOOR"), and one only: a second begins the subject ("GROUND FLOOR FLOOR FINISH"). A
+phrase of weak words (an ordinal, and `weak_storey_words`: "ground", "top", "typical") names
+storeys only with a floor word ("1st flight" and "top layer" name none); "typical" names one only
+when `plan_title` is set and a floor or plan word stands beside it. A structure word (a tank, the
+underground reservoir) ends a phrase and is never a storey.
 
 **A range** lists its ends and, between them, the ground floor and the numbered floors and
 basements; a level a building may not have (plinth, mezzanine, podium, lower ground) is never put in
@@ -449,6 +450,7 @@ def _phrases(units: list[_Unit]) -> Iterator[_Phrase]:
     """Storeys joined by list and range words, with the floor words after them."""
     phrase: _Phrase | None = None
     joiner: _Kind | None = None
+    floored = False  # a floor word already follows the phrase's last storey
     i = 0
     while i < len(units):
         u = units[i]
@@ -463,10 +465,11 @@ def _phrases(units: list[_Unit]) -> Iterator[_Phrase]:
                     yield phrase
                 phrase = _Phrase([made], start=made.start)
             phrase.end = made.end
-            joiner = None
+            joiner, floored = None, False
             continue
-        if phrase is not None and u.kind is _Kind.FLOOR:
-            phrase.floor_word = True
+        if phrase is not None and u.kind is _Kind.FLOOR and not floored:
+            # One floor word per storey: a second ("GROUND FLOOR FLOOR FINISH") begins the subject.
+            phrase.floor_word, floored = True, True
             phrase.end = u.end
         elif phrase is not None and u.kind in (_Kind.LIST, _Kind.RANGE, _Kind.DASH):
             kind = _Kind.LIST if u.kind is _Kind.LIST else _Kind.RANGE
