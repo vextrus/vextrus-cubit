@@ -40,7 +40,7 @@ from django.core.management import call_command
 from django.utils import timezone
 
 from vextrus.platform.database import OWNER_ALIAS
-from vextrus.platform.models import Membership, User
+from vextrus.platform.models import Developer, Membership, User
 from vextrus.platform.services import invitations, markets, tenancy
 from vextrus.seed.demo import Demo
 
@@ -67,6 +67,16 @@ ENDED_ON = date(2026, 9, 25)
 it, the day before the seeding instead, so his access has always ended."""
 ENDED_DAYS = 30
 """How long his access had lasted when it ended."""
+
+
+def seeded_developers() -> list[str]:
+    """The demo's Developers already in the database, by name, as the owner sees them (row-level
+    security hides them from the app): a second seed would make them again (#129)."""
+    return sorted(
+        Developer.objects.using(OWNER_ALIAS)
+        .filter(name__in=DEVELOPERS.values(), is_library=False)
+        .values_list("name", flat=True)
+    )
 
 
 def run(demo: Demo) -> None:
