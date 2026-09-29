@@ -745,3 +745,22 @@ def test_a_layouts_paper_units_survive_the_loader() -> None:
     loaded = dwgread.load(io.BytesIO(json.dumps(data).encode()))
 
     assert {b.layout: b for b in dwgread.decode(loaded).blocks}["Layout1"].paper_mm_per_unit == 25.4
+
+
+@pytest.mark.parametrize(
+    ("paper", "drawn", "mm"),
+    [(1.0, 25.4, 1.0), (1.0, 1.0, 25.4), (1.0, 0.0, 25.4), (float("nan"), 1.0, 25.4), (1.0, 1e12, 25.4)],
+)
+def test_an_inch_layouts_custom_plot_scale_is_read_with_its_units(
+    paper: float, drawn: float, mm: float
+) -> None:
+    """The review of 18, round 1: inch paper units over a drawing made in millimetres state a scale of
+    1 in = 25.4 units, so a unit plots at 1 mm; an unusable scale leaves the units alone."""
+    data = drawing()
+    layout = next(o for o in data["OBJECTS"] if o.get("layout_name") == "Layout1")
+    layout[dwgread.PLOT_PAPER_UNIT] = 0
+    layout[dwgread.PLOT_SCALE[0]], layout[dwgread.PLOT_SCALE[1]] = paper, drawn
+
+    blocks = {b.layout: b for b in dwgread.decode(data).blocks}
+
+    assert blocks["Layout1"].paper_mm_per_unit == pytest.approx(mm)

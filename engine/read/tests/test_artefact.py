@@ -175,7 +175,7 @@ def test_a_layouts_paper_units_survive_json_and_only_mm_or_inches_are_read() -> 
     data["blocks"][0]["paper_mm_per_unit"] = 25.4
 
     assert ReadArtefact.from_json(data).blocks[data["blocks"][0]["handle"]].paper_mm_per_unit == 25.4
-    for wrong in (2.0, "25.4", True, float("nan")):
+    for wrong in (0.0, -1.0, 1e9, "25.4", True, float("nan")):
         data["blocks"][0]["paper_mm_per_unit"] = wrong
         with pytest.raises(ValueError, match="paper units"):
             ReadArtefact.from_json(data)

@@ -172,8 +172,9 @@ class Block:
     layout: str | None  # the layout's name when this record is a layout's
     entities: tuple[str, ...]  # handles in drawing order
     paper_mm_per_unit: float | None = None
-    """A layout's paper units as its plot settings state them (25.4 inches, 1 millimetres); none for
-    any other record, or when the settings state neither (#87: paper space is drawn in these units)."""
+    """Millimetres of paper a layout's drawing unit plots at, as its plot settings state them: its paper
+    units (25.4 inches, 1 millimetres) times its custom scale; none for any other record, or when the
+    settings state neither inches nor millimetres (#87)."""
 
 
 @dataclass(frozen=True)
@@ -389,15 +390,21 @@ def _block_from_json(value: object) -> Block:
     return block
 
 
-PAPER_UNITS_MM = (1.0, 25.4)
-"""The paper units a layout's plot settings may state, in millimetres: millimetres and inches."""
+PAPER_MM_RANGE = (1e-4, 1e4)
+"""The millimetres of paper a layout's drawing unit may plot at: its paper units (inches or
+millimetres) times its custom plot scale."""
 
 
 def _paper_units(value: object) -> float | None:
     if value is None:
         return None
-    if isinstance(value, bool) or not isinstance(value, int | float) or value not in PAPER_UNITS_MM:
-        raise ValueError(f"read artefact: a layout's paper units, {value!r}, are neither mm nor inches")
+    low, high = PAPER_MM_RANGE
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, int | float)
+        or not (math.isfinite(value) and low <= value <= high)
+    ):
+        raise ValueError(f"read artefact: a layout's paper units, {value!r}, are no millimetres a unit")
     return float(value)
 
 

@@ -1073,7 +1073,9 @@ def _space(
         # inches at 1:1, else one unit a millimetre (assumed), as most layouts are drawn; never
         # rescaled to a sheet's size.
         stated = artefact.blocks[handle].paper_mm_per_unit
-        units = (1.0, 25.4) if stated is None else (stated,)
+        # The stated units first; a standard sheet in the other units still wins (main's reading),
+        # since a layout's page setup can state inches over a drawing made in millimetres.
+        units = (1.0, 25.4) if stated is None else (stated, *(u for u in (1.0, 25.4) if u != stated))
         paper = _paper_for_box(box, 0, units_mm=units, scales=(1,), unmatched_mm_per_unit=units[0])
         if padded:
             paper = replace(paper, source=PaperSource.ASSUMED)

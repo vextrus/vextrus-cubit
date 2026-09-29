@@ -27,6 +27,7 @@ which the DXF supplies, is dropped as it is parsed rather than held.
 """
 
 import json
+import math
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from typing import Any, BinaryIO
@@ -62,7 +63,12 @@ _STYLE_KEEP = frozenset({
 PLOT_PAPER_UNIT = "plotsettings.plot_paper_unit"
 """A layout's plot-paper units, as `dwgread` names them (DXF group 72 of PLOTSETTINGS): 0 inches,
 1 millimetres, 2 pixels. Paper space is drawn in them (#87)."""
+PLOT_SCALE = ("plotsettings.paper_units", "plotsettings.drawing_units")
+"""A layout's custom plot scale (DXF groups 142 and 143): so many paper units plot so many drawing
+units. A layout drawn in millimetres with inch paper units states 1 in = 25.4 units."""
 _PAPER_MM = {0: 25.4, 1: 1.0}
+MIN_PAPER_MM, MAX_PAPER_MM = 1e-4, 1e4
+"""The millimetres of paper a drawing unit may plot at, as read; a scale past them is not taken."""
 _OBJECT_KEEP = {
     "LAYER": frozenset({"object", "handle", "name"}),
     "STYLE": _STYLE_KEEP,
@@ -70,10 +76,34 @@ _OBJECT_KEEP = {
         {"object", "handle", "name", "base_pt", "entities", "block_entity", "layout"}
     ),
     "LAYOUT": frozenset(
-        {"object", "handle", "layout_name", "tab_order", "block_header", PLOT_PAPER_UNIT}
+        {"object", "handle", "layout_name", "tab_order", "block_header", PLOT_PAPER_UNIT, *PLOT_SCALE}
     ),
 }
 _OBJECT_ONLY = frozenset({"object", "handle"})
+
+
+def _paper_mm(layout: Mapping[str, Any]) -> float | None:
+    """Millimetres of paper a layout's drawing unit plots at: its paper units (inches or millimetres)
+    times its custom scale's paper units over drawing units, when both are usable; none when it states
+    neither inches nor millimetres (#87; the review of 18, round 1: a scale of 1 in = 25.4 units)."""
+    unit = layout.get(PLOT_PAPER_UNIT)
+    mm = _PAPER_MM.get(unit) if type(unit) is int else None
+    if mm is None:
+        return None
+    paper, drawn = (layout.get(k) for k in PLOT_SCALE)
+    if (
+        isinstance(paper, int | float)
+        and isinstance(drawn, int | float)
+        and not isinstance(paper, bool)
+        and not isinstance(drawn, bool)
+        and math.isfinite(paper)
+        and math.isfinite(drawn)
+        and (paper > 0 and drawn > 0)
+    ):
+        scaled = mm * paper / drawn
+        if MIN_PAPER_MM <= scaled <= MAX_PAPER_MM:
+            return scaled
+    return mm
 
 
 def load(stream: BinaryIO) -> dict[str, Any]:
@@ -163,11 +193,7 @@ def decode(data: Mapping[str, Any]) -> Decoded:
     layout_of = {
         handle(item.get("block_header")): str(item.get("layout_name", "")) for item in layout_objects
     }
-    paper_of = {
-        handle(item.get("block_header")): _PAPER_MM.get(unit) if type(unit) is int else None
-        for item in layout_objects
-        if (unit := item.get(PLOT_PAPER_UNIT)) is not None
-    }
+    paper_of = {handle(item.get("block_header")): _paper_mm(item) for item in layout_objects}
 
     owner_of: dict[str, str] = {}
     listed_missing = 0
