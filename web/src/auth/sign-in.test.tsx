@@ -210,8 +210,11 @@ describe('signing out (§4.1 user menu)', () => {
     await userEvent.click(within(await screen.findByRole('menu')).getByRole('menuitem', { name: 'Sign out' }))
     await waitFor(() => expect(router.state.location.pathname).toBe('/sign-in'))
     expect(api.calls()).toContain('POST /api/auth/sign-out')
-    expect(queryClient.getQueryCache().findAll({ queryKey: ['members'] })).toHaveLength(0)
-    expect(queryClient.getQueryCache().findAll({ queryKey: ['session'] })).toHaveLength(0)
+    // Sign-out moves to /sign-in first and forgets what was held after: wait for that, not the address.
+    await waitFor(() => {
+      expect(queryClient.getQueryCache().findAll({ queryKey: ['members'] })).toHaveLength(0)
+      expect(queryClient.getQueryCache().findAll({ queryKey: ['session'] })).toHaveLength(0)
+    })
     await signIn(PEOPLE.guest)
     expect(await screen.findByText((_, el) => el?.tagName === 'P' && clean(el.textContent) === '1 project at Shapla Homes Ltd is open to you')).toBeVisible()
     record.stop()

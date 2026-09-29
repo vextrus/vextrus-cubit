@@ -9,10 +9,11 @@ What a sheet holds
 ------------------
 - **Its space and paper.** A sheet in a layout draws that layout (its viewports showing model space,
   scaled, turned by their twist and cut to their rectangles); its paper is the layout's used extents
-  in its units (`paper_source` 0). A sheet in model space draws what lies in its box, cut to it. Its
-  paper is a standard sheet (ISO A0-A5, ANSI A-E, ARCH A-E1) when the box is one, within 0.5 %, at a
-  standard scale (`paper_source` 1); otherwise its long side is taken as A1's 841 mm (`paper_source`
-  2), since the ReadArtefact carries neither the frame's insert scale nor the plot's settings.
+  in its plot-paper units, inches or millimetres (`paper_source` 0; #87). A sheet in model space
+  draws what lies in its box, cut to it. Its paper is a standard sheet (ISO A0-A5, ANSI A-E, ARCH
+  A-E1) when the box is one, within 0.5 %, at a standard scale (`paper_source` 1); otherwise its long
+  side is taken as A1's 841 mm (`paper_source` 2), since the ReadArtefact carries neither the frame's
+  insert scale nor the plot's settings.
 - **Thin lines** (`LINE`): one record per segment, drawn by the viewer as GL_LINES or quads by its
   lineweight at the current zoom (m0-screens 4.6, ruling 2), with the entity's lineweight in mm as
   plotted and its colour. Linetypes are baked in as dashes.
@@ -32,7 +33,7 @@ What a sheet holds
 
 What the ReadArtefact does not carry, and so is not drawn as AutoCAD would (the PR says so): the layer
 table (a BYLAYER colour, linetype or lineweight: colour kind 0; lineweight 0.25 mm, AutoCAD's default;
-linetype continuous), a text style's fixed height, width factor and oblique angle, the global
+linetype continuous), a TEXT's own oblique angle (its style's is drawn; #88), the global
 LTSCALE, and a hatch pattern's own definition (drawn from the standard table by its name).
 
 The buffer format, version 1 (all little-endian)
@@ -1067,10 +1068,15 @@ def _space(
         if handle is None:
             raise ValueError(f"the sheet's layout {location.layout!r} is not in the drawing")
         box, padded = _layout_box(artefact, handle)
-        # Paper space's units are the layout's plot settings', which the artefact does not carry
-        # (INSUNITS governs model space): a standard sheet in mm or in inches at 1:1, else one unit
-        # a millimetre (assumed), as most layouts are drawn; never rescaled to a sheet's size.
-        paper = _paper_for_box(box, 0, units_mm=(1.0, 25.4), scales=(1,), unmatched_mm_per_unit=1.0)
+        # Paper space is drawn in the layout's plot-paper units (INSUNITS governs model space; #87):
+        # inches or millimetres as the plot settings state them, else a standard sheet in mm or in
+        # inches at 1:1, else one unit a millimetre (assumed), as most layouts are drawn; never
+        # rescaled to a sheet's size.
+        stated = artefact.blocks[handle].paper_mm_per_unit
+        # The stated units first; a standard sheet in the other units still wins (main's reading),
+        # since a layout's page setup can state inches over a drawing made in millimetres.
+        units = (1.0, 25.4) if stated is None else (stated, *(u for u in (1.0, 25.4) if u != stated))
+        paper = _paper_for_box(box, 0, units_mm=units, scales=(1,), unmatched_mm_per_unit=units[0])
         if padded:
             paper = replace(paper, source=PaperSource.ASSUMED)
         return handle, paper, None
@@ -1428,7 +1434,8 @@ class _Drawer:
         local, source = sheet.heights.local(entity)
         if source is HeightSource.DEFAULT:
             sheet.stats["text_height_default"] += 1
-        laid: Laid = lay_out(entity, local)
+        style = sheet.artefact.styles.get(entity.style_handle) if entity.style_handle else None
+        laid: Laid = lay_out(entity, local, style)
         if not laid.glyphs and not laid.strokes:
             return
         at = frame(entity, chain, local)

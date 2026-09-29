@@ -127,7 +127,7 @@ def test_the_summary_carries_what_the_contract_fixes() -> None:
 def test_the_json_names_its_schema_and_version() -> None:
     data = artefact().to_json()
 
-    assert (data["schema"], data["version"]) == (SCHEMA, VERSION) == ("engine.read.artefact", 2)
+    assert (data["schema"], data["version"]) == (SCHEMA, VERSION) == ("engine.read.artefact", 3)
 
 
 def test_an_artefact_survives_json_text_unchanged() -> None:
@@ -157,7 +157,8 @@ def test_an_mtext_keeps_no_height_as_none_and_its_direction_vector() -> None:
     ("where", "value", "message"),
     [
         ("version", 1, "version"),  # 04's, which carried no style table (#82)
-        ("version", 3, "version"),
+        ("version", 2, "version"),  # #82's, which carried no layout's paper units (#87)
+        ("version", 4, "version"),
         ("schema", "engine.read.other", "schema"),
         ("extra", 1, "unknown fields"),
     ],
@@ -167,6 +168,17 @@ def test_another_version_or_shape_is_refused(where: str, value: object, message:
 
     with pytest.raises(ValueError, match=message):
         ReadArtefact.from_json(data)
+
+
+def test_a_layouts_paper_units_survive_json_and_only_mm_or_inches_are_read() -> None:
+    data = artefact().to_json()
+    data["blocks"][0]["paper_mm_per_unit"] = 25.4
+
+    assert ReadArtefact.from_json(data).blocks[data["blocks"][0]["handle"]].paper_mm_per_unit == 25.4
+    for wrong in (0.0, -1.0, 1e9, "25.4", True, float("nan")):
+        data["blocks"][0]["paper_mm_per_unit"] = wrong
+        with pytest.raises(ValueError, match="paper units"):
+            ReadArtefact.from_json(data)
 
 
 def with_entity(change: dict[str, Any], index: int = 2) -> dict[str, Any]:
