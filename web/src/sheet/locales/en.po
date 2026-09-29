@@ -12,12 +12,12 @@ msgid "<0/> could not be drawn. The other sheets are not affected."
 msgstr "<0/> could not be drawn. The other sheets are not affected."
 
 #: src/sheet/SheetViewer.tsx
-msgid "Zoom in"
-msgstr "Zoom in"
+msgid "Sheet {label}"
+msgstr "Sheet {label}"
 
 #: src/sheet/SheetViewer.tsx
-msgid "Sheet {sheetNumber}"
-msgstr "Sheet {sheetNumber}"
+msgid "Zoom in"
+msgstr "Zoom in"
 
 #: src/sheet/SheetViewer.tsx
 msgid "Zoom out"

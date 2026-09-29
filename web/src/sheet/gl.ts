@@ -112,6 +112,7 @@ in vec4 aPlace;   // origin, x axis (mm)
 in vec2 aAxisY;   // y axis (mm)
 in vec4 aUv;      // u0, v0, u1, v1 (atlas pixels, v from the top row)
 in vec4 aRect;    // x0, y0, x1, y1 (text units)
+in float aRun;    // the run's text height (mm): its glyphs greek together
 uniform float uGreekPx;
 out vec2 vUv;
 flat out float vTextPx;
@@ -122,7 +123,7 @@ void main() {
   vUv = vec2(mix(aUv.x, aUv.z, aCorner.x), mix(aUv.w, aUv.y, aCorner.y)) / uAtlasSize;
   float det = aPlace.z * aAxisY.y - aPlace.w * aAxisY.x;
   vTextPx = sqrt(abs(det)) * uScale;
-  vGreek = (aRect.w - aRect.y) * length(aAxisY) * uScale < uGreekPx ? 1.0 : 0.0;
+  vGreek = aRun * uScale < uGreekPx ? 1.0 : 0.0;
   gl_Position = toClip(toPx(mm));
 }`
 const GLYPH_FS = `${FRAGMENT_PREAMBLE}
@@ -340,30 +341,33 @@ export class SheetRenderer {
     attribute(this.line, 'aSeg', 4, 28, 0, 1)
     attribute(this.line, 'aWeight', 1, 28, 16, 1)
 
-    // Each glyph instance with its atlas glyph's rectangles, 16 floats.
+    // Each glyph instance with its atlas glyph's rectangles and its run's height, 17 floats.
     const g = sheet.glyphs
     const a = sheet.atlasGlyphs
-    const instances = new Float32Array(g.count * 16)
+    const runs = runHeights(sheet)
+    const instances = new Float32Array(g.count * 17)
     for (let i = 0; i < g.count; i++) {
       const at = i * g.stride
       const k = g.u32[at]!
-      const o = i * 16
+      const o = i * 17
       instances.set(g.f32.subarray(at + 1, at + 7), o)
       instances[o + 6] = a.u16[k * 12]!
       instances[o + 7] = a.u16[k * 12 + 1]!
       instances[o + 8] = a.u16[k * 12 + 2]!
       instances[o + 9] = a.u16[k * 12 + 3]!
       instances.set(a.f32.subarray(k * 6 + 2, k * 6 + 6), o + 10)
+      instances[o + 16] = runs[i]!
     }
     const glyphs = gl.createVertexArray()
     gl.bindVertexArray(glyphs)
     gl.bindBuffer(gl.ARRAY_BUFFER, this.corners)
     attribute(this.glyph, 'aCorner', 2, 8, 32, 0)
     data(instances)
-    attribute(this.glyph, 'aPlace', 4, 64, 0, 1)
-    attribute(this.glyph, 'aAxisY', 2, 64, 16, 1)
-    attribute(this.glyph, 'aUv', 4, 64, 24, 1)
-    attribute(this.glyph, 'aRect', 4, 64, 40, 1)
+    attribute(this.glyph, 'aPlace', 4, 68, 0, 1)
+    attribute(this.glyph, 'aAxisY', 2, 68, 16, 1)
+    attribute(this.glyph, 'aUv', 4, 68, 24, 1)
+    attribute(this.glyph, 'aRect', 4, 68, 40, 1)
+    attribute(this.glyph, 'aRun', 1, 68, 64, 1)
     gl.bindVertexArray(null)
 
     const atlas = gl.createTexture()
@@ -383,8 +387,8 @@ export class SheetRenderer {
 }
 
 /**
- * The pixels one frame would shade: each primitive's box on screen, cut to the canvas (what the
- * rasteriser visits for it), summed. Linear in the records, so it costs far less than the drawing.
+ * The pixels one frame would shade, summed: a line's quad, a triangle's or a glyph's box on screen,
+ * each cut to the canvas. Linear in the records, so it costs far less than the drawing.
  */
 export function frameWork(sheet: DecodedSheet, view: ViewTransform, width: number, height: number): number {
   const { scale, x, y } = view
@@ -400,8 +404,11 @@ export function frameWork(sheet: DecodedSheet, view: ViewTransform, width: numbe
   const l = sheet.lines
   for (let i = 0; i < l.count; i++) {
     const o = i * l.stride
-    // A line's quad reaches its half width and a pixel past its box on every side.
-    box(l.f32[o]!, l.f32[o + 1]!, l.f32[o + 2]!, l.f32[o + 3]!, Math.max(0.5, (l.f32[o + 4]! * scale) / 2) + 1)
+    // A line shades its quad: its length plus a reach at each end, by twice its reach across (a
+    // diagonal hatch line costs its own strip, never its whole box), cut to the canvas.
+    const reach = Math.max(0.5, (l.f32[o + 4]! * scale) / 2) + 1
+    const shown = clippedLength(x + l.f32[o]! * scale, y - l.f32[o + 1]! * scale, x + l.f32[o + 2]! * scale, y - l.f32[o + 3]! * scale, -reach, -reach, width + reach, height + reach)
+    if (shown !== null) work += (shown + 2 * reach) * 2 * reach
   }
   const t = sheet.triangles
   for (let i = 0; i < t.count; i++) {
@@ -421,6 +428,48 @@ export function frameWork(sheet: DecodedSheet, view: ViewTransform, width: numbe
     box(ox + Math.min(...xs), oy + Math.min(...ys), ox + Math.max(...xs), oy + Math.max(...ys), 1)
   }
   return work
+}
+
+/** The length of segment (x0, y0)–(x1, y1) inside the box, or null when it misses it (Liang–Barsky). */
+function clippedLength(x0: number, y0: number, x1: number, y1: number, left: number, top: number, right: number, bottom: number): number | null {
+  const dx = x1 - x0
+  const dy = y1 - y0
+  let t0 = 0
+  let t1 = 1
+  for (const [p, q] of [
+    [-dx, x0 - left],
+    [dx, right - x0],
+    [-dy, y0 - top],
+    [dy, bottom - y0],
+  ] as const) {
+    if (p === 0) {
+      if (q < 0) return null
+    } else {
+      const r = q / p
+      if (p < 0) t0 = Math.max(t0, r)
+      else t1 = Math.min(t1, r)
+      if (t0 > t1) return null
+    }
+  }
+  return (t1 - t0) * Math.hypot(dx, dy)
+}
+
+/**
+ * Each glyph's run height in mm: the tallest text height (its y axis's length) among the glyphs of its
+ * primitive, so a run below the greeking size draws as bars as a whole, never letter by letter (4.6).
+ */
+export function runHeights(sheet: DecodedSheet): Float32Array {
+  const g = sheet.glyphs
+  const tallest = new Map<number, number>()
+  const own = new Float32Array(g.count)
+  for (let i = 0; i < g.count; i++) {
+    const o = i * g.stride
+    own[i] = Math.hypot(g.f32[o + 5]!, g.f32[o + 6]!)
+    const prim = g.u32[o + 8]!
+    tallest.set(prim, Math.max(tallest.get(prim) ?? 0, own[i]!))
+  }
+  for (let i = 0; i < g.count; i++) own[i] = tallest.get(g.u32[i * g.stride + 8]!)!
+  return own
 }
 
 let shared: SheetRenderer | null = null

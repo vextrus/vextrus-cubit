@@ -233,17 +233,18 @@ function readAtlas(bytes: Uint8Array): DecodedSheet['atlas'] {
 function readStats({ bytes, count }: Section): Record<string, number> {
   if (bytes.byteLength > MAX_STATS_BYTES) fail('its counts are larger than a megabyte')
   // A count is an integer as written: Python's json.loads reads 6.0 and 6e0 as floats and refuses
-  // them, where JavaScript's numbers would take them as 6. The reviver sees each value's own text.
-  let floats = false
+  // them, where JavaScript's numbers would take them as 6. Out of the strings, the JSON text is only
+  // punctuation and numbers, so a fraction or exponent shows as '.', 'e' or 'E' (no reliance on
+  // JSON.parse's source text, which not every browser gives a reviver).
   let stats: unknown
+  let text = ''
   try {
-    stats = JSON.parse(utf8.decode(bytes), function (_key, value: unknown, context?: { source?: string }) {
-      if (typeof value === 'number' && !/^-?\d+$/.test(context?.source ?? '')) floats = true
-      return value
-    })
+    text = utf8.decode(bytes)
+    stats = JSON.parse(text)
   } catch {
     fail('its counts are not JSON')
   }
+  const floats = /[.eE]/.test(text.replace(/"(?:[^"\\]|\\.)*"/g, '""'))
   if (floats) fail('its counts are not names to integers')
   if (typeof stats !== 'object' || stats === null || Array.isArray(stats)) fail('its counts are not names to integers')
   const entries = Object.entries(stats)

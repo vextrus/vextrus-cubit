@@ -1,4 +1,5 @@
 /// <reference types="vitest/config" />
+import { realpathSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { defineConfig, type Plugin, type PluginOption } from 'vite'
 import react from '@vitejs/plugin-react'
@@ -32,6 +33,16 @@ function linguiFor(owns: (id: string) => boolean, configPath?: string): Plugin[]
       },
     } as Plugin
   })
+}
+
+/** The local sheets' folder, and where it really is when it is a link (Vite checks real paths). */
+function localSheets(): string[] {
+  const folder = fileURLToPath(new URL('../.private/work/sheets/', import.meta.url))
+  try {
+    return [folder, realpathSync(folder)]
+  } catch {
+    return [folder] // not there yet
+  }
 }
 
 export default defineConfig(({ mode }) => {
@@ -74,7 +85,7 @@ export default defineConfig(({ mode }) => {
         allow: [
           '.',
           fileURLToPath(new URL('../engine/render/fixtures/', import.meta.url)),
-          fileURLToPath(new URL('../.private/work/sheets/', import.meta.url)),
+          ...localSheets(),
         ],
       },
     },

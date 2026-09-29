@@ -504,10 +504,6 @@ msgstr "Email"
 msgid "from the drawing + rules"
 msgstr "from the drawing + rules"
 
-#: src/dev/sheet/SheetHarness.tsx
-msgid "The harness has no sheet named “{name}”. Open tiny-sheet or lineweight-ramp, or add a sheet with python -m engine.render."
-msgstr "The harness has no sheet named “{name}”. Open tiny-sheet or lineweight-ramp, or add a sheet with python -m engine.render."
-
 #: src/dev/specimen/Specimen.tsx
 msgid "The one bulk Confirm"
 msgstr "The one bulk Confirm"
@@ -539,6 +535,10 @@ msgstr "Under {phoneBelow} px the phone notice replaces every screen after sign-
 #: src/dev/specimen/Specimen.tsx
 msgid "Proposal"
 msgstr "Proposal"
+
+#: src/dev/sheet/SheetHarness.tsx
+msgid "The harness has no sheet named “{name}”. Open one of these:"
+msgstr "The harness has no sheet named “{name}”. Open one of these:"
 
 #: src/dev/specimen/Specimen.tsx
 msgid "Glyphs"
@@ -597,6 +597,10 @@ msgstr "Show the keys"
 msgid "Form fields"
 msgstr "Form fields"
 
+#: src/dev/sheet/SheetHarness.tsx
+msgid "Add a sheet with <0>python -m engine.render</0> into .private/work/sheets/."
+msgstr "Add a sheet with <0>python -m engine.render</0> into .private/work/sheets/."
+
 #: src/dev/specimen/Specimen.tsx
 msgid "Accent and commit"
 msgstr "Accent and commit"
@@ -645,6 +649,10 @@ msgstr "Jump to…"
 msgid "StatusMark"
 msgstr "StatusMark"
 
+#: src/dev/sheet/SheetHarness.tsx
+msgid "Sheets the harness can open"
+msgstr "Sheets the harness can open"
+
 #: src/dev/specimen/Specimen.tsx
 msgid "Download the report"
 msgstr "Download the report"
@@ -672,6 +680,10 @@ msgstr "Keys"
 #: src/dev/specimen/Specimen.tsx
 msgid "Plot"
 msgstr "Plot"
+
+#: src/dev/sheet/SheetHarness.tsx
+msgid "Open a sheet in the harness:"
+msgstr "Open a sheet in the harness:"
 
 #: src/dev/specimen/Specimen.tsx
 msgid "Text"

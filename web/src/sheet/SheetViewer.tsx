@@ -11,7 +11,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { Trans, useLingui } from '@lingui/react/macro'
 import { Maximize } from 'lucide-react'
 import { SlotFill } from '@/app/slots'
-import { Button, DrawingText, ErrorBar, KeyCombo, KeyRegion, LtrCanvas, isolateLtr, useKeys } from '@/ui'
+import { Button, DrawingText, ErrorBar, KeyCombo, KeyRegion, LtrCanvas, useKeys } from '@/ui'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/primitives/tooltip'
 import { decodeSheet, usedExtents, type DecodedSheet } from './decode'
 import { SheetRenderer } from './gl'
@@ -87,7 +87,6 @@ function greekInk(el: Element): number {
 
 function SheetCanvas({ sheet, label, workingView, onFail }: { sheet: DecodedSheet; label: string; workingView: PaperBox | null; onFail: () => void }) {
   const { t } = useLingui()
-  const sheetNumber = isolateLtr(label)
   const areaRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const renderer = useRef<SheetRenderer | null>(null)
@@ -288,8 +287,8 @@ function SheetCanvas({ sheet, label, workingView, onFail }: { sheet: DecodedShee
           ref={areaRef}
           tabIndex={0}
           role="group"
-          aria-label={t`Sheet ${sheetNumber}`}
-          className="focus-inset absolute inset-0 cursor-grab touch-none overflow-hidden select-none active:cursor-grabbing"
+          aria-label={t`Sheet ${label}`}
+          className="group absolute inset-0 cursor-grab outline-none touch-none overflow-hidden select-none active:cursor-grabbing"
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
@@ -299,6 +298,12 @@ function SheetCanvas({ sheet, label, workingView, onFail }: { sheet: DecodedShee
           }}
         >
           <canvas ref={canvasRef} aria-hidden className="absolute inset-0 h-full w-full" />
+          {/* The focus ring above the drawing: the canvas would cover the region's own inset outline. */}
+          <div
+            aria-hidden
+            data-focus-ring=""
+            className="pointer-events-none absolute inset-0 group-focus-visible:outline-2 group-focus-visible:-outline-offset-2 group-focus-visible:outline-ring group-focus-visible:outline-solid"
+          />
         </div>
       </LtrCanvas>
     </>

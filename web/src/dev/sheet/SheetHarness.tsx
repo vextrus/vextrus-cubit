@@ -51,6 +51,43 @@ function Keys() {
   return <KeysOverlay open={open} onOpenChange={setOpen} from={from} />
 }
 
+/** Every sheet the harness can open, as links; each name whole on its line. */
+function SheetList({ names }: { names: string[] }) {
+  const { t } = useLingui()
+  return (
+    <div className="flex flex-col items-center gap-2">
+      <ul aria-label={t`Sheets the harness can open`} className="flex flex-col items-center gap-1">
+        {names.map((n) => (
+          <li key={n}>
+            <Link to="/dev/sheet/$id" params={{ id: n }} className="text-sm whitespace-nowrap text-primary underline">
+              <bdi dir="ltr" data-notation="file-name">
+                {n}
+              </bdi>
+            </Link>
+          </li>
+        ))}
+      </ul>
+      <p className="text-xs text-ink-secondary">
+        <Trans>
+          Add a sheet with <code className="whitespace-nowrap">python -m engine.render</code> into .private/work/sheets/.
+        </Trans>
+      </p>
+    </div>
+  )
+}
+
+/** /dev/sheet: the sheets the harness can open. */
+export function SheetHarnessIndex() {
+  const names = Object.keys(HARNESS_SHEETS).sort()
+  return (
+    <div data-sheet-harness="" className="flex h-dvh items-center justify-center bg-background">
+      <Empty glyph={<FileQuestion />} action={<SheetList names={names} />}>
+        <Trans>Open a sheet in the harness:</Trans>
+      </Empty>
+    </div>
+  )
+}
+
 type Loaded = { id: string; buffer: ArrayBuffer } | { id: string; failed: true }
 
 export function SheetHarness({ id }: { id: string }) {
@@ -105,11 +142,8 @@ export function SheetHarness({ id }: { id: string }) {
           <div data-region="canvas" className="relative min-h-0 flex-1 overflow-hidden">
             {at < 0 ? (
               <div className="flex h-full items-center justify-center">
-                <Empty glyph={<FileQuestion />}>
-                  <Trans>
-                    The harness has no sheet named “{name}”. Open tiny-sheet or lineweight-ramp, or add a sheet with python
-                    -m engine.render.
-                  </Trans>
+                <Empty glyph={<FileQuestion />} action={<SheetList names={names} />}>
+                  <Trans>The harness has no sheet named “{name}”. Open one of these:</Trans>
                 </Empty>
               </div>
             ) : current === null ? (
@@ -127,7 +161,7 @@ export function SheetHarness({ id }: { id: string }) {
                 </ErrorBar>
               </div>
             ) : (
-              <SheetViewer key={id} buffer={current.buffer} label={id} />
+              <SheetViewer key={id} buffer={current.buffer} label={id} onRetry={() => setAttempt((a) => a + 1)} />
             )}
           </div>
           <footer data-region="status-bar" className="flex h-statusbar shrink-0 items-center gap-4 border-t border-border bg-chrome px-3 text-2xs text-ink-secondary">

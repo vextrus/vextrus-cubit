@@ -14,9 +14,6 @@ import { KeyScope } from '@/ui/keys/KeyMapProvider'
 import tinySheetUrl from '../../../engine/render/fixtures/tiny-sheet.bin?url'
 import { SheetViewer } from './SheetViewer'
 
-const LRI = '⁦'
-const PDI = '⁩'
-
 function mount(buffer: ArrayBuffer) {
   render(
     <StrictMode>
@@ -63,12 +60,30 @@ describe('<SheetViewer> under StrictMode', () => {
   })
 })
 
+describe('<SheetViewer> focus (m0-screens §8 item 7)', () => {
+  it('keeps its focus ring above the drawing when zoomed in', async () => {
+    mount(await tiny())
+    await expect.poll(darkest, { timeout: 10_000 }).toBeLessThan(50)
+    const region = screen.getByRole('group')
+    for (let i = 0; i < 20 && document.activeElement !== region; i++) await userEvent.tab()
+    expect(document.activeElement).toBe(region)
+    await userEvent.keyboard('+')
+    await userEvent.keyboard('+')
+    const ring = region.querySelector<HTMLElement>('[data-focus-ring]')
+    expect(ring, 'a ring layer').not.toBeNull()
+    // Painted after the canvas, over it, with the focus colour's outline.
+    expect(ring!.compareDocumentPosition(region.querySelector('canvas')!) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy()
+    const style = getComputedStyle(ring!)
+    expect([style.position, style.outlineStyle, style.outlineWidth, style.pointerEvents]).toEqual(['absolute', 'solid', '2px', 'none'])
+  })
+})
+
 describe('<SheetViewer> words', () => {
   it('shows the sheet number as notation, left to right, and names the canvas by it', async () => {
     mount(await tiny())
     const label = await screen.findByText('S-04')
     expect(label.closest('[data-notation]')?.getAttribute('dir')).toBe('ltr')
-    expect(screen.getByRole('group').getAttribute('aria-label')).toBe(`Sheet ⁨${LRI}S-04${PDI}⁩`)
+    expect(screen.getByRole('group').getAttribute('aria-label'), 'isolated once').toBe('Sheet \u2068S-04\u2069')
   })
 
   it('marks the sheet number as notation, left to right, in "could not be drawn"', async () => {
