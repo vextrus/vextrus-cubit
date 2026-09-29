@@ -184,7 +184,8 @@ session-05 close-out's committed checks cover; confirm each on its merge):
 - Contracts drift at the level of keys; contract faults show only in the merged tree: debt (no check
   yet; the rule is exact keys in both prompts and a merged run before READY).
 - A strict ruleset puts every open PR behind: debt (the orchestrator merges `main` in; no check).
-- A `claude --cloud` session with no git remote: debt (check one launch's remote first; no check).
+- A `claude --cloud` session with no git remote: **paid 29 Sep 2026** by `scripts/cloud/launch.py`
+  (its test: `scripts/tests/test_cloud_launch.py`), which refuses a bundled launch from the CLI's debug log.
 - Messaging across config dirs; a builder's `cd` out of its worktree; `--resume` on a running session
   starting a copy: debts (runbook rules; no check).
 - `gh pr edit` failing on the Projects (classic) error: debt (the `gh api` route; no check).
@@ -238,3 +239,22 @@ session-05 close-out's committed checks cover; confirm each on its merge):
   with every check and `design-gate`: after each wave-3 merge the owner updated the next PR and posted
   its gate again on the new head (four merges took 32 minutes). The orchestrator merges `main` into the
   next PR's branch itself and gives the gate for that head, or plans the merges as one ordered pass.
+
+## Session 06, first start (29 Sep 2026): the cloud's cause, found in 15 minutes
+- **The cloud's silent bundle had one cause: the Claude GitHub App did not cover the repository.** The
+  CLI's own debug log said so (`claude --debug-file <f> --cloud …`: "Checking GitHub app installation …
+  GitHub app is not installed on vextrus/vextrus-cubit (status is null)", then "[teleportToRemote]
+  Bundling (reason: github_preflight_failed)", a 91 MB upload: the 40 s). Session 05 guessed at the
+  account link and retracted it; the debug log answered in one launch. Once the owner installed the App
+  on `vextrus`, a launch took 5 s, cloned `main`, and its session pushed a branch itself. **Check:**
+  `scripts/cloud/launch.py` launches every cloud ticket and exits 2 on a bundle or a wrong revision
+  (`scripts/tests/test_cloud_launch.py`). Diagnose a tool from its own debug log before theorising.
+- **A diagnostic that a local push can satisfy proves nothing.** The first start's wait for the cloud
+  session's branch was met by a push the orchestrator made locally on the owner's instruction. The
+  launch wrapper judges the CLI's log instead. Check: the same.
+- **Every acceptance-writer had to invent a name the plan leaves open** (an API path, a scorer seam, a
+  component's props, a key format), and a builder may not change a pinned test: the orchestrator rules
+  each report's "not pinned" list before the builder starts. Debt (a runbook step; no check).
+- **`claude --bg -w <name>` makes a new `worktree-<name>` branch**, not the ticket's: create the worktree
+  on the ticket's branch first so the acceptance commits are under the builder. Debt (runbook; no check).
+

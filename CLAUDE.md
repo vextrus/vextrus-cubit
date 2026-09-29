@@ -37,10 +37,16 @@ civil engineer and the CEO and co-founder. The previous product (Vextrus Cubit) 
 - **Effort: `medium` by default** (`.claude/settings.json`; the owner: "Default effort medium for Opus
   5.5, not xhigh or high"); `high` only for hard tickets (reading drawings, hostile-input boundaries,
   security walls), set per launch with `--effort`. `pr-reviewer` and `refuter` keep `high`.
+- **Models:** Opus 5.5 for the orchestrator, builders and every gating or reading agent; **Sonnet 5.5
+  for light work** (the owner, 29 Sep 2026: "fast exploration, small debugging or something ligter"):
+  look-ups, `Explore`, drafting prompt parts, naming a failure from a log, measures. Set its effort
+  explicitly (it defaults to `high`). Where it runs: the session brief.
 - **Cloud and local sessions:** cloud (account B) for tickets provable by committed tests; local
-  (`claude --bg`, one worktree each) for anything touching real drawings. Check one cloud launch's git
-  remote before fanning out. Builders commit and never push; the orchestrator pushes, opens the PR and
-  merges after the review loop (at most two rounds) and green required checks.
+  (`claude --bg`, one worktree each) for anything touching real drawings. Launch a cloud ticket only
+  through `uv run python -m scripts.cloud.launch` (it refuses a session bundled instead of cloned).
+  Local builders commit and never push; a cloud builder pushes only its own branch. Neither opens a PR:
+  the orchestrator pushes, opens the PR and merges after the review loop (at most two rounds) and green
+  required checks.
 - **Acceptance tests come first,** by `acceptance-writer`, before the builder starts; builders never
   change them (CI's acceptance check).
 - **Every serious finding leaves a committed check** (a test, lint or scan that fails on the class): a

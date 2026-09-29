@@ -20,6 +20,16 @@ remaining ticket merged, the scorer's first Development-Set scores recorded, and
 owner's walk. You will not finish all of it in one budget (the plan's critical path is 13–15 hours):
 merge as much as the budget allows, in the plan's order, then hand off. **You run the whole loop
 yourself:** launch, review, gate, merge. The owner is not waiting to approve anything but the keys.
+**Keep working until the finish line holds or the budget ends:** after each event take the next step in
+the same turn; never stop to summarise, offer to wait or list choices the brief already answers.
+
+## This is session 06's second start (29 Sep 2026)
+The first start ran about 15 minutes and was stopped by the owner once the cloud worked, to begin again
+from a fresh context with this brief. Its worktrees, branches, databases and acceptance commits were
+deleted; nothing of it is on `main` but this brief, `scripts/cloud/launch.py` and the lessons. The
+clock starts again at your first launch. What it learned is folded in below: **"What the first start
+found"** (the contract gaps each acceptance-writer hit, so you rule them before a builder starts) and
+the cloud fix (**Effort, models and where each ticket runs**).
 
 ## The owner's rulings (verbatim; #45 and STATE.md hold each in full)
 **29 Sep 2026, the reason for this session's shape:**
@@ -81,13 +91,41 @@ finish line stays; the Answer Keys stay fenced (measurement honesty, not securit
 - STATE.md logs each ticket's clock: acceptance launch, builder launch, first READY, each round, PR,
   merge.
 
-## Effort and where each ticket runs
-- **Medium** for you and every builder and agent, set per launch (`--effort medium`); **high** only for
-  **17, 18, 19a, 21a, 21c and 24s** (reading; hostile input; security walls). Reviewers at high.
-- **Cloud** (account B) where committed tests prove the ticket: 16, 19a, 21a's build, 20b, 21b, 22.
-  **Check one cloud launch's git remote before fanning out** (session 05: account B's sessions came up
-  with no remote; the signs were a 30–39 s launch and the session filed under "other"). If the remote is
-  missing, build that ticket locally and say so in #45; do not debug the cloud for more than 15 minutes.
+## Effort, models and where each ticket runs
+- **Opus 5.5 (`claude-opus-5-5`) at medium** for you, every builder and the gating agents, set per
+  launch (`--effort medium`); **high** only for **17, 18, 19a, 21a, 21c and 24s** (reading; hostile
+  input; security walls). `pr-reviewer` and `refuter` at high. Opus 5.5 at medium matches Opus 5 at high
+  on coding (the docs; `docs/research/opus-5-5-prompting.md`); go higher only on a measured gain.
+- **Sonnet 5.5 (`claude-sonnet-5-5`, alias `sonnet`) for light work, the owner's ruling (29 Sep 2026):
+  "Sonnet 5.5 just came which can be leveraged in our workflow for fast exploration, small debugging or
+  something ligter works".** It is faster and half Opus's price (`docs/research/sonnet-5-5.md`). Use it
+  (Agent tool `model: "sonnet"`, or `claude --bg --model sonnet`) for: codebase exploration and
+  look-ups (`Explore` agents), drafting a ticket's prompt part from the plan, reading a builder's logs or
+  a CI failure to name it, small scoped debugging, watch loops' summaries, clean-up lists, measures and
+  #45's tables. **Never Sonnet** for a builder, `acceptance-writer`, `pr-reviewer`, `refuter`,
+  `ux-critic`'s gate, `qs-critic` or `drawing-analyst` (key drafting and every reading judgement): they
+  gate quality or read drawings. **Always set its effort** (`medium` for look-ups and drafts, `high`
+  for debugging): Sonnet 5.5 defaults to `high` on the API and its levels are recalibrated. An agent
+  whose Sonnet answer you cannot verify is re-asked on Opus, not trusted.
+- **Cloud** (account B) where committed tests prove the ticket: 16, 19a, 20b, 21b, 22 (21a builds
+  locally: its peak-memory run needs the real files). **Cloud works since 29 Sep 2026:** the owner
+  installed the Claude GitHub App on `vextrus` covering this repository; before that every `--cloud`
+  launch silently uploaded a 91 MB bundle of the checkout ("GitHub app is not installed ... Bundling
+  (reason: github_preflight_failed)" in the CLI's debug log) and the session had no `origin`. After the
+  fix a launch took 5 s and its session pushed a branch itself. **Launch every cloud ticket through
+  `uv run python -m scripts.cloud.launch --branch <ticket branch> --prompt-file <file>`** from the
+  ticket's worktree, its branch pushed with the acceptance commits: it runs `claude --cloud` with a debug
+  log and prints `OK … <session id>` only when the session was cloned from GitHub at that branch; it
+  prints `REFUSED …` (exit 2) for a bundle or another revision: delete that session in the web UI and
+  build the ticket locally, saying so in #45. The first launch also proves the CLI sends the worktree's
+  branch as the revision (the first start saw `revision: main` from `main`); if it does not, build that
+  ticket locally and do not debug the cloud past 15 minutes. Talk to a cloud session with `claude -p
+  --cloud <session id> "<message>"` (its reply is on claude.ai, not in your terminal); watch its work
+  by its branch's head (`git ls-remote origin <branch>`): a cloud builder's prompt tells it to push its
+  branch after each commit (the only way its work reaches you; it never opens a PR or merges) and to
+  end with a commit whose message's last line is `READY` or `BLOCKED: <why>`. Its PR body is that
+  commit's message body (`git log -1 --format=%b <head>` gives it to you), including each suite run's
+  counts and every failure's name (its run files stay in its VM, which you cannot read).
 - **Local** where real drawings are needed: 24s (the key drafting), 17, 18, 23, and every
   `cloud+local` ticket's local step (16's walk of one real set, 20b's design gate, 21a's peak-memory
   run, every posting run and score).
@@ -179,9 +217,10 @@ could answer yourself and a background session still running are not done.
   provisional cap from one local run's peak memory per real file; 24 sets the final one.
 - **13's `sheet_report` is not stored:** 21a's job records it and a follow-up to 14 stores it (a
   drawings migration: name its owner before launch; 21a adds none).
-- **The posting run's non-interactive accept** was taken out of the checks session's scope as the
-  owner's change: if `scripts/real_drawings/command.py` still asks at the terminal when 17 first needs a
-  posting run, ask the owner once (with the change written for them) and keep the rest moving.
+- **The posting run accepts without a terminal already** (checked 29 Sep 2026: `command.py` has
+  `--accept-if-clean` and `--accept REASON`); nothing to ask the owner.
+- **A posting run takes only a PR number** (`command.py`: `posting = target.isdigit()`), so `main`'s
+  baseline score needs a scored run on a non-PR target that posts no status: 24s designs it.
 - **Engine test failures with no name** (#82's, 14's under load): the failures log now keeps each one;
   diagnose one that comes back before loosening anything.
 - **Before the beta, not M0:** #92, #94, #73, #74. **#77** (the direct path's namespace): real drawings
@@ -189,7 +228,10 @@ could answer yourself and a background session still running are not done.
 - **Clean-up for the owner** (the guard refuses `rm -r`; give the commands): session 05's merged
   worktrees, the `scratch-*` folders under `.private/work/session-05/` (keep `reviews/`, `log/` and the
   reports). Leave the stray copy `4d83537e` stopped and never `claude rm` it: its directory is the main
-  checkout.
+  checkout. The first start's scratch, if the owner has not removed it: `rm -r
+  ~/vextrus-cubit/.private/work/session-06` (start `STATE.md` there afresh; keep
+  `.private/work/session-06-restart/`, the research's raw notes). Its three diagnostic cloud sessions
+  can be deleted in the web UI.
 
 ## What each prompt must carry (keys written exactly in both prompts of a shared shape)
 **Every prompt:** the ticket's plan entry and its "Finishing M0" row; its budget and elapsed; its
@@ -222,12 +264,62 @@ commit, never push. A UI ticket walks m0-screens §8 by keyboard before READY.
 - **Later (21c and 23):** decide whether the sheet-kind options carry descriptions (in 15's live check,
   2 of 7 invented sheets changed answer without them).
 
+**How to write them** (Anthropic's guidance for Opus 5.5, cited in `docs/research/opus-5-5-prompting.md`):
+the elapsed/budget line first ("time signals" are what make agent teams finish inside budget); a check
+the builder can run that says pass or fail (its acceptance tests, then the suites), since without one
+"looks done" is its only signal; named files, functions and an example rather than descriptions;
+the standing line "keep working until READY or BLOCKED: take the next step rather than summarising or
+offering to wait"; research and exploration sent to subagents (Sonnet for look-ups) so the builder's
+own context stays on the build; no "think carefully" (thinking is adaptive; the effort sets its depth).
+One combined message per fix round, as before.
+
+## What the first start found (rule these before each builder starts)
+Seven acceptance-writers ran in 3–9 minutes each and prompt parts were drafted in parallel by three
+agents in about 6 minutes: keep both patterns (drafting on Sonnet now). **Every writer had to invent a
+name the plan leaves open, and the builder may not change a pinned test**, so read each report's "not
+pinned" list and accept or amend its choices (a new `acceptance:` commit) before launching the builder:
+- **Worktrees:** create each ticket's worktree yourself (`git worktree add .claude/worktrees/<t> -b <t>
+  main`) so the writer commits on the ticket's branch; launch the local builder from inside it without
+  `-w` (`-w` makes a new `worktree-<name>` branch); push it before a cloud launch.
+- **24s ↔ 17, the export the scorer reads:** each sheet's `views[]` carries `box` = `[x0, y0, x1, y1]`
+  **on paper in mm** (17 converts a model-space sheet's boxes), `title`, `kind`, `subject`, `storeys`;
+  sheet level `number`, `title`, `storeys_as_stated` as sourced values and `location.layout`. The scorer's
+  seam was `tools.scorer.score.main(argv, *, drop, keys, log, writer) -> int`; keys `<keys>/<set>.json`
+  `{set, held_out, sheets: [{layout, number, title, discipline, storeys, revision, date, views: [{box,
+  title, kind, subject}]}]}`; a view joins at IoU ≥ 0.8 with the same kind (the #8 contract's word-for-word
+  copy is in `docs/specs/M1.md`, about lines 1544–1558; #8's own body only points to the old plan).
+  Open: sheets joined on `layout` cannot key a model-space sheet (13's `model/<handle>` anchor): give
+  the key an optional frame box. The guard refuses any Bash line naming the key user (read those scripts
+  with Read); the installed scorer's launcher is `#!/usr/bin/python3 -I`, root's; the third user (name it,
+  e.g. `vxrun`) runs a root-owned installed copy of the posting path, set up in `keys-custody.sh`.
+- **16:** its fixtures under `engine/render/fixtures/` need `server.fs.allow` in `web/vite.config.ts`
+  (the builder's first change). Name `decodeSheet`, `drawSheet` and `<SheetViewer>`'s props before the
+  writer pins them; paging's sheet list has no source yet (22's).
+- **17:** it also edits 19b's `engine/check/register.parse` and `conflicts.find` (#100, #102: named
+  shared edits); #100's control characters become a space, never joining digits; 17 names the working
+  view's field for 16 and 22.
+- **18:** `render_f1.score(buffers, page, transform)` as typed gets only the page's text, not its
+  drawing, and `registration.match(pages, sheets)` has no sheet geometry: the builder widens both.
+- **19a:** name the Step 1 API before the writer (the first writer chose `/api/projects/{project_id}/
+  takeoff/step1/{proposals,questions,coverage,progress,confirm,exclude,undo,drawing-list/read,
+  drawing-list}`); `record_override` needs a seam through which a Proposal carries Jev's pick; #95 has no
+  product seam that puts the Markets back (a `platform` `post_migrate`/`post_flush` hook or
+  `sync_library` writing them: name it); "Held, answered" needs a held file added in the seed.
+- **21a:** the upload is `POST /api/projects/{project_id}/drawings/files` (one multipart part `file`,
+  CSRF): 201 `{file, outcome: "added", message}`, 200 `already_here`, `replaced` 200; refusals
+  `{code, params}` with 14's `drawings.uploads.*` codes and 07's `platform.auth.*`; the job on queue `cad`
+  and `read_job_id` set; a deferral that fails rolls the add back with a stated code. "Not read in full"
+  is `takeoff.read_file.not_read_in_full {limit}` (if the finder's budget report exists only in 21b's
+  step, 21a defines the code and 21b fills it); `sheet_report` goes in `ReadStep.result`.
+- **23:** there is no node table on `main` (propose `docs/knowledge/jev-nodes.md`); `view_titles` is
+  always `"[]"` until 17 merges, so measure after 17 or re-measure then.
+
 ## How the build runs
-- **Launch** local tickets from the main checkout:
-  `claude --bg -w <ticket>-<slug> --name s6-<ticket> --effort <medium|high> --settings
-  .private/work/session-06/builder-settings.json "$(cat .private/work/session-06/final/<ticket>.prompt)"`
-  (a copy of session 05's `wave3/builder-settings.json`). Cloud tickets per the runbook, after the
-  remote check.
+- **Launch** local tickets from inside the ticket's worktree (made before its acceptance-writer):
+  `claude --bg --name s6-<ticket> --model claude-opus-5-5 --effort <medium|high> --settings
+  /home/riz/vextrus-cubit/.private/work/session-06/builder-settings.json "$(cat
+  /home/riz/vextrus-cubit/.private/work/session-06/final/<ticket>.prompt)"` (the settings are a copy of
+  session 05's `wave3/builder-settings.json`). Cloud tickets through `scripts.cloud.launch` (above).
 - **Watch:** `SendMessage` with `notify_when_idle` (it fires once: subscribe again after each notice);
   `claude agents --json`; `claude logs <id>`; a background Monitor loop on heads, states and memory.
 - **A stopped or idle session:** never `claude --bg --resume <id> "<message>"` while it runs. `claude
@@ -244,15 +336,19 @@ id, worktree, head, round, clock against budget, next step), the scores, the ope
 STATE.md, #45's newest comments, `claude agents --json`, `gh pr list`, each agent's NOTES.txt.
 
 ## Read first
-1. `CLAUDE.md`, ADR 0041, `docs/sdlc.md`, `docs/knowledge/lessons.md` (sessions 03–05 and the
-   debts list).
+1. `CLAUDE.md`, ADR 0041, `docs/sdlc.md`, `docs/knowledge/lessons.md` (sessions 03–06 and the
+   debts list), and this brief's "What the first start found".
 2. The `orchestrate-wave` skill: your runbook.
 3. `docs/plans/M0.md`: "Finishing M0" (all of it), then the waves' ticket texts, "The contracts fixed
    here", "Labels".
-4. ADRs 0026 and 0030 with their newest History entries; #8's key-matching contract (for 24s).
+4. ADRs 0026 and 0030 with their newest History entries; #8's key-matching contract (for 24s; its
+   word-for-word copy is in `docs/specs/M1.md`, about lines 1544–1558).
 5. `.private/work/session-05/STATE.md` (decisions D1–D10; the rulings) and #45's newest comments.
 6. Session 05's prompts as templates: `.private/work/session-05/wave3/common.md`, `wave3/final/*.prompt`,
-   `reviews/fix-*.md`.
+   `reviews/fix-*.md` (update `common.md` for session 06: budgets, acceptance tests not the builder's,
+   the partner merge before READY, committed checks, the orchestrator merges).
+7. `docs/research/opus-5-5-prompting.md` and `docs/research/sonnet-5-5.md`: how to prompt Opus 5.5
+   and what Sonnet 5.5 is for (skim; the brief carries what it uses).
 
 ## Law in force
 - Secrets are never printed or written. Real drawings stay in `.private/`; only conventions and counts
