@@ -94,7 +94,7 @@ finish line stays; the Answer Keys stay fenced (measurement honesty, not securit
 - At most six local builders at once (24 cores, 26 GB; watch `free -g`). Launch builders from your own
   config (messages do not cross config dirs).
 
-## The loop, per ticket (the autonomy ADR; docs/sdlc.md; the `orchestrate-wave` skill)
+## The loop, per ticket (ADR 0041; docs/sdlc.md; the `orchestrate-wave` skill)
 1. **Acceptance tests first.** An `acceptance-writer` agent reads the ticket's plan entry, its contracts
    and m0-screens' words, and commits failing tests on the ticket's branch (`acceptance:` commits) under
    the acceptance path. The builder starts on that branch and may not weaken them (a committed lint
@@ -140,11 +140,11 @@ shape: 16, 19a, 21a and 23 merge in hours 3–4; 24s by hour 3 if the owner conf
 before 7 h.
 
 ## The owner's one-time steps (ask for each once, with the exact command)
-1. **Before the session:** merge session 05's three close-out PRs (the autonomy ADR and harness; the
-   committed checks; this plan and brief), then in WSL, as root, from the checkout:
-   `sudo bash scripts/owner/autonomy-setup.sh`. It installs the narrow password-free rules (the poster
-   and the scorer's entry point, run as the key user) and checks them. Confirm its last stage passed
-   before your first posting run; if it did not, ask once and keep every non-engine ticket moving.
+1. **Done on 29 Sep 2026, before this session:** session 05's close-out PRs are merged (#105 and #106,
+   ADR 0041 and its harness; #108, the committed checks; #109, the owner's allow rules; #104, this plan
+   and brief), and the owner ran `scripts/owner/autonomy-setup.sh` as root: all 10 of its checks passed,
+   installing `/etc/sudoers.d/92-vextrus-autonomy`. #108 was the first PR merged end to end by a session
+   (its posting run and gates posted through the App, `merge_ready`, then merged). Nothing to ask here.
 2. **When 24s reaches it:** the owner confirms the drafted keys on 24s's review page (1–2 hours for both
    sets), then runs `scripts/owner/keys-custody.sh` (and, if 24s proposes it, the third user's setup
    for the pipeline's own exports). Until then no scored loop starts; 17 and 18 build and tune with
@@ -244,7 +244,7 @@ id, worktree, head, round, clock against budget, next step), the scores, the ope
 STATE.md, #45's newest comments, `claude agents --json`, `gh pr list`, each agent's NOTES.txt.
 
 ## Read first
-1. `CLAUDE.md`, the autonomy ADR, `docs/sdlc.md`, `docs/knowledge/lessons.md` (sessions 03–05 and the
+1. `CLAUDE.md`, ADR 0041, `docs/sdlc.md`, `docs/knowledge/lessons.md` (sessions 03–05 and the
    debts list).
 2. The `orchestrate-wave` skill: your runbook.
 3. `docs/plans/M0.md`: "Finishing M0" (all of it), then the waves' ticket texts, "The contracts fixed
