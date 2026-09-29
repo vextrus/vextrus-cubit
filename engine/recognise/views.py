@@ -42,9 +42,10 @@ piece it lies under (a drawing titled beneath, the convention; within `TITLE_GAP
 the piece it lies over (within `TITLE_GAP_UNDER`), else, after all of those, the piece whose box holds it
 within `TITLE_INSIDE` of its lower or upper edge (a section's ground line running under and past its
 title), nearest first, one title a piece; a band less tall than `MIN_DRAWING` of its height is never its
-drawing, and joins its view when it meets the title. A titled drawing takes the largest piece without a
-title standing above it within `JOIN_MM` of it and larger than it (a plan's body over its detached row of
-grid marks and dimensions, which is what the title lies nearest). A piece with no title lying in a titled
+drawing, and joins its view when it meets the title. A titled piece that is a row under a larger piece
+without a title (no taller than `ROW_SHARE` of it, across its width, within `JOIN_MM` of it) is that
+drawing's detached row of grid marks and dimensions, which is what the title lies nearest: the view takes
+the body too. A title's second lines are in its view's box. A piece with no title lying in a titled
 view's box (grown by `JOIN_MM`) is that view's, whatever its size; another is a view when it covers
 `MIN_UNTITLED` of the paper (of the kind its sheet's title names, else a plan; notes when text fills more
 of it than lines); a smaller one joins the view whose box, grown by `JOIN_MM`, holds it. A view's box is
@@ -150,6 +151,9 @@ TITLE_GAP = 20.0
 between them)."""
 TITLE_GAP_UNDER = 6.0
 """The farthest a title lies over its drawing (a schedule's heading), in its heights."""
+ROW_SHARE = 0.25
+"""A drawing's detached row (its grid marks, its dimensions) is at most this share of its body's
+height."""
 SUBTITLE_GAP = 3.5
 """The farthest a title's second line lies under it, in the title's heights."""
 TITLE_INSIDE = 3.0
@@ -1169,7 +1173,12 @@ def _views(
             titles.append(i)
     stacks = _Stacks(texts, skip=frozenset(scale_texts))  # a title's scale line is no note's
     titles = [i for i in titles if stacks.lines(i) < MIN_NOTE_LINES]
-    subtitles = {j for j in titles if any(_subtitle(texts[j], texts[i]) for i in titles if i != j)}
+    second: dict[int, list[int]] = {}  # a title's second lines
+    for j in titles:
+        head = next((i for i in titles if i != j and _subtitle(texts[j], texts[i])), None)
+        if head is not None:
+            second.setdefault(head, []).append(j)
+    subtitles = {j for lines in second.values() for j in lines}
     titles = [i for i in titles if i not in subtitles]
     off_grid = set(titles) | subtitles | set(scale_texts)
     underlined = _underlines(paper.segments, [texts[i] for i in titles])
@@ -1218,6 +1227,8 @@ def _views(
             continue  # a title with no drawing: not a view
         titled = pieces[by_title[ti]]
         box = _union(titled.box, t.box)
+        for j in second.get(ti, ()):
+            box = _union(box, texts[j].box)
         for k, piece in enumerate(pieces):  # the title's bands: its frame, its underline's row
             band = piece.box[3] - piece.box[1] < MIN_DRAWING * t.height
             if k not in by_piece and band and _meets(piece.box, _grown(t.box, t.height)):
@@ -1231,8 +1242,7 @@ def _views(
             k
             for k, piece in enumerate(pieces)
             if k not in by_piece
-            and piece.area > view.piece.area
-            and piece.box[3] > view.piece.box[3]
+            and _row_under(view.piece.box, piece.box, JOIN_MM * unit)
             and _meets(piece.box, near)
         ]
         if over:
@@ -1273,6 +1283,17 @@ def _views(
             best[1].scale = scales.read(s.shown, reading.patterns)
             best[1].box = _union(best[1].box, s.box)
     return views[:MAX_VIEWS]
+
+
+def _row_under(row: Bounds, body: Bounds, by: float) -> bool:
+    """Whether `row` is a drawing's detached row under its `body` (its grid marks, its dimensions): no
+    taller than `ROW_SHARE` of the body, under its top, and across the body's width (grown by `by`)."""
+    return (
+        row[3] - row[1] <= ROW_SHARE * (body[3] - body[1])
+        and body[3] > row[3]
+        and body[0] - by <= row[0]
+        and row[2] <= body[2] + by
+    )
 
 
 def _subtitle(lower: _Text, upper: _Text) -> bool:

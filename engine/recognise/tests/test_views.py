@@ -683,3 +683,24 @@ def test_the_lines_a_title_block_is_bounded_by_are_bounded(monkeypatch: pytest.M
     lines = np.array([[0, y, 100, y] for y in range(1_000)], dtype=np.float64)
     assert len(views._rules(lines, 0, 0.1)) == 50
     assert len(views._rules(lines, 1, 0.1)) == 0  # none along y
+
+
+def test_a_titled_drawing_takes_no_neighbour_that_is_not_its_body() -> None:
+    """A titled section beside and under a larger drawing with no title (refuter, session 07): two
+    views, the section no row of the other's."""
+    d = Sheets()
+    grid(d, (40, 330, 400, 560))  # the larger drawing, its title not read, with a wing down its left
+    grid(d, (40, 215, 120, 330))
+    grid(d, (200, 200, 400, 300))  # the section, inside the other's box, apart from its lines
+    d.text("TANK SECTION", (200, 188, 0.0), height=6.0)
+    found = drawn(d, one_sheet(d))
+    assert sorted((v.title or "") for v in found) == ["", "TANK SECTION"]
+
+
+def test_a_titles_second_line_is_in_its_views_box() -> None:
+    d = Sheets()
+    grid(d, (40, 330, 340, 560))
+    d.text("GROUND FLOOR PLAN", (40, 318, 0.0), height=6.0)
+    d.text("PRESENTATION PLAN", (40, 308, 0.0), height=6.0)
+    (view,) = drawn(d, one_sheet(d))
+    assert view.box.y0 <= 308.5
