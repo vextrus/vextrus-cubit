@@ -64,8 +64,9 @@ SUMMARY = MessageCode(
     "drawings.files.summary", params=("files", "sheets", "reading", "failed", "held", "refused")
 )
 """The page's one-line summary: the files; the sheets in the sheet list (of read files, and held
-files read anyway); the files waiting or being read; those that could not be read (failed, or
-saved by an old AutoCAD); held; refused."""
+files read anyway); the files being read (not those waiting, stopping or about to be tried again:
+the orchestrator's ruling); those that could not be read (failed, or saved by an old AutoCAD);
+held; refused."""
 
 # The acts, in the event log -----------------------------------------------------------------------
 
@@ -77,8 +78,10 @@ DISCIPLINE_CHANGED = MessageCode("drawings.files.discipline_changed", params=("a
 # Refusals ----------------------------------------------------------------------------------------
 
 NOT_STOPPED = MessageCode("drawings.files.not_stopped")
-"""Read again or Try again on a file waiting, being read or read (409): most often a second click
-after the first started it again. A file saved by an old AutoCAD is refused with OLD_VERSION."""
+"""Read again or Try again on a file waiting or being read (409): most often a second click after
+the first started it again. A file saved by an old AutoCAD is refused with OLD_VERSION."""
+ALREADY_ENDED = MessageCode("drawings.files.already_ended")
+"""Read again or Try again on a file whose reading has ended (read, held or refused) (409)."""
 DISCIPLINE_UNKNOWN = MessageCode("drawings.files.discipline_unknown")
 """A Discipline this Market does not have (400)."""
 DISCIPLINE_SHEET_DECIDED = MessageCode("drawings.files.discipline_sheet_decided", params=("sheet",))

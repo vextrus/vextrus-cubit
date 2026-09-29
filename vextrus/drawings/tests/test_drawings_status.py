@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 import pytest
+from django.db import connection
 from django.utils import timezone
 
 from engine.check.bangla_ansi import BanglaAnsi, Flagged, FoundBy
@@ -15,7 +16,7 @@ from engine.read.pdf.types import Lettering, MadeBy, PdfReport
 from vextrus.drawings import services
 from vextrus.drawings.messages import files as said
 from vextrus.drawings.services.reads import ReadStepStore
-from vextrus.platform.services import jobs
+from vextrus.platform.services import auth, jobs
 from vextrus.projects import services as projects
 from vextrus.testing.drawings import QsProject, add, drawing, pdf_report, read_dwg, sheet_candidate
 from vextrus.testing.tenancy import Member
@@ -99,7 +100,8 @@ def test_the_summary_counts_what_could_not_be_read_and_every_listed_sheet(
         ("pdf", services.OPENING, said.OPENING_PDF()),
         ("pdf", services.page_step(2), said.READING_PAGE(position=2, total=3)),
         ("pdf", services.MATCHING, said.MATCHING_PAGES()),
-        ("pdf", services.SHEETS, said.READING_DRAWING()),
+        ("pdf", services.SHEETS, said.OPENING_PDF()),  # a PDF's unknown step: its first
+        ("pdf", "", said.OPENING_PDF()),
     ],
 )
 def test_a_file_reading_says_its_step(qs_project: QsProject, kind: str, step: str, words: Any) -> None:
@@ -255,3 +257,53 @@ def test_a_pdf_says_its_plot_and_sits_under_its_dwg(qs_project: QsProject) -> No
     assert services.summary(shown.values()) == said.SUMMARY(
         files=5, sheets=2, reading=0, failed=0, held=0, refused=0
     )
+
+
+@pytest.mark.parametrize(("kind", "words"), [("dwg", said.FINISHING()), ("pdf", said.MATCHING_PAGES())])
+def test_a_file_whose_job_is_done_before_its_row_ends_says_its_last_step(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, kind: str, words: Any
+) -> None:
+    found = add(qs_project.member, qs_project.project_id, f"KR-STR-R0.{kind}", drawing(kind)).file
+    with qs_project.member.acting(), connection.cursor() as cursor:
+        cursor.execute(
+            "update drawings_drawingfile set read_job_id = 1, read_status = 'reading' where id = %s",
+            [found.id],
+        )
+    monkeypatch.setattr(
+        jobs, "state", lambda job_id: jobs.JobState(job_id, "read", "done", 1, 3, said.READ())
+    )
+    assert status(qs_project.member, found.id) == ("reading", words)
+
+
+def test_the_summary_counts_as_reading_only_the_files_being_read(qs_project: QsProject) -> None:
+    member = qs_project.member
+    waiting = add(member, qs_project.project_id, "A.dwg", drawing()).file
+    reading = add(member, qs_project.project_id, "B.dwg", drawing()).file
+    with member.acting():
+        services.step_store().progress(reading.id, jobs.Progress(0, 9, services.OPENING))
+        shown = services.files(waiting.set_id)
+    assert [f.state for f in shown] == ["waiting", "reading"]
+    assert services.summary(shown) == said.SUMMARY(
+        files=2, sheets=0, reading=1, failed=0, held=0, refused=0
+    )
+
+
+@pytest.mark.parametrize("ending", ["read", "held", "refused"])
+def test_a_file_whose_reading_has_ended_is_not_started_again_and_says_so(
+    qs_project: QsProject, ending: str
+) -> None:
+    kind = "pdf" if ending == "refused" else "dwg"
+    found = add(qs_project.member, qs_project.project_id, f"KR-STR-R0.{kind}", drawing(kind)).file
+    with qs_project.member.acting():
+        if ending == "read":
+            services.mark_read(found.id)
+        elif ending == "held":
+            services.quarantine(found.id, {"code": "engine.decoders_agree.disagree", "params": {}})
+        else:
+            services.record_reports(found.id, upload_report=pdf_report(found.sha256, 1, refused=True))
+        with pytest.raises(auth.Refused) as again:
+            services.restart(found.id)
+        with pytest.raises(auth.Refused) as waiting:
+            services.restart(add(qs_project.member, qs_project.project_id, "W.dwg", drawing()).file.id)
+    assert (again.value.status, again.value.message) == (409, said.ALREADY_ENDED())
+    assert (waiting.value.status, waiting.value.message) == (409, said.NOT_STOPPED())

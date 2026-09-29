@@ -7,6 +7,9 @@ msgstr ""
 "Language: en\n"
 
 #. vextrus/drawings/messages/reports.py (ticket 14): a file's report panel, in m0-screens 4.5's words.
+msgid "drawings.reports.dwg_not_read"
+msgstr "Its DWG is not read yet. Its pages are matched when the DWG is read."
+
 msgid "drawings.reports.empty_layouts"
 msgstr "{layouts, plural, one {# layout tab shows nothing, so it is not a sheet.} other {# layout tabs show nothing, so they are not sheets.}}"
 

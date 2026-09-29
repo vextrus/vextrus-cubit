@@ -55,3 +55,7 @@ PAGES_SAME_SHEET = MessageCode(
     "drawings.reports.pages_same_sheet", params=("first_page", "used_page", "sheet")
 )
 NO_DWG_FOR_PAGES = MessageCode("drawings.reports.no_dwg_for_pages")
+"""No DWG of the PDF's Discipline (of none: none in the set) has been added."""
+DWG_NOT_READ = MessageCode("drawings.reports.dwg_not_read")
+"""A DWG of the PDF's Discipline is added but not read (waiting, being read, failed, cancelled or
+held)."""

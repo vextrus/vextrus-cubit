@@ -212,7 +212,7 @@ def summary(views: Iterable[FileView]) -> Message:
     return said.SUMMARY(
         files=len(shown),
         sheets=sum(view.sheets_found or 0 for view in shown),
-        reading=sum(states[state] for state in IN_PROGRESS),
+        reading=states[FileState.READING],
         failed=states[FileState.FAILED] + states[FileState.UNREADABLE],
         held=states[FileState.HELD],
         refused=states[FileState.REFUSED],
@@ -303,6 +303,15 @@ def dwg_read_for(row: DrawingFile) -> bool:
     return _dwg_read(row, _read_dwgs({row.drawing_set_id}))
 
 
+def dwg_added_for(row: DrawingFile) -> bool:
+    """Whether a DWG a PDF may plot has been added at all, whatever its reading: one of its
+    Discipline, or, with none, any of its set."""
+    dwgs = DrawingFile.objects.filter(drawing_set_id=row.drawing_set_id, format=FileFormat.DWG)
+    if row.discipline_id is not None:
+        dwgs = dwgs.filter(discipline_id=row.discipline_id)
+    return dwgs.exists()
+
+
 def _status(
     row: DrawingFile,
     job: jobs.JobState | None,
@@ -340,8 +349,9 @@ def _status(
                 return FileState.CANCELLED, _cancelled(row)
             case "failed":
                 return FileState.FAILED, said.FAILED(tries=max(job.attempt, 1))
-            case "done":
-                return FileState.READING, said.FINISHING()
+            case "done":  # its last step committed; its row ends in a moment
+                pdf = row.format == FileFormat.PDF
+                return FileState.READING, said.MATCHING_PAGES() if pdf else said.FINISHING()
         return FileState.READING, _step(row, now)
     if status == ReadStatus.QUEUED:
         return FileState.WAITING, said.WAITING(ahead=_ahead(row))
@@ -386,8 +396,8 @@ def _cancelled(row: DrawingFile) -> Message:
 
 
 def _step(row: DrawingFile, now: datetime) -> Message:
-    """The step's words: 4.5's "Reading a DWG" and "Reading a PDF" rows; an unknown step reads
-    "Reading the drawing"."""
+    """The step's words: 4.5's "Reading a DWG" and "Reading a PDF" rows; an empty or unknown step
+    reads "Reading the drawing" for a DWG, "Opening the PDF" for a PDF."""
     pdf = row.format == FileFormat.PDF
     step = row.read_step
     unit = _STEP_UNIT.fullmatch(step)
@@ -405,7 +415,7 @@ def _step(row: DrawingFile, now: datetime) -> Message:
         return said.MATCHING_PAGES()
     if not pdf and step in _DWG_STEPS:
         return _DWG_STEPS[step]()
-    return said.READING_DRAWING()
+    return said.OPENING_PDF() if pdf else said.READING_DRAWING()
 
 
 _DWG_STEPS = {
@@ -805,7 +815,9 @@ def restart(file_id: uuid.UUID) -> FileView:
         )
         if unreadable(row):
             raise auth.Refused(said.OLD_VERSION(), status=409)
-        if not stopped or row.read_status in _ENDED_FOR_GOOD:
+        if row.read_status in _ENDED_FOR_GOOD:
+            raise auth.Refused(said.ALREADY_ENDED(), status=409)
+        if not stopped:
             raise auth.Refused(said.NOT_STOPPED(), status=409)
         _start_again(row, job)
         _record(said.READ_RESTARTED, row)

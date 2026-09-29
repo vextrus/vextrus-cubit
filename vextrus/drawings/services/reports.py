@@ -176,7 +176,8 @@ def _pages(row: DrawingFile) -> list[Message]:
         .count()
     )
     if matched == 0 and not drawing_files.dwg_read_for(row):
-        return [said.NO_DWG_FOR_PAGES()]
+        added = drawing_files.dwg_added_for(row)
+        return [said.DWG_NOT_READ() if added else said.NO_DWG_FOR_PAGES()]
     lines = [said.PAGES_MATCHED(matched=matched, pages=max(pages, matched))]
     lines += [Message(code=m["code"], params=m["params"]) for m in row.unmatched_pages or ()]
     for number, mark in SheetRevision.objects.filter(

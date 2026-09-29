@@ -1,11 +1,14 @@
 """A file's report panel (ticket 14; m0-screens 4.5): what `drawings` writes of the readers, the Plot
 and a PDF's pages, as each file and its PDFs stand."""
 
+import pytest
+
 from engine.messages import read as read_codes
 from engine.read.pdf.types import Page
 from engine.recognise.types import PlotMatch
 from vextrus.drawings import services
 from vextrus.drawings.messages import reports as said
+from vextrus.platform.services import jobs
 from vextrus.testing.drawings import QsProject, add, drawing, pdf_report, read_dwg, sheet_candidate
 
 
@@ -105,3 +108,35 @@ def test_a_file_that_could_not_be_read_says_why_in_its_readers_section(qs_projec
         services.mark_failed(failed.id, finding, tries=3)
         readers = services.report(failed.id).readers
     assert readers == (finding,)
+
+
+@pytest.mark.parametrize("dwg_state", ["waiting", "reading", "failed", "cancelled", "held"])
+def test_a_pdf_whose_dwg_is_added_but_not_read_says_so_not_that_none_was_added(
+    qs_project: QsProject, dwg_state: str
+) -> None:
+    member = qs_project.member
+    pdf = a_pdf(qs_project, "KR-STR-R0.pdf", 3)
+    dwg = add(member, qs_project.project_id, "KR-STR-R0.dwg", drawing()).file
+    with member.acting():
+        if dwg_state == "reading":
+            services.step_store().progress(dwg.id, jobs.Progress(0, 9, services.OPENING))
+        elif dwg_state == "failed":
+            services.mark_failed(dwg.id, {"code": "engine.read.reader_failed", "params": {}})
+        elif dwg_state == "cancelled":
+            services.cancel(dwg.id, actor_name=member.user.name)
+        elif dwg_state == "held":
+            services.quarantine(dwg.id, {"code": "engine.decoders_agree.disagree", "params": {}})
+        assert services.file(dwg.id).state == dwg_state
+        pages = services.report(pdf.id).pages
+    assert pages == (said.DWG_NOT_READ(),)
+
+
+def test_a_pdf_of_no_discipline_waits_for_any_dwg_of_its_set(qs_project: QsProject) -> None:
+    member = qs_project.member
+    pdf = a_pdf(qs_project, "plots.pdf", 2)
+    with member.acting():
+        none_added = services.report(pdf.id).pages
+    add(member, qs_project.project_id, "KR-ARC-R0.dwg", drawing())
+    with member.acting():
+        one_added = services.report(pdf.id).pages
+    assert (none_added, one_added) == ((said.NO_DWG_FOR_PAGES(),), (said.DWG_NOT_READ(),))
