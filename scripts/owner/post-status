@@ -128,6 +128,7 @@ def github_head(config: dict[str, Any], ref: str, send: Transport, sign: Signer,
     """The commit GitHub holds for a PR's head, or for main or a branch (through the combined status,
     which the App's commit-status permission reads)."""
     repository = config["repository"]
+    field: tuple[str, ...]
     if ref.isdigit():
         path, field = f"/repos/{repository}/pulls/{int(ref)}", ("head", "sha")
     elif BRANCH.match(ref) and ".." not in ref:
