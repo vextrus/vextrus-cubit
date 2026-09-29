@@ -11,6 +11,7 @@ from django.conf import settings
 
 from engine.read import ReadArtefact
 from engine.recognise import sheets as finder
+from engine.recognise import views as view_finder
 from engine.render.fonts import FontReport
 from vextrus.drawings import services as drawings
 from vextrus.takeoff.messages import read_file as said
@@ -105,3 +106,25 @@ def test_every_limit_a_finding_can_name_has_its_own_words() -> None:
     worded = set(re.findall(r"(\w+) \{[^{}]*\}", entry.split("msgstr", 1)[1])) - {"other"}
     missing = (set(sheets.SHEETS_STEP_LIMITS) | set(sheets.SHEET_STEP_LIMITS)) - worded
     assert not missing, f"limits with no words of their own: {sorted(missing)}"
+
+
+def test_the_finding_is_the_first_limit_in_the_jobs_order(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The `sheets` step's limits (in `SHEETS_STEP_LIMITS` order) come before a sheet's."""
+    monkeypatch.setattr(finder, "MAX_PAIRS", 1)
+    monkeypatch.setattr(view_finder, "MAX_SCANS", 1)
+    monkeypatch.setattr(sheets, "RENDER_SECONDS", 0.0)
+    monkeypatch.setattr(files, "READERS", readers())
+    file_id = added(qs_project)
+
+    run(qs_project.member, file_id)
+
+    with qs_project.member.acting():
+        found = drawings.file(file_id)
+        report = drawings.report(file_id)
+    order = ["pair_budget", "views_scan_budget", "render_budget"]
+    assert found.finding == said.NOT_READ_IN_FULL(limit=order[0])
+    assert [m for m in report.sheets if m["code"] == said.NOT_READ_IN_FULL.code] == [
+        said.NOT_READ_IN_FULL(limit=limit) for limit in order
+    ]
