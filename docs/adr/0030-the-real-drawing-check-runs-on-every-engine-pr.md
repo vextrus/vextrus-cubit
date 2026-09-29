@@ -1,15 +1,15 @@
 # The real-drawing check runs on every engine PR, as the key user, and posts aggregates only
 
 Any PR that touches `engine/**` or the reading modules needs a `real-drawings` status before it can
-merge (a required check in the ruleset, ADR 0025): chosen by path, not by label. The owner starts it
-with one command. It runs as `vxkeys` (ADR 0026): it reads every Development Set and Held-out Set on
+merge (a required check in the ruleset, ADR 0025): chosen by path, not by label. The orchestrator starts it
+with one command and accepts or rejects the run under the accept rule (ADR 0041). It runs as `vxkeys` (ADR 0026): it reads every Development Set and Held-out Set on
 the PR's head, diffs against the last merged run element by element, and posts only aggregates: n / N
 per Takeoff Step, the change in each, and the count of elements with changed attributes per family.
-The guard refuses agents posting commit statuses. The expected N values are Answer Keys, counted by
+The guard refuses statuses posted through the API; the orchestrator posts only through `post-status`. The expected N values are Answer Keys, counted by
 a route independent of the reader and confirmed by the owner, written per Development Set in M0 for
 the steps M0 and M1 need. A `local` reading ticket stops when its n / N stops improving, not after a
-fixed number of continuations. Lessons go into `docs/knowledge/lessons.md` by area, in the same PR as
-the fix.
+fixed number of continuations. A serious finding leaves a committed check in the PR that fixes it, and
+`docs/knowledge/lessons.md` points each lesson at its check (ADR 0041).
 
 Why: the plan had a check with no expectations and no one to write them (refuter #5); a `cloud` PR
 touching shared engine code could regress reading with CI green (plan review M12); counts alone miss a
@@ -44,3 +44,9 @@ it would run, beside `.private/` and the secrets (docs/research/sdlc-waves-and-c
   when the first Held-out Set and Edison's Hand Takeoff arrive. M0's correctness rests on the owner's walk
   and the render check against the consultant's own Plots. The owner's ruling: "Agree with your
   recommendation on Q24".
+- 29 Sep 2026 (owner's decision, ADR 0041): **the orchestrator runs, accepts and posts the check.** It
+  reads the run's table and export states and accepts only under the accept rule (no failed stage
+  gained; nothing lost or changed without a judged reason; gains judged), then posts through
+  `post-status` as the key user, password-free for that program alone. Once the scorer arrives, brought
+  forward from M1, reading work is a scored loop: many agents, each on a failing sheet. The owner's
+  ruling: "Bring the drawing-reading scorer forward from M1."

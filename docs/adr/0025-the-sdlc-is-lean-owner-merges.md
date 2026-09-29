@@ -1,4 +1,4 @@
-# The SDLC is spec → attacked plan → tickets → PRs, run in waves, merged only by the owner
+# The SDLC is spec → attacked plan → tickets → PRs, run in waves, merged after independent review
 
 Each milestone is grilled and specified (`docs/specs/`), then planned as a committed document
 (`docs/plans/`) that reviewers attack in parallel and the owner signs, then cut into vertical-slice
@@ -7,13 +7,12 @@ cloud sessions; `local` tickets (needing real drawings) run locally and pass the
 (ADR 0030). The harness is configuration and prose: three small hooks and the blind scorer
 (docs/sdlc.md).
 
-**The owner is the only person who merges, and it is enforced:** GitHub Pro, with a ruleset on `main`
-(no direct pushes, a PR required, CI green, branches up to date, 0 required approvals, and on engine
-PRs the `real-drawings` status); the guard refuses `gh pr merge` and the merge API in every agent
-session; no self-hosted runner on the owner's machine. **The owner reviews evidence and behaviour,
-not code:** each PR states what it did not verify, what it verified and how, real-drawing counts where
-relevant and screenshots for UI; `/code-review` and the critics carry the diff, top five findings per
-PR. The owner reads in full only `.github/`, `.claude/`, migrations and tests.
+**The orchestrator merges, after independent review, and the ruleset enforces the gates** (ADR 0041):
+GitHub Pro, with a ruleset on `main` (no direct pushes, a PR required, CI green, branches up to date, 0
+required approvals, `real-drawings` on every PR and `design-gate` on web PRs); a reviewer and a gate
+that did not build the ticket decide; no self-hosted runner on the owner's machine. **The owner decides
+product and scope and walks each milestone** on real drawings. Each PR states what it did not verify,
+what it verified and how, real-drawing counts where relevant and screenshots for UI.
 
 **Waves** (docs/research/sdlc-waves-and-cloud.md):
 1. One `claude --cloud` command per cloud ticket, about two-thirds on account B (a second config
@@ -48,3 +47,7 @@ green while the product failed (docs/postmortem.md; docs/research/sdlc-claude-co
   422 on an empty body (likely attached, unconfirmed until a real-body 200).
 - 28 Sep 2026 (session 02 Q18, Q24): the cloud environments move to Python 3.14 and PostgreSQL 18 before
   wave 0 (apt.postgresql.org on their allowlist); M0 runs without Answer Keys (ADR 0030).
+- 29 Sep 2026 (owner's decision, ADR 0041): **sessions are autonomous.** The orchestrator pushes, opens
+  PRs and merges once the review loop is done and the ruleset's required checks are green; the guard no
+  longer refuses merges; cloud (account B) and local sessions are both used; effort is medium by
+  default. The owner's ruling: "I want complete autonomous sessions and I insist that."

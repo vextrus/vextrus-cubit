@@ -20,23 +20,32 @@ civil engineer and the CEO and co-founder. The previous product (Vextrus Cubit) 
   law for using them.
 
 ## How we work
-- **The owner decides; you recommend.** Product, scope, business, stack, spending and anything
-  irreversible are the owner's. Ask one question at a time, with your recommendation first and the
-  reason in a line. Don't ask what research, the code or a sensible default can answer.
+- **The owner decides product and scope and walks each milestone; sessions run autonomously**
+  (ADR 0041; the owner, 29 Sep 2026: "I want complete autonomous sessions and I insist that"). Product,
+  scope, business, stack and spending are the owner's: ask one question at a time, your recommendation
+  first and the reason in a line. Everything else (build, review, gates, push, merge) runs without
+  waiting. Don't ask what research, the code or a sensible default can answer.
+- **Every session and ticket has a time budget;** the orchestrator writes elapsed against budget in every
+  message to a builder. Over budget: cut scope and say what, never overrun silently.
 - **Evidence, not claims.** Only a tool result is evidence. Cite sources. Say what you don't know.
 - **Honesty over comfort.** Lead reports with what is broken or unmeasured. Green CI is not done; the
   owner's walk of the running product on real drawings is.
 - **Plain words.** Say what you did, what you found and what you need, briefly.
 - **Keep the context for the owner.** Fan read-heavy work out to background agents, one question
   each, each returning a cited file.
-- **Effort:** the orchestrator runs at `xhigh` in the CLI (the owner, session 04: "next session we'll
-  run the main session on xHigh effort … No Worries on Tokens"); build sessions at `xhigh` too
-  (`modelSettings` in `.claude/settings.json`); reviewers at `high`. Opus 5.5 starts at `medium` unless a
-  level is saved for it, so the level is always set, never assumed.
-- **Everything runs locally** (the owner, 29 Sep 2026): each ticket in its own background session and
-  worktree (`claude --bg`); no cloud sessions. Builders commit and never push; the orchestrator pushes
-  and opens PRs with the owner's yes.
-- **A mistake made twice goes into this file.**
+- **Effort: `medium` by default** (`.claude/settings.json`; the owner: "Default effort medium for Opus
+  5.5, not xhigh or high"); `high` only for hard tickets (reading drawings, hostile-input boundaries,
+  security walls), set per launch with `--effort`. `pr-reviewer` and `refuter` keep `high`.
+- **Cloud and local sessions:** cloud (account B) for tickets provable by committed tests; local
+  (`claude --bg`, one worktree each) for anything touching real drawings. Check one cloud launch's git
+  remote before fanning out. Builders commit and never push; the orchestrator pushes, opens the PR and
+  merges after the review loop (at most two rounds) and green required checks.
+- **Acceptance tests come first,** by `acceptance-writer`, before the builder starts; builders never
+  change them (CI's acceptance check).
+- **Every serious finding leaves a committed check** (a test, lint or scan that fails on the class): a
+  score of 50 or more, or any repeated class. `docs/knowledge/lessons.md` points each lesson at its
+  check; a lesson without one is a debt in the milestone issue.
+- **A mistake made twice gets a check; if no check can catch it, it goes into this file.**
   - Agents deleted their own build output recursively twice (26 Sep 2026); the guard now refuses a
     recursive `rm`. Delete files by name, or leave build output and say so.
   - Parallel agents share one chrome-devtools browser: select your own page by URL before every
@@ -57,8 +66,12 @@ civil engineer and the CEO and co-founder. The previous product (Vextrus Cubit) 
 - **OpenConstructionERP is AGPL-3.0:** learn from it, never copy its code, schemas, strings or data.
   **cad2data's converters are proprietary** and are never run; nor are converters OCE downloads.
 - **The repository is private** (ADR 0024); write issues and PRs as if they could leak anyway.
-- **Permissions:** push, reset, checkout, worktree and `rm -r` ask the owner. PowerShell is denied;
-  never route around it (the owner runs Windows commands with `! <command>`). Only the owner merges.
+- **Permissions:** agents push and merge after the review loop and green required checks (ADR 0041);
+  the gates' statuses are posted only through `post-status` as the key user, from an independent gate's
+  verdict. The guard still refuses secrets, history rewrites and force pushes, recursive deletes,
+  skipped hooks, statuses through the API, staging everything, reading the key user's home, and every
+  privilege-raising command but the poster's and the scorer's exact lines. PowerShell is denied; never
+  route around it (the owner runs Windows commands with `! <command>`).
 
 ## The machine
 WSL2 with mirrored networking: use `127.0.0.1`, never `localhost`. PostgreSQL 18 runs natively on 5432
@@ -97,13 +110,17 @@ explicit paths (the guard refuses `git add -A`); a hook runs `sync` after each c
   `OPENAPI_SCHEMA=<file|URL> npm --prefix web run api:types`.
 
 ## The harness
-- **Hooks** (`.claude/hooks/`): `guard.mjs` refuses secrets printed, staging everything, staging
-  `.private/` or drawings, deleting untracked files, history rewrites, skipped hooks, PowerShell and
-  edits to reference drawings; `state.mjs` prints the checkout's state at session start.
-- **Agents:** `pr-reviewer` (every PR and every fix round), `refuter` (one claim), `ux-critic` (a walk,
-  or the words-only design gate), `qs-critic` (read-only reviewers) and `drawing-analyst` (local).
+- **Hooks** (`.claude/hooks/`): `guard.mjs` (the refusals above, plus staging `.private/` or drawings,
+  deleting untracked files and edits to reference drawings; its test: `node --test
+  .claude/hooks/guard.test.mjs`); `state.mjs` prints the checkout's state at session start.
+- **Committed checks** carry the lessons: CI's lints and scans (`tools/lint/`, the acceptance check
+  among them), the guard's test and each module's tests.
+- **Agents:** `acceptance-writer` (a ticket's failing acceptance tests, before its builder),
+  `pr-reviewer` (every PR and every fix round), `refuter` (one claim), `ux-critic` (a walk, or the
+  words-only design gate), `qs-critic` (read-only reviewers) and `drawing-analyst` (local).
 - **Skills:** Matt Pocock's (`/ask-matt` routes; his review skill is `/spec-review`), plus our
-  `orchestrate-wave` (the orchestrator's runbook: launch, review loop, owner steps, measures),
+  `orchestrate-wave` (the orchestrator's runbook: budget, acceptance tests, launch, capped review loop,
+  gates and merge, the scored loop, measures),
   `product-review` and `real-drawings`. The built-in `/code-review` and `/code-review ultra` review PRs.
 - **MCP:** `chrome-devtools` (a headless browser for walking products).
 - **Background agents** die when the app restarts: each long one keeps a `NOTES.txt` progress log

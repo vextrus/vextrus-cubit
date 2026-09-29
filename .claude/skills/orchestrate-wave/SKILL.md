@@ -1,91 +1,120 @@
 ---
 name: orchestrate-wave
-description: The orchestrator's runbook for building one wave of a milestone with local background sessions (one per ticket, each in its own worktree) and local review agents: find the contracts inside the wave, write and launch each ticket, watch the builders, review each PR and gate its words, send one combined fix message per round, re-check every fix, walk the owner through the gate post and the real-drawing posting run, and record measures in the milestone issue. Use when launching or running a wave (a session brief says "build wave N").
+description: The orchestrator's runbook for building one wave of a milestone autonomously (ADR 0041): set the time budget, have acceptance-writer pin each ticket's tests, launch builders in cloud (committed-test tickets) and local sessions (real drawings) at medium or high effort, review each committed head with independent agents in at most two fix rounds, post design-gate and accept real-drawings under the accept rule, merge main in, merge, run reading work as a scored loop, and record measures in the milestone issue. Use when launching or running a wave (a session brief says "build wave N").
 ---
 # Orchestrating a wave
 
-The loop session 04 ran for eleven PRs, each merged only after review. Read `docs/sdlc.md` ("Waves", "The review
-loop") and the milestone issue first. Keep your own context for decisions: every read-heavy step goes to an
-agent, each returning a file under `.private/work/<session>/`.
+Sessions are autonomous (ADR 0041; the owner: "I want complete autonomous sessions and I insist that"). You
+build, review, gate and merge; the owner decides product and scope and walks the milestone. Read
+`docs/sdlc.md` ("Waves", "The review loop") and the milestone issue first. Keep your context for decisions:
+every read-heavy step goes to an agent, each returning a file under `.private/work/<session>/`.
+
+## 0. The time budget first
+Write the session's budget and each ticket's in `.private/work/<session>/STATE.md` before launching. Every
+message to a builder carries `elapsed <n> min / <budget> min` (the research's one measured speed lever:
+docs/research/opus-5-5-agentic-orchestration.md §7 item 15). A ticket over budget cuts scope, says what, and
+the cut goes into its issue; it never overruns silently.
 
 ## 1. Before launching
-- **Contracts inside the wave.** For every pair of tickets, ask: does one call the other's interface, seed
-  after the other, or share a migration chain? The shape's owner merges first; the other builds against it
-  and is declared "merges after". Session 04 found two such edges only by reading (a decorator and the seed's
-  order): look before you launch, and write the edge into both prompts.
-- **Which gates apply.** A PR touching `web/**` needs `design-gate` (a backend ticket's catalogue counts: its
-  gate is the words review). A PR touching an engine path (`.github/engine-paths.txt`) needs the owner's
-  posting run; one touching `scripts/owner/toolchain.sh` also needs the owner to re-run it, as root, from a
-  worktree of the PR head, before the posting run.
-- **The prompt** = the ticket's part (the plan's entry, the trust boundary to attack, the contracts it meets,
-  who builds on it) + the wave's `common.md` (copy the last wave's; it carries every lesson). Keep them under
-  `.private/work/<session>/<wave>/`.
-- **The local environment paragraph** in `common.md`:
-  - the builder's own worktree and database (`ensure_database`);
-  - the venv from `/opt/vextrus/python`, with the compiled ezdxf laid over it and `uv run --no-sync`;
-  - 24 cores;
-  - the real sets at `/home/riz/vextrus-cubit/.private/reference/`, read-only, only counts and conventions leaving;
-  - `scripts/real-drawings <branch> --no-post` for engine work.
-  - And the rule: **commit on your branch with explicit paths, and never push, open a PR or merge; say when you
-    are ready.**
-- **Launch** each ticket as a background session from the main checkout (the brief names the account):
-  `claude --bg --name w<wave>-<ticket> "$(cat <ticket>.prompt)"`. It moves into its own worktree under
-  `.claude/worktrees/` and reads the project settings (xhigh) and the account's user settings (auto mode).
-  Start the independent tickets together; watch memory (`free -g`) and hold one ticket rather than starve the
-  rest. Record ticket, time, session name and id in the milestone issue and STATE.md.
+- **Contracts inside the wave.** For every pair of tickets: does one call the other's interface, seed after
+  the other, or share a migration chain? The shape's owner merges first; the other is declared "merges
+  after". Write each edge **at the key level** (the function, field, code or seed step, by name) into both
+  tickets' prompts.
+- **Which gates apply.** A PR touching `web/**` needs `design-gate` (a backend ticket that words codes in
+  `web/src/messages/` gets the words-only gate). A PR touching an engine path (`.github/engine-paths.txt`)
+  needs a real-drawing posting run; one touching `scripts/owner/toolchain.sh` needs the owner to re-run it as
+  root first (ask, with the command).
+- **Where it runs, and at what effort.** `cloud` for a ticket provable by committed tests; `local` for
+  anything touching real drawings. `--effort medium` by default; `--effort high` for hard tickets: reading
+  drawings, hostile-input boundaries, security walls.
+- **Acceptance tests first.** For each ticket, launch `acceptance-writer` with the ticket's plan entry, its
+  contracts at the key level and m0-screens' verbatim words, on the ticket's branch. It commits
+  `acceptance: t<ticket> …` and reports what each test pins; that report goes into the builder's prompt and
+  the reviewer's brief. Tickets' writers run in parallel.
+- **The prompt** = the ticket's part (the plan's entry, the trust boundary, the contracts, the acceptance
+  report, the budget) + the wave's `common.md` (copy the last wave's; it carries every lesson). Keep them
+  under `.private/work/<session>/<wave>/`. `common.md` says: make the acceptance tests pass and never change
+  them; every serious finding fixed leaves a check that fails on its class; commit with explicit paths;
+  never push, open a PR or merge; keep every suite's output in a file (pytest `-rf`); say when ready.
+- **The local environment paragraph** (local tickets): the builder's own worktree and database
+  (`ensure_database`); the venv from `/opt/vextrus/python`, the compiled ezdxf laid over it, `uv run
+  --no-sync`; 24 cores; the real sets at `/home/riz/vextrus-cubit/.private/reference/`, read-only, only counts
+  and conventions leaving; `scripts/real-drawings <branch> --no-post` for engine work.
+
+## 2. Launch
+- **Local:** from the main checkout, with the same config as yours (a session can message only sessions
+  of its own config dir): `claude --bg --effort medium --name w<wave>-<ticket> "$(cat <ticket>.prompt)"`.
+  It moves into its own worktree under `.claude/worktrees/`. Watch memory (`free -g`); hold one ticket
+  rather than starve the rest.
+- **Cloud (account B):** `CLAUDE_CONFIG_DIR=~/.claude-b claude --cloud --effort medium "$(cat <ticket>.prompt)"`.
+  **Launch one first and check its git remote** (it must clone `vextrus/vextrus-cubit` and push its branch;
+  session 05's launches uploaded copies with no remote). Fan out only when it has.
+- Record ticket, time, where, effort, session name and id in the milestone issue and `STATE.md`.
 - **An earlier session's builder** resumes rather than restarts: `claude --bg --resume <id> "<next step>"`.
-- **Cloud sessions are not used** (the owner, 29 Sep 2026: "everything will be run in locally"). Account B's
-  `claude --cloud` uploaded a local copy with no git remote; see the lessons.
 
-## 2. Watch without polling by hand
-- `SendMessage` to a builder with `notify_when_idle` wakes you when it finishes or waits.
-- `claude agents --json` (with `--all` for completed ones) lists every session's `state` and `waitingFor`. A
-  session that "Needs input" gets an answer fast: yours, or the owner's, asked in one question.
-- A background Bash loop that exits when something changes (a branch's head moving, a new PR) covers the rest.
-  Re-arm it after each wake. Never sleep in the foreground.
+## 3. Watch without polling by hand
+- `SendMessage` with `notify_when_idle` wakes you when a local builder finishes or waits; `claude agents
+  --json` (`--all` for completed ones) lists `state` and `waitingFor`. Answer "Needs input" fast.
+- A background Bash loop that exits when something changes (a branch head moving, a new PR) covers the
+  rest, cloud branches among them. Re-arm it after each wake. Never sleep in the foreground.
+- **An idle session that should be working:** stop it, then resume it from its worktree with the next step
+  (`claude --bg --resume <id> "<step>"`), never a fresh session over its work.
 
-## 3. Each builder's committed head: review before the PR
-When a builder says it is ready, review its committed head (`git -C .claude/worktrees/<name> log -1`) in a
-scratch copy, before anything is pushed. Then push and open the PR with the owner's yes, batched with the other
-PRs that are ready (`git push -u origin <branch>`; `gh pr create --body-file <the builder's body>`).
+## 4. Review each committed head (one review, then at most two fix rounds)
+When a builder says ready, review its committed head in a scratch copy, **merged with `main` and any PR it
+meets**, before anything is pushed. In parallel:
+- `pr-reviewer` with the ticket's authority, the acceptance report and a **focus** (the trust boundary),
+  naming its report file.
+- `ux-critic`: the words-only gate on the PR's catalogue, or the walk for a UI PR (m0-screens §8 by keyboard).
+Engine PRs: nothing from real drawings leaves `.private/`; the reviewer never runs the real-drawing check.
 
-The two agents, in parallel:
-- `pr-reviewer` with the PR, its authority, and a **focus**: the trust boundary to attack, plus "run it merged
-  with <open PR or main> where they meet". Name the report file.
-- `ux-critic` in words-only gate mode on the PR's catalogue, if it touches `web/**`.
-- Engine PRs: nothing from real drawings leaves `.private/`, and the reviewer never runs the real-drawing check.
+**One message per round** (`fix-<PR>[b].md`): elapsed against budget; what held (so it is not undone); each
+finding with its score, failing scenario and fix direction; the gate's musts and mays; "each fix with a test
+that fails without it, and for a serious finding (50 or more, or a repeated class) a committed check that
+fails on the class; the suites into files; correct the PR body; commit and say when ready". Findings at 50
+and above are fixed; below 50, when cheap. Never a second message while the session works, unless it carries
+a ruling it must build on.
 
-## 4. One combined message per round
-Write `fix-<PR>[b|c].md`: what held (so it is not undone), then each finding with its score, failing scenario
-and fix direction, then the gate's musts and mays, then any owner ruling in their words, then "each with a
-test that fails without the fix; the suites; correct the PR body; commit and say when ready". Send it with
-`SendMessage` to the builder's session (or `claude --bg --resume <id> "$(cat fix.md)"` if it has stopped), then
-log the continuation in the milestone issue. After the fix is re-checked, you push the new head with the owner's
-yes. One round, one message: never a second message while the session works, unless it carries a ruling it
-must build on.
+**Re-check every fix** with the same agents on the new head: each finding re-attacked, its test red without
+the fix, the round's diff scanned, the earlier attacks re-run. Five fixes in session 04 brought a new fault.
 
-## 5. Re-check every fix round
-`pr-reviewer` in re-check mode on the new head (each finding re-attacked, its test red without the fix, the
-round's diff scanned, the earlier attacks re-run for a regression), and `ux-critic` again if words changed.
-Five fixes in session 04 brought a new fault: never skip this.
+**The cap: two fix rounds.** A finding after the second is filed as an issue (label `needs-triage`, the
+finding's scenario, "found after the cap"), unless it is a security hole scoring 75 or more, or a crash or
+false statement a QS meets: those are fixed in a third round.
 
-## 6. The owner's steps, in this order
-1. **Update branch**, if the PR is behind `main`; then confirm the new head changes only what `main` brought
-   (`git diff <verified head> <new head>`, excluding main's files), so every verdict carries over.
-2. **Owner steps before the check**, if any (`toolchain.sh`, as root, from `~/pr<N>`: give the commands).
-3. **The gate** (give the full SHA): `sudo -u <key user> /usr/local/lib/vextrus/post-status design-gate <PR>
-   <sha> --passed … --not-applicable …`. Write this text with the Write tool or in a reply: the guard refuses
-   it in a Bash command. Then check the status reached that head (`gh pr view --json statusCheckRollup`).
-4. **The posting run:** `scripts/real-drawings <PR>`. Ask for the table **before** the owner accepts, and read
-   the exports' states with `states.py` (beside this file: states, times and error kinds only, never text).
-   A new measure's first run is where real files surprise (10's first run found a DWG its second reader
-   could not read).
-5. The owner merges; `git pull --ff-only`; log it.
+## 5. Gate and merge (yours, in this order)
+1. **Push and open the PR:** `git push -u origin <branch>`; `gh pr create --body-file <the builder's body>`.
+2. **Bring it up to date** (the ruleset requires it): merge `main` into the branch yourself (`gh pr
+   update-branch <PR>`, or merge in its worktree and push), then confirm the new head changes only what
+   `main` brought (`git diff <reviewed head> <new head>`, main's files excluded), so every verdict carries
+   over. Post statuses only on this final head.
+3. **`design-gate`** (web PRs), from the independent gate's verdict, never the builder's, with the full SHA:
+   `sudo -n -u vxkeys /usr/local/lib/vextrus/post-status design-gate <PR> <sha> --passed <items> --failed
+   <items> --not-applicable <items>`. Nothing else on the line (the guard allows exactly this form). Check
+   it reached the head: `gh pr view <PR> --json statusCheckRollup`.
+4. **`real-drawings`** (engine PRs): from the main checkout on `main`, `scripts/real-drawings <PR>`. Read the
+   table and the exports' states (`states.py`, beside this file: states, times and error kinds only, never
+   text), then apply **the accept rule**: no failed stage gained; nothing lost or changed without a judged
+   reason; every gain judged real. Accept with `--accept "<reason, at most 100 characters>"`, or
+   `--accept-if-clean` when nothing was lost or changed and no stage failed; otherwise reject and send the
+   builder the table. A new measure's first run is where real files surprise.
+5. **Merge** when the ruleset's required checks are green: `gh pr merge <PR> --merge`. Then `git pull
+   --ff-only` in the main checkout, and log it.
 
-## 7. Measures and the gate
-Per merged PR: time to first PR, continuations (review rounds; a planned part counts apart), design-gate and
-posting-run outcomes. Per wave: second continuations against ADR 0025's "at most 1 in 4", the review queue,
-conflicts, cost if readable. Record them in the milestone issue before the next wave.
+## 6. Reading work: the scored loop
+Once the scorer and the Answer Keys are in place: run the scorer on `main`'s export
+(`sudo -n -u vxkeys /usr/local/bin/vx-score <run id>`; the run id of a real-drawing run on a committed head,
+never a hand-made file). It answers per sheet on the Development Sets. Launch one local agent per failing
+sheet (or small group), each told its sheet, the failure in general terms and the budget; each loops
+change → `scripts/real-drawings <branch> --no-post` → score until its sheet passes or its score stops
+rising, then commits. Merge the gains one PR at a time through §4–5; re-score `main` after each merge. The
+Held-out Sets are scored only in aggregate, at milestone gates.
+
+## 7. Measures
+Per merged PR: time to first PR against budget, review rounds, findings filed after the cap, design-gate and
+posting-run outcomes, committed checks added. Per wave: tickets over budget, the lessons still without a
+check (the debt list in the milestone issue), conflicts. Record them in the milestone issue before the next
+wave.
 
 ## When the machine restarts
 `/tmp` is gone. Background sessions survive a closed terminal; a reboot stops them, and they restart where
