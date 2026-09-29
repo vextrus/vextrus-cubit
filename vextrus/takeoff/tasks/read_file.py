@@ -9,7 +9,9 @@ queued rolls the add back (`takeoff.read_file.not_started`, 503: nothing is kept
 has its read job (the same contents again) gets no second one; one waiting with none (added before its
 job existed) gets its job here. When the same contents replace Vextrus's missing copy of a file whose
 reading had failed, `drawings` starts its job again (09's `restart`, which defers this job): a job that
-could not be queued there rolls back too, and the file stays as it was (`not_started_again`, 503).
+could not be queued there rolls back too, and the file stays as it was (`not_started_again`, 503; "Try
+again" on its row starts it). A file waiting with no job whose job cannot be queued stays waiting
+(`not_started_waiting`, 503); one whose job is queued answers `already_here` with `reading_started`.
 """
 
 import logging
@@ -65,21 +67,25 @@ def add(
 ) -> drawings.Added:
     """Add the file and queue its read job, in one transaction (see the module)."""
     token = _adding.set(True)
-    new = False  # a deferral inside `add_file` is its restart of a file already here
+    # Which deferral failed: `drawings`' restart of a failed file's job, inside `add_file` (the
+    # default), the job of a file just added, or that of a file already here waiting with none.
+    words = said.NOT_STARTED_AGAIN
+    label = drawings.clean_name(name)
     try:
         with transaction.atomic():
             added = drawings.add_file(project_id, name=name, content=content, actor_name=actor_name)
-            new = added.outcome == "added"
             view = added.file
             if view.read_job_id is None and view.state == drawings.FileState.WAITING:
+                new = added.outcome == "added"
+                words = said.NOT_STARTED if new else said.NOT_STARTED_WAITING
                 job_id = read_file.defer(file_id=view.id)
                 drawings.attach_read_job(view.id, job_id)
-                added = drawings.Added(drawings.file(view.id), added.outcome, added.message)
+                # A file already here gets nothing added, but its reading starts: say so.
+                message = added.message if new else said.READING_STARTED(file=label)
+                added = drawings.Added(drawings.file(view.id), added.outcome, message)
     except _NotQueued as failed:
         log.error("a read job could not be queued; the add was rolled back", exc_info=failed.__cause__)
-        # A new file was not added at all; one already here stays as it was, unread.
-        words = said.NOT_STARTED if new else said.NOT_STARTED_AGAIN
-        raise auth.Refused(words(file=drawings.clean_name(name)), status=503) from None
+        raise auth.Refused(words(file=label), status=503) from None
     finally:
         _adding.reset(token)
     return added

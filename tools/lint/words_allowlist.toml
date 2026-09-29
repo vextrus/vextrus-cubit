@@ -150,6 +150,6 @@ rule = "add it again"
 reason = "Nothing was kept: the add and its read job are one transaction, rolled back together, so adding the file again is a first add, never the refused re-add of 4.5."
 
 [[allow]]
-msgid = "takeoff.read_file.not_started_again"
+msgid = "takeoff.read_file.not_started_waiting"
 rule = "add it again"
-reason = "The file is in the set with no read job; adding the same contents again is what queues its reading (read_file.add attaches the job to the file already here), so 4.5's refusal does not apply."
+reason = "The file is in the set, waiting with no read job; adding the same contents again is what queues its reading (read_file.add attaches the job and answers takeoff.read_file.reading_started), so 4.5's refusal does not apply."

@@ -165,14 +165,31 @@ def test_a_held_file_raises_no_question(qs_project: QsProject, monkeypatch: pyte
     file_id = added(qs_project)
     fired = CheckResult(code="decoders_agree", outcome=CheckOutcome.FIRED, finding=DISAGREE)
 
+    before = questions(qs_project.member, qs_project.project_id, file_id)
+
     run_job(qs_project.member, file_id, readers(Calls(), second=fired), monkeypatch)
 
-    with connection.cursor() as cursor:
+    assert view(qs_project.member, file_id).state == drawings.FileState.HELD
+    assert questions(qs_project.member, qs_project.project_id, file_id) == before == (0, 0)
+
+
+def questions(member: Member, project_id: uuid.UUID, file_id: uuid.UUID) -> tuple[int, int]:
+    """The Project's `file_misread` Questions, and any Question about the file, as the app sees
+    them; none while `takeoff` has no Question table (before 19a)."""
+    with member.acting(), connection.cursor() as cursor:
+        cursor.execute("select to_regclass('takeoff_question') is not null")
+        [exists] = cursor.fetchone() or (False,)
+        if not exists:
+            return 0, 0
         cursor.execute(
-            "select count(*) from information_schema.tables where table_name like 'takeoff_%%'"
+            "select count(*) filter (where kind = 'file_misread'),"
+            " count(*) filter (where subject_id = %s)"
+            " from takeoff_question where project_id = %s",
+            [file_id, project_id],
         )
-        [tables] = cursor.fetchone() or (0,)
-    assert tables == 0, "21a adds no takeoff table, so no Question can be written by it"
+        row = cursor.fetchone()
+    assert row is not None
+    return int(row[0]), int(row[1])
 
 
 # A file that could not be read ----------------------------------------------------------------------
@@ -379,6 +396,8 @@ def test_a_file_waiting_with_no_read_job_gets_one_when_added_again(qs_project: Q
     assert again.outcome == "already_here"
     assert again.file.id == before.id
     assert again.file.read_job_id is not None
+    # Nothing was added, but its reading started: 4.5's "Nothing was added" alone would mislead.
+    assert again.message == said.READING_STARTED(file="KR-STR-R0.dwg")
 
 
 def test_a_job_that_cannot_be_queued_keeps_nothing_and_names_the_file(
@@ -412,7 +431,7 @@ def test_a_file_already_here_whose_job_cannot_be_queued_stays_and_is_worded_so(
     with qs_project.member.acting(), pytest.raises(auth.Refused) as refused:
         read_file.add(qs_project.project_id, name="KR-STR-R0.dwg", content=io.BytesIO(content))
 
-    assert refused.value.message == said.NOT_STARTED_AGAIN(file="KR-STR-R0.dwg")
+    assert refused.value.message == said.NOT_STARTED_WAITING(file="KR-STR-R0.dwg")
     assert view(qs_project.member, before.id).state == drawings.FileState.WAITING
 
 
@@ -509,6 +528,29 @@ def test_not_read_in_full_words_every_limit_the_finder_reports() -> None:
     [entry] = [e for e in po.read_text().split("\n\n") if "takeoff.read_file.not_read_in_full" in e]
     for limit in LIMITS:
         assert f" {limit} {{" in entry, f"{limit} has no words of its own"
+
+
+def not_read_in_full_branches() -> dict[str, str]:
+    import re
+
+    po = Path(settings.BASE_DIR) / "web/src/messages/takeoff/read_file/en.po"
+    [entry] = [e for e in po.read_text().split("\n\n") if "takeoff.read_file.not_read_in_full" in e]
+    return dict(re.findall(r"(\w+) \{([^{}]*)\}", entry.split("msgstr", 1)[1]))
+
+
+def test_not_read_in_full_never_shows_a_limits_key() -> None:
+    """The review's round-1 must: the `other` branch printed the engine's key in a QS sentence. The
+    argument appears once, as the select's selector, and never as text."""
+    po = Path(settings.BASE_DIR) / "web/src/messages/takeoff/read_file/en.po"
+    [entry] = [e for e in po.read_text().split("\n\n") if "takeoff.read_file.not_read_in_full" in e]
+    msgstr = entry.split("msgstr", 1)[1]
+    assert msgstr.count("{limit") == msgstr.count("{limit, select,") == 1
+
+
+def test_each_limit_is_worded_apart_so_two_limits_never_repeat_a_sentence() -> None:
+    worded = not_read_in_full_branches()
+    worded.pop("other")
+    assert len(set(worded.values())) == len(worded), "two limits share their words"
 
 
 # The engine's own readers, on a synthetic DWG (the toolchain and bwrap) -------------------------------

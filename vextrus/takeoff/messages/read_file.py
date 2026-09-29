@@ -10,8 +10,15 @@ NOT_STARTED = MessageCode("takeoff.read_file.not_started", params=("file",))
 """The file could not be queued to be read, so it was not added either: the add and its read job
 are one transaction, and nothing of the add is kept (503)."""
 NOT_STARTED_AGAIN = MessageCode("takeoff.read_file.not_started_again", params=("file",))
-"""As NOT_STARTED, for a file already in the Drawing Set with no read job (added before its job
-existed): it stays, unread, and adding it again starts it (503)."""
+"""The same contents replaced Vextrus's missing copy of a file whose reading had failed, and its
+reading could not be started again: the file stays as it was, failed; "Try again" on its row starts
+it (503)."""
+NOT_STARTED_WAITING = MessageCode("takeoff.read_file.not_started_waiting", params=("file",))
+"""A file already in the Drawing Set, waiting with no read job (added before its job existed), whose
+job could not be queued: it stays waiting, and adding it again starts it (503)."""
+READING_STARTED = MessageCode("takeoff.read_file.reading_started", params=("file",))
+"""Not a refusal: the same contents as a file already here, waiting with no read job; nothing was
+added, and its reading has started (200, `already_here`)."""
 NOT_READ_IN_FULL = MessageCode("takeoff.read_file.not_read_in_full", params=("limit",))
 """The file's sheets were looked for only in part (the file itself was read in full): the sheet
 finder stopped at one of its limits, `limit`, the
