@@ -1,8 +1,9 @@
 # Vextrus — how we build (the AI-native SDLC)
 
 Agreed by the owner on 25 Sep 2026, rewritten after session 01's rulings (26 Sep 2026) and levelled in
-session 02 (28 Sep 2026): ADRs 0025, 0026 and 0030. Evidence: docs/research/sdlc-claude-code.md and sdlc-waves-and-cloud.md. The harness is
-configuration and prose, not code. It must never become the product (docs/postmortem.md, cause 3).
+session 02 (28 Sep 2026); sessions made autonomous in session 05 (29 Sep 2026): ADRs 0025, 0026, 0030
+and 0041. Evidence: docs/research/sdlc-claude-code.md, sdlc-waves-and-cloud.md and
+opus-5-5-agentic-orchestration.md. The harness is configuration, prose and committed checks. It must never become the product (docs/postmortem.md, cause 3).
 
 ## Per milestone
 1. **Grill** the milestone with the owner (`/grill-with-docs`, effort high). Write
@@ -24,17 +25,19 @@ configuration and prose, not code. It must never become the product (docs/postmo
    - **`local`**: needs real drawings or the owner's eyes throughout (reading, recognition, model
      assembly); built in a local session;
    - **`owner`**: the owner does it; an agent may prepare it;
-   - the effort: `high` by default, `medium` for small, fully specified `cloud` tickets.
-6. **Build each ticket:** `/implement`, then `/tdd`, then the fast check (the module's tests, mypy,
-   `lint-imports`), then `/code-review`, then a PR that closes the issue. The PR body **leads with what
+   - the effort: `medium` by default, `high` for hard tickets (reading, hostile-input boundaries,
+     security walls).
+6. **Build each ticket** (the review loop below): acceptance tests first, then `/implement`, `/tdd`,
+   the fast check (the module's tests, mypy, `lint-imports`), then a PR that closes the issue. The PR body **leads with what
    was not verified**, then what was verified and how.
 7. **Gate each PR** (ADR 0025's ruleset: a PR, CI green, up to date with `main`):
    - **engine PRs** (by path: `engine/**` and the reading modules, the list in the milestone's plan)
-     carry the `real-drawings` status, which the owner starts with one command: the pipeline runs as
-     the owner inside bwrap (no network, neither home mounted) and writes its export to a drop
-     folder; in M0 the status reports the element-by-element change against the last merged run
-     (regression, no Answer Keys); from M1 the scorer also runs as the key user, with the owner's
-     password, and the owner's GitHub App posts the status (ADR 0030, amended in session 02). A PR
+     carry the `real-drawings` status, which the orchestrator starts with one command and accepts
+     under the accept rule (ADR 0041): the pipeline runs as the owner's user inside bwrap (no network,
+     neither home mounted) and writes its export to a drop folder; the status reports the
+     element-by-element change against the last merged run (regression); the scorer, brought forward
+     from M1, runs as the key user without a password on the pipeline's own export only; the owner's
+     GitHub App posts the status (ADR 0030). A PR
      that touches no engine path gets `real-drawings` "not applicable" from a job that runs on
      `pull_request_target`, so `main`'s copy of the workflow runs, reading only the changed-file list;
      and a CI check fails any workflow that requests `statuses: write` or names `real-drawings`, so a
@@ -46,79 +49,87 @@ configuration and prose, not code. It must never become the product (docs/postmo
      and docs/design/m0-screens.md (the behaviour spec), runs the PR on the seeded demo project and
      walks it at 1440×900 and 1280×800 (and 390×844 for the Project Summary and share link) with
      screenshots; findings above minor block; the screenshots go in the PR body. After the pass, the
-     owner's GitHub App posts a **`design-gate`** status carrying the checklist's items passed and
-     failed (docs/design/m0-screens.md §8, which marks each item automated or judged by eye), not the
+     orchestrator posts, through the owner's GitHub App, a **`design-gate`** status carrying the
+     checklist's items passed and failed (docs/design/m0-screens.md §8, which marks each item automated or judged by eye), not the
      screenshots; the ruleset requires it for any PR touching `web/**` (s02 review U10);
    - ultrareview (free runs only) on risky PRs: money, geometry, the data spine;
-   - **the owner merges.** Only the owner; the guard refuses agent merges. The owner reviews evidence
-     and behaviour, and reads in full only `.github/`, `.claude/`, migrations and tests, and the
-     harness scripts and the sandbox (`scripts/real-drawings`, `scripts/real_drawings/`,
-     `scripts/score/`, `scripts/owner/`, `scripts/cloud/`, `engine/read/sandbox.py`; ADR 0025).
+   - **the orchestrator merges** after the review loop and green required checks (ADR 0041).
 8. **Close the milestone:** the owner and the team walk the running product on the Development Sets
    and Held-out Sets, with a timed Takeoff, and score against the Hand Takeoff blind (ADRs 0005,
    0033, 0026). Only that walk says "done".
 
-## Waves (ADR 0025)
-- **Everything is built locally** (the owner, 29 Sep 2026: "instead of Cloud sessions the main sessions
-  on xHigh will orchestrate everything just like we planned, the multi-agent sessions can do whatever
-  extend to accomplish the goal, everything will be run in locally"):
-  - The orchestrator runs in the CLI at xhigh.
-  - Each ticket is built by its own background session, `claude --bg --name <ticket> "<prompt>"`, in its own
-    worktree. It is a full session that may use its own subagents and workflows.
-  - The orchestrator talks to builders with `SendMessage` and watches them with `claude agents --json`.
-  - Builders commit and never push. The orchestrator reviews each committed head, then pushes and opens the PR
-    with the owner's yes.
-  - Cloud sessions are not used: account B's `claude --cloud` uploaded local copies with no git remote
-    (session 05; the lessons).
-- **Accounts:** the owner, 28 Sep 2026: "From the next session the local and all cloud sessions will be
-  run on Account B until I told you to switch." (`CLAUDE_CONFIG_DIR=~/.claude-b`.) **Cost is not the
-  constraint:** what limits a wave is the quality of every merge (the owner, 28 Sep 2026: "focus on
-  producing production grade highest code quality on every merge, every wave and every sessions").
-- **Size:** wave 1 was four cloud and one or two local tickets, measuring cost per merged PR, time to
-  PR, the owner's review minutes and second continuations. Widen to 6–8 tickets once the review queue
-  stays under a day, at most one PR in four needs a second continuation, and conflicts stay trivial.
-  The ceiling (about 10–12) is the owner's review.
+## Waves (ADRs 0025, 0041)
+Sessions are autonomous (the owner, 29 Sep 2026: "I want complete autonomous sessions and I insist
+that"). The orchestrator runs the wave with the `orchestrate-wave` skill; the owner decides product and
+scope and walks the milestone.
+- **A time budget first:** the session's and each ticket's, written in the brief. The orchestrator writes
+  `elapsed <n> min / <budget> min` in every message to a builder (the research's one measured speed
+  lever: docs/research/opus-5-5-agentic-orchestration.md §7 item 15). Over budget: cut scope, say what.
+- **Where tickets run:** cloud sessions (account B, `CLAUDE_CONFIG_DIR=~/.claude-b`) for tickets
+  provable by committed tests; local background sessions (`claude --bg`, one worktree each) for anything
+  touching real drawings. Check one cloud launch's git remote before fanning out (session 05's cloud
+  launches uploaded copies with no remote). Builders commit and never push.
+- **Effort per launch:** `medium` (the committed default); `high` for hard tickets: reading drawings,
+  hostile-input boundaries, security walls.
+- **Size:** as many tickets as own disjoint files and the machine's memory allows; the measures below
+  decide whether to widen. (History: wave 1 was four cloud and one or two local tickets, widened to 6–8
+  once the owner's review queue stayed under a day; ADR 0041 removed that queue; the measures continue.)
 - **Collisions:** tickets in a wave own disjoint files; at most one migration per module per wave,
-  unless a declared merge edge orders them (the second renumbered after the first merges). Record the
-  account and cost of each merged PR in the milestone's issue.
+  unless a declared merge edge orders them (the second renumbered after the first merges).
+- **Reading work is a scored loop.** Once the scorer and the Answer Keys are in place, many agents work
+  at once, each on a different failing sheet of a Development Set, looping until its per-sheet score
+  rises; the Held-out Sets are scored only in aggregate at milestone gates (ADRs 0026, 0041).
+- **Cost is not the constraint:** what limits a wave is the quality of every merge (the owner, 28 Sep
+  2026: "focus on producing production grade highest code quality on every merge, every wave and every
+  sessions").
 
-## The review loop (session 04; the `orchestrate-wave` skill runs it)
-Every PR, before the owner merges it, goes through the same loop. It found a real fault in ten of eleven
-session-04 PRs, three of them in fixes of earlier findings.
-- **First head:** the `pr-reviewer` agent (five passes, a bug scan that attacks the PR's trust boundary in a
-  scratch test, scores 0–100, claims verified by running them on the owner's machine, merged with any PR or
-  `main` it meets) and, for a PR touching `web/**`, `ux-critic` as the words-only design gate. In parallel.
-- **One message per round** to the ticket's session: what held, the findings (score, scenario, fix
-  direction), the gate's musts and mays, and any owner ruling in their words. Findings at 50 and above are
-  fixed; below 50, fixed when cheap and in reach.
-- **Every fix is re-checked** by the same agents on the new head: each finding re-attacked, its test red
-  without the fix, the round's diff scanned, the earlier attacks re-run.
-- **The owner's steps, in order:** update the branch; any root step (`toolchain.sh`); the `design-gate`
-  post on the final head; the real-drawing posting run, whose table and export states the orchestrator reads
-  before the owner accepts; the merge.
-- **Measures** go to the milestone issue per PR and per wave.
+## The review loop (ADR 0041; the `orchestrate-wave` skill runs it)
+Session 04's loop found a real fault in ten of eleven PRs, three of them in fixes of earlier findings; it
+stays, capped, and the orchestrator does what the owner did.
+1. **Acceptance tests first.** `acceptance-writer` turns the ticket's plan entry, its contracts and
+   m0-screens' verbatim words into failing tests under an acceptance path, committed (`acceptance: …`)
+   on the ticket's branch before the builder starts. The builder may not change them: CI's acceptance
+   check fails any other commit that does.
+2. **Build, budgeted.** The builder makes the acceptance tests pass, with its own tests, the fast check
+   and a PR body that leads with what was not verified.
+3. **One independent review:** `pr-reviewer` on the committed head, merged with `main` and any PR it
+   meets, scoring 0–100; in parallel, `ux-critic` as the words-only gate for a PR whose words reach a QS,
+   or the walk for a UI PR.
+4. **At most two fix rounds,** one message each, every fix re-checked by the same agents on the new
+   head. Findings at 50 and above are fixed; each serious finding (50 or more, or a repeated class) leaves
+   a committed check. A finding after the second round is filed as an issue, unless it is a security hole
+   scoring 75 or more, or a crash or false statement a QS meets.
+5. **The orchestrator gates and merges:** pushes and opens the PR; merges `main` into it; posts
+   `design-gate` from the independent gate's verdict and, on engine PRs, runs `scripts/real-drawings` and
+   accepts only under the accept rule (no failed stage gained; nothing lost or changed without a judged
+   reason; gains judged), posting through `post-status` as the key user; then merges when the ruleset's
+   required checks are green.
+6. **Measures** go to the milestone issue per PR and per wave: time to first PR against budget, review
+   rounds, findings filed after the cap, gate and posting-run outcomes, checks added.
 
 ## Rules against the Builder's failure modes
-- **The harness stays small:** three hooks (guard, state, after-bash) and the blind scorer; no
-  orchestrator, ledger, state store, locked paths or evidence packs. A harness change needs an
-  owner-approved issue and should remove as much as it adds.
+- **The harness stays small:** three hooks (guard, state, after-bash), the blind scorer and the
+  committed checks; no orchestrator code, ledger, state store or evidence packs. A harness change should
+  remove as much as it adds.
 - **Green is not done.** CI is necessary, never sufficient; the owner's walk decides.
 - **Real drawings from M0.** Synthetic fixtures only for unit mechanics, never offered as proof. The
   clean Sample Project flatters a reader: it read through all fourteen steps while Edison read nothing
   until 31 fittings (docs/research/edison-check-session-02.md), so a consultant office's conventions go
   into its Drafting Profile, never into reader code, and Held-out Sets are scored first as an unknown
   office's first read.
-- **Answer Keys are out of reach** (ADR 0026): a separate user, `sudo` with a password, a blind scorer
-  that returns aggregates; no session reads the laboratory.
+- **Answer Keys are out of reach** (ADRs 0026, 0041): a separate user; one password-free rule for the
+  scorer and the poster only; a blind scorer that answers per sheet on Development Sets and in aggregate
+  on Held-out Sets; no session reads the laboratory.
 - **Plan one milestone at a time.** Everything later stays rough until its turn.
 - **One implementing session per ticket,** plus the read-only reviewers (`refuter`, `qs-critic`,
   `ux-critic`) and `drawing-analyst` for local work. Reviewers flag correctness and stated-requirement
   gaps, top five findings per PR.
-- **The stop rule.** A `cloud` ticket that fails its checks after two continuations goes back to
-  `needs-triage` for a human re-spec. A `local` reading ticket stops when its n / N stops improving.
-- **Lessons, not machinery.** `docs/knowledge/lessons.md` by area, written in the same PR as the fix.
-  A mistake Claude makes twice goes into `CLAUDE.md`.
-- **Pinned model and effort** in the committed settings (high); a ticket may lower it to medium.
+- **The stop rule.** A ticket that fails its checks after two fix rounds goes back to `needs-triage` for
+  a re-spec. A reading ticket stops when its score stops rising.
+- **Checks, not lessons** (ADR 0041). Every serious finding leaves a committed check in the PR that fixes
+  it; `docs/knowledge/lessons.md` is an index pointing each lesson at its check, and a lesson without one
+  is a debt listed in the milestone issue.
+- **Pinned model and effort** in the committed settings (medium); a hard ticket is launched at high.
 - **Every external fact** in the product (a price, an API shape, a rate) cites a source.
 - **Reports lead with what is broken or unmeasured.**
 
@@ -126,8 +137,8 @@ session-04 PRs, three of them in fixes of earlier findings.
 - **`CLAUDE.md`** under one page, with `CONTEXT.md`, `docs/adr/`, `docs/intent.md`,
   `docs/architecture.md`, `docs/milestones.md` and this file.
 - **Hooks:** the guard (secrets printed; staging everything; `.private/` or drawings staged; deleting
-  untracked files; history rewrites; skipped hooks; PowerShell; agent merges and posted statuses;
-  raising privilege; reading the laboratory; editing reference drawings), a SessionStart status that
+  untracked files; history rewrites; skipped hooks; PowerShell; statuses posted through the API;
+  raising privilege, but for the poster's and the scorer's exact lines; reading the laboratory; editing reference drawings), a SessionStart status that
   also runs in the cloud, and `sync` after commit. Deny rules on the laboratory and the key user's
   home.
 - **Skills:** Matt Pocock's planning and building set (`grill-with-docs`, `grilling`,
@@ -137,7 +148,8 @@ session-04 PRs, three of them in fixes of earlier findings.
   `improve-codebase-architecture`; his review skill is `spec-review`), plus `product-review`,
   `real-drawings` and `orchestrate-wave` (the orchestrator's runbook). The built-in `/code-review` and
   ultrareview review PRs.
-- **Agents:** `pr-reviewer` (every PR, and every fix round), `refuter` (one claim), `ux-critic` (a walk,
+- **Agents:** `acceptance-writer` (a ticket's failing acceptance tests, before its builder),
+  `pr-reviewer` (every PR, and every fix round), `refuter` (one claim), `ux-critic` (a walk,
   or the words-only gate), `qs-critic` and `drawing-analyst` (local, real drawings).
 - **MCP:** `chrome-devtools`, through the small wrapper in `.claude/mcp/`.
 - **Jev:** in the product per ADR 0011, and in development sessions where a closed question helps.
