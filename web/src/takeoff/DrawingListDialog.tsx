@@ -22,6 +22,7 @@ export function DrawingListDialog({
   readOnly,
   onUse,
   onClose,
+  example = null,
 }: {
   projectId: string
   discipline: string
@@ -29,6 +30,8 @@ export function DrawingListDialog({
   fileName: string
   /** The list the QS gave before, one number a line, shown to change it; empty for none. */
   given: string
+  /** A range in the Discipline's own numbering for the placeholder ("S-01–S-13"); else an example. */
+  example?: string | null
   readOnly: boolean
   onUse: (text: string) => Promise<boolean>
   onClose: () => void
@@ -94,7 +97,7 @@ export function DrawingListDialog({
             }
           }}
           rows={8}
-          placeholder={t`A-01–A-29, or the list as the consultant sent it`}
+          placeholder={example ? t`${example}, or the list as the consultant sent it` : t`A range such as 01–29, or the list as the consultant sent it`}
           className="min-h-32 w-full rounded-md border border-input bg-paper p-2 font-mono text-sm"
         />
         <div aria-live="polite" className="min-h-10 text-sm">

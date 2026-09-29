@@ -334,3 +334,22 @@ describe('M11: the read-only bar names the QS', () => {
     expect(screen.queryByRole('button', { name: /Next open Question/ })).toBeNull()
   })
 })
+
+describe('the gate’s mays', () => {
+  it('offers "Review one by one" beside the bulk act, and "Open S-02 Space" with a sheet focused', async () => {
+    const { api } = kr01()
+    await open(api)
+    expect(screen.getByRole('button', { name: 'Review one by one' })).toBeInTheDocument()
+    expect(document.title).toContain('Step 1, Sheets')
+    await focusRow('S-02')
+    const ghost = await screen.findByRole('button', { name: (n) => clean(n).startsWith('Open S-02') })
+    expect(ghost).toHaveAttribute('aria-keyshortcuts', 'Space')
+  })
+
+  it('says "Nothing is waiting." in the inspector of a project with no sheets', async () => {
+    const api = new FakeApi()
+    new FakeStep1(api, 'SG-03', true)
+    await mountApp('/p/SG-03/takeoff/1', { as: PEOPLE.qs, api })
+    await waitFor(() => expect(clean(inspector().textContent)).toContain('Nothing is waiting.'))
+  })
+})

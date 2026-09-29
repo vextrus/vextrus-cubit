@@ -133,9 +133,11 @@ export function useBar(c: BarContext): BarSpec | null {
   }
 
   const bulkName = plain(m === 0 ? t`Confirm ${n}` : n === 0 ? t`Leave out ${m}` : t`Confirm ${n}, leave out ${m}`)
+  const firstBulk = model.rows.find((r) => r.sheets.some((p) => model.bulk.confirm.includes(p) || model.bulk.leaveOut.includes(p))) ?? null
   const bulkSpec: BarSpec = {
     what: <BulkWhat model={model} />,
     why: <BulkWhy model={model} />,
+    ghost: firstBulk ? { label: <Trans>Review one by one</Trans>, run: () => c.openRow(firstBulk) } : undefined,
     button: {
       label: m === 0 ? <Trans>Confirm {n}</Trans> : n === 0 ? <Trans>Leave out {m}</Trans> : <Trans>Confirm {n}, leave out {m}</Trans>,
       run: c.bulk,
@@ -228,12 +230,16 @@ export function useBar(c: BarContext): BarSpec | null {
             <OneSourceWhy sheet={sheet} model={model} /> <Trans>Open it to confirm it.</Trans>
           </>
         ),
-        ghost: { label: <Trans>Open {name}</Trans>, run: () => c.openRow(row) },
+        ghost: { label: <Trans>Open {name}</Trans>, run: () => c.openRow(row), combo: 'Space' },
         button: bulkable ? bulkSpec.button : undefined,
       }
     }
   }
 
+  if (bulkable && row && row.sheets.length > 0) {
+    const openRow = row
+    return { ...bulkSpec, ghost: { label: <Trans>Open <SheetName sheets={row.sheets} /></Trans>, run: () => c.openRow(openRow), combo: 'Space' } }
+  }
   if (bulkable) return bulkSpec
   if (model.allConfirmed)
     return {
@@ -253,7 +259,7 @@ export function useBar(c: BarContext): BarSpec | null {
         ) : (
           <Trans>Nothing else confirms them. Open each to confirm it.</Trans>
         ),
-      ghost: firstRow ? { label: <Trans>Open <SheetName sheets={[first]} /></Trans>, run: () => c.openRow(firstRow) } : undefined,
+      ghost: firstRow ? { label: <Trans>Open <SheetName sheets={[first]} /></Trans>, run: () => c.openRow(firstRow), combo: 'Space' } : undefined,
     }
   }
   if (model.queue.length > 0) {
@@ -282,7 +288,7 @@ export function Bar({ spec }: { spec: BarSpec }) {
     <div className="pointer-events-auto mx-auto flex min-h-11 w-[min(820px,calc(100%-32px))] items-center gap-3 rounded-lg border border-border-raised bg-popover px-3 py-1.5 shadow-3">
       <div className="min-w-0 flex-1 leading-tight">
         <div className="truncate text-sm font-medium">{spec.what}</div>
-        <div className="truncate text-xs text-muted-foreground">{spec.why}</div>
+        <div className="line-clamp-2 text-xs text-muted-foreground">{spec.why}</div>
       </div>
       {spec.ghost ? (
         <Button variant="ghost" onClick={spec.ghost.run} aria-keyshortcuts={spec.ghost.combo}>

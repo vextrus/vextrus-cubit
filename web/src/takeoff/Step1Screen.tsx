@@ -21,7 +21,7 @@ import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import { AppLink, PATHS } from '@/app/AppLink'
 import { sessionQuery, type ProjectSummary, type Session } from '@/app/session'
 import { SlotFill } from '@/app/slots'
-import { LoadProblem, readOnlyRole, useReadOnlyToast } from '@/auth'
+import { LoadProblem, readOnlyRole, usePageTitle, useReadOnlyToast } from '@/auth'
 import { SheetViewer, type SheetOutline } from '@/sheet'
 import { useFormat } from '@/format'
 import { Popover, PopoverContent, PopoverTrigger } from '@/ui/primitives/popover'
@@ -42,6 +42,8 @@ import { CoverageLine, CoveragePanel, Overview, QuestionCard, QuestionsTab, Shee
 const projectRoute = getRouteApi('/_app/p/$code')
 
 export function Step1Page() {
+  const { t } = useLingui()
+  usePageTitle(t`Step 1, Sheets`)
   const { data: session } = useSuspenseQuery(sessionQuery)
   const project = projectRoute.useLoaderData()
   const { data, error, retry } = useStep1(project.id)
@@ -60,6 +62,11 @@ export function Step1Page() {
 function NoSheets({ project, readOnly }: { project: ProjectSummary; readOnly: boolean }) {
   return (
     <div className="flex h-full items-center justify-center">
+      <SlotFill slot="inspector.selection">
+        <p className="p-3 text-sm text-muted-foreground">
+          <Trans>Nothing is waiting.</Trans>
+        </p>
+      </SlotFill>
       <Empty
         glyph={<SheetsGlyph />}
         action={
@@ -397,6 +404,7 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
           discipline={listFor}
           fileName={pasteFile}
           given={pasteSection?.list && pasteSection.list.source !== 'sheet' ? pasteSection.list.numbers.join('\n') : ''}
+          example={pasteSection?.numbering ? `${pasteSection.numbering.first}–${pasteSection.numbering.last}` : null}
           readOnly={readOnly !== null}
           onClose={() => setListFor(null)}
           onUse={(text) => acts.setDrawingList(listFor, text)}
