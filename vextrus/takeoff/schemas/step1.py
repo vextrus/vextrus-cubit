@@ -36,7 +36,8 @@ class Step1ViewOut(Schema):
     decision: str | None
     excluded_reason: str | None
     box: list[str]
-    """x0, y0, x1, y1 in drawing units, as decimal strings."""
+    """x0, y0, x1, y1 in paper mm from the sheet's lower-left corner, as decimal strings (the viewer's
+    PaperBox)."""
 
 
 class Step1ProposalOut(_FromView):

@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { page } from 'vitest/browser'
+import { FakeDrawingSet, file, msg } from '@/acceptance/t20b/drawings.fixture'
 import { FakeStep1 } from '@/acceptance/t22/step1.fixture'
 import { FakeApi, PEOPLE, mountApp } from '@/app/testing'
 
@@ -140,5 +141,20 @@ describe('6.2’s File column', () => {
     expect(screen.getAllByRole('columnheader').map((h) => clean(h.textContent))).not.toContain('File')
     const header = screen.getAllByRole('columnheader', { hidden: true }).find((h) => clean(h.textContent) === 'File')
     expect(header).not.toBeVisible()
+  })
+})
+
+describe('the files band by keyboard (review round 1)', () => {
+  it('reaches a file’s chip with Tab and opens its report with Enter', async () => {
+    const api = new FakeApi()
+    new FakeDrawingSet(api, 'KR-01').files = [file({ name: 'KR-STR-R0.dwg', state: 'read', status: msg('drawings.files.read', { sheets: 13 }), sheets_found: 13 })]
+    new FakeStep1(api)
+    await mountApp('/p/KR-01/takeoff/1', { as: PEOPLE.qs, api })
+    await waitFor(() => expect(bodyText()).toContain('Confirmed 0 / 24'))
+    const chip = within(await screen.findByRole('list', { name: /files/ })).getByRole('button')
+    expect(chip.tabIndex).toBe(0)
+    chip.focus()
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(clean(inspector().textContent)).toContain('KR-STR-R0.dwg'))
   })
 })
