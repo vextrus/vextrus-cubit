@@ -99,7 +99,8 @@ class Score:
     totals: `right[field]` of `of[field]`."""
 
     def __init__(self) -> None:
-        self.sheets: list[tuple[str, list[str]]] = []  # (the export's layout, reasons); "" when missing
+        # Per key sheet: the export's layout ("" when none joins), the reasons it fails, its extra views.
+        self.sheets: list[tuple[str, list[str], int]] = []
         self.right: dict[str, int] = {}
         self.of: dict[str, int] = {}
         self.extra_sheets = 0
@@ -270,7 +271,7 @@ def _score(key: dict[str, Any], export: dict[str, Any]) -> Score:
                 score.count(field, False)
             for _view in views:
                 score.count("views", False)
-            score.sheets.append(("", ["the sheet missing"]))
+            score.sheets.append(("", ["the sheet missing"], 0))
             continue
         other = found[match]
         reasons = []
@@ -279,16 +280,19 @@ def _score(key: dict[str, Any], export: dict[str, Any]) -> Score:
             score.count(field, right)
             if not right:
                 reasons.append(reason)
-        reasons += _score_views(
-            score, views, [v for v in other.get("views") or [] if isinstance(v, dict)]
-        )
+        found_views = [v for v in other.get("views") or [] if isinstance(v, dict)]
+        wrong, extra = _score_views(score, views, found_views)
+        reasons += wrong
         score.count("sheets", not reasons)
         layout = (other.get("location") or {}).get("layout")
-        score.sheets.append((layout if isinstance(layout, str) else "", reasons))
+        score.sheets.append((layout if isinstance(layout, str) else "", reasons, extra))
     return score
 
 
-def _score_views(score: Score, keyed: list[dict[str, Any]], found: list[dict[str, Any]]) -> list[str]:
+def _score_views(
+    score: Score, keyed: list[dict[str, Any]], found: list[dict[str, Any]]
+) -> tuple[list[str], int]:
+    """Why the sheet's views fail it, and how many export views joined no key view."""
     pairs = sorted(
         (
             (_iou(view.get("box"), other.get("box")), k, f)
@@ -299,20 +303,35 @@ def _score_views(score: Score, keyed: list[dict[str, Any]], found: list[dict[str
         key=lambda pair: (-pair[0], pair[1], pair[2]),
     )
     joined = _one_to_one(pairs)
-    score.extra_views += len(found) - len(joined)
-    reasons = []
+    extra = len(found) - len(joined)
+    score.extra_views += extra
+    missing = titles = subjects = 0
     for k, view in enumerate(keyed):
         f = joined.get(k)
         score.count("views", f is not None)
         if f is None:
-            reasons.append("a view missing")
+            missing += 1
             continue
-        for field, reason in (("title", "a view's title wrong"), ("subject", "a view's subject wrong")):
-            right = _same("title" if field == "title" else "text", view.get(field), found[f].get(field))
-            score.count(f"view {field}s", right)
-            if not right:
-                reasons.append(reason)
-    return reasons
+        title = _same("title", view.get("title"), found[f].get("title"))
+        subject = _same("subject", view.get("subject"), found[f].get("subject"))
+        score.count("view titles", title)
+        score.count("view subjects", subject)
+        titles += not title
+        subjects += not subject
+    reasons = [
+        _counted(n, one, many)
+        for n, one, many in (
+            (missing, "a view missing", "views missing"),
+            (titles, "a view's title wrong", "views' titles wrong"),
+            (subjects, "a view's subject wrong", "views' subjects wrong"),
+        )
+        if n
+    ]
+    return reasons, extra
+
+
+def _counted(n: int, one: str, many: str) -> str:
+    return one if n == 1 else f"{n} {many}"
 
 
 def _join_sheets(keyed: list[dict[str, Any]], found: list[dict[str, Any]]) -> dict[int, int]:
@@ -395,11 +414,12 @@ def _answer(name: str, held_out: bool, score: Score) -> list[str]:
     """What the call shows: per sheet for a Development Set, and always the totals, last."""
     lines = [f"{name}: {'a Held-out Set, in aggregate only' if held_out else 'a Development Set'}"]
     if not held_out:
-        for n, (layout, reasons) in enumerate(score.sheets, 1):
+        for n, (layout, reasons, extra) in enumerate(score.sheets, 1):
             where = f" (layout {layout})" if layout else ""
-            lines.append(
-                f"  sheet {n}{where}: " + ("pass" if not reasons else "fail: " + ", ".join(reasons))
-            )
+            said = "pass" if not reasons else "fail: " + ", ".join(reasons)
+            if extra:
+                said += f"; {'an extra view' if extra == 1 else f'{extra} extra views'}"
+            lines.append(f"  sheet {n}{where}: {said}")
         lines.append(
             f"  extra sheets {score.extra_sheets}, extra views {score.extra_views} (in the export only)"
         )
