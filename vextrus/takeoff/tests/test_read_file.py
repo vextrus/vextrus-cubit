@@ -11,7 +11,7 @@ from typing import Any
 
 import pytest
 from django.conf import settings
-from django.db import connection
+from django.db import DatabaseError, connection
 from ninja import NinjaAPI, Router
 
 from engine.check.bangla_ansi import BanglaAnsi
@@ -245,6 +245,40 @@ def test_try_again_reads_the_step_that_failed_again_and_skips_those_kept(
     assert view(qs_project.member, file_id).state == drawings.FileState.READ
 
 
+@pytest.mark.parametrize("damage", ["missing", "damaged"])
+def test_a_lost_reading_is_read_again_though_its_step_was_kept(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, damage: str
+) -> None:
+    """The refuter's 21a finding (score 40): the `reading` step is kept and skipped, so when Vextrus's
+    copy of its artefact was lost the file could never be read again."""
+    file_id = added(qs_project)
+    with pytest.raises(files.FileNotRead):
+        run_job(
+            qs_project.member,
+            file_id,
+            readers(Calls(), second=ReadError(agree_codes.STOPPED())),
+            monkeypatch,
+        )
+    base = Path(settings.VEXTRUS_STORAGE_ROOT) / str(qs_project.member.developer_id)
+    [kept] = list((base / str(qs_project.project_id)).rglob("artefact@*"))
+    if damage == "missing":
+        kept.unlink()
+    else:
+        kept.write_bytes(b"{}")
+    with qs_project.member.acting():
+        drawings.restart(file_id)
+    calls = Calls()
+
+    run_job(qs_project.member, file_id, readers(calls), monkeypatch)
+
+    assert calls.names == ["dwg", "second", "fonts", "bangla_ansi"]
+    assert view(qs_project.member, file_id).state == drawings.FileState.READ
+    with qs_project.member.acting():
+        assert (
+            drawings.artefact(file_id).summary.source_sha256 == view(qs_project.member, file_id).sha256
+        )
+
+
 def test_a_missing_copy_ends_the_file_failed_with_why(
     qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -365,11 +399,89 @@ def test_a_job_that_cannot_be_queued_keeps_nothing_and_names_the_file(
         assert drawings.set_of(qs_project.project_id) is None
 
 
+def test_a_file_already_here_whose_job_cannot_be_queued_stays_and_is_worded_so(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    content = drawing("dwg")
+    before = add(qs_project.member, qs_project.project_id, "KR-STR-R0.dwg", content).file
+
+    def refuse(self: jobs.Job, **ids: uuid.UUID) -> int:
+        raise jobs.JobRefused("refused for the test")
+
+    monkeypatch.setattr(jobs.Job, "defer", refuse)
+
+    with qs_project.member.acting(), pytest.raises(auth.Refused) as refused:
+        read_file.add(qs_project.project_id, name="KR-STR-R0.dwg", content=io.BytesIO(content))
+
+    assert refused.value.message == said.NOT_STARTED_AGAIN(file="KR-STR-R0.dwg")
+    assert view(qs_project.member, before.id).state == drawings.FileState.WAITING
+
+
+def csrf_post(member: Member, project_id: uuid.UUID, name: str, content: bytes) -> Any:
+    from django.conf import settings as django_settings
+    from django.test import Client
+    from django.test.client import BOUNDARY, MULTIPART_CONTENT, encode_multipart
+
+    part = io.BytesIO(content)
+    part.name = name
+    client = Client(enforce_csrf_checks=True)
+    client.cookies = member.client.cookies
+    client.cookies[django_settings.CSRF_COOKIE_NAME] = "a" * 32
+    return client.generic(
+        "POST",
+        f"/api/projects/{project_id}/drawings/files",
+        encode_multipart(BOUNDARY, {"file": part}),
+        content_type=MULTIPART_CONTENT,
+        headers={"X-CSRFToken": "a" * 32},
+    )
+
+
+def test_a_replaced_copy_whose_reading_cannot_be_started_again_is_refused_in_words(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The refuter's 21a finding (score 30): `drawings` restarts a failed file's job when its missing
+    copy is replaced; a deferral that failed there answered a 500 page, not `{code, params}`."""
+    content = drawing("dwg")
+    first = csrf_post(qs_project.member, qs_project.project_id, "KR-STR-R0.dwg", content)
+    file_id = uuid.UUID(first.json()["file"]["id"])
+    with qs_project.member.acting():
+        drawings.mark_failed(file_id, read_codes.READER_FAILED())
+        job_id = drawings.file(file_id).read_job_id
+    own = jobs._own_job
+    monkeypatch.setattr(
+        jobs,
+        "_own_job",
+        lambda asked: (read_file.read_file.name, "failed", 1, False) if asked == job_id else own(asked),
+    )
+    base = Path(settings.VEXTRUS_STORAGE_ROOT) / str(qs_project.member.developer_id)
+    [original] = list((base / str(qs_project.project_id)).rglob("original.dwg"))
+    original.unlink()
+
+    def fail(self: jobs.Job, **ids: uuid.UUID) -> int:
+        raise DatabaseError("the queue could not be written")
+
+    monkeypatch.setattr(jobs.Job, "defer", fail)
+
+    response = csrf_post(qs_project.member, qs_project.project_id, "KR-STR-R0.dwg", content)
+
+    assert (response.status_code, response.json()) == (
+        503,
+        {"code": "takeoff.read_file.not_started_again", "params": {"file": "KR-STR-R0.dwg"}},
+    )
+    shown = view(qs_project.member, file_id)
+    assert (shown.state, shown.read_job_id) == (drawings.FileState.FAILED, job_id)
+
+
+def test_the_read_jobs_own_deferral_outside_an_add_raises_as_it_is(qs_project: QsProject) -> None:
+    file_id = added(qs_project)
+
+    with pytest.raises(jobs.NotInTransaction):
+        read_file.read_file.defer(file_id=file_id)
+
+
 def test_a_fault_in_the_add_itself_is_not_worded_as_a_job_not_queued(
     qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from django.db import DatabaseError
-
     def broken(*args: Any, **kwargs: Any) -> Any:
         raise DatabaseError("the add itself failed")
 

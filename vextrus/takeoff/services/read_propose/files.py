@@ -20,7 +20,9 @@ as its reason, by a step of its own, `not_read`, keyed by the job; then the job 
 a new job) reads it again. The step that raised rolled back, so it is not kept and runs again on that
 restart; the steps kept before it are skipped. A DWG older than any the first reader reads (its first
 bytes not `AC10…`) ends with `drawings.files.old_version`: nothing to try again. Any other fault (the
-database, a bug) is raised as it is, and the job is tried again as 09's runner decides.
+database, a bug) is raised as it is, and the job is tried again as 09's runner decides. A kept
+`reading` whose artefact Vextrus has since lost (missing or damaged) is read and kept again by the
+step that needs it, since the kept step itself is skipped.
 
 The readers are the engine's (`READERS`); a test passes its own.
 """
@@ -44,7 +46,7 @@ from engine.render import fonts
 from engine.render.fonts import FontReport
 from vextrus.drawings import services as drawings
 from vextrus.drawings.messages import files as file_words
-from vextrus.platform.services import jobs, storage
+from vextrus.platform.services import auth, jobs, storage
 
 NOT_READ = "not_read"
 """The step that ends a file failed with its reason (see the module)."""
@@ -162,10 +164,7 @@ def _open(file_id: uuid.UUID, use: Readers) -> jobs.StepResult:
 
 
 def _first(file_id: uuid.UUID, use: Readers) -> jobs.StepResult:
-    view = drawings.file(file_id)
-    with _copy(file_id) as path:
-        artefact = _reading(lambda: use.dwg(path, view.name), dwg=True)
-    ref = drawings.store_artefact(file_id, artefact)
+    ref = drawings.store_artefact(file_id, _read_first(file_id, use))
     return {
         "reader": ref.reader,
         "reader_version": ref.reader_version,
@@ -173,8 +172,25 @@ def _first(file_id: uuid.UUID, use: Readers) -> jobs.StepResult:
     }
 
 
+def _read_first(file_id: uuid.UUID, use: Readers) -> ReadArtefact:
+    view = drawings.file(file_id)
+    with _copy(file_id) as path:
+        return _reading(lambda: use.dwg(path, view.name), dwg=True)
+
+
+def _kept_artefact(file_id: uuid.UUID, use: Readers, kept: jobs.StepResult) -> ReadArtefact:
+    """The artefact the `reading` step kept; read again and kept again when Vextrus's copy of it is
+    missing or damaged (the `reading` step is kept, and skipped, so it would never be read again)."""
+    try:
+        return drawings.artefact(file_id, str(kept["reader_version"]))
+    except storage.StorageError, auth.NotFound:
+        artefact = _read_first(file_id, use)
+        drawings.store_artefact(file_id, artefact)
+        return artefact
+
+
 def _check(file_id: uuid.UUID, use: Readers, kept: jobs.StepResult) -> jobs.StepResult:
-    artefact = drawings.artefact(file_id, str(kept["reader_version"]))
+    artefact = _kept_artefact(file_id, use, kept)
     with _copy(file_id) as path:
         checked = _reading(lambda: use.second(path, artefact))
     drawings.record_reports(file_id, cross_check=checked)
@@ -186,7 +202,7 @@ def _check(file_id: uuid.UUID, use: Readers, kept: jobs.StepResult) -> jobs.Step
 
 
 def _finish(file_id: uuid.UUID, use: Readers, kept: jobs.StepResult) -> jobs.StepResult:
-    artefact = drawings.artefact(file_id, str(kept["reader_version"]))
+    artefact = _kept_artefact(file_id, use, kept)
     font_report = use.fonts(artefact)
     flagged = use.bangla_ansi(artefact)
     drawings.record_reports(file_id, font_report=font_report, bangla_ansi=flagged)
