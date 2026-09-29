@@ -8,4 +8,6 @@ pytest_plugins = [
     "vextrus.testing.drawings",
     "vextrus.testing.jev",
     "vextrus.testing.takeoff",
+    "vextrus.testing.failures",
+    "pytester",
 ]
