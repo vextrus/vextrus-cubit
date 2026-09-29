@@ -89,9 +89,13 @@ def signed_in(user: Any) -> Api:
     return Api(client)
 
 
-def delete_project(developer: uuid.UUID, project: uuid.UUID) -> None:
-    with tenancy.acting_in(developer):
-        Project.objects.filter(id=project).delete()
+def delete_project(project: uuid.UUID) -> None:
+    """Only the owner deletes a Project (projects 0003; #93), so a test calling this commits its
+    rows (`DELETED_SINCE`) for the owner's connection to see them."""
+    Project.objects.using("owner").filter(id=project).delete()
+
+
+DELETED_SINCE = pytest.mark.django_db(transaction=True, databases=["default", "owner"])
 
 
 # Ended access -------------------------------------------------------------------------------------
@@ -138,17 +142,18 @@ def test_access_to_every_project_and_current_access_have_no_codes(
     assert api_as(current).get("/api/ended-access/projects").json() == []
 
 
+@DELETED_SINCE
 def test_a_project_deleted_since_drops_out_without_an_error(
     shapla: uuid.UUID, made: dict[str, uuid.UUID]
 ) -> None:
     guest, membership = ended_guest(shapla, [made["KR-01"], made["BP-02"]])
     api = signed_in(guest)
 
-    delete_project(shapla, made["BP-02"])
+    delete_project(made["BP-02"])
     assert api.get("/api/ended-access/projects").json() == [
         {"membership_id": str(membership), "codes": ["KR-01"]}
     ]
-    delete_project(shapla, made["KR-01"])
+    delete_project(made["KR-01"])
     assert api.get("/api/ended-access/projects").json() == []
     assert api.get("/api/me").json()["ended"][0]["project_ids"] == sorted(
         [str(made["KR-01"]), str(made["BP-02"])]
@@ -249,14 +254,15 @@ def test_a_link_names_the_projects_it_gives_by_code_and_name(
     assert look_up_projects(everything).json() == []
 
 
+@DELETED_SINCE
 def test_a_project_deleted_since_the_invitation_drops_out(
-    md: Member, made: dict[str, uuid.UUID], shapla: uuid.UUID
+    md: Member, made: dict[str, uuid.UUID]
 ) -> None:
     _, token = invitation(
         md, "farhana@padma-builders.example", "guest", project_ids=[made["KR-01"], made["BP-02"]]
     )
 
-    delete_project(shapla, made["BP-02"])
+    delete_project(made["BP-02"])
 
     assert look_up_projects(token).json() == [{"code": "KR-01", "name": "Kadam Residence"}]
 

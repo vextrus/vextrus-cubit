@@ -132,10 +132,12 @@ NARROWER = {
     # DELETE, so no delete and re-insert moves it either.
     "platform_developer": {"SELECT", "INSERT"},
     # UPDATE only on what a person may change: never a Project's Market or currency, nor which
-    # Project a Site or Building belongs to (projects 0001; ticket 08).
-    "projects_project": {"SELECT", "INSERT", "DELETE"},
-    "projects_site": {"SELECT", "INSERT", "DELETE"},
-    "projects_building": {"SELECT", "INSERT", "DELETE"},
+    # Project a Site or Building belongs to (projects 0001; ticket 08). And no DELETE (projects 0003;
+    # #93): a delete and a re-insert under the same id, of the row or of its Project, whose key
+    # cascades to it, would move a Site or a Building to another Project.
+    "projects_project": {"SELECT", "INSERT"},
+    "projects_site": {"SELECT", "INSERT"},
+    "projects_building": {"SELECT", "INSERT"},
 }
 
 
