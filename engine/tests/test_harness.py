@@ -605,6 +605,48 @@ def test_a_result_the_contract_does_not_allow_fails_its_stage(
     assert "entity_counts" in b["stages"]["read"]["error"]
 
 
+SHEETS_WITH_A_BUDGET = """
+from engine.recognise.types import SheetCandidate, SheetLocation
+
+class Budget:
+    def __init__(self):
+        self.spent_by_register = 0
+
+    def report(self):
+        return {"sheets_capped": 2, "texts_capped": self.spent_by_register}
+
+class Found(list):
+    budget = None
+
+def find(artefact, discipline, conventions):
+    found = Found([SheetCandidate(location=SheetLocation(layout="Layout1"))])
+    found.budget = Budget()
+    return found
+"""
+
+REGISTER_SPENDING_THE_BUDGET = """
+def find(artefact, sheets, budget=None):
+    budget.spent_by_register = 7
+    return []
+"""
+
+
+def test_the_sheet_finders_file_budget_reaches_the_register_and_its_report_the_export(
+    tmp_path: Path, fakes: Callable[..., tuple[Stage, ...]], conventions: Path
+) -> None:
+    """13's review round 3: one budget for the file, spent by the finder and the register, and its
+    report (every limit, zero when not reached) in the file's export, so a file a limit cut never
+    reads as having no sheets without its reason. A finder with no budget reports nothing."""
+    stages = fakes(sheets=SHEETS_WITH_A_BUDGET, register=REGISTER_SPENDING_THE_BUDGET)
+
+    budgeted = by_path(run(tmp_path / "a", stages, {"a.dwg": ""}, conventions=conventions))["a.dwg"]
+    plain = by_path(run(tmp_path / "b", fakes(), {"a.dwg": ""}, conventions=conventions))["a.dwg"]
+
+    assert budgeted["stages"]["register"]["state"] == "ok"
+    assert budgeted["sheet_report"] == {"sheets_capped": 2, "texts_capped": 7}
+    assert plain["sheet_report"] is None
+
+
 def test_a_stage_whose_own_import_fails_is_failed_not_unbuilt(
     tmp_path: Path, fakes: Callable[..., tuple[Stage, ...]], conventions: Path
 ) -> None:

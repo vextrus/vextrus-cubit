@@ -114,8 +114,9 @@ def test_the_app_cannot_write_a_project_into_another_developer(
     assert RLS_REFUSED in error or "projects_project_follows_market" in error
     cursor.execute("update projects_project set name = 'Taken' where id = %s", [theirs])
     assert cursor.rowcount == 0
-    cursor.execute("delete from projects_project where id = %s", [theirs])
-    assert cursor.rowcount == 0
+    # No Project is the app's to delete, its own or another's (projects 0003; #93).
+    error = refused(cursor, "delete from projects_project where id = %s", [theirs])
+    assert "permission denied for table projects_project" in error
     act(cursor, tenant=b)
     assert rows(cursor, "select name from projects_project where id = %s", [theirs]) == [("A project",)]
 
@@ -170,24 +171,32 @@ def test_the_app_may_change_what_a_person_may_change(
 FOLLOWS_MARKET = "projects_project_follows_market"
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True, databases=["default", "owner"])
 def test_the_app_cannot_swap_a_projects_currency_by_deleting_and_inserting_it_again(
     two: tuple[uuid.UUID, uuid.UUID], cursor: Any, market: MarketProfile
 ) -> None:
+    # The app may not delete it (projects 0003; #93); the owner may, and even then the app cannot
+    # insert it again under its id on another Market's values. (Committed, so the owner sees it.)
     a, _b = two
-    act(cursor, tenant=a)
-    mine = insert_project(cursor, a, market, "KR-01")
-    cursor.execute("delete from projects_project where id = %s", [mine])
+    with transaction.atomic():
+        act(cursor, tenant=a)
+        mine = insert_project(cursor, a, market, "KR-01")
+        error = refused(cursor, "delete from projects_project where id = %s", [mine])
+        assert "permission denied for table projects_project" in error
+    with connections["owner"].cursor() as owner:
+        owner.execute("delete from projects_project where id = %s", [mine])
 
-    for changed in (
-        {"currency_code": "XTS"},
-        {"market_id": uuid.uuid4()},
-        {"unit_system": "cubits"},
-        {"unit_system": ""},
-    ):
-        error = refused(cursor, INSERT_PROJECT, project_row(mine, a, market, "KR-01", **changed))
-        assert FOLLOWS_MARKET in error, changed
-    cursor.execute(INSERT_PROJECT, project_row(mine, a, market, "KR-01"))
+    with transaction.atomic():
+        act(cursor, tenant=a)
+        for changed in (
+            {"currency_code": "XTS"},
+            {"market_id": uuid.uuid4()},
+            {"unit_system": "cubits"},
+            {"unit_system": ""},
+        ):
+            error = refused(cursor, INSERT_PROJECT, project_row(mine, a, market, "KR-01", **changed))
+            assert FOLLOWS_MARKET in error, changed
+        cursor.execute(INSERT_PROJECT, project_row(mine, a, market, "KR-01"))
 
 
 @pytest.mark.django_db
@@ -244,8 +253,8 @@ def test_a_tenant_writing_another_tenant_id_learns_nothing_of_it(
 
 @pytest.mark.django_db
 def test_the_market_check_is_the_owners_invoker_and_nobody_may_call_it(cursor: Any) -> None:
-    # SECURITY INVOKER: the Tenancy contract allows only platform's three named functions to read
-    # across tenants; this one reads only what its writer may.
+    # SECURITY INVOKER: the Tenancy contract allows only the named functions to read across
+    # tenants; this one reads only what its writer may.
     owner, security_definer, pinned = rows(
         cursor,
         "select pg_get_userbyid(proowner), prosecdef, proconfig from pg_proc where proname = %s",

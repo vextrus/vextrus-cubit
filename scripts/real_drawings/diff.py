@@ -407,7 +407,9 @@ def _prefixed(label: str, values: Mapping[str, Any]) -> dict[str, Any]:
 
 def _report_counts(file: JSON) -> dict[str, Any]:
     found: dict[str, Any] = {}
-    for key, prefix in (("font_report", "font"), ("pdf_report", "pdf"), ("bangla_ansi", "bangla_ansi")):
+    reports = (("font_report", "font"), ("pdf_report", "pdf"), ("bangla_ansi", "bangla_ansi"),
+               ("sheet_report", "sheets"))  # fmt: skip
+    for key, prefix in reports:
         found |= {f"{prefix} {name}": n for name, n in (file.get(key) or {}).items()}
     return found
 

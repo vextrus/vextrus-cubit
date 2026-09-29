@@ -17,6 +17,11 @@ msgctxt "unit system"
 msgid "Imperial"
 msgstr "Imperial"
 
+#: src/format/units.ts
+msgctxt "unit system choice"
+msgid "Metric"
+msgstr "Metric"
+
 #: src/format/dates.ts
 msgctxt "short month"
 msgid "Jul"
@@ -26,6 +31,11 @@ msgstr "Jul"
 msgctxt "short month"
 msgid "Oct"
 msgstr "Oct"
+
+#: src/format/units.ts
+msgctxt "unit system choice"
+msgid "Imperial (cft, sft, rft)"
+msgstr "Imperial (cft, sft, rft)"
 
 #: src/format/machine.tsx
 msgid "Vextrus has something to tell you here but no words for it yet."

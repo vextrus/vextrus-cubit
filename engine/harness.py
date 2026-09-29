@@ -17,8 +17,9 @@ what the contract does not allow, is `failed`, and the stages that need it are s
 - DWG: `read(path)`, then with the artefact `decoders_agree.run(path, artefact)`,
   `fonts.report(artefact)`, `bangla_ansi.run(artefact)`, `sheets.find(artefact, file_discipline,
   sheet_conventions)` (each sheet then stamped with the file's group), `register.find(artefact,
-  sheets)`, and per sheet `views.find(artefact, sheet, view_conventions)`, `buffers.build(artefact,
-  sheet)` and `raster.rasterise(buffers, PX_PER_MM)`;
+  sheets)` (given the finder's file budget, `budget=`, when its list carries one: 13's; its
+  `report()` is the file's `sheet_report`), and per sheet `views.find(artefact, sheet,
+  view_conventions)`, `buffers.build(artefact, sheet)` and `raster.rasterise(buffers, PX_PER_MM)`;
 - PDF: `pdf.report(path)` and `pdf.page_text(path)` (a list of pages).
 
 Then across the set: `registration.match(pages, sheets)`, `render_f1.score(buffers, page, transform)`
@@ -99,6 +100,7 @@ import uuid
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
+from functools import partial
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -373,6 +375,7 @@ def _read_dwg(job: Mapping[str, Any], stages: _Stages) -> dict[str, Any]:
                 found[key] = _counted(stages, name, result)
 
     sheets: list[SheetCandidate] | None = None
+    budget: Any = None  # the sheet finder's file budget (13), spent by the register too
     missing = needs_artefact or (None if sheet_conventions is not None else "sheet conventions")
     if find_sheets := stages.open("sheets", missing):
         ok, result = stages.call(
@@ -381,16 +384,21 @@ def _read_dwg(job: Mapping[str, Any], stages: _Stages) -> dict[str, Any]:
         listed = _list_of(stages, "sheets", result, SheetCandidate) if ok else None
         if listed is not None:
             sheets = [replace(sheet, group=job["group"]) for sheet in listed]
+            budget = getattr(result, "budget", None)
     found["sheets"] = sheets or []
     needs_sheets = None if sheets is not None else "sheets"
 
     if find_register := stages.open("register", needs_sheets):
+        if budget is not None:
+            find_register = partial(find_register, budget=budget)
         ok, result = stages.call("register", find_register, artefact, list(sheets or []))
         entries = _list_of(stages, "register", result, RegisterEntry) if ok else None
         if entries is not None and not all(any(e.sheet is s for s in sheets or []) for e in entries):
             stages.fail("register", "an entry is on a sheet this file did not produce")
             entries = None
         found["register"] = entries or []
+    report = getattr(budget, "report", None)  # every limit the finder or register reached, or 0
+    found["sheet_report"] = _counts(report()) if callable(report) else None
 
     views: list[list[ViewCandidate]] = [[] for _ in sheets or []]
     missing = needs_sheets or (None if view_conventions is not None else "view conventions")
@@ -821,6 +829,7 @@ def _read_file(
         font_report=found.get("font_report"),
         pdf_report=found.get("pdf_report"),
         bangla_ansi=found.get("bangla_ansi"),
+        sheet_report=found.get("sheet_report"),
         sheets=found.get("sheets", []),
         views=found.get("views", []),
         register=found.get("register", []),

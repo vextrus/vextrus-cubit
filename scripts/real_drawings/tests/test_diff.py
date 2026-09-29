@@ -265,6 +265,15 @@ def test_font_pdf_and_bangla_counts_join_by_file_and_name() -> None:
     assert counts(old, new, "report_counts") == (1, 1, 1)
 
 
+def test_the_sheet_finders_report_joins_by_file_and_name() -> None:
+    """13's review round 3: a limit the sheet finder reached (sheets it did not read) shows in the
+    check, beside the other report counts."""
+    old = export(dwg(SHA_A, sheet_report={"sheets_capped": 0, "texts_capped": 0}))
+    new = export(dwg(SHA_A, sheet_report={"sheets_capped": 50, "texts_capped": 0, "frame": 3}))
+
+    assert counts(old, new, "report_counts") == (1, 0, 1)
+
+
 def test_a_stage_not_built_is_null_and_its_counts_are_empty() -> None:
     built = export(dwg(SHA_A))
     unbuilt = export(

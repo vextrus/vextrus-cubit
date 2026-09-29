@@ -22,11 +22,13 @@ Takeoff Steps, canonical storeys, subjects and conflict kinds are keys held by v
 Library rows (19a), the storeys `engine/recognise/storeys.py`'s (13), the subjects the conventions'.
 """
 
+import functools
 import math
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
+from re import _constants, _parser  # type: ignore[attr-defined]  # a pattern parsed to bound it
 from typing import Any
 
 from engine.messages import Message, Param
@@ -614,16 +616,53 @@ class SheetConventions:
 
     M0 reads with the default, `engine/recognise/conventions/sheet-default.json` (13's; generic, no
     office's literal), over which the product puts the Market's Disciplines (21b); from M1 a Drafting
-    Profile passes the same object. Patterns are regular expressions (Python's `re`).
+    Profile passes the same object. Patterns are regular expressions (Python's `re`), bounded when
+    they are loaded (`_pattern`) and run only on text up to `MAX_PATTERN_TEXT` long
+    (`pattern_search`).
+
+    Words are matched whole, ignoring case and punctuation ("Sheet No." is `sheet no`). The storey
+    words (13's `storeys.py` reads them; the M0 plan's review Q1) are data a Drafting Profile extends:
+    `storey_words` names each canonical level by its words (tie, grade and plinth beams name the
+    plinth level; `basement` names the numbered family); a `weak_storey_words` word ("ground", "top",
+    "typical") names its storey only in a phrase with a floor word, as an ordinal does ("1st flight"
+    names no floor), and "typical" only in a plan's title beside a floor or plan word;
+    `structure_words` (tanks, the underground reservoir) are structures for Step 10, never storeys;
+    `below_ground_words` read foundation to ground; a `level_words` word with a figure ("EL +16'-6\"")
+    is kept as stated, with no storey.
     """
 
     disciplines: tuple[DisciplineConvention, ...] = ()
     number_patterns: tuple[str, ...] = ()
     title_block_fields: tuple[TitleBlockField, ...] = ()
+    """Each field's label words, in order of preference ("sheet title" before "drawing title")."""
     revision_mark_pattern: str | None = None
     storey_words: tuple[StoreyWords, ...] = ()
     frame_hints: tuple[str, ...] = ()
     """Words that name a sheet's frame in block or layer names."""
+    title_block_words: tuple[str, ...] = ()
+    """The other labels a title block prints (scale, drawn by): evidence of a title block, never a
+    field's value."""
+    floor_words: tuple[str, ...] = ()
+    plan_words: tuple[str, ...] = ()
+    level_words: tuple[str, ...] = ()
+    weak_storey_words: tuple[str, ...] = ()
+    structure_words: tuple[str, ...] = ()
+    below_ground_words: tuple[str, ...] = ()
+    ordinal_words: tuple[str, ...] = ()
+    """Ordinals written as words, in order: the n-th names floor n."""
+    ordinal_suffixes: tuple[str, ...] = ()
+    """What follows a figure to make it an ordinal ("st" in "1st")."""
+    range_words: tuple[str, ...] = ()
+    """Words that join a range's ends ("to"); a dash does too, between two storeys."""
+    list_words: tuple[str, ...] = ()
+    """Words that join a list ("and"); a comma, "&", "+" and "/" do too."""
+    register_words: tuple[str, ...] = ()
+    """A drawing register's heading words ("drawing list")."""
+    sheet_kinds: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
+    """The kinds of sheet a QS names in each Discipline, by the Discipline's key (the owner's ruling
+    of 29 Sep 2026, "Per-Discipline kinds")."""
+    common_sheet_kinds: tuple[str, ...] = ()
+    """The kinds every Discipline has (a cover or index, general notes, other)."""
 
     def __post_init__(self) -> None:
         _unique([d.key for d in self.disciplines], "the Discipline")
@@ -631,11 +670,37 @@ class SheetConventions:
         _unique([s.storey for s in self.storey_words], "the storey")
         for pattern in (*self.number_patterns, *filter(None, [self.revision_mark_pattern])):
             _pattern(pattern)
+        for name in _WORD_FIELDS:
+            for word in getattr(self, name):
+                _text(word, f"a word of {name}")
+        for discipline, kinds in self.sheet_kinds.items():
+            _key(discipline, "a Discipline")
+            for kind in kinds:
+                _key(kind, "a sheet kind")
+            _unique(kinds, f"the {discipline} sheet kind")
+        for kind in self.common_sheet_kinds:
+            _key(kind, "a sheet kind")
+        _unique(self.common_sheet_kinds, "the common sheet kind")
 
     def discipline_keys(self) -> tuple[str, ...]:
         return tuple(d.key for d in self.disciplines)
 
+    def kinds(self, discipline: str) -> tuple[str, ...]:
+        """The kinds of sheet a Discipline has: its own, then the common ones."""
+        own = self.sheet_kinds.get(discipline, ())
+        return (*own, *(k for k in self.common_sheet_kinds if k not in own))
+
     def to_json(self) -> dict[str, Any]:
+        """The conventions as JSON; a field 13 added is written only when it holds something, so a
+        file written before them round-trips unchanged."""
+        added: dict[str, Any] = {
+            **{name: list(getattr(self, name)) for name in _WORD_FIELDS if name != "frame_hints"},
+            "sheet_kinds": {k: list(v) for k, v in self.sheet_kinds.items()},
+            "common_sheet_kinds": list(self.common_sheet_kinds),
+        }
+        return self._to_json() | {name: value for name, value in added.items() if value}
+
+    def _to_json(self) -> dict[str, Any]:
         return {
             "disciplines": [{"key": d.key, "prefixes": list(d.prefixes)} for d in self.disciplines],
             "number_patterns": list(self.number_patterns),
@@ -686,6 +751,16 @@ class SheetConventions:
                 )
             ),
             frame_hints=_words(data, "frame_hints", "the frame hints"),
+            **{
+                name: _words(data, name, f"the {name.replace('_', ' ')}")
+                for name in _WORD_FIELDS
+                if name != "frame_hints"
+            },
+            sheet_kinds={
+                k: _word_list(v, f"the {k} sheet kinds")
+                for k, v in _mapping(data, "sheet_kinds").items()
+            },
+            common_sheet_kinds=_words(data, "common_sheet_kinds", "the common sheet kinds"),
         )
 
 
@@ -740,22 +815,258 @@ class ViewConventions:
         )
 
 
+_WORD_FIELDS = (
+    "frame_hints",
+    "title_block_words",
+    "floor_words",
+    "plan_words",
+    "level_words",
+    "weak_storey_words",
+    "structure_words",
+    "below_ground_words",
+    "ordinal_words",
+    "ordinal_suffixes",
+    "range_words",
+    "list_words",
+    "register_words",
+)
+"""SheetConventions' fields that are lists of words."""
 _SHEET_KEYS = {
     "disciplines",
     "number_patterns",
     "title_block_fields",
     "revision_mark_pattern",
     "storey_words",
-    "frame_hints",
+    *_WORD_FIELDS,
+    "sheet_kinds",
+    "common_sheet_kinds",
 }
 _VIEW_KEYS = {"kind_words", "subject_words", "layer_words", "scale_patterns"}
 
 
+# Patterns, bounded -----------------------------------------------------------------------------------
+
+MAX_PATTERN = 200
+"""The longest pattern a conventions file may hold, in characters."""
+MAX_PATTERN_TEXT = 256
+"""The longest text a conventions pattern runs on: a longer text is never matched (`pattern_search`),
+so it is no field's value."""
+MAX_PATHS = 4096
+"""The most ways a pattern may try to match at one place in a text (`_ways`). Python's `re`
+backtracks: every optional item, repeat and alternative multiplies the ways, and a search tries them
+all at each of the text's places before it fails. At this bound the worst pattern that loads fails a
+search of `MAX_PATTERN_TEXT` characters in about 13 ms of CPU at most (measured; review round 1
+measured six chained `\\d{0,64}` at 55 s before the bound counted bounded repeats)."""
+
+_SINGLE = frozenset({_constants.LITERAL, _constants.NOT_LITERAL, _constants.ANY, _constants.IN,
+                     _constants.CATEGORY})  # fmt: skip
+_REPEATS = frozenset({_constants.MAX_REPEAT, _constants.MIN_REPEAT, _constants.POSSESSIVE_REPEAT})
+_BACKREFERENCES = frozenset({_constants.GROUPREF, _constants.GROUPREF_EXISTS})
+_CATEGORIES = {
+    _constants.CATEGORY_DIGIT: "digit",
+    _constants.CATEGORY_NOT_DIGIT: "not_digit",
+    _constants.CATEGORY_SPACE: "space",
+    _constants.CATEGORY_NOT_SPACE: "not_space",
+    _constants.CATEGORY_WORD: "word",
+    _constants.CATEGORY_NOT_WORD: "not_word",
+}
+_APART = frozenset(
+    frozenset(pair)
+    for pair in (("digit", "space"), ("word", "space"), ("digit", "not_digit"),
+                 ("space", "not_space"), ("word", "not_word"), ("digit", "not_word"))
+)  # fmt: skip
+"""Pairs of classes no character is in both of (a digit is a word character, never a space)."""
+_LARGEST_RANGE = 256
+"""The widest range of characters a class is read to (a wider one is not told apart from others)."""
+
+type _Chars = tuple[bool, frozenset[str], frozenset[str]]
+"""A one-character item's class: negated, its characters, its categories ("digit", "not_space")."""
+
+
 def _pattern(pattern: str) -> None:
+    """Refuse a pattern that cannot be bounded: longer than `MAX_PATTERN`, a backreference, a repeat
+    of anything but one character (`(a+)+`, `(a|aa)*`, `(.*a){12}`: the nested and overlapping
+    repeats that backtrack exponentially), or one that can try more than `MAX_PATHS` ways to match at
+    one place (`\\d{0,64}` six times, `\\d?` sixteen, `\\d*\\d*`: chained repeats, optional
+    items and alternatives, whose ways multiply). With the text capped at `MAX_PATTERN_TEXT`, a search
+    then tries at most `MAX_PATHS` ways at each of its places."""
+    if not isinstance(pattern, str) or len(pattern) > MAX_PATTERN:
+        raise ValueError(f"a pattern is text of at most {MAX_PATTERN} characters")
     try:
-        re.compile(pattern)
+        parsed = _parser.parse(pattern)
     except re.error as error:
         raise ValueError(f"the pattern {pattern!r} is not a regular expression: {error}") from None
+    if max(_ways(parsed, pattern, parsed.state.flags)) > MAX_PATHS:
+        raise ValueError(
+            f"the pattern {pattern!r} can try more than {MAX_PATHS} ways to match at one place in a"
+            " text; bound its repeats ({0,8} rather than *) and its optional parts (a pattern is"
+            " bounded before any drawing is read)"
+        )
+
+
+def _ways(parsed: Any, pattern: str, flags: int) -> tuple[int, int]:
+    """Walk a parsed pattern, refusing what cannot be bounded: the ways a match can go on past it
+    from one place, and the most times any one of its items is tried, as if every repeat could take
+    its whole range on a text of `MAX_PATTERN_TEXT` characters (each capped just past `MAX_PATHS`).
+    A repeat of one character whose next item needs a character it never matches (`\\s*` before
+    `:` or a digit) must end where its run does: the next item is tried after each of its lengths,
+    but only one goes on, so it adds tries rather than multiplying the ways. A lookaround or an
+    atomic group is tried by every way that reaches it, and lets one through."""
+    items = list(parsed)
+    going, most = 1, 1
+    for at, (op, value) in enumerate(items):
+        if op in _BACKREFERENCES:
+            raise ValueError(f"the pattern {pattern!r} refers back to a group, which cannot be bounded")
+        if op in _REPEATS:
+            low, high, body = value
+            if high > 1:
+                if not (len(body) == 1 and body[0][0] in _SINGLE):
+                    raise ValueError(
+                        f"the pattern {pattern!r} repeats a group or a repeat, which can take"
+                        " exponential time; repeat single characters only"
+                    )
+                took = max(min(high, MAX_PATTERN_TEXT) - min(low, MAX_PATTERN_TEXT) + 1, 1)
+                after = items[at + 1] if at + 1 < len(items) else None
+                if after is not None and _stops_before(body[0], after, flags):
+                    most = max(most, going * took)
+                else:
+                    going *= took
+            else:
+                goes, tried = _ways(body, pattern, flags) if high == 1 else (0, 0)
+                most = max(most, going * tried)
+                going *= max(goes + (1 if low == 0 else 0), 1)
+        elif op == _constants.SUBPATTERN:
+            _group, add, remove, body = value
+            goes, tried = _ways(body, pattern, (flags | add) & ~remove)
+            most = max(most, going * tried)
+            going *= goes
+        elif op == _constants.BRANCH:
+            found = [_ways(item, pattern, flags) for item in value[1]]
+            most = max(most, going * sum(tried for _, tried in found))
+            going *= sum(goes for goes, _ in found)
+        elif op in (_constants.ASSERT, _constants.ASSERT_NOT):
+            most = max(most, going * max(_ways(value[1], pattern, flags)))
+        elif op == _constants.ATOMIC_GROUP:
+            most = max(most, going * max(_ways(value, pattern, flags)))
+        going = min(going, MAX_PATHS + 1)
+        most = min(max(most, going), MAX_PATHS + 1)
+    return going, most
+
+
+def _stops_before(item: tuple[Any, Any], after: tuple[Any, Any], flags: int) -> bool:
+    """Whether a run of `item`'s characters must end where `after` begins: `after` needs, first, a
+    character `item` never matches (a character or class, a repeat of one at least once, or a group
+    that begins so). Anything else, or a class that case-folding blurs, is not told apart."""
+    first = _first(after)
+    if first is None:
+        return False
+    a, b = _chars(item, flags), _chars(first, flags)
+    return a is not None and b is not None and _apart(a, b, bool(flags & re.ASCII))
+
+
+def _first(item: tuple[Any, Any]) -> tuple[Any, Any] | None:
+    op, value = item
+    if op in _SINGLE:
+        return item
+    if op in _REPEATS:
+        low, _high, body = value
+        return _first(body[0]) if low >= 1 and len(body) else None
+    if op == _constants.SUBPATTERN:
+        body = value[-1]
+        return _first(body[0]) if len(body) else None
+    return None
+
+
+def _chars(item: tuple[Any, Any], flags: int) -> _Chars | None:
+    """A one-character item's class, or none when it cannot be told exactly."""
+    op, value = item
+    negated, chars, categories = False, set[str](), set[str]()
+    if op == _constants.LITERAL:
+        chars.add(chr(value))
+    elif op == _constants.NOT_LITERAL:
+        negated = True
+        chars.add(chr(value))
+    elif op == _constants.ANY:
+        negated = True
+        if not flags & re.DOTALL:
+            chars.add("\n")
+    elif op == _constants.CATEGORY and value in _CATEGORIES:
+        categories.add(_CATEGORIES[value])
+    elif op == _constants.IN:
+        for part, held in value:
+            if part == _constants.NEGATE:
+                negated = True
+            elif part == _constants.LITERAL:
+                chars.add(chr(held))
+            elif part == _constants.RANGE and held[1] - held[0] < _LARGEST_RANGE:
+                chars.update(chr(c) for c in range(held[0], held[1] + 1))
+            elif part == _constants.CATEGORY and held in _CATEGORIES:
+                categories.add(_CATEGORIES[held])
+            else:
+                return None
+    else:
+        return None
+    if flags & re.IGNORECASE and any(c.lower() != c.upper() for c in chars):
+        return None  # case-folding joins characters (k and the Kelvin sign): not told apart
+    return negated, frozenset(chars), frozenset(categories)
+
+
+def _in(category: str, char: str, ascii_only: bool) -> bool:
+    kind = category.removeprefix("not_")
+    if ascii_only:
+        hit = {
+            "digit": "0" <= char <= "9",
+            "space": char in " \t\n\r\f\v",
+            "word": char.isascii() and (char.isalnum() or char == "_"),
+        }[kind]
+    else:
+        hit = {
+            "digit": char.isdecimal(),
+            "space": char.isspace(),
+            "word": char.isalnum() or char == "_",
+        }[kind]
+    return hit != category.startswith("not_")
+
+
+def _matches(chars: _Chars, char: str, ascii_only: bool) -> bool:
+    negated, held, categories = chars
+    return (char in held or any(_in(c, char, ascii_only) for c in categories)) != negated
+
+
+def _apart(a: _Chars, b: _Chars, ascii_only: bool) -> bool:
+    """Whether no character is in both classes."""
+    for one, other in ((a, b), (b, a)):
+        negated, held, categories = one
+        if not negated and not categories:  # a set of characters, each asked of the other class
+            return not any(_matches(other, char, ascii_only) for char in held)
+    if a[0] and b[0]:
+        return False  # two negated classes share every character neither names
+    if not a[0] and not b[0]:
+        return (
+            all(frozenset((p, q)) in _APART for p in a[2] for q in b[2])
+            and not any(_matches(b, char, ascii_only) for char in a[1])
+            and not any(_matches(a, char, ascii_only) for char in b[1])
+        )
+    against, plain = (a, b) if a[0] else (b, a)
+    left_out: _Chars = (False, against[1], against[2])  # what the negated class does not match
+    excluded = against[2]
+    return all(q in excluded or (q == "digit" and "word" in excluded) for q in plain[2]) and all(
+        _matches(left_out, char, ascii_only) for char in plain[1]
+    )
+
+
+@functools.lru_cache(maxsize=256)
+def _compiled(pattern: str) -> re.Pattern[str]:
+    _pattern(pattern)
+    return re.compile(pattern)
+
+
+def pattern_search(pattern: str, text: str) -> re.Match[str] | None:
+    """`re.search` for a conventions pattern, on text of at most `MAX_PATTERN_TEXT` characters only;
+    longer text never matches. The pattern is checked and compiled once."""
+    if len(text) > MAX_PATTERN_TEXT:
+        return None
+    return _compiled(pattern).search(text)
 
 
 def _object(value: Any, what: str, keys: set[str]) -> dict[str, Any]:

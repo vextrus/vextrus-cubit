@@ -13,12 +13,10 @@ import { UiProviders } from './ui/UiProviders'
 activateLanguage(ENGLISH, englishMessages())
 
 // Development only, for the design gate (docs/design/m0-screens.md §8): `?lang=en-XB` shows the
-// test-only pseudo right-to-left language, and `?as=<email>` signs the static session in as another
-// seeded member. Neither reaches a production bundle (scripts/check-dist.mjs).
+// test-only pseudo right-to-left language. It never reaches a production bundle (scripts/check-dist.mjs).
+// The seeded people sign in for real, through the API (20a).
 if (import.meta.env.DEV) {
   const params = new URLSearchParams(window.location.search)
-  const as = params.get('as')
-  if (as) (await import('./app/session')).setStaticMember(as)
   const { PSEUDO_RTL_CODE } = await import('./i18n/pseudo-tag')
   if (params.get('lang') === PSEUDO_RTL_CODE) {
     ;(await import('./app/dev-language')).overrideLanguage()
