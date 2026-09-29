@@ -2,9 +2,12 @@
 
 Each run appends one line per failure to `.pytest-failures.log` at the root (gitignored): the time
 in UTC, `failed` or `error` (a fixture's setup or teardown), the test's id and its first error line,
-tab-separated. The file only grows; delete it by name when it is no longer wanted.
+tab-separated. The file only grows; delete it by name when it is no longer wanted. A log that cannot
+be written (a read-only checkout) is said once on stderr and the run goes on. Under xdist only the
+controller writes, from the reports its workers send it, so each failure is one line.
 """
 
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -29,12 +32,20 @@ def line(report: pytest.TestReport, now: datetime) -> str:
 class FailuresLog:
     def __init__(self, path: Path) -> None:
         self.path = path
+        self.broken = False
 
     def pytest_runtest_logreport(self, report: pytest.TestReport) -> None:
-        if report.failed:
+        if not report.failed or self.broken:
+            return
+        try:
             with self.path.open("a", encoding="utf-8") as log:
                 log.write(line(report, datetime.now(UTC)))
+        except OSError as error:
+            self.broken = True
+            sys.stderr.write(f"\nThe failures log cannot be written, so it is not kept: {error}\n")
 
 
 def pytest_configure(config: pytest.Config) -> None:
+    if hasattr(config, "workerinput"):
+        return  # an xdist worker: the controller logs its reports
     config.pluginmanager.register(FailuresLog(config.rootpath / LOG), "vextrus-failures-log")
