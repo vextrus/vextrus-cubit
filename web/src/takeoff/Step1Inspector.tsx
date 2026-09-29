@@ -279,15 +279,14 @@ function RevisionFact({ sheet }: { sheet: ProposalOut }) {
   )
 }
 
-/** Where a number or title was read (6.6): "title-block attribute", "text in the title block", "not found". */
+/** Where a number or title was read (6.6): "title-block attribute", "text in the title block"; nothing where the API names no source. */
 function ReadFrom({ source }: { source: string | null | undefined }) {
   if (source === 'title_block_attribute') return <Trans>title-block attribute</Trans>
   if (source === 'title_block_text') return <Trans>text in the title block</Trans>
   if (source === 'jev') return <Trans>read by Vextrus from the title</Trans>
   if (source === 'register') return <Trans>the drawing list</Trans>
   if (source === 'file_name') return <Trans>the file name</Trans>
-  if (!source) return <Trans>not found</Trans>
-  return <Trans>another source</Trans>
+  return null
 }
 
 /** "3rd, 5th, 7th" and what they mean, from the plan views; "not stated" in amber; "—" with no plan view (6.8). */
@@ -513,7 +512,13 @@ export function SheetFacts({
             )}
           </Fact>
           <Fact label={<Trans>Title</Trans>}>
-            <ReadFrom source={sheet.title_source} />
+            {sheet.title ? (
+              <ReadFrom source={sheet.title_source} />
+            ) : (
+              <span className="text-question">
+                <Trans>not found</Trans>
+              </span>
+            )}
           </Fact>
           <Fact label={<Trans>Discipline</Trans>}>
             <DisciplineFact sheet={sheet} />

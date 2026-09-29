@@ -105,6 +105,10 @@ msgctxt "view kind"
 msgid "3D or perspective"
 msgstr "3D or perspective"
 
+#: src/takeoff/Step1Screen.tsx
+msgid "{kind}, not to scale"
+msgstr "{kind}, not to scale"
+
 #: src/takeoff/questionWords.tsx
 msgid "Answering decides whether {file}’s sheets join the list."
 msgstr "Answering decides whether {file}’s sheets join the list."
@@ -156,6 +160,10 @@ msgstr "{n, plural, one {Confirm # sheet that agrees} other {Confirm # sheets th
 #: src/takeoff/Step1Inspector.tsx
 msgid "Confirmed by {name}, {date}"
 msgstr "Confirmed by {name}, {date}"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "List"
+msgstr "List"
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "{part}, M3 onwards"
@@ -254,6 +262,10 @@ msgstr "Floor finish layout"
 msgid "Do what the bar says"
 msgstr "Do what the bar says"
 
+#: src/takeoff/Step1Screen.tsx
+msgid "Sheet"
+msgstr "Sheet"
+
 #: src/takeoff/words.tsx
 msgid "Cover or index"
 msgstr "Cover or index"
@@ -281,6 +293,10 @@ msgstr "Answering decides whether this file’s sheets join the list."
 #: src/takeoff/words.tsx
 msgid "Perspective"
 msgstr "Perspective"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "List or sheet"
+msgstr "List or sheet"
 
 #: src/takeoff/Bar.tsx
 msgid "Open it to confirm it."
@@ -336,6 +352,10 @@ msgstr "two, agreeing"
 msgid "{n, plural, one {Confirm # sheet that agrees} other {Confirm # sheets that agree}}"
 msgstr "{n, plural, one {Confirm # sheet that agrees} other {Confirm # sheets that agree}}"
 
+#: src/takeoff/Step1Screen.tsx
+msgid "Next view on the sheet"
+msgstr "Next view on the sheet"
+
 #: src/takeoff/questionWords.tsx
 msgid "Trace: the file’s two readings"
 msgstr "Trace: the file’s two readings"
@@ -351,6 +371,10 @@ msgstr "{listed}, {meaning}"
 #: src/takeoff/SheetList.tsx
 msgid "{markText}, from the file name {file}"
 msgstr "{markText}, from the file name {file}"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Previous view on the sheet"
+msgstr "Previous view on the sheet"
 
 #: src/takeoff/Bar.tsx
 msgid "Open <0/>"
@@ -459,6 +483,10 @@ msgstr "{m, plural, one {Left out # sheet, with its reason.} other {Left out # s
 #: src/takeoff/questionWords.tsx
 msgid "Trace: {file}, as each of the two readers read it"
 msgstr "Trace: {file}, as each of the two readers read it"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Proposal {p} · Assigned {a} · Question {q} · Excluded {x}"
+msgstr "Proposal {p} · Assigned {a} · Question {q} · Excluded {x}"
 
 #: src/takeoff/questionWords.tsx
 msgid "Answering confirms both copies."
@@ -591,6 +619,10 @@ msgstr "MD"
 #: src/takeoff/SheetList.tsx
 msgid "Proposal, one source"
 msgstr "Proposal, one source"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Proposed to leave out"
+msgstr "Proposed to leave out"
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "{name}: {openText} Questions open"
@@ -755,6 +787,10 @@ msgstr "{rest}, and {more} more"
 msgid "Answer once"
 msgstr "Answer once"
 
+#: src/takeoff/Step1Screen.tsx
+msgid "Sheets, in list order"
+msgstr "Sheets, in list order"
+
 #: src/takeoff/Bar.tsx
 msgid "{name} is confirmed by {by}"
 msgstr "{name} is confirmed by {by}"
@@ -779,6 +815,10 @@ msgstr "On the drawing list, in no file"
 #: src/takeoff/SheetList.tsx
 msgid "<0/>, {count} copies"
 msgstr "<0/>, {count} copies"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "The sheet picker"
+msgstr "The sheet picker"
 
 #: src/takeoff/words.tsx
 msgid "Site plan"
@@ -912,6 +952,10 @@ msgstr "The mechanical (HVAC) drawing list"
 #: src/takeoff/questionWords.tsx
 msgid "Answering confirms {number} ({kept}) and excludes {number} ({dropped}) as superseded."
 msgstr "Answering confirms {number} ({kept}) and excludes {number} ({dropped}) as superseded."
+
+#: src/takeoff/Step1Screen.tsx
+msgid "{kind}, {scale}"
+msgstr "{kind}, {scale}"
 
 #: src/takeoff/words.tsx
 msgid "Set this file aside and mark it for Vextrus to look at"
@@ -1160,10 +1204,6 @@ msgstr "Septic tank details"
 msgid "A-01–A-29, or the list as the consultant sent it"
 msgstr "A-01–A-29, or the list as the consultant sent it"
 
-#: src/takeoff/Step1Screen.tsx
-msgid "Back to the list"
-msgstr "Back to the list"
-
 #: src/takeoff/SheetList.tsx
 msgid "The pasted drawing list"
 msgstr "The pasted drawing list"
@@ -1269,6 +1309,7 @@ msgid "Shear wall details"
 msgstr "Shear wall details"
 
 #: src/takeoff/SheetList.tsx
+#: src/takeoff/Step1Screen.tsx
 msgid "none"
 msgstr "none"
 
@@ -1369,10 +1410,6 @@ msgstr "Sheet kind unclear"
 #: src/takeoff/questionWords.tsx
 msgid "Waiting for the QS. A Guest reads Questions and cannot answer them."
 msgstr "Waiting for the QS. A Guest reads Questions and cannot answer them."
-
-#: src/takeoff/Step1Inspector.tsx
-msgid "another source"
-msgstr "another source"
 
 #: src/takeoff/Bar.tsx
 msgid "Open {name}"
@@ -1487,6 +1524,10 @@ msgstr "none: the title block has none and the file name none"
 #: src/takeoff/words.tsx
 msgid "Electrical"
 msgstr "Electrical"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Needs you"
+msgstr "Needs you"
 
 #: src/takeoff/questionWords.tsx
 msgid "Keep {kept}; leave {dropped} out as superseded"

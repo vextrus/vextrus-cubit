@@ -17,19 +17,22 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode }
 import { Trans, useLingui } from '@lingui/react/macro'
 import { useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
 import { getRouteApi, useSearch } from '@tanstack/react-router'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import { AppLink, PATHS } from '@/app/AppLink'
 import { sessionQuery, type ProjectSummary, type Session } from '@/app/session'
 import { SlotFill } from '@/app/slots'
 import { LoadProblem, readOnlyRole, useReadOnlyToast } from '@/auth'
-import { SheetViewer } from '@/sheet'
-import { Button, DrawingText, Empty, IconButton, KeyCombo, KeyRegion, KeyScope, Skeleton, SheetsGlyph, buttonVariants, useKeys } from '@/ui'
+import { SheetViewer, type SheetOutline } from '@/sheet'
+import { useFormat } from '@/format'
+import { Popover, PopoverContent, PopoverTrigger } from '@/ui/primitives/popover'
+import { DrawingText, Empty, IconButton, KeyRegion, KeyScope, Skeleton, SheetsGlyph, buttonVariants, cn, isolateLtr, useKeys } from '@/ui'
 import { SheetName, useStep1Acts } from './acts'
 import { Bar, ExclusionPicker, useBar } from './Bar'
-import { renderQuery, useStep1, type CoverageOut, type ProposalOut } from './data'
+import { renderQuery, useStep1, type CoverageOut, type ProposalOut, type ViewOut } from './data'
 import { DrawingListDialog } from './DrawingListDialog'
 import { nextOpenRow, step1Model, type Reason, type Row, type Step1Model } from './model'
-import { SheetList } from './SheetList'
+import { SheetList, disciplineName } from './SheetList'
+import { OTHER_VIEW_KIND, VIEW_KINDS } from './words'
 import { CoverageLine, CoveragePanel, Overview, QuestionCard, QuestionsTab, SheetFacts, cardContext } from './Step1Inspector'
 
 const projectRoute = getRouteApi('/_app/p/$code')
@@ -111,6 +114,9 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
   const [picker, setPicker] = useState<Row | null>(null)
   const [listFor, setListFor] = useState<string | null>(null)
   const [panel, setPanel] = useState<'coverage' | null>(null)
+  /** The view selected in sheet mode (→ ←, a click on its outline), of the sheet it was selected on. */
+  const [sheetPicker, setSheetPicker] = useState(false)
+  const [viewPick, setViewPick] = useState<{ sheet: string; view: string } | null>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const focusNext = useRef<string | null>(null)
 
@@ -119,6 +125,15 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
   const order = sheetsInOrder(model)
   const open = order.find((s) => s.id === openSheet) ?? null
   const focusedRow = mode === 'sheet' ? rowOfSheet(openSheet) : rowByKey(focused)
+  const selectedView = mode === 'sheet' && open && viewPick?.sheet === open.id ? viewPick.view : null
+  const viewsInOrder = open ? [...(open.views ?? [])].sort((a, b) => a.ordinal - b.ordinal) : []
+  /** → ←: the next or previous view in reading order; past either end, none. */
+  const stepView = (by: 1 | -1) => {
+    if (mode !== 'sheet' || !open || viewsInOrder.length === 0) return
+    const at = viewsInOrder.findIndex((v) => v.id === selectedView)
+    const next = at === -1 ? (by > 0 ? viewsInOrder[0] : viewsInOrder.at(-1)) : viewsInOrder[at + by]
+    setViewPick(next ? { sheet: open.id, view: next.id } : null)
+  }
 
   // A row focused by the keys (↑ ↓, Q, back from a sheet) takes the browser's focus once it is drawn.
   useLayoutEffect(() => {
@@ -243,6 +258,9 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
     { key: '↓', label: t`Next row; in a sheet, the next sheet`, group: 'screen', run: () => moveFocus(1) },
     { key: '↑', label: t`Previous row; in a sheet, the previous sheet`, group: 'screen', run: () => moveFocus(-1) },
     { key: ']', label: t`Next sheet`, group: 'screen', when: () => mode === 'sheet', run: () => page(1) },
+    { key: '→', label: t`Next view on the sheet`, group: 'screen', when: () => mode === 'sheet', run: () => stepView(1) },
+    { key: '←', label: t`Previous view on the sheet`, group: 'screen', when: () => mode === 'sheet', run: () => stepView(-1) },
+    { key: 'S', label: t`The sheet picker`, group: 'screen', when: () => mode === 'sheet', run: () => setSheetPicker(true) },
     { key: '[', label: t`Previous sheet`, group: 'screen', when: () => mode === 'sheet', run: () => page(-1) },
     { key: 'Q', label: t`Next open Question`, group: 'screen', run: nextQuestion },
     {
@@ -252,6 +270,7 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
       when: () => mode === 'sheet' || panel !== null || focused !== null,
       run: () => {
         if (panel) setPanel(null)
+        else if (selectedView) setViewPick(null)
         else if (mode === 'sheet') toList()
         else {
           setFocused(null)
@@ -280,6 +299,8 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
         showTitle={mode === 'list'}
         readOnly={readOnly !== null}
         acts={{ exclude: excludeKey, confirmBackIn: () => void confirmRow(focusedRow, false) }}
+        selectedView={selectedView}
+        onSelectView={mode === 'sheet' && open ? (view) => setViewPick({ sheet: open.id, view }) : undefined}
       />
     </>
   ) : (
@@ -291,14 +312,9 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
 
   return (
     <div className="absolute inset-0 flex flex-col">
-      {mode === 'sheet' ? (
-        <SlotFill slot="toolbar.end" order={0}>
-          <Button variant="ghost" onClick={toList} aria-keyshortcuts="Space" /* eslint-disable-line lingui/no-unlocalized-strings -- a key name */>
-            <Trans>Back to the list</Trans>
-            <KeyCombo combo="Space" />
-          </Button>
-        </SlotFill>
-      ) : null}
+      <SlotFill slot="toolbar.end" order={0}>
+        <ModeSwitch mode={mode} title={spaceLabel} onList={() => mode === 'sheet' && toList()} onSheet={() => mode === 'list' && fromList()} />
+      </SlotFill>
       <SlotFill slot="status.end" order={0}>
         <button type="button" onClick={() => setPanel('coverage')} className="hover:text-foreground hover:underline">
           <CoverageLine coverage={coverage} />
@@ -328,7 +344,24 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
           />
         </ListRegion>
       ) : open ? (
-        <SheetMode projectId={project.id} sheet={open} label={spaceLabel} onSpace={toList} onPage={page} />
+        <SheetMode
+          projectId={project.id}
+          sheet={open}
+          label={spaceLabel}
+          onSpace={toList}
+          onPage={page}
+          model={model}
+          selectedView={selectedView}
+          onSelectView={(view) => setViewPick({ sheet: open.id, view })}
+          picker={sheetPicker}
+          onPicker={setSheetPicker}
+          onPick={(sheet) => {
+            setSheetPicker(false)
+            setOpenSheet(sheet.id)
+            const row = rowOfSheet(sheet.id)
+            if (row) setFocused(row.key)
+          }}
+        />
       ) : null}
 
       <div className="pointer-events-none absolute inset-x-0 bottom-4 z-10">
@@ -364,6 +397,25 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
   )
 }
 
+/**
+ * The toolbar's "List | Sheet" (§6.1, §6.5): the same as Space, by mouse. Two toggle buttons, the
+ * current one pressed, at the toolbar's control height (so the toolbar keeps one line, §8 item 6).
+ */
+function ModeSwitch({ mode, title, onList, onSheet }: { mode: 'list' | 'sheet'; title: string; onList: () => void; onSheet: () => void }) {
+  const { t } = useLingui()
+  const item = cn('h-control px-2.5 text-sm text-ink-secondary hover:bg-hover aria-pressed:bg-paper aria-pressed:font-medium aria-pressed:text-foreground')
+  return (
+    <div role="group" aria-label={t`List or sheet`} className="inline-flex overflow-hidden rounded-md bg-chrome-sunken ring-1 ring-border-strong">
+      <button type="button" aria-pressed={mode === 'list'} title={title} aria-keyshortcuts="Space" onClick={onList} className={item}>
+        <Trans>List</Trans>
+      </button>
+      <button type="button" aria-pressed={mode === 'sheet'} title={title} aria-keyshortcuts="Space" onClick={onSheet} className={item}>
+        <Trans>Sheet</Trans>
+      </button>
+    </div>
+  )
+}
+
 /** The list's key region: Space opens the focused sheet (m0-screens §6.1, 2.3 item 10). */
 function ListRegion({ label, onSpace, children }: { label: string; onSpace: () => void; children: ReactNode }) {
   const { t } = useLingui()
@@ -380,24 +432,83 @@ function SpaceKey({ label, run }: { label: string; run: () => void }) {
   return null
 }
 
-/** Sheet mode (§6.5): the open sheet in the viewer, its title and paging in the toolbar. */
+/** "Plan, 1:100" / "Detail, not to scale": a view's tag on its outline (§6.5). */
+function useViewTag() {
+  const { i18n, t } = useLingui()
+  return (v: ViewOut) => {
+    const kind = i18n._(VIEW_KINDS[v.kind] ?? OTHER_VIEW_KIND)
+    if (v.not_to_scale) return t`${kind}, not to scale`
+    if (v.stated_scale) {
+      const scale = isolateLtr(v.stated_scale)
+      return t`${kind}, ${scale}`
+    }
+    return kind
+  }
+}
+
+/** A view's tone on the canvas and in the legend (§6.5, 6.11): excluded, held by a Question, assigned, or a Proposal. */
+function viewTone(v: ViewOut, sheet: ProposalOut, held: boolean): SheetOutline['tone'] {
+  if (v.decision === 'excluded' || sheet.decision === 'excluded' || (v.proposed_exclusion && sheet.decision === 'confirmed')) return 'excluded'
+  if (held) return 'question'
+  if (sheet.decision === 'confirmed') return 'assigned'
+  return 'proposal'
+}
+
+/** 4.6's legend, counting views (§6.5): "Proposal 2 · Assigned 0 · Question 0 · Excluded 0". */
+function Legend({ tones }: { tones: readonly SheetOutline['tone'][] }) {
+  const f = useFormat()
+  const count = (tone: SheetOutline['tone']) => f.integer(tones.filter((x) => x === tone).length)
+  const [p, a, q, x] = [count('proposal'), count('assigned'), count('question'), count('excluded')]
+  return (
+    <Trans>
+      Proposal {p} · Assigned {a} · Question {q} · Excluded {x}
+    </Trans>
+  )
+}
+
+/** Sheet mode (§6.5): the open sheet in the viewer with its views; its label, the picker and paging in the toolbar. */
 function SheetMode({
   projectId,
   sheet,
   label,
   onSpace,
   onPage,
+  model,
+  selectedView,
+  onSelectView,
+  picker,
+  onPicker,
+  onPick,
 }: {
   projectId: string
   sheet: ProposalOut
   label: string
   onSpace: () => void
   onPage: (by: number) => void
+  model: Step1Model
+  selectedView: string | null
+  onSelectView: (id: string) => void
+  picker: boolean
+  onPicker: (open: boolean) => void
+  onPick: (sheet: ProposalOut) => void
 }) {
   const { t } = useLingui()
   const render = useQuery(renderQuery(projectId, sheet.sheet_id))
   const region = useRef<HTMLDivElement>(null)
   const name = sheet.number ?? sheet.title
+  const tag = useViewTag()
+  const held = model.rows.some((r) => r.question && r.sheets.some((s) => s.id === sheet.id))
+  const outlines = useMemo<SheetOutline[]>(
+    () =>
+      [...(sheet.views ?? [])]
+        .sort((a, b) => a.ordinal - b.ordinal)
+        .map((v) => {
+          const [x0, y0, x1, y1] = v.box.map(Number) as [number, number, number, number]
+          return { id: v.id, box: { x0, y0, x1, y1 }, tag: tag(v), tone: viewTone(v, sheet, held) }
+        })
+        .filter((o) => [o.box.x0, o.box.y0, o.box.x1, o.box.y1].every(Number.isFinite) && o.box.x1 > o.box.x0 && o.box.y1 > o.box.y0),
+    [sheet, held, tag],
+  )
 
   // Focus follows the sheet into the canvas as it opens and as it pages (§6.1).
   useLayoutEffect(() => {
@@ -411,7 +522,7 @@ function SheetMode({
   return (
     <>
       <SlotFill slot="toolbar.start" order={1}>
-        <DrawingText kind="title" text={sheet.title} className="max-w-[250px] text-sm text-ink-secondary" />
+        <SheetPicker sheet={sheet} model={model} open={picker} onOpen={onPicker} onPick={onPick} />
         <IconButton label={t`Previous sheet`} combo="[" onClick={() => onPage(-1)}>
           <ChevronLeft strokeWidth={1.5} className="rtl:-scale-x-100" />
         </IconButton>
@@ -423,7 +534,17 @@ function SheetMode({
         <SpaceKey label={label} run={onSpace} />
         <div ref={region} tabIndex={-1} className="absolute inset-0 outline-none">
           {render.data ? (
-            <SheetViewer key={sheet.id} buffer={render.data} label={name} onRetry={() => void render.refetch()} />
+            <SheetViewer
+              key={sheet.id}
+              buffer={render.data}
+              label={name}
+              onRetry={() => void render.refetch()}
+              outlines={outlines}
+              selected={selectedView}
+              onSelect={onSelectView}
+              legend={outlines.length > 0 ? <Legend tones={outlines.map((o) => o.tone)} /> : null}
+              labelInToolbar={false}
+            />
           ) : render.error ? (
             <LoadProblem error={render.error} onRetry={() => void render.refetch()} className="m-4" />
           ) : (
@@ -433,4 +554,56 @@ function SheetMode({
       </KeyRegion>
     </>
   )
+}
+
+/** The sheet label as a button (§6.5: "S-20 8th & 9th floor beam layout ▾", at most 250 px) opening "Sheets, in list order". */
+function SheetPicker({ sheet, model, open, onOpen, onPick }: { sheet: ProposalOut; model: Step1Model; open: boolean; onOpen: (open: boolean) => void; onPick: (sheet: ProposalOut) => void }) {
+  const { t } = useLingui()
+  const groups: { key: string; heading: ReactNode; sheets: ProposalOut[] }[] = [
+    { key: 'needs', heading: <Trans>Needs you</Trans>, sheets: model.needsYou.flatMap((r) => [...r.sheets]) },
+    { key: 'out', heading: <Trans>Proposed to leave out</Trans>, sheets: model.proposedOut.flatMap((r) => [...r.sheets]) },
+    ...model.disciplines.map((d) => ({ key: d.discipline, heading: <DisciplineName discipline={d.discipline} />, sheets: d.rows.flatMap((r) => [...r.sheets]) })),
+  ].filter((g) => g.sheets.length > 0)
+  return (
+    <Popover open={open} onOpenChange={onOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-keyshortcuts="S"
+          className="inline-flex h-control max-w-[250px] min-w-0 items-center gap-1.5 rounded-md px-2 text-sm hover:bg-hover"
+        >
+          {sheet.number ? <DrawingText kind="sheet-number" text={sheet.number} truncate={false} className="shrink-0 font-semibold" /> : null}
+          <DrawingText kind="title" text={sheet.title} className="min-w-0 text-ink-secondary" />
+          <ChevronDown strokeWidth={1.5} className="size-3.5 shrink-0" aria-hidden />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="max-h-[60vh] w-80 overflow-auto p-1" aria-label={t`Sheets, in list order`}>
+        <p className="px-2 py-1 text-xs font-semibold text-ink-secondary">
+          <Trans>Sheets, in list order</Trans>
+        </p>
+        {groups.map((g) => (
+          <div key={g.key} role="group" className="py-0.5">
+            <p className="px-2 text-2xs text-muted-foreground">{g.heading}</p>
+            {g.sheets.map((s) => (
+              <button
+                key={`${g.key}:${s.id}`}
+                type="button"
+                aria-current={s.id === sheet.id ? 'true' : undefined}
+                onClick={() => onPick(s)}
+                className="flex w-full min-w-0 items-center gap-2 rounded-sm px-2 py-1 text-start text-sm hover:bg-hover aria-[current=true]:bg-selected"
+              >
+                <span className="w-12 shrink-0 font-semibold">{s.number ? <DrawingText kind="sheet-number" text={s.number} truncate={false} /> : <Trans>none</Trans>}</span>
+                <DrawingText kind="title" text={s.title} className="min-w-0" />
+              </button>
+            ))}
+          </div>
+        ))}
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+function DisciplineName({ discipline }: { discipline: string }) {
+  const { i18n } = useLingui()
+  return <>{disciplineName(discipline, i18n)}</>
 }

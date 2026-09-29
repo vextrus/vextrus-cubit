@@ -180,6 +180,61 @@ describe('M7, M8: the inspector’s sheet and who did what', () => {
   })
 })
 
+describe('M6: sheet mode', () => {
+  const views = [
+    { id: 'v1', ordinal: 1, kind: 'plan', title: '1ST FLOOR BEAM LAYOUT', stated_scale: '1:100', not_to_scale: false, storeys: ['1st'], storeys_as_stated: '1ST FLOOR', storeys_meaning: 'at_floor_level', steps: ['beams'], part: null, proposed_exclusion: null, decision: null, excluded_reason: null, box: ['10', '10', '60', '50'] },
+    { id: 'v2', ordinal: 2, kind: 'detail', title: 'BEAM SECTION', stated_scale: '', not_to_scale: true, storeys: [], storeys_as_stated: '', storeys_meaning: null, steps: ['beams'], part: null, proposed_exclusion: null, decision: null, excluded_reason: null, box: ['70', '10', '90', '30'] },
+    { id: 'v3', ordinal: 3, kind: 'title_block', title: 'TITLE BLOCK', stated_scale: '', not_to_scale: true, storeys: [], storeys_as_stated: '', storeys_meaning: null, steps: [], part: null, proposed_exclusion: 'for_information', decision: null, excluded_reason: null, box: ['95', '0', '120', '20'] },
+  ]
+
+  async function openS05() {
+    const { api, step1 } = kr01()
+    Object.assign(step1.proposals.find((p) => p.number === 'S-05')!, { views })
+    await open(api)
+    await focusRow('S-05')
+    await userEvent.keyboard(' ')
+    await screen.findByRole('group', { name: /S-05/ })
+    await waitFor(() => expect(document.querySelectorAll('[data-outline]')).toHaveLength(3))
+  }
+
+  it('draws the views’ outlines with their tags and the legend counting views', async () => {
+    await openS05()
+    const tags = [...document.querySelectorAll('[data-outline]')].map((el) => clean(el.getAttribute('aria-label')))
+    expect(tags).toEqual(['Plan, 1:100', 'Detail, not to scale', 'Title block, not to scale'])
+    // A view proposed out is still a Proposal until its sheet is confirmed (6.11).
+    expect(bodyText()).toContain('Proposal 3 · Assigned 0 · Question 0 · Excluded 0')
+  })
+
+  it('steps through the views with → and ←, and Esc leaves the view before the sheet', async () => {
+    await openS05()
+    const pressed = () => document.querySelector('[data-outline][aria-pressed="true"]')?.getAttribute('data-outline') ?? null
+    await userEvent.keyboard('{ArrowRight}')
+    await waitFor(() => expect(pressed()).toBe('v1'))
+    expect(inspector().querySelector('[data-view="v1"]')).toHaveAttribute('aria-current', 'true')
+    await userEvent.keyboard('{ArrowRight}')
+    await waitFor(() => expect(pressed()).toBe('v2'))
+    await userEvent.keyboard('{ArrowLeft}')
+    await waitFor(() => expect(pressed()).toBe('v1'))
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(pressed()).toBeNull())
+    expect(screen.getByRole('group', { name: /S-05/ })).toBeInTheDocument()
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('group', { name: /S-05/ })).toBeNull())
+  })
+
+  it('offers the sheet picker from the sheet’s label and "List | Sheet" in the toolbar', async () => {
+    await openS05()
+    await userEvent.click(screen.getByRole('button', { name: /S-05.*1ST FLOOR BEAM LAYOUT/ }))
+    const picker = await screen.findByRole('dialog', { name: 'Sheets, in list order' })
+    await userEvent.click(within(picker).getByRole('button', { name: /A-02/ }))
+    await screen.findByRole('group', { name: /A-02/ })
+    expect(screen.getByRole('button', { name: 'Sheet' })).toHaveAttribute('aria-pressed', 'true')
+    await userEvent.click(screen.getByRole('button', { name: 'List' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'List' })).toHaveAttribute('aria-pressed', 'true'))
+    expect(document.activeElement?.getAttribute('data-row')).toBeTruthy()
+  })
+})
+
 describe('M9: focus is visible on the list’s rows', () => {
   it('draws an outline on the row ↓ focuses', async () => {
     const { api } = kr01()
