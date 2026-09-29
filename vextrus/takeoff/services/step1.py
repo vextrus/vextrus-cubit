@@ -577,6 +577,15 @@ def _lists(project_id: uuid.UUID, discipline: str) -> _Lists:
     return _Lists(given, read, settled)
 
 
+def _named(sheet: drawings.SheetView | None) -> dict[str, str]:
+    """A sheet as a Question's words name it (`takeoff.proposals`): its number, else its title."""
+    if sheet is not None and sheet.number:
+        return {"sheet": sheet.number, "named": "number"}
+    if sheet is not None and sheet.title.strip():
+        return {"sheet": sheet.title, "named": "title"}
+    return {"sheet": "", "named": "none"}
+
+
 def _lists_key(given: DrawingRegister, read: DrawingRegister) -> str:
     """The two lists' Question, one per pair of lists (a new list asks again)."""
     return hashlib.sha256(f"lists:{given.id}:{read.id}".encode()).hexdigest()
@@ -710,7 +719,7 @@ def _ask_if_lists_differ(project_id: uuid.UUID, discipline: str) -> None:
             "discipline": discipline,
             "message_code": answer_codes.LISTS_DISAGREE.code,
             "params": {
-                "sheet": (on.number or on.title) if on else "",
+                **_named(on),
                 "source": "typed" if lists.given.source == RegisterSource.TYPED else "pasted",
             },
             "options": [{"key": k, "picked": False} for k in ("use_read", "use_given", KEEP_OPEN)],

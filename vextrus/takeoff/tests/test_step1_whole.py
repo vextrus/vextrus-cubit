@@ -221,3 +221,46 @@ def test_an_answer_keeps_the_qs_words_only_where_the_option_takes_them(
 
     assert response.status_code == 200, response.content
     assert "text" not in response.json()["answer"]
+
+
+def test_a_sheet_with_no_number_is_named_by_its_title_in_its_questions_words(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, jev_offline: Offline
+) -> None:
+    """The words gate's must M2: a bare title stood in for a missing number ("Which Discipline is
+    COLUMN LAYOUT PLAN?"); a sheet is named by `named` (number, title or none)."""
+    jev_says(jev_offline, "0.34")
+    file_id = uploaded(qs_project.member, qs_project.project_id, "GENERAL NOTES.dwg")
+    run_job(qs_project.member, file_id, monkeypatch, readers({"GENERAL NOTES.dwg": [
+        Sheet(None, "GENERAL NOTES", ("GENERAL NOTES",)),
+    ]}))  # fmt: skip
+    asked = open_questions(api_as(qs_project.member), qs_project.project_id)
+
+    by_kind = {q["kind"]: q["params"] for q in asked}
+
+    assert by_kind["missing_discipline"] == {"sheet": "GENERAL NOTES", "named": "title"}
+
+
+def test_a_withdrawn_question_refuses_an_answer_as_no_longer_asked(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The words gate's must M1: a lists Question withdrawn by a newer list is refused by the code
+    whose words say "already answered or no longer asked"."""
+    rows = (("S-01", "GENERAL NOTES"), ("S-02", "PILE LAYOUT PLAN"), ("S-03", "COLUMN SCHEDULE"))
+    read(qs_project, monkeypatch, [
+        Sheet("S-01", "GENERAL NOTES", ("GENERAL NOTES",), register=rows),
+        Sheet("S-02", "PILE LAYOUT PLAN", ("PILE LAYOUT PLAN",)),
+        Sheet("S-03", "COLUMN SCHEDULE", ("COLUMN SCHEDULE",)),
+    ])  # fmt: skip
+    api = api_as(qs_project.member)
+    path = f"{step1(qs_project.project_id)}/drawing-list"
+    api.post(path, {"discipline": "structural", "text": "S-01 to S-04"})
+    [first] = open_questions(api, qs_project.project_id, "conflict")
+    assert first["params"] == {"sheet": "S-01", "named": "number", "source": "typed"}
+    api.post(path, {"discipline": "structural", "text": "S-01 to S-05"})
+
+    late = answer(api, qs_project.project_id, first["id"], "use_read")
+
+    assert (late.status_code, late.json()) == (
+        409,
+        {"code": "takeoff.proposals.answered_already", "params": {}},
+    )

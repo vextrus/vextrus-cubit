@@ -131,7 +131,7 @@ def propose(
             step1.raise_question(
                 project_id,
                 "missing_discipline",
-                said.WHICH_DISCIPLINE(sheet=_name(sheet)),
+                said.WHICH_DISCIPLINE(**named(sheet)),
                 subject_id=sheet.id,
                 options=options([*keys, KEEP_OPEN]),
                 blocks=[proposal_id],
@@ -143,9 +143,14 @@ def propose(
     return {"sheets": proposed, "questions": asked}
 
 
-def _name(sheet: drawings.SheetView) -> str:
-    """A sheet as the QS names it: its number, else its title."""
-    return sheet.number or sheet.title
+def named(sheet: drawings.SheetView, prefix: str = "") -> dict[str, str]:
+    """A sheet as a Question's words name it: its number, else its title (quoted by the words), else
+    neither (`named`: `number`, `title` or `none`)."""
+    if sheet.number:
+        return {f"{prefix}sheet": sheet.number, f"{prefix}named": "number"}
+    if sheet.title.strip():
+        return {f"{prefix}sheet": sheet.title, f"{prefix}named": "title"}
+    return {f"{prefix}sheet": "", f"{prefix}named": "none"}
 
 
 def _propose_sheet(
@@ -168,7 +173,7 @@ def _propose_sheet(
         step1.raise_question(
             project_id,
             "low_confidence",
-            step1_codes.WHICH_KIND(number=_name(sheet)),
+            said.WHICH_KIND(**named(sheet)),
             subject_id=sheet.id,
             discipline=sheet.discipline,
             options=options([*answer.ranked(), KEEP_OPEN]),
@@ -425,9 +430,9 @@ def _boundaries(
                 project_id,
                 "convention",
                 said.BOUNDARY_STOREY(
-                    sheet=_name(sheet),
+                    **named(sheet),
                     range=first.storeys_as_stated or first.title,
-                    next_sheet=_name(listed[j]),
+                    **named(listed[j], "next_"),
                 ),
                 subject_id=first.id,
                 discipline=sheet.discipline,

@@ -8,13 +8,13 @@ msgstr ""
 
 #. vextrus/takeoff/messages/proposals.py (ticket 21c): the read job's Questions (m0-screens 6.7) and an answer's refusals.
 msgid "takeoff.proposals.answered_already"
-msgstr "This Question has already been answered, so nothing was changed. Reload the page to see its answer."
+msgstr "This Question is already answered or no longer asked, so nothing was changed. Reload the page to see where it stands."
 
 msgid "takeoff.proposals.boundary_storey"
-msgstr "Does \"{range}\" on {sheet} include its top storey? {next_sheet} starts at that storey."
+msgstr "Does \"{range}\" on {named, select, number {{sheet}} title {the sheet titled \"{sheet}\"} other {this sheet}} include its top storey? The range on {next_named, select, number {{next_sheet}} title {the sheet titled \"{next_sheet}\"} other {another sheet}} also starts there."
 
 msgid "takeoff.proposals.lists_disagree"
-msgstr "{source, select, typed {The drawing list on {sheet} and the range you typed differ} other {The drawing list on {sheet} and the one you pasted differ}}"
+msgstr "{source, select, typed {The drawing list on {named, select, number {{sheet}} title {the sheet titled \"{sheet}\"} other {a sheet}} and the range you typed differ} other {The drawing list on {named, select, number {{sheet}} title {the sheet titled \"{sheet}\"} other {a sheet}} and the one you pasted differ}}"
 
 msgid "takeoff.proposals.number_needed"
 msgstr "No number was typed, so the sheet was not numbered. Type its number, then answer again."
@@ -23,4 +23,7 @@ msgid "takeoff.proposals.option_not_offered"
 msgstr "That answer is not one this Question offers, so nothing was changed. Reload the page and choose one of its answers."
 
 msgid "takeoff.proposals.which_discipline"
-msgstr "Which Discipline is {sheet}? Its file and its number name none."
+msgstr "{named, select, number {Which Discipline is {sheet}? Neither its file nor its number says.} title {Which Discipline is the sheet titled \"{sheet}\"? Neither its file nor its title block says.} other {Which Discipline is this sheet? Neither its file nor its title block says.}}"
+
+msgid "takeoff.proposals.which_kind"
+msgstr "{named, select, number {What kind of sheet is {sheet}?} title {What kind of sheet is the one titled \"{sheet}\"?} other {What kind of sheet is this?}}"
