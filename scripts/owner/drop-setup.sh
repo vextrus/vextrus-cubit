@@ -23,14 +23,18 @@ DROP=$(setting drop)
 INSTALLED=$(setting installed)
 ME=$(id -un)
 GROUP=$(id -gn "$KEY_USER")
+# Once scripts/owner/keys-custody.sh has made the pipeline's user, the drop folder is that user's alone
+# to write (ticket 24s): running this again must not hand it back to you.
+WRITER=$ME
+if id vxrun >/dev/null 2>&1; then WRITER=vxrun; fi
 
-echo "Drop folder: $DROP (yours; group $GROUP may read)"
+echo "Drop folder: $DROP ($WRITER's to write; group $GROUP may read)"
 echo "Poster:      $INSTALLED (root's; run as $KEY_USER)"
 read -r -p "Go on? [y/N] " reply
 [[ "$reply" =~ ^[Yy] ]] || { echo "Nothing changed."; exit 0; }
 
-sudo install -d -o "$ME" -g "$GROUP" -m 2750 "$DROP"
-[ -e "$DROP/.lock" ] || install -m 0640 /dev/null "$DROP/.lock"
+sudo install -d -o "$WRITER" -g "$GROUP" -m 2750 "$DROP"
+[ -e "$DROP/.lock" ] || sudo install -o "$WRITER" -g "$GROUP" -m 0640 /dev/null "$DROP/.lock"
 sudo install -d -o root -g root -m 0755 "$(dirname "$INSTALLED")"
 sudo install -o root -g root -m 0755 "$root/scripts/owner/post-status" "$INSTALLED"
 sudo install -o root -g root -m 0644 "$config" "$INSTALLED.toml"
@@ -41,8 +45,10 @@ fail=0
 check() {
   if eval "$2" >/dev/null 2>&1; then echo "  ✓ $1"; else echo "  ✗ $1"; fail=1; fi
 }
-check "$DROP is yours, mode 2750, group $GROUP" "[ \"\$(stat -c '%U %a %G' '$DROP')\" = '$ME 2750 $GROUP' ]"
-check "you can take the lock" "flock -n '$DROP/.lock' true"
+check "$DROP is $WRITER's, mode 2750, group $GROUP" "[ \"\$(stat -c '%U %a %G' '$DROP')\" = '$WRITER 2750 $GROUP' ]"
+if [ "$WRITER" = "$ME" ]; then
+  check "you can take the lock" "flock -n '$DROP/.lock' true"
+fi
 check "the key user can read the drop folder" "sudo -u '$KEY_USER' test -r '$DROP/.lock'"
 check "the installed poster is the checkout's" "cmp -s '$root/scripts/owner/post-status' '$INSTALLED'"
 check "you cannot change the installed poster" "[ ! -w '$INSTALLED' ] && [ ! -w '$INSTALLED.toml' ]"

@@ -239,10 +239,14 @@ pause
 stage "Install the scorer"
 say "The blind scorer is a placeholder until M0 builds it. You run it as $KEY_USER with your"
 say "password (sudo -u $KEY_USER $SCORER); there is no password-free rule (ADR 0026, amended)."
-tmp=$(mktemp)
-printf '#!/usr/bin/env bash\necho "vx-score: scorer not built yet (ADR 0026)"\n' > "$tmp"
-sudo install -o root -g root -m 755 "$tmp" "$SCORER"
-rm -f "$tmp"
+if [ -e "$SCORER" ] && ! grep -q "scorer not built yet" "$SCORER" 2>/dev/null; then
+  note "$SCORER is the real scorer (scripts/owner/keys-custody.sh installs it); left as it is."
+else
+  tmp=$(mktemp)
+  printf '#!/usr/bin/env bash\necho "vx-score: scorer not built yet (ADR 0026)"\n' > "$tmp"
+  sudo install -o root -g root -m 755 "$tmp" "$SCORER"
+  rm -f "$tmp"
+fi
 if sudo test -f "$SCORER_RULE"; then
   warn "An old password-free rule exists at $SCORER_RULE: run scripts/owner/scorer-rule-remove.sh."
 fi

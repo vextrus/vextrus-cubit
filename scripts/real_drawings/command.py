@@ -18,6 +18,13 @@ the changes (a lost item only with a reason), or the orchestrator does without a
 posts nothing and exits 3), and `--accept REASON` accepts a run it has judged. The command writes the
 run's own folder in the drop folder (the exports, and the metadata and summary it writes itself) and
 runs the poster as the key user. A branch or main, or `--no-post`, never posts.
+
+A scored run (ticket 24s) is a PR's posting run, or `--score` on a branch or main (main's baseline,
+posting nothing). Once `scripts/owner/keys-custody.sh` has made the pipeline's user, the owner's side
+only spools what the run reads and the pipeline's user runs the check from its installed copy
+(`runner.py`), writing the run's folder before the verdict; the blind scorer then scores that folder as
+the key user and prints its answer under the table. Before then, a posting run runs as the owner's user
+and says it is not scored, and `--score` is refused.
 """
 
 import argparse

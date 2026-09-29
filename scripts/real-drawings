@@ -2,7 +2,10 @@
 # The real-drawing check, regression only (the M0 plan, "The real-drawing check"; ADRs 0026 and 0030):
 #
 #   scripts/real-drawings <PR number | branch | main> [--no-post] [--fresh]
+#   scripts/real-drawings <branch | main> --score     (a scored run: main's baseline; posts nothing)
 #
+# A PR's posting run and a scored run are run by the pipeline's user from its installed copy, once
+# scripts/owner/keys-custody.sh has set it up (scripts/real_drawings/runner.py), and scored blind.
 # The owner runs a PR's posting run from the checkout of main; a local session tunes with --no-post on
 # its own branch. The code is scripts/real_drawings/ (standard library only), run on the toolchain's
 # Python under /opt/vextrus, never a checkout's .venv.
