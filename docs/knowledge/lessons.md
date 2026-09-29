@@ -176,3 +176,7 @@ much parallel work as that quality allows, and each wave applies the last one's 
 - **A builder's worktree isolation refuses a command that runs git in the shared checkout** (`cd <main>
   && git …`, or `git -C <main>`). Give builders absolute paths to scripts, never a `cd` out of their
   worktree.
+- **A key's cascade runs as the table's owner** (#93). Taking DELETE off `projects_building` left the
+  app able to delete the Building's Project, whose key cascaded to the Building as `vextrus`, and then
+  to insert the Building's id under another Project (measured on PostgreSQL 18.6). A wall against
+  re-using an id covers every row whose delete cascades to it, not only the row's own table.

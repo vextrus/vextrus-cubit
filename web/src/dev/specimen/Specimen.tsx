@@ -16,12 +16,14 @@ import * as Glyph from '@/ui/glyphs'
 import {
   AccessChip,
   Button,
+  Checkbox,
   DESKTOP_FROM_PX,
   PHONE_BELOW_PX,
   Count,
   DrawingText,
   Empty,
   ErrorBar,
+  FieldError,
   IconButton,
   KeyCombo,
   KeyRegion,
@@ -36,6 +38,7 @@ import {
   Segmented,
   Skeleton,
   StatusMark,
+  TextField,
   useKeys,
   useToast,
 } from '@/ui'
@@ -384,6 +387,33 @@ function ControlsSection() {
             { value: 'compare', label: t`Compare` },
           ]}
         />
+      </Row>
+    </Section>
+  )
+}
+
+function FormsSection() {
+  const { t } = useLingui()
+  const [email, setEmail] = useState('')
+  const [ticked, setTicked] = useState(true)
+  return (
+    <Section id="forms" title={<Trans>Form fields</Trans>} note={<Trans>A label above, a hint under; refused, a red edge and the line saying what to do. No browser bubbles: a missing value is said under its field.</Trans>}>
+      <Row top label={<Trans>Text field</Trans>}>
+        <div className="grid w-full grid-cols-2 gap-4">
+          <TextField label={t`Email`} type="email" value={email} onChange={(event) => setEmail(event.currentTarget.value)} hint={t`The email the invitation is for.`} />
+          <TextField label={t`Code`} defaultValue={Data.PROJECT_CODE} hint={t`Short, like KR-01`} fieldClassName="max-w-[160px]" />
+          <TextField label={t`Name`} defaultValue="" error={t`Give the project a name.`} />
+          <TextField label={t`Access ends on`} defaultValue={Data.UNTIL} after={<span className="text-xs text-muted-foreground">{t`(30 days)`}</span>} fieldClassName="max-w-[160px]" />
+          <TextField label={t`Email, read only`} defaultValue={Data.INVITED_EMAIL} readOnly size="lg" />
+          <TextField label={t`Password, locked while signing in`} type="password" defaultValue="invented-password" readOnly size="lg" />
+        </div>
+      </Row>
+      <Row label={<Trans>Checkbox</Trans>}>
+        <Checkbox label={t`End their access on a date`} checked={ticked} onCheckedChange={setTicked} />
+        <Checkbox label={<>{Data.PROJECTS_TWO[1]} {Data.PROJECT_NAME}</>} checked={false} onCheckedChange={() => undefined} error={t`Choose at least one project.`} />
+      </Row>
+      <Row label={<Trans>Field error</Trans>}>
+        <FieldError>{t`Enter a date like 26 Oct 2026.`}</FieldError>
       </Row>
     </Section>
   )
@@ -847,6 +877,7 @@ export function Specimen({ lang }: { lang: string | undefined }) {
     ['glyphs', t`Glyphs`],
     ['marks', t`Marks and counts`],
     ['controls', t`Buttons`],
+    ['forms', t`Form fields`],
     ['drawing-text', t`DrawingText`],
     ['canvas', t`LtrCanvas`],
     ['list', t`List`],
@@ -892,6 +923,7 @@ export function Specimen({ lang }: { lang: string | undefined }) {
             <GlyphsSection />
             <MarksSection />
             <ControlsSection />
+            <FormsSection />
             <DrawingTextSection />
             <CanvasSection />
             <ListSection />
