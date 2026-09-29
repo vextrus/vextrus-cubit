@@ -124,9 +124,21 @@ SUBJECTS = (
 # The key brief's "3D/perspective" and its parts, and the engine's `perspective`: one kind (R1).
 WORD = re.compile(r"[^\W_]+")  # a whole word of a phrase: letters and digits, `_` a separator
 PERSPECTIVE = re.compile(r"\A(?:3d ?/ ?perspective|3d|perspective)\Z")
-# A kind the diagnostic may name: a short plain word or two (the key brief's kinds); any other key
-# kind is named "another kind", so a mistyped key cannot put its text into an answer.
-PLAIN_KIND = re.compile(r"\A[a-z0-9]+(?:[ /][a-z0-9]+){0,2}\Z")
+# The kinds the diagnostic may name, a closed list (the key brief's ten kinds, folded as `_kind`
+# folds them); any other kind, of the key or the export, is named "another kind", so no key's text
+# can reach an answer (24g's review: a list of shapes let "column c3" through).
+KINDS = (
+    "plan",
+    "section",
+    "elevation",
+    "schedule",
+    "detail",
+    "notes",
+    "legend",
+    "title block",
+    "key plan",
+    "perspective",
+)
 # The diagnostic's causes for a view that joins nothing, in the order they are checked (R1); "{side}"
 # is the other side's name ("export" for a key view, "key" for an export view).
 CAUSES = (
@@ -422,9 +434,9 @@ def _score(key: dict[str, Any], export: dict[str, Any]) -> Score:
             ratio = _paper_ratio(sheet.paper, other.paper)
             scale, unknown = ratio or scale, ratio is None
         found_views = [_moved(view, scale) for view in other.views]
-        wrong, extra = _score_views(score, sheet.views, found_views)
+        wrong, extra, joined_views = _score_views(score, sheet.views, found_views)
         reasons += wrong
-        _diagnose(score, sheet, other, scale, found_views)
+        _diagnose(score, sheet, other, found_views, joined_views)
         score.count("sheets", not reasons)
         score.sheets.append((other.layout or "", reasons, extra, unknown))
     return score
@@ -569,8 +581,11 @@ def _finite(value: Any) -> float | None:
     return number if math.isfinite(number) else None
 
 
-def _score_views(score: Score, keyed: list[_View], found: list[_View]) -> tuple[list[str], int]:
-    """Why the sheet's views fail it, and how many export views joined no key view."""
+def _score_views(
+    score: Score, keyed: list[_View], found: list[_View]
+) -> tuple[list[str], int, dict[int, int]]:
+    """Why the sheet's views fail it, how many export views joined no key view, and the join (key
+    view index to export view index)."""
     joined = _one_to_one(_view_pairs(keyed, found))
     extra = len(found) - len(joined)
     score.extra_views += extra
@@ -602,35 +617,66 @@ def _score_views(score: Score, keyed: list[_View], found: list[_View]) -> tuple[
         )
         if n
     ]
-    return reasons, extra
+    return reasons, extra, joined
 
 
 def _diagnose(
-    score: Score, sheet: _Sheet, other: _Sheet, scale: tuple[float, float], found: list[_View]
+    score: Score, sheet: _Sheet, other: _Sheet, found: list[_View], joined: dict[int, int]
 ) -> None:
-    """The diagnostic's counts for one joined sheet (its export views already scaled as joined). It
-    joins again exactly as `_score_views` does, and changes no score."""
+    """The diagnostic's counts for one joined sheet, from its export views as they were joined
+    (paper-scaled) and that join; it changes no score."""
     keyed = sheet.views
-    joined = _one_to_one(_view_pairs(keyed, found))
     taken = set(joined.values())
     missing: dict[str, int] = {}
     for k, view in enumerate(keyed):
         if k not in joined:
-            kind = view.kind if PLAIN_KIND.match(view.kind) else "another kind"
+            kind = _named(view.kind)
             missing[kind] = missing.get(kind, 0) + 1
             score.key_causes[_cause(view, found)] += 1
     score.missing_kinds.append(missing)
     for f, view in enumerate(found):
         if f not in taken:
-            cause = (view.kind if PLAIN_KIND.match(view.kind) else "another kind", _cause(view, keyed))
+            cause = (_named(view.kind), _cause(view, keyed))
             score.export_causes[cause] = score.export_causes.get(cause, 0) + 1
-    # Frames aligned: the export's views moved so its sheet box's lower-left corner (scaled as its
-    # views are) meets the key frame's; translation only, and only a sheet the key frames.
-    if not sheet.framed or sheet.box is None or other.box is None:
+    if not sheet.framed:
         return
-    shift = (sheet.box[0] - other.box[0] * scale[0], sheet.box[1] - other.box[1] * scale[1])
+    score.aligned = score.aligned or 0
+    shift = _corner_shift(sheet, other)
+    if shift is None:
+        return
     aligned = _one_to_one(_view_pairs(keyed, [_moved(view, (1.0, 1.0), shift) for view in found]))
-    score.aligned = (score.aligned or 0) + sum(1 for k in aligned if k not in joined)
+    score.aligned += sum(1 for k in aligned if k not in joined)
+
+
+def _named(kind: str) -> str:
+    """A kind as the diagnostic may print it: one of KINDS, else "another kind"."""
+    return kind if kind in KINDS else "another kind"
+
+
+def _corner_shift(sheet: _Sheet, other: _Sheet) -> tuple[float, float] | None:
+    """How far, on the key's paper in mm, to move the export's views so its frame's lower-left corner
+    meets the key's. Every view box is on paper, in mm, from its own sheet's lower-left corner
+    (engine/recognise/views.py; the rulings, "24s <-> 17"), while the frames are where they lie (a
+    model-space frame in model units): a place p is at (p - corner) * paper / frame on either paper,
+    so an export view is at the key's place when moved by (export corner - key corner) * paper /
+    frame. The paper is the key's, else the export's (over the export's frame), else, for a layout
+    sheet, the frame itself (a layout is drawn in paper mm); None when the ratio is unknown (a
+    model-space sheet with no paper) or a frame is not a box."""
+    key, found = sheet.box, other.box
+    if key is None or found is None:
+        return None
+    if sheet.paper is not None:
+        paper, frame = sheet.paper, key
+    elif other.paper is not None:
+        paper, frame = other.paper, found
+    elif not sheet.in_model:
+        return found[0] - key[0], found[1] - key[1]
+    else:
+        return None
+    width, height = frame[2] - frame[0], frame[3] - frame[1]
+    if not (width > 0 and height > 0):
+        return None
+    return (found[0] - key[0]) * paper[0] / width, (found[1] - key[1]) * paper[1] / height
 
 
 def _cause(view: _View, others: list[_View]) -> int:
