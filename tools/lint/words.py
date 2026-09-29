@@ -3,7 +3,9 @@
 Reads every `web/src/messages/**/en.po` and fails on a msgstr that holds:
 - an **engine term** (m0-screens 1.1: never shown to a QS or an MD): process, stage, exit code,
   reader, dumper, sandbox, decoder, parser, candidate, regex, artefact, job, worker, queue, cache,
-  token, API, timeout, viewport, model space, paper space; as whole words, any case, plurals too;
+  token, API, timeout, viewport, model space, paper space, and 1.1's own list (entity, handle, DXF,
+  LibreDWG, ACadSharp, ezdxf, parse, hash, buffer, render, JSON, UUID…); as whole words, any case,
+  plurals too; and a `{program}` or `{exit_code}` argument (a converter's name, a raw exit code);
 - **"add it again"** (or "add them again"): m0-screens 4.5 refuses the same file added again ("… is
   already in this Drawing Set … Nothing was added"), so the words may say it only where the file was
   not kept, or where the QS is told to change it first;
@@ -11,8 +13,8 @@ Reads every `web/src/messages/**/en.po` and fails on a msgstr that holds:
   Takeoff: m0-screens 1.4);
 - **"reinforcement"**: the word is Rebar (CONTEXT.md);
 - a **positional placeholder** (`{0}`): every argument is named, so a translator knows what it is;
-- a **count without a plural**: a plain argument named as a count (`{count}`, `{n}`, `{…_count}`),
-  or a plain argument followed by a plural noun (`{sheets} sheets`, `{drawn} drawn pages`), which
+- a **count without a plural**: a plain or `number` argument named as a count (`{count}`, `{n}`,
+  `{…_count}`), or a plain or `number` argument followed by a plural noun (`{sheets} sheets`, `{drawn} drawn pages`), which
   reads "1 sheets"; use `{sheets, plural, one {# sheet} other {# sheets}}`.
 
 Only the msgstr's own words are read: argument names, `select` and `plural` keys are not words.
@@ -44,18 +46,24 @@ RULES = (ENGINE_TERM, ADD_AGAIN, ASK_MD, REINFORCEMENT, POSITIONAL, COUNT)
 _ENGINE_TERMS = re.compile(
     r"\b(?:process(?:es)?|stages?|exit codes?|readers?|dumpers?|sandbox(?:es)?|decoders?|parsers?"
     r"|candidates?|regex(?:es)?|artefacts?|jobs?|workers?|queues?|caches?|tokens?|APIs?|timeouts?"
-    r"|viewports?|model spaces?|paper spaces?)\b",
+    r"|viewports?|model spaces?|paper spaces?"
+    # m0-screens 1.1's own list of words never shown to a QS or an MD.
+    r"|entit(?:y|ies)|handles?|DXF|LibreDWG|ACadSharp|ezdxf|pdf\.js|WebGL|SDF|parse[sd]?|parsing"
+    r"|hash(?:es)?|sha256|buffers?|renders?|JSON|UUIDs?)\b",
     re.IGNORECASE,
 )
+_ENGINE_ARGUMENTS = {"program", "exit_code", "returncode"}
+"""Arguments that put a converter's name or a raw exit code in front of a QS."""
 _ADD_AGAIN = re.compile(r"\badd (?:it|them) again\b", re.IGNORECASE)
 _ASK_MD = re.compile(r"\bask your MD\b", re.IGNORECASE)
 _REINFORCEMENT = re.compile(r"\breinforc(?:ement|ing|ed)s?\b", re.IGNORECASE)
 _COUNT_NAME = re.compile(r"^(?:n|count|\w+_count)$")
-_PLURAL_AFTER = re.compile(r"^\s+(?:[a-z]+\s+)?([a-z]+s)\b")
+_PLURAL_AFTER = re.compile(r"^\s+(?:[a-z]+\s+)?([a-z]+s)\b", re.IGNORECASE)
 _NOT_PLURAL = {
     "is", "was", "has", "does", "its", "this", "as", "us", "thus", "yes", "plus", "across", "less",
     "unless", "always", "whereas", "perhaps", "his", "series", "gas", "shows", "reads", "says",
     "needs", "looks", "holds", "keeps", "uses", "names", "matches", "stays", "starts", "stops",
+    "vextrus",
 }  # fmt: skip
 """Words ending in s that are not a plural noun (the verbs a singular argument takes among them)."""
 
@@ -235,8 +243,10 @@ def findings_in(message: Message) -> Iterator[Finding]:
     for argument in arguments:
         if argument.name.isdigit():
             yield hit(POSITIONAL, f"{{{argument.name}}}")
-        if argument.kind:
-            continue
+        if argument.name in _ENGINE_ARGUMENTS:
+            yield hit(ENGINE_TERM, f"{{{argument.name}}}")
+        if argument.kind not in ("", "number"):
+            continue  # a plural or select says its own words; a date or time is no count
         if _COUNT_NAME.match(argument.name):
             yield hit(COUNT, f"{{{argument.name}}}")
             continue

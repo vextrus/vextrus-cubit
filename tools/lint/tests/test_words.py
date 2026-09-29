@@ -70,6 +70,23 @@ FAILING = [
     ("{sheet_count} read.", COUNT, "{sheet_count}"),
     ("{sheets} sheets found.", COUNT, "{sheets} sheets"),
     ("On {pages} of {drawn} drawn pages.", COUNT, "{drawn} drawn pages"),
+    ("{sheets, number} sheets found.", COUNT, "{sheets} sheets"),
+    ("{count, number} left.", COUNT, "{count}"),
+    ("{sheets} Sheets found.", COUNT, "{sheets} Sheets"),
+    ("3 entities were read.", ENGINE_TERM, "entities"),
+    ("Its handle is 1F.", ENGINE_TERM, "handle"),
+    ("Save it as DXF.", ENGINE_TERM, "DXF"),
+    ("LibreDWG stopped.", ENGINE_TERM, "LibreDWG"),
+    ("ACadSharp stopped.", ENGINE_TERM, "ACadSharp"),
+    ("ezdxf stopped.", ENGINE_TERM, "ezdxf"),
+    ("It could not be parsed.", ENGINE_TERM, "parsed"),
+    ("Its hash differs.", ENGINE_TERM, "hash"),
+    ("The buffer is full.", ENGINE_TERM, "buffer"),
+    ("The render is kept.", ENGINE_TERM, "render"),
+    ("The JSON is wrong.", ENGINE_TERM, "JSON"),
+    ("Its UUID is kept.", ENGINE_TERM, "UUID"),
+    ("It stopped with code {exit_code}.", ENGINE_TERM, "{exit_code}"),
+    ("{program} stopped.", ENGINE_TERM, "{program}"),
 ]
 
 
@@ -94,6 +111,9 @@ PASSING = [
     "{role, select, stage {Your role} other {You}} can open it.",  # keys and names are not words
     "Laid out in the drawing.",
     "Quote a '{0}' literally.",  # ICU quoting: not a placeholder
+    "Up to {limit, plural, one {# item} other {# items}}.",
+    "Added on {date, date} at {time, time}.",  # a date is no count
+    "{actor} of Vextrus opened it.",  # a name, not a count
 ]
 
 

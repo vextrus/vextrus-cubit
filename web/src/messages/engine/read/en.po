@@ -10,31 +10,31 @@ msgid "engine.read.aligned_text_from_start"
 msgstr "{count, plural, one {# aligned text is drawn from its start point, as AutoCAD plots it} other {# aligned texts are drawn from their start points, as AutoCAD plots them}}"
 
 msgid "engine.read.attrib_style_from_attdef"
-msgstr "{count, plural, one {# attribute took its text style from its block's definition, because its own style could not be read} other {# attributes took their text styles from their blocks' definitions, because their own styles could not be read}}"
+msgstr "{count, plural, one {# attribute took its text style from its block's definition, because its own style could not be read, so it is lettered as its block defines it} other {# attributes took their text styles from their blocks' definitions, because their own styles could not be read, so they are lettered as their blocks define them}}"
 
 msgid "engine.read.dxf_recovered"
 msgstr "The drawing's geometry was read in recovery mode ({errors, plural, one {# error} other {# errors}} repaired)"
 
 msgid "engine.read.geometry_missing"
-msgstr "{count, plural, one {# entity was read without its geometry} other {# entities were read without their geometry}}"
+msgstr "{count, plural, one {# item was read without its geometry} other {# items were read without their geometry}}"
 
 msgid "engine.read.layer_unresolved"
-msgstr "{count, plural, one {# entity names a layer the file does not hold} other {# entities name a layer the file does not hold}}"
+msgstr "{count, plural, one {# item names a layer the file does not hold} other {# items name a layer the file does not hold}}"
 
 msgid "engine.read.limit_reached"
-msgstr "{limit, select, cpu {The drawing could not be read: {program} used all the processing time it is given} wall {The drawing could not be read: {program} was stopped at its time limit} killed {The drawing could not be read: {program} was stopped at a limit of the machine's} other {The drawing could not be read: {program} reached a limit}}"
+msgstr "{limit, select, cpu {The drawing could not be read: reading it used all the processing time Vextrus gives a file} wall {The drawing could not be read: reading it was stopped at its time limit} killed {The drawing could not be read: reading it was stopped at a limit of the machine's} other {The drawing could not be read: reading it reached a limit}}"
 
 msgid "engine.read.objects_missing"
 msgstr "The drawing could not be read: {count, plural, one {# object it lists is} other {# objects it lists are}} missing, so the file may be damaged"
 
 msgid "engine.read.output_unreadable"
-msgstr "The drawing could not be read: what {program} produced could not be understood"
+msgstr "The drawing could not be read: what Vextrus read from it could not be understood"
 
 msgid "engine.read.reader_failed"
-msgstr "The drawing could not be read: {program} stopped with code {exit_code}"
+msgstr "The drawing could not be read: reading it stopped before the end"
 
 msgid "engine.read.sandbox_refused"
-msgstr "Vextrus could not read this file: it stopped rather than read it without its usual safeguards. This is a fault on Vextrus's side, not in your file. Mark the file for Vextrus."
+msgstr "Vextrus stopped before reading this file because its usual safeguards were not in place. This is a fault on Vextrus's side, not in your file. Mark the file for Vextrus."
 
 msgid "engine.read.sandbox_unavailable"
 msgstr "Vextrus could not read this file: the safeguards it reads drawings under are not working. This is a fault on Vextrus's side, not in your file. Mark the file for Vextrus."

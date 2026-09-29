@@ -79,12 +79,6 @@ rule = "engine term"
 term = "readers"
 reason = "The Check's name in 4.5's words (\"two readers agree\", m0-screens 4.5 and 6.2's \"… 40 sheets, two readers agree\")."
 
-[[allow]]
-msgid = "drawings.reads.bad_reader"
-rule = "engine term"
-term = "reader"
-reason = "4.5's word for the two readers (6.17), in a fault on Vextrus's side that tells the QS to mark the file for Vextrus."
-
 # "Add it again" where the file was not kept, or where the QS changes it first: m0-screens 4.5 refuses
 # only the same file, already kept, added again.
 
