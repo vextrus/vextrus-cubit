@@ -10,15 +10,20 @@ writes, beside this file:
   block, and a mirrored insert inside a rotated one;
 - `lineweight-ramp.bin`: an A5 sheet of AutoCAD's lineweights from 0.09 mm to 1.0 mm, one 190 mm
   line each, 8 mm apart;
-- their engine rasters at the densities in `IMAGES` (`<name>@<px_per_mm>.png`).
+- their engine rasters at the densities in `IMAGES` (`<name>@<px_per_mm>.png`);
+- tiny-sheet's parts drawn alone at the harness's 4 px/mm (`PARTS`): its text with no lines or fills
+  (`tiny-sheet-text@4.png`) and its fills with no lines or text (`tiny-sheet-fills@4.png`).
 
 The viewer's tests (16) decode the `.bin` files and compare what WebGL draws with the PNGs; 18's F1
-scores against the same raster. `engine/render/tests/test_fixtures.py` fails when the committed files
+scores against the same raster. The parts are 122's per-pixel check (web/src/sheet/pixels.fixture.ts):
+glyphs and fill triangles are too small a share of the whole sheet's ink for a block mean to see some
+dropped, so each is compared alone. `engine/render/tests/test_fixtures.py` fails when the committed files
 no longer match what this module makes, so they cannot drift from the code. Invented; no real drawing.
 """
 
 import math
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 from engine.read.artefact import ReadArtefact
@@ -47,6 +52,9 @@ LINEWEIGHTS = (
 )
 IMAGES = {"tiny-sheet": (4.0, 8.0), "lineweight-ramp": (4.0, 16.0)}
 """Each fixture's raster densities: the harness's 4 px/mm, and one closer in (the ramp at 4x)."""
+PARTS = {"text": "glyphs", "fills": "triangles"}
+"""tiny-sheet's parts drawn alone, each by the one kind of record it keeps (and no lines)."""
+PART_DENSITY = 4.0
 
 
 def _rectangle(x0: float, y0: float, x1: float, y1: float) -> list[list[float]]:
@@ -119,6 +127,17 @@ def make(name: str) -> buffers.SheetBuffers:
     return buffers.build(artefact, sheet)
 
 
+def part(built: buffers.SheetBuffers, name: str) -> buffers.SheetBuffers:
+    """`built` keeping only the records of one of `PARTS`: no lines, and none of the other part's."""
+    keep = PARTS[name]
+    return replace(
+        built,
+        lines=built.lines[:0],
+        triangles=built.triangles if keep == "triangles" else built.triangles[:0],
+        glyphs=built.glyphs if keep == "glyphs" else built.glyphs[:0],
+    )
+
+
 def main(folder: Path = HERE) -> None:
     for name in FIXTURES:
         built = make(name)
@@ -126,6 +145,10 @@ def main(folder: Path = HERE) -> None:
         for density in IMAGES[name]:
             image = raster.rasterise(built, density)
             (folder / f"{name}@{density:g}.png").write_bytes(image.to_png())
+    tiny = make("tiny-sheet")
+    for name in PARTS:
+        image = raster.rasterise(part(tiny, name), PART_DENSITY)
+        (folder / f"tiny-sheet-{name}@{PART_DENSITY:g}.png").write_bytes(image.to_png())
 
 
 if __name__ == "__main__":

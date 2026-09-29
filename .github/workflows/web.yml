@@ -96,6 +96,12 @@ jobs:
         run: uv run python -m tools.lint.words
       - name: Vitest (node and Chromium)
         run: npm test
+      # The in-memory API slowed (#134): every FakeApi answer waits this long, so a test that reads an
+      # answer before awaiting it fails here at once instead of now and then on a slow runner.
+      - name: Vitest with the fake API slowed (60 ms an answer)
+        env:
+          VITE_FAKE_API_LATENCY_MS: "60"
+        run: npm test
       - name: Build (fails if the specimen or the pseudo language ships)
         run: npm run build
 
