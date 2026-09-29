@@ -505,3 +505,42 @@ describe("21a's reading_started among several files (review round 2, addendum)",
     expect(bodyText()).toContain('KR-STR-R0.dwg is already in this Drawing Set, so nothing was added. Its reading has started.')
   })
 })
+
+describe('review round 3', () => {
+  it('never says "Nothing was added" of a gone page\'s file that may be here', async () => {
+    const api = new FakeApi()
+    const kr = new FakeDrawingSet(api, 'KR-01')
+    new FakeDrawingSet(api, 'BP-02')
+    kr.files.push(file({ name: 'KR-STR-R0.dwg', state: 'read', status: msg('drawings.files.read') }))
+    let release = () => {}
+    const gate = new Promise<void>((r) => (release = r))
+    const inner = api.handle
+    api.handle = async (request: Request) => {
+      if (request.method === 'POST' && new URL(request.url, location.origin).pathname.endsWith('/files')) {
+        await gate
+        return new Response('<html>proxy</html>', { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      return inner(request)
+    }
+    const app = await mountApp('/p/KR-01/drawing-set', { as: PEOPLE.qs, api })
+    await screen.findByRole('heading', { name: 'Drawing Set' })
+    await waitFor(() => rowOf('KR-STR-R0.dwg'))
+    await userEvent.upload(document.querySelector<HTMLInputElement>('input[type="file"]')!, [new File([new Uint8Array([0x41])], 'KR-MEP-R0.dwg')])
+    await app.router.navigate({ to: '/p/$code/takeoff/$step', params: { code: 'BP-02', step: '1' } })
+    release()
+    await waitFor(() => expect(bodyText()).toContain('Kadam Residence’s Drawing Set: Open it to see why.'))
+    expect(bodyText()).not.toContain('Nothing was added')
+  })
+
+  it("gives the Discipline select its whole name as a tooltip", async () => {
+    const { api, set } = drawingSet()
+    set.files.push(
+      file({ name: 'KR-PLB-R0.dwg', discipline: 'plumbing', state: 'read', status: msg('drawings.files.read') }),
+      file({ name: 'KR-XXX-R0.dwg', discipline: null, state: 'read', status: msg('drawings.files.read') }),
+    )
+    await open(api)
+    await waitFor(() => rowOf('KR-PLB-R0.dwg'))
+    expect(within(rowOf('KR-PLB-R0.dwg')).getByRole('combobox')).toHaveAttribute('title', 'Plumbing and sanitary')
+    expect(within(rowOf('KR-XXX-R0.dwg')).getByRole('combobox')).toHaveAttribute('title', 'Choose a Discipline')
+  })
+})

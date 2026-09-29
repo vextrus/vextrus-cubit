@@ -33,9 +33,13 @@ export function DisciplineSelect({
 }) {
   const { t, i18n } = useLingui()
   const known = value !== null && disciplines.some((d) => d.key === value)
+  const chosen = disciplines.find((d) => d.key === value)
+  const placeholder = t`Choose a Discipline`
   return (
     <select
       aria-label={t`Discipline of ${fileName}`}
+      // Narrowed beside the report, the select may cut its name: the whole name is its tooltip.
+      title={chosen ? disciplineName(chosen, i18n.locale) : placeholder}
       value={known ? value : ''}
       disabled={disabled}
       onChange={(event) => {
@@ -50,7 +54,7 @@ export function DisciplineSelect({
     >
       {known ? null : (
         <option value="" disabled>
-          {t`Choose a Discipline`}
+          {placeholder}
         </option>
       )}
       {disciplines.map((d) => (

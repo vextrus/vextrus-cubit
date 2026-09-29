@@ -43,6 +43,10 @@ msgstr "First file"
 msgid "Read again"
 msgstr "Read again"
 
+#: src/drawing-set/DrawingSetPage.tsx
+msgid "{projectName}’s Drawing Set: Open it to see why."
+msgstr "{projectName}’s Drawing Set: Open it to see why."
+
 #: src/drawing-set/ReportPanel.tsx
 msgid "Made by {scanProducer}, not AutoCAD."
 msgstr "Made by {scanProducer}, not AutoCAD."

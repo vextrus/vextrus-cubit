@@ -597,8 +597,17 @@ export function DrawingSetView({ project }: { project: ProjectSummary }) {
     // The page is gone: a one-line toast naming the project; why each file was not added waits for that
     // project's Drawing Set to open again, as its bars (a toast of reasons spills and vanishes).
     hold(queryClient, project.id, current, said)
-    const count = added + already + replaced > 0 ? severalAdded(added, already, replaced, notAdded) : t`Nothing was added.`
-    toast.show({ message: said.length ? t`${projectName}’s Drawing Set: ${count} Open it to see why.` : t`${projectName}’s Drawing Set: ${count}` })
+    // "Nothing was added" only when every answer says so for certain: an answer that could not be read,
+    // or a file already here whose reading could not start, is no "nothing" (its bar says which).
+    const surelyNothing = said.every((r) => surelyNotAdded(r.problem))
+    const count = added + already + replaced > 0 ? severalAdded(added, already, replaced, notAdded) : surelyNothing ? t`Nothing was added.` : null
+    const message =
+      count === null
+        ? t`${projectName}’s Drawing Set: Open it to see why.`
+        : said.length
+          ? t`${projectName}’s Drawing Set: ${count} Open it to see why.`
+          : t`${projectName}’s Drawing Set: ${count}`
+    toast.show({ message })
   }
 
   const refuseReadOnly = useReadOnlyToast()
