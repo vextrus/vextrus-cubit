@@ -258,6 +258,12 @@ class SheetCandidate:
     anchors: tuple[Anchor, ...] = ()
     group: Group | None = None
 
+    @property
+    def blank(self) -> bool:
+        """Proposed out as blank (a stale layout): its title block's values are shown, never compared,
+        matched or listed as a live sheet's (13's docstring)."""
+        return self.exclusion is not None and self.exclusion.reason == ExclusionReason.BLANK
+
     def __post_init__(self) -> None:
         _is(self.location, SheetLocation, "a sheet's location")
         for name in (

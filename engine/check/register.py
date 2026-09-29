@@ -207,7 +207,7 @@ def _result(subject: SheetCandidate | RegisterEntry | None, finding: Message | N
 
 def _printed(sheet: SheetCandidate) -> str | None:
     """A sheet's number as printed, when it has one that is not only format characters."""
-    if sheet.number is None or normal(sheet.number.value) is None:
+    if sheet.blank or sheet.number is None or normal(sheet.number.value) is None:
         return None
     return sheet.number.value
 

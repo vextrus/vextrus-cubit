@@ -199,8 +199,8 @@ def compare(
     Discipline's prefixes (none: no prefix is a Discipline's own)."""
     given(sheets, views)
     reader = _Reader(recognisers, Numbers(conventions, recognisers))
-    numbers = [reader.key(sheet) for sheet in sheets]
-    titles = [_normal(sheet.title) for sheet in sheets]
+    numbers = [None if sheet.blank else reader.key(sheet) for sheet in sheets]
+    titles = [None if sheet.blank else _normal(sheet.title) for sheet in sheets]
     places = _Places(len(sheets))  # where a sheet lies for `same_storey`: copies and runs are one
 
     by_number: list[tuple[int, Conflict]] = []

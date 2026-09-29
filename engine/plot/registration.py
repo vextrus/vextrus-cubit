@@ -84,7 +84,7 @@ def match(
     one."""
     by_number: dict[str, list[int]] = {}
     for i, sheet in enumerate(sheets):
-        key = normal(sheet.number.value) if sheet.number is not None else None
+        key = normal(sheet.number.value) if sheet.number is not None and not sheet.blank else None
         if key is not None:
             by_number.setdefault(key, []).append(i)
     found = []

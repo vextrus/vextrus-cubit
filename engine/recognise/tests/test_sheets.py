@@ -455,9 +455,9 @@ def test_a_layout_whose_viewport_shows_model_space_is_a_sheet_read_from_its_titl
     assert sheet.anchors[0].sheet == "S-101"
 
 
-def test_a_layout_whose_viewports_show_nothing_is_proposed_out_as_blank_with_no_value() -> None:
+def test_a_layout_whose_viewports_show_nothing_is_proposed_out_as_blank_with_its_values_shown() -> None:
     """A stale layout: a template's title block over an empty region of model space is proposed out
-    as blank, carrying none of the template's values (the QS review, Q7)."""
+    as blank; its values are read as it states them, for the QS to see (Q7 as session 07 rules)."""
     d = Sheets()
     for i in range(5):
         d.line((10 * i, 0), (10 * i, 100))
@@ -474,7 +474,10 @@ def test_a_layout_whose_viewports_show_nothing_is_proposed_out_as_blank_with_no_
     (sheet,) = result.sheets
     assert sheet.location.layout == "Layout9"
     assert sheet.exclusion == Exclusion(ExclusionReason.BLANK)
-    assert (sheet.number, sheet.title, sheet.issue_date) == (None, None, None)
+    assert sheet.blank
+    assert sheet.number == Sourced("01", ValueSource.TITLE_BLOCK_TEXT)
+    assert sheet.title == Sourced("APPROVAL DRAWING", ValueSource.TITLE_BLOCK_TEXT)
+    assert sheet.discipline == Sourced("electrical", ValueSource.FILE)
     assert result.counts["layout_blank"] == 1
 
 

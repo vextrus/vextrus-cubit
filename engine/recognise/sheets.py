@@ -20,8 +20,10 @@
   when it draws a title block and more in paper space. AutoCAD's own main viewport is left out by the
   renderer's rule (`buffers.is_main_viewport`), and a viewport's region is found as the renderer finds
   it (`buffers.viewport_window`). **A layout whose viewports show nothing is not a sheet:** it is
-  dropped, or, where it carries a title block, proposed out as `blank`, with no value read from it
-  (a stale layout's title block is a template's; the QS review, Q7), the first such layout of a file
+  dropped, or, where it carries a title block, proposed out as `blank`: its title block's values are
+  read and exported as it states them, and the sheet stays out (a stale layout's title block is a
+  template's, so the QS never confirms it, and no Conflict, Plot match or register Check compares it:
+  the QS review's Q7, as the orchestrator's session-07 ruling amends it), the first such layout of a file
   only, the rest counted (review round 1: 5,000 stale tabs were 5,000 rows); one with no viewport of
   its own that draws only a title block is a template's tab, and dropped. Nothing is told empty on a
   guess: a titled layout with a viewport whose region cannot be read (a value lost or of no size, or
@@ -87,7 +89,7 @@ import unicodedata
 from array import array
 from collections import Counter
 from collections.abc import Iterable, Iterator, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from functools import cache
 from pathlib import Path, PureWindowsPath
 from typing import Any
@@ -1270,13 +1272,15 @@ class _Segmenter:
         if titled:
             self.blank_proposed = True
             self.counts["layout_blank"] += 1
-            first = paper.frames[0].handle if paper and paper.frames else entities[0].handle
+            if paper is not None:  # its title block's values, read and shown; never proposed
+                read = _Reader(self, paper).layout_sheet(name, entities)
+                return replace(read, exclusion=Exclusion(ExclusionReason.BLANK)), []
             return (
                 SheetCandidate(
                     SheetLocation(layout=name),
                     discipline=self._discipline(None),
                     exclusion=Exclusion(ExclusionReason.BLANK),
-                    anchors=(self.anchor(name, (), first),),
+                    anchors=(self.anchor(name, (), entities[0].handle),),
                 ),
                 [],
             )

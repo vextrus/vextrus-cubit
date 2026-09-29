@@ -32,6 +32,8 @@ from engine.recognise.types import (
     Conflict,
     Continuation,
     DisciplineConvention,
+    Exclusion,
+    ExclusionReason,
     Layer,
     SheetCandidate,
     SheetConventions,
@@ -83,6 +85,19 @@ def test_two_sheets_with_one_number_are_one_conflict_naming_both_with_the_number
     assert same(conflict.candidates, [rev_b, rev_a])
     assert conflict.evidence == {"number": "S-07", "copies": 2}
     assert codes.SAME_NUMBER(**conflict.evidence)["code"] == "engine.conflicts.same_number"
+
+
+def test_a_blank_layout_s_values_are_shown_but_never_compared() -> None:
+    """A stale layout proposed out as blank shows its title block's "01" (13), and raises no
+    Conflict or Continuation with the live sheet it would otherwise clash with."""
+    blank = sheet("S-07", "Slab", exclusion=Exclusion(ExclusionReason.BLANK))
+    live = sheet("S-07", "Slab")
+    other = sheet("S-10", "Stair")
+
+    assert blank.blank
+    assert not live.blank
+    assert run([blank, live, other]) == []
+    assert conflicts_of(run([sheet("S-07"), live]))  # the same pair, live, is one
 
 
 def test_numbers_are_compared_in_one_normal_form() -> None:

@@ -55,7 +55,7 @@ def check(reading: SetReading, *, recognisers: Recognisers) -> list[CheckResult]
         results.append(_result(match, None))
     for sheet in reading.sheets:
         number = sheet.number
-        if sheet.discipline is None or number is None or normal(number.value) is None:
+        if sheet.blank or sheet.discipline is None or number is None or normal(number.value) is None:
             continue
         if (str(sheet.group), sheet.discipline.value) not in plotted:
             continue

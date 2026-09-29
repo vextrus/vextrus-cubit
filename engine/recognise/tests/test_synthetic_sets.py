@@ -94,7 +94,10 @@ def test_set_b_frames_in_model_space_are_read_with_its_own_conventions(sets: dic
     assert [s.location.layout for s in blank] == ["Layout1"]
     assert blank[0].exclusion is not None
     assert blank[0].exclusion.reason == ExclusionReason.BLANK
-    assert blank[0].number is None
+    assert (
+        blank[0].number is not None
+    )  # a blank shows its values; it stays out (Q7 as ruled in session 07)
+    assert blank[0].blank
     numbers = sorted(s.number.value for s in framed if s.number)
     assert numbers == ["B-01", "B-02", "B-03", "B-04", "B-05"]
     titles = {s.number.value: s.title.value for s in framed if s.number and s.title}
