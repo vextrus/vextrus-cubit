@@ -3,6 +3,7 @@ subject and layer, and what it is proposed for.
 
     views.find(artefact, sheet, conventions) -> list[ViewCandidate]   (the harness's `views` stage)
     views.working_view(views) -> int | None                            (16's and 22's fit)
+    views.subjects(text, conventions=None) -> frozenset[str]             (19b's continuations)
     views.default_conventions() -> ViewConventions
 
 `conventions` are view conventions (`engine/recognise/conventions/view-default.json` by default: the
@@ -22,13 +23,18 @@ drawn as a rectangle or a scale giving no paper size, the one that makes the fra
 
 **How views are found.** The sheet's lines and texts are laid on a grid of `CELL_MM` cells over its
 paper, grown by `GAP_MM` so that what is drawn closer than that joins, and split into connected pieces.
+These sizes, `MIN_VIEW_MM` and `JOIN_MM` are an A1 sheet's (`REFERENCE_MM` long), scaled to the sheet's
+paper, so a frame whose paper is read too small or too large is split alike (a frame block drawn at a
+fraction of its plotted size: the real sets' frames give papers of 130 to 420 mm plotted on A3 and A1).
 A **view title** is a text of one line and at most `MAX_TITLE_WORDS` words holding a kind's words (the
 kind listed first in the conventions wins where several are named: "TYPICAL BEAM SECTION DETAIL" is a
 detail), not in the title block, and at least as tall as the sheet's median text; titles and scale texts
 stay off the grid. Each title takes the piece it lies under (a drawing titled beneath, the convention),
 else the piece it lies over, within `TITLE_GAP` of its height, nearest first, one title a piece. A piece
-with no title is a view when it covers `MIN_UNTITLED` of the paper (a plan, or notes when text fills
-more of it than lines); a smaller one joins the view whose box, grown by `JOIN_MM`, holds it. A view's
+with no title is a view when it covers `MIN_UNTITLED` of the paper (of the kind its sheet's title names,
+else a plan; notes when text fills more of it than lines); a smaller one joins the view whose box,
+grown by `JOIN_MM`, holds it. Straight lines along the paper's axes of `DIVIDER_SHARE` of its side or
+longer (borders, dividers between rows of details) stay off the grid. A view's
 box is its piece, its title and its scale text together. **Reading order** is by rows, top to bottom
 (views whose heights overlap by half are one row), each left to right.
 
@@ -105,6 +111,8 @@ from engine.render.buffers import is_main_viewport, viewport_transform
 
 DEFAULT_CONVENTIONS = Path(__file__).with_name("conventions") / "view-default.json"
 
+REFERENCE_MM = 841.0
+"""The long side of the paper the sizes below are given for (A1)."""
 CELL_MM = 2.0
 """The grid's cell on paper, in mm (larger on a paper past `MAX_GRID` cells a side)."""
 GAP_MM = 8.0
@@ -119,8 +127,9 @@ MIN_UNTITLED = 0.02
 """A piece with no title is a view when its box covers this share of the paper."""
 JOIN_MM = 10.0
 """A small piece joins a view whose box, grown by this on paper, in mm, holds it."""
-BORDER_SHARE = 0.6
-"""A closed rectangle this share of the paper or more, both ways, is a border, not a drawing."""
+DIVIDER_SHARE = 0.6
+"""A straight line along the paper's axes this share of the paper's side or longer is a border or a
+divider between views (the real sets rule rows of details apart), never a view's drawing."""
 
 MAX_VISITS = 4_000_000
 MAX_SEGMENTS = 3_000_000
@@ -579,9 +588,10 @@ def _pieces(paper: _Paper, texts: Sequence[_Text], held: Iterable[int]) -> list[
     width, height = rx1 - rx0, ry1 - ry0
     if not (width > 0 and height > 0):
         return []
-    cell = max(CELL_MM, max(width, height) / MAX_GRID)
+    k = max(width, height) / REFERENCE_MM
+    cell = max(CELL_MM * k, max(width, height) / MAX_GRID)
     nx, ny = int(width / cell) + 1, int(height / cell) + 1
-    segments = _clip(paper.segments, paper.region)
+    segments = _dividers_out(_clip(paper.segments, paper.region), width, height)
     points_x: list[NDArray[np.float64]] = []
     points_y: list[NDArray[np.float64]] = []
     kinds: list[NDArray[np.int8]] = []
@@ -617,7 +627,7 @@ def _pieces(paper: _Paper, texts: Sequence[_Text], held: Iterable[int]) -> list[
     cy = np.clip(((ys - ry0) / cell).astype(np.int64), 0, ny - 1)
     grid = np.zeros((ny, nx), dtype=bool)
     grid[cy, cx] = True
-    grown = _grow(grid, max(1, math.ceil(GAP_MM / 2 / cell)))
+    grown = _grow(grid, max(1, math.ceil(GAP_MM * k / 2 / cell)))
     labels, count = _label(grown)
     if not count:
         return []
@@ -646,6 +656,17 @@ def _pieces(paper: _Paper, texts: Sequence[_Text], held: Iterable[int]) -> list[
         for k in range(count)
         if math.isfinite(lo_x[k])
     ]
+
+
+def _dividers_out(segments: NDArray[np.float64], width: float, height: float) -> NDArray[np.float64]:
+    """The segments without borders and dividers (`DIVIDER_SHARE`)."""
+    if not len(segments):
+        return segments
+    dx = np.abs(segments[:, 2] - segments[:, 0])
+    dy = np.abs(segments[:, 3] - segments[:, 1])
+    across = (dx >= DIVIDER_SHARE * width) & (dy <= 0.01 * dx)
+    down = (dy >= DIVIDER_SHARE * height) & (dx <= 0.01 * dy)
+    return segments[~(across | down)]
 
 
 def _grow(grid: NDArray[np.bool_], r: int) -> NDArray[np.bool_]:
@@ -780,6 +801,12 @@ def _subject(text: str, reading: _Reading) -> str | None:
     return found[0][2] if found else None
 
 
+def subjects(text: str, conventions: ViewConventions | None = None) -> frozenset[str]:
+    """Every subject a text names by the conventions' subject words (19b's continuations, #102)."""
+    reading = _reading(conventions if conventions is not None else default_conventions())
+    return frozenset(key for _, _, key in reading.subjects.matches(_tokens(text)))
+
+
 def _layer(text: str, reading: _Reading) -> Layer | None:
     tokens = _tokens(text)
     for _, end, key in reading.layers.matches(tokens):
@@ -813,12 +840,13 @@ def find(
     paper = _paper(artefact, sheet)
     if paper is None:
         return []
-    found = _views(paper, reading)
+    fallback = _kind(sheet.title.value, reading) if sheet.title is not None else None
+    found = _views(paper, reading, fallback or ViewKind.PLAN)
     discipline = sheet.discipline.value if sheet.discipline is not None else None
     return [_candidate(v, paper, reading, discipline) for v in _in_reading_order(found)]
 
 
-def _views(paper: _Paper, reading: _Reading) -> list[_View]:
+def _views(paper: _Paper, reading: _Reading, untitled: ViewKind) -> list[_View]:
     texts = paper.texts
     heights = [t.height for t in texts if t.height > 0]
     tall = median(heights) if heights else 0.0
@@ -846,6 +874,7 @@ def _views(paper: _Paper, reading: _Reading) -> list[_View]:
     pieces = _pieces(paper, texts, (i for i in range(len(texts)) if i not in off_grid))
     rx0, ry0, rx1, ry1 = paper.region
     paper_area = (rx1 - rx0) * (ry1 - ry0)
+    k = max(rx1 - rx0, ry1 - ry0) / REFERENCE_MM
 
     pairs: list[tuple[float, int, int]] = []
     for ti in titles:
@@ -854,7 +883,7 @@ def _views(paper: _Paper, reading: _Reading) -> list[_View]:
         h = max(t.height, 1e-9)
         for k, piece in enumerate(pieces):
             px0, py0, px1, py1 = piece.box
-            if max(px1 - px0, py1 - py0) < MIN_VIEW_MM or px0 > x1 or px1 < x0:
+            if max(px1 - px0, py1 - py0) < MIN_VIEW_MM * k or px0 > x1 or px1 < x0:
                 continue
             below = (py0 - y1) / h  # the drawing above its title
             above = (y0 - py1) / h  # the drawing under its title
@@ -884,12 +913,12 @@ def _views(paper: _Paper, reading: _Reading) -> list[_View]:
         if k in by_piece:
             continue
         if piece.area >= MIN_UNTITLED * paper_area and len(views) < MAX_VIEWS:
-            kind = ViewKind.NOTES if piece.words > piece.lines else ViewKind.PLAN
+            kind = ViewKind.NOTES if piece.words > piece.lines else untitled
             views.append(_View(piece, None, kind, piece.box))
     for k, piece in enumerate(pieces):
         if k in by_piece or any(v.piece is piece for v in views):
             continue
-        holders = [v for v in views if _holds(_grown(v.box, JOIN_MM), piece.box)]
+        holders = [v for v in views if _holds(_grown(v.box, JOIN_MM * k), piece.box)]
         if holders:
             smallest = min(holders, key=lambda v: _area(v.box))
             smallest.box = _union(smallest.box, piece.box)

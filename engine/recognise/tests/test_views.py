@@ -281,7 +281,7 @@ def test_the_grid_is_bounded_however_large_the_paper() -> None:
 
 def test_the_points_laid_on_the_grid_are_bounded(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(views, "MAX_SAMPLES", 1000)
-    segments = np.array([[0.0, float(y), 800.0, float(y)] for y in range(0, 500, 5)])
+    segments = np.array([[0.0, float(y), 400.0, float(y)] for y in range(0, 500, 5)])
     paper = views._Paper((0.0, 0.0, 841.0, 594.0), segments, [])
     assert views._pieces(paper, [], ())
 
@@ -319,3 +319,24 @@ def test_the_frame_rectangle_is_read_at_every_scale() -> None:
         (found,) = views.find(d.artefact(), sheet, CONVENTIONS)
         assert near(found.box, (40, 288, 340, 560)), (scale, found.box)
         assert math.isclose(found.box.x1 - found.box.x0, 300, abs_tol=2)
+
+
+def test_a_divider_between_rows_of_views_joins_nothing() -> None:
+    """A line ruled across the sheet between two rows of details: the rows stay two views each."""
+    d, sheet = model_sheet(
+        [
+            ("SECTION 1-1", (40, 330, 300, 560)),
+            ("SECTION 2-2", (400, 330, 640, 560)),
+            ("SECTION 3-3", (40, 60, 300, 280)),
+        ]
+    )
+    d.line((10_000.0 + 20 * 50, 284 * 50), (10_000.0 + 660 * 50, 284 * 50))  # 640 mm, 4 mm off a view
+    found = views.find(d.artefact(), sheet, CONVENTIONS)
+    assert [v.title for v in found] == ["SECTION 1-1", "SECTION 2-2", "SECTION 3-3"]
+    assert near(found[2].box, (40, 48, 300, 280))
+
+
+def test_a_view_with_no_title_takes_the_kind_its_sheet_title_names() -> None:
+    d, sheet = model_sheet([(None, (40, 300, 340, 560))], title="COLUMN SCHEDULE")
+    (found,) = views.find(d.artefact(), sheet, CONVENTIONS)
+    assert found.kind is ViewKind.SCHEDULE

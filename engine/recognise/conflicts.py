@@ -510,30 +510,21 @@ def contradicted(
     sheet: SheetCandidate, views: Sequence[ViewCandidate], conventions: SheetConventions | None
 ) -> bool:
     """Whether the sheet's views contradict its title block (#102: a title block copied from the sheet
-    before and never edited): it has titled views, and not one of their titles shares a word with the
-    sheet's title. A word is three letters or more, in normal form, a final "s" dropped; the
-    conventions' plan and floor words are no evidence (every plan title holds them). A sheet with no
-    title or no titled view is never contradicted: nothing was read to contradict it."""
-    title = _words(sheet.title.value if sheet.title is not None else "", conventions)
-    if not title:
+    before and never edited): its title names a subject (17's view conventions' subject words:
+    `views.subjects`), its views' titles name subjects, and not one of them is one its title names
+    ("COLUMN SCHEDULE" over "PILE CAP DETAILS"). A title or views naming no subject ("SECTION 5Y-5Y")
+    are no evidence: a continuation's later sheets often carry only their sections' marks (the real
+    sets: every such pair was a true continuation). A sheet with no title or no view read is never
+    contradicted. `conventions` are the sheets'; the subject words are 17's default."""
+    from engine.recognise.views import subjects  # 17's, imported where it is used
+
+    if sheet.title is None:
         return False
-    titled = [words for v in views if (words := _words(v.title or "", conventions))]
-    return bool(titled) and not any(words & title for words in titled)
-
-
-def _words(text: str, conventions: SheetConventions | None) -> frozenset[str]:
-    common = (
-        frozenset()
-        if conventions is None
-        else frozenset(_stem(w) for w in (*conventions.plan_words, *conventions.floor_words))
-    )
-    words = "".join(c if c.isalpha() else " " for c in normal(text) or "").split()
-    return frozenset(w for w in map(_stem, words) if len(w) >= 3 and w not in common)
-
-
-def _stem(word: str) -> str:
-    word = normal(word) or ""
-    return word[:-1] if len(word) > 3 and word.endswith("s") else word
+    named = subjects(sheet.title.value)
+    if not named:
+        return False
+    drawn = [found for v in views if v.title and (found := subjects(v.title))]
+    return bool(drawn) and not any(found & named for found in drawn)
 
 
 PART_DIGITS = 6
