@@ -19,11 +19,11 @@ SHEETS_FOUND_DRAWN = MessageCode("drawings.reports.sheets_found_drawn", params=(
 SHEETS_FOUND_LAYOUTS = MessageCode("drawings.reports.sheets_found_layouts", params=("sheets",))
 """Every sheet found is on a layout tab."""
 EMPTY_LAYOUTS = MessageCode("drawings.reports.empty_layouts", params=("layouts",))
+"""Layout tabs whose viewports show nothing: never counted as sheets."""
 SHEETS_NOT_KEPT = MessageCode("drawings.reports.sheets_not_kept", params=("sheets",))
 """Sheets the reading found and Vextrus did not keep: a text on each is longer than its column."""
 VIEWS_NOT_KEPT = MessageCode("drawings.reports.views_not_kept", params=("views",))
 """As SHEETS_NOT_KEPT, for views."""
-"""Layout tabs whose viewports show nothing: never counted as sheets."""
 NO_SHEETS = MessageCode("drawings.reports.no_sheets")
 PLOT_OF_DWG = MessageCode("drawings.reports.plot_of_dwg", params=("plot_file", "with_page", "sheets"))
 """One PDF plotted from this file: how many of its sheets have a page in it."""

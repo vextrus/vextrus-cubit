@@ -14,25 +14,25 @@ msgid "drawings.reads.bad_render"
 msgstr "Vextrus could not keep its drawing of a sheet of {file}: it was not complete. This is a fault on Vextrus's side, not in your file. Mark the file for Vextrus."
 
 msgid "drawings.reads.decided"
-msgstr "Reading {file} again would have changed a sheet or view already confirmed or left out in Step 1, so nothing was changed. Mark it for Vextrus."
+msgstr "Reading {file} again would have changed a sheet or view already confirmed or left out in Step 1, so nothing was changed. Mark the file for Vextrus."
 
 msgid "drawings.reads.kind_unknown"
-msgstr "Vextrus could not keep what it read from {file}: it gave a sheet a kind Vextrus does not offer. This is a fault on Vextrus's side, not in your file. Mark the file for Vextrus."
+msgstr "Vextrus could not keep what it read from {file}: the reading gave a sheet or a view a kind Vextrus does not offer. This is a fault on Vextrus's side, not in your file. Mark the file for Vextrus."
 
 msgid "drawings.reads.no_reading"
 msgstr "Vextrus could not keep the views of a sheet of {file}: the file's reading had not been kept yet. This is a fault on Vextrus's side, not in your file. Mark the file for Vextrus."
 
 msgid "drawings.reads.not_its_reading"
-msgstr "Vextrus could not keep what it read from {file}: part of it came from another file. This is a fault on Vextrus's side, not in your file. Mark it for Vextrus."
+msgstr "Vextrus could not keep what it read from {file}: part of it came from another file. This is a fault on Vextrus's side, not in your file. Mark the file for Vextrus."
 
 msgid "drawings.reads.raw_codes"
-msgstr "Vextrus could not keep what it read from {file}: some drawing text was not turned into plain words. This is a fault on Vextrus's side, not in your file. Mark it for Vextrus."
+msgstr "Vextrus could not keep what it read from {file}: some drawing text was not turned into plain words. This is a fault on Vextrus's side, not in your file. Mark the file for Vextrus."
 
 msgid "drawings.reads.unknown_discipline"
-msgstr "Vextrus could not keep what it read from {file}: it named a Discipline Vextrus does not offer here. This is a fault on Vextrus's side, not in your file. Mark it for Vextrus."
+msgstr "Vextrus could not keep what it read from {file}: it named a Discipline Vextrus does not offer here. This is a fault on Vextrus's side, not in your file. Mark the file for Vextrus."
 
 msgid "drawings.reads.wrong_group"
-msgstr "Vextrus could not keep what it read from {file}: a sheet was filed in the wrong place. This is a fault on Vextrus's side, not in your file. Mark it for Vextrus."
+msgstr "Vextrus could not keep what it read from {file}: a sheet was filed in the wrong place. This is a fault on Vextrus's side, not in your file. Mark the file for Vextrus."
 
 msgid "drawings.reads.wrong_kind"
-msgstr "Vextrus could not keep what it read from {file}: it was read as the wrong kind of file. This is a fault on Vextrus's side, not in your file. Mark it for Vextrus."
+msgstr "Vextrus could not keep what it read from {file}: it was read as the wrong kind of file. This is a fault on Vextrus's side, not in your file. Mark the file for Vextrus."

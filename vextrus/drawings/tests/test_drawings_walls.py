@@ -948,7 +948,7 @@ def test_an_id_used_by_one_developer_is_never_used_by_another(
         theirs = projects.create(code="TH-9", name="Theirs")
     their_file = add(stranger, theirs.id, "T.dwg", drawing("dwg")).file
     [their_printed] = read_dwg(stranger, their_file.id, ["S-01"])
-    with stranger.acting(), refused("drawings_usedid_pkey", USED_BEFORE):
+    with stranger.acting(), refused("drawings_usedid_once", USED_BEFORE):
         sql(VIEW, [view, stranger.developer_id, their_printed.id, None, None])
 
 

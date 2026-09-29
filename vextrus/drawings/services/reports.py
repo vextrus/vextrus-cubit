@@ -106,7 +106,8 @@ def _sheets(row: DrawingFile) -> list[Message]:
     total = sum(places.values())
     lines = []
     if total == 0:
-        lines.append(said.NO_SHEETS())
+        if not row.sheets_refused:  # found, and none kept: its own line says so
+            lines.append(said.NO_SHEETS())
     elif places["layout"] and places["drawn"]:
         lines.append(said.SHEETS_FOUND(sheets=total, drawn=places["drawn"], layouts=places["layout"]))
     elif places["layout"]:

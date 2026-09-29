@@ -27,6 +27,7 @@ still holding `%%`, `\\P`, `\\f`, `\\S`, `^J` or `{\\` is refused. A render must
 """
 
 import hashlib
+import json
 import re
 import uuid
 from collections.abc import Sequence
@@ -178,23 +179,22 @@ def record_sheets(
             _decoded(name, *_sheet_words(candidate))
         _default_discipline(row, candidates, market)
         _access.lock("sheets", row.drawing_set_id)
-        read_places = [repr((c.location.layout, c.location.box)) for c in candidates]
-        if len(set(read_places)) != len(read_places):
+        places = [_location_key(c.location) for c in candidates]
+        if len(set(places)) != len(places):
             raise auth.Refused(refusal.NOT_ITS_READING(file=name), status=400)
-        # A sheet a text of which is past its column is not kept, alone; so is one whose place,
-        # cleaned, is another's. Each kept sheet's ordinal is its candidate's place in `candidates`.
-        places: dict[str, int] = {}
+        # A sheet a text of which is past its column is not kept, alone; each kept sheet's ordinal is
+        # its candidate's place in `candidates`.
+        kept_places = set()
         recorded = []
-        for ordinal, candidate in enumerate(candidates, start=1):
+        for ordinal, (candidate, place) in enumerate(zip(candidates, places, strict=True), start=1):
             texts = _sheet_texts(candidate)
-            place = _location_key(candidate.location, texts.layout)
-            if not texts.fits or place in places:
+            if not texts.fits:
                 continue
-            places[place] = ordinal
+            kept_places.add(place)
             recorded.append(
                 _keep_sheet(row, kept.reader_version, candidate, texts, place, ordinal, market)
             )
-        _drop_stale(row, set(places))
+        _drop_stale(row, kept_places)
         row.sheets_total = len(recorded)
         row.sheets_refused = len(candidates) - len(recorded)
         row.empty_layouts = max(0, int(empty_layouts))
@@ -284,10 +284,11 @@ def _default_discipline(
     row.save(update_fields=["discipline", "discipline_source", "revision"])
 
 
-def _location_key(location: SheetLocation, layout: str | None) -> str:
-    """Its place as one text (`layout`: its layout's name as kept, `_text.read`)."""
-    if layout is not None:
-        return reads.canonical({"layout": layout}).decode()
+def _location_key(location: SheetLocation) -> str:
+    """Its place as one text: its layout's name as read, every character past ASCII escaped (so any
+    name is a key and two names are never one, whatever they hold), or its box."""
+    if location.layout is not None:
+        return json.dumps({"layout": location.layout}, separators=(",", ":"))
     assert location.box is not None
     box = location.box
     return reads.canonical({"box": [_decimal(v) for v in (box.x0, box.y0, box.x1, box.y1)]}).decode()
@@ -1009,4 +1010,4 @@ def _decide(
 
 def location_key(location: SheetLocation) -> str:
     """A location as its canonical key (the seed and the tests find a printed sheet by it)."""
-    return _location_key(location, None if location.layout is None else _text.read(location.layout))
+    return _location_key(location)

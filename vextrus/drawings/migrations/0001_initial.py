@@ -369,10 +369,11 @@ USED_ID = [
     set search_path = pg_catalog, pg_temp
     as $$
     begin
-      if exists (select 1 from public.drawings_usedid u where u.id = new.id) then
+      if exists (select 1 from public.drawings_usedid u where u.used_id = new.id) then
         raise exception '% names an id used before', tg_table_name using errcode = '42501';
       end if;
-      insert into public.drawings_usedid (id, tenant_id) values (new.id, new.tenant_id);
+      insert into public.drawings_usedid (id, tenant_id, used_id)
+        values (uuidv7(), new.tenant_id, new.id);
       return new;
     end
     $$
@@ -540,13 +541,6 @@ class Migration(migrations.Migration):
                 ('project_id', models.UUIDField(editable=False)),
                 ('name', models.CharField(blank=True, max_length=200)),
                 ('created_at', models.DateTimeField(default=django.utils.timezone.now, editable=False)),
-            ],
-        ),
-        migrations.CreateModel(
-            name='UsedId',
-            fields=[
-                ('id', models.UUIDField(editable=False, primary_key=True, serialize=False)),
-                ('tenant_id', models.UUIDField(editable=False)),
             ],
         ),
         migrations.CreateModel(
@@ -730,6 +724,17 @@ class Migration(migrations.Migration):
                 ('sheet_revision', models.ForeignKey(db_index=False, on_delete=django.db.models.deletion.PROTECT, related_name='+', to='drawings.sheetrevision')),
                 ('state', models.ForeignKey(db_index=False, on_delete=django.db.models.deletion.PROTECT, related_name='+', to='drawings.drawingsetstate')),
             ],
+        ),
+        migrations.CreateModel(
+            name='UsedId',
+            fields=[
+                ('id', models.UUIDField(default=vextrus.platform.ids.new_id, editable=False, primary_key=True, serialize=False)),
+                ('tenant_id', models.UUIDField(editable=False)),
+                ('used_id', models.UUIDField(editable=False, help_text='The id a row has had.')),
+            ],
+            options={
+                'constraints': [models.UniqueConstraint(fields=('used_id',), name='drawings_usedid_once')],
+            },
         ),
         migrations.CreateModel(
             name='View',

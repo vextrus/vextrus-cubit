@@ -179,6 +179,34 @@ def test_a_view_whose_text_is_past_its_column_is_not_kept_and_the_report_counts_
     assert report_words.VIEWS_NOT_KEPT(views=1) in report.sheets  # counted once, read twice
 
 
+def test_a_file_whose_every_sheet_was_not_kept_says_so_and_not_that_none_was_found(
+    qs_project: QsProject,
+) -> None:
+    found = kept_dwg(qs_project)
+    with qs_project.member.acting():
+        printed = services.record_sheets(
+            found.id, [candidate(found, i, number=f"S-{i}", issue_date="D" * 65) for i in range(3)]
+        )
+        services.mark_read(found.id)
+        report = services.report(found.id)
+    assert printed == []
+    assert report.sheets == (report_words.SHEETS_NOT_KEPT(sheets=3),)
+
+
+def test_two_layouts_whose_names_differ_only_by_a_control_are_two_sheets(qs_project: QsProject) -> None:
+    """Each place is keyed by its layout's name as read (escaped), so cleaning never makes two one."""
+    found = kept_dwg(qs_project)
+    with qs_project.member.acting():
+        printed = services.record_sheets(
+            found.id,
+            [candidate(found, 0, layout="A1", number="S-01"), candidate(found, 1, layout=f"A1{NUL}")],
+        )
+        services.mark_read(found.id)
+        shown = services.file(found.id)
+    assert [s.location for s in printed] == [{"layout": "A1"}, {"layout": "A1"}]
+    assert (len({s.id for s in printed}), shown.sheets_found) == (2, 2)
+
+
 def test_a_kind_past_its_column_is_refused_in_words_by_either_path(qs_project: QsProject) -> None:
     found = kept_dwg(qs_project)
     long_key = "k" * 65
