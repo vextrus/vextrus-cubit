@@ -138,6 +138,16 @@ def part(built: buffers.SheetBuffers, name: str) -> buffers.SheetBuffers:
     )
 
 
+def part_file(name: str) -> str:
+    """The file name of tiny-sheet's `name` part raster."""
+    return f"tiny-sheet-{name}@{PART_DENSITY:g}.png"
+
+
+def part_png(name: str) -> bytes:
+    """tiny-sheet's `name` part drawn alone at `PART_DENSITY`, as the PNG committed beside this file."""
+    return raster.rasterise(part(make("tiny-sheet"), name), PART_DENSITY).to_png()
+
+
 def main(folder: Path = HERE) -> None:
     for name in FIXTURES:
         built = make(name)
@@ -145,10 +155,8 @@ def main(folder: Path = HERE) -> None:
         for density in IMAGES[name]:
             image = raster.rasterise(built, density)
             (folder / f"{name}@{density:g}.png").write_bytes(image.to_png())
-    tiny = make("tiny-sheet")
     for name in PARTS:
-        image = raster.rasterise(part(tiny, name), PART_DENSITY)
-        (folder / f"tiny-sheet-{name}@{PART_DENSITY:g}.png").write_bytes(image.to_png())
+        (folder / part_file(name)).write_bytes(part_png(name))
 
 
 if __name__ == "__main__":

@@ -1,10 +1,12 @@
 """The committed buffer fixtures and their rasters are what the code makes, and decode as published."""
 
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
 import pytest
 
+from engine.render import raster
 from engine.render.buffers import SheetBuffers
 from engine.render.fixtures import make
 from engine.render.raster import Raster, rasterise
@@ -40,15 +42,25 @@ def test_the_committed_raster_is_what_the_code_draws(name: str, density: float) 
 
 
 @pytest.mark.parametrize("part", sorted(make.PARTS))
-def test_the_committed_part_raster_is_what_the_code_draws(part: str) -> None:
-    density = make.PART_DENSITY
-    committed = Raster.from_png((HERE / f"tiny-sheet-{part}@{density:g}.png").read_bytes(), density)
-    tiny = SheetBuffers.from_bytes((HERE / "tiny-sheet.bin").read_bytes())
-    fresh = rasterise(make.part(tiny, part), density)
-    assert committed.pixels.shape == fresh.pixels.shape
-    differ = np.abs(committed.pixels.astype(int) - fresh.pixels.astype(int)) > 2
-    assert differ.mean() < 0.001
-    assert (committed.pixels < 128).any(), "a part drawn alone has ink"
+def test_the_committed_part_raster_is_byte_for_byte_what_the_code_draws(part: str) -> None:
+    # Byte equality, not the whole sheets' 0.1 % rule: the web check allows 10 wrong pixels, and one
+    # glyph or triangle is a few hundred, so a stale part PNG must fail here (review of 122, 50).
+    committed = (HERE / make.part_file(part)).read_bytes()
+    assert committed == make.part_png(part)
+    assert (Raster.from_png(committed, make.PART_DENSITY).pixels < 128).any(), "a part alone has ink"
+
+
+@pytest.mark.parametrize(("part", "records"), [("text", "glyphs"), ("fills", "triangles")])
+def test_a_rasteriser_dropping_one_record_no_longer_matches_the_committed_part(
+    part: str, records: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    real = raster.rasterise
+
+    def dropping_one(built: SheetBuffers, px_per_mm: float) -> Raster:
+        return real(replace(built, **{records: getattr(built, records)[1:]}), px_per_mm)
+
+    monkeypatch.setattr(raster, "rasterise", dropping_one)  # make draws through the module
+    assert (HERE / make.part_file(part)).read_bytes() != make.part_png(part)
 
 
 def test_a_part_keeps_only_its_own_records() -> None:
