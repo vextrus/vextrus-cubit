@@ -257,7 +257,8 @@ def test_a_damaged_dwg_is_a_reader_failure_with_its_finding(tmp_path: Path) -> N
         read(damaged)
 
     assert raised.value.message["code"] in {"engine.read.reader_failed", "engine.read.output_unreadable"}
-    assert raised.value.message["params"]["program"] == "dwgread"
+    assert raised.value.message["params"] == {}  # the words name no converter
+    assert raised.value.program == "dwgread"  # the log does
 
 
 @pytest.mark.needs_toolchain
@@ -403,7 +404,7 @@ def test_a_link_planted_as_the_output_is_refused_never_followed(
 
     assert raised.value.message == {
         "code": "engine.read.output_unreadable",
-        "params": {"program": program},
+        "params": {},
     }
 
 
@@ -443,5 +444,5 @@ def test_a_number_no_float_holds_in_dwgreads_output_is_the_files_finding(
 
     assert raised.value.message == {
         "code": "engine.read.output_unreadable",
-        "params": {"program": "dwgread"},
+        "params": {},
     }

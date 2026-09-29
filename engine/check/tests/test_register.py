@@ -23,6 +23,7 @@ from engine.recognise.types import (
     SheetCandidate,
     SheetConventions,
 )
+from engine.testing.bounds import peak_memory
 
 READERS = stand_ins()
 CONVENTIONS = SheetConventions(
@@ -585,15 +586,8 @@ def test_a_title_starting_with_a_count_raises_no_false_finding() -> None:
 
 def test_ranges_past_the_entry_limit_are_refused_before_their_numbers_are_built() -> None:
     """Finding 1: every range was built before the limit was checked (22 KB of text took 1.1 GB)."""
-    import tracemalloc
-
-    tracemalloc.start()
-    try:
+    with peak_memory(16 * 2**20):  # one range of 9,999 entries at most, never 50
         assert refusal("01 to 9999\n" * 50)["code"] == "engine.register_check.too_many"
-        _, peak = tracemalloc.get_traced_memory()
-    finally:
-        tracemalloc.stop()
-    assert peak < 16 * 2**20, peak  # one range of 9,999 entries at most, never 50
 
 
 @pytest.mark.parametrize(

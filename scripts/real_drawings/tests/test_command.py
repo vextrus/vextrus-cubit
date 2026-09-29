@@ -485,3 +485,51 @@ def test_main_without_the_harness_schema_is_refused(world: World) -> None:
 
     with pytest.raises(Refused, match="06b"):
         run("main", no_post=True, m=world.machine())
+
+
+# ADR 0041: the orchestrator accepts without a prompt, --accept-if-clean only when the run is clean.
+
+
+def test_accept_if_clean_posts_a_clean_run_without_asking(world: World) -> None:
+    world.pr(57, {"README.md": "a change the engine never reads\n"})
+
+    assert run("57", no_post=False, m=world.machine(), accept_if_clean=True) == 0
+
+    assert world.prompts == []
+    (run_id,) = world.posted
+    assert only_file(world.drop / run_id, "summary.json")["verdict"] == "accepted"
+
+
+def test_accept_if_clean_posts_nothing_when_anything_was_lost(world: World) -> None:
+    world.commit("main", {FAKE_EXPORT: (FIXTURES / "export-fakes.json").read_text()})
+    world.pr(57, {FAKE_EXPORT: (FIXTURES / "export-fakes-read-fails.json").read_text()})
+
+    assert run("57", no_post=False, m=world.machine(), accept_if_clean=True) == 3
+
+    assert world.prompts == []
+    assert world.posted == []
+    assert os.listdir(world.drop) == [".lock"]
+    assert any(line.startswith("Not clean (") and "lost" in line for line in world.said)
+
+
+def test_accept_with_a_reason_posts_a_judged_run_without_asking(world: World) -> None:
+    world.commit("main", {FAKE_EXPORT: (FIXTURES / "export-fakes.json").read_text()})
+    world.pr(57, {FAKE_EXPORT: (FIXTURES / "export-fakes-read-fails.json").read_text()})
+
+    assert run("57", no_post=False, m=world.machine(), accept="the reader fails on purpose") == 0
+
+    assert world.prompts == []
+    (run_id,) = world.posted
+    summary = only_file(world.drop / run_id, "summary.json")
+    assert summary["verdict"] == "accepted"
+    assert summary["reason"] == "the reader fails on purpose"
+
+
+def test_accept_without_a_reason_still_refuses_a_lost_item(world: World) -> None:
+    world.commit("main", {FAKE_EXPORT: (FIXTURES / "export-fakes.json").read_text()})
+    world.pr(57, {FAKE_EXPORT: (FIXTURES / "export-fakes-read-fails.json").read_text()})
+
+    with pytest.raises(Refused, match="a lost item is accepted only with a reason"):
+        run("57", no_post=False, m=world.machine(), accept="  ")
+
+    assert world.posted == []

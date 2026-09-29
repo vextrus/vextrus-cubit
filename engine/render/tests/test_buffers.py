@@ -24,6 +24,7 @@ from engine.render.buffers import (
 )
 from engine.render.fixtures.artefacts import PAPER, Drawing
 from engine.render.raster import rasterise
+from engine.testing.bounds import peak_memory
 
 
 def model_sheet(x0: float, y0: float, x1: float, y1: float) -> SheetCandidate:
@@ -721,19 +722,12 @@ def _nested_minserts(levels: int = 5, grid: int = 100) -> Drawing:
 
 def test_a_tiny_crafted_file_cannot_take_memory_in_proportion_to_its_cells() -> None:
     """Review item 1: every chain walked kept its transform for the whole walk (5.8 GB at 303 s)."""
-    import tracemalloc
-
     artefact = _nested_minserts().artefact()
     sheet = model_sheet(0, 0, 297, 210)
-    tracemalloc.start()
-    try:
+    with peak_memory(40_000_000):  # for 150,000 visits
         built = build(artefact, sheet, limits=Limits(visits=150_000, seconds=1e9))
-        _, peak = tracemalloc.get_traced_memory()
-    finally:
-        tracemalloc.stop()
 
     assert built.truncated
-    assert peak < 40_000_000, f"{peak / 1e6:.0f} MB for 150,000 visits"
 
 
 @pytest.mark.parametrize("bulge", [1e-12, 1e-14, 1e-15, 1e-16, -1e-15])

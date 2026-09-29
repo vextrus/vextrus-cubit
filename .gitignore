@@ -37,6 +37,8 @@ openapi.json
 # Runtime data
 /storage/
 *.log
+# Every failed or errored test's id, kept by vextrus/testing/failures.py
+/.pytest-failures.log
 
 # Editors and OS
 /.idea/

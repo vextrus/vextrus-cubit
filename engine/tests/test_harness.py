@@ -89,6 +89,11 @@ FAKES = {
                         pass
                 elif word == "raise":
                     raise RuntimeError("the fake reader failed")
+                elif word == "convert":  # a converter that failed, as the DWG reader raises it
+                    from engine.messages import read as read_codes
+                    from engine.read.errors import ReadError
+
+                    raise ReadError(read_codes.READER_FAILED(), program="dwg2dxf", exit_code=139)
                 elif word == "env":  # the environment's names (never a value it was not given
                     # plainly) and the threads once numpy has loaded its BLAS
                     import numpy  # as the reader's ezdxf does
@@ -586,6 +591,16 @@ def test_a_stage_that_raises_fails_and_what_needs_it_is_skipped(
     assert bad["stages"]["sheets"]["error"] == "needs read"
     assert bad["process"]["status"] == "ok"
     assert set(states(good).values()) == {"ok"}
+
+
+def test_a_failed_converter_is_named_in_the_export_with_its_exit_code(
+    tmp_path: Path, fakes: Callable[..., tuple[Stage, ...]], conventions: Path
+) -> None:
+    document = run(tmp_path, fakes(), {"bad.dwg": "convert"}, conventions=conventions)
+
+    assert by_path(document)["bad.dwg"]["stages"]["read"]["error"] == (
+        "ReadError: ('engine.read.reader_failed', {}) (program dwg2dxf, exit_code 139)"
+    )
 
 
 def test_a_result_the_contract_does_not_allow_fails_its_stage(

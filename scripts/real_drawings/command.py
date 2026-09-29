@@ -13,9 +13,11 @@ version, set content); one is reused only when it passes the schema again and no
 stage, or a file's process), and `--fresh` reads both runs again.
 
 A posting run is a PR without `--no-post`: under the drop folder's lock, the owner accepts or rejects
-the changes (a lost item only with a reason), the command writes the run's own folder in the drop
-folder (the exports, and the metadata and summary it writes itself) and runs the poster as the key
-user, which asks the owner's password. A branch or main, or `--no-post`, never posts.
+the changes (a lost item only with a reason), or the orchestrator does without a prompt (ADR 0041):
+`--accept-if-clean` accepts only a run with nothing lost or changed and no failed stage gained (else it
+posts nothing and exits 3), and `--accept REASON` accepts a run it has judged. The command writes the
+run's own folder in the drop folder (the exports, and the metadata and summary it writes itself) and
+runs the poster as the key user. A branch or main, or `--no-post`, never posts.
 """
 
 import argparse
@@ -104,10 +106,30 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--fresh", action="store_true", help="read the head and main again, ignoring the cache"
     )
+    how = parser.add_mutually_exclusive_group()
+    how.add_argument(
+        "--accept-if-clean",
+        action="store_true",
+        help="accept without asking only when nothing was lost or changed and no failed stage was"
+        " gained; otherwise post nothing and exit 3 (ADR 0041's accept rule)",
+    )
+    how.add_argument(
+        "--accept",
+        metavar="REASON",
+        help="accept without asking, with this reason (needed when anything was lost); for the"
+        " orchestrator after judging the table",
+    )
     args = parser.parse_args(argv)
     machine = owners_machine()
     try:
-        return run(args.target, no_post=args.no_post, m=machine, fresh=args.fresh)
+        return run(
+            args.target,
+            no_post=args.no_post,
+            m=machine,
+            fresh=args.fresh,
+            accept=args.accept,
+            accept_if_clean=args.accept_if_clean,
+        )
     except Refused as refused:
         print(f"real-drawings: refused: {refused}", file=sys.stderr)
         return 2
@@ -135,7 +157,15 @@ def owners_machine() -> Machine:
     )
 
 
-def run(target: str, *, no_post: bool, m: Machine, fresh: bool = False) -> int:
+def run(
+    target: str,
+    *,
+    no_post: bool,
+    m: Machine,
+    fresh: bool = False,
+    accept: str | None = None,
+    accept_if_clean: bool = False,
+) -> int:
     started = time.monotonic()
     posting = target.isdigit() and not no_post
     with drop.posting_lock(m.drop) if posting else nullcontext():
@@ -179,7 +209,10 @@ def run(target: str, *, no_post: bool, m: Machine, fresh: bool = False) -> int:
         if not posting:
             m.say("Nothing posted (a posting run is a PR without --no-post).")
             return 0
-        summary = verdict(m, run_id, counts, head_failed)
+        if accept_if_clean and (why := unclean(counts)):
+            m.say(f"Not clean ({why}): nothing posted; judge the table and use --accept or reject.")
+            return 3
+        summary = verdict(m, run_id, counts, head_failed, accept="" if accept_if_clean else accept)
         folder = m.drop / run_id
         folder.mkdir(mode=0o750)
         for name, path in head_exports.items():
@@ -342,14 +375,39 @@ def failed_text(exports: Mapping[str, Path]) -> str:
     )
 
 
+def unclean(counts: Mapping[str, Mapping[str, int]]) -> str:
+    """Why a run is not clean under ADR 0041's accept rule, or "" when it is: a failed stage gained, or
+    anything lost or changed in any measure."""
+    why = (
+        [f"failed_stages gained {counts['failed_stages']['gained']}"]
+        if counts["failed_stages"]["gained"]
+        else []
+    )
+    why += [
+        f"{measure} {change} {counts[measure][change]}"
+        for measure in MEASURES
+        for change in ("lost", "changed")
+        if counts[measure][change]
+    ]
+    return ", ".join(why)
+
+
 def verdict(
-    m: Machine, run_id: str, counts: Mapping[str, Mapping[str, int]], head_failed: str = ""
+    m: Machine,
+    run_id: str,
+    counts: Mapping[str, Mapping[str, int]],
+    head_failed: str = "",
+    accept: str | None = None,
 ) -> dict[str, Any]:
+    """The owner's (or, with `accept`, the orchestrator's already judged) verdict and reason."""
     lost = sum(c["lost"] for c in counts.values())
-    warning = f"Stages failed on the head: {head_failed}. " if head_failed else ""
-    accepted = m.ask(f"{warning}Accept these changes? [y/N] ").strip().lower() in ("y", "yes")
-    prompt = "Why is what was lost acceptable? " if accepted and lost else "A reason (optional): "
-    reason = " ".join(m.ask(prompt).split())
+    if accept is not None:
+        accepted, reason = True, " ".join(accept.split())
+    else:
+        warning = f"Stages failed on the head: {head_failed}. " if head_failed else ""
+        accepted = m.ask(f"{warning}Accept these changes? [y/N] ").strip().lower() in ("y", "yes")
+        prompt = "Why is what was lost acceptable? " if accepted and lost else "A reason (optional): "
+        reason = " ".join(m.ask(prompt).split())
     if accepted and lost and not reason:
         raise Refused("a lost item is accepted only with a reason; nothing was posted")
     if len(reason) > REASON_MOST or not reason.isprintable():

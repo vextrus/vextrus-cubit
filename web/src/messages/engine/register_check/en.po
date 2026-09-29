@@ -34,10 +34,10 @@ msgid "engine.register_check.range_mixed"
 msgstr "Line {line}, {first} to {last}, cannot be read as one range: only the running number may change from one end to the other. Give each run its own line, as in A-01 to A-29, or list the sheets one per line."
 
 msgid "engine.register_check.range_too_long"
-msgstr "Line {line}, {first} to {last}, holds more than {limit, number} sheet numbers, more than any drawing list. Check its first and last numbers."
+msgstr "Line {line}, {first} to {last}, holds more than {limit, plural, one {# sheet number} other {# sheet numbers}}, more than any drawing list. Check its first and last numbers."
 
 msgid "engine.register_check.text_too_long"
-msgstr "This is longer than a drawing list: Vextrus reads up to {limit, number} characters. Paste the list on its own, without the rest of the email."
+msgstr "This is longer than a drawing list: Vextrus reads up to {limit, plural, one {# character} other {# characters}}. Paste the list on its own, without the rest of the email."
 
 msgid "engine.register_check.too_many"
-msgstr "This names more than {limit, number} sheets, more than any drawing list. Paste only this Discipline's list."
+msgstr "This names more than {limit, plural, one {# sheet} other {# sheets}}, more than any drawing list. Paste only this Discipline's list."

@@ -1,0 +1,143 @@
+# The words lint's allowlist (tools/lint/words.py; docs/design/m0-screens.md 1.1).
+# Each entry: `msgid`, the message it lets off; `rule`, one of the lint's rules ("engine term", "add it
+# again", "ask your MD", "reinforcement", "positional placeholder", "count without a plural");
+# optionally `term`, the one word it lets off (any case); and `reason` (required). An entry that lets
+# nothing off fails the lint.
+
+# "Readers": m0-screens 4.5's own word for the two decoders (6.17: "Two decoders agree" became "two
+# readers agree"). Each of these is 4.5's sentence verbatim, or its Readers section's.
+
+[[allow]]
+msgid = "drawings.files.held"
+rule = "engine term"
+term = "readers"
+reason = "m0-screens 4.5's Held row, verbatim: \"Held: the two readers disagree, so it may be misread\"."
+
+[[allow]]
+msgid = "drawings.files.read"
+rule = "engine term"
+term = "readers"
+reason = "m0-screens 4.5's Read row, verbatim: \"Read. Two readers agree\"."
+
+[[allow]]
+msgid = "drawings.files.read_bangla"
+rule = "engine term"
+term = "readers"
+reason = "m0-screens 4.5's Read-with-flags row, verbatim: \"Read. Two readers agree. 1 flag: Bangla text\"."
+
+[[allow]]
+msgid = "drawings.files.second_reader"
+rule = "engine term"
+term = "reader"
+reason = "m0-screens 4.5's Reading-a-DWG steps, verbatim: \"Checking it with a second reader\"."
+
+[[allow]]
+msgid = "drawings.reports.readers_agree"
+rule = "engine term"
+term = "readers"
+reason = "m0-screens 4.5's Readers section, verbatim: \"✓ Read twice, by two independent readers, and they agree. …\"."
+
+[[allow]]
+msgid = "engine.decoders_agree.disagree"
+rule = "engine term"
+term = "readers"
+reason = "m0-screens 4.5's Readers section, verbatim (\"The two readers found different contents in this file: …\")."
+
+[[allow]]
+msgid = "engine.decoders_agree.disagree"
+rule = "engine term"
+term = "reader"
+reason = "m0-screens 4.5's Readers section, verbatim (\"… the second reader could not read 1 item\"; the owner's ruling \"Hold it\")."
+
+[[allow]]
+msgid = "engine.decoders_agree.not_installed"
+rule = "engine term"
+term = "reader"
+reason = "m0-screens 4.5's read-once words (\"This file was read once, not twice: … a fault on Vextrus's side, not in your file.\"), naming the second reader as 4.5's Failed row does."
+
+[[allow]]
+msgid = "engine.decoders_agree.not_pinned"
+rule = "engine term"
+term = "reader"
+reason = "m0-screens 4.5's read-once words, naming the second reader as 4.5's Failed row does."
+
+[[allow]]
+msgid = "engine.decoders_agree.stopped"
+rule = "engine term"
+term = "reader"
+reason = "m0-screens 4.5's read-once words, naming the second reader as 4.5's Failed row does."
+
+[[allow]]
+msgid = "engine.decoders_agree.too_many"
+rule = "engine term"
+term = "reader"
+reason = "m0-screens 4.5's read-once words (\"the file over its limit\"), naming the second reader as 4.5's Failed row does."
+
+[[allow]]
+msgid = "engine.catalogue.decoders_agree"
+rule = "engine term"
+term = "readers"
+reason = "The Check's name in 4.5's words (\"two readers agree\", m0-screens 4.5 and 6.2's \"… 40 sheets, two readers agree\")."
+
+# "Add it again" where the file was not kept, or where the QS changes it first: m0-screens 4.5 refuses
+# only the same file, already kept, added again.
+
+[[allow]]
+msgid = "drawings.files.old_version"
+rule = "add it again"
+reason = "m0-screens 4.5's Old AutoCAD version row, verbatim: the file re-saved as a 2018 DWG is a different file, so it is added."
+
+[[allow]]
+msgid = "drawings.uploads.empty"
+rule = "add it again"
+reason = "The empty file was not added, so adding it again (copied again) is not a re-add."
+
+[[allow]]
+msgid = "drawings.uploads.malformed"
+rule = "add it again"
+reason = "The file could not be received and nothing was added, so adding it again is not a re-add."
+
+[[allow]]
+msgid = "drawings.uploads.no_name"
+rule = "add it again"
+reason = "The file was not added, and is renamed first, so adding it again is not a re-add."
+
+[[allow]]
+msgid = "drawings.uploads.one_at_a_time"
+rule = "add it again"
+reason = "None of the files was added, so adding them again one at a time is not a re-add."
+
+[[allow]]
+msgid = "platform.storage.missing"
+rule = "add it again"
+reason = "Vextrus's copy is gone, and the same file added again is taken as its replacement, not refused (drawings.uploads.replaced: \"… This one replaces that copy\")."
+
+# "Ask your MD" only for what an MD can do (m0-screens 1.4: the MD is read-only but for Members and
+# access).
+
+[[allow]]
+msgid = "platform.auth.no_access"
+rule = "ask your MD"
+reason = "An MD invites anyone to the Developer (m0-screens 1.4, Who invites whom)."
+
+[[allow]]
+msgid = "platform.auth.not_allowed"
+rule = "ask your MD"
+reason = "A QS is refused only what 1.4 keeps for the MD: inviting anyone but a Vextrus Engineer, and ending others' access."
+
+[[allow]]
+msgid = "projects.projects.scoped_member_cannot_create"
+rule = "ask your MD"
+reason = "An MD gives access to all projects (m0-screens 4.4's invite and Projects column)."
+
+# A count whose number is never 1.
+
+[[allow]]
+msgid = "engine.pdf_report.too_many_pages"
+rule = "count without a plural"
+reason = "{limit} is the page limit for one PDF, MAX_PAGES, 1000 (engine/read/pdf/walk.py), never 1."
+
+[[allow]]
+msgid = "platform.auth.password_too_short"
+rule = "count without a plural"
+reason = "{min} is the password's least length, 12 (vextrus/settings/auth.py), never 1."

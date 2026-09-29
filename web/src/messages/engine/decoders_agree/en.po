@@ -19,4 +19,4 @@ msgid "engine.decoders_agree.stopped"
 msgstr "This file was read once, not twice: the second reader stopped before it finished, which is a fault on Vextrus's side, not in your file. Nothing from it reaches the sheet list; mark it for Vextrus to check."
 
 msgid "engine.decoders_agree.too_many"
-msgstr "This file was read once, not twice: it is larger than the second reader can check (up to {limit, number} items). Nothing from it reaches the sheet list; mark it for Vextrus to check."
+msgstr "This file was read once, not twice: it is larger than the second reader can check (up to {limit, plural, one {# item} other {# items}}). Nothing from it reaches the sheet list; mark it for Vextrus to check."
