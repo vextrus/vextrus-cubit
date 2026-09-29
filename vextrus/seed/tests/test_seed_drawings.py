@@ -13,11 +13,12 @@ from engine.render.buffers import SheetBuffers
 from vextrus.drawings import services
 from vextrus.drawings.messages import files as said
 from vextrus.drawings.messages import sheets as sheet_words
-from vextrus.platform.services import tenancy
+from vextrus.platform.services import jobs, tenancy
 from vextrus.seed import drawings as seed_drawings
 from vextrus.seed import platform as seed_platform
 from vextrus.seed import projects as seed_projects
 from vextrus.seed.demo import Demo
+from vextrus.takeoff.tasks.read_file import read_file
 
 RAW_CODES = ("%%", "\\P", "\\f", "\\S", "^J", "{\\")
 
@@ -220,3 +221,20 @@ def test_the_seeded_reading_pdf_reads_sensibly_on_a_walk_later(
     shown = files_of(demo, "developer:meghna", "MG-01")
 
     assert shown["MG-ARC-R0.pdf"].status == words
+
+
+@pytest.mark.django_db(databases=["default", "owner"])
+def test_the_seeded_retrying_file_can_be_cancelled_and_tried_again(demo: Demo) -> None:
+    """Its job is 21a's read job, declared wherever the app runs (a job the seed declared itself was
+    unknown to the served app, whose "Try again" then failed), waiting for its second try."""
+    file_id = demo["file:MG-01:MG-ARC-R0.dwg"]
+    with tenancy.acting_in(demo["developer:meghna"], user_id=demo["user:tanvir"]):
+        seeded = services.file(file_id)
+        assert seeded.read_job_id is not None
+        state = jobs.state(seeded.read_job_id)
+        assert state is not None
+        assert (state.task, state.status, state.attempt) == (read_file.name, "retrying", 2)
+        services.cancel(file_id, actor_name="Tanvir Ahmed")
+        again = services.restart(file_id)
+
+    assert again.state == services.FileState.WAITING

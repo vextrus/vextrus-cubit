@@ -24,8 +24,8 @@ with its 4 sheets (19a's seed answers it "read anyway"), BP-ARC-R0.pdf matched t
 BP-ELE-R0.dwg cancelled by Nusrat Jahan, BP-PLB-R0.dwg failed, BP-FIRE-R0.dwg read by one reader
 only, BP-LIFT-R12.dwg saved by an old AutoCAD. **MG-01** (Meghna) holds one small DWG, read, and the
 states a read job carries (#125): MG-ARC-R0.pdf reading page 5 of 16 with its time left (no job: the
-retrier cannot take it), MG-ARC-R0.dwg interrupted and waiting for its second try (a job on
-`SEED_QUEUE`, which no worker runs).
+retrier cannot take it), MG-ARC-R0.dwg interrupted and waiting for its second try (21a's own read
+job, its next try a week off).
 
 The Market's Disciplines come first: `sync_library` runs here, as the owner (idempotent), so the
 owner's `migrate` then `seed_demo` works; if it cannot, the seed refuses and names the command.
@@ -82,6 +82,7 @@ from vextrus.drawings.messages import reports as report_words
 from vextrus.drawings.services.reads import ReadStepStore
 from vextrus.platform.services import jobs, library, tenancy
 from vextrus.seed.demo import Demo
+from vextrus.takeoff.tasks.read_file import read_file
 
 PAPER = (841.0, 594.0)
 """Every sheet an A1, landscape, in millimetres (INSUNITS 4)."""
@@ -631,21 +632,15 @@ def meghna(demo: Demo) -> None:
 
 # A read job's states (#125) ----------------------------------------------------------------------------
 
-SEED_QUEUE = "seed"
-"""The queue of the seed's stand-in read job. No worker runs it (`worker` runs the default queue,
-`worker --queue cad` the CAD queue's) and the stalled-job retrier takes up only running jobs, so a
-seeded job-borne state stays as seeded; 21c's real read job replaces it."""
+RETRY_AFTER = timedelta(days=7)
+"""When the seeded interrupted read's next try is due: a week after the seed ran, so no CAD worker takes
+it up during a walk (the stalled-job retrier takes up only running jobs). It is 21a's own read job,
+so Cancel and "Try again" on its row act as on any file's."""
 
 PAGE_MINUTES = 10
 """How long each page of the seeded reading PDF took: its time left shows for STEADY times this
 after the seed ran (30 minutes), counting down from the seed's own clock stamp, never below a
 minute; later the row reads "Reading page 5 of 16", as a stalled read does (`_minutes_left`)."""
-
-
-@jobs.job(queue=SEED_QUEUE)
-def seeded_read(run: jobs.Run, *, file_id: uuid.UUID) -> None:
-    """The seed's stand-in for a read job (m0-screens 4.5's job-borne rows): it has no steps and
-    reads nothing; it exists only so a seeded file has a job to show the state of."""
 
 
 def reading_pdf(
@@ -677,10 +672,13 @@ def reading_pdf(
 def interrupted(found: services.FileView) -> None:
     """A file whose read was interrupted and waits to be tried again: its job's first try ended,
     the second waits ("Reading was interrupted. Trying again by itself (try 2 of 3).")."""
-    job_id = seeded_read.defer(file_id=found.id)
+    job_id = read_file.defer(file_id=found.id)
     with connections[settings.PROCRASTINATE_DATABASE_ALIAS].cursor() as cursor:
-        # As a retry leaves a job: waiting again, one try made.
-        cursor.execute("update procrastinate_jobs set attempts = 1 where id = %s", [job_id])
+        # As a retry leaves a job: waiting again, one try made, its next try scheduled.
+        cursor.execute(
+            "update procrastinate_jobs set attempts = 1, scheduled_at = %s where id = %s",
+            [timezone.now() + RETRY_AFTER, job_id],
+        )
     services.attach_read_job(found.id, job_id)
 
 
