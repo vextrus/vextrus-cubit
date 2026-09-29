@@ -29,8 +29,8 @@ paper, grown by `GAP_MM` so that what is drawn closer than that joins, and split
 These sizes, `MIN_VIEW_MM` and `JOIN_MM` are an A1 sheet's (`REFERENCE_MM` long), scaled to the sheet's
 paper, so a frame whose paper is read too small or too large is split alike (a frame block drawn at a
 fraction of its plotted size: the real sets' frames give papers of 130 to 420 mm plotted on A3 and A1). A
-**view title** is a text of one line and at most `MAX_TITLE_WORDS` words holding a kind's words (the kind
-listed first in the conventions wins where several are named: "TYPICAL BEAM SECTION DETAIL" is a detail),
+**view title** is a text of two lines at most and `MAX_TITLE_WORDS` words at most holding a kind's words
+(the kind listed first in the conventions wins where several are named: "TYPICAL BEAM SECTION DETAIL" is a detail),
 not in the title block, at least as tall as the sheet's median text (and at most `MAX_LETTER` of the
 paper), not numbered ("5. SEE SECTION ...") and not one of a column of `MIN_NOTE_LINES` lines alike (a
 note's; a scale text in the column is the title's scale line, not a note's). A title lying under another
@@ -1152,7 +1152,7 @@ def _views(
     titles: list[int] = []
     scale_texts: list[int] = []
     for i, t in enumerate(texts):
-        if "\n" in t.placed.shown:
+        if t.placed.shown.strip().count("\n") > 1:  # a title of two lines at most
             continue
         words = _tokens(t.shown)
         if (

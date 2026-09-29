@@ -704,3 +704,18 @@ def test_a_titles_second_line_is_in_its_views_box() -> None:
     d.text("PRESENTATION PLAN", (40, 308, 0.0), height=6.0)
     (view,) = drawn(d, one_sheet(d))
     assert view.box.y0 <= 308.5
+
+
+@pytest.mark.parametrize(
+    ("text", "title"),
+    [
+        ("TYPICAL SECTION\\POF SHOWER", "TYPICAL SECTION OF SHOWER"),
+        ("TYPICAL SECTION\\POF SHOWER\\PAND BASIN", None),  # three lines: a note's
+    ],
+)
+def test_a_title_of_two_lines_at_most_is_a_title(text: str, title: str | None) -> None:
+    d = Sheets()
+    grid(d, (40, 330, 340, 560))
+    d.text(text, (40, 318, 0.0), kind="MTEXT", height=6.0, attachment=1)
+    (view,) = drawn(d, one_sheet(d))
+    assert view.title == title
