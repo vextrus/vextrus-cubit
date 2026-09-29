@@ -576,6 +576,7 @@ msgid "blank"
 msgstr "blank"
 
 #: src/takeoff/Step1Inspector.tsx
+#: src/takeoff/Step1Screen.tsx
 msgid "Nothing is waiting."
 msgstr "Nothing is waiting."
 
@@ -1340,6 +1341,10 @@ msgstr "The architectural drawing list"
 msgid "Door and window details"
 msgstr "Door and window details"
 
+#: src/takeoff/DrawingListDialog.tsx
+msgid "{exampleFirst}–{exampleLast}, or the list as the consultant sent it"
+msgstr "{exampleFirst}–{exampleLast}, or the list as the consultant sent it"
+
 #: src/takeoff/Bar.tsx
 msgid "Cancel the exclusion"
 msgstr "Cancel the exclusion"
@@ -1663,6 +1668,10 @@ msgstr "Beam details"
 #: src/takeoff/words.tsx
 msgid "Floor plan"
 msgstr "Floor plan"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Step 1, Sheets · {code}"
+msgstr "Step 1, Sheets · {code}"
 
 #: src/takeoff/SheetList.tsx
 msgid "State mark"

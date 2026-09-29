@@ -21,7 +21,7 @@ import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import { AppLink, PATHS } from '@/app/AppLink'
 import { sessionQuery, type ProjectSummary, type Session } from '@/app/session'
 import { SlotFill } from '@/app/slots'
-import { LoadProblem, readOnlyRole, useReadOnlyToast } from '@/auth'
+import { LoadProblem, readOnlyRole, usePageTitle, useReadOnlyToast } from '@/auth'
 import { SheetViewer } from '@/sheet'
 import { DrawingText, Empty, IconButton, KeyRegion, KeyScope, Skeleton, cn, SheetsGlyph, buttonVariants, useKeys } from '@/ui'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/ui/primitives/dialog'
@@ -38,8 +38,11 @@ import { CoverageLine, CoveragePanel, Overview, QuestionCard, QuestionsTab, Shee
 const projectRoute = getRouteApi('/_app/p/$code')
 
 export function Step1Page() {
+  const { t } = useLingui()
   const { data: session } = useSuspenseQuery(sessionQuery)
   const project = projectRoute.useLoaderData()
+  const code = project.code
+  usePageTitle(t`Step 1, Sheets · ${code}`)
   const { data, error, retry } = useStep1(project.id)
   if (!data) {
     if (error) return <LoadProblem error={error} onRetry={retry} className="m-4" />
@@ -56,6 +59,11 @@ export function Step1Page() {
 function NoSheets({ project, readOnly }: { project: ProjectSummary; readOnly: boolean }) {
   return (
     <div className="flex h-full items-center justify-center">
+      <SlotFill slot="inspector.selection">
+        <p className="p-3 text-sm text-muted-foreground">
+          <Trans>Nothing is waiting.</Trans>
+        </p>
+      </SlotFill>
       <Empty
         glyph={<SheetsGlyph />}
         action={
@@ -389,6 +397,7 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
           projectId={project.id}
           discipline={listFor}
           fileName={pasteFile}
+          example={pasteSection?.numbering ? { first: pasteSection.numbering.first, last: pasteSection.numbering.last } : null}
           given={pasteSection?.list && pasteSection.list.source !== 'sheet' ? pasteSection.list.numbers.join('\n') : ''}
           readOnly={readOnly !== null}
           onClose={() => setListFor(null)}
