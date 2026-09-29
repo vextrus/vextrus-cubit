@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from engine.read.anchor import Anchor, DwgAnchor, PdfAnchor
 from engine.read.artefact import AnyEntity, Insert
 from vextrus.drawings.models import DrawingFile, FileFormat
-from vextrus.drawings.services import _access, drawing_files, reads, sheet_list
+from vextrus.drawings.services import _access, _text, drawing_files, reads, sheet_list
 from vextrus.platform.services import auth
 
 
@@ -53,7 +53,8 @@ def _resolve(anchor: Anchor, sheet_revision_id: uuid.UUID) -> Resolved:
         row = listed.source_file
         if anchor.source_sha256 != row.sha256:
             raise auth.NotFound
-        if listed.sheet_key and anchor.sheet != listed.sheet_key:
+        layout = None if anchor.sheet is None else _text.read(anchor.sheet)  # as it was kept
+        if listed.sheet_key and layout != listed.sheet_key:
             raise auth.NotFound
         kept = reads._artefact_row(row, reader=anchor.reader, reader_version=anchor.reader_version)
         if kept is None:

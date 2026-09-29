@@ -74,6 +74,29 @@ def test_a_dwg_anchor_opens_its_entity_through_its_insert_chain(
     assert "source_sha256" not in stored.detail
 
 
+def test_an_anchor_naming_a_layout_as_the_reader_read_it_opens_its_entity(
+    qs_project: QsProject,
+) -> None:
+    """A layout's name holding a control is kept cleaned; the reader's own anchor, naming it as it was
+    read, still opens its entity (and so does the stored one)."""
+    member = qs_project.member
+    found = add(member, qs_project.project_id, "KR-STR-R0.dwg", drawing()).file
+    artefact, (outer, inner, circle) = chained(found.sha256)
+    anchor = DwgAnchor(found.sha256, "synthetic", "1", "model/1\x00", (outer, inner), circle)
+    with member.acting():
+        services.store_artefact(found.id, artefact)
+        [printed] = services.record_sheets(
+            found.id, [sheet_candidate(0, found.group, number="S-02", anchors=(anchor,))]
+        )
+        services.mark_read(found.id)
+        as_read = services.resolve(anchor, sheet_revision_id=printed.id)
+        [stored] = services.sheet(printed.id).anchors
+        as_kept = services.resolve(stored.anchor(), sheet_revision_id=printed.id)
+    assert as_read.entity is not None
+    assert as_kept.entity is not None
+    assert (as_read.entity.handle, as_kept.entity.handle) == (circle, circle)
+
+
 @pytest.mark.parametrize(
     "change",
     [
