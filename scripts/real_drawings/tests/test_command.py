@@ -533,3 +533,67 @@ def test_accept_without_a_reason_still_refuses_a_lost_item(world: World) -> None
         run("57", no_post=False, m=world.machine(), accept="  ")
 
     assert world.posted == []
+
+
+# Ticket 24f (F4): an export from the cache names the run that read it.
+
+
+def the_harness_names_its_run(world: World) -> None:
+    def plant(scratch: Path) -> None:
+        env = world.sandbox_runs[-1].env
+        for export in scratch.glob("export-*.json"):
+            document = json.loads(export.read_text())
+            document["run"] |= {"id": env["VEXTRUS_RUN_ID"], "commit": env["VEXTRUS_COMMIT"]}
+            export.write_text(json.dumps(document))
+
+    world.plant = plant
+
+
+def scored_metadata(world: World) -> list[dict[str, object]]:
+    """Each run's metadata, in the order the runs were scored, after two scored runs of main."""
+    scored: list[str] = []
+
+    def score(run_id: str) -> int:
+        scored.append(run_id)
+        return 0
+
+    m = dataclasses.replace(world.machine(), score=score)
+    for _ in range(2):
+        run("main", no_post=True, score=True, m=m)
+    return [only_file(world.drop / run_id, "metadata.json") for run_id in scored]
+
+
+def test_only_a_cached_export_records_the_run_that_read_it(world: World) -> None:
+    the_harness_names_its_run(world)
+
+    first, second = scored_metadata(world)
+
+    sets = first["sets"]
+    assert isinstance(sets, dict)
+    assert all("export_run" not in entry for entry in sets.values())
+    cached = second["sets"]
+    assert isinstance(cached, dict)
+    assert cached
+    for entry in cached.values():
+        assert entry["export_run"] == {"id": first["run_id"], "commit": first["commit"]}
+
+
+def test_an_unscored_pr_that_leaves_the_engines_reading_as_mains_still_posts(world: World) -> None:
+    """Only a PR whose code hash is not main's posts nothing unscored: this one's reading is main's."""
+    world.pr(59, {"README.md": "a change the engine never reads\n"})
+    m = dataclasses.replace(world.machine(), score=lambda run_id: 2)
+
+    assert run("59", no_post=False, m=m, accept_if_clean=True) == 0
+
+    assert len(world.posted) == 1
+    assert any("Not scored" in line for line in world.said)
+
+
+def test_an_unscored_pr_that_changes_the_engines_reading_posts_nothing(world: World) -> None:
+    world.pr(60, {"engine/read.py": "X = 2\n"})
+    m = dataclasses.replace(world.machine(), score=lambda run_id: 2)
+
+    assert run("60", no_post=False, m=m, accept_if_clean=True) == 3
+
+    assert world.posted == []
+    assert not list(world.drop.glob("*/summary.json"))

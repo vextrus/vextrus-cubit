@@ -23,8 +23,13 @@ A scored run (ticket 24s) is a PR's posting run, or `--score` on a branch or mai
 posting nothing). Once `scripts/owner/keys-custody.sh` has made the pipeline's user, the owner's side
 only spools what the run reads and the pipeline's user runs the check from its installed copy
 (`runner.py`), writing the run's folder before the verdict; the blind scorer then scores that folder as
-the key user and prints its answer under the table. Before then, a posting run runs as the owner's user
-and says it is not scored, and `--score` is refused.
+the key user and prints its answer under the table. An export taken from the cache names the run its
+harness was started for, not this one: the metadata records that pair (`export_run`) for the scorer,
+which trusts it as it trusts the digest, because only the pipeline's user writes its cache and the
+run's folder (the pair itself is the engine's word, never checked against anything else). A PR whose
+code hash is not main's (it changes the engine's reading) that the scorer could not score posts
+nothing and exits 3. Before then, a posting run runs as the owner's user and says it is not scored,
+and `--score` is refused.
 
 `--job` (21a; off by default until 21c) reads the head with the product's read job instead of the
 engine harness, against a throwaway PostgreSQL 18 cluster inside the sandbox (`sandbox.py`), its export
@@ -245,10 +250,12 @@ def run(
         listings = {name: set_files(folder) for name, folder in sorted(m.sets.items())}
         digests = {name: set_digest(m.sets[name], files) for name, files in listings.items()}
         m.say(f"real-drawings {run_id}: {head.target} at {head.commit[:12]}, main at {base.commit[:12]}")
-        head_hash, head_exports = measure(m, head, main, work / "head", run_id, digests, fresh, job=job)
+        head_hash, head_exports, head_cached = measure(
+            m, head, main, work / "head", run_id, digests, fresh, job=job
+        )
         main_hash, main_exports = head_hash, head_exports
         if head.commit != base.commit or job:  # a job run is diffed against main's harness run
-            main_hash, main_exports = measure(m, base, main, work / "main", run_id, digests, fresh)
+            main_hash, main_exports, _ = measure(m, base, main, work / "main", run_id, digests, fresh)
         counts, items = report(m, main_exports, head_exports, head.commit == base.commit)
         head_failed = failed_text(head_exports)
         drop.write_new(work / "items.json", _json(items))  # holds drawing text: the owner's cache only
@@ -266,6 +273,9 @@ def run(
                     "set_sha256": digests[name],
                     "export_sha256": _sha(path),
                     "files": listings[name],
+                    # An export from the cache names an earlier run, not this one: the scorer accepts
+                    # that pair only when this run's metadata records it (session 06's F4).
+                    **({"export_run": export_run(path)} if head_cached else {}),
                 }
                 for name, path in head_exports.items()
             },
@@ -289,6 +299,11 @@ def run(
         if not posting:
             m.say("Nothing posted (a scored run of a branch or main).")
             return scored
+        # A PR that changes what the engine reads (its code hash is not main's) posts no success
+        # unscored: its reading would be accepted with nobody having measured it against the keys.
+        if scored != 0 and m.score is not None and head_hash != main_hash:
+            m.say("Not scored, and this PR changes the engine's reading: nothing posted; run it again.")
+            return 3
         summary = verdict(m, run_id, counts, head_failed, accept="" if accept_if_clean else accept)
         drop.write_new(folder / "summary.json", _json(summary))
         drop.write_new(work / "summary.json", _json(summary))
@@ -338,10 +353,10 @@ def measure(
     fresh: bool = False,
     *,
     job: bool = False,
-) -> tuple[str, dict[str, Path]]:
-    """One commit's exports, from the cache when its code hash has read these sets before in the same
-    sandbox (and mode) and no stage failed; `fresh` reads them again whatever the cache holds; `job`
-    reads them with the product's job (see the module)."""
+) -> tuple[str, dict[str, Path], bool]:
+    """One commit's code hash and exports, and whether they came from the cache: they do when its code
+    hash has read these sets before in the same sandbox (and mode) and no stage failed; `fresh` reads
+    them again whatever the cache holds; `job` reads them with the product's job (see the module)."""
     main_pyproject, schema_text = main.pyproject, main.schema
     files = engine_files(m.repo, head.commit, main.patterns.decode())
     hashed = code_hash(files)
@@ -384,7 +399,7 @@ def measure(
         why = next(filter(None, (_unusable(path, schema) for path in cached.values())), "")
         if not why:
             m.say(f"{head.target}: code hash {hashed[:12]} is cached; not run again")
-            return hashed, cached
+            return hashed, cached, True
         m.say(f"{head.target}: the cached run of code hash {hashed[:12]} {why}; read again")
     requirements = work / "requirements.txt"
     m.fetch(checkout, m.cache / "wheels", python, requirements)
@@ -413,7 +428,13 @@ def measure(
         cached[name].parent.mkdir(parents=True, exist_ok=True)
         cached[name].unlink(missing_ok=True)
         drop.write_new(cached[name], path.read_bytes())
-    return hashed, exports
+    return hashed, exports, False
+
+
+def export_run(export: Path) -> dict[str, Any]:
+    """The run a cached export names (`run.id`, `run.commit`), as the new run's metadata records it."""
+    named = json.loads(export.read_bytes()).get("run") or {}
+    return {"id": named.get("id"), "commit": named.get("commit")}
 
 
 def report(
