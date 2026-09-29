@@ -1,0 +1,230 @@
+"""The read job's steps per file (ticket 21a; docs/plans/M0.md, 21a): each through `drawings.services`,
+each in its own transaction, each kept once by `drawings`' StepStore.
+
+    steps = read(run, file_id)          # inside the job (`takeoff.tasks.read_file`)
+
+A DWG: `opening` (Vextrus's copy, checked against its sha256), `reading` (the first reader; its
+ReadArtefact kept), `second_reader` (the second reader and the check that the two agree, kept as a
+code; two readers that disagree hold the file through `drawings.services.quarantine`, and nothing
+more is read: 21c raises its `file_misread` Question, ADR 0029), `finishing` (the font report and the
+Bangla-ANSI Check, kept as codes, and the file marked read in the same transaction). 21b's sheet
+steps go between `second_reader` and `finishing`.
+
+A PDF: `opening` (the copy checked, and the PDF report kept as codes; a scan is refused by it) and
+`matching` (the file marked read). 21b's page steps and the matching itself go into them.
+
+**A file that could not be read** (the reader raised its `ReadError`: a converter that failed, a
+limit reached, the second reader not installed or not the pinned build) ends failed with that finding
+as its reason, by a step of its own, `not_read`, keyed by the job; then the job ends failed at once
+(`FileNotRead`), never tried again by itself: the reason is the file's, and "Try again" (a restart,
+a new job) reads it again. The step that raised rolled back, so it is not kept and runs again on that
+restart; the steps kept before it are skipped. A DWG older than any the first reader reads (its first
+bytes not `AC10…`) ends with `drawings.files.old_version`: nothing to try again. Any other fault (the
+database, a bug) is raised as it is, and the job is tried again as 09's runner decides.
+
+The readers are the engine's (`READERS`); a test passes its own.
+"""
+
+import uuid
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
+from dataclasses import dataclass
+from pathlib import Path
+
+from engine.check import bangla_ansi, decoders_agree
+from engine.check.bangla_ansi import BanglaAnsi
+from engine.messages import Message
+from engine.messages import read as read_codes
+from engine.read import ReadArtefact, ReadError
+from engine.read import pdf as pdf_reader
+from engine.read import read as read_dwg
+from engine.read.pdf.types import PdfReport
+from engine.recognise.types import CheckOutcome, CheckResult
+from engine.render import fonts
+from engine.render.fonts import FontReport
+from vextrus.drawings import services as drawings
+from vextrus.drawings.messages import files as file_words
+from vextrus.platform.services import jobs, storage
+
+NOT_READ = "not_read"
+"""The step that ends a file failed with its reason (see the module)."""
+DWG_STEPS = (drawings.OPENING, drawings.READING, drawings.SECOND_READER, drawings.FINISHING)
+PDF_STEPS = (drawings.OPENING, drawings.MATCHING)
+
+
+@dataclass(frozen=True)
+class Readers:
+    """What reads a file: the engine's (`READERS`), or a test's."""
+
+    dwg: Callable[[Path, str], ReadArtefact]
+    """The first reader: a DWG's path and its name as added, to its ReadArtefact."""
+    second: Callable[[Path, ReadArtefact], CheckResult]
+    """The second reader and the check that it agrees with the first."""
+    fonts: Callable[[ReadArtefact], FontReport]
+    bangla_ansi: Callable[[ReadArtefact], BanglaAnsi]
+    pdf: Callable[[Path], PdfReport]
+
+
+def _read_dwg(path: Path, name: str) -> ReadArtefact:
+    return read_dwg(path, source_name=name)
+
+
+def _second(path: Path, artefact: ReadArtefact) -> CheckResult:
+    return decoders_agree.run(path, artefact)
+
+
+def _pdf(path: Path) -> PdfReport:
+    return pdf_reader.report(path)
+
+
+READERS = Readers(
+    dwg=_read_dwg, second=_second, fonts=fonts.report, bangla_ansi=bangla_ansi.run, pdf=_pdf
+)
+
+
+class FileNotRead(jobs.JobRefused):
+    """The file ended failed with its reason: the job ends failed at once, and is never tried again
+    by itself (the QS's "Try again" restarts it)."""
+
+
+class _Unread(Exception):
+    """Raised inside a step whose reader could not read the file: the step rolls back, and the
+    file's reason is kept by the `not_read` step."""
+
+    def __init__(self, finding: Message) -> None:
+        super().__init__(finding["code"])
+        self.finding = finding
+
+
+@dataclass(frozen=True)
+class Read:
+    """How a file's per-file steps ended: `read`, `held` or `refused` (a PDF that is a scan)."""
+
+    file_id: uuid.UUID
+    format: str
+    outcome: str
+
+
+def read(run: jobs.Run, file_id: uuid.UUID, readers: Readers | None = None) -> Read:
+    """Run the file's steps (see the module); raises `FileNotRead` when the file ended failed."""
+    use = readers or READERS
+    steps = run.steps(drawings.step_store(), subject_id=file_id, total=len(DWG_STEPS))
+    try:
+        return _steps(steps, file_id, use)
+    except _Unread as unread:
+        # The step that raised has rolled back; the file's reason is kept once per job.
+        finding = unread.finding
+        steps.run(
+            NOT_READ,
+            lambda: _fail(file_id, finding),
+            inputs={"job": run.job_id, "finding": finding["code"]},
+        )
+        raise FileNotRead(f"file {file_id} was not read: {finding['code']}") from unread
+
+
+def _steps(steps: jobs.Steps, file_id: uuid.UUID, use: Readers) -> Read:
+    opened = steps.run(drawings.OPENING, lambda: _open(file_id, use), inputs={"file": file_id})
+    sha256 = str(opened["sha256"])
+    if opened["format"] == "pdf":
+        steps.expect(len(PDF_STEPS))
+        if opened.get("refused"):
+            return Read(file_id, "pdf", "refused")  # a scan: refused by its report, nothing to match
+        steps.run(drawings.MATCHING, lambda: _mark_read(file_id), inputs={"sha256": sha256})
+        return Read(file_id, "pdf", "read")
+    kept = steps.run(drawings.READING, lambda: _first(file_id, use), inputs={"sha256": sha256})
+    reader = {"reader": kept["reader"], "reader_version": kept["reader_version"]}
+    checked = steps.run(
+        drawings.SECOND_READER, lambda: _check(file_id, use, kept), inputs={"sha256": sha256, **reader}
+    )
+    if checked["held"]:
+        return Read(file_id, "dwg", "held")
+    steps.run(
+        drawings.FINISHING, lambda: _finish(file_id, use, kept), inputs={"sha256": sha256, **reader}
+    )
+    return Read(file_id, "dwg", "read")
+
+
+# The steps' bodies: each runs inside its step's transaction, acting in the file's tenant -----------
+
+
+def _open(file_id: uuid.UUID, use: Readers) -> jobs.StepResult:
+    """Vextrus's copy of the file, checked; a PDF's report kept."""
+    view = drawings.file(file_id)
+    result: jobs.StepResult = {"format": view.format, "sha256": view.sha256}
+    with _copy(file_id) as path:
+        if view.format == "pdf":
+            report = _reading(lambda: use.pdf(path))
+            kept = drawings.record_reports(file_id, upload_report=report)
+            result["refused"] = report.refused is not None
+            result["pages"] = len(report.pages)
+            result["kept_as"] = str(kept.state)
+    return result
+
+
+def _first(file_id: uuid.UUID, use: Readers) -> jobs.StepResult:
+    view = drawings.file(file_id)
+    with _copy(file_id) as path:
+        artefact = _reading(lambda: use.dwg(path, view.name), dwg=True)
+    ref = drawings.store_artefact(file_id, artefact)
+    return {
+        "reader": ref.reader,
+        "reader_version": ref.reader_version,
+        "schema_version": ref.schema_version,
+    }
+
+
+def _check(file_id: uuid.UUID, use: Readers, kept: jobs.StepResult) -> jobs.StepResult:
+    artefact = drawings.artefact(file_id, str(kept["reader_version"]))
+    with _copy(file_id) as path:
+        checked = _reading(lambda: use.second(path, artefact))
+    drawings.record_reports(file_id, cross_check=checked)
+    if checked.outcome == CheckOutcome.FIRED:
+        assert checked.finding is not None, "a fired check carries its finding"
+        drawings.quarantine(file_id, checked.finding)
+        return {"held": True, "finding": checked.finding["code"]}
+    return {"held": False}
+
+
+def _finish(file_id: uuid.UUID, use: Readers, kept: jobs.StepResult) -> jobs.StepResult:
+    artefact = drawings.artefact(file_id, str(kept["reader_version"]))
+    font_report = use.fonts(artefact)
+    flagged = use.bangla_ansi(artefact)
+    drawings.record_reports(file_id, font_report=font_report, bangla_ansi=flagged)
+    view = drawings.mark_read(file_id)
+    return {
+        "fonts": len(font_report.fonts),
+        "bangla_ansi_texts": len(flagged.texts),
+        "state": str(view.state),
+    }
+
+
+def _mark_read(file_id: uuid.UUID) -> jobs.StepResult:
+    return {"state": str(drawings.mark_read(file_id).state)}
+
+
+def _fail(file_id: uuid.UUID, finding: Message) -> jobs.StepResult:
+    return {"state": str(drawings.mark_failed(file_id, finding).state), "finding": finding["code"]}
+
+
+@contextmanager
+def _copy(file_id: uuid.UUID) -> Iterator[Path]:
+    """Vextrus's copy, checked: a copy missing or damaged is the file's reason (adding the file
+    again replaces the copy)."""
+    try:
+        with drawings.original(file_id) as path:
+            yield path
+    except storage.FileMissing as missing:
+        raise _Unread(missing.message) from None
+    except storage.StorageError:  # damaged, or something planted where the file goes
+        raise _Unread(storage.FileChanged.message) from None
+
+
+def _reading[T](read_it: Callable[[], T], *, dwg: bool = False) -> T:
+    """The reader's result, or its finding as the file's reason. A DWG whose first bytes name no
+    version the first reader reads was saved by an AutoCAD older than any it reads."""
+    try:
+        return read_it()
+    except ReadError as error:
+        if dwg and error.message["code"] == read_codes.UNSUPPORTED_FORMAT.code:
+            raise _Unread(file_words.OLD_VERSION()) from error
+        raise _Unread(error.message) from error

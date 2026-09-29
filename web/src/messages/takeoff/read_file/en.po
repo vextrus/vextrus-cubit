@@ -1,0 +1,14 @@
+msgid ""
+msgstr ""
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: en\n"
+
+#. vextrus/takeoff/messages/read_file.py (ticket 21a): the read job per file, its upload and its reading.
+msgid "takeoff.read_file.not_read_in_full"
+msgstr "Only part of this file was read: {limit, select, sheets_capped {it holds more sheets than Vextrus reads from one file} frames_capped {it holds more sheet frames than Vextrus reads from one file} layout_frames_capped {its layouts hold more sheet frames than Vextrus reads from one file} layouts_not_read {it has more layouts than Vextrus reads from one file} walk_visit_limit {it holds more drawing than Vextrus reads from one file} texts_capped {it holds more text than Vextrus reads from one file} read_budget {it holds more drawing than Vextrus reads from one file} viewport_budget {its layouts hold more viewports than Vextrus reads from one file} pair_budget {its title blocks hold more text than Vextrus reads, so some sheet numbers or titles may be missing} frame_labels_capped {its title blocks hold more labels than Vextrus reads, so some sheet numbers or titles may be missing} frame_values_capped {its title blocks hold more values than Vextrus reads, so some sheet numbers or titles may be missing} register_headings_capped {its drawing register holds more headings than Vextrus reads} layout_viewport_unknown_capped {some of its layouts could not be placed on its sheets} layout_blank_not_proposed {some of its layouts could not be placed on its sheets} other {Vextrus stopped at one of its limits ({limit})}}. What lies past that point is not in the sheet list. Tell Vextrus so the rest can be read."
+
+msgid "takeoff.read_file.not_started"
+msgstr "{file} was not added: Vextrus could not start reading it just now. Add it again in a minute. If this keeps happening, tell Vextrus."

@@ -14,6 +14,7 @@ from typing import Any
 from django.conf import settings
 from ninja import NinjaAPI
 from ninja.openapi.schema import OpenAPISchema
+from ninja.utils import normalize_path
 
 from engine.messages import MessageCode
 from vextrus.modules import MODULES
@@ -37,6 +38,17 @@ def message_codes() -> tuple[MessageCode, ...]:
 
 
 class VextrusAPI(NinjaAPI):
+    def _get_bound_routers(self) -> list[Any]:
+        """Ninja's bound routers, with one path's operations held by one view however many modules
+        declare them: Django serves the first route that matches, so a second module's method on a
+        path another module holds (21a's upload `POST` on `drawings`' files list) would otherwise
+        answer 405. Merged once, when Ninja first binds them."""
+        bound: list[Any] = super()._get_bound_routers()
+        if not getattr(self, "_paths_merged", False):
+            _merge_paths(bound)
+            self._paths_merged = True
+        return bound
+
     def get_openapi_schema(
         self, *, path_prefix: str | None = None, path_params: dict[str, Any] | None = None
     ) -> OpenAPISchema:
@@ -54,6 +66,28 @@ class VextrusAPI(NinjaAPI):
             "enum": [held.code for held in codes if held.event],
         }
         return schema
+
+
+def _merge_paths(bound: list[Any]) -> None:
+    """Move each path's operations into the first bound router holding that path; two modules
+    declaring one method on one path is a fault, raised."""
+    first: dict[str, Any] = {}
+    for router in bound:
+        for path in list(router.path_operations):
+            route = normalize_path("/".join(part for part in (router.prefix, path) if part))
+            view = router.path_operations[path]
+            held = first.get(route)
+            if held is None:
+                first[route] = view
+                continue
+            taken = {m for op in held.operations for m in op.methods}
+            for operation in view.operations:
+                clash = taken & set(operation.methods)
+                if clash:
+                    raise ValueError(f"{sorted(clash)} {route} is declared by two modules")
+                held.operations.append(operation)
+            held.is_async = held.is_async or view.is_async
+            del router.path_operations[path]
 
 
 def schema_url(debug: bool) -> str | None:

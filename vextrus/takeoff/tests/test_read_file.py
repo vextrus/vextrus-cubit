@@ -1,0 +1,435 @@
+"""The read job per file (ticket 21a): its steps through `drawings.services`, run here with readers a
+test gives (the engine's own run in `test_read_file_toolchain.py`-style tests marked
+`needs_toolchain`), its add that queues it, and the one API path two modules share."""
+
+import io
+import json
+import uuid
+from collections.abc import Callable
+from pathlib import Path
+from typing import Any
+
+import pytest
+from django.conf import settings
+from django.db import connection
+from ninja import NinjaAPI, Router
+
+from engine.check.bangla_ansi import BanglaAnsi
+from engine.messages import Message
+from engine.messages import decoders_agree as agree_codes
+from engine.messages import read as read_codes
+from engine.read import ReadArtefact, ReadError
+from engine.read.pdf.types import PdfReport
+from engine.recognise.types import CheckOutcome, CheckResult
+from engine.render import fonts
+from vextrus.drawings import services as drawings
+from vextrus.platform.services import auth, jobs, storage
+from vextrus.takeoff.messages import read_file as said
+from vextrus.takeoff.services.read_propose import files
+from vextrus.takeoff.tasks import read_file
+from vextrus.testing.drawings import QsProject, add, artefact_for, drawing, pdf_report
+from vextrus.testing.jobs import run_inline
+from vextrus.testing.tenancy import Member
+
+pytestmark = pytest.mark.django_db
+
+AGREE = CheckResult(code="decoders_agree", outcome=CheckOutcome.PASSED)
+DISAGREE = agree_codes.DISAGREE(items=3, only_first=2, only_second=1, kinds=0, layers=0, unread=0)
+
+
+class Calls:
+    """Which readers ran, in order: a skipped step reads nothing."""
+
+    def __init__(self) -> None:
+        self.names: list[str] = []
+
+
+def readers(
+    calls: Calls,
+    *,
+    dwg: Callable[[Path, str], ReadArtefact] | None = None,
+    second: CheckResult | Exception = AGREE,
+    pdf: Callable[[Path], PdfReport] | None = None,
+) -> files.Readers:
+    def first(path: Path, name: str) -> ReadArtefact:
+        calls.names.append("dwg")
+        if dwg is not None:
+            return dwg(path, name)
+        return artefact_for(sha(path), name, 2)
+
+    def check(path: Path, artefact: ReadArtefact) -> CheckResult:
+        calls.names.append("second")
+        if isinstance(second, Exception):
+            raise second
+        return second
+
+    def report(path: Path) -> PdfReport:
+        calls.names.append("pdf")
+        if pdf is not None:
+            return pdf(path)
+        return pdf_report(sha(path), 3)
+
+    def font_report(artefact: ReadArtefact) -> fonts.FontReport:
+        calls.names.append("fonts")
+        return fonts.report(artefact)
+
+    def bangla(artefact: ReadArtefact) -> BanglaAnsi:
+        calls.names.append("bangla_ansi")
+        return BanglaAnsi(())
+
+    return files.Readers(dwg=first, second=check, fonts=font_report, bangla_ansi=bangla, pdf=report)
+
+
+def sha(path: Path) -> str:
+    import hashlib
+
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def run_job(member: Member, file_id: uuid.UUID, use: files.Readers, monkeypatch: Any) -> None:
+    monkeypatch.setattr(files, "READERS", use)
+    run_inline(
+        read_file.read_file,
+        tenant_id=member.developer_id,
+        user_id=member.user.pk,
+        file_id=file_id,
+    )
+
+
+def added(qs: QsProject, name: str = "KR-STR-R0.dwg", kind: str = "dwg") -> uuid.UUID:
+    return add(qs.member, qs.project_id, name, drawing(kind)).file.id
+
+
+def view(member: Member, file_id: uuid.UUID) -> drawings.FileView:
+    with member.acting():
+        return drawings.file(file_id)
+
+
+def report(member: Member, file_id: uuid.UUID) -> drawings.Report:
+    with member.acting():
+        return drawings.report(file_id)
+
+
+# A DWG ------------------------------------------------------------------------------------------
+
+
+def test_a_dwg_is_read_its_reading_kept_and_its_reports_kept_as_codes(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    file_id = added(qs_project)
+    calls = Calls()
+
+    run_job(qs_project.member, file_id, readers(calls), monkeypatch)
+
+    shown = view(qs_project.member, file_id)
+    assert shown.state == drawings.FileState.READ
+    assert shown.status == {"code": "drawings.files.read", "params": {}}
+    assert calls.names == ["dwg", "second", "fonts", "bangla_ansi"]
+    with qs_project.member.acting():
+        kept = drawings.artefact(file_id)
+    assert kept.summary.source_sha256 == shown.sha256
+    kept_report = report(qs_project.member, file_id)
+    assert kept_report.readers == ({"code": "drawings.reports.readers_agree", "params": {}},)
+    assert kept_report.fonts == tuple(fonts.report(kept).messages())
+
+
+def test_a_dwg_read_again_skips_every_step_kept(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    file_id = added(qs_project)
+    run_job(qs_project.member, file_id, readers(Calls()), monkeypatch)
+    calls = Calls()
+
+    run_job(qs_project.member, file_id, readers(calls), monkeypatch)
+
+    assert calls.names == []
+
+
+def test_two_readers_that_disagree_hold_the_file_with_the_finding_and_read_no_further(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    file_id = added(qs_project)
+    calls = Calls()
+    fired = CheckResult(code="decoders_agree", outcome=CheckOutcome.FIRED, finding=DISAGREE)
+
+    run_job(qs_project.member, file_id, readers(calls, second=fired), monkeypatch)
+
+    shown = view(qs_project.member, file_id)
+    assert shown.state == drawings.FileState.HELD
+    assert shown.finding == DISAGREE
+    assert calls.names == ["dwg", "second"]
+    assert report(qs_project.member, file_id).readers == (DISAGREE,)
+
+
+def test_a_held_file_raises_no_question(qs_project: QsProject, monkeypatch: pytest.MonkeyPatch) -> None:
+    """ADR 0029: `drawings` holds the file; 21c raises `file_misread`. 21a writes no Question."""
+    file_id = added(qs_project)
+    fired = CheckResult(code="decoders_agree", outcome=CheckOutcome.FIRED, finding=DISAGREE)
+
+    run_job(qs_project.member, file_id, readers(Calls(), second=fired), monkeypatch)
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "select count(*) from information_schema.tables where table_name like 'takeoff_%%'"
+        )
+        [tables] = cursor.fetchone() or (0,)
+    assert tables == 0, "21a adds no takeoff table, so no Question can be written by it"
+
+
+# A file that could not be read ----------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("where", "error"),
+    [
+        ("dwg", ReadError(read_codes.READER_FAILED())),
+        ("dwg", ReadError(read_codes.LIMIT_REACHED(limit="wall"))),
+        ("second", ReadError(agree_codes.NOT_INSTALLED())),
+        ("second", ReadError(agree_codes.NOT_PINNED())),
+    ],
+    ids=["reader_failed", "limit_reached", "second_not_installed", "second_not_pinned"],
+)
+def test_a_file_a_reader_could_not_read_ends_failed_with_why_and_the_job_is_not_tried_again(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, where: str, error: ReadError
+) -> None:
+    file_id = added(qs_project)
+
+    def raises(path: Path, name: str) -> ReadArtefact:
+        raise error
+
+    use = readers(Calls(), dwg=raises) if where == "dwg" else readers(Calls(), second=error)
+    with pytest.raises(files.FileNotRead) as ended:
+        run_job(qs_project.member, file_id, use, monkeypatch)
+
+    assert isinstance(ended.value, jobs.JobRefused), "09's runner never tries a refused job again"
+    shown = view(qs_project.member, file_id)
+    assert shown.state == drawings.FileState.FAILED
+    assert shown.finding == error.message
+    assert shown.status == {"code": "drawings.files.failed", "params": {"tries": 1}}
+
+
+def test_a_dwg_older_than_any_the_reader_reads_is_unreadable(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    file_id = add(qs_project.member, qs_project.project_id, "OLD.dwg", b"AC2.10" + b"\x00" * 200).file.id
+
+    def old(path: Path, name: str) -> ReadArtefact:
+        raise ReadError(read_codes.UNSUPPORTED_FORMAT(format="unknown"))
+
+    with pytest.raises(files.FileNotRead):
+        run_job(qs_project.member, file_id, readers(Calls(), dwg=old), monkeypatch)
+
+    shown = view(qs_project.member, file_id)
+    assert shown.state == drawings.FileState.UNREADABLE
+    assert shown.finding == {"code": "drawings.files.old_version", "params": {}}
+
+
+def test_try_again_reads_the_step_that_failed_again_and_skips_those_kept(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    file_id = added(qs_project)
+    with pytest.raises(files.FileNotRead):
+        run_job(
+            qs_project.member,
+            file_id,
+            readers(Calls(), second=ReadError(agree_codes.STOPPED())),
+            monkeypatch,
+        )
+    with qs_project.member.acting():
+        drawings.restart(file_id)  # the QS's "Try again"
+    calls = Calls()
+
+    run_job(qs_project.member, file_id, readers(calls), monkeypatch)
+
+    assert calls.names == ["second", "fonts", "bangla_ansi"]
+    assert view(qs_project.member, file_id).state == drawings.FileState.READ
+
+
+def test_a_missing_copy_ends_the_file_failed_with_why(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    file_id = added(qs_project)
+    base = Path(settings.VEXTRUS_STORAGE_ROOT) / str(qs_project.member.developer_id)
+    [original] = list((base / str(qs_project.project_id)).rglob("original.dwg"))
+    original.unlink()
+
+    with pytest.raises(files.FileNotRead):
+        run_job(qs_project.member, file_id, readers(Calls()), monkeypatch)
+
+    shown = view(qs_project.member, file_id)
+    assert shown.state == drawings.FileState.FAILED
+    assert shown.finding == storage.FileMissing.message
+
+
+def test_a_fault_that_is_not_the_files_is_raised_and_tried_again(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    file_id = added(qs_project)
+
+    def broken(path: Path, name: str) -> ReadArtefact:
+        raise RuntimeError("a bug, not the file")
+
+    with pytest.raises(RuntimeError):
+        run_job(qs_project.member, file_id, readers(Calls(), dwg=broken), monkeypatch)
+
+    shown = view(qs_project.member, file_id)
+    assert shown.state != drawings.FileState.FAILED
+    assert shown.finding is None
+
+
+# A PDF ------------------------------------------------------------------------------------------
+
+
+def test_a_pdf_is_read_with_its_report_kept(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    file_id = added(qs_project, "KR-ARC-R0.pdf", "pdf")
+    calls = Calls()
+
+    run_job(qs_project.member, file_id, readers(calls), monkeypatch)
+
+    assert calls.names == ["pdf"]
+    shown = view(qs_project.member, file_id)
+    assert shown.state == drawings.FileState.READ
+    assert report(qs_project.member, file_id).made_by == tuple(pdf_report(shown.sha256, 3).messages)
+
+
+def test_a_scanned_pdf_is_refused_by_its_report(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    file_id = added(qs_project, "SCAN.pdf", "pdf")
+
+    def scan(path: Path) -> PdfReport:
+        return pdf_report(sha(path), 2, refused=True)
+
+    run_job(qs_project.member, file_id, readers(Calls(), pdf=scan), monkeypatch)
+
+    assert view(qs_project.member, file_id).state == drawings.FileState.REFUSED
+
+
+# The add that queues it --------------------------------------------------------------------------
+
+
+def job_args(job_id: int) -> dict[str, str]:
+    with connection.cursor() as cursor:
+        cursor.execute("select queue_name, args from procrastinate_jobs where id = %s", [job_id])
+        row = cursor.fetchone()
+    assert row is not None
+    queue, args = row
+    assert queue == settings.VEXTRUS_CAD_QUEUE
+    return json.loads(args) if isinstance(args, str) else dict(args)
+
+
+def test_the_add_queues_the_files_read_job_with_its_ids_only(qs_project: QsProject) -> None:
+    with qs_project.member.acting():
+        done = read_file.add(
+            qs_project.project_id, name="KR-STR-R0.dwg", content=io.BytesIO(drawing("dwg"))
+        )
+        assert done.file.read_job_id is not None
+        args = job_args(done.file.read_job_id)
+
+    assert args == {
+        "tenant_id": str(qs_project.member.developer_id),
+        "user_id": str(qs_project.member.user.pk),
+        "file_id": str(done.file.id),
+    }
+
+
+def test_a_file_waiting_with_no_read_job_gets_one_when_added_again(qs_project: QsProject) -> None:
+    content = drawing("dwg")
+    before = add(qs_project.member, qs_project.project_id, "KR-STR-R0.dwg", content).file
+    assert before.read_job_id is None
+
+    with qs_project.member.acting():
+        again = read_file.add(qs_project.project_id, name="KR-STR-R0.dwg", content=io.BytesIO(content))
+
+    assert again.outcome == "already_here"
+    assert again.file.id == before.id
+    assert again.file.read_job_id is not None
+
+
+def test_a_job_that_cannot_be_queued_keeps_nothing_and_names_the_file(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def refuse(self: jobs.Job, **ids: uuid.UUID) -> int:
+        raise jobs.JobRefused("refused for the test")
+
+    monkeypatch.setattr(jobs.Job, "defer", refuse)
+
+    with qs_project.member.acting(), pytest.raises(auth.Refused) as refused:
+        read_file.add(qs_project.project_id, name="a/b/KR-STR-R0.dwg", content=io.BytesIO(drawing()))
+
+    assert refused.value.status == 503
+    assert refused.value.message == said.NOT_STARTED(file="KR-STR-R0.dwg")
+    with qs_project.member.acting():
+        assert drawings.set_of(qs_project.project_id) is None
+
+
+def test_a_fault_in_the_add_itself_is_not_worded_as_a_job_not_queued(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from django.db import DatabaseError
+
+    def broken(*args: Any, **kwargs: Any) -> Any:
+        raise DatabaseError("the add itself failed")
+
+    monkeypatch.setattr(drawings, "add_file", broken)
+
+    with qs_project.member.acting(), pytest.raises(DatabaseError):
+        read_file.add(qs_project.project_id, name="KR-STR-R0.dwg", content=io.BytesIO(drawing()))
+
+
+def test_the_read_job_runs_on_the_cad_queue() -> None:
+    assert read_file.read_file.queue == settings.VEXTRUS_CAD_QUEUE == "cad"
+
+
+# Words -------------------------------------------------------------------------------------------
+
+
+def test_not_started_names_the_file_and_what_to_do() -> None:
+    message: Message = said.NOT_STARTED(file="KR-STR-R0.dwg")
+    assert message == {"code": "takeoff.read_file.not_started", "params": {"file": "KR-STR-R0.dwg"}}
+
+
+def test_not_read_in_full_words_every_limit_the_finder_reports() -> None:
+    from engine.recognise.sheets import LIMITS
+
+    po = Path(settings.BASE_DIR) / "web/src/messages/takeoff/read_file/en.po"
+    [entry] = [e for e in po.read_text().split("\n\n") if "takeoff.read_file.not_read_in_full" in e]
+    for limit in LIMITS:
+        assert f" {limit} {{" in entry, f"{limit} has no words of its own"
+
+
+# One path, two modules ---------------------------------------------------------------------------
+
+
+def test_the_upload_and_the_files_list_share_one_path() -> None:
+    from vextrus.api import api
+
+    methods = {
+        method
+        for router in api._get_bound_routers()
+        for path, view in router.path_operations.items()
+        if path.endswith("/drawings/files")
+        for op in view.operations
+        for method in op.methods
+    }
+    assert methods == {"GET", "POST"}
+
+
+def test_two_modules_declaring_one_method_on_one_path_is_refused() -> None:
+    from vextrus.api import VextrusAPI
+
+    first, second = Router(), Router()
+
+    @first.get("/same")
+    def one(request: Any) -> None: ...
+
+    @second.get("/same")
+    def two(request: Any) -> None: ...
+
+    api: NinjaAPI = VextrusAPI(urls_namespace=f"clash-{uuid.uuid4().hex}")
+    api.add_router("", first)
+    api.add_router("", second)
+    with pytest.raises(ValueError, match="declared by two modules"):
+        api.urls  # noqa: B018
