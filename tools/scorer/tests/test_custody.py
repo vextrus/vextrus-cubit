@@ -102,8 +102,7 @@ def test_the_owners_root_scripts_run_every_step_inside_main(name: str) -> None:
     body_after = text[end + 3 :]
     assert re.fullmatch(
         r"\s*(# [^\n]*\n)*"
-        r'(if \[\[ "\$\{BASH_SOURCE\[0\]\}" == "\$0" \]\]; then\n  main "\$@"\n  exit\nfi'
-        r'|main "\$@"\nexit)\n',
+        r'if \[\[ "\$\{BASH_SOURCE\[0\]\}" == "\$0" \]\]; then\n  main "\$@"\n  exit\nfi\n',
         body_after,
     ), body_after
     before = text[:start]
@@ -231,8 +230,9 @@ def test_everything_installed_is_githubs_main_never_your_checkouts() -> None:
 
 
 def test_drop_setup_never_installs_the_poster_once_the_pipelines_user_exists() -> None:
+    """Named in the script: the settings it could read the name from are your working tree's."""
     text = (OWNER_SCRIPTS / "drop-setup.sh").read_text()
-    refusal = text.index('if id "$(setting writer)"')
+    refusal = text.index("if id vxrun >/dev/null 2>&1; then")
     assert refusal < text.index('sudo install -o root -g root -m 0755 "$root/scripts/owner/post-status"')
 
 

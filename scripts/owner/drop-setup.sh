@@ -32,7 +32,8 @@ main() {
   INSTALLED=$(setting installed)
   ME=$(id -un)
   GROUP=$(id -gn "$KEY_USER")
-  if id "$(setting writer)" >/dev/null 2>&1; then
+  # Named here, not read from the settings, which your working tree holds.
+  if id vxrun >/dev/null 2>&1; then
     echo "The pipeline's user exists: scripts/owner/keys-custody.sh now owns $DROP and installs the"
     echo "poster from GitHub's main. Run that instead (sudo bash scripts/owner/keys-custody.sh)."
     exit 1
@@ -72,5 +73,8 @@ main() {
   fi
 }
 
-main "$@"
-exit
+# The call and the exit are one compound, parsed whole: nothing after them is ever read.
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+  exit
+fi

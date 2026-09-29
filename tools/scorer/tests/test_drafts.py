@@ -166,3 +166,13 @@ def test_the_draft_check_and_the_runs_files_leave_out_the_same_marks() -> None:
     from scripts.real_drawings import source
 
     assert drafts.MARK == source.MARK
+
+
+def test_the_review_page_shows_each_drafts_sha256(tmp_path: Path) -> None:
+    """The refuter's re-check (45): the owner confirmed at custody set names only, so a draft changed
+    after the review was taken; keys-custody.sh prints the sha256 it takes, the page the one reviewed."""
+    a_set(tmp_path)
+    path = draft(tmp_path)
+    index = review.write(path.parent, tmp_path / "reference")
+
+    assert hashlib.sha256(path.read_bytes()).hexdigest() in index.read_text()

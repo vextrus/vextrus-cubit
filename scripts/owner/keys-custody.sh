@@ -194,7 +194,10 @@ main() {
       # The ruling of session 06: a draft keys exactly the set's drawings, by their sha256.
       check_draft "$set" || die "the $set draft does not key the set's drawings (above); nothing was taken"
     done
-    echo "  Drafts to take into custody, as checked just now: ${drafted[*]}"
+    echo "  Drafts to take into custody, as checked just now (compare each sha256 with the review page's):"
+    for set in "${drafted[@]}"; do
+      printf '    %s  %s\n' "$(sha256sum < "$tmp/draft-$set.json" | cut -d' ' -f1)" "$set"
+    done
     confirm "Did you confirm these on the review page, with your changes applied?" \
       || die "nothing was taken; confirm the drafts first"
     for set in "${drafted[@]}"; do

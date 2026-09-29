@@ -21,6 +21,7 @@ Standard library only (it is in the scorer's folder).
 """
 
 import argparse
+import hashlib
 import html
 import json
 import os
@@ -72,7 +73,14 @@ class Refused(Exception):
 
 def _set(drafts: Path, reference: Path, page: Path, draft: Path, key: dict[str, Any]) -> str:
     name = key["set"]
-    out = [f"<section><h2>{_e(name)} <small>({_e(draft.name)})</small></h2>"]
+    digest = hashlib.sha256(draft.read_bytes()).hexdigest()
+    out = [
+        (
+            f"<section><h2>{_e(name)} <small>({_e(draft.name)})</small></h2>"
+            f'<p>This draft\'s sha256: <code class="sha">{digest}</code>. keys-custody.sh prints the'
+            " sha256 of what it takes into custody: take it only if the two are the same.</p>"
+        )
+    ]
     for n, sheet in enumerate(key.get("sheets") or [], 1):
         if not isinstance(sheet, dict):
             continue
