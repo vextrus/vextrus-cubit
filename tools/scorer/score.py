@@ -40,13 +40,16 @@ with the layout, the frame and the view's box):
 >   Owns `scripts/score/`.
 
 The ruling's join, fixed here and never tuned after a result: a key sheet joins the export sheet on its
-layout; when several export sheets share that layout (model space), it joins the one whose box has an
-IoU of at least 0.8 with the key's frame. A key view joins a view of its joined sheet with the same kind
-at an IoU of at least 0.8 (boxes on paper, in mm). Joins are one to one, the largest IoU first. The
-sheet's six fields are compared after normalising: case and whitespace everywhere, the number's `-`, `.`
-and space separators folded, and a title's decoded symbols (`%%c`, `%%d`, `%%p`). A sheet passes when
-all six are right and every key view joins with its title and subject right; an export sheet or view
-that joins nothing is an extra (a phantom), counted, and fails nothing by itself.
+layout, within the drawing file it names; a key sheet drawn in model space (layout "model", any case)
+joins an export sheet with no layout or the layout "model"; a key sheet with a frame joins only the one
+whose box has an IoU of at least 0.8 with the frame, a lone one too (session 06's F0 and F5). A key
+view joins a view of its joined sheet with the same kind at an IoU of at least 0.8 (boxes on paper, in
+mm). Joins are one to one, the largest IoU first. The sheet's six fields are compared after
+normalising: case and whitespace everywhere, the number's `-`, `.` and space separators folded, and a
+title's decoded symbols (`%%c`, `%%d`, `%%p`); storeys compare as lists, in order, the export's stated
+text split on commas, "&" and "and" (F1). A sheet passes when all six are right and every key view
+joins with its title and subject right; an export sheet or view that joins nothing is an extra (a
+phantom), counted, and fails nothing by itself.
 
 The keys: `<keys>/<set>.json` = `{set, held_out, sheets: [{layout, frame?, number, title, discipline,
 storeys, revision, date, views: [{box, title, kind, subject}]}]}`.
@@ -76,6 +79,7 @@ COMMIT = re.compile(r"\A[0-9a-f]{40}\Z")
 SET_NAME = re.compile(r"\A[a-z0-9][a-z0-9-]{0,63}\Z")
 JOIN = 0.8
 MOST = 1 << 30  # the most bytes read from one file
+UNLOGGED = "vx-score: refused: the log cannot be written, so nothing is scored"
 REFUSED = 2  # a refusal: nothing scored (sudo's own refusal is 1)
 BROKEN = 3  # the scorer failed; nothing scored
 
@@ -89,6 +93,7 @@ FIELDS = (
     ("date", "issue_date", "date wrong"),
 )
 SYMBOLS = {"%%c": "ø", "%%d": "°", "%%p": "±"}
+SEPARATORS = re.compile(r",|&|\band\b")  # between two storeys of a list stated as text
 
 
 class Refused(Exception):
@@ -120,32 +125,43 @@ def main(argv: list[str], *, drop: Path, keys: Path, log: Path, writer: int) -> 
         # Held for the whole call, and closed by the `with` below.
         journal = open(log, "a", encoding="utf-8")  # noqa: SIM115
     except OSError:
-        print("vx-score: refused: the log cannot be written, so nothing is scored", file=sys.stderr)
+        print(UNLOGGED, file=sys.stderr)
         return REFUSED
-    with journal:
-        run_id = argv[0] if len(argv) == 1 and RUN_ID.match(argv[0]) else None
-        named = run_id or f"(not a run id: {ascii(argv)[:80]})"
-        try:
-            if run_id is None:
-                raise Refused("give exactly one run id, as the posting run printed it")
-            head, sets = _scored(run_id, drop, keys, writer)
-        except Refused as refused:
-            _log(journal, f"run {named} refused: {refused}")
-            print(f"vx-score: refused: {refused}", file=sys.stderr)
-            return REFUSED
-        # Any other failure: its message could quote a key, so none is shown.
-        except Exception as error:
-            _log(journal, f"run {named} failed: {type(error).__name__}")
-            print(f"vx-score: failed ({type(error).__name__}); nothing is scored", file=sys.stderr)
-            return BROKEN
-        print(f"vx-score {run_id}: head {head}")
-        for name, held_out, score in sets:
-            lines = _answer(name, held_out, score)
-            for line in lines:
-                print(line)
-            totals = "; ".join(line.strip() for line in lines if " / " in line)
-            _log(journal, f"run {run_id} head {head} set {name} scored: {totals}")
-        return 0
+    # Every call is logged before anything is shown: a log that cannot be written (a full disk) lets no
+    # answer out unlogged (session 06's F6).
+    try:
+        with journal:
+            return _call(argv, drop, keys, writer, journal)
+    except OSError:
+        print(UNLOGGED, file=sys.stderr)
+        return REFUSED
+
+
+def _call(argv: list[str], drop: Path, keys: Path, writer: int, journal: TextIO) -> int:
+    run_id = argv[0] if len(argv) == 1 and RUN_ID.match(argv[0]) else None
+    named = run_id or f"(not a run id: {ascii(argv)[:80]})"
+    try:
+        if run_id is None:
+            raise Refused("give exactly one run id, as the posting run printed it")
+        head, sets = _scored(run_id, drop, keys, writer)
+    except Refused as refused:
+        _log(journal, f"run {named} refused: {refused}")
+        print(f"vx-score: refused: {refused}", file=sys.stderr)
+        return REFUSED
+    # Any other failure: its message could quote a key, so none is shown.
+    except Exception as error:
+        _log(journal, f"run {named} failed: {type(error).__name__}")
+        print(f"vx-score: failed ({type(error).__name__}); nothing is scored", file=sys.stderr)
+        return BROKEN
+    answers = [(name, _answer(name, held_out, score)) for name, held_out, score in sets]
+    for name, lines in answers:
+        totals = "; ".join(line.strip() for line in lines if " / " in line)
+        _log(journal, f"run {run_id} head {head} set {name} scored: {totals}")
+    print(f"vx-score {run_id}: head {head}")
+    for _name, lines in answers:
+        for line in lines:
+            print(line)
+    return 0
 
 
 def _scored(
@@ -176,10 +192,11 @@ def _scored(
             if hashlib.sha256(data).hexdigest() != digest:
                 raise Refused(f"export-{name}.json is not the export the run recorded")
             export = _json(data, f"export-{name}.json")
+            read_by, read_at = _export_run(name, entry, run_id, head)
             run = export.get("run")
-            if not isinstance(run, dict) or run.get("id") != run_id:
+            if not isinstance(run, dict) or run.get("id") != read_by:
                 raise Refused(f"export-{name}.json names another run")
-            if run.get("commit") != head:
+            if run.get("commit") != read_at:
                 raise Refused(f"export-{name}.json names another head")
             scored.append((name, key.get("held_out") is not False, _score(key, export)))
     finally:
@@ -187,6 +204,26 @@ def _scored(
     if not scored:
         raise Refused("no set of this run has a key")
     return head, scored
+
+
+def _export_run(name: str, entry: Any, run_id: str, head: str) -> tuple[str, str]:
+    """The run and commit the set's export must name: this run's own, or, for an export the run took
+    from the check's cache, the earlier run that read it, as this run's metadata records it
+    (`export_run: {id, commit}`, session 06's F4). The digest check is the same either way."""
+    recorded = entry.get("export_run") if isinstance(entry, dict) else None
+    if recorded is None:
+        return run_id, head
+    read_by = recorded.get("id") if isinstance(recorded, dict) else None
+    read_at = recorded.get("commit") if isinstance(recorded, dict) else None
+    if (
+        not isinstance(read_by, str)
+        or not RUN_ID.match(read_by)
+        or not isinstance(read_at, str)
+        or not COMMIT.match(read_at)
+        or read_at[:12] != read_by.split("-")[1]
+    ):
+        raise Refused(f"metadata.json's export_run of {name} is not a run and its head")
+    return read_by, read_at
 
 
 def _open_run(drop: Path, run_id: str, writer: int) -> int:
@@ -417,25 +454,39 @@ def _counted(n: int, one: str, many: str) -> str:
 def _join_sheets(
     keyed: list[dict[str, Any]], found: list[dict[str, Any]], origins: list[Any]
 ) -> dict[int, int]:
-    """Key sheet index to export sheet index: within the key sheet's drawing file when it names one, on
-    the layout; on the frame's IoU when several export sheets share the layout."""
-    by_layout: dict[Any, list[int]] = {}
-    for f, sheet in enumerate(found):
-        by_layout.setdefault((sheet.get("location") or {}).get("layout"), []).append(f)
+    """Key sheet index to export sheet index, within the key sheet's drawing file when it names one. A
+    key sheet whose layout is "model" (any case) is drawn in model space: its candidates are the export
+    sheets with no layout or the layout "model" (13's export gives a model-space sheet a null layout and
+    its frame as `location.box`, in model units; session 06's F0). Any other key sheet's candidates
+    share its layout's name. A key sheet with a frame joins only a candidate whose box has an IoU of at
+    least 0.8 with it, a lone one too (session 06's F5); one with no frame joins a lone candidate."""
     pairs = []
     for k, sheet in enumerate(keyed):
         layout = sheet.get("layout")
-        candidates = by_layout.get(layout, []) if isinstance(layout, str) else []
-        if isinstance(sheet.get("file"), str):
-            candidates = [f for f in candidates if origins[f] == sheet["file"]]
-        if len(candidates) == 1:
-            pairs.append((1.0, k, candidates[0]))
-        elif sheet.get("frame") is not None:
+        if not isinstance(layout, str):
+            continue
+        candidates = [
+            f
+            for f, other in enumerate(found)
+            if _layout_joins(layout, (other.get("location") or {}).get("layout"))
+            and (not isinstance(sheet.get("file"), str) or origins[f] == sheet["file"])
+        ]
+        if sheet.get("frame") is not None:
             for f in candidates:
                 box = (found[f].get("location") or {}).get("box")
                 pairs.append((_iou(sheet.get("frame"), box), k, f))
+        elif len(candidates) == 1:
+            pairs.append((1.0, k, candidates[0]))
     pairs.sort(key=lambda pair: (-pair[0], pair[1], pair[2]))
     return _one_to_one(pairs)
+
+
+def _layout_joins(key: str, found: Any) -> bool:
+    """Whether an export sheet's layout can join a key sheet's: model space to model space (the export's
+    null layout among it), otherwise the same layout name."""
+    if key.casefold() == "model":
+        return found is None or (isinstance(found, str) and found.casefold() == "model")
+    return isinstance(found, str) and found == key
 
 
 def _one_to_one(pairs: list[tuple[float, int, int]]) -> dict[int, int]:
@@ -474,6 +525,8 @@ def _same(field: str, key: Any, found: Any) -> bool:
         return _number(key) == _number(found)
     if field == "title":
         return _title(key) == _title(found)
+    if field == "storeys":
+        return _storeys(key) == _storeys(found)
     return _text(key) == _text(found)
 
 
@@ -482,6 +535,30 @@ def _text(value: Any) -> str:
     if value is None:
         return ""
     return " ".join(unicodedata.normalize("NFKC", str(value)).casefold().split())
+
+
+def _storeys(value: Any) -> list[str]:
+    """Storeys as a list of items, in order (session 06's F1): a key's list or the export's stated
+    text, each split on commas, "&" and the word "and", each item case- and whitespace-folded with the
+    punctuation around its words stripped; empty items are dropped, so a missing value is the empty
+    list."""
+    items = []
+    for part in value if isinstance(value, list) else [value]:
+        for item in SEPARATORS.split(_text(part)):
+            words = (_unpunctuated(word) for word in item.split())
+            if folded := " ".join(word for word in words if word):
+                items.append(folded)
+    return items
+
+
+def _unpunctuated(word: str) -> str:
+    """The word without the punctuation at either end ("(3rd)" is "3rd"; "1st-floor" keeps its "-")."""
+    start, end = 0, len(word)
+    while start < end and unicodedata.category(word[start]).startswith("P"):
+        start += 1
+    while end > start and unicodedata.category(word[end - 1]).startswith("P"):
+        end -= 1
+    return word[start:end]
 
 
 def _number(value: Any) -> str:
@@ -520,6 +597,7 @@ def _log(journal: TextIO, line: str) -> None:
     caller = os.environ.get("SUDO_UID", str(os.getuid()))
     journal.write(f"{stamp} uid {caller} " + " ".join(line.split()) + "\n")
     journal.flush()
+    os.fsync(journal.fileno())
 
 
 if __name__ == "__main__":
