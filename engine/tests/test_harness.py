@@ -258,7 +258,8 @@ FAKES = {
     "plot.py": """
         from engine.recognise.types import PlotMatch, PlotTransform
 
-        def match(pages, sheets, geometry, plots):
+        def match(pages, sheets, geometry, plots, disciplines):
+            assert set(disciplines) == set(plots)
             assert len(geometry) == len(sheets)
             assert all(str(p).endswith(".pdf") for p in plots.values())
             if not pages:

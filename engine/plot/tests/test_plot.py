@@ -225,6 +225,26 @@ def test_a_number_two_sheets_carry_is_told_apart_by_the_papers_size() -> None:
     assert named(page, sheets, [sheet_buffers(), sheet_buffers()]) == "names_several_sheets"
 
 
+def discipline_sheet(number: str, layout: str, discipline: str) -> SheetCandidate:
+    return replace(sheet(number, layout), discipline=Sourced(discipline, ValueSource.FILE))
+
+
+def test_a_disciplines_pdf_names_its_own_disciplines_sheet_first() -> None:
+    sheets = [
+        discipline_sheet("01", "A-01", "architectural"),
+        discipline_sheet("01", "S-01", "structural"),
+        discipline_sheet("02", "S-02", "structural"),
+    ]
+    shared = page_of(item("01"))
+    crossed = page_of(item("01", size=10), item("A-7", size=10), item("02", size=10))
+
+    (found,) = registration.match([shared], sheets, (), None, {SHA: "structural"})
+    assert found.sheet is sheets[1]
+    assert named(shared, sheets) == "names_several_sheets"  # no Discipline: the size cannot tell
+    (found,) = registration.match([crossed], sheets, (), None, {SHA: "architectural"})
+    assert found.sheet is sheets[0]
+
+
 @pytest.mark.parametrize(
     ("page", "reason"),
     [

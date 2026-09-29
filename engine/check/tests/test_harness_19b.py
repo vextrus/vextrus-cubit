@@ -91,7 +91,7 @@ PDF = """
 PLOT = """
     from engine.recognise.types import PlotMatch, PlotTransform
 
-    def match(pages, sheets, geometry, plots):
+    def match(pages, sheets, geometry, plots, disciplines):
         return [
             PlotMatch(page=pages[0], sheet=sheets[0], residual=0.1,
                       transform=PlotTransform(scale=1.0, rotation=0, offset=(0.0, 0.0))),

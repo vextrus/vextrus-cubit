@@ -22,11 +22,11 @@ what the contract does not allow, is `failed`, and the stages that need it are s
   view_conventions)`, `buffers.build(artefact, sheet)` and `raster.rasterise(buffers, PX_PER_MM)`;
 - PDF: `pdf.report(path)` and `pdf.page_text(path)` (a list of pages).
 
-Then across the set: `registration.match(pages, sheets, geometry, plots)` (`geometry[i]` is
-`sheets[i]`'s render buffers, or none where they were not built; `plots` each PDF's path by its
-sha256, which it draws in its own sandbox), `render_f1.score(buffers, page, transform, plot)` per
-matched page (`plot` the path of the PDF the page is from),
-`conflicts.find(sheets, views, sheet_conventions)` (Conflicts and Continuations;
+Then across the set: `registration.match(pages, sheets, geometry, plots, disciplines)` (`geometry[i]`
+is `sheets[i]`'s render buffers, or none where they were not built; `plots` each PDF's path by its
+sha256, which it draws in its own sandbox, and `disciplines` its Discipline default),
+`render_f1.score(buffers, page, transform, plot)` per matched page (`plot` the path of the PDF the
+page is from), `conflicts.find(sheets, views, sheet_conventions)` (Conflicts and Continuations;
 `views[i]` are `sheets[i]`'s) and `catalogue.run_all(reading)` (a `SetReading`, carrying the sheet
 conventions too; Check results). **A set stage never runs on part of the set**: it is skipped unless
 each stage it needs (sheets for all; pages for the Plot; the Plot and the render buffers for F1) was
@@ -934,7 +934,8 @@ def _read_set(
     plots = {f.sha256: set_dir / f.path for f in files if f.format == "pdf"}
     if match := stages.open("plot", needs("sheets", "page_text")):
         geometry = [buffers.get(id(sheet)) for sheet in sheets]
-        ok, result = stages.call("plot", match, pages, sheets, geometry, plots)
+        disciplines = {f.sha256: f.discipline_default for f in files if f.format == "pdf"}
+        ok, result = stages.call("plot", match, pages, sheets, geometry, plots, disciplines)
         matches = _list_of(stages, "plot", result, PlotMatch) if ok else None
         if matches is not None and known(
             "plot", [m.page for m in matches] + [m.sheet for m in matches if m.sheet is not None]

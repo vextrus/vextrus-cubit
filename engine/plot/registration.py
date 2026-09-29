@@ -13,9 +13,11 @@ the page's text, the title block's and the body's alike (the review Q4: Edison's
 strokes, and their pages are matched by the text on the page). Text and numbers are compared in 13's
 normal form (`engine.recognise.conflicts.normal`). A text item that is the number, whole, names it more
 surely than one that holds it among other words ("SEE S-102"); between two of a kind the larger text
-does (a title block's number is its largest text). A page whose surest number is two sheets' numbers
-equally, or whose number several sheets carry and whose size cannot tell them apart, names several
-(`names_several_sheets`); one naming none says so (`names_no_sheet`); a scan (`scan`) or a page with
+does (a title block's number is its largest text). A page of a PDF whose file has a Discipline default
+names that Discipline's sheets first: a number of another Discipline's sheet on it (a cross-reference,
+or a number two Disciplines share) is set aside when one of its own is there. A page whose surest
+number is two sheets' numbers equally, or whose number several sheets carry and whose size cannot
+tell them apart, names several (`names_several_sheets`); one naming none says so (`names_no_sheet`); a scan (`scan`) or a page with
 no text (`no_text`) is not searched.
 
 **Where** (`PlotTransform`: sheet to page, a scale, a turn in 90° steps, then an offset in page units,
@@ -74,10 +76,12 @@ def match(
     sheets: Sequence[SheetCandidate],
     geometry: Sequence[SheetBuffers | None] = (),
     plots: Mapping[str, Path] | None = None,
+    disciplines: Mapping[str, str | None] | None = None,
 ) -> list[PlotMatch]:
     """Every page's match, in the order given (the module's rules). `plots` names each PDF's path by
     its contents' sha256, for the ink's placement; without its page's, a page is placed by its text
-    and sizes alone."""
+    and sizes alone. `disciplines` names each PDF's Discipline default by the same key, where it has
+    one."""
     by_number: dict[str, list[int]] = {}
     for i, sheet in enumerate(sheets):
         key = normal(sheet.number.value) if sheet.number is not None else None
@@ -91,7 +95,8 @@ def match(
         if not page.items:
             found.append(PlotMatch(page, reason=_reason(codes.NO_TEXT)))
             continue
-        chosen = _sheet_named(page, sheets, by_number, geometry)
+        discipline = (disciplines or {}).get(page.source_sha256)
+        chosen = _sheet_named(page, sheets, by_number, geometry, discipline)
         if isinstance(chosen, str):
             found.append(PlotMatch(page, reason=chosen))
             continue
@@ -124,8 +129,14 @@ def _sheet_named(
     sheets: Sequence[SheetCandidate],
     by_number: dict[str, list[int]],
     geometry: Sequence[SheetBuffers | None],
+    discipline: str | None = None,
 ) -> int | str:
     """The index of the sheet the page names, or the key of why none."""
+
+    def ours(i: int) -> bool:
+        d = sheets[i].discipline
+        return discipline is not None and d is not None and d.value == discipline
+
     best: dict[str, tuple[bool, float]] = {}  # number -> (whole, height) of its surest mention
     for item in page.items:
         text = normal(item.text)
@@ -139,10 +150,15 @@ def _sheet_named(
                 best[number] = (whole, height)
     if not best:
         return _reason(codes.NAMES_NO_SHEET)
+    # A Discipline's PDF plots that Discipline's sheets: where some number the page names is one of
+    # them, the others' numbers (a cross-reference, another Discipline's sheet) are set aside.
+    if any(ours(i) for n in best for i in by_number[n]):
+        best = {n: v for n, v in best.items() if any(ours(i) for i in by_number[n])}
     ranked = sorted(best.items(), key=lambda kv: kv[1], reverse=True)
     if len(ranked) > 1 and _as_sure(ranked[0][1], ranked[1][1]):
         return _reason(codes.NAMES_SEVERAL_SHEETS)
     candidates = by_number[ranked[0][0]]
+    candidates = [i for i in candidates if ours(i)] or candidates
     if len(candidates) == 1:
         return candidates[0]
     fitting = [i for i in candidates if _fits_size(page, geometry[i] if i < len(geometry) else None)]
