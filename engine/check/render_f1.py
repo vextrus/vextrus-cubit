@@ -22,11 +22,12 @@ per sheet, the export's `render_f1`, not a finding. It declares the catalogue's 
 lists it (engine/check/catalogue.py).
 """
 
+from dataclasses import dataclass
 from pathlib import Path
 
 from engine.messages import render_f1 as codes
 from engine.plot import ink
-from engine.plot.picture import picture
+from engine.plot.picture import PictureError, picture
 from engine.read.pdf.types import Page
 from engine.recognise.types import PlotTransform
 from engine.render.buffers import SheetBuffers
@@ -41,9 +42,20 @@ TOLERANCE_PX = 2
 """Within 2 pixels at `ink.FINE_PX_PER_MM` (4): half a millimetre on paper."""
 
 
-def score(buffers: SheetBuffers, page: Page, transform: PlotTransform, plot: Path) -> float:
-    """The sheet's F1 against its Plot page (the module's rules)."""
+@dataclass(frozen=True)
+class Unscored:
+    """No score for a page the check could not draw (`engine.plot.picture`'s reason key): one page of
+    a set that pdfium will not draw is that page's, never the whole stage's failure."""
+
+    reason: str
+
+
+def score(buffers: SheetBuffers, page: Page, transform: PlotTransform, plot: Path) -> float | Unscored:
+    """The sheet's F1 against its Plot page (the module's rules), or why it has none."""
     sheet, grid = ink.sheet_ink(buffers, ink.FINE_PX_PER_MM)
     density = ink.FINE_PX_PER_MM / transform.scale
-    drawn = picture(plot, page, density)
+    try:
+        drawn = picture(plot, page, density)
+    except PictureError as refused:
+        return Unscored(refused.reason)
     return ink.f1(sheet, ink.carried(drawn, page, transform, grid), TOLERANCE_PX)

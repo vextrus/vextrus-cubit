@@ -1572,3 +1572,32 @@ def test_the_runs_identity_comes_from_the_environment_the_check_sets(
     )
     from_flag = json.loads((tmp_path / "flag.json").read_text())["run"]
     assert (from_flag["id"], from_flag["commit"]) == ("run-from-flag", "c" * 40)
+
+
+UNDRAWABLE_F1 = """
+    from dataclasses import dataclass
+
+    @dataclass(frozen=True)
+    class Unscored:
+        reason: str
+
+    def score(buffers, page, transform, plot):
+        return Unscored("not_the_page")
+"""
+
+
+def test_a_page_the_render_check_cannot_draw_is_unscored_and_the_stage_stays_ok(
+    tmp_path: Path, fakes: Callable[..., tuple[Stage, ...]], conventions: Path
+) -> None:
+    """The review of 18, round 1 (score 75): one page pdfium would not draw failed the whole set's
+    render check. It is that page's, unscored, with its reason in the stage's report."""
+    files = {"structural/S-101.dwg": "", "A-201.dwg": "", "plot.pdf": ""}
+
+    document = run(tmp_path, fakes(f1=UNDRAWABLE_F1), files, conventions=conventions)
+
+    report = document["set_stages"]["render_f1"]
+    assert report["state"] == "ok", report
+    assert report["failed_calls"] == 0
+    assert report["error"].startswith("1 matched pages not scored, the first page ")
+    assert report["error"].endswith("(not_the_page)")
+    assert all(s["render_f1"] is None for f in document["files"] for s in f.get("sheets") or [])

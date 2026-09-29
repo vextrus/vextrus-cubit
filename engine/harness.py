@@ -26,10 +26,11 @@ Then across the set: `registration.match(pages, sheets, geometry, plots, discipl
 is `sheets[i]`'s render buffers, or none where they were not built; `plots` each PDF's path by its
 sha256, which it draws in its own sandbox, and `disciplines` its Discipline default),
 `render_f1.score(buffers, page, transform, plot)` per matched page (`plot` the path of the PDF the
-page is from), `conflicts.find(sheets, views, sheet_conventions)` (Conflicts and Continuations;
-`views[i]` are `sheets[i]`'s) and `catalogue.run_all(reading)` (a `SetReading`, carrying the sheet
-conventions too; Check results). **A set stage never runs on part of the set**: it is skipped unless
-each stage it needs (sheets for all; pages for the Plot; the Plot and the render buffers for F1) was
+page is from; a page it cannot draw it leaves unscored with a reason, which the stage's report
+states while the stage stays ok), `conflicts.find(sheets, views, sheet_conventions)` (Conflicts
+and Continuations; `views[i]` are `sheets[i]`'s) and `catalogue.run_all(reading)` (a `SetReading`,
+carrying the sheet conventions too; Check results). **A set stage never runs on part of the set**:
+it is skipped unless each stage it needs (sheets for all; pages for the Plot; the Plot and the render buffers for F1) was
 read in every file. Conflicts and Checks need only the sheets; the reading's `read` names what else was
 read everywhere, so a Check can tell "not read" from "none found", and `conflicts.find` gets each
 sheet's views as read (none where views were not read). Both get the conventions the sheets were read
@@ -946,18 +947,25 @@ def _read_set(
                 outcome.plot = matches
 
     if score := stages.open("render_f1", needs("plot", "render_buffers")):
+        unscored: list[str] = []
         for m in outcome.plot:
             sheet_buffers = buffers.get(id(m.sheet))
             plot = plots.get(_source_of(m.page) or "")
             if m.sheet is None or m.transform is None or sheet_buffers is None or plot is None:
                 continue
             ok, value = stages.call("render_f1", score, sheet_buffers, m.page, m.transform, plot)
-            if ok and (
+            reason = getattr(value, "reason", None)
+            if ok and isinstance(reason, str):  # a page it could not draw: unscored, not failed
+                unscored.append(f"page {getattr(m.page, 'number', '?')} of a PDF ({reason})")
+            elif ok and (
                 isinstance(value, bool) or not isinstance(value, int | float) or not 0 <= value <= 1
             ):
                 stages.fail("render_f1", f"it returned {value!r}, not a score from 0 to 1")
             elif ok:
                 outcome.render_f1.append((m.sheet, float(value)))
+        report = stages.reports["render_f1"]
+        if unscored and report.error is None:
+            report.error = f"{len(unscored)} matched pages not scored, the first {unscored[0]}"
 
     if find := stages.open("conflicts", needs("sheets")):
         ok, result = stages.call("conflicts", find, sheets, views, conventions)

@@ -158,6 +158,12 @@ def registered(path: Path, buffers: B.SheetBuffers) -> tuple[Page, PlotTransform
     return page, found.transform, found.residual
 
 
+def scored(buffers: B.SheetBuffers, page: Page, transform: PlotTransform, path: Path) -> float:
+    value = render_f1.score(buffers, page, transform, path)
+    assert isinstance(value, float), value
+    return value
+
+
 def lands(transform: PlotTransform, x: float, y: float) -> tuple[float, float]:
     c, s = {0: (1, 0), 90: (0, 1), 180: (-1, 0), 270: (0, -1)}[transform.rotation]
     k, (ox, oy) = transform.scale, transform.offset
@@ -278,7 +284,7 @@ def test_a_sheet_plotted_at_1_to_1_and_off_centre_is_found_by_its_ink(tmp_path: 
     assert_same_place(found, truth)
     assert residual is not None
     assert residual <= 0.5
-    assert render_f1.score(sheet_buffers(), page, found, path) >= 0.9
+    assert scored(sheet_buffers(), page, found, path) >= 0.9
 
 
 def test_a_landscape_sheet_turned_onto_a_portrait_page_is_turned_back(tmp_path: Path) -> None:
@@ -288,7 +294,7 @@ def test_a_landscape_sheet_turned_onto_a_portrait_page_is_turned_back(tmp_path: 
     page, found, _ = registered(path, sheet_buffers())
 
     assert_same_place(found, truth)
-    assert render_f1.score(sheet_buffers(), page, found, path) >= 0.9
+    assert scored(sheet_buffers(), page, found, path) >= 0.9
 
 
 def test_a_page_turned_by_its_rotate_entry_is_read_as_displayed(tmp_path: Path) -> None:
@@ -300,7 +306,7 @@ def test_a_page_turned_by_its_rotate_entry_is_read_as_displayed(tmp_path: Path) 
     page, found, _ = registered(path, sheet_buffers())
 
     assert (page.width, page.height) == pytest.approx((A1[0] * PT, A1[1] * PT), abs=0.5)
-    assert render_f1.score(sheet_buffers(), page, found, path) >= 0.9
+    assert scored(sheet_buffers(), page, found, path) >= 0.9
 
 
 def test_a_sheet_fitted_to_a_smaller_page_is_found_at_its_scale(tmp_path: Path) -> None:
@@ -311,7 +317,7 @@ def test_a_sheet_fitted_to_a_smaller_page_is_found_at_its_scale(tmp_path: Path) 
     page, found, _ = registered(path, sheet_buffers())
 
     assert found.scale == pytest.approx(scale, rel=0.004)
-    assert render_f1.score(sheet_buffers(), page, found, path) >= 0.85
+    assert scored(sheet_buffers(), page, found, path) >= 0.85
 
 
 def test_the_title_blocks_text_alone_places_a_page_without_its_ink(tmp_path: Path) -> None:
@@ -583,7 +589,7 @@ def test_an_upside_down_sheet_is_turned_by_its_ink(tmp_path: Path) -> None:
     page, found, _ = registered(path, sheet_buffers())
 
     assert_same_place(found, truth)
-    assert render_f1.score(sheet_buffers(), page, found, path) >= 0.9
+    assert scored(sheet_buffers(), page, found, path) >= 0.9
 
 
 def test_a_page_whose_symbols_the_two_readers_map_apart_is_still_its_own_page(tmp_path: Path) -> None:
@@ -613,3 +619,16 @@ def sha256_of(path: Path) -> str:
     import hashlib
 
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def test_a_page_placed_by_its_text_but_not_drawable_is_unscored(tmp_path: Path) -> None:
+    """The review of 18, round 1: /Rotate 100 is placed by its title block, pdfium refuses to draw it,
+    and the render check once raised, failing the whole set's stage."""
+    path = plot(tmp_path, PlotTransform(PT, 0, (0.0, 0.0)), (A1[0] * PT, A1[1] * PT), rotate=100)
+    page = read(path)
+    (found,) = registration.match([page], [sheet()], [sheet_buffers()], {page.source_sha256: path})
+    assert found.transform is not None
+
+    assert render_f1.score(sheet_buffers(), page, found.transform, path) == render_f1.Unscored(
+        "not_the_page"
+    )
