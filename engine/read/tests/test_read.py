@@ -257,7 +257,8 @@ def test_a_damaged_dwg_is_a_reader_failure_with_its_finding(tmp_path: Path) -> N
         read(damaged)
 
     assert raised.value.message["code"] in {"engine.read.reader_failed", "engine.read.output_unreadable"}
-    assert raised.value.message["params"] == {}  # which converter failed is the cause, not the words
+    assert raised.value.message["params"] == {}  # the words name no converter
+    assert raised.value.program == "dwgread"  # the log does
 
 
 @pytest.mark.needs_toolchain

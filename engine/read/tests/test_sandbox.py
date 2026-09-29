@@ -297,6 +297,7 @@ def test_a_program_the_sandbox_cannot_find_is_a_reader_failure(tmp_path: Path) -
         "code": "engine.read.reader_failed",
         "params": {},
     }
+    assert (raised.value.program, raised.value.exit_code) == ("dwgread", 127)
 
 
 @pytest.mark.needs_bwrap
