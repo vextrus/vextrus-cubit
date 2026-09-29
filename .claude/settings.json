@@ -18,7 +18,13 @@
       "mcp__chrome-devtools",
       "Bash(sync)",
       "Bash(pg_isready:*)",
-      "Workflow"
+      "Workflow",
+      "Bash(git push:*)",
+      "Bash(gh pr create:*)",
+      "Bash(gh pr merge:*)",
+      "Bash(gh pr update-branch:*)",
+      "Bash(sudo -n -u vxkeys /usr/local/lib/vextrus/post-status:*)",
+      "Bash(sudo -n -u vxkeys /usr/local/bin/vx-score:*)"
     ],
     "deny": [
       "Read(//home/riz/vextrus-cad/**)",
