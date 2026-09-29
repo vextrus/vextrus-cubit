@@ -107,8 +107,11 @@ export function useStep1Acts(projectId: string): Step1Acts {
     } catch (error) {
       sayRefused(error)
     } finally {
-      pending.current = false
-      await refresh()
+      try {
+        await refresh()
+      } finally {
+        pending.current = false
+      }
     }
   }, [projectId, refresh, sayRefused, toast])
 
@@ -132,8 +135,13 @@ export function useStep1Acts(projectId: string): Step1Acts {
         return false
       } finally {
         if (made > 0) done.current.push({ calls: made, words })
-        pending.current = false
-        await refresh()
+        // The act stays pending until the screen shows its result: an Enter during the reload
+        // would otherwise send the whole act again (review round 1, R1).
+        try {
+          await refresh()
+        } finally {
+          pending.current = false
+        }
       }
     },
     [onUndo, refresh, sayRefused, toast],
@@ -176,8 +184,13 @@ export function useStep1Acts(projectId: string): Step1Acts {
           })
       } finally {
         if (made > 0) done.current.push({ calls: made, words: <BulkWords n={n} m={m} /> })
-        pending.current = false
-        await refresh()
+        // The act stays pending until the screen shows its result: an Enter during the reload
+        // would otherwise send the whole act again (review round 1, R1).
+        try {
+          await refresh()
+        } finally {
+          pending.current = false
+        }
       }
     },
     [f, i18n, onUndo, projectId, refresh, sayRefused, toast],
