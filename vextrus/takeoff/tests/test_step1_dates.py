@@ -26,6 +26,13 @@ from vextrus.testing.drawings import QsProject, add, drawing, read_dwg
         ("12 SEPT. 2026", "MDY", "2026-09-12"),
         ("Sep 12, 2026", "DMY", "2026-09-12"),
         ("12-AUG-2026", "DMY", "2026-08-12"),
+        # The refuter's (ticket 22): a two-figure year is never put in the future, and a word month
+        # with two two-figure numbers is read in the Market's order.
+        ("01.01.95", "DMY", "1995-01-01"),
+        ("12.09.99", "DMY", "1999-09-12"),
+        ("12-Sep-26", "DMY", "2026-09-12"),
+        ("12 Sep 26", "YMD", "2012-09-26"),
+        ("26-Sep-12", "YMD", "2026-09-12"),
     ],
 )
 def test_a_drawn_date_is_read_in_the_markets_order(drawn: str, order: str, iso: str) -> None:
@@ -43,6 +50,10 @@ def test_a_drawn_date_is_read_in_the_markets_order(drawn: str, order: str, iso: 
         ("R1", "DMY"),
         ("12.09", "DMY"),
         ("12.09.2026 14.10.2026", "DMY"),
+        ("12.09.0026", "DMY"),  # no year before 1900
+        ("0001.01.01", ""),
+        ("12.09.2999", "DMY"),  # nor after next year
+        ("12 Sep 26", ""),  # two two-figure numbers and no known order
     ],
 )
 def test_what_is_not_one_date_is_none(drawn: str, order: str) -> None:

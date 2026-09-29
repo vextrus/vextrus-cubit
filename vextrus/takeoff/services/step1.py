@@ -286,8 +286,8 @@ def proposals(project_id: uuid.UUID) -> list[ProposalView]:
     # own act's name and time).
     acts_of = list(Confirmation.objects.filter(id__in=stamps))
     who = {c.id: (c.by_name, c.at) for c in acts_of}
-    roles = invitations.roles_of(c.user_id for c in acts_of)
-    how = {c.id: (roles.get(c.user_id), c.proposals) for c in acts_of}
+    roles = invitations.roles_at((c.user_id, c.at) for c in acts_of)
+    how = {c.id: (roles.get((c.user_id, c.at)), c.proposals) for c in acts_of}
     agreeing = _agreeing(project_id, sheets, by_sheet)
     order = markets.of_developer(_tenant()).date_order
     return [
@@ -393,7 +393,9 @@ def iso_date(drawn: str, order: str) -> str | None:
     """A title block's date as drawn, as an ISO date ("12.09.2026" in a "DMY" Market: "2026-09-12"),
     or None where it is not one date. Figures alone are read in the Market's `order` ("DMY", "MDY"
     or "YMD"; with none known, they are not guessed); a year of four figures first, or a month
-    written as a word ("12 Sep 2026"), needs no order. A two-figure year is of this century."""
+    written as a word with a year of four figures ("12 Sep 2026"), needs no order. A two-figure
+    year is the latest century's not in the future ("95": 1995); a year before 1900 or after next
+    year is no date."""
     text = drawn.strip()
     if not text or not _DATE_TEXT.fullmatch(text):
         return None
@@ -406,9 +408,12 @@ def iso_date(drawn: str, order: str) -> str | None:
         month = _MONTHS.get(words[0].lower())
         if month is None or len(figures) != 2:
             return None
-        year_text, day_text = (
-            (figures[0], figures[1]) if len(figures[0]) == 4 else (figures[1], figures[0])
-        )
+        if len(figures[0]) == 4 or (len(figures[0]) == 2 and len(figures[1]) == 2 and order == "YMD"):
+            year_text, day_text = figures[0], figures[1]
+        elif len(figures[1]) == 4 or order in ("DMY", "MDY"):
+            year_text, day_text = figures[1], figures[0]
+        else:
+            return None
         parts = (year_text, str(month), day_text)
     elif words:
         return None
@@ -425,7 +430,13 @@ def iso_date(drawn: str, order: str) -> str | None:
     year_text, month_text, day_text = parts
     if len(year_text) not in (2, 4) or len(month_text) > 2 or len(day_text) > 2:
         return None
-    year = int(year_text) + (2000 if len(year_text) == 2 else 0)
+    latest = timezone.now().year + 1
+    year = int(year_text)
+    if len(year_text) == 2:
+        # A two-figure year is the latest century's that is not in the future: "95" is 1995.
+        year += 2000 if 2000 + year <= latest else 1900
+    if not 1900 <= year <= latest:
+        return None
     try:
         return date(year, int(month_text), int(day_text)).isoformat()
     except ValueError:

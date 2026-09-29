@@ -125,6 +125,8 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
   /** Sheet mode's selected view, by its ordinal (→ ← walk them, §6.5). */
   const [view, setView] = useState<string | null>(null)
   const [choosing, setChoosing] = useState(false)
+  /** Bumped when the sheet picker closes: focus goes back to the sheet it left. */
+  const [refocus, setRefocus] = useState(0)
   const listRef = useRef<HTMLDivElement>(null)
   const focusNext = useRef<string | null>(null)
 
@@ -359,6 +361,7 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
           view={view}
           onSelectView={setView}
           onChoose={() => setChoosing(true)}
+          refocus={refocus}
         />
       ) : null}
 
@@ -384,7 +387,10 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
         <SheetPicker
           model={model}
           current={openSheet}
-          onClose={() => setChoosing(false)}
+          onClose={() => {
+            setChoosing(false)
+            setRefocus((n) => n + 1)
+          }}
           onPick={(row) => {
             setChoosing(false)
             openRow(row)
@@ -455,6 +461,7 @@ function SheetMode({
   view,
   onSelectView,
   onChoose,
+  refocus,
 }: {
   projectId: string
   sheet: ProposalOut
@@ -465,6 +472,7 @@ function SheetMode({
   view: string | null
   onSelectView: (key: string | null) => void
   onChoose: () => void
+  refocus: number
 }) {
   const { t, i18n } = useLingui()
   const render = useQuery(renderQuery(projectId, sheet.sheet_id))
@@ -486,14 +494,17 @@ function SheetMode({
     [sheet, held, i18n],
   )
 
-  // Focus follows the sheet into the canvas as it opens and as it pages (§6.1).
+  // Focus follows the sheet into the canvas as it opens, as it pages, and when the picker closes (§6.1).
   useLayoutEffect(() => {
     const el = region.current
     if (!el) return
-    const canvas = el.querySelector<HTMLElement>('[role="group"][tabindex]')
-    if (canvas) canvas.focus({ preventScroll: true })
-    else if (!el.contains(document.activeElement)) el.focus({ preventScroll: true })
-  }, [render.data, sheet.id])
+    const frame = requestAnimationFrame(() => {
+      const canvas = el.querySelector<HTMLElement>('[role="group"][tabindex]')
+      if (canvas) canvas.focus({ preventScroll: true })
+      else if (!el.contains(document.activeElement)) el.focus({ preventScroll: true })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [render.data, sheet.id, refocus])
 
   return (
     <>

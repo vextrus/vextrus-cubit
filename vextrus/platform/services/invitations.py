@@ -442,19 +442,28 @@ def members() -> Members:
     return Members(tuple(people), tuple(vextrus), tuple(pending))
 
 
-def roles_of(user_ids: Iterable[uuid.UUID]) -> dict[uuid.UUID, str]:
-    """Each user's role in the acting Developer, from their latest Membership of it (current or
-    ended): how Step 1's "Who did what" names an actor ("Nusrat Jahan, QS", m0-screens 6.6)."""
+def roles_at(acts: Iterable[tuple[uuid.UUID, datetime]]) -> dict[tuple[uuid.UUID, datetime], str]:
+    """The role each user held in the acting Developer when they acted, by (user, time): from the
+    Membership current then (started, not yet revoked or expired), the latest of them. How Step 1's
+    "Who did what" names an actor ("Nusrat Jahan, QS", m0-screens 6.6); a user re-invited in another
+    role afterwards keeps the role they acted in. None found (no Membership then): not in the map."""
     tenant_id = tenancy.current_tenant_id()
-    wanted = {i for i in user_ids if i}
+    wanted = {(user_id, at) for user_id, at in acts if user_id}
     if tenant_id is None or not wanted:
         return {}
-    found: dict[uuid.UUID, str] = {}
-    rows = Membership.objects.filter(tenant_id=tenant_id, user_id__in=wanted).order_by(
-        "created_at", "id"
+    rows = list(
+        Membership.objects.filter(tenant_id=tenant_id, user_id__in={u for u, _ in wanted})
+        .order_by("created_at", "id")
+        .values_list("user_id", "role", "starts_at", "revoked_at", "expires_at")
     )
-    for user_id, role in rows.values_list("user_id", "role"):
-        found[user_id] = role
+    found: dict[tuple[uuid.UUID, datetime], str] = {}
+    for user_id, at in wanted:
+        for member, role, starts, revoked, expires in rows:
+            current = (
+                starts <= at and (revoked is None or revoked > at) and (expires is None or expires > at)
+            )
+            if member == user_id and current:
+                found[(user_id, at)] = role
     return found
 
 
