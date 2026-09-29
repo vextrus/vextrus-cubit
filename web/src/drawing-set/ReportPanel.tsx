@@ -12,11 +12,14 @@ import { useQuery } from '@tanstack/react-query'
 import { X } from 'lucide-react'
 import { useCloseOnEsc } from '@/app/shell'
 import { LoadProblem } from '@/auth'
-import { useFormat } from '@/format'
+import { EMPTY, useFormat } from '@/format'
 import { MachineText, type MachineMessage } from '@/format/machine'
-import { DrawingText, IconButton, Skeleton } from '@/ui'
+import { Button, DrawingText, KeyCombo, Skeleton } from '@/ui'
 import { isMoving, pdfSections, reportQuery, saidOnce, type DisciplineOut, type FileOut } from './data'
 import { useDisciplineName } from './discipline'
+
+const SCAN = 'engine.pdf_report.scan'
+const MADE_BY_OTHER = 'engine.pdf_report.made_by_other'
 
 function Section({ title, messages, children }: { title: ReactNode; messages: readonly MachineMessage[]; children?: ReactNode }) {
   if (messages.length === 0 && !children) return null
@@ -56,6 +59,9 @@ export function ReportPanel({
   // sections. Each sentence is said once: the status in the header, then the sections in order.
   const finding = file.finding && file.finding.code.startsWith('takeoff.read_file.') ? file.finding : null
   const pdf = r ? pdfSections(r) : null
+  const scan = r !== undefined && [...r.made_by, ...r.pages].some((m) => m.code === SCAN)
+  const scanMadeBy = scan ? r.made_by.find((m) => m.code === MADE_BY_OTHER) : undefined
+  const scanProducer = String(scanMadeBy?.params.producer ?? '')
   const [readers, sheets, bangla, fonts, plot, madeBy, pages, lettering, layers, pictures, refused, notRead] = r && pdf
     ? saidOnce(finding ? [file.status, finding] : [file.status], [r.readers, r.sheets, r.bangla, r.fonts, r.plot, pdf.made_by, pdf.pages, pdf.lettering, pdf.layers, pdf.pictures, pdf.refused, pdf.not_read])
     : []
@@ -79,9 +85,12 @@ export function ReportPanel({
             <MachineText message={file.status} />
           </p>
         </div>
-        <IconButton label={t`Close`} combo="Esc" onClick={onClose}>
-          <X strokeWidth={1.5} />
-        </IconButton>
+        {/* §4.5: "Close  Esc", in words, with its key. */}
+        <Button variant="ghost" onClick={onClose} className="shrink-0 gap-2">
+          <X aria-hidden size={16} strokeWidth={1.5} />
+          <Trans>Close</Trans>
+          <KeyCombo combo="Esc" />
+        </Button>
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-1">
         {finding ? (
@@ -107,6 +116,9 @@ export function ReportPanel({
                         <Trans>The drawing asks for</Trans>
                       </th>
                       <th className="px-1 py-1 text-start text-xs font-semibold text-ink-secondary">
+                        <Trans>Vextrus draws it with</Trans>
+                      </th>
+                      <th className="px-1 py-1 text-start text-xs font-semibold text-ink-secondary">
                         <Trans>How close</Trans>
                       </th>
                       <th className="w-[64px] px-1 py-1 text-end text-xs font-semibold text-ink-secondary">
@@ -121,6 +133,10 @@ export function ReportPanel({
                           <MachineText message={row.asked} />
                         </td>
                         <td className="px-1 py-1 align-top">
+                          {/* The free font's family, as the engine names it (a parameter of "How close"). */}
+                          {typeof row.how_close.params.drawn_with === 'string' ? <bdi>{row.how_close.params.drawn_with}</bdi> : EMPTY}
+                        </td>
+                        <td className="px-1 py-1 align-top">
                           <MachineText message={row.how_close} />
                         </td>
                         <td className="num px-1 py-1 text-end align-top">{f.integer(row.texts)}</td>
@@ -131,7 +147,14 @@ export function ReportPanel({
               ) : null}
             </Section>
             <Section title={<Trans>Plot</Trans>} messages={plot!} />
-            <Section title={<Trans>Made by</Trans>} messages={madeBy!} />
+            <Section title={<Trans>Made by</Trans>} messages={scan ? madeBy!.filter((m) => m.code !== MADE_BY_OTHER) : madeBy!}>
+              {scanMadeBy ? (
+                // A scan has no lines, so "Its lines are still the plot's" would contradict its refusal below.
+                <p className="text-sm">
+                  <Trans>Made by {scanProducer}, not AutoCAD.</Trans>
+                </p>
+              ) : null}
+            </Section>
             <Section title={<Trans>Pages</Trans>} messages={pages!} />
             <Section title={<Trans>Lettering</Trans>} messages={lettering!} />
             <Section title={<Trans>Layers</Trans>} messages={layers!} />

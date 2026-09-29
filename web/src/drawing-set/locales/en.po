@@ -12,6 +12,10 @@ msgid "Discipline of {fileName}"
 msgstr "Discipline of {fileName}"
 
 #: src/drawing-set/ReportPanel.tsx
+msgid "Vextrus draws it with"
+msgstr "Vextrus draws it with"
+
+#: src/drawing-set/ReportPanel.tsx
 msgid "Added {date} by {by}"
 msgstr "Added {date} by {by}"
 
@@ -42,6 +46,10 @@ msgstr "First file"
 #: src/drawing-set/DrawingSetPage.tsx
 msgid "Read again"
 msgstr "Read again"
+
+#: src/drawing-set/ReportPanel.tsx
+msgid "Made by {scanProducer}, not AutoCAD."
+msgstr "Made by {scanProducer}, not AutoCAD."
 
 #: src/drawing-set/DrawingSetPage.tsx
 msgid "Actions"

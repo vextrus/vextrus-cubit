@@ -380,3 +380,88 @@ describe('the count for several files never says "not added" of a file that may 
     expect(bodyText()).toContain('Vextrus could not tell whether B.dwg was added.')
   })
 })
+
+describe("the design gate's walk (review round 2)", () => {
+  async function openReport(api: FakeApi, name: string) {
+    await open(api)
+    await waitFor(() => rowOf(name))
+    await userEvent.click(rowOf(name))
+    return screen.findByRole('region', { name: new RegExp(name.replace('.', '\\.')) })
+  }
+
+  it('M3: shows the Fonts table as §4.5 heads it, with the font Vextrus draws each with', async () => {
+    const { api, set } = drawingSet()
+    const f = file({ name: 'KR-ARC-R0.dwg', state: 'read', status: msg('drawings.files.read') })
+    set.files.push(f)
+    set.reports.set(f.id, {
+      fonts: [msg('engine.font_report.summary', { fonts: 1 })],
+      font_rows: [{ asked: msg('engine.font_report.asked', { asked: 'Romans', kind: 'shx' }), how_close: msg('engine.font_report.how_close', { how_close: 'single_stroke', drawn_with: 'Relief SingleLine' }), texts: 12 }],
+    })
+    const panel = await openReport(api, 'KR-ARC-R0.dwg')
+    const table = await within(panel).findByRole('table', { name: 'Fonts' })
+    expect(within(table).getAllByRole('columnheader').map((h) => clean(h.textContent))).toEqual(['The drawing asks for', 'Vextrus draws it with', 'How close', 'Texts'])
+    expect(within(table).getAllByRole('cell').map((c) => clean(c.textContent))).toEqual(['Romans (AutoCAD lettering)', 'Relief SingleLine', 'Single-stroke, like the plot', '12'])
+  })
+
+  it('M6: closes the report by a button that says "Close" and its key', async () => {
+    const { api, set } = drawingSet()
+    set.files.push(file({ name: 'KR-ARC-R0.dwg', state: 'read', status: msg('drawings.files.read') }))
+    const panel = await openReport(api, 'KR-ARC-R0.dwg')
+    const close = within(panel).getByRole('button', { name: /Close/ })
+    expect(clean(close.textContent)).toBe('CloseEsc')
+  })
+
+  it("M7: never says a scan's lines are the plot's", async () => {
+    const { api, set } = drawingSet()
+    const scan = file({ name: 'scan.pdf', state: 'refused', status: msg('drawings.files.refused_scan') })
+    set.files.push(scan)
+    set.reports.set(scan.id, { made_by: [msg('engine.pdf_report.made_by_other', { producer: 'PDF Merge Tool' }), msg('engine.pdf_report.scan')] })
+    const panel = await openReport(api, 'scan.pdf')
+    await waitFor(() => expect(clean(panel.textContent)).toContain('This PDF is a scan'))
+    expect(clean(panel.textContent)).toContain('Made by PDF Merge Tool, not AutoCAD.')
+    expect(clean(panel.textContent)).not.toContain("Its lines are still the plot's")
+  })
+
+  it('M8: after "Cancel reading" by keyboard, focus is on the row\'s "Read again", never lost', async () => {
+    const { api, set } = drawingSet()
+    const reading = file({ name: 'KR-STR-R0.dwg', state: 'reading', status: msg('drawings.files.reading_drawing') })
+    set.files.push(reading)
+    set.afterCancel.set(reading.id, { ...reading, state: 'cancelled', status: msg('drawings.files.cancelled_unnamed') })
+    await open(api)
+    await waitFor(() => rowOf('KR-STR-R0.dwg'))
+    within(rowOf('KR-STR-R0.dwg')).getByRole('button', { name: 'Cancel reading' }).focus()
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(within(rowOf('KR-STR-R0.dwg')).getByRole('button', { name: 'Read again' })).toHaveFocus())
+  })
+
+  it('M9: shows each status whole at 1280 with the report open, never cut', async () => {
+    await page.viewport(1280, 800)
+    const { api, set } = drawingSet()
+    set.files.push(
+      file({ name: 'KR-STR-R0.dwg', state: 'read', status: msg('drawings.files.read_bangla') }),
+      file({ name: 'KR-ARC-R0.dwg', state: 'waiting', status: msg('drawings.files.waiting', { ahead: 2 }) }),
+    )
+    await openReport(api, 'KR-STR-R0.dwg')
+    for (const name of ['KR-STR-R0.dwg', 'KR-ARC-R0.dwg']) {
+      const status = rowOf(name).querySelectorAll('td')[2]!
+      // Nothing in the cell cuts its words: no element holds more than it shows.
+      for (const el of [status, ...status.querySelectorAll<HTMLElement>('*')].filter((e) => e.clientWidth > 0)) {
+        expect(el.scrollWidth, `${name}'s status: <${el.tagName.toLowerCase()} class="${el.className}"> cuts it`).toBeLessThanOrEqual(el.clientWidth)
+      }
+    }
+    const words = rowOf('KR-STR-R0.dwg').querySelectorAll('td')[2]!
+    expect(clean(words.textContent)).toBe('Read. Two readers agree. 1 flag: Bangla text')
+  })
+
+  it('mays: a refused file has no Discipline to choose, and each act names its file', async () => {
+    const { api, set } = drawingSet()
+    set.files.push(
+      file({ name: 'scan.pdf', state: 'refused', status: msg('drawings.files.refused_scan') }),
+      file({ name: 'KR-STR-R0.dwg', state: 'reading', status: msg('drawings.files.reading_drawing') }),
+    )
+    await open(api)
+    await waitFor(() => rowOf('scan.pdf'))
+    expect(within(rowOf('scan.pdf')).queryByRole('combobox')).toBeNull()
+    expect(within(rowOf('KR-STR-R0.dwg')).getByRole('button', { name: 'Cancel reading' })).toHaveAccessibleDescription(/KR-STR-R0\.dwg/)
+  })
+})

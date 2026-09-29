@@ -34,7 +34,6 @@ import {
   changeDiscipline,
   disciplinesQuery,
   filesQuery,
-  isMoving,
   progressShare,
   restartReading,
   rowActs,
@@ -83,16 +82,18 @@ function RowProgress({ share }: { share?: number }) {
 function StatusCell({ file }: { file: FileOut }) {
   const { i18n } = useLingui()
   const f = useFormat()
-  const moving = isMoving(file) && file.state !== 'stopping'
+  // The line moves only while the file is being read: a waiting file has not started.
+  const moving = file.state === 'reading' || file.state === 'retrying'
   return (
+    // The status wraps rather than being cut: it is the row's news (design gate: "Read. Two reade…" at 1280).
     <td
-      className={cn('relative h-row truncate px-2 align-middle', file.state === 'refused' && 'text-muted-foreground')}
+      className={cn('relative h-row px-2 py-1 align-middle break-words', file.state === 'refused' && 'text-muted-foreground')}
       title={machineText(file.status, f, i18n)}
     >
-      <span className="inline-flex max-w-full items-center gap-1.5">
+      <span className="inline-flex max-w-full items-start gap-1.5">
         {file.state === 'held' ? <QuestionGlyph size={14} className="shrink-0 text-question" aria-hidden /> : null}
         {file.state === 'refused' ? <ExcludedGlyph size={14} className="shrink-0 text-excluded" aria-hidden /> : null}
-        <span className="truncate">
+        <span className="min-w-0">
           <MachineText message={file.status} />
         </span>
       </span>
@@ -105,7 +106,7 @@ function Head({ children, className }: { children?: ReactNode; className?: strin
   return <th className={cn('h-row px-2 text-start align-middle text-xs font-semibold text-ink-secondary', className)}>{children}</th>
 }
 
-function ActButton({ act, busy, onAct }: { act: RowAct; busy: boolean; onAct: () => void }) {
+function ActButton({ act, busy, describedBy, onAct }: { act: RowAct; busy: boolean; describedBy: string; onAct: () => void }) {
   const words: Record<RowAct, ReactNode> = {
     cancel: <Trans>Cancel reading</Trans>,
     read_again: <Trans>Read again</Trans>,
@@ -114,7 +115,10 @@ function ActButton({ act, busy, onAct }: { act: RowAct; busy: boolean; onAct: ()
   }
   return (
     <Button
-      variant={act === 'cancel' ? 'ghost' : 'secondary'}
+      variant="secondary"
+      // Its name is the act's words; the file it acts on is its description.
+      aria-describedby={describedBy}
+      data-act={act}
       // 24 px in a 28 px row, its ring at the button's edge (as the Members page's acts).
       className="h-[24px]! focus-visible:outline-offset-0"
       saving={busy}
@@ -144,6 +148,7 @@ interface TableProps {
 
 function FilesTable(props: TableProps) {
   const { rows, disciplines, changes, busy, openId, pulseId, onFocus, onOpen, onAct, onDiscipline } = props
+  const compact = openId !== null
   const { t } = useLingui()
   const f = useFormat()
   const nameOf = useDisciplineName(disciplines)
@@ -179,12 +184,14 @@ function FilesTable(props: TableProps) {
   return (
     <div className="overflow-x-auto rounded-md border border-border">
       <table aria-label={t`Files`} style={{ minWidth: TABLE_MIN_PX }} className="w-full table-fixed border-collapse bg-paper text-sm">
+        {/* With the report open (752 px at 1280), File, Discipline, Sheets found and the acts narrow so
+            Status keeps the room (design gate: every status was cut at ~13 characters). */}
         <colgroup>
-          <col style={{ width: '28%' }} />
-          <col style={{ width: 170 }} />
+          <col style={{ width: compact ? '22%' : '28%' }} />
+          <col style={{ width: compact ? 128 : 170 }} />
           <col />
-          <col style={{ width: 104 }} />
-          <col style={{ width: 144 }} />
+          <col style={{ width: compact ? 72 : 104 }} />
+          <col style={{ width: compact ? 128 : 144 }} />
         </colgroup>
         <thead className="border-b border-border bg-chrome-sunken">
           <tr>
@@ -235,11 +242,11 @@ function FilesTable(props: TableProps) {
                   pulseId === file.id && 'arrive',
                 )}
               >
-                <td className={cn('h-row truncate px-2 align-middle', under && 'ps-7')} title={file.name}>
+                <td id={`file-${file.id}`} className={cn('h-row truncate px-2 align-middle', under && 'ps-7')} title={file.name}>
                   <DrawingText kind="file-name" text={file.name} />
                 </td>
                 <td className="h-row truncate px-1 align-middle">
-                  {changes && disciplines ? (
+                  {changes && disciplines && file.state !== 'refused' ? (
                     <DisciplineSelect
                       fileName={file.name}
                       value={file.discipline}
@@ -256,7 +263,7 @@ function FilesTable(props: TableProps) {
                 <td className={cn('sticky end-0 h-row px-2 text-end align-middle whitespace-nowrap', open ? 'bg-selected' : 'bg-paper')}>
                   <span className="inline-flex justify-end gap-1.5">
                     {acts.map((act) => (
-                      <ActButton key={act} act={act} busy={busy === `${act}:${file.id}`} onAct={() => onAct(act, file)} />
+                      <ActButton key={act} act={act} busy={busy === `${act}:${file.id}`} describedBy={`file-${file.id}`} onAct={() => onAct(act, file)} />
                     ))}
                   </span>
                 </td>
@@ -451,6 +458,21 @@ export function DrawingSetView({ project }: { project: ProjectSummary }) {
     return () => window.clearTimeout(timer)
   }, [pulseId])
 
+  // After Cancel reading, Read again or Try again the pressed button is gone with its state: focus goes
+  // to the row's new act ("Read again" after a cancel), else to the row, never to the page (§8 item 7).
+  const refocusRow = useRef<string | null>(null)
+  useEffect(() => {
+    const id = refocusRow.current
+    // Only once the act has its answer: while it runs, the pressed button is still the row's.
+    if (!id || busy !== null) return
+    const active = document.activeElement
+    if (active !== null && active !== document.body && active.isConnected) return
+    const row = document.querySelector<HTMLElement>(`tr[data-file="${CSS.escape(id)}"]`)
+    if (!row) return
+    refocusRow.current = null
+    ;(row.querySelector<HTMLElement>('button[data-act]') ?? row).focus()
+  })
+
   const filesKey = filesQuery(project.id).queryKey
   const putFile = (next: FileOut) =>
     queryClient.setQueryData<FilesOut>(filesKey, (old) => (old ? { ...old, files: old.files.map((f) => (f.id === next.id ? next : f)) } : old))
@@ -473,6 +495,8 @@ export function DrawingSetView({ project }: { project: ProjectSummary }) {
   function act(which: RowAct, file: FileOut) {
     const key = `${which}:${file.id}`
     if (which === 'open_step1') return go(PATHS.takeoff(project.code, 1))
+    // The pressed button goes with the state it belonged to: focus follows to the row's new act.
+    refocusRow.current = file.id
     if (which === 'cancel') {
       return void run(key, async (current) => {
         const next = await cancelReading(project.id, file.id)
@@ -647,7 +671,8 @@ export function DrawingSetView({ project }: { project: ProjectSummary }) {
         />
       ) : null}
 
-      <div aria-live="polite" className="flex flex-col gap-2">
+      {/* Each bar is an alert, announced once by itself: no live region round them. */}
+      <div className="flex flex-col gap-2">
         <ProblemBar problem={problem} className="mb-2" />
         {refused.map((r, i) => (
           <ErrorBar key={`${r.key}-${i}`} className="mb-2">
