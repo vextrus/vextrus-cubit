@@ -14,7 +14,7 @@ import { SearchX } from 'lucide-react'
 import { FormatProvider, type MarketFormat } from '@/format'
 import { activateLanguage, currentLanguage, useLanguage } from '@/i18n/activate'
 import { englishMessages } from '@/i18n/catalogues'
-import { DesktopOnly, Empty, ErrorBar, buttonVariants } from '@/ui'
+import { DesktopOnly, Empty, ErrorBar, buttonVariants, cn } from '@/ui'
 import { AppLink, PATHS, useGo } from './AppLink'
 import { languageIsOverridden } from './dev-language'
 import { projectFor, sessionQuery } from './session'
@@ -107,7 +107,9 @@ export function PageLayout({ children, panel }: { children: ReactNode; panel?: R
   return (
     <div className="flex min-h-0 flex-1">
       <main data-region="page" className="focus-inset min-w-0 flex-1 overflow-auto">
-        <div className="mx-auto w-[1120px] max-w-full py-6">{children}</div>
+        {/* A docked panel pushes the content left, keeping a 24 px gutter each side (design gate 20a r1);
+            with none, the page is as it was: 1120 px, centred. */}
+        <div className={cn('mx-auto max-w-full py-6', panel ? 'w-[1168px] px-[24px]' : 'w-[1120px]')}>{children}</div>
       </main>
       {panel ? (
         <aside data-region="panel" className="focus-inset w-[480px] shrink-0 overflow-auto border-s border-border bg-paper">

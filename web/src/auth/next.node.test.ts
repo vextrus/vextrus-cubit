@@ -1,0 +1,76 @@
+/*
+ * `?next=` never leaves the app (the trust boundary: an open redirect through sign-in).
+ */
+import { describe, expect, it } from 'vitest'
+import { safeNext } from './next'
+
+describe('safeNext', () => {
+  it.each([
+    ['/members', '/members'],
+    ['/p/KR-01/takeoff/1', '/p/KR-01/takeoff/1'],
+    ['/p/KR-01/takeoff/1?sheet=S-04', '/p/KR-01/takeoff/1?sheet=S-04'],
+    ['/p/KR-01/takeoff/1#section', '/p/KR-01/takeoff/1'],
+    ['/projects', '/projects'],
+  ])('follows an address inside the app: %s', (next, expected) => {
+    expect(safeNext(next)).toBe(expected)
+  })
+
+  it.each([
+    'https://evil.example',
+    'http://evil.example/projects',
+    '//evil.example',
+    '///evil.example',
+    '/\\evil.example',
+    '\\\\evil.example',
+    '/%2Fevil.example',
+    '/%2f%2fevil.example',
+    '%2F%2Fevil.example',
+    '/%5Cevil.example',
+    '/%252F%252Fevil.example',
+    // Dot segments that parse into a protocol-relative address (the refuter's finding, 29 Sep 2026).
+    '/.//evil.example',
+    '/a/..//evil.example',
+    '/%2e//evil.example',
+    '/x/%2e%2e//evil.example',
+    '/..//evil',
+    '/././/evil',
+    '/%2e%2e/%2e//evil.example',
+    '/.//x/sign-in',
+    '/a/..//x/join',
+    '/members/../sign-in',
+    '/members/%2e%2e/sign-in',
+    // Encoded dot segments that survive parsing and are decoded later (review 20a r1).
+    '/%2e%2e%2f/evil.example',
+    '/%252e%252e//evil.example',
+    '/members/..%2f..%2f/evil',
+    '/members/%2e',
+    '/p/KR-01/%2F/x',
+    'javascript:alert(1)',
+    'JaVaScRiPt:alert(1)',
+    'javascript%3Aalert(1)',
+    '/\tevil.example',
+    '/\n/evil.example',
+    '/ /evil.example',
+    '/sign-in',
+    '/sign-in?next=/members',
+    '/SIGN-IN',
+    '/sign-in/',
+    '/%73ign-in',
+    '/join',
+    '/choose-developer',
+    '/access-ended',
+    '/no-access',
+    'members',
+    '',
+    'x'.repeat(3000),
+  ])('falls back to /projects for %j', (next) => {
+    expect(safeNext(next)).toBe('/projects')
+  })
+
+  it('falls back for anything that is not a string', () => {
+    expect(safeNext(undefined)).toBe('/projects')
+    expect(safeNext(null)).toBe('/projects')
+    expect(safeNext(['/members'])).toBe('/projects')
+    expect(safeNext({ href: '/members' })).toBe('/projects')
+  })
+})
