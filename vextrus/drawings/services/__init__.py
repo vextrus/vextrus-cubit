@@ -58,6 +58,11 @@ For 19a and 21c (Step 1):
 
 from vextrus.drawings.models import HeldAnswer, PlotNone
 from vextrus.drawings.services.anchors import Resolved, resolve
+from vextrus.drawings.services.corrections import (
+    held_answer,
+    set_sheet_discipline,
+    set_sheet_number,
+)
 from vextrus.drawings.services.drawing_files import (
     FINISHING,
     MATCHING,
@@ -153,6 +158,7 @@ __all__ = [
     "exclude",
     "file",
     "files",
+    "held_answer",
     "mark_failed",
     "mark_read",
     "original",
@@ -172,6 +178,8 @@ __all__ = [
     "restart",
     "set_discipline",
     "set_of",
+    "set_sheet_discipline",
+    "set_sheet_number",
     "sheet",
     "sheet_step",
     "sheets",

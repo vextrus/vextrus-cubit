@@ -35,7 +35,7 @@ import json
 import time
 import uuid
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from functools import partial
 from typing import Any, cast
 
@@ -102,8 +102,9 @@ def read(
     keyed_by: Mapping[str, object],
     done_before: int,
     after: int,
-) -> int:
-    """Find the file's sheets and read each (see the module); how many sheets were recorded.
+) -> Found:
+    """Find the file's sheets and read each (see the module); how many sheets were recorded, and
+    how many were left out for unreadable writing (`UNREADABLE_TEXT`, 21c's Coverage counts them).
     `keyed_by`: the file's sha256 and reader, in every step's key; `done_before` and `after`: the
     file's steps before these and after them (the job's total)."""
     # Read inside the steps, acting in the file's tenant (the Market's rows are its Market's).
@@ -165,7 +166,14 @@ def read(
         said_for_file.update(str(m["params"]["limit"]) for m in said)
         # A kept step's render time is spent too: a stop never hands the rest a fresh budget.
         render_left[0] -= float(cast(float, done.get("render_seconds", 0.0)))
-    return len(recorded)
+    report = cast(dict[str, int], found.get("sheet_report", {}))
+    return Found(len(recorded), int(report.get(UNREADABLE_TEXT, 0)))
+
+
+@dataclass(frozen=True)
+class Found:
+    sheets: int
+    unread: int
 
 
 def once[T](make: Callable[[], T]) -> Callable[[], T]:

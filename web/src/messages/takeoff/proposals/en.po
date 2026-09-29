@@ -1,0 +1,26 @@
+msgid ""
+msgstr ""
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: en\n"
+
+#. vextrus/takeoff/messages/proposals.py (ticket 21c): the read job's Questions (m0-screens 6.7) and an answer's refusals.
+msgid "takeoff.proposals.answered_already"
+msgstr "This Question has already been answered, so nothing was changed. Reload the page to see its answer."
+
+msgid "takeoff.proposals.boundary_storey"
+msgstr "Does \"{range}\" on {sheet} include its top storey? {next_sheet} starts at that storey."
+
+msgid "takeoff.proposals.lists_disagree"
+msgstr "{source, select, typed {The drawing list on {sheet} and the range you typed differ} other {The drawing list on {sheet} and the one you pasted differ}}"
+
+msgid "takeoff.proposals.number_needed"
+msgstr "No number was typed, so the sheet was not numbered. Type its number, then answer again."
+
+msgid "takeoff.proposals.option_not_offered"
+msgstr "That answer is not one this Question offers, so nothing was changed. Reload the page and choose one of its answers."
+
+msgid "takeoff.proposals.which_discipline"
+msgstr "Which Discipline is {sheet}? Its file and its number name none."

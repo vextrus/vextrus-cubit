@@ -6,9 +6,11 @@ each in its own transaction, each kept once by `drawings`' StepStore.
 A DWG: `opening` (Vextrus's copy, checked against its sha256), `reading` (the first reader; its
 ReadArtefact kept), `second_reader` (the second reader and the check that the two agree, kept as a
 code; two readers that disagree hold the file through `drawings.services.quarantine`, and nothing
-more is read: 21c raises its `file_misread` Question, ADR 0029), 21b's `sheets` and `sheet_<n>`
-steps (`read_propose.sheets`), `finishing` (the font report and the Bangla-ANSI Check, kept as codes,
-and the file marked read in the same transaction).
+more is read: 21c's `held` step raises its `file_misread` Question, ADR 0029, unless the QS answered
+it "read anyway", when the job, queued again by the answer, reads on), 21b's `sheets` and
+`sheet_<n>` steps (`read_propose.sheets`), `finishing` (the font report and the Bangla-ANSI Check,
+kept as codes, and the file marked read in the same transaction), then 21c's `proposals` (its sheets
+and views proposed, the set's Questions asked and its Checks run: `read_propose.proposals`).
 
 A PDF: `opening` (the copy checked, and the PDF report kept as codes; a scan is refused by it) and
 `matching` (the file marked read). 21b's page steps and the matching itself go into them.
@@ -33,6 +35,8 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
+from django.db import transaction
+
 from engine.check import bangla_ansi, decoders_agree
 from engine.check.bangla_ansi import BanglaAnsi
 from engine.messages import Message
@@ -47,16 +51,21 @@ from engine.render.fonts import FontReport
 from vextrus.drawings import services as drawings
 from vextrus.drawings.messages import files as file_words
 from vextrus.platform.services import auth, jobs, storage
-from vextrus.takeoff.services.read_propose import sheets
+from vextrus.takeoff.services.read_propose import proposals, sheets
 
 NOT_READ = "not_read"
 """The step that ends a file failed with its reason (see the module)."""
+HELD = "held"
+"""A held file's step: its `file_misread` Question raised (21c)."""
+PROPOSALS = "proposals"
+"""A read file's last step: Step 1's proposals, Questions and Checks (21c)."""
 DWG_STEPS = (
     drawings.OPENING,
     drawings.READING,
     drawings.SECOND_READER,
     drawings.SHEETS,
     drawings.FINISHING,
+    PROPOSALS,
 )
 """A DWG's steps; after `sheets`, one `sheet_<n>` step per sheet it recorded (21b's `sheets`)."""
 PDF_STEPS = (drawings.OPENING, drawings.MATCHING)
@@ -120,7 +129,7 @@ def read(run: jobs.Run, file_id: uuid.UUID, readers: Readers | None = None) -> R
     use = readers or READERS
     steps = run.steps(drawings.step_store(), subject_id=file_id, total=len(DWG_STEPS))
     try:
-        return _steps(steps, file_id, use)
+        return _steps(steps, file_id, use, lambda: _held_answer(run, file_id))
     except _Unread as unread:
         # The step that raised has rolled back; the file's reason is kept once per job.
         finding = unread.finding
@@ -132,7 +141,9 @@ def read(run: jobs.Run, file_id: uuid.UUID, readers: Readers | None = None) -> R
         raise FileNotRead(f"file {file_id} was not read: {finding['code']}") from unread
 
 
-def _steps(steps: jobs.Steps, file_id: uuid.UUID, use: Readers) -> Read:
+def _steps(
+    steps: jobs.Steps, file_id: uuid.UUID, use: Readers, held_answer: Callable[[], object]
+) -> Read:
     opened = steps.run(drawings.OPENING, lambda: _open(file_id, use), inputs={"file": file_id})
     sha256 = str(opened["sha256"])
     if opened["format"] == "pdf":
@@ -146,12 +157,18 @@ def _steps(steps: jobs.Steps, file_id: uuid.UUID, use: Readers) -> Read:
     checked = steps.run(
         drawings.SECOND_READER, lambda: _check(file_id, use, kept), inputs={"sha256": sha256, **reader}
     )
+    read_anyway = False
     if checked["held"]:
-        return Read(file_id, "dwg", "held")
-    sheets.read(
+        answer = held_answer()
+        steps.run(HELD, lambda: proposals.ask_held(file_id), inputs={"sha256": sha256, **reader})
+        if answer != drawings.HeldAnswer.READ_ANYWAY:
+            return Read(file_id, "dwg", "held")
+        read_anyway = True
+    load = sheets.once(lambda: _kept_artefact(file_id, use, kept))
+    found = sheets.read(
         steps,
         file_id,
-        sheets.once(lambda: _kept_artefact(file_id, use, kept)),
+        load,
         {"sha256": sha256, **reader},
         done_before=DWG_STEPS.index(drawings.SHEETS),
         after=len(DWG_STEPS) - DWG_STEPS.index(drawings.FINISHING),
@@ -159,7 +176,18 @@ def _steps(steps: jobs.Steps, file_id: uuid.UUID, use: Readers) -> Read:
     steps.run(
         drawings.FINISHING, lambda: _finish(file_id, use, kept), inputs={"sha256": sha256, **reader}
     )
-    return Read(file_id, "dwg", "read")
+    steps.run(
+        PROPOSALS,
+        lambda: proposals.propose(file_id, load, sheets.conventions(file_id)[0], unread=found.unread),
+        inputs={"sha256": sha256, **reader, "read_anyway": read_anyway},
+    )
+    return Read(file_id, "dwg", "held" if read_anyway else "read")
+
+
+def _held_answer(run: jobs.Run, file_id: uuid.UUID) -> object:
+    """What the QS answered about the held file, read as it stands (never kept by a step)."""
+    with run.acting(), transaction.atomic():
+        return drawings.held_answer(file_id)
 
 
 # The steps' bodies: each runs inside its step's transaction, acting in the file's tenant -----------

@@ -38,6 +38,7 @@ For the seed and 21c's read job: `propose_sheet`, `record_coverage`, `raise_ques
 import contextlib
 import hashlib
 import json
+import re
 import uuid
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
@@ -60,8 +61,12 @@ from vextrus.platform.services import auth, jev, markets, tenancy
 from vextrus.projects import services as projects
 from vextrus.takeoff import acts
 from vextrus.takeoff.library import EXPECTED, SHEETS
+from vextrus.takeoff.messages import proposals as answer_codes
 from vextrus.takeoff.messages import step1 as said
 from vextrus.takeoff.models import (
+    CheckFinding,
+    CheckRun,
+    CheckTrigger,
     Confirmation,
     ConfirmationAct,
     ConfirmationKind,
@@ -72,10 +77,12 @@ from vextrus.takeoff.models import (
     Proposal,
     ProposalStatus,
     ProposalSubject,
+    ProposalTrace,
     Question,
     QuestionKind,
     QuestionLink,
     QuestionStatus,
+    RecogniseRun,
     RegisterEntry,
     RegisterSource,
     StepProgress,
@@ -83,6 +90,11 @@ from vextrus.takeoff.models import (
 
 OTHER = "other"
 """The one reason that keeps the QS's words."""
+KEEP_OPEN = "keep_open"
+"""Every Question's last option: the Question stays open (m0-screens §5)."""
+UNREAD_FAMILY = "sheets_unread"
+"""The RecogniseRun family that keeps, per file (`cache_key`: its id), the sheets its read found
+(`candidates`) and those left out for unreadable writing (`reused_answers`, #135)."""
 
 
 # What Step 1 shows --------------------------------------------------------------------------------
@@ -114,6 +126,9 @@ class ProposalView:
     excluded_text: str
     decided_by: str | None
     decided_at: datetime | None
+    agrees: bool = False
+    """Two sources agree on it (m0-screens §5, "What 'agrees' means"): its number read and on its
+    Discipline's drawing list, its kind proposed, and no open Question holds it."""
 
 
 @dataclass(frozen=True)
@@ -129,6 +144,16 @@ class QuestionView:
     check_code: str | None
     answer: Any
     answered_at: datetime | None
+    proposals: list[uuid.UUID] = field(default_factory=list)
+    """The Proposals it holds (answering confirms or leaves them out)."""
+
+
+@dataclass(frozen=True)
+class UnaccountedView:
+    id: uuid.UUID
+    """The view's Proposal: `exclude` takes it as it takes a sheet's."""
+    view_id: uuid.UUID
+    sheet_id: uuid.UUID
 
 
 @dataclass(frozen=True)
@@ -143,6 +168,9 @@ class CoverageView:
     """Views by the step (or Part) that will read them, proposed or assigned."""
     by_reason: dict[str, int] = field(default_factory=dict)
     """Views excluded or proposed to be, by reason."""
+    unaccounted_views: list[UnaccountedView] = field(default_factory=list)
+    unread_sheets: int = 0
+    """Sheets the read left out for unreadable writing (#135): never silently unread."""
 
 
 @dataclass(frozen=True)
@@ -158,6 +186,10 @@ class DisciplineProgress:
     total: int | None
     """N: the drawing list's count, else the sheets found; None ("—") while two lists disagree."""
     open_questions: int
+    status: str = "not_started"
+    """The StepProgress status: `confirmed` when every sheet is decided, no Question is open or
+    kept open, no view is unaccounted and no file of it is reading (m0-screens 6.11); else
+    `in_review` (or `not_started` with no sheet)."""
 
 
 @dataclass(frozen=True)
@@ -241,7 +273,36 @@ def proposals(project_id: uuid.UUID) -> list[ProposalView]:
     # Who and when, from the act that decided each sheet (a decision put back by an undo keeps its
     # own act's name and time).
     who = {c.id: (c.by_name, c.at) for c in Confirmation.objects.filter(id__in=stamps)}
-    return [_proposal_view(s, by_sheet.get(s.id), names, who) for s in sheets]
+    views = [_proposal_view(s, by_sheet.get(s.id), names, who) for s in sheets]
+    return _agreeing(project_id, views)
+
+
+def _agreeing(project_id: uuid.UUID, views: list[ProposalView]) -> list[ProposalView]:
+    """Each sheet's `agrees`: its number read and on its Discipline's standing drawing list, its
+    kind proposed, and no open Question holding it."""
+    held = set(
+        QuestionLink.objects.filter(
+            project_id=project_id, question__status=QuestionStatus.OPEN
+        ).values_list("proposal_id", flat=True)
+    )
+    listed: dict[str, set[str]] = {}
+    for key in {v.discipline for v in views if v.discipline}:
+        lists = _lists(project_id, key)
+        standing = lists.given or lists.read
+        listed[key] = set(_numbers(standing)) if standing and not lists.disagree else set()
+    return [
+        replace(
+            v,
+            agrees=bool(
+                v.number
+                and v.discipline
+                and v.number in listed.get(v.discipline, set())
+                and v.kind
+                and v.id not in held
+            ),
+        )
+        for v in views
+    ]
 
 
 def _proposal_view(
@@ -280,7 +341,12 @@ def questions(project_id: uuid.UUID) -> list[QuestionView]:
     """The Project's Step 1 Questions: the open ones in queue order (a held file first, as it holds a
     whole file; then as they were raised), then those answered or withdrawn."""
     projects.get(project_id)
-    found = Question.objects.filter(project_id=project_id, step=SHEETS)
+    found = list(Question.objects.filter(project_id=project_id, step=SHEETS))
+    held: dict[uuid.UUID, list[uuid.UUID]] = {}
+    for link in QuestionLink.objects.filter(
+        project_id=project_id, question_id__in=[q.id for q in found]
+    ).order_by("id"):
+        held.setdefault(link.question_id, []).append(link.proposal_id)
 
     def queued(q: Question) -> tuple[Any, ...]:
         return (q.status != QuestionStatus.OPEN, q.kind != QuestionKind.FILE_MISREAD, q.created_at, q.id)
@@ -298,6 +364,7 @@ def questions(project_id: uuid.UUID) -> list[QuestionView]:
             check_code=q.check_code or None,
             answer=q.answer,
             answered_at=q.answered_at,
+            proposals=held.get(q.id, []),
         )
         for q in sorted(found, key=queued)
     ]
@@ -315,16 +382,31 @@ def coverage(project_id: uuid.UUID) -> CoverageView:
     for step in CoverageStep.objects.filter(coverage_id__in=[r.id for r in rows]):
         steps.setdefault(step.coverage_id, []).append(step)
     used = 0
+    unaccounted: list[UnaccountedView] = []
+    view_proposals = {
+        p.subject_id: p.id
+        for p in Proposal.objects.filter(
+            project_id=project_id, step=SHEETS, subject=ProposalSubject.VIEW
+        )
+    }
     for row in rows:
         counts[_counted(row)] += 1
+        if row.status == CoverageStatus.UNACCOUNTED:
+            unaccounted.append(
+                UnaccountedView(
+                    view_proposals.get(row.view_id, row.view_id), row.view_id, row.sheet_revision_id
+                )
+            )
         if any(s.used for s in steps.get(row.id, ())):
             used += 1
         if row.status == CoverageStatus.EXCLUDED:
             by_reason[row.reason] += 1
         elif row.status == CoverageStatus.ASSIGNED:
+            # A view counts under every step and Part it serves (a toilet detail under the walls,
+            # the rooms and the Plumbing and sanitary Part).
             for step in steps.get(row.id, ()):
                 by_step[step.step] += 1
-            if row.part_key and not steps.get(row.id):
+            if row.part_key and row.part_key not in {s.step for s in steps.get(row.id, ())}:
                 by_step[row.part_key] += 1
     return CoverageView(
         views=len(rows),
@@ -335,6 +417,25 @@ def coverage(project_id: uuid.UUID) -> CoverageView:
         used=used,
         by_step=dict(by_step),
         by_reason=dict(by_reason),
+        unaccounted_views=unaccounted,
+        unread_sheets=_unread(project_id),
+    )
+
+
+def _unread(project_id: uuid.UUID) -> int:
+    """The sheets the read left out for unreadable writing, of the files in the sheet list."""
+    drawing_set = drawings.set_of(project_id)
+    if drawing_set is None:
+        return 0
+    read = {
+        str(f.id)
+        for f in drawings.files(drawing_set.id)
+        if f.state == drawings.FileState.READ or f.state == drawings.FileState.HELD
+    }
+    return sum(
+        r.reused_answers
+        for r in RecogniseRun.objects.filter(project_id=project_id, family_key=UNREAD_FAMILY)
+        if r.cache_key in read
     )
 
 
@@ -363,11 +464,32 @@ def progress(project_id: uuid.UUID) -> ProgressView:
         q.discipline or None
         for q in Question.objects.filter(project_id=project_id, step=SHEETS, status=QuestionStatus.OPEN)
     )
+    discipline_of = {s.id: s.discipline for s in sheets}
+    unaccounted = Counter(
+        discipline_of[row.sheet_revision_id]
+        for row in Coverage.objects.filter(project_id=project_id, status=CoverageStatus.UNACCOUNTED)
+        if row.sheet_revision_id in discipline_of
+    )
+    drawing_set = drawings.set_of(project_id)
+    reading = {
+        f.discipline
+        for f in (drawings.files(drawing_set.id) if drawing_set else [])
+        if f.state
+        in (drawings.FileState.WAITING, drawings.FileState.READING, drawings.FileState.RETRYING)
+    }
     rows = []
     for key in order:
         lists = _lists(project_id, key) if key else _Lists(None, None)
         listed = lists.count
         disagree = lists.disagree
+        total = None if disagree else (listed if listed is not None else found[key])
+        done = (
+            total is not None
+            and decided[key] >= found[key]
+            and open_questions[key] == 0
+            and unaccounted[key] == 0
+            and key not in reading
+        )
         rows.append(
             DisciplineProgress(
                 discipline=key,
@@ -375,8 +497,9 @@ def progress(project_id: uuid.UUID) -> ProgressView:
                 found=found[key],
                 listed=listed,
                 lists_disagree=disagree,
-                total=None if disagree else (listed if listed is not None else found[key]),
+                total=total,
                 open_questions=open_questions[key],
+                status="confirmed" if done else ("in_review" if found[key] else "not_started"),
             )
         )
     return ProgressView(rows, _not_received(project_id))
@@ -404,16 +527,29 @@ class _Lists:
 
     @property
     def count(self) -> int | None:
-        standing = self.given or self.read
+        standing = self.standing
         if standing is None:
             return None
         return RegisterEntry.objects.filter(register=standing).count()
 
+    settled: str | None = None
+    """The QS's answer to the two lists' Question, while it stands: `use_read` or `use_given`."""
+
     @property
-    def disagree(self) -> bool:
+    def differ(self) -> bool:
         if self.given is None or self.read is None:
             return False
         return _numbers(self.given) != _numbers(self.read)
+
+    @property
+    def disagree(self) -> bool:
+        return self.differ and self.settled is None
+
+    @property
+    def standing(self) -> DrawingRegister | None:
+        if self.settled == "use_read":
+            return self.read or self.given
+        return self.given or self.read
 
 
 def _standing(project_id: uuid.UUID, discipline: str, sources: Iterable[str]) -> DrawingRegister | None:
@@ -429,7 +565,21 @@ def _standing(project_id: uuid.UUID, discipline: str, sources: Iterable[str]) ->
 def _lists(project_id: uuid.UUID, discipline: str) -> _Lists:
     given = _standing(project_id, discipline, (RegisterSource.PASTED, RegisterSource.TYPED))
     read = _standing(project_id, discipline, (RegisterSource.SHEET,))
-    return _Lists(given, read)
+    settled = None
+    if given is not None and read is not None:
+        answered = Question.objects.filter(
+            project_id=project_id,
+            question_key=_lists_key(given, read),
+            status=QuestionStatus.ANSWERED,
+        ).first()
+        if answered is not None and isinstance(answered.answer, dict):
+            settled = str(answered.answer.get("option"))
+    return _Lists(given, read, settled)
+
+
+def _lists_key(given: DrawingRegister, read: DrawingRegister) -> str:
+    """The two lists' Question, one per pair of lists (a new list asks again)."""
+    return hashlib.sha256(f"lists:{given.id}:{read.id}".encode()).hexdigest()
 
 
 def _numbers(row: DrawingRegister) -> list[str]:
@@ -528,8 +678,44 @@ def set_list(project_id: uuid.UUID, discipline: str, text: str, *, actor_name: s
             )
             for e in _unique(parsed)
         )
+        _ask_if_lists_differ(project_id, key)
         record_progress(project_id)
     return drawing_list(project_id, key)
+
+
+def _ask_if_lists_differ(project_id: uuid.UUID, discipline: str) -> None:
+    """The list read on a sheet and the QS's differ: a `conflict` Question, which of the two stands
+    (N is "—" until it is answered); an earlier such Question still open is withdrawn."""
+    lists = _lists(project_id, discipline)
+    key = _lists_key(lists.given, lists.read) if lists.given and lists.read else None
+    Question.objects.filter(
+        project_id=project_id,
+        step=SHEETS,
+        kind=QuestionKind.CONFLICT,
+        discipline=discipline,
+        message_code=answer_codes.LISTS_DISAGREE.code,
+        status=QuestionStatus.OPEN,
+    ).exclude(question_key=key or "").update(status=QuestionStatus.WITHDRAWN)
+    if key is None or not lists.differ or lists.read is None or lists.given is None:
+        return
+    on = drawings.sheet(lists.read.source_sheet_id) if lists.read.source_sheet_id else None
+    Question.objects.get_or_create(
+        tenant_id=_tenant(),
+        project_id=project_id,
+        question_key=key,
+        defaults={
+            "step": SHEETS,
+            "kind": QuestionKind.CONFLICT,
+            "subject_id": lists.read.source_sheet_id,
+            "discipline": discipline,
+            "message_code": answer_codes.LISTS_DISAGREE.code,
+            "params": {
+                "sheet": (on.number or on.title) if on else "",
+                "source": "typed" if lists.given.source == RegisterSource.TYPED else "pasted",
+            },
+            "options": [{"key": k, "picked": False} for k in ("use_read", "use_given", KEEP_OPEN)],
+        },
+    )
 
 
 def drawing_list(project_id: uuid.UUID, discipline: str) -> ListView:
@@ -538,7 +724,7 @@ def drawing_list(project_id: uuid.UUID, discipline: str) -> ListView:
     projects.get(project_id)
     key = _discipline(discipline)
     lists = _lists(project_id, key)
-    standing = lists.given or lists.read
+    standing = lists.standing
     return ListView(
         discipline=key,
         source=standing.source if standing else None,
@@ -648,13 +834,14 @@ def exclude(
     auth.require(acts.EXCLUDE, project_id)
     words = text if reason == OTHER else ""
     with transaction.atomic():
-        chosen = _chosen(project_id, ids)
+        views, ids = _views_chosen(project_id, ids)
+        chosen = _chosen(project_id, ids) if ids or not views else []
         act = _act(
             project_id,
             ConfirmationAct.EXCLUDE,
-            len(chosen),
+            len(chosen) + len(views),
             actor_name,
-            discipline=_one(chosen),
+            discipline=_one(chosen) if chosen else "",
             before=[sheet for sheet, _p in chosen],
         )
         for sheet, proposal in chosen:
@@ -663,8 +850,63 @@ def exclude(
             proposal.rejected_reason = reason
             _stamp(proposal, ProposalStatus.REJECTED, act)
             _decide_views(sheet.id, act, reason, words.strip())
+        _exclude_views(project_id, act, views, reason, words)
         record_progress(project_id)
     return _act_view(act)
+
+
+def _views_chosen(
+    project_id: uuid.UUID, ids: Sequence[object]
+) -> tuple[list[Proposal], Sequence[object]]:
+    """The named view Proposals of this Project (an unaccounted view's), and the other ids."""
+    if not isinstance(ids, (list, tuple)):
+        return [], ids  # refused by `_chosen`
+    by_id = {
+        p.id: p
+        for p in Proposal.objects.filter(
+            project_id=project_id, step=SHEETS, subject=ProposalSubject.VIEW
+        )
+    }
+    views: dict[uuid.UUID, Proposal] = {}
+    rest: list[object] = []
+    for given in ids:
+        try:
+            named = given if isinstance(given, uuid.UUID) else uuid.UUID(str(given))
+        except ValueError:
+            rest.append(given)
+            continue
+        if named in by_id:
+            views[named] = by_id[named]
+        else:
+            rest.append(given)
+    return list(views.values()), rest
+
+
+def _exclude_views(
+    project_id: uuid.UUID, act: Confirmation, views: Sequence[Proposal], reason: str, words: str
+) -> None:
+    """Leave views out on their own (an unaccounted view: "part of the title block"): each view's
+    Coverage excluded under the act; its sheet's later confirmation keeps it so."""
+    if not views:
+        return
+    listed = {s.id for s in _sheets(project_id)}
+    rows = {
+        r.view_id: r
+        for r in Coverage.objects.select_for_update().filter(
+            project_id=project_id, view_id__in=[p.subject_id for p in views]
+        )
+    }
+    for proposal in views:
+        row = rows.get(proposal.subject_id)
+        if row is None or row.sheet_revision_id not in listed:
+            raise auth.NotFound
+        drawings.exclude(proposal.subject_id, reason, words, confirmation_id=act.id)
+        row.status, row.reason, row.reason_text = CoverageStatus.EXCLUDED, reason, words.strip()
+        row.confirmation = act
+        row.confirmed_by_id = act.user_id
+        row.save(update_fields=["status", "reason", "reason_text", "confirmation", "confirmed_by"])
+        proposal.rejected_reason = reason
+        _stamp(proposal, ProposalStatus.REJECTED, act)
 
 
 def undo(project_id: uuid.UUID) -> ActView:
@@ -699,6 +941,20 @@ def undo(project_id: uuid.UUID) -> ActView:
         drawings.undo(act.id)
         act.undone_at = timezone.now()
         act.save(update_fields=["undone_at"])
+        for proposal in Proposal.objects.filter(
+            project_id=project_id, confirmation=act, subject=ProposalSubject.VIEW
+        ):
+            proposal.status, proposal.confirmation, proposal.rejected_reason = (
+                ProposalStatus.OPEN,
+                None,
+                "",
+            )
+            proposal.save(update_fields=["status", "confirmation", "rejected_reason"])
+            for row in Coverage.objects.select_for_update().filter(
+                project_id=project_id, view_id=proposal.subject_id, confirmation=act
+            ):
+                _put_back(row)
+            off_list.discard(proposal.subject_id)
         for sheet_id in listed:
             _put_back_sheet(project_id, sheet_id, _standing_before(act, sheet_id))
         for sheet_id in off_list:
@@ -806,9 +1062,12 @@ def _act_view(act: Confirmation) -> ActView:
 def _decide_views(sheet_id: uuid.UUID, act: Confirmation, reason: str | None, text: str) -> None:
     """The sheet's views' Coverage follows it: confirmed as proposed (an unaccounted view stays so),
     or excluded with the sheet's reason."""
+    own = _excluded_on_their_own(act.project_id, sheet_id)
     for row in Coverage.objects.select_for_update().filter(
         project_id=act.project_id, sheet_revision_id=sheet_id
     ):
+        if reason is None and row.view_id in own:
+            continue  # the QS left this view out on its own: confirming its sheet keeps it so
         if reason is None and row.proposed_status == CoverageStatus.UNACCOUNTED:
             _put_back(row)
             continue
@@ -819,6 +1078,20 @@ def _decide_views(sheet_id: uuid.UUID, act: Confirmation, reason: str | None, te
         row.confirmation = act
         row.confirmed_by_id = act.user_id
         row.save(update_fields=["status", "reason", "reason_text", "confirmation", "confirmed_by"])
+
+
+def _excluded_on_their_own(project_id: uuid.UUID, sheet_id: uuid.UUID) -> set[uuid.UUID]:
+    """The sheet's views the QS left out by an act of their own (not undone)."""
+    return set(
+        Proposal.objects.filter(
+            project_id=project_id,
+            step=SHEETS,
+            subject=ProposalSubject.VIEW,
+            status=ProposalStatus.REJECTED,
+            confirmation__undone_at__isnull=True,
+            values__sheet_id=str(sheet_id),
+        ).values_list("subject_id", flat=True)
+    )
 
 
 def _put_back(row: Coverage) -> None:
@@ -835,11 +1108,166 @@ def _propose(project_id: uuid.UUID, sheet: drawings.SheetView) -> Proposal:
     return _proposal_row(project_id, sheet, None)
 
 
-def propose_sheet(sheet_id: uuid.UUID, *, answer: jev.Answer | None = None) -> uuid.UUID:
+type Traces = Sequence[tuple[str, Mapping[str, Any]]]
+"""A Proposal's Traces: each fact with the anchor (a JSON object) where it was read."""
+
+
+def propose_sheet(
+    sheet_id: uuid.UUID, *, answer: jev.Answer | None = None, traces: Traces = ()
+) -> uuid.UUID:
     """A printed sheet as a Step 1 Proposal: its kind as read and, when Jev answered its kind, that
-    answer (its choice and the options offered, in order); the Proposal's id. Idempotent per sheet."""
+    answer (its choice and the options offered, in order), with its Traces; the Proposal's id.
+    Idempotent per sheet."""
     sheet = drawings.sheet(sheet_id)
-    return _proposal_row(_project_of(sheet), sheet, answer).id
+    row = _proposal_row(_project_of(sheet), sheet, answer)
+    _trace(row, traces)
+    return row.id
+
+
+def propose_view(project_id: uuid.UUID, view: drawings.ViewView, *, traces: Traces = ()) -> uuid.UUID:
+    """A view of a printed sheet as a Step 1 Proposal (what 17 proposes to do with it: its steps,
+    its Part, or leaving it out), with its Traces; the Proposal's id. Idempotent per view."""
+    projects.get(project_id)
+    sheet = drawings.sheet(view.sheet_revision_id)
+    if _project_of(sheet) != project_id:
+        raise auth.NotFound
+    values = {
+        "sheet_id": str(view.sheet_revision_id),
+        "title": view.title,
+        "kind": view.kind,
+        "steps": list(view.steps),
+        "part": view.part,
+        "exclusion": view.proposed_exclusion,
+    }
+    row, _made = Proposal.objects.update_or_create(
+        tenant_id=_tenant(),
+        project_id=project_id,
+        step=SHEETS,
+        candidate_key=f"view:{view.id}",
+        defaults={"subject": ProposalSubject.VIEW, "subject_id": view.id, "values": values},
+    )
+    _trace(row, traces)
+    return row.id
+
+
+def _trace(proposal: Proposal, traces: Traces) -> None:
+    for fact, anchor in traces:
+        ProposalTrace.objects.get_or_create(
+            tenant_id=proposal.tenant_id,
+            project_id=proposal.project_id,
+            proposal=proposal,
+            fact=fact[:64],
+            anchor=dict(anchor),
+        )
+
+
+def proposal_ids(project_id: uuid.UUID) -> dict[uuid.UUID, uuid.UUID]:
+    """Each printed sheet's Proposal id, by the sheet's id."""
+    return {p.subject_id: p.id for p in _proposals_of(project_id)}
+
+
+def sheet_conventions() -> SheetConventions:
+    """13's default sheet conventions under the Market's Disciplines (as the read job reads)."""
+    return _conventions()
+
+
+def record_unread(project_id: uuid.UUID, file_id: uuid.UUID, *, sheet_found: int, unread: int) -> None:
+    """How many sheets a file's read found and how many it left out for unreadable writing (#135),
+    which Coverage counts while the file is in the sheet list."""
+    projects.get(project_id)
+    RecogniseRun.objects.update_or_create(
+        tenant_id=_tenant(),
+        project_id=project_id,
+        building_id=None,
+        family_key=UNREAD_FAMILY,
+        cache_key=str(file_id),
+        defaults={"candidates": sheet_found + unread, "reused_answers": max(0, unread)},
+    )
+
+
+@dataclass(frozen=True)
+class ReadList:
+    sheet_id: uuid.UUID
+    discipline: str
+    entries: list[tuple[str, str]]
+
+
+def read_lists(project_id: uuid.UUID) -> list[ReadList]:
+    """The drawing lists read on sheets, the latest per sheet and Discipline."""
+    latest: dict[tuple[uuid.UUID, str], DrawingRegister] = {}
+    for row in DrawingRegister.objects.filter(
+        project_id=project_id, source=RegisterSource.SHEET
+    ).order_by("entered_at", "id"):
+        if row.source_sheet_id is not None:
+            latest[(row.source_sheet_id, row.discipline)] = row
+    return [
+        ReadList(
+            sheet_id,
+            discipline,
+            list(
+                RegisterEntry.objects.filter(register=row)
+                .order_by("line", "id")
+                .values_list("number", "title")
+            ),
+        )
+        for (sheet_id, discipline), row in latest.items()
+    ]
+
+
+@dataclass(frozen=True)
+class GivenList:
+    discipline: str
+    source: str
+    numbers: list[str]
+
+
+def given_lists(project_id: uuid.UUID) -> list[GivenList]:
+    """The QS's standing pasted or typed list of each Discipline."""
+    keys = set(
+        DrawingRegister.objects.filter(project_id=project_id)
+        .exclude(source=RegisterSource.SHEET)
+        .values_list("discipline", flat=True)
+    )
+    found = []
+    for key in sorted(keys):
+        row = _standing(project_id, key, (RegisterSource.PASTED, RegisterSource.TYPED))
+        if row is not None:
+            found.append(GivenList(key, row.source, _numbers(row)))
+    return found
+
+
+def record_check_run(
+    project_id: uuid.UUID,
+    check_key: str,
+    version: int,
+    *,
+    passed: int,
+    total: int,
+    findings: Sequence[tuple[Message, Sequence[uuid.UUID], uuid.UUID | None]] = (),
+) -> uuid.UUID:
+    """One run of a Check on reading: how many subjects passed of N, and each finding (its message,
+    its subjects' ids and the Question it raised)."""
+    projects.get(project_id)
+    run = CheckRun.objects.create(
+        tenant_id=_tenant(),
+        project_id=project_id,
+        check_key=check_key,
+        check_version=version,
+        trigger=CheckTrigger.READ,
+        passed=passed,
+        total=total,
+    )
+    for message, subjects, question_id in findings:
+        CheckFinding.objects.create(
+            tenant_id=run.tenant_id,
+            project_id=project_id,
+            run=run,
+            subject_ids=[str(s) for s in subjects],
+            message_code=message["code"],
+            params=dict(message["params"]),
+            question_id=question_id,
+        )
+    return run.id
 
 
 def _project_of(sheet: drawings.SheetView) -> uuid.UUID:
@@ -1004,13 +1432,132 @@ def answer_question(project_id: uuid.UUID, question_id: uuid.UUID, answer: Any) 
         record_progress(project_id)
 
 
+@dataclass(frozen=True)
+class Answered:
+    question: QuestionView
+    read_again: uuid.UUID | None
+    """A held file the QS chose to read anyway: its read job is to run again (the caller queues it)."""
+
+
+def answer(
+    project_id: uuid.UUID, question_id: uuid.UUID, option: object, text: str = "", *, actor_name: str
+) -> Answered:
+    """The QS answers a Question with one of its options (m0-screens §5 and 6.7): recorded under
+    their name and time, and what the Question held is confirmed, left out or corrected by it. "Keep
+    open, ask the consultant" keeps it open. An option the Question does not offer is refused (400),
+    and one already answered or withdrawn (409); nothing changes."""
+    auth.require(acts.CONFIRM, project_id)
+    projects.get(project_id)
+    read_again = None
+    with transaction.atomic():
+        row = (
+            Question.objects.select_for_update()
+            .filter(project_id=project_id, step=SHEETS, id=question_id)
+            .first()
+        )
+        if row is None:
+            raise auth.NotFound
+        if row.status != QuestionStatus.OPEN:
+            raise auth.Refused(answer_codes.ANSWERED_ALREADY(), status=409)
+        offered = [o.get("key") for o in row.options if isinstance(o, dict)]
+        if not isinstance(option, str) or option not in offered:
+            raise auth.Refused(answer_codes.OPTION_NOT_OFFERED(), status=400)
+        words = text.strip() if isinstance(text, str) else ""
+        given: dict[str, Any] = {"option": option, "by": actor_name}
+        if words:
+            given["text"] = words
+        if option == KEEP_OPEN:
+            row.answer = given
+            row.save(update_fields=["answer"])
+            record_progress(project_id)
+            return Answered(_question_view(project_id, row.id), None)
+        held = list(
+            QuestionLink.objects.filter(project_id=project_id, question=row)
+            .order_by("id")
+            .values_list("proposal_id", flat=True)
+        )
+        read_again = _apply(project_id, row, option, words, held, actor_name)
+        row.status = QuestionStatus.ANSWERED
+        row.answer = given
+        row.answered_by_id = _user()
+        row.answered_at = timezone.now()
+        row.save(update_fields=["status", "answer", "answered_by", "answered_at"])
+        record_progress(project_id)
+    return Answered(_question_view(project_id, row.id), read_again)
+
+
+def _question_view(project_id: uuid.UUID, question_id: uuid.UUID) -> QuestionView:
+    return next(q for q in questions(project_id) if q.id == question_id)
+
+
+def _apply(
+    project_id: uuid.UUID,
+    row: Question,
+    option: str,
+    text: str,
+    held: Sequence[uuid.UUID],
+    actor_name: str,
+) -> uuid.UUID | None:
+    """What answering does, by the Question's kind (see `answer`)."""
+    kind = row.kind
+    if kind == QuestionKind.FILE_MISREAD:
+        assert row.subject_id is not None
+        drawings.answer_held(row.subject_id, option)
+        return row.subject_id if option == "read_anyway" else None
+    if kind == QuestionKind.CONFLICT and row.message_code != answer_codes.LISTS_DISAGREE.code:
+        if option == "keep_latest":
+            listed = {p.id: p for p in proposals(project_id)}
+            copies = [listed[i] for i in held if i in listed]
+            if copies:
+                latest = max(copies, key=_newest)
+                confirm(project_id, [latest.id], actor_name=actor_name)
+                others = [p.id for p in copies if p.id != latest.id]
+                if others:
+                    exclude(project_id, others, "superseded", actor_name=actor_name)
+        elif option == "keep_all" and held:
+            confirm(project_id, list(held), actor_name=actor_name)
+    elif kind == QuestionKind.MISSING and option == "type_number":
+        if not text:
+            raise auth.Refused(answer_codes.NUMBER_NEEDED(), status=400)
+        assert row.subject_id is not None
+        drawings.set_sheet_number(row.subject_id, text)
+    elif kind == QuestionKind.MISSING_DISCIPLINE:
+        assert row.subject_id is not None
+        drawings.set_sheet_discipline(row.subject_id, option)
+    elif kind == QuestionKind.LOW_CONFIDENCE and held:
+        confirm(project_id, list(held), kind=option, actor_name=actor_name)
+    return None
+
+
+def _newest(proposal: ProposalView) -> tuple[Any, ...]:
+    """A copy's place among copies of one number: its issue date, then its revision mark."""
+    return (_date_of(proposal.issue_date), _natural(proposal.revision_mark))
+
+
+def _date_of(text: str) -> tuple[int, int, int]:
+    parts = [int(p) for p in re.split(r"[./-]", text.strip()) if p.isdigit()] if text else []
+    if len(parts) != 3:
+        return (0, 0, 0)
+    day, month, year = parts
+    if day > 31:  # written year first
+        day, year = year, day
+    return (year, month, day)
+
+
+def _natural(text: str) -> list[tuple[int, int, str]]:
+    return [
+        (0, int(p), "") if p.isdigit() else (1, 0, p.casefold())
+        for p in re.split(r"(\d+)", text or "")
+        if p
+    ]
+
+
 def record_progress(project_id: uuid.UUID) -> None:
     """Keep Step 1's progress rows as `progress` counts them, one per Discipline (and one for the
     sheets of none)."""
     tenant_id = _tenant()
     for row in progress(project_id).disciplines:
-        done = row.total is not None and row.confirmed >= row.found and row.open_questions == 0
-        status = "confirmed" if done else ("in_review" if row.found else "not_started")
+        status = row.status
         StepProgress.objects.update_or_create(
             tenant_id=tenant_id,
             project_id=project_id,
