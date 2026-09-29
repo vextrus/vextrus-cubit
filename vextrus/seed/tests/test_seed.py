@@ -13,7 +13,7 @@ def test_the_seeds_run_in_layer_order() -> None:
     assert list(SEEDS) == sorted(SEEDS, key=MODULES.index)
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(databases=["default", "owner"])  # the command runs sync_library first (#95)
 def test_seed_demo_runs_every_seed_passing_what_each_made_on(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

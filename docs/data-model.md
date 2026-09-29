@@ -279,7 +279,9 @@ Discipline, Takeoff Step and Check. Use them exactly. What remains here are impl
   - Every building-scoped row carries `building_id` from M0 (ADR 0036): a downward id to `projects`.
 - **Append-only.** These tables are append-only:
   - Confirmation, DomainEvent, JevOverride and JevAnswer (s05: an answer never changes, since its
-    key includes the model);
+    key includes the model). A Confirmation is undone by stamping it, once: its `undone_at` goes
+    only from empty to a time no earlier than the act, never back and never empty again (19a; a
+    trigger holds it for every writer);
   - Element States, Element Relations and Traces (only `valid_to_seq` is ever set);
   - Records (s02: a correction is a new Record that supersedes the old one);
   - published Rule Set versions, confirmed Drafting Profile versions, frozen Market Price sets, and
