@@ -29,7 +29,7 @@ msgid "engine.pdf_report.lettering_lines"
 msgstr "{pages, plural, one {On # page the lettering is drawn as lines, not text.} other {On # pages the lettering is drawn as lines, not text.}} The Plot still looks right, but a machine cannot read that text. If you ask the consultant for a new PDF, ask them to plot it with AutoCAD's DWG To PDF plotter, with PDFSHX set to 1 and \"Convert all text to geometry\" off, so the lettering stays text."
 
 msgid "engine.pdf_report.lettering_partly"
-msgstr "The AutoCAD lettering is kept as text on {pages} of {drawn} drawn pages."
+msgstr "The AutoCAD lettering is kept as text on {pages} of {drawn, plural, one {# drawn page} other {# drawn pages}}."
 
 msgid "engine.pdf_report.lettering_unconfirmed"
 msgstr "{pages, plural, one {# page has its text in ordinary fonts, and the PDF cannot show whether any AutoCAD lettering on it was kept.} other {# pages have their text in ordinary fonts, and the PDF cannot show whether any AutoCAD lettering on them was kept.}} If this file's DWG lists Romans or another AutoCAD lettering, that lettering is drawn as lines here: ask the consultant to plot with AutoCAD's DWG To PDF plotter, with PDFSHX set to 1 and \"Convert all text to geometry\" off."

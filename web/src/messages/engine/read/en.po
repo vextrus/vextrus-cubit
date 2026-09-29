@@ -10,7 +10,7 @@ msgid "engine.read.aligned_text_from_start"
 msgstr "{count, plural, one {# aligned text is drawn from its start point, as AutoCAD plots it} other {# aligned texts are drawn from their start points, as AutoCAD plots them}}"
 
 msgid "engine.read.attrib_style_from_attdef"
-msgstr "{count, plural, one {# attribute took its text style from its definition, which the reader had lost} other {# attributes took their text styles from their definitions, which the reader had lost}}"
+msgstr "{count, plural, one {# attribute took its text style from its block's definition, because its own style could not be read} other {# attributes took their text styles from their blocks' definitions, because their own styles could not be read}}"
 
 msgid "engine.read.dxf_recovered"
 msgstr "The drawing's geometry was read in recovery mode ({errors, plural, one {# error} other {# errors}} repaired)"
@@ -34,10 +34,10 @@ msgid "engine.read.reader_failed"
 msgstr "The drawing could not be read: {program} stopped with code {exit_code}"
 
 msgid "engine.read.sandbox_refused"
-msgstr "Drawings cannot be read here: the reader would have run outside its sandbox"
+msgstr "Vextrus could not read this file: it stopped rather than read it without its usual safeguards. This is a fault on Vextrus's side, not in your file. Mark the file for Vextrus."
 
 msgid "engine.read.sandbox_unavailable"
-msgstr "Drawings cannot be read here: the reader's sandbox is not available"
+msgstr "Vextrus could not read this file: the safeguards it reads drawings under are not working. This is a fault on Vextrus's side, not in your file. Mark the file for Vextrus."
 
 msgid "engine.read.unsupported_format"
 msgstr "{format, select, pdf {This PDF is read as a Plot, not as a drawing} other {This file is not a DWG drawing}}"
