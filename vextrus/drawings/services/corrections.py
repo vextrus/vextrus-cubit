@@ -11,6 +11,7 @@ with no printed sheet is dropped. A printed sheet the QS has already decided is 
 undo the decision first. A number is typed text: decoded, no drawing code, within its column.
 """
 
+import unicodedata
 import uuid
 
 from django.db import transaction
@@ -25,7 +26,7 @@ from vextrus.platform.services import auth
 def set_sheet_number(sheet_revision_id: uuid.UUID, number: str) -> sheet_list.SheetView:
     """The printed sheet's number, as the QS typed it (a sheet the read found none on)."""
     typed = number.strip() if isinstance(number, str) else ""
-    if not typed or not _text.typed(typed) or any(code in typed for code in sheet_list._RAW_CODES):
+    if not typed or not _one_line(typed) or any(code in typed for code in sheet_list._RAW_CODES):
         raise auth.Refused(said.NUMBER_UNREADABLE(), status=400)
     if not _text.fits((typed, sheet_list._length(Sheet, "number"))):
         raise auth.Refused(said.NUMBER_UNREADABLE(), status=400)
@@ -44,6 +45,14 @@ def set_sheet_discipline(sheet_revision_id: uuid.UUID, key: str) -> sheet_list.S
         printed = _undecided(sheet_revision_id)
         _move(printed, market[key], printed.sheet.number)
     return sheet_list.sheet(printed.id)
+
+
+def _one_line(text: str) -> bool:
+    """A number as a person types it: printable on one line, no control or format character (a line
+    break, a tab, a bidi override would print a number other than the one kept)."""
+    return _text.typed(text) and not any(
+        unicodedata.category(c) in ("Cc", "Cf", "Zl", "Zp") for c in text
+    )
 
 
 def _undecided(sheet_revision_id: uuid.UUID) -> SheetRevision:

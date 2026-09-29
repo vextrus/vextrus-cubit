@@ -9,8 +9,8 @@ code; two readers that disagree hold the file through `drawings.services.quarant
 more is read: 21c's `held` step raises its `file_misread` Question, ADR 0029, unless the QS answered
 it "read anyway", when the job, queued again by the answer, reads on), 21b's `sheets` and
 `sheet_<n>` steps (`read_propose.sheets`), `finishing` (the font report and the Bangla-ANSI Check,
-kept as codes, and the file marked read in the same transaction), then 21c's `proposals` (its sheets
-and views proposed, the set's Questions asked and its Checks run: `read_propose.proposals`).
+kept as codes, and the file marked read in the same transaction, with 21c's proposals: its sheets and
+views proposed, the set's Questions asked and its Checks run, `read_propose.proposals`).
 
 A PDF: `opening` (the copy checked, and the PDF report kept as codes; a scan is refused by it) and
 `matching` (the file marked read). 21b's page steps and the matching itself go into them.
@@ -57,15 +57,13 @@ NOT_READ = "not_read"
 """The step that ends a file failed with its reason (see the module)."""
 HELD = "held"
 """A held file's step: its `file_misread` Question raised (21c)."""
-PROPOSALS = "proposals"
-"""A read file's last step: Step 1's proposals, Questions and Checks (21c)."""
+
 DWG_STEPS = (
     drawings.OPENING,
     drawings.READING,
     drawings.SECOND_READER,
     drawings.SHEETS,
     drawings.FINISHING,
-    PROPOSALS,
 )
 """A DWG's steps; after `sheets`, one `sheet_<n>` step per sheet it recorded (21b's `sheets`)."""
 PDF_STEPS = (drawings.OPENING, drawings.MATCHING)
@@ -174,12 +172,9 @@ def _steps(
         after=len(DWG_STEPS) - DWG_STEPS.index(drawings.FINISHING),
     )
     steps.run(
-        drawings.FINISHING, lambda: _finish(file_id, use, kept), inputs={"sha256": sha256, **reader}
-    )
-    steps.run(
-        PROPOSALS,
-        lambda: proposals.propose(file_id, load, sheets.conventions(file_id)[0], unread=found.unread),
-        inputs={"sha256": sha256, **reader, "read_anyway": read_anyway},
+        drawings.FINISHING,
+        lambda: _finish(file_id, use, kept, lambda: _propose(file_id, load, found.unread)),
+        inputs={"sha256": sha256, **reader, **({"read_anyway": True} if read_anyway else {})},
     )
     return Read(file_id, "dwg", "held" if read_anyway else "read")
 
@@ -245,17 +240,30 @@ def _check(file_id: uuid.UUID, use: Readers, kept: jobs.StepResult) -> jobs.Step
     return {"held": False}
 
 
-def _finish(file_id: uuid.UUID, use: Readers, kept: jobs.StepResult) -> jobs.StepResult:
+def _finish(
+    file_id: uuid.UUID,
+    use: Readers,
+    kept: jobs.StepResult,
+    propose: Callable[[], jobs.StepResult],
+) -> jobs.StepResult:
     artefact = _kept_artefact(file_id, use, kept)
     font_report = use.fonts(artefact)
     flagged = use.bangla_ansi(artefact)
     drawings.record_reports(file_id, font_report=font_report, bangla_ansi=flagged)
     view = drawings.mark_read(file_id)
+    # 21c: once the file is read (its sheets in the sheet list), in the same transaction: Step 1's
+    # proposals, Questions and Checks, so a read file is never listed without them.
+    proposed = propose()
     return {
         "fonts": len(font_report.fonts),
         "bangla_ansi_texts": len(flagged.texts),
         "state": str(view.state),
+        "proposals": proposed,
     }
+
+
+def _propose(file_id: uuid.UUID, load: Callable[[], ReadArtefact], unread: int) -> jobs.StepResult:
+    return proposals.propose(file_id, load, sheets.conventions(file_id)[0], unread=unread)
 
 
 def _mark_read(file_id: uuid.UUID) -> jobs.StepResult:

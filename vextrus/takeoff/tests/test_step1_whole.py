@@ -144,3 +144,80 @@ def test_another_developers_view_cannot_be_left_out_nor_its_question_answered(
     assert (refused.status_code, refused.json()) == (404, NOT_FOUND)
     assert (across.status_code, across.json()) == (404, NOT_FOUND)
     assert coverage(mine, qs_project.project_id)["unaccounted"] == 1
+
+
+def test_undoing_a_sheets_confirmation_keeps_a_view_the_qs_left_out_on_its_own(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The refuter's case (score 60): undoing act 2 (the sheet confirmed) put back act 1 (the view
+    left out on its own), leaving the view unaccounted for good."""
+    read(qs_project, monkeypatch, LOOSE)
+    api = api_as(qs_project.member)
+    [lone] = coverage(api, qs_project.project_id)["unaccounted_views"]
+    exclude(api, qs_project.project_id, [lone["id"]], "other", "part of the title block")
+    confirm(api, qs_project.project_id, [p["id"] for p in proposals(api, qs_project.project_id)])
+
+    assert api.post(f"{step1(qs_project.project_id)}/undo", {}).status_code == 200
+
+    shown = coverage(api, qs_project.project_id)
+    assert (shown["unaccounted"], shown["excluded"], shown["proposed"]) == (0, 1, 1)
+    confirm(api, qs_project.project_id, [p["id"] for p in proposals(api, qs_project.project_id)])
+    shown = coverage(api, qs_project.project_id)
+    assert (shown["unaccounted"], shown["excluded"], shown["assigned"]) == (0, 1, 1)
+
+
+def test_undoing_an_assigned_views_own_exclusion_puts_it_back_under_its_confirmed_sheet(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    read(qs_project, monkeypatch, LOOSE)
+    api = api_as(qs_project.member)
+    confirm(api, qs_project.project_id, [p["id"] for p in proposals(api, qs_project.project_id)])
+    with qs_project.member.acting():
+        from vextrus.takeoff.models import Proposal
+
+        [assigned] = [
+            str(p.id)
+            for p in Proposal.objects.filter(project_id=qs_project.project_id, subject="view")
+            if p.values.get("steps")
+        ]
+    left_out = exclude(api, qs_project.project_id, [assigned], "duplicate")
+    assert left_out.status_code == 200, left_out.content
+
+    assert api.post(f"{step1(qs_project.project_id)}/undo", {}).status_code == 200
+
+    shown = coverage(api, qs_project.project_id)
+    assert (shown["assigned"], shown["proposed"], shown["excluded"]) == (1, 0, 0)
+
+
+@pytest.mark.parametrize("typed", ["S-\n02", "S-\t02", "S-02‮", "S-​02"])
+def test_a_typed_number_holding_a_control_or_format_character_is_refused(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, typed: str
+) -> None:
+    """The refuter's case (score 35): a line break or a bidi override was kept in the number."""
+    read(qs_project, monkeypatch, [
+        Sheet("S-01", "PILE LAYOUT PLAN", ("PILE LAYOUT PLAN",)),
+        Sheet(None, "STAIR DETAILS", ("STAIR SECTION",)),
+    ])  # fmt: skip
+    api = api_as(qs_project.member)
+    [q] = open_questions(api, qs_project.project_id, "missing")
+
+    response = answer(api, qs_project.project_id, q["id"], "type_number", text=typed)
+
+    assert (response.status_code, response.json()) == (
+        400,
+        {"code": "drawings.sheets.number_unreadable", "params": {}},
+    )
+    assert [p["number"] for p in proposals(api, qs_project.project_id)] == ["S-01", None]
+
+
+def test_an_answer_keeps_the_qs_words_only_where_the_option_takes_them(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    read(qs_project, monkeypatch, DUPLICATE)
+    api = api_as(qs_project.member)
+    [q] = open_questions(api, qs_project.project_id, "conflict")
+
+    response = answer(api, qs_project.project_id, q["id"], KEEP_OPEN, text="%%C\x07" + "x" * 100_000)
+
+    assert response.status_code == 200, response.content
+    assert "text" not in response.json()["answer"]

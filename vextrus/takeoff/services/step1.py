@@ -929,14 +929,22 @@ def undo(project_id: uuid.UUID) -> ActView:
         # Every sheet the act still decides, those off the sheet list now included (a held file set
         # aside after the act): drawings clears them all; a sheet off the list cannot be decided
         # again, so its Proposal and Coverage go back to undecided with it.
+        # A view the act left out on its own is put back as its sheet stands, below.
+        own_views = set(
+            Proposal.objects.filter(
+                project_id=project_id, confirmation=act, subject=ProposalSubject.VIEW
+            ).values_list("subject_id", flat=True)
+        )
         off_list = {
             p.subject_id
-            for p in Proposal.objects.filter(project_id=project_id, confirmation=act)
+            for p in Proposal.objects.filter(
+                project_id=project_id, confirmation=act, subject=ProposalSubject.SHEET
+            )
             if p.subject_id not in listed
         } | {
             row.sheet_revision_id
             for row in Coverage.objects.filter(project_id=project_id, confirmation=act)
-            if row.sheet_revision_id not in listed
+            if row.sheet_revision_id not in listed and row.view_id not in own_views
         }
         drawings.undo(act.id)
         act.undone_at = timezone.now()
@@ -953,8 +961,7 @@ def undo(project_id: uuid.UUID) -> ActView:
             for row in Coverage.objects.select_for_update().filter(
                 project_id=project_id, view_id=proposal.subject_id, confirmation=act
             ):
-                _put_back(row)
-            off_list.discard(proposal.subject_id)
+                _follow_sheet(row)
         for sheet_id in listed:
             _put_back_sheet(project_id, sheet_id, _standing_before(act, sheet_id))
         for sheet_id in off_list:
@@ -1008,10 +1015,12 @@ def _put_back_sheet(
                 "",
             )
             proposal.save(update_fields=["status", "confirmation", "rejected_reason"])
+        own = _excluded_on_their_own(project_id, sheet_id)
         for row in Coverage.objects.select_for_update().filter(
             project_id=project_id, sheet_revision_id=sheet_id
         ):
-            _put_back(row)
+            if row.view_id not in own:  # a view the QS left out by an act of its own stays out
+                _put_back(row)
         return
     earlier, prior = standing
     if prior["decision"] == "excluded":
@@ -1092,6 +1101,30 @@ def _excluded_on_their_own(project_id: uuid.UUID, sheet_id: uuid.UUID) -> set[uu
             values__sheet_id=str(sheet_id),
         ).values_list("subject_id", flat=True)
     )
+
+
+def _follow_sheet(row: Coverage) -> None:
+    """A view's own exclusion undone: it stands as its sheet does (confirmed: as proposed, under the
+    sheet's act; left out: with the sheet's reason; undecided: proposed)."""
+    try:
+        sheet = drawings.sheet(row.sheet_revision_id)
+    except auth.NotFound:
+        sheet = None
+    if sheet is None or not sheet.decision or sheet.confirmation_id is None:
+        _put_back(row)
+        return
+    act = Confirmation.objects.get(project_id=row.project_id, id=sheet.confirmation_id)
+    if sheet.decision == "excluded":
+        row.status, row.reason = CoverageStatus.EXCLUDED, sheet.excluded_reason or OTHER
+        row.reason_text = sheet.excluded_text
+    elif row.proposed_status == CoverageStatus.UNACCOUNTED:
+        _put_back(row)
+        return
+    else:
+        row.status, row.reason, row.reason_text = row.proposed_status, row.proposed_reason, ""
+    row.confirmation = act
+    row.confirmed_by_id = act.user_id
+    row.save(update_fields=["status", "reason", "reason_text", "confirmation", "confirmed_by"])
 
 
 def _put_back(row: Coverage) -> None:
@@ -1464,7 +1497,7 @@ def answer(
             raise auth.Refused(answer_codes.OPTION_NOT_OFFERED(), status=400)
         words = text.strip() if isinstance(text, str) else ""
         given: dict[str, Any] = {"option": option, "by": actor_name}
-        if words:
+        if words and option == "type_number":  # the only option that takes the QS's words
             given["text"] = words
         if option == KEEP_OPEN:
             row.answer = given

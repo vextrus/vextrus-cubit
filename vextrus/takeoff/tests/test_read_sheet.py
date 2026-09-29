@@ -47,6 +47,14 @@ from vextrus.testing.jobs import run_inline
 from vextrus.testing.read_steps import kept_steps, view_ids
 from vextrus.testing.tenancy import Member
 
+
+@pytest.fixture(autouse=True)
+def typesafe_down(jev_down: Any) -> None:
+    """The read job asks Jev each sheet's kind (21c): TypeSafe down here, so the kind is left to the
+    QS and nothing leaves the machine (these tests are about the sheet steps)."""
+    jev_down("timeout")
+
+
 FRAMES = 3
 AGREE = CheckResult(code="decoders_agree", outcome=CheckOutcome.PASSED)
 

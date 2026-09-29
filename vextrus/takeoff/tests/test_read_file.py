@@ -160,8 +160,10 @@ def test_two_readers_that_disagree_hold_the_file_with_the_finding_and_read_no_fu
     assert report(qs_project.member, file_id).readers == (DISAGREE,)
 
 
-def test_a_held_file_raises_no_question(qs_project: QsProject, monkeypatch: pytest.MonkeyPatch) -> None:
-    """ADR 0029: `drawings` holds the file; 21c raises `file_misread`. 21a writes no Question."""
+def test_a_held_file_raises_one_file_misread_question(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """ADR 0029: `drawings` holds the file; 21c's `held` step raises its one `file_misread`."""
     file_id = added(qs_project)
     fired = CheckResult(code="decoders_agree", outcome=CheckOutcome.FIRED, finding=DISAGREE)
 
@@ -170,7 +172,8 @@ def test_a_held_file_raises_no_question(qs_project: QsProject, monkeypatch: pyte
     run_job(qs_project.member, file_id, readers(Calls(), second=fired), monkeypatch)
 
     assert view(qs_project.member, file_id).state == drawings.FileState.HELD
-    assert questions(qs_project.member, qs_project.project_id, file_id) == before == (0, 0)
+    assert before == (0, 0)
+    assert questions(qs_project.member, qs_project.project_id, file_id) == (1, 1)
 
 
 def questions(member: Member, project_id: uuid.UUID, file_id: uuid.UUID) -> tuple[int, int]:
