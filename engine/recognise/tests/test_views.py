@@ -719,3 +719,27 @@ def test_a_title_of_two_lines_at_most_is_a_title(text: str, title: str | None) -
     d.text(text, (40, 318, 0.0), kind="MTEXT", height=6.0, attachment=1)
     (view,) = drawn(d, one_sheet(d))
     assert view.title == title
+
+
+def test_a_titles_lines_under_it_are_in_its_views_box() -> None:
+    """Its scale line and a smaller last line under it (refuter, session 07)."""
+    d = Sheets()
+    grid(d, (40, 330, 340, 560))
+    d.text("GROUND FLOOR PLAN", (40, 318, 0.0), height=6.0)
+    d.text("SCALE 1:100", (40, 308, 0.0), height=6.0)
+    d.text("FOR APPROVAL ONLY", (40, 297, 0.0), height=4.0)
+    (view,) = drawn(d, one_sheet(d))
+    assert view.box.y0 <= 297.5
+
+
+def test_a_notes_heading_keeps_its_lines() -> None:
+    d = Sheets()
+    grid(d, (40, 330, 340, 560))
+    d.text("BEAM LAYOUT PLAN", (40, 318, 0.0), height=6.0)
+    d.text("GENERAL NOTES", (400, 500, 0.0), height=6.0)
+    for i, line in enumerate(("ALL DIMENSIONS IN MM", "CONCRETE GRADE AS SPECIFIED", "COVER 25 MM")):
+        d.text(line, (400, 490 - 10 * i, 0.0), height=5.0)
+    found = drawn(d, one_sheet(d))
+    notes = [v for v in found if v.kind is ViewKind.NOTES]
+    assert len(notes) == 1
+    assert notes[0].box.y0 <= 470.5

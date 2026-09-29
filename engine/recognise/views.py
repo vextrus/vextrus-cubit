@@ -45,7 +45,9 @@ under and past its title), nearest first, one title a piece; a band less tall th
 height is never its drawing, and joins its view when it meets the title. A titled piece that is a row
 under a larger piece without a title (no taller than `ROW_SHARE` of it, across its width, within
 `JOIN_MM` of it) is that drawing's detached row of grid marks and dimensions, which is what the title
-lies nearest: the view takes the body too. A title's second lines are in its view's box. A piece with no
+lies nearest: the view takes the body too. A title's second lines, and up to `MAX_TITLE_LINES` one-line
+texts standing under a drawing's title (its scale line, its storeys; not a notes, legend or schedule
+heading's, whose lines are its content), are its: off the grid and in its view's box. A piece with no
 title lying in a titled view's box (grown by `JOIN_MM`) is that view's, whatever its size; another is a
 view when it covers `MIN_UNTITLED` of the paper (of the kind its sheet's title names, else a plan; notes
 when text fills more of it than lines); a smaller one joins the view whose box, grown by `JOIN_MM`, holds
@@ -154,6 +156,8 @@ TITLE_GAP_UNDER = 6.0
 ROW_SHARE = 0.25
 """A drawing's detached row (its grid marks, its dimensions) is at most this share of its body's
 height."""
+MAX_TITLE_LINES = 3
+"""The most lines a title holds under it (its second line, its scale line, its storeys)."""
 SUBTITLE_GAP = 3.5
 """The farthest a title's second line lies under it, in the title's heights."""
 TITLE_INSIDE = 3.0
@@ -239,6 +243,8 @@ PLUMBING_PART = "plumbing"
 FLOOR_TO_FLOOR = frozenset({"column", "shear_wall"})
 """Subjects whose storeys run floor to floor (a column from the 1st to the 10th floor)."""
 
+_HEADINGS = frozenset({ViewKind.NOTES, ViewKind.LEGEND, ViewKind.SCHEDULE})
+"""Kinds whose title heads its content: the lines under it are the view's, not the title's."""
 _EXCLUDED_KINDS = frozenset({ViewKind.TITLE_BLOCK, ViewKind.KEY_PLAN, ViewKind.PERSPECTIVE})
 
 type Bounds = tuple[float, float, float, float]
@@ -1180,6 +1186,10 @@ def _views(
             second.setdefault(head, []).append(j)
     subtitles = {j for lines in second.values() for j in lines}
     titles = [i for i in titles if i not in subtitles]
+    drawn_titles = [i for i in titles if _kind(texts[i].shown, reading) not in _HEADINGS]
+    for ti, lines in _title_lines(texts, drawn_titles, subtitles | set(titles)).items():
+        second.setdefault(ti, []).extend(lines)
+    subtitles = {j for lines in second.values() for j in lines}
     off_grid = set(titles) | subtitles | set(scale_texts)
     underlined = _underlines(paper.segments, [texts[i] for i in titles])
     drawn = replace(paper, segments=paper.segments[~underlined])
@@ -1283,6 +1293,47 @@ def _views(
             best[1].scale = scales.read(s.shown, reading.patterns)
             best[1].box = _union(best[1].box, s.box)
     return views[:MAX_VIEWS]
+
+
+def _title_lines(
+    texts: Sequence[_Text], titles: Sequence[int], taken: Iterable[int]
+) -> dict[int, list[int]]:
+    """Each title's lines under it: up to `MAX_TITLE_LINES` one-line texts of at most `MAX_TITLE_WORDS`
+    words, each under the one before within `SUBTITLE_GAP` of the title's height, across the same place,
+    between half and one and a half of its height (its scale line, its storeys, its "PRESENTATION
+    PLAN"), none another title's."""
+    if not texts or not titles:
+        return {}
+    boxes = np.array([t.box for t in texts], dtype=np.float64)
+    heights = np.array([t.height for t in texts], dtype=np.float64)
+    free = np.array(
+        ["\n" not in t.placed.shown.strip() and len(_tokens(t.shown)) <= MAX_TITLE_WORDS for t in texts],
+        dtype=bool,
+    )
+    free[list(titles)] = False
+    free[list(taken)] = False
+    found: dict[int, list[int]] = {}
+    for ti in titles:
+        h = max(texts[ti].height, 1e-9)
+        at = texts[ti].box
+        for _ in range(MAX_TITLE_LINES):
+            gap = (at[1] - boxes[:, 3]) / h
+            near = (
+                free
+                & (gap >= -0.2)
+                & (gap <= SUBTITLE_GAP)
+                & (boxes[:, 0] <= at[2])
+                & (boxes[:, 2] >= at[0])
+                & (heights >= 0.5 * h)
+                & (heights <= 1.5 * h)
+            )
+            if not near.any():
+                break
+            j = int(np.flatnonzero(near)[np.argmin(gap[near])])
+            found.setdefault(ti, []).append(j)
+            free[j] = False
+            at = texts[j].box
+    return found
 
 
 def _row_under(row: Bounds, body: Bounds, by: float) -> bool:
