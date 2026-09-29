@@ -1,0 +1,50 @@
+msgid ""
+msgstr ""
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: en\n"
+
+#. vextrus/drawings/messages/uploads.py (ticket 14): what adding a file answers, in m0-screens 4.5's toast words.
+msgid "drawings.uploads.already_here"
+msgstr "{file} is already in this Drawing Set (added {added_date} by {actor}{vextrus, select, yes { (Vextrus)} other {}}). Nothing was added."
+
+msgid "drawings.uploads.already_here_as"
+msgstr "{file} is the same file as {existing_file}, already in this Drawing Set (added {added_date} by {actor}{vextrus, select, yes { (Vextrus)} other {}}). Nothing was added."
+
+msgid "drawings.uploads.empty"
+msgstr "{file} is empty, so it was not added. Copy it again from where it was saved and add it again."
+
+msgid "drawings.uploads.malformed"
+msgstr "The file could not be received, so nothing was added. If its name is very long, shorten it and add it again. If this keeps happening, tell Vextrus."
+
+msgid "drawings.uploads.no_name"
+msgstr "The file had no name Vextrus could use, so it was not added. Rename it and add it again."
+
+msgid "drawings.uploads.not_a_drawing"
+msgstr "{file} is not a DWG or a PDF, so it was not added. Vextrus reads DWG and PDF files."
+
+msgid "drawings.uploads.one_at_a_time"
+msgstr "Several files arrived together, so none was added. Add them again one at a time."
+
+msgid "drawings.uploads.replaced"
+msgstr "{file} is already in this Drawing Set, but Vextrus's copy of it was missing or damaged. This one replaces that copy; nothing else was added."
+
+msgid "drawings.uploads.replaced_reading"
+msgstr "{file} is already in this Drawing Set, but Vextrus's copy of it was missing or damaged. This one replaces that copy, and its reading starts again."
+
+msgid "drawings.uploads.same_name_kept"
+msgstr "A file with this name is already here. This one is different, so both are kept."
+
+msgid "drawings.uploads.stopped"
+msgstr "Upload stopped: the connection dropped."
+
+msgid "drawings.uploads.too_large"
+msgstr "{file} is larger than {megabytes} MB, so it was not added. Tell Vextrus if your drawings need more."
+
+msgid "drawings.uploads.too_large_unnamed"
+msgstr "The file is larger than {megabytes} MB, so it was not added. Tell Vextrus if your drawings need more."
+
+msgid "drawings.uploads.zip"
+msgstr "{file} is a zip file. Unzip it and drop the DWG and PDF files inside."
