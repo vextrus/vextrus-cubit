@@ -3,6 +3,7 @@ a view title that names no subject is no evidence against its title block."""
 
 import itertools
 import json
+from collections.abc import Sequence
 from pathlib import Path
 
 import pytest
@@ -44,7 +45,7 @@ def view(title: str | None, kind: ViewKind = ViewKind.SECTION) -> ViewCandidate:
     return ViewCandidate(box=Box(0.0, 0.0, 10.0, 10.0), kind=kind, title=title)
 
 
-def runs(found: list[object]) -> list[list[str]]:
+def runs(found: Sequence[object]) -> list[list[str]]:
     return [
         [s.number.value for s in c.sheets if s.number is not None]
         for c in found
