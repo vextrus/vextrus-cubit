@@ -22,7 +22,8 @@ civil engineer and the CEO and co-founder. The previous product (Vextrus Cubit) 
 ## How we work
 - **The owner decides product and scope and walks each milestone; sessions run autonomously**
   (ADR 0041; the owner, 29 Sep 2026: "I want complete autonomous sessions and I insist that"). Product,
-  scope, business, stack and spending are the owner's: ask one question at a time, your recommendation
+  scope, business, stack, spending and anything irreversible (beyond pushing and merging, which ADR
+  0041 delegates) are the owner's: ask one question at a time, your recommendation
   first and the reason in a line. Everything else (build, review, gates, push, merge) runs without
   waiting. Don't ask what research, the code or a sensible default can answer.
 - **Every session and ticket has a time budget;** the orchestrator writes elapsed against budget in every
@@ -66,11 +67,13 @@ civil engineer and the CEO and co-founder. The previous product (Vextrus Cubit) 
 - **OpenConstructionERP is AGPL-3.0:** learn from it, never copy its code, schemas, strings or data.
   **cad2data's converters are proprietary** and are never run; nor are converters OCE downloads.
 - **The repository is private** (ADR 0024); write issues and PRs as if they could leak anyway.
-- **Permissions:** agents push and merge after the review loop and green required checks (ADR 0041);
-  the gates' statuses are posted only through `post-status` as the key user, from an independent gate's
-  verdict. The guard still refuses secrets, history rewrites and force pushes, recursive deletes,
-  skipped hooks, statuses through the API, staging everything, reading the key user's home, and every
-  privilege-raising command but the poster's and the scorer's exact lines. PowerShell is denied; never
+- **Permissions:** agents push and merge after the review loop, green required checks and
+  `python -m scripts.merge_ready <PR>` (ADR 0041); the gates' statuses are posted only through
+  `post-status` as the key user, by the orchestrator's session in the main checkout, from an independent
+  gate's verdict. The guard still refuses secrets, history rewrites and force pushes, recursive deletes,
+  skipped hooks, statuses through the API, changes to the ruleset or branch protection, admin merges,
+  staging everything, reading the key user's home, and every privilege-raising command but the poster's
+  and the scorer's exact lines in the main checkout. PowerShell is denied; never
   route around it (the owner runs Windows commands with `! <command>`).
 
 ## The machine

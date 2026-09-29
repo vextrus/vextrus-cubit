@@ -150,8 +150,8 @@ jobs:
         run: uv run manage.py makemigrations --check --dry-run
       - name: Migrate, as the owner
         run: uv run manage.py migrate
-      - name: Tests, as vextrus_app
-        run: uv run pytest
+      - name: Tests, as vextrus_app (every acceptance test runs; ADR 0041)
+        run: uv run pytest -p tools.lint.acceptance_pytest
       - name: Policy coverage (row-level security on every tenant table)
         run: uv run pytest vextrus/platform/tests/test_policy_coverage.py
 

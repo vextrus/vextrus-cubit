@@ -36,16 +36,21 @@ const args = (rest) => (rest ?? "").split(/\s+/).filter((arg) => arg !== "");
 
 // The only commands an agent may run as the key user (ADR 0041; scripts/owner/autonomy-setup.sh installs the
 // matching password-free rules): the poster, with a run id or a design-gate verdict by item number, and the
-// scorer, with plain words (a run id) only. Each is matched against the whole command, so an appended
-// `; cat …`, `$(…)` or redirect never matches; the programs check their own arguments again.
+// scorer, with one run id only. Each is matched against the whole command, so an appended `; cat …`,
+// `$(…)` or redirect never matches; the programs (and sudoers, for the scorer) check the arguments again.
+// Only the orchestrator's session, whose project is the main checkout, may run them: a builder's session
+// (a worktree under .claude/worktrees/, or a cloud copy) never posts its own gate. Within one Unix user
+// this is a tripwire, not a wall (ADR 0041).
 const AS_KEY_USER = String.raw`^sudo -n -u vxkeys `;
 const KEY_USER_COMMANDS = [
   new RegExp(
     AS_KEY_USER +
       String.raw`/usr/local/lib/vextrus/post-status (?:-h|--help|real-drawings [0-9A-Za-z-]+|design-gate [0-9]+ [0-9a-f]{40}(?: --(?:passed|failed|not-applicable)[ =][0-9,-]+)*)$`,
   ),
-  new RegExp(AS_KEY_USER + String.raw`/usr/local/bin/vx-score(?: [0-9A-Za-z][0-9A-Za-z._-]*){0,4}$`),
+  new RegExp(AS_KEY_USER + String.raw`/usr/local/bin/vx-score [0-9A-Za-z-]+$`),
 ];
+const MAIN_CHECKOUT = "/home/riz/vextrus-cubit";
+const orchestrators = resolve(root) === MAIN_CHECKOUT;
 
 const BASH_RULES = [
   {
@@ -84,7 +89,7 @@ const BASH_RULES = [
     rule: "RECURSIVE_DELETE",
     fires: (parts) =>
       parts.some((part) => /(?:^|\s)rm\s+(?:-[a-zA-Z]*[rR][a-zA-Z]*|--recursive)(?:\s|$)/.test(part) || /(?:^|\s)rm\s+.*\s-[a-zA-Z]*[rR]/.test(part)),
-    reason: "`rm -r` asks the owner (CLAUDE.md). Delete the files you made by name, or leave build output in place and say so.",
+    reason: "`rm -r` is refused (CLAUDE.md, the Permissions law). Delete the files you made by name, or leave build output in place and say so.",
   },
   {
     rule: "HISTORY_REWRITTEN",
@@ -114,9 +119,24 @@ const BASH_RULES = [
     // is a whole command that is exactly the poster or the scorer run as the key user, non-interactively,
     // with plain arguments (ADR 0041): nothing before or after it, no shell metacharacter anywhere.
     fires: (parts, command) =>
-      !KEY_USER_COMMANDS.some((allowed) => allowed.test(command.trim())) &&
+      !(orchestrators && KEY_USER_COMMANDS.some((allowed) => allowed.test(command.trim()))) &&
       parts.some((part) => /(?:^|[\s"'`(=$])(?:sudo|su|doas|pkexec|(?:\S*\/)?wsl(?:\.exe)?)(?=\s|$|["'`;)])|vxkeys|vx-score/.test(part)),
-    reason: "Agent sessions never raise privilege or name the key user, except to run exactly `post-status` or the scorer as the key user with `-n` (ADR 0041). Answer Keys and the App's key stay with the key user (ADR 0026). If something needs root, say what and the owner runs it with `! <command>`.",
+    reason: "Agent sessions never raise privilege or name the key user, except the orchestrator's session (the main checkout) running exactly `post-status` or the scorer as the key user with `-n` (ADR 0041); a builder never posts its own gate. Answer Keys and the App's key stay with the key user (ADR 0026). If something needs root, say what and the owner runs it with `! <command>`.",
+  },
+  {
+    rule: "RULESET_CHANGED",
+    // The ruleset is what a merge waits on (ADR 0041), and the owner's token is an admin's: deleting or
+    // editing it, branch protection, or an admin merge would skip every required status. Reads pass.
+    fires: (parts, command) => {
+      const flat = command.replace(/\\\n|["'\\]/g, "");
+      const write = /(?:-X|--method)[\s=]*(?:DELETE|PUT|POST|PATCH)\b|\s(?:-f|-F|--field|--raw-field|--input)[\s=]/i;
+      return (
+        (/\/(?:rulesets|protection)\b/i.test(flat) && write.test(flat)) ||
+        /mutation[\s\S]*(?:Ruleset|BranchProtection)/i.test(flat) ||
+        parts.some((part) => /^(?:[A-Z_]+=\S*\s+)*gh\s+pr\s+merge\b/.test(part) && /\s--admin\b/.test(part))
+      );
+    },
+    reason: "The ruleset and branch protection are the owner's, and an admin merge skips the required checks (ADR 0041). Merge only with `gh pr merge <PR> --merge` once `uv run python -m scripts.merge_ready <PR>` passes.",
   },
   {
     rule: "LABORATORY_READ",

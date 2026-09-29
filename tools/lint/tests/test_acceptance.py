@@ -1,12 +1,16 @@
 """The acceptance check (ADR 0041): a builder cannot quietly change the acceptance tests written before
 it started; only an `acceptance:` commit that changes nothing else may."""
 
+import os
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
 from tools.lint.acceptance import is_acceptance, main, problems
+
+REPO = Path(__file__).resolve().parents[3]
 
 
 def git(root: Path, *args: str) -> str:
@@ -98,3 +102,114 @@ def test_main_exits_one_on_a_problem(repo: tuple[Path, str], monkeypatch: pytest
     commit(root, "21c: loosen", {"vextrus/t/tests/acceptance/t21c/test_a.py": "b\n"})
     assert main([base, "HEAD"]) == 1
     assert main([]) == 2
+
+
+def test_a_merge_whose_resolution_weakens_an_acceptance_test_fails(repo: tuple[Path, str]) -> None:
+    root, base = repo
+    commit(root, "acceptance: 21c", {"vextrus/t/tests/acceptance/t21c/test_a.py": "assert 1\n"})
+    git(root, "checkout", "-q", "main")
+    commit(root, "22: other ticket", {"vextrus/u/api.py": "u\n"})
+    git(root, "checkout", "-q", "ticket")
+    git(root, "merge", "-q", "--no-commit", "--no-ff", "main")
+    (root / "vextrus/t/tests/acceptance/t21c/test_a.py").write_text("pass\n")
+    git(root, "add", "vextrus/t/tests/acceptance/t21c/test_a.py")
+    git(root, "commit", "-q", "-m", "Merge main")
+    merge = git(root, "rev-parse", "HEAD")
+    [problem] = problems(root, base)
+    assert problem.startswith(merge[:12])
+    assert "a merge whose own resolution" in problem
+
+
+def test_a_config_line_naming_the_acceptance_tests_fails(repo: tuple[Path, str]) -> None:
+    root, base = repo
+    commit(root, "21c: deps", {"pyproject.toml": "[project]\nname = 'x'\n"})
+    assert problems(root, base) == []
+    bad = commit(
+        root,
+        "21c: tidy the suite",
+        {"vextrus/t/conftest.py": "collect_ignore_glob = ['tests/acceptance/*']\n"},
+    )
+    [problem] = problems(root, base)
+    assert problem.startswith(bad[:12])
+    assert "vextrus/t/conftest.py" in problem
+
+
+def test_a_web_config_excluding_the_acceptance_folder_fails(repo: tuple[Path, str]) -> None:
+    root, base = repo
+    commit(root, "21c: web", {"web/vite.config.ts": "exclude: ['src/**/*.tz.test.tsx']\n"})
+    assert problems(root, base) == []
+    commit(root, "21c: web", {"web/vite.config.ts": "exclude: ['src/acceptance/**']\n"})
+    [problem] = problems(root, base)
+    assert "web/vite.config.ts" in problem
+
+
+SKIPPED = """\
+import pytest
+
+
+@pytest.mark.skip(reason="flaky")
+def test_skipped():
+    assert False
+
+
+@pytest.mark.xfail
+def test_xfailed():
+    assert False
+
+
+def test_kept():
+    assert True
+
+
+@pytest.mark.needs_toolchain
+def test_opt_in():
+    assert True
+
+
+def test_deselected_by_k():
+    assert True
+"""
+
+
+def run_plugin(root: Path, folder: str) -> subprocess.CompletedProcess[str]:
+    tests = root / folder
+    tests.mkdir(parents=True)
+    (tests / "test_a.py").write_text(SKIPPED)
+    (root / "pytest.ini").write_text(
+        "[pytest]\nmarkers =\n  needs_toolchain: x\naddopts = -m 'not needs_toolchain'\n"
+    )
+    return subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-p",
+            "tools.lint.acceptance_pytest",
+            "-p",
+            "no:django",
+            "-p",
+            "no:cacheprovider",
+            "-k",
+            "not deselected_by_k",
+            str(tests),
+        ],
+        cwd=root,
+        env={**os.environ, "PYTHONPATH": str(REPO)},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def test_a_skipped_xfailed_or_deselected_acceptance_test_fails_the_run(tmp_path: Path) -> None:
+    done = run_plugin(tmp_path, "vextrus/t/tests/acceptance/t21c")
+    assert done.returncode == 1, done.stdout
+    assert "test_a.py::test_skipped: skipped" in done.stdout
+    assert "test_a.py::test_xfailed: xfailed or xpassed" in done.stdout
+    assert "test_a.py::test_deselected_by_k: deselected" in done.stdout
+    assert "test_opt_in" not in done.stdout.split("did not run")[-1]
+
+
+def test_the_same_tests_outside_the_acceptance_paths_pass(tmp_path: Path) -> None:
+    done = run_plugin(tmp_path, "vextrus/t/tests")
+    assert done.returncode == 0, done.stdout
