@@ -1,0 +1,40 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-09-29 07:24+0000\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: en\n"
+
+#: src/sheet/SheetViewer.tsx
+msgid "<0/> could not be drawn. The other sheets are not affected."
+msgstr "<0/> could not be drawn. The other sheets are not affected."
+
+#: src/sheet/SheetViewer.tsx
+msgid "Sheet {label}"
+msgstr "Sheet {label}"
+
+#: src/sheet/SheetViewer.tsx
+msgid "Zoom in"
+msgstr "Zoom in"
+
+#: src/sheet/SheetViewer.tsx
+msgid "Zoom out"
+msgstr "Zoom out"
+
+#: src/sheet/SheetViewer.tsx
+msgid "Try again"
+msgstr "Try again"
+
+#: src/sheet/SheetViewer.tsx
+msgid "Fit the whole sheet"
+msgstr "Fit the whole sheet"
+
+#: src/sheet/SheetViewer.tsx
+msgid "Fit"
+msgstr "Fit"
+
+#: src/sheet/SheetViewer.tsx
+msgid "Back to the working view"
+msgstr "Back to the working view"

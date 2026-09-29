@@ -7,7 +7,7 @@
 import { defineConfig } from '@lingui/conf'
 import { formatter } from '@lingui/format-po'
 
-/** Folders under src/ that hold no chrome catalogue of their own (acceptance: tests only, ADR 0041). */
+/** Folders under src/ that hold no chrome catalogue of their own (acceptance/: tests and their helpers). */
 const NOT_FEATURES = ['messages', 'routes', 'i18n', 'test', 'api', 'acceptance']
 
 export default defineConfig({

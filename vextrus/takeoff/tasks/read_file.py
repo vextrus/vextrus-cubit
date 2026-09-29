@@ -80,8 +80,9 @@ def add(
                 words = said.NOT_STARTED if new else said.NOT_STARTED_WAITING
                 job_id = read_file.defer(file_id=view.id)
                 drawings.attach_read_job(view.id, job_id)
-                # A file already here gets nothing added, but its reading starts: say so.
-                message = added.message if new else said.READING_STARTED(file=label)
+                # A file already here gets nothing added, but its reading starts: say so, by the
+                # name it is here under (14's `already_here_as` when the upload's name differs).
+                message = added.message if new else said.READING_STARTED(file=view.name)
                 added = drawings.Added(drawings.file(view.id), added.outcome, message)
     except _NotQueued as failed:
         log.error("a read job could not be queued; the add was rolled back", exc_info=failed.__cause__)

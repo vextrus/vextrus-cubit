@@ -28,7 +28,8 @@ def test_not_read_in_full_is_worded_with_its_limit() -> None:
     entries = po.read_text(encoding="utf-8").split("\n\n")
     [entry] = [e for e in entries if f'msgid "{NOT_READ_IN_FULL}"' in e]
     msgstr = entry.split("msgstr", 1)[1]
-    assert "{limit}" in msgstr
+    # The words select on the limit (each limit its own sentence), never print its key.
+    assert "{limit, select," in msgstr
 
 
 def test_21a_adds_no_drawings_migration() -> None:

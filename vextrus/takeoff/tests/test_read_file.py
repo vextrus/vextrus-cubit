@@ -400,6 +400,18 @@ def test_a_file_waiting_with_no_read_job_gets_one_when_added_again(qs_project: Q
     assert again.message == said.READING_STARTED(file="KR-STR-R0.dwg")
 
 
+def test_a_waiting_file_added_again_under_another_name_is_named_as_it_is_here(
+    qs_project: QsProject,
+) -> None:
+    content = drawing("dwg")
+    add(qs_project.member, qs_project.project_id, "KR-STR-R0.dwg", content)
+
+    with qs_project.member.acting():
+        again = read_file.add(qs_project.project_id, name="copy of it.dwg", content=io.BytesIO(content))
+
+    assert again.message == said.READING_STARTED(file="KR-STR-R0.dwg")
+
+
 def test_a_job_that_cannot_be_queued_keeps_nothing_and_names_the_file(
     qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
 ) -> None:
