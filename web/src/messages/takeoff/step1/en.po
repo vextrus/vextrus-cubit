@@ -11,7 +11,7 @@ msgid "takeoff.step1.discipline_unknown"
 msgstr "This page named a Discipline Vextrus does not have. Reload the page and try again."
 
 msgid "takeoff.step1.kind_not_offered"
-msgstr "That kind of sheet is not one of this sheet's Discipline, so nothing was confirmed. Choose a kind from the list."
+msgstr "That kind of sheet is not one its Discipline has, so nothing was confirmed. Choose a kind from the list."
 
 msgid "takeoff.step1.no_number"
 msgstr "This sheet has no number in its title block"
