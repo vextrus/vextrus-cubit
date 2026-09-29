@@ -33,7 +33,7 @@ What a sheet holds
 
 What the ReadArtefact does not carry, and so is not drawn as AutoCAD would (the PR says so): the layer
 table (a BYLAYER colour, linetype or lineweight: colour kind 0; lineweight 0.25 mm, AutoCAD's default;
-linetype continuous), a text style's fixed height, width factor and oblique angle, the global
+linetype continuous), a TEXT's own oblique angle (its style's is drawn; #88), the global
 LTSCALE, and a hatch pattern's own definition (drawn from the standard table by its name).
 
 The buffer format, version 1 (all little-endian)
@@ -1432,7 +1432,8 @@ class _Drawer:
         local, source = sheet.heights.local(entity)
         if source is HeightSource.DEFAULT:
             sheet.stats["text_height_default"] += 1
-        laid: Laid = lay_out(entity, local)
+        style = sheet.artefact.styles.get(entity.style_handle) if entity.style_handle else None
+        laid: Laid = lay_out(entity, local, style)
         if not laid.glyphs and not laid.strokes:
             return
         at = frame(entity, chain, local)
