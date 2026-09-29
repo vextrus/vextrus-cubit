@@ -45,6 +45,86 @@ wave, **the critical path alone is about a day of orchestration**. The `local` r
 Unmeasured: local builders' time to ready (in STATE.md, not readable here); the machine's memory under
 five xhigh sessions, browsers and test databases on 26 GB; the owner's minutes per PR.
 
+## 2A. What Anthropic's own large runs did (the part that matters most)
+
+The public record of Anthropic producing code at scale is one post with numbers: Nicholas Carlini's C
+compiler [CC]. **16 agents, nearly 2,000 Claude Code sessions, two weeks, about $20,000, a 100,000-line Rust
+compiler** that builds Linux 6.9. What made it work, in the author's words:
+- **"Most of my effort went into designing the environment around Claude: the tests, the environment, the
+  feedback."** The human built the checker, not the code, and did not review diffs.
+- **"It's important that the task verifier is nearly perfect, otherwise Claude will solve the wrong
+  problem."** The checker was existing test suites and GCC as a reference implementation.
+- **"I don't use an orchestration agent."** Each agent ran the same prompt in a loop, picked "the next most
+  obvious problem", and claimed it with a lock file in git. Git was the only thing they shared.
+- **Spreading agents across failures:** when all 16 hit the same kernel bug, the author compiled most files
+  with GCC and a random rest with Claude's compiler, so each agent met a different bug.
+- **Test output went to log files with grep-able `ERROR` lines,** and a `--fast` flag ran a deterministic
+  1–10 % sample per agent, keeping noise out of the context.
+- What failed: new features broke old ones until the tests caught it, and "it is easy to see tests pass and
+  assume the job is done, when this is rarely the case."
+
+The long-running harness post says the same from the other side: a feature list, all failing at first; one
+feature per session; "It is unacceptable to remove or edit tests" [LRH].
+
+**Vextrus runs the other way round.** Its checker is people and agents reading diffs: `pr-reviewer`,
+`ux-critic`, the orchestrator, the owner. Each finding is fixed once and then carried forward as a prose
+line in `common.md` and the lessons, which the next builder has to read and remember. So throughput is
+bounded by review latency, and the same class of fault comes back (words failed their first gate in
+wave 2a, and again in 2b despite the rule). **Throughput scales with how much of "correct" a machine can
+decide.** That is the insight, and it is public.
+
+### What that means here, concretely
+1. **Every finding at 50 or more leaves a committed check, not a lesson.** It goes in the same fix round,
+   in a shared suite every builder runs before "ready". The classes already seen:
+   - **words:** a catalogue lint against m0-screens' rules (no engine terms, no exit codes, a next step in
+     every refusal, a banned-phrase table such as "Add it again") plus a table of approved phrasings;
+   - **tenancy:** one generated attack suite that calls every operation as another tenant, a lapsed
+     member and a Library, and expects the documented refusal (the `acts.py` walking test already does
+     this for declarations; extend it to behaviour);
+   - **machine size:** CI and the local fast check run the suites at 4 and at 24 workers, in random order;
+   - **fix regressions:** the re-check's "test red without the fix" becomes a mutation step the builder
+     runs itself (revert the fix, the test must fail).
+2. **Acceptance tests come before the builder.** A separate agent writes each ticket's acceptance tests from
+   the plan's entry and m0-screens; the owner reads them (the owner already reads tests in full, by
+   docs/sdlc.md); the builder may not edit them, and says so if one is wrong. The owner then reviews the
+   checker, not the code, as Carlini did.
+3. **Bring the engine's checker forward.** For drawing reading, the checker is the Answer Keys and the
+   blind scorer, planned for M1 (tickets 01–04). Until they exist, reading tickets have only a regression
+   diff, and they stop "when n / N stops improving", judged by people. With the scorer, reading becomes the
+   compiler's shape: many agents, each on a different failing sheet, looping until the score rises, with
+   the keys kept out of reach as ADR 0026 already requires.
+4. **Builders claim their own next ticket.** The DAG is in GitHub Issues. A builder that finishes claims the
+   next unblocked issue (an assignee or label as the lock), builds, self-reviews and says ready; the
+   orchestrator only gates and pushes. The owner still merges; that is the one step Carlini's run did not
+   have, and it stays.
+5. **One short, stable builder prompt,** the same for every ticket: the ticket's issue number, a pointer to
+   the checks, and the rules below. What a lesson taught goes into a check, so the prompt stops growing.
+
+### The builder prompt, whole
+```
+You build issue #<N> of vextrus/vextrus-cubit, in your own worktree, on branch <N>-<slug>.
+Done means: its acceptance tests (tests/acceptance/<N>/, written before you; never edit or delete
+them; tell me if one is wrong) pass; `scripts/ready` passes (the fast check, the shared attack
+suite at 4 and 24 workers, the words lint, the mutation step); and pr-reviewer, run by you on
+your committed head, reports nothing at 50 or more after at most two rounds.
+Read: the issue, the files it names, CLAUDE.md. Nothing else unless a check sends you there.
+Budget: ready within 90 minutes; print elapsed time at each commit.
+Test output goes to .private/work/<N>/logs/; read only its ERROR lines.
+Commit with explicit paths; never push. When ready, say so with the reports' paths and what you
+did not verify, first.
+```
+`scripts/ready` and the acceptance-test step are new: one script and one agent brief. They replace most of
+`common.md` and the runbook's review rounds, and need the owner-approved issue docs/sdlc.md asks for.
+
+### Where this does not transfer
+- A compiler has a perfect reference (GCC). Vextrus's QS judgement, the words a QS reads and the look of a
+  screen have none: `qs-critic`, the design gate and the owner's walk stay, but they judge the finished
+  flow, not every diff.
+- Carlini's agents pushed to one branch with no human gate. Here the owner merges; batching (2.3) keeps
+  that cheap.
+- Nothing here is Anthropic's internal harness: its private tooling is not public, and this file cites only
+  what is.
+
 ## 2. The changes, ranked by time saved
 
 Each is a recommendation; the owner decides. The first three change nothing about quality: they move
@@ -176,6 +256,7 @@ ADR 0002 already allows. The owner decides; the plan is re-cut once, not ticket 
 
 ## Sources
 New to this file (the others are keyed in docs/research/opus-5-5-agentic-orchestration.md):
+- [CC] https://www.anthropic.com/engineering/building-c-compiler (5 Feb 2026)
 - [CCMC] https://code.claude.com/docs/en/model-config
 - [WF] https://code.claude.com/docs/en/workflows
 - [TEAMS] https://code.claude.com/docs/en/agent-teams
