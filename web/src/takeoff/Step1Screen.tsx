@@ -17,19 +17,22 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode }
 import { Trans, useLingui } from '@lingui/react/macro'
 import { useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
 import { getRouteApi, useSearch } from '@tanstack/react-router'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import { AppLink, PATHS } from '@/app/AppLink'
 import { sessionQuery, type ProjectSummary, type Session } from '@/app/session'
 import { SlotFill } from '@/app/slots'
 import { LoadProblem, readOnlyRole, useReadOnlyToast } from '@/auth'
 import { SheetViewer } from '@/sheet'
-import { Button, DrawingText, Empty, IconButton, KeyCombo, KeyRegion, KeyScope, Skeleton, SheetsGlyph, buttonVariants, useKeys } from '@/ui'
+import { DrawingText, Empty, IconButton, KeyRegion, KeyScope, Skeleton, cn, SheetsGlyph, buttonVariants, useKeys } from '@/ui'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/ui/primitives/dialog'
+import { useFormat } from '@/format'
 import { SheetName, useStep1Acts } from './acts'
 import { Bar, ExclusionPicker, useBar } from './Bar'
 import { renderQuery, useStep1, type CoverageOut, type ProposalOut } from './data'
 import { DrawingListDialog } from './DrawingListDialog'
 import { nextOpenRow, step1Model, type Reason, type Row, type Step1Model } from './model'
 import { SheetList } from './SheetList'
+import { NOT_TO_SCALE, OTHER_VIEW_KIND, VIEW_KIND_NAMES } from './words'
 import { CoverageLine, CoveragePanel, Overview, QuestionCard, QuestionsTab, SheetFacts } from './Step1Inspector'
 
 const projectRoute = getRouteApi('/_app/p/$code')
@@ -111,6 +114,9 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
   const [picker, setPicker] = useState<Row | null>(null)
   const [listFor, setListFor] = useState<string | null>(null)
   const [panel, setPanel] = useState<'coverage' | null>(null)
+  /** Sheet mode's selected view, by its ordinal (→ ← walk them, §6.5). */
+  const [view, setView] = useState<string | null>(null)
+  const [choosing, setChoosing] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
   const focusNext = useRef<string | null>(null)
 
@@ -141,6 +147,7 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
     const first = row.sheets[0]
     if (!first) return
     setPicker(null)
+    setView(null)
     setOpenSheet(first.id)
     setFocused(row.key)
     setMode('sheet')
@@ -169,6 +176,7 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
     const at = order.findIndex((s) => s.id === after)
     const ring = [...order.slice(at + 1), ...order.slice(0, at + 1)]
     const next = ring.find((s) => s.decision === null && s.id !== after && !rowOfSheet(s.id)?.question)
+    setView(null)
     if (next) setOpenSheet(next.id)
     else toList()
   }
@@ -207,7 +215,19 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
     if (mode !== 'sheet' || !open) return
     const at = order.findIndex((s) => s.id === open.id)
     const next = order[at + by]
-    if (next) setOpenSheet(next.id)
+    if (next) {
+      setView(null)
+      setOpenSheet(next.id)
+    }
+  }
+
+  /** → ←: the next or previous view on the open sheet, in reading order; past the last, none (§6.5). */
+  const stepView = (by: number) => {
+    const views = open?.views ?? []
+    if (mode !== 'sheet' || views.length === 0) return
+    const at = view === null ? -1 : views.findIndex((v) => String(v.ordinal) === view)
+    const next = by > 0 ? (at === -1 ? 0 : at + 1) : at === -1 ? views.length - 1 : at - 1
+    setView(next >= 0 && next < views.length ? String(views[next]!.ordinal) : null)
   }
 
   const moveFocus = (by: number) => {
@@ -238,6 +258,9 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
     { key: ']', label: t`Next sheet`, group: 'screen', when: () => mode === 'sheet', run: () => page(1) },
     { key: '[', label: t`Previous sheet`, group: 'screen', when: () => mode === 'sheet', run: () => page(-1) },
     { key: 'Q', label: t`Next open Question`, group: 'screen', run: nextQuestion },
+    { key: '→', label: t`Next view on the sheet`, group: 'screen', when: () => mode === 'sheet', run: () => stepView(1) },
+    { key: '←', label: t`Previous view on the sheet`, group: 'screen', when: () => mode === 'sheet', run: () => stepView(-1) },
+    { key: 'S', label: t`The sheet picker`, group: 'screen', when: () => mode === 'sheet', run: () => setChoosing(true) },
     {
       key: 'Esc',
       label: t`Back to the list; in the list, clear the focus`,
@@ -245,6 +268,7 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
       when: () => mode === 'sheet' || panel !== null || focused !== null,
       run: () => {
         if (panel) setPanel(null)
+        else if (mode === 'sheet' && view !== null) setView(null)
         else if (mode === 'sheet') toList()
         else {
           setFocused(null)
@@ -285,14 +309,9 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
 
   return (
     <div className="absolute inset-0 flex flex-col">
-      {mode === 'sheet' ? (
-        <SlotFill slot="toolbar.end" order={0}>
-          <Button variant="ghost" onClick={toList} aria-keyshortcuts="Space" /* eslint-disable-line lingui/no-unlocalized-strings -- a key name */>
-            <Trans>Back to the list</Trans>
-            <KeyCombo combo="Space" />
-          </Button>
-        </SlotFill>
-      ) : null}
+      <SlotFill slot="toolbar.end" order={0}>
+        <ModeSwitch mode={mode} onList={() => mode === 'sheet' && toList()} onSheet={() => mode === 'list' && fromList()} />
+      </SlotFill>
       <SlotFill slot="status.end" order={0}>
         <button type="button" onClick={() => setPanel('coverage')} className="hover:text-foreground hover:underline">
           <CoverageLine coverage={coverage} />
@@ -322,7 +341,17 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
           />
         </ListRegion>
       ) : open ? (
-        <SheetMode projectId={project.id} sheet={open} label={spaceLabel} onSpace={toList} onPage={page} />
+        <SheetMode
+          projectId={project.id}
+          sheet={open}
+          label={spaceLabel}
+          onSpace={toList}
+          onPage={page}
+          held={!!rowOfSheet(open.id)?.question}
+          view={view}
+          onSelectView={setView}
+          onChoose={() => setChoosing(true)}
+        />
       ) : null}
 
       <div className="pointer-events-none absolute inset-x-0 bottom-4 z-10">
@@ -343,6 +372,18 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
         ) : null}
       </div>
 
+      {choosing ? (
+        <SheetPicker
+          model={model}
+          current={openSheet}
+          onClose={() => setChoosing(false)}
+          onPick={(row) => {
+            setChoosing(false)
+            openRow(row)
+          }}
+        />
+      ) : null}
+
       {listFor ? (
         <DrawingListDialog
           projectId={project.id}
@@ -354,6 +395,26 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
           onUse={(text) => acts.setDrawingList(listFor, text)}
         />
       ) : null}
+    </div>
+  )
+}
+
+const MODE_PART = cn(
+  'inline-flex h-control items-center border border-border-strong px-2 text-xs font-medium whitespace-nowrap text-muted-foreground',
+  'hover:text-foreground aria-pressed:bg-paper aria-pressed:text-foreground',
+)
+
+/** The toolbar's "List | Sheet" (§6.1, §6.5): two toggle buttons, Space doing the same by key. */
+function ModeSwitch({ mode, onList, onSheet }: { mode: 'list' | 'sheet'; onList: () => void; onSheet: () => void }) {
+  const { t } = useLingui()
+  return (
+    <div role="group" aria-label={t`List or sheet`} className="inline-flex items-center">
+      <button type="button" aria-pressed={mode === 'list'} title={t`The list: Space from a sheet`} onClick={onList} className={cn(MODE_PART, 'rounded-s-md')}>
+        <Trans>List</Trans>
+      </button>
+      <button type="button" aria-pressed={mode === 'sheet'} title={t`The focused sheet: Space`} onClick={onSheet} className={cn(MODE_PART, 'rounded-e-md border-s-0')}>
+        <Trans>Sheet</Trans>
+      </button>
     </div>
   )
 }
@@ -374,24 +435,47 @@ function SpaceKey({ label, run }: { label: string; run: () => void }) {
   return null
 }
 
-/** Sheet mode (§6.5): the open sheet in the viewer, its title and paging in the toolbar. */
+/** Sheet mode (§6.5): the open sheet in the viewer with its views' outlines and the legend; its label and paging in the toolbar. */
 function SheetMode({
   projectId,
   sheet,
   label,
   onSpace,
   onPage,
+  held,
+  view,
+  onSelectView,
+  onChoose,
 }: {
   projectId: string
   sheet: ProposalOut
   label: string
   onSpace: () => void
   onPage: (by: number) => void
+  held: boolean
+  view: string | null
+  onSelectView: (key: string | null) => void
+  onChoose: () => void
 }) {
-  const { t } = useLingui()
+  const { t, i18n } = useLingui()
   const render = useQuery(renderQuery(projectId, sheet.sheet_id))
   const region = useRef<HTMLDivElement>(null)
   const name = sheet.number ?? sheet.title
+  const outlines = useMemo(
+    () =>
+      (sheet.views ?? []).map((v) => {
+        const kind = i18n._(VIEW_KIND_NAMES[v.kind] ?? OTHER_VIEW_KIND)
+        const scale = v.not_to_scale ? i18n._(NOT_TO_SCALE) : v.stated_scale
+        return {
+          key: String(v.ordinal),
+          box: v.box.map(Number) as unknown as readonly [number, number, number, number],
+          tag: scale ? `${kind}, ${scale}` : kind,
+          question: held,
+          excluded: v.decision === 'excluded' || sheet.decision === 'excluded',
+        }
+      }),
+    [sheet, held, i18n],
+  )
 
   // Focus follows the sheet into the canvas as it opens and as it pages (§6.1).
   useLayoutEffect(() => {
@@ -405,7 +489,19 @@ function SheetMode({
   return (
     <>
       <SlotFill slot="toolbar.start" order={1}>
-        <DrawingText kind="title" text={sheet.title} className="max-w-[250px] text-sm text-ink-secondary" />
+        <button
+          type="button"
+          onClick={onChoose}
+          aria-keyshortcuts="S"
+          title={t`The sheet picker: S`}
+          className="inline-flex h-control max-w-[250px] min-w-0 items-center gap-1 rounded-md px-1.5 text-sm hover:bg-hover"
+        >
+          <span className="font-semibold">
+            <SheetName sheets={[sheet]} />
+          </span>
+          <DrawingText kind="title" text={sheet.title} className="min-w-0 text-ink-secondary" />
+          <ChevronDown aria-hidden strokeWidth={1.5} className="size-3.5 shrink-0" />
+        </button>
         <IconButton label={t`Previous sheet`} combo="[" onClick={() => onPage(-1)}>
           <ChevronLeft strokeWidth={1.5} className="rtl:-scale-x-100" />
         </IconButton>
@@ -417,14 +513,90 @@ function SheetMode({
         <SpaceKey label={label} run={onSpace} />
         <div ref={region} tabIndex={-1} className="absolute inset-0 outline-none">
           {render.data ? (
-            <SheetViewer key={sheet.id} buffer={render.data} label={name} onRetry={() => void render.refetch()} />
+            <SheetViewer
+              key={sheet.id}
+              buffer={render.data}
+              label={name}
+              onRetry={() => void render.refetch()}
+              outlines={outlines}
+              selected={view}
+              onSelect={onSelectView}
+              toolbarLabel={false}
+            />
           ) : render.error ? (
             <LoadProblem error={render.error} onRetry={() => void render.refetch()} className="m-4" />
           ) : (
             <Skeleton rows={6} className="m-6" status={<Trans>Opening <SheetName sheets={[sheet]} />…</Trans>} />
           )}
         </div>
+        <Legend sheet={sheet} held={held} />
       </KeyRegion>
     </>
+  )
+}
+
+/** 4.6's legend, counting the sheet's views (§6.5): "Proposal 2 · Assigned 0 · Question 0 · Excluded 0". */
+function Legend({ sheet, held }: { sheet: ProposalOut; held: boolean }) {
+  const f = useFormat()
+  const views = sheet.views ?? []
+  const out = (v: (typeof views)[number]) => v.decision === 'excluded' || sheet.decision === 'excluded'
+  const count = { proposal: 0, assigned: 0, question: 0, excluded: 0 }
+  for (const v of views) {
+    if (out(v)) count.excluded += 1
+    else if (held) count.question += 1
+    else if (sheet.decision === 'confirmed') count.assigned += 1
+    else count.proposal += 1
+  }
+  const proposal = f.integer(count.proposal)
+  const assigned = f.integer(count.assigned)
+  const question = f.integer(count.question)
+  const excluded = f.integer(count.excluded)
+  return (
+    <div data-legend="" className="pointer-events-none absolute inset-x-0 top-2 z-[1] flex justify-center">
+      <span className="rounded-md border border-border bg-popover px-2 py-0.5 text-xs text-ink-secondary shadow-1">
+        <Trans>
+          Proposal {proposal} · Assigned {assigned} · Question {question} · Excluded {excluded}
+        </Trans>
+      </span>
+    </div>
+  )
+}
+
+/** The sheet picker (§6.5, `S`): "Sheets, in list order", grouped as the list. */
+function SheetPicker({ model, current, onClose, onPick }: { model: Step1Model; current: string | null; onClose: () => void; onPick: (row: Row) => void }) {
+  const { t } = useLingui()
+  const rows = model.rows.filter((r) => r.sheets.length > 0)
+  return (
+    <KeyScope level="dialog" name="sheet-picker">
+      <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              <Trans>Sheets, in list order</Trans>
+            </DialogTitle>
+            <DialogDescription>
+              <Trans>Tab or click a sheet to open it; Esc closes.</Trans>
+            </DialogDescription>
+          </DialogHeader>
+          <ul aria-label={t`Sheets`} className="flex max-h-[50vh] flex-col overflow-y-auto">
+            {rows.map((row) => (
+              <li key={row.key}>
+                <button
+                  type="button"
+                  autoFocus={row.sheets.some((s) => s.id === current)}
+                  onClick={() => onPick(row)}
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-start text-sm hover:bg-hover focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-ring"
+                >
+                  <span className="w-24 shrink-0 font-semibold">
+                    <SheetName sheets={row.sheets} />
+                  </span>
+                  <DrawingText kind="title" text={row.sheets[0]?.title ?? ''} className="min-w-0" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </DialogContent>
+      </Dialog>
+    </KeyScope>
   )
 }

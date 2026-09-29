@@ -225,3 +225,4 @@ export const STOREYS_MEANING: Readonly<Record<string, MessageDescriptor>> = {
   floor_to_floor: msg`floor to floor`,
   mixed: msg`mixed`,
 }
+export const NOT_TO_SCALE = msg`not to scale`

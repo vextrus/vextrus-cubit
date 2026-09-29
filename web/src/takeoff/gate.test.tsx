@@ -268,3 +268,65 @@ describe('M7: the inspector says where each fact was read, lists the views, and 
     await waitFor(() => expect(clean(inspector().textContent)).toMatch(/Plot\s*None: \S/))
   })
 })
+
+describe('M6: sheet mode draws the views, counts them, and walks them', () => {
+  function withViews(step1: FakeStep1) {
+    Object.assign(step1.proposals.find((p) => p.number === 'S-05')!, {
+      views: [
+        { ordinal: 0, kind: 'plan', title: '1ST FLOOR BEAM LAYOUT', stated_scale: '1:100', not_to_scale: false, storeys: ['1st'], storeys_meaning: 'at_floor_level', steps: ['7'], part: null, proposed_exclusion: null, decision: null, excluded_reason: null, box: ['10', '10', '60', '40'] },
+        { ordinal: 1, kind: 'detail', title: 'SECTION 1-1', stated_scale: '', not_to_scale: true, storeys: [], storeys_meaning: null, steps: ['7'], part: null, proposed_exclusion: null, decision: null, excluded_reason: null, box: ['65', '10', '90', '30'] },
+      ],
+    })
+  }
+
+  it('shows the legend, the outlines with their tags, and → ← Esc select and leave a view', async () => {
+    const { api, step1 } = kr01()
+    withViews(step1)
+    await open(api)
+    await userEvent.click(within(rowOf('S-05')).getByText('S-05'))
+    await userEvent.keyboard(' ')
+    await shows('Proposal 2 · Assigned 0 · Question 0 · Excluded 0')
+    await waitFor(() => expect(document.querySelectorAll('[data-outline]')).toHaveLength(2))
+    const tags = [...document.querySelectorAll('[data-outline]')].map((o) => clean(o.textContent))
+    expect(tags).toEqual(['Plan, 1:100', 'Detail, not to scale'])
+    await userEvent.keyboard('{ArrowRight}')
+    await waitFor(() => expect(document.querySelector('[data-selected]')?.getAttribute('data-outline')).toBe('0'))
+    await userEvent.keyboard('{ArrowRight}')
+    await waitFor(() => expect(document.querySelector('[data-selected]')?.getAttribute('data-outline')).toBe('1'))
+    await userEvent.keyboard('{ArrowRight}')
+    await waitFor(() => expect(document.querySelector('[data-selected]')).toBeNull())
+    await userEvent.keyboard('{ArrowLeft}')
+    await waitFor(() => expect(document.querySelector('[data-selected]')?.getAttribute('data-outline')).toBe('1'))
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(document.querySelector('[data-selected]')).toBeNull())
+    expect(document.querySelectorAll('[data-outline]')).toHaveLength(2) // still the sheet
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(document.querySelectorAll('[data-outline]')).toHaveLength(0))
+  })
+
+  it('has "List | Sheet" in the toolbar and a sheet label that opens the sheet picker', async () => {
+    const { api, step1 } = kr01()
+    withViews(step1)
+    await open(api)
+    const list = await waitFor(() => {
+      const b = [...document.querySelectorAll('button[aria-pressed]')].find((x) => clean(x.textContent) === 'List')
+      expect(b).toBeTruthy()
+      return b as HTMLElement
+    })
+    expect(list.getAttribute('aria-pressed')).toBe('true')
+    await userEvent.click(within(rowOf('S-05')).getByText('S-05'))
+    const sheet = [...document.querySelectorAll('button[aria-pressed]')].find((x) => clean(x.textContent) === 'Sheet') as HTMLElement
+    await userEvent.click(sheet)
+    await waitFor(() => expect(sheet.getAttribute('aria-pressed')).toBe('true'))
+    const label = await waitFor(() => {
+      const b = document.querySelector<HTMLElement>('button[aria-keyshortcuts="S"]')
+      expect(clean(b?.textContent)).toContain('S-051ST FLOOR BEAM LAYOUT')
+      return b!
+    })
+    await userEvent.click(label)
+    await shows('Sheets, in list order')
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"]')!
+    await userEvent.click(within(dialog).getByText('S-06'))
+    await waitFor(() => expect(clean(document.querySelector('button[aria-keyshortcuts="S"]')?.textContent)).toContain('S-06'))
+  })
+})

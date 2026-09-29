@@ -131,6 +131,10 @@ msgstr "{n, plural, one {Confirm # sheet that agrees} other {Confirm # sheets th
 msgid "{name} title block"
 msgstr "{name} title block"
 
+#: src/takeoff/Step1Screen.tsx
+msgid "List"
+msgstr "List"
+
 #: src/takeoff/Step1Inspector.tsx
 msgid "{part}, M3 onwards"
 msgstr "{part}, M3 onwards"
@@ -215,6 +219,10 @@ msgstr "Floor finish layout"
 msgid "Do what the bar says"
 msgstr "Do what the bar says"
 
+#: src/takeoff/Step1Screen.tsx
+msgid "Sheet"
+msgstr "Sheet"
+
 #: src/takeoff/words.tsx
 msgid "Cover or index"
 msgstr "Cover or index"
@@ -246,6 +254,10 @@ msgstr "Answering decides whether this file’s sheets join the list."
 #: src/takeoff/words.tsx
 msgid "Perspective"
 msgstr "Perspective"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "List or sheet"
+msgstr "List or sheet"
 
 #: src/takeoff/Bar.tsx
 msgid "Open it to confirm it."
@@ -287,6 +299,10 @@ msgstr "two, agreeing"
 msgid "{n, plural, one {Confirm # sheet that agrees} other {Confirm # sheets that agree}}"
 msgstr "{n, plural, one {Confirm # sheet that agrees} other {Confirm # sheets that agree}}"
 
+#: src/takeoff/Step1Screen.tsx
+msgid "Next view on the sheet"
+msgstr "Next view on the sheet"
+
 #: src/takeoff/who.tsx
 msgid "MD"
 msgstr "MD"
@@ -298,6 +314,10 @@ msgstr "{who} (QS) confirm the sheet list; every act shows who did it."
 #: src/takeoff/SheetList.tsx
 msgid "{markText}, from the file name {file}"
 msgstr "{markText}, from the file name {file}"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Previous view on the sheet"
+msgstr "Previous view on the sheet"
 
 #: src/takeoff/Bar.tsx
 msgid "Open <0/>"
@@ -359,6 +379,10 @@ msgstr "lift"
 #: src/takeoff/words.tsx
 msgid "The drawing list"
 msgstr "The drawing list"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "The sheet picker: S"
+msgstr "The sheet picker: S"
 
 #: src/takeoff/words.tsx
 msgid "from the file"
@@ -562,6 +586,10 @@ msgstr "{questions, plural, one {Answer # Question: the held file first, then th
 msgid "Elevation"
 msgstr "Elevation"
 
+#: src/takeoff/Step1Screen.tsx
+msgid "Proposal {proposal} · Assigned {assigned} · Question {question} · Excluded {excluded}"
+msgstr "Proposal {proposal} · Assigned {assigned} · Question {question} · Excluded {excluded}"
+
 #: src/takeoff/Bar.tsx
 msgid "Confirm {n}"
 msgstr "Confirm {n}"
@@ -654,6 +682,10 @@ msgstr "found; no drawing list; numbering runs {range} without a gap"
 msgid "{file}, as each of the two readers read it"
 msgstr "{file}, as each of the two readers read it"
 
+#: src/takeoff/Step1Screen.tsx
+msgid "Tab or click a sheet to open it; Esc closes."
+msgstr "Tab or click a sheet to open it; Esc closes."
+
 #: src/takeoff/words.tsx
 msgid "mixed"
 msgstr "mixed"
@@ -686,6 +718,10 @@ msgstr "{rest}, and {more} more"
 msgid "Answer once"
 msgstr "Answer once"
 
+#: src/takeoff/Step1Screen.tsx
+msgid "Sheets, in list order"
+msgstr "Sheets, in list order"
+
 #: src/takeoff/Bar.tsx
 msgid "{name} is confirmed by {by}"
 msgstr "{name} is confirmed by {by}"
@@ -707,6 +743,10 @@ msgstr "On the drawing list, in no file"
 msgid "<0/>, {count} copies"
 msgstr "<0/>, {count} copies"
 
+#: src/takeoff/Step1Screen.tsx
+msgid "The sheet picker"
+msgstr "The sheet picker"
+
 #: src/takeoff/words.tsx
 msgid "Site plan"
 msgstr "Site plan"
@@ -714,6 +754,10 @@ msgstr "Site plan"
 #: src/takeoff/questionWords.tsx
 msgid "Waiting for the QS. The MD reads Questions and cannot answer them."
 msgstr "Waiting for the QS. The MD reads Questions and cannot answer them."
+
+#: src/takeoff/Step1Screen.tsx
+msgid "The focused sheet: Space"
+msgstr "The focused sheet: Space"
 
 #: src/takeoff/words.tsx
 msgid "superseded"
@@ -986,6 +1030,7 @@ msgid "Sprinkler layout"
 msgstr "Sprinkler layout"
 
 #: src/takeoff/Step1Inspector.tsx
+#: src/takeoff/words.tsx
 msgid "not to scale"
 msgstr "not to scale"
 
@@ -1109,10 +1154,6 @@ msgstr "Septic tank details"
 #: src/takeoff/DrawingListDialog.tsx
 msgid "A-01–A-29, or the list as the consultant sent it"
 msgstr "A-01–A-29, or the list as the consultant sent it"
-
-#: src/takeoff/Step1Screen.tsx
-msgid "Back to the list"
-msgstr "Back to the list"
 
 #: src/takeoff/SheetList.tsx
 msgid "The pasted drawing list"
@@ -1373,6 +1414,10 @@ msgstr "The drawing list read on a sheet"
 #: src/takeoff/Step1Inspector.tsx
 msgid "{mark}, from the file name"
 msgstr "{mark}, from the file name"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "The list: Space from a sheet"
+msgstr "The list: Space from a sheet"
 
 #: src/takeoff/Step1Screen.tsx
 msgid "Opening <0/>…"
