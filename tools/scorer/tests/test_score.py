@@ -2,7 +2,6 @@
 views and sheets, the normalising, the files inside a run's folder, the system Python it runs on, and
 that no failure shows a key's value. Invented keys and exports only."""
 
-import hashlib
 import json
 import os
 import shutil
@@ -588,7 +587,11 @@ def test_a_refusal_with_a_log_that_cannot_be_written_says_only_that(
 # The 24f refuter (50): an export value that failed the call only when its sheet joined a key sheet told
 # a Held-out Set's layout and frame by the exit code. Every value is now normalised before the join.
 
-DEEP = "[" * 60000 + "]" * 60000  # past the recursion limit, whatever normalises it
+POISON = "QZ-POISON"
+# Fields whose value goes through `_text` (`_number`, `_title` and `_storeys` look it up as a module
+# global): a value nested past the recursion limit fails there, but only where the C stack is small
+# enough (uv's clang build, not setup-python's), so the failure is forced on the sentinel instead.
+TEXT_FIELDS = ("storeys_as_stated", "number", "title", "revision_mark")
 
 
 def poisoned(place: Place, where: str) -> None:
@@ -598,23 +601,24 @@ def poisoned(place: Place, where: str) -> None:
     if where == "views":
         found["views"] = 1
     elif where == "location":
-        found["location"] = "QZ-POISON"
+        found["location"] = POISON
     else:
-        found[where] = {"value": "QZ-POISON", "source": "file"}
-    export = place.write_run([found])
-    data = export.read_bytes().replace(b'"QZ-POISON"', DEEP.encode())
-    export.write_bytes(data)
-    metadata = json.loads((place.run / "metadata.json").read_text())
-    metadata["sets"]["invented-set"]["export_sha256"] = hashlib.sha256(data).hexdigest()
-    (place.run / "metadata.json").write_text(json.dumps(metadata))
+        found[where] = {"value": POISON, "source": "file"}
+    place.write_run([found])
 
 
-@pytest.mark.parametrize(
-    "where", ["views", "storeys_as_stated", "number", "title", "revision_mark", "location"]
-)
+@pytest.mark.parametrize("where", ["views", *TEXT_FIELDS, "location"])
 def test_what_an_export_does_to_the_call_never_depends_on_whether_its_sheet_joins(
-    tmp_path: Path, capfd: pytest.CaptureFixture[str], where: str
+    tmp_path: Path, capfd: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch, where: str
 ) -> None:
+    text = score._text
+
+    def overflowing(value: object) -> str:
+        if value == POISON:
+            raise RecursionError("maximum recursion depth exceeded")
+        return text(value)
+
+    monkeypatch.setattr(score, "_text", overflowing)
     answers = []
     for frame in (A_BOX, B_BOX):  # the key sheet joins the export sheet, then it does not
         place = Place(tmp_path / str(frame[0]))
@@ -626,3 +630,6 @@ def test_what_an_export_does_to_the_call_never_depends_on_whether_its_sheet_join
         answers.append((code, out))
 
     assert answers[0] == answers[1], answers
+    # The poison fired (a text field fails the call) or was read as nothing (a views list that is a
+    # number, a location that is not an object): never a pass that proves nothing.
+    assert answers[0][0] == (score.BROKEN if where in TEXT_FIELDS else 0), answers
