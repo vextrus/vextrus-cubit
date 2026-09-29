@@ -27,7 +27,10 @@ from engine.recognise.types import (
 )
 
 WEB = Path(__file__).resolve().parents[3] / "web/src/messages/engine"
-NAMES = ("catalogue", "conflicts", "coverage", "plot_pages", "register_check", "storey_titles")
+NAMES = (
+    "catalogue", "conflicts", "coverage", "plot", "plot_pages", "register_check", "render_f1",
+    "storey_titles",
+)  # fmt: skip
 READERS = stand_ins({"3RD, 5TH & 7TH FLOOR": ("floor_3", "floor_5", "floor_7")})
 CONVENTIONS = SheetConventions(disciplines=(DisciplineConvention("structural", ("S",)),))
 

@@ -72,7 +72,9 @@ civil engineer and the CEO and co-founder. The previous product (Vextrus Cubit) 
   Their text may go to TypeSafe's Jev during development, under the local key only (ADR 0013).
 - **OpenConstructionERP is AGPL-3.0:** learn from it, never copy its code, schemas, strings or data.
   **cad2data's converters are proprietary** and are never run; nor are converters OCE downloads.
-- **The repository is private** (ADR 0024); write issues and PRs as if they could leak anyway.
+- **The repository is public for now** (the owner, 29 Sep 2026: "For temporary please make our repo public
+  … I've a card issue which I'll resolve"); ADR 0024 (private) returns when the owner says. Write every
+  commit, issue and PR as public: no drawing text, no key value, nothing a client would not publish.
 - **Permissions:** agents push and merge after the review loop, green required checks and
   `python -m scripts.merge_ready <PR>` (ADR 0041); the gates' statuses are posted only through
   `post-status` as the key user, by the orchestrator's session in the main checkout, from an independent
