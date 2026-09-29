@@ -251,12 +251,16 @@ FAKES = {
             return {"counts": {"pages": 2, "shx_comments": 0}}
 
         def page_text(path):
-            return [{"page": 1}, {"page": 2}]
+            import hashlib, pathlib
+            sha256 = hashlib.sha256(pathlib.Path(path).read_bytes()).hexdigest()
+            return [{"page": 1, "source_sha256": sha256}, {"page": 2, "source_sha256": sha256}]
     """,
     "plot.py": """
         from engine.recognise.types import PlotMatch, PlotTransform
 
-        def match(pages, sheets):
+        def match(pages, sheets, geometry, plots):
+            assert len(geometry) == len(sheets)
+            assert all(str(p).endswith(".pdf") for p in plots.values())
             if not pages:
                 return []
             return [
@@ -266,8 +270,9 @@ FAKES = {
             ]
     """,
     "f1.py": """
-        def score(buffers, page, transform):
+        def score(buffers, page, transform, plot):
             assert buffers == {"layout": "Layout1"}
+            assert plot.suffix == ".pdf" and plot.is_file()
             return 0.9
     """,
     "conflicts.py": """

@@ -22,8 +22,11 @@ what the contract does not allow, is `failed`, and the stages that need it are s
   view_conventions)`, `buffers.build(artefact, sheet)` and `raster.rasterise(buffers, PX_PER_MM)`;
 - PDF: `pdf.report(path)` and `pdf.page_text(path)` (a list of pages).
 
-Then across the set: `registration.match(pages, sheets)`, `render_f1.score(buffers, page, transform)`
-per matched page, `conflicts.find(sheets, views, sheet_conventions)` (Conflicts and Continuations;
+Then across the set: `registration.match(pages, sheets, geometry, plots)` (`geometry[i]` is
+`sheets[i]`'s render buffers, or none where they were not built; `plots` each PDF's path by its
+sha256, which it draws in its own sandbox), `render_f1.score(buffers, page, transform, plot)` per
+matched page (`plot` the path of the PDF the page is from),
+`conflicts.find(sheets, views, sheet_conventions)` (Conflicts and Continuations;
 `views[i]` are `sheets[i]`'s) and `catalogue.run_all(reading)` (a `SetReading`, carrying the sheet
 conventions too; Check results). **A set stage never runs on part of the set**: it is skipped unless
 each stage it needs (sheets for all; pages for the Plot; the Plot and the render buffers for F1) was
@@ -883,6 +886,7 @@ def _read_set(
     targets: Mapping[str, str],
     built: Mapping[str, bool],
     conventions: SheetConventions | None,
+    set_dir: Path,
 ) -> SetOutcome:
     stages = _Stages(targets, progress=None)
     refs = References(files)
@@ -927,8 +931,10 @@ def _read_set(
             return False
         return True
 
+    plots = {f.sha256: set_dir / f.path for f in files if f.format == "pdf"}
     if match := stages.open("plot", needs("sheets", "page_text")):
-        ok, result = stages.call("plot", match, pages, sheets)
+        geometry = [buffers.get(id(sheet)) for sheet in sheets]
+        ok, result = stages.call("plot", match, pages, sheets, geometry, plots)
         matches = _list_of(stages, "plot", result, PlotMatch) if ok else None
         if matches is not None and known(
             "plot", [m.page for m in matches] + [m.sheet for m in matches if m.sheet is not None]
@@ -941,9 +947,10 @@ def _read_set(
     if score := stages.open("render_f1", needs("plot", "render_buffers")):
         for m in outcome.plot:
             sheet_buffers = buffers.get(id(m.sheet))
-            if m.sheet is None or m.transform is None or sheet_buffers is None:
+            plot = plots.get(_source_of(m.page) or "")
+            if m.sheet is None or m.transform is None or sheet_buffers is None or plot is None:
                 continue
-            ok, value = stages.call("render_f1", score, sheet_buffers, m.page, m.transform)
+            ok, value = stages.call("render_f1", score, sheet_buffers, m.page, m.transform, plot)
             if ok and (
                 isinstance(value, bool) or not isinstance(value, int | float) or not 0 <= value <= 1
             ):
@@ -990,6 +997,13 @@ def _read_set(
     return outcome
 
 
+def _source_of(page: object) -> str | None:
+    """The sha256 of the PDF a page was read from (12's `Page.source_sha256`), or none."""
+    value = page.get("source_sha256") if isinstance(page, Mapping) else None
+    value = getattr(page, "source_sha256", value)
+    return value if isinstance(value, str) else None
+
+
 def run(
     set_dir: Path,
     out: Path,
@@ -1026,7 +1040,7 @@ def run(
             )
             for index, relative in enumerate(drawing_files(set_dir))
         ]
-    outcome = _read_set(files, targets, built, applied.sheet_conventions)
+    outcome = _read_set(files, targets, built, applied.sheet_conventions, set_dir)
     info = RunInfo(
         id=run_id or str(uuid.uuid7()),
         commit=commit,
