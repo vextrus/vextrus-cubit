@@ -103,3 +103,26 @@ def test_a_title_in_a_label_or_an_option_is_refused_and_never_echoed(
 
     assert "ZQX" not in str(refused.value)
     assert "ZQX" not in caplog.text
+
+
+NODE_TABLE = Path(__file__).resolve().parents[3] / "docs" / "knowledge" / "jev-nodes.md"
+SETTINGS = Path(__file__).resolve().parents[2] / "settings" / "jev.py"
+
+
+def test_the_threshold_in_use_is_the_one_the_spot_check_measured() -> None:
+    lines = NODE_TABLE.read_text(encoding="utf-8").splitlines()
+    header = next(line for line in lines if line.startswith("| node |"))
+    cells = [c.strip() for c in header.strip("|").split("|")]
+    rows = [line for line in lines if line.startswith(f"| {jev.SHEET_TYPE.key} |")]
+    current = [c.strip() for c in rows[-1].strip("|").split("|")]
+
+    assert Decimal(current[cells.index("threshold")]) == getattr(settings, jev.SHEET_TYPE.propose_at)
+
+
+def test_the_threshold_setting_is_no_placeholder() -> None:
+    source = SETTINGS.read_text(encoding="utf-8")
+    after = source.split(f"{jev.SHEET_TYPE.propose_at} =", 1)[1]
+    comment = after.split('"""', 2)[1]
+
+    assert "placeholder" not in comment.lower()
+    assert "docs/knowledge/jev-nodes.md" in comment

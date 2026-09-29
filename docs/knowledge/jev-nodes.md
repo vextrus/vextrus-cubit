@@ -37,6 +37,20 @@ fair kind as right, 30 / 32.
 each 19 or 20 answers were proposed: 17 or 18 of them are the label and 2 are the second fair kind.
 No proposed answer was neither.
 
+**The threshold: 0.90 stays (ruling, 23).** In the two per-item repeats, keys only:
+
+| threshold | queue | proposed | proposed, not the label | proposed, neither |
+|---|---|---|---|---|
+| 0.80 | 9, 9 | 23, 23 | 2, 2 | 0, 0 |
+| 0.90 | 12, 13 | 20, 19 | 2, 2 | 0, 0 |
+| 0.95 | 15, 15 | 17, 17 | 1, 1 | 0, 0 |
+| 0.98 | 17, 18 | 15, 14 | 0, 0 | 0, 0 |
+
+Reason: at 0.90 every proposal is the label or its fair second kind. The most confident answer
+that is neither sits at 0.73, too near 0.80 for a 32-sheet sample to lower it. Raising the threshold
+to 0.98 would put 4 to 5 more sheets in the queue only to avoid those two fair answers. The
+threshold is set again with the next measure: after 17, and after the descriptions.
+
 **Repeats.** The same 32 questions, asked three times: right 26, 26 and 26; queue 13, 12 and 13.
 One of the 96 keys-only answers was `Unavailable(malformed)`: TypeSafe answered, but the client refused
 the reply as no answer to the question asked. The queue of 12 counts that sheet.
@@ -52,7 +66,8 @@ before drawing the sample, from the kinds' keys alone.
 | with descriptions | 27, 28, 28 / 32 | 31 / 32 | 10, 10, 10 | 0 |
 
 The descriptions gained a right answer or two: `cover_index`, and one `lighting_layout` sheet on two of
-the three runs. They also took 3 sheets out of the queue, and no answer that is neither the label nor its fair
+the three runs. They also left 2 to 3 fewer sheets in the queue, net (per item, 3 to 4 left it
+and 1 entered), and no answer that is neither the label nor its fair
 second kind was proposed. One `tank_details` sheet was proposed as `details`, its fair second kind, in both variants. **Ruling
 (23): the kinds carry descriptions.** 15's live check points the same way: 2 of 7 invented sheets
 changed answer without them. The descriptions belong with the kinds, in 13's sheet conventions (an
