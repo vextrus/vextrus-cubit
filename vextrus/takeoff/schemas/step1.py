@@ -18,7 +18,7 @@ class _FromView(Schema):
         return cls.model_validate(asdict(view))  # type: ignore[call-overload]
 
 
-class ProposalOut(_FromView):
+class Step1ProposalOut(_FromView):
     id: uuid.UUID
     """What an act names it by: the Proposal's id (the printed sheet's while none is proposed)."""
     sheet_id: uuid.UUID
@@ -44,11 +44,11 @@ class ProposalOut(_FromView):
     decided_at: datetime | None
 
 
-class ProposalsOut(Schema):
-    proposals: list[ProposalOut]
+class Step1ProposalsOut(Schema):
+    proposals: list[Step1ProposalOut]
 
 
-class QuestionOut(_FromView):
+class Step1QuestionOut(_FromView):
     id: uuid.UUID
     kind: str
     status: str
@@ -62,11 +62,11 @@ class QuestionOut(_FromView):
     answered_at: datetime | None
 
 
-class QuestionsOut(Schema):
-    questions: list[QuestionOut]
+class Step1QuestionsOut(Schema):
+    questions: list[Step1QuestionOut]
 
 
-class CoverageOut(_FromView):
+class Step1CoverageOut(_FromView):
     views: int
     assigned: int
     excluded: int
@@ -77,7 +77,7 @@ class CoverageOut(_FromView):
     by_reason: dict[str, int]
 
 
-class DisciplineProgressOut(Schema):
+class Step1DisciplineProgressOut(Schema):
     discipline: str | None
     confirmed: int
     found: int
@@ -88,12 +88,12 @@ class DisciplineProgressOut(Schema):
     open_questions: int
 
 
-class ProgressOut(_FromView):
-    disciplines: list[DisciplineProgressOut]
+class Step1ProgressOut(_FromView):
+    disciplines: list[Step1DisciplineProgressOut]
     not_received: list[str]
 
 
-class ActOut(_FromView):
+class Step1ActOut(_FromView):
     confirmation_id: uuid.UUID
     act: str
     sheets: int
@@ -101,27 +101,27 @@ class ActOut(_FromView):
     at: datetime
 
 
-class ConfirmIn(Schema):
+class Step1ConfirmIn(Schema):
     proposals: list[uuid.UUID]
     kind: str | None = None
 
 
-class ExcludeIn(Schema):
+class Step1ExcludeIn(Schema):
     proposals: list[uuid.UUID]
     reason: str
     text: str = ""
 
 
-class UndoIn(Schema):
+class Step1UndoIn(Schema):
     pass
 
 
-class DrawingListIn(Schema):
+class Step1DrawingListIn(Schema):
     discipline: str
     text: str
 
 
-class ParsedListOut(_FromView):
+class Step1ParsedListOut(_FromView):
     discipline: str
     source: str
     numbers: list[str]
@@ -129,7 +129,7 @@ class ParsedListOut(_FromView):
     entries: list[dict[str, Any]]
 
 
-class DrawingListOut(_FromView):
+class Step1DrawingListOut(_FromView):
     discipline: str
     source: str | None
     numbers: list[str]
@@ -141,16 +141,16 @@ class DrawingListOut(_FromView):
 
 
 __all__ = [
-    "ActOut",
-    "ConfirmIn",
-    "CoverageOut",
-    "DrawingListIn",
-    "DrawingListOut",
-    "ExcludeIn",
-    "ParsedListOut",
-    "ProgressOut",
-    "ProposalsOut",
-    "QuestionsOut",
-    "UndoIn",
+    "Step1ActOut",
+    "Step1ConfirmIn",
+    "Step1CoverageOut",
+    "Step1DrawingListIn",
+    "Step1DrawingListOut",
+    "Step1ExcludeIn",
+    "Step1ParsedListOut",
+    "Step1ProgressOut",
+    "Step1ProposalsOut",
+    "Step1QuestionsOut",
+    "Step1UndoIn",
     "step1",
 ]
