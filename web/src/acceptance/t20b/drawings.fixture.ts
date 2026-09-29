@@ -98,6 +98,9 @@ export class FakeDrawingSet {
       const url = new URL(request.url, location.origin)
       const prefix = `/api/projects/${this.projectId}/drawings`
       if (!url.pathname.startsWith(prefix)) return base(request)
+      // A refusal a test queued with `api.failOnce` answers first, as it does for every other request.
+      const queued = (api as unknown as { once: { match: (method: string, path: string) => boolean }[] }).once
+      if (queued.some((o) => o.match(request.method, url.pathname))) return base(request)
       return this.answer(request, url.pathname.slice(prefix.length), api)
     }
   }
