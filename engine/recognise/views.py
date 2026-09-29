@@ -30,27 +30,27 @@ These sizes, `MIN_VIEW_MM` and `JOIN_MM` are an A1 sheet's (`REFERENCE_MM` long)
 paper, so a frame whose paper is read too small or too large is split alike (a frame block drawn at a
 fraction of its plotted size: the real sets' frames give papers of 130 to 420 mm plotted on A3 and A1). A
 **view title** is a text of two lines at most and `MAX_TITLE_WORDS` words at most holding a kind's words
-(the kind listed first in the conventions wins where several are named: "TYPICAL BEAM SECTION DETAIL" is a detail),
-not in the title block, at least as tall as the sheet's median text (and at most `MAX_LETTER` of the
-paper), not numbered ("5. SEE SECTION ...") and not one of a column of `MIN_NOTE_LINES` lines alike (a
-note's; a scale text in the column is the title's scale line, not a note's). A title lying under another
-within `SUBTITLE_GAP` of its height, across the same place, is its second line ("PRESENTATION PLAN"
-under "GROUND FLOOR PLAN"), no title of its own. Titles, second lines and scale texts stay off the grid,
-and so do the lines within a title's band (its underline), and straight lines along the paper's axes of
-`DIVIDER_SHARE` of its side or longer (borders, dividers between rows of details). Each title takes the
-piece it lies under (a drawing titled beneath, the convention; within `TITLE_GAP` of its height), else
-the piece it lies over (within `TITLE_GAP_UNDER`), else, after all of those, the piece whose box holds it
-within `TITLE_INSIDE` of its lower or upper edge (a section's ground line running under and past its
-title), nearest first, one title a piece; a band less tall than `MIN_DRAWING` of its height is never its
-drawing, and joins its view when it meets the title. A titled piece that is a row under a larger piece
-without a title (no taller than `ROW_SHARE` of it, across its width, within `JOIN_MM` of it) is that
-drawing's detached row of grid marks and dimensions, which is what the title lies nearest: the view takes
-the body too. A title's second lines are in its view's box. A piece with no title lying in a titled
-view's box (grown by `JOIN_MM`) is that view's, whatever its size; another is a view when it covers
-`MIN_UNTITLED` of the paper (of the kind its sheet's title names, else a plan; notes when text fills more
-of it than lines); a smaller one joins the view whose box, grown by `JOIN_MM`, holds it. A view's box is
-its piece, its title and its scale text together. **Reading order** is by rows, top to
-bottom (views whose heights overlap by half are one row), each left to right.
+(the kind listed first in the conventions wins where several are named: "TYPICAL BEAM SECTION DETAIL" is
+a detail), not in the title block, at least as tall as the sheet's median text (and at most `MAX_LETTER`
+of the paper), not numbered ("5. SEE SECTION ...") and not one of a column of `MIN_NOTE_LINES` lines
+alike (a note's; a scale text in the column is the title's scale line, not a note's). A title lying under
+another within `SUBTITLE_GAP` of its height, across the same place, is its second line ("PRESENTATION
+PLAN" under "GROUND FLOOR PLAN"), no title of its own. Titles, second lines and scale texts stay off the
+grid, and so do the lines within a title's band (its underline), and straight lines along the paper's
+axes of `DIVIDER_SHARE` of its side or longer (borders, dividers between rows of details). Each title
+takes the piece it lies under (a drawing titled beneath, the convention; within `TITLE_GAP` of its
+height), else the piece it lies over (within `TITLE_GAP_UNDER`), else, after all of those, the piece
+whose box holds it within `TITLE_INSIDE` of its lower or upper edge (a section's ground line running
+under and past its title), nearest first, one title a piece; a band less tall than `MIN_DRAWING` of its
+height is never its drawing, and joins its view when it meets the title. A titled piece that is a row
+under a larger piece without a title (no taller than `ROW_SHARE` of it, across its width, within
+`JOIN_MM` of it) is that drawing's detached row of grid marks and dimensions, which is what the title
+lies nearest: the view takes the body too. A title's second lines are in its view's box. A piece with no
+title lying in a titled view's box (grown by `JOIN_MM`) is that view's, whatever its size; another is a
+view when it covers `MIN_UNTITLED` of the paper (of the kind its sheet's title names, else a plan; notes
+when text fills more of it than lines); a smaller one joins the view whose box, grown by `JOIN_MM`, holds
+it. A view's box is its piece, its title and its scale text together. **Reading order** is by rows, top
+to bottom (views whose heights overlap by half are one row), each left to right.
 
 **The title block is a view** (CONTEXT.md's "View"; the orchestrator's ruling R2, session 07), of kind
 `title_block`, last on its sheet, after the rows: its box is where its texts (the frame's own and the
