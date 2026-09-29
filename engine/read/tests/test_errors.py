@@ -10,7 +10,7 @@ from engine.read.errors import ReadError
 from engine.read.sandbox import LimitReached, SandboxRefused, SandboxUnavailable
 
 ERRORS = [
-    ReadError(codes.READER_FAILED(program="dwgread", exit_code=1)),
+    ReadError(codes.READER_FAILED()),
     SandboxUnavailable("bwrap: No permissions to create new namespace"),
     SandboxRefused(),
     LimitReached("dwg2dxf", "wall"),

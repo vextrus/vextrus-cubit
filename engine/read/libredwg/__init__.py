@@ -46,7 +46,7 @@ def _version(libredwg: Path) -> str:
         finished = run([str(program), "--version"], reads=[libredwg], output=Path(scratch))
     words = finished.stdout.decode(errors="replace").split()
     if finished.exit_code != 0 or len(words) != 2 or words[0] != "dwgread":
-        raise ReadError(codes.READER_FAILED(program="dwgread", exit_code=finished.exit_code))
+        raise ReadError(codes.READER_FAILED()) from RuntimeError(f"dwgread exited {finished.exit_code}")
     return words[1]
 
 
@@ -103,7 +103,9 @@ def _convert(source: Path, program: str, options: Sequence[str], folder: Path, l
         limits=limits,
     )
     if finished.exit_code != 0:
-        raise ReadError(codes.READER_FAILED(program=program, exit_code=finished.exit_code))
+        raise ReadError(codes.READER_FAILED()) from RuntimeError(
+            f"{program} exited {finished.exit_code}"
+        )
     return target  # opened only through sandbox.open_output
 
 
@@ -116,7 +118,7 @@ def _parse[T](program: str, parse: Callable[[], T]) -> T:
     try:
         return parse()
     except (ValueError, KeyError, TypeError, ArithmeticError, OSError, UnicodeError) as error:
-        raise ReadError(codes.OUTPUT_UNREADABLE(program=program)) from error
+        raise ReadError(codes.OUTPUT_UNREADABLE()) from error
 
 
 def _sha256(path: Path) -> str:

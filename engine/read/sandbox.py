@@ -120,7 +120,7 @@ type Limit = Literal["cpu", "wall", "killed"]
 
 class LimitReached(SandboxError):
     def __init__(self, program: str, limit: Limit) -> None:
-        super().__init__(codes.LIMIT_REACHED(program=program, limit=limit))
+        super().__init__(codes.LIMIT_REACHED(limit=limit))
         self.program = program
         self.limit = limit
 
@@ -236,7 +236,7 @@ def _spawn(
     exit_code = os.waitstatus_to_exitcode(status)
     if sandboxed and exit_code == 1 and stderr.startswith(b"bwrap: "):
         if stderr.startswith(b"bwrap: execvp"):  # the sandbox was built; the program is not there
-            raise ReadError(codes.READER_FAILED(program=program, exit_code=127))
+            raise ReadError(codes.READER_FAILED()) from RuntimeError(f"{program} was not found (127)")
         raise SandboxUnavailable(stderr.decode(errors="replace").strip())  # it could not build it
     if _signalled(exit_code, signal.SIGXCPU):
         raise LimitReached(program, "cpu")
@@ -257,11 +257,11 @@ def open_output(path: Path, program: str) -> BinaryIO:
     try:
         descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
     except OSError as error:  # missing, or a symbolic link (ELOOP)
-        raise ReadError(codes.OUTPUT_UNREADABLE(program=program)) from error
+        raise ReadError(codes.OUTPUT_UNREADABLE()) from error
     status = os.fstat(descriptor)
     if not stat.S_ISREG(status.st_mode) or status.st_nlink != 1:  # a folder, a FIFO, a hard link
         os.close(descriptor)
-        raise ReadError(codes.OUTPUT_UNREADABLE(program=program))
+        raise ReadError(codes.OUTPUT_UNREADABLE()) from RuntimeError(f"{program}: {path}")
     return os.fdopen(descriptor, "rb")
 
 
