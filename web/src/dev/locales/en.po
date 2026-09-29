@@ -143,6 +143,10 @@ msgstr "How the sheet is drawn"
 msgid "Pseudo right to left"
 msgstr "Pseudo right to left"
 
+#: src/dev/sheet/SheetHarness.tsx
+msgid "Previous sheet"
+msgstr "Previous sheet"
+
 #: src/dev/specimen/Specimen.tsx
 msgid "The ? overlay"
 msgstr "The ? overlay"
@@ -178,6 +182,10 @@ msgstr "LtrCanvas"
 #: src/dev/specimen/Specimen.tsx
 msgid "Jump to a project or a sheet…"
 msgstr "Jump to a project or a sheet…"
+
+#: src/dev/sheet/SheetHarness.tsx
+msgid "The harness could not load “{name}”. Try again, or write the sheet again with python -m engine.render."
+msgstr "The harness could not load “{name}”. Try again, or write the sheet again with python -m engine.render."
 
 #: src/dev/specimen/Specimen.tsx
 msgid "Grid"
@@ -303,6 +311,10 @@ msgstr "End their access on a date"
 msgid "Buttons"
 msgstr "Buttons"
 
+#: src/dev/sheet/SheetHarness.tsx
+msgid "Opening {name}…"
+msgstr "Opening {name}…"
+
 #: src/dev/specimen/Specimen.tsx
 msgid "Trace"
 msgstr "Trace"
@@ -371,6 +383,7 @@ msgstr "Saving…"
 msgid "Fitted the whole sheet."
 msgstr "Fitted the whole sheet."
 
+#: src/dev/sheet/SheetHarness.tsx
 #: src/dev/specimen/Specimen.tsx
 msgid "Try again"
 msgstr "Try again"
@@ -434,6 +447,10 @@ msgstr "Fit the whole sheet"
 #: src/dev/specimen/Specimen.tsx
 msgid "English"
 msgstr "English"
+
+#: src/dev/sheet/SheetHarness.tsx
+msgid "Next sheet"
+msgstr "Next sheet"
 
 #: src/dev/specimen/Specimen.tsx
 msgid "Invite"
@@ -519,6 +536,10 @@ msgstr "Under {phoneBelow} px the phone notice replaces every screen after sign-
 msgid "Proposal"
 msgstr "Proposal"
 
+#: src/dev/sheet/SheetHarness.tsx
+msgid "The harness has no sheet named “{name}”. Open one of these:"
+msgstr "The harness has no sheet named “{name}”. Open one of these:"
+
 #: src/dev/specimen/Specimen.tsx
 msgid "Glyphs"
 msgstr "Glyphs"
@@ -567,6 +588,7 @@ msgstr "A label above, a hint under; refused, a red edge and the line saying wha
 msgid "Command"
 msgstr "Command"
 
+#: src/dev/sheet/SheetHarness.tsx
 #: src/dev/specimen/Specimen.tsx
 msgid "Show the keys"
 msgstr "Show the keys"
@@ -611,6 +633,10 @@ msgstr "Read only"
 msgid "Rev."
 msgstr "Rev."
 
+#: src/dev/sheet/SheetHarness.tsx
+msgid "Add a sheet with <0>python -m engine.render</0> into {folder}."
+msgstr "Add a sheet with <0>python -m engine.render</0> into {folder}."
+
 #: src/dev/specimen/Specimen.tsx
 msgid "Sheet numbers, marks and file names are isolated left to right; titles in their own direction. Cut with an ellipsis, the whole text in the tooltip."
 msgstr "Sheet numbers, marks and file names are isolated left to right; titles in their own direction. Cut with an ellipsis, the whole text in the tooltip."
@@ -622,6 +648,10 @@ msgstr "Jump to…"
 #: src/dev/specimen/Specimen.tsx
 msgid "StatusMark"
 msgstr "StatusMark"
+
+#: src/dev/sheet/SheetHarness.tsx
+msgid "Sheets the harness can open"
+msgstr "Sheets the harness can open"
 
 #: src/dev/specimen/Specimen.tsx
 msgid "Download the report"
@@ -650,6 +680,10 @@ msgstr "Keys"
 #: src/dev/specimen/Specimen.tsx
 msgid "Plot"
 msgstr "Plot"
+
+#: src/dev/sheet/SheetHarness.tsx
+msgid "Open a sheet in the harness:"
+msgstr "Open a sheet in the harness:"
 
 #: src/dev/specimen/Specimen.tsx
 msgid "Text"
