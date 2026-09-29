@@ -153,3 +153,24 @@ def test_views_of_another_kind_or_sharing_a_word_keep_the_continuation() -> None
     first = (view("TERRACE BENCH DETAIL", ViewKind.DETAIL),)
     second = (view("PLAN OF PLANTER P-1", ViewKind.PLAN), view("SECTION M-M"))
     assert runs(conflicts.find(sheets, [first, second], CONVENTIONS)) == [["A-81", "A-82"]]
+
+
+@pytest.mark.parametrize(
+    ("title", "first", "second"),
+    [
+        ("BEAM DETAILS", "DETAIL OF B1", "DETAIL OF B7"),
+        ("BEAM DETAILS", "B1 DETAIL", "B7 DETAIL"),
+        ("COLUMN SCHEDULE", "COLUMN SCHEDULE", "SCHEDULE (CONTD.)"),
+        ("COLUMN SCHEDULE", "COLUMN SCHEDULE", "SCHEDULE CONTD."),
+        ("TYPICAL SECTIONS", "SECTION 1-1", "SECTION 9-9"),
+        ("STAIR DETAILS", "STAIR-1 DETAIL", "STAIR-2 DETAIL"),
+    ],
+)
+def test_views_titled_by_their_marks_keep_the_continuation(title: str, first: str, second: str) -> None:
+    """Review 2: a mark ("B1", "1-1"), a short word ("OF") or a continued-sheet word is no evidence
+    against the title block; these pairs were read as continuations before round 1 and must stay so."""
+    kind = ViewKind.SCHEDULE if "SCHEDULE" in title else ViewKind.DETAIL
+    kind = ViewKind.SECTION if "SECTION" in title else kind
+    sheets = [sheet("S-30", title), sheet("S-31", title)]
+    found = conflicts.find(sheets, [(view(first, kind),), (view(second, kind),)], CONVENTIONS)
+    assert runs(found) == [["S-30", "S-31"]]

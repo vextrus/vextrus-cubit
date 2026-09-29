@@ -522,3 +522,32 @@ def test_the_harness_takes_a_paper_only_as_two_finite_sizes() -> None:
         found.paper = bad  # type: ignore[assignment]
         assert harness._paper_of(found) is None
     assert harness._paper_of([]) is None
+
+
+def test_a_budget_cut_shows_in_the_views_report(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Review 2: a cut sheet exported `views: []` with no sign; the file's counts now come with every
+    result, and the harness writes them into the file's export as `view_report`."""
+    monkeypatch.setattr(views, "MAX_SCANS", 10)
+    d, sheet = model_sheet([("BEAM LAYOUT PLAN", (40, 300, 340, 560))])
+    views._held.clear()
+    found = views.find(d.artefact(), sheet, CONVENTIONS)
+    assert list(found) == []
+    assert found.limits == {"viewports_capped": 0, "scan_budget": 1, "read_budget": 0}
+
+
+def test_a_sheet_read_in_full_reports_every_limit_at_zero() -> None:
+    d, sheet = model_sheet([("BEAM LAYOUT PLAN", (40, 300, 340, 560))])
+    views._held.clear()
+    found = views.find(d.artefact(), sheet, CONVENTIONS)
+    assert found.limits == dict.fromkeys(views.LIMITS, 0)
+
+
+def test_the_export_carries_the_files_view_report() -> None:
+    from engine import export
+
+    process = export.ProcessReport(export.ProcessStatus.OK, 0, None, 1.0, 1.0, 1)
+    reading = export.FileReading(
+        path="a.dwg", sha256="0" * 64, format="dwg", discipline_default=None, group="set",
+        conventions_applied=None, process=process, stages={}, view_report={"scan_budget": 2},
+    )  # fmt: skip
+    assert export._file(reading, {})["view_report"] == {"scan_budget": 2}

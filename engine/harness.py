@@ -417,6 +417,7 @@ def _read_dwg(job: Mapping[str, Any], stages: _Stages) -> dict[str, Any]:
             listed_views = _list_of(stages, "views", result, ViewCandidate) if ok else None
             views[j] = listed_views or []
             papers[j] = _paper_of(result) if listed_views is not None else None
+            found["view_report"] = _counts(_as_json(stages, "views", getattr(result, "limits", None)))
     found["views"] = views
     found["papers"] = papers
 
@@ -853,6 +854,7 @@ def _read_file(
         pdf_report=found.get("pdf_report"),
         bangla_ansi=found.get("bangla_ansi"),
         sheet_report=found.get("sheet_report"),
+        view_report=found.get("view_report"),
         sheets=found.get("sheets", []),
         views=found.get("views", []),
         papers=found.get("papers", []),

@@ -163,6 +163,9 @@ class FileReading:
     pdf_report: dict[str, int] | None = None
     bangla_ansi: dict[str, int] | None = None
     sheet_report: dict[str, int] | None = None
+    view_report: dict[str, int] | None = None
+    """The views stage's counts for the file, each bound it reached (17's `views.LIMITS`: viewports
+    and model space not read), zero when not reached; null when the stage reports none."""
     """The sheet finder's counts for the file, each limit it or the register reached (13's
     `FileBudget.report`: sheets, layouts and texts not read), zero when not reached; null when the
     finder reports none."""
@@ -324,6 +327,7 @@ def _file(reading: FileReading, f1: Mapping[int, float]) -> dict[str, JSON]:
         "pdf_report": _counts(reading.pdf_report),
         "bangla_ansi": _counts(reading.bangla_ansi),
         "sheet_report": _counts(reading.sheet_report),
+        "view_report": _counts(reading.view_report),
         "pages": reading.page_count,
         "sheets": [
             _sheet(

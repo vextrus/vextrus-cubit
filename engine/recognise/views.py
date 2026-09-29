@@ -922,7 +922,8 @@ def _subject(text: str, reading: _Reading) -> str | None:
 @dataclass(frozen=True)
 class Described:
     """What a title says, for 19b's continuations (#102): its kind, its layer, and its other words (not
-    the kind's or layer's words, nor the plan, floor and level words), in normal form."""
+    the kind's or layer's words, nor the plan, floor and level words, nor marks: a word with a digit,
+    two letters or fewer, or a continued-sheet word), in normal form."""
 
     kind: ViewKind | None
     layer: Layer | None
@@ -937,8 +938,18 @@ def describe(text: str, conventions: ViewConventions | None = None) -> Described
     for words in (reading.kinds, reading.layers):
         for start, end, _ in words.matches(tokens):
             spent.update(range(start, end))
-    rest = frozenset(t for i, t in enumerate(tokens) if i not in spent) - reading.common
+    rest = frozenset(t for i, t in enumerate(tokens) if i not in spent and not _mark(t)) - reading.common
     return Described(_kind(text, reading), _layer(text, reading), rest)
+
+
+CONTINUED = frozenset({"cont", "contd", "continued"})
+"""The words that mark a continued sheet: no evidence of what it names (review 2 of 17)."""
+
+
+def _mark(word: str) -> bool:
+    """A mark, not a word naming something: it holds a digit ("B1", "1"), has two letters or fewer
+    ("of", "a"), or says the sheet is continued."""
+    return any(c.isdigit() for c in word) or len(word) <= 2 or word in CONTINUED
 
 
 def subjects(text: str, conventions: ViewConventions | None = None) -> frozenset[str]:
@@ -975,6 +986,13 @@ class FoundViews(list[ViewCandidate]):
     none when the sheet's paper could not be read."""
 
     paper: tuple[float, float] | None = None
+    limits: dict[str, int] | None = None
+    """What the file's bounds have left unread so far (`LIMITS`, each given even at 0): the harness
+    writes the last sheet's into the file's export as `view_report`, so a sheet a bound cut is never
+    read as having no views without its reason."""
+
+
+LIMITS = ("viewports_capped", "scan_budget", "read_budget")
 
 
 def find(
@@ -987,13 +1005,20 @@ def find(
     reading = _reading(held)
     paper = _paper(artefact, sheet)
     if paper is None:
-        return FoundViews()
+        empty = FoundViews()
+        empty.limits = _report(artefact)
+        return empty
     fallback = _kind(sheet.title.value, reading) if sheet.title is not None else None
     found = _views(paper, reading, fallback or ViewKind.PLAN)
     discipline = sheet.discipline.value if sheet.discipline is not None else None
     result = FoundViews(_candidate(v, paper, reading, discipline) for v in _in_reading_order(found))
     result.paper = (paper.region[2], paper.region[3])
+    result.limits = _report(artefact)
     return result
+
+
+def _report(artefact: ReadArtefact) -> dict[str, int]:
+    return {**dict.fromkeys(LIMITS, 0), **_walker(artefact).limits}
 
 
 def _views(paper: _Paper, reading: _Reading, untitled: ViewKind) -> list[_View]:
