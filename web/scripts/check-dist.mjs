@@ -3,7 +3,8 @@
  * After `vite build`: what must never ship is absent from the production bundle
  * (docs/design/m0-screens.md §1.8 and §8; docs/plans/M0.md, 01b):
  *   - the test-only pseudo right-to-left language (its tag, en-XB, and its accent table);
- *   - the development-only specimen route (its path, its markers and its catalogue's words);
+ *   - the development-only specimen route (its path, its markers and its catalogue's words), and the
+ *     sheet harness's (/dev/sheet, ticket 16);
  *   - the seed's static copy and the tests' in-memory API (their invented people's addresses): the
  *     product signs in through the API (20a), so nothing seeded is written into the app.
  */
@@ -19,6 +20,8 @@ const FORBIDDEN = [
   { text: 'áƀçðéƒĝĥ', why: 'the pseudo language’s accent table' },
   { text: '/dev/specimen', why: 'the development-only specimen route' },
   { text: 'data-specimen', why: 'the specimen page' },
+  { text: '/dev/sheet', why: 'the development-only sheet harness route' },
+  { text: 'data-sheet-harness', why: 'the sheet harness page' },
   { text: 'Specimen of the shared pieces', why: 'the specimen’s catalogue' },
   { text: 'shapla-homes.example', why: 'the seed’s people (src/app/seed/)' },
   { text: 'padma-builders.example', why: 'the seed’s people (src/app/seed/)' },
@@ -35,6 +38,12 @@ function files(dir) {
 }
 
 let failed = 0
+for (const file of files(dist)) {
+  if (/tiny-sheet|lineweight-ramp|\.bin$/.test(file)) {
+    failed++
+    console.error(`check-dist: ${relative(web, file)} is a sheet buffer (the harness's fixtures or a local sheet), which must never ship`)
+  }
+}
 const all = files(dist).filter((f) => /\.(js|css|html)$/.test(f))
 if (!all.some((f) => f.endsWith('index.html'))) {
   console.error('check-dist: dist/index.html is missing; did `vite build` run?')

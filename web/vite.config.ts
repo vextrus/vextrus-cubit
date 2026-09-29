@@ -67,6 +67,16 @@ export default defineConfig(({ mode }) => {
       // CSRF work as deployed, and the request keeps its Origin, which CSRF_TRUSTED_ORIGINS expects
       // to be this server's (vextrus/settings/auth.py).
       proxy: { '/api': { target: 'http://127.0.0.1:8000', changeOrigin: false } },
+      // Outside web/, Vite serves only these: the engine's committed sheet buffers and their rasters
+      // (engine/render/fixtures/), which the sheet viewer's pixel test and dev route read, and the
+      // buffers written locally for that route (.private/work/sheets/; this server is 127.0.0.1's).
+      fs: {
+        allow: [
+          '.',
+          fileURLToPath(new URL('../engine/render/fixtures/', import.meta.url)),
+          fileURLToPath(new URL('../.private/work/sheets/', import.meta.url)),
+        ],
+      },
     },
     preview: {
       host: '127.0.0.1',

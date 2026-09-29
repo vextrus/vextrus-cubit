@@ -143,6 +143,10 @@ msgstr "How the sheet is drawn"
 msgid "Pseudo right to left"
 msgstr "Pseudo right to left"
 
+#: src/dev/sheet/SheetHarness.tsx
+msgid "Previous sheet"
+msgstr "Previous sheet"
+
 #: src/dev/specimen/Specimen.tsx
 msgid "The ? overlay"
 msgstr "The ? overlay"
@@ -371,6 +375,7 @@ msgstr "Saving…"
 msgid "Fitted the whole sheet."
 msgstr "Fitted the whole sheet."
 
+#: src/dev/sheet/SheetHarness.tsx
 #: src/dev/specimen/Specimen.tsx
 msgid "Try again"
 msgstr "Try again"
@@ -435,6 +440,10 @@ msgstr "Fit the whole sheet"
 msgid "English"
 msgstr "English"
 
+#: src/dev/sheet/SheetHarness.tsx
+msgid "Next sheet"
+msgstr "Next sheet"
+
 #: src/dev/specimen/Specimen.tsx
 msgid "Invite"
 msgstr "Invite"
@@ -470,6 +479,10 @@ msgstr "Jump to"
 #: src/dev/specimen/Specimen.tsx
 msgid "The table under the paper"
 msgstr "The table under the paper"
+
+#: src/dev/sheet/SheetHarness.tsx
+msgid "The harness has no sheet named “{id}”. Open tiny-sheet or lineweight-ramp, or write buffers into .private/work/sheets/ with python -m engine.render."
+msgstr "The harness has no sheet named “{id}”. Open tiny-sheet or lineweight-ramp, or write buffers into .private/work/sheets/ with python -m engine.render."
 
 #: src/dev/specimen/Specimen.tsx
 msgid "Undone."
@@ -603,6 +616,10 @@ msgstr "Status"
 msgid "Act, focus, selection"
 msgstr "Act, focus, selection"
 
+#: src/dev/sheet/SheetHarness.tsx
+msgid "Opening {id}…"
+msgstr "Opening {id}…"
+
 #: src/dev/specimen/Specimen.tsx
 msgid "Read only"
 msgstr "Read only"
@@ -694,6 +711,10 @@ msgstr "Over Target Cost"
 #: src/dev/specimen/Specimen.tsx
 msgid "allowance"
 msgstr "allowance"
+
+#: src/dev/sheet/SheetHarness.tsx
+msgid "The harness could not load “{id}”."
+msgstr "The harness could not load “{id}”."
 
 #: src/dev/specimen/Specimen.tsx
 msgid "Outlines"
