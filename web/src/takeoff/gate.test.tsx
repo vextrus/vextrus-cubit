@@ -79,6 +79,17 @@ describe('M1: an issue date is the API’s ISO date', () => {
   })
 })
 
+describe('M3: the Revision column keeps the date', () => {
+  it('shows "R0, 14 Sep 2026" for a mark read from the file name, and "—" with neither', async () => {
+    const { api, step1 } = kr01()
+    Object.assign(step1.proposals.find((p) => p.number === 'S-02')!, { issue_date: '2026-09-14' })
+    Object.assign(step1.proposals.find((p) => p.number === 'S-03')!, { revision_mark: '', revision_mark_source: null })
+    await open(api)
+    expect(clean(rowOf('S-02').textContent)).toContain('R0, 14 Sep 2026')
+    expect(clean(rowOf('S-03').textContent)).toContain('—')
+  })
+})
+
 describe('M4, M5: the Question cards', () => {
   it('gives every open Question its Trace line, and Q3, Q4 and Q5 a body', async () => {
     const { api } = kr01()
@@ -115,6 +126,57 @@ describe('M4, M5: the Question cards', () => {
     expect(clean(q2.textContent)).toContain('Answering confirms S-07 (rev B) and excludes S-07 (rev A) as superseded.')
     const picked = within(q2).getAllByRole('radio').find((r) => (r as HTMLInputElement).checked)
     expect(clean(picked?.closest('label')?.textContent)).toContain('Keep rev B (20 Aug 2026); leave rev A out as superseded')
+  })
+})
+
+describe('M7, M8: the inspector’s sheet and who did what', () => {
+  it('shows where each fact was read, the views with their chips, and the Exclude action', async () => {
+    const { api, step1 } = kr01()
+    Object.assign(step1.proposals.find((p) => p.number === 'S-05')!, {
+      number_source: 'title_block_attribute',
+      title_source: 'title_block_text',
+      layout: null,
+      plot_file: null,
+      plot_page: null,
+      plot_none: null,
+      views: [
+        { id: 'v1', ordinal: 1, kind: 'plan', title: '1ST FLOOR BEAM LAYOUT', stated_scale: '1:100', not_to_scale: false, storeys: ['1st'], storeys_as_stated: '1ST FLOOR', storeys_meaning: 'at_floor_level', steps: ['beams'], part: null, proposed_exclusion: null, decision: null, excluded_reason: null, box: ['0', '0', '1', '1'] },
+        { id: 'v2', ordinal: 2, kind: 'title_block', title: 'TITLE BLOCK', stated_scale: '', not_to_scale: true, storeys: [], storeys_as_stated: '', storeys_meaning: null, steps: [], part: null, proposed_exclusion: 'for_information', decision: null, excluded_reason: null, box: ['0', '0', '1', '1'] },
+      ],
+    })
+    await open(api)
+    await focusRow('S-05')
+    const facts = () => clean(inspector().textContent)
+    await waitFor(() => expect(facts()).toContain('Proposal: where each was read'))
+    expect(facts()).toContain('S-05 title-block attribute')
+    expect(facts()).toContain('text in the title block')
+    expect(facts()).toContain('Structural from the file')
+    expect(facts()).toContain('laid out in the drawing')
+    expect(facts()).toContain('1st, at floor level')
+    expect(facts()).toContain('None: no PDF of this set matched it')
+    expect(facts()).toContain('Views (2)')
+    expect(facts()).toContain('7 Beams')
+    expect(facts()).toContain('excluded: for information')
+    expect(facts()).toContain('Proposed by Vextrus from the file; no one has acted on it yet.')
+    await userEvent.click(within(inspector()).getByRole('button', { name: /Exclude/ }))
+    await waitFor(() => expect(bodyText()).toContain('Exclude S-05. Why?'))
+  })
+
+  it('shows the initials chip on a confirmed row and the act over "name, role, time"', async () => {
+    const { api, step1 } = kr01()
+    step1.settleAllBut('electrical')
+    for (const p of step1.proposals) if (p.decision) Object.assign(p, { decided_by_role: 'qs', decided_with: 20 })
+    await mountApp(PATH, { as: PEOPLE.md, api })
+    await waitFor(() => rowOf('S-02'))
+    expect(within(rowOf('S-02')).getByTitle('Nusrat Jahan, QS')).toHaveTextContent('NJ')
+    await focusRow('S-02')
+    await waitFor(() => expect(clean(inspector().textContent)).toContain('Confirmed in bulk with 19 other sheets'))
+    expect(clean(inspector().textContent)).toContain('Nusrat Jahan, QS, 26 Sep 2026, 11:00')
+    expect(within(inspector()).getByTitle('Nusrat Jahan, QS')).toHaveTextContent('NJ')
+    expect(clean(inspector().textContent)).toContain('Confirmed by Nusrat Jahan, 26 Sep 2026')
+    expect(within(inspector()).queryByRole('button', { name: /Exclude|Confirm back in/ })).toBeNull()
+    await focusRow('A-07')
+    await waitFor(() => expect(clean(inspector().textContent)).toContain('Excluded: for information'))
   })
 })
 

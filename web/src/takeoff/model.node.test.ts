@@ -33,6 +33,17 @@ function sheet(number: string | null, over: Partial<ProposalOut> = {}): Proposal
     decided_by: null,
     decided_at: null,
     agrees: true,
+    decided_by_role: null,
+    decided_with: 0,
+    number_source: 'title_block_attribute',
+    title_source: 'title_block_attribute',
+    storeys_as_stated: '',
+    layout: null,
+    plot_file: null,
+    plot_page: null,
+    plot_residual: null,
+    plot_none: null,
+    views: [],
     ...over,
   }
 }

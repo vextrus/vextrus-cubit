@@ -122,6 +122,45 @@ class ProposalView:
     title block, and its Discipline's drawing list naming it, or, with no list, its Discipline's
     numbering running without a gap and its Plot page matched; never while held or in an open
     Question. Only such a sheet joins the bulk act (6.4); the others are Proposals "with one source"."""
+    decided_by_role: str | None = None
+    """The actor's role in the Developer ("qs", "vextrus_engineer"): "Nusrat Jahan, QS" (6.6)."""
+    decided_with: int = 0
+    """How many sheets the act that decided it decided: "Confirmed in bulk with 55 other sheets"."""
+    number_source: str | None = None
+    """Where its number was read: "title_block_attribute", "title_block_text", …; None for none."""
+    title_source: str | None = None
+    storeys_as_stated: str = ""
+    layout: str | None = None
+    """The layout it is laid out on, by name; None when laid out in the drawing (a frame)."""
+    plot_file: str | None = None
+    plot_page: int | None = None
+    plot_residual: str | None = None
+    plot_none: dict[str, Any] | None = None
+    """Why it has no Plot (a message), or None when a page matched or no PDF was added."""
+    views: list[SheetViewView] = field(default_factory=list)
+    """Its views in reading order, title block included."""
+
+
+@dataclass(frozen=True)
+class SheetViewView:
+    """A view on a printed sheet as Step 1 shows it (m0-screens §6.6's Views, §6.5's outlines)."""
+
+    id: uuid.UUID
+    ordinal: int
+    kind: str
+    title: str
+    stated_scale: str
+    not_to_scale: bool
+    storeys: list[str]
+    storeys_as_stated: str
+    storeys_meaning: str | None
+    steps: list[str]
+    part: str | None
+    proposed_exclusion: str | None
+    decision: str | None
+    excluded_reason: str | None
+    box: list[str]
+    """x0, y0, x1, y1 in drawing units, as decimal strings (as read)."""
 
 
 @dataclass(frozen=True)
@@ -253,11 +292,20 @@ def proposals(project_id: uuid.UUID) -> list[ProposalView]:
     stamps = {s.confirmation_id for s in sheets if s.confirmation_id}
     # Who and when, from the act that decided each sheet (a decision put back by an undo keeps its
     # own act's name and time).
-    who = {c.id: (c.by_name, c.at) for c in Confirmation.objects.filter(id__in=stamps)}
+    acts = list(Confirmation.objects.filter(id__in=stamps))
+    who = {c.id: (c.by_name, c.at) for c in acts}
+    roles = invitations.roles_of({c.user_id for c in acts})
+    role = {c.id: roles.get(c.user_id) for c in acts}
+    size = {c.id: c.proposals for c in acts}
     agreeing = _agreeing(project_id, sheets, by_sheet)
     order = markets.of_developer(_tenant()).date_order
     return [
-        replace(_proposal_view(s, by_sheet.get(s.id), names, who, order), agrees=s.id in agreeing)
+        replace(
+            _proposal_view(s, by_sheet.get(s.id), names, who, order),
+            agrees=s.id in agreeing,
+            decided_by_role=role.get(s.confirmation_id) if s.confirmation_id else None,
+            decided_with=size.get(s.confirmation_id, 0) if s.confirmation_id else 0,
+        )
         for s in sheets
     ]
 
@@ -355,6 +403,35 @@ def _proposal_view(
         excluded_text=sheet.excluded_text,
         decided_by=by,
         decided_at=at or sheet.decided_at,
+        number_source=sheet.sources.get("number"),
+        title_source=sheet.sources.get("title"),
+        storeys_as_stated=sheet.storeys_as_stated,
+        layout=layout if isinstance(layout := sheet.location.get("layout"), str) else None,
+        plot_file=names.get(sheet.plot.file_id) if sheet.plot.file_id and sheet.plot.page else None,
+        plot_page=sheet.plot.page,
+        plot_residual=sheet.plot.residual,
+        plot_none=dict(sheet.plot.none) if sheet.plot.none else None,
+        views=[_sheet_view_view(v) for v in drawings.views(sheet.id)],
+    )
+
+
+def _sheet_view_view(view: drawings.ViewView) -> SheetViewView:
+    return SheetViewView(
+        id=view.id,
+        ordinal=view.ordinal,
+        kind=view.confirmed_kind or view.kind,
+        title=view.title,
+        stated_scale=view.stated_scale,
+        not_to_scale=view.not_to_scale,
+        storeys=list(view.storeys),
+        storeys_as_stated=view.storeys_as_stated,
+        storeys_meaning=view.storeys_meaning,
+        steps=list(view.steps),
+        part=view.part,
+        proposed_exclusion=view.proposed_exclusion,
+        decision=view.decision,
+        excluded_reason=view.excluded_reason,
+        box=list(view.box),
     )
 
 

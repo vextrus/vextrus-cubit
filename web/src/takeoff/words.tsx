@@ -195,3 +195,35 @@ export const SHEET_KIND_NAMES: Readonly<Record<string, MessageDescriptor>> = {
 }
 
 export const OTHER_OPTION = msg`An answer Vextrus has no words for yet`
+
+/** A view's kind (m0-screens §6.6's Views: "Plan", "Detail"), by 13's ViewKind. */
+export const VIEW_KINDS: Readonly<Record<string, MessageDescriptor>> = {
+  plan: msg({ message: 'Plan', context: 'view kind' }),
+  section: msg({ message: 'Section', context: 'view kind' }),
+  elevation: msg({ message: 'Elevation', context: 'view kind' }),
+  schedule: msg({ message: 'Schedule', context: 'view kind' }),
+  detail: msg({ message: 'Detail', context: 'view kind' }),
+  notes: msg({ message: 'Notes', context: 'view kind' }),
+  legend: msg({ message: 'Legend', context: 'view kind' }),
+  title_block: msg({ message: 'Title block', context: 'view kind' }),
+  key_plan: msg({ message: 'Key plan', context: 'view kind' }),
+  perspective: msg({ message: '3D or perspective', context: 'view kind' }),
+}
+export const OTHER_VIEW_KIND = msg({ message: 'View', context: 'view kind' })
+
+/** What a view's storeys mean (§6.8). */
+export const STOREY_MEANINGS: Readonly<Record<string, MessageDescriptor>> = {
+  at_floor_level: msg`at floor level`,
+  floor_to_floor: msg`floor to floor`,
+}
+
+/** An actor's role in "who did what" (§6.6: "Nusrat Jahan, QS"). */
+export const ROLE_NAMES: Readonly<Record<string, MessageDescriptor>> = {
+  qs: msg({ message: 'QS', context: 'role' }),
+  md: msg({ message: 'MD', context: 'role' }),
+  vextrus_engineer: msg({ message: 'Vextrus Engineer', context: 'role' }),
+  guest: msg({ message: 'Guest', context: 'role' }),
+}
+
+/** 19a's Takeoff Steps by key, in order: step n is `STEP_KEYS[n - 1]` (vextrus/takeoff/library.py). */
+export const STEP_KEYS = ['sheets', 'general_notes', 'storeys', 'grid', 'foundations', 'columns', 'beams', 'slabs', 'stairs', 'tanks', 'walls', 'rooms', 'roof', 'site_mep'] as const

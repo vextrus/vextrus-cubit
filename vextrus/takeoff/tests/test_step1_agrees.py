@@ -181,3 +181,19 @@ def test_a_list_read_on_a_sheet_names_the_sheet_it_was_read_on(step1_project: St
         )
 
     assert reader.get(path, discipline="structural").json()["read_on"] == str(step1_project.sheets[0])
+
+
+def test_a_proposal_carries_where_each_fact_was_read_and_its_views(step1_project: Step1Project) -> None:
+    """The design gate's M7 and M2 (m0-screens §6.2, §6.6): the inspector's "where each was read"
+    (number, title, storeys, file and layout, Plot) and the Views section and column come from the
+    Proposal; a sheet read from a frame in the drawing has no layout, and none here has a Plot page."""
+    body = api_as(step1_project.member).get(
+        f"/api/projects/{step1_project.project_id}/takeoff/step1/proposals"
+    ).json()
+    first = body["proposals"][0]
+    assert first["number_source"] in {"title_block_attribute", "title_block_text"}
+    assert first["title_source"] in {"title_block_attribute", "title_block_text"}
+    assert (first["layout"], first["plot_page"], first["plot_file"]) == (None, None, None)
+    assert [v["kind"] for v in first["views"]] == ["title_block"]
+    shown = {"title", "stated_scale", "storeys", "storeys_meaning", "steps", "box"}
+    assert set(first["views"][0]) >= shown

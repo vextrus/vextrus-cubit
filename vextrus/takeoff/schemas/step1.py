@@ -18,6 +18,27 @@ class _FromView(Schema):
         return cls.model_validate(asdict(view))  # type: ignore[call-overload]
 
 
+class Step1ViewOut(Schema):
+    """A view on a printed sheet (m0-screens §6.6's Views, §6.5's outlines)."""
+
+    id: uuid.UUID
+    ordinal: int
+    kind: str
+    title: str
+    stated_scale: str
+    not_to_scale: bool
+    storeys: list[str]
+    storeys_as_stated: str
+    storeys_meaning: str | None
+    steps: list[str]
+    part: str | None
+    proposed_exclusion: str | None
+    decision: str | None
+    excluded_reason: str | None
+    box: list[str]
+    """x0, y0, x1, y1 in drawing units, as decimal strings."""
+
+
 class Step1ProposalOut(_FromView):
     id: uuid.UUID
     """What an act names it by: the Proposal's id (the printed sheet's while none is proposed)."""
@@ -45,6 +66,26 @@ class Step1ProposalOut(_FromView):
     decided_at: datetime | None
     agrees: bool
     """Two sources agree on it (m0-screens §5): it joins the bulk act; else "Proposal, one source"."""
+    decided_by_role: str | None
+    """The actor's role in the Developer ("qs", "vextrus_engineer", …): "Nusrat Jahan, QS" (6.6)."""
+    decided_with: int
+    """How many sheets the deciding act decided (0 while undecided): "Confirmed in bulk with 55 other
+    sheets" (6.6)."""
+    number_source: str | None
+    """Where its number was read ("title_block_attribute", "title_block_text"); null for none."""
+    title_source: str | None
+    storeys_as_stated: str
+    """The storeys its title states, as drawn ("3RD, 5TH & 7TH FLOOR"); "" for none."""
+    layout: str | None
+    """The layout it is laid out on, by name; null when laid out in the drawing."""
+    plot_file: str | None
+    plot_page: int | None
+    plot_residual: str | None
+    """How closely its Plot page registered, in mm, as a decimal string."""
+    plot_none: dict[str, Any] | None
+    """Why it has no Plot, as a message `{code, params}`; null when a page matched or none was added."""
+    views: list[Step1ViewOut]
+    """Its views in reading order, title block included (the Views column counts them)."""
 
 
 class Step1ProposalsOut(Schema):

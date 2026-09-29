@@ -12,6 +12,7 @@ import { DrawingText, StatusMark, cn } from '@/ui'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/primitives/tooltip'
 import type { ProposalOut } from './data'
 import { SheetRange } from './SheetRange'
+import { ActorChip } from './ActorChip'
 import { rowState, type DisciplineSection, type Row, type Step1Model } from './model'
 import { DISCIPLINE_NAMES, NOT_RECEIVED_NAMES, OTHER_DISCIPLINE, OTHER_QUESTION, QUESTION_KIND_BY_CODE, REASON_SHORT, UNKNOWN_REASON } from './words'
 
@@ -265,18 +266,20 @@ function DisciplineCell({ sheet }: { sheet: ProposalOut }) {
   )
 }
 
+/** "R1, 14 Sep 2026"; a mark read from the file name shows the same, its tooltip saying so; "—" for neither (6.2). */
 function Revision({ sheet }: { sheet: ProposalOut }) {
   const f = useFormat()
   const mark = sheet.revision_mark
-  if (!mark) return <span className="text-muted-foreground">—</span>
   const date = sheet.issue_date ? f.day(sheet.issue_date) : null
+  if (!mark && !date) return <span className="text-muted-foreground">—</span>
   const markText = <DrawingText kind="revision" text={mark} truncate={false} />
-  if (sheet.revision_mark_source === 'file_name') {
+  const shown = !mark ? <>{date}</> : date ? <Trans>{markText}, {date}</Trans> : markText
+  if (mark && sheet.revision_mark_source === 'file_name') {
     const file = <DrawingText kind="file-name" text={sheet.file_name} truncate={false} />
     return (
       <Tooltip>
         <TooltipTrigger asChild>
-          <span tabIndex={-1}>{markText}</span>
+          <span tabIndex={-1}>{shown}</span>
         </TooltipTrigger>
         <TooltipContent>
           <Trans>
@@ -286,20 +289,22 @@ function Revision({ sheet }: { sheet: ProposalOut }) {
       </Tooltip>
     )
   }
-  return date ? (
-    <Trans>
-      {markText}, {date}
-    </Trans>
-  ) : (
-    markText
-  )
+  return shown
 }
 
 function State({ row }: { row: Row }) {
   const { i18n } = useLingui()
   const state = rowState(row)
   if (state.kind === 'question') return <StatusMark status="question" questionId={state.tag} />
-  if (state.kind === 'confirmed') return <StatusMark status="confirmed" />
+  if (state.kind === 'confirmed') {
+    const by = row.sheets.find((p) => p.decided_by)
+    return (
+      <span className="inline-flex items-center gap-1.5">
+        <StatusMark status="confirmed" />
+        {by?.decided_by ? <ActorChip name={by.decided_by} role={by.decided_by_role} /> : null}
+      </span>
+    )
+  }
   if (state.kind === 'excluded') {
     const reason = state.reason === 'other' && state.text ? state.text : i18n._((state.reason && REASON_SHORT[state.reason]) || UNKNOWN_REASON)
     return (

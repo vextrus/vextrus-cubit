@@ -12,6 +12,7 @@ import { ApiRefused, api, unwrap } from '@/api/client'
 import type { components } from '@/api/schema.gen'
 
 export type ProposalOut = components['schemas']['Step1ProposalOut']
+export type ViewOut = components['schemas']['Step1ViewOut']
 export type QuestionOut = components['schemas']['Step1QuestionOut']
 export type CoverageOut = components['schemas']['Step1CoverageOut']
 export type ProgressOut = components['schemas']['Step1ProgressOut']
