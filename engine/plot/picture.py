@@ -22,12 +22,16 @@ header and exactly the pixels the header states, never more.
 way: a tree that lists a page twice, or a `/Rotate` that is not a multiple of 90 (which 12 reads as
 0), gives the two readers different pages under one number. So the child refuses (`not_the_page`) a
 page whose size as displayed (its CropBox, turned) is not 12's `Page.crop`'s, within `SIZE_SLACK`,
-or on which pdfium finds fewer than half of up to `MAX_TEXTS` of 12's text items (spaces aside).
+or on which pdfium finds no more than half of up to `MAX_TEXTS` words of 12's text items (runs of 3 to
+40 letters and digits, case folded, sought in pdfium's text of letters and digits alone): the two
+readers map a font's symbols differently (a real architectural page's items carried symbols pdfium
+reads as others), so only the words both read alike are compared.
 """
 
 import hashlib
 import math
 import os
+import re
 import stat
 import struct
 import sys
@@ -113,10 +117,8 @@ def _picture(path: Path, page: Page, px_per_pt: float, limits: Limits) -> Pictur
     width, height = abs(x1 - x0), abs(y1 - y0)
     if not (math.isfinite(width) and math.isfinite(height)):
         raise PictureError("not_the_page")
-    texts = [
-        t for item in page.items
-        if item.source is TextSource.TEXT and 3 <= len(t := "".join(item.text.split())) <= 40
-    ][:MAX_TEXTS]  # fmt: skip
+    runs = (r for item in page.items if item.source is TextSource.TEXT for r in _runs(item.text))
+    texts = list(dict.fromkeys(runs))[:MAX_TEXTS]
     with tempfile.TemporaryDirectory(prefix="vextrus-plot-") as scratch:
         copy = Path(scratch, "source.pdf")
         try:
@@ -193,3 +195,8 @@ def _distinct(paths: list[Path]) -> list[Path]:
             continue
         kept.append(path)
     return kept
+
+
+def _runs(text: str) -> list[str]:
+    """A text's words for comparing the readers: its runs of 3 to 40 letters and digits, case folded."""
+    return [w for w in re.split(r"[^\w]|_", text.casefold()) if 3 <= len(w) <= 40 and w.isalnum()]

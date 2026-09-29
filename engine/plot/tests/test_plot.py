@@ -584,3 +584,32 @@ def test_an_upside_down_sheet_is_turned_by_its_ink(tmp_path: Path) -> None:
 
     assert_same_place(found, truth)
     assert render_f1.score(sheet_buffers(), page, found, path) >= 0.9
+
+
+def test_a_page_whose_symbols_the_two_readers_map_apart_is_still_its_own_page(tmp_path: Path) -> None:
+    """Found on a real architectural page: 12's items held symbols pdfium reads as others."""
+    path = one_page(tmp_path)
+    page = read(path)
+    marked = replace(page, items=tuple(
+        item(f"\u25a1{word}\u2020", size=10) for word in ("GROUND", "FLOOR", "PLAN", "NOTES")
+    ))  # fmt: skip
+    path.write_bytes(document(Pdf(), [PdfPage(content=b"", size=(200.0, 100.0))]))
+
+    with pytest.raises(picture.PictureError) as refused:  # the words are not on this page
+        picture.picture(path, replace(marked, source_sha256=sha256_of(path)), 1.0)
+    assert refused.value.reason == "not_the_page"
+    words = tmp_path / "words.pdf"
+    pdf = Pdf()
+    font = truetype_font(pdf)
+    content = b"".join(
+        text(10, 10 + 20 * i, w, size=8) for i, w in enumerate(("GROUND", "FLOOR", "PLAN", "NOTES"))
+    )
+    words.write_bytes(document(pdf, [PdfPage(content=content, size=(200.0, 100.0), fonts={"F1": font})]))
+    drawn = picture.picture(words, replace(marked, source_sha256=sha256_of(words)), 1.0)
+    assert drawn.pixels.shape == (100, 200)
+
+
+def sha256_of(path: Path) -> str:
+    import hashlib
+
+    return hashlib.sha256(path.read_bytes()).hexdigest()

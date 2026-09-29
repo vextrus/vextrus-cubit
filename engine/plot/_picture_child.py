@@ -6,9 +6,9 @@
 It writes the header (`VXPP`, u32 width, u32 height) and the pixels, rows from the top, or `NO::` and
 a reason's key for a page it will not draw: `unreadable` (the file or page cannot be opened),
 `no_page` (the PDF has fewer pages), `not_the_page` (its size as displayed is not <width> by <height>
-points within <slack>, or fewer than half the <text>s, spaces aside, are on it: 12 read another page
-under this number), `too_large` (the picture would pass the most pixels, checked
-before a pixel is drawn) or `memory`. It exits 0 whatever the file holds; any other exit is the
+points within <slack>, or no more than half the <text>s are among its letters and digits: 12 read
+another page under this number), `too_large` (the picture would pass the most pixels, checked before
+a pixel is drawn) or `memory`. It exits 0 whatever the file holds; any other exit is the
 sandbox's to explain (a limit reached) or a fault of Vextrus's own.
 """
 
@@ -60,8 +60,9 @@ def _draw(
         if not all(abs(a - b) <= max(1.0, slack * b) for a, b in ((width, want_w), (height, want_h))):
             return b"NO::not_the_page"
         if texts:
-            found = "".join(page.get_textpage().get_text_range().split())
-            if sum(t in found for t in texts) * 2 < len(texts):
+            text = page.get_textpage().get_text_range()
+            found = "".join(c for c in text if c.isalnum()).casefold()
+            if sum(t in found for t in texts) * 2 <= len(texts):
                 return b"NO::not_the_page"
         columns, rows = math.ceil(width * px_per_pt), math.ceil(height * px_per_pt)
         if not (columns > 0 and rows > 0 and columns * rows <= most):
