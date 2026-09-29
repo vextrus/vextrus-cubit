@@ -14,7 +14,8 @@ Reads every `web/src/messages/**/en.po` and fails on a msgstr that holds:
 - **"reinforcement"**: the word is Rebar (CONTEXT.md);
 - a **positional placeholder** (`{0}`): every argument is named, so a translator knows what it is;
 - a **count without a plural**: a plain or `number` argument named as a count (`{count}`, `{n}`,
-  `{…_count}`), or a plain or `number` argument followed by a plural noun (`{sheets} sheets`, `{drawn} drawn pages`), which
+  `{…_count}`), or a plain or `number` argument followed by a plural noun (`{sheets} sheets`,
+  `{drawn} drawn pages`), which
   reads "1 sheets"; use `{sheets, plural, one {# sheet} other {# sheets}}`.
 
 Only the msgstr's own words are read: argument names, `select` and `plural` keys are not words.
