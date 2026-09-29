@@ -37,16 +37,17 @@ the rulings on pace say where the review loop stops.
 
 ## How session 06 goes faster (recommendations; the owner rules)
 **What wave 3 cost** (times UTC). Launched locally at 20:13 on 28 Sep. Four of its five tickets merged by 02:26 on
-29 Sep, 6 h 13 min after launch (15 at 22:26, 20a at 02:10, 13 at 02:16, 14 at 02:26); ⟨FILL: 19b⟩. The owner's
-ruling on pace came at 01:2x, about five hours in, when only 15 had merged. Its rounds (a code review is one
-`pr-reviewer` run, first or re-check; a fix round is one message back):
+29 Sep, 6 h 13 min after launch (15 at 22:26, 20a at 02:10, 13 at 02:16, 14 at 02:26); 19b's posting run and
+merge were left to the owner at the session's close. The owner's ruling on pace came at 01:2x, about five hours
+in, when only 15 had merged. Its rounds (a code review is one `pr-reviewer` run, first or re-check; a fix round is
+one message back):
 
 | Ticket | Code reviews | Fix rounds | Words gate or walk |
 |---|---|---|---|
 | 13 | 4 | 3 (8 findings; then the hostile-file bounds twice) | 2 (failed, passed) |
 | 14 | 2 | 1 | 2 (failed, passed) |
 | 15 | 2 | 1 (and its planned renumbering) | 2 (passed, passed) |
-| 19b | ⟨FILL: 19b⟩ | 1 (and its planned part 2) | ⟨FILL: 19b⟩ |
+| 19b | 2 | 1 (and its planned part 2) | 3 (failed, failed, passed) |
 | 20a | 3 | 2 (the walk's 7 musts; then a fault the fix brought) | 3 walks (failed, failed, passed) |
 | #75, #82, #93 | 2 each | 1 each | none |
 
@@ -92,13 +93,19 @@ ruling on pace came at 01:2x, about five hours in, when only 15 had merged. Its 
 - **Posting runs accepted:** #89 on its first run (7 report counts gained); #98 (run
   20260929T015643Z-f314630f6e7d-707c): sheets +288, register +29, 0 failed stages, every stage ok on all 11 files,
   no cap reached.
-- **19b:** ⟨FILL: 19b⟩
-- **Filed, not sent back:** #87, #88, #92, #93 (fixed by #96), #94, #95, #100.
+- **19b:** #101 at 80c428b2 (its part 2 wired 13's real `storeys.read` and `sheets.sequence`; `main` 1216e7f3
+  merged); first READY at 21:28 (74 min). Its posting run and merge: the owner's step at the session's close. Its
+  real-set findings, judged by a drawing analysis against 13's analysts' counts: conflicts 5 true, 0 false; gaps 18
+  true; drawing-list results 58 true; continuations 10 true, **7 false**, 3 unclear (copied title blocks read as
+  continuations, and a continuation raises no Question, so those title errors go unseen); a file with no
+  Discipline has its sheets left out of every comparison, so a real number collision is missed. Filed as #102.
+- **Filed, not sent back:** #87, #88, #92, #93 (fixed by #96), #94, #95, #100, #102.
 - **14 does not store 13's `sheet_report`:** it merged before the report existed in its services (item 21a below).
 
 ## Done means (check each, and keep checking until all hold)
 1. **The rulings on pace** are in STATE.md and #45 before the first launch.
-2. **19b merged** (above), with its check on the real sets done.
+2. **19b (#101) merged,** its posting run accepted: the owner's step at session 05's close; if either is still
+   owed, it comes first.
 3. **Wave 4 merged:** 16, 17, 18, 19a, 20b, 21a (docs/plans/M0.md, "Wave 4"). Each PR went through the review loop
    within the rulings on pace, and has its local step done: 16's design gate and its walk of every sheet of one real
    set; 17's and 18's posting runs; 20b's design gate; the words gate on 19a's and 21a's catalogues.
@@ -133,7 +140,9 @@ the words gate.
   its walk on 13's sheets from the harness.
 - **17:** 13's storey keys (D7), "typical" only beside a floor or plan word; view titles to 15's node as
   `view_titles`, a JSON-array text, `"[]"` when none (the ruling on 15's keys). Storey keys have no display words
-  yet (13's words gate): the first ticket to show one on a screen adds its words to a catalogue first.
+  yet (13's words gate): the first ticket to show one on a screen adds its words to a catalogue first. 17 checks a
+  continuation's inner (view) title against its title block (#102: 7 of 20 continuations on the real sets were
+  copied title blocks).
 - **18:** `render_f1.py` declares `CODE`, `VERSION`, `MILESTONE`, `KIND` and `MESSAGE`, or 18 names it in
   `catalogue.py` as a non-Check (D9; 19b's scan fails loudly otherwise). #87 (an inch layout's paper read in mm)
   is 18's: it meets the page-to-sheet scale. #88 (the renderer ignores a text style's width factor and oblique
@@ -143,6 +152,7 @@ the words gate.
   rule (19b mirrors it): 19a calls them. The confirm service calls 15's `record_override` for each change to Jev's
   pick (D10); it writes confirmation, exclusion and confirmed kind on 14's printed sheet (`SheetRevision`);
   `set_register` is its (D5). The seed's "Held, answered" is 19a's; 14 seeded only the states that need no job.
+  19a and 21c decide how a sheet with no Discipline is compared (#102).
 - **21a:** its read job runs on the CAD queue with no memory cap until 24 measures one
   (`VEXTRUS_CAD_WORKER_MEMORY_BYTES = None`); 13 now bounds its own finder, one budget per file. 21a and 14 record
   13's `sheet_report` with the Drawing File: 14 merged before the report existed and has no place for it, so 21a's
@@ -237,8 +247,10 @@ Dates are Dhaka's; #45 and session 05's STATE.md have each in full.
   file ("Hold it"); `failed_stages` counts a killed file; BLAS runs on one thread per file.
 
 ## What is broken, unmeasured or waiting
-- **19b:** ⟨FILL: 19b⟩ #100 holds three small findings from its review (continuation order, pasted control
-  characters, a revision in the number).
+- **19b:** #101's posting run and merge are the owner's step at session 05's close. #102: 7 of 20 real
+  continuations were copied title blocks, and a file with no Discipline is left out of every comparison. #100
+  holds three small findings from its review (continuation order, pasted control characters, a revision in the
+  number).
 - **The widening gate** is not met for the third wave running; decided: do not widen.
 - **13's `sheet_report` is not stored:** 21a records it and a follow-up to 14 stores it (above).
 - **Engine test failures with no name:** #82's builder saw one once in 19 runs, 14's one under load; both names
