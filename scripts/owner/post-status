@@ -98,7 +98,9 @@ def main(
             print(github_head(config, args.ref, transport or https, signer, now()))
             return 0
         if args.kind == "real-drawings":
-            writer = pipeline_user(config.get("writer"))
+            if not isinstance(config.get("writer"), str):
+                raise Refused("the settings name no pipeline's user (`writer`)")
+            writer = pipeline_user(config["writer"])
             pr, commit, state, description = real_drawings(Path(config["drop"]), args.run_id, writer)
             context = "real-drawings"
         else:

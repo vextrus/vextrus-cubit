@@ -31,7 +31,7 @@ def draft(root: Path, keyed: bytes = b"invented first drawing", **sheet: object)
     key = {
         "set": "invented-set",
         "held_out": False,
-        "files": {"first.dwg": sha(keyed)},
+        "files": {"first.dwg": sha(keyed), "second.dwg": sha(b"invented second drawing")},
         "sheets": [
             {
                 "file": "first.dwg",
@@ -70,6 +70,7 @@ def test_a_draft_whose_sha256_is_another_files_is_refused_naming_the_file(
     ("change", "said"),
     [
         ({"files": {"missing.dwg": "0" * 64}}, "missing.dwg: no file is named so"),
+        ({"files": {"first.dwg": sha(b"invented first drawing")}}, "second.dwg missing"),
         ({"files": {}}, "records no drawing files"),
         ({"files": {"../first.dwg": "0" * 64}}, "not a plain file name"),
         ({"files": {"first.dwg": "short"}}, "first.dwg: the draft records no sha256"),
@@ -90,7 +91,7 @@ def test_a_draft_without_its_files_sha256_is_refused(
 def test_a_sheet_naming_a_file_the_draft_does_not_record_is_refused(tmp_path: Path) -> None:
     folder = a_set(tmp_path)
 
-    found = drafts.check([draft(tmp_path, file="second.dwg")], folder)
+    found = drafts.check([draft(tmp_path, file="third.dwg")], folder)
     path = tmp_path / "keys-draft" / "invented-set.json"
     assert found == [f"{path}: sheet 1: names no drawing file the draft records"]
 
@@ -150,3 +151,18 @@ def test_the_review_page_never_takes_an_image_from_outside_the_drafts(tmp_path: 
     draft(tmp_path, image="link.png")
     index = review.write(folder, tmp_path / "reference")
     assert "<img" not in index.read_text()
+
+
+def test_windows_marks_beside_the_drawings_need_no_record(tmp_path: Path) -> None:
+    """Fix round 1's refuter (55): the draft check now asks for every file of the set, as the scorer
+    does; Windows' `:Zone.Identifier` marks are no drawing, left out of both."""
+    folder = a_set(tmp_path)
+    (folder / "first.dwg:Zone.Identifier").write_text("[ZoneTransfer]\n")
+
+    assert drafts.check([draft(tmp_path)], folder) == []
+
+
+def test_the_draft_check_and_the_runs_files_leave_out_the_same_marks() -> None:
+    from scripts.real_drawings import source
+
+    assert drafts.MARK == source.MARK

@@ -54,6 +54,7 @@ storeys, revision, date, views: [{box, title, kind, subject}]}]}`.
 
 import hashlib
 import json
+import math
 import os
 import re
 import stat
@@ -337,9 +338,10 @@ def _paper_ratio(key: Any, found: Any) -> tuple[float, float] | None:
     for paper in (key, found):
         if not isinstance(paper, list) or len(paper) != 2:
             return None
-        if not all(isinstance(n, (int, float)) and not isinstance(n, bool) and n > 0 for n in paper):
+        width, height = _finite(paper[0]), _finite(paper[1])
+        if width is None or height is None or width <= 0 or height <= 0:
             return None
-        sizes.append((float(paper[0]), float(paper[1])))
+        sizes.append((width, height))
     (kw, kh), (fw, fh) = sizes
     return kw / fw, kh / fh
 
@@ -348,10 +350,23 @@ def _scaled(view: dict[str, Any], scale: tuple[float, float]) -> dict[str, Any]:
     box = view.get("box")
     if scale == (1.0, 1.0) or not isinstance(box, list) or len(box) != 4:
         return view
-    if not all(isinstance(n, (int, float)) and not isinstance(n, bool) for n in box):
+    numbers = [_finite(n) for n in box]
+    if None in numbers:
         return view
     sx, sy = scale
-    return view | {"box": [box[0] * sx, box[1] * sy, box[2] * sx, box[3] * sy]}
+    x0, y0, x1, y1 = (n for n in numbers if n is not None)
+    return view | {"box": [x0 * sx, y0 * sy, x1 * sx, y1 * sy]}
+
+
+def _finite(value: Any) -> float | None:
+    """A number as a finite float; None for anything else (a bool, text, an overflowing integer)."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    try:
+        number = float(value)
+    except OverflowError:
+        return None
+    return number if math.isfinite(number) else None
 
 
 def _score_views(
@@ -438,9 +453,10 @@ def _iou(a: Any, b: Any) -> float:
     for box in (a, b):
         if not isinstance(box, list) or len(box) != 4:
             return 0.0
-        if not all(isinstance(n, (int, float)) and not isinstance(n, bool) for n in box):
+        numbers = [_finite(n) for n in box]
+        if None in numbers:
             return 0.0
-        x0, y0, x1, y1 = (float(n) for n in box)
+        x0, y0, x1, y1 = (n for n in numbers if n is not None)
         boxes.append((min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1)))
     (ax0, ay0, ax1, ay1), (bx0, by0, bx1, by1) = boxes
     inter = max(0.0, min(ax1, bx1) - max(ax0, bx0)) * max(0.0, min(ay1, by1) - max(ay0, by0))

@@ -19,6 +19,9 @@ from tools.lint.engine_paths import matching, read_patterns
 from tools.lint.lock_sources import problems as lock_problems
 
 MAIN = "main"
+# Windows' mark on a downloaded file, copied beside it into WSL: not a drawing, so not among a run's
+# files (tools/scorer/drafts.py leaves it out of a key's by the same rule).
+MARK = ":Zone.Identifier"
 
 
 class Refused(Exception):
@@ -131,7 +134,8 @@ def set_files(folder: Path) -> dict[str, str]:
     """A Drawing Set's regular files, by path in the set, and each one's sha256 (a link is never
     followed); the scorer checks them against the drawings a key keys (ticket 24s)."""
     files = {}
-    for path in sorted(p for p in folder.rglob("*") if p.is_file() and not p.is_symlink()):
+    regular = (p for p in folder.rglob("*") if p.is_file() and not p.is_symlink())
+    for path in sorted(p for p in regular if not p.name.endswith(MARK)):
         digest = hashlib.sha256()
         with path.open("rb") as file:
             while chunk := file.read(1 << 20):

@@ -4,6 +4,7 @@ and the owner's reason, never a title or number from an export. No test raises p
 key user, reads a key or calls GitHub."""
 
 import base64
+import getpass
 import importlib.util
 import json
 from importlib.machinery import SourceFileLoader
@@ -53,7 +54,7 @@ def config(tmp_path: Path, drop: Path) -> Path:
     path.write_text(
         f'repository = "invented/repo"\napp_id = 1\ninstallation_id = 2\nkey_user = "invented-user"\n'
         f'key = "{tmp_path / "no-key.pem"}"\ndrop = "{drop}"\ninstalled = "/nowhere"\n'
-        "design_gate_items = 11\n"
+        f'design_gate_items = 11\nwriter = "{getpass.getuser()}"\n'
     )
     return path
 
@@ -390,8 +391,6 @@ def test_head_refuses_an_answer_that_is_not_a_commit(tmp_path: Path) -> None:
 
 
 def test_once_the_pipelines_user_exists_only_its_runs_are_posted(tmp_path: Path) -> None:
-    import getpass
-
     world = make_world(tmp_path / "world")
     world.pr(57, {"README.md": "a change the engine never reads\n"})
     run("57", no_post=False, m=world.machine(), accept_if_clean=True)
@@ -399,14 +398,17 @@ def test_once_the_pipelines_user_exists_only_its_runs_are_posted(tmp_path: Path)
     github = FakeGitHub(head=json.loads((world.drop / run_id / "metadata.json").read_text())["commit"])
     path = config(tmp_path, world.drop)
 
-    path.write_text(path.read_text() + 'writer = "root"\n')  # a user who did not write this run
+    written = path.read_text()
+    path.write_text(
+        written.replace(f'writer = "{getpass.getuser()}"', 'writer = "root"')
+    )  # not the writer
     refused = post_status.main(
         ["real-drawings", run_id], config_path=path, transport=github, sign=lambda d: b"s"
     )
     assert refused == 2
     assert github.posted() == []
 
-    path.write_text(path.read_text().replace('writer = "root"', f'writer = "{getpass.getuser()}"'))
+    path.write_text(written)
     assert (
         post_status.main(
             ["real-drawings", run_id], config_path=path, transport=github, sign=lambda d: b"s"
@@ -421,3 +423,20 @@ def test_the_settings_name_the_pipelines_user_as_the_writer() -> None:
 
     settings = tomllib.loads((REPO / "scripts" / "owner" / "post-status.toml").read_text())
     assert settings["writer"] == "vxrun"
+
+
+def test_settings_naming_no_pipelines_user_post_nothing(tmp_path: Path) -> None:
+    """Fix round 1's refuter (45): without `writer` in the settings, no ownership check ran at all."""
+    world = make_world(tmp_path / "world")
+    world.pr(57, {"README.md": "a change the engine never reads\n"})
+    run("57", no_post=False, m=world.machine(), accept_if_clean=True)
+    (run_id,) = world.posted
+    github = FakeGitHub(head=json.loads((world.drop / run_id / "metadata.json").read_text())["commit"])
+    path = config(tmp_path, world.drop)
+    path.write_text("\n".join(line for line in path.read_text().splitlines() if "writer" not in line))
+
+    code = post_status.main(
+        ["real-drawings", run_id], config_path=path, transport=github, sign=lambda d: b"s"
+    )
+    assert code == 2
+    assert github.posted() == []

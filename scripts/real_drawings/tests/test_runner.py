@@ -471,3 +471,13 @@ def test_the_sets_copy_enters_no_linked_folder_and_reads_no_pipe(world: World, t
     runner._take_sets(spooled, tmp_path / "copy")
 
     assert sorted(p.name for p in (tmp_path / "copy" / "invented-a").iterdir()) == ["sheet-1.bin"]
+
+
+def test_a_runs_files_leave_out_windows_marks(tmp_path: Path) -> None:
+    """The run's files are what a key's `files` must equal; Windows' marks are no drawing."""
+    from scripts.real_drawings.source import set_files
+
+    (tmp_path / "a.dwg").write_bytes(b"invented")
+    (tmp_path / "a.dwg:Zone.Identifier").write_text("[ZoneTransfer]\n")
+
+    assert list(set_files(tmp_path)) == ["a.dwg"]

@@ -430,3 +430,17 @@ def test_a_layout_sheets_boxes_are_never_scaled(
     out = shown(capfd)
     assert "views          0 / 1" in out, out
     assert "paper unknown" not in out
+
+
+def test_numbers_too_large_for_a_float_are_unusable_not_a_failure(
+    tmp_path: Path, capfd: pytest.CaptureFixture[str]
+) -> None:
+    """Fix round 1's refuter (20): an overflowing paper or box ended the call with exit 3, which a
+    caller could tell from an answer."""
+    place = Place(tmp_path)
+    model_space(place, [10**400, 297], [210, 148.5])
+    document = json.loads(next(place.run.glob("export-*.json")).read_text())
+    assert document  # the export is the run's; only the key's paper overflows
+
+    assert place.score() == 0
+    assert "paper unknown" in shown(capfd)

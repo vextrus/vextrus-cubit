@@ -7,7 +7,9 @@ name.)
 A key file, per set or per drawing file, records the drawings it keys: `files: {<file name>: <sha256>}`
 at its top and `file` on each sheet. A draft is refused, loudly and naming the file (never a key's
 value), when a recorded file is not exactly one file of that name in the set's folder, when that file's
-sha256 is not the recorded one, or when a sheet names a file the draft does not record. The review page
+sha256 is not the recorded one, when a file of the set (Plots included; Windows' `:Zone.Identifier`
+marks left out) is not recorded, or when a sheet names a file the draft does not record: the scorer
+scores only a run of exactly the drawings a key records. The review page
 (`tools/scorer/review.py`) and `scripts/owner/keys-custody.sh` both refuse such a draft. The scorer
 ignores these fields.
 
@@ -22,6 +24,9 @@ from pathlib import Path
 from typing import Any
 
 SHA256 = 64
+# Windows' mark on a downloaded file, copied beside it into WSL: not a drawing, never recorded or read
+# (scripts/real_drawings/source.py leaves it out of the run's files by the same rule).
+MARK = ":Zone.Identifier"
 # A name, not a parenthesised tuple, which the formatter would rewrite into syntax 3.12 cannot read.
 UNREADABLE = (OSError, ValueError)
 
@@ -49,6 +54,14 @@ def problems(key: Any, reference: Path) -> list[str]:
             found.append(f"{name}: the draft records no sha256 for it")
         elif _sha256(matches[0]) != digest.lower():
             found.append(f"{name}: the draft's sha256 is not this file's (it keys another drawing)")
+    held = {
+        p.name
+        for p in reference.rglob("*")
+        if p.is_file() and not p.is_symlink() and not p.name.endswith(MARK)
+    }
+    unrecorded = sorted(held - set(files))
+    if unrecorded:
+        found.append(f"the draft records not every file of the set: {', '.join(unrecorded)} missing")
     sheets = key.get("sheets")
     for n, sheet in enumerate(sheets if isinstance(sheets, list) else [], 1):
         named = sheet.get("file") if isinstance(sheet, dict) else None
