@@ -600,3 +600,72 @@ def test_the_export_carries_the_files_view_report() -> None:
         conventions_applied=None, process=process, stages={}, view_report={"scan_budget": 2},
     )  # fmt: skip
     assert export._file(reading, {})["view_report"] == {"scan_budget": 2}
+
+
+# Session 07's loop: untitled pieces ----------------------------------------------------------------
+
+
+def one_sheet(d: Sheets) -> SheetCandidate:
+    """The A1 frame at 1:1 in model space around what `d` draws."""
+    framed(d, frame_block(d), (0.0, 0.0), 1.0, {0: "GENERAL ARRANGEMENT", 2: "S-01"})
+    (sheet,) = sheets.find(d.artefact(), "structural", DEFAULT)
+    return sheet
+
+
+def test_a_titles_scale_line_and_second_line_make_it_no_note() -> None:
+    """A title, its scale line and a second title line in a column (three lines alike) is a title, its
+    second line no view's."""
+    d = Sheets()
+    grid(d, (40, 300, 340, 560))
+    d.text("GROUND FLOOR PLAN", (40, 288, 0.0), height=6.0)
+    d.text("NOT TO SCALE", (40, 279, 0.0), height=6.0)
+    d.text("PRESENTATION PLAN", (40, 270, 0.0), height=6.0)
+    found = drawn(d, one_sheet(d))
+    assert [(v.kind, v.title) for v in found] == [(ViewKind.PLAN, "GROUND FLOOR PLAN")]
+    assert found[0].not_to_scale
+
+
+def test_a_drawings_body_over_its_detached_row_is_one_view() -> None:
+    """A plan whose row of grid marks, under it and apart from it, is what its title lies under."""
+    d = Sheets()
+    grid(d, (40, 330, 340, 560))
+    grid(
+        d, (40, 280, 120, 330)
+    )  # a wing, one piece with the body: the body's box runs down past the row
+    for x in (200, 250, 300):  # the detached row of grid marks
+        d.entity("LWPOLYLINE", rectangle(x, 290, x + 26, 316))
+    d.text("COLUMN LAYOUT PLAN", (200, 278, 0.0), height=6.0)
+    found = drawn(d, one_sheet(d))
+    assert [(v.kind, v.title) for v in found] == [(ViewKind.PLAN, "COLUMN LAYOUT PLAN")]
+    assert near(found[0].box, (40, 278, 340, 560))
+
+
+def test_a_large_piece_inside_a_titled_drawings_box_is_that_drawings() -> None:
+    d = Sheets()
+    d.entity("LWPOLYLINE", rectangle(40, 200, 440, 530))  # the drawing's outline (no divider)
+    grid(d, (120, 260, 360, 470))  # inside it, well apart from it
+    d.text("PILE LAYOUT PLAN", (40, 188, 0.0), height=6.0)
+    found = drawn(d, one_sheet(d))
+    assert [(v.kind, v.title) for v in found] == [(ViewKind.PLAN, "PILE LAYOUT PLAN")]
+
+
+def test_a_title_inside_its_drawings_box_near_its_edge_is_the_drawings() -> None:
+    """A section whose ground line runs under and past its title."""
+    d = Sheets()
+    grid(d, (40, 300, 340, 560))
+    d.line((20, 290), (360, 290))  # the ground line
+    d.line((40, 290), (40, 300))
+    d.line((340, 290), (340, 300))
+    d.text("SECTION A-A", (150, 292, 0.0), height=6.0)
+    found = drawn(d, one_sheet(d))
+    assert [(v.kind, v.title) for v in found] == [(ViewKind.SECTION, "SECTION A-A")]
+
+
+def test_a_titles_second_line_titles_no_drawing_under_it() -> None:
+    d = Sheets()
+    grid(d, (40, 330, 340, 560))
+    d.text("GROUND FLOOR PLAN", (40, 318, 0.0), height=6.0)
+    d.text("PRESENTATION PLAN", (40, 308, 0.0), height=6.0)
+    grid(d, (40, 200, 340, 290))  # an untitled drawing under the title's lines
+    found = drawn(d, one_sheet(d))
+    assert [v.title for v in found] == ["GROUND FLOOR PLAN", None]

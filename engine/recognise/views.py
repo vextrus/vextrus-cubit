@@ -33,15 +33,22 @@ fraction of its plotted size: the real sets' frames give papers of 130 to 420 mm
 listed first in the conventions wins where several are named: "TYPICAL BEAM SECTION DETAIL" is a detail),
 not in the title block, at least as tall as the sheet's median text (and at most `MAX_LETTER` of the
 paper), not numbered ("5. SEE SECTION ...") and not one of a column of `MIN_NOTE_LINES` lines alike (a
-note's). Titles and scale texts stay off the grid, and so do the lines within a title's band (its
-underline), and straight lines along the paper's axes of `DIVIDER_SHARE` of its side or longer (borders,
-dividers between rows of details). Each title takes the piece it lies under (a drawing titled beneath,
-the convention; within `TITLE_GAP` of its height), else the piece it lies over (within
-`TITLE_GAP_UNDER`), nearest first, one title a piece; a band less tall than `MIN_DRAWING` of its height
-is never its drawing, and joins its view when it meets the title. A piece with no title is a view when it
-covers `MIN_UNTITLED` of the paper (of the kind its sheet's title names, else a plan; notes when text
-fills more of it than lines); a smaller one joins the view whose box, grown by `JOIN_MM`, holds it. A
-view's box is its piece, its title and its scale text together. **Reading order** is by rows, top to
+note's; a scale text in the column is the title's scale line, not a note's). A title lying under another
+within `SUBTITLE_GAP` of its height, across the same place, is its second line ("PRESENTATION PLAN"
+under "GROUND FLOOR PLAN"), no title of its own. Titles, second lines and scale texts stay off the grid,
+and so do the lines within a title's band (its underline), and straight lines along the paper's axes of
+`DIVIDER_SHARE` of its side or longer (borders, dividers between rows of details). Each title takes the
+piece it lies under (a drawing titled beneath, the convention; within `TITLE_GAP` of its height), else
+the piece it lies over (within `TITLE_GAP_UNDER`), else, after all of those, the piece whose box holds it
+within `TITLE_INSIDE` of its lower or upper edge (a section's ground line running under and past its
+title), nearest first, one title a piece; a band less tall than `MIN_DRAWING` of its height is never its
+drawing, and joins its view when it meets the title. A titled drawing takes the largest piece without a
+title standing above it within `JOIN_MM` of it and larger than it (a plan's body over its detached row of
+grid marks and dimensions, which is what the title lies nearest). A piece with no title lying in a titled
+view's box (grown by `JOIN_MM`) is that view's, whatever its size; another is a view when it covers
+`MIN_UNTITLED` of the paper (of the kind its sheet's title names, else a plan; notes when text fills more
+of it than lines); a smaller one joins the view whose box, grown by `JOIN_MM`, holds it. A view's box is
+its piece, its title and its scale text together. **Reading order** is by rows, top to
 bottom (views whose heights overlap by half are one row), each left to right.
 
 **The title block is a view** (CONTEXT.md's "View"; the orchestrator's ruling R2, session 07), of kind
@@ -143,6 +150,12 @@ TITLE_GAP = 20.0
 between them)."""
 TITLE_GAP_UNDER = 6.0
 """The farthest a title lies over its drawing (a schedule's heading), in its heights."""
+SUBTITLE_GAP = 3.5
+"""The farthest a title's second line lies under it, in the title's heights."""
+TITLE_INSIDE = 3.0
+"""The farthest a title lies inside its drawing's box from the box's lower or upper edge (a section's
+ground line or a legend's rows running past its title), in its heights; weighed after every title
+under or over a drawing."""
 MAX_LETTER = 0.1
 """A text taller than this share of the paper's short side is no lettering: never a title, never the
 median a title is measured by."""
@@ -1154,9 +1167,11 @@ def _views(
             and _kind(t.shown, reading) is not None
         ):
             titles.append(i)
-    stacks = _Stacks(texts)
+    stacks = _Stacks(texts, skip=frozenset(scale_texts))  # a title's scale line is no note's
     titles = [i for i in titles if stacks.lines(i) < MIN_NOTE_LINES]
-    off_grid = set(titles) | set(scale_texts)
+    subtitles = {j for j in titles if any(_subtitle(texts[j], texts[i]) for i in titles if i != j)}
+    titles = [i for i in titles if i not in subtitles]
+    off_grid = set(titles) | subtitles | set(scale_texts)
     underlined = _underlines(paper.segments, [texts[i] for i in titles])
     drawn = replace(paper, segments=paper.segments[~underlined])
     pieces = _pieces(drawn, texts, (i for i in range(len(texts)) if i not in off_grid))
@@ -1181,6 +1196,10 @@ def _views(
                 pairs.append((below, ti, k))
             elif -0.5 <= above <= TITLE_GAP_UNDER:
                 pairs.append((above + TITLE_GAP, ti, k))
+            elif px0 <= x0 and x1 <= px1 and py0 <= y0 and y1 <= py1:  # its drawing runs past it
+                depth = min(y0 - py0, py1 - y1) / h
+                if depth <= TITLE_INSIDE:
+                    pairs.append((TITLE_GAP + TITLE_GAP_UNDER + depth, ti, k))
     pairs.sort()
     by_title: dict[int, int] = {}
     by_piece: dict[int, int] = {}
@@ -1205,9 +1224,26 @@ def _views(
                 by_piece[k] = ti
                 box = _union(box, piece.box)
         views.append(_View(titled, t, kind, box))
+    for view in views:  # a drawing's body over its detached row (its grid marks, its dimensions)
+        assert view.piece is not None
+        near = _grown(view.piece.box, JOIN_MM * unit)
+        over = [
+            k
+            for k, piece in enumerate(pieces)
+            if k not in by_piece
+            and piece.area > view.piece.area
+            and piece.box[3] > view.piece.box[3]
+            and _meets(piece.box, near)
+        ]
+        if over:
+            k = max(over, key=lambda k: pieces[k].area)
+            by_piece[k] = -1  # claimed by the titled view
+            view.extra.append(pieces[k])
+            view.box = _union(view.box, pieces[k].box)
+    titled_boxes = [_grown(v.box, JOIN_MM * unit) for v in views]
     for k, piece in enumerate(pieces):
-        if k in by_piece:
-            continue
+        if k in by_piece or any(_holds(box, piece.box) for box in titled_boxes):
+            continue  # in a titled drawing's box, whatever its size, it is that drawing's (below)
         if piece.area >= MIN_UNTITLED * paper_area and len(views) < MAX_VIEWS:
             kind = ViewKind.NOTES if piece.words > piece.lines else untitled
             views.append(_View(piece, None, kind, piece.box))
@@ -1239,6 +1275,13 @@ def _views(
     return views[:MAX_VIEWS]
 
 
+def _subtitle(lower: _Text, upper: _Text) -> bool:
+    """A title's second line (a plan's "PRESENTATION PLAN" under its "GROUND FLOOR PLAN", a scale line
+    between them): under the title within `SUBTITLE_GAP` of its height, and across the same place."""
+    gap = (upper.box[1] - lower.box[3]) / max(upper.height, 1e-9)
+    return 0 <= gap <= SUBTITLE_GAP and lower.box[0] <= upper.box[2] and upper.box[0] <= lower.box[2]
+
+
 _ENUMERATED = re.compile(r"\s{0,4}\(?(?:\d{1,3}[.)]|[A-Za-z]\))\s")
 """A numbered line ("5. See ...", "(a) ..."): a note's, not a view title."""
 
@@ -1246,11 +1289,11 @@ _ENUMERATED = re.compile(r"\s{0,4}\(?(?:\d{1,3}[.)]|[A-Za-z]\))\s")
 class _Stacks:
     """Texts by their left edge, to tell a note's line (one of a column of lines alike) from a title."""
 
-    def __init__(self, texts: Sequence[_Text]) -> None:
+    def __init__(self, texts: Sequence[_Text], skip: frozenset[int] = frozenset()) -> None:
         self.texts = texts
         self.columns: dict[tuple[int, int], list[int]] = {}
         for i, t in enumerate(texts):
-            if t.height > 0:
+            if t.height > 0 and i not in skip:
                 self.columns.setdefault(self._key(t.box[0], t.height), []).append(i)
 
     @staticmethod
