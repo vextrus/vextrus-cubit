@@ -41,6 +41,8 @@ LIMITS = Limits(
 )
 """The child's limits: pdfium draws a page in well under a second (the research's 34 to 87 ms at 3000
 px); a first guess, which ticket 24 may measure."""
+MAX_PX_PER_PT = 100.0
+"""The densest a page is drawn (7,200 dpi): past it a page is refused before the child starts."""
 HEADER = struct.Struct("<4sII")
 MAGIC = b"VXPP"
 REFUSED = b"NO::"
@@ -92,7 +94,7 @@ def picture(path: Path, page: int, px_per_pt: float, *, sha256: str, limits: Lim
 
 
 def _picture(path: Path, page: int, px_per_pt: float, sha256: str, limits: Limits) -> Picture:
-    if not (isinstance(page, int) and page >= 1 and 0 < px_per_pt < 100):
+    if not (isinstance(page, int) and page >= 1 and 0 < px_per_pt < MAX_PX_PER_PT):
         raise ValueError(f"page {page!r} at {px_per_pt!r} pixels a point is not a page to draw")
     with tempfile.TemporaryDirectory(prefix="vextrus-plot-") as scratch:
         copy = Path(scratch, "source.pdf")

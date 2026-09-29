@@ -20,11 +20,11 @@ from pathlib import Path
 import numpy as np
 from numpy.typing import NDArray
 
-from engine.plot.picture import Picture, PictureError, picture
+from engine.plot.picture import MAX_PX_PER_PT, Picture, PictureError, picture
 from engine.read.pdf.types import Page
 from engine.recognise.types import PlotTransform
 from engine.render.buffers import SheetBuffers
-from engine.render.raster import rasterise
+from engine.render.raster import RasterError, rasterise
 
 type Mask = NDArray[np.bool_]
 
@@ -36,6 +36,7 @@ FINE_PX_PER_MM = 4.0
 COARSE_PX_PER_MM = 1.0
 MAX_SHIFT_MM = 25.0
 """How far from the text's or the sizes' placement the page's ink is looked for: a plot's margins."""
+SCALE_REACH = 0.03
 SCALES = tuple(sorted((1 + k / 400 for k in range(-12, 13)), key=lambda f: abs(f - 1)))
 """The scales tried about the one given, nearest first: ±3 % in quarter-percent steps. Only for a
 page fitted to its paper: a sheet plotted at 1:1 (`PT_PER_MM`) is at its scale by construction."""
@@ -43,8 +44,12 @@ SCALE_MARGIN = 0.02
 """A scale farther from the one given is taken only when it fits 2 % better: at the coarse density
 neighbouring scales fit almost alike."""
 PT_PER_MM = 72 / 25.4
-FINE_SHIFT_PX = 4
-"""How far the fine density looks about the coarse offset: two coarse half-pixels and a margin."""
+FINE_SHIFT_PX = 8
+"""How far each tile looks about the coarse placement, in fine pixels (2 mm): the coarse offset's half
+pixel and its scale step's quarter percent at a tile's distance from the centre."""
+TILES = 4
+MIN_TILE_INK = 400
+"""The fewest ink pixels a tile needs to find its shift (a few centimetres of line at 4 px/mm)."""
 RESIDUAL_RINGS = 12
 """The farthest the residual measures, in fine pixels (3 mm on paper); farther counts as this."""
 
@@ -144,6 +149,21 @@ def best_shift(sheet: Mask, printed: Mask, reach: int) -> tuple[int, int, int]:
     return best[0], best[1], round(best[2])
 
 
+def nearby_shift(sheet: Mask, printed: Mask, reach: int) -> tuple[int, int]:
+    """The shift, at most `reach` each way, that lays the most of the page's ink on the sheet's, tried
+    shift by shift and unwidened (the coarse fit has come within a pixel or two): no transform of the
+    whole sheet, so at the fine density an A0 costs its masks and one more, never a gigabyte of
+    spectra. Of shifts that lay as much, the smallest."""
+    wide = printed
+    best = (0, 0, -1)
+    for dy in range(-reach, reach + 1):
+        for dx in range(-reach, reach + 1):
+            laid = int(np.count_nonzero(sheet & moved(wide, dx, dy)))
+            if laid > best[2] or (laid == best[2] and abs(dx) + abs(dy) < abs(best[0]) + abs(best[1])):
+                best = (dx, dy, laid)
+    return best[0], best[1]
+
+
 def _fast(n: int) -> int:
     """The next size at or above n whose only prime factors are 2, 3 and 5 (quick to transform)."""
     while True:
@@ -216,11 +236,13 @@ def align(
     """The transform moved (and rescaled) to where the page's ink lies best on the sheet's, and the
     residual there (`residual_mm`); the transform as given, and none, when either has no ink or the
     page cannot be drawn (the module's rules)."""
+    if not FINE_PX_PER_MM / transform.scale / (1 - SCALE_REACH) < MAX_PX_PER_PT:
+        return transform, None  # a page so small beside its sheet that it would be drawn huge
     try:
         sheet, grid = sheet_ink(buffers, COARSE_PX_PER_MM)
         density = COARSE_PX_PER_MM / transform.scale
         drawn = picture(plot, page.number, density, sha256=page.source_sha256)
-    except PictureError:
+    except PictureError, RasterError:  # the page or the sheet could not be drawn
         return transform, None
     if not sheet.any():
         return transform, None
@@ -244,8 +266,64 @@ def align(
     try:
         sheet, grid = sheet_ink(buffers, FINE_PX_PER_MM)
         drawn = picture(plot, page.number, FINE_PX_PER_MM / coarse.scale, sha256=page.source_sha256)
-    except PictureError:
+    except PictureError, RasterError:
         return coarse, None
-    printed = carried(drawn, page, coarse, grid)
-    dx, dy, _ = best_shift(sheet, printed, FINE_SHIFT_PX)
-    return shifted(coarse, dx, dy, grid), residual_mm(sheet, moved(printed, dx, dy), grid)
+    fine = refined(sheet, carried(drawn, page, coarse, grid), coarse, grid)
+    return fine, residual_mm(sheet, carried(drawn, page, fine, grid), grid)
+
+
+def refined(sheet: Mask, printed: Mask, transform: PlotTransform, grid: Grid) -> PlotTransform:
+    """The transform corrected by the page's ink tile by tile: each of `TILES` x `TILES` tiles with ink
+    on both finds its own shift (`FINE_SHIFT_PX` each way), and a scale about the sheet's centre and
+    a shift are fitted to them by least squares (a percent's error in scale is millimetres at an A1's
+    edge, which one shift cannot mend). A sheet plotted at 1:1, or with fewer than three tiles, gets
+    one shift for the whole sheet, the tiles' median."""
+    rows, columns = sheet.shape
+    reach = FINE_SHIFT_PX
+    padded = np.pad(printed, reach)
+    centres, shifts = [], []
+    for i in range(TILES):
+        for j in range(TILES):
+            r0, r1 = rows * i // TILES, rows * (i + 1) // TILES
+            c0, c1 = columns * j // TILES, columns * (j + 1) // TILES
+            ours = sheet[r0:r1, c0:c1]
+            if np.count_nonzero(ours) < MIN_TILE_INK:
+                continue
+            best = (0, 0, -1)
+            for dy in range(-reach, reach + 1):
+                for dx in range(-reach, reach + 1):
+                    theirs = padded[r0 - dy + reach : r1 - dy + reach, c0 - dx + reach : c1 - dx + reach]
+                    laid = int(np.count_nonzero(ours & theirs))
+                    if laid > best[2] or (
+                        laid == best[2] and abs(dx) + abs(dy) < abs(best[0]) + abs(best[1])
+                    ):
+                        best = (dx, dy, laid)
+            if best[2] >= MIN_TILE_INK // 4:
+                centres.append(
+                    ((c0 + c1) / 2 / grid.px_per_mm, grid.height_mm - (r0 + r1) / 2 / grid.px_per_mm)
+                )
+                shifts.append((best[0] / grid.px_per_mm, -best[1] / grid.px_per_mm))
+    if not shifts:
+        return transform
+    at, by = np.array(centres), np.array(shifts)  # millimetres on the sheet: where, and how far
+    if len(shifts) < 3 or abs(transform.scale - PT_PER_MM) <= 1e-9:  # 1:1 is exact: a shift only
+        dx, dy = np.median(by, axis=0)
+        return shifted(transform, dx * grid.px_per_mm, -dy * grid.px_per_mm, grid)
+    middle = at.mean(axis=0)
+    # by = a (at - middle) + b: one scale change `a` and a shift `b`, by least squares over both axes
+    design = np.zeros((2 * len(at), 3))
+    design[0::2, 0], design[1::2, 0] = at[:, 0] - middle[0], at[:, 1] - middle[1]
+    design[0::2, 1], design[1::2, 2] = 1.0, 1.0
+    (a, bx, by_), *_ = np.linalg.lstsq(design, by.reshape(-1), rcond=None)
+    if not (abs(a) < SCALE_REACH and np.isfinite([bx, by_]).all()):
+        return transform
+    # The page's ink at q belongs at q + a (q - middle) + b: the sheet point p takes it from
+    # T(p - a (p - middle) - b), which is a scale of k (1 - a) and a new offset.
+    c, s_ = _cos_sin(transform.rotation)
+    k = transform.scale
+    ux, uy = a * middle[0] - bx, a * middle[1] - by_
+    offset = (
+        transform.offset[0] + k * (c * ux - s_ * uy),
+        transform.offset[1] + k * (s_ * ux + c * uy),
+    )
+    return PlotTransform(float(k * (1 - a)), transform.rotation, (float(offset[0]), float(offset[1])))
