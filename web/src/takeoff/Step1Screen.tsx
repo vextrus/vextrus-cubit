@@ -255,7 +255,10 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
   }
 
   const selection = panel === 'coverage' ? (
-    <CoveragePanel coverage={coverage} />
+    <CoveragePanel
+      coverage={coverage}
+      held={model.queue.filter((e) => e.question.kind === 'file_misread' && e.question.subject_id && model.fileNames[e.question.subject_id]).map((e) => model.fileNames[e.question.subject_id!]!)}
+    />
   ) : focusedRow ? (
     <>
       {focusedRow.question ? <QuestionCard entry={focusedRow.question} readOnly={readOnly} names={model.fileNames} /> : null}

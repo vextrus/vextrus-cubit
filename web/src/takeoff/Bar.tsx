@@ -38,6 +38,7 @@ function Who({ sheet }: { sheet: ProposalOut }) {
   const f = useFormat()
   const name = sheet.decided_by ?? ''
   const date = sheet.decided_at ? `${f.date(sheet.decided_at)}, ${f.time(sheet.decided_at)}` : ''
+  if (!name || !date) return null
   return (
     <Trans>
       By {name}, {date}.

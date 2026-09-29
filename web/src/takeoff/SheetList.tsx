@@ -51,7 +51,7 @@ export const SheetList = forwardRef<HTMLDivElement, SheetListProps>(function She
       {model.needsYou.length > 0 ? (
         <Section
           tone="question"
-          heading={<Plural value={questions} one="Needs you: # Question open, in the order Enter takes it" other="Needs you: # Questions open, in the order Enter takes them" />}
+          heading={<Plural value={questions} one="Needs you: # Question open" other="Needs you: # Questions open, in the order Enter takes them" />}
           rows={model.needsYou}
           focused={focused}
           onFocusRow={onFocusRow}

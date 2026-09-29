@@ -16,7 +16,7 @@ import { QuestionGlyph } from '@/ui/glyphs'
 import { SheetName } from './acts'
 import type { CoverageOut, ProposalOut } from './data'
 import type { DisciplineSection, QuestionEntry, Row, Step1Model } from './model'
-import { Answering, CannotAnswer, OptionWords, QuestionBody, QuestionTitle, optionsOf, useKindLine } from './questionWords'
+import { Answering, CannotAnswer, Copy, OptionWords, QuestionBody, QuestionTitle, optionsOf, useKindLine, usePick } from './questionWords'
 import { disciplineName } from './SheetList'
 import { NOT_RECEIVED_NAMES, OTHER_DISCIPLINE, REASON_SHORT, UNKNOWN_REASON } from './words'
 
@@ -64,6 +64,12 @@ function Expected({ section }: { section: DisciplineSection }) {
     const who = list.entered_by ?? ''
     if (list.source === 'pasted') {
       const when = list.entered_at ? `${f.date(list.entered_at)} ${f.time(list.entered_at)}` : ''
+      if (!who || !when)
+        return (
+          <Trans>
+            {name}: {listed} on the pasted drawing list; {found} found.
+          </Trans>
+        )
       return (
         <Trans>
           {name}: {listed} on the drawing list pasted by {who}, {when}; {found} found.
@@ -251,7 +257,7 @@ export function SheetFacts({ row, showTitle, readOnly }: { row: Row; showTitle: 
           <Fact label={<Trans>File</Trans>}>
             <DrawingText kind="file-name" text={sheet.file_name} />
           </Fact>
-          <Fact label={<Trans>Sources</Trans>}>{row.sheets.every((s) => s.agrees) ? <Trans>two agree</Trans> : <Trans>one source</Trans>}</Fact>
+          <Fact label={<Trans>Sources</Trans>}>{row.sheets.every((s) => s.agrees) ? <Trans>two sources agree</Trans> : <Trans>one source</Trans>}</Fact>
         </dl>
       </Block>
       <Block title={<Trans>Who did what</Trans>}>
@@ -259,7 +265,7 @@ export function SheetFacts({ row, showTitle, readOnly }: { row: Row; showTitle: 
           <p key={s.id}>
             {row.sheets.length > 1 ? (
               <>
-                <SheetName sheets={[s]} /> <DrawingText kind="revision" text={s.revision_mark} truncate={false} />{' '}
+                <SheetName sheets={[s]} /> <Copy sheet={s} />{' '}
               </>
             ) : null}
             <Decided sheet={s} readOnly={readOnly} />
@@ -276,6 +282,8 @@ export function QuestionCard({ entry, readOnly, names }: { entry: QuestionEntry;
   const kind = useKindLine(entry)
   const tag = entry.tag
   const options = optionsOf(entry)
+  const pick = usePick(entry)
+  const sources = pick?.sources ?? ''
   const name = `question-${entry.question.id}`
   return (
     <section aria-label={t`Question ${tag}`} className="m-2 overflow-hidden rounded-md border border-question">
@@ -301,7 +309,7 @@ export function QuestionCard({ entry, readOnly, names }: { entry: QuestionEntry;
           <ul className="text-xs">
             {entry.holds.map((s) => (
               <li key={s.id}>
-                <SheetName sheets={[s]} /> <DrawingText kind="revision" text={s.revision_mark} truncate={false} />
+                <SheetName sheets={[s]} /> <Copy sheet={s} />
                 {s.issue_date ? <> · {f.date(s.issue_date)}</> : null} · <DrawingText kind="file-name" text={s.file_name} />
               </li>
             ))}
@@ -312,16 +320,16 @@ export function QuestionCard({ entry, readOnly, names }: { entry: QuestionEntry;
             <Trans>Answers</Trans>
           </legend>
           {options.map((o, i) => (
-            <label key={o.key ?? i} className={cn('flex items-start gap-2 rounded-md px-1.5 py-1', o.picked && 'bg-selected')}>
-              <input type="radio" name={name} value={o.key} defaultChecked={!!o.picked} className="mt-1" />
+            <label key={o.key ?? i} className={cn('flex items-start gap-2 rounded-md px-1.5 py-1', pick && o.key === pick.key && 'bg-selected')}>
+              <input type="radio" name={name} value={o.key} defaultChecked={!!pick && o.key === pick.key} className="mt-1" />
               <span className="num w-3 text-muted-foreground">{i + 1}</span>
               <span>
-                {o.picked ? (
-                  <span className="text-xs text-ink-secondary">
-                    <Trans>Picked for you:</Trans>{' '}
+                <OptionWords entry={entry} option={o} />
+                {pick && o.key === pick.key ? (
+                  <span className="block text-xs text-ink-secondary">
+                    <Trans>Picked for you: {sources}</Trans>
                   </span>
                 ) : null}
-                <OptionWords entry={entry} option={o} />
               </span>
             </label>
           ))}
@@ -367,7 +375,7 @@ function StepOrPart({ step }: { step: string }) {
   return <Trans>{part}, M3 onwards</Trans>
 }
 
-export function CoveragePanel({ coverage }: { coverage: CoverageOut }) {
+export function CoveragePanel({ coverage, held }: { coverage: CoverageOut; held: readonly string[] }) {
   const f = useFormat()
   const reasons = Object.entries(coverage.by_reason)
   const { i18n } = useLingui()
@@ -402,6 +410,14 @@ export function CoveragePanel({ coverage }: { coverage: CoverageOut }) {
           </dl>
         </Block>
       ) : null}
+      {held.map((name) => {
+        const file = <DrawingText kind="file-name" text={name} truncate={false} />
+        return (
+          <p key={name} className="px-3 pt-2 text-xs">
+            <Trans>{file} is held: its views are not counted unless you read it anyway.</Trans>
+          </p>
+        )
+      })}
       <p className="px-3 py-2 text-xs text-muted-foreground">
         <Trans>Esc goes back.</Trans>
       </p>

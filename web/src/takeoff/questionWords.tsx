@@ -61,8 +61,27 @@ export function QuestionBody({ entry }: { entry: QuestionEntry }) {
   return <MachineText message={{ code: q.code, params: params(entry) }} />
 }
 
-function Copy({ sheet }: { sheet: ProposalOut }) {
-  return <DrawingText kind="revision" text={sheet.revision_mark} truncate={false} />
+/** A copy by its mark: "R1" as drawn, a bare letter as "rev B" (§5, §6.7). */
+export function Copy({ sheet }: { sheet: ProposalOut }) {
+  const mark = <DrawingText kind="revision" text={sheet.revision_mark} truncate={false} />
+  return /^r(ev)?\b|^r\d/i.test(sheet.revision_mark) ? mark : <Trans>rev {mark}</Trans>
+}
+
+/**
+ * The option picked for the QS, only where two sources that agree can be named (ruling 2), with
+ * their names; M0's words name them for two sheets of one number: the later mark and the later date.
+ */
+export function usePick(entry: QuestionEntry): { key: string; sources: string } | null {
+  const { t } = useLingui()
+  const picked = optionsOf(entry).find((o) => o.picked)?.key
+  if (!picked || !isCopies(entry) || (picked !== 'keep_b' && picked !== 'keep_a')) return null
+  const [later, earlier] = entry.holds as [ProposalOut, ProposalOut]
+  const keep = picked === 'keep_b' ? later : earlier
+  const other = picked === 'keep_b' ? earlier : later
+  const laterMark = keep.revision_mark.localeCompare(other.revision_mark, 'en', { numeric: true }) > 0
+  const laterDate = !!keep.issue_date && !!other.issue_date && keep.issue_date > other.issue_date
+  if (!laterMark || !laterDate) return null
+  return { key: picked, sources: t`the later revision mark and the later date agree` }
 }
 
 /** An option's words, naming the copies' marks and dates for two sheets of one number. */
@@ -77,9 +96,7 @@ export function OptionWords({ entry, option }: { entry: QuestionEntry; option: O
     const kept = <Copy sheet={keep} />
     const dropped = <Copy sheet={drop} />
     const date = keep.issue_date ? f.date(keep.issue_date) : null
-    if (key === 'keep_b')
-      return date ? <Trans>Keep {kept} ({date}); exclude {dropped} as superseded</Trans> : <Trans>Keep {kept}; exclude {dropped} as superseded</Trans>
-    return <Trans>Keep {kept}; exclude {dropped}</Trans>
+    return date ? <Trans>Keep {kept} ({date}); leave {dropped} out as superseded</Trans> : <Trans>Keep {kept}; leave {dropped} out as superseded</Trans>
   }
   const words = OPTION_NAMES[key] ?? (entry.question.kind === 'low_confidence' ? SHEET_KIND_NAMES[key] : undefined)
   return <>{i18n._(words ?? OTHER_OPTION)}</>
@@ -87,12 +104,9 @@ export function OptionWords({ entry, option }: { entry: QuestionEntry; option: O
 
 /** The card's first line (§5 item 2, §6.7), for the option picked (pre-picked in M0), else what it settles. */
 export function Answering({ entry, names }: { entry: QuestionEntry; names: Readonly<Record<string, string>> }) {
-  const options = optionsOf(entry)
-  const picked = options.find((o) => o.picked)?.key
-  const keys = options.map((_, i) => String(i + 1)).join(', ')
+  const picked = usePick(entry)?.key
   const n = entry.holds.length
   const q = entry.question
-  const pick = <Trans>Pick an answer: {keys}.</Trans>
   if (q.kind === 'file_misread') {
     const file = <FileName entry={entry} names={names} />
     return q.subject_id && names[q.subject_id] ? <Trans>Answering decides whether {file}’s sheets join the list.</Trans> : <Trans>Answering decides whether this file’s sheets join the list.</Trans>
@@ -105,7 +119,7 @@ export function Answering({ entry, names }: { entry: QuestionEntry; names: Reado
       const dropped = <Copy sheet={picked === 'keep_b' ? earlier : later} />
       return (
         <Trans>
-          Answering confirms {number} {kept} and excludes {dropped} as superseded.
+          Answering confirms {number} ({kept}) and excludes {number} ({dropped}) as superseded.
         </Trans>
       )
     }
@@ -116,17 +130,8 @@ export function Answering({ entry, names }: { entry: QuestionEntry; names: Reado
     const name = <SheetName sheets={entry.holds} />
     return <Trans>Answering keeps {name} open.</Trans>
   }
-  if (n === 0)
-    return (
-      <>
-        <Trans>Answering confirms no sheets.</Trans> {pick}
-      </>
-    )
-  return (
-    <>
-      <Plural value={n} one="Answering settles # sheet." other="Answering settles # sheets." /> {picked ? null : pick}
-    </>
-  )
+  if (n === 0) return <Trans>Answering confirms no sheets.</Trans>
+  return <Plural value={n} one="Answering settles # sheet." other="Answering settles # sheets." />
 }
 
 /** What the screen cannot do yet: answering (19a has no answer operation). */
@@ -137,5 +142,5 @@ export function CannotAnswer({ entry, readOnly }: { entry: QuestionEntry; readOn
   const discipline = entry.question.discipline
   if (!discipline) return <Trans>Questions cannot be answered on this screen yet. Confirm the other sheets meanwhile.</Trans>
   const name = disciplineName(discipline, i18n)
-  return <Trans>Questions cannot be answered on this screen yet, so {name} cannot be confirmed until this one is. Confirm its other sheets meanwhile.</Trans>
+  return <Trans>Questions cannot be answered on this screen yet, so {name} cannot be confirmed until it is answered. Confirm its other sheets meanwhile.</Trans>
 }

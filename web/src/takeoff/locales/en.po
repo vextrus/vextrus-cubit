@@ -40,10 +40,6 @@ msgid "Leave it without a number"
 msgstr "Leave it without a number"
 
 #: src/takeoff/Step1Inspector.tsx
-msgid "two agree"
-msgstr "two agree"
-
-#: src/takeoff/Step1Inspector.tsx
 msgid "{single, plural, one {Confirm # sheet with one source, on its own} other {Confirm # sheets with one source, one by one}}"
 msgstr "{single, plural, one {Confirm # sheet with one source, on its own} other {Confirm # sheets with one source, one by one}}"
 
@@ -163,6 +159,10 @@ msgstr "Presentation plan"
 msgid "your last change to Step 1"
 msgstr "your last change to Step 1"
 
+#: src/takeoff/questionWords.tsx
+msgid "Questions cannot be answered on this screen yet, so {name} cannot be confirmed until it is answered. Confirm its other sheets meanwhile."
+msgstr "Questions cannot be answered on this screen yet, so {name} cannot be confirmed until it is answered. Confirm its other sheets meanwhile."
+
 #: src/takeoff/SheetList.tsx
 msgid "found, {listed} on the drawing list read on a sheet"
 msgstr "found, {listed} on the drawing list read on a sheet"
@@ -262,10 +262,6 @@ msgstr "{date}. X excludes it, with a reason."
 #: src/takeoff/Bar.tsx
 msgid "{n, plural, one {Confirm # sheet that agrees} other {Confirm # sheets that agree}}"
 msgstr "{n, plural, one {Confirm # sheet that agrees} other {Confirm # sheets that agree}}"
-
-#: src/takeoff/SheetList.tsx
-msgid "{questions, plural, one {Needs you: # Question open, in the order Enter takes it} other {Needs you: # Questions open, in the order Enter takes them}}"
-msgstr "{questions, plural, one {Needs you: # Question open, in the order Enter takes it} other {Needs you: # Questions open, in the order Enter takes them}}"
 
 #: src/takeoff/SheetList.tsx
 msgid "{markText}, from the file name {file}"
@@ -435,10 +431,6 @@ msgstr "ELV layout"
 msgid "{name}: no drawing list; numbering runs {first}–{last} without a gap; {found} found."
 msgstr "{name}: no drawing list; numbering runs {first}–{last} without a gap; {found} found."
 
-#: src/takeoff/questionWords.tsx
-msgid "Answering confirms {number} {kept} and excludes {dropped} as superseded."
-msgstr "Answering confirms {number} {kept} and excludes {dropped} as superseded."
-
 #: src/takeoff/Bar.tsx
 msgid "You are reading this as the MD."
 msgstr "You are reading this as the MD."
@@ -474,6 +466,10 @@ msgstr "Paste the drawing list"
 #: src/takeoff/words.tsx
 msgid "structural"
 msgstr "structural"
+
+#: src/takeoff/questionWords.tsx
+msgid "the later revision mark and the later date agree"
+msgstr "the later revision mark and the later date agree"
 
 #: src/takeoff/SheetList.tsx
 msgid "Proposal, one source"
@@ -531,6 +527,10 @@ msgstr "{mark}, {date}"
 msgid "{mark}, from the file name; dated {date}"
 msgstr "{mark}, from the file name; dated {date}"
 
+#: src/takeoff/questionWords.tsx
+msgid "Keep {kept} ({date}); leave {dropped} out as superseded"
+msgstr "Keep {kept} ({date}); leave {dropped} out as superseded"
+
 #: src/takeoff/words.tsx
 msgid "Stair details"
 msgstr "Stair details"
@@ -550,6 +550,10 @@ msgstr "Exclude the focused sheet, with a reason"
 #: src/takeoff/words.tsx
 msgid "Two sheets, one number"
 msgstr "Two sheets, one number"
+
+#: src/takeoff/SheetList.tsx
+msgid "{questions, plural, one {Needs you: # Question open} other {Needs you: # Questions open, in the order Enter takes them}}"
+msgstr "{questions, plural, one {Needs you: # Question open} other {Needs you: # Questions open, in the order Enter takes them}}"
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "Proposed by Vextrus from the file; no one has acted on it yet. A Proposal counts toward nothing until the QS confirms it."
@@ -668,9 +672,9 @@ msgstr "Next open item"
 msgid "Lightning protection"
 msgstr "Lightning protection"
 
-#: src/takeoff/Step1Inspector.tsx
-msgid "Picked for you:"
-msgstr "Picked for you:"
+#: src/takeoff/questionWords.tsx
+msgid "rev {mark}"
+msgstr "rev {mark}"
 
 #: src/takeoff/words.tsx
 msgid "Rainwater details"
@@ -724,6 +728,10 @@ msgstr "What the QS has left, in order"
 msgid "The mechanical (HVAC) drawing list"
 msgstr "The mechanical (HVAC) drawing list"
 
+#: src/takeoff/questionWords.tsx
+msgid "Answering confirms {number} ({kept}) and excludes {number} ({dropped}) as superseded."
+msgstr "Answering confirms {number} ({kept}) and excludes {number} ({dropped}) as superseded."
+
 #: src/takeoff/words.tsx
 msgid "Set this file aside and mark it for Vextrus to look at"
 msgstr "Set this file aside and mark it for Vextrus to look at"
@@ -759,10 +767,6 @@ msgstr "Proposed by Vextrus from the file; no one has acted on it yet. A Proposa
 #: src/takeoff/Bar.tsx
 msgid "Enter confirms it and opens the next open sheet."
 msgstr "Enter confirms it and opens the next open sheet."
-
-#: src/takeoff/questionWords.tsx
-msgid "Keep {kept}; exclude {dropped} as superseded"
-msgstr "Keep {kept}; exclude {dropped} as superseded"
 
 #: src/takeoff/Bar.tsx
 msgid "Nothing else confirms them. Open each to confirm it."
@@ -885,6 +889,10 @@ msgstr "Kitchen details"
 msgid "found; no drawing list; numbering runs {first}–{last}; {listed} missing"
 msgstr "found; no drawing list; numbering runs {first}–{last}; {listed} missing"
 
+#: src/takeoff/Step1Inspector.tsx
+msgid "{file} is held: its views are not counted unless you read it anyway."
+msgstr "{file} is held: its views are not counted unless you read it anyway."
+
 #: src/takeoff/words.tsx
 msgid "Fire (a building of 7 storeys or more)"
 msgstr "Fire (a building of 7 storeys or more)"
@@ -925,10 +933,6 @@ msgstr "Roof plan"
 msgid "{file} may be misread"
 msgstr "{file} may be misread"
 
-#: src/takeoff/questionWords.tsx
-msgid "Pick an answer: {keys}."
-msgstr "Pick an answer: {keys}."
-
 #: src/takeoff/Step1Inspector.tsx
 msgid "Kept open"
 msgstr "Kept open"
@@ -956,10 +960,6 @@ msgstr "The pasted drawing list"
 #: src/takeoff/Bar.tsx
 msgid "Coverage has a view that is neither assigned nor excluded"
 msgstr "Coverage has a view that is neither assigned nor excluded"
-
-#: src/takeoff/questionWords.tsx
-msgid "Keep {kept} ({date}); exclude {dropped} as superseded"
-msgstr "Keep {kept} ({date}); exclude {dropped} as superseded"
 
 #: src/takeoff/SheetList.tsx
 msgid "Revision and date"
@@ -1013,6 +1013,10 @@ msgstr "{n} / {total} settled"
 msgid "{n, plural, one {left out # sheet} other {left out # sheets}}"
 msgstr "{n, plural, one {left out # sheet} other {left out # sheets}}"
 
+#: src/takeoff/Step1Inspector.tsx
+msgid "Picked for you: {sources}"
+msgstr "Picked for you: {sources}"
+
 #: src/takeoff/words.tsx
 msgid "Slab layout"
 msgstr "Slab layout"
@@ -1056,6 +1060,10 @@ msgstr "Pump details"
 #: src/takeoff/Step1Screen.tsx
 msgid "Sheets"
 msgstr "Sheets"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "{name}: {listed} on the pasted drawing list; {found} found."
+msgstr "{name}: {listed} on the pasted drawing list; {found} found."
 
 #: src/takeoff/words.tsx
 msgid "Duplicate or another Discipline’s copy"
@@ -1149,9 +1157,9 @@ msgstr "Exclusion reasons"
 msgid "Details"
 msgstr "Details"
 
-#: src/takeoff/questionWords.tsx
-msgid "Keep {kept}; exclude {dropped}"
-msgstr "Keep {kept}; exclude {dropped}"
+#: src/takeoff/Step1Inspector.tsx
+msgid "two sources agree"
+msgstr "two sources agree"
 
 #: src/takeoff/words.tsx
 msgid "Foundation layout"
@@ -1201,6 +1209,10 @@ msgstr "none: the title block has none and the file name none"
 #: src/takeoff/words.tsx
 msgid "Electrical"
 msgstr "Electrical"
+
+#: src/takeoff/questionWords.tsx
+msgid "Keep {kept}; leave {dropped} out as superseded"
+msgstr "Keep {kept}; leave {dropped} out as superseded"
 
 #: src/takeoff/words.tsx
 msgid "The plumbing and sanitary drawing list"
@@ -1314,10 +1326,6 @@ msgstr "State mark"
 #: src/takeoff/words.tsx
 msgid "A Question about the sheets"
 msgstr "A Question about the sheets"
-
-#: src/takeoff/questionWords.tsx
-msgid "Questions cannot be answered on this screen yet, so {name} cannot be confirmed until this one is. Confirm its other sheets meanwhile."
-msgstr "Questions cannot be answered on this screen yet, so {name} cannot be confirmed until this one is. Confirm its other sheets meanwhile."
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "Excluded by {name}, {date}: {reason}"
