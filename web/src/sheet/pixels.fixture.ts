@@ -10,9 +10,10 @@
  * `DILATION` px of it, or an engine pixel differs so from every one of ours near it (both ways: ink
  * drawn where the engine has none, and ink the engine has that we dropped). Antialiasing drawn
  * differently moves ink by under a pixel; a dropped glyph or triangle leaves tens of wrong pixels.
- * Measured (ticket 122): the viewer's drawer and the same moved by 1 px pass; one glyph dropped gives
- * 161 wrong pixels, every tenth 462, every third 1898, half 3090; one fill triangle 1576, every third
- * 798; moved by 2 px, text 3408 and fills 547.
+ * Measured (ticket 122): the viewer's drawer scores 0 wrong pixels at every tolerance from 64 grey
+ * down to 16, and passes moved by 1 px. Each single glyph dropped scores 24 or more (the writer's
+ * 64 grey and 40 let six of the sixty through), one fill triangle 67 or more; text drawn at 80 % alpha
+ * scores 4265 at 32 grey and 0 at 64. So 32 grey and at most 10 wrong pixels.
  */
 import tinySheetUrl from '../../../engine/render/fixtures/tiny-sheet.bin?url'
 import textUrl from '../../../engine/render/fixtures/tiny-sheet-text@4.png?url'
@@ -23,11 +24,11 @@ import type { drawSheet } from './gl'
 /** The engine rasters' density (make.py's `PART_DENSITY`). */
 export const PX_PER_MM = 4
 /** Grey levels (of 255) a pixel may differ by before it counts as wrong. */
-export const TOLERANCE = 64
+export const TOLERANCE = 32
 /** Pixels either image's ink may move before it counts as missing. */
 export const DILATION = 1
 /** Wrong pixels allowed per part. */
-export const MAX_WRONG = 40
+export const MAX_WRONG = 10
 
 type Part = 'text' | 'fills'
 
