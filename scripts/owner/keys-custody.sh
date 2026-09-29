@@ -18,7 +18,8 @@
 #   3. installs the scorer, root's, at /usr/local/bin/vx-score (`#!/usr/bin/python3 -I` and main's
 #      tools/scorer/score.py), and the key user's log;
 #   4. makes the pipeline's user, vxrun, who alone may write the drop folder; the spool your user fills;
-#      main's scripts/real_drawings/ as root's installed copy with its launcher and root's copy of uv;
+#      main's scripts/real_drawings/ (GitHub's main) as root's installed copy with its launcher, and uv
+#      from its pinned release;
 #   5. installs one sudoers file: your user runs the installed command as vxrun, and vxrun runs the
 #      poster and the scorer (on exactly one run id) as the key user, all without a password;
 #   6. proves each wall.
@@ -43,6 +44,12 @@ BIN=$LIB/bin
 SPOOL=/srv/vextrus-spool
 DROP=/srv/vextrus-drop
 RULE=/etc/sudoers.d/93-vextrus-runner
+MAIN_REPO=$LIB/main.git  # root's clone of main, checked against the main GitHub holds
+# uv, from its release (never your user's copy): the tarball's sha256 as the release publishes it
+# (https://github.com/astral-sh/uv/releases/download/0.12.5/uv-x86_64-unknown-linux-gnu.tar.gz.sha256).
+UV_VERSION=0.12.5
+UV_URL=https://github.com/astral-sh/uv/releases/download/$UV_VERSION/uv-x86_64-unknown-linux-gnu.tar.gz
+UV_SHA256=68a509da24b06b4223a1c0175fb5eb5bc79342b76cbeff0cfe51ac3f5b17b6b2
 # The installed copy: scripts/real_drawings/runner.py's FILES (a test keeps the two lists equal).
 RUNNER_FILES=(
   scripts/__init__.py
@@ -67,9 +74,9 @@ warn() { printf '  WARNING: %s\n' "$1"; }
 die() { printf '  FAILED: %s\n' "$1"; exit 1; }
 confirm() { local reply; read -r -p "  $1 [y/N] " reply; [[ "$reply" =~ ^[Yy] ]]; }
 as_owner() { sudo -u "$OWNER" -- "$@"; }
-# A file of main's commit, read by git as your user (git never runs as root in your checkout: a
-# repository's config can run a program).
-from_main() { as_owner git -C "$ROOT" show "main:$1"; }
+# A file of main's commit, from root's own clone (step 1 checks it is the main GitHub holds). Git never
+# runs as root in your checkout, whose config can run a program: your user only writes a bundle of it.
+from_main() { git -C "$MAIN_REPO" show "refs/heads/main:$1"; }
 tmp=$(mktemp -d)
 trap 'rm -f -- "$tmp"/*; rmdir -- "$tmp"' EXIT
 
@@ -82,11 +89,21 @@ id "$KEY_USER" >/dev/null 2>&1 || die "no key user $KEY_USER: run scripts/owner/
 version=$(sudo -V | sed -n 's/^Sudo version \([0-9.]*\).*/\1/p')
 printf '%s\n1.9.10\n' "$version" | sort -V -C -r 2>/dev/null \
   || die "sudo $version is older than 1.9.10, which the scorer's run-id rule needs"
-[ "$(as_owner git -C "$ROOT" symbolic-ref --short HEAD)" = main ] || die "check out main in $ROOT first"
-[ -d "$DROP" ] || die "no drop folder $DROP: run scripts/owner/drop-setup.sh first"
-# The pipeline's user asks the installed poster which commits GitHub holds (`post-status head`).
+[ ! -L "$DROP" ] && [ -d "$DROP" ] || die "no drop folder $DROP: run scripts/owner/drop-setup.sh first"
+# Main, as your user bundles it, into root's clone; then the installed poster must be that main's, and
+# that main must be the one GitHub holds (the poster's `head`, run as the key user, asks GitHub).
+as_owner git -C "$ROOT" bundle create --quiet - refs/heads/main > "$tmp/main.bundle" \
+  || die "your checkout could not bundle main"
+[ -d "$MAIN_REPO" ] || git init --quiet --bare "$MAIN_REPO"
+git -C "$MAIN_REPO" -c transfer.fsckObjects=true fetch --quiet --no-tags "$tmp/main.bundle" \
+  "+refs/heads/main:refs/heads/main" || die "main's bundle could not be fetched"
+chown -R -h root:root "$MAIN_REPO"
 from_main scripts/owner/post-status | cmp -s - "$LIB/post-status" \
-  || die "the installed poster is not main's: run scripts/owner/drop-setup.sh first"
+  || die "the installed poster is not main's: pull main, run scripts/owner/drop-setup.sh, then this again"
+github_main=$(sudo -n -u "$KEY_USER" "$LIB/post-status" head main) \
+  || die "the poster could not ask GitHub for main (above)"
+[ "$(git -C "$MAIN_REPO" rev-parse refs/heads/main)" = "$github_main" ] \
+  || die "your main is not the main GitHub holds ($github_main): pull main, then run this again"
 PIN=$(from_main toolchain/python.version | tr -d '[:space:]')
 PYTHON=/opt/vextrus/python/cpython-$PIN-linux-x86_64-gnu/bin/python3
 [ -x "$PYTHON" ] || die "the toolchain's Python $PYTHON is not installed"
@@ -95,12 +112,12 @@ for tree in "$(dirname "$(dirname "$(readlink -f "$PYTHON")")")" "$(readlink -f 
   bad=$(find "$tree" \( ! -user root -o -perm /022 \) ! -type l -print -quit)
   [ -z "$bad" ] || die "$bad is not root's alone: fix that before anything runs as another user from it"
 done
-ok "root; $KEY_USER's home is 700; sudo $version; $ROOT is on main; the interpreters are root's alone"
+ok "root; $KEY_USER's home is 700; sudo $version; main is GitHub's ${github_main:0:12}; the interpreters are root's alone"
 
 step "2/6 The drafted keys"
 drafted=()
 for set in "${SETS[@]}"; do
-  [ -f "$DRAFTS/$set.json" ] && drafted+=("$set")
+  [ -e "$DRAFTS/$set.json" ] || [ -L "$DRAFTS/$set.json" ] && drafted+=("$set")
 done
 if [ "${#drafted[@]}" = 0 ]; then
   ok "no draft in $DRAFTS: the keys step is skipped"
@@ -110,6 +127,10 @@ else
   chmod 0755 "$tmp"
   for set in "${drafted[@]}"; do
     [ ! -e "$KEY_DIR/$set.json" ] || die "$set already has a key in custody; move it aside by hand first"
+    [ ! -L "$DRAFTS/$set.json" ] && [ -f "$DRAFTS/$set.json" ] \
+      || die "the $set draft is not a plain file (a link is never taken); nothing was moved"
+    [ "$(stat -c %h "$DRAFTS/$set.json")" = 1 ] \
+      || die "the $set draft has another name (a hard link): remove the other name first"
     # The ruling of session 06: a draft keys the drawings it names, by their sha256.
     as_owner "$SYSTEM_PYTHON" -I "$tmp/drafts.py" --reference "$REFERENCE/$set" "$DRAFTS/$set.json" \
       || die "the $set draft does not key the drawings it names (above); nothing was moved"
@@ -118,31 +139,47 @@ else
   confirm "Did you confirm these on the review page, with your changes applied?" \
     || die "nothing was moved; confirm the drafts first"
   for set in "${drafted[@]}"; do
-    size=$(stat -c %s "$DRAFTS/$set.json")
-    sha=$(sha256sum < "$DRAFTS/$set.json" | cut -d' ' -f1)
-    mv -- "$DRAFTS/$set.json" "$KEY_DIR/$set.json"
-    chown "$KEY_USER:$KEY_USER" "$KEY_DIR/$set.json"
-    chmod 0600 "$KEY_DIR/$set.json"
-    printf '%s %s %s\n' "$set" "$size" "$sha" >> "$tmp/moved"
-    ok "moved the $set key into $KEY_DIR (the key user's alone)"
+    key=$KEY_DIR/$set.json
+    # Hashed as your user (root never opens a file you could swap for a link or a pipe), then moved,
+    # then checked as what root now holds: a plain file, one name, the same bytes.
+    sha=$(as_owner sha256sum -- "$DRAFTS/$set.json" | cut -d' ' -f1)
+    mv -- "$DRAFTS/$set.json" "$key"
+    if [ -L "$key" ] || [ ! -f "$key" ]; then
+      rm -f -- "$key"
+      die "the $set draft became a link or other file while it moved; it was not taken"
+    fi
+    chown -h "$KEY_USER:$KEY_USER" "$key"
+    chmod 0600 "$key"
+    [ "$(stat -c %h "$key")" = 1 ] \
+      || die "the $set key has another name your user made while it moved: find it with find / -samefile $key"
+    [ "$(sha256sum < "$key" | cut -d' ' -f1)" = "$sha" ] \
+      || die "the $set draft changed while it moved; move $key aside and run this again"
+    printf '%s %s %s\n' "$set" "$(stat -c %s "$key")" "$sha" >> "$tmp/moved"
+    ok "moved the $set key into $KEY_DIR (the key user's alone; one name; its bytes as checked)"
   done
   # Every other file of the drafts folder may hold a key's values (per-file drafts, notes, the review
   # page): each is removed by name, then each folder once empty.
-  count=$(find "$DRAFTS" \( -type f -o -type l \) | wc -l)
+  # Removed by your user, by name (root never deletes in a tree you could change under it); root
+  # then only checks that the folder is gone.
+  count=$(as_owner find "$DRAFTS" \( -type f -o -type l \) 2>/dev/null | wc -l || true)
   echo "  $count more file(s) in $DRAFTS (per-file drafts, notes, the review page) are removed by name."
   confirm "Remove them?" || die "the drafts folder was left; remove it before any scored loop starts"
-  while IFS= read -r -d '' file; do rm -f -- "$file"; done \
-    < <(find "$DRAFTS" \( -type f -o -type l \) -print0)
-  while IFS= read -r -d '' folder; do rmdir -- "$folder"; done < <(find "$DRAFTS" -depth -type d -print0)
-  ok "removed the drafts folder's files by name, and the folder"
-  # No copy of a moved key within your user's reach: same size, then same sha256.
+  # shellcheck disable=SC2016 # expanded by the owner's shell, not this one
+  as_owner bash -c '
+    find "$1" \( -type f -o -type l \) -print0 | while IFS= read -r -d "" f; do rm -f -- "$f"; done
+    find "$1" -depth -type d -print0 | while IFS= read -r -d "" d; do rmdir -- "$d"; done' _ "$DRAFTS"
+  [ ! -e "$DRAFTS" ] && [ ! -L "$DRAFTS" ] || die "$DRAFTS is not gone: remove what is left, then run this again"
+  ok "your user removed the drafts folder's files by name, and the folder"
+  # A look for copies of a moved key your user can read (same size, then same sha256), as your user:
+  # it finds copies under these folders only, not every copy anywhere.
   while read -r set size sha; do
-    while IFS= read -r -d '' candidate; do
-      if [ "$(sha256sum < "$candidate" | cut -d' ' -f1)" = "$sha" ]; then
-        die "a copy of the $set key is still readable by $OWNER: $candidate (remove it, then run this again)"
-      fi
-    done < <(find "/home/$OWNER" /tmp /srv -xdev -type f -size "${size}c" -print0 2>/dev/null)
-    ok "no copy of the $set key under /home/$OWNER, /tmp or /srv"
+    # Collected first: under pipefail, grep -q stopping find early would read as "no copy".
+    found=$(as_owner find "/home/$OWNER" /tmp /srv -xdev -type f -size "${size}c" -exec sha256sum {} + \
+      2>/dev/null | cut -d' ' -f1 || true)
+    if grep -qx "$sha" <<< "$found"; then
+      die "a copy of the $set key is still readable by $OWNER under /home/$OWNER, /tmp or /srv: remove it"
+    fi
+    ok "no copy of the $set key found under /home/$OWNER, /tmp or /srv"
   done < "$tmp/moved"
 fi
 
@@ -165,11 +202,13 @@ for group in $(id -nG "$RUN_USER"); do
 done
 KEY_GROUP=$(id -gn "$KEY_USER")
 # The drop folder: vxrun's to write, the key user's group's to read (setgid keeps that group).
-chown "$RUN_USER:$KEY_GROUP" "$DROP"
+# The folder first (so your user can no longer add to it), then a new lock made by root: a lock your
+# user left (a file, or a link to anything) is removed, never followed.
+[ ! -L "$DROP" ] || die "$DROP is a link"
+chown -h "$RUN_USER:$KEY_GROUP" "$DROP"
 chmod 2750 "$DROP"
-[ -e "$DROP/.lock" ] || install -m 0640 /dev/null "$DROP/.lock"
-chown "$RUN_USER:$KEY_GROUP" "$DROP/.lock"
-chmod 0640 "$DROP/.lock"
+rm -f -- "$DROP/.lock"
+install -o "$RUN_USER" -g "$KEY_GROUP" -m 0640 /dev/null "$DROP/.lock"
 ok "$DROP is $RUN_USER's to write (2750, group $KEY_GROUP): only $RUN_USER writes the runs it scores"
 # The spool: your user fills it for each scored run; vxrun reads it (setgid keeps vxrun's group).
 install -d -o "$OWNER" -g "$RUN_USER" -m 2750 "$SPOOL"
@@ -179,9 +218,13 @@ for file in "${RUNNER_FILES[@]}"; do
   install -D -o root -g root -m 0644 "$tmp/installed" "$INSTALLED/$file"
 done
 find "$INSTALLED" -type d -exec chmod 0755 {} +
-chown -R root:root "$INSTALLED"
-uv=$(as_owner bash -lc 'command -v uv') || die "no uv on $OWNER's PATH to copy"
-install -D -o root -g root -m 0755 "$uv" "$BIN/uv"
+chown -R -h root:root "$INSTALLED"
+curl -sSfL -o "$tmp/uv.tar.gz" "$UV_URL" || die "uv $UV_VERSION could not be downloaded"
+echo "$UV_SHA256  $tmp/uv.tar.gz" | sha256sum -c --quiet - || die "uv's download is not the pinned release"
+tar -xzf "$tmp/uv.tar.gz" -C "$tmp" --no-same-owner uv-x86_64-unknown-linux-gnu/uv
+install -D -o root -g root -m 0755 "$tmp/uv-x86_64-unknown-linux-gnu/uv" "$BIN/uv"
+rm -f -- "$tmp/uv-x86_64-unknown-linux-gnu/uv"
+rmdir -- "$tmp/uv-x86_64-unknown-linux-gnu"
 cat > "$tmp/launcher" <<LAUNCHER
 #!$PYTHON -I
 # The installed real-drawing command, run as $RUN_USER (scripts/owner/keys-custody.sh, ticket 24s).
@@ -199,9 +242,10 @@ step "5/6 The rule"
 cat > "$tmp/rule" <<RULE
 # Installed by scripts/owner/keys-custody.sh (ticket 24s). $OWNER runs, as $RUN_USER and without a
 # password, the installed real-drawing command (it checks its own arguments); $RUN_USER runs, as
-# $KEY_USER, the poster (it checks its own arguments) and the scorer on exactly one run id.
+# $KEY_USER, the poster's \`head\` and \`real-drawings\` on one plain argument, and the scorer on one run id.
 $OWNER ALL=($RUN_USER) NOPASSWD: $RUNNER
-$RUN_USER ALL=($KEY_USER) NOPASSWD: $LIB/post-status, $SCORER ^[0-9A-Za-z-]+\$
+$RUN_USER ALL=($KEY_USER) NOPASSWD: $LIB/post-status ^head [0-9A-Za-z._-]+\$, \\
+  $LIB/post-status ^real-drawings [0-9A-Za-z-]+\$, $SCORER ^[0-9A-Za-z-]+\$
 RULE
 visudo -cf "$tmp/rule" >/dev/null || die "the rule does not validate; nothing was installed"
 sed 's/^/    /' "$tmp/rule"
@@ -240,6 +284,8 @@ check "$RUN_USER may run the scorer as $KEY_USER on a run id" \
   "sudo -u $RUN_USER -- sudo -n -u $KEY_USER $SCORER $run_id; [ \$? = 2 ]"
 check "$RUN_USER may ask the poster, as $KEY_USER, which commit GitHub holds for main" \
   "sudo -u $RUN_USER -- sudo -n -u $KEY_USER $LIB/post-status head main"
+check "$RUN_USER is refused the poster's design gate" \
+  "! sudo -u $RUN_USER -- sudo -n -u $KEY_USER $LIB/post-status design-gate 1 $github_main --passed 1"
 check "$RUN_USER is refused the scorer on a path" "! sudo -u $RUN_USER -- sudo -n -u $KEY_USER $SCORER /etc"
 check "$RUN_USER is refused a shell as $KEY_USER" \
   "! sudo -u $RUN_USER -- sudo -n -u $KEY_USER /bin/sh -c true"

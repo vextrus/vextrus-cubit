@@ -384,3 +384,40 @@ def test_head_refuses_an_answer_that_is_not_a_commit(tmp_path: Path) -> None:
     )
 
     assert code == 2
+
+
+# Fix round 1 of 24s, F7 (50): the poster posted a run folder the pipeline's user did not write.
+
+
+def test_once_the_pipelines_user_exists_only_its_runs_are_posted(tmp_path: Path) -> None:
+    import getpass
+
+    world = make_world(tmp_path / "world")
+    world.pr(57, {"README.md": "a change the engine never reads\n"})
+    run("57", no_post=False, m=world.machine(), accept_if_clean=True)
+    (run_id,) = world.posted
+    github = FakeGitHub(head=json.loads((world.drop / run_id / "metadata.json").read_text())["commit"])
+    path = config(tmp_path, world.drop)
+
+    path.write_text(path.read_text() + 'writer = "root"\n')  # a user who did not write this run
+    refused = post_status.main(
+        ["real-drawings", run_id], config_path=path, transport=github, sign=lambda d: b"s"
+    )
+    assert refused == 2
+    assert github.posted() == []
+
+    path.write_text(path.read_text().replace('writer = "root"', f'writer = "{getpass.getuser()}"'))
+    assert (
+        post_status.main(
+            ["real-drawings", run_id], config_path=path, transport=github, sign=lambda d: b"s"
+        )
+        == 0
+    )
+    assert len(github.posted()) == 1
+
+
+def test_the_settings_name_the_pipelines_user_as_the_writer() -> None:
+    import tomllib
+
+    settings = tomllib.loads((REPO / "scripts" / "owner" / "post-status.toml").read_text())
+    assert settings["writer"] == "vxrun"
