@@ -186,6 +186,8 @@ class Step1DrawingListOut(_FromView):
     agrees: bool
     read_on: uuid.UUID | None
     """The printed sheet the list read on a sheet was read on; null for none."""
+    read_marks: dict[str, str]
+    """The revision mark the list read on a sheet gives each number, where it gives one."""
 
 
 __all__ = [

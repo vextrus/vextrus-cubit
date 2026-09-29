@@ -130,6 +130,24 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
   const [sheetPicker, setSheetPicker] = useState(false)
   const [viewPick, setViewPick] = useState<{ sheet: string; view: string } | null>(null)
   const listRef = useRef<HTMLDivElement>(null)
+  const root = useRef<HTMLDivElement>(null)
+  // F6 (or a click on the canvas's margin) focuses the frame's canvas area itself, outside the list's
+  // and the sheet's key regions, where Space did nothing: focus goes on into the row or the sheet
+  // (review round 1, M17).
+  useEffect(() => {
+    const area = root.current?.closest<HTMLElement>('[data-region="canvas"]')
+    if (!area) return
+    const inward = (event: FocusEvent) => {
+      if (event.target !== area) return
+      const inner =
+        area.querySelector<HTMLElement>('[data-key-region] [role="group"][tabindex]') ??
+        area.querySelector<HTMLElement>('[data-row][tabindex="0"]') ??
+        area.querySelector<HTMLElement>('[data-row]')
+      inner?.focus({ preventScroll: true })
+    }
+    area.addEventListener('focus', inward)
+    return () => area.removeEventListener('focus', inward)
+  }, [])
   const focusNext = useRef<string | null>(null)
 
   const rowByKey = (key: string | null) => (key ? (model.rows.find((r) => r.key === key) ?? null) : null)
@@ -326,7 +344,7 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
   const pasteFile = pasteSection?.rows[0]?.sheets[0]?.file_name ?? ''
 
   return (
-    <div className="absolute inset-0 flex flex-col">
+    <div ref={root} className="absolute inset-0 flex flex-col">
       <SlotFill slot="toolbar.end" order={0}>
         <ModeSwitch mode={mode} title={spaceLabel} onList={() => mode === 'sheet' && toList()} onSheet={() => mode === 'list' && fromList()} />
       </SlotFill>
@@ -594,7 +612,18 @@ function SheetPicker({ sheet, model, open, onOpen, onPick }: { sheet: ProposalOu
           <ChevronDown strokeWidth={1.5} className="size-3.5 shrink-0" aria-hidden />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="max-h-[60vh] w-80 overflow-auto p-1" aria-label={t`Sheets, in list order`}>
+      <PopoverContent
+        align="start"
+        className="max-h-[60vh] w-80 overflow-auto p-1"
+        aria-label={t`Sheets, in list order`}
+        // Closed, focus goes back to the sheet, where Space and the arrows work, not to the label (M17).
+        onCloseAutoFocus={(event) => {
+          const canvas = document.querySelector<HTMLElement>('[data-region="canvas"] [data-key-region] [role="group"][tabindex]')
+          if (!canvas) return
+          event.preventDefault()
+          canvas.focus({ preventScroll: true })
+        }}
+      >
         <p className="px-2 py-1 text-xs font-semibold text-ink-secondary">
           <Trans>Sheets, in list order</Trans>
         </p>

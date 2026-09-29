@@ -26,17 +26,17 @@ export interface SheetListProps {
 }
 
 /**
- * 6.2's columns: mark, Number, Title, Discipline, Revision and date, Storeys, Views, State; the Storeys
- * column widens from a list 1000 px wide (the list is a container, so the widths follow the list). 6.2's
- * File column (from 1000 px) is not built: ticket 22's acceptance test pins one element per row holding
- * the revision mark, and the file's name ("KR-STR-R0.dwg") would be a second; the Discipline's tooltip
- * names the file instead.
+ * 6.2's columns: mark, Number, Title, Discipline, Revision and date, Storeys, Views, File, State. From a
+ * list 1000 px wide (the list is a container, so the widths follow the list) the Storeys column widens
+ * and the File column shows, its tooltip saying where in the file.
  */
 const COLS = cn(
   'grid items-center gap-x-2',
   'grid-cols-[24px_76px_minmax(0,1fr)_78px_106px_180px_40px_150px]',
-  '@min-[1000px]:grid-cols-[24px_76px_minmax(0,1fr)_78px_106px_232px_40px_150px]',
+  '@min-[1000px]:grid-cols-[24px_76px_minmax(0,1fr)_78px_106px_232px_40px_104px_150px]',
 )
+/** The File column's cells: out of the grid below 1000 px. */
+const FILE_CELL = 'hidden min-w-0 @min-[1000px]:block'
 
 export const SheetList = forwardRef<HTMLDivElement, SheetListProps>(function SheetList({ model, focused, onFocusRow, onOpenRow, onPasteList }, ref) {
   const { t } = useLingui()
@@ -61,6 +61,9 @@ export const SheetList = forwardRef<HTMLDivElement, SheetListProps>(function She
         <StoreysHeader />
         <span role="columnheader" className="text-end">
           <Trans>Views</Trans>
+        </span>
+        <span role="columnheader" className={FILE_CELL}>
+          <Trans>File</Trans>
         </span>
         <span role="columnheader">
           <Trans>State</Trans>
@@ -272,7 +275,23 @@ function Section({
   )
 }
 
-/** The Discipline's name; its tooltip names the file it came from (6.2; the list has no File column). */
+/** The source file (6.2's File column); its tooltip adds where in it: "laid out in the drawing", "layout “A-24”". */
+function FileCell({ sheet }: { sheet: ProposalOut }) {
+  const file = <DrawingText kind="file-name" text={sheet.file_name} truncate={false} />
+  const layout = sheet.layout ? <DrawingText kind="mark" text={sheet.layout} truncate={false} /> : null
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span tabIndex={-1} className="block truncate">
+          {file}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>{layout ? <Trans>{file}, layout “{layout}”</Trans> : <Trans>{file}, laid out in the drawing</Trans>}</TooltipContent>
+    </Tooltip>
+  )
+}
+
+/** The Discipline's name; its tooltip names the file it came from (6.2). */
 function DisciplineCell({ sheet }: { sheet: ProposalOut }) {
   const { i18n } = useLingui()
   const name = disciplineName(sheet.discipline, i18n)
@@ -456,6 +475,12 @@ function SheetRow({
       onFocus={(event) => {
         if (event.target === event.currentTarget) onFocus(row.key)
       }}
+      // A click anywhere in the row focuses the row, even on a cell whose tooltip takes focus first,
+      // so Space opens the sheet clicked (review round 1, M16).
+      onClick={(event) => {
+        onFocus(row.key)
+        if (document.activeElement !== event.currentTarget) event.currentTarget.focus({ preventScroll: true })
+      }}
       onDoubleClick={() => onOpen(row.key)}
       className={cn(
         COLS,
@@ -500,13 +525,16 @@ function SheetRow({
           <>
             <StoreyStrip slots={slots} views={row.sheets.flatMap((p) => p.views ?? [])} muted={excluded} />
             <span className="min-w-0 truncate">
-              <StoreysText views={row.sheets.flatMap((p) => p.views ?? [])} />
+              <StoreysText views={row.sheets.flatMap((p) => p.views ?? [])} stated={first.storeys_as_stated} />
             </span>
           </>
         ) : null}
       </span>
       <span role="gridcell" className="num text-end text-ink-secondary">
         {first ? f.integer(row.sheets.reduce((n, p) => n + (p.views?.length ?? 0), 0)) : null}
+      </span>
+      <span role="gridcell" className={cn(FILE_CELL, 'truncate text-xs text-ink-secondary')}>
+        {first ? <FileCell sheet={first} /> : null}
       </span>
 
       <span role="gridcell" className="truncate text-xs">

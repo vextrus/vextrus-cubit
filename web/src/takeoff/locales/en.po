@@ -437,6 +437,10 @@ msgstr "A Check against the drawing list"
 msgid "Exclude with the reason typed"
 msgstr "Exclude with the reason typed"
 
+#: src/takeoff/questionWords.tsx
+msgid "{kept}: the later revision mark in its title block, and the drawing list on {list}, agree"
+msgstr "{kept}: the later revision mark in its title block, and the drawing list on {list}, agree"
+
 #: src/takeoff/Bar.tsx
 msgid "The drawing list does not name it."
 msgstr "The drawing list does not name it."
@@ -553,10 +557,6 @@ msgstr "Confirm back in"
 #: src/takeoff/words.tsx
 msgid "Tank details"
 msgstr "Tank details"
-
-#: src/takeoff/questionWords.tsx
-msgid "{kept} has the later revision mark and the later date"
-msgstr "{kept} has the later revision mark and the later date"
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "Views by the step that will read them, proposed or assigned"
@@ -717,6 +717,10 @@ msgstr "Elevation"
 #: src/takeoff/SheetList.tsx
 msgid "found, {listed} on the drawing list on {sheet}"
 msgstr "found, {listed} on the drawing list on {sheet}"
+
+#: src/takeoff/questionWords.tsx
+msgid "{kept}: the later date in its title block, and the drawing list on {list}, agree"
+msgstr "{kept}: the later date in its title block, and the drawing list on {list}, agree"
 
 #: src/takeoff/Bar.tsx
 msgid "Confirm {n}"
@@ -942,6 +946,10 @@ msgstr "X excludes it, with a reason."
 msgid "↓ walks the list; Space opens a sheet; a Proposal counts toward nothing until you confirm it."
 msgstr "↓ walks the list; Space opens a sheet; a Proposal counts toward nothing until you confirm it."
 
+#: src/takeoff/Step1Inspector.tsx
+msgid "held by Question {tag}"
+msgstr "held by Question {tag}"
+
 #: src/takeoff/SheetList.tsx
 #: src/takeoff/Step1Inspector.tsx
 msgid "File"
@@ -1108,6 +1116,10 @@ msgstr "Each has a number and title from its title block and is on its drawing l
 #: src/takeoff/SheetList.tsx
 msgid "<0/> Held: the two readers disagree"
 msgstr "<0/> Held: the two readers disagree"
+
+#: src/takeoff/questionWords.tsx
+msgid "{kept}: the later revision mark and date in its title block, and the drawing list on {list}, agree"
+msgstr "{kept}: the later revision mark and date in its title block, and the drawing list on {list}, agree"
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "Confirmed by {name} (Vextrus), {date}"
@@ -1323,6 +1335,10 @@ msgstr "floor to floor"
 #: src/takeoff/Bar.tsx
 msgid "Coverage has a view that is neither assigned nor excluded"
 msgstr "Coverage has a view that is neither assigned nor excluded"
+
+#: src/takeoff/storeys.tsx
+msgid "{from} to {until}"
+msgstr "{from} to {until}"
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "layout “<0/>”"
@@ -1650,6 +1666,10 @@ msgstr "Roof structure details"
 msgid "{0, plural, one {Coverage # view:} other {Coverage # views:}}"
 msgstr "{0, plural, one {Coverage # view:} other {Coverage # views:}}"
 
+#: src/takeoff/SheetList.tsx
+msgid "{file}, layout “{layout}”"
+msgstr "{file}, layout “{layout}”"
+
 #: src/takeoff/Step1Inspector.tsx
 msgid "{name}: {listed} on the drawing list on {sheet}; {found} found."
 msgstr "{name}: {listed} on the drawing list on {sheet}; {found} found."
@@ -1793,6 +1813,10 @@ msgid "Not part of this set: take it off the list"
 msgstr "Not part of this set: take it off the list"
 
 #: src/takeoff/SheetList.tsx
+msgid "{file}, laid out in the drawing"
+msgstr "{file}, laid out in the drawing"
+
+#: src/takeoff/SheetList.tsx
 msgid "Each slot is a storey: foundations, Basement, Ground, Mezzanine, 1st to 9th, Roof, the roofs above. A full slot is floor to floor; a bar at its foot is members at that floor level."
 msgstr "Each slot is a storey: foundations, Basement, Ground, Mezzanine, 1st to 9th, Roof, the roofs above. A full slot is floor to floor; a bar at its foot is members at that floor level."
 
@@ -1919,10 +1943,6 @@ msgstr "Cover or index (its drawing list kept)"
 msgid "found, {listed} on the drawing list found in the drawings"
 msgstr "found, {listed} on the drawing list found in the drawings"
 
-#: src/takeoff/questionWords.tsx
-msgid "{kept} has the later revision mark"
-msgstr "{kept} has the later revision mark"
-
 #: src/takeoff/acts.tsx
 msgid "{m, plural, one {left out # sheet} other {left out # sheets}}"
 msgstr "{m, plural, one {left out # sheet} other {left out # sheets}}"
@@ -1938,10 +1958,6 @@ msgstr "Pit and chamber details"
 #: src/takeoff/ActorChip.tsx
 msgid "Vextrus"
 msgstr "Vextrus"
-
-#: src/takeoff/questionWords.tsx
-msgid "{kept} has the later date"
-msgstr "{kept} has the later date"
 
 #: src/takeoff/words.tsx
 msgid "Column schedule"

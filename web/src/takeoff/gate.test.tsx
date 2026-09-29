@@ -119,12 +119,30 @@ describe('M4, M5: the Question cards', () => {
     await screen.findByRole('group', { name: /S-07/ })
   })
 
-  it('shows Q2’s pre-pick from the API with "Picked for you:" and what answering it does', async () => {
+  it('shows no pre-pick where only the title block favours rev B (review round 1, M14: one source is not two)', async () => {
     const { api } = kr01()
     await open(api)
     await focusRow('S-07')
     const q2 = await screen.findByRole('region', { name: card('Q2') })
-    expect(clean(q2.textContent)).toContain('Picked for you: S-07 rev B has the later revision mark')
+    expect(clean(q2.textContent)).not.toContain('Picked for you')
+    expect(within(q2).getAllByRole('radio').some((r) => (r as HTMLInputElement).checked)).toBe(false)
+  })
+
+  it('shows Q2’s pre-pick with its two sources named once the drawing list on S-01 gives rev B (M14)', async () => {
+    const { api, step1 } = kr01()
+    const s01 = step1.proposals.find((p) => p.number === 'S-01')!
+    const handle = api.handle
+    api.handle = async (request: Request) => {
+      const response = await handle(request)
+      const url = new URL(request.url, location.origin)
+      if (!url.pathname.endsWith('/takeoff/step1/drawing-list') || url.searchParams.get('discipline') !== 'structural') return response
+      const body = (await response.json()) as Record<string, unknown>
+      return new Response(JSON.stringify({ ...body, read_on: s01.sheet_id, read_marks: { 'S-07': 'B' } }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    }
+    await open(api)
+    await focusRow('S-07')
+    const q2 = await screen.findByRole('region', { name: card('Q2') })
+    await waitFor(() => expect(clean(q2.textContent)).toContain('Picked for you: S-07 rev B: the later revision mark in its title block, and the drawing list on S-01, agree'))
     expect(clean(q2.textContent)).toContain('Answering confirms S-07 (rev B) and excludes S-07 (rev A) as superseded.')
     const picked = within(q2).getAllByRole('radio').find((r) => (r as HTMLInputElement).checked)
     expect(clean(picked?.closest('label')?.textContent)).toContain('Keep rev B (20 Aug 2026); leave rev A out as superseded')

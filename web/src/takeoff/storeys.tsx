@@ -106,12 +106,84 @@ export function useStoreysWords() {
 
 const plans = (views: readonly ViewOut[] | undefined) => (views ?? []).filter((v) => v.kind === 'plan')
 
+/**
+ * A title's storeys as stated, read into 13's keys where every part is a storey this screen knows
+ * ("3RD, 5TH & 7TH FLOOR" → floor_3, floor_5, floor_7; "TYPICAL FLOOR" → typical; "PILE CAP TO 2ND
+ * FLOOR" → pile_cap, to, floor_2), else null. Used only when the API sent no keys (review round 1,
+ * M12): the words as stated are never shown as "not stated".
+ */
+export function storeysFromStated(stated: string): string[] | null {
+  const text = stated
+    .toLowerCase()
+    .replace(/\b(floors?|flr|fl|levels?|storeys?|plans?)\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!text) return null
+  const one = (part: string): string | null => {
+    const p = part.trim().replace(/\.$/, '')
+    const ordinal = /^(\d{1,3})\s*(st|nd|rd|th)?$/.exec(p)
+    if (ordinal) return `floor_${Number(ordinal[1])}`
+    const basement = /^basement\s*(\d*)$/.exec(p)
+    if (basement) return basement[1] ? `basement_${Number(basement[1])}` : 'basement'
+    const words: Record<string, string> = { ground: 'ground', 'g.': 'ground', g: 'ground', roof: 'roof', typical: 'typical', top: 'top', mezzanine: 'mezzanine', 'pile cap': 'pile_cap', pile: 'pile', foundation: 'foundation', plinth: 'plinth', podium: 'podium' }
+    return words[p] ?? null
+  }
+  const keys: string[] = []
+  for (const run of text.split(/\s*(?:,|&|\band\b)\s*/)) {
+    if (!run) continue
+    const ends = run.split(/\s+to\s+/)
+    if (ends.length > 2) return null
+    const read = ends.map(one)
+    if (read.some((k) => k === null)) return null
+    if (read.length === 2) keys.push(read[0]!, 'to', read[1]!)
+    else keys.push(read[0]!)
+  }
+  return keys.length > 0 ? keys : null
+}
+
+/** A title's storeys as stated, in words: "3rd, 5th, 7th", "Pile cap to 2nd"; else the words as drawn. */
+function StatedStoreys({ stated }: { stated: string }) {
+  const words = useStoreysWords()
+  const word = useStoreyWord()
+  const keys = storeysFromStated(stated)
+  if (keys?.includes('typical'))
+    return (
+      <span className="text-question">
+        <Trans>typical (range from Step 3)</Trans>
+      </span>
+    )
+  if (!keys) return <>{stated}</>
+  const to = keys.indexOf('to')
+  if (to > 0) {
+    const from = word(keys[to - 1]!)
+    const until = word(keys[to + 1]!)
+    const before = words(keys.slice(0, to - 1))
+    const run = <Trans>{from} to {until}</Trans>
+    return before ? <>{before}, {run}</> : run
+  }
+  return <>{words(keys)}</>
+}
+
 /** The Storeys column's text (6.2): the storeys as stated and normalised, amber "not stated" or "typical (range from Step 3)", "—" with no plan view. */
-export function StoreysText({ views }: { views: readonly ViewOut[] | undefined }) {
+export function StoreysText({ views, stated = '' }: { views: readonly ViewOut[] | undefined; stated?: string }) {
   const words = useStoreysWords()
   const found = plans(views)
   if (found.length === 0) return <span className="text-muted-foreground">—</span>
   const keys = found.flatMap((v) => v.storeys)
+  // No storey read from the plans (the keys empty or "not stated"), but the title states some: show
+  // the title's words, normalised (review round 1, M12).
+  const titled = [...new Set([stated, ...found.map((v) => v.storeys_as_stated)].map((x) => x.trim()).filter(Boolean))]
+  if (!keys.some((k) => k !== 'not_stated') && titled.length > 0)
+    return (
+      <>
+        {titled.map((t, i) => (
+          <span key={t}>
+            {i > 0 ? ', ' : null}
+            <StatedStoreys stated={t} />
+          </span>
+        ))}
+      </>
+    )
   if (keys.includes('typical'))
     return (
       <span className="text-question">
@@ -120,8 +192,8 @@ export function StoreysText({ views }: { views: readonly ViewOut[] | undefined }
     )
   // A key this screen has no words for is shown as the title states it.
   const unknown = found.filter((v) => v.storeys.some((k) => !knownStorey(k) && !NOT_A_STOREY.has(k)))
-  const stated = unknown.length > 0 ? unknown.map((v) => v.storeys_as_stated).filter(Boolean).join(', ') : ''
-  const listed = [words(keys), stated].filter(Boolean).join(', ')
+  const unknownStated = unknown.length > 0 ? unknown.map((v) => v.storeys_as_stated).filter(Boolean).join(', ') : ''
+  const listed = [words(keys), unknownStated].filter(Boolean).join(', ')
   const missing = found.some((v) => !v.storeys.some((k) => k !== 'not_stated'))
   if (!listed)
     return (

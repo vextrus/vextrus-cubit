@@ -248,6 +248,9 @@ class ListView:
     agrees: bool
     read_on: uuid.UUID | None = None
     """The printed sheet the list read on a sheet was read on ("13 on the drawing list on S-01")."""
+    read_marks: dict[str, str] = field(default_factory=dict)
+    """The revision mark the list read on a sheet gives each number, where it gives one ("S-07": "B"):
+    a second source for a pre-pick between two copies (m0-screens 6.7, "S-19 R1")."""
 
 
 # Reading ------------------------------------------------------------------------------------------
@@ -591,6 +594,14 @@ def _lists(project_id: uuid.UUID, discipline: str) -> _Lists:
     return _Lists(given, read)
 
 
+def _marks(row: DrawingRegister) -> dict[str, str]:
+    return dict(
+        RegisterEntry.objects.filter(register=row)
+        .exclude(revision_mark="")
+        .values_list("number", "revision_mark")
+    )
+
+
 def _numbers(row: DrawingRegister) -> list[str]:
     return list(
         RegisterEntry.objects.filter(register=row)
@@ -708,6 +719,7 @@ def drawing_list(project_id: uuid.UUID, discipline: str) -> ListView:
         read_numbers=_numbers(lists.read) if lists.read else None,
         agrees=not lists.disagree,
         read_on=lists.read.source_sheet_id if lists.read else None,
+        read_marks=_marks(lists.read) if lists.read else {},
     )
 
 
@@ -1116,7 +1128,7 @@ def raise_question(
 
 
 def record_read_list(
-    sheet_id: uuid.UUID, discipline: str, numbers: Sequence[tuple[str, str]]
+    sheet_id: uuid.UUID, discipline: str, numbers: Sequence[tuple[str, str] | tuple[str, str, str]]
 ) -> uuid.UUID:
     """A Discipline's drawing list as read on a printed sheet of the set (13's register entries:
     each number with its title, in the list's order); its id. Kept beside a list the QS gives: when
@@ -1133,7 +1145,8 @@ def record_read_list(
             source_sheet_id=sheet.id,
         )
         seen: set[str] = set()
-        for line, (number, title) in enumerate(numbers, start=1):
+        for line, entry in enumerate(numbers, start=1):
+            number, title = entry[0], entry[1]
             if number in seen:
                 continue
             seen.add(number)
@@ -1143,6 +1156,7 @@ def record_read_list(
                 register=row,
                 number=number,
                 title=title,
+                revision_mark=entry[2] if len(entry) > 2 else "",  # (number, title, mark): 13's row
                 line=line,
             )
         record_progress(project_id)

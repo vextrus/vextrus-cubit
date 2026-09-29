@@ -7,7 +7,7 @@
  * Answering has no operation in 19a's API yet (the orchestrator's ruling for 22): the card shows the
  * Question, what its answer would do and its options, and says it cannot be answered here yet.
  */
-import type { ReactNode } from 'react'
+import { useId, type ReactNode } from 'react'
 import { Plural, Trans, useLingui } from '@lingui/react/macro'
 import { TAKEOFF_STEPS } from '@/app/steps'
 import { useFormat } from '@/format'
@@ -21,7 +21,7 @@ import { SheetName } from './acts'
 import { SheetRange } from './SheetRange'
 import type { CoverageOut, ProposalOut, ViewOut } from './data'
 import { listSheet, type DisciplineSection, type QuestionEntry, type Row, type Step1Model } from './model'
-import { Answering, CannotAnswer, Copy, OptionWords, QuestionBody, QuestionTitle, Trace, optionsOf, useKindLine, usePick, usePickSources, type CardContext } from './questionWords'
+import { Answering, CannotAnswer, Copy, OptionWords, QuestionBody, QuestionTitle, Trace, optionsOf, useKindLine, usePick, type CardContext } from './questionWords'
 import { disciplineName } from './SheetList'
 import { NOT_RECEIVED_NAMES, OTHER_DISCIPLINE, OTHER_VIEW_KIND, REASON_SHORT, ROLE_NAMES, STEP_KEYS, STOREY_MEANINGS, UNKNOWN_REASON, VIEW_KINDS } from './words'
 
@@ -328,7 +328,7 @@ function StoreysFact({ sheet, slots }: { sheet: ProposalOut; slots: readonly str
   return (
     <span className="flex flex-col gap-1">
       <span>
-        <StoreysText views={sheet.views} />
+        <StoreysText views={sheet.views} stated={sheet.storeys_as_stated} />
         {stated && meaning ? <>, {meaning}</> : null}
       </span>
       <StoreyStrip slots={slots} views={sheet.views} size={6} />
@@ -400,7 +400,11 @@ function ViewChips({ view, confirmed }: { view: ViewOut; confirmed: boolean }) {
       </>
     )
   }
-  const steps = view.steps
+  // A Structural or Architectural legend goes to Step 2 (General notes); only an MEP Part is "M3
+  // onwards" (§5, 6.18 #3; review round 1, M13).
+  const toNotes = !!view.part && !MEP_PARTS.has(view.part)
+  const keys = toNotes && !view.steps.includes(STEP_KEYS[1]) ? [...view.steps, STEP_KEYS[1]] : view.steps
+  const steps = keys
     .map((key) => {
       const n = /^\d+$/.test(key) ? Number(key) : (STEP_KEYS as readonly string[]).indexOf(key) + 1
       const step = TAKEOFF_STEPS[n - 1]
@@ -413,7 +417,7 @@ function ViewChips({ view, confirmed }: { view: ViewOut; confirmed: boolean }) {
         <Trans>no step: unaccounted</Trans>
       </span>
     )
-  const part = view.part ? disciplineName(view.part, i18n) : null
+  const part = view.part && !toNotes ? disciplineName(view.part, i18n) : null
   return (
     <>
       {steps.map((s) => (
@@ -580,7 +584,9 @@ export function SheetFacts({
           <Fact label={<Trans>Plot</Trans>}>
             <PlotFact sheet={sheet} />
           </Fact>
-          <Fact label={<Trans>Sources</Trans>}>{row.sheets.every((s) => s.agrees) ? <Trans>two, agreeing</Trans> : <Trans>one source</Trans>}</Fact>
+          <Fact label={<Trans>Sources</Trans>}>
+            <SourcesFact row={row} />
+          </Fact>
         </dl>
       </Block>
       <Views sheet={sheet} selected={selectedView} onSelect={onSelectView} readOnly={readOnly} />
@@ -623,6 +629,18 @@ export function SheetFacts({
 }
 
 /** What a Question card reads from the model: every sheet, the drawing lists and the files' names. */
+/**
+ * How many sources agree on the sheet (§5): "two, agreeing" or "one source"; a sheet an open Question
+ * holds is neither until it is answered, "held by Question Q2" (review round 1, M15).
+ */
+function SourcesFact({ row }: { row: Row }) {
+  if (row.question) {
+    const tag = row.question.tag
+    return <Trans>held by Question {tag}</Trans>
+  }
+  return row.sheets.every((s) => s.agrees) ? <Trans>two, agreeing</Trans> : <Trans>one source</Trans>
+}
+
 export function cardContext(model: Step1Model): CardContext {
   return {
     sheets: model.rows.flatMap((r) => [...r.sheets]),
@@ -649,9 +667,10 @@ export function QuestionCard({
   const kind = useKindLine(entry)
   const tag = entry.tag
   const options = optionsOf(entry)
-  const pick = usePick(entry)
-  const sources = usePickSources(entry)
-  const name = `question-${entry.question.id}`
+  const pick = usePick(entry, context)
+  const sources = pick?.sources ?? null
+  // One radio group per card: the same Question's card in both tabs must not share a group.
+  const name = `question-${entry.question.id}-${useId()}`
   return (
     <section aria-label={t`Question ${tag}`} className="m-2 overflow-hidden rounded-md border border-question">
       <header className="flex items-center justify-between gap-2 bg-question-surface px-3 py-1.5 text-sm text-question">
@@ -662,7 +681,7 @@ export function QuestionCard({
         <span className="text-xs">{entry.kept ? <Trans>Kept open</Trans> : <Trans>Answer once</Trans>}</span>
       </header>
       <div className="bg-chrome-sunken px-3 py-1.5 text-xs">
-        <Answering entry={entry} names={names} />
+        <Answering entry={entry} names={names} context={context} />
       </div>
       <div className="flex flex-col gap-2 px-3 py-2 text-sm">
         <p className="text-xs text-ink-secondary">{kind}</p>
@@ -691,7 +710,7 @@ export function QuestionCard({
           </legend>
           {options.map((o, i) => (
             <label key={o.key ?? i} className={cn('flex items-start gap-2 rounded-md px-1.5 py-1', pick && o.key === pick.key && 'bg-selected')}>
-              <input type="radio" name={name} value={o.key} defaultChecked={!!pick && o.key === pick.key} className="mt-1" />
+              <input type="radio" name={name} value={o.key} checked={!!pick && o.key === pick.key} readOnly className="mt-1" />
               <span className="num w-3 text-muted-foreground">{i + 1}</span>
               <span>
                 <OptionWords entry={entry} option={o} />
@@ -741,9 +760,22 @@ function StepOrPart({ step }: { step: string }) {
       </>
     )
   }
+  if (!MEP_PARTS.has(step)) {
+    const notes = TAKEOFF_STEPS[1]!
+    const name = i18n._(notes.name)
+    const number = notes.number
+    return (
+      <>
+        {number} {name}
+      </>
+    )
+  }
   const part = disciplineName(step, i18n)
   return <Trans>{part}, M3 onwards</Trans>
 }
+
+/** The Disciplines whose Part is read from M3 on; a Structural or Architectural Part is Step 2's (§5). */
+const MEP_PARTS: ReadonlySet<string> = new Set(['electrical', 'plumbing', 'fire', 'mechanical', 'lift', 'gas'])
 
 export function CoveragePanel({ coverage, held }: { coverage: CoverageOut; held: readonly string[] }) {
   const f = useFormat()
