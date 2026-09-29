@@ -269,10 +269,12 @@ export class SheetRenderer {
     gl.bindVertexArray(null)
   }
 
-  /** Frees the context's GPU memory now, rather than when the page drops the canvas. */
+  /**
+   * Frees this sheet's GPU buffers. The context itself is left alive: a canvas has one WebGL context
+   * for life, and a remount on the same canvas (React's StrictMode, 22 paging) must draw again.
+   */
   dispose(): void {
     this.release()
-    this.gl.getExtension('WEBGL_lose_context')?.loseContext()
   }
 
   private release() {

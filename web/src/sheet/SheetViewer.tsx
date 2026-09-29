@@ -11,7 +11,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { Trans, useLingui } from '@lingui/react/macro'
 import { Maximize } from 'lucide-react'
 import { SlotFill } from '@/app/slots'
-import { Button, ErrorBar, IconButton, KeyRegion, LtrCanvas, useKeys } from '@/ui'
+import { Button, DrawingText, ErrorBar, KeyCombo, KeyRegion, LtrCanvas, isolateLtr, useKeys } from '@/ui'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/primitives/tooltip'
 import { decodeSheet, usedExtents, type DecodedSheet } from './decode'
 import { SheetRenderer } from './gl'
 import { BAR_PX, LEGEND_PX, VIEW_MARGIN, ZOOM_STEP, fitBox, fitPaper, panBy, zoomAbout, type PaperBox, type Stage, type ViewTransform } from './view'
@@ -27,6 +28,8 @@ export interface SheetViewerProps {
   onRetry?: () => void
 }
 
+const TOOLTIP_KBD = '[&_kbd]:border-ink-secondary [&_kbd]:bg-inverse [&_kbd]:text-ink-inverse'
+
 /** Text shorter than this on screen, in CSS px, draws as a grey bar (4.6). */
 const GREEK_BELOW_PX = 6
 
@@ -41,6 +44,8 @@ export function SheetViewer({ buffer, label, workingView = null, onRetry }: Shee
       return null
     }
   }, [buffer, attempt])
+  // A sheet number is drawing notation: left to right inside any sentence (m0-screens 1.8).
+  const sheetNumber = isolateLtr(label)
   const retry = useCallback(() => {
     setDrawFailed(false)
     if (onRetry) onRetry()
@@ -50,7 +55,7 @@ export function SheetViewer({ buffer, label, workingView = null, onRetry }: Shee
   return (
     <>
       <SlotFill slot="toolbar.start" order={0}>
-        <bdi className="text-sm font-semibold whitespace-nowrap">{label}</bdi>
+        <DrawingText text={label} kind="sheet-number" truncate={false} className="text-sm font-semibold" />
       </SlotFill>
       <KeyRegion name="canvas" className="absolute inset-0">
         {sheet && !drawFailed ? (
@@ -65,7 +70,7 @@ export function SheetViewer({ buffer, label, workingView = null, onRetry }: Shee
                 </Button>
               }
             >
-              <Trans>{label} could not be drawn. The other sheets are not affected.</Trans>
+              <Trans>{sheetNumber} could not be drawn. The other sheets are not affected.</Trans>
             </ErrorBar>
           </div>
         )}
@@ -84,6 +89,7 @@ function greekInk(el: Element): number {
 
 function SheetCanvas({ sheet, label, workingView, onFail }: { sheet: DecodedSheet; label: string; workingView: PaperBox | null; onFail: () => void }) {
   const { t } = useLingui()
+  const sheetNumber = isolateLtr(label)
   const areaRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const renderer = useRef<SheetRenderer | null>(null)
@@ -172,6 +178,7 @@ function SheetCanvas({ sheet, label, workingView, onFail }: { sheet: DecodedShee
     const observer = new ResizeObserver(resize)
     observer.observe(area)
     resize()
+    draw() // a remount keeps its view (refs survive) and must draw it on the new renderer
     return () => {
       observer.disconnect()
       cancelAnimationFrame(frame.current)
@@ -199,11 +206,13 @@ function SheetCanvas({ sheet, label, workingView, onFail }: { sheet: DecodedShee
     if (f) setView(f.working)
   }, [fits, setView])
 
+  const fitLabel = t`Fit the whole sheet`
+  const workingLabel = t`Back to the working view`
   useKeys([
     { key: '+', label: t`Zoom in`, group: 'sheet', run: () => zoomCentre(ZOOM_STEP) },
     { key: '-', label: t`Zoom out`, group: 'sheet', run: () => zoomCentre(1 / ZOOM_STEP) },
-    { key: 'F', label: t`Fit the whole sheet`, group: 'sheet', run: fitWhole },
-    { key: 'Shift F', label: t`Back to the working view`, group: 'sheet', run: fitWorking },
+    { key: 'F', label: fitLabel, group: 'sheet', run: fitWhole },
+    { key: 'Shift F', label: workingLabel, group: 'sheet', run: fitWorking },
   ])
 
   // The wheel zooms about the pointer: a listener that may prevent the page's scroll.
@@ -254,16 +263,34 @@ function SheetCanvas({ sheet, label, workingView, onFail }: { sheet: DecodedShee
   return (
     <>
       <SlotFill slot="toolbar.end" order={20}>
-        <IconButton label={t`Fit`} combo="F" onClick={fitWhole}>
-          <Maximize strokeWidth={1.5} />
-        </IconButton>
+        {/* IconButton's look, with 4.6's two-key tooltip: "Fit the whole sheet  F · Back to the working view  Shift F". */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              aria-label={t`Fit`}
+              aria-keyshortcuts="F Shift+F"
+              onClick={fitWhole}
+              className="inline-flex size-control items-center justify-center rounded-md text-ink-secondary transition-colors duration-(--motion-state) hover:bg-hover hover:text-foreground [&_svg]:size-4"
+            >
+              <Maximize strokeWidth={1.5} aria-hidden />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>
+            {fitLabel}
+            <KeyCombo combo="F" className={TOOLTIP_KBD} />
+            <span aria-hidden>·</span>
+            {workingLabel}
+            <KeyCombo combo="Shift F" className={TOOLTIP_KBD} />
+          </TooltipContent>
+        </Tooltip>
       </SlotFill>
       <LtrCanvas className="h-full w-full">
         <div
           ref={areaRef}
           tabIndex={0}
           role="group"
-          aria-label={t`Sheet ${label}`}
+          aria-label={t`Sheet ${sheetNumber}`}
           className="focus-inset absolute inset-0 cursor-grab touch-none overflow-hidden select-none active:cursor-grabbing"
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}

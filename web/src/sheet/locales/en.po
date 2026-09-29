@@ -8,20 +8,20 @@ msgstr ""
 "Language: en\n"
 
 #: src/sheet/SheetViewer.tsx
-msgid "Sheet {label}"
-msgstr "Sheet {label}"
-
-#: src/sheet/SheetViewer.tsx
 msgid "Zoom in"
 msgstr "Zoom in"
+
+#: src/sheet/SheetViewer.tsx
+msgid "Sheet {sheetNumber}"
+msgstr "Sheet {sheetNumber}"
 
 #: src/sheet/SheetViewer.tsx
 msgid "Zoom out"
 msgstr "Zoom out"
 
 #: src/sheet/SheetViewer.tsx
-msgid "{label} could not be drawn. The other sheets are not affected."
-msgstr "{label} could not be drawn. The other sheets are not affected."
+msgid "{sheetNumber} could not be drawn. The other sheets are not affected."
+msgstr "{sheetNumber} could not be drawn. The other sheets are not affected."
 
 #: src/sheet/SheetViewer.tsx
 msgid "Try again"

@@ -183,6 +183,10 @@ msgstr "LtrCanvas"
 msgid "Jump to a project or a sheet…"
 msgstr "Jump to a project or a sheet…"
 
+#: src/dev/sheet/SheetHarness.tsx
+msgid "The harness could not load “{name}”. Try again, or write the sheet again with python -m engine.render."
+msgstr "The harness could not load “{name}”. Try again, or write the sheet again with python -m engine.render."
+
 #: src/dev/specimen/Specimen.tsx
 msgid "Grid"
 msgstr "Grid"
@@ -306,6 +310,10 @@ msgstr "End their access on a date"
 #: src/dev/specimen/Specimen.tsx
 msgid "Buttons"
 msgstr "Buttons"
+
+#: src/dev/sheet/SheetHarness.tsx
+msgid "Opening {name}…"
+msgstr "Opening {name}…"
 
 #: src/dev/specimen/Specimen.tsx
 msgid "Trace"
@@ -480,10 +488,6 @@ msgstr "Jump to"
 msgid "The table under the paper"
 msgstr "The table under the paper"
 
-#: src/dev/sheet/SheetHarness.tsx
-msgid "The harness has no sheet named “{id}”. Open tiny-sheet or lineweight-ramp, or write buffers into .private/work/sheets/ with python -m engine.render."
-msgstr "The harness has no sheet named “{id}”. Open tiny-sheet or lineweight-ramp, or write buffers into .private/work/sheets/ with python -m engine.render."
-
 #: src/dev/specimen/Specimen.tsx
 msgid "Undone."
 msgstr "Undone."
@@ -499,6 +503,10 @@ msgstr "Email"
 #: src/dev/specimen/Specimen.tsx
 msgid "from the drawing + rules"
 msgstr "from the drawing + rules"
+
+#: src/dev/sheet/SheetHarness.tsx
+msgid "The harness has no sheet named “{name}”. Open tiny-sheet or lineweight-ramp, or add a sheet with python -m engine.render."
+msgstr "The harness has no sheet named “{name}”. Open tiny-sheet or lineweight-ramp, or add a sheet with python -m engine.render."
 
 #: src/dev/specimen/Specimen.tsx
 msgid "The one bulk Confirm"
@@ -580,6 +588,7 @@ msgstr "A label above, a hint under; refused, a red edge and the line saying wha
 msgid "Command"
 msgstr "Command"
 
+#: src/dev/sheet/SheetHarness.tsx
 #: src/dev/specimen/Specimen.tsx
 msgid "Show the keys"
 msgstr "Show the keys"
@@ -615,10 +624,6 @@ msgstr "Status"
 #: src/dev/specimen/Specimen.tsx
 msgid "Act, focus, selection"
 msgstr "Act, focus, selection"
-
-#: src/dev/sheet/SheetHarness.tsx
-msgid "Opening {id}…"
-msgstr "Opening {id}…"
 
 #: src/dev/specimen/Specimen.tsx
 msgid "Read only"
@@ -711,10 +716,6 @@ msgstr "Over Target Cost"
 #: src/dev/specimen/Specimen.tsx
 msgid "allowance"
 msgstr "allowance"
-
-#: src/dev/sheet/SheetHarness.tsx
-msgid "The harness could not load “{id}”."
-msgstr "The harness could not load “{id}”."
 
 #: src/dev/specimen/Specimen.tsx
 msgid "Outlines"

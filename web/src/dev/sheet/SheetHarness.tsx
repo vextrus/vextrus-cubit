@@ -15,7 +15,7 @@ import { activateLanguage, currentLanguage } from '@/i18n/activate'
 import { addCatalogue, englishMessages } from '@/i18n/catalogues'
 import { ENGLISH } from '@/i18n/languages'
 import { SheetViewer } from '@/sheet'
-import { Empty, ErrorBar, KeyScope, Skeleton, buttonVariants, cn } from '@/ui'
+import { Empty, ErrorBar, KeyScope, KeysOverlay, Skeleton, buttonVariants, cn, isolateLtr, useKeys } from '@/ui'
 import tinySheetUrl from '../../../../engine/render/fixtures/tiny-sheet.bin?url'
 import rampUrl from '../../../../engine/render/fixtures/lineweight-ramp.bin?url'
 import { messages as devMessages } from '../locales/en.po'
@@ -30,6 +30,25 @@ export const HARNESS_SHEETS: Record<string, () => Promise<string>> = {
   'lineweight-ramp': () => Promise.resolve(rampUrl),
   'tiny-sheet': () => Promise.resolve(tinySheetUrl),
   ...Object.fromEntries(Object.entries(local).map(([path, load]) => [path.replace(/^.*\//, '').replace(/\.bin$/, ''), load])),
+}
+
+/** The ? overlay, as the frame has it, so a walk of the harness can read the sheet's keys. */
+function Keys() {
+  const { t } = useLingui()
+  const [open, setOpen] = useState(false)
+  const [from, setFrom] = useState<Element | null>(null)
+  useKeys([
+    {
+      key: '?',
+      label: t`Show the keys`,
+      group: 'global',
+      run: () => {
+        setFrom(document.activeElement)
+        setOpen(true)
+      },
+    },
+  ])
+  return <KeysOverlay open={open} onOpenChange={setOpen} from={from} />
 }
 
 type Loaded = { id: string; buffer: ArrayBuffer } | { id: string; failed: true }
@@ -58,6 +77,7 @@ export function SheetHarness({ id }: { id: string }) {
   }, [id, attempt])
 
   const current = loaded?.id === id ? loaded : null
+  const name = isolateLtr(id) // a file name: notation
   const step = (k: number) => names[at + k]
   const previous = step(-1)
   const next = step(1)
@@ -66,6 +86,7 @@ export function SheetHarness({ id }: { id: string }) {
   return (
     <SlotsProvider>
       <KeyScope level="screen" name="sheet-harness">
+        <Keys />
         <div data-sheet-harness="" className="flex h-dvh flex-col bg-background">
           <div data-region="toolbar" className="flex h-toolbar shrink-0 items-center gap-2 border-b border-border bg-chrome px-2">
             {previous ? (
@@ -86,13 +107,13 @@ export function SheetHarness({ id }: { id: string }) {
               <div className="flex h-full items-center justify-center">
                 <Empty glyph={<FileQuestion />}>
                   <Trans>
-                    The harness has no sheet named “{id}”. Open tiny-sheet or lineweight-ramp, or write buffers into
-                    .private/work/sheets/ with python -m engine.render.
+                    The harness has no sheet named “{name}”. Open tiny-sheet or lineweight-ramp, or add a sheet with python
+                    -m engine.render.
                   </Trans>
                 </Empty>
               </div>
             ) : current === null ? (
-              <Skeleton className="p-8" status={t`Opening ${id}…`} />
+              <Skeleton className="p-8" status={t`Opening ${name}…`} />
             ) : 'failed' in current ? (
               <div className="p-4">
                 <ErrorBar
@@ -102,7 +123,7 @@ export function SheetHarness({ id }: { id: string }) {
                     </button>
                   }
                 >
-                  <Trans>The harness could not load “{id}”.</Trans>
+                  <Trans>The harness could not load “{name}”. Try again, or write the sheet again with python -m engine.render.</Trans>
                 </ErrorBar>
               </div>
             ) : (

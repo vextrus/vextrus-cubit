@@ -1,0 +1,90 @@
+/*
+ * The viewer's words (m0-screens 1.8 and 4.6; the words gate on 16): the sheet number is notation,
+ * left to right wherever it goes, and the Fit button's tooltip names both of its keys.
+ */
+import { StrictMode } from "react";
+import { describe, expect, it } from "vitest";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { SlotOutlet, SlotsProvider } from "@/app/slots";
+import { UiProviders } from "@/ui/UiProviders";
+import { KeyScope } from "@/ui/keys/KeyMapProvider";
+import tinySheetUrl from "../../../engine/render/fixtures/tiny-sheet.bin?url";
+import { SheetViewer } from "./SheetViewer";
+
+const LRI = "⁦";
+const PDI = "⁩";
+
+function mount(buffer: ArrayBuffer) {
+  render(
+    <StrictMode>
+      <UiProviders>
+        <SlotsProvider>
+          <KeyScope level="screen" name="sheet">
+            <SlotOutlet name="toolbar.start" />
+            <SlotOutlet name="toolbar.end" />
+            <div style={{ width: 800, height: 600, position: "relative" }}>
+              <SheetViewer buffer={buffer} label="S-04" />
+            </div>
+          </KeyScope>
+        </SlotsProvider>
+      </UiProviders>
+    </StrictMode>,
+  );
+}
+
+/** The darkest pixel on the viewer's canvas, composited on white (255: nothing drawn). */
+function darkest(): number {
+  const canvas = document.querySelector(
+    "[data-ltr-canvas] canvas",
+  ) as HTMLCanvasElement | null;
+  if (!canvas || canvas.width === 0) return 255;
+  const scratch = document.createElement("canvas");
+  scratch.width = canvas.width;
+  scratch.height = canvas.height;
+  const ctx = scratch.getContext("2d", { willReadFrequently: true })!;
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, scratch.width, scratch.height);
+  ctx.drawImage(canvas, 0, 0);
+  const d = ctx.getImageData(0, 0, scratch.width, scratch.height).data;
+  let min = 255;
+  for (let i = 0; i < d.length; i += 4) min = Math.min(min, d[i]!);
+  return min;
+}
+
+describe("<SheetViewer> under StrictMode (the app mounts every effect twice in development)", () => {
+  it("draws the sheet after a remount on the same canvas", async () => {
+    mount(await (await fetch(tinySheetUrl)).arrayBuffer());
+    await expect.poll(darkest, { timeout: 10_000 }).toBeLessThan(50);
+  });
+});
+
+describe("<SheetViewer> words", () => {
+  it("shows the sheet number as notation, left to right", async () => {
+    mount(await (await fetch(tinySheetUrl)).arrayBuffer());
+    const label = await screen.findByText("S-04");
+    expect(label.closest("[data-notation]")?.getAttribute("dir")).toBe("ltr");
+    expect(screen.getByRole("group").getAttribute("aria-label")).toBe(
+      `Sheet ⁨${LRI}S-04${PDI}⁩`,
+    );
+  });
+
+  it('isolates the sheet number left to right in "could not be drawn"', async () => {
+    mount(new ArrayBuffer(8));
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain(`${LRI}S-04${PDI}`);
+    expect(alert.textContent?.replace(/[⁦-⁩]/g, "")).toContain(
+      "S-04 could not be drawn. The other sheets are not affected.",
+    );
+  });
+
+  it('names both of Fit’s keys in its tooltip (4.6), and is named "Fit"', async () => {
+    mount(await (await fetch(tinySheetUrl)).arrayBuffer());
+    const fit = await screen.findByRole("button", { name: "Fit" });
+    await userEvent.hover(fit);
+    const tip = await screen.findByRole("tooltip");
+    expect(tip.textContent?.replace(/\s+/g, " ")).toMatch(
+      /Fit the whole sheet.*F.*·.*Back to the working view.*Shift.*F/,
+    );
+  });
+});
