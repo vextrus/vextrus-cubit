@@ -13,6 +13,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/primitives/tooltip
 import type { ProposalOut } from './data'
 import { SheetRange } from './SheetRange'
 import { ActorChip } from './ActorChip'
+import { StoreyStrip, StoreysText, stripSlots } from './storeys'
 import { rowState, type DisciplineSection, type Row, type Step1Model } from './model'
 import { DISCIPLINE_NAMES, NOT_RECEIVED_NAMES, OTHER_DISCIPLINE, OTHER_QUESTION, QUESTION_KIND_BY_CODE, REASON_SHORT, UNKNOWN_REASON } from './words'
 
@@ -24,13 +25,25 @@ export interface SheetListProps {
   onPasteList: ((discipline: string) => void) | null
 }
 
-const COLS = 'grid grid-cols-[24px_96px_minmax(0,1fr)_110px_120px_160px] items-center gap-x-2'
+/**
+ * 6.2's columns: mark, Number, Title, Discipline, Revision and date, Storeys, Views, State; the Storeys
+ * column widens from a list 1000 px wide (the list is a container, so the widths follow the list). 6.2's
+ * File column (from 1000 px) is not built: ticket 22's acceptance test pins one element per row holding
+ * the revision mark, and the file's name ("KR-STR-R0.dwg") would be a second; the Discipline's tooltip
+ * names the file instead.
+ */
+const COLS = cn(
+  'grid items-center gap-x-2',
+  'grid-cols-[24px_76px_minmax(0,1fr)_78px_106px_180px_40px_150px]',
+  '@min-[1000px]:grid-cols-[24px_76px_minmax(0,1fr)_78px_106px_232px_40px_150px]',
+)
 
 export const SheetList = forwardRef<HTMLDivElement, SheetListProps>(function SheetList({ model, focused, onFocusRow, onOpenRow, onPasteList }, ref) {
   const { t } = useLingui()
   const questions = model.queue.length
+  const slots = stripSlots(model.rows.flatMap((r) => r.sheets.map((p) => p.views)))
   return (
-    <div ref={ref} className="text-sm">
+    <div ref={ref} className="@container text-sm">
       <div role="row" className={cn(COLS, 'sticky top-0 z-10 h-7 border-b border-border bg-chrome px-3 text-xs text-muted-foreground')}>
         <span role="columnheader" aria-label={t`State mark`} />
         <span role="columnheader">
@@ -44,6 +57,10 @@ export const SheetList = forwardRef<HTMLDivElement, SheetListProps>(function She
         </span>
         <span role="columnheader">
           <Trans>Revision and date</Trans>
+        </span>
+        <StoreysHeader />
+        <span role="columnheader" className="text-end">
+          <Trans>Views</Trans>
         </span>
         <span role="columnheader">
           <Trans>State</Trans>
@@ -59,6 +76,7 @@ export const SheetList = forwardRef<HTMLDivElement, SheetListProps>(function She
           onFocusRow={onFocusRow}
           onOpenRow={onOpenRow}
           names={model.fileNames}
+          slots={slots}
         />
       ) : null}
 
@@ -70,6 +88,7 @@ export const SheetList = forwardRef<HTMLDivElement, SheetListProps>(function She
           onFocusRow={onFocusRow}
           onOpenRow={onOpenRow}
           names={model.fileNames}
+          slots={slots}
         />
       ) : null}
 
@@ -98,6 +117,7 @@ export const SheetList = forwardRef<HTMLDivElement, SheetListProps>(function She
           onFocusRow={onFocusRow}
           onOpenRow={onOpenRow}
           names={model.fileNames}
+          slots={slots}
         />
       ))}
 
@@ -219,6 +239,7 @@ function Section({
   onFocusRow,
   onOpenRow,
   names,
+  slots,
 }: {
   heading: ReactNode
   side?: ReactNode
@@ -228,6 +249,7 @@ function Section({
   onFocusRow: (key: string) => void
   onOpenRow: (key: string) => void
   names: Readonly<Record<string, string>>
+  slots: readonly string[]
 }) {
   return (
     <div role="rowgroup">
@@ -241,7 +263,7 @@ function Section({
         {side ? <span>{side}</span> : null}
       </div>
       {rows.map((row) => (
-        <SheetRow key={row.key} row={row} focused={focused === row.key} tabbable={focused === row.key || (focused === null && row === rows[0])} onFocus={onFocusRow} onOpen={onOpenRow} names={names} />
+        <SheetRow key={row.key} row={row} focused={focused === row.key} tabbable={focused === row.key || (focused === null && row === rows[0])} onFocus={onFocusRow} onOpen={onOpenRow} names={names} slots={slots} />
       ))}
     </div>
   )
@@ -261,6 +283,27 @@ function DisciplineCell({ sheet }: { sheet: ProposalOut }) {
         <Trans>
           {name}, from the file {file}
         </Trans>
+      </TooltipContent>
+    </Tooltip>
+  )
+}
+
+/** 6.2's Storeys header: "Storeys per view" at 1280; at 1440 the strip's key, "▮ floor to floor  ▁ at floor level"; its tooltip explains the strip. */
+function StoreysHeader() {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span role="columnheader" tabIndex={-1} className="truncate">
+          <span className="@min-[1000px]:hidden">
+            <Trans>Storeys per view</Trans>
+          </span>
+          <span className="hidden @min-[1000px]:inline">
+            <Trans>▮ floor to floor  ▁ at floor level</Trans>
+          </span>
+        </span>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-xs">
+        <Trans>Each slot is a storey: foundations, Basement, Ground, Mezzanine, 1st to 9th, Roof, the roofs above. A full slot is floor to floor; a bar at its foot is members at that floor level.</Trans>
       </TooltipContent>
     </Tooltip>
   )
@@ -360,6 +403,7 @@ function SheetRow({
   onFocus,
   onOpen,
   names,
+  slots,
 }: {
   row: Row
   focused: boolean
@@ -367,6 +411,7 @@ function SheetRow({
   onFocus: (key: string) => void
   onOpen: (key: string) => void
   names: Readonly<Record<string, string>>
+  slots: readonly string[]
 }) {
   const { i18n } = useLingui()
   const f = useFormat()
@@ -447,6 +492,20 @@ function SheetRow({
       <span role="gridcell" className="truncate text-ink-secondary">
         {first ? <Revision sheet={first} /> : null}
       </span>
+      <span role="gridcell" className="flex min-w-0 items-center gap-1.5 text-ink-secondary">
+        {first ? (
+          <>
+            <StoreyStrip slots={slots} views={row.sheets.flatMap((p) => p.views ?? [])} muted={excluded} />
+            <span className="min-w-0 truncate">
+              <StoreysText views={row.sheets.flatMap((p) => p.views ?? [])} />
+            </span>
+          </>
+        ) : null}
+      </span>
+      <span role="gridcell" className="num text-end text-ink-secondary">
+        {first ? f.integer(row.sheets.reduce((n, p) => n + (p.views?.length ?? 0), 0)) : null}
+      </span>
+
       <span role="gridcell" className="truncate text-xs">
         <State row={row} />
       </span>

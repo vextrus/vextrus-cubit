@@ -16,6 +16,7 @@ import { MachineText } from '@/format/machine'
 import type { MessageDescriptor } from '@lingui/core'
 import { msg } from '@lingui/core/macro'
 import { ActorChip } from './ActorChip'
+import { StoreyStrip, StoreysText, useStoreysWords } from './storeys'
 import { QuestionGlyph } from '@/ui/glyphs'
 import { SheetName } from './acts'
 import { SheetRange } from './SheetRange'
@@ -289,36 +290,25 @@ function ReadFrom({ source }: { source: string | null | undefined }) {
   return null
 }
 
-/** "3rd, 5th, 7th" and what they mean, from the plan views; "not stated" in amber; "—" with no plan view (6.8). */
-function StoreysFact({ sheet }: { sheet: ProposalOut }) {
+/** "3rd, 5th, 7th, at floor level" with the strip, from the plan views; amber "not stated"; "—" with no plan view (6.6, 6.8). */
+function StoreysFact({ sheet, slots }: { sheet: ProposalOut; slots: readonly string[] }) {
   const { i18n } = useLingui()
   const plans = (sheet.views ?? []).filter((v) => v.kind === 'plan')
-  if (plans.length === 0) return <span className="text-muted-foreground">—</span>
-  const storeys = [...new Set(plans.flatMap((v) => v.storeys))]
-  if (storeys.length === 0)
-    return (
-      <span className="text-question">
-        <Trans>not stated</Trans>
-      </span>
-    )
   const meanings = [...new Set(plans.map((v) => v.storeys_meaning).filter((m): m is string => !!m))]
-  const listed = storeys.map(storeyWord).join(', ')
   const meaning = meanings.length === 1 && STOREY_MEANINGS[meanings[0]!] ? i18n._(STOREY_MEANINGS[meanings[0]!]!) : meanings.length > 1 ? i18n._(MIXED) : null
-  return meaning ? (
-    <Trans>
-      {listed}, {meaning}
-    </Trans>
-  ) : (
-    <>{listed}</>
+  const stated = plans.some((v) => v.storeys.length > 0)
+  return (
+    <span className="flex flex-col gap-1">
+      <span>
+        <StoreysText views={sheet.views} />
+        {stated && meaning ? <>, {meaning}</> : null}
+      </span>
+      <StoreyStrip slots={slots} views={sheet.views} size={6} />
+    </span>
   )
 }
 
 const MIXED = msg`mixed`
-
-/** A canonical storey key as the QS reads it: "5th" stays, "ground" reads "Ground". */
-function storeyWord(key: string): string {
-  return /^\d/.test(key) ? key : key.charAt(0).toLocaleUpperCase() + key.slice(1).replace(/_/g, ' ')
-}
 
 /** "KR-STR-R0.dwg page 20, registered to 0.2 mm", or "None: " and the reason (6.6, 6.13). */
 function PlotFact({ sheet }: { sheet: ProposalOut }) {
@@ -397,6 +387,7 @@ function ViewChips({ view, confirmed }: { view: ViewOut; confirmed: boolean }) {
 /** The sheet's views (6.6): mark, kind, title, scale; storeys and meaning; the chips. */
 function Views({ sheet, selected, onSelect }: { sheet: ProposalOut; selected: string | null; onSelect?: (id: string) => void }) {
   const { i18n } = useLingui()
+  const words = useStoreysWords()
   const views = sheet.views ?? []
   const n = views.length
   return (
@@ -415,7 +406,7 @@ function Views({ sheet, selected, onSelect }: { sheet: ProposalOut; selected: st
           const kind = i18n._(VIEW_KINDS[v.kind] ?? OTHER_VIEW_KIND)
           const mark = String(i + 1)
           const scale = v.not_to_scale ? <Trans>not to scale</Trans> : v.stated_scale ? <DrawingText kind="mark" text={v.stated_scale} truncate={false} /> : null
-          const storeys = v.storeys.map(storeyWord).join(', ')
+          const storeys = words(v.storeys)
           const meaning = v.storeys_meaning && STOREY_MEANINGS[v.storeys_meaning] ? i18n._(STOREY_MEANINGS[v.storeys_meaning]!) : null
           return (
             <li
@@ -473,6 +464,7 @@ export function SheetFacts({
   acts,
   selectedView = null,
   onSelectView,
+  slots = [],
 }: {
   row: Row
   showTitle: boolean
@@ -480,6 +472,8 @@ export function SheetFacts({
   acts?: SheetActs
   selectedView?: string | null
   onSelectView?: (id: string) => void
+  /** The storey strip's slots, the project's (6.8). */
+  slots?: readonly string[]
 }) {
   const sheet = row.sheets[0]
   if (!sheet) return null
@@ -533,7 +527,7 @@ export function SheetFacts({
             </span>
           </Fact>
           <Fact label={<Trans>Storeys</Trans>}>
-            <StoreysFact sheet={sheet} />
+            <StoreysFact sheet={sheet} slots={slots} />
           </Fact>
           <Fact label={<Trans>Plot</Trans>}>
             <PlotFact sheet={sheet} />

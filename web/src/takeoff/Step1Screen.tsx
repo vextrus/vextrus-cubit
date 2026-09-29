@@ -30,9 +30,13 @@ import { SheetName, useStep1Acts } from './acts'
 import { Bar, ExclusionPicker, useBar } from './Bar'
 import { renderQuery, useStep1, type CoverageOut, type ProposalOut, type ViewOut } from './data'
 import { DrawingListDialog } from './DrawingListDialog'
+import { FilesBand } from './FilesBand'
+import { ReportPanel } from '@/drawing-set/ReportPanel'
+import { disciplinesQuery, type FileOut } from '@/drawing-set/data'
 import { nextOpenRow, step1Model, type Reason, type Row, type Step1Model } from './model'
 import { SheetList, disciplineName } from './SheetList'
 import { OTHER_VIEW_KIND, VIEW_KINDS } from './words'
+import { stripSlots } from './storeys'
 import { CoverageLine, CoveragePanel, Overview, QuestionCard, QuestionsTab, SheetFacts, cardContext } from './Step1Inspector'
 
 const projectRoute = getRouteApi('/_app/p/$code')
@@ -113,7 +117,8 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
   const [openSheet, setOpenSheet] = useState<string | null>(start?.sheet ?? null)
   const [picker, setPicker] = useState<Row | null>(null)
   const [listFor, setListFor] = useState<string | null>(null)
-  const [panel, setPanel] = useState<'coverage' | null>(null)
+  const [panel, setPanel] = useState<'coverage' | { file: FileOut } | null>(null)
+  const disciplines = useQuery(disciplinesQuery(project.id))
   /** The view selected in sheet mode (→ ←, a click on its outline), of the sheet it was selected on. */
   const [sheetPicker, setSheetPicker] = useState(false)
   const [viewPick, setViewPick] = useState<{ sheet: string; view: string } | null>(null)
@@ -286,7 +291,9 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
     if (row && row.sheets.length > 0) openRow(row)
   }
 
-  const selection = panel === 'coverage' ? (
+  const selection = panel && panel !== 'coverage' ? (
+    <ReportPanel key={panel.file.id} projectId={project.id} file={panel.file} disciplines={disciplines.data} onClose={() => setPanel(null)} />
+  ) : panel === 'coverage' ? (
     <CoveragePanel
       coverage={coverage}
       held={model.queue.filter((e) => e.question.kind === 'file_misread' && e.question.subject_id && model.fileNames[e.question.subject_id]).map((e) => model.fileNames[e.question.subject_id!]!)}
@@ -300,6 +307,7 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
         readOnly={readOnly !== null}
         acts={{ exclude: excludeKey, confirmBackIn: () => void confirmRow(focusedRow, false) }}
         selectedView={selectedView}
+        slots={stripSlots(model.rows.flatMap((r) => r.sheets.map((p) => p.views)))}
         onSelectView={mode === 'sheet' && open ? (view) => setViewPick({ sheet: open.id, view }) : undefined}
       />
     </>
@@ -331,6 +339,7 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
 
       {mode === 'list' ? (
         <ListRegion label={spaceLabel} onSpace={fromList}>
+          <FilesBand projectId={project.id} onOpen={(file) => setPanel({ file })} />
           <SheetList
             ref={listRef}
             model={model}

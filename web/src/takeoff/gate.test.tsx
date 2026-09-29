@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { page, userEvent as realKeys } from 'vitest/browser'
+import { FakeDrawingSet, file, msg } from '@/acceptance/t20b/drawings.fixture'
 import { FakeStep1 } from '@/acceptance/t22/step1.fixture'
 import { FakeApi, PEOPLE, mountApp } from '@/app/testing'
 import { activateLanguage } from '@/i18n/activate'
@@ -34,8 +35,9 @@ const bodyText = () => clean(document.body.textContent)
 const PATH = '/p/KR-01/takeoff/1'
 
 /** The acceptance fake, with the progress's `qs` (the names the read-only bar gives) laid over it. */
-function kr01(qs: string[] = ['Nusrat Jahan']): { api: FakeApi; step1: FakeStep1 } {
+function kr01(qs: string[] = ['Nusrat Jahan'], files: ReturnType<typeof file>[] = []): { api: FakeApi; step1: FakeStep1 } {
   const api = new FakeApi()
+  if (files.length > 0) new FakeDrawingSet(api, 'KR-01').files = files
   const step1 = new FakeStep1(api)
   const handle = api.handle
   api.handle = async (request: Request) => {
@@ -232,6 +234,47 @@ describe('M6: sheet mode', () => {
     await userEvent.click(screen.getByRole('button', { name: 'List' }))
     await waitFor(() => expect(screen.getByRole('button', { name: 'List' })).toHaveAttribute('aria-pressed', 'true'))
     expect(document.activeElement?.getAttribute('data-row')).toBeTruthy()
+  })
+})
+
+describe('M2: the files band and the Storeys and Views columns', () => {
+  it('shows a chip per file above the header, and a click opens its report in the inspector', async () => {
+    const { api } = kr01(['Nusrat Jahan'], [
+      file({ name: 'KR-STR-R0.dwg', state: 'read', status: msg('drawings.files.read', { sheets: 13 }), sheets_found: 13 }),
+      file({ name: 'KR-STR-old.dwg', state: 'held', status: msg('drawings.files.held') }),
+    ])
+    await open(api)
+    const band = await screen.findByRole('list', { name: /files/ })
+    expect(clean(band.textContent)).toContain('✓ KR-STR-R0.dwg 13 sheets')
+    expect(clean(band.textContent)).toContain('KR-STR-old.dwg held')
+    const chips = within(band).getAllByRole('listitem')
+    expect(chips.length).toBeGreaterThan(0)
+    await userEvent.click(within(chips[0]!).getByRole('button'))
+    const name = clean(within(chips[0]!).getByRole('button').querySelector('[data-notation="file-name"]')?.textContent)
+    await waitFor(() => expect(clean(inspector().textContent)).toContain(name))
+  })
+
+  it('shows each row’s storeys with the strip and its number of views', async () => {
+    const { api, step1 } = kr01()
+    Object.assign(step1.proposals.find((p) => p.number === 'S-06')!, {
+      views: [
+        { id: 'w1', ordinal: 1, kind: 'plan', title: '3RD, 5TH & 7TH FLOOR BEAM LAYOUT', stated_scale: '1:100', not_to_scale: false, storeys: ['floor_3', 'floor_5', 'floor_7'], storeys_as_stated: '3RD, 5TH & 7TH FLOOR', storeys_meaning: 'at_floor_level', steps: ['beams'], part: null, proposed_exclusion: null, decision: null, excluded_reason: null, box: ['0', '0', '1', '1'] },
+        { id: 'w2', ordinal: 2, kind: 'title_block', title: 'TITLE BLOCK', stated_scale: '', not_to_scale: true, storeys: [], storeys_as_stated: '', storeys_meaning: null, steps: [], part: null, proposed_exclusion: 'for_information', decision: null, excluded_reason: null, box: ['0', '0', '1', '1'] },
+      ],
+    })
+    Object.assign(step1.proposals.find((p) => p.number === 'S-04')!, {
+      views: [{ id: 'w3', ordinal: 1, kind: 'plan', title: 'PLAN', stated_scale: '', not_to_scale: false, storeys: ['floor_2', 'floor_3', 'floor_4', 'floor_5'], storeys_as_stated: '', storeys_meaning: 'floor_to_floor', steps: [], part: null, proposed_exclusion: null, decision: null, excluded_reason: null, box: ['0', '0', '1', '1'] }],
+    })
+    Object.assign(step1.proposals.find((p) => p.number === 'S-05')!, {
+      views: [{ id: 'w4', ordinal: 1, kind: 'plan', title: 'PLAN', stated_scale: '', not_to_scale: false, storeys: [], storeys_as_stated: '', storeys_meaning: null, steps: [], part: null, proposed_exclusion: null, decision: null, excluded_reason: null, box: ['0', '0', '1', '1'] }],
+    })
+    await open(api)
+    expect(clean(rowOf('S-06').textContent)).toContain('3rd, 5th, 7th')
+    expect(clean(within(rowOf('S-06')).getAllByRole('gridcell')[6]!.textContent)).toBe('2')
+    expect(clean(rowOf('S-04').textContent)).toContain('2nd–5th')
+    expect(clean(rowOf('S-05').textContent)).toContain('not stated')
+    expect(rowOf('S-06').querySelector('[aria-hidden] > span')).not.toBeNull()
+    expect(screen.getAllByRole('columnheader').map((h) => clean(h.textContent))).toEqual(expect.arrayContaining(['Views']))
   })
 })
 
