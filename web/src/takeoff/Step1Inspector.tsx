@@ -23,7 +23,7 @@ import type { CoverageOut, ProposalOut, ViewOut } from './data'
 import { listSheet, type DisciplineSection, type QuestionEntry, type Row, type Step1Model } from './model'
 import { Answering, CannotAnswer, Copy, OptionWords, QuestionBody, QuestionTitle, Trace, optionsOf, useKindLine, usePick, usePickSources, type CardContext } from './questionWords'
 import { disciplineName } from './SheetList'
-import { DISCIPLINE_IN_TEXT, NOT_RECEIVED_NAMES, OTHER_DISCIPLINE, OTHER_VIEW_KIND, REASON_SHORT, ROLE_NAMES, STEP_KEYS, STOREY_MEANINGS, UNKNOWN_REASON, VIEW_KINDS } from './words'
+import { NOT_RECEIVED_NAMES, OTHER_DISCIPLINE, OTHER_VIEW_KIND, REASON_SHORT, ROLE_NAMES, STEP_KEYS, STOREY_MEANINGS, UNKNOWN_REASON, VIEW_KINDS } from './words'
 
 function Block({ title, children }: { title?: ReactNode; children: ReactNode }) {
   return (
@@ -361,20 +361,20 @@ function PlotFact({ sheet }: { sheet: ProposalOut }) {
 
 /** Why a sheet has no Plot, as 6.13 words it, after "None: " (the machine's own sentences start "No Plot for this sheet"). */
 function PlotNone({ none }: { none: { code: string; params: Record<string, string | number> } | null | undefined }) {
-  const { i18n } = useLingui()
   const code = none?.code
   if (code === 'drawings.sheets.plot_no_page' && typeof none?.params.plot_file === 'string') {
     const file = <DrawingText kind="file-name" text={none.params.plot_file} truncate={false} />
     return <Trans>None: no page of {file} matched it</Trans>
   }
   if (code === 'drawings.sheets.plot_no_pdf' && typeof none?.params.discipline === 'string') {
-    const discipline = i18n._(DISCIPLINE_IN_TEXT[none.params.discipline] ?? OTHER_DISCIPLINE)
-    return <Trans>None: no {discipline} PDF was added</Trans>
+    // The message carries the Discipline's display name, as sent.
+    const discipline = none.params.discipline
+    return <Trans>None: no PDF has been added for {discipline}</Trans>
   }
   if (code === 'drawings.sheets.plot_no_pdf_any') return <Trans>None: no PDF was added to the Drawing Set</Trans>
   if (code === 'drawings.sheets.plot_no_number') return <Trans>None: the sheet has no number, so no PDF page could be matched to it</Trans>
-  if (code === 'drawings.sheets.plot_not_yet') return <Trans>None yet: its PDF is still being read</Trans>
-  if (code === 'drawings.sheets.plot_pdf_refused') return <Trans>None: its PDF was refused</Trans>
+  if (code === 'drawings.sheets.plot_not_yet') return <Trans>None: its PDF is still being read</Trans>
+  if (code === 'drawings.sheets.plot_pdf_refused') return <Trans>None: its PDF was a scan and was refused</Trans>
   if (code === 'drawings.sheets.plot_pdf_unread') return <Trans>None: its PDF could not be read</Trans>
   return <Trans>None: no PDF page is matched to it</Trans>
 }

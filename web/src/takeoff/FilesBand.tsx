@@ -58,6 +58,12 @@ function FileChip({ file }: { file: FileOut }) {
       </>
     )
   if (file.state === 'read' && (code === 'drawings.files.plot_matched' || code === 'drawings.files.plot_matched_lines') && typeof params.matched === 'number' && typeof params.pages === 'number') {
+    if (params.matched === 0)
+      return (
+        <span className="text-question">
+          <Trans>{name}: no page matched a sheet</Trans>
+        </span>
+      )
     const matched = f.integer(params.matched)
     const pages = params.pages
     return (
@@ -79,6 +85,12 @@ function FileChip({ file }: { file: FileOut }) {
       </>
     )
   }
+  if (code === 'drawings.files.plot_waiting')
+    return (
+      <Trans>
+        {name} waiting for its DWG
+      </Trans>
+    )
   return (
     <>
       {name} <MachineText message={file.status} />

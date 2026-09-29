@@ -126,17 +126,15 @@ export function useBar(c: BarContext): BarSpec | null {
     )
     const qs = model.qs
     const first = qs[0] ?? ''
-    const others = qs.slice(0, -1).join(', ')
-    const last = qs.at(-1) ?? ''
+    // The names joined by the Market's locale, not in code: "Nusrat Jahan and Rafiq Hasan".
+    const names = qs.length > 1 ? new Intl.ListFormat(f.profile.locale, { type: 'conjunction' }).format(qs) : first
     return {
       what,
       why:
         qs.length === 1 ? (
           <Trans>{first} (QS) confirms the sheet list; every act shows who did it.</Trans>
         ) : qs.length > 1 ? (
-          <Trans>
-            {others} and {last} (QS) confirm the sheet list; every act shows who did it.
-          </Trans>
+          <Trans>{names} (QS) confirm the sheet list; every act shows who did it.</Trans>
         ) : (
           <Trans>The QS confirms the sheet list; every act shows who did it.</Trans>
         ),
@@ -175,7 +173,8 @@ export function useBar(c: BarContext): BarSpec | null {
     }
     if (sheet && sheet.decision === 'confirmed') {
       const by = sheet.decided_by ?? ''
-      const date = sheet.decided_at ? `${f.date(sheet.decided_at)}, ${f.time(sheet.decided_at)}` : ''
+      const date = sheet.decided_at ? f.date(sheet.decided_at) : ''
+      const time = sheet.decided_at ? f.time(sheet.decided_at) : ''
       return {
         what:
           sheet.decided_by_role === 'vextrus_engineer' ? (
@@ -187,7 +186,7 @@ export function useBar(c: BarContext): BarSpec | null {
               {name} is confirmed by {by}
             </Trans>
           ),
-        why: <Trans>{date}. X excludes it, with a reason.</Trans>,
+        why: date ? <Trans>{date}, {time}. X excludes it, with a reason.</Trans> : <Trans>X excludes it, with a reason.</Trans>,
         button: { label: <Trans>Next open item</Trans>, run: c.nextOpen },
       }
     }

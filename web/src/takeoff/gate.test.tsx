@@ -351,6 +351,20 @@ describe('the words gate’s fixes', () => {
     expect(clean(inspector().textContent)).not.toContain('not stated, at floor level')
   })
 
+  it('reads a run to the roof, a Plot that matched nothing and a Discipline with no PDF', async () => {
+    const { api, step1 } = kr01(['Nusrat Jahan'], [
+      file({ name: 'KR-STR-R0.pdf', state: 'read', status: msg('drawings.files.plot_matched', { matched: 0, pages: 13 }) }),
+    ])
+    Object.assign(step1.proposals.find((p) => p.number === 'S-04')!, { views: [plan('r1', ['floor_6', 'roof', 'top'])], plot_none: { code: 'drawings.sheets.plot_no_pdf', params: { discipline: 'Structural' } } })
+    await open(api)
+    expect(clean(rowOf('S-04').textContent)).toContain('6th to Roof (floors between from Step 3)')
+    const band = await screen.findByRole('list', { name: /files/ })
+    expect(clean(band.textContent)).toContain('KR-STR-R0.pdf: no page matched a sheet')
+    expect(clean(band.textContent)).not.toContain('✓')
+    await focusRow('S-04')
+    await waitFor(() => expect(clean(inspector().textContent)).toContain('None: no PDF has been added for Structural'))
+  })
+
   it('says why there is no Plot once, from the reason’s code', async () => {
     const { api, step1 } = kr01()
     Object.assign(step1.proposals.find((p) => p.number === 'S-04')!, { plot_none: { code: 'drawings.sheets.plot_no_page', params: { plot_file: 'KR-STR-R0.pdf' } } })

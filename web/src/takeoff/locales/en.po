@@ -40,6 +40,10 @@ msgctxt "view kind"
 msgid "Notes"
 msgstr "Notes"
 
+#: src/takeoff/Bar.tsx
+msgid "{names} (QS) confirm the sheet list; every act shows who did it."
+msgstr "{names} (QS) confirm the sheet list; every act shows who did it."
+
 #: src/takeoff/words.tsx
 msgid "The structural drawing list"
 msgstr "The structural drawing list"
@@ -388,10 +392,6 @@ msgstr "mechanical (HVAC)"
 msgctxt "view kind"
 msgid "Section"
 msgstr "Section"
-
-#: src/takeoff/Bar.tsx
-msgid "{date}. X excludes it, with a reason."
-msgstr "{date}. X excludes it, with a reason."
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "two, agreeing"
@@ -770,10 +770,6 @@ msgstr "{name} confirmed back in, under {backIn}’s name."
 msgid "A file is held: the two readers disagree"
 msgstr "A file is held: the two readers disagree"
 
-#: src/takeoff/Step1Inspector.tsx
-msgid "None yet: its PDF is still being read"
-msgstr "None yet: its PDF is still being read"
-
 #: src/takeoff/words.tsx
 msgctxt "view kind"
 msgid "Detail"
@@ -820,10 +816,6 @@ msgstr "mixed"
 msgid "Confirm {name}"
 msgstr "Confirm {name}"
 
-#: src/takeoff/Bar.tsx
-msgid "{others} and {last} (QS) confirm the sheet list; every act shows who did it."
-msgstr "{others} and {last} (QS) confirm the sheet list; every act shows who did it."
-
 #: src/takeoff/words.tsx
 msgctxt "view kind"
 msgid "Elevation"
@@ -840,6 +832,10 @@ msgstr "It is in a file I haven’t added yet"
 #: src/takeoff/words.tsx
 msgid "Substation and generator layout"
 msgstr "Substation and generator layout"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "None: no PDF has been added for {discipline}"
+msgstr "None: no PDF has been added for {discipline}"
 
 #: src/takeoff/Bar.tsx
 msgid "It stays in the count."
@@ -937,6 +933,10 @@ msgstr "Not sent yet: keep it in the count as missing and ask the consultant"
 #: src/takeoff/Step1Inspector.tsx
 msgid "{file} page {page}"
 msgstr "{file} page {page}"
+
+#: src/takeoff/Bar.tsx
+msgid "X excludes it, with a reason."
+msgstr "X excludes it, with a reason."
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "↓ walks the list; Space opens a sheet; a Proposal counts toward nothing until you confirm it."
@@ -1267,6 +1267,10 @@ msgid "The lift drawing list"
 msgstr "The lift drawing list"
 
 #: src/takeoff/Step1Inspector.tsx
+msgid "None: its PDF is still being read"
+msgstr "None: its PDF is still being read"
+
+#: src/takeoff/Step1Inspector.tsx
 msgid "{name} confirmed"
 msgstr "{name} confirmed"
 
@@ -1569,10 +1573,6 @@ msgstr "Title, as drawn"
 msgid "{example}, or the list as the consultant sent it"
 msgstr "{example}, or the list as the consultant sent it"
 
-#: src/takeoff/Step1Inspector.tsx
-msgid "None: its PDF was refused"
-msgstr "None: its PDF was refused"
-
 #: src/takeoff/words.tsx
 msgid "Plumbing layout"
 msgstr "Plumbing layout"
@@ -1612,10 +1612,6 @@ msgstr "Podium"
 msgid "Details"
 msgstr "Details"
 
-#: src/takeoff/Step1Inspector.tsx
-msgid "None: no {discipline} PDF was added"
-msgstr "None: no {discipline} PDF was added"
-
 #: src/takeoff/words.tsx
 msgid "Foundation layout"
 msgstr "Foundation layout"
@@ -1637,6 +1633,10 @@ msgctxt "storey"
 msgid "Foundations"
 msgstr "Foundations"
 
+#: src/takeoff/FilesBand.tsx
+msgid "{name} waiting for its DWG"
+msgstr "{name} waiting for its DWG"
+
 #: src/takeoff/Bar.tsx
 msgid "Its Discipline’s numbering has a gap or a number twice."
 msgstr "Its Discipline’s numbering has a gap or a number twice."
@@ -1657,6 +1657,10 @@ msgstr "{name}: {listed} on the drawing list on {sheet}; {found} found."
 #: src/takeoff/Bar.tsx
 msgid "{name} is excluded: {reason}"
 msgstr "{name} is excluded: {reason}"
+
+#: src/takeoff/storeys.tsx
+msgid "{below} to Roof (floors between from Step 3)"
+msgstr "{below} to Roof (floors between from Step 3)"
 
 #: src/takeoff/words.tsx
 msgid "Superseded"
@@ -1689,6 +1693,10 @@ msgstr "The plumbing and sanitary drawing list"
 #: src/takeoff/words.tsx
 msgid "fire"
 msgstr "fire"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "None: its PDF was a scan and was refused"
+msgstr "None: its PDF was a scan and was refused"
 
 #: src/takeoff/words.tsx
 msgid "General notes"
@@ -1759,6 +1767,10 @@ msgstr "The electrical drawing list"
 #: src/takeoff/SheetList.tsx
 msgid "Each stays on its allowance until its drawings arrive. A file of a new Discipline opens only its own Step 1; the others stay as they are."
 msgstr "Each stays on its allowance until its drawings arrive. A file of a new Discipline opens only its own Step 1; the others stay as they are."
+
+#: src/takeoff/FilesBand.tsx
+msgid "{name}: no page matched a sheet"
+msgstr "{name}: no page matched a sheet"
 
 #: src/takeoff/SheetList.tsx
 msgid "found; no drawing list; numbering runs {range}; {listed} missing; {twice} twice"
@@ -1894,6 +1906,10 @@ msgstr "for information"
 #: src/takeoff/questionWords.tsx
 msgid "the copy dated {date}"
 msgstr "the copy dated {date}"
+
+#: src/takeoff/Bar.tsx
+msgid "{date}, {time}. X excludes it, with a reason."
+msgstr "{date}, {time}. X excludes it, with a reason."
 
 #: src/takeoff/words.tsx
 msgid "Cover or index (its drawing list kept)"
