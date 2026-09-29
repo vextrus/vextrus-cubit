@@ -8,6 +8,15 @@ started inside, as 04's reader starts one, needs it; the host's /tmp is never se
 environment is made from the toolchain's Python and the locked wheels are installed offline from the
 wheel folder only, by hash, binary only (nothing is built); then the engine harness reads each set into
 `export-<set>.json`.
+
+**`--job` mode** (21a; off by default until 21c makes it the check's): instead of the harness, the
+product's read job reads each set, against a throwaway PostgreSQL 18 cluster started inside the
+sandbox from the host's own binaries (`PG_BIN`, under the bound /usr): its data in the private /tmp,
+its only socket a Unix one (`SOCKET`; no TCP), stopped when the script ends, however it ends. The export
+is written by the job's export entry point (`JOB_ENTRY`, 21c's `takeoff/services/export.py`), called
+as `python -m <JOB_ENTRY> --set <set> --out <export> --database <socket>` with the run's metadata as
+flags. PostgreSQL refuses to run as root and needs its user's name, so in this mode the sandbox runs as
+one unprivileged user (`UID`, mapped to the owner outside) named in its own read-only /etc/passwd.
 """
 
 import re
@@ -22,6 +31,13 @@ from scripts.real_drawings.source import Refused
 
 HOURS = 3600
 SET_NAME = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+PG_BIN = Path("/usr/lib/postgresql/18/bin")
+"""PostgreSQL 18's own binaries, as the host's package installs them (under /usr, bound read-only)."""
+JOB_ENTRY = "vextrus.takeoff.services.export"
+"""The job's export entry point (21c): reads a set through the product's job, writes its export."""
+SOCKET = "/tmp/pg-socket"
+UID = 1000
+USER = "vextrus"
 
 
 @dataclass(frozen=True)
@@ -34,6 +50,12 @@ class Job:
     sets: Mapping[str, Path]
     scratch: Path
     env: Mapping[str, str]  # the run's id, commit and code hash: set, and passed to the harness as flags
+    job: bool = False  # `--job` mode: the product's job against a throwaway cluster (see the module)
+
+
+def identity(job: Job) -> tuple[Path, Path]:
+    """The job mode's /etc/passwd and /etc/group, beside the scratch folder (never inside it)."""
+    return job.scratch.with_name("sandbox-passwd"), job.scratch.with_name("sandbox-group")
 
 
 def argv(job: Job) -> list[str]:
@@ -57,6 +79,11 @@ def argv(job: Job) -> list[str]:
         if not SET_NAME.match(name):
             raise ValueError(f"a set's name must be plain: {name!r}")
         binds += ["--ro-bind", str(folder), f"/work/sets/{name}"]
+    user: list[str] = []
+    if job.job:
+        passwd, group = identity(job)
+        binds += ["--ro-bind", str(passwd), "/etc/passwd", "--ro-bind", str(group), "/etc/group"]
+        user = ["--uid", str(UID), "--gid", str(UID)]
     env = {
         "PATH": "/usr/bin:/bin",
         "HOME": "/work/out/home",
@@ -67,6 +94,7 @@ def argv(job: Job) -> list[str]:
     return [
         "bwrap",
         *("--unshare-all", "--die-with-parent", "--new-session", "--cap-drop", "ALL", "--clearenv"),
+        *user,
         *binds,
         "--remount-ro",
         "/",
@@ -94,14 +122,37 @@ def script(job: Job) -> str:
     metadata = "".join(
         f" {flag} {shlex.quote(job.env[key])}" for flag, key in flags.items() if key in job.env
     )
+    if job.job:
+        pg = f"{PG_BIN}/pg_ctl -D /tmp/pg"
+        lines += [
+            (
+                f"{PG_BIN}/initdb -D /tmp/pg -U {USER} --auth=trust -E UTF8 --no-sync"
+                " > /work/out/pg-init.log 2>&1"
+            ),
+            f"mkdir {SOCKET}",
+            f"trap '{pg} -m fast -w stop > /dev/null' EXIT",
+            f'{pg} -l /work/out/pg.log -o "-k {SOCKET} -c listen_addresses=" -w start > /dev/null',
+        ]
     for name in sorted(job.sets):
         out = f"/work/out/export-{name}.json"
-        lines.append(f"{python} -m engine.harness --set /work/sets/{name} --out {out}{metadata}")
+        if job.job:
+            lines.append(
+                f"{python} -m {JOB_ENTRY} --set /work/sets/{name} --out {out}"
+                f" --database {SOCKET}{metadata}"
+            )
+        else:
+            lines.append(f"{python} -m engine.harness --set /work/sets/{name} --out {out}{metadata}")
     return "\n".join(lines)
 
 
 def run(job: Job, log: Path) -> None:
     """The sandbox's output goes to `log`, never to the terminal (the PR's code writes it)."""
+    if job.job:
+        passwd, group = identity(job)
+        with open_new(passwd) as written:
+            written.write(f"{USER}:x:{UID}:{UID}:the check:/work/out/home:/bin/sh\n".encode())
+        with open_new(group) as written:
+            written.write(f"{USER}:x:{UID}:\n".encode())
     with open_new(log) as output:
         done = subprocess.run(
             argv(job), stdout=output, stderr=subprocess.STDOUT, check=False, timeout=6 * HOURS
