@@ -42,6 +42,7 @@ For the page (20b), through `drawings/http/` (list, one file, cancel, restart, D
     services.file(file_id); services.report(file_id)     # a file's status; its report panel
     services.set_discipline(file_id, "electrical")       # its unconfirmed sheets move with it
     services.cancel(file_id, actor_name=user.name); services.restart(file_id)
+    services.mark_for_vextrus(file_id)                   # a file that could not be read (21c)
     services.disciplines()                               # the Market's, one name each (labels)
     services.sheet(sr.id); services.render(sr.id)        # a printed sheet; its render's bytes
 
@@ -74,6 +75,7 @@ from vextrus.drawings.services.drawing_files import (
     clean_name,
     file,
     files,
+    mark_for_vextrus,
     page_step,
     restart,
     set_discipline,
@@ -97,7 +99,7 @@ from vextrus.drawings.services.reads import (
     step_store,
     store_artefact,
 )
-from vextrus.drawings.services.reports import FontRow, Report, report
+from vextrus.drawings.services.reports import BanglaSheet, FontRow, Report, report
 from vextrus.drawings.services.sheet_list import (
     PlotView,
     SheetView,
@@ -127,6 +129,7 @@ __all__ = [
     "SHEETS",
     "Added",
     "ArtefactRef",
+    "BanglaSheet",
     "DisciplineView",
     "FileState",
     "FileView",
@@ -154,6 +157,7 @@ __all__ = [
     "file",
     "files",
     "mark_failed",
+    "mark_for_vextrus",
     "mark_read",
     "original",
     "page_step",

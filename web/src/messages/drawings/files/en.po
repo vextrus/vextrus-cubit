@@ -52,8 +52,14 @@ msgstr "Held: the two readers disagree, so it may be misread"
 msgid "drawings.files.held_read_anyway"
 msgstr "Held, read anyway: its sheets are marked"
 
+msgid "drawings.files.marked_for_vextrus"
+msgstr "{actor} marked a file for Vextrus to check"
+
 msgid "drawings.files.matching_pages"
 msgstr "Matching pages to sheets"
+
+msgid "drawings.files.not_failed"
+msgstr "Only a file that could not be read can be marked for Vextrus. Its row shows how its reading stands."
 
 msgid "drawings.files.not_stopped"
 msgstr "This file's reading has not stopped, so it was not started again. Its row shows where it is."
