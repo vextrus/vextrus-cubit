@@ -216,7 +216,7 @@ function FilesTable(props: TableProps) {
                 }}
                 data-file={file.id}
                 tabIndex={file.id === focusedId ? 0 : -1}
-                aria-selected={open}
+                aria-current={open || undefined}
                 onFocus={(event) => {
                   if (event.target === event.currentTarget) onFocus(file.id)
                 }}
@@ -405,7 +405,10 @@ export function DrawingSetView({ project }: { project: ProjectSummary }) {
 
   function add(chosen: readonly File[]) {
     if (!changes || chosen.length === 0) return
-    queue.current = queue.current.then(() => addEach(chosen))
+    // A later drop waits for the one before, even one that failed.
+    const next = queue.current.then(() => addEach(chosen))
+    queue.current = next.catch(() => undefined)
+    void next
   }
 
   async function addEach(chosen: readonly File[]) {
@@ -413,16 +416,21 @@ export function DrawingSetView({ project }: { project: ProjectSummary }) {
     setRefused([])
     setProblem(null)
     const answers: Answer[] = []
-    for (const [i, file] of chosen.entries()) {
-      setUploading({ name: file.name, position: i + 1, total: chosen.length })
-      try {
-        answers.push({ file: file.name, out: await upload(project.id, file) })
-      } catch (error) {
-        answers.push({ file: file.name, problem: problemOf(error)! })
+    try {
+      for (const [i, file] of chosen.entries()) {
+        // Signed out, switched or someone else meanwhile: the files were chosen for no one on screen now.
+        if (!current()) return
+        setUploading({ name: file.name, position: i + 1, total: chosen.length })
+        try {
+          answers.push({ file: file.name, out: await upload(project.id, file) })
+        } catch (error) {
+          answers.push({ file: file.name, problem: problemOf(error)! })
+        }
+        if (current()) await queryClient.invalidateQueries({ queryKey: filesKey })
       }
-      if (current()) await queryClient.invalidateQueries({ queryKey: filesKey })
+    } finally {
+      setUploading(null)
     }
-    setUploading(null)
     if (!current()) return
     const said = answers.flatMap((a) => ('problem' in a ? [{ key: a.file, problem: a.problem }] : []))
     setRefused(said)

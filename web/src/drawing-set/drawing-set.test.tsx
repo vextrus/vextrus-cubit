@@ -8,6 +8,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { page } from 'vitest/browser'
 import { FakeApi, PEOPLE, mountApp } from '@/app/testing'
+import { sessionChanged } from '@/auth/actions'
 import { FakeDrawingSet, file, msg } from '@/acceptance/t20b/drawings.fixture'
 
 beforeEach(async () => {
@@ -89,5 +90,32 @@ describe('several files at once', () => {
     expect(screen.getByRole('alert').textContent).toContain('is not a DWG or a PDF, so it was not added.')
     // Only the line counts the file already here: its own sentence is for a file added on its own.
     expect(bodyText()).not.toContain('Nothing was added.')
+  })
+})
+
+describe('a batch across a change of session', () => {
+  it('sends no more files once the session has changed, and says nothing of them', async () => {
+    const { api, set } = drawingSet()
+    set.files.push(file({ name: 'KR-STR-R0.dwg', state: 'read', status: msg('drawings.files.read') }))
+    // The first file's answer arrives after the session has changed (signed out, switched, another person).
+    let afterFirstPost: (() => void) | null = null
+    const inner = api.handle
+    api.handle = async (request: Request) => {
+      const answer = await inner(request)
+      if (request.method === 'POST' && afterFirstPost) {
+        afterFirstPost()
+        afterFirstPost = null
+      }
+      return answer
+    }
+    const app = await mountApp('/p/KR-01/drawing-set', { as: PEOPLE.qs, api })
+    await screen.findByRole('heading', { name: 'Drawing Set' })
+    await waitFor(() => rowOf('KR-STR-R0.dwg'))
+    afterFirstPost = () => sessionChanged(app.queryClient)
+    const input = document.querySelector<HTMLInputElement>('input[type="file"]')!
+    await userEvent.upload(input, ['KR-ARC-R0.dwg', 'KR-ELE-R0.dwg', 'KR-PLB-R0.dwg'].map((n) => new File([new Uint8Array([0x41])], n)))
+    await waitFor(() => expect(bodyText()).not.toContain('Uploading'))
+    expect(set.seen.filter((s) => s.call === 'POST /files').map((s) => s.body)).toEqual([{ file: 'KR-ARC-R0.dwg' }])
+    expect(bodyText()).not.toMatch(/files? added/)
   })
 })
