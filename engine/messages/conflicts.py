@@ -14,7 +14,9 @@ a title is drawing text, as the first candidate prints it; the rest are counts a
   `second_named`: `number` or `title`); `plan` and `other` are the titles, as drawn, of the first
   and the second sheet's plans (they state the storey and what is drawn); `titled` is `same` (the two
   titles alike: `plan` only), `differ` (both) or `none` (either plan untitled: both empty); `layer`
-  is `top`, `bottom` or `none`; `views` how many (2 or more).
+  is `top`, `bottom` or `none`; `views` how many (2 or more). 21c's Question title must word
+  m0-screens §5's verbatim from `storey` and `subject` once display words exist; this message is the
+  Conflict's evidence line until then.
   `discipline`, `subject` and `storey` are keys (the Discipline's, the conventions' subject, 13's
   storey) for 21c, never shown as they are.
 """

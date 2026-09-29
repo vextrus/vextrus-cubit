@@ -51,7 +51,9 @@ two equal-by-value copies of a sheet in two files are two sheets, so nothing her
   no title (the words then name no plan: a title read on one sheet is never said of the other); the layer
   (`none` for none) and how many views; and, for 21c, the Discipline's, the subject's and the first
   shared storey's keys (in the first view's order). A plan on a sheet with neither number nor title
-  sits out (its Question is 21c's `missing`).
+  sits out (its Question is 21c's `missing`). 21c's Question title must word m0-screens §5's verbatim
+  from `storey` and `subject` once display words exist; this Conflict's words are its evidence line
+  until then.
 
 **The work is linear** in sheets, views and storeys, plus sorting: candidates are grouped by keys and
 never compared pairwise (10,000 sheets of one title are one group, not 50 million pairs), and each

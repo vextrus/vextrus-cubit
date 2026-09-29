@@ -140,7 +140,7 @@ def test_the_conflicts_format_as_m0_screens_words_them() -> None:
             "\u201c5TH FLOOR SLAB\u201d, bottom layer"
         ),
         "\u201cSLAB LAYOUT\u201d and S-70 both draw \u201cSTAIR\u201d",
-        "S-80 and S-81 both draw the same plan of one storey, bottom layer",  # the gate's round 3
+        "S-80 and S-81 both draw a plan of one storey, bottom layer",  # the gate's round 3
     ]
     assert render(ALL["engine.conflicts.same_number"], {"number": "S-07", "copies": 2}) == (
         "Two sheets are numbered S-07"  # m0-screens \u00a75, verbatim
@@ -150,7 +150,7 @@ def test_the_conflicts_format_as_m0_screens_words_them() -> None:
         "plan": "", "other": "", "titled": "none", "layer": "bottom", "views": 4,
     }  # fmt: skip
     assert render(ALL["engine.conflicts.same_storey"], untitled) == (
-        "S-14, S-15 and 2 more plans draw the same plan of one storey, bottom layer"
+        "S-14, S-15 and 2 more plans draw a plan of one storey, bottom layer"
     )
     two: dict[str, str | int] = {"title": "Notes", "sheets": 2}
     assert render(ALL["engine.conflicts.same_title"], two).startswith("Two sheets are titled")
@@ -221,8 +221,8 @@ def test_the_plot_findings_format() -> None:
             "they do not have."
         ),
         (
-            "S-02 is in the DWG files but on no page of its Discipline's PDF, so it has one source and "
-            "is confirmed on its own."
+            "S-02 is in the DWG files but on no page of its Discipline's PDF, so the PDF cannot "
+            "confirm it."
         ),
     ]
 
@@ -270,7 +270,7 @@ def test_the_coverage_findings_format_for_every_kind_and_naming() -> None:
     then = (
         "is unaccounted: no step will read it and it is not excluded, so Step 1 for its Discipline "
         "cannot be confirmed. Exclude it with a reason; if a step should read it, choose Other and "
-        "say which (views are assigned to steps from M1)."
+        "say which: Vextrus assigns views to steps in a later release."
     )
     assert len(words) == 3 * (len(ViewKind) + 1)
     assert words[len(ViewKind)] == f"S-20 8th floor beam layout {then}"  # 6.11's form
