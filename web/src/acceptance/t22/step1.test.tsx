@@ -116,7 +116,8 @@ describe('the list at §7’s state (§4.7, §6.2, §6.3)', () => {
     expect(text.indexOf('S-02')).toBeLessThan(text.indexOf('S-10'))
     const row = rowOf('S-02')
     expect(clean(row.textContent)).toContain('R0')
-    const mark = within(row).getByText('R0', { exact: false })
+    // The revision mark is its own element holding exactly "R0", so the File column's name (KR-STR-R0.dwg) may sit in the row too.
+    const mark = within(row).getByText('R0')
     const tip = clean(mark.closest('[title]')?.getAttribute('title') ?? mark.closest('[aria-describedby]')?.textContent ?? '')
     await userEvent.hover(mark)
     await waitFor(() => expect(clean(tip + ' ' + bodyText())).toContain('R0, from the file name KR-STR-R0.dwg'))
