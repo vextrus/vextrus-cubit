@@ -168,6 +168,8 @@ class FileView:
     plot_for: tuple[uuid.UUID, ...]
     """For a PDF: the DWGs whose sheets its pages matched (4.5 shows it under them)."""
     read_job_id: int | None
+    marked_for_vextrus: bool = False
+    """A file that could not be read, marked for Vextrus to look at ("Mark for Vextrus")."""
 
 
 @dataclass(frozen=True)
@@ -273,6 +275,7 @@ def _views(rows: list[DrawingFile]) -> list[FileView]:
                 sheets_found=found.get(row.id, 0) if readable and row.format == FileFormat.DWG else None,
                 plot_for=tuple(plot_for.get(row.id, ())),
                 read_job_id=row.read_job_id,
+                marked_for_vextrus=row.marked_for_vextrus,
             )
         )
     return shown
@@ -824,6 +827,22 @@ def restart(file_id: uuid.UUID) -> FileView:
     return file(row.id)
 
 
+def mark_for_vextrus(file_id: uuid.UUID) -> FileView:
+    """Mark a file that could not be read for Vextrus to look at (4.5's Failed row, "Mark for
+    Vextrus"); a file already marked is left as it is. Any other file is 409: only one whose reading
+    failed is marked (one saved by an old AutoCAD among them)."""
+    with transaction.atomic():
+        row = _access.drawing_file(file_id, lock=True)
+        state = file(row.id).state
+        if state not in (FileState.FAILED, FileState.UNREADABLE):
+            raise auth.Refused(said.NOT_FAILED(), status=409)
+        if not row.marked_for_vextrus:
+            row.marked_for_vextrus = True
+            row.save(update_fields=["marked_for_vextrus"])
+            _record(said.MARKED_FOR_VEXTRUS, row)
+    return file(row.id)
+
+
 _ENDED_FOR_GOOD = frozenset({ReadStatus.READ, ReadStatus.QUARANTINED, ReadStatus.REFUSED})
 
 
@@ -841,6 +860,7 @@ def _start_again(row: DrawingFile, job: jobs.JobState | None) -> None:
     row.cancelled_by_name = ""
     row.cancelled_by_vextrus = False
     row.cancelled_at = None
+    row.marked_for_vextrus = False  # read again: the mark was for the reading that failed
     row.save(
         update_fields=[
             "read_job_id",
@@ -855,5 +875,6 @@ def _start_again(row: DrawingFile, job: jobs.JobState | None) -> None:
             "cancelled_by_name",
             "cancelled_by_vextrus",
             "cancelled_at",
+            "marked_for_vextrus",
         ]
     )

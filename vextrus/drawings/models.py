@@ -312,6 +312,9 @@ class DrawingFile(models.Model):
     cancelled_by_name = models.CharField(max_length=200, blank=True)
     cancelled_by_vextrus = models.BooleanField(default=False)
     cancelled_at = models.DateTimeField(null=True, blank=True)
+    marked_for_vextrus = models.BooleanField(
+        default=False, help_text="A file that could not be read, marked for Vextrus to look at."
+    )
 
     class Meta:
         constraints: ClassVar = [

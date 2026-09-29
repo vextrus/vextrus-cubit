@@ -3,12 +3,18 @@ its sections in order, each a list of messages (a section with nothing to say is
 
     report = drawings.services.report(file_id)
     report.readers, report.sheets, report.bangla, report.fonts, report.plot   # a DWG's
+    report.bangla_sheets; report.font_rows[n].sheets                         # its sheets (21c)
     report.made_by, report.pages                                            # a PDF's
 
 The reading's own lines are the engine's codes, kept as they were read (the second reader's, the
 fonts', a PDF's report, the Bangla-ANSI Check's); `drawings` adds the lines it can write from what it
 holds: the readers agreeing, the sheets found, the Plot, the pages matched. Nothing here is shown
 while a file is still being read but what it has already found.
+
+**Its sheets** (21c): the sheets the Bangla-ANSI texts are on, and how many of the file's sheets each
+font's texts are on, are worked out when the report is asked for, from the kept ReadArtefact and each
+printed sheet's location (`_on_sheets`), for a file whose sheets are listed (read, or held and read
+anyway). With no kept artefact (or its copy missing) there are none, and every font is on none.
 """
 
 import uuid
@@ -19,6 +25,7 @@ from typing import Any
 from django.db.models import Q, Sum
 
 from engine.messages import Message
+from engine.read.artefact import ReadArtefact
 from vextrus.drawings.messages import reports as said
 from vextrus.drawings.models import (
     DrawingFile,
@@ -28,13 +35,26 @@ from vextrus.drawings.models import (
     ReadStatus,
     SheetRevision,
 )
-from vextrus.drawings.services import _access, drawing_files
+from vextrus.drawings.services import _access, _on_sheets, drawing_files, reads
+from vextrus.platform.services import auth, storage
 
 
 @dataclass(frozen=True)
 class FontRow:
     asked: Message
     how_close: Message
+    texts: int
+    sheets: int = 0
+    """How many of the file's sheets its texts are on (the Fonts table's "Sheets" column)."""
+
+
+@dataclass(frozen=True)
+class BanglaSheet:
+    """A sheet with Bangla-ANSI texts on it ("A-02: 5 texts"), a link into Step 1."""
+
+    sheet_id: uuid.UUID
+    """The printed sheet's (SheetRevision's) id."""
+    number: str | None
     texts: int
 
 
@@ -44,6 +64,8 @@ class Report:
     readers: tuple[Message, ...] = ()
     sheets: tuple[Message, ...] = ()
     bangla: tuple[Message, ...] = ()
+    bangla_sheets: tuple[BanglaSheet, ...] = ()
+    """The sheets the Bangla-ANSI texts are on, in sheet order, each with how many."""
     fonts: tuple[Message, ...] = ()
     font_rows: tuple[FontRow, ...] = ()
     plot: tuple[Message, ...] = ()
@@ -58,19 +80,76 @@ def report(file_id: uuid.UUID) -> Report:
     if row.format == FileFormat.PDF:
         return Report(shown, made_by=_messages(row.upload_report), pages=tuple(_pages(row)))
     fonts = row.font_report or {}
+    uses = [u for u in fonts.get("fonts", ()) if "asked_message" in u and "how_close_message" in u]
+    flagged = {str(t["handle"]) for t in (row.bangla_ansi or {}).get("texts", ()) if t.get("handle")}
+    on = _SheetTexts.of(row) if uses or flagged else _NO_SHEETS
     return Report(
         shown,
         readers=tuple(_readers(row)),
         sheets=tuple(_sheets(row)),
         bangla=tuple(Message(code=m["code"], params=m["params"]) for m in row.bangla_lines or ()),
+        bangla_sheets=on.bangla(flagged),
         fonts=_messages(fonts),
         font_rows=tuple(
-            FontRow(use["asked_message"], use["how_close_message"], int(use.get("texts", 0)))
-            for use in fonts.get("fonts", ())
-            if "asked_message" in use and "how_close_message" in use
+            FontRow(
+                use["asked_message"],
+                use["how_close_message"],
+                int(use.get("texts", 0)),
+                on.sheets_in((str(use.get("asked", "")).casefold(), str(use.get("kind", "")))),
+            )
+            for use in uses
         ),
         plot=tuple(_plot(row)),
     )
+
+
+@dataclass(frozen=True)
+class _SheetTexts:
+    """A listed file's printed sheets in order, each with its texts' handles, and their font rows."""
+
+    sheets: tuple[tuple[uuid.UUID, str | None, frozenset[str]], ...] = ()
+    fonts: tuple[frozenset[tuple[str, str]], ...] = ()
+    """Per sheet, the Font report's rows (name asked, casefolded; kind) its texts are drawn in."""
+
+    @classmethod
+    def of(cls, row: DrawingFile) -> _SheetTexts:
+        if not _listed(row):
+            return _NO_SHEETS
+        printed = list(
+            SheetRevision.objects.filter(source_file=row)
+            .order_by("ordinal", "id")
+            .values_list("id", "sheet__number", "location")
+        )
+        if not printed:
+            return _NO_SHEETS
+        read = _artefact(row)
+        if read is None:
+            return _NO_SHEETS
+        on = _on_sheets.texts_on(read, [(sr_id, location) for sr_id, _, location in printed])
+        sheets = tuple((sr_id, number or None, frozenset(on[sr_id])) for sr_id, number, _ in printed)
+        fonts = tuple(frozenset(_on_sheets.font_rows_of(read, handles)) for *_, handles in sheets)
+        return cls(sheets, fonts)
+
+    def bangla(self, flagged: set[str]) -> tuple[BanglaSheet, ...]:
+        found = []
+        for sr_id, number, handles in self.sheets:
+            if texts := len(handles & flagged):
+                found.append(BanglaSheet(sr_id, number, texts))
+        return tuple(found)
+
+    def sheets_in(self, font: tuple[str, str]) -> int:
+        return sum(font in rows for rows in self.fonts)
+
+
+_NO_SHEETS = _SheetTexts()
+
+
+def _artefact(row: DrawingFile) -> ReadArtefact | None:
+    """The file's kept ReadArtefact, or None when none is kept or its copy is missing or damaged."""
+    try:
+        return reads.artefact(row.id)
+    except auth.NotFound, storage.StorageError:
+        return None
 
 
 def _messages(stored: dict[str, Any] | None) -> tuple[Message, ...]:
