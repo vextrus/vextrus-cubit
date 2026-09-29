@@ -91,3 +91,8 @@ process could read the keys and the App's key through it: ADR 0026's refuter #5)
   (`tools/lint/acceptance.py`, `tools/lint/acceptance_pytest.py`), and `scripts/real-drawings` gains
   `--accept-if-clean` and `--accept REASON`. The owner is advised to pin the App's `integration_id` on
   both statuses in the ruleset.
+- 29 Sep 2026 (ticket 24s): **the scorer's "committed head" is enforced by a third user**, `vxrun`, as
+  amended in ADR 0026. The password-free rules are now the owner's two above, plus one letting the
+  owner's user run the installed real-drawing command as `vxrun`. `vxrun` in turn runs, as the key user,
+  only the poster's `head` and `real-drawings` and the scorer. A scored run measures only a head and a
+  main that GitHub holds. The guard's two allowed command lines are unchanged.

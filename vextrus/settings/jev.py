@@ -44,5 +44,5 @@ VEXTRUS_JEV_MAX_RESPONSE_BYTES = 65_536
 
 VEXTRUS_JEV_SHEET_TYPE_PROPOSE_AT = Decimal("0.90")
 """The confidence at which a sheet's kind is proposed rather than asked as a `low_confidence`
-Question. A placeholder: on invented cases no answer at or above 0.9 was wrong, one at 0.8 was
-(docs/research/jev-system-one.md §2.4); ticket 23 sets it on real sheets."""
+Question. Set by ticket 23's spot check on 32 real sheets: the ruling, its numbers and the model it
+holds for are in docs/knowledge/jev-nodes.md (its `sheet_type` row); change them together."""

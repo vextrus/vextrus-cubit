@@ -205,3 +205,35 @@ def test_the_fake_job_reaches_its_throwaway_cluster_by_socket_only(tmp_path: Pat
     assert probe["run_id"] == "invented-run"
     log = (job.scratch / "pg.log").read_text()
     assert "database system is shut down" in log  # stopped when the script ended
+
+
+# Refused until 21c makes it the default (the orchestrator's ruling on the merge with 24s) --------------
+
+
+def test_job_mode_is_refused_on_a_posting_run(world: World) -> None:
+    with pytest.raises(Refused, match="never scored or posted"):
+        run("57", no_post=False, m=world.machine(), job=True)
+    assert world.sandbox_runs == []
+    assert world.posted == []
+
+
+def test_job_mode_is_refused_with_score(world: World) -> None:
+    with pytest.raises(Refused, match="never scored or posted"):
+        run("main", no_post=True, m=world.machine(), job=True, score=True)
+    assert world.sandbox_runs == []
+
+
+@pytest.mark.parametrize(
+    "argv", [["57", "--job"], ["main", "--job", "--score"]], ids=["posting", "score"]
+)
+def test_the_command_line_refuses_job_with_score_or_on_a_posting_run(
+    world: World, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], argv: list[str]
+) -> None:
+    monkeypatch.setattr(command, "owners_machine", world.machine)
+
+    with pytest.raises(SystemExit) as ended:
+        command.main(argv)
+
+    assert ended.value.code == 2
+    assert "--job is never scored or posted until 21c" in capsys.readouterr().err
+    assert world.sandbox_runs == []

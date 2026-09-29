@@ -4,6 +4,7 @@ and the owner's reason, never a title or number from an export. No test raises p
 key user, reads a key or calls GitHub."""
 
 import base64
+import getpass
 import importlib.util
 import json
 from importlib.machinery import SourceFileLoader
@@ -38,6 +39,8 @@ class FakeGitHub:
             return {"token": "installation-token"}
         if "/pulls/" in path:
             return {"head": {"sha": self.head}}
+        if path.endswith("/status"):
+            return {"state": "pending", "sha": self.head, "statuses": []}
         return {}
 
     def posted(self) -> list[dict[str, Any]]:
@@ -51,7 +54,7 @@ def config(tmp_path: Path, drop: Path) -> Path:
     path.write_text(
         f'repository = "invented/repo"\napp_id = 1\ninstallation_id = 2\nkey_user = "invented-user"\n'
         f'key = "{tmp_path / "no-key.pem"}"\ndrop = "{drop}"\ninstalled = "/nowhere"\n'
-        "design_gate_items = 11\n"
+        f'design_gate_items = 11\nwriter = "{getpass.getuser()}"\n'
     )
     return path
 
@@ -334,4 +337,106 @@ def test_the_design_gate_is_posted_only_on_the_prs_head(tmp_path: Path) -> None:
     github = FakeGitHub(head="f" * 40)
 
     assert post(tmp_path, ["design-gate", "57", HEAD, "--passed", "1-11"], github) == 2
+    assert github.posted() == []
+
+
+# Ticket 24s: `head` prints the commit GitHub holds, and posts nothing.
+
+
+@pytest.mark.parametrize(
+    ("ref", "path"),
+    [("57", "/repos/invented/repo/pulls/57"), ("main", "/repos/invented/repo/commits/main/status")],
+)
+def test_head_prints_the_commit_github_holds_and_posts_nothing(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], ref: str, path: str
+) -> None:
+    github = FakeGitHub()
+
+    code = post_status.main(
+        ["head", ref], config_path=config(tmp_path, tmp_path), transport=github, sign=lambda d: b"s"
+    )
+
+    assert code == 0
+    assert capsys.readouterr().out.strip() == HEAD
+    assert [(m, p) for m, p, _, _ in github.calls][1:] == [("GET", path)]
+    assert github.posted() == []
+
+
+@pytest.mark.parametrize("ref", ["../x", "a..b", "feature/x", "x y", ""])
+def test_head_refuses_a_ref_that_is_not_main_a_branch_or_a_pr(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], ref: str
+) -> None:
+    github = FakeGitHub()
+
+    code = post_status.main(
+        ["head", ref], config_path=config(tmp_path, tmp_path), transport=github, sign=lambda d: b"s"
+    )
+
+    assert code == 2
+    assert "nothing posted" in capsys.readouterr().err
+    assert github.calls == []
+
+
+def test_head_refuses_an_answer_that_is_not_a_commit(tmp_path: Path) -> None:
+    github = FakeGitHub(head="not-a-commit")
+
+    code = post_status.main(
+        ["head", "main"], config_path=config(tmp_path, tmp_path), transport=github, sign=lambda d: b"s"
+    )
+
+    assert code == 2
+
+
+# Fix round 1 of 24s, F7 (50): the poster posted a run folder the pipeline's user did not write.
+
+
+def test_once_the_pipelines_user_exists_only_its_runs_are_posted(tmp_path: Path) -> None:
+    world = make_world(tmp_path / "world")
+    world.pr(57, {"README.md": "a change the engine never reads\n"})
+    run("57", no_post=False, m=world.machine(), accept_if_clean=True)
+    (run_id,) = world.posted
+    github = FakeGitHub(head=json.loads((world.drop / run_id / "metadata.json").read_text())["commit"])
+    path = config(tmp_path, world.drop)
+
+    written = path.read_text()
+    path.write_text(
+        written.replace(f'writer = "{getpass.getuser()}"', 'writer = "root"')
+    )  # not the writer
+    refused = post_status.main(
+        ["real-drawings", run_id], config_path=path, transport=github, sign=lambda d: b"s"
+    )
+    assert refused == 2
+    assert github.posted() == []
+
+    path.write_text(written)
+    assert (
+        post_status.main(
+            ["real-drawings", run_id], config_path=path, transport=github, sign=lambda d: b"s"
+        )
+        == 0
+    )
+    assert len(github.posted()) == 1
+
+
+def test_the_settings_name_the_pipelines_user_as_the_writer() -> None:
+    import tomllib
+
+    settings = tomllib.loads((REPO / "scripts" / "owner" / "post-status.toml").read_text())
+    assert settings["writer"] == "vxrun"
+
+
+def test_settings_naming_no_pipelines_user_post_nothing(tmp_path: Path) -> None:
+    """Fix round 1's refuter (45): without `writer` in the settings, no ownership check ran at all."""
+    world = make_world(tmp_path / "world")
+    world.pr(57, {"README.md": "a change the engine never reads\n"})
+    run("57", no_post=False, m=world.machine(), accept_if_clean=True)
+    (run_id,) = world.posted
+    github = FakeGitHub(head=json.loads((world.drop / run_id / "metadata.json").read_text())["commit"])
+    path = config(tmp_path, world.drop)
+    path.write_text("\n".join(line for line in path.read_text().splitlines() if "writer" not in line))
+
+    code = post_status.main(
+        ["real-drawings", run_id], config_path=path, transport=github, sign=lambda d: b"s"
+    )
+    assert code == 2
     assert github.posted() == []

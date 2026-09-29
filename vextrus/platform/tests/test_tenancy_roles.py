@@ -151,6 +151,23 @@ NARROWER = {
     "drawings_view": {"SELECT", "INSERT", "DELETE"},  # UPDATE only a decision (14)
     "drawings_statesheet": {"SELECT", "INSERT", "DELETE"},  # never updated (14)
     "drawings_usedid": {"SELECT", "INSERT"},  # an id once used is never used again (14)
+    "takeoff_takeoffstep": {"SELECT"},  # Library rows: only sync_library writes them (19a)
+    "takeoff_check": {"SELECT"},  # Library rows: only sync_library writes them (19a)
+    # Nothing of Step 1's is deleted: an act is undone by stamping, never by deleting (19a).
+    "takeoff_stepprogress": {"SELECT", "INSERT", "UPDATE"},
+    "takeoff_recogniserun": {"SELECT", "INSERT", "UPDATE"},
+    "takeoff_proposal": {"SELECT", "INSERT", "UPDATE"},
+    "takeoff_question": {"SELECT", "INSERT", "UPDATE"},
+    "takeoff_coverage": {"SELECT", "INSERT", "UPDATE"},
+    "takeoff_coveragestep": {"SELECT", "INSERT", "UPDATE"},
+    "takeoff_confirmation": {"SELECT", "INSERT"},  # UPDATE of undone_at alone (19a)
+    # Append-only: a drawing list and its entries, a Trace, a Question's link, a Check's run (19a).
+    "takeoff_drawingregister": {"SELECT", "INSERT"},
+    "takeoff_registerentry": {"SELECT", "INSERT"},
+    "takeoff_proposaltrace": {"SELECT", "INSERT"},
+    "takeoff_questionlink": {"SELECT", "INSERT"},
+    "takeoff_checkrun": {"SELECT", "INSERT"},
+    "takeoff_checkfinding": {"SELECT", "INSERT"},
 }
 
 
