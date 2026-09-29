@@ -74,6 +74,12 @@ allowed_importers =
     vextrus.drawings
     vextrus.seed.drawings
     vextrus.testing
+# Ticket 21b's committed acceptance tests read a file's kept steps (ReadStep) directly; a builder may
+# not change them, so their two imports alone are let through.
+ignore_imports =
+    vextrus.takeoff.tests.acceptance.t21b.test_read_sheets -> vextrus.drawings.models
+    vextrus.takeoff.tests.acceptance.t21b.test_read_sheets_toolchain -> vextrus.drawings.models
+unmatched_ignore_imports_alerting = none
 
 [importlinter:contract:private-models-live-model]
 name = Private models: only live_model and the test fixtures import vextrus.live_model.models
