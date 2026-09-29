@@ -7,7 +7,8 @@ the child: #93 found the app could free a Building's id by deleting its Project.
 in `public` from `pg_constraint` and follows chains upward (a parent the app may not delete, but whose
 own parent's delete cascades to it, is deleted all the same). A key is safe when the write it makes is
 one the app may make itself on the child, and within the tenant: the child has no row-level security,
-or the key carries `tenant_id`. Anything else is a finding, unless ALLOWED names it with a reason.
+or the key carries `tenant_id` from a parent that has it. Anything else is a finding, unless ALLOWED
+names it with a reason.
 A table made later gets SELECT, INSERT, UPDATE and DELETE by default (platform 0003), so its keys are
 judged here without anyone listing it.
 """
@@ -31,8 +32,8 @@ KEYS = """
                    join pg_attribute a on a.attrelid = c.conrelid and a.attnum = k order by 1),
            array(select a.attname::text from unnest(c.confkey) k
                    join pg_attribute a on a.attrelid = c.confrelid and a.attnum = k order by 1),
-           r.relrowsecurity
-      from pg_constraint c join pg_class r on r.oid = c.conrelid
+           r.relrowsecurity, f.relrowsecurity
+      from pg_constraint c join pg_class r on r.oid = c.conrelid join pg_class f on f.oid = c.confrelid
      where c.contype = 'f' and c.connamespace = 'public'::regnamespace
      order by 1"""
 
@@ -50,16 +51,18 @@ class Key:
     """The referenced columns, in `parent`."""
     row_security: bool
     """Whether `table` has row-level security, which the key's action runs past."""
+    parent_row_security: bool
+    """Whether `parent` has it: only then is the parent row the app writes one of its tenant's."""
 
     def within_tenant(self) -> bool:
-        return not self.row_security or "tenant_id" in self.columns
+        return not self.row_security or ("tenant_id" in self.columns and self.parent_row_security)
 
 
 def read_keys(cursor: Any) -> list[Key]:
     cursor.execute(KEYS)
     return [
-        Key(name, table, parent, on_delete, on_update, tuple(columns), tuple(referenced), security)
-        for name, table, parent, on_delete, on_update, columns, referenced, security in cursor.fetchall()
+        Key(name, table, parent, deletes, updates, tuple(columns), tuple(referenced), own, parents)
+        for name, table, parent, deletes, updates, columns, referenced, own, parents in cursor.fetchall()
     ]
 
 
@@ -223,13 +226,30 @@ PROBES = {
             )
         ],
     ),
-    "the same, by a key with the tenant": (
+    "the same, by a key with the tenant, both under row-level security": (
+        [
+            PROBE,
+            "alter table probe enable row level security",
+            child("probe_free", "on delete cascade", tenant=True),
+            "alter table probe_free enable row level security",
+        ],
+        [],
+    ),
+    "a key with the tenant, from a parent without row-level security": (
         [
             PROBE,
             child("probe_free", "on delete cascade", tenant=True),
             "alter table probe_free enable row level security",
         ],
-        [],
+        [
+            finding(
+                "probe_free",
+                "probe",
+                "on delete cascade",
+                "vextrus_app can delete from probe",
+                "may delete from probe_free, but the key crosses tenants",
+            )
+        ],
     ),
     "a chain through a table the app may not delete from": (
         [
