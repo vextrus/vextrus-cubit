@@ -6,9 +6,9 @@ each in its own transaction, each kept once by `drawings`' StepStore.
 A DWG: `opening` (Vextrus's copy, checked against its sha256), `reading` (the first reader; its
 ReadArtefact kept), `second_reader` (the second reader and the check that the two agree, kept as a
 code; two readers that disagree hold the file through `drawings.services.quarantine`, and nothing
-more is read: 21c raises its `file_misread` Question, ADR 0029), `finishing` (the font report and the
-Bangla-ANSI Check, kept as codes, and the file marked read in the same transaction). 21b's sheet
-steps go between `second_reader` and `finishing`.
+more is read: 21c raises its `file_misread` Question, ADR 0029), 21b's `sheets` and `sheet_<n>`
+steps (`read_propose.sheets`), `finishing` (the font report and the Bangla-ANSI Check, kept as codes,
+and the file marked read in the same transaction).
 
 A PDF: `opening` (the copy checked, and the PDF report kept as codes; a scan is refused by it) and
 `matching` (the file marked read). 21b's page steps and the matching itself go into them.
@@ -47,10 +47,18 @@ from engine.render.fonts import FontReport
 from vextrus.drawings import services as drawings
 from vextrus.drawings.messages import files as file_words
 from vextrus.platform.services import auth, jobs, storage
+from vextrus.takeoff.services.read_propose import sheets
 
 NOT_READ = "not_read"
 """The step that ends a file failed with its reason (see the module)."""
-DWG_STEPS = (drawings.OPENING, drawings.READING, drawings.SECOND_READER, drawings.FINISHING)
+DWG_STEPS = (
+    drawings.OPENING,
+    drawings.READING,
+    drawings.SECOND_READER,
+    drawings.SHEETS,
+    drawings.FINISHING,
+)
+"""A DWG's steps; after `sheets`, one `sheet_<n>` step per sheet it recorded (21b's `sheets`)."""
 PDF_STEPS = (drawings.OPENING, drawings.MATCHING)
 
 
@@ -140,6 +148,14 @@ def _steps(steps: jobs.Steps, file_id: uuid.UUID, use: Readers) -> Read:
     )
     if checked["held"]:
         return Read(file_id, "dwg", "held")
+    sheets.read(
+        steps,
+        file_id,
+        sheets.once(lambda: _kept_artefact(file_id, use, kept)),
+        {"sha256": sha256, **reader},
+        done_before=DWG_STEPS.index(drawings.SHEETS),
+        after=len(DWG_STEPS) - DWG_STEPS.index(drawings.FINISHING),
+    )
     steps.run(
         drawings.FINISHING, lambda: _finish(file_id, use, kept), inputs={"sha256": sha256, **reader}
     )
