@@ -349,11 +349,6 @@ def segment(
 # Words -------------------------------------------------------------------------------------------------
 
 
-def _words(text: str) -> tuple[str, ...]:
-    """The text's words, case-folded, without marks between them."""
-    return tuple(re.findall(r"[^\W_]+", text.casefold()))
-
-
 def _normal(text: str) -> str:
     """Lower case, every run of punctuation and space one space: "Sheet No.:" is "sheet no"."""
     return " ".join(re.findall(r"[^\W_]+", text.casefold()))
@@ -1365,20 +1360,6 @@ class _Segmenter:
         }
         return Sourced(matched.pop(), number.source) if len(matched) == 1 else None
 
-    def _title_discipline(self, title: Sourced | None) -> Sourced | None:
-        """The one Discipline whose `title_words` the title names whole ("AC PIPE LINE LAYOUT" is
-        mechanical's work), before the file's and the number's: a file may bundle trades."""
-        if title is None:
-            return None
-        words = _words(title.value)
-        matched = {
-            d.key
-            for d in self.conventions.disciplines
-            for phrase in (_words(w) for w in d.title_words)
-            if phrase and any(tuple(words[i : i + len(phrase)]) == phrase for i in range(len(words)))
-        }
-        return Sourced(matched.pop(), title.source) if len(matched) == 1 else None
-
     def _file_revision(self) -> Sourced | None:
         """The revision mark in the file's name, by the conventions' pattern: the name alone, its
         last part after any folder, never opened or followed."""
@@ -1488,7 +1469,7 @@ class _Reader:
             location,
             number=number,
             title=title,
-            discipline=self.s._title_discipline(title) or self.s._discipline(number),
+            discipline=self.s._discipline(number),
             revision_mark=sourced.get(SheetField.REVISION_MARK) or self.s._file_revision(),
             issue_date=sourced.get(SheetField.ISSUE_DATE),
             storeys_as_stated=stated,

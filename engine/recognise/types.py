@@ -568,21 +568,16 @@ class SheetField(StrEnum):
 
 @dataclass(frozen=True)
 class DisciplineConvention:
-    """A Discipline, by its key, the sheet-number prefixes it is known by, and the words a sheet's
-    title names its work by (`title_words`: "AC" for mechanical, where a file bundles trades)."""
+    """A Discipline, by its key, and the sheet-number prefixes it is known by."""
 
     key: str
     prefixes: tuple[str, ...] = ()
-    title_words: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         _key(self.key, "a Discipline's key")
         for prefix in self.prefixes:
             _text(prefix, "a sheet-number prefix")
         _unique(self.prefixes, "the prefix")
-        for word in self.title_words:
-            _text(word, "a Discipline's title word")
-        _unique(self.title_words, "the title word")
 
 
 @dataclass(frozen=True)
@@ -707,11 +702,7 @@ class SheetConventions:
 
     def _to_json(self) -> dict[str, Any]:
         return {
-            "disciplines": [
-                {"key": d.key, "prefixes": list(d.prefixes)}
-                | ({"title_words": list(d.title_words)} if d.title_words else {})
-                for d in self.disciplines
-            ],
+            "disciplines": [{"key": d.key, "prefixes": list(d.prefixes)} for d in self.disciplines],
             "number_patterns": list(self.number_patterns),
             "title_block_fields": [
                 {
@@ -732,12 +723,10 @@ class SheetConventions:
         return cls(
             disciplines=tuple(
                 DisciplineConvention(
-                    key=_str(d, "key"),
-                    prefixes=_words(d, "prefixes", "a Discipline's prefixes"),
-                    title_words=_words(d, "title_words", "a Discipline's title words"),
+                    key=_str(d, "key"), prefixes=_words(d, "prefixes", "a Discipline's prefixes")
                 )
                 for d in (
-                    _object(item, "a Discipline", {"key", "prefixes", "title_words"})
+                    _object(item, "a Discipline", {"key", "prefixes"})
                     for item in _list(data, "disciplines")
                 )
             ),
