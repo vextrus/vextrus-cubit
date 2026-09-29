@@ -126,3 +126,24 @@ wave.
 `/tmp` is gone. Background sessions survive a closed terminal; a reboot stops them, and they restart where
 they left off when attached or messaged (`claude agents`). Subagents of the orchestrator do not survive: read
 each one's NOTES.txt, re-launch fresh agents pointed at the earlier reports, and re-check every branch head.
+
+## Session 06's additions (each paid for; see docs/knowledge/lessons.md)
+- **Cloud builders push to a harness-named `claude/<slug>` branch**, never the ticket's: watch every
+  `claude/*` branch (`git ls-remote origin "refs/heads/claude/*"`) each loop, remember the heads you have
+  handled, and fire on a READY/BLOCKED head even if it was there when the watcher started.
+- **Talk to a local builder with SendMessage** (it wakes an idle session); `claude --bg --resume <short
+  id>` opens a picker and blocks. A stopped one: `claude --bg --resume <full session id> "<step>"`.
+- **A builder's BLOCKED on an acceptance test, with proof,** is answered in minutes: amend it yourself or
+  through its writer (`acceptance:` commit), push the ticket branch, tell the builder to merge it.
+  Writers run every test file they commit against a throwaway implementation first.
+- **Adversary rounds after each merge wave** (the owner's ruling): Sonnet 5.5 agents, one surface each,
+  attack what merged; every finding ≥ 50 is re-run by an Opus `refuter` before you act; confirmed ones
+  become fix tickets in the same session, the rest one issue per surface.
+- **Score a real export as soon as a scorer exists**; if one reason dominates a whole set, suspect the
+  scorer or the contract first and prove it on a synthetic case.
+- **Every change to `scripts/real_drawings/` or `tools/scorer/` on main needs the owner's custody
+  re-run** before the next posting or scored run: batch those PRs and ask once.
+- **Unique scratch folders per agent**; a design gate reads a throwaway demo password from a file and
+  types it into the sign-in form (never a real credential).
+- **CI differs from this machine** (shellcheck, the Python build, browser speed): a CI-only failure goes
+  to a Sonnet debugger with the job's log at once; a test must force the failure it tests.

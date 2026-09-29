@@ -258,3 +258,44 @@ session-05 close-out's committed checks cover; confirm each on its merge):
 - **`claude --bg -w <name>` makes a new `worktree-<name>` branch**, not the ticket's: create the worktree
   on the ticket's branch first so the acceptance commits are under the builder. Debt (runbook; no check).
 
+
+## Session 06, second start (29 Sep 2026): seven tickets merged, the scorer's first answer, a power cut
+- **Two drafting agents given one naming rule for scratch folders (`scratch-<file-stem>`) collided**: one
+  resumed the other's folder and keyed Edison's structural drawing under the Sample Project's name (57
+  sheets where the Plot has 38). Caught by comparing the draft's sheet count with its own Plot. **Check:**
+  every key and draft records `files: {name: sha256}` for every file of its set, and `tools/scorer/drafts.py`,
+  the review page and `keys-custody.sh` refuse a mismatch (24s, #113). Give parallel agents unique folders.
+- **The scorer's first answer on main was 0 of 284 sheets, all "the sheet missing"**: the keys say a
+  model-space sheet's layout is "model" with its frame, 13's export says `layout: null` with its box. The
+  contract was written for both sides in words and never run on a real export until the owner's custody
+  step. **Check:** 24f's acceptance tests join a key to an export shaped exactly as 13's (#128). Score a
+  real export once as soon as the scorer exists, before the loops depend on it.
+- **Storeys could never pass** (a key's list against the export's stated text, stringified): the
+  acceptance helper typed `storeys: str`, so no test ever held a list. Found by a Sonnet adversary,
+  confirmed by an Opus refuter (80). **Check:** 24f's list-storeys tests. Type a test fixture's fields as
+  the real data holds them, not as the first test needed.
+- **Adversaries on merged code pay** (the owner's ruling: Sonnet agents in a skeptic role): three of them
+  found the scorer's two faults above, a weak pixel test (#122) and no wall breach in 28 operations × 9
+  attackers. Every finding at 50 or more was re-run by an Opus refuter before acting (one fell from 55 to
+  40, one rose from 45 to 65). Debt (a runbook step: adversaries after each merge wave).
+- **`claude --bg --resume <short id>` opens a picker and blocks**; a fix round sent that way sat 25
+  minutes. Message an idle local builder with SendMessage, or resume with the full session id. Debt.
+- **Cloud builders push to a harness-named `claude/<slug>` branch, not the ticket's**: two BLOCKED
+  reports sat unseen 45 minutes while the watcher watched `t16`/`t21a`, and a READY head present at the
+  watcher's start never fired. The watcher now lists every `claude/*` branch each loop and keeps the heads
+  it has handled. Debt (the watcher is a session script, not committed).
+- **A power cut stopped every local session and agent for ~70 minutes.** STATE.md, NOTES.txt and the
+  review files let every piece restart within 10 minutes; one empty git object (a write cut mid-way) was
+  found by a reviewer and removed. Keep writing state to files after every event.
+- **CI's shellcheck and CI's Python differ from the machine's**: 24s's shellcheck test skipped here (no
+  shellcheck installed) and failed in CI; 24f's test that relied on a RecursionError at 60,000 nesting
+  levels passed on uv's clang build and not on setup-python's GCC build (the stack use differs). Debt:
+  shellcheck in the toolchain; tests must force the failure they test (monkeypatch), never count on a
+  build's stack.
+- **Acceptance tests had defects the builders could not fix** (a jsonb read as text, a layer contract, a
+  fixture that swallowed queued refusals, a literal the words gate forbade, a sentence without its
+  isolates): five `acceptance:` amendments by the orchestrator, each from a builder's BLOCKED with its
+  proof. A writer should run its tests against a throwaway implementation before committing (the 24s and
+  23 writers did, and theirs needed none). Debt (the acceptance-writer's brief).
+- **`seed_demo` run twice duplicates every Developer** (#129; a builder is on it). Found only because a
+  design walk re-seeded a database. **Check:** t129's acceptance tests.
