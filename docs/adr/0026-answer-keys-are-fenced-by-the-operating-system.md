@@ -53,3 +53,12 @@ needed no password and `~/vextrus-cad` was world-readable. Rejected: deny rules 
   answered per sheet, keep the measure honest. The Answer Keys and the posting App's key stay with the
   key user, reached only through the two programs. The scorer moves forward from M1 into M0's close. The
   owner chose "Dev per-sheet, held-out blind (Recommended)".
+- 29 Sep 2026 (session 06's ruling for ticket 24s, the orchestrator's, to be confirmed by the owner with
+  the custody step): **a third user, `vxrun`, alone writes the runs the scorer scores.** The owner's
+  user may run, as `vxrun` and without a password, only the installed real-drawing command
+  (`/usr/local/lib/vextrus/real-drawings-run`, root's). That command checks its own arguments, and runs
+  only a head and a main that GitHub holds. `vxrun` may run, as the key user, only the poster's `head`
+  and `real-drawings` on one plain argument and the scorer on one run id. The scorer refuses any folder
+  or file `vxrun` did not write. Once `vxrun` exists, the poster refuses one too. The owner's two rules
+  above are unchanged. `scripts/owner/keys-custody.sh` sets this up, moves the confirmed Development
+  Set keys into the key user's custody, and installs the real scorer at the placeholder's path.

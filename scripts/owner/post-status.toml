@@ -8,5 +8,6 @@ installation_id = 165622751               # installed on vextrus-cubit only
 key_user = "vxkeys"                       # ADR 0026
 key = "/home/vxkeys/github-app/app.pem"   # the App's private key, readable by the key user only
 drop = "/srv/vextrus-drop"                # one folder per posting run, and the posting runs' lock
+writer = "vxrun"                          # the pipeline's user: once it exists, only its runs are posted
 installed = "/usr/local/lib/vextrus/post-status"
 design_gate_items = 11                    # docs/design/m0-screens.md §8's checklist
