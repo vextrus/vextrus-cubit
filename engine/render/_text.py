@@ -1,6 +1,6 @@
 """Text laid out as the engine draws it: glyphs placed in text units, before any placement.
 
-`lay_out(text, local_height)` turns one TEXT, ATTRIB, ATTDEF or MTEXT into glyphs placed in **text
+`lay_out(text, local_height, style)` turns one TEXT, ATTRIB, ATTDEF or MTEXT into glyphs placed in **text
 units** (1 is the text's height; x along its baseline from its position, y up), which the caller maps
 into the world through `engine.text.mtext.frame`. The browser lays out no drawing text (m0-screens
 4.6): what it draws is this.
@@ -12,6 +12,10 @@ into the world through `engine.text.mtext.frame`. The browser lays out no drawin
 - A TEXT (and ATTRIB, ATTDEF) is one line from its start point, left to right, whatever its alignment
   (the reader gives the start point, from which AutoCAD plots it: docs/knowledge/lessons.md), stretched
   by its width factor. `%%U` and `%%O` draw their lines.
+- **The text style's width factor and oblique angle** (#88; the artefact's style table, #82): an MTEXT
+  is drawn at its style's width factor, a TEXT at its own (which AutoCAD copies from the style), and
+  both leaning by the style's oblique angle; an inline `\\W` or `\\Q` wins. A value that is not a
+  usable number is drawn as 1 and 0.
 - An MTEXT's runs keep their inline font, bold, italic (a 12° slant), height (`\\H`), width (`\\W`),
   oblique (`\\Q`), tracking (`\\T`), underline, overline and strike-through; a stacked fraction draws its
   parts at 0.7 of the height, one above the other with a bar (`/`), side by side with a slash (`#`), or
@@ -27,7 +31,7 @@ from dataclasses import dataclass, field
 import numpy as np
 from numpy.typing import NDArray
 
-from engine.read.artefact import Text
+from engine.read.artefact import Text, TextStyle
 from engine.render.fonts import Substitute, substitute
 from engine.render.fonts.glyphs import FontKey, outline, strokes
 from engine.text.decode import Run, runs
@@ -93,9 +97,14 @@ def _advance(font: Substitute, char: str) -> float:
     return glyph.advance if glyph is not None else 0.5
 
 
-def _atoms(text: Text, local_height: float) -> tuple[list[list[_Atom]], int]:
+def _atoms(
+    text: Text, local_height: float, text_style: TextStyle | None = None
+) -> tuple[list[list[_Atom]], int]:
     mtext = text.type == "MTEXT"
-    width_factor = 1.0 if mtext else _positive(text.width, 1.0)
+    styled = text_style.width_factor if text_style is not None else None
+    width_factor = _positive(styled, 1.0) if mtext else _positive(text.width, 1.0)
+    oblique = text_style.oblique_radians if text_style is not None else None
+    leaning = math.degrees(oblique) if oblique is not None and math.isfinite(oblique) else 0.0
     lines: list[list[_Atom]] = [[]]
     count = cut = 0
     for run in runs(text.text, mtext=mtext):
@@ -106,7 +115,8 @@ def _atoms(text: Text, local_height: float) -> tuple[list[list[_Atom]], int]:
         size = (style.height / local_height if style.height is not None else 1.0) * style.scale
         size = _positive(size, 1.0)
         width = _positive(style.width, width_factor) * _positive(style.tracking, 1.0)
-        shear = math.tan(math.radians(style.oblique)) if abs(style.oblique) < 85 else 0.0
+        angle = leaning if style.oblique is None else style.oblique  # an inline `\\Q` wins, `\\Q0` too
+        shear = math.tan(math.radians(angle)) if abs(angle) < 85 else 0.0
         if style.italic:
             shear += ITALIC_SLANT
         font = substitute(style.font if style.font is not None else text.font, style.bold)
@@ -187,9 +197,9 @@ def _decorate(laid: Laid, atom: _Atom, u0: float, u1: float, v: float) -> None:
             laid.strokes.append(np.array([[u0, y], [u1, y]]))
 
 
-def lay_out(text: Text, local_height: float) -> Laid:
+def lay_out(text: Text, local_height: float, style: TextStyle | None = None) -> Laid:
     laid = Laid()
-    lines, laid.cut = _atoms(text, local_height)
+    lines, laid.cut = _atoms(text, local_height, style)
     mtext = text.type == "MTEXT"
     limit = (text.width or 0.0) / local_height if mtext else 0.0
     if mtext and math.isfinite(limit) and limit > 0:

@@ -36,8 +36,9 @@ Coordinates are floats in drawing units: drawing geometry stays float inside the
 
 `to_json` writes `{"schema": SCHEMA, "version": VERSION, ...}`; `from_json` refuses any other schema
 or version, so a change to this shape is a new VERSION and never a silent reinterpretation. Version 2
-added the style table and `Text.style_handle` (#82); version 1 is refused, so an artefact stored
-before it is read again from its drawing.
+added the style table and `Text.style_handle` (#82); version 3 a layout's paper units
+(`Block.paper_mm_per_unit`, #87); an older version is refused, so an artefact stored before it is read
+again from its drawing.
 """
 
 import math
@@ -51,7 +52,7 @@ from engine.read._json import Fields, Json
 from engine.read.anchor import is_handle
 
 SCHEMA = "engine.read.artefact"
-VERSION = 2
+VERSION = 3
 
 type Point = tuple[float, float, float]
 type StyleSource = Literal["own", "attdef", "none"]
@@ -170,6 +171,10 @@ class Block:
     base_point: Point
     layout: str | None  # the layout's name when this record is a layout's
     entities: tuple[str, ...]  # handles in drawing order
+    paper_mm_per_unit: float | None = None
+    """Millimetres of paper a layout's drawing unit plots at, as its plot settings state them: its paper
+    units (25.4 inches, 1 millimetres) times its custom scale; none for any other record, or when the
+    settings state neither inches nor millimetres (#87)."""
 
 
 @dataclass(frozen=True)
@@ -367,6 +372,7 @@ def _block_json(block: Block) -> dict[str, Any]:
         "base_point": list(block.base_point),
         "layout": block.layout,
         "entities": list(block.entities),
+        "paper_mm_per_unit": block.paper_mm_per_unit,
     }
 
 
@@ -378,9 +384,28 @@ def _block_from_json(value: object) -> Block:
         base_point=_point(fields.raw("base_point"), "a block's base point"),
         layout=fields.optional_string("layout"),
         entities=tuple(_handle(h, "a block's entity") for h in fields.array("entities")),
+        paper_mm_per_unit=_paper_units(fields.raw("paper_mm_per_unit")),
     )
     fields.done()
     return block
+
+
+PAPER_MM_RANGE = (1e-4, 1e4)
+"""The millimetres of paper a layout's drawing unit may plot at: its paper units (inches or
+millimetres) times its custom plot scale."""
+
+
+def _paper_units(value: object) -> float | None:
+    if value is None:
+        return None
+    low, high = PAPER_MM_RANGE
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, int | float)
+        or not (math.isfinite(value) and low <= value <= high)
+    ):
+        raise ValueError(f"read artefact: a layout's paper units, {value!r}, are no millimetres a unit")
+    return float(value)
 
 
 def _style_json(style: TextStyle) -> dict[str, Any]:

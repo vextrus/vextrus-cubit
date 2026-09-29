@@ -80,7 +80,8 @@ class StageReport:
     failed_calls: int = 0
     seconds: float = 0.0
     error: str | None = None
-    """The first failure, why it is not built, or what a skipped stage needed."""
+    """The first failure, why it is not built, or what a skipped stage needed; for a render check that
+    ran, how many matched pages it could not draw, and the first's reason."""
 
     def to_json(self) -> dict[str, JSON]:
         return {
