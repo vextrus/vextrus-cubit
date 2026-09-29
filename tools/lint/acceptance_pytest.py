@@ -4,15 +4,19 @@ test under an acceptance path was skipped, xfailed or deselected, however that w
 conftest hook, a `-k` or `-m` in `pyproject.toml`).
 
 Two deselections are left to the other workflow, and only these (issue #107):
-- in CI's run, an acceptance test whose own marks, as written in its file (the function's decorators,
-  its `pytest.param` marks, its class's and its module's `pytestmark`), name `needs_toolchain` or
-  `needs_bwrap`, the markers engine.yml runs, and whose file's source names that marker. A mark a
-  conftest hook adds to the item never counts, and `live` is never exempt: no CI job runs it;
-- in engine.yml's opt-in run (`-m "needs_toolchain or needs_bwrap"`), an acceptance test with no such
-  written mark: CI's run runs it.
-The written marks are read before any other plugin's `pytest_collection_modifyitems` runs. A test
-dropped from the collection without the deselection hook is not seen here; the reviewer reads the
-acceptance report.
+- in CI's run, an acceptance test whose own marks (the function's `pytestmark`, its `pytest.param`
+  marks, its class's and its module's `pytestmark`) name `needs_toolchain` or `needs_bwrap`, the
+  markers engine.yml runs, and whose file (the one its node id names) names that marker. A mark
+  `item.add_marker` adds never counts, and `live` is never exempt: no CI job runs it;
+- in engine.yml's opt-in run (`-m "needs_toolchain or needs_bwrap"` on the command line), an acceptance
+  test with no such mark: CI's run runs it.
+
+What this cannot see (a tripwire, not a wall; the reviewer reads the acceptance report). The marks are
+read in a tryfirst wrapper of `pytest_collection_modifyitems`, so code that runs earlier can still set
+them: a conftest's own tryfirst wrapper of that hook, `pytest_itemcollected`, or `pytest_generate_tests`
+adding `pytest.param` marks; so can a conftest that rewrites a report, resets the exit status or drops a
+test from `items` without the deselection hook. Such a conftest is in-process code this plugin cannot
+wall off.
 """
 
 import re
@@ -42,7 +46,8 @@ def _names(marks: object) -> set[str]:
 
 
 def written_marks(item: pytest.Item) -> frozenset[str]:
-    """The engine markers an item carries as written in its own file, not as any hook left them."""
+    """The engine markers on the item's function, param, class and module (not its `add_marker`s)
+    that its file names too."""
     names: set[str] = set()
     callspec = getattr(item, "callspec", None)
     if callspec is not None:

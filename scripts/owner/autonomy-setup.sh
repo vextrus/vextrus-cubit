@@ -133,6 +133,8 @@ check() {
   else printf '  FAILED: %s\n' "$1"; fail=$((fail + 1)); fi
 }
 as_owner() { printf 'sudo -u %s -- sudo -n -u %s %s' "$OWNER" "$KEY_USER" "$*"; }
+# Asks sudo's policy, running nothing: a refusal here is sudo's, never the program's own exit code.
+permitted() { printf 'sudo -u %s -- sudo -n -l -u %s %s' "$OWNER" "$KEY_USER" "$*"; }
 check "$OWNER is refused running id as $KEY_USER" "! $(as_owner id)"
 check "$OWNER is refused a shell as $KEY_USER" "! $(as_owner /bin/sh -c true)"
 check "$OWNER is refused reading $KEY_USER's home" "! $(as_owner cat /home/$KEY_USER/.profile)"
@@ -148,10 +150,10 @@ if [ -x "$SCORER" ]; then
   # which proves it ran as the key user (sudo's own refusal is 1).
   check "$OWNER may run the scorer as $KEY_USER on a run id" \
     "$(as_owner "$SCORER" 20260101T000000Z-000000000000-0000); case \$? in 0|2) true ;; *) false ;; esac"
-  check "$OWNER is refused the scorer with no run id" "! $(as_owner "$SCORER")"
-  check "$OWNER is refused the scorer on a path" "! $(as_owner "$SCORER" /home/$KEY_USER/keys)"
-  check "$OWNER is refused the scorer with an option" "! $(as_owner "$SCORER" --key x)"
-  check "$OWNER is refused the scorer with a lone option" "! $(as_owner "$SCORER" --help)"
+  check "$OWNER is refused the scorer with no run id" "! $(permitted "$SCORER")"
+  check "$OWNER is refused the scorer on a path" "! $(permitted "$SCORER" /home/$KEY_USER/keys)"
+  check "$OWNER is refused the scorer with an option" "! $(permitted "$SCORER" --key x)"
+  check "$OWNER is refused the scorer with a lone option" "! $(permitted "$SCORER" --help)"
 else
   warn "the scorer is not installed yet, so its check is skipped"
 fi
