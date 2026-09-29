@@ -44,6 +44,13 @@ fills more of it than lines); a smaller one joins the view whose box, grown by `
 view's box is its piece, its title and its scale text together. **Reading order** is by rows, top to
 bottom (views whose heights overlap by half are one row), each left to right.
 
+**The title block is a view** (CONTEXT.md's "View"; the orchestrator's ruling R2, session 07), of kind
+`title_block`, last on its sheet, after the rows: its box is where its texts (the frame's own and the
+values 13 read) stand, grown on each side to the nearest ruled line across them, the frame's or the
+sheet's (`RULE_MM`), else to the paper's edge; a sheet with no such text has none. What lies in it (a
+loose word, its ruled lines drawn outside the frame) is no other view's; the sheet's median text is
+still measured over every text it holds.
+
 **What a view says.** Its stated scale is the first scale pattern found in its title or a text on its
 title's line or just under it (`scales.read`), verbatim; N.T.S. marks it not to scale. Its storeys are
 a plan's only: 13's `storeys.read(title, plan_title=True)`, an explicit list (and the symbolic end a
@@ -152,6 +159,10 @@ DIVIDER_SHARE = 0.6
 """A straight line along the paper's axes this share of the paper's side or longer is a border or a
 divider between views (the real sets rule rows of details apart), never a view's drawing."""
 
+RULE_MM = 1.0
+"""Lines on one line within this on paper, in mm, are one ruled line (a title block's border drawn in
+pieces), and a ruled line this near a title block's texts bounds it."""
+
 MAX_VISITS = 8_000_000
 MAX_SEGMENTS = 3_000_000
 MAX_PIECES = 2_000
@@ -174,6 +185,8 @@ MAX_GRID = 1_500
 MAX_SAMPLES = 4_000_000
 MAX_TITLES = 200
 MAX_VIEWS = 200
+MAX_RULES = 200_000
+"""The most straight lines along one axis weighed for a sheet's title block."""
 
 PAPER_SIDES = (1189.0, 841.0, 594.0, 420.0, 297.0, 210.0)
 """The long sides of the standard papers (ISO A0 to A5), in mm."""
@@ -398,6 +411,10 @@ class _Paper:
     texts: list[_Text]
     key: str | None = None  # the sheet's anchor key (a layout's name, or 13's model key)
     anchor: DwgAnchor | None = None
+    frame: NDArray[np.float64] = field(default_factory=lambda: np.empty((0, 4)))
+    """The frame's own segments on paper (left out of `segments`)."""
+    block: list[_Text] = field(default_factory=list)
+    """The title block's texts on paper: the frame's own and the values 13 read (no view's)."""
 
 
 def _paper(artefact: ReadArtefact, sheet: SheetCandidate) -> _Paper | None:
@@ -482,7 +499,9 @@ def _paper(artefact: ReadArtefact, sheet: SheetCandidate) -> _Paper | None:
         parts.append((model, to_paper, (box.x0, box.y0, box.x1, box.y1), region))
 
     segments: list[NDArray[np.float64]] = []
+    frame_segments: list[NDArray[np.float64]] = []
     texts: list[_Text] = []
+    block: list[_Text] = []
     kept: dict[int, NDArray[np.bool_]] = {}  # each space's frame test, once for all its viewports
     for drawn, to_paper, window, clip in parts:
         if id(drawn) not in kept:
@@ -494,35 +513,37 @@ def _paper(artefact: ReadArtefact, sheet: SheetCandidate) -> _Paper | None:
             continue  # past the file's budget: this part is not read
         walker.scans -= weighed
         chosen_texts = np.arange(len(drawn.texts))
+        seen = np.ones(len(drawn.segments), dtype=bool)
         if window is not None:
             wx0, wy0, wx1, wy1 = window
             seg = drawn.segments
-            keep = keep & (
+            seen = (
                 (np.minimum(seg[:, 0], seg[:, 2]) <= wx1) & (np.maximum(seg[:, 0], seg[:, 2]) >= wx0)
                 & (np.minimum(seg[:, 1], seg[:, 3]) <= wy1) & (np.maximum(seg[:, 1], seg[:, 3]) >= wy0)
             )  # fmt: skip
+            keep = keep & seen
             o = drawn.text_origins
             chosen_texts = np.flatnonzero(
                 (o[:, 0] >= wx0) & (o[:, 0] <= wx1) & (o[:, 1] >= wy0) & (o[:, 1] <= wy1)
             )
-        taken = int(keep.sum())
+        framed = seen & ~kept[id(drawn)]
+        taken = int(keep.sum()) + int(framed.sum())
         if taken > walker.reads or len(chosen_texts) > walker.text_reads:
             walker.limits["read_budget"] += 1
             continue
         walker.reads -= taken
         walker.text_reads -= len(chosen_texts)
-        chosen = drawn.segments[keep]
-        if window is not None:
-            chosen = _clip(chosen, window)
-        moved = _move(chosen, to_paper)
-        if clip is not None:
-            moved = _clip(moved, clip)
-        segments.append(moved)
+        for mask, out in ((keep, segments), (framed, frame_segments)):
+            chosen = drawn.segments[mask]
+            if window is not None:
+                chosen = _clip(chosen, window)
+            moved = _move(chosen, to_paper)
+            if clip is not None:
+                moved = _clip(moved, clip)
+            out.append(moved)
         scale = to_paper.xy_scale
         for i in chosen_texts.tolist():
             placed = drawn.texts[i]
-            if not keep_text(drawn, i):
-                continue
             corners = np.array(placed.corners(), dtype=np.float64)
             moved_corners = to_paper.xy(corners)
             text_box: Bounds = (
@@ -535,8 +556,10 @@ def _paper(artefact: ReadArtefact, sheet: SheetCandidate) -> _Paper | None:
                 continue
             chain = drawn.chains[drawn.text_chain[i]]
             height = placed.height * scale
-            texts.append(_Text(placed, chain, text_box, height, _plain(placed.shown)))
+            placed_text = _Text(placed, chain, text_box, height, _plain(placed.shown))
+            (texts if keep_text(drawn, i) else block).append(placed_text)
     all_segments = np.concatenate(segments) if segments else np.empty((0, 4))
+    frame_drawn = np.concatenate(frame_segments) if frame_segments else np.empty((0, 4))
     if region is None:
         region = _extent(all_segments, texts)
     if region is None or not all(math.isfinite(v) for v in (*region, region[2] - region[0],
@@ -547,11 +570,14 @@ def _paper(artefact: ReadArtefact, sheet: SheetCandidate) -> _Paper | None:
         x0 or y0
     ):  # every box on paper from the sheet's lower-left corner (a layout's frame may lie off 0)
         all_segments = all_segments - np.array([x0, y0, x0, y0])
-        for t in texts:
+        frame_drawn = frame_drawn - np.array([x0, y0, x0, y0])
+        for t in (*texts, *block):
             b = t.box
             t.box = (b[0] - x0, b[1] - y0, b[2] - x0, b[3] - y0)
         region = (0.0, 0.0, region[2] - x0, region[3] - y0)
-    return _Paper(region, all_segments, texts, None if frame is None else frame.sheet, frame)
+    return _Paper(
+        region, all_segments, texts, None if frame is None else frame.sheet, frame, frame_drawn, block
+    )
 
 
 def _shapes_rect(values: Mapping[str, object]) -> Bounds | None:
@@ -655,6 +681,70 @@ def _clip(segments: NDArray[np.float64], box: Bounds) -> NDArray[np.float64]:
 
 def _inside(point: tuple[float, float], box: Bounds) -> bool:
     return box[0] <= point[0] <= box[2] and box[1] <= point[1] <= box[3]
+
+
+def _centre(box: Bounds) -> tuple[float, float]:
+    return ((box[0] + box[2]) / 2, (box[1] + box[3]) / 2)
+
+
+def _segments_in(segments: NDArray[np.float64], box: Bounds) -> NDArray[np.bool_]:
+    """The segments with both ends in the box."""
+    x, y = segments[:, [0, 2]], segments[:, [1, 3]]
+    inside = (x >= box[0]) & (x <= box[2]) & (y >= box[1]) & (y <= box[3])
+    return np.asarray(inside.all(axis=1), dtype=np.bool_)
+
+
+# The title block ---------------------------------------------------------------------------------------
+
+
+def _title_block(paper: _Paper) -> Bounds | None:
+    """The title block's extent on paper: the box its texts' centres (the frame's own texts and the
+    values 13 read) fill, grown on each side to the nearest ruled line across it (the frame's or the
+    sheet's), else to the paper's edge; none when the sheet has no title-block text on its paper."""
+    rx0, ry0, rx1, ry1 = paper.region
+    centres = [_centre(t.box) for t in paper.block]
+    centres = [c for c in centres if _inside(c, paper.region)]
+    if not centres:
+        return None
+    ex0, ey0 = min(c[0] for c in centres), min(c[1] for c in centres)
+    ex1, ey1 = max(c[0] for c in centres), max(c[1] for c in centres)
+    tol = RULE_MM * max(rx1 - rx0, ry1 - ry0) / REFERENCE_MM
+    lines = np.concatenate([paper.frame, paper.segments]) if len(paper.segments) else paper.frame
+    across = _rules(lines, 0, tol)  # (y, x from, x to): lines along x
+    down = _rules(lines, 1, tol)  # (x, y from, y to): lines along y
+    spans_x = (across[:, 1] <= ex0 + tol) & (across[:, 2] >= ex1 - tol)
+    spans_y = (down[:, 1] <= ey0 + tol) & (down[:, 2] >= ey1 - tol)
+    top = across[spans_x & (across[:, 0] >= ey1 - tol), 0]
+    bottom = across[spans_x & (across[:, 0] <= ey0 + tol), 0]
+    left = down[spans_y & (down[:, 0] <= ex0 + tol), 0]
+    right = down[spans_y & (down[:, 0] >= ex1 - tol), 0]
+    return (
+        float(left.max()) if len(left) else rx0,
+        float(bottom.max()) if len(bottom) else ry0,
+        float(right.min()) if len(right) else rx1,
+        float(top.min()) if len(top) else ry1,
+    )
+
+
+def _rules(segments: NDArray[np.float64], axis: int, tol: float) -> NDArray[np.float64]:
+    """The straight lines along one axis of the paper (0: x, 1: y), those on one line within `tol` of
+    each other joined where they meet or nearly meet: (place across, from, to) rows."""
+    a, b = segments[:, axis], segments[:, axis + 2]
+    c, d = segments[:, 1 - axis], segments[:, 3 - axis]
+    along = np.abs(b - a)
+    straight = (along > 0) & (np.abs(d - c) <= 0.01 * along)
+    rows = np.stack(
+        [(c + d)[straight] / 2, np.minimum(a, b)[straight], np.maximum(a, b)[straight]], axis=1
+    )
+    rows = rows[np.lexsort((rows[:, 1], np.round(rows[:, 0] / tol)))][:MAX_RULES]
+    out: list[list[float]] = []
+    for place, lo, hi in rows.tolist():
+        last = out[-1] if out else None
+        if last is not None and abs(last[0] - place) <= tol and lo <= last[2] + tol:
+            last[2] = max(last[2], hi)
+        else:
+            out.append([place, lo, hi])
+    return np.array(out, dtype=np.float64).reshape(-1, 3)
 
 
 # Pieces on a grid --------------------------------------------------------------------------------------
@@ -1009,9 +1099,12 @@ def find(
         empty.limits = _report(artefact)
         return empty
     fallback = _kind(sheet.title.value, reading) if sheet.title is not None else None
-    found = _views(paper, reading, fallback or ViewKind.PLAN)
+    block = _title_block(paper)
+    found = _in_reading_order(_views(paper, reading, fallback or ViewKind.PLAN, block))
+    if block is not None:
+        found.append(_View(None, None, ViewKind.TITLE_BLOCK, block))
     discipline = sheet.discipline.value if sheet.discipline is not None else None
-    result = FoundViews(_candidate(v, paper, reading, discipline) for v in _in_reading_order(found))
+    result = FoundViews(_candidate(v, paper, reading, discipline) for v in found)
     result.paper = (paper.region[2], paper.region[3])
     result.limits = _report(artefact)
     return result
@@ -1021,12 +1114,24 @@ def _report(artefact: ReadArtefact) -> dict[str, int]:
     return {**dict.fromkeys(LIMITS, 0), **_walker(artefact).limits}
 
 
-def _views(paper: _Paper, reading: _Reading, untitled: ViewKind) -> list[_View]:
-    texts = paper.texts
+def _views(
+    paper: _Paper, reading: _Reading, untitled: ViewKind, block: Bounds | None = None
+) -> list[_View]:
     rx0, ry0, rx1, ry1 = paper.region
     letter = MAX_LETTER * min(rx1 - rx0, ry1 - ry0)  # taller is no lettering (a hostile height)
-    heights = [t.height for t in texts if 0 < t.height <= letter]
-    tall = median(heights) if heights else 0.0
+    heights = [t.height for t in paper.texts if 0 < t.height <= letter]
+    tall = (
+        median(heights) if heights else 0.0
+    )  # the sheet's lettering, the title block's loose texts too
+    if block is not None:  # what lies in the title block is its, never another view's
+        edge = RULE_MM * max(rx1 - rx0, ry1 - ry0) / REFERENCE_MM
+        held = _grown(block, edge)
+        paper = replace(
+            paper,
+            texts=[t for t in paper.texts if not _inside(_centre(t.box), block)],
+            segments=paper.segments[~_segments_in(paper.segments, held)],
+        )
+    texts = paper.texts
     titles: list[int] = []
     scale_texts: list[int] = []
     for i, t in enumerate(texts):
