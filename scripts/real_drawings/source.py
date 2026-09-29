@@ -19,6 +19,9 @@ from tools.lint.engine_paths import matching, read_patterns
 from tools.lint.lock_sources import problems as lock_problems
 
 MAIN = "main"
+# Windows' mark on a downloaded file, copied beside it into WSL: not a drawing, so not among a run's
+# files (tools/scorer/drafts.py leaves it out of a key's by the same rule).
+MARK = ":Zone.Identifier"
 
 
 class Refused(Exception):
@@ -46,9 +49,12 @@ def git(repo: Path, *args: str, stdin: bytes | None = None) -> bytes:
     return done.stdout
 
 
-def resolve(repo: Path, target: str) -> Head:
-    """A PR number (its head fetched from origin), `main`, or a local branch."""
+def resolve(repo: Path, target: str, *, fetch: bool = True) -> Head:
+    """A PR number (its head fetched from origin, or, without `fetch`, the head the pipeline's user's
+    mirror holds as `refs/pull/<n>/head`), `main`, or a local branch."""
     if target.isdigit():
+        if not fetch:
+            return Head(f"PR {target}", int(target), _commit(repo, f"refs/pull/{target}/head"))
         git(repo, "fetch", "--quiet", "origin", f"refs/pull/{target}/head")
         return Head(f"PR {target}", int(target), _commit(repo, "FETCH_HEAD"))
     if target == MAIN:
@@ -124,15 +130,24 @@ def refusals(checkout: Path, main_pyproject: bytes, dwgread_version: str) -> lis
     return found
 
 
-def set_digest(folder: Path) -> str:
-    """A Drawing Set's content: every regular file's path and sha256 (a link is never followed)."""
-    lines = []
-    for path in sorted(p for p in folder.rglob("*") if p.is_file() and not p.is_symlink()):
+def set_files(folder: Path) -> dict[str, str]:
+    """A Drawing Set's regular files, by path in the set, and each one's sha256 (a link is never
+    followed); the scorer checks them against the drawings a key keys (ticket 24s)."""
+    files = {}
+    regular = (p for p in folder.rglob("*") if p.is_file() and not p.is_symlink())
+    for path in sorted(p for p in regular if not p.name.endswith(MARK)):
         digest = hashlib.sha256()
         with path.open("rb") as file:
             while chunk := file.read(1 << 20):
                 digest.update(chunk)
-        lines.append(f"{digest.hexdigest()} {path.relative_to(folder).as_posix()}\n")
+        files[path.relative_to(folder).as_posix()] = digest.hexdigest()
+    return files
+
+
+def set_digest(folder: Path, files: dict[str, str] | None = None) -> str:
+    """A Drawing Set's content: every regular file's path and sha256 (a link is never followed)."""
+    listing = set_files(folder) if files is None else files
+    lines = [f"{digest} {path}\n" for path, digest in listing.items()]
     return hashlib.sha256("".join(lines).encode()).hexdigest()
 
 
