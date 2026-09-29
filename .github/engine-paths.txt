@@ -2,10 +2,18 @@
 # and needs the real-drawing check's status; any other PR gets it "not applicable" from main's copy of
 # real-drawings-na.yml, which reads this file from main. The code hash (06a) follows the same list.
 # One glob per line, matched against the whole path: `**` spans folders, `*` stays inside one.
-# No braces. Until 21c, what the check's harness executes:
+# No braces. What the check executes: the engine harness (06b) and, since 21c, the product's job
+# (`vextrus/takeoff/tasks/read_file.py` and `vextrus/takeoff/services/export.py`) with every `vextrus`
+# module they import, at any depth, but `vextrus/settings/` (21c's test_job_imports.py):
 engine/**
 tools/acadsharp-dump/**
 toolchain/**
 uv.lock
 pyproject.toml
 .python-version
+vextrus/__init__.py
+vextrus/modules.py
+vextrus/platform/**
+vextrus/projects/**
+vextrus/drawings/**
+vextrus/takeoff/**
