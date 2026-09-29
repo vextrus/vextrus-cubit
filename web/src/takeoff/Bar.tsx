@@ -20,7 +20,7 @@ export interface BarSpec {
   /** The copper button, and what Enter does; `name` is its accessible name when its words hold figures. */
   button?: { label: ReactNode; run: () => void; name?: string }
   /** A ghost button beside it (by mouse), with its key shown. */
-  ghost?: { label: ReactNode; run: () => void }
+  ghost?: { label: ReactNode; run: () => void; combo?: string }
 }
 
 export interface BarContext {
@@ -31,6 +31,8 @@ export interface BarContext {
   bulk: () => void
   confirmRow: (row: Row, thenNext: boolean) => void
   nextOpen: () => void
+  /** Q: the next open Question (m0-screens §6.12's ghost for the MD and a Guest). */
+  nextQuestion: () => void
   openRow: (row: Row) => void
 }
 
@@ -122,7 +124,12 @@ export function useBar(c: BarContext): BarSpec | null {
     ) : (
       <Trans>You are reading this as a Guest.</Trans>
     )
-    return { what, why: <Trans>The QS confirms the sheet list; every act shows who did it.</Trans> }
+    const qs = model.qs[0]
+    return {
+      what,
+      why: qs ? <Trans>{qs} (QS) confirms the sheet list; every act shows who did it.</Trans> : <Trans>The QS confirms the sheet list; every act shows who did it.</Trans>,
+      ghost: model.queue.length > 0 ? { label: <Trans>Next open Question</Trans>, run: c.nextQuestion, combo: 'Q' } : undefined,
+    }
   }
 
   const bulkName = plain(m === 0 ? t`Confirm ${n}` : n === 0 ? t`Leave out ${m}` : t`Confirm ${n}, leave out ${m}`)
@@ -278,8 +285,9 @@ export function Bar({ spec }: { spec: BarSpec }) {
         <div className="truncate text-xs text-muted-foreground">{spec.why}</div>
       </div>
       {spec.ghost ? (
-        <Button variant="ghost" onClick={spec.ghost.run}>
+        <Button variant="ghost" onClick={spec.ghost.run} aria-keyshortcuts={spec.ghost.combo}>
           {spec.ghost.label}
+          {spec.ghost.combo ? <KeyCombo combo={spec.ghost.combo} /> : null}
         </Button>
       ) : null}
       {spec.button ? (

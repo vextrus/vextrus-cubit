@@ -630,6 +630,36 @@ def _record(kind: MessageCode, membership_id: uuid.UUID, actor: CurrentMembershi
     events.record(kind, subject_type="membership", subject_id=membership_id, actor_user_id=actor.user_id)
 
 
+def qs_of(project_id: uuid.UUID) -> list[str]:
+    """The names of the acting Developer's QS members who may open the Project now, oldest first:
+    who a read-only viewer is told confirms Step 1's sheet list (m0-screens §6.12, "Nusrat Jahan (QS)
+    confirms the sheet list"). Names only, never an email: every act already shows its actor's name
+    to anyone who may open the Project, so this tells a Guest or the MD nothing a QS's act does not."""
+    tenant_id = tenancy.current_tenant_id()
+    if tenant_id is None:
+        return []
+    now = timezone.now()
+    rows = list(
+        Membership.objects.filter(
+            tenant_id=tenant_id,
+            role=Role.QS,
+            user__isnull=False,
+            accepted_at__isnull=False,
+            revoked_at__isnull=True,
+            starts_at__lte=now,
+        )
+        .filter(Q(expires_at__isnull=True) | Q(expires_at__gt=now))
+        .order_by("created_at", "id")
+        .values_list("id", "user__name")
+    )
+    chosen = _projects_of(tenant_id, [membership_id for membership_id, _ in rows])
+    return [
+        name
+        for membership_id, name in rows
+        if membership_id not in chosen or project_id in chosen[membership_id]
+    ]
+
+
 def _projects_of(
     tenant_id: uuid.UUID, membership_ids: list[uuid.UUID]
 ) -> dict[uuid.UUID, frozenset[uuid.UUID]]:

@@ -26,7 +26,8 @@ class Step1ProposalOut(_FromView):
     title: str
     revision_mark: str
     revision_mark_source: str | None
-    issue_date: str
+    issue_date: str | None
+    """An ISO date ("2026-09-12"), read in the Market's order; null where none was read."""
     discipline: str | None
     file_id: uuid.UUID
     file_name: str
@@ -93,6 +94,8 @@ class Step1DisciplineProgressOut(Schema):
 class Step1ProgressOut(_FromView):
     disciplines: list[Step1DisciplineProgressOut]
     not_received: list[str]
+    qs: list[str]
+    """The names of the QS members who may open the Project (m0-screens §6.12's read-only bar)."""
 
 
 class Step1ActOut(_FromView):
@@ -140,6 +143,8 @@ class Step1DrawingListOut(_FromView):
     entered_at: datetime | None
     read_numbers: list[str] | None
     agrees: bool
+    read_on: uuid.UUID | None
+    """The printed sheet the list read on a sheet was read on; null for none."""
 
 
 __all__ = [

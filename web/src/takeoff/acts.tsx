@@ -18,6 +18,7 @@ import { useToast } from '@/ui'
 import { DrawingText } from '@/ui/DrawingText'
 import { confirm, exclude, setList, step1Key, undo, type ActOut, type ProposalOut } from './data'
 import { REASONS, type Reason } from './model'
+import { SheetRange } from './SheetRange'
 import { DISCIPLINE_IN_TEXT, REASON_SHORT, UNKNOWN_REASON } from './words'
 
 interface Done {
@@ -34,11 +35,7 @@ export function SheetName({ sheets }: { sheets: readonly ProposalOut[] }) {
   if (!first || !last) return null
   if (!first.number) return <DrawingText kind="title" text={first.title} truncate={false} />
   if (sheets.length > 1 && last.number && last.number !== first.number) {
-    return (
-      <>
-        <DrawingText kind="sheet-number" text={first.number} truncate={false} />–<DrawingText kind="sheet-number" text={last.number} truncate={false} />
-      </>
-    )
+    return <SheetRange first={first.number} last={last.number} />
   }
   return <DrawingText kind="sheet-number" text={first.number} truncate={false} />
 }

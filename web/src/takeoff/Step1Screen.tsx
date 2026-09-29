@@ -30,7 +30,7 @@ import { renderQuery, useStep1, type CoverageOut, type ProposalOut } from './dat
 import { DrawingListDialog } from './DrawingListDialog'
 import { nextOpenRow, step1Model, type Reason, type Row, type Step1Model } from './model'
 import { SheetList } from './SheetList'
-import { CoverageLine, CoveragePanel, Overview, QuestionCard, QuestionsTab, SheetFacts } from './Step1Inspector'
+import { CoverageLine, CoveragePanel, Overview, QuestionCard, QuestionsTab, SheetFacts, cardContext } from './Step1Inspector'
 
 const projectRoute = getRouteApi('/_app/p/$code')
 
@@ -146,6 +146,16 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
     setMode('sheet')
   }
 
+  /** A Trace link: open that sheet in sheet mode. */
+  const openSheetOf = (sheet: ProposalOut) => {
+    const row = rowOfSheet(sheet.id)
+    if (!row) return
+    setPicker(null)
+    setOpenSheet(sheet.id)
+    setFocused(row.key)
+    setMode('sheet')
+  }
+
   const toList = () => {
     const row = rowOfSheet(openSheet)
     setMode('list')
@@ -161,6 +171,13 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
       setMode('list')
       setPicker(null)
     }
+    focusRow(next.key)
+  }
+
+  const nextQuestion = () => {
+    const next = nextOpenRow(model.rows, mode === 'sheet' ? (rowOfSheet(openSheet)?.key ?? focused) : focused, true)
+    if (!next) return
+    if (mode === 'sheet') setMode('list')
     focusRow(next.key)
   }
 
@@ -189,6 +206,7 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
     bulk: () => void acts.bulk(model.bulk.confirm, model.bulk.leaveOut),
     confirmRow: (row, thenNext) => void confirmRow(row, thenNext),
     nextOpen,
+    nextQuestion,
     openRow,
   })
 
@@ -226,12 +244,7 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
     { key: '↑', label: t`Previous row; in a sheet, the previous sheet`, group: 'screen', run: () => moveFocus(-1) },
     { key: ']', label: t`Next sheet`, group: 'screen', when: () => mode === 'sheet', run: () => page(1) },
     { key: '[', label: t`Previous sheet`, group: 'screen', when: () => mode === 'sheet', run: () => page(-1) },
-    { key: 'Q', label: t`Next open Question`, group: 'screen', run: () => {
-      const next = nextOpenRow(model.rows, mode === 'sheet' ? (rowOfSheet(openSheet)?.key ?? focused) : focused, true)
-      if (!next) return
-      if (mode === 'sheet') setMode('list')
-      focusRow(next.key)
-    } },
+    { key: 'Q', label: t`Next open Question`, group: 'screen', run: nextQuestion },
     {
       key: 'Esc',
       label: t`Back to the list; in the list, clear the focus`,
@@ -261,7 +274,7 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
     />
   ) : focusedRow ? (
     <>
-      {focusedRow.question ? <QuestionCard entry={focusedRow.question} readOnly={readOnly} names={model.fileNames} /> : null}
+      {focusedRow.question ? <QuestionCard entry={focusedRow.question} readOnly={readOnly} context={cardContext(model)} onOpen={openSheetOf} /> : null}
       <SheetFacts row={focusedRow} showTitle={mode === 'list'} readOnly={readOnly !== null} />
     </>
   ) : (
@@ -291,7 +304,7 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
       </SlotFill>
       <SlotFill slot="inspector.questions">
         <div className="flex w-full flex-col">
-          <QuestionsTab model={model} readOnly={readOnly} />
+          <QuestionsTab model={model} readOnly={readOnly} onOpen={openSheetOf} />
         </div>
       </SlotFill>
 

@@ -56,7 +56,7 @@ from engine.recognise.conflicts import Numbers, recognisers
 from engine.recognise.sheets import default_conventions
 from engine.recognise.types import DisciplineConvention, SheetConventions, ValueSource
 from vextrus.drawings import services as drawings
-from vextrus.platform.services import auth, jev, markets, tenancy
+from vextrus.platform.services import auth, invitations, jev, markets, tenancy
 from vextrus.projects import services as projects
 from vextrus.takeoff import acts
 from vextrus.takeoff.library import EXPECTED, SHEETS
@@ -80,6 +80,7 @@ from vextrus.takeoff.models import (
     RegisterSource,
     StepProgress,
 )
+from vextrus.takeoff.services.issue_dates import iso_date
 
 OTHER = "other"
 """The one reason that keeps the QS's words."""
@@ -98,7 +99,9 @@ class ProposalView:
     title: str
     revision_mark: str
     revision_mark_source: str | None
-    issue_date: str
+    issue_date: str | None
+    """The title block's issue date as an ISO date ("2026-09-12"), read in the Market's order; null
+    where it wrote none or none that is one calendar day (issue_dates)."""
     discipline: str | None
     file_id: uuid.UUID
     file_name: str
@@ -170,6 +173,9 @@ class ProgressView:
     disciplines: list[DisciplineProgress]
     not_received: list[str]
     """The Market's expected Disciplines of which no file has been added, in the Market's order."""
+    qs: list[str] = field(default_factory=list)
+    """The names of the QS members who may open the Project: whom the MD's and a Guest's bar names
+    ("Nusrat Jahan (QS) confirms the sheet list", m0-screens §6.12)."""
 
 
 @dataclass(frozen=True)
@@ -201,6 +207,8 @@ class ListView:
     read_numbers: list[str] | None
     """The list read on a sheet of the set, when there is one."""
     agrees: bool
+    read_on: uuid.UUID | None = None
+    """The printed sheet the list read on a sheet was read on ("13 on the drawing list on S-01")."""
 
 
 # Reading ------------------------------------------------------------------------------------------
@@ -247,8 +255,9 @@ def proposals(project_id: uuid.UUID) -> list[ProposalView]:
     # own act's name and time).
     who = {c.id: (c.by_name, c.at) for c in Confirmation.objects.filter(id__in=stamps)}
     agreeing = _agreeing(project_id, sheets, by_sheet)
+    order = markets.of_developer(_tenant()).date_order
     return [
-        replace(_proposal_view(s, by_sheet.get(s.id), names, who), agrees=s.id in agreeing)
+        replace(_proposal_view(s, by_sheet.get(s.id), names, who, order), agrees=s.id in agreeing)
         for s in sheets
     ]
 
@@ -321,6 +330,7 @@ def _proposal_view(
     proposal: Proposal | None,
     names: Mapping[uuid.UUID, str],
     who: Mapping[uuid.UUID, tuple[str, datetime]],
+    date_order: str,
 ) -> ProposalView:
     by, at = who.get(sheet.confirmation_id, (None, None)) if sheet.confirmation_id else (None, None)
     pick = dict(proposal.jev_pick) if proposal and proposal.jev_pick else None
@@ -331,7 +341,7 @@ def _proposal_view(
         title=sheet.title,
         revision_mark=sheet.revision_mark,
         revision_mark_source=sheet.sources.get("revision_mark"),
-        issue_date=sheet.issue_date,
+        issue_date=iso_date(sheet.issue_date, date_order),
         discipline=sheet.discipline,
         file_id=sheet.file_id,
         file_name=names.get(sheet.file_id, ""),
@@ -451,7 +461,7 @@ def progress(project_id: uuid.UUID) -> ProgressView:
                 open_questions=open_questions[key],
             )
         )
-    return ProgressView(rows, _not_received(project_id))
+    return ProgressView(rows, _not_received(project_id), invitations.qs_of(project_id))
 
 
 def _not_received(project_id: uuid.UUID) -> list[str]:
@@ -620,6 +630,7 @@ def drawing_list(project_id: uuid.UUID, discipline: str) -> ListView:
         entered_at=standing.entered_at if standing and standing.source != RegisterSource.SHEET else None,
         read_numbers=_numbers(lists.read) if lists.read else None,
         agrees=not lists.disagree,
+        read_on=lists.read.source_sheet_id if lists.read else None,
     )
 
 

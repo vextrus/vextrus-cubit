@@ -11,6 +11,7 @@ import { useFormat } from '@/format'
 import { DrawingText, StatusMark, cn } from '@/ui'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/primitives/tooltip'
 import type { ProposalOut } from './data'
+import { SheetRange } from './SheetRange'
 import { rowState, type DisciplineSection, type Row, type Step1Model } from './model'
 import { DISCIPLINE_NAMES, NOT_RECEIVED_NAMES, OTHER_DISCIPLINE, OTHER_QUESTION, QUESTION_KIND_BY_CODE, REASON_SHORT, UNKNOWN_REASON } from './words'
 
@@ -169,11 +170,10 @@ function HeadingRest({ section }: { section: DisciplineSection }) {
     const who = list.entered_by ?? ''
     if (list.source === 'pasted') return <Trans>found, {listed} on the drawing list pasted by {who}</Trans>
     if (list.source === 'typed') {
-      const first = <DrawingText kind="sheet-number" text={list.numbers[0] ?? ''} truncate={false} />
-      const last = <DrawingText kind="sheet-number" text={list.numbers.at(-1) ?? ''} truncate={false} />
+      const range = <SheetRange first={list.numbers[0] ?? ''} last={list.numbers.at(-1) ?? ''} />
       return (
         <Trans>
-          found, {listed} on the drawing list typed by {who} ({first}–{last})
+          found, {listed} on the drawing list typed by {who} ({range})
         </Trans>
       )
     }
@@ -181,12 +181,11 @@ function HeadingRest({ section }: { section: DisciplineSection }) {
   }
   const run = section.numbering
   if (!run) return <Trans>found; no drawing list; the numbers do not run in one series</Trans>
-  const first = <DrawingText kind="sheet-number" text={run.first} truncate={false} />
-  const last = <DrawingText kind="sheet-number" text={run.last} truncate={false} />
+  const range = <SheetRange first={run.first} last={run.last} />
   if (run.missing.length === 0 && run.twice.length === 0)
     return (
       <Trans>
-        found; no drawing list; numbering runs {first}–{last} without a gap
+        found; no drawing list; numbering runs {range} without a gap
       </Trans>
     )
   const listed = <Numbers numbers={run.missing} />
@@ -194,18 +193,18 @@ function HeadingRest({ section }: { section: DisciplineSection }) {
   if (run.missing.length === 0)
     return (
       <Trans>
-        found; no drawing list; numbering runs {first}–{last}; {twice} twice
+        found; no drawing list; numbering runs {range}; {twice} twice
       </Trans>
     )
   if (run.twice.length === 0)
     return (
       <Trans>
-        found; no drawing list; numbering runs {first}–{last}; {listed} missing
+        found; no drawing list; numbering runs {range}; {listed} missing
       </Trans>
     )
   return (
     <Trans>
-      found; no drawing list; numbering runs {first}–{last}; {listed} missing; {twice} twice
+      found; no drawing list; numbering runs {range}; {listed} missing; {twice} twice
     </Trans>
   )
 }
@@ -270,7 +269,7 @@ function Revision({ sheet }: { sheet: ProposalOut }) {
   const f = useFormat()
   const mark = sheet.revision_mark
   if (!mark) return <span className="text-muted-foreground">—</span>
-  const date = sheet.issue_date ? f.date(sheet.issue_date) : null
+  const date = sheet.issue_date ? f.day(sheet.issue_date) : null
   const markText = <DrawingText kind="revision" text={mark} truncate={false} />
   if (sheet.revision_mark_source === 'file_name') {
     const file = <DrawingText kind="file-name" text={sheet.file_name} truncate={false} />
@@ -407,7 +406,7 @@ function SheetRow({
       onDoubleClick={() => onOpen(row.key)}
       className={cn(
         COLS,
-        'h-7 cursor-default border-b border-border-subtle px-3 outline-none hover:bg-hover focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring',
+        'h-7 cursor-default border-b border-border-subtle px-3 outline-none hover:bg-hover focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-ring',
         focused && 'bg-selected',
         excluded && 'text-muted-foreground',
       )}
@@ -419,7 +418,7 @@ function SheetRow({
         {row.number ? (
           row.numberTo ? (
             <>
-              <DrawingText kind="sheet-number" text={row.number} truncate={false} />–<DrawingText kind="sheet-number" text={row.numberTo} truncate={false} />
+              <SheetRange first={row.number} last={row.numberTo} />
             </>
           ) : (
             <DrawingText kind="sheet-number" text={row.number} truncate={false} />

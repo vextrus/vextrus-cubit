@@ -14,9 +14,10 @@ import { useFormat } from '@/format'
 import { DrawingText, cn } from '@/ui'
 import { QuestionGlyph } from '@/ui/glyphs'
 import { SheetName } from './acts'
+import { SheetRange } from './SheetRange'
 import type { CoverageOut, ProposalOut } from './data'
 import type { DisciplineSection, QuestionEntry, Row, Step1Model } from './model'
-import { Answering, CannotAnswer, Copy, OptionWords, QuestionBody, QuestionTitle, optionsOf, useKindLine, usePick } from './questionWords'
+import { Answering, CannotAnswer, Copy, OptionWords, PickSources, QuestionBody, QuestionTitle, Trace, optionsOf, useKindLine, usePick, type CardContext } from './questionWords'
 import { disciplineName } from './SheetList'
 import { NOT_RECEIVED_NAMES, OTHER_DISCIPLINE, REASON_SHORT, UNKNOWN_REASON } from './words'
 
@@ -77,11 +78,10 @@ function Expected({ section }: { section: DisciplineSection }) {
       )
     }
     if (list.source === 'typed') {
-      const first = <DrawingText kind="sheet-number" text={list.numbers[0] ?? ''} truncate={false} />
-      const last = <DrawingText kind="sheet-number" text={list.numbers.at(-1) ?? ''} truncate={false} />
+      const range = <SheetRange first={list.numbers[0] ?? ''} last={list.numbers.at(-1) ?? ''} />
       return (
         <Trans>
-          {name}: {listed} on the drawing list typed by {who} ({first}–{last}); {found} found.
+          {name}: {listed} on the drawing list typed by {who} ({range}); {found} found.
         </Trans>
       )
     }
@@ -98,15 +98,14 @@ function Expected({ section }: { section: DisciplineSection }) {
         {name}: no drawing list; {found} found.
       </Trans>
     )
-  const first = <DrawingText kind="sheet-number" text={run.first} truncate={false} />
-  const last = <DrawingText kind="sheet-number" text={run.last} truncate={false} />
+  const range = <SheetRange first={run.first} last={run.last} />
   return run.missing.length === 0 && run.twice.length === 0 ? (
     <Trans>
-      {name}: no drawing list; numbering runs {first}–{last} without a gap; {found} found.
+      {name}: no drawing list; numbering runs {range} without a gap; {found} found.
     </Trans>
   ) : (
     <Trans>
-      {name}: no drawing list; numbering runs {first}–{last} with gaps or repeats (see the list); {found} found.
+      {name}: no drawing list; numbering runs {range} with gaps or repeats (see the list); {found} found.
     </Trans>
   )
 }
@@ -222,7 +221,7 @@ function Fact({ label, children }: { label: ReactNode; children: ReactNode }) {
 function RevisionFact({ sheet }: { sheet: ProposalOut }) {
   const f = useFormat()
   const mark = <DrawingText kind="revision" text={sheet.revision_mark} truncate={false} />
-  const date = sheet.issue_date ? f.date(sheet.issue_date) : null
+  const date = sheet.issue_date ? f.day(sheet.issue_date) : null
   if (sheet.revision_mark_source === 'file_name')
     return date ? <Trans>{mark}, from the file name; dated {date}</Trans> : <Trans>{mark}, from the file name</Trans>
   return date ? (
@@ -276,14 +275,35 @@ export function SheetFacts({ row, showTitle, readOnly }: { row: Row; showTitle: 
   )
 }
 
-export function QuestionCard({ entry, readOnly, names }: { entry: QuestionEntry; readOnly: 'md' | 'guest' | null; names: Readonly<Record<string, string>> }) {
+/** What a Question card reads from the model: every sheet, the drawing lists and the files' names. */
+export function cardContext(model: Step1Model): CardContext {
+  return {
+    sheets: model.rows.flatMap((r) => [...r.sheets]),
+    lists: Object.fromEntries(model.disciplines.map((d) => [d.discipline, d.list])),
+    names: model.fileNames,
+  }
+}
+
+export function QuestionCard({
+  entry,
+  readOnly,
+  context,
+  onOpen,
+}: {
+  entry: QuestionEntry
+  readOnly: 'md' | 'guest' | null
+  context: CardContext
+  /** A Trace link opens its sheet. */
+  onOpen?: (sheet: ProposalOut) => void
+}) {
+  const names = context.names
   const { t } = useLingui()
   const f = useFormat()
   const kind = useKindLine(entry)
   const tag = entry.tag
   const options = optionsOf(entry)
   const pick = usePick(entry)
-  const sources = pick?.sources ?? ''
+  const sources = <PickSources entry={entry} context={context} />
   const name = `question-${entry.question.id}`
   return (
     <section aria-label={t`Question ${tag}`} className="m-2 overflow-hidden rounded-md border border-question">
@@ -303,18 +323,21 @@ export function QuestionCard({ entry, readOnly, names }: { entry: QuestionEntry;
           <QuestionTitle entry={entry} names={names} />
         </p>
         <p className="text-xs text-ink-secondary empty:hidden">
-          <QuestionBody entry={entry} />
+          <QuestionBody entry={entry} context={context} />
         </p>
         {entry.holds.length > 1 ? (
           <ul className="text-xs">
             {entry.holds.map((s) => (
               <li key={s.id}>
                 <SheetName sheets={[s]} /> <Copy sheet={s} />
-                {s.issue_date ? <> · {f.date(s.issue_date)}</> : null} · <DrawingText kind="file-name" text={s.file_name} />
+                {s.issue_date ? <> · {f.day(s.issue_date)}</> : null} · <DrawingText kind="file-name" text={s.file_name} />
               </li>
             ))}
           </ul>
         ) : null}
+        <p className="text-xs text-ink-secondary empty:hidden">
+          <Trace entry={entry} context={context} onOpen={onOpen} />
+        </p>
         <fieldset className="flex flex-col gap-1" disabled>
           <legend className="sr-only">
             <Trans>Answers</Trans>
@@ -342,7 +365,7 @@ export function QuestionCard({ entry, readOnly, names }: { entry: QuestionEntry;
   )
 }
 
-export function QuestionsTab({ model, readOnly }: { model: Step1Model; readOnly: 'md' | 'guest' | null }) {
+export function QuestionsTab({ model, readOnly, onOpen }: { model: Step1Model; readOnly: 'md' | 'guest' | null; onOpen?: (sheet: ProposalOut) => void }) {
   if (model.queue.length === 0)
     return (
       <p className="p-3 text-sm text-muted-foreground">
@@ -352,7 +375,7 @@ export function QuestionsTab({ model, readOnly }: { model: Step1Model; readOnly:
   return (
     <>
       {model.queue.map((entry) => (
-        <QuestionCard key={entry.question.id} entry={entry} readOnly={readOnly} names={model.fileNames} />
+        <QuestionCard key={entry.question.id} entry={entry} readOnly={readOnly} context={cardContext(model)} onOpen={onOpen} />
       ))}
     </>
   )
