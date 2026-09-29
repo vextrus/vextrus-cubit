@@ -1,6 +1,6 @@
-"""`scripts/real-drawings <PR number | branch | main> [--no-post] [--fresh]`: the real-drawing check,
-regression only (the M0 plan, "The real-drawing check", steps 1-7; ADRs 0026 and 0030 as amended in
-session 02).
+"""`scripts/real-drawings <PR number | branch | main> [--no-post] [--fresh] [--job]`: the real-drawing
+check, regression only (the M0 plan, "The real-drawing check", steps 1-7; ADRs 0026 and 0030 as amended
+in session 02).
 
 Run from the owner's checkout of main. It measures the head: the engine paths' files into a scratch
 checkout, the refusals, the locked wheels fetched by hash, the install and the harness inside the
@@ -18,6 +18,12 @@ the changes (a lost item only with a reason), or the orchestrator does without a
 posts nothing and exits 3), and `--accept REASON` accepts a run it has judged. The command writes the
 run's own folder in the drop folder (the exports, and the metadata and summary it writes itself) and
 runs the poster as the key user. A branch or main, or `--no-post`, never posts.
+
+`--job` (21a; off by default until 21c) reads the head with the product's read job instead of the
+engine harness, against a throwaway PostgreSQL 18 cluster inside the sandbox (`sandbox.py`), its export
+from the job's export entry point; main is read with the harness as before, so the run diffs the job
+against the last harness run (21c's first posting run, the review R2). A job's exports are cached apart
+from the harness's, never one for the other.
 """
 
 import argparse
@@ -106,6 +112,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--fresh", action="store_true", help="read the head and main again, ignoring the cache"
     )
+    parser.add_argument(
+        "--job",
+        action="store_true",
+        help="read the head with the product's read job against a throwaway PostgreSQL inside the"
+        " sandbox, not the engine harness (main is read with the harness); off until 21c",
+    )
     how = parser.add_mutually_exclusive_group()
     how.add_argument(
         "--accept-if-clean",
@@ -129,6 +141,7 @@ def main(argv: list[str] | None = None) -> int:
             fresh=args.fresh,
             accept=args.accept,
             accept_if_clean=args.accept_if_clean,
+            job=args.job,
         )
     except Refused as refused:
         print(f"real-drawings: refused: {refused}", file=sys.stderr)
@@ -165,6 +178,7 @@ def run(
     fresh: bool = False,
     accept: str | None = None,
     accept_if_clean: bool = False,
+    job: bool = False,
 ) -> int:
     started = time.monotonic()
     posting = target.isdigit() and not no_post
@@ -183,9 +197,9 @@ def run(
         work.mkdir(parents=True)
         digests = {name: set_digest(folder) for name, folder in sorted(m.sets.items())}
         m.say(f"real-drawings {run_id}: {head.target} at {head.commit[:12]}, main at {base.commit[:12]}")
-        head_hash, head_exports = measure(m, head, main, work / "head", run_id, digests, fresh)
+        head_hash, head_exports = measure(m, head, main, work / "head", run_id, digests, fresh, job=job)
         main_hash, main_exports = head_hash, head_exports
-        if head.commit != base.commit:
+        if head.commit != base.commit or job:  # a job run is diffed against main's harness run
             main_hash, main_exports = measure(m, base, main, work / "main", run_id, digests, fresh)
         counts, items = report(m, main_exports, head_exports, head.commit == base.commit)
         head_failed = failed_text(head_exports)
@@ -198,6 +212,7 @@ def run(
             "code_hash": head_hash,
             "main_commit": base.commit,
             "main_code_hash": main_hash,
+            "mode": "job" if job else "harness",
             "sets": {
                 name: {"set_sha256": digests[name], "export_sha256": _sha(path)}
                 for name, path in head_exports.items()
@@ -251,9 +266,12 @@ def measure(
     run_id: str,
     digests: Mapping[str, str],
     fresh: bool = False,
+    *,
+    job: bool = False,
 ) -> tuple[str, dict[str, Path]]:
     """One commit's exports, from the cache when its code hash has read these sets before in the same
-    sandbox and no stage failed; `fresh` reads them again whatever the cache holds."""
+    sandbox (and mode) and no stage failed; `fresh` reads them again whatever the cache holds; `job`
+    reads them with the product's job (see the module)."""
     main_pyproject, schema_text = main.pyproject, main.schema
     files = engine_files(m.repo, head.commit, main.patterns.decode())
     hashed = code_hash(files)
@@ -271,10 +289,13 @@ def measure(
     found = refusals(checkout, main_pyproject, version)
     if not python.exists():
         found.append(f"the head's Python is not installed: {python}")
+    if job and not (sandbox.PG_BIN / "initdb").exists():
+        found.append(f"--job needs PostgreSQL 18's binaries: {sandbox.PG_BIN} has no initdb")
     if found:
         raise Refused(f"{head.target}: " + "; ".join(found))
+    shaped_by = f"{m.sandbox_version}-job" if job else m.sandbox_version
     cached = {
-        name: m.cache / "exports" / hashed / m.sandbox_version / f"{name}-{digest}.json"
+        name: m.cache / "exports" / hashed / shaped_by / f"{name}-{digest}.json"
         for name, digest in digests.items()
     }
     schema = json.loads(schema_text)
@@ -300,11 +321,12 @@ def measure(
     scratch = work / "out"
     scratch.mkdir()
     env = {"VEXTRUS_RUN_ID": run_id, "VEXTRUS_COMMIT": head.commit, "VEXTRUS_CODE_HASH": hashed}
-    job = sandbox.Job(
-        python, m.toolchain, checkout, m.cache / "wheels", requirements, m.sets, scratch, env
+    inside = sandbox.Job(
+        python, m.toolchain, checkout, m.cache / "wheels", requirements, m.sets, scratch, env, job=job
     )
-    m.say(f"{head.target}: installing and reading {len(m.sets)} sets in the sandbox (log in {work})")
-    m.sandbox(job, work / "sandbox.log")
+    how = "the product's job" if job else "the harness"
+    m.say(f"{head.target}: installing, then reading {len(m.sets)} sets with {how} (log in {work})")
+    m.sandbox(inside, work / "sandbox.log")
     exports = {}
     for name in sorted(m.sets):
         taken = work / f"export-{name}.json"

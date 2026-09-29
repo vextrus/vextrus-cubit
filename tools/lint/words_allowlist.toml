@@ -141,3 +141,15 @@ reason = "{limit} is the page limit for one PDF, MAX_PAGES, 1000 (engine/read/pd
 msgid = "platform.auth.password_too_short"
 rule = "count without a plural"
 reason = "{min} is the password's least length, 12 (vextrus/settings/auth.py), never 1."
+
+# 21a: a read job that could not be queued rolls the add back (vextrus/takeoff/tasks/read_file.py).
+
+[[allow]]
+msgid = "takeoff.read_file.not_started"
+rule = "add it again"
+reason = "Nothing was kept: the add and its read job are one transaction, rolled back together, so adding the file again is a first add, never the refused re-add of 4.5."
+
+[[allow]]
+msgid = "takeoff.read_file.not_started_again"
+rule = "add it again"
+reason = "The file is in the set with no read job; adding the same contents again is what queues its reading (read_file.add attaches the job to the file already here), so 4.5's refusal does not apply."
