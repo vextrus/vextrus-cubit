@@ -322,6 +322,10 @@ def test_a_unicode_digit_ordinal_reads_by_one_rule() -> None:
          "2ND, 5TH & 6TH FLOOR"),
         ("ROOF FLOOR FLOOR FINISH PLAN", ("roof",), "ROOF FLOOR"),
         ("MEZZANINE FLOOR FLOORING DETAILS", ("mezzanine",), "MEZZANINE FLOOR"),
+        # A floor word after a list or range word leads the next storey: still one phrase.
+        ("COLUMN PLAN (1ST FLOOR TO FLOOR 5TH)", floors(1, 5), "1ST FLOOR TO FLOOR 5TH"),
+        ("1ST FLOOR, FLOOR 2ND BEAM LAYOUT", ("floor_1", "floor_2"), "1ST FLOOR, FLOOR 2ND"),
+        ("1ST FLOOR/FLOOR 2ND SLAB", ("floor_1", "floor_2"), "1ST FLOOR/FLOOR 2ND"),
     ],
 )  # fmt: skip
 def test_a_floor_word_after_the_phrase_s_own_names_the_subject_not_the_storey(

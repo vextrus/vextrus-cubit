@@ -474,6 +474,7 @@ def _phrases(units: list[_Unit]) -> Iterator[_Phrase]:
         elif phrase is not None and u.kind in (_Kind.LIST, _Kind.RANGE, _Kind.DASH):
             kind = _Kind.LIST if u.kind is _Kind.LIST else _Kind.RANGE
             joiner = kind if joiner is None or kind is _Kind.RANGE else joiner
+            floored = False  # a floor word after a joiner leads the next storey ("TO FLOOR 5TH")
         else:
             if phrase is not None:
                 yield phrase
