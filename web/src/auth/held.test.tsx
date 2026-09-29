@@ -84,6 +84,12 @@ describe('what the session’s acts forget', () => {
     await userEvent.click(screen.getByRole('button', { name: named(/Rafiq Hasan, QS/) }))
     await userEvent.click(within(await screen.findByRole('menu')).getByRole('menuitem', { name: named(/Switch to Kanchan Homes Ltd/) }))
     await screen.findByText('Kanchan Tower')
+    // The top bar shows Kanchan Tower as soon as the session is set, before the switch's own move to
+    // /projects and its last clearing of the router's cache have ended: wait for those too.
+    await waitFor(() => {
+      expect(router.state.status).toBe('idle')
+      expect(router.state.matches.some((m) => m.routeId === '/_app/p/$code')).toBe(false)
+    })
     const seen = new Set<string>()
     const look = () => {
       for (const m of router.state.matches) if (m.routeId === '/_app/p/$code' && m.loaderData) seen.add((m.loaderData as { name: string }).name)

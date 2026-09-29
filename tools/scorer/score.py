@@ -40,13 +40,16 @@ with the layout, the frame and the view's box):
 >   Owns `scripts/score/`.
 
 The ruling's join, fixed here and never tuned after a result: a key sheet joins the export sheet on its
-layout; when several export sheets share that layout (model space), it joins the one whose box has an
-IoU of at least 0.8 with the key's frame. A key view joins a view of its joined sheet with the same kind
-at an IoU of at least 0.8 (boxes on paper, in mm). Joins are one to one, the largest IoU first. The
-sheet's six fields are compared after normalising: case and whitespace everywhere, the number's `-`, `.`
-and space separators folded, and a title's decoded symbols (`%%c`, `%%d`, `%%p`). A sheet passes when
-all six are right and every key view joins with its title and subject right; an export sheet or view
-that joins nothing is an extra (a phantom), counted, and fails nothing by itself.
+layout, within the drawing file it names; a key sheet drawn in model space (layout "model", any case)
+joins an export sheet with no layout or the layout "model"; a key sheet with a frame joins only the one
+whose box has an IoU of at least 0.8 with the frame, a lone one too (session 06's F0 and F5). A key
+view joins a view of its joined sheet with the same kind at an IoU of at least 0.8 (boxes on paper, in
+mm). Joins are one to one, the largest IoU first. The sheet's six fields are compared after
+normalising: case and whitespace everywhere, the number's `-`, `.` and space separators folded, and a
+title's decoded symbols (`%%c`, `%%d`, `%%p`); storeys compare as lists, in order, the export's stated
+text split on commas, "&" and "and" (F1). A sheet passes when all six are right and every key view
+joins with its title and subject right; an export sheet or view that joins nothing is an extra (a
+phantom), counted, and fails nothing by itself.
 
 The keys: `<keys>/<set>.json` = `{set, held_out, sheets: [{layout, frame?, number, title, discipline,
 storeys, revision, date, views: [{box, title, kind, subject}]}]}`.
@@ -76,6 +79,7 @@ COMMIT = re.compile(r"\A[0-9a-f]{40}\Z")
 SET_NAME = re.compile(r"\A[a-z0-9][a-z0-9-]{0,63}\Z")
 JOIN = 0.8
 MOST = 1 << 30  # the most bytes read from one file
+UNLOGGED = "vx-score: refused: the log cannot be written, so nothing is scored"
 REFUSED = 2  # a refusal: nothing scored (sudo's own refusal is 1)
 BROKEN = 3  # the scorer failed; nothing scored
 
@@ -89,6 +93,7 @@ FIELDS = (
     ("date", "issue_date", "date wrong"),
 )
 SYMBOLS = {"%%c": "ø", "%%d": "°", "%%p": "±"}
+SEPARATORS = re.compile(r",|&|\band\b")  # between two storeys of a list stated as text
 
 
 class Refused(Exception):
@@ -120,32 +125,43 @@ def main(argv: list[str], *, drop: Path, keys: Path, log: Path, writer: int) -> 
         # Held for the whole call, and closed by the `with` below.
         journal = open(log, "a", encoding="utf-8")  # noqa: SIM115
     except OSError:
-        print("vx-score: refused: the log cannot be written, so nothing is scored", file=sys.stderr)
+        print(UNLOGGED, file=sys.stderr)
         return REFUSED
-    with journal:
-        run_id = argv[0] if len(argv) == 1 and RUN_ID.match(argv[0]) else None
-        named = run_id or f"(not a run id: {ascii(argv)[:80]})"
-        try:
-            if run_id is None:
-                raise Refused("give exactly one run id, as the posting run printed it")
-            head, sets = _scored(run_id, drop, keys, writer)
-        except Refused as refused:
-            _log(journal, f"run {named} refused: {refused}")
-            print(f"vx-score: refused: {refused}", file=sys.stderr)
-            return REFUSED
-        # Any other failure: its message could quote a key, so none is shown.
-        except Exception as error:
-            _log(journal, f"run {named} failed: {type(error).__name__}")
-            print(f"vx-score: failed ({type(error).__name__}); nothing is scored", file=sys.stderr)
-            return BROKEN
-        print(f"vx-score {run_id}: head {head}")
-        for name, held_out, score in sets:
-            lines = _answer(name, held_out, score)
-            for line in lines:
-                print(line)
-            totals = "; ".join(line.strip() for line in lines if " / " in line)
-            _log(journal, f"run {run_id} head {head} set {name} scored: {totals}")
-        return 0
+    # Every call is logged before anything is shown: a log that cannot be written (a full disk) lets no
+    # answer out unlogged (session 06's F6).
+    try:
+        with journal:
+            return _call(argv, drop, keys, writer, journal)
+    except OSError:
+        print(UNLOGGED, file=sys.stderr)
+        return REFUSED
+
+
+def _call(argv: list[str], drop: Path, keys: Path, writer: int, journal: TextIO) -> int:
+    run_id = argv[0] if len(argv) == 1 and RUN_ID.match(argv[0]) else None
+    named = run_id or f"(not a run id: {ascii(argv)[:80]})"
+    try:
+        if run_id is None:
+            raise Refused("give exactly one run id, as the posting run printed it")
+        head, sets = _scored(run_id, drop, keys, writer)
+    except Refused as refused:
+        _log(journal, f"run {named} refused: {refused}")
+        print(f"vx-score: refused: {refused}", file=sys.stderr)
+        return REFUSED
+    # Any other failure: its message could quote a key, so none is shown.
+    except Exception as error:
+        _log(journal, f"run {named} failed: {type(error).__name__}")
+        print(f"vx-score: failed ({type(error).__name__}); nothing is scored", file=sys.stderr)
+        return BROKEN
+    answers = [(name, _answer(name, held_out, score)) for name, held_out, score in sets]
+    for name, lines in answers:
+        totals = "; ".join(line.strip() for line in lines if " / " in line)
+        _log(journal, f"run {run_id} head {head} set {name} scored: {totals}")
+    print(f"vx-score {run_id}: head {head}")
+    for _name, lines in answers:
+        for line in lines:
+            print(line)
+    return 0
 
 
 def _scored(
@@ -176,10 +192,11 @@ def _scored(
             if hashlib.sha256(data).hexdigest() != digest:
                 raise Refused(f"export-{name}.json is not the export the run recorded")
             export = _json(data, f"export-{name}.json")
+            read_by, read_at = _export_run(name, entry, run_id, head)
             run = export.get("run")
-            if not isinstance(run, dict) or run.get("id") != run_id:
+            if not isinstance(run, dict) or run.get("id") != read_by:
                 raise Refused(f"export-{name}.json names another run")
-            if run.get("commit") != head:
+            if run.get("commit") != read_at:
                 raise Refused(f"export-{name}.json names another head")
             scored.append((name, key.get("held_out") is not False, _score(key, export)))
     finally:
@@ -187,6 +204,26 @@ def _scored(
     if not scored:
         raise Refused("no set of this run has a key")
     return head, scored
+
+
+def _export_run(name: str, entry: Any, run_id: str, head: str) -> tuple[str, str]:
+    """The run and commit the set's export must name: this run's own, or, for an export the run took
+    from the check's cache, the earlier run that read it, as this run's metadata records it
+    (`export_run: {id, commit}`, session 06's F4). The digest check is the same either way."""
+    recorded = entry.get("export_run") if isinstance(entry, dict) else None
+    if recorded is None:
+        return run_id, head
+    read_by = recorded.get("id") if isinstance(recorded, dict) else None
+    read_at = recorded.get("commit") if isinstance(recorded, dict) else None
+    if (
+        not isinstance(read_by, str)
+        or not RUN_ID.match(read_by)
+        or not isinstance(read_at, str)
+        or not COMMIT.match(read_at)
+        or read_at[:12] != read_by.split("-")[1]
+    ):
+        raise Refused(f"metadata.json's export_run of {name} is not a run and its head")
+    return read_by, read_at
 
 
 def _open_run(drop: Path, run_id: str, writer: int) -> int:
@@ -287,75 +324,151 @@ def _json(data: bytes, what: str) -> dict[str, Any]:
 
 
 def _score(key: dict[str, Any], export: dict[str, Any]) -> Score:
-    score = Score()
-    pairs = [
-        (file.get("name"), sheet)
+    """The set's score. Every value of the export, and of the key, is normalised first, in one pass
+    over all of it: a value that cannot be (a views list that is a number, a list nested past the
+    recursion limit) then fails the call whatever the key holds, never only when its sheet joins a
+    key sheet, which would tell a Held-out Set's layouts and frames by the exit code (session 06's 24f
+    refuter). After this pass nothing the join or the comparison does can raise on either's values."""
+    found = [
+        _sheet(sheet, file.get("name"), "found")
         for file in export.get("files") or []
         if isinstance(file, dict)
         for sheet in (file.get("sheets") or [])
         if isinstance(sheet, dict)
     ]
-    found = [sheet for _, sheet in pairs]
-    keyed = [sheet for sheet in key["sheets"] if isinstance(sheet, dict)]
-    joined = _join_sheets(keyed, found, [origin for origin, _ in pairs])
+    keyed = [
+        _sheet(sheet, sheet.get("file"), "key") for sheet in key["sheets"] if isinstance(sheet, dict)
+    ]
+    score = Score()
+    joined = _join_sheets(keyed, found)
     score.extra_sheets = len(found) - len(joined)
     for index, sheet in enumerate(keyed):
         match = joined.get(index)
-        views = [view for view in sheet.get("views") or [] if isinstance(view, dict)]
         if match is None:
             score.count("sheets", False)
             for field, _name, _reason in FIELDS:
                 score.count(field, False)
-            for _view in views:
+            for _view in sheet.views:
                 score.count("views", False)
             score.sheets.append(("", ["the sheet missing"], 0, False))
             continue
         other = found[match]
         reasons = []
-        for field, name, reason in FIELDS:
-            right = _same(field, sheet.get(field), _value(other.get(name)))
+        for field, _name, reason in FIELDS:
+            right = sheet.fields[field] == other.fields[field]
             score.count(field, right)
             if not right:
                 reasons.append(reason)
         # Session 06's ruling 14:20: a model-space sheet's (a keyed frame's) export boxes are scaled by
         # the key's paper over the export's before the IoU; a layout sheet's never are.
         scale, unknown = (1.0, 1.0), False
-        if sheet.get("frame") is not None:
-            ratio = _paper_ratio(sheet.get("paper"), other.get("paper"))
+        if sheet.framed:
+            ratio = _paper_ratio(sheet.paper, other.paper)
             scale, unknown = ratio or scale, ratio is None
-        found_views = [_scaled(v, scale) for v in other.get("views") or [] if isinstance(v, dict)]
-        wrong, extra = _score_views(score, views, found_views)
+        found_views = [_scaled(view, scale) for view in other.views]
+        wrong, extra = _score_views(score, sheet.views, found_views)
         reasons += wrong
         score.count("sheets", not reasons)
-        layout = (other.get("location") or {}).get("layout")
-        score.sheets.append((layout if isinstance(layout, str) else "", reasons, extra, unknown))
+        score.sheets.append((other.layout or "", reasons, extra, unknown))
     return score
 
 
-def _paper_ratio(key: Any, found: Any) -> tuple[float, float] | None:
-    """Key paper over export paper, (x, y), when both are `[w, h]` in mm; None when either is not."""
-    sizes = []
-    for paper in (key, found):
-        if not isinstance(paper, list) or len(paper) != 2:
-            return None
-        width, height = _finite(paper[0]), _finite(paper[1])
-        if width is None or height is None or width <= 0 or height <= 0:
-            return None
-        sizes.append((width, height))
-    (kw, kh), (fw, fh) = sizes
-    return kw / fw, kh / fh
+Box = tuple[float, float, float, float]
 
 
-def _scaled(view: dict[str, Any], scale: tuple[float, float]) -> dict[str, Any]:
-    box = view.get("box")
-    if scale == (1.0, 1.0) or not isinstance(box, list) or len(box) != 4:
-        return view
-    numbers = [_finite(n) for n in box]
-    if None in numbers:
+class _View:
+    """A view, normalised: its box (four finite numbers, or None), kind, title and subject."""
+
+    def __init__(self, view: dict[str, Any]) -> None:
+        self.box = _box(view.get("box"))
+        self.kind = _text(view.get("kind"))
+        self.title = _title(view.get("title"))
+        self.subject = _text(view.get("subject"))
+
+
+def _scaled(view: _View, scale: tuple[float, float]) -> _View:
+    """The view with its box scaled by (x, y)."""
+    if scale == (1.0, 1.0) or view.box is None:
         return view
     sx, sy = scale
+    x0, y0, x1, y1 = view.box
+    scaled = _View({})
+    scaled.box = (x0 * sx, y0 * sy, x1 * sx, y1 * sy)
+    scaled.kind, scaled.title, scaled.subject = view.kind, view.title, view.subject
+    return scaled
+
+
+class _Sheet:
+    """A sheet of the key or of the export, normalised: where it is (its drawing file, layout, whether
+    it is drawn in model space, its box: the key's `frame`, the export's `location.box`), its paper,
+    its six fields and its views."""
+
+    def __init__(self) -> None:
+        self.origin: str | None = None
+        self.layout: str | None = None
+        self.in_model = False
+        self.box: Box | None = None
+        self.framed = False
+        self.paper: tuple[float, float] | None = None
+        self.fields: dict[str, Any] = {}
+        self.views: list[_View] = []
+
+
+def _sheet(sheet: dict[str, Any], origin: Any, side: str) -> _Sheet:
+    """One sheet normalised; `side` is "key" (fields by the key's names, the box its `frame`) or
+    "found" (the export's names, sourced values, the box its `location.box`)."""
+    made = _Sheet()
+    made.origin = origin if isinstance(origin, str) else None
+    if side == "key":
+        layout, box = sheet.get("layout"), sheet.get("frame")
+        made.framed = box is not None
+    else:
+        location = sheet.get("location")
+        location = location if isinstance(location, dict) else {}
+        layout, box = location.get("layout"), location.get("box")
+    made.layout = layout if isinstance(layout, str) else None
+    # A model-space sheet: the key says "model" (any case); 13's export gives it no layout (F0).
+    made.in_model = (layout is None and side == "found") or (
+        isinstance(layout, str) and layout.casefold() == "model"
+    )
+    made.box = _box(box)
+    made.paper = _paper(sheet.get("paper"))
+    for field, name, _reason in FIELDS:
+        value = sheet.get(field) if side == "key" else _value(sheet.get(name))
+        made.fields[field] = _normal(field, value)
+    views = sheet.get("views")
+    made.views = [_View(v) for v in views if isinstance(v, dict)] if isinstance(views, list) else []
+    return made
+
+
+def _box(value: Any) -> Box | None:
+    """Four finite numbers, as (min x, min y, max x, max y); None for anything else."""
+    if not isinstance(value, list) or len(value) != 4:
+        return None
+    numbers = [_finite(n) for n in value]
+    if None in numbers:
+        return None
     x0, y0, x1, y1 = (n for n in numbers if n is not None)
-    return view | {"box": [x0 * sx, y0 * sy, x1 * sx, y1 * sy]}
+    return min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1)
+
+
+def _paper(value: Any) -> tuple[float, float] | None:
+    """A paper `[w, h]` in mm, both finite and positive; None for anything else."""
+    if not isinstance(value, list) or len(value) != 2:
+        return None
+    width, height = _finite(value[0]), _finite(value[1])
+    if width is None or height is None or width <= 0 or height <= 0:
+        return None
+    return width, height
+
+
+def _paper_ratio(
+    key: tuple[float, float] | None, found: tuple[float, float] | None
+) -> tuple[float, float] | None:
+    """Key paper over export paper, (x, y); None when either is unknown."""
+    if key is None or found is None:
+        return None
+    return key[0] / found[0], key[1] / found[1]
 
 
 def _finite(value: Any) -> float | None:
@@ -369,16 +482,14 @@ def _finite(value: Any) -> float | None:
     return number if math.isfinite(number) else None
 
 
-def _score_views(
-    score: Score, keyed: list[dict[str, Any]], found: list[dict[str, Any]]
-) -> tuple[list[str], int]:
+def _score_views(score: Score, keyed: list[_View], found: list[_View]) -> tuple[list[str], int]:
     """Why the sheet's views fail it, and how many export views joined no key view."""
     pairs = sorted(
         (
-            (_iou(view.get("box"), other.get("box")), k, f)
+            (_iou(view.box, other.box), k, f)
             for k, view in enumerate(keyed)
             for f, other in enumerate(found)
-            if _text(view.get("kind")) == _text(other.get("kind"))
+            if view.kind == other.kind
         ),
         key=lambda pair: (-pair[0], pair[1], pair[2]),
     )
@@ -392,8 +503,8 @@ def _score_views(
         if f is None:
             missing += 1
             continue
-        title = _same("title", view.get("title"), found[f].get("title"))
-        subject = _same("subject", view.get("subject"), found[f].get("subject"))
+        title = view.title == found[f].title
+        subject = view.subject == found[f].subject
         score.count("view titles", title)
         score.count("view subjects", subject)
         titles += not title
@@ -414,26 +525,27 @@ def _counted(n: int, one: str, many: str) -> str:
     return one if n == 1 else f"{n} {many}"
 
 
-def _join_sheets(
-    keyed: list[dict[str, Any]], found: list[dict[str, Any]], origins: list[Any]
-) -> dict[int, int]:
-    """Key sheet index to export sheet index: within the key sheet's drawing file when it names one, on
-    the layout; on the frame's IoU when several export sheets share the layout."""
-    by_layout: dict[Any, list[int]] = {}
-    for f, sheet in enumerate(found):
-        by_layout.setdefault((sheet.get("location") or {}).get("layout"), []).append(f)
+def _join_sheets(keyed: list[_Sheet], found: list[_Sheet]) -> dict[int, int]:
+    """Key sheet index to export sheet index, within the key sheet's drawing file when it names one. A
+    key sheet whose layout is "model" (any case) is drawn in model space: its candidates are the export
+    sheets with no layout or the layout "model" (13's export gives a model-space sheet a null layout and
+    its frame as `location.box`, in model units; session 06's F0). Any other key sheet's candidates
+    share its layout's name. A key sheet with a frame joins only a candidate whose box has an IoU of at
+    least 0.8 with it, a lone one too (session 06's F5); one with no frame joins a lone candidate."""
     pairs = []
     for k, sheet in enumerate(keyed):
-        layout = sheet.get("layout")
-        candidates = by_layout.get(layout, []) if isinstance(layout, str) else []
-        if isinstance(sheet.get("file"), str):
-            candidates = [f for f in candidates if origins[f] == sheet["file"]]
-        if len(candidates) == 1:
+        if sheet.layout is None:
+            continue
+        candidates = [
+            f
+            for f, other in enumerate(found)
+            if (other.in_model if sheet.in_model else other.layout == sheet.layout)
+            and (sheet.origin is None or other.origin == sheet.origin)
+        ]
+        if sheet.framed:
+            pairs += [(_iou(sheet.box, found[f].box), k, f) for f in candidates]
+        elif len(candidates) == 1:
             pairs.append((1.0, k, candidates[0]))
-        elif sheet.get("frame") is not None:
-            for f in candidates:
-                box = (found[f].get("location") or {}).get("box")
-                pairs.append((_iou(sheet.get("frame"), box), k, f))
     pairs.sort(key=lambda pair: (-pair[0], pair[1], pair[2]))
     return _one_to_one(pairs)
 
@@ -448,17 +560,10 @@ def _one_to_one(pairs: list[tuple[float, int, int]]) -> dict[int, int]:
     return joined
 
 
-def _iou(a: Any, b: Any) -> float:
-    boxes = []
-    for box in (a, b):
-        if not isinstance(box, list) or len(box) != 4:
-            return 0.0
-        numbers = [_finite(n) for n in box]
-        if None in numbers:
-            return 0.0
-        x0, y0, x1, y1 = (n for n in numbers if n is not None)
-        boxes.append((min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1)))
-    (ax0, ay0, ax1, ay1), (bx0, by0, bx1, by1) = boxes
+def _iou(a: Box | None, b: Box | None) -> float:
+    if a is None or b is None:
+        return 0.0
+    (ax0, ay0, ax1, ay1), (bx0, by0, bx1, by1) = a, b
     inter = max(0.0, min(ax1, bx1) - max(ax0, bx0)) * max(0.0, min(ay1, by1) - max(ay0, by0))
     union = (ax1 - ax0) * (ay1 - ay0) + (bx1 - bx0) * (by1 - by0) - inter
     return inter / union if union > 0 else 0.0
@@ -469,12 +574,15 @@ def _value(sourced: Any) -> Any:
     return sourced.get("value") if isinstance(sourced, dict) else sourced
 
 
-def _same(field: str, key: Any, found: Any) -> bool:
+def _normal(field: str, value: Any) -> Any:
+    """A sheet field's value as it is compared: two are right when their normal forms are equal."""
     if field == "number":
-        return _number(key) == _number(found)
+        return _number(value)
     if field == "title":
-        return _title(key) == _title(found)
-    return _text(key) == _text(found)
+        return _title(value)
+    if field == "storeys":
+        return _storeys(value)
+    return _text(value)
 
 
 def _text(value: Any) -> str:
@@ -482,6 +590,30 @@ def _text(value: Any) -> str:
     if value is None:
         return ""
     return " ".join(unicodedata.normalize("NFKC", str(value)).casefold().split())
+
+
+def _storeys(value: Any) -> list[str]:
+    """Storeys as a list of items, in order (session 06's F1): a key's list or the export's stated
+    text, each split on commas, "&" and the word "and", each item case- and whitespace-folded with the
+    punctuation around its words stripped; empty items are dropped, so a missing value is the empty
+    list."""
+    items = []
+    for part in value if isinstance(value, list) else [value]:
+        for item in SEPARATORS.split(_text(part)):
+            words = (_unpunctuated(word) for word in item.split())
+            if folded := " ".join(word for word in words if word):
+                items.append(folded)
+    return items
+
+
+def _unpunctuated(word: str) -> str:
+    """The word without the punctuation at either end ("(3rd)" is "3rd"; "1st-floor" keeps its "-")."""
+    start, end = 0, len(word)
+    while start < end and unicodedata.category(word[start]).startswith("P"):
+        start += 1
+    while end > start and unicodedata.category(word[end - 1]).startswith("P"):
+        end -= 1
+    return word[start:end]
 
 
 def _number(value: Any) -> str:
@@ -520,6 +652,7 @@ def _log(journal: TextIO, line: str) -> None:
     caller = os.environ.get("SUDO_UID", str(os.getuid()))
     journal.write(f"{stamp} uid {caller} " + " ".join(line.split()) + "\n")
     journal.flush()
+    os.fsync(journal.fileno())
 
 
 if __name__ == "__main__":

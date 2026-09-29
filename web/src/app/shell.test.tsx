@@ -153,7 +153,6 @@ describe('"Page not found" (§4.1; the Project scope)', () => {
     ['a project the Guest was not given', '/p/BP-02/takeoff/1', GUEST],
     ['a step that does not exist', '/p/KR-01/takeoff/15', QS],
     ['an address nothing matches', '/nowhere', QS],
-    ['a place in a project not built yet (the top bar’s Drawing Set link, until 20b)', '/p/KR-01/drawing-set', QS],
     ['an address under a project that nothing matches', '/p/KR-01/nothing/here', QS],
   ])('for %s, inside the frame', async (_, path, as) => {
     const { keyMap } = await mountApp(path, { as })
@@ -276,6 +275,15 @@ describe('a project’s address opens its current Takeoff Step (screens.md 5: no
     await waitFor(() => expect(document.querySelector('[data-region="rail"]')).not.toBeNull())
     const nav = within(region('top-bar')).getByRole('navigation', { name: 'Project' })
     expect(within(nav).getByRole('link', { name: 'Takeoff' })).toHaveAttribute('aria-current', 'page')
+  })
+
+  it('opens the Drawing Set from the top bar, in the frame, marked current (20b)', async () => {
+    await mountApp('/p/KR-01/drawing-set', { as: QS })
+    expect(await screen.findByRole('heading', { name: 'Drawing Set' })).toBeVisible()
+    const nav = within(region('top-bar')).getByRole('navigation', { name: 'Project' })
+    expect(within(nav).getByRole('link', { name: 'Drawing Set' })).toHaveAttribute('aria-current', 'page')
+    expect(within(nav).getByRole('link', { name: 'Takeoff' })).not.toHaveAttribute('aria-current')
+    expect(screen.queryByText(/There is nothing at this address/)).toBeNull()
   })
 
   it('marks Takeoff current on every takeoff address', async () => {
