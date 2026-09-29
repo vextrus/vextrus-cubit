@@ -28,14 +28,18 @@ paper, so a frame whose paper is read too small or too large is split alike (a f
 fraction of its plotted size: the real sets' frames give papers of 130 to 420 mm plotted on A3 and A1).
 A **view title** is a text of one line and at most `MAX_TITLE_WORDS` words holding a kind's words (the
 kind listed first in the conventions wins where several are named: "TYPICAL BEAM SECTION DETAIL" is a
-detail), not in the title block, and at least as tall as the sheet's median text; titles and scale texts
-stay off the grid. Each title takes the piece it lies under (a drawing titled beneath, the convention),
-else the piece it lies over, within `TITLE_GAP` of its height, nearest first, one title a piece. A piece
-with no title is a view when it covers `MIN_UNTITLED` of the paper (of the kind its sheet's title names,
-else a plan; notes when text fills more of it than lines); a smaller one joins the view whose box,
-grown by `JOIN_MM`, holds it. Straight lines along the paper's axes of `DIVIDER_SHARE` of its side or
-longer (borders, dividers between rows of details) stay off the grid. A view's
-box is its piece, its title and its scale text together. **Reading order** is by rows, top to bottom
+detail), not in the title block, at least as tall as the sheet's median text, not numbered ("5. SEE
+SECTION ...") and not one of a column of `MIN_NOTE_LINES` lines alike (a note's). Titles and scale texts
+stay off the grid, and so do the lines within a title's band (its underline), and straight lines along
+the paper's axes of `DIVIDER_SHARE` of its side or longer (borders, dividers between rows of details).
+Each title takes the piece it lies under (a drawing titled beneath, the convention; within `TITLE_GAP`
+of its height), else the piece it lies over (within `TITLE_GAP_UNDER`), nearest first, one title a
+piece; a band less tall than `MIN_DRAWING` of its height is never its drawing, and joins its view when
+it meets the title. A piece with no title is
+a view when it covers `MIN_UNTITLED` of the paper (of the kind its sheet's title names, else a plan;
+notes when text fills more of it than lines); a smaller one joins the view whose box, grown by
+`JOIN_MM`, holds it. A view's box is its piece, its title and its scale text together.
+**Reading order** is by rows, top to bottom
 (views whose heights overlap by half are one row), each left to right.
 
 **What a view says.** Its stated scale is the first scale pattern found in its title or a text on its
@@ -72,8 +76,9 @@ read.
 
 import json
 import math
+import re
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from functools import cache
 from pathlib import Path
 from statistics import median
@@ -122,8 +127,14 @@ GAP_MM = 8.0
 """What is drawn closer than this on paper, in mm, is one piece."""
 MAX_TITLE_WORDS = 12
 """A text of more words is a note, not a view title."""
-TITLE_GAP = 6.0
-"""The farthest a title lies from its drawing, in the title's heights."""
+TITLE_GAP = 20.0
+"""The farthest a title lies under its drawing, in the title's heights (the real sets put a scale line
+between them)."""
+TITLE_GAP_UNDER = 6.0
+"""The farthest a title lies over its drawing (a schedule's heading), in its heights."""
+MIN_DRAWING = 3.0
+"""A piece less tall than this many of a title's heights is a band (its frame, a row of labels), never
+the title's drawing; one meeting the title is part of its view."""
 MIN_VIEW_MM = 10.0
 """A titled piece's longer side on paper is at least this, in mm."""
 MIN_UNTITLED = 0.02
@@ -137,6 +148,10 @@ divider between views (the real sets rule rows of details apart), never a view's
 MAX_VISITS = 8_000_000
 MAX_SEGMENTS = 3_000_000
 MAX_PIECES = 2_000
+MAX_STACK = 64
+"""The most texts weighed in one cell of the note-line index."""
+MIN_NOTE_LINES = 3
+"""A text in a column of this many lines alike (same height, same left edge) is a note's line."""
 MAX_TEXTS = 200_000
 MAX_GRID = 1_500
 MAX_SAMPLES = 8_000_000
@@ -878,15 +893,20 @@ def _views(paper: _Paper, reading: _Reading, untitled: ViewKind) -> list[_View]:
             len(titles) < MAX_TITLES
             and 0 < len(words) <= MAX_TITLE_WORDS
             and t.height >= tall
+            and not _ENUMERATED.match(t.shown)
             and _kind(t.shown, reading) is not None
         ):
             titles.append(i)
+    stacks = _Stacks(texts)
+    titles = [i for i in titles if stacks.lines(i) < MIN_NOTE_LINES]
     off_grid = set(titles) | set(scale_texts)
-    pieces = _pieces(paper, texts, (i for i in range(len(texts)) if i not in off_grid))
+    underlined = _underlines(paper.segments, [texts[i] for i in titles])
+    drawn = replace(paper, segments=paper.segments[~underlined])
+    pieces = _pieces(drawn, texts, (i for i in range(len(texts)) if i not in off_grid))
     pieces = sorted(pieces, key=lambda q: -q.area)[:MAX_PIECES]
     rx0, ry0, rx1, ry1 = paper.region
     paper_area = (rx1 - rx0) * (ry1 - ry0)
-    k = max(rx1 - rx0, ry1 - ry0) / REFERENCE_MM
+    unit = max(rx1 - rx0, ry1 - ry0) / REFERENCE_MM  # this paper's mm per an A1's
 
     pairs: list[tuple[float, int, int]] = []
     for ti in titles:
@@ -895,13 +915,15 @@ def _views(paper: _Paper, reading: _Reading, untitled: ViewKind) -> list[_View]:
         h = max(t.height, 1e-9)
         for k, piece in enumerate(pieces):
             px0, py0, px1, py1 = piece.box
-            if max(px1 - px0, py1 - py0) < MIN_VIEW_MM * k or px0 > x1 or px1 < x0:
+            if max(px1 - px0, py1 - py0) < MIN_VIEW_MM * unit or px0 > x1 or px1 < x0:
                 continue
+            if py1 - py0 < MIN_DRAWING * h:
+                continue  # a band: the title's own frame or a row of labels, not its drawing
             below = (py0 - y1) / h  # the drawing above its title
             above = (y0 - py1) / h  # the drawing under its title
             if -0.5 <= below <= TITLE_GAP:
                 pairs.append((below, ti, k))
-            elif -0.5 <= above <= TITLE_GAP:
+            elif -0.5 <= above <= TITLE_GAP_UNDER:
                 pairs.append((above + TITLE_GAP, ti, k))
     pairs.sort()
     by_title: dict[int, int] = {}
@@ -920,7 +942,13 @@ def _views(paper: _Paper, reading: _Reading, untitled: ViewKind) -> list[_View]:
         if ti not in by_title:
             continue  # a title with no drawing: not a view
         titled = pieces[by_title[ti]]
-        views.append(_View(titled, t, kind, _union(titled.box, t.box)))
+        box = _union(titled.box, t.box)
+        for k, piece in enumerate(pieces):  # the title's bands: its frame, its underline's row
+            band = piece.box[3] - piece.box[1] < MIN_DRAWING * t.height
+            if k not in by_piece and band and _meets(piece.box, _grown(t.box, t.height)):
+                by_piece[k] = ti
+                box = _union(box, piece.box)
+        views.append(_View(titled, t, kind, box))
     for k, piece in enumerate(pieces):
         if k in by_piece:
             continue
@@ -930,7 +958,7 @@ def _views(paper: _Paper, reading: _Reading, untitled: ViewKind) -> list[_View]:
     for k, piece in enumerate(pieces):
         if k in by_piece or any(v.piece is piece for v in views):
             continue
-        holders = [v for v in views if _holds(_grown(v.box, JOIN_MM * k), piece.box)]
+        holders = [v for v in views if _holds(_grown(v.box, JOIN_MM * unit), piece.box)]
         if holders:
             smallest = min(holders, key=lambda v: _area(v.box))
             smallest.box = _union(smallest.box, piece.box)
@@ -955,12 +983,76 @@ def _views(paper: _Paper, reading: _Reading, untitled: ViewKind) -> list[_View]:
     return views[:MAX_VIEWS]
 
 
+_ENUMERATED = re.compile(r"\s{0,4}\(?(?:\d{1,3}[.)]|[A-Za-z]\))\s")
+"""A numbered line ("5. See ...", "(a) ..."): a note's, not a view title."""
+
+
+class _Stacks:
+    """Texts by their left edge, to tell a note's line (one of a column of lines alike) from a title."""
+
+    def __init__(self, texts: Sequence[_Text]) -> None:
+        self.texts = texts
+        self.columns: dict[tuple[int, int], list[int]] = {}
+        for i, t in enumerate(texts):
+            if t.height > 0:
+                self.columns.setdefault(self._key(t.box[0], t.height), []).append(i)
+
+    @staticmethod
+    def _key(x: float, height: float) -> tuple[int, int]:
+        step = max(round(math.log(height, 1.25)), -400)
+        return step, math.floor(x / height)
+
+    def _next(self, i: int, direction: int) -> int | None:
+        t = self.texts[i]
+        step, column = self._key(t.box[0], t.height)
+        best: tuple[float, int] | None = None
+        for s in (step - 1, step, step + 1):
+            for c in (column - 1, column, column + 1):
+                for j in self.columns.get((s, c), ())[:MAX_STACK]:
+                    o = self.texts[j]
+                    gap = (o.box[1] - t.box[1]) * direction / t.height
+                    same = abs(o.height - t.height) <= 0.15 * t.height
+                    near = j != i and same and abs(o.box[0] - t.box[0]) <= t.height
+                    if near and 0.5 < gap < 2.5 and (best is None or gap < best[0]):
+                        best = (gap, j)
+        return None if best is None else best[1]
+
+    def lines(self, i: int) -> int:
+        """How many lines stand in the text's column, it among them (at most `MIN_NOTE_LINES`)."""
+        count = 1
+        for direction in (1, -1):
+            at: int | None = i
+            while count < MIN_NOTE_LINES and at is not None:
+                at = self._next(at, direction)
+                count += at is not None
+        return count
+
+
+def _underlines(segments: NDArray[np.float64], titles: Sequence[_Text]) -> NDArray[np.bool_]:
+    """The segments that underline or box a title: both ends within its line's band."""
+    found = np.zeros(len(segments), dtype=bool)
+    for t in titles:
+        x0, y0, x1, y1 = t.box
+        h = t.height
+        bx0, by0, bx1, by1 = x0 - h, y0 - 0.8 * h, x1 + h, y1 + 0.5 * h
+        found |= (
+            (segments[:, 0] >= bx0) & (segments[:, 2] >= bx0) & (segments[:, 0] <= bx1)
+            & (segments[:, 2] <= bx1) & (segments[:, 1] >= by0) & (segments[:, 3] >= by0)
+            & (segments[:, 1] <= by1) & (segments[:, 3] <= by1)
+        )  # fmt: skip
+    return found
+
+
 def _union(a: Bounds, b: Bounds) -> Bounds:
     return (min(a[0], b[0]), min(a[1], b[1]), max(a[2], b[2]), max(a[3], b[3]))
 
 
 def _grown(a: Bounds, by: float) -> Bounds:
     return (a[0] - by, a[1] - by, a[2] + by, a[3] + by)
+
+
+def _meets(a: Bounds, b: Bounds) -> bool:
+    return a[0] <= b[2] and b[0] <= a[2] and a[1] <= b[3] and b[1] <= a[3]
 
 
 def _holds(outer: Bounds, inner: Bounds) -> bool:

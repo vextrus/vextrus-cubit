@@ -363,3 +363,30 @@ def test_the_pieces_a_sheet_is_read_by_are_bounded(monkeypatch: pytest.MonkeyPat
     paper = views._Paper((0.0, 0.0, 841.0, 594.0), segments, [])
     reading = views._reading(CONVENTIONS)
     assert len(views._views(paper, reading, ViewKind.PLAN)) <= 3
+
+
+def test_a_notes_line_naming_a_kind_is_no_view_title() -> None:
+    """A numbered note, and a line of a column of notes, name a kind but title nothing."""
+    notes = (
+        ("5. SEE LONG SECTIONS FOR REINFORCEMENT.", (400, 520), 6.0),
+        ("ALL BARS SHALL BE LAPPED AT MID SPAN", (400, 510), 6.0),
+        ("FOR SUNK DEPTH SEE SECTION X-X", (400, 500), 6.0),
+        ("CONCRETE COVER SHALL BE 40 MM", (400, 490), 6.0),
+    )
+    d, sheet = model_sheet([("BEAM LAYOUT PLAN", (40, 300, 340, 560))], notes=notes)
+    titles = [v.title for v in views.find(d.artefact(), sheet, CONVENTIONS)]
+    assert titles == ["BEAM LAYOUT PLAN"]
+
+
+def test_an_underlined_title_far_under_its_drawing_is_the_drawings() -> None:
+    """The title 40 mm under its plan (a scale line between), underlined: the underline is the
+    title's, the plan its drawing."""
+    d, sheet = model_sheet([(None, (40, 300, 340, 560))], notes=(("SCALE 1:100", (40, 280), 3.0),))
+    ox, s = 10_000.0, 50.0
+    d.text("GROUND FLOOR BEAM LAYOUT PLAN", (ox + 40 * s, 254 * s, 0.0), height=6.0 * s)
+    d.line((ox + 40 * s, 252 * s), (ox + 220 * s, 252 * s))  # the underline
+    found = views.find(d.artefact(), sheet, CONVENTIONS)
+    (plan,) = [v for v in found if v.kind is ViewKind.PLAN]
+    assert plan.title == "GROUND FLOOR BEAM LAYOUT PLAN"
+    assert near(plan.box, (40, 252, 340, 560))
+    assert len(found) == 1
