@@ -62,7 +62,8 @@ export function ActsPanel({ person, onClose }: { person: PersonRow; onClose: () 
     <section aria-labelledby="acts-heading" className="flex h-full flex-col">
       <header className="flex items-start gap-2 border-b border-border px-4 py-3">
         <div className="min-w-0 flex-1">
-          <h2 id="acts-heading" ref={heading} tabIndex={-1} className="truncate text-md">
+          {/* Room below for its focus ring, clear of the line under it (gate 20a r2). */}
+          <h2 id="acts-heading" ref={heading} tabIndex={-1} className="mb-[5px] truncate text-md">
             {title}
           </h2>
           <p className="text-xs text-ink-secondary">

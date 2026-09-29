@@ -34,6 +34,7 @@ import { forgetAll, signIn, useEnter, useHeld, type Held } from './actions'
 import { InMarket } from './AccessEnded'
 import { ProjectNameList } from './lists'
 import { OutsidePage } from './OutsidePage'
+import { tellOtherTabs } from './tabs'
 import { ProblemBar, problemOf, type Problem } from './problem'
 
 /** What the link's page knows once looked up. */
@@ -174,7 +175,11 @@ export function JoinPage() {
           invitation={stage.invitation}
           me={me}
           token={stage.token}
-          onSignedIn={setMe}
+          onSignedIn={(signedIn) => {
+            setMe(signedIn)
+            // Signed in here before accepting: the browser's other tabs now work as this person (review 20a r2).
+            tellOtherTabs(queryClient)
+          }}
           onSignedOut={() => setMe(null)}
           onJoined={(out) => enter(out)}
           onSignOut={() => signOutHere(held)}
@@ -191,6 +196,8 @@ async function signOutHere(held: Held): Promise<void> {
   } catch (error) {
     if (!(error instanceof ApiRefused && error.status === 401)) throw error
   }
+  // The browser's other tabs were signed out too: they hear it now (review 20a r2).
+  tellOtherTabs(held.queryClient)
   await forgetAll(held)
 }
 

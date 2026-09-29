@@ -661,6 +661,24 @@ describe('finish line step 10 in miniature: invite, act as the Engineer, see the
     expect(within(arif).queryByRole('button', { name: named(/acts/) })).toBeNull()
   })
 
+  it('counts a person’s acts once, on their first row, not again on each ended invitation (design gate 20a r2)', async () => {
+    const api = new FakeApi()
+    api.addMembership(api.developer('Shapla Homes Ltd'), api.user(PEOPLE.engineer), 'vextrus_engineer', {
+      invitedBy: api.user(PEOPLE.md).id,
+      since: '2026-09-10T04:00:00Z',
+      expiresAt: '2026-09-20T17:59:00Z',
+      revokedAt: '2026-09-15T04:00:00Z',
+    })
+    await members(PEOPLE.md, api)
+    const arif = within(table(/^Vextrus access$/))
+      .getAllByRole('row')
+      .filter((r) => text(r.querySelector('td')) === 'Arif Rahman')
+    expect(arif).toHaveLength(2)
+    expect(cells(arif[0]!)[5]).toBe('2 acts, last 26 Sep 2026')
+    expect(cells(arif[1]!)[5]).toBe('—')
+    expect(within(arif[1]!).queryByRole('button', { name: named(/acts/) })).toBeNull()
+  })
+
   it('names whose acts the Acts button opens, its words first (words gate 20a r1)', async () => {
     await members(PEOPLE.md)
     expect(within(row(/^Vextrus access$/, 'Arif Rahman')).getByRole('button', { name: named(/^2 acts, last 26 Sep 2026, by Arif Rahman$/) })).toBeVisible()

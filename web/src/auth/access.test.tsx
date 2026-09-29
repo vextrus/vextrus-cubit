@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { page } from 'vitest/browser'
+import { setTransport } from '@/api/client'
 import { FakeApi, PASSWORD } from '@/app/seed/api.fixture'
 import { PEOPLE, mountApp } from '@/app/testing'
 import { TOAST_MS, UiProviders, expectKeyMapSound } from '@/ui'
@@ -128,6 +129,37 @@ describe('No access to anything (§4.1)', () => {
   it('is never blank: /no-access while working goes to the projects', async () => {
     const { router } = await mountApp('/no-access')
     await waitFor(() => expect(router.state.location.pathname).toBe('/projects'))
+  })
+})
+
+describe('Access ended for someone given chosen projects, revoked while working (design gate 20a r2)', () => {
+  it.each([
+    ['a Guest given KR-01', PEOPLE.guest, (): void => undefined],
+    [
+      'a Vextrus Engineer given KR-01',
+      PEOPLE.engineer,
+      (api: FakeApi): void => {
+        const arif = api.memberships.find((m) => m.userId === api.user(PEOPLE.engineer).id)!
+        arif.projectIds = [api.projects.find((p) => p.code === 'KR-01')!.id]
+      },
+    ],
+  ])('%s: the next click, on KR-01, lands on the whole sentence naming the project', async (_, who, scope) => {
+    const api = new FakeApi()
+    scope(api)
+    const { router } = await mountApp('/projects', { as: who, api })
+    const kr01 = await screen.findByRole('link', { name: /Kadam Residence/ })
+    // The projects' codes come over a real network: slower than the frame's leaving.
+    const restore = setTransport(async (request) => {
+      if (new URL(request.url).pathname === '/api/ended-access/projects') await new Promise((resolve) => setTimeout(resolve, 150))
+      return api.handle(request)
+    })
+    api.revoke(who, 'Shapla Homes Ltd', PEOPLE.md)
+    await userEvent.click(kr01)
+    await waitFor(() => expect(router.state.location.pathname).toBe('/access-ended'))
+    await waitFor(() =>
+      expect(sentence()).toBe('Your access to KR-01 at Shapla Homes Ltd has ended. Kamal Uddin revoked it on 28 Sep 2026. What you did before then is kept under your name.'),
+    )
+    restore()
   })
 })
 

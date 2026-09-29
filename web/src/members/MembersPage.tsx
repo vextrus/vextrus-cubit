@@ -76,7 +76,7 @@ function Cell({ children, className, title }: { children: ReactNode; className?:
  * and held at the row's end when the table scrolls sideways, so they stay in reach.
  */
 function ActsCell({ children }: { children: ReactNode }) {
-  return <td className="sticky end-0 h-row bg-paper px-2 py-1 text-end align-middle whitespace-nowrap">{children}</td>
+  return <td className="sticky end-0 h-row bg-paper px-2 text-end align-middle whitespace-nowrap">{children}</td>
 }
 
 function Head({ children, className }: { children?: ReactNode; className?: string }) {
@@ -176,7 +176,9 @@ function Acts({ row, acts }: { row: PersonRow | InvitationRow; acts: RowActs }) 
         <Button
           key={action}
           variant={action === 'withdraw' ? 'ghost' : 'secondary'}
-          className="h-6"
+          // 24 px in a 28 px row, as a List's row (gate 20a r2; over the Button's own 28 px, hence the "!");
+          // the ring drawn at the button's edge, so the row's 2 px each side hold it whole.
+          className="h-[24px]! focus-visible:outline-offset-0"
           aria-label={named[action]}
           disabled={acts.busy !== null}
           saving={acts.busy === `${action}:${row.membershipId}`}
@@ -264,10 +266,13 @@ function VextrusTable({
           <Trans>No one from Vextrus has access.</Trans>
         </EmptyRow>
       ) : (
-        rows.map((row) => {
+        rows.map((row, i) => {
           const last = row.lastActAt ? f.date(row.lastActAt) : ''
           const count = row.acts
           const who = row.name
+          // A person's acts are counted for the person, not for each invitation: said once, on their
+          // first row (the API lists the current access first); their other rows say "—" (gate 20a r2).
+          const counted = rows.findIndex((r) => r.userId === row.userId) === i
           return (
             <tr key={row.membershipId} className={cn('border-b border-border last:border-b-0', row.ended && 'text-muted-foreground')}>
               <Cell title={row.name}>
@@ -281,7 +286,9 @@ function VextrusTable({
               <UntilCell row={row} />
               {/* Whole, never cut: it may wrap. With none, words only: there is nothing to open. */}
               <td className="h-row px-2 py-1 align-middle">
-                {count === 0 ? (
+                {!counted ? (
+                  <span className="text-muted-foreground">{EMPTY}</span>
+                ) : count === 0 ? (
                   <span className="text-muted-foreground">
                     <Trans>No acts yet</Trans>
                   </span>

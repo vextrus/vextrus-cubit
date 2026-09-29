@@ -8,7 +8,9 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { page } from 'vitest/browser'
 import { FakeApi, PASSWORD } from '@/app/seed/api.fixture'
+import { QueryClient } from '@tanstack/react-query'
 import { PEOPLE, mountApp } from '@/app/testing'
+import { onOtherTabs } from './tabs'
 import { expectKeyMapSound } from '@/ui'
 
 beforeEach(async () => {
@@ -188,6 +190,32 @@ describe('the link’s page (§4.2)', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Sign out' }))
     expect(await screen.findByLabelText('Name')).toBeVisible()
     expect(api.calls()).toContain('POST /api/auth/sign-out')
+  })
+
+  it('tells the browser’s other tabs when its [Sign out] signs the wrong account out (review 20a r2)', async () => {
+    const api = new FakeApi()
+    const token = api.tokenFor('rumana@shapla-homes.example')
+    await join(`/join#${token}`, { as: PEOPLE.qs, api })
+    const heard = vi.fn()
+    const stop = onOtherTabs(new QueryClient(), heard)
+    await userEvent.click(screen.getByRole('button', { name: 'Sign out' }))
+    expect(await screen.findByLabelText('Name')).toBeVisible()
+    await waitFor(() => expect(heard).toHaveBeenCalled())
+    stop()
+  })
+
+  it('tells the browser’s other tabs when it signs in before accepting, even if accepting then fails (review 20a r2)', async () => {
+    const api = new FakeApi()
+    const token = await invited(api, { email: PEOPLE.meghnaQs, role: 'qs' })
+    await join(`/join#${token}`, { as: null, api })
+    api.failOnce((method, path) => method === 'POST' && path === '/api/invitations/accept', 500, {})
+    const heard = vi.fn()
+    const stop = onOtherTabs(new QueryClient(), heard)
+    await userEvent.type(screen.getByLabelText('Password'), PASSWORD)
+    await userEvent.click(screen.getByRole('button', { name: 'Join' }))
+    expect(await screen.findByRole('alert')).toBeInTheDocument()
+    await waitFor(() => expect(heard).toHaveBeenCalled())
+    stop()
   })
 
   it('renders a Developer’s and an inviter’s names as text, whatever they hold', async () => {

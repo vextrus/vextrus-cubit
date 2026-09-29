@@ -22,6 +22,7 @@ import { Skeleton, useToast } from '@/ui'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/ui/primitives/dialog'
 import { identityOf, sessionChanged, tookEnteredHere, useEnter, useHeld, type Held } from './actions'
 import { gateHref, signInHref } from './gate'
+import { endedProjectsQuery } from './AccessEnded'
 import { SignInForm } from './SignIn'
 import { onOtherTabs } from './tabs'
 
@@ -106,10 +107,13 @@ export function SessionWatch() {
       .then((me) => router.navigate({ href: me ? gateHref(me, here) : signInHref(here) }))
       .then(() => {
         // Gone from the frame: nothing it held stays, neither its rows, its cached pages nor a toast.
+        // The page now shown keeps what it reads: `/api/me`, and "Access ended"'s projects, which may
+        // still be on their way (removed in flight, the page would wait for them forever; gate 20a r2).
         sessionChanged(queryClient)
         held.clearToast()
         router.clearCache()
-        queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== meQuery.queryKey[0] })
+        const kept = [meQuery.queryKey[0], endedProjectsQuery.queryKey[0]]
+        queryClient.removeQueries({ predicate: (q) => !kept.includes(q.queryKey[0] as string) })
       })
       .finally(() => {
         leaving.current = false

@@ -65,12 +65,21 @@ describe('Members and access in the room it has (design gate 20a r1)', () => {
       expect(getComputedStyle(button.closest('td')!).overflow).toBe('visible')
     }
 
+    // A row whose words fit one line is the 28 px of a List's row, its buttons 24 px (gate 20a r2).
+    const farhana = within(table(/^People at /)).getByRole('row', { name: named(/Farhana Kabir/) })
+    expect(farhana.getBoundingClientRect().height).toBeLessThanOrEqual(29)
+    for (const button of within(farhana).getAllByRole('button')) expect(button.getBoundingClientRect().height).toBeCloseTo(24, 0)
+
     // A revoked row's Until whole.
     const until = within(table(/^Vextrus access$/)).getByText((_, el) => el?.tagName === 'TD' && clean(el.textContent) === 'Revoked by Kamal Uddin, 28\u00a0Sep\u00a02026')
     expect(until.scrollWidth).toBeLessThanOrEqual(until.clientWidth + 0.5)
 
-    // With the panel open, a 24 px gutter each side of the page's content.
+    // With the panel open, a 24 px gutter each side of the page's content, and the panel's heading's
+    // focus ring (2 px, 2 px out) clear of the line under it (gate 20a r2).
     if (open) {
+      const title = screen.getByRole('heading', { level: 2, name: named(/^Arif Rahman \(Vextrus\)$/) }).getBoundingClientRect()
+      const line = screen.getByText('Their acts, newest first').getBoundingClientRect()
+      expect(title.bottom + 4).toBeLessThanOrEqual(line.top + 0.5)
       const heading = screen.getByRole('heading', { level: 1, name: 'Members and access' }).getBoundingClientRect()
       expect(heading.left - pageBox.left).toBeGreaterThanOrEqual(24)
       for (const t of screen.getAllByRole('table')) {

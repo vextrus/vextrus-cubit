@@ -427,6 +427,72 @@ test('finish line step 10 (§4.4): invite an Engineer, they act, the act is list
   await md.context().close()
 })
 
+test('someone given chosen projects, revoked while working: the next click reads "Access ended" whole (gate 20a r2)', async ({ browser }) => {
+  const md = await newPage(browser, SIZES[0])
+  await signIn(md, PEOPLE.md.email)
+  await md.goto('/members')
+  // A walk run before may have left the Engineer invited or in: end that first.
+  const invitations = md.getByRole('table', { name: 'Invitations not used yet' })
+  await expect(invitations).toBeVisible()
+  const left = invitations.getByRole('row', { name: new RegExp(STAFF.email) })
+  if (await left.count()) {
+    await left.getByRole('button', { name: 'Withdraw' }).click()
+    await expect(left).toHaveCount(0)
+  }
+  const still = md.getByRole('table', { name: 'Vextrus access' }).getByRole('row', { name: new RegExp(STAFF.name) }).filter({ hasNotText: 'Revoked' })
+  if (await still.count()) {
+    await still.getByRole('button', { name: 'Revoke' }).click()
+    await md.getByRole('button', { name: 'End access' }).click()
+    await expect.poll(async () => still.count()).toBe(0)
+  }
+
+  const guestEmail = `walk-guest-${Date.now() % 100000}@padma-builders.example`
+  for (const who of [
+    { email: guestEmail, name: 'Walk Guest', role: 'Guest', table: `People at Shapla Homes Ltd`, newAccount: true },
+    { email: STAFF.email, name: STAFF.name, role: 'Vextrus Engineer', table: 'Vextrus access', newAccount: false },
+  ]) {
+    // The MD invites them to KR-01 only.
+    await md.getByRole('button', { name: 'Invite' }).click()
+    const dialog = md.getByRole('dialog', { name: /^Invite someone to/ })
+    await dialog.getByLabel('Email').fill(who.email)
+    await dialog.getByRole('radio', { name: who.role }).click()
+    await dialog.getByRole('radio', { name: 'Chosen projects' }).click()
+    await dialog.getByRole('checkbox', { name: loose('KR-01 Kadam Residence') }).check()
+    await dialog.getByRole('button', { name: 'Create link' }).click()
+    const link = await dialog.getByLabel('The invitation link').inputValue()
+    await md.keyboard.press('Escape')
+
+    // They join, and work on their projects.
+    const them = await newPage(browser, SIZES[0])
+    await them.goto(link.replace(/^https?:\/\/[^/]+/, ''))
+    await expect.poll(textOf(them.getByRole('heading', { level: 1 }))).toBe('Join Shapla Homes Ltd')
+    if (who.newAccount) await them.getByLabel('Name').fill(who.name)
+    await them.getByLabel('Password').fill(PASSWORD)
+    await them.getByRole('button', { name: 'Join' }).click()
+    await them.waitForURL(/\/projects$/)
+    const kr01 = them.getByRole('link', { name: /Kadam Residence/ })
+    await expect(kr01).toBeVisible()
+
+    // The MD revokes them.
+    const match = who.newAccount ? who.email.replace(/[.]/g, '[.]') : who.name
+    const row = md.getByRole('table', { name: loose(who.table) }).getByRole('row', { name: new RegExp(match) }).filter({ hasNotText: 'Revoked' })
+    await md.reload()
+    await row.getByRole('button', { name: 'Revoke' }).click()
+    await md.getByRole('button', { name: 'End access' }).click()
+    await expect.poll(async () => row.count()).toBe(0)
+
+    // Their next click, on KR-01, in the page they had open: "Access ended", its sentence whole.
+    await kr01.click()
+    await them.waitForURL(/\/access-ended$/)
+    await expect
+      .poll(textOf(them.getByRole('main').locator('p').first()), { timeout: 10_000 })
+      .toMatch(/^Your access to KR-01 at Shapla Homes Ltd has ended\. Kamal Uddin revoked it on \d{1,2} [A-Z][a-z]{2} \d{4}\. What you did before then is kept under your name\.$/)
+    await shot(them, `revoked-scoped-${who.newAccount ? 'guest' : 'engineer'}`)
+    await them.context().close()
+  }
+  await md.context().close()
+})
+
 test('the Guest’s walk (§4.4): KR-01 only, the chip, BP-02 and /members not found, read only', async ({ browser }) => {
   const page = await newPage(browser, SIZES[1])
   const refused = watchApi(page)
