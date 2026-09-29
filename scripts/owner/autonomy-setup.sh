@@ -103,8 +103,9 @@ trap 'rm -f "$tmp"' EXIT
 cat > "$tmp" <<RULE
 # Installed by scripts/owner/autonomy-setup.sh (ADR 0041). $OWNER runs, as $KEY_USER and without a
 # password, exactly these two programs and nothing else: the poster with any arguments (it checks
-# them), the scorer with exactly one run id (a regular expression, so no path and no option).
-$OWNER ALL=($KEY_USER) NOPASSWD: $POSTER, $SCORER ^[0-9A-Za-z-]+\$
+# them), the scorer with exactly one run id (a regular expression: a letter or digit first, then
+# letters, digits and hyphens, so no path, no option and no second argument).
+$OWNER ALL=($KEY_USER) NOPASSWD: $POSTER, $SCORER ^[0-9A-Za-z][0-9A-Za-z-]*\$
 RULE
 visudo -cf "$tmp" >/dev/null || die "the new rule does not validate; nothing was installed"
 ok "the rule validates:"
@@ -150,6 +151,7 @@ if [ -x "$SCORER" ]; then
   check "$OWNER is refused the scorer with no run id" "! $(as_owner "$SCORER")"
   check "$OWNER is refused the scorer on a path" "! $(as_owner "$SCORER" /home/$KEY_USER/keys)"
   check "$OWNER is refused the scorer with an option" "! $(as_owner "$SCORER" --key x)"
+  check "$OWNER is refused the scorer with a lone option" "! $(as_owner "$SCORER" --help)"
 else
   warn "the scorer is not installed yet, so its check is skipped"
 fi

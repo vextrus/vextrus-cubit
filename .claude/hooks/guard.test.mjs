@@ -165,6 +165,18 @@ test("every other form under a privilege-raising command is still refused", () =
   }
 });
 
+// Issue #107: the poster's real-drawings and the scorer take one plain argument, never hyphen-led.
+test("real-drawings and the scorer take one run id, PR number or branch name, never an option", () => {
+  for (const argument of ["20260929T101500Z-0123456789ab-beef", "107", "t107", "run-1", "a", "7"]) {
+    assert.equal(inMain(`${POSTER} real-drawings ${argument}`), null, argument);
+    assert.equal(inMain(`${SCORER} ${argument}`), null, argument);
+  }
+  for (const argument of ["--help", "--key", "-x", "-", "-1", "--", "-run-1", "--key x", "run-1 --key", "run-1 run-2", "--help run-1", ""]) {
+    assert.equal(inMain(`${POSTER} real-drawings ${argument}`.trimEnd()), "PRIVILEGE_RAISED", `real-drawings ${argument}`);
+    assert.equal(inMain(`${SCORER} ${argument}`.trimEnd()), "PRIVILEGE_RAISED", `scorer ${argument}`);
+  }
+});
+
 test("the ruleset, branch protection and admin merges are refused; reading them passes", () => {
   for (const command of [
     "gh api -X DELETE repos/vextrus/vextrus-cubit/rulesets/123",

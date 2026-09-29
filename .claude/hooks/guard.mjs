@@ -42,12 +42,15 @@ const args = (rest) => (rest ?? "").split(/\s+/).filter((arg) => arg !== "");
 // (a worktree under .claude/worktrees/, or a cloud copy) never posts its own gate. Within one Unix user
 // this is a tripwire, not a wall (ADR 0041).
 const AS_KEY_USER = String.raw`^sudo -n -u vxkeys `;
+// One plain argument (a run id, a PR number or a branch name): a letter or digit first, so never an option
+// (issue #107); the sudoers rule autonomy-setup.sh installs for the scorer is this same pattern.
+const ONE_ARGUMENT = String.raw`[0-9A-Za-z][0-9A-Za-z-]*`;
 const KEY_USER_COMMANDS = [
   new RegExp(
     AS_KEY_USER +
-      String.raw`/usr/local/lib/vextrus/post-status (?:-h|--help|real-drawings [0-9A-Za-z-]+|design-gate [0-9]+ [0-9a-f]{40}(?: --(?:passed|failed|not-applicable)[ =][0-9,-]+)*)$`,
+      String.raw`/usr/local/lib/vextrus/post-status (?:-h|--help|real-drawings ${ONE_ARGUMENT}|design-gate [0-9]+ [0-9a-f]{40}(?: --(?:passed|failed|not-applicable)[ =][0-9,-]+)*)$`,
   ),
-  new RegExp(AS_KEY_USER + String.raw`/usr/local/bin/vx-score [0-9A-Za-z-]+$`),
+  new RegExp(AS_KEY_USER + String.raw`/usr/local/bin/vx-score ${ONE_ARGUMENT}$`),
 ];
 const MAIN_CHECKOUT = "/home/riz/vextrus-cubit";
 const orchestrators = resolve(root) === MAIN_CHECKOUT;
