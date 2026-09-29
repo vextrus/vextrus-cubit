@@ -45,5 +45,5 @@ def score(buffers: SheetBuffers, page: Page, transform: PlotTransform, plot: Pat
     """The sheet's F1 against its Plot page (the module's rules)."""
     sheet, grid = ink.sheet_ink(buffers, ink.FINE_PX_PER_MM)
     density = ink.FINE_PX_PER_MM / transform.scale
-    drawn = picture(plot, page.number, density, sha256=page.source_sha256)
+    drawn = picture(plot, page, density)
     return ink.f1(sheet, ink.carried(drawn, page, transform, grid), TOLERANCE_PX)

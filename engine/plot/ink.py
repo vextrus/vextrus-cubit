@@ -117,6 +117,15 @@ def rescaled(transform: PlotTransform, factor: float, centre: tuple[float, float
     return PlotTransform(k * factor, transform.rotation, (ox, oy))
 
 
+def half_turned(transform: PlotTransform, centre: tuple[float, float]) -> PlotTransform:
+    """The transform turned a further 180° about the sheet's `centre` (mm), which it keeps in place."""
+    c, s = _cos_sin(transform.rotation)
+    k, (ox, oy), (x, y) = transform.scale, transform.offset, centre
+    # T(centre) = k R centre + o; turned, R becomes -R: the offset gains 2 k R centre
+    offset = (ox + 2 * k * (c * x - s * y), oy + 2 * k * (s * x + c * y))
+    return PlotTransform(k, (transform.rotation + 180) % 360, offset)
+
+
 def shifted(transform: PlotTransform, columns: float, rows: float, grid: Grid) -> PlotTransform:
     """The transform that lands the page `columns` right and `rows` down on the sheet's grid: the sheet
     point that took the page's ink from p now takes it from p moved back by the shift."""
@@ -241,7 +250,7 @@ def align(
     try:
         sheet, grid = sheet_ink(buffers, COARSE_PX_PER_MM)
         density = COARSE_PX_PER_MM / transform.scale
-        drawn = picture(plot, page.number, density, sha256=page.source_sha256)
+        drawn = picture(plot, page, density)
     except PictureError, RasterError:  # the page or the sheet could not be drawn
         return transform, None
     if not sheet.any():
@@ -250,8 +259,11 @@ def align(
     reach = round(MAX_SHIFT_MM * COARSE_PX_PER_MM)
     best: tuple[float, PlotTransform] | None = None
     ours = int(sheet.sum())
-    for factor in SCALES if abs(transform.scale - PT_PER_MM) > 1e-9 else (1.0,):
-        tried = rescaled(transform, factor, centre)
+    factors = SCALES if abs(transform.scale - PT_PER_MM) > 1e-9 else (1.0,)
+    # The given turn first, then the half turn: a page placed by its sizes alone cannot tell a sheet
+    # from the same sheet upside down, and its ink can.
+    turns = (transform, half_turned(transform, centre))
+    for tried in (rescaled(t, factor, centre) for t in turns for factor in factors):
         printed = carried(drawn, page, tried, grid)
         theirs = int(printed.sum())
         if theirs == 0:
@@ -265,7 +277,7 @@ def align(
     coarse = best[1]
     try:
         sheet, grid = sheet_ink(buffers, FINE_PX_PER_MM)
-        drawn = picture(plot, page.number, FINE_PX_PER_MM / coarse.scale, sha256=page.source_sha256)
+        drawn = picture(plot, page, FINE_PX_PER_MM / coarse.scale)
     except PictureError, RasterError:
         return coarse, None
     fine = refined(sheet, carried(drawn, page, coarse, grid), coarse, grid)

@@ -1,10 +1,13 @@
 """The sandboxed child: draws one PDF page in grey with pdfium (engine/plot/picture.py).
 
     python -I -B -c <engine.plot.picture.CHILD> <checkout> <pdf> <output> <page> <px per pt> <most px>
+        <width> <height> <slack> [<text>...]
 
 It writes the header (`VXPP`, u32 width, u32 height) and the pixels, rows from the top, or `NO::` and
 a reason's key for a page it will not draw: `unreadable` (the file or page cannot be opened),
-`no_page` (the PDF has fewer pages), `too_large` (the picture would pass the most pixels, checked
+`no_page` (the PDF has fewer pages), `not_the_page` (its size as displayed is not <width> by <height>
+points within <slack>, or fewer than half the <text>s, spaces aside, are on it: 12 read another page
+under this number), `too_large` (the picture would pass the most pixels, checked
 before a pixel is drawn) or `memory`. It exits 0 whatever the file holds; any other exit is the
 sandbox's to explain (a limit reached) or a fault of Vextrus's own.
 """
@@ -20,8 +23,9 @@ HEADER = struct.Struct("<4sII")
 
 def main(argv: list[str]) -> int:
     source, target, page, px_per_pt, most = argv[0], argv[1], int(argv[2]), float(argv[3]), int(argv[4])
+    expected = (float(argv[5]), float(argv[6])), float(argv[7]), argv[8:]
     try:
-        data = _draw(source, page, px_per_pt, most)
+        data = _draw(source, page, px_per_pt, most, expected)
     except MemoryError:
         data = b"NO::memory"
     except Exception:
@@ -37,7 +41,13 @@ def main(argv: list[str]) -> int:
     return 0
 
 
-def _draw(source: str, number: int, px_per_pt: float, most: int) -> bytes:
+def _draw(
+    source: str,
+    number: int,
+    px_per_pt: float,
+    most: int,
+    expected: tuple[tuple[float, float], float, list[str]],
+) -> bytes:
     import pypdfium2 as pdfium  # type: ignore[import-untyped]  # loaded in the sandbox only
 
     document = pdfium.PdfDocument(source)
@@ -45,9 +55,14 @@ def _draw(source: str, number: int, px_per_pt: float, most: int) -> bytes:
         if number > len(document):
             return b"NO::no_page"
         page = document[number - 1]
-        left, bottom, right, top = page.get_cropbox()
-        turned = page.get_rotation() in (90, 270)
-        width, height = (top - bottom, right - left) if turned else (right - left, top - bottom)
+        (want_w, want_h), slack, texts = expected
+        width, height = page.get_size()  # as displayed: its CropBox, turned by its /Rotate
+        if not all(abs(a - b) <= max(1.0, slack * b) for a, b in ((width, want_w), (height, want_h))):
+            return b"NO::not_the_page"
+        if texts:
+            found = "".join(page.get_textpage().get_text_range().split())
+            if sum(t in found for t in texts) * 2 < len(texts):
+                return b"NO::not_the_page"
         columns, rows = math.ceil(width * px_per_pt), math.ceil(height * px_per_pt)
         if not (columns > 0 and rows > 0 and columns * rows <= most):
             return b"NO::too_large"

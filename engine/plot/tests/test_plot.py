@@ -10,6 +10,7 @@ lines through a known transform, read by 12's real reader. The picture's child r
 import math
 import os
 from collections.abc import Sequence
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -17,7 +18,7 @@ import pytest
 
 from engine.check import render_f1
 from engine.fixtures.pdf._writer import Page as PdfPage
-from engine.fixtures.pdf._writer import Pdf, document, num, text, truetype_font
+from engine.fixtures.pdf._writer import Pdf, document, num, nums, text, truetype_font
 from engine.plot import ink, picture, registration
 from engine.read.anchor import DwgAnchor, PdfAnchor
 from engine.read.pdf import page_text
@@ -351,16 +352,15 @@ def one_page(tmp_path: Path, size: tuple[float, float] = (200.0, 100.0)) -> Path
     return path
 
 
-def sha(path: Path) -> str:
-    import hashlib
-
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+def read(path: Path) -> Page:
+    (page,) = page_text(path)
+    return page
 
 
 def test_a_page_is_drawn_grey_as_displayed(tmp_path: Path) -> None:
     path = one_page(tmp_path)
 
-    drawn = picture.picture(path, 1, 1.0, sha256=sha(path))
+    drawn = picture.picture(path, read(path), 1.0)
 
     assert drawn.pixels.shape == (100, 200)
     assert drawn.pixels.dtype == np.uint8
@@ -371,7 +371,7 @@ def test_a_file_whose_contents_changed_since_it_was_read_is_refused(tmp_path: Pa
     path = one_page(tmp_path)
 
     with pytest.raises(picture.PictureError) as refused:
-        picture.picture(path, 1, 1.0, sha256="0" * 64)
+        picture.picture(path, replace(read(path), source_sha256="0" * 64), 1.0)
     assert refused.value.reason == "changed"
 
 
@@ -380,7 +380,7 @@ def test_what_is_not_a_regular_file_is_refused_unread(tmp_path: Path) -> None:
     os.mkfifo(fifo)
 
     with pytest.raises(picture.PictureError) as refused:
-        picture.picture(fifo, 1, 1.0, sha256="0" * 64)
+        picture.picture(fifo, read(one_page(tmp_path)), 1.0)
     assert refused.value.reason == "unreadable"
 
 
@@ -389,12 +389,12 @@ def test_a_page_past_the_last_and_a_picture_past_its_pixels_are_refused(
 ) -> None:
     path = one_page(tmp_path)
     with pytest.raises(picture.PictureError) as refused:
-        picture.picture(path, 2, 1.0, sha256=sha(path))
+        picture.picture(path, replace(read(path), number=2), 1.0)
     assert refused.value.reason == "no_page"
 
     monkeypatch.setattr(picture, "MAX_PIXELS", 19_999)
     with pytest.raises(picture.PictureError) as refused:
-        picture.picture(path, 1, 1.0, sha256=sha(path))
+        picture.picture(path, read(path), 1.0)
     assert refused.value.reason == "too_large"
 
 
@@ -402,7 +402,7 @@ def test_a_density_past_the_densest_is_refused_before_the_child_starts(tmp_path:
     path = one_page(tmp_path)
 
     with pytest.raises(ValueError, match="not a page to draw"):
-        picture.picture(path, 1, picture.MAX_PX_PER_PT, sha256=sha(path))
+        picture.picture(path, read(path), picture.MAX_PX_PER_PT)
 
 
 @pytest.mark.parametrize(
@@ -441,4 +441,126 @@ def test_an_undrawable_page_leaves_the_text_and_size_placement(tmp_path: Path) -
 def test_the_page_is_drawn_in_bubblewrap(tmp_path: Path) -> None:
     path = one_page(tmp_path)
 
-    assert picture.picture(path, 1, 1.0, sha256=sha(path)).pixels.shape == (100, 200)
+    assert picture.picture(path, read(path), 1.0).pixels.shape == (100, 200)
+
+
+# The refuter's attacks (session 06, 18): each once proved a fault ------------------------------------
+
+
+def test_a_page_of_no_size_still_names_its_sheet_and_the_others_keep_theirs(tmp_path: Path) -> None:
+    """A MediaBox of 0 by 0 points: 12 reads the page and its text; placing it would divide by 0."""
+    tiny, good = tmp_path / "tiny", tmp_path / "good"
+    tiny.mkdir()
+    good.mkdir()
+    zero = plot(tiny, PlotTransform(PT, 0, (0.0, 0.0)), (0.0004, 0.0004))
+    whole = plot(good, PlotTransform(PT, 0, (0.0, 0.0)), (A1[0] * PT, A1[1] * PT))
+    pages = [read(zero), read(whole)]
+
+    found = registration.match(
+        pages,
+        [sheet()],
+        [sheet_buffers()],
+        {p.source_sha256: f for p, f in zip(pages, (zero, whole), strict=True)},
+    )
+
+    assert (found[0].sheet, found[0].transform) == (sheet(), None)
+    assert found[1].transform is not None
+
+
+def test_texts_placed_far_off_the_page_are_no_evidence(tmp_path: Path) -> None:
+    far = b"5" + b"0" * 307  # 5e307 points, as a PDF integer
+    pdf = Pdf()
+    font = truetype_font(pdf)
+    content = b"".join(
+        b"BT /F1 4 Tf 1 0 0 1 2040.945 " + far + b" Tm (" + v.encode() + b") Tj ET\n"
+        for v, _ in TITLE_BLOCK.values()
+    )
+    path = tmp_path / "far.pdf"
+    page = PdfPage(content=content, size=(A1[0] * PT, A1[1] * PT), fonts={"F1": font})
+    path.write_bytes(document(pdf, [page]))
+
+    (found,) = registration.match([read(path)], [sheet()], [sheet_buffers()])
+
+    assert found.transform is not None  # centred by the sizes alone
+    assert_same_place(found.transform, PlotTransform(PT, 0, (0.0, 0.0)), within_mm=0.01)
+    assert found.residual is None
+
+
+def test_a_rotate_that_is_no_right_angle_is_not_drawn_turned_against_the_text(tmp_path: Path) -> None:
+    """12 reads /Rotate 100 as 0; pdfium turns the page. The picture is refused, and the page keeps
+    the placement its title block's text gives."""
+    truth = PlotTransform(PT, 0, (0.0, 0.0))
+    path = plot(tmp_path, truth, (A1[0] * PT, A1[1] * PT), rotate=100)
+    page = read(path)
+
+    with pytest.raises(picture.PictureError) as refused:
+        picture.picture(path, page, 0.5)
+    assert refused.value.reason == "not_the_page"
+    (found,) = registration.match([page], [sheet()], [sheet_buffers()], {page.source_sha256: path})
+    assert found.transform is not None
+    assert_same_place(found.transform, truth, within_mm=registration.AGREE_MM)
+
+
+def test_a_page_tree_that_lists_a_page_twice_never_draws_another_page(tmp_path: Path) -> None:
+    from engine.fixtures.pdf._writer import dictionary, nums, ref, refs
+
+    pdf = Pdf()
+    font = truetype_font(pdf)
+    tree = pdf.reserve()
+    kids = []
+    for x, name in ((50, "PAGE ALPHA"), (500, "PAGE BRAVO")):
+        content = pdf.stream(b"%d 100 200 200 re f\n" % x + text(x, 350, name, size=20))
+        kids.append(pdf.add(dictionary({
+            "Type": b"/Page", "Parent": ref(tree), "MediaBox": nums((0, 0, 800, 500)),
+            "Resources": dictionary({"Font": dictionary({"F1": ref(font)})}), "Contents": ref(content),
+        })))  # fmt: skip
+    pdf.put(tree, dictionary({"Type": b"/Pages", "Kids": refs([kids[0], *kids]), "Count": b"3"}))
+    path = tmp_path / "twice.pdf"
+    path.write_bytes(pdf.write(pdf.add(dictionary({"Type": b"/Catalog", "Pages": ref(tree)}))))
+
+    bravo = [p for p in page_text(path) if any("BRAVO" in i.text for i in p.items)]
+    assert bravo
+    for page in bravo:  # drawn only as page B (its square on the right), else refused
+        outcome = _drawn_or_refused(path, page)
+        assert outcome == "not_the_page" or (isinstance(outcome, float) and outcome > 40), outcome
+
+
+def _drawn_or_refused(path: Path, page: Page) -> str | float:
+    try:
+        drawn = picture.picture(path, page, 0.1)
+    except picture.PictureError as refused:
+        return refused.reason
+    return float(np.flatnonzero((drawn.pixels < 128).any(axis=0)).mean())
+
+
+def test_a_cropbox_written_corners_reversed_is_drawn(tmp_path: Path) -> None:
+    path = tmp_path / "crop.pdf"
+    page = PdfPage(
+        content=b"0 0 m 200 100 l S\n", size=(200.0, 100.0), entries={"CropBox": nums((200, 100, 0, 0))}
+    )
+    path.write_bytes(document(Pdf(), [page]))
+
+    assert picture.picture(path, read(path), 1.0).pixels.shape == (100, 200)
+
+
+def test_a_sandbox_that_cannot_start_is_a_page_not_drawn(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = one_page(tmp_path)
+    page = read(path)
+    monkeypatch.setenv("VEXTRUS_SANDBOX", "on")
+    monkeypatch.setattr("engine.read.sandbox.BWRAP", "/nonexistent/bwrap")
+
+    with pytest.raises(picture.PictureError) as refused:
+        picture.picture(path, page, 1.0)
+    assert refused.value.reason == "sandbox"
+
+
+def test_an_upside_down_sheet_is_turned_by_its_ink(tmp_path: Path) -> None:
+    truth = PlotTransform(PT, 180, (A1[0] * PT, A1[1] * PT))
+    path = plot(tmp_path, truth, (A1[0] * PT, A1[1] * PT), texts=False)
+
+    page, found, _ = registered(path, sheet_buffers())
+
+    assert_same_place(found, truth)
+    assert render_f1.score(sheet_buffers(), page, found, path) >= 0.9

@@ -1,6 +1,6 @@
 """A Plot page as the consultant's PDF draws it: grey pixels, for the render check (18).
 
-    picture(path, page, px_per_pt, sha256=...) -> Picture
+    picture(path, page, px_per_pt) -> Picture       # `page` is 12's `Page`, read from `path`
 
 The page is drawn by pypdfium2 (Apache-2.0 / BSD-3; ADR 0014 names it among the PDF readers, and
 docs/research/viewer-2d-fidelity.md drew its reference plots with it), as displayed (its `/Rotate`
@@ -10,15 +10,23 @@ is never used.
 
 **The trust boundary is 12's** (engine/read/pdf's docstring, "The trust boundary"): a PDF is hostile
 input. This process copies it (a regular file only), hashing it as it copies, and refuses a copy whose
-sha256 is not the page's (`Page.source_sha256`), so the page drawn is the page read. pdfium then runs
-in a child Python process in `engine.read.sandbox` (bubblewrap: no network, a read-only file system
-but one output folder, a cleared environment, CPU, memory, file-size and wall-clock limits,
-`LIMITS`), reading only the copy, the engine's code and Python. The picture's size is checked in the
-child before a pixel is drawn (`MAX_PIXELS`), and its output is read back without following a link,
-as a header and exactly the pixels the header states, never more.
+sha256 is not the page's (`Page.source_sha256`: `changed`). pdfium then runs in a child Python
+process in `engine.read.sandbox` (bubblewrap: no network, a read-only file system but one output
+folder, a cleared environment, CPU, memory, file-size and wall-clock limits, `LIMITS`), able to read
+the copy, the engine's code, Python and the system's `/usr`. A sandbox that cannot start is a page
+not drawn (`sandbox`), never a page drawn outside it. The picture's size is checked in the child
+before a pixel is drawn (`MAX_PIXELS`), and its output is read back without following a link, as a
+header and exactly the pixels the header states, never more.
+
+**The page drawn must be the page read.** pdfium and 12's pdfminer walk a page tree each their own
+way: a tree that lists a page twice, or a `/Rotate` that is not a multiple of 90 (which 12 reads as
+0), gives the two readers different pages under one number. So the child refuses (`not_the_page`) a
+page whose size as displayed (its CropBox, turned) is not 12's `Page.crop`'s, within `SIZE_SLACK`,
+or on which pdfium finds fewer than half of up to `MAX_TEXTS` of 12's text items (spaces aside).
 """
 
 import hashlib
+import math
 import os
 import stat
 import struct
@@ -31,7 +39,8 @@ from typing import BinaryIO
 import numpy as np
 from numpy.typing import NDArray
 
-from engine.read.sandbox import LimitReached, Limits, open_output, run
+from engine.read.pdf.types import Page, TextSource
+from engine.read.sandbox import LimitReached, Limits, SandboxError, open_output, run
 
 MAX_PIXELS = 60_000_000
 """The largest picture drawn: an A0 page at the render check's 4 pixels a paper millimetre is 19
@@ -41,6 +50,9 @@ LIMITS = Limits(
 )
 """The child's limits: pdfium draws a page in well under a second (the research's 34 to 87 ms at 3000
 px); a first guess, which ticket 24 may measure."""
+MAX_TEXTS = 12
+SIZE_SLACK = 0.01
+"""How far pdfium's page size may be from 12's: a point, or a hundredth of the side (their rounding)."""
 MAX_PX_PER_PT = 100.0
 """The densest a page is drawn (7,200 dpi): past it a page is refused before the child starts."""
 HEADER = struct.Struct("<4sII")
@@ -81,21 +93,30 @@ the page was read from."""
 KEEP = 2
 
 
-def picture(path: Path, page: int, px_per_pt: float, *, sha256: str, limits: Limits = LIMITS) -> Picture:
-    """The page (counting from 1) of the PDF at `path`, whose contents must hash to `sha256`."""
-    key = (sha256, page, px_per_pt)
+def picture(path: Path, page: Page, px_per_pt: float, *, limits: Limits = LIMITS) -> Picture:
+    """12's page, drawn from the PDF at `path`, whose contents must hash to the page's sha256."""
+    key = (page.source_sha256, page.number, px_per_pt)
     for kept_key, kept in _kept:
         if kept_key == key:
             return kept
-    drawn = _picture(Path(path), page, px_per_pt, sha256, limits)
+    drawn = _picture(Path(path), page, px_per_pt, limits)
     _kept.append((key, drawn))
     del _kept[:-KEEP]
     return drawn
 
 
-def _picture(path: Path, page: int, px_per_pt: float, sha256: str, limits: Limits) -> Picture:
-    if not (isinstance(page, int) and page >= 1 and 0 < px_per_pt < MAX_PX_PER_PT):
-        raise ValueError(f"page {page!r} at {px_per_pt!r} pixels a point is not a page to draw")
+def _picture(path: Path, page: Page, px_per_pt: float, limits: Limits) -> Picture:
+    number, sha256 = page.number, page.source_sha256
+    if not (isinstance(number, int) and number >= 1 and 0 < px_per_pt < MAX_PX_PER_PT):
+        raise ValueError(f"page {number!r} at {px_per_pt!r} pixels a point is not a page to draw")
+    x0, y0, x1, y1 = page.crop
+    width, height = abs(x1 - x0), abs(y1 - y0)
+    if not (math.isfinite(width) and math.isfinite(height)):
+        raise PictureError("not_the_page")
+    texts = [
+        t for item in page.items
+        if item.source is TextSource.TEXT and 3 <= len(t := "".join(item.text.split())) <= 40
+    ][:MAX_TEXTS]  # fmt: skip
     with tempfile.TemporaryDirectory(prefix="vextrus-plot-") as scratch:
         copy = Path(scratch, "source.pdf")
         try:
@@ -111,13 +132,16 @@ def _picture(path: Path, page: int, px_per_pt: float, sha256: str, limits: Limit
         python = executable.parent.resolve() / executable.name
         reads = [copy, ROOT / "engine", Path(sys.prefix), Path(sys.base_prefix)]
         argv = [
-            str(python), "-I", "-B", "-c", CHILD, str(ROOT), str(copy), str(target), str(page),
-            repr(float(px_per_pt)), str(MAX_PIXELS),
+            str(python), "-I", "-B", "-c", CHILD, str(ROOT), str(copy), str(target), str(number),
+            repr(float(px_per_pt)), str(MAX_PIXELS), repr(width), repr(height), repr(SIZE_SLACK),
+            *texts,
         ]  # fmt: skip
         try:
             finished = run(argv, reads=_distinct(reads), output=output, limits=limits)
         except LimitReached as reached:
             raise PictureError(f"limit_{reached.limit}") from reached
+        except SandboxError as error:
+            raise PictureError("sandbox") from error
         if finished.exit_code != 0:
             detail = finished.stderr.decode(errors="replace")[-2000:]
             raise PictureError("failed") from RuntimeError(detail)

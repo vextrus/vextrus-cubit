@@ -57,6 +57,8 @@ AGREE_MM = 2.0
 """Text pairs agree on where the sheet lands when they are within 2 mm on paper: a plotted text's box
 and the renderer's differ by their fonts' margins, a millimetre or so at a title block's sizes."""
 MIN_PAIRS = 2
+MIN_SIDE = 1.0
+"""The shortest side, in points or millimetres, a page or a paper needs to be placed by."""
 MAX_DRAWN = 64
 MAX_PRINTED = 256
 """The most value texts and page items paired (a page's revision table may repeat a date many times):
@@ -98,7 +100,11 @@ def match(
         if buffers is None:
             found.append(PlotMatch(page, sheet=sheet))
             continue
-        transform, residual = place(page, sheet, buffers)
+        placed = place(page, sheet, buffers)
+        if placed is None:
+            found.append(PlotMatch(page, sheet=sheet))
+            continue
+        transform, residual = placed
         plot = (plots or {}).get(page.source_sha256)
         if plot is not None:
             transform, residual = ink.align(page, buffers, transform, plot)
@@ -181,19 +187,38 @@ class _Fit:
 
 def place(
     page: Page, sheet: SheetCandidate, buffers: SheetBuffers
-) -> tuple[PlotTransform, float | None]:
-    """The sheet's transform onto the page and the fit's residual (the module's rules)."""
+) -> tuple[PlotTransform, float | None] | None:
+    """The sheet's transform onto the page and the fit's residual (the module's rules); none for a
+    page or a paper with no size to place by (a page of 0 by 0 points names a sheet all the same)."""
     paper = buffers.paper
+    sizes = (page.width, page.height, paper.width_mm, paper.height_mm)
+    if not all(math.isfinite(v) and v >= MIN_SIDE for v in sizes):
+        return None
     anchors = [a for a in sheet.anchors[1:] if isinstance(a, DwgAnchor)][:MAX_DRAWN]
     drawn = [box for a in anchors if (box := drawn_at(buffers, a)) is not None]
-    printed = [i.anchor.box for i in page.items if _reads_a_value(i, sheet)][:MAX_PRINTED]
-    fits = [_fit(page, paper, turn, drawn, printed) for turn in TURNS]
+    printed = [
+        i.anchor.box for i in page.items if _on_page(i.anchor.box, page) and _reads_a_value(i, sheet)
+    ][:MAX_PRINTED]
+    with np.errstate(all="ignore"):
+        fits = [_fit(page, paper, turn, drawn, printed) for turn in TURNS]
     upright = (paper.width_mm >= paper.height_mm) == (page.width >= page.height)
     default = fits[0] if upright else fits[1]
     best = max(fits, key=lambda f: (f.pairs >= MIN_PAIRS, f.pairs, f is default))
-    if best.pairs < MIN_PAIRS:
+    if best.pairs < MIN_PAIRS or not all(map(math.isfinite, (*best.offset, best.residual_mm or 0))):
         best = default
+    if not all(map(math.isfinite, (best.scale, *best.offset))) or best.scale <= 0:
+        return None
     return PlotTransform(best.scale, best.turn, best.offset), best.residual_mm
+
+
+def _on_page(box: tuple[float, float, float, float], page: Page) -> bool:
+    """Whether a text's box lies on the page (a margin of a page's size about it): a text placed
+    off it, as far as a hostile file likes, is no evidence of where the sheet lands."""
+    x0, y0, x1, y1 = box
+    return all(map(math.isfinite, box)) and (
+        -page.width <= min(x0, x1) and max(x0, x1) <= 2 * page.width
+        and -page.height <= min(y0, y1) and max(y0, y1) <= 2 * page.height
+    )  # fmt: skip
 
 
 def _scale(page: Page, paper: Paper, turn: int) -> float:
