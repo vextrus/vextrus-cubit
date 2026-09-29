@@ -9,7 +9,7 @@ itself; a refusal is an `auth.Refused` with a `drawings.reads.*` code, and keeps
     drawings.services.store_artefact(file_id, artefact)
     drawings.services.record_reports(file_id, cross_check=…, font_report=…, bangla_ansi=…)
     drawings.services.quarantine(file_id, finding)    # held: the two readers disagree
-    drawings.services.mark_read(file_id)              # in the last step's own transaction
+    drawings.services.mark_read(file_id, cut)         # in the last step's own transaction
 
 - **The StepStore** keeps a step once, keyed by (tenant, file, step, input hash), and never changes or
   deletes it (vextrus_app may only insert); its progress writes the file's step and counts while the
@@ -22,9 +22,11 @@ itself; a refusal is an `auth.Refused` with a `drawings.reads.*` code, and keeps
   column, which refuses NaN. Its source must be the file (its sha256).
 - **A file's end** is written under the file's row lock and only while it is waiting or reading: a
   file cancelled meanwhile stays cancelled (the step then rolls back, since its job is cancelled).
-  `mark_read` belongs in the last step's transaction. A file that could not be read ends failed with
-  its finding (`mark_failed`); for "Try again" to read it again the job must end failed too (a
-  succeeded job is never restarted: 09's `restart`).
+  `mark_read` belongs in the last step's transaction; it is given every limit that cut the reading
+  ("not read in full", each once, in the job's order): the first is the file's finding, and the
+  report's sheets section says each. A file read in full has no finding and no limit. A file that
+  could not be read ends failed with its finding (`mark_failed`); for "Try again" to read it again
+  the job must end failed too (a succeeded job is never restarted: 09's `restart`).
 """
 
 import json
@@ -316,9 +318,14 @@ def attach_read_job(file_id: uuid.UUID, job_id: int) -> None:
     DrawingFile.objects.filter(id=row.id).update(read_job_id=job_id)
 
 
-def mark_read(file_id: uuid.UUID) -> drawing_files.FileView:
-    """The file is read (in the last step's transaction). A file cancelled meanwhile stays so."""
-    return _end(file_id, ReadStatus.READ, None)
+def mark_read(file_id: uuid.UUID, cut: Sequence[Message] = ()) -> drawing_files.FileView:
+    """The file is read (in the last step's transaction). A file cancelled meanwhile stays so.
+    `cut`: every limit that cut its reading, in the job's order (see the module)."""
+    lines: list[Message] = []
+    for line in cut:
+        if line not in lines:
+            lines.append(line)
+    return _end(file_id, ReadStatus.READ, lines[0] if lines else None, limit_lines=lines)
 
 
 def quarantine(file_id: uuid.UUID, finding: Message) -> drawing_files.FileView:
@@ -350,7 +357,12 @@ def answer_held(file_id: uuid.UUID, answer: HeldAnswer | str) -> drawing_files.F
 
 
 def _end(
-    file_id: uuid.UUID, status: ReadStatus, finding: Message | None, *, tries: int = 0
+    file_id: uuid.UUID,
+    status: ReadStatus,
+    finding: Message | None,
+    *,
+    tries: int = 0,
+    limit_lines: Sequence[Message] = (),
 ) -> drawing_files.FileView:
     with transaction.atomic():
         row = _access.drawing_file(file_id, lock=True)
@@ -358,8 +370,18 @@ def _end(
             row.read_status = status
             row.read_step = ""
             row.finding = None if finding is None else _text.read_json(dict(finding))
+            row.limit_lines = [_text.read_json(dict(line)) for line in limit_lines]
             row.read_tries = tries
             if status == ReadStatus.READ and row.sheets_total is not None:
                 row.sheets_done = row.sheets_total
-            row.save(update_fields=["read_status", "read_step", "finding", "read_tries", "sheets_done"])
+            row.save(
+                update_fields=[
+                    "read_status",
+                    "read_step",
+                    "finding",
+                    "limit_lines",
+                    "read_tries",
+                    "sheets_done",
+                ]
+            )
     return drawing_files.file(row.id)

@@ -836,6 +836,7 @@ def _start_again(row: DrawingFile, job: jobs.JobState | None) -> None:
     row.progress_at = None
     row.sheets_started_at = None
     row.finding = None
+    row.limit_lines = []
     row.read_tries = 0
     row.cancelled_by = None
     row.cancelled_by_name = ""
@@ -850,6 +851,7 @@ def _start_again(row: DrawingFile, job: jobs.JobState | None) -> None:
             "progress_at",
             "sheets_started_at",
             "finding",
+            "limit_lines",
             "read_tries",
             "cancelled_by",
             "cancelled_by_name",

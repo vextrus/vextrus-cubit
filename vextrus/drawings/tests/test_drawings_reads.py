@@ -302,3 +302,41 @@ def test_another_developers_file_is_not_found_by_any_read_service(
             with pytest.raises(auth.NotFound):
                 call()
     assert uuid.UUID(str(found.id))
+
+
+# Not read in full (ticket nrif) ------------------------------------------------------------------------
+
+
+def limit(name: str) -> Any:
+    return {"code": "takeoff.read_file.not_read_in_full", "params": {"limit": name}}
+
+
+def test_a_read_cut_by_limits_names_the_first_and_its_report_says_each_once(
+    dwg: tuple[Member, services.FileView],
+) -> None:
+    member, found = dwg
+    with member.acting():
+        read = services.mark_read(
+            found.id, [limit("pair_budget"), limit("views_scan_budget"), limit("pair_budget")]
+        )
+        report = services.report(found.id)
+    assert read.state == "read"
+    assert read.finding == limit("pair_budget")
+    assert report.file.finding == limit("pair_budget")
+    assert [m for m in report.sheets if m["code"] == limit("")["code"]] == [
+        limit("pair_budget"),
+        limit("views_scan_budget"),
+    ]
+
+
+def test_a_file_read_in_full_or_ended_otherwise_has_no_limit(qs_project: QsProject) -> None:
+    member = qs_project.member
+    files = [add(member, qs_project.project_id, f"KR-STR-R{n}.dwg", drawing()).file for n in range(3)]
+    with member.acting():
+        read = services.mark_read(files[0].id)
+        services.mark_failed(files[1].id, {"code": "engine.decoders_agree.stopped", "params": {}})
+        services.quarantine(files[2].id, {"code": "engine.decoders_agree.disagree", "params": {}})
+        reports = [services.report(f.id) for f in files]
+    assert read.finding is None
+    for report in reports:
+        assert not [m for m in report.sheets if m["code"] == limit("")["code"]]

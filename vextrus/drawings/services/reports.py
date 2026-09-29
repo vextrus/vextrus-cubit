@@ -121,6 +121,8 @@ def _sheets(row: DrawingFile) -> list[Message]:
     views = SheetRevision.objects.filter(source_file=row).aggregate(n=Sum("views_refused"))["n"]
     if views:
         lines.append(said.VIEWS_NOT_KEPT(views=views))
+    # Every limit that cut the reading, each once: "no sheets" is never said without its reason.
+    lines += [Message(code=m["code"], params=m["params"]) for m in row.limit_lines or ()]
     return lines
 
 
