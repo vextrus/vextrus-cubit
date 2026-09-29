@@ -11,7 +11,7 @@ import { MachineText } from '@/format/machine'
 import { DrawingText } from '@/ui'
 import { SheetName } from './acts'
 import type { ProposalOut } from './data'
-import type { DisciplineSection, QuestionEntry, Step1Model } from './model'
+import type { QuestionEntry } from './model'
 import { disciplineName } from './SheetList'
 import { useHasEnglish } from './useHasEnglish'
 import { OPTION_NAMES, OTHER_OPTION, OTHER_QUESTION, QUESTION_KINDS, QUESTION_KIND_BY_CODE, SHEET_KIND_NAMES } from './words'
@@ -53,146 +53,120 @@ export function QuestionTitle({ entry, names }: { entry: QuestionEntry; names: R
   return <>{kind}</>
 }
 
-/** The drawing list's source in a sentence: "The drawing list read on a sheet", "… pasted by Nusrat Jahan". */
-function ListSource({ section }: { section: DisciplineSection | undefined }) {
-  const list = section?.list
-  const who = list?.entered_by ?? ''
-  if (list?.source === 'pasted' && who) return <Trans>The drawing list pasted by {who}</Trans>
-  if (list?.source === 'typed' && who) return <Trans>The drawing list typed by {who}</Trans>
-  if (list?.source === 'sheet') return <Trans>The drawing list read on a sheet</Trans>
-  return <Trans>The drawing list</Trans>
+/** A sheet named in a card's words as a link that opens it (§5 item 3: "the Trace line (sheet and place, as links)"). */
+export function SheetLink({ sheet, onOpen, children }: { sheet: ProposalOut; onOpen?: (sheet: ProposalOut) => void; children?: ReactNode }) {
+  const name = children ?? <SheetName sheets={[sheet]} />
+  if (!onOpen) return <>{name}</>
+  return (
+    <button type="button" onClick={() => onOpen(sheet)} className="text-primary underline underline-offset-2 hover:text-foreground">
+      {name}
+    </button>
+  )
 }
 
-/** The body under the title (§5 item 3, 6.7): what was read, in words, with its figures. */
-export function QuestionBody({ entry, model }: { entry: QuestionEntry; model: Step1Model }) {
+/** Where the Discipline's drawing list came from, as a Trace or body names it: "the drawing list on S-01". */
+function ListSource({ entry, context, onOpen }: { entry: QuestionEntry; context: CardContext; onOpen?: (sheet: ProposalOut) => void }) {
+  const list = context.lists[entry.question.discipline ?? '']
+  if (!list || !list.source) return <Trans>the drawing list</Trans>
+  const who = list.entered_by ?? ''
+  if (list.source === 'pasted') return who ? <Trans>the drawing list pasted by {who}</Trans> : <Trans>the pasted drawing list</Trans>
+  if (list.source === 'typed') return who ? <Trans>the drawing list typed by {who}</Trans> : <Trans>the typed drawing list</Trans>
+  const on = list.read_on ? context.sheets.find((p) => p.sheet_id === list.read_on) : undefined
+  if (!on) return <Trans>the drawing list found in the drawings</Trans>
+  const sheet = <SheetLink sheet={on} onOpen={onOpen} />
+  return <Trans>the drawing list on {sheet}</Trans>
+}
+
+/** What a card needs from the screen beyond its Question: the drawing lists and every sheet. */
+export interface CardContext {
+  lists: Readonly<Record<string, { source: string | null; entered_by: string | null; read_on?: string | null; numbers: readonly string[] } | null | undefined>>
+  sheets: readonly ProposalOut[]
+  names: Readonly<Record<string, string>>
+}
+
+/** The body under the title (§6.7): what was read and why it is asked, with its figures in their kinds. */
+export function QuestionBody({ entry, context }: { entry: QuestionEntry; context: CardContext }) {
   const has = useHasEnglish()
   const q = entry.question
-  const sheet = entry.holds[0]
+  const first = entry.holds[0]
   if (q.kind === 'file_misread') return has(q.code) ? <MachineText message={{ code: q.code, params: params(entry) }} /> : null
   if (isCopies(entry)) {
-    const titles = [...new Set(entry.holds.map((s) => s.title))]
+    const titles = [...new Set(entry.holds.map((h) => h.title))]
     if (titles.length === 1) {
       const title = <DrawingText kind="title" text={titles[0]!} truncate={false} />
       return <Trans>Both are titled “{title}”. Only one can be read.</Trans>
     }
-    return <Trans>Their titles differ. Only one can be read.</Trans>
+    return <Trans>Their titles differ. Only one can be read, unless they are different sheets.</Trans>
   }
-  if (q.code === 'takeoff.step1.no_number' && sheet) {
-    const title = <DrawingText kind="title" text={sheet.title} truncate={false} />
-    const file = <DrawingText kind="file-name" text={sheet.file_name} truncate={false} />
+  if (q.code === 'takeoff.step1.no_number' && first) {
+    const title = <DrawingText kind="title" text={first.title} truncate={false} />
+    const file = <DrawingText kind="file-name" text={first.file_name} truncate={false} />
     return <Trans>A sheet titled “{title}” in {file} has an empty number in its title block.</Trans>
   }
-  if (q.kind === 'low_confidence' && sheet) {
-    const name = <SheetName sheets={[sheet]} />
-    const title = <DrawingText kind="title" text={sheet.title} truncate={false} />
-    const file = <DrawingText kind="file-name" text={sheet.file_name} truncate={false} />
-    return <Trans>{name} “{title}” in {file}: its title and views do not settle which kind of sheet it is.</Trans>
+  if (q.code === 'takeoff.step1.which_kind' && first) {
+    const title = <DrawingText kind="title" text={first.title} truncate={false} />
+    const number = <SheetName sheets={[first]} />
+    return <Trans>Its title, “{title}”, does not say which kind of sheet {number} is. Its kind decides which Takeoff steps read it.</Trans>
   }
   if (q.kind === 'check' && typeof q.params.number === 'string') {
-    const section = model.disciplines.find((d) => d.discipline === q.discipline)
     const number = <DrawingText kind="sheet-number" text={q.params.number} truncate={false} />
-    const files = [...new Set((section?.rows ?? []).flatMap((r) => r.sheets.map((s) => s.file_name)))].sort()
-    const named = <FileList names={files} />
-    const source = <ListSource section={section} />
-    if (q.code === 'engine.register_check.not_found') {
-      const found = section?.found ?? 0
-      if (section?.list && files.length > 0) {
-        const listed = section.list.numbers.length
-        return (
-          <Trans>
-            {source} names <Plural value={listed} one="# sheet" other="# sheets" />. <Plural value={found} one="# was" other="# were" /> found in {named}; {number} was
-            not.
-          </Trans>
-        )
-      }
-      return files.length > 0 ? (
-        <Trans>
-          {source} names {number}, and it was not found in {named}.
-        </Trans>
-      ) : (
-        <Trans>
-          {source} names {number}, and no file has it.
-        </Trans>
-      )
+    if (typeof q.params.page === 'number') {
+      const page = q.params.page
+      return <Trans>Page {page} of the Plot shows {number}, and no DWG has a sheet with that number.</Trans>
     }
-    const holder = entry.holds[0] ?? model.rows.flatMap((r) => r.sheets).find((p) => p.number === q.params.number && p.discipline === q.discipline)
-    const file = holder ? <DrawingText kind="file-name" text={holder.file_name} truncate={false} /> : null
-    if (q.code === 'engine.register_check.not_listed' && file)
-      return (
-        <Trans>
-          {number} is in {file} but not on the drawing list, so it has one source.
-        </Trans>
-      )
-    if (q.code === 'engine.plot_pages.no_page' && file)
-      return (
-        <Trans>
-          {number} is in {file}.
-        </Trans>
-      )
-    return null
+    const list = <ListSource entry={entry} context={context} />
+    return <Trans>{number} is named on {list}, and no file added has a sheet with that number.</Trans>
   }
   return null
 }
 
-function FileList({ names }: { names: readonly string[] }) {
-  const items = names.map((n) => <DrawingText key={n} kind="file-name" text={n} truncate={false} />)
-  return <>{items.flatMap((el, i) => (i === 0 ? [el] : [', ', el]))}</>
+/** The Trace line (§5 item 3, §6.7): where each fact was read, the sheets as links. */
+export function Trace({ entry, context, onOpen }: { entry: QuestionEntry; context: CardContext; onOpen?: (sheet: ProposalOut) => void }) {
+  const q = entry.question
+  const first = entry.holds[0]
+  if (q.kind === 'file_misread') {
+    const name = q.subject_id ? context.names[q.subject_id] : undefined
+    if (!name) return <Trans>Trace: the file’s two readings</Trans>
+    const file = <DrawingText kind="file-name" text={name} truncate={false} />
+    return <Trans>Trace: {file}, as each of the two readers read it</Trans>
+  }
+  if (isCopies(entry)) {
+    const copies = <Joined items={entry.holds.map((h) => <SheetLink key={h.id} sheet={h} onOpen={onOpen}><SheetName sheets={[h]} /> <Copy sheet={h} /></SheetLink>)} />
+    const list = context.lists[q.discipline ?? '']
+    if (first?.number && list?.numbers.includes(first.number)) {
+      const source = <ListSource entry={entry} context={context} onOpen={onOpen} />
+      return <Trans>Trace: the title blocks of {copies}; {source}</Trans>
+    }
+    return <Trans>Trace: the title blocks of {copies}</Trans>
+  }
+  if (q.code === 'takeoff.step1.no_number' && first) {
+    const sheet = <SheetLink sheet={first} onOpen={onOpen}><DrawingText kind="title" text={first.title} truncate={false} /></SheetLink>
+    return <Trans>Trace: the title block of {sheet} (the number field is empty)</Trans>
+  }
+  if (q.kind === 'check') {
+    if (typeof q.params.page === 'number') {
+      const page = q.params.page
+      return <Trans>Trace: page {page} of the Plot</Trans>
+    }
+    const source = <ListSource entry={entry} context={context} onOpen={onOpen} />
+    return <Trans>Trace: {source}</Trans>
+  }
+  if (entry.holds.length > 0) {
+    const sheets = <Joined items={entry.holds.map((h) => <SheetLink key={h.id} sheet={h} onOpen={onOpen} />)} />
+    return <Trans>Trace: the title block of {sheets}</Trans>
+  }
+  return null
 }
 
-/** The Trace line (§5 item 3, 6.7): where each fact the Question stands on was read. */
-export function Trace({ entry, model }: { entry: QuestionEntry; model: Step1Model }) {
-  const f = useFormat()
-  const q = entry.question
-  const sheet = entry.holds[0]
-  const section = model.disciplines.find((d) => d.discipline === q.discipline)
-  let where: ReactNode = null
-  if (q.kind === 'file_misread') {
-    const name = q.subject_id ? model.fileNames[q.subject_id] : undefined
-    const file = name ? <DrawingText kind="file-name" text={name} truncate={false} /> : null
-    where = file ? <Trans>{file}, as each of the two readers read it</Trans> : <Trans>The file, as each of the two readers read it</Trans>
-  } else if (isCopies(entry)) {
-    where = section?.list?.source === 'sheet' ? <Trans>Title blocks of both copies; the drawing list read on a sheet</Trans> : <Trans>Title blocks of both copies</Trans>
-  } else if (q.kind === 'conflict' && entry.holds.length > 1) {
-    where = (
-      <>
-        {entry.holds.map((s, i) => {
-          const name = <SheetName sheets={[s]} />
-          return (
-            <span key={s.id}>
-              {i > 0 ? '; ' : null}
-              <Trans>{name} title block</Trans>
-            </span>
-          )
-        })}
-      </>
-    )
-  } else if (q.code === 'takeoff.step1.no_number') {
-    where = <Trans>Title block text (the number field is empty)</Trans>
-  } else if (q.kind === 'low_confidence' && sheet) {
-    const name = <SheetName sheets={[sheet]} />
-    where = <Trans>{name} title block and its views</Trans>
-  } else if (q.kind === 'check') {
-    const number = typeof q.params.number === 'string' ? <DrawingText kind="sheet-number" text={q.params.number} truncate={false} /> : null
-    const page = typeof q.params.page === 'number' ? f.integer(q.params.page) : null
-    const source = <ListSource section={section} />
-    if (q.code === 'engine.register_check.not_found') where = source
-    else if (q.code === 'engine.register_check.not_listed' && number)
-      where = (
-        <Trans>
-          {number} title block; {source}
-        </Trans>
-      )
-    else if (q.code === 'engine.plot_pages.no_page' && number) where = <Trans>{number} title block; the pages of its Discipline’s PDF</Trans>
-    else if (q.code === 'engine.plot_pages.no_sheet' && page !== null) where = <Trans>Page {page} of the PDF</Trans>
-  } else if (sheet) {
-    const name = <SheetName sheets={[sheet]} />
-    where = <Trans>{name} title block</Trans>
-  }
-  if (!where) return null
+/** "A and B", "A, B and C". */
+function Joined({ items }: { items: readonly ReactNode[] }) {
+  if (items.length <= 1) return <>{items[0] ?? null}</>
+  const head = <>{items.slice(0, -1).flatMap((el, i) => (i === 0 ? [el] : [', ', el]))}</>
+  const tail = items.at(-1)
   return (
-    <>
-      <Trans>Trace:</Trans> {where}
-    </>
+    <Trans>
+      {head} and {tail}
+    </Trans>
   )
 }
 
@@ -218,13 +192,35 @@ function CopyIn({ sheet, other, first }: { sheet: ProposalOut; other: ProposalOu
 }
 
 /**
- * The option picked for the QS, only where the card can name two independent sources that agree on
- * it (ruling 2, §5). For two copies of one number, the title block's later mark and date are one
- * source; the second would be a drawing list whose row names the kept copy's mark ("S-19 R1", 6.7),
- * and the API's drawing list carries numbers only. So in M0 nothing is pre-picked, even where the
- * server marks an option picked: a pick on one source is ruling 2's refusal.
+ * The option the API picked for the QS (screens.md Takeoff ruling 2: only where two independent sources
+ * agree), or none. The card names the sources (§6.7's "Picked for you:"), worked out with `PickSources`.
  */
-export function usePick(_entry: QuestionEntry, _model?: Step1Model): { key: string; sources: ReactNode } | null {
+export function usePick(entry: QuestionEntry): { key: string } | null {
+  const picked = optionsOf(entry).find((o) => o.picked && o.key)
+  return picked?.key ? { key: picked.key } : null
+}
+
+/**
+ * What agrees on the pre-pick, from the facts the screen holds (§6.7's "Picked for you:"): for two copies
+ * of one number, the kept copy's later revision mark and later date. Null where none can be named, and
+ * the card then shows no such line.
+ */
+export function usePickSources(entry: QuestionEntry): ReactNode | null {
+  const pick = usePick(entry)?.key
+  if (!isCopies(entry) || (pick !== 'keep_b' && pick !== 'keep_a')) return null
+  const [later, earlier] = entry.holds as [ProposalOut, ProposalOut]
+  const keep = pick === 'keep_b' ? later : earlier
+  const drop = pick === 'keep_b' ? earlier : later
+  const mark = !!keep.revision_mark.trim() && !!drop.revision_mark.trim() && keep.revision_mark.localeCompare(drop.revision_mark, 'en', { numeric: true }) > 0
+  const date = !!keep.issue_date && !!drop.issue_date && keep.issue_date > drop.issue_date
+  const kept = (
+    <>
+      <SheetName sheets={[keep]} /> <Copy sheet={keep} />
+    </>
+  )
+  if (mark && date) return <Trans>{kept} has the later revision mark and the later date</Trans>
+  if (mark) return <Trans>{kept} has the later revision mark</Trans>
+  if (date) return <Trans>{kept} has the later date</Trans>
   return null
 }
 
@@ -248,8 +244,8 @@ export function OptionWords({ entry, option }: { entry: QuestionEntry; option: O
 }
 
 /** The card's first line (§5 item 2, §6.7), for the option picked (pre-picked in M0), else what it settles. */
-export function Answering({ entry, names, model }: { entry: QuestionEntry; names: Readonly<Record<string, string>>; model?: Step1Model }) {
-  const picked = usePick(entry, model)?.key
+export function Answering({ entry, names }: { entry: QuestionEntry; names: Readonly<Record<string, string>> }) {
+  const picked = usePick(entry)?.key
   const n = entry.holds.length
   const q = entry.question
   if (q.kind === 'file_misread') {

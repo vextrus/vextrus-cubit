@@ -37,7 +37,7 @@ export interface Format {
   count(n: number, N: number | null): string
   share(part: number, whole: number): string
   date(at: Instant | null | undefined): string
-  /** A calendar day sent as an ISO date ("2026-09-12" → "12 Sep 2026"); anything else is "—". */
+  /** A calendar day sent as an ISO date ("2026-09-12" → "12 Sep 2026"); anything else is empty. */
   day(iso: string | null | undefined): string
   time(at: Instant | null | undefined): string
   /** Whole days from now (or `from`) to `at`, counted in the Market's time zone. */

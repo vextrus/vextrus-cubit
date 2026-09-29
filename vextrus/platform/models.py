@@ -80,9 +80,9 @@ class Market(models.Model):
     `tenant` is the Market's Library tenant (a Developer with `is_library`), so the row is read
     through `app.library_id`. Its `code` is the one key unique across every Library (the index
     rule's allowlist). Every value a market decides is here as data: the currency and its minor
-    units, the format profile, the unit systems, the languages, the time zone, the work week and the
-    default home region. Only the owner writes Markets (a data migration); `vextrus_app` may only
-    read them (docs/data-model.md §3.0).
+    units, the format profile, the unit systems, the languages, the time zone, the work week, the
+    default home region and the order its drawings write a date in. Only the owner writes Markets
+    (a data migration); `vextrus_app` may only read them (docs/data-model.md §3.0).
     """
 
     id = models.UUIDField(primary_key=True, default=new_id, editable=False)
@@ -109,18 +109,13 @@ class Market(models.Model):
     default_home_region = models.CharField(max_length=32)
     date_order = models.CharField(
         max_length=3,
-        blank=True,
         db_default="",
-        help_text='How its drawings write a date in figures: "DMY", "MDY" or "YMD"; "" when unknown.',
+        help_text='How its drawings write a date in numbers: "dmy", "mdy" or "ymd"; "" unsaid.',
     )
 
     class Meta:
         constraints: ClassVar = [
             models.UniqueConstraint(fields=["code"], name="platform_market_code_unique"),
-            models.CheckConstraint(
-                condition=models.Q(date_order__in=["", "DMY", "MDY", "YMD"]),
-                name="platform_market_date_order_known",
-            ),
             models.UniqueConstraint(fields=["tenant", "id"], name="platform_market_tenant_id"),
             models.CheckConstraint(
                 condition=models.Q(currency_minor_units__lte=4),

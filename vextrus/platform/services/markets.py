@@ -32,7 +32,7 @@ class MarketProfile:
     days_off: tuple[int, ...]
     default_home_region: str
     date_order: str
-    """How its drawings write a date in figures: "DMY", "MDY" or "YMD"; "" when unknown."""
+    """How its drawings write a date in numbers ("dmy", "mdy", "ymd"); "" while unsaid."""
 
 
 class MarketNotFound(LookupError):

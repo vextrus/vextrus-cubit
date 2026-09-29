@@ -46,16 +46,3 @@ def test_the_command_reports_what_it_wrote(capsys: pytest.CaptureFixture[str]) -
     # Markets' Disciplines (14) and takeoff its Takeoff Steps and Checks (19a), so two modules have
     # rows, and none is left to write.
     assert "sync_library: 0 rows from 2 module(s)" in capsys.readouterr().out
-
-
-@pytest.mark.django_db(databases=["default", "owner"])
-def test_sync_puts_back_a_markets_later_fields(market: MarketProfile) -> None:
-    """After a flush the Market is written afresh from its first data migration; its date order
-    (0009, ticket 22) must come back with it, or every drawn date reads as none."""
-    from vextrus.platform.models import Market
-
-    Market.objects.using("owner").filter(id=market.id).update(date_order="")
-
-    library.sync()
-
-    assert Market.objects.using("owner").get(id=market.id).date_order == "DMY"

@@ -87,8 +87,6 @@ export const QUESTION_KIND_BY_CODE: Readonly<Record<string, MessageDescriptor>> 
   'engine.conflicts.same_title': msg`Two plans draw one thing`,
   'engine.register_check.not_found': msg`On the drawing list, in no file`,
   'engine.register_check.not_listed': msg`In a file, not on the drawing list`,
-  'engine.plot_pages.no_page': msg`On no Plot page`,
-  'engine.plot_pages.no_sheet': msg`A Plot page with no sheet`,
   'takeoff.step1.no_number': msg`No number`,
   'takeoff.step1.which_kind': msg`Sheet kind unclear`,
 }
@@ -98,7 +96,7 @@ export const QUESTION_KINDS: Readonly<Record<string, MessageDescriptor>> = {
   conflict: msg`Two sheets, one number`,
   missing: msg`No number`,
   low_confidence: msg`Sheet kind unclear`,
-  check: msg`A Check`,
+  check: msg`A Check against the drawing list`,
 }
 
 export const OTHER_QUESTION = msg`A Question about the sheets`
@@ -198,38 +196,34 @@ export const SHEET_KIND_NAMES: Readonly<Record<string, MessageDescriptor>> = {
 
 export const OTHER_OPTION = msg`An answer Vextrus has no words for yet`
 
-/** Where a value was read (m0-screens 6.6's Proposal block, "where each was read"). */
-export const SOURCE_NAMES: Readonly<Record<string, MessageDescriptor>> = {
-  title_block_attribute: msg`title-block attribute`,
-  title_block_text: msg`text in the title block`,
-  file_name: msg`from the file name`,
-  file: msg`from the file`,
+/** A view's kind (m0-screens §6.6's Views: "Plan", "Detail"), by 13's ViewKind. */
+export const VIEW_KINDS: Readonly<Record<string, MessageDescriptor>> = {
+  plan: msg({ message: 'Plan', context: 'view kind' }),
+  section: msg({ message: 'Section', context: 'view kind' }),
+  elevation: msg({ message: 'Elevation', context: 'view kind' }),
+  schedule: msg({ message: 'Schedule', context: 'view kind' }),
+  detail: msg({ message: 'Detail', context: 'view kind' }),
+  notes: msg({ message: 'Notes', context: 'view kind' }),
+  legend: msg({ message: 'Legend', context: 'view kind' }),
+  title_block: msg({ message: 'Title block', context: 'view kind' }),
+  key_plan: msg({ message: 'Key plan', context: 'view kind' }),
+  perspective: msg({ message: '3D or perspective', context: 'view kind' }),
 }
+export const OTHER_VIEW_KIND = msg({ message: 'View', context: 'view kind' })
 
-/** A view's kind (6.6's Views: "Plan", "Detail"). */
-export const VIEW_KIND_NAMES: Readonly<Record<string, MessageDescriptor>> = {
-  plan: msg`Plan`,
-  section: msg`Section`,
-  elevation: msg`Elevation`,
-  schedule: msg`Schedule`,
-  detail: msg`Detail`,
-  notes: msg`Notes`,
-  legend: msg`Legend`,
-  title_block: msg`Title block`,
-  key_plan: msg`Key plan`,
-  perspective: msg`3D or perspective`,
-}
-export const OTHER_VIEW_KIND = msg`View`
-
-/** What a plan's storey list means (6.8). */
-export const STOREYS_MEANING: Readonly<Record<string, MessageDescriptor>> = {
+/** What a view's storeys mean (§6.8). */
+export const STOREY_MEANINGS: Readonly<Record<string, MessageDescriptor>> = {
   at_floor_level: msg`at floor level`,
   floor_to_floor: msg`floor to floor`,
-  mixed: msg`mixed`,
 }
-export const NOT_TO_SCALE = msg`not to scale`
 
-/** The Library's Takeoff Steps by key, in the building-first order (vextrus/takeoff/library.py; ADR
- * 0007): step n is the n-th. Coverage and a view's proposed steps name them by key. */
+/** An actor's role in "who did what" (§6.6: "Nusrat Jahan, QS"). */
+export const ROLE_NAMES: Readonly<Record<string, MessageDescriptor>> = {
+  qs: msg({ message: 'QS', context: 'role' }),
+  md: msg({ message: 'MD', context: 'role' }),
+  vextrus_engineer: msg({ message: 'Vextrus Engineer', context: 'role' }),
+  guest: msg({ message: 'Guest', context: 'role' }),
+}
+
+/** 19a's Takeoff Steps by key, in order: step n is `STEP_KEYS[n - 1]` (vextrus/takeoff/library.py). */
 export const STEP_KEYS = ['sheets', 'general_notes', 'storeys', 'grid', 'foundations', 'columns', 'beams', 'slabs', 'stairs', 'tanks', 'walls', 'rooms', 'roof', 'site_mep'] as const
-export const UNKNOWN_STEP = msg`A step Vextrus has no name for yet`

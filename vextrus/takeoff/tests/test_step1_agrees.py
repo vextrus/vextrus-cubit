@@ -6,9 +6,11 @@ agrees."""
 
 import uuid
 from dataclasses import replace
+from datetime import timedelta
 from typing import Any
 
 import pytest
+from django.utils import timezone
 
 from engine.messages import Message
 from vextrus.drawings import services as drawings
@@ -117,3 +119,83 @@ def test_with_no_list_a_run_without_a_gap_and_its_plot_pages_agree(
     monkeypatch.setattr(step1, "_sheets", with_plots)
 
     assert agrees(step1_project) == {"S-01": True, "S-02": True, "S-03": False}
+
+
+def test_an_issue_date_reaches_the_web_as_an_iso_date_in_the_markets_order(
+    step1_project: Step1Project, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The design gate's M1: "12.09.2026" is the 12th of September in the Market's day-month order,
+    never the 9th of December; what is no calendar day is null."""
+    written = {"S-01": "12.09.2026", "S-02": "31.02.2026", "S-03": ""}
+    read = step1._sheets
+    monkeypatch.setattr(
+        step1,
+        "_sheets",
+        lambda project_id: [replace(s, issue_date=written[s.number or ""]) for s in read(project_id)],
+    )
+
+    body = (
+        api_as(step1_project.member)
+        .get(f"/api/projects/{step1_project.project_id}/takeoff/step1/proposals")
+        .json()
+    )
+
+    assert {p["number"]: p["issue_date"] for p in body["proposals"]} == {
+        "S-01": "2026-09-12",
+        "S-02": None,
+        "S-03": None,
+    }
+
+
+def test_the_md_and_a_guest_are_told_the_qs_by_name(step1_project: Step1Project, sign_in: Any) -> None:
+    """The design gate's M11 (m0-screens §6.12): the read-only bar names the QS ("Nusrat Jahan (QS)
+    confirms the sheet list"). Only the QS members who may open this Project, by name, never an email;
+    a revoked QS or one given another Project is not named."""
+    developer = step1_project.member.developer_id
+    md = sign_in(role="md", developer_id=developer)
+    guest = sign_in(role="guest", developer_id=developer, projects=[step1_project.project_id])
+    elsewhere = sign_in(role="qs", developer_id=developer, projects=[uuid.uuid4()])
+    gone = sign_in(role="qs", developer_id=developer, expires_at=timezone.now() - timedelta(days=1))
+    qs = step1_project.member.user
+
+    for reader in (md, guest, step1_project.member):
+        path = f"/api/projects/{step1_project.project_id}/takeoff/step1/progress"
+        body = api_as(reader).get(path).json()
+        assert body["qs"] == [qs.name], reader.role
+        assert elsewhere.user.name not in body["qs"]
+        assert gone.user.name not in body["qs"]
+        assert all("@" not in name for name in body["qs"])
+
+
+def test_a_list_read_on_a_sheet_names_the_sheet_it_was_read_on(step1_project: Step1Project) -> None:
+    """ "13 on the drawing list on S-01" (m0-screens §6.3) and Q5's Trace (the gate's M4) need the
+    sheet: the list's `read_on` is that printed sheet; a list the QS typed has none."""
+    project = step1_project.project_id
+    path = f"/api/projects/{project}/takeoff/step1/drawing-list"
+    reader = api_as(step1_project.member)
+    assert reader.get(path, discipline="structural").json()["read_on"] is None
+
+    with step1_project.member.acting():
+        step1.record_read_list(
+            step1_project.sheets[0], "structural", [("S-01", "NOTES"), ("S-02", "PLAN")]
+        )
+
+    assert reader.get(path, discipline="structural").json()["read_on"] == str(step1_project.sheets[0])
+
+
+def test_a_proposal_carries_where_each_fact_was_read_and_its_views(step1_project: Step1Project) -> None:
+    """The design gate's M7 and M2 (m0-screens §6.2, §6.6): the inspector's "where each was read"
+    (number, title, storeys, file and layout, Plot) and the Views section and column come from the
+    Proposal; a sheet read from a frame in the drawing has no layout, and none here has a Plot page."""
+    body = (
+        api_as(step1_project.member)
+        .get(f"/api/projects/{step1_project.project_id}/takeoff/step1/proposals")
+        .json()
+    )
+    first = body["proposals"][0]
+    assert first["number_source"] in {"title_block_attribute", "title_block_text"}
+    assert first["title_source"] in {"title_block_attribute", "title_block_text"}
+    assert (first["layout"], first["plot_page"], first["plot_file"]) == (None, None, None)
+    assert [v["kind"] for v in first["views"]] == ["title_block"]
+    shown = {"title", "stated_scale", "storeys", "storeys_meaning", "steps", "box"}
+    assert set(first["views"][0]) >= shown

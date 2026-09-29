@@ -22,27 +22,30 @@ import { AppLink, PATHS } from '@/app/AppLink'
 import { sessionQuery, type ProjectSummary, type Session } from '@/app/session'
 import { SlotFill } from '@/app/slots'
 import { LoadProblem, readOnlyRole, usePageTitle, useReadOnlyToast } from '@/auth'
-import { SheetViewer } from '@/sheet'
-import { DrawingText, Empty, IconButton, KeyRegion, KeyScope, Skeleton, cn, SheetsGlyph, buttonVariants, useKeys } from '@/ui'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/ui/primitives/dialog'
+import { SheetViewer, type SheetOutline } from '@/sheet'
 import { useFormat } from '@/format'
+import { Popover, PopoverContent, PopoverTrigger } from '@/ui/primitives/popover'
+import { DrawingText, Empty, IconButton, KeyRegion, KeyScope, Skeleton, SheetsGlyph, buttonVariants, cn, isolateLtr, useKeys } from '@/ui'
 import { SheetName, useStep1Acts } from './acts'
 import { Bar, ExclusionPicker, useBar } from './Bar'
-import { renderQuery, useStep1, type CoverageOut, type ProposalOut } from './data'
+import { renderQuery, useStep1, type CoverageOut, type ProposalOut, type ViewOut } from './data'
 import { DrawingListDialog } from './DrawingListDialog'
+import { FilesBand } from './FilesBand'
+import { ReportPanel } from '@/drawing-set/ReportPanel'
+import { disciplinesQuery, type FileOut } from '@/drawing-set/data'
 import { nextOpenRow, step1Model, type Reason, type Row, type Step1Model } from './model'
-import { SheetList } from './SheetList'
-import { NOT_TO_SCALE, OTHER_VIEW_KIND, VIEW_KIND_NAMES } from './words'
-import { CoverageLine, CoveragePanel, Overview, QuestionCard, QuestionsTab, SheetFacts } from './Step1Inspector'
+import { SheetList, disciplineName } from './SheetList'
+import { OTHER_VIEW_KIND, VIEW_KINDS } from './words'
+import { stripSlots } from './storeys'
+import { CoverageLine, CoveragePanel, Overview, QuestionCard, QuestionsTab, SheetFacts, cardContext } from './Step1Inspector'
 
 const projectRoute = getRouteApi('/_app/p/$code')
 
 export function Step1Page() {
   const { t } = useLingui()
+  usePageTitle(t`Step 1, Sheets`)
   const { data: session } = useSuspenseQuery(sessionQuery)
   const project = projectRoute.useLoaderData()
-  const code = project.code
-  usePageTitle(t`Step 1, Sheets · ${code}`)
   const { data, error, retry } = useStep1(project.id)
   if (!data) {
     if (error) return <LoadProblem error={error} onRetry={retry} className="m-4" />
@@ -121,12 +124,11 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
   const [openSheet, setOpenSheet] = useState<string | null>(start?.sheet ?? null)
   const [picker, setPicker] = useState<Row | null>(null)
   const [listFor, setListFor] = useState<string | null>(null)
-  const [panel, setPanel] = useState<'coverage' | null>(null)
-  /** Sheet mode's selected view, by its ordinal (→ ← walk them, §6.5). */
-  const [view, setView] = useState<string | null>(null)
-  const [choosing, setChoosing] = useState(false)
-  /** Bumped when the sheet picker closes: focus goes back to the sheet it left. */
-  const [refocus, setRefocus] = useState(0)
+  const [panel, setPanel] = useState<'coverage' | { file: FileOut } | null>(null)
+  const disciplines = useQuery(disciplinesQuery(project.id))
+  /** The view selected in sheet mode (→ ←, a click on its outline), of the sheet it was selected on. */
+  const [sheetPicker, setSheetPicker] = useState(false)
+  const [viewPick, setViewPick] = useState<{ sheet: string; view: string } | null>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const focusNext = useRef<string | null>(null)
 
@@ -135,6 +137,15 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
   const order = sheetsInOrder(model)
   const open = order.find((s) => s.id === openSheet) ?? null
   const focusedRow = mode === 'sheet' ? rowOfSheet(openSheet) : rowByKey(focused)
+  const selectedView = mode === 'sheet' && open && viewPick?.sheet === open.id ? viewPick.view : null
+  const viewsInOrder = open ? [...(open.views ?? [])].sort((a, b) => a.ordinal - b.ordinal) : []
+  /** → ←: the next or previous view in reading order; past either end, none. */
+  const stepView = (by: 1 | -1) => {
+    if (mode !== 'sheet' || !open || viewsInOrder.length === 0) return
+    const at = viewsInOrder.findIndex((v) => v.id === selectedView)
+    const next = at === -1 ? (by > 0 ? viewsInOrder[0] : viewsInOrder.at(-1)) : viewsInOrder[at + by]
+    setViewPick(next ? { sheet: open.id, view: next.id } : null)
+  }
 
   // A row focused by the keys (↑ ↓, Q, back from a sheet) takes the browser's focus once it is drawn.
   useLayoutEffect(() => {
@@ -157,8 +168,17 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
     const first = row.sheets[0]
     if (!first) return
     setPicker(null)
-    setView(null)
     setOpenSheet(first.id)
+    setFocused(row.key)
+    setMode('sheet')
+  }
+
+  /** A Trace link: open that sheet in sheet mode. */
+  const openSheetOf = (sheet: ProposalOut) => {
+    const row = rowOfSheet(sheet.id)
+    if (!row) return
+    setPicker(null)
+    setOpenSheet(sheet.id)
     setFocused(row.key)
     setMode('sheet')
   }
@@ -181,12 +201,18 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
     focusRow(next.key)
   }
 
+  const nextQuestion = () => {
+    const next = nextOpenRow(model.rows, mode === 'sheet' ? (rowOfSheet(openSheet)?.key ?? focused) : focused, true)
+    if (!next) return
+    if (mode === 'sheet') setMode('list')
+    focusRow(next.key)
+  }
+
   /** After an act in sheet mode, the next sheet in list order still a Proposal (wrapping). */
   const openNextProposal = (after: string) => {
     const at = order.findIndex((s) => s.id === after)
     const ring = [...order.slice(at + 1), ...order.slice(0, at + 1)]
     const next = ring.find((s) => s.decision === null && s.id !== after && !rowOfSheet(s.id)?.question)
-    setView(null)
     if (next) setOpenSheet(next.id)
     else toList()
   }
@@ -199,16 +225,6 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
     if (done && thenNext && mode === 'sheet' && openSheet) openNextProposal(openSheet)
   }
 
-  const nextQuestion = () => {
-    const next = nextOpenRow(model.rows, mode === 'sheet' ? (rowOfSheet(openSheet)?.key ?? focused) : focused, true)
-    if (!next) return
-    if (mode === 'sheet') {
-      setMode('list')
-      setPicker(null)
-    }
-    focusRow(next.key)
-  }
-
   const bar = useBar({
     model,
     row: focusedRow,
@@ -217,27 +233,15 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
     bulk: () => void acts.bulk(model.bulk.confirm, model.bulk.leaveOut),
     confirmRow: (row, thenNext) => void confirmRow(row, thenNext),
     nextOpen,
-    openRow,
     nextQuestion,
+    openRow,
   })
 
   const page = (by: number) => {
     if (mode !== 'sheet' || !open) return
     const at = order.findIndex((s) => s.id === open.id)
     const next = order[at + by]
-    if (next) {
-      setView(null)
-      setOpenSheet(next.id)
-    }
-  }
-
-  /** → ←: the next or previous view on the open sheet, in reading order; past the last, none (§6.5). */
-  const stepView = (by: number) => {
-    const views = open?.views ?? []
-    if (mode !== 'sheet' || views.length === 0) return
-    const at = view === null ? -1 : views.findIndex((v) => String(v.ordinal) === view)
-    const next = by > 0 ? (at === -1 ? 0 : at + 1) : at === -1 ? views.length - 1 : at - 1
-    setView(next >= 0 && next < views.length ? String(views[next]!.ordinal) : null)
+    if (next) setOpenSheet(next.id)
   }
 
   const moveFocus = (by: number) => {
@@ -266,11 +270,11 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
     { key: '↓', label: t`Next row; in a sheet, the next sheet`, group: 'screen', run: () => moveFocus(1) },
     { key: '↑', label: t`Previous row; in a sheet, the previous sheet`, group: 'screen', run: () => moveFocus(-1) },
     { key: ']', label: t`Next sheet`, group: 'screen', when: () => mode === 'sheet', run: () => page(1) },
-    { key: '[', label: t`Previous sheet`, group: 'screen', when: () => mode === 'sheet', run: () => page(-1) },
-    { key: 'Q', label: t`Next open Question`, group: 'screen', run: nextQuestion },
     { key: '→', label: t`Next view on the sheet`, group: 'screen', when: () => mode === 'sheet', run: () => stepView(1) },
     { key: '←', label: t`Previous view on the sheet`, group: 'screen', when: () => mode === 'sheet', run: () => stepView(-1) },
-    { key: 'S', label: t`The sheet picker`, group: 'screen', when: () => mode === 'sheet', run: () => setChoosing(true) },
+    { key: 'S', label: t`The sheet picker`, group: 'screen', when: () => mode === 'sheet', run: () => setSheetPicker(true) },
+    { key: '[', label: t`Previous sheet`, group: 'screen', when: () => mode === 'sheet', run: () => page(-1) },
+    { key: 'Q', label: t`Next open Question`, group: 'screen', run: nextQuestion },
     {
       key: 'Esc',
       label: t`Back to the list; in the list, clear the focus`,
@@ -278,7 +282,7 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
       when: () => mode === 'sheet' || panel !== null || focused !== null,
       run: () => {
         if (panel) setPanel(null)
-        else if (mode === 'sheet' && view !== null) setView(null)
+        else if (selectedView) setViewPick(null)
         else if (mode === 'sheet') toList()
         else {
           setFocused(null)
@@ -294,20 +298,24 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
     if (row && row.sheets.length > 0) openRow(row)
   }
 
-  const selection = panel === 'coverage' ? (
+  const selection = panel && panel !== 'coverage' ? (
+    <ReportPanel key={panel.file.id} projectId={project.id} file={panel.file} disciplines={disciplines.data} onClose={() => setPanel(null)} />
+  ) : panel === 'coverage' ? (
     <CoveragePanel
       coverage={coverage}
       held={model.queue.filter((e) => e.question.kind === 'file_misread' && e.question.subject_id && model.fileNames[e.question.subject_id]).map((e) => model.fileNames[e.question.subject_id!]!)}
     />
   ) : focusedRow ? (
     <>
-      {focusedRow.question ? <QuestionCard entry={focusedRow.question} readOnly={readOnly} model={model} /> : null}
+      {focusedRow.question ? <QuestionCard entry={focusedRow.question} readOnly={readOnly} context={cardContext(model)} onOpen={openSheetOf} /> : null}
       <SheetFacts
         row={focusedRow}
         showTitle={mode === 'list'}
         readOnly={readOnly !== null}
-        onExclude={focusedRow.sheets.length > 0 ? () => setPicker(focusedRow) : undefined}
-        onConfirmBackIn={() => void confirmRow(focusedRow, false)}
+        acts={{ exclude: excludeKey, confirmBackIn: () => void confirmRow(focusedRow, false) }}
+        selectedView={selectedView}
+        slots={stripSlots(model.rows.flatMap((r) => r.sheets.map((p) => p.views)))}
+        onSelectView={mode === 'sheet' && open ? (view) => setViewPick({ sheet: open.id, view }) : undefined}
       />
     </>
   ) : (
@@ -320,7 +328,7 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
   return (
     <div className="absolute inset-0 flex flex-col">
       <SlotFill slot="toolbar.end" order={0}>
-        <ModeSwitch mode={mode} onList={() => mode === 'sheet' && toList()} onSheet={() => mode === 'list' && fromList()} />
+        <ModeSwitch mode={mode} title={spaceLabel} onList={() => mode === 'sheet' && toList()} onSheet={() => mode === 'list' && fromList()} />
       </SlotFill>
       <SlotFill slot="status.end" order={0}>
         <button type="button" onClick={() => setPanel('coverage')} className="hover:text-foreground hover:underline">
@@ -332,12 +340,13 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
       </SlotFill>
       <SlotFill slot="inspector.questions">
         <div className="flex w-full flex-col">
-          <QuestionsTab model={model} readOnly={readOnly} />
+          <QuestionsTab model={model} readOnly={readOnly} onOpen={openSheetOf} />
         </div>
       </SlotFill>
 
       {mode === 'list' ? (
         <ListRegion label={spaceLabel} onSpace={fromList}>
+          <FilesBand projectId={project.id} onOpen={(file) => setPanel({ file })} />
           <SheetList
             ref={listRef}
             model={model}
@@ -357,11 +366,17 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
           label={spaceLabel}
           onSpace={toList}
           onPage={page}
-          held={!!rowOfSheet(open.id)?.question}
-          view={view}
-          onSelectView={setView}
-          onChoose={() => setChoosing(true)}
-          refocus={refocus}
+          model={model}
+          selectedView={selectedView}
+          onSelectView={(view) => setViewPick({ sheet: open.id, view })}
+          picker={sheetPicker}
+          onPicker={setSheetPicker}
+          onPick={(sheet) => {
+            setSheetPicker(false)
+            setOpenSheet(sheet.id)
+            const row = rowOfSheet(sheet.id)
+            if (row) setFocused(row.key)
+          }}
         />
       ) : null}
 
@@ -383,28 +398,13 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
         ) : null}
       </div>
 
-      {choosing ? (
-        <SheetPicker
-          model={model}
-          current={openSheet}
-          onClose={() => {
-            setChoosing(false)
-            setRefocus((n) => n + 1)
-          }}
-          onPick={(row) => {
-            setChoosing(false)
-            openRow(row)
-          }}
-        />
-      ) : null}
-
       {listFor ? (
         <DrawingListDialog
           projectId={project.id}
           discipline={listFor}
           fileName={pasteFile}
-          example={pasteSection?.numbering ? { first: pasteSection.numbering.first, last: pasteSection.numbering.last } : null}
           given={pasteSection?.list && pasteSection.list.source !== 'sheet' ? pasteSection.list.numbers.join('\n') : ''}
+          example={pasteSection?.numbering ? `${pasteSection.numbering.first}–${pasteSection.numbering.last}` : null}
           readOnly={readOnly !== null}
           onClose={() => setListFor(null)}
           onUse={(text) => acts.setDrawingList(listFor, text)}
@@ -414,20 +414,19 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
   )
 }
 
-const MODE_PART = cn(
-  'inline-flex h-control items-center border border-border-strong px-2 text-xs font-medium whitespace-nowrap text-muted-foreground',
-  'hover:text-foreground aria-pressed:bg-paper aria-pressed:text-foreground',
-)
-
-/** The toolbar's "List | Sheet" (§6.1, §6.5): two toggle buttons, Space doing the same by key. */
-function ModeSwitch({ mode, onList, onSheet }: { mode: 'list' | 'sheet'; onList: () => void; onSheet: () => void }) {
+/**
+ * The toolbar's "List | Sheet" (§6.1, §6.5): the same as Space, by mouse. Two toggle buttons, the
+ * current one pressed, at the toolbar's control height (so the toolbar keeps one line, §8 item 6).
+ */
+function ModeSwitch({ mode, title, onList, onSheet }: { mode: 'list' | 'sheet'; title: string; onList: () => void; onSheet: () => void }) {
   const { t } = useLingui()
+  const item = cn('h-control px-2.5 text-sm text-ink-secondary hover:bg-hover aria-pressed:bg-paper aria-pressed:font-medium aria-pressed:text-foreground')
   return (
-    <div role="group" aria-label={t`List or sheet`} className="inline-flex items-center">
-      <button type="button" aria-pressed={mode === 'list'} title={t`Back to the list (Space)`} onClick={onList} className={cn(MODE_PART, 'rounded-s-md')}>
+    <div role="group" aria-label={t`List or sheet`} className="inline-flex overflow-hidden rounded-md bg-chrome-sunken ring-1 ring-border-strong">
+      <button type="button" aria-pressed={mode === 'list'} title={title} aria-keyshortcuts="Space" onClick={onList} className={item}>
         <Trans>List</Trans>
       </button>
-      <button type="button" aria-pressed={mode === 'sheet'} title={t`Open a sheet (Space)`} onClick={onSheet} className={cn(MODE_PART, 'rounded-e-md border-s-0')}>
+      <button type="button" aria-pressed={mode === 'sheet'} title={title} aria-keyshortcuts="Space" onClick={onSheet} className={item}>
         <Trans>Sheet</Trans>
       </button>
     </div>
@@ -450,78 +449,97 @@ function SpaceKey({ label, run }: { label: string; run: () => void }) {
   return null
 }
 
-/** Sheet mode (§6.5): the open sheet in the viewer with its views' outlines and the legend; its label and paging in the toolbar. */
+/** "Plan, 1:100" / "Detail, not to scale": a view's tag on its outline (§6.5). */
+function useViewTag() {
+  const { i18n, t } = useLingui()
+  return (v: ViewOut) => {
+    const kind = i18n._(VIEW_KINDS[v.kind] ?? OTHER_VIEW_KIND)
+    if (v.not_to_scale) return t`${kind}, not to scale`
+    if (v.stated_scale) {
+      const scale = isolateLtr(v.stated_scale)
+      return t`${kind}, ${scale}`
+    }
+    return kind
+  }
+}
+
+/** A view's tone on the canvas and in the legend (§6.5, 6.11): excluded, held by a Question, assigned, or a Proposal. */
+function viewTone(v: ViewOut, sheet: ProposalOut, held: boolean): SheetOutline['tone'] {
+  if (v.decision === 'excluded' || sheet.decision === 'excluded' || (v.proposed_exclusion && sheet.decision === 'confirmed')) return 'excluded'
+  if (held) return 'question'
+  if (sheet.decision === 'confirmed') return 'assigned'
+  return 'proposal'
+}
+
+/** 4.6's legend, counting views (§6.5): "Proposal 2 · Assigned 0 · Question 0 · Excluded 0". */
+function Legend({ tones }: { tones: readonly SheetOutline['tone'][] }) {
+  const f = useFormat()
+  const count = (tone: SheetOutline['tone']) => f.integer(tones.filter((x) => x === tone).length)
+  const [p, a, q, x] = [count('proposal'), count('assigned'), count('question'), count('excluded')]
+  return (
+    <Trans>
+      Proposal {p} · Assigned {a} · Question {q} · Excluded {x}
+    </Trans>
+  )
+}
+
+/** Sheet mode (§6.5): the open sheet in the viewer with its views; its label, the picker and paging in the toolbar. */
 function SheetMode({
   projectId,
   sheet,
   label,
   onSpace,
   onPage,
-  held,
-  view,
+  model,
+  selectedView,
   onSelectView,
-  onChoose,
-  refocus,
+  picker,
+  onPicker,
+  onPick,
 }: {
   projectId: string
   sheet: ProposalOut
   label: string
   onSpace: () => void
   onPage: (by: number) => void
-  held: boolean
-  view: string | null
-  onSelectView: (key: string | null) => void
-  onChoose: () => void
-  refocus: number
+  model: Step1Model
+  selectedView: string | null
+  onSelectView: (id: string) => void
+  picker: boolean
+  onPicker: (open: boolean) => void
+  onPick: (sheet: ProposalOut) => void
 }) {
-  const { t, i18n } = useLingui()
+  const { t } = useLingui()
   const render = useQuery(renderQuery(projectId, sheet.sheet_id))
   const region = useRef<HTMLDivElement>(null)
   const name = sheet.number ?? sheet.title
-  const outlines = useMemo(
+  const tag = useViewTag()
+  const held = model.rows.some((r) => r.question && r.sheets.some((s) => s.id === sheet.id))
+  const outlines = useMemo<SheetOutline[]>(
     () =>
-      (sheet.views ?? []).map((v) => {
-        const kind = i18n._(VIEW_KIND_NAMES[v.kind] ?? OTHER_VIEW_KIND)
-        const scale = v.not_to_scale ? i18n._(NOT_TO_SCALE) : v.stated_scale
-        return {
-          key: String(v.ordinal),
-          box: v.box.map(Number) as unknown as readonly [number, number, number, number],
-          tag: scale ? t`${kind}, ${scale}`.replace(/[\u2066-\u2069]/g, '') : kind,
-          question: held,
-          excluded: v.decision === 'excluded' || sheet.decision === 'excluded',
-        }
-      }),
-    [sheet, held, i18n, t],
+      [...(sheet.views ?? [])]
+        .sort((a, b) => a.ordinal - b.ordinal)
+        .map((v) => {
+          const [x0, y0, x1, y1] = v.box.map(Number) as [number, number, number, number]
+          return { id: v.id, box: { x0, y0, x1, y1 }, tag: tag(v), tone: viewTone(v, sheet, held) }
+        })
+        .filter((o) => [o.box.x0, o.box.y0, o.box.x1, o.box.y1].every(Number.isFinite) && o.box.x1 > o.box.x0 && o.box.y1 > o.box.y0),
+    [sheet, held, tag],
   )
 
-  // Focus follows the sheet into the canvas as it opens, as it pages, and when the picker closes (§6.1).
+  // Focus follows the sheet into the canvas as it opens and as it pages (§6.1).
   useLayoutEffect(() => {
     const el = region.current
     if (!el) return
-    const frame = requestAnimationFrame(() => {
-      const canvas = el.querySelector<HTMLElement>('[role="group"][tabindex]')
-      if (canvas) canvas.focus({ preventScroll: true })
-      else if (!el.contains(document.activeElement)) el.focus({ preventScroll: true })
-    })
-    return () => cancelAnimationFrame(frame)
-  }, [render.data, sheet.id, refocus])
+    const canvas = el.querySelector<HTMLElement>('[role="group"][tabindex]')
+    if (canvas) canvas.focus({ preventScroll: true })
+    else if (!el.contains(document.activeElement)) el.focus({ preventScroll: true })
+  }, [render.data, sheet.id])
 
   return (
     <>
       <SlotFill slot="toolbar.start" order={1}>
-        <button
-          type="button"
-          onClick={onChoose}
-          aria-keyshortcuts="S"
-          title={t`The sheet picker: S`}
-          className="inline-flex h-control max-w-[250px] min-w-0 items-center gap-1 rounded-md px-1.5 text-sm hover:bg-hover"
-        >
-          <span className="font-semibold">
-            <SheetName sheets={[sheet]} />
-          </span>
-          <DrawingText kind="title" text={sheet.title} className="min-w-0 text-ink-secondary" />
-          <ChevronDown aria-hidden strokeWidth={1.5} className="size-3.5 shrink-0" />
-        </button>
+        <SheetPicker sheet={sheet} model={model} open={picker} onOpen={onPicker} onPick={onPick} />
         <IconButton label={t`Previous sheet`} combo="[" onClick={() => onPage(-1)}>
           <ChevronLeft strokeWidth={1.5} className="rtl:-scale-x-100" />
         </IconButton>
@@ -539,9 +557,10 @@ function SheetMode({
               label={name}
               onRetry={() => void render.refetch()}
               outlines={outlines}
-              selected={view}
+              selected={selectedView}
               onSelect={onSelectView}
-              toolbarLabel={false}
+              legend={(sheet.views ?? []).length > 0 ? <Legend tones={(sheet.views ?? []).map((v) => viewTone(v, sheet, held))} /> : null}
+              labelInToolbar={false}
             />
           ) : render.error ? (
             <LoadProblem error={render.error} onRetry={() => void render.refetch()} className="m-4" />
@@ -549,74 +568,59 @@ function SheetMode({
             <Skeleton rows={6} className="m-6" status={<Trans>Opening <SheetName sheets={[sheet]} />…</Trans>} />
           )}
         </div>
-        <Legend sheet={sheet} held={held} />
       </KeyRegion>
     </>
   )
 }
 
-/** 4.6's legend, counting the sheet's views (§6.5): "Proposal 2 · Assigned 0 · Question 0 · Excluded 0". */
-function Legend({ sheet, held }: { sheet: ProposalOut; held: boolean }) {
-  const f = useFormat()
-  const views = sheet.views ?? []
-  const out = (v: (typeof views)[number]) => v.decision === 'excluded' || sheet.decision === 'excluded'
-  const count = { proposal: 0, assigned: 0, question: 0, excluded: 0 }
-  for (const v of views) {
-    if (out(v)) count.excluded += 1
-    else if (held) count.question += 1
-    else if (sheet.decision === 'confirmed') count.assigned += 1
-    else count.proposal += 1
-  }
-  const proposal = f.integer(count.proposal)
-  const assigned = f.integer(count.assigned)
-  const question = f.integer(count.question)
-  const excluded = f.integer(count.excluded)
+/** The sheet label as a button (§6.5: "S-20 8th & 9th floor beam layout ▾", at most 250 px) opening "Sheets, in list order". */
+function SheetPicker({ sheet, model, open, onOpen, onPick }: { sheet: ProposalOut; model: Step1Model; open: boolean; onOpen: (open: boolean) => void; onPick: (sheet: ProposalOut) => void }) {
+  const { t } = useLingui()
+  const groups: { key: string; heading: ReactNode; sheets: ProposalOut[] }[] = [
+    { key: 'needs', heading: <Trans>Needs you</Trans>, sheets: model.needsYou.flatMap((r) => [...r.sheets]) },
+    { key: 'out', heading: <Trans>Proposed to leave out</Trans>, sheets: model.proposedOut.flatMap((r) => [...r.sheets]) },
+    ...model.disciplines.map((d) => ({ key: d.discipline, heading: <DisciplineName discipline={d.discipline} />, sheets: d.rows.flatMap((r) => [...r.sheets]) })),
+  ].filter((g) => g.sheets.length > 0)
   return (
-    <div data-legend="" className="pointer-events-none absolute inset-x-0 top-2 z-[1] flex justify-center">
-      <span className="rounded-md border border-border bg-popover px-2 py-0.5 text-xs text-ink-secondary shadow-1">
-        <Trans>
-          Proposal {proposal} · Assigned {assigned} · Question {question} · Excluded {excluded}
-        </Trans>
-      </span>
-    </div>
+    <Popover open={open} onOpenChange={onOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-keyshortcuts="S"
+          className="inline-flex h-control max-w-[250px] min-w-0 items-center gap-1.5 rounded-md px-2 text-sm hover:bg-hover"
+        >
+          {sheet.number ? <DrawingText kind="sheet-number" text={sheet.number} truncate={false} className="shrink-0 font-semibold" /> : null}
+          <DrawingText kind="title" text={sheet.title} className="min-w-0 text-ink-secondary" />
+          <ChevronDown strokeWidth={1.5} className="size-3.5 shrink-0" aria-hidden />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="max-h-[60vh] w-80 overflow-auto p-1" aria-label={t`Sheets, in list order`}>
+        <p className="px-2 py-1 text-xs font-semibold text-ink-secondary">
+          <Trans>Sheets, in list order</Trans>
+        </p>
+        {groups.map((g) => (
+          <div key={g.key} role="group" className="py-0.5">
+            <p className="px-2 text-2xs text-muted-foreground">{g.heading}</p>
+            {g.sheets.map((s) => (
+              <button
+                key={`${g.key}:${s.id}`}
+                type="button"
+                aria-current={s.id === sheet.id ? 'true' : undefined}
+                onClick={() => onPick(s)}
+                className="flex w-full min-w-0 items-center gap-2 rounded-sm px-2 py-1 text-start text-sm hover:bg-hover aria-[current=true]:bg-selected"
+              >
+                <span className="w-12 shrink-0 font-semibold">{s.number ? <DrawingText kind="sheet-number" text={s.number} truncate={false} /> : <Trans>none</Trans>}</span>
+                <DrawingText kind="title" text={s.title} className="min-w-0" />
+              </button>
+            ))}
+          </div>
+        ))}
+      </PopoverContent>
+    </Popover>
   )
 }
 
-/** The sheet picker (§6.5, `S`): "Sheets, in list order", grouped as the list. */
-function SheetPicker({ model, current, onClose, onPick }: { model: Step1Model; current: string | null; onClose: () => void; onPick: (row: Row) => void }) {
-  const { t } = useLingui()
-  const rows = model.rows.filter((r) => r.sheets.length > 0)
-  return (
-    <KeyScope level="dialog" name="sheet-picker">
-      <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>
-              <Trans>Sheets, in list order</Trans>
-            </DialogTitle>
-            <DialogDescription>
-              <Trans>Click a sheet, or Tab to it and press Enter; Esc closes.</Trans>
-            </DialogDescription>
-          </DialogHeader>
-          <ul aria-label={t`Sheets`} className="flex max-h-[50vh] flex-col overflow-y-auto">
-            {rows.map((row) => (
-              <li key={row.key}>
-                <button
-                  type="button"
-                  autoFocus={row.sheets.some((s) => s.id === current)}
-                  onClick={() => onPick(row)}
-                  className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-start text-sm hover:bg-hover focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-ring"
-                >
-                  <span className="w-24 shrink-0 font-semibold">
-                    <SheetName sheets={row.sheets} />
-                  </span>
-                  <DrawingText kind="title" text={row.sheets[0]?.title ?? ''} className="min-w-0" />
-                </button>
-              </li>
-            ))}
-          </ul>
-        </DialogContent>
-      </Dialog>
-    </KeyScope>
-  )
+function DisciplineName({ discipline }: { discipline: string }) {
+  const { i18n } = useLingui()
+  return <>{disciplineName(discipline, i18n)}</>
 }

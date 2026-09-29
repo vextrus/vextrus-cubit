@@ -31,10 +31,9 @@ from vextrus.platform.models import Developer, Market
 MARKET_MIGRATIONS = ("vextrus.platform.migrations.0004_bangladesh_market",)
 """The data migrations that write the Markets, each with its `MARKET_ID` and its
 `seed(Market, Developer, using)`."""
-
-MARKET_DATA_MIGRATIONS = ("vextrus.platform.migrations.0009_market_date_order",)
-"""The data migrations that set a later field on the Markets, each with its `seed(Market, using)`:
-put back after the Markets are, since a Market written afresh (after a flush) lacks them."""
+DATE_ORDER_MIGRATION = "vextrus.platform.migrations.0009_market_date_order"
+"""The data migration that writes each Market's date order, with its `seed(Market, using)`: added
+to the Market after 0004, so put back after it."""
 
 
 @dataclass(frozen=True)
@@ -63,8 +62,7 @@ def sync(using: str = OWNER_ALIAS) -> dict[str, int]:
             migration = import_module(name)
             if not Market.objects.using(using).filter(id=migration.MARKET_ID).exists():
                 migration.seed(Market, Developer, using)
-        for name in MARKET_DATA_MIGRATIONS:
-            import_module(name).seed(Market, using)
+        import_module(DATE_ORDER_MIGRATION).seed(Market, using)
         found = libraries(using)
         for module in MODULES:
             sync_module = getattr(import_module(f"vextrus.{module}.library"), "sync", None)

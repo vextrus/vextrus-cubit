@@ -6,8 +6,12 @@
  * In M0 it is Step 1's canvas, which 22 mounts; paging across sheets is 22's.
  *
  *   <SheetViewer buffer={buffer} label="S-04" workingView={{ x0: 20, y0: 30, x1: 400, y1: 280 }} />
+ *
+ * Step 1 (22) also passes the sheet's view outlines with their tags (§6.5), the view selected (the
+ * canvas flies to it, padded to about 3×, and fits back to the working view when none is), and the
+ * legend above the drawing.
  */
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Trans, useLingui } from '@lingui/react/macro'
 import { Maximize } from 'lucide-react'
 import { SlotFill } from '@/app/slots'
@@ -26,24 +30,31 @@ export interface SheetViewerProps {
   workingView?: PaperBox | null
   /** Try again: the caller fetches the buffer again. Without it, the viewer decodes it again. */
   onRetry?: () => void
-  /** The sheet's views, outlined with their tags (m0-screens 4.6, 6.5); boxes in drawing units. */
+  /** The views' outlines, each with its tag above its top-left corner (§6.5); a click selects one. */
   outlines?: readonly SheetOutline[]
-  /** The selected view's key: the canvas flies to it (padded about 3×); none fits back. */
+  /** The outline selected: the canvas flies to it; back to none, it fits the working view again. */
   selected?: string | null
-  /** A click on an outline. */
-  onSelect?: (key: string) => void
-  /** Whether the label goes to the toolbar (a caller with its own label button says no). */
-  toolbarLabel?: boolean
+  onSelect?: (id: string) => void
+  /** The legend above the drawing, in the strip the fit keeps clear (4.6). */
+  legend?: ReactNode
+  /** The label in the toolbar (default); off where the caller puts its own there (Step 1's sheet button). */
+  labelInToolbar?: boolean
 }
 
-/** A view on the sheet: its box in drawing units (x0, y0, x1, y1), its tag ("Plan, 1:100"). */
+/** A view's outline on the sheet: paper mm from its lower-left corner, as the engine records a view. */
 export interface SheetOutline {
-  key: string
-  box: readonly [number, number, number, number]
+  id: string
+  box: PaperBox
+  /** "Plan, 1:100", "Detail, not to scale". */
   tag: string
-  /** Held by an open Question: drawn in the Question's amber. */
-  question?: boolean
-  excluded?: boolean
+  tone: 'proposal' | 'assigned' | 'question' | 'excluded'
+}
+
+const OUTLINE_TONE: Record<SheetOutline['tone'], string> = {
+  proposal: cn('border-proposal text-proposal'),
+  assigned: cn('border-confirmed text-confirmed'),
+  question: cn('border-question text-question border-dashed'),
+  excluded: cn('border-excluded text-excluded'),
 }
 
 const TOOLTIP_KBD = '[&_kbd]:border-ink-secondary [&_kbd]:bg-inverse [&_kbd]:text-ink-inverse'
@@ -51,7 +62,7 @@ const TOOLTIP_KBD = '[&_kbd]:border-ink-secondary [&_kbd]:bg-inverse [&_kbd]:tex
 /** Text shorter than this on screen, in CSS px, draws as a grey bar (4.6). */
 const GREEK_BELOW_PX = 6
 
-export function SheetViewer({ buffer, label, workingView = null, onRetry, outlines = [], selected = null, onSelect, toolbarLabel = true }: SheetViewerProps) {
+export function SheetViewer({ buffer, label, workingView = null, onRetry, outlines, selected = null, onSelect, legend, labelInToolbar = true }: SheetViewerProps) {
   const [attempt, setAttempt] = useState(0)
   const [drawFailed, setDrawFailed] = useState(false)
   const sheet = useMemo<DecodedSheet | null>(() => {
@@ -73,7 +84,7 @@ export function SheetViewer({ buffer, label, workingView = null, onRetry, outlin
 
   return (
     <>
-      {toolbarLabel ? (
+      {labelInToolbar ? (
         <SlotFill slot="toolbar.start" order={0}>
           <DrawingText text={label} kind="sheet-number" truncate={false} className="text-sm font-semibold" />
         </SlotFill>
@@ -90,6 +101,7 @@ export function SheetViewer({ buffer, label, workingView = null, onRetry, outlin
             outlines={outlines}
             selected={selected}
             onSelect={onSelect}
+            legend={legend}
           />
         ) : (
           <div className="flex h-full items-start justify-center p-4">
@@ -127,15 +139,17 @@ function SheetCanvas({
   outlines,
   selected,
   onSelect,
+  legend,
 }: {
   sheet: DecodedSheet
   label: string
   workingView: PaperBox | null
   focus: boolean
   onFail: () => void
-  outlines: readonly SheetOutline[]
+  outlines?: readonly SheetOutline[]
   selected: string | null
-  onSelect?: (key: string) => void
+  onSelect?: (id: string) => void
+  legend?: ReactNode
 }) {
   const { t } = useLingui()
   const areaRef = useRef<HTMLDivElement>(null)
@@ -161,14 +175,11 @@ function SheetCanvas({
     return { width: canvas.width, height: canvas.height, top: LEGEND_PX * dpr, bottom: BAR_PX * dpr }
   }, [])
 
-  // The outlines follow the view: a copy of it, taken as each frame is drawn, redraws them.
-  const [shown, setShown] = useState<ViewTransform | null>(null)
   const draw = useCallback(() => {
     cancelAnimationFrame(frame.current)
     frame.current = requestAnimationFrame(() => {
       const r = renderer.current
       const v = view.current
-      if (v) setShown(v)
       if (!r || !v || !areaRef.current) return
       try {
         r.draw(sheet, v, { greekBelowPx: GREEK_BELOW_PX * (window.devicePixelRatio || 1), greekInk: greekInk(areaRef.current) })
@@ -178,13 +189,17 @@ function SheetCanvas({
     })
   }, [sheet])
 
+  // The view as last drawn, for the outlines laid over the canvas (only while there are any).
+  const [shown, setShown] = useState<ViewTransform | null>(null)
+  const hasOutlines = !!outlines && outlines.length > 0
   const setView = useCallback(
     (next: ViewTransform, byUser = true) => {
       view.current = next
       if (byUser) moved.current = true
+      if (hasOutlines) setShown(next)
       draw()
     },
-    [draw],
+    [draw, hasOutlines],
   )
 
   const fits = useCallback(() => {
@@ -264,31 +279,22 @@ function SheetCanvas({
     if (f) setView(f.working)
   }, [fits, setView])
 
-  // A selected view: the canvas flies to it, padded about 3× (screens.md sheet ruling 1); none fits back.
-  const toPaperBox = useCallback(
-    (box: readonly [number, number, number, number]): PaperBox => {
-      const p = sheet.paper
-      const [x0, y0, x1, y1] = box
-      return { x0: (x0 - p.originX) * p.mmPerUnit, y0: (y0 - p.originY) * p.mmPerUnit, x1: (x1 - p.originX) * p.mmPerUnit, y1: (y1 - p.originY) * p.mmPerUnit }
-    },
-    [sheet],
-  )
+  // Fly to the view selected, padded to about 3× (screens.md sheet ruling 1); none again: the working view.
+  // The flight moves the view as a pan would (an outside change the canvas follows, not React state).
   const flown = useRef<string | null>(null)
   useEffect(() => {
     const s = stage()
-    if (!s || selected === flown.current) return
-    const target = selected ? outlines.find((o) => o.key === selected) : undefined
+    const was = flown.current
     flown.current = selected
-    if (target) {
-      const b = toPaperBox(target.box)
-      const w = b.x1 - b.x0
-      const h = b.y1 - b.y0
-      setView(fitBox({ x0: b.x0 - w, y0: b.y0 - h, x1: b.x1 + w, y1: b.y1 + h }, s, 0))
-    } else {
-      const f = fits()
-      if (f) setView(f.working)
-    }
-  }, [selected, outlines, stage, fits, setView, toPaperBox])
+    if (!s || selected === was) return
+    const outline = selected ? outlines?.find((o) => o.id === selected) : undefined
+    if (outline) {
+      const { x0, y0, x1, y1 } = outline.box
+      const w = x1 - x0
+      const h = y1 - y0
+      setView(fitBox({ x0: x0 - w, y0: y0 - h, x1: x1 + w, y1: y1 + h }, s, 0)) // eslint-disable-line react-hooks/set-state-in-effect -- the canvas follows the view chosen outside it
+    } else if (was) fitWorking()
+  }, [selected, outlines, stage, setView, fitWorking])
 
   const fitLabel = t`Fit the whole sheet`
   const workingLabel = t`Back to the working view`
@@ -385,7 +391,8 @@ function SheetCanvas({
           }}
         >
           <canvas ref={canvasRef} aria-hidden className="absolute inset-0 h-full w-full" />
-          {shown && outlines.length > 0 ? <Outlines outlines={outlines} view={shown} toPaperBox={toPaperBox} selected={selected} onSelect={onSelect} /> : null}
+          {hasOutlines && shown ? <Outlines outlines={outlines} view={shown} selected={selected} onSelect={onSelect} /> : null}
+          {legend ? <div className="pointer-events-none absolute start-3 top-2 z-[2] rounded-md bg-paper/90 px-2 py-1 text-xs text-ink-secondary">{legend}</div> : null}
           {/* The focus ring above the drawing: the canvas would cover the region's own inset outline. */}
           <div
             aria-hidden
@@ -398,54 +405,33 @@ function SheetCanvas({
   )
 }
 
-/** The views' outlines over the drawing, each with its tag above its top-left corner (4.6, 6.5). */
-function Outlines({
-  outlines,
-  view,
-  toPaperBox,
-  selected,
-  onSelect,
-}: {
-  outlines: readonly SheetOutline[]
-  view: ViewTransform
-  toPaperBox: (box: readonly [number, number, number, number]) => PaperBox
-  selected: string | null
-  onSelect?: (key: string) => void
-}) {
+/** The views' outlines over the drawing, 2 px outside each view, with its tag above the top-left corner. */
+function Outlines({ outlines, view, selected, onSelect }: { outlines: readonly SheetOutline[]; view: ViewTransform; selected: string | null; onSelect?: (id: string) => void }) {
   const dpr = window.devicePixelRatio || 1
   return (
-    <div data-outlines="" className="pointer-events-none absolute inset-0">
+    <>
       {outlines.map((o) => {
-        const b = toPaperBox(o.box)
-        const left = (view.x + Math.min(b.x0, b.x1) * view.scale) / dpr
-        const top = (view.y - Math.max(b.y0, b.y1) * view.scale) / dpr
-        const width = (Math.abs(b.x1 - b.x0) * view.scale) / dpr
-        const height = (Math.abs(b.y1 - b.y0) * view.scale) / dpr
-        const chosen = o.key === selected
+        const start = (view.x + o.box.x0 * view.scale) / dpr - 2
+        const top = (view.y - o.box.y1 * view.scale) / dpr - 2
+        const width = ((o.box.x1 - o.box.x0) * view.scale) / dpr + 4
+        const height = ((o.box.y1 - o.box.y0) * view.scale) / dpr + 4
         return (
-          <div
-            key={o.key}
-            data-outline={o.key}
-            data-selected={chosen ? '' : undefined}
-            onPointerDown={(event) => {
-              if (!onSelect) return
-              event.stopPropagation()
-              onSelect(o.key)
-            }}
-            style={{ insetInlineStart: left, insetBlockStart: top, inlineSize: width, blockSize: height }}
-            className={cn(
-              'absolute rounded-xs border',
-              onSelect && 'pointer-events-auto cursor-pointer',
-              o.question ? 'border-dashed border-question' : o.excluded ? 'border-dashed border-muted-foreground' : 'border-proposal',
-              chosen && 'border-2',
-            )}
+          <button
+            key={o.id}
+            type="button"
+            tabIndex={-1}
+            aria-label={o.tag}
+            aria-pressed={selected === o.id}
+            data-outline={o.id}
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={() => onSelect?.(o.id)}
+            className={cn('absolute z-[1] rounded-[1px] border', OUTLINE_TONE[o.tone], selected === o.id ? 'border-2' : 'border-[1px]')}
+            style={{ insetInlineStart: start, insetBlockStart: top, inlineSize: width, blockSize: height }}
           >
-            <span className={cn('absolute bottom-full start-0 mb-0.5 whitespace-nowrap rounded-xs bg-popover px-1 text-2xs leading-4', o.question ? 'text-question' : 'text-ink-secondary', chosen && 'font-semibold')}>
-              {o.tag}
-            </span>
-          </div>
+            <span className="pointer-events-none absolute -top-4 start-0 whitespace-nowrap text-2xs leading-none">{o.tag}</span>
+          </button>
         )
       })}
-    </div>
+    </>
   )
 }

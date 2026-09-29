@@ -442,53 +442,6 @@ def members() -> Members:
     return Members(tuple(people), tuple(vextrus), tuple(pending))
 
 
-def roles_at(acts: Iterable[tuple[uuid.UUID, datetime]]) -> dict[tuple[uuid.UUID, datetime], str]:
-    """The role each user held in the acting Developer when they acted, by (user, time): from the
-    Membership current then (started, not yet revoked or expired), the latest of them. How Step 1's
-    "Who did what" names an actor ("Nusrat Jahan, QS", m0-screens 6.6); a user re-invited in another
-    role afterwards keeps the role they acted in. None found (no Membership then): not in the map."""
-    tenant_id = tenancy.current_tenant_id()
-    wanted = {(user_id, at) for user_id, at in acts if user_id}
-    if tenant_id is None or not wanted:
-        return {}
-    rows = list(
-        Membership.objects.filter(tenant_id=tenant_id, user_id__in={u for u, _ in wanted})
-        .order_by("created_at", "id")
-        .values_list("user_id", "role", "starts_at", "revoked_at", "expires_at")
-    )
-    found: dict[tuple[uuid.UUID, datetime], str] = {}
-    for user_id, at in wanted:
-        for member, role, starts, revoked, expires in rows:
-            current = (
-                starts <= at and (revoked is None or revoked > at) and (expires is None or expires > at)
-            )
-            if member == user_id and current:
-                found[(user_id, at)] = role
-    return found
-
-
-def names_of(role: str, project_id: uuid.UUID) -> list[str]:
-    """The names of the people whose current Membership of the acting Developer has `role` and may
-    open `project_id` (all its Projects, or that one), in order of name: whom Step 1's read-only bar
-    names ("Nusrat Jahan (QS) confirms the sheet list", m0-screens 6.12). Every role may read it."""
-    tenant_id = tenancy.current_tenant_id()
-    if tenant_id is None:
-        return []
-    now = timezone.now()
-    current = Membership.objects.filter(
-        tenant_id=tenant_id, role=role, user__isnull=False, revoked_at__isnull=True, starts_at__lte=now
-    ).filter(Q(expires_at__isnull=True) | Q(expires_at__gt=now))
-    rows = list(current.values_list("id", "user_id"))
-    scopes = _projects_of(tenant_id, [membership_id for membership_id, _ in rows])
-    users = [
-        user_id
-        for membership_id, user_id in rows
-        if membership_id not in scopes or project_id in scopes[membership_id]
-    ]
-    names = User.objects.filter(id__in=users, is_active=True).values_list("name", flat=True)
-    return sorted(set(names), key=str.lower)
-
-
 @dataclass(frozen=True)
 class Hidden:
     """What a member given chosen Projects may not see of their Developer's people: the Memberships
@@ -675,6 +628,53 @@ def _still(state: Q, membership_id: uuid.UUID, **changes: object) -> None:
 
 def _record(kind: MessageCode, membership_id: uuid.UUID, actor: CurrentMembership) -> None:
     events.record(kind, subject_type="membership", subject_id=membership_id, actor_user_id=actor.user_id)
+
+
+def roles_of(user_ids: Collection[uuid.UUID]) -> dict[uuid.UUID, str]:
+    """Each user's role in the acting Developer, from their latest Membership there (ended or not):
+    how "who did what" names an actor ("Nusrat Jahan, QS", m0-screens §6.6). A user with none is left
+    out."""
+    tenant_id = tenancy.current_tenant_id()
+    if tenant_id is None or not user_ids:
+        return {}
+    found: dict[uuid.UUID, str] = {}
+    for user_id, role in (
+        Membership.objects.filter(tenant_id=tenant_id, user_id__in=list(user_ids))
+        .order_by("created_at", "id")
+        .values_list("user_id", "role")
+    ):
+        found[user_id] = role
+    return found
+
+
+def qs_of(project_id: uuid.UUID) -> list[str]:
+    """The names of the acting Developer's QS members who may open the Project now, oldest first:
+    who a read-only viewer is told confirms Step 1's sheet list (m0-screens §6.12, "Nusrat Jahan (QS)
+    confirms the sheet list"). Names only, never an email: every act already shows its actor's name
+    to anyone who may open the Project, so this tells a Guest or the MD nothing a QS's act does not."""
+    tenant_id = tenancy.current_tenant_id()
+    if tenant_id is None:
+        return []
+    now = timezone.now()
+    rows = list(
+        Membership.objects.filter(
+            tenant_id=tenant_id,
+            role=Role.QS,
+            user__isnull=False,
+            accepted_at__isnull=False,
+            revoked_at__isnull=True,
+            starts_at__lte=now,
+        )
+        .filter(Q(expires_at__isnull=True) | Q(expires_at__gt=now))
+        .order_by("created_at", "id")
+        .values_list("id", "user__name")
+    )
+    chosen = _projects_of(tenant_id, [membership_id for membership_id, _ in rows])
+    return [
+        name
+        for membership_id, name in rows
+        if membership_id not in chosen or project_id in chosen[membership_id]
+    ]
 
 
 def _projects_of(

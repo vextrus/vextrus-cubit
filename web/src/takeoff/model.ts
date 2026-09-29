@@ -94,10 +94,8 @@ export interface Step1Model {
   /** Views neither assigned nor excluded (6.11). */
   unaccounted: number
   fileNames: Readonly<Record<string, string>>
-  /** The Project's QSs by name: whom the read-only bar names (6.12). */
+  /** The names of the Project's QS members, for the read-only bar (§6.12); empty when not sent. */
   qs: readonly string[]
-  /** The Drawing Set's files: the files band (6.2). */
-  files: NonNullable<Step1Data['files']>
 }
 
 export const REASONS = ['superseded', 'duplicate', 'cover_index', 'for_information', 'by_others', 'blank', 'other'] as const
@@ -249,7 +247,6 @@ export function step1Model(data: Step1Data): Step1Model {
     unaccounted: data.coverage.unaccounted,
     fileNames: data.fileNames ?? {},
     qs: data.progress.qs ?? [],
-    files: data.files ?? [],
   }
 }
 
@@ -294,4 +291,10 @@ export function nextOpenRow(rows: readonly Row[], key: string | null, questionsO
   const at = key ? rows.findIndex((r) => r.key === key) : -1
   const ring = [...rows.slice(at + 1), ...rows.slice(0, at + 1)]
   return ring.find((r) => (r.question ? true : !questionsOnly && r.sheets.some((s) => s.decision === null))) ?? null
+}
+
+/** The sheet a Discipline's drawing list was read on, when it is one of its sheets ("on the drawing list on S-01"). */
+export function listSheet(section: Pick<DisciplineSection, 'list' | 'rows'>): ProposalOut | undefined {
+  const on = section.list?.read_on
+  return on ? section.rows.flatMap((r) => [...r.sheets]).find((p) => p.sheet_id === on) : undefined
 }

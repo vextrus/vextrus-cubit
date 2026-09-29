@@ -19,7 +19,7 @@ export interface BarSpec {
   why: ReactNode
   /** The copper button, and what Enter does; `name` is its accessible name when its words hold figures. */
   button?: { label: ReactNode; run: () => void; name?: string }
-  /** A ghost button beside it (by mouse), with its key shown when it has one. */
+  /** A ghost button beside it (by mouse), with its key shown. */
   ghost?: { label: ReactNode; run: () => void; combo?: string }
 }
 
@@ -31,9 +31,9 @@ export interface BarContext {
   bulk: () => void
   confirmRow: (row: Row, thenNext: boolean) => void
   nextOpen: () => void
-  openRow: (row: Row) => void
-  /** Q: the next open Question's row. */
+  /** Q: the next open Question (m0-screens §6.12's ghost for the MD and a Guest). */
   nextQuestion: () => void
+  openRow: (row: Row) => void
 }
 
 function Who({ sheet }: { sheet: ProposalOut }) {
@@ -46,14 +46,6 @@ function Who({ sheet }: { sheet: ProposalOut }) {
       By {name}, {date}.
     </Trans>
   )
-}
-
-/** "Nusrat Jahan (QS) confirms the sheet list; every act shows who did it." (6.12), naming the Project's QSs. */
-function QsConfirms({ names }: { names: readonly string[] }) {
-  const { i18n } = useLingui()
-  if (names.length === 0) return <Trans>The QS confirms the sheet list; every act shows who did it.</Trans>
-  const who = new Intl.ListFormat(i18n.locale, { type: 'conjunction' }).format(names)
-  return names.length === 1 ? <Trans>{who} (QS) confirms the sheet list; every act shows who did it.</Trans> : <Trans>{who}, the QSs, confirm the sheet list; every act shows who did it.</Trans>
 }
 
 function BulkWhat({ model }: { model: Step1Model }) {
@@ -132,17 +124,30 @@ export function useBar(c: BarContext): BarSpec | null {
     ) : (
       <Trans>You are reading this as a Guest.</Trans>
     )
+    const qs = model.qs
+    const first = qs[0] ?? ''
+    // The names joined by the Market's locale, not in code: "Nusrat Jahan and Rafiq Hasan".
+    const names = qs.length > 1 ? new Intl.ListFormat(f.profile.locale, { type: 'conjunction' }).format(qs) : first
     return {
       what,
-      why: <QsConfirms names={model.qs} />,
+      why:
+        qs.length === 1 ? (
+          <Trans>{first} (QS) confirms the sheet list; every act shows who did it.</Trans>
+        ) : qs.length > 1 ? (
+          <Trans>{names} (QS) confirm the sheet list; every act shows who did it.</Trans>
+        ) : (
+          <Trans>The QS confirms the sheet list; every act shows who did it.</Trans>
+        ),
       ghost: model.queue.length > 0 ? { label: <Trans>Next open Question</Trans>, run: c.nextQuestion, combo: 'Q' } : undefined,
     }
   }
 
   const bulkName = plain(m === 0 ? t`Confirm ${n}` : n === 0 ? t`Leave out ${m}` : t`Confirm ${n}, leave out ${m}`)
+  const firstBulk = model.rows.find((r) => r.sheets.some((p) => model.bulk.confirm.includes(p) || model.bulk.leaveOut.includes(p))) ?? null
   const bulkSpec: BarSpec = {
     what: <BulkWhat model={model} />,
     why: <BulkWhy model={model} />,
+    ghost: firstBulk ? { label: <Trans>Review one by one</Trans>, run: () => c.openRow(firstBulk) } : undefined,
     button: {
       label: m === 0 ? <Trans>Confirm {n}</Trans> : n === 0 ? <Trans>Leave out {m}</Trans> : <Trans>Confirm {n}, leave out {m}</Trans>,
       run: c.bulk,
@@ -162,20 +167,26 @@ export function useBar(c: BarContext): BarSpec | null {
             Question {tag}: {title}
           </Trans>
         ),
-        why: <Answering entry={row.question} names={model.fileNames} model={model} />,
+        why: <Answering entry={row.question} names={model.fileNames} />,
         ghost: { label: <Trans>Next open item</Trans>, run: c.nextOpen },
       }
     }
     if (sheet && sheet.decision === 'confirmed') {
       const by = sheet.decided_by ?? ''
-      const date = sheet.decided_at ? `${f.date(sheet.decided_at)}, ${f.time(sheet.decided_at)}` : ''
+      const date = sheet.decided_at ? f.date(sheet.decided_at) : ''
+      const time = sheet.decided_at ? f.time(sheet.decided_at) : ''
       return {
-        what: (
-          <Trans>
-            {name} is confirmed by {by}
-          </Trans>
-        ),
-        why: <Trans>{date}. X excludes it, with a reason.</Trans>,
+        what:
+          sheet.decided_by_role === 'vextrus_engineer' ? (
+            <Trans>
+              {name} is confirmed by {by}, Vextrus Engineer
+            </Trans>
+          ) : (
+            <Trans>
+              {name} is confirmed by {by}
+            </Trans>
+          ),
+        why: date ? <Trans>{date}, {time}. X excludes it, with a reason.</Trans> : <Trans>X excludes it, with a reason.</Trans>,
         button: { label: <Trans>Next open item</Trans>, run: c.nextOpen },
       }
     }
@@ -241,6 +252,10 @@ export function useBar(c: BarContext): BarSpec | null {
     }
   }
 
+  if (bulkable && row && row.sheets.length > 0) {
+    const openRow = row
+    return { ...bulkSpec, ghost: { label: <Trans>Open <SheetName sheets={row.sheets} /></Trans>, run: () => c.openRow(openRow), combo: 'Space' } }
+  }
   if (bulkable) return bulkSpec
   if (model.allConfirmed)
     return {

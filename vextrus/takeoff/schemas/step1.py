@@ -9,7 +9,6 @@ from typing import Any, Self
 
 from ninja import Schema
 
-from engine.messages import Message
 from vextrus.takeoff.services import step1
 
 
@@ -19,15 +18,17 @@ class _FromView(Schema):
         return cls.model_validate(asdict(view))  # type: ignore[call-overload]
 
 
-class Step1SheetViewOut(Schema):
-    """One view of the sheet (m0-screens 6.6 item 4), in reading order."""
+class Step1ViewOut(Schema):
+    """A view on a printed sheet (m0-screens §6.6's Views, §6.5's outlines)."""
 
+    id: uuid.UUID
     ordinal: int
     kind: str
     title: str
     stated_scale: str
     not_to_scale: bool
     storeys: list[str]
+    storeys_as_stated: str
     storeys_meaning: str | None
     steps: list[str]
     part: str | None
@@ -47,7 +48,7 @@ class Step1ProposalOut(_FromView):
     revision_mark: str
     revision_mark_source: str | None
     issue_date: str | None
-    """An ISO date (`YYYY-MM-DD`), read in the Market's day-month order; null for none."""
+    """An ISO date ("2026-09-12"), read in the Market's order; null where none was read."""
     discipline: str | None
     file_id: uuid.UUID
     file_name: str
@@ -65,20 +66,26 @@ class Step1ProposalOut(_FromView):
     decided_at: datetime | None
     agrees: bool
     """Two sources agree on it (m0-screens §5): it joins the bulk act; else "Proposal, one source"."""
-    decided_role: str | None
-    """The role of whoever decided it ("qs", "md", "vextrus_engineer", "guest"), or null."""
+    decided_by_role: str | None
+    """The actor's role in the Developer ("qs", "vextrus_engineer", …): "Nusrat Jahan, QS" (6.6)."""
     decided_with: int
-    """How many sheets the act that decided it decided ("Confirmed in bulk with 15 other sheets")."""
-    sources: dict[str, str]
-    """Where each value was read, by field: title_block_attribute, title_block_text, file_name, file."""
-    layout: str | None
-    """The layout tab it is laid out on; null where it is laid out in the drawing."""
+    """How many sheets the deciding act decided (0 while undecided): "Confirmed in bulk with 55 other
+    sheets" (6.6)."""
+    number_source: str | None
+    """Where its number was read ("title_block_attribute", "title_block_text"); null for none."""
+    title_source: str | None
     storeys_as_stated: str
-    plot_file_name: str | None
+    """The storeys its title states, as drawn ("3RD, 5TH & 7TH FLOOR"); "" for none."""
+    layout: str | None
+    """The layout it is laid out on, by name; null when laid out in the drawing."""
+    plot_file: str | None
     plot_page: int | None
-    plot_none: Message | None
-    """Why it has no Plot, as a code and its parameters; null when a page matched."""
-    views: list[Step1SheetViewOut]
+    plot_residual: str | None
+    """How closely its Plot page registered, in mm, as a decimal string."""
+    plot_none: dict[str, Any] | None
+    """Why it has no Plot, as a message `{code, params}`; null when a page matched or none was added."""
+    views: list[Step1ViewOut]
+    """Its views in reading order, title block included (the Views column counts them)."""
 
 
 class Step1ProposalsOut(Schema):
@@ -129,7 +136,7 @@ class Step1ProgressOut(_FromView):
     disciplines: list[Step1DisciplineProgressOut]
     not_received: list[str]
     qs: list[str]
-    """The names of the Project's QSs, who confirm its sheet list (the read-only bar names them)."""
+    """The names of the QS members who may open the Project (m0-screens §6.12's read-only bar)."""
 
 
 class Step1ActOut(_FromView):
@@ -177,6 +184,8 @@ class Step1DrawingListOut(_FromView):
     entered_at: datetime | None
     read_numbers: list[str] | None
     agrees: bool
+    read_on: uuid.UUID | None
+    """The printed sheet the list read on a sheet was read on; null for none."""
 
 
 __all__ = [

@@ -38,12 +38,11 @@ For the seed and 21c's read job: `propose_sheet`, `record_coverage`, `raise_ques
 import contextlib
 import hashlib
 import json
-import re
 import uuid
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
-from datetime import date, datetime
+from datetime import datetime
 from typing import Any
 
 from django.db import transaction
@@ -81,6 +80,7 @@ from vextrus.takeoff.models import (
     RegisterSource,
     StepProgress,
 )
+from vextrus.takeoff.services.issue_dates import iso_date
 
 OTHER = "other"
 """The one reason that keeps the QS's words."""
@@ -100,7 +100,8 @@ class ProposalView:
     revision_mark: str
     revision_mark_source: str | None
     issue_date: str | None
-    """The title block's date as an ISO date (`iso_date`, in the Market's order), or None."""
+    """The title block's issue date as an ISO date ("2026-09-12"), read in the Market's order; null
+    where it wrote none or none that is one calendar day (issue_dates)."""
     discipline: str | None
     file_id: uuid.UUID
     file_name: str
@@ -121,41 +122,45 @@ class ProposalView:
     title block, and its Discipline's drawing list naming it, or, with no list, its Discipline's
     numbering running without a gap and its Plot page matched; never while held or in an open
     Question. Only such a sheet joins the bulk act (6.4); the others are Proposals "with one source"."""
-    decided_role: str | None = None
-    """The role of whoever decided it, in this Developer ("qs", "vextrus_engineer"…), or None."""
+    decided_by_role: str | None = None
+    """The actor's role in the Developer ("qs", "vextrus_engineer"): "Nusrat Jahan, QS" (6.6)."""
     decided_with: int = 0
-    """How many sheets the act that decided it decided (a bulk act's count; 1 for one sheet)."""
-    sources: dict[str, str] = field(default_factory=dict)
-    """Where each value was read, by field (number, title, discipline…: `ValueSource`)."""
-    layout: str | None = None
-    """The layout tab it is laid out on, by name; None where it is laid out in the drawing."""
+    """How many sheets the act that decided it decided: "Confirmed in bulk with 55 other sheets"."""
+    number_source: str | None = None
+    """Where its number was read: "title_block_attribute", "title_block_text", …; None for none."""
+    title_source: str | None = None
     storeys_as_stated: str = ""
-    plot_file_name: str | None = None
+    layout: str | None = None
+    """The layout it is laid out on, by name; None when laid out in the drawing (a frame)."""
+    plot_file: str | None = None
     plot_page: int | None = None
-    plot_none: Message | None = None
-    """Why it has no Plot (m0-screens 4.6, 6.13), or None when a page matched."""
-    views: tuple[SheetViewView, ...] = ()
-    """Its views in reading order (6.6's Views; the list's Views column counts them)."""
+    plot_residual: str | None = None
+    plot_none: dict[str, Any] | None = None
+    """Why it has no Plot (a message), or None when a page matched or no PDF was added."""
+    views: list[SheetViewView] = field(default_factory=list)
+    """Its views in reading order, title block included."""
 
 
 @dataclass(frozen=True)
 class SheetViewView:
-    """One view of a printed sheet, as Step 1 shows it (6.6 item 4)."""
+    """A view on a printed sheet as Step 1 shows it (m0-screens §6.6's Views, §6.5's outlines)."""
 
+    id: uuid.UUID
     ordinal: int
     kind: str
     title: str
     stated_scale: str
     not_to_scale: bool
-    storeys: tuple[str, ...]
+    storeys: list[str]
+    storeys_as_stated: str
     storeys_meaning: str | None
-    steps: tuple[str, ...]
+    steps: list[str]
     part: str | None
     proposed_exclusion: str | None
     decision: str | None
     excluded_reason: str | None
-    box: tuple[str, str, str, str]
-    """x0, y0, x1, y1 in drawing units, as decimal strings."""
+    box: list[str]
+    """x0, y0, x1, y1 in drawing units, as decimal strings (as read)."""
 
 
 @dataclass(frozen=True)
@@ -208,7 +213,8 @@ class ProgressView:
     not_received: list[str]
     """The Market's expected Disciplines of which no file has been added, in the Market's order."""
     qs: list[str] = field(default_factory=list)
-    """The names of the Project's QSs, who confirm its sheet list (the read-only bar names them)."""
+    """The names of the QS members who may open the Project: whom the MD's and a Guest's bar names
+    ("Nusrat Jahan (QS) confirms the sheet list", m0-screens §6.12)."""
 
 
 @dataclass(frozen=True)
@@ -240,6 +246,8 @@ class ListView:
     read_numbers: list[str] | None
     """The list read on a sheet of the set, when there is one."""
     agrees: bool
+    read_on: uuid.UUID | None = None
+    """The printed sheet the list read on a sheet was read on ("13 on the drawing list on S-01")."""
 
 
 # Reading ------------------------------------------------------------------------------------------
@@ -284,18 +292,19 @@ def proposals(project_id: uuid.UUID) -> list[ProposalView]:
     stamps = {s.confirmation_id for s in sheets if s.confirmation_id}
     # Who and when, from the act that decided each sheet (a decision put back by an undo keeps its
     # own act's name and time).
-    acts_of = list(Confirmation.objects.filter(id__in=stamps))
-    who = {c.id: (c.by_name, c.at) for c in acts_of}
-    roles = invitations.roles_at((c.user_id, c.at) for c in acts_of)
-    how = {c.id: (roles.get((c.user_id, c.at)), c.proposals) for c in acts_of}
+    acts = list(Confirmation.objects.filter(id__in=stamps))
+    who = {c.id: (c.by_name, c.at) for c in acts}
+    roles = invitations.roles_of({c.user_id for c in acts})
+    role = {c.id: roles.get(c.user_id) for c in acts}
+    size = {c.id: c.proposals for c in acts}
     agreeing = _agreeing(project_id, sheets, by_sheet)
     order = markets.of_developer(_tenant()).date_order
     return [
         replace(
             _proposal_view(s, by_sheet.get(s.id), names, who, order),
             agrees=s.id in agreeing,
-            decided_role=how.get(s.confirmation_id, (None, 0))[0] if s.confirmation_id else None,
-            decided_with=how.get(s.confirmation_id, (None, 0))[1] if s.confirmation_id else 0,
+            decided_by_role=role.get(s.confirmation_id) if s.confirmation_id else None,
+            decided_with=size.get(s.confirmation_id, 0) if s.confirmation_id else 0,
         )
         for s in sheets
     ]
@@ -364,85 +373,6 @@ def _without_gap(numbers: Numbers, discipline: str, sheets: Sequence[drawings.Sh
     return len(series) == 1 and running == list(range(running[0], running[0] + len(running)))
 
 
-_MONTHS = {
-    name: number
-    for number, names in enumerate(
-        (
-            ("jan", "january"),
-            ("feb", "february"),
-            ("mar", "march"),
-            ("apr", "april"),
-            ("may",),
-            ("jun", "june"),
-            ("jul", "july"),
-            ("aug", "august"),
-            ("sep", "sept", "september"),
-            ("oct", "october"),
-            ("nov", "november"),
-            ("dec", "december"),
-        ),
-        start=1,
-    )
-    for name in names
-}
-_DATE_TEXT = re.compile(r"[\sA-Za-z0-9./,-]+")
-_DATE_TOKEN = re.compile(r"[A-Za-z]+|\d+")
-
-
-def iso_date(drawn: str, order: str) -> str | None:
-    """A title block's date as drawn, as an ISO date ("12.09.2026" in a "DMY" Market: "2026-09-12"),
-    or None where it is not one date. Figures alone are read in the Market's `order` ("DMY", "MDY"
-    or "YMD"; with none known, they are not guessed); a year of four figures first, or a month
-    written as a word with a year of four figures ("12 Sep 2026"), needs no order. A two-figure
-    year is the latest century's not in the future ("95": 1995); a year before 1900 or after next
-    year is no date."""
-    text = drawn.strip()
-    if not text or not _DATE_TEXT.fullmatch(text):
-        return None
-    tokens = _DATE_TOKEN.findall(text)
-    if len(tokens) != 3:
-        return None
-    words = [t for t in tokens if t.isalpha()]
-    figures = [t for t in tokens if t.isdigit()]
-    if len(words) == 1:
-        month = _MONTHS.get(words[0].lower())
-        if month is None or len(figures) != 2:
-            return None
-        if len(figures[0]) == 4 or (len(figures[0]) == 2 and len(figures[1]) == 2 and order == "YMD"):
-            year_text, day_text = figures[0], figures[1]
-        elif len(figures[1]) == 4 or order in ("DMY", "MDY"):
-            year_text, day_text = figures[1], figures[0]
-        else:
-            return None
-        parts = (year_text, str(month), day_text)
-    elif words:
-        return None
-    elif len(tokens[0]) == 4:
-        parts = (tokens[0], tokens[1], tokens[2])
-    elif order == "DMY":
-        parts = (tokens[2], tokens[1], tokens[0])
-    elif order == "MDY":
-        parts = (tokens[2], tokens[0], tokens[1])
-    elif order == "YMD":
-        parts = (tokens[0], tokens[1], tokens[2])
-    else:
-        return None
-    year_text, month_text, day_text = parts
-    if len(year_text) not in (2, 4) or len(month_text) > 2 or len(day_text) > 2:
-        return None
-    latest = timezone.now().year + 1
-    year = int(year_text)
-    if len(year_text) == 2:
-        # A two-figure year is the latest century's that is not in the future: "95" is 1995.
-        year += 2000 if 2000 + year <= latest else 1900
-    if not 1900 <= year <= latest:
-        return None
-    try:
-        return date(year, int(month_text), int(day_text)).isoformat()
-    except ValueError:
-        return None
-
-
 def _proposal_view(
     sheet: drawings.SheetView,
     proposal: Proposal | None,
@@ -473,33 +403,35 @@ def _proposal_view(
         excluded_text=sheet.excluded_text,
         decided_by=by,
         decided_at=at or sheet.decided_at,
-        sources=dict(sheet.sources),
-        layout=sheet.location.get("layout") if isinstance(sheet.location.get("layout"), str) else None,
+        number_source=sheet.sources.get("number"),
+        title_source=sheet.sources.get("title"),
         storeys_as_stated=sheet.storeys_as_stated,
-        plot_file_name=names.get(sheet.plot.file_id)
-        if sheet.plot.page is not None and sheet.plot.file_id
-        else None,
+        layout=layout if isinstance(layout := sheet.location.get("layout"), str) else None,
+        plot_file=names.get(sheet.plot.file_id) if sheet.plot.file_id and sheet.plot.page else None,
         plot_page=sheet.plot.page,
-        plot_none=sheet.plot.none,
-        views=tuple(_sheet_view_view(v) for v in drawings.views(sheet.id)),
+        plot_residual=sheet.plot.residual,
+        plot_none=dict(sheet.plot.none) if sheet.plot.none else None,
+        views=[_sheet_view_view(v) for v in drawings.views(sheet.id)],
     )
 
 
 def _sheet_view_view(view: drawings.ViewView) -> SheetViewView:
     return SheetViewView(
+        id=view.id,
         ordinal=view.ordinal,
-        kind=view.kind,
+        kind=view.confirmed_kind or view.kind,
         title=view.title,
         stated_scale=view.stated_scale,
         not_to_scale=view.not_to_scale,
-        storeys=tuple(view.storeys),
+        storeys=list(view.storeys),
+        storeys_as_stated=view.storeys_as_stated,
         storeys_meaning=view.storeys_meaning,
-        steps=tuple(view.steps),
+        steps=list(view.steps),
         part=view.part,
         proposed_exclusion=view.proposed_exclusion,
         decision=view.decision,
         excluded_reason=view.excluded_reason,
-        box=view.box,
+        box=list(view.box),
     )
 
 
@@ -606,7 +538,7 @@ def progress(project_id: uuid.UUID) -> ProgressView:
                 open_questions=open_questions[key],
             )
         )
-    return ProgressView(rows, _not_received(project_id), invitations.names_of("qs", project_id))
+    return ProgressView(rows, _not_received(project_id), invitations.qs_of(project_id))
 
 
 def _not_received(project_id: uuid.UUID) -> list[str]:
@@ -775,6 +707,7 @@ def drawing_list(project_id: uuid.UUID, discipline: str) -> ListView:
         entered_at=standing.entered_at if standing and standing.source != RegisterSource.SHEET else None,
         read_numbers=_numbers(lists.read) if lists.read else None,
         agrees=not lists.disagree,
+        read_on=lists.read.source_sheet_id if lists.read else None,
     )
 
 

@@ -1,14 +1,23 @@
 /*
- * The design gate's musts on Step 1 (ticket 22, walk 1; m0-screens §6.2–6.7, §6.12, §8), each on
- * the screen as a QS, the MD or a Guest reads it, through the in-memory API with 19a's operations laid
- * over it (the acceptance tests' FakeStep1, fed the shapes the API sends).
+ * Ticket 22's design gate, walk 1 (29 Sep 2026): each must it failed, pinned on the acceptance fake
+ * (KR-01 after reading, §7) fed the API's shapes. M1: the issue date comes as an ISO date and shows as
+ * "20 Aug 2026". M4: every Question card has its Trace line, and Q3–Q5 a body. M5: the API's pre-pick
+ * shows "Picked for you:" with its sources. M9: a focused row draws its focus ring. M10: a range of
+ * sheet numbers is one left-to-right isolate. M11: the MD's and a Guest's bar names the QS and offers
+ * "Next open Question Q".
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { waitFor, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { page } from 'vitest/browser'
-import { FakeApi, PEOPLE, mountApp } from '@/app/testing'
+import { page, userEvent as realKeys } from 'vitest/browser'
+import { FakeDrawingSet, file, msg } from '@/acceptance/t20b/drawings.fixture'
 import { FakeStep1 } from '@/acceptance/t22/step1.fixture'
+import { FakeApi, PEOPLE, mountApp } from '@/app/testing'
+import { activateLanguage } from '@/i18n/activate'
+import { englishMessages } from '@/i18n/catalogues'
+import { ENGLISH } from '@/i18n/languages'
+import { activatePseudoRtl } from '@/i18n/pseudo'
+import { notationProblems } from '@/ui'
 
 beforeEach(async () => {
   vi.useFakeTimers({ toFake: ['Date'] })
@@ -18,18 +27,21 @@ beforeEach(async () => {
 
 afterEach(() => {
   vi.useRealTimers()
+  activateLanguage(ENGLISH, englishMessages())
 })
 
 const clean = (s: string | null | undefined) => (s ?? '').replace(/[⁦-⁩‎‏]/g, '').replace(/\s+/g, ' ').trim()
 const bodyText = () => clean(document.body.textContent)
+const PATH = '/p/KR-01/takeoff/1'
 
-/** KR-01 at §7's state; the progress operation also names the Project's QS, as 19a's now does. */
-function kr01(qs: string[] = ['Nusrat Jahan']): { api: FakeApi; step1: FakeStep1 } {
+/** The acceptance fake, with the progress's `qs` (the names the read-only bar gives) laid over it. */
+function kr01(qs: string[] = ['Nusrat Jahan'], files: ReturnType<typeof file>[] = []): { api: FakeApi; step1: FakeStep1 } {
   const api = new FakeApi()
-  const step1 = new FakeStep1(api, 'KR-01')
-  const base = api.handle
+  if (files.length > 0) new FakeDrawingSet(api, 'KR-01').files = files
+  const step1 = new FakeStep1(api)
+  const handle = api.handle
   api.handle = async (request: Request) => {
-    const response = await base(request)
+    const response = await handle(request)
     if (!new URL(request.url, location.origin).pathname.endsWith('/takeoff/step1/progress') || !response.ok) return response
     const body = (await response.json()) as Record<string, unknown>
     return new Response(JSON.stringify({ ...body, qs }), { status: 200, headers: { 'Content-Type': 'application/json' } })
@@ -38,389 +50,360 @@ function kr01(qs: string[] = ['Nusrat Jahan']): { api: FakeApi; step1: FakeStep1
 }
 
 async function open(api: FakeApi, as: string = PEOPLE.qs) {
-  const app = await mountApp('/p/KR-01/takeoff/1', { as, api })
-  await waitFor(() => expect(bodyText()).toMatch(/Confirmed \d+ \/ 24/))
+  const app = await mountApp(PATH, { as, api })
+  await waitFor(() => expect(bodyText()).toContain('Confirmed 0 / 24'))
   return app
 }
 
-async function shows(words: string) {
-  await waitFor(() => expect(bodyText()).toContain(words))
-}
-
-function rowOf(text: string, nth = 0): HTMLElement {
+function rowOf(text: string): HTMLElement {
   const rows = [...document.querySelectorAll<HTMLElement>('[role="row"]')].filter((r) => clean(r.textContent).includes(text))
   const inner = rows.filter((r) => !rows.some((o) => o !== r && r.contains(o)))
-  expect(inner.length, `a row for ${text}`).toBeGreaterThan(nth)
-  return inner[nth]!
+  expect(inner, `one row for ${text}`).toHaveLength(1)
+  return inner[0]!
 }
 
-const inspector = () => document.querySelector<HTMLElement>('[data-region="inspector"]') ?? document.body
+async function focusRow(number: string) {
+  await waitFor(() => rowOf(number))
+  await userEvent.click(within(rowOf(number)).getByText(number))
+}
 
-describe('M1: a drawn date is the API’s ISO date, shown as the Market writes a day', () => {
-  it('shows S-07 rev B’s 2026-09-12 as "12 Sep 2026" in the list, the inspector and Q2’s card, never "9 Dec 2026"', async () => {
-    const { api, step1 } = kr01()
-    const b = step1.proposals.find((p) => p.number === 'S-07' && p.revision_mark === 'B')!
-    b.issue_date = '2026-09-12'
-    await open(api)
-    await shows('B, 12 Sep 2026')
-    await userEvent.click(within(rowOf('S-07')).getByText('S-07'))
-    await waitFor(() => expect(clean(inspector().textContent)).toContain('12 Sep 2026'))
-    expect(bodyText()).not.toContain('9 Dec 2026')
-  })
+const inspector = () => screen.getByRole('complementary')
+const card = (tag: string | RegExp) => (name: string) => (typeof tag === 'string' ? clean(name) === `Question ${tag}` : tag.test(clean(name)))
 
-  it('shows a date the server could not read as no date at all', async () => {
-    const { api, step1 } = kr01()
-    step1.proposals.find((p) => p.number === 'S-07' && p.revision_mark === 'B')!.issue_date = '12.09.2026'
-    await open(api)
-    await shows('S-07')
-    expect(bodyText()).not.toContain('9 Dec 2026')
-    expect(bodyText()).not.toContain('12 Sep 2026')
-  })
-})
-
-describe('M3: a revision mark read from the file name keeps its date', () => {
-  it('shows "R0, 14 Sep 2026" with the file name in its tooltip', async () => {
-    const { api, step1 } = kr01()
-    step1.proposals.find((p) => p.number === 'S-02')!.issue_date = '2026-09-14'
-    await open(api)
-    await waitFor(() => expect(clean(rowOf('S-02').textContent)).toContain('R0, 14 Sep 2026'))
-  })
-})
-
-describe('M9: a focused row shows its ring', () => {
-  it('draws a solid outline on the row ↓ focuses', async () => {
+describe('M1: an issue date is the API’s ISO date', () => {
+  it('shows S-07’s "2026-08-20" as 20 Aug 2026 in the list, the inspector and Q2’s copies', async () => {
     const { api } = kr01()
     await open(api)
-    await userEvent.click(within(rowOf('S-02')).getByText('S-02'))
-    await userEvent.keyboard('{ArrowDown}')
-    const row = document.activeElement as HTMLElement
-    expect(row.getAttribute('role')).toBe('row')
-    const style = getComputedStyle(row)
-    expect(style.outlineStyle).toBe('solid')
+    expect(clean(rowOf('S-07').textContent)).toContain('B, 20 Aug 2026')
+    await focusRow('S-07')
+    await waitFor(() => expect(clean(inspector().textContent)).toContain('20 Aug 2026'))
+    expect(bodyText()).not.toMatch(/\b8 Dec\b|\b20\.08\.2026\b/)
+  })
+})
+
+describe('M3: the Revision column keeps the date', () => {
+  it('shows "R0, 14 Sep 2026" for a mark read from the file name, and "—" with neither', async () => {
+    const { api, step1 } = kr01()
+    Object.assign(step1.proposals.find((p) => p.number === 'S-02')!, { issue_date: '2026-09-14' })
+    Object.assign(step1.proposals.find((p) => p.number === 'S-03')!, { revision_mark: '', revision_mark_source: null })
+    await open(api)
+    expect(clean(rowOf('S-02').textContent)).toContain('R0, 14 Sep 2026')
+    expect(clean(rowOf('S-03').textContent)).toContain('—')
+  })
+})
+
+describe('M4, M5: the Question cards', () => {
+  it('gives every open Question its Trace line, and Q3, Q4 and Q5 a body', async () => {
+    const { api } = kr01()
+    await open(api)
+    await userEvent.click(screen.getByRole('tab', { name: /Questions/ }))
+    const cards = await screen.findAllByRole('region', { name: card(/^Question Q\d$/) })
+    expect(cards).toHaveLength(5)
+    for (const c of cards) expect(clean(c.textContent), clean(c.getAttribute('aria-label'))).toContain('Trace:')
+    const text = (tag: string) => clean(cards.find((c) => clean(c.getAttribute('aria-label')) === `Question ${tag}`)!.textContent)
+    expect(text('Q2')).toContain('Both are titled “TYPICAL FLOOR SLAB LAYOUT”. Only one can be read.')
+    expect(text('Q2')).toContain('Trace: the title blocks of S-07 rev B and S-07 rev A; the drawing list found in the drawings')
+    expect(text('Q3')).toContain('A sheet titled “DOOR AND WINDOW SCHEDULE” in KR-ARC-R0.dwg has an empty number in its title block.')
+    expect(text('Q3')).toContain('Trace: the title block of DOOR AND WINDOW SCHEDULE (the number field is empty)')
+    expect(text('Q4')).toContain('Its title, “SECTION A-A & ELEVATION”, does not say which kind of sheet A-05 is.')
+    expect(text('Q5')).toContain('S-13 is named on the drawing list found in the drawings, and no file added has a sheet with that number.')
+    expect(text('Q5')).toContain('Trace: the drawing list found in the drawings')
+  })
+
+  it('opens the sheet a Trace link names', async () => {
+    const { api } = kr01()
+    await open(api)
+    await focusRow('S-07')
+    const q2 = await screen.findByRole('region', { name: card('Q2') })
+    await userEvent.click(within(q2).getByRole('button', { name: (n) => clean(n) === 'S-07 rev A' }))
+    await screen.findByRole('group', { name: /S-07/ })
+  })
+
+  it('shows Q2’s pre-pick from the API with "Picked for you:" and what answering it does', async () => {
+    const { api } = kr01()
+    await open(api)
+    await focusRow('S-07')
+    const q2 = await screen.findByRole('region', { name: card('Q2') })
+    expect(clean(q2.textContent)).toContain('Picked for you: S-07 rev B has the later revision mark')
+    expect(clean(q2.textContent)).toContain('Answering confirms S-07 (rev B) and excludes S-07 (rev A) as superseded.')
+    const picked = within(q2).getAllByRole('radio').find((r) => (r as HTMLInputElement).checked)
+    expect(clean(picked?.closest('label')?.textContent)).toContain('Keep rev B (20 Aug 2026); leave rev A out as superseded')
+  })
+})
+
+describe('M7, M8: the inspector’s sheet and who did what', () => {
+  it('shows where each fact was read, the views with their chips, and the Exclude action', async () => {
+    const { api, step1 } = kr01()
+    Object.assign(step1.proposals.find((p) => p.number === 'S-05')!, {
+      number_source: 'title_block_attribute',
+      title_source: 'title_block_text',
+      layout: null,
+      plot_file: null,
+      plot_page: null,
+      plot_none: null,
+      views: [
+        { id: 'v1', ordinal: 1, kind: 'plan', title: '1ST FLOOR BEAM LAYOUT', stated_scale: '1:100', not_to_scale: false, storeys: ['floor_1'], storeys_as_stated: '1ST FLOOR', storeys_meaning: 'at_floor_level', steps: ['beams'], part: null, proposed_exclusion: null, decision: null, excluded_reason: null, box: ['0', '0', '1', '1'] },
+        { id: 'v2', ordinal: 2, kind: 'title_block', title: 'TITLE BLOCK', stated_scale: '', not_to_scale: true, storeys: [], storeys_as_stated: '', storeys_meaning: null, steps: [], part: null, proposed_exclusion: 'for_information', decision: null, excluded_reason: null, box: ['0', '0', '1', '1'] },
+      ],
+    })
+    await open(api)
+    await focusRow('S-05')
+    const facts = () => clean(inspector().textContent)
+    await waitFor(() => expect(facts()).toContain('Proposal: where each was read'))
+    expect(facts()).toContain('S-05 title-block attribute')
+    expect(facts()).toContain('text in the title block')
+    expect(facts()).toContain('Structural from the file')
+    expect(facts()).toContain('laid out in the drawing')
+    expect(facts()).toContain('1st, at floor level')
+    expect(facts()).toContain('None: no PDF page is matched to it')
+    expect(facts()).toContain('Views (2)')
+    expect(facts()).toContain('7 Beams')
+    expect(facts()).toContain('excluded: for information')
+    expect(facts()).toContain('Proposed by Vextrus from the file; no one has acted on it yet.')
+    await userEvent.click(within(inspector()).getByRole('button', { name: /Exclude/ }))
+    await waitFor(() => expect(bodyText()).toContain('Exclude S-05. Why?'))
+  })
+
+  it('shows the initials chip on a confirmed row and the act over "name, role, time"', async () => {
+    const { api, step1 } = kr01()
+    step1.settleAllBut('electrical')
+    for (const p of step1.proposals) if (p.decision) Object.assign(p, { decided_by_role: 'qs', decided_with: 20 })
+    await mountApp(PATH, { as: PEOPLE.md, api })
+    await waitFor(() => rowOf('S-02'))
+    expect(within(rowOf('S-02')).getByTitle('Nusrat Jahan, QS')).toHaveTextContent('NJ')
+    await focusRow('S-02')
+    await waitFor(() => expect(clean(inspector().textContent)).toContain('Confirmed in bulk with 19 other sheets'))
+    expect(clean(inspector().textContent)).toContain('Nusrat Jahan, QS, 26 Sep 2026, 11:00')
+    expect(within(inspector()).getByTitle('Nusrat Jahan, QS')).toHaveTextContent('NJ')
+    expect(clean(inspector().textContent)).toContain('Confirmed by Nusrat Jahan, 26 Sep 2026')
+    expect(within(inspector()).queryByRole('button', { name: /Exclude|Confirm back in/ })).toBeNull()
+    await focusRow('A-07')
+    await waitFor(() => expect(clean(inspector().textContent)).toContain('Excluded: for information'))
+  })
+})
+
+describe('M6: sheet mode', () => {
+  const views = [
+    { id: 'v1', ordinal: 1, kind: 'plan', title: '1ST FLOOR BEAM LAYOUT', stated_scale: '1:100', not_to_scale: false, storeys: ['floor_1'], storeys_as_stated: '1ST FLOOR', storeys_meaning: 'at_floor_level', steps: ['beams'], part: null, proposed_exclusion: null, decision: null, excluded_reason: null, box: ['10', '10', '60', '50'] },
+    { id: 'v2', ordinal: 2, kind: 'detail', title: 'BEAM SECTION', stated_scale: '', not_to_scale: true, storeys: [], storeys_as_stated: '', storeys_meaning: null, steps: ['beams'], part: null, proposed_exclusion: null, decision: null, excluded_reason: null, box: ['70', '10', '90', '30'] },
+    { id: 'v3', ordinal: 3, kind: 'title_block', title: 'TITLE BLOCK', stated_scale: '', not_to_scale: true, storeys: [], storeys_as_stated: '', storeys_meaning: null, steps: [], part: null, proposed_exclusion: 'for_information', decision: null, excluded_reason: null, box: ['95', '0', '120', '20'] },
+  ]
+
+  async function openS05() {
+    const { api, step1 } = kr01()
+    Object.assign(step1.proposals.find((p) => p.number === 'S-05')!, { views })
+    await open(api)
+    await focusRow('S-05')
+    await userEvent.keyboard(' ')
+    await screen.findByRole('group', { name: /S-05/ })
+    await waitFor(() => expect(document.querySelectorAll('[data-outline]')).toHaveLength(3))
+  }
+
+  it('draws the views’ outlines with their tags and the legend counting views', async () => {
+    await openS05()
+    const tags = [...document.querySelectorAll('[data-outline]')].map((el) => clean(el.getAttribute('aria-label')))
+    expect(tags).toEqual(['Plan, 1:100', 'Detail, not to scale', 'Title block, not to scale'])
+    // A view proposed out is still a Proposal until its sheet is confirmed (6.11).
+    expect(bodyText()).toContain('Proposal 3 · Assigned 0 · Question 0 · Excluded 0')
+  })
+
+  it('steps through the views with → and ←, and Esc leaves the view before the sheet', async () => {
+    await openS05()
+    const pressed = () => document.querySelector('[data-outline][aria-pressed="true"]')?.getAttribute('data-outline') ?? null
+    await userEvent.keyboard('{ArrowRight}')
+    await waitFor(() => expect(pressed()).toBe('v1'))
+    expect(inspector().querySelector('[data-view="v1"]')).toHaveAttribute('aria-current', 'true')
+    await userEvent.keyboard('{ArrowRight}')
+    await waitFor(() => expect(pressed()).toBe('v2'))
+    await userEvent.keyboard('{ArrowLeft}')
+    await waitFor(() => expect(pressed()).toBe('v1'))
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(pressed()).toBeNull())
+    expect(screen.getByRole('group', { name: /S-05/ })).toBeInTheDocument()
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('group', { name: /S-05/ })).toBeNull())
+  })
+
+  it('offers the sheet picker from the sheet’s label and "List | Sheet" in the toolbar', async () => {
+    await openS05()
+    await userEvent.click(screen.getByRole('button', { name: /S-05.*1ST FLOOR BEAM LAYOUT/ }))
+    const picker = await screen.findByRole('dialog', { name: 'Sheets, in list order' })
+    await userEvent.click(within(picker).getByRole('button', { name: /A-02/ }))
+    await screen.findByRole('group', { name: /A-02/ })
+    expect(screen.getByRole('button', { name: 'Sheet' })).toHaveAttribute('aria-pressed', 'true')
+    await userEvent.click(screen.getByRole('button', { name: 'List' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'List' })).toHaveAttribute('aria-pressed', 'true'))
+    expect(document.activeElement?.getAttribute('data-row')).toBeTruthy()
+  })
+})
+
+describe('M2: the files band and the Storeys and Views columns', () => {
+  it('shows a chip per file above the header, and a click opens its report in the inspector', async () => {
+    const { api } = kr01(['Nusrat Jahan'], [
+      file({ name: 'KR-STR-R0.dwg', state: 'read', status: msg('drawings.files.read', { sheets: 13 }), sheets_found: 13 }),
+      file({ name: 'KR-STR-old.dwg', state: 'held', status: msg('drawings.files.held') }),
+    ])
+    await open(api)
+    const band = await screen.findByRole('list', { name: /files/ })
+    expect(clean(band.textContent)).toContain('✓ KR-STR-R0.dwg 13 sheets')
+    expect(clean(band.textContent)).toContain('KR-STR-old.dwg held')
+    const chips = within(band).getAllByRole('listitem')
+    expect(chips.length).toBeGreaterThan(0)
+    await userEvent.click(within(chips[0]!).getByRole('button'))
+    const name = clean(within(chips[0]!).getByRole('button').querySelector('[data-notation="file-name"]')?.textContent)
+    await waitFor(() => expect(clean(inspector().textContent)).toContain(name))
+  })
+
+  it('shows each row’s storeys with the strip and its number of views', async () => {
+    const { api, step1 } = kr01()
+    Object.assign(step1.proposals.find((p) => p.number === 'S-06')!, {
+      views: [
+        { id: 'w1', ordinal: 1, kind: 'plan', title: '3RD, 5TH & 7TH FLOOR BEAM LAYOUT', stated_scale: '1:100', not_to_scale: false, storeys: ['floor_3', 'floor_5', 'floor_7'], storeys_as_stated: '3RD, 5TH & 7TH FLOOR', storeys_meaning: 'at_floor_level', steps: ['beams'], part: null, proposed_exclusion: null, decision: null, excluded_reason: null, box: ['0', '0', '1', '1'] },
+        { id: 'w2', ordinal: 2, kind: 'title_block', title: 'TITLE BLOCK', stated_scale: '', not_to_scale: true, storeys: [], storeys_as_stated: '', storeys_meaning: null, steps: [], part: null, proposed_exclusion: 'for_information', decision: null, excluded_reason: null, box: ['0', '0', '1', '1'] },
+      ],
+    })
+    Object.assign(step1.proposals.find((p) => p.number === 'S-04')!, {
+      views: [{ id: 'w3', ordinal: 1, kind: 'plan', title: 'PLAN', stated_scale: '', not_to_scale: false, storeys: ['floor_2', 'floor_3', 'floor_4', 'floor_5'], storeys_as_stated: '', storeys_meaning: 'floor_to_floor', steps: [], part: null, proposed_exclusion: null, decision: null, excluded_reason: null, box: ['0', '0', '1', '1'] }],
+    })
+    Object.assign(step1.proposals.find((p) => p.number === 'S-05')!, {
+      views: [{ id: 'w4', ordinal: 1, kind: 'plan', title: 'PLAN', stated_scale: '', not_to_scale: false, storeys: [], storeys_as_stated: '', storeys_meaning: null, steps: [], part: null, proposed_exclusion: null, decision: null, excluded_reason: null, box: ['0', '0', '1', '1'] }],
+    })
+    await open(api)
+    expect(clean(rowOf('S-06').textContent)).toContain('3rd, 5th, 7th')
+    expect(clean(within(rowOf('S-06')).getAllByRole('gridcell')[6]!.textContent)).toBe('2')
+    expect(clean(rowOf('S-04').textContent)).toContain('2nd–5th')
+    expect(clean(rowOf('S-05').textContent)).toContain('not stated')
+    expect(rowOf('S-06').querySelector('[aria-hidden] > span')).not.toBeNull()
+    expect(screen.getAllByRole('columnheader').map((h) => clean(h.textContent))).toEqual(expect.arrayContaining(['Views']))
+  })
+})
+
+describe('M9: focus is visible on the list’s rows', () => {
+  it('draws an outline on the row ↓ focuses', async () => {
+    const { api } = kr01()
+    await open(api)
+    screen.getByRole('grid', { name: 'Sheets' }).focus()
+    await realKeys.keyboard('{ArrowDown}')
+    await waitFor(() => expect(document.activeElement?.getAttribute('role')).toBe('row'))
+    const style = getComputedStyle(document.activeElement!)
+    expect(style.outlineStyle).not.toBe('none')
     expect(parseFloat(style.outlineWidth)).toBeGreaterThanOrEqual(2)
   })
 })
 
-describe('M10: a range of sheet numbers is one left-to-right isolate', () => {
-  it('writes "S-01–S-13" as one data-notation span, in the heading and the inspector', async () => {
+describe('M10: a range of sheet numbers is one isolate', () => {
+  it('reads "S-01–S-13" as one left-to-right notation in pseudo right-to-left', async () => {
+    activatePseudoRtl()
     const { api, step1 } = kr01()
-    step1.lists.structural = { source: 'typed', numbers: Array.from({ length: 13 }, (_, i) => `S-${String(i + 1).padStart(2, '0')}`), entered_by: 'Nusrat Jahan', entered_at: '2026-09-28T05:00:00Z', read_numbers: null }
-    await open(api)
-    await shows('S-01–S-13')
-    const ranges = [...document.querySelectorAll('[data-notation="sheet-number"]')].filter((el) => el.textContent === 'S-01–S-13')
-    expect(ranges.length).toBeGreaterThanOrEqual(2)
-    for (const el of ranges) expect(el.getAttribute('dir')).toBe('ltr')
-    // No range is split into two isolates with a bare dash between them.
-    for (const el of document.querySelectorAll('[data-notation="sheet-number"]')) expect(clean(el.nextSibling?.textContent ?? '').startsWith('–')).toBe(false)
+    step1.lists = {}
+    await mountApp(PATH, { as: PEOPLE.qs, api })
+    await waitFor(() => expect(document.querySelector('[data-notation="sheet-number"]')).not.toBeNull())
+    await waitFor(() => {
+      const ranges = [...document.querySelectorAll('[data-notation="sheet-number"]')].map((el) => el.textContent)
+      expect(ranges).toContain('A-01–A-07')
+      expect(ranges).toContain('E-02–E-03')
+    })
+    expect(notationProblems(document.body)).toEqual([])
+    for (const el of document.querySelectorAll('[data-notation]')) {
+      const next = el.nextSibling
+      expect(next?.nodeType === Node.TEXT_NODE && /^[–-]$/.test(next.textContent ?? '') && next.nextSibling instanceof HTMLElement && next.nextSibling.dataset.notation, `a split range after ${el.textContent}`).toBeFalsy()
+    }
   })
 })
 
-describe('M11: the MD’s and a Guest’s bar names the QS, and offers the next open Question', () => {
+describe('M11: the read-only bar names the QS', () => {
   it.each([
-    ['md', PEOPLE.md, 'You are reading this as the MD.'],
-    ['guest', PEOPLE.guest, 'You are reading this as a Guest.'],
-  ] as const)('as the %s', async (_role, who, what) => {
+    [PEOPLE.md, 'You are reading this as the MD.'],
+    [PEOPLE.guest, 'You are reading this as a Guest.'],
+  ])('%s reads "Nusrat Jahan (QS) confirms the sheet list" and "Next open Question Q" while Questions are open', async (as, what) => {
     const { api } = kr01()
-    await open(api, who)
-    await shows(what)
-    await shows('Nusrat Jahan (QS) confirms the sheet list; every act shows who did it.')
-    const ghost = await waitFor(() => {
-      const found = [...document.querySelectorAll('button')].find((b) => clean(b.textContent).startsWith('Next open Question'))
-      expect(found).toBeTruthy()
-      return found!
-    })
-    expect(ghost.getAttribute('aria-keyshortcuts')).toBe('Q')
+    await open(api, as)
+    expect(bodyText()).toContain(what)
+    expect(bodyText()).toContain('Nusrat Jahan (QS) confirms the sheet list; every act shows who did it.')
+    const ghost = screen.getByRole('button', { name: /Next open Question/ })
+    expect(ghost).toHaveAttribute('aria-keyshortcuts', 'Q')
     await userEvent.click(ghost)
-    await waitFor(() => expect((document.activeElement as HTMLElement | null)?.getAttribute('data-row') ?? '').toMatch(/^q:/))
+    await waitFor(() => expect(document.activeElement?.getAttribute('data-row')).toMatch(/^q:/))
   })
 
-  it('names no one it does not know: "The QS confirms…" when the Project has none', async () => {
-    const { api } = kr01([])
+  it('says "The QS" when no QS is named, and drops the ghost once no Question is open', async () => {
+    const { api, step1 } = kr01([])
+    step1.questions = []
     await open(api, PEOPLE.md)
-    await shows('The QS confirms the sheet list; every act shows who did it.')
+    expect(bodyText()).toContain('The QS confirms the sheet list; every act shows who did it.')
+    expect(screen.queryByRole('button', { name: /Next open Question/ })).toBeNull()
   })
 })
 
-async function questionsTab() {
-  const tab = await waitFor(() => {
-    const found = [...document.querySelectorAll<HTMLElement>('[role="tab"]')].find((t) => clean(t.textContent).startsWith('Questions'))
-    expect(found).toBeTruthy()
-    return found!
-  })
-  await userEvent.click(tab)
-  return waitFor(() => {
-    const cards = [...document.querySelectorAll<HTMLElement>('[data-region="inspector"] section[aria-label]')].filter((c) => clean(c.getAttribute('aria-label')).startsWith('Question Q'))
-    expect(cards).toHaveLength(5)
-    return cards
-  })
-}
+describe('the words gate’s fixes', () => {
+  const plan = (id: string, storeys: string[], meaning: string | null = 'at_floor_level') => ({ id, ordinal: 1, kind: 'plan', title: 'PLAN', stated_scale: '', not_to_scale: false, storeys, storeys_as_stated: '', storeys_meaning: meaning, steps: [], part: null, proposed_exclusion: null, decision: null, excluded_reason: null, box: ['0', '0', '1', '1'] })
 
-describe('M4: every Question card has its body and its Trace line', () => {
-  it('gives all five cards a Trace, and Q3, Q4 and Q5 a body saying what was read', async () => {
+  it('words the engine’s not_stated and a run to the top, and never prints a key', async () => {
+    const { api, step1 } = kr01()
+    Object.assign(step1.proposals.find((p) => p.number === 'S-04')!, { views: [plan('n1', ['not_stated'])] })
+    Object.assign(step1.proposals.find((p) => p.number === 'S-05')!, { views: [plan('n2', ['floor_1', 'top'], 'floor_to_floor')] })
+    await open(api)
+    expect(clean(rowOf('S-04').textContent)).toContain('not stated')
+    expect(clean(rowOf('S-04').textContent)).not.toContain('not_stated')
+    expect(clean(rowOf('S-05').textContent)).toContain('1st to top (top from Step 3)')
+    await focusRow('S-04')
+    await waitFor(() => expect(clean(inspector().textContent)).toContain('Storeysnot stated'))
+    expect(clean(inspector().textContent)).not.toContain('not stated, at floor level')
+  })
+
+  it('reads a run to the roof, a Plot that matched nothing and a Discipline with no PDF', async () => {
+    const { api, step1 } = kr01(['Nusrat Jahan'], [
+      file({ name: 'KR-STR-R0.pdf', state: 'read', status: msg('drawings.files.plot_matched', { matched: 0, pages: 13 }) }),
+    ])
+    Object.assign(step1.proposals.find((p) => p.number === 'S-04')!, { views: [plan('r1', ['floor_6', 'roof', 'top'])], plot_none: { code: 'drawings.sheets.plot_no_pdf', params: { discipline: 'Structural' } } })
+    Object.assign(step1.proposals.find((p) => p.number === 'S-05')!, { views: [plan('r2', ['floor_6', 'roof', 'stair_room_roof', 'top'])] })
+    await open(api)
+    expect(clean(rowOf('S-04').textContent)).toContain('6th to Roof (floors between from Step 3)')
+    expect(clean(rowOf('S-05').textContent)).toContain('6th to Roof (floors between from Step 3), Stair-room roof')
+    const band = await screen.findByRole('list', { name: /files/ })
+    expect(clean(band.textContent)).toContain('KR-STR-R0.pdf: no page matched a sheet')
+    expect(clean(band.textContent)).not.toContain('✓')
+    await focusRow('S-04')
+    await waitFor(() => expect(clean(inspector().textContent)).toContain('None: no PDF has been added for Structural'))
+  })
+
+  it('says why there is no Plot once, from the reason’s code', async () => {
+    const { api, step1 } = kr01()
+    Object.assign(step1.proposals.find((p) => p.number === 'S-04')!, { plot_none: { code: 'drawings.sheets.plot_no_page', params: { plot_file: 'KR-STR-R0.pdf' } } })
+    await open(api)
+    await focusRow('S-04')
+    await waitFor(() => expect(clean(inspector().textContent)).toContain('None: no page of KR-STR-R0.pdf matched it'))
+    expect(clean(inspector().textContent)).not.toMatch(/None: No Plot/)
+  })
+
+  it('names a Vextrus Engineer as such, and tells the MD only "→ walks them"', async () => {
+    const { api, step1 } = kr01(['Nusrat Jahan', 'Rafiq Hasan'])
+    step1.settleAllBut('electrical')
+    for (const p of step1.proposals) if (p.decision) Object.assign(p, { decided_by: 'Arif Rahman', decided_by_role: 'vextrus_engineer', decided_with: 1 })
+    await mountApp(PATH, { as: PEOPLE.md, api })
+    await waitFor(() => expect(bodyText()).toContain('Nusrat Jahan and Rafiq Hasan (QS) confirm the sheet list; every act shows who did it.'))
+    await focusRow('S-02')
+    await waitFor(() => expect(clean(inspector().textContent)).toContain('Confirmed by Arif Rahman (Vextrus), 26 Sep 2026'))
+    expect(clean(inspector().textContent)).toContain('Arif Rahman, Vextrus Engineer, 26 Sep 2026, 11:00')
+    expect(clean(inspector().textContent)).not.toContain('X excludes')
+  })
+})
+
+describe('the gate’s mays', () => {
+  it('offers "Review one by one" beside the bulk act, and "Open S-02 Space" with a sheet focused', async () => {
     const { api } = kr01()
     await open(api)
-    const cards = await questionsTab()
-    for (const card of cards) expect(clean(card.textContent)).toMatch(/Trace: \S/)
-    const text = cards.map((c) => clean(c.textContent))
-    const q = (tag: string) => text.find((t) => t.startsWith(`Question ${tag}`))!
-    expect(q('Q2')).toContain('Both are titled “TYPICAL FLOOR SLAB LAYOUT”. Only one can be read.')
-    expect(q('Q2')).toContain('Trace: Title blocks of both copies; the drawing list read on a sheet')
-    expect(text.join(' ')).toContain('A sheet titled “DOOR AND WINDOW SCHEDULE” in KR-ARC-R0.dwg has an empty number in its title block.')
-    expect(text.join(' ')).toContain('Trace: Title block text (the number field is empty)')
-    expect(text.join(' ')).toContain('A-05 “SECTION A-A & ELEVATION” in KR-ARC-R0.dwg: its title and views do not settle which kind of sheet it is.')
-    expect(text.join(' ')).toMatch(/The drawing list read on a sheet names 13 sheets\. \d+ were found in KR-STR-R0\.dwg; S-13 was not\./)
-  })
-})
-
-describe('M5: a pre-pick only where two sources that agree can be named (ruling 2)', () => {
-  it('shows none on Q2: the title block’s mark and date are one source, and the list names S-07, not rev B', async () => {
-    const { api, step1 } = kr01()
-    step1.proposals.find((p) => p.number === 'S-07' && p.revision_mark === 'A')!.issue_date = '2026-08-02'
-    await open(api)
-    const cards = await questionsTab()
-    for (const card of cards) {
-      expect(clean(card.textContent)).not.toContain('Picked for you')
-      expect(card.querySelector('input[type="radio"]:checked')).toBeNull()
-    }
-    const q2 = clean(cards.find((c) => clean(c.textContent).startsWith('Question Q2'))!.textContent)
-    expect(q2).toContain('Answering settles 2 sheets.')
-  })
-})
-
-describe('the words gate’s round 2', () => {
-  it('traces a Plot-page check to the title block and the PDF, never to a drawing list', async () => {
-    const { api, step1 } = kr01()
-    const s05 = step1.proposals.find((p) => p.number === 'S-05')!
-    step1.questions.push({ ...step1.questions[4]!, id: '0c220000-0000-4000-8000-000000000099', code: 'engine.plot_pages.no_page', params: { number: 'S-05' }, subject_id: s05.sheet_id, check_code: 'plot_pages' })
-    await open(api)
-    // The inspector's Questions tab mounts every card (forceMount); read the no-page card's words.
-    const card = await waitFor(() => {
-      const all = [...document.querySelectorAll<HTMLElement>('[data-region="inspector"] section[aria-label]')].map((c) => clean(c.textContent))
-      const found = all.find((t) => t.includes('S-05 is in KR-STR-R0.dwg.'))
-      expect(found, 'the no-page card').toBeTruthy()
-      return found!
-    })
-    expect(card).toContain('Trace: S-05 title block; the pages of its Discipline’s PDF')
-    expect(card).not.toContain('Trace: The drawing list')
+    expect(screen.getByRole('button', { name: 'Review one by one' })).toBeInTheDocument()
+    expect(document.title).toContain('Step 1, Sheets')
+    await focusRow('S-02')
+    const ghost = await screen.findByRole('button', { name: (n) => clean(n).startsWith('Open S-02') })
+    expect(ghost).toHaveAttribute('aria-keyshortcuts', 'Space')
   })
 
-  it('keeps a held file’s answer on its chip', async () => {
-    const { api } = kr01()
-    const files = [{ id: 'f3', name: 'KR-STR-old.dwg', format: 'dwg', size: 1, discipline: 'structural', state: 'held', status: { code: 'drawings.files.held_read_anyway', params: {} }, finding: null, sheets_found: null, plot_for: [], added_at: '2026-09-26T04:00:00Z', added_by_name: 'Nusrat Jahan', added_by_vextrus: false }]
-    const base = api.handle
-    api.handle = async (request: Request) => {
-      if (new URL(request.url, location.origin).pathname.endsWith('/drawings/files')) return new Response(JSON.stringify({ files }), { status: 200, headers: { 'Content-Type': 'application/json' } })
-      return base(request)
-    }
-    await open(api)
-    const band = await waitFor(() => {
-      const b = document.querySelector<HTMLElement>('[data-files-band]')
-      expect(b).not.toBeNull()
-      return b!
-    })
-    expect(clean(band.textContent)).not.toMatch(/KR-STR-old\.dwg held\b/)
-    expect(clean(band.textContent)).toMatch(/KR-STR-old\.dwg \S/)
-  })
-})
-
-describe('M8: who did what, with the initials chip', () => {
-  function decide(step1: FakeStep1) {
-    Object.assign(step1.proposals.find((p) => p.number === 'S-02')!, { decision: 'confirmed', decided_by: 'Nusrat Jahan', decided_role: 'qs', decided_with: 16, decided_at: '2026-09-26T05:00:00Z' })
-    Object.assign(step1.proposals.find((p) => p.number === 'S-03')!, { decision: 'excluded', excluded_reason: 'superseded', decided_by: 'Nusrat Jahan', decided_role: 'qs', decided_with: 1, decided_at: '2026-09-26T05:10:00Z' })
-    Object.assign(step1.proposals.find((p) => p.number === 'S-04')!, { decision: 'confirmed', decided_by: 'Tanvir Ahmed', decided_role: 'vextrus_engineer', decided_with: 1, decided_at: '2026-09-26T05:20:00Z' })
-  }
-
-  it('shows "Confirmed NJ" in the State column, and "TA Vextrus" for a Vextrus Engineer', async () => {
-    const { api, step1 } = kr01()
-    decide(step1)
-    await open(api)
-    await waitFor(() => expect(within(rowOf('S-02')).getByLabelText('Nusrat Jahan').textContent).toBe('NJ'))
-    expect(clean(within(rowOf('S-04')).getByLabelText('Tanvir Ahmed, Vextrus Engineer').textContent)).toBe('TA Vextrus')
-  })
-
-  it('words each act as its what over "name, role, date, time" in the inspector', async () => {
-    const { api, step1 } = kr01()
-    decide(step1)
-    await open(api)
-    await userEvent.click(within(rowOf('S-02')).getByText('S-02'))
-    await waitFor(() => expect(clean(inspector().textContent)).toContain('Confirmed with 15 other sheets in one act'))
-    expect(clean(inspector().textContent)).toContain('Nusrat Jahan, QS, 26 Sep 2026, 11:00')
-    expect(clean(inspector().textContent)).toContain('NJConfirmed by Nusrat Jahan, 26 Sep 2026, 11:00')
-    await userEvent.click(within(rowOf('S-03')).getByText('S-03'))
-    await waitFor(() => expect(clean(inspector().textContent)).toContain('Excluded: superseded'))
-    expect(clean(inspector().textContent)).toContain('Excluded by Nusrat Jahan, 26 Sep 2026, 11:10: superseded')
-    expect(clean(inspector().textContent)).toContain('Nusrat Jahan, QS, 26 Sep 2026, 11:10')
-    await userEvent.click(within(rowOf('S-04')).getByText('S-04'))
-    await waitFor(() => expect(clean(inspector().textContent)).toContain('Confirmed by Tanvir Ahmed (Vextrus), 26 Sep 2026, 11:20'))
-    expect(clean(inspector().textContent)).toContain('Tanvir Ahmed, Vextrus Engineer, 26 Sep 2026, 11:20')
-  })
-})
-
-describe('M7: the inspector says where each fact was read, lists the views, and offers Exclude', () => {
-  it('shows Number, Title, Discipline, File, Storeys, Plot, the Views and "Exclude X"', async () => {
-    const { api, step1 } = kr01()
-    Object.assign(step1.proposals.find((p) => p.number === 'S-05')!, {
-      sources: { number: 'title_block_attribute', title: 'title_block_text', discipline: 'file' },
-      layout: null,
-      storeys_as_stated: '1ST FLOOR',
-      plot_file_name: 'KR-STR-R0.pdf',
-      plot_page: 5,
-      plot_none: null,
-      views: [
-        { ordinal: 0, kind: 'plan', title: '1ST FLOOR BEAM LAYOUT', stated_scale: '1:100', not_to_scale: false, storeys: ['floor_1'], storeys_meaning: 'at_floor_level', steps: ['beams', 'electrical', 'no_such_step'], part: null, proposed_exclusion: null, decision: null, excluded_reason: null, box: ['0', '0', '1', '1'] },
-        { ordinal: 1, kind: 'title_block', title: '', stated_scale: '', not_to_scale: true, storeys: [], storeys_meaning: null, steps: [], part: null, proposed_exclusion: 'for_information', decision: null, excluded_reason: null, box: ['0', '0', '1', '1'] },
-      ],
-    })
-    await open(api)
-    await userEvent.click(within(rowOf('S-05')).getByText('S-05'))
-    const text = () => clean(inspector().textContent)
-    await waitFor(() => expect(text()).toContain('S-05, title-block attribute'))
-    expect(text()).toContain('text in the title block')
-    expect(text()).toContain('Structural, from the file')
-    expect(text()).toContain('KR-STR-R0.dwg, laid out in the drawing')
-    expect(text()).toContain('1ST FLOOR → 1st, at floor level')
-    expect(text()).toContain('KR-STR-R0.pdf page 5')
-    expect(text()).toContain('Views (2)')
-    expect(text()).toContain('Plan: 1ST FLOOR BEAM LAYOUT, 1:100')
-    expect(text()).toContain('1st, at floor level')
-    expect(text()).toContain('7 Beams')
-    expect(text()).toContain('Electrical, M3 onwards')
-    expect(text()).toContain('A step Vextrus has no name for yet')
-    expect(text()).not.toContain('Another Discipline')
-    expect(text()).toContain('Title block, not to scale')
-    expect(text()).toContain('excluded: for information')
-    const exclude = within(inspector()).getByRole('button', { name: /Exclude/ })
-    await userEvent.click(exclude)
-    await shows('Exclude S-05. Why?')
-  })
-
-  it('says why a sheet has no Plot, from the API’s code', async () => {
-    const { api, step1 } = kr01()
-    Object.assign(step1.proposals.find((p) => p.number === 'S-05')!, { plot_page: null, plot_file_name: null, plot_none: { code: 'drawings.sheets.plot_no_number', params: {} } })
-    await open(api)
-    await userEvent.click(within(rowOf('S-05')).getByText('S-05'))
-    await waitFor(() => expect(clean(inspector().textContent)).toContain('No Plot for this sheet: the sheet has no number'))
-    expect(clean(inspector().textContent)).not.toContain('None: No Plot')
-  })
-})
-
-describe('M6: sheet mode draws the views, counts them, and walks them', () => {
-  function withViews(step1: FakeStep1) {
-    Object.assign(step1.proposals.find((p) => p.number === 'S-05')!, {
-      views: [
-        { ordinal: 0, kind: 'plan', title: '1ST FLOOR BEAM LAYOUT', stated_scale: '1:100', not_to_scale: false, storeys: ['1st'], storeys_meaning: 'at_floor_level', steps: ['7'], part: null, proposed_exclusion: null, decision: null, excluded_reason: null, box: ['10', '10', '60', '40'] },
-        { ordinal: 1, kind: 'detail', title: 'SECTION 1-1', stated_scale: '', not_to_scale: true, storeys: [], storeys_meaning: null, steps: ['7'], part: null, proposed_exclusion: null, decision: null, excluded_reason: null, box: ['65', '10', '90', '30'] },
-      ],
-    })
-  }
-
-  it('shows the legend, the outlines with their tags, and → ← Esc select and leave a view', async () => {
-    const { api, step1 } = kr01()
-    withViews(step1)
-    await open(api)
-    await userEvent.click(within(rowOf('S-05')).getByText('S-05'))
-    await userEvent.keyboard(' ')
-    await shows('Proposal 2 · Assigned 0 · Question 0 · Excluded 0')
-    await waitFor(() => expect(document.querySelectorAll('[data-outline]')).toHaveLength(2))
-    const tags = [...document.querySelectorAll('[data-outline]')].map((o) => clean(o.textContent))
-    expect(tags).toEqual(['Plan, 1:100', 'Detail, not to scale'])
-    await userEvent.keyboard('{ArrowRight}')
-    await waitFor(() => expect(document.querySelector('[data-selected]')?.getAttribute('data-outline')).toBe('0'))
-    await userEvent.keyboard('{ArrowRight}')
-    await waitFor(() => expect(document.querySelector('[data-selected]')?.getAttribute('data-outline')).toBe('1'))
-    await userEvent.keyboard('{ArrowRight}')
-    await waitFor(() => expect(document.querySelector('[data-selected]')).toBeNull())
-    await userEvent.keyboard('{ArrowLeft}')
-    await waitFor(() => expect(document.querySelector('[data-selected]')?.getAttribute('data-outline')).toBe('1'))
-    await userEvent.keyboard('{Escape}')
-    await waitFor(() => expect(document.querySelector('[data-selected]')).toBeNull())
-    expect(document.querySelectorAll('[data-outline]')).toHaveLength(2) // still the sheet
-    await userEvent.keyboard('{Escape}')
-    await waitFor(() => expect(document.querySelectorAll('[data-outline]')).toHaveLength(0))
-  })
-
-  it('has "List | Sheet" in the toolbar and a sheet label that opens the sheet picker', async () => {
-    const { api, step1 } = kr01()
-    withViews(step1)
-    await open(api)
-    const list = await waitFor(() => {
-      const b = [...document.querySelectorAll('button[aria-pressed]')].find((x) => clean(x.textContent) === 'List')
-      expect(b).toBeTruthy()
-      return b as HTMLElement
-    })
-    expect(list.getAttribute('aria-pressed')).toBe('true')
-    await userEvent.click(within(rowOf('S-05')).getByText('S-05'))
-    const sheet = [...document.querySelectorAll('button[aria-pressed]')].find((x) => clean(x.textContent) === 'Sheet') as HTMLElement
-    await userEvent.click(sheet)
-    await waitFor(() => expect(sheet.getAttribute('aria-pressed')).toBe('true'))
-    const label = await waitFor(() => {
-      const b = document.querySelector<HTMLElement>('button[aria-keyshortcuts="S"]')
-      expect(clean(b?.textContent)).toContain('S-051ST FLOOR BEAM LAYOUT')
-      return b!
-    })
-    await userEvent.click(label)
-    await shows('Sheets, in list order')
-    const dialog = document.querySelector<HTMLElement>('[role="dialog"]')!
-    await userEvent.click(within(dialog).getByText('S-06'))
-    await waitFor(() => expect(clean(document.querySelector('button[aria-keyshortcuts="S"]')?.textContent)).toContain('S-06'))
-  })
-})
-
-describe('M2: the files band, and the Storeys, Views and File columns', () => {
-  const file = (id: string, name: string, format: string, state: string, code: string, params: Record<string, unknown>, sheets: number | null) => ({
-    id, name, format, size: 1, discipline: 'structural', state, status: { code, params }, finding: null, sheets_found: sheets, plot_for: [], added_at: '2026-09-26T04:00:00Z', added_by_name: 'Nusrat Jahan', added_by_vextrus: false,
-  })
-
-  it('shows a chip per file in 4.5’s words, and the columns at 1440', async () => {
-    const { api, step1 } = kr01()
-    const files = [
-      file('f1', 'KR-STR-R0.dwg', 'dwg', 'read', 'drawings.files.read', {}, 13),
-      file('f2', 'KR-STR-R0.pdf', 'pdf', 'read', 'drawings.files.plot_matched', { matched: 11, pages: 12 }, 12),
-      file('f3', 'KR-STR-old.dwg', 'dwg', 'held', 'drawings.files.held', {}, null),
-    ]
-    const base = api.handle
-    api.handle = async (request: Request) => {
-      if (new URL(request.url, location.origin).pathname.endsWith('/drawings/files')) return new Response(JSON.stringify({ files }), { status: 200, headers: { 'Content-Type': 'application/json' } })
-      return base(request)
-    }
-    Object.assign(step1.proposals.find((p) => p.number === 'S-05')!, {
-      layout: null,
-      views: [
-        { ordinal: 0, kind: 'plan', title: 'PLAN', stated_scale: '1:100', not_to_scale: false, storeys: ['floor_3', 'floor_5', 'floor_7'], storeys_meaning: 'at_floor_level', steps: ['7'], part: null, proposed_exclusion: null, decision: null, excluded_reason: null, box: ['0', '0', '1', '1'] },
-        { ordinal: 1, kind: 'title_block', title: '', stated_scale: '', not_to_scale: true, storeys: [], storeys_meaning: null, steps: [], part: null, proposed_exclusion: 'for_information', decision: null, excluded_reason: null, box: ['0', '0', '1', '1'] },
-      ],
-    })
-    Object.assign(step1.proposals.find((p) => p.number === 'S-06')!, {
-      views: [{ ordinal: 0, kind: 'plan', title: 'PLAN', stated_scale: '', not_to_scale: false, storeys: [], storeys_meaning: null, steps: [], part: null, proposed_exclusion: null, decision: null, excluded_reason: null, box: ['0', '0', '1', '1'] }],
-    })
-    await open(api)
-    const band = await waitFor(() => {
-      const b = document.querySelector<HTMLElement>('[data-files-band]')
-      expect(b).not.toBeNull()
-      return b!
-    })
-    expect(clean(band.textContent)).toContain('✓ KR-STR-R0.dwg 13 sheets, two readers agree')
-    expect(clean(band.textContent)).toContain('✓ KR-STR-R0.pdf Plot: 11 of 12 pages matched')
-    expect(clean(band.textContent)).toContain('KR-STR-old.dwg held')
-    expect(clean(band.textContent)).not.toContain('✓ KR-STR-old.dwg')
-    const header = clean(document.querySelector('[role="row"]')?.textContent)
-    expect(header).toContain('Storeys per view')
-    expect(header).toContain('Views')
-    // File shows from 1100 px (see SheetList's COLS), not at 1440.
-    const s05 = clean(rowOf('S-05').textContent)
-    expect(s05).toContain('3rd, 5th, 7th')
-    expect(s05).toMatch(/3rd, 5th, 7th\s*2/)
-    expect(clean(rowOf('S-06').textContent)).toContain('not stated')
-  })
-})
-
-describe('M2: the File column, once the list is wide enough', () => {
-  it('shows File with where in it on a list 1100 px wide or more', async () => {
-    await page.viewport(1920, 1080)
-    const { api, step1 } = kr01()
-    Object.assign(step1.proposals.find((p) => p.number === 'S-05')!, { layout: 'S-05 PLAN' })
-    await open(api)
-    await waitFor(() => expect(clean(document.querySelector('[role="row"]')?.textContent)).toContain('File'))
-    expect(clean(rowOf('S-05').textContent)).toContain('KR-STR-R0.dwg')
+  it('says "Nothing is waiting." in the inspector of a project with no sheets', async () => {
+    const api = new FakeApi()
+    new FakeStep1(api, 'SG-03', true)
+    await mountApp('/p/SG-03/takeoff/1', { as: PEOPLE.qs, api })
+    await waitFor(() => expect(clean(inspector().textContent)).toContain('Nothing is waiting.'))
   })
 })
