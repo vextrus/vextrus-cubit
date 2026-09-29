@@ -9,6 +9,7 @@ deferral that fails rolls the add back with a stated code.
 """
 
 import io
+import json
 import uuid
 from collections.abc import Callable
 from pathlib import Path
@@ -215,8 +216,10 @@ def test_the_added_file_has_its_read_job_on_the_cad_queue(qs_project: QsProject)
     assert job_id is not None
     job = job_of(qs_project.member, job_id)
     assert job["queue"] == "cad"
-    assert job["args"]["file_id"] == body["file"]["id"]
-    assert job["args"]["tenant_id"] == str(qs_project.member.developer_id)
+    # jsonb reads as text through the app's connection
+    args = job["args"] if isinstance(job["args"], dict) else json.loads(job["args"])
+    assert args["file_id"] == body["file"]["id"]
+    assert args["tenant_id"] == str(qs_project.member.developer_id)
     with qs_project.member.acting():
         state = jobs.state(job_id)
     assert state is not None

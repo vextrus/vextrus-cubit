@@ -10,7 +10,7 @@ from pathlib import Path
 
 from vextrus.api import message_codes
 
-ROOT = Path(__file__).resolve().parents[5]
+ROOT = Path(__file__).resolve().parents[4]
 NOT_READ_IN_FULL = "takeoff.read_file.not_read_in_full"
 
 
