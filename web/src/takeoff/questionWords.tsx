@@ -61,27 +61,32 @@ export function QuestionBody({ entry }: { entry: QuestionEntry }) {
   return <MachineText message={{ code: q.code, params: params(entry) }} />
 }
 
-/** A copy by its mark: "R1" as drawn, a bare letter as "rev B" (§5, §6.7). */
+/** A copy by its mark: "R1" as drawn, a bare letter as "rev B" (§5, §6.7); "no revision mark" for none. */
 export function Copy({ sheet }: { sheet: ProposalOut }) {
+  if (!sheet.revision_mark.trim()) return <Trans>no revision mark</Trans>
   const mark = <DrawingText kind="revision" text={sheet.revision_mark} truncate={false} />
-  return /^r(ev)?\b|^r\d/i.test(sheet.revision_mark) ? mark : <Trans>rev {mark}</Trans>
+  return /^rev\b|^r\d/i.test(sheet.revision_mark) ? mark : <Trans>rev {mark}</Trans>
 }
 
 /**
- * The option picked for the QS, only where two sources that agree can be named (ruling 2), with
- * their names; M0's words name them for two sheets of one number: the later mark and the later date.
+ * Two copies told apart in an option's words: by mark where both have one and they differ, else by
+ * date, else by place in the card's list of copies.
  */
-export function usePick(entry: QuestionEntry): { key: string; sources: string } | null {
-  const { t } = useLingui()
-  const picked = optionsOf(entry).find((o) => o.picked)?.key
-  if (!picked || !isCopies(entry) || (picked !== 'keep_b' && picked !== 'keep_a')) return null
-  const [later, earlier] = entry.holds as [ProposalOut, ProposalOut]
-  const keep = picked === 'keep_b' ? later : earlier
-  const other = picked === 'keep_b' ? earlier : later
-  const laterMark = keep.revision_mark.localeCompare(other.revision_mark, 'en', { numeric: true }) > 0
-  const laterDate = !!keep.issue_date && !!other.issue_date && keep.issue_date > other.issue_date
-  if (!laterMark || !laterDate) return null
-  return { key: picked, sources: t`the later revision mark and the later date agree` }
+function CopyIn({ sheet, other, first }: { sheet: ProposalOut; other: ProposalOut; first: boolean }) {
+  const f = useFormat()
+  if (sheet.revision_mark.trim() && other.revision_mark.trim() && sheet.revision_mark !== other.revision_mark) return <Copy sheet={sheet} />
+  if (sheet.issue_date && other.issue_date && sheet.issue_date !== other.issue_date) {
+    const date = f.date(sheet.issue_date)
+    return <Trans>the copy dated {date}</Trans>
+  }
+  return first ? <Trans>the first copy</Trans> : <Trans>the second copy</Trans>
+}
+
+/** The option picked for the QS, only where two independent sources that agree can be named (ruling 2). */
+export function usePick(_entry: QuestionEntry): { key: string; sources: string } | null {
+  // The title block's mark and date are one source (§5); the second, the drawing list naming the
+  // kept copy's mark, does not reach the web yet, so nothing is pre-picked (ruling 2).
+  return null
 }
 
 /** An option's words, naming the copies' marks and dates for two sheets of one number. */
@@ -93,9 +98,10 @@ export function OptionWords({ entry, option }: { entry: QuestionEntry; option: O
     const [later, earlier] = entry.holds as [ProposalOut, ProposalOut]
     const keep = key === 'keep_b' ? later : earlier
     const drop = key === 'keep_b' ? earlier : later
-    const kept = <Copy sheet={keep} />
-    const dropped = <Copy sheet={drop} />
-    const date = keep.issue_date ? f.date(keep.issue_date) : null
+    const kept = <CopyIn sheet={keep} other={drop} first={keep === later} />
+    const dropped = <CopyIn sheet={drop} other={keep} first={drop === later} />
+    const byMark = !!keep.revision_mark.trim() && !!drop.revision_mark.trim() && keep.revision_mark !== drop.revision_mark
+    const date = byMark && keep.issue_date ? f.date(keep.issue_date) : null
     return date ? <Trans>Keep {kept} ({date}); leave {dropped} out as superseded</Trans> : <Trans>Keep {kept}; leave {dropped} out as superseded</Trans>
   }
   const words = OPTION_NAMES[key] ?? (entry.question.kind === 'low_confidence' ? SHEET_KIND_NAMES[key] : undefined)
@@ -115,8 +121,10 @@ export function Answering({ entry, names }: { entry: QuestionEntry; names: Reado
     const [later, earlier] = entry.holds as [ProposalOut, ProposalOut]
     const number = <SheetName sheets={[later]} />
     if (picked === 'keep_b' || picked === 'keep_a') {
-      const kept = <Copy sheet={picked === 'keep_b' ? later : earlier} />
-      const dropped = <Copy sheet={picked === 'keep_b' ? earlier : later} />
+      const keep = picked === 'keep_b' ? later : earlier
+      const drop = picked === 'keep_b' ? earlier : later
+      const kept = <CopyIn sheet={keep} other={drop} first={keep === later} />
+      const dropped = <CopyIn sheet={drop} other={keep} first={drop === later} />
       return (
         <Trans>
           Answering confirms {number} ({kept}) and excludes {number} ({dropped}) as superseded.
@@ -142,5 +150,5 @@ export function CannotAnswer({ entry, readOnly }: { entry: QuestionEntry; readOn
   const discipline = entry.question.discipline
   if (!discipline) return <Trans>Questions cannot be answered on this screen yet. Confirm the other sheets meanwhile.</Trans>
   const name = disciplineName(discipline, i18n)
-  return <Trans>Questions cannot be answered on this screen yet, so {name} cannot be confirmed until it is answered. Confirm its other sheets meanwhile.</Trans>
+  return <Trans>Questions cannot be answered on this screen yet, so {name} cannot be confirmed until this Question is answered. Confirm its other sheets meanwhile.</Trans>
 }

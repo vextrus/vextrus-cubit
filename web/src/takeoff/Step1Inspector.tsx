@@ -257,7 +257,7 @@ export function SheetFacts({ row, showTitle, readOnly }: { row: Row; showTitle: 
           <Fact label={<Trans>File</Trans>}>
             <DrawingText kind="file-name" text={sheet.file_name} />
           </Fact>
-          <Fact label={<Trans>Sources</Trans>}>{row.sheets.every((s) => s.agrees) ? <Trans>two sources agree</Trans> : <Trans>one source</Trans>}</Fact>
+          <Fact label={<Trans>Sources</Trans>}>{row.sheets.every((s) => s.agrees) ? <Trans>two, agreeing</Trans> : <Trans>one source</Trans>}</Fact>
         </dl>
       </Block>
       <Block title={<Trans>Who did what</Trans>}>

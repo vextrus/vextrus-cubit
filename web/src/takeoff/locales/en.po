@@ -159,10 +159,6 @@ msgstr "Presentation plan"
 msgid "your last change to Step 1"
 msgstr "your last change to Step 1"
 
-#: src/takeoff/questionWords.tsx
-msgid "Questions cannot be answered on this screen yet, so {name} cannot be confirmed until it is answered. Confirm its other sheets meanwhile."
-msgstr "Questions cannot be answered on this screen yet, so {name} cannot be confirmed until it is answered. Confirm its other sheets meanwhile."
-
 #: src/takeoff/SheetList.tsx
 msgid "found, {listed} on the drawing list read on a sheet"
 msgstr "found, {listed} on the drawing list read on a sheet"
@@ -258,6 +254,10 @@ msgstr "mechanical (HVAC)"
 #: src/takeoff/Bar.tsx
 msgid "{date}. X excludes it, with a reason."
 msgstr "{date}. X excludes it, with a reason."
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "two, agreeing"
+msgstr "two, agreeing"
 
 #: src/takeoff/Bar.tsx
 msgid "{n, plural, one {Confirm # sheet that agrees} other {Confirm # sheets that agree}}"
@@ -367,6 +367,10 @@ msgstr "Answering confirms both copies."
 msgid "{markText}, {date}"
 msgstr "{markText}, {date}"
 
+#: src/takeoff/questionWords.tsx
+msgid "the second copy"
+msgstr "the second copy"
+
 #: src/takeoff/Bar.tsx
 msgid "Confirm back in"
 msgstr "Confirm back in"
@@ -466,10 +470,6 @@ msgstr "Paste the drawing list"
 #: src/takeoff/words.tsx
 msgid "structural"
 msgstr "structural"
-
-#: src/takeoff/questionWords.tsx
-msgid "the later revision mark and the later date agree"
-msgstr "the later revision mark and the later date agree"
 
 #: src/takeoff/SheetList.tsx
 msgid "Proposal, one source"
@@ -829,6 +829,10 @@ msgstr "This file may be misread"
 msgid "You are reading this as a Guest."
 msgstr "You are reading this as a Guest."
 
+#: src/takeoff/questionWords.tsx
+msgid "the first copy"
+msgstr "the first copy"
+
 #: src/takeoff/Bar.tsx
 msgid "The QS confirms the sheet list; every act shows who did it."
 msgstr "The QS confirms the sheet list; every act shows who did it."
@@ -960,6 +964,10 @@ msgstr "The pasted drawing list"
 #: src/takeoff/Bar.tsx
 msgid "Coverage has a view that is neither assigned nor excluded"
 msgstr "Coverage has a view that is neither assigned nor excluded"
+
+#: src/takeoff/questionWords.tsx
+msgid "Questions cannot be answered on this screen yet, so {name} cannot be confirmed until this Question is answered. Confirm its other sheets meanwhile."
+msgstr "Questions cannot be answered on this screen yet, so {name} cannot be confirmed until this Question is answered. Confirm its other sheets meanwhile."
 
 #: src/takeoff/SheetList.tsx
 msgid "Revision and date"
@@ -1157,10 +1165,6 @@ msgstr "Exclusion reasons"
 msgid "Details"
 msgstr "Details"
 
-#: src/takeoff/Step1Inspector.tsx
-msgid "two sources agree"
-msgstr "two sources agree"
-
 #: src/takeoff/words.tsx
 msgid "Foundation layout"
 msgstr "Foundation layout"
@@ -1283,6 +1287,10 @@ msgstr "Not part of this set: take it off the list"
 msgid "found; no drawing list; the numbers do not run in one series"
 msgstr "found; no drawing list; the numbers do not run in one series"
 
+#: src/takeoff/questionWords.tsx
+msgid "no revision mark"
+msgstr "no revision mark"
+
 #: src/takeoff/Bar.tsx
 msgid "Step 1 is confirmed. You are reading it as the MD."
 msgstr "Step 1 is confirmed. You are reading it as the MD."
@@ -1347,6 +1355,10 @@ msgstr "Close"
 #: src/takeoff/words.tsx
 msgid "for information"
 msgstr "for information"
+
+#: src/takeoff/questionWords.tsx
+msgid "the copy dated {date}"
+msgstr "the copy dated {date}"
 
 #: src/takeoff/words.tsx
 msgid "Cover or index (its drawing list kept)"
