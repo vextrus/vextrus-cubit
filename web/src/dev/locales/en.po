@@ -68,6 +68,10 @@ msgid "Answer"
 msgstr "Answer"
 
 #: src/dev/specimen/Specimen.tsx
+msgid "The email the invitation is for."
+msgstr "The email the invitation is for."
+
+#: src/dev/specimen/Specimen.tsx
 msgid "Nusrat Jahan, QS"
 msgstr "Nusrat Jahan, QS"
 
@@ -90,6 +94,10 @@ msgstr "{views} views: {proposed} proposed, {unaccounted} unaccounted."
 #: src/dev/specimen/Specimen.tsx
 msgid "Tokens"
 msgstr "Tokens"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Name"
+msgstr "Name"
 
 #: src/dev/specimen/Specimen.tsx
 msgid "List or sheet"
@@ -116,8 +124,16 @@ msgid "The sheet canvas mounts inside it: fixed left to right and never mirrored
 msgstr "The sheet canvas mounts inside it: fixed left to right and never mirrored, while the chrome around it mirrors."
 
 #: src/dev/specimen/Specimen.tsx
+msgid "Password, locked while signing in"
+msgstr "Password, locked while signing in"
+
+#: src/dev/specimen/Specimen.tsx
 msgid "Page title, once a screen"
 msgstr "Page title, once a screen"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "(30 days)"
+msgstr "(30 days)"
 
 #: src/dev/specimen/Specimen.tsx
 msgid "How the sheet is drawn"
@@ -148,6 +164,10 @@ msgid "States"
 msgstr "States"
 
 #: src/dev/specimen/Specimen.tsx
+msgid "Field error"
+msgstr "Field error"
+
+#: src/dev/specimen/Specimen.tsx
 msgid "Paper is content, graphite is chrome, one indigo accent; copper once a screen."
 msgstr "Paper is content, graphite is chrome, one indigo accent; copper once a screen."
 
@@ -166,6 +186,10 @@ msgstr "Grid"
 #: src/dev/specimen/Specimen.tsx
 msgid "Sheet {number} is at revision {mark}; confirm it before the next one."
 msgstr "Sheet {number} is at revision {mark}; confirm it before the next one."
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Email, read only"
+msgstr "Email, read only"
 
 #: src/dev/specimen/Specimen.tsx
 msgid "Cancel"
@@ -206,6 +230,10 @@ msgstr "Beams"
 #: src/dev/specimen/Specimen.tsx
 msgid "End access"
 msgstr "End access"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Code"
+msgstr "Code"
 
 #: src/dev/specimen/Specimen.tsx
 msgid "Open a menu"
@@ -252,6 +280,10 @@ msgid "Ask later"
 msgstr "Ask later"
 
 #: src/dev/specimen/Specimen.tsx
+msgid "Checkbox"
+msgstr "Checkbox"
+
+#: src/dev/specimen/Specimen.tsx
 msgid "sheets, no drawing list"
 msgstr "sheets, no drawing list"
 
@@ -264,12 +296,20 @@ msgid "A Guest may look at the projects you choose, until the date you set."
 msgstr "A Guest may look at the projects you choose, until the date you set."
 
 #: src/dev/specimen/Specimen.tsx
+msgid "End their access on a date"
+msgstr "End their access on a date"
+
+#: src/dev/specimen/Specimen.tsx
 msgid "Buttons"
 msgstr "Buttons"
 
 #: src/dev/specimen/Specimen.tsx
 msgid "Trace"
 msgstr "Trace"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Enter a date like 26 Oct 2026."
+msgstr "Enter a date like 26 Oct 2026."
 
 #: src/dev/specimen/Specimen.tsx
 msgid "Notices"
@@ -360,6 +400,10 @@ msgid "columns placed"
 msgstr "columns placed"
 
 #: src/dev/specimen/Specimen.tsx
+msgid "Text field"
+msgstr "Text field"
+
+#: src/dev/specimen/Specimen.tsx
 msgid "Chips"
 msgstr "Chips"
 
@@ -378,6 +422,10 @@ msgstr "Find a project or a sheet by number or title."
 #: src/dev/specimen/Specimen.tsx
 msgid "Open a popover"
 msgstr "Open a popover"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Give the project a name."
+msgstr "Give the project a name."
 
 #: src/dev/specimen/Specimen.tsx
 msgid "Fit the whole sheet"
@@ -432,6 +480,10 @@ msgid "Vextrus Engineer"
 msgstr "Vextrus Engineer"
 
 #: src/dev/specimen/Specimen.tsx
+msgid "Email"
+msgstr "Email"
+
+#: src/dev/specimen/Specimen.tsx
 msgid "from the drawing + rules"
 msgstr "from the drawing + rules"
 
@@ -472,6 +524,10 @@ msgid "Glyphs"
 msgstr "Glyphs"
 
 #: src/dev/specimen/Specimen.tsx
+msgid "Access ends on"
+msgstr "Access ends on"
+
+#: src/dev/specimen/Specimen.tsx
 msgid "Takeoff Steps"
 msgstr "Takeoff Steps"
 
@@ -504,12 +560,20 @@ msgid "Confirmed {confirmCount} columns."
 msgstr "Confirmed {confirmCount} columns."
 
 #: src/dev/specimen/Specimen.tsx
+msgid "A label above, a hint under; refused, a red edge and the line saying what to do. No browser bubbles: a missing value is said under its field."
+msgstr "A label above, a hint under; refused, a red edge and the line saying what to do. No browser bubbles: a missing value is said under its field."
+
+#: src/dev/specimen/Specimen.tsx
 msgid "Command"
 msgstr "Command"
 
 #: src/dev/specimen/Specimen.tsx
 msgid "Show the keys"
 msgstr "Show the keys"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Form fields"
+msgstr "Form fields"
 
 #: src/dev/specimen/Specimen.tsx
 msgid "Accent and commit"
@@ -614,6 +678,14 @@ msgstr "Open a dialog"
 #: src/dev/specimen/Specimen.tsx
 msgid "Compare"
 msgstr "Compare"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Short, like KR-01"
+msgstr "Short, like KR-01"
+
+#: src/dev/specimen/Specimen.tsx
+msgid "Choose at least one project."
+msgstr "Choose at least one project."
 
 #: src/dev/specimen/Specimen.tsx
 msgid "Over Target Cost"

@@ -546,8 +546,9 @@ AccessChip's wording for the seed's Engineer and Guest; no "Members and access" 
 Wireframes: `sign-in-1440.svg`, `sign-in-1280.svg`.
 
 **Layout.** A 360 px card centred on the grey background: brand, "Sign in", Email, Password, the
-primary "Sign in" (full width, 32 px), and under it "Forgot your password? Ask your MD, or Vextrus,
-to set a new one." (M0 has no email; M5 brings a reset link.)
+primary "Sign in" (full width, 32 px), and under it "Forgot your password? Ask Vextrus to set a new
+one." (M0 has no email and no way for an MD to set a password; M5 brings a reset link. The owner's
+ruling of 29 Sep 2026, at the end of this page.)
 
 **States and wording.**
 | State | Wording |
@@ -620,7 +621,9 @@ the right (absent for a Vextrus Engineer). Three sections, each a table:
    ADR 0034). The MD's row actions: "Revoke" on anyone else's row, and "Renew 30 days" on a row with
    an end date (the same acts and wording as the Vextrus section's).
 2. **Vextrus access**, with the line "Vextrus sees your data only while an invitation below is
-   current. You can end it at any time.": Vextrus Engineer · Invited by · Projects · From · Until · Acts · actions
+   current. You can end it at any time." for the MD, and for a QS "Vextrus sees your data only while
+   an invitation below is current. You can end the access you gave; your MD can end any." (the owner's
+   ruling of 29 Sep 2026, at the end of this page): Vextrus Engineer · Invited by · Projects · From · Until · Acts · actions
    "Renew 30 days" and "Revoke". "Acts" reads "12 acts, last 26 Sep 2026" and opens, in a side panel,
    the Engineer's acts from the event log in words, newest first ("Confirmed S-07 back in, excluded
    before as superseded · Kadam Residence · 26 Sep 2026, 15:42"). Ended access stays listed, muted:
@@ -1775,3 +1778,10 @@ looking empty (screens.md 5); its screenshots stay under `.private/`.
   second reader reads a file but provably cannot read some of its items (a real Edison DWG holds one
   INSERT with a Z scale of 0 that ACadSharp 3.8.0 refuses), the readers found different contents: the
   file is held, with its Question, and the unread count is shown (4.5's Readers section).
+
+## The owner's rulings (29 Sep 2026, session 05)
+- **4.2, the forgotten password: "Ask Vextrus only"** (on 20a's design gate). The line under Sign in
+  is "Forgot your password? Ask Vextrus to set a new one." An MD cannot set a password in M0.
+- **4.4, the Vextrus access line: "Split by role"** (on 20a's design gate). The MD, who can end any
+  Vextrus access, reads "… You can end it at any time."; a QS, who can end only the access they gave,
+  reads "… You can end the access you gave; your MD can end any."

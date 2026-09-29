@@ -33,3 +33,27 @@ def test_with_no_box_it_draws_model_spaces_extents(
 ) -> None:
     monkeypatch.setattr(command, "read", lambda path: tiny_sheet()[0])
     assert command.main([str(tmp_path / "x.dwg"), "--out", str(tmp_path)]) == 0
+
+
+def test_sheets_renders_the_first_sheets_the_finder_finds_and_prints_counts_only(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """13's `--sheets N`: the orchestrator's look at real sheets, each written as `<stem>-<j>`."""
+    from engine.recognise.tests.drawing import Sheets, frame_block
+    from engine.recognise.tests.test_sheets import placed_frame
+
+    drawing = Sheets()
+    block = frame_block(drawing)
+    for i in range(3):
+        placed_frame(drawing, block, (1000.0 * i, 0.0), {2: f"S-0{i + 1}", 0: "SECRET TITLE"})
+    monkeypatch.setattr(command, "read", lambda path: drawing.artefact())
+
+    assert command.main([str(tmp_path / "K.dwg"), "--out", str(tmp_path / "out"), "--sheets", "2"]) == 0
+
+    written = sorted(p.name for p in (tmp_path / "out").iterdir())
+    assert written == ["K-1.bin", "K-1@4.png", "K-2.bin", "K-2@4.png"]
+    printed = capsys.readouterr().out
+    assert "SECRET" not in printed
+    assert "S-0" not in printed
+    assert "3 sheets found; 2 rendered" in printed
+    assert printed.count("paper 841 x 594 mm (source 1)") == 2

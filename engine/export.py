@@ -159,6 +159,10 @@ class FileReading:
     font_report: dict[str, int] | None = None
     pdf_report: dict[str, int] | None = None
     bangla_ansi: dict[str, int] | None = None
+    sheet_report: dict[str, int] | None = None
+    """The sheet finder's counts for the file, each limit it or the register reached (13's
+    `FileBudget.report`: sheets, layouts and texts not read), zero when not reached; null when the
+    finder reports none."""
     sheets: list[SheetCandidate] = field(default_factory=list)
     views: list[list[ViewCandidate]] = field(default_factory=list)
     register: list[RegisterEntry] = field(default_factory=list)
@@ -314,6 +318,7 @@ def _file(reading: FileReading, f1: Mapping[int, float]) -> dict[str, JSON]:
         "font_report": _counts(reading.font_report),
         "pdf_report": _counts(reading.pdf_report),
         "bangla_ansi": _counts(reading.bangla_ansi),
+        "sheet_report": _counts(reading.sheet_report),
         "pages": reading.page_count,
         "sheets": [
             _sheet(sheet, reading.views[j] if j < len(reading.views) else [], reading.register, f1)

@@ -16,16 +16,36 @@ export type LengthNotation = 'feet-inches' | 'metric'
 export interface UnitSystem {
   key: UnitSystemKey
   name: MessageDescriptor
+  /** How the New project dialog offers it, with its Billing Units (m0-screens §4.3). */
+  choice: MessageDescriptor
   length: LengthNotation
 }
 
 const UNIT_SYSTEMS: Readonly<Record<string, UnitSystem>> = {
-  imperial: { key: 'imperial', name: msg({ message: 'Imperial', context: 'unit system' }), length: 'feet-inches' },
-  metric: { key: 'metric', name: msg({ message: 'Metric', context: 'unit system' }), length: 'metric' },
+  imperial: {
+    key: 'imperial',
+    name: msg({ message: 'Imperial', context: 'unit system' }),
+    choice: msg({ message: 'Imperial (cft, sft, rft)', context: 'unit system choice' }),
+    length: 'feet-inches',
+  },
+  metric: {
+    key: 'metric',
+    name: msg({ message: 'Metric', context: 'unit system' }),
+    choice: msg({ message: 'Metric', context: 'unit system choice' }),
+    length: 'metric',
+  },
 }
 
 export class UnknownUnitSystem extends Error {
   override name = 'UnknownUnitSystem' // eslint-disable-line lingui/no-unlocalized-strings -- an error class name
+}
+
+/** Every unit system the web can write, by key. */
+export const UNIT_SYSTEM_KEYS: readonly UnitSystemKey[] = Object.keys(UNIT_SYSTEMS)
+
+/** Whether the web can write a unit system a Market's data names. */
+export function knownUnitSystem(key: UnitSystemKey): boolean {
+  return Object.prototype.hasOwnProperty.call(UNIT_SYSTEMS, key)
 }
 
 /** The unit system a Market's data names; throws for a key the web does not know. */
