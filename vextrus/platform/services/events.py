@@ -7,10 +7,11 @@ the tenant the transaction acts in (`app.tenant_id`), and the app can never upda
 """
 
 import uuid
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping, Sequence
 from datetime import datetime
 
 from django.db import connection
+from django.db.models import Max
 from django.utils import timezone
 
 from engine.messages import MessageCode
@@ -61,6 +62,26 @@ def record(
         occurred_at=occurred_at or timezone.now(),
     )
     return event.id
+
+
+def latest(
+    kinds: Sequence[MessageCode], *, subject_type: str, subject_ids: Collection[uuid.UUID]
+) -> dict[tuple[str, uuid.UUID], datetime]:
+    """When each subject's latest event of each kind happened, in the acting tenant (row-level
+    security): `{(kind's code, subject_id): occurred_at}` (a module's state kept as its events, e.g.
+    `drawings`' "Mark for Vextrus")."""
+    if not kinds or not subject_ids:
+        return {}
+    found = (
+        DomainEvent.objects.filter(
+            kind__in=[k.code for k in kinds],
+            subject_type=subject_type,
+            subject_id__in=list(subject_ids),
+        )
+        .values_list("kind", "subject_id")
+        .annotate(at=Max("occurred_at"))
+    )
+    return {(kind, subject): at for kind, subject, at in found if subject is not None}
 
 
 def _ids_and_counts(payload: Mapping[str, Value]) -> dict[str, int | str]:

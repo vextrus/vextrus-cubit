@@ -10,6 +10,12 @@ from vextrus.takeoff.services import export
 from vextrus.takeoff.tests.test_read_sheet import FRAMES, added, run_job
 from vextrus.testing.drawings import QsProject
 
+
+@pytest.fixture(autouse=True)
+def typesafe_down(jev_down: Any) -> None:
+    """The job asks Jev each sheet's kind (21c): TypeSafe down here, as in the check's sandbox."""
+    jev_down("timeout")
+
 RUN = {
     "id": "invented-run",
     "commit": None,
