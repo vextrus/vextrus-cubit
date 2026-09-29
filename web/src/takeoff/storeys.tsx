@@ -93,8 +93,11 @@ export function useStoreysWords() {
     }
     if (keys.includes('top') && known.includes('roof')) {
       // "6TH FLOOR TO ROOF": 13 sends the storeys named and marks the run open; the floors between come from Step 3.
-      const below = parts.filter((p) => p !== word('roof')).join(', ')
-      return below ? t`${below} to Roof (floors between from Step 3)` : word('roof')
+      const above = known.filter((k) => (storeyRank(k) ?? 0) > 1000).map(word)
+      const aboveWords = new Set([...above, word('roof')])
+      const below = parts.filter((p) => !aboveWords.has(p)).join(', ')
+      const run = below ? t`${below} to Roof (floors between from Step 3)` : word('roof')
+      return [run, ...above].join(', ')
     }
     const listed = parts.join(', ')
     return keys.includes('top') && listed ? t`${listed} to top (top from Step 3)` : listed

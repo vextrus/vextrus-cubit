@@ -356,8 +356,10 @@ describe('the words gate’s fixes', () => {
       file({ name: 'KR-STR-R0.pdf', state: 'read', status: msg('drawings.files.plot_matched', { matched: 0, pages: 13 }) }),
     ])
     Object.assign(step1.proposals.find((p) => p.number === 'S-04')!, { views: [plan('r1', ['floor_6', 'roof', 'top'])], plot_none: { code: 'drawings.sheets.plot_no_pdf', params: { discipline: 'Structural' } } })
+    Object.assign(step1.proposals.find((p) => p.number === 'S-05')!, { views: [plan('r2', ['floor_6', 'roof', 'stair_room_roof', 'top'])] })
     await open(api)
     expect(clean(rowOf('S-04').textContent)).toContain('6th to Roof (floors between from Step 3)')
+    expect(clean(rowOf('S-05').textContent)).toContain('6th to Roof (floors between from Step 3), Stair-room roof')
     const band = await screen.findByRole('list', { name: /files/ })
     expect(clean(band.textContent)).toContain('KR-STR-R0.pdf: no page matched a sheet')
     expect(clean(band.textContent)).not.toContain('✓')
