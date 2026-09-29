@@ -84,6 +84,9 @@ printf '%s\n1.9.10\n' "$version" | sort -V -C -r 2>/dev/null \
   || die "sudo $version is older than 1.9.10, which the scorer's run-id rule needs"
 [ "$(as_owner git -C "$ROOT" symbolic-ref --short HEAD)" = main ] || die "check out main in $ROOT first"
 [ -d "$DROP" ] || die "no drop folder $DROP: run scripts/owner/drop-setup.sh first"
+# The pipeline's user asks the installed poster which commits GitHub holds (`post-status head`).
+from_main scripts/owner/post-status | cmp -s - "$LIB/post-status" \
+  || die "the installed poster is not main's: run scripts/owner/drop-setup.sh first"
 PIN=$(from_main toolchain/python.version | tr -d '[:space:]')
 PYTHON=/opt/vextrus/python/cpython-$PIN-linux-x86_64-gnu/bin/python3
 [ -x "$PYTHON" ] || die "the toolchain's Python $PYTHON is not installed"
@@ -235,6 +238,8 @@ check "$OWNER is refused root without a password" "! sudo -u $OWNER -- sudo -n t
 # The scorer answers exit code 2 for a run that is not there: it ran, as the key user.
 check "$RUN_USER may run the scorer as $KEY_USER on a run id" \
   "sudo -u $RUN_USER -- sudo -n -u $KEY_USER $SCORER $run_id; [ \$? = 2 ]"
+check "$RUN_USER may ask the poster, as $KEY_USER, which commit GitHub holds for main" \
+  "sudo -u $RUN_USER -- sudo -n -u $KEY_USER $LIB/post-status head main"
 check "$RUN_USER is refused the scorer on a path" "! sudo -u $RUN_USER -- sudo -n -u $KEY_USER $SCORER /etc"
 check "$RUN_USER is refused a shell as $KEY_USER" \
   "! sudo -u $RUN_USER -- sudo -n -u $KEY_USER /bin/sh -c true"

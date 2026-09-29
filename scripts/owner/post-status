@@ -13,6 +13,10 @@ this file reads the settings beside itself:
         Checks that the commit is the PR's head now, and posts the checklist items passed, failed and
         not applicable, by number, and nothing else. Each item is in exactly one of the three; the
         status is success only when none failed.
+    post-status head <main | branch | PR number>
+        Posts nothing: prints the commit GitHub holds for main, a branch or a PR's head (ticket 24s:
+        the pipeline's user scores only a head, measured against a main, that GitHub holds, so a commit
+        nobody pushed is never scored). A branch name is letters, digits, `.`, `_` and `-`.
 
 Standard library only; the App's token is signed with `openssl`. It prints no secret.
 """
@@ -37,6 +41,7 @@ CONFIG = Path(__file__).resolve().with_name("post-status.toml")
 API = "https://api.github.com"
 RUN_ID = re.compile(r"^\d{8}T\d{6}Z-[0-9a-f]{12}-[0-9a-f]{4}$")
 COMMIT = re.compile(r"^[0-9a-f]{40}$")
+BRANCH = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$")
 MEASURES = {
     "files",
     "failed_stages",
@@ -83,9 +88,15 @@ def main(
     gate.add_argument("--passed", default="", help="item numbers and ranges, e.g. 1-9,11")
     gate.add_argument("--failed", default="", help="item numbers and ranges, e.g. 10")
     gate.add_argument("--not-applicable", default="", help="item numbers and ranges, e.g. 11")
+    held = kinds.add_parser("head", help="print the commit GitHub holds for main, a branch or a PR")
+    held.add_argument("ref")
     args = parser.parse_args(argv)
     config = tomllib.loads(config_path.read_text())
     try:
+        if args.kind == "head":
+            signer = sign or (lambda data: openssl_sign(Path(config["key"]), data))
+            print(github_head(config, args.ref, transport or https, signer, now()))
+            return 0
         if args.kind == "real-drawings":
             pr, commit, state, description = real_drawings(Path(config["drop"]), args.run_id)
             context = "real-drawings"
@@ -111,6 +122,24 @@ def main(
         return 2
     print(f"post-status: {context} {state} on PR {pr} at {commit[:12]}: {description}")
     return 0
+
+
+def github_head(config: dict[str, Any], ref: str, send: Transport, sign: Signer, now: float) -> str:
+    """The commit GitHub holds for a PR's head, or for main or a branch (through the combined status,
+    which the App's commit-status permission reads)."""
+    repository = config["repository"]
+    if ref.isdigit():
+        path, field = f"/repos/{repository}/pulls/{int(ref)}", ("head", "sha")
+    elif BRANCH.match(ref) and ".." not in ref:
+        path, field = f"/repos/{repository}/commits/{ref}/status", ("sha",)
+    else:
+        raise Refused(f"not main, a branch name or a PR number: {ref!r}")
+    reply = send("GET", path, installation_token(config, send, sign, now), None)
+    for name in field:
+        reply = reply.get(name) if isinstance(reply, dict) else None
+    if not isinstance(reply, str) or not COMMIT.match(reply):
+        raise Refused(f"GitHub holds no commit for {ref}")
+    return reply
 
 
 def real_drawings(drop: Path, run_id: str) -> tuple[int, str, str, str]:

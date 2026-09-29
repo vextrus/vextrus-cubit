@@ -183,20 +183,28 @@ class Pipeline:
         self.spools.mkdir(parents=True)
         self.installed = installed_copy(world, root)
         self.scored: list[str] = []
+        self.held: dict[str, str] = {}  # what GitHub holds instead, per ref
+        self.sets_read: dict[str, Path] = {}
 
-    def machine(self, home: Path, folder: Path) -> Machine:
+    def machine(self, home: Path, work: Path) -> Machine:
         def score(run_id: str) -> int:
             self.scored.append(run_id)
             return 0
 
+        self.sets_read = {name: work / "sets" / name for name in self.world.sets}
         return dataclasses.replace(
             self.world.machine(),
             repo=home / "repo.git",
             cache=home / "cache",
-            sets={name: folder / "sets" / name for name in self.world.sets},
+            sets=self.sets_read,
             score=score,
             fetch_prs=False,
         )
+
+    def github(self, ref: str) -> str:
+        """GitHub, as the poster answers it: here, what the owner's repository holds."""
+        name = f"refs/pull/{ref}/head" if ref.isdigit() else f"refs/heads/{ref}"
+        return self.held.get(ref, run_git(self.world.repo, "rev-parse", name))
 
     def spool(self, target: str) -> Path:
         return runner.spool(self.world.repo, target, self.world.sets, self.world.root, self.spools)
@@ -208,6 +216,7 @@ class Pipeline:
             spools=self.spools,
             installed_at=self.installed,
             machine=self.machine,
+            on_github=self.github,
             **kwargs,
         )
 
@@ -352,3 +361,56 @@ def test_the_launcher_runs_with_a_fixed_environment(tmp_path: Path) -> None:
     )
     assert done.returncode == 0, done.stderr
     assert done.stdout.strip() == f"['HOME', 'LANG', 'PATH'] {tmp_path}"
+
+
+# The refuter's finding (score 70): a commit nobody pushed, whose engine could write any export, was
+# scored; so was a head measured against a main nobody pushed.
+
+
+@pytest.mark.parametrize("where", ["head", "main"])
+def test_a_head_or_main_that_github_does_not_hold_is_never_measured(
+    world: World, tmp_path: Path, capfd: pytest.CaptureFixture[str], where: str
+) -> None:
+    pipeline = Pipeline(world, tmp_path)
+    world.commit("tuning", {"engine/read.py": "X = 1\n"})
+    folder = pipeline.spool("tuning")
+    pipeline.held["tuning" if where == "head" else "main"] = ""  # nobody pushed it
+
+    assert pipeline.run(["--spool", folder.name, "tuning", "--score"]) == 2
+
+    assert "on GitHub" in capfd.readouterr().err
+    assert world.sandbox_runs == []
+    assert pipeline.scored == []
+
+
+def test_a_prs_head_that_is_not_githubs_is_never_measured(world: World, tmp_path: Path) -> None:
+    pipeline = Pipeline(world, tmp_path)
+    world.pr(57, {"README.md": "a change\n"})
+    folder = pipeline.spool("57")
+    pipeline.held["57"] = "f" * 40
+
+    assert pipeline.run(["--spool", folder.name, "57", "--accept-if-clean"]) == 2
+    assert world.sandbox_runs == []
+
+
+def test_the_pipelines_user_reads_its_own_copy_of_the_sets(world: World, tmp_path: Path) -> None:
+    """The owner's user keeps its hard links' files: changed in place during a run, they would be read
+    under a digest taken before, and cached so."""
+    pipeline = Pipeline(world, tmp_path)
+    (world.sets["invented-a"] / "elsewhere").symlink_to("/etc/hostname")
+    folder = pipeline.spool("main")
+    seen: dict[str, bytes] = {}
+
+    def run(target: str, **kwargs: Any) -> int:
+        copy = kwargs["m"].sets["invented-a"]
+        seen["bytes"] = (copy / "sheet-1.bin").read_bytes()
+        seen["same"] = (copy / "sheet-1.bin").stat().st_ino == (
+            world.sets["invented-a"] / "sheet-1.bin"
+        ).stat().st_ino
+        seen["link"] = (copy / "elsewhere").exists()
+        return 0
+
+    assert pipeline.run(["--spool", folder.name, "main", "--score"], run=run) == 0
+
+    assert seen == {"bytes": b"invented bytes", "same": False, "link": False}
+    assert not pipeline.sets_read["invented-a"].exists()  # removed after the run

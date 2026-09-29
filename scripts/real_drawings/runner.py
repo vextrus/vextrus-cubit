@@ -29,8 +29,8 @@ import tomllib
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
-from scripts.real_drawings.drop import take
-from scripts.real_drawings.source import MAIN, Refused, git, show
+from scripts.real_drawings.drop import open_new, take
+from scripts.real_drawings.source import MAIN, Refused, git, resolve, show
 
 RUNNER_USER = "vxrun"
 HOME = Path("/var/lib/vxrun")  # vxrun's, mode 700: its mirror and its cache
@@ -41,7 +41,9 @@ BIN = Path("/usr/local/lib/vextrus/bin")  # root's copy of uv, which the fetch r
 CONFIG = Path("/usr/local/lib/vextrus/post-status.toml")  # drop-setup.sh's root-owned copy
 SCORER = Path("/usr/local/bin/vx-score")
 TOKEN = re.compile(r"\A[0-9a-f]{16}\Z")
-BRANCH = re.compile(r"\A[A-Za-z0-9][A-Za-z0-9._/-]{0,99}\Z")
+SET_NAME = re.compile(r"\A[a-z0-9][a-z0-9-]{0,63}\Z")
+# A branch the poster can ask GitHub about (scripts/owner/post-status's `head`): no `/`.
+BRANCH = re.compile(r"\A[A-Za-z0-9][A-Za-z0-9._-]{0,99}\Z")
 BUNDLE = "head.bundle"
 # The installed copy: every file the command imports, as paths in the repository (keys-custody.sh
 # installs these and the runner checks each against main's).
@@ -145,6 +147,7 @@ def runner_main(
     installed_at: Path = INSTALLED,
     run: Callable[..., int] | None = None,
     machine: Callable[[Path, Path], object] | None = None,
+    on_github: Callable[[str], str] | None = None,
 ) -> int:
     """`real-drawings-run --spool TOKEN <target> [--score] [--fresh] [--accept-if-clean | --accept R]`,
     as the pipeline's user; the command's own `main` is the owner's side."""
@@ -174,26 +177,40 @@ def runner_main(
                 f"the installed command is not main's ({stale}): the owner runs"
                 " scripts/owner/keys-custody.sh again"
             )
-        m = (machine or runners_machine)(home, folder)
-        assert isinstance(m, command.Machine)
-        _take_wheels(folder / "wheels", m.cache / "wheels")
-        return (run or command.run)(
-            args.target,
-            no_post=not args.target.isdigit(),
-            score=True,
-            m=m,
-            fresh=args.fresh,
-            accept=args.accept,
-            accept_if_clean=args.accept_if_clean,
-        )
+        # Only what GitHub holds is scored: a commit nobody pushed, whose engine could write any export,
+        # is never measured, and neither is a head measured against a main nobody pushed.
+        head = resolve(mirror, args.target, fetch=False)
+        for ref, commit in ((args.target, head.commit), (MAIN, main_commit.strip())):
+            if (on_github or github_head)(ref) != commit:
+                raise Refused(
+                    f"{ref} is not {commit[:12]} on GitHub: a scored run measures only what GitHub"
+                    " holds (push it, or bring main up to date, and run again)"
+                )
+        work = home / "work" / args.spool
+        try:
+            _take_sets(folder / "sets", work / "sets")
+            m = (machine or runners_machine)(home, work)
+            assert isinstance(m, command.Machine)
+            _take_wheels(folder / "wheels", m.cache / "wheels")
+            return (run or command.run)(
+                args.target,
+                no_post=not args.target.isdigit(),
+                score=True,
+                m=m,
+                fresh=args.fresh,
+                accept=args.accept,
+                accept_if_clean=args.accept_if_clean,
+            )
+        finally:
+            shutil.rmtree(work, ignore_errors=True)  # the pipeline's user's own copy of the sets
     except Refused as refused:
         print(f"real-drawings: refused: {refused}", file=sys.stderr)
         return 2
 
 
-def runners_machine(home: Path, folder: Path) -> object:
-    """The pipeline's user's machine: its mirror and cache, the spool's sets, and the key user's
-    poster and scorer, each through `sudo -n` (vxrun's rule names exactly those two)."""
+def runners_machine(home: Path, work: Path) -> object:
+    """The pipeline's user's machine: its mirror and cache, its own copy of the sets, and the key
+    user's poster and scorer, each through `sudo -n` (vxrun's rule names exactly those two)."""
     from scripts.real_drawings.command import SETS, Machine
 
     config = tomllib.loads(CONFIG.read_text())
@@ -207,11 +224,23 @@ def runners_machine(home: Path, folder: Path) -> object:
         toolchain=Path("/opt/vextrus"),
         cache=home / "cache",
         drop=Path(config["drop"]),
-        sets={name: folder / "sets" / name for name in SETS},
+        sets={name: work / "sets" / name for name in SETS},
         post=lambda run_id: as_key_user(config["installed"], "real-drawings", run_id),
         score=lambda run_id: as_key_user(str(SCORER), run_id),
         fetch_prs=False,
     )
+
+
+def github_head(ref: str) -> str:
+    """The commit GitHub holds for main, a branch or a PR, as the poster (run as the key user, whose App
+    reads it) prints it; "" when it cannot say."""
+    config = tomllib.loads(CONFIG.read_text())
+    line = ["sudo", "-n", "-u", config["key_user"], config["installed"], "head", ref]
+    done = subprocess.run(line, capture_output=True, text=True, check=False)
+    if done.returncode != 0:
+        print(done.stderr.strip(), file=sys.stderr)
+        return ""
+    return done.stdout.strip()
 
 
 def fetch_bundle(mirror: Path, bundle: Path) -> Path:
@@ -267,6 +296,40 @@ def _spool_folder(spools: Path, token: str) -> Path:
     if info is None or not stat.S_ISDIR(info.st_mode):
         raise Refused("no such spool folder")
     return folder
+
+
+def _take_sets(spooled: Path, into: Path) -> None:
+    """The spool's sets copied into the pipeline's user's own folder, so what is digested is what the
+    sandbox reads (the owner's user can change its own hard links' files at any time): folders and
+    regular files only, each opened without following a link."""
+    if spooled.is_symlink() or not spooled.is_dir():
+        raise Refused("the spool holds no sets")
+    for root in sorted(spooled.iterdir()):
+        name = root.name
+        if root.is_symlink() or not root.is_dir() or not SET_NAME.match(name):
+            continue  # a set the check reads but the spool lacks is refused by the check itself
+        for folder, dirs, files in os.walk(root, followlinks=False):
+            relative = Path(folder).relative_to(root)
+            (into / name / relative).mkdir(parents=True, exist_ok=True)
+            dirs[:] = [d for d in dirs if not (Path(folder) / d).is_symlink()]
+            for file in files:
+                _copy_regular(Path(folder) / file, into / name / relative / file)
+
+
+def _copy_regular(source: Path, target: Path) -> None:
+    """`source` into a new `target` when it is a regular file (a hard link is: the spool is made of
+    them); a symbolic link, a pipe or a device is never opened for reading."""
+    try:
+        handle = os.open(source, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    except OSError:
+        return
+    try:
+        if not stat.S_ISREG(os.fstat(handle).st_mode):
+            return
+        with os.fdopen(os.dup(handle), "rb") as reading, open_new(target) as writing:
+            shutil.copyfileobj(reading, writing, 1 << 20)
+    finally:
+        os.close(handle)
 
 
 def _take_wheels(spooled: Path, wheels: Path) -> None:

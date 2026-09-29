@@ -38,6 +38,8 @@ class FakeGitHub:
             return {"token": "installation-token"}
         if "/pulls/" in path:
             return {"head": {"sha": self.head}}
+        if path.endswith("/status"):
+            return {"state": "pending", "sha": self.head, "statuses": []}
         return {}
 
     def posted(self) -> list[dict[str, Any]]:
@@ -335,3 +337,50 @@ def test_the_design_gate_is_posted_only_on_the_prs_head(tmp_path: Path) -> None:
 
     assert post(tmp_path, ["design-gate", "57", HEAD, "--passed", "1-11"], github) == 2
     assert github.posted() == []
+
+
+# Ticket 24s: `head` prints the commit GitHub holds, and posts nothing.
+
+
+@pytest.mark.parametrize(
+    ("ref", "path"),
+    [("57", "/repos/invented/repo/pulls/57"), ("main", "/repos/invented/repo/commits/main/status")],
+)
+def test_head_prints_the_commit_github_holds_and_posts_nothing(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], ref: str, path: str
+) -> None:
+    github = FakeGitHub()
+
+    code = post_status.main(
+        ["head", ref], config_path=config(tmp_path, tmp_path), transport=github, sign=lambda d: b"s"
+    )
+
+    assert code == 0
+    assert capsys.readouterr().out.strip() == HEAD
+    assert [(m, p) for m, p, _, _ in github.calls][1:] == [("GET", path)]
+    assert github.posted() == []
+
+
+@pytest.mark.parametrize("ref", ["../x", "a..b", "feature/x", "x y", ""])
+def test_head_refuses_a_ref_that_is_not_main_a_branch_or_a_pr(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], ref: str
+) -> None:
+    github = FakeGitHub()
+
+    code = post_status.main(
+        ["head", ref], config_path=config(tmp_path, tmp_path), transport=github, sign=lambda d: b"s"
+    )
+
+    assert code == 2
+    assert "nothing posted" in capsys.readouterr().err
+    assert github.calls == []
+
+
+def test_head_refuses_an_answer_that_is_not_a_commit(tmp_path: Path) -> None:
+    github = FakeGitHub(head="not-a-commit")
+
+    code = post_status.main(
+        ["head", "main"], config_path=config(tmp_path, tmp_path), transport=github, sign=lambda d: b"s"
+    )
+
+    assert code == 2
