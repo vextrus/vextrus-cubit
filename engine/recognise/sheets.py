@@ -135,10 +135,11 @@ COVER_SIZE = (0.3, 2.0)
 """A rectangle with no title block, as a fraction of the file's frames' median long side."""
 MIN_COVER_CONTENT = 3
 """The fewest lines of text a rectangle with no title block must hold to be a sheet (a cover)."""
-MAX_VISITS = 2_000_000
-"""The most entities one walk of a space visits: about ten times the real sets' largest space
-(190,127 visits), below the renderer's own budget (review round 2: a file of nested inserts made the
-finder hold what it placed for 5,000,000 visits, 6.6 GB at worst)."""
+MAX_VISITS = 4_000_000
+"""The most entities all the walks of one file visit together, the finder's and the register's (a
+`FileBudget`): about ten times the real sets' most (190,127 in a space, walked twice); below the
+renderer's own budget (review rounds 2 and 3: a file of nested inserts, or of many layouts, made the
+finder walk and hold without a bound for the file)."""
 MAX_SHEETS = 1_000
 """The most sheets one file gives, the rest counted (`sheets_capped`): the real sets hold at most 87 a
 file, and 14 records 1,000 in under 9 s at its measured 8.5 ms a sheet (review round 2: a titled
@@ -148,13 +149,14 @@ MAX_UNKNOWN_LAYOUTS = 200
 told empty), the rest counted (`layout_viewport_unknown_capped`): the real sets have none; the bound
 still keeps a file of 87 sheets, each on a layout the reader lost, twice over (review round 2: 5,000
 such stale layouts were 5,000 live sheets, past the one-blank cap)."""
-MAX_TEXTS = 100_000
-"""The most texts one space places, the rest counted (`texts_capped`): about twelve times the real
-sets' most (7,882); a placed text holds about 1.3 kB, so a space's texts stay near 130 MB (review
-round 2: texts nested under inserts placed a million at 1.34 GB from 1,117 entities)."""
+MAX_TEXTS = 200_000
+"""The most texts all the walks of one file place together, the rest counted (`texts_capped`): about
+twelve times the real sets' most (7,882 in a space, placed twice); a placed text holds about 1.3 kB,
+so the file's texts stay near 260 MB (review round 2: texts nested under inserts placed a million at
+1.34 GB from 1,117 entities; round 3: 40 layouts of them, 2.8 GB)."""
 MAX_FRAMES = 100_000
-"""The most candidate frames one space holds, the rest counted (`frames_capped`): about eleven times
-the real sets' most (9,066)."""
+"""The most candidate frames one file holds, the rest counted (`frames_capped`): about eleven times
+the real sets' most (9,066; the register's walk holds none)."""
 MAX_VIEWPORTS = 10_000
 """The most viewports one file's layouts are asked what they show."""
 MAX_RAW_TEXT = 4096
@@ -179,14 +181,33 @@ counted (`frame_values_capped`)."""
 MAX_WINDOW_FRAMES = 64
 """The most model-space frames one viewport is asked about (a layout needs only whether it shows
 none, one or more); past it, counted (`layout_frames_capped`)."""
-READS_PER_TEXT = 16
-MIN_READS = 100_000
-"""A space's reading budget: the texts and frames its queries may give, `READS_PER_TEXT` per text and
-candidate frame it holds, plus `MIN_READS` (the real sets read at most 1.2 per text, measured)."""
-PAIRS_PER_TEXT = 64
-MIN_PAIRS = 1_000_000
-"""A space's budget of label and value pairs weighed: `PAIRS_PER_TEXT` per text, plus `MIN_PAIRS`
-(the real sets weigh at most 12.8 per text, measured)."""
+MAX_READS = 4_000_000
+"""The most texts and frames the index queries of one file may give, the finder's and the register's
+together, the rest refused and counted (`read_budget`): the real sets read at most 1.2 a text
+(measured), about 20,000 a file."""
+MAX_PAIRS = 4_000_000
+"""The most label and value pairs one file's title blocks weigh; a sheet whose pairs are past it is
+read without its labelled values, counted (`pair_budget`): the real sets weigh at most 12.8 a text
+(measured), about 100,000 a file."""
+LIMITS = (
+    "sheets_capped",
+    "layouts_not_read",
+    "layout_viewport_unknown_capped",
+    "layout_blank_not_proposed",
+    "walk_visit_limit",
+    "texts_capped",
+    "frames_capped",
+    "read_budget",
+    "pair_budget",
+    "viewport_budget",
+    "frame_labels_capped",
+    "frame_values_capped",
+    "layout_frames_capped",
+    "register_headings_capped",
+)
+"""The counts that say a limit left something of the file unread: `FileBudget.report` gives each,
+zero when not reached (review round 3: a file a limit cut must never read as having no sheets
+without its reason)."""
 MAX_FACTS = 12
 """The most view titles a judgement request carries."""
 MAX_FACT = 256
@@ -280,25 +301,46 @@ def _has_control(text: str) -> bool:
 
 @dataclass
 class Segmentation:
-    """The sheets found, and what was skipped or dropped on the way, counted by name."""
+    """The sheets found, and the file's budget: what is left of it, and what was skipped or dropped
+    on the way, counted by name (`budget.counts`, the same object as `counts`)."""
 
-    sheets: list[SheetCandidate] = field(default_factory=list)
-    counts: Counter[str] = field(default_factory=Counter)
+    sheets: list[SheetCandidate]
+    budget: FileBudget
+
+    @property
+    def counts(self) -> Counter[str]:
+        return self.budget.counts
+
+
+class FoundSheets(list[SheetCandidate]):
+    """`find`'s list: the file's sheets, carrying the file's budget (`budget`), which the register
+    spends what is left of (`register.find(..., budget=found.budget)`) and whose `report()` the
+    harness writes into the file's export."""
+
+    budget: FileBudget
 
 
 def find(
     artefact: ReadArtefact, file_discipline: str | None, conventions: SheetConventions
-) -> list[SheetCandidate]:
-    """The file's sheets (the harness's `sheets` stage; the module's docstring). `group` is left
-    unset: the caller stamps it."""
-    return segment(artefact, file_discipline, conventions).sheets
+) -> FoundSheets:
+    """The file's sheets (the harness's `sheets` stage; the module's docstring), a `FoundSheets`
+    carrying the file's budget. `group` is left unset: the caller stamps it."""
+    segmentation = segment(artefact, file_discipline, conventions)
+    found = FoundSheets(segmentation.sheets)
+    found.budget = segmentation.budget
+    return found
 
 
 def segment(
-    artefact: ReadArtefact, file_discipline: str | None, conventions: SheetConventions
+    artefact: ReadArtefact,
+    file_discipline: str | None,
+    conventions: SheetConventions,
+    *,
+    budget: FileBudget | None = None,
 ) -> Segmentation:
-    """`find`, with the counts of what was skipped (the module's docstring)."""
-    return _Segmenter(artefact, file_discipline, conventions).run()
+    """`find`, with the file's budget and the counts of what was skipped (the module's docstring);
+    `budget` a file's own when none is given."""
+    return _Segmenter(artefact, file_discipline, conventions, budget=budget).run()
 
 
 # Words -------------------------------------------------------------------------------------------------
@@ -521,17 +563,18 @@ class _Index:
 
 
 class _Budget:
-    """Counted work a space may still take (`READS_PER_TEXT`, `PAIRS_PER_TEXT`): once spent, what is
-    left is not read, and each refusal is counted (`read_budget`), so frames stacked over the same
-    texts cost work in proportion to the texts, not to their product."""
+    """Counted work a file may still take of one kind (`MAX_READS`, `MAX_PAIRS`): once spent, what is
+    left is not read, and each refusal is counted by `name`, so frames stacked over the same texts
+    cost the file's budget, never their product."""
 
-    def __init__(self, allowed: int, counts: Counter[str]) -> None:
+    def __init__(self, allowed: int, counts: Counter[str], name: str) -> None:
         self.left = allowed
         self.counts = counts
+        self.name = name
 
     def take(self, amount: int) -> bool:
         if amount > self.left:
-            self.counts["read_budget"] += 1
+            self.counts[self.name] += 1
             return False
         self.left -= amount
         return True
@@ -540,10 +583,31 @@ class _Budget:
         """What `index` holds in `box`, taken from the budget; none, counted, past it."""
         found = index.upto(box, self.left)
         if found is None:
-            self.counts["read_budget"] += 1
+            self.counts[self.name] += 1
             return None
         self.left -= len(found)
         return found
+
+
+class FileBudget:
+    """What one file may cost the sheet finder and its register together (review round 3): every walk
+    of every space, the finder's and the register's, spends its visits (`MAX_VISITS`), its placed
+    texts (`MAX_TEXTS`), its candidate frames (`MAX_FRAMES`), its index reads (`MAX_READS`) and its
+    label-value pairs (`MAX_PAIRS`) from this one object, so no number of spaces, layouts or calls
+    multiplies them. Past any of them what is left is not read, counted; `report()` gives every
+    count, each of `LIMITS` even at zero."""
+
+    def __init__(self) -> None:
+        self.counts: Counter[str] = Counter()
+        self.visits = MAX_VISITS
+        self.texts = MAX_TEXTS
+        self.frames = MAX_FRAMES
+        self.reads = _Budget(MAX_READS, self.counts, "read_budget")
+        self.pairs = _Budget(MAX_PAIRS, self.counts, "pair_budget")
+
+    def report(self) -> dict[str, int]:
+        """Every count by name, each limit's given even when not reached (the harness's export)."""
+        return {**dict.fromkeys(LIMITS, 0), **self.counts}
 
 
 # Frames ------------------------------------------------------------------------------------------------
@@ -773,13 +837,19 @@ class _Space:
 
 class _Segmenter:
     def __init__(
-        self, artefact: ReadArtefact, file_discipline: str | None, conventions: SheetConventions
+        self,
+        artefact: ReadArtefact,
+        file_discipline: str | None,
+        conventions: SheetConventions,
+        *,
+        budget: FileBudget | None = None,
     ) -> None:
         self.artefact = artefact
         self.conventions = conventions
         self.discipline = file_discipline if file_discipline in conventions.discipline_keys() else None
         self.labels = _Labels.of(conventions)
-        self.counts: Counter[str] = Counter()
+        self.budget = budget if budget is not None else FileBudget()
+        self.counts = self.budget.counts
         self.heights = Heights(artefact)
         self.transforms: dict[int, tuple[Chain, Transform]] = {}
         self.rectangles: dict[str, Corners | None] = {}
@@ -800,30 +870,40 @@ class _Segmenter:
         self.transforms[id(chain)] = (chain, placed)
         return placed
 
-    def space(self, handle: str) -> _Space:
-        """Walk one space once: its texts, its drawn points and its candidate frames."""
-        walk = Walk(self.artefact, max_visits=MAX_VISITS, enter=self._enter)
+    def _walk(
+        self, handle: str, *, whole: bool
+    ) -> tuple[list[_Placed], array[float], array[float], list[_Frame]]:
+        """Walk one space once, spending the file's budget: its placed texts and, when `whole`, its
+        drawn points (compactly) and candidate frames (the register asks for texts only)."""
+        budget = self.budget
+        walk = Walk(self.artefact, max_visits=budget.visits, enter=self._enter)
         texts: list[_Placed] = []
-        xs, ys = array("d"), array("d")  # the drawn points, compactly
+        xs, ys = array("d"), array("d")
         candidates: list[_Frame] = []
         self.transforms.clear()
         for entity, chain in walk.entities(handle):
             if isinstance(entity, Text):
                 if entity.type == "ATTDEF":
                     continue  # a definition: drawn only through its insert's attribute
-                if len(texts) >= MAX_TEXTS:
+                if budget.texts <= 0:
                     self.counts["texts_capped"] += 1
                     continue
                 found = self._place(entity, chain)
                 if found is not None:
+                    budget.texts -= 1
                     texts.append(found)
                     xs.append(found.origin[0])
                     ys.append(found.origin[1])
                 continue
+            if not whole:
+                continue
             placed = self._transform(chain)
             frame: _Frame | None = None
             if isinstance(entity, Insert):
-                frame = self._insert_frame(entity, chain, placed)
+                if budget.frames > 0:
+                    frame = self._insert_frame(entity, chain, placed)
+                elif self._block_rectangle(entity.block) is not None:
+                    self.counts["frames_capped"] += 1
             else:
                 point = _anchor_point(entity)
                 if point is not None:
@@ -832,16 +912,27 @@ class _Segmenter:
                         xs.append(x)
                         ys.append(y)
                 corners = _rectangle(entity) if not chain else None
-                if corners is not None:
+                if corners is not None and budget.frames > 0:
                     frame = _Frame(corners, entity.handle, (), None, IDENTITY)
-            if frame is not None:
-                if len(candidates) >= MAX_FRAMES:
+                elif corners is not None:
                     self.counts["frames_capped"] += 1
-                else:
-                    candidates.append(frame)
+            if frame is not None:
+                budget.frames -= 1
+                candidates.append(frame)
         self.transforms.clear()
+        budget.visits = max(budget.visits - walk.visits, 0)
         for reason, count in walk.refused.items():
             self.counts[f"walk_{reason}"] += count
+        return texts, xs, ys, candidates
+
+    def texts_of(self, handle: str) -> tuple[list[_Placed], _Index]:
+        """A space's placed texts and their index by origin (the register's walk)."""
+        texts = self._walk(handle, whole=False)[0]
+        return texts, _Index((t.origin[0], t.origin[1], i) for i, t in enumerate(texts))
+
+    def space(self, handle: str) -> _Space:
+        """Walk one space once: its texts, its drawn points and its candidate frames."""
+        texts, xs, ys, candidates = self._walk(handle, whole=True)
         labels = _Index(
             (t.origin[0], t.origin[1], i)
             for i, t in enumerate(texts)
@@ -854,11 +945,11 @@ class _Segmenter:
             candidates,
             labels,
             _Index((t.origin[0], t.origin[1], i) for i, t in enumerate(texts)),
-            _Budget(READS_PER_TEXT * (len(texts) + len(candidates)) + MIN_READS, self.counts),
-            _Budget(PAIRS_PER_TEXT * len(texts) + MIN_PAIRS, self.counts),
+            self.budget.reads,
+            self.budget.pairs,
         )
-        for frame in candidates:
-            frame.evidence = self._evidence(frame, space)
+        for candidate in candidates:
+            candidate.evidence = self._evidence(candidate, space)
         space.frames = self._resolve(candidates, space.reads)
         space.centres = _Index(
             ((f.bbox[0] + f.bbox[2]) / 2, (f.bbox[1] + f.bbox[3]) / 2, i)
@@ -1070,7 +1161,11 @@ class _Segmenter:
         covers = self.covers(space) if space is not None else []
         plotted: set[int] = set()
         layout_sheets: list[SheetCandidate] = []
+        in_model = len(frames) + len(covers)
         for name, handle in self._layout_blocks():
+            if in_model - len(plotted) + len(layout_sheets) >= MAX_SHEETS:
+                self.counts["layouts_not_read"] += 1  # the file has its sheets: never walked
+                continue
             sheet, shown = self._layout(name, handle, space)
             if sheet is not None:
                 layout_sheets.append(sheet)
@@ -1091,7 +1186,7 @@ class _Segmenter:
                 self.counts["sheets_capped"] += 1
             else:
                 sheets.append(sheet)
-        return Segmentation(sheets, self.counts)
+        return Segmentation(sheets, self.budget)
 
     # Layouts
 
@@ -1603,25 +1698,28 @@ def _fact(text: str) -> str:
 
 
 def texts_on(
-    artefact: ReadArtefact, sheets: Sequence[SheetCandidate], conventions: SheetConventions
-) -> dict[int, list[_Placed]]:
-    """The placed texts of each sheet, by its position in `sheets`: a layout's paper-space texts, or
-    the model-space texts inside a model-space sheet's box. Each space is walked once."""
-    segmenter = _Segmenter(artefact, None, conventions)
-    out: dict[int, list[_Placed]] = {}
-    model = next((h for h, b in artefact.blocks.items() if b.layout == "Model"), None)
-    boxes = [(i, s.location.box) for i, s in enumerate(sheets) if s.location.box is not None]
-    if model is not None and boxes:
-        space = segmenter.space(model)
-        for i, box in boxes:
-            assert box is not None
-            within = space.reads.within(space.text_index, (box.x0, box.y0, box.x1, box.y1))
-            if within is None:
-                within = []  # past the space's budget: the register reads nothing here
-            out[i] = [space.texts[j] for j in within]
+    artefact: ReadArtefact,
+    sheets: Sequence[SheetCandidate],
+    conventions: SheetConventions,
+    *,
+    budget: FileBudget | None = None,
+) -> Iterator[tuple[int, list[_Placed]]]:
+    """Each sheet's placed texts, by its position in `sheets`, one sheet at a time (review round 3:
+    never every sheet's at once): a layout's paper-space texts, walked when its turn comes, or the
+    model-space texts inside a model-space sheet's box (model space walked once, when first asked).
+    Every walk and query spends `budget` (the finder's, or a file's own when none is given)."""
+    segmenter = _Segmenter(artefact, None, conventions, budget=budget)
     names = {b.layout: h for h, b in artefact.blocks.items() if b.layout not in (None, "Model")}
+    model = next((h for h, b in artefact.blocks.items() if b.layout == "Model"), None)
+    model_texts: tuple[list[_Placed], _Index] | None = None
     for i, sheet in enumerate(sheets):
         handle = names.get(sheet.location.layout) if sheet.location.layout is not None else None
+        box = sheet.location.box
         if handle is not None:
-            out[i] = segmenter.space(handle).texts
-    return out
+            yield i, segmenter.texts_of(handle)[0]
+        elif box is not None and model is not None:
+            if model_texts is None:
+                model_texts = segmenter.texts_of(model)
+            texts, index = model_texts
+            within = segmenter.budget.reads.within(index, (box.x0, box.y0, box.x1, box.y1))
+            yield i, [texts[j] for j in within or []]  # past the budget: nothing read here

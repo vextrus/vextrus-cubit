@@ -36,7 +36,15 @@ from functools import partial
 from engine.read.anchor import DwgAnchor
 from engine.read.artefact import ReadArtefact
 from engine.recognise import sheets as sheet_finder
-from engine.recognise.sheets import MAX_FIELD, _Labels, _normal, _Placed, _plain, sequence
+from engine.recognise.sheets import (
+    MAX_FIELD,
+    FileBudget,
+    _Labels,
+    _normal,
+    _Placed,
+    _plain,
+    sequence,
+)
 from engine.recognise.types import (
     Box,
     RegisterEntry,
@@ -83,17 +91,20 @@ def find(
     sheets: Sequence[SheetCandidate],
     *,
     conventions: SheetConventions | None = None,
+    budget: FileBudget | None = None,
 ) -> list[RegisterEntry]:
-    """The register entries read from the file's sheets (the module's docstring)."""
+    """The register entries read from the file's sheets (the module's docstring). Its walks spend
+    `budget`, the file's (what the finder left: `sheets.find(...).budget`), or its own when none is
+    given; a sheet's texts are read one sheet at a time."""
     held = conventions if conventions is not None else sheet_finder.default_conventions()
     headings = tuple(_normal(w) for w in held.register_words if _normal(w))
     if not headings or not sheets:
         return []
     labels = _Labels.of(held)
-    texts = sheet_finder.texts_on(artefact, sheets, held)
+    spent = budget if budget is not None else FileBudget()
     entries: list[RegisterEntry] = []
-    for i, sheet in enumerate(sheets):
-        on_sheet = texts.get(i, [])
+    for i, on_sheet in sheet_finder.texts_on(artefact, sheets, held, budget=spent):
+        sheet = sheets[i]
         own = {a.handle for a in sheet.anchors if isinstance(a, DwgAnchor)}
         found = [
             heading
@@ -102,6 +113,8 @@ def find(
             and _normal(heading.shown).startswith(headings)
             and heading.entity.handle not in own  # the sheet's own title is no heading
         ]
+        if len(found) > MAX_HEADINGS:
+            spent.counts["register_headings_capped"] += 1
         tables = [(heading, _table(heading, on_sheet, labels, held)) for heading in found[:MAX_HEADINGS]]
         in_rows = {
             id(cell.text)

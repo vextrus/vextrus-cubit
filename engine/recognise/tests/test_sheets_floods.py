@@ -128,11 +128,11 @@ def test_a_frame_flooded_with_values_weighs_at_most_max_values(monkeypatch: pyte
 
 def test_frames_stacked_on_the_same_texts_share_one_budget(monkeypatch: pytest.MonkeyPatch) -> None:
     """Frames drawn over one another (none holding another) each read the texts under them: without a
-    budget, 100 stacked frames over 1,000 texts weigh 100 times what one does. Past the space's
-    budget of pairs (in proportion to its texts; made small here), a frame is read without its
-    values, and that is counted; every frame is still a sheet."""
-    monkeypatch.setattr(sheets, "MIN_PAIRS", 0)
-    monkeypatch.setattr(sheets, "PAIRS_PER_TEXT", 8)
+    budget, 100 stacked frames over 1,000 texts weigh 100 times what one does. Past the file's
+    budget of pairs (made small here: eight a text), a frame is read without its values, and that
+    is counted; every frame is still a sheet."""
+    texts = 1000 + 100 * 4
+    monkeypatch.setattr(sheets, "MAX_PAIRS", 8 * texts)
     weighed = calls(monkeypatch, sheets, "_after")
     d = Sheets()
     block = frame_block(d)
@@ -143,10 +143,9 @@ def test_frames_stacked_on_the_same_texts_share_one_budget(monkeypatch: pytest.M
 
     result = segment(d.artefact(), None, DEFAULT)
 
-    texts = 1000 + 100 * 4
     assert len(result.sheets) == 100
     assert weighed[0] <= 8 * texts
-    assert result.counts["read_budget"] >= 1
+    assert result.counts["pair_budget"] >= 1
 
 
 def test_a_sheet_flooded_with_headings_reads_at_most_max_headings(

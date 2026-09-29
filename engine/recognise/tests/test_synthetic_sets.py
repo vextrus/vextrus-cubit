@@ -21,6 +21,7 @@ from engine.export import load_schema, validate
 from engine.fixtures import dwg
 from engine.read import read
 from engine.recognise import register, sheets
+from engine.recognise.sheets import LIMITS
 from engine.recognise.tests.drawing import DEFAULT
 from engine.recognise.types import ExclusionReason, SheetConventions, ValueSource
 
@@ -131,6 +132,8 @@ def test_the_harness_segments_each_set_with_its_own_conventions_file(
         assert states[stage] == "ok", (stage, reading["stages"][stage])
     assert len(reading["sheets"]) == sheet_count
     assert validate(document, load_schema()) == []
+    # review round 3: the finder's report reaches the export, every limit given, none reached
+    assert {name: reading["sheet_report"][name] for name in LIMITS} == dict.fromkeys(LIMITS, 0)
 
 
 @pytest.mark.needs_toolchain
