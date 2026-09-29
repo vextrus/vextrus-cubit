@@ -5,7 +5,8 @@
     {"key": "electrical", "prefixes": ["E", "EL", "ELE", "ELEC"]},
     {"key": "plumbing", "prefixes": ["P", "PL", "PLB", "SAN"]},
     {"key": "fire", "prefixes": ["F", "FF", "FP", "FS"]},
-    {"key": "mechanical", "prefixes": ["M", "MEC", "MECH", "HVAC"]},
+    {"key": "mechanical", "prefixes": ["M", "MEC", "MECH", "HVAC"],
+     "title_words": ["AC", "air condition", "air conditioning", "air-conditioning", "HVAC"]},
     {"key": "lift", "prefixes": ["L", "LF", "LIFT"]},
     {"key": "gas", "prefixes": ["G", "GS", "GAS"]}
   ],

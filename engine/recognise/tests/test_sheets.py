@@ -27,6 +27,7 @@ from engine.recognise.types import (
     Exclusion,
     ExclusionReason,
     SheetCandidate,
+    SheetConventions,
     SheetLocation,
     Sourced,
     ValueSource,
@@ -541,6 +542,64 @@ def test_the_discipline_is_the_files_else_the_numbers_prefix() -> None:
     assert from_prefix["X-03"].discipline is None
     assert from_prefix["04"].discipline is None
     assert unknown_file["A-02"].discipline == Sourced("architectural", ValueSource.TITLE_BLOCK_TEXT)
+
+
+def test_a_title_naming_one_discipline_s_work_outright_names_the_discipline() -> None:
+    """A file bundles trades (an AC layout drawn in the Electrical file, numbered E-): the title's
+    `title_words`, matched whole and to one Discipline only, come before the file and the number."""
+    d = Sheets()
+    block = frame_block(d)
+    titles = {
+        "E-10": "AC PIPE LINE LAYOUT PLAN FOR 2ND FLOOR",
+        "E-11": "AIR CONDITIONING DUCT LAYOUT",
+        "E-12": "LIGHTING LAYOUT FOR 2ND FLOOR",
+        "E-13": "ACCESS CONTROL LAYOUT",
+        "E-14": "EXHAUST FAN (A.C) POINTS",
+    }
+    for i, (number, title) in enumerate(titles.items()):
+        placed_frame(d, block, (1000 * i, 0), {0: title, 2: number})
+    artefact = d.artefact()
+
+    from_file = by_number(find(artefact, "electrical", DEFAULT))
+    from_prefix = by_number(find(artefact, None, DEFAULT))
+
+    for found in (from_file, from_prefix):
+        assert found["E-10"].discipline == Sourced("mechanical", ValueSource.TITLE_BLOCK_TEXT)
+        assert found["E-11"].discipline == Sourced("mechanical", ValueSource.TITLE_BLOCK_TEXT)
+    assert from_file["E-12"].discipline == Sourced("electrical", ValueSource.FILE)
+    assert from_file["E-13"].discipline == Sourced("electrical", ValueSource.FILE)  # a word's start
+    assert from_file["E-14"].discipline == Sourced("electrical", ValueSource.FILE)  # "A.C" not "AC"
+    assert from_prefix["E-12"].discipline == Sourced("electrical", ValueSource.TITLE_BLOCK_TEXT)
+
+
+def test_title_words_that_name_two_disciplines_name_none() -> None:
+    conventions = SheetConventions.from_json(
+        DEFAULT.to_json()
+        | {
+            "disciplines": [
+                {"key": "electrical", "prefixes": ["E"], "title_words": ["electrical"]},
+                {"key": "mechanical", "prefixes": ["M"], "title_words": ["AC"]},
+            ]
+        }
+    )
+    d = Sheets()
+    placed_frame(d, frame_block(d), (0, 0), {0: "ELECTRICAL POINTS FOR AC UNITS", 2: "E-20"})
+
+    (sheet,) = find(d.artefact(), None, conventions)
+
+    assert sheet.discipline == Sourced("electrical", ValueSource.TITLE_BLOCK_TEXT)  # the prefix's
+
+
+def test_title_words_round_trip_and_an_older_file_without_them_is_unchanged() -> None:
+    with_words = DEFAULT.to_json()
+    assert any("title_words" in d for d in with_words["disciplines"])
+    assert SheetConventions.from_json(with_words) == DEFAULT
+    older = {"disciplines": [{"key": "structural", "prefixes": ["S"]}]}
+    assert SheetConventions.from_json(older).to_json()["disciplines"] == older["disciplines"]
+    with pytest.raises(ValueError, match="empty"):
+        SheetConventions.from_json(
+            {"disciplines": [{"key": "mechanical", "prefixes": [], "title_words": [" "]}]}
+        )
 
 
 @pytest.mark.parametrize(
