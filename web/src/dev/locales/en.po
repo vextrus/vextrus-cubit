@@ -597,10 +597,6 @@ msgstr "Show the keys"
 msgid "Form fields"
 msgstr "Form fields"
 
-#: src/dev/sheet/SheetHarness.tsx
-msgid "Add a sheet with <0>python -m engine.render</0> into .private/work/sheets/."
-msgstr "Add a sheet with <0>python -m engine.render</0> into .private/work/sheets/."
-
 #: src/dev/specimen/Specimen.tsx
 msgid "Accent and commit"
 msgstr "Accent and commit"
@@ -636,6 +632,10 @@ msgstr "Read only"
 #: src/dev/specimen/Specimen.tsx
 msgid "Rev."
 msgstr "Rev."
+
+#: src/dev/sheet/SheetHarness.tsx
+msgid "Add a sheet with <0>python -m engine.render</0> into {folder}."
+msgstr "Add a sheet with <0>python -m engine.render</0> into {folder}."
 
 #: src/dev/specimen/Specimen.tsx
 msgid "Sheet numbers, marks and file names are isolated left to right; titles in their own direction. Cut with an ellipsis, the whole text in the tooltip."

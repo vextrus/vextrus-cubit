@@ -5,6 +5,7 @@
 import { describe, expect, it } from 'vitest'
 import { screen, within } from '@testing-library/react'
 import { mountApp } from '@/app/testing'
+import { sheetOrder } from './SheetHarness'
 
 describe('/dev/sheet', () => {
   it('lists the sheets the harness can open, as links', async () => {
@@ -19,5 +20,11 @@ describe('/dev/sheet', () => {
     expect((await screen.findByText(/has no sheet named/)).textContent).toContain('no-such-sheet')
     const list = screen.getByRole('list', { name: 'Sheets the harness can open' })
     expect(within(list).getByRole('link', { name: 'tiny-sheet' })).toBeVisible()
+  })
+})
+
+describe('sheetOrder', () => {
+  it('orders sheet names by their numbers’ values: 1, 2, 3 … 10', () => {
+    expect(sheetOrder(['plan-10', 'plan-2', 'plan-1', 'plan-3', 'tiny-sheet'])).toEqual(['plan-1', 'plan-2', 'plan-3', 'plan-10', 'tiny-sheet'])
   })
 })

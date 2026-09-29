@@ -7,6 +7,7 @@
 import { StrictMode } from 'react'
 import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import { useState } from 'react'
 import userEvent from '@testing-library/user-event'
 import { SlotOutlet, SlotsProvider } from '@/app/slots'
 import { UiProviders } from '@/ui/UiProviders'
@@ -75,6 +76,29 @@ describe('<SheetViewer> focus (m0-screens §8 item 7)', () => {
     expect(ring!.compareDocumentPosition(region.querySelector('canvas')!) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy()
     const style = getComputedStyle(ring!)
     expect([style.position, style.outlineStyle, style.outlineWidth, style.pointerEvents]).toEqual(['absolute', 'solid', '2px', 'none'])
+  })
+})
+
+describe('<SheetViewer> Try again', () => {
+  it('gives focus back to the drawn sheet once Try again succeeds, not to the page', async () => {
+    const good = await tiny()
+    function Refetching() {
+      const [buffer, setBuffer] = useState(new ArrayBuffer(8))
+      return <SheetViewer buffer={buffer} label="S-04" onRetry={() => setBuffer(good)} />
+    }
+    render(
+      <UiProviders>
+        <SlotsProvider>
+          <KeyScope level="screen" name="sheet">
+            <div style={{ width: 800, height: 600, position: 'relative' }}>
+              <Refetching />
+            </div>
+          </KeyScope>
+        </SlotsProvider>
+      </UiProviders>,
+    )
+    await userEvent.click(await screen.findByRole('button', { name: 'Try again' }))
+    await expect.poll(() => document.activeElement?.getAttribute('role')).toBe('group')
   })
 })
 

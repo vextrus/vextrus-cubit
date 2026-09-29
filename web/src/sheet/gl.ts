@@ -455,16 +455,20 @@ function clippedLength(x0: number, y0: number, x1: number, y1: number, left: num
 }
 
 /**
- * Each glyph's run height in mm: the tallest text height (its y axis's length) among the glyphs of its
- * primitive, so a run below the greeking size draws as bars as a whole, never letter by letter (4.6).
+ * Each glyph's run height in mm on paper: the tallest glyph box (its atlas rectangle's height in text
+ * units x its y axis's length) among the glyphs of its primitive, so a run below the greeking size
+ * draws as bars as a whole, never letter by letter (4.6), and a run is judged by its height as drawn:
+ * the y axis alone is not the text height for every font's text units.
  */
 export function runHeights(sheet: DecodedSheet): Float32Array {
   const g = sheet.glyphs
+  const a = sheet.atlasGlyphs
   const tallest = new Map<number, number>()
   const own = new Float32Array(g.count)
   for (let i = 0; i < g.count; i++) {
     const o = i * g.stride
-    own[i] = Math.hypot(g.f32[o + 5]!, g.f32[o + 6]!)
+    const k = g.u32[o]! * 6
+    own[i] = (a.f32[k + 5]! - a.f32[k + 3]!) * Math.hypot(g.f32[o + 5]!, g.f32[o + 6]!)
     const prim = g.u32[o + 8]!
     tallest.set(prim, Math.max(tallest.get(prim) ?? 0, own[i]!))
   }

@@ -44,7 +44,10 @@ export function SheetViewer({ buffer, label, workingView = null, onRetry }: Shee
       return null
     }
   }, [buffer, attempt])
+  // After Try again, the drawn sheet takes focus back from the button that has gone (not the page).
+  const [focusOnDraw, setFocusOnDraw] = useState(false)
   const retry = useCallback(() => {
+    setFocusOnDraw(true)
     setDrawFailed(false)
     if (onRetry) onRetry()
     else setAttempt((a) => a + 1)
@@ -57,7 +60,7 @@ export function SheetViewer({ buffer, label, workingView = null, onRetry }: Shee
       </SlotFill>
       <KeyRegion name="canvas" className="absolute inset-0">
         {sheet && !drawFailed ? (
-          <SheetCanvas key={attempt} sheet={sheet} label={label} workingView={workingView} onFail={() => setDrawFailed(true)} />
+          <SheetCanvas key={attempt} sheet={sheet} label={label} workingView={workingView} focus={focusOnDraw} onFail={() => setDrawFailed(true)} />
         ) : (
           <div className="flex h-full items-start justify-center p-4">
             <ErrorBar
@@ -85,7 +88,19 @@ function greekInk(el: Element): number {
   return 1 - (0.299 * r! + 0.587 * g! + 0.114 * b!)
 }
 
-function SheetCanvas({ sheet, label, workingView, onFail }: { sheet: DecodedSheet; label: string; workingView: PaperBox | null; onFail: () => void }) {
+function SheetCanvas({
+  sheet,
+  label,
+  workingView,
+  focus,
+  onFail,
+}: {
+  sheet: DecodedSheet
+  label: string
+  workingView: PaperBox | null
+  focus: boolean
+  onFail: () => void
+}) {
   const { t } = useLingui()
   const areaRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -176,6 +191,7 @@ function SheetCanvas({ sheet, label, workingView, onFail }: { sheet: DecodedShee
     observer.observe(area)
     resize()
     draw() // a remount keeps its view (refs survive) and must draw it on the new renderer
+    if (focus) area.focus({ preventScroll: true })
     return () => {
       observer.disconnect()
       cancelAnimationFrame(frame.current)
@@ -184,7 +200,7 @@ function SheetCanvas({ sheet, label, workingView, onFail }: { sheet: DecodedShee
       renderer.current?.dispose()
       renderer.current = null
     }
-  }, [draw, fits, setView])
+  }, [draw, fits, setView, focus])
 
   const zoomCentre = useCallback(
     (factor: number) => {

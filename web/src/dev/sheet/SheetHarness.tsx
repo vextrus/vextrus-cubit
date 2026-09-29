@@ -51,9 +51,15 @@ function Keys() {
   return <KeysOverlay open={open} onOpenChange={setOpen} from={from} />
 }
 
+/** Sheet names in reading order: numbers by value (S-2 before S-10), then by name. */
+export function sheetOrder(names: string[]): string[] {
+  return [...names].sort((a, b) => a.localeCompare(b, 'en', { numeric: true }))
+}
+
 /** Every sheet the harness can open, as links; each name whole on its line. */
 function SheetList({ names }: { names: string[] }) {
   const { t } = useLingui()
+  const folder = isolateLtr('.private/work/sheets/') // a path: notation
   return (
     <div className="flex flex-col items-center gap-2">
       <ul aria-label={t`Sheets the harness can open`} className="flex flex-col items-center gap-1">
@@ -69,7 +75,7 @@ function SheetList({ names }: { names: string[] }) {
       </ul>
       <p className="text-xs text-ink-secondary">
         <Trans>
-          Add a sheet with <code className="whitespace-nowrap">python -m engine.render</code> into .private/work/sheets/.
+          Add a sheet with <code className="whitespace-nowrap">python -m engine.render</code> into {folder}.
         </Trans>
       </p>
     </div>
@@ -78,7 +84,7 @@ function SheetList({ names }: { names: string[] }) {
 
 /** /dev/sheet: the sheets the harness can open. */
 export function SheetHarnessIndex() {
-  const names = Object.keys(HARNESS_SHEETS).sort()
+  const names = sheetOrder(Object.keys(HARNESS_SHEETS))
   return (
     <div data-sheet-harness="" className="flex h-dvh items-center justify-center bg-background">
       <Empty glyph={<FileQuestion />} action={<SheetList names={names} />}>
@@ -92,7 +98,7 @@ type Loaded = { id: string; buffer: ArrayBuffer } | { id: string; failed: true }
 
 export function SheetHarness({ id }: { id: string }) {
   const { t } = useLingui()
-  const names = Object.keys(HARNESS_SHEETS).sort()
+  const names = sheetOrder(Object.keys(HARNESS_SHEETS))
   const at = names.indexOf(id)
   const [loaded, setLoaded] = useState<Loaded | null>(null)
   const [attempt, setAttempt] = useState(0)

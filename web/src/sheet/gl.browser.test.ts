@@ -122,3 +122,59 @@ describe('greeking decides by run, not by glyph (m0-screens 4.6: a run below 6 p
     renderer.dispose()
   })
 })
+
+describe('greeking goes by the text height drawn (the design gate on 16: legible headings were barred)', () => {
+  /** The share of a run's box drawn exactly in the bars' grey (greekInk 0.5: grey 128). */
+  async function barredShare(runPx: number): Promise<number> {
+    const sheet = decodeSheet(await (await fetch(tinySheetUrl)).arrayBuffer())
+    const g = sheet.glyphs
+    const a = sheet.atlasGlyphs
+    const run = g.u32[8]! // the first glyph's primitive: a TrueType run, text 5 mm, glyph boxes up to 8.1 mm
+    let tallest = 0
+    for (let i = 0; i < g.count; i++) {
+      const o = i * g.stride
+      if (g.u32[o + 8] !== run) continue
+      const k = g.u32[o]! * 6
+      tallest = Math.max(tallest, (a.f32[k + 5]! - a.f32[k + 3]!) * Math.hypot(g.f32[o + 5]!, g.f32[o + 6]!))
+    }
+    const scale = runPx / tallest
+    const c = document.createElement('canvas')
+    c.width = Math.ceil(210 * scale)
+    c.height = Math.ceil(148 * scale)
+    const renderer = new SheetRenderer(c)
+    renderer.draw(sheet, { scale, x: 0, y: c.height }, { greekBelowPx: 6, greekInk: 0.5 })
+    const flat = document.createElement('canvas').getContext('2d', { willReadFrequently: true })!
+    flat.canvas.width = c.width
+    flat.canvas.height = c.height
+    flat.fillStyle = '#fff'
+    flat.fillRect(0, 0, c.width, c.height)
+    flat.drawImage(c, 0, 0)
+    renderer.dispose()
+    // The run's glyph origins span its box: from the first origin, the run's length and one height up.
+    let x0 = Infinity
+    let x1 = -Infinity
+    let y = 0
+    for (let i = 0; i < g.count; i++) {
+      const o = i * g.stride
+      if (g.u32[o + 8] !== run) continue
+      x0 = Math.min(x0, g.f32[o + 1]!)
+      x1 = Math.max(x1, g.f32[o + 1]!)
+      y = g.f32[o + 2]!
+    }
+    const left = Math.floor(x0 * scale)
+    const width = Math.max(1, Math.ceil((x1 - x0) * scale))
+    const top = Math.floor(c.height - y * scale - runPx * 0.6)
+    const d = flat.getImageData(left, top, width, Math.ceil(runPx * 0.6)).data
+    let grey = 0
+    for (let k = 0; k < d.length; k += 4) if (Math.abs(d[k]! - 128) <= 3) grey++
+    return grey / (d.length / 4)
+  }
+
+  it('draws a TrueType run about 8 px high as letters, at fit', async () => {
+    expect(await barredShare(8)).toBeLessThan(0.2)
+  })
+
+  it('draws a TrueType run about 5 px high as a grey bar', async () => {
+    expect(await barredShare(5)).toBeGreaterThan(0.5)
+  })
+})
