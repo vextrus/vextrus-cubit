@@ -8,6 +8,7 @@ from vextrus.platform.services import events, jobs, library, markets, storage, t
 
 from vextrus.platform.services import activity, auth, invitations  # isort: skip  (07)
 from vextrus.platform.services import jev  # isort: skip  (15)
+from vextrus.platform.services import jev_spot_check  # isort: skip  (23)
 
 __all__ = [
     "activity",
@@ -15,6 +16,7 @@ __all__ = [
     "events",
     "invitations",
     "jev",
+    "jev_spot_check",
     "jobs",
     "library",
     "markets",
