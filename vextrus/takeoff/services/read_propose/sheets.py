@@ -19,14 +19,15 @@ again.
 of 38"): 17's views (`record_views`), 11's render buffers (`record_render`), and its Plot where the
 sheet alone decides it: a sheet with no number can match no page (`PlotNone.NO_NUMBER`). What the
 view finder's limits cut while reading the sheet is its result's `view_report` (by `views_<limit>`);
-the first sheet a limit cut says it, once for the file, in its result's `not_read_in_full`
-(a limit reached on a restart after a stop can read differently: the view finder's bounds start
-again with the artefact loaded again). The matching of the set's PDF pages to sheets, and F1, are
-18's stage and not run here yet: until then the sheet list says why a sheet has no Plot from the
-set's PDFs as they stand (`drawings`' own reason).
+the first sheet a limit cut says it, once for the file, in its result's `not_read_in_full`.
+The matching of the set's PDF pages to sheets, and F1, are 18's stage and not run here yet: until
+then the sheet list says why a sheet has no Plot from the set's PDFs as they stand (`drawings`' own
+reason).
 
-Each step's key holds the file's sha256, its reader, and the conventions' digest: the same file read
-again under the same conventions skips every kept step.
+Each step's key holds the file's sha256, its reader, the conventions' digest, and the file's
+Discipline and group: the same file read again as it was skips every kept step. A run that resumes
+after kept sheet steps walks those sheets' views again (nothing recorded) before reading the next,
+so the view finder's file-wide bounds are spent as in a run never stopped.
 """
 
 import hashlib
@@ -92,24 +93,51 @@ def read(
     held = once(lambda: conventions(file_id))
 
     def key(**more: object) -> Callable[[], dict[str, object]]:
-        return lambda: {**keyed_by, "conventions": digest(*held()), **more}
+        def inputs() -> dict[str, object]:
+            # What the finder reads besides the artefact: the file's Discipline (its default) and
+            # its group (the candidates' stamp), which the QS may change before "Try again".
+            view = drawings.file(file_id)
+            return {
+                **keyed_by,
+                "conventions": digest(*held()),
+                "discipline": view.discipline,
+                "group": view.group,
+                **more,
+            }
+
+        return inputs
 
     found = steps.run(drawings.SHEETS, lambda: _find(file_id, load(), held()[0]), inputs=key())
     recorded = cast(list[dict[str, Any]], found["sheets"])
     steps.expect(done_before + 1 + len(recorded) + after)
     seen: dict[str, int] = {}
     said_for_file: set[str] = set()
+    # The view finder's bounds are the file's, held by the artefact loaded in this run: sheets whose
+    # steps were kept by an earlier run are walked again (nothing recorded) before the next sheet is
+    # read, so a stop never hands the rest of the file a fresh budget.
+    unwalked: list[SheetCandidate] = []
+    read_here: list[uuid.UUID] = []
 
     def read_one(sheet_id: uuid.UUID, candidate: SheetCandidate) -> jobs.StepResult:
-        return _read_sheet(sheet_id, candidate, load(), held()[1], seen, said_for_file)
+        read_here.append(sheet_id)
+        artefact, view_conventions = load(), held()[1]
+        for earlier in unwalked:
+            spent = view_finder.find(artefact, earlier, view_conventions).limits
+            seen.clear()
+            seen.update(spent or {})
+        unwalked.clear()
+        return _read_sheet(sheet_id, candidate, artefact, view_conventions, seen, said_for_file)
 
     for position, kept in enumerate(recorded, start=1):
         sheet_id = uuid.UUID(kept["id"])
+        candidate = candidate_from_json(kept["candidate"])
         done = steps.run(
             drawings.sheet_step(position),
-            partial(read_one, sheet_id, candidate_from_json(kept["candidate"])),
+            partial(read_one, sheet_id, candidate),
             inputs=key(sheet=sheet_id),
         )
+        if sheet_id not in read_here:  # kept by an earlier run: skipped here
+            unwalked.append(candidate)
         # A kept step's words count too: a restart never says a limit the file already said.
         said = cast(list[dict[str, Any]], done.get("not_read_in_full", []))
         said_for_file.update(str(m["params"]["limit"]) for m in said)
@@ -184,12 +212,14 @@ def _read_sheet(
 
 def _render(sheet_id: uuid.UUID, artefact: ReadArtefact, candidate: SheetCandidate) -> bool:
     """Keep the sheet's render; a sheet whose paper cannot be drawn (none, or larger than any
-    sheet's) has none, and says so by `has_render`."""
+    sheet's) or whose render cannot be written has none, and its step says so (`render`)."""
     try:
-        built = render.build(artefact, candidate)
+        # Encoded here: a name the file holds that no text can carry (a lone surrogate the reader
+        # kept from bytes it could not decode) fails the encoding, a ValueError, not the job.
+        content = render.build(artefact, candidate).to_bytes()
     except ValueError:
         return False
-    drawings.record_render(sheet_id, built)
+    drawings.record_render(sheet_id, content)
     return True
 
 

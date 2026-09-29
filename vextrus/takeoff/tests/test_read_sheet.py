@@ -119,9 +119,10 @@ def _sha(path: Path) -> str:
 SCALE = 50.0
 
 
-def three_sheets(sha256: str, name: str) -> ReadArtefact:
+def three_sheets(sha256: str, name: str, *, first_layer: str = "0") -> ReadArtefact:
     """Three A1 frames at 1:50 in model space, numbered S-101 to S-103, each with one titled view
-    (a grid of lines), stamped with the file's sha256 (a kept artefact must be its file's)."""
+    (a grid of lines), stamped with the file's sha256 (a kept artefact must be its file's);
+    `first_layer`: the layer of sheet 1's first line."""
     d = Sheets(source_name=name)
     block = frame_block(d)
     for i in range(FRAMES):
@@ -133,7 +134,8 @@ def three_sheets(sha256: str, name: str) -> ReadArtefact:
             d.text(text, (x, y, 0.0), height=5.0 * SCALE)
         x0, y0, x1, y1 = ox + 40 * SCALE, 300 * SCALE, ox + 340 * SCALE, 560 * SCALE
         for k in range(5):
-            d.line((x0 + (x1 - x0) * k / 4, y0), (x0 + (x1 - x0) * k / 4, y1))
+            layer = first_layer if i == k == 0 else "0"
+            d.line((x0 + (x1 - x0) * k / 4, y0), (x0 + (x1 - x0) * k / 4, y1), layer=layer)
             d.line((x0, y0 + (y1 - y0) * k / 4), (x1, y0 + (y1 - y0) * k / 4))
         d.text("GROUND FLOOR BEAM LAYOUT PLAN", (x0, y0 - 12 * SCALE, 0.0), height=6.0 * SCALE)
     made = d.artefact()
@@ -369,3 +371,96 @@ def test_not_read_in_full_words_every_view_limit_apart() -> None:
     worded = dict(re.findall(r"(\w+) \{([^{}]*)\}", entry.split("msgstr", 1)[1]))
     assert set(sheets.VIEW_LIMITS) <= set(worded)
     assert not set(sheets.VIEW_LIMITS) & set(finder.LIMITS), "a view limit's key is a sheet limit's"
+
+
+# Found by the refuter: the view finder's file-wide bounds, and a render that cannot be written ------
+
+
+def one_sheets_scans() -> int:
+    """What reading the first sheet's views spends of the view finder's file-wide scan bound."""
+    artefact = three_sheets("0" * 64, "KR-STR-R0.dwg")
+    [first, *_] = finder.find(artefact, "structural", finder.default_conventions())
+    view_finder.find(artefact, first)
+    return view_finder.MAX_SCANS - view_finder._walker(artefact).scans
+
+
+def sheet_readings(member: Member, file_id: uuid.UUID) -> list[tuple[int, list[str]]]:
+    steps = kept(member, file_id)
+    return [
+        (
+            steps[drawings.sheet_step(n)].result["views"],
+            [m["params"]["limit"] for m in steps[drawings.sheet_step(n)].result["not_read_in_full"]],
+        )
+        for n in range(1, FRAMES + 1)
+    ]
+
+
+@pytest.mark.django_db
+def test_a_stop_never_hands_the_rest_of_the_file_a_fresh_view_budget(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The bound fits the first sheet only: a run stopped after sheet 1 and resumed reads sheets 2
+    and 3 as a run never stopped does (both cut), never with the bound full again."""
+    monkeypatch.setattr(view_finder, "MAX_SCANS", one_sheets_scans())
+    straight = add(qs_project.member, qs_project.project_id, "KR-STR-R0.dwg", drawing("dwg")).file.id
+    run_job(qs_project.member, straight, monkeypatch)
+    stopped = add(qs_project.member, qs_project.project_id, "KR-STR-R1.dwg", drawing("dwg")).file.id
+    reads = SheetReads(monkeypatch)
+
+    with pytest.raises(jobs.Stopped):
+        run_job(
+            qs_project.member,
+            stopped,
+            monkeypatch,
+            abort_reason=lambda: AbortReason.SHUTDOWN if reads.count >= 1 else None,
+        )
+    run_job(qs_project.member, stopped, monkeypatch)
+
+    expected = [(1, []), (0, ["views_scan_budget"]), (0, [])]
+    assert sheet_readings(qs_project.member, straight) == expected
+    assert sheet_readings(qs_project.member, stopped) == expected
+
+
+@pytest.mark.django_db
+def test_a_sheet_whose_render_cannot_be_written_still_ends_its_step_and_the_file_is_read(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A layer name holding a lone surrogate (the reader keeps one from bytes it could not decode)
+    cannot be written into the render: the sheet has no render, the others do, the file is read."""
+
+    def first(path: Path, name: str) -> ReadArtefact:
+        return three_sheets(_sha(path), name, first_layer="S-BEAM\udc8f")
+
+    file_id = added(qs_project)
+    use = files.Readers(**{**vars(readers()), "dwg": first})
+    monkeypatch.setattr(files, "READERS", use)
+    run_inline(
+        read_file.read_file,
+        tenant_id=qs_project.member.developer_id,
+        user_id=qs_project.member.user.pk,
+        file_id=file_id,
+    )
+
+    steps = kept(qs_project.member, file_id)
+    renders = [steps[drawings.sheet_step(n)].result["render"] for n in range(1, FRAMES + 1)]
+    assert renders == [False, True, True]
+    with qs_project.member.acting():
+        assert drawings.file(file_id).state == drawings.FileState.READ
+
+
+@pytest.mark.django_db
+def test_a_changed_discipline_finds_the_sheets_again(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The file's Discipline is the finder's default: a kept `sheets` step read under another is
+    not the file's reading now."""
+    file_id = added(qs_project)
+    run_job(qs_project.member, file_id, monkeypatch)
+    with qs_project.member.acting():
+        drawings.set_discipline(file_id, "architectural")
+
+    run_job(qs_project.member, file_id, monkeypatch)
+
+    found = [s for s in kept_steps(qs_project.member, file_id) if s.step == drawings.SHEETS]
+    assert len(found) == 2  # the first reading's step, and the one under the new Discipline
+    assert {s.discipline for s in printed(qs_project.member, file_id)} == {"architectural"}
