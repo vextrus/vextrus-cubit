@@ -512,6 +512,134 @@ def test_the_app_s_delete_through_the_orm_is_refused(made: Made) -> None:
         assert Building.objects.filter(id=made.building, project_id=made.project).exists()
 
 
+# No key lets the app write a projects row through another table. ---------------------------------------
+# A key whose action writes the referencing row (cascade, set null, set default) runs as the tables'
+# owner, as the Project's key to its Buildings does. So a key from a projects table to a table the app
+# may delete from (or whose key columns it may update) would free a Building's id, or move it, with no
+# right on projects_building at all; so would a chain of such keys. A table made later gets the app's
+# SELECT, INSERT, UPDATE and DELETE by default (platform 0003), so this reads the catalogue.
+
+WRITES = {"c": "cascade", "n": "set null", "d": "set default"}
+"""A key's actions that write the referencing row; "a" (no action) and "r" (restrict) write none."""
+
+KEYS = """
+    select c.conname::text, c.conrelid::regclass::text, c.confrelid::regclass::text,
+           c.confdeltype::text, c.confupdtype::text,
+           array(select a.attname::text from unnest(c.confkey) k
+                   join pg_attribute a on a.attrelid = c.confrelid and a.attnum = k
+                  order by 1)
+      from pg_constraint c
+     where c.contype = 'f' and c.conrelid = any(%s::text[]::regclass[])
+     order by 1"""
+
+
+def holds(cursor: Any, sql: str, params: list[Any]) -> bool:
+    cursor.execute(sql, params)
+    return bool(cursor.fetchone()[0])
+
+
+def cascades_in(cursor: Any) -> tuple[set[str], list[str]]:
+    """Every key that writes a projects row when the row it references is deleted or updated (or
+    writes a row of a table that one does, and so on up), and each such key the app could set off."""
+    keys: set[str] = set()
+    problems: list[str] = []
+    reached = set(TABLES)
+    frontier = list(TABLES)
+    while frontier:
+        cursor.execute(KEYS, [frontier])
+        frontier = []
+        for name, table, parent, on_delete, on_update, columns in cursor.fetchall():
+            if on_delete not in WRITES and on_update not in WRITES:
+                continue
+            keys.add(name)
+            if on_delete in WRITES and holds(
+                cursor, "select has_table_privilege('vextrus_app', %s, 'DELETE')", [parent]
+            ):
+                problems.append(
+                    f"{name} ({table} -> {parent}): on delete {WRITES[on_delete]}, and vextrus_app"
+                    f" may delete from {parent}"
+                )
+            if on_update in WRITES:
+                problems.extend(
+                    f"{name} ({table} -> {parent}): on update {WRITES[on_update]}, and vextrus_app"
+                    f" may update {parent}.{column}"
+                    for column in columns
+                    if holds(
+                        cursor,
+                        "select has_column_privilege('vextrus_app', %s, %s, 'UPDATE')",
+                        [parent, column],
+                    )
+                )
+            if parent not in reached:
+                reached.add(parent)
+                frontier.append(parent)
+    return keys, sorted(problems)
+
+
+@pytest.mark.django_db
+def test_no_key_lets_the_app_write_a_projects_row_by_deleting_or_updating_another_table() -> None:
+    with connections["default"].cursor() as cursor:
+        keys, problems = cascades_in(cursor)
+
+    assert problems == []
+    assert keys >= {"projects_site_own_tenant", "projects_building_own_tenant"}
+
+
+PROBE = "create table probe (id uuid primary key)"
+
+
+def probe_key(name: str, table: str, parent: str, action: str) -> str:
+    """A key named `name` from a new column of `table` to `parent`, with `action`."""
+    return (
+        f"alter table {table} add column {name}_id uuid constraint {name} references {parent} {action}"
+    )
+
+
+def finding(name: str, table: str, parent: str, action: str, right: str) -> str:
+    return f"{name} ({table} -> {parent}): {action}, and vextrus_app may {right}"
+
+
+PROBE_KEYS = {
+    "a key cascading a delete": (
+        [PROBE, probe_key("probe_key", "projects_building", "probe", "on delete cascade")],
+        [finding("probe_key", "projects_building", "probe", "on delete cascade", "delete from probe")],
+    ),
+    "a key setting null on delete": (
+        [PROBE, probe_key("probe_key", "projects_site", "probe", "on delete set null")],
+        [finding("probe_key", "projects_site", "probe", "on delete set null", "delete from probe")],
+    ),
+    "a key cascading an update": (
+        [PROBE, probe_key("probe_key", "projects_project", "probe", "on update cascade")],
+        [finding("probe_key", "projects_project", "probe", "on update cascade", "update probe.id")],
+    ),
+    "a chain through a table the app may not delete from": (
+        [
+            PROBE,
+            "create table probe_mid (id uuid primary key)",
+            probe_key("probe_mid_key", "probe_mid", "probe", "on delete cascade"),
+            "revoke delete on probe_mid from vextrus_app",
+            probe_key("probe_key", "projects_building", "probe_mid", "on delete cascade"),
+        ],
+        [finding("probe_mid_key", "probe_mid", "probe", "on delete cascade", "delete from probe")],
+    ),
+}
+
+
+@pytest.mark.django_db(databases=["owner"])
+@pytest.mark.parametrize("probe", PROBE_KEYS)
+def test_the_check_finds_a_key_that_would_let_the_app_free_a_building_s_id(probe: str) -> None:
+    """Made by the owner inside the test's transaction, which rolls it back; the new tables take
+    the app's rights from the default privileges, as a later ticket's would."""
+    statements, expected = PROBE_KEYS[probe]
+    with connections["owner"].cursor() as owner:
+        for statement in statements:
+            owner.execute(statement)
+
+        _keys, problems = cascades_in(owner)
+
+    assert problems == expected
+
+
 # The migration's reverse gives back 0001's rights exactly. ---------------------------------------------
 
 KEPT_MIGRATION = "vextrus.projects.migrations.0003_a_building_keeps_its_project"
