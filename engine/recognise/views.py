@@ -155,9 +155,12 @@ divider between views (the real sets rule rows of details apart), never a view's
 MAX_VISITS = 8_000_000
 MAX_SEGMENTS = 3_000_000
 MAX_PIECES = 2_000
-MAX_READS = 4_000_000
-"""The lines a file's sheets may take from the walked spaces together (laid on paper, or weighed by a
-viewport's window), so no number of viewports multiplies the walk."""
+MAX_SCANS = 400_000_000
+"""The walked items a file's sheets may weigh against a window together (each model-space sheet and
+each viewport tests every line and text of model space once), so no number of viewports or frames
+multiplies the walk past it."""
+MAX_READS = 12_000_000
+"""The lines a file's sheets may lay on paper together."""
 MAX_TEXT_READS = 250_000
 """The texts a file's sheets may lay on paper together."""
 MAX_SHEET_VIEWPORTS = 64
@@ -243,12 +246,13 @@ class _Walker:
         self.visits = MAX_VISITS
         self.segments = MAX_SEGMENTS
         self.texts = MAX_TEXTS
+        self.scans = MAX_SCANS
         self.reads = MAX_READS
         self.text_reads = MAX_TEXT_READS
         """What the file's sheets may still take from what was walked: lines and texts laid on paper,
         and model-space items weighed by a viewport's window."""
         self.limits: Counter[str] = Counter()
-        """What a bound left unread, by name (`viewports_capped`, `read_budget`)."""
+        """What a bound left unread, by name (`viewports_capped`, `scan_budget`, `read_budget`)."""
         self.layouts = {
             b.layout: h for h, b in artefact.blocks.items() if b.layout not in (None, "Model")
         }
@@ -484,11 +488,11 @@ def _paper(artefact: ReadArtefact, sheet: SheetCandidate) -> _Paper | None:
         if id(drawn) not in kept:
             kept[id(drawn)] = keep_segments(drawn)
         keep = kept[id(drawn)]
-        weighed = len(drawn.segments) if window is not None else 0
-        if weighed > walker.reads:
-            walker.limits["read_budget"] += 1
+        weighed = len(drawn.segments) + len(drawn.texts) if window is not None else 0
+        if weighed > walker.scans:
+            walker.limits["scan_budget"] += 1
             continue  # past the file's budget: this part is not read
-        walker.reads -= weighed
+        walker.scans -= weighed
         chosen_texts = np.arange(len(drawn.texts))
         if window is not None:
             wx0, wy0, wx1, wy1 = window

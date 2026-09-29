@@ -458,7 +458,7 @@ def test_many_viewports_over_a_large_model_spend_one_file_budget(
     """200 viewports each showing the whole model took 119 s and 8.8 GB (review 1): each weighs the model
     against the file's one read budget, and a layout's viewports past `MAX_SHEET_VIEWPORTS` are left
     unread, both counted."""
-    monkeypatch.setattr(views, "MAX_READS", 50_000)
+    monkeypatch.setattr(views, "MAX_SCANS", 50_000)
     d = Sheets()
     layout = d.layout("S-09")
     for i in range(2_000):
@@ -477,8 +477,8 @@ def test_many_viewports_over_a_large_model_spend_one_file_budget(
     views.find(artefact, SheetCandidate(location=SheetLocation(layout="S-09")), CONVENTIONS)
     walker = views._walker(artefact)
     assert walker.limits["viewports_capped"] == 200 - views.MAX_SHEET_VIEWPORTS
-    assert walker.limits["read_budget"] > 0
-    assert 0 <= walker.reads < 50_000
+    assert walker.limits["scan_budget"] > 0
+    assert 0 <= walker.scans < 50_000
 
 
 def test_a_layout_frame_off_the_origin_gives_boxes_from_its_lower_left_corner() -> None:
