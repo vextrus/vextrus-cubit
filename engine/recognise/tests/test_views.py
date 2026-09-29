@@ -340,3 +340,26 @@ def test_a_view_with_no_title_takes_the_kind_its_sheet_title_names() -> None:
     d, sheet = model_sheet([(None, (40, 300, 340, 560))], title="COLUMN SCHEDULE")
     (found,) = views.find(d.artefact(), sheet, CONVENTIONS)
     assert found.kind is ViewKind.SCHEDULE
+
+
+def test_every_walk_of_a_file_spends_one_budget(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Three layouts of 40 lines each, a file budget of 50 visits: the layouts together read at most
+    50 entities, never 50 each."""
+    monkeypatch.setattr(views, "MAX_VISITS", 50)
+    d = Sheets()
+    layouts = [d.layout(f"L{i}") for i in range(3)]
+    for layout in layouts:
+        for i in range(40):
+            d.line((float(i), 0.0), (float(i), 10.0), owner=layout)
+    walker = views._Walker(d.artefact())
+    read = sum(len(walker.walk(layout).segments) for layout in layouts)
+    assert 0 < read <= 50
+    assert walker.visits == 0
+
+
+def test_the_pieces_a_sheet_is_read_by_are_bounded(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(views, "MAX_PIECES", 3)
+    segments = np.array([[float(x), 10.0, float(x) + 5, 10.0] for x in range(0, 800, 40)])
+    paper = views._Paper((0.0, 0.0, 841.0, 594.0), segments, [])
+    reading = views._reading(CONVENTIONS)
+    assert len(views._views(paper, reading, ViewKind.PLAN)) <= 3

@@ -61,10 +61,13 @@ only a base plan is not yet told (proposed out as `blank`, Q7); nothing here rea
 **The working view** (`working_view`) is the first plan in reading order not proposed out: the view 16
 and 22 open a sheet fitted to; none when the sheet has no such plan.
 
-**Hostile input is bounded:** each space is walked once (model space once per file), at most
-`MAX_VISITS` entities, `MAX_SEGMENTS` lines and `MAX_TEXTS` texts kept; the grid has at most `MAX_GRID`
-cells a side (its cells grow on a larger paper) and at most `MAX_SAMPLES` points are laid on it; at most
-`MAX_TITLES` titles and `MAX_VIEWS` views are read on a sheet. What is past a bound is not read.
+**Hostile input is bounded, by one budget for the whole file** (`_Walker`, held for the file's
+sheets): each space is walked once (model space once per file), and every walk spends the file's
+`MAX_VISITS` entities, `MAX_SEGMENTS` lines and `MAX_TEXTS` texts, so no number of layouts multiplies
+them; the grid has at most `MAX_GRID` cells a side (its cells grow on a larger paper) and at most
+`MAX_SAMPLES` points are laid on it; at most `MAX_TITLES` titles and as many scale texts, the
+`MAX_PIECES` largest pieces and `MAX_VIEWS` views are read on a sheet. What is past a bound is not
+read.
 """
 
 import json
@@ -131,8 +134,9 @@ DIVIDER_SHARE = 0.6
 """A straight line along the paper's axes this share of the paper's side or longer is a border or a
 divider between views (the real sets rule rows of details apart), never a view's drawing."""
 
-MAX_VISITS = 4_000_000
+MAX_VISITS = 8_000_000
 MAX_SEGMENTS = 3_000_000
+MAX_PIECES = 2_000
 MAX_TEXTS = 200_000
 MAX_GRID = 1_500
 MAX_SAMPLES = 8_000_000
@@ -206,6 +210,9 @@ class _Walker:
         self.artefact = artefact
         self.segmenter = _Segmenter(artefact, None, sheet_finder.default_conventions())
         self._model: _Drawn | None = None
+        self.visits = MAX_VISITS
+        self.segments = MAX_SEGMENTS
+        self.texts = MAX_TEXTS
         self.layouts = {
             b.layout: h for h, b in artefact.blocks.items() if b.layout not in (None, "Model")
         }
@@ -219,7 +226,7 @@ class _Walker:
     def walk(self, handle: str) -> _Drawn:
         walk = Walk(
             self.artefact,
-            max_visits=MAX_VISITS,
+            max_visits=self.visits,
             enter=lambda new, inner: _finite_insert(inner[-1].insert),
         )
         pieces: list[NDArray[np.float64]] = []
@@ -243,7 +250,7 @@ class _Walker:
 
         for entity, chain in walk.entities(handle):
             if isinstance(entity, Text):
-                if entity.type == "ATTDEF" or len(texts) >= MAX_TEXTS:
+                if entity.type == "ATTDEF" or len(texts) >= self.texts:
                     continue
                 placed = self.segmenter._place(entity, chain)
                 if placed is not None:
@@ -256,17 +263,20 @@ class _Walker:
                 if not chain:
                     viewports.append(entity)
                 continue
-            if count >= MAX_SEGMENTS:
+            if count >= self.segments:
                 continue
             found = _segments(entity, chain)
             if found is None or not len(found):
                 continue
-            found = found[: MAX_SEGMENTS - count]
+            found = found[: self.segments - count]
             count += len(found)
             pieces.append(found)
             piece_chain.append(chain_id(chain))
             entities.append(entity.handle)
             piece_entity.append(len(entities) - 1)
+        self.visits = max(self.visits - walk.visits, 0)
+        self.segments -= count
+        self.texts -= len(texts)
         if pieces:
             segments = np.concatenate(pieces)
             lengths = [len(p) for p in pieces]
@@ -861,7 +871,8 @@ def _views(paper: _Paper, reading: _Reading, untitled: ViewKind) -> list[_View]:
             and scales.read(t.shown, reading.patterns) is not None
             and _kind(t.shown, reading) is None
         ):
-            scale_texts.append(i)
+            if len(scale_texts) < MAX_TITLES:
+                scale_texts.append(i)
             continue
         if (
             len(titles) < MAX_TITLES
@@ -872,6 +883,7 @@ def _views(paper: _Paper, reading: _Reading, untitled: ViewKind) -> list[_View]:
             titles.append(i)
     off_grid = set(titles) | set(scale_texts)
     pieces = _pieces(paper, texts, (i for i in range(len(texts)) if i not in off_grid))
+    pieces = sorted(pieces, key=lambda q: -q.area)[:MAX_PIECES]
     rx0, ry0, rx1, ry1 = paper.region
     paper_area = (rx1 - rx0) * (ry1 - ry0)
     k = max(rx1 - rx0, ry1 - ry0) / REFERENCE_MM
