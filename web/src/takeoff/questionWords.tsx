@@ -141,6 +141,7 @@ function FileList({ names }: { names: readonly string[] }) {
 
 /** The Trace line (§5 item 3, 6.7): where each fact the Question stands on was read. */
 export function Trace({ entry, model }: { entry: QuestionEntry; model: Step1Model }) {
+  const f = useFormat()
   const q = entry.question
   const sheet = entry.holds[0]
   const section = model.disciplines.find((d) => d.discipline === q.discipline)
@@ -172,7 +173,7 @@ export function Trace({ entry, model }: { entry: QuestionEntry; model: Step1Mode
     where = <Trans>{name} title block and its views</Trans>
   } else if (q.kind === 'check') {
     const number = typeof q.params.number === 'string' ? <DrawingText kind="sheet-number" text={q.params.number} truncate={false} /> : null
-    const page = typeof q.params.page === 'number' ? q.params.page : null
+    const page = typeof q.params.page === 'number' ? f.integer(q.params.page) : null
     const source = <ListSource section={section} />
     if (q.code === 'engine.register_check.not_found') where = source
     else if (q.code === 'engine.register_check.not_listed' && number)
