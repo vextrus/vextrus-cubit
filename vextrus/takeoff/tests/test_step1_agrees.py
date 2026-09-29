@@ -187,9 +187,11 @@ def test_a_proposal_carries_where_each_fact_was_read_and_its_views(step1_project
     """The design gate's M7 and M2 (m0-screens §6.2, §6.6): the inspector's "where each was read"
     (number, title, storeys, file and layout, Plot) and the Views section and column come from the
     Proposal; a sheet read from a frame in the drawing has no layout, and none here has a Plot page."""
-    body = api_as(step1_project.member).get(
-        f"/api/projects/{step1_project.project_id}/takeoff/step1/proposals"
-    ).json()
+    body = (
+        api_as(step1_project.member)
+        .get(f"/api/projects/{step1_project.project_id}/takeoff/step1/proposals")
+        .json()
+    )
     first = body["proposals"][0]
     assert first["number_source"] in {"title_block_attribute", "title_block_text"}
     assert first["title_source"] in {"title_block_attribute", "title_block_text"}
