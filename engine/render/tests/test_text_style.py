@@ -74,3 +74,16 @@ def test_an_inline_width_and_oblique_win_over_the_styles() -> None:
 
     assert all(g.sx == pytest.approx(1.0) for g in laid.glyphs)
     assert all(abs(g.shear) < 1e-3 for g in laid.glyphs)
+
+
+def test_an_inline_q0_draws_upright_in_an_oblique_style() -> None:
+    """The review of 18, round 1: `\\Q0;` in a 30° style still leaned 30°, since 0 read as unstated."""
+    d = Drawing()
+    slanted = d.style("S", oblique_radians=math.radians(30))
+    d.text("\\Q0;" + WORD, (0.0, 0.0, 0.0), kind="MTEXT", height=1.0, style_handle=slanted)
+    (text,) = list(d.artefact().entities.values())
+
+    laid = lay_out(text, 1.0, d.styles[slanted])  # type: ignore[arg-type]
+
+    assert laid.glyphs
+    assert all(g.shear == 0.0 for g in laid.glyphs)

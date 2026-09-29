@@ -115,7 +115,7 @@ def _atoms(
         size = (style.height / local_height if style.height is not None else 1.0) * style.scale
         size = _positive(size, 1.0)
         width = _positive(style.width, width_factor) * _positive(style.tracking, 1.0)
-        angle = style.oblique or leaning  # an inline `\\Q` wins over the style's
+        angle = leaning if style.oblique is None else style.oblique  # an inline `\\Q` wins, `\\Q0` too
         shear = math.tan(math.radians(angle)) if abs(angle) < 85 else 0.0
         if style.italic:
             shear += ITALIC_SLANT

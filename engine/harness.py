@@ -22,19 +22,19 @@ what the contract does not allow, is `failed`, and the stages that need it are s
   view_conventions)`, `buffers.build(artefact, sheet)` and `raster.rasterise(buffers, PX_PER_MM)`;
 - PDF: `pdf.report(path)` and `pdf.page_text(path)` (a list of pages).
 
-Then across the set: `registration.match(pages, sheets, geometry, plots, disciplines)` (`geometry[i]`
-is `sheets[i]`'s render buffers, or none where they were not built; `plots` each PDF's path by its
-sha256, which it draws in its own sandbox, and `disciplines` its Discipline default),
-`render_f1.score(buffers, page, transform, plot)` per matched page (`plot` the path of the PDF the
-page is from; a page it cannot draw it leaves unscored with a reason, which the stage's report
-states while the stage stays ok), `conflicts.find(sheets, views, sheet_conventions)` (Conflicts
-and Continuations; `views[i]` are `sheets[i]`'s) and `catalogue.run_all(reading)` (a `SetReading`,
-carrying the sheet conventions too; Check results). **A set stage never runs on part of the set**:
-it is skipped unless each stage it needs (sheets for all; pages for the Plot; the Plot and the render buffers for F1) was
-read in every file. Conflicts and Checks need only the sheets; the reading's `read` names what else was
-read everywhere, so a Check can tell "not read" from "none found", and `conflicts.find` gets each
-sheet's views as read (none where views were not read). Both get the conventions the sheets were read
-with (none when the run has no sheet conventions), since reading a sheet number takes them (19b).
+Then across the set: `registration.match(pages, sheets, geometry, plots, disciplines)` (`geometry[i]` is
+`sheets[i]`'s render buffers, or none where they were not built; `plots` each PDF's path by its sha256,
+which it draws in its own sandbox, and `disciplines` its Discipline default), `render_f1.score(buffers,
+page, transform, plot)` per matched page (`plot` the path of the PDF the page is from; a page it cannot
+draw it leaves unscored with a reason, which the stage's report states while the stage stays ok),
+`conflicts.find(sheets, views, sheet_conventions)` (Conflicts and Continuations; `views[i]` are
+`sheets[i]`'s) and `catalogue.run_all(reading)` (a `SetReading`, carrying the sheet conventions too;
+Check results). **A set stage never runs on part of the set**: it is skipped unless each stage it needs
+(sheets for all; pages for the Plot; the Plot and the render buffers for F1) was read in every file.
+Conflicts and Checks need only the sheets; the reading's `read` names what else was read everywhere, so a
+Check can tell "not read" from "none found", and `conflicts.find` gets each sheet's views as read (none
+where views were not read). Both get the conventions the sheets were read with (none when the run has no
+sheet conventions), since reading a sheet number takes them (19b).
 
 **What the harness reads from a result** it does not type itself, through its JSON form
 (`engine.export.to_json`): the artefact's `summary`, its `format` and its `entity_counts` (names to

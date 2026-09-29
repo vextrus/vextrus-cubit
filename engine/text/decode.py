@@ -65,8 +65,8 @@ class Style:
     """A relative height (`\\H0.8x;`), times the height in force."""
     width: float | None = None
     """A width factor (`\\W0.8;`)."""
-    oblique: float = 0.0
-    """An oblique angle in degrees (`\\Q15;`)."""
+    oblique: float | None = None
+    """An oblique angle in degrees (`\\Q15;`); none where the text states none (its style's then)."""
     tracking: float = 1.0
     colour: int | None = None
     """An AutoCAD colour index (`\\C1;`), or a true colour as 0x1RRGGBB (`\\c255;`: 0x10000FF)."""
