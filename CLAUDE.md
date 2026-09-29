@@ -45,6 +45,9 @@ civil engineer and the CEO and co-founder. The previous product (Vextrus Cubit) 
     and focus rings: a UI ticket walks m0-screens §8 by keyboard itself before its PR.
   - The design gate failed twice on the same class (wave 1's walks; wave 2a's words): a backend ticket
     that words codes in `web/src/messages/` gets a `ux-critic` review of those words before its PR.
+  - A failure's name was lost twice (29 Sep 2026: #82's engine run, never identified; 20a's sign-in
+    test, found only in a reviewer's screenshot): every suite run's output is kept in a file under
+    `.private/work/` (pytest with `-rf`).
 
 ## Law
 - **Secrets** are never printed, written or committed (`TYPESAFE_API_KEY` lives in `~/.bashrc`).
@@ -73,8 +76,9 @@ explicit paths (the guard refuses `git add -A`); a hook runs `sync` after each c
   seed_demo`: the demo; it runs `sync_library` first (or refuses, naming it).
 - `VEXTRUS_DEBUG=1 uv run manage.py runserver 127.0.0.1:8000`: the API at `/api/`, the admin at `/admin/`.
 - `uv run manage.py worker`: the job worker on the default queue (it runs the stalled-job retrier);
-  `uv run manage.py worker --queue cad`: the CAD queue's, one job at a time under its memory cap. Both
-  refuse to start unless connected as `vextrus_app`. Stop one with Ctrl-C or SIGTERM: a running job
+  `uv run manage.py worker --queue cad`: the CAD queue's, one job at a time, with no memory cap yet
+  (`VEXTRUS_CAD_WORKER_MEMORY_BYTES` is `None` in `vextrus/settings/jobs.py` until ticket 24 measures
+  it). Both refuse to start unless connected as `vextrus_app`. Stop one with Ctrl-C or SIGTERM: a running job
   finishes its current step and is tried again later, its completed steps skipped.
 - `uv run pytest`: as `vextrus_app`, on a test database named by the migrations' hash (`-m
   needs_toolchain`, `needs_bwrap` or `live` runs those left out). **Fast check:** `uv run pytest

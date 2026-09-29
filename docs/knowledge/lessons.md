@@ -162,7 +162,7 @@ much parallel work as that quality allows, and each wave applies the last one's 
   account B's config dir held none of the Desktop's settings (auto mode, the classifier's environment,
   prompt caching). A move between surfaces carries its user settings over by hand.
 
-## Session 05 (29 Sep 2026): the cloud launch that was not
+## Session 05 (29 Sep 2026): the cloud launch that was not, and wave 3
 - **A `claude --cloud` session can come up with no git remote.** When the Claude GitHub App does not cover
   the repository for the signed-in account, the CLI uploads a local copy instead of linking GitHub, "even
   if you connected GitHub with `/web-setup`" (code.claude.com/docs/en/claude-code-on-the-web). Account B's
@@ -176,3 +176,28 @@ much parallel work as that quality allows, and each wave applies the last one's 
 - **A builder's worktree isolation refuses a command that runs git in the shared checkout** (`cd <main>
   && git …`, or `git -C <main>`). Give builders absolute paths to scripts, never a `cd` out of their
   worktree.
+- **`claude --bg --resume <id> "<message>"` on an idle but running session starts a copy of it in the
+  caller's directory.** 13's copy started in the main checkout (stopped within a minute; it had only
+  read). Stop the session first (`claude stop <id>`), then resume it from its own worktree.
+- **Keep every suite run's output in a file.** Twice a failure's name was lost: #82's builder saw one
+  engine test fail once in 19 runs, and it was never identified (12 more runs passed); 20a's sign-in
+  failure was found only in a reviewer's screenshot. Run pytest with `-rf` into a log under `.private/work/`.
+- **`gh pr edit` fails** on a Projects (classic) deprecation error. Set a body with `gh api -X PATCH
+  repos/vextrus/vextrus-cubit/pulls/<n> -F body=@<file>`.
+- **Contracts drift at the level of keys.** Where two prompts each named part of a shared shape, the
+  builders drifted twice: 13's judgement facts against 15's node, and 13's sheet-number rule against
+  19b's stand-in. Each cost both tickets a round. Write the exact keys and forms into both prompts
+  before launch.
+- **The merged tree is where contract faults show.** 15 with 13 (the facts' keys), 13 with 14 (a NUL in
+  a title kills 14's store), #75 with 20a (a time zone alone gave a fresh browser the wrong date format;
+  the Market was needed), 19b with 13 (the number rule): each passed alone. Run the partner's head merged before READY.
+- **A builder's own words gate is necessary, not sufficient.** Three of the four catalogues that passed
+  their builder's gate failed the orchestrator's fresh one: 19b with five musts after four rounds of its
+  own, 13 with one, 20a with two and two spec sentences. Only 15's passed.
+- **A hostile-input bound found one piece at a time costs a round a piece.** 13's four reviews each
+  found the next unbounded walk (per space, then sheets per file, then the whole file). What held was
+  one budget per file, spent by every walk, with every cut counted in the export: start there.
+- **The owner expected a much faster wave.** Five tickets with up to four review rounds each, and one
+  builder's five refuter rounds before its READY (14: 175 min), took about six hours; the owner stopped
+  further rounds (29 Sep 2026). The fix is to cap rounds and budget time per ticket and per wave; the
+  owner rules on both at session 06's start.
