@@ -1,0 +1,26 @@
+msgid ""
+msgstr ""
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: en\n"
+
+#. vextrus/takeoff/messages/step1.py (ticket 19a): Step 1's refusals, and two of the seed's Questions (m0-screens 6.7).
+msgid "takeoff.step1.discipline_unknown"
+msgstr "This page named a Discipline Vextrus does not have. Reload the page and try again."
+
+msgid "takeoff.step1.kind_not_offered"
+msgstr "That kind of sheet is not one its Discipline has, so nothing was confirmed. Choose a kind from the list."
+
+msgid "takeoff.step1.no_number"
+msgstr "This sheet has no number in its title block"
+
+msgid "takeoff.step1.nothing_chosen"
+msgstr "No sheet was chosen, so nothing was changed. Select one or more sheets, then confirm or exclude them."
+
+msgid "takeoff.step1.nothing_to_undo"
+msgstr "You have nothing left to undo on Step 1: undo takes back only your own Confirmations, exclusions and drawing lists. To change another person\'s, exclude the sheet, confirm it back in, or paste the drawing list again."
+
+msgid "takeoff.step1.which_kind"
+msgstr "What kind of sheet is {number}?"

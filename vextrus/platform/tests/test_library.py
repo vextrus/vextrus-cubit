@@ -43,5 +43,6 @@ def test_the_command_reports_what_it_wrote(capsys: pytest.CaptureFixture[str]) -
     call_command("sync_library")
 
     # The tests' setup has synced already (vextrus/testing/tenancy.py); drawings writes the
-    # Markets' Disciplines (14), so one module has rows, and none is left to write.
-    assert "sync_library: 0 rows from 1 module(s)" in capsys.readouterr().out
+    # Markets' Disciplines (14) and takeoff its Takeoff Steps and Checks (19a), so two modules have
+    # rows, and none is left to write.
+    assert "sync_library: 0 rows from 2 module(s)" in capsys.readouterr().out
