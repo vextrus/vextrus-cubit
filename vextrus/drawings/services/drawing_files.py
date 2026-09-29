@@ -50,7 +50,7 @@ from typing import Any, BinaryIO, cast
 from django.conf import settings
 from django.core.files import File as DjangoFile
 from django.db import transaction
-from django.db.models import Max, Q
+from django.db.models import Exists, Max, OuterRef, Q
 from django.utils import timezone
 
 from engine.messages import Message, MessageCode
@@ -279,11 +279,13 @@ def _views(rows: list[DrawingFile]) -> list[FileView]:
 
 
 def _read_dwgs(set_ids: set[uuid.UUID]) -> set[tuple[uuid.UUID, uuid.UUID | None]]:
-    """(set, Discipline) of each DWG read in these sets (a held file read anyway among them)."""
+    """(set, Discipline) of each DWG read in these sets: a held file read anyway among them once it
+    has sheets to match (with none, its PDFs still wait for a DWG, #131)."""
     if not set_ids:
         return set()
+    with_sheets = SheetRevision.objects.filter(source_file_id=OuterRef("pk"))
     listed = Q(read_status=ReadStatus.READ) | Q(
-        read_status=ReadStatus.QUARANTINED, held_answer=HeldAnswer.READ_ANYWAY
+        Exists(with_sheets), read_status=ReadStatus.QUARANTINED, held_answer=HeldAnswer.READ_ANYWAY
     )
     return set(
         DrawingFile.objects.filter(

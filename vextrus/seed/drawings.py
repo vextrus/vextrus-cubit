@@ -18,11 +18,14 @@ KR-STR-old.dwg held, no sheets; site-photos.pdf refused. 24 sheets (Structural 1
 Electrical 3), 70 views: 23 title blocks, the key plan and the 3D view proposed to leave out, 43
 proposed to a Takeoff Step or a Discipline Part, 2 unaccounted (S-10's loose boxes).
 
-**BP-02** holds a row for each state its own columns hold, no read job (21a seeds those with its job):
-BP-STR-R0.dwg stalled at "Reading sheet 7 of 12" (for the retrier, once 21a's job exists),
-BP-ARC-R0.dwg waiting, BP-ARC-R0.pdf read before its DWG, BP-ELE-R0.dwg cancelled by Nusrat Jahan,
-BP-PLB-R0.dwg failed, BP-FIRE-R0.dwg read by one reader only, BP-LIFT-R12.dwg saved by an old
-AutoCAD. **MG-01** (Meghna) holds one small DWG, read.
+**BP-02** holds a row for each state its own columns hold, no read job: BP-STR-R0.dwg stalled at
+"Reading sheet 7 of 12", BP-STR-R0.pdf read before its DWG, BP-ARC-R0.dwg waiting, BP-ARC-old.dwg held
+with its 4 sheets (19a's seed answers it "read anyway"), BP-ARC-R0.pdf matched to them (4 of 6 pages),
+BP-ELE-R0.dwg cancelled by Nusrat Jahan, BP-PLB-R0.dwg failed, BP-FIRE-R0.dwg read by one reader
+only, BP-LIFT-R12.dwg saved by an old AutoCAD. **MG-01** (Meghna) holds one small DWG, read, and the
+states a read job carries (#125): MG-ARC-R0.pdf reading page 5 of 16 with its time left (no job: the
+retrier cannot take it), MG-ARC-R0.dwg interrupted and waiting for its second try (a job on
+`SEED_QUEUE`, which no worker runs).
 
 The Market's Disciplines come first: `sync_library` runs here, as the owner (idempotent), so the
 owner's `migrate` then `seed_demo` works; if it cannot, the seed refuses and names the command.
@@ -42,7 +45,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
-from django.db import DatabaseError
+from django.conf import settings
+from django.db import DatabaseError, connections
 from django.utils import timezone
 
 from engine.check import bangla_ansi
@@ -551,10 +555,11 @@ def bokul(demo: Demo) -> None:
     project_id = demo[f"project:{code}"]
     stalled = added(demo, code, project_id, "BP-STR-R0.dwg", invented("dwg", "BP-STR-R0"))
     stall(stalled, sheets=12, at=7)
+    early, _facts = pdf(demo, code, project_id, "BP-STR-R0.pdf", pages=12, maker="autocad")
+    assert early.status == file_words.PLOT_WAITING()
     waiting = added(demo, code, project_id, "BP-ARC-R0.dwg", invented("dwg", "BP-ARC-R0"))
     assert waiting.state == services.FileState.WAITING
-    early, _facts = pdf(demo, code, project_id, "BP-ARC-R0.pdf", pages=6, maker="autocad")
-    assert early.status == file_words.PLOT_WAITING()
+    held_read_anyway(demo, code, project_id)
     cancelled = added(demo, code, project_id, "BP-ELE-R0.dwg", invented("dwg", "BP-ELE-R0"))
     services.cancel(cancelled.id, actor_name=NUSRAT)
     failed = added(demo, code, project_id, "BP-PLB-R0.dwg", invented("dwg", "BP-PLB-R0"))
@@ -565,6 +570,44 @@ def bokul(demo: Demo) -> None:
         demo, code, project_id, "BP-LIFT-R12.dwg", invented("dwg", "BP-LIFT-R12", head=b"AC1009")
     )
     services.mark_failed(old.id, file_words.OLD_VERSION())
+
+
+OLD_ARCHITECTURAL = (
+    S("A-01", "A-01", "GROUND FLOOR PLAN", (plan("GROUND FLOOR PLAN", ("walls", "rooms")),),
+      kind="floor_plan"),
+    S("A-02", "A-02", "TYPICAL FLOOR PLAN", (plan("TYPICAL FLOOR PLAN", ("walls", "rooms")),),
+      kind="floor_plan"),
+    S("A-03", "A-03", "ROOF PLAN", (plan("ROOF PLAN", ("roof",)),), kind="roof_plan"),
+    S("A-04", "A-04", "FRONT ELEVATION",
+      (V(ViewKind.ELEVATION, "FRONT ELEVATION", PLAN_BOX, ("walls",), scale="1:100"),),
+      kind="elevation"),
+)  # fmt: skip
+"""BP-ARC-old.dwg's sheets: an older issue, four sheets where BP-ARC-R0.pdf prints six."""
+
+
+def held_read_anyway(demo: Demo, code: str, project_id: uuid.UUID) -> None:
+    """BP-ARC-old.dwg: its sheets found, then held (its two readers disagree); 19a's seed answers its
+    Question "read anyway", so 4.5's "Held, read anyway: its sheets are marked" has sheets to mark.
+    BP-ARC-R0.pdf, of its Discipline, is matched against them: 4 of its 6 pages (#131)."""
+    held = added(demo, code, project_id, "BP-ARC-old.dwg", invented("dwg", "BP-ARC-old"))
+    built = draw(held.sha256, held.name, OLD_ARCHITECTURAL, ("arial.ttf",))
+    services.store_artefact(held.id, built.artefact)
+    printed = services.record_sheets(held.id, [candidate(s, built, held) for s in OLD_ARCHITECTURAL])
+    for sheet, view in zip(OLD_ARCHITECTURAL, printed, strict=True):
+        demo[f"sheet:{code}:{sheet.label}"] = view.id
+        services.record_views(view.id, views_of(sheet, built.boxes[sheet.label]))
+    disagree = agree_codes.DISAGREE(items=96, only_first=80, only_second=16, kinds=1, layers=2, unread=0)
+    services.record_reports(
+        held.id, cross_check=CheckResult(DECODERS_AGREE, CheckOutcome.FIRED, finding=disagree)
+    )
+    services.quarantine(held.id, disagree)
+    demo[f"finding:{code}:BP-ARC-old.dwg"] = disagree
+    printed_pdf, facts = pdf(demo, code, project_id, "BP-ARC-R0.pdf", pages=6, maker="autocad")
+    plot(
+        printed_pdf,
+        facts,
+        {s.label: v for s, v in zip(OLD_ARCHITECTURAL, printed, strict=True)},
+    )
 
 
 def meghna(demo: Demo) -> None:
@@ -581,6 +624,64 @@ def meghna(demo: Demo) -> None:
     )
     for sheet in printed.values():
         services.record_plot(sheet.id, services.PlotNone.NO_PDF)
+    reading_pdf(demo, code, project_id, "MG-ARC-R0.pdf", pages=16, at=5, actor=TANVIR)
+    retrying = added(demo, code, project_id, "MG-ARC-R0.dwg", invented("dwg", "MG-ARC-R0"), TANVIR)
+    interrupted(retrying)
+
+
+# A read job's states (#125) ----------------------------------------------------------------------------
+
+SEED_QUEUE = "seed"
+"""The queue of the seed's stand-in read job. No worker runs it (`worker` runs the default queue,
+`worker --queue cad` the CAD queue's) and the stalled-job retrier takes up only running jobs, so a
+seeded job-borne state stays as seeded; 21c's real read job replaces it."""
+
+PAGE_MINUTES = 10
+"""How long each page of the seeded reading PDF took: its time left shows for STEADY times this
+after the seed ran (30 minutes), counting down from the seed's own clock stamp, never below a
+minute; later the row reads "Reading page 5 of 16", as a stalled read does (`_minutes_left`)."""
+
+
+@jobs.job(queue=SEED_QUEUE)
+def seeded_read(run: jobs.Run, *, file_id: uuid.UUID) -> None:
+    """The seed's stand-in for a read job (m0-screens 4.5's job-borne rows): it has no steps and
+    reads nothing; it exists only so a seeded file has a job to show the state of."""
+
+
+def reading_pdf(
+    demo: Demo, code: str, project_id: uuid.UUID, name: str, *, pages: int, at: int, actor: str
+) -> None:
+    """A PDF reading page `at` of `pages`, its pages before read at PAGE_MINUTES each up to the
+    seed's clock stamp: 4.5's "Reading page 5 of 16 (about 2 hours left)"."""
+    found = added(demo, code, project_id, name, pdf_bytes(name, pages), actor)
+    facts = DocumentFacts(
+        producer="DWG To PDF.hdi 25.0.0 (AutoCAD 2025)",
+        creator="AutoCAD 2025",
+        extras={},
+        pages=tuple(
+            page_facts(n, turned=False, maker="autocad", lines=False, picture=False)
+            for n in range(1, pages + 1)
+        ),
+    )
+    services.record_reports(found.id, upload_report=pdf_rules.report(facts, found.sha256))
+    stamp = timezone.now()
+    started = stamp - timedelta(minutes=PAGE_MINUTES * (at - 1))
+    ReadStepStore(clock=lambda: started).progress(
+        found.id, jobs.Progress(1, pages, services.page_step(1))
+    )
+    ReadStepStore(clock=lambda: stamp).progress(
+        found.id, jobs.Progress(at, pages, services.page_step(at))
+    )
+
+
+def interrupted(found: services.FileView) -> None:
+    """A file whose read was interrupted and waits to be tried again: its job's first try ended,
+    the second waits ("Reading was interrupted. Trying again by itself (try 2 of 3).")."""
+    job_id = seeded_read.defer(file_id=found.id)
+    with connections[settings.PROCRASTINATE_DATABASE_ALIAS].cursor() as cursor:
+        # As a retry leaves a job: waiting again, one try made.
+        cursor.execute("update procrastinate_jobs set attempts = 1 where id = %s", [job_id])
+    services.attach_read_job(found.id, job_id)
 
 
 # Files ----------------------------------------------------------------------------------------------

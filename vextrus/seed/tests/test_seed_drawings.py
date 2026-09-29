@@ -2,10 +2,12 @@
 BP-02's file states and stall, MG-01's read DWG, every render decoding and no raw code in a title."""
 
 from collections import Counter
+from datetime import timedelta
 from typing import Any
 
 import pytest
 from django.db import connection
+from django.utils import timezone
 
 from engine.render.buffers import SheetBuffers
 from vextrus.drawings import services
@@ -135,8 +137,10 @@ def test_bp_02_holds_the_rows_a_file_with_no_read_job_can_be_on(demo: Demo) -> N
 
     assert {name: f.status for name, f in shown.items()} == {
         "BP-STR-R0.dwg": said.READING_SHEET(position=7, total=12),
+        "BP-STR-R0.pdf": said.PLOT_WAITING(),  # its DWG is still reading
         "BP-ARC-R0.dwg": said.WAITING(ahead=1),  # BP-STR-R0.dwg is read before it
-        "BP-ARC-R0.pdf": said.PLOT_WAITING(),
+        "BP-ARC-old.dwg": said.HELD(),  # 19a's seed answers it
+        "BP-ARC-R0.pdf": said.PLOT_MATCHED(matched=4, pages=6),  # against BP-ARC-old.dwg's sheets
         "BP-ELE-R0.dwg": said.CANCELLED(
             actor="Nusrat Jahan", vextrus="no", cancelled_date=_cancelled(shown)
         ),
@@ -161,8 +165,12 @@ def test_mg_01_holds_one_read_dwg_and_meghna_sees_nothing_of_shapla(demo: Demo) 
         cursor.execute("select count(*) from drawings_drawingfile")
         [(files,)] = cursor.fetchall()
 
-    assert {name: f.status for name, f in shown.items()} == {"MG-STR-R0.dwg": said.READ()}
-    assert files == 1
+    assert {name: f.status for name, f in shown.items()} == {
+        "MG-STR-R0.dwg": said.READ(),
+        "MG-ARC-R0.pdf": said.READING_PAGE_LEFT(position=5, total=16, minutes=120),
+        "MG-ARC-R0.dwg": said.RETRYING(attempt=2, tries=3),
+    }
+    assert files == 3
 
 
 @pytest.mark.django_db(databases=["default", "owner"])
@@ -191,3 +199,24 @@ def test_the_seed_refuses_a_market_with_no_disciplines(
 
     with pytest.raises(seed_drawings.SeedRefused, match=r"manage\.py sync_library"):
         seed_drawings.run(made)
+
+
+@pytest.mark.django_db(databases=["default", "owner"])
+@pytest.mark.parametrize(
+    ("later", "words"),
+    [
+        (25, said.READING_PAGE_LEFT(position=5, total=16, minutes=95)),
+        (31, said.READING_PAGE(position=5, total=16)),
+        (24 * 60, said.READING_PAGE(position=5, total=16)),
+    ],
+)
+def test_the_seeded_reading_pdf_reads_sensibly_on_a_walk_later(
+    demo: Demo, monkeypatch: pytest.MonkeyPatch, later: int, words: Any
+) -> None:
+    """Its time left counts down from the seed's clock stamp for 30 minutes (STEADY times a page's
+    PAGE_MINUTES), never below a minute; after that it reads as a stalled read does, no time left."""
+    walked = timezone.now() + timedelta(minutes=later)
+    monkeypatch.setattr("vextrus.drawings.services.drawing_files.timezone.now", lambda: walked)
+    shown = files_of(demo, "developer:meghna", "MG-01")
+
+    assert shown["MG-ARC-R0.pdf"].status == words
