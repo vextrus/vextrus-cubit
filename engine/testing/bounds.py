@@ -11,6 +11,7 @@ visiting each space again).
 """
 
 import functools
+import inspect
 import tracemalloc
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
@@ -52,19 +53,26 @@ class Calls:
 
 @contextmanager
 def calls(owner: Any, name: str, *, at_most: int) -> Iterator[Calls]:
-    """Counts the block's calls of `owner.name` (a module's function, a class's method) and asserts
-    no more than `at_most`. The attribute is put back after, whatever the block raised."""
-    original: Callable[..., Any] = getattr(owner, name)
+    """Counts the block's calls of `owner.name` (a module's function, a class's method, static or
+    class method, or an instance's) and asserts no more than `at_most`. What `owner` held is put
+    back after, whatever the block raised: its own descriptor, or nothing if it inherited it."""
+    raw = inspect.getattr_static(owner, name)
+    own = name in getattr(owner, "__dict__", {})
     counted = Calls()
+    kind = type(raw) if isinstance(raw, staticmethod | classmethod) else None
+    function: Callable[..., Any] = raw.__func__ if kind else raw
 
-    @functools.wraps(original)
+    @functools.wraps(function)
     def counting(*args: Any, **kwargs: Any) -> Any:
         counted.calls += 1
-        return original(*args, **kwargs)
+        return function(*args, **kwargs)
 
-    setattr(owner, name, counting)
+    setattr(owner, name, kind(counting) if kind else counting)
     try:
         yield counted
     finally:
-        setattr(owner, name, original)
+        if own:
+            setattr(owner, name, raw)
+        else:
+            delattr(owner, name)
     assert counted.calls <= at_most, f"{name} called {counted.calls:,} times, over {at_most:,}"

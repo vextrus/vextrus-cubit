@@ -1,5 +1,6 @@
 """The bounds a test asserts on work: peak memory and call counts (`engine.testing.bounds`)."""
 
+import inspect
 import tracemalloc
 from types import SimpleNamespace
 
@@ -74,3 +75,51 @@ def test_a_block_that_raises_puts_the_function_back() -> None:
         owner.work(1 // 0)
 
     assert owner.work is work
+
+
+class Sheets:
+    @staticmethod
+    def count(n: int) -> int:
+        return n
+
+    @classmethod
+    def name(cls) -> str:
+        return cls.__name__
+
+    def read(self) -> str:
+        return "read"
+
+
+class Plans(Sheets):
+    pass
+
+
+def test_a_static_method_is_counted_and_stays_static() -> None:
+    before = inspect.getattr_static(Sheets, "count")
+
+    with calls(Sheets, "count", at_most=2) as counted:
+        assert Sheets.count(1) == 1
+        assert Sheets().count(2) == 2
+
+    assert counted.calls == 2
+    assert inspect.getattr_static(Sheets, "count") is before
+    assert Sheets().count(3) == 3
+
+
+def test_a_class_method_and_an_instance_method_are_counted_and_put_back() -> None:
+    with calls(Sheets, "name", at_most=1) as named, calls(Sheets, "read", at_most=1) as read:
+        assert Plans.name() == "Plans"
+        assert Sheets().read() == "read"
+
+    assert (named.calls, read.calls) == (1, 1)
+    assert Plans.name() == "Plans"
+    assert "read" in vars(Sheets)
+
+
+def test_an_inherited_method_is_counted_on_the_subclass_and_left_inherited() -> None:
+    with calls(Plans, "count", at_most=1) as counted:
+        assert Plans.count(4) == 4
+
+    assert counted.calls == 1
+    assert "count" not in vars(Plans)
+    assert Plans.count(5) == 5
