@@ -1,0 +1,184 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-09-29 09:02+0000\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: en\n"
+
+#: src/drawing-set/discipline.tsx
+msgid "Discipline of {fileName}"
+msgstr "Discipline of {fileName}"
+
+#: src/drawing-set/ReportPanel.tsx
+msgid "Added {date} by {by}"
+msgstr "Added {date} by {by}"
+
+#: src/drawing-set/ReportPanel.tsx
+msgid "The drawing asks for"
+msgstr "The drawing asks for"
+
+#: src/drawing-set/DrawingSetPage.tsx
+msgid "Drawing Set"
+msgstr "Drawing Set"
+
+#: src/drawing-set/DrawingSetPage.tsx
+msgid "First file"
+msgstr "First file"
+
+#: src/drawing-set/DrawingSetPage.tsx
+msgid "Read again"
+msgstr "Read again"
+
+#: src/drawing-set/DrawingSetPage.tsx
+msgid "Add files"
+msgstr "Add files"
+
+#: src/drawing-set/ReportPanel.tsx
+msgid "Texts"
+msgstr "Texts"
+
+#: src/drawing-set/DrawingSetPage.tsx
+msgid "No drawings yet."
+msgstr "No drawings yet."
+
+#: src/drawing-set/ReportPanel.tsx
+msgid "How close"
+msgstr "How close"
+
+#: src/drawing-set/DrawingSetPage.tsx
+msgid "Drop to add to {projectName}'s Drawing Set"
+msgstr "Drop to add to {projectName}'s Drawing Set"
+
+#: src/drawing-set/ReportPanel.tsx
+msgid "{name} (Vextrus)"
+msgstr "{name} (Vextrus)"
+
+#: src/drawing-set/DrawingSetPage.tsx
+msgid "Drop DWG and PDF files here to add them, or choose files."
+msgstr "Drop DWG and PDF files here to add them, or choose files."
+
+#: src/drawing-set/ReportPanel.tsx
+msgid "Readers"
+msgstr "Readers"
+
+#: src/drawing-set/ReportPanel.tsx
+msgid "Opening the file’s report…"
+msgstr "Opening the file’s report…"
+
+#: src/drawing-set/DrawingSetPage.tsx
+msgid "{added, plural, =0 {No files added} one {# file added} other {# files added}}{already, plural, =0 {} one {; # was already here} other {; # were already here}}{notAdded, plural, =0 {} one {; # was not added} other {; # were not added}}."
+msgstr "{added, plural, =0 {No files added} one {# file added} other {# files added}}{already, plural, =0 {} one {; # was already here} other {; # were already here}}{notAdded, plural, =0 {} one {; # was not added} other {; # were not added}}."
+
+#: src/drawing-set/ReportPanel.tsx
+msgid "Fonts"
+msgstr "Fonts"
+
+#: src/drawing-set/DrawingSetPage.tsx
+msgid "Open the file’s report"
+msgstr "Open the file’s report"
+
+#: src/drawing-set/DrawingSetPage.tsx
+msgid "File"
+msgstr "File"
+
+#: src/drawing-set/DrawingSetPage.tsx
+msgid "Vextrus reads DWG and PDF files. Scanned drawings cannot be read."
+msgstr "Vextrus reads DWG and PDF files. Scanned drawings cannot be read."
+
+#: src/drawing-set/DrawingSetPage.tsx
+msgid "Uploading <0/>"
+msgstr "Uploading <0/>"
+
+#: src/drawing-set/DrawingSetPage.tsx
+msgid "Try again"
+msgstr "Try again"
+
+#: src/drawing-set/ReportPanel.tsx
+msgid "Made by"
+msgstr "Made by"
+
+#: src/drawing-set/ReportPanel.tsx
+msgid "Bangla text"
+msgstr "Bangla text"
+
+#: src/drawing-set/DrawingSetPage.tsx
+msgid "Open in Step 1"
+msgstr "Open in Step 1"
+
+#: src/drawing-set/DrawingSetPage.tsx
+msgid "Uploading <0/> ({upAt} of {upOf})"
+msgstr "Uploading <0/> ({upAt} of {upOf})"
+
+#: src/drawing-set/DrawingSetPage.tsx
+msgid "Drop the Drawing Set's DWG files here, with the PDFs plotted from them if you have them."
+msgstr "Drop the Drawing Set's DWG files here, with the PDFs plotted from them if you have them."
+
+#: src/drawing-set/DrawingSetPage.tsx
+msgid "Opening the Drawing Set…"
+msgstr "Opening the Drawing Set…"
+
+#: src/drawing-set/discipline.tsx
+msgid "Choose a Discipline"
+msgstr "Choose a Discipline"
+
+#: src/drawing-set/DrawingSetPage.tsx
+msgid "Previous file"
+msgstr "Previous file"
+
+#: src/drawing-set/DrawingSetPage.tsx
+msgid "Choose files"
+msgstr "Choose files"
+
+#: src/drawing-set/ReportPanel.tsx
+msgid "Sheets"
+msgstr "Sheets"
+
+#: src/drawing-set/ReportPanel.tsx
+msgid "{discipline}. Added {date} by {by}"
+msgstr "{discipline}. Added {date} by {by}"
+
+#: src/drawing-set/DrawingSetPage.tsx
+msgid "Acts"
+msgstr "Acts"
+
+#: src/drawing-set/DrawingSetPage.tsx
+msgid "Files"
+msgstr "Files"
+
+#: src/drawing-set/DrawingSetPage.tsx
+msgid "Next file"
+msgstr "Next file"
+
+#: src/drawing-set/DrawingSetPage.tsx
+msgid "Cancel reading"
+msgstr "Cancel reading"
+
+#: src/drawing-set/DrawingSetPage.tsx
+msgid "Sheets found"
+msgstr "Sheets found"
+
+#: src/drawing-set/DrawingSetPage.tsx
+msgid "Status"
+msgstr "Status"
+
+#: src/drawing-set/DrawingSetPage.tsx
+msgid "Last file"
+msgstr "Last file"
+
+#: src/drawing-set/ReportPanel.tsx
+msgid "Pages"
+msgstr "Pages"
+
+#: src/drawing-set/ReportPanel.tsx
+msgid "Plot"
+msgstr "Plot"
+
+#: src/drawing-set/DrawingSetPage.tsx
+msgid "Discipline"
+msgstr "Discipline"
+
+#: src/drawing-set/ReportPanel.tsx
+msgid "Close"
+msgstr "Close"
