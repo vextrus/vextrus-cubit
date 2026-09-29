@@ -163,6 +163,29 @@ much parallel work as that quality allows, and each wave applies the last one's 
   prompt caching). A move between surfaces carries its user settings over by hand.
 
 ## Session 05 (29 Sep 2026): the cloud launch that was not, and wave 3
+**From session 06 every lesson names the committed check that guards it** (a test, lint or scan that
+fails on the class; the autonomy ADR); a lesson without one is a debt, listed here and in the milestone
+issue until a check pays it. Session 05's lessons below, as debts ("checks session" marks those the
+session-05 close-out's committed checks cover; confirm each on its merge):
+- Cascade keys run as the table's owner (#93): **checks session** (the cascade-key guard over every module).
+- A wall attacked by one write only: **checks session** (the wall check by every write, from NARROWER's map).
+- A builder's own words gate passing words the fresh gate fails: **checks session** (the words lint);
+  the fresh gate stays.
+- A failure's name lost: **checks session** (the failures log).
+- Hostile-input bounds found one at a time; resource claims without numbers: **checks session**
+  (resource-bound test helpers); one budget per file stays a design rule.
+- The posting run's accept asked at a terminal: the non-interactive accept, **the owner's change**
+  (taken out of the checks session).
+- Contracts drift at the level of keys; contract faults show only in the merged tree: debt (no check
+  yet; the rule is exact keys in both prompts and a merged run before READY).
+- A strict ruleset puts every open PR behind: debt (the orchestrator merges `main` in; no check).
+- A `claude --cloud` session with no git remote: debt (check one launch's remote first; no check).
+- Messaging across config dirs; a builder's `cd` out of its worktree; `--resume` on a running session
+  starting a copy: debts (runbook rules; no check).
+- `gh pr edit` failing on the Projects (classic) error: debt (the `gh api` route; no check).
+- The wave slower than the owner expected: the time budgets and the two-round cap (the autonomy ADR);
+  a measure in #45, not a check.
+
 - **A `claude --cloud` session can come up with no git remote.** When the Claude GitHub App does not cover
   the repository for the signed-in account, the CLI uploads a local copy instead of linking GitHub, "even
   if you connected GitHub with `/web-setup`" (code.claude.com/docs/en/claude-code-on-the-web). Account B's
