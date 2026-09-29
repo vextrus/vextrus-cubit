@@ -7,6 +7,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 REPO = Path(__file__).resolve().parents[3]
 FOLDER = "vextrus/t/tests/acceptance/t99"
 INI = """\
@@ -115,3 +117,23 @@ def test_the_opt_in_run_counts_a_written_opt_in_test_a_k_leaves_out(tmp_path: Pa
     )
     assert done.returncode == 1, done.stdout
     assert "test_a.py::test_written: deselected" in not_run(done.stdout), done.stdout
+
+
+def test_an_addopts_naming_the_engine_s_expression_is_not_the_opt_in_run(tmp_path: Path) -> None:
+    done = run(
+        tmp_path,
+        {f"{FOLDER}/test_a.py": ONE_WRITTEN_ONE_PLAIN},
+        "-o",
+        "addopts=-m 'needs_toolchain or needs_bwrap'",
+    )
+    assert done.returncode == 1, done.stdout
+    assert "test_a.py::test_plain: deselected" in not_run(done.stdout), done.stdout
+
+
+def test_pytest_addopts_naming_the_engine_s_expression_is_not_the_opt_in_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PYTEST_ADDOPTS", "-m 'needs_toolchain or needs_bwrap'")
+    done = run(tmp_path, {f"{FOLDER}/test_a.py": ONE_WRITTEN_ONE_PLAIN})
+    assert done.returncode == 1, done.stdout
+    assert "test_a.py::test_plain: deselected" in not_run(done.stdout), done.stdout

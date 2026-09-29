@@ -61,8 +61,13 @@ def written_marks(item: pytest.Item) -> frozenset[str]:
 
 
 def pytest_configure(config: pytest.Config) -> None:
+    """The opt-in run is engine.yml's: its `-m` is on the command line itself, so an `addopts` or
+    `PYTEST_ADDOPTS` naming the same expression never turns CI's run into it."""
     global _opt_in_run
-    _opt_in_run = " ".join(str(config.option.markexpr).split()) == ENGINE_RUN
+    given = list(config.invocation_params.args)
+    on_the_line = [given[i + 1] for i, arg in enumerate(given[:-1]) if arg == "-m"]
+    on_the_line += [arg[2:] for arg in given if arg.startswith("-m") and len(arg) > 2]
+    _opt_in_run = str(config.option.markexpr) == ENGINE_RUN and ENGINE_RUN in on_the_line
 
 
 @pytest.hookimpl(wrapper=True, tryfirst=True)
