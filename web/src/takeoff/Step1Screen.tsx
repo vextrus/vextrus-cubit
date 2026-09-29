@@ -16,7 +16,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Trans, useLingui } from '@lingui/react/macro'
 import { useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
-import { getRouteApi } from '@tanstack/react-router'
+import { getRouteApi, useSearch } from '@tanstack/react-router'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { AppLink, PATHS } from '@/app/AppLink'
 import { sessionQuery, type ProjectSummary, type Session } from '@/app/session'
@@ -94,9 +94,16 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
   const acts = useStep1Acts(project.id)
   useSummaryCounts(project, model)
 
-  const [mode, setMode] = useState<'list' | 'sheet'>('list')
-  const [focused, setFocused] = useState<string | null>(null)
-  const [openSheet, setOpenSheet] = useState<string | null>(null)
+  // `?sheet=<printed sheet's id>` opens that sheet (the Drawing Set report's "Open in Step 1", #118).
+  const { sheet: asked } = useSearch({ strict: false }) as { sheet?: string }
+  const [start] = useState(() => {
+    const row = asked ? model.rows.find((r) => r.sheets.some((p) => p.sheet_id === asked)) : undefined
+    const first = row?.sheets.find((p) => p.sheet_id === asked)
+    return row && first ? { row: row.key, sheet: first.id } : null
+  })
+  const [mode, setMode] = useState<'list' | 'sheet'>(start ? 'sheet' : 'list')
+  const [focused, setFocused] = useState<string | null>(start?.row ?? null)
+  const [openSheet, setOpenSheet] = useState<string | null>(start?.sheet ?? null)
   const [picker, setPicker] = useState<Row | null>(null)
   const [listFor, setListFor] = useState<string | null>(null)
   const [panel, setPanel] = useState<'coverage' | null>(null)
