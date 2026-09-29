@@ -414,3 +414,56 @@ def test_the_pipelines_user_reads_its_own_copy_of_the_sets(world: World, tmp_pat
 
     assert seen == {"bytes": b"invented bytes", "same": False, "link": False}
     assert not pipeline.sets_read["invented-a"].exists()  # removed after the run
+
+
+# The refuter's second pass (score 65): a second run, started while the first sat between its check
+# against GitHub and its measurement, moved the shared mirror's refs to a commit nobody pushed.
+
+
+def test_a_second_run_cannot_move_the_mirror_under_a_checked_run(
+    world: World, tmp_path: Path, capfd: pytest.CaptureFixture[str]
+) -> None:
+    pipeline = Pipeline(world, tmp_path)
+    world.commit("tuning", {"engine/read.py": "X = 1\n"})
+    pushed = run_git(world.repo, "rev-parse", "refs/heads/tuning")
+    honest = pipeline.spool("tuning")
+    world.commit("tuning", {"engine/read.py": "X = 'never pushed'\n"})
+    forged = pipeline.spool("tuning")
+    pipeline.held["tuning"] = pushed  # GitHub holds only the pushed commit
+    second: list[int] = []
+    first_machine = pipeline.machine
+
+    def machine(home: Path, work: Path) -> Machine:
+        second.append(pipeline.run(["--spool", forged.name, "tuning", "--score"]))
+        return first_machine(home, work)
+
+    pipeline.machine = machine  # type: ignore[method-assign]
+    assert pipeline.run(["--spool", honest.name, "tuning", "--score"]) == 0
+
+    assert second == [2]
+    assert "another scored run is running" in capfd.readouterr().err
+    (run_id,) = pipeline.scored
+    assert json.loads((world.drop / run_id / "metadata.json").read_text())["commit"] == pushed
+
+
+def test_the_sets_copy_enters_no_linked_folder_and_reads_no_pipe(world: World, tmp_path: Path) -> None:
+    secret = tmp_path / "vxrun-only"
+    secret.mkdir()
+    (secret / "private.bin").write_bytes(b"not the owner's")
+    (world.sets["invented-a"] / "linked").symlink_to(secret, target_is_directory=True)
+    os.mkfifo(world.sets["invented-a"] / "pipe")
+    spooled = tmp_path / "spooled"
+    spooled.mkdir()
+    for name, folder in world.sets.items():
+        (spooled / name).mkdir()
+        for path in folder.iterdir():
+            if path.is_symlink():
+                (spooled / name / path.name).symlink_to(path.readlink(), target_is_directory=True)
+            elif path.is_fifo():
+                os.mkfifo(spooled / name / path.name)
+            else:
+                os.link(path, spooled / name / path.name)
+
+    runner._take_sets(spooled, tmp_path / "copy")
+
+    assert sorted(p.name for p in (tmp_path / "copy" / "invented-a").iterdir()) == ["sheet-1.bin"]

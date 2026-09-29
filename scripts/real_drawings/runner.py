@@ -18,6 +18,7 @@ that folder as the key user. Nothing here raises privilege but the one `sudo -n 
 """
 
 import argparse
+import fcntl
 import os
 import re
 import secrets
@@ -26,7 +27,8 @@ import stat
 import subprocess
 import sys
 import tomllib
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from pathlib import Path
 
 from scripts.real_drawings.drop import open_new, take
@@ -169,40 +171,43 @@ def runner_main(
             raise Refused(f"not a target the check runs: {args.target!r}")
         if not args.target.isdigit() and not args.score:
             raise Refused("the pipeline's user runs a PR's posting run or a scored run, nothing else")
-        folder = _spool_folder(spools, args.spool)
-        mirror = fetch_bundle(home / "repo.git", folder / BUNDLE)
-        main_commit = git(mirror, "rev-parse", "--verify", f"refs/heads/{MAIN}^{{commit}}").decode()
-        if stale := stale_files(installed_at, mirror, main_commit.strip()):
-            raise Refused(
-                f"the installed command is not main's ({stale}): the owner runs"
-                " scripts/owner/keys-custody.sh again"
-            )
-        # Only what GitHub holds is scored: a commit nobody pushed, whose engine could write any export,
-        # is never measured, and neither is a head measured against a main nobody pushed.
-        head = resolve(mirror, args.target, fetch=False)
-        for ref, commit in ((args.target, head.commit), (MAIN, main_commit.strip())):
-            if (on_github or github_head)(ref) != commit:
+        # One run at a time holds the mirror from the fetch to the end: a second run's bundle would
+        # otherwise move its refs between the check against GitHub and the measurement.
+        with _one_run(home):
+            folder = _spool_folder(spools, args.spool)
+            mirror = fetch_bundle(home / "repo.git", folder / BUNDLE)
+            main_commit = git(mirror, "rev-parse", "--verify", f"refs/heads/{MAIN}^{{commit}}").decode()
+            if stale := stale_files(installed_at, mirror, main_commit.strip()):
                 raise Refused(
-                    f"{ref} is not {commit[:12]} on GitHub: a scored run measures only what GitHub"
-                    " holds (push it, or bring main up to date, and run again)"
+                    f"the installed command is not main's ({stale}): the owner runs"
+                    " scripts/owner/keys-custody.sh again"
                 )
-        work = home / "work" / args.spool
-        try:
-            _take_sets(folder / "sets", work / "sets")
-            m = (machine or runners_machine)(home, work)
-            assert isinstance(m, command.Machine)
-            _take_wheels(folder / "wheels", m.cache / "wheels")
-            return (run or command.run)(
-                args.target,
-                no_post=not args.target.isdigit(),
-                score=True,
-                m=m,
-                fresh=args.fresh,
-                accept=args.accept,
-                accept_if_clean=args.accept_if_clean,
-            )
-        finally:
-            shutil.rmtree(work, ignore_errors=True)  # the pipeline's user's own copy of the sets
+            # Only what GitHub holds is scored: a commit nobody pushed, whose engine could write any
+            # export, is never measured, and neither is a head measured against a main nobody pushed.
+            head = resolve(mirror, args.target, fetch=False)
+            for ref, commit in ((args.target, head.commit), (MAIN, main_commit.strip())):
+                if (on_github or github_head)(ref) != commit:
+                    raise Refused(
+                        f"{ref} is not {commit[:12]} on GitHub: a scored run measures only what GitHub"
+                        " holds (push it, or bring main up to date, and run again)"
+                    )
+            work = home / "work" / args.spool
+            try:
+                _take_sets(folder / "sets", work / "sets")
+                m = (machine or runners_machine)(home, work)
+                assert isinstance(m, command.Machine)
+                _take_wheels(folder / "wheels", m.cache / "wheels")
+                return (run or command.run)(
+                    args.target,
+                    no_post=not args.target.isdigit(),
+                    score=True,
+                    m=m,
+                    fresh=args.fresh,
+                    accept=args.accept,
+                    accept_if_clean=args.accept_if_clean,
+                )
+            finally:
+                shutil.rmtree(work, ignore_errors=True)  # the pipeline's user's own copy of the sets
     except Refused as refused:
         print(f"real-drawings: refused: {refused}", file=sys.stderr)
         return 2
@@ -301,26 +306,26 @@ def _spool_folder(spools: Path, token: str) -> Path:
 def _take_sets(spooled: Path, into: Path) -> None:
     """The spool's sets copied into the pipeline's user's own folder, so what is digested is what the
     sandbox reads (the owner's user can change its own hard links' files at any time): folders and
-    regular files only, each opened without following a link."""
+    regular files only, each opened relative to its folder's descriptor, never through a link (a folder
+    swapped for a link during the walk is not entered)."""
     if spooled.is_symlink() or not spooled.is_dir():
         raise Refused("the spool holds no sets")
     for root in sorted(spooled.iterdir()):
         name = root.name
         if root.is_symlink() or not root.is_dir() or not SET_NAME.match(name):
             continue  # a set the check reads but the spool lacks is refused by the check itself
-        for folder, dirs, files in os.walk(root, followlinks=False):
+        for folder, _dirs, files, descriptor in os.fwalk(root, follow_symlinks=False):
             relative = Path(folder).relative_to(root)
             (into / name / relative).mkdir(parents=True, exist_ok=True)
-            dirs[:] = [d for d in dirs if not (Path(folder) / d).is_symlink()]
             for file in files:
-                _copy_regular(Path(folder) / file, into / name / relative / file)
+                _copy_regular(descriptor, file, into / name / relative / file)
 
 
-def _copy_regular(source: Path, target: Path) -> None:
-    """`source` into a new `target` when it is a regular file (a hard link is: the spool is made of
-    them); a symbolic link, a pipe or a device is never opened for reading."""
+def _copy_regular(folder: int, name: str, target: Path) -> None:
+    """`name` in the open `folder` into a new `target` when it is a regular file (a hard link is: the
+    spool is made of them); a symbolic link, a pipe or a device is never opened for reading."""
     try:
-        handle = os.open(source, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        handle = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=folder)
     except OSError:
         return
     try:
@@ -328,6 +333,21 @@ def _copy_regular(source: Path, target: Path) -> None:
             return
         with os.fdopen(os.dup(handle), "rb") as reading, open_new(target) as writing:
             shutil.copyfileobj(reading, writing, 1 << 20)
+    finally:
+        os.close(handle)
+
+
+@contextmanager
+def _one_run(home: Path) -> Iterator[None]:
+    """Held by one run of the pipeline's user at a time; a second is refused, never queued."""
+    home.mkdir(parents=True, exist_ok=True)
+    handle = os.open(home / "run.lock", os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    try:
+        try:
+            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise Refused("another scored run is running; wait for it to finish") from None
+        yield
     finally:
         os.close(handle)
 
