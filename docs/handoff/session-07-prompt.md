@@ -1,11 +1,9 @@
 # Session 07: finish M0 to production quality, then make M1 ready to build
 
 ## Starting the session (the owner)
-1. **Before the session, once** (the only owner step that gates the start):
-   `cd ~/vextrus-cubit && git switch main && git pull --ff-only && sudo bash scripts/owner/keys-custody.sh`
-   — it reinstalls main's real-drawing command and scorer for the pipeline's user (21a, 24f and 129
-   changed them after the last run). Without it every posting and scored run is refused ("the installed
-   command is not main's").
+1. **Nothing is needed before the session**: the owner re-ran the custody script at session 06's
+   close, after the last change to `scripts/real_drawings/`. It must run again whenever a later PR
+   changes `scripts/real_drawings/` or `tools/scorer/`; the orchestrator asks, with the command.
 2. Then: `claude --model claude-opus-5-5 --effort medium`, check `/status` (Opus 5.5, medium, auto), and
    say: "Read docs/handoff/session-07-prompt.md and run it."
 
@@ -61,33 +59,41 @@ carried-over builder) to merge. State both clocks, from `date`, in every message
 cloud sessions, the review agents): they are stopped. Every carried-over piece below is a **fresh ticket**
 that starts from a committed branch head, with its findings listed here and in the files named.
 
-**Merged in session 06 (11 tickets):** 23 (#112), 24s (#113), 16 (#116), 19a (#119), 17 (#117), 21a (#126),
-20b (#130), 24f (#128), 129 (#132), 21b (#138), and the web race fix #137. main at the hand-off PR's merge.
+**Merged in session 06 (12 tickets):** 23 (#112), 24s (#113), 16 (#116), 19a (#119), 17 (#117), 21a (#126),
+20b (#130), 24f (#128), 129 (#132), 21b (#138), 18 (#124), and the web race fix #137. main at the hand-off PR's merge.
 
 | Ticket | Start from | State | What is left (the next session's whole job for it) |
 |---|---|---|---|
-| **18** Plot registration | PR **#124**, branch `t18` (db45aa6c) | approved after 3 reviews (2×75, 50, 50 fixed); engine suites green on the merge with 17 | after the owner's custody re-run: merge `main` in, `scripts/real-drawings 124 --no-post` (last: no failed stage; plot_matches +208, render_f1 +195, checks +416 all `plot_pages`), `--accept "<judged reason>"`, merge. 15 minutes. |
 | **22** Step 1 screen | branch **`t22` at b3186ea5** (pushed; acceptance adc09fd8) | review round 1 fixed (half-refused bulk act; double Enter; the e2e smoke test by hand only until 21c; `agrees`' no-list test); #115 fixed; words gate passed 3 rounds | **the design gate failed** on items 1, 7, 8, 10, 11 (walk on d74383ac, one commit before b3186ea5; report and screenshots `.private/work/session-06/22/gate-1.md`, `gate/`): **M1 dates misread** ("12.09.2026" shown "9 Dec 2026"; blocks the demo); M2 the list's Storeys, Views and File columns and the files band (6.2); M3 file-name marks without date; M4 Question cards' Trace lines and bodies; M5 Q2's "Picked for you"; M6 sheet mode: working view, legend, view outlines, → ←, List/Sheet control, sheet picker; M7 the inspector's Proposal and Views blocks, Correct/Exclude, thumbnail; M8 initials chips, "Who did what"; M9 the rows' focus ring (`outline-none` beats `focus-visible:outline-2`); M10 en-XB ranges reversed (make a range one notation span); M11 the MD/Guest bar and the ghost next Question. A **fresh builder** (cloud, high: it is most of Step 1) takes these as its work list, pasted into its prompt with m0-screens' sections for each (a cloud builder cannot read `.private/`); budget 3 h; then review and a fresh walk. |
 | **21c** Proposals, Questions, Coverage | not started | — | acceptance tests and builder at once after 21b is on main; picks up #118, #135, #102's Discipline-less sheet. |
 | **26** First-open and Step 1 walk | not started | — | after 21c and 22. |
 | **24** Measurements | not started | — | the owner's run; sets the CAD worker's cap. |
 
-## The scorer: make its first real answer
-main's only baseline so far scored 0/284 because of a join bug, now fixed by 24f. After the custody
-re-run and 18's merge: `scripts/real-drawings main --score` and record in #45 — sheets and views n / N per
-set, per field, and the reasons' counts (never a key value). Read the reasons: if one reason dominates a
-whole set (e.g. "paper unknown", "the sheet missing"), suspect the scorer or the contract before the
-reading, and prove which with a synthetic case first (session 06's lesson). Then **the scored loops**
-(M0.md "The scored loop"): 17's views and storeys, 18's render F1 with the sheet level as a guard — one
-fix branch each, many agents on different failing sheets, each loop ≤ 90 minutes, stop when two scored
-heads gain nothing; a head may not lose a passing sheet without a judged reason. Every scored head in #45.
+## The scorer: its first real answer, and the loops it points to
+The first meaningful score came from 18's posting run (run `20260929T141846Z-366d2861c6ee-5073`, main + 18,
+24f's join fixed) at session 06's close:
+
+| Set | sheets all right | views joined | number | title | Discipline | storeys | revision | date | view titles | view subjects |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Edison | 0 / 217 | 143 / 739 | 214 | 205 | 202 | 179 | 217 | 206 | 59 / 143 | 0 / 143 |
+| Sample Project | 0 / 67 | 127 / 417 | 67 | 67 | 67 | 55 | 67 | 67 | 99 / 127 | 0 / 127 |
+
+Read it before looping: **view subjects 0 / N** on both sets means the export's subject words and the keys'
+(free phrases) never match — a contract question (a subject vocabulary, or the scorer comparing
+normalised words), not a reading one; rule it first, on a synthetic case. **Views 143 / 739 and
+127 / 417**: the view join (kind + box IoU ≥ 0.8, paper-scaled) is the first loop's target; check how many
+fail on kind vs box. "Sheets all right" needs every field and every view, so it moves last. Record main's
+own baseline after 18 merges (`scripts/real-drawings main --score`), then **the scored loops** (M0.md "The
+scored loop"): 17's views and storeys, 18's render F1 with the sheet level as a guard — fix branches, many
+agents on different failing sheets, each loop ≤ 90 minutes, stop when two scored heads gain nothing; a
+head may not lose a passing sheet without a judged reason. Every scored head in #45 (counts only).
 
 ## The order
 1. **Launch at once, in parallel** (first 15 minutes): 21c's acceptance-writer (21b is on main); a small
    **seed ticket** for #136, #131, #125 (its acceptance tests first); a fresh builder for **22** from `t22`
    with its gate musts; a small **test ticket** for #122 and #134's latency check; a **harness ticket**
    for #107.
-2. 18 (if not merged at the hand-off) → **the baseline score** on main → **the scored loops** on 17 and
+2. **The baseline score** on main (`scripts/real-drawings main --score`) → **the scored loops** on 17 and
    18 (local, real drawings), each ≤ 90 minutes.
 3. **21c** builder as soon as its tests land (critical path; high) → review → its first `--job` posting
    run → merge.
@@ -164,7 +170,7 @@ rate limits (#121 found none too), #74 staff reach in the admin, #77 the harness
 #92 a write landing in another tab's Developer, #94 a 500 on an over-long Content-Type, #120 viewer
 findings < 50, #121 platform findings < 50, #123 scorer findings < 50, #127 the Held-out join oracle
 (before the first Held-out Set).
-**Closed by merges:** #95, #100 (session 06); #27, #87, #88 close when #124 merges; #33 by #138; #129 by #132.
+**Closed by merges:** #95, #100, #27, #87, #88 (#124), #33 (#138), #129 (#132).
 **Also known:** peak memory rose on two Edison files with 18 (663 → 1,207 MB; 365 → 926 MB;
 `keep_buffers`), and the CAD worker has no cap until 24.
 **Clean-up for the owner** (the guard refuses recursive deletes): the merged worktrees (`git worktree

@@ -299,3 +299,7 @@ session-05 close-out's committed checks cover; confirm each on its merge):
   23 writers did, and theirs needed none). Debt (the acceptance-writer's brief).
 - **`seed_demo` run twice duplicates every Developer** (#129; a builder is on it). Found only because a
   design walk re-seeded a database. **Check:** t129's acceptance tests.
+- **A reading ticket that words codes skipped its words gate** (18 added `engine/plot` and
+  `render_f1` catalogues; the missing gate was found only at merge). The orchestrator checks
+  `git diff --name-only -- web/src/messages` at every READY. Check: `merge_ready` refused the merge
+  until the gate was posted.
