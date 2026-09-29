@@ -20,7 +20,8 @@ import type { DisciplineSection, QuestionEntry, Row, Step1Model } from './model'
 import { Answering, CannotAnswer, Copy, OptionWords, QuestionBody, QuestionTitle, Trace, optionsOf, useKindLine, usePick } from './questionWords'
 import { disciplineName } from './SheetList'
 import { Act, ActorChip } from './who'
-import { NOT_RECEIVED_NAMES, OTHER_DISCIPLINE, OTHER_VIEW_KIND, REASON_SHORT, SOURCE_NAMES, STOREYS_MEANING, UNKNOWN_REASON, VIEW_KIND_NAMES } from './words'
+import { DISCIPLINE_NAMES, NOT_RECEIVED_NAMES, NOT_TO_SCALE, OTHER_DISCIPLINE, OTHER_VIEW_KIND, REASON_SHORT, SOURCE_NAMES, STEP_KEYS, STOREYS_MEANING, UNKNOWN_REASON, UNKNOWN_STEP, VIEW_KIND_NAMES } from './words'
+import { StoreyList } from './storeys'
 
 function Block({ title, children }: { title?: ReactNode; children: ReactNode }) {
   return (
@@ -200,6 +201,9 @@ function Decided({ sheet, readOnly }: { sheet: ProposalOut; readOnly: boolean })
 /** The state and when (6.6 item 2), in §5's words: "NJ Confirmed by Nusrat Jahan, 26 Sep 2026, 10:42". */
 function StateWhen({ sheet }: { sheet: ProposalOut }) {
   const f = useFormat()
+  const { i18n } = useLingui()
+  const vextrus = sheet.decided_role === 'vextrus_engineer'
+  const reason = sheet.excluded_reason === 'other' && sheet.excluded_text ? sheet.excluded_text : i18n._((sheet.excluded_reason && REASON_SHORT[sheet.excluded_reason]) || UNKNOWN_REASON)
   const name = sheet.decided_by ?? ''
   const date = sheet.decided_at ? f.date(sheet.decided_at) : ''
   const time = sheet.decided_at ? f.time(sheet.decided_at) : ''
@@ -208,12 +212,22 @@ function StateWhen({ sheet }: { sheet: ProposalOut }) {
       <ActorChip name={sheet.decided_by} role={sheet.decided_role} />
       <span>
         {sheet.decision === 'confirmed' ? (
+          vextrus ? (
+            <Trans>
+              Confirmed by {name} (Vextrus), {date}, {time}
+            </Trans>
+          ) : (
+            <Trans>
+              Confirmed by {name}, {date}, {time}
+            </Trans>
+          )
+        ) : vextrus ? (
           <Trans>
-            Confirmed by {name}, {date}, {time}
+            Excluded by {name} (Vextrus), {date}, {time}: {reason}
           </Trans>
         ) : (
           <Trans>
-            Excluded by {name}, {date}, {time}
+            Excluded by {name}, {date}, {time}: {reason}
           </Trans>
         )}
       </span>
@@ -284,10 +298,10 @@ export function SheetFacts({ row, showTitle, readOnly, onExclude, onConfirmBackI
           <Fact label={<Trans>Plot</Trans>}>
             <PlotFact sheet={sheet} />
           </Fact>
-          <Fact label={<Trans>Sources</Trans>}>{row.sheets.every((s) => s.agrees) ? <Trans>two, agreeing</Trans> : <Trans>one source</Trans>}</Fact>
+          <Fact label={<Trans>Sources</Trans>}>{row.sheets.every((s) => s.agrees) ? <Trans>two that agree</Trans> : <Trans>not two that agree</Trans>}</Fact>
         </dl>
       </Block>
-      <ViewsBlock sheet={sheet} />
+      <ViewsBlock row={row} />
       <Block title={<Trans>Who did what</Trans>}>
         {row.sheets.map((s) => (
           <div key={s.id}>
@@ -362,13 +376,22 @@ function FileFact({ sheet }: { sheet: ProposalOut }) {
 function StoreysFact({ sheet }: { sheet: ProposalOut }) {
   const { i18n } = useLingui()
   const plans = (sheet.views ?? []).filter((v) => v.kind === 'plan')
-  const stated = sheet.storeys_as_stated?.trim()
+  const stated = sheet.storeys_as_stated?.trim() ?? ''
+  const keys = [...new Set(plans.flatMap((v) => v.storeys))]
   if (plans.length === 0 && !stated) return <span className="text-muted-foreground">—</span>
   const meanings = [...new Set(plans.map((v) => v.storeys_meaning).filter((m): m is string => !!m))]
   const meaning = meanings.length === 0 ? null : i18n._(STOREYS_MEANING[meanings.length > 1 ? 'mixed' : meanings[0]!] ?? STOREYS_MEANING.mixed!)
-  if (!stated) return <span className="text-question"><Trans>not stated</Trans></span>
-  const text = <DrawingText kind="title" text={stated} truncate={false} />
-  return meaning ? <Trans>{text}, {meaning}</Trans> : text
+  const read = keys.length > 0 ? <StoreyList keys={keys} /> : null
+  const asStated = stated ? <DrawingText kind="title" text={stated} truncate={false} /> : null
+  // §5: shown as stated and normalised, "3RD, 5TH & 7TH FLOOR → 3rd, 5th, 7th", with the meaning.
+  if (asStated && read) return meaning ? <Trans>{asStated} → {read}, {meaning}</Trans> : <Trans>{asStated} → {read}</Trans>
+  if (read) return meaning ? <Trans>{read}, {meaning}</Trans> : read
+  if (asStated) return meaning ? <Trans>{asStated}, {meaning}</Trans> : asStated
+  return (
+    <span className="text-question">
+      <Trans>not stated</Trans>
+    </span>
+  )
 }
 
 /** "KR-STR-R0.pdf page 12", or "None: " and why (6.6, 6.13). */
@@ -380,26 +403,36 @@ function PlotFact({ sheet }: { sheet: ProposalOut }) {
     return <Trans>{file} page {page}</Trans>
   }
   if (sheet.plot_none) {
-    const why = <MachineText message={{ code: sheet.plot_none.code, params: sheet.plot_none.params as Record<string, string | number> }} />
-    return <Trans>None: {why}</Trans>
+    return <MachineText message={{ code: sheet.plot_none.code, params: sheet.plot_none.params as Record<string, string | number> }} />
   }
   return <span className="text-muted-foreground">—</span>
 }
 
 /** 6.6 item 4: each view's kind, title, scale, storeys, and the steps it is proposed for. */
-function ViewsBlock({ sheet }: { sheet: ProposalOut }) {
-  const views = sheet.views ?? []
-  const count = views.length
+function ViewsBlock({ row }: { row: Row }) {
+  const sheets = row.sheets.filter((p) => (p.views ?? []).length > 0)
+  const count = sheets.reduce((n, p) => n + (p.views?.length ?? 0), 0)
   if (count === 0) return null
+  const several = row.sheets.length > 1
   return (
-    <Block title={<Plural value={count} one="Views (#)" other="Views (#)" />}>
-      <ol className="flex flex-col gap-1.5">
-        {views.map((v) => (
-          <li key={v.ordinal}>
-            <ViewLine view={v} sheet={sheet} />
-          </li>
-        ))}
-      </ol>
+    <Block title={<Trans>Views ({count})</Trans>}>
+      <p className="text-xs text-muted-foreground">
+        <Trans>→ walks them in sheet mode.</Trans>
+      </p>
+      {sheets.map((sheet) => (
+        <ol key={sheet.id} className="flex flex-col gap-1.5">
+          {several ? (
+            <li className="text-xs font-semibold text-ink-secondary">
+              <SheetName sheets={[sheet]} />
+            </li>
+          ) : null}
+          {(sheet.views ?? []).map((v) => (
+            <li key={v.ordinal}>
+              <ViewLine view={v} sheet={sheet} />
+            </li>
+          ))}
+        </ol>
+      ))}
     </Block>
   )
 }
@@ -407,25 +440,35 @@ function ViewsBlock({ sheet }: { sheet: ProposalOut }) {
 function ViewLine({ view, sheet }: { view: NonNullable<ProposalOut['views']>[number]; sheet: ProposalOut }) {
   const { i18n } = useLingui()
   const kind = i18n._(VIEW_KIND_NAMES[view.kind] ?? OTHER_VIEW_KIND)
-  const scale = view.not_to_scale ? <Trans>not to scale</Trans> : view.stated_scale ? <DrawingText kind="title" text={view.stated_scale} truncate={false} /> : null
+  const title = view.title ? <DrawingText kind="title" text={view.title} truncate={false} /> : null
+  const scale = view.not_to_scale ? i18n._(NOT_TO_SCALE) : view.stated_scale
   const excluded = view.decision === 'excluded' || sheet.decision === 'excluded'
   const reason = view.excluded_reason ?? view.proposed_exclusion ?? (sheet.decision === 'excluded' ? sheet.excluded_reason : null)
   const reasonText = reason ? i18n._(REASON_SHORT[reason] ?? UNKNOWN_REASON) : ''
   const proposed = sheet.decision === null
+  const meaning = view.storeys_meaning ? i18n._(STOREYS_MEANING[view.storeys_meaning] ?? STOREYS_MEANING.mixed!) : null
+  const storeys = view.storeys.length > 0 ? <StoreyList keys={view.storeys} /> : null
   return (
     <div className={cn('flex flex-col', excluded && 'text-muted-foreground line-through')}>
       <span>
-        {kind}
-        {view.title ? (
-          <>
-            {' '}
-            <DrawingText kind="title" text={view.title} truncate={false} />
-          </>
-        ) : null}
-        {scale ? <>, {scale}</> : null}
+        {title && scale ? (
+          <Trans>
+            {kind}: {title}, {scale}
+          </Trans>
+        ) : title ? (
+          <Trans>
+            {kind}: {title}
+          </Trans>
+        ) : scale ? (
+          <Trans>
+            {kind}, {scale}
+          </Trans>
+        ) : (
+          kind
+        )}
       </span>
       <span className="flex flex-wrap items-center gap-1 text-xs">
-        {view.storeys.length > 0 ? <span className="text-ink-secondary">{view.storeys.join(', ')}</span> : null}
+        {storeys ? <span className="text-ink-secondary">{meaning ? <Trans>{storeys}, {meaning}</Trans> : storeys}</span> : null}
         {reason && (view.proposed_exclusion || excluded) ? (
           <span className="text-muted-foreground">
             <Trans>excluded: {reasonText}</Trans>
@@ -462,7 +505,7 @@ export function QuestionCard({ entry, readOnly, model }: { entry: QuestionEntry;
   const kind = useKindLine(entry)
   const tag = entry.tag
   const options = optionsOf(entry)
-  const pick = usePick(entry)
+  const pick = usePick(entry, model)
   const sources = pick?.sources ?? null
   const name = `question-${entry.question.id}`
   return (
@@ -475,7 +518,7 @@ export function QuestionCard({ entry, readOnly, model }: { entry: QuestionEntry;
         <span className="text-xs">{entry.kept ? <Trans>Kept open</Trans> : <Trans>Answer once</Trans>}</span>
       </header>
       <div className="bg-chrome-sunken px-3 py-1.5 text-xs">
-        <Answering entry={entry} names={names} />
+        <Answering entry={entry} names={names} model={model} />
       </div>
       <div className="flex flex-col gap-2 px-3 py-2 text-sm">
         <p className="text-xs text-ink-secondary">{kind}</p>
@@ -504,7 +547,7 @@ export function QuestionCard({ entry, readOnly, model }: { entry: QuestionEntry;
           </legend>
           {options.map((o, i) => (
             <label key={o.key ?? i} className={cn('flex items-start gap-2 rounded-md px-1.5 py-1', pick && o.key === pick.key && 'bg-selected')}>
-              <input type="radio" name={name} value={o.key} defaultChecked={!!pick && o.key === pick.key} className="mt-1" />
+              <input type="radio" name={name} value={o.key} checked={!!pick && o.key === pick.key} readOnly className="mt-1" />
               <span className="num w-3 text-muted-foreground">{i + 1}</span>
               <span>
                 <OptionWords entry={entry} option={o} />
@@ -544,7 +587,8 @@ export function QuestionsTab({ model, readOnly }: { model: Step1Model; readOnly:
 /** A key of Coverage's `by_step`: a Takeoff Step's number ("5 Foundations"), else an MEP Part ("Electrical, M3 onwards"). */
 function StepOrPart({ step }: { step: string }) {
   const { i18n } = useLingui()
-  const found = /^\d+$/.test(step) ? TAKEOFF_STEPS.find((s) => s.number === Number(step)) : undefined
+  const number = /^\d+$/.test(step) ? Number(step) : (STEP_KEYS as readonly string[]).indexOf(step) + 1
+  const found = number > 0 ? TAKEOFF_STEPS.find((s) => s.number === number) : undefined
   if (found) {
     const number = found.number
     const name = i18n._(found.name)
@@ -554,6 +598,7 @@ function StepOrPart({ step }: { step: string }) {
       </>
     )
   }
+  if (!DISCIPLINE_NAMES[step]) return <>{i18n._(UNKNOWN_STEP)}</>
   const part = disciplineName(step, i18n)
   return <Trans>{part}, M3 onwards</Trans>
 }

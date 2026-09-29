@@ -424,10 +424,10 @@ function ModeSwitch({ mode, onList, onSheet }: { mode: 'list' | 'sheet'; onList:
   const { t } = useLingui()
   return (
     <div role="group" aria-label={t`List or sheet`} className="inline-flex items-center">
-      <button type="button" aria-pressed={mode === 'list'} title={t`The list: Space from a sheet`} onClick={onList} className={cn(MODE_PART, 'rounded-s-md')}>
+      <button type="button" aria-pressed={mode === 'list'} title={t`Back to the list (Space)`} onClick={onList} className={cn(MODE_PART, 'rounded-s-md')}>
         <Trans>List</Trans>
       </button>
-      <button type="button" aria-pressed={mode === 'sheet'} title={t`The focused sheet: Space`} onClick={onSheet} className={cn(MODE_PART, 'rounded-e-md border-s-0')}>
+      <button type="button" aria-pressed={mode === 'sheet'} title={t`Open a sheet (Space)`} onClick={onSheet} className={cn(MODE_PART, 'rounded-e-md border-s-0')}>
         <Trans>Sheet</Trans>
       </button>
     </div>
@@ -486,12 +486,12 @@ function SheetMode({
         return {
           key: String(v.ordinal),
           box: v.box.map(Number) as unknown as readonly [number, number, number, number],
-          tag: scale ? `${kind}, ${scale}` : kind,
+          tag: scale ? t`${kind}, ${scale}`.replace(/[\u2066-\u2069]/g, '') : kind,
           question: held,
           excluded: v.decision === 'excluded' || sheet.decision === 'excluded',
         }
       }),
-    [sheet, held, i18n],
+    [sheet, held, i18n, t],
   )
 
   // Focus follows the sheet into the canvas as it opens, as it pages, and when the picker closes (§6.1).
@@ -595,7 +595,7 @@ function SheetPicker({ model, current, onClose, onPick }: { model: Step1Model; c
               <Trans>Sheets, in list order</Trans>
             </DialogTitle>
             <DialogDescription>
-              <Trans>Tab or click a sheet to open it; Esc closes.</Trans>
+              <Trans>Click a sheet, or Tab to it and press Enter; Esc closes.</Trans>
             </DialogDescription>
           </DialogHeader>
           <ul aria-label={t`Sheets`} className="flex max-h-[50vh] flex-col overflow-y-auto">

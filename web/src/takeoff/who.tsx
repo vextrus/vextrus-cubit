@@ -28,12 +28,14 @@ export function initials(name: string): string {
 
 /** The actor's initials chip, the full name as its accessible name and tooltip. */
 export function ActorChip({ name, role }: { name: string | null | undefined; role?: string | null }) {
+  const { t } = useLingui()
   if (!name) return null
   const vextrus = role === 'vextrus_engineer'
+  const label = vextrus ? t`${name}, Vextrus Engineer` : name
   return (
     <span
-      title={name}
-      aria-label={name}
+      title={label}
+      aria-label={label}
       className={cn(
         'inline-flex h-4 items-center rounded-xs border px-1 text-2xs font-semibold leading-none whitespace-nowrap',
         vextrus ? 'border-primary text-primary' : 'border-border-strong bg-chrome-sunken text-ink-secondary',
@@ -80,7 +82,7 @@ export function WhatWasDone({ sheet }: { sheet: ProposalOut }) {
   const { i18n } = useLingui()
   const others = Math.max(0, (sheet.decided_with ?? 0) - 1)
   if (sheet.decision === 'confirmed')
-    return others > 0 ? <Plural value={others} one="Confirmed in bulk with # other sheet" other="Confirmed in bulk with # other sheets" /> : <Trans>Confirmed</Trans>
+    return others > 0 ? <Plural value={others} one="Confirmed with # other sheet in one act" other="Confirmed with # other sheets in one act" /> : <Trans>Confirmed</Trans>
   const reason = sheet.excluded_reason === 'other' && sheet.excluded_text ? sheet.excluded_text : i18n._((sheet.excluded_reason && REASON_SHORT[sheet.excluded_reason]) || UNKNOWN_REASON)
   return <Trans>Excluded: {reason}</Trans>
 }

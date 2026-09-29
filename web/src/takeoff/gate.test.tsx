@@ -168,7 +168,7 @@ describe('M4: every Question card has its body and its Trace line', () => {
     expect(text.join(' ')).toContain('A sheet titled “DOOR AND WINDOW SCHEDULE” in KR-ARC-R0.dwg has an empty number in its title block.')
     expect(text.join(' ')).toContain('Trace: Title block text (the number field is empty)')
     expect(text.join(' ')).toContain('A-05 “SECTION A-A & ELEVATION” in KR-ARC-R0.dwg: its title and views do not settle which kind of sheet it is.')
-    expect(text.join(' ')).toMatch(/The drawing list read on a sheet names 13 structural sheets\. \d+ were found in KR-STR-R0\.dwg; S-13 was not\./)
+    expect(text.join(' ')).toMatch(/The drawing list read on a sheet names 13 sheets\. \d+ were found in KR-STR-R0\.dwg; S-13 was not\./)
   })
 })
 
@@ -180,10 +180,20 @@ describe('M5: the pre-pick is shown with what agrees', () => {
     const cards = await questionsTab()
     const q2 = cards.find((c) => clean(c.textContent).startsWith('Question Q2'))!
     const text = clean(q2.textContent)
-    expect(text).toContain('Picked for you: the later revision mark and the later date agree')
+    expect(text).toContain('Picked for you: the later revision mark and date in the title block, and the drawing list read on a sheet, agree')
     expect(text).toContain('Answering confirms S-07 (rev B) and excludes S-07 (rev A) as superseded.')
     const checked = q2.querySelector<HTMLInputElement>('input[type="radio"]:checked')
     expect(checked?.value).toBe('keep_b')
+  })
+
+  it('shows no pre-pick where only the title block agrees (ruling 2: one source is not two)', async () => {
+    const { api, step1 } = kr01()
+    step1.lists = {}
+    await open(api)
+    const cards = await questionsTab()
+    const q2 = cards.find((c) => clean(c.textContent).startsWith('Question Q2'))!
+    expect(clean(q2.textContent)).not.toContain('Picked for you')
+    expect(q2.querySelector('input[type="radio"]:checked')).toBeNull()
   })
 
   it('pre-picks nothing the server did not pick', async () => {
@@ -209,7 +219,7 @@ describe('M8: who did what, with the initials chip', () => {
     decide(step1)
     await open(api)
     await waitFor(() => expect(within(rowOf('S-02')).getByLabelText('Nusrat Jahan').textContent).toBe('NJ'))
-    expect(clean(within(rowOf('S-04')).getByLabelText('Tanvir Ahmed').textContent)).toBe('TA Vextrus')
+    expect(clean(within(rowOf('S-04')).getByLabelText('Tanvir Ahmed, Vextrus Engineer').textContent)).toBe('TA Vextrus')
   })
 
   it('words each act as its what over "name, role, date, time" in the inspector', async () => {
@@ -217,12 +227,16 @@ describe('M8: who did what, with the initials chip', () => {
     decide(step1)
     await open(api)
     await userEvent.click(within(rowOf('S-02')).getByText('S-02'))
-    await waitFor(() => expect(clean(inspector().textContent)).toContain('Confirmed in bulk with 15 other sheets'))
+    await waitFor(() => expect(clean(inspector().textContent)).toContain('Confirmed with 15 other sheets in one act'))
     expect(clean(inspector().textContent)).toContain('Nusrat Jahan, QS, 26 Sep 2026, 11:00')
     expect(clean(inspector().textContent)).toContain('NJConfirmed by Nusrat Jahan, 26 Sep 2026, 11:00')
     await userEvent.click(within(rowOf('S-03')).getByText('S-03'))
     await waitFor(() => expect(clean(inspector().textContent)).toContain('Excluded: superseded'))
+    expect(clean(inspector().textContent)).toContain('Excluded by Nusrat Jahan, 26 Sep 2026, 11:10: superseded')
     expect(clean(inspector().textContent)).toContain('Nusrat Jahan, QS, 26 Sep 2026, 11:10')
+    await userEvent.click(within(rowOf('S-04')).getByText('S-04'))
+    await waitFor(() => expect(clean(inspector().textContent)).toContain('Confirmed by Tanvir Ahmed (Vextrus), 26 Sep 2026, 11:20'))
+    expect(clean(inspector().textContent)).toContain('Tanvir Ahmed, Vextrus Engineer, 26 Sep 2026, 11:20')
   })
 })
 
@@ -237,7 +251,7 @@ describe('M7: the inspector says where each fact was read, lists the views, and 
       plot_page: 5,
       plot_none: null,
       views: [
-        { ordinal: 0, kind: 'plan', title: '1ST FLOOR BEAM LAYOUT', stated_scale: '1:100', not_to_scale: false, storeys: ['1st'], storeys_meaning: 'at_floor_level', steps: ['7'], part: null, proposed_exclusion: null, decision: null, excluded_reason: null, box: ['0', '0', '1', '1'] },
+        { ordinal: 0, kind: 'plan', title: '1ST FLOOR BEAM LAYOUT', stated_scale: '1:100', not_to_scale: false, storeys: ['floor_1'], storeys_meaning: 'at_floor_level', steps: ['beams', 'electrical', 'no_such_step'], part: null, proposed_exclusion: null, decision: null, excluded_reason: null, box: ['0', '0', '1', '1'] },
         { ordinal: 1, kind: 'title_block', title: '', stated_scale: '', not_to_scale: true, storeys: [], storeys_meaning: null, steps: [], part: null, proposed_exclusion: 'for_information', decision: null, excluded_reason: null, box: ['0', '0', '1', '1'] },
       ],
     })
@@ -248,11 +262,15 @@ describe('M7: the inspector says where each fact was read, lists the views, and 
     expect(text()).toContain('text in the title block')
     expect(text()).toContain('Structural, from the file')
     expect(text()).toContain('KR-STR-R0.dwg, laid out in the drawing')
-    expect(text()).toContain('1ST FLOOR, at floor level')
+    expect(text()).toContain('1ST FLOOR → 1st, at floor level')
     expect(text()).toContain('KR-STR-R0.pdf page 5')
     expect(text()).toContain('Views (2)')
-    expect(text()).toContain('Plan 1ST FLOOR BEAM LAYOUT, 1:100')
+    expect(text()).toContain('Plan: 1ST FLOOR BEAM LAYOUT, 1:100')
+    expect(text()).toContain('1st, at floor level')
     expect(text()).toContain('7 Beams')
+    expect(text()).toContain('Electrical, M3 onwards')
+    expect(text()).toContain('A step Vextrus has no name for yet')
+    expect(text()).not.toContain('Another Discipline')
     expect(text()).toContain('Title block, not to scale')
     expect(text()).toContain('excluded: for information')
     const exclude = within(inspector()).getByRole('button', { name: /Exclude/ })
@@ -265,7 +283,8 @@ describe('M7: the inspector says where each fact was read, lists the views, and 
     Object.assign(step1.proposals.find((p) => p.number === 'S-05')!, { plot_page: null, plot_file_name: null, plot_none: { code: 'drawings.sheets.plot_no_number', params: {} } })
     await open(api)
     await userEvent.click(within(rowOf('S-05')).getByText('S-05'))
-    await waitFor(() => expect(clean(inspector().textContent)).toMatch(/Plot\s*None: \S/))
+    await waitFor(() => expect(clean(inspector().textContent)).toContain('No Plot for this sheet: the sheet has no number'))
+    expect(clean(inspector().textContent)).not.toContain('None: No Plot')
   })
 })
 
@@ -351,7 +370,7 @@ describe('M2: the files band, and the Storeys, Views and File columns', () => {
     Object.assign(step1.proposals.find((p) => p.number === 'S-05')!, {
       layout: null,
       views: [
-        { ordinal: 0, kind: 'plan', title: 'PLAN', stated_scale: '1:100', not_to_scale: false, storeys: ['3rd', '5th', '7th'], storeys_meaning: 'at_floor_level', steps: ['7'], part: null, proposed_exclusion: null, decision: null, excluded_reason: null, box: ['0', '0', '1', '1'] },
+        { ordinal: 0, kind: 'plan', title: 'PLAN', stated_scale: '1:100', not_to_scale: false, storeys: ['floor_3', 'floor_5', 'floor_7'], storeys_meaning: 'at_floor_level', steps: ['7'], part: null, proposed_exclusion: null, decision: null, excluded_reason: null, box: ['0', '0', '1', '1'] },
         { ordinal: 1, kind: 'title_block', title: '', stated_scale: '', not_to_scale: true, storeys: [], storeys_meaning: null, steps: [], part: null, proposed_exclusion: 'for_information', decision: null, excluded_reason: null, box: ['0', '0', '1', '1'] },
       ],
     })
@@ -364,9 +383,10 @@ describe('M2: the files band, and the Storeys, Views and File columns', () => {
       expect(b).not.toBeNull()
       return b!
     })
-    expect(clean(band.textContent)).toContain('✓ KR-STR-R0.dwg 13 sheets, Read. Two readers agree')
+    expect(clean(band.textContent)).toContain('✓ KR-STR-R0.dwg 13 sheets, two readers agree')
     expect(clean(band.textContent)).toContain('✓ KR-STR-R0.pdf Plot: 11 of 12 pages matched')
-    expect(clean(band.textContent)).toContain('! KR-STR-old.dwg Held: the two readers disagree, so it may be misread')
+    expect(clean(band.textContent)).toContain('KR-STR-old.dwg held')
+    expect(clean(band.textContent)).not.toContain('✓ KR-STR-old.dwg')
     const header = clean(document.querySelector('[role="row"]')?.textContent)
     expect(header).toContain('Storeys per view')
     expect(header).toContain('Views')

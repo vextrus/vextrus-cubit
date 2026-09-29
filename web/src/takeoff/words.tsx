@@ -87,6 +87,8 @@ export const QUESTION_KIND_BY_CODE: Readonly<Record<string, MessageDescriptor>> 
   'engine.conflicts.same_title': msg`Two plans draw one thing`,
   'engine.register_check.not_found': msg`On the drawing list, in no file`,
   'engine.register_check.not_listed': msg`In a file, not on the drawing list`,
+  'engine.plot_pages.no_page': msg`On no Plot page`,
+  'engine.plot_pages.no_sheet': msg`A Plot page with no sheet`,
   'takeoff.step1.no_number': msg`No number`,
   'takeoff.step1.which_kind': msg`Sheet kind unclear`,
 }
@@ -96,7 +98,7 @@ export const QUESTION_KINDS: Readonly<Record<string, MessageDescriptor>> = {
   conflict: msg`Two sheets, one number`,
   missing: msg`No number`,
   low_confidence: msg`Sheet kind unclear`,
-  check: msg`A Check against the drawing list`,
+  check: msg`A Check`,
 }
 
 export const OTHER_QUESTION = msg`A Question about the sheets`
@@ -226,3 +228,8 @@ export const STOREYS_MEANING: Readonly<Record<string, MessageDescriptor>> = {
   mixed: msg`mixed`,
 }
 export const NOT_TO_SCALE = msg`not to scale`
+
+/** The Library's Takeoff Steps by key, in the building-first order (vextrus/takeoff/library.py; ADR
+ * 0007): step n is the n-th. Coverage and a view's proposed steps name them by key. */
+export const STEP_KEYS = ['sheets', 'general_notes', 'storeys', 'grid', 'foundations', 'columns', 'beams', 'slabs', 'stairs', 'tanks', 'walls', 'rooms', 'roof', 'site_mep'] as const
+export const UNKNOWN_STEP = msg`A step Vextrus has no name for yet`

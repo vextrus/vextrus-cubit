@@ -66,8 +66,6 @@ function ListSource({ section }: { section: DisciplineSection | undefined }) {
 /** The body under the title (§5 item 3, 6.7): what was read, in words, with its figures. */
 export function QuestionBody({ entry, model }: { entry: QuestionEntry; model: Step1Model }) {
   const has = useHasEnglish()
-  const { i18n } = useLingui()
-  const f = useFormat()
   const q = entry.question
   const sheet = entry.holds[0]
   if (q.kind === 'file_misread') return has(q.code) ? <MachineText message={{ code: q.code, params: params(entry) }} /> : null
@@ -93,30 +91,45 @@ export function QuestionBody({ entry, model }: { entry: QuestionEntry; model: St
   if (q.kind === 'check' && typeof q.params.number === 'string') {
     const section = model.disciplines.find((d) => d.discipline === q.discipline)
     const number = <DrawingText kind="sheet-number" text={q.params.number} truncate={false} />
-    const discipline = disciplineName(q.discipline, i18n).toLocaleLowerCase(i18n.locale)
     const files = [...new Set((section?.rows ?? []).flatMap((r) => r.sheets.map((s) => s.file_name)))].sort()
-    const found = f.integer(section?.found ?? 0)
     const named = <FileList names={files} />
-    if (section?.list) {
-      const listed = f.integer(section.list.numbers.length)
-      const source = <ListSource section={section} />
+    const source = <ListSource section={section} />
+    if (q.code === 'engine.register_check.not_found') {
+      const found = section?.found ?? 0
+      if (section?.list && files.length > 0) {
+        const listed = section.list.numbers.length
+        return (
+          <Trans>
+            {source} names <Plural value={listed} one="# sheet" other="# sheets" />. <Plural value={found} one="# was" other="# were" /> found in {named}; {number} was
+            not.
+          </Trans>
+        )
+      }
       return files.length > 0 ? (
         <Trans>
-          {source} names {listed} {discipline} sheets. {found} were found in {named}; {number} was not.
+          {source} names {number}, and it was not found in {named}.
         </Trans>
       ) : (
         <Trans>
-          {source} names {listed} {discipline} sheets; {number} is in no file.
+          {source} names {number}, and no file has it.
         </Trans>
       )
     }
-    return files.length > 0 ? (
-      <Trans>
-        The drawing list names {number}. {found} {discipline} sheets were found in {named}; {number} was not.
-      </Trans>
-    ) : (
-      <Trans>The drawing list names {number}, and no file has it.</Trans>
-    )
+    const holder = entry.holds[0] ?? model.rows.flatMap((r) => r.sheets).find((p) => p.number === q.params.number && p.discipline === q.discipline)
+    const file = holder ? <DrawingText kind="file-name" text={holder.file_name} truncate={false} /> : null
+    if (q.code === 'engine.register_check.not_listed' && file)
+      return (
+        <Trans>
+          {number} is in {file} but not on the drawing list, so it has one source.
+        </Trans>
+      )
+    if (q.code === 'engine.plot_pages.no_page' && file)
+      return (
+        <Trans>
+          {number} is in {file} but on no page of its Discipline’s PDF.
+        </Trans>
+      )
+    return null
   }
   return null
 }
@@ -138,6 +151,20 @@ export function Trace({ entry, model }: { entry: QuestionEntry; model: Step1Mode
     where = file ? <Trans>{file}, as each of the two readers read it</Trans> : <Trans>The file, as each of the two readers read it</Trans>
   } else if (isCopies(entry)) {
     where = section?.list?.source === 'sheet' ? <Trans>Title blocks of both copies; the drawing list read on a sheet</Trans> : <Trans>Title blocks of both copies</Trans>
+  } else if (q.kind === 'conflict' && entry.holds.length > 1) {
+    where = (
+      <>
+        {entry.holds.map((s, i) => {
+          const name = <SheetName sheets={[s]} />
+          return (
+            <span key={s.id}>
+              {i > 0 ? '; ' : null}
+              <Trans>{name} title block</Trans>
+            </span>
+          )
+        })}
+      </>
+    )
   } else if (q.code === 'takeoff.step1.no_number') {
     where = <Trans>Title block text (the number field is empty)</Trans>
   } else if (q.kind === 'low_confidence' && sheet) {
@@ -178,29 +205,31 @@ function CopyIn({ sheet, other, first }: { sheet: ProposalOut; other: ProposalOu
   return first ? <Trans>the first copy</Trans> : <Trans>the second copy</Trans>
 }
 
-/** The pick the server made for the QS (ruling 2: only where independent sources agree), with the sources the card names. */
-export function usePick(entry: QuestionEntry): { key: string; sources: ReactNode } | null {
+/**
+ * The pick the server made for the QS, shown only where the card can name two independent sources
+ * that agree (ruling 2, §5): for two copies of one number, the later revision mark and date in the
+ * title block (one source) and a drawing list read on a sheet naming the number. Else no pre-pick.
+ */
+export function usePick(entry: QuestionEntry, model?: Step1Model): { key: string; sources: ReactNode } | null {
   const picked = optionsOf(entry).find((o) => o.picked && o.key)
-  if (!picked?.key) return null
-  return { key: picked.key, sources: <PickSources entry={entry} pick={picked.key} /> }
+  if (!picked?.key || !model) return null
+  if (!isCopies(entry) || (picked.key !== 'keep_b' && picked.key !== 'keep_a')) return null
+  const [later, earlier] = entry.holds as [ProposalOut, ProposalOut]
+  const keep = picked.key === 'keep_b' ? later : earlier
+  const drop = picked.key === 'keep_b' ? earlier : later
+  const laterMark = !!keep.revision_mark.trim() && !!drop.revision_mark.trim() && compareNumbers(keep.revision_mark, drop.revision_mark) > 0
+  const laterDate = !!keep.issue_date && (!drop.issue_date || keep.issue_date > drop.issue_date)
+  const section = model.disciplines.find((d) => d.discipline === entry.question.discipline)
+  const listed = section?.list?.source === 'sheet' && !!keep.number && section.list.numbers.includes(keep.number)
+  if (!(laterMark || laterDate) || !listed) return null
+  return { key: picked.key, sources: <PickSources mark={laterMark} date={laterDate} /> }
 }
 
-/** "the later revision mark and the later date agree" (6.7): what agrees on the kept copy. */
-function PickSources({ entry, pick }: { entry: QuestionEntry; pick: string }) {
-  const { i18n, t } = useLingui()
-  if (isCopies(entry) && (pick === 'keep_b' || pick === 'keep_a')) {
-    const [later, earlier] = entry.holds as [ProposalOut, ProposalOut]
-    const keep = pick === 'keep_b' ? later : earlier
-    const drop = pick === 'keep_b' ? earlier : later
-    const agree: string[] = []
-    if (keep.revision_mark.trim() && drop.revision_mark.trim() && compareNumbers(keep.revision_mark, drop.revision_mark) > 0) agree.push(t`the later revision mark`)
-    if (keep.issue_date && drop.issue_date && keep.issue_date > drop.issue_date) agree.push(t`the later date`)
-    if (agree.length > 0) {
-      const sources = new Intl.ListFormat(i18n.locale, { type: 'conjunction' }).format(agree)
-      return agree.length > 1 ? <Trans>{sources} agree</Trans> : <>{sources}</>
-    }
-  }
-  return <Trans>the sources Vextrus read agree</Trans>
+/** 6.7's form: "the later revision mark and date in the title block, and the drawing list read on a sheet, agree". */
+function PickSources({ mark, date }: { mark: boolean; date: boolean }) {
+  if (mark && date) return <Trans>the later revision mark and date in the title block, and the drawing list read on a sheet, agree</Trans>
+  if (mark) return <Trans>the later revision mark in the title block, and the drawing list read on a sheet, agree</Trans>
+  return <Trans>the later date in the title block, and the drawing list read on a sheet, agree</Trans>
 }
 
 /** An option's words, naming the copies' marks and dates for two sheets of one number. */
@@ -223,8 +252,8 @@ export function OptionWords({ entry, option }: { entry: QuestionEntry; option: O
 }
 
 /** The card's first line (§5 item 2, §6.7), for the option picked (pre-picked in M0), else what it settles. */
-export function Answering({ entry, names }: { entry: QuestionEntry; names: Readonly<Record<string, string>> }) {
-  const picked = usePick(entry)?.key
+export function Answering({ entry, names, model }: { entry: QuestionEntry; names: Readonly<Record<string, string>>; model?: Step1Model }) {
+  const picked = usePick(entry, model)?.key
   const n = entry.holds.length
   const q = entry.question
   if (q.kind === 'file_misread') {

@@ -53,7 +53,7 @@ function QsConfirms({ names }: { names: readonly string[] }) {
   const { i18n } = useLingui()
   if (names.length === 0) return <Trans>The QS confirms the sheet list; every act shows who did it.</Trans>
   const who = new Intl.ListFormat(i18n.locale, { type: 'conjunction' }).format(names)
-  return names.length === 1 ? <Trans>{who} (QS) confirms the sheet list; every act shows who did it.</Trans> : <Trans>{who} (QS) confirm the sheet list; every act shows who did it.</Trans>
+  return names.length === 1 ? <Trans>{who} (QS) confirms the sheet list; every act shows who did it.</Trans> : <Trans>{who}, the QSs, confirm the sheet list; every act shows who did it.</Trans>
 }
 
 function BulkWhat({ model }: { model: Step1Model }) {
@@ -162,7 +162,7 @@ export function useBar(c: BarContext): BarSpec | null {
             Question {tag}: {title}
           </Trans>
         ),
-        why: <Answering entry={row.question} names={model.fileNames} />,
+        why: <Answering entry={row.question} names={model.fileNames} model={model} />,
         ghost: { label: <Trans>Next open item</Trans>, run: c.nextOpen },
       }
     }

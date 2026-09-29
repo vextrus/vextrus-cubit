@@ -15,6 +15,7 @@ import type { ProposalOut } from './data'
 import { rowState, type DisciplineSection, type Row, type Step1Model } from './model'
 import { SheetRange } from './acts'
 import { ActorChip } from './who'
+import { StoreyList } from './storeys'
 import { DISCIPLINE_NAMES, NOT_RECEIVED_NAMES, OTHER_DISCIPLINE, OTHER_QUESTION, QUESTION_KIND_BY_CODE, REASON_SHORT, UNKNOWN_REASON } from './words'
 
 export interface SheetListProps {
@@ -347,13 +348,15 @@ function Revision({ sheet }: { sheet: ProposalOut }) {
   )
 }
 
-/** 6.2's Storeys: the plan views' storeys as text ("3rd, 5th, 7th"); amber "not stated" for a plan
- * whose title states none; "—" for a sheet with no plan view. (The storey strip, 6.8, is not built.) */
+/** 6.2's Storeys: the plan views' storeys ("3rd, 5th, 7th"; "typical (range from Step 3)" and "not
+ * stated" in amber); the title's words as stated where no storey was read; "—" for a sheet with no
+ * plan view. (The storey strip, 6.8, is not built.) */
 function Storeys({ sheets }: { sheets: readonly ProposalOut[] }) {
-  const views = sheets.flatMap((p) => p.views ?? [])
-  const plans = views.filter((v) => v.kind === 'plan')
-  const stated = [...new Set(plans.flatMap((v) => v.storeys))]
-  if (stated.length > 0) return <DrawingText kind="title" text={stated.join(', ')} />
+  const plans = sheets.flatMap((p) => p.views ?? []).filter((v) => v.kind === 'plan')
+  const keys = [...new Set(plans.flatMap((v) => v.storeys))]
+  if (keys.length > 0) return <StoreyList keys={keys} />
+  const stated = sheets.map((p) => p.storeys_as_stated?.trim() ?? '').find(Boolean)
+  if (stated) return <DrawingText kind="title" text={stated} />
   if (plans.length > 0)
     return (
       <span className="text-question">
@@ -379,36 +382,48 @@ function FileCell({ sheet }: { sheet: ProposalOut }) {
   )
 }
 
-/** The files band above the header (6.2): one chip per file, in 4.5's words. */
+/** The files band above the header (6.2): one chip per file, "✓ KR-STR-R0.dwg 13 sheets, two readers
+ * agree"; a held file amber, "KR-STR-old.dwg held"; any other state in 4.5's words, marked "!". */
 function FilesBand({ files }: { files: Step1Model['files'] }) {
   if (files.length === 0) return null
   return (
     <div data-files-band="" className="flex flex-wrap gap-1.5 border-b border-border px-3 py-1.5 text-xs">
-      {files.map((file) => {
-        const held = file.state === 'held'
-        const reading = file.state === 'reading' || file.state === 'waiting' || file.state === 'retrying'
-        const count = file.format !== 'pdf' && typeof file.sheets_found === 'number' ? file.sheets_found : null
-        const name = <DrawingText kind="file-name" text={file.name} truncate={false} />
-        return (
-          <span
-            key={file.id}
-            className={cn(
-              'inline-flex h-6 items-center gap-1.5 rounded-xs border px-2 whitespace-nowrap',
-              held ? 'border-question-stroke bg-question-surface text-question' : 'border-border bg-chrome-sunken text-ink-secondary',
-            )}
-          >
-            <span aria-hidden="true">{held ? '!' : reading ? '…' : '✓'}</span>{' '}
-            <span className="font-medium text-foreground">{name}</span>{' '}
-            {count !== null && !held ? (
-              <>
-                <Plural value={count} one="# sheet," other="# sheets," />{' '}
-              </>
-            ) : null}
-            <MachineText message={file.status} />
-          </span>
-        )
-      })}
+      {files.map((file) => (
+        <FileChip key={file.id} file={file} />
+      ))}
     </div>
+  )
+}
+
+function FileChip({ file }: { file: Step1Model['files'][number] }) {
+  const name = <DrawingText kind="file-name" text={file.name} truncate={false} />
+  const read = file.state === 'read'
+  const held = file.state === 'held'
+  const reading = file.state === 'reading' || file.state === 'waiting' || file.state === 'retrying'
+  const cancelled = file.state === 'cancelled'
+  const bangla = file.status.code === 'drawings.files.read_bangla'
+  const dwg = file.format !== 'pdf'
+  const count = typeof file.sheets_found === 'number' ? file.sheets_found : 0
+  let words: ReactNode
+  if (read && dwg) words = <Plural value={count} one="# sheet, two readers agree" other="# sheets, two readers agree" />
+  else if (held) words = <Trans>held</Trans>
+  else words = <MachineText message={file.status} />
+  const glyph = read ? '✓' : held || reading || cancelled ? null : '!'
+  return (
+    <span
+      className={cn(
+        'inline-flex h-6 items-center gap-1.5 rounded-xs border px-2 whitespace-nowrap',
+        held || glyph === '!' ? 'border-question-stroke bg-question-surface text-question' : 'border-border bg-chrome-sunken text-ink-secondary',
+      )}
+    >
+      {glyph ? <span aria-hidden="true">{glyph} </span> : null}
+      <span className="font-medium text-foreground">{name}</span> {words}
+      {bangla ? (
+        <span className="rounded-xs border border-question-stroke px-1 text-question">
+          <Trans>Bangla font</Trans>
+        </span>
+      ) : null}
+    </span>
   )
 }
 
