@@ -1,0 +1,25 @@
+msgid ""
+msgstr ""
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: en\n"
+
+#. engine/messages/catalogue.py (ticket 19b): each Check's name in the Library (docs/data-model.md §3.4), shown with no values.
+msgid "engine.catalogue.bangla_ansi"
+msgstr "Bangla text in a legacy (Bijoy) font"
+
+msgid "engine.catalogue.coverage"
+msgstr "Coverage: every view on every sheet accounted for"
+
+msgid "engine.catalogue.decoders_agree"
+msgstr "Two readers agree on each drawing file"
+
+msgid "engine.catalogue.plot_pages"
+msgstr "The Plot's pages against the sheets found"
+
+msgid "engine.catalogue.register"
+msgstr "The drawing list against the sheets found"
+
+msgid "engine.catalogue.storey_titles"
+msgstr "The storeys in each sheet's title against its plans' titles"

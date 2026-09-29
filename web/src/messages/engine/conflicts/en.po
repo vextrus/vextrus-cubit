@@ -1,0 +1,18 @@
+msgid ""
+msgstr ""
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: en\n"
+
+#. engine/messages/conflicts.py (ticket 19b): two sheets with one number, m0-screens §5's Question title, verbatim for two.
+msgid "engine.conflicts.same_number"
+msgstr "{copies, plural, =2 {Two sheets are} other {# sheets are}} numbered {number}"
+
+#. m0-screens §5 and 6.7: "S-14 and S-15 both draw the 5th floor slab, bottom layer". The plans' titles as drawn state the storey and what they draw (the subject's word is the view conventions', which the conflicts do not hold). 21c's Question title must word m0-screens §5's verbatim from `storey` and `subject` once display words exist; this message is the Conflict's evidence line until then.
+msgid "engine.conflicts.same_storey"
+msgstr "{views, plural, offset:2 =2 {{first_named, select, title {“{first}”} other {{first}}} and {second_named, select, title {“{second}”} other {{second}}} both draw} one {{first_named, select, title {“{first}”} other {{first}}}, {second_named, select, title {“{second}”} other {{second}}} and # more plan draw} other {{first_named, select, title {“{first}”} other {{first}}}, {second_named, select, title {“{second}”} other {{second}}} and # more plans draw}} {titled, select, same {“{plan}”} differ {one storey, as “{plan}” and “{other}”} other {a plan of one storey}}{layer, select, top {, top layer} bottom {, bottom layer} other {}}"
+
+#. A title on sheets whose numbers do not run on (m0-screens §5: one title on consecutive numbers is a continuation, with no Question).
+msgid "engine.conflicts.same_title"
+msgstr "{sheets, plural, =2 {Two sheets are titled “{title}” but are not numbered one after the other} other {# sheets are titled “{title}” but are not all numbered one after the other}}"

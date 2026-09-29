@@ -34,8 +34,12 @@ from engine.recognise.types import (
     CheckResult,
     Conflict,
     Continuation,
+    DisciplineConvention,
+    DrawingList,
     Exclusion,
     ExclusionReason,
+    ListEntry,
+    ListSource,
     PlotMatch,
     PlotTransform,
     SetReading,
@@ -262,10 +266,11 @@ FAKES = {
             return 0.9
     """,
     "conflicts.py": """
-        from engine.recognise.types import Conflict, Continuation
+        from engine.recognise.types import Conflict, Continuation, SheetConventions
 
-        def find(sheets, views):
+        def find(sheets, views, conventions):
             assert len(views) == len(sheets)
+            assert isinstance(conventions, SheetConventions)
             found = [Continuation(title="Column schedule", sheets=(sheets[0], sheets[1]))]
             if len(sheets) > 2:
                 found.append(Conflict(kind="same_number", candidates=(sheets[0], sheets[2]),
@@ -278,6 +283,8 @@ FAKES = {
         def run_all(reading):
             assert isinstance(reading, SetReading)
             assert reading.read == {"views", "register", "plot", "conflicts"}, reading.read
+            assert [d.key for d in reading.conventions.disciplines] == ["structural", "architectural"]
+            assert reading.lists == ()
             results = [
                 CheckResult("coverage", "fired", subject=reading.views[0][2],
                             finding={"code": "engine.coverage.unaccounted", "params": {"views": 1}}),
@@ -1113,11 +1120,38 @@ def test_a_view_proposal_is_steps_and_a_part_or_an_exclusion() -> None:
             "finding",
         ),
         (lambda: SetReading(sheets=(SheetCandidate(location=SheetLocation(layout="L")),)), "per sheet"),
+        (lambda: ListEntry(" ", line=1), "empty"),
+        (lambda: ListEntry("S-01", line=0), "from 1"),
+        (lambda: DrawingList("set", "Structural", ListSource.PASTED, ()), "lower-case key"),
+        (lambda: DrawingList("set", "structural", "emailed", ()), "emailed"),  # type: ignore[arg-type]
+        (lambda: DrawingList(" ", "structural", ListSource.TYPED, ()), "empty"),
     ],
 )
 def test_a_value_the_contracts_do_not_allow_is_refused(make: Callable[[], object], match: str) -> None:
     with pytest.raises(ValueError, match=match):
         make()
+
+
+def test_a_reading_carries_its_conventions_and_drawing_lists_and_refuses_other_values() -> None:
+    conventions = SheetConventions(disciplines=(DisciplineConvention("structural", ("S",)),))
+    listed = DrawingList(
+        "set", "structural", ListSource.TYPED, (ListEntry("S-01", line=1), ListEntry("S-02", line=1))
+    )
+
+    reading = SetReading(conventions=conventions, lists=(listed,))
+
+    assert reading.conventions is conventions
+    assert reading.lists == (listed,)
+    assert SetReading().conventions is None
+    assert SetReading().lists == ()
+    with pytest.raises(TypeError, match="conventions"):
+        SetReading(conventions={"disciplines": []})  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match="drawing lists"):
+        SetReading(lists=[listed])  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match="drawing lists"):
+        SetReading(lists=(listed.entries[0],))  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match="entries"):
+        DrawingList("set", "structural", ListSource.PASTED, ("S-01",))  # type: ignore[arg-type]
 
 
 def test_conventions_round_trip_through_json_and_refuse_what_they_do_not_hold() -> None:

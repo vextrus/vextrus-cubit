@@ -25,7 +25,8 @@ tables and two independent converters; no real drawing was seen):
 - **Not detected:** Boishakhi, Bornosoft and other ANSI encodings, which put their signs on other code
   points; a Bijoy text with no pre-base vowel sign whose font was renamed.
 
-Declares `CODE`, `VERSION` and `MILESTONE` (the M0 plan's contract for a Check).
+Declares `CODE`, `VERSION`, `MILESTONE`, `KIND` and `MESSAGE` (the M0 plan's contract for a
+Check, and engine/check/catalogue.py's).
 """
 
 import re
@@ -36,12 +37,16 @@ from enum import StrEnum
 
 from engine.messages import Message
 from engine.messages import bangla_ansi as codes
+from engine.messages import catalogue as names
 from engine.read.artefact import ReadArtefact, Text
 from engine.render.fonts import HowClose, fonts_of
 
 CODE = "bangla_ansi"
 VERSION = 1
 MILESTONE = "M0"
+KIND = "sanity"
+"""A flag, never a block (ADR 0027's sanity range raises a flag; engine/check/catalogue.py)."""
+MESSAGE = names.BANGLA_ANSI
 
 PATTERN = re.compile("[\u2020\u2021\u02c6\u2030][A-Za-z`_]")
 """A Bijoy pre-base vowel sign (e-kar or oi-kar) followed by the consonant it goes before."""
