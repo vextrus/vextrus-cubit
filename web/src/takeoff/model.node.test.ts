@@ -68,6 +68,11 @@ describe('the bulk act', () => {
     expect(model.oneSource.map((p) => p.number)).toEqual(['S-02'])
   })
 
+  it('leaves an "other" proposed exclusion out of the bulk act: a Proposal carries no words for it', () => {
+    const model = step1Model(data([sheet('S-01'), sheet('S-02', { proposed_exclusion: 'other' }), sheet('S-03', { proposed_exclusion: 'blank' })]))
+    expect(model.bulk.leaveOut.map((p) => p.number)).toEqual(['S-03'])
+  })
+
   it('holds every copy of a number two sheets share, in one row', () => {
     const b = sheet('S-07', { revision_mark: 'B' })
     const a = sheet('S-07', { revision_mark: 'A' })

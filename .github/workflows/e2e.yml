@@ -6,21 +6,20 @@
 #
 # The DWG is 13's synthetic set A, built by the repo's writer; never a real drawing. The demo password is
 # made for this run only and masked. Until 21c's job proposes sheets from a read, the test waits for the
-# sheet list and fails there (the plan: "not reachable until 21c").
+# sheet list and fails there (the plan: "not reachable until 21c"), so until then it runs by hand only.
 name: e2e
 
+# Run by hand only (the orchestrator's ruling on 22): the test cannot pass before 21c, and a check red
+# on every PR would block them all. 21c adds `pull_request` and `push` here once its job proposes sheets.
 on:
-  pull_request:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: e2e-${{ github.head_ref || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   smoke:

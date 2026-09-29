@@ -4,6 +4,8 @@ a second source confirms it: its Discipline's drawing list names it (or, with no
 runs without a gap and its Plot page matched). A sheet in an open Question, or with one source, never
 agrees."""
 
+import uuid
+from dataclasses import replace
 from typing import Any
 
 import pytest
@@ -97,3 +99,21 @@ def test_two_sheets_of_one_number_never_agree_even_on_the_list(qs_project: QsPro
         ("S-02", False),
         ("S-02", False),
     ]
+
+
+def test_with_no_list_a_run_without_a_gap_and_its_plot_pages_agree(
+    step1_project: Step1Project, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The no-list branch (m0-screens §5): S-01 to S-03 run without a gap, and each sheet whose Plot
+    page matched agrees; S-03, with no Plot page, has one source."""
+    real = step1._sheets
+
+    def with_plots(project_id: uuid.UUID) -> list[drawings.SheetView]:
+        return [
+            replace(s, plot=replace(s.plot, page=i + 1)) if s.number != "S-03" else s
+            for i, s in enumerate(real(project_id))
+        ]
+
+    monkeypatch.setattr(step1, "_sheets", with_plots)
+
+    assert agrees(step1_project) == {"S-01": True, "S-02": True, "S-03": False}

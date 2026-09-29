@@ -219,8 +219,8 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
   }
 
   useKeys([
-    { key: 'Enter', label: t`Do what the bar says`, group: 'screen', run: enter },
-    { key: 'Ctrl Z', label: t`Undo your last act on Step 1`, group: 'screen', run: undoKey },
+    { key: 'Enter', label: t`Do what the bar says`, group: 'screen', run: (event) => (event.repeat ? undefined : enter()) },
+    { key: 'Ctrl Z', label: t`Undo your last act on Step 1`, group: 'screen', run: (event) => (event.repeat ? undefined : undoKey()) },
     { key: 'X', label: t`Exclude the focused sheet, with a reason`, group: 'screen', run: excludeKey },
     { key: '↓', label: t`Next row; in a sheet, the next sheet`, group: 'screen', run: () => moveFocus(1) },
     { key: '↑', label: t`Previous row; in a sheet, the previous sheet`, group: 'screen', run: () => moveFocus(-1) },

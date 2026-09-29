@@ -11,7 +11,9 @@ import { useCallback, useRef, type ReactNode } from 'react'
 import { Plural, Trans } from '@lingui/react/macro'
 import { useLingui } from '@lingui/react'
 import { useQueryClient } from '@tanstack/react-query'
+import { problemOf, problemText } from '@/auth/problem'
 import { useSayRefused } from '@/auth/sayRefused'
+import { useFormat } from '@/format'
 import { useToast } from '@/ui'
 import { DrawingText } from '@/ui/DrawingText'
 import { confirm, exclude, setList, step1Key, undo, type ActOut, type ProposalOut } from './data'
@@ -50,6 +52,28 @@ function UndoneWords({ act }: { act: ActOut }) {
   return <Trans>your last change to Step 1</Trans>
 }
 
+/** What a bulk act did, after "Undone: ": "confirmed 16 sheets and left out 1". */
+function BulkWords({ n, m }: { n: number; m: number }) {
+  if (m === 0) return <Plural value={n} one="confirmed # sheet" other="confirmed # sheets" />
+  if (n === 0) return <Plural value={m} one="left out # sheet" other="left out # sheets" />
+  return (
+    <Trans>
+      <Plural value={n} one="confirmed # sheet" other="confirmed # sheets" /> and left out {m}
+    </Trans>
+  )
+}
+
+/** The bulk act's toast (§6.4): "Confirmed 16 sheets; left out 1, each with its reason." */
+function BulkDone({ n, m }: { n: number; m: number }) {
+  if (m === 0) return <Plural value={n} one="Confirmed # sheet." other="Confirmed # sheets." />
+  if (n === 0) return <Plural value={m} one="Left out # sheet, with its reason." other="Left out # sheets, each with its reason." />
+  return (
+    <Trans>
+      <Plural value={n} one="Confirmed # sheet" other="Confirmed # sheets" />; left out {m}, each with its reason.
+    </Trans>
+  )
+}
+
 export interface Step1Acts {
   bulk(confirming: readonly ProposalOut[], leavingOut: readonly ProposalOut[]): Promise<void>
   /** `backIn`: the actor's name, when the sheets were excluded and are confirmed back in (6.9). */
@@ -64,10 +88,15 @@ export function useStep1Acts(projectId: string): Step1Acts {
   const toast = useToast()
   const sayRefused = useSayRefused()
   const { i18n } = useLingui()
+  const f = useFormat()
   const done = useRef<Done[]>([])
+  /** An act in flight: another (a second Enter, a key held down) is ignored until it ends. */
+  const pending = useRef(false)
   const refresh = useCallback(() => queryClient.invalidateQueries({ queryKey: step1Key(projectId) }), [queryClient, projectId])
 
   const undoLast = useCallback(async () => {
+    if (pending.current) return
+    pending.current = true
     const last = done.current.pop()
     try {
       if (last) {
@@ -81,6 +110,7 @@ export function useStep1Acts(projectId: string): Step1Acts {
     } catch (error) {
       sayRefused(error)
     } finally {
+      pending.current = false
       await refresh()
     }
   }, [projectId, refresh, sayRefused, toast])
@@ -90,6 +120,8 @@ export function useStep1Acts(projectId: string): Step1Acts {
   /** Runs the server acts in turn; whatever of them was done is one act to undo. */
   const run = useCallback(
     async (calls: (() => Promise<unknown>)[], words: ReactNode, said: ReactNode): Promise<boolean> => {
+      if (pending.current) return false
+      pending.current = true
       let made = 0
       try {
         for (const call of calls) {
@@ -103,6 +135,7 @@ export function useStep1Acts(projectId: string): Step1Acts {
         return false
       } finally {
         if (made > 0) done.current.push({ calls: made, words })
+        pending.current = false
         await refresh()
       }
     },
@@ -111,37 +144,46 @@ export function useStep1Acts(projectId: string): Step1Acts {
 
   const bulk = useCallback(
     async (confirming: readonly ProposalOut[], leavingOut: readonly ProposalOut[]) => {
-      const calls: (() => Promise<unknown>)[] = []
-      if (confirming.length) calls.push(() => confirm(projectId, confirming.map((p) => p.id)))
+      if (pending.current) return
+      pending.current = true
+      // One call per kind of act, each counted as it is made, so the words name only what was done.
+      const calls: { sheets: number; out: boolean; call: () => Promise<unknown> }[] = []
+      if (confirming.length) calls.push({ sheets: confirming.length, out: false, call: () => confirm(projectId, confirming.map((p) => p.id)) })
       for (const reason of REASONS) {
         const ids = leavingOut.filter((p) => p.proposed_exclusion === reason).map((p) => p.id)
-        if (ids.length) calls.push(() => exclude(projectId, ids, reason))
+        if (ids.length) calls.push({ sheets: ids.length, out: true, call: () => exclude(projectId, ids, reason) })
       }
-      const n = confirming.length
-      const m = leavingOut.length
-      const words =
-        m === 0 ? (
-          <Plural value={n} one="confirmed # sheet" other="confirmed # sheets" />
-        ) : n === 0 ? (
-          <Plural value={m} one="left out # sheet" other="left out # sheets" />
-        ) : (
-          <Trans>
-            <Plural value={n} one="confirmed # sheet" other="confirmed # sheets" /> and left out {m}
-          </Trans>
-        )
-      const said =
-        m === 0 ? (
-          <Plural value={n} one="Confirmed # sheet." other="Confirmed # sheets." />
-        ) : n === 0 ? (
-          <Plural value={m} one="Left out # sheet, with its reason." other="Left out # sheets, each with its reason." />
-        ) : (
-          <Trans>
-            <Plural value={n} one="Confirmed # sheet" other="Confirmed # sheets" />; left out {m}, each with its reason.
-          </Trans>
-        )
-      await run(calls, words, said)
+      let made = 0
+      let n = 0
+      let m = 0
+      try {
+        for (const c of calls) {
+          await c.call()
+          made += 1
+          if (c.out) m += c.sheets
+          else n += c.sheets
+        }
+        toast.show({ message: <BulkDone n={n} m={m} />, onUndo })
+      } catch (error) {
+        const problem = problemOf(error)
+        const refused = problem ? problemText(problem, f, i18n) : ''
+        if (made === 0) sayRefused(error)
+        else
+          toast.show({
+            message: (
+              <>
+                <BulkDone n={n} m={m} /> <Trans>The rest was not done: {refused}</Trans>
+              </>
+            ),
+            onUndo,
+          })
+      } finally {
+        if (made > 0) done.current.push({ calls: made, words: <BulkWords n={n} m={m} /> })
+        pending.current = false
+        await refresh()
+      }
     },
-    [projectId, run],
+    [f, i18n, onUndo, projectId, refresh, sayRefused, toast],
   )
 
   const confirmSheets = useCallback(

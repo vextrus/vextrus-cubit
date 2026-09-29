@@ -303,7 +303,7 @@ export function ExclusionPicker({ row, onPick, onCancel }: { row: Row; onPick: (
   }
   const nothing = t`Nothing: the picker has seven reasons`
   const bindings = [
-    ...REASONS.map((reason, i) => ({ key: String(i + 1), label: i18n._(REASON_NAMES[reason]), group: 'screen' as const, run: () => pick(reason) })),
+    ...REASONS.map((reason, i) => ({ key: String(i + 1), label: i18n._(REASON_NAMES[reason]), group: 'screen' as const, run: (event: KeyboardEvent) => (event.repeat ? undefined : pick(reason)) })),
     { key: '8', label: nothing, group: 'screen' as const, run: () => {} },
     { key: '9', label: nothing, group: 'screen' as const, run: () => {} },
     { key: '0', label: nothing, group: 'screen' as const, run: () => {} },

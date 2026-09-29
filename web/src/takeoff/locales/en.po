@@ -559,6 +559,10 @@ msgstr "{questions, plural, one {Needs you: # Question open} other {Needs you: #
 msgid "Proposed by Vextrus from the file; no one has acted on it yet. A Proposal counts toward nothing until the QS confirms it."
 msgstr "Proposed by Vextrus from the file; no one has acted on it yet. A Proposal counts toward nothing until the QS confirms it."
 
+#: src/takeoff/acts.tsx
+msgid "The rest was not done: {refused}"
+msgstr "The rest was not done: {refused}"
+
 #: src/takeoff/Bar.tsx
 msgid "Leave out {m}"
 msgstr "Leave out {m}"

@@ -224,7 +224,8 @@ export function step1Model(data: Step1Data): Step1Model {
     })
 
   const bulkConfirm = free.filter((p) => !decided(p) && p.agrees && p.proposed_exclusion === null && !p.held)
-  const bulkOut = free.filter((p) => !decided(p) && p.proposed_exclusion !== null && !p.held)
+  // "Other" needs the QS's words, which a Proposal does not carry (and the server refuses without them).
+  const bulkOut = free.filter((p) => !decided(p) && p.proposed_exclusion !== null && p.proposed_exclusion !== 'other' && !p.held)
   const reasons = REASONS.filter((r) => bulkOut.some((p) => p.proposed_exclusion === r))
 
   const rows = [...needsYou, ...proposedOut, ...disciplines.flatMap((d) => d.rows)]
