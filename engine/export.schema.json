@@ -128,6 +128,10 @@
         "font_report": {"$ref": "#/$defs/counts"},
         "pdf_report": {"$ref": "#/$defs/counts"},
         "bangla_ansi": {"$ref": "#/$defs/counts"},
+        "sheet_report": {
+          "description": "The sheet finder's counts, each limit it or the register reached (sheets, layouts or texts not read) given even at 0; absent or null when the finder reports none (13).",
+          "$ref": "#/$defs/counts"
+        },
         "pages": {"type": ["integer", "null"], "minimum": 0},
         "sheets": {"type": "array", "items": {"$ref": "#/$defs/sheet"}}
       }
