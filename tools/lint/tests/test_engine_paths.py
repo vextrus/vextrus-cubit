@@ -39,14 +39,30 @@ def test_an_engine_change_is_an_engine_pr() -> None:
         ".python-version",
     ],
 )
-def test_until_21c_the_engine_paths_are_what_the_harness_executes(path: str) -> None:
+def test_the_engine_paths_are_what_the_harness_executes(path: str) -> None:
     assert matching([path], engine_patterns()) == [path]
 
 
 @pytest.mark.parametrize(
     "path",
     [
-        "vextrus/drawings/models.py",  # joins at 21c
+        "vextrus/drawings/models.py",
+        "vextrus/takeoff/tasks/read_file.py",
+        "vextrus/takeoff/services/export.py",
+        "vextrus/platform/services/jobs.py",
+        "vextrus/projects/services/projects.py",
+        "vextrus/modules.py",
+    ],
+)
+def test_since_21c_the_engine_paths_hold_the_products_job(path: str) -> None:
+    assert matching([path], engine_patterns()) == [path]
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "vextrus/settings/base.py",  # the job imports it, but it is not an engine path (21c)
+        "vextrus/boq/models.py",
         "web/src/main.tsx",
         "engine-notes.md",
         "docs/engine/read.md",
