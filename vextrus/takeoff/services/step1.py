@@ -238,7 +238,9 @@ def proposals(project_id: uuid.UUID) -> list[ProposalView]:
     drawing_set = drawings.set_of(project_id)
     names = {f.id: f.name for f in drawings.files(drawing_set.id)} if drawing_set else {}
     stamps = {s.confirmation_id for s in sheets if s.confirmation_id}
-    who = dict(Confirmation.objects.filter(id__in=stamps).values_list("id", "by_name"))
+    # Who and when, from the act that decided each sheet (a decision put back by an undo keeps its
+    # own act's name and time).
+    who = {c.id: (c.by_name, c.at) for c in Confirmation.objects.filter(id__in=stamps)}
     return [_proposal_view(s, by_sheet.get(s.id), names, who) for s in sheets]
 
 
@@ -246,8 +248,9 @@ def _proposal_view(
     sheet: drawings.SheetView,
     proposal: Proposal | None,
     names: Mapping[uuid.UUID, str],
-    who: Mapping[uuid.UUID, str],
+    who: Mapping[uuid.UUID, tuple[str, datetime]],
 ) -> ProposalView:
+    by, at = who.get(sheet.confirmation_id, (None, None)) if sheet.confirmation_id else (None, None)
     pick = dict(proposal.jev_pick) if proposal and proposal.jev_pick else None
     return ProposalView(
         id=proposal.id if proposal else sheet.id,
@@ -268,8 +271,8 @@ def _proposal_view(
         confirmed_kind=sheet.confirmed_kind,
         excluded_reason=sheet.excluded_reason,
         excluded_text=sheet.excluded_text,
-        decided_by=who.get(sheet.confirmation_id) if sheet.confirmation_id else None,
-        decided_at=sheet.decided_at,
+        decided_by=by,
+        decided_at=at or sheet.decided_at,
     )
 
 
@@ -678,12 +681,26 @@ def undo(project_id: uuid.UUID) -> ActView:
         )
         if act is None:
             raise auth.Refused(said.NOTHING_TO_UNDO(), status=409)
-        stamped = [s for s in _sheets(project_id) if s.confirmation_id == act.id]
+        listed = {s.id for s in _sheets(project_id) if s.confirmation_id == act.id}
+        # Every sheet the act still decides, those off the sheet list now included (a held file set
+        # aside after the act): drawings clears them all; a sheet off the list cannot be decided
+        # again, so its Proposal and Coverage go back to undecided with it.
+        off_list = {
+            p.subject_id
+            for p in Proposal.objects.filter(project_id=project_id, confirmation=act)
+            if p.subject_id not in listed
+        } | {
+            row.sheet_revision_id
+            for row in Coverage.objects.filter(project_id=project_id, confirmation=act)
+            if row.sheet_revision_id not in listed
+        }
         drawings.undo(act.id)
         act.undone_at = timezone.now()
         act.save(update_fields=["undone_at"])
-        for sheet in stamped:
-            _put_back_sheet(project_id, sheet.id, _standing_before(act, sheet.id))
+        for sheet_id in listed:
+            _put_back_sheet(project_id, sheet_id, _standing_before(act, sheet_id))
+        for sheet_id in off_list:
+            _put_back_sheet(project_id, sheet_id, None)
         record_progress(project_id)
     return _act_view(act)
 

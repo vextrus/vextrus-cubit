@@ -13,7 +13,7 @@ from vextrus.drawings import services as drawings
 from vextrus.projects import services as projects
 from vextrus.takeoff.services import step1
 from vextrus.testing.auth import Api, api_as
-from vextrus.testing.drawings import add, drawing, read_dwg
+from vextrus.testing.drawings import QsProject, add, drawing, read_dwg
 from vextrus.testing.takeoff import Step1Project
 from vextrus.testing.tenancy import Member
 
@@ -267,3 +267,56 @@ def test_undo_walks_back_past_an_act_already_undone(
     theirs.post(url(step1_project.project_id, "undo"), {})  # back past my undone confirmation
 
     assert (kept, decided(step1_project)) == ("excluded", (None, None))
+
+
+def test_a_decision_put_back_keeps_its_own_acts_time(
+    step1_project: Step1Project, sign_in: Callable[..., Member]
+) -> None:
+    mine, first = api_as(step1_project.member), str(step1_project.proposals[0])
+    theirs = api_as(sign_in(role="qs", developer_id=step1_project.member.developer_id))
+    confirmed = mine.post(url(step1_project.project_id, "confirm"), {"proposals": [first]}).json()
+    blank = {"proposals": [first], "reason": "blank", "text": ""}
+    theirs.post(url(step1_project.project_id, "exclude"), blank)
+
+    theirs.post(url(step1_project.project_id, "undo"), {})
+
+    listed = mine.get(url(step1_project.project_id, "proposals")).json()["proposals"]
+    [item] = [p for p in listed if p["id"] == first]
+    assert (item["decided_by"], item["decided_at"]) == (
+        step1_project.member.user.name,
+        confirmed["at"],
+    )
+
+
+def test_undo_while_the_sheet_is_off_the_list_leaves_its_proposal_undecided_too(
+    qs_project: QsProject,
+) -> None:
+    member = qs_project.member
+    held = add(member, qs_project.project_id, "KR-STR-R0.dwg", drawing()).file
+    [sheet] = read_dwg(member, held.id, ["S-01"], mark_read=False)
+    with member.acting():
+        drawings.quarantine(held.id, {"code": "engine.decoders_agree.disagree", "params": {}})
+        drawings.answer_held(held.id, "read_anyway")
+        proposal = step1.propose_sheet(sheet.id)
+        step1.record_coverage(sheet.id)
+    qs = api_as(member)
+    qs.post(url(qs_project.project_id, "confirm"), {"proposals": [str(proposal)]})
+    with member.acting():
+        drawings.answer_held(held.id, "await_resaved")  # set aside: off the sheet list
+
+    assert qs.post(url(qs_project.project_id, "undo"), {}).status_code == 200
+
+    with member.acting():
+        drawings.answer_held(held.id, "read_anyway")
+    [item] = qs.get(url(qs_project.project_id, "proposals")).json()["proposals"]
+    coverage = qs.get(url(qs_project.project_id, "coverage")).json()
+    assert (item["decision"], item["decided_by"]) == (None, None)
+    assert (coverage["assigned"], coverage["excluded"]) == (0, 0)
+    with member.acting():
+        assert [p.status for p in step1_proposals(qs_project.project_id)] == ["open"]
+
+
+def step1_proposals(project_id: uuid.UUID) -> list[Any]:
+    from vextrus.takeoff.models import Proposal
+
+    return list(Proposal.objects.filter(project_id=project_id))
