@@ -36,8 +36,9 @@ Coordinates are floats in drawing units: drawing geometry stays float inside the
 
 `to_json` writes `{"schema": SCHEMA, "version": VERSION, ...}`; `from_json` refuses any other schema
 or version, so a change to this shape is a new VERSION and never a silent reinterpretation. Version 2
-added the style table and `Text.style_handle` (#82); version 1 is refused, so an artefact stored
-before it is read again from its drawing.
+added the style table and `Text.style_handle` (#82); version 3 a layout's paper units
+(`Block.paper_mm_per_unit`, #87); an older version is refused, so an artefact stored before it is read
+again from its drawing.
 """
 
 import math
@@ -51,7 +52,7 @@ from engine.read._json import Fields, Json
 from engine.read.anchor import is_handle
 
 SCHEMA = "engine.read.artefact"
-VERSION = 2
+VERSION = 3
 
 type Point = tuple[float, float, float]
 type StyleSource = Literal["own", "attdef", "none"]
@@ -170,6 +171,9 @@ class Block:
     base_point: Point
     layout: str | None  # the layout's name when this record is a layout's
     entities: tuple[str, ...]  # handles in drawing order
+    paper_mm_per_unit: float | None = None
+    """A layout's paper units as its plot settings state them (25.4 inches, 1 millimetres); none for
+    any other record, or when the settings state neither (#87: paper space is drawn in these units)."""
 
 
 @dataclass(frozen=True)
@@ -367,6 +371,7 @@ def _block_json(block: Block) -> dict[str, Any]:
         "base_point": list(block.base_point),
         "layout": block.layout,
         "entities": list(block.entities),
+        "paper_mm_per_unit": block.paper_mm_per_unit,
     }
 
 
@@ -378,9 +383,22 @@ def _block_from_json(value: object) -> Block:
         base_point=_point(fields.raw("base_point"), "a block's base point"),
         layout=fields.optional_string("layout"),
         entities=tuple(_handle(h, "a block's entity") for h in fields.array("entities")),
+        paper_mm_per_unit=_paper_units(fields.raw("paper_mm_per_unit")),
     )
     fields.done()
     return block
+
+
+PAPER_UNITS_MM = (1.0, 25.4)
+"""The paper units a layout's plot settings may state, in millimetres: millimetres and inches."""
+
+
+def _paper_units(value: object) -> float | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int | float) or value not in PAPER_UNITS_MM:
+        raise ValueError(f"read artefact: a layout's paper units, {value!r}, are neither mm nor inches")
+    return float(value)
 
 
 def _style_json(style: TextStyle) -> dict[str, Any]:

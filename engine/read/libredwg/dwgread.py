@@ -59,13 +59,19 @@ _STYLE_KEEP = frozenset({
     "object", "handle", "name", "font_file", "bigfont_file", "text_size", "width_factor",
     "oblique_angle", "is_shape",
 })  # fmt: skip
+PLOT_PAPER_UNIT = "plotsettings.plot_paper_unit"
+"""A layout's plot-paper units, as `dwgread` names them (DXF group 72 of PLOTSETTINGS): 0 inches,
+1 millimetres, 2 pixels. Paper space is drawn in them (#87)."""
+_PAPER_MM = {0: 25.4, 1: 1.0}
 _OBJECT_KEEP = {
     "LAYER": frozenset({"object", "handle", "name"}),
     "STYLE": _STYLE_KEEP,
     "BLOCK_HEADER": frozenset(
         {"object", "handle", "name", "base_pt", "entities", "block_entity", "layout"}
     ),
-    "LAYOUT": frozenset({"object", "handle", "layout_name", "tab_order", "block_header"}),
+    "LAYOUT": frozenset(
+        {"object", "handle", "layout_name", "tab_order", "block_header", PLOT_PAPER_UNIT}
+    ),
 }
 _OBJECT_ONLY = frozenset({"object", "handle"})
 
@@ -157,6 +163,11 @@ def decode(data: Mapping[str, Any]) -> Decoded:
     layout_of = {
         handle(item.get("block_header")): str(item.get("layout_name", "")) for item in layout_objects
     }
+    paper_of = {
+        handle(item.get("block_header")): _PAPER_MM.get(unit) if type(unit) is int else None
+        for item in layout_objects
+        if (unit := item.get(PLOT_PAPER_UNIT)) is not None
+    }
 
     owner_of: dict[str, str] = {}
     listed_missing = 0
@@ -207,6 +218,7 @@ def decode(data: Mapping[str, Any]) -> Decoded:
             base_point=_point3(header.get("base_pt")),
             layout=layout_of.get(h),
             entities=tuple(children.get(h, ())),
+            paper_mm_per_unit=paper_of.get(h) if h in layout_of else None,
         )
         for h, header in headers.items()
     )
