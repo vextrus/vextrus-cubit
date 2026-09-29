@@ -12,7 +12,9 @@ The document, in brief (the schema has every field):
   conventions applied (a hash of the conventions files), its process (read seconds, CPU seconds and
   peak RSS, from `os.wait4`'s rusage for the file's own child process), each stage's report, decoders
   agree, entity counts per type, the font, PDF and Bangla-ANSI counts, and its sheets, each with its
-  views (and each view's Coverage), its register entries and its render F1;
+  views (and each view's Coverage), its working view (17's `views.working_view`: an index into its
+  views, or null), its paper (the extent in mm its view boxes are on, or null; the ruling of 14:20),
+  its register entries and its render F1;
 - `set_stages`, `plot`, `conflicts`, `continuations` and `checks`: what was read across the set.
 
 A candidate is referred to by where it sits in this document: `{"file": i, "sheet": j}`, with
@@ -47,6 +49,7 @@ from engine.recognise.types import (
     Sourced,
     ViewCandidate,
 )
+from engine.recognise.views import working_view
 
 VERSION = 1
 SCHEMA_PATH = Path(__file__).with_name("export.schema.json")
@@ -161,11 +164,16 @@ class FileReading:
     pdf_report: dict[str, int] | None = None
     bangla_ansi: dict[str, int] | None = None
     sheet_report: dict[str, int] | None = None
+    view_report: dict[str, int] | None = None
+    """The views stage's counts for the file, each bound it reached (17's `views.LIMITS`: viewports
+    and model space not read), zero when not reached; null when the stage reports none."""
     """The sheet finder's counts for the file, each limit it or the register reached (13's
     `FileBudget.report`: sheets, layouts and texts not read), zero when not reached; null when the
     finder reports none."""
     sheets: list[SheetCandidate] = field(default_factory=list)
     views: list[list[ViewCandidate]] = field(default_factory=list)
+    papers: list[tuple[float, float] | None] = field(default_factory=list)
+    """Each sheet's paper (width, height) in mm, as 17's views stage read it; none where not read."""
     register: list[RegisterEntry] = field(default_factory=list)
     page_count: int | None = None
     """How many pages `page_text` returned, for a PDF it read."""
@@ -320,9 +328,16 @@ def _file(reading: FileReading, f1: Mapping[int, float]) -> dict[str, JSON]:
         "pdf_report": _counts(reading.pdf_report),
         "bangla_ansi": _counts(reading.bangla_ansi),
         "sheet_report": _counts(reading.sheet_report),
+        "view_report": _counts(reading.view_report),
         "pages": reading.page_count,
         "sheets": [
-            _sheet(sheet, reading.views[j] if j < len(reading.views) else [], reading.register, f1)
+            _sheet(
+                sheet,
+                reading.views[j] if j < len(reading.views) else [],
+                reading.register,
+                f1,
+                reading.papers[j] if j < len(reading.papers) else None,
+            )
             for j, sheet in enumerate(reading.sheets)
         ],
     }
@@ -350,6 +365,7 @@ def _sheet(
     views: Sequence[ViewCandidate],
     register: Sequence[RegisterEntry],
     f1: Mapping[int, float],
+    paper: tuple[float, float] | None = None,
 ) -> dict[str, JSON]:
     return {
         "location": {"layout": sheet.location.layout, "box": _box(sheet.location.box)},
@@ -363,6 +379,8 @@ def _sheet(
         "group": sheet.group,
         "anchors": [anchor_json(a) for a in sheet.anchors],
         "views": [_view(view) for view in views],
+        "working_view": working_view(views),
+        "paper": None if paper is None else [paper[0], paper[1]],
         "register": [
             {
                 "row_box": _box(entry.row_box),

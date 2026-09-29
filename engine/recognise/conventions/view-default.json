@@ -1,0 +1,172 @@
+{
+  "kind_words": {
+    "key_plan": [
+      "key plan",
+      "key plans",
+      "location plan"
+    ],
+    "perspective": [
+      "3d",
+      "3d view",
+      "perspective",
+      "perspective view",
+      "isometric",
+      "isometric view",
+      "rendering"
+    ],
+    "title_block": [
+      "title block"
+    ],
+    "legend": [
+      "legend",
+      "legends"
+    ],
+    "schedule": [
+      "schedule",
+      "schedules"
+    ],
+    "notes": [
+      "notes",
+      "general notes",
+      "specification",
+      "specifications"
+    ],
+    "detail": [
+      "detail",
+      "details",
+      "dtl",
+      "dtls"
+    ],
+    "section": [
+      "section",
+      "sections",
+      "sectional",
+      "cross section",
+      "cross sections"
+    ],
+    "elevation": [
+      "elevation",
+      "elevations"
+    ],
+    "plan": [
+      "plan",
+      "plans",
+      "layout",
+      "layouts"
+    ]
+  },
+  "subject_words": {
+    "pile_cap": [
+      "pile cap",
+      "pile caps",
+      "pilecap",
+      "pilecaps"
+    ],
+    "pile": [
+      "pile",
+      "piles",
+      "piling"
+    ],
+    "foundation": [
+      "foundation",
+      "foundations",
+      "footing",
+      "footings",
+      "mat foundation",
+      "raft"
+    ],
+    "column": [
+      "column",
+      "columns"
+    ],
+    "shear_wall": [
+      "shear wall",
+      "shear walls",
+      "core wall",
+      "core walls"
+    ],
+    "retaining_wall": [
+      "retaining wall",
+      "retaining walls"
+    ],
+    "beam": [
+      "beam",
+      "beams",
+      "grade beam",
+      "grade beams",
+      "tie beam",
+      "tie beams",
+      "plinth beam",
+      "plinth beams"
+    ],
+    "slab": [
+      "slab",
+      "slabs"
+    ],
+    "stair": [
+      "stair",
+      "stairs",
+      "staircase",
+      "staircases"
+    ],
+    "tank": [
+      "tank",
+      "tanks",
+      "water tank",
+      "reservoir",
+      "water reservoir"
+    ],
+    "grid": [
+      "grid",
+      "grids",
+      "grid line",
+      "grid lines",
+      "gridline",
+      "gridlines"
+    ],
+    "fixture": [
+      "fixture",
+      "fixtures",
+      "sanitary",
+      "sanitary fitting",
+      "sanitary fittings"
+    ],
+    "toilet": [
+      "toilet",
+      "toilets",
+      "bathroom",
+      "bathrooms"
+    ],
+    "opening": [
+      "door",
+      "doors",
+      "window",
+      "windows"
+    ]
+  },
+  "layer_words": {
+    "top": [
+      "top",
+      "top bar",
+      "top bars",
+      "top reinforcement",
+      "top layer",
+      "top mesh"
+    ],
+    "bottom": [
+      "bottom",
+      "bot",
+      "btm",
+      "bottom bar",
+      "bottom bars",
+      "bottom reinforcement",
+      "bottom layer",
+      "bottom mesh"
+    ]
+  },
+  "scale_patterns": [
+    "(?i)(?P<nts>\\bN\\.? ?T\\.? ?S\\b\\.?|\\bnot {1,3}to {1,3}scale\\b)",
+    "\\b(?P<paper>\\d{1,4}(?:\\.\\d{1,2})?) ?: ?(?P<real>\\d{1,7})\\b",
+    "(?i)\\b(?P<inches>\\d{1,2}(?:/\\d{1,2})?) ?(?:\"|in\\b) ?= ?(?P<feet>\\d{1,2}) ?(?:'|ft\\b)(?:-0\")?"
+  ]
+}

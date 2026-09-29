@@ -413,13 +413,17 @@ def _read_dwg(job: Mapping[str, Any], stages: _Stages) -> dict[str, Any]:
     found["sheet_report"] = _counts(report()) if callable(report) else None
 
     views: list[list[ViewCandidate]] = [[] for _ in sheets or []]
+    papers: list[tuple[float, float] | None] = [None for _ in sheets or []]
     missing = needs_sheets or (None if view_conventions is not None else "view conventions")
     if find_views := stages.open("views", missing):
         for j, sheet in enumerate(sheets or []):
             ok, result = stages.call("views", find_views, artefact, sheet, view_conventions)
             listed_views = _list_of(stages, "views", result, ViewCandidate) if ok else None
             views[j] = listed_views or []
+            papers[j] = _paper_of(result) if listed_views is not None else None
+            found["view_report"] = _counts(_as_json(stages, "views", getattr(result, "limits", None)))
     found["views"] = views
+    found["papers"] = papers
 
     buffers: list[object | None] = [None for _ in sheets or []]
     if build_buffers := stages.open("render_buffers", needs_sheets):
@@ -433,6 +437,18 @@ def _read_dwg(job: Mapping[str, Any], stages: _Stages) -> dict[str, Any]:
                 stages.call("rasterise", rasterise, sheet_buffers, PX_PER_MM)
     found["buffers"] = buffers if job["keep_buffers"] else []
     return found
+
+
+def _paper_of(result: object) -> tuple[float, float] | None:
+    """The views stage's paper (17's `FoundViews.paper`, the ruling of 14:20): two finite sizes above
+    0, in mm, or none."""
+    paper = getattr(result, "paper", None)
+    if not isinstance(paper, tuple) or len(paper) != 2:
+        return None
+    if not all(isinstance(v, int | float) and not isinstance(v, bool) for v in paper):
+        return None
+    width, height = float(paper[0]), float(paper[1])
+    return (width, height) if 0 < width < math.inf and 0 < height < math.inf else None
 
 
 def _read_pdf(job: Mapping[str, Any], stages: _Stages) -> dict[str, Any]:
@@ -842,8 +858,10 @@ def _read_file(
         pdf_report=found.get("pdf_report"),
         bangla_ansi=found.get("bangla_ansi"),
         sheet_report=found.get("sheet_report"),
+        view_report=found.get("view_report"),
         sheets=found.get("sheets", []),
         views=found.get("views", []),
+        papers=found.get("papers", []),
         register=found.get("register", []),
         page_count=found.get("page_count"),
         pages=found.get("pages", []),
