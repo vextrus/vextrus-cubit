@@ -34,6 +34,19 @@ const GIT = String.raw`^(?:[A-Z_]+=\S*\s+)*git\s+(?:-C\s+\S+\s+)?`;
 const gitVerb = (verb) => new RegExp(`${GIT}${verb}\\b(.*)$`);
 const args = (rest) => (rest ?? "").split(/\s+/).filter((arg) => arg !== "");
 
+// The only commands an agent may run as the key user (ADR 0041; scripts/owner/autonomy-setup.sh installs the
+// matching password-free rules): the poster, with a run id or a design-gate verdict by item number, and the
+// scorer, with plain words (a run id) only. Each is matched against the whole command, so an appended
+// `; cat …`, `$(…)` or redirect never matches; the programs check their own arguments again.
+const AS_KEY_USER = String.raw`^sudo -n -u vxkeys `;
+const KEY_USER_COMMANDS = [
+  new RegExp(
+    AS_KEY_USER +
+      String.raw`/usr/local/lib/vextrus/post-status (?:-h|--help|real-drawings [0-9A-Za-z-]+|design-gate [0-9]+ [0-9a-f]{40}(?: --(?:passed|failed|not-applicable)[ =][0-9,-]+)*)$`,
+  ),
+  new RegExp(AS_KEY_USER + String.raw`/usr/local/bin/vx-score(?: [0-9A-Za-z][0-9A-Za-z._-]*){0,4}$`),
+];
+
 const BASH_RULES = [
   {
     rule: "SECRET_PRINTED",
@@ -87,25 +100,23 @@ const BASH_RULES = [
     reason: "`--no-verify` skips the checks a commit or push is owed. Fix what they refuse instead.",
   },
   {
-    rule: "MERGE_BY_AGENT",
-    fires: (parts) =>
-      parts.some((part) => /^(?:[A-Z_]+=\S*\s+)*gh\s+pr\s+merge\b/.test(part) || (/^(?:[A-Z_]+=\S*\s+)*gh\s+api\b/.test(part) && /\/(?:pulls\/\d+\/merge|statuses\/|check-runs)\b/.test(part))),
-    reason: "Only the owner merges (ADR 0025), and only the key user posts the real-drawing status (ADR 0030). Open the PR, state what was and was not verified, and stop.",
-  },
-  {
     rule: "STATUS_POSTED",
-    // The commit-status endpoint anywhere in the command, whatever runs it (a variable-split `gh api`, a
-    // `curl` POST), after dropping quotes, backslashes and line continuations (s02 review R3). A tripwire,
-    // not a wall: a path built in pieces at run time still passes; the status's author is what holds.
-    fires: (_parts, command) => /\/statuses/i.test(command.replace(/\\\n|["'\\]/g, "")),
-    reason: "Commit statuses are posted only by the owner's GitHub App (ADR 0030) and by main's not-applicable workflow; an agent never posts or reads them through the API. Open the PR, state what was and was not verified, and stop.",
+    // The commit-status and check-run endpoints anywhere in the command, whatever runs it (a variable-split
+    // `gh api`, a `curl` POST), after dropping quotes, backslashes and line continuations (s02 review R3). A
+    // tripwire, not a wall: a path built in pieces at run time still passes; the status's author is what
+    // holds. Merging is allowed (ADR 0041): the ruleset's required statuses are what a merge waits on.
+    fires: (_parts, command) => /\/(?:statuses|check-runs)/i.test(command.replace(/\\\n|["'\\]/g, "")),
+    reason: "Commit statuses are posted only through the owner's GitHub App, by `post-status` run as the key user (ADRs 0030, 0041), and by main's not-applicable workflow; never through the API. Post a gate with the exact post-status command the orchestrate-wave skill gives.",
   },
   {
     rule: "PRIVILEGE_RAISED",
-    // Anywhere in the command, not only at its start: `bash -c "sudo …"` is the same act.
-    fires: (parts) =>
+    // Anywhere in the command, not only at its start: `bash -c "sudo …"` is the same act. The one exception
+    // is a whole command that is exactly the poster or the scorer run as the key user, non-interactively,
+    // with plain arguments (ADR 0041): nothing before or after it, no shell metacharacter anywhere.
+    fires: (parts, command) =>
+      !KEY_USER_COMMANDS.some((allowed) => allowed.test(command.trim())) &&
       parts.some((part) => /(?:^|[\s"'`(=$])(?:sudo|su|doas|pkexec|(?:\S*\/)?wsl(?:\.exe)?)(?=\s|$|["'`;)])|vxkeys|vx-score/.test(part)),
-    reason: "Agent sessions never raise privilege, name the key user or run the scorer: Answer Keys live with another user and only the owner scores (ADRs 0026, 0030). If something needs root, say what and the owner runs it with `! <command>`.",
+    reason: "Agent sessions never raise privilege or name the key user, except to run exactly `post-status` or the scorer as the key user with `-n` (ADR 0041). Answer Keys and the App's key stay with the key user (ADR 0026). If something needs root, say what and the owner runs it with `! <command>`.",
   },
   {
     rule: "LABORATORY_READ",
