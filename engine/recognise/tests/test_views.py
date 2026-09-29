@@ -676,3 +676,10 @@ def test_a_titles_second_line_titles_no_drawing_under_it() -> None:
     grid(d, (40, 200, 340, 290))  # an untitled drawing under the title's lines
     found = drawn(d, one_sheet(d))
     assert [v.title for v in found] == ["GROUND FLOOR PLAN", None]
+
+
+def test_the_lines_a_title_block_is_bounded_by_are_bounded(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(views, "MAX_RULES", 50)
+    lines = np.array([[0, y, 100, y] for y in range(1_000)], dtype=np.float64)
+    assert len(views._rules(lines, 0, 0.1)) == 50
+    assert len(views._rules(lines, 1, 0.1)) == 0  # none along y
