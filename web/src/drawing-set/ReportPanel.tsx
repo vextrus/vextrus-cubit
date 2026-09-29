@@ -56,8 +56,8 @@ export function ReportPanel({
   // sections. Each sentence is said once: the status in the header, then the sections in order.
   const finding = file.finding && file.finding.code.startsWith('takeoff.read_file.') ? file.finding : null
   const pdf = r ? pdfSections(r) : null
-  const [readers, sheets, bangla, fonts, plot, madeBy, pages, lettering, layers, pictures, refused] = r && pdf
-    ? saidOnce(finding ? [file.status, finding] : [file.status], [r.readers, r.sheets, r.bangla, r.fonts, r.plot, pdf.made_by, pdf.pages, pdf.lettering, pdf.layers, pdf.pictures, pdf.refused])
+  const [readers, sheets, bangla, fonts, plot, madeBy, pages, lettering, layers, pictures, refused, notRead] = r && pdf
+    ? saidOnce(finding ? [file.status, finding] : [file.status], [r.readers, r.sheets, r.bangla, r.fonts, r.plot, pdf.made_by, pdf.pages, pdf.lettering, pdf.layers, pdf.pictures, pdf.refused, pdf.not_read])
     : []
 
   const date = f.date(file.added_at)
@@ -137,6 +137,7 @@ export function ReportPanel({
             <Section title={<Trans>Layers</Trans>} messages={layers!} />
             <Section title={<Trans>Pictures</Trans>} messages={pictures!} />
             <Section title={<Trans>Refused</Trans>} messages={refused!} />
+            <Section title={<Trans>Not read</Trans>} messages={notRead!} />
           </>
         ) : null}
       </div>

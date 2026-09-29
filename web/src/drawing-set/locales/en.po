@@ -16,6 +16,10 @@ msgid "Added {date} by {by}"
 msgstr "Added {date} by {by}"
 
 #: src/drawing-set/DrawingSetPage.tsx
+msgid "{name} was not added: it could not be received. If its name is very long, shorten it and add it again. If this keeps happening, tell Vextrus."
+msgstr "{name} was not added: it could not be received. If its name is very long, shorten it and add it again. If this keeps happening, tell Vextrus."
+
+#: src/drawing-set/DrawingSetPage.tsx
 msgid "{name} was not added. Vextrus could not add it just now. Add it again in a minute."
 msgstr "{name} was not added. Vextrus could not add it just now. Add it again in a minute."
 
@@ -80,8 +84,8 @@ msgid "Opening the file’s report…"
 msgstr "Opening the file’s report…"
 
 #: src/drawing-set/DrawingSetPage.tsx
-msgid "{added, plural, =0 {No files added} one {# file added} other {# files added}}{already, plural, =0 {} one {; # was already here} other {; # were already here}}{notAdded, plural, =0 {} one {; # was not added} other {; # were not added}}."
-msgstr "{added, plural, =0 {No files added} one {# file added} other {# files added}}{already, plural, =0 {} one {; # was already here} other {; # were already here}}{notAdded, plural, =0 {} one {; # was not added} other {; # were not added}}."
+msgid "{added, plural, =0 {No files added} one {# file added} other {# files added}}{already, plural, =0 {} one {; # was already here} other {; # were already here}}{replaced, plural, =0 {} one {; # replaced Vextrus's damaged copy} other {; # replaced Vextrus's damaged copies}}{notAdded, plural, =0 {} one {; # was not added} other {; # were not added}}."
+msgstr "{added, plural, =0 {No files added} one {# file added} other {# files added}}{already, plural, =0 {} one {; # was already here} other {; # were already here}}{replaced, plural, =0 {} one {; # replaced Vextrus's damaged copy} other {; # replaced Vextrus's damaged copies}}{notAdded, plural, =0 {} one {; # was not added} other {; # were not added}}."
 
 #: src/drawing-set/ReportPanel.tsx
 msgid "Lettering"
@@ -120,6 +124,10 @@ msgid "Made by"
 msgstr "Made by"
 
 #: src/drawing-set/ReportPanel.tsx
+msgid "Not read"
+msgstr "Not read"
+
+#: src/drawing-set/ReportPanel.tsx
 msgid "Bangla text"
 msgstr "Bangla text"
 
@@ -144,6 +152,10 @@ msgid "Choose a Discipline"
 msgstr "Choose a Discipline"
 
 #: src/drawing-set/DrawingSetPage.tsx
+msgid "{name} is larger than {megabytes} MB, so it was not added. Tell Vextrus if your drawings need more."
+msgstr "{name} is larger than {megabytes} MB, so it was not added. Tell Vextrus if your drawings need more."
+
+#: src/drawing-set/DrawingSetPage.tsx
 msgid "Previous file"
 msgstr "Previous file"
 
@@ -164,6 +176,10 @@ msgid "Files"
 msgstr "Files"
 
 #: src/drawing-set/DrawingSetPage.tsx
+msgid "{name} was not added. <0/> Add it again."
+msgstr "{name} was not added. <0/> Add it again."
+
+#: src/drawing-set/DrawingSetPage.tsx
 msgid "Next file"
 msgstr "Next file"
 
@@ -174,6 +190,10 @@ msgstr "Cancel reading"
 #: src/drawing-set/DrawingSetPage.tsx
 msgid "{name} was not added. Vextrus can’t be reached. Check your connection and add it again."
 msgstr "{name} was not added. Vextrus can’t be reached. Check your connection and add it again."
+
+#: src/drawing-set/DrawingSetPage.tsx
+msgid "{name} was not added: Vextrus cannot use its name. Rename it and add it again."
+msgstr "{name} was not added: Vextrus cannot use its name. Rename it and add it again."
 
 #: src/drawing-set/DrawingSetPage.tsx
 msgid "Sheets found"

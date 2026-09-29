@@ -82,8 +82,8 @@ export function disciplineName(discipline: DisciplineOut, locale: string): strin
 }
 
 /** A PDF report's sections in §4.5's order ("The report panel for a PDF"). */
-export type PdfSection = 'made_by' | 'pages' | 'lettering' | 'layers' | 'pictures' | 'refused'
-export const PDF_SECTIONS: readonly PdfSection[] = ['made_by', 'pages', 'lettering', 'layers', 'pictures', 'refused']
+export type PdfSection = 'made_by' | 'pages' | 'lettering' | 'layers' | 'pictures' | 'refused' | 'not_read'
+export const PDF_SECTIONS: readonly PdfSection[] = ['made_by', 'pages', 'lettering', 'layers', 'pictures', 'refused', 'not_read']
 
 /** Which section an `engine.pdf_report` sentence belongs to, by its code; none for any other code. */
 export function pdfSectionOf(code: string): PdfSection | null {
@@ -94,7 +94,9 @@ export function pdfSectionOf(code: string): PdfSection | null {
   if (name.startsWith('lettering_') || name.startsWith('fonts_') || name === 'unmapped_text') return 'lettering'
   if (name.startsWith('layers_')) return 'layers'
   if (name === 'pictures' || name === 'no_pictures' || name === 'mostly_picture' || name === 'scan_page') return 'pictures'
-  return 'refused'
+  // Refused is Vextrus declining a PDF (a scan, too many pages); a PDF it tried and could not read is "Not read".
+  if (name === 'scan' || name === 'too_many_pages') return 'refused'
+  return 'not_read'
 }
 
 /**
@@ -104,7 +106,7 @@ export function pdfSectionOf(code: string): PdfSection | null {
  * the API put it.
  */
 export function pdfSections(report: Pick<ReportOut, 'made_by' | 'pages'>): Record<PdfSection, MachineMessage[]> {
-  const out: Record<PdfSection, MachineMessage[]> = { made_by: [], pages: [], lettering: [], layers: [], pictures: [], refused: [] }
+  const out: Record<PdfSection, MachineMessage[]> = { made_by: [], pages: [], lettering: [], layers: [], pictures: [], refused: [], not_read: [] }
   const matching: MachineMessage[] = []
   for (const m of report.made_by) out[pdfSectionOf(m.code) ?? 'made_by'].push(m)
   for (const m of report.pages) {

@@ -271,10 +271,27 @@ function FilesTable(props: TableProps) {
  * with what to do.
  */
 function NotAdded({ file, problem }: { file: string; problem: NonNullable<Problem> }) {
+  const f = useFormat()
   if ('refusal' in problem && 'file' in problem.refusal.params) return <ProblemWords problem={problem} />
   const name = <DrawingText kind="file-name" text={file} truncate={false} />
   if ('unreachable' in problem) return <Trans>{name} was not added. Vextrus can’t be reached. Check your connection and add it again.</Trans>
   if ('failed' in problem) return <Trans>{name} was not added. Vextrus could not add it just now. Add it again in a minute.</Trans>
+  // Refusals that name no file, worded around the file's name so "not added" is said once.
+  const { code, params } = problem.refusal
+  if (code === 'drawings.uploads.stopped')
+    return (
+      // §4.5's sentence verbatim, then what to do.
+      <Trans>
+        {name} was not added. <MachineText message={problem.refusal} /> Add it again.
+      </Trans>
+    )
+  if (code === 'drawings.uploads.malformed')
+    return <Trans>{name} was not added: it could not be received. If its name is very long, shorten it and add it again. If this keeps happening, tell Vextrus.</Trans>
+  if (code === 'drawings.uploads.no_name') return <Trans>{name} was not added: Vextrus cannot use its name. Rename it and add it again.</Trans>
+  if (code === 'drawings.uploads.too_large_unnamed' && typeof params.megabytes === 'number') {
+    const megabytes = f.integer(params.megabytes)
+    return <Trans>{name} is larger than {megabytes} MB, so it was not added. Tell Vextrus if your drawings need more.</Trans>
+  }
   return (
     <Trans>
       {name} was not added. <MachineText message={problem.refusal} />
@@ -437,22 +454,42 @@ export function DrawingSetView({ project }: { project: ProjectSummary }) {
 
   /** Each file on its own, one after another; then what they came to. A later drop waits its turn. */
   /** "3 files added; 1 was already here.": what several files at once came to. */
-  function severalAdded(added: number, already: number, notAdded: number): string {
-    return t`${plural(added, { 0: 'No files added', one: '# file added', other: '# files added' })}${plural(already, { 0: '', one: '; # was already here', other: '; # were already here' })}${plural(notAdded, { 0: '', one: '; # was not added', other: '; # were not added' })}.`
+  function severalAdded(added: number, already: number, replaced: number, notAdded: number): string {
+    return t`${plural(added, { 0: 'No files added', one: '# file added', other: '# files added' })}${plural(already, { 0: '', one: '; # was already here', other: '; # were already here' })}${plural(replaced, { 0: '', one: "; # replaced Vextrus's damaged copy", other: "; # replaced Vextrus's damaged copies" })}${plural(notAdded, { 0: '', one: '; # was not added', other: '; # were not added' })}.`
   }
+
+  /** Batches dropped and not yet answered: while one runs, a new drop keeps the bars already shown. */
+  const inFlight = useRef(0)
 
   function add(chosen: readonly File[]) {
     if (!changes || chosen.length === 0) return
+    // The session the files were dropped in: a batch waiting its turn across a change of session is
+    // never sent for whoever is signed in by then.
+    const current = sameSession(queryClient)
+    if (inFlight.current === 0) {
+      setRefused([])
+      setProblem(null)
+    }
+    inFlight.current += 1
     // A later drop waits for the one before, even one that failed.
-    const next = queue.current.then(() => addEach(chosen))
+    const next = queue.current.then(() => addEach(chosen, current)).finally(() => {
+      inFlight.current -= 1
+    })
     queue.current = next.catch(() => undefined)
     void next
   }
 
-  async function addEach(chosen: readonly File[]) {
-    const current = sameSession(queryClient)
-    setRefused([])
-    setProblem(null)
+  /** Why a file was not added; an answer that is neither a refusal nor out of reach is a fault, said as one. */
+  function whyNot(error: unknown): NonNullable<Problem> {
+    try {
+      return problemOf(error) ?? { failed: true }
+    } catch {
+      console.error(error)
+      return { failed: true }
+    }
+  }
+
+  async function addEach(chosen: readonly File[], current: () => boolean) {
     const answers: Answer[] = []
     try {
       for (const [i, file] of chosen.entries()) {
@@ -462,7 +499,7 @@ export function DrawingSetView({ project }: { project: ProjectSummary }) {
         try {
           answers.push({ file: file.name, out: await upload(project.id, file) })
         } catch (error) {
-          answers.push({ file: file.name, problem: problemOf(error)! })
+          answers.push({ file: file.name, problem: whyNot(error) })
         }
         if (current()) await queryClient.invalidateQueries({ queryKey: filesKey })
       }
@@ -471,16 +508,17 @@ export function DrawingSetView({ project }: { project: ProjectSummary }) {
     }
     if (!current()) return
     const said = answers.flatMap((a) => ('problem' in a ? [{ key: a.file, problem: a.problem }] : []))
-    setRefused(said)
+    setRefused((before) => [...before, ...said])
     const outs = answers.flatMap((a) => ('out' in a ? [a.out] : []))
     const added = outs.filter((o) => o.outcome === 'added').length
     const already = outs.filter((o) => o.outcome === 'already_here').length
+    const replaced = outs.filter((o) => o.outcome === 'replaced').length
     const again = outs.findLast((o) => o.outcome === 'already_here')
     if (again) setPulseId(again.file.id)
     // The toast is plain text: it shows outside the page, where only the words travel.
     const lines = outs.flatMap((o) => (o.message && (chosen.length === 1 || o.outcome !== 'already_here') ? [machineText(o.message, f, i18n)] : []))
     // Several: what they came to, unless nothing was added or already here (each error bar says why).
-    if (chosen.length > 1 && added + already > 0) lines.unshift(severalAdded(added, already, said.length))
+    if (chosen.length > 1 && added + already + replaced > 0) lines.unshift(severalAdded(added, already, replaced, said.length))
     if (lines.length) toast.show({ message: lines.join(' ') })
   }
 

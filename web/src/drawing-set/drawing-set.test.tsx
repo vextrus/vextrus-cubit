@@ -179,7 +179,7 @@ describe('the words gate, round 1', () => {
     await waitFor(() => rowOf('KR-STR-R0.dwg'))
     const input = document.querySelector<HTMLInputElement>('input[type="file"]')!
     await userEvent.upload(input, ['KR-ARC-R0.dwg', 'KR-STR-R0.dwg'].map((n) => new File([new Uint8Array([0x41])], n)))
-    await waitFor(() => expect(bodyText()).toContain('1 file added.'))
+    await waitFor(() => expect(bodyText()).toContain("1 file added; 1 replaced Vextrus's damaged copy."))
     await userEvent.upload(input, ['a.jpg', 'b.jpg'].map((n) => new File([new Uint8Array([0x41])], n)))
     await waitFor(() => expect(screen.getAllByRole('alert')).toHaveLength(2))
     expect(bodyText()).not.toContain('No files added')
@@ -193,7 +193,7 @@ describe('the words gate, round 1', () => {
     await waitFor(() => rowOf('KR-STR-R0.dwg'))
     const input = document.querySelector<HTMLInputElement>('input[type="file"]')!
     await userEvent.upload(input, ['KR-ARC-R0.dwg', 'KR-ELE-R0.dwg'].map((n) => new File([new Uint8Array([0x41])], n)))
-    await waitFor(() => expect(clean(screen.getByRole('alert').textContent)).toBe('KR-ARC-R0.dwg was not added. Upload stopped: the connection dropped.'))
+    await waitFor(() => expect(clean(screen.getByRole('alert').textContent)).toBe('KR-ARC-R0.dwg was not added. Upload stopped: the connection dropped. Add it again.'))
   })
 
   it("refuses the MD's drop with the read-only words, sending nothing", async () => {
@@ -210,5 +210,85 @@ describe('the words gate, round 1', () => {
     await waitFor(() => expect(bodyText()).toContain('As MD you can look at the Takeoff but not change it.'))
     expect(bodyText()).not.toContain('Drop to add')
     expect(set.seen.filter((s) => !s.call.startsWith('GET'))).toEqual([])
+  })
+})
+
+describe('a drop queued behind another (refuter, round 1)', () => {
+  /** The fake with the first upload held until `release()`, and a hook run when it is answered. */
+  function held() {
+    const { api, set } = drawingSet()
+    let release = () => {}
+    const gate = new Promise<void>((r) => (release = r))
+    let first = true
+    let onFirstAnswered: (() => void) | null = null
+    const inner = api.handle
+    api.handle = async (request: Request) => {
+      const isPost = request.method === 'POST' && new URL(request.url, location.origin).pathname.endsWith('/files')
+      if (isPost && first) {
+        first = false
+        await gate
+        const answer = await inner(request)
+        onFirstAnswered?.()
+        return answer
+      }
+      return inner(request)
+    }
+    return { api, set, release: () => release(), whenFirstAnswered: (f: () => void) => (onFirstAnswered = f) }
+  }
+  const files = (...names: string[]) => names.map((n) => new File([new Uint8Array([0x41])], n))
+
+  it('never sends a queued drop for the session that follows the one it was dropped in', async () => {
+    const { api, set, release, whenFirstAnswered } = held()
+    set.files.push(file({ name: 'KR-STR-R0.dwg', state: 'read', status: msg('drawings.files.read') }))
+    const app = await mountApp('/p/KR-01/drawing-set', { as: PEOPLE.qs, api })
+    await screen.findByRole('heading', { name: 'Drawing Set' })
+    await waitFor(() => rowOf('KR-STR-R0.dwg'))
+    whenFirstAnswered(() => sessionChanged(app.queryClient))
+    const input = document.querySelector<HTMLInputElement>('input[type="file"]')!
+    await userEvent.upload(input, files('A-1.dwg', 'A-2.dwg'))
+    await userEvent.upload(input, files('B-1.dwg', 'B-2.dwg'))
+    release()
+    await waitFor(() => expect(bodyText()).not.toContain('Uploading'))
+    await new Promise((r) => setTimeout(r, 300))
+    expect(set.seen.filter((s) => s.call === 'POST /files').map((s) => s.body)).toEqual([{ file: 'A-1.dwg' }])
+    expect(bodyText()).not.toMatch(/files? added/)
+  })
+
+  it("keeps the first drop's refusals in view while a queued drop uploads, and after", async () => {
+    const { api, set, release } = held()
+    set.files.push(file({ name: 'KR-STR-R0.dwg', state: 'read', status: msg('drawings.files.read') }))
+    set.answerUpload('site.jpg', 415, msg('drawings.uploads.not_a_drawing', { file: 'site.jpg' }))
+    await open(api)
+    await waitFor(() => rowOf('KR-STR-R0.dwg'))
+    const input = document.querySelector<HTMLInputElement>('input[type="file"]')!
+    await userEvent.upload(input, files('A.dwg', 'site.jpg'))
+    await userEvent.upload(input, files('C.dwg'))
+    release()
+    await waitFor(() => expect(set.seen.filter((s) => s.call === 'POST /files')).toHaveLength(3))
+    await waitFor(() => expect(bodyText()).not.toContain('Uploading'))
+    expect(bodyText()).toContain('site.jpg is not a DWG or a PDF, so it was not added.')
+  })
+
+  it("counts a replaced copy in the line for several files", async () => {
+    const { api, set } = drawingSet()
+    const here = file({ name: 'KR-STR-R0.dwg', state: 'waiting', status: msg('drawings.files.waiting', { ahead: 0 }) })
+    set.files.push(here)
+    set.answerUpload('KR-STR-R0.dwg', 200, { file: here, outcome: 'replaced', message: msg('drawings.uploads.replaced_reading', { file: 'KR-STR-R0.dwg' }) })
+    await open(api)
+    await waitFor(() => rowOf('KR-STR-R0.dwg'))
+    await userEvent.upload(document.querySelector<HTMLInputElement>('input[type="file"]')!, files('KR-ARC-R0.dwg', 'KR-STR-R0.dwg'))
+    await waitFor(() => expect(bodyText()).toContain("1 file added; 1 replaced Vextrus's damaged copy."))
+  })
+
+  it('says a file whose answer could not be read was not added, rather than nothing', async () => {
+    const { api, set } = drawingSet()
+    set.files.push(file({ name: 'KR-STR-R0.dwg', state: 'read', status: msg('drawings.files.read') }))
+    const inner = api.handle
+    api.handle = async (request: Request) =>
+      request.method === 'POST' ? new Response('<html>proxy</html>', { status: 200, headers: { 'Content-Type': 'application/json' } }) : inner(request)
+    await open(api)
+    await waitFor(() => rowOf('KR-STR-R0.dwg'))
+    await userEvent.upload(document.querySelector<HTMLInputElement>('input[type="file"]')!, files('KR-ARC-R0.dwg'))
+    await waitFor(() => expect(bodyText()).toContain('KR-ARC-R0.dwg was not added. Vextrus could not add it just now. Add it again in a minute.'))
   })
 })

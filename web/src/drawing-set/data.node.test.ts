@@ -104,6 +104,7 @@ describe('pdfSections', () => {
         msg('engine.pdf_report.layers_kept'),
         msg('engine.pdf_report.no_pictures'),
         msg('engine.pdf_report.scan'),
+        msg('engine.pdf_report.locked'),
       ],
       pages: [msg('drawings.reports.pages_matched', { matched: 11, pages: 12 }), msg('engine.pdf_report.page_unreadable', { page: 3 })],
     })
@@ -114,6 +115,7 @@ describe('pdfSections', () => {
       layers: ['engine.pdf_report.layers_kept'],
       pictures: ['engine.pdf_report.no_pictures'],
       refused: ['engine.pdf_report.scan'],
+      not_read: ['engine.pdf_report.locked'],
     })
   })
 
