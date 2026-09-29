@@ -743,3 +743,16 @@ def test_a_notes_heading_keeps_its_lines() -> None:
     notes = [v for v in found if v.kind is ViewKind.NOTES]
     assert len(notes) == 1
     assert notes[0].box.y0 <= 470.5
+
+
+@pytest.mark.parametrize(("height", "title"), [(5.4, "WINDOW SCHEDULE"), (3.0, None)])
+def test_a_title_barely_under_the_sheets_large_labels_is_a_title(
+    height: float, title: str | None
+) -> None:
+    d = Sheets()
+    grid(d, (40, 330, 340, 560))
+    for i in range(9):  # the drawing's large labels set the sheet's median text
+        d.text(f"ROOM {i}", (60 + 30 * i, 400, 0.0), height=6.0)
+    d.text("WINDOW SCHEDULE", (40, 318, 0.0), height=height)
+    (view,) = drawn(d, one_sheet(d))
+    assert view.title == title
