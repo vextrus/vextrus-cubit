@@ -1,0 +1,22 @@
+msgid ""
+msgstr ""
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: en\n"
+
+#. engine/messages/plot.py (ticket 18): why a page of a Discipline's PDF matched no sheet. The first is m0-screens 6.13's "No Plot, and why", verbatim. {page} counts from 1.
+msgid "engine.plot.names_no_sheet"
+msgstr "PDF page {page} could not be matched: neither its title block nor the text on the page names a sheet."
+
+#. Either the page names two or more sheets' numbers, none more clearly than the others, or it names one number that two sheets carry and the page's size does not tell them apart. The words must hold for both.
+msgid "engine.plot.names_several_sheets"
+msgstr "PDF page {page} could not be matched: the text on the page could name more than one sheet, and nothing on it tells which."
+
+#. The page has no text items at all: a blank page, a page of lines whose lettering was plotted as lines, or a picture with lines.
+msgid "engine.plot.no_text"
+msgstr "PDF page {page} could not be matched: it has no text on it, so nothing on it names a sheet. If its lettering is drawn as lines, the PDF's report says what to ask the consultant for."
+
+#. The page is a scan (12's rule): a picture, with no text or lines.
+msgid "engine.plot.scan"
+msgstr "PDF page {page} could not be matched: it is a scanned picture, with no lines or text to read. Ask the consultant for this page plotted from AutoCAD."

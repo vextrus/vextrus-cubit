@@ -33,6 +33,7 @@ def test_the_catalogue_lists_every_check_in_code_order_with_its_library_row() ->
         Entry("decoders_agree", 1, "M0", "source", "engine.catalogue.decoders_agree", set=False),
         Entry("plot_pages", 1, "M0", "source", "engine.catalogue.plot_pages", set=True),
         Entry("register", 1, "M0", "source", "engine.catalogue.register", set=True),
+        Entry("render_f1", 1, "M0", "source", "engine.render_f1.name", set=False),
         Entry("storey_titles", 1, "M0", "source", "engine.catalogue.storey_titles", set=True),
     )
 

@@ -5,6 +5,7 @@ references `[code, size, value, absolute]`, a null reference `[0, 0]`). The same
 DWGs in test_read.py.
 """
 
+import io
 import json
 import random
 from pathlib import Path
@@ -718,3 +719,48 @@ def test_a_hundred_thousand_styles_each_texts_style_is_found_by_handle(tmp_path:
     ]
     found = {t.handle: t.style_handle for t in decoded.texts.values() if t.type == "TEXT"}
     assert found == {f"{first + count + i:X}": f"{first + i:X}" for i in range(count)}
+
+
+@pytest.mark.parametrize(("unit", "mm"), [(0, 25.4), (1, 1.0), (2, None), ("1", None), (None, None)])
+def test_a_layouts_paper_units_are_its_plot_settings_inches_or_millimetres(
+    unit: object, mm: float | None
+) -> None:
+    """#87: paper space is drawn in the layout's plot-paper units (0 inches, 1 mm, 2 pixels)."""
+    data = drawing()
+    layout = next(o for o in data["OBJECTS"] if o.get("layout_name") == "Layout1")
+    if unit is not None:
+        layout[dwgread.PLOT_PAPER_UNIT] = unit
+
+    blocks = {b.layout: b for b in dwgread.decode(data).blocks}
+
+    assert blocks["Layout1"].paper_mm_per_unit == mm
+    assert blocks[None].paper_mm_per_unit is None  # a block definition states none
+
+
+def test_a_layouts_paper_units_survive_the_loader() -> None:
+    data = drawing()
+    layout = next(o for o in data["OBJECTS"] if o.get("layout_name") == "Layout1")
+    layout[dwgread.PLOT_PAPER_UNIT] = 0
+
+    loaded = dwgread.load(io.BytesIO(json.dumps(data).encode()))
+
+    assert {b.layout: b for b in dwgread.decode(loaded).blocks}["Layout1"].paper_mm_per_unit == 25.4
+
+
+@pytest.mark.parametrize(
+    ("paper", "drawn", "mm"),
+    [(1.0, 25.4, 1.0), (1.0, 1.0, 25.4), (1.0, 0.0, 25.4), (float("nan"), 1.0, 25.4), (1.0, 1e12, 25.4)],
+)
+def test_an_inch_layouts_custom_plot_scale_is_read_with_its_units(
+    paper: float, drawn: float, mm: float
+) -> None:
+    """The review of 18, round 1: inch paper units over a drawing made in millimetres state a scale of
+    1 in = 25.4 units, so a unit plots at 1 mm; an unusable scale leaves the units alone."""
+    data = drawing()
+    layout = next(o for o in data["OBJECTS"] if o.get("layout_name") == "Layout1")
+    layout[dwgread.PLOT_PAPER_UNIT] = 0
+    layout[dwgread.PLOT_SCALE[0]], layout[dwgread.PLOT_SCALE[1]] = paper, drawn
+
+    blocks = {b.layout: b for b in dwgread.decode(data).blocks}
+
+    assert blocks["Layout1"].paper_mm_per_unit == pytest.approx(mm)
