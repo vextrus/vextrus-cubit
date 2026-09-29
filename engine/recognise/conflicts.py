@@ -26,13 +26,18 @@ two equal-by-value copies of a sheet in two files are two sheets, so nothing her
 - **`same_number`:** two or more sheets whose numbers have one normal form ("S-07" twice; "S-O1" is not
   "S-01"). One Conflict per number; evidence: the number as the first copy prints it, and the copies.
 - **A continuation** ("Column schedule, 3 sheets"; no Question): sheets of one title whose numbers run
-  on. A number is read only by 13's `sheets.sequence` (`Recognisers.sequence`), never here, and is
-  given to it in its clean form (`clean`: the normal form before case folding). Two numbers
-  run on when their prefixes and suffixes match (by their letters and digits, case folded) and their
-  running numbers are one apart: "09"/"10", "S-09"/"S-10" and "9"/"10" (padding is no part of a
-  running number); or when their running numbers match and their suffixes are single Latin letters one
-  apart: "S-101A"/"S-101B". "S-101"/"S-101A" do not run on; a number with no running number (no digit,
-  or one of `RUNNING_LIMIT` or more) runs on with none. Copies of one number are one place in a run.
+  on. A number is read only by 13's `sheets.sequence` (`Recognisers.sequence`), never here, and is given
+  to it in its clean form (`clean`: the normal form before case folding). Two numbers run on when their
+  prefixes and suffixes match (by their letters and digits, case folded) and their running numbers are
+  one apart: "09"/"10", "S-09"/"S-10" and "9"/"10" (padding is no part of a running number); or when
+  their running numbers match and their suffixes are single Latin letters one apart: "S-101A"/"S-101B".
+  "S-101"/"S-101A" do not run on; a number with no running number (no digit, or one of `RUNNING_LIMIT` or
+  more) runs on with none. Copies of one number are one place in a run. A run is in number order, a part
+  by its number ("S-01/9" before "S-01/10"); a revision mark written after a number ("S-01 R1",
+  `split_revision`) is split off before it is read, so "S-01 R1"/"S-01 R2" are one number, never a run
+  (#100). A sheet whose views contradict its title block (`contradicted`: its views name only subjects
+  its title does not, or its views of its title's kind all disagree with it by layer or by every other
+  word; a copied title block, #102) runs on with none, so its title's sheets are raised as `same_title`.
 - **`same_title`:** one title on places that do not all run on, or on two numbers that share one place
   (one running number printed two ways, "S-09" and "S-9": not copies, since their normal forms differ,
   and not two places): one Conflict naming every sheet of the title, in number order (a run among them
@@ -43,17 +48,19 @@ two equal-by-value copies of a sheet in two files are two sheets, so nothing her
   plan has no layer) whose storey lists share a storey that is not symbolic ("typical", "top" and "not
   stated" are Step 3's to resolve: never a conflict on them alone; `Recognisers.symbolic`). Never two
   views of one sheet, or of one continuation, alone: the views must lie on two places or more. One
-  Conflict per set of views: those sharing a storey, grouped by the set, so two plans overlapping on
-  two floors are one Conflict. Evidence, for the words (m0-screens §5's "S-14 and S-15 both draw the
-  5th floor slab, bottom layer"): the first two sheets' numbers (else titles); the titles, as drawn,
-  of their plans in the set (they state the storey and what is drawn), one when they are alike, both
-  when they differ ("3RD, 5TH & 7TH FLOOR SLAB" beside "5TH FLOOR SLAB"), none when either plan has
-  no title (the words then name no plan: a title read on one sheet is never said of the other); the layer
-  (`none` for none) and how many views; and, for 21c, the Discipline's, the subject's and the first
-  shared storey's keys (in the first view's order). A plan on a sheet with neither number nor title
-  sits out (its Question is 21c's `missing`). 21c's Question title must word m0-screens §5's verbatim
-  from `storey` and `subject` once display words exist; this Conflict's words are its evidence line
-  until then.
+  Conflict per set of views: those sharing a storey, grouped by the set, so two plans overlapping on two
+  floors are one Conflict. Evidence, for the words (m0-screens §5's "S-14 and S-15 both draw the 5th
+  floor slab, bottom layer"): the first two sheets' numbers (else titles); the titles, as drawn, of their
+  plans in the set (they state the storey and what is drawn), one when they are alike, both when they
+  differ ("3RD, 5TH & 7TH FLOOR SLAB" beside "5TH FLOOR SLAB"), none when either plan has no title (the
+  words then name no plan: a title read on one sheet is never said of the other); the layer (`none` for
+  none) and how many views; and, for 21c, the Discipline's, the subject's and the first shared storey's
+  keys (in the first view's order). A plan whose storeys run floor to floor (17's `floor_to_floor`: a
+  column layout "foundation to 3rd floor") shares none at its top end, where the next range starts ("3rd
+  to 6th floor"): consecutive ranges meet at a floor by the drafting convention. A plan on a sheet with
+  neither number nor title sits out (its Question is 21c's `missing`). 21c's Question title must word
+  m0-screens §5's verbatim from `storey` and `subject` once display words exist; this Conflict's words
+  are its evidence line until then.
 
 **The work is linear** in sheets, views and storeys, plus sorting: candidates are grouped by keys and
 never compared pairwise (10,000 sheets of one title are one group, not 50 million pairs), and each
@@ -65,10 +72,11 @@ a candidate of the wrong type (a sheet in a list of views among them); a reader 
 contract does not allow.
 """
 
+import re
 import unicodedata
 from collections.abc import Callable, Collection, Hashable, Iterable, Sequence
 from dataclasses import dataclass
-from typing import NoReturn, Protocol
+from typing import TYPE_CHECKING, NoReturn, Protocol
 
 from engine.messages import conflicts as codes
 from engine.recognise.types import (
@@ -77,9 +85,14 @@ from engine.recognise.types import (
     SheetCandidate,
     SheetConventions,
     Sourced,
+    StoreysMeaning,
     ViewCandidate,
     ViewKind,
+    pattern_search,
 )
+
+if TYPE_CHECKING:
+    from engine.recognise.views import Described
 
 RUNNING_LIMIT = 10**15
 """A running number this large or larger is no running number: every count made from running numbers
@@ -214,7 +227,8 @@ def compare(
         units = _grouped((i, numbers[i]) for i in group)
         if len(units) < 2:
             continue
-        runs = _runs(units, [reader.parts(sheets[unit[0]]) for unit in units])
+        alone = [any(contradicted(sheets[i], views[i], conventions) for i in unit) for unit in units]
+        runs = _runs(units, [reader.parts(sheets[unit[0]]) for unit in units], alone)
         for run in runs:
             members = [i for unit in run for i in unit]
             places.join(members)
@@ -299,6 +313,35 @@ def mark(text: str) -> str:
     return "".join(char for char in normal(text) or "" if char.isalnum())
 
 
+MARK_LIMIT = 16
+"""The longest last word tried as a revision mark (the pattern is the conventions')."""
+
+
+def split_revision(number: str, pattern: str | None) -> tuple[str, str | None]:
+    """A number with a revision mark written after it, a space between ("S-01 R1", "S-01 REV A"), split
+    into the number and the mark as written (#100; the orchestrator's ruling: "S-01 R1" is number "S-01",
+    revision "R1"); else the number as given and none. The mark is the last word, or the last two ("REV
+    A"), matched whole by the conventions' revision-mark pattern (none: nothing is split), and what is
+    left must still hold a digit, so a bare "R1" stays a number. Only a space separates: "E-R2" may be a
+    riser sheet's own number."""
+    if pattern is None:
+        return number, None
+    starts = [m.start() for m in _WORD.finditer(number)]
+    for first in starts[-1:-3:-1] if len(starts) > 1 else ():
+        mark_text = number[first:].strip()
+        rest = number[:first].strip()
+        if len(mark_text) > MARK_LIMIT or not rest:
+            continue
+        found = pattern_search(pattern, mark_text)
+        whole = found is not None and found.start() == 0 and found.end() == len(mark_text)
+        if whole and any(unicodedata.category(c) == "Nd" for c in rest):
+            return rest, mark_text
+    return number, None
+
+
+_WORD = re.compile(r"\S+")
+
+
 class Numbers:
     """Sheet numbers as the conflicts and the register Check compare them, each read once through 13's
     `sequence`: by prefix, running number and suffix, a Discipline's own prefix counting as none (a
@@ -313,12 +356,15 @@ class Numbers:
             for prefix in marks:
                 owners.setdefault(prefix, set()).add(key)
         self.owners = {prefix: keys.pop() for prefix, keys in owners.items() if len(keys) == 1}
+        self.revision = None if conventions is None else conventions.revision_mark_pattern
         self._read: dict[str, tuple[str, int, str] | None] = {}
 
     def parts(self, number: str) -> tuple[str, int, str] | None:
-        """The number's (prefix mark, running number, suffix mark), or none."""
+        """The number's (prefix mark, running number, suffix mark), or none; a revision mark written
+        after it ("S-01 R1") split off first (#100), so its digits never make a running number."""
         if number not in self._read:
-            self._read[number] = read_number(self.recognisers, number)
+            unrevised = split_revision(number, self.revision)[0]
+            self._read[number] = read_number(self.recognisers, unrevised)
         return self._read[number]
 
     def parts_in(self, number: str, discipline: str) -> tuple[str, int, str] | None:
@@ -424,8 +470,11 @@ def _grouped(keyed: Iterable[tuple[int, Hashable]]) -> list[list[int]]:
     return list(groups.values())
 
 
-def _runs(units: list[list[int]], parts: list[tuple[str, int, str] | None]) -> list[list[list[int]]]:
-    """The units (copies of one number) joined into runs of numbers that run on, in number order."""
+def _runs(
+    units: list[list[int]], parts: list[tuple[str, int, str] | None], alone: Sequence[bool]
+) -> list[list[list[int]]]:
+    """The units (copies of one number) joined into runs of numbers that run on, in number order (a
+    part by its number: "S-01/9" before "S-01/10", #100); a unit `alone` joins none (#102)."""
     parent = list(range(len(units)))
 
     def root(u: int) -> int:
@@ -440,7 +489,7 @@ def _runs(units: list[list[int]], parts: list[tuple[str, int, str] | None]) -> l
     by_running: dict[tuple[str, str, int], list[int]] = {}
     by_part: dict[tuple[str, int, int], list[int]] = {}  # a letter or a part number after the running
     for u, p in enumerate(parts):
-        if p is None:
+        if p is None or alone[u]:
             continue
         prefix, running, suffix = p
         by_running.setdefault((prefix, suffix, running), []).append(u)
@@ -458,14 +507,57 @@ def _runs(units: list[list[int]], parts: list[tuple[str, int, str] | None]) -> l
             for u in members:
                 join(u, after[0])
 
-    def order(u: int) -> tuple[bool, str, int, str, int]:
+    def order(u: int) -> tuple[bool, str, int, bool, int, str, int]:
         p = parts[u]
-        return (True, "", 0, "", units[u][0]) if p is None else (False, p[0], p[1], p[2], units[u][0])
+        if p is None:
+            return (True, "", 0, False, 0, "", units[u][0])
+        part = _part(p[2])
+        return (False, p[0], p[1], part is not None, part or 0, p[2], units[u][0])
 
     runs: dict[int, list[int]] = {}
     for u in sorted(range(len(units)), key=order):
         runs.setdefault(root(u), []).append(u)
     return [[units[u] for u in run] for run in runs.values()]
+
+
+def contradicted(
+    sheet: SheetCandidate, views: Sequence[ViewCandidate], conventions: SheetConventions | None
+) -> bool:
+    """Whether the sheet's views contradict its title block (#102: a title block copied from another
+    sheet and never edited), by 17's view conventions (`views.subjects`, `views.describe`); either:
+
+    - its title names a subject, its views' titles name subjects, and not one of them is one its title
+      names ("COLUMN SCHEDULE" over "PILE CAP DETAILS");
+    - its title names a kind, its views of that kind are titled, and not one agrees with it: a view
+      disagrees when both state a layer and the layers differ ("... (BOTTOM LAYER)" over "... (TOP
+      LAYER)"), or when both hold other words and share none ("EAST ELEVATION" over "NORTH
+      ELEVATION").
+
+    A title or views naming no subject, and views of another kind ("SECTION 7Q-7Q" on a "... DETAILS"
+    sheet), are no evidence: a continuation's later sheets often carry only their sections' marks. A
+    sheet with no title or no view read is never contradicted. `conventions` are the sheets'; the view
+    words are 17's default. On the real sets, of the 7 false continuations session 05 counted, this
+    tells 2 (the others' drawings carry no heading read, or one that agrees with the stale title)."""
+    from engine.recognise.views import describe, subjects  # 17's, imported where they are used
+
+    if sheet.title is None:
+        return False
+    named = subjects(sheet.title.value)
+    titled = [v.title for v in views if v.title]
+    drawn = [found for t in titled if (found := subjects(t))]
+    if named and drawn and not any(found & named for found in drawn):
+        return True
+    title = describe(sheet.title.value)
+    if title.kind is None:
+        return False
+    alike = [d for t in titled if (d := describe(t)).kind == title.kind]
+    return bool(alike) and not any(_agrees(title, d) for d in alike)
+
+
+def _agrees(title: Described, view: Described) -> bool:
+    if title.layer is not None and view.layer is not None and title.layer != view.layer:
+        return False
+    return not (title.words and view.words and not title.words & view.words)
 
 
 PART_DIGITS = 6
@@ -503,9 +595,11 @@ def _same_storey(
             layer = NO_LAYER if view.layer is None else str(view.layer)
             bucket = (str(sheet.group), sheet.discipline.value, view.subject, layer)
             flat.append((view, places.of(i), i))
-            for storey in view.storeys:
-                if not reader.symbolic(storey):
-                    sharing.setdefault((bucket, storey), []).append(len(flat) - 1)
+            storeys = [storey for storey in view.storeys if not reader.symbolic(storey)]
+            if view.storeys_meaning == StoreysMeaning.FLOOR_TO_FLOOR and len(storeys) > 1:
+                storeys = storeys[:-1]  # its top end is where the next range of columns starts
+            for storey in storeys:
+                sharing.setdefault((bucket, storey), []).append(len(flat) - 1)
     sets: dict[tuple[tuple[str, str, str, str], tuple[int, ...]], list[str]] = {}
     for (bucket, storey), sharers in sharing.items():
         if len({flat[v][1] for v in sharers}) > 1:
