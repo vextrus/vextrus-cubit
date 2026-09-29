@@ -25,22 +25,21 @@ drawn as a rectangle or a scale giving no paper size, the one that makes the fra
 paper, grown by `GAP_MM` so that what is drawn closer than that joins, and split into connected pieces.
 These sizes, `MIN_VIEW_MM` and `JOIN_MM` are an A1 sheet's (`REFERENCE_MM` long), scaled to the sheet's
 paper, so a frame whose paper is read too small or too large is split alike (a frame block drawn at a
-fraction of its plotted size: the real sets' frames give papers of 130 to 420 mm plotted on A3 and A1).
-A **view title** is a text of one line and at most `MAX_TITLE_WORDS` words holding a kind's words (the
-kind listed first in the conventions wins where several are named: "TYPICAL BEAM SECTION DETAIL" is a
-detail), not in the title block, at least as tall as the sheet's median text, not numbered ("5. SEE
-SECTION ...") and not one of a column of `MIN_NOTE_LINES` lines alike (a note's). Titles and scale texts
-stay off the grid, and so do the lines within a title's band (its underline), and straight lines along
-the paper's axes of `DIVIDER_SHARE` of its side or longer (borders, dividers between rows of details).
-Each title takes the piece it lies under (a drawing titled beneath, the convention; within `TITLE_GAP`
-of its height), else the piece it lies over (within `TITLE_GAP_UNDER`), nearest first, one title a
-piece; a band less tall than `MIN_DRAWING` of its height is never its drawing, and joins its view when
-it meets the title. A piece with no title is
-a view when it covers `MIN_UNTITLED` of the paper (of the kind its sheet's title names, else a plan;
-notes when text fills more of it than lines); a smaller one joins the view whose box, grown by
-`JOIN_MM`, holds it. A view's box is its piece, its title and its scale text together.
-**Reading order** is by rows, top to bottom
-(views whose heights overlap by half are one row), each left to right.
+fraction of its plotted size: the real sets' frames give papers of 130 to 420 mm plotted on A3 and A1). A
+**view title** is a text of one line and at most `MAX_TITLE_WORDS` words holding a kind's words (the kind
+listed first in the conventions wins where several are named: "TYPICAL BEAM SECTION DETAIL" is a detail),
+not in the title block, at least as tall as the sheet's median text (and at most `MAX_LETTER` of the
+paper), not numbered ("5. SEE SECTION ...") and not one of a column of `MIN_NOTE_LINES` lines alike (a
+note's). Titles and scale texts stay off the grid, and so do the lines within a title's band (its
+underline), and straight lines along the paper's axes of `DIVIDER_SHARE` of its side or longer (borders,
+dividers between rows of details). Each title takes the piece it lies under (a drawing titled beneath,
+the convention; within `TITLE_GAP` of its height), else the piece it lies over (within
+`TITLE_GAP_UNDER`), nearest first, one title a piece; a band less tall than `MIN_DRAWING` of its height
+is never its drawing, and joins its view when it meets the title. A piece with no title is a view when it
+covers `MIN_UNTITLED` of the paper (of the kind its sheet's title names, else a plan; notes when text
+fills more of it than lines); a smaller one joins the view whose box, grown by `JOIN_MM`, holds it. A
+view's box is its piece, its title and its scale text together. **Reading order** is by rows, top to
+bottom (views whose heights overlap by half are one row), each left to right.
 
 **What a view says.** Its stated scale is the first scale pattern found in its title or a text on its
 title's line or just under it (`scales.read`), verbatim; N.T.S. marks it not to scale. Its storeys are
@@ -132,6 +131,9 @@ TITLE_GAP = 20.0
 between them)."""
 TITLE_GAP_UNDER = 6.0
 """The farthest a title lies over its drawing (a schedule's heading), in its heights."""
+MAX_LETTER = 0.1
+"""A text taller than this share of the paper's short side is no lettering: never a title, never the
+median a title is measured by."""
 MIN_DRAWING = 3.0
 """A piece less tall than this many of a title's heights is a band (its frame, a row of labels), never
 the title's drawing; one meeting the title is part of its view."""
@@ -154,7 +156,7 @@ MIN_NOTE_LINES = 3
 """A text in a column of this many lines alike (same height, same left edge) is a note's line."""
 MAX_TEXTS = 200_000
 MAX_GRID = 1_500
-MAX_SAMPLES = 8_000_000
+MAX_SAMPLES = 4_000_000
 MAX_TITLES = 200
 MAX_VIEWS = 200
 
@@ -483,8 +485,9 @@ def _paper(artefact: ReadArtefact, sheet: SheetCandidate) -> _Paper | None:
     all_segments = np.concatenate(segments) if segments else np.empty((0, 4))
     if region is None:
         region = _extent(all_segments, texts)
-    if region is None:
-        return None
+    if region is None or not all(math.isfinite(v) for v in (*region, region[2] - region[0],
+                                                           region[3] - region[1])):  # fmt: skip
+        return None  # a paper past what a float holds: nothing is read on it
     return _Paper(region, all_segments, texts, None if frame is None else frame.sheet, frame)
 
 
@@ -611,12 +614,15 @@ def _pieces(paper: _Paper, texts: Sequence[_Text], held: Iterable[int]) -> list[
     `texts[i]` for `i` in `held` are on the grid; the rest (titles, scales) are not."""
     rx0, ry0, rx1, ry1 = paper.region
     width, height = rx1 - rx0, ry1 - ry0
-    if not (width > 0 and height > 0):
+    if not (0 < width < math.inf and 0 < height < math.inf):
         return []
     k = max(width, height) / REFERENCE_MM
     cell = max(CELL_MM * k, max(width, height) / MAX_GRID)
     nx, ny = int(width / cell) + 1, int(height / cell) + 1
-    segments = _dividers_out(_clip(paper.segments, paper.region), width, height)
+    lines = _dividers_out(_clip(paper.segments, paper.region), width, height)
+    words = _text_rows([texts[i].box for i in held], paper.region, cell, ny)
+    segments = np.concatenate([lines, words]) if len(words) else lines
+    flags = np.concatenate([np.zeros(len(lines), dtype=np.int8), np.ones(len(words), dtype=np.int8)])
     points_x: list[NDArray[np.float64]] = []
     points_y: list[NDArray[np.float64]] = []
     kinds: list[NDArray[np.int8]] = []
@@ -627,22 +633,16 @@ def _pieces(paper: _Paper, texts: Sequence[_Text], held: Iterable[int]) -> list[
         if total > MAX_SAMPLES:
             counts = np.maximum((counts * (MAX_SAMPLES / total)).astype(np.int64), 2)
             total = int(counts.sum())
-        which = np.repeat(np.arange(len(segments)), counts)
-        starts = np.repeat(np.cumsum(counts) - counts, counts)
-        steps = np.maximum(counts - 1, 1)
-        t = (np.arange(total) - starts) / steps[which]
-        s = segments[which]
-        points_x.append(s[:, 0] + t * (s[:, 2] - s[:, 0]))
-        points_y.append(s[:, 1] + t * (s[:, 3] - s[:, 1]))
-        kinds.append(np.zeros(total, dtype=np.int8))
-    for i in held:
-        x0, y0, x1, y1 = texts[i].box
-        gx = np.linspace(x0, x1, max(2, int((x1 - x0) / cell) + 2))
-        gy = np.linspace(y0, y1, max(2, int((y1 - y0) / cell) + 2))
-        mx, my = np.meshgrid(gx, gy)
-        points_x.append(mx.ravel())
-        points_y.append(my.ravel())
-        kinds.append(np.ones(mx.size, dtype=np.int8))
+        which = np.repeat(np.arange(len(segments), dtype=np.int32), counts)
+        t = np.arange(total, dtype=np.float64)
+        t -= np.repeat(np.cumsum(counts) - counts, counts)
+        t /= np.maximum(counts - 1, 1)[which]
+        for column, out in ((0, points_x), (1, points_y)):
+            start = segments[:, column][which]
+            start += t * (segments[:, column + 2] - segments[:, column])[which]
+            out.append(start)
+        kinds.append(flags[which])
+        del which, t
     if not points_x:
         return []
     xs, ys, kind = np.concatenate(points_x), np.concatenate(points_y), np.concatenate(kinds)
@@ -681,6 +681,32 @@ def _pieces(paper: _Paper, texts: Sequence[_Text], held: Iterable[int]) -> list[
         for k in range(count)
         if math.isfinite(lo_x[k])
     ]
+
+
+def _text_rows(
+    boxes: Sequence[Bounds], region: Bounds, cell: float, rows_at_most: int
+) -> NDArray[np.float64]:
+    """Texts as rows of segments filling their boxes, clipped to the paper (a text a kilometre tall is
+    as many rows as the grid has), at most `MAX_SAMPLES` rows in all."""
+    found = np.array(boxes, dtype=np.float64).reshape(-1, 4)
+    found = found[np.isfinite(found).all(axis=1)]
+    x0 = np.maximum(found[:, 0], region[0])
+    y0 = np.maximum(found[:, 1], region[1])
+    x1 = np.minimum(found[:, 2], region[2])
+    y1 = np.minimum(found[:, 3], region[3])
+    keep = (x0 <= x1) & (y0 <= y1)
+    x0, y0, x1, y1 = x0[keep], y0[keep], x1[keep], y1[keep]
+    if not len(x0):
+        return np.empty((0, 4))
+    rows = np.minimum(np.ceil((y1 - y0) / cell).astype(np.int64) + 1, rows_at_most + 1)
+    total = int(rows.sum())
+    if total > MAX_SAMPLES:
+        rows = np.maximum((rows * (MAX_SAMPLES / total)).astype(np.int64), 1)
+        total = int(rows.sum())
+    which = np.repeat(np.arange(len(x0)), rows)
+    offsets = np.arange(total) - np.repeat(np.cumsum(rows) - rows, rows)
+    y = y0[which] + (y1 - y0)[which] * offsets / np.maximum(rows - 1, 1)[which]
+    return np.stack([x0[which], y, x1[which], y], axis=1)
 
 
 def _dividers_out(segments: NDArray[np.float64], width: float, height: float) -> NDArray[np.float64]:
@@ -873,7 +899,9 @@ def find(
 
 def _views(paper: _Paper, reading: _Reading, untitled: ViewKind) -> list[_View]:
     texts = paper.texts
-    heights = [t.height for t in texts if t.height > 0]
+    rx0, ry0, rx1, ry1 = paper.region
+    letter = MAX_LETTER * min(rx1 - rx0, ry1 - ry0)  # taller is no lettering (a hostile height)
+    heights = [t.height for t in texts if 0 < t.height <= letter]
     tall = median(heights) if heights else 0.0
     titles: list[int] = []
     scale_texts: list[int] = []
@@ -892,7 +920,7 @@ def _views(paper: _Paper, reading: _Reading, untitled: ViewKind) -> list[_View]:
         if (
             len(titles) < MAX_TITLES
             and 0 < len(words) <= MAX_TITLE_WORDS
-            and t.height >= tall
+            and tall <= t.height <= letter
             and not _ENUMERATED.match(t.shown)
             and _kind(t.shown, reading) is not None
         ):
@@ -904,7 +932,6 @@ def _views(paper: _Paper, reading: _Reading, untitled: ViewKind) -> list[_View]:
     drawn = replace(paper, segments=paper.segments[~underlined])
     pieces = _pieces(drawn, texts, (i for i in range(len(texts)) if i not in off_grid))
     pieces = sorted(pieces, key=lambda q: -q.area)[:MAX_PIECES]
-    rx0, ry0, rx1, ry1 = paper.region
     paper_area = (rx1 - rx0) * (ry1 - ry0)
     unit = max(rx1 - rx0, ry1 - ry0) / REFERENCE_MM  # this paper's mm per an A1's
 

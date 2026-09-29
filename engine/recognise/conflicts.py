@@ -48,17 +48,19 @@ two equal-by-value copies of a sheet in two files are two sheets, so nothing her
   plan has no layer) whose storey lists share a storey that is not symbolic ("typical", "top" and "not
   stated" are Step 3's to resolve: never a conflict on them alone; `Recognisers.symbolic`). Never two
   views of one sheet, or of one continuation, alone: the views must lie on two places or more. One
-  Conflict per set of views: those sharing a storey, grouped by the set, so two plans overlapping on
-  two floors are one Conflict. Evidence, for the words (m0-screens §5's "S-14 and S-15 both draw the
-  5th floor slab, bottom layer"): the first two sheets' numbers (else titles); the titles, as drawn,
-  of their plans in the set (they state the storey and what is drawn), one when they are alike, both
-  when they differ ("3RD, 5TH & 7TH FLOOR SLAB" beside "5TH FLOOR SLAB"), none when either plan has
-  no title (the words then name no plan: a title read on one sheet is never said of the other); the layer
-  (`none` for none) and how many views; and, for 21c, the Discipline's, the subject's and the first
-  shared storey's keys (in the first view's order). A plan on a sheet with neither number nor title
-  sits out (its Question is 21c's `missing`). 21c's Question title must word m0-screens §5's verbatim
-  from `storey` and `subject` once display words exist; this Conflict's words are its evidence line
-  until then.
+  Conflict per set of views: those sharing a storey, grouped by the set, so two plans overlapping on two
+  floors are one Conflict. Evidence, for the words (m0-screens §5's "S-14 and S-15 both draw the 5th
+  floor slab, bottom layer"): the first two sheets' numbers (else titles); the titles, as drawn, of their
+  plans in the set (they state the storey and what is drawn), one when they are alike, both when they
+  differ ("3RD, 5TH & 7TH FLOOR SLAB" beside "5TH FLOOR SLAB"), none when either plan has no title (the
+  words then name no plan: a title read on one sheet is never said of the other); the layer (`none` for
+  none) and how many views; and, for 21c, the Discipline's, the subject's and the first shared storey's
+  keys (in the first view's order). A plan whose storeys run floor to floor (17's `floor_to_floor`: a
+  column layout "foundation to 3rd floor") shares none at its top end, where the next range starts ("3rd
+  to 6th floor"): consecutive ranges meet at a floor by the drafting convention. A plan on a sheet with
+  neither number nor title sits out (its Question is 21c's `missing`). 21c's Question title must word
+  m0-screens §5's verbatim from `storey` and `subject` once display words exist; this Conflict's words
+  are its evidence line until then.
 
 **The work is linear** in sheets, views and storeys, plus sorting: candidates are grouped by keys and
 never compared pairwise (10,000 sheets of one title are one group, not 50 million pairs), and each
@@ -70,6 +72,7 @@ a candidate of the wrong type (a sheet in a list of views among them); a reader 
 contract does not allow.
 """
 
+import re
 import unicodedata
 from collections.abc import Callable, Collection, Hashable, Iterable, Sequence
 from dataclasses import dataclass
@@ -82,6 +85,7 @@ from engine.recognise.types import (
     SheetCandidate,
     SheetConventions,
     Sourced,
+    StoreysMeaning,
     ViewCandidate,
     ViewKind,
     pattern_search,
@@ -311,21 +315,28 @@ MARK_LIMIT = 16
 
 
 def split_revision(number: str, pattern: str | None) -> tuple[str, str | None]:
-    """A number with a revision mark written after it, a space between ("S-01 R1"), split into the
-    number and the mark (#100; the orchestrator's ruling: "S-01 R1" is number "S-01", revision "R1");
-    else the number as given and none. The mark is the last word, matched whole by the conventions'
-    revision-mark pattern (none: nothing is split), and what is left must still hold a digit, so a
-    bare "R1" stays a number. Only a space separates: "E-R2" may be a riser sheet's own number."""
-    words = number.split()
-    if pattern is None or len(words) < 2 or len(words[-1]) > MARK_LIMIT:
+    """A number with a revision mark written after it, a space between ("S-01 R1", "S-01 REV A"), split
+    into the number and the mark as written (#100; the orchestrator's ruling: "S-01 R1" is number "S-01",
+    revision "R1"); else the number as given and none. The mark is the last word, or the last two ("REV
+    A"), matched whole by the conventions' revision-mark pattern (none: nothing is split), and what is
+    left must still hold a digit, so a bare "R1" stays a number. Only a space separates: "E-R2" may be a
+    riser sheet's own number."""
+    if pattern is None:
         return number, None
-    last = words[-1]
-    rest = number[: number.rstrip().rfind(last)].strip()
-    found = pattern_search(pattern, last)
-    whole = found is not None and found.start() == 0 and found.end() == len(last)
-    if whole and any(unicodedata.category(c) == "Nd" for c in rest):
-        return rest, last
+    starts = [m.start() for m in _WORD.finditer(number)]
+    for first in starts[-1:-3:-1] if len(starts) > 1 else ():
+        mark_text = number[first:].strip()
+        rest = number[:first].strip()
+        if len(mark_text) > MARK_LIMIT or not rest:
+            continue
+        found = pattern_search(pattern, mark_text)
+        whole = found is not None and found.start() == 0 and found.end() == len(mark_text)
+        if whole and any(unicodedata.category(c) == "Nd" for c in rest):
+            return rest, mark_text
     return number, None
+
+
+_WORD = re.compile(r"\S+")
 
 
 class Numbers:
@@ -562,9 +573,11 @@ def _same_storey(
             layer = NO_LAYER if view.layer is None else str(view.layer)
             bucket = (str(sheet.group), sheet.discipline.value, view.subject, layer)
             flat.append((view, places.of(i), i))
-            for storey in view.storeys:
-                if not reader.symbolic(storey):
-                    sharing.setdefault((bucket, storey), []).append(len(flat) - 1)
+            storeys = [storey for storey in view.storeys if not reader.symbolic(storey)]
+            if view.storeys_meaning == StoreysMeaning.FLOOR_TO_FLOOR and len(storeys) > 1:
+                storeys = storeys[:-1]  # its top end is where the next range of columns starts
+            for storey in storeys:
+                sharing.setdefault((bucket, storey), []).append(len(flat) - 1)
     sets: dict[tuple[tuple[str, str, str, str], tuple[int, ...]], list[str]] = {}
     for (bucket, storey), sharers in sharing.items():
         if len({flat[v][1] for v in sharers}) > 1:

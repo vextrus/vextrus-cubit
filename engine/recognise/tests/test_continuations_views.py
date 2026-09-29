@@ -11,6 +11,7 @@ import pytest
 from engine.recognise import conflicts
 from engine.recognise.types import (
     Box,
+    Conflict,
     Continuation,
     SheetCandidate,
     SheetConventions,
@@ -86,7 +87,7 @@ def test_one_view_sharing_the_titles_subject_keeps_it() -> None:
 
 @pytest.mark.parametrize(
     ("number", "expected"),
-    [("S-01 R1", ("S-01", "R1")), ("S-01 REV A", ("S-01 REV A", None)), ("R1", ("R1", None)),
+    [("S-01 R1", ("S-01", "R1")), ("S-01 REV A", ("S-01", "REV A")), ("R1", ("R1", None)),
      ("S-01", ("S-01", None)), ("E-R2", ("E-R2", None)), ("S-01  R12", ("S-01", "R12"))],
 )  # fmt: skip
 def test_a_revision_is_split_off_only_after_a_space_and_a_number(
@@ -94,3 +95,35 @@ def test_a_revision_is_split_off_only_after_a_space_and_a_number(
 ) -> None:
     assert conflicts.split_revision(number, CONVENTIONS.revision_mark_pattern) == expected
     assert conflicts.split_revision(number, None) == (number, None)
+
+
+def storeys_drawn_twice(found: Sequence[object]) -> int:
+    return sum(1 for c in found if isinstance(c, Conflict) and c.kind == conflicts.SAME_STOREY)
+
+
+def column_plan(title: str, storeys: tuple[str, ...]) -> ViewCandidate:
+    from engine.recognise.types import StoreysMeaning
+
+    return ViewCandidate(
+        box=Box(0.0, 0.0, 10.0, 10.0), kind=ViewKind.PLAN, title=title, storeys=storeys,
+        storeys_meaning=StoreysMeaning.FLOOR_TO_FLOOR, subject="column",
+    )  # fmt: skip
+
+
+def test_consecutive_column_ranges_meeting_at_a_floor_are_no_storey_drawn_twice() -> None:
+    """The real sets' column layouts run "foundation to 3rd floor", then "3rd to 6th floor"."""
+    sheets = [sheet("S-13", "COLUMN LAYOUT PLAN A"), sheet("S-14", "COLUMN LAYOUT PLAN B")]
+    low = column_plan(
+        "COLUMN LAYOUT PLAN (FOUNDATION TO 3RD FLOOR)",
+        ("foundation", "ground", "floor_1", "floor_2", "floor_3"),
+    )
+    high = column_plan(
+        "COLUMN LAYOUT PLAN (3RD TO 6TH FLOOR)", ("floor_3", "floor_4", "floor_5", "floor_6")
+    )
+    found = conflicts.find(sheets, [(low,), (high,)], CONVENTIONS)
+    assert storeys_drawn_twice(found) == 0
+    overlapping = column_plan(
+        "COLUMN LAYOUT PLAN (2ND TO 5TH FLOOR)", ("floor_2", "floor_3", "floor_4", "floor_5")
+    )
+    found = conflicts.find(sheets, [(low,), (overlapping,)], CONVENTIONS)
+    assert storeys_drawn_twice(found) == 1

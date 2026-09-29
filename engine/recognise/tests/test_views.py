@@ -390,3 +390,60 @@ def test_an_underlined_title_far_under_its_drawing_is_the_drawings() -> None:
     assert plan.title == "GROUND FLOOR BEAM LAYOUT PLAN"
     assert near(plan.box, (40, 252, 340, 560))
     assert len(found) == 1
+
+
+# The refuter's attacks (review before the PR), each a test --------------------------------------------
+
+
+def test_a_text_of_any_height_is_read_within_the_grid() -> None:
+    """A note 1e300 tall raised out of `find` (np.linspace over its box); texts are now clipped rows."""
+    d, sheet = model_sheet([("BEAM LAYOUT PLAN", (40, 300, 340, 560))])
+    d.text("HUGE NOTE", (10_000.0 + 400 * 50, 100 * 50, 0.0), height=1e300)
+    found = views.find(d.artefact(), sheet, CONVENTIONS)
+    assert "BEAM LAYOUT PLAN" in [v.title for v in found]
+
+
+def test_many_tall_texts_lay_at_most_the_sample_bound(monkeypatch: pytest.MonkeyPatch) -> None:
+    """20,000 texts 40 mm tall took 2.9 GB and raised MemoryError: their points now share the bound."""
+    laid: list[int] = []
+    real = views._label
+
+    def counting(grid_: np.ndarray) -> tuple[np.ndarray, int]:
+        laid.append(int(grid_.sum()))
+        return real(grid_)
+
+    monkeypatch.setattr(views, "_label", counting)
+    boxes = [
+        (float(x), float(y), x + 30.0, y + 40.0) for x in range(0, 800, 10) for y in range(0, 550, 2)
+    ]
+    rows = views._text_rows(boxes, (0.0, 0.0, 841.0, 594.0), 2.0, 300)
+    assert len(rows) <= views.MAX_SAMPLES
+    words = [views._Text(None, (), b, 40.0, "X") for b in boxes[:2000]]  # type: ignore[arg-type]
+    paper = views._Paper((0.0, 0.0, 841.0, 594.0), np.empty((0, 4)), words)
+    assert views._pieces(paper, words, range(len(words)))
+    assert laid
+
+
+def test_a_layout_past_what_a_float_holds_has_no_views() -> None:
+    """Two lines at -1e308 and +1e308: the paper's width is infinite; `find` raised on it."""
+    from engine.recognise.types import SheetLocation
+
+    d = Sheets()
+    layout = d.layout("L1")
+    d.line((-1e308, 0.0), (-1e308, 1.0), owner=layout)
+    d.line((1e308, 0.0), (1e308, 1.0), owner=layout)
+    d.line((0.0, 0.0), (1.0, 1.0), owner=layout)
+    sheet = SheetCandidate(location=SheetLocation(layout="L1"))
+    assert views.find(d.artefact(), sheet, CONVENTIONS) == []
+
+
+def test_every_titled_detail_of_a_full_sheet_is_a_view() -> None:
+    """Fourteen 50 mm details on an A1 at 1:1 gave six views: the paper's scale factor was shadowed by
+    a loop's index, so the size bounds grew with each piece's number."""
+    drawn: list[tuple[str | None, tuple[float, float, float, float]]] = []
+    for i in range(14):
+        x, y = 20 + (i % 7) * 90, 60 + (i // 7) * 250
+        drawn.append((f"SECTION {i + 1}-{i + 1}", (x, y, x + 50 + i * 0.5, y + 50 + i * 0.5)))
+    d, sheet = model_sheet(drawn, scale=1.0)
+    found = views.find(d.artefact(), sheet, CONVENTIONS)
+    assert sorted(v.title or "" for v in found) == sorted(t or "" for t, _ in drawn)

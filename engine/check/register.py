@@ -78,6 +78,7 @@ from engine.recognise.conflicts import (
     mark,
     normal,
     number_parts,
+    split_revision,
 )
 from engine.recognise.types import (
     CheckOutcome,
@@ -310,7 +311,13 @@ def parse(text: str, conventions: SheetConventions, *, recognisers: Recognisers)
             entries.extend(ListEntry(number, index) for number in _numbers(first, low, high))
         elif (
             entry := _sheet_line(
-                _cells(line), index, recognisers, revision, prefixes, spaced=_has_control(raw)
+                _cells(line),
+                index,
+                recognisers,
+                revision,
+                prefixes,
+                pattern=conventions.revision_mark_pattern,
+                spaced=_has_control(raw),
             )
         ) is not None:
             sheet_lines += 1
@@ -331,18 +338,25 @@ _BIDI = frozenset("\u200e\u200f\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\
 
 def _scrub(line: str) -> str:
     """A line with each control character a space (a tab kept, between cells), never deleted, so it
-    never joins the digits either side ("S-01", DEL, "9" is not "S-019"; #100), and without direction
-    controls: a NUL cannot be stored, and an override would reach a Question's words."""
+    never joins the characters either side ("S-01", DEL, "9" is not "S-019"; #100); so are the direction
+    controls (an override would reach a Question's words) and the line and paragraph separators (a
+    line breaks only at a line feed or a carriage return). A NUL cannot be stored."""
     return "".join(
-        char if char == "\t" else " " if unicodedata.category(char) == "Cc" else char
+        char
+        if char == "\t"
+        else " "
+        if char in _BIDI or unicodedata.category(char) in ("Cc", "Zl", "Zp")
+        else char
         for char in line
-        if char not in _BIDI
     )
 
 
 def _has_control(line: str) -> bool:
-    """Whether a line held a control character other than a tab (each now a space)."""
-    return any(char != "\t" and unicodedata.category(char) == "Cc" for char in line)
+    """Whether a line held a character `_scrub` makes a space (a tab aside)."""
+    return any(
+        char != "\t" and (char in _BIDI or unicodedata.category(char) in ("Cc", "Zl", "Zp"))
+        for char in line
+    )
 
 
 def _is_number(token: str, recognisers: Recognisers) -> bool:
@@ -461,24 +475,29 @@ def _sheet_line(
     revision: Callable[[str], bool],
     prefixes: frozenset[str],
     *,
+    pattern: str | None = None,
     spaced: bool = False,
 ) -> ListEntry | None:
     cells, tabbed = line
-    if len(cells) > 1 and cells[0].isdecimal() and _prefixed(cells[1], recognisers, prefixes):
-        cells = cells[1:]  # a serial column ("1  S-01  General notes") is set aside
-    number, written = cells[0], None
-    words = number.split()
-    if len(words) > 1 and revision(words[-1]):
-        number, written = number[: number.rfind(words[-1])].strip(), words[-1]  # "S-01 R1" (#100)
+    if (
+        len(cells) > 1
+        and cells[0].isdecimal()
+        and _prefixed(split_revision(cells[1], pattern)[0], recognisers, prefixes)
+    ):
+        cells = cells[1:]  # a serial column ("1  S-01  General notes", "1  S-01 R1  ...") is set aside
+    number, written = split_revision(cells[0], pattern)  # "S-01 R1" (#100)
     if not _number_cell(number, recognisers, prefixes, spaced=tabbed and spaced):
         return None
     if tabbed:
         text = cells[1] if len(cells) > 1 else ""
+        # a revision column wins over a mark written in the number's cell
         mark_cell = next((c for c in reversed(cells[2:]) if revision(c)), written)
-    elif len(cells) > 1 and revision(cells[1]):
-        text, mark_cell = " ".join(cells[2:]), cells[1]  # "S-01 R1 Pile layout plan"
     else:
-        text, mark_cell = " ".join(cells[1:]), None
+        text, mark_cell = " ".join(cells[1:]), written
+        words = text.split(maxsplit=2)
+        for n in (2, 1):  # "S-01 REV A Pile layout plan", "S-01 R1 Pile layout plan"
+            if mark_cell is None and len(words) >= n and revision(" ".join(words[:n])):
+                mark_cell, text = " ".join(words[:n]), " ".join(text.split(maxsplit=n)[n:])
     title = text.strip().lstrip(_SEPARATORS).strip() or None
     return ListEntry(number, index, title=title, revision_mark=mark_cell)
 
