@@ -59,6 +59,8 @@ from engine.read.pdf import READER as PDF_READER
 from engine.read.pdf import READER_VERSION as PDF_READER_VERSION
 from engine.read.pdf import rules as pdf_rules
 from engine.read.pdf.facts import DocumentFacts, PageFacts
+from engine.recognise import storeys
+from engine.recognise.sheets import default_conventions
 from engine.recognise.types import (
     Box,
     CheckOutcome,
@@ -70,6 +72,7 @@ from engine.recognise.types import (
     SheetCandidate,
     SheetLocation,
     Sourced,
+    StoreysMeaning,
     ValueSource,
     ViewCandidate,
     ViewKind,
@@ -138,6 +141,8 @@ class S:
     bangla: int = 0
     """Texts in a Bangla-ANSI font on it (room names)."""
     codes: bool = False
+    date: str = "12.09.2026"
+    """Its issue date, as its title block states it."""
     """Notes holding a drawing's codes (%%C, %%D, %%P, MTEXT's \\P, a stacked ½)."""
 
 
@@ -160,7 +165,7 @@ STRUCTURAL = (
         "GENERAL NOTES",
         (
             V(ViewKind.NOTES, "GENERAL NOTES", (0.03, 0.4, 0.45, 0.95), ("general_notes",)),
-            V(ViewKind.LEGEND, "LEGEND", (0.5, 0.55, 0.68, 0.95), part="structural"),
+            V(ViewKind.LEGEND, "LEGEND", (0.5, 0.55, 0.68, 0.95), ("general_notes",), part="structural"),
             V(ViewKind.SCHEDULE, "DRAWING LIST", (0.72, 0.2, 0.97, 0.95), ("general_notes",)),
         ),
         kind="general_notes",
@@ -231,6 +236,7 @@ STRUCTURAL = (
         (plan("TYPICAL FLOOR SLAB LAYOUT", ("slabs",), storeys="TYPICAL FLOOR"),),
         mark="A",
         mark_source=ValueSource.TITLE_BLOCK_TEXT,
+        date="28.07.2026",
         storeys="TYPICAL FLOOR",
         kind="slab_layout",
     ),
@@ -241,6 +247,7 @@ STRUCTURAL = (
         (plan("TYPICAL FLOOR SLAB LAYOUT", ("slabs",), storeys="TYPICAL FLOOR"),),
         mark="B",
         mark_source=ValueSource.TITLE_BLOCK_TEXT,
+        date="20.08.2026",
         storeys="TYPICAL FLOOR",
         kind="slab_layout",
     ),
@@ -598,7 +605,7 @@ def held_read_anyway(demo: Demo, code: str, project_id: uuid.UUID) -> None:
     printed = services.record_sheets(held.id, [candidate(s, built, held) for s in OLD_ARCHITECTURAL])
     for sheet, view in zip(OLD_ARCHITECTURAL, printed, strict=True):
         demo[f"sheet:{code}:{sheet.label}"] = view.id
-        services.record_views(view.id, views_of(sheet, built.boxes[sheet.label]))
+        services.record_views(view.id, views_of(sheet))
     disagree = agree_codes.DISAGREE(items=96, only_first=80, only_second=16, kinds=1, layers=2, unread=0)
     services.record_reports(
         held.id, cross_check=CheckResult(DECODERS_AGREE, CheckOutcome.FIRED, finding=disagree)
@@ -774,7 +781,7 @@ def dwg(
         demo[f"sheet:{code}:{sheet.label}"] = view.id
         if sheet.kind is not None:
             services.record_kind(view.id, sheet.kind)
-        recorded = services.record_views(view.id, views_of(sheet, built.boxes[sheet.label]))
+        recorded = services.record_views(view.id, views_of(sheet))
         demo[f"views:{code}:{sheet.label}"] = [v.id for v in recorded]
         services.record_render(
             view.id, buffers.build(built.artefact, SheetCandidate(built.places[sheet.label]))
@@ -868,16 +875,18 @@ def candidate(sheet: S, built: _Built, found: services.FileView) -> SheetCandida
         number=read(sheet.number),
         title=read(sheet.title),
         revision_mark=read(sheet.mark, sheet.mark_source),
-        issue_date=read("12.09.2026"),
+        issue_date=read(sheet.date),
         storeys_as_stated=read(sheet.storeys),
         exclusion=Exclusion(sheet.exclusion) if sheet.exclusion else None,
         group=found.group,
     )
 
 
-def views_of(sheet: S, paper: tuple[float, float, float, float]) -> list[ViewCandidate]:
-    x0, y0, x1, y1 = paper
-    width, height = x1 - x0, y1 - y0
+def views_of(sheet: S) -> list[ViewCandidate]:
+    """Its views, each box on paper in mm from the sheet's lower-left corner (the contract of
+    engine/recognise/views.py), wherever the sheet lies in the drawing."""
+    x0, y0 = 0.0, 0.0
+    width, height = PAPER
     shown = []
     for view in sheet.views:
         fx0, fy0, fx1, fy1 = view.box
@@ -893,13 +902,27 @@ def views_of(sheet: S, paper: tuple[float, float, float, float]) -> list[ViewCan
 
 
 def _view(view: V, box: Box) -> ViewCandidate:
+    keys: tuple[str, ...] = ()
+    meaning = None
+    as_stated = view.storeys
+    if view.kind is ViewKind.PLAN and view.title:
+        # As 17 reads a plan's title (engine/recognise/views.py): the storeys it states, stated
+        # beside the title where the title does not hold them (S-08's "PILE CAP TO 2ND FLOOR").
+        read = storeys.read(view.storeys or decode(view.title), default_conventions(), plan_title=True)
+        keys = tuple(dict.fromkeys((*read.keys, *([read.runs_to] if read.runs_to else []))))
+        as_stated = as_stated or read.as_stated
+    if keys:
+        columns = "columns" in view.steps
+        meaning = StoreysMeaning.FLOOR_TO_FLOOR if columns else StoreysMeaning.AT_FLOOR_LEVEL
     return ViewCandidate(
         box=box,
         kind=view.kind,
         title=decode(view.title) if view.title else None,
         not_to_scale=view.nts,
         stated_scale=view.scale,
-        storeys_as_stated=view.storeys,
+        storeys_as_stated=as_stated,
+        storeys=keys,
+        storeys_meaning=meaning,
         steps=view.steps,
         part=view.part,
         exclusion=Exclusion(view.exclusion, view.exclusion_text) if view.exclusion else None,

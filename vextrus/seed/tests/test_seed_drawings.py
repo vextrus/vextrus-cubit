@@ -90,15 +90,11 @@ def test_kr_01_is_at_section_7s_state(demo: Demo) -> None:
 def assert_on_paper(
     box: tuple[str, str, str, str], sheet: services.SheetView, buffers: SheetBuffers
 ) -> None:
-    """A view's box lies on its sheet's paper: inside a laid-out sheet's frame, or a layout's paper."""
+    """A view's box lies on its sheet's paper, in mm from its lower-left corner (the contract of
+    engine/recognise/views.py), whether the sheet is laid out in the drawing or on a layout tab."""
     x0, y0, x1, y1 = (float(v) for v in box)
-    if "box" in sheet.location:
-        fx0, fy0, fx1, fy1 = (float(v) for v in sheet.location["box"])
-    else:
-        paper = buffers.paper
-        fx0, fy0 = paper.origin
-        fx1 = fx0 + paper.width_mm / paper.mm_per_unit
-        fy1 = fy0 + paper.height_mm / paper.mm_per_unit
+    fx0, fy0 = 0.0, 0.0
+    fx1, fy1 = buffers.paper.width_mm, buffers.paper.height_mm
     assert fx0 <= x0 < x1 <= fx1, (sheet.number, box)
     assert fy0 <= y0 < y1 <= fy1, (sheet.number, box)
 
@@ -258,3 +254,64 @@ def test_bp_02s_matched_pdf_is_named_for_the_dwg_it_plots_and_says_why_each_page
     assert pages[0] == {"code": "drawings.reports.pages_matched", "params": {"matched": 4, "pages": 6}}
     unmatched = [line["params"]["page"] for line in pages if "page" in line["params"]]
     assert unmatched == [5, 6]
+
+
+def _kr01_views(demo: Demo) -> list[tuple[services.SheetView, services.ViewView]]:
+    with tenancy.acting_in(demo["developer:shapla"]):
+        sheets = services.sheets(demo["drawing_set:KR-01"])
+        return [(sheet, view) for sheet in sheets for view in services.views(sheet.id)]
+
+
+@pytest.mark.django_db(databases=["default", "owner"])
+def test_every_seeded_view_box_lies_on_its_sheets_paper(demo: Demo) -> None:
+    """A view's box is paper mm from its sheet's lower-left corner (engine/recognise/views.py), never
+    drawing coordinates: every KR-01 sheet is an A1, 841 by 594 mm."""
+    off = [
+        (sheet.number, view.title, view.box)
+        for sheet, view in _kr01_views(demo)
+        if not (
+            0 <= float(view.box[0]) < float(view.box[2]) <= seed_drawings.PAPER[0]
+            and 0 <= float(view.box[1]) < float(view.box[3]) <= seed_drawings.PAPER[1]
+        )
+    ]
+    assert off == []
+
+
+@pytest.mark.django_db(databases=["default", "owner"])
+def test_every_seeded_plan_view_states_its_storeys_with_their_meaning(demo: Demo) -> None:
+    plans = {
+        (sheet.number, sheet.revision_mark, view.title): (tuple(view.storeys), view.storeys_meaning)
+        for sheet, view in _kr01_views(demo)
+        if view.kind == "plan"
+    }
+
+    assert plans[("S-06", "R0", "3RD, 5TH & 7TH FLOOR BEAM LAYOUT")] == (
+        ("floor_3", "floor_5", "floor_7"),
+        "at_floor_level",
+    )
+    assert plans[("S-07", "B", "TYPICAL FLOOR SLAB LAYOUT")] == (("typical",), "at_floor_level")
+    assert plans[("S-07", "A", "TYPICAL FLOOR SLAB LAYOUT")] == (("typical",), "at_floor_level")
+    assert plans[("S-08", "R0", "COLUMN LAYOUT")] == (
+        ("pile_cap", "ground", "floor_1", "floor_2"),  # a range never puts in a foundation (13)
+        "floor_to_floor",
+    )
+    # Every plan holds its storeys and their meaning; one whose title states none, 13's `not_stated`.
+    assert [key for key, (keys, meaning) in plans.items() if not keys or not meaning] == []
+    assert sorted(key[2] for key, (keys, _) in plans.items() if keys == ("not_stated",)) == [
+        "OVERHEAD TANK PLAN",
+        "SITE PLAN",
+    ]
+
+
+@pytest.mark.django_db(databases=["default", "owner"])
+def test_s01s_legend_is_assigned_to_step_2(demo: Demo) -> None:
+    [legend] = [v for s, v in _kr01_views(demo) if s.number == "S-01" and v.kind == "legend"]
+
+    assert (tuple(legend.steps), legend.part) == (("general_notes",), "structural")
+
+
+@pytest.mark.django_db(databases=["default", "owner"])
+def test_the_superseded_s07_is_dated_before_rev_b(demo: Demo) -> None:
+    dates = {s.revision_mark: s.issue_date for s, _ in _kr01_views(demo) if s.number == "S-07"}
+
+    assert dates == {"A": "28.07.2026", "B": "20.08.2026"}
