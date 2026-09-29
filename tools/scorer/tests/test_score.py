@@ -2,6 +2,7 @@
 views and sheets, the normalising, the files inside a run's folder, the system Python it runs on, and
 that no failure shows a key's value. Invented keys and exports only."""
 
+import json
 import os
 import shutil
 import subprocess
@@ -289,3 +290,143 @@ def test_what_runs_on_the_system_python_compiles_there(module: str) -> None:
         check=False,
     )
     assert done.returncode == 0, done.stderr
+
+
+# Fix round 1 of 24s. F2 (70): a key that is a link was followed to a file the owner's user holds.
+
+
+def test_a_key_that_is_a_link_is_refused(tmp_path: Path, capfd: pytest.CaptureFixture[str]) -> None:
+    place = Place(tmp_path)
+    one_sheet(place, plan(), found_plan())
+    key = place.keys / "invented-set.json"
+    held = tmp_path / "owners-copy.json"
+    key.rename(held)
+    key.symlink_to(held)
+
+    assert place.score() == score.REFUSED
+    assert "a link is never followed" in shown(capfd)
+
+
+def test_a_key_others_may_write_is_refused(tmp_path: Path, capfd: pytest.CaptureFixture[str]) -> None:
+    place = Place(tmp_path)
+    one_sheet(place, plan(), found_plan())
+    os.chmod(place.keys / "invented-set.json", 0o666)
+
+    assert place.score() == score.REFUSED
+    assert "not the key user's alone" in shown(capfd)
+
+
+# F3 (70): a run of drawings the key does not key was scored.
+
+
+def keyed_files(place: Place, key_files: dict[str, str], run_files: dict[str, str] | None) -> None:
+    key = json.loads((place.keys / "invented-set.json").read_text()) | {"files": key_files}
+    (place.keys / "invented-set.json").write_text(json.dumps(key))
+    metadata = json.loads((place.run / "metadata.json").read_text())
+    if run_files is not None:
+        metadata["sets"]["invented-set"]["files"] = run_files
+    (place.run / "metadata.json").write_text(json.dumps(metadata))
+
+
+@pytest.mark.parametrize(
+    "run_files",
+    [
+        None,
+        {"sub/invented-aaaa.dwg": "1" * 64},
+        {"invented-aaaa.dwg": "0" * 64, "another.dwg": "2" * 64},
+        {"a/invented-aaaa.dwg": "0" * 64, "b/invented-aaaa.dwg": "0" * 64},
+    ],
+)
+def test_a_run_of_other_drawings_than_the_key_keys_is_refused(
+    tmp_path: Path, capfd: pytest.CaptureFixture[str], run_files: dict[str, str] | None
+) -> None:
+    place = Place(tmp_path)
+    one_sheet(place, plan(), found_plan())
+    keyed_files(place, {"invented-aaaa.dwg": "0" * 64}, run_files)
+
+    assert place.score() == score.REFUSED
+    out = shown(capfd)
+    assert "drawings" in out, out
+    assert " / " not in out
+
+
+def test_a_run_of_exactly_the_keyed_drawings_is_scored(
+    tmp_path: Path, capfd: pytest.CaptureFixture[str]
+) -> None:
+    place = Place(tmp_path)
+    one_sheet(place, plan(file="invented-aaaa.dwg"), found_plan())
+    keyed_files(place, {"invented-aaaa.dwg": "0" * 64}, {"sub/invented-aaaa.dwg": "0" * 64})
+
+    assert place.score() == 0
+    assert "sheets         1 / 1" in shown(capfd)
+
+
+def test_a_key_sheet_joins_only_a_sheet_of_the_drawing_it_names(
+    tmp_path: Path, capfd: pytest.CaptureFixture[str]
+) -> None:
+    place = Place(tmp_path)
+    one_sheet(place, plan(file="another.dwg"), found_plan())
+
+    place.score()
+    assert "the sheet missing" in shown(capfd)
+
+
+# Session 06's ruling 14:20: a model-space sheet's export boxes are scaled by key paper / export paper.
+
+FRAME = [0.0, 0.0, 1000.0, 700.0]
+
+
+def model_space(place: Place, key_paper: object, export_paper: object) -> None:
+    key = key_sheet(
+        "Model", "QZ-901", "Invented plan", "first floor", [key_view(A_BOX, "Plan A")], frame=FRAME
+    )
+    if key_paper is not None:
+        key["paper"] = key_paper
+    half = [n / 2 for n in A_BOX]  # the export drew the sheet on paper half the key's size
+    found = export_sheet(
+        "Model", "QZ-901", "Invented plan", "first floor", [export_view(half, "Plan A")], box=FRAME
+    )
+    if export_paper is not None:
+        found["paper"] = export_paper
+    place.write_keys([key])
+    place.write_run([found])
+
+
+def test_a_model_space_sheets_boxes_are_scaled_by_the_papers(
+    tmp_path: Path, capfd: pytest.CaptureFixture[str]
+) -> None:
+    place = Place(tmp_path)
+    model_space(place, [420, 297], [210, 148.5])
+
+    place.score()
+    out = shown(capfd)
+    assert "views          1 / 1" in out, out
+    assert "paper unknown" not in out
+
+
+@pytest.mark.parametrize(("key_paper", "export_paper"), [(None, [210, 148.5]), ([420, 297], None)])
+def test_a_model_space_sheet_missing_paper_is_unscaled_and_says_so(
+    tmp_path: Path, capfd: pytest.CaptureFixture[str], key_paper: object, export_paper: object
+) -> None:
+    place = Place(tmp_path)
+    model_space(place, key_paper, export_paper)
+
+    place.score()
+    out = shown(capfd)
+    assert "paper unknown" in out, out
+    assert "views          0 / 1" in out, out
+
+
+def test_a_layout_sheets_boxes_are_never_scaled(
+    tmp_path: Path, capfd: pytest.CaptureFixture[str]
+) -> None:
+    place = Place(tmp_path)
+    half = [n / 2 for n in A_BOX]
+    key = plan(paper=[420, 297])
+    found = found_plan([export_view(half, "Plan A")]) | {"paper": [210, 148.5]}
+    one_sheet(place, key, found)
+
+    place.score()
+    out = shown(capfd)
+    assert "views          0 / 1" in out, out
+    assert "paper unknown" not in out

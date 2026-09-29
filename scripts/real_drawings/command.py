@@ -58,6 +58,7 @@ from scripts.real_drawings.source import (
     refusals,
     resolve,
     set_digest,
+    set_files,
     show,
     write_checkout,
 )
@@ -216,7 +217,8 @@ def run(
             raise Refused(f"a Development Set is not where the check reads it: {missing[0]}")
         work = m.cache / "runs" / run_id
         work.mkdir(parents=True)
-        digests = {name: set_digest(folder) for name, folder in sorted(m.sets.items())}
+        listings = {name: set_files(folder) for name, folder in sorted(m.sets.items())}
+        digests = {name: set_digest(m.sets[name], files) for name, files in listings.items()}
         m.say(f"real-drawings {run_id}: {head.target} at {head.commit[:12]}, main at {base.commit[:12]}")
         head_hash, head_exports = measure(m, head, main, work / "head", run_id, digests, fresh)
         main_hash, main_exports = head_hash, head_exports
@@ -234,7 +236,11 @@ def run(
             "main_commit": base.commit,
             "main_code_hash": main_hash,
             "sets": {
-                name: {"set_sha256": digests[name], "export_sha256": _sha(path)}
+                name: {
+                    "set_sha256": digests[name],
+                    "export_sha256": _sha(path),
+                    "files": listings[name],
+                }
                 for name, path in head_exports.items()
             },
             "seconds": round(time.monotonic() - started),

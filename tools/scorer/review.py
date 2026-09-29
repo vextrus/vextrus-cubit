@@ -31,7 +31,7 @@ from typing import Any
 
 from tools.scorer.drafts import problems
 
-LINES = ("layout", "frame", "number", "title", "discipline", "storeys", "revision", "date")
+LINES = ("layout", "frame", "paper", "number", "title", "discipline", "storeys", "revision", "date")
 VIEW_LINES = ("box", "title", "kind", "subject")
 
 

@@ -133,7 +133,7 @@ def test_the_review_page_shows_each_sheets_image_beside_its_numbered_lines(tmp_p
     assert index.parent == folder / "review"
     assert '<img src="img/invented-set.S1.png"' in page
     assert (folder / "review" / "img" / "invented-set.S1.png").read_bytes() == b"invented picture"
-    assert 'data-line="invented-set.S1.L3" data-field="number"' in page
+    assert 'data-line="invented-set.S1.L4" data-field="number"' in page
     assert 'data-line="invented-set.S1.V1.L4" data-field="view 1 subject"' in page
 
 

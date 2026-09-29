@@ -127,15 +127,23 @@ def refusals(checkout: Path, main_pyproject: bytes, dwgread_version: str) -> lis
     return found
 
 
-def set_digest(folder: Path) -> str:
-    """A Drawing Set's content: every regular file's path and sha256 (a link is never followed)."""
-    lines = []
+def set_files(folder: Path) -> dict[str, str]:
+    """A Drawing Set's regular files, by path in the set, and each one's sha256 (a link is never
+    followed); the scorer checks them against the drawings a key keys (ticket 24s)."""
+    files = {}
     for path in sorted(p for p in folder.rglob("*") if p.is_file() and not p.is_symlink()):
         digest = hashlib.sha256()
         with path.open("rb") as file:
             while chunk := file.read(1 << 20):
                 digest.update(chunk)
-        lines.append(f"{digest.hexdigest()} {path.relative_to(folder).as_posix()}\n")
+        files[path.relative_to(folder).as_posix()] = digest.hexdigest()
+    return files
+
+
+def set_digest(folder: Path, files: dict[str, str] | None = None) -> str:
+    """A Drawing Set's content: every regular file's path and sha256 (a link is never followed)."""
+    listing = set_files(folder) if files is None else files
+    lines = [f"{digest} {path}\n" for path, digest in listing.items()]
     return hashlib.sha256("".join(lines).encode()).hexdigest()
 
 

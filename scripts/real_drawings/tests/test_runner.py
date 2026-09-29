@@ -343,6 +343,10 @@ def test_the_scorer_scores_the_folder_the_command_writes(
     metadata = json.loads((world.drop / run_id / "metadata.json").read_text())
     exported = (world.drop / run_id / "export-invented-a.json").read_bytes()
     assert metadata["sets"]["invented-a"]["export_sha256"] == hashlib.sha256(exported).hexdigest()
+    sheet_file = (world.sets["invented-a"] / "sheet-1.bin").read_bytes()
+    assert metadata["sets"]["invented-a"]["files"] == {
+        "sheet-1.bin": hashlib.sha256(sheet_file).hexdigest()
+    }
 
 
 def test_the_launcher_runs_with_a_fixed_environment(tmp_path: Path) -> None:

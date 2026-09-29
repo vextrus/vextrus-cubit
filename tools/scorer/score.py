@@ -99,8 +99,9 @@ class Score:
     totals: `right[field]` of `of[field]`."""
 
     def __init__(self) -> None:
-        # Per key sheet: the export's layout ("" when none joins), the reasons it fails, its extra views.
-        self.sheets: list[tuple[str, list[str], int]] = []
+        # Per key sheet: the export's layout ("" when none joins), the reasons it fails, its extra views
+        # and whether its paper was unknown (a model-space sheet's boxes then go unscaled).
+        self.sheets: list[tuple[str, list[str], int, bool]] = []
         self.right: dict[str, int] = {}
         self.of: dict[str, int] = {}
         self.extra_sheets = 0
@@ -167,8 +168,9 @@ def _scored(
             key = _key(keys, name)
             if key is None:
                 continue  # a set with no key is not scored
-            data = _read(folder, f"export-{name}.json", writer)
             entry = recorded[name]
+            _same_drawings(name, key, entry)
+            data = _read(folder, f"export-{name}.json", writer)
             digest = entry.get("export_sha256") if isinstance(entry, dict) else None
             if hashlib.sha256(data).hexdigest() != digest:
                 raise Refused(f"export-{name}.json is not the export the run recorded")
@@ -229,16 +231,48 @@ def _read(folder: int, name: str, writer: int) -> bytes:
 
 
 def _key(keys: Path, name: str) -> dict[str, Any] | None:
+    """The set's key: a regular file of the scorer's own user that nobody else may write, opened
+    without following a link (a key that is a link could lead to a file the owner's user holds)."""
     try:
-        data = (keys / f"{name}.json").read_bytes()
+        handle = os.open(keys / f"{name}.json", os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     except FileNotFoundError:
         return None
     except OSError:
-        raise Refused(f"the key for {name} cannot be read") from None
-    key = _json(data, f"the key for {name}")
+        raise Refused(f"the key for {name} cannot be read (a link is never followed)") from None
+    try:
+        info = os.fstat(handle)
+        if not stat.S_ISREG(info.st_mode) or info.st_size > MOST:
+            raise Refused(f"the key for {name} is not a plain file")
+        if info.st_uid != os.getuid() or info.st_mode & 0o022:
+            raise Refused(f"the key for {name} is not the key user's alone")
+        chunks = []
+        while chunk := os.read(handle, 1 << 20):
+            chunks.append(chunk)
+    finally:
+        os.close(handle)
+    key = _json(b"".join(chunks), f"the key for {name}")
     if key.get("set") != name or not isinstance(key.get("sheets"), list):
         raise Refused(f"the key for {name} is not a key of that set")
     return key
+
+
+def _same_drawings(name: str, key: dict[str, Any], entry: Any) -> None:
+    """A key that records its drawings (`files: {name: sha256}`, which keys-custody.sh requires) scores
+    only a run that read exactly those drawings, as the run's metadata records them by sha256."""
+    keyed = key.get("files")
+    if keyed is None:
+        return
+    ran = entry.get("files") if isinstance(entry, dict) else None
+    if not isinstance(keyed, dict) or not isinstance(ran, dict):
+        raise Refused(f"the run of {name} records no drawings to check against its key")
+    by_name: dict[str, str] = {}
+    for path, digest in ran.items():
+        base = str(path).rsplit("/", 1)[-1]
+        if base in by_name:
+            raise Refused(f"the run of {name} read two drawings of one name")
+        by_name[base] = str(digest).lower()
+    if by_name != {str(k): str(v).lower() for k, v in keyed.items()}:
+        raise Refused(f"the run of {name} read other drawings than its key keys")
 
 
 def _json(data: bytes, what: str) -> dict[str, Any]:
@@ -253,14 +287,16 @@ def _json(data: bytes, what: str) -> dict[str, Any]:
 
 def _score(key: dict[str, Any], export: dict[str, Any]) -> Score:
     score = Score()
-    found = [
-        sheet
+    pairs = [
+        (file.get("name"), sheet)
         for file in export.get("files") or []
+        if isinstance(file, dict)
         for sheet in (file.get("sheets") or [])
         if isinstance(sheet, dict)
     ]
+    found = [sheet for _, sheet in pairs]
     keyed = [sheet for sheet in key["sheets"] if isinstance(sheet, dict)]
-    joined = _join_sheets(keyed, found)
+    joined = _join_sheets(keyed, found, [origin for origin, _ in pairs])
     score.extra_sheets = len(found) - len(joined)
     for index, sheet in enumerate(keyed):
         match = joined.get(index)
@@ -271,7 +307,7 @@ def _score(key: dict[str, Any], export: dict[str, Any]) -> Score:
                 score.count(field, False)
             for _view in views:
                 score.count("views", False)
-            score.sheets.append(("", ["the sheet missing"], 0))
+            score.sheets.append(("", ["the sheet missing"], 0, False))
             continue
         other = found[match]
         reasons = []
@@ -280,13 +316,42 @@ def _score(key: dict[str, Any], export: dict[str, Any]) -> Score:
             score.count(field, right)
             if not right:
                 reasons.append(reason)
-        found_views = [v for v in other.get("views") or [] if isinstance(v, dict)]
+        # Session 06's ruling 14:20: a model-space sheet's (a keyed frame's) export boxes are scaled by
+        # the key's paper over the export's before the IoU; a layout sheet's never are.
+        scale, unknown = (1.0, 1.0), False
+        if sheet.get("frame") is not None:
+            ratio = _paper_ratio(sheet.get("paper"), other.get("paper"))
+            scale, unknown = ratio or scale, ratio is None
+        found_views = [_scaled(v, scale) for v in other.get("views") or [] if isinstance(v, dict)]
         wrong, extra = _score_views(score, views, found_views)
         reasons += wrong
         score.count("sheets", not reasons)
         layout = (other.get("location") or {}).get("layout")
-        score.sheets.append((layout if isinstance(layout, str) else "", reasons, extra))
+        score.sheets.append((layout if isinstance(layout, str) else "", reasons, extra, unknown))
     return score
+
+
+def _paper_ratio(key: Any, found: Any) -> tuple[float, float] | None:
+    """Key paper over export paper, (x, y), when both are `[w, h]` in mm; None when either is not."""
+    sizes = []
+    for paper in (key, found):
+        if not isinstance(paper, list) or len(paper) != 2:
+            return None
+        if not all(isinstance(n, (int, float)) and not isinstance(n, bool) and n > 0 for n in paper):
+            return None
+        sizes.append((float(paper[0]), float(paper[1])))
+    (kw, kh), (fw, fh) = sizes
+    return kw / fw, kh / fh
+
+
+def _scaled(view: dict[str, Any], scale: tuple[float, float]) -> dict[str, Any]:
+    box = view.get("box")
+    if scale == (1.0, 1.0) or not isinstance(box, list) or len(box) != 4:
+        return view
+    if not all(isinstance(n, (int, float)) and not isinstance(n, bool) for n in box):
+        return view
+    sx, sy = scale
+    return view | {"box": [box[0] * sx, box[1] * sy, box[2] * sx, box[3] * sy]}
 
 
 def _score_views(
@@ -334,9 +399,11 @@ def _counted(n: int, one: str, many: str) -> str:
     return one if n == 1 else f"{n} {many}"
 
 
-def _join_sheets(keyed: list[dict[str, Any]], found: list[dict[str, Any]]) -> dict[int, int]:
-    """Key sheet index to export sheet index: on the layout; on the frame's IoU when several export
-    sheets share the layout."""
+def _join_sheets(
+    keyed: list[dict[str, Any]], found: list[dict[str, Any]], origins: list[Any]
+) -> dict[int, int]:
+    """Key sheet index to export sheet index: within the key sheet's drawing file when it names one, on
+    the layout; on the frame's IoU when several export sheets share the layout."""
     by_layout: dict[Any, list[int]] = {}
     for f, sheet in enumerate(found):
         by_layout.setdefault((sheet.get("location") or {}).get("layout"), []).append(f)
@@ -344,6 +411,8 @@ def _join_sheets(keyed: list[dict[str, Any]], found: list[dict[str, Any]]) -> di
     for k, sheet in enumerate(keyed):
         layout = sheet.get("layout")
         candidates = by_layout.get(layout, []) if isinstance(layout, str) else []
+        if isinstance(sheet.get("file"), str):
+            candidates = [f for f in candidates if origins[f] == sheet["file"]]
         if len(candidates) == 1:
             pairs.append((1.0, k, candidates[0]))
         elif sheet.get("frame") is not None:
@@ -414,11 +483,13 @@ def _answer(name: str, held_out: bool, score: Score) -> list[str]:
     """What the call shows: per sheet for a Development Set, and always the totals, last."""
     lines = [f"{name}: {'a Held-out Set, in aggregate only' if held_out else 'a Development Set'}"]
     if not held_out:
-        for n, (layout, reasons, extra) in enumerate(score.sheets, 1):
+        for n, (layout, reasons, extra, unknown) in enumerate(score.sheets, 1):
             where = f" (layout {layout})" if layout else ""
             said = "pass" if not reasons else "fail: " + ", ".join(reasons)
             if extra:
                 said += f"; {'an extra view' if extra == 1 else f'{extra} extra views'}"
+            if unknown:
+                said += "; paper unknown"
             lines.append(f"  sheet {n}{where}: {said}")
         lines.append(
             f"  extra sheets {score.extra_sheets}, extra views {score.extra_views} (in the export only)"
