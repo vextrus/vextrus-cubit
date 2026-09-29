@@ -372,6 +372,7 @@ def test_not_read_in_full_words_every_view_limit_apart() -> None:
     [entry] = [e for e in po.read_text().split("\n\n") if "takeoff.read_file.not_read_in_full" in e]
     worded = dict(re.findall(r"(\w+) \{([^{}]*)\}", entry.split("msgstr", 1)[1]))
     assert set(sheets.VIEW_LIMITS) <= set(worded)
+    assert set(sheets.SHEETS_STEP_LIMITS) | set(sheets.SHEET_STEP_LIMITS) <= set(worded)
     assert not set(sheets.VIEW_LIMITS) & set(finder.LIMITS), "a view limit's key is a sheet limit's"
 
 
