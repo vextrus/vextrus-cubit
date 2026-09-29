@@ -110,8 +110,8 @@ class Recognisers:
     """13's readers, bound to a set's conventions by the caller: how conflicts and Checks read a sheet
     number or a title's storeys (never with a parser of their own).
 
-    Until 13 merges, tests pass hand-made stand-ins (engine/recognise/tests/stand_ins.py) and the
-    harness path, `recognisers(conventions)`, raises `NotWired` when a reader is called.
+    Tests pass hand-made stand-ins (engine/recognise/tests/stand_ins.py) where they test 19b's rules;
+    the harness path, `recognisers(conventions)`, binds 13's own readers.
     """
 
     sequence: Callable[[str], NumberParts | None]
@@ -124,23 +124,43 @@ class Recognisers:
     """Whether a storey key is one Step 3 resolves (13's "typical", "top" and "not stated")."""
 
 
-class NotWired(RuntimeError):
-    """13's readers are not wired into the harness path yet (19b's part 2 wires them)."""
+SYMBOLIC = frozenset({"typical", "top", "not_stated"})
+"""The storey keys Step 3 resolves, as 13's `storeys.py` spells them (the orchestrator's fixed
+spellings of 29 Sep 2026; 13's module exports no set of them): "typical (range from Step 3)", the
+symbolic end "top", and "not stated"."""
 
 
 def recognisers(conventions: SheetConventions | None) -> Recognisers:
     """13's readers bound to `conventions`: how the harness's two 19b stages read.
 
-    13 (sheet segmentation) builds `sheets.sequence(number, conventions)` and `storeys.read(text,
-    conventions, *, plan_title)`, and 19b merges after it; its part 2 wires them here. Until then each
-    reader raises `NotWired` when it is called, so a stage that needs one fails by name, while a set
-    with no sheets, or a Check that reads neither, runs.
+    - `sequence`: 13's `sheets.sequence(number, conventions)`;
+    - `storeys`: 13's `storeys.read(text, conventions, plan_title=True)`, its explicit keys and the
+      symbolic end a range runs to (`runs_to`); a sheet's title is read as a plan's, since the
+      storey Check compares only sheets with plan views;
+    - `symbolic`: whether a key is one of `SYMBOLIC`.
+
+    With no conventions (a run with no sheet conventions reads no sheets) a reader that is called
+    refuses: numbers are read under the conventions the sheets were read with.
     """
+    from engine.recognise import sheets, storeys  # 13's, imported where they are used
 
-    def not_wired(_: str) -> NoReturn:
-        raise NotWired("13's sheets.sequence and storeys.read are not wired into 19b's stages yet")
+    if conventions is None:
 
-    return Recognisers(sequence=not_wired, storeys=not_wired, symbolic=not_wired)
+        def unbound(_: str) -> NoReturn:
+            raise ValueError("a number or a storey is read under the sheets' conventions; none given")
+
+        return Recognisers(sequence=unbound, storeys=unbound, symbolic=SYMBOLIC.__contains__)
+    bound = conventions
+
+    def title_storeys(text: str) -> tuple[str, ...]:
+        read = storeys.read(text, bound, plan_title=True)
+        return (*read.keys, *([read.runs_to] if read.runs_to else []))
+
+    return Recognisers(
+        sequence=lambda number: sheets.sequence(number, bound),
+        storeys=title_storeys,
+        symbolic=SYMBOLIC.__contains__,
+    )
 
 
 def find(

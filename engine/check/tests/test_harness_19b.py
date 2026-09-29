@@ -196,30 +196,35 @@ def test_the_harness_runs_19bs_two_stages_and_writes_a_valid_export(
     assert all(c["finding"] is None for c in document["checks"] if c["outcome"] == "passed")
 
 
-def test_without_13s_readers_the_stages_fail_by_name_and_the_export_holds(
+def test_with_13s_own_readers_the_harness_finds_the_same_conflicts_and_continuations(
     tmp_path: Path,
     fakes: Callable[..., tuple[Stage, ...]],  # noqa: F811
     conventions: Path,  # noqa: F811
 ) -> None:
+    """Part 2: the harness path reads numbers and storeys with 13's `sheets.sequence` and
+    `storeys.read`, bound to the run's conventions (no stand-in)."""
     stages = real_two(fakes(sheets=SHEETS, views=VIEWS, register=REGISTER, pdf=PDF, plot=PLOT))
 
     document = read_set(tmp_path, stages, conventions)
 
     assert validate(document, load_schema()) == []
-    for name in ("conflicts", "checks"):
-        report = document["set_stages"][name]
-        assert report["state"] == "failed"
-        assert report["error"].startswith("NotWired: 13's sheets.sequence and storeys.read")
-    assert document["conflicts"] == document["continuations"] == document["checks"] == []
+    states = {n: r["state"] for n, r in document["set_stages"].items()}
+    assert (states["conflicts"], states["checks"]) == ("ok", "ok")
+    assert [c["title"] for c in document["continuations"]] == ["Column schedule"]
+    assert [c["kind"] for c in document["conflicts"]] == ["same_number", "same_storey"]
+    fired = {(c["code"], c["finding"]["code"]) for c in document["checks"] if c["finding"]}
+    assert ("register", "engine.register_check.not_found") in fired
+    assert ("coverage", "engine.coverage.unaccounted_untitled") in fired
 
 
-def test_before_13_merges_both_stages_are_skipped_for_want_of_sheets(
+def test_with_no_sheets_stage_both_stages_are_skipped_for_want_of_sheets(
     tmp_path: Path,
     fakes: Callable[..., tuple[Stage, ...]],  # noqa: F811
     conventions: Path,  # noqa: F811
 ) -> None:
+    """What the real-drawing check showed before 13 merged: a sheets stage not built skips both."""
     stages = tuple(
-        replace(s, target="engine.recognise.sheets:find") if s.name == "sheets" else s
+        replace(s, target="absent_sheets_19b:find") if s.name == "sheets" else s
         for s in real_two(fakes())
     )
 

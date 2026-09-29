@@ -9,7 +9,6 @@ import pytest
 
 from engine.check import catalogue
 from engine.check.catalogue import CatalogueError, Entry, entries, run, run_all, scan
-from engine.recognise.conflicts import NotWired
 from engine.recognise.tests.candidates import plan, sheet, view
 from engine.recognise.tests.stand_ins import stand_ins
 from engine.recognise.types import (
@@ -218,15 +217,33 @@ def test_every_set_check_runs_in_code_order_on_one_reading() -> None:
     ]
 
 
-def test_the_harness_path_runs_and_waits_for_13s_readers_where_it_needs_them() -> None:
+def test_the_harness_path_runs_with_13s_readers() -> None:
+    """Part 2: `run_all` binds 13's readers to the reading's conventions."""
     assert run_all(SetReading()) == []
     coverage_only = SetReading(sheets=(sheet("S-01"),), views=((view(),),), read=frozenset({"views"}))
     assert [r.code for r in run_all(coverage_only)] == ["coverage"]
     numbered = SetReading(
-        sheets=(sheet("S-01"),), views=((),), read=frozenset({"register"}), conventions=CONVENTIONS
+        sheets=(sheet("S-01"), sheet("S-02"), sheet("S-05")),
+        views=((), (), ()),
+        read=frozenset({"register"}),
+        conventions=CONVENTIONS,
     )
-    with pytest.raises(NotWired):
-        run_all(numbered)
+    gaps = [r.finding for r in run_all(numbered) if r.finding is not None]
+    assert gaps == [
+        {
+            "code": "engine.register_check.gap",
+            "params": {"after": "S-02", "before": "S-05", "missing": 2, "discipline": "structural"},
+        }
+    ]
+    storeys = SetReading(
+        sheets=(sheet("S-06", "Beams", storeys="3RD, 5TH & 7TH FLOOR"),),
+        views=((plan(["floor_3", "floor_5", "floor_7"]),),),
+        read=frozenset({"views"}),
+        conventions=CONVENTIONS,
+    )
+    assert [(r.code, str(r.outcome)) for r in run_all(storeys) if r.code == "storey_titles"] == [
+        ("storey_titles", "passed")
+    ]
 
 
 def test_the_harness_stage_is_run_all() -> None:

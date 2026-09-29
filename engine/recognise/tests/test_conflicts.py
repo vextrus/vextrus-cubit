@@ -450,14 +450,18 @@ def test_one_view_object_on_two_sheets_is_refused() -> None:
         run([sheet("S-1"), sheet("S-2")], [[view], [view]])
 
 
-def test_the_harness_path_waits_for_13s_readers_and_needs_the_conventions() -> None:
+def test_the_harness_path_reads_with_13s_readers_and_needs_the_conventions() -> None:
+    """Part 2: `find` binds 13's `sheets.sequence` to the run's conventions."""
     conventions = SheetConventions(disciplines=(DisciplineConvention("structural", ("S",)),))
     one = [sheet("S-01", "Notes")]
     assert find([sheet(None, "Notes")], [()], conventions) == []  # no number to read
-    with pytest.raises(conflicts.NotWired, match="not wired"):
-        find(one, [()], conventions)  # every number is read, for `same_number` too
-    with pytest.raises(conflicts.NotWired, match="not wired"):
-        find([sheet("S-01", "Notes"), sheet("S-05", "Notes")], [(), ()], conventions)
+    assert find(one, [()], conventions) == []
+    ruled = [sheet(n, "Notes") for n in ("S1-01", "S1-02", "S-01/1", "S-01/2")]
+    found = find(ruled, [()] * 4, conventions)
+    assert [len(c.sheets) for c in found if isinstance(c, Continuation)] == [2, 2]
+    assert [c.kind for c in found if isinstance(c, Conflict)] == ["same_title"]
+    [conflict] = conflicts_of(find([sheet("13"), sheet("S-13")], [(), ()], conventions))
+    assert conflict.evidence == {"number": "13", "copies": 2}
     with pytest.raises(ValueError, match="conventions"):
         find(one, [()], None)
 

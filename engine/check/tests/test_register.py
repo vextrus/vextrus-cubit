@@ -393,9 +393,14 @@ def test_parse_is_bounded() -> None:
 
 
 def test_the_revision_mark_pattern_meets_only_short_cells() -> None:
-    evil = SheetConventions(revision_mark_pattern=r"(a+)+b")  # backtracks on a run of a letters
-    result = parse("S-01\tNotes\t" + "a" * 40, evil, recognisers=READERS)
-    assert result.entries == (ListEntry("S-01", 1, "Notes"),)
+    """13's conventions refuse a pattern that backtracks (`(a+)+b`); the cells a pattern meets are
+    bounded here too (`MARK_LIMIT`), so a long cell is never tried."""
+    marks = SheetConventions(revision_mark_pattern=r"R\d{1,30}")
+    long_mark = "R" + "0" * register.MARK_LIMIT
+    [entry] = parse(f"S-01\tNotes\t{long_mark}", marks, recognisers=READERS).entries
+    assert entry.revision_mark is None
+    [entry] = parse("S-01\tNotes\tR02", marks, recognisers=READERS).entries
+    assert entry.revision_mark == "R02"
     assert parse("S-01\tNotes\tx\t", SheetConventions(), recognisers=READERS).entries == (
         ListEntry("S-01", 1, "Notes"),
     )
