@@ -288,16 +288,7 @@ class DrawingFile(models.Model):
     read_tries = models.PositiveSmallIntegerField(
         default=0, help_text="The tries its reading took, when it ended without a job to say so."
     )
-    finding = models.JSONField(
-        null=True,
-        blank=True,
-        help_text="Why it is held or failed, or the first limit that cut its reading: a message.",
-    )
-    limit_lines = models.JSONField(
-        default=list,
-        blank=True,
-        help_text="Every limit that cut its reading, each once, in the job's order: messages.",
-    )
+    finding = models.JSONField(null=True, blank=True, help_text="Why it is held or failed: a message.")
     held_answer = models.CharField(max_length=16, choices=HeldAnswer.choices, blank=True, default="")
     cross_check = models.JSONField(null=True, blank=True)
     upload_report = models.JSONField(null=True, blank=True)

@@ -23,10 +23,11 @@ itself; a refusal is an `auth.Refused` with a `drawings.reads.*` code, and keeps
 - **A file's end** is written under the file's row lock and only while it is waiting or reading: a
   file cancelled meanwhile stays cancelled (the step then rolls back, since its job is cancelled).
   `mark_read` belongs in the last step's transaction; it is given every limit that cut the reading
-  ("not read in full", each once, in the job's order): the first is the file's finding, and the
-  report's sheets section says each. A file read in full has no finding and no limit. A file that
-  could not be read ends failed with its finding (`mark_failed`); for "Try again" to read it again
-  the job must end failed too (a succeeded job is never restarted: 09's `restart`).
+  ("not read in full", each once, in the job's order): the first is the file's finding. The step
+  that marks a DWG read (`FINISHING`) keeps them all in its result's `not_read_in_full`, and the
+  report's sheets section says each from there. A file read in full has no finding and no limit.
+  A file that could not be read ends failed with its finding (`mark_failed`); for "Try again" to
+  read it again the job must end failed too (a succeeded job is never restarted: 09's `restart`).
 """
 
 import json
@@ -321,11 +322,7 @@ def attach_read_job(file_id: uuid.UUID, job_id: int) -> None:
 def mark_read(file_id: uuid.UUID, cut: Sequence[Message] = ()) -> drawing_files.FileView:
     """The file is read (in the last step's transaction). A file cancelled meanwhile stays so.
     `cut`: every limit that cut its reading, in the job's order (see the module)."""
-    lines: list[Message] = []
-    for line in cut:
-        if line not in lines:
-            lines.append(line)
-    return _end(file_id, ReadStatus.READ, lines[0] if lines else None, limit_lines=lines)
+    return _end(file_id, ReadStatus.READ, cut[0] if cut else None)
 
 
 def quarantine(file_id: uuid.UUID, finding: Message) -> drawing_files.FileView:
@@ -357,12 +354,7 @@ def answer_held(file_id: uuid.UUID, answer: HeldAnswer | str) -> drawing_files.F
 
 
 def _end(
-    file_id: uuid.UUID,
-    status: ReadStatus,
-    finding: Message | None,
-    *,
-    tries: int = 0,
-    limit_lines: Sequence[Message] = (),
+    file_id: uuid.UUID, status: ReadStatus, finding: Message | None, *, tries: int = 0
 ) -> drawing_files.FileView:
     with transaction.atomic():
         row = _access.drawing_file(file_id, lock=True)
@@ -370,18 +362,8 @@ def _end(
             row.read_status = status
             row.read_step = ""
             row.finding = None if finding is None else _text.read_json(dict(finding))
-            row.limit_lines = [_text.read_json(dict(line)) for line in limit_lines]
             row.read_tries = tries
             if status == ReadStatus.READ and row.sheets_total is not None:
                 row.sheets_done = row.sheets_total
-            row.save(
-                update_fields=[
-                    "read_status",
-                    "read_step",
-                    "finding",
-                    "limit_lines",
-                    "read_tries",
-                    "sheets_done",
-                ]
-            )
+            row.save(update_fields=["read_status", "read_step", "finding", "read_tries", "sheets_done"])
     return drawing_files.file(row.id)

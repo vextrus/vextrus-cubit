@@ -33,6 +33,7 @@ from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from engine.check import bangla_ansi, decoders_agree
 from engine.check.bangla_ansi import BanglaAnsi
@@ -228,11 +229,14 @@ def _finish(
     flagged = use.bangla_ansi(artefact)
     drawings.record_reports(file_id, font_report=font_report, bangla_ansi=flagged)
     view = drawings.mark_read(file_id, not_read_in_full)
-    return {
+    result: dict[str, Any] = {
         "fonts": len(font_report.fonts),
         "bangla_ansi_texts": len(flagged.texts),
         "state": str(view.state),
+        # Every limit that cut the reading: the report's sheets section says each from here.
+        "not_read_in_full": list(not_read_in_full),
     }
+    return result
 
 
 def _mark_read(file_id: uuid.UUID) -> jobs.StepResult:

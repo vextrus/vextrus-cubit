@@ -311,22 +311,24 @@ def limit(name: str) -> Any:
     return {"code": "takeoff.read_file.not_read_in_full", "params": {"limit": name}}
 
 
-def test_a_read_cut_by_limits_names_the_first_and_its_report_says_each_once(
+def test_a_read_cut_by_limits_names_the_first_and_its_report_says_each_from_the_last_finishing(
     dwg: tuple[Member, services.FileView],
 ) -> None:
     member, found = dwg
+    store = services.step_store()
+    cut = [limit("pair_budget"), limit("views_scan_budget")]
     with member.acting():
-        read = services.mark_read(
-            found.id, [limit("pair_budget"), limit("views_scan_budget"), limit("pair_budget")]
-        )
+        store.record(jobs.StepKey(found.id, services.FINISHING, "a" * 64), {"not_read_in_full": cut})
+        read = services.mark_read(found.id, cut)
         report = services.report(found.id)
+        # Another reading's finishing step, later (another reader version), cut by nothing.
+        store.record(jobs.StepKey(found.id, services.FINISHING, "b" * 64), {"not_read_in_full": []})
+        later = services.report(found.id)
     assert read.state == "read"
     assert read.finding == limit("pair_budget")
     assert report.file.finding == limit("pair_budget")
-    assert [m for m in report.sheets if m["code"] == limit("")["code"]] == [
-        limit("pair_budget"),
-        limit("views_scan_budget"),
-    ]
+    assert [m for m in report.sheets if m["code"] == limit("")["code"]] == cut
+    assert [m for m in later.sheets if m["code"] == limit("")["code"]] == []
 
 
 def test_a_file_read_in_full_or_ended_otherwise_has_no_limit(qs_project: QsProject) -> None:
