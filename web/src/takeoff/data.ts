@@ -71,6 +71,18 @@ export function drawingListQuery(projectId: string, discipline: string) {
   })
 }
 
+/** The Drawing Set's files by id, named as the QS added them (a held file's Question names it). */
+export function fileNamesQuery(projectId: string) {
+  return queryOptions({
+    queryKey: [...step1Key(projectId), 'file-names'],
+    queryFn: async (): Promise<Record<string, string>> => {
+      const out = await unwrap(api.GET('/api/projects/{project_id}/drawings/files', path(projectId)))
+      return Object.fromEntries(out.files.map((f) => [f.id, f.name]))
+    },
+    retry: false,
+  })
+}
+
 /** A printed sheet's render buffer (14): fetched when its sheet opens, kept while the screen is. */
 export function renderQuery(projectId: string, sheetId: string) {
   return queryOptions({
@@ -94,6 +106,8 @@ export interface Step1Data {
   progress: ProgressOut
   /** The standing drawing list per Discipline present, when read. */
   lists: Readonly<Record<string, DrawingListOut | undefined>>
+  /** The files' names by id; empty until read, or when they cannot be. */
+  fileNames?: Readonly<Record<string, string>>
 }
 
 /** Everything Step 1 shows, or the first load's error. */
@@ -104,6 +118,7 @@ export function useStep1(projectId: string): { data: Step1Data | null; error: un
   const progress = useQuery(progressQuery(projectId))
   const disciplines = progress.data?.disciplines.map((d) => d.discipline).filter((d): d is string => d !== null) ?? []
   const lists = useQueries({ queries: disciplines.map((d) => drawingListQuery(projectId, d)) })
+  const fileNames = useQuery(fileNamesQuery(projectId))
   const all = [proposals, questions, coverage, progress]
   const error = all.find((q) => q.error)?.error ?? null
   const retryAll = () => {
@@ -115,7 +130,14 @@ export function useStep1(projectId: string): { data: Step1Data | null; error: un
     byDiscipline[d] = lists[i]?.data
   })
   return {
-    data: { proposals: proposals.data, questions: questions.data, coverage: coverage.data, progress: progress.data, lists: byDiscipline },
+    data: {
+      proposals: proposals.data,
+      questions: questions.data,
+      coverage: coverage.data,
+      progress: progress.data,
+      lists: byDiscipline,
+      fileNames: fileNames.data ?? {},
+    },
     error,
     retry: retryAll,
   }

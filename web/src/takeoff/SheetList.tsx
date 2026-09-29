@@ -6,13 +6,13 @@
  * the focused sheet; the screen owns the keys); a click focuses a row, a double-click opens it.
  */
 import { forwardRef, type ReactNode } from 'react'
-import { Trans, useLingui } from '@lingui/react/macro'
+import { Plural, Trans, useLingui } from '@lingui/react/macro'
 import { useFormat } from '@/format'
 import { DrawingText, StatusMark, cn } from '@/ui'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/primitives/tooltip'
 import type { ProposalOut } from './data'
 import { rowState, type DisciplineSection, type Row, type Step1Model } from './model'
-import { DISCIPLINE_NAMES, NOT_RECEIVED_NAMES, OTHER_DISCIPLINE, OTHER_QUESTION, QUESTION_KINDS, REASON_SHORT, UNKNOWN_REASON } from './words'
+import { DISCIPLINE_NAMES, NOT_RECEIVED_NAMES, OTHER_DISCIPLINE, OTHER_QUESTION, QUESTION_KIND_BY_CODE, REASON_SHORT, UNKNOWN_REASON } from './words'
 
 export interface SheetListProps {
   model: Step1Model
@@ -41,7 +41,7 @@ export const SheetList = forwardRef<HTMLDivElement, SheetListProps>(function She
           <Trans>Discipline</Trans>
         </span>
         <span role="columnheader">
-          <Trans>Revision</Trans>
+          <Trans>Revision and date</Trans>
         </span>
         <span role="columnheader">
           <Trans>State</Trans>
@@ -51,11 +51,12 @@ export const SheetList = forwardRef<HTMLDivElement, SheetListProps>(function She
       {model.needsYou.length > 0 ? (
         <Section
           tone="question"
-          heading={<Trans>Needs you: {questions} Questions open, in the order Enter takes them</Trans>}
+          heading={<Plural value={questions} one="Needs you: # Question open, in the order Enter takes it" other="Needs you: # Questions open, in the order Enter takes them" />}
           rows={model.needsYou}
           focused={focused}
           onFocusRow={onFocusRow}
           onOpenRow={onOpenRow}
+          names={model.fileNames}
         />
       ) : null}
 
@@ -66,6 +67,7 @@ export const SheetList = forwardRef<HTMLDivElement, SheetListProps>(function She
           focused={focused}
           onFocusRow={onFocusRow}
           onOpenRow={onOpenRow}
+          names={model.fileNames}
         />
       ) : null}
 
@@ -82,7 +84,7 @@ export const SheetList = forwardRef<HTMLDivElement, SheetListProps>(function She
               ) : (
                 <Settled section={d} />
               )}
-              {onPasteList ? (
+              {onPasteList && d.list?.source !== 'sheet' ? (
                 <button type="button" tabIndex={-1} onClick={() => onPasteList(d.discipline)} className="text-primary underline-offset-2 hover:underline">
                   {d.list && d.list.source !== 'sheet' ? <Trans>The pasted drawing list</Trans> : <Trans>Paste the drawing list</Trans>}
                 </button>
@@ -93,6 +95,7 @@ export const SheetList = forwardRef<HTMLDivElement, SheetListProps>(function She
           focused={focused}
           onFocusRow={onFocusRow}
           onOpenRow={onOpenRow}
+          names={model.fileNames}
         />
       ))}
 
@@ -180,16 +183,29 @@ function HeadingRest({ section }: { section: DisciplineSection }) {
   if (!run) return <Trans>found; no drawing list; the numbers do not run in one series</Trans>
   const first = <DrawingText kind="sheet-number" text={run.first} truncate={false} />
   const last = <DrawingText kind="sheet-number" text={run.last} truncate={false} />
-  if (run.missing.length === 0)
+  if (run.missing.length === 0 && run.twice.length === 0)
     return (
       <Trans>
         found; no drawing list; numbering runs {first}–{last} without a gap
       </Trans>
     )
-  const missing = run.missing.slice(0, 6).join(', ')
+  const listed = <Numbers numbers={run.missing} />
+  const twice = <Numbers numbers={run.twice} />
+  if (run.missing.length === 0)
+    return (
+      <Trans>
+        found; no drawing list; numbering runs {first}–{last}; {twice} twice
+      </Trans>
+    )
+  if (run.twice.length === 0)
+    return (
+      <Trans>
+        found; no drawing list; numbering runs {first}–{last}; {listed} missing
+      </Trans>
+    )
   return (
     <Trans>
-      found; no drawing list; numbering runs {first}–{last}; {missing} missing
+      found; no drawing list; numbering runs {first}–{last}; {listed} missing; {twice} twice
     </Trans>
   )
 }
@@ -202,6 +218,7 @@ function Section({
   focused,
   onFocusRow,
   onOpenRow,
+  names,
 }: {
   heading: ReactNode
   side?: ReactNode
@@ -210,6 +227,7 @@ function Section({
   focused: string | null
   onFocusRow: (key: string) => void
   onOpenRow: (key: string) => void
+  names: Readonly<Record<string, string>>
 }) {
   return (
     <div role="rowgroup">
@@ -223,7 +241,7 @@ function Section({
         {side ? <span>{side}</span> : null}
       </div>
       {rows.map((row) => (
-        <SheetRow key={row.key} row={row} focused={focused === row.key} tabbable={focused === row.key || (focused === null && row === rows[0])} onFocus={onFocusRow} onOpen={onOpenRow} />
+        <SheetRow key={row.key} row={row} focused={focused === row.key} tabbable={focused === row.key || (focused === null && row === rows[0])} onFocus={onFocusRow} onOpen={onOpenRow} names={names} />
       ))}
     </div>
   )
@@ -311,18 +329,40 @@ function State({ row }: { row: Row }) {
   )
 }
 
+/** "14 and 31", "S-14, S-15 and S-31", "…, and 4 more" (at most six named). */
+function Numbers({ numbers }: { numbers: readonly string[] }) {
+  const shown = numbers.slice(0, 6)
+  const more = numbers.length - shown.length
+  const items = shown.map((n) => <DrawingText key={n} kind="sheet-number" text={n} truncate={false} />)
+  if (items.length === 1) return items[0]!
+  const head = items.slice(0, -1).flatMap((el, i) => (i === 0 ? [el] : [', ', el]))
+  const tail = items.at(-1)!
+  if (more > 0) {
+    const rest = <>{items.flatMap((el, i) => (i === 0 ? [el] : [', ', el]))}</>
+    return <Trans>{rest}, and {more} more</Trans>
+  }
+  const start = <>{head}</>
+  return (
+    <Trans>
+      {start} and {tail}
+    </Trans>
+  )
+}
+
 function SheetRow({
   row,
   focused,
   tabbable,
   onFocus,
   onOpen,
+  names,
 }: {
   row: Row
   focused: boolean
   tabbable: boolean
   onFocus: (key: string) => void
   onOpen: (key: string) => void
+  names: Readonly<Record<string, string>>
 }) {
   const { i18n } = useLingui()
   const f = useFormat()
@@ -330,13 +370,18 @@ function SheetRow({
   const excluded = row.sheets.length > 0 && row.sheets.every((s) => s.decision === 'excluded')
   const count = f.integer(row.sheets.length)
   let title: ReactNode
-  if (row.kind === 'file') title = i18n._(QUESTION_KINDS.file_misread ?? OTHER_QUESTION)
-  else if (row.kind === 'entry')
-    title = (
-      <span className="text-muted-foreground">
-        <Trans>On the drawing list, in no file. It stays in the count.</Trans>
-      </span>
+  const q = row.question?.question
+  const file = q?.subject_id ? names[q.subject_id] : undefined
+  if (row.kind === 'file')
+    title = file ? (
+      <Trans>
+        <DrawingText kind="file-name" text={file} /> Held: the two readers disagree
+      </Trans>
+    ) : (
+      <Trans>A file is held: the two readers disagree</Trans>
     )
+  else if (row.kind === 'entry')
+    title = <span className="text-muted-foreground">{i18n._((q && QUESTION_KIND_BY_CODE[q.code]) || OTHER_QUESTION)}</span>
   else if (row.kind === 'copies')
     title = (
       <Trans>

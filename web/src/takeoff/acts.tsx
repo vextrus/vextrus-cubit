@@ -43,14 +43,17 @@ export function SheetName({ sheets }: { sheets: readonly ProposalOut[] }) {
 
 function UndoneWords({ act }: { act: ActOut }) {
   const n = act.sheets
-  if (act.act === 'confirmed') return <Plural value={n} one="confirmed # sheet" other="confirmed # sheets" />
-  if (act.act === 'excluded') return <Plural value={n} one="left out # sheet" other="left out # sheets" />
+  // 19a's ConfirmationAct: confirm, exclude, drawing_list.
+  if (act.act === 'confirm' || act.act === 'confirmed') return <Plural value={n} one="confirmed # sheet" other="confirmed # sheets" />
+  if (act.act === 'exclude' || act.act === 'excluded') return <Plural value={n} one="left out # sheet" other="left out # sheets" />
+  if (act.act === 'drawing_list') return <Trans>the drawing list you set</Trans>
   return <Trans>your last change to Step 1</Trans>
 }
 
 export interface Step1Acts {
   bulk(confirming: readonly ProposalOut[], leavingOut: readonly ProposalOut[]): Promise<void>
-  confirmSheets(sheets: readonly ProposalOut[]): Promise<boolean>
+  /** `backIn`: the actor's name, when the sheets were excluded and are confirmed back in (6.9). */
+  confirmSheets(sheets: readonly ProposalOut[], backIn?: string): Promise<boolean>
   excludeSheets(sheets: readonly ProposalOut[], reason: Reason, text?: string): Promise<boolean>
   setDrawingList(discipline: string, text: string): Promise<boolean>
   undoLast(): Promise<void>
@@ -142,9 +145,10 @@ export function useStep1Acts(projectId: string): Step1Acts {
   )
 
   const confirmSheets = useCallback(
-    (sheets: readonly ProposalOut[]) => {
+    (sheets: readonly ProposalOut[], backIn?: string) => {
       const name = <SheetName sheets={sheets} />
-      return run([() => confirm(projectId, sheets.map((p) => p.id))], <Trans>confirmed {name}</Trans>, <Trans>Confirmed {name}.</Trans>)
+      const said = backIn ? <Trans>{name} confirmed back in, under {backIn}’s name.</Trans> : <Trans>Confirmed {name}.</Trans>
+      return run([() => confirm(projectId, sheets.map((p) => p.id))], <Trans>confirmed {name}</Trans>, said)
     },
     [projectId, run],
   )

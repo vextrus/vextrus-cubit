@@ -9,9 +9,11 @@ from typing import Any
 import pytest
 
 from engine.messages import Message
+from vextrus.drawings import services as drawings
 from vextrus.takeoff.models import QuestionKind
 from vextrus.takeoff.services import step1
 from vextrus.testing.auth import api_as
+from vextrus.testing.drawings import QsProject, add, drawing, read_dwg
 from vextrus.testing.takeoff import Step1Project
 
 pytestmark = pytest.mark.django_db
@@ -72,3 +74,26 @@ def test_the_field_is_on_the_schema_the_web_reads() -> None:
     from vextrus.takeoff.schemas.step1 import Step1ProposalOut
 
     assert Step1ProposalOut.model_fields["agrees"].annotation is bool
+
+
+def test_two_sheets_of_one_number_never_agree_even_on_the_list(qs_project: QsProject) -> None:
+    """The refuter's finding (ticket 22, score 35): a list naming S-02 made both copies agree, so one
+    bulk act would have confirmed both; which copy is the sheet is a Question's."""
+    member = qs_project.member
+    structural = add(member, qs_project.project_id, "KR-STR-R0.dwg", drawing()).file
+    read_dwg(member, structural.id, ["S-01", "S-02", "S-02"])
+    with member.acting():
+        drawing_set = drawings.set_of(qs_project.project_id)
+        assert drawing_set is not None
+        ids = [step1.propose_sheet(s.id) for s in drawings.sheets(drawing_set.id)]
+        step1.set_list(qs_project.project_id, "structural", "S-01 to S-02", actor_name="QS")
+    body: dict[str, Any] = (
+        api_as(member).get(f"/api/projects/{qs_project.project_id}/takeoff/step1/proposals").json()
+    )
+
+    assert len(ids) == 3
+    assert sorted((p["number"], p["agrees"]) for p in body["proposals"]) == [
+        ("S-01", True),
+        ("S-02", False),
+        ("S-02", False),
+    ]

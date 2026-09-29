@@ -24,11 +24,11 @@ import { SlotFill } from '@/app/slots'
 import { LoadProblem, readOnlyRole, useReadOnlyToast } from '@/auth'
 import { SheetViewer } from '@/sheet'
 import { Button, DrawingText, Empty, IconButton, KeyCombo, KeyRegion, KeyScope, Skeleton, SheetsGlyph, buttonVariants, useKeys } from '@/ui'
-import { useStep1Acts } from './acts'
+import { SheetName, useStep1Acts } from './acts'
 import { Bar, ExclusionPicker, useBar } from './Bar'
 import { renderQuery, useStep1, type CoverageOut, type ProposalOut } from './data'
 import { DrawingListDialog } from './DrawingListDialog'
-import { step1Model, type Reason, type Row, type Step1Model } from './model'
+import { nextOpenRow, step1Model, type Reason, type Row, type Step1Model } from './model'
 import { SheetList } from './SheetList'
 import { CoverageLine, CoveragePanel, Overview, QuestionCard, QuestionsTab, SheetFacts } from './Step1Inspector'
 
@@ -42,7 +42,7 @@ export function Step1Page() {
     if (error) return <LoadProblem error={error} onRetry={retry} className="m-4" />
     return <Skeleton rows={10} className="m-4" status={<Trans>Opening Step 1…</Trans>} />
   }
-  if (data.proposals.length === 0 && data.questions.length === 0) return <NoSheets project={project} />
+  if (data.proposals.length === 0 && data.questions.length === 0) return <NoSheets project={project} readOnly={readOnlyRole(session) !== null} />
   return (
     <KeyScope level="screen" name="step1">
       <Step1 session={session} project={project} model={step1Model(data)} coverage={data.coverage} />
@@ -50,7 +50,7 @@ export function Step1Page() {
   )
 }
 
-function NoSheets({ project }: { project: ProjectSummary }) {
+function NoSheets({ project, readOnly }: { project: ProjectSummary; readOnly: boolean }) {
   return (
     <div className="flex h-full items-center justify-center">
       <Empty
@@ -61,7 +61,11 @@ function NoSheets({ project }: { project: ProjectSummary }) {
           </AppLink>
         }
       >
-        <Trans>No sheets yet. Add the Drawing Set’s files first.</Trans>
+        {readOnly ? (
+          <Trans>No sheets yet. The QS adds the Drawing Set’s files; Step 1 fills as they are read.</Trans>
+        ) : (
+          <Trans>No sheets yet. Add the Drawing Set’s files first.</Trans>
+        )}
       </Empty>
     </div>
   )
@@ -150,7 +154,8 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
   }
 
   const nextOpen = () => {
-    const next = model.rows.find((r) => r.question || r.sheets.some((s) => s.decision === null))
+    const here = mode === 'sheet' ? (rowOfSheet(openSheet)?.key ?? focused) : focused
+    const next = nextOpenRow(model.rows, here)
     if (!next) return
     if (mode === 'sheet') {
       setMode('list')
@@ -171,7 +176,8 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
   const confirmRow = async (row: Row, thenNext: boolean) => {
     const undecided = row.sheets.filter((s) => s.decision === null)
     const out = undecided.length > 0 && undecided.every((s) => s.proposed_exclusion) ? (undecided[0]!.proposed_exclusion as Reason) : null
-    const done = out ? await acts.excludeSheets(row.sheets, out) : await acts.confirmSheets(row.sheets)
+    const backIn = row.sheets.every((p) => p.decision === 'excluded') ? session.user.name : undefined
+    const done = out ? await acts.excludeSheets(row.sheets, out) : await acts.confirmSheets(row.sheets, backIn)
     if (done && thenNext && mode === 'sheet' && openSheet) openNextProposal(openSheet)
   }
 
@@ -221,7 +227,7 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
     { key: ']', label: t`Next sheet`, group: 'screen', when: () => mode === 'sheet', run: () => page(1) },
     { key: '[', label: t`Previous sheet`, group: 'screen', when: () => mode === 'sheet', run: () => page(-1) },
     { key: 'Q', label: t`Next open Question`, group: 'screen', run: () => {
-      const next = model.needsYou[0]
+      const next = nextOpenRow(model.rows, mode === 'sheet' ? (rowOfSheet(openSheet)?.key ?? focused) : focused, true)
       if (!next) return
       if (mode === 'sheet') setMode('list')
       focusRow(next.key)
@@ -252,14 +258,15 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
     <CoveragePanel coverage={coverage} />
   ) : focusedRow ? (
     <>
-      {focusedRow.question ? <QuestionCard entry={focusedRow.question} readOnly={readOnly} /> : null}
-      <SheetFacts row={focusedRow} showTitle={mode === 'list'} />
+      {focusedRow.question ? <QuestionCard entry={focusedRow.question} readOnly={readOnly} names={model.fileNames} /> : null}
+      <SheetFacts row={focusedRow} showTitle={mode === 'list'} readOnly={readOnly !== null} />
     </>
   ) : (
-    <Overview model={model} projectName={project.name} />
+    <Overview model={model} projectName={project.name} readOnly={readOnly} />
   )
 
-  const pasteFile = listFor ? (model.disciplines.find((d) => d.discipline === listFor)?.rows[0]?.sheets[0]?.file_name ?? '') : ''
+  const pasteSection = listFor ? model.disciplines.find((d) => d.discipline === listFor) : undefined
+  const pasteFile = pasteSection?.rows[0]?.sheets[0]?.file_name ?? ''
 
   return (
     <div className="absolute inset-0 flex flex-col">
@@ -296,7 +303,7 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
               const row = rowByKey(key)
               if (row) openRow(row)
             }}
-            onPasteList={setListFor}
+            onPasteList={readOnly ? null : setListFor}
           />
         </ListRegion>
       ) : open ? (
@@ -326,6 +333,7 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
           projectId={project.id}
           discipline={listFor}
           fileName={pasteFile}
+          given={pasteSection?.list && pasteSection.list.source !== 'sheet' ? pasteSection.list.numbers.join('\n') : ''}
           readOnly={readOnly !== null}
           onClose={() => setListFor(null)}
           onUse={(text) => acts.setDrawingList(listFor, text)}
@@ -368,7 +376,6 @@ function SheetMode({
   const { t } = useLingui()
   const render = useQuery(renderQuery(projectId, sheet.sheet_id))
   const region = useRef<HTMLDivElement>(null)
-  const number = sheet.number ?? ''
   const name = sheet.number ?? sheet.title
 
   // Focus follows the sheet into the canvas as it opens and as it pages (§6.1).
@@ -399,7 +406,7 @@ function SheetMode({
           ) : render.error ? (
             <LoadProblem error={render.error} onRetry={() => void render.refetch()} className="m-4" />
           ) : (
-            <Skeleton rows={6} className="m-6" status={<Trans>Opening <DrawingText kind="sheet-number" text={number} truncate={false} />…</Trans>} />
+            <Skeleton rows={6} className="m-6" status={<Trans>Opening <SheetName sheets={[sheet]} />…</Trans>} />
           )}
         </div>
       </KeyRegion>

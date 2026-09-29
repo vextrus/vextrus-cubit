@@ -98,9 +98,13 @@ describe('continuations (Q3)', () => {
 
 describe('numbering with no drawing list (Q4)', () => {
   it('runs from the first to the last, naming what is missing', () => {
-    expect(numberingOf([sheet('A-01'), sheet('A-02'), sheet('A-03')])).toEqual({ first: 'A-01', last: 'A-03', missing: [] })
-    expect(numberingOf([sheet('01'), sheet('04'), sheet('02')])).toEqual({ first: '01', last: '04', missing: ['03'] })
-    expect(numberingOf([sheet('A-01'), sheet(null), sheet('A-02')])).toEqual({ first: 'A-01', last: 'A-02', missing: [] })
+    expect(numberingOf([sheet('A-01'), sheet('A-02'), sheet('A-03')])).toEqual({ first: 'A-01', last: 'A-03', missing: [], twice: [] })
+    expect(numberingOf([sheet('01'), sheet('04'), sheet('02')])).toEqual({ first: '01', last: '04', missing: ['03'], twice: [] })
+    expect(numberingOf([sheet('A-01'), sheet(null), sheet('A-02')])).toEqual({ first: 'A-01', last: 'A-02', missing: [], twice: [] })
+  })
+
+  it('names a number drawn twice', () => {
+    expect(numberingOf([sheet('S-06'), sheet('S-07'), sheet('S-07'), sheet('S-08')])).toEqual({ first: 'S-06', last: 'S-08', missing: [], twice: ['S-07'] })
   })
 
   it('is none for two series', () => {

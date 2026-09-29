@@ -9,7 +9,8 @@ import { useFormat } from '@/format'
 import { Button, KeyCombo, KeyScope, cn, useKeys } from '@/ui'
 import { SheetName } from './acts'
 import type { ProposalOut } from './data'
-import { REASONS, type Reason, type Row, type Step1Model } from './model'
+import { REASONS, whyOneSource, type Reason, type Row, type Step1Model } from './model'
+import { Answering, QuestionTitle } from './questionWords'
 import { disciplineName } from './SheetList'
 import { REASON_NAMES, REASON_SHORT, UNKNOWN_REASON } from './words'
 
@@ -36,7 +37,7 @@ export interface BarContext {
 function Who({ sheet }: { sheet: ProposalOut }) {
   const f = useFormat()
   const name = sheet.decided_by ?? ''
-  const date = sheet.decided_at ? f.date(sheet.decided_at) : ''
+  const date = sheet.decided_at ? `${f.date(sheet.decided_at)}, ${f.time(sheet.decided_at)}` : ''
   return (
     <Trans>
       By {name}, {date}.
@@ -86,6 +87,18 @@ function BulkWhy({ model }: { model: Step1Model }) {
   return tail
 }
 
+/** Why a sheet has only one source (6.5): what the QS can do about it differs. */
+function OneSourceWhy({ sheet, model }: { sheet: ProposalOut; model: Step1Model }) {
+  const why = whyOneSource(
+    sheet,
+    model.disciplines.find((d) => d.discipline === sheet.discipline),
+  )
+  if (why === 'not-listed') return <Trans>The drawing list does not name it.</Trans>
+  if (why === 'gap') return <Trans>Its Discipline’s numbering has a gap or a number twice.</Trans>
+  if (why === 'no-list-no-plot') return <Trans>No drawing list and no Plot to check them against.</Trans>
+  return <Trans>Nothing else confirms it.</Trans>
+}
+
 /** What the bar says and what Enter does, for the focused row (or none) in this mode. */
 export function useBar(c: BarContext): BarSpec | null {
   const { i18n, t } = useLingui()
@@ -127,15 +140,20 @@ export function useBar(c: BarContext): BarSpec | null {
     const name = <SheetName sheets={row.sheets} />
     if (row.question) {
       const tag = row.question.tag
+      const title = <QuestionTitle entry={row.question} names={model.fileNames} />
       return {
-        what: <Trans>Question {tag} holds this row</Trans>,
-        why: <Trans>Its sheets wait for the answer. The card in the inspector says what each answer does.</Trans>,
+        what: (
+          <Trans>
+            Question {tag}: {title}
+          </Trans>
+        ),
+        why: <Answering entry={row.question} names={model.fileNames} />,
         ghost: { label: <Trans>Next open item</Trans>, run: c.nextOpen },
       }
     }
     if (sheet && sheet.decision === 'confirmed') {
       const by = sheet.decided_by ?? ''
-      const date = sheet.decided_at ? f.date(sheet.decided_at) : ''
+      const date = sheet.decided_at ? `${f.date(sheet.decided_at)}, ${f.time(sheet.decided_at)}` : ''
       return {
         what: (
           <Trans>
@@ -172,17 +190,36 @@ export function useBar(c: BarContext): BarSpec | null {
         }
       }
       const agrees = row.sheets.every((s) => s.agrees)
+      const section = model.disciplines.find((d) => d.discipline === sheet.discipline)
       return {
-        what: agrees ? <Trans>{name} agrees: number and title from the title block, and a second source</Trans> : <Trans>{name} has one source: number and title from its title block</Trans>,
-        why: agrees ? <Trans>Enter confirms it and opens the next open sheet.</Trans> : <Trans>No drawing list and no Plot to check it against. Enter confirms it and opens the next open sheet.</Trans>,
-        ghost: bulkable ? { label: <Trans>Confirm all {n} that agree</Trans>, run: c.bulk } : undefined,
+        what: agrees ? (
+          section?.list ? (
+            <Trans>{name} agrees: number and title from the title block, on the drawing list</Trans>
+          ) : (
+            <Trans>{name} agrees: number and title from the title block, in numbering without a gap, and its Plot page matches</Trans>
+          )
+        ) : (
+          <Trans>{name} has one source: number and title from its title block</Trans>
+        ),
+        why: agrees ? (
+          <Trans>Enter confirms it and opens the next open sheet.</Trans>
+        ) : (
+          <>
+            <OneSourceWhy sheet={sheet} model={model} /> <Trans>Enter confirms it and opens the next open sheet.</Trans>
+          </>
+        ),
+        ghost: n > 0 ? { label: m > 0 ? <Trans>Confirm {n}, leave out {m}</Trans> : <Trans>Confirm all {n} that agree</Trans>, run: c.bulk } : undefined,
         button: { label: <Trans>Confirm {name}</Trans>, run: () => c.confirmRow(row, true) },
       }
     }
     if (sheet && !row.sheets.every((s) => s.agrees) && !sheet.proposed_exclusion) {
       return {
         what: <Trans>{name} has one source: number and title from its title block</Trans>,
-        why: <Trans>No drawing list and no Plot to check it against. Open it to confirm it.</Trans>,
+        why: (
+          <>
+            <OneSourceWhy sheet={sheet} model={model} /> <Trans>Open it to confirm it.</Trans>
+          </>
+        ),
         ghost: { label: <Trans>Open {name}</Trans>, run: () => c.openRow(row) },
         button: bulkable ? bulkSpec.button : undefined,
       }
@@ -197,12 +234,17 @@ export function useBar(c: BarContext): BarSpec | null {
     }
   if (model.oneSource.length > 0) {
     const first = model.oneSource[0]!
-    const count = model.oneSource.length
+    const count = model.oneSource.filter((p) => p.discipline === first.discipline).length
     const discipline = disciplineName(first.discipline, i18n)
     const firstRow = model.rows.find((r) => r.sheets.some((s) => s.id === first.id)) ?? null
     return {
       what: <Plural value={count} one={`# ${discipline} sheet has one source`} other={`# ${discipline} sheets have one source each`} />,
-      why: <Trans>No drawing list and no Plot to check them against. Open each to confirm it.</Trans>,
+      why:
+        whyOneSource(first, model.disciplines.find((d) => d.discipline === first.discipline)) === 'no-list-no-plot' ? (
+          <Trans>No drawing list and no Plot to check them against. Open each to confirm it.</Trans>
+        ) : (
+          <Trans>Nothing else confirms them. Open each to confirm it.</Trans>
+        ),
       ghost: firstRow ? { label: <Trans>Open <SheetName sheets={[first]} /></Trans>, run: () => c.openRow(firstRow) } : undefined,
     }
   }
@@ -214,6 +256,11 @@ export function useBar(c: BarContext): BarSpec | null {
       ghost: { label: <Trans>Next open item</Trans>, run: c.nextOpen },
     }
   }
+  if (model.unaccounted > 0)
+    return {
+      what: <Trans>Coverage has a view that is neither assigned nor excluded</Trans>,
+      why: <Trans>Open Coverage on the status bar to find it.</Trans>,
+    }
   return null
 }
 
@@ -294,10 +341,10 @@ export function ExclusionPicker({ row, onPick, onCancel }: { row: Row; onPick: (
                 type="button"
                 tabIndex={-1}
                 onClick={() => pick(reason)}
-                className={cn('flex min-h-9 items-start gap-1 rounded-md border border-border px-1.5 py-1 text-start text-xs leading-tight hover:bg-hover')}
+                className={cn('flex min-h-9 items-start gap-1 rounded-md border border-border px-1 py-1 text-start text-2xs leading-tight hover:bg-hover')}
               >
                 <span className="num font-semibold text-muted-foreground">{i + 1}</span>
-                <span className="line-clamp-2">{i18n._(REASON_NAMES[reason])}</span>
+                <span>{i18n._(REASON_NAMES[reason])}</span>
               </button>
             ))}
           </div>

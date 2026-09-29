@@ -18,6 +18,7 @@ export function DrawingListDialog({
   projectId,
   discipline,
   fileName,
+  given,
   readOnly,
   onUse,
   onClose,
@@ -26,13 +27,15 @@ export function DrawingListDialog({
   discipline: string
   /** The Discipline's file, as the QS named it. */
   fileName: string
+  /** The list the QS gave before, one number a line, shown to change it; empty for none. */
+  given: string
   readOnly: boolean
   onUse: (text: string) => Promise<boolean>
   onClose: () => void
 }) {
   const { t, i18n } = useLingui()
   const fieldId = useId()
-  const [text, setText] = useState('')
+  const [text, setText] = useState(given)
   const [parsed, setParsed] = useState<ParsedListOut | null>(null)
   const [problem, setProblem] = useState<Problem>(null)
   const [saving, setSaving] = useState(false)

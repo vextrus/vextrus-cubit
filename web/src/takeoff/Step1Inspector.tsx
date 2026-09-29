@@ -5,20 +5,20 @@
  * status bar's Coverage is clicked. The Questions tab holds every open Question's card in queue order.
  *
  * Answering has no operation in 19a's API yet (the orchestrator's ruling for 22): the card shows the
- * Question, what each answer would do and its options, and says it cannot be answered here yet.
+ * Question, what its answer would do and its options, and says it cannot be answered here yet.
  */
 import type { ReactNode } from 'react'
 import { Plural, Trans, useLingui } from '@lingui/react/macro'
+import { TAKEOFF_STEPS } from '@/app/steps'
 import { useFormat } from '@/format'
-import { MachineText } from '@/format/machine'
 import { DrawingText, cn } from '@/ui'
 import { QuestionGlyph } from '@/ui/glyphs'
 import { SheetName } from './acts'
 import type { CoverageOut, ProposalOut } from './data'
 import type { DisciplineSection, QuestionEntry, Row, Step1Model } from './model'
+import { Answering, CannotAnswer, OptionWords, QuestionBody, QuestionTitle, optionsOf, useKindLine } from './questionWords'
 import { disciplineName } from './SheetList'
-import { NOT_RECEIVED_NAMES, OPTION_NAMES, OTHER_DISCIPLINE, OTHER_OPTION, OTHER_QUESTION, QUESTION_KINDS, REASON_SHORT, UNKNOWN_REASON } from './words'
-import { useHasEnglish } from './useHasEnglish'
+import { NOT_RECEIVED_NAMES, OTHER_DISCIPLINE, REASON_SHORT, UNKNOWN_REASON } from './words'
 
 function Block({ title, children }: { title?: ReactNode; children: ReactNode }) {
   return (
@@ -38,8 +38,13 @@ export function PartsLine({ model }: { model: Step1Model }) {
     const name = disciplineName(d.discipline, i18n)
     if (d.confirmed) return t`${name} confirmed`
     if (anyConfirmed) {
-      const left = f.integer(d.found - d.settled)
-      return d.found - d.settled > 0 ? t`${name} ${left} to confirm` : t`${name}: Questions open`
+      const left = d.found - d.settled
+      const leftText = f.integer(left)
+      if (left > 0) return t`${name} ${leftText} to confirm`
+      const open = d.openQuestions
+      const openText = f.integer(open)
+      if (open > 0) return open === 1 ? t`${name}: 1 Question open` : t`${name}: ${openText} Questions open`
+      return t`${name}: a view unaccounted`
     }
     const settled = f.integer(d.settled)
     const total = d.total === null ? '—' : f.integer(d.total)
@@ -53,11 +58,30 @@ function Expected({ section }: { section: DisciplineSection }) {
   const f = useFormat()
   const name = disciplineName(section.discipline, i18n)
   const found = f.integer(section.found)
-  if (section.list) {
-    const listed = f.integer(section.list.numbers.length)
+  const list = section.list
+  if (list) {
+    const listed = f.integer(list.numbers.length)
+    const who = list.entered_by ?? ''
+    if (list.source === 'pasted') {
+      const when = list.entered_at ? `${f.date(list.entered_at)} ${f.time(list.entered_at)}` : ''
+      return (
+        <Trans>
+          {name}: {listed} on the drawing list pasted by {who}, {when}; {found} found.
+        </Trans>
+      )
+    }
+    if (list.source === 'typed') {
+      const first = <DrawingText kind="sheet-number" text={list.numbers[0] ?? ''} truncate={false} />
+      const last = <DrawingText kind="sheet-number" text={list.numbers.at(-1) ?? ''} truncate={false} />
+      return (
+        <Trans>
+          {name}: {listed} on the drawing list typed by {who} ({first}–{last}); {found} found.
+        </Trans>
+      )
+    }
     return (
       <Trans>
-        {name}: {listed} on the drawing list; {found} found.
+        {name}: {listed} on the drawing list read on a sheet; {found} found.
       </Trans>
     )
   }
@@ -70,24 +94,25 @@ function Expected({ section }: { section: DisciplineSection }) {
     )
   const first = <DrawingText kind="sheet-number" text={run.first} truncate={false} />
   const last = <DrawingText kind="sheet-number" text={run.last} truncate={false} />
-  return run.missing.length === 0 ? (
+  return run.missing.length === 0 && run.twice.length === 0 ? (
     <Trans>
       {name}: no drawing list; numbering runs {first}–{last} without a gap; {found} found.
     </Trans>
   ) : (
     <Trans>
-      {name}: no drawing list; numbering runs {first}–{last} with gaps; {found} found.
+      {name}: no drawing list; numbering runs {first}–{last} with gaps or repeats (see the list); {found} found.
     </Trans>
   )
 }
 
-export function Overview({ model, projectName }: { model: Step1Model; projectName: string }) {
+export function Overview({ model, projectName, readOnly }: { model: Step1Model; projectName: string; readOnly: 'md' | 'guest' | null }) {
   const { i18n } = useLingui()
   const n = model.bulk.confirm.length
   const m = model.bulk.leaveOut.length
   const questions = model.queue.length
+  const single = model.oneSource.length
   const reasons = model.bulk.reasons.map((r) => i18n._(REASON_SHORT[r] ?? UNKNOWN_REASON)).join(', ')
-  const nothing = n + m === 0 && questions === 0
+  const nothing = n + m === 0 && questions === 0 && single === 0
   return (
     <>
       <Block title={<Trans>{projectName}’s sheets</Trans>}>
@@ -95,7 +120,7 @@ export function Overview({ model, projectName }: { model: Step1Model; projectNam
           <PartsLine model={model} />
         </p>
       </Block>
-      <Block title={<Trans>Enter takes them in this order</Trans>}>
+      <Block title={readOnly ? <Trans>What the QS has left, in order</Trans> : <Trans>Enter takes them in this order</Trans>}>
         {nothing ? (
           <p>
             <Trans>Nothing is waiting.</Trans>
@@ -104,12 +129,16 @@ export function Overview({ model, projectName }: { model: Step1Model; projectNam
           <ol className="list-decimal ps-5">
             {n + m > 0 ? (
               <li>
-                {m > 0 ? (
+                {n === 0 ? (
                   <Trans>
-                    Confirm the {n} sheets that agree and leave out {m}: {reasons}
+                    Leave out {m}: {reasons}
+                  </Trans>
+                ) : m > 0 ? (
+                  <Trans>
+                    <Plural value={n} one="Confirm the # sheet that agrees" other="Confirm the # sheets that agree" /> and leave out {m}: {reasons}
                   </Trans>
                 ) : (
-                  <Trans>Confirm the {n} sheets that agree</Trans>
+                  <Plural value={n} one="Confirm the # sheet that agrees" other="Confirm the # sheets that agree" />
                 )}
               </li>
             ) : null}
@@ -122,10 +151,19 @@ export function Overview({ model, projectName }: { model: Step1Model; projectNam
                 />
               </li>
             ) : null}
+            {single > 0 ? (
+              <li>
+                <Plural value={single} one="Confirm # sheet with one source, on its own" other="Confirm # sheets with one source, one by one" />
+              </li>
+            ) : null}
           </ol>
         )}
         <p className="text-xs text-muted-foreground">
-          <Trans>↓ walks the list; Space opens a sheet; a Proposal counts toward nothing until you confirm it.</Trans>
+          {readOnly ? (
+            <Trans>↓ walks the list; Space opens a sheet; a Proposal counts toward nothing until the QS confirms it.</Trans>
+          ) : (
+            <Trans>↓ walks the list; Space opens a sheet; a Proposal counts toward nothing until you confirm it.</Trans>
+          )}
         </p>
       </Block>
       <Block title={<Trans>Expected sheets</Trans>}>
@@ -144,7 +182,7 @@ export function Overview({ model, projectName }: { model: Step1Model; projectNam
   )
 }
 
-function Decided({ sheet }: { sheet: ProposalOut }) {
+function Decided({ sheet, readOnly }: { sheet: ProposalOut; readOnly: boolean }) {
   const { i18n } = useLingui()
   const f = useFormat()
   const name = sheet.decided_by ?? ''
@@ -158,7 +196,11 @@ function Decided({ sheet }: { sheet: ProposalOut }) {
       </Trans>
     )
   }
-  return <Trans>Proposed by Vextrus from the file; no one has acted on it yet. A Proposal counts toward nothing until you confirm it.</Trans>
+  return readOnly ? (
+    <Trans>Proposed by Vextrus from the file; no one has acted on it yet. A Proposal counts toward nothing until the QS confirms it.</Trans>
+  ) : (
+    <Trans>Proposed by Vextrus from the file; no one has acted on it yet. A Proposal counts toward nothing until you confirm it.</Trans>
+  )
 }
 
 function Fact({ label, children }: { label: ReactNode; children: ReactNode }) {
@@ -170,15 +212,24 @@ function Fact({ label, children }: { label: ReactNode; children: ReactNode }) {
   )
 }
 
-function SourceOf({ source }: { source: string | null | undefined }) {
-  if (source === 'file_name') return <Trans>from the file name</Trans>
-  if (source === 'title_block') return <Trans>from the title block</Trans>
-  return null
+/** "R0, from the file name; dated 9 Dec 2026" / "R1, 14 Sep 2026" (6.6). */
+function RevisionFact({ sheet }: { sheet: ProposalOut }) {
+  const f = useFormat()
+  const mark = <DrawingText kind="revision" text={sheet.revision_mark} truncate={false} />
+  const date = sheet.issue_date ? f.date(sheet.issue_date) : null
+  if (sheet.revision_mark_source === 'file_name')
+    return date ? <Trans>{mark}, from the file name; dated {date}</Trans> : <Trans>{mark}, from the file name</Trans>
+  return date ? (
+    <Trans>
+      {mark}, {date}
+    </Trans>
+  ) : (
+    mark
+  )
 }
 
-export function SheetFacts({ row, showTitle }: { row: Row; showTitle: boolean }) {
+export function SheetFacts({ row, showTitle, readOnly }: { row: Row; showTitle: boolean; readOnly: boolean }) {
   const { i18n } = useLingui()
-  const f = useFormat()
   const sheet = row.sheets[0]
   if (!sheet) return null
   return (
@@ -195,14 +246,7 @@ export function SheetFacts({ row, showTitle }: { row: Row; showTitle: boolean })
         <dl className="flex flex-col gap-1">
           <Fact label={<Trans>Discipline</Trans>}>{disciplineName(sheet.discipline, i18n)}</Fact>
           <Fact label={<Trans>Revision</Trans>}>
-            {sheet.revision_mark ? (
-              <>
-                <DrawingText kind="revision" text={sheet.revision_mark} truncate={false} />
-                {sheet.issue_date ? <>, {f.date(sheet.issue_date)}</> : null} <SourceOf source={sheet.revision_mark_source} />
-              </>
-            ) : (
-              <Trans>none: the title block has none and the file name none</Trans>
-            )}
+            {sheet.revision_mark ? <RevisionFact sheet={sheet} /> : <Trans>none: the title block has none and the file name none</Trans>}
           </Fact>
           <Fact label={<Trans>File</Trans>}>
             <DrawingText kind="file-name" text={sheet.file_name} />
@@ -215,10 +259,10 @@ export function SheetFacts({ row, showTitle }: { row: Row; showTitle: boolean })
           <p key={s.id}>
             {row.sheets.length > 1 ? (
               <>
-                <SheetName sheets={[s]} />{' '}
+                <SheetName sheets={[s]} /> <DrawingText kind="revision" text={s.revision_mark} truncate={false} />{' '}
               </>
             ) : null}
-            <Decided sheet={s} />
+            <Decided sheet={s} readOnly={readOnly} />
           </p>
         ))}
       </Block>
@@ -226,30 +270,12 @@ export function SheetFacts({ row, showTitle }: { row: Row; showTitle: boolean })
   )
 }
 
-function useQuestionTitle(entry: QuestionEntry): ReactNode {
-  const { i18n } = useLingui()
-  const has = useHasEnglish()
-  const q = entry.question
-  const params = Object.fromEntries(Object.entries(q.params).filter(([, v]) => typeof v === 'string' || typeof v === 'number')) as Record<string, string | number>
-  if (has(q.code)) return <MachineText message={{ code: q.code, params }} />
-  return i18n._(QUESTION_KINDS[q.kind] ?? OTHER_QUESTION)
-}
-
-function Answering({ entry }: { entry: QuestionEntry }) {
-  const n = entry.holds.length
-  const picked = entry.question.options.find((o) => (o as { picked?: boolean }).picked)
-  if (picked === undefined) {
-    return n === 0 ? <Trans>Answering confirms no sheets.</Trans> : <Plural value={n} one="Answering settles # sheet." other="Answering settles # sheets." />
-  }
-  return <Plural value={n} one="Answering settles # sheet, as picked below." other="Answering settles # sheets, as picked below." />
-}
-
-export function QuestionCard({ entry, readOnly }: { entry: QuestionEntry; readOnly: 'md' | 'guest' | null }) {
-  const { i18n, t } = useLingui()
-  const title = useQuestionTitle(entry)
-  const kind = i18n._(QUESTION_KINDS[entry.question.kind] ?? OTHER_QUESTION)
+export function QuestionCard({ entry, readOnly, names }: { entry: QuestionEntry; readOnly: 'md' | 'guest' | null; names: Readonly<Record<string, string>> }) {
+  const { t } = useLingui()
+  const f = useFormat()
+  const kind = useKindLine(entry)
   const tag = entry.tag
-  const options = entry.question.options.map((o) => o as { key?: string; picked?: boolean })
+  const options = optionsOf(entry)
   const name = `question-${entry.question.id}`
   return (
     <section aria-label={t`Question ${tag}`} className="m-2 overflow-hidden rounded-md border border-question">
@@ -261,16 +287,22 @@ export function QuestionCard({ entry, readOnly }: { entry: QuestionEntry; readOn
         <span className="text-xs">{entry.kept ? <Trans>Kept open</Trans> : <Trans>Answer once</Trans>}</span>
       </header>
       <div className="bg-chrome-sunken px-3 py-1.5 text-xs">
-        <Answering entry={entry} />
+        <Answering entry={entry} names={names} />
       </div>
       <div className="flex flex-col gap-2 px-3 py-2 text-sm">
         <p className="text-xs text-ink-secondary">{kind}</p>
-        <p className="font-medium">{title}</p>
+        <p className="font-medium">
+          <QuestionTitle entry={entry} names={names} />
+        </p>
+        <p className="text-xs text-ink-secondary empty:hidden">
+          <QuestionBody entry={entry} />
+        </p>
         {entry.holds.length > 1 ? (
           <ul className="text-xs">
             {entry.holds.map((s) => (
               <li key={s.id}>
-                <SheetName sheets={[s]} /> <DrawingText kind="revision" text={s.revision_mark} truncate={false} /> · <DrawingText kind="file-name" text={s.file_name} />
+                <SheetName sheets={[s]} /> <DrawingText kind="revision" text={s.revision_mark} truncate={false} />
+                {s.issue_date ? <> · {f.date(s.issue_date)}</> : null} · <DrawingText kind="file-name" text={s.file_name} />
               </li>
             ))}
           </ul>
@@ -289,19 +321,13 @@ export function QuestionCard({ entry, readOnly }: { entry: QuestionEntry; readOn
                     <Trans>Picked for you:</Trans>{' '}
                   </span>
                 ) : null}
-                {i18n._((o.key && OPTION_NAMES[o.key]) || OTHER_OPTION)}
+                <OptionWords entry={entry} option={o} />
               </span>
             </label>
           ))}
         </fieldset>
         <p className="text-xs text-muted-foreground">
-          {readOnly === 'md' ? (
-            <Trans>Waiting for the QS. The MD reads Questions and cannot answer them.</Trans>
-          ) : readOnly === 'guest' ? (
-            <Trans>Waiting for the QS. A Guest reads Questions and cannot answer them.</Trans>
-          ) : (
-            <Trans>This Question cannot be answered here yet. Keep its sheets open and ask the consultant.</Trans>
-          )}
+          <CannotAnswer entry={entry} readOnly={readOnly} />
         </p>
       </div>
     </section>
@@ -318,10 +344,27 @@ export function QuestionsTab({ model, readOnly }: { model: Step1Model; readOnly:
   return (
     <>
       {model.queue.map((entry) => (
-        <QuestionCard key={entry.question.id} entry={entry} readOnly={readOnly} />
+        <QuestionCard key={entry.question.id} entry={entry} readOnly={readOnly} names={model.fileNames} />
       ))}
     </>
   )
+}
+
+/** A key of Coverage's `by_step`: a Takeoff Step's number ("5 Foundations"), else an MEP Part ("Electrical, M3 onwards"). */
+function StepOrPart({ step }: { step: string }) {
+  const { i18n } = useLingui()
+  const found = /^\d+$/.test(step) ? TAKEOFF_STEPS.find((s) => s.number === Number(step)) : undefined
+  if (found) {
+    const number = found.number
+    const name = i18n._(found.name)
+    return (
+      <>
+        {number} {name}
+      </>
+    )
+  }
+  const part = disciplineName(step, i18n)
+  return <Trans>{part}, M3 onwards</Trans>
 }
 
 export function CoveragePanel({ coverage }: { coverage: CoverageOut }) {
@@ -342,7 +385,7 @@ export function CoveragePanel({ coverage }: { coverage: CoverageOut }) {
       <Block title={<Trans>Views by the step that will read them, proposed or assigned</Trans>}>
         <dl className="flex flex-col gap-1">
           {Object.entries(coverage.by_step).map(([step, count]) => (
-            <Fact key={step} label={<Trans>Step {step}</Trans>}>
+            <Fact key={step} label={<StepOrPart step={step} />}>
               {f.integer(count)}
             </Fact>
           ))}
@@ -369,16 +412,15 @@ export function CoveragePanel({ coverage }: { coverage: CoverageOut }) {
 /** "Coverage 70 views: 0 assigned, 0 excluded, 68 proposed, 2 unaccounted". */
 export function CoverageLine({ coverage }: { coverage: CoverageOut }) {
   const f = useFormat()
-  const views = f.integer(coverage.views)
   const assigned = f.integer(coverage.assigned)
   const excluded = f.integer(coverage.excluded)
   const proposed = f.integer(coverage.proposed)
   const unaccounted = f.integer(coverage.unaccounted)
   return (
     <span>
+      <Plural value={coverage.views} one="Coverage # view:" other="Coverage # views:" />{' '}
       <Trans>
-        Coverage {views} views: {assigned} assigned, {excluded} excluded, {proposed} proposed,{' '}
-        <span className={cn(coverage.unaccounted > 0 && 'text-question')}>{unaccounted} unaccounted</span>
+        {assigned} assigned, {excluded} excluded, {proposed} proposed, <span className={cn(coverage.unaccounted > 0 && 'text-question')}>{unaccounted} unaccounted</span>
       </Trans>
     </span>
   )

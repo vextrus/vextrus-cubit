@@ -61,8 +61,8 @@ export interface DisciplineSection {
   total: number | null
   openQuestions: number
   list: DrawingListOut | null
-  /** With no drawing list: the numbering's first and last, and the numbers missing between. */
-  numbering: { first: string; last: string; missing: readonly string[] } | null
+  /** With no drawing list: the numbering's first and last, the numbers missing between and those twice. */
+  numbering: { first: string; last: string; missing: readonly string[]; twice: readonly string[] } | null
   /** Every sheet settled, none of its Questions open, no view unaccounted (m0-screens §5). */
   confirmed: boolean
 }
@@ -91,6 +91,9 @@ export interface Step1Model {
   oneSource: readonly ProposalOut[]
   /** Every Discipline received is confirmed. */
   allConfirmed: boolean
+  /** Views neither assigned nor excluded (6.11). */
+  unaccounted: number
+  fileNames: Readonly<Record<string, string>>
 }
 
 export const REASONS = ['superseded', 'duplicate', 'cover_index', 'for_information', 'by_others', 'blank', 'other'] as const
@@ -157,11 +160,17 @@ export function numberingOf(sheets: readonly ProposalOut[]): DisciplineSection['
   const first = sorted[0]!
   const last = sorted.at(-1)!
   const have = new Set(sorted.map((x) => x.parts!.running))
+  const seen = new Set<number>()
+  const twice: string[] = []
+  for (const x of sorted) {
+    if (seen.has(x.parts!.running) && !twice.includes(x.number)) twice.push(x.number)
+    seen.add(x.parts!.running)
+  }
   const missing: string[] = []
   for (let n = first.parts!.running + 1; n < last.parts!.running && missing.length <= 50; n++) {
     if (!have.has(n)) missing.push(`${first.parts!.prefix}${String(n).padStart(first.parts!.width, '0')}${first.parts!.suffix}`)
   }
-  return { first: first.number, last: last.number, missing }
+  return { first: first.number, last: last.number, missing, twice }
 }
 
 export function step1Model(data: Step1Data): Step1Model {
@@ -232,6 +241,8 @@ export function step1Model(data: Step1Data): Step1Model {
     found: proposals.length,
     oneSource: free.filter((p) => !decided(p) && !p.agrees && p.proposed_exclusion === null),
     allConfirmed: disciplines.length > 0 && disciplines.every((d) => d.confirmed),
+    unaccounted: data.coverage.unaccounted,
+    fileNames: data.fileNames ?? {},
   }
 }
 
@@ -250,4 +261,30 @@ export function rowState(row: Row): RowState {
   if (p.decision === 'excluded') return { kind: 'excluded', reason: p.excluded_reason, text: p.excluded_text }
   if (p.proposed_exclusion) return { kind: 'proposed-out', reason: p.proposed_exclusion }
   return { kind: 'proposal', oneSource: row.sheets.some((s) => !s.agrees) }
+}
+
+/** Why a sheet has one source (6.5), for the bar to say. */
+export type OneSourceWhy = 'not-listed' | 'gap' | 'no-list-no-plot' | 'other'
+
+export function whyOneSource(sheet: ProposalOut, section: DisciplineSection | undefined): OneSourceWhy {
+  if (!section) return 'other'
+  if (section.list) {
+    const parts = sheet.number ? numberParts(sheet.number) : null
+    const named = section.list.numbers.some((n) => {
+      if (n === sheet.number) return true
+      const q = numberParts(n)
+      return !!parts && !!q && q.prefix === parts.prefix && q.running === parts.running && q.suffix === parts.suffix
+    })
+    return named ? 'other' : 'not-listed'
+  }
+  const run = section.numbering
+  if (!run || run.missing.length > 0 || run.twice.length > 0) return 'gap'
+  return 'no-list-no-plot'
+}
+
+/** The first open row after `key` (wrapping), for "Next open item": a Question's row or an undecided sheet. */
+export function nextOpenRow(rows: readonly Row[], key: string | null, questionsOnly = false): Row | null {
+  const at = key ? rows.findIndex((r) => r.key === key) : -1
+  const ring = [...rows.slice(at + 1), ...rows.slice(0, at + 1)]
+  return ring.find((r) => (r.question ? true : !questionsOnly && r.sheets.some((s) => s.decision === null))) ?? null
 }
