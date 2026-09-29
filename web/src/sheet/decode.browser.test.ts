@@ -6,20 +6,17 @@
 import { describe, expect, it } from 'vitest'
 import tinySheetUrl from '../../../engine/render/fixtures/tiny-sheet.bin?url'
 import { decodeSheet, SheetBufferError } from './decode'
+import { entry, withSection } from './buffer.fixture'
 
 async function tiny(): Promise<ArrayBuffer> {
   return (await fetch(tinySheetUrl)).arrayBuffer()
 }
 
-function entry(b: ArrayBuffer, fourcc: string) {
-  const v = new DataView(b)
-  for (let i = 0; i < v.getUint32(32, true); i++) {
-    const at = 56 + 16 * i
-    if (String.fromCharCode(...new Uint8Array(b, at, 4)) === fourcc) {
-      return { at, offset: v.getUint32(at + 4, true), length: v.getUint32(at + 8, true), count: v.getUint32(at + 12, true) }
-    }
-  }
-  throw new Error(`no ${fourcc}`)
+
+const stats = (text: string, bom = false): Craft => (b) => {
+  const body = new TextEncoder().encode(text)
+  const payload = bom ? new Uint8Array([0xef, 0xbb, 0xbf, ...body]) : body
+  return withSection(b, 'STAT', payload, 1)
 }
 
 type Craft = (b: ArrayBuffer, v: DataView) => ArrayBuffer | void
@@ -59,6 +56,10 @@ const BAD: [string, Craft][] = [
   ['an atlas glyph past the atlas', (b, v) => v.setUint16(entry(b, 'AGLY').offset + 6, 65535, true)],
   ['an atlas glyph whose text rectangle is empty', (b, v) => v.setFloat32(entry(b, 'AGLY').offset + 16, -1e9, true)],
   ['a font naming a string past the table', (b, v) => entry(b, 'FONT').count && v.setUint32(entry(b, 'FONT').offset, 1_000_000, true)],
+  // The refuter's finding on 16: JavaScript read these as integers; Python refuses them.
+  ['counts after a byte-order mark', stats('{"lineweight_default": 6}', true)],
+  ['a count written as 6.0', stats('{"lineweight_default": 6.0}')],
+  ['a count written as 6e0', stats('{"lineweight_default": 6e0}')],
   ['a record count so large that its length overflows 32 bits', (b, v) => v.setUint32(entry(b, 'LINE').at + 12, 0x40000000, true)],
 ]
 
@@ -73,6 +74,12 @@ describe('decodeSheet refuses every rule the engine checks, with SheetBufferErro
       thrown = error
     }
     expect(thrown).toBeInstanceOf(SheetBufferError)
+  })
+
+  it('reads counts written as integers, with their section moved', async () => {
+    const b = stats('{"lineweight_default": 6, "texts": -0}')(await tiny(), new DataView(new ArrayBuffer(0))) as ArrayBuffer
+    const sheet = decodeSheet(withSection(b, 'STAT', new TextEncoder().encode('{"lineweight_default": 6, "texts": 0}'), 2))
+    expect(sheet.stats).toEqual({ lineweight_default: 6, texts: 0 })
   })
 
   it('refuses what is not an ArrayBuffer', () => {

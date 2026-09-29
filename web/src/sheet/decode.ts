@@ -182,7 +182,8 @@ function below(r: Records, words: number[], limit: number, why: string) {
   }
 }
 
-const utf8 = new TextDecoder('utf-8', { fatal: true })
+// ignoreBOM keeps a leading U+FEFF, as Python's decode() does (JSON then refuses it, as json.loads does).
+const utf8 = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true })
 
 function readStrings({ bytes, count }: Section): string[] {
   const view = new DataView(bytes.buffer)
@@ -231,12 +232,19 @@ function readAtlas(bytes: Uint8Array): DecodedSheet['atlas'] {
 
 function readStats({ bytes, count }: Section): Record<string, number> {
   if (bytes.byteLength > MAX_STATS_BYTES) fail('its counts are larger than a megabyte')
+  // A count is an integer as written: Python's json.loads reads 6.0 and 6e0 as floats and refuses
+  // them, where JavaScript's numbers would take them as 6. The reviver sees each value's own text.
+  let floats = false
   let stats: unknown
   try {
-    stats = JSON.parse(utf8.decode(bytes))
+    stats = JSON.parse(utf8.decode(bytes), function (_key, value: unknown, context?: { source?: string }) {
+      if (typeof value === 'number' && !/^-?\d+$/.test(context?.source ?? '')) floats = true
+      return value
+    })
   } catch {
     fail('its counts are not JSON')
   }
+  if (floats) fail('its counts are not names to integers')
   if (typeof stats !== 'object' || stats === null || Array.isArray(stats)) fail('its counts are not names to integers')
   const entries = Object.entries(stats)
   if (!entries.every(([, v]) => Number.isInteger(v))) fail('its counts are not names to integers')

@@ -17,6 +17,14 @@ import type { ViewTransform } from './view'
 /** The engine's atlas: 24 atlas pixels to a text unit, the field spread over 4 of them. */
 const SDF_PX_PER_UNIT = 24
 const SDF_SPREAD = 4
+/**
+ * How many times over its own pixels a frame may draw, as the engine raster's budget
+ * (engine/render/raster.py, WORK_PER_PIXEL): past it the sheet is refused, not drawn for minutes. A
+ * buffer of a thousand triangles each over the whole paper is small and valid, and draws over itself
+ * a thousand times.
+ */
+export const WORK_PER_PIXEL = 64
+const WORK_FLOOR = 1_000_000
 
 /* eslint-disable lingui/no-unlocalized-strings -- shader source and developer errors, never shown */
 const PREAMBLE = `#version 300 es
@@ -225,6 +233,9 @@ export class SheetRenderer {
     const up = this.upload(sheet)
     const width = gl.drawingBufferWidth
     const height = gl.drawingBufferHeight
+    if (frameWork(sheet, view, width, height) > WORK_PER_PIXEL * width * height + WORK_FLOOR) {
+      throw new SheetGlError('the sheet draws over itself too many times to draw')
+    }
     gl.viewport(0, 0, width, height)
     gl.clearColor(0, 0, 0, 0)
     gl.clear(gl.COLOR_BUFFER_BIT)
@@ -369,6 +380,47 @@ export class SheetRenderer {
     this.current = { sheet, paper, fills, fillCount: t.count, lines, glyphs, atlas, buffers }
     return this.current
   }
+}
+
+/**
+ * The pixels one frame would shade: each primitive's box on screen, cut to the canvas (what the
+ * rasteriser visits for it), summed. Linear in the records, so it costs far less than the drawing.
+ */
+export function frameWork(sheet: DecodedSheet, view: ViewTransform, width: number, height: number): number {
+  const { scale, x, y } = view
+  let work = 0
+  const box = (x0: number, y0: number, x1: number, y1: number, pad: number) => {
+    // Paper mm to canvas px: x grows right, y grows down.
+    const left = Math.max(0, x + Math.min(x0, x1) * scale - pad)
+    const right = Math.min(width, x + Math.max(x0, x1) * scale + pad)
+    const top = Math.max(0, y - Math.max(y0, y1) * scale - pad)
+    const bottom = Math.min(height, y - Math.min(y0, y1) * scale + pad)
+    if (right > left && bottom > top) work += (right - left) * (bottom - top)
+  }
+  const l = sheet.lines
+  for (let i = 0; i < l.count; i++) {
+    const o = i * l.stride
+    // A line's quad reaches its half width and a pixel past its box on every side.
+    box(l.f32[o]!, l.f32[o + 1]!, l.f32[o + 2]!, l.f32[o + 3]!, Math.max(0.5, (l.f32[o + 4]! * scale) / 2) + 1)
+  }
+  const t = sheet.triangles
+  for (let i = 0; i < t.count; i++) {
+    const o = i * t.stride
+    const f = t.f32
+    box(Math.min(f[o]!, f[o + 2]!, f[o + 4]!), Math.min(f[o + 1]!, f[o + 3]!, f[o + 5]!), Math.max(f[o]!, f[o + 2]!, f[o + 4]!), Math.max(f[o + 1]!, f[o + 3]!, f[o + 5]!), 1)
+  }
+  const g = sheet.glyphs
+  const a = sheet.atlasGlyphs
+  for (let i = 0; i < g.count; i++) {
+    const o = i * g.stride
+    const k = g.u32[o]! * 6
+    const [ox, oy, ax, ay, bx, by] = [g.f32[o + 1]!, g.f32[o + 2]!, g.f32[o + 3]!, g.f32[o + 4]!, g.f32[o + 5]!, g.f32[o + 6]!]
+    const [gx0, gy0, gx1, gy1] = [a.f32[k + 2]!, a.f32[k + 3]!, a.f32[k + 4]!, a.f32[k + 5]!]
+    const xs = [gx0 * ax + gy0 * bx, gx1 * ax + gy0 * bx, gx0 * ax + gy1 * bx, gx1 * ax + gy1 * bx]
+    const ys = [gx0 * ay + gy0 * by, gx1 * ay + gy0 * by, gx0 * ay + gy1 * by, gx1 * ay + gy1 * by]
+    box(ox + Math.min(...xs), oy + Math.min(...ys), ox + Math.max(...xs), oy + Math.max(...ys), 1)
+  }
+  return work
 }
 
 let shared: SheetRenderer | null = null
