@@ -33,6 +33,11 @@ two equal-by-value copies of a sheet in two files are two sheets, so nothing her
   running number); or when their running numbers match and their suffixes are single Latin letters one
   apart: "S-101A"/"S-101B". "S-101"/"S-101A" do not run on; a number with no running number (no digit,
   or one of `RUNNING_LIMIT` or more) runs on with none. Copies of one number are one place in a run.
+  A run is in number order, a part by its number ("S-01/9" before "S-01/10"); a revision mark written
+  after a number ("S-01 R1", `split_revision`) is split off before it is read, so "S-01 R1"/"S-01 R2"
+  are one number, never a run (#100). A sheet whose views contradict its title block (`contradicted`:
+  titled views, none sharing a word with its title; a copied title block, #102) runs on with none, so
+  its title's sheets are raised as `same_title`.
 - **`same_title`:** one title on places that do not all run on, or on two numbers that share one place
   (one running number printed two ways, "S-09" and "S-9": not copies, since their normal forms differ,
   and not two places): one Conflict naming every sheet of the title, in number order (a run among them
@@ -79,6 +84,7 @@ from engine.recognise.types import (
     Sourced,
     ViewCandidate,
     ViewKind,
+    pattern_search,
 )
 
 RUNNING_LIMIT = 10**15
@@ -214,7 +220,8 @@ def compare(
         units = _grouped((i, numbers[i]) for i in group)
         if len(units) < 2:
             continue
-        runs = _runs(units, [reader.parts(sheets[unit[0]]) for unit in units])
+        alone = [any(contradicted(sheets[i], views[i], conventions) for i in unit) for unit in units]
+        runs = _runs(units, [reader.parts(sheets[unit[0]]) for unit in units], alone)
         for run in runs:
             members = [i for unit in run for i in unit]
             places.join(members)
@@ -299,6 +306,28 @@ def mark(text: str) -> str:
     return "".join(char for char in normal(text) or "" if char.isalnum())
 
 
+MARK_LIMIT = 16
+"""The longest last word tried as a revision mark (the pattern is the conventions')."""
+
+
+def split_revision(number: str, pattern: str | None) -> tuple[str, str | None]:
+    """A number with a revision mark written after it, a space between ("S-01 R1"), split into the
+    number and the mark (#100; the orchestrator's ruling: "S-01 R1" is number "S-01", revision "R1");
+    else the number as given and none. The mark is the last word, matched whole by the conventions'
+    revision-mark pattern (none: nothing is split), and what is left must still hold a digit, so a
+    bare "R1" stays a number. Only a space separates: "E-R2" may be a riser sheet's own number."""
+    words = number.split()
+    if pattern is None or len(words) < 2 or len(words[-1]) > MARK_LIMIT:
+        return number, None
+    last = words[-1]
+    rest = number[: number.rstrip().rfind(last)].strip()
+    found = pattern_search(pattern, last)
+    whole = found is not None and found.start() == 0 and found.end() == len(last)
+    if whole and any(unicodedata.category(c) == "Nd" for c in rest):
+        return rest, last
+    return number, None
+
+
 class Numbers:
     """Sheet numbers as the conflicts and the register Check compare them, each read once through 13's
     `sequence`: by prefix, running number and suffix, a Discipline's own prefix counting as none (a
@@ -313,12 +342,15 @@ class Numbers:
             for prefix in marks:
                 owners.setdefault(prefix, set()).add(key)
         self.owners = {prefix: keys.pop() for prefix, keys in owners.items() if len(keys) == 1}
+        self.revision = None if conventions is None else conventions.revision_mark_pattern
         self._read: dict[str, tuple[str, int, str] | None] = {}
 
     def parts(self, number: str) -> tuple[str, int, str] | None:
-        """The number's (prefix mark, running number, suffix mark), or none."""
+        """The number's (prefix mark, running number, suffix mark), or none; a revision mark written
+        after it ("S-01 R1") split off first (#100), so its digits never make a running number."""
         if number not in self._read:
-            self._read[number] = read_number(self.recognisers, number)
+            unrevised = split_revision(number, self.revision)[0]
+            self._read[number] = read_number(self.recognisers, unrevised)
         return self._read[number]
 
     def parts_in(self, number: str, discipline: str) -> tuple[str, int, str] | None:
@@ -424,8 +456,11 @@ def _grouped(keyed: Iterable[tuple[int, Hashable]]) -> list[list[int]]:
     return list(groups.values())
 
 
-def _runs(units: list[list[int]], parts: list[tuple[str, int, str] | None]) -> list[list[list[int]]]:
-    """The units (copies of one number) joined into runs of numbers that run on, in number order."""
+def _runs(
+    units: list[list[int]], parts: list[tuple[str, int, str] | None], alone: Sequence[bool]
+) -> list[list[list[int]]]:
+    """The units (copies of one number) joined into runs of numbers that run on, in number order (a
+    part by its number: "S-01/9" before "S-01/10", #100); a unit `alone` joins none (#102)."""
     parent = list(range(len(units)))
 
     def root(u: int) -> int:
@@ -440,7 +475,7 @@ def _runs(units: list[list[int]], parts: list[tuple[str, int, str] | None]) -> l
     by_running: dict[tuple[str, str, int], list[int]] = {}
     by_part: dict[tuple[str, int, int], list[int]] = {}  # a letter or a part number after the running
     for u, p in enumerate(parts):
-        if p is None:
+        if p is None or alone[u]:
             continue
         prefix, running, suffix = p
         by_running.setdefault((prefix, suffix, running), []).append(u)
@@ -458,14 +493,47 @@ def _runs(units: list[list[int]], parts: list[tuple[str, int, str] | None]) -> l
             for u in members:
                 join(u, after[0])
 
-    def order(u: int) -> tuple[bool, str, int, str, int]:
+    def order(u: int) -> tuple[bool, str, int, bool, int, str, int]:
         p = parts[u]
-        return (True, "", 0, "", units[u][0]) if p is None else (False, p[0], p[1], p[2], units[u][0])
+        if p is None:
+            return (True, "", 0, False, 0, "", units[u][0])
+        part = _part(p[2])
+        return (False, p[0], p[1], part is not None, part or 0, p[2], units[u][0])
 
     runs: dict[int, list[int]] = {}
     for u in sorted(range(len(units)), key=order):
         runs.setdefault(root(u), []).append(u)
     return [[units[u] for u in run] for run in runs.values()]
+
+
+def contradicted(
+    sheet: SheetCandidate, views: Sequence[ViewCandidate], conventions: SheetConventions | None
+) -> bool:
+    """Whether the sheet's views contradict its title block (#102: a title block copied from the sheet
+    before and never edited): it has titled views, and not one of their titles shares a word with the
+    sheet's title. A word is three letters or more, in normal form, a final "s" dropped; the
+    conventions' plan and floor words are no evidence (every plan title holds them). A sheet with no
+    title or no titled view is never contradicted: nothing was read to contradict it."""
+    title = _words(sheet.title.value if sheet.title is not None else "", conventions)
+    if not title:
+        return False
+    titled = [words for v in views if (words := _words(v.title or "", conventions))]
+    return bool(titled) and not any(words & title for words in titled)
+
+
+def _words(text: str, conventions: SheetConventions | None) -> frozenset[str]:
+    common = (
+        frozenset()
+        if conventions is None
+        else frozenset(_stem(w) for w in (*conventions.plan_words, *conventions.floor_words))
+    )
+    words = "".join(c if c.isalpha() else " " for c in normal(text) or "").split()
+    return frozenset(w for w in map(_stem, words) if len(w) >= 3 and w not in common)
+
+
+def _stem(word: str) -> str:
+    word = normal(word) or ""
+    return word[:-1] if len(word) > 3 and word.endswith("s") else word
 
 
 PART_DIGITS = 6

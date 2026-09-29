@@ -594,10 +594,10 @@ def test_ranges_past_the_entry_limit_are_refused_before_their_numbers_are_built(
     ("text", "entries"),
     [
         ("S-01\x00 Plan", [("S-01", "Plan")]),
-        ("S-\x0002 Pl\x00an", [("S-02", "Plan")]),
+        ("S-02 Pl\x00an", [("S-02", "Pl an")]),  # #100: a control is a space, never deleted
         ("\u202eS-02 Notes\u202c", [("S-02", "Notes")]),
         ("\u2066S-03\u2069 \u200fNotes", [("S-03", "Notes")]),
-        ("S-01 to S-0\x003", [("S-01", None), ("S-02", None), ("S-03", None)]),
+        ("S-01 to S-0\x003", [("S-01", "to S-0 3")]),  # #100: never "S-03" from "S-0", NUL, "3"
     ],
 )
 def test_control_characters_and_bidi_controls_never_reach_an_entry(
@@ -626,10 +626,11 @@ def test_a_line_of_many_hyphens_is_tried_as_a_range_once() -> None:
 
 def test_a_refusal_counts_lines_as_the_qs_sees_them() -> None:
     """Finding 7: `splitlines` also split on NEL, the line separator and form feeds."""
-    for joiner in ("\x85", "\u2028", "\x0c", "\x1c", "\r"):
+    for joiner in ("\x85", "\u2028", "\x0c", "\x1c"):
         found = refusal(f"S-01{joiner}S-02\n57 to 01")
         assert found["params"]["line"] == 2, (repr(joiner), found)
     assert refusal("S-01\r\n57 to 01")["params"]["line"] == 2
+    assert refusal("S-01\rS-02\n57 to 01")["params"]["line"] == 3  # #100: a bare CR breaks a line
 
 
 @pytest.mark.parametrize(

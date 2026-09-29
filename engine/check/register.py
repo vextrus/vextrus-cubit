@@ -44,8 +44,12 @@ numbers is refused; so is one joined by a hyphen ("01-57", "A-01-A-29"), which c
 sheet's number: the refusal asks for "01 to 57". Any other line is a sheet line when its first cell
 (cells split by tabs, as a spreadsheet pastes; else its first word) reads as a sheet number through
 13's `sequence`: its next cell or the rest of the line is the title, and a later cell that is a revision
-mark by the conventions' pattern (on at most `MARK_LIMIT` characters) is its revision mark. Other lines
-are ignored and counted. A sheet number is one word, or two in a cell whose first is a Discipline's
+mark by the conventions' pattern (on at most `MARK_LIMIT` characters) is its revision mark; so is a
+mark written after the number, a space between ("S-01 R1" is sheet "S-01", revision "R1"; #100). Other
+lines are ignored and counted. Lines break at a line feed or a bare carriage return; every other control
+character is a space, never deleted, so it never joins the digits either side (#100): on such a line a
+tabbed number cell whose first word is a number is read whole ("S-01 9"), and the Check names it.
+A sheet number is one word, or two in a cell whose first is a Discipline's
 prefix ("S 01"). A leading count (digits only) is set aside as a serial column only before a number
 carrying a Discipline's prefix ("1  S-01  General notes"). Text alone cannot tell a count before a bare
 number ("1  01  General notes") from a bare number before a title that starts with a count ("01  1250
@@ -287,8 +291,9 @@ def parse(text: str, conventions: SheetConventions, *, recognisers: Recognisers)
     prefixes = frozenset(mark(p) for d in conventions.disciplines for p in d.prefixes) - {""}
     entries: list[ListEntry] = []
     ignored = ranges = sheet_lines = 0
-    # Lines as the QS sees them: split on line feeds only (never NEL, U+2028 or a form feed).
-    for index, raw in enumerate(text.replace("\r\n", "\n").split("\n"), start=1):
+    # Lines as the QS sees them: split on line feeds and bare carriage returns (an API client's paste,
+    # #100), never NEL, U+2028 or a form feed.
+    for index, raw in enumerate(text.replace("\r\n", "\n").replace("\r", "\n").split("\n"), start=1):
         line = _scrub(raw).strip()
         if not line:
             continue
@@ -303,7 +308,11 @@ def parse(text: str, conventions: SheetConventions, *, recognisers: Recognisers)
             ranges += 1
             sheet_lines += 1
             entries.extend(ListEntry(number, index) for number in _numbers(first, low, high))
-        elif (entry := _sheet_line(_cells(line), index, recognisers, revision, prefixes)) is not None:
+        elif (
+            entry := _sheet_line(
+                _cells(line), index, recognisers, revision, prefixes, spaced=_has_control(raw)
+            )
+        ) is not None:
             sheet_lines += 1
             entries.append(entry)
             if len(entries) > ENTRY_LIMIT:
@@ -321,13 +330,19 @@ _BIDI = frozenset("\u200e\u200f\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\
 
 
 def _scrub(line: str) -> str:
-    """A line without control characters (a tab kept, between cells) or direction controls: a NUL
-    cannot be stored, and an override would reach a Question's words."""
+    """A line with each control character a space (a tab kept, between cells), never deleted, so it
+    never joins the digits either side ("S-01", DEL, "9" is not "S-019"; #100), and without direction
+    controls: a NUL cannot be stored, and an override would reach a Question's words."""
     return "".join(
-        char
+        char if char == "\t" else " " if unicodedata.category(char) == "Cc" else char
         for char in line
-        if char == "\t" or (unicodedata.category(char) != "Cc" and char not in _BIDI)
+        if char not in _BIDI
     )
+
+
+def _has_control(line: str) -> bool:
+    """Whether a line held a control character other than a tab (each now a space)."""
+    return any(char != "\t" and unicodedata.category(char) == "Cc" for char in line)
 
 
 def _is_number(token: str, recognisers: Recognisers) -> bool:
@@ -412,13 +427,19 @@ def _cells(line: str) -> tuple[list[str], bool]:
     return line.split(maxsplit=2), False
 
 
-def _number_cell(cell: str, recognisers: Recognisers, prefixes: frozenset[str]) -> bool:
+def _number_cell(
+    cell: str, recognisers: Recognisers, prefixes: frozenset[str], *, spaced: bool = False
+) -> bool:
     """Whether a cell is a sheet number: it reads as one, and it is one word, or two words whose first
     is a Discipline's prefix ("S 01"). A heading ("Drawing no 1") or a title that ends in a digit is
-    not."""
+    not. On a line that held a control character (`spaced`), a tabbed cell whose first word is a number
+    is read whole, the control's space kept ("S-01 9"), so the Check names it as pasted rather than
+    dropping the line or joining its digits (#100)."""
     if not _is_number(cell, recognisers):
         return False
     if not any(char.isspace() for char in cell):
+        return True
+    if spaced and _is_number(cell.split()[0], recognisers):
         return True
     parts = number_parts(recognisers, cell)
     return parts is not None and mark(parts[0]) in prefixes
@@ -439,16 +460,23 @@ def _sheet_line(
     recognisers: Recognisers,
     revision: Callable[[str], bool],
     prefixes: frozenset[str],
+    *,
+    spaced: bool = False,
 ) -> ListEntry | None:
     cells, tabbed = line
     if len(cells) > 1 and cells[0].isdecimal() and _prefixed(cells[1], recognisers, prefixes):
         cells = cells[1:]  # a serial column ("1  S-01  General notes") is set aside
-    number = cells[0]
-    if not _number_cell(number, recognisers, prefixes):
+    number, written = cells[0], None
+    words = number.split()
+    if len(words) > 1 and revision(words[-1]):
+        number, written = number[: number.rfind(words[-1])].strip(), words[-1]  # "S-01 R1" (#100)
+    if not _number_cell(number, recognisers, prefixes, spaced=tabbed and spaced):
         return None
     if tabbed:
         text = cells[1] if len(cells) > 1 else ""
-        mark_cell = next((c for c in reversed(cells[2:]) if revision(c)), None)
+        mark_cell = next((c for c in reversed(cells[2:]) if revision(c)), written)
+    elif len(cells) > 1 and revision(cells[1]):
+        text, mark_cell = " ".join(cells[2:]), cells[1]  # "S-01 R1 Pile layout plan"
     else:
         text, mark_cell = " ".join(cells[1:]), None
     title = text.strip().lstrip(_SEPARATORS).strip() or None
