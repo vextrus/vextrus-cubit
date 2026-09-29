@@ -18,8 +18,10 @@ makes a Building in M0.
 The database holds this too (migration 0001): the app role may UPDATE only the columns a person may
 change (`code`, `code_key`, `name`, `address`, `unit_system`), and a trigger refuses any INSERT or
 UPDATE whose Market, currency or unit system is not its Developer's Market's, so deleting a Project
-and inserting it again cannot swap them either. A later update service saves with `update_fields`
-and recomputes `code_key`.
+and inserting it again cannot swap them either. The app role deletes no Project, Site or Building
+(migration 0003), so none of their ids comes free for another Project: whatever names a Building by
+id stays with its Project. A later update service saves with `update_fields` and recomputes
+`code_key`.
 """
 
 import builtins
