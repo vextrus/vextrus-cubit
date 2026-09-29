@@ -14,4 +14,4 @@ msgid "takeoff.read_file.not_started"
 msgstr "{file} was not added: Vextrus could not start reading it just now. Add it again in a minute, and tell Vextrus if this keeps happening."
 
 msgid "takeoff.read_file.not_started_again"
-msgstr "Vextrus could not start reading {file} just now. Add it again in a minute to start it, and tell Vextrus if this keeps happening."
+msgstr "{file} is in this Drawing Set, but Vextrus could not start reading it just now. Add it again in a minute to start it, and tell Vextrus if this keeps happening."
