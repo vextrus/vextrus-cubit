@@ -22,6 +22,8 @@ from pathlib import Path
 from typing import Any
 
 SHA256 = 64
+# A name, not a parenthesised tuple, which the formatter would rewrite into syntax 3.12 cannot read.
+UNREADABLE = (OSError, ValueError)
 
 
 def problems(key: Any, reference: Path) -> list[str]:
@@ -61,7 +63,7 @@ def check(drafts: list[Path], reference: Path) -> list[str]:
     for draft in drafts:
         try:
             key = json.loads(draft.read_bytes())
-        except OSError, ValueError:
+        except UNREADABLE:
             found.append(f"{draft}: cannot be read as JSON")
             continue
         found += [f"{draft}: {problem}" for problem in problems(key, reference)]

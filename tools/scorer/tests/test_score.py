@@ -267,3 +267,25 @@ def test_the_installed_scorer_refuses_as_the_owners_user() -> None:
     assert done.returncode == score.REFUSED, done.stderr
     # Where the pipeline's user exists, the key user's log is what this user cannot write.
     assert "no user vxrun" in done.stderr or "the log cannot be written" in done.stderr
+
+
+@pytest.mark.skipif(not Path("/usr/bin/python3").exists(), reason="no system Python here")
+@pytest.mark.parametrize("module", ["score.py", "drafts.py"])
+def test_what_runs_on_the_system_python_compiles_there(module: str) -> None:
+    """keys-custody.sh runs the scorer as root's file and the draft check as the owner's user, both on
+    /usr/bin/python3; the formatter targets 3.14 and rewrites, for one, `except (A, B):` into syntax
+    3.12 cannot read."""
+    source = SCORER.parent / module
+    done = subprocess.run(
+        [
+            "/usr/bin/python3",
+            "-I",
+            "-c",
+            "import sys; compile(open(sys.argv[1]).read(), sys.argv[1], 'exec')",
+            str(source),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert done.returncode == 0, done.stderr
