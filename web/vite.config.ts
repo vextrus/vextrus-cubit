@@ -1,4 +1,5 @@
 /// <reference types="vitest/config" />
+import { realpathSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { defineConfig, type Plugin, type PluginOption } from 'vite'
 import react from '@vitejs/plugin-react'
@@ -34,6 +35,16 @@ function linguiFor(owns: (id: string) => boolean, configPath?: string): Plugin[]
   })
 }
 
+/** The local sheets' folder, and where it really is when it is a link (Vite checks real paths). */
+function localSheets(): string[] {
+  const folder = fileURLToPath(new URL('../.private/work/sheets/', import.meta.url))
+  try {
+    return [folder, realpathSync(folder)]
+  } catch {
+    return [folder] // not there yet
+  }
+}
+
 export default defineConfig(({ mode }) => {
   const production = mode === 'production'
   const plugins: PluginOption[] = [
@@ -67,6 +78,16 @@ export default defineConfig(({ mode }) => {
       // CSRF work as deployed, and the request keeps its Origin, which CSRF_TRUSTED_ORIGINS expects
       // to be this server's (vextrus/settings/auth.py).
       proxy: { '/api': { target: 'http://127.0.0.1:8000', changeOrigin: false } },
+      // Outside web/, Vite serves only these: the engine's committed sheet buffers and their rasters
+      // (engine/render/fixtures/), which the sheet viewer's pixel test and dev route read, and the
+      // buffers written locally for that route (.private/work/sheets/; this server is 127.0.0.1's).
+      fs: {
+        allow: [
+          '.',
+          fileURLToPath(new URL('../engine/render/fixtures/', import.meta.url)),
+          ...localSheets(),
+        ],
+      },
     },
     preview: {
       host: '127.0.0.1',

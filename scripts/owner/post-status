@@ -13,6 +13,10 @@ this file reads the settings beside itself:
         Checks that the commit is the PR's head now, and posts the checklist items passed, failed and
         not applicable, by number, and nothing else. Each item is in exactly one of the three; the
         status is success only when none failed.
+    post-status head <main | branch | PR number>
+        Posts nothing: prints the commit GitHub holds for main, a branch or a PR's head (ticket 24s:
+        the pipeline's user scores only a head, measured against a main, that GitHub holds, so a commit
+        nobody pushed is never scored). A branch name is letters, digits, `.`, `_` and `-`.
 
 Standard library only; the App's token is signed with `openssl`. It prints no secret.
 """
@@ -37,6 +41,7 @@ CONFIG = Path(__file__).resolve().with_name("post-status.toml")
 API = "https://api.github.com"
 RUN_ID = re.compile(r"^\d{8}T\d{6}Z-[0-9a-f]{12}-[0-9a-f]{4}$")
 COMMIT = re.compile(r"^[0-9a-f]{40}$")
+BRANCH = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$")
 MEASURES = {
     "files",
     "failed_stages",
@@ -83,11 +88,20 @@ def main(
     gate.add_argument("--passed", default="", help="item numbers and ranges, e.g. 1-9,11")
     gate.add_argument("--failed", default="", help="item numbers and ranges, e.g. 10")
     gate.add_argument("--not-applicable", default="", help="item numbers and ranges, e.g. 11")
+    held = kinds.add_parser("head", help="print the commit GitHub holds for main, a branch or a PR")
+    held.add_argument("ref")
     args = parser.parse_args(argv)
     config = tomllib.loads(config_path.read_text())
     try:
+        if args.kind == "head":
+            signer = sign or (lambda data: openssl_sign(Path(config["key"]), data))
+            print(github_head(config, args.ref, transport or https, signer, now()))
+            return 0
         if args.kind == "real-drawings":
-            pr, commit, state, description = real_drawings(Path(config["drop"]), args.run_id)
+            if not isinstance(config.get("writer"), str):
+                raise Refused("the settings name no pipeline's user (`writer`)")
+            writer = pipeline_user(config["writer"])
+            pr, commit, state, description = real_drawings(Path(config["drop"]), args.run_id, writer)
             context = "real-drawings"
         else:
             pr, commit = args.pr, args.commit
@@ -113,12 +127,45 @@ def main(
     return 0
 
 
-def real_drawings(drop: Path, run_id: str) -> tuple[int, str, str, str]:
-    """The PR, the commit, the state and the description, from that run's summary and metadata only."""
+def github_head(config: dict[str, Any], ref: str, send: Transport, sign: Signer, now: float) -> str:
+    """The commit GitHub holds for a PR's head, or for main or a branch (through the combined status,
+    which the App's commit-status permission reads)."""
+    repository = config["repository"]
+    field: tuple[str, ...]
+    if ref.isdigit():
+        path, field = f"/repos/{repository}/pulls/{int(ref)}", ("head", "sha")
+    elif BRANCH.match(ref) and ".." not in ref:
+        path, field = f"/repos/{repository}/commits/{ref}/status", ("sha",)
+    else:
+        raise Refused(f"not main, a branch name or a PR number: {ref!r}")
+    reply = send("GET", path, installation_token(config, send, sign, now), None)
+    for name in field:
+        reply = reply.get(name) if isinstance(reply, dict) else None
+    if not isinstance(reply, str) or not COMMIT.match(reply):
+        raise Refused(f"GitHub holds no commit for {ref}")
+    return reply
+
+
+def pipeline_user(name: Any) -> int | None:
+    """The user id of the pipeline's user (`writer` in the settings, ticket 24s) once it exists, which
+    alone may have written a run the poster posts; None before scripts/owner/keys-custody.sh made it."""
+    if not isinstance(name, str):
+        return None
+    import pwd
+
+    try:
+        return pwd.getpwnam(name).pw_uid
+    except KeyError:
+        return None
+
+
+def real_drawings(drop: Path, run_id: str, writer: int | None = None) -> tuple[int, str, str, str]:
+    """The PR, the commit, the state and the description, from that run's summary and metadata only;
+    once the pipeline's user exists, only from a run it wrote."""
     if not RUN_ID.match(run_id):
         raise Refused(f"not a run id: {run_id!r}")
-    metadata = read_json(drop / run_id, "metadata.json")
-    summary = read_json(drop / run_id, "summary.json")
+    metadata = read_json(drop / run_id, "metadata.json", writer)
+    summary = read_json(drop / run_id, "summary.json", writer)
     if metadata.get("run_id") != run_id or summary.get("run_id") != run_id:
         raise Refused("the run's metadata or summary names another run")
     pr = metadata.get("pr")
@@ -202,13 +249,16 @@ def shorten(text: str) -> str:
     return text if len(text) <= DESCRIPTION_MOST else text[: DESCRIPTION_MOST - 1] + "…"
 
 
-def read_json(folder: Path, name: str) -> dict[str, Any]:
-    """A small regular file in the run's folder, opened without following a link."""
+def read_json(folder: Path, name: str, writer: int | None = None) -> dict[str, Any]:
+    """A small regular file in the run's folder, opened without following a link; with `writer`, the
+    folder and the file must be that user's and nobody else's to write."""
     try:
         directory = os.open(folder, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     except OSError as error:
         raise Refused(f"no run folder {folder} ({error.strerror})") from None
     try:
+        if writer is not None and not _written_by(os.fstat(directory), writer):
+            raise Refused("the run's folder was not written by the pipeline's user")
         handle = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory)
     except OSError as error:
         raise Refused(f"no regular file {name} in the run's folder ({error.strerror})") from None
@@ -218,6 +268,8 @@ def read_json(folder: Path, name: str) -> dict[str, Any]:
         info = os.fstat(file.fileno())
         if not stat.S_ISREG(info.st_mode) or info.st_size > READ_MOST:
             raise Refused(f"the run's {name} is not a small regular file")
+        if writer is not None and not _written_by(info, writer):
+            raise Refused(f"the run's {name} was not written by the pipeline's user")
         try:
             value = json.loads(file.read())
         except ValueError:
@@ -225,6 +277,10 @@ def read_json(folder: Path, name: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise Refused(f"the run's {name} is not a JSON object")
     return value
+
+
+def _written_by(info: os.stat_result, writer: int) -> bool:
+    return info.st_uid == writer and not info.st_mode & 0o022
 
 
 def installation_token(config: dict[str, Any], send: Transport, sign: Signer, now: float) -> str:

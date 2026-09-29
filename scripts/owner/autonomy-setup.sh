@@ -143,8 +143,10 @@ else
   warn "post-status is not installed, so its check is skipped: run drop-setup.sh, then this again"
 fi
 if [ -x "$SCORER" ]; then
+  # The placeholder answers 0; the real scorer (ticket 24s) refuses a run that is not there with 2,
+  # which proves it ran as the key user (sudo's own refusal is 1).
   check "$OWNER may run the scorer as $KEY_USER on a run id" \
-    "$(as_owner "$SCORER" 20260101T000000Z-000000000000-0000)"
+    "$(as_owner "$SCORER" 20260101T000000Z-000000000000-0000); case \$? in 0|2) true ;; *) false ;; esac"
   check "$OWNER is refused the scorer with no run id" "! $(as_owner "$SCORER")"
   check "$OWNER is refused the scorer on a path" "! $(as_owner "$SCORER" /home/$KEY_USER/keys)"
   check "$OWNER is refused the scorer with an option" "! $(as_owner "$SCORER" --key x)"
