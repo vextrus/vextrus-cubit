@@ -657,8 +657,15 @@ def test_a_title_inside_its_drawings_box_near_its_edge_is_the_drawings() -> None
     d.line((40, 290), (40, 300))
     d.line((340, 290), (340, 300))
     d.text("SECTION A-A", (150, 292, 0.0), height=6.0)
+    grid(d, (420, 300, 620, 560))
+    d.line((400, 290), (640, 290))
+    d.line((420, 290), (420, 300))
+    d.text("SECTION B-B", (380, 292, 0.0), height=6.0)  # its start left of its drawing's box
     found = drawn(d, one_sheet(d))
-    assert [(v.kind, v.title) for v in found] == [(ViewKind.SECTION, "SECTION A-A")]
+    assert [(v.kind, v.title) for v in found] == [
+        (ViewKind.SECTION, "SECTION A-A"),
+        (ViewKind.SECTION, "SECTION B-B"),
+    ]
 
 
 def test_a_titles_second_line_titles_no_drawing_under_it() -> None:

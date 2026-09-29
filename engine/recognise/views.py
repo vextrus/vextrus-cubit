@@ -1196,7 +1196,7 @@ def _views(
                 pairs.append((below, ti, k))
             elif -0.5 <= above <= TITLE_GAP_UNDER:
                 pairs.append((above + TITLE_GAP, ti, k))
-            elif px0 <= x0 and x1 <= px1 and py0 <= y0 and y1 <= py1:  # its drawing runs past it
+            elif py0 <= y0 and y1 <= py1:  # its drawing runs past it, under or over
                 depth = min(y0 - py0, py1 - y1) / h
                 if depth <= TITLE_INSIDE:
                     pairs.append((TITLE_GAP + TITLE_GAP_UNDER + depth, ti, k))
