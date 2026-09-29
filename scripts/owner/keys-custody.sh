@@ -116,7 +116,7 @@ github_main() {
 # changed afterwards, or written through a handle held open, changes nothing in custody.
 snapshot_draft() {
   local draft=$DRAFTS/$1.json
-  [ ! -L "$draft" ] && [ -f "$draft" ] || die "the $1 draft is not a plain file (a link is never taken)"
+  if [ -L "$draft" ] || [ ! -f "$draft" ]; then die "the $1 draft is not a plain file (a link is never taken)"; fi
   install -m 0644 /dev/null "$tmp/draft-$1.json"
   as_owner cat -- "$draft" > "$tmp/draft-$1.json" || die "the $1 draft could not be read"
 }
@@ -129,7 +129,7 @@ check_draft() {
 # Root's copy becomes the key: a new file, the key user's alone; the draft itself is never moved.
 take_key() {
   local key=$KEY_DIR/$1.json
-  [ ! -e "$key" ] && [ ! -L "$key" ] || die "$1 already has a key in custody; move it aside by hand first"
+  if [ -e "$key" ] || [ -L "$key" ]; then die "$1 already has a key in custody; move it aside by hand first"; fi
   install -o "$KEY_USER" -g "$KEY_USER" -m 0600 "$tmp/draft-$1.json" "$key"
   cmp -s "$tmp/draft-$1.json" "$key" || die "the $1 key is not the copy you confirmed"
 }
@@ -141,7 +141,7 @@ remove_drafts() {
   as_owner bash -c '
     find "$1" \( -type f -o -type l \) -print0 | while IFS= read -r -d "" f; do rm -f -- "$f"; done
     find "$1" -depth -type d -print0 | while IFS= read -r -d "" d; do rmdir -- "$d"; done' _ "$DRAFTS"
-  [ ! -e "$DRAFTS" ] && [ ! -L "$DRAFTS" ] || die "$DRAFTS is not gone: remove what is left, then run this again"
+  if [ -e "$DRAFTS" ] || [ -L "$DRAFTS" ]; then die "$DRAFTS is not gone: remove what is left, then run this again"; fi
 }
 
 main() {
@@ -157,7 +157,7 @@ main() {
   version=$(sudo -V | sed -n 's/^Sudo version \([0-9.]*\).*/\1/p')
   printf '%s\n1.9.10\n' "$version" | sort -V -C -r 2>/dev/null \
     || die "sudo $version is older than 1.9.10, which the rules' argument patterns need"
-  [ ! -L "$DROP" ] && [ -d "$DROP" ] || die "no drop folder $DROP: run scripts/owner/drop-setup.sh first"
+  if [ -L "$DROP" ] || [ ! -d "$DROP" ]; then die "no drop folder $DROP: run scripts/owner/drop-setup.sh first"; fi
   as_owner git -C "$ROOT" bundle create --quiet - refs/heads/main > "$tmp/main.bundle" \
     || die "your checkout could not bundle main"
   [ -d "$MAIN_REPO" ] || git init --quiet --bare "$MAIN_REPO"
