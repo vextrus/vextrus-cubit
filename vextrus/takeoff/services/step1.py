@@ -552,9 +552,16 @@ def drawing_list(project_id: uuid.UUID, discipline: str) -> ListView:
 
 
 def _act(
-    project_id: uuid.UUID, act: ConfirmationAct, sheets: int, actor_name: str, *, discipline: str = ""
+    project_id: uuid.UUID,
+    act: ConfirmationAct,
+    sheets: int,
+    actor_name: str,
+    *,
+    discipline: str = "",
+    before: Sequence[drawings.SheetView] = (),
 ) -> Confirmation:
     return Confirmation.objects.create(
+        before={"sheets": {str(sheet.id): _decision_of(sheet) for sheet in before}},
         tenant_id=_tenant(),
         project_id=project_id,
         step=SHEETS,
@@ -600,7 +607,14 @@ def confirm(
     auth.require(acts.CONFIRM, project_id)
     with transaction.atomic():
         chosen = _chosen(project_id, ids)
-        act = _act(project_id, ConfirmationAct.CONFIRM, len(chosen), actor_name, discipline=_one(chosen))
+        act = _act(
+            project_id,
+            ConfirmationAct.CONFIRM,
+            len(chosen),
+            actor_name,
+            discipline=_one(chosen),
+            before=[sheet for sheet, _p in chosen],
+        )
         for sheet, proposal in chosen:
             proposal = proposal or _propose(project_id, sheet)
             pick = proposal.jev_pick or {}
@@ -630,7 +644,14 @@ def exclude(
     words = text if reason == OTHER else ""
     with transaction.atomic():
         chosen = _chosen(project_id, ids)
-        act = _act(project_id, ConfirmationAct.EXCLUDE, len(chosen), actor_name, discipline=_one(chosen))
+        act = _act(
+            project_id,
+            ConfirmationAct.EXCLUDE,
+            len(chosen),
+            actor_name,
+            discipline=_one(chosen),
+            before=[sheet for sheet, _p in chosen],
+        )
         for sheet, proposal in chosen:
             proposal = proposal or _propose(project_id, sheet)
             drawings.exclude(sheet.id, reason, words, confirmation_id=act.id)
@@ -643,7 +664,9 @@ def exclude(
 
 def undo(project_id: uuid.UUID) -> ActView:
     """Take back the acting user's own last act on Step 1 not yet undone (a confirmation, an
-    exclusion, a drawing list): what it decided is undecided again, its proposals open."""
+    exclusion, a drawing list). Each sheet it still decides goes back to what it carried before the
+    act (another person's decision included), or to undecided; its Proposal and its views' Coverage
+    follow. A sheet another act has decided since is left as that act decided it."""
     auth.require(acts.UNDO, project_id)
     projects.get(project_id)  # a Project not in scope (of another Developer, or none) is not found
     with transaction.atomic():
@@ -655,16 +678,79 @@ def undo(project_id: uuid.UUID) -> ActView:
         )
         if act is None:
             raise auth.Refused(said.NOTHING_TO_UNDO(), status=409)
+        stamped = [s for s in _sheets(project_id) if s.confirmation_id == act.id]
         drawings.undo(act.id)
-        Proposal.objects.filter(project_id=project_id, confirmation=act).update(
-            status=ProposalStatus.OPEN, confirmation=None, rejected_reason=""
-        )
-        for row in Coverage.objects.filter(project_id=project_id, confirmation=act):
-            _put_back(row)
         act.undone_at = timezone.now()
         act.save(update_fields=["undone_at"])
+        for sheet in stamped:
+            _put_back_sheet(project_id, sheet.id, _standing_before(act, sheet.id))
         record_progress(project_id)
     return _act_view(act)
+
+
+def _decision_of(sheet: drawings.SheetView) -> dict[str, Any] | None:
+    if not sheet.decision:
+        return None
+    return {
+        "decision": sheet.decision,
+        "confirmation_id": str(sheet.confirmation_id) if sheet.confirmation_id else None,
+        "kind": sheet.confirmed_kind,
+        "reason": sheet.excluded_reason,
+        "text": sheet.excluded_text,
+    }
+
+
+def _standing_before(
+    act: Confirmation, sheet_id: uuid.UUID
+) -> tuple[Confirmation, dict[str, Any]] | None:
+    """The newest decision on the sheet before `act` whose own act still stands: walking back over
+    acts undone since (each keeps what it overwrote), else None (undecided)."""
+    key = str(sheet_id)
+    prior = act.before.get("sheets", {}).get(key)
+    seen = {act.id}
+    while prior and prior.get("confirmation_id"):
+        earlier = Confirmation.objects.filter(
+            project_id=act.project_id, id=uuid.UUID(prior["confirmation_id"])
+        ).first()
+        if earlier is None or earlier.id in seen:
+            return None
+        if earlier.undone_at is None:
+            return earlier, prior
+        seen.add(earlier.id)
+        prior = earlier.before.get("sheets", {}).get(key)
+    return None
+
+
+def _put_back_sheet(
+    project_id: uuid.UUID, sheet_id: uuid.UUID, standing: tuple[Confirmation, dict[str, Any]] | None
+) -> None:
+    proposal = next((p for p in _proposals_of(project_id) if p.subject_id == sheet_id), None)
+    if standing is None:
+        if proposal is not None:
+            proposal.status, proposal.confirmation, proposal.rejected_reason = (
+                ProposalStatus.OPEN,
+                None,
+                "",
+            )
+            proposal.save(update_fields=["status", "confirmation", "rejected_reason"])
+        for row in Coverage.objects.select_for_update().filter(
+            project_id=project_id, sheet_revision_id=sheet_id
+        ):
+            _put_back(row)
+        return
+    earlier, prior = standing
+    if prior["decision"] == "excluded":
+        drawings.exclude(sheet_id, prior["reason"], prior["text"] or "", confirmation_id=earlier.id)
+        _decide_views(sheet_id, earlier, prior["reason"], prior["text"] or "")
+        if proposal is not None:
+            proposal.rejected_reason = prior["reason"]
+            _stamp(proposal, ProposalStatus.REJECTED, earlier)
+    else:
+        drawings.confirm_sheet(sheet_id, confirmation_id=earlier.id, kind=prior["kind"])
+        _decide_views(sheet_id, earlier, None, "")
+        if proposal is not None:
+            proposal.rejected_reason = ""
+            _stamp(proposal, ProposalStatus.CONFIRMED, earlier)
 
 
 def _one(chosen: Sequence[tuple[drawings.SheetView, Proposal | None]]) -> str:

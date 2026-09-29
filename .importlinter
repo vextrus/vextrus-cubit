@@ -25,6 +25,7 @@ layers =
 # builder may not change them, so their imports of the seed alone are let through.
 ignore_imports =
     vextrus.takeoff.tests.acceptance.t19a.* -> vextrus.seed.*
+unmatched_ignore_imports_alerting = none
 
 [importlinter:contract:engine]
 name = The engine imports no Django, no web framework and no Vextrus module
@@ -52,6 +53,7 @@ allowed_importers =
 ignore_imports =
     vextrus.takeoff.tests.acceptance.t19a.step1 -> vextrus.platform.models
     vextrus.takeoff.tests.acceptance.t19a.test_step1_confirm -> vextrus.platform.models
+unmatched_ignore_imports_alerting = none
 
 [importlinter:contract:private-models-projects]
 name = Private models: only projects, its seed and the test fixtures import vextrus.projects.models

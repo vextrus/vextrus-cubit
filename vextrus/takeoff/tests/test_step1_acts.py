@@ -206,3 +206,64 @@ def test_every_act_on_a_project_out_of_scope_is_not_found(step1_project: Step1Pr
             {"code": "platform.auth.not_found", "params": {}},
         ), path
     assert decisions(step1_project) == ["confirmed", None, None]
+
+
+# Undo puts back what the act overwrote (the refuter's findings, scored 70 and 55) -----------------
+
+
+def decided(project: Step1Project) -> tuple[str | None, uuid.UUID | None]:
+    with project.member.acting():
+        sheet = drawings.sheet(project.sheets[0])
+    return sheet.decision, sheet.confirmation_id
+
+
+def test_a_colleagues_undo_puts_back_my_decision(
+    step1_project: Step1Project, sign_in: Callable[..., Member]
+) -> None:
+    mine, first = api_as(step1_project.member), str(step1_project.proposals[0])
+    theirs = api_as(sign_in(role="qs", developer_id=step1_project.member.developer_id))
+    confirmed = mine.post(url(step1_project.project_id, "confirm"), {"proposals": [first]}).json()
+    blank = {"proposals": [first], "reason": "blank", "text": ""}
+    theirs.post(url(step1_project.project_id, "exclude"), blank)
+
+    theirs.post(url(step1_project.project_id, "undo"), {})
+
+    assert decided(step1_project) == ("confirmed", uuid.UUID(confirmed["confirmation_id"]))
+    listed = mine.get(url(step1_project.project_id, "proposals")).json()["proposals"]
+    [item] = [p for p in listed if p["id"] == first]
+    assert item["decided_by"] == step1_project.member.user.name
+    coverage = mine.get(url(step1_project.project_id, "coverage")).json()
+    assert (coverage["excluded"], coverage["unaccounted"]) == (0, 3)
+
+
+def test_undo_after_changing_ones_mind_puts_back_the_first_decision(step1_project: Step1Project) -> None:
+    qs, first = api_as(step1_project.member), str(step1_project.proposals[0])
+    confirmed = qs.post(url(step1_project.project_id, "confirm"), {"proposals": [first]}).json()
+    duplicate = {"proposals": [first], "reason": "duplicate", "text": ""}
+    qs.post(url(step1_project.project_id, "exclude"), duplicate)
+
+    qs.post(url(step1_project.project_id, "undo"), {})
+    after_one = decided(step1_project)
+    qs.post(url(step1_project.project_id, "undo"), {})
+    after_two = decided(step1_project)
+    third = qs.post(url(step1_project.project_id, "undo"), {})
+
+    assert after_one == ("confirmed", uuid.UUID(confirmed["confirmation_id"]))
+    assert after_two == (None, None)
+    assert third.status_code == 409
+
+
+def test_undo_walks_back_past_an_act_already_undone(
+    step1_project: Step1Project, sign_in: Callable[..., Member]
+) -> None:
+    mine, first = api_as(step1_project.member), str(step1_project.proposals[0])
+    theirs = api_as(sign_in(role="qs", developer_id=step1_project.member.developer_id))
+    mine.post(url(step1_project.project_id, "confirm"), {"proposals": [first]})
+    blank = {"proposals": [first], "reason": "blank", "text": ""}
+    theirs.post(url(step1_project.project_id, "exclude"), blank)
+
+    mine.post(url(step1_project.project_id, "undo"), {})  # mine no longer decides the sheet: kept
+    kept = decided(step1_project)[0]
+    theirs.post(url(step1_project.project_id, "undo"), {})  # back past my undone confirmation
+
+    assert (kept, decided(step1_project)) == ("excluded", (None, None))

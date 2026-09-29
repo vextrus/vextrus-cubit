@@ -302,7 +302,8 @@ class ConfirmationAct(models.TextChoices):
 
 class Confirmation(models.Model):
     """One act of the QS, under their name: every decision it made carries its id, and `undo`
-    reverses them all (`undone_at` set; the only column the app may change)."""
+    reverses them all, putting back what each sheet carried before (`before`); `undone_at` set, the
+    only column the app may change."""
 
     id = models.UUIDField(primary_key=True, default=new_id, editable=False)
     tenant_id = models.UUIDField(editable=False)
@@ -321,6 +322,12 @@ class Confirmation(models.Model):
     model_version_seq = models.PositiveIntegerField(null=True, blank=True)
     at = models.DateTimeField(default=timezone.now, editable=False)
     undone_at = models.DateTimeField(null=True, blank=True)
+    before = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="What it overwrote, by printed sheet: {sheets: {id: {decision, confirmation_id, "
+        "kind, reason, text}}}; undo puts back the newest of those still standing.",
+    )
 
     class Meta:
         indexes: ClassVar = [_index("confirmation", "project_id", "user", "at")]

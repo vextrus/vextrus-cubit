@@ -1,7 +1,7 @@
 """`seed_demo`: load the invented demo project (docs/design/m0-screens.md §7).
 
-It runs `sync_library` first, as the owner (idempotent: the Markets and every module's Library rows),
-so `flush` then `seed_demo` works (#95)."""
+It runs `sync_library` first, as the owner (idempotent: it puts back a Market that is missing, then
+every module's Library rows), so `flush` then `seed_demo` works (#95)."""
 
 from typing import Any
 

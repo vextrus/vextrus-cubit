@@ -321,6 +321,14 @@ class Migration(migrations.Migration):
                 ),
                 ("undone_at", models.DateTimeField(blank=True, null=True)),
                 (
+                    "before",
+                    models.JSONField(
+                        blank=True,
+                        default=dict,
+                        help_text="What it overwrote, by printed sheet: {sheets: {id: {decision, confirmation_id, kind, reason, text}}}; undo puts back the newest of those still standing.",
+                    ),
+                ),
+                (
                     "user",
                     models.ForeignKey(
                         db_index=False,
