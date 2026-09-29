@@ -7,4 +7,4 @@ msgstr ""
 
 #. engine/messages/render_f1.py (ticket 18): the render check's name in the Library, shown without values. Its result is a score per sheet from 0 to 1: how much of the sheet as read lies on its Plot page, and of the page on it.
 msgid "engine.render_f1.name"
-msgstr "Each sheet as read against its Plot page"
+msgstr "How closely each sheet as read matches its Plot"

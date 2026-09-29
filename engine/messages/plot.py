@@ -7,8 +7,9 @@ with no sheet carries the reason's key (`REASONS`, the code's last part); a scre
 `page`, the page's number counting from 1.
 
 - `names_no_sheet`: the page's text, its title block's and its body's, names no sheet's number.
-- `names_several_sheets`: it names more than one sheet's number, none more surely than the others.
-- `no_text`: the page carries no text at all to match (its lettering drawn as lines, with no comments).
+- `names_several_sheets`: it names more than one sheet's number, none more surely than the others,
+  or one number several sheets carry that the page's size cannot tell apart.
+- `no_text`: the page carries no text at all to match (a blank page, or lettering drawn as lines).
 - `scan`: the page is a scan (12's rule): nothing on it but a picture.
 """
 
