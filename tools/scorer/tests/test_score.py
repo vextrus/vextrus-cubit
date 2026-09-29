@@ -2,6 +2,7 @@
 views and sheets, the normalising, the files inside a run's folder, the system Python it runs on, and
 that no failure shows a key's value. Invented keys and exports only."""
 
+import hashlib
 import json
 import os
 import shutil
@@ -582,3 +583,46 @@ def test_a_refusal_with_a_log_that_cannot_be_written_says_only_that(
     assert code == score.REFUSED
     assert output.out == ""
     assert output.err == score.UNLOGGED + "\n"
+
+
+# The 24f refuter (50): an export value that failed the call only when its sheet joined a key sheet told
+# a Held-out Set's layout and frame by the exit code. Every value is now normalised before the join.
+
+DEEP = "[" * 60000 + "]" * 60000  # past the recursion limit, whatever normalises it
+
+
+def poisoned(place: Place, where: str) -> None:
+    """The run's one export sheet (null layout, at A_BOX), with one value no scorer could normalise."""
+    found = found_plan(views=[export_view(A_BOX, "Plan A")])
+    found["location"] = {"layout": None, "box": A_BOX}
+    if where == "views":
+        found["views"] = 1
+    elif where == "location":
+        found["location"] = "QZ-POISON"
+    else:
+        found[where] = {"value": "QZ-POISON", "source": "file"}
+    export = place.write_run([found])
+    data = export.read_bytes().replace(b'"QZ-POISON"', DEEP.encode())
+    export.write_bytes(data)
+    metadata = json.loads((place.run / "metadata.json").read_text())
+    metadata["sets"]["invented-set"]["export_sha256"] = hashlib.sha256(data).hexdigest()
+    (place.run / "metadata.json").write_text(json.dumps(metadata))
+
+
+@pytest.mark.parametrize(
+    "where", ["views", "storeys_as_stated", "number", "title", "revision_mark", "location"]
+)
+def test_what_an_export_does_to_the_call_never_depends_on_whether_its_sheet_joins(
+    tmp_path: Path, capfd: pytest.CaptureFixture[str], where: str
+) -> None:
+    answers = []
+    for frame in (A_BOX, B_BOX):  # the key sheet joins the export sheet, then it does not
+        place = Place(tmp_path / str(frame[0]))
+        place.root.mkdir()
+        place.write_keys([plan(layout="model", frame=frame)], held_out=True)
+        poisoned(place, where)
+        code = place.score()
+        out = shown(capfd).replace(str(tmp_path / str(frame[0])), "")
+        answers.append((code, out))
+
+    assert answers[0] == answers[1], answers

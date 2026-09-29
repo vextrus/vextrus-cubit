@@ -324,75 +324,151 @@ def _json(data: bytes, what: str) -> dict[str, Any]:
 
 
 def _score(key: dict[str, Any], export: dict[str, Any]) -> Score:
-    score = Score()
-    pairs = [
-        (file.get("name"), sheet)
+    """The set's score. Every value of the export, and of the key, is normalised first, in one pass
+    over all of it: a value that cannot be (a views list that is a number, a list nested past the
+    recursion limit) then fails the call whatever the key holds, never only when its sheet joins a
+    key sheet, which would tell a Held-out Set's layouts and frames by the exit code (session 06's 24f
+    refuter). After this pass nothing the join or the comparison does can raise on either's values."""
+    found = [
+        _sheet(sheet, file.get("name"), "found")
         for file in export.get("files") or []
         if isinstance(file, dict)
         for sheet in (file.get("sheets") or [])
         if isinstance(sheet, dict)
     ]
-    found = [sheet for _, sheet in pairs]
-    keyed = [sheet for sheet in key["sheets"] if isinstance(sheet, dict)]
-    joined = _join_sheets(keyed, found, [origin for origin, _ in pairs])
+    keyed = [
+        _sheet(sheet, sheet.get("file"), "key") for sheet in key["sheets"] if isinstance(sheet, dict)
+    ]
+    score = Score()
+    joined = _join_sheets(keyed, found)
     score.extra_sheets = len(found) - len(joined)
     for index, sheet in enumerate(keyed):
         match = joined.get(index)
-        views = [view for view in sheet.get("views") or [] if isinstance(view, dict)]
         if match is None:
             score.count("sheets", False)
             for field, _name, _reason in FIELDS:
                 score.count(field, False)
-            for _view in views:
+            for _view in sheet.views:
                 score.count("views", False)
             score.sheets.append(("", ["the sheet missing"], 0, False))
             continue
         other = found[match]
         reasons = []
-        for field, name, reason in FIELDS:
-            right = _same(field, sheet.get(field), _value(other.get(name)))
+        for field, _name, reason in FIELDS:
+            right = sheet.fields[field] == other.fields[field]
             score.count(field, right)
             if not right:
                 reasons.append(reason)
         # Session 06's ruling 14:20: a model-space sheet's (a keyed frame's) export boxes are scaled by
         # the key's paper over the export's before the IoU; a layout sheet's never are.
         scale, unknown = (1.0, 1.0), False
-        if sheet.get("frame") is not None:
-            ratio = _paper_ratio(sheet.get("paper"), other.get("paper"))
+        if sheet.framed:
+            ratio = _paper_ratio(sheet.paper, other.paper)
             scale, unknown = ratio or scale, ratio is None
-        found_views = [_scaled(v, scale) for v in other.get("views") or [] if isinstance(v, dict)]
-        wrong, extra = _score_views(score, views, found_views)
+        found_views = [_scaled(view, scale) for view in other.views]
+        wrong, extra = _score_views(score, sheet.views, found_views)
         reasons += wrong
         score.count("sheets", not reasons)
-        layout = (other.get("location") or {}).get("layout")
-        score.sheets.append((layout if isinstance(layout, str) else "", reasons, extra, unknown))
+        score.sheets.append((other.layout or "", reasons, extra, unknown))
     return score
 
 
-def _paper_ratio(key: Any, found: Any) -> tuple[float, float] | None:
-    """Key paper over export paper, (x, y), when both are `[w, h]` in mm; None when either is not."""
-    sizes = []
-    for paper in (key, found):
-        if not isinstance(paper, list) or len(paper) != 2:
-            return None
-        width, height = _finite(paper[0]), _finite(paper[1])
-        if width is None or height is None or width <= 0 or height <= 0:
-            return None
-        sizes.append((width, height))
-    (kw, kh), (fw, fh) = sizes
-    return kw / fw, kh / fh
+Box = tuple[float, float, float, float]
 
 
-def _scaled(view: dict[str, Any], scale: tuple[float, float]) -> dict[str, Any]:
-    box = view.get("box")
-    if scale == (1.0, 1.0) or not isinstance(box, list) or len(box) != 4:
-        return view
-    numbers = [_finite(n) for n in box]
-    if None in numbers:
+class _View:
+    """A view, normalised: its box (four finite numbers, or None), kind, title and subject."""
+
+    def __init__(self, view: dict[str, Any]) -> None:
+        self.box = _box(view.get("box"))
+        self.kind = _text(view.get("kind"))
+        self.title = _title(view.get("title"))
+        self.subject = _text(view.get("subject"))
+
+
+def _scaled(view: _View, scale: tuple[float, float]) -> _View:
+    """The view with its box scaled by (x, y)."""
+    if scale == (1.0, 1.0) or view.box is None:
         return view
     sx, sy = scale
+    x0, y0, x1, y1 = view.box
+    scaled = _View({})
+    scaled.box = (x0 * sx, y0 * sy, x1 * sx, y1 * sy)
+    scaled.kind, scaled.title, scaled.subject = view.kind, view.title, view.subject
+    return scaled
+
+
+class _Sheet:
+    """A sheet of the key or of the export, normalised: where it is (its drawing file, layout, whether
+    it is drawn in model space, its box: the key's `frame`, the export's `location.box`), its paper,
+    its six fields and its views."""
+
+    def __init__(self) -> None:
+        self.origin: str | None = None
+        self.layout: str | None = None
+        self.in_model = False
+        self.box: Box | None = None
+        self.framed = False
+        self.paper: tuple[float, float] | None = None
+        self.fields: dict[str, Any] = {}
+        self.views: list[_View] = []
+
+
+def _sheet(sheet: dict[str, Any], origin: Any, side: str) -> _Sheet:
+    """One sheet normalised; `side` is "key" (fields by the key's names, the box its `frame`) or
+    "found" (the export's names, sourced values, the box its `location.box`)."""
+    made = _Sheet()
+    made.origin = origin if isinstance(origin, str) else None
+    if side == "key":
+        layout, box = sheet.get("layout"), sheet.get("frame")
+        made.framed = box is not None
+    else:
+        location = sheet.get("location")
+        location = location if isinstance(location, dict) else {}
+        layout, box = location.get("layout"), location.get("box")
+    made.layout = layout if isinstance(layout, str) else None
+    # A model-space sheet: the key says "model" (any case); 13's export gives it no layout (F0).
+    made.in_model = (layout is None and side == "found") or (
+        isinstance(layout, str) and layout.casefold() == "model"
+    )
+    made.box = _box(box)
+    made.paper = _paper(sheet.get("paper"))
+    for field, name, _reason in FIELDS:
+        value = sheet.get(field) if side == "key" else _value(sheet.get(name))
+        made.fields[field] = _normal(field, value)
+    views = sheet.get("views")
+    made.views = [_View(v) for v in views if isinstance(v, dict)] if isinstance(views, list) else []
+    return made
+
+
+def _box(value: Any) -> Box | None:
+    """Four finite numbers, as (min x, min y, max x, max y); None for anything else."""
+    if not isinstance(value, list) or len(value) != 4:
+        return None
+    numbers = [_finite(n) for n in value]
+    if None in numbers:
+        return None
     x0, y0, x1, y1 = (n for n in numbers if n is not None)
-    return view | {"box": [x0 * sx, y0 * sy, x1 * sx, y1 * sy]}
+    return min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1)
+
+
+def _paper(value: Any) -> tuple[float, float] | None:
+    """A paper `[w, h]` in mm, both finite and positive; None for anything else."""
+    if not isinstance(value, list) or len(value) != 2:
+        return None
+    width, height = _finite(value[0]), _finite(value[1])
+    if width is None or height is None or width <= 0 or height <= 0:
+        return None
+    return width, height
+
+
+def _paper_ratio(
+    key: tuple[float, float] | None, found: tuple[float, float] | None
+) -> tuple[float, float] | None:
+    """Key paper over export paper, (x, y); None when either is unknown."""
+    if key is None or found is None:
+        return None
+    return key[0] / found[0], key[1] / found[1]
 
 
 def _finite(value: Any) -> float | None:
@@ -406,16 +482,14 @@ def _finite(value: Any) -> float | None:
     return number if math.isfinite(number) else None
 
 
-def _score_views(
-    score: Score, keyed: list[dict[str, Any]], found: list[dict[str, Any]]
-) -> tuple[list[str], int]:
+def _score_views(score: Score, keyed: list[_View], found: list[_View]) -> tuple[list[str], int]:
     """Why the sheet's views fail it, and how many export views joined no key view."""
     pairs = sorted(
         (
-            (_iou(view.get("box"), other.get("box")), k, f)
+            (_iou(view.box, other.box), k, f)
             for k, view in enumerate(keyed)
             for f, other in enumerate(found)
-            if _text(view.get("kind")) == _text(other.get("kind"))
+            if view.kind == other.kind
         ),
         key=lambda pair: (-pair[0], pair[1], pair[2]),
     )
@@ -429,8 +503,8 @@ def _score_views(
         if f is None:
             missing += 1
             continue
-        title = _same("title", view.get("title"), found[f].get("title"))
-        subject = _same("subject", view.get("subject"), found[f].get("subject"))
+        title = view.title == found[f].title
+        subject = view.subject == found[f].subject
         score.count("view titles", title)
         score.count("view subjects", subject)
         titles += not title
@@ -451,9 +525,7 @@ def _counted(n: int, one: str, many: str) -> str:
     return one if n == 1 else f"{n} {many}"
 
 
-def _join_sheets(
-    keyed: list[dict[str, Any]], found: list[dict[str, Any]], origins: list[Any]
-) -> dict[int, int]:
+def _join_sheets(keyed: list[_Sheet], found: list[_Sheet]) -> dict[int, int]:
     """Key sheet index to export sheet index, within the key sheet's drawing file when it names one. A
     key sheet whose layout is "model" (any case) is drawn in model space: its candidates are the export
     sheets with no layout or the layout "model" (13's export gives a model-space sheet a null layout and
@@ -462,31 +534,20 @@ def _join_sheets(
     least 0.8 with it, a lone one too (session 06's F5); one with no frame joins a lone candidate."""
     pairs = []
     for k, sheet in enumerate(keyed):
-        layout = sheet.get("layout")
-        if not isinstance(layout, str):
+        if sheet.layout is None:
             continue
         candidates = [
             f
             for f, other in enumerate(found)
-            if _layout_joins(layout, (other.get("location") or {}).get("layout"))
-            and (not isinstance(sheet.get("file"), str) or origins[f] == sheet["file"])
+            if (other.in_model if sheet.in_model else other.layout == sheet.layout)
+            and (sheet.origin is None or other.origin == sheet.origin)
         ]
-        if sheet.get("frame") is not None:
-            for f in candidates:
-                box = (found[f].get("location") or {}).get("box")
-                pairs.append((_iou(sheet.get("frame"), box), k, f))
+        if sheet.framed:
+            pairs += [(_iou(sheet.box, found[f].box), k, f) for f in candidates]
         elif len(candidates) == 1:
             pairs.append((1.0, k, candidates[0]))
     pairs.sort(key=lambda pair: (-pair[0], pair[1], pair[2]))
     return _one_to_one(pairs)
-
-
-def _layout_joins(key: str, found: Any) -> bool:
-    """Whether an export sheet's layout can join a key sheet's: model space to model space (the export's
-    null layout among it), otherwise the same layout name."""
-    if key.casefold() == "model":
-        return found is None or (isinstance(found, str) and found.casefold() == "model")
-    return isinstance(found, str) and found == key
 
 
 def _one_to_one(pairs: list[tuple[float, int, int]]) -> dict[int, int]:
@@ -499,17 +560,10 @@ def _one_to_one(pairs: list[tuple[float, int, int]]) -> dict[int, int]:
     return joined
 
 
-def _iou(a: Any, b: Any) -> float:
-    boxes = []
-    for box in (a, b):
-        if not isinstance(box, list) or len(box) != 4:
-            return 0.0
-        numbers = [_finite(n) for n in box]
-        if None in numbers:
-            return 0.0
-        x0, y0, x1, y1 = (n for n in numbers if n is not None)
-        boxes.append((min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1)))
-    (ax0, ay0, ax1, ay1), (bx0, by0, bx1, by1) = boxes
+def _iou(a: Box | None, b: Box | None) -> float:
+    if a is None or b is None:
+        return 0.0
+    (ax0, ay0, ax1, ay1), (bx0, by0, bx1, by1) = a, b
     inter = max(0.0, min(ax1, bx1) - max(ax0, bx0)) * max(0.0, min(ay1, by1) - max(ay0, by0))
     union = (ax1 - ax0) * (ay1 - ay0) + (bx1 - bx0) * (by1 - by0) - inter
     return inter / union if union > 0 else 0.0
@@ -520,14 +574,15 @@ def _value(sourced: Any) -> Any:
     return sourced.get("value") if isinstance(sourced, dict) else sourced
 
 
-def _same(field: str, key: Any, found: Any) -> bool:
+def _normal(field: str, value: Any) -> Any:
+    """A sheet field's value as it is compared: two are right when their normal forms are equal."""
     if field == "number":
-        return _number(key) == _number(found)
+        return _number(value)
     if field == "title":
-        return _title(key) == _title(found)
+        return _title(value)
     if field == "storeys":
-        return _storeys(key) == _storeys(found)
-    return _text(key) == _text(found)
+        return _storeys(value)
+    return _text(value)
 
 
 def _text(value: Any) -> str:

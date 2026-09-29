@@ -23,10 +23,13 @@ A scored run (ticket 24s) is a PR's posting run, or `--score` on a branch or mai
 posting nothing). Once `scripts/owner/keys-custody.sh` has made the pipeline's user, the owner's side
 only spools what the run reads and the pipeline's user runs the check from its installed copy
 (`runner.py`), writing the run's folder before the verdict; the blind scorer then scores that folder as
-the key user and prints its answer under the table. An export taken from the cache names the run that
-read it: the metadata records that run (`export_run`) for the scorer. A PR whose code hash is not main's
-(it changes the engine's reading) that the scorer could not score posts nothing and exits 3. Before
-then, a posting run runs as the owner's user and says it is not scored, and `--score` is refused.
+the key user and prints its answer under the table. An export taken from the cache names the run its
+harness was started for, not this one: the metadata records that pair (`export_run`) for the scorer,
+which trusts it as it trusts the digest, because only the pipeline's user writes its cache and the
+run's folder (the pair itself is the engine's word, never checked against anything else). A PR whose
+code hash is not main's (it changes the engine's reading) that the scorer could not score posts
+nothing and exits 3. Before then, a posting run runs as the owner's user and says it is not scored,
+and `--score` is refused.
 """
 
 import argparse
@@ -244,8 +247,8 @@ def run(
                     "set_sha256": digests[name],
                     "export_sha256": _sha(path),
                     "files": listings[name],
-                    # An export from the cache names the run that read it, not this one: the scorer
-                    # accepts that pair only when this run's metadata records it (session 06's F4).
+                    # An export from the cache names an earlier run, not this one: the scorer accepts
+                    # that pair only when this run's metadata records it (session 06's F4).
                     **({"export_run": export_run(path)} if head_cached else {}),
                 }
                 for name, path in head_exports.items()
