@@ -204,6 +204,12 @@
         "anchors": {"$ref": "#/$defs/anchors"},
         "views": {"type": "array", "items": {"$ref": "#/$defs/view"}},
         "working_view": {"anyOf": [{"$ref": "#/$defs/index"}, {"type": "null"}]},
+        "paper": {
+          "anyOf": [
+            {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "number", "exclusiveMinimum": 0}},
+            {"type": "null"}
+          ]
+        },
         "register": {"type": "array", "items": {"$ref": "#/$defs/register_entry"}},
         "render_f1": {"type": ["number", "null"], "minimum": 0, "maximum": 1}
       }

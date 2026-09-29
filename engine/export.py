@@ -13,7 +13,8 @@ The document, in brief (the schema has every field):
   peak RSS, from `os.wait4`'s rusage for the file's own child process), each stage's report, decoders
   agree, entity counts per type, the font, PDF and Bangla-ANSI counts, and its sheets, each with its
   views (and each view's Coverage), its working view (17's `views.working_view`: an index into its
-  views, or null), its register entries and its render F1;
+  views, or null), its paper (the extent in mm its view boxes are on, or null; the ruling of 14:20),
+  its register entries and its render F1;
 - `set_stages`, `plot`, `conflicts`, `continuations` and `checks`: what was read across the set.
 
 A candidate is referred to by where it sits in this document: `{"file": i, "sheet": j}`, with
@@ -167,6 +168,8 @@ class FileReading:
     finder reports none."""
     sheets: list[SheetCandidate] = field(default_factory=list)
     views: list[list[ViewCandidate]] = field(default_factory=list)
+    papers: list[tuple[float, float] | None] = field(default_factory=list)
+    """Each sheet's paper (width, height) in mm, as 17's views stage read it; none where not read."""
     register: list[RegisterEntry] = field(default_factory=list)
     page_count: int | None = None
     """How many pages `page_text` returned, for a PDF it read."""
@@ -323,7 +326,13 @@ def _file(reading: FileReading, f1: Mapping[int, float]) -> dict[str, JSON]:
         "sheet_report": _counts(reading.sheet_report),
         "pages": reading.page_count,
         "sheets": [
-            _sheet(sheet, reading.views[j] if j < len(reading.views) else [], reading.register, f1)
+            _sheet(
+                sheet,
+                reading.views[j] if j < len(reading.views) else [],
+                reading.register,
+                f1,
+                reading.papers[j] if j < len(reading.papers) else None,
+            )
             for j, sheet in enumerate(reading.sheets)
         ],
     }
@@ -351,6 +360,7 @@ def _sheet(
     views: Sequence[ViewCandidate],
     register: Sequence[RegisterEntry],
     f1: Mapping[int, float],
+    paper: tuple[float, float] | None = None,
 ) -> dict[str, JSON]:
     return {
         "location": {"layout": sheet.location.layout, "box": _box(sheet.location.box)},
@@ -365,6 +375,7 @@ def _sheet(
         "anchors": [anchor_json(a) for a in sheet.anchors],
         "views": [_view(view) for view in views],
         "working_view": working_view(views),
+        "paper": None if paper is None else [paper[0], paper[1]],
         "register": [
             {
                 "row_box": _box(entry.row_box),

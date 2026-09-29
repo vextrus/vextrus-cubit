@@ -541,7 +541,8 @@ def test_a_cell_of_several_words_is_no_sheet_number() -> None:
 
 def test_a_format_character_inside_a_listed_number_is_read_as_its_normal_form() -> None:
     zero_width = "S-1\u200b0"
-    assert parsed(f"{zero_width} Notes").entries == (ListEntry(zero_width, 1, "Notes"),)
+    # fix round 1 of 17's ruling: a format character in a pasted number is dropped, not kept
+    assert parsed(f"{zero_width} Notes").entries == (ListEntry("S-10", 1, "Notes"),)
     assert [e.number for e in parsed(f"S-08 to {zero_width}").entries] == ["S-08", "S-09", "S-10"]
     listed = typed("set", "structural", zero_width)
     results = check(reading([sheet("S-10")], lists=(listed,)), recognisers=READERS)

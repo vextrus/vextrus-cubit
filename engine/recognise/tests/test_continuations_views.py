@@ -57,10 +57,10 @@ def runs(found: Sequence[object]) -> list[list[str]]:
 @pytest.mark.parametrize(
     ("title", "first", "second"),
     [
-        ("BEAM REINFORCEMENT DETAILS", "LONG SECTION OF BEAM B-3", "SECTION 5Y-5Y"),
-        ("BEAM REINFORCEMENT DETAILS", "SECTION 6Y-6Y", "SECTION 8Y-8Y"),
-        ("RESERVOIR DETAILS", "PLAN", "SECTION Y-Y"),
-        ("BASEMENT FLOOR", "WATER TANK LAYOUT PLAN", "COLUMN LAYOUT PLAN"),  # the title names none
+        ("BEAM BAR DETAILS", "BEAM K-4 LONG SECTION", "SECTION 7Q-7Q"),
+        ("BEAM BAR DETAILS", "SECTION 2Q-2Q", "SECTION 3Q-3Q"),
+        ("TANK T-9 DETAILS", "PLAN", "SECTION K-K"),
+        ("PODIUM LEVEL", "RAMP LAYOUT PLAN", "GRID LAYOUT PLAN"),  # the title names no subject
     ],
 )
 def test_a_view_title_naming_no_subject_of_its_own_keeps_the_continuation(
@@ -111,19 +111,45 @@ def column_plan(title: str, storeys: tuple[str, ...]) -> ViewCandidate:
 
 
 def test_consecutive_column_ranges_meeting_at_a_floor_are_no_storey_drawn_twice() -> None:
-    """The real sets' column layouts run "foundation to 3rd floor", then "3rd to 6th floor"."""
+    """Column layouts in ranges that meet at a floor: the lower one's top is the upper's bottom."""
     sheets = [sheet("S-13", "COLUMN LAYOUT PLAN A"), sheet("S-14", "COLUMN LAYOUT PLAN B")]
     low = column_plan(
-        "COLUMN LAYOUT PLAN (FOUNDATION TO 3RD FLOOR)",
+        "COLUMN PLAN, LEVELS F TO 3",
         ("foundation", "ground", "floor_1", "floor_2", "floor_3"),
     )
-    high = column_plan(
-        "COLUMN LAYOUT PLAN (3RD TO 6TH FLOOR)", ("floor_3", "floor_4", "floor_5", "floor_6")
-    )
+    high = column_plan("COLUMN PLAN, LEVELS 3 TO 6", ("floor_3", "floor_4", "floor_5", "floor_6"))
     found = conflicts.find(sheets, [(low,), (high,)], CONVENTIONS)
     assert storeys_drawn_twice(found) == 0
-    overlapping = column_plan(
-        "COLUMN LAYOUT PLAN (2ND TO 5TH FLOOR)", ("floor_2", "floor_3", "floor_4", "floor_5")
-    )
+    overlapping = column_plan("COLUMN PLAN, LEVELS 2 TO 5", ("floor_2", "floor_3", "floor_4", "floor_5"))
     found = conflicts.find(sheets, [(low,), (overlapping,)], CONVENTIONS)
     assert storeys_drawn_twice(found) == 1
+
+
+@pytest.mark.parametrize(
+    ("title", "first", "second"),
+    [
+        ("WEST ELEVATION", "WEST ELEVATION", "SOUTH ELEVATION"),
+        (
+            "PODIUM SLAB BAR DETAILS (BOTTOM)",
+            "PODIUM SLAB BAR DETAILS (BOTTOM)",
+            "PODIUM SLAB BAR DETAILS (TOP)",
+        ),
+    ],
+)
+def test_a_view_of_the_titles_kind_that_disagrees_with_it_breaks_the_continuation(
+    title: str, first: str, second: str
+) -> None:
+    """#102 on the real sets' two tellable classes (invented words): a second sheet whose heading, of
+    the title's own kind, names another side or the other layer carries a copied title block."""
+    sheets = [sheet("A-17", title), sheet("A-18", title)]
+    found = conflicts.find(
+        sheets, [(view(first, ViewKind.ELEVATION),), (view(second, ViewKind.ELEVATION),)], CONVENTIONS
+    )
+    assert runs(found) == []
+
+
+def test_views_of_another_kind_or_sharing_a_word_keep_the_continuation() -> None:
+    sheets = [sheet("A-81", "TERRACE DETAILS"), sheet("A-82", "TERRACE DETAILS")]
+    first = (view("TERRACE BENCH DETAIL", ViewKind.DETAIL),)
+    second = (view("PLAN OF PLANTER P-1", ViewKind.PLAN), view("SECTION M-M"))
+    assert runs(conflicts.find(sheets, [first, second], CONVENTIONS)) == [["A-81", "A-82"]]

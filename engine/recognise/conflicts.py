@@ -26,18 +26,18 @@ two equal-by-value copies of a sheet in two files are two sheets, so nothing her
 - **`same_number`:** two or more sheets whose numbers have one normal form ("S-07" twice; "S-O1" is not
   "S-01"). One Conflict per number; evidence: the number as the first copy prints it, and the copies.
 - **A continuation** ("Column schedule, 3 sheets"; no Question): sheets of one title whose numbers run
-  on. A number is read only by 13's `sheets.sequence` (`Recognisers.sequence`), never here, and is
-  given to it in its clean form (`clean`: the normal form before case folding). Two numbers
-  run on when their prefixes and suffixes match (by their letters and digits, case folded) and their
-  running numbers are one apart: "09"/"10", "S-09"/"S-10" and "9"/"10" (padding is no part of a
-  running number); or when their running numbers match and their suffixes are single Latin letters one
-  apart: "S-101A"/"S-101B". "S-101"/"S-101A" do not run on; a number with no running number (no digit,
-  or one of `RUNNING_LIMIT` or more) runs on with none. Copies of one number are one place in a run.
-  A run is in number order, a part by its number ("S-01/9" before "S-01/10"); a revision mark written
-  after a number ("S-01 R1", `split_revision`) is split off before it is read, so "S-01 R1"/"S-01 R2"
-  are one number, never a run (#100). A sheet whose views contradict its title block (`contradicted`:
-  titled views, none sharing a word with its title; a copied title block, #102) runs on with none, so
-  its title's sheets are raised as `same_title`.
+  on. A number is read only by 13's `sheets.sequence` (`Recognisers.sequence`), never here, and is given
+  to it in its clean form (`clean`: the normal form before case folding). Two numbers run on when their
+  prefixes and suffixes match (by their letters and digits, case folded) and their running numbers are
+  one apart: "09"/"10", "S-09"/"S-10" and "9"/"10" (padding is no part of a running number); or when
+  their running numbers match and their suffixes are single Latin letters one apart: "S-101A"/"S-101B".
+  "S-101"/"S-101A" do not run on; a number with no running number (no digit, or one of `RUNNING_LIMIT` or
+  more) runs on with none. Copies of one number are one place in a run. A run is in number order, a part
+  by its number ("S-01/9" before "S-01/10"); a revision mark written after a number ("S-01 R1",
+  `split_revision`) is split off before it is read, so "S-01 R1"/"S-01 R2" are one number, never a run
+  (#100). A sheet whose views contradict its title block (`contradicted`: its views name only subjects
+  its title does not, or its views of its title's kind all disagree with it by layer or by every other
+  word; a copied title block, #102) runs on with none, so its title's sheets are raised as `same_title`.
 - **`same_title`:** one title on places that do not all run on, or on two numbers that share one place
   (one running number printed two ways, "S-09" and "S-9": not copies, since their normal forms differ,
   and not two places): one Conflict naming every sheet of the title, in number order (a run among them
@@ -76,7 +76,7 @@ import re
 import unicodedata
 from collections.abc import Callable, Collection, Hashable, Iterable, Sequence
 from dataclasses import dataclass
-from typing import NoReturn, Protocol
+from typing import TYPE_CHECKING, NoReturn, Protocol
 
 from engine.messages import conflicts as codes
 from engine.recognise.types import (
@@ -90,6 +90,9 @@ from engine.recognise.types import (
     ViewKind,
     pattern_search,
 )
+
+if TYPE_CHECKING:
+    from engine.recognise.views import Described
 
 RUNNING_LIMIT = 10**15
 """A running number this large or larger is no running number: every count made from running numbers
@@ -520,22 +523,41 @@ def _runs(
 def contradicted(
     sheet: SheetCandidate, views: Sequence[ViewCandidate], conventions: SheetConventions | None
 ) -> bool:
-    """Whether the sheet's views contradict its title block (#102: a title block copied from the sheet
-    before and never edited): its title names a subject (17's view conventions' subject words:
-    `views.subjects`), its views' titles name subjects, and not one of them is one its title names
-    ("COLUMN SCHEDULE" over "PILE CAP DETAILS"). A title or views naming no subject ("SECTION 5Y-5Y")
-    are no evidence: a continuation's later sheets often carry only their sections' marks (the real
-    sets: every such pair was a true continuation). A sheet with no title or no view read is never
-    contradicted. `conventions` are the sheets'; the subject words are 17's default."""
-    from engine.recognise.views import subjects  # 17's, imported where it is used
+    """Whether the sheet's views contradict its title block (#102: a title block copied from another
+    sheet and never edited), by 17's view conventions (`views.subjects`, `views.describe`); either:
+
+    - its title names a subject, its views' titles name subjects, and not one of them is one its title
+      names ("COLUMN SCHEDULE" over "PILE CAP DETAILS");
+    - its title names a kind, its views of that kind are titled, and not one agrees with it: a view
+      disagrees when both state a layer and the layers differ ("... (BOTTOM LAYER)" over "... (TOP
+      LAYER)"), or when both hold other words and share none ("EAST ELEVATION" over "NORTH
+      ELEVATION").
+
+    A title or views naming no subject, and views of another kind ("SECTION 7Q-7Q" on a "... DETAILS"
+    sheet), are no evidence: a continuation's later sheets often carry only their sections' marks. A
+    sheet with no title or no view read is never contradicted. `conventions` are the sheets'; the view
+    words are 17's default. On the real sets, of the 7 false continuations session 05 counted, this
+    tells 2 (the others' drawings carry no heading read, or one that agrees with the stale title)."""
+    from engine.recognise.views import describe, subjects  # 17's, imported where they are used
 
     if sheet.title is None:
         return False
     named = subjects(sheet.title.value)
-    if not named:
+    titled = [v.title for v in views if v.title]
+    drawn = [found for t in titled if (found := subjects(t))]
+    if named and drawn and not any(found & named for found in drawn):
+        return True
+    title = describe(sheet.title.value)
+    if title.kind is None:
         return False
-    drawn = [found for v in views if v.title and (found := subjects(v.title))]
-    return bool(drawn) and not any(found & named for found in drawn)
+    alike = [d for t in titled if (d := describe(t)).kind == title.kind]
+    return bool(alike) and not any(_agrees(title, d) for d in alike)
+
+
+def _agrees(title: Described, view: Described) -> bool:
+    if title.layer is not None and view.layer is not None and title.layer != view.layer:
+        return False
+    return not (title.words and view.words and not title.words & view.words)
 
 
 PART_DIGITS = 6

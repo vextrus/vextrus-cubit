@@ -48,3 +48,9 @@ def test_a_revision_after_the_number_is_split_off_wherever_it_stands(
     line: str, entry: tuple[str, str | None, str | None]
 ) -> None:
     assert read(line + "\n") == [entry]
+
+
+@pytest.mark.parametrize("hidden", ["\u200b", "\u00ad", "\u2060", "\ufeff"])
+def test_a_format_character_in_a_pasted_number_is_dropped(hidden: str) -> None:
+    """The ruling of 17's fix round 1: zero-width space, soft hyphen, word joiner, byte-order mark."""
+    assert read(f"S-0{hidden}7\tPILE LAYOUT PLAN\n") == [("S-07", None, "PILE LAYOUT PLAN")]

@@ -340,12 +340,16 @@ def _scrub(line: str) -> str:
     """A line with each control character a space (a tab kept, between cells), never deleted, so it
     never joins the characters either side ("S-01", DEL, "9" is not "S-019"; #100); so are the direction
     controls (an override would reach a Question's words) and the line and paragraph separators (a
-    line breaks only at a line feed or a carriage return). A NUL cannot be stored."""
+    line breaks only at a line feed or a carriage return). Every other format character (zero-width
+    space, soft hyphen, word joiner: Unicode's Cf) is dropped, as 13 drops it from a number (the ruling
+    of session 06's fix round 1). A NUL cannot be stored."""
     return "".join(
         char
         if char == "\t"
         else " "
         if char in _BIDI or unicodedata.category(char) in ("Cc", "Zl", "Zp")
+        else ""
+        if unicodedata.category(char) == "Cf"
         else char
         for char in line
     )

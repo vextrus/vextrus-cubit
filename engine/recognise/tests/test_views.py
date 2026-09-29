@@ -368,9 +368,9 @@ def test_the_pieces_a_sheet_is_read_by_are_bounded(monkeypatch: pytest.MonkeyPat
 def test_a_notes_line_naming_a_kind_is_no_view_title() -> None:
     """A numbered note, and a line of a column of notes, name a kind but title nothing."""
     notes = (
-        ("5. SEE LONG SECTIONS FOR REINFORCEMENT.", (400, 520), 6.0),
+        ("3. REFER TO SCHEDULE K FOR EACH DETAIL MARK.", (400, 520), 6.0),
         ("ALL BARS SHALL BE LAPPED AT MID SPAN", (400, 510), 6.0),
-        ("FOR SUNK DEPTH SEE SECTION X-X", (400, 500), 6.0),
+        ("LAPS ARE SHOWN ON SECTION P-P ONLY", (400, 500), 6.0),
         ("CONCRETE COVER SHALL BE 40 MM", (400, 490), 6.0),
     )
     d, sheet = model_sheet([("BEAM LAYOUT PLAN", (40, 300, 340, 560))], notes=notes)
@@ -447,3 +447,78 @@ def test_every_titled_detail_of_a_full_sheet_is_a_view() -> None:
     d, sheet = model_sheet(drawn, scale=1.0)
     found = views.find(d.artefact(), sheet, CONVENTIONS)
     assert sorted(v.title or "" for v in found) == sorted(t or "" for t, _ in drawn)
+
+
+# Fix round 1 -------------------------------------------------------------------------------------------
+
+
+def test_many_viewports_over_a_large_model_spend_one_file_budget(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """200 viewports each showing the whole model took 119 s and 8.8 GB (review 1): each weighs the model
+    against the file's one read budget, and a layout's viewports past `MAX_SHEET_VIEWPORTS` are left
+    unread, both counted."""
+    monkeypatch.setattr(views, "MAX_READS", 50_000)
+    d = Sheets()
+    layout = d.layout("S-09")
+    for i in range(2_000):
+        d.line((float(i * 10), 0.0), (float(i * 10), 10_000.0))
+    for i in range(200):
+        d.entity(
+            "VIEWPORT",
+            {"id": i + 2, "center": [400.0, 300.0, 0.0], "width": 700.0, "height": 500.0,
+             "view_center_point": [10_000.0, 5_000.0, 0.0], "view_height": 10_000.0},
+            owner=layout,
+        )  # fmt: skip
+    from engine.recognise.types import SheetLocation
+
+    artefact = d.artefact()
+    views._held.clear()
+    views.find(artefact, SheetCandidate(location=SheetLocation(layout="S-09")), CONVENTIONS)
+    walker = views._walker(artefact)
+    assert walker.limits["viewports_capped"] == 200 - views.MAX_SHEET_VIEWPORTS
+    assert walker.limits["read_budget"] > 0
+    assert 0 <= walker.reads < 50_000
+
+
+def test_a_layout_frame_off_the_origin_gives_boxes_from_its_lower_left_corner() -> None:
+    """The layout test above with the frame and its viewport moved by (1000, 500) on paper: the same
+    boxes, measured from the frame's lower-left corner, and the frame's paper."""
+    d = Sheets()
+    block = frame_block(d)
+    layout = d.layout("S-02")
+    ox, oy = 1_000.0, 500.0
+    insert = d.insert(block, (ox, oy, 0.0), owner=layout)
+    at = value_at(2)
+    d.attrib(insert, "S-02", (ox + at[0], oy + at[1], 0.0), height=5.0)
+    grid(d, (0.0, 0.0, 30_000.0, 20_000.0))
+    d.text("1ST FLOOR SLAB LAYOUT PLAN", (0.0, -1_200.0, 0.0), height=600.0)
+    d.entity(
+        "VIEWPORT",
+        {"id": 2, "center": [ox + 250.0, oy + 300.0, 0.0], "width": 400.0, "height": 300.0,
+         "view_center_point": [15_000.0, 9_000.0, 0.0], "view_height": 30_000.0},
+        owner=layout,
+    )  # fmt: skip
+    (sheet,) = [s for s in sheets.find(d.artefact(), "structural", DEFAULT) if s.location.layout]
+    found = views.find(d.artefact(), sheet, CONVENTIONS)
+    (plan,) = found
+    assert near(plan.box, (100, 198, 400, 410))
+    assert found.paper == pytest.approx((W, 594.0), abs=1.0)
+
+
+def test_a_model_space_sheets_paper_is_its_frame_over_its_scale() -> None:
+    d, sheet = model_sheet([("BEAM LAYOUT PLAN", (40, 300, 340, 560))], scale=50.0)
+    found = views.find(d.artefact(), sheet, CONVENTIONS)
+    assert found.paper == pytest.approx((W, 594.0))
+
+
+def test_the_harness_takes_a_paper_only_as_two_finite_sizes() -> None:
+    from engine import harness
+
+    found = views.FoundViews()
+    found.paper = (841.0, 594.0)
+    assert harness._paper_of(found) == (841.0, 594.0)
+    for bad in (None, (0.0, 1.0), (math.inf, 1.0), (1.0,), ("1", "2"), (True, 1.0)):
+        found.paper = bad  # type: ignore[assignment]
+        assert harness._paper_of(found) is None
+    assert harness._paper_of([]) is None

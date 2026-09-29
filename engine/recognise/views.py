@@ -1,25 +1,28 @@
 """Views within sheets (17): the drawings one sheet holds, each with its title, kind, scale, storeys,
 subject and layer, and what it is proposed for.
 
-    views.find(artefact, sheet, conventions) -> list[ViewCandidate]   (the harness's `views` stage)
+    views.find(artefact, sheet, conventions) -> FoundViews   (the harness's `views` stage; `.paper`)
     views.working_view(views) -> int | None                            (16's and 22's fit)
     views.subjects(text, conventions=None) -> frozenset[str]             (19b's continuations)
+    views.describe(text, conventions=None) -> Described                   (19b's continuations)
     views.default_conventions() -> ViewConventions
 
 `conventions` are view conventions (`engine/recognise/conventions/view-default.json` by default: the
 title words of each kind, the subject and layer words and the scale patterns, all data). The storey
 words are the default sheet conventions' (13's `storeys.read`; 21b passes the Market's later).
 
-**Where a sheet's drawing is.** A layout sheet's is what its layout draws in paper space and what each
-of its viewports shows of model space (AutoCAD's main viewport left out, `buffers.is_main_viewport`;
-a viewport's model-to-paper transform is the renderer's, `buffers.viewport_transform`), clipped to the
+**Where a sheet's drawing is.** A layout sheet's is what its layout draws in paper space and what each of
+its viewports shows of model space (AutoCAD's main viewport left out, `buffers.is_main_viewport`; a
+viewport's model-to-paper transform is the renderer's, `buffers.viewport_transform`), clipped to the
 viewport; a model-space sheet's is what model space draws inside its frame's box. The sheet's frame (its
 first anchor, 13's: the frame insert with everything it draws, or its rectangle) and its title block's
-texts are no view's. **Every box is on paper, in mm** (the rulings, "24s <-> 17"): a layout's paper
-units are taken as mm; a model-space sheet's box is `(model - lower-left corner of its frame) / scale`,
-the scale being its frame insert's (the frame block drawn at paper size, in mm), else, for a frame
-drawn as a rectangle or a scale giving no paper size, the one that makes the frame a standard paper size
-(`PAPER_SIDES`) at the roundest scale (`ROUND_SCALES`).
+texts are no view's. **Every box is on paper, in mm, from the sheet's lower-left corner** (the rulings,
+"24s <-> 17"), and `FoundViews.paper` is the paper's extent its boxes are on (the ruling of 14:20): a
+layout's paper units are taken as mm, its paper the frame's box (else the drawing's extent); a
+model-space sheet's box is `(model - lower-left corner of its frame) / scale`, the scale being its frame
+insert's (the frame block drawn at paper size, in mm), else, for a frame drawn as a rectangle or a scale
+giving no paper size, the one that makes the frame a standard paper size (`PAPER_SIDES`) at the roundest
+scale (`ROUND_SCALES`).
 
 **How views are found.** The sheet's lines and texts are laid on a grid of `CELL_MM` cells over its
 paper, grown by `GAP_MM` so that what is drawn closer than that joins, and split into connected pieces.
@@ -64,18 +67,20 @@ only a base plan is not yet told (proposed out as `blank`, Q7); nothing here rea
 **The working view** (`working_view`) is the first plan in reading order not proposed out: the view 16
 and 22 open a sheet fitted to; none when the sheet has no such plan.
 
-**Hostile input is bounded, by one budget for the whole file** (`_Walker`, held for the file's
-sheets): each space is walked once (model space once per file), and every walk spends the file's
-`MAX_VISITS` entities, `MAX_SEGMENTS` lines and `MAX_TEXTS` texts, so no number of layouts multiplies
-them; the grid has at most `MAX_GRID` cells a side (its cells grow on a larger paper) and at most
-`MAX_SAMPLES` points are laid on it; at most `MAX_TITLES` titles and as many scale texts, the
-`MAX_PIECES` largest pieces and `MAX_VIEWS` views are read on a sheet. What is past a bound is not
-read.
+**Hostile input is bounded, by one budget for the whole file** (`_Walker`, held for the file's sheets):
+each space is walked once (model space once per file), and every walk spends the file's `MAX_VISITS`
+entities, `MAX_SEGMENTS` lines and `MAX_TEXTS` texts, so no number of layouts multiplies them, and every
+viewport weighs model space against the file's `MAX_READS` (at most `MAX_SHEET_VIEWPORTS` viewports a
+layout, the rest counted in `_Walker.limits`, not read in full); the grid has at most `MAX_GRID` cells a
+side (its cells grow on a larger paper) and at most `MAX_SAMPLES` points are laid on it; at most
+`MAX_TITLES` titles and as many scale texts, the `MAX_PIECES` largest pieces and `MAX_VIEWS` views are
+read on a sheet. What is past a bound is not read.
 """
 
 import json
 import math
 import re
+from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from functools import cache
@@ -150,6 +155,13 @@ divider between views (the real sets rule rows of details apart), never a view's
 MAX_VISITS = 8_000_000
 MAX_SEGMENTS = 3_000_000
 MAX_PIECES = 2_000
+MAX_READS = 4_000_000
+"""The lines a file's sheets may take from the walked spaces together (laid on paper, or weighed by a
+viewport's window), so no number of viewports multiplies the walk."""
+MAX_TEXT_READS = 250_000
+"""The texts a file's sheets may lay on paper together."""
+MAX_SHEET_VIEWPORTS = 64
+"""The most viewports of one layout read; the rest are counted in `_Walker.limits`."""
 MAX_STACK = 64
 """The most texts weighed in one cell of the note-line index."""
 MIN_NOTE_LINES = 3
@@ -220,6 +232,7 @@ class _Drawn:
     texts: list[_Placed]
     text_chain: list[int]
     viewports: list[Entity]
+    text_origins: NDArray[np.float64] = field(default_factory=lambda: np.empty((0, 2)))
 
 
 class _Walker:
@@ -230,6 +243,12 @@ class _Walker:
         self.visits = MAX_VISITS
         self.segments = MAX_SEGMENTS
         self.texts = MAX_TEXTS
+        self.reads = MAX_READS
+        self.text_reads = MAX_TEXT_READS
+        """What the file's sheets may still take from what was walked: lines and texts laid on paper,
+        and model-space items weighed by a viewport's window."""
+        self.limits: Counter[str] = Counter()
+        """What a bound left unread, by name (`viewports_capped`, `read_budget`)."""
         self.layouts = {
             b.layout: h for h, b in artefact.blocks.items() if b.layout not in (None, "Model")
         }
@@ -302,7 +321,10 @@ class _Walker:
         else:
             segments = np.empty((0, 4))
             seg_chain = seg_entity = np.empty(0, dtype=np.int32)
-        return _Drawn(segments, seg_chain, seg_entity, chains, entities, texts, text_chain, viewports)
+        origins = np.array([t.origin for t in texts], dtype=np.float64).reshape(-1, 2)
+        return _Drawn(
+            segments, seg_chain, seg_entity, chains, entities, texts, text_chain, viewports, origins
+        )
 
 
 def _segments(entity: Entity, chain: Chain) -> NDArray[np.float64] | None:
@@ -426,7 +448,10 @@ def _paper(artefact: ReadArtefact, sheet: SheetCandidate) -> _Paper | None:
         drawn = walker.walk(handle)
         parts.append((drawn, Transform(), None, None))
         first = True
-        for viewport in drawn.viewports:
+        for n, viewport in enumerate(drawn.viewports):
+            if n >= MAX_SHEET_VIEWPORTS:
+                walker.limits["viewports_capped"] += len(drawn.viewports) - n
+                break
             values_of = dict(viewport.values)
             main = is_main_viewport(values_of, first)
             first = False
@@ -454,8 +479,34 @@ def _paper(artefact: ReadArtefact, sheet: SheetCandidate) -> _Paper | None:
 
     segments: list[NDArray[np.float64]] = []
     texts: list[_Text] = []
+    kept: dict[int, NDArray[np.bool_]] = {}  # each space's frame test, once for all its viewports
     for drawn, to_paper, window, clip in parts:
-        keep = keep_segments(drawn)
+        if id(drawn) not in kept:
+            kept[id(drawn)] = keep_segments(drawn)
+        keep = kept[id(drawn)]
+        weighed = len(drawn.segments) if window is not None else 0
+        if weighed > walker.reads:
+            walker.limits["read_budget"] += 1
+            continue  # past the file's budget: this part is not read
+        walker.reads -= weighed
+        chosen_texts = np.arange(len(drawn.texts))
+        if window is not None:
+            wx0, wy0, wx1, wy1 = window
+            seg = drawn.segments
+            keep = keep & (
+                (np.minimum(seg[:, 0], seg[:, 2]) <= wx1) & (np.maximum(seg[:, 0], seg[:, 2]) >= wx0)
+                & (np.minimum(seg[:, 1], seg[:, 3]) <= wy1) & (np.maximum(seg[:, 1], seg[:, 3]) >= wy0)
+            )  # fmt: skip
+            o = drawn.text_origins
+            chosen_texts = np.flatnonzero(
+                (o[:, 0] >= wx0) & (o[:, 0] <= wx1) & (o[:, 1] >= wy0) & (o[:, 1] <= wy1)
+            )
+        taken = int(keep.sum())
+        if taken > walker.reads or len(chosen_texts) > walker.text_reads:
+            walker.limits["read_budget"] += 1
+            continue
+        walker.reads -= taken
+        walker.text_reads -= len(chosen_texts)
         chosen = drawn.segments[keep]
         if window is not None:
             chosen = _clip(chosen, window)
@@ -464,9 +515,8 @@ def _paper(artefact: ReadArtefact, sheet: SheetCandidate) -> _Paper | None:
             moved = _clip(moved, clip)
         segments.append(moved)
         scale = to_paper.xy_scale
-        for i, placed in enumerate(drawn.texts):
-            if window is not None and not _inside(placed.origin, window):
-                continue
+        for i in chosen_texts.tolist():
+            placed = drawn.texts[i]
             if not keep_text(drawn, i):
                 continue
             corners = np.array(placed.corners(), dtype=np.float64)
@@ -488,6 +538,15 @@ def _paper(artefact: ReadArtefact, sheet: SheetCandidate) -> _Paper | None:
     if region is None or not all(math.isfinite(v) for v in (*region, region[2] - region[0],
                                                            region[3] - region[1])):  # fmt: skip
         return None  # a paper past what a float holds: nothing is read on it
+    x0, y0 = region[0], region[1]
+    if (
+        x0 or y0
+    ):  # every box on paper from the sheet's lower-left corner (a layout's frame may lie off 0)
+        all_segments = all_segments - np.array([x0, y0, x0, y0])
+        for t in texts:
+            b = t.box
+            t.box = (b[0] - x0, b[1] - y0, b[2] - x0, b[3] - y0)
+        region = (0.0, 0.0, region[2] - x0, region[3] - y0)
     return _Paper(region, all_segments, texts, None if frame is None else frame.sheet, frame)
 
 
@@ -815,6 +874,7 @@ class _Reading:
     layers: _Words
     patterns: tuple[str, ...]
     after_top: frozenset[str]  # words after "top" that make it a storey
+    common: frozenset[str]  # the plan, floor and level words: no evidence of what a title names
 
 
 _readings: list[tuple[ViewConventions, _Reading]] = []
@@ -837,6 +897,9 @@ def _prepare(conventions: ViewConventions) -> _Reading:
         layers=_Words.of({str(k): v for k, v in conventions.layer_words.items()}),
         patterns=conventions.scale_patterns,
         after_top=frozenset(after),
+        common=frozenset(
+            t for w in (*sheet.plan_words, *sheet.floor_words, *sheet.level_words) for t in _tokens(w)
+        ),
     )
 
 
@@ -850,6 +913,28 @@ def _kind(text: str, reading: _Reading) -> ViewKind | None:
 def _subject(text: str, reading: _Reading) -> str | None:
     found = reading.subjects.matches(_tokens(text))
     return found[0][2] if found else None
+
+
+@dataclass(frozen=True)
+class Described:
+    """What a title says, for 19b's continuations (#102): its kind, its layer, and its other words (not
+    the kind's or layer's words, nor the plan, floor and level words), in normal form."""
+
+    kind: ViewKind | None
+    layer: Layer | None
+    words: frozenset[str]
+
+
+def describe(text: str, conventions: ViewConventions | None = None) -> Described:
+    """A title's kind, layer and other words (`Described`)."""
+    reading = _reading(conventions if conventions is not None else default_conventions())
+    tokens = _tokens(text)
+    spent: set[int] = set()
+    for words in (reading.kinds, reading.layers):
+        for start, end, _ in words.matches(tokens):
+            spent.update(range(start, end))
+    rest = frozenset(t for i, t in enumerate(tokens) if i not in spent) - reading.common
+    return Described(_kind(text, reading), _layer(text, reading), rest)
 
 
 def subjects(text: str, conventions: ViewConventions | None = None) -> frozenset[str]:
@@ -880,9 +965,17 @@ class _View:
     extra: list[_Piece] = field(default_factory=list)
 
 
+class FoundViews(list[ViewCandidate]):
+    """`find`'s result: the views, and `paper`, the paper's extent (width, height) in mm their boxes
+    are on (the ruling of 14:20: a layout's paper, or a model-space frame's extent over its scale),
+    none when the sheet's paper could not be read."""
+
+    paper: tuple[float, float] | None = None
+
+
 def find(
     artefact: ReadArtefact, sheet: SheetCandidate, conventions: ViewConventions | None = None
-) -> list[ViewCandidate]:
+) -> FoundViews:
     """The sheet's views, in reading order (the module's docstring)."""
     if not isinstance(sheet, SheetCandidate):
         raise TypeError(f"a sheet is a SheetCandidate, not {type(sheet).__name__}")
@@ -890,11 +983,13 @@ def find(
     reading = _reading(held)
     paper = _paper(artefact, sheet)
     if paper is None:
-        return []
+        return FoundViews()
     fallback = _kind(sheet.title.value, reading) if sheet.title is not None else None
     found = _views(paper, reading, fallback or ViewKind.PLAN)
     discipline = sheet.discipline.value if sheet.discipline is not None else None
-    return [_candidate(v, paper, reading, discipline) for v in _in_reading_order(found)]
+    result = FoundViews(_candidate(v, paper, reading, discipline) for v in _in_reading_order(found))
+    result.paper = (paper.region[2], paper.region[3])
+    return result
 
 
 def _views(paper: _Paper, reading: _Reading, untitled: ViewKind) -> list[_View]:
