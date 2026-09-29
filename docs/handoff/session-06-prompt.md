@@ -22,8 +22,8 @@ runs on this machine** (the owner, 29 Sep 2026: "everything will be run in local
 own background Claude Code session in its own worktree; local agents review and verify; you keep your own context
 for decisions, contracts and the owner.
 
-**This session is judged on pace as well as quality.** Session 05's wave 3 took about six hours for five tickets,
-and the owner stopped it (29 Sep 2026):
+**This session is judged on pace as well as quality.** Session 05's wave 3 merged four of its five tickets 6 h
+13 min after launch, and the owner stopped its review rounds (29 Sep 2026):
 
 > "It's been couple of hours, almost 6 hours + you're continuing this wave 3 session, my expectations was you'd
 > deliver much faster results instead taking full day and even I'm not sure remaining tickets can be merged or not .
@@ -36,22 +36,28 @@ recommendation first, and record each ruling in STATE.md and #45. Quality on eve
 the rulings on pace say where the review loop stops.
 
 ## How session 06 goes faster (recommendations; the owner rules)
-**What wave 3 cost** (times UTC). Launched locally at 20:13 on 28 Sep; last merge ⟨FILL: time⟩, ⟨FILL: hours⟩ after
-launch. At the ruling on pace (01:2x on 29 Sep, about five hours in), one of its five tickets had merged (15),
-beside #75, #82 and the docs PR #86. Its rounds then (a code review is one `pr-reviewer` run, first or re-check; a
-fix round is one message back):
+**What wave 3 cost** (times UTC). Launched locally at 20:13 on 28 Sep. Four of its five tickets merged by 02:26 on
+29 Sep, 6 h 13 min after launch (15 at 22:26, 20a at 02:10, 13 at 02:16, 14 at 02:26); ⟨FILL: 19b⟩. The owner's
+ruling on pace came at 01:2x, about five hours in, when only 15 had merged. Its rounds (a code review is one
+`pr-reviewer` run, first or re-check; a fix round is one message back):
 
 | Ticket | Code reviews | Fix rounds | Words gate or walk |
 |---|---|---|---|
-| 13 | 4 | 3 | 2 (failed, passed) |
-| 14 | 2 (the second running) | 1 | 2 (failed, passed) |
-| 15 | 2 | 1 | 2 (passed, passed) |
-| 19b | 1 | 1 (its planned part 2 to come) | 1 (failed) |
-| 20a | 3 | 2 | 3 walks (failed, failed, passed) |
+| 13 | 4 | 3 (8 findings; then the hostile-file bounds twice) | 2 (failed, passed) |
+| 14 | 2 | 1 | 2 (failed, passed) |
+| 15 | 2 | 1 (and its planned renumbering) | 2 (passed, passed) |
+| 19b | ⟨FILL: 19b⟩ | 1 (and its planned part 2) | ⟨FILL: 19b⟩ |
+| 20a | 3 | 2 (the walk's 7 musts; then a fault the fix brought) | 3 walks (failed, failed, passed) |
 | #75, #82, #93 | 2 each | 1 each | none |
 
-⟨FILL: the final rounds per ticket; second continuations against ADR 0025's "at most one in four" (13 and 20a had
-one at the ruling); the widening gate's decision⟩
+- **Second continuations:** 13 and 20a, 2 of the wave's 5 tickets (2 of 7 with #75 and #82), against ADR 0025's
+  "at most one in four". The widening gate is not met for the third wave running; decided: do not widen.
+- **Session 04's three causes, measured:**
+  - words failing their first gate: not met; the fresh gate failed 4 of 5 catalogues whose builder's own gate had
+    passed;
+  - fixes bringing new faults: found by the re-checks, not prevented (13 twice, 20a once), a round each;
+  - bugs passing CI's 4 cores and failing on 24: met; none this wave (two single unnamed failures under load).
+  - A new cause: contract drift between two tickets in flight, caught only by runs of the merged tree.
 
 **Where the time went:**
 - **13's limits on hostile input:** each re-check found the next unbounded walk (per space, then sheets per file,
@@ -61,11 +67,13 @@ one at the ruling); the widening gate's decision⟩
 - **Two contract drifts,** a round in both tickets each: 13's judgement facts against 15's node; 13's sheet-number
   rule against 19b's stand-in.
 - **Gate walks:** 20a's second walk found a fault its first fix brought.
+- **Merges in series:** `main`'s ruleset requires an up-to-date branch, so each merge put the next PR behind; the
+  owner updated each and posted its gate again (four merges, 01:54 to 02:26).
 
 **Recommendations, each for the owner's yes or no:**
 1. **A time budget.** STATE.md logs each ticket's clock (launch, first READY, each round, PR, merge). Recommended:
    3 hours per ticket from launch to a PR ready to merge; at the budget the running round finishes, nothing new
-   starts, and the rest is filed. The wave's length is its longest chain (14 and 19b, then 19a, 21a, 20b).
+   starts, and the rest is filed. The wave's length is its longest chain (19b, then 19a, 21a, 20b).
 2. **At most two review rounds per ticket.** A third round's finding is filed as an issue and named in the PR body,
    not sent back, unless it is a security hole scoring 75 or more.
 3. **Contract keys written exactly in both prompts before launch:** every shared shape's keys, forms, one example
@@ -79,16 +87,18 @@ one at the ruling); the widening gate's decision⟩
    This saves one build on the longest chain.
 
 ## Where wave 3 stands
-- Merged in session 05: #86 (the wave's contracts, docs), #89 (#82), #90 (#75), #91 (15). ⟨FILL: 13, 20a and #93:
-  when each merged, or what is left⟩
-- ⟨FILL: 14: merged or open, its head, what is left⟩
-- ⟨FILL: 19b: part 1's state; part 2 (wire 13's `storeys.read` and `sheets.sequence`, then its check on the real
-  sets): done or owed⟩
-- Findings left when the owner stopped the rounds were filed, not sent back: ⟨FILL: issue numbers⟩.
+- **Merged in session 05** (UTC, 28–29 Sep): #86 (the wave's contracts, docs) 21:32; #89 (#82) 22:00; #90 (#75)
+  22:09; #91 (15) 22:26; #96 (#93) 01:54; #97 (20a) 02:10; #98 (13) 02:16; #99 (14) 02:26. `main` is 1216e7f3.
+- **Posting runs accepted:** #89 on its first run (7 report counts gained); #98 (run
+  20260929T015643Z-f314630f6e7d-707c): sheets +288, register +29, 0 failed stages, every stage ok on all 11 files,
+  no cap reached.
+- **19b:** ⟨FILL: 19b⟩
+- **Filed, not sent back:** #87, #88, #92, #93 (fixed by #96), #94, #95, #100.
+- **14 does not store 13's `sheet_report`:** it merged before the report existed in its services (item 21a below).
 
 ## Done means (check each, and keep checking until all hold)
 1. **The rulings on pace** are in STATE.md and #45 before the first launch.
-2. **Wave 3's leftovers merged** (above), each with its local step done.
+2. **19b merged** (above), with its check on the real sets done.
 3. **Wave 4 merged:** 16, 17, 18, 19a, 20b, 21a (docs/plans/M0.md, "Wave 4"). Each PR went through the review loop
    within the rulings on pace, and has its local step done: 16's design gate and its walk of every sheet of one real
    set; 17's and 18's posting runs; 20b's design gate; the words gate on 19a's and 21a's catalogues.
@@ -103,11 +113,11 @@ you need, then keep every other track moving.
 ## Wave 4: order and edges
 | Ticket | Starts when | Merges after | Its local step |
 |---|---|---|---|
-| 16 Sheet viewer | now (03, 11 in); its walk needs 13 | none | design gate; walk of one real set |
-| 17 Views within sheets | 13 merged | none | posting run |
-| 18 Plot registration and the render check | 13 merged | none | posting run |
-| 19a `takeoff` Step 1 | 14 and 19b merged | 14, 19b | words gate |
-| 21a The read job, per file | 14 merged | 19a (its seed file) | words gate (no posting run: A4) |
+| 16 Sheet viewer | now (03, 11 and 13 in) | none | design gate; walk of one real set |
+| 17 Views within sheets | now (13 in) | none | posting run |
+| 18 Plot registration and the render check | now (13 in) | none | posting run |
+| 19a `takeoff` Step 1 | 19b merged (14 is in) | 14, 19b | words gate |
+| 21a The read job, per file | now (14 in) | 19a (its seed file) | words gate (no posting run: A4) |
 | 20b Screens: the Drawing Set | 21a merged, or its reviewed head (item 6) | 21a | design gate |
 
 One migration this wave: takeoff's, 19a's (21a adds none). 17's and 18's posting runs go one at a time. 18 never
@@ -135,8 +145,9 @@ the words gate.
   `set_register` is its (D5). The seed's "Held, answered" is 19a's; 14 seeded only the states that need no job.
 - **21a:** its read job runs on the CAD queue with no memory cap until 24 measures one
   (`VEXTRUS_CAD_WORKER_MEMORY_BYTES = None`); 13 now bounds its own finder, one budget per file. 21a and 14 record
-  13's `sheet_report` with the Drawing File (21a's job writes it, 14 stores it; ⟨FILL: whether 14 merged with a
-  place for it⟩): a limit above 0 tells the QS the file was not read in full, by which limit, never a bare "no
+  13's `sheet_report` with the Drawing File: 14 merged before the report existed and has no place for it, so 21a's
+  job records it and a follow-up to 14 stores it (a drawings migration: name its owner before launch; 21a adds
+  none). A limit above 0 tells the QS the file was not read in full, by which limit, never a bare "no
   sheets" (20b's words). The seed's job-borne 4.5 states on BP-02 and MG-01 ("Reading a PDF"; "Interrupted,
   retrying") go in a named shared edit to 19a's `vextrus/seed/takeoff.py` after 19a merges. The upload operation's
   shape (path, request, every refusal body) is written in both 21a's and 20b's prompts. The `--job` mode edits
@@ -170,13 +181,17 @@ the words gate.
   `flock /home/riz/vextrus-cubit/.private/work/session-06/real-drawings.lock
   /home/riz/vextrus-cubit/scripts/real-drawings <branch> --no-post`.
 - **Reviewers keep every run's output in a file** too, under `.private/work/session-06/`.
-- **Builders commit and never push.** You review the committed head, then push and open the PR with the owner's yes,
-  batched. `gh pr edit` fails: set a body with `gh api -X PATCH repos/vextrus/vextrus-cubit/pulls/<n> -F
-  body=@<file>`.
+- **Builders commit and never push.** You review the committed head, then push and open the PR with the owner's yes
+  (the standing yes below, if the owner confirms it holds). `gh pr edit` fails: set a body with `gh api -X PATCH
+  repos/vextrus/vextrus-cubit/pulls/<n> -F body=@<file>`.
 - **The review loop and the owner's steps are unchanged** (the `orchestrate-wave` skill; `docs/sdlc.md`), within the
   rulings on pace: one message of owner steps with exact commands for exact SHAs; every posting run's table and
-  `states.py` read before the owner accepts. The first posting run after 13 merges shows 13's new `sheets …` report
-  counts "gained" at 0 against cached exports: noise, not a gain (the owner kept 13's line in the check's diff).
+  `states.py` read before the owner accepts. A posting run against a cached export from before 13's merge shows
+  13's new `sheets …` report counts "gained" at 0: noise, not a gain (the owner kept 13's line in the check's diff).
+- **Merges go in one ordered pass.** `main`'s ruleset requires an up-to-date branch with every check and
+  `design-gate`, so each merge puts the next PR behind. After each merge, merge `main` into the next PR's branch
+  yourself (no rebase), confirm the new head changes only what `main` brought, and give the owner the gate for that
+  head.
 
 ## State lives in files, not in your context
 Keep `.private/work/session-06/STATE.md` current after every event: the ticket table (session name and id,
@@ -199,6 +214,8 @@ Dates are Dhaka's; #45 and session 05's STATE.md have each in full.
 - **Where the work runs** (29 Sep): "instead of Cloud sessions the main sessions on xHigh will orchestrate
   everything just like we planned, the multi-agent sessions can do whatever extend to accomplish the goal,
   everything will be run in locally."
+- **Push and PRs** (29 Sep): "And yes for everything except merging": a standing yes to push and open PRs; the
+  owner merges. It was given in session 05: ask at the start whether it holds for session 06.
 - **Account** (28 Sep): "From the next session the local and all cloud sessions will be run on Account B until I
   told you to switch." The default config is signed in to B's account.
 - **Pace** (29 Sep, quoted above): no further rounds in session 05; session 06's rulings on pace come first.
@@ -220,7 +237,10 @@ Dates are Dhaka's; #45 and session 05's STATE.md have each in full.
   file ("Hold it"); `failed_stages` counts a killed file; BLAS runs on one thread per file.
 
 ## What is broken, unmeasured or waiting
-- **Wave 3's leftovers and the widening gate:** ⟨FILL⟩.
+- **19b:** ⟨FILL: 19b⟩ #100 holds three small findings from its review (continuation order, pasted control
+  characters, a revision in the number).
+- **The widening gate** is not met for the third wave running; decided: do not widen.
+- **13's `sheet_report` is not stored:** 21a records it and a follow-up to 14 stores it (above).
 - **Engine test failures with no name:** #82's builder saw one once in 19 runs, 14's one under load; both names
   were lost. With output now kept, diagnose one that comes back before loosening anything.
 - **The CAD worker has no memory cap** until 24 measures one.
@@ -229,10 +249,10 @@ Dates are Dhaka's; #45 and session 05's STATE.md have each in full.
 - **Before the next demo reset:** #95 (`flush` then `seed_demo` fails: the Markets are not put back).
 - **#77:** the harness's direct path gives a file's process no namespace of its own; real drawings go only through
   the check. **Before M1:** the U+2068/U+2069 isolates.
-- **Clean-up for the owner** (the guard refuses `rm -r`: give the commands): session 05's merged worktrees (15, #75,
-  #82, the docs); the `scratch-*` folders under `.private/work/session-05/` (keep `reviews/`, `log/` and the
-  reports); the diagnostic cloud sessions on B and A. Leave the stray copy `4d83537e` stopped and never `claude rm`
-  it: its directory is the main checkout.
+- **Clean-up for the owner** (the guard refuses `rm -r`: give the commands): session 05's merged worktrees (13,
+  14, 15, 20a, #75, #82, #93, the docs); the `scratch-*` folders under `.private/work/session-05/` (keep
+  `reviews/`, `log/` and the reports); the diagnostic cloud sessions on B and A. Leave the stray copy `4d83537e`
+  stopped and never `claude rm` it: its directory is the main checkout.
 
 ## Law in force
 - Secrets are never printed or written.
