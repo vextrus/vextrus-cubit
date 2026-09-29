@@ -60,8 +60,11 @@ interface Uploading {
   total: number
 }
 
+/** Why a file of a drop was not added; `unsure` when its answer could not be read (it may have been). */
+type NotAddedWhy = NonNullable<Problem> | { unsure: true }
+
 /** One file's answer to its upload. */
-type Answer = { file: string; out: UploadOut } | { file: string; problem: NonNullable<Problem> }
+type Answer = { file: string; out: UploadOut } | { file: string; problem: NotAddedWhy }
 
 /** The 3 px line under a moving file's words: determinate when its status counts its steps. */
 function RowProgress({ share }: { share?: number }) {
@@ -270,10 +273,12 @@ function FilesTable(props: TableProps) {
  * other ("Upload stopped: the connection dropped.", out of reach, a fault) is put after the file's name,
  * with what to do.
  */
-function NotAdded({ file, problem }: { file: string; problem: NonNullable<Problem> }) {
+function NotAdded({ file, problem }: { file: string; problem: NotAddedWhy }) {
   const f = useFormat()
   if ('refusal' in problem && 'file' in problem.refusal.params) return <ProblemWords problem={problem} />
   const name = <DrawingText kind="file-name" text={file} truncate={false} />
+  if ('unsure' in problem)
+    return <Trans>Vextrus could not tell whether {name} was added. If it is not in the list in a minute, add it again.</Trans>
   if ('unreachable' in problem) return <Trans>{name} was not added. Vextrus can’t be reached. Check your connection and add it again.</Trans>
   if ('failed' in problem) return <Trans>{name} was not added. Vextrus could not add it just now. Add it again in a minute.</Trans>
   // Refusals that name no file, worded around the file's name so "not added" is said once.
@@ -398,7 +403,7 @@ export function DrawingSetView({ project }: { project: ProjectSummary }) {
   const queue = useRef<Promise<void>>(Promise.resolve())
   const [busy, setBusy] = useState<string | null>(null)
   const [problem, setProblem] = useState<Problem>(null)
-  const [refused, setRefused] = useState<{ key: string; problem: NonNullable<Problem> }[]>([])
+  const [refused, setRefused] = useState<{ key: string; problem: NotAddedWhy }[]>([])
   const [pulseId, setPulseId] = useState<string | null>(null)
   const chooser = useRef<HTMLInputElement>(null)
   useSignedInAgain(setProblem)
@@ -479,13 +484,13 @@ export function DrawingSetView({ project }: { project: ProjectSummary }) {
     void next
   }
 
-  /** Why a file was not added; an answer that is neither a refusal nor out of reach is a fault, said as one. */
-  function whyNot(error: unknown): NonNullable<Problem> {
+  /** Why a file was not added; an answer that could not be read leaves it unknown whether it was. */
+  function whyNot(error: unknown): NotAddedWhy {
     try {
       return problemOf(error) ?? { failed: true }
     } catch {
       console.error(error)
-      return { failed: true }
+      return { unsure: true }
     }
   }
 
@@ -516,7 +521,10 @@ export function DrawingSetView({ project }: { project: ProjectSummary }) {
     const again = outs.findLast((o) => o.outcome === 'already_here')
     if (again) setPulseId(again.file.id)
     // The toast is plain text: it shows outside the page, where only the words travel.
-    const lines = outs.flatMap((o) => (o.message && (chosen.length === 1 || o.outcome !== 'already_here') ? [machineText(o.message, f, i18n)] : []))
+    // Several: the count says "already here" and "replaced" itself; only other lines (both kept) follow it.
+    const lines = outs.flatMap((o) =>
+      o.message && (chosen.length === 1 || (o.outcome !== 'already_here' && o.outcome !== 'replaced')) ? [machineText(o.message, f, i18n)] : [],
+    )
     // Several: what they came to, unless nothing was added or already here (each error bar says why).
     if (chosen.length > 1 && added + already + replaced > 0) lines.unshift(severalAdded(added, already, replaced, said.length))
     if (lines.length) toast.show({ message: lines.join(' ') })

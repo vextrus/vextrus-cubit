@@ -3,7 +3,8 @@
  * progress share and a Discipline's name in the language shown.
  */
 import { describe, expect, it } from 'vitest'
-import { disciplineName, pdfSections, progressShare, rowActs, saidOnce, tableOrder, type FileOut } from './data'
+import { englishMessages } from '@/i18n/catalogues'
+import { disciplineName, pdfSectionOf, pdfSections, progressShare, rowActs, saidOnce, tableOrder, type FileOut } from './data'
 
 const msg = (code: string, params: Record<string, string | number> = {}) => ({ code, params })
 
@@ -130,5 +131,24 @@ describe('saidOnce', () => {
     const finding = msg('engine.decoders_agree.disagree', { items: 212, layers: 3 })
     const lists = saidOnce([status], [[status, finding], [msg('engine.decoders_agree.disagree', { layers: 3, items: 212 })], [msg('x', { a: 1 })]])
     expect(lists).toEqual([[finding], [], [msg('x', { a: 1 })]])
+  })
+})
+
+describe('every PDF report code has its section on purpose', () => {
+  it("places each code the engine's catalogue words, as §4.5 orders them", () => {
+    const codes = Object.keys(englishMessages()).filter((c) => c.startsWith('engine.pdf_report.'))
+    const placed: Record<string, string> = {
+      made_by_autocad: 'made_by', made_by_other: 'made_by', made_by_unknown: 'made_by',
+      pages: 'pages', page_unreadable: 'pages',
+      lettering_kept: 'lettering', lettering_lines: 'lettering', lettering_partly: 'lettering', lettering_unconfirmed: 'lettering',
+      unmapped_text: 'lettering', fonts_drawn: 'lettering', fonts_not_embedded: 'lettering', fonts_unreadable: 'lettering',
+      layers_kept: 'layers', layers_flattened: 'layers',
+      pictures: 'pictures', no_pictures: 'pictures', mostly_picture: 'pictures', scan_page: 'pictures',
+      scan: 'refused', too_many_pages: 'refused',
+      locked: 'not_read', unreadable: 'not_read', limit_reached: 'not_read', reader_failed: 'not_read',
+    }
+    expect(codes.length).toBeGreaterThan(0)
+    // A new code fails here until it is given its section in pdfSectionOf and in this table.
+    expect(Object.fromEntries(codes.map((c) => [c, pdfSectionOf(c)]))).toEqual(Object.fromEntries(codes.map((c) => [c, placed[c.slice('engine.pdf_report.'.length)]])))
   })
 })

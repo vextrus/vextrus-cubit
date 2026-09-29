@@ -278,9 +278,11 @@ describe('a drop queued behind another (refuter, round 1)', () => {
     await waitFor(() => rowOf('KR-STR-R0.dwg'))
     await userEvent.upload(document.querySelector<HTMLInputElement>('input[type="file"]')!, files('KR-ARC-R0.dwg', 'KR-STR-R0.dwg'))
     await waitFor(() => expect(bodyText()).toContain("1 file added; 1 replaced Vextrus's damaged copy."))
+    // The count says it; the file's own line ("…nothing else was added") would contradict "1 file added".
+    expect(bodyText()).not.toContain('This one replaces that copy')
   })
 
-  it('says a file whose answer could not be read was not added, rather than nothing', async () => {
+  it('says a file whose answer could not be read may or may not be added, rather than nothing', async () => {
     const { api, set } = drawingSet()
     set.files.push(file({ name: 'KR-STR-R0.dwg', state: 'read', status: msg('drawings.files.read') }))
     const inner = api.handle
@@ -289,6 +291,8 @@ describe('a drop queued behind another (refuter, round 1)', () => {
     await open(api)
     await waitFor(() => rowOf('KR-STR-R0.dwg'))
     await userEvent.upload(document.querySelector<HTMLInputElement>('input[type="file"]')!, files('KR-ARC-R0.dwg'))
-    await waitFor(() => expect(bodyText()).toContain('KR-ARC-R0.dwg was not added. Vextrus could not add it just now. Add it again in a minute.'))
+    await waitFor(() =>
+      expect(bodyText()).toContain('Vextrus could not tell whether KR-ARC-R0.dwg was added. If it is not in the list in a minute, add it again.'),
+    )
   })
 })

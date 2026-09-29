@@ -136,6 +136,10 @@ msgid "Open in Step 1"
 msgstr "Open in Step 1"
 
 #: src/drawing-set/DrawingSetPage.tsx
+msgid "Vextrus could not tell whether {name} was added. If it is not in the list in a minute, add it again."
+msgstr "Vextrus could not tell whether {name} was added. If it is not in the list in a minute, add it again."
+
+#: src/drawing-set/DrawingSetPage.tsx
 msgid "Uploading <0/> ({upAt} of {upOf})"
 msgstr "Uploading <0/> ({upAt} of {upOf})"
 

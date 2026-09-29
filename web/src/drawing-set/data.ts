@@ -96,7 +96,10 @@ export function pdfSectionOf(code: string): PdfSection | null {
   if (name === 'pictures' || name === 'no_pictures' || name === 'mostly_picture' || name === 'scan_page') return 'pictures'
   // Refused is Vextrus declining a PDF (a scan, too many pages); a PDF it tried and could not read is "Not read".
   if (name === 'scan' || name === 'too_many_pages') return 'refused'
-  return 'not_read'
+  if (name === 'locked' || name === 'unreadable' || name === 'limit_reached' || name === 'reader_failed') return 'not_read'
+  // A sentence the web has not placed yet stays with what made the PDF, never under a heading that
+  // says it was not read.
+  return 'made_by'
 }
 
 /**
