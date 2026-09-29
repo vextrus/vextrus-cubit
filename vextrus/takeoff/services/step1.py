@@ -52,9 +52,9 @@ from django.utils import timezone
 from engine.check import register
 from engine.messages import Message
 from engine.messages import register_check as list_codes
-from engine.recognise.conflicts import recognisers
+from engine.recognise.conflicts import Numbers, recognisers
 from engine.recognise.sheets import default_conventions
-from engine.recognise.types import DisciplineConvention, SheetConventions
+from engine.recognise.types import DisciplineConvention, SheetConventions, ValueSource
 from vextrus.drawings import services as drawings
 from vextrus.platform.services import auth, jev, markets, tenancy
 from vextrus.projects import services as projects
@@ -114,6 +114,11 @@ class ProposalView:
     excluded_text: str
     decided_by: str | None
     decided_at: datetime | None
+    agrees: bool = False
+    """Two sources agree on it (m0-screens §5, "What 'agrees' means"): its number and title from its
+    title block, and its Discipline's drawing list naming it, or, with no list, its Discipline's
+    numbering running without a gap and its Plot page matched; never while held or in an open
+    Question. Only such a sheet joins the bulk act (6.4); the others are Proposals "with one source"."""
 
 
 @dataclass(frozen=True)
@@ -241,7 +246,70 @@ def proposals(project_id: uuid.UUID) -> list[ProposalView]:
     # Who and when, from the act that decided each sheet (a decision put back by an undo keeps its
     # own act's name and time).
     who = {c.id: (c.by_name, c.at) for c in Confirmation.objects.filter(id__in=stamps)}
-    return [_proposal_view(s, by_sheet.get(s.id), names, who) for s in sheets]
+    agreeing = _agreeing(project_id, sheets, by_sheet)
+    return [
+        replace(_proposal_view(s, by_sheet.get(s.id), names, who), agrees=s.id in agreeing)
+        for s in sheets
+    ]
+
+
+_TITLE_BLOCK = frozenset({ValueSource.TITLE_BLOCK_ATTRIBUTE, ValueSource.TITLE_BLOCK_TEXT})
+
+
+def _agreeing(
+    project_id: uuid.UUID,
+    sheets: Sequence[drawings.SheetView],
+    by_sheet: Mapping[uuid.UUID, Proposal],
+) -> set[uuid.UUID]:
+    """The printed sheets two sources agree on (`ProposalView.agrees`)."""
+    open_questions = Question.objects.filter(
+        project_id=project_id, step=SHEETS, status=QuestionStatus.OPEN
+    )
+    asked = set(open_questions.exclude(subject_id=None).values_list("subject_id", flat=True))
+    linked = set(
+        QuestionLink.objects.filter(project_id=project_id, question__in=open_questions).values_list(
+            "proposal_id", flat=True
+        )
+    )
+    conventions = _conventions()
+    numbers = Numbers(conventions, recognisers(conventions))
+    of_discipline: dict[str, list[drawings.SheetView]] = {}
+    for sheet in sheets:
+        if sheet.discipline is not None:
+            of_discipline.setdefault(sheet.discipline, []).append(sheet)
+    agreeing: set[uuid.UUID] = set()
+    for discipline, mine in of_discipline.items():
+        lists = _lists(project_id, discipline)
+        standing = lists.given or lists.read
+        if standing is not None and not lists.disagree:
+            listed = {numbers.key(n, discipline) for n in _numbers(standing)}
+            second = {s.id for s in mine if s.number and numbers.key(s.number, discipline) in listed}
+        elif standing is None and _without_gap(numbers, discipline, mine):
+            second = {s.id for s in mine if s.plot.page is not None}
+        else:
+            second = set()
+        for sheet in mine:
+            proposal = by_sheet.get(sheet.id)
+            if (
+                sheet.id in second
+                and not sheet.held
+                and sheet.sources.get("number") in _TITLE_BLOCK
+                and sheet.sources.get("title") in _TITLE_BLOCK
+                and sheet.id not in asked
+                and (proposal is None or proposal.id not in linked)
+            ):
+                agreeing.add(sheet.id)
+    return agreeing
+
+
+def _without_gap(numbers: Numbers, discipline: str, sheets: Sequence[drawings.SheetView]) -> bool:
+    """Every number from the Discipline's first to its last present once, in one series."""
+    parts = [numbers.parts_in(s.number, discipline) if s.number else None for s in sheets]
+    if not parts or any(p is None for p in parts):
+        return False
+    series = {(p[0], p[2]) for p in parts if p is not None}
+    running = sorted(p[1] for p in parts if p is not None)
+    return len(series) == 1 and running == list(range(running[0], running[0] + len(running)))
 
 
 def _proposal_view(

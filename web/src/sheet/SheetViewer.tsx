@@ -113,6 +113,9 @@ function SheetCanvas({
   useLayoutEffect(() => {
     failed.current = onFail
   })
+  // Focus is taken once, on the first draw after Try again; a later redraw (a new working view, a
+  // resize) never takes it back from where the user put it (#115).
+  const focusOnce = useRef(focus)
   const used = useMemo(() => usedExtents(sheet), [sheet])
 
   const stage = useCallback((): Stage | null => {
@@ -191,7 +194,10 @@ function SheetCanvas({
     observer.observe(area)
     resize()
     draw() // a remount keeps its view (refs survive) and must draw it on the new renderer
-    if (focus) area.focus({ preventScroll: true })
+    if (focusOnce.current) {
+      focusOnce.current = false
+      area.focus({ preventScroll: true })
+    }
     return () => {
       observer.disconnect()
       cancelAnimationFrame(frame.current)
@@ -200,7 +206,7 @@ function SheetCanvas({
       renderer.current?.dispose()
       renderer.current = null
     }
-  }, [draw, fits, setView, focus])
+  }, [draw, fits, setView])
 
   const zoomCentre = useCallback(
     (factor: number) => {

@@ -42,6 +42,8 @@ class Step1ProposalOut(_FromView):
     decided_by: str | None
     """Who confirmed or left it out, by name."""
     decided_at: datetime | None
+    agrees: bool
+    """Two sources agree on it (m0-screens §5): it joins the bulk act; else "Proposal, one source"."""
 
 
 class Step1ProposalsOut(Schema):
