@@ -268,7 +268,13 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
   ) : focusedRow ? (
     <>
       {focusedRow.question ? <QuestionCard entry={focusedRow.question} readOnly={readOnly} model={model} /> : null}
-      <SheetFacts row={focusedRow} showTitle={mode === 'list'} readOnly={readOnly !== null} />
+      <SheetFacts
+        row={focusedRow}
+        showTitle={mode === 'list'}
+        readOnly={readOnly !== null}
+        onExclude={focusedRow.sheets.length > 0 ? () => setPicker(focusedRow) : undefined}
+        onConfirmBackIn={() => void confirmRow(focusedRow, false)}
+      />
     </>
   ) : (
     <Overview model={model} projectName={project.name} readOnly={readOnly} />

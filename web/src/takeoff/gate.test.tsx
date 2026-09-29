@@ -225,3 +225,46 @@ describe('M8: who did what, with the initials chip', () => {
     expect(clean(inspector().textContent)).toContain('Nusrat Jahan, QS, 26 Sep 2026, 11:10')
   })
 })
+
+describe('M7: the inspector says where each fact was read, lists the views, and offers Exclude', () => {
+  it('shows Number, Title, Discipline, File, Storeys, Plot, the Views and "Exclude X"', async () => {
+    const { api, step1 } = kr01()
+    Object.assign(step1.proposals.find((p) => p.number === 'S-05')!, {
+      sources: { number: 'title_block_attribute', title: 'title_block_text', discipline: 'file' },
+      layout: null,
+      storeys_as_stated: '1ST FLOOR',
+      plot_file_name: 'KR-STR-R0.pdf',
+      plot_page: 5,
+      plot_none: null,
+      views: [
+        { ordinal: 0, kind: 'plan', title: '1ST FLOOR BEAM LAYOUT', stated_scale: '1:100', not_to_scale: false, storeys: ['1st'], storeys_meaning: 'at_floor_level', steps: ['7'], part: null, proposed_exclusion: null, decision: null, excluded_reason: null, box: ['0', '0', '1', '1'] },
+        { ordinal: 1, kind: 'title_block', title: '', stated_scale: '', not_to_scale: true, storeys: [], storeys_meaning: null, steps: [], part: null, proposed_exclusion: 'for_information', decision: null, excluded_reason: null, box: ['0', '0', '1', '1'] },
+      ],
+    })
+    await open(api)
+    await userEvent.click(within(rowOf('S-05')).getByText('S-05'))
+    const text = () => clean(inspector().textContent)
+    await waitFor(() => expect(text()).toContain('S-05, title-block attribute'))
+    expect(text()).toContain('text in the title block')
+    expect(text()).toContain('Structural, from the file')
+    expect(text()).toContain('KR-STR-R0.dwg, laid out in the drawing')
+    expect(text()).toContain('1ST FLOOR, at floor level')
+    expect(text()).toContain('KR-STR-R0.pdf page 5')
+    expect(text()).toContain('Views (2)')
+    expect(text()).toContain('Plan 1ST FLOOR BEAM LAYOUT, 1:100')
+    expect(text()).toContain('7 Beams')
+    expect(text()).toContain('Title block, not to scale')
+    expect(text()).toContain('excluded: for information')
+    const exclude = within(inspector()).getByRole('button', { name: /Exclude/ })
+    await userEvent.click(exclude)
+    await shows('Exclude S-05. Why?')
+  })
+
+  it('says why a sheet has no Plot, from the API’s code', async () => {
+    const { api, step1 } = kr01()
+    Object.assign(step1.proposals.find((p) => p.number === 'S-05')!, { plot_page: null, plot_file_name: null, plot_none: { code: 'drawings.sheets.plot_no_number', params: {} } })
+    await open(api)
+    await userEvent.click(within(rowOf('S-05')).getByText('S-05'))
+    await waitFor(() => expect(clean(inspector().textContent)).toMatch(/Plot\s*None: \S/))
+  })
+})

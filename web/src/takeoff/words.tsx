@@ -195,3 +195,33 @@ export const SHEET_KIND_NAMES: Readonly<Record<string, MessageDescriptor>> = {
 }
 
 export const OTHER_OPTION = msg`An answer Vextrus has no words for yet`
+
+/** Where a value was read (m0-screens 6.6's Proposal block, "where each was read"). */
+export const SOURCE_NAMES: Readonly<Record<string, MessageDescriptor>> = {
+  title_block_attribute: msg`title-block attribute`,
+  title_block_text: msg`text in the title block`,
+  file_name: msg`from the file name`,
+  file: msg`from the file`,
+}
+
+/** A view's kind (6.6's Views: "Plan", "Detail"). */
+export const VIEW_KIND_NAMES: Readonly<Record<string, MessageDescriptor>> = {
+  plan: msg`Plan`,
+  section: msg`Section`,
+  elevation: msg`Elevation`,
+  schedule: msg`Schedule`,
+  detail: msg`Detail`,
+  notes: msg`Notes`,
+  legend: msg`Legend`,
+  title_block: msg`Title block`,
+  key_plan: msg`Key plan`,
+  perspective: msg`3D or perspective`,
+}
+export const OTHER_VIEW_KIND = msg`View`
+
+/** What a plan's storey list means (6.8). */
+export const STOREYS_MEANING: Readonly<Record<string, MessageDescriptor>> = {
+  at_floor_level: msg`at floor level`,
+  floor_to_floor: msg`floor to floor`,
+  mixed: msg`mixed`,
+}

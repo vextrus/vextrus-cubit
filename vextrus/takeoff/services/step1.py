@@ -125,6 +125,37 @@ class ProposalView:
     """The role of whoever decided it, in this Developer ("qs", "vextrus_engineer"…), or None."""
     decided_with: int = 0
     """How many sheets the act that decided it decided (a bulk act's count; 1 for one sheet)."""
+    sources: dict[str, str] = field(default_factory=dict)
+    """Where each value was read, by field (number, title, discipline…: `ValueSource`)."""
+    layout: str | None = None
+    """The layout tab it is laid out on, by name; None where it is laid out in the drawing."""
+    storeys_as_stated: str = ""
+    plot_file_name: str | None = None
+    plot_page: int | None = None
+    plot_none: Message | None = None
+    """Why it has no Plot (m0-screens 4.6, 6.13), or None when a page matched."""
+    views: tuple[SheetViewView, ...] = ()
+    """Its views in reading order (6.6's Views; the list's Views column counts them)."""
+
+
+@dataclass(frozen=True)
+class SheetViewView:
+    """One view of a printed sheet, as Step 1 shows it (6.6 item 4)."""
+
+    ordinal: int
+    kind: str
+    title: str
+    stated_scale: str
+    not_to_scale: bool
+    storeys: tuple[str, ...]
+    storeys_meaning: str | None
+    steps: tuple[str, ...]
+    part: str | None
+    proposed_exclusion: str | None
+    decision: str | None
+    excluded_reason: str | None
+    box: tuple[str, str, str, str]
+    """x0, y0, x1, y1 in drawing units, as decimal strings."""
 
 
 @dataclass(frozen=True)
@@ -431,6 +462,33 @@ def _proposal_view(
         excluded_text=sheet.excluded_text,
         decided_by=by,
         decided_at=at or sheet.decided_at,
+        sources=dict(sheet.sources),
+        layout=sheet.location.get("layout") if isinstance(sheet.location.get("layout"), str) else None,
+        storeys_as_stated=sheet.storeys_as_stated,
+        plot_file_name=names.get(sheet.plot.file_id)
+        if sheet.plot.page is not None and sheet.plot.file_id
+        else None,
+        plot_page=sheet.plot.page,
+        plot_none=sheet.plot.none,
+        views=tuple(_sheet_view_view(v) for v in drawings.views(sheet.id)),
+    )
+
+
+def _sheet_view_view(view: drawings.ViewView) -> SheetViewView:
+    return SheetViewView(
+        ordinal=view.ordinal,
+        kind=view.kind,
+        title=view.title,
+        stated_scale=view.stated_scale,
+        not_to_scale=view.not_to_scale,
+        storeys=tuple(view.storeys),
+        storeys_meaning=view.storeys_meaning,
+        steps=tuple(view.steps),
+        part=view.part,
+        proposed_exclusion=view.proposed_exclusion,
+        decision=view.decision,
+        excluded_reason=view.excluded_reason,
+        box=view.box,
     )
 
 

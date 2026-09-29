@@ -11,7 +11,8 @@ import type { ReactNode } from 'react'
 import { Plural, Trans, useLingui } from '@lingui/react/macro'
 import { TAKEOFF_STEPS } from '@/app/steps'
 import { useFormat } from '@/format'
-import { DrawingText, cn } from '@/ui'
+import { Button, DrawingText, KeyCombo, cn } from '@/ui'
+import { MachineText } from '@/format/machine'
 import { QuestionGlyph } from '@/ui/glyphs'
 import { SheetName, SheetRange } from './acts'
 import type { CoverageOut, ProposalOut } from './data'
@@ -19,7 +20,7 @@ import type { DisciplineSection, QuestionEntry, Row, Step1Model } from './model'
 import { Answering, CannotAnswer, Copy, OptionWords, QuestionBody, QuestionTitle, Trace, optionsOf, useKindLine, usePick } from './questionWords'
 import { disciplineName } from './SheetList'
 import { Act, ActorChip } from './who'
-import { NOT_RECEIVED_NAMES, OTHER_DISCIPLINE, REASON_SHORT, UNKNOWN_REASON } from './words'
+import { NOT_RECEIVED_NAMES, OTHER_DISCIPLINE, OTHER_VIEW_KIND, REASON_SHORT, SOURCE_NAMES, STOREYS_MEANING, UNKNOWN_REASON, VIEW_KIND_NAMES } from './words'
 
 function Block({ title, children }: { title?: ReactNode; children: ReactNode }) {
   return (
@@ -245,10 +246,10 @@ function RevisionFact({ sheet }: { sheet: ProposalOut }) {
   )
 }
 
-export function SheetFacts({ row, showTitle, readOnly }: { row: Row; showTitle: boolean; readOnly: boolean }) {
-  const { i18n } = useLingui()
+export function SheetFacts({ row, showTitle, readOnly, onExclude, onConfirmBackIn }: { row: Row; showTitle: boolean; readOnly: boolean; onExclude?: () => void; onConfirmBackIn?: () => void }) {
   const sheet = row.sheets[0]
   if (!sheet) return null
+  const excluded = row.sheets.every((s) => s.decision === 'excluded')
   return (
     <>
       <Block>
@@ -262,29 +263,195 @@ export function SheetFacts({ row, showTitle, readOnly }: { row: Row; showTitle: 
       </Block>
       <Block title={<Trans>Proposal: where each was read</Trans>}>
         <dl className="flex flex-col gap-1">
-          <Fact label={<Trans>Discipline</Trans>}>{disciplineName(sheet.discipline, i18n)}</Fact>
+          <Fact label={<Trans>Number</Trans>}>
+            <NumberFact sheet={sheet} />
+          </Fact>
+          <Fact label={<Trans>Title</Trans>}>
+            <TitleFact sheet={sheet} />
+          </Fact>
+          <Fact label={<Trans>Discipline</Trans>}>
+            <DisciplineFact sheet={sheet} />
+          </Fact>
           <Fact label={<Trans>Revision</Trans>}>
             {sheet.revision_mark ? <RevisionFact sheet={sheet} /> : <Trans>none: the title block has none and the file name none</Trans>}
           </Fact>
           <Fact label={<Trans>File</Trans>}>
-            <DrawingText kind="file-name" text={sheet.file_name} />
+            <FileFact sheet={sheet} />
+          </Fact>
+          <Fact label={<Trans>Storeys</Trans>}>
+            <StoreysFact sheet={sheet} />
+          </Fact>
+          <Fact label={<Trans>Plot</Trans>}>
+            <PlotFact sheet={sheet} />
           </Fact>
           <Fact label={<Trans>Sources</Trans>}>{row.sheets.every((s) => s.agrees) ? <Trans>two, agreeing</Trans> : <Trans>one source</Trans>}</Fact>
         </dl>
       </Block>
+      <ViewsBlock sheet={sheet} />
       <Block title={<Trans>Who did what</Trans>}>
         {row.sheets.map((s) => (
-          <p key={s.id}>
+          <div key={s.id}>
             {row.sheets.length > 1 ? (
               <>
                 <SheetName sheets={[s]} /> <Copy sheet={s} />{' '}
               </>
             ) : null}
             <Decided sheet={s} readOnly={readOnly} />
-          </p>
+          </div>
         ))}
       </Block>
+      {readOnly ? null : (
+        <div className="flex flex-wrap gap-2 px-3 py-3">
+          {excluded ? (
+            onConfirmBackIn ? (
+              <Button variant="secondary" onClick={onConfirmBackIn}>
+                <Trans>Confirm back in</Trans>
+              </Button>
+            ) : null
+          ) : onExclude ? (
+            <Button variant="secondary" onClick={onExclude} aria-keyshortcuts="X">
+              <Trans>Exclude</Trans>
+              <KeyCombo combo="X" />
+            </Button>
+          ) : null}
+        </div>
+      )}
     </>
+  )
+}
+
+/** "S-20, title-block attribute" / "…, text in the title block" / "not found" (6.6). */
+function NumberFact({ sheet }: { sheet: ProposalOut }) {
+  const { i18n } = useLingui()
+  if (!sheet.number) return <span className="text-question"><Trans>not found</Trans></span>
+  const number = <DrawingText kind="sheet-number" text={sheet.number} truncate={false} />
+  const source = sheet.sources?.number
+  const where = source && SOURCE_NAMES[source] ? i18n._(SOURCE_NAMES[source]) : null
+  return where ? <Trans>{number}, {where}</Trans> : number
+}
+
+function TitleFact({ sheet }: { sheet: ProposalOut }) {
+  const { i18n } = useLingui()
+  if (!sheet.title.trim()) return <span className="text-question"><Trans>not found</Trans></span>
+  const source = sheet.sources?.title
+  const where = source && SOURCE_NAMES[source] ? i18n._(SOURCE_NAMES[source]) : null
+  return where ? <span className="text-ink-secondary">{where}</span> : <Trans>as drawn</Trans>
+}
+
+/** "Structural, from the file; the prefix agrees" (6.6). */
+function DisciplineFact({ sheet }: { sheet: ProposalOut }) {
+  const { i18n } = useLingui()
+  const name = disciplineName(sheet.discipline, i18n)
+  const source = sheet.sources?.discipline
+  const where = source && SOURCE_NAMES[source] ? i18n._(SOURCE_NAMES[source]) : null
+  return where ? <Trans>{name}, {where}</Trans> : <>{name}</>
+}
+
+/** "KR-STR-R0.dwg, laid out in the drawing" / "…, layout “A-24”" (6.6). */
+function FileFact({ sheet }: { sheet: ProposalOut }) {
+  const file = <DrawingText kind="file-name" text={sheet.file_name} truncate={false} />
+  if (sheet.layout) {
+    const layout = <DrawingText kind="title" text={sheet.layout} truncate={false} />
+    return <Trans>{file}, layout “{layout}”</Trans>
+  }
+  if (sheet.layout === null) return <Trans>{file}, laid out in the drawing</Trans>
+  return file
+}
+
+/** The storeys as the title states them, with what they mean; "—" for a sheet with no plan (6.8). */
+function StoreysFact({ sheet }: { sheet: ProposalOut }) {
+  const { i18n } = useLingui()
+  const plans = (sheet.views ?? []).filter((v) => v.kind === 'plan')
+  const stated = sheet.storeys_as_stated?.trim()
+  if (plans.length === 0 && !stated) return <span className="text-muted-foreground">—</span>
+  const meanings = [...new Set(plans.map((v) => v.storeys_meaning).filter((m): m is string => !!m))]
+  const meaning = meanings.length === 0 ? null : i18n._(STOREYS_MEANING[meanings.length > 1 ? 'mixed' : meanings[0]!] ?? STOREYS_MEANING.mixed!)
+  if (!stated) return <span className="text-question"><Trans>not stated</Trans></span>
+  const text = <DrawingText kind="title" text={stated} truncate={false} />
+  return meaning ? <Trans>{text}, {meaning}</Trans> : text
+}
+
+/** "KR-STR-R0.pdf page 12", or "None: " and why (6.6, 6.13). */
+function PlotFact({ sheet }: { sheet: ProposalOut }) {
+  const f = useFormat()
+  if (sheet.plot_page != null && sheet.plot_file_name) {
+    const file = <DrawingText kind="file-name" text={sheet.plot_file_name} truncate={false} />
+    const page = f.integer(sheet.plot_page)
+    return <Trans>{file} page {page}</Trans>
+  }
+  if (sheet.plot_none) {
+    const why = <MachineText message={{ code: sheet.plot_none.code, params: sheet.plot_none.params as Record<string, string | number> }} />
+    return <Trans>None: {why}</Trans>
+  }
+  return <span className="text-muted-foreground">—</span>
+}
+
+/** 6.6 item 4: each view's kind, title, scale, storeys, and the steps it is proposed for. */
+function ViewsBlock({ sheet }: { sheet: ProposalOut }) {
+  const views = sheet.views ?? []
+  const count = views.length
+  if (count === 0) return null
+  return (
+    <Block title={<Plural value={count} one="Views (#)" other="Views (#)" />}>
+      <ol className="flex flex-col gap-1.5">
+        {views.map((v) => (
+          <li key={v.ordinal}>
+            <ViewLine view={v} sheet={sheet} />
+          </li>
+        ))}
+      </ol>
+    </Block>
+  )
+}
+
+function ViewLine({ view, sheet }: { view: NonNullable<ProposalOut['views']>[number]; sheet: ProposalOut }) {
+  const { i18n } = useLingui()
+  const kind = i18n._(VIEW_KIND_NAMES[view.kind] ?? OTHER_VIEW_KIND)
+  const scale = view.not_to_scale ? <Trans>not to scale</Trans> : view.stated_scale ? <DrawingText kind="title" text={view.stated_scale} truncate={false} /> : null
+  const excluded = view.decision === 'excluded' || sheet.decision === 'excluded'
+  const reason = view.excluded_reason ?? view.proposed_exclusion ?? (sheet.decision === 'excluded' ? sheet.excluded_reason : null)
+  const reasonText = reason ? i18n._(REASON_SHORT[reason] ?? UNKNOWN_REASON) : ''
+  const proposed = sheet.decision === null
+  return (
+    <div className={cn('flex flex-col', excluded && 'text-muted-foreground line-through')}>
+      <span>
+        {kind}
+        {view.title ? (
+          <>
+            {' '}
+            <DrawingText kind="title" text={view.title} truncate={false} />
+          </>
+        ) : null}
+        {scale ? <>, {scale}</> : null}
+      </span>
+      <span className="flex flex-wrap items-center gap-1 text-xs">
+        {view.storeys.length > 0 ? <span className="text-ink-secondary">{view.storeys.join(', ')}</span> : null}
+        {reason && (view.proposed_exclusion || excluded) ? (
+          <span className="text-muted-foreground">
+            <Trans>excluded: {reasonText}</Trans>
+          </span>
+        ) : view.steps.length > 0 ? (
+          view.steps.map((step) => (
+            <span key={step} className="rounded-xs border border-border px-1">
+              <StepOrPart step={step} />
+            </span>
+          ))
+        ) : view.part ? (
+          <span className="rounded-xs border border-border px-1">
+            <StepOrPart step={view.part} />
+          </span>
+        ) : (
+          <span className="text-question">
+            <Trans>no step: unaccounted</Trans>
+          </span>
+        )}
+        {proposed ? (
+          <span className="text-muted-foreground">
+            <Trans>proposed</Trans>
+          </span>
+        ) : null}
+      </span>
+    </div>
   )
 }
 

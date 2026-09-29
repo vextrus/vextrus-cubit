@@ -9,6 +9,7 @@ from typing import Any, Self
 
 from ninja import Schema
 
+from engine.messages import Message
 from vextrus.takeoff.services import step1
 
 
@@ -16,6 +17,25 @@ class _FromView(Schema):
     @classmethod
     def from_view(cls, view: object) -> Self:
         return cls.model_validate(asdict(view))  # type: ignore[call-overload]
+
+
+class Step1SheetViewOut(Schema):
+    """One view of the sheet (m0-screens 6.6 item 4), in reading order."""
+
+    ordinal: int
+    kind: str
+    title: str
+    stated_scale: str
+    not_to_scale: bool
+    storeys: list[str]
+    storeys_meaning: str | None
+    steps: list[str]
+    part: str | None
+    proposed_exclusion: str | None
+    decision: str | None
+    excluded_reason: str | None
+    box: list[str]
+    """x0, y0, x1, y1 in drawing units, as decimal strings."""
 
 
 class Step1ProposalOut(_FromView):
@@ -49,6 +69,16 @@ class Step1ProposalOut(_FromView):
     """The role of whoever decided it ("qs", "md", "vextrus_engineer", "guest"), or null."""
     decided_with: int
     """How many sheets the act that decided it decided ("Confirmed in bulk with 15 other sheets")."""
+    sources: dict[str, str]
+    """Where each value was read, by field: title_block_attribute, title_block_text, file_name, file."""
+    layout: str | None
+    """The layout tab it is laid out on; null where it is laid out in the drawing."""
+    storeys_as_stated: str
+    plot_file_name: str | None
+    plot_page: int | None
+    plot_none: Message | None
+    """Why it has no Plot, as a code and its parameters; null when a page matched."""
+    views: list[Step1SheetViewOut]
 
 
 class Step1ProposalsOut(Schema):
