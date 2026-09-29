@@ -24,7 +24,9 @@ recognisers (13, 17) take positions through `world`, never computing a transform
 
 **A crafted file is refused or bounded, never followed:** an insert of a block already on its own
 chain or the block walked from (a loop), a chain deeper than `MAX_DEPTH`, a block the artefact does
-not hold, a MINSERT of more than `MAX_CELLS` cells, and a walk past its visit budget (entities and
+not hold, an insert placed by a value that is not finite (its point, scale, rotation, extrusion or a
+MINSERT's spacing: `rotation_z(inf)` raised out of the renderer's walk, 13's review round 1), a
+MINSERT of more than `MAX_CELLS` cells, and a walk past its visit budget (entities and
 MINSERT cells alike, so nested MINSERTs of empty blocks are bounded too) or its caller's `stop` are
 each skipped and counted in the walk's `refused` (`Refusal`), never raised and never recursed into;
 `chain` raises `PlacementError`.
@@ -77,6 +79,8 @@ class Refusal(StrEnum):
     VISIT_LIMIT = "visit_limit"
     STOPPED = "stopped"
     """The caller's `stop` said so (the renderer's time budget)."""
+    NOT_FINITE = "not_finite"
+    """An insert placed by a value that is not finite: it cannot be placed, so it is not followed."""
 
 
 @dataclass(frozen=True)
@@ -143,6 +147,32 @@ class Transform:
     @property
     def is_finite(self) -> bool:
         return all(math.isfinite(v) for v in self.m)
+
+    def inverse(self) -> Transform:
+        """The transform that undoes this one: a world point back to the block's own coordinates
+        (13 reads a frame's text in the frame's coordinates). A transform that is not finite, is
+        singular (a scale of 0 flattens it) or whose inverse is not finite (a scale near 0 or past
+        any drawing's) has none: `PlacementError`, never a division by zero."""
+        m = self.m
+        if not self.is_finite:
+            raise PlacementError("a transform that is not finite has no inverse")
+        a, b, c, d, e, f, g, h, i = m[0], m[1], m[2], m[4], m[5], m[6], m[8], m[9], m[10]
+        cofactors = (e * i - f * h, c * h - b * i, b * f - c * e,
+                     f * g - d * i, a * i - c * g, c * d - a * f,
+                     d * h - e * g, b * g - a * h, a * e - b * d)  # fmt: skip
+        determinant = a * cofactors[0] + b * cofactors[3] + c * cofactors[6]
+        if determinant == 0 or not math.isfinite(determinant):
+            raise PlacementError("a singular transform (a scale of 0) has no inverse")
+        r = tuple(v / determinant for v in cofactors)
+        tx, ty, tz = m[3], m[7], m[11]
+        inverse = (
+            r[0], r[1], r[2], -(r[0] * tx + r[1] * ty + r[2] * tz),
+            r[3], r[4], r[5], -(r[3] * tx + r[4] * ty + r[5] * tz),
+            r[6], r[7], r[8], -(r[6] * tx + r[7] * ty + r[8] * tz),
+        )  # fmt: skip
+        if not all(math.isfinite(v) for v in inverse):
+            raise PlacementError("the transform's inverse is not finite")
+        return Transform(inverse)
 
 
 IDENTITY = Transform()
@@ -229,6 +259,16 @@ def _cells(insert: Insert) -> tuple[int, int]:
         ok = isinstance(value, int) and not isinstance(value, bool) and value >= 1
         counts.append(value if ok else 1)
     return counts[0], counts[1]  # type: ignore[return-value]
+
+
+def _placeable(insert: Insert, rows: int, columns: int) -> bool:
+    """Whether every value that places the insert is finite (a MINSERT's spacings among them)."""
+    values = [*insert.point, *insert.scale, insert.rotation_radians, *insert.extrusion]
+    if rows > 1:
+        values.append(_grid(insert, "row_spacing"))
+    if columns > 1:
+        values.append(_grid(insert, "column_spacing"))
+    return all(math.isfinite(v) for v in values)
 
 
 def chain_transform(chain: Chain) -> Transform:
@@ -354,6 +394,9 @@ class Walk:
             self.refused[Refusal.BLOCK_MISSING] += 1
             return
         rows, columns = _cells(insert)
+        if not _placeable(insert, rows, columns):
+            self.refused[Refusal.NOT_FINITE] += 1
+            return
         if rows * columns > MAX_CELLS:
             self.refused[Refusal.TOO_MANY_CELLS] += 1
             rows = columns = 1

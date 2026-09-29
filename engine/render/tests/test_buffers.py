@@ -4,12 +4,24 @@ import contextlib
 import math
 import random
 import struct
+from typing import Any
 
 import numpy as np
 import pytest
 
 from engine.recognise.types import Box, SheetCandidate, SheetLocation
-from engine.render.buffers import HEADER, SECTION, BufferError, Limits, PaperSource, SheetBuffers, build
+from engine.render.buffers import (
+    HEADER,
+    SECTION,
+    BufferError,
+    Limits,
+    PaperSource,
+    SheetBuffers,
+    build,
+    is_main_viewport,
+    viewport_transform,
+    viewport_window,
+)
 from engine.render.fixtures.artefacts import PAPER, Drawing
 from engine.render.raster import rasterise
 
@@ -238,6 +250,120 @@ def test_a_layout_sheet_draws_model_space_through_its_viewports() -> None:
     assert len(model_line) >= 1
 
 
+def _viewed(target: list[float], centre: list[float], twist: float = 0.0) -> Drawing:
+    """A layout whose one viewport looks, at 1:10, at a model line from (1000, 1000) to (2000,
+    1000), through a view target and a view centre that together name its middle."""
+    drawing = Drawing(insunits=4)
+    drawing.line((1000, 1000), (2000, 1000))
+    _frame(drawing, 420.0, 297.0)
+    drawing.entity("VIEWPORT", {"center": [210.0, 148.5, 0.0], "width": 420.0, "height": 297.0,
+                                "id": 1, "view_center_point": [0.0, 0.0, 0.0], "view_height": 297.0},
+                   owner=PAPER)  # fmt: skip
+    drawing.entity(
+        "VIEWPORT",
+        {"center": [200.0, 150.0, 0.0], "width": 100.0, "height": 50.0, "id": 2,
+         "view_center_point": centre, "view_target_point": target, "view_height": 500.0,
+         "view_twist_angle": twist},
+        owner=PAPER,
+    )  # fmt: skip
+    return drawing
+
+
+def test_a_viewport_looks_at_its_view_target_plus_its_view_centre() -> None:
+    """11's renderer took the view centre alone as the model point at a viewport's middle; the DXF
+    reference measures it from the view target (13's analysts found real layouts whose target is far
+    from the origin): a viewport targeting (1000, 0) with its centre at (500, 1000) shows the line."""
+    built = build(
+        _viewed([1000.0, 0.0, 0.0], [500.0, 1000.0, 0.0]).artefact(),
+        SheetCandidate(SheetLocation(layout="Layout1")),
+    )
+
+    through = [s for s in _segments(built) if abs(s[1] - 150) < 1e-3]
+    np.testing.assert_allclose(through, [[150, 150, 250, 150]], atol=1e-3)
+    assert viewport_window(
+        {"center": [200.0, 150.0, 0.0], "width": 100.0, "height": 50.0,
+         "view_center_point": [500.0, 1000.0, 0.0], "view_target_point": [1000.0, 0.0, 0.0],
+         "view_height": 500.0}
+    ) == pytest.approx((1000.0, 750.0, 2000.0, 1250.0))  # fmt: skip
+
+
+def test_a_twisted_viewport_maps_model_space_as_ezdxf_does() -> None:
+    """The oracle is ezdxf's own viewport matrix (`Viewport.get_transformation_matrix`)."""
+    from ezdxf.filemanagement import new
+
+    doc = new()
+    viewport = doc.paperspace().add_viewport(
+        center=(200, 150), size=(100, 50), view_center_point=(300, -200), view_height=500
+    )
+    viewport.dxf.view_target_point = (900, 1100, 0)
+    viewport.dxf.view_twist_angle = 30.0
+    oracle = viewport.get_transformation_matrix()
+    values = {"center": [200.0, 150.0, 0.0], "width": 100.0, "height": 50.0,
+              "view_center_point": [300.0, -200.0, 0.0], "view_target_point": [900.0, 1100.0, 0.0],
+              "view_height": 500.0, "view_twist_angle": 30.0}  # fmt: skip
+
+    to_paper = viewport_transform(values)
+
+    assert to_paper is not None
+    for point in ((0.0, 0.0), (1000.0, 1000.0), (1234.5, -678.9)):
+        expected = oracle.transform((*point, 0.0))
+        assert to_paper.apply(point)[:2] == pytest.approx((expected.x, expected.y), abs=1e-6)
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        {"center": [0.0, 0.0, 0.0], "width": 10.0, "height": 10.0, "view_height": 0.0,
+         "view_center_point": [0.0, 0.0, 0.0]},
+        {"center": [0.0, 0.0, 0.0], "width": 10.0, "height": 10.0, "view_height": math.inf,
+         "view_center_point": [0.0, 0.0, 0.0]},
+        {"center": [0.0, 0.0, 0.0], "width": 10.0, "height": 10.0, "view_height": 5.0,
+         "view_center_point": [math.nan, 0.0, 0.0]},
+        {"center": [0.0, 0.0, 0.0], "width": 1e308, "height": 1e-308, "view_height": 5.0,
+         "view_center_point": [0.0, 0.0, 0.0]},
+        {"width": 10.0, "height": 10.0, "view_height": 5.0},
+        {"center": [0.0, 0.0, 0.0], "width": 10.0, "height": 10.0, "view_height": 5.0,
+         "view_center_point": [0.0, 0.0, 0.0], "view_target_point": [1e308, 1e308, 0.0]},
+    ],
+)  # fmt: skip
+def test_a_viewport_whose_values_cannot_be_read_shows_no_window(values: dict[str, object]) -> None:
+    assert viewport_window(values) is None
+    assert viewport_transform(values) is None
+
+
+@pytest.mark.parametrize(
+    ("kind", "values"),
+    [
+        ("HATCH", {"elevation": [0.0, 0.0, 0.0], "paths": [{"type": "polyline", "vertices":
+            [[5000.0, 5000.0, 0.0], [5100.0, 5000.0, 0.0], [5100.0, 5100.0, 0.0]]}]}),
+        ("IMAGE", {"insert": [5000.0, 5000.0, 0.0], "image_size": [237.0, 12.0],
+                   "u_pixel": [1.0, 0.0, 0.0], "v_pixel": [0.0, 1.0, 0.0]}),
+        ("LEADER", {"vertices": [[5000.0, 5000.0, 0.0], [5100.0, 5100.0, 0.0]],
+                    "leader_offset_block_ref": [0.0, 0.0, 0.0],
+                    "leader_offset_annotation_placement": [0.0, 0.0, 0.0]}),
+        ("MULTILEADER", {"context": {"base_point": [5000.0, 5000.0, 0.0]},
+                         "block_scale_vector": [1.0, 1.0, 1.0]}),
+        ("POLYLINE", {"location": [0.0, 0.0, 0.0], "elevation": [0.0, 0.0, 0.0],
+                      "vertices": [[5000.0, 5000.0, 0.0], [5100.0, 5100.0, 0.0]]}),
+    ],
+)  # fmt: skip
+def test_a_value_that_is_no_location_does_not_stretch_an_entitys_bounds(
+    kind: str, values: dict[str, Any]
+) -> None:
+    """11's bounds took every list of two to five numbers for a point: a hatch's elevation (0, 0, z),
+    an image's size in pixels, a leader's zero offsets and a polyline's dummy location stretched
+    boxes to the origin (13's analysts: 591 entities of one real file past 20,000 units), so culling
+    let every such block in and a sheet's render walked the whole drawing."""
+    from engine.read.artefact import Entity
+    from engine.render import _shapes
+
+    found = _shapes.bounds(Entity("1A", kind, "0", "1F", values))
+
+    assert found is not None
+    assert found[0] >= 4000
+    assert found[1] >= 4000
+
+
 def test_types_not_drawn_are_counted_not_dropped_silently() -> None:
     drawing = Drawing()
     drawing.entity("MULTILEADER", {})
@@ -406,6 +532,29 @@ def test_a_sheet_that_takes_too_long_is_cut_at_its_time_budget() -> None:
 
     assert built.truncated
     assert built.stats["budget_seconds"] == 1
+
+
+@pytest.mark.parametrize("wrapped", [False, True])
+@pytest.mark.parametrize("angle", [math.inf, -math.inf, math.nan])
+def test_an_insert_at_an_angle_not_finite_is_refused_never_raised(angle: float, wrapped: bool) -> None:
+    """Review round 1 of 13: a frame (or a wrapper of frames) inserted at an infinite rotation made
+    `build` raise `ValueError` from `rotation_z`, losing the whole sheet; the walk now refuses the
+    insert, counted, and the rest is drawn."""
+    drawing = Drawing()
+    frame = drawing.block("FRAME")
+    drawing.line((0, 0), (100, 0), owner=frame)
+    if wrapped:
+        wrapper = drawing.block("WRAP")
+        drawing.insert(frame, owner=wrapper)
+        drawing.insert(wrapper, (10, 10, 0), rotation_radians=angle)
+    else:
+        drawing.insert(frame, (10, 10, 0), rotation_radians=angle)
+    drawing.line((0, 0), (50, 50))
+
+    built = build(drawing.artefact(), model_sheet(0, 0, 297, 210))
+
+    assert built.stats["refused_not_finite"] == 1
+    assert len(built.lines) == 1
 
 
 def test_an_insert_loop_is_drawn_once_and_counted() -> None:
@@ -812,6 +961,26 @@ def test_autocads_main_viewport_is_not_the_sheet(
     assert (built.paper.width_mm, built.paper.height_mm) == pytest.approx(
         (w * mm_per_unit, h * mm_per_unit)
     )
+
+
+@pytest.mark.parametrize(
+    ("values", "first", "main"),
+    [
+        ({"id": 1, "center": [0.0, 0.0, 0.0], "view_center_point": [9.0, 9.0, 0.0]}, False, True),
+        ({"id": 2, "center": [5.0, 5.0, 0.0], "height": 10.0,
+          "view_center_point": [5.0, 5.0, 0.0], "view_height": 10.0}, True, False),
+        ({}, True, True),
+        ({}, False, False),
+        ({"id": 0, "center": [5.0, 5.0, 0.0], "height": 10.0,
+          "view_center_point": [5.0, 5.0, 0.0], "view_height": 10.0}, True, True),
+        ({"id": 0, "center": [5.0, 5.0, 0.0], "height": 10.0,
+          "view_center_point": [500.0, 5.0, 0.0], "view_height": 1000.0}, True, False),
+    ],
+)  # fmt: skip
+def test_the_main_viewport_rule_is_public(values: dict[str, object], first: bool, main: bool) -> None:
+    """13 asks the renderer's own rule whether a viewport is AutoCAD's main one, so "a layout whose
+    viewports show nothing" and the paper the renderer draws agree on which viewports count."""
+    assert is_main_viewport(values, first) is main
 
 
 def test_a_first_viewport_with_id_0_that_shows_model_space_is_still_a_view() -> None:

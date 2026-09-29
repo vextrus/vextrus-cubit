@@ -27,6 +27,10 @@ msgstr "Vextrus needs a desktop"
 msgid "{first} and {second}"
 msgstr "{first} and {second}"
 
+#: src/ui/AccessChip.tsx
+msgid "Access until {date}"
+msgstr "Access until {date}"
+
 #. placeholder {0}: codes.length
 #: src/ui/AccessChip.tsx
 msgid "{0, plural, one {# project} other {# projects}}"
@@ -67,6 +71,10 @@ msgstr "The keys that work here now."
 #: src/ui/AccessChip.tsx
 msgid "Vextrus access to {list} at {developer} until {date}"
 msgstr "Vextrus access to {list} at {developer} until {date}"
+
+#: src/ui/AccessChip.tsx
+msgid "Vextrus access until {date}"
+msgstr "Vextrus access until {date}"
 
 #: src/ui/keys/KeysOverlay.tsx
 msgid "Close the keys overlay"

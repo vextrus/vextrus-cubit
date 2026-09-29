@@ -63,6 +63,10 @@ export default defineConfig(({ mode }) => {
       host: '127.0.0.1',
       port: 5410,
       strictPort: true,
+      // The API on Django's runserver (CLAUDE.md), same origin to the browser: the session cookie and
+      // CSRF work as deployed, and the request keeps its Origin, which CSRF_TRUSTED_ORIGINS expects
+      // to be this server's (vextrus/settings/auth.py).
+      proxy: { '/api': { target: 'http://127.0.0.1:8000', changeOrigin: false } },
     },
     preview: {
       host: '127.0.0.1',
@@ -88,6 +92,7 @@ export default defineConfig(({ mode }) => {
           test: {
             name: 'browser',
             include: ['src/**/*.test.tsx', 'src/**/*.browser.test.ts'],
+            exclude: ['src/**/*.tz.test.tsx'],
             setupFiles: ['./src/test/setup.ts'],
             browser: {
               enabled: true,
@@ -98,6 +103,23 @@ export default defineConfig(({ mode }) => {
             },
           },
         },
+        // A date is the Market's, whatever the browser's zone (m0-screens §1.2): the time-zone tests run
+        // in a browser set to UTC, as CI runs, and in one west of UTC, never only in the machine's own.
+        ...['UTC', 'America/Los_Angeles'].map((timezoneId) => ({
+          extends: true as const,
+          test: {
+            name: `browser ${timezoneId}`,
+            include: ['src/**/*.tz.test.tsx'],
+            setupFiles: ['./src/test/setup.ts'],
+            browser: {
+              enabled: true,
+              headless: true,
+              provider: playwright({ contextOptions: { timezoneId } }),
+              instances: [{ browser: 'chromium' as const }],
+              viewport: { width: 1440, height: 900 },
+            },
+          },
+        })),
       ],
     },
   }

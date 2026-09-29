@@ -334,6 +334,15 @@ until when.
   never DELETE one, so neither an update nor a delete and re-insert moves it to another Market while
   its Projects stay on the old one's currency. Its Market changes only by a migration, which must then
   re-check `projects_project_follows_market` against the Projects already made.
+- **A Building keeps its Project, and a Site too** (#93): on `projects_project`, `projects_site` and
+  `projects_building`, `vextrus_app` may SELECT, INSERT and UPDATE only the columns a person may change
+  (never `project_id` or `tenant_id`; projects 0001), and never DELETE (projects 0003). Everything that
+  names a Building by id (a DrawingFile's `building_id`, a Live Model Element's) belongs to whichever
+  Project holds that id, and a delete with an insert under the same id would move it, whether the
+  delete names the Building or its Project, whose key cascades to it as the tables' owner (measured on
+  PostgreSQL 18.6). Only the owner deletes a Project, and its delete still takes its Site and Buildings
+  with it. An act that must delete one needs a ruling first, and then a record of retired ids, filled
+  on delete and checked on insert, never DELETE given back alone.
 - **Staff and invitations.** In the admin, Vextrus staff create only a Developer's first MD invitation,
   never an active Membership of their own; a Vextrus Engineer enters a Developer's data only by that
   Developer's invitation (ADR 0034).
@@ -353,7 +362,8 @@ exact SI factors, which are engineering, not a market's choice.
 | Site (s02 Q4) | name; boundary and site area once read or entered (empty in the MVP). External works and site services belong here | (project): one per Project | T | Project |
 | Building (s02 Q4) | code, name ("Building 1" until named), ordinal; gfa_entered m² dec + entered_by (provisional, see walk-through a; moved here from Project, since Gross Floor Area is per Building) | (project, code) | T | Project |
 
-Creating a Project creates its Site and one Building in the same transaction. No screen shows a
+Creating a Project creates its Site and one Building in the same transaction; the app never deletes
+any of the three (§2, "A Building keeps its Project"). No screen shows a
 Building picker until a second exists, which M4 reads (ADR 0036). Each Building has its own storeys,
 grid, Live Model and Gross Floor Area, and Vextrus's price is per Building (ADR 0033).
 

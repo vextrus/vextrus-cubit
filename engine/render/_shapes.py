@@ -357,8 +357,15 @@ def shape(entity: Entity, tolerance: float) -> Shape | None:
 _NOT_POINTS = frozenset(
     {"extrusion", "major_axis", "text_direction", "normal_vector", "view_direction_vector", "u_pixel",
      "v_pixel", "start_tangent", "end_tangent", "knots", "weights", "horizontal_direction",
-     "x_axis_direction", "normal"}
+     "x_axis_direction", "normal",
+     # 13's analysts on the real sets: an elevation (0, 0, z), a size in pixels, offsets and scale
+     # vectors, and a viewport's grid and snap settings are no locations
+     "elevation", "image_size", "leader_offset_block_ref", "leader_offset_annotation_placement",
+     "block_scale_vector", "grid_spacing", "snap_spacing", "snap_base_point", "ucs_origin",
+     "ucs_x_axis", "ucs_y_axis"}
 )  # fmt: skip
+_NOT_POINTS_OF = {"POLYLINE": frozenset({"location"})}
+"""Keys that are no location for one type only: a 2D polyline's dummy vertex point (0, 0, elevation)."""
 
 
 def bounds(entity: Entity) -> Box | None:
@@ -367,12 +374,14 @@ def bounds(entity: Entity) -> Box | None:
     xs: list[float] = []
     ys: list[float] = []
 
+    skipped = _NOT_POINTS | _NOT_POINTS_OF.get(entity.type, frozenset())
+
     def visit(value: Any, depth: int) -> None:
         if depth > 6:
             return
         if isinstance(value, dict):
             for key, item in value.items():
-                if key not in _NOT_POINTS:
+                if key not in skipped:
                     visit(item, depth + 1)
         elif isinstance(value, list):
             if 2 <= len(value) <= 5 and all(

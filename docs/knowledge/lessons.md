@@ -176,6 +176,10 @@ much parallel work as that quality allows, and each wave applies the last one's 
 - **A builder's worktree isolation refuses a command that runs git in the shared checkout** (`cd <main>
   && git …`, or `git -C <main>`). Give builders absolute paths to scripts, never a `cd` out of their
   worktree.
+- **A key's cascade runs as the table's owner** (#93). Taking DELETE off `projects_building` left the
+  app able to delete the Building's Project, whose key cascaded to the Building as `vextrus`, and then
+  to insert the Building's id under another Project (measured on PostgreSQL 18.6). A wall against
+  re-using an id covers every row whose delete cascades to it, not only the row's own table.
 - **`claude --bg --resume <id> "<message>"` on an idle but running session starts a copy of it in the
   caller's directory.** 13's copy started in the main checkout (stopped within a minute; it had only
   read). Stop the session first (`claude stop <id>`), then resume it from its own worktree.
@@ -190,14 +194,19 @@ much parallel work as that quality allows, and each wave applies the last one's 
   before launch.
 - **The merged tree is where contract faults show.** 15 with 13 (the facts' keys), 13 with 14 (a NUL in
   a title kills 14's store), #75 with 20a (a time zone alone gave a fresh browser the wrong date format;
-  the Market was needed), 19b with 13 (the number rule): each passed alone. Run the partner's head merged before READY.
-- **A builder's own words gate is necessary, not sufficient.** Three of the four catalogues that passed
+  the Market was needed), 19b with 13 (the number rule): each passed alone. Run the partner's head
+  merged before READY.
+- **A builder's own words gate is necessary, not sufficient.** Four of the five catalogues that passed
   their builder's gate failed the orchestrator's fresh one: 19b with five musts after four rounds of its
-  own, 13 with one, 20a with two and two spec sentences. Only 15's passed.
+  own, 14 with two, 13 with one, 20a with two and two spec sentences. Only 15's passed.
 - **A hostile-input bound found one piece at a time costs a round a piece.** 13's four reviews each
   found the next unbounded walk (per space, then sheets per file, then the whole file). What held was
   one budget per file, spent by every walk, with every cut counted in the export: start there.
-- **The owner expected a much faster wave.** Five tickets with up to four review rounds each, and one
-  builder's five refuter rounds before its READY (14: 175 min), took about six hours; the owner stopped
-  further rounds (29 Sep 2026). The fix is to cap rounds and budget time per ticket and per wave; the
-  owner rules on both at session 06's start.
+- **The owner expected a much faster wave.** Up to four code reviews on one ticket (13) and one
+  builder's five refuter rounds before its READY (14: 175 min): four of wave 3's five tickets merged
+  6 h 13 min after launch, and the owner stopped further rounds (29 Sep 2026). The fix is to cap rounds
+  and budget time per ticket and per wave; the owner rules on both at session 06's start.
+- **A strict ruleset puts every open PR behind after each merge.** `main` requires an up-to-date branch
+  with every check and `design-gate`: after each wave-3 merge the owner updated the next PR and posted
+  its gate again on the new head (four merges took 32 minutes). The orchestrator merges `main` into the
+  next PR's branch itself and gives the gate for that head, or plans the merges as one ordered pass.

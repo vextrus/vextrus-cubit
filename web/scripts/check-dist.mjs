@@ -3,7 +3,9 @@
  * After `vite build`: what must never ship is absent from the production bundle
  * (docs/design/m0-screens.md §1.8 and §8; docs/plans/M0.md, 01b):
  *   - the test-only pseudo right-to-left language (its tag, en-XB, and its accent table);
- *   - the development-only specimen route (its path, its markers and its catalogue's words).
+ *   - the development-only specimen route (its path, its markers and its catalogue's words);
+ *   - the seed's static copy and the tests' in-memory API (their invented people's addresses): the
+ *     product signs in through the API (20a), so nothing seeded is written into the app.
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
@@ -18,6 +20,11 @@ const FORBIDDEN = [
   { text: '/dev/specimen', why: 'the development-only specimen route' },
   { text: 'data-specimen', why: 'the specimen page' },
   { text: 'Specimen of the shared pieces', why: 'the specimen’s catalogue' },
+  { text: 'shapla-homes.example', why: 'the seed’s people (src/app/seed/)' },
+  { text: 'padma-builders.example', why: 'the seed’s people (src/app/seed/)' },
+  { text: 'meghna.example', why: 'the seed’s people (src/app/seed/)' },
+  { text: 'kanchan-homes.example', why: 'the tests’ in-memory API (src/app/seed/api.fixture.ts)' },
+  { text: 'vextrus.example', why: 'the seed’s Vextrus Engineer (src/app/seed/)' },
 ]
 
 function files(dir) {
@@ -43,4 +50,4 @@ for (const file of all) {
   }
 }
 if (failed) process.exit(1)
-console.log(`check-dist: ${all.length} files, no test-only language and no specimen`)
+console.log(`check-dist: ${all.length} files, no test-only language, no specimen and no seeded people`)
