@@ -338,18 +338,24 @@ def _proposal_view(
 
 
 def questions(project_id: uuid.UUID) -> list[QuestionView]:
-    """The Project's Step 1 Questions: the open ones in queue order (a held file first, as it holds a
-    whole file; then as they were raised), then those answered or withdrawn."""
+    """The Project's Step 1 Questions: the open ones in queue order (m0-screens §5: a held file first,
+    as it holds a whole file; then those holding the most sheets; then conflicts, missing items and
+    low-confidence ones; then as they were raised), then those answered or withdrawn."""
     projects.get(project_id)
-    found = list(Question.objects.filter(project_id=project_id, step=SHEETS))
-    held: dict[uuid.UUID, list[uuid.UUID]] = {}
-    for link in QuestionLink.objects.filter(
-        project_id=project_id, question_id__in=[q.id for q in found]
-    ).order_by("id"):
-        held.setdefault(link.question_id, []).append(link.proposal_id)
+    held = _held(project_id)
+    found = _asked(project_id, Question.objects.filter(project_id=project_id, step=SHEETS), held)
 
     def queued(q: Question) -> tuple[Any, ...]:
-        return (q.status != QuestionStatus.OPEN, q.kind != QuestionKind.FILE_MISREAD, q.created_at, q.id)
+        # m0-screens §5: the held file first, then the Questions holding the most sheets, then
+        # conflicts, missing items and low-confidence ones, then as they were raised.
+        return (
+            q.status != QuestionStatus.OPEN,
+            q.kind != QuestionKind.FILE_MISREAD,
+            -len(held.get(q.id, ())),
+            _QUEUE.get(q.kind, len(_QUEUE)),
+            q.created_at,
+            q.id,
+        )
 
     return [
         QuestionView(
@@ -367,6 +373,41 @@ def questions(project_id: uuid.UUID) -> list[QuestionView]:
             proposals=held.get(q.id, []),
         )
         for q in sorted(found, key=queued)
+    ]
+
+
+_QUEUE: dict[str, int] = {
+    QuestionKind.CONFLICT: 0,
+    QuestionKind.MISSING: 1,
+    QuestionKind.MISSING_DISCIPLINE: 1,
+    QuestionKind.LOW_CONFIDENCE: 2,
+}
+"""The queue's order by kind, after the held file and the Questions holding the most sheets."""
+
+
+def _held(project_id: uuid.UUID) -> dict[uuid.UUID, list[uuid.UUID]]:
+    """Each Question's Proposals, in the order linked."""
+    held: dict[uuid.UUID, list[uuid.UUID]] = {}
+    for link in QuestionLink.objects.filter(project_id=project_id).order_by("id"):
+        held.setdefault(link.question_id, []).append(link.proposal_id)
+    return held
+
+
+def _asked(
+    project_id: uuid.UUID,
+    found: Iterable[Question],
+    held: Mapping[uuid.UUID, Sequence[uuid.UUID]],
+    *,
+    listed: set[uuid.UUID] | None = None,
+) -> list[Question]:
+    """The Questions still asked: one holding only sheets no longer in the sheet list (their file
+    cancelled, or set aside) is not, so it neither shows nor holds its Discipline open."""
+    on_list = listed if listed is not None else {s.id for s in _sheets(project_id)}
+    sheet_of = dict(
+        Proposal.objects.filter(project_id=project_id, step=SHEETS).values_list("id", "subject_id")
+    )
+    return [
+        q for q in found if not held.get(q.id) or any(sheet_of.get(p) in on_list for p in held[q.id])
     ]
 
 
@@ -462,7 +503,12 @@ def progress(project_id: uuid.UUID) -> ProgressView:
             decided[sheet.discipline] += 1
     open_questions = Counter(
         q.discipline or None
-        for q in Question.objects.filter(project_id=project_id, step=SHEETS, status=QuestionStatus.OPEN)
+        for q in _asked(
+            project_id,
+            Question.objects.filter(project_id=project_id, step=SHEETS, status=QuestionStatus.OPEN),
+            _held(project_id),
+            listed={s.id for s in sheets},
+        )
     )
     discipline_of = {s.id: s.discipline for s in sheets}
     unaccounted = Counter(

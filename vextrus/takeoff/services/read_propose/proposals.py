@@ -423,8 +423,8 @@ def _boundaries(
         for j, then in ranges:
             if i == j or listed[i].discipline != listed[j].discipline or first.subject != then.subject:
                 continue
-            if first.storeys[-1] != then.storeys[0]:
-                continue
+            if first.storeys[-1] != then.storeys[0] or not (first.storeys_as_stated or first.title):
+                continue  # no range as the drawing states it: nothing to ask it by
             sheet = listed[i]
             step1.raise_question(
                 project_id,

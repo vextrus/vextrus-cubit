@@ -264,3 +264,32 @@ def test_a_withdrawn_question_refuses_an_answer_as_no_longer_asked(
         409,
         {"code": "takeoff.proposals.answered_already", "params": {}},
     )
+
+
+def test_the_questions_queue_by_sheets_held_then_conflicts_missing_items_and_checks(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """m0-screens §5's queue: the held file first, then the Questions holding the most sheets, then
+    conflicts, missing items and low-confidence ones, then the rest as raised (here the check on a
+    listed number in no file, raised before the missing number's Question)."""
+    held = uploaded(qs_project.member, qs_project.project_id, "KR-STR-old.dwg")
+    run_job(
+        qs_project.member,
+        held,
+        monkeypatch,
+        readers({"KR-STR-old.dwg": DUPLICATE}, held=["KR-STR-old.dwg"]),
+    )
+    read(qs_project, monkeypatch, [
+        Sheet("S-01", "GENERAL NOTES", ("GENERAL NOTES",), register=(
+            ("S-01", "GENERAL NOTES"), ("S-02", "COLUMN SCHEDULE"), ("S-03", "STAIR DETAILS"),
+            ("S-04", "ROOF BEAM LAYOUT PLAN"),
+        )),
+        Sheet("S-02", "COLUMN SCHEDULE", ("COLUMN SCHEDULE",), rev="R1", date="14.09.2026"),
+        Sheet("S-02", "COLUMN SCHEDULE", ("COLUMN SCHEDULE",), rev="R0", date="02.08.2026"),
+        Sheet(None, "STAIR DETAILS", ("STAIR SECTION",)),
+    ])  # fmt: skip
+
+    asked = open_questions(api_as(qs_project.member), qs_project.project_id)
+
+    assert [q["kind"] for q in asked][:3] == ["file_misread", "conflict", "missing"]
+    assert asked[-1]["kind"] == "check"
