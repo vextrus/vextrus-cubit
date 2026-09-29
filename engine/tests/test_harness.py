@@ -1601,3 +1601,37 @@ def test_a_page_the_render_check_cannot_draw_is_unscored_and_the_stage_stays_ok(
     assert report["error"].startswith("1 matched pages not scored, the first page ")
     assert report["error"].endswith("(not_the_page)")
     assert all(s["render_f1"] is None for f in document["files"] for s in f.get("sheets") or [])
+
+
+HUGE_BUFFERS = """
+    import numpy as np
+    from engine.render import buffers as B
+
+    def build(artefact, sheet):
+        # a paper of 3 x 3 m: 144 million pixels at the render check's 4 px/mm, past the raster's limit
+        return B.SheetBuffers(
+            paper=B.Paper(3000.0, 3000.0, 1.0, 0, (0.0, 0.0)), strings=[""], chains=[()],
+            primitives=np.zeros(0, dtype=B.PRIM), lines=np.zeros(0, dtype=B.LINE),
+            triangles=np.zeros(0, dtype=B.TRIS), glyphs=np.zeros(0, dtype=B.GLYF),
+            atlas_glyphs=np.zeros(0, dtype=B.AGLY), atlas=np.zeros((1, 1), dtype=np.uint8),
+            fonts=np.zeros(0, dtype=B.FONT), stats={},
+        )
+"""
+REAL_F1 = """
+    from engine.check.render_f1 import score
+"""
+
+
+def test_a_sheet_too_large_for_the_render_checks_raster_is_unscored_and_the_stage_stays_ok(
+    tmp_path: Path, fakes: Callable[..., tuple[Stage, ...]], conventions: Path
+) -> None:
+    """The review of 18, round 2 (score 50): the fine raster's refusal (`RasterError`) was outside the
+    render check's catch, so one oversized sheet failed the whole set's stage. The real `score`."""
+    files = {"structural/S-101.dwg": "", "A-201.dwg": "", "plot.pdf": ""}
+
+    document = run(tmp_path, fakes(buffers=HUGE_BUFFERS, f1=REAL_F1), files, conventions=conventions)
+
+    report = document["set_stages"]["render_f1"]
+    assert report["state"] == "ok", report
+    assert report["failed_calls"] == 0
+    assert report["error"].endswith("(sheet_raster)"), report["error"]
