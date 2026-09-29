@@ -16,6 +16,7 @@ def typesafe_down(jev_down: Any) -> None:
     """The job asks Jev each sheet's kind (21c): TypeSafe down here, as in the check's sandbox."""
     jev_down("timeout")
 
+
 RUN = {
     "id": "invented-run",
     "commit": None,
@@ -52,7 +53,9 @@ def test_a_read_files_sheets_and_views_are_exported_as_the_job_recorded_them(
     assert len(file["sheets"]) == FRAMES
     for sheet in file["sheets"]:
         assert sheet["discipline"]["value"] == "structural"
-        assert [v["title"] for v in sheet["views"]] == ["GROUND FLOOR BEAM LAYOUT PLAN"]
+        # A title block is a view too once the engine emits it (loop-views): not counted here.
+        drawn = [v for v in sheet["views"] if v["kind"] != "title_block"]
+        assert [v["title"] for v in drawn] == ["GROUND FLOOR BEAM LAYOUT PLAN"]
     assert set(document["stages"]) == set(export.STAGES)
     assert document["run"]["id"] == "invented-run"
 

@@ -96,13 +96,15 @@ def test_a_view_left_out_on_its_own_stays_out_when_its_sheet_is_confirmed_and_un
     assert left_out.status_code == 200, left_out.content
     confirm(api, qs_project.project_id, [p["id"] for p in proposals(api, qs_project.project_id)])
 
+    # (A title block, once the engine emits it as a view, is left out for information: not counted
+    # here.)
     shown = coverage(api, qs_project.project_id)
-    assert (shown["unaccounted"], shown["excluded"], shown["by_reason"]) == (0, 1, {"other": 1})
+    assert (shown["unaccounted"], shown["by_reason"].get("other")) == (0, 1)
     # The confirmation first, then the view's own exclusion: each undo takes back one act.
     assert api.post(f"{step1(qs_project.project_id)}/undo", {}).status_code == 200
     assert api.post(f"{step1(qs_project.project_id)}/undo", {}).status_code == 200
     shown = coverage(api, qs_project.project_id)
-    assert (shown["unaccounted"], shown["excluded"]) == (1, 0)
+    assert (shown["unaccounted"], shown["by_reason"].get("other")) == (1, None)
     assert [v["view_id"] for v in shown["unaccounted_views"]] == [lone["view_id"]]
 
 
@@ -160,10 +162,14 @@ def test_undoing_a_sheets_confirmation_keeps_a_view_the_qs_left_out_on_its_own(
     assert api.post(f"{step1(qs_project.project_id)}/undo", {}).status_code == 200
 
     shown = coverage(api, qs_project.project_id)
-    assert (shown["unaccounted"], shown["excluded"], shown["proposed"]) == (0, 1, 1)
+    assert (shown["unaccounted"], shown["by_reason"].get("other"), shown["by_step"]) == (
+        0,
+        1,
+        {"foundations": 1},
+    )
     confirm(api, qs_project.project_id, [p["id"] for p in proposals(api, qs_project.project_id)])
     shown = coverage(api, qs_project.project_id)
-    assert (shown["unaccounted"], shown["excluded"], shown["assigned"]) == (0, 1, 1)
+    assert (shown["unaccounted"], shown["by_reason"].get("other"), shown["assigned"]) == (0, 1, 1)
 
 
 def test_undoing_an_assigned_views_own_exclusion_puts_it_back_under_its_confirmed_sheet(
@@ -186,7 +192,7 @@ def test_undoing_an_assigned_views_own_exclusion_puts_it_back_under_its_confirme
     assert api.post(f"{step1(qs_project.project_id)}/undo", {}).status_code == 200
 
     shown = coverage(api, qs_project.project_id)
-    assert (shown["assigned"], shown["proposed"], shown["excluded"]) == (1, 0, 0)
+    assert (shown["assigned"], shown["proposed"], shown["by_reason"].get("duplicate")) == (1, 0, None)
 
 
 @pytest.mark.parametrize("typed", ["S-\n02", "S-\t02", "S-02‮", "S-​02"])
