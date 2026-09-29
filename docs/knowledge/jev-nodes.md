@@ -17,8 +17,9 @@ re-measured when the model changes. The last row of a node is its current measur
 
 ## sheet_type, 29 Sep 2026
 
-**The items.** 32 sheets drawn at random (seed 23) from the 271 sheets that 13's engine (as on main at
-`6b169c21`) asks about in the two real Development Sets, by Discipline: Edison 8 architectural,
+**The items.** 32 sheets drawn at random within quotas the builder chose (Python's
+`random.Random(23).sample` per Discipline, in the order below) from the 271 sheets that 13's engine
+(as on main at `6b169c21`) asks about in the two real Development Sets, by Discipline: Edison 8 architectural,
 7 structural, 4 electrical and 3 plumbing; the Sample Project 5 architectural and 5 structural. The
 facts are exactly what `sheets.judgement` sends: the title, the Discipline, and `view_titles` `"[]"`
 (17 has not merged). The options are the Discipline's kinds with the common ones: 15 to 25 options.
@@ -51,7 +52,8 @@ before drawing the sample, from the kinds' keys alone.
 | with descriptions | 27, 28, 28 / 32 | 31 / 32 | 10, 10, 10 | 0 |
 
 The descriptions gained a right answer or two: `cover_index`, and one `lighting_layout` sheet on two of
-the three runs. They also took 3 sheets out of the queue, and no wrong answer was proposed. **Ruling
+the three runs. They also took 3 sheets out of the queue, and no answer that is neither the label nor its fair
+second kind was proposed. One `tank_details` sheet was proposed as `details`, its fair second kind, in both variants. **Ruling
 (23): the kinds carry descriptions.** 15's live check points the same way: 2 of 7 invented sheets
 changed answer without them. The descriptions belong with the kinds, in 13's sheet conventions (an
 engine path), so a later engine ticket adds them. This table is re-measured then, and after 17 sends

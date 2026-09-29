@@ -18,6 +18,7 @@ is sent.
 Nothing here holds or shows an item's facts: they are drawing text, and only counts leave `.private/`.
 """
 
+import re
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -26,9 +27,12 @@ from typing import Any, NamedTuple
 
 from django.conf import settings
 
+from vextrus.platform.models import JEV_KEY
 from vextrus.platform.services import jev
 
 __all__ = ["SpotCheck", "Tally", "run", "total"]
+
+_KEY = re.compile(JEV_KEY)
 
 
 class Tally(NamedTuple):
@@ -95,9 +99,12 @@ def run(
     if declared is None:
         raise ValueError(f"{node!r} is not a declared Jev node")
     offered = list(options.keys()) if isinstance(options, Mapping) else list(options)
+    if not all(isinstance(o, str) and _KEY.fullmatch(o) for o in offered):
+        raise ValueError("the options are kinds' keys")  # never echoed: it may be drawing text
     for _facts, label in items:
         if label not in offered:
-            raise ValueError(f"the label {label!r} is not among the options offered")
+            named = repr(label) if isinstance(label, str) and _KEY.fullmatch(label) else "that is no key"
+            raise ValueError(f"a label {named} is not among the options offered")
     threshold: Decimal = getattr(settings, declared.propose_at)
     right: Counter[str] = Counter()
     checked: Counter[str] = Counter()

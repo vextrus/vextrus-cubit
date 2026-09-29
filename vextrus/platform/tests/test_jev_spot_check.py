@@ -79,3 +79,27 @@ def test_the_command_refuses_a_line_that_is_not_a_labelled_item(tmp_path: Path) 
 
     with pytest.raises(CommandError, match="line 1"):
         call_command("jev_spot_check", str(labels), "--question", STAND_IN_QUESTION)
+
+
+TITLE = "ZQX SECRET TOWER BEAM PLAN"
+
+
+@pytest.mark.parametrize(
+    ("options", "label"),
+    [
+        (["beam_layout", "other"], TITLE),
+        (["beam_layout", TITLE], TITLE),
+        ({TITLE: None, "other": None}, "other"),
+    ],
+)
+def test_a_title_in_a_label_or_an_option_is_refused_and_never_echoed(
+    options: jev.Options, label: str, jev_offline: object, caplog: pytest.LogCaptureFixture
+) -> None:
+    facts = {"title": TITLE, "discipline": "structural", "view_titles": []}
+    client = jev.Client(key=lambda: TEST_KEY)
+
+    with pytest.raises(ValueError, match=r"options|label") as refused:
+        jev_spot_check.run("sheet_type", [(facts, label)], STAND_IN_QUESTION, options, client=client)
+
+    assert "ZQX" not in str(refused.value)
+    assert "ZQX" not in caplog.text
