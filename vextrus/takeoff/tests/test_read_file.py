@@ -433,3 +433,132 @@ def test_two_modules_declaring_one_method_on_one_path_is_refused() -> None:
     api.add_router("", second)
     with pytest.raises(ValueError, match="declared by two modules"):
         api.urls  # noqa: B018
+
+
+# The engine's own readers, on a synthetic DWG (the toolchain and bwrap) -------------------------------
+
+
+@pytest.fixture(scope="module")
+def entity_kinds(tmp_path_factory: pytest.TempPathFactory) -> bytes:
+    """The engine's `entity_kinds` fixture, saved as a DWG by its own writer."""
+    from engine.fixtures import dwg
+
+    folder = tmp_path_factory.mktemp("read-file-dwg")
+    return dwg.build("entity_kinds", folder, dwg.build_writer(folder)).read_bytes()
+
+
+@pytest.fixture(scope="module")
+def dumper(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """The second reader, built from the tree and pinned (10's build)."""
+    from engine.read.acadsharp.tests.build import build_dumper
+
+    return build_dumper(tmp_path_factory.mktemp("read-file-dumper"))
+
+
+@pytest.mark.needs_toolchain
+@pytest.mark.needs_bwrap
+def test_the_engines_readers_read_a_dwg_through_the_job(
+    qs_project: QsProject, entity_kinds: bytes, dumper: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("VEXTRUS_ACADSHARP_DUMP", str(dumper))
+    file_id = add(qs_project.member, qs_project.project_id, "KR-STR-R0.dwg", entity_kinds).file.id
+
+    run_inline(
+        read_file.read_file,
+        tenant_id=qs_project.member.developer_id,
+        user_id=qs_project.member.user.pk,
+        file_id=file_id,
+    )
+
+    shown = view(qs_project.member, file_id)
+    assert shown.state == drawings.FileState.READ, shown.finding
+    assert report(qs_project.member, file_id).readers == (
+        {"code": "drawings.reports.readers_agree", "params": {}},
+    )
+
+
+@pytest.mark.needs_toolchain
+@pytest.mark.needs_bwrap
+def test_without_the_second_reader_a_dwg_ends_failed_saying_so(
+    qs_project: QsProject, entity_kinds: bytes, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("VEXTRUS_ACADSHARP_DUMP", str(tmp_path / "none-here"))
+    file_id = add(qs_project.member, qs_project.project_id, "KR-STR-R0.dwg", entity_kinds).file.id
+
+    with pytest.raises(files.FileNotRead):
+        run_inline(
+            read_file.read_file,
+            tenant_id=qs_project.member.developer_id,
+            user_id=qs_project.member.user.pk,
+            file_id=file_id,
+        )
+
+    shown = view(qs_project.member, file_id)
+    assert shown.state == drawings.FileState.FAILED
+    assert shown.finding == {"code": "engine.decoders_agree.not_installed", "params": {}}
+
+
+@pytest.fixture
+def empty_cad_queue(job_tables: None, django_db_blocker: Any) -> Any:
+    """No job waits on the `cad` queue (the test database outlives a run)."""
+    from vextrus.platform.database import OWNER_ALIAS
+
+    def empty() -> None:
+        from django.db import connections
+
+        with django_db_blocker.unblock(), connections[OWNER_ALIAS].cursor() as cursor:
+            cursor.execute(
+                "delete from procrastinate_jobs where queue_name = %s", [settings.VEXTRUS_CAD_QUEUE]
+            )
+
+    empty()
+    yield
+    empty()
+
+
+@pytest.mark.needs_toolchain
+@pytest.mark.needs_bwrap
+@pytest.mark.django_db(transaction=True, databases=["default", "owner"])
+def test_the_cad_worker_reads_an_uploaded_dwg_to_the_end(
+    sign_in: Callable[..., Member],
+    entity_kinds: bytes,
+    dumper: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    empty_cad_queue: None,
+) -> None:
+    """The whole way, as it runs: added and queued in one transaction, then read by the `cad` queue's
+    own worker in its own process (its fork guard, its readers' sandboxes)."""
+    from vextrus.projects import services as projects
+    from vextrus.testing.drawings import start_worker
+    from vextrus.testing.jobs import finish
+
+    monkeypatch.setenv("VEXTRUS_ACADSHARP_DUMP", str(dumper))
+    member = sign_in(role="qs")
+    with member.acting():
+        project = projects.create(code=f"W-{uuid.uuid4().hex[:6]}", name="The worker")
+        done = read_file.add(project.id, name="KR-STR-R0.dwg", content=io.BytesIO(entity_kinds))
+
+    output = finish(start_worker([settings.VEXTRUS_CAD_QUEUE]), timeout=600)
+
+    shown = view(member, done.file.id)
+    assert shown.state == drawings.FileState.READ, (shown.finding, output[-3000:])
+
+
+@pytest.mark.needs_bwrap
+@pytest.mark.parametrize(("fixture", "state"), [("plot", "read"), ("scan", "refused")])
+def test_the_engines_pdf_report_reads_a_pdf_through_the_job(
+    qs_project: QsProject, tmp_path: Path, fixture: str, state: str
+) -> None:
+    from engine.fixtures import pdf
+
+    content = pdf.build(fixture, tmp_path).read_bytes()
+    file_id = add(qs_project.member, qs_project.project_id, f"{fixture}.pdf", content).file.id
+
+    run_inline(
+        read_file.read_file,
+        tenant_id=qs_project.member.developer_id,
+        user_id=qs_project.member.user.pk,
+        file_id=file_id,
+    )
+
+    assert view(qs_project.member, file_id).state == state
