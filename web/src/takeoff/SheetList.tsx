@@ -14,7 +14,7 @@ import type { ProposalOut } from './data'
 import { SheetRange } from './SheetRange'
 import { ActorChip } from './ActorChip'
 import { StoreyStrip, StoreysText, stripSlots } from './storeys'
-import { rowState, type DisciplineSection, type Row, type Step1Model } from './model'
+import { listSheet, rowState, type DisciplineSection, type Row, type Step1Model } from './model'
 import { DISCIPLINE_NAMES, NOT_RECEIVED_NAMES, OTHER_DISCIPLINE, OTHER_QUESTION, QUESTION_KIND_BY_CODE, REASON_SHORT, UNKNOWN_REASON } from './words'
 
 export interface SheetListProps {
@@ -198,7 +198,10 @@ function HeadingRest({ section }: { section: DisciplineSection }) {
         </Trans>
       )
     }
-    return <Trans>found, {listed} on the drawing list read on a sheet</Trans>
+    const on = listSheet(section)?.number
+    if (!on) return <Trans>found, {listed} on the drawing list found in the drawings</Trans>
+    const sheet = <DrawingText kind="sheet-number" text={on} truncate={false} />
+    return <Trans>found, {listed} on the drawing list on {sheet}</Trans>
   }
   const run = section.numbering
   if (!run) return <Trans>found; no drawing list; the numbers do not run in one series</Trans>

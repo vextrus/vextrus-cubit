@@ -1,5 +1,7 @@
 """A title block's issue date made ISO in the Market's order (the design gate's M1)."""
 
+from datetime import date
+
 import pytest
 
 from vextrus.takeoff.services.issue_dates import iso_date
@@ -22,7 +24,7 @@ from vextrus.takeoff.services.issue_dates import iso_date
     ],
 )
 def test_a_written_date_is_read_in_the_markets_order(written: str, order: str, iso: str) -> None:
-    assert iso_date(written, order) == iso
+    assert iso_date(written, order, today=date(2026, 9, 29)) == iso
 
 
 @pytest.mark.parametrize(
@@ -39,7 +41,20 @@ def test_a_written_date_is_read_in_the_markets_order(written: str, order: str, i
         ("12 Foo 2026", "dmy"),
         ("12.09.0026", "dmy"),
         ("12.09.20266", "dmy"),
+        ("12.09.99", "dmy"),  # 1999 or 2099: a guess either way (the refuter's case)
+        ("15 mar 98", "dmy"),
+        ("12.09.28", "dmy"),  # past next year
     ],
 )
 def test_what_is_not_one_calendar_day_is_none(written: str | None, order: str) -> None:
-    assert iso_date(written, order) is None
+    assert iso_date(written, order, today=date(2026, 9, 29)) is None
+
+
+def test_a_two_digit_year_is_this_centurys_up_to_next_year() -> None:
+    assert iso_date("12.09.27", "dmy", today=date(2026, 9, 29)) == "2027-09-12"
+    assert iso_date("12.09.26", "dmy", today=date(2026, 9, 29)) == "2026-09-12"
+
+
+def test_a_market_that_has_not_said_its_order_still_has_a_year_first_date_read() -> None:
+    assert iso_date("2026-09-12", "", today=date(2026, 9, 29)) == "2026-09-12"
+    assert iso_date("12.09.2026", "", today=date(2026, 9, 29)) is None

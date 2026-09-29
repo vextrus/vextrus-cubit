@@ -15,18 +15,18 @@ import { cn } from '@/ui'
 import type { ViewOut } from './data'
 
 const NAMED: Readonly<Record<string, { rank: number; words: MessageDescriptor; slot: string }>> = {
-  pile: { rank: 0, words: msg({ message: 'pile', context: 'storey' }), slot: 'foundations' },
-  pile_cap: { rank: 1, words: msg({ message: 'pile cap', context: 'storey' }), slot: 'foundations' },
-  foundation: { rank: 2, words: msg({ message: 'foundations', context: 'storey' }), slot: 'foundations' },
+  pile: { rank: 0, words: msg({ message: 'Pile', context: 'storey' }), slot: 'foundations' },
+  pile_cap: { rank: 1, words: msg({ message: 'Pile cap', context: 'storey' }), slot: 'foundations' },
+  foundation: { rank: 2, words: msg({ message: 'Foundations', context: 'storey' }), slot: 'foundations' },
   lower_ground: { rank: 150, words: msg({ message: 'Lower ground', context: 'storey' }), slot: 'lower_ground' },
-  plinth: { rank: 160, words: msg({ message: 'plinth', context: 'storey' }), slot: 'plinth' },
+  plinth: { rank: 160, words: msg({ message: 'Plinth', context: 'storey' }), slot: 'plinth' },
   ground: { rank: 200, words: msg({ message: 'Ground', context: 'storey' }), slot: 'ground' },
   mezzanine: { rank: 210, words: msg({ message: 'Mezzanine', context: 'storey' }), slot: 'mezzanine' },
   podium: { rank: 220, words: msg({ message: 'Podium', context: 'storey' }), slot: 'podium' },
   roof: { rank: 1000, words: msg({ message: 'Roof', context: 'storey' }), slot: 'roof' },
-  stair_room_roof: { rank: 1010, words: msg({ message: 'stair-room roof', context: 'storey' }), slot: 'above' },
-  lift_machine_room: { rank: 1020, words: msg({ message: 'lift machine room', context: 'storey' }), slot: 'above' },
-  lift_machine_room_roof: { rank: 1030, words: msg({ message: 'lift machine room roof', context: 'storey' }), slot: 'above' },
+  stair_room_roof: { rank: 1010, words: msg({ message: 'Stair-room roof', context: 'storey' }), slot: 'above' },
+  lift_machine_room: { rank: 1020, words: msg({ message: 'Lift machine room', context: 'storey' }), slot: 'above' },
+  lift_machine_room_roof: { rank: 1030, words: msg({ message: 'Lift machine room roof', context: 'storey' }), slot: 'above' },
   top: { rank: 999, words: msg({ message: 'top (top from Step 3)', context: 'storey' }), slot: 'top' },
 }
 
@@ -66,11 +66,21 @@ function useStoreyWord() {
   }
 }
 
-/** "3rd, 5th, 7th"; a run of three or more floors one above another as "2nd–8th" (6.8). */
+/** The keys that are not a storey of the building: said apart, never listed. */
+const NOT_A_STOREY = new Set(['typical', 'top', 'not_stated'])
+
+/** A key this screen can word: a storey of 13's vocabulary. */
+export const knownStorey = (key: string) => !NOT_A_STOREY.has(key) && storeyRank(key) !== null
+
+/**
+ * "3rd, 5th, 7th"; a run of three or more floors one above another as "2nd–8th" (6.8); a list that runs
+ * to the top as "1st to top (top from Step 3)" (§5).
+ */
 export function useStoreysWords() {
   const word = useStoreyWord()
+  const { t } = useLingui()
   return (keys: readonly string[]): string => {
-    const known = [...new Set(keys)].filter((k) => k !== 'typical')
+    const known = [...new Set(keys)].filter(knownStorey)
     known.sort((a, b) => (storeyRank(a) ?? 5000) - (storeyRank(b) ?? 5000))
     const parts: string[] = []
     for (let i = 0; i < known.length; ) {
@@ -81,7 +91,8 @@ export function useStoreysWords() {
       else for (let k = i; k <= j; k++) parts.push(word(known[k]!))
       i = j + 1
     }
-    return parts.join(', ')
+    const listed = parts.join(', ')
+    return keys.includes('top') && listed ? t`${listed} to top (top from Step 3)` : listed
   }
 }
 
@@ -99,20 +110,27 @@ export function StoreysText({ views }: { views: readonly ViewOut[] | undefined }
         <Trans>typical (range from Step 3)</Trans>
       </span>
     )
-  if (keys.length === 0 || found.some((v) => v.storeys.length === 0))
-    return keys.length === 0 ? (
+  // A key this screen has no words for is shown as the title states it.
+  const unknown = found.filter((v) => v.storeys.some((k) => !knownStorey(k) && !NOT_A_STOREY.has(k)))
+  const stated = unknown.length > 0 ? unknown.map((v) => v.storeys_as_stated).filter(Boolean).join(', ') : ''
+  const listed = [words(keys), stated].filter(Boolean).join(', ')
+  const missing = found.some((v) => !v.storeys.some((k) => k !== 'not_stated'))
+  if (!listed)
+    return (
       <span className="text-question">
         <Trans>not stated</Trans>
       </span>
-    ) : (
-      <>
-        {words(keys)},{' '}
-        <span className="text-question">
-          <Trans>not stated</Trans>
-        </span>
-      </>
     )
-  return <>{words(keys)}</>
+  return missing ? (
+    <>
+      {listed},{' '}
+      <span className="text-question">
+        <Trans>not stated</Trans>
+      </span>
+    </>
+  ) : (
+    <>{listed}</>
+  )
 }
 
 /** The project's slots, low to high: every storey the titles name, with Ground and Roof as landmarks. */
@@ -125,7 +143,7 @@ export function stripSlots(all: readonly (readonly ViewOut[] | undefined)[]): st
     for (const v of plans(views))
       for (const key of v.storeys) {
         const rank = storeyRank(key)
-        if (rank === null || key === 'top') continue
+        if (rank === null || !knownStorey(key)) continue
         const slot = storeySlot(key)
         slots.set(slot, Math.min(slots.get(slot) ?? rank, rank))
       }
@@ -137,7 +155,7 @@ export function StoreyStrip({ slots, views, muted, size = 5 }: { slots: readonly
   const full = new Set<string>()
   const bar = new Set<string>()
   for (const v of plans(views))
-    for (const key of v.storeys) (v.storeys_meaning === 'floor_to_floor' ? full : bar).add(storeySlot(key))
+    for (const key of v.storeys.filter(knownStorey)) (v.storeys_meaning === 'floor_to_floor' ? full : bar).add(storeySlot(key))
   if (full.size + bar.size === 0) return null
   return (
     <span aria-hidden dir="ltr" className={cn('inline-flex h-3 shrink-0 items-end gap-px', muted && 'opacity-40')}>

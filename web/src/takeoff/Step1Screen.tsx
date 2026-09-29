@@ -559,7 +559,7 @@ function SheetMode({
               outlines={outlines}
               selected={selectedView}
               onSelect={onSelectView}
-              legend={outlines.length > 0 ? <Legend tones={outlines.map((o) => o.tone)} /> : null}
+              legend={(sheet.views ?? []).length > 0 ? <Legend tones={(sheet.views ?? []).map((v) => viewTone(v, sheet, held))} /> : null}
               labelInToolbar={false}
             />
           ) : render.error ? (

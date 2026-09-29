@@ -292,3 +292,9 @@ export function nextOpenRow(rows: readonly Row[], key: string | null, questionsO
   const ring = [...rows.slice(at + 1), ...rows.slice(0, at + 1)]
   return ring.find((r) => (r.question ? true : !questionsOnly && r.sheets.some((s) => s.decision === null))) ?? null
 }
+
+/** The sheet a Discipline's drawing list was read on, when it is one of its sheets ("on the drawing list on S-01"). */
+export function listSheet(section: Pick<DisciplineSection, 'list' | 'rows'>): ProposalOut | undefined {
+  const on = section.list?.read_on
+  return on ? section.rows.flatMap((r) => [...r.sheets]).find((p) => p.sheet_id === on) : undefined
+}

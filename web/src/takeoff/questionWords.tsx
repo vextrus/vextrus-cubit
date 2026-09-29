@@ -69,10 +69,10 @@ function ListSource({ entry, context, onOpen }: { entry: QuestionEntry; context:
   const list = context.lists[entry.question.discipline ?? '']
   if (!list || !list.source) return <Trans>the drawing list</Trans>
   const who = list.entered_by ?? ''
-  if (list.source === 'pasted') return <Trans>the drawing list pasted by {who}</Trans>
-  if (list.source === 'typed') return <Trans>the drawing list typed by {who}</Trans>
+  if (list.source === 'pasted') return who ? <Trans>the drawing list pasted by {who}</Trans> : <Trans>the pasted drawing list</Trans>
+  if (list.source === 'typed') return who ? <Trans>the drawing list typed by {who}</Trans> : <Trans>the typed drawing list</Trans>
   const on = list.read_on ? context.sheets.find((p) => p.sheet_id === list.read_on) : undefined
-  if (!on) return <Trans>the drawing list read on a sheet</Trans>
+  if (!on) return <Trans>the drawing list found in the drawings</Trans>
   const sheet = <SheetLink sheet={on} onOpen={onOpen} />
   return <Trans>the drawing list on {sheet}</Trans>
 }
@@ -200,25 +200,28 @@ export function usePick(entry: QuestionEntry): { key: string } | null {
   return picked?.key ? { key: picked.key } : null
 }
 
-/** The sources that agree on the pre-pick, in words: "the later revision mark and date, and the drawing list on S-01". */
-export function PickSources({ entry, context }: { entry: QuestionEntry; context: CardContext }) {
-  const q = entry.question
-  if (isCopies(entry)) {
-    const first = entry.holds[0]
-    const list = context.lists[q.discipline ?? '']
-    const marks = <Trans>the later revision mark and date in the title blocks</Trans>
-    if (first?.number && list?.numbers.includes(first.number)) {
-      const source = <ListSource entry={entry} context={context} />
-      const number = <DrawingText kind="sheet-number" text={first.number} truncate={false} />
-      return (
-        <Trans>
-          {marks}, and {source} naming {number}
-        </Trans>
-      )
-    }
-    return marks
-  }
-  return <Trans>two sources agree</Trans>
+/**
+ * What agrees on the pre-pick, from the facts the screen holds (§6.7's "Picked for you:"): for two copies
+ * of one number, the kept copy's later revision mark and later date. Null where none can be named, and
+ * the card then shows no such line.
+ */
+export function usePickSources(entry: QuestionEntry): ReactNode | null {
+  const pick = usePick(entry)?.key
+  if (!isCopies(entry) || (pick !== 'keep_b' && pick !== 'keep_a')) return null
+  const [later, earlier] = entry.holds as [ProposalOut, ProposalOut]
+  const keep = pick === 'keep_b' ? later : earlier
+  const drop = pick === 'keep_b' ? earlier : later
+  const mark = !!keep.revision_mark.trim() && !!drop.revision_mark.trim() && keep.revision_mark.localeCompare(drop.revision_mark, 'en', { numeric: true }) > 0
+  const date = !!keep.issue_date && !!drop.issue_date && keep.issue_date > drop.issue_date
+  const kept = (
+    <>
+      <SheetName sheets={[keep]} /> <Copy sheet={keep} />
+    </>
+  )
+  if (mark && date) return <Trans>{kept} has the later revision mark and the later date</Trans>
+  if (mark) return <Trans>{kept} has the later revision mark</Trans>
+  if (date) return <Trans>{kept} has the later date</Trans>
+  return null
 }
 
 /** An option's words, naming the copies' marks and dates for two sheets of one number. */

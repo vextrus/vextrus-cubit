@@ -102,12 +102,12 @@ describe('M4, M5: the Question cards', () => {
     for (const c of cards) expect(clean(c.textContent), clean(c.getAttribute('aria-label'))).toContain('Trace:')
     const text = (tag: string) => clean(cards.find((c) => clean(c.getAttribute('aria-label')) === `Question ${tag}`)!.textContent)
     expect(text('Q2')).toContain('Both are titled “TYPICAL FLOOR SLAB LAYOUT”. Only one can be read.')
-    expect(text('Q2')).toContain('Trace: the title blocks of S-07 rev B and S-07 rev A; the drawing list read on a sheet')
+    expect(text('Q2')).toContain('Trace: the title blocks of S-07 rev B and S-07 rev A; the drawing list found in the drawings')
     expect(text('Q3')).toContain('A sheet titled “DOOR AND WINDOW SCHEDULE” in KR-ARC-R0.dwg has an empty number in its title block.')
     expect(text('Q3')).toContain('Trace: the title block of DOOR AND WINDOW SCHEDULE (the number field is empty)')
     expect(text('Q4')).toContain('Its title, “SECTION A-A & ELEVATION”, does not say which kind of sheet A-05 is.')
-    expect(text('Q5')).toContain('S-13 is named on the drawing list read on a sheet, and no file added has a sheet with that number.')
-    expect(text('Q5')).toContain('Trace: the drawing list read on a sheet')
+    expect(text('Q5')).toContain('S-13 is named on the drawing list found in the drawings, and no file added has a sheet with that number.')
+    expect(text('Q5')).toContain('Trace: the drawing list found in the drawings')
   })
 
   it('opens the sheet a Trace link names', async () => {
@@ -124,7 +124,7 @@ describe('M4, M5: the Question cards', () => {
     await open(api)
     await focusRow('S-07')
     const q2 = await screen.findByRole('region', { name: card('Q2') })
-    expect(clean(q2.textContent)).toContain('Picked for you: the later revision mark and date in the title blocks, and the drawing list read on a sheet naming S-07')
+    expect(clean(q2.textContent)).toContain('Picked for you: S-07 rev B has the later revision mark')
     expect(clean(q2.textContent)).toContain('Answering confirms S-07 (rev B) and excludes S-07 (rev A) as superseded.')
     const picked = within(q2).getAllByRole('radio').find((r) => (r as HTMLInputElement).checked)
     expect(clean(picked?.closest('label')?.textContent)).toContain('Keep rev B (20 Aug 2026); leave rev A out as superseded')
@@ -142,7 +142,7 @@ describe('M7, M8: the inspector’s sheet and who did what', () => {
       plot_page: null,
       plot_none: null,
       views: [
-        { id: 'v1', ordinal: 1, kind: 'plan', title: '1ST FLOOR BEAM LAYOUT', stated_scale: '1:100', not_to_scale: false, storeys: ['1st'], storeys_as_stated: '1ST FLOOR', storeys_meaning: 'at_floor_level', steps: ['beams'], part: null, proposed_exclusion: null, decision: null, excluded_reason: null, box: ['0', '0', '1', '1'] },
+        { id: 'v1', ordinal: 1, kind: 'plan', title: '1ST FLOOR BEAM LAYOUT', stated_scale: '1:100', not_to_scale: false, storeys: ['floor_1'], storeys_as_stated: '1ST FLOOR', storeys_meaning: 'at_floor_level', steps: ['beams'], part: null, proposed_exclusion: null, decision: null, excluded_reason: null, box: ['0', '0', '1', '1'] },
         { id: 'v2', ordinal: 2, kind: 'title_block', title: 'TITLE BLOCK', stated_scale: '', not_to_scale: true, storeys: [], storeys_as_stated: '', storeys_meaning: null, steps: [], part: null, proposed_exclusion: 'for_information', decision: null, excluded_reason: null, box: ['0', '0', '1', '1'] },
       ],
     })
@@ -155,7 +155,7 @@ describe('M7, M8: the inspector’s sheet and who did what', () => {
     expect(facts()).toContain('Structural from the file')
     expect(facts()).toContain('laid out in the drawing')
     expect(facts()).toContain('1st, at floor level')
-    expect(facts()).toContain('None: no PDF of this set matched it')
+    expect(facts()).toContain('None: no PDF page is matched to it')
     expect(facts()).toContain('Views (2)')
     expect(facts()).toContain('7 Beams')
     expect(facts()).toContain('excluded: for information')
@@ -184,7 +184,7 @@ describe('M7, M8: the inspector’s sheet and who did what', () => {
 
 describe('M6: sheet mode', () => {
   const views = [
-    { id: 'v1', ordinal: 1, kind: 'plan', title: '1ST FLOOR BEAM LAYOUT', stated_scale: '1:100', not_to_scale: false, storeys: ['1st'], storeys_as_stated: '1ST FLOOR', storeys_meaning: 'at_floor_level', steps: ['beams'], part: null, proposed_exclusion: null, decision: null, excluded_reason: null, box: ['10', '10', '60', '50'] },
+    { id: 'v1', ordinal: 1, kind: 'plan', title: '1ST FLOOR BEAM LAYOUT', stated_scale: '1:100', not_to_scale: false, storeys: ['floor_1'], storeys_as_stated: '1ST FLOOR', storeys_meaning: 'at_floor_level', steps: ['beams'], part: null, proposed_exclusion: null, decision: null, excluded_reason: null, box: ['10', '10', '60', '50'] },
     { id: 'v2', ordinal: 2, kind: 'detail', title: 'BEAM SECTION', stated_scale: '', not_to_scale: true, storeys: [], storeys_as_stated: '', storeys_meaning: null, steps: ['beams'], part: null, proposed_exclusion: null, decision: null, excluded_reason: null, box: ['70', '10', '90', '30'] },
     { id: 'v3', ordinal: 3, kind: 'title_block', title: 'TITLE BLOCK', stated_scale: '', not_to_scale: true, storeys: [], storeys_as_stated: '', storeys_meaning: null, steps: [], part: null, proposed_exclusion: 'for_information', decision: null, excluded_reason: null, box: ['95', '0', '120', '20'] },
   ]
@@ -332,6 +332,44 @@ describe('M11: the read-only bar names the QS', () => {
     await open(api, PEOPLE.md)
     expect(bodyText()).toContain('The QS confirms the sheet list; every act shows who did it.')
     expect(screen.queryByRole('button', { name: /Next open Question/ })).toBeNull()
+  })
+})
+
+describe('the words gate’s fixes', () => {
+  const plan = (id: string, storeys: string[], meaning: string | null = 'at_floor_level') => ({ id, ordinal: 1, kind: 'plan', title: 'PLAN', stated_scale: '', not_to_scale: false, storeys, storeys_as_stated: '', storeys_meaning: meaning, steps: [], part: null, proposed_exclusion: null, decision: null, excluded_reason: null, box: ['0', '0', '1', '1'] })
+
+  it('words the engine’s not_stated and a run to the top, and never prints a key', async () => {
+    const { api, step1 } = kr01()
+    Object.assign(step1.proposals.find((p) => p.number === 'S-04')!, { views: [plan('n1', ['not_stated'])] })
+    Object.assign(step1.proposals.find((p) => p.number === 'S-05')!, { views: [plan('n2', ['floor_1', 'top'], 'floor_to_floor')] })
+    await open(api)
+    expect(clean(rowOf('S-04').textContent)).toContain('not stated')
+    expect(clean(rowOf('S-04').textContent)).not.toContain('not_stated')
+    expect(clean(rowOf('S-05').textContent)).toContain('1st to top (top from Step 3)')
+    await focusRow('S-04')
+    await waitFor(() => expect(clean(inspector().textContent)).toContain('Storeysnot stated'))
+    expect(clean(inspector().textContent)).not.toContain('not stated, at floor level')
+  })
+
+  it('says why there is no Plot once, from the reason’s code', async () => {
+    const { api, step1 } = kr01()
+    Object.assign(step1.proposals.find((p) => p.number === 'S-04')!, { plot_none: { code: 'drawings.sheets.plot_no_page', params: { plot_file: 'KR-STR-R0.pdf' } } })
+    await open(api)
+    await focusRow('S-04')
+    await waitFor(() => expect(clean(inspector().textContent)).toContain('None: no page of KR-STR-R0.pdf matched it'))
+    expect(clean(inspector().textContent)).not.toMatch(/None: No Plot/)
+  })
+
+  it('names a Vextrus Engineer as such, and tells the MD only "→ walks them"', async () => {
+    const { api, step1 } = kr01(['Nusrat Jahan', 'Rafiq Hasan'])
+    step1.settleAllBut('electrical')
+    for (const p of step1.proposals) if (p.decision) Object.assign(p, { decided_by: 'Arif Rahman', decided_by_role: 'vextrus_engineer', decided_with: 1 })
+    await mountApp(PATH, { as: PEOPLE.md, api })
+    await waitFor(() => expect(bodyText()).toContain('Nusrat Jahan and Rafiq Hasan (QS) confirm the sheet list; every act shows who did it.'))
+    await focusRow('S-02')
+    await waitFor(() => expect(clean(inspector().textContent)).toContain('Confirmed by Arif Rahman (Vextrus), 26 Sep 2026'))
+    expect(clean(inspector().textContent)).toContain('Arif Rahman, Vextrus Engineer, 26 Sep 2026, 11:00')
+    expect(clean(inspector().textContent)).not.toContain('X excludes')
   })
 })
 

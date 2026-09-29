@@ -1,13 +1,15 @@
 /*
  * The files band above the sheet list (m0-screens §6.2): one chip per file of the Drawing Set, a click
  * opening that file's report in the inspector (4.5's report, as other panels are, 4.1). A read DWG
- * reads "✓ KR-STR-R0.dwg 13 sheets"; a PDF that matched sheets "✓ KR-STR-R0.pdf Plot"; a held file is
+ * reads "✓ KR-STR-R0.dwg 13 sheets, two readers agree" (an amber "Bangla font" where flagged); a PDF
+ * "✓ KR-STR-R0.pdf Plot for 12 of 13 pages"; a held file is
  * an amber chip "KR-STR-old.dwg held"; a file still reading says so; any other state names it through
  * the Drawing Set's own words (its status message). It wraps to a second line where it must.
  */
 import { Plural, Trans, useLingui } from '@lingui/react/macro'
 import { useQuery } from '@tanstack/react-query'
 import { filesQuery, isMoving, type FileOut } from '@/drawing-set/data'
+import { useFormat } from '@/format'
 import { MachineText } from '@/format/machine'
 import { DrawingText, cn } from '@/ui'
 
@@ -38,7 +40,10 @@ export function FilesBand({ projectId, onOpen }: { projectId: string; onOpen: (f
 }
 
 function FileChip({ file }: { file: FileOut }) {
+  const f = useFormat()
   const name = <DrawingText kind="file-name" text={file.name} truncate={false} className="text-foreground" />
+  const code = file.status.code
+  const params = file.status.params as Record<string, unknown>
   if (file.state === 'held')
     return (
       <Trans>
@@ -52,21 +57,25 @@ function FileChip({ file }: { file: FileOut }) {
         {name} <MachineText message={file.status} />
       </>
     )
-  if (file.state === 'read' && file.format === 'pdf')
-    return file.plot_for.length > 0 ? (
-      <Trans>
-        ✓ {name} Plot
-      </Trans>
-    ) : (
-      <Trans>
-        ✓ {name} matched no sheet
-      </Trans>
-    )
-  if (file.state === 'read') {
-    const n = file.sheets_found ?? 0
+  if (file.state === 'read' && (code === 'drawings.files.plot_matched' || code === 'drawings.files.plot_matched_lines') && typeof params.matched === 'number' && typeof params.pages === 'number') {
+    const matched = f.integer(params.matched)
+    const pages = params.pages
     return (
       <>
-        ✓ {name} <Plural value={n} one="# sheet" other="# sheets" />
+        ✓ {name} <Plural value={pages} one={`Plot for ${matched} of # page`} other={`Plot for ${matched} of # pages`} />
+      </>
+    )
+  }
+  if (file.state === 'read' && (code === 'drawings.files.read' || code === 'drawings.files.read_bangla')) {
+    const n = file.sheets_found
+    return (
+      <>
+        ✓ {name} {n === null || n === undefined ? <Trans>two readers agree</Trans> : <Plural value={n} one="# sheet, two readers agree" other="# sheets, two readers agree" />}
+        {code === 'drawings.files.read_bangla' ? (
+          <span className="rounded-sm bg-question-surface px-1 text-question">
+            <Trans>Bangla font</Trans>
+          </span>
+        ) : null}
       </>
     )
   }

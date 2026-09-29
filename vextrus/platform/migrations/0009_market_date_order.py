@@ -1,8 +1,8 @@
 # The order a Market's drawings write a date in (ticket 22, the design gate's M1; ADR 0038). A title
 # block writes "12.09.2026"; only the Market knows whether that is the 12th of September. Step 1's
 # API turns a sheet's issue date into an ISO date with it. Market data, written by the owner:
-# Bangladesh writes day, month, year. A Market that has not said stays "" and its dates in numbers
-# are not read (the API sends null), never guessed.
+# Bangladesh writes day, month, year. A Market that has not said stays "" and its day-first or
+# month-first dates in numbers are not read (the API sends null), never guessed.
 
 import uuid
 

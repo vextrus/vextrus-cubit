@@ -124,10 +124,22 @@ export function useBar(c: BarContext): BarSpec | null {
     ) : (
       <Trans>You are reading this as a Guest.</Trans>
     )
-    const qs = model.qs[0]
+    const qs = model.qs
+    const first = qs[0] ?? ''
+    const others = qs.slice(0, -1).join(', ')
+    const last = qs.at(-1) ?? ''
     return {
       what,
-      why: qs ? <Trans>{qs} (QS) confirms the sheet list; every act shows who did it.</Trans> : <Trans>The QS confirms the sheet list; every act shows who did it.</Trans>,
+      why:
+        qs.length === 1 ? (
+          <Trans>{first} (QS) confirms the sheet list; every act shows who did it.</Trans>
+        ) : qs.length > 1 ? (
+          <Trans>
+            {others} and {last} (QS) confirm the sheet list; every act shows who did it.
+          </Trans>
+        ) : (
+          <Trans>The QS confirms the sheet list; every act shows who did it.</Trans>
+        ),
       ghost: model.queue.length > 0 ? { label: <Trans>Next open Question</Trans>, run: c.nextQuestion, combo: 'Q' } : undefined,
     }
   }
@@ -165,11 +177,16 @@ export function useBar(c: BarContext): BarSpec | null {
       const by = sheet.decided_by ?? ''
       const date = sheet.decided_at ? `${f.date(sheet.decided_at)}, ${f.time(sheet.decided_at)}` : ''
       return {
-        what: (
-          <Trans>
-            {name} is confirmed by {by}
-          </Trans>
-        ),
+        what:
+          sheet.decided_by_role === 'vextrus_engineer' ? (
+            <Trans>
+              {name} is confirmed by {by}, Vextrus Engineer
+            </Trans>
+          ) : (
+            <Trans>
+              {name} is confirmed by {by}
+            </Trans>
+          ),
         why: <Trans>{date}. X excludes it, with a reason.</Trans>,
         button: { label: <Trans>Next open item</Trans>, run: c.nextOpen },
       }
