@@ -932,11 +932,12 @@ def test_a_sheets_id_is_never_used_again_in_another_building(qs_project: QsProje
         moved("drawings_sheet", printed.sheet_id, building_id=None)
 
 
-def test_an_id_used_by_one_developer_is_never_used_by_another(
+def test_an_id_another_developer_uses_is_its_own_and_never_ours_again(
     qs_project: QsProject, sign_in: Callable[..., Member]
 ) -> None:
-    """Another Developer cannot see our used ids, and still cannot take one: the table's key holds
-    every Developer's ids."""
+    """Our used ids are kept per Developer (every index leads with tenant_id). Another Developer's
+    row under one of them is its own: we cannot see it, and our references, keyed by tenant_id and
+    id, never reach it; and the id stays used for us."""
     member = qs_project.member
     ours = add(member, qs_project.project_id, "KR-STR-R0.dwg", drawing("dwg")).file
     [printed] = read_dwg(member, ours.id, ["S-01"])
@@ -948,8 +949,12 @@ def test_an_id_used_by_one_developer_is_never_used_by_another(
         theirs = projects.create(code="TH-9", name="Theirs")
     their_file = add(stranger, theirs.id, "T.dwg", drawing("dwg")).file
     [their_printed] = read_dwg(stranger, their_file.id, ["S-01"])
-    with stranger.acting(), refused("drawings_usedid_once", USED_BEFORE):
+    with stranger.acting():
         sql(VIEW, [view, stranger.developer_id, their_printed.id, None, None])
+    with member.acting():
+        assert sql("select 1 from drawings_view where id = %s", [view]) == []  # theirs, not seen
+        with refused(USED_BEFORE):  # and never ours again
+            sql(VIEW, [view, member.developer_id, printed.id, None, None])
 
 
 def test_a_reading_again_gives_its_new_rows_new_ids(qs_project: QsProject) -> None:

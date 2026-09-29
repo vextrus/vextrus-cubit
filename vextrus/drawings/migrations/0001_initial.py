@@ -733,7 +733,7 @@ class Migration(migrations.Migration):
                 ('used_id', models.UUIDField(editable=False, help_text='The id a row has had.')),
             ],
             options={
-                'constraints': [models.UniqueConstraint(fields=('used_id',), name='drawings_usedid_once')],
+                'constraints': [models.UniqueConstraint(fields=('tenant_id', 'used_id'), name='drawings_usedid_once')],
             },
         ),
         migrations.CreateModel(

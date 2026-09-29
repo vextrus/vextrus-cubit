@@ -732,8 +732,8 @@ class UsedId(models.Model):
     tables' own trigger at each insert, never changed or deleted (migration 0001). The app may
     delete those rows (a reading replaces them), so without this an id could come back naming
     another row, and whatever names it (takeoff's Coverage, placements and Traces) would follow; an
-    id, once used, is never used again, by any Developer (so its one key does not lead with
-    tenant_id: it holds every Developer's ids)."""
+    id, once used, is never used again in its Developer. (Another Developer's row under the same id
+    is its own: every reference to these rows is keyed by tenant_id and id, so it is never ours.)"""
 
     id = models.UUIDField(primary_key=True, default=new_id, editable=False)
     tenant_id = models.UUIDField(editable=False)
@@ -741,7 +741,7 @@ class UsedId(models.Model):
 
     class Meta:
         constraints: ClassVar = [
-            models.UniqueConstraint(fields=["used_id"], name="drawings_usedid_once"),
+            models.UniqueConstraint(fields=["tenant_id", "used_id"], name="drawings_usedid_once"),
         ]
 
     def __str__(self) -> str:
