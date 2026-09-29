@@ -24,10 +24,6 @@ msgid "{name} was not added: it could not be received. If its name is very long,
 msgstr "{name} was not added: it could not be received. If its name is very long, shorten it and add it again. If this keeps happening, tell Vextrus."
 
 #: src/drawing-set/DrawingSetPage.tsx
-msgid "{name} was not added. {why} Add it again."
-msgstr "{name} was not added. {why} Add it again."
-
-#: src/drawing-set/DrawingSetPage.tsx
 msgid "{name} was not added. Vextrus could not add it just now. Add it again in a minute."
 msgstr "{name} was not added. Vextrus could not add it just now. Add it again in a minute."
 
@@ -56,10 +52,6 @@ msgid "Actions"
 msgstr "Actions"
 
 #: src/drawing-set/DrawingSetPage.tsx
-msgid "{projectName}’s Drawing Set:"
-msgstr "{projectName}’s Drawing Set:"
-
-#: src/drawing-set/DrawingSetPage.tsx
 msgid "Add files"
 msgstr "Add files"
 
@@ -70,6 +62,10 @@ msgstr "Texts"
 #: src/drawing-set/DrawingSetPage.tsx
 msgid "No drawings yet."
 msgstr "No drawings yet."
+
+#: src/drawing-set/DrawingSetPage.tsx
+msgid "Nothing was added."
+msgstr "Nothing was added."
 
 #: src/drawing-set/ReportPanel.tsx
 msgid "How close"
@@ -187,10 +183,6 @@ msgstr "Choose files"
 msgid "Sheets"
 msgstr "Sheets"
 
-#: src/drawing-set/DrawingSetPage.tsx
-msgid "{name} was not added. {why}"
-msgstr "{name} was not added. {why}"
-
 #: src/drawing-set/ReportPanel.tsx
 msgid "{discipline}. Added {date} by {by}"
 msgstr "{discipline}. Added {date} by {by}"
@@ -235,9 +227,17 @@ msgstr "Last file"
 msgid "Pages"
 msgstr "Pages"
 
+#: src/drawing-set/DrawingSetPage.tsx
+msgid "{projectName}’s Drawing Set: {count} Open it to see why."
+msgstr "{projectName}’s Drawing Set: {count} Open it to see why."
+
 #: src/drawing-set/ReportPanel.tsx
 msgid "Plot"
 msgstr "Plot"
+
+#: src/drawing-set/DrawingSetPage.tsx
+msgid "{projectName}’s Drawing Set: {count}"
+msgstr "{projectName}’s Drawing Set: {count}"
 
 #: src/drawing-set/DrawingSetPage.tsx
 msgid "{name} was not added. <0/>"

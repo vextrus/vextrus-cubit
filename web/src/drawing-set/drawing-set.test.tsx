@@ -320,7 +320,7 @@ describe('a batch that outlives its page (review round 1, finding 1)', () => {
   }
   const files = (...names: string[]) => names.map((n) => new File([new Uint8Array([0x41])], n))
 
-  it("says once, naming the project, what a batch came to after its page was left for another project's Step 1", async () => {
+  it("says in one line, naming the project, what a batch came to after its page was left, and shows why on reopening it", async () => {
     const { api, kr, release } = heldKr()
     const app = await mountApp('/p/KR-01/drawing-set', { as: PEOPLE.qs, api })
     await screen.findByRole('heading', { name: 'Drawing Set' })
@@ -330,11 +330,20 @@ describe('a batch that outlives its page (review round 1, finding 1)', () => {
     await waitFor(() => expect(screen.queryByRole('heading', { name: 'Drawing Set' })).toBeNull())
     release()
     await waitFor(() => expect(kr.seen.filter((s) => s.call === 'POST /files')).toHaveLength(2))
+    await waitFor(() => expect(bodyText()).toContain('Kadam Residence’s Drawing Set: 1 file added; 1 was not added. Open it to see why.'))
+    // The reason is not in the toast (it spills and vanishes): it waits for the project's Drawing Set.
+    expect(bodyText()).not.toContain('site.jpg is not a DWG')
+    await app.router.navigate({ to: '/p/$code/drawing-set', params: { code: 'KR-01' } })
+    await screen.findByRole('heading', { name: 'Drawing Set' })
     await waitFor(() =>
-      expect(bodyText()).toContain(
-        "Kadam Residence’s Drawing Set: 1 file added; 1 was not added. site.jpg is not a DWG or a PDF, so it was not added. Vextrus reads DWG and PDF files.",
-      ),
+      expect(screen.getAllByRole('alert').map((a) => clean(a.textContent))).toContain('site.jpg is not a DWG or a PDF, so it was not added. Vextrus reads DWG and PDF files.'),
     )
+    // Shown once: leaving and opening it again does not bring the bar back.
+    await app.router.navigate({ to: '/p/$code/takeoff/$step', params: { code: 'KR-01', step: '1' } })
+    await app.router.navigate({ to: '/p/$code/drawing-set', params: { code: 'KR-01' } })
+    await screen.findByRole('heading', { name: 'Drawing Set' })
+    await waitFor(() => rowOf('KR-STR-R0.dwg'))
+    expect(screen.queryAllByRole('alert').filter((a) => clean(a.textContent).includes('site.jpg'))).toEqual([])
   })
 
   it("starts another project's Drawing Set afresh: none of the first project's upload, bars or toast on it", async () => {
@@ -348,8 +357,25 @@ describe('a batch that outlives its page (review round 1, finding 1)', () => {
     await waitFor(() => expect(bodyText()).toContain('No drawings yet.'))
     expect(bodyText()).not.toContain('Uploading')
     release()
-    await waitFor(() => expect(bodyText()).toContain('Kadam Residence’s Drawing Set: 1 file added; 1 was not added.'))
-    // Its reason is in the toast, never in a bar on Bokul Place's page.
+    await waitFor(() => expect(bodyText()).toContain('Kadam Residence’s Drawing Set: 1 file added; 1 was not added. Open it to see why.'))
+    // Its reason is never in a bar on Bokul Place's page; it shows on Kadam Residence's.
+    expect(screen.queryAllByRole('alert').filter((a) => clean(a.textContent).includes('site.jpg'))).toEqual([])
+    await app.router.navigate({ to: '/p/$code/drawing-set', params: { code: 'KR-01' } })
+    await waitFor(() => expect(screen.getAllByRole('alert').some((a) => clean(a.textContent).includes('site.jpg is not a DWG'))).toBe(true))
+  })
+
+  it("never shows a held reason to the next person signed in", async () => {
+    const { api, release } = heldKr()
+    const app = await mountApp('/p/KR-01/drawing-set', { as: PEOPLE.qs, api })
+    await screen.findByRole('heading', { name: 'Drawing Set' })
+    await waitFor(() => rowOf('KR-STR-R0.dwg'))
+    await userEvent.upload(document.querySelector<HTMLInputElement>('input[type="file"]')!, files('KR-ARC-R0.dwg', 'site.jpg'))
+    await app.router.navigate({ to: '/p/$code/takeoff/$step', params: { code: 'BP-02', step: '1' } })
+    release()
+    await waitFor(() => expect(bodyText()).toContain('Open it to see why.'))
+    sessionChanged(app.queryClient)
+    await app.router.navigate({ to: '/p/$code/drawing-set', params: { code: 'KR-01' } })
+    await waitFor(() => rowOf('KR-STR-R0.dwg'))
     expect(screen.queryAllByRole('alert').filter((a) => clean(a.textContent).includes('site.jpg'))).toEqual([])
   })
 })
@@ -463,5 +489,19 @@ describe("the design gate's walk (review round 2)", () => {
     await waitFor(() => rowOf('scan.pdf'))
     expect(within(rowOf('scan.pdf')).queryByRole('combobox')).toBeNull()
     expect(within(rowOf('KR-STR-R0.dwg')).getByRole('button', { name: 'Cancel reading' })).toHaveAccessibleDescription(/KR-STR-R0\.dwg/)
+  })
+})
+
+describe("21a's reading_started among several files (review round 2, addendum)", () => {
+  it('keeps "its reading has started" beside the count', async () => {
+    const { api, set } = drawingSet()
+    const here = file({ name: 'KR-STR-R0.dwg', state: 'waiting', status: msg('drawings.files.waiting', { ahead: 0 }) })
+    set.files.push(here)
+    set.answerUpload('KR-STR-R0.dwg', 200, { file: here, outcome: 'already_here', message: msg('takeoff.read_file.reading_started', { file: 'KR-STR-R0.dwg' }) })
+    await open(api)
+    await waitFor(() => rowOf('KR-STR-R0.dwg'))
+    await userEvent.upload(document.querySelector<HTMLInputElement>('input[type="file"]')!, ['KR-ARC-R0.dwg', 'KR-STR-R0.dwg'].map((n) => new File([new Uint8Array([0x41])], n)))
+    await waitFor(() => expect(bodyText()).toContain('1 file added; 1 was already here.'))
+    expect(bodyText()).toContain('KR-STR-R0.dwg is already in this Drawing Set, so nothing was added. Its reading has started.')
   })
 })
