@@ -152,7 +152,34 @@ TRIGGERS = [
         for table in TENANT_TABLES
     ),
 ]
+# A Confirmation is append-only but for being undone once (docs/data-model.md §2): its undone_at goes
+# only from empty to a time no earlier than the act, never back and never empty again. Run for every
+# writer, the owner included.
+TRIGGERS += [
+    """
+    create function public.takeoff_confirmation_undone_once() returns trigger
+    language plpgsql
+    set search_path = pg_catalog, pg_temp
+    as $$
+    begin
+      if new.undone_at is distinct from old.undone_at and (
+        old.undone_at is not null or new.undone_at is null or new.undone_at < old.at
+      ) then
+        raise exception 'a Confirmation is undone once, at a time no earlier than the act'
+          using errcode = '42501';
+      end if;
+      return new;
+    end
+    $$
+    """,
+    "revoke all on function public.takeoff_confirmation_undone_once() from public",
+    f"grant execute on function public.takeoff_confirmation_undone_once() to {APP}",
+    """create trigger takeoff_confirmation_undone_once before update on takeoff_confirmation
+       for each row execute function public.takeoff_confirmation_undone_once()""",
+]
 TRIGGERS_REVERSE = [
+    "drop trigger takeoff_confirmation_undone_once on takeoff_confirmation",
+    "drop function public.takeoff_confirmation_undone_once()",
     *(f"drop trigger takeoff_in_reach on {table}" for table in TENANT_TABLES),
     "drop function public.takeoff_in_reach()",
 ]

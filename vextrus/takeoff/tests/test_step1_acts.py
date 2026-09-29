@@ -320,3 +320,21 @@ def step1_proposals(project_id: uuid.UUID) -> list[Any]:
     from vextrus.takeoff.models import Proposal
 
     return list(Proposal.objects.filter(project_id=project_id))
+
+
+def test_a_kind_not_offered_for_the_sheet_is_refused_and_changes_nothing(
+    step1_project: Step1Project,
+) -> None:
+    qs, first = api_as(step1_project.member), str(step1_project.proposals[0])
+
+    for kind in ("no_such_kind", "lighting_layout"):  # none; another Discipline's
+        response = qs.post(
+            url(step1_project.project_id, "confirm"), {"proposals": [first], "kind": kind}
+        )
+        assert (response.status_code, response.json()) == (
+            400,
+            {"code": "takeoff.step1.kind_not_offered", "params": {}},
+        ), kind
+    assert decisions(step1_project) == [None, None, None]
+    ok = qs.post(url(step1_project.project_id, "confirm"), {"proposals": [first], "kind": "beam_layout"})
+    assert ok.status_code == 200

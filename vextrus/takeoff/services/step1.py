@@ -621,6 +621,8 @@ def confirm(
         for sheet, proposal in chosen:
             proposal = proposal or _propose(project_id, sheet)
             pick = proposal.jev_pick or {}
+            if kind is not None and kind not in _kinds_offered(sheet, pick):
+                raise auth.Refused(said.KIND_NOT_OFFERED(), status=400)
             wanted = kind if kind is not None else (pick.get("choice") or sheet.kind)
             drawings.confirm_sheet(sheet.id, confirmation_id=act.id, kind=wanted)
             _stamp(proposal, ProposalStatus.CONFIRMED, act)
@@ -768,6 +770,22 @@ def _put_back_sheet(
         if proposal is not None:
             proposal.rejected_reason = ""
             _stamp(proposal, ProposalStatus.CONFIRMED, earlier)
+
+
+def _kinds_offered(sheet: drawings.SheetView, pick: Mapping[str, Any]) -> set[str]:
+    """The kinds a QS may confirm a sheet as: its Discipline's (every Discipline's for a sheet of
+    none) and the common ones, by 13's conventions; Jev's options for it; the kind as read."""
+    conventions = default_conventions()
+    by_discipline = conventions.sheet_kinds
+    kinds = (
+        set(by_discipline.get(sheet.discipline, ()))
+        if sheet.discipline
+        else {k for ks in by_discipline.values() for k in ks}
+    )
+    kinds |= set(conventions.common_sheet_kinds) | set(pick.get("options") or ())
+    if sheet.kind:
+        kinds.add(sheet.kind)
+    return kinds
 
 
 def _one(chosen: Sequence[tuple[drawings.SheetView, Proposal | None]]) -> str:

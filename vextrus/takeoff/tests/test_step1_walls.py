@@ -70,7 +70,9 @@ def test_a_confirmation_is_changed_only_by_undoing_it(acted: Step1Project) -> No
             "update takeoff_confirmation set user_id = user_id where id = %s", [act.id]
         )
         with connection.cursor() as cursor:
-            cursor.execute("update takeoff_confirmation set undone_at = now() where id = %s", [act.id])
+            cursor.execute(
+                "update takeoff_confirmation set undone_at = clock_timestamp() where id = %s", [act.id]
+            )
 
 
 def test_a_drawing_list_is_never_changed(acted: Step1Project) -> None:
@@ -122,3 +124,17 @@ def test_a_row_never_names_another_developers_project(
             " values (%s, %s, %s, 'sheets', '', 'missing', 'k', 'c', '{}', '[]', '', 'open', now())",
             [uuid.uuid4(), stranger.developer_id, step1_project.project_id],
         )
+
+
+def test_an_undone_act_is_never_brought_back_nor_back_dated(acted: Step1Project) -> None:
+    client = api_as(acted.member)
+    assert client.post(f"{step1_url(acted.project_id)}/undo", {}).status_code == 200
+    with acted.member.acting():
+        [undone] = Confirmation.objects.filter(project_id=acted.project_id, undone_at__isnull=False)
+        [standing] = Confirmation.objects.filter(project_id=acted.project_id, undone_at__isnull=True)
+        for sql, act in (
+            ("update takeoff_confirmation set undone_at = null where id = %s", undone.id),
+            ("update takeoff_confirmation set undone_at = now() where id = %s", undone.id),
+            ("update takeoff_confirmation set undone_at = '2000-01-01' where id = %s", standing.id),
+        ):
+            assert "undone once" in refused(sql, [act])
