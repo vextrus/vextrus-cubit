@@ -203,6 +203,7 @@
         "group": {"type": "string", "minLength": 1},
         "anchors": {"$ref": "#/$defs/anchors"},
         "views": {"type": "array", "items": {"$ref": "#/$defs/view"}},
+        "working_view": {"anyOf": [{"$ref": "#/$defs/index"}, {"type": "null"}]},
         "register": {"type": "array", "items": {"$ref": "#/$defs/register_entry"}},
         "render_f1": {"type": ["number", "null"], "minimum": 0, "maximum": 1}
       }

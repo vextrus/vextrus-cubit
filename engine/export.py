@@ -12,7 +12,8 @@ The document, in brief (the schema has every field):
   conventions applied (a hash of the conventions files), its process (read seconds, CPU seconds and
   peak RSS, from `os.wait4`'s rusage for the file's own child process), each stage's report, decoders
   agree, entity counts per type, the font, PDF and Bangla-ANSI counts, and its sheets, each with its
-  views (and each view's Coverage), its register entries and its render F1;
+  views (and each view's Coverage), its working view (17's `views.working_view`: an index into its
+  views, or null), its register entries and its render F1;
 - `set_stages`, `plot`, `conflicts`, `continuations` and `checks`: what was read across the set.
 
 A candidate is referred to by where it sits in this document: `{"file": i, "sheet": j}`, with
@@ -47,6 +48,7 @@ from engine.recognise.types import (
     Sourced,
     ViewCandidate,
 )
+from engine.recognise.views import working_view
 
 VERSION = 1
 SCHEMA_PATH = Path(__file__).with_name("export.schema.json")
@@ -362,6 +364,7 @@ def _sheet(
         "group": sheet.group,
         "anchors": [anchor_json(a) for a in sheet.anchors],
         "views": [_view(view) for view in views],
+        "working_view": working_view(views),
         "register": [
             {
                 "row_box": _box(entry.row_box),
