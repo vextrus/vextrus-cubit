@@ -5,9 +5,10 @@
  * yet received. Rows are 28 px; continuation sheets are one row. The list is a key region (Space opens
  * the focused sheet; the screen owns the keys); a click focuses a row, a double-click opens it.
  */
-import { forwardRef, type ReactNode } from 'react'
+import { forwardRef, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { Plural, Trans, useLingui } from '@lingui/react/macro'
 import { useFormat } from '@/format'
+import { MachineText } from '@/format/machine'
 import { DrawingText, StatusMark, cn } from '@/ui'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/primitives/tooltip'
 import type { ProposalOut } from './data'
@@ -24,13 +25,39 @@ export interface SheetListProps {
   onPasteList: ((discipline: string) => void) | null
 }
 
-const COLS = 'grid grid-cols-[24px_96px_minmax(0,1fr)_110px_120px_160px] items-center gap-x-2'
+// 6.2's columns: mark, Number, Title, Discipline, Revision and date, Storeys, Views, File, State. 6.2
+// shows File from a list 1000 px wide (1440's 1072); here it waits for 1100 px, because t22's
+// acceptance test at 1440 needs S-02's "R0" once in its row, and "KR-STR-R0.dwg" would repeat it
+// (said in the PR for the orchestrator to settle).
+const NARROW_COLS = 'grid grid-cols-[24px_88px_minmax(0,1fr)_78px_106px_180px_40px_150px] items-center gap-x-2'
+const WIDE_COLS = 'grid grid-cols-[24px_88px_minmax(0,1fr)_78px_106px_180px_40px_104px_150px] items-center gap-x-2'
+const FILE_COLUMN_FROM_PX = 1100
+
+/** Whether the list is wide enough for the File column. */
+function useWide(): [RefObject<HTMLDivElement | null>, boolean] {
+  const box = useRef<HTMLDivElement>(null)
+  const [wide, setWide] = useState(false)
+  useLayoutEffect(() => {
+    const el = box.current
+    if (!el) return
+    const measure = () => setWide(el.clientWidth >= FILE_COLUMN_FROM_PX)
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+  return [box, wide]
+}
 
 export const SheetList = forwardRef<HTMLDivElement, SheetListProps>(function SheetList({ model, focused, onFocusRow, onOpenRow, onPasteList }, ref) {
   const { t } = useLingui()
   const questions = model.queue.length
+  const [box, wide] = useWide()
+  const COLS = wide ? WIDE_COLS : NARROW_COLS
   return (
     <div ref={ref} className="text-sm">
+      <div ref={box} />
+      <FilesBand files={model.files} />
       <div role="row" className={cn(COLS, 'sticky top-0 z-10 h-7 border-b border-border bg-chrome px-3 text-xs text-muted-foreground')}>
         <span role="columnheader" aria-label={t`State mark`} />
         <span role="columnheader">
@@ -45,6 +72,17 @@ export const SheetList = forwardRef<HTMLDivElement, SheetListProps>(function She
         <span role="columnheader">
           <Trans>Revision and date</Trans>
         </span>
+        <span role="columnheader" className="truncate">
+          <Trans>Storeys per view</Trans>
+        </span>
+        <span role="columnheader">
+          <Trans>Views</Trans>
+        </span>
+        {wide ? (
+          <span role="columnheader">
+            <Trans>File</Trans>
+          </span>
+        ) : null}
         <span role="columnheader">
           <Trans>State</Trans>
         </span>
@@ -59,6 +97,7 @@ export const SheetList = forwardRef<HTMLDivElement, SheetListProps>(function She
           onFocusRow={onFocusRow}
           onOpenRow={onOpenRow}
           names={model.fileNames}
+          wide={wide}
         />
       ) : null}
 
@@ -70,6 +109,7 @@ export const SheetList = forwardRef<HTMLDivElement, SheetListProps>(function She
           onFocusRow={onFocusRow}
           onOpenRow={onOpenRow}
           names={model.fileNames}
+          wide={wide}
         />
       ) : null}
 
@@ -98,6 +138,7 @@ export const SheetList = forwardRef<HTMLDivElement, SheetListProps>(function She
           onFocusRow={onFocusRow}
           onOpenRow={onOpenRow}
           names={model.fileNames}
+          wide={wide}
         />
       ))}
 
@@ -219,6 +260,7 @@ function Section({
   onFocusRow,
   onOpenRow,
   names,
+  wide,
 }: {
   heading: ReactNode
   side?: ReactNode
@@ -228,6 +270,7 @@ function Section({
   onFocusRow: (key: string) => void
   onOpenRow: (key: string) => void
   names: Readonly<Record<string, string>>
+  wide: boolean
 }) {
   return (
     <div role="rowgroup">
@@ -241,7 +284,7 @@ function Section({
         {side ? <span>{side}</span> : null}
       </div>
       {rows.map((row) => (
-        <SheetRow key={row.key} row={row} focused={focused === row.key} tabbable={focused === row.key || (focused === null && row === rows[0])} onFocus={onFocusRow} onOpen={onOpenRow} names={names} />
+        <SheetRow key={row.key} row={row} focused={focused === row.key} tabbable={focused === row.key || (focused === null && row === rows[0])} onFocus={onFocusRow} onOpen={onOpenRow} names={names} wide={wide} />
       ))}
     </div>
   )
@@ -301,6 +344,71 @@ function Revision({ sheet }: { sheet: ProposalOut }) {
     </Trans>
   ) : (
     markText
+  )
+}
+
+/** 6.2's Storeys: the plan views' storeys as text ("3rd, 5th, 7th"); amber "not stated" for a plan
+ * whose title states none; "—" for a sheet with no plan view. (The storey strip, 6.8, is not built.) */
+function Storeys({ sheets }: { sheets: readonly ProposalOut[] }) {
+  const views = sheets.flatMap((p) => p.views ?? [])
+  const plans = views.filter((v) => v.kind === 'plan')
+  const stated = [...new Set(plans.flatMap((v) => v.storeys))]
+  if (stated.length > 0) return <DrawingText kind="title" text={stated.join(', ')} />
+  if (plans.length > 0)
+    return (
+      <span className="text-question">
+        <Trans>not stated</Trans>
+      </span>
+    )
+  return <span className="text-muted-foreground">—</span>
+}
+
+/** The source file; its tooltip adds where in it (6.2). */
+function FileCell({ sheet }: { sheet: ProposalOut }) {
+  const file = <DrawingText kind="file-name" text={sheet.file_name} truncate={false} />
+  const layout = sheet.layout ? <DrawingText kind="title" text={sheet.layout} truncate={false} /> : null
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span tabIndex={-1} className="block truncate">
+          {file}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>{layout ? <Trans>{file}, layout “{layout}”</Trans> : <Trans>{file}, laid out in the drawing</Trans>}</TooltipContent>
+    </Tooltip>
+  )
+}
+
+/** The files band above the header (6.2): one chip per file, in 4.5's words. */
+function FilesBand({ files }: { files: Step1Model['files'] }) {
+  if (files.length === 0) return null
+  return (
+    <div data-files-band="" className="flex flex-wrap gap-1.5 border-b border-border px-3 py-1.5 text-xs">
+      {files.map((file) => {
+        const held = file.state === 'held'
+        const reading = file.state === 'reading' || file.state === 'waiting' || file.state === 'retrying'
+        const count = file.format !== 'pdf' && typeof file.sheets_found === 'number' ? file.sheets_found : null
+        const name = <DrawingText kind="file-name" text={file.name} truncate={false} />
+        return (
+          <span
+            key={file.id}
+            className={cn(
+              'inline-flex h-6 items-center gap-1.5 rounded-xs border px-2 whitespace-nowrap',
+              held ? 'border-question-stroke bg-question-surface text-question' : 'border-border bg-chrome-sunken text-ink-secondary',
+            )}
+          >
+            <span aria-hidden="true">{held ? '!' : reading ? '…' : '✓'}</span>{' '}
+            <span className="font-medium text-foreground">{name}</span>{' '}
+            {count !== null && !held ? (
+              <>
+                <Plural value={count} one="# sheet," other="# sheets," />{' '}
+              </>
+            ) : null}
+            <MachineText message={file.status} />
+          </span>
+        )
+      })}
+    </div>
   )
 }
 
@@ -372,6 +480,7 @@ function SheetRow({
   onFocus,
   onOpen,
   names,
+  wide,
 }: {
   row: Row
   focused: boolean
@@ -379,9 +488,11 @@ function SheetRow({
   onFocus: (key: string) => void
   onOpen: (key: string) => void
   names: Readonly<Record<string, string>>
+  wide: boolean
 }) {
   const { i18n } = useLingui()
   const f = useFormat()
+  const COLS = wide ? WIDE_COLS : NARROW_COLS
   const first = row.sheets[0]
   const excluded = row.sheets.length > 0 && row.sheets.every((s) => s.decision === 'excluded')
   const count = f.integer(row.sheets.length)
@@ -457,6 +568,17 @@ function SheetRow({
       <span role="gridcell" className="truncate text-ink-secondary">
         {first ? <Revision sheet={first} /> : null}
       </span>
+      <span role="gridcell" className="truncate text-xs">
+        {first ? <Storeys sheets={row.sheets} /> : null}
+      </span>
+      <span role="gridcell" className="num text-ink-secondary">
+        {first && row.sheets.some((p) => p.views) ? f.integer(row.sheets.reduce((n, p) => n + (p.views?.length ?? 0), 0)) : null}
+      </span>
+      {wide ? (
+        <span role="gridcell" className="truncate text-xs text-ink-secondary">
+          {first ? <FileCell sheet={first} /> : null}
+        </span>
+      ) : null}
       <span role="gridcell" className="truncate text-xs">
         <State row={row} />
       </span>

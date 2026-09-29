@@ -71,14 +71,13 @@ export function drawingListQuery(projectId: string, discipline: string) {
   })
 }
 
-/** The Drawing Set's files by id, named as the QS added them (a held file's Question names it). */
-export function fileNamesQuery(projectId: string) {
+export type FileOut = components['schemas']['FileOut']
+
+/** The Drawing Set's files (the files band, §6.2; a held file's Question names its file). */
+export function filesQuery(projectId: string) {
   return queryOptions({
-    queryKey: [...step1Key(projectId), 'file-names'],
-    queryFn: async (): Promise<Record<string, string>> => {
-      const out = await unwrap(api.GET('/api/projects/{project_id}/drawings/files', path(projectId)))
-      return Object.fromEntries(out.files.map((f) => [f.id, f.name]))
-    },
+    queryKey: [...step1Key(projectId), 'files'],
+    queryFn: async (): Promise<FileOut[]> => (await unwrap(api.GET('/api/projects/{project_id}/drawings/files', path(projectId)))).files,
     retry: false,
   })
 }
@@ -108,6 +107,8 @@ export interface Step1Data {
   lists: Readonly<Record<string, DrawingListOut | undefined>>
   /** The files' names by id; empty until read, or when they cannot be. */
   fileNames?: Readonly<Record<string, string>>
+  /** The Drawing Set's files, as its page lists them; empty until read. */
+  files?: readonly FileOut[]
 }
 
 /** Everything Step 1 shows, or the first load's error. */
@@ -118,7 +119,7 @@ export function useStep1(projectId: string): { data: Step1Data | null; error: un
   const progress = useQuery(progressQuery(projectId))
   const disciplines = progress.data?.disciplines.map((d) => d.discipline).filter((d): d is string => d !== null) ?? []
   const lists = useQueries({ queries: disciplines.map((d) => drawingListQuery(projectId, d)) })
-  const fileNames = useQuery(fileNamesQuery(projectId))
+  const files = useQuery(filesQuery(projectId))
   const all = [proposals, questions, coverage, progress]
   const error = all.find((q) => q.error)?.error ?? null
   const retryAll = () => {
@@ -136,7 +137,8 @@ export function useStep1(projectId: string): { data: Step1Data | null; error: un
       coverage: coverage.data,
       progress: progress.data,
       lists: byDiscipline,
-      fileNames: fileNames.data ?? {},
+      fileNames: Object.fromEntries((files.data ?? []).map((f) => [f.id, f.name])),
+      files: files.data ?? [],
     },
     error,
     retry: retryAll,

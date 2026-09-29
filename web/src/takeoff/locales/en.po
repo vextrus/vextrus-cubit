@@ -119,6 +119,10 @@ msgstr "No sheets yet. Add the Drawing Set’s files first."
 msgid "No drawing list and no Plot to check them against."
 msgstr "No drawing list and no Plot to check them against."
 
+#: src/takeoff/SheetList.tsx
+msgid "Views"
+msgstr "Views"
+
 #: src/takeoff/words.tsx
 msgid "Two plans draw one thing"
 msgstr "Two plans draw one thing"
@@ -226,6 +230,10 @@ msgstr "Sheet"
 #: src/takeoff/words.tsx
 msgid "Cover or index"
 msgstr "Cover or index"
+
+#: src/takeoff/SheetList.tsx
+msgid "{count, plural, one {# sheet,} other {# sheets,}}"
+msgstr "{count, plural, one {# sheet,} other {# sheets,}}"
 
 #: src/takeoff/SheetList.tsx
 msgid "Disciplines not yet received"
@@ -355,6 +363,7 @@ msgstr "from the file name"
 msgid "found, {listed} on the drawing list pasted by {who}"
 msgstr "found, {listed} on the drawing list pasted by {who}"
 
+#: src/takeoff/SheetList.tsx
 #: src/takeoff/Step1Inspector.tsx
 msgid "not stated"
 msgstr "not stated"
@@ -1464,6 +1473,7 @@ msgstr "Roof structure details"
 msgid "{0, plural, one {Coverage # view:} other {Coverage # views:}}"
 msgstr "{0, plural, one {Coverage # view:} other {Coverage # views:}}"
 
+#: src/takeoff/SheetList.tsx
 #: src/takeoff/Step1Inspector.tsx
 msgid "{file}, layout “{layout}”"
 msgstr "{file}, layout “{layout}”"
@@ -1597,6 +1607,7 @@ msgstr "Undo your last act on Step 1"
 msgid "Not part of this set: take it off the list"
 msgstr "Not part of this set: take it off the list"
 
+#: src/takeoff/SheetList.tsx
 #: src/takeoff/Step1Inspector.tsx
 msgid "{file}, laid out in the drawing"
 msgstr "{file}, laid out in the drawing"
@@ -1604,6 +1615,10 @@ msgstr "{file}, laid out in the drawing"
 #: src/takeoff/SheetList.tsx
 msgid "found; no drawing list; the numbers do not run in one series"
 msgstr "found; no drawing list; the numbers do not run in one series"
+
+#: src/takeoff/SheetList.tsx
+msgid "Storeys per view"
+msgstr "Storeys per view"
 
 #: src/takeoff/questionWords.tsx
 msgid "no revision mark"

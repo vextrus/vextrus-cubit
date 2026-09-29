@@ -96,6 +96,8 @@ export interface Step1Model {
   fileNames: Readonly<Record<string, string>>
   /** The Project's QSs by name: whom the read-only bar names (6.12). */
   qs: readonly string[]
+  /** The Drawing Set's files: the files band (6.2). */
+  files: NonNullable<Step1Data['files']>
 }
 
 export const REASONS = ['superseded', 'duplicate', 'cover_index', 'for_information', 'by_others', 'blank', 'other'] as const
@@ -247,6 +249,7 @@ export function step1Model(data: Step1Data): Step1Model {
     unaccounted: data.coverage.unaccounted,
     fileNames: data.fileNames ?? {},
     qs: data.progress.qs ?? [],
+    files: data.files ?? [],
   }
 }
 

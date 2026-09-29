@@ -330,3 +330,61 @@ describe('M6: sheet mode draws the views, counts them, and walks them', () => {
     await waitFor(() => expect(clean(document.querySelector('button[aria-keyshortcuts="S"]')?.textContent)).toContain('S-06'))
   })
 })
+
+describe('M2: the files band, and the Storeys, Views and File columns', () => {
+  const file = (id: string, name: string, format: string, state: string, code: string, params: Record<string, unknown>, sheets: number | null) => ({
+    id, name, format, size: 1, discipline: 'structural', state, status: { code, params }, finding: null, sheets_found: sheets, plot_for: [], added_at: '2026-09-26T04:00:00Z', added_by_name: 'Nusrat Jahan', added_by_vextrus: false,
+  })
+
+  it('shows a chip per file in 4.5’s words, and the columns at 1440', async () => {
+    const { api, step1 } = kr01()
+    const files = [
+      file('f1', 'KR-STR-R0.dwg', 'dwg', 'read', 'drawings.files.read', {}, 13),
+      file('f2', 'KR-STR-R0.pdf', 'pdf', 'read', 'drawings.files.plot_matched', { matched: 11, pages: 12 }, 12),
+      file('f3', 'KR-STR-old.dwg', 'dwg', 'held', 'drawings.files.held', {}, null),
+    ]
+    const base = api.handle
+    api.handle = async (request: Request) => {
+      if (new URL(request.url, location.origin).pathname.endsWith('/drawings/files')) return new Response(JSON.stringify({ files }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      return base(request)
+    }
+    Object.assign(step1.proposals.find((p) => p.number === 'S-05')!, {
+      layout: null,
+      views: [
+        { ordinal: 0, kind: 'plan', title: 'PLAN', stated_scale: '1:100', not_to_scale: false, storeys: ['3rd', '5th', '7th'], storeys_meaning: 'at_floor_level', steps: ['7'], part: null, proposed_exclusion: null, decision: null, excluded_reason: null, box: ['0', '0', '1', '1'] },
+        { ordinal: 1, kind: 'title_block', title: '', stated_scale: '', not_to_scale: true, storeys: [], storeys_meaning: null, steps: [], part: null, proposed_exclusion: 'for_information', decision: null, excluded_reason: null, box: ['0', '0', '1', '1'] },
+      ],
+    })
+    Object.assign(step1.proposals.find((p) => p.number === 'S-06')!, {
+      views: [{ ordinal: 0, kind: 'plan', title: 'PLAN', stated_scale: '', not_to_scale: false, storeys: [], storeys_meaning: null, steps: [], part: null, proposed_exclusion: null, decision: null, excluded_reason: null, box: ['0', '0', '1', '1'] }],
+    })
+    await open(api)
+    const band = await waitFor(() => {
+      const b = document.querySelector<HTMLElement>('[data-files-band]')
+      expect(b).not.toBeNull()
+      return b!
+    })
+    expect(clean(band.textContent)).toContain('✓ KR-STR-R0.dwg 13 sheets, Read. Two readers agree')
+    expect(clean(band.textContent)).toContain('✓ KR-STR-R0.pdf Plot: 11 of 12 pages matched')
+    expect(clean(band.textContent)).toContain('! KR-STR-old.dwg Held: the two readers disagree, so it may be misread')
+    const header = clean(document.querySelector('[role="row"]')?.textContent)
+    expect(header).toContain('Storeys per view')
+    expect(header).toContain('Views')
+    // File shows from 1100 px (see SheetList's COLS), not at 1440.
+    const s05 = clean(rowOf('S-05').textContent)
+    expect(s05).toContain('3rd, 5th, 7th')
+    expect(s05).toMatch(/3rd, 5th, 7th\s*2/)
+    expect(clean(rowOf('S-06').textContent)).toContain('not stated')
+  })
+})
+
+describe('M2: the File column, once the list is wide enough', () => {
+  it('shows File with where in it on a list 1100 px wide or more', async () => {
+    await page.viewport(1920, 1080)
+    const { api, step1 } = kr01()
+    Object.assign(step1.proposals.find((p) => p.number === 'S-05')!, { layout: 'S-05 PLAN' })
+    await open(api)
+    await waitFor(() => expect(clean(document.querySelector('[role="row"]')?.textContent)).toContain('File'))
+    expect(clean(rowOf('S-05').textContent)).toContain('KR-STR-R0.dwg')
+  })
+})
