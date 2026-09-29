@@ -31,7 +31,8 @@ export function ActorChip({ name, role }: { name: string | null | undefined; rol
   const { t } = useLingui()
   if (!name) return null
   const vextrus = role === 'vextrus_engineer'
-  const label = vextrus ? t`${name}, Vextrus Engineer` : name
+  // An accessible name is plain text: the isolates round the name are left out.
+  const label = vextrus ? t`${name}, Vextrus Engineer`.replace(/[\u2066-\u2069]/g, '') : name
   return (
     <span
       title={label}

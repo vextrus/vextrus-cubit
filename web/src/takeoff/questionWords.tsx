@@ -11,7 +11,7 @@ import { MachineText } from '@/format/machine'
 import { DrawingText } from '@/ui'
 import { SheetName } from './acts'
 import type { ProposalOut } from './data'
-import { compareNumbers, type DisciplineSection, type QuestionEntry, type Step1Model } from './model'
+import type { DisciplineSection, QuestionEntry, Step1Model } from './model'
 import { disciplineName } from './SheetList'
 import { useHasEnglish } from './useHasEnglish'
 import { OPTION_NAMES, OTHER_OPTION, OTHER_QUESTION, QUESTION_KINDS, QUESTION_KIND_BY_CODE, SHEET_KIND_NAMES } from './words'
@@ -126,7 +126,7 @@ export function QuestionBody({ entry, model }: { entry: QuestionEntry; model: St
     if (q.code === 'engine.plot_pages.no_page' && file)
       return (
         <Trans>
-          {number} is in {file} but on no page of its Discipline’s PDF.
+          {number} is in {file}.
         </Trans>
       )
     return null
@@ -171,7 +171,18 @@ export function Trace({ entry, model }: { entry: QuestionEntry; model: Step1Mode
     const name = <SheetName sheets={[sheet]} />
     where = <Trans>{name} title block and its views</Trans>
   } else if (q.kind === 'check') {
-    where = <ListSource section={section} />
+    const number = typeof q.params.number === 'string' ? <DrawingText kind="sheet-number" text={q.params.number} truncate={false} /> : null
+    const page = typeof q.params.page === 'number' ? q.params.page : null
+    const source = <ListSource section={section} />
+    if (q.code === 'engine.register_check.not_found') where = source
+    else if (q.code === 'engine.register_check.not_listed' && number)
+      where = (
+        <Trans>
+          {number} title block; {source}
+        </Trans>
+      )
+    else if (q.code === 'engine.plot_pages.no_page' && number) where = <Trans>{number} title block; the pages of its Discipline’s PDF</Trans>
+    else if (q.code === 'engine.plot_pages.no_sheet' && page !== null) where = <Trans>Page {page} of the PDF</Trans>
   } else if (sheet) {
     const name = <SheetName sheets={[sheet]} />
     where = <Trans>{name} title block</Trans>
@@ -206,30 +217,14 @@ function CopyIn({ sheet, other, first }: { sheet: ProposalOut; other: ProposalOu
 }
 
 /**
- * The pick the server made for the QS, shown only where the card can name two independent sources
- * that agree (ruling 2, §5): for two copies of one number, the later revision mark and date in the
- * title block (one source) and a drawing list read on a sheet naming the number. Else no pre-pick.
+ * The option picked for the QS, only where the card can name two independent sources that agree on
+ * it (ruling 2, §5). For two copies of one number, the title block's later mark and date are one
+ * source; the second would be a drawing list whose row names the kept copy's mark ("S-19 R1", 6.7),
+ * and the API's drawing list carries numbers only. So in M0 nothing is pre-picked, even where the
+ * server marks an option picked: a pick on one source is ruling 2's refusal.
  */
-export function usePick(entry: QuestionEntry, model?: Step1Model): { key: string; sources: ReactNode } | null {
-  const picked = optionsOf(entry).find((o) => o.picked && o.key)
-  if (!picked?.key || !model) return null
-  if (!isCopies(entry) || (picked.key !== 'keep_b' && picked.key !== 'keep_a')) return null
-  const [later, earlier] = entry.holds as [ProposalOut, ProposalOut]
-  const keep = picked.key === 'keep_b' ? later : earlier
-  const drop = picked.key === 'keep_b' ? earlier : later
-  const laterMark = !!keep.revision_mark.trim() && !!drop.revision_mark.trim() && compareNumbers(keep.revision_mark, drop.revision_mark) > 0
-  const laterDate = !!keep.issue_date && (!drop.issue_date || keep.issue_date > drop.issue_date)
-  const section = model.disciplines.find((d) => d.discipline === entry.question.discipline)
-  const listed = section?.list?.source === 'sheet' && !!keep.number && section.list.numbers.includes(keep.number)
-  if (!(laterMark || laterDate) || !listed) return null
-  return { key: picked.key, sources: <PickSources mark={laterMark} date={laterDate} /> }
-}
-
-/** 6.7's form: "the later revision mark and date in the title block, and the drawing list read on a sheet, agree". */
-function PickSources({ mark, date }: { mark: boolean; date: boolean }) {
-  if (mark && date) return <Trans>the later revision mark and date in the title block, and the drawing list read on a sheet, agree</Trans>
-  if (mark) return <Trans>the later revision mark in the title block, and the drawing list read on a sheet, agree</Trans>
-  return <Trans>the later date in the title block, and the drawing list read on a sheet, agree</Trans>
+export function usePick(_entry: QuestionEntry, _model?: Step1Model): { key: string; sources: ReactNode } | null {
+  return null
 }
 
 /** An option's words, naming the copies' marks and dates for two sheets of one number. */

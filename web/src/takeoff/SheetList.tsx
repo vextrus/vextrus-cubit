@@ -406,9 +406,10 @@ function FileChip({ file }: { file: Step1Model['files'][number] }) {
   const count = typeof file.sheets_found === 'number' ? file.sheets_found : 0
   let words: ReactNode
   if (read && dwg) words = <Plural value={count} one="# sheet, two readers agree" other="# sheets, two readers agree" />
-  else if (held) words = <Trans>held</Trans>
+  else if (held && file.status.code === 'drawings.files.held') words = <Trans>held</Trans>
   else words = <MachineText message={file.status} />
-  const glyph = read ? '✓' : held || reading || cancelled ? null : '!'
+  const waiting = file.status.code === 'drawings.files.plot_waiting'
+  const glyph = read && !waiting ? '✓' : held || reading || cancelled || waiting ? null : '!'
   return (
     <span
       className={cn(

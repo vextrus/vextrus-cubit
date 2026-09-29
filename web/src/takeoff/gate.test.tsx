@@ -172,38 +172,54 @@ describe('M4: every Question card has its body and its Trace line', () => {
   })
 })
 
-describe('M5: the pre-pick is shown with what agrees', () => {
-  it('marks Q2’s keep_b "Picked for you" and words the first line from it', async () => {
+describe('M5: a pre-pick only where two sources that agree can be named (ruling 2)', () => {
+  it('shows none on Q2: the title block’s mark and date are one source, and the list names S-07, not rev B', async () => {
     const { api, step1 } = kr01()
     step1.proposals.find((p) => p.number === 'S-07' && p.revision_mark === 'A')!.issue_date = '2026-08-02'
     await open(api)
     const cards = await questionsTab()
-    const q2 = cards.find((c) => clean(c.textContent).startsWith('Question Q2'))!
-    const text = clean(q2.textContent)
-    expect(text).toContain('Picked for you: the later revision mark and date in the title block, and the drawing list read on a sheet, agree')
-    expect(text).toContain('Answering confirms S-07 (rev B) and excludes S-07 (rev A) as superseded.')
-    const checked = q2.querySelector<HTMLInputElement>('input[type="radio"]:checked')
-    expect(checked?.value).toBe('keep_b')
-  })
-
-  it('shows no pre-pick where only the title block agrees (ruling 2: one source is not two)', async () => {
-    const { api, step1 } = kr01()
-    step1.lists = {}
-    await open(api)
-    const cards = await questionsTab()
-    const q2 = cards.find((c) => clean(c.textContent).startsWith('Question Q2'))!
-    expect(clean(q2.textContent)).not.toContain('Picked for you')
-    expect(q2.querySelector('input[type="radio"]:checked')).toBeNull()
-  })
-
-  it('pre-picks nothing the server did not pick', async () => {
-    const { api } = kr01()
-    await open(api)
-    const cards = await questionsTab()
-    for (const card of cards.filter((c) => !clean(c.textContent).startsWith('Question Q2'))) {
+    for (const card of cards) {
       expect(clean(card.textContent)).not.toContain('Picked for you')
       expect(card.querySelector('input[type="radio"]:checked')).toBeNull()
     }
+    const q2 = clean(cards.find((c) => clean(c.textContent).startsWith('Question Q2'))!.textContent)
+    expect(q2).toContain('Answering settles 2 sheets.')
+  })
+})
+
+describe('the words gate’s round 2', () => {
+  it('traces a Plot-page check to the title block and the PDF, never to a drawing list', async () => {
+    const { api, step1 } = kr01()
+    const s05 = step1.proposals.find((p) => p.number === 'S-05')!
+    step1.questions.push({ ...step1.questions[4]!, id: '0c220000-0000-4000-8000-000000000099', code: 'engine.plot_pages.no_page', params: { number: 'S-05' }, subject_id: s05.sheet_id, check_code: 'plot_pages' })
+    await open(api)
+    // The inspector's Questions tab mounts every card (forceMount); read the no-page card's words.
+    const card = await waitFor(() => {
+      const all = [...document.querySelectorAll<HTMLElement>('[data-region="inspector"] section[aria-label]')].map((c) => clean(c.textContent))
+      const found = all.find((t) => t.includes('S-05 is in KR-STR-R0.dwg.'))
+      expect(found, 'the no-page card').toBeTruthy()
+      return found!
+    })
+    expect(card).toContain('Trace: S-05 title block; the pages of its Discipline’s PDF')
+    expect(card).not.toContain('Trace: The drawing list')
+  })
+
+  it('keeps a held file’s answer on its chip', async () => {
+    const { api } = kr01()
+    const files = [{ id: 'f3', name: 'KR-STR-old.dwg', format: 'dwg', size: 1, discipline: 'structural', state: 'held', status: { code: 'drawings.files.held_read_anyway', params: {} }, finding: null, sheets_found: null, plot_for: [], added_at: '2026-09-26T04:00:00Z', added_by_name: 'Nusrat Jahan', added_by_vextrus: false }]
+    const base = api.handle
+    api.handle = async (request: Request) => {
+      if (new URL(request.url, location.origin).pathname.endsWith('/drawings/files')) return new Response(JSON.stringify({ files }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      return base(request)
+    }
+    await open(api)
+    const band = await waitFor(() => {
+      const b = document.querySelector<HTMLElement>('[data-files-band]')
+      expect(b).not.toBeNull()
+      return b!
+    })
+    expect(clean(band.textContent)).not.toMatch(/KR-STR-old\.dwg held\b/)
+    expect(clean(band.textContent)).toMatch(/KR-STR-old\.dwg \S/)
   })
 })
 

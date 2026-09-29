@@ -14,7 +14,6 @@ const NAMED: Readonly<Record<string, MessageDescriptor>> = {
   pile: msg`Pile`,
   pile_cap: msg`Pile cap`,
   foundation: msg`Foundation`,
-  below_ground: msg`Below ground`,
   lower_ground: msg`Lower ground`,
   plinth: msg`Plinth`,
   ground: msg`Ground`,
@@ -47,12 +46,26 @@ export function useStoreyWords(): (key: string) => { text: ReactNode; open: bool
   }
 }
 
-/** Storey keys as text, "3rd, 5th, 7th", the open ones in amber. */
+const RANK: Readonly<Record<string, number>> = {
+  pile: 0, pile_cap: 1, foundation: 2, lower_ground: 150, plinth: 160, ground: 200, mezzanine: 210, podium: 220,
+  roof: 1000, stair_room_roof: 1010, lift_machine_room: 1020, lift_machine_room_roof: 1030, typical: 2000, top: 2001, not_stated: 2002,
+}
+
+/** A storey key's place low to high (engine/recognise/storeys.py's order): basements below ground, floors above. */
+export function storeyRank(key: string): number {
+  const floor = /^floor_(\d+)$/.exec(key)
+  if (floor) return 300 + Number(floor[1])
+  const basement = /^basement_(\d+)$/.exec(key)
+  if (basement) return 100 - Number(basement[1])
+  return RANK[key] ?? 3000
+}
+
+/** Storey keys as text, low to high, "3rd, 5th, 7th", the open ones in amber. */
 export function StoreyList({ keys }: { keys: readonly string[] }) {
   const word = useStoreyWords()
   return (
     <>
-      {keys.map((key, i) => {
+      {[...keys].sort((a, b) => storeyRank(a) - storeyRank(b)).map((key, i) => {
         const { text, open } = word(key)
         return (
           <span key={key}>

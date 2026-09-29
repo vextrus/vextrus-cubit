@@ -159,10 +159,6 @@ msgstr "{name}: {listed} on the drawing list typed by {who} ({range}); {found} f
 msgid "no step: unaccounted"
 msgstr "no step: unaccounted"
 
-#: src/takeoff/questionWords.tsx
-msgid "{number} is in {file} but on no page of its Discipline’s PDF."
-msgstr "{number} is in {file} but on no page of its Discipline’s PDF."
-
 #: src/takeoff/words.tsx
 msgid "Ceiling layout"
 msgstr "Ceiling layout"
@@ -246,6 +242,10 @@ msgstr "Sheet"
 #: src/takeoff/words.tsx
 msgid "Cover or index"
 msgstr "Cover or index"
+
+#: src/takeoff/questionWords.tsx
+msgid "{number} is in {file}."
+msgstr "{number} is in {file}."
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "Confirmed by {name} (Vextrus), {date}, {time}"
@@ -454,10 +454,6 @@ msgstr "Section"
 msgid "A sheet titled “{title}” in {file} has an empty number in its title block."
 msgstr "A sheet titled “{title}” in {file} has an empty number in its title block."
 
-#: src/takeoff/questionWords.tsx
-msgid "the later revision mark and date in the title block, and the drawing list read on a sheet, agree"
-msgstr "the later revision mark and date in the title block, and the drawing list read on a sheet, agree"
-
 #: src/takeoff/Bar.tsx
 msgid "Leave out {name}: {reason}"
 msgstr "Leave out {name}: {reason}"
@@ -648,6 +644,10 @@ msgstr "{questions, plural, one {Answer # Question: the held file first, then th
 #: src/takeoff/words.tsx
 msgid "Elevation"
 msgstr "Elevation"
+
+#: src/takeoff/questionWords.tsx
+msgid "{number} title block; the pages of its Discipline’s PDF"
+msgstr "{number} title block; the pages of its Discipline’s PDF"
 
 #: src/takeoff/Step1Screen.tsx
 msgid "Proposal {proposal} · Assigned {assigned} · Question {question} · Excluded {excluded}"
@@ -846,10 +846,6 @@ msgstr "Point wiring layout"
 msgid "A view counts once it is assigned to a step that will read it, or excluded with a reason. Used is 0: no step after Step 1 runs in M0. A view may feed several steps, so the steps below add up to more than the views."
 msgstr "A view counts once it is assigned to a step that will read it, or excluded with a reason. Used is 0: no step after Step 1 runs in M0. A view may feed several steps, so the steps below add up to more than the views."
 
-#: src/takeoff/storeys.tsx
-msgid "Below ground"
-msgstr "Below ground"
-
 #: src/takeoff/words.tsx
 msgid "In a file, not on the drawing list"
 msgstr "In a file, not on the drawing list"
@@ -1023,10 +1019,6 @@ msgstr "{n, plural, one {Confirm the # sheet that agrees} other {Confirm the # s
 #: src/takeoff/Step1Inspector.tsx
 msgid "Proposed by Vextrus from the file; no one has acted on it yet. A Proposal counts toward nothing until you confirm it."
 msgstr "Proposed by Vextrus from the file; no one has acted on it yet. A Proposal counts toward nothing until you confirm it."
-
-#: src/takeoff/questionWords.tsx
-msgid "the later date in the title block, and the drawing list read on a sheet, agree"
-msgstr "the later date in the title block, and the drawing list read on a sheet, agree"
 
 #: src/takeoff/Bar.tsx
 msgid "Enter confirms it and opens the next open sheet."
@@ -1694,6 +1686,10 @@ msgstr "{n, plural, one {confirmed # sheet} other {confirmed # sheets}}"
 msgid "electrical"
 msgstr "electrical"
 
+#: src/takeoff/questionWords.tsx
+msgid "Page {page} of the PDF"
+msgstr "Page {page} of the PDF"
+
 #: src/takeoff/words.tsx
 msgid "Pile cap layout"
 msgstr "Pile cap layout"
@@ -1811,14 +1807,14 @@ msgstr "State mark"
 msgid "A Question about the sheets"
 msgstr "A Question about the sheets"
 
+#: src/takeoff/questionWords.tsx
+msgid "{number} title block; {source}"
+msgstr "{number} title block; {source}"
+
 #: src/takeoff/SheetList.tsx
 #: src/takeoff/Step1Inspector.tsx
 msgid "Discipline"
 msgstr "Discipline"
-
-#: src/takeoff/questionWords.tsx
-msgid "the later revision mark in the title block, and the drawing list read on a sheet, agree"
-msgstr "the later revision mark in the title block, and the drawing list read on a sheet, agree"
 
 #: src/takeoff/words.tsx
 msgid "Riser diagram"
