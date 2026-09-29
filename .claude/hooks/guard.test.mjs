@@ -177,6 +177,14 @@ test("real-drawings and the scorer take one run id, PR number or branch name, ne
   }
 });
 
+test("a character bash keeps in the argument but String.trim() drops is refused", () => {
+  for (const tail of ["\r", "\r\n", " ", " ", "﻿", "\v", "\f"]) {
+    assert.equal(inMain(`${POSTER} real-drawings a${tail}`), "PRIVILEGE_RAISED", JSON.stringify(tail));
+    assert.equal(inMain(`${SCORER} a${tail}`), "PRIVILEGE_RAISED", JSON.stringify(tail));
+  }
+  assert.equal(inMain(`${SCORER} a\t\n`), null);
+});
+
 test("the ruleset, branch protection and admin merges are refused; reading them passes", () => {
   for (const command of [
     "gh api -X DELETE repos/vextrus/vextrus-cubit/rulesets/123",

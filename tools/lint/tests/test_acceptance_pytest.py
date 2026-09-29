@@ -137,3 +137,17 @@ def test_pytest_addopts_naming_the_engine_s_expression_is_not_the_opt_in_run(
     done = run(tmp_path, {f"{FOLDER}/test_a.py": ONE_WRITTEN_ONE_PLAIN})
     assert done.returncode == 1, done.stdout
     assert "test_a.py::test_plain: deselected" in not_run(done.stdout), done.stdout
+
+
+def test_a_hook_pointing_the_item_s_path_at_a_file_naming_the_marker_is_caught(tmp_path: Path) -> None:
+    conftest = (
+        "import pytest\n\n\n@pytest.hookimpl(tryfirst=True)\ndef pytest_itemcollected(item):\n"
+        '    if item.name == "test_plain":\n'
+        "        item.function.pytestmark = [pytest.mark.needs_toolchain.mark]\n"
+        "        item.add_marker(pytest.mark.needs_toolchain)\n"
+        "        item.path = item.config.rootpath / 'conftest.py'\n"
+    )
+    plain = "def test_plain():\n    assert False\n"
+    done = run(tmp_path, {"conftest.py": conftest, f"{FOLDER}/test_a.py": plain})
+    assert done.returncode == 1, done.stdout
+    assert "test_a.py::test_plain: deselected" in not_run(done.stdout), done.stdout

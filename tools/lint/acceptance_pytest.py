@@ -17,7 +17,6 @@ acceptance report.
 
 import re
 from collections.abc import Generator, Iterable
-from pathlib import Path
 
 import pytest
 
@@ -54,7 +53,8 @@ def written_marks(item: pytest.Item) -> frozenset[str]:
     if not names:
         return frozenset()
     try:
-        source = Path(item.path).read_text()
+        # The file the test's node id names, not `item.path`, which a hook may point elsewhere.
+        source = (item.config.rootpath / item.nodeid.split("::", 1)[0]).read_text()
     except OSError:
         return frozenset()
     return frozenset(name for name in names if re.search(rf"\b{name}\b", source))
