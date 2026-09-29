@@ -13,7 +13,7 @@ const params = (items: number, unread: number, layers = 0) => ({ items, only_fir
 describe.each(['engine.decoders_agree.disagree', 'drawings.reports.read_anyway'])('%s', (code) => {
   it('never says the readers found the same items when the second could not read one', () => {
     const said = i18n._(code, params(0, 1))
-    expect(said).toContain('do not agree on this file: the second reader could not read 1 item.')
+    expect(said).toContain('found different contents in this file: the second reader could not read 1 item.')
     expect(said).not.toContain('the same items')
   })
 

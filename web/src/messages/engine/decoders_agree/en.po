@@ -7,7 +7,7 @@ msgstr ""
 
 #. engine/messages/decoders_agree.py (ticket 10): the decoder cross-check's codes.
 msgid "engine.decoders_agree.disagree"
-msgstr "The two readers do not agree on this file: {items, plural, =0 {{unread, plural, =0 {they found the same items but disagree on what some of them are} one {the second reader could not read # item} other {the second reader could not read # items}}} one {# item was found by only one of them} other {# items were found by only one of them}}{layers, plural, =0 {} one {, on # layer} other {, on # layers}}{items, plural, =0 {} other {{unread, plural, =0 {} one {; the second reader could not read # item} other {; the second reader could not read # items}}}}. It is held, so nothing from it reaches the sheet list while it may be misread."
+msgstr "The two readers found different contents in this file: {items, plural, =0 {{unread, plural, =0 {they found the same items but disagree on what some of them are} one {the second reader could not read # item} other {the second reader could not read # items}}} one {# item was found by only one of them} other {# items were found by only one of them}}{layers, plural, =0 {} one {, on # layer} other {, on # layers}}{items, plural, =0 {} other {{unread, plural, =0 {} one {; the second reader could not read # item} other {; the second reader could not read # items}}}}. It is held, so nothing from it reaches the sheet list while it may be misread."
 
 msgid "engine.decoders_agree.not_installed"
 msgstr "This file was read once, not twice: the second reader could not run, which is a fault on Vextrus's side, not in your file. Nothing from it reaches the sheet list; mark it for Vextrus to check."
