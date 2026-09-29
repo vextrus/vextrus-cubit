@@ -10,7 +10,7 @@ msgid "engine.read.aligned_text_from_start"
 msgstr "{count, plural, one {# aligned text is drawn from its start point, as AutoCAD plots it} other {# aligned texts are drawn from their start points, as AutoCAD plots them}}"
 
 msgid "engine.read.attrib_style_from_attdef"
-msgstr "{count, plural, one {# attribute took its text style from its block's definition, because its own style could not be read, so it is lettered as its block defines it} other {# attributes took their text styles from their blocks' definitions, because their own styles could not be read, so they are lettered as their blocks define them}}"
+msgstr "{count, plural, one {# attribute's own text style could not be read, so it is lettered in the style its block gives it} other {# attributes' own text styles could not be read, so they are lettered in the styles their blocks give them}}"
 
 msgid "engine.read.dxf_recovered"
 msgstr "The drawing's geometry was read in recovery mode ({errors, plural, one {# error} other {# errors}} repaired)"
@@ -22,16 +22,16 @@ msgid "engine.read.layer_unresolved"
 msgstr "{count, plural, one {# item names a layer the file does not hold} other {# items name a layer the file does not hold}}"
 
 msgid "engine.read.limit_reached"
-msgstr "{limit, select, cpu {The drawing could not be read: reading it used all the processing time Vextrus gives a file} wall {The drawing could not be read: reading it was stopped at its time limit} killed {The drawing could not be read: reading it was stopped at a limit of the machine's} other {The drawing could not be read: reading it reached a limit}}"
+msgstr "{limit, select, cpu {The drawing could not be read in the time Vextrus gives one file. Try again; if it stops again, mark the file for Vextrus.} wall {The drawing could not be read in the time Vextrus gives one file. Try again; if it stops again, mark the file for Vextrus.} killed {The drawing could not be read: the machine reading it stopped it, most likely because it needed more memory than the machine could give. Mark the file for Vextrus.} other {The drawing could not be read: reading it reached a limit Vextrus sets on one file. Mark the file for Vextrus.}}"
 
 msgid "engine.read.objects_missing"
 msgstr "The drawing could not be read: {count, plural, one {# object it lists is} other {# objects it lists are}} missing, so the file may be damaged"
 
 msgid "engine.read.output_unreadable"
-msgstr "The drawing could not be read: what Vextrus read from it could not be understood"
+msgstr "The drawing could not be read: what Vextrus read from it could not be understood. This is most likely a fault on Vextrus's side. Mark the file for Vextrus."
 
 msgid "engine.read.reader_failed"
-msgstr "The drawing could not be read: reading it stopped before the end"
+msgstr "The drawing could not be read: reading it stopped before the end. The file may be damaged, or the fault may be on Vextrus's side. Try again; if it stops again, mark the file for Vextrus."
 
 msgid "engine.read.sandbox_refused"
 msgstr "Vextrus stopped before reading this file because its usual safeguards were not in place. This is a fault on Vextrus's side, not in your file. Mark the file for Vextrus."
