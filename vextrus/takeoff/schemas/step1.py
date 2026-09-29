@@ -26,7 +26,8 @@ class Step1ProposalOut(_FromView):
     title: str
     revision_mark: str
     revision_mark_source: str | None
-    issue_date: str
+    issue_date: str | None
+    """An ISO date (`YYYY-MM-DD`), read in the Market's day-month order; null for none."""
     discipline: str | None
     file_id: uuid.UUID
     file_name: str
@@ -93,6 +94,8 @@ class Step1DisciplineProgressOut(Schema):
 class Step1ProgressOut(_FromView):
     disciplines: list[Step1DisciplineProgressOut]
     not_received: list[str]
+    qs: list[str]
+    """The names of the Project's QSs, who confirm its sheet list (the read-only bar names them)."""
 
 
 class Step1ActOut(_FromView):

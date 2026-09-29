@@ -107,10 +107,20 @@ class Market(models.Model):
     time_zone = models.CharField(max_length=64, help_text="An IANA time zone.")
     days_off = models.JSONField(help_text="The work week's days off, as ISO weekdays (1 is Monday).")
     default_home_region = models.CharField(max_length=32)
+    date_order = models.CharField(
+        max_length=3,
+        blank=True,
+        db_default="",
+        help_text='How its drawings write a date in figures: "DMY", "MDY" or "YMD"; "" when unknown.',
+    )
 
     class Meta:
         constraints: ClassVar = [
             models.UniqueConstraint(fields=["code"], name="platform_market_code_unique"),
+            models.CheckConstraint(
+                condition=models.Q(date_order__in=["", "DMY", "MDY", "YMD"]),
+                name="platform_market_date_order_known",
+            ),
             models.UniqueConstraint(fields=["tenant", "id"], name="platform_market_tenant_id"),
             models.CheckConstraint(
                 condition=models.Q(currency_minor_units__lte=4),

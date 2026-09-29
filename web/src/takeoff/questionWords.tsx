@@ -76,7 +76,7 @@ function CopyIn({ sheet, other, first }: { sheet: ProposalOut; other: ProposalOu
   const f = useFormat()
   if (sheet.revision_mark.trim() && other.revision_mark.trim() && sheet.revision_mark !== other.revision_mark) return <Copy sheet={sheet} />
   if (sheet.issue_date && other.issue_date && sheet.issue_date !== other.issue_date) {
-    const date = f.date(sheet.issue_date)
+    const date = f.day(sheet.issue_date)
     return <Trans>the copy dated {date}</Trans>
   }
   return first ? <Trans>the first copy</Trans> : <Trans>the second copy</Trans>
@@ -101,7 +101,7 @@ export function OptionWords({ entry, option }: { entry: QuestionEntry; option: O
     const kept = <CopyIn sheet={keep} other={drop} first={keep === later} />
     const dropped = <CopyIn sheet={drop} other={keep} first={drop === later} />
     const byMark = !!keep.revision_mark.trim() && !!drop.revision_mark.trim() && keep.revision_mark !== drop.revision_mark
-    const date = byMark && keep.issue_date ? f.date(keep.issue_date) : null
+    const date = byMark && keep.issue_date ? f.day(keep.issue_date) : null
     return date ? <Trans>Keep {kept} ({date}); leave {dropped} out as superseded</Trans> : <Trans>Keep {kept}; leave {dropped} out as superseded</Trans>
   }
   const words = OPTION_NAMES[key] ?? (entry.question.kind === 'low_confidence' ? SHEET_KIND_NAMES[key] : undefined)

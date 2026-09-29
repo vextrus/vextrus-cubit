@@ -13,7 +13,7 @@ import { TAKEOFF_STEPS } from '@/app/steps'
 import { useFormat } from '@/format'
 import { DrawingText, cn } from '@/ui'
 import { QuestionGlyph } from '@/ui/glyphs'
-import { SheetName } from './acts'
+import { SheetName, SheetRange } from './acts'
 import type { CoverageOut, ProposalOut } from './data'
 import type { DisciplineSection, QuestionEntry, Row, Step1Model } from './model'
 import { Answering, CannotAnswer, Copy, OptionWords, QuestionBody, QuestionTitle, optionsOf, useKindLine, usePick } from './questionWords'
@@ -77,11 +77,10 @@ function Expected({ section }: { section: DisciplineSection }) {
       )
     }
     if (list.source === 'typed') {
-      const first = <DrawingText kind="sheet-number" text={list.numbers[0] ?? ''} truncate={false} />
-      const last = <DrawingText kind="sheet-number" text={list.numbers.at(-1) ?? ''} truncate={false} />
+      const range = <SheetRange first={list.numbers[0] ?? ''} last={list.numbers.at(-1) ?? ''} />
       return (
         <Trans>
-          {name}: {listed} on the drawing list typed by {who} ({first}–{last}); {found} found.
+          {name}: {listed} on the drawing list typed by {who} ({range}); {found} found.
         </Trans>
       )
     }
@@ -98,15 +97,14 @@ function Expected({ section }: { section: DisciplineSection }) {
         {name}: no drawing list; {found} found.
       </Trans>
     )
-  const first = <DrawingText kind="sheet-number" text={run.first} truncate={false} />
-  const last = <DrawingText kind="sheet-number" text={run.last} truncate={false} />
+  const range = <SheetRange first={run.first} last={run.last} />
   return run.missing.length === 0 && run.twice.length === 0 ? (
     <Trans>
-      {name}: no drawing list; numbering runs {first}–{last} without a gap; {found} found.
+      {name}: no drawing list; numbering runs {range} without a gap; {found} found.
     </Trans>
   ) : (
     <Trans>
-      {name}: no drawing list; numbering runs {first}–{last} with gaps or repeats (see the list); {found} found.
+      {name}: no drawing list; numbering runs {range} with gaps or repeats (see the list); {found} found.
     </Trans>
   )
 }
@@ -222,7 +220,7 @@ function Fact({ label, children }: { label: ReactNode; children: ReactNode }) {
 function RevisionFact({ sheet }: { sheet: ProposalOut }) {
   const f = useFormat()
   const mark = <DrawingText kind="revision" text={sheet.revision_mark} truncate={false} />
-  const date = sheet.issue_date ? f.date(sheet.issue_date) : null
+  const date = sheet.issue_date ? f.day(sheet.issue_date) : null
   if (sheet.revision_mark_source === 'file_name')
     return date ? <Trans>{mark}, from the file name; dated {date}</Trans> : <Trans>{mark}, from the file name</Trans>
   return date ? (
@@ -310,7 +308,7 @@ export function QuestionCard({ entry, readOnly, names }: { entry: QuestionEntry;
             {entry.holds.map((s) => (
               <li key={s.id}>
                 <SheetName sheets={[s]} /> <Copy sheet={s} />
-                {s.issue_date ? <> · {f.date(s.issue_date)}</> : null} · <DrawingText kind="file-name" text={s.file_name} />
+                {s.issue_date ? <> · {f.day(s.issue_date)}</> : null} · <DrawingText kind="file-name" text={s.file_name} />
               </li>
             ))}
           </ul>

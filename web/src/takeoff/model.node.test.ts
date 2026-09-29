@@ -47,7 +47,7 @@ function data(proposals: ProposalOut[], questions: QuestionOut[] = []): Step1Dat
     proposals,
     questions,
     coverage: { views: 0, assigned: 0, excluded: 0, proposed: 0, unaccounted: 0, used: 0, by_step: {}, by_reason: {} },
-    progress: { disciplines: [], not_received: [] },
+    progress: { disciplines: [], not_received: [], qs: [] },
     lists: {},
   }
 }

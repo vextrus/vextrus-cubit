@@ -152,6 +152,7 @@ def sheet_candidate(
     title: str | None = None,
     discipline: str | None = None,
     revision_mark: str | None = None,
+    issue_date: str | None = None,
     anchors: tuple[DwgAnchor, ...] = (),
 ) -> SheetCandidate:
     def sourced(value: str | None) -> Sourced | None:
@@ -163,6 +164,7 @@ def sheet_candidate(
         title=sourced(title),
         discipline=None if discipline is None else Sourced(discipline, ValueSource.FILE),
         revision_mark=sourced(revision_mark),
+        issue_date=sourced(issue_date),
         anchors=anchors,
         group=group,
     )
@@ -174,6 +176,7 @@ def read_dwg(
     numbers: Sequence[str | None],
     *,
     titles: Sequence[str] | None = None,
+    issue_dates: Sequence[str | None] | None = None,
     mark_read: bool = True,
 ) -> list[services.SheetView]:
     """Take a DWG through the services as a read job would: artefact, reports, sheets (one frame
@@ -193,6 +196,7 @@ def read_dwg(
                 found.group,
                 number=number,
                 title=(titles[i] if titles else f"Sheet {i + 1}"),
+                issue_date=(issue_dates[i] or None) if issue_dates else None,
             )
             for i, number in enumerate(numbers)
         ]

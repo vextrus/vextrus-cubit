@@ -94,6 +94,8 @@ export interface Step1Model {
   /** Views neither assigned nor excluded (6.11). */
   unaccounted: number
   fileNames: Readonly<Record<string, string>>
+  /** The Project's QSs by name: whom the read-only bar names (6.12). */
+  qs: readonly string[]
 }
 
 export const REASONS = ['superseded', 'duplicate', 'cover_index', 'for_information', 'by_others', 'blank', 'other'] as const
@@ -244,6 +246,7 @@ export function step1Model(data: Step1Data): Step1Model {
     allConfirmed: disciplines.length > 0 && disciplines.every((d) => d.confirmed),
     unaccounted: data.coverage.unaccounted,
     fileNames: data.fileNames ?? {},
+    qs: data.progress.qs ?? [],
   }
 }
 

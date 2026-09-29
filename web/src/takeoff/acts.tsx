@@ -27,6 +27,11 @@ interface Done {
   words: ReactNode
 }
 
+/** A range of sheet numbers as one left-to-right isolate, "S-01–S-13", never read backwards (§1.8, M10). */
+export function SheetRange({ first, last }: { first: string; last: string }) {
+  return <DrawingText kind="sheet-number" text={`${first}\u2013${last}`} truncate={false} />
+}
+
 /** The label a sheet or a continuation goes by in a sentence: "S-02", "E-02–E-03", or its title. */
 export function SheetName({ sheets }: { sheets: readonly ProposalOut[] }) {
   const first = sheets[0]
@@ -36,7 +41,7 @@ export function SheetName({ sheets }: { sheets: readonly ProposalOut[] }) {
   if (sheets.length > 1 && last.number && last.number !== first.number) {
     return (
       <>
-        <DrawingText kind="sheet-number" text={first.number} truncate={false} />–<DrawingText kind="sheet-number" text={last.number} truncate={false} />
+        <SheetRange first={first.number} last={last.number} />
       </>
     )
   }

@@ -38,11 +38,12 @@ For the seed and 21c's read job: `propose_sheet`, `record_coverage`, `raise_ques
 import contextlib
 import hashlib
 import json
+import re
 import uuid
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from django.db import transaction
@@ -56,7 +57,7 @@ from engine.recognise.conflicts import Numbers, recognisers
 from engine.recognise.sheets import default_conventions
 from engine.recognise.types import DisciplineConvention, SheetConventions, ValueSource
 from vextrus.drawings import services as drawings
-from vextrus.platform.services import auth, jev, markets, tenancy
+from vextrus.platform.services import auth, invitations, jev, markets, tenancy
 from vextrus.projects import services as projects
 from vextrus.takeoff import acts
 from vextrus.takeoff.library import EXPECTED, SHEETS
@@ -98,7 +99,8 @@ class ProposalView:
     title: str
     revision_mark: str
     revision_mark_source: str | None
-    issue_date: str
+    issue_date: str | None
+    """The title block's date as an ISO date (`iso_date`, in the Market's order), or None."""
     discipline: str | None
     file_id: uuid.UUID
     file_name: str
@@ -170,6 +172,8 @@ class ProgressView:
     disciplines: list[DisciplineProgress]
     not_received: list[str]
     """The Market's expected Disciplines of which no file has been added, in the Market's order."""
+    qs: list[str] = field(default_factory=list)
+    """The names of the Project's QSs, who confirm its sheet list (the read-only bar names them)."""
 
 
 @dataclass(frozen=True)
@@ -247,8 +251,9 @@ def proposals(project_id: uuid.UUID) -> list[ProposalView]:
     # own act's name and time).
     who = {c.id: (c.by_name, c.at) for c in Confirmation.objects.filter(id__in=stamps)}
     agreeing = _agreeing(project_id, sheets, by_sheet)
+    order = markets.of_developer(_tenant()).date_order
     return [
-        replace(_proposal_view(s, by_sheet.get(s.id), names, who), agrees=s.id in agreeing)
+        replace(_proposal_view(s, by_sheet.get(s.id), names, who, order), agrees=s.id in agreeing)
         for s in sheets
     ]
 
@@ -316,11 +321,80 @@ def _without_gap(numbers: Numbers, discipline: str, sheets: Sequence[drawings.Sh
     return len(series) == 1 and running == list(range(running[0], running[0] + len(running)))
 
 
+_MONTHS = {
+    name: number
+    for number, names in enumerate(
+        (
+            ("jan", "january"),
+            ("feb", "february"),
+            ("mar", "march"),
+            ("apr", "april"),
+            ("may",),
+            ("jun", "june"),
+            ("jul", "july"),
+            ("aug", "august"),
+            ("sep", "sept", "september"),
+            ("oct", "october"),
+            ("nov", "november"),
+            ("dec", "december"),
+        ),
+        start=1,
+    )
+    for name in names
+}
+_DATE_TEXT = re.compile(r"[\sA-Za-z0-9./,-]+")
+_DATE_TOKEN = re.compile(r"[A-Za-z]+|\d+")
+
+
+def iso_date(drawn: str, order: str) -> str | None:
+    """A title block's date as drawn, as an ISO date ("12.09.2026" in a "DMY" Market: "2026-09-12"),
+    or None where it is not one date. Figures alone are read in the Market's `order` ("DMY", "MDY"
+    or "YMD"; with none known, they are not guessed); a year of four figures first, or a month
+    written as a word ("12 Sep 2026"), needs no order. A two-figure year is of this century."""
+    text = drawn.strip()
+    if not text or not _DATE_TEXT.fullmatch(text):
+        return None
+    tokens = _DATE_TOKEN.findall(text)
+    if len(tokens) != 3:
+        return None
+    words = [t for t in tokens if t.isalpha()]
+    figures = [t for t in tokens if t.isdigit()]
+    if len(words) == 1:
+        month = _MONTHS.get(words[0].lower())
+        if month is None or len(figures) != 2:
+            return None
+        year_text, day_text = (
+            (figures[0], figures[1]) if len(figures[0]) == 4 else (figures[1], figures[0])
+        )
+        parts = (year_text, str(month), day_text)
+    elif words:
+        return None
+    elif len(tokens[0]) == 4:
+        parts = (tokens[0], tokens[1], tokens[2])
+    elif order == "DMY":
+        parts = (tokens[2], tokens[1], tokens[0])
+    elif order == "MDY":
+        parts = (tokens[2], tokens[0], tokens[1])
+    elif order == "YMD":
+        parts = (tokens[0], tokens[1], tokens[2])
+    else:
+        return None
+    year_text, month_text, day_text = parts
+    if len(year_text) not in (2, 4) or len(month_text) > 2 or len(day_text) > 2:
+        return None
+    year = int(year_text) + (2000 if len(year_text) == 2 else 0)
+    try:
+        return date(year, int(month_text), int(day_text)).isoformat()
+    except ValueError:
+        return None
+
+
 def _proposal_view(
     sheet: drawings.SheetView,
     proposal: Proposal | None,
     names: Mapping[uuid.UUID, str],
     who: Mapping[uuid.UUID, tuple[str, datetime]],
+    date_order: str,
 ) -> ProposalView:
     by, at = who.get(sheet.confirmation_id, (None, None)) if sheet.confirmation_id else (None, None)
     pick = dict(proposal.jev_pick) if proposal and proposal.jev_pick else None
@@ -331,7 +405,7 @@ def _proposal_view(
         title=sheet.title,
         revision_mark=sheet.revision_mark,
         revision_mark_source=sheet.sources.get("revision_mark"),
-        issue_date=sheet.issue_date,
+        issue_date=iso_date(sheet.issue_date, date_order),
         discipline=sheet.discipline,
         file_id=sheet.file_id,
         file_name=names.get(sheet.file_id, ""),
@@ -451,7 +525,7 @@ def progress(project_id: uuid.UUID) -> ProgressView:
                 open_questions=open_questions[key],
             )
         )
-    return ProgressView(rows, _not_received(project_id))
+    return ProgressView(rows, _not_received(project_id), invitations.names_of("qs", project_id))
 
 
 def _not_received(project_id: uuid.UUID) -> list[str]:

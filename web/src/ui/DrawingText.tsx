@@ -52,7 +52,7 @@ export function DrawingText({
       dir={notation ? 'ltr' : 'auto'}
       data-notation={notation ? kind : undefined}
       title={cut ? (notation ? isolateLtr(text) : isolateOwn(text)) : undefined}
-      className={cn(truncate && 'inline-block max-w-full truncate align-bottom', className)}
+      className={cn(truncate ? 'inline-block max-w-full truncate align-bottom' : notation && 'whitespace-nowrap', className)}
     >
       {text}
     </bdi>

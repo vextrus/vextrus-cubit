@@ -442,6 +442,28 @@ def members() -> Members:
     return Members(tuple(people), tuple(vextrus), tuple(pending))
 
 
+def names_of(role: str, project_id: uuid.UUID) -> list[str]:
+    """The names of the people whose current Membership of the acting Developer has `role` and may
+    open `project_id` (all its Projects, or that one), in order of name: whom Step 1's read-only bar
+    names ("Nusrat Jahan (QS) confirms the sheet list", m0-screens 6.12). Every role may read it."""
+    tenant_id = tenancy.current_tenant_id()
+    if tenant_id is None:
+        return []
+    now = timezone.now()
+    current = Membership.objects.filter(
+        tenant_id=tenant_id, role=role, user__isnull=False, revoked_at__isnull=True, starts_at__lte=now
+    ).filter(Q(expires_at__isnull=True) | Q(expires_at__gt=now))
+    rows = list(current.values_list("id", "user_id"))
+    scopes = _projects_of(tenant_id, [membership_id for membership_id, _ in rows])
+    users = [
+        user_id
+        for membership_id, user_id in rows
+        if membership_id not in scopes or project_id in scopes[membership_id]
+    ]
+    names = User.objects.filter(id__in=users, is_active=True).values_list("name", flat=True)
+    return sorted(set(names), key=str.lower)
+
+
 @dataclass(frozen=True)
 class Hidden:
     """What a member given chosen Projects may not see of their Developer's people: the Memberships

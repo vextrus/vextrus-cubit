@@ -37,6 +37,7 @@ from vextrus.platform.models import Developer, Market, Membership, MembershipPro
 from vextrus.platform.services import library, markets, tenancy
 
 _MARKET_MIGRATION = "vextrus.platform.migrations.0004_bangladesh_market"
+_DATE_ORDER_MIGRATION = "vextrus.platform.migrations.0009_market_date_order"
 _numbers = itertools.count(1)
 
 
@@ -46,6 +47,7 @@ def put_back_the_library(sender: AppConfig, using: str, **kwargs: Any) -> None:
     if sender.label != "platform" or using != OWNER_ALIAS:
         return
     import_module(_MARKET_MIGRATION).seed(Market, Developer, using)
+    import_module(_DATE_ORDER_MIGRATION).seed(Market, using)
     library.sync(using)
     for email, (name, active) in STAFF.items():
         User.objects.using(using).update_or_create(

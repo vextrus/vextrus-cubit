@@ -31,6 +31,8 @@ class MarketProfile:
     time_zone: str
     days_off: tuple[int, ...]
     default_home_region: str
+    date_order: str
+    """How its drawings write a date in figures: "DMY", "MDY" or "YMD"; "" when unknown."""
 
 
 class MarketNotFound(LookupError):
@@ -83,4 +85,5 @@ def _profile(market: Market) -> MarketProfile:
         time_zone=market.time_zone,
         days_off=tuple(market.days_off),
         default_home_region=market.default_home_region,
+        date_order=market.date_order,
     )

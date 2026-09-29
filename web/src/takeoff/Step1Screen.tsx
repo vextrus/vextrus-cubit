@@ -181,6 +181,16 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
     if (done && thenNext && mode === 'sheet' && openSheet) openNextProposal(openSheet)
   }
 
+  const nextQuestion = () => {
+    const next = nextOpenRow(model.rows, mode === 'sheet' ? (rowOfSheet(openSheet)?.key ?? focused) : focused, true)
+    if (!next) return
+    if (mode === 'sheet') {
+      setMode('list')
+      setPicker(null)
+    }
+    focusRow(next.key)
+  }
+
   const bar = useBar({
     model,
     row: focusedRow,
@@ -190,6 +200,7 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
     confirmRow: (row, thenNext) => void confirmRow(row, thenNext),
     nextOpen,
     openRow,
+    nextQuestion,
   })
 
   const page = (by: number) => {
@@ -226,12 +237,7 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
     { key: '↑', label: t`Previous row; in a sheet, the previous sheet`, group: 'screen', run: () => moveFocus(-1) },
     { key: ']', label: t`Next sheet`, group: 'screen', when: () => mode === 'sheet', run: () => page(1) },
     { key: '[', label: t`Previous sheet`, group: 'screen', when: () => mode === 'sheet', run: () => page(-1) },
-    { key: 'Q', label: t`Next open Question`, group: 'screen', run: () => {
-      const next = nextOpenRow(model.rows, mode === 'sheet' ? (rowOfSheet(openSheet)?.key ?? focused) : focused, true)
-      if (!next) return
-      if (mode === 'sheet') setMode('list')
-      focusRow(next.key)
-    } },
+    { key: 'Q', label: t`Next open Question`, group: 'screen', run: nextQuestion },
     {
       key: 'Esc',
       label: t`Back to the list; in the list, clear the focus`,
