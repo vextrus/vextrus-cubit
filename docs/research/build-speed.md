@@ -64,6 +64,11 @@ latency, and the orchestrator's context fills with every PR's detail.
   [CCBP][P5]; this keeps it, and adds one earlier.
 - This meets both causes of the second continuations: the words gate and the fix-regression re-check now
   run before the first PR, not after.
+- **Bound the rounds.** "A reviewer prompted to find gaps will usually report some, even when the work is
+  sound … Chasing every finding leads to over-engineering"; reviewers should "flag only gaps that affect
+  correctness or the stated requirements" [CCBP]. The official workflow example stops "when two rounds in a
+  row make no progress" [WF]. So: fix at 50 or more, and a third round goes to the owner as a re-spec
+  (docs/sdlc.md's stop rule, applied to every ticket).
 
 ### 2.2 Continuous flow instead of waves (keeps every builder busy)
 A wave waits for its slowest ticket. The plan's DAG (docs/plans/M0.md, "The tickets at a glance") already
@@ -96,10 +101,21 @@ calls [P55][EFF] (docs/research/opus-5-5-agentic-orchestration.md §2). Tokens a
   to reviewers anyway.
 - **Builders at `high`,** `xhigh` for the reading tickets (13, 17, 18, 21c) and anything touching money or
   geometry. Reviewers at `high` (as CLAUDE.md already says).
+- The official figures: Opus 5.5 at `medium` "matches or exceeds Claude Opus 5 at `high`" on coding;
+  `xhigh` is for "long-running agentic and coding tasks (over 30 minutes)"; `high` for "work where
+  verification matters or edge cases are likely" [P55][EFF][CCMC]. No official source sets effort by role
+  (orchestrator, builder, reviewer): that split is this file's judgement.
 - **Measure it:** run the next two comparable tickets one at each level and compare time to ready and the
   confirming review's findings. If xhigh finds fewer faults at the confirming pass, keep it there.
 
-### 2.5 Cloud builders for `cloud` tickets again, once account B links GitHub
+### 2.5 Give every session an elapsed-time budget (faster at the same effort)
+The one measured speed lever in the official guidance: in a multi-agent harness, giving Opus 5.5 an
+elapsed-time signal (for example `elapsed 340s / 1200s`) made small teams finish "considerably sooner"
+with comparable quality. "Lowering effort reduces the work itself, whereas a budget mostly keeps more
+agents working in parallel" [P55]. Put a budget in every builder's prompt ("ready within 90 minutes;
+report elapsed time at each commit") and in each review agent's brief. Unmeasured on this codebase.
+
+### 2.6 Cloud builders for `cloud` tickets again, once account B links GitHub
 Session 04's cloud builders were the fastest part of the loop, each on its own machine. Session 05's
 failure was a set-up fault ("account B's `claude --cloud` uploaded a local copy with no git remote"), not a
 fault of cloud builders. Local builders share 24 cores and 26 GB with each other, their browsers and
@@ -108,11 +124,14 @@ their test databases.
   on one small ticket, and run `cloud` tickets there again; keep `local` and `cloud+local` tickets local.
 - This reverses the owner's 29 Sep ruling ("everything will be run in locally"), so it is the owner's call.
 
-### 2.6 A workflow for the review fan-out, not for building
+### 2.7 A workflow for the review fan-out, not for building
 The Workflow tool runs a deterministic script of subagents in the background. It suits the review:
 per head, `pr-reviewer`, `ux-critic` (words) and a `refuter` per finding at 50 or more, in parallel, ending
 in the one combined fix message as a file. The orchestrator gets the message, not the transcripts. It does
 not suit building: a ticket is one long session with judgement throughout.
+- The tool keeps intermediate results in script variables, not in the orchestrator's context, runs up to 16
+  agents at once, and takes no input mid-run: "For sign-off between stages, run each stage as its own
+  workflow" [WF]. So one run per head, and the owner's steps stay outside it.
 - It replaces the runbook's steps 3–5 (`orchestrate-wave`) with a script under `.claude/workflows/`; the
   prose there shrinks by as much. Under ten agents a run.
 - The postmortem's cause 3 (the harness became the product) is the risk: one script, no state store, and
@@ -133,13 +152,36 @@ ADR 0002 already allows. The owner decides; the plan is re-cut once, not ticket 
 1. Morning: the orchestrator (`high`) reads STATE.md, launches every ticket whose blockers are merged, up to
    six, each told to self-review (2.1) before "ready".
 2. Builders run; each ends with its own review reports. The orchestrator runs the confirming pass as a
-   workflow (2.6) the moment a builder is ready, pushes and opens the PR (2.3).
+   workflow (2.7) the moment a builder is ready, pushes and opens the PR (2.3).
 3. Owner's sitting (late morning, late afternoon): one script of gate posts and posting runs, then merges in
    DAG order. The orchestrator launches the newly unblocked tickets straight after.
 4. Measures per PR (time to ready, rounds, confirming-pass findings) go to #45 as now.
 
-## 5. Unverified
+## 5. What does not help
+- **More agents per ticket.** Multi-agent systems use about 15× the tokens of chat and "underperform on
+  work with intensive interdependencies"; most coding has "fewer truly parallelizable tasks" [MARS]. Agent
+  teams: "Start with 3-5 teammates"; "three focused teammates often outperform five scattered ones" [TEAMS].
+- **A bigger harness.** "Add multi-step agentic systems only when simpler solutions fall short" [BEA]; the
+  postmortem's cause 3 is the same lesson, learnt here.
+- **More builders than the owner can review.** A practitioner's measure: human review is the bottleneck;
+  one significant change reviewed at a time [SW, from search snippets only]. Hence 2.3.
+- **Ultracode for everything:** it plans a workflow for every substantive task, so each request "uses more
+  tokens and takes longer" [WF].
+
+## 6. Unverified
 - The local builders' timings in session 05 (STATE.md was not readable from this session).
 - Whether xhigh's findings rate beats high's on this codebase: nobody has measured it here.
 - The machine's memory pressure under five builders.
 - Whether account B can link GitHub for cloud sessions (the owner's settings).
+
+## Sources
+New to this file (the others are keyed in docs/research/opus-5-5-agentic-orchestration.md):
+- [CCMC] https://code.claude.com/docs/en/model-config
+- [WF] https://code.claude.com/docs/en/workflows
+- [TEAMS] https://code.claude.com/docs/en/agent-teams
+- [SW] https://simonwillison.net/2025/Oct/5/parallel-coding-agents/ (blocked by the proxy; snippets only)
+- Also read: https://code.claude.com/docs/en/best-practices [CCBP],
+  https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5-5 [P55],
+  https://platform.claude.com/docs/en/build-with-claude/effort [EFF],
+  https://www.anthropic.com/engineering/multi-agent-research-system [MARS],
+  https://www.anthropic.com/engineering/building-effective-agents [BEA].
