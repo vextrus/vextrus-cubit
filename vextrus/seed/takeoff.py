@@ -16,9 +16,9 @@ boxes). Step 1's progress rows, one per Discipline.
 its four sheets found), its `file_misread` Question answered by Nusrat Jahan: read anyway (m0-screens
 4.5, "Held, read anyway: its sheets are marked").
 
-For 21a (a named shared edit, after 19a merges): a read job's states on BP-02 and MG-01 go in a
-function of their own called from `run`, beside `bokul_held`; `demo` holds each file's id as
-`file:<code>:<name>` and each Question's as `question:<code>:<n>`.
+The states a read job carries (reading with its time left, interrupted and retrying) are
+`drawings`' seed's, on MG-01 (#125). `demo` holds each file's id as `file:<code>:<name>` and each
+Question's as `question:<code>:<n>`.
 """
 
 import json

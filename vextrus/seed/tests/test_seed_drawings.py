@@ -141,7 +141,7 @@ def test_bp_02_holds_the_rows_a_file_with_no_read_job_can_be_on(demo: Demo) -> N
         "BP-STR-R0.pdf": said.PLOT_WAITING(),  # its DWG is still reading
         "BP-ARC-R0.dwg": said.WAITING(ahead=1),  # BP-STR-R0.dwg is read before it
         "BP-ARC-old.dwg": said.HELD(),  # 19a's seed answers it
-        "BP-ARC-R0.pdf": said.PLOT_MATCHED(matched=4, pages=6),  # against BP-ARC-old.dwg's sheets
+        "BP-ARC-old.pdf": said.PLOT_MATCHED(matched=4, pages=6),  # against BP-ARC-old.dwg's sheets
         "BP-ELE-R0.dwg": said.CANCELLED(
             actor="Nusrat Jahan", vextrus="no", cancelled_date=_cancelled(shown)
         ),
@@ -168,9 +168,13 @@ def test_mg_01_holds_one_read_dwg_and_meghna_sees_nothing_of_shapla(demo: Demo) 
 
     assert {name: f.status for name, f in shown.items()} == {
         "MG-STR-R0.dwg": said.READ(),
-        "MG-ARC-R0.pdf": said.READING_PAGE_LEFT(position=5, total=16, minutes=120),
+        "MG-ARC-R0.pdf": said.READING_PAGE_LEFT(
+            position=5, total=16, minutes=shown["MG-ARC-R0.pdf"].status["params"]["minutes"]
+        ),
         "MG-ARC-R0.dwg": said.RETRYING(attempt=2, tries=3),
     }
+    # 120 minutes at the seed's stamp; 119 if a minute passed before this read.
+    assert shown["MG-ARC-R0.pdf"].status["params"]["minutes"] in (119, 120)
     assert files == 3
 
 
@@ -238,3 +242,19 @@ def test_the_seeded_retrying_file_can_be_cancelled_and_tried_again(demo: Demo) -
         again = services.restart(file_id)
 
     assert again.state == services.FileState.WAITING
+
+
+@pytest.mark.django_db(databases=["default", "owner"])
+def test_bp_02s_matched_pdf_is_named_for_the_dwg_it_plots_and_says_why_each_page_is_unmatched(
+    demo: Demo,
+) -> None:
+    shown = files_of(demo, "developer:shapla", "BP-02")
+    names = {f.id: f.name for f in shown.values()}
+    with tenancy.acting_in(demo["developer:shapla"]):
+        pages = services.report(shown["BP-ARC-old.pdf"].id).pages
+
+    plotted = {f.name: [names[d] for d in f.plot_for] for f in shown.values() if f.plot_for}
+    assert plotted == {"BP-ARC-old.pdf": ["BP-ARC-old.dwg"]}
+    assert pages[0] == {"code": "drawings.reports.pages_matched", "params": {"matched": 4, "pages": 6}}
+    unmatched = [line["params"]["page"] for line in pages if "page" in line["params"]]
+    assert unmatched == [5, 6]

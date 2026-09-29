@@ -19,6 +19,7 @@ from typing import Any
 from django.db.models import Q, Sum
 
 from engine.messages import Message
+from engine.messages.decoders_agree import DISAGREE
 from vextrus.drawings.messages import reports as said
 from vextrus.drawings.models import (
     DrawingFile,
@@ -80,6 +81,13 @@ def _messages(stored: dict[str, Any] | None) -> tuple[Message, ...]:
 def _readers(row: DrawingFile) -> list[Message]:
     finding = row.finding
     stopped = row.read_status in (ReadStatus.FAILED, ReadStatus.QUARANTINED)
+    if (
+        finding
+        and row.read_status == ReadStatus.QUARANTINED
+        and row.held_answer == HeldAnswer.READ_ANYWAY
+        and finding.get("code") == DISAGREE.code
+    ):
+        return [said.READ_ANYWAY(**finding["params"])]
     if finding and (stopped or str(finding.get("code", "")).startswith("engine.decoders_agree.")):
         return [Message(code=finding["code"], params=finding["params"])]
     check = row.cross_check or {}

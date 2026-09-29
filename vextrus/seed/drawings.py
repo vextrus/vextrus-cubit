@@ -1,6 +1,7 @@
 """The demo seed's `drawings` rows (ticket 14): KR-01's files, reports, sheets, views and renders at
 docs/design/m0-screens.md §7's state, BP-02's files in the Drawing Set's row states a file with no read
-job can be in, and MG-01's one read DWG. All invented: nothing comes from a real Drawing Set.
+job can be in, and MG-01's read DWG beside the states a read job carries. All invented: nothing
+comes from a real Drawing Set.
 
 Everything goes through `drawings.services`, as a read job would put it, and through real engine code:
 each file's ReadArtefact is 11's synthetic `Drawing` (`ReadArtefact.build`, stamped with the file's
@@ -20,7 +21,7 @@ proposed to a Takeoff Step or a Discipline Part, 2 unaccounted (S-10's loose box
 
 **BP-02** holds a row for each state its own columns hold, no read job: BP-STR-R0.dwg stalled at
 "Reading sheet 7 of 12", BP-STR-R0.pdf read before its DWG, BP-ARC-R0.dwg waiting, BP-ARC-old.dwg held
-with its 4 sheets (19a's seed answers it "read anyway"), BP-ARC-R0.pdf matched to them (4 of 6 pages),
+with its 4 sheets (19a's seed answers it "read anyway"), BP-ARC-old.pdf matched to them (4 of 6 pages),
 BP-ELE-R0.dwg cancelled by Nusrat Jahan, BP-PLB-R0.dwg failed, BP-FIRE-R0.dwg read by one reader
 only, BP-LIFT-R12.dwg saved by an old AutoCAD. **MG-01** (Meghna) holds one small DWG, read, and the
 states a read job carries (#125): MG-ARC-R0.pdf reading page 5 of 16 with its time left (no job: the
@@ -583,13 +584,14 @@ OLD_ARCHITECTURAL = (
       (V(ViewKind.ELEVATION, "FRONT ELEVATION", PLAN_BOX, ("walls",), scale="1:100"),),
       kind="elevation"),
 )  # fmt: skip
-"""BP-ARC-old.dwg's sheets: an older issue, four sheets where BP-ARC-R0.pdf prints six."""
+"""BP-ARC-old.dwg's sheets: an older issue, four sheets where BP-ARC-old.pdf prints six."""
 
 
 def held_read_anyway(demo: Demo, code: str, project_id: uuid.UUID) -> None:
     """BP-ARC-old.dwg: its sheets found, then held (its two readers disagree); 19a's seed answers its
-    Question "read anyway", so 4.5's "Held, read anyway: its sheets are marked" has sheets to mark.
-    BP-ARC-R0.pdf, of its Discipline, is matched against them: 4 of its 6 pages (#131)."""
+        Question "read anyway", so 4.5's "Held, read anyway: its sheets are marked" has sheets to mark.
+        BP-ARC-old.pdf, plotted from it, is matched against them: 4 of its 6 pages, pages 5 and 6 showing
+    sheets in no DWG added (#131)."""
     held = added(demo, code, project_id, "BP-ARC-old.dwg", invented("dwg", "BP-ARC-old"))
     built = draw(held.sha256, held.name, OLD_ARCHITECTURAL, ("arial.ttf",))
     services.store_artefact(held.id, built.artefact)
@@ -603,11 +605,15 @@ def held_read_anyway(demo: Demo, code: str, project_id: uuid.UUID) -> None:
     )
     services.quarantine(held.id, disagree)
     demo[f"finding:{code}:BP-ARC-old.dwg"] = disagree
-    printed_pdf, facts = pdf(demo, code, project_id, "BP-ARC-R0.pdf", pages=6, maker="autocad")
+    printed_pdf, facts = pdf(demo, code, project_id, "BP-ARC-old.pdf", pages=6, maker="autocad")
     plot(
         printed_pdf,
         facts,
         {s.label: v for s, v in zip(OLD_ARCHITECTURAL, printed, strict=True)},
+    )
+    services.record_page_reasons(
+        printed_pdf.id,
+        [report_words.PAGE_SHEET_NOT_IN_DWG(page=n, sheet=f"A-{n:02d}") for n in (5, 6)],
     )
 
 
@@ -647,7 +653,7 @@ def reading_pdf(
     demo: Demo, code: str, project_id: uuid.UUID, name: str, *, pages: int, at: int, actor: str
 ) -> None:
     """A PDF reading page `at` of `pages`, its pages before read at PAGE_MINUTES each up to the
-    seed's clock stamp: 4.5's "Reading page 5 of 16 (about 2 hours left)"."""
+    seed's clock stamp: "Reading page 5 of 16 (120 minutes left)" just after the seed."""
     found = added(demo, code, project_id, name, pdf_bytes(name, pages), actor)
     facts = DocumentFacts(
         producer="DWG To PDF.hdi 25.0.0 (AutoCAD 2025)",
