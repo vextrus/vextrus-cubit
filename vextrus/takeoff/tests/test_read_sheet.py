@@ -315,11 +315,12 @@ def test_reading_the_file_again_reads_no_sheet_again(
 
 
 @pytest.mark.django_db
-def test_a_view_limit_a_sheet_reached_is_said_by_that_sheets_step(
+def test_a_view_limit_is_said_once_for_the_file_by_the_first_sheet_it_cut(
     qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The view finder's scan bound, lowered so the first sheet spends it: its step says
-    `views_scan_budget`; the sheet finder's `not_read_in_full` is left as it is."""
+    """The view finder's scan bound, lowered so the first sheet spends it and every sheet is cut:
+    each sheet's `view_report` counts its cut, the first sheet's step says `views_scan_budget`, and
+    no later one says it again; the sheet finder's `not_read_in_full` is left as it is."""
     monkeypatch.setattr(view_finder, "MAX_SCANS", 1)
     file_id = added(qs_project)
 
@@ -327,12 +328,39 @@ def test_a_view_limit_a_sheet_reached_is_said_by_that_sheets_step(
 
     steps = kept(qs_project.member, file_id)
     assert steps[drawings.SHEETS].result["not_read_in_full"] == []
-    said = [steps[drawings.sheet_step(n)].result["not_read_in_full"] for n in range(1, FRAMES + 1)]
-    limits = {m["params"]["limit"] for messages in said for m in messages}
-    assert limits == {"views_scan_budget"}
-    assert all(m["code"] == "takeoff.read_file.not_read_in_full" for ms in said for m in ms)
-    for messages in said:
-        assert len(messages) == len({m["params"]["limit"] for m in messages})
+    results = [steps[drawings.sheet_step(n)].result for n in range(1, FRAMES + 1)]
+    assert all(r["view_report"]["views_scan_budget"] > 0 for r in results)
+    said = [m for r in results for m in r["not_read_in_full"]]
+    assert said == [
+        {"code": "takeoff.read_file.not_read_in_full", "params": {"limit": "views_scan_budget"}}
+    ]
+    assert results[0]["not_read_in_full"] == said
+
+
+@pytest.mark.django_db
+def test_a_restart_never_says_a_view_limit_the_file_already_said(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(view_finder, "MAX_SCANS", 1)
+    file_id = added(qs_project)
+    reads = SheetReads(monkeypatch)
+
+    with pytest.raises(jobs.Stopped):
+        run_job(
+            qs_project.member,
+            file_id,
+            monkeypatch,
+            abort_reason=lambda: AbortReason.SHUTDOWN if reads.count >= 1 else None,
+        )
+    run_job(qs_project.member, file_id, monkeypatch)
+
+    steps = kept(qs_project.member, file_id)
+    said = [
+        m["params"]["limit"]
+        for n in range(1, FRAMES + 1)
+        for m in steps[drawings.sheet_step(n)].result["not_read_in_full"]
+    ]
+    assert said == ["views_scan_budget"]
 
 
 def test_not_read_in_full_words_every_view_limit_apart() -> None:

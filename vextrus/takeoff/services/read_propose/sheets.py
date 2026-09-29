@@ -17,11 +17,13 @@ again.
 
 **`sheet_<n>`**, for the n-th recorded sheet (`drawings.sheet_step`; the list's "Reading sheet 12
 of 38"): 17's views (`record_views`), 11's render buffers (`record_render`), and its Plot where the
-sheet alone decides it: a sheet with no number can match no page (`PlotNone.NO_NUMBER`). A limit
-of the view finder's that this sheet's views reached is said in its result's `not_read_in_full`,
-as `views_<limit>`. The matching of the set's PDF pages to sheets, and F1, are 18's stage and not
-run here yet: until then the sheet list says why a sheet has no Plot from the set's PDFs as they
-stand (`drawings`' own reason).
+sheet alone decides it: a sheet with no number can match no page (`PlotNone.NO_NUMBER`). What the
+view finder's limits cut while reading the sheet is its result's `view_report` (by `views_<limit>`);
+the first sheet a limit cut says it, once for the file, in its result's `not_read_in_full`
+(a limit reached on a restart after a stop can read differently: the view finder's bounds start
+again with the artefact loaded again). The matching of the set's PDF pages to sheets, and F1, are
+18's stage and not run here yet: until then the sheet list says why a sheet has no Plot from the
+set's PDFs as they stand (`drawings`' own reason).
 
 Each step's key holds the file's sha256, its reader, and the conventions' digest: the same file read
 again under the same conventions skips every kept step.
@@ -96,17 +98,21 @@ def read(
     recorded = cast(list[dict[str, Any]], found["sheets"])
     steps.expect(done_before + 1 + len(recorded) + after)
     seen: dict[str, int] = {}
+    said_for_file: set[str] = set()
 
     def read_one(sheet_id: uuid.UUID, candidate: SheetCandidate) -> jobs.StepResult:
-        return _read_sheet(sheet_id, candidate, load(), held()[1], seen)
+        return _read_sheet(sheet_id, candidate, load(), held()[1], seen, said_for_file)
 
     for position, kept in enumerate(recorded, start=1):
         sheet_id = uuid.UUID(kept["id"])
-        steps.run(
+        done = steps.run(
             drawings.sheet_step(position),
             partial(read_one, sheet_id, candidate_from_json(kept["candidate"])),
             inputs=key(sheet=sheet_id),
         )
+        # A kept step's words count too: a restart never says a limit the file already said.
+        said = cast(list[dict[str, Any]], done.get("not_read_in_full", []))
+        said_for_file.update(str(m["params"]["limit"]) for m in said)
     return len(recorded)
 
 
@@ -146,8 +152,11 @@ def _read_sheet(
     artefact: ReadArtefact,
     view_conventions: ViewConventions,
     seen: dict[str, int],
+    said_for_file: set[str],
 ) -> jobs.StepResult:
-    """`seen`: the view finder's limits as the last sheet read with this artefact left them."""
+    """`seen`: the view finder's limits as the last sheet read with this artefact left them;
+    `said_for_file`: the view limits an earlier sheet's step already said (once for the file: the
+    words are the file's; `view_report` says which sheets a limit cut)."""
     views = view_finder.find(artefact, candidate, view_conventions)
     kept = drawings.record_views(sheet_id, list(views))
     # The view finder's bounds are the file's, spent across its sheets: this sheet's cut is what
@@ -165,7 +174,9 @@ def _read_sheet(
     result: dict[str, Any] = {
         "views": len(kept),
         "view_report": cut,
-        "not_read_in_full": not_read_in_full(cut, VIEW_LIMITS),
+        "not_read_in_full": not_read_in_full(
+            cut, [limit for limit in VIEW_LIMITS if limit not in said_for_file]
+        ),
         "render": has_render,
     }
     return result
