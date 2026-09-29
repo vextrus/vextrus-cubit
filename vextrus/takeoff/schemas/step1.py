@@ -45,6 +45,10 @@ class Step1ProposalOut(_FromView):
     decided_at: datetime | None
     agrees: bool
     """Two sources agree on it (m0-screens §5): it joins the bulk act; else "Proposal, one source"."""
+    decided_role: str | None
+    """The role of whoever decided it ("qs", "md", "vextrus_engineer", "guest"), or null."""
+    decided_with: int
+    """How many sheets the act that decided it decided ("Confirmed in bulk with 15 other sheets")."""
 
 
 class Step1ProposalsOut(Schema):

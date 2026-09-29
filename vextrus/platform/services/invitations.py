@@ -442,6 +442,22 @@ def members() -> Members:
     return Members(tuple(people), tuple(vextrus), tuple(pending))
 
 
+def roles_of(user_ids: Iterable[uuid.UUID]) -> dict[uuid.UUID, str]:
+    """Each user's role in the acting Developer, from their latest Membership of it (current or
+    ended): how Step 1's "Who did what" names an actor ("Nusrat Jahan, QS", m0-screens 6.6)."""
+    tenant_id = tenancy.current_tenant_id()
+    wanted = {i for i in user_ids if i}
+    if tenant_id is None or not wanted:
+        return {}
+    found: dict[uuid.UUID, str] = {}
+    rows = Membership.objects.filter(tenant_id=tenant_id, user_id__in=wanted).order_by(
+        "created_at", "id"
+    )
+    for user_id, role in rows.values_list("user_id", "role"):
+        found[user_id] = role
+    return found
+
+
 def names_of(role: str, project_id: uuid.UUID) -> list[str]:
     """The names of the people whose current Membership of the acting Developer has `role` and may
     open `project_id` (all its Projects, or that one), in order of name: whom Step 1's read-only bar

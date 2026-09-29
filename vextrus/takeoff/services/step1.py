@@ -121,6 +121,10 @@ class ProposalView:
     title block, and its Discipline's drawing list naming it, or, with no list, its Discipline's
     numbering running without a gap and its Plot page matched; never while held or in an open
     Question. Only such a sheet joins the bulk act (6.4); the others are Proposals "with one source"."""
+    decided_role: str | None = None
+    """The role of whoever decided it, in this Developer ("qs", "vextrus_engineer"…), or None."""
+    decided_with: int = 0
+    """How many sheets the act that decided it decided (a bulk act's count; 1 for one sheet)."""
 
 
 @dataclass(frozen=True)
@@ -249,11 +253,19 @@ def proposals(project_id: uuid.UUID) -> list[ProposalView]:
     stamps = {s.confirmation_id for s in sheets if s.confirmation_id}
     # Who and when, from the act that decided each sheet (a decision put back by an undo keeps its
     # own act's name and time).
-    who = {c.id: (c.by_name, c.at) for c in Confirmation.objects.filter(id__in=stamps)}
+    acts_of = list(Confirmation.objects.filter(id__in=stamps))
+    who = {c.id: (c.by_name, c.at) for c in acts_of}
+    roles = invitations.roles_of(c.user_id for c in acts_of)
+    how = {c.id: (roles.get(c.user_id), c.proposals) for c in acts_of}
     agreeing = _agreeing(project_id, sheets, by_sheet)
     order = markets.of_developer(_tenant()).date_order
     return [
-        replace(_proposal_view(s, by_sheet.get(s.id), names, who, order), agrees=s.id in agreeing)
+        replace(
+            _proposal_view(s, by_sheet.get(s.id), names, who, order),
+            agrees=s.id in agreeing,
+            decided_role=how.get(s.confirmation_id, (None, 0))[0] if s.confirmation_id else None,
+            decided_with=how.get(s.confirmation_id, (None, 0))[1] if s.confirmation_id else 0,
+        )
         for s in sheets
     ]
 

@@ -18,6 +18,7 @@ import type { CoverageOut, ProposalOut } from './data'
 import type { DisciplineSection, QuestionEntry, Row, Step1Model } from './model'
 import { Answering, CannotAnswer, Copy, OptionWords, QuestionBody, QuestionTitle, Trace, optionsOf, useKindLine, usePick } from './questionWords'
 import { disciplineName } from './SheetList'
+import { Act, ActorChip } from './who'
 import { NOT_RECEIVED_NAMES, OTHER_DISCIPLINE, REASON_SHORT, UNKNOWN_REASON } from './words'
 
 function Block({ title, children }: { title?: ReactNode; children: ReactNode }) {
@@ -187,23 +188,35 @@ export function Overview({ model, projectName, readOnly }: { model: Step1Model; 
 }
 
 function Decided({ sheet, readOnly }: { sheet: ProposalOut; readOnly: boolean }) {
-  const { i18n } = useLingui()
-  const f = useFormat()
-  const name = sheet.decided_by ?? ''
-  const date = sheet.decided_at ? f.date(sheet.decided_at) : ''
-  if (sheet.decision === 'confirmed') return <Trans>Confirmed by {name}, {date}</Trans>
-  if (sheet.decision === 'excluded') {
-    const reason = sheet.excluded_reason === 'other' && sheet.excluded_text ? sheet.excluded_text : i18n._((sheet.excluded_reason && REASON_SHORT[sheet.excluded_reason]) || UNKNOWN_REASON)
-    return (
-      <Trans>
-        Excluded by {name}, {date}: {reason}
-      </Trans>
-    )
-  }
+  if (sheet.decision === 'confirmed' || sheet.decision === 'excluded') return <Act sheet={sheet} />
   return readOnly ? (
     <Trans>Proposed by Vextrus from the file; no one has acted on it yet. A Proposal counts toward nothing until the QS confirms it.</Trans>
   ) : (
     <Trans>Proposed by Vextrus from the file; no one has acted on it yet. A Proposal counts toward nothing until you confirm it.</Trans>
+  )
+}
+
+/** The state and when (6.6 item 2), in §5's words: "NJ Confirmed by Nusrat Jahan, 26 Sep 2026, 10:42". */
+function StateWhen({ sheet }: { sheet: ProposalOut }) {
+  const f = useFormat()
+  const name = sheet.decided_by ?? ''
+  const date = sheet.decided_at ? f.date(sheet.decided_at) : ''
+  const time = sheet.decided_at ? f.time(sheet.decided_at) : ''
+  return (
+    <span className="flex items-center gap-1.5 text-xs text-ink-secondary">
+      <ActorChip name={sheet.decided_by} role={sheet.decided_role} />
+      <span>
+        {sheet.decision === 'confirmed' ? (
+          <Trans>
+            Confirmed by {name}, {date}, {time}
+          </Trans>
+        ) : (
+          <Trans>
+            Excluded by {name}, {date}, {time}
+          </Trans>
+        )}
+      </span>
+    </span>
   )
 }
 
@@ -244,6 +257,7 @@ export function SheetFacts({ row, showTitle, readOnly }: { row: Row; showTitle: 
             <SheetName sheets={row.sheets} />
           </span>
           {showTitle ? <DrawingText kind="title" text={sheet.title} truncate={false} className="text-ink-secondary" /> : null}
+          {sheet.decision ? <StateWhen sheet={sheet} /> : null}
         </div>
       </Block>
       <Block title={<Trans>Proposal: where each was read</Trans>}>

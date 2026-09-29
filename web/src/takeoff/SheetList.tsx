@@ -13,6 +13,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/primitives/tooltip
 import type { ProposalOut } from './data'
 import { rowState, type DisciplineSection, type Row, type Step1Model } from './model'
 import { SheetRange } from './acts'
+import { ActorChip } from './who'
 import { DISCIPLINE_NAMES, NOT_RECEIVED_NAMES, OTHER_DISCIPLINE, OTHER_QUESTION, QUESTION_KIND_BY_CODE, REASON_SHORT, UNKNOWN_REASON } from './words'
 
 export interface SheetListProps {
@@ -307,7 +308,15 @@ function State({ row }: { row: Row }) {
   const { i18n } = useLingui()
   const state = rowState(row)
   if (state.kind === 'question') return <StatusMark status="question" questionId={state.tag} />
-  if (state.kind === 'confirmed') return <StatusMark status="confirmed" />
+  if (state.kind === 'confirmed') {
+    const first = row.sheets[0]
+    return (
+      <span className="inline-flex items-center gap-1.5">
+        <StatusMark status="confirmed" />
+        <ActorChip name={first?.decided_by} role={first?.decided_role} />
+      </span>
+    )
+  }
   if (state.kind === 'excluded') {
     const reason = state.reason === 'other' && state.text ? state.text : i18n._((state.reason && REASON_SHORT[state.reason]) || UNKNOWN_REASON)
     return (

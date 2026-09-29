@@ -18,7 +18,7 @@ function sheet(number: string | null, over: Partial<ProposalOut> = {}): Proposal
     title: `TITLE ${n}`,
     revision_mark: 'R0',
     revision_mark_source: 'file_name',
-    issue_date: '',
+    issue_date: null,
     discipline: 'structural',
     file_id: 'f1',
     file_name: 'KR-STR-R0.dwg',
@@ -32,6 +32,8 @@ function sheet(number: string | null, over: Partial<ProposalOut> = {}): Proposal
     excluded_text: '',
     decided_by: null,
     decided_at: null,
+    decided_role: null,
+    decided_with: 0,
     agrees: true,
     ...over,
   }

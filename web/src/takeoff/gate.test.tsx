@@ -39,7 +39,7 @@ function kr01(qs: string[] = ['Nusrat Jahan']): { api: FakeApi; step1: FakeStep1
 
 async function open(api: FakeApi, as: string = PEOPLE.qs) {
   const app = await mountApp('/p/KR-01/takeoff/1', { as, api })
-  await waitFor(() => expect(bodyText()).toContain('Confirmed 0 / 24'))
+  await waitFor(() => expect(bodyText()).toMatch(/Confirmed \d+ \/ 24/))
   return app
 }
 
@@ -194,5 +194,34 @@ describe('M5: the pre-pick is shown with what agrees', () => {
       expect(clean(card.textContent)).not.toContain('Picked for you')
       expect(card.querySelector('input[type="radio"]:checked')).toBeNull()
     }
+  })
+})
+
+describe('M8: who did what, with the initials chip', () => {
+  function decide(step1: FakeStep1) {
+    Object.assign(step1.proposals.find((p) => p.number === 'S-02')!, { decision: 'confirmed', decided_by: 'Nusrat Jahan', decided_role: 'qs', decided_with: 16, decided_at: '2026-09-26T05:00:00Z' })
+    Object.assign(step1.proposals.find((p) => p.number === 'S-03')!, { decision: 'excluded', excluded_reason: 'superseded', decided_by: 'Nusrat Jahan', decided_role: 'qs', decided_with: 1, decided_at: '2026-09-26T05:10:00Z' })
+    Object.assign(step1.proposals.find((p) => p.number === 'S-04')!, { decision: 'confirmed', decided_by: 'Tanvir Ahmed', decided_role: 'vextrus_engineer', decided_with: 1, decided_at: '2026-09-26T05:20:00Z' })
+  }
+
+  it('shows "Confirmed NJ" in the State column, and "TA Vextrus" for a Vextrus Engineer', async () => {
+    const { api, step1 } = kr01()
+    decide(step1)
+    await open(api)
+    await waitFor(() => expect(within(rowOf('S-02')).getByLabelText('Nusrat Jahan').textContent).toBe('NJ'))
+    expect(clean(within(rowOf('S-04')).getByLabelText('Tanvir Ahmed').textContent)).toBe('TA Vextrus')
+  })
+
+  it('words each act as its what over "name, role, date, time" in the inspector', async () => {
+    const { api, step1 } = kr01()
+    decide(step1)
+    await open(api)
+    await userEvent.click(within(rowOf('S-02')).getByText('S-02'))
+    await waitFor(() => expect(clean(inspector().textContent)).toContain('Confirmed in bulk with 15 other sheets'))
+    expect(clean(inspector().textContent)).toContain('Nusrat Jahan, QS, 26 Sep 2026, 11:00')
+    expect(clean(inspector().textContent)).toContain('NJConfirmed by Nusrat Jahan, 26 Sep 2026, 11:00')
+    await userEvent.click(within(rowOf('S-03')).getByText('S-03'))
+    await waitFor(() => expect(clean(inspector().textContent)).toContain('Excluded: superseded'))
+    expect(clean(inspector().textContent)).toContain('Nusrat Jahan, QS, 26 Sep 2026, 11:10')
   })
 })

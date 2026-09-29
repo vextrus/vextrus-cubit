@@ -128,10 +128,6 @@ msgid "{name} title block"
 msgstr "{name} title block"
 
 #: src/takeoff/Step1Inspector.tsx
-msgid "Confirmed by {name}, {date}"
-msgstr "Confirmed by {name}, {date}"
-
-#: src/takeoff/Step1Inspector.tsx
 msgid "{part}, M3 onwards"
 msgstr "{part}, M3 onwards"
 
@@ -166,6 +162,10 @@ msgstr "your last change to Step 1"
 #: src/takeoff/questionWords.tsx
 msgid "The drawing list names {number}, and no file has it."
 msgstr "The drawing list names {number}, and no file has it."
+
+#: src/takeoff/who.tsx
+msgid "Excluded: {reason}"
+msgstr "Excluded: {reason}"
 
 #: src/takeoff/SheetList.tsx
 msgid "found, {listed} on the drawing list read on a sheet"
@@ -218,6 +218,10 @@ msgstr "Disciplines not yet received"
 #: src/takeoff/Step1Inspector.tsx
 msgid "Revision"
 msgstr "Revision"
+
+#: src/takeoff/who.tsx
+msgid "QS"
+msgstr "QS"
 
 #: src/takeoff/acts.tsx
 msgid "Confirmed {name}."
@@ -274,6 +278,10 @@ msgstr "two, agreeing"
 #: src/takeoff/Bar.tsx
 msgid "{n, plural, one {Confirm # sheet that agrees} other {Confirm # sheets that agree}}"
 msgstr "{n, plural, one {Confirm # sheet that agrees} other {Confirm # sheets that agree}}"
+
+#: src/takeoff/who.tsx
+msgid "MD"
+msgstr "MD"
 
 #: src/takeoff/Bar.tsx
 msgid "{who} (QS) confirm the sheet list; every act shows who did it."
@@ -769,6 +777,10 @@ msgstr "Previous row; in a sheet, the previous sheet"
 msgid "Blank: base plan only"
 msgstr "Blank: base plan only"
 
+#: src/takeoff/who.tsx
+msgid "Confirmed"
+msgstr "Confirmed"
+
 #: src/takeoff/Step1Inspector.tsx
 msgid "What the QS has left, in order"
 msgstr "What the QS has left, in order"
@@ -776,6 +788,10 @@ msgstr "What the QS has left, in order"
 #: src/takeoff/words.tsx
 msgid "The mechanical (HVAC) drawing list"
 msgstr "The mechanical (HVAC) drawing list"
+
+#: src/takeoff/who.tsx
+msgid "{name}, {date}, {time}"
+msgstr "{name}, {date}, {time}"
 
 #: src/takeoff/questionWords.tsx
 msgid "Answering confirms {number} ({kept}) and excludes {number} ({dropped}) as superseded."
@@ -970,9 +986,17 @@ msgstr "{name} confirmed"
 msgid "Lift layout"
 msgstr "Lift layout"
 
+#: src/takeoff/who.tsx
+msgid "Vextrus Engineer"
+msgstr "Vextrus Engineer"
+
 #: src/takeoff/acts.tsx
 msgid "confirmed {name}"
 msgstr "confirmed {name}"
+
+#: src/takeoff/who.tsx
+msgid "Guest"
+msgstr "Guest"
 
 #: src/takeoff/Bar.tsx
 #: src/takeoff/Step1Screen.tsx
@@ -990,6 +1014,14 @@ msgstr "Roof plan"
 #: src/takeoff/questionWords.tsx
 msgid "{file} may be misread"
 msgstr "{file} may be misread"
+
+#: src/takeoff/who.tsx
+msgid "{name}, {roleName}, {date}, {time}"
+msgstr "{name}, {roleName}, {date}, {time}"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Excluded by {name}, {date}, {time}"
+msgstr "Excluded by {name}, {date}, {time}"
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "Kept open"
@@ -1324,6 +1356,10 @@ msgstr "Title block text (the number field is empty)"
 msgid "Opening Step 1…"
 msgstr "Opening Step 1…"
 
+#: src/takeoff/who.tsx
+msgid "{others, plural, one {Confirmed in bulk with # other sheet} other {Confirmed in bulk with # other sheets}}"
+msgstr "{others, plural, one {Confirmed in bulk with # other sheet} other {Confirmed in bulk with # other sheets}}"
+
 #: src/takeoff/questionWords.tsx
 msgid "the later date"
 msgstr "the later date"
@@ -1356,6 +1392,10 @@ msgstr "electrical"
 #: src/takeoff/words.tsx
 msgid "Pile cap layout"
 msgstr "Pile cap layout"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Confirmed by {name}, {date}, {time}"
+msgstr "Confirmed by {name}, {date}, {time}"
 
 #: src/takeoff/words.tsx
 msgid "The electrical drawing list"
@@ -1437,10 +1477,6 @@ msgstr "State mark"
 msgid "A Question about the sheets"
 msgstr "A Question about the sheets"
 
-#: src/takeoff/Step1Inspector.tsx
-msgid "Excluded by {name}, {date}: {reason}"
-msgstr "Excluded by {name}, {date}: {reason}"
-
 #: src/takeoff/SheetList.tsx
 #: src/takeoff/Step1Inspector.tsx
 msgid "Discipline"
@@ -1477,6 +1513,10 @@ msgstr "Answering confirms no sheets."
 #: src/takeoff/words.tsx
 msgid "Pit and chamber details"
 msgstr "Pit and chamber details"
+
+#: src/takeoff/who.tsx
+msgid "Vextrus"
+msgstr "Vextrus"
 
 #: src/takeoff/words.tsx
 msgid "Column schedule"
