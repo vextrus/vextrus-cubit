@@ -102,8 +102,9 @@ stays, capped, and the orchestrator does what the owner did.
 5. **The orchestrator gates and merges:** pushes and opens the PR; merges `main` into it; posts
    `design-gate` from the independent gate's verdict and, on engine PRs, runs `scripts/real-drawings` and
    accepts only under the accept rule (no failed stage gained; nothing lost or changed without a judged
-   reason; gains judged), posting through `post-status` as the key user; then merges when the ruleset's
-   required checks are green.
+   reason; gains judged), posting through `post-status` as the key user from the main checkout; then
+   merges when `python -m scripts.merge_ready <PR>` passes (each gate posted by the App or main's
+   not-applicable workflow, every check green).
 6. **Measures** go to the milestone issue per PR and per wave: time to first PR against budget, review
    rounds, findings filed after the cap, gate and posting-run outcomes, checks added.
 

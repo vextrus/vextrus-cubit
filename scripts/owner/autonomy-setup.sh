@@ -30,12 +30,20 @@ id "$OWNER" >/dev/null 2>&1 || die "no user $OWNER"
 id "$KEY_USER" >/dev/null 2>&1 || die "no key user $KEY_USER: run scripts/owner/custody-setup.sh first"
 [ "$(stat -c %a "/home/$KEY_USER")" = 700 ] || die "/home/$KEY_USER is not mode 700 (ADR 0026)"
 ok "$OWNER and $KEY_USER exist; /home/$KEY_USER is 700"
+# The scorer's rule matches its one argument, a run id, by a regular expression (sudo 1.9.10 and later),
+# so sudo itself refuses a path or an option: the scorer reads only a run the real-drawing command wrote.
+version=$(sudo -V | sed -n 's/^Sudo version \([0-9.]*\).*/\1/p')
+printf '%s\n1.9.10\n' "$version" | sort -V -C -r 2>/dev/null \
+  || die "sudo $version is older than 1.9.10, which the scorer's argument rule needs"
+ok "sudo $version matches arguments by regular expression"
 
-step "2/5 Check the two programs are root's and nobody else can change them"
-# A program the owner's user could rewrite would let anything running as that user act as the key user.
+step "2/5 Check what runs is root's and nobody else can change it"
+# A program the owner's user could rewrite, or the interpreter it runs under, would let anything running
+# as that user act as the key user. Links are followed to what actually runs.
 safe_path() {
-  local path=$1 dir
-  [ -e "$path" ] || return 2
+  local path dir
+  [ -e "$1" ] || return 2
+  path=$(readlink -f "$1")
   dir=$path
   while [ "$dir" != / ]; do
     [ "$(stat -c %u "$dir")" = 0 ] || { echo "$dir is not root's"; return 1; }
@@ -43,10 +51,40 @@ safe_path() {
     dir=$(dirname "$dir")
   done
 }
-for program in "$POSTER" "$SCORER"; do
+# The interpreter on a program's first line (through /usr/bin/env, as sudo's secure_path finds it), and,
+# for a Python under /opt, its whole tree: the standard library it imports is code that runs too.
+interpreter() {
+  local first word
+  first=$(head -c 256 "$1" | head -n 1)
+  [ "${first:0:2}" = "#!" ] || return 0
+  read -r word rest <<< "${first:2}"
+  if [ "$word" = /usr/bin/env ]; then
+    read -r word _ <<< "$rest"
+    word=$(PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin command -v "$word")
+  fi
+  printf '%s\n' "$word"
+}
+check_program() {
+  local program=$1 why code runner tree
   set +e; why=$(safe_path "$program"); code=$?; set -e
+  [ "$code" = 0 ] || { echo "$why"; return "$code"; }
+  runner=$(interpreter "$program")
+  if [ -n "$runner" ]; then
+    why=$(safe_path "$runner") || { echo "its interpreter: $why"; return 1; }
+    runner=$(readlink -f "$runner")
+    case $runner in
+      /opt/*)
+        tree=$(dirname "$(dirname "$runner")")
+        why=$(find "$tree" \( ! -user root -o -perm /022 \) ! -type l -print -quit)
+        [ -z "$why" ] || { echo "its interpreter's tree: $why is not root's alone"; return 1; }
+        ;;
+    esac
+  fi
+}
+for program in "$POSTER" "$SCORER"; do
+  set +e; why=$(check_program "$program"); code=$?; set -e
   case $code in
-    0) ok "$program is root's and only root can change it" ;;
+    0) ok "$program, its real target and its interpreter are root's, and only root can change them" ;;
     2) if [ "$program" = "$POSTER" ]; then
          warn "$POSTER is not installed: run scripts/owner/drop-setup.sh (the rule is installed anyway)"
        else
@@ -64,8 +102,9 @@ tmp=$(mktemp)
 trap 'rm -f "$tmp"' EXIT
 cat > "$tmp" <<RULE
 # Installed by scripts/owner/autonomy-setup.sh (ADR 0041). $OWNER runs, as $KEY_USER and without a
-# password, exactly these two programs and nothing else. Each checks its own arguments.
-$OWNER ALL=($KEY_USER) NOPASSWD: $POSTER, $SCORER
+# password, exactly these two programs and nothing else: the poster with any arguments (it checks
+# them), the scorer with exactly one run id (a regular expression, so no path and no option).
+$OWNER ALL=($KEY_USER) NOPASSWD: $POSTER, $SCORER ^[0-9A-Za-z-]+\$
 RULE
 visudo -cf "$tmp" >/dev/null || die "the new rule does not validate; nothing was installed"
 ok "the rule validates:"
@@ -104,7 +143,11 @@ else
   warn "post-status is not installed, so its check is skipped: run drop-setup.sh, then this again"
 fi
 if [ -x "$SCORER" ]; then
-  check "$OWNER may run the scorer as $KEY_USER" "$(as_owner "$SCORER")"
+  check "$OWNER may run the scorer as $KEY_USER on a run id" \
+    "$(as_owner "$SCORER" 20260101T000000Z-000000000000-0000)"
+  check "$OWNER is refused the scorer with no run id" "! $(as_owner "$SCORER")"
+  check "$OWNER is refused the scorer on a path" "! $(as_owner "$SCORER" /home/$KEY_USER/keys)"
+  check "$OWNER is refused the scorer with an option" "! $(as_owner "$SCORER" --key x)"
 else
   warn "the scorer is not installed yet, so its check is skipped"
 fi
@@ -113,4 +156,4 @@ printf '  What %s may run as another user now:\n' "$OWNER"
 sudo -l -U "$OWNER" | sed 's/^/    /'
 [ "$fail" = 0 ] || { echo "Something above failed; tell Claude which line."; exit 1; }
 echo
-echo "Done. Agents post gates with: sudo -n -u $KEY_USER $POSTER design-gate <PR> <sha> --passed …"
+echo "Done. The orchestrator's session (the main checkout) posts gates with the orchestrate-wave skill's line."

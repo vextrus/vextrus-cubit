@@ -6,9 +6,17 @@ between is done by agents, without waiting for the owner:
 1. **The orchestrator pushes, opens PRs and merges** once a PR's review loop is done and the ruleset's
    required checks are green. The ruleset still enforces CI, up-to-date branches and the two statuses;
    what moves is who presses merge. The orchestrator merges `main` into a PR itself before posting its
-   statuses (the ruleset requires up-to-date branches).
+   statuses (the ruleset requires up-to-date branches). **Before every merge it runs
+   `python -m scripts.merge_ready <PR>`**, which passes only when `real-drawings` and `design-gate` on
+   the head were posted by the owner's App (or main's not-applicable workflow) and every check passed:
+   the ruleset does not pin who posts a status, so the author is checked here, and the guard refuses
+   changes to the ruleset, branch protection and admin merges.
 2. **Independence moves from the owner to separate agents.** A reviewer and a gate that did not build the
-   ticket decide; the builder never gates itself.
+   ticket decide; the builder never gates itself. The guard allows the poster only in the
+   orchestrator's session (its project is the main checkout), never in a builder's worktree or a cloud
+   copy. Every agent runs as the owner's one Unix user, so this is a tripwire, not a wall: a determined
+   process could still write a run's `summary.json` in the drop folder, which the poster trusts on that
+   basis, and the reviewer and the merge-ready check are what hold.
    - `design-gate` is posted by the orchestrator, through `post-status` run as the key user, from an
      independent `ux-critic` gate's verdict (the walk or the words-only gate), never the builder's own.
    - `real-drawings` is posted by the orchestrator after reading the run's table and export states,
@@ -76,3 +84,10 @@ process could read the keys and the App's key through it: ADR 0026's refuter #5)
 
 ## History
 - 29 Sep 2026: decided. The owner's rulings above, in session 05; amends ADRs 0025, 0026 and 0030.
+- 29 Sep 2026 (review round 1 of the harness PR): the author of each gate is checked before a merge
+  (`scripts/merge_ready.py`), the poster runs only from the main checkout's session, the guard refuses
+  ruleset and branch-protection changes and admin merges, the scorer's rule admits one run id only (a
+  sudoers regular expression), acceptance tests may not be skipped, deselected or weakened in a merge
+  (`tools/lint/acceptance.py`, `tools/lint/acceptance_pytest.py`), and `scripts/real-drawings` gains
+  `--accept-if-clean` and `--accept REASON`. The owner is advised to pin the App's `integration_id` on
+  both statuses in the ruleset.

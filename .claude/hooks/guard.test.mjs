@@ -9,10 +9,11 @@ import { fileURLToPath } from "node:url";
 const guard = fileURLToPath(new URL("./guard.mjs", import.meta.url));
 
 /** The rule that refuses `command`, or null when the guard lets it through. */
-function verdict(tool, input) {
+function verdict(tool, input, project = "/home/runner/work/vextrus-cubit/vextrus-cubit") {
   const run = spawnSync(process.execPath, [guard], {
     input: JSON.stringify({ tool_name: tool, tool_input: input }),
     encoding: "utf8",
+    env: { ...process.env, CLAUDE_PROJECT_DIR: project },
   });
   assert.equal(run.status, 0, run.stderr);
   if (run.stdout.trim() === "") return null;
@@ -21,6 +22,9 @@ function verdict(tool, input) {
   return out.permissionDecisionReason.split(":")[0];
 }
 const bash = (command) => verdict("Bash", { command });
+/** The verdict in the orchestrator's session, whose project is the main checkout (ADR 0041). */
+const MAIN = "/home/riz/vextrus-cubit";
+const inMain = (command) => verdict("Bash", { command }, MAIN);
 
 test("the refuter's first bypass, a variable-split gh api, is refused", () => {
   assert.equal(
@@ -103,10 +107,22 @@ test("exactly the poster and the scorer, as the key user with -n, pass", () => {
     `${POSTER} real-drawings 20260929T101500Z-0123456789ab-beef`,
     `${POSTER} --help`,
     `${SCORER} 20260929T101500Z-0123456789ab-beef`,
-    `${SCORER}`,
     `${POSTER} design-gate 104 ${SHA} --passed 1-11\n`,
   ]) {
-    assert.equal(bash(command), null, command);
+    assert.equal(inMain(command), null, command);
+  }
+});
+
+test("a builder's session (a worktree, a cloud copy) may not run even the exact lines", () => {
+  for (const project of [
+    `${MAIN}/.claude/worktrees/w3-21c`,
+    "/home/user/vextrus-cubit",
+    "/home/riz/vextrus-cubit-copy",
+    "",
+  ]) {
+    for (const command of [`${POSTER} design-gate 104 ${SHA} --passed 1-11`, `${SCORER} run-1`]) {
+      assert.equal(verdict("Bash", { command }, project), "PRIVILEGE_RAISED", `${project} ${command}`);
+    }
   }
 });
 
@@ -141,8 +157,32 @@ test("every other form under a privilege-raising command is still refused", () =
     "su vxkeys -c /usr/local/lib/vextrus/post-status",
     "cat /home/vxkeys/github-app/app.pem",
     "/usr/local/bin/vx-score run",
+    `${SCORER}`,
+    `${SCORER} run-1 run-2`,
+    `${SCORER} run.json`,
   ]) {
-    assert.equal(bash(command), "PRIVILEGE_RAISED", command);
+    assert.equal(inMain(command), "PRIVILEGE_RAISED", command);
+  }
+});
+
+test("the ruleset, branch protection and admin merges are refused; reading them passes", () => {
+  for (const command of [
+    "gh api -X DELETE repos/vextrus/vextrus-cubit/rulesets/123",
+    "gh api --method PUT repos/vextrus/vextrus-cubit/rulesets/123 --input r.json",
+    "gh api -XPATCH repos/vextrus/vextrus-cubit/rulesets/123 -f enforcement=disabled",
+    "gh api -X DELETE repos/vextrus/vextrus-cubit/branches/main/protection",
+    "gh api repos/vextrus/vextrus-cubit/branches/main/protection/required_status_checks -F strict=false",
+    `gh api graphql -f query='mutation { deleteRepositoryRuleset(input: {repositoryRulesetId: "x"}) { clientMutationId } }'`,
+    "gh pr merge 3 --merge --admin",
+  ]) {
+    assert.equal(inMain(command), "RULESET_CHANGED", command);
+  }
+  for (const command of [
+    "gh api repos/vextrus/vextrus-cubit/rulesets",
+    "gh ruleset view 123",
+    "gh api repos/vextrus/vextrus-cubit/branches/main/protection",
+  ]) {
+    assert.equal(inMain(command), null, command);
   }
 });
 

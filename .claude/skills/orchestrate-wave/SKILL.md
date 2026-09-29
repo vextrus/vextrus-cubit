@@ -90,16 +90,22 @@ false statement a QS meets: those are fixed in a third round.
    over. Post statuses only on this final head.
 3. **`design-gate`** (web PRs), from the independent gate's verdict, never the builder's, with the full SHA:
    `sudo -n -u vxkeys /usr/local/lib/vextrus/post-status design-gate <PR> <sha> --passed <items> --failed
-   <items> --not-applicable <items>`. Nothing else on the line (the guard allows exactly this form). Check
+   <items> --not-applicable <items>`. Nothing else on the line, and only from your own session in the main
+   checkout (the guard allows exactly this form there, never in a builder's worktree). Check
    it reached the head: `gh pr view <PR> --json statusCheckRollup`.
-4. **`real-drawings`** (engine PRs): from the main checkout on `main`, `scripts/real-drawings <PR>`. Read the
-   table and the exports' states (`states.py`, beside this file: states, times and error kinds only, never
-   text), then apply **the accept rule**: no failed stage gained; nothing lost or changed without a judged
-   reason; every gain judged real. Accept with `--accept "<reason, at most 100 characters>"`, or
-   `--accept-if-clean` when nothing was lost or changed and no stage failed; otherwise reject and send the
-   builder the table. A new measure's first run is where real files surprise.
-5. **Merge** when the ruleset's required checks are green: `gh pr merge <PR> --merge`. Then `git pull
-   --ff-only` in the main checkout, and log it.
+4. **`real-drawings`** (engine PRs), from the main checkout on `main`: first `scripts/real-drawings <PR>
+   --no-post`, and read the table and the exports' states (`states.py`, beside this file: states, times
+   and error kinds only, never text). Apply **the accept rule**: no failed stage gained; nothing lost or
+   changed without a judged reason; every gain judged real. Then the posting run (the exports are cached,
+   so it is quick): `scripts/real-drawings <PR> --accept-if-clean` when nothing was lost or changed and no
+   failed stage was gained (it posts nothing and exits 3 otherwise), or `scripts/real-drawings <PR>
+   --accept "<judged reason, at most 100 characters>"`. Otherwise post nothing and send the builder the
+   table. A new measure's first run is where real files surprise.
+5. **Merge-ready, then merge:** `uv run python -m scripts.merge_ready <PR>` must pass (both gates on the
+   head posted by the App `vextrus-status`, or by main's not-applicable workflow; `ci` and every check
+   green). If a gate was posted by anyone else, do not merge: say so to the owner. Then `gh pr merge <PR>
+   --merge` (never `--admin`; the guard refuses it and any change to the ruleset), `git pull --ff-only`
+   in the main checkout, and log it.
 
 ## 6. Reading work: the scored loop
 Once the scorer and the Answer Keys are in place: run the scorer on `main`'s export
