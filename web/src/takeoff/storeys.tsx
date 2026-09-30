@@ -117,14 +117,14 @@ export function statedKeys(text: string): string[] | null {
   let range = false
   for (const w of words) {
     const ordinal = /^(\d+)(st|nd|rd|th)$/.exec(w)
-    let key: string | null = null
-    if (ordinal) key = `floor_${Number(ordinal[1])}`
-    else if (w === 'ground' || w === 'mezzanine' || w === 'roof' || w === 'basement') key = w
-    else if (w === 'to') {
+    if (w === 'to') {
       range = true
       continue
-    } else if (w === 'floor' || w === 'floors' || w === 'and' || w === 'level' || w === 'levels') continue
-    else return null
+    }
+    if (w === 'floor' || w === 'floors' || w === 'and' || w === 'level' || w === 'levels') continue
+    const named = w === 'ground' || w === 'mezzanine' || w === 'roof' || w === 'basement'
+    if (!ordinal && !named) return null
+    const key = ordinal ? `floor_${Number(ordinal[1])}` : w
     const from = keys.at(-1)
     const a = from ? /^floor_(\d+)$/.exec(from) : null
     const b = /^floor_(\d+)$/.exec(key)
