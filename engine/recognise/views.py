@@ -55,11 +55,15 @@ it. A view's box is its piece, its title and its scale text together. **Reading 
 to bottom (views whose heights overlap by half are one row), each left to right.
 
 **The title block is a view** (CONTEXT.md's "View"; the orchestrator's ruling R2, session 07), of kind
-`title_block`, last on its sheet, after the rows: its box is where its texts (the frame's own and the
-values 13 read) stand, grown on each side to the nearest ruled line across them, the frame's or the
-sheet's (`RULE_MM`), else to the paper's edge; a sheet with no such text has none. What lies in it (a
-loose word, its ruled lines drawn outside the frame) is no other view's; the sheet's median text is
-still measured over every text it holds.
+`title_block`, last on its sheet, after the rows: its box is where its texts stand (the values 13 read,
+and the frame's own texts in their band within `CLUSTER_MM`, down or across, whichever holds more; never
+a zone mark nor a name in a far corner), grown on each side to the nearest ruled line across them, the
+frame's or the sheet's (`RULE_MM`), else to the paper's edge. A sheet with no value read has none, and so
+has one whose box would cover more than `MAX_BLOCK_SHARE` of the paper (no title block eats the sheet's
+drawings). What lies in it (a loose word, its ruled lines drawn outside the frame) is no other view's;
+the sheet's median text is still measured over every text it holds. The frame's lines laid on paper for
+it are charged to the file's read budget with the drawing's, and at most `MAX_RULES` straight lines along
+each axis are weighed.
 
 **What a view says.** Its stated scale is the first scale pattern found in its title or a text on its
 title's line or just under it (`scales.read`), verbatim; N.T.S. marks it not to scale. Its storeys are
@@ -183,6 +187,14 @@ divider between views (the real sets rule rows of details apart), never a view's
 RULE_MM = 1.0
 """Lines on one line within this on paper, in mm, are one ruled line (a title block's border drawn in
 pieces), and a ruled line this near a title block's texts bounds it."""
+
+CLUSTER_MM = 30.0
+"""A frame's own text whose centre lies within this on paper, in mm (an A1's, scaled to the paper), of
+the band the title block's values stand in, across or down, is one of its texts."""
+MAX_BLOCK_SHARE = 0.4
+"""A title block covering more of the paper than this is not read as one (no view is left out for it)."""
+MAX_BLOCK_TEXTS = 2_000
+"""The most frame texts weighed for a sheet's title block."""
 
 MAX_VISITS = 8_000_000
 MAX_SEGMENTS = 3_000_000
@@ -438,6 +450,8 @@ class _Paper:
     """The frame's own segments on paper (left out of `segments`)."""
     block: list[_Text] = field(default_factory=list)
     """The title block's texts on paper: the frame's own and the values 13 read (no view's)."""
+    values: frozenset[str] = frozenset()
+    """The handles of the values 13 read (among `block`): where the title block is sought from."""
 
 
 def _paper(artefact: ReadArtefact, sheet: SheetCandidate) -> _Paper | None:
@@ -599,7 +613,14 @@ def _paper(artefact: ReadArtefact, sheet: SheetCandidate) -> _Paper | None:
             t.box = (b[0] - x0, b[1] - y0, b[2] - x0, b[3] - y0)
         region = (0.0, 0.0, region[2] - x0, region[3] - y0)
     return _Paper(
-        region, all_segments, texts, None if frame is None else frame.sheet, frame, frame_drawn, block
+        region,
+        all_segments,
+        texts,
+        None if frame is None else frame.sheet,
+        frame,
+        frame_drawn,
+        block,
+        values,
     )
 
 
@@ -721,17 +742,34 @@ def _segments_in(segments: NDArray[np.float64], box: Bounds) -> NDArray[np.bool_
 
 
 def _title_block(paper: _Paper) -> Bounds | None:
-    """The title block's extent on paper: the box its texts' centres (the frame's own texts and the
-    values 13 read) fill, grown on each side to the nearest ruled line across it (the frame's or the
-    sheet's), else to the paper's edge; none when the sheet has no title-block text on its paper."""
+    """The title block's extent on paper: the box the centres of its texts fill (the values 13 read, and
+    the frame's own texts in their band within `CLUSTER_MM` of it, down or across, whichever holds
+    more of them: a strip's or a corner box's; never a zone mark along the border nor a name in a
+    far corner), grown on each side to the nearest ruled line across it (the frame's or the
+    sheet's), else to the paper's edge. None when 13 read no value on its paper, or when the box
+    would cover more than `MAX_BLOCK_SHARE` of the paper (no title block eats the sheet's drawings)."""
     rx0, ry0, rx1, ry1 = paper.region
-    centres = [_centre(t.box) for t in paper.block]
-    centres = [c for c in centres if _inside(c, paper.region)]
-    if not centres:
+    unit = max(rx1 - rx0, ry1 - ry0) / REFERENCE_MM
+    on_paper = [t for t in paper.block if _inside(_centre(t.box), paper.region)]
+    held = [t for t in on_paper if t.placed.entity.handle in paper.values]
+    if not held:
         return None
+    rest = [
+        t
+        for t in on_paper
+        if t.placed.entity.handle not in paper.values
+        and not all(_mark(w) for w in _tokens(t.shown))  # a zone mark ("7", "C") is the border's
+    ][:MAX_BLOCK_TEXTS]
+    vx0, vy0, vx1, vy1 = _bounds([t.box for t in held])
+    gap = CLUSTER_MM * unit
+    centres = [_centre(t.box) for t in rest]
+    column = [t for t, c in zip(rest, centres, strict=True) if vx0 - gap <= c[0] <= vx1 + gap]
+    row = [t for t, c in zip(rest, centres, strict=True) if vy0 - gap <= c[1] <= vy1 + gap]
+    held += column if len(column) >= len(row) else row  # the strip's direction holds more of them
+    centres = [_centre(t.box) for t in held]
     ex0, ey0 = min(c[0] for c in centres), min(c[1] for c in centres)
     ex1, ey1 = max(c[0] for c in centres), max(c[1] for c in centres)
-    tol = RULE_MM * max(rx1 - rx0, ry1 - ry0) / REFERENCE_MM
+    tol = RULE_MM * unit
     lines = np.concatenate([paper.frame, paper.segments]) if len(paper.segments) else paper.frame
     across = _rules(lines, 0, tol)  # (y, x from, x to): lines along x
     down = _rules(lines, 1, tol)  # (x, y from, y to): lines along y
@@ -741,11 +779,23 @@ def _title_block(paper: _Paper) -> Bounds | None:
     bottom = across[spans_x & (across[:, 0] <= ey0 + tol), 0]
     left = down[spans_y & (down[:, 0] <= ex0 + tol), 0]
     right = down[spans_y & (down[:, 0] >= ex1 - tol), 0]
-    return (
+    box = (
         float(left.max()) if len(left) else rx0,
         float(bottom.max()) if len(bottom) else ry0,
         float(right.min()) if len(right) else rx1,
         float(top.min()) if len(top) else ry1,
+    )
+    if _area(box) > MAX_BLOCK_SHARE * (rx1 - rx0) * (ry1 - ry0):
+        return None
+    return box
+
+
+def _bounds(boxes: Sequence[Bounds]) -> Bounds:
+    return (
+        min(b[0] for b in boxes),
+        min(b[1] for b in boxes),
+        max(b[2] for b in boxes),
+        max(b[3] for b in boxes),
     )
 
 
