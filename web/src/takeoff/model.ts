@@ -122,14 +122,18 @@ const isRecord = (x: unknown): x is Record<string, unknown> => typeof x === 'obj
 export const isKeptOpen = (q: QuestionOut) => q.status === 'open' && isRecord(q.answer) && q.answer.option === 'keep_open'
 
 /**
- * The sheets a withdrawn Question held that were left out, when an exclusion withdrew it: 21c's
- * answer names the act (`withdrawn_by`); without it, every sheet it holds is excluded. Else none.
+ * The sheets a withdrawn Question held that were left out, when an exclusion withdrew it. 21c sends
+ * top-level `withdrawn_by` (that exclusion) and `blocking` (still answerable, and holding the sheet from
+ * being confirmed back in); a Question a newer one replaced has neither. Before 21c, neither field
+ * exists: then every sheet it holds is excluded. Else none.
  */
 function leftOut(q: QuestionOut, holds: readonly ProposalOut[]): ProposalOut[] {
   if (q.status !== 'withdrawn') return []
   const out = holds.filter((p) => p.decision === 'excluded')
-  const byAct = isRecord(q.answer) && typeof q.answer.withdrawn_by === 'string'
-  return byAct || (out.length > 0 && out.length === holds.length) ? out : []
+  const sent = q as { withdrawn_by?: unknown; blocking?: unknown }
+  const byExclusion =
+    'withdrawn_by' in sent || 'blocking' in sent ? (typeof sent.withdrawn_by === 'string' && sent.withdrawn_by !== '') || sent.blocking === true : out.length === holds.length
+  return byExclusion ? out : []
 }
 
 /** The sheets a Question holds: its subject, and for two sheets of one number, every copy. */

@@ -25,14 +25,14 @@ const clean = (t: string | null | undefined) => (t ?? '').replace(/[⁦-⁩‎�
 const bodyText = () => clean(document.body.textContent)
 const active = () => document.activeElement as HTMLElement | null
 
-/** KR-01 with A-05 left out, which withdrew its Question (as 21c records it). */
+/** KR-01 with A-05 left out, which withdrew its Question (as 21c sends it: top-level `withdrawn_by`, `blocking`). */
 async function openWithdrawn() {
   const api = new FakeApi()
   const step1 = new FakeStep1(api)
   const a05 = step1.proposals.find((p) => p.number === 'A-05')!
   Object.assign(a05, { decision: 'excluded', excluded_reason: 'for_information', decided_by: 'Nusrat Jahan', decided_at: '2026-09-27T05:00:00Z' })
   const q = step1.questions.find((x) => x.subject_id === a05.sheet_id)!
-  Object.assign(q, { status: 'withdrawn', answer: { withdrawn_by: 'c2200000-0000-4000-8000-0000000000aa' } })
+  Object.assign(q, { status: 'withdrawn', withdrawn_by: 'c2200000-0000-4000-8000-0000000000aa', blocking: true })
   await mountApp('/p/KR-01/takeoff/1', { as: PEOPLE.qs, api })
   await waitFor(() => expect(bodyText()).toContain('Needs you: 4 Questions open'))
   return { step1, a05 }

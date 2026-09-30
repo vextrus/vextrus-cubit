@@ -175,8 +175,8 @@ describe('kept open and withdrawn Questions (the review of 22, round 4, F4; the 
     const b = sheet('A-06', { discipline: 'architectural' })
     const c = sheet('A-07', { discipline: 'architectural', decision: 'excluded', excluded_reason: 'blank' })
     const open = question('low_confidence', { subject_id: b.sheet_id })
-    // 21c names the act that withdrew it.
-    const byAct = question('low_confidence', { subject_id: a.sheet_id, status: 'withdrawn', answer: { withdrawn_by: 'act-1' } })
+    // 21c names the exclusion that withdrew it, top level (its round 4), with `blocking`.
+    const byAct = question('low_confidence', { subject_id: a.sheet_id, status: 'withdrawn', withdrawn_by: 'act-1', blocking: true } as Partial<QuestionOut>)
     // Before 21c: withdrawn, and every sheet it holds is excluded.
     const bySheet = question('missing', { subject_id: c.sheet_id, status: 'withdrawn' })
     const model = step1Model(data([a, b, c], [byAct, open, bySheet]))
@@ -198,7 +198,12 @@ describe('kept open and withdrawn Questions (the review of 22, round 4, F4; the 
     const b = sheet('S-02', { decision: 'excluded', excluded_reason: 'blank' })
     const other = question('low_confidence', { subject_id: a.sheet_id, status: 'withdrawn' })
     const answered = question('low_confidence', { subject_id: b.sheet_id, status: 'answered', answer: { option: 'section', by: 'Nusrat Jahan' } })
-    const model = step1Model(data([a, b], [other, answered]))
+    // 21c: a Question a newer one replaced, its sheet excluded, has neither `withdrawn_by` nor `blocking`.
+    const c = sheet('S-03', { decision: 'excluded', excluded_reason: 'blank' })
+    const replaced = question('missing', { subject_id: c.sheet_id, status: 'withdrawn', withdrawn_by: null, blocking: false } as Partial<QuestionOut>)
+    // An old answer's shape is not read: only the top-level field.
+    const oldShape = question('missing', { subject_id: b.sheet_id, status: 'withdrawn', answer: { withdrawn_by: 'act-1' }, withdrawn_by: null, blocking: false } as Partial<QuestionOut>)
+    const model = step1Model(data([a, b, c], [other, answered, replaced, oldShape]))
     expect(model.withdrawn).toEqual([])
     expect(model.queue).toEqual([])
   })
