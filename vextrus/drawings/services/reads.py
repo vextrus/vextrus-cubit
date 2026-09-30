@@ -366,4 +366,10 @@ def _end(
             if status == ReadStatus.READ and row.sheets_total is not None:
                 row.sheets_done = row.sheets_total
             row.save(update_fields=["read_status", "read_step", "finding", "read_tries", "sheets_done"])
+        elif status == ReadStatus.READ and row.held_answer == HeldAnswer.READ_ANYWAY:
+            # A held file read anyway stays held; its sheets counted done list them from here, in
+            # the last step's transaction with their Questions (`drawing_files.read_anyway`, #165).
+            if row.read_status == ReadStatus.QUARANTINED and row.sheets_total is not None:
+                row.sheets_done = row.sheets_total
+                row.save(update_fields=["sheets_done"])
     return drawing_files.file(row.id)

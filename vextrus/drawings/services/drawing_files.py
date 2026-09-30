@@ -50,7 +50,7 @@ from typing import Any, BinaryIO, cast
 from django.conf import settings
 from django.core.files import File as DjangoFile
 from django.db import transaction
-from django.db.models import Exists, Max, OuterRef, Q
+from django.db.models import Exists, F, Max, OuterRef, Q
 from django.utils import timezone
 
 from engine.messages import Message, MessageCode
@@ -94,6 +94,32 @@ SECOND_READER = "second_reader"
 SHEETS = "sheets"
 FINISHING = "finishing"
 MATCHING = "matching"
+
+
+def read_anyway(prefix: str = "") -> Q:
+    """A held file read anyway whose read has ended: only then are its sheets listed, in the
+    transaction that proposes them and asks their Questions (its `finishing` step, whose `mark_read`
+    counts its sheets done), as a read file's are. Listed from the answer on, the real set's 28
+    sheets showed for the whole 40 s re-read with no Question asked (#165). `prefix` reaches the
+    file from the rows filtered."""
+    return Q(
+        **{
+            f"{prefix}read_status": ReadStatus.QUARANTINED,
+            f"{prefix}held_answer": HeldAnswer.READ_ANYWAY,
+            f"{prefix}sheets_total__isnull": False,
+            f"{prefix}sheets_done": F(f"{prefix}sheets_total"),
+        }
+    )
+
+
+def _read_anyway(row: DrawingFile) -> bool:
+    """`read_anyway`, of one file."""
+    return (
+        row.read_status == ReadStatus.QUARANTINED
+        and row.held_answer == HeldAnswer.READ_ANYWAY
+        and row.sheets_total is not None
+        and row.sheets_done == row.sheets_total
+    )
 
 
 VEXTRUS_ENGINEER = "vextrus_engineer"
@@ -251,9 +277,7 @@ def _views(rows: list[DrawingFile]) -> list[FileView]:
         job = jobs.state(row.read_job_id) if row.read_job_id is not None else None
         dwg_read = _dwg_read(row, read_dwgs)
         state, status = _status(row, job, now, len(matched_pages.get(row.id, ())), dwg_read)
-        readable = state == FileState.READ or (
-            row.read_status == ReadStatus.QUARANTINED and row.held_answer == HeldAnswer.READ_ANYWAY
-        )
+        readable = state == FileState.READ or _read_anyway(row)
         shown.append(
             FileView(
                 id=row.id,
@@ -283,14 +307,12 @@ def _views(rows: list[DrawingFile]) -> list[FileView]:
 
 
 def _read_dwgs(set_ids: set[uuid.UUID]) -> set[tuple[uuid.UUID, uuid.UUID | None]]:
-    """(set, Discipline) of each DWG read in these sets: a held file read anyway among them once it
-    has sheets to match (with none, its PDFs still wait for a DWG, #131)."""
+    """(set, Discipline) of each DWG read in these sets: a held file read anyway among them once its
+    read has ended with sheets to match (with none, its PDFs still wait for a DWG, #131)."""
     if not set_ids:
         return set()
     with_sheets = SheetRevision.objects.filter(source_file_id=OuterRef("pk"))
-    listed = Q(read_status=ReadStatus.READ) | Q(
-        Exists(with_sheets), read_status=ReadStatus.QUARANTINED, held_answer=HeldAnswer.READ_ANYWAY
-    )
+    listed = Q(read_status=ReadStatus.READ) | (Q(Exists(with_sheets)) & read_anyway())
     return set(
         DrawingFile.objects.filter(
             listed, drawing_set_id__in=set_ids, format=FileFormat.DWG
