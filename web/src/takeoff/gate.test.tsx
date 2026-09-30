@@ -142,6 +142,16 @@ describe('M4, M5: the Question cards', () => {
     expect(clean(picked?.closest('label')?.textContent)).toContain('Keep rev B (20 Aug 2026); leave rev A out as superseded')
   })
 
+  it('M14: pre-picks no other kind of Question, whose sources the card cannot name', async () => {
+    const { api, step1 } = kr01()
+    const q4 = step1.questions.find((q) => q.kind === 'low_confidence')!
+    q4.options = q4.options.map((o, i) => ({ ...o, picked: i === 0 }))
+    await open(api)
+    await focusRow('A-05')
+    const card4 = await screen.findByRole('region', { name: card(/^Question Q\d$/) })
+    expect(within(card4).getAllByRole('radio').some((r) => (r as HTMLInputElement).checked)).toBe(false)
+  })
+
   it('M14: shows no pre-pick when only the title block can be named', async () => {
     const { api } = kr01()
     await open(api)
@@ -309,17 +319,22 @@ describe('M2: the files band and the Storeys and Views columns', () => {
 })
 
 describe('M12: a title that states its storeys never reads "not stated"', () => {
-  it('shows the stated text, normalised, when the keys are empty; a typical floor reads "typical (range from Step 3)"', async () => {
+  it('reads storeys from the stated text when the keys are empty (a level stays not stated); a typical floor reads "typical (range from Step 3)"', async () => {
     const { api, step1 } = kr01()
     const plan = (id: string, asStated: string) => ({ id, ordinal: 1, kind: 'plan', title: 'PLAN', stated_scale: '', not_to_scale: false, storeys: [], storeys_as_stated: asStated, storeys_meaning: null, steps: [], part: null, proposed_exclusion: null, decision: null, excluded_reason: null, box: ['0', '0', '1', '1'] })
     Object.assign(step1.proposals.find((p) => p.number === 'S-06')!, { storeys_as_stated: '3RD, 5TH & 7TH FLOOR', views: [plan('m1', '')] })
     Object.assign(step1.proposals.find((p) => p.number === 'S-05')!, { storeys_as_stated: '', views: [plan('m2', '2ND  FLOOR')] })
     Object.assign(step1.proposals.find((p) => p.number === 'S-04')!, { storeys_as_stated: 'TYPICAL FLOOR', views: [plan('m3', '')] })
     Object.assign(step1.proposals.find((p) => p.number === 'S-03')!, { storeys_as_stated: '', views: [plan('m4', '')] })
+    Object.assign(step1.proposals.find((p) => p.number === 'S-02')!, { storeys_as_stated: 'EL. +16\'-6"', views: [plan('m5', '')] })
     await open(api)
-    expect(clean(rowOf('S-06').textContent)).toContain('3rd, 5th & 7th floor')
+    expect(clean(rowOf('S-06').textContent)).toContain('3rd, 5th, 7th')
     expect(clean(rowOf('S-06').textContent)).not.toContain('not stated')
-    expect(clean(rowOf('S-05').textContent)).toContain('2nd floor')
+    expect(clean(rowOf('S-05').textContent)).toContain('2nd')
+    expect(clean(rowOf('S-05').textContent)).not.toContain('not stated')
+    // A level is not a storey: amber "not stated" beside its Question (6.8), never the level as text.
+    expect(clean(rowOf('S-02').textContent)).toContain('not stated')
+    expect(clean(rowOf('S-02').textContent)).not.toContain('16')
     expect(clean(rowOf('S-04').textContent)).toContain('typical (range from Step 3)')
     expect(clean(rowOf('S-03').textContent)).toContain('not stated')
   })

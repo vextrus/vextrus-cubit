@@ -205,12 +205,13 @@ function CopyIn({ sheet, other, first }: { sheet: ProposalOut; other: ProposalOu
 /**
  * The option the API picked for the QS, shown only where two or more independent sources agree and
  * the card can name them (screens.md Takeoff ruling 2, m0-screens 6.7): for two copies of one number,
- * `pickSources` must name two; else no option is pre-picked.
+ * `pickSources` must name two; for any other Question no option is pre-picked yet.
  */
 export function usePick(entry: QuestionEntry, context: CardContext): { key: string } | null {
   const picked = optionsOf(entry).find((o) => o.picked && o.key)
   if (!picked?.key) return null
-  if (isCopies(entry) && pickSources(entry, context, picked.key).count < 2) return null
+  // Only two copies of one number have sources the card can name yet; any other pick is not shown.
+  if (!isCopies(entry) || pickSources(entry, context, picked.key).count < 2) return null
   return { key: picked.key }
 }
 

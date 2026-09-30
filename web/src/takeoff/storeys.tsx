@@ -106,22 +106,50 @@ export function useStoreysWords() {
 
 const plans = (views: readonly ViewOut[] | undefined) => (views ?? []).filter((v) => v.kind === 'plan')
 
-/** Drawing text as a sentence's words: one space between words, lower case ("3RD, 5TH & 7TH FLOOR" → "3rd, 5th & 7th floor"). */
-const normalised = (text: string) => text.trim().replace(/\s+/g, ' ').toLowerCase()
+/**
+ * The storey keys a title's stated text names, when it names storeys only ("3RD, 5TH & 7TH FLOOR" →
+ * floor_3, floor_5, floor_7; "2ND TO 4TH FLOOR" → floor_2…floor_4; "GROUND FLOOR" → ground); null for
+ * anything else (a level, an abbreviation), which stays "not stated" beside its Question (6.8).
+ */
+export function statedKeys(text: string): string[] | null {
+  const words = text.toLowerCase().match(/[a-z0-9]+/g) ?? []
+  const keys: string[] = []
+  let range = false
+  for (const w of words) {
+    const ordinal = /^(\d+)(st|nd|rd|th)$/.exec(w)
+    let key: string | null = null
+    if (ordinal) key = `floor_${Number(ordinal[1])}`
+    else if (w === 'ground' || w === 'mezzanine' || w === 'roof' || w === 'basement') key = w
+    else if (w === 'to') {
+      range = true
+      continue
+    } else if (w === 'floor' || w === 'floors' || w === 'and' || w === 'level' || w === 'levels') continue
+    else return null
+    const from = keys.at(-1)
+    const a = from ? /^floor_(\d+)$/.exec(from) : null
+    const b = /^floor_(\d+)$/.exec(key)
+    if (range && a && b) for (let n = Number(a[1]) + 1; n < Number(b[1]); n++) keys.push(`floor_${n}`)
+    range = false
+    keys.push(key)
+  }
+  return keys.length > 0 ? keys : null
+}
 
 /**
  * The Storeys column's text (6.2): the storeys as stated and normalised, amber "not stated" or "typical
- * (range from Step 3)", "—" with no plan view. A plan view with no storey keys shows its stated text
- * (its own, else `stated`, the sheet's title's) rather than "not stated": the title did state them.
+ * (range from Step 3)", "—" with no plan view. A plan view with no storey keys takes them from its
+ * stated text (its own, else `stated`, the sheet's title's) where that names storeys only.
  */
 export function StoreysText({ views, stated = '' }: { views: readonly ViewOut[] | undefined; stated?: string }) {
   const words = useStoreysWords()
   const found = plans(views)
   if (found.length === 0) return <span className="text-muted-foreground">—</span>
   const keyed = (v: ViewOut) => v.storeys.some((k) => k !== 'not_stated')
-  const textOf = (v: ViewOut) => (keyed(v) ? '' : normalised(v.storeys_as_stated || stated))
-  const keys = found.flatMap((v) => v.storeys)
-  if (keys.includes('typical') || found.some((v) => /\btypical\b/.test(textOf(v))))
+  const textOf = (v: ViewOut) => (keyed(v) ? '' : v.storeys_as_stated || stated)
+  // A view with no keys takes them from its stated text, where that names storeys only.
+  const keysOf = (v: ViewOut) => (keyed(v) ? v.storeys : (statedKeys(textOf(v)) ?? []))
+  const keys = found.flatMap(keysOf)
+  if (keys.includes('typical') || found.some((v) => !keyed(v) && /\btypical\b/i.test(textOf(v))))
     return (
       <span className="text-question">
         <Trans>typical (range from Step 3)</Trans>
@@ -130,9 +158,8 @@ export function StoreysText({ views, stated = '' }: { views: readonly ViewOut[] 
   // A key this screen has no words for is shown as the title states it.
   const unknown = found.filter((v) => v.storeys.some((k) => !knownStorey(k) && !NOT_A_STOREY.has(k)))
   const statedUnknown = unknown.map((v) => v.storeys_as_stated).filter(Boolean)
-  const statedOnly = found.map(textOf).filter(Boolean)
-  const listed = [words(keys), ...new Set([...statedUnknown, ...statedOnly])].filter(Boolean).join(', ')
-  const missing = found.some((v) => !keyed(v) && !textOf(v))
+  const listed = [words(keys), ...new Set(statedUnknown)].filter(Boolean).join(', ')
+  const missing = found.some((v) => keysOf(v).length === 0)
   if (!listed)
     return (
       <span className="text-question">
