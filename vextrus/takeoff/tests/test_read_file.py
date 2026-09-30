@@ -4,7 +4,9 @@ test gives (the engine's own run in `test_read_file_toolchain.py`-style tests ma
 
 import io
 import json
+import resource
 import uuid
+import weakref
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -16,6 +18,7 @@ from django.db import DatabaseError, connection
 from engine.check.bangla_ansi import BanglaAnsi
 from engine.messages import Message
 from engine.messages import decoders_agree as agree_codes
+from engine.messages import pdf_report as pdf_codes
 from engine.messages import read as read_codes
 from engine.read import ReadArtefact, ReadError
 from engine.read.pdf.types import PdfReport
@@ -342,6 +345,103 @@ def test_a_reader_out_of_memory_fails_the_file_with_the_memory_words_and_no_retr
     shown = view(qs_project.member, file_id)
     assert shown.state == drawings.FileState.FAILED
     assert shown.finding == read_codes.LIMIT_REACHED(limit="memory")
+
+
+class _Hoard(list[object]):
+    """What a reader filled memory with (a list, so it can be watched by a weak reference)."""
+
+
+def test_what_filled_memory_is_let_go_before_the_files_reason_is_kept(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # 24's review: raised inside `except MemoryError`, the reason carried the error as its context,
+    # whose traceback kept the reader's frames, so memory was still full while `not_read` wrote.
+    file_id = added(qs_project)
+    watched: list[weakref.ref[_Hoard]] = []
+    alive_when_kept: list[bool] = []
+
+    def hungry(path: Path, name: str) -> ReadArtefact:
+        hoard = _Hoard([0.0] * 1000)
+        watched.append(weakref.ref(hoard))
+        raise MemoryError
+
+    fail = files._fail
+
+    def watching(file_id: uuid.UUID, finding: Message) -> jobs.StepResult:
+        alive_when_kept.append(watched[0]() is not None)
+        return fail(file_id, finding)
+
+    monkeypatch.setattr(files, "_fail", watching)
+    with pytest.raises(files.FileNotRead):
+        run_job(qs_project.member, file_id, readers(Calls(), dwg=hungry), monkeypatch)
+
+    assert alive_when_kept == [False]
+
+
+def _vm_size() -> int:
+    for line in Path("/proc/self/status").read_text().splitlines():
+        if line.startswith("VmSize:"):
+            return int(line.split()[1]) * 1024
+    raise AssertionError("no VmSize")
+
+
+def _tuples() -> None:
+    hoard: list[object] = []
+    while True:
+        hoard.append((len(hoard), 1.5))
+
+
+def _dicts() -> None:
+    hoard: list[object] = []
+    while True:
+        hoard.append({"x": 1.0, "y": 2.0, "n": len(hoard)})
+
+
+def _float_lists() -> None:
+    hoard: list[object] = []
+    while True:
+        hoard.append([0.0] * 64)
+
+
+@pytest.mark.parametrize("fill", [_tuples, _dicts, _float_lists] * 2)
+def test_a_reader_that_fills_memory_under_a_real_cap_fails_the_file_with_the_memory_words(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, fill: Callable[[], None]
+) -> None:
+    # A real address-space cap (a soft RLIMIT_AS 400 MB above this process), reached by small
+    # objects, as the cad worker's is: the reason is kept, with no database error and no retry.
+    file_id = added(qs_project)
+    soft, hard = resource.getrlimit(resource.RLIMIT_AS)
+
+    def capped(path: Path, name: str) -> ReadArtefact:
+        resource.setrlimit(resource.RLIMIT_AS, (_vm_size() + 400 * 2**20, hard))
+        fill()
+        raise AssertionError("unreachable: the cap stops it")
+
+    try:
+        with pytest.raises(files.FileNotRead):
+            run_job(qs_project.member, file_id, readers(Calls(), dwg=capped), monkeypatch)
+    finally:
+        resource.setrlimit(resource.RLIMIT_AS, (soft, hard))
+
+    shown = view(qs_project.member, file_id)
+    assert shown.state == drawings.FileState.FAILED
+    assert shown.finding == read_codes.LIMIT_REACHED(limit="memory")
+
+
+def test_a_pdf_out_of_memory_in_the_worker_gets_the_pdfs_own_memory_words(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    file_id = added(qs_project, "KR-ARC-R0.pdf", "pdf")
+
+    def hungry(path: Path) -> PdfReport:
+        raise MemoryError
+
+    with pytest.raises(files.FileNotRead):
+        run_job(qs_project.member, file_id, readers(Calls(), pdf=hungry), monkeypatch)
+
+    shown = view(qs_project.member, file_id)
+    assert shown.state == drawings.FileState.FAILED
+    assert shown.finding == pdf_codes.LIMIT_REACHED(limit="memory")
 
 
 # A PDF ------------------------------------------------------------------------------------------

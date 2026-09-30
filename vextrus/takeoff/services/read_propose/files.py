@@ -37,6 +37,7 @@ from pathlib import Path
 from engine.check import bangla_ansi, decoders_agree
 from engine.check.bangla_ansi import BanglaAnsi
 from engine.messages import Message
+from engine.messages import pdf_report as pdf_codes
 from engine.messages import read as read_codes
 from engine.read import ReadArtefact, ReadError
 from engine.read import pdf as pdf_reader
@@ -50,6 +51,9 @@ from vextrus.drawings.messages import files as file_words
 from vextrus.platform.services import auth, jobs, storage
 from vextrus.takeoff.services.read_propose import sheets
 
+OUT_OF_MEMORY = read_codes.LIMIT_REACHED(limit="memory")
+"""The reason of a file whose reading reached the cad worker's cap in the worker itself (a PDF's is
+its report's own `limit_reached {memory}`)."""
 NOT_READ = "not_read"
 """The step that ends a file failed with its reason (see the module)."""
 DWG_STEPS = (
@@ -125,7 +129,10 @@ def read(run: jobs.Run, file_id: uuid.UUID, readers: Readers | None = None) -> R
             return _steps(steps, file_id, use)
         except MemoryError:
             # The cad worker's cap, reached in this process: the same try would reach it again.
-            raise _Unread(read_codes.LIMIT_REACHED(limit="memory")) from None
+            # Leave the handler before anything else runs: the error's traceback holds the frames
+            # that filled memory, and they are let go only when the handler ends (24's review).
+            pass
+        raise _Unread(OUT_OF_MEMORY)
     except _Unread as unread:
         # The step that raised has rolled back; the file's reason is kept once per job.
         finding = unread.finding
@@ -240,6 +247,8 @@ def _mark_read(file_id: uuid.UUID) -> jobs.StepResult:
 
 
 def _fail(file_id: uuid.UUID, finding: Message) -> jobs.StepResult:
+    if finding == OUT_OF_MEMORY and drawings.file(file_id).format == "pdf":
+        finding = pdf_codes.LIMIT_REACHED(limit="memory")  # the PDF's own words for it
     return {"state": str(drawings.mark_failed(file_id, finding).state), "finding": finding["code"]}
 
 
@@ -265,3 +274,9 @@ def _reading[T](read_it: Callable[[], T], *, dwg: bool = False) -> T:
         if dwg and error.message["code"] == read_codes.UNSUPPORTED_FORMAT.code:
             raise _Unread(file_words.OLD_VERSION()) from error
         raise _Unread(error.message) from error
+    except MemoryError:
+        # The cad worker's cap, reached by the reader. Leave the handler first, here beside the
+        # reader: its frames, which filled memory, are let go before the step's transaction rolls
+        # back (a rollback with memory still full fails too; 24's review).
+        pass
+    raise _Unread(OUT_OF_MEMORY)
