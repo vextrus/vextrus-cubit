@@ -199,7 +199,10 @@ def test_a_read_list_gives_each_numbers_revision_mark(step1_project: Step1Projec
             [("S-01", "NOTES", "A"), ("S-02", "PLAN"), ("S-07", "BEAMS", "B")],
         )
 
-    assert reader.get(path, discipline="structural").json()["read_revisions"] == {"S-01": "A", "S-07": "B"}
+    assert reader.get(path, discipline="structural").json()["read_revisions"] == {
+        "S-01": "A",
+        "S-07": "B",
+    }
 
 
 def test_a_proposal_carries_where_each_fact_was_read_and_its_views(step1_project: Step1Project) -> None:
