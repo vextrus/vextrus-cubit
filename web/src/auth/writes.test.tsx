@@ -167,6 +167,8 @@ describe('the token on every write', () => {
     await userEvent.click(await screen.findByRole('link', { name: 'Members and access' }))
     await screen.findByText('rumana@shapla-homes.example')
     await userEvent.click(screen.getAllByRole('button', { name: /^Renew 30 days for / })[0]!)
+    // Every row's action waits while one write is out (MembersPage's `busy`): the renew must be in first.
+    await screen.findByText(/access now ends on/)
     await userEvent.click(screen.getAllByRole('button', { name: /^Withdraw the invitation for / })[0]!)
     await waitFor(() => expect(sent.map(([p]) => p)).toEqual(['/api/auth/sign-in', expect.stringMatching(/\/renew$/), expect.stringMatching(/\/withdraw$/)]))
     for (const [path, header, current] of sent) expect(header, path).toBe(current)
