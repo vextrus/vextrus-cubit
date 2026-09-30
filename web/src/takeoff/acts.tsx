@@ -87,7 +87,7 @@ export function useStep1Acts(projectId: string): Step1Acts {
   const { i18n } = useLingui()
   const f = useFormat()
   const done = useRef<Done[]>([])
-  /** An act in flight: another (a second Enter, a key held down) is ignored until it ends. */
+  /** An act in flight: another (a second Enter, a key held down) is ignored until it and its reload end. */
   const pending = useRef(false)
   const refresh = useCallback(() => queryClient.invalidateQueries({ queryKey: step1Key(projectId) }), [queryClient, projectId])
 
@@ -107,8 +107,8 @@ export function useStep1Acts(projectId: string): Step1Acts {
     } catch (error) {
       sayRefused(error)
     } finally {
-      pending.current = false
       await refresh()
+      pending.current = false
     }
   }, [projectId, refresh, sayRefused, toast])
 
@@ -132,8 +132,9 @@ export function useStep1Acts(projectId: string): Step1Acts {
         return false
       } finally {
         if (made > 0) done.current.push({ calls: made, words })
-        pending.current = false
+        // Held until Step 1 has reloaded: a second Enter during the reload would send the act again.
         await refresh()
+        pending.current = false
       }
     },
     [onUndo, refresh, sayRefused, toast],
@@ -176,8 +177,9 @@ export function useStep1Acts(projectId: string): Step1Acts {
           })
       } finally {
         if (made > 0) done.current.push({ calls: made, words: <BulkWords n={n} m={m} /> })
-        pending.current = false
+        // Held until Step 1 has reloaded: a second Enter during the reload would send the act again.
         await refresh()
+        pending.current = false
       }
     },
     [f, i18n, onUndo, projectId, refresh, sayRefused, toast],

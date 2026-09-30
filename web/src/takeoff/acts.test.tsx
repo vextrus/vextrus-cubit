@@ -30,6 +30,22 @@ async function open() {
   return step1
 }
 
+/** From `slow()` on, Step 1's reads answer 400 ms late (the review's repro of R1). */
+async function openSlow() {
+  const api = new FakeApi()
+  const step1 = new FakeStep1(api)
+  let late = false
+  const base = api.handle
+  api.handle = async (request: Request) => {
+    if (late && request.method === 'GET' && new URL(request.url, location.origin).pathname.includes('/takeoff/step1')) await new Promise((r) => setTimeout(r, 400))
+    return base(request)
+  }
+  await mountApp('/p/KR-01/takeoff/1', { as: PEOPLE.qs, api })
+  await waitFor(() => expect(bodyText()).toContain('Confirmed 0 / 24'))
+  late = true
+  return step1
+}
+
 describe('the bulk act, half refused', () => {
   it('says the 16 were confirmed and why the rest was not, offers Undo, and undoes only what was done', async () => {
     const step1 = await open()
@@ -53,5 +69,29 @@ describe('an act in flight', () => {
     await new Promise((r) => setTimeout(r, 300))
     expect(step1.calls().filter((c) => c === 'POST /confirm')).toHaveLength(1)
     expect(step1.calls().filter((c) => c === 'POST /exclude')).toHaveLength(1)
+  })
+
+  it('sends the bulk act once when the second Enter comes while Step 1 reloads', async () => {
+    const step1 = await openSlow()
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(step1.calls().filter((c) => c === 'POST /exclude')).toHaveLength(1))
+    await userEvent.keyboard('{Enter}')
+    await new Promise((r) => setTimeout(r, 1000))
+    expect(step1.calls().filter((c) => c.startsWith('POST'))).toEqual(['POST /confirm', 'POST /exclude'])
+  })
+
+  it("sends a sheet's act once when the second Enter comes while Step 1 reloads", async () => {
+    const step1 = await openSlow()
+    screen.getByRole('grid', { name: 'Sheets' }).focus()
+    const active = () => document.activeElement as HTMLElement | null
+    const number = () => (active()?.getAttribute('role') === 'row' ? (active()!.querySelectorAll('[role="gridcell"]')[1]?.textContent ?? '').replace(/[⁦-⁩‎‏\s]/g, '') : '')
+    for (let i = 0; i < 30 && number() !== 'S-02'; i++) await userEvent.keyboard('{ArrowDown}')
+    await userEvent.keyboard(' ')
+    await screen.findByRole('group', { name: /S-02/ })
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(step1.calls().filter((c) => c.startsWith('POST'))).toHaveLength(1))
+    await userEvent.keyboard('{Enter}')
+    await new Promise((r) => setTimeout(r, 1000))
+    expect(step1.calls().filter((c) => c.startsWith('POST'))).toHaveLength(1)
   })
 })
