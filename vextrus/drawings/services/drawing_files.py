@@ -112,8 +112,8 @@ def read_anyway(prefix: str = "") -> Q:
     )
 
 
-def _read_anyway(row: DrawingFile) -> bool:
-    """`read_anyway`, of one file."""
+def read_anyway_ended(row: DrawingFile) -> bool:
+    """`read_anyway`, of one file (its report's sheets say what the sheet list lists)."""
     return (
         row.read_status == ReadStatus.QUARANTINED
         and row.held_answer == HeldAnswer.READ_ANYWAY
@@ -277,7 +277,7 @@ def _views(rows: list[DrawingFile]) -> list[FileView]:
         job = jobs.state(row.read_job_id) if row.read_job_id is not None else None
         dwg_read = _dwg_read(row, read_dwgs)
         state, status = _status(row, job, now, len(matched_pages.get(row.id, ())), dwg_read)
-        readable = state == FileState.READ or _read_anyway(row)
+        readable = state == FileState.READ or read_anyway_ended(row)
         shown.append(
             FileView(
                 id=row.id,

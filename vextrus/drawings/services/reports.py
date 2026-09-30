@@ -231,9 +231,7 @@ def asks_to_mark(row: DrawingFile, view: drawing_files.FileView) -> bool:
 
 
 def _listed(row: DrawingFile) -> bool:
-    return row.read_status == ReadStatus.READ or (
-        row.read_status == ReadStatus.QUARANTINED and row.held_answer == HeldAnswer.READ_ANYWAY
-    )
+    return row.read_status == ReadStatus.READ or drawing_files.read_anyway_ended(row)
 
 
 def _sheets(row: DrawingFile) -> list[Message]:
