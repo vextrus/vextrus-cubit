@@ -196,8 +196,9 @@ describe('an Undo while the act is still going (the review of 22, rounds 2 and 3
     await ctrlZ()
     release()
     await accepting(step1, 'POST /exclude', 2)
-    await waitFor(() => expect(bodyText()).toContain('Nothing undone: your last change was not made.'))
-    await accepting()
+    // Its refusal stays on screen (it says why); the Ctrl Z adds nothing over it (the words gate, round 4).
+    await waitFor(() => expect(bodyText()).toContain('You have nothing left to undo on Step 1'))
+    expect(bodyText()).not.toContain('Nothing undone')
     expect(step1.calls()).not.toContain('POST /undo')
     expect(bodyText()).toContain('Confirmed 16 / 24')
   })

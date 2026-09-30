@@ -34,6 +34,8 @@ interface Entry {
   words: ReactNode
   /** Settles once its server calls are made and counted (at once for a dropped key). */
   made: Promise<void>
+  /** Its calls are made and counted (`made` has settled). */
+  counted: boolean
   dropped: boolean
 }
 
@@ -120,7 +122,7 @@ export function useStep1Acts(projectId: string): Step1Acts {
    */
   const begin = useCallback((): ((calls: number, words: ReactNode) => void) | null => {
     if (pending.current || undos.current > 0) {
-      if (!history.current.at(-1)?.dropped) history.current.push({ calls: 0, words: null, made: Promise.resolve(), dropped: true })
+      if (!history.current.at(-1)?.dropped) history.current.push({ calls: 0, words: null, made: Promise.resolve(), counted: true, dropped: true })
       return null
     }
     pending.current = true
@@ -128,11 +130,12 @@ export function useStep1Acts(projectId: string): Step1Acts {
     // The last act's toast goes: its Undo would now take back this act (the server undoes the latest).
     toast.clear()
     let counted = () => {}
-    const entry: Entry = { calls: 0, words: null, made: new Promise<void>((resolve) => (counted = resolve)), dropped: false }
+    const entry: Entry = { calls: 0, words: null, made: new Promise<void>((resolve) => (counted = resolve)), counted: false, dropped: false }
     history.current.push(entry)
     return (calls, words) => {
       entry.calls = calls
       entry.words = words
+      entry.counted = true
       counted()
     }
   }, [toast])
@@ -154,8 +157,11 @@ export function useStep1Acts(projectId: string): Step1Acts {
         try {
           if (entry) {
             // An act in flight is waited for, so this undoes it; one that made nothing undoes nothing.
+            const waited = !entry.counted
             await entry.made
             if (entry.calls === 0) {
+              // Refused while this Ctrl Z waited: its refusal, just shown, says why and what to do; kept.
+              if (waited && !entry.dropped) return
               toast.show({ message: <Trans>Nothing undone: your last change was not made. Press Ctrl Z again to undo the one before it.</Trans> })
               return
             }
@@ -166,7 +172,7 @@ export function useStep1Acts(projectId: string): Step1Acts {
               toast.show({ message: <Trans>Undone: {words}</Trans> })
             } catch (error) {
               // Not undone: it stays the last act, for the next Ctrl Z.
-              if (left === entry.calls) history.current.push({ ...entry, made: Promise.resolve() })
+              if (left === entry.calls) history.current.push({ ...entry, made: Promise.resolve(), counted: true })
               sayRefused(error)
             }
           } else {
