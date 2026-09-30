@@ -1,4 +1,4 @@
-# Session 08: close M0, and launch M1's wave 1 in the first 15 minutes
+# Session 08: all M0 — close its merges and fixes, and score toward 80%
 
 ## Starting the session (the owner)
 1. **Before the session, if session 07's hand-off asks for it:** the custody re-run (the scorer changed
@@ -9,25 +9,34 @@
 
 ---
 
-You are the orchestrator of session 08, at **medium** effort. You own three results:
-1. **M0 closed:** its remaining merges first (table below), then the owner's walk steps handed over.
-2. **M1's wave 1 launched in the first 15 minutes** and built through the loop: every wave-1 ticket merged,
-   or at a reviewed head with what is left written down.
-3. **The owner's element-key confirmation asked for in this session** (it is on M1's critical path from
-   about hour 12), and session 09's brief written.
+You are the orchestrator of session 08, at **medium** effort. **Session 08 is all M0** (the owner's ruling
+below); M1 starts in session 09. You own four results:
+1. **M0's merges:** 21c (PR #152) and 22 merged, 21c first; then 21d (#170).
+2. **M0's fix wave:** the fix issues #156–#169 built through the loop and merged, B1–B4 (#156–#159) first;
+   the open M0 issues #102, #115, #118, #133, #135 and #150 closed by the fixes that absorb them.
+3. **The scored loops toward the 80% bar** on both Development Sets (below), every scored head counted in #45.
+4. **The owner's steps:** the key corrections (the two storey rulings) prepared as a key-user step and asked
+   once; the owner's walk steps (`docs/specs/M0.md`, "Finish line") written at the end; at the close, the
+   numbers put to the owner with the question of whether session 09 starts M1.
 
 **You run everything yourself** (ADR 0041, the `orchestrate-wave` skill). The owner is not waiting to
-approve anything but the steps only they can take (custody re-runs, the Held-out instance, key
-confirmation, spending, the walk). **After each event take the next step in the same turn; never stop to
-summarise or offer to wait.** The fastest safe path, not the fastest path.
+approve anything but the steps only they can take (custody re-runs, key corrections, spending, the walk).
+**After each event take the next step in the same turn; never stop to summarise or offer to wait.** The
+fastest safe path, not the fastest path.
 
-**Read first (in this order, no more):** this brief; `docs/plans/M1.md` sections "What is broken or
-unmeasured before the first ticket", "What waits on M0's last tickets", "Reused from M0: the loop",
-"The rolling order (session 08 onward)" and "Wave 1"; session 07's hand-off state
-(`.private/work/session-07/STATE.md`, the last block). Read each contract section (C1–C18) only when you
-write the prompt of a ticket that names it.
+**Read first (in this order, no more):** this brief; session 07's hand-off state
+(`.private/work/session-07/STATE.md`, the last block); 26's walk report
+(`.private/work/session-07/26/walk.md`); each fix issue's body when you launch it (its acceptance, where it
+lives, its local/cloud label); the scorer's diagnostic of the last scored run before any views loop.
+Do not read `docs/plans/M1.md` this session except to file M1's issues at the close.
 
 ## The owner's rulings (verbatim; #45 and the session STATE files hold each in full)
+Session 08's scope and bar (30 Sep 2026; each the option he chose, quoted):
+- Session 08: "All M0; M1 from session 09 (Recommended)".
+- The score bar before M1 starts: "Sheets and views ≥ 80%" — the blind scorer, on both Development Sets:
+  sheets all right ≥ 80% and views joined ≥ 80%, on Edison and on the Sample Project (today that is Edison
+  ≥ 174/217 sheets and ≥ 592/739 views; Sample ≥ 54/67 sheets and ≥ 334/417 views).
+
 Session 06 (29 Sep 2026):
 > "Keep it up and keep pushing until we completed all issues on M0 and have the solid production grade
 > foundation of our product by achieving the highest quality completing M0. I suggest you to utilize some
@@ -70,19 +79,29 @@ scorer reads them).
 ## The time budget and the clocks
 **8 hours** from your first launch. Write `.private/work/session-08/STATE.md` first, with the clock start
 and these limits, all from `date -u`:
-- **0:00–0:15:** wave 1's acceptance writers launched, all at once (below), and M0's carried tickets
-  resumed or relaunched.
-- **No new M0 launches after 3 h** (M0's leftovers do not crowd M1's wave; what is still open then is
-  written into session 09's brief with its state).
+- **0:00–0:15, all at once:** the acceptance writers for B1–B4 (#156–#159); the fresh 21c and 22 builders
+  (below); and the first scored loop (view boxes).
 - **No new launches of any kind after 7 h;** at 8 h the running rounds finish and you write the hand-off.
-- Per ticket: the budget in "The rolling order" (M1) or M0.md's table (M0), from its acceptance-writer's
-  launch (or your first message to a carried-over builder) to merge.
+- Per ticket: its issue body's budget (or M0.md's table), from its acceptance-writer's launch (or your
+  first message to a builder) to merge. Per scored loop: at most 90 minutes.
 State both clocks, from `date`, in every message to a builder.
 
-## M0 at session 07's close
+## M0's finish for session 08
 Verify with `git log origin/main` and `gh pr list`. Merged in session 07: 24g (#143), 122 (#141), nrif
 (#144), 136 seed (#145), loop-storeys (#146), 107 harness (#147), loop-views (#148), 24 cap and memory words
 (#153).
+
+### 1. The two merges (21c before 22)
+Each goes to **a fresh builder from its committed head**, with the findings already in the table below as
+its first fix prompt; then review (at most two rounds), gates, merge.
+- **21c** (PR #152, branch `t21c` at 19fa1919): a fresh cloud builder at high effort from `t21c`, launched
+  from `t21c`'s own worktree. Then `pr-reviewer`, the harness posting run, merge. Then the custody re-run
+  (it changes `scripts/real_drawings/`), batched with any other scorer or harness change.
+- **22** (branch `claude/step1-screen-fixes-fxi25m` at 24fd0794): a fresh builder from that head, merged
+  with main once 21c is in (keep 22's `_agreeing` standing line, 21c's `_named`; fields additive), a design
+  walk 5 walked by keyboard (m0-screens §8), merge after 21c.
+
+The findings each fresh builder starts from (session 07's close):
 
 | Ticket | Branch / PR | State | What is left |
 |---|---|---|---|
@@ -92,15 +111,38 @@ Verify with `git log origin/main` and `gh pr list`. Merged in session 07: 24g (#
 | 21d (new) | branch `t21d` to create from 21c's merge | not started | the job as the check's default once its export is full (conflicts, Checks, register, render F1, font and PDF reports); the seed replayed through the real job (a finder-readable synthetic KR-01); acceptance tests kept in `.private/work/session-07/21c/t21d-files/` (move them in with an `acceptance:` commit) |
 | seed sheets | #150 | open | KR-01's synthetic sheets look nearly empty (blocks a demo) |
 
-**M0's fix wave (from 26's walk) comes first in session 08,** each with acceptance tests first (26's report
-gives each one's acceptance): **B1** answer Questions on the Step 1 screen (every option key worded); **B2**
-wire Plot matching into the read and make its words honest (expect all 208 PDF pages matched); **B3** every
-Structural view accounted (sections, schedules, details to their Steps; a QS act to place a view); **B4** the
-"General" Discipline (the owner's ruling); then W1 one paper scale for views and buffers, W5 same-number
-conflicts per Discipline and retired on re-read, W6 no phantom sheets (Edison 6 today), W2 Next/Previous
-once through, W3/W4/W9 words (one bundle, a words gate), W7 read-anyway raises Questions, W8 confirm refuses
-one-source sheets in a multi-sheet act. Launch B1–B4's writers in the first 15 minutes with M1's wave 1.
-After them: the owner's walk steps (docs/specs/M0.md, Finish line).
+### 2. The fix wave (#156–#169), then 21d (#170)
+Each fix issue's body holds its acceptance, where it lives and its local/cloud label: acceptance tests
+first by `acceptance-writer`, then the builder, review, gates, merge.
+- **First, B1–B4:** #156 answer Questions on the Step 1 screen (every option key worded; it absorbs #118);
+  #157 wire Plot matching into the PDF read and make its words honest (all 208 PDF pages matched); #158
+  every Structural view accounted, so Structural can reach confirmed; #159 the "General" Discipline (the
+  owner's ruling; a Market library row).
+- **Then:** #160 one paper scale for views and buffers (absorbs #133); #161 same-number conflicts per
+  Discipline, retired on re-read; #162 no phantom sheets (Edison 6 today); #163 viewer Next/Previous walks
+  every sheet once; #164 list rows for Questions without a sheet; #165 read anyway raises Questions; #166
+  confirm refuses one-source sheets in a multi-sheet act; #167 the Step 1 words bundle (a `ux-critic`
+  words gate); #168 guess the Discipline from file names; #169 the dev server's port and proxy from the
+  environment. #102 is absorbed by #159, #161 and #162 together.
+- **21d (#170) after 21c's merge:** branch `t21d` from main; move its parked acceptance tests
+  (`.private/work/session-07/21c/t21d-files/`) in with an `acceptance:` commit; the job becomes the check's
+  default once its export is full; the seed is replayed through the real job over a finder-readable
+  synthetic KR-01 (absorbs #150).
+- **The older open M0 issues:** close each with the merged PR that fixes it, and a line of evidence: #118
+  (#156), #133 (#160), #102 (#159, #161, #162), #135 (21c), #150 (21d). #115 (the viewer taking focus back
+  after Try again): check it on main once 22 and #163 are in; if it still happens, fold it into #163's
+  round, otherwise close it with the evidence.
+- A fix whose issue body says it touches real drawings runs local; the rest cloud.
+
+### 3. The owner's key corrections (ask once)
+Prepare the key-user step for the two storey rulings (pile, pile cap and tie-beam levels are storeys; a
+sheet's storey is the title's words, content storeys go on views). Write its prompt with the Write tool
+(the guard refuses the privilege tool's name in a shell command), check it on a copy, and ask the owner
+once to run it. The storeys loop waits on it.
+
+### 4. The owner's walk steps
+At the end, write the owner's walk steps from `docs/specs/M0.md`, "Finish line", against main as it
+stands, into session 09's brief and #45: what to open, what to do, what he should see.
 
 Also carried: the owner's custody re-runs (`keys-custody.sh` after 24g, 107 and 21c; `autonomy-setup.sh`
 after 107; ask once if session 07's close did not get them done); #140 and #149 (`before-beta`); #151 (after
@@ -114,62 +156,61 @@ the cap on #148).
 
 The diagnostic (counts only) aims the next scored loop: on Edison, 86 unjoined key views have a same-kind export view at IoU 0.5–0.8 and 55 at 0.2–0.5 (sections 46 + 21, plans 26 + 6): **the boxes are near but not tight enough** — the first view loop is box extent (what a view's box takes in: its title, dimensions, grid bubbles), judged per kind. 65 have no export view of their kind, 33 are another kind at IoU ≥ 0.8 (details 26: a kind rule). Aligning frame corners joins nothing (0): not a frame problem. Subjects: 257 key phrases fall outside the engine's 14 words (architectural and electrical views have none: a vocabulary ruling for the owner before a subject loop). Sheet level is near its ceiling except storeys (32 Edison, 11 Sample; the key corrections the owner ruled come first).
 
+## The scored loops (toward "Sheets and views ≥ 80%")
+The bar is sheets all right ≥ 80% and views joined ≥ 80% on both Development Sets, from the baseline
+above (Edison 38/217 sheets, 332/739 views; Sample 8/67, 197/417). **80% may take more than one session.**
+Session 09 starts M1 only when the bar is met or the owner rules otherwise: at session 08's close, put the
+numbers to him and ask.
+
+The loops, in this order (each at most 90 minutes, from its first agent's launch to its scored head):
+1. **View-box extent** (the first loop, launched in the first 15 minutes): the diagnostic's 141
+   near-misses (86 at IoU 0.5–0.8, 55 at 0.2–0.5), judged per kind: sections (46 + 21) and plans (26 + 6).
+   What a view's box takes in: its title, dimensions, grid bubbles.
+2. **Details' kind:** the 26 details that are another kind at IoU ≥ 0.8 (a kind rule).
+3. **Phantoms:** #162 (no phantom sheets).
+4. **One paper scale:** #160.
+5. **Storeys**, after the owner's key corrections (32 Edison, 11 Sample).
+Subjects wait on a vocabulary ruling from the owner (257 key phrases outside the engine's 14 words);
+ask it only when the loops above have run.
+
+How each loop runs:
+- **Many agents on different failing sheets** (local, high effort for reading drawings), each with its own
+  worktree and unique scratch folder under `.private/work/session-08/loop-<name>/`; they commit, never push.
+- **You push each loop branch and freeze it while a scored run runs;** tell its agents not to commit
+  until the run ends.
+- **Every scored head is counted in #45** (counts only: sheets all right, views joined, per Set).
+- **Stop a line of work when two scored heads in a row gain nothing;** move to the next loop.
+- A loop that changes the engine merges through the loop like any ticket; a loop's findings ≥ 50 leave a
+  committed check.
+
 ## The order
-1. **First 15 minutes, in parallel:**
-   - the acceptance writers for every wave-1 ticket with tests (the table below), each in its own
-     worktree on its branch `m1-NN`, with its unique scratch folder under `.private/work/session-08/<ticket>/`;
-   - the local wave-1 tickets with no tests (M1-05's two analysts, M1-24; M1-02 if the owner has answered
-     question 2 with the reduction route);
-   - M0's carried builders (message or relaunch from their committed heads).
-2. **Builders as their tests land** (rule each writer's "not pinned" list first, within minutes).
-3. **The owner:** ask for M1-06's run (the Held-out instance, 1 h) and put the key confirmations (M1-02,
-   M1-05; 1.5 h each) on the owner's day as soon as the drafts exist. The custody re-run follows M1-01's
-   merge and both keys' confirmation, batched with any other change to `tools/scorer/` or
-   `scripts/real_drawings/`.
-4. **Wave 2 as edges clear** (M1.md "Wave 2"): M1-09 after M1-08; M1-10b after M1-07 and M1-08 (from
-   M1-10a's reviewed head); M1-30 after M1-10a (from M1-29's reviewed head); M1-46 when a cloud slot frees.
-   These three are the forecast's S08 finish (M1.md "Sessions").
-5. **Adversary rounds** after each merge wave, on M1.md's surfaces in its order (the scorer and the key
-   fence first).
-6. **Session 09's brief** from 7 h, in M1.md's rolling order.
+1. **First 15 minutes, in parallel:** B1–B4's acceptance writers (#156–#159), each in its own worktree on
+   its branch with its unique scratch folder under `.private/work/session-08/<ticket>/`; the fresh 21c and
+   22 builders; the first scored loop (view boxes).
+2. **Builders as tests land** (rule each writer's "not pinned" list first, within minutes); the rest of
+   the fix wave's writers as slots free (#160–#169), then 21d after 21c merges.
+3. **The key-user step** prepared and asked once, as soon as it is written.
+4. **The scored loops** in their order, one after another, as the stop rule moves them on.
+5. **Adversary rounds** (Sonnet 5.5, its findings ≥ 50 re-run by an Opus refuter) after each merge wave.
+6. **From 7 h:** the close (below).
 
-## M1's wave 1 (launch list)
-The contracts and edges are the plan's, carried by reference: each prompt pastes its ticket's entry from
-M1.md "Wave 1" and the contract sections it names (C-numbers), plus "Units: one rule", "Reused from M0:
-the loop" and "Where the spec and main disagree". Acceptance tests go under
-`<the owned module>/tests/acceptance/m1_NN/` (web: `web/src/acceptance/m1_NN/`); the acceptance lint
-guards any path under `tests/acceptance/`.
+**Local sessions: at most six at once** (`free -g`). M0's merges first, then the fix wave's local tickets
+(#157, #158, #160, #162), then the loop agents. Posting runs one at a time under the lock.
 
-| Ticket | Where | Effort | Budget | Writer? | Acceptance path | Waits on |
-|---|---|---|---|---|---|---|
-| M1-01 Scorer: element level, two reads, gate scoring (#123, #127 first) | cloud | high (key fence) | 4 h + custody | yes | `tools/scorer/tests/acceptance/m1_01/`, `scripts/real_drawings/tests/acceptance/m1_01/` | merges after 21c, M1-10a |
-| M1-06 The Held-out instance | local | high (security wall) | 3 h + owner 1 h | yes | `scripts/owner/tests/acceptance/m1_06/` | the owner runs it |
-| M1-07 Rule Set as Library data, the pin, Billing Units, strength table | cloud | medium | 5 h | yes | `vextrus/measurement/tests/acceptance/m1_07/` | — |
-| M1-08 `live_model` spine | cloud | high (row policies) | 4.5 h | yes | `vextrus/live_model/tests/acceptance/m1_08/` | — |
-| M1-10a Family contract, registry, chain run, export v2 | cloud+local | medium | 4 h | yes | `engine/families/tests/acceptance/m1_10a/` | merges after 21c |
-| M1-12 `drawings`: profiles, office, scales, hand-drawn | cloud | medium | 4 h | yes | `vextrus/drawings/tests/acceptance/m1_12/` | — |
-| M1-13 Jev nodes and spot-check harness | cloud | medium | 2.5 h | yes | `vextrus/platform/tests/acceptance/m1_13/` | — |
-| M1-14 `rates` | cloud | medium | 4.5 h | yes | `vextrus/rates/tests/acceptance/m1_14/` | merges after M1-07 (allowlist) |
-| M1-44 `projects`: Gross Floor Area, Display Units | cloud | medium | 2 h | yes | `vextrus/projects/tests/acceptance/m1_44/` | — |
-| M1-47 Platform walls: Developer header, refusals, malformed input | cloud | high (security wall) | 3 h | yes | `vextrus/platform/tests/acceptance/m1_47/`, `web/src/acceptance/m1_47/` | — |
-| M1-29 Guarded repair, four bugs, literal guard, harness namespace (#77) | local | high (hostile input) | 3.5 h | yes | `engine/geometry/tests/acceptance/m1_29/` | — |
-| M1-02 Sample Project element key | local, no PR | high (reading) | 3 h + owner 1.5 h | no (owner confirms) | — | the owner's answer to question 2 |
-| M1-05 Edison counts per family per storey | local, no PR | high (reading) | 3 h + owner 1.5 h | no (owner confirms) | — | — |
-| M1-24 `docs/design/m1-screens.md` | local | medium | 3 h | no (`ux-critic` and `qs-critic` read it) | — | — |
-
-**Local sessions: at most six at once** (`free -g`). Wave 1 alone fills them (M1-05's two analysts, M1-06,
-M1-29, M1-24, M1-10a's posting run), so M0's local leftovers (26, the scored loops, 24's preparation) share
-them: M0's merges first, then M1-05 and M1-29 (the critical path), then the rest. Posting runs one at a
-time under the lock.
+## M1 (session 09)
+M1's plan is final (`docs/plans/M1.md`, the owner's eleven rulings folded). At session 08's close the
+orchestrator files one issue per M1 ticket from M1.md (as M0 did with #1–#40) and writes session 09's
+brief to launch M1's wave 1 (M1.md "Wave 1") in its first 15 minutes, if the bar is met or the owner has
+ruled otherwise. The launch list is kept at the end of this brief.
 
 ## The owner's questions still open
-Session 07 asked and got answers to all eleven of M1.md's questions and the key-storey questions (see
-"Session 07's rulings"). Still open, ask one at a time with your recommendation first:
+Ask one at a time with your recommendation first:
+- The keys' correction itself (the two storey rulings): prepare the key-user step and ask the owner to run it.
 - The rest of the sheet loop's key-contract questions (`.private/work/session-07/loop-sheet/key-questions.md`;
   general terms only): what a sheet's Discipline is when one file bundles trades (air-conditioning sheets in
   another trade's file), and fields where the key disagrees with the only value the drawing shows (a General
   Note's date).
-- The keys' correction itself (the two storey rulings): prepare the key-user step and ask the owner to run it.
+- At the close: the scored numbers against the 80% bar, and whether session 09 starts M1.
 
 ## Operating rules (sessions 06 and 07's lessons, each paid for; the checks are committed where named)
 **Launching and messaging**
@@ -231,17 +272,17 @@ Session 07 asked and got answers to all eleven of M1.md's questions and the key-
   `NOTES.txt` and are told how to resume from it.
 
 ## Done means
-1. M0's remaining tickets merged, or each one's state and what is left written into session 09's brief;
-   M0's walk steps with the owner.
-2. Every wave-1 ticket with tests merged through the loop, or at a reviewed head with what is left; every
-   finding ≥ 50 with its committed check.
-3. M1-05's counts drafted and put to the owner; M1-02 drafted by its route; M1-06 run by the owner or
-   ready for the owner's run; M1-24 read by both critics.
-4. M1-09, M1-10b and M1-30 started (their edges allowing), or the edge that stopped each named.
-5. The owner's questions asked one at a time, each answer quoted; the custody re-run asked once, batched.
-6. Adversary rounds on every merge wave with no confirmed finding ≥ 50 left open.
-7. #45 and the M1 milestone issue's measures (counts only); lessons with their checks or listed as debts;
-   session 09's brief written; the hand-off PR merged.
+1. 21c and 22 merged (21c first); 21d merged or at a reviewed head with what is left written down.
+2. Every fix issue #156–#169 merged through the loop, or at a reviewed head with what is left in session
+   09's brief; #102, #115, #118, #133, #135 and #150 closed with evidence or carried with their state.
+3. The scored loops run in order, every scored head counted in #45; the bar met, or the numbers and the
+   next loop written into session 09's brief.
+4. The key-user step prepared and asked once; the custody re-run asked once, batched.
+5. The owner's questions asked one at a time, each answer quoted; the M1 question asked at the close.
+6. Adversary rounds on every merge wave with no confirmed finding ≥ 50 left open; every finding ≥ 50 with
+   its committed check.
+7. M1's issues filed from M1.md; the owner's walk steps written; session 09's brief written; the hand-off
+   PR merged.
 
 ## Law in force
 Secrets never printed or written; real drawings stay in `.private/` (the repo is public: no drawing text,
@@ -249,3 +290,39 @@ no key value, no client-identifying content beyond what is already there); the k
 scorer; OpenConstructionERP never copied; no AGPL library in the product (never PyMuPDF, even in scratch:
 use pypdfium2 or pdftoppm); the product's word is **Rebar**; no market literal; every visible string
 through a catalogue; logical CSS only.
+
+## For session 09: M1's wave 1 (launch list)
+Kept here so nothing is lost; session 09's brief carries it. The contracts and edges are the plan's, carried by reference: each prompt pastes its ticket's entry from
+M1.md "Wave 1" and the contract sections it names (C-numbers), plus "Units: one rule", "Reused from M0:
+the loop" and "Where the spec and main disagree". Acceptance tests go under
+`<the owned module>/tests/acceptance/m1_NN/` (web: `web/src/acceptance/m1_NN/`); the acceptance lint
+guards any path under `tests/acceptance/`.
+
+| Ticket | Where | Effort | Budget | Writer? | Acceptance path | Waits on |
+|---|---|---|---|---|---|---|
+| M1-01 Scorer: element level, two reads, gate scoring (#123, #127 first) | cloud | high (key fence) | 4 h + custody | yes | `tools/scorer/tests/acceptance/m1_01/`, `scripts/real_drawings/tests/acceptance/m1_01/` | merges after 21c, M1-10a |
+| M1-06 The Held-out instance | local | high (security wall) | 3 h + owner 1 h | yes | `scripts/owner/tests/acceptance/m1_06/` | the owner runs it |
+| M1-07 Rule Set as Library data, the pin, Billing Units, strength table | cloud | medium | 5 h | yes | `vextrus/measurement/tests/acceptance/m1_07/` | — |
+| M1-08 `live_model` spine | cloud | high (row policies) | 4.5 h | yes | `vextrus/live_model/tests/acceptance/m1_08/` | — |
+| M1-10a Family contract, registry, chain run, export v2 | cloud+local | medium | 4 h | yes | `engine/families/tests/acceptance/m1_10a/` | merges after 21c |
+| M1-12 `drawings`: profiles, office, scales, hand-drawn | cloud | medium | 4 h | yes | `vextrus/drawings/tests/acceptance/m1_12/` | — |
+| M1-13 Jev nodes and spot-check harness | cloud | medium | 2.5 h | yes | `vextrus/platform/tests/acceptance/m1_13/` | — |
+| M1-14 `rates` | cloud | medium | 4.5 h | yes | `vextrus/rates/tests/acceptance/m1_14/` | merges after M1-07 (allowlist) |
+| M1-44 `projects`: Gross Floor Area, Display Units | cloud | medium | 2 h | yes | `vextrus/projects/tests/acceptance/m1_44/` | — |
+| M1-47 Platform walls: Developer header, refusals, malformed input | cloud | high (security wall) | 3 h | yes | `vextrus/platform/tests/acceptance/m1_47/`, `web/src/acceptance/m1_47/` | — |
+| M1-29 Guarded repair, four bugs, literal guard, harness namespace (#77) | local | high (hostile input) | 3.5 h | yes | `engine/geometry/tests/acceptance/m1_29/` | — |
+| M1-02 Sample Project element key | local, no PR | high (reading) | 3 h + owner 1.5 h | no (owner confirms) | — | the owner's answer to question 2 |
+| M1-05 Edison counts per family per storey | local, no PR | high (reading) | 3 h + owner 1.5 h | no (owner confirms) | — | — |
+| M1-24 `docs/design/m1-screens.md` | local | medium | 3 h | no (`ux-critic` and `qs-critic` read it) | — | — |
+
+**Local sessions: at most six at once** (`free -g`). Wave 1 alone fills them (M1-05's two analysts, M1-06,
+M1-29, M1-24, M1-10a's posting run), so M0's local leftovers (26, the scored loops, 24's preparation) share
+them: M0's merges first, then M1-05 and M1-29 (the critical path), then the rest. Posting runs one at a
+time under the lock.
+
+From session 08's old order, for session 09: rule each writer's "not pinned" list within minutes; ask the
+owner for M1-06's run (the Held-out instance, 1 h) and put the key confirmations (M1-02, M1-05; 1.5 h each)
+on the owner's day as soon as the drafts exist; the custody re-run follows M1-01's merge and both keys'
+confirmation, batched; wave 2 as edges clear (M1.md "Wave 2": M1-09 after M1-08; M1-10b after M1-07 and
+M1-08, from M1-10a's reviewed head; M1-30 after M1-10a, from M1-29's reviewed head; M1-46 when a cloud slot
+frees); adversary rounds on M1.md's surfaces in its order (the scorer and the key fence first).
