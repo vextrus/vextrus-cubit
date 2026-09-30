@@ -221,7 +221,8 @@ export function useStep1Acts(projectId: string): Step1Acts {
           if (undos.current === 0 && !pending.current) setBusy(false)
         }
       }
-      chain.current = chain.current.then(one)
+      // Never left rejected: an undo that throws (a failed reload) must not stop the ones after it.
+      chain.current = chain.current.then(one).catch(() => {})
       return chain.current
     },
     [projectId, refresh, restore, sayRefused, toast],
