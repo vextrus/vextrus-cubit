@@ -1,6 +1,7 @@
 """The export from the database (ticket 21c): the real-drawing check's reading of a Drawing Set through
 the product's own job, written through `engine/export.py` (docs/plans/M0.md, 21c; the check's sandbox,
-`scripts/real_drawings/sandbox.py`, runs it in `--job` mode, its default since 21c):
+`scripts/real_drawings/sandbox.py`, runs it in `--job` mode, an option with `--no-post`: the harness
+stays the check's default until this export fills what `GAPS` names, the owner's ruling of 30 Sep 2026):
 
     python -m vextrus.takeoff.services.export --set <folder> --out <export.json> --database <socket>
         [--run-id ID] [--commit SHA] [--code-hash HASH]

@@ -1,6 +1,6 @@
-"""`scripts/real-drawings <PR number | branch | main> [--no-post] [--fresh] [--harness]`: the
-real-drawing check, regression only (the M0 plan, "The real-drawing check", steps 1-7; ADRs 0026 and
-0030 as amended in session 02).
+"""`scripts/real-drawings <PR number | branch | main> [--no-post] [--fresh] [--job]`: the real-drawing
+check, regression only (the M0 plan, "The real-drawing check", steps 1-7; ADRs 0026 and 0030 as amended
+in session 02).
 
 Run from the owner's checkout of main. It measures the head: the engine paths' files into a scratch
 checkout, the refusals, the locked wheels fetched by hash, the install and the harness inside the
@@ -31,14 +31,12 @@ code hash is not main's (it changes the engine's reading) that the scorer could 
 nothing and exits 3. Before then, a posting run runs as the owner's user and says it is not scored,
 and `--score` is refused.
 
-The head is read with the product's read job (21a's `--job` mode, the default since 21c), against a
-throwaway PostgreSQL 18 cluster inside the sandbox (`sandbox.py`), its export from the job's export
-entry point (`vextrus/takeoff/services/export.py`). Main is read the same way, but with the engine
-harness while main's engine paths hold no job entry point: the first job run (21c's own posting run)
-diffs the job against the last harness run, which the owner accepts item by item (the review R2). A
-job's exports are cached apart from the harness's, never one for the other. `--harness` reads both runs
-with the engine harness, as before 21c; it is refused with `--score` and on a posting run, which the
-job alone reads.
+`--job` (21a; off by default until 21c) reads the head with the product's read job instead of the
+engine harness, against a throwaway PostgreSQL 18 cluster inside the sandbox (`sandbox.py`), its export
+from the job's export entry point; main is read with the harness as before, so the run diffs the job
+against the last harness run (21c's first posting run, the review R2). A job's exports are cached apart
+from the harness's, never one for the other. Until 21c makes it the default, `--job` is refused
+with `--score` and on a posting run: a job run is never scored or posted.
 """
 
 import argparse
@@ -76,7 +74,6 @@ from scripts.real_drawings.source import (
     show,
     write_checkout,
 )
-from tools.lint.engine_paths import matching, read_patterns
 
 ROOT = Path(__file__).resolve().parents[2]
 SETS = {"sample-project": ".private/reference/sample-project", "edison": ".private/reference/edison"}
@@ -126,11 +123,10 @@ class Machine:
     sandbox_version: str = SANDBOX_VERSION
 
 
-HARNESS_REFUSED = (
-    "--harness is never scored or posted: a scored or posting run reads the head with the product's"
-    " job; run it with --no-post, on a branch or main, without --score"
+JOB_REFUSED = (
+    "--job is never scored or posted until 21c makes it the default: run it with --no-post, on a"
+    " branch or main, without --score"
 )
-JOB_ENTRY_FILE = sandbox.JOB_ENTRY.replace(".", "/") + ".py"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -147,10 +143,10 @@ def main(argv: list[str] | None = None) -> int:
         " writes the run's folder, and the blind scorer scores it; nothing is posted",
     )
     parser.add_argument(
-        "--harness",
+        "--job",
         action="store_true",
-        help="read the head and main with the engine harness, not the product's read job (the"
-        " default since 21c); never on a scored or posting run",
+        help="read the head with the product's read job against a throwaway PostgreSQL inside the"
+        " sandbox, not the engine harness (main is read with the harness); off until 21c",
     )
     how = parser.add_mutually_exclusive_group()
     how.add_argument(
@@ -168,8 +164,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.score and (args.no_post or args.target.isdigit()):
         parser.error("--score is a scored run of a branch or main (a PR's posting run is scored anyway)")
-    if args.harness and (args.score or (args.target.isdigit() and not args.no_post)):
-        parser.error(HARNESS_REFUSED)
+    if args.job and (args.score or (args.target.isdigit() and not args.no_post)):
+        parser.error(JOB_REFUSED)
     machine = owners_machine()
     try:
         if args.score or (args.target.isdigit() and not args.no_post):
@@ -194,7 +190,7 @@ def main(argv: list[str] | None = None) -> int:
             fresh=args.fresh,
             accept=args.accept,
             accept_if_clean=args.accept_if_clean,
-            job=not args.harness,
+            job=args.job,
         )
     except Refused as refused:
         print(f"real-drawings: refused: {refused}", file=sys.stderr)
@@ -231,13 +227,13 @@ def run(
     fresh: bool = False,
     accept: str | None = None,
     accept_if_clean: bool = False,
-    job: bool = True,
+    job: bool = False,
     score: bool = False,
 ) -> int:
     started = time.monotonic()
     posting = target.isdigit() and not no_post
-    if not job and (score or posting):
-        raise Refused(HARNESS_REFUSED)
+    if job and (score or posting):
+        raise Refused(JOB_REFUSED)
     with drop.posting_lock(m.drop) if posting else nullcontext():
         if posting and git(m.repo, "symbolic-ref", "--short", "HEAD").decode().strip() != MAIN:
             raise Refused("a posting run runs main's copy of the command: check out main first")
@@ -257,15 +253,9 @@ def run(
         head_hash, head_exports, head_cached = measure(
             m, head, main, work / "head", run_id, digests, fresh, job=job
         )
-        # Main is read as the head is, but with the harness while it has no job to read with.
-        main_job = job and has_job(m.repo, base.commit, main)
-        if job and not main_job:
-            m.say(f"main has no {JOB_ENTRY_FILE}: main is read with the harness, the job diffed on it")
         main_hash, main_exports = head_hash, head_exports
-        if head.commit != base.commit or job != main_job:
-            main_hash, main_exports, _ = measure(
-                m, base, main, work / "main", run_id, digests, fresh, job=main_job
-            )
+        if head.commit != base.commit or job:  # a job run is diffed against main's harness run
+            main_hash, main_exports, _ = measure(m, base, main, work / "main", run_id, digests, fresh)
         counts, items = report(m, main_exports, head_exports, head.commit == base.commit)
         head_failed = failed_text(head_exports)
         drop.write_new(work / "items.json", _json(items))  # holds drawing text: the owner's cache only
@@ -278,7 +268,6 @@ def run(
             "main_commit": base.commit,
             "main_code_hash": main_hash,
             "mode": "job" if job else "harness",
-            "main_mode": "job" if main_job else "harness",
             "sets": {
                 name: {
                     "set_sha256": digests[name],
@@ -354,13 +343,6 @@ def mains(repo: Path, commit: str) -> Mains:
     return Mains(patterns, pyproject, schema)
 
 
-def has_job(repo: Path, commit: str, main: Mains) -> bool:
-    """Whether the commit's engine paths (main's) hold the job's export entry point."""
-    return show(repo, commit, JOB_ENTRY_FILE) is not None and bool(
-        matching([JOB_ENTRY_FILE], read_patterns(main.patterns.decode()))
-    )
-
-
 def measure(
     m: Machine,
     head: Head,
@@ -393,7 +375,7 @@ def measure(
     if not python.exists():
         found.append(f"the head's Python is not installed: {python}")
     if job and not (sandbox.PG_BIN / "initdb").exists():
-        found.append(f"the job needs PostgreSQL 18's binaries: {sandbox.PG_BIN} has no initdb")
+        found.append(f"--job needs PostgreSQL 18's binaries: {sandbox.PG_BIN} has no initdb")
     if found:
         raise Refused(f"{head.target}: " + "; ".join(found))
     shaped_by = f"{m.sandbox_version}-job" if job else m.sandbox_version

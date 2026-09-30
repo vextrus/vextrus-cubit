@@ -20,8 +20,6 @@ LOCK = f'version = 1\n\n[[package]]\nname = "django"\nversion = "6.1.1"\nsource 
 SCHEMA = {"type": "object", "required": ["files"], "properties": {"files": {"type": "array"}}}
 # What the fake harness writes for each set: the invented export the head's checkout carries.
 FAKE_EXPORT = "engine/invented_export.json"
-# The job's export entry point main carries (21c), so main is read with the job as the head is.
-JOB_ENTRY = "vextrus/takeoff/services/export.py"
 
 
 def run_git(
@@ -96,7 +94,7 @@ class World:
         def fake_sandbox(job: Job, log: Path) -> None:
             self.sandbox_runs.append(job)
             log.write_text("")
-            for name in job.sets:  # the fake harness or job: the checkout's invented export, per set
+            for name in job.sets:  # the fake harness: the checkout's invented export, per set
                 (job.scratch / f"export-{name}.json").write_bytes(
                     (job.checkout / FAKE_EXPORT).read_bytes()
                 )
@@ -159,7 +157,6 @@ def make_world(root: Path) -> World:
             "engine/__init__.py": "",
             "engine/export.schema.json": json.dumps(SCHEMA),
             FAKE_EXPORT: invented(),
-            JOB_ENTRY: "raise SystemExit('the fake sandbox never runs it')\n",
             "toolchain/libredwg.version": "0.14\n",
             "toolchain/python.version": "3.14.7\n",
             "pyproject.toml": PYPROJECT,
