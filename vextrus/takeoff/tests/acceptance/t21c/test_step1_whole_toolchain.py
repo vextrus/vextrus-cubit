@@ -7,7 +7,8 @@ steps on hand-built artefacts, with no toolchain, are `test_step1_whole.py` and 
 
 The structural file: S-201 (four views; its "SECTION A-A" has no subject, so no step reads it: one
 view unaccounted), S-202 R0 and S-202 R1 (one number twice), S-203 (a title with `%%C`; three pile
-cap views). The electrical file: E-01 (a lighting plan and the legend).
+cap views). The electrical file: E-01 (a lighting plan and the legend). Each sheet's title block is a
+View too (CONTEXT.md, "View"; ruling R2), proposed out for information.
 """
 
 import uuid
@@ -153,8 +154,10 @@ def test_every_view_is_counted_and_the_one_no_step_reads_is_named_unaccounted(
 
     shown = coverage(api, qs_project.project_id)
 
-    # S-201 4, each S-202 3, S-203 3.
-    assert (shown["views"], shown["proposed"], shown["unaccounted"]) == (13, 12, 1)
+    # Drawn: S-201 4, each S-202 3, S-203 3; and each of the four sheets' title block (a View,
+    # CONTEXT.md; ruling R2), proposed out for information, never unaccounted.
+    assert (shown["views"], shown["proposed"], shown["unaccounted"]) == (17, 16, 1)
+    assert shown["by_reason"].get("for_information") == 4
     [lone] = shown["unaccounted_views"]
     assert lone["sheet_id"] == s201["sheet_id"]
 

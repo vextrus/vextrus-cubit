@@ -8,6 +8,11 @@ sandbox runs `python -m vextrus.takeoff.services.export`, `scripts/real_drawings
 `vextrus` module either imports, at any depth, is one the engine paths (`.github/engine-paths.txt`,
 which the code hash follows) name, but `vextrus/settings/`. Imports are read from the source (as
 Python would resolve them), so a module is counted even where Django would load it anyway.
+
+`vextrus/settings/` is the one exception because a run's checkout carries it beside the engine paths,
+and the job runs on its own settings module, which installs only apps on the engine paths (the
+orchestrator's ruling, option (b); pinned in `scripts/real_drawings/tests/acceptance/t21c/
+test_job_settings.py`).
 """
 
 import ast
