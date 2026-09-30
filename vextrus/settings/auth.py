@@ -33,9 +33,10 @@ CSRF_COOKIE_SECURE = SESSION_COOKIE_SECURE
 def web_port() -> int:
     """The web dev server's port: `VEXTRUS_WEB_PORT`, or 5410, as web/vite.config.ts reads it (#169).
 
-    An empty variable is unset; anything but a whole number from 1 to 65535 is refused.
+    An empty variable is unset; anything but a whole number from 1 to 65535 is refused. Only ASCII
+    whitespace is trimmed, as the web's config trims it, so the two agree on every value.
     """
-    value = os.environ.get("VEXTRUS_WEB_PORT", "").strip()
+    value = os.environ.get("VEXTRUS_WEB_PORT", "").strip(" \t\n\r\f\v")
     if not value:
         return 5410
     port = int(value) if value.isascii() and value.isdigit() else 0

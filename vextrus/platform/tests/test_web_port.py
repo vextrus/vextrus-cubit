@@ -47,6 +47,10 @@ def test_the_trusted_origin_and_invitation_origin_follow_the_web_port(auth_setti
     assert auth.VEXTRUS_WEB_ORIGIN == "http://127.0.0.1:5423"
 
 
+def test_ascii_whitespace_around_the_web_port_is_trimmed(auth_settings: Any) -> None:
+    assert auth_settings(VEXTRUS_WEB_PORT=" \t5423\n").CSRF_TRUSTED_ORIGINS == ["http://127.0.0.1:5423"]
+
+
 def test_explicit_origins_win_over_the_web_port(auth_settings: Any) -> None:
     auth = auth_settings(
         VEXTRUS_WEB_PORT="5423",
@@ -57,7 +61,14 @@ def test_explicit_origins_win_over_the_web_port(auth_settings: Any) -> None:
     assert auth.VEXTRUS_WEB_ORIGIN == "https://app.vextrus.example"
 
 
-@pytest.mark.parametrize("bad", ["abc", "5410x", "54.10", "-1", "0", "65536", "99999", "٥٤١٠"])
+@pytest.mark.parametrize(
+    "bad",
+    # The padded ones: only ASCII whitespace is trimmed, as web/vite.config.ts trims it.
+    [
+        *["abc", "5410x", "54.10", "-1", "0", "65536", "99999", "٥٤١٠", "+5410", "0x10"],
+        *["5410\ufeff", "\ufeff5410", "\x1c5410", "5410\x1f", "5410\xa0"],
+    ],
+)
 def test_a_malformed_web_port_is_refused_naming_the_variable_value_and_range(
     auth_settings: Any, bad: str
 ) -> None:
