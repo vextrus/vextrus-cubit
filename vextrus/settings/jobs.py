@@ -17,11 +17,14 @@ PROCRASTINATE_READONLY_MODELS = True
 # the stalled-job retrier runs on it.
 VEXTRUS_DEFAULT_QUEUE = "default"
 
-# The `cad` queue runs at concurrency 1 under an address-space cap set at the worker's start (09);
-# 24 sets the value from the measured peak memory. None: no cap yet.
+# The `cad` queue runs at concurrency 1 under an address-space cap (RLIMIT_AS) set at the worker's
+# start (09). 4 GiB (24, docs/research/m0-measurements.md): the largest peak address space of a read
+# job on the Development Sets is 1.00 GB (numerical libraries on one thread: `vextrus/__init__.py`),
+# and every sandboxed reader the worker starts sets its own limit of up to 3 GiB, which it cannot
+# raise above this one.
 VEXTRUS_CAD_QUEUE = "cad"
 VEXTRUS_CAD_WORKER_CONCURRENCY = 1
-VEXTRUS_CAD_WORKER_MEMORY_BYTES: int | None = None
+VEXTRUS_CAD_WORKER_MEMORY_BYTES: int = 4 * 2**30
 
 # A job is tried at most this many times, whether it raised or its worker died mid-way; a worker's
 # stop does not count ("Trying again by itself (try 2 of 3)": docs/design/m0-screens.md).

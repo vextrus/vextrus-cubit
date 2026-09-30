@@ -303,3 +303,36 @@ session-05 close-out's committed checks cover; confirm each on its merge):
   `render_f1` catalogues; the missing gate was found only at merge). The orchestrator checks
   `git diff --name-only -- web/src/messages` at every READY. Check: `merge_ready` refused the merge
   until the gate was posted.
+
+## Session 07 (29–30 Sep 2026; two power cuts, ~16.5 h lost; ~7 h of work)
+- **The scorer's first real answer was a contract fault, not a reading one:** view subjects 0/N on both sets
+  (free-phrase keys against the engine's 14 words) and three kind names spelled differently. A diagnosis
+  agent proved it on synthetic cases before any loop spent time. **Check:** 24g's tests (kind folding, subject
+  mapping, the subject table equal to the conventions) and its counts-only diagnostic.
+- **A title block is a View** (CONTEXT.md); keys boxed it, the engine never emitted one: ~280 key views
+  unjoinable. **Check:** loop-views' tests; #151 holds two after-cap edge cases.
+- **A scored run measures only what GitHub holds, and only while the branch stands still:** loop runs were
+  refused for an unpushed branch, then for a branch that moved mid-run. The orchestrator pushes loop
+  branches and freezes them until the run ends. Debt (runbook).
+- **A cloud launch from the main checkout clones main**, not the ticket's branch (one stray session built 22
+  from main twice). Launch `scripts.cloud.launch` from the ticket branch's worktree. **Check:** the launcher's
+  refusal (it caught it).
+- **Cloud builders are messaged with `claude --cloud <session_id> -p "<msg>" < /dev/null`**; SendMessage
+  does not reach them. A cloud builder can also go silent (22's first builder never acted on its round): if a
+  branch has not moved in an hour after a round, launch a fresh builder from the branch head. Debt (runbook).
+- **The guard refuses any shell command whose text names the privilege tool** (a heredoc prompt that said
+  "sudoers" was refused): write such prompts with the Write tool; `post-status` runs alone on its line.
+- **A wait loop that greps process lines matches itself** (`pgrep -f real-drawings-run` waited forever on its
+  own command line): match `comm`, not the whole line. Debt.
+- **Every merge makes every other open PR stale** (the ruleset requires up to date): each merge costs the
+  others a CI re-run and, for engine PRs, a posting run on the new head (cached, but the lock serialises).
+  Merge in an order that puts engine PRs first. Debt (runbook).
+- **A fix can re-open the class it fixes:** 22's double-act fix dropped Undo during the reload (caught only by
+  122's slowed CI run); loop-views' fallback re-opened the sheet-eating box on one synthetic case. The
+  re-check's mutation runs and 122's latency shard caught both. **Check:** 122's slowed Vitest step; the
+  reviewers' mutation runs (practice).
+- **Two copies of a local builder** run when `claude --bg --resume` meets a session still open: stop the
+  original first (`claude stop <id>`). Debt.
+- **Adversary rounds this session:** the read job (a limit that never reached the QS, 70 → fixed by nrif; a
+  pathological file holds the CAD worker, #140) and the scorer/posting path (key fence held against 1,200
+  crafted pairs; NaN not refused by the reader, refuted to 25; #149). Each ≥ 50 re-run by an Opus refuter.
