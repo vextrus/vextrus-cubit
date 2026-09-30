@@ -328,7 +328,7 @@ function StoreysFact({ sheet, slots }: { sheet: ProposalOut; slots: readonly str
   return (
     <span className="flex flex-col gap-1">
       <span>
-        <StoreysText views={sheet.views} />
+        <StoreysText views={sheet.views} stated={sheet.storeys_as_stated} />
         {stated && meaning ? <>, {meaning}</> : null}
       </span>
       <StoreyStrip slots={slots} views={sheet.views} size={6} />
@@ -441,6 +441,8 @@ function Views({ sheet, selected, onSelect, readOnly }: { sheet: ProposalOut; se
   const words = useStoreysWords()
   const views = sheet.views ?? []
   const n = views.length
+  // The title's stated storeys belong to its one plan view; with several, each shows only its own.
+  const titleStated = views.filter((v) => v.kind === 'plan').length === 1 ? sheet.storeys_as_stated : ''
   return (
     <Block
       title={
@@ -475,7 +477,7 @@ function Views({ sheet, selected, onSelect, readOnly }: { sheet: ProposalOut; se
               </span>
               {v.kind === 'plan' ? (
                 <span className="text-xs text-ink-secondary">
-                  <StoreysText views={[v]} />
+                  <StoreysText views={[v]} stated={titleStated} />
                   {storeys && meaning && !v.storeys.includes('typical') ? <>, {meaning}</> : null}
                 </span>
               ) : storeys ? (

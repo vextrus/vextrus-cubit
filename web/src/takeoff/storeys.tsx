@@ -106,13 +106,22 @@ export function useStoreysWords() {
 
 const plans = (views: readonly ViewOut[] | undefined) => (views ?? []).filter((v) => v.kind === 'plan')
 
-/** The Storeys column's text (6.2): the storeys as stated and normalised, amber "not stated" or "typical (range from Step 3)", "—" with no plan view. */
-export function StoreysText({ views }: { views: readonly ViewOut[] | undefined }) {
+/** Drawing text as a sentence's words: one space between words, lower case ("3RD, 5TH & 7TH FLOOR" → "3rd, 5th & 7th floor"). */
+const normalised = (text: string) => text.trim().replace(/\s+/g, ' ').toLowerCase()
+
+/**
+ * The Storeys column's text (6.2): the storeys as stated and normalised, amber "not stated" or "typical
+ * (range from Step 3)", "—" with no plan view. A plan view with no storey keys shows its stated text
+ * (its own, else `stated`, the sheet's title's) rather than "not stated": the title did state them.
+ */
+export function StoreysText({ views, stated = '' }: { views: readonly ViewOut[] | undefined; stated?: string }) {
   const words = useStoreysWords()
   const found = plans(views)
   if (found.length === 0) return <span className="text-muted-foreground">—</span>
+  const keyed = (v: ViewOut) => v.storeys.some((k) => k !== 'not_stated')
+  const textOf = (v: ViewOut) => (keyed(v) ? '' : normalised(v.storeys_as_stated || stated))
   const keys = found.flatMap((v) => v.storeys)
-  if (keys.includes('typical'))
+  if (keys.includes('typical') || found.some((v) => /\btypical\b/.test(textOf(v))))
     return (
       <span className="text-question">
         <Trans>typical (range from Step 3)</Trans>
@@ -120,9 +129,10 @@ export function StoreysText({ views }: { views: readonly ViewOut[] | undefined }
     )
   // A key this screen has no words for is shown as the title states it.
   const unknown = found.filter((v) => v.storeys.some((k) => !knownStorey(k) && !NOT_A_STOREY.has(k)))
-  const stated = unknown.length > 0 ? unknown.map((v) => v.storeys_as_stated).filter(Boolean).join(', ') : ''
-  const listed = [words(keys), stated].filter(Boolean).join(', ')
-  const missing = found.some((v) => !v.storeys.some((k) => k !== 'not_stated'))
+  const statedUnknown = unknown.map((v) => v.storeys_as_stated).filter(Boolean)
+  const statedOnly = found.map(textOf).filter(Boolean)
+  const listed = [words(keys), ...new Set([...statedUnknown, ...statedOnly])].filter(Boolean).join(', ')
+  const missing = found.some((v) => !keyed(v) && !textOf(v))
   if (!listed)
     return (
       <span className="text-question">

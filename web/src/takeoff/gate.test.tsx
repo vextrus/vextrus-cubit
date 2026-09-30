@@ -278,6 +278,23 @@ describe('M2: the files band and the Storeys and Views columns', () => {
   })
 })
 
+describe('M12: a title that states its storeys never reads "not stated"', () => {
+  it('shows the stated text, normalised, when the keys are empty; a typical floor reads "typical (range from Step 3)"', async () => {
+    const { api, step1 } = kr01()
+    const plan = (id: string, asStated: string) => ({ id, ordinal: 1, kind: 'plan', title: 'PLAN', stated_scale: '', not_to_scale: false, storeys: [], storeys_as_stated: asStated, storeys_meaning: null, steps: [], part: null, proposed_exclusion: null, decision: null, excluded_reason: null, box: ['0', '0', '1', '1'] })
+    Object.assign(step1.proposals.find((p) => p.number === 'S-06')!, { storeys_as_stated: '3RD, 5TH & 7TH FLOOR', views: [plan('m1', '')] })
+    Object.assign(step1.proposals.find((p) => p.number === 'S-05')!, { storeys_as_stated: '', views: [plan('m2', '2ND  FLOOR')] })
+    Object.assign(step1.proposals.find((p) => p.number === 'S-04')!, { storeys_as_stated: 'TYPICAL FLOOR', views: [plan('m3', '')] })
+    Object.assign(step1.proposals.find((p) => p.number === 'S-03')!, { storeys_as_stated: '', views: [plan('m4', '')] })
+    await open(api)
+    expect(clean(rowOf('S-06').textContent)).toContain('3rd, 5th & 7th floor')
+    expect(clean(rowOf('S-06').textContent)).not.toContain('not stated')
+    expect(clean(rowOf('S-05').textContent)).toContain('2nd floor')
+    expect(clean(rowOf('S-04').textContent)).toContain('typical (range from Step 3)')
+    expect(clean(rowOf('S-03').textContent)).toContain('not stated')
+  })
+})
+
 describe('M9: focus is visible on the list’s rows', () => {
   it('draws an outline on the row ↓ focuses', async () => {
     const { api } = kr01()
