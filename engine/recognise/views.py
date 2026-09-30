@@ -53,7 +53,7 @@ view when it covers `MIN_UNTITLED` of the paper (of the kind its sheet's title n
 when text fills more of it than lines); a smaller one joins the view whose box, grown by `JOIN_MM`, holds
 it. A view's box is its piece, its title and its scale text together; a plan's also takes its grid lines
 to their ends and the marks set off it (`PLAN_MARK_MM`), never growing further into another view's box.
-A line running off the paper (cut at the frame's edge, or past it) is no view's. **Reading order** is by
+A long line running off a framed paper (`OFF_PAPER_SHARE`) is no view's. **Reading order** is by
 rows, top to bottom (views whose heights overlap by half are one row), each left to right.
 
 **The title block is a view** (CONTEXT.md's "View"; the orchestrator's ruling R2, session 07), of kind
@@ -189,6 +189,8 @@ MAX_REACH_LINES = 64
 """The most grid lines, the longest first, a plan's box is grown along per round."""
 MAX_REACH_ROUNDS = 4
 """The most rounds of plans growing along their grid lines (a grown box meets more of them)."""
+OFF_PAPER_SHARE = 0.5
+"""A line running off a framed paper this share of its long side or longer is a construction line."""
 PLAN_MARK_MM = 25.0
 """A plan's marks set off its drawing (a section's cut arrows, a grid bubble past its line's end) stand
 within this of it on paper, in mm, and are no longer than this."""
@@ -954,14 +956,17 @@ def _text_rows(
     return np.stack([x0[which], y, x1[which], y], axis=1)
 
 
-def _on_paper(segments: NDArray[np.float64], region: Bounds) -> NDArray[np.bool_]:
-    """The segments with both ends inside the paper, off its edge: a line running off the sheet (cut at
-    the frame, or past it) is a construction line left in the drawing, never a view's."""
+def _off_paper(segments: NDArray[np.float64], region: Bounds) -> NDArray[np.bool_]:
+    """The long lines running off a framed paper (an end on its edge, cut at the frame, or past it, and
+    `OFF_PAPER_SHARE` of its long side or longer): construction lines left in the drawing, never a
+    view's. A shorter line drawn to the edge is still its drawing's."""
     x0, y0, x1, y1 = region
-    tol = 1e-6 * max(x1 - x0, y1 - y0)
+    long = max(x1 - x0, y1 - y0)
+    tol = 1e-6 * long
     xs, ys = segments[:, 0::2], segments[:, 1::2]
-    inside = (xs > x0 + tol) & (xs < x1 - tol) & (ys > y0 + tol) & (ys < y1 - tol)
-    return np.asarray(inside.all(axis=1))
+    inside = ((xs > x0 + tol) & (xs < x1 - tol) & (ys > y0 + tol) & (ys < y1 - tol)).all(axis=1)
+    length = np.hypot(segments[:, 2] - segments[:, 0], segments[:, 3] - segments[:, 1])
+    return np.asarray(~inside & (length >= OFF_PAPER_SHARE * long))
 
 
 def _dividers_out(segments: NDArray[np.float64], width: float, height: float) -> NDArray[np.float64]:
@@ -1271,7 +1276,11 @@ def _views(
     subtitles = {j for lines in second.values() for j in lines}
     off_grid = set(titles) | subtitles | set(scale_texts)
     underlined = _underlines(paper.segments, [texts[i] for i in titles])
-    off = ~_on_paper(paper.segments, paper.region)  # a line running off the sheet is no view's
+    off = (  # a long line running off a framed sheet is no view's
+        _off_paper(paper.segments, paper.region)
+        if len(paper.frame)
+        else np.zeros(len(paper.segments), dtype=bool)
+    )
     drawn = replace(paper, segments=paper.segments[~(underlined | off)])
     pieces = _pieces(drawn, texts, (i for i in range(len(texts)) if i not in off_grid))
     pieces = sorted(pieces, key=lambda q: -q.area)[:MAX_PIECES]
@@ -1354,7 +1363,7 @@ def _views(
         if holders:
             smallest = min(holders, key=lambda v: _area(v.box))
             smallest.box = _union(smallest.box, piece.box)
-    _plans_reach(views, pieces, drawn.segments, (rx1 - rx0, ry1 - ry0), unit)
+    _plans_reach(views, pieces, drawn.segments, (rx1 - rx0, ry1 - ry0), unit, block)
     for si in scale_texts:
         s = texts[si]
         best: tuple[float, _View] | None = None
@@ -1382,33 +1391,40 @@ def _plans_reach(
     lines: NDArray[np.float64],
     size: tuple[float, float],
     unit: float,
+    block: Bounds | None = None,
 ) -> None:
     """A plan's box takes in what a draughtsman draws around its drawing and the grid splits off: its
     grid lines to their ends (lines long enough to be read as dividers, `DIVIDER_SHARE`, lying across
-    its box) and every plan with no title they run into (its drawing cut apart where the grid was taken
-    out; never notes or a legend beside it), titled plans first; then its marks set off it
-    (`PLAN_MARK_MM`: a piece left in no view, no longer than that, within that of the plan's box and
-    beside it, across its span, and nearer it than any other view). Nothing grows further into a titled
-    view's box, nor into an untitled one but by taking it whole."""
+    its box, and not running off the paper) and every plan with no title two or more of them run into
+    (its drawing cut apart where the grid was taken out; never notes or a legend beside it), titled
+    plans first; then its marks set off it (`PLAN_MARK_MM`: a piece left in no view, no longer than
+    that, within that of the plan's box and beside it, across its span, and nearer it than any other
+    view). Nothing grows further into a titled view's box or the title block's, nor into an untitled
+    one but by taking it whole."""
     width, height = size
+    tol = 1e-6 * max(width, height)
+    xs, ys = lines[:, 0::2], lines[:, 1::2]
+    on = ((xs > tol) & (xs < width - tol) & (ys > tol) & (ys < height - tol)).all(axis=1)
+    lines = lines[on]  # a line running off the paper is no grid's
     dx = np.abs(lines[:, 2] - lines[:, 0])
     dy = np.abs(lines[:, 3] - lines[:, 1])
     across = lines[(dx >= DIVIDER_SHARE * width) & (dy <= 0.01 * dx)]
     down = lines[(dy >= DIVIDER_SHARE * height) & (dx <= 0.01 * dy)]
 
-    def grow(view: _View, box: Bounds, take: bool = False) -> bool:
+    def grow(view: _View, box: Bounds, grid: Sequence[Bounds] = ()) -> bool:
         taken = [
             v
             for v in views
-            if take
-            and v is not view
+            if v is not view
             and v.title is None
             and v.kind is ViewKind.PLAN
             and _overlap(box, v.box) > _overlap(view.box, v.box)
+            and sum(_meets(g, v.box) for g in grid) >= 2  # a grid runs into it, not a stray line
         ]
         for v in taken:
             box = _union(box, v.box)
         others = [v.box for v in views if v is not view and not any(v is t for t in taken)]
+        others += [block] if block is not None else []  # the title block is no view's
         if box == view.box or any(_overlap(box, o) > _overlap(view.box, o) for o in others):
             return False
         view.box = box
@@ -1438,10 +1454,12 @@ def _plans_reach(
             crossing = (lo_at <= at) & (at <= hi_at) & (lo <= hi_box) & (lo_box <= hi)
             reaching = np.flatnonzero(crossing & ((lo < lo_box) | (hi > hi_box)))
             reaching = reaching[np.argsort(lo[reaching] - hi[reaching], kind="stable")]
+            grid: list[Bounds] = []
             for k in reaching[:MAX_REACH_LINES].tolist():
                 at_k, lo_k, hi_k = (float(v) for v in ruled[k])
-                line = (lo_k, at_k, hi_k, at_k) if along_x[k] else (at_k, lo_k, at_k, hi_k)
-                grown |= grow(view, _union(view.box, line), take=True)
+                grid.append((lo_k, at_k, hi_k, at_k) if along_x[k] else (at_k, lo_k, at_k, hi_k))
+            for line in grid:
+                grown |= grow(view, _union(view.box, line), grid)
         if not grown:
             break
     reach = PLAN_MARK_MM * unit

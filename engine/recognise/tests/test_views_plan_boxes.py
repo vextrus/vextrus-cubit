@@ -5,7 +5,7 @@ import pytest
 
 from engine.recognise import views
 from engine.recognise.tests.drawing import Sheets
-from engine.recognise.tests.test_views import drawn, grid, near, one_sheet
+from engine.recognise.tests.test_views import CONVENTIONS, drawn, grid, near, one_sheet
 from engine.recognise.types import ViewKind
 
 
@@ -14,10 +14,48 @@ def test_a_line_running_off_the_sheet_is_no_part_of_a_plan() -> None:
     d = Sheets()
     grid(d, (40, 300, 340, 520))
     d.text("GROUND FLOOR PLAN", (40, 288, 0.0), height=6.0)
-    d.line((200, 520), (200, 700))  # the frame's top is at 594
+    d.line((200, 150), (200, 700))  # 550 mm, over half the sheet's long side; the frame's top is 594
     (plan,) = drawn(d, one_sheet(d))
     assert plan.kind is ViewKind.PLAN
     assert near(plan.box, (40, 288, 340, 520))
+
+
+def test_a_plan_drawn_to_the_frames_edge_or_past_it_is_still_a_plan() -> None:
+    """Refuter, session 08: its lines ending on the edge, or cut there, are its drawing's."""
+    for top in (594, 640):
+        d = Sheets()
+        grid(d, (40, 334, 340, top))
+        d.text("GROUND FLOOR PLAN", (40, 322, 0.0), height=6.0)
+        (plan,) = drawn(d, one_sheet(d))
+        assert near(plan.box, (40, 322, 340, 594))
+
+
+def test_a_plans_box_grows_into_no_title_block() -> None:
+    """Refuter, session 08: a grid line running into the title block's box (the frame's right strip)."""
+    d = Sheets()
+    grid(d, (40, 300, 340, 560))
+    d.text("GROUND FLOOR PLAN", (40, 288, 0.0), height=6.0)
+    d.line((40, 430), (0.95 * 841, 430))
+    sheet = one_sheet(d)
+    found = views.find(d.artefact(), sheet, CONVENTIONS)
+    (block,) = [v for v in found if v.kind is ViewKind.TITLE_BLOCK]
+    (plan,) = [v for v in found if v.kind is ViewKind.PLAN]
+    assert plan.box.x1 <= block.box.x0
+
+
+def test_a_plan_takes_no_untitled_table_one_line_runs_into() -> None:
+    """Refuter, session 08: a ruled table with no title (read as a plan by its lines) beside a plan,
+    one long line across both: two views."""
+    d = Sheets()
+    grid(d, (40, 250, 380, 540))
+    d.text("FIRST FLOOR PLAN", (40, 238, 0.0), height=6.0)
+    grid(d, (470, 300, 640, 460))
+    for i in range(8):
+        d.text(f"C{i + 1}", (480 + 40 * (i % 4), 310 + 40 * (i // 4), 0.0), height=4.0)
+    d.line((30, 400), (650, 400))
+    found = drawn(d, one_sheet(d))
+    assert len(found) == 2
+    assert found[0].box.x1 < 470
 
 
 def test_a_plans_box_takes_its_grid_lines_to_their_ends_and_its_marks_beside_it() -> None:
