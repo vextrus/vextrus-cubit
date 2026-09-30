@@ -6,8 +6,8 @@ product's settings (`CHECKOUT_ALSO`: the job's Django needs them, 21c), written 
 into a folder under the owner's cache: the code hash covers exactly what the sandbox can execute, so a
 cached export is never reused for code that differs. The settings are no engine path: a PR changing
 only them is not an engine PR, but a run reads with them and its hash follows them. Before anything
-runs, a head is refused when the installed `dwgread` is off its pin, when its `uv.lock` names a source other than the
-package registry, or when its `[tool.uv]` table differs from main's.
+runs, a head is refused when the installed `dwgread` is off its pin, when its `uv.lock` names a
+source other than the package registry, or when its `[tool.uv]` table differs from main's.
 """
 
 import hashlib
