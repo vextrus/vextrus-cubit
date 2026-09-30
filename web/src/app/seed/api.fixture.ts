@@ -158,6 +158,17 @@ class Refused extends Error {
 export interface FakeApiOptions {
   /** Extra developers, people and projects on top of the seed. */
   extend?: (api: FakeApi) => void
+  /**
+   * Milliseconds every answer of `handle` waits, so a test that reads an answer before awaiting it
+   * fails at once (#134). Default: `VITE_FAKE_API_LATENCY_MS` (the slowed CI run sets it), else 0.
+   */
+  latencyMs?: number
+}
+
+/** The default latency: the slowed CI run's `VITE_FAKE_API_LATENCY_MS`, else none. */
+function defaultLatency(): number {
+  const ms = Number(import.meta.env.VITE_FAKE_API_LATENCY_MS)
+  return Number.isFinite(ms) && ms > 0 ? ms : 0
 }
 
 /** The fake backend: `handle` answers a Request as the API would. */
@@ -173,9 +184,12 @@ export class FakeApi {
   csrf: string | null = null
   /** While true, every request fails as an unreachable server does (TypeError). */
   offline = false
+  /** Milliseconds every answer of `handle` waits (FakeApiOptions.latencyMs). */
+  latencyMs: number
   private once: { match: (method: string, path: string) => boolean; status: number; body: unknown }[] = []
 
   constructor(options: FakeApiOptions = {}) {
+    this.latencyMs = options.latencyMs ?? defaultLatency()
     this.seed()
     options.extend?.(this)
   }
@@ -570,6 +584,7 @@ export class FakeApi {
     const url = new URL(request.url)
     const path = url.pathname
     const method = request.method
+    if (this.latencyMs > 0) await new Promise((resolve) => setTimeout(resolve, this.latencyMs))
     if (this.offline) {
       this.requests.push({ method, path, status: 0 })
       throw new TypeError('Failed to fetch')
