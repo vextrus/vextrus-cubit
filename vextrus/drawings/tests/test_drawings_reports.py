@@ -3,6 +3,7 @@ and a PDF's pages, as each file and its PDFs stand."""
 
 import pytest
 
+from engine.messages import decoders_agree as agree_codes
 from engine.messages import read as read_codes
 from engine.read.pdf.types import Page
 from engine.recognise.types import PlotMatch
@@ -140,3 +141,23 @@ def test_a_pdf_of_no_discipline_waits_for_any_dwg_of_its_set(qs_project: QsProje
     with member.acting():
         one_added = services.report(pdf.id).pages
     assert (none_added, one_added) == ((said.NO_DWG_FOR_PAGES(),), (said.DWG_NOT_READ(),))
+
+
+def test_a_held_file_read_anyway_says_its_sheets_are_listed_not_that_nothing_reaches_the_list(
+    qs_project: QsProject,
+) -> None:
+    """Round 1 of #136: a held file read anyway has its sheets in the sheet list, each marked held;
+    its report never says (the finding's words) that nothing from it reaches the sheet list."""
+    member = qs_project.member
+    held = add(member, qs_project.project_id, "BP-ARC-old.dwg", drawing()).file
+    read_dwg(member, held.id, ["A-01", "A-02"], mark_read=False)
+    disagree = agree_codes.DISAGREE(items=96, only_first=80, only_second=16, kinds=1, layers=2, unread=0)
+    with member.acting():
+        services.quarantine(held.id, disagree)
+        before = services.report(held.id).readers
+        services.answer_held(held.id, "read_anyway")
+        after = services.report(held.id).readers
+
+    assert before == (disagree,)
+    assert after == (said.READ_ANYWAY(**disagree["params"]),)
+    assert disagree["code"] not in [line["code"] for line in after]

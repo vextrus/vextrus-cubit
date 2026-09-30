@@ -1,6 +1,7 @@
 """The demo seed's `drawings` rows (ticket 14): KR-01's files, reports, sheets, views and renders at
 docs/design/m0-screens.md §7's state, BP-02's files in the Drawing Set's row states a file with no read
-job can be in, and MG-01's one read DWG. All invented: nothing comes from a real Drawing Set.
+job can be in, and MG-01's read DWG beside the states a read job carries. All invented: nothing
+comes from a real Drawing Set.
 
 Everything goes through `drawings.services`, as a read job would put it, and through real engine code:
 each file's ReadArtefact is 11's synthetic `Drawing` (`ReadArtefact.build`, stamped with the file's
@@ -18,11 +19,14 @@ KR-STR-old.dwg held, no sheets; site-photos.pdf refused. 24 sheets (Structural 1
 Electrical 3), 70 views: 23 title blocks, the key plan and the 3D view proposed to leave out, 43
 proposed to a Takeoff Step or a Discipline Part, 2 unaccounted (S-10's loose boxes).
 
-**BP-02** holds a row for each state its own columns hold, no read job (21a seeds those with its job):
-BP-STR-R0.dwg stalled at "Reading sheet 7 of 12" (for the retrier, once 21a's job exists),
-BP-ARC-R0.dwg waiting, BP-ARC-R0.pdf read before its DWG, BP-ELE-R0.dwg cancelled by Nusrat Jahan,
-BP-PLB-R0.dwg failed, BP-FIRE-R0.dwg read by one reader only, BP-LIFT-R12.dwg saved by an old
-AutoCAD. **MG-01** (Meghna) holds one small DWG, read.
+**BP-02** holds a row for each state its own columns hold, no read job: BP-STR-R0.dwg stalled at
+"Reading sheet 7 of 12", BP-STR-R0.pdf read before its DWG, BP-ARC-R0.dwg waiting, BP-ARC-old.dwg held
+with its 4 sheets (19a's seed answers it "read anyway"), BP-ARC-old.pdf matched to them (4 of 6 pages),
+BP-ELE-R0.dwg cancelled by Nusrat Jahan, BP-PLB-R0.dwg failed, BP-FIRE-R0.dwg read by one reader
+only, BP-LIFT-R12.dwg saved by an old AutoCAD. **MG-01** (Meghna) holds one small DWG, read, and the
+states a read job carries (#125): MG-ARC-R0.pdf reading page 5 of 16 with its time left (no job: the
+retrier cannot take it), MG-ARC-R0.dwg interrupted and waiting for its second try (21a's own read
+job, its next try a week off).
 
 The Market's Disciplines come first: `sync_library` runs here, as the owner (idempotent), so the
 owner's `migrate` then `seed_demo` works; if it cannot, the seed refuses and names the command.
@@ -42,7 +46,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
-from django.db import DatabaseError
+from django.conf import settings
+from django.db import DatabaseError, connections
 from django.utils import timezone
 
 from engine.check import bangla_ansi
@@ -54,6 +59,8 @@ from engine.read.pdf import READER as PDF_READER
 from engine.read.pdf import READER_VERSION as PDF_READER_VERSION
 from engine.read.pdf import rules as pdf_rules
 from engine.read.pdf.facts import DocumentFacts, PageFacts
+from engine.recognise import storeys
+from engine.recognise.sheets import default_conventions
 from engine.recognise.types import (
     Box,
     CheckOutcome,
@@ -65,6 +72,7 @@ from engine.recognise.types import (
     SheetCandidate,
     SheetLocation,
     Sourced,
+    StoreysMeaning,
     ValueSource,
     ViewCandidate,
     ViewKind,
@@ -78,6 +86,7 @@ from vextrus.drawings.messages import reports as report_words
 from vextrus.drawings.services.reads import ReadStepStore
 from vextrus.platform.services import jobs, library, tenancy
 from vextrus.seed.demo import Demo
+from vextrus.takeoff.tasks.read_file import read_file
 
 PAPER = (841.0, 594.0)
 """Every sheet an A1, landscape, in millimetres (INSUNITS 4)."""
@@ -132,6 +141,8 @@ class S:
     bangla: int = 0
     """Texts in a Bangla-ANSI font on it (room names)."""
     codes: bool = False
+    date: str = "12.09.2026"
+    """Its issue date, as its title block states it."""
     """Notes holding a drawing's codes (%%C, %%D, %%P, MTEXT's \\P, a stacked ½)."""
 
 
@@ -154,7 +165,7 @@ STRUCTURAL = (
         "GENERAL NOTES",
         (
             V(ViewKind.NOTES, "GENERAL NOTES", (0.03, 0.4, 0.45, 0.95), ("general_notes",)),
-            V(ViewKind.LEGEND, "LEGEND", (0.5, 0.55, 0.68, 0.95), part="structural"),
+            V(ViewKind.LEGEND, "LEGEND", (0.5, 0.55, 0.68, 0.95), ("general_notes",), part="structural"),
             V(ViewKind.SCHEDULE, "DRAWING LIST", (0.72, 0.2, 0.97, 0.95), ("general_notes",)),
         ),
         kind="general_notes",
@@ -225,6 +236,7 @@ STRUCTURAL = (
         (plan("TYPICAL FLOOR SLAB LAYOUT", ("slabs",), storeys="TYPICAL FLOOR"),),
         mark="A",
         mark_source=ValueSource.TITLE_BLOCK_TEXT,
+        date="28.07.2026",
         storeys="TYPICAL FLOOR",
         kind="slab_layout",
     ),
@@ -235,6 +247,7 @@ STRUCTURAL = (
         (plan("TYPICAL FLOOR SLAB LAYOUT", ("slabs",), storeys="TYPICAL FLOOR"),),
         mark="B",
         mark_source=ValueSource.TITLE_BLOCK_TEXT,
+        date="20.08.2026",
         storeys="TYPICAL FLOOR",
         kind="slab_layout",
     ),
@@ -551,10 +564,11 @@ def bokul(demo: Demo) -> None:
     project_id = demo[f"project:{code}"]
     stalled = added(demo, code, project_id, "BP-STR-R0.dwg", invented("dwg", "BP-STR-R0"))
     stall(stalled, sheets=12, at=7)
+    early, _facts = pdf(demo, code, project_id, "BP-STR-R0.pdf", pages=12, maker="autocad")
+    assert early.status == file_words.PLOT_WAITING()
     waiting = added(demo, code, project_id, "BP-ARC-R0.dwg", invented("dwg", "BP-ARC-R0"))
     assert waiting.state == services.FileState.WAITING
-    early, _facts = pdf(demo, code, project_id, "BP-ARC-R0.pdf", pages=6, maker="autocad")
-    assert early.status == file_words.PLOT_WAITING()
+    held_read_anyway(demo, code, project_id)
     cancelled = added(demo, code, project_id, "BP-ELE-R0.dwg", invented("dwg", "BP-ELE-R0"))
     services.cancel(cancelled.id, actor_name=NUSRAT)
     failed = added(demo, code, project_id, "BP-PLB-R0.dwg", invented("dwg", "BP-PLB-R0"))
@@ -565,6 +579,49 @@ def bokul(demo: Demo) -> None:
         demo, code, project_id, "BP-LIFT-R12.dwg", invented("dwg", "BP-LIFT-R12", head=b"AC1009")
     )
     services.mark_failed(old.id, file_words.OLD_VERSION())
+
+
+OLD_ARCHITECTURAL = (
+    S("A-01", "A-01", "GROUND FLOOR PLAN", (plan("GROUND FLOOR PLAN", ("walls", "rooms")),),
+      kind="floor_plan"),
+    S("A-02", "A-02", "TYPICAL FLOOR PLAN", (plan("TYPICAL FLOOR PLAN", ("walls", "rooms")),),
+      kind="floor_plan"),
+    S("A-03", "A-03", "ROOF PLAN", (plan("ROOF PLAN", ("roof",)),), kind="roof_plan"),
+    S("A-04", "A-04", "FRONT ELEVATION",
+      (V(ViewKind.ELEVATION, "FRONT ELEVATION", PLAN_BOX, ("walls",), scale="1:100"),),
+      kind="elevation"),
+)  # fmt: skip
+"""BP-ARC-old.dwg's sheets: an older issue, four sheets where BP-ARC-old.pdf prints six."""
+
+
+def held_read_anyway(demo: Demo, code: str, project_id: uuid.UUID) -> None:
+    """BP-ARC-old.dwg: its sheets found, then held (its two readers disagree); 19a's seed answers its
+        Question "read anyway", so 4.5's "Held, read anyway: its sheets are marked" has sheets to mark.
+        BP-ARC-old.pdf, plotted from it, is matched against them: 4 of its 6 pages, pages 5 and 6 showing
+    sheets in no DWG added (#131)."""
+    held = added(demo, code, project_id, "BP-ARC-old.dwg", invented("dwg", "BP-ARC-old"))
+    built = draw(held.sha256, held.name, OLD_ARCHITECTURAL, ("arial.ttf",))
+    services.store_artefact(held.id, built.artefact)
+    printed = services.record_sheets(held.id, [candidate(s, built, held) for s in OLD_ARCHITECTURAL])
+    for sheet, view in zip(OLD_ARCHITECTURAL, printed, strict=True):
+        demo[f"sheet:{code}:{sheet.label}"] = view.id
+        services.record_views(view.id, views_of(sheet))
+    disagree = agree_codes.DISAGREE(items=96, only_first=80, only_second=16, kinds=1, layers=2, unread=0)
+    services.record_reports(
+        held.id, cross_check=CheckResult(DECODERS_AGREE, CheckOutcome.FIRED, finding=disagree)
+    )
+    services.quarantine(held.id, disagree)
+    demo[f"finding:{code}:BP-ARC-old.dwg"] = disagree
+    printed_pdf, facts = pdf(demo, code, project_id, "BP-ARC-old.pdf", pages=6, maker="autocad")
+    plot(
+        printed_pdf,
+        facts,
+        {s.label: v for s, v in zip(OLD_ARCHITECTURAL, printed, strict=True)},
+    )
+    services.record_page_reasons(
+        printed_pdf.id,
+        [report_words.PAGE_SHEET_NOT_IN_DWG(page=n, sheet=f"A-{n:02d}") for n in (5, 6)],
+    )
 
 
 def meghna(demo: Demo) -> None:
@@ -581,6 +638,61 @@ def meghna(demo: Demo) -> None:
     )
     for sheet in printed.values():
         services.record_plot(sheet.id, services.PlotNone.NO_PDF)
+    reading_pdf(demo, code, project_id, "MG-ARC-R0.pdf", pages=16, at=5, actor=TANVIR)
+    retrying = added(demo, code, project_id, "MG-ARC-R0.dwg", invented("dwg", "MG-ARC-R0"), TANVIR)
+    interrupted(retrying)
+
+
+# A read job's states (#125) ----------------------------------------------------------------------------
+
+RETRY_AFTER = timedelta(days=7)
+"""When the seeded interrupted read's next try is due: a week after the seed ran, so no CAD worker takes
+it up during a walk (the stalled-job retrier takes up only running jobs). It is 21a's own read job,
+so Cancel and "Try again" on its row act as on any file's."""
+
+PAGE_MINUTES = 10
+"""How long each page of the seeded reading PDF took: its time left shows for STEADY times this
+after the seed ran (30 minutes), counting down from the seed's own clock stamp, never below a
+minute; later the row reads "Reading page 5 of 16", as a stalled read does (`_minutes_left`)."""
+
+
+def reading_pdf(
+    demo: Demo, code: str, project_id: uuid.UUID, name: str, *, pages: int, at: int, actor: str
+) -> None:
+    """A PDF reading page `at` of `pages`, its pages before read at PAGE_MINUTES each up to the
+    seed's clock stamp: "Reading page 5 of 16 (120 minutes left)" just after the seed."""
+    found = added(demo, code, project_id, name, pdf_bytes(name, pages), actor)
+    facts = DocumentFacts(
+        producer="DWG To PDF.hdi 25.0.0 (AutoCAD 2025)",
+        creator="AutoCAD 2025",
+        extras={},
+        pages=tuple(
+            page_facts(n, turned=False, maker="autocad", lines=False, picture=False)
+            for n in range(1, pages + 1)
+        ),
+    )
+    services.record_reports(found.id, upload_report=pdf_rules.report(facts, found.sha256))
+    stamp = timezone.now()
+    started = stamp - timedelta(minutes=PAGE_MINUTES * (at - 1))
+    ReadStepStore(clock=lambda: started).progress(
+        found.id, jobs.Progress(1, pages, services.page_step(1))
+    )
+    ReadStepStore(clock=lambda: stamp).progress(
+        found.id, jobs.Progress(at, pages, services.page_step(at))
+    )
+
+
+def interrupted(found: services.FileView) -> None:
+    """A file whose read was interrupted and waits to be tried again: its job's first try ended,
+    the second waits ("Reading was interrupted. Trying again by itself (try 2 of 3).")."""
+    job_id = read_file.defer(file_id=found.id)
+    with connections[settings.PROCRASTINATE_DATABASE_ALIAS].cursor() as cursor:
+        # As a retry leaves a job: waiting again, one try made, its next try scheduled.
+        cursor.execute(
+            "update procrastinate_jobs set attempts = 1, scheduled_at = %s where id = %s",
+            [timezone.now() + RETRY_AFTER, job_id],
+        )
+    services.attach_read_job(found.id, job_id)
 
 
 # Files ----------------------------------------------------------------------------------------------
@@ -669,7 +781,7 @@ def dwg(
         demo[f"sheet:{code}:{sheet.label}"] = view.id
         if sheet.kind is not None:
             services.record_kind(view.id, sheet.kind)
-        recorded = services.record_views(view.id, views_of(sheet, built.boxes[sheet.label]))
+        recorded = services.record_views(view.id, views_of(sheet))
         demo[f"views:{code}:{sheet.label}"] = [v.id for v in recorded]
         services.record_render(
             view.id, buffers.build(built.artefact, SheetCandidate(built.places[sheet.label]))
@@ -763,16 +875,18 @@ def candidate(sheet: S, built: _Built, found: services.FileView) -> SheetCandida
         number=read(sheet.number),
         title=read(sheet.title),
         revision_mark=read(sheet.mark, sheet.mark_source),
-        issue_date=read("12.09.2026"),
+        issue_date=read(sheet.date),
         storeys_as_stated=read(sheet.storeys),
         exclusion=Exclusion(sheet.exclusion) if sheet.exclusion else None,
         group=found.group,
     )
 
 
-def views_of(sheet: S, paper: tuple[float, float, float, float]) -> list[ViewCandidate]:
-    x0, y0, x1, y1 = paper
-    width, height = x1 - x0, y1 - y0
+def views_of(sheet: S) -> list[ViewCandidate]:
+    """Its views, each box on paper in mm from the sheet's lower-left corner (the contract of
+    engine/recognise/views.py), wherever the sheet lies in the drawing."""
+    x0, y0 = 0.0, 0.0
+    width, height = PAPER
     shown = []
     for view in sheet.views:
         fx0, fy0, fx1, fy1 = view.box
@@ -788,13 +902,27 @@ def views_of(sheet: S, paper: tuple[float, float, float, float]) -> list[ViewCan
 
 
 def _view(view: V, box: Box) -> ViewCandidate:
+    keys: tuple[str, ...] = ()
+    meaning = None
+    as_stated = view.storeys
+    if view.kind is ViewKind.PLAN and view.title:
+        # As 17 reads a plan's title (engine/recognise/views.py): the storeys it states, stated
+        # beside the title where the title does not hold them (S-08's "PILE CAP TO 2ND FLOOR").
+        read = storeys.read(view.storeys or decode(view.title), default_conventions(), plan_title=True)
+        keys = tuple(dict.fromkeys((*read.keys, *([read.runs_to] if read.runs_to else []))))
+        as_stated = as_stated or read.as_stated
+    if keys:
+        columns = "columns" in view.steps
+        meaning = StoreysMeaning.FLOOR_TO_FLOOR if columns else StoreysMeaning.AT_FLOOR_LEVEL
     return ViewCandidate(
         box=box,
         kind=view.kind,
         title=decode(view.title) if view.title else None,
         not_to_scale=view.nts,
         stated_scale=view.scale,
-        storeys_as_stated=view.storeys,
+        storeys_as_stated=as_stated,
+        storeys=keys,
+        storeys_meaning=meaning,
         steps=view.steps,
         part=view.part,
         exclusion=Exclusion(view.exclusion, view.exclusion_text) if view.exclusion else None,

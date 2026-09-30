@@ -12,6 +12,13 @@ from engine.messages import MessageCode
 # A DWG --------------------------------------------------------------------------------------------
 
 READERS_AGREE = MessageCode("drawings.reports.readers_agree")
+READ_ANYWAY = MessageCode(
+    "drawings.reports.read_anyway",
+    params=("items", "only_first", "only_second", "kinds", "layers", "unread"),
+)
+"""A held file answered "read anyway": its readers' disagreement (engine.decoders_agree.disagree's
+params), and that its sheets are listed, each marked held (in place of the finding's "nothing from it
+reaches the sheet list")."""
 SHEETS_FOUND = MessageCode("drawings.reports.sheets_found", params=("sheets", "drawn", "layouts"))
 """Sheets found both laid out in the drawing and on layout tabs."""
 SHEETS_FOUND_DRAWN = MessageCode("drawings.reports.sheets_found_drawn", params=("sheets",))

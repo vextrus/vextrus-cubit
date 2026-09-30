@@ -48,11 +48,12 @@ allowed_importers =
     vextrus.platform
     vextrus.seed.platform
     vextrus.testing
-# Ticket 19a's committed acceptance tests read a user and the override log (JevOverride) directly; a
-# builder may not change them, so their two imports alone are let through.
+# Ticket 19a's committed acceptance tests read a user and the override log (JevOverride) directly, and
+# 136's a User; a builder may not change them, so their imports alone are let through.
 ignore_imports =
     vextrus.takeoff.tests.acceptance.t19a.step1 -> vextrus.platform.models
     vextrus.takeoff.tests.acceptance.t19a.test_step1_confirm -> vextrus.platform.models
+    vextrus.seed.tests.acceptance.t136.seeded -> vextrus.platform.models
 unmatched_ignore_imports_alerting = none
 
 [importlinter:contract:private-models-projects]
@@ -99,6 +100,12 @@ allowed_importers =
     vextrus.takeoff
     vextrus.seed.takeoff
     vextrus.testing
+# Ticket 136's committed acceptance tests read the drawing list's source sheet
+# (DrawingRegister.source_sheet_id), which no API names; a builder may not change them, so their
+# one import alone is let through (t136's `seeded` reads a User the same way, above).
+ignore_imports =
+    vextrus.seed.tests.acceptance.t136.test_kr01_drawing_list -> vextrus.takeoff.models
+unmatched_ignore_imports_alerting = none
 
 [importlinter:contract:private-models-measurement]
 name = Private models: only measurement and the test fixtures import vextrus.measurement.models
