@@ -21,11 +21,20 @@ import { REASONS, type Reason } from './model'
 import { SheetRange } from './SheetRange'
 import { DISCIPLINE_IN_TEXT, REASON_SHORT, UNKNOWN_REASON } from './words'
 
-interface Done {
-  /** How many of the user's server acts it was. */
+/**
+ * One act the QS started in this tab, kept in the order they pressed its key: made, refused outright,
+ * or dropped (its key came while another act or an undo was in flight). Ctrl Z takes the last one, as
+ * it stands when the key is pressed, so it always undoes the act the QS meant (the review of 22,
+ * round 4: F3 and the refuter's five sequences).
+ */
+interface Entry {
+  /** How many of the user's server acts it was: none when refused outright or dropped. */
   calls: number
   /** "confirmed 16 sheets and left out 1", after "Undone: ". */
   words: ReactNode
+  /** Settles once its server calls are made and counted (at once for a dropped key). */
+  made: Promise<void>
+  dropped: boolean
 }
 
 /** The label a sheet or a continuation goes by in a sentence: "S-02", "E-02–E-03", or its title. */
@@ -60,6 +69,12 @@ function BulkWords({ n, m }: { n: number; m: number }) {
   )
 }
 
+/** BulkWords over counts read when shown (the bulk act's words are made before its calls). */
+function BulkWordsOf({ get }: { get: () => [number, number] }) {
+  const [n, m] = get()
+  return <BulkWords n={n} m={m} />
+}
+
 /** The bulk act's toast (§6.4): "Confirmed 16 sheets; left out 1, each with its reason." */
 function BulkDone({ n, m }: { n: number; m: number }) {
   if (m === 0) return <Plural value={n} one="Confirmed # sheet." other="Confirmed # sheets." />
@@ -88,125 +103,132 @@ export function useStep1Acts(projectId: string): Step1Acts {
   const sayRefused = useSayRefused()
   const { i18n } = useLingui()
   const f = useFormat()
-  const done = useRef<Done[]>([])
-  /** An act in flight: another (a second Enter, a key held down) is ignored until it and its reload end. */
+  /** The acts started in this tab, the last on top: what Ctrl Z takes back. */
+  const history = useRef<Entry[]>([])
+  /** An act in flight: another (a second Enter, a key held down) is dropped until it and its reload end. */
   const pending = useRef(false)
-  /**
-   * The act in flight, until its reload ends: resolves once its server calls are made and kept in
-   * `done`, with whether any was. An Undo waits for it (its toast shows before the reload), rather
-   * than being dropped, and undoes nothing if it made nothing.
-   */
-  const sending = useRef<Promise<boolean> | null>(null)
-  /** An undo in flight: a second Ctrl Z is ignored until it ends. */
-  const undoing = useRef(false)
-  /**
-   * The QS's last act was not made: refused outright, or its key dropped while another was in
-   * flight. The next Ctrl Z says so and undoes nothing, rather than taking back the act before, which
-   * the QS did not mean (the review of 22, round 4); the Ctrl Z after it undoes that act.
-   */
-  const unmade = useRef(false)
+  /** Undos asked for and not yet ended: they run one after another, in the order pressed. */
+  const undos = useRef(0)
+  const chain = useRef<Promise<void>>(Promise.resolve())
   const [busy, setBusy] = useState(false)
   const refresh = useCallback(() => queryClient.invalidateQueries({ queryKey: step1Key(projectId) }), [queryClient, projectId])
 
   /**
-   * Starts an act: blocks others and marks its calls as in flight; returns what ends the calls, told
-   * whether any was made (an act refused outright made none, and an Undo waiting on it undoes nothing).
+   * Starts an act: blocks others and puts it on top of `history` as its key is pressed; returns what
+   * counts its calls once they are made. A key that comes while another act or an undo is in flight is
+   * dropped, and kept as an act that made nothing, so the Ctrl Z after it undoes nothing and says so.
    */
-  const begin = useCallback((): ((made: boolean) => void) | null => {
-    if (pending.current || undoing.current) {
-      unmade.current = true
+  const begin = useCallback((): ((calls: number, words: ReactNode) => void) | null => {
+    if (pending.current || undos.current > 0) {
+      if (!history.current.at(-1)?.dropped) history.current.push({ calls: 0, words: null, made: Promise.resolve(), dropped: true })
       return null
     }
     pending.current = true
-    unmade.current = false
     setBusy(true)
-    let sent = (_made: boolean) => {}
-    sending.current = new Promise<boolean>((resolve) => {
-      sent = resolve
-    })
-    // Kept until the act's reload ends: a Ctrl Z during it is for this act too.
-    return (made) => {
-      if (!made) unmade.current = true
-      sent(made)
+    // The last act's toast goes: its Undo would now take back this act (the server undoes the latest).
+    toast.clear()
+    let counted = () => {}
+    const entry: Entry = { calls: 0, words: null, made: new Promise<void>((resolve) => (counted = resolve)), dropped: false }
+    history.current.push(entry)
+    return (calls, words) => {
+      entry.calls = calls
+      entry.words = words
+      counted()
     }
-  }, [])
+  }, [toast])
 
   /** Ends an act once Step 1 has reloaded; other acts are taken again from here. */
   const settle = useCallback(async () => {
     // Held until Step 1 has reloaded: a second Enter during the reload would send the act again.
     await refresh()
-    sending.current = null
     pending.current = false
-    if (!undoing.current) setBusy(false)
+    if (undos.current === 0) setBusy(false)
   }, [refresh])
 
-  const undoLast = useCallback(async () => {
-    if (undoing.current) return
-    undoing.current = true
-    setBusy(true)
-    try {
-      // The act in flight is waited for, so this undoes it; one refused outright made nothing, and
-      // this Ctrl Z was for it (its refusal is on screen), so it never reaches the act before.
-      if (sending.current && !(await sending.current)) {
-        unmade.current = false
-        return
-      }
-      if (unmade.current) {
-        unmade.current = false
-        toast.show({ message: <Trans>Nothing undone: your last change was not made. Press Ctrl Z again to undo the one before it.</Trans> })
-        return
-      }
-      const last = done.current.pop()
-      try {
-        if (last) {
-          for (let i = 0; i < last.calls; i++) await undo(projectId)
-          const words = last.words
-          toast.show({ message: <Trans>Undone: {words}</Trans> })
-        } else {
-          const act = await undo(projectId)
-          toast.show({ message: <Trans>Undone: <UndoneWords act={act} /></Trans> })
+  /** Undoes `entry` (none: the user's last act from before this tab), once the undos before it end. */
+  const undoEntry = useCallback(
+    (entry: Entry | undefined) => {
+      undos.current += 1
+      setBusy(true)
+      const one = async () => {
+        try {
+          if (entry) {
+            // An act in flight is waited for, so this undoes it; one that made nothing undoes nothing.
+            await entry.made
+            if (entry.calls === 0) {
+              toast.show({ message: <Trans>Nothing undone: your last change was not made. Press Ctrl Z again to undo the one before it.</Trans> })
+              return
+            }
+            let left = entry.calls
+            try {
+              for (; left > 0; left--) await undo(projectId)
+              const words = entry.words
+              toast.show({ message: <Trans>Undone: {words}</Trans> })
+            } catch (error) {
+              // Not undone: it stays the last act, for the next Ctrl Z.
+              if (left === entry.calls) history.current.push({ ...entry, made: Promise.resolve() })
+              sayRefused(error)
+            }
+          } else {
+            try {
+              const act = await undo(projectId)
+              toast.show({ message: <Trans>Undone: <UndoneWords act={act} /></Trans> })
+            } catch (error) {
+              sayRefused(error)
+            }
+          }
+          await refresh()
+        } finally {
+          undos.current -= 1
+          if (undos.current === 0 && !pending.current) setBusy(false)
         }
-      } catch (error) {
-        sayRefused(error)
       }
-      await refresh()
-    } finally {
-      undoing.current = false
-      if (!pending.current) setBusy(false)
-    }
-  }, [projectId, refresh, sayRefused, toast])
+      chain.current = chain.current.then(one)
+      return chain.current
+    },
+    [projectId, refresh, sayRefused, toast],
+  )
 
-  const onUndo = useCallback(() => void undoLast(), [undoLast])
+  /** Ctrl Z: the last act as it stands now, even one still in flight. */
+  const undoLast = useCallback(() => undoEntry(history.current.pop()), [undoEntry])
+
+  /** A toast's Undo: its own act, only while it is still the last (a later act clears the toast). */
+  const undoFor = useCallback(
+    (words: ReactNode) => () => {
+      const top = history.current.at(-1)
+      if (top && top.words === words) void undoEntry(history.current.pop())
+    },
+    [undoEntry],
+  )
 
   /** Runs the server acts in turn; whatever of them was done is one act to undo. */
   const run = useCallback(
     async (calls: (() => Promise<unknown>)[], words: ReactNode, said: ReactNode): Promise<boolean> => {
-      const sent = begin()
-      if (!sent) return false
+      const counted = begin()
+      if (!counted) return false
       let made = 0
       try {
         for (const call of calls) {
           await call()
           made += 1
         }
-        toast.show({ message: said, onUndo })
+        toast.show({ message: said, onUndo: undoFor(words) })
         return true
       } catch (error) {
         sayRefused(error)
         return false
       } finally {
-        if (made > 0) done.current.push({ calls: made, words })
-        sent(made > 0)
+        counted(made, words)
         await settle()
       }
     },
-    [begin, onUndo, sayRefused, settle, toast],
+    [begin, sayRefused, settle, toast, undoFor],
   )
 
   const bulk = useCallback(
     async (confirming: readonly ProposalOut[], leavingOut: readonly ProposalOut[]) => {
-      const sent = begin()
-      if (!sent) return
+      const counted = begin()
+      if (!counted) return
       // One call per kind of act, each counted as it is made, so the words name only what was done.
       const calls: { sheets: number; out: boolean; call: () => Promise<unknown> }[] = []
       if (confirming.length) calls.push({ sheets: confirming.length, out: false, call: () => confirm(projectId, confirming.map((p) => p.id)) })
@@ -217,6 +239,8 @@ export function useStep1Acts(projectId: string): Step1Acts {
       let made = 0
       let n = 0
       let m = 0
+      // Made before the calls, so the toast's Undo and the entry share it; it reads n and m when shown.
+      const words = <BulkWordsOf get={() => [n, m]} />
       try {
         for (const c of calls) {
           await c.call()
@@ -224,7 +248,7 @@ export function useStep1Acts(projectId: string): Step1Acts {
           if (c.out) m += c.sheets
           else n += c.sheets
         }
-        toast.show({ message: <BulkDone n={n} m={m} />, onUndo })
+        toast.show({ message: <BulkDone n={n} m={m} />, onUndo: undoFor(words) })
       } catch (error) {
         const problem = problemOf(error)
         const refused = problem ? problemText(problem, f, i18n) : ''
@@ -236,15 +260,14 @@ export function useStep1Acts(projectId: string): Step1Acts {
                 <BulkDone n={n} m={m} /> <Trans>The rest was not done: {refused}</Trans>
               </>
             ),
-            onUndo,
+            onUndo: undoFor(words),
           })
       } finally {
-        if (made > 0) done.current.push({ calls: made, words: <BulkWords n={n} m={m} /> })
-        sent(made > 0)
+        counted(made, words)
         await settle()
       }
     },
-    [begin, f, i18n, onUndo, projectId, sayRefused, settle, toast],
+    [begin, f, i18n, projectId, sayRefused, settle, toast, undoFor],
   )
 
   const confirmSheets = useCallback(
@@ -274,10 +297,11 @@ export function useStep1Acts(projectId: string): Step1Acts {
   const setDrawingList = useCallback(
     async (discipline: string, text: string) => {
       // Not while another act is in flight: its undo would take this one's place (the refuter, round 1).
-      const sent = begin()
-      if (!sent) return false
+      const counted = begin()
+      if (!counted) return false
       const which = DISCIPLINE_IN_TEXT[discipline]
       const kind = which ? i18n._(which) : ''
+      const words = <Trans>the drawing list you set</Trans>
       let made = 0
       try {
         const list = await setList(projectId, discipline, text)
@@ -289,19 +313,18 @@ export function useStep1Acts(projectId: string): Step1Acts {
           ) : (
             <Plural value={n} one="Drawing list set: # sheet." other="Drawing list set: # sheets." />
           ),
-          onUndo,
+          onUndo: undoFor(words),
         })
         return true
       } catch (error) {
         sayRefused(error)
         return false
       } finally {
-        if (made) done.current.push({ calls: 1, words: <Trans>the drawing list you set</Trans> })
-        sent(made > 0)
+        counted(made, words)
         await settle()
       }
     },
-    [begin, i18n, onUndo, projectId, sayRefused, settle, toast],
+    [begin, i18n, projectId, sayRefused, settle, toast, undoFor],
   )
 
   return { bulk, confirmSheets, excludeSheets, setDrawingList, undoLast, busy }
