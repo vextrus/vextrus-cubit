@@ -63,7 +63,7 @@ async function accepting(step1?: FakeStep1, call?: string, n = 1) {
  * (round 4's F1: tests force the order they test, never count on timing). Step 1's reload is
  * `GET /proposals`.
  */
-async function openHeld(refuseUndo: readonly number[] = []) {
+async function openHeld(refuseUndo: readonly number[] = [], garbled: { next: string | null } = { next: null }) {
   const api = new FakeApi()
   const step1 = new FakeStep1(api)
   const held = new Map<string, Promise<void>>()
@@ -78,6 +78,12 @@ async function openHeld(refuseUndo: readonly number[] = []) {
     }
     // `refuseUndo`: which POST /undo calls (1st, 2nd…) the server refuses, undoing nothing.
     if (key === 'POST /undo' && refuseUndo.includes(++undos)) step1.answerOnce('POST /undo', 503, refusal)
+    // `garbled.next`: that call is made, but its reply cannot be read (a proxy's page).
+    if (key === garbled.next) {
+      garbled.next = null
+      await base(request)
+      return new Response('<html>proxy</html>', { status: 200, headers: { 'Content-Type': 'application/json' } })
+    }
     return base(request)
   }
   await mountApp('/p/KR-01/takeoff/1', { as: PEOPLE.qs, api })
@@ -376,5 +382,38 @@ describe('Ctrl Z takes the act the QS meant (the refuter of round 4)', () => {
     await userEvent.click(screen.getByRole('button', { name: /Undo/ }))
     await waitFor(() => expect(bodyText()).toContain('Undone: confirmed 16 sheets and left out 1'))
     expect(count(step1, 'POST /undo')).toBe(2)
+  })
+
+  it('P1: an undo the server made but whose reply cannot be read counts as done, is said, and reloads', async () => {
+    const garbled = { next: null as string | null }
+    const { step1 } = await openHeld([], garbled)
+    await actA(step1)
+    await userEvent.keyboard('{Enter}')
+    await accepting(step1, 'POST /exclude', 2)
+    garbled.next = 'POST /undo'
+    await ctrlZ()
+    await waitFor(() => expect(bodyText()).toContain('Vextrus could not do that just now.'))
+    await accepting(step1, 'POST /undo', 1)
+    // Reloaded: B (left out 1) was undone on the server, and the screen says so.
+    await waitFor(() => expect(bodyText()).toContain('Proposed to leave out'))
+    await ctrlZ()
+    await waitFor(() => expect(bodyText()).toContain('Undone: confirmed 16 sheets'))
+    await waitFor(() => expect(bodyText()).toContain('Confirmed 0 / 24'))
+    expect(count(step1, 'POST /undo')).toBe(2)
+  })
+
+  it('P2: an act the server made but whose reply cannot be read is one act to undo', async () => {
+    const garbled = { next: null as string | null }
+    const { step1 } = await openHeld([], garbled)
+    await actA(step1)
+    garbled.next = 'POST /exclude'
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(bodyText()).toContain('Vextrus could not do that just now.'))
+    await accepting(step1, 'POST /exclude', 2)
+    await ctrlZ()
+    await waitFor(() => expect(bodyText()).toContain('Undone: left out 1 sheet'))
+    await accepting(step1, 'POST /undo', 1)
+    expect(bodyText()).toContain('Confirmed 16 / 24')
+    expect(bodyText()).not.toContain('Nothing undone')
   })
 })

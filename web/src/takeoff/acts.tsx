@@ -11,8 +11,8 @@ import { useCallback, useRef, useState, type ReactNode } from 'react'
 import { Plural, Trans } from '@lingui/react/macro'
 import { useLingui } from '@lingui/react'
 import { useQueryClient } from '@tanstack/react-query'
+import { ApiRefused } from '@/api/client'
 import { problemOf, problemText } from '@/auth/problem'
-import { useSayRefused } from '@/auth/sayRefused'
 import { useFormat } from '@/format'
 import { useToast } from '@/ui'
 import { DrawingText } from '@/ui/DrawingText'
@@ -27,6 +27,13 @@ import { DISCIPLINE_IN_TEXT, REASON_SHORT, UNKNOWN_REASON } from './words'
  * it stands when the key is pressed, so it always undoes the act the QS meant (the review of 22,
  * round 4: F3 and the refuter's five sequences).
  */
+/**
+ * The call reached the server, which may have made it, but its reply could not be read (a proxy's page,
+ * a body cut short): counted as made, so Ctrl Z stays in step with the server's latest act (the refuter
+ * of round 4, P1). A refusal made nothing; an unreachable server (the browser's TypeError) was not asked.
+ */
+const reached = (error: unknown) => !(error instanceof ApiRefused) && !(error instanceof TypeError)
+
 interface Entry {
   /** How many of the user's server acts it was: none when refused outright or dropped. */
   calls: number
@@ -102,7 +109,6 @@ export interface Step1Acts {
 export function useStep1Acts(projectId: string): Step1Acts {
   const queryClient = useQueryClient()
   const toast = useToast()
-  const sayRefused = useSayRefused()
   const { i18n } = useLingui()
   const f = useFormat()
   /** The acts started in this tab, the last on top: what Ctrl Z takes back. */
@@ -114,6 +120,20 @@ export function useStep1Acts(projectId: string): Step1Acts {
   const chain = useRef<Promise<void>>(Promise.resolve())
   const [busy, setBusy] = useState(false)
   const refresh = useCallback(() => queryClient.invalidateQueries({ queryKey: step1Key(projectId) }), [queryClient, projectId])
+  /** Why a call failed, in words; never throws (problemOf throws on an error that is not the API's). */
+  const failedText = useCallback(
+    (error: unknown) => {
+      try {
+        const problem = problemOf(error)
+        if (problem) return problemText(problem, f, i18n)
+      } catch {
+        // Not the API's refusal: said plainly below.
+      }
+      return problemText({ failed: true }, f, i18n)
+    },
+    [f, i18n],
+  )
+  const say = useCallback((error: unknown) => toast.show({ message: failedText(error) }), [failedText, toast])
 
   /**
    * Starts an act: blocks others and puts it on top of `history` as its key is pressed; returns what
@@ -143,7 +163,7 @@ export function useStep1Acts(projectId: string): Step1Acts {
   /** Ends an act once Step 1 has reloaded; other acts are taken again from here. */
   const settle = useCallback(async () => {
     // Held until Step 1 has reloaded: a second Enter during the reload would send the act again.
-    await refresh()
+    await refresh().catch(() => {})
     pending.current = false
     if (undos.current === 0) setBusy(false)
   }, [refresh])
@@ -201,22 +221,24 @@ export function useStep1Acts(projectId: string): Step1Acts {
               const words = entry.words
               toast.show({ message: <Trans>Undone: {words}</Trans> })
             } catch (error) {
+              if (reached(error)) left -= 1
               // What was not undone stays the last act, for the next Ctrl Z; part of it, worded plainly.
               const words = left === entry.calls ? entry.words : <Trans>your last change to Step 1</Trans>
-              refused({ ...entry, calls: left, words, made: Promise.resolve(), counted: true })
-              sayRefused(error)
+              if (left > 0) refused({ ...entry, calls: left, words, made: Promise.resolve(), counted: true })
+              say(error)
             }
           } else {
             try {
               const act = await undo(projectId)
               toast.show({ message: <Trans>Undone: <UndoneWords act={act} /></Trans> })
             } catch (error) {
-              refused(null)
-              sayRefused(error)
+              if (!reached(error)) refused(null)
+              say(error)
             }
           }
-          await refresh()
         } finally {
+          // Reloaded whatever happened: the screen shows what the server holds.
+          await refresh().catch(() => {})
           undos.current -= 1
           if (undos.current === 0 && !pending.current) setBusy(false)
         }
@@ -225,7 +247,7 @@ export function useStep1Acts(projectId: string): Step1Acts {
       chain.current = chain.current.then(one).catch(() => {})
       return chain.current
     },
-    [projectId, refresh, restore, sayRefused, toast],
+    [projectId, refresh, restore, say, toast],
   )
 
   /** Ctrl Z: the last act as it stands now, even one still in flight. */
@@ -259,14 +281,15 @@ export function useStep1Acts(projectId: string): Step1Acts {
         toast.show({ message: said, onUndo: undoFor(words) })
         return true
       } catch (error) {
-        sayRefused(error)
+        if (reached(error)) made += 1
+        say(error)
         return false
       } finally {
         counted(made, words)
         await settle()
       }
     },
-    [begin, sayRefused, settle, toast, undoFor],
+    [begin, say, settle, toast, undoFor],
   )
 
   const bulk = useCallback(
@@ -285,18 +308,23 @@ export function useStep1Acts(projectId: string): Step1Acts {
       let m = 0
       // Made before the calls, so the toast's Undo and the entry share it; it reads n and m when shown.
       const words = <BulkWordsOf get={() => [n, m]} />
+      const count = (c: (typeof calls)[number]) => {
+        made += 1
+        if (c.out) m += c.sheets
+        else n += c.sheets
+      }
+      let at: (typeof calls)[number] | undefined
       try {
         for (const c of calls) {
+          at = c
           await c.call()
-          made += 1
-          if (c.out) m += c.sheets
-          else n += c.sheets
+          count(c)
         }
         toast.show({ message: <BulkDone n={n} m={m} />, onUndo: undoFor(words) })
       } catch (error) {
-        const problem = problemOf(error)
-        const refused = problem ? problemText(problem, f, i18n) : ''
-        if (made === 0) sayRefused(error)
+        if (at && reached(error)) count(at)
+        const refused = failedText(error)
+        if (made === 0) say(error)
         else
           toast.show({
             message: (
@@ -311,7 +339,7 @@ export function useStep1Acts(projectId: string): Step1Acts {
         await settle()
       }
     },
-    [begin, f, i18n, projectId, sayRefused, settle, toast, undoFor],
+    [begin, failedText, projectId, say, settle, toast, undoFor],
   )
 
   const confirmSheets = useCallback(
@@ -361,14 +389,15 @@ export function useStep1Acts(projectId: string): Step1Acts {
         })
         return true
       } catch (error) {
-        sayRefused(error)
+        if (reached(error)) made = 1
+        say(error)
         return false
       } finally {
         counted(made, words)
         await settle()
       }
     },
-    [begin, i18n, projectId, sayRefused, settle, toast, undoFor],
+    [begin, i18n, projectId, say, settle, toast, undoFor],
   )
 
   return { bulk, confirmSheets, excludeSheets, setDrawingList, undoLast, busy }
