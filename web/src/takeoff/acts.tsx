@@ -90,34 +90,37 @@ export function useStep1Acts(projectId: string): Step1Acts {
   /** An act in flight: another (a second Enter, a key held down) is ignored until it and its reload end. */
   const pending = useRef(false)
   /**
-   * The act in flight's server calls, until they are made and kept in `done`: an Undo waits for them
-   * (its toast shows before the reload), rather than being dropped while Step 1 reloads.
+   * The act in flight, until its reload ends: resolves once its server calls are made and kept in
+   * `done`, with whether any was. An Undo waits for it (its toast shows before the reload), rather
+   * than being dropped, and undoes nothing if it made nothing.
    */
-  const sending = useRef<Promise<void> | null>(null)
+  const sending = useRef<Promise<boolean> | null>(null)
   /** An undo in flight: a second Ctrl Z is ignored until it ends. */
   const undoing = useRef(false)
   const refresh = useCallback(() => queryClient.invalidateQueries({ queryKey: step1Key(projectId) }), [queryClient, projectId])
 
-  /** Starts an act: blocks others and marks its calls as in flight; returns what ends the calls. */
-  const begin = useCallback((): (() => void) | null => {
+  /**
+   * Starts an act: blocks others and marks its calls as in flight; returns what ends the calls, told
+   * whether any was made (an act refused outright made none, and an Undo waiting on it undoes nothing).
+   */
+  const begin = useCallback((): ((made: boolean) => void) | null => {
     if (pending.current || undoing.current) return null
     pending.current = true
-    let sent = () => {}
-    sending.current = new Promise<void>((resolve) => {
+    let sent = (_made: boolean) => {}
+    sending.current = new Promise<boolean>((resolve) => {
       sent = resolve
     })
-    return () => {
-      sending.current = null
-      sent()
-    }
+    // Kept until the act's reload ends (`settle`): a Ctrl Z during it is for this act too.
+    return (made) => sent(made)
   }, [])
 
   const undoLast = useCallback(async () => {
     if (undoing.current) return
     undoing.current = true
     try {
-      // An act still sending is waited for, so this undoes it; one reloading is already in `done`.
-      if (sending.current) await sending.current
+      // The act in flight is waited for, so this undoes it; one refused outright made nothing, and
+      // this Ctrl Z was for it, so it never reaches the act before.
+      if (sending.current && !(await sending.current)) return
       const last = done.current.pop()
       try {
         if (last) {
@@ -157,9 +160,10 @@ export function useStep1Acts(projectId: string): Step1Acts {
         return false
       } finally {
         if (made > 0) done.current.push({ calls: made, words })
-        sent()
+        sent(made > 0)
         // Held until Step 1 has reloaded: a second Enter during the reload would send the act again.
         await refresh()
+        sending.current = null
         pending.current = false
       }
     },
@@ -203,9 +207,10 @@ export function useStep1Acts(projectId: string): Step1Acts {
           })
       } finally {
         if (made > 0) done.current.push({ calls: made, words: <BulkWords n={n} m={m} /> })
-        sent()
+        sent(made > 0)
         // Held until Step 1 has reloaded: a second Enter during the reload would send the act again.
         await refresh()
+        sending.current = null
         pending.current = false
       }
     },
@@ -262,8 +267,9 @@ export function useStep1Acts(projectId: string): Step1Acts {
         return false
       } finally {
         if (made) done.current.push({ calls: 1, words: <Trans>the drawing list you set</Trans> })
-        sent()
+        sent(made > 0)
         await refresh()
+        sending.current = null
         pending.current = false
       }
     },

@@ -137,4 +137,21 @@ describe('an Undo while the act is still going (the review of 22, round 2)', () 
     await waitFor(() => expect(bodyText()).toContain('Undone: confirmed 16 sheets and left out 1'), { timeout: 5000 })
     expect(step1.calls().filter((c) => c === 'POST /undo')).toHaveLength(2)
   })
+
+  it('undoes nothing when the act it waited for was refused outright (the review of 22, round 3)', async () => {
+    const step1 = await openAt60()
+    const refusal = { code: 'takeoff.step1.nothing_to_undo', params: {} }
+    step1.answerOnce('POST /exclude', 409, refusal)
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(bodyText()).toContain('Confirmed 16 / 24'), { timeout: 5000 })
+    step1.answerOnce('POST /exclude', 409, refusal)
+    await userEvent.keyboard('{Enter}')
+    await userEvent.keyboard('{Control>}z{/Control}')
+    await waitFor(() => expect(step1.calls().filter((c) => c === 'POST /exclude')).toHaveLength(2), { timeout: 5000 })
+    await new Promise((r) => setTimeout(r, 1500))
+    expect(step1.calls().filter((c) => c === 'POST /undo')).toHaveLength(0)
+    expect(bodyText()).toContain('Confirmed 16 / 24')
+    expect(bodyText()).not.toContain('Undone')
+  })
 })
+
