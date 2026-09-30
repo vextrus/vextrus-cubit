@@ -8,7 +8,8 @@ ReadArtefact kept), `second_reader` (the second reader and the check that the tw
 code; two readers that disagree hold the file through `drawings.services.quarantine`, and nothing
 more is read: 21c raises its `file_misread` Question, ADR 0029), 21b's `sheets` and `sheet_<n>`
 steps (`read_propose.sheets`), `finishing` (the font report and the Bangla-ANSI Check, kept as codes,
-and the file marked read in the same transaction).
+and the file marked read in the same transaction, with every limit that cut its sheets: the first is
+its finding, `takeoff.read_file.not_read_in_full {limit}`).
 
 A PDF: `opening` (the copy checked, and the PDF report kept as codes; a scan is refused by it) and
 `matching` (the file marked read). 21b's page steps and the matching itself go into them.
@@ -28,10 +29,11 @@ The readers are the engine's (`READERS`); a test passes its own.
 """
 
 import uuid
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from engine.check import bangla_ansi, decoders_agree
 from engine.check.bangla_ansi import BanglaAnsi
@@ -148,7 +150,7 @@ def _steps(steps: jobs.Steps, file_id: uuid.UUID, use: Readers) -> Read:
     )
     if checked["held"]:
         return Read(file_id, "dwg", "held")
-    sheets.read(
+    found = sheets.read(
         steps,
         file_id,
         sheets.once(lambda: _kept_artefact(file_id, use, kept)),
@@ -157,7 +159,9 @@ def _steps(steps: jobs.Steps, file_id: uuid.UUID, use: Readers) -> Read:
         after=len(DWG_STEPS) - DWG_STEPS.index(drawings.FINISHING),
     )
     steps.run(
-        drawings.FINISHING, lambda: _finish(file_id, use, kept), inputs={"sha256": sha256, **reader}
+        drawings.FINISHING,
+        lambda: _finish(file_id, use, kept, found.not_read_in_full),
+        inputs={"sha256": sha256, **reader},
     )
     return Read(file_id, "dwg", "read")
 
@@ -217,17 +221,22 @@ def _check(file_id: uuid.UUID, use: Readers, kept: jobs.StepResult) -> jobs.Step
     return {"held": False}
 
 
-def _finish(file_id: uuid.UUID, use: Readers, kept: jobs.StepResult) -> jobs.StepResult:
+def _finish(
+    file_id: uuid.UUID, use: Readers, kept: jobs.StepResult, not_read_in_full: Sequence[Message]
+) -> jobs.StepResult:
     artefact = _kept_artefact(file_id, use, kept)
     font_report = use.fonts(artefact)
     flagged = use.bangla_ansi(artefact)
     drawings.record_reports(file_id, font_report=font_report, bangla_ansi=flagged)
-    view = drawings.mark_read(file_id)
-    return {
+    view = drawings.mark_read(file_id, not_read_in_full)
+    result: dict[str, Any] = {
         "fonts": len(font_report.fonts),
         "bangla_ansi_texts": len(flagged.texts),
         "state": str(view.state),
+        # Every limit that cut the reading: the report's sheets section says each from here.
+        "not_read_in_full": list(not_read_in_full),
     }
+    return result
 
 
 def _mark_read(file_id: uuid.UUID) -> jobs.StepResult:
