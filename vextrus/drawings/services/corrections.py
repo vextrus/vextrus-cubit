@@ -7,8 +7,9 @@ Market's.
 
 The printed sheet keeps its id and its place in its file; it moves to the Sheet its new number or
 Discipline names (`(set, Building, Discipline, number)`, made when none is), and a Sheet it leaves
-with no printed sheet is dropped. A printed sheet the QS has already decided is not corrected (409):
-undo the decision first. A number is typed text: decoded, no drawing code, within its column.
+with no printed sheet is dropped. A printed sheet the QS has confirmed is not corrected (409): undo
+the confirmation first; one left out may be (its number or Discipline answered, it comes back
+in). A number is typed text: decoded, no drawing code, within its column.
 """
 
 import unicodedata
@@ -18,7 +19,7 @@ from django.db import transaction
 
 from vextrus.drawings.messages import files as file_words
 from vextrus.drawings.messages import sheets as said
-from vextrus.drawings.models import Discipline, HeldAnswer, Sheet, SheetRevision
+from vextrus.drawings.models import Decision, Discipline, HeldAnswer, Sheet, SheetRevision
 from vextrus.drawings.services import _access, _text, library_disciplines, sheet_list
 from vextrus.platform.services import auth
 
@@ -57,7 +58,7 @@ def _one_line(text: str) -> bool:
 
 def _undecided(sheet_revision_id: uuid.UUID) -> SheetRevision:
     printed = sheet_list._listed(sheet_revision_id, lock=True)
-    if printed.decision:
+    if printed.decision == Decision.CONFIRMED:  # a sheet left out may still be corrected
         raise auth.Refused(said.DECIDED_ALREADY(), status=409)
     return printed
 

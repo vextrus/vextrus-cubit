@@ -514,3 +514,58 @@ def test_every_storey_13_reads_is_named_by_the_boundary_questions_words() -> Non
         level = storey_named(key)["level"]
         assert level != "other", key
         assert len(re.findall(rf"\b{level} \{{", line)) == 2, (key, level)
+
+
+# Round 3 -----------------------------------------------------------------------------------------
+
+
+def _discipline_less(qs: QsProject, monkeypatch: pytest.MonkeyPatch) -> tuple[str, str]:
+    file_id = uploaded(qs.member, qs.project_id, "GENERAL NOTES.dwg")
+    run_job(qs.member, file_id, monkeypatch, readers({"GENERAL NOTES.dwg": [
+        Sheet("N-01", "GENERAL NOTES", ("GENERAL NOTES",)),
+    ]}))  # fmt: skip
+    api = api_as(qs.member)
+    [q] = open_questions(api, qs.project_id, "missing_discipline")
+    return q["id"], the(proposals(api, qs.project_id), "N-01")["id"]
+
+
+def test_a_sheet_left_out_then_confirmed_back_in_is_refused_until_its_discipline_is_answered(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Round 3 (75): exclude withdrew the Discipline Question, and confirming back in then confirmed a
+    sheet of no Discipline for good (a dead end)."""
+    question_id, sheet_id = _discipline_less(qs_project, monkeypatch)
+    api = api_as(qs_project.member)
+    assert exclude(api, qs_project.project_id, [sheet_id], "for_information").status_code == 200
+
+    back_in = confirm(api, qs_project.project_id, [sheet_id])
+
+    assert (back_in.status_code, back_in.json()["code"]) == (409, "takeoff.step1.question_first")
+    assert back_in.json()["params"]["asks"] == "discipline"
+    # The Question the exclusion withdrew is answered, and the sheet then comes back in.
+    assert answer(api, qs_project.project_id, question_id, "structural").status_code == 200
+    assert confirm(api, qs_project.project_id, [sheet_id]).status_code == 200
+    shown = the(proposals(api, qs_project.project_id), "N-01")
+    assert (shown["discipline"], shown["decision"]) == ("structural", "confirmed")
+
+
+def test_answering_the_kind_of_a_left_out_unnumbered_sheet_does_not_confirm_it(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, jev_offline: Offline
+) -> None:
+    """Round 3, the second route: the kind's answer confirmed a left-out sheet whose number was never
+    given."""
+    jev_says(jev_offline, "0.34")
+    read(qs_project, monkeypatch, UNNUMBERED)
+    api = api_as(qs_project.member)
+    unnumbered = the(proposals(api, qs_project.project_id), None)
+    assert exclude(api, qs_project.project_id, [unnumbered["id"]], "blank").status_code == 200
+    [kind_q] = [
+        q
+        for q in open_questions(api, qs_project.project_id, "low_confidence")
+        if q["proposals"] == [unnumbered["id"]]
+    ]
+
+    response = answer(api, qs_project.project_id, kind_q["id"], keys(kind_q)[0])
+
+    assert response.status_code == 200, response.content
+    assert the(proposals(api, qs_project.project_id), None)["decision"] == "excluded"

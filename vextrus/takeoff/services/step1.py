@@ -927,16 +927,34 @@ FIRST = (QuestionKind.MISSING, QuestionKind.MISSING_DISCIPLINE)
 answer's to set, which a confirmed sheet no longer takes)."""
 
 
+def _withdrawn_by_standing_exclusion(question: Question) -> bool:
+    """Withdrawn when its sheet was left out (`_withdraw_first`), by an act not undone: its sheet is
+    still out, so the Question still waits there, answerable, for the sheet to come back in."""
+    act_id = question.answer.get("withdrawn_by") if isinstance(question.answer, dict) else None
+    if question.status != QuestionStatus.WITHDRAWN or not act_id:
+        return False
+    return Confirmation.objects.filter(
+        project_id=question.project_id, id=act_id, undone_at__isnull=True
+    ).exists()
+
+
 def _no_question_first(
     project_id: uuid.UUID, chosen: Sequence[tuple[drawings.SheetView, Proposal | None]]
 ) -> None:
-    """Refuse (409, nothing done) sheets an open `missing` or `missing_discipline` Question holds,
-    naming the first of them (in the order chosen), what its Question asks, and how many."""
-    asked = list(
-        Question.objects.filter(
-            project_id=project_id, step=SHEETS, status=QuestionStatus.OPEN, kind__in=FIRST
+    """Refuse (409, nothing done) sheets a `missing` or `missing_discipline` Question holds (open, or
+    withdrawn by an exclusion that still stands: confirming the sheet back in would confirm it with no
+    number or Discipline for good), naming the first of them (in the order chosen), what its Question
+    asks, and how many."""
+    asked = [
+        q
+        for q in Question.objects.filter(
+            project_id=project_id,
+            step=SHEETS,
+            status__in=(QuestionStatus.OPEN, QuestionStatus.WITHDRAWN),
+            kind__in=FIRST,
         )
-    )
+        if q.status == QuestionStatus.OPEN or _withdrawn_by_standing_exclusion(q)
+    ]
     if not asked:
         return
     by_proposal: dict[uuid.UUID, str] = {}
@@ -1653,7 +1671,7 @@ def answer(
         )
         if row is None:
             raise auth.NotFound
-        if row.status != QuestionStatus.OPEN:
+        if row.status != QuestionStatus.OPEN and not _withdrawn_by_standing_exclusion(row):
             raise auth.Refused(answer_codes.ANSWERED_ALREADY(), status=409)
         offered = [o.get("key") for o in row.options if isinstance(o, dict)]
         if not isinstance(option, str) or option not in offered:
@@ -1729,8 +1747,12 @@ def _apply(
         except auth.Refused as refused:  # its number or Discipline is still asked: keep the kind
             if refused.message["code"] != said.QUESTION_FIRST.code:
                 raise
+            left_out = {s.id for s in _sheets(project_id) if s.decision == "excluded"}
             for proposal in Proposal.objects.filter(project_id=project_id, id__in=held):
-                drawings.record_kind(proposal.subject_id, option)
+                # A sheet left out keeps its kind in the answer alone (a decided sheet's kind is
+                # not rewritten); the QS confirms it back in once its number is answered.
+                if proposal.subject_id not in left_out:
+                    drawings.record_kind(proposal.subject_id, option)
     return None
 
 
