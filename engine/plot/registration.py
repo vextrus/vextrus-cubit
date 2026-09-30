@@ -77,6 +77,10 @@ MAX_BY_INK = 32
 """The most sheets a page is tried against by ink: each is drawn and aligned (a second or so), so a
 textless page of a large set with every sheet on its paper is left unmatched rather than tried 200
 times."""
+MAX_INK_TRIES = 128
+"""The most sheets drawn and aligned by ink in one match, over all its pages (a few minutes): a PDF of
+hundreds of pages with no text is hostile input as much as a Plot, and the rest of its pages keep
+their reasons once this is spent."""
 MIN_INK_F1 = 0.6
 INK_MARGIN = 0.1
 """A sheet is a page's by its ink when their inks agree (F1, `ink.agreement`) at least 0.6 and by 0.1
@@ -104,6 +108,7 @@ def match(
         if key is not None:
             by_number.setdefault(key, []).append(i)
     found = []
+    budget = [MAX_INK_TRIES]
     for page in pages:
         if page.scan:
             found.append(PlotMatch(page, reason=_reason(codes.SCAN)))
@@ -116,7 +121,11 @@ def match(
             known = all(b is not None for b in drawn)
             fitting = [i for i, b in enumerate(drawn) if known and _fits_size(page, b)]
             inked = by_ink(
-                page, [sheets[i] for i in fitting], [_buffers(geometry, i) for i in fitting], plot
+                page,
+                [sheets[i] for i in fitting],
+                [_buffers(geometry, i) for i in fitting],
+                plot,
+                budget,
             )
             if inked is None:
                 found.append(PlotMatch(page, reason=_reason(codes.NO_TEXT)))
@@ -130,7 +139,11 @@ def match(
         chosen = _sheet_named(page, sheets, by_number, geometry, discipline)
         if isinstance(chosen, list):  # several sheets named alike: their ink may tell them apart
             inked = by_ink(
-                page, [sheets[i] for i in chosen], [_buffers(geometry, i) for i in chosen], plot
+                page,
+                [sheets[i] for i in chosen],
+                [_buffers(geometry, i) for i in chosen],
+                plot,
+                budget,
             )
             if inked is None:
                 found.append(PlotMatch(page, reason=_reason(codes.NAMES_SEVERAL_SHEETS)))
@@ -246,15 +259,21 @@ def by_ink(
     sheets: Sequence[SheetCandidate],
     geometry: Sequence[SheetBuffers | None],
     plot: Path | None,
+    budget: list[int] | None = None,
 ) -> tuple[int, PlotTransform, float | None] | None:
     """Which of the sheets the page plots, by their ink (a page with no text, or one naming several
     sheets alike): each placed on the page (`place`, then `ink.align`) and scored by how well the
     two inks agree (`ink.agreement`); the best is taken, with its transform and residual, when it
     agrees at least `MIN_INK_F1` and by `INK_MARGIN` more than the next. None when it does not, when
-    the page's PDF or a sheet's buffers are missing (a sheet never drawn cannot be ruled out), or
-    when there are more than `MAX_BY_INK` sheets to try."""
-    if plot is None or not 1 <= len(sheets) <= MAX_BY_INK or any(b is None for b in geometry):
+    the page's PDF or a sheet's buffers are missing (a sheet never drawn cannot be ruled out), when
+    there are more than `MAX_BY_INK` sheets to try, or more than `budget[0]` tries left (the match's,
+    `MAX_INK_TRIES`, spent by each sheet tried)."""
+    left = budget if budget is not None else [MAX_INK_TRIES]
+    if plot is None or not 1 <= len(sheets) <= min(MAX_BY_INK, left[0]):
         return None
+    if any(b is None for b in geometry):
+        return None
+    left[0] -= len(sheets)
     scored: list[tuple[float, int, PlotTransform, float | None]] = []
     for k, (sheet, buffers) in enumerate(zip(sheets, geometry, strict=True)):
         placed = place(page, sheet, buffers) if buffers is not None else None

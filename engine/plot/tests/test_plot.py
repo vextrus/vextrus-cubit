@@ -714,3 +714,25 @@ def test_a_page_with_no_text_is_not_tried_by_ink_without_its_pdf_or_against_too_
     assert registration.match([blank], many, [buffers] * len(many), {SHA: path})[0].reason == "no_text"
     assert registration.match([blank], many[:2], [buffers] * 2, None)[0].reason == "no_text"
     assert registration.match([blank], many[:2], [buffers, None], {SHA: path})[0].reason == "no_text"
+
+
+def test_a_match_tries_at_most_max_ink_tries_sheets_by_ink_over_all_its_pages(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A PDF of many textless pages (hostile input as much as a Plot) spends one budget for the whole
+    match: past it, the rest of its pages keep their reason without a sheet drawn."""
+    tried: list[object] = []
+
+    def align(page: Page, buffers: B.SheetBuffers, transform: PlotTransform, plot: Path) -> object:
+        tried.append(page)
+        return transform, None
+
+    monkeypatch.setattr(ink, "align", align)
+    monkeypatch.setattr(ink, "agreement", lambda *_: 0.0)
+    sheets = [sheet("S-201"), sheet("S-202", "S-202")]
+    pages = [replace(page_of(), number=n) for n in range(1, registration.MAX_INK_TRIES + 11)]
+
+    found = registration.match(pages, sheets, [sheet_buffers()] * 2, {SHA: Path("unused.pdf")})
+
+    assert len(tried) == registration.MAX_INK_TRIES
+    assert {m.reason for m in found} == {"no_text"}
