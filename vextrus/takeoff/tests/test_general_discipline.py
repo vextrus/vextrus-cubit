@@ -21,6 +21,7 @@ from vextrus.takeoff.tests.acceptance.t21c.step1_whole import (
     jev_says,
     open_questions,
     proposals,
+    questions,
     readers,
     run_job,
     uploaded,
@@ -64,6 +65,9 @@ def test_a_discipline_chosen_once_the_file_is_read_answers_its_sheets_questions(
 
     assert response.status_code == 200, response.content  # type: ignore[attr-defined]
     assert open_questions(api, qs_project.project_id, "missing_discipline") == []
+    [answered] = [q for q in questions(api, qs_project.project_id) if q["kind"] == "missing_discipline"]
+    assert answered["answer"]["option"] == "architectural"
+    assert answered["answer"]["by"] == qs_project.member.user.name  # the QS who chose, by name
     [mine] = proposals(api, qs_project.project_id)
     assert mine["discipline"] == "architectural"
     confirmed = confirm(api, qs_project.project_id, [mine["id"]])

@@ -704,19 +704,20 @@ def _record(kind: MessageCode, row: DrawingFile) -> None:
 # The Discipline ------------------------------------------------------------------------------------
 
 
-DISCIPLINE_CHANGED: list[Callable[[uuid.UUID], None]] = []
-"""What follows a file's Discipline changed by the QS, each called with the file's id in the change's
-own transaction: a module above `drawings` registers here (`on_discipline_changed`; takeoff's Step 1
-answers the sheets' `missing_discipline` Questions with it and asks the set's Questions again, #159)."""
+DISCIPLINE_CHANGED: list[Callable[[uuid.UUID, str], None]] = []
+"""What follows a file's Discipline changed by the QS, each called with the file's id and the QS's
+name in the change's own transaction: a module above `drawings` registers here
+(`on_discipline_changed`; takeoff's Step 1 answers the sheets' `missing_discipline` Questions with
+it and asks the set's Questions again, #159)."""
 
 
-def on_discipline_changed(follow: Callable[[uuid.UUID], None]) -> None:
+def on_discipline_changed(follow: Callable[[uuid.UUID, str], None]) -> None:
     """Register `follow` once (see `DISCIPLINE_CHANGED`)."""
     if follow not in DISCIPLINE_CHANGED:
         DISCIPLINE_CHANGED.append(follow)
 
 
-def set_discipline(file_id: uuid.UUID, key: str) -> FileView:
+def set_discipline(file_id: uuid.UUID, key: str, *, actor_name: str = "") -> FileView:
     """The QS's choice of the file's Discipline: its sheets move with it (see the module)."""
     with transaction.atomic():
         row = _access.drawing_file(file_id, lock=True)
@@ -739,7 +740,7 @@ def set_discipline(file_id: uuid.UUID, key: str) -> FileView:
         SheetRevision.objects.filter(source_file=row).update(revision=row.revision)
         _record(said.DISCIPLINE_CHANGED, row)
         for follow in DISCIPLINE_CHANGED:
-            follow(row.id)
+            follow(row.id, actor_name)
     return file(row.id)
 
 

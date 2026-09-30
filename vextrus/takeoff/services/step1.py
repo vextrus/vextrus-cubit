@@ -1703,7 +1703,9 @@ def answer(
     return Answered(_question_view(project_id, row.id), read_again, corrected)
 
 
-def answer_disciplines(project_id: uuid.UUID, sheets: Sequence[drawings.SheetView]) -> int:
+def answer_disciplines(
+    project_id: uuid.UUID, sheets: Sequence[drawings.SheetView], *, actor_name: str = ""
+) -> int:
     """The open `missing_discipline` Questions of these sheets, answered by the Discipline each now
     has (its file's, chosen by the QS: #159), as if the QS had picked it; how many were answered."""
     given = {s.id: s.discipline for s in sheets if s.discipline}
@@ -1718,7 +1720,11 @@ def answer_disciplines(project_id: uuid.UUID, sheets: Sequence[drawings.SheetVie
         ):
             assert row.subject_id is not None
             row.status = QuestionStatus.ANSWERED
-            row.answer = {"option": given[row.subject_id], "by": "", "given_by": "file_discipline"}
+            row.answer = {
+                "option": given[row.subject_id],
+                "by": actor_name,
+                "given_by": "file_discipline",
+            }
             row.answered_by_id = _user()
             row.answered_at = timezone.now()
             row.save(update_fields=["status", "answer", "answered_by", "answered_at"])

@@ -36,7 +36,7 @@ def test_sync_library_writes_the_markets_nine_and_again_changes_nothing(
     again = platform_library.sync()
     call_command("sync_library")
 
-    assert first == {"drawings": 8, "takeoff": 0}
+    assert first == {"drawings": 9, "takeoff": 0}
     assert {key: value[:3] for key, value in found.items()} == {
         key: (name, kind, prefixes) for key, (name, kind, prefixes) in NINE.items()
     }
