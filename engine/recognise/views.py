@@ -747,7 +747,9 @@ def _title_block(paper: _Paper) -> Bounds | None:
     more of them: a strip's or a corner box's; never a zone mark along the border nor a name in a
     far corner), grown on each side to the nearest ruled line across it (the frame's or the
     sheet's), else to the paper's edge. None when 13 read no value on its paper, or when the box
-    would cover more than `MAX_BLOCK_SHARE` of the paper (no title block eats the sheet's drawings)."""
+    would cover more than `MAX_BLOCK_SHARE` of the paper (no title block eats the sheet's drawings),
+    then sought from the values alone (a real title block beside far frame notes or a separate
+    revision table)."""
     rx0, ry0, rx1, ry1 = paper.region
     unit = max(rx1 - rx0, ry1 - ry0) / REFERENCE_MM
     on_paper = [t for t in paper.block if _inside(_centre(t.box), paper.region)]
@@ -765,7 +767,15 @@ def _title_block(paper: _Paper) -> Bounds | None:
     centres = [_centre(t.box) for t in rest]
     column = [t for t, c in zip(rest, centres, strict=True) if vx0 - gap <= c[0] <= vx1 + gap]
     row = [t for t, c in zip(rest, centres, strict=True) if vy0 - gap <= c[1] <= vy1 + gap]
-    held += column if len(column) >= len(row) else row  # the strip's direction holds more of them
+    band = column if len(column) >= len(row) else row  # the strip's direction holds more of them
+    return _ruled_box(paper, [*held, *band]) or _ruled_box(paper, held)  # far notes: its values alone
+
+
+def _ruled_box(paper: _Paper, held: Sequence[_Text]) -> Bounds | None:
+    """The box the texts' centres fill, grown on each side to the nearest ruled line across it, else
+    to the paper's edge; none when it covers more than `MAX_BLOCK_SHARE` of the paper."""
+    rx0, ry0, rx1, ry1 = paper.region
+    unit = max(rx1 - rx0, ry1 - ry0) / REFERENCE_MM
     centres = [_centre(t.box) for t in held]
     ex0, ey0 = min(c[0] for c in centres), min(c[1] for c in centres)
     ex1, ey1 = max(c[0] for c in centres), max(c[1] for c in centres)

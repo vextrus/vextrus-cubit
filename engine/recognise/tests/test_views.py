@@ -825,3 +825,79 @@ def one_sheet_of(d: Sheets, block: str) -> SheetCandidate:
     framed(d, block, (0.0, 0.0), 1.0, {0: "GENERAL ARRANGEMENT", 2: "S-01"})
     (sheet,) = sheets.find(d.artefact(), "structural", DEFAULT)
     return sheet
+
+
+def plan_and_detail(d: Sheets, detail: tuple[float, float, float, float]) -> None:
+    plan_on(d)
+    grid(d, detail)
+    d.text("PILE CAP DETAIL", (detail[0], detail[1] - 12, 0.0), height=6.0)
+
+
+def read_block(d: Sheets) -> tuple[list[str | None], Box]:
+    (sheet,) = sheets.find(d.artefact(), "structural", DEFAULT)
+    found = views.find(d.artefact(), sheet, CONVENTIONS)
+    (block_view,) = [v for v in found if v.kind is ViewKind.TITLE_BLOCK]
+    return [v.title for v in found if v.kind is not ViewKind.TITLE_BLOCK], block_view.box
+
+
+def test_a_full_width_title_block_along_the_bottom_is_its_row() -> None:
+    """A strip across the sheet's foot, its cells ruled apart: the frame's texts across, in its row."""
+    d = Sheets()
+    b = d.block("STRIP", (0.0, 0.0, 0.0))
+    d.entity("LWPOLYLINE", rectangle(0, 0, W, H), owner=b)
+    d.entity("LWPOLYLINE", rectangle(0, 0, W, 60), owner=b)
+    for x in (180, 420, 660):
+        d.line((x, 0), (x, 60), owner=b)
+    d.entity("LWPOLYLINE", rectangle(20, 10, 80, 40), owner=b)  # a logo
+    d.text("ACME CONSULTANTS", (90, 30, 0.0), height=5.0, owner=b)
+    d.text("PROJECT", (190, 50, 0.0), height=3.0, owner=b)
+    d.text("SHEET TITLE", (430, 50, 0.0), height=3.0, owner=b)
+    d.text("SHEET NO", (670, 50, 0.0), height=3.0, owner=b)
+    d.text("DATE", (670, 20, 0.0), height=3.0, owner=b)
+    plan_and_detail(d, (400, 300, 700, 500))
+    d.insert(b)
+    d.text("GENERAL ARRANGEMENT", (430, 38, 0.0), height=5.0)
+    d.text("S-01", (670, 38, 0.0), height=5.0)
+    titles, box = read_block(d)
+    assert titles == ["GROUND FLOOR BEAM LAYOUT PLAN", "PILE CAP DETAIL"]
+    assert near(box, (0, 0, W, 60))
+
+
+def test_a_title_block_beside_a_revision_table_in_the_far_corner_is_its_own() -> None:
+    d = Sheets()
+    b = d.block("REVTOP", (0.0, 0.0, 0.0))
+    d.entity("LWPOLYLINE", rectangle(0, 0, W, H), owner=b)
+    d.entity("LWPOLYLINE", rectangle(0.7 * W, 0, W, 120), owner=b)
+    d.entity("LWPOLYLINE", rectangle(0.8 * W, H - 80, W, H), owner=b)
+    d.text("REVISIONS", (0.8 * W + 5, H - 10, 0.0), height=3.0, owner=b)
+    d.text("SHEET TITLE", (0.7 * W + 5, 110, 0.0), height=3.0, owner=b)
+    d.text("SHEET NO", (0.7 * W + 5, 30, 0.0), height=3.0, owner=b)
+    plan_and_detail(d, (0.72 * W, 200, 0.95 * W, 400))
+    d.insert(b)
+    d.text("GENERAL ARRANGEMENT", (0.7 * W + 5, 98, 0.0), height=5.0)
+    d.text("S-01", (0.7 * W + 5, 18, 0.0), height=5.0)
+    titles, box = read_block(d)
+    assert titles == ["GROUND FLOOR BEAM LAYOUT PLAN", "PILE CAP DETAIL"]
+    assert near(box, (0.7 * W, 0, W, 120))
+
+
+def test_a_title_block_beside_frame_notes_along_the_foot_is_its_own() -> None:
+    d = Sheets()
+    b = d.block("LR2", (0.0, 0.0, 0.0))
+    d.entity("LWPOLYLINE", rectangle(0, 0, W, H), owner=b)
+    d.entity("LWPOLYLINE", rectangle(W - 180, 0, W, 60), owner=b)
+    d.line((W - 90, 0), (W - 90, 60), owner=b)
+    d.text("SHEET TITLE", (W - 175, 52, 0.0), height=3.0, owner=b)
+    d.text("SHEET NO", (W - 85, 52, 0.0), height=3.0, owner=b)
+    d.text("DRAWN", (W - 175, 20, 0.0), height=3.0, owner=b)
+    d.text("CHECKED", (W - 85, 20, 0.0), height=3.0, owner=b)
+    notes = ("DO NOT SCALE", "DIMENSIONS IN MILLIMETRES", "COPYRIGHT RESERVED", "RECYCLED PAPER")
+    for i, note in enumerate(notes):
+        d.text(note, (10 + 150 * i, 15, 0.0), height=2.5, owner=b)
+    plan_and_detail(d, (400, 300, 700, 500))
+    d.insert(b)
+    d.text("GENERAL ARRANGEMENT", (W - 175, 40, 0.0), height=5.0)
+    d.text("S-01", (W - 85, 40, 0.0), height=5.0)
+    titles, box = read_block(d)
+    assert titles == ["GROUND FLOOR BEAM LAYOUT PLAN", "PILE CAP DETAIL"]
+    assert near(box, (W - 180, 0, W, 60))
