@@ -154,7 +154,8 @@ def _bangla(row: DrawingFile, on: _SheetTexts) -> tuple[Message, ...]:
     """The Bangla section's header lines (`BanglaAnsi.findings`), counted from the same
     texts-on-sheets as its sheet links: a text on several sheets (in a block inserted on each)
     counts on each, as its links do (`sheets`: the links; `on_sheets`: their texts added up;
-    `outside`: texts on no sheet). With no sheet, every text is outside. Lines kept on the file
+    `outside`: texts on no sheet; `texts`: the two together, which the verb follows). With no
+    sheet, every text is outside. Lines kept on the file
     (`record_bangla_lines`, the seed's) only where no flagged text is kept to count from."""
     texts = [t for t in (row.bangla_ansi or {}).get("texts", ()) if t.get("handle")]
     if not texts:
@@ -173,6 +174,8 @@ def _bangla(row: DrawingFile, on: _SheetTexts) -> tuple[Message, ...]:
             "sheets": len({sr_id for sr_id, _h in placed}),
             "outside": len(handles - {h for _s, h in placed}),
         }
+        # Every count, the verb's included, is of what the links count: each placement once.
+        params["texts"] = len(placed) + int(params["outside"])
         lines.append(Message(code=line["code"], params=params))
     return tuple(lines)
 

@@ -227,3 +227,25 @@ def test_a_read_file_with_no_sheet_still_says_its_bangla_texts_all_outside(
 
     assert line["code"] == "engine.bangla_ansi.found"
     assert (line["params"]["texts"], line["params"]["sheets"], line["params"]["outside"]) == (1, 0, 1)
+
+
+def test_a_bangla_text_on_two_sheets_is_counted_twice_by_the_header_as_by_its_links() -> None:
+    """The words gate's round-1 must: a text in a block inserted on two sheets read "2 texts on 2
+    sheets is ... this text"; every count, the verb's included, follows the links."""
+    from types import SimpleNamespace
+    from uuid import uuid4
+
+    from vextrus.drawings.services import reports
+
+    on = reports._SheetTexts(
+        sheets=((uuid4(), "S-01", frozenset({"1A"})), (uuid4(), "S-02", frozenset({"1A"}))), fonts=()
+    )
+    row = SimpleNamespace(
+        bangla_ansi={"texts": [{"handle": "1A", "by": "font", "font": "SutonnyMJ"}]}, bangla_lines=[]
+    )
+
+    [line] = reports._bangla(row, on)  # type: ignore[arg-type]
+
+    assert [s.texts for s in on.bangla({"1A"})] == [1, 1]
+    params = line["params"]
+    assert (params["texts"], params["on_sheets"], params["sheets"], params["outside"]) == (2, 2, 2, 0)
