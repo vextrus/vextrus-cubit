@@ -45,7 +45,8 @@ under and past its title), nearest first, one title a piece; a band less tall th
 height is never its drawing, and joins its view when it meets the title. **Section drawings one piece
 holds** (a beam's long section and its cross sections, joined by their bar labels) are parted first: a
 piece several section titles share (a title shares the piece whose box holds it, else its best drawing)
-is cut along its widest band free of lines, down or across, at least `SHARED_CUT_MM`, with titles on
+is cut along its widest band that at most `CUT_CROSSINGS` lines cross, down or across, at least
+`SHARED_CUT_MM`, with titles on
 both sides (a title in a band across is the drawing's over it), until each part holds one title, whose
 drawing it is (`_cut_shared`); a piece another kind's title shares is left whole. A titled piece that
 is a row under a larger piece without a title (no taller than `ROW_SHARE` of it, across its width, within
@@ -186,8 +187,15 @@ MIN_UNTITLED = 0.02
 JOIN_MM = 10.0
 """A small piece joins a view whose box, grown by this on paper, in mm, holds it."""
 SHARED_CUT_MM = 4.0
-"""The narrowest band free of lines, on paper in mm, that parts the section drawings one piece holds
-under their own titles (a beam's long section and its cross sections, joined by their bar labels)."""
+"""The narrowest band (nearly) free of lines, on paper in mm, that parts the section drawings one
+piece holds under their own titles (a beam's long section and its cross sections, joined by their bar
+labels)."""
+CUT_CROSSINGS = 1
+"""The most lines crossing a band that still parts two drawings one piece holds (a leader, a base
+line)."""
+TALLER = 1.2
+"""A title lettered this many times taller than the others a piece that cannot be cut shares is its
+drawing's (a long section's title over its cross sections')."""
 MAX_CUT_WEIGHS = 20_000_000
 """The most lines a sheet's cuts of shared pieces weigh together (each cut weighs its part's lines)."""
 DIVIDER_SHARE = 0.6
@@ -1391,10 +1399,12 @@ def _cut_shared(
     A title shares the smallest piece whose box holds its centre (a cross section's title standing
     inside its beam's piece), else the piece it is the best candidate for (`_pairs`). A piece two or
     more titles share, every one a section's (another kind's drawings are left whole), is cut along the
-    widest band free of its lines, down or across, at least `SHARED_CUT_MM` wide, that leaves titles on
+    widest band at most `CUT_CROSSINGS` of its lines cross, down or across, at least `SHARED_CUT_MM`
+    wide, that leaves titles on
     both sides (a title in a band across is the drawing's over it, the convention), and each part again
     while it holds several. A part's box is its lines and the texts on the grid whose centre falls in
-    its share of the piece's box."""
+    its share of the piece's box. A piece that cannot be cut is its tallest title's, lettered `TALLER`
+    than the rest (the main drawing's title over its cross sections'), else the pairs decide."""
     best: dict[int, int] = {}
     for ti in titles:
         centre = _centre(texts[ti].box)
@@ -1436,14 +1446,13 @@ def _cut_shared(
             axis, at, (low, high) = found
             lower, upper = list(region), list(region)
             lower[axis + 2], upper[axis] = at, at
-            ends = part_lines[:, [axis, axis + 2]]
-            stack.append(
-                (part_lines[ends.max(axis=1) < at], _bounds4(lower), [part_titles[i] for i in low])
-            )
-            stack.append(
-                (part_lines[ends.min(axis=1) >= at], _bounds4(upper), [part_titles[i] for i in high])
-            )
-        if len(parts) < 2:
+            under = part_lines[:, [axis, axis + 2]].mean(axis=1) < at  # a line across goes by its middle
+            stack.append((part_lines[under], _bounds4(lower), [part_titles[i] for i in low]))
+            stack.append((part_lines[~under], _bounds4(upper), [part_titles[i] for i in high]))
+        if len(parts) < 2:  # one drawing: its title is the one lettered tallest, if one is
+            heights = sorted((texts[ti].height, ti) for ti in held)
+            if heights[-1][0] > TALLER * heights[-2][0]:
+                given[heights[-1][1]] = k
             continue
         for n, (part_lines, region, part_titles) in enumerate(parts):
             box = _bounds4(
@@ -1477,27 +1486,35 @@ def _cut_shared(
 def _widest_cut(
     lines: NDArray[np.float64], titles: Sequence[Bounds], width: float
 ) -> tuple[int, float, tuple[list[int], list[int]]] | None:
-    """The widest band free of `lines`, down (axis 0) or across (axis 1), at least `width` wide, with
-    titles on both sides: `(axis, where the parts meet, (the titles below it, those above it))` as
-    indices into `titles`, else None. A title's side is its centre's; in a band across, it is the
-    drawing's over it (a title stands under its drawing)."""
+    """The widest band down (axis 0) or across (axis 1) that at most `CUT_CROSSINGS` of `lines` cross
+    (a leader, a base line running on), at least `width` wide, with titles on both sides: `(axis, where
+    the parts meet, (the titles below it, those above it))` as indices into `titles`, else None. A
+    title's side is its centre's; in a band across, it is the drawing's over it (a title stands under
+    its drawing)."""
     if len(lines) < 2:
         return None
     best: tuple[float, int, float, tuple[list[int], list[int]]] | None = None
     for axis in (0, 1):
         lo = np.minimum(lines[:, axis], lines[:, axis + 2])
         hi = np.maximum(lines[:, axis], lines[:, axis + 2])
-        order = np.argsort(lo, kind="stable")
-        lo, reach = lo[order], np.maximum.accumulate(hi[order])
-        gaps = lo[1:] - reach[:-1]
-        for g in np.flatnonzero(gaps >= width):
-            start, end = float(reach[g]), float(lo[g + 1])
-            at = (start + end) / 2
-            edge = at if axis == 0 else start
+        at_ = np.concatenate([hi, lo])
+        step = np.concatenate([-np.ones(len(hi)), np.ones(len(lo))])  # ends before starts at a tie
+        order = np.lexsort((step, at_))
+        at_, count = at_[order], np.cumsum(step[order])
+        thin = count[:-1] <= CUT_CROSSINGS  # between one event and the next
+        edges = np.flatnonzero(np.diff(np.concatenate([[0], thin.astype(np.int8), [0]])))
+        for first, stop in zip(edges[::2], edges[1::2], strict=True):
+            if first == 0 or stop == len(at_) - 1:
+                continue  # a band at the lines' edge parts nothing from them
+            start, end = float(at_[first]), float(at_[stop])
+            if end - start < width or (best is not None and end - start <= best[0]):
+                continue
+            middle = (start + end) / 2
+            edge = middle if axis == 0 else start
             low = [i for i, t in enumerate(titles) if _centre(t)[axis] < edge]
             high = [i for i, t in enumerate(titles) if _centre(t)[axis] >= edge]
-            if low and high and (best is None or end - start > best[0]):
-                best = (end - start, axis, at, (low, high))
+            if low and high:
+                best = (end - start, axis, middle, (low, high))
     if best is None:
         return None
     return best[1], best[2], best[3]

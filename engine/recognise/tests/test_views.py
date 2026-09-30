@@ -202,6 +202,7 @@ def test_a_scale_on_the_titles_line_is_the_views_stated_scale() -> None:
     [
         ("TYPICAL BEAM SECTION DETAIL", ViewKind.DETAIL),  # the conventions' first-listed kind wins
         ("SECTION A-A", ViewKind.SECTION),
+        ("SEC. B1X-B1X", ViewKind.SECTION),  # the abbreviation a beam's cross section is titled by
         ("KEY PLAN", ViewKind.KEY_PLAN),
         ("COLUMN SCHEDULE", ViewKind.SCHEDULE),
         ("FRONT ELEVATION", ViewKind.ELEVATION),
@@ -975,3 +976,30 @@ def test_section_drawings_closer_than_the_cut_band_are_left_whole() -> None:
     (view,) = drawn(d, sheet)
     assert view.box.x0 == pytest.approx(40, abs=1)
     assert view.box.x1 == pytest.approx(343, abs=1)
+
+
+def test_a_band_one_leader_crosses_still_parts_the_drawings() -> None:
+    """A leader from a bar label runs across the band between the long section and its cross section."""
+    d, sheet = labelled_sections(
+        [("LONG SECTION OF BEAM B1", (40, 300, 300, 380)), ("SECTION 1-1", (330, 300, 370, 380))],
+        LABELS_ACROSS,
+    )
+    d.line((10_000.0 + 290 * 50, 370 * 50), (10_000.0 + 345 * 50, 370 * 50))
+    found = drawn(d, sheet)
+    assert [v.title for v in found] == ["LONG SECTION OF BEAM B1", "SECTION 1-1"]
+    assert found[0].box.x1 < 330
+
+
+def test_a_piece_that_cannot_be_cut_is_its_tallest_titles() -> None:
+    """Two lines cross the band: the piece is one drawing, the long section's, lettered taller than its
+    cross section's title, which lies nearer."""
+    d, sheet = labelled_sections(
+        [("LONG SECTION OF BEAM B1", (40, 300, 300, 380)), (None, (330, 300, 370, 380))],
+        LABELS_ACROSS,
+    )
+    for y in (340, 370):
+        d.line((10_000.0 + 290 * 50, y * 50), (10_000.0 + 345 * 50, y * 50))
+    d.text("SEC. 1-1", (10_000.0 + 330 * 50, 294 * 50, 0.0), height=4.0 * 50)  # 2 mm under its drawing
+    (view,) = drawn(d, sheet)
+    assert view.title == "LONG SECTION OF BEAM B1"
+    assert view.box.x1 >= 370
