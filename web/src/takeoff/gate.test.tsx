@@ -357,6 +357,21 @@ describe('M15: a sheet a Question holds is not "one source"', () => {
   })
 })
 
+describe('M16: a click anywhere in a row focuses it', () => {
+  it('opens the clicked sheet on Space after a click on its Discipline or Revision cell', async () => {
+    const { api } = kr01()
+    await open(api)
+    for (const [number, cell] of [['S-05', 3], ['S-03', 4]] as const) {
+      await userEvent.click(within(rowOf(number)).getAllByRole('gridcell')[cell]!.firstElementChild ?? within(rowOf(number)).getAllByRole('gridcell')[cell]!)
+      await waitFor(() => expect(document.activeElement).toBe(rowOf(number)))
+      await userEvent.keyboard(' ')
+      await screen.findByRole('group', { name: new RegExp(number) })
+      await userEvent.keyboard('{Escape}')
+      await waitFor(() => expect(document.activeElement).toBe(rowOf(number)))
+    }
+  })
+})
+
 describe('M9: focus is visible on the list’s rows', () => {
   it('draws an outline on the row ↓ focuses', async () => {
     const { api } = kr01()

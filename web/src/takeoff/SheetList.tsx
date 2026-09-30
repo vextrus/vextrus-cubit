@@ -454,7 +454,9 @@ function SheetRow({
       tabIndex={tabbable ? 0 : -1}
       data-row={row.key}
       onFocus={(event) => {
+        // A click on a cell (a tooltip's focusable text) focuses the row, so Space opens this sheet.
         if (event.target === event.currentTarget) onFocus(row.key)
+        else if (!(event.target as HTMLElement).closest('button, a, input, select, textarea')) event.currentTarget.focus()
       }}
       onDoubleClick={() => onOpen(row.key)}
       className={cn(
