@@ -29,20 +29,41 @@ paper, grown by `GAP_MM` so that what is drawn closer than that joins, and split
 These sizes, `MIN_VIEW_MM` and `JOIN_MM` are an A1 sheet's (`REFERENCE_MM` long), scaled to the sheet's
 paper, so a frame whose paper is read too small or too large is split alike (a frame block drawn at a
 fraction of its plotted size: the real sets' frames give papers of 130 to 420 mm plotted on A3 and A1). A
-**view title** is a text of one line and at most `MAX_TITLE_WORDS` words holding a kind's words (the kind
-listed first in the conventions wins where several are named: "TYPICAL BEAM SECTION DETAIL" is a detail),
-not in the title block, at least as tall as the sheet's median text (and at most `MAX_LETTER` of the
-paper), not numbered ("5. SEE SECTION ...") and not one of a column of `MIN_NOTE_LINES` lines alike (a
-note's). Titles and scale texts stay off the grid, and so do the lines within a title's band (its
-underline), and straight lines along the paper's axes of `DIVIDER_SHARE` of its side or longer (borders,
-dividers between rows of details). Each title takes the piece it lies under (a drawing titled beneath,
-the convention; within `TITLE_GAP` of its height), else the piece it lies over (within
-`TITLE_GAP_UNDER`), nearest first, one title a piece; a band less tall than `MIN_DRAWING` of its height
-is never its drawing, and joins its view when it meets the title. A piece with no title is a view when it
-covers `MIN_UNTITLED` of the paper (of the kind its sheet's title names, else a plan; notes when text
-fills more of it than lines); a smaller one joins the view whose box, grown by `JOIN_MM`, holds it. A
-view's box is its piece, its title and its scale text together. **Reading order** is by rows, top to
-bottom (views whose heights overlap by half are one row), each left to right.
+**view title** is a text of two lines at most and `MAX_TITLE_WORDS` words at most holding a kind's words
+(the kind listed first in the conventions wins where several are named: "TYPICAL BEAM SECTION DETAIL" is
+a detail), not in the title block, at least as tall as the sheet's median text (and at most `MAX_LETTER`
+of the paper), not numbered ("5. SEE SECTION ...") and not one of a column of `MIN_NOTE_LINES` lines
+alike (a note's; a scale text in the column is the title's scale line, not a note's). A title lying under
+another within `SUBTITLE_GAP` of its height, across the same place, is its second line ("PRESENTATION
+PLAN" under "GROUND FLOOR PLAN"), no title of its own. Titles, second lines and scale texts stay off the
+grid, and so do the lines within a title's band (its underline), and straight lines along the paper's
+axes of `DIVIDER_SHARE` of its side or longer (borders, dividers between rows of details). Each title
+takes the piece it lies under (a drawing titled beneath, the convention; within `TITLE_GAP` of its
+height), else the piece it lies over (within `TITLE_GAP_UNDER`), else, after all of those, the piece
+whose box holds it within `TITLE_INSIDE` of its lower or upper edge (a section's ground line running
+under and past its title), nearest first, one title a piece; a band less tall than `MIN_DRAWING` of its
+height is never its drawing, and joins its view when it meets the title. A titled piece that is a row
+under a larger piece without a title (no taller than `ROW_SHARE` of it, across its width, within
+`JOIN_MM` of it) is that drawing's detached row of grid marks and dimensions, which is what the title
+lies nearest: the view takes the body too. A title's second lines, and up to `MAX_TITLE_LINES` one-line
+texts standing under a drawing's title (its scale line, its storeys; not a notes, legend or schedule
+heading's, whose lines are its content), are its: off the grid and in its view's box. A piece with no
+title lying in a titled view's box (grown by `JOIN_MM`) is that view's, whatever its size; another is a
+view when it covers `MIN_UNTITLED` of the paper (of the kind its sheet's title names, else a plan; notes
+when text fills more of it than lines); a smaller one joins the view whose box, grown by `JOIN_MM`, holds
+it. A view's box is its piece, its title and its scale text together. **Reading order** is by rows, top
+to bottom (views whose heights overlap by half are one row), each left to right.
+
+**The title block is a view** (CONTEXT.md's "View"; the orchestrator's ruling R2, session 07), of kind
+`title_block`, last on its sheet, after the rows: its box is where its texts stand (the values 13 read,
+and the frame's own texts in their band within `CLUSTER_MM`, down or across, whichever holds more; never
+a zone mark nor a name in a far corner), grown on each side to the nearest ruled line across them, the
+frame's or the sheet's (`RULE_MM`), else to the paper's edge. A sheet with no value read has none, and so
+has one whose box would cover more than `MAX_BLOCK_SHARE` of the paper (no title block eats the sheet's
+drawings). What lies in it (a loose word, its ruled lines drawn outside the frame) is no other view's;
+the sheet's median text is still measured over every text it holds. The frame's lines laid on paper for
+it are charged to the file's read budget with the drawing's, and at most `MAX_RULES` straight lines along
+each axis are weighed.
 
 **What a view says.** Its stated scale is the first scale pattern found in its title or a text on its
 title's line or just under it (`scales.read`), verbatim; N.T.S. marks it not to scale. Its storeys are
@@ -136,6 +157,17 @@ TITLE_GAP = 20.0
 between them)."""
 TITLE_GAP_UNDER = 6.0
 """The farthest a title lies over its drawing (a schedule's heading), in its heights."""
+ROW_SHARE = 0.25
+"""A drawing's detached row (its grid marks, its dimensions) is at most this share of its body's
+height."""
+MAX_TITLE_LINES = 3
+"""The most lines a title holds under it (its second line, its scale line, its storeys)."""
+SUBTITLE_GAP = 3.5
+"""The farthest a title's second line lies under it, in the title's heights."""
+TITLE_INSIDE = 3.0
+"""The farthest a title lies inside its drawing's box from the box's lower or upper edge (a section's
+ground line or a legend's rows running past its title), in its heights; weighed after every title
+under or over a drawing."""
 MAX_LETTER = 0.1
 """A text taller than this share of the paper's short side is no lettering: never a title, never the
 median a title is measured by."""
@@ -151,6 +183,18 @@ JOIN_MM = 10.0
 DIVIDER_SHARE = 0.6
 """A straight line along the paper's axes this share of the paper's side or longer is a border or a
 divider between views (the real sets rule rows of details apart), never a view's drawing."""
+
+RULE_MM = 1.0
+"""Lines on one line within this on paper, in mm, are one ruled line (a title block's border drawn in
+pieces), and a ruled line this near a title block's texts bounds it."""
+
+CLUSTER_MM = 30.0
+"""A frame's own text whose centre lies within this on paper, in mm (an A1's, scaled to the paper), of
+the band the title block's values stand in, across or down, is one of its texts."""
+MAX_BLOCK_SHARE = 0.4
+"""A title block covering more of the paper than this is not read as one (no view is left out for it)."""
+MAX_BLOCK_TEXTS = 2_000
+"""The most frame texts weighed for a sheet's title block."""
 
 MAX_VISITS = 8_000_000
 MAX_SEGMENTS = 3_000_000
@@ -174,6 +218,8 @@ MAX_GRID = 1_500
 MAX_SAMPLES = 4_000_000
 MAX_TITLES = 200
 MAX_VIEWS = 200
+MAX_RULES = 200_000
+"""The most straight lines along one axis weighed for a sheet's title block."""
 
 PAPER_SIDES = (1189.0, 841.0, 594.0, 420.0, 297.0, 210.0)
 """The long sides of the standard papers (ISO A0 to A5), in mm."""
@@ -209,6 +255,8 @@ PLUMBING_PART = "plumbing"
 FLOOR_TO_FLOOR = frozenset({"column", "shear_wall"})
 """Subjects whose storeys run floor to floor (a column from the 1st to the 10th floor)."""
 
+_HEADINGS = frozenset({ViewKind.NOTES, ViewKind.LEGEND, ViewKind.SCHEDULE})
+"""Kinds whose title heads its content: the lines under it are the view's, not the title's."""
 _EXCLUDED_KINDS = frozenset({ViewKind.TITLE_BLOCK, ViewKind.KEY_PLAN, ViewKind.PERSPECTIVE})
 
 type Bounds = tuple[float, float, float, float]
@@ -398,6 +446,12 @@ class _Paper:
     texts: list[_Text]
     key: str | None = None  # the sheet's anchor key (a layout's name, or 13's model key)
     anchor: DwgAnchor | None = None
+    frame: NDArray[np.float64] = field(default_factory=lambda: np.empty((0, 4)))
+    """The frame's own segments on paper (left out of `segments`)."""
+    block: list[_Text] = field(default_factory=list)
+    """The title block's texts on paper: the frame's own and the values 13 read (no view's)."""
+    values: frozenset[str] = frozenset()
+    """The handles of the values 13 read (among `block`): where the title block is sought from."""
 
 
 def _paper(artefact: ReadArtefact, sheet: SheetCandidate) -> _Paper | None:
@@ -482,7 +536,9 @@ def _paper(artefact: ReadArtefact, sheet: SheetCandidate) -> _Paper | None:
         parts.append((model, to_paper, (box.x0, box.y0, box.x1, box.y1), region))
 
     segments: list[NDArray[np.float64]] = []
+    frame_segments: list[NDArray[np.float64]] = []
     texts: list[_Text] = []
+    block: list[_Text] = []
     kept: dict[int, NDArray[np.bool_]] = {}  # each space's frame test, once for all its viewports
     for drawn, to_paper, window, clip in parts:
         if id(drawn) not in kept:
@@ -494,35 +550,37 @@ def _paper(artefact: ReadArtefact, sheet: SheetCandidate) -> _Paper | None:
             continue  # past the file's budget: this part is not read
         walker.scans -= weighed
         chosen_texts = np.arange(len(drawn.texts))
+        seen = np.ones(len(drawn.segments), dtype=bool)
         if window is not None:
             wx0, wy0, wx1, wy1 = window
             seg = drawn.segments
-            keep = keep & (
+            seen = (
                 (np.minimum(seg[:, 0], seg[:, 2]) <= wx1) & (np.maximum(seg[:, 0], seg[:, 2]) >= wx0)
                 & (np.minimum(seg[:, 1], seg[:, 3]) <= wy1) & (np.maximum(seg[:, 1], seg[:, 3]) >= wy0)
             )  # fmt: skip
+            keep = keep & seen
             o = drawn.text_origins
             chosen_texts = np.flatnonzero(
                 (o[:, 0] >= wx0) & (o[:, 0] <= wx1) & (o[:, 1] >= wy0) & (o[:, 1] <= wy1)
             )
-        taken = int(keep.sum())
+        framed = seen & ~kept[id(drawn)]
+        taken = int(keep.sum()) + int(framed.sum())
         if taken > walker.reads or len(chosen_texts) > walker.text_reads:
             walker.limits["read_budget"] += 1
             continue
         walker.reads -= taken
         walker.text_reads -= len(chosen_texts)
-        chosen = drawn.segments[keep]
-        if window is not None:
-            chosen = _clip(chosen, window)
-        moved = _move(chosen, to_paper)
-        if clip is not None:
-            moved = _clip(moved, clip)
-        segments.append(moved)
+        for mask, out in ((keep, segments), (framed, frame_segments)):
+            chosen = drawn.segments[mask]
+            if window is not None:
+                chosen = _clip(chosen, window)
+            moved = _move(chosen, to_paper)
+            if clip is not None:
+                moved = _clip(moved, clip)
+            out.append(moved)
         scale = to_paper.xy_scale
         for i in chosen_texts.tolist():
             placed = drawn.texts[i]
-            if not keep_text(drawn, i):
-                continue
             corners = np.array(placed.corners(), dtype=np.float64)
             moved_corners = to_paper.xy(corners)
             text_box: Bounds = (
@@ -535,8 +593,10 @@ def _paper(artefact: ReadArtefact, sheet: SheetCandidate) -> _Paper | None:
                 continue
             chain = drawn.chains[drawn.text_chain[i]]
             height = placed.height * scale
-            texts.append(_Text(placed, chain, text_box, height, _plain(placed.shown)))
+            placed_text = _Text(placed, chain, text_box, height, _plain(placed.shown))
+            (texts if keep_text(drawn, i) else block).append(placed_text)
     all_segments = np.concatenate(segments) if segments else np.empty((0, 4))
+    frame_drawn = np.concatenate(frame_segments) if frame_segments else np.empty((0, 4))
     if region is None:
         region = _extent(all_segments, texts)
     if region is None or not all(math.isfinite(v) for v in (*region, region[2] - region[0],
@@ -547,11 +607,21 @@ def _paper(artefact: ReadArtefact, sheet: SheetCandidate) -> _Paper | None:
         x0 or y0
     ):  # every box on paper from the sheet's lower-left corner (a layout's frame may lie off 0)
         all_segments = all_segments - np.array([x0, y0, x0, y0])
-        for t in texts:
+        frame_drawn = frame_drawn - np.array([x0, y0, x0, y0])
+        for t in (*texts, *block):
             b = t.box
             t.box = (b[0] - x0, b[1] - y0, b[2] - x0, b[3] - y0)
         region = (0.0, 0.0, region[2] - x0, region[3] - y0)
-    return _Paper(region, all_segments, texts, None if frame is None else frame.sheet, frame)
+    return _Paper(
+        region,
+        all_segments,
+        texts,
+        None if frame is None else frame.sheet,
+        frame,
+        frame_drawn,
+        block,
+        values,
+    )
 
 
 def _shapes_rect(values: Mapping[str, object]) -> Bounds | None:
@@ -655,6 +725,109 @@ def _clip(segments: NDArray[np.float64], box: Bounds) -> NDArray[np.float64]:
 
 def _inside(point: tuple[float, float], box: Bounds) -> bool:
     return box[0] <= point[0] <= box[2] and box[1] <= point[1] <= box[3]
+
+
+def _centre(box: Bounds) -> tuple[float, float]:
+    return ((box[0] + box[2]) / 2, (box[1] + box[3]) / 2)
+
+
+def _segments_in(segments: NDArray[np.float64], box: Bounds) -> NDArray[np.bool_]:
+    """The segments with both ends in the box."""
+    x, y = segments[:, [0, 2]], segments[:, [1, 3]]
+    inside = (x >= box[0]) & (x <= box[2]) & (y >= box[1]) & (y <= box[3])
+    return np.asarray(inside.all(axis=1), dtype=np.bool_)
+
+
+# The title block ---------------------------------------------------------------------------------------
+
+
+def _title_block(paper: _Paper) -> Bounds | None:
+    """The title block's extent on paper: the box the centres of its texts fill (the values 13 read, and
+    the frame's own texts in their band within `CLUSTER_MM` of it, down or across, whichever holds
+    more of them: a strip's or a corner box's; never a zone mark along the border nor a name in a
+    far corner), grown on each side to the nearest ruled line across it (the frame's or the
+    sheet's), else to the paper's edge. None when 13 read no value on its paper, or when the box
+    would cover more than `MAX_BLOCK_SHARE` of the paper (no title block eats the sheet's drawings),
+    then sought from the values alone (a real title block beside far frame notes or a separate
+    revision table)."""
+    rx0, ry0, rx1, ry1 = paper.region
+    unit = max(rx1 - rx0, ry1 - ry0) / REFERENCE_MM
+    on_paper = [t for t in paper.block if _inside(_centre(t.box), paper.region)]
+    held = [t for t in on_paper if t.placed.entity.handle in paper.values]
+    if not held:
+        return None
+    rest = [
+        t
+        for t in on_paper
+        if t.placed.entity.handle not in paper.values
+        and not all(_mark(w) for w in _tokens(t.shown))  # a zone mark ("7", "C") is the border's
+    ][:MAX_BLOCK_TEXTS]
+    vx0, vy0, vx1, vy1 = _bounds([t.box for t in held])
+    gap = CLUSTER_MM * unit
+    centres = [_centre(t.box) for t in rest]
+    column = [t for t, c in zip(rest, centres, strict=True) if vx0 - gap <= c[0] <= vx1 + gap]
+    row = [t for t, c in zip(rest, centres, strict=True) if vy0 - gap <= c[1] <= vy1 + gap]
+    band = column if len(column) >= len(row) else row  # the strip's direction holds more of them
+    return _ruled_box(paper, [*held, *band]) or _ruled_box(paper, held)  # far notes: its values alone
+
+
+def _ruled_box(paper: _Paper, held: Sequence[_Text]) -> Bounds | None:
+    """The box the texts' centres fill, grown on each side to the nearest ruled line across it, else
+    to the paper's edge; none when it covers more than `MAX_BLOCK_SHARE` of the paper."""
+    rx0, ry0, rx1, ry1 = paper.region
+    unit = max(rx1 - rx0, ry1 - ry0) / REFERENCE_MM
+    centres = [_centre(t.box) for t in held]
+    ex0, ey0 = min(c[0] for c in centres), min(c[1] for c in centres)
+    ex1, ey1 = max(c[0] for c in centres), max(c[1] for c in centres)
+    tol = RULE_MM * unit
+    lines = np.concatenate([paper.frame, paper.segments]) if len(paper.segments) else paper.frame
+    across = _rules(lines, 0, tol)  # (y, x from, x to): lines along x
+    down = _rules(lines, 1, tol)  # (x, y from, y to): lines along y
+    spans_x = (across[:, 1] <= ex0 + tol) & (across[:, 2] >= ex1 - tol)
+    spans_y = (down[:, 1] <= ey0 + tol) & (down[:, 2] >= ey1 - tol)
+    top = across[spans_x & (across[:, 0] >= ey1 - tol), 0]
+    bottom = across[spans_x & (across[:, 0] <= ey0 + tol), 0]
+    left = down[spans_y & (down[:, 0] <= ex0 + tol), 0]
+    right = down[spans_y & (down[:, 0] >= ex1 - tol), 0]
+    box = (
+        float(left.max()) if len(left) else rx0,
+        float(bottom.max()) if len(bottom) else ry0,
+        float(right.min()) if len(right) else rx1,
+        float(top.min()) if len(top) else ry1,
+    )
+    if _area(box) > MAX_BLOCK_SHARE * (rx1 - rx0) * (ry1 - ry0):
+        return None
+    return box
+
+
+def _bounds(boxes: Sequence[Bounds]) -> Bounds:
+    return (
+        min(b[0] for b in boxes),
+        min(b[1] for b in boxes),
+        max(b[2] for b in boxes),
+        max(b[3] for b in boxes),
+    )
+
+
+def _rules(segments: NDArray[np.float64], axis: int, tol: float) -> NDArray[np.float64]:
+    """The straight lines along one axis of the paper (0: x, 1: y), those on one line within `tol` of
+    each other joined where they meet or nearly meet: (place across, from, to) rows."""
+    a, b = segments[:, axis], segments[:, axis + 2]
+    c, d = segments[:, 1 - axis], segments[:, 3 - axis]
+    along = np.abs(b - a)
+    straight = (along > 0) & (np.abs(d - c) <= 0.01 * along)
+    rows = np.stack(
+        [(c + d)[straight] / 2, np.minimum(a, b)[straight], np.maximum(a, b)[straight]], axis=1
+    )
+    rows = rows[np.lexsort((rows[:, 1], np.round(rows[:, 0] / tol)))][:MAX_RULES]
+    out: list[list[float]] = []
+    for place, lo, hi in rows.tolist():
+        last = out[-1] if out else None
+        if last is not None and abs(last[0] - place) <= tol and lo <= last[2] + tol:
+            last[2] = max(last[2], hi)
+        else:
+            out.append([place, lo, hi])
+    return np.array(out, dtype=np.float64).reshape(-1, 3)
 
 
 # Pieces on a grid --------------------------------------------------------------------------------------
@@ -1009,9 +1182,12 @@ def find(
         empty.limits = _report(artefact)
         return empty
     fallback = _kind(sheet.title.value, reading) if sheet.title is not None else None
-    found = _views(paper, reading, fallback or ViewKind.PLAN)
+    block = _title_block(paper)
+    found = _in_reading_order(_views(paper, reading, fallback or ViewKind.PLAN, block))
+    if block is not None:
+        found.append(_View(None, None, ViewKind.TITLE_BLOCK, block))
     discipline = sheet.discipline.value if sheet.discipline is not None else None
-    result = FoundViews(_candidate(v, paper, reading, discipline) for v in _in_reading_order(found))
+    result = FoundViews(_candidate(v, paper, reading, discipline) for v in found)
     result.paper = (paper.region[2], paper.region[3])
     result.limits = _report(artefact)
     return result
@@ -1021,16 +1197,28 @@ def _report(artefact: ReadArtefact) -> dict[str, int]:
     return {**dict.fromkeys(LIMITS, 0), **_walker(artefact).limits}
 
 
-def _views(paper: _Paper, reading: _Reading, untitled: ViewKind) -> list[_View]:
-    texts = paper.texts
+def _views(
+    paper: _Paper, reading: _Reading, untitled: ViewKind, block: Bounds | None = None
+) -> list[_View]:
     rx0, ry0, rx1, ry1 = paper.region
     letter = MAX_LETTER * min(rx1 - rx0, ry1 - ry0)  # taller is no lettering (a hostile height)
-    heights = [t.height for t in texts if 0 < t.height <= letter]
-    tall = median(heights) if heights else 0.0
+    heights = [t.height for t in paper.texts if 0 < t.height <= letter]
+    tall = (
+        median(heights) if heights else 0.0
+    )  # the sheet's lettering, the title block's loose texts too
+    if block is not None:  # what lies in the title block is its, never another view's
+        edge = RULE_MM * max(rx1 - rx0, ry1 - ry0) / REFERENCE_MM
+        held = _grown(block, edge)
+        paper = replace(
+            paper,
+            texts=[t for t in paper.texts if not _inside(_centre(t.box), block)],
+            segments=paper.segments[~_segments_in(paper.segments, held)],
+        )
+    texts = paper.texts
     titles: list[int] = []
     scale_texts: list[int] = []
     for i, t in enumerate(texts):
-        if "\n" in t.placed.shown:
+        if t.placed.shown.strip().count("\n") > 1:  # a title of two lines at most
             continue
         words = _tokens(t.shown)
         if (
@@ -1049,9 +1237,20 @@ def _views(paper: _Paper, reading: _Reading, untitled: ViewKind) -> list[_View]:
             and _kind(t.shown, reading) is not None
         ):
             titles.append(i)
-    stacks = _Stacks(texts)
+    stacks = _Stacks(texts, skip=frozenset(scale_texts))  # a title's scale line is no note's
     titles = [i for i in titles if stacks.lines(i) < MIN_NOTE_LINES]
-    off_grid = set(titles) | set(scale_texts)
+    second: dict[int, list[int]] = {}  # a title's second lines
+    for j in titles:
+        head = next((i for i in titles if i != j and _subtitle(texts[j], texts[i])), None)
+        if head is not None:
+            second.setdefault(head, []).append(j)
+    subtitles = {j for lines in second.values() for j in lines}
+    titles = [i for i in titles if i not in subtitles]
+    drawn_titles = [i for i in titles if _kind(texts[i].shown, reading) not in _HEADINGS]
+    for ti, lines in _title_lines(texts, drawn_titles, subtitles | set(titles)).items():
+        second.setdefault(ti, []).extend(lines)
+    subtitles = {j for lines in second.values() for j in lines}
+    off_grid = set(titles) | subtitles | set(scale_texts)
     underlined = _underlines(paper.segments, [texts[i] for i in titles])
     drawn = replace(paper, segments=paper.segments[~underlined])
     pieces = _pieces(drawn, texts, (i for i in range(len(texts)) if i not in off_grid))
@@ -1076,6 +1275,10 @@ def _views(paper: _Paper, reading: _Reading, untitled: ViewKind) -> list[_View]:
                 pairs.append((below, ti, k))
             elif -0.5 <= above <= TITLE_GAP_UNDER:
                 pairs.append((above + TITLE_GAP, ti, k))
+            elif py0 <= y0 and y1 <= py1:  # its drawing runs past it, under or over
+                depth = min(y0 - py0, py1 - y1) / h
+                if depth <= TITLE_INSIDE:
+                    pairs.append((TITLE_GAP + TITLE_GAP_UNDER + depth, ti, k))
     pairs.sort()
     by_title: dict[int, int] = {}
     by_piece: dict[int, int] = {}
@@ -1094,15 +1297,33 @@ def _views(paper: _Paper, reading: _Reading, untitled: ViewKind) -> list[_View]:
             continue  # a title with no drawing: not a view
         titled = pieces[by_title[ti]]
         box = _union(titled.box, t.box)
+        for j in second.get(ti, ()):
+            box = _union(box, texts[j].box)
         for k, piece in enumerate(pieces):  # the title's bands: its frame, its underline's row
             band = piece.box[3] - piece.box[1] < MIN_DRAWING * t.height
             if k not in by_piece and band and _meets(piece.box, _grown(t.box, t.height)):
                 by_piece[k] = ti
                 box = _union(box, piece.box)
         views.append(_View(titled, t, kind, box))
+    for view in views:  # a drawing's body over its detached row (its grid marks, its dimensions)
+        assert view.piece is not None
+        near = _grown(view.piece.box, JOIN_MM * unit)
+        over = [
+            k
+            for k, piece in enumerate(pieces)
+            if k not in by_piece
+            and _row_under(view.piece.box, piece.box, JOIN_MM * unit)
+            and _meets(piece.box, near)
+        ]
+        if over:
+            k = max(over, key=lambda k: pieces[k].area)
+            by_piece[k] = -1  # claimed by the titled view
+            view.extra.append(pieces[k])
+            view.box = _union(view.box, pieces[k].box)
+    titled_boxes = [_grown(v.box, JOIN_MM * unit) for v in views]
     for k, piece in enumerate(pieces):
-        if k in by_piece:
-            continue
+        if k in by_piece or any(_holds(box, piece.box) for box in titled_boxes):
+            continue  # in a titled drawing's box, whatever its size, it is that drawing's (below)
         if piece.area >= MIN_UNTITLED * paper_area and len(views) < MAX_VIEWS:
             kind = ViewKind.NOTES if piece.words > piece.lines else untitled
             views.append(_View(piece, None, kind, piece.box))
@@ -1134,6 +1355,65 @@ def _views(paper: _Paper, reading: _Reading, untitled: ViewKind) -> list[_View]:
     return views[:MAX_VIEWS]
 
 
+def _title_lines(
+    texts: Sequence[_Text], titles: Sequence[int], taken: Iterable[int]
+) -> dict[int, list[int]]:
+    """Each title's lines under it: up to `MAX_TITLE_LINES` one-line texts of at most `MAX_TITLE_WORDS`
+    words, each under the one before within `SUBTITLE_GAP` of the title's height, across the same place,
+    between half and one and a half of its height (its scale line, its storeys, its "PRESENTATION
+    PLAN"), none another title's."""
+    if not texts or not titles:
+        return {}
+    boxes = np.array([t.box for t in texts], dtype=np.float64)
+    heights = np.array([t.height for t in texts], dtype=np.float64)
+    free = np.array(
+        ["\n" not in t.placed.shown.strip() and len(_tokens(t.shown)) <= MAX_TITLE_WORDS for t in texts],
+        dtype=bool,
+    )
+    free[list(titles)] = False
+    free[list(taken)] = False
+    found: dict[int, list[int]] = {}
+    for ti in titles:
+        h = max(texts[ti].height, 1e-9)
+        at = texts[ti].box
+        for _ in range(MAX_TITLE_LINES):
+            gap = (at[1] - boxes[:, 3]) / h
+            near = (
+                free
+                & (gap >= -0.2)
+                & (gap <= SUBTITLE_GAP)
+                & (boxes[:, 0] <= at[2])
+                & (boxes[:, 2] >= at[0])
+                & (heights >= 0.5 * h)
+                & (heights <= 1.5 * h)
+            )
+            if not near.any():
+                break
+            j = int(np.flatnonzero(near)[np.argmin(gap[near])])
+            found.setdefault(ti, []).append(j)
+            free[j] = False
+            at = texts[j].box
+    return found
+
+
+def _row_under(row: Bounds, body: Bounds, by: float) -> bool:
+    """Whether `row` is a drawing's detached row under its `body` (its grid marks, its dimensions): no
+    taller than `ROW_SHARE` of the body, under its top, and across the body's width (grown by `by`)."""
+    return (
+        row[3] - row[1] <= ROW_SHARE * (body[3] - body[1])
+        and body[3] > row[3]
+        and body[0] - by <= row[0]
+        and row[2] <= body[2] + by
+    )
+
+
+def _subtitle(lower: _Text, upper: _Text) -> bool:
+    """A title's second line (a plan's "PRESENTATION PLAN" under its "GROUND FLOOR PLAN", a scale line
+    between them): under the title within `SUBTITLE_GAP` of its height, and across the same place."""
+    gap = (upper.box[1] - lower.box[3]) / max(upper.height, 1e-9)
+    return 0 <= gap <= SUBTITLE_GAP and lower.box[0] <= upper.box[2] and upper.box[0] <= lower.box[2]
+
+
 _ENUMERATED = re.compile(r"\s{0,4}\(?(?:\d{1,3}[.)]|[A-Za-z]\))\s")
 """A numbered line ("5. See ...", "(a) ..."): a note's, not a view title."""
 
@@ -1141,11 +1421,11 @@ _ENUMERATED = re.compile(r"\s{0,4}\(?(?:\d{1,3}[.)]|[A-Za-z]\))\s")
 class _Stacks:
     """Texts by their left edge, to tell a note's line (one of a column of lines alike) from a title."""
 
-    def __init__(self, texts: Sequence[_Text]) -> None:
+    def __init__(self, texts: Sequence[_Text], skip: frozenset[int] = frozenset()) -> None:
         self.texts = texts
         self.columns: dict[tuple[int, int], list[int]] = {}
         for i, t in enumerate(texts):
-            if t.height > 0:
+            if t.height > 0 and i not in skip:
                 self.columns.setdefault(self._key(t.box[0], t.height), []).append(i)
 
     @staticmethod
