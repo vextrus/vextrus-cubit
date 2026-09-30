@@ -3,15 +3,23 @@
  * what they leave open (an empty variable is unset; a malformed API URL is refused; the port's
  * refusal names the variable, the value and the range; the rest of the server stays as it was).
  */
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { ConfigEnv, UserConfig } from 'vite'
 
 const SERVE: ConfigEnv = { command: 'serve', mode: 'development', isSsrBuild: false, isPreview: false }
 
+type ConfigFunction = (env: ConfigEnv) => UserConfig
+
+// Imported once: the config reads the environment each time its function is called, and a fresh
+// import per test (Vite, its plugins) can take longer than a test's timeout on a slow CI runner.
+let configFor: ConfigFunction
+
+beforeAll(async () => {
+  configFor = ((await import('../../vite.config')) as { default: ConfigFunction }).default
+}, 120_000)
+
 async function resolveConfig(): Promise<UserConfig> {
-  vi.resetModules()
-  const module = (await import('../../vite.config')) as { default: (env: ConfigEnv) => UserConfig }
-  return module.default(SERVE)
+  return configFor(SERVE)
 }
 
 function apiProxy(config: UserConfig) {
