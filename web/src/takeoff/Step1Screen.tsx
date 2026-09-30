@@ -527,19 +527,21 @@ function SheetMode({
     [sheet, held, tag],
   )
 
-  // Focus follows the sheet into the canvas as it opens and as it pages (§6.1).
-  useLayoutEffect(() => {
+  // Focus follows the sheet into the canvas as it opens and as it pages (§6.1), and comes back to it
+  // when the sheet picker closes, so Space still goes back to the list.
+  const focusCanvas = () => {
     const el = region.current
     if (!el) return
     const canvas = el.querySelector<HTMLElement>('[role="group"][tabindex]')
     if (canvas) canvas.focus({ preventScroll: true })
     else if (!el.contains(document.activeElement)) el.focus({ preventScroll: true })
-  }, [render.data, sheet.id])
+  }
+  useLayoutEffect(focusCanvas, [render.data, sheet.id])
 
   return (
     <>
       <SlotFill slot="toolbar.start" order={1}>
-        <SheetPicker sheet={sheet} model={model} open={picker} onOpen={onPicker} onPick={onPick} />
+        <SheetPicker sheet={sheet} model={model} open={picker} onOpen={onPicker} onPick={onPick} onClosed={focusCanvas} />
         <IconButton label={t`Previous sheet`} combo="[" onClick={() => onPage(-1)}>
           <ChevronLeft strokeWidth={1.5} className="rtl:-scale-x-100" />
         </IconButton>
@@ -549,7 +551,8 @@ function SheetMode({
       </SlotFill>
       <KeyRegion name="sheet" className="relative min-h-0 flex-1">
         <SpaceKey label={label} run={onSpace} />
-        <div ref={region} tabIndex={-1} className="absolute inset-0 outline-none">
+        {/* F6 lands here, inside the key region, so Space and the sheet's keys work from it (M17). */}
+        <div ref={region} tabIndex={-1} data-region-focus="" className="focus-inset absolute inset-0 outline-none">
           {render.data ? (
             <SheetViewer
               key={sheet.id}
@@ -574,7 +577,22 @@ function SheetMode({
 }
 
 /** The sheet label as a button (§6.5: "S-20 8th & 9th floor beam layout ▾", at most 250 px) opening "Sheets, in list order". */
-function SheetPicker({ sheet, model, open, onOpen, onPick }: { sheet: ProposalOut; model: Step1Model; open: boolean; onOpen: (open: boolean) => void; onPick: (sheet: ProposalOut) => void }) {
+function SheetPicker({
+  sheet,
+  model,
+  open,
+  onOpen,
+  onPick,
+  onClosed,
+}: {
+  sheet: ProposalOut
+  model: Step1Model
+  open: boolean
+  onOpen: (open: boolean) => void
+  onPick: (sheet: ProposalOut) => void
+  /** Focus goes back to the canvas, not the label button, when the picker closes. */
+  onClosed: () => void
+}) {
   const { t } = useLingui()
   const groups: { key: string; heading: ReactNode; sheets: ProposalOut[] }[] = [
     { key: 'needs', heading: <Trans>Needs you</Trans>, sheets: model.needsYou.flatMap((r) => [...r.sheets]) },
@@ -594,7 +612,15 @@ function SheetPicker({ sheet, model, open, onOpen, onPick }: { sheet: ProposalOu
           <ChevronDown strokeWidth={1.5} className="size-3.5 shrink-0" aria-hidden />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="max-h-[60vh] w-80 overflow-auto p-1" aria-label={t`Sheets, in list order`}>
+      <PopoverContent
+        align="start"
+        className="max-h-[60vh] w-80 overflow-auto p-1"
+        aria-label={t`Sheets, in list order`}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault()
+          onClosed()
+        }}
+      >
         <p className="px-2 py-1 text-xs font-semibold text-ink-secondary">
           <Trans>Sheets, in list order</Trans>
         </p>

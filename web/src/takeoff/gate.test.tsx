@@ -372,6 +372,42 @@ describe('M16: a click anywhere in a row focuses it', () => {
   })
 })
 
+describe('M17: Space goes back to the list from anywhere in the sheet', () => {
+  async function inSheet(number: string) {
+    const { api } = kr01()
+    await open(api)
+    await focusRow(number)
+    await realKeys.keyboard(' ')
+    await screen.findByRole('group', { name: new RegExp(number) })
+  }
+  const inCanvas = () => !!document.activeElement?.closest('[data-region="canvas"]')
+
+  it('after F6 comes round to the canvas region, Space and the ? overlay both work', async () => {
+    await inSheet('S-02')
+    await realKeys.keyboard('{F6}')
+    for (let i = 0; i < 8 && !inCanvas(); i++) await realKeys.keyboard('{F6}')
+    expect(inCanvas()).toBe(true)
+    await realKeys.keyboard('?')
+    const overlay = await screen.findByRole('dialog')
+    expect(clean(overlay.textContent)).toContain('Open the focused sheet, or go back to the list')
+    await realKeys.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    await realKeys.keyboard(' ')
+    await waitFor(() => expect(screen.queryByRole('group', { name: /S-02/ })).toBeNull())
+  })
+
+  it('after the sheet picker closes, Space goes back to the list', async () => {
+    await inSheet('S-02')
+    await realKeys.keyboard('s')
+    await screen.findByLabelText('Sheets, in list order')
+    await realKeys.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByLabelText('Sheets, in list order')).toBeNull())
+    expect(inCanvas()).toBe(true)
+    await realKeys.keyboard(' ')
+    await waitFor(() => expect(screen.queryByRole('group', { name: /S-02/ })).toBeNull())
+  })
+})
+
 describe('M9: focus is visible on the list’s rows', () => {
   it('draws an outline on the row ↓ focuses', async () => {
     const { api } = kr01()
