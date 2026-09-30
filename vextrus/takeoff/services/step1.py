@@ -891,6 +891,7 @@ def confirm(
     auth.require(acts.CONFIRM, project_id)
     with transaction.atomic():
         chosen = _chosen(project_id, ids)
+        _no_question_first(project_id, chosen)
         act = _act(
             project_id,
             ConfirmationAct.CONFIRM,
@@ -919,6 +920,27 @@ def confirm(
             _decide_views(sheet.id, act, None, "")
         record_progress(project_id)
     return _act_view(act)
+
+
+FIRST = (QuestionKind.MISSING, QuestionKind.MISSING_DISCIPLINE)
+"""The Questions whose sheet is confirmed only once answered (its number or Discipline is the
+answer's to set, which a confirmed sheet no longer takes)."""
+
+
+def _no_question_first(
+    project_id: uuid.UUID, chosen: Sequence[tuple[drawings.SheetView, Proposal | None]]
+) -> None:
+    """Refuse (409, nothing done) a sheet an open `missing` or `missing_discipline` Question holds."""
+    sheet_ids = {sheet.id for sheet, _p in chosen}
+    proposal_ids = {p.id for _s, p in chosen if p is not None}
+    asked = Question.objects.filter(
+        project_id=project_id, step=SHEETS, status=QuestionStatus.OPEN, kind__in=FIRST
+    )
+    held = QuestionLink.objects.filter(
+        project_id=project_id, question__in=asked, proposal_id__in=proposal_ids
+    ).exists()
+    if held or asked.filter(subject_id__in=sheet_ids).exists():
+        raise auth.Refused(said.QUESTION_FIRST(), status=409)
 
 
 def exclude(
@@ -1565,6 +1587,9 @@ class Answered:
     question: QuestionView
     read_again: uuid.UUID | None
     """A held file the QS chose to read anyway: its read job is to run again (the caller queues it)."""
+    corrected: bool = False
+    """A sheet's number or Discipline was corrected: the set's Questions are asked again (the caller
+    runs `read_propose.proposals.set_questions`: a typed number another sheet has is a conflict)."""
 
 
 def answer(
@@ -1605,13 +1630,16 @@ def answer(
             .values_list("proposal_id", flat=True)
         )
         read_again = _apply(project_id, row, option, words, held, actor_name)
+        corrected = (
+            row.kind == QuestionKind.MISSING and option == "type_number"
+        ) or row.kind == QuestionKind.MISSING_DISCIPLINE
         row.status = QuestionStatus.ANSWERED
         row.answer = given
         row.answered_by_id = _user()
         row.answered_at = timezone.now()
         row.save(update_fields=["status", "answer", "answered_by", "answered_at"])
         record_progress(project_id)
-    return Answered(_question_view(project_id, row.id), read_again)
+    return Answered(_question_view(project_id, row.id), read_again, corrected)
 
 
 def _question_view(project_id: uuid.UUID, question_id: uuid.UUID) -> QuestionView:

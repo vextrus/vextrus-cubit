@@ -299,3 +299,104 @@ def test_the_questions_queue_by_sheets_held_then_conflicts_missing_items_and_che
 
     assert [q["kind"] for q in asked][:3] == ["file_misread", "conflict", "missing"]
     assert asked[-1]["kind"] == "check"
+
+
+# Fix round 1 -------------------------------------------------------------------------------------
+
+UNNUMBERED = [
+    Sheet("S-01", "PILE LAYOUT PLAN", ("PILE LAYOUT PLAN",)),
+    Sheet(None, "STAIR DETAILS", ("STAIR SECTION",)),
+]
+
+
+def test_a_typed_number_another_sheet_has_raises_a_same_number_conflict(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review finding 1 (75): typing S-01 on the unnumbered sheet left two S-01s and no Question."""
+    read(qs_project, monkeypatch, UNNUMBERED)
+    api = api_as(qs_project.member)
+    [q] = open_questions(api, qs_project.project_id, "missing")
+
+    assert answer(api, qs_project.project_id, q["id"], "type_number", text="S-01").status_code == 200
+
+    copies = [p["id"] for p in proposals(api, qs_project.project_id) if p["number"] == "S-01"]
+    [conflict] = open_questions(api, qs_project.project_id, "conflict")
+    assert conflict["code"] == "engine.conflicts.same_number"
+    assert sorted(conflict["proposals"]) == sorted(copies)
+
+
+def test_a_sheet_held_by_an_open_missing_question_cannot_be_confirmed_until_it_is_answered(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review finding 3 (50): confirming first left the Question unanswerable (409)."""
+    read(qs_project, monkeypatch, UNNUMBERED)
+    api = api_as(qs_project.member)
+    listed = proposals(api, qs_project.project_id)
+    unnumbered = the(listed, None)["id"]
+
+    single = confirm(api, qs_project.project_id, [unnumbered])
+    bulk = confirm(api, qs_project.project_id, [p["id"] for p in listed])
+
+    for refused in (single, bulk):
+        assert (refused.status_code, refused.json()) == (
+            409,
+            {"code": "takeoff.step1.question_first", "params": {}},
+        )
+    assert all(p["decision"] is None for p in proposals(api, qs_project.project_id))
+    [q] = open_questions(api, qs_project.project_id, "missing")
+    assert answer(api, qs_project.project_id, q["id"], "no_number").status_code == 200
+    assert confirm(api, qs_project.project_id, [unnumbered]).status_code == 200
+
+
+def test_once_the_lists_question_is_answered_the_sheets_agree_against_the_chosen_list(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review finding 2, the orchestrator's ruling: answered lists agree against the list chosen."""
+    rows = (("S-01", "GENERAL NOTES"), ("S-02", "PILE LAYOUT PLAN"), ("S-03", "COLUMN SCHEDULE"))
+    read(qs_project, monkeypatch, [
+        Sheet("S-01", "GENERAL NOTES", ("GENERAL NOTES",), register=rows),
+        Sheet("S-02", "PILE LAYOUT PLAN", ("PILE LAYOUT PLAN",)),
+        Sheet("S-03", "COLUMN SCHEDULE", ("COLUMN SCHEDULE",)),
+    ])  # fmt: skip
+    api = api_as(qs_project.member)
+    path = f"{step1(qs_project.project_id)}/drawing-list"
+    assert api.post(path, {"discipline": "structural", "text": "S-01 to S-04"}).status_code == 200
+    assert not any(p["agrees"] for p in proposals(api, qs_project.project_id))
+    [q] = open_questions(api, qs_project.project_id, "conflict")
+
+    assert answer(api, qs_project.project_id, q["id"], "use_read").status_code == 200
+
+    assert [p["agrees"] for p in proposals(api, qs_project.project_id)] == [True, True, True]
+
+
+def test_the_boundary_storey_question_names_the_storey_where_the_ranges_meet(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The words gate's M2: "... include the 1st storey? The range on S-08 also starts at the 1st.\""""
+    read(qs_project, monkeypatch, [
+        Sheet("S-07", "COLUMN LAYOUT PLAN BASEMENT TO 1ST FLOOR",
+              ("COLUMN LAYOUT PLAN BASEMENT TO 1ST FLOOR",)),
+        Sheet("S-08", "COLUMN LAYOUT PLAN 1ST TO 9TH FLOOR", ("COLUMN LAYOUT PLAN 1ST TO 9TH FLOOR",)),
+    ])  # fmt: skip
+    [q] = open_questions(api_as(qs_project.member), qs_project.project_id, "convention")
+
+    params = q["params"]
+    assert (params["level"], params["number"], params["next_sheet"]) == ("floor", 1, "S-08")
+
+
+def test_the_bangla_sections_header_counts_the_same_texts_as_its_sheet_links(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The words gate's M3: on a read (not the seed's lines) the header was missing."""
+    file_id = read(qs_project, monkeypatch, [
+        Sheet("S-01", "PILE LAYOUT PLAN", ("PILE LAYOUT PLAN",)),
+        Sheet("S-02", "GROUND FLOOR PLAN", ("GROUND FLOOR BEAM LAYOUT PLAN",), bangla=2),
+        Sheet("S-03", "COLUMN SCHEDULE", ("COLUMN SCHEDULE",), bangla=1),
+    ])  # fmt: skip
+    path = f"/api/projects/{qs_project.project_id}/drawings/files/{file_id}/report"
+    report = api_as(qs_project.member).get(path).json()
+
+    [header] = report["bangla"]
+    assert header["code"] == "engine.bangla_ansi.found"
+    assert header["params"]["texts"] == sum(s["texts"] for s in report["bangla_sheets"]) == 3
+    assert header["params"]["sheets"] == len(report["bangla_sheets"]) == 2

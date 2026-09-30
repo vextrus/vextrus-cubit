@@ -11,10 +11,10 @@ msgid "takeoff.proposals.answered_already"
 msgstr "This Question is already answered or no longer asked, so nothing was changed. Reload the page to see where it stands."
 
 msgid "takeoff.proposals.boundary_storey"
-msgstr "Does \"{range}\" on {named, select, number {{sheet}} title {the sheet titled \"{sheet}\"} other {this sheet}} include its top storey? The range on {next_named, select, number {{next_sheet}} title {the sheet titled \"{next_sheet}\"} other {another sheet}} also starts there."
+msgstr "Does \"{range}\" on {named, select, number {{sheet}} title {the sheet titled \"{sheet}\"} other {this sheet}} include the {level, select, floor {{number, selectordinal, one {#st} two {#nd} few {#rd} other {#th}}} ground {ground} basement {basement} other {{storey}}} storey? The range on {next_named, select, number {{next_sheet}} title {the sheet titled \"{next_sheet}\"} other {another sheet}} also starts at the {level, select, floor {{number, selectordinal, one {#st} two {#nd} few {#rd} other {#th}}} ground {ground} basement {basement} other {{storey}}}."
 
 msgid "takeoff.proposals.lists_disagree"
-msgstr "{source, select, typed {The drawing list on {named, select, number {{sheet}} title {the sheet titled \"{sheet}\"} other {a sheet}} and the range you typed differ} other {The drawing list on {named, select, number {{sheet}} title {the sheet titled \"{sheet}\"} other {a sheet}} and the one you pasted differ}}"
+msgstr "{source, select, typed {The Drawing List on {named, select, number {{sheet}} title {the sheet titled \"{sheet}\"} other {a sheet}} and the range you typed differ} other {The Drawing List on {named, select, number {{sheet}} title {the sheet titled \"{sheet}\"} other {a sheet}} and the one you pasted differ}}"
 
 msgid "takeoff.proposals.number_needed"
 msgstr "No number was typed, so the sheet was not numbered. Type its number, then answer again."

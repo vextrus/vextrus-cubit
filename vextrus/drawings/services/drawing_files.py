@@ -829,10 +829,10 @@ def restart(file_id: uuid.UUID) -> FileView:
 
 
 def _marked(rows: Sequence[DrawingFile]) -> set[uuid.UUID]:
-    """The files marked for Vextrus: those whose reading failed and whose latest mark (an event,
+    """The files marked for Vextrus: those whose latest mark (an event,
     `drawings.files.marked_for_vextrus`) is newer than their latest restart (the mark was for the
-    reading that failed; reading again clears it). Kept as events, so `drawings` adds no column."""
-    failed = [r.id for r in rows if r.read_status == ReadStatus.FAILED]
+    reading it asked about; reading again clears it). Kept as events, so `drawings` adds no column."""
+    failed = [r.id for r in rows]
     if not failed:
         return set()
     latest = events.latest(
@@ -845,14 +845,25 @@ def _marked(rows: Sequence[DrawingFile]) -> set[uuid.UUID]:
     return {s for s, at in marks.items() if s not in restarts or at > restarts[s]}
 
 
+def asks_to_mark(row: DrawingFile, view: FileView) -> bool:
+    """Whether the product tells the QS to mark the file for Vextrus: its reading failed (an old
+    AutoCAD's file among them), or it was read but not in full: a DWG with no sheet, sheets or views
+    left out, or a limit that cut it (its finding, `takeoff.read_file.not_read_in_full`)."""
+    if view.state in (FileState.FAILED, FileState.UNREADABLE):
+        return True
+    if view.state != FileState.READ or row.format != FileFormat.DWG:
+        return False
+    views_left_out = SheetRevision.objects.filter(source_file=row, views_refused__gt=0).exists()
+    return bool(row.finding) or not view.sheets_found or bool(row.sheets_refused) or views_left_out
+
+
 def mark_for_vextrus(file_id: uuid.UUID) -> FileView:
-    """Mark a file that could not be read for Vextrus to look at (4.5's Failed row, "Mark for
-    Vextrus"); a file already marked is left as it is. Any other file is 409: only one whose reading
-    failed is marked (one saved by an old AutoCAD among them)."""
+    """Mark a file for Vextrus to look at ("Mark for Vextrus"), where its row or report asks for it
+    (`asks_to_mark`); a file already marked is left as it is. Any other file (still being read, or
+    read in full) is 409."""
     with transaction.atomic():
         row = _access.drawing_file(file_id, lock=True)
-        state = file(row.id).state
-        if state not in (FileState.FAILED, FileState.UNREADABLE):
+        if not asks_to_mark(row, file(row.id)):
             raise auth.Refused(said.NOT_FAILED(), status=409)
         if row.id not in _marked([row]):
             _record(said.MARKED_FOR_VEXTRUS, row)

@@ -143,6 +143,17 @@ def propose(
     return {"sheets": proposed, "questions": asked}
 
 
+def storey_named(key: str) -> dict[str, str | int]:
+    """A storey as a Question's words name it (13's keys): `level` `floor` with its `number` (the
+    words give "1st"), `ground`, `basement` (its `number`), else `other` with the key's words."""
+    kind, _, number = key.rpartition("_")
+    if kind in ("floor", "basement") and number.isdigit():
+        return {"level": kind, "number": int(number), "storey": key}
+    if key in ("ground", "basement"):
+        return {"level": key, "number": 1, "storey": key}
+    return {"level": "other", "number": 0, "storey": key.replace("_", " ")}
+
+
 def named(sheet: drawings.SheetView, prefix: str = "") -> dict[str, str]:
     """A sheet as a Question's words name it: its number, else its title (quoted by the words), else
     neither (`named`: `number`, `title` or `none`)."""
@@ -433,6 +444,7 @@ def _boundaries(
                     **named(sheet),
                     range=first.storeys_as_stated or first.title,
                     **named(listed[j], "next_"),
+                    **storey_named(first.storeys[-1]),
                 ),
                 subject_id=first.id,
                 discipline=sheet.discipline,

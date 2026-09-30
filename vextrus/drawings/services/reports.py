@@ -24,6 +24,7 @@ from typing import Any
 
 from django.db.models import Q, Sum
 
+from engine.check.bangla_ansi import BanglaAnsi, Flagged, FoundBy
 from engine.messages import Message
 from engine.read.artefact import ReadArtefact
 from vextrus.drawings.messages import reports as said
@@ -88,7 +89,7 @@ def report(file_id: uuid.UUID) -> Report:
         shown,
         readers=tuple(_readers(row)),
         sheets=tuple(_sheets(row)),
-        bangla=tuple(Message(code=m["code"], params=m["params"]) for m in row.bangla_lines or ()),
+        bangla=_bangla(row, on),
         bangla_sheets=on.bangla(flagged),
         fonts=_messages(fonts),
         font_rows=tuple(
@@ -131,6 +132,10 @@ class _SheetTexts:
         fonts = tuple(frozenset(_on_sheets.font_rows_of(read, handles)) for *_, handles in sheets)
         return cls(sheets, fonts)
 
+    def sheet_of(self, handle: str) -> str | None:
+        """The printed sheet a text lies on (its id), or None."""
+        return next((str(sr_id) for sr_id, _n, handles in self.sheets if handle in handles), None)
+
     def bangla(self, flagged: set[str]) -> tuple[BanglaSheet, ...]:
         found = []
         for sr_id, number, handles in self.sheets:
@@ -143,6 +148,19 @@ class _SheetTexts:
 
 
 _NO_SHEETS = _SheetTexts()
+
+
+def _bangla(row: DrawingFile, on: _SheetTexts) -> tuple[Message, ...]:
+    """The Bangla section's header lines, counted from the same texts-on-sheets as its sheet links
+    (`BanglaAnsi.findings`); lines kept on the file (`record_bangla_lines`, the seed's) where its
+    reading is not kept to count from."""
+    texts = [t for t in (row.bangla_ansi or {}).get("texts", ()) if t.get("handle")]
+    if texts and on.sheets:
+        flagged = BanglaAnsi(
+            tuple(Flagged(str(t["handle"]), FoundBy(t["by"]), t.get("font")) for t in texts)
+        )
+        return tuple(flagged.findings(on.sheet_of))
+    return tuple(Message(code=m["code"], params=m["params"]) for m in row.bangla_lines or ())
 
 
 def _artefact(row: DrawingFile) -> ReadArtefact | None:

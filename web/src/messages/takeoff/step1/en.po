@@ -22,5 +22,8 @@ msgstr "No sheet was chosen, so nothing was changed. Select one or more sheets, 
 msgid "takeoff.step1.nothing_to_undo"
 msgstr "You have nothing left to undo on Step 1: undo takes back only your own Confirmations, exclusions and drawing lists. To change another person\'s, exclude the sheet, confirm it back in, or paste the drawing list again."
 
+msgid "takeoff.step1.question_first"
+msgstr "Nothing was confirmed: a Question asks this sheet's number or its Discipline. Answer that Question first, then confirm the sheet."
+
 msgid "takeoff.step1.which_kind"
 msgstr "What kind of sheet is {number}?"

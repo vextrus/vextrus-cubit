@@ -197,3 +197,15 @@ def test_the_api_refuses_to_mark_a_read_file_in_words(qs_project: QsProject) -> 
     response = api_as(member).post(path)
 
     assert (response.status_code, response.json()) == (409, said.NOT_FAILED())
+
+
+def test_a_read_file_with_no_sheet_asks_to_be_marked_and_is(qs_project: QsProject) -> None:
+    """The words gate's M1: the report tells the QS to mark a read file that found no sheet (4.5), so
+    the act takes it; a file read in full is still refused (above)."""
+    member = qs_project.member
+    empty = add(member, qs_project.project_id, "KR-ARC-R0.dwg", drawing()).file
+    read_dwg(member, empty.id, [])
+    with member.acting():
+        marked = services.mark_for_vextrus(empty.id)
+
+    assert (marked.state, marked.marked_for_vextrus) == (services.FileState.READ, True)
