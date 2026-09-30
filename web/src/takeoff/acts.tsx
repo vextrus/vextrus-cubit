@@ -7,7 +7,7 @@
  * a call). An act made before this tab opened is undone one server act at a time, worded from 19a's
  * reply.
  */
-import { useCallback, useRef, type ReactNode } from 'react'
+import { useCallback, useRef, useState, type ReactNode } from 'react'
 import { Plural, Trans } from '@lingui/react/macro'
 import { useLingui } from '@lingui/react'
 import { useQueryClient } from '@tanstack/react-query'
@@ -78,6 +78,8 @@ export interface Step1Acts {
   excludeSheets(sheets: readonly ProposalOut[], reason: Reason, text?: string): Promise<boolean>
   setDrawingList(discipline: string, text: string): Promise<boolean>
   undoLast(): Promise<void>
+  /** An act or an undo is in flight, until Step 1 has reloaded: keys that act are dropped meanwhile. */
+  busy: boolean
 }
 
 export function useStep1Acts(projectId: string): Step1Acts {
@@ -97,6 +99,13 @@ export function useStep1Acts(projectId: string): Step1Acts {
   const sending = useRef<Promise<boolean> | null>(null)
   /** An undo in flight: a second Ctrl Z is ignored until it ends. */
   const undoing = useRef(false)
+  /**
+   * The QS's last act was not made: refused outright, or its key dropped while another was in
+   * flight. The next Ctrl Z says so and undoes nothing, rather than taking back the act before, which
+   * the QS did not mean (the review of 22, round 4); the Ctrl Z after it undoes that act.
+   */
+  const unmade = useRef(false)
+  const [busy, setBusy] = useState(false)
   const refresh = useCallback(() => queryClient.invalidateQueries({ queryKey: step1Key(projectId) }), [queryClient, projectId])
 
   /**
@@ -104,23 +113,49 @@ export function useStep1Acts(projectId: string): Step1Acts {
    * whether any was made (an act refused outright made none, and an Undo waiting on it undoes nothing).
    */
   const begin = useCallback((): ((made: boolean) => void) | null => {
-    if (pending.current || undoing.current) return null
+    if (pending.current || undoing.current) {
+      unmade.current = true
+      return null
+    }
     pending.current = true
+    unmade.current = false
+    setBusy(true)
     let sent = (_made: boolean) => {}
     sending.current = new Promise<boolean>((resolve) => {
       sent = resolve
     })
-    // Kept until the act's reload ends (`settle`): a Ctrl Z during it is for this act too.
-    return (made) => sent(made)
+    // Kept until the act's reload ends: a Ctrl Z during it is for this act too.
+    return (made) => {
+      if (!made) unmade.current = true
+      sent(made)
+    }
   }, [])
+
+  /** Ends an act once Step 1 has reloaded; other acts are taken again from here. */
+  const settle = useCallback(async () => {
+    // Held until Step 1 has reloaded: a second Enter during the reload would send the act again.
+    await refresh()
+    sending.current = null
+    pending.current = false
+    if (!undoing.current) setBusy(false)
+  }, [refresh])
 
   const undoLast = useCallback(async () => {
     if (undoing.current) return
     undoing.current = true
+    setBusy(true)
     try {
       // The act in flight is waited for, so this undoes it; one refused outright made nothing, and
-      // this Ctrl Z was for it, so it never reaches the act before.
-      if (sending.current && !(await sending.current)) return
+      // this Ctrl Z was for it (its refusal is on screen), so it never reaches the act before.
+      if (sending.current && !(await sending.current)) {
+        unmade.current = false
+        return
+      }
+      if (unmade.current) {
+        unmade.current = false
+        toast.show({ message: <Trans>Nothing undone: your last change was not made. Press Ctrl Z again to undo the one before it.</Trans> })
+        return
+      }
       const last = done.current.pop()
       try {
         if (last) {
@@ -137,6 +172,7 @@ export function useStep1Acts(projectId: string): Step1Acts {
       await refresh()
     } finally {
       undoing.current = false
+      if (!pending.current) setBusy(false)
     }
   }, [projectId, refresh, sayRefused, toast])
 
@@ -161,13 +197,10 @@ export function useStep1Acts(projectId: string): Step1Acts {
       } finally {
         if (made > 0) done.current.push({ calls: made, words })
         sent(made > 0)
-        // Held until Step 1 has reloaded: a second Enter during the reload would send the act again.
-        await refresh()
-        sending.current = null
-        pending.current = false
+        await settle()
       }
     },
-    [begin, onUndo, refresh, sayRefused, toast],
+    [begin, onUndo, sayRefused, settle, toast],
   )
 
   const bulk = useCallback(
@@ -208,13 +241,10 @@ export function useStep1Acts(projectId: string): Step1Acts {
       } finally {
         if (made > 0) done.current.push({ calls: made, words: <BulkWords n={n} m={m} /> })
         sent(made > 0)
-        // Held until Step 1 has reloaded: a second Enter during the reload would send the act again.
-        await refresh()
-        sending.current = null
-        pending.current = false
+        await settle()
       }
     },
-    [begin, f, i18n, onUndo, projectId, refresh, sayRefused, toast],
+    [begin, f, i18n, onUndo, projectId, sayRefused, settle, toast],
   )
 
   const confirmSheets = useCallback(
@@ -268,13 +298,11 @@ export function useStep1Acts(projectId: string): Step1Acts {
       } finally {
         if (made) done.current.push({ calls: 1, words: <Trans>the drawing list you set</Trans> })
         sent(made > 0)
-        await refresh()
-        sending.current = null
-        pending.current = false
+        await settle()
       }
     },
-    [begin, i18n, onUndo, projectId, refresh, sayRefused, toast],
+    [begin, i18n, onUndo, projectId, sayRefused, settle, toast],
   )
 
-  return { bulk, confirmSheets, excludeSheets, setDrawingList, undoLast }
+  return { bulk, confirmSheets, excludeSheets, setDrawingList, undoLast, busy }
 }

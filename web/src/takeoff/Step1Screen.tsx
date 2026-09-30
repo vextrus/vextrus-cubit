@@ -343,7 +343,7 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
   const pasteFile = pasteSection?.rows[0]?.sheets[0]?.file_name ?? ''
 
   return (
-    <div className="absolute inset-0 flex flex-col">
+    <div className="absolute inset-0 flex flex-col" data-step1="" aria-busy={acts.busy}>
       <SlotFill slot="toolbar.end" order={0}>
         <ModeSwitch mode={mode} title={spaceLabel} onList={() => mode === 'sheet' && toList()} onSheet={() => mode === 'list' && fromList()} />
       </SlotFill>
@@ -613,6 +613,7 @@ function SheetPicker({
   const { t } = useLingui()
   const groups: { key: string; heading: ReactNode; sheets: ProposalOut[] }[] = [
     { key: 'needs', heading: <Trans>Needs you</Trans>, sheets: model.needsYou.flatMap((r) => [...r.sheets]) },
+    { key: 'withdrawn', heading: <Trans>Questions withdrawn</Trans>, sheets: model.withdrawn.flatMap((r) => [...r.sheets]) },
     { key: 'out', heading: <Trans>Proposed to leave out</Trans>, sheets: model.proposedOut.flatMap((r) => [...r.sheets]) },
     ...model.disciplines.map((d) => ({ key: d.discipline, heading: <DisciplineName discipline={d.discipline} />, sheets: d.rows.flatMap((r) => [...r.sheets]) })),
   ].filter((g) => g.sheets.length > 0)

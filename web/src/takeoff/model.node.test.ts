@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { ProposalOut, QuestionOut, Step1Data } from './data'
-import { compareNumbers, numberingOf, questionQueue, step1Model } from './model'
+import { compareNumbers, nextOpenRow, numberingOf, questionQueue, rowState, step1Model } from './model'
 
 let n = 0
 function sheet(number: string | null, over: Partial<ProposalOut> = {}): ProposalOut {
@@ -152,5 +152,54 @@ describe('order', () => {
       ['Q4', 'low_confidence'],
       ['Q5', 'check'],
     ])
+  })
+})
+
+describe('kept open and withdrawn Questions (the review of 22, round 4, F4; the ruling of session 08)', () => {
+  it('reads a Question as kept open from its answer’s option, its status still open', () => {
+    const a = sheet('S-01')
+    const b = sheet('S-02')
+    const kept = question('low_confidence', { subject_id: a.sheet_id, answer: { option: 'keep_open', by: 'Nusrat Jahan' } })
+    const plain = question('low_confidence', { subject_id: b.sheet_id })
+    const queue = questionQueue([kept, plain], [a, b])
+    expect(queue.map((e) => [e.question.id, e.kept])).toEqual([
+      [kept.id, true],
+      [plain.id, false],
+    ])
+    // A status the API never sends is not open.
+    expect(questionQueue([question('low_confidence', { subject_id: a.sheet_id, status: 'kept_open' })], [a])).toEqual([])
+  })
+
+  it('shows a Question withdrawn by an exclusion as its own row, after Needs you, tagged on from the queue', () => {
+    const a = sheet('A-05', { discipline: 'architectural', decision: 'excluded', excluded_reason: 'for_information' })
+    const b = sheet('A-06', { discipline: 'architectural' })
+    const c = sheet('A-07', { discipline: 'architectural', decision: 'excluded', excluded_reason: 'blank' })
+    const open = question('low_confidence', { subject_id: b.sheet_id })
+    // 21c names the act that withdrew it.
+    const byAct = question('low_confidence', { subject_id: a.sheet_id, status: 'withdrawn', answer: { withdrawn_by: 'act-1' } })
+    // Before 21c: withdrawn, and every sheet it holds is excluded.
+    const bySheet = question('missing', { subject_id: c.sheet_id, status: 'withdrawn' })
+    const model = step1Model(data([a, b, c], [byAct, open, bySheet]))
+    expect(model.queue.map((e) => e.tag)).toEqual(['Q1'])
+    expect(model.withdrawn.map((r) => [r.question!.tag, r.number, r.question!.withdrawn])).toEqual([
+      ['Q2', 'A-05', true],
+      ['Q3', 'A-07', true],
+    ])
+    expect(rowState(model.withdrawn[0]!)).toEqual({ kind: 'withdrawn', tag: 'Q2' })
+    // Reachable by ↑ ↓: in the rows, after Needs you, and not also in the Discipline's section.
+    expect(model.rows.map((r) => r.key)).toEqual([`q:${open.id}`, `q:${byAct.id}`, `q:${bySheet.id}`])
+    expect(model.disciplines[0]!.rows).toEqual([])
+    // Not open: Q and "Next open item" pass it by.
+    expect(nextOpenRow(model.rows, `q:${open.id}`, true)?.key).toBe(`q:${open.id}`)
+  })
+
+  it('leaves out a Question withdrawn for another reason (its sheet not excluded), and an answered one', () => {
+    const a = sheet('S-01')
+    const b = sheet('S-02', { decision: 'excluded', excluded_reason: 'blank' })
+    const other = question('low_confidence', { subject_id: a.sheet_id, status: 'withdrawn' })
+    const answered = question('low_confidence', { subject_id: b.sheet_id, status: 'answered', answer: { option: 'section', by: 'Nusrat Jahan' } })
+    const model = step1Model(data([a, b], [other, answered]))
+    expect(model.withdrawn).toEqual([])
+    expect(model.queue).toEqual([])
   })
 })

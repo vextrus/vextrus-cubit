@@ -139,19 +139,95 @@ describe('an Undo while the act is still going (the review of 22, round 2)', () 
   })
 
   it('undoes nothing when the act it waited for was refused outright (the review of 22, round 3)', async () => {
-    const step1 = await openAt60()
+    // Forced, not timed (round 4's F1): the second exclusion is held until Ctrl Z has been pressed.
+    const { step1, hold } = await openHeld()
     const refusal = { code: 'takeoff.step1.nothing_to_undo', params: {} }
     step1.answerOnce('POST /exclude', 409, refusal)
     await userEvent.keyboard('{Enter}')
-    await waitFor(() => expect(bodyText()).toContain('Confirmed 16 / 24'), { timeout: 5000 })
+    await accepting(step1, 'POST /exclude', 1)
+    await waitFor(() => expect(bodyText()).toContain('Confirmed 16 / 24'))
     step1.answerOnce('POST /exclude', 409, refusal)
+    const release = hold('POST /exclude')
     await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(busy()).toBe(true))
     await userEvent.keyboard('{Control>}z{/Control}')
-    await waitFor(() => expect(step1.calls().filter((c) => c === 'POST /exclude')).toHaveLength(2), { timeout: 5000 })
-    await new Promise((r) => setTimeout(r, 1500))
+    release()
+    await accepting(step1, 'POST /exclude', 2)
+    await new Promise((r) => setTimeout(r, 300))
     expect(step1.calls().filter((c) => c === 'POST /undo')).toHaveLength(0)
     expect(bodyText()).toContain('Confirmed 16 / 24')
     expect(bodyText()).not.toContain('Undone')
   })
 })
 
+/** Step 1 takes acts again: its act and the reload after it have ended (the screen's aria-busy). */
+const busy = () => document.querySelector('[data-step1]')?.getAttribute('aria-busy') === 'true'
+/** Waits for the `n`th `call`, if named (so the act has begun), then for Step 1 to take acts again. */
+async function accepting(step1?: FakeStep1, call?: string, n = 1) {
+  if (step1 && call) await waitFor(() => expect(step1.calls().filter((c) => c === call).length).toBeGreaterThanOrEqual(n), { timeout: 5000 })
+  await waitFor(() => expect(busy()).toBe(false), { timeout: 5000 })
+}
+
+/** The app on the fake, where `hold('POST /exclude')` keeps the next such call waiting until released. */
+async function openHeld() {
+  const api = new FakeApi()
+  const step1 = new FakeStep1(api)
+  const held = new Map<string, Promise<void>>()
+  const base = api.handle
+  api.handle = async (request: Request) => {
+    const key = `${request.method} /${new URL(request.url, location.origin).pathname.split('/').at(-1)}`
+    const wait = held.get(key)
+    if (wait) {
+      held.delete(key)
+      await wait
+    }
+    return base(request)
+  }
+  await mountApp('/p/KR-01/takeoff/1', { as: PEOPLE.qs, api })
+  await waitFor(() => expect(bodyText()).toContain('Confirmed 0 / 24'))
+  const hold = (key: string) => {
+    let release = () => {}
+    held.set(key, new Promise<void>((r) => (release = r)))
+    return () => release()
+  }
+  return { step1, hold }
+}
+
+describe('Ctrl Z after an act that was not made (the review of 22, round 4, F3)', () => {
+  it('undoes nothing, and says so, when the Enter before it was dropped while an act was in flight', async () => {
+    const { step1, hold } = await openHeld()
+    const release = hold('POST /exclude')
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(busy()).toBe(true))
+    await userEvent.keyboard('{Enter}')
+    release()
+    await accepting(step1, 'POST /exclude')
+    expect(step1.calls().filter((c) => c.startsWith('POST'))).toEqual(['POST /confirm', 'POST /exclude'])
+    await userEvent.keyboard('{Control>}z{/Control}')
+    await waitFor(() => expect(bodyText()).toContain('Nothing undone: your last change was not made. Press Ctrl Z again to undo the one before it.'))
+    await accepting()
+    expect(step1.calls()).not.toContain('POST /undo')
+    await userEvent.keyboard('{Control>}z{/Control}')
+    await waitFor(() => expect(bodyText()).toContain('Undone: confirmed 16 sheets and left out 1'))
+    expect(step1.calls().filter((c) => c === 'POST /undo')).toHaveLength(2)
+  })
+
+  it('undoes nothing, and says so, when the act before it was refused outright', async () => {
+    const { step1 } = await openHeld()
+    const refusal = { code: 'takeoff.step1.nothing_to_undo', params: {} }
+    step1.answerOnce('POST /exclude', 409, refusal)
+    await userEvent.keyboard('{Enter}')
+    await accepting(step1, 'POST /exclude', 1)
+    step1.answerOnce('POST /exclude', 409, refusal)
+    await userEvent.keyboard('{Enter}')
+    await accepting(step1, 'POST /exclude', 2)
+    await userEvent.keyboard('{Control>}z{/Control}')
+    await waitFor(() => expect(bodyText()).toContain('Nothing undone: your last change was not made.'))
+    await accepting()
+    expect(step1.calls()).not.toContain('POST /undo')
+    await userEvent.keyboard('{Control>}z{/Control}')
+    await waitFor(() => expect(bodyText()).toContain('Undone: confirmed 16 sheets'))
+    expect(step1.calls().filter((c) => c === 'POST /undo')).toHaveLength(1)
+    await waitFor(() => expect(bodyText()).toContain('Confirmed 0 / 24'))
+  })
+})

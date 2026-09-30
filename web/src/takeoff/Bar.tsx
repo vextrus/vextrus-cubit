@@ -162,7 +162,11 @@ export function useBar(c: BarContext): BarSpec | null {
       const tag = row.question.tag
       const title = <QuestionTitle entry={row.question} names={model.fileNames} />
       return {
-        what: (
+        what: row.question.withdrawn ? (
+          <Trans>
+            Question {tag}, withdrawn: {title}
+          </Trans>
+        ) : (
           <Trans>
             Question {tag}: {title}
           </Trans>

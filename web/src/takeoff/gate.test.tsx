@@ -540,6 +540,47 @@ describe('M21: the held file’s row names its file whole', () => {
     })
 })
 
+describe('F2: a long file name is cut in its middle and leaves the held reason its width (the review of 22, round 4)', () => {
+  const LONG = 'KADAM-RESIDENCE-STRUCTURAL-DRAWINGS-SET-02-ISSUED-FOR-CONSTRUCTION-REVISED-AUG-2026-R0.dwg'
+  for (const rtl of [false, true])
+    it(`keeps ".dwg", the whole name in the text and the tooltip, and the reason visible, at 1280${rtl ? ' in en-XB' : ''}`, async () => {
+      expect(LONG.length).toBeGreaterThanOrEqual(80)
+      if (rtl) activatePseudoRtl()
+      await page.viewport(1280, 800)
+      const { api, step1 } = kr01()
+      const held = step1.questions.find((q) => q.kind === 'file_misread')!.subject_id!
+      new FakeDrawingSet(api, 'KR-01').files = [file({ id: held, name: LONG, state: 'held', status: msg('drawings.files.held') })]
+      await mountApp(PATH, { as: PEOPLE.qs, api })
+      const row = await waitFor(() => {
+        const found = [...document.querySelectorAll<HTMLElement>('[role="row"][data-row]')].find((r) => r.querySelector('[data-notation="file-name"]') && /Held/.test(r.textContent ?? ''))
+        expect(found).toBeTruthy()
+        return found!
+      })
+      const cell = within(row).getAllByRole('gridcell')[2]!
+      const box = cell.getBoundingClientRect()
+      const name = cell.querySelector<HTMLElement>('[data-notation="file-name"]')!
+      // The whole name is what is read and what the tooltip shows.
+      expect(clean(name.textContent)).toBe(LONG)
+      expect(clean(name.getAttribute('title'))).toBe(LONG)
+      // It lies inside its cell, cut: its extension shows whole.
+      const n = name.getBoundingClientRect()
+      expect(n.left).toBeGreaterThanOrEqual(box.left - 1)
+      expect(n.right).toBeLessThanOrEqual(box.right + 1)
+      const extension = [...name.querySelectorAll<HTMLElement>('span')].find((e) => clean(e.textContent) === '.dwg')!
+      expect(extension).toBeTruthy()
+      const x = extension.getBoundingClientRect()
+      expect(x.width).toBeGreaterThan(10)
+      expect(x.left).toBeGreaterThanOrEqual(box.left - 1)
+      expect(x.right).toBeLessThanOrEqual(box.right + 1)
+      // The held reason keeps a width, inside the cell.
+      const reason = [...cell.querySelectorAll<HTMLElement>('span')].find((e) => /Held/.test(e.textContent ?? '') && !e.querySelector('[data-notation]'))!
+      const r = reason.getBoundingClientRect()
+      expect(r.width).toBeGreaterThanOrEqual(90)
+      expect(r.left).toBeGreaterThanOrEqual(box.left - 1)
+      expect(r.right).toBeLessThanOrEqual(box.right + 1)
+    })
+})
+
 describe('M9: focus is visible on the list’s rows', () => {
   it('draws an outline on the row ↓ focuses', async () => {
     const { api } = kr01()

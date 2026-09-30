@@ -669,7 +669,7 @@ export function QuestionCard({
           <QuestionGlyph size={14} />
           <Trans>Question {tag}</Trans>
         </span>
-        <span className="text-xs">{entry.kept ? <Trans>Kept open</Trans> : <Trans>Answer once</Trans>}</span>
+        <span className="text-xs">{entry.withdrawn ? <Trans>Withdrawn</Trans> : entry.kept ? <Trans>Kept open</Trans> : <Trans>Answer once</Trans>}</span>
       </header>
       <div className="bg-chrome-sunken px-3 py-1.5 text-xs">
         <Answering entry={entry} context={context} />
@@ -723,15 +723,23 @@ export function QuestionCard({
 }
 
 export function QuestionsTab({ model, readOnly, onOpen }: { model: Step1Model; readOnly: 'md' | 'guest' | null; onOpen?: (sheet: ProposalOut) => void }) {
-  if (model.queue.length === 0)
-    return (
-      <p className="p-3 text-sm text-muted-foreground">
-        <Trans>No open Questions.</Trans>
-      </p>
-    )
+  const withdrawn = model.withdrawn.flatMap((r) => (r.question ? [r.question] : []))
   return (
     <>
+      {model.queue.length === 0 ? (
+        <p className="p-3 text-sm text-muted-foreground">
+          <Trans>No open Questions.</Trans>
+        </p>
+      ) : null}
       {model.queue.map((entry) => (
+        <QuestionCard key={entry.question.id} entry={entry} readOnly={readOnly} context={cardContext(model)} onOpen={onOpen} />
+      ))}
+      {withdrawn.length > 0 ? (
+        <h3 className="px-3 pt-3 text-xs font-medium text-ink-secondary">
+          <Plural value={withdrawn.length} one="Withdrawn when its sheet was left out" other="Withdrawn when their sheets were left out" />
+        </h3>
+      ) : null}
+      {withdrawn.map((entry) => (
         <QuestionCard key={entry.question.id} entry={entry} readOnly={readOnly} context={cardContext(model)} onOpen={onOpen} />
       ))}
     </>

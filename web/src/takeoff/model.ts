@@ -55,7 +55,10 @@ export interface QuestionEntry {
   tag: string
   /** The sheets it holds (answering settles them). */
   holds: readonly ProposalOut[]
+  /** Open, answered "keep open, ask the consultant" (21c has no `kept_open` status: the orchestrator's ruling). */
   kept: boolean
+  /** Withdrawn when the sheets it holds were left out: confirming them back in waits for its answer (21c's 409). */
+  withdrawn: boolean
 }
 
 export interface DisciplineSection {
@@ -82,9 +85,12 @@ export interface Bulk {
 
 export interface Step1Model {
   needsYou: readonly Row[]
+  /** The Questions withdrawn when their sheets were left out, each a row holding those sheets (after Needs you). */
+  withdrawn: readonly Row[]
   proposedOut: readonly Row[]
   disciplines: readonly DisciplineSection[]
   notReceived: readonly string[]
+  /** The open Questions in queue order (Q1…); the withdrawn ones are not in it (they are `withdrawn`'s rows, tagged after it). */
   queue: readonly QuestionEntry[]
   bulk: Bulk
   /** Every row in list order: what ↑ ↓ walk. */
@@ -109,7 +115,22 @@ export type Reason = (typeof REASONS)[number]
 
 const KIND_RANK: Record<string, number> = { file_misread: 0, conflict: 1, missing: 2, low_confidence: 3 }
 
-const open = (q: QuestionOut) => q.status === 'open' || q.status === 'kept_open'
+const open = (q: QuestionOut) => q.status === 'open'
+const isRecord = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x)
+
+/** Kept open: status `open`, its answer's option `keep_open` (the ruling of session 08: no `kept_open` status). */
+export const isKeptOpen = (q: QuestionOut) => q.status === 'open' && isRecord(q.answer) && q.answer.option === 'keep_open'
+
+/**
+ * The sheets a withdrawn Question held that were left out, when an exclusion withdrew it: 21c's
+ * answer names the act (`withdrawn_by`); without it, every sheet it holds is excluded. Else none.
+ */
+function leftOut(q: QuestionOut, holds: readonly ProposalOut[]): ProposalOut[] {
+  if (q.status !== 'withdrawn') return []
+  const out = holds.filter((p) => p.decision === 'excluded')
+  const byAct = isRecord(q.answer) && typeof q.answer.withdrawn_by === 'string'
+  return byAct || (out.length > 0 && out.length === holds.length) ? out : []
+}
 
 /** The sheets a Question holds: its subject, and for two sheets of one number, every copy. */
 function held(q: QuestionOut, proposals: readonly ProposalOut[]): ProposalOut[] {
@@ -132,7 +153,14 @@ export function questionQueue(questions: readonly QuestionOut[], proposals: read
     if (kind) return kind
     return compareNumbers(a.holds[0]?.number ?? null, b.holds[0]?.number ?? null)
   })
-  return entries.map((e, i) => ({ ...e, tag: `Q${i + 1}`, kept: e.question.status === 'kept_open' }))
+  return entries.map((e, i) => ({ ...e, tag: `Q${i + 1}`, kept: isKeptOpen(e.question), withdrawn: false }))
+}
+
+/** The Questions withdrawn by an exclusion, in sheet order, tagged on from the queue (Q6… after Q1–Q5). */
+export function withdrawnQueue(questions: readonly QuestionOut[], proposals: readonly ProposalOut[], after: number): QuestionEntry[] {
+  const entries = questions.map((question) => ({ question, holds: leftOut(question, held(question, proposals)) })).filter((e) => e.holds.length > 0)
+  entries.sort((a, b) => compareNumbers(a.holds[0]!.number, b.holds[0]!.number))
+  return entries.map((e, i) => ({ ...e, tag: `Q${after + i + 1}`, kept: false, withdrawn: true }))
 }
 
 const decided = (p: ProposalOut) => p.decision !== null
@@ -190,8 +218,9 @@ export function step1Model(data: Step1Data): Step1Model {
       b.revision_mark.localeCompare(a.revision_mark, 'en', { numeric: true }),
   )
   const queue = questionQueue(data.questions, proposals)
+  const withdrawnEntries = withdrawnQueue(data.questions, proposals, queue.length)
   const heldBy = new Map<string, QuestionEntry>()
-  for (const entry of queue) for (const p of entry.holds) if (!heldBy.has(p.id)) heldBy.set(p.id, entry)
+  for (const entry of [...queue, ...withdrawnEntries]) for (const p of entry.holds) if (!heldBy.has(p.id)) heldBy.set(p.id, entry)
 
   const needsYou: Row[] = queue.map((entry) => {
     const q = entry.question
@@ -201,6 +230,15 @@ export function step1Model(data: Step1Data): Step1Model {
     const number = typeof q.params.number === 'string' ? q.params.number : null
     return { key: `q:${q.id}`, kind: number ? 'entry' : 'file', sheets: [], number, numberTo: null, question: entry }
   })
+
+  const withdrawn: Row[] = withdrawnEntries.map((entry) => ({
+    key: `q:${entry.question.id}`,
+    kind: entry.holds.length > 1 ? 'copies' : 'sheet',
+    sheets: entry.holds,
+    number: entry.holds[0]!.number,
+    numberTo: null,
+    question: entry,
+  }))
 
   const free = proposals.filter((p) => !heldBy.has(p.id))
   const proposedOut = sheetRows(free.filter((p) => !decided(p) && p.proposed_exclusion !== null))
@@ -236,9 +274,10 @@ export function step1Model(data: Step1Data): Step1Model {
   const bulkOut = free.filter((p) => !decided(p) && p.proposed_exclusion !== null && p.proposed_exclusion !== 'other' && !p.held)
   const reasons = REASONS.filter((r) => bulkOut.some((p) => p.proposed_exclusion === r))
 
-  const rows = [...needsYou, ...proposedOut, ...disciplines.flatMap((d) => d.rows)]
+  const rows = [...needsYou, ...withdrawn, ...proposedOut, ...disciplines.flatMap((d) => d.rows)]
   return {
     needsYou,
+    withdrawn,
     proposedOut,
     disciplines,
     notReceived: data.progress.not_received,
@@ -259,12 +298,14 @@ export function step1Model(data: Step1Data): Step1Model {
 /** The state a sheet row shows (6.2's State column), as data the screen words. */
 export type RowState =
   | { kind: 'question'; tag: string; kept: boolean }
+  | { kind: 'withdrawn'; tag: string }
   | { kind: 'confirmed' }
   | { kind: 'excluded'; reason: string | null; text: string }
   | { kind: 'proposed-out'; reason: string }
   | { kind: 'proposal'; oneSource: boolean }
 
 export function rowState(row: Row): RowState {
+  if (row.question?.withdrawn) return { kind: 'withdrawn', tag: row.question.tag }
   if (row.question) return { kind: 'question', tag: row.question.tag, kept: row.question.kept }
   const p = row.sheets[0]!
   if (p.decision === 'confirmed') return { kind: 'confirmed' }
@@ -296,7 +337,8 @@ export function whyOneSource(sheet: ProposalOut, section: DisciplineSection | un
 export function nextOpenRow(rows: readonly Row[], key: string | null, questionsOnly = false): Row | null {
   const at = key ? rows.findIndex((r) => r.key === key) : -1
   const ring = [...rows.slice(at + 1), ...rows.slice(0, at + 1)]
-  return ring.find((r) => (r.question ? true : !questionsOnly && r.sheets.some((s) => s.decision === null))) ?? null
+  // A withdrawn Question is not open: it waits until its sheet is to be confirmed back in.
+  return ring.find((r) => (r.question ? !r.question.withdrawn : !questionsOnly && r.sheets.some((s) => s.decision === null))) ?? null
 }
 
 /** The sheet a Discipline's drawing list was read on, when it is one of its sheets ("on the drawing list on S-01"). */

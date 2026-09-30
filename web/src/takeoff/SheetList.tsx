@@ -8,7 +8,7 @@
 import { forwardRef, type ReactNode } from 'react'
 import { Plural, Trans, useLingui } from '@lingui/react/macro'
 import { useFormat } from '@/format'
-import { DrawingText, StatusMark, cn } from '@/ui'
+import { DrawingText, StatusMark, cn, isolateLtr } from '@/ui'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/primitives/tooltip'
 import type { ProposalOut } from './data'
 import { SheetRange } from './SheetRange'
@@ -75,6 +75,24 @@ export const SheetList = forwardRef<HTMLDivElement, SheetListProps>(function She
           tone="question"
           heading={<Plural value={questions} one="Needs you: # Question open" other="Needs you: # Questions open, in the order Enter takes them" />}
           rows={model.needsYou}
+          focused={focused}
+          onFocusRow={onFocusRow}
+          onOpenRow={onOpenRow}
+          names={model.fileNames}
+          slots={slots}
+        />
+      ) : null}
+
+      {model.withdrawn.length > 0 ? (
+        <Section
+          heading={
+            <Plural
+              value={model.withdrawn.length}
+              one="# Question withdrawn when its sheet was left out: it is answered before the sheet is confirmed back in"
+              other="# Questions withdrawn when their sheets were left out: each is answered before its sheets are confirmed back in"
+            />
+          }
+          rows={model.withdrawn}
           focused={focused}
           onFocusRow={onFocusRow}
           onOpenRow={onOpenRow}
@@ -372,6 +390,15 @@ function State({ row }: { row: Row }) {
   const { i18n } = useLingui()
   const state = rowState(row)
   if (state.kind === 'question') return <StatusMark status="question" questionId={state.tag} />
+  if (state.kind === 'withdrawn') {
+    const tag = state.tag
+    return (
+      <span className="inline-flex items-center gap-1.5 text-excluded">
+        <StatusMark status="excluded" compact />
+        <Trans>Excluded; Question {tag} withdrawn</Trans>
+      </span>
+    )
+  }
   if (state.kind === 'confirmed') {
     const by = row.sheets.find((p) => p.decided_by)
     return (
@@ -457,8 +484,8 @@ function SheetRow({
   if (row.kind === 'file')
     title = file ? (
       <Trans>
-        <DrawingText kind="file-name" text={file} truncate={false} className="shrink-0" />
-        <span className="ms-1 min-w-0 truncate">Held: the two readers disagree</span>
+        <FileName name={file} />
+        <span className="ms-1 min-w-24 shrink-[0.05] truncate">Held: the two readers disagree</span>
       </Trans>
     ) : (
       <span className="min-w-0 truncate">
@@ -554,5 +581,22 @@ function SheetRow({
         <State row={row} />
       </span>
     </div>
+  )
+}
+
+/**
+ * A file name cut in its middle when it does not fit, its extension kept ("KR-STRUCTURAL-…R0.dwg" reads
+ * as "KR-STRUCT….dwg"), the whole name in its text (what a screen reader reads) and its tooltip (the
+ * review of 22, round 4, F2: a long name spilled past its cell and left the held reason no width).
+ */
+function FileName({ name }: { name: string }) {
+  const dot = name.lastIndexOf('.')
+  const stem = dot > 0 ? name.slice(0, dot) : name
+  const extension = dot > 0 ? name.slice(dot) : ''
+  return (
+    <bdi dir="ltr" data-notation="file-name" title={isolateLtr(name)} className="inline-flex min-w-16 max-w-full shrink overflow-hidden">
+      <span className="min-w-0 truncate">{stem}</span>
+      {extension ? <span className="shrink-0">{extension}</span> : null}
+    </bdi>
   )
 }

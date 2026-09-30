@@ -367,6 +367,10 @@ msgstr "No Discipline"
 msgid "<0/><1>, {count} copies</1>"
 msgstr "<0/><1>, {count} copies</1>"
 
+#: src/takeoff/Step1Screen.tsx
+msgid "Questions withdrawn"
+msgstr "Questions withdrawn"
+
 #: src/takeoff/acts.tsx
 msgid "Undone: <0/>"
 msgstr "Undone: <0/>"
@@ -512,6 +516,11 @@ msgstr "Leave out {name}: {reason}"
 #: src/takeoff/Bar.tsx
 msgid "Coverage keeps the reason. Esc cancels"
 msgstr "Coverage keeps the reason. Esc cancels"
+
+#. placeholder {0}: withdrawn.length
+#: src/takeoff/Step1Inspector.tsx
+msgid "{0, plural, one {Withdrawn when its sheet was left out} other {Withdrawn when their sheets were left out}}"
+msgstr "{0, plural, one {Withdrawn when its sheet was left out} other {Withdrawn when their sheets were left out}}"
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "Coverage, every view on every sheet read"
@@ -934,6 +943,11 @@ msgstr "A view counts once it is assigned to a step that will read it, or exclud
 msgid "In a file, not on the drawing list"
 msgstr "In a file, not on the drawing list"
 
+#. placeholder {0}: model.withdrawn.length
+#: src/takeoff/SheetList.tsx
+msgid "{0, plural, one {# Question withdrawn when its sheet was left out: it is answered before the sheet is confirmed back in} other {# Questions withdrawn when their sheets were left out: each is answered before its sheets are confirmed back in}}"
+msgstr "{0, plural, one {# Question withdrawn when its sheet was left out: it is answered before the sheet is confirmed back in} other {# Questions withdrawn when their sheets were left out: each is answered before its sheets are confirmed back in}}"
+
 #: src/takeoff/Bar.tsx
 msgid "Confirm all {n} that agree"
 msgstr "Confirm all {n} that agree"
@@ -1002,6 +1016,14 @@ msgstr "Answering keeps both copies open. Neither is read until the consultant r
 #: src/takeoff/words.tsx
 msgid "Door and window schedule"
 msgstr "Door and window schedule"
+
+#: src/takeoff/questionWords.tsx
+msgid "Questions cannot be answered on this screen yet, so {sheet} stays left out until this one is answered."
+msgstr "Questions cannot be answered on this screen yet, so {sheet} stays left out until this one is answered."
+
+#: src/takeoff/questionWords.tsx
+msgid "Withdrawn when {sheet} was left out. It is answered before {sheet} is confirmed back in."
+msgstr "Withdrawn when {sheet} was left out. It is answered before {sheet} is confirmed back in."
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "{name}: no drawing list; numbering runs {range} with gaps or repeats (see the list); {found} found."
@@ -1085,6 +1107,10 @@ msgstr "Fire hydrant layout"
 msgid "Expected sheets"
 msgstr "Expected sheets"
 
+#: src/takeoff/SheetList.tsx
+msgid "Excluded; Question {tag} withdrawn"
+msgstr "Excluded; Question {tag} withdrawn"
+
 #: src/takeoff/Step1Inspector.tsx
 msgid "{n, plural, one {Confirm the # sheet that agrees} other {Confirm the # sheets that agree}}"
 msgstr "{n, plural, one {Confirm the # sheet that agrees} other {Confirm the # sheets that agree}}"
@@ -1120,6 +1146,10 @@ msgstr "Proposed to leave out: excluded sheets stay in the count with their reas
 #: src/takeoff/Bar.tsx
 msgid "Each has a number and title from its title block and is on its drawing list."
 msgstr "Each has a number and title from its title block and is on its drawing list."
+
+#: src/takeoff/acts.tsx
+msgid "Nothing undone: your last change was not made. Press Ctrl Z again to undo the one before it."
+msgstr "Nothing undone: your last change was not made. Press Ctrl Z again to undo the one before it."
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "Confirmed by {name} (Vextrus), {date}"
@@ -1411,6 +1441,10 @@ msgstr "{n, plural, one {left out # sheet} other {left out # sheets}}"
 #: src/takeoff/Step1Inspector.tsx
 msgid "Picked for you: {sources}"
 msgstr "Picked for you: {sources}"
+
+#: src/takeoff/Bar.tsx
+msgid "Question {tag}, withdrawn: {title}"
+msgstr "Question {tag}, withdrawn: {title}"
 
 #: src/takeoff/words.tsx
 msgid "Slab layout"
@@ -1754,6 +1788,10 @@ msgstr "An answer Vextrus has no words for yet"
 #: src/takeoff/Step1Screen.tsx
 msgid "No sheets yet. The QS adds the Drawing Set’s files; Step 1 fills as they are read."
 msgstr "No sheets yet. The QS adds the Drawing Set’s files; Step 1 fills as they are read."
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Withdrawn"
+msgstr "Withdrawn"
 
 #: src/takeoff/acts.tsx
 msgid "{n, plural, one {confirmed # sheet} other {confirmed # sheets}}"

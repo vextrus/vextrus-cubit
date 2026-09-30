@@ -283,6 +283,10 @@ export function Answering({ entry, context }: { entry: QuestionEntry; context: C
   const picked = usePick(entry, context)?.key
   const n = entry.holds.length
   const q = entry.question
+  if (entry.withdrawn) {
+    const sheet = <SheetName sheets={entry.holds} />
+    return <Trans>Withdrawn when {sheet} was left out. It is answered before {sheet} is confirmed back in.</Trans>
+  }
   if (q.kind === 'file_misread') {
     const file = <FileName entry={entry} names={names} />
     return q.subject_id && names[q.subject_id] ? <Trans>Answering decides whether {file}’s sheets join the list.</Trans> : <Trans>Answering decides whether this file’s sheets join the list.</Trans>
@@ -317,6 +321,10 @@ export function CannotAnswer({ entry, readOnly }: { entry: QuestionEntry; readOn
   const { i18n } = useLingui()
   if (readOnly === 'md') return <Trans>Waiting for the QS. The MD reads Questions and cannot answer them.</Trans>
   if (readOnly === 'guest') return <Trans>Waiting for the QS. A Guest reads Questions and cannot answer them.</Trans>
+  if (entry.withdrawn) {
+    const sheet = <SheetName sheets={entry.holds} />
+    return <Trans>Questions cannot be answered on this screen yet, so {sheet} stays left out until this one is answered.</Trans>
+  }
   const discipline = entry.question.discipline
   if (!discipline) return <Trans>Questions cannot be answered on this screen yet. Confirm the other sheets meanwhile.</Trans>
   const name = disciplineName(discipline, i18n)
