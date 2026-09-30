@@ -50,14 +50,16 @@ function sheet(number: string | null, over: Partial<ProposalOut> = {}): Proposal
 
 function question(kind: string, over: Partial<QuestionOut> = {}): QuestionOut {
   n += 1
-  return { id: `q${n}`, kind, status: 'open', code: 'x.y.z', params: {}, options: [], discipline: 'structural', subject_id: null, check_code: null, answer: null, answered_at: null, ...over }
+  // 21c adds `proposals`; cast so this fixture compiles before and after its merge.
+  return { id: `q${n}`, kind, status: 'open', code: 'x.y.z', params: {}, options: [], discipline: 'structural', subject_id: null, check_code: null, answer: null, answered_at: null, proposals: [], ...over } as QuestionOut
 }
 
 function data(proposals: ProposalOut[], questions: QuestionOut[] = []): Step1Data {
   return {
     proposals,
     questions,
-    coverage: { views: 0, assigned: 0, excluded: 0, proposed: 0, unaccounted: 0, used: 0, by_step: {}, by_reason: {} },
+    // 21c adds `unaccounted_views` and `unread_sheets`; cast so this compiles before and after its merge.
+    coverage: { views: 0, assigned: 0, excluded: 0, proposed: 0, unaccounted: 0, used: 0, by_step: {}, by_reason: {}, unaccounted_views: [], unread_sheets: 0 } as Step1Data['coverage'],
     progress: { disciplines: [], not_received: [], qs: [] },
     lists: {},
   }
