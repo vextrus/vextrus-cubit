@@ -1804,9 +1804,17 @@ msgstr "Water tank details"
 msgid "Undo your last act on Step 1"
 msgstr "Undo your last act on Step 1"
 
+#: src/takeoff/SheetList.tsx
+msgid "{file}, layout “<0/>”"
+msgstr "{file}, layout “<0/>”"
+
 #: src/takeoff/words.tsx
 msgid "Not part of this set: take it off the list"
 msgstr "Not part of this set: take it off the list"
+
+#: src/takeoff/SheetList.tsx
+msgid "{file}, laid out in the drawing"
+msgstr "{file}, laid out in the drawing"
 
 #: src/takeoff/SheetList.tsx
 msgid "Each slot is a storey: foundations, Basement, Ground, Mezzanine, 1st to 9th, Roof, the roofs above. A full slot is floor to floor; a bar at its foot is members at that floor level."

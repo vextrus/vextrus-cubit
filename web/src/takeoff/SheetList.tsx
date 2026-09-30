@@ -35,7 +35,7 @@ export interface SheetListProps {
 const COLS = cn(
   'grid items-center gap-x-2',
   'grid-cols-[24px_76px_minmax(0,1fr)_78px_106px_180px_40px_150px]',
-  '@min-[1000px]:grid-cols-[24px_76px_minmax(0,1fr)_78px_106px_232px_40px_150px]',
+  '@min-[1000px]:grid-cols-[24px_76px_minmax(0,1fr)_78px_106px_232px_40px_104px_150px]',
 )
 
 export const SheetList = forwardRef<HTMLDivElement, SheetListProps>(function SheetList({ model, focused, onFocusRow, onOpenRow, onPasteList }, ref) {
@@ -61,6 +61,9 @@ export const SheetList = forwardRef<HTMLDivElement, SheetListProps>(function She
         <StoreysHeader />
         <span role="columnheader" className="text-end">
           <Trans>Views</Trans>
+        </span>
+        <span role="columnheader" className={FILE_COLUMN}>
+          <Trans>File</Trans>
         </span>
         <span role="columnheader">
           <Trans>State</Trans>
@@ -272,7 +275,34 @@ function Section({
   )
 }
 
-/** The Discipline's name; its tooltip names the file it came from (6.2; the list has no File column). */
+/** 6.2's File column: shown only where the list is at least 1000 px wide. */
+const FILE_COLUMN = 'hidden @min-[1000px]:block'
+
+/** The source file (6.2); its tooltip adds where in it the sheet is laid out. */
+function FileCell({ sheet }: { sheet: ProposalOut }) {
+  const file = <DrawingText kind="file-name" text={sheet.file_name} truncate={false} />
+  const layout = sheet.layout
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span tabIndex={-1} className="block truncate">
+          <DrawingText kind="file-name" text={sheet.file_name} />
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>
+        {layout ? (
+          <Trans>
+            {file}, layout “<DrawingText kind="mark" text={layout} truncate={false} />”
+          </Trans>
+        ) : (
+          <Trans>{file}, laid out in the drawing</Trans>
+        )}
+      </TooltipContent>
+    </Tooltip>
+  )
+}
+
+/** The Discipline's name; its tooltip names the file it came from (6.2). */
 function DisciplineCell({ sheet }: { sheet: ProposalOut }) {
   const { i18n } = useLingui()
   const name = disciplineName(sheet.discipline, i18n)
@@ -511,6 +541,9 @@ function SheetRow({
         {first ? f.integer(row.sheets.reduce((n, p) => n + (p.views?.length ?? 0), 0)) : null}
       </span>
 
+      <span role="gridcell" className={cn(FILE_COLUMN, 'min-w-0 text-xs text-ink-secondary')}>
+        {first ? <FileCell sheet={first} /> : null}
+      </span>
       <span role="gridcell" className="truncate text-xs">
         <State row={row} />
       </span>

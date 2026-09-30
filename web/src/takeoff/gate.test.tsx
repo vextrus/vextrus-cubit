@@ -408,6 +408,21 @@ describe('M17: Space goes back to the list from anywhere in the sheet', () => {
   })
 })
 
+describe('6.2: the File column, from 1000 px', () => {
+  it('names each row’s file at 1440 and is not shown at 1280', async () => {
+    const { api, step1 } = kr01()
+    const s05 = step1.proposals.find((p) => p.number === 'S-05')!
+    await open(api)
+    const headers = () => screen.getAllByRole('columnheader').map((h) => clean(h.textContent))
+    expect(headers()).toContain('File')
+    const cells = within(rowOf('S-05')).getAllByRole('gridcell').map((c) => clean(c.textContent))
+    expect(cells[7]).toBe(s05.file_name)
+    await page.viewport(1280, 800)
+    await waitFor(() => expect(headers()).not.toContain('File'))
+    expect(within(rowOf('S-05')).getAllByRole('gridcell').map((c) => clean(c.textContent))).not.toContain(s05.file_name)
+  })
+})
+
 describe('M9: focus is visible on the list’s rows', () => {
   it('draws an outline on the row ↓ focuses', async () => {
     const { api } = kr01()
