@@ -289,6 +289,8 @@ def _spline(values: dict[str, Any], tolerance: float, shape: Shape) -> None:
         spline = BSpline(xyz, order=degree + 1, knots=knots, weights=weights)
         segments = min(MAX_SEGMENTS, max(8, len(xyz) * 8))
         path = np.array([(v.x, v.y) for v in spline.approximate(segments)])
+    except MemoryError:
+        raise  # the job's memory limit, never a shape left out (24)
     except Exception as error:  # ezdxf refuses knots or weights that do not fit the points
         raise Undrawable("a spline ezdxf cannot evaluate") from error
     if not np.isfinite(path).all():

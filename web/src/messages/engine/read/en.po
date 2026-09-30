@@ -22,7 +22,7 @@ msgid "engine.read.layer_unresolved"
 msgstr "{count, plural, one {# item names a layer the file does not hold} other {# items name a layer the file does not hold}}"
 
 msgid "engine.read.limit_reached"
-msgstr "{limit, select, cpu {The drawing could not be read in the time Vextrus gives one file. Try again; if it stops again, mark the file for Vextrus.} wall {The drawing could not be read in the time Vextrus gives one file. Try again; if it stops again, mark the file for Vextrus.} killed {The drawing could not be read: the machine reading it stopped it, most likely because it needed more memory than the machine could give. Mark the file for Vextrus.} other {The drawing could not be read: reading it reached a limit Vextrus sets on one file. Mark the file for Vextrus.}}"
+msgstr "{limit, select, cpu {The drawing could not be read in the time Vextrus gives one file. Try again; if it stops again, mark the file for Vextrus.} wall {The drawing could not be read in the time Vextrus gives one file. Try again; if it stops again, mark the file for Vextrus.} killed {The drawing could not be read: it was stopped, most likely because it needs more memory than Vextrus gives one file. Mark the file for Vextrus.} memory {The drawing could not be read: it needs more memory than Vextrus gives one file. Mark the file for Vextrus.} other {The drawing could not be read: reading it reached a limit Vextrus sets on one file. Mark the file for Vextrus.}}"
 
 msgid "engine.read.objects_missing"
 msgstr "The drawing could not be read: {count, plural, one {# object it lists is} other {# objects it lists are}} missing, so the file may be damaged"
