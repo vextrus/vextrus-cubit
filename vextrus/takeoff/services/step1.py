@@ -44,7 +44,7 @@ from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 from django.db import transaction
 from django.db.models import Q
@@ -126,6 +126,9 @@ class ProposalView:
     excluded_text: str
     decided_by: str | None
     decided_at: datetime | None
+    decided_act: str | None = None
+    """The kind of the act that decided it (`ConfirmationKind`: `single`, `bulk`, or
+    `question_answer` when answering a Question confirmed or left it out); None while undecided."""
     agrees: bool = False
     """Two sources agree on it (m0-screens §5, "What 'agrees' means"): its number and title from its
     title block, and its Discipline's drawing list naming it, or, with no list, its Discipline's
@@ -274,7 +277,7 @@ def proposals(project_id: uuid.UUID) -> list[ProposalView]:
     stamps = {s.confirmation_id for s in sheets if s.confirmation_id}
     # Who and when, from the act that decided each sheet (a decision put back by an undo keeps its
     # own act's name and time).
-    who = {c.id: (c.by_name, c.at) for c in Confirmation.objects.filter(id__in=stamps)}
+    who = {c.id: (c.by_name, c.at, c.kind) for c in Confirmation.objects.filter(id__in=stamps)}
     agreeing = _agreeing(project_id, sheets, by_sheet)
     return [
         replace(_proposal_view(s, by_sheet.get(s.id), names, who), agrees=s.id in agreeing)
@@ -349,9 +352,10 @@ def _proposal_view(
     sheet: drawings.SheetView,
     proposal: Proposal | None,
     names: Mapping[uuid.UUID, str],
-    who: Mapping[uuid.UUID, tuple[str, datetime]],
+    who: Mapping[uuid.UUID, tuple[str, datetime, str]],
 ) -> ProposalView:
-    by, at = who.get(sheet.confirmation_id, (None, None)) if sheet.confirmation_id else (None, None)
+    found = who.get(sheet.confirmation_id) if sheet.confirmation_id else None
+    by, at, act = found if found else (None, None, None)
     pick = dict(proposal.jev_pick) if proposal and proposal.jev_pick else None
     return ProposalView(
         id=proposal.id if proposal else sheet.id,
@@ -374,6 +378,7 @@ def _proposal_view(
         excluded_text=sheet.excluded_text,
         decided_by=by,
         decided_at=at or sheet.decided_at,
+        decided_act=act if sheet.decision else None,
     )
 
 
@@ -843,6 +848,7 @@ def _act(
     *,
     discipline: str = "",
     before: Sequence[drawings.SheetView] = (),
+    answering: bool = False,
 ) -> Confirmation:
     return Confirmation.objects.create(
         before={"sheets": {str(sheet.id): _decision_of(sheet) for sheet in before}},
@@ -852,7 +858,13 @@ def _act(
         discipline=discipline,
         user_id=_user(),
         by_name=actor_name,
-        kind=ConfirmationKind.BULK if sheets > 1 else ConfirmationKind.SINGLE,
+        kind=(
+            ConfirmationKind.QUESTION_ANSWER
+            if answering
+            else ConfirmationKind.BULK
+            if sheets > 1
+            else ConfirmationKind.SINGLE
+        ),
         act=act,
         proposals=sheets,
     )
@@ -887,11 +899,28 @@ def confirm(
     project_id: uuid.UUID, ids: Sequence[object], *, kind: str | None = None, actor_name: str
 ) -> ActView:
     """Confirm the named sheets, one or in bulk, each with `kind` when given, else its proposed kind
-    (Jev's pick, else the kind read). Each change to Jev's pick is logged under the QS."""
+    (Jev's pick, else the kind read). Each change to Jev's pick is logged under the QS. Only sheets
+    two sources agree on join a bulk act (m0-screens 6.4): one naming any sheet with one source is
+    refused whole (409); such a sheet is confirmed on its own."""
+    return _confirm(project_id, ids, kind=kind, actor_name=actor_name, answering=False)
+
+
+def _confirm(
+    project_id: uuid.UUID,
+    ids: Sequence[object],
+    *,
+    kind: str | None,
+    actor_name: str,
+    answering: bool,
+) -> ActView:
+    """`confirm`; `answering` when a Question's answer confirms what it held: its sheets never agree
+    (an open Question holds them), so the answer is its own act, of kind `question_answer`."""
     auth.require(acts.CONFIRM, project_id)
     with transaction.atomic():
         chosen = _chosen(project_id, ids)
         _no_question_first(project_id, chosen)
+        if not answering:
+            _no_one_source_in_bulk(project_id, chosen)
         act = _act(
             project_id,
             ConfirmationAct.CONFIRM,
@@ -899,6 +928,7 @@ def confirm(
             actor_name,
             discipline=_one(chosen),
             before=[sheet for sheet, _p in chosen],
+            answering=answering,
         )
         for sheet, proposal in chosen:
             proposal = proposal or _propose(project_id, sheet)
@@ -920,6 +950,26 @@ def confirm(
             _decide_views(sheet.id, act, None, "")
         record_progress(project_id)
     return _act_view(act)
+
+
+def _no_one_source_in_bulk(
+    project_id: uuid.UUID, chosen: Sequence[tuple[drawings.SheetView, Proposal | None]]
+) -> None:
+    """Refuse (409, nothing done) an act of more than one sheet naming any sheet with one source
+    (`ProposalView.agrees` false), naming each of them by its Proposal's id (the printed sheet's while
+    none is proposed), in the order chosen, the first by number, and how many."""
+    if len(chosen) < 2:
+        return
+    by_sheet = {p.subject_id: p for p in _proposals_of(project_id)}
+    agreeing = _agreeing(project_id, _sheets(project_id), by_sheet)
+    lone = [(sheet, p) for sheet, p in chosen if sheet.id not in agreeing]
+    if not lone:
+        return
+    first, _p = lone[0]
+    # `sheets` is a list, which `Message`'s params (str | int) do not type: the ruling's shape.
+    message = said.ONE_SOURCE(count=len(lone), sheets="", **_named(first))
+    message["params"]["sheets"] = cast(Any, [str(p.id if p else s.id) for s, p in lone])
+    raise auth.Refused(message, status=409)
 
 
 FIRST = (QuestionKind.MISSING, QuestionKind.MISSING_DISCIPLINE)
@@ -1002,6 +1052,19 @@ def exclude(
 ) -> ActView:
     """Leave the named sheets out, for one of the seven reasons ("other" with the QS's words; with any
     other reason the words are not kept); their views are excluded with them."""
+    return _exclude(project_id, ids, reason, text, actor_name=actor_name, answering=False)
+
+
+def _exclude(
+    project_id: uuid.UUID,
+    ids: Sequence[object],
+    reason: str,
+    text: str = "",
+    *,
+    actor_name: str,
+    answering: bool,
+) -> ActView:
+    """`exclude`; `answering` when a Question's answer leaves the sheets out (`_confirm`'s)."""
     auth.require(acts.EXCLUDE, project_id)
     words = text if reason == OTHER else ""
     with transaction.atomic():
@@ -1014,6 +1077,7 @@ def exclude(
             actor_name,
             discipline=_one(chosen) if chosen else "",
             before=[sheet for sheet, _p in chosen],
+            answering=answering,
         )
         _withdraw_first(project_id, chosen, act)
         for sheet, proposal in chosen:
@@ -1727,12 +1791,12 @@ def _apply(
             copies = [listed[i] for i in held if i in listed]
             if copies:
                 latest = max(copies, key=_newest)
-                confirm(project_id, [latest.id], actor_name=actor_name)
+                _confirm(project_id, [latest.id], kind=None, actor_name=actor_name, answering=True)
                 others = [p.id for p in copies if p.id != latest.id]
                 if others:
-                    exclude(project_id, others, "superseded", actor_name=actor_name)
+                    _exclude(project_id, others, "superseded", actor_name=actor_name, answering=True)
         elif option == "keep_all" and held:
-            confirm(project_id, list(held), actor_name=actor_name)
+            _confirm(project_id, list(held), kind=None, actor_name=actor_name, answering=True)
     elif kind == QuestionKind.MISSING and option == "type_number":
         if not text:
             raise auth.Refused(answer_codes.NUMBER_NEEDED(), status=400)
@@ -1743,7 +1807,7 @@ def _apply(
         drawings.set_sheet_discipline(row.subject_id, option)
     elif kind == QuestionKind.LOW_CONFIDENCE and held:
         try:
-            confirm(project_id, list(held), kind=option, actor_name=actor_name)
+            _confirm(project_id, list(held), kind=option, actor_name=actor_name, answering=True)
         except auth.Refused as refused:  # its number or Discipline is still asked: keep the kind
             if refused.message["code"] != said.QUESTION_FIRST.code:
                 raise

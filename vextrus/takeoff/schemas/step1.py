@@ -42,6 +42,9 @@ class Step1ProposalOut(_FromView):
     decided_by: str | None
     """Who confirmed or left it out, by name."""
     decided_at: datetime | None
+    decided_act: str | None
+    """The kind of the act that decided it: `single`, `bulk` (with other sheets in one act) or
+    `question_answer` (answering a Question confirmed or left it out); null while undecided."""
     agrees: bool
     """Two sources agree on it (m0-screens §5): it joins the bulk act; else "Proposal, one source"."""
 
