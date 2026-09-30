@@ -19,6 +19,7 @@ from typing import Any
 from django.db.models import Q, Sum
 
 from engine.messages import Message
+from engine.messages.decoders_agree import DISAGREE
 from vextrus.drawings.messages import reports as said
 from vextrus.drawings.models import (
     DrawingFile,
@@ -26,6 +27,7 @@ from vextrus.drawings.models import (
     HeldAnswer,
     PlotNone,
     ReadStatus,
+    ReadStep,
     SheetRevision,
 )
 from vextrus.drawings.services import _access, drawing_files
@@ -80,6 +82,13 @@ def _messages(stored: dict[str, Any] | None) -> tuple[Message, ...]:
 def _readers(row: DrawingFile) -> list[Message]:
     finding = row.finding
     stopped = row.read_status in (ReadStatus.FAILED, ReadStatus.QUARANTINED)
+    if (
+        finding
+        and row.read_status == ReadStatus.QUARANTINED
+        and row.held_answer == HeldAnswer.READ_ANYWAY
+        and finding.get("code") == DISAGREE.code
+    ):
+        return [said.READ_ANYWAY(**finding["params"])]
     if finding and (stopped or str(finding.get("code", "")).startswith("engine.decoders_agree.")):
         return [Message(code=finding["code"], params=finding["params"])]
     check = row.cross_check or {}
@@ -121,7 +130,22 @@ def _sheets(row: DrawingFile) -> list[Message]:
     views = SheetRevision.objects.filter(source_file=row).aggregate(n=Sum("views_refused"))["n"]
     if views:
         lines.append(said.VIEWS_NOT_KEPT(views=views))
+    # Every limit that cut the reading, each once: "no sheets" is never said without its reason.
+    lines += _not_read_in_full(row)
     return lines
+
+
+def _not_read_in_full(row: DrawingFile) -> list[Message]:
+    """What the step that marked the file read kept of the limits that cut it (`reads.mark_read`):
+    the latest such step's, since a file is marked read once per reading."""
+    result = (
+        ReadStep.objects.filter(file=row, step=drawing_files.FINISHING)
+        .order_by("-created_at", "-id")
+        .values_list("result", flat=True)
+        .first()
+    )
+    said_cut = (result or {}).get("not_read_in_full", ())
+    return [Message(code=m["code"], params=m["params"]) for m in said_cut]
 
 
 def _plot(row: DrawingFile) -> list[Message]:

@@ -29,4 +29,10 @@ def test_seed_demo_runs_every_seed_passing_what_each_made_on(
     call_command("seed_demo")
 
     assert ran == [(name, sorted(SEEDS[:index])) for index, name in enumerate(SEEDS)]
-    assert "seeded: 4 named rows" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "seeded: 4 named rows" in out
+    # The seeded reading PDF's time left lasts 30 minutes (vextrus/seed/drawings.py, PAGE_MINUTES).
+    assert (
+        "Run flush then seed_demo just before a walk: the reading PDF shows its time left for"
+        " 30 minutes." in out
+    )

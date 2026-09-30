@@ -307,3 +307,21 @@ def test_a_file_whose_reading_has_ended_is_not_started_again_and_says_so(
             services.restart(add(qs_project.member, qs_project.project_id, "W.dwg", drawing()).file.id)
     assert (again.value.status, again.value.message) == (409, said.ALREADY_ENDED())
     assert (waiting.value.status, waiting.value.message) == (409, said.NOT_STOPPED())
+
+
+def test_a_held_dwg_read_anyway_with_no_sheets_leaves_its_pdf_waiting(qs_project: QsProject) -> None:
+    """#131: a held DWG read anyway counts as read for its Discipline's PDFs only once it has sheets
+    to match; with none, the PDF says 4.5's "PDF before its DWG", never "0 of N pages matched"."""
+    member = qs_project.member
+    held = add(member, qs_project.project_id, "BP-ARC-old.dwg", drawing()).file
+    early = add(member, qs_project.project_id, "BP-ARC-R0.pdf", drawing("pdf")).file
+    with member.acting():
+        services.quarantine(held.id, {"code": "engine.decoders_agree.disagree", "params": {}})
+        services.answer_held(held.id, "read_anyway")
+        services.record_reports(early.id, upload_report=pdf_report(early.sha256, 6))
+        services.mark_read(early.id)
+    assert status(member, early.id) == ("read", said.PLOT_WAITING())
+
+    # Once it has sheets, its PDF is matched against them (none of its pages matched here).
+    read_dwg(member, held.id, ["A-01", "A-02"], mark_read=False)
+    assert status(member, early.id) == ("read", said.PLOT_MATCHED(matched=0, pages=6))

@@ -103,8 +103,9 @@ trap 'rm -f "$tmp"' EXIT
 cat > "$tmp" <<RULE
 # Installed by scripts/owner/autonomy-setup.sh (ADR 0041). $OWNER runs, as $KEY_USER and without a
 # password, exactly these two programs and nothing else: the poster with any arguments (it checks
-# them), the scorer with exactly one run id (a regular expression, so no path and no option).
-$OWNER ALL=($KEY_USER) NOPASSWD: $POSTER, $SCORER ^[0-9A-Za-z-]+\$
+# them), the scorer with exactly one run id (a regular expression: a letter or digit first, then
+# letters, digits and hyphens, so no path, no option and no second argument).
+$OWNER ALL=($KEY_USER) NOPASSWD: $POSTER, $SCORER ^[0-9A-Za-z][0-9A-Za-z-]*\$
 RULE
 visudo -cf "$tmp" >/dev/null || die "the new rule does not validate; nothing was installed"
 ok "the rule validates:"
@@ -132,6 +133,14 @@ check() {
   else printf '  FAILED: %s\n' "$1"; fail=$((fail + 1)); fi
 }
 as_owner() { printf 'sudo -u %s -- sudo -n -u %s %s' "$OWNER" "$KEY_USER" "$*"; }
+# Runs the command as $OWNER with -n and passes only on sudo's own refusal: exit 1 with sudo's message
+# ("sudo: a password is required"). Not a listing (-l): $OWNER keeps an all-commands password rule
+# (custody-setup.sh), which a listing reports as allowed; and not the program's own non-zero exit.
+refused() {
+  local said code=0
+  said=$(sudo -u "$OWNER" -- sudo -n -u "$KEY_USER" "$@" 2>&1 >/dev/null) || code=$?
+  [ "$code" = 1 ] && [ "${said#sudo: }" != "$said" ]
+}
 check "$OWNER is refused running id as $KEY_USER" "! $(as_owner id)"
 check "$OWNER is refused a shell as $KEY_USER" "! $(as_owner /bin/sh -c true)"
 check "$OWNER is refused reading $KEY_USER's home" "! $(as_owner cat /home/$KEY_USER/.profile)"
@@ -147,9 +156,10 @@ if [ -x "$SCORER" ]; then
   # which proves it ran as the key user (sudo's own refusal is 1).
   check "$OWNER may run the scorer as $KEY_USER on a run id" \
     "$(as_owner "$SCORER" 20260101T000000Z-000000000000-0000); case \$? in 0|2) true ;; *) false ;; esac"
-  check "$OWNER is refused the scorer with no run id" "! $(as_owner "$SCORER")"
-  check "$OWNER is refused the scorer on a path" "! $(as_owner "$SCORER" /home/$KEY_USER/keys)"
-  check "$OWNER is refused the scorer with an option" "! $(as_owner "$SCORER" --key x)"
+  check "$OWNER is refused the scorer with no run id" "refused $SCORER"
+  check "$OWNER is refused the scorer on a path" "refused $SCORER /home/$KEY_USER/keys"
+  check "$OWNER is refused the scorer with an option" "refused $SCORER --key x"
+  check "$OWNER is refused the scorer with a lone option" "refused $SCORER --help"
 else
   warn "the scorer is not installed yet, so its check is skipped"
 fi
