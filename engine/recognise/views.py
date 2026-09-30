@@ -42,8 +42,13 @@ takes the piece it lies under (a drawing titled beneath, the convention; within 
 height), else the piece it lies over (within `TITLE_GAP_UNDER`), else, after all of those, the piece
 whose box holds it within `TITLE_INSIDE` of its lower or upper edge (a section's ground line running
 under and past its title), nearest first, one title a piece; a band less tall than `MIN_DRAWING` of its
-height is never its drawing, and joins its view when it meets the title. A titled piece that is a row
-under a larger piece without a title (no taller than `ROW_SHARE` of it, across its width, within
+height is never its drawing, and joins its view when it meets the title. **Section drawings one piece
+holds** (a beam's long section and its cross sections, joined by their bar labels) are parted first: a
+piece several section titles share (a title shares the piece whose box holds it, else its best drawing)
+is cut along its widest band free of lines, down or across, at least `SHARED_CUT_MM`, with titles on
+both sides (a title in a band across is the drawing's over it), until each part holds one title, whose
+drawing it is (`_cut_shared`); a piece another kind's title shares is left whole. A titled piece that
+is a row under a larger piece without a title (no taller than `ROW_SHARE` of it, across its width, within
 `JOIN_MM` of it) is that drawing's detached row of grid marks and dimensions, which is what the title
 lies nearest: the view takes the body too. A title's second lines, and up to `MAX_TITLE_LINES` one-line
 texts standing under a drawing's title (its scale line, its storeys; not a notes, legend or schedule
@@ -180,6 +185,11 @@ MIN_UNTITLED = 0.02
 """A piece with no title is a view when its box covers this share of the paper."""
 JOIN_MM = 10.0
 """A small piece joins a view whose box, grown by this on paper, in mm, holds it."""
+SHARED_CUT_MM = 4.0
+"""The narrowest band free of lines, on paper in mm, that parts the section drawings one piece holds
+under their own titles (a beam's long section and its cross sections, joined by their bar labels)."""
+MAX_CUT_WEIGHS = 20_000_000
+"""The most lines a sheet's cuts of shared pieces weigh together (each cut weighs its part's lines)."""
 DIVIDER_SHARE = 0.6
 """A straight line along the paper's axes this share of the paper's side or longer is a border or a
 divider between views (the real sets rule rows of details apart), never a view's drawing."""
@@ -1258,9 +1268,11 @@ def _views(
     paper_area = (rx1 - rx0) * (ry1 - ry0)
     unit = max(rx1 - rx0, ry1 - ry0) / REFERENCE_MM  # this paper's mm per an A1's
 
+    grid_texts = [i for i in range(len(texts)) if i not in off_grid]
+    pieces, cut = _cut_shared(drawn, texts, titles, grid_texts, pieces, reading, unit)
     pairs = _pairs(texts, titles, pieces, unit)
-    by_title: dict[int, int] = {}
-    by_piece: dict[int, int] = {}
+    by_title: dict[int, int] = dict(cut)
+    by_piece: dict[int, int] = {k: ti for ti, k in cut.items()}
     for _, ti, k in pairs:
         if ti in by_title or k in by_piece:
             continue
@@ -1362,6 +1374,137 @@ def _pairs(
                     pairs.append((TITLE_GAP + TITLE_GAP_UNDER + depth, ti, k))
     pairs.sort()
     return pairs
+
+
+def _cut_shared(
+    paper: _Paper,
+    texts: Sequence[_Text],
+    titles: Sequence[int],
+    grid_texts: Sequence[int],
+    pieces: list[_Piece],
+    reading: _Reading,
+    unit: float,
+) -> tuple[list[_Piece], dict[int, int]]:
+    """Pieces several section titles share, cut into their drawings: the pieces, and the title each
+    part with one title is given (title -> piece).
+
+    A title shares the smallest piece whose box holds its centre (a cross section's title standing
+    inside its beam's piece), else the piece it is the best candidate for (`_pairs`). A piece two or
+    more titles share, every one a section's (another kind's drawings are left whole), is cut along the
+    widest band free of its lines, down or across, at least `SHARED_CUT_MM` wide, that leaves titles on
+    both sides (a title in a band across is the drawing's over it, the convention), and each part again
+    while it holds several. A part's box is its lines and the texts on the grid whose centre falls in
+    its share of the piece's box."""
+    best: dict[int, int] = {}
+    for ti in titles:
+        centre = _centre(texts[ti].box)
+        holders = [k for k, piece in enumerate(pieces) if _inside(centre, piece.box)]
+        if holders:
+            best[ti] = min(holders, key=lambda k: pieces[k].area)
+    for _, ti, k in _pairs(texts, titles, pieces, unit):
+        best.setdefault(ti, k)
+    shared: dict[int, list[int]] = {}
+    for ti, k in best.items():
+        shared.setdefault(k, []).append(ti)
+    shared = {
+        k: held
+        for k, held in shared.items()
+        if len(held) > 1 and all(_kind(texts[ti].shown, reading) is ViewKind.SECTION for ti in held)
+    }
+    if not shared:
+        return pieces, {}
+    rx0, ry0, rx1, ry1 = paper.region
+    lines = _dividers_out(_clip(paper.segments, paper.region), rx1 - rx0, ry1 - ry0)
+    words = np.array([texts[i].box for i in grid_texts], dtype=np.float64).reshape(-1, 4)
+    middles = np.stack([(words[:, 0] + words[:, 2]) / 2, (words[:, 1] + words[:, 3]) / 2], axis=1)
+    width = SHARED_CUT_MM * unit
+    budget = MAX_CUT_WEIGHS
+    out = list(pieces)
+    given: dict[int, int] = {}
+    for k, held in shared.items():
+        stack = [(lines[_segments_in(lines, pieces[k].box)], pieces[k].box, held)]
+        parts: list[tuple[NDArray[np.float64], Bounds, list[int]]] = []
+        while stack:
+            part_lines, region, part_titles = stack.pop()
+            budget -= len(part_lines)
+            found = None
+            if len(part_titles) > 1 and budget >= 0:
+                found = _widest_cut(part_lines, [texts[ti].box for ti in part_titles], width)
+            if found is None:
+                parts.append((part_lines, region, part_titles))
+                continue
+            axis, at, (low, high) = found
+            lower, upper = list(region), list(region)
+            lower[axis + 2], upper[axis] = at, at
+            ends = part_lines[:, [axis, axis + 2]]
+            stack.append(
+                (part_lines[ends.max(axis=1) < at], _bounds4(lower), [part_titles[i] for i in low])
+            )
+            stack.append(
+                (part_lines[ends.min(axis=1) >= at], _bounds4(upper), [part_titles[i] for i in high])
+            )
+        if len(parts) < 2:
+            continue
+        for n, (part_lines, region, part_titles) in enumerate(parts):
+            box = _bounds4(
+                [
+                    float(part_lines[:, [0, 2]].min()),
+                    float(part_lines[:, [1, 3]].min()),
+                    float(part_lines[:, [0, 2]].max()),
+                    float(part_lines[:, [1, 3]].max()),
+                ]
+            )
+            inside = (
+                (middles[:, 0] >= region[0]) & (middles[:, 0] < region[2])
+                & (middles[:, 1] >= region[1]) & (middles[:, 1] < region[3])
+                & (middles[:, 0] >= pieces[k].box[0]) & (middles[:, 0] <= pieces[k].box[2])
+                & (middles[:, 1] >= pieces[k].box[1]) & (middles[:, 1] <= pieces[k].box[3])
+            )  # fmt: skip
+            if inside.any():
+                w = words[inside]
+                box = _union(box, _bounds4([w[:, 0].min(), w[:, 1].min(), w[:, 2].max(), w[:, 3].max()]))
+            piece = _Piece(box, len(part_lines), int(inside.sum()))
+            index = k if n == 0 else len(out)
+            if n == 0:
+                out[k] = piece
+            else:
+                out.append(piece)
+            if len(part_titles) == 1:
+                given[part_titles[0]] = index
+    return out, given
+
+
+def _widest_cut(
+    lines: NDArray[np.float64], titles: Sequence[Bounds], width: float
+) -> tuple[int, float, tuple[list[int], list[int]]] | None:
+    """The widest band free of `lines`, down (axis 0) or across (axis 1), at least `width` wide, with
+    titles on both sides: `(axis, where the parts meet, (the titles below it, those above it))` as
+    indices into `titles`, else None. A title's side is its centre's; in a band across, it is the
+    drawing's over it (a title stands under its drawing)."""
+    if len(lines) < 2:
+        return None
+    best: tuple[float, int, float, tuple[list[int], list[int]]] | None = None
+    for axis in (0, 1):
+        lo = np.minimum(lines[:, axis], lines[:, axis + 2])
+        hi = np.maximum(lines[:, axis], lines[:, axis + 2])
+        order = np.argsort(lo, kind="stable")
+        lo, reach = lo[order], np.maximum.accumulate(hi[order])
+        gaps = lo[1:] - reach[:-1]
+        for g in np.flatnonzero(gaps >= width):
+            start, end = float(reach[g]), float(lo[g + 1])
+            at = (start + end) / 2
+            edge = at if axis == 0 else start
+            low = [i for i, t in enumerate(titles) if _centre(t)[axis] < edge]
+            high = [i for i, t in enumerate(titles) if _centre(t)[axis] >= edge]
+            if low and high and (best is None or end - start > best[0]):
+                best = (end - start, axis, at, (low, high))
+    if best is None:
+        return None
+    return best[1], best[2], best[3]
+
+
+def _bounds4(values: Sequence[float]) -> Bounds:
+    return (float(values[0]), float(values[1]), float(values[2]), float(values[3]))
 
 
 def _title_lines(
