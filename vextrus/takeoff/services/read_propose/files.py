@@ -303,6 +303,10 @@ def _match(file_id: uuid.UUID) -> jobs.StepResult:
         matched = plot.match(file_id)
     except ReadError as error:
         raise _Unread(error.message) from error
+    except storage.FileMissing as missing:
+        raise _Unread(missing.message) from None
+    except storage.StorageError:  # damaged, or something planted where the file goes
+        raise _Unread(storage.FileChanged.message) from None
     return {"state": state, "plot": matched}
 
 

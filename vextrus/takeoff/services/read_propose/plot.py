@@ -13,20 +13,25 @@ neither the file read nor its matches. The set's matching is held one at a time
 **A DWG** (`finishing`): the set's read PDFs' pages against every listed sheet, its own now among
 them; only the pages that could be its sheets' are matched in full (named for one of them, or naming
 none surely: several sheets alike, or no text), the rest named as before, so a set's Plot is not
-aligned again each time one of its DWGs is read. A page's naming depends on the page and the whole
-sheet list alone, so both orders name each page alike.
+aligned again each time one of its DWGs is read. A page's naming depends on the page, the whole
+sheet list and, for a page matched by its ink, the other pages' text (`registration.unclaimed`),
+so both orders name each page alike.
 
-**What is kept.** A sheet named by a page gets it, placed, unless it has a page of another PDF
-already (the first PDF with a page for a sheet is its Plot, the report's rule), or another page of
-this run named it first. A sheet with a number, of a Discipline a read PDF covers (the PDF's own, or
-the PDF of none), and still with no page is kept as `PlotNone.NO_PAGE` naming that PDF (its own
-Discipline's first, then the first added: the sheet list's order): the match ran, and found none.
+**What is kept.** A sheet named by a page gets it, placed, unless it has a page of a PDF added
+before this page's (the first added PDF with a page for a sheet is its Plot, the report's rule,
+whichever was read first), or another page of the same PDF names it more surely (its own page: the
+number whole, in the larger text; `registration.mention`), or an earlier page of this run named it
+(the PDFs first added first, each page in order). A sheet with a number, of a Discipline a PDF
+tried here covers (the PDF's own, or the PDF of none), and still with no page is kept as
+`PlotNone.NO_PAGE` naming such a PDF (its own Discipline's first, then the first added: the sheet
+list's order): the match ran, and found none. Another read PDF whose copy or reading fails now is
+left out, never named; this file's own fails the file.
 Each PDF's pages that matched no sheet are kept as its report's lines (18's reason, with the page).
 """
 
 import uuid
 from collections import OrderedDict
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from contextlib import ExitStack
 from decimal import Decimal
 from pathlib import Path
@@ -42,7 +47,7 @@ from engine.read.pdf.types import Page
 from engine.recognise.types import Box, PlotMatch, SheetCandidate, SheetLocation, Sourced, ValueSource
 from engine.render.buffers import SheetBuffers
 from vextrus.drawings import services as drawings
-from vextrus.platform.services import auth, jobs
+from vextrus.platform.services import auth, jobs, storage
 
 KEPT_BUFFERS = 4
 """The most sheets' render buffers held at once while matching (a large set's are loaded as a page
@@ -58,7 +63,7 @@ def match(file_id: uuid.UUID) -> jobs.StepResult:
     view = drawings.file(file_id)
     drawings.hold_plots(view.set_id)
     listed = drawings.sheets(view.set_id)
-    pdfs = [f for f in drawings.files(view.set_id) if _is_read_pdf(f)]
+    pdfs = sorted((f for f in drawings.files(view.set_id) if _is_read_pdf(f)), key=_added)
     tried = [f for f in pdfs if f.id == file_id] if view.format == "pdf" else pdfs
     if not listed or not tried:
         return {"pages": 0, "matched": 0}
@@ -68,12 +73,12 @@ def match(file_id: uuid.UUID) -> jobs.StepResult:
         paths: dict[str, Path] = {}
         pages: list[Page] = []
         for pdf in tried:
-            path = stack.enter_context(drawings.original(pdf.id))
             try:
+                path = stack.enter_context(drawings.original(pdf.id))
                 pages += pdf_reader.page_text(path)
-            except ReadError:
+            except ReadError, storage.StorageError:
                 if pdf.id == file_id:
-                    raise  # this PDF's own reading: the file's reason (the job's `not_read`)
+                    raise  # this PDF's own copy or reading: the file's reason (the job's `not_read`)
                 continue  # another PDF, read before, that cannot be read again now: left as it was
             paths[pdf.sha256] = path
         geometry = _Geometry(listed)
@@ -86,6 +91,11 @@ def match(file_id: uuid.UUID) -> jobs.StepResult:
     )
     _keep_reasons(found, [pdf for pdf in tried if pdf.sha256 in paths])
     return {"pages": len(found), "matched": matched}
+
+
+def _added(f: drawings.FileView) -> tuple[object, str]:
+    """The set's order of PDFs: first added first (the report's "the first is its Plot")."""
+    return f.added_at, str(f.id)
 
 
 def _is_read_pdf(f: drawings.FileView) -> bool:
@@ -114,7 +124,12 @@ def _for_dwg(
     found = list(named)
     for i, m in zip(again, full, strict=True):
         found[i] = m
-    return found
+    # A page matched by its ink never takes a sheet another page names by its text, whichever of
+    # the pages was matched in full here (18's rule, over every page, as a PDF's own match has it).
+    inked = {
+        i: str(named[i].reason) for i in again if named[i].sheet is None and found[i].sheet is not None
+    }
+    return registration.unclaimed(found, inked)
 
 
 def _keep(
@@ -130,16 +145,20 @@ def _keep(
     How many sheets got a page."""
     by_candidate = {id(c): s for c, s in zip(candidates, listed, strict=True)}
     by_sha = {pdf.sha256: pdf for pdf in pdfs}
+    by_id = {pdf.id: pdf for pdf in pdfs}
     given: set[uuid.UUID] = set()
-    for m in found:
+    surest = _surest(found, by_candidate, by_sha)
+    for k, m in enumerate(found):
         sheet = by_candidate.get(id(m.sheet)) if m.sheet is not None else None
         if sheet is None or sheet.id in given or (dwg_id is not None and sheet.file_id != dwg_id):
             continue
         pdf = by_sha.get(getattr(m.page, "source_sha256", ""))
-        if pdf is None:
-            continue
-        if sheet.plot.page is not None and sheet.plot.file_id != pdf.id:
-            continue  # its Plot is another PDF's page, kept first
+        if pdf is None or surest.get((sheet.id, pdf.id)) != k:
+            continue  # another page of this PDF names the sheet more surely: its page
+        kept_id = sheet.plot.file_id if sheet.plot.page is not None else None
+        kept = by_id.get(kept_id) if kept_id is not None else None
+        if kept is not None and kept.id != pdf.id and _added(kept) < _added(pdf):
+            continue  # its Plot is a page of a PDF added before this one: the first added keeps it
         drawings.record_plot(sheet.id, m)
         given.add(sheet.id)
     for sheet in listed:
@@ -147,18 +166,43 @@ def _keep(
             continue
         if dwg_id is not None and sheet.file_id != dwg_id:
             continue
-        covering = _covering(sheet, pdfs)
-        if not covering or not any(pdf.sha256 in tried for pdf in covering):
+        # Named only by a PDF whose pages were matched here: one that could not be read again
+        # was never tried against the sheet.
+        covering = [pdf for pdf in _covering(sheet, pdfs) if pdf.sha256 in tried]
+        if not covering:
             continue  # no PDF tried here is its Discipline's: what it says is unchanged
         drawings.record_plot(sheet.id, drawings.PlotNone.NO_PAGE, pdf_file_id=covering[0].id)
     return len(given)
+
+
+def _surest(
+    found: Sequence[PlotMatch],
+    by_candidate: Mapping[int, drawings.SheetView],
+    by_sha: Mapping[str, drawings.FileView],
+) -> dict[tuple[uuid.UUID, uuid.UUID], int]:
+    """For each sheet and PDF, the place in `found` of the PDF's page that names the sheet most
+    surely (`registration.mention`; the first of those as sure): a page that refers to a sheet
+    whose own page is in the same PDF never takes it from that page."""
+    best: dict[tuple[uuid.UUID, uuid.UUID], tuple[tuple[bool, float], int]] = {}
+    for k, m in enumerate(found):
+        sheet = by_candidate.get(id(m.sheet)) if m.sheet is not None else None
+        pdf = by_sha.get(getattr(m.page, "source_sha256", ""))
+        if sheet is None or pdf is None:
+            continue
+        page = m.page
+        sure = registration.mention(page, sheet.number or "") if isinstance(page, Page) else None
+        rank = sure or (False, -1.0)
+        kept = best.get((sheet.id, pdf.id))
+        if kept is None or rank > kept[0]:
+            best[(sheet.id, pdf.id)] = (rank, k)
+    return {key: k for key, (_, k) in best.items()}
 
 
 def _covering(sheet: drawings.SheetView, pdfs: Sequence[drawings.FileView]) -> list[drawings.FileView]:
     """The read PDFs that may plot the sheet, as the sheet list names them: its Discipline's first,
     then those of none, each first added first (a sheet of no Discipline: every PDF)."""
     mine = [p for p in pdfs if sheet.discipline is None or p.discipline in (None, sheet.discipline)]
-    return sorted(mine, key=lambda p: (p.discipline is None, p.added_at))
+    return sorted(mine, key=lambda p: (p.discipline is None, _added(p)))
 
 
 def _keep_reasons(found: Sequence[PlotMatch], tried: Sequence[drawings.FileView]) -> None:

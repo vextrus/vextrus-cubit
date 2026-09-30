@@ -44,6 +44,7 @@ Nothing here reads a file: pages, sheets and buffers are values already read in 
 
 import math
 import re
+from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -82,10 +83,12 @@ MAX_INK_TRIES = 128
 hundreds of pages with no text is hostile input as much as a Plot, and the rest of its pages keep
 their reasons once this is spent."""
 MIN_INK_F1 = 0.6
-INK_MARGIN = 0.1
-"""A sheet is a page's by its ink when their inks agree (F1, `ink.agreement`) at least 0.6 and by 0.1
+INK_MARGIN = 0.2
+"""A sheet is a page's by its ink when their inks agree (F1, `ink.agreement`) at least 0.6 and by 0.2
 more than the next sheet's: a frame and title block alone, which every sheet of a set draws alike,
-agree with each about as well, and so name none."""
+agree with each about as well, and so name none. Measured (157): on the synthetic set the right sheet
+wins by 0.65; on the real Development Sets the right sheets won by 0.27 to 0.50 and one wrong sheet (a
+page listing several sheets' numbers, whose own sheet another page named by text) by 0.15."""
 _WORDS = re.compile(r"[\s:;,()\[\]]+")
 _MIN_TITLE_PART = 4
 """The fewest characters a page item needs to be taken as part of a sheet's title (one of its lines)."""
@@ -109,17 +112,26 @@ def match(
             by_number.setdefault(key, []).append(i)
     found = []
     budget = [MAX_INK_TRIES]
+    papers: list[Paper | None] | None = None  # each sheet's, read once for the pages with no text
+    marks: dict[int, str] = {}  # a page matched by its ink: its place in `found`, and its reason
     for page in pages:
         if page.scan:
             found.append(PlotMatch(page, reason=_reason(codes.SCAN)))
             continue
         plot = (plots or {}).get(page.source_sha256)
         if not page.items:
-            # Every sheet on the page's paper is a candidate; a sheet never drawn has no known paper
-            # and cannot be ruled out, so with one such the page is not guessed at.
-            drawn = [_buffers(geometry, i) for i in range(len(sheets))]
-            known = all(b is not None for b in drawn)
-            fitting = [i for i, b in enumerate(drawn) if known and _fits_size(page, b)]
+            # Every sheet on the page's paper is a candidate (its PDF's Discipline's first); a sheet
+            # never drawn has no known paper and cannot be ruled out, so with one such the page is
+            # not guessed at. The papers are read once for the match, and only when ink may be
+            # tried: never every sheet's buffers once per page.
+            fitting: list[int] = []
+            if plot is not None and budget[0] > 0:
+                if papers is None:
+                    papers = [_paper(_buffers(geometry, i)) for i in range(len(sheets))]
+                if all(p is not None for p in papers):
+                    fitting = [i for i, p in enumerate(papers) if p is not None and _fits_paper(page, p)]
+                discipline = (disciplines or {}).get(page.source_sha256)
+                fitting = [i for i in fitting if _of(sheets[i], discipline)] or fitting
             inked = by_ink(
                 page,
                 [sheets[i] for i in fitting],
@@ -131,6 +143,7 @@ def match(
                 found.append(PlotMatch(page, reason=_reason(codes.NO_TEXT)))
             else:
                 k, transform, residual = inked
+                marks[len(found)] = _reason(codes.NO_TEXT)
                 found.append(
                     PlotMatch(page, sheet=sheets[fitting[k]], transform=transform, residual=residual)
                 )
@@ -149,6 +162,7 @@ def match(
                 found.append(PlotMatch(page, reason=_reason(codes.NAMES_SEVERAL_SHEETS)))
             else:
                 k, transform, residual = inked
+                marks[len(found)] = _reason(codes.NAMES_SEVERAL_SHEETS)
                 found.append(
                     PlotMatch(page, sheet=sheets[chosen[k]], transform=transform, residual=residual)
                 )
@@ -169,7 +183,39 @@ def match(
         if plot is not None:
             transform, residual = ink.align(page, buffers, transform, plot)
         found.append(PlotMatch(page, sheet=sheet, transform=transform, residual=residual))
-    return found
+    return unclaimed(found, marks)
+
+
+def unclaimed(found: list[PlotMatch], inked: Mapping[int, str]) -> list[PlotMatch]:
+    """The matches, with each page matched by its ink given back its reason when its sheet is
+    another page's by its text, or another's by its ink too: ink only tells apart what text could
+    not, never against what text says (a list of sheets on one page agrees with one of them by
+    chance more often than a sheet's own page is missing)."""
+    by_text = {id(m.sheet) for k, m in enumerate(found) if m.sheet is not None and k not in inked}
+    by_ink = Counter(id(found[k].sheet) for k in inked)
+    out = list(found)
+    for k, reason in inked.items():
+        chosen = id(found[k].sheet)
+        if chosen in by_text or by_ink[chosen] > 1:
+            out[k] = PlotMatch(found[k].page, reason=reason)
+    return out
+
+
+def mention(page: Page, number: str) -> tuple[bool, float] | None:
+    """How surely the page names the number: whether an item is the number whole, and its text's
+    height, of the surest item holding it; none when no item does. Two pages of one PDF naming one
+    sheet: the surer is its page (its title block's number is whole, and its largest text)."""
+    key = normal(number)
+    best: tuple[bool, float] | None = None
+    for item in page.items:
+        text = normal(item.text)
+        if text is None or key is None:
+            continue
+        whole = text == key
+        if whole or key in _WORDS.split(text):
+            found = (whole, _height(item))
+            best = found if best is None or found > best else best
+    return best
 
 
 def _reason(code: object) -> str:
@@ -240,11 +286,24 @@ def _as_sure(a: tuple[bool, float], b: tuple[bool, float]) -> bool:
     return a[0] == b[0] and b[1] >= 0.9 * a[1]
 
 
+def _paper(buffers: SheetBuffers | None) -> Paper | None:
+    return buffers.paper if buffers is not None else None
+
+
+def _of(sheet: SheetCandidate, discipline: str | None) -> bool:
+    """Whether the sheet is of the PDF's Discipline default (none: no sheet is)."""
+    return (
+        discipline is not None and sheet.discipline is not None and sheet.discipline.value == discipline
+    )
+
+
 def _fits_size(page: Page, buffers: SheetBuffers | None) -> bool:
     """Whether the sheet's paper is the page's size (at 1:1, turned or not, within 2 %)."""
-    if buffers is None:
-        return False
-    w, h = buffers.paper.width_mm * PT_PER_MM, buffers.paper.height_mm * PT_PER_MM
+    return buffers is not None and _fits_paper(page, buffers.paper)
+
+
+def _fits_paper(page: Page, paper: Paper) -> bool:
+    w, h = paper.width_mm * PT_PER_MM, paper.height_mm * PT_PER_MM
     return any(
         abs(a - page.width) <= 0.02 * page.width and abs(b - page.height) <= 0.02 * page.height
         for a, b in ((w, h), (h, w))

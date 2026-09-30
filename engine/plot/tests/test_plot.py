@@ -736,3 +736,64 @@ def test_a_match_tries_at_most_max_ink_tries_sheets_by_ink_over_all_its_pages(
 
     assert len(tried) == registration.MAX_INK_TRIES
     assert {m.reason for m in found} == {"no_text"}
+
+
+class _CountedGeometry(Sequence[B.SheetBuffers | None]):
+    """Buffers loaded on demand, counted (the job's are read from storage one by one)."""
+
+    def __init__(self, buffers: B.SheetBuffers, n: int) -> None:
+        self.buffers, self.n, self.loads = buffers, n, 0
+
+    def __len__(self) -> int:
+        return self.n
+
+    def __getitem__(self, i):  # type: ignore[no-untyped-def]
+        if isinstance(i, slice):
+            return [self[k] for k in range(*i.indices(self.n))]
+        if not 0 <= i < self.n:
+            raise IndexError(i)
+        self.loads += 1
+        return self.buffers
+
+
+def test_pages_with_no_text_read_each_sheets_paper_once_for_the_match_not_once_a_page(
+    tmp_path: Path,
+) -> None:
+    """The refuter's case (157): 1000 textless pages against 60 sheets on another paper loaded every
+    sheet's buffers once per page, 60,000 loads, with no ink tried at all."""
+    sheets = [sheet(f"S-{i:03}", f"L{i}") for i in range(60)]
+    pages = [replace(page_of(), number=k + 1) for k in range(1000)]
+    geometry = _CountedGeometry(sheet_buffers((1189.0, 841.0)), len(sheets))  # A0: no page fits
+
+    found = registration.match(pages, sheets, geometry, {SHA: tmp_path / "unused.pdf"})
+
+    assert {m.reason for m in found} == {"no_text"}
+    assert geometry.loads == len(sheets)
+    naming_only = _CountedGeometry(sheet_buffers(), len(sheets))
+    registration.match(pages, sheets, naming_only, None)  # no PDF to try ink on: nothing loaded
+    assert naming_only.loads == 0
+
+
+def test_ink_never_takes_a_sheet_another_page_names_by_its_text(tmp_path: Path) -> None:
+    """Measured on a real set (157): a page listing several sheets' numbers alike agreed with one of
+    them by ink, whose own page named it by text; the ink gives way, and the page keeps its reason."""
+    listing, path = two_numbers_plot(tmp_path)
+    own = replace(page_of(item("S-201", size=20)), number=2)
+    sheets = [sheet("S-201"), sheet("S-202", "S-202")]
+    geometry = [sheet_buffers(), mirrored(sheet_buffers())]
+
+    alone = registration.match([listing], sheets, geometry, {listing.source_sha256: path})
+    both = registration.match([listing, own], sheets, geometry, {listing.source_sha256: path})
+
+    assert alone[0].sheet is sheets[0]
+    assert both[0].reason == "names_several_sheets"
+    assert both[1].sheet is sheets[0]
+
+
+def test_a_page_names_a_number_more_surely_whole_and_in_larger_text() -> None:
+    title_block = page_of(item("S-201", size=12), item("SEE S-202", size=30))
+    reference = page_of(item("SEE S-201", size=30))
+
+    assert registration.mention(title_block, "S-201") == (True, 12.0)
+    assert registration.mention(reference, "S-201") == (False, 30.0)
+    assert registration.mention(reference, "S-999") is None

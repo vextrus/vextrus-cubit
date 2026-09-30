@@ -9,10 +9,14 @@ that plots S-101 alone. Needs the toolchain:
 """
 
 import uuid
+from pathlib import Path
 
 import pytest
+from django.conf import settings
 from django.db import connection, transaction
 
+from engine.read import ReadError
+from engine.read import pdf as pdf_reader
 from vextrus.drawings import services as drawings
 from vextrus.drawings.messages import sheets as said
 from vextrus.platform.services import auth
@@ -27,6 +31,7 @@ from vextrus.takeoff.tests.acceptance.t157.test_plot_matched_toolchain import ( 
     sheets_of,
 )
 from vextrus.testing.drawings import QsProject, add
+from vextrus.testing.tenancy import Member
 
 pytestmark = pytest.mark.django_db
 
@@ -100,6 +105,118 @@ def test_a_set_with_two_plots_keeps_each_sheet_on_the_first_page_found_and_says_
         {"file_id": str(part), "name": "KR-STR-PART.pdf"},
         {"file_id": str(full), "name": "KR-STR-PLOT.pdf"},
     ]
+
+
+def _plots(member: Member, dwg: uuid.UUID) -> dict[str, tuple[object, ...]]:
+    found: dict[str, tuple[object, ...]] = {}
+    for n, s in sheets_of(member, dwg).items():
+        none = s.plot.none
+        found[n] = (
+            s.plot.file_id,
+            s.plot.page,
+            None if none is None else none["code"],
+            None if none is None else none["params"],
+        )
+    return found
+
+
+@pytest.mark.needs_toolchain
+@pytest.mark.needs_bwrap
+@pytest.mark.parametrize("dwg_first", [True, False], ids=["dwg-first", "dwg-last"])
+def test_with_two_plots_the_first_added_keeps_each_sheet_whichever_is_read_first(
+    qs_project: QsProject,
+    set_a: bytes,  # noqa: F811
+    plot: bytes,  # noqa: F811
+    partial_plot: bytes,
+    engine_readers: None,  # noqa: F811
+    dwg_first: bool,
+) -> None:
+    """The refuter's case (157): the full Plot added before the partial one, the partial read first;
+    S-101, which both plot, was the partial's when the DWG was read first and the full's when last."""
+    member = qs_project.member
+    dwg = None
+    if dwg_first:
+        dwg = add(member, qs_project.project_id, "KR-STR-R0.dwg", set_a).file.id
+        run_job(member, dwg)
+    full = add(member, qs_project.project_id, "KR-STR-PLOT.pdf", plot).file.id
+    part = add(member, qs_project.project_id, "KR-STR-PART.pdf", partial_plot).file.id
+    run_job(member, part)
+    run_job(member, full)
+    if dwg is None:
+        dwg = add(member, qs_project.project_id, "KR-STR-R0.dwg", set_a).file.id
+        run_job(member, dwg)
+
+    found = _plots(member, dwg)
+    assert {n: v[:2] for n, v in found.items()} == {
+        "S-101": (full, 2),
+        "S-102": (full, 1),
+        "S-103": (full, 3),
+    }
+
+
+@pytest.mark.needs_toolchain
+@pytest.mark.needs_bwrap
+def test_a_plot_that_cannot_be_read_again_is_never_named_as_having_no_page_for_a_sheet(
+    qs_project: QsProject,
+    set_a: bytes,  # noqa: F811
+    plot: bytes,  # noqa: F811
+    partial_plot: bytes,
+    engine_readers: None,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The refuter's case (157): the full Plot, added first, fails its second reading at the DWG's
+    finishing; S-102 and S-103 said "no page of" it, though it was never tried (and plots both)."""
+    member = qs_project.member
+    full = add(member, qs_project.project_id, "KR-STR-PLOT.pdf", plot).file.id
+    run_job(member, full)
+    part = add(member, qs_project.project_id, "KR-STR-PART.pdf", partial_plot).file.id
+    run_job(member, part)
+    real, calls = pdf_reader.page_text, []
+
+    def once_unreadable(path: Path) -> object:
+        calls.append(path)
+        if len(calls) == 1:
+            raise ReadError({"code": "engine.read.reader_failed", "params": {}})
+        return real(path)
+
+    monkeypatch.setattr(pdf_reader, "page_text", once_unreadable)
+    dwg = add(member, qs_project.project_id, "KR-STR-R0.dwg", set_a).file.id
+    run_job(member, dwg)
+
+    found = _plots(member, dwg)
+    with member.acting():
+        assert drawings.file(dwg).state == drawings.FileState.READ
+    assert found["S-101"][:2] == (part, 1)
+    for number in ("S-102", "S-103"):
+        assert found[number][2:] == (said.PLOT_NO_PAGE.code, {"plot_file": "KR-STR-PART.pdf"}), number
+
+
+@pytest.mark.needs_toolchain
+@pytest.mark.needs_bwrap
+def test_a_damaged_copy_of_another_read_plot_does_not_fail_the_dwgs_read(
+    qs_project: QsProject,
+    set_a: bytes,  # noqa: F811
+    plot: bytes,  # noqa: F811
+    engine_readers: None,  # noqa: F811
+) -> None:
+    """The refuter's case (157): a read Plot's stored copy damaged, then its DWG read: the DWG's job
+    failed on the Plot's copy, every try. The Plot is left out, the DWG is read."""
+    member = qs_project.member
+    full = add(member, qs_project.project_id, "KR-STR-PLOT.pdf", plot).file
+    run_job(member, full.id)
+    [copy] = [
+        p
+        for p in Path(settings.VEXTRUS_STORAGE_ROOT).rglob(f"{full.sha256}/original.pdf")
+        if str(qs_project.project_id) in str(p)
+    ]
+    copy.write_bytes(b"%PDF-1.7 damaged")
+    dwg = add(member, qs_project.project_id, "KR-STR-R0.dwg", set_a).file.id
+
+    run_job(member, dwg)
+
+    with member.acting():
+        assert drawings.file(dwg).state == drawings.FileState.READ
+    assert all(v[1] is None for v in _plots(member, dwg).values())
 
 
 def test_the_sets_plot_matching_is_held_until_the_transaction_ends(qs_project: QsProject) -> None:
