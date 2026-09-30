@@ -143,8 +143,27 @@ def propose(
     return {"sheets": proposed, "questions": asked}
 
 
-NAMED_STOREYS = frozenset({"ground", "lower_ground", "mezzanine", "podium", "roof"})
-"""The storeys the words name by key (13's keys); any other is worded as the range's top storey."""
+NAMED_STOREYS = frozenset(
+    {
+        "pile",
+        "pile_cap",
+        "foundation",
+        "plinth",
+        "lower_ground",
+        "ground",
+        "mezzanine",
+        "podium",
+        "roof",
+        "stair_room_roof",
+        "lift_machine_room",
+        "lift_machine_room_roof",
+        "typical",
+        "top",
+    }
+)
+"""The storeys the words name by key: every one of 13's storey words but the numbered `floor_<n>`
+and `basement_<n>` (their own branches); `other` ("its top storey") only for a key 13 does not
+have yet (a test holds this set to 13's conventions and the catalogue)."""
 
 
 def storey_named(key: str) -> dict[str, str | int]:

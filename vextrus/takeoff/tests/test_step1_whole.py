@@ -3,6 +3,7 @@ own, and the walls of the acts it adds (on hand-built artefacts, as `acceptance/
 
 import uuid
 from collections.abc import Callable
+from pathlib import Path
 
 import pytest
 
@@ -414,7 +415,8 @@ def test_the_storeys_a_boundary_question_names_are_words_never_keys() -> None:
     assert storey_named("basement_2")["level"] == "basement"
     assert storey_named("basement_2")["number"] == 2
     assert storey_named("roof")["level"] == "roof"
-    assert storey_named("pile_cap")["level"] == "other"
+    assert storey_named("pile_cap")["level"] == "pile_cap"
+    assert storey_named("a_storey_13_does_not_have")["level"] == "other"
 
 
 def test_a_held_file_read_anyway_that_found_no_sheet_can_be_marked_for_vextrus(
@@ -488,3 +490,27 @@ def test_leaving_out_a_sheet_withdraws_its_discipline_question_and_undo_asks_it_
     assert [x["id"] for x in open_questions(api, qs_project.project_id, "missing_discipline")] == [
         q["id"]
     ]
+
+
+def test_every_storey_13_reads_is_named_by_the_boundary_questions_words() -> None:
+    """The words gate's pass-2 must M4: plinth, foundation, piles, stair room roof, lift machine room,
+    typical and top fell back to "its top storey"; `other` is left only for a storey 13 does not have."""
+    import json
+    import re
+
+    from engine.recognise.sheets import DEFAULT_CONVENTIONS
+    from vextrus.takeoff.services.read_propose.proposals import storey_named
+
+    words = json.loads(DEFAULT_CONVENTIONS.read_text(encoding="utf-8"))["storey_words"]
+    keys = {w["storey"] for w in words} | {"floor_1", "basement_1", "basement_2"}
+    catalogue = (
+        Path(__file__).resolve().parents[3] / "web/src/messages/takeoff/proposals/en.po"
+    ).read_text(encoding="utf-8")
+    [line] = [
+        line for line in catalogue.split("\n\n") if 'msgid "takeoff.proposals.boundary_storey"' in line
+    ]
+
+    for key in sorted(keys - {"not_stated"}):
+        level = storey_named(key)["level"]
+        assert level != "other", key
+        assert len(re.findall(rf"\b{level} \{{", line)) == 2, (key, level)
