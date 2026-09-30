@@ -199,7 +199,9 @@ How each loop runs:
 
 ## M1 (session 09)
 M1's plan is final (`docs/plans/M1.md`, the owner's eleven rulings folded). At session 08's close the
-orchestrator files one issue per M1 ticket from M1.md (as M0 did with #1–#40) and writes session 09's
+orchestrator runs the `to-tickets` skill on `docs/plans/M1.md` (one GitHub issue per M1 ticket, published
+blockers first with native blocking links, labelled `ready-for-agent` and `M1`; the ticket breakdown is the plan's,
+already attacked and ruled, so its "quiz the user" step is the owner's one question: publish as planned?) and writes session 09's
 brief to launch M1's wave 1 (M1.md "Wave 1") in its first 15 minutes, if the bar is met or the owner has
 ruled otherwise. The launch list is kept at the end of this brief.
 
