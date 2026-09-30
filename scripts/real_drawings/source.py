@@ -21,9 +21,11 @@ from tools.lint.engine_paths import matching, read_patterns
 from tools.lint.lock_sources import problems as lock_problems
 
 MAIN = "main"
-CHECKOUT_ALSO = ("vextrus/settings/**",)
+CHECKOUT_ALSO_FILE = Path(__file__).resolve().parents[2] / ".github" / "checkout-also.txt"
+CHECKOUT_ALSO = tuple(read_patterns(CHECKOUT_ALSO_FILE.read_text(encoding="utf-8")))
 """Beside the engine paths, what the checkout carries: the settings the job starts Django with
-(`vextrus.settings.job`, which installs only the modules on the engine paths)."""
+(`vextrus.settings.job`, which installs only the modules on the engine paths). One file, which
+real-drawings-na.yml reads too, so a PR changing only these is never "not applicable"."""
 # Windows' mark on a downloaded file, copied beside it into WSL: not a drawing, so not among a run's
 # files (tools/scorer/drafts.py leaves it out of a key's by the same rule).
 MARK = ":Zone.Identifier"

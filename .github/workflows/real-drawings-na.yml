@@ -38,6 +38,7 @@ jobs:
           persist-credentials: false
           sparse-checkout: |
             .github/engine-paths.txt
+            .github/checkout-also.txt
             tools/lint/engine_paths.py
           sparse-checkout-cone-mode: false
       - name: The PR's changed files, through the API (a renamed file counts under both names)
@@ -68,7 +69,8 @@ jobs:
               -f state=success -f context="$1" -f description="Not applicable: $2" > /dev/null
             echo "posted $1: not applicable ($2)"
           }
-          engine=$(touches --patterns .github/engine-paths.txt)
+          # The code hash's set: the engine paths and what the check's checkout carries beside them.
+          engine=$(touches --patterns .github/engine-paths.txt --patterns .github/checkout-also.txt)
           web=$(touches --pattern 'web/**')
           if [ -z "$engine" ]; then
             post real-drawings "no engine path changed"
