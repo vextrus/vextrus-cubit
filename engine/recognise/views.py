@@ -1381,31 +1381,53 @@ def _plans_reach(
 ) -> None:
     """A plan's box takes in what a draughtsman draws around its drawing and the grid splits off: its
     grid lines to their ends (lines long enough to be read as dividers, `DIVIDER_SHARE`, lying across
-    its box), then its marks set off it (`PLAN_MARK_MM`: a piece left in no view, no longer than that,
-    within that of the plan's box and beside it, across its span, and nearer it than any other view).
-    Nothing grows further into another view's box."""
+    its box) and every plan with no title they run into (its drawing cut apart where the grid was taken
+    out; never notes or a legend beside it), titled plans first; then its marks set off it
+    (`PLAN_MARK_MM`: a piece left in no view, no longer than that, within that of the plan's box and
+    beside it, across its span, and nearer it than any other view). Nothing grows further into a titled
+    view's box, nor into an untitled one but by taking it whole."""
     width, height = size
     dx = np.abs(lines[:, 2] - lines[:, 0])
     dy = np.abs(lines[:, 3] - lines[:, 1])
     across = lines[(dx >= DIVIDER_SHARE * width) & (dy <= 0.01 * dx)]
     down = lines[(dy >= DIVIDER_SHARE * height) & (dx <= 0.01 * dy)]
-    plans = [v for v in views if v.kind is ViewKind.PLAN]
 
-    def grow(view: _View, box: Bounds) -> None:
-        others = [v.box for v in views if v is not view]
-        if all(_overlap(box, o) <= _overlap(view.box, o) for o in others):
-            view.box = box
+    def grow(view: _View, box: Bounds, take: bool = False) -> bool:
+        taken = [
+            v
+            for v in views
+            if take
+            and v is not view
+            and v.title is None
+            and v.kind is ViewKind.PLAN
+            and _overlap(box, v.box) > _overlap(view.box, v.box)
+        ]
+        for v in taken:
+            box = _union(box, v.box)
+        others = [v.box for v in views if v is not view and not any(v is t for t in taken)]
+        if box == view.box or any(_overlap(box, o) > _overlap(view.box, o) for o in others):
+            return False
+        view.box = box
+        for v in taken:
+            views.remove(v)
+        return True
 
-    for view in plans:
-        x0, y0, x1, y1 = view.box
-        for s in across:
-            lo, hi = min(s[0], s[2]), max(s[0], s[2])
-            if y0 <= s[1] <= y1 and lo <= x1 and x0 <= hi:
-                grow(view, _union(view.box, (lo, s[1], hi, s[1])))
-        for s in down:
-            lo, hi = min(s[1], s[3]), max(s[1], s[3])
-            if x0 <= s[0] <= x1 and lo <= y1 and y0 <= hi:
-                grow(view, _union(view.box, (s[0], lo, s[0], hi)))
+    for _ in range(len(views)):  # each round takes a view whole, or ends
+        grown = False
+        for view in sorted(views, key=lambda v: v.title is None):
+            if view.kind is not ViewKind.PLAN or not any(view is v for v in views):
+                continue
+            x0, y0, x1, y1 = view.box
+            for s in across:
+                lo, hi = min(s[0], s[2]), max(s[0], s[2])
+                if y0 <= s[1] <= y1 and lo <= x1 and x0 <= hi:
+                    grown |= grow(view, _union(view.box, (lo, s[1], hi, s[1])), take=True)
+            for s in down:
+                lo, hi = min(s[1], s[3]), max(s[1], s[3])
+                if x0 <= s[0] <= x1 and lo <= y1 and y0 <= hi:
+                    grown |= grow(view, _union(view.box, (s[0], lo, s[0], hi)), take=True)
+        if not grown:
+            break
     reach = PLAN_MARK_MM * unit
     for piece in pieces:
         b = piece.box

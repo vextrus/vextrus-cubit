@@ -45,3 +45,32 @@ def test_a_plans_box_grows_into_no_other_view() -> None:
     assert (plan.kind, detail.kind) == (ViewKind.PLAN, ViewKind.DETAIL)
     assert plan.box.x1 < detail.box.x0
     assert near(plan.box, (60, 238, 460, 500))
+
+
+def test_a_plan_cut_apart_where_its_grid_was_taken_out_is_one_plan() -> None:
+    """A plan's body, apart from the row of grid ends its title lies under, joined only by grid lines
+    long enough to read as dividers: one plan, its box both."""
+    d = Sheets()
+    grid(d, (100, 250, 500, 540))  # the body, 50 mm over the row
+    for x in (100, 200, 300, 400, 500):
+        d.line((x, 150), (x, 200))  # the grid's ends and their bubbles' row
+    d.line((100, 175), (500, 175))
+    d.text("FIRST FLOOR PLAN", (100, 138, 0.0), height=6.0)
+    for x in (150, 250, 350, 450):
+        d.line((x, 150), (x, 540))  # 390 mm: over 0.6 of the sheet's height
+    (plan,) = drawn(d, one_sheet(d))
+    assert (plan.kind, plan.title) == (ViewKind.PLAN, "FIRST FLOOR PLAN")
+    assert near(plan.box, (100, 138, 500, 540))
+
+
+def test_a_plan_takes_no_notes_its_grid_lines_run_into() -> None:
+    """Notes with no title beside a plan, a grid line running into them: two views."""
+    d = Sheets()
+    grid(d, (60, 200, 400, 540))
+    d.text("FIRST FLOOR PLAN", (60, 188, 0.0), height=6.0)
+    for i in range(12):
+        d.text(f"{i + 1}. ALL WORK TO THE ENGINEER'S APPROVAL", (560, 520 - 14 * i, 0.0), height=5.0)
+    d.line((40, 400), (620, 400))  # 580 mm: a divider, into the notes
+    found = drawn(d, one_sheet(d))
+    assert [v.kind for v in found] == [ViewKind.PLAN, ViewKind.NOTES]
+    assert found[0].box.x1 < found[1].box.x0
