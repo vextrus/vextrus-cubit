@@ -8,8 +8,10 @@ from typing import Any
 
 from django.core.management.base import BaseCommand, CommandError
 
+from vextrus.drawings.services.drawing_files import STEADY
 from vextrus.platform.services import library
 from vextrus.seed.demo import seed_demo
+from vextrus.seed.drawings import PAGE_MINUTES
 from vextrus.seed.platform import seeded_developers
 
 
@@ -26,3 +28,7 @@ class Command(BaseCommand):
         library.sync()
         made = seed_demo()
         self.stdout.write(f"seeded: {len(made)} named rows")
+        self.stdout.write(
+            "Run flush then seed_demo just before a walk: the reading PDF shows its time left for"
+            f" {STEADY * PAGE_MINUTES} minutes."
+        )

@@ -50,6 +50,18 @@ term = "reader"
 reason = "m0-screens 4.5's Readers section, verbatim (\"… the second reader could not read 1 item\"; the owner's ruling \"Hold it\")."
 
 [[allow]]
+msgid = "drawings.reports.read_anyway"
+rule = "engine term"
+term = "readers"
+reason = "m0-screens 4.5's Readers section, verbatim (\"The two readers found different contents in this file: …\"), for a held file read anyway."
+
+[[allow]]
+msgid = "drawings.reports.read_anyway"
+rule = "engine term"
+term = "reader"
+reason = "m0-screens 4.5's Readers section, verbatim (\"… the second reader could not read 1 item\"), for a held file read anyway."
+
+[[allow]]
 msgid = "engine.decoders_agree.not_installed"
 rule = "engine term"
 term = "reader"
