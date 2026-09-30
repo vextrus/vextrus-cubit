@@ -466,6 +466,32 @@ describe('the files band by keyboard', () => {
   })
 })
 
+describe('M18: each copy of S-07 opens as itself', () => {
+  it('opens rev A from Q2’s Trace, the picker and [ ], labelled and described as rev A', async () => {
+    const { api } = kr01()
+    await open(api)
+    await focusRow('S-07')
+    const q2 = await screen.findByRole('region', { name: card('Q2') })
+    await userEvent.click(within(q2).getByRole('button', { name: (n) => clean(n) === 'S-07 rev A' }))
+    await screen.findByRole('group', { name: (n) => clean(n) === 'Sheet S-07 rev A' })
+    const revision = () => clean([...inspector().querySelectorAll('dt')].find((d) => clean(d.textContent) === 'Revision')?.nextElementSibling?.textContent)
+    await waitFor(() => expect(revision()).toMatch(/^A\b|rev A/))
+    await realKeys.keyboard('[[')
+    await screen.findByRole('group', { name: (n) => clean(n) === 'Sheet S-07 rev B' })
+    await waitFor(() => expect(revision()).toMatch(/^B\b|rev B/))
+    await realKeys.keyboard(']')
+    await screen.findByRole('group', { name: (n) => clean(n) === 'Sheet S-07 rev A' })
+    await realKeys.keyboard('[[')
+    await screen.findByRole('group', { name: (n) => clean(n) === 'Sheet S-07 rev B' })
+    await realKeys.keyboard('s')
+    const picker = await screen.findByLabelText('Sheets, in list order')
+    const items = within(picker).getAllByRole('button').filter((b) => /^S-07 ?rev A/.test(clean(b.textContent)))
+    expect(items.length).toBeGreaterThan(0)
+    await userEvent.click(items[0]!)
+    await screen.findByRole('group', { name: (n) => clean(n) === 'Sheet S-07 rev A' })
+  })
+})
+
 describe('M9: focus is visible on the list’s rows', () => {
   it('draws an outline on the row ↓ focuses', async () => {
     const { api } = kr01()

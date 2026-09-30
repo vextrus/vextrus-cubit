@@ -517,8 +517,11 @@ export function SheetFacts({
   selectedView = null,
   onSelectView,
   slots = [],
+  open,
 }: {
   row: Row
+  /** In sheet mode, the sheet open: of two copies in one row, the one shown (M18). */
+  open?: ProposalOut
   showTitle: boolean
   readOnly: boolean
   acts?: SheetActs
@@ -527,7 +530,7 @@ export function SheetFacts({
   /** The storey strip's slots, the project's (6.8). */
   slots?: readonly string[]
 }) {
-  const sheet = row.sheets[0]
+  const sheet = open && row.sheets.some((s) => s.id === open.id) ? open : row.sheets[0]
   if (!sheet) return null
   const excluded = row.sheets.every((s) => s.decision === 'excluded')
   const decided = row.sheets.filter((s) => s.decision)

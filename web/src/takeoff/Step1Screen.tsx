@@ -38,6 +38,7 @@ import { SheetList, disciplineName } from './SheetList'
 import { OTHER_VIEW_KIND, VIEW_KINDS } from './words'
 import { stripSlots } from './storeys'
 import { CoverageLine, CoveragePanel, Overview, QuestionCard, QuestionsTab, SheetFacts, cardContext } from './Step1Inspector'
+import { Copy } from './questionWords'
 
 const projectRoute = getRouteApi('/_app/p/$code')
 
@@ -102,7 +103,22 @@ function useSummaryCounts(project: ProjectSummary, model: Step1Model) {
 
 /** Sheets in list order: what sheet mode pages through (a Question's copies included, files not). */
 function sheetsInOrder(model: Step1Model): ProposalOut[] {
-  return model.rows.flatMap((r) => [...r.sheets])
+  // Each printed sheet once, by its id: two copies of one number are two stops (M18).
+  const seen = new Set<string>()
+  return model.rows.flatMap((r) => [...r.sheets]).filter((p) => !seen.has(p.id) && !!seen.add(p.id))
+}
+
+/** A sheet's name on the canvas and the picker: "S-07", or "S-07 rev A" where two copies share the number. */
+function useSheetLabel(model: Step1Model) {
+  const { t } = useLingui()
+  return (sheet: ProposalOut) => {
+    const number = sheet.number
+    if (!number) return sheet.title
+    const copies = sheetsInOrder(model).filter((p) => p.number === number && p.discipline === sheet.discipline)
+    const mark = sheet.revision_mark.trim()
+    if (copies.length < 2 || !mark) return number
+    return /^rev\b|^r\d/i.test(mark) ? t`${number} ${mark}` : t`${number} rev ${mark}`
+  }
 }
 
 function Step1({ session, project, model, coverage }: { session: Session; project: ProjectSummary; model: Step1Model; coverage: CoverageOut }) {
@@ -312,6 +328,7 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
         row={focusedRow}
         showTitle={mode === 'list'}
         readOnly={readOnly !== null}
+        open={mode === 'sheet' && open ? open : undefined}
         acts={{ exclude: excludeKey, confirmBackIn: () => void confirmRow(focusedRow, false) }}
         selectedView={selectedView}
         slots={stripSlots(model.rows.flatMap((r) => r.sheets.map((p) => p.views)))}
@@ -512,7 +529,7 @@ function SheetMode({
   const { t } = useLingui()
   const render = useQuery(renderQuery(projectId, sheet.sheet_id))
   const region = useRef<HTMLDivElement>(null)
-  const name = sheet.number ?? sheet.title
+  const name = useSheetLabel(model)(sheet)
   const tag = useViewTag()
   const held = model.rows.some((r) => r.question && r.sheets.some((s) => s.id === sheet.id))
   const outlines = useMemo<SheetOutline[]>(
@@ -599,6 +616,8 @@ function SheetPicker({
     { key: 'out', heading: <Trans>Proposed to leave out</Trans>, sheets: model.proposedOut.flatMap((r) => [...r.sheets]) },
     ...model.disciplines.map((d) => ({ key: d.discipline, heading: <DisciplineName discipline={d.discipline} />, sheets: d.rows.flatMap((r) => [...r.sheets]) })),
   ].filter((g) => g.sheets.length > 0)
+  /** Two copies of one number share it: each says its revision ("rev A", M18). */
+  const copied = (s: ProposalOut) => !!s.number && !!s.revision_mark.trim() && sheetsInOrder(model).filter((p) => p.number === s.number && p.discipline === s.discipline).length > 1
   return (
     <Popover open={open} onOpenChange={onOpen}>
       <PopoverTrigger asChild>
@@ -608,6 +627,11 @@ function SheetPicker({
           className="inline-flex h-control max-w-[250px] min-w-0 items-center gap-1.5 rounded-md px-2 text-sm hover:bg-hover"
         >
           {sheet.number ? <DrawingText kind="sheet-number" text={sheet.number} truncate={false} className="shrink-0 font-semibold" /> : null}
+          {copied(sheet) ? (
+            <span className="shrink-0 text-ink-secondary">
+              <Copy sheet={sheet} />
+            </span>
+          ) : null}
           <DrawingText kind="title" text={sheet.title} className="min-w-0 text-ink-secondary" />
           <ChevronDown strokeWidth={1.5} className="size-3.5 shrink-0" aria-hidden />
         </button>
@@ -636,6 +660,11 @@ function SheetPicker({
                 className="flex w-full min-w-0 items-center gap-2 rounded-sm px-2 py-1 text-start text-sm hover:bg-hover aria-[current=true]:bg-selected"
               >
                 <span className="w-12 shrink-0 font-semibold">{s.number ? <DrawingText kind="sheet-number" text={s.number} truncate={false} /> : <Trans>none</Trans>}</span>
+                {copied(s) ? (
+                  <span className="shrink-0 text-ink-secondary">
+                    <Copy sheet={s} />
+                  </span>
+                ) : null}
                 <DrawingText kind="title" text={s.title} className="min-w-0" />
               </button>
             ))}
