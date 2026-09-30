@@ -149,12 +149,42 @@ export function useStep1Acts(projectId: string): Step1Acts {
   }, [refresh])
 
   /** Undoes `entry` (none: the user's last act from before this tab), once the undos before it end. */
+  /**
+   * The Ctrl Z presses asked for and not yet run, each with the act it took. A refused undo leaves the
+   * server's latest act where it was, so these are called off and their acts put back in order (the
+   * refuter of round 4: otherwise the next undo takes back the server's latest act under another act's
+   * words).
+   */
+  const queued = useRef<{ entry: Entry | undefined; off: boolean }[]>([])
+
+  /** Puts acts back under any dropped keys kept since (no act is made while undos run). */
+  const restore = useCallback((entries: Entry[]) => {
+    const dropped: Entry[] = []
+    while (history.current.at(-1)?.dropped) dropped.unshift(history.current.pop()!)
+    history.current.push(...entries, ...dropped)
+  }, [])
+
+  /** Undoes `entry` (none: the user's last act from before this tab), once the undos before it end. */
   const undoEntry = useCallback(
     (entry: Entry | undefined) => {
       undos.current += 1
       setBusy(true)
+      const ask = { entry, off: false }
+      queued.current.push(ask)
+      /** A refused undo: keeps what it did not undo, and calls off the presses behind it. */
+      const refused = (left: Entry | null) => {
+        const behind = queued.current.filter((q) => q !== ask && !q.off)
+        for (const q of behind) q.off = true
+        const back = behind
+          .map((q) => q.entry)
+          .filter((e): e is Entry => !!e)
+          .reverse()
+        restore(left ? [...back, left] : back)
+      }
       const one = async () => {
+        queued.current = queued.current.filter((q) => q !== ask)
         try {
+          if (ask.off) return
           if (entry) {
             // An act in flight is waited for, so this undoes it; one that made nothing undoes nothing.
             const waited = !entry.counted
@@ -171,8 +201,9 @@ export function useStep1Acts(projectId: string): Step1Acts {
               const words = entry.words
               toast.show({ message: <Trans>Undone: {words}</Trans> })
             } catch (error) {
-              // Not undone: it stays the last act, for the next Ctrl Z.
-              if (left === entry.calls) history.current.push({ ...entry, made: Promise.resolve(), counted: true })
+              // What was not undone stays the last act, for the next Ctrl Z; part of it, worded plainly.
+              const words = left === entry.calls ? entry.words : <Trans>your last change to Step 1</Trans>
+              refused({ ...entry, calls: left, words, made: Promise.resolve(), counted: true })
               sayRefused(error)
             }
           } else {
@@ -180,6 +211,7 @@ export function useStep1Acts(projectId: string): Step1Acts {
               const act = await undo(projectId)
               toast.show({ message: <Trans>Undone: <UndoneWords act={act} /></Trans> })
             } catch (error) {
+              refused(null)
               sayRefused(error)
             }
           }
@@ -192,17 +224,22 @@ export function useStep1Acts(projectId: string): Step1Acts {
       chain.current = chain.current.then(one)
       return chain.current
     },
-    [projectId, refresh, sayRefused, toast],
+    [projectId, refresh, restore, sayRefused, toast],
   )
 
   /** Ctrl Z: the last act as it stands now, even one still in flight. */
   const undoLast = useCallback(() => undoEntry(history.current.pop()), [undoEntry])
 
-  /** A toast's Undo: its own act, only while it is still the last (a later act clears the toast). */
+  /**
+   * A toast's Undo: its own act, while nothing but dropped keys came after it (a later act clears the
+   * toast); those keys made nothing, so they are passed over.
+   */
   const undoFor = useCallback(
     (words: ReactNode) => () => {
-      const top = history.current.at(-1)
-      if (top && top.words === words) void undoEntry(history.current.pop())
+      const at = history.current.findLastIndex((e) => e.words === words && !e.dropped)
+      if (at === -1 || history.current.slice(at + 1).some((e) => !e.dropped)) return
+      const [entry] = history.current.splice(at)
+      void undoEntry(entry)
     },
     [undoEntry],
   )

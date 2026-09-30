@@ -63,11 +63,12 @@ async function accepting(step1?: FakeStep1, call?: string, n = 1) {
  * (round 4's F1: tests force the order they test, never count on timing). Step 1's reload is
  * `GET /proposals`.
  */
-async function openHeld() {
+async function openHeld(refuseUndo: readonly number[] = []) {
   const api = new FakeApi()
   const step1 = new FakeStep1(api)
   const held = new Map<string, Promise<void>>()
   const base = api.handle
+  let undos = 0
   api.handle = async (request: Request) => {
     const key = `${request.method} /${new URL(request.url, location.origin).pathname.split('/').at(-1)}`
     const wait = held.get(key)
@@ -75,6 +76,8 @@ async function openHeld() {
       held.delete(key)
       await wait
     }
+    // `refuseUndo`: which POST /undo calls (1st, 2nd…) the server refuses, undoing nothing.
+    if (key === 'POST /undo' && refuseUndo.includes(++undos)) step1.answerOnce('POST /undo', 503, refusal)
     return base(request)
   }
   await mountApp('/p/KR-01/takeoff/1', { as: PEOPLE.qs, api })
@@ -313,5 +316,65 @@ describe('Ctrl Z takes the act the QS meant (the refuter of round 4)', () => {
     release()
     await accepting(step1, 'POST /exclude', 2)
     expect(step1.calls()).not.toContain('POST /undo')
+  })
+
+  it('S6: a refused undo calls off the Ctrl Z queued behind it and keeps both acts, in order', async () => {
+    const { step1, hold } = await openHeld([1])
+    await actA(step1)
+    await userEvent.keyboard('{Enter}')
+    await accepting(step1, 'POST /exclude', 2)
+    const release = hold('POST /undo')
+    await ctrlZ()
+    await waitFor(() => expect(busy()).toBe(true))
+    await ctrlZ()
+    release()
+    await accepting(step1, 'POST /undo', 1)
+    expect(count(step1, 'POST /undo')).toBe(1)
+    expect(bodyText()).not.toContain('Undone:')
+    await ctrlZ()
+    await waitFor(() => expect(bodyText()).toContain('Undone: left out 1 sheet'))
+    await accepting()
+    await ctrlZ()
+    await waitFor(() => expect(bodyText()).toContain('Undone: confirmed 16 sheets'))
+    await waitFor(() => expect(bodyText()).toContain('Confirmed 0 / 24'))
+  })
+
+  it('S7: an undo refused part way keeps what it did not undo for the next Ctrl Z, before the act under it', async () => {
+    const { step1 } = await openHeld([2])
+    const heading = await screen.findByText('Architectural 8 found', { exact: false })
+    const section = heading.closest('section, [role="rowgroup"], [role="group"], div')!.parentElement!
+    await userEvent.click(within(section).getAllByText('Paste the drawing list')[0]!)
+    const dialog = await screen.findByRole('dialog', { name: 'The architectural drawing list' })
+    await userEvent.type(within(dialog).getByRole('textbox'), 'A-01–A-08')
+    await waitFor(() => expect(clean(dialog.textContent)).toContain('Read as a range'))
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Use as the drawing list' }))
+    await accepting(step1, 'POST /drawing-list')
+    if (screen.queryByRole('dialog')) await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    ;(document.activeElement as HTMLElement | null)?.blur()
+    await userEvent.keyboard('{Enter}')
+    await accepting(step1, 'POST /exclude')
+    await ctrlZ()
+    await accepting(step1, 'POST /undo', 2)
+    await ctrlZ()
+    await waitFor(() => expect(bodyText()).toContain('Undone: your last change to Step 1'))
+    await accepting(step1, 'POST /undo', 3)
+    await waitFor(() => expect(bodyText()).toContain('Confirmed 0 / 24'))
+    await ctrlZ()
+    await waitFor(() => expect(bodyText()).toContain('Undone: the drawing list you set'))
+  })
+
+  it('S8: the toast’s Undo passes over a key dropped while its act reloaded', async () => {
+    const { step1, hold } = await openHeld()
+    const release = hold('GET /proposals')
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(bodyText()).toContain('Confirmed 16 sheets; left out 1'))
+    expect(busy()).toBe(true)
+    await userEvent.keyboard('{Enter}')
+    release()
+    await accepting()
+    await userEvent.click(screen.getByRole('button', { name: /Undo/ }))
+    await waitFor(() => expect(bodyText()).toContain('Undone: confirmed 16 sheets and left out 1'))
+    expect(count(step1, 'POST /undo')).toBe(2)
   })
 })
