@@ -30,6 +30,9 @@ describe.each(['engine.decoders_agree.disagree', 'drawings.reports.read_anyway']
 
 it('says who chose to read the held file, and what to do next', () => {
   const said = i18n._('drawings.reports.read_anyway', params(1, 0))
-  expect(said).toContain('Its Question was answered "Read it anyway", so its sheets are in the sheet list, each marked "held"')
-  expect(said).toContain('Check each sheet against its plot before you confirm it.')
+  // Two sentences at most (m0-screens 1.1); Plot is CONTEXT.md's word, capitalised.
+  expect(said).toMatch(
+    /\. Its Question was answered "Read it anyway", so its sheets are in the sheet list, each marked "held" as it may be misread: check each against its Plot before you confirm it\.$/,
+  )
+  expect(said.split('. ').length).toBe(2)
 })
