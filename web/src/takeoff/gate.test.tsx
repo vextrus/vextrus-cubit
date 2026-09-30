@@ -423,6 +423,20 @@ describe('6.2: the File column, from 1000 px', () => {
   })
 })
 
+describe('the files band by keyboard', () => {
+  it('reaches a file’s chip with Tab and opens its report with Enter', async () => {
+    const { api } = kr01(['Nusrat Jahan'], [file({ name: 'KR-STR-R0.dwg', state: 'read', status: msg('drawings.files.read', { sheets: 13 }), sheets_found: 13 })])
+    await open(api)
+    const band = await screen.findByRole('list', { name: /files/ })
+    ;(document.activeElement as HTMLElement | null)?.blur()
+    for (let i = 0; i < 60 && !band.contains(document.activeElement); i++) await realKeys.keyboard('{Tab}')
+    expect(band.contains(document.activeElement)).toBe(true)
+    const name = clean(document.activeElement!.querySelector('[data-notation="file-name"]')?.textContent)
+    await realKeys.keyboard('{Enter}')
+    await waitFor(() => expect(clean(inspector().textContent)).toContain(name))
+  })
+})
+
 describe('M9: focus is visible on the list’s rows', () => {
   it('draws an outline on the row ↓ focuses', async () => {
     const { api } = kr01()

@@ -24,10 +24,9 @@ export function FilesBand({ projectId, onOpen }: { projectId: string; onOpen: (f
         <span role="listitem" key={file.id}>
           <button
             type="button"
-            tabIndex={-1}
             onClick={() => onOpen(file)}
             className={cn(
-              'inline-flex h-6 items-center gap-1.5 rounded-sm border px-2 hover:bg-hover',
+              'inline-flex h-6 items-center gap-1.5 rounded-sm border px-2 hover:bg-hover focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-ring',
               file.state === 'held' ? 'border-question bg-question-surface text-question' : 'border-border bg-paper text-ink-secondary',
             )}
           >
