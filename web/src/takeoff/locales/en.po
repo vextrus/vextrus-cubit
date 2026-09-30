@@ -189,6 +189,10 @@ msgstr "Confirmed by {name}, {date}"
 msgid "List"
 msgstr "List"
 
+#: src/takeoff/SheetList.tsx
+msgid "<0/><1>, {count} sheets</1>"
+msgstr "<0/><1>, {count} sheets</1>"
+
 #: src/takeoff/questionWords.tsx
 msgid "the drawing list found in the drawings"
 msgstr "the drawing list found in the drawings"
@@ -359,6 +363,10 @@ msgstr "{file} carries no drawing list. Paste the consultant’s list (the trans
 msgid "No Discipline"
 msgstr "No Discipline"
 
+#: src/takeoff/SheetList.tsx
+msgid "<0/><1>, {count} copies</1>"
+msgstr "<0/><1>, {count} copies</1>"
+
 #: src/takeoff/acts.tsx
 msgid "Undone: <0/>"
 msgstr "Undone: <0/>"
@@ -508,10 +516,6 @@ msgstr "Coverage keeps the reason. Esc cancels"
 #: src/takeoff/Step1Inspector.tsx
 msgid "Coverage, every view on every sheet read"
 msgstr "Coverage, every view on every sheet read"
-
-#: src/takeoff/SheetList.tsx
-msgid "<0/>, {count} sheets"
-msgstr "<0/>, {count} sheets"
 
 #: src/takeoff/acts.tsx
 msgid "{m, plural, one {Left out # sheet, with its reason.} other {Left out # sheets, each with its reason.}}"
@@ -889,10 +893,6 @@ msgstr "Trace: the title block of {sheet} (the number field is empty)"
 #: src/takeoff/words.tsx
 msgid "On the drawing list, in no file"
 msgstr "On the drawing list, in no file"
-
-#: src/takeoff/SheetList.tsx
-msgid "<0/>, {count} copies"
-msgstr "<0/>, {count} copies"
 
 #: src/takeoff/Step1Screen.tsx
 msgid "The sheet picker"

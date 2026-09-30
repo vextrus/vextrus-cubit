@@ -492,6 +492,29 @@ describe('M18: each copy of S-07 opens as itself', () => {
   })
 })
 
+describe('M19: a copies row keeps its title and its count in right-to-left', () => {
+  it('shows S-07’s title, cut only at its own end, and ", 2 copies" whole in en-XB at 1280', async () => {
+    activatePseudoRtl()
+    await page.viewport(1280, 800)
+    const { api, step1 } = kr01()
+    for (const p of step1.proposals.filter((p) => p.number === 'S-07')) p.title = 'TYPICAL FLOOR SLAB LAYOUT WITH TOP AND BOTTOM REINFORCEMENT DETAILS'
+    await mountApp(PATH, { as: PEOPLE.qs, api })
+    await waitFor(() => expect(document.querySelector('[data-notation="sheet-number"]')).not.toBeNull())
+    const row = await waitFor(() => rowOf('S-07'))
+    const cell = within(row).getAllByRole('gridcell')[2]!
+    const title = cell.querySelector('bdi')!
+    const box = cell.getBoundingClientRect()
+    const t = title.getBoundingClientRect()
+    // The title's part the cell shows, not only its own box (the cell clipped it to "…").
+    expect(Math.min(t.right, box.right) - Math.max(t.left, box.left)).toBeGreaterThan(60)
+    const count = [...cell.querySelectorAll('span')].find((s) => /2/.test(s.textContent ?? '') && !s.contains(title))!
+    const c = count.getBoundingClientRect()
+    expect(c.width).toBeGreaterThan(0)
+    expect(c.left).toBeGreaterThanOrEqual(box.left - 1)
+    expect(c.right).toBeLessThanOrEqual(box.right + 1)
+  })
+})
+
 describe('M9: focus is visible on the list’s rows', () => {
   it('draws an outline on the row ↓ focuses', async () => {
     const { api } = kr01()

@@ -467,16 +467,18 @@ function SheetRow({
   else if (row.kind === 'copies')
     title = (
       <Trans>
-        <DrawingText kind="title" text={first?.title ?? ''} />, {count} copies
+        <DrawingText kind="title" text={first?.title ?? ''} className="min-w-0" />
+        <span className="shrink-0 whitespace-nowrap">, {count} copies</span>
       </Trans>
     )
   else if (row.sheets.length > 1)
     title = (
       <Trans>
-        <DrawingText kind="title" text={first?.title ?? ''} />, {count} sheets
+        <DrawingText kind="title" text={first?.title ?? ''} className="min-w-0" />
+        <span className="shrink-0 whitespace-nowrap">, {count} sheets</span>
       </Trans>
     )
-  else title = <DrawingText kind="title" text={first?.title ?? ''} />
+  else title = <DrawingText kind="title" text={first?.title ?? ''} className="min-w-0" />
 
   return (
     <div
@@ -518,7 +520,8 @@ function SheetRow({
           </span>
         )}
       </span>
-      <span role="gridcell" className="min-w-0 truncate">
+      {/* Only the title truncates; ", 2 copies" stays whole (M19: a cell that also truncated clipped it to "…" right to left). */}
+      <span role="gridcell" className="flex min-w-0 items-baseline overflow-hidden whitespace-nowrap">
         {title}
       </span>
       <span role="gridcell" className="truncate text-ink-secondary">
