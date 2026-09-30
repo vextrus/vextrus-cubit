@@ -872,7 +872,9 @@ def _chosen(
     project_id: uuid.UUID, ids: Sequence[object]
 ) -> list[tuple[drawings.SheetView, Proposal | None]]:
     """Each named printed sheet with its Proposal, in the order named; any id not of this Project's
-    sheet list (another Project's, another Developer's, none) is not found, and nothing is done."""
+    sheet list (another Project's, another Developer's, none) is not found, and nothing is done. So
+    is a sheet of a held file read anyway that its read job has not proposed yet: its Questions (its
+    number, its Discipline) are raised with its Proposal, so it is not decided before them."""
     if not isinstance(ids, (list, tuple)) or not ids:
         raise auth.Refused(said.NOTHING_CHOSEN(), status=400)
     listed = {s.id: s for s in _sheets(project_id)}
@@ -887,7 +889,7 @@ def _chosen(
             raise auth.NotFound from None
         proposal = by_id.get(named)
         sheet_id = proposal.subject_id if proposal else named
-        if sheet_id not in listed:
+        if sheet_id not in listed or (listed[sheet_id].held and sheet_id not in by_sheet):
             raise auth.NotFound
         chosen[sheet_id] = (listed[sheet_id], by_sheet.get(sheet_id))
     return list(chosen.values())
@@ -934,6 +936,16 @@ def confirm(
             _decide_views(sheet.id, act, None, "")
         record_progress(project_id)
     return _act_view(act)
+
+
+def _held_first(project_id: uuid.UUID, sheet_id: uuid.UUID, proposal: Proposal | None) -> bool:
+    """Whether a `missing` or `missing_discipline` Question still holds the sheet (as `confirm`
+    refuses it)."""
+    try:
+        _no_question_first(project_id, [(drawings.sheet(sheet_id), proposal)])
+    except auth.Refused:
+        return True
+    return False
 
 
 def _kinds_answered(project_id: uuid.UUID, proposal_ids: Sequence[uuid.UUID]) -> dict[uuid.UUID, str]:
@@ -1239,6 +1251,11 @@ def _put_back_sheet(
                 _put_back(row)
         return
     earlier, prior = standing
+    if prior["decision"] != "excluded" and _held_first(project_id, sheet_id, proposal):
+        # A confirmation is never put back on a sheet whose number or Discipline is still asked
+        # (one made before its Question was raised): it goes back to undecided, its Question open.
+        _put_back_sheet(project_id, sheet_id, None)
+        return
     if prior["decision"] == "excluded":
         drawings.exclude(sheet_id, prior["reason"], prior["text"] or "", confirmation_id=earlier.id)
         _decide_views(sheet_id, earlier, prior["reason"], prior["text"] or "")

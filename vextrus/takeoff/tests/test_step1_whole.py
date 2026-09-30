@@ -763,3 +763,85 @@ def test_no_route_confirms_a_left_out_sheet_back_in_while_its_blocking_question_
             assert sheet["discipline"] == option
         elif option == "type_number":
             assert sheet["number"] == "S-07"
+
+
+def _read_anyway_stopped_after_its_sheets(qs: QsProject, monkeypatch: pytest.MonkeyPatch) -> Any:
+    """A held file of an unnumbered sheet, read anyway, its read job stopped once its sheets are kept
+    and before Step 1 proposes them (the refuter's window); the file's readers."""
+    from procrastinate.job_context import AbortReason
+
+    from vextrus.platform.services import jobs
+    from vextrus.takeoff.services.read_propose import files as read_files
+
+    use = readers({NAME: UNNUMBERED}, held=[NAME])
+    file_id = uploaded(qs.member, qs.project_id, NAME)
+    run_job(qs.member, file_id, monkeypatch, use)
+    api = api_as(qs.member)
+    [held_q] = open_questions(api, qs.project_id, "file_misread")
+    assert answer(api, qs.project_id, held_q["id"], "read_anyway").status_code == 200
+    kept = {"sheets": False}
+    original = read_files.sheets.read
+
+    def reading(*args: Any, **kwargs: Any) -> Any:
+        found = original(*args, **kwargs)
+        kept["sheets"] = True
+        return found
+
+    monkeypatch.setattr(read_files.sheets, "read", reading)
+    with pytest.raises(jobs.Stopped):
+        run_job(
+            qs.member,
+            file_id,
+            monkeypatch,
+            use,
+            abort_reason=lambda: AbortReason.SHUTDOWN if kept["sheets"] else None,
+        )
+    monkeypatch.setattr(read_files.sheets, "read", original)
+    return lambda: run_job(qs.member, file_id, monkeypatch, use)
+
+
+def test_a_read_anyway_sheet_is_not_decided_before_its_read_asks_its_questions(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Round 4's refuter (55): a held file read anyway lists its sheets before Step 1 asks their
+    number, so an unnumbered sheet was confirmed with no Question to hold it, for good."""
+    read_on = _read_anyway_stopped_after_its_sheets(qs_project, monkeypatch)
+    api = api_as(qs_project.member)
+    unnumbered = the(proposals(api, qs_project.project_id), None)
+    assert open_questions(api, qs_project.project_id, "missing") == []
+
+    early = confirm(api, qs_project.project_id, [unnumbered["sheet_id"]])
+    left_out = exclude(api, qs_project.project_id, [unnumbered["sheet_id"]], "blank")
+
+    assert (early.status_code, early.json()) == (404, NOT_FOUND)
+    assert (left_out.status_code, left_out.json()) == (404, NOT_FOUND)
+    read_on()
+    [asked] = open_questions(api, qs_project.project_id, "missing")
+    unnumbered = the(proposals(api, qs_project.project_id), None)
+    refused = confirm(api, qs_project.project_id, [unnumbered["id"]])
+    assert (refused.status_code, refused.json()["params"]["question"]) == (409, asked["id"])
+
+
+def test_undo_never_puts_a_confirmation_back_on_a_sheet_whose_number_is_still_asked(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, sign_in: Callable[..., Member]
+) -> None:
+    """Round 4's refuter (55), its second half: undoing an exclusion put back a confirmation made
+    before the sheet's `missing` Question was raised (as a legacy row may carry), confirming it again
+    while the Question is unresolved. It goes back to undecided, its Question open."""
+    from vextrus.takeoff.models import Question
+
+    question_id, sheet_id, _number = _blocked(qs_project, monkeypatch, "missing")
+    api = api_as(qs_project.member)
+    # A confirmation made while the Question was not yet asked.
+    Question.objects.filter(id=question_id).update(status="withdrawn")
+    assert confirm(api, qs_project.project_id, [sheet_id]).status_code == 200
+    Question.objects.filter(id=question_id).update(status="open")
+    colleague = api_as(sign_in(role="qs", developer_id=qs_project.member.developer_id))
+    assert exclude(colleague, qs_project.project_id, [sheet_id], "blank").status_code == 200
+
+    back = colleague.post(f"{step1(qs_project.project_id)}/undo", {})
+
+    assert back.status_code == 200, back.content
+    sheet = next(p for p in proposals(api, qs_project.project_id) if p["id"] == sheet_id)
+    shown = _question(api, qs_project.project_id, question_id)
+    assert (sheet["decision"], shown["status"], shown["blocking"]) == (None, "open", True)
