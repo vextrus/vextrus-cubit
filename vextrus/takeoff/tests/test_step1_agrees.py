@@ -186,7 +186,8 @@ def test_a_list_read_on_a_sheet_names_the_sheet_it_was_read_on(step1_project: St
 def test_a_read_list_gives_each_numbers_revision_mark(step1_project: Step1Project) -> None:
     """The design gate's M14 (m0-screens 7, "Two sheets, one number"): the drawing list on S-01 is a
     source of its own for which copy is current, so the API sends the marks the read list gives; a
-    number listed without one is left out, and a list the QS typed gives none."""
+    number listed without one, or with one too long to keep whole, is left out; a list the QS types
+    beside it adds none."""
     project = step1_project.project_id
     path = f"/api/projects/{project}/takeoff/step1/drawing-list"
     reader = api_as(step1_project.member)
@@ -196,7 +197,12 @@ def test_a_read_list_gives_each_numbers_revision_mark(step1_project: Step1Projec
         step1.record_read_list(
             step1_project.sheets[0],
             "structural",
-            [("S-01", "NOTES", "A"), ("S-02", "PLAN"), ("S-07", "BEAMS", "B")],
+            [
+                ("S-01", "NOTES", "A"),
+                ("S-02", "PLAN"),
+                ("S-07", "BEAMS", "B"),
+                ("S-08", "SLAB", "B" * 17),
+            ],
         )
 
     assert reader.get(path, discipline="structural").json()["read_revisions"] == {

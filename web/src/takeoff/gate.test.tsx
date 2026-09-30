@@ -18,6 +18,7 @@ import { englishMessages } from '@/i18n/catalogues'
 import { ENGLISH } from '@/i18n/languages'
 import { activatePseudoRtl } from '@/i18n/pseudo'
 import { notationProblems } from '@/ui'
+import { statedKeys } from './storeys'
 
 beforeEach(async () => {
   vi.useFakeTimers({ toFake: ['Date'] })
@@ -327,14 +328,24 @@ describe('M12: a title that states its storeys never reads "not stated"', () => 
     Object.assign(step1.proposals.find((p) => p.number === 'S-04')!, { storeys_as_stated: 'TYPICAL FLOOR', views: [plan('m3', '')] })
     Object.assign(step1.proposals.find((p) => p.number === 'S-03')!, { storeys_as_stated: '', views: [plan('m4', '')] })
     Object.assign(step1.proposals.find((p) => p.number === 'S-02')!, { storeys_as_stated: 'EL. +16\'-6"', views: [plan('m5', '')] })
+    Object.assign(step1.proposals.find((p) => p.number === 'S-08')!, { storeys_as_stated: '6TH FLOOR TO ROOF', views: [plan('m6', '')] })
     await open(api)
     expect(clean(rowOf('S-06').textContent)).toContain('3rd, 5th, 7th')
     expect(clean(rowOf('S-06').textContent)).not.toContain('not stated')
     expect(clean(rowOf('S-05').textContent)).toContain('2nd')
     expect(clean(rowOf('S-05').textContent)).not.toContain('not stated')
+    for (const [said, keys] of [
+      ['2ND BASEMENT FLOOR', ['basement_2']],
+      ['6TH FLOOR TO ROOF', ['floor_6', 'top', 'roof']],
+      ['GROUND TO 5TH FLOOR', null],
+      ['2ND TO 4TH FLOOR', ['floor_2', 'floor_3', 'floor_4']],
+      ['GF', null],
+    ] as const)
+      expect(statedKeys(said), said).toEqual(keys)
     // A level is not a storey: amber "not stated" beside its Question (6.8), never the level as text.
     expect(clean(rowOf('S-02').textContent)).toContain('not stated')
     expect(clean(rowOf('S-02').textContent)).not.toContain('16')
+    expect(clean(rowOf('S-08').textContent)).toContain('6th to Roof (floors between from Step 3)')
     expect(clean(rowOf('S-04').textContent)).toContain('typical (range from Step 3)')
     expect(clean(rowOf('S-03').textContent)).toContain('not stated')
   })

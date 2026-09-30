@@ -211,6 +211,9 @@ export function useStep1Acts(projectId: string): Step1Acts {
 
   const setDrawingList = useCallback(
     async (discipline: string, text: string) => {
+      // Not while another act is in flight: its undo would take this one's place (the refuter, round 1).
+      if (pending.current) return false
+      pending.current = true
       const which = DISCIPLINE_IN_TEXT[discipline]
       const kind = which ? i18n._(which) : ''
       let made = 0
@@ -233,6 +236,7 @@ export function useStep1Acts(projectId: string): Step1Acts {
       } finally {
         if (made) done.current.push({ calls: 1, words: <Trans>the drawing list you set</Trans> })
         await refresh()
+        pending.current = false
       }
     },
     [i18n, onUndo, projectId, refresh, sayRefused, toast],

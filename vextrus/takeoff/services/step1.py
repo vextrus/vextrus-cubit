@@ -1163,7 +1163,10 @@ def record_read_list(
                 register=row,
                 number=number,
                 title=title,
-                revision_mark=(entry[2] if len(entry) > 2 else "")[:_MARK_LENGTH],
+                # A mark too long to keep is dropped, never cut: cut, it could name the other copy.
+                revision_mark=mark
+                if len(mark := entry[2] if len(entry) > 2 else "") <= _MARK_LENGTH
+                else "",
                 line=line,
             )
         record_progress(project_id)

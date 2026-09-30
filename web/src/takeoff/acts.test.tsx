@@ -4,7 +4,7 @@
  * a second Enter while the act is in flight sends nothing more.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { page } from 'vitest/browser'
 import { FakeApi, PEOPLE, mountApp } from '@/app/testing'
@@ -20,6 +20,7 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
+const clean = (t: string | null | undefined) => (t ?? '').replace(/[⁦-⁩‎‏]/g, '').replace(/\s+/g, ' ').trim()
 const bodyText = () => (document.body.textContent ?? '').replace(/[⁦-⁩‎‏]/g, '').replace(/\s+/g, ' ')
 
 async function open() {
@@ -31,13 +32,13 @@ async function open() {
 }
 
 /** From `slow()` on, Step 1's reads answer 400 ms late (the review's repro of R1). */
-async function openSlow() {
+async function openSlow(ms = 400) {
   const api = new FakeApi()
   const step1 = new FakeStep1(api)
   let late = false
   const base = api.handle
   api.handle = async (request: Request) => {
-    if (late && request.method === 'GET' && new URL(request.url, location.origin).pathname.includes('/takeoff/step1')) await new Promise((r) => setTimeout(r, 400))
+    if (late && request.method === 'GET' && new URL(request.url, location.origin).pathname.includes('/takeoff/step1')) await new Promise((r) => setTimeout(r, ms))
     return base(request)
   }
   await mountApp('/p/KR-01/takeoff/1', { as: PEOPLE.qs, api })
@@ -93,5 +94,20 @@ describe('an act in flight', () => {
     await userEvent.keyboard('{Enter}')
     await new Promise((r) => setTimeout(r, 1000))
     expect(step1.calls().filter((c) => c.startsWith('POST'))).toHaveLength(1)
+  })
+
+  it('sends no drawing list while the bulk act is still reloading', async () => {
+    const step1 = await openSlow(1500)
+    const heading = await screen.findByText('Architectural 8 found', { exact: false })
+    const section = heading.closest('section, [role="rowgroup"], [role="group"], div')!.parentElement!
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(step1.calls()).toContain('POST /exclude'))
+    await userEvent.click(within(section).getAllByText('Paste the drawing list')[0]!)
+    const again = await screen.findByRole('dialog', { name: 'The architectural drawing list' })
+    await userEvent.type(within(again).getByRole('textbox'), 'A-01–A-08')
+    await waitFor(() => expect(clean(again.textContent)).toContain('Read as a range'))
+    await userEvent.click(within(again).getByRole('button', { name: 'Use as the drawing list' }))
+    await new Promise((r) => setTimeout(r, 300))
+    expect(step1.calls()).not.toContain('POST /drawing-list')
   })
 })

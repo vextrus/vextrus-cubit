@@ -116,23 +116,35 @@ export function statedKeys(text: string): string[] | null {
   const keys: string[] = []
   let range = false
   for (const w of words) {
-    const ordinal = /^(\d+)(st|nd|rd|th)$/.exec(w)
     if (w === 'to') {
+      if (range || keys.length === 0) return null
       range = true
       continue
     }
     if (w === 'floor' || w === 'floors' || w === 'and' || w === 'level' || w === 'levels') continue
+    const ordinal = /^(\d+)(st|nd|rd|th)$/.exec(w)
+    const last = keys.at(-1)
+    // "2ND BASEMENT": the ordinal read before it names the basement's number.
+    if (w === 'basement' && last && /^floor_\d+$/.test(last) && !range) {
+      keys[keys.length - 1] = `basement_${last.slice('floor_'.length)}`
+      continue
+    }
     const named = w === 'ground' || w === 'mezzanine' || w === 'roof' || w === 'basement'
     if (!ordinal && !named) return null
     const key = ordinal ? `floor_${Number(ordinal[1])}` : w
-    const from = keys.at(-1)
-    const a = from ? /^floor_(\d+)$/.exec(from) : null
-    const b = /^floor_(\d+)$/.exec(key)
-    if (range && a && b) for (let n = Number(a[1]) + 1; n < Number(b[1]); n++) keys.push(`floor_${n}`)
-    range = false
+    if (range) {
+      range = false
+      const a = last ? /^floor_(\d+)$/.exec(last) : null
+      const b = /^floor_(\d+)$/.exec(key)
+      if (a && b) for (let n = Number(a[1]) + 1; n < Number(b[1]); n++) keys.push(`floor_${n}`)
+      // "6TH FLOOR TO ROOF": the floors between come from Step 3, as 13's open run ("top") says.
+      else if (a && key === 'roof') keys.push('top')
+      // Any other named end ("GROUND TO 5TH"): the floors between are not known here.
+      else return null
+    }
     keys.push(key)
   }
-  return keys.length > 0 ? keys : null
+  return range || keys.length === 0 ? null : keys
 }
 
 /**
