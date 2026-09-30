@@ -106,6 +106,14 @@ Also carried: the owner's custody re-runs (`keys-custody.sh` after 24g, 107 and 
 after 107; ask once if session 07's close did not get them done); #140 and #149 (`before-beta`); #151 (after
 the cap on #148).
 
+## The scored baseline at session 07's close (main 81981915, run 20260930T160458Z-819819151220-4b91, 24g's scorer installed)
+| Set | sheets all right | views joined | view titles | view subjects | storeys | number | title | Discipline | date |
+|---|---|---|---|---|---|---|---|---|---|
+| Edison | 38 / 217 | 332 / 739 | 282 / 332 | 43 / 75 | 185 | 214 | 205 | 202 | 206 |
+| Sample Project | 8 / 67 | 197 / 417 | 195 / 197 | 85 / 91 | 56 | 67 | 67 | 67 | 67 |
+
+The diagnostic (counts only) aims the next scored loop: on Edison, 86 unjoined key views have a same-kind export view at IoU 0.5–0.8 and 55 at 0.2–0.5 (sections 46 + 21, plans 26 + 6): **the boxes are near but not tight enough** — the first view loop is box extent (what a view's box takes in: its title, dimensions, grid bubbles), judged per kind. 65 have no export view of their kind, 33 are another kind at IoU ≥ 0.8 (details 26: a kind rule). Aligning frame corners joins nothing (0): not a frame problem. Subjects: 257 key phrases fall outside the engine's 14 words (architectural and electrical views have none: a vocabulary ruling for the owner before a subject loop). Sheet level is near its ceiling except storeys (32 Edison, 11 Sample; the key corrections the owner ruled come first).
+
 ## The order
 1. **First 15 minutes, in parallel:**
    - the acceptance writers for every wave-1 ticket with tests (the table below), each in its own
