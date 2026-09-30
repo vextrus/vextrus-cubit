@@ -260,7 +260,11 @@ def test_the_sheets_are_stamped_with_the_files_group_and_each_gets_its_views_and
         for s in found:
             assert s.has_render
             assert drawings.render(s.id)
-            assert [v.title for v in drawings.views(s.id)] == ["GROUND FLOOR BEAM LAYOUT PLAN"]
+            # the drawn view, then the title block (a View, the ruling R2 of session 07)
+            assert [(v.kind, v.title) for v in drawings.views(s.id)] == [
+                ("plan", "GROUND FLOOR BEAM LAYOUT PLAN"),
+                ("title_block", ""),
+            ]
     steps = kept(qs_project.member, file_id)
     kept_candidates = steps[drawings.SHEETS].result["sheets"]
     assert {c["candidate"]["group"] for c in kept_candidates} == {view.group}
@@ -419,7 +423,7 @@ def test_a_stop_never_hands_the_rest_of_the_file_a_fresh_view_budget(
         )
     run_job(qs_project.member, stopped, monkeypatch)
 
-    expected = [(1, []), (0, ["views_scan_budget"]), (0, [])]
+    expected = [(2, []), (0, ["views_scan_budget"]), (0, [])]  # sheet 1: its plan and title block
     assert sheet_readings(qs_project.member, straight) == expected
     assert sheet_readings(qs_project.member, stopped) == expected
 
@@ -556,7 +560,7 @@ def test_the_files_render_time_is_bounded_across_its_sheets_and_said_once(
     steps = kept(qs_project.member, spent)
     results = [steps[drawings.sheet_step(n)].result for n in range(1, FRAMES + 1)]
     assert [r["render"] for r in results] == [False] * FRAMES
-    assert all(r["views"] == 1 for r in results)
+    assert all(r["views"] == 2 for r in results)  # each sheet's plan and title block
     said = [m["params"]["limit"] for r in results for m in r["not_read_in_full"]]
     assert said == [sheets.RENDER_BUDGET]
     with qs_project.member.acting():
