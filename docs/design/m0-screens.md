@@ -1396,7 +1396,11 @@ what one storey means (members at floor level or floor to floor): both are bound
 - **Assigning a view to Takeoff Steps is M1's** (the plan's QS review, Q10: in M0 it does nothing a
   QS needs). M0 shows each view's proposed steps and Part as read-only chips; the QS may exclude a view
   or confirm it back in, and a view nobody proposed a step for is excluded with a reason ("other: …")
-  until M1. `A` is reserved; no "Assign steps" button or dialog exists in M0. *Kept for M1's behaviour
+  until M1. `A` is reserved; no "Assign steps" button or dialog exists in M0. *Amended (#158, 30 Sep
+  2026):* a Structural view is given its Step by its kind and subject (its own title's, else its sheet
+  title's, else its sheet's confirmed kind), and the act that assigns a view still unaccounted exists
+  at the API only (`POST …/step1/assign`), while the Discipline's heading names what keeps it from
+  confirmed ("Structural 57 / 57 settled · 79 views unaccounted"). *Kept for M1's behaviour
   spec:* a 420 px dialog "Which steps read "8th floor beam layout"?", "A view may feed several steps;
   each marks it used on its own. S-20, plan.", fourteen checkboxes "1 Sheets … 14 Site works and MEP
   allowances", then one per MEP Discipline Part received ("Electrical", "Plumbing and sanitary", "Fire",

@@ -4,6 +4,7 @@ Coverage and progress, and the confirm service, the only writer of what the QS d
     step1.proposals(project_id)          # one per printed sheet, by Discipline, in natural number order
     step1.confirm(project_id, [ids], kind=None, actor_name=user.name)
     step1.exclude(project_id, [ids], "superseded", "", actor_name=user.name)
+    step1.assign(project_id, [view ids], ["beams"], actor_name=user.name)   # views in Steps (#158)
     step1.undo(project_id)               # the acting user's own last act on Step 1
     step1.read_list(project_id, "architectural", "A-01 to A-07")   # parsed back, nothing stored
     step1.set_list(project_id, "architectural", text, actor_name=user.name)
@@ -30,6 +31,11 @@ count where there is one; where a list read on a sheet and one the QS gave disag
 **Coverage** (ADR 0027; m0-screens 6.11): one row per view, written from the view's proposal; a view
 is proposed while its sheet is undecided, assigned once its sheet is confirmed with a step or its
 Part, excluded once its sheet or itself is left out, unaccounted with no step, Part or exclusion.
+**A Structural view the read gave no step** (#158: its own title and its sheet's name no subject, 17's
+`views`) is given the Steps its sheet's confirmed kind names (`views.kind_steps`: `beam_details`,
+beams) under the act confirming it; the QS may put any view not left out in Steps 2 to 14 (`assign`,
+the API's only in M0: m0-screens 6.9). A step given by an act stands while the act is not undone
+(`CoverageStep.confirmation`; the app deletes no row).
 
 For the seed and 21c's read job: `propose_sheet`, `record_coverage`, `raise_question`,
 `answer_question` and `record_progress` write the rows Step 1 reads.
@@ -53,6 +59,7 @@ from django.utils import timezone
 from engine.check import register
 from engine.messages import Message
 from engine.messages import register_check as list_codes
+from engine.recognise import views as view_finder
 from engine.recognise.conflicts import Numbers, recognisers
 from engine.recognise.sheets import default_conventions
 from engine.recognise.types import DisciplineConvention, SheetConventions, ValueSource
@@ -60,7 +67,7 @@ from vextrus.drawings import services as drawings
 from vextrus.platform.services import auth, jev, markets, tenancy
 from vextrus.projects import services as projects
 from vextrus.takeoff import acts
-from vextrus.takeoff.library import EXPECTED, SHEETS
+from vextrus.takeoff.library import EXPECTED, SHEETS, STEPS
 from vextrus.takeoff.messages import proposals as answer_codes
 from vextrus.takeoff.messages import step1 as said
 from vextrus.takeoff.models import (
@@ -192,6 +199,9 @@ class DisciplineProgress:
     """The StepProgress status: `confirmed` when every sheet is decided, no Question is open or
     kept open, no view is unaccounted and no file of it is reading (m0-screens 6.11); else
     `in_review` (or `not_started` with no sheet)."""
+    outstanding: list[Message] = field(default_factory=list)
+    """What keeps it from `confirmed` (#158), each a code with how many, in m0-screens 5's order;
+    empty once confirmed."""
 
 
 @dataclass(frozen=True)
@@ -460,7 +470,7 @@ def coverage(project_id: uuid.UUID) -> CoverageView:
     by_step: Counter[str] = Counter()
     by_reason: Counter[str] = Counter()
     steps: dict[uuid.UUID, list[CoverageStep]] = {}
-    for step in CoverageStep.objects.filter(coverage_id__in=[r.id for r in rows]):
+    for step in CoverageStep.objects.filter(_STANDING, coverage_id__in=[r.id for r in rows]):
         steps.setdefault(step.coverage_id, []).append(step)
     used = 0
     unaccounted: list[UnaccountedView] = []
@@ -557,12 +567,12 @@ def progress(project_id: uuid.UUID) -> ProgressView:
         if row.sheet_revision_id in discipline_of
     )
     drawing_set = drawings.set_of(project_id)
-    reading = {
+    reading = Counter(
         f.discipline
         for f in (drawings.files(drawing_set.id) if drawing_set else [])
         if f.state
         in (drawings.FileState.WAITING, drawings.FileState.READING, drawings.FileState.RETRYING)
-    }
+    )
     rows = []
     for key in order:
         lists = _lists(project_id, key) if key else _Lists(None, None)
@@ -574,7 +584,7 @@ def progress(project_id: uuid.UUID) -> ProgressView:
             and decided[key] >= found[key]
             and open_questions[key] == 0
             and unaccounted[key] == 0
-            and key not in reading
+            and not reading[key]
         )
         rows.append(
             DisciplineProgress(
@@ -586,9 +596,36 @@ def progress(project_id: uuid.UUID) -> ProgressView:
                 total=total,
                 open_questions=open_questions[key],
                 status="confirmed" if done else ("in_review" if found[key] else "not_started"),
+                outstanding=[]
+                if done
+                else _outstanding(
+                    reading=reading[key],
+                    undecided=found[key] - decided[key],
+                    disagree=total is None,
+                    questions=open_questions[key],
+                    unaccounted=unaccounted[key],
+                ),
             )
         )
     return ProgressView(rows, _not_received(project_id))
+
+
+def _outstanding(
+    *, reading: int, undecided: int, disagree: bool, questions: int, unaccounted: int
+) -> list[Message]:
+    """What keeps a Discipline from `confirmed`, in m0-screens 5's order, each once, with how many."""
+    held: list[Message] = []
+    if reading:
+        held.append(said.FILES_READING(count=reading))
+    if undecided > 0:
+        held.append(said.SHEETS_UNDECIDED(count=undecided))
+    if disagree:
+        held.append(said.LISTS_DISAGREE())
+    if questions:
+        held.append(said.QUESTIONS_OPEN(count=questions))
+    if unaccounted:
+        held.append(said.VIEWS_UNACCOUNTED(count=unaccounted))
+    return held
 
 
 def _not_received(project_id: uuid.UUID) -> list[str]:
@@ -1081,6 +1118,109 @@ def _exclude_views(
         _stamp(proposal, ProposalStatus.REJECTED, act)
 
 
+ASSIGNABLE = frozenset(step.key for step in STEPS if step.key != SHEETS)
+"""The Steps a view may be put in: 2 to 14 (Step 1 reads sheets, never a view)."""
+
+
+def assign(
+    project_id: uuid.UUID, ids: Sequence[object], steps: Sequence[object], *, actor_name: str
+) -> ActView:
+    """Put the named views in the named Takeoff Steps (#158), one act under the QS's name, before or
+    after their sheets are confirmed: a view no step accounted for is then proposed with them, or
+    assigned under its sheet's act once its sheet is confirmed. A step the view already has is kept
+    as it is. A key that is no Step 2 to 14 is refused (400); a view left out, on its own or with its
+    sheet, is refused (409); an id not of this Project's views is not found; nothing is done."""
+    auth.require(acts.ASSIGN, project_id)
+    projects.get(project_id)  # a Project not in scope (of another Developer, or none) is not found
+    if (
+        not isinstance(steps, (list, tuple))
+        or not steps
+        or any(not isinstance(step, str) or step not in ASSIGNABLE for step in steps)
+    ):
+        raise auth.Refused(said.STEP_UNKNOWN(), status=400)
+    if not isinstance(ids, (list, tuple)) or not ids:
+        raise auth.Refused(said.NO_VIEW_CHOSEN(), status=400)
+    with transaction.atomic():
+        views, rest = _views_chosen(project_id, ids)
+        if rest:
+            raise auth.NotFound
+        listed = {s.id: s for s in _sheets(project_id)}
+        rows = {
+            r.view_id: r
+            for r in Coverage.objects.select_for_update().filter(
+                project_id=project_id, view_id__in=[p.subject_id for p in views]
+            )
+        }
+        chosen: list[Coverage] = []
+        for proposal in views:
+            row = rows.get(proposal.subject_id)
+            if row is None or row.sheet_revision_id not in listed:
+                raise auth.NotFound
+            chosen.append(row)
+        if any(row.status == CoverageStatus.EXCLUDED for row in chosen):
+            raise auth.Refused(said.VIEW_EXCLUDED(), status=409)
+        disciplines = {listed[row.sheet_revision_id].discipline or "" for row in chosen}
+        act = _act(
+            project_id,
+            ConfirmationAct.ASSIGN,
+            len(chosen),
+            actor_name,
+            discipline=disciplines.pop() if len(disciplines) == 1 else "",
+        )
+        for row in chosen:
+            for step in dict.fromkeys(steps):
+                _give_step(row, str(step), act)
+            if row.status == CoverageStatus.UNACCOUNTED:
+                _follow_sheet(row)
+        record_progress(project_id)
+    return _act_view(act)
+
+
+_STANDING = Q(confirmation__isnull=True) | Q(confirmation__undone_at__isnull=True)
+"""A CoverageStep that stands: the read's, or given by an act not undone."""
+
+
+def _standing_steps(row: Coverage) -> list[str]:
+    return list(
+        CoverageStep.objects.filter(_STANDING, project_id=row.project_id, coverage=row)
+        .order_by("step")
+        .values_list("step", flat=True)
+    )
+
+
+def _give_step(row: Coverage, step: str, act: Confirmation) -> None:
+    """The view in `step` by `act`, unless the step already stands for it (the read's, or an act's
+    not undone); a step an undone act gave is given again by this one."""
+    given, made = CoverageStep.objects.select_for_update().get_or_create(
+        tenant_id=row.tenant_id,
+        project_id=row.project_id,
+        coverage=row,
+        step=step,
+        defaults={"confirmation": act},
+    )
+    if not made and given.confirmation_id is not None:
+        earlier = Confirmation.objects.get(project_id=row.project_id, id=given.confirmation_id)
+        if earlier.undone_at is not None:
+            given.confirmation = act
+            given.save(update_fields=["confirmation"])
+
+
+def _account(row: Coverage, sheet: drawings.SheetView, act: Confirmation) -> bool:
+    """A view the read gave no step, on a sheet confirmed by `act`: assigned under the act when a step
+    stands for it (the QS's `assign`), else when its sheet's confirmed kind names Steps, given them by
+    the act (a Structural `beam_details`: beams). False when neither: it stays unaccounted."""
+    if not _standing_steps(row):
+        for step in view_finder.kind_steps(sheet.confirmed_kind or "", sheet.discipline):
+            _give_step(row, step, act)
+        if not _standing_steps(row):
+            return False
+    row.status, row.reason, row.reason_text = CoverageStatus.ASSIGNED, "", ""
+    row.confirmation = act
+    row.confirmed_by_id = act.user_id
+    row.save(update_fields=["status", "reason", "reason_text", "confirmation", "confirmed_by"])
+    return True
+
+
 def undo(project_id: uuid.UUID) -> ActView:
     """Take back the acting user's own last act on Step 1 not yet undone (a confirmation, an
     exclusion, a drawing list). Each sheet it still decides goes back to what it carried before the
@@ -1144,6 +1284,16 @@ def undo(project_id: uuid.UUID) -> ActView:
             _put_back_sheet(project_id, sheet_id, _standing_before(act, sheet_id))
         for sheet_id in off_list:
             _put_back_sheet(project_id, sheet_id, None)
+        # The views the act put in Steps (an `assign`) stand as their sheets do without its steps;
+        # a view left out since stays out.
+        given = CoverageStep.objects.filter(project_id=project_id, confirmation=act).values_list(
+            "coverage_id", flat=True
+        )
+        for row in Coverage.objects.select_for_update().filter(
+            project_id=project_id, id__in=list(given)
+        ):
+            if row.status != CoverageStatus.EXCLUDED:
+                _follow_sheet(row)
         record_progress(project_id)
     return _act_view(act)
 
@@ -1250,13 +1400,15 @@ def _decide_views(sheet_id: uuid.UUID, act: Confirmation, reason: str | None, te
     """The sheet's views' Coverage follows it: confirmed as proposed (an unaccounted view stays so),
     or excluded with the sheet's reason."""
     own = _excluded_on_their_own(act.project_id, sheet_id)
+    sheet = drawings.sheet(sheet_id) if reason is None else None
     for row in Coverage.objects.select_for_update().filter(
         project_id=act.project_id, sheet_revision_id=sheet_id
     ):
         if reason is None and row.view_id in own:
             continue  # the QS left this view out on its own: confirming its sheet keeps it so
-        if reason is None and row.proposed_status == CoverageStatus.UNACCOUNTED:
-            _put_back(row)
+        if sheet is not None and row.proposed_status == CoverageStatus.UNACCOUNTED:
+            if not _account(row, sheet, act):
+                _put_back(row)
             continue
         if reason is None:
             row.status, row.reason, row.reason_text = row.proposed_status, row.proposed_reason, ""
@@ -1296,7 +1448,8 @@ def _follow_sheet(row: Coverage) -> None:
         row.status, row.reason = CoverageStatus.EXCLUDED, sheet.excluded_reason or OTHER
         row.reason_text = sheet.excluded_text
     elif row.proposed_status == CoverageStatus.UNACCOUNTED:
-        _put_back(row)
+        if not _account(row, sheet, act):
+            _put_back(row)
         return
     else:
         row.status, row.reason, row.reason_text = row.proposed_status, row.proposed_reason, ""
@@ -1306,7 +1459,10 @@ def _follow_sheet(row: Coverage) -> None:
 
 
 def _put_back(row: Coverage) -> None:
+    """The view as proposed: as the read proposed it, or proposed with the steps the QS put it in."""
     row.status, row.reason, row.reason_text = row.proposed_status, row.proposed_reason, ""
+    if row.status == CoverageStatus.UNACCOUNTED and _standing_steps(row):
+        row.status = CoverageStatus.ASSIGNED
     row.confirmation = None
     row.confirmed_by = None
     row.save(update_fields=["status", "reason", "reason_text", "confirmation", "confirmed_by"])

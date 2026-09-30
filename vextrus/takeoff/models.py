@@ -298,6 +298,8 @@ class ConfirmationAct(models.TextChoices):
     CONFIRM = "confirm"
     EXCLUDE = "exclude"
     DRAWING_LIST = "drawing_list"
+    ASSIGN = "assign"
+    """Views put in Takeoff Steps by the QS (#158)."""
 
 
 class Confirmation(models.Model):
@@ -568,7 +570,11 @@ class Coverage(models.Model):
 
 
 class CoverageStep(models.Model):
-    """A Takeoff Step a view is assigned to; `used` once that step's Confirmation draws on it."""
+    """A Takeoff Step a view is assigned to; `used` once that step's Confirmation draws on it.
+
+    With no `confirmation` the read proposed it; else the act that gave it (the QS's `assign`, or the
+    confirmation of a Structural sheet by a kind naming the Step, #158): it stands while that act is
+    not undone (the app deletes no row, so an undone act's steps stay, standing no more)."""
 
     id = models.UUIDField(primary_key=True, default=new_id, editable=False)
     tenant_id = models.UUIDField(editable=False)
@@ -576,6 +582,9 @@ class CoverageStep(models.Model):
     coverage = models.ForeignKey(Coverage, models.PROTECT, related_name="+", db_index=False)
     step = models.CharField(max_length=40)
     used = models.BooleanField(default=False)
+    confirmation = models.ForeignKey(
+        Confirmation, models.PROTECT, null=True, blank=True, related_name="+", db_index=False
+    )
 
     class Meta:
         constraints: ClassVar = [

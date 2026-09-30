@@ -3,6 +3,7 @@ subject and layer, and what it is proposed for.
 
     views.find(artefact, sheet, conventions) -> FoundViews   (the harness's `views` stage; `.paper`)
     views.working_view(views) -> int | None                            (16's and 22's fit)
+    views.kind_steps(kind, discipline, conventions=None) -> tuple[str, ...]  (Step 1, #158)
     views.subjects(text, conventions=None) -> frozenset[str]             (19b's continuations)
     views.describe(text, conventions=None) -> Described                   (19b's continuations)
     views.default_conventions() -> ViewConventions
@@ -78,7 +79,11 @@ layer). A view drawn with no title has none of these.
 title blocks, key plans and 3D/perspective views are excluded `for_information`; a legend goes to Step
 2 for Structural and Architectural, else to its Discipline's Part; every view of an MEP sheet (any
 Discipline but those of `STEP_DISCIPLINES`) to its Discipline's Part; general notes to Step 2. A
-Structural view goes to the Steps of its subject (`STRUCTURAL_STEPS`: 5 to 10 only here); an
+Structural view goes to the Steps of its subject (`STRUCTURAL_STEPS`: 4 to 10 only here); one whose
+own title names no subject with a Step ("SECTION 1-1") goes to the Steps of every subject its sheet's
+title names ("BEAM DETAILS": beams), in the title's order, its own subject kept as its title says
+(#158); on a sheet whose title names none either it has no Step (unaccounted until the QS assigns it or
+Step 1 tells it from the kind the sheet is confirmed as, `vextrus/takeoff/services/step1.py`). An
 Architectural plan drawing the structure (a column or beam subject) is excluded as a `duplicate` (the
 structural set governs); an Architectural fixture plan or toilet detail goes to Steps 11 and 12 and to
 the Plumbing and sanitary Part as well; another Architectural view to Steps 11 and 12. The Step keys are
@@ -243,8 +248,9 @@ STRUCTURAL_STEPS: Mapping[str, tuple[str, ...]] = {
     "slab": ("slabs",),
     "stair": ("stairs",),
     "tank": ("tanks",),
+    "grid": ("grid",),
 }
-"""Steps 5 to 10 (foundations to tanks) by a Structural view's subject."""
+"""Steps 4 to 10 (the grid, then foundations to tanks) by a Structural view's subject."""
 ARCHITECTURAL_STEPS = ("walls", "rooms")
 """Steps 11 and 12: walls and openings, rooms and finishes."""
 STRUCTURE_SUBJECTS = frozenset({"column", "beam", "shear_wall"})
@@ -1092,6 +1098,11 @@ def _subject(text: str, reading: _Reading) -> str | None:
     return found[0][2] if found else None
 
 
+def _subjects_in_order(text: str, reading: _Reading) -> tuple[str, ...]:
+    """Every subject the text names, each once, in the order they stand ("COLUMN & BEAM DETAILS")."""
+    return tuple(dict.fromkeys(key for _, _, key in reading.subjects.matches(_tokens(text))))
+
+
 @dataclass(frozen=True)
 class Described:
     """What a title says, for 19b's continuations (#102): its kind, its layer, and its other words (not
@@ -1187,7 +1198,8 @@ def find(
     if block is not None:
         found.append(_View(None, None, ViewKind.TITLE_BLOCK, block))
     discipline = sheet.discipline.value if sheet.discipline is not None else None
-    result = FoundViews(_candidate(v, paper, reading, discipline) for v in found)
+    on_sheet = _subjects_in_order(sheet.title.value, reading) if sheet.title is not None else ()
+    result = FoundViews(_candidate(v, paper, reading, discipline, on_sheet) for v in found)
     result.paper = (paper.region[2], paper.region[3])
     result.limits = _report(artefact)
     return result
@@ -1515,7 +1527,13 @@ def _in_reading_order(views: list[_View]) -> list[_View]:
 # What a view says and is proposed for ------------------------------------------------------------------
 
 
-def _candidate(view: _View, paper: _Paper, reading: _Reading, discipline: str | None) -> ViewCandidate:
+def _candidate(
+    view: _View,
+    paper: _Paper,
+    reading: _Reading,
+    discipline: str | None,
+    on_sheet: Sequence[str] = (),
+) -> ViewCandidate:
     title = " ".join(view.title.shown.split()) if view.title is not None else None
     scale = view.scale
     if title is not None and scale is None:
@@ -1533,7 +1551,7 @@ def _candidate(view: _View, paper: _Paper, reading: _Reading, discipline: str | 
         meaning = (
             StoreysMeaning.FLOOR_TO_FLOOR if subject in FLOOR_TO_FLOOR else StoreysMeaning.AT_FLOOR_LEVEL
         )
-    steps, part, exclusion = _proposal(view.kind, subject, discipline)
+    steps, part, exclusion = _proposal(view.kind, subject, discipline, on_sheet)
     anchors: tuple[DwgAnchor, ...] = ()
     if view.title is not None and paper.anchor is not None:
         a = paper.anchor
@@ -1566,9 +1584,10 @@ def _candidate(view: _View, paper: _Paper, reading: _Reading, discipline: str | 
 
 
 def _proposal(
-    kind: ViewKind, subject: str | None, discipline: str | None
+    kind: ViewKind, subject: str | None, discipline: str | None, on_sheet: Sequence[str] = ()
 ) -> tuple[tuple[str, ...], str | None, Exclusion | None]:
-    """A view's proposed Takeoff Steps, Part or exclusion (the module's docstring)."""
+    """A view's proposed Takeoff Steps, Part or exclusion (the module's docstring); `on_sheet`: the
+    subjects its sheet's title names, in order."""
     if kind in _EXCLUDED_KINDS:
         return (), None, Exclusion(ExclusionReason.FOR_INFORMATION)
     if discipline is None:
@@ -1578,12 +1597,31 @@ def _proposal(
     if kind in (ViewKind.LEGEND, ViewKind.NOTES):
         return (GENERAL_NOTES,), None, None
     if discipline == "structural":
-        return STRUCTURAL_STEPS.get(subject or "", ()), None, None
+        own = STRUCTURAL_STEPS.get(subject or "", ())
+        if own:
+            return own, None, None
+        steps = (step for key in on_sheet for step in STRUCTURAL_STEPS.get(key, ()))
+        return tuple(dict.fromkeys(steps)), None, None
     if kind is ViewKind.PLAN and subject in STRUCTURE_SUBJECTS:
         return (), None, Exclusion(ExclusionReason.DUPLICATE)
     if subject in PLUMBING_SUBJECTS:
         return ARCHITECTURAL_STEPS, PLUMBING_PART, None
     return ARCHITECTURAL_STEPS, None, None
+
+
+def kind_steps(
+    kind: str, discipline: str | None, conventions: ViewConventions | None = None
+) -> tuple[str, ...]:
+    """The Takeoff Steps a Structural sheet's kind names by its subject words, in order
+    (`beam_details`: beams; `column_schedule` and `shear_wall_details`: columns; `pile_cap_details`:
+    foundations; `details` or `site_plan`: none): what Step 1 gives a view of that sheet whose own
+    title and sheet's title name no subject, once the QS confirms the sheet as that kind (#158). No
+    other Discipline's kind names a Step here."""
+    if discipline != "structural":
+        return ()
+    reading = _reading(conventions if conventions is not None else default_conventions())
+    named = _subjects_in_order(kind.replace("_", " "), reading)
+    return tuple(dict.fromkeys(step for key in named for step in STRUCTURAL_STEPS.get(key, ())))
 
 
 def working_view(views: Sequence[ViewCandidate]) -> int | None:
