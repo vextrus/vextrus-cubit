@@ -4,7 +4,9 @@
 # One glob per line, matched against the whole path: `**` spans folders, `*` stays inside one.
 # No braces. What the check executes: the engine harness (06b) and, since 21c, the product's job
 # (`vextrus/takeoff/tasks/read_file.py` and `vextrus/takeoff/services/export.py`) with every `vextrus`
-# module they import, at any depth, but `vextrus/settings/` (21c's test_job_imports.py):
+# module they import, at any depth, but `vextrus/settings/` (21c's test_job_imports.py), which the
+# check's checkout carries beside these without it being an engine path (scripts/real_drawings/source.py's
+# CHECKOUT_ALSO; the job starts Django on vextrus.settings.job, test_job_checkout.py):
 engine/**
 tools/acadsharp-dump/**
 toolchain/**

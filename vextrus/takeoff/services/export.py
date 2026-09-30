@@ -114,7 +114,7 @@ def _bootstrap(socket: str) -> None:
 
 def _configure(socket: str, storage: Path) -> None:
     """Django's settings on the cluster's socket (a URL cannot name one) and a writable storage."""
-    os.environ["DJANGO_SETTINGS_MODULE"] = "vextrus.settings"
+    os.environ["DJANGO_SETTINGS_MODULE"] = "vextrus.settings.job"
     os.environ["DATABASE_URL"] = f"postgresql://{APP}@127.0.0.1:5432/{DATABASE}"
     os.environ["DATABASE_OWNER_URL"] = f"postgresql://{OWNER}@127.0.0.1:5432/{DATABASE}"
     os.environ["VEXTRUS_STORAGE_ROOT"] = str(storage)

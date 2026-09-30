@@ -1,10 +1,12 @@
 """The head a run measures, and what it may bring into the sandbox (the M0 plan, the real-drawing check,
 steps 1, 2 and 7).
 
-A run's checkout holds only the files on the engine paths (main's `.github/engine-paths.txt`), written
-from git's objects into a folder under the owner's cache: the code hash covers exactly what the sandbox
-can execute, so a cached export is never reused for code that differs. Before anything runs, a head is
-refused when the installed `dwgread` is off its pin, when its `uv.lock` names a source other than the
+A run's checkout holds only the files on the engine paths (main's `.github/engine-paths.txt`) and the
+product's settings (`CHECKOUT_ALSO`: the job's Django needs them, 21c), written from git's objects
+into a folder under the owner's cache: the code hash covers exactly what the sandbox can execute, so a
+cached export is never reused for code that differs. The settings are no engine path: a PR changing
+only them is not an engine PR, but a run reads with them and its hash follows them. Before anything
+runs, a head is refused when the installed `dwgread` is off its pin, when its `uv.lock` names a source other than the
 package registry, or when its `[tool.uv]` table differs from main's.
 """
 
@@ -19,6 +21,9 @@ from tools.lint.engine_paths import matching, read_patterns
 from tools.lint.lock_sources import problems as lock_problems
 
 MAIN = "main"
+CHECKOUT_ALSO = ("vextrus/settings/**",)
+"""Beside the engine paths, what the checkout carries: the settings the job starts Django with
+(`vextrus.settings.job`, which installs only the modules on the engine paths)."""
 # Windows' mark on a downloaded file, copied beside it into WSL: not a drawing, so not among a run's
 # files (tools/scorer/drafts.py leaves it out of a key's by the same rule).
 MARK = ":Zone.Identifier"
@@ -76,7 +81,7 @@ def engine_files(repo: Path, commit: str, patterns_text: str) -> list[Blob]:
         meta, path = entry.decode().split("\t", 1)
         mode, _kind, oid = meta.split()
         blobs[path] = Blob(mode, oid, path)
-    chosen = matching(sorted(blobs), read_patterns(patterns_text))
+    chosen = matching(sorted(blobs), [*read_patterns(patterns_text), *CHECKOUT_ALSO])
     # ls-tree and cat-file, unlike a checkout, accept a tree entry named `..` or `.` (git mktree
     # builds one), so a head's tree could name a file outside the scratch checkout (review of #58).
     crafted = [p for p in chosen if any(part in ("", ".", "..") for part in p.split("/"))]
