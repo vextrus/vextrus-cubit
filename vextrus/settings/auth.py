@@ -39,7 +39,8 @@ def web_port() -> int:
     value = os.environ.get("VEXTRUS_WEB_PORT", "").strip(" \t\n\r\f\v")
     if not value:
         return 5410
-    port = int(value) if value.isascii() and value.isdigit() else 0
+    # At most five digits before int(): a longer string is no port, and int() refuses past 4300 digits.
+    port = int(value) if len(value) <= 5 and value.isascii() and value.isdigit() else 0
     if not 1 <= port <= 65535:
         raise ImproperlyConfigured(f"VEXTRUS_WEB_PORT must be a port from 1 to 65535, not {value!r}")
     return port

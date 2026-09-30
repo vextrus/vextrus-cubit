@@ -67,6 +67,7 @@ def test_explicit_origins_win_over_the_web_port(auth_settings: Any) -> None:
     [
         *["abc", "5410x", "54.10", "-1", "0", "65536", "99999", "٥٤١٠", "+5410", "0x10"],
         *["5410\ufeff", "\ufeff5410", "\x1c5410", "5410\x1f", "5410\xa0"],
+        "9" * 5000,  # past int()'s 4300-digit limit, which raises its own ValueError
     ],
 )
 def test_a_malformed_web_port_is_refused_naming_the_variable_value_and_range(
