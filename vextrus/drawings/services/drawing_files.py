@@ -734,7 +734,11 @@ def set_discipline(file_id: uuid.UUID, key: str, *, actor_name: str = "") -> Fil
         row.discipline = discipline
         row.discipline_source = DisciplineSource.QS
         row.revision = _first_issue(row.drawing_set, discipline, tenancy.current().user_id)
-        row.save(update_fields=["discipline", "discipline_source", "revision"])
+        fields = ["discipline", "discipline_source", "revision"]
+        if isinstance(row.finding, dict) and row.finding.get("code") == said.DISCIPLINE_SHEET_TAKEN.code:
+            row.finding = None  # an earlier choice refused while the file read: answered by this one
+            fields.append("finding")
+        row.save(update_fields=fields)
         # A first issue left with no file stays (a Revision is never deleted), and is found again
         # by its Discipline's next file.
         SheetRevision.objects.filter(source_file=row).update(revision=row.revision)

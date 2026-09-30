@@ -31,7 +31,7 @@ import json
 import re
 import uuid
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from decimal import Decimal
 from typing import Any
@@ -43,8 +43,15 @@ from django.utils import timezone
 from engine.messages import Message
 from engine.read.anchor import Anchor, DwgAnchor
 from engine.recognise.types import ExclusionReason as EngineExclusion
-from engine.recognise.types import PlotMatch, SheetCandidate, SheetLocation, ViewCandidate
+from engine.recognise.types import (
+    PlotMatch,
+    SheetCandidate,
+    SheetLocation,
+    ValueSource,
+    ViewCandidate,
+)
 from engine.render.buffers import BufferError, SheetBuffers
+from vextrus.drawings.messages import files as file_words
 from vextrus.drawings.messages import reads as refusal
 from vextrus.drawings.messages import sheets as said
 from vextrus.drawings.models import (
@@ -183,6 +190,14 @@ def record_sheets(
             if key is not None and key not in market:
                 raise auth.Refused(refusal.UNKNOWN_DISCIPLINE(file=name), status=400)
             _decoded(name, *_sheet_words(candidate))
+        if _refuse_taken_choice(row, candidates):
+            # Read as if never chosen: the Discipline the finder gave from the file goes too.
+            candidates = [
+                replace(c, discipline=None)
+                if c.discipline is not None and c.discipline.source == ValueSource.FILE
+                else c
+                for c in candidates
+            ]
         _default_discipline(row, candidates, market, drawing_list=drawing_list)
         _access.lock("sheets", row.drawing_set_id)
         places = [_location_key(c.location) for c in candidates]
@@ -296,6 +311,41 @@ def _default_discipline(
     row.discipline_source = DisciplineSource.SHEET_NUMBERS
     row.revision = drawing_files._first_issue(row.drawing_set, discipline, tenancy.current().user_id)
     row.save(update_fields=["discipline", "discipline_source", "revision"])
+
+
+def _refuse_taken_choice(row: DrawingFile, candidates: Sequence[SheetCandidate]) -> bool:
+    """A Discipline the QS chose before the file's numbers were read is refused now, if it already
+    has a sheet of one of them from another file: as `set_discipline` refuses it after the read (the
+    same words, kept as the file's finding), never a silent join by number (the orchestrator's
+    ruling, session 08). The file is then read as if never chosen."""
+    if row.discipline_source != DisciplineSource.QS or row.discipline_id is None:
+        return False
+    for candidate in candidates:
+        number = _text.read(candidate.number.value) if candidate.number is not None else ""
+        if not number:
+            continue
+        taken = (
+            Sheet.objects.filter(
+                drawing_set_id=row.drawing_set_id,
+                building_id=row.building_id,
+                discipline_id=row.discipline_id,
+                number=number,
+            )
+            .exclude(id__in=SheetRevision.objects.filter(source_file=row).values("sheet_id"))
+            .exists()
+        )
+        if taken:
+            assert row.discipline is not None
+            name = library_disciplines.name(row.discipline.labels)
+            row.finding = _text.read_json(
+                dict(file_words.DISCIPLINE_SHEET_TAKEN(sheet=number, discipline=name))
+            )
+            row.discipline = None
+            row.discipline_source = ""
+            row.revision = None
+            row.save(update_fields=["finding", "discipline", "discipline_source", "revision"])
+            return True
+    return False
 
 
 def _own_series(candidates: Sequence[SheetCandidate]) -> bool:

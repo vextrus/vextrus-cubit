@@ -49,6 +49,7 @@ from engine.read.artefact import ReadArtefact
 from engine.read.pdf.types import PdfReport
 from engine.recognise.types import CheckResult
 from engine.render.fonts import FontReport
+from vextrus.drawings.messages import files as file_words
 from vextrus.drawings.messages import reads as refusal
 from vextrus.drawings.models import (
     Artefact,
@@ -353,6 +354,10 @@ def answer_held(file_id: uuid.UUID, answer: HeldAnswer | str) -> drawing_files.F
     return drawing_files.file(row.id)
 
 
+def _refused_choice(finding: object) -> bool:
+    return isinstance(finding, dict) and finding.get("code") == file_words.DISCIPLINE_SHEET_TAKEN.code
+
+
 def _end(
     file_id: uuid.UUID, status: ReadStatus, finding: Message | None, *, tries: int = 0
 ) -> drawing_files.FileView:
@@ -361,7 +366,10 @@ def _end(
         if row.read_status in _IN_FLIGHT:
             row.read_status = status
             row.read_step = ""
-            row.finding = None if finding is None else _text.read_json(dict(finding))
+            # A read file keeps a Discipline choice refused while it read (`sheet_list`, #159) as its
+            # finding when nothing cut its reading.
+            kept = row.finding if status == ReadStatus.READ and _refused_choice(row.finding) else None
+            row.finding = kept if finding is None else _text.read_json(dict(finding))
             row.read_tries = tries
             if status == ReadStatus.READ and row.sheets_total is not None:
                 row.sheets_done = row.sheets_total

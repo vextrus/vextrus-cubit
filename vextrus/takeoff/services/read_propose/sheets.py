@@ -260,8 +260,7 @@ def _read_sheet(
     # written on the sheet after the candidate was kept.
     discipline = drawings.sheet_discipline(sheet_id)
     candidate = replace(
-        candidate,
-        discipline=Sourced(discipline, ValueSource.FILE) if discipline else candidate.discipline,
+        candidate, discipline=Sourced(discipline, ValueSource.FILE) if discipline else None
     )
     views = view_finder.find(artefact, candidate, view_conventions)
     kept = drawings.record_views(sheet_id, list(views))
