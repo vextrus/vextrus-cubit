@@ -55,6 +55,9 @@ msgstr "{plot_file} was a scan, so it was refused and is not used."
 msgid "drawings.reports.plot_unread"
 msgstr "{plot_file} was not read. Its row says why."
 
+msgid "drawings.reports.read_anyway"
+msgstr "The two readers found different contents in this file: {items, plural, =0 {{unread, plural, =0 {they found the same items but disagree on what some of them are} one {the second reader could not read # item} other {the second reader could not read # items}}} one {# item was found by only one of them} other {# items were found by only one of them}}{layers, plural, =0 {} one {, on # layer} other {, on # layers}}{items, plural, =0 {} other {{unread, plural, =0 {} one {; the second reader could not read # item} other {; the second reader could not read # items}}}}. Its Question was answered \"Read it anyway\", so its sheets are in the sheet list, each marked \"held\" as it may be misread: check each against its Plot before you confirm it."
+
 msgid "drawings.reports.readers_agree"
 msgstr "✓ Read twice, by two independent readers, and they agree. Nothing in the file was skipped."
 

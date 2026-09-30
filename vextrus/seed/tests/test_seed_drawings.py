@@ -2,20 +2,23 @@
 BP-02's file states and stall, MG-01's read DWG, every render decoding and no raw code in a title."""
 
 from collections import Counter
+from datetime import timedelta
 from typing import Any
 
 import pytest
 from django.db import connection
+from django.utils import timezone
 
 from engine.render.buffers import SheetBuffers
 from vextrus.drawings import services
 from vextrus.drawings.messages import files as said
 from vextrus.drawings.messages import sheets as sheet_words
-from vextrus.platform.services import tenancy
+from vextrus.platform.services import jobs, tenancy
 from vextrus.seed import drawings as seed_drawings
 from vextrus.seed import platform as seed_platform
 from vextrus.seed import projects as seed_projects
 from vextrus.seed.demo import Demo
+from vextrus.takeoff.tasks.read_file import read_file
 
 RAW_CODES = ("%%", "\\P", "\\f", "\\S", "^J", "{\\")
 
@@ -87,15 +90,11 @@ def test_kr_01_is_at_section_7s_state(demo: Demo) -> None:
 def assert_on_paper(
     box: tuple[str, str, str, str], sheet: services.SheetView, buffers: SheetBuffers
 ) -> None:
-    """A view's box lies on its sheet's paper: inside a laid-out sheet's frame, or a layout's paper."""
+    """A view's box lies on its sheet's paper, in mm from its lower-left corner (the contract of
+    engine/recognise/views.py), whether the sheet is laid out in the drawing or on a layout tab."""
     x0, y0, x1, y1 = (float(v) for v in box)
-    if "box" in sheet.location:
-        fx0, fy0, fx1, fy1 = (float(v) for v in sheet.location["box"])
-    else:
-        paper = buffers.paper
-        fx0, fy0 = paper.origin
-        fx1 = fx0 + paper.width_mm / paper.mm_per_unit
-        fy1 = fy0 + paper.height_mm / paper.mm_per_unit
+    fx0, fy0 = 0.0, 0.0
+    fx1, fy1 = buffers.paper.width_mm, buffers.paper.height_mm
     assert fx0 <= x0 < x1 <= fx1, (sheet.number, box)
     assert fy0 <= y0 < y1 <= fy1, (sheet.number, box)
 
@@ -135,8 +134,10 @@ def test_bp_02_holds_the_rows_a_file_with_no_read_job_can_be_on(demo: Demo) -> N
 
     assert {name: f.status for name, f in shown.items()} == {
         "BP-STR-R0.dwg": said.READING_SHEET(position=7, total=12),
+        "BP-STR-R0.pdf": said.PLOT_WAITING(),  # its DWG is still reading
         "BP-ARC-R0.dwg": said.WAITING(ahead=1),  # BP-STR-R0.dwg is read before it
-        "BP-ARC-R0.pdf": said.PLOT_WAITING(),
+        "BP-ARC-old.dwg": said.HELD(),  # 19a's seed answers it
+        "BP-ARC-old.pdf": said.PLOT_MATCHED(matched=4, pages=6),  # against BP-ARC-old.dwg's sheets
         "BP-ELE-R0.dwg": said.CANCELLED(
             actor="Nusrat Jahan", vextrus="no", cancelled_date=_cancelled(shown)
         ),
@@ -161,8 +162,16 @@ def test_mg_01_holds_one_read_dwg_and_meghna_sees_nothing_of_shapla(demo: Demo) 
         cursor.execute("select count(*) from drawings_drawingfile")
         [(files,)] = cursor.fetchall()
 
-    assert {name: f.status for name, f in shown.items()} == {"MG-STR-R0.dwg": said.READ()}
-    assert files == 1
+    assert {name: f.status for name, f in shown.items()} == {
+        "MG-STR-R0.dwg": said.READ(),
+        "MG-ARC-R0.pdf": said.READING_PAGE_LEFT(
+            position=5, total=16, minutes=shown["MG-ARC-R0.pdf"].status["params"]["minutes"]
+        ),
+        "MG-ARC-R0.dwg": said.RETRYING(attempt=2, tries=3),
+    }
+    # 120 minutes at the seed's stamp; 119 if a minute passed before this read.
+    assert shown["MG-ARC-R0.pdf"].status["params"]["minutes"] in (119, 120)
+    assert files == 3
 
 
 @pytest.mark.django_db(databases=["default", "owner"])
@@ -191,3 +200,118 @@ def test_the_seed_refuses_a_market_with_no_disciplines(
 
     with pytest.raises(seed_drawings.SeedRefused, match=r"manage\.py sync_library"):
         seed_drawings.run(made)
+
+
+@pytest.mark.django_db(databases=["default", "owner"])
+@pytest.mark.parametrize(
+    ("later", "words"),
+    [
+        (25, said.READING_PAGE_LEFT(position=5, total=16, minutes=95)),
+        (31, said.READING_PAGE(position=5, total=16)),
+        (24 * 60, said.READING_PAGE(position=5, total=16)),
+    ],
+)
+def test_the_seeded_reading_pdf_reads_sensibly_on_a_walk_later(
+    demo: Demo, monkeypatch: pytest.MonkeyPatch, later: int, words: Any
+) -> None:
+    """Its time left counts down from the seed's clock stamp for 30 minutes (STEADY times a page's
+    PAGE_MINUTES), never below a minute; after that it reads as a stalled read does, no time left."""
+    walked = timezone.now() + timedelta(minutes=later)
+    monkeypatch.setattr("vextrus.drawings.services.drawing_files.timezone.now", lambda: walked)
+    shown = files_of(demo, "developer:meghna", "MG-01")
+
+    assert shown["MG-ARC-R0.pdf"].status == words
+
+
+@pytest.mark.django_db(databases=["default", "owner"])
+def test_the_seeded_retrying_file_can_be_cancelled_and_tried_again(demo: Demo) -> None:
+    """Its job is 21a's read job, declared wherever the app runs (a job the seed declared itself was
+    unknown to the served app, whose "Try again" then failed), waiting for its second try."""
+    file_id = demo["file:MG-01:MG-ARC-R0.dwg"]
+    with tenancy.acting_in(demo["developer:meghna"], user_id=demo["user:tanvir"]):
+        seeded = services.file(file_id)
+        assert seeded.read_job_id is not None
+        state = jobs.state(seeded.read_job_id)
+        assert state is not None
+        assert (state.task, state.status, state.attempt) == (read_file.name, "retrying", 2)
+        services.cancel(file_id, actor_name="Tanvir Ahmed")
+        again = services.restart(file_id)
+
+    assert again.state == services.FileState.WAITING
+
+
+@pytest.mark.django_db(databases=["default", "owner"])
+def test_bp_02s_matched_pdf_is_named_for_the_dwg_it_plots_and_says_why_each_page_is_unmatched(
+    demo: Demo,
+) -> None:
+    shown = files_of(demo, "developer:shapla", "BP-02")
+    names = {f.id: f.name for f in shown.values()}
+    with tenancy.acting_in(demo["developer:shapla"]):
+        pages = services.report(shown["BP-ARC-old.pdf"].id).pages
+
+    plotted = {f.name: [names[d] for d in f.plot_for] for f in shown.values() if f.plot_for}
+    assert plotted == {"BP-ARC-old.pdf": ["BP-ARC-old.dwg"]}
+    assert pages[0] == {"code": "drawings.reports.pages_matched", "params": {"matched": 4, "pages": 6}}
+    unmatched = [line["params"]["page"] for line in pages if "page" in line["params"]]
+    assert unmatched == [5, 6]
+
+
+def _kr01_views(demo: Demo) -> list[tuple[services.SheetView, services.ViewView]]:
+    with tenancy.acting_in(demo["developer:shapla"]):
+        sheets = services.sheets(demo["drawing_set:KR-01"])
+        return [(sheet, view) for sheet in sheets for view in services.views(sheet.id)]
+
+
+@pytest.mark.django_db(databases=["default", "owner"])
+def test_every_seeded_view_box_lies_on_its_sheets_paper(demo: Demo) -> None:
+    """A view's box is paper mm from its sheet's lower-left corner (engine/recognise/views.py), never
+    drawing coordinates: every KR-01 sheet is an A1, 841 by 594 mm."""
+    off = [
+        (sheet.number, view.title, view.box)
+        for sheet, view in _kr01_views(demo)
+        if not (
+            0 <= float(view.box[0]) < float(view.box[2]) <= seed_drawings.PAPER[0]
+            and 0 <= float(view.box[1]) < float(view.box[3]) <= seed_drawings.PAPER[1]
+        )
+    ]
+    assert off == []
+
+
+@pytest.mark.django_db(databases=["default", "owner"])
+def test_every_seeded_plan_view_states_its_storeys_with_their_meaning(demo: Demo) -> None:
+    plans = {
+        (sheet.number, sheet.revision_mark, view.title): (tuple(view.storeys), view.storeys_meaning)
+        for sheet, view in _kr01_views(demo)
+        if view.kind == "plan"
+    }
+
+    assert plans[("S-06", "R0", "3RD, 5TH & 7TH FLOOR BEAM LAYOUT")] == (
+        ("floor_3", "floor_5", "floor_7"),
+        "at_floor_level",
+    )
+    assert plans[("S-07", "B", "TYPICAL FLOOR SLAB LAYOUT")] == (("typical",), "at_floor_level")
+    assert plans[("S-07", "A", "TYPICAL FLOOR SLAB LAYOUT")] == (("typical",), "at_floor_level")
+    assert plans[("S-08", "R0", "COLUMN LAYOUT")] == (
+        ("pile_cap", "ground", "floor_1", "floor_2"),  # a range never puts in a foundation (13)
+        "floor_to_floor",
+    )
+    # Every plan holds its storeys and their meaning; one whose title states none, 13's `not_stated`.
+    assert [key for key, (keys, meaning) in plans.items() if not keys or not meaning] == []
+    assert sorted(key[2] for key, (keys, _) in plans.items() if keys == ("not_stated",)) == [
+        "OVERHEAD TANK PLAN",
+        "SITE PLAN",
+    ]
+
+
+@pytest.mark.django_db(databases=["default", "owner"])
+def test_s01s_legend_is_assigned_to_step_2(demo: Demo) -> None:
+    [legend] = [v for s, v in _kr01_views(demo) if s.number == "S-01" and v.kind == "legend"]
+
+    assert (tuple(legend.steps), legend.part) == (("general_notes",), "structural")
+
+
+@pytest.mark.django_db(databases=["default", "owner"])
+def test_the_superseded_s07_is_dated_before_rev_b(demo: Demo) -> None:
+    dates = {s.revision_mark: s.issue_date for s, _ in _kr01_views(demo) if s.number == "S-07"}
+
+    assert dates == {"A": "28.07.2026", "B": "20.08.2026"}
