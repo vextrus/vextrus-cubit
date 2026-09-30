@@ -431,6 +431,48 @@ def test_the_cad_worker_runs_under_its_memory_cap_and_a_fork_inside_it_is_refuse
     assert "forked inside the cad worker is refused" in output
 
 
+def test_a_cad_job_that_runs_out_of_memory_at_the_default_cap_fails_without_a_retry(
+    make_developer: Callable[..., uuid.UUID],
+) -> None:
+    # 24: the settings' own cap, and a step that asks for more than it; the same try would run out
+    # again, so it is not tried again.
+    developer = make_developer()
+    subject = uuid.uuid4()
+    sample.script(developer, subject, measure="bomb")
+    job_id = defer(sample.cad_steps, developer, subject)
+
+    output = sample.finish(sample.start_worker([settings.VEXTRUS_CAD_QUEUE]))
+
+    row = sample.job_row(job_id)
+    assert (row["status"], row["attempts"]) == ("failed", 1), output
+    assert "MemoryError" in output
+    assert "measure" not in sample.recorded_steps(subject)
+
+
+THREADS_BESIDE_BLAS = 3
+"""The cad worker's own threads beside BLAS's one (measured: 2 in all; one per core unpinned)."""
+
+
+def test_the_cad_worker_runs_its_numerical_library_on_one_thread(
+    make_developer: Callable[..., uuid.UUID], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # 24: OpenBLAS starts a thread per core unless told otherwise, and every thread's reserved memory
+    # counts against the cap; the worker's environment names no thread count, as a server's would not.
+    for variable in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS"):
+        monkeypatch.delenv(variable, raising=False)
+    developer = make_developer()
+    subject = uuid.uuid4()
+    sample.script(developer, subject, measure="count")
+    job_id = defer(sample.cad_steps, developer, subject)
+
+    output = sample.finish(sample.start_worker([settings.VEXTRUS_CAD_QUEUE]))
+
+    assert sample.job_row(job_id)["status"] == "succeeded", output
+    measured = sample.recorded_steps(subject)["measure"]
+    assert measured["blas_threads"] == 1
+    assert measured["threads"] <= THREADS_BESIDE_BLAS + 1, measured
+
+
 def test_a_cad_worker_with_no_cap_set_says_so_and_a_plain_worker_has_none(
     make_developer: Callable[..., uuid.UUID],
 ) -> None:

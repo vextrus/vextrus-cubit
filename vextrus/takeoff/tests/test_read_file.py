@@ -327,6 +327,23 @@ def test_a_fault_that_is_not_the_files_is_raised_and_tried_again(
     assert shown.finding is None
 
 
+def test_a_reader_out_of_memory_fails_the_file_with_the_memory_words_and_no_retry(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The cad worker's cap (24): the same try would reach it again, so the file's reason says so.
+    file_id = added(qs_project)
+
+    def hungry(path: Path, name: str) -> ReadArtefact:
+        raise MemoryError
+
+    with pytest.raises(files.FileNotRead):
+        run_job(qs_project.member, file_id, readers(Calls(), dwg=hungry), monkeypatch)
+
+    shown = view(qs_project.member, file_id)
+    assert shown.state == drawings.FileState.FAILED
+    assert shown.finding == read_codes.LIMIT_REACHED(limit="memory")
+
+
 # A PDF ------------------------------------------------------------------------------------------
 
 

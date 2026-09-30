@@ -14,15 +14,16 @@ A PDF: `opening` (the copy checked, and the PDF report kept as codes; a scan is 
 `matching` (the file marked read). 21b's page steps and the matching itself go into them.
 
 **A file that could not be read** (the reader raised its `ReadError`: a converter that failed, a
-limit reached, the second reader not installed or not the pinned build) ends failed with that finding
-as its reason, by a step of its own, `not_read`, keyed by the job; then the job ends failed at once
-(`FileNotRead`), never tried again by itself: the reason is the file's, and "Try again" (a restart,
-a new job) reads it again. The step that raised rolled back, so it is not kept and runs again on that
-restart; the steps kept before it are skipped. A DWG older than any the first reader reads (its first
-bytes not `AC10…`) ends with `drawings.files.old_version`: nothing to try again. Any other fault (the
-database, a bug) is raised as it is, and the job is tried again as 09's runner decides. A kept
-`reading` whose artefact Vextrus has since lost (missing or damaged) is read and kept again by the
-step that needs it, since the kept step itself is skipped.
+limit reached, the second reader not installed or not the pinned build; or the worker ran out of
+memory at its cap, `engine.read.limit_reached {memory}`, which another try would too) ends failed
+with that finding as its reason, by a step of its own, `not_read`, keyed by the job; then the job
+ends failed at once (`FileNotRead`), never tried again by itself: the reason is the file's, and "Try
+again" (a restart, a new job) reads it again. The step that raised rolled back, so it is not kept
+and runs again on that restart; the steps kept before it are skipped. A DWG older than any the first
+reader reads (its first bytes not `AC10…`) ends with `drawings.files.old_version`: nothing to try
+again. Any other fault (the database, a bug) is raised as it is, and the job is tried again as 09's
+runner decides. A kept `reading` whose artefact Vextrus has since lost (missing or damaged) is read
+and kept again by the step that needs it, since the kept step itself is skipped.
 
 The readers are the engine's (`READERS`); a test passes its own.
 """
@@ -120,7 +121,11 @@ def read(run: jobs.Run, file_id: uuid.UUID, readers: Readers | None = None) -> R
     use = readers or READERS
     steps = run.steps(drawings.step_store(), subject_id=file_id, total=len(DWG_STEPS))
     try:
-        return _steps(steps, file_id, use)
+        try:
+            return _steps(steps, file_id, use)
+        except MemoryError:
+            # The cad worker's cap, reached in this process: the same try would reach it again.
+            raise _Unread(read_codes.LIMIT_REACHED(limit="memory")) from None
     except _Unread as unread:
         # The step that raised has rolled back; the file's reason is kept once per job.
         finding = unread.finding

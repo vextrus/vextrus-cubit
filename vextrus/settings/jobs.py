@@ -19,8 +19,9 @@ VEXTRUS_DEFAULT_QUEUE = "default"
 
 # The `cad` queue runs at concurrency 1 under an address-space cap (RLIMIT_AS) set at the worker's
 # start (09). 4 GiB (24, docs/research/m0-measurements.md): the largest peak address space of a read
-# job on the Development Sets is 1.97 GB, and every sandboxed reader the worker starts sets its own
-# limit of up to 3 GiB, which it cannot raise above this one.
+# job on the Development Sets is 1.00 GB (numerical libraries on one thread: `vextrus/__init__.py`),
+# and every sandboxed reader the worker starts sets its own limit of up to 3 GiB, which it cannot
+# raise above this one.
 VEXTRUS_CAD_QUEUE = "cad"
 VEXTRUS_CAD_WORKER_CONCURRENCY = 1
 VEXTRUS_CAD_WORKER_MEMORY_BYTES: int = 4 * 2**30

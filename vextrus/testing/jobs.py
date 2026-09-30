@@ -248,11 +248,16 @@ def _act(action: str, run: jobs.Run, subject_id: uuid.UUID, result: jobs.StepRes
                 )
             else:
                 other.execute("delete from procrastinate_jobs where id = %s", [run.job_id])
+    elif action == "bomb":  # more than any cap: the step runs out of memory
+        hoard = [bytearray(2**30) for _ in range(64)]
+        result["hoarded"] = len(hoard)
     elif action == "read_owner":
         with connections[OWNER_ALIAS].cursor() as cursor:
             cursor.execute("select count(*) from platform_developer")
     soft, hard = resource.getrlimit(resource.RLIMIT_AS)
     result["rlimit_as"] = [soft, hard]
+    result["threads"] = len(os.listdir("/proc/self/task"))
+    result["blas_threads"] = _blas_threads()
 
 
 @jobs.job(queue=TEST_QUEUE)
@@ -396,3 +401,23 @@ def empty_test_queues(job_tables: None, django_db_blocker: DjangoDbBlocker) -> I
     empty()
     yield
     empty()
+
+
+def _blas_threads() -> int | None:
+    """How many threads numpy's OpenBLAS runs (it names its own getter by its build's suffix)."""
+    import ctypes
+
+    import numpy.linalg  # noqa: F401  (loads OpenBLAS)
+
+    with open("/proc/self/maps", encoding="utf-8") as maps:
+        paths = {line.split()[-1] for line in maps if "openblas" in line.lower()}
+    for path in sorted(paths):
+        library = ctypes.CDLL(path)
+        for name in (
+            "scipy_openblas_get_num_threads64_",
+            "openblas_get_num_threads64_",
+            "openblas_get_num_threads",
+        ):
+            if hasattr(library, name):
+                return int(getattr(library, name)())
+    return None
