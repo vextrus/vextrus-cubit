@@ -33,6 +33,7 @@ from vextrus.drawings.models import (
     HeldAnswer,
     PlotNone,
     ReadStatus,
+    ReadStep,
     SheetRevision,
 )
 from vextrus.drawings.services import _access, _on_sheets, drawing_files, reads
@@ -200,7 +201,22 @@ def _sheets(row: DrawingFile) -> list[Message]:
     views = SheetRevision.objects.filter(source_file=row).aggregate(n=Sum("views_refused"))["n"]
     if views:
         lines.append(said.VIEWS_NOT_KEPT(views=views))
+    # Every limit that cut the reading, each once: "no sheets" is never said without its reason.
+    lines += _not_read_in_full(row)
     return lines
+
+
+def _not_read_in_full(row: DrawingFile) -> list[Message]:
+    """What the step that marked the file read kept of the limits that cut it (`reads.mark_read`):
+    the latest such step's, since a file is marked read once per reading."""
+    result = (
+        ReadStep.objects.filter(file=row, step=drawing_files.FINISHING)
+        .order_by("-created_at", "-id")
+        .values_list("result", flat=True)
+        .first()
+    )
+    said_cut = (result or {}).get("not_read_in_full", ())
+    return [Message(code=m["code"], params=m["params"]) for m in said_cut]
 
 
 def _plot(row: DrawingFile) -> list[Message]:

@@ -9,8 +9,9 @@ code; two readers that disagree hold the file through `drawings.services.quarant
 more is read: 21c's `held` step raises its `file_misread` Question, ADR 0029, unless the QS answered
 it "read anyway", when the job, queued again by the answer, reads on), 21b's `sheets` and
 `sheet_<n>` steps (`read_propose.sheets`), `finishing` (the font report and the Bangla-ANSI Check,
-kept as codes, and the file marked read in the same transaction, with 21c's proposals: its sheets and
-views proposed, the set's Questions asked and its Checks run, `read_propose.proposals`).
+kept as codes, and the file marked read in the same transaction, with every limit that cut its sheets:
+the first is its finding, `takeoff.read_file.not_read_in_full {limit}`; and with 21c's proposals: its
+sheets and views proposed, the set's Questions asked and its Checks run, `read_propose.proposals`).
 
 A PDF: `opening` (the copy checked, and the PDF report kept as codes; a scan is refused by it) and
 `matching` (the file marked read). 21b's page steps and the matching itself go into them.
@@ -30,10 +31,11 @@ The readers are the engine's (`READERS`); a test passes its own.
 """
 
 import uuid
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from django.db import transaction
 
@@ -173,7 +175,13 @@ def _steps(
     )
     steps.run(
         drawings.FINISHING,
-        lambda: _finish(file_id, use, kept, lambda: _propose(file_id, load, found.unread)),
+        lambda: _finish(
+            file_id,
+            use,
+            kept,
+            found.not_read_in_full,
+            lambda: _propose(file_id, load, found.unread),
+        ),
         inputs={"sha256": sha256, **reader, **({"read_anyway": True} if read_anyway else {})},
     )
     return Read(file_id, "dwg", "held" if read_anyway else "read")
@@ -244,22 +252,26 @@ def _finish(
     file_id: uuid.UUID,
     use: Readers,
     kept: jobs.StepResult,
+    not_read_in_full: Sequence[Message],
     propose: Callable[[], jobs.StepResult],
 ) -> jobs.StepResult:
     artefact = _kept_artefact(file_id, use, kept)
     font_report = use.fonts(artefact)
     flagged = use.bangla_ansi(artefact)
     drawings.record_reports(file_id, font_report=font_report, bangla_ansi=flagged)
-    view = drawings.mark_read(file_id)
+    view = drawings.mark_read(file_id, not_read_in_full)
     # 21c: once the file is read (its sheets in the sheet list), in the same transaction: Step 1's
     # proposals, Questions and Checks, so a read file is never listed without them.
     proposed = propose()
-    return {
+    result: dict[str, Any] = {
         "fonts": len(font_report.fonts),
         "bangla_ansi_texts": len(flagged.texts),
         "state": str(view.state),
+        # Every limit that cut the reading: the report's sheets section says each from here.
+        "not_read_in_full": list(not_read_in_full),
         "proposals": proposed,
     }
+    return result
 
 
 def _propose(file_id: uuid.UUID, load: Callable[[], ReadArtefact], unread: int) -> jobs.StepResult:

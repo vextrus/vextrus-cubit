@@ -4,6 +4,11 @@ inside the file's read job (21a's `files.read`), between `second_reader` and `fi
 file reads none.
 
     found = read(steps, file_id, load, keyed_by)        # `load()`: the file's kept ReadArtefact
+    drawings.mark_read(file_id, found.not_read_in_full)  # in the `finishing` step
+
+`found.not_read_in_full` is every step's "Not read in full" in the job's order (the `sheets` step's,
+in `SHEETS_STEP_LIMITS` order, then each sheet's, in sheet order), a kept step's too: the file's
+finding is the first, and its report says each (`drawings.services.mark_read`).
 
 **`sheets`**: 13's finder on the kept artefact, with **the conventions the product reads with**
 (`conventions(file_id)`: 13's and 17's defaults, with the file's Market's Discipline rows from
@@ -95,6 +100,16 @@ def digest(sheet: SheetConventions, view: ViewConventions) -> str:
     return hashlib.sha256(text.encode()).hexdigest()
 
 
+@dataclass(frozen=True)
+class SheetsRead:
+    sheets: int
+    """How many sheets were recorded."""
+    not_read_in_full: tuple[Message, ...]
+    """Every limit that cut the file, each once, in the job's order (see the module)."""
+    unread: int = 0
+    """Sheets left out for unreadable writing (`UNREADABLE_TEXT`; 21c's Coverage counts them, #135)."""
+
+
 def read(
     steps: jobs.Steps,
     file_id: uuid.UUID,
@@ -102,9 +117,8 @@ def read(
     keyed_by: Mapping[str, object],
     done_before: int,
     after: int,
-) -> Found:
-    """Find the file's sheets and read each (see the module); how many sheets were recorded, and
-    how many were left out for unreadable writing (`UNREADABLE_TEXT`, 21c's Coverage counts them).
+) -> SheetsRead:
+    """Find the file's sheets and read each (see the module).
     `keyed_by`: the file's sha256 and reader, in every step's key; `done_before` and `after`: the
     file's steps before these and after them (the job's total)."""
     # Read inside the steps, acting in the file's tenant (the Market's rows are its Market's).
@@ -129,6 +143,7 @@ def read(
 
     found = steps.run(drawings.SHEETS, lambda: _find(file_id, load(), held()[0]), inputs=key())
     recorded = cast(list[dict[str, Any]], found["sheets"])
+    cut = _messages(found.get("not_read_in_full", []))
     steps.expect(done_before + 1 + len(recorded) + after)
     seen: dict[str, int] = {}
     said_for_file: set[str] = set()
@@ -162,18 +177,18 @@ def read(
         if sheet_id not in read_here:  # kept by an earlier run: skipped here
             unwalked.append(candidate)
         # A kept step's words count too: a restart never says a limit the file already said.
-        said = cast(list[dict[str, Any]], done.get("not_read_in_full", []))
+        said = _messages(done.get("not_read_in_full", []))
         said_for_file.update(str(m["params"]["limit"]) for m in said)
+        cut += said
         # A kept step's render time is spent too: a stop never hands the rest a fresh budget.
         render_left[0] -= float(cast(float, done.get("render_seconds", 0.0)))
     report = cast(dict[str, int], found.get("sheet_report", {}))
-    return Found(len(recorded), int(report.get(UNREADABLE_TEXT, 0)))
+    return SheetsRead(len(recorded), tuple(cut), int(report.get(UNREADABLE_TEXT, 0)))
 
 
-@dataclass(frozen=True)
-class Found:
-    sheets: int
-    unread: int
+def _messages(kept: object) -> list[Message]:
+    """A step's kept `not_read_in_full`, as Messages."""
+    return [Message(code=m["code"], params=dict(m["params"])) for m in cast(list[dict[str, Any]], kept)]
 
 
 def once[T](make: Callable[[], T]) -> Callable[[], T]:
