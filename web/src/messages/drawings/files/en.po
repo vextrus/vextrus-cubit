@@ -59,7 +59,7 @@ msgid "drawings.files.matching_pages"
 msgstr "Matching pages to sheets"
 
 msgid "drawings.files.not_failed"
-msgstr "This file was not marked for Vextrus: it is still being read, or it was read in full. If something in it looks wrong, open it in Step 1 or tell Vextrus."
+msgstr "This file was not marked for Vextrus: nothing in its reading needs Vextrus to look at it. Its row shows where it stands; if something in it looks wrong, tell Vextrus."
 
 msgid "drawings.files.not_stopped"
 msgstr "This file's reading has not stopped, so it was not started again. Its row shows where it is."

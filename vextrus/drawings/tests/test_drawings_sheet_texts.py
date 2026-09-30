@@ -209,3 +209,21 @@ def test_a_read_file_with_no_sheet_asks_to_be_marked_and_is(qs_project: QsProjec
         marked = services.mark_for_vextrus(empty.id)
 
     assert (marked.state, marked.marked_for_vextrus) == (services.FileState.READ, True)
+
+
+def test_a_read_file_with_no_sheet_still_says_its_bangla_texts_all_outside(
+    qs_project: QsProject,
+) -> None:
+    """The words gate's round-1 must 2: with no sheet the header fell back to the seed's lines."""
+    from engine.check.bangla_ansi import BanglaAnsi, Flagged, FoundBy
+
+    member = qs_project.member
+    empty = add(member, qs_project.project_id, "KR-ARC-R0.dwg", drawing()).file
+    read_dwg(member, empty.id, [])
+    flagged = BanglaAnsi((Flagged("1A", FoundBy.FONT, "SutonnyMJ"),))
+    with member.acting():
+        services.record_reports(empty.id, bangla_ansi=flagged)
+        [line] = services.report(empty.id).bangla
+
+    assert line["code"] == "engine.bangla_ansi.found"
+    assert (line["params"]["texts"], line["params"]["sheets"], line["params"]["outside"]) == (1, 0, 1)

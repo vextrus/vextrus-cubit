@@ -10,8 +10,8 @@ quoted) or `none` (neither: "this sheet").
   `pasted` or `typed`) differ.
 - `boundary_storey`: a Question, whether the range `range` on the sheet (its storeys as the drawing
   states them) includes its top storey, where a range of the same kind on `next_sheet` (with
-  `next_named`) starts; the storey by `level` (`floor`, `ground`, `basement` or `other`), its
-  `number` and, for `other`, `storey` (its words).
+  `next_named`) starts; the storey by `level` (`floor` and `basement` with their `number`, `ground`,
+  `lower_ground`, `mezzanine`, `podium`, `roof`, else `other`), `storey` its key (never worded).
 - `option_not_offered`: an answer naming an option the Question does not offer (400).
 - `answered_already`: an answer to a Question already answered or withdrawn (409).
 - `number_needed`: "Type a number" answered with no number (400).

@@ -151,16 +151,30 @@ _NO_SHEETS = _SheetTexts()
 
 
 def _bangla(row: DrawingFile, on: _SheetTexts) -> tuple[Message, ...]:
-    """The Bangla section's header lines, counted from the same texts-on-sheets as its sheet links
-    (`BanglaAnsi.findings`); lines kept on the file (`record_bangla_lines`, the seed's) where its
-    reading is not kept to count from."""
+    """The Bangla section's header lines (`BanglaAnsi.findings`), counted from the same
+    texts-on-sheets as its sheet links: a text on several sheets (in a block inserted on each)
+    counts on each, as its links do (`sheets`: the links; `on_sheets`: their texts added up;
+    `outside`: texts on no sheet). With no sheet, every text is outside. Lines kept on the file
+    (`record_bangla_lines`, the seed's) only where no flagged text is kept to count from."""
     texts = [t for t in (row.bangla_ansi or {}).get("texts", ()) if t.get("handle")]
-    if texts and on.sheets:
-        flagged = BanglaAnsi(
-            tuple(Flagged(str(t["handle"]), FoundBy(t["by"]), t.get("font")) for t in texts)
-        )
-        return tuple(flagged.findings(on.sheet_of))
-    return tuple(Message(code=m["code"], params=m["params"]) for m in row.bangla_lines or ())
+    if not texts:
+        return tuple(Message(code=m["code"], params=m["params"]) for m in row.bangla_lines or ())
+    flagged = BanglaAnsi(
+        tuple(Flagged(str(t["handle"]), FoundBy(t["by"]), t.get("font")) for t in texts)
+    )
+    kinds = [k for k in (FoundBy.FONT, FoundBy.PATTERN) if any(t.by is k for t in flagged.texts)]
+    lines = []
+    for line, kind in zip(flagged.findings(on.sheet_of), kinds, strict=True):
+        handles = {t.handle for t in flagged.texts if t.by is kind}
+        placed = [(sr_id, h) for sr_id, _n, on_it in on.sheets for h in on_it & handles]
+        params = {
+            **line["params"],
+            "on_sheets": len(placed),
+            "sheets": len({sr_id for sr_id, _h in placed}),
+            "outside": len(handles - {h for _s, h in placed}),
+        }
+        lines.append(Message(code=line["code"], params=params))
+    return tuple(lines)
 
 
 def _artefact(row: DrawingFile) -> ReadArtefact | None:
@@ -186,6 +200,23 @@ def _readers(row: DrawingFile) -> list[Message]:
     if check.get("finding"):
         return [Message(code=check["finding"]["code"], params=check["finding"]["params"])]
     return []
+
+
+def asks_to_mark(row: DrawingFile, view: drawing_files.FileView) -> bool:
+    """Whether the file's row or report tells the QS to mark it for Vextrus (from the facts the report
+    words them from): its reading failed (an old AutoCAD's file among them), or it is listed (read, or
+    held and read anyway) and a DWG with no sheet, sheets or views not kept, or a limit that cut it."""
+    if view.state in (drawing_files.FileState.FAILED, drawing_files.FileState.UNREADABLE):
+        return True
+    if not _listed(row) or row.format != FileFormat.DWG:
+        return False
+    printed = SheetRevision.objects.filter(source_file=row)
+    return (
+        not printed.exists()
+        or bool(row.sheets_refused)
+        or printed.filter(views_refused__gt=0).exists()
+        or bool(_not_read_in_full(row))
+    )
 
 
 def _listed(row: DrawingFile) -> bool:

@@ -340,7 +340,10 @@ def test_a_sheet_held_by_an_open_missing_question_cannot_be_confirmed_until_it_i
     for refused in (single, bulk):
         assert (refused.status_code, refused.json()) == (
             409,
-            {"code": "takeoff.step1.question_first", "params": {}},
+            {
+                "code": "takeoff.step1.question_first",
+                "params": {"count": 1, "asks": "number", "sheet": "STAIR DETAILS", "named": "title"},
+            },
         )
     assert all(p["decision"] is None for p in proposals(api, qs_project.project_id))
     [q] = open_questions(api, qs_project.project_id, "missing")
@@ -400,3 +403,32 @@ def test_the_bangla_sections_header_counts_the_same_texts_as_its_sheet_links(
     assert header["code"] == "engine.bangla_ansi.found"
     assert header["params"]["texts"] == sum(s["texts"] for s in report["bangla_sheets"]) == 3
     assert header["params"]["sheets"] == len(report["bangla_sheets"]) == 2
+
+
+def test_the_storeys_a_boundary_question_names_are_words_never_keys() -> None:
+    """The words gate's round-1 must 4: "the pile cap storey" printed a key."""
+    from vextrus.takeoff.services.read_propose.proposals import storey_named
+
+    assert storey_named("floor_1") == {"level": "floor", "number": 1, "storey": "floor_1"}
+    assert storey_named("basement_2")["level"] == "basement"
+    assert storey_named("basement_2")["number"] == 2
+    assert storey_named("roof")["level"] == "roof"
+    assert storey_named("pile_cap")["level"] == "other"
+
+
+def test_a_held_file_read_anyway_that_found_no_sheet_can_be_marked_for_vextrus(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The words gate's round-1 must 1: its report says to mark it; its row stays held."""
+    held = uploaded(qs_project.member, qs_project.project_id, "KR-STR-old.dwg")
+    use = readers({"KR-STR-old.dwg": []}, held=["KR-STR-old.dwg"])
+    run_job(qs_project.member, held, monkeypatch, use)
+    api = api_as(qs_project.member)
+    [q] = open_questions(api, qs_project.project_id, "file_misread")
+    assert answer(api, qs_project.project_id, q["id"], "read_anyway").status_code == 200
+    run_job(qs_project.member, held, monkeypatch, use)
+
+    marked = api.post(f"/api/projects/{qs_project.project_id}/drawings/files/{held}/mark-for-vextrus")
+
+    assert marked.status_code == 200, marked.content
+    assert marked.json()["marked_for_vextrus"] is True

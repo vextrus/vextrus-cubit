@@ -930,17 +930,34 @@ answer's to set, which a confirmed sheet no longer takes)."""
 def _no_question_first(
     project_id: uuid.UUID, chosen: Sequence[tuple[drawings.SheetView, Proposal | None]]
 ) -> None:
-    """Refuse (409, nothing done) a sheet an open `missing` or `missing_discipline` Question holds."""
-    sheet_ids = {sheet.id for sheet, _p in chosen}
-    proposal_ids = {p.id for _s, p in chosen if p is not None}
-    asked = Question.objects.filter(
-        project_id=project_id, step=SHEETS, status=QuestionStatus.OPEN, kind__in=FIRST
+    """Refuse (409, nothing done) sheets an open `missing` or `missing_discipline` Question holds,
+    naming the first of them (in the order chosen), what its Question asks, and how many."""
+    asked = list(
+        Question.objects.filter(
+            project_id=project_id, step=SHEETS, status=QuestionStatus.OPEN, kind__in=FIRST
+        )
     )
-    held = QuestionLink.objects.filter(
-        project_id=project_id, question__in=asked, proposal_id__in=proposal_ids
-    ).exists()
-    if held or asked.filter(subject_id__in=sheet_ids).exists():
-        raise auth.Refused(said.QUESTION_FIRST(), status=409)
+    if not asked:
+        return
+    by_proposal: dict[uuid.UUID, str] = {}
+    for link in QuestionLink.objects.filter(project_id=project_id, question__in=asked):
+        by_proposal[link.proposal_id] = next(q.kind for q in asked if q.id == link.question_id)
+    by_sheet = {q.subject_id: q.kind for q in asked if q.subject_id is not None}
+    held = [
+        (sheet, by_sheet.get(sheet.id) or (by_proposal.get(p.id) if p is not None else None))
+        for sheet, p in chosen
+    ]
+    held = [(sheet, kind) for sheet, kind in held if kind is not None]
+    if held:
+        first, kind = held[0]
+        raise auth.Refused(
+            said.QUESTION_FIRST(
+                count=len(held),
+                asks="number" if kind == QuestionKind.MISSING else "discipline",
+                **_named(first),
+            ),
+            status=409,
+        )
 
 
 def exclude(

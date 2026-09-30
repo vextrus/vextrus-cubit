@@ -143,15 +143,22 @@ def propose(
     return {"sheets": proposed, "questions": asked}
 
 
+NAMED_STOREYS = frozenset({"ground", "lower_ground", "mezzanine", "podium", "roof"})
+"""The storeys the words name by key (13's keys); any other is worded as the range's top storey."""
+
+
 def storey_named(key: str) -> dict[str, str | int]:
-    """A storey as a Question's words name it (13's keys): `level` `floor` with its `number` (the
-    words give "1st"), `ground`, `basement` (its `number`), else `other` with the key's words."""
+    """A storey as a Question's words name it (13's keys): `level` `floor` or `basement` with its
+    `number` (the words give "1st"), a named storey by its key (`NAMED_STOREYS`), else `other` (the
+    words say "its top storey", never a key); `storey` is the key, for the record."""
     kind, _, number = key.rpartition("_")
     if kind in ("floor", "basement") and number.isdigit():
         return {"level": kind, "number": int(number), "storey": key}
-    if key in ("ground", "basement"):
-        return {"level": key, "number": 1, "storey": key}
-    return {"level": "other", "number": 0, "storey": key.replace("_", " ")}
+    if key == "basement":
+        return {"level": "basement", "number": 1, "storey": key}
+    if key in NAMED_STOREYS:
+        return {"level": key, "number": 0, "storey": key}
+    return {"level": "other", "number": 0, "storey": key}
 
 
 def named(sheet: drawings.SheetView, prefix: str = "") -> dict[str, str]:
