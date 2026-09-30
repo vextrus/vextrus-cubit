@@ -212,30 +212,40 @@ def test_answering_which_discipline_lists_the_sheet_under_it(
     assert None not in progress(api, qs_project.project_id)
 
 
-def test_a_sheet_with_no_discipline_numbered_like_a_disciplines_sheet_raises_a_conflict(
+def test_a_sheet_with_no_discipline_numbered_like_structurals_is_asked_its_discipline_not_a_conflict(
     qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """#102: "A general-notes file numbering its sheets from 01 ... collides with the first
-    structural sheets' numbers; 19b raises no `same_number` ... because it compares only sheets with
-    a Discipline"."""
+    structural sheets' numbers". Amended by #161 (the orchestrator's ruling, session 08): "An
+    unassigned file is not compared across Disciplines": the sheet raises no `same_number` Question
+    with Structural's 01; it is asked which Discipline it is (`missing_discipline`) instead. The
+    file's name and title name no Discipline, so #159's General Discipline is not given by them."""
+    unnamed = "KR-SET2-R0.dwg"
     drawn = {
         STRUCTURAL: [
             Sheet("01", "PILE LAYOUT PLAN", ("PILE LAYOUT PLAN",)),
             Sheet("02", "COLUMN SCHEDULE", ("COLUMN SCHEDULE",)),
         ],
-        NO_DISCIPLINE: [Sheet("01", "GENERAL NOTES", ("GENERAL NOTES",))],
+        unnamed: [Sheet("01", "SITE NOTES", ("SITE NOTES",))],
     }
     read(qs_project, monkeypatch, STRUCTURAL, drawn)
-    read(qs_project, monkeypatch, NO_DISCIPLINE, drawn)
+    read(qs_project, monkeypatch, unnamed, drawn)
     api = api_as(qs_project.member)
     listed = proposals(api, qs_project.project_id)
     ones = [p for p in listed if p["number"] == "01"]
     assert sorted(p["discipline"] or "" for p in ones) == ["", "structural"]
+    [unassigned] = [p for p in ones if p["discipline"] is None]
 
-    [q] = open_questions(api, qs_project.project_id, "conflict")
+    same_number = [
+        q
+        for q in open_questions(api, qs_project.project_id, "conflict")
+        if q["code"] == conflict_codes.SAME_NUMBER.code
+    ]
+    [asked] = open_questions(api, qs_project.project_id, "missing_discipline")
 
-    assert q["code"] == conflict_codes.SAME_NUMBER.code
-    assert sorted(q["proposals"]) == sorted(p["id"] for p in ones)
+    assert same_number == []
+    assert asked["subject_id"] == unassigned["sheet_id"]
+    assert asked["proposals"] == [unassigned["id"]]
 
 
 # #135: a sheet left out for unreadable writing ------------------------------------------------------
