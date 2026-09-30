@@ -71,13 +71,19 @@ def test_an_answered_lists_question_lets_sheets_agree_against_the_chosen_list(
         lists = step1._lists(project_id, "structural")
         assert lists.given is not None
         assert lists.read is not None
-        asked = step1.raise_question(
-            project_id,
-            QuestionKind.CONFLICT,
-            Message(code="takeoff.step1.lists_disagree", params={}),
-            discipline="structural",
-        )
-        Question.objects.filter(id=asked).update(question_key=step1._lists_key(lists.given, lists.read))
+        key = step1._lists_key(lists.given, lists.read)
+        # 21c raises the two lists' Question itself; before it merges, the test raises one.
+        found = Question.objects.filter(project_id=project_id, question_key=key).first()
+        if found is None:
+            asked = step1.raise_question(
+                project_id,
+                QuestionKind.CONFLICT,
+                Message(code="takeoff.step1.lists_disagree", params={}),
+                discipline="structural",
+            )
+            Question.objects.filter(id=asked).update(question_key=key)
+        else:
+            asked = found.id
         step1.answer_question(project_id, asked, {"option": "use_read"})
 
     assert agrees(step1_project) == {"S-01": True, "S-02": True, "S-03": False}
