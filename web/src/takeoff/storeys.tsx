@@ -114,6 +114,8 @@ const plans = (views: readonly ViewOut[] | undefined) => (views ?? []).filter((v
 export function statedKeys(text: string): string[] | null {
   const words = text.toLowerCase().match(/[a-z0-9]+/g) ?? []
   const keys: string[] = []
+  /** The places in `keys` whose key ends a run ("… TO 5TH"). */
+  const joinedByRange = new Set<number>()
   let range = false
   for (const w of words) {
     if (w === 'to') {
@@ -125,7 +127,9 @@ export function statedKeys(text: string): string[] | null {
     const ordinal = /^(\d+)(st|nd|rd|th)$/.exec(w)
     const last = keys.at(-1)
     // "2ND BASEMENT": the ordinal read before it names the basement's number.
-    if (w === 'basement' && last && /^floor_\d+$/.test(last) && !range) {
+    if (w === 'basement' && last && /^floor_\d+$/.test(last)) {
+      // "2ND TO 5TH BASEMENT": a run that ends in a basement is not read here.
+      if (joinedByRange.has(keys.length - 1)) return null
       keys[keys.length - 1] = `basement_${last.slice('floor_'.length)}`
       continue
     }
@@ -136,11 +140,13 @@ export function statedKeys(text: string): string[] | null {
       range = false
       const a = last ? /^floor_(\d+)$/.exec(last) : null
       const b = /^floor_(\d+)$/.exec(key)
+      if (a && b && Number(b[1]) <= Number(a[1])) return null
       if (a && b) for (let n = Number(a[1]) + 1; n < Number(b[1]); n++) keys.push(`floor_${n}`)
       // "6TH FLOOR TO ROOF": the floors between come from Step 3, as 13's open run ("top") says.
       else if (a && key === 'roof') keys.push('top')
       // Any other named end ("GROUND TO 5TH"): the floors between are not known here.
       else return null
+      joinedByRange.add(keys.length)
     }
     keys.push(key)
   }

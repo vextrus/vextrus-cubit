@@ -340,6 +340,9 @@ describe('M12: a title that states its storeys never reads "not stated"', () => 
       ['GROUND TO 5TH FLOOR', null],
       ['2ND TO 4TH FLOOR', ['floor_2', 'floor_3', 'floor_4']],
       ['GF', null],
+      ['6TH TO 2ND FLOOR', null],
+      ['2ND TO 5TH BASEMENT', null],
+      ['3RD & 5TH FLOOR', ['floor_3', 'floor_5']],
     ] as const)
       expect(statedKeys(said), said).toEqual(keys)
     // A level is not a storey: amber "not stated" beside its Question (6.8), never the level as text.
