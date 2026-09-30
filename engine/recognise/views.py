@@ -51,8 +51,10 @@ heading's, whose lines are its content), are its: off the grid and in its view's
 title lying in a titled view's box (grown by `JOIN_MM`) is that view's, whatever its size; another is a
 view when it covers `MIN_UNTITLED` of the paper (of the kind its sheet's title names, else a plan; notes
 when text fills more of it than lines); a smaller one joins the view whose box, grown by `JOIN_MM`, holds
-it. A view's box is its piece, its title and its scale text together. **Reading order** is by rows, top
-to bottom (views whose heights overlap by half are one row), each left to right.
+it. A view's box is its piece, its title and its scale text together; a plan's also takes its grid lines
+to their ends and the marks set off it (`PLAN_MARK_MM`), never growing further into another view's box.
+A line running off the paper (cut at the frame's edge, or past it) is no view's. **Reading order** is by
+rows, top to bottom (views whose heights overlap by half are one row), each left to right.
 
 **The title block is a view** (CONTEXT.md's "View"; the orchestrator's ruling R2, session 07), of kind
 `title_block`, last on its sheet, after the rows: its box is where its texts stand (the values 13 read,
@@ -183,6 +185,9 @@ JOIN_MM = 10.0
 DIVIDER_SHARE = 0.6
 """A straight line along the paper's axes this share of the paper's side or longer is a border or a
 divider between views (the real sets rule rows of details apart), never a view's drawing."""
+PLAN_MARK_MM = 25.0
+"""A plan's marks set off its drawing (a section's cut arrows, a grid bubble past its line's end) stand
+within this of it on paper, in mm, and are no longer than this."""
 
 RULE_MM = 1.0
 """Lines on one line within this on paper, in mm, are one ruled line (a title block's border drawn in
@@ -945,6 +950,16 @@ def _text_rows(
     return np.stack([x0[which], y, x1[which], y], axis=1)
 
 
+def _on_paper(segments: NDArray[np.float64], region: Bounds) -> NDArray[np.bool_]:
+    """The segments with both ends inside the paper, off its edge: a line running off the sheet (cut at
+    the frame, or past it) is a construction line left in the drawing, never a view's."""
+    x0, y0, x1, y1 = region
+    tol = 1e-6 * max(x1 - x0, y1 - y0)
+    xs, ys = segments[:, 0::2], segments[:, 1::2]
+    inside = (xs > x0 + tol) & (xs < x1 - tol) & (ys > y0 + tol) & (ys < y1 - tol)
+    return np.asarray(inside.all(axis=1))
+
+
 def _dividers_out(segments: NDArray[np.float64], width: float, height: float) -> NDArray[np.float64]:
     """The segments without borders and dividers (`DIVIDER_SHARE`)."""
     if not len(segments):
@@ -1252,7 +1267,8 @@ def _views(
     subtitles = {j for lines in second.values() for j in lines}
     off_grid = set(titles) | subtitles | set(scale_texts)
     underlined = _underlines(paper.segments, [texts[i] for i in titles])
-    drawn = replace(paper, segments=paper.segments[~underlined])
+    off = ~_on_paper(paper.segments, paper.region)  # a line running off the sheet is no view's
+    drawn = replace(paper, segments=paper.segments[~(underlined | off)])
     pieces = _pieces(drawn, texts, (i for i in range(len(texts)) if i not in off_grid))
     pieces = sorted(pieces, key=lambda q: -q.area)[:MAX_PIECES]
     paper_area = (rx1 - rx0) * (ry1 - ry0)
@@ -1334,6 +1350,7 @@ def _views(
         if holders:
             smallest = min(holders, key=lambda v: _area(v.box))
             smallest.box = _union(smallest.box, piece.box)
+    _plans_reach(views, pieces, drawn.segments, (rx1 - rx0, ry1 - ry0), unit)
     for si in scale_texts:
         s = texts[si]
         best: tuple[float, _View] | None = None
@@ -1353,6 +1370,63 @@ def _views(
             best[1].scale = scales.read(s.shown, reading.patterns)
             best[1].box = _union(best[1].box, s.box)
     return views[:MAX_VIEWS]
+
+
+def _plans_reach(
+    views: list[_View],
+    pieces: Sequence[_Piece],
+    lines: NDArray[np.float64],
+    size: tuple[float, float],
+    unit: float,
+) -> None:
+    """A plan's box takes in what a draughtsman draws around its drawing and the grid splits off: its
+    grid lines to their ends (lines long enough to be read as dividers, `DIVIDER_SHARE`, lying across
+    its box), then its marks set off it (`PLAN_MARK_MM`: a piece left in no view, no longer than that,
+    within that of the plan's box and beside it, across its span, and nearer it than any other view).
+    Nothing grows further into another view's box."""
+    width, height = size
+    dx = np.abs(lines[:, 2] - lines[:, 0])
+    dy = np.abs(lines[:, 3] - lines[:, 1])
+    across = lines[(dx >= DIVIDER_SHARE * width) & (dy <= 0.01 * dx)]
+    down = lines[(dy >= DIVIDER_SHARE * height) & (dx <= 0.01 * dy)]
+    plans = [v for v in views if v.kind is ViewKind.PLAN]
+
+    def grow(view: _View, box: Bounds) -> None:
+        others = [v.box for v in views if v is not view]
+        if all(_overlap(box, o) <= _overlap(view.box, o) for o in others):
+            view.box = box
+
+    for view in plans:
+        x0, y0, x1, y1 = view.box
+        for s in across:
+            lo, hi = min(s[0], s[2]), max(s[0], s[2])
+            if y0 <= s[1] <= y1 and lo <= x1 and x0 <= hi:
+                grow(view, _union(view.box, (lo, s[1], hi, s[1])))
+        for s in down:
+            lo, hi = min(s[1], s[3]), max(s[1], s[3])
+            if x0 <= s[0] <= x1 and lo <= y1 and y0 <= hi:
+                grow(view, _union(view.box, (s[0], lo, s[0], hi)))
+    reach = PLAN_MARK_MM * unit
+    for piece in pieces:
+        b = piece.box
+        if max(b[2] - b[0], b[3] - b[1]) > reach or any(_holds(v.box, b) for v in views):
+            continue
+        near = min(views, key=lambda v: _gap(v.box, b), default=None)
+        if near is None or near.kind is not ViewKind.PLAN or _gap(near.box, b) > reach:
+            continue
+        x0, y0, x1, y1 = near.box
+        beside = (y0 <= b[1] and b[3] <= y1) or (x0 <= b[0] and b[2] <= x1)
+        if beside:
+            grow(near, _union(near.box, b))
+
+
+def _overlap(a: Bounds, b: Bounds) -> float:
+    return max(0.0, min(a[2], b[2]) - max(a[0], b[0])) * max(0.0, min(a[3], b[3]) - max(a[1], b[1]))
+
+
+def _gap(a: Bounds, b: Bounds) -> float:
+    """How far apart two boxes are (0 when they meet)."""
+    return math.hypot(max(0.0, a[0] - b[2], b[0] - a[2]), max(0.0, a[1] - b[3], b[1] - a[3]))
 
 
 def _title_lines(
