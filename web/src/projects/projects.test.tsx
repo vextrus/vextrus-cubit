@@ -235,7 +235,8 @@ describe('the New project dialog (§4.3; stories 3, 4, 99)', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: 'Create project' }))
     await waitFor(() => expect(router.state.location.pathname).toBe('/p/HT-04/takeoff/1'))
     expect(bodies).toEqual([{ name: 'Hasnahena Tower', code: 'HT-04', address: 'Plot 3, Road 2, Dhaka', unit_system: 'metric' }])
-    expect(screen.queryByRole('dialog', { name: 'New project' })).toBeNull()
+    // Closed before the navigation starts; it leaves the page once its close animation ends.
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'New project' })).toBeNull())
     expect(await screen.findByTestId('unit-system')).toHaveTextContent('Metric')
   })
 
