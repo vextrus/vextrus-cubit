@@ -53,6 +53,15 @@ phantom), counted, and fails nothing by itself.
 
 The keys: `<keys>/<set>.json` = `{set, held_out, sheets: [{layout, frame?, number, title, discipline,
 storeys, revision, date, views: [{box, title, kind, subject}]}]}`.
+
+Session 07's ruling R1 corrects two spellings and adds a diagnostic; the join rule is unchanged. A kind
+is compared with `_` folded to a space and "3D/perspective", "3D" and "perspective" one kind. A key
+view's subject is a free phrase, mapped to the first of the engine's subject words (SUBJECTS) in it,
+whole words, the longest first; a joined view's subject is right when that word is the export's, and a
+phrase naming none of them is left out of the count and reported as "subjects outside the vocabulary".
+A Development Set's answer adds counts in general terms (missing views by kind per sheet; unjoined key
+and export views by cause; how many would join with the frames' lower-left corners aligned; joined
+views with no export subject); a Held-out Set's answer is its two totals, as before.
 """
 
 import hashlib
@@ -93,6 +102,53 @@ FIELDS = (
     ("date", "issue_date", "date wrong"),
 )
 SYMBOLS = {"%%c": "ø", "%%d": "°", "%%p": "±"}
+# The engine's subject words, `subject_words` of engine/recognise/conventions/view-default.json, copied
+# because the scorer imports nothing of the project; a committed test fails when the two differ. A key's
+# free phrase is mapped to one of them before it is compared (session 07's ruling R1).
+SUBJECTS = (
+    "pile_cap",
+    "pile",
+    "foundation",
+    "column",
+    "shear_wall",
+    "retaining_wall",
+    "beam",
+    "slab",
+    "stair",
+    "tank",
+    "grid",
+    "fixture",
+    "toilet",
+    "opening",
+)
+# The key brief's "3D/perspective" and its parts, and the engine's `perspective`: one kind (R1).
+WORD = re.compile(r"[^\W_]+")  # a whole word of a phrase: letters and digits, `_` a separator
+PERSPECTIVE = re.compile(r"\A(?:3d ?/ ?perspective|3d|perspective)\Z")
+# The kinds the diagnostic may name, a closed list (the key brief's ten kinds, folded as `_kind`
+# folds them); any other kind, of the key or the export, is named "another kind", so no key's text
+# can reach an answer (24g's review: a list of shapes let "column c3" through).
+KINDS = (
+    "plan",
+    "section",
+    "elevation",
+    "schedule",
+    "detail",
+    "notes",
+    "legend",
+    "title block",
+    "key plan",
+    "perspective",
+)
+# The diagnostic's causes for a view that joins nothing, in the order they are checked (R1); "{side}"
+# is the other side's name ("export" for a key view, "key" for an export view).
+CAUSES = (
+    "other kind at IoU >= 0.8",
+    "no {side} view of that kind",
+    "same kind, best IoU >= 0.8 (taken by another view)",
+    "same kind, best IoU 0.5-0.8",
+    "same kind, best IoU 0.2-0.5",
+    "same kind, best IoU < 0.2",
+)
 SEPARATORS = re.compile(r",|&|\band\b")  # between two storeys of a list stated as text
 
 
@@ -112,6 +168,17 @@ class Score:
         self.of: dict[str, int] = {}
         self.extra_sheets = 0
         self.extra_views = 0
+        # The diagnostic (a Development Set's answer only; counts and general terms, never a key value):
+        # per key sheet, its missing views by kind; per set, the unjoined key views by cause, the
+        # unjoined export views by kind and cause, the joined views with no export subject, those whose
+        # key phrase maps to no subject word, and how many unjoined key views of framed sheets would
+        # join if the frames' lower-left corners were aligned (None when no joined sheet has a frame).
+        self.missing_kinds: list[dict[str, int]] = []
+        self.key_causes = [0] * len(CAUSES)
+        self.export_causes: dict[tuple[str, int], int] = {}
+        self.no_export_subject = 0
+        self.outside = 0
+        self.aligned: int | None = None
 
     def count(self, field: str, right: bool) -> None:
         self.right[field] = self.right.get(field, 0) + int(right)
@@ -351,6 +418,7 @@ def _score(key: dict[str, Any], export: dict[str, Any]) -> Score:
             for _view in sheet.views:
                 score.count("views", False)
             score.sheets.append(("", ["the sheet missing"], 0, False))
+            score.missing_kinds.append({})
             continue
         other = found[match]
         reasons = []
@@ -365,9 +433,10 @@ def _score(key: dict[str, Any], export: dict[str, Any]) -> Score:
         if sheet.framed:
             ratio = _paper_ratio(sheet.paper, other.paper)
             scale, unknown = ratio or scale, ratio is None
-        found_views = [_scaled(view, scale) for view in other.views]
-        wrong, extra = _score_views(score, sheet.views, found_views)
+        found_views = [_moved(view, scale) for view in other.views]
+        wrong, extra, joined_views = _score_views(score, sheet.views, found_views)
         reasons += wrong
+        _diagnose(score, sheet, other, found_views, joined_views)
         score.count("sheets", not reasons)
         score.sheets.append((other.layout or "", reasons, extra, unknown))
     return score
@@ -381,21 +450,51 @@ class _View:
 
     def __init__(self, view: dict[str, Any]) -> None:
         self.box = _box(view.get("box"))
-        self.kind = _text(view.get("kind"))
+        self.kind = _kind(view.get("kind"))
         self.title = _title(view.get("title"))
-        self.subject = _text(view.get("subject"))
+        self.subject = _underscored(view.get("subject"))
+        # The subject word a key's phrase names, found here, for every view, so its cost and any
+        # failure never depend on which views join (a Held-out Set's joins are never told; 24g's
+        # refuter: a huge phrase ran out of memory only when its view joined).
+        self.word = _subject_word(self.subject)
 
 
-def _scaled(view: _View, scale: tuple[float, float]) -> _View:
-    """The view with its box scaled by (x, y)."""
-    if scale == (1.0, 1.0) or view.box is None:
+def _moved(view: _View, scale: tuple[float, float], shift: tuple[float, float] = (0.0, 0.0)) -> _View:
+    """The view with its box scaled by (x, y), then moved by `shift`."""
+    if (scale == (1.0, 1.0) and shift == (0.0, 0.0)) or view.box is None:
         return view
-    sx, sy = scale
+    (sx, sy), (dx, dy) = scale, shift
     x0, y0, x1, y1 = view.box
-    scaled = _View({})
-    scaled.box = (x0 * sx, y0 * sy, x1 * sx, y1 * sy)
-    scaled.kind, scaled.title, scaled.subject = view.kind, view.title, view.subject
-    return scaled
+    moved = _View({})
+    moved.box = (x0 * sx + dx, y0 * sy + dy, x1 * sx + dx, y1 * sy + dy)
+    moved.kind, moved.title, moved.subject = view.kind, view.title, view.subject
+    moved.word = view.word
+    return moved
+
+
+def _kind(value: Any) -> str:
+    """A view's kind as it is compared: `_` folded to a space, "3D/perspective", "3D" and
+    "perspective" one kind (R1: a correction of spelling, not a tuned threshold)."""
+    kind = _underscored(value)
+    return "perspective" if PERSPECTIVE.match(kind) else kind
+
+
+def _underscored(value: Any) -> str:
+    """Case, whitespace and `_` folded (a `_` is a space)."""
+    return " ".join(_text(value).replace("_", " ").split())
+
+
+def _subject_word(phrase: str) -> str | None:
+    """The engine's subject word a key's phrase names (spelt with spaces), or None when it names none:
+    the first word of SUBJECTS found in the phrase, whole words only, left to right, the longest word
+    first where two start at one place ("pile cap" is "pile cap", not "pile")."""
+    tokens = WORD.findall(phrase)
+    words = sorted((word.split("_") for word in SUBJECTS), key=len, reverse=True)
+    for start in range(len(tokens)):
+        for word in words:
+            if tokens[start : start + len(word)] == word:
+                return " ".join(word)
+    return None
 
 
 class _Sheet:
@@ -482,18 +581,12 @@ def _finite(value: Any) -> float | None:
     return number if math.isfinite(number) else None
 
 
-def _score_views(score: Score, keyed: list[_View], found: list[_View]) -> tuple[list[str], int]:
-    """Why the sheet's views fail it, and how many export views joined no key view."""
-    pairs = sorted(
-        (
-            (_iou(view.box, other.box), k, f)
-            for k, view in enumerate(keyed)
-            for f, other in enumerate(found)
-            if view.kind == other.kind
-        ),
-        key=lambda pair: (-pair[0], pair[1], pair[2]),
-    )
-    joined = _one_to_one(pairs)
+def _score_views(
+    score: Score, keyed: list[_View], found: list[_View]
+) -> tuple[list[str], int, dict[int, int]]:
+    """Why the sheet's views fail it, how many export views joined no key view, and the join (key
+    view index to export view index)."""
+    joined = _one_to_one(_view_pairs(keyed, found))
     extra = len(found) - len(joined)
     score.extra_views += extra
     missing = titles = subjects = 0
@@ -504,10 +597,16 @@ def _score_views(score: Score, keyed: list[_View], found: list[_View]) -> tuple[
             missing += 1
             continue
         title = view.title == found[f].title
-        subject = view.subject == found[f].subject
         score.count("view titles", title)
-        score.count("view subjects", subject)
         titles += not title
+        score.no_export_subject += not found[f].subject
+        # A key phrase naming none of the engine's subject words is left out of the count (R1).
+        word = view.word
+        if word is None:
+            score.outside += 1
+            continue
+        subject = word == found[f].subject
+        score.count("view subjects", subject)
         subjects += not subject
     reasons = [
         _counted(n, one, many)
@@ -518,11 +617,99 @@ def _score_views(score: Score, keyed: list[_View], found: list[_View]) -> tuple[
         )
         if n
     ]
-    return reasons, extra
+    return reasons, extra, joined
+
+
+def _diagnose(
+    score: Score, sheet: _Sheet, other: _Sheet, found: list[_View], joined: dict[int, int]
+) -> None:
+    """The diagnostic's counts for one joined sheet, from its export views as they were joined
+    (paper-scaled) and that join; it changes no score."""
+    keyed = sheet.views
+    taken = set(joined.values())
+    missing: dict[str, int] = {}
+    for k, view in enumerate(keyed):
+        if k not in joined:
+            kind = _named(view.kind)
+            missing[kind] = missing.get(kind, 0) + 1
+            score.key_causes[_cause(view, found)] += 1
+    score.missing_kinds.append(missing)
+    for f, view in enumerate(found):
+        if f not in taken:
+            cause = (_named(view.kind), _cause(view, keyed))
+            score.export_causes[cause] = score.export_causes.get(cause, 0) + 1
+    if not sheet.framed:
+        return
+    score.aligned = score.aligned or 0
+    shift = _corner_shift(sheet, other)
+    if shift is None:
+        return
+    aligned = _one_to_one(_view_pairs(keyed, [_moved(view, (1.0, 1.0), shift) for view in found]))
+    score.aligned += sum(1 for k in aligned if k not in joined)
+
+
+def _named(kind: str) -> str:
+    """A kind as the diagnostic may print it: one of KINDS, else "another kind"."""
+    return kind if kind in KINDS else "another kind"
+
+
+def _corner_shift(sheet: _Sheet, other: _Sheet) -> tuple[float, float] | None:
+    """How far, on the key's paper in mm, to move the export's views so its frame's lower-left corner
+    meets the key's. Every view box is on paper, in mm, from its own sheet's lower-left corner
+    (engine/recognise/views.py; the rulings, "24s <-> 17"), while the frames are where they lie (a
+    model-space frame in model units): a place p is at (p - corner) * paper / frame on either paper,
+    so an export view is at the key's place when moved by (export corner - key corner) * paper /
+    frame. The paper is the key's, else the export's (over the export's frame), else, for a layout
+    sheet, the frame itself (a layout is drawn in paper mm); None when the ratio is unknown (a
+    model-space sheet with no paper) or a frame is not a box."""
+    key, found = sheet.box, other.box
+    if key is None or found is None:
+        return None
+    if sheet.paper is not None:
+        paper, frame = sheet.paper, key
+    elif other.paper is not None:
+        paper, frame = other.paper, found
+    elif not sheet.in_model:
+        return found[0] - key[0], found[1] - key[1]
+    else:
+        return None
+    width, height = frame[2] - frame[0], frame[3] - frame[1]
+    if not (width > 0 and height > 0):
+        return None
+    return (found[0] - key[0]) * paper[0] / width, (found[1] - key[1]) * paper[1] / height
+
+
+def _cause(view: _View, others: list[_View]) -> int:
+    """Why `view` joined nothing among `others` (the other side's views of its sheet): the index of
+    the first of CAUSES that holds."""
+    if any(o.kind != view.kind and _iou(view.box, o.box) >= JOIN - 1e-9 for o in others):
+        return 0
+    same = [_iou(view.box, o.box) for o in others if o.kind == view.kind]
+    if not same:
+        return 1
+    best = max(same)
+    if best >= JOIN - 1e-9:
+        return 2
+    if best >= 0.5:
+        return 3
+    return 4 if best >= 0.2 else 5
 
 
 def _counted(n: int, one: str, many: str) -> str:
     return one if n == 1 else f"{n} {many}"
+
+
+def _view_pairs(keyed: list[_View], found: list[_View]) -> list[tuple[float, int, int]]:
+    """Every same-kind (key view, export view) pair by its IoU, the largest first."""
+    return sorted(
+        (
+            (_iou(view.box, other.box), k, f)
+            for k, view in enumerate(keyed)
+            for f, other in enumerate(found)
+            if view.kind == other.kind
+        ),
+        key=lambda pair: (-pair[0], pair[1], pair[2]),
+    )
 
 
 def _join_sheets(keyed: list[_Sheet], found: list[_Sheet]) -> dict[int, int]:
@@ -639,12 +826,45 @@ def _answer(name: str, held_out: bool, score: Score) -> list[str]:
             if unknown:
                 said += "; paper unknown"
             lines.append(f"  sheet {n}{where}: {said}")
+            missing = score.missing_kinds[n - 1]
+            lines += [
+                f"    {k} missing {'view' if k == 1 else 'views'} of kind {kind}"
+                for kind, k in sorted(missing.items())
+            ]
         lines.append(
             f"  extra sheets {score.extra_sheets}, extra views {score.extra_views} (in the export only)"
         )
+        lines += _diagnostic(score)
     order = ["sheets", "views", *(field for field, _n, _r in FIELDS), "view titles", "view subjects"]
     totals = [f"  {field:14} {score.right.get(field, 0)} / {score.of.get(field, 0)}" for field in order]
     return lines + totals[:2] + ([] if held_out else totals[2:])
+
+
+def _diagnostic(score: Score) -> list[str]:
+    """A Development Set's diagnostic lines: counts and general terms only, never a key's value, and
+    never " / " (the log keeps only the lines that hold one: the totals)."""
+    lines = ["  unjoined key views of joined sheets, by cause:"]
+    lines += [
+        f"    {cause.format(side='export')}: {n}"
+        for cause, n in zip(CAUSES, score.key_causes, strict=True)
+    ]
+    lines.append("  unjoined export views of joined sheets, by kind and cause:")
+    lines += [
+        f"    {kind}: {CAUSES[cause].format(side='key')}: {n}"
+        for (kind, cause), n in sorted(score.export_causes.items())
+    ] or ["    none"]
+    if score.aligned is None:
+        lines.append(
+            "  key views that would join if frame corners were aligned: no joined sheet has a frame"
+        )
+    else:
+        lines.append(
+            "  key views that would join if frame corners were aligned (lower-left, translation"
+            f" only): {score.aligned}"
+        )
+    lines.append(f"  joined views with no export subject: {score.no_export_subject}")
+    lines.append(f"  subjects outside the vocabulary: {score.outside}")
+    return lines
 
 
 def _log(journal: TextIO, line: str) -> None:
