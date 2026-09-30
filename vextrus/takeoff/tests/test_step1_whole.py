@@ -363,7 +363,8 @@ def test_once_the_lists_question_is_answered_the_sheets_agree_against_the_chosen
     ])  # fmt: skip
     api = api_as(qs_project.member)
     path = f"{step1(qs_project.project_id)}/drawing-list"
-    assert api.post(path, {"discipline": "structural", "text": "S-01 to S-04"}).status_code == 200
+    # A typed list shorter than the one read, so the list the answer chose is told from the other.
+    assert api.post(path, {"discipline": "structural", "text": "S-01 to S-02"}).status_code == 200
     assert not any(p["agrees"] for p in proposals(api, qs_project.project_id))
     [q] = open_questions(api, qs_project.project_id, "conflict")
 
@@ -432,3 +433,58 @@ def test_a_held_file_read_anyway_that_found_no_sheet_can_be_marked_for_vextrus(
 
     assert marked.status_code == 200, marked.content
     assert marked.json()["marked_for_vextrus"] is True
+
+
+# Fix round 2 -------------------------------------------------------------------------------------
+
+
+def test_answering_the_kind_of_a_sheet_whose_number_is_asked_keeps_the_kind_until_it_is_confirmed(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, jev_offline: Offline
+) -> None:
+    """Review round 2, finding 2 (50): the kind's answer was refused "confirm again" while the
+    number's Question held the sheet; now the kind is kept and the sheet confirms once numbered."""
+    jev_says(jev_offline, "0.34")
+    read(qs_project, monkeypatch, UNNUMBERED)
+    api = api_as(qs_project.member)
+    unnumbered = the(proposals(api, qs_project.project_id), None)
+    [kind_q] = [
+        q
+        for q in open_questions(api, qs_project.project_id, "low_confidence")
+        if q["proposals"] == [unnumbered["id"]]
+    ]
+    chosen = keys(kind_q)[1]
+
+    response = answer(api, qs_project.project_id, kind_q["id"], chosen)
+
+    assert response.status_code == 200, response.content
+    shown = the(proposals(api, qs_project.project_id), None)
+    assert (shown["kind"], shown["decision"]) == (chosen, None)
+    [number_q] = open_questions(api, qs_project.project_id, "missing")
+    assert answer(api, qs_project.project_id, number_q["id"], "no_number").status_code == 200
+    assert confirm(api, qs_project.project_id, [unnumbered["id"]]).status_code == 200
+    assert the(proposals(api, qs_project.project_id), None)["confirmed_kind"] == chosen
+
+
+def test_leaving_out_a_sheet_withdraws_its_discipline_question_and_undo_asks_it_again(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review round 2, finding 3 (50): an excluded sheet's missing_discipline Question could only be
+    answered 409 decided_already."""
+    file_id = uploaded(qs_project.member, qs_project.project_id, "GENERAL NOTES.dwg")
+    run_job(qs_project.member, file_id, monkeypatch, readers({"GENERAL NOTES.dwg": [
+        Sheet("N-01", "GENERAL NOTES", ("GENERAL NOTES",)),
+    ]}))  # fmt: skip
+    api = api_as(qs_project.member)
+    [q] = open_questions(api, qs_project.project_id, "missing_discipline")
+    sheet = the(proposals(api, qs_project.project_id), "N-01")
+
+    left_out = exclude(api, qs_project.project_id, [sheet["id"]], "for_information")
+
+    assert left_out.status_code == 200, left_out.content
+    assert open_questions(api, qs_project.project_id, "missing_discipline") == []
+    [gone] = [x for x in questions(api, qs_project.project_id) if x["id"] == q["id"]]
+    assert gone["status"] == "withdrawn"
+    assert api.post(f"{step1(qs_project.project_id)}/undo", {}).status_code == 200
+    assert [x["id"] for x in open_questions(api, qs_project.project_id, "missing_discipline")] == [
+        q["id"]
+    ]

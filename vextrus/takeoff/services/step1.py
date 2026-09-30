@@ -312,7 +312,7 @@ def _agreeing(
         keys = Counter(numbers.key(s.number, discipline) for s in everyone if s.number)
         mine = [s for s in everyone if s.number and keys[numbers.key(s.number, discipline)] == 1]
         lists = _lists(project_id, discipline)
-        standing = lists.given or lists.read
+        standing = lists.standing
         if standing is not None and not lists.disagree:
             listed = {numbers.key(n, discipline) for n in _numbers(standing)}
             second = {s.id for s in mine if s.number and numbers.key(s.number, discipline) in listed}
@@ -960,6 +960,25 @@ def _no_question_first(
         )
 
 
+def _withdraw_first(
+    project_id: uuid.UUID,
+    chosen: Sequence[tuple[drawings.SheetView, Proposal | None]],
+    act: Confirmation,
+) -> None:
+    """Sheets left out are no longer asked their number or Discipline: those open Questions are
+    withdrawn by the act, and its undo asks them again."""
+    sheet_ids = {sheet.id for sheet, _p in chosen}
+    proposal_ids = {p.id for _s, p in chosen if p is not None}
+    linked = QuestionLink.objects.filter(
+        project_id=project_id, proposal_id__in=proposal_ids
+    ).values_list("question_id", flat=True)
+    Question.objects.filter(
+        project_id=project_id, step=SHEETS, status=QuestionStatus.OPEN, kind__in=FIRST
+    ).filter(Q(subject_id__in=sheet_ids) | Q(id__in=list(linked))).update(
+        status=QuestionStatus.WITHDRAWN, answer={"withdrawn_by": str(act.id)}
+    )
+
+
 def exclude(
     project_id: uuid.UUID, ids: Sequence[object], reason: str, text: str = "", *, actor_name: str
 ) -> ActView:
@@ -978,6 +997,7 @@ def exclude(
             discipline=_one(chosen) if chosen else "",
             before=[sheet for sheet, _p in chosen],
         )
+        _withdraw_first(project_id, chosen, act)
         for sheet, proposal in chosen:
             proposal = proposal or _propose(project_id, sheet)
             drawings.exclude(sheet.id, reason, words, confirmation_id=act.id)
@@ -1083,6 +1103,12 @@ def undo(project_id: uuid.UUID) -> ActView:
         drawings.undo(act.id)
         act.undone_at = timezone.now()
         act.save(update_fields=["undone_at"])
+        # The Questions the act withdrew (its sheets left out) are asked again.
+        Question.objects.filter(
+            project_id=project_id,
+            status=QuestionStatus.WITHDRAWN,
+            answer__withdrawn_by=str(act.id),
+        ).update(status=QuestionStatus.OPEN, answer=None)
         for proposal in Proposal.objects.filter(
             project_id=project_id, confirmation=act, subject=ProposalSubject.VIEW
         ):
@@ -1698,7 +1724,13 @@ def _apply(
         assert row.subject_id is not None
         drawings.set_sheet_discipline(row.subject_id, option)
     elif kind == QuestionKind.LOW_CONFIDENCE and held:
-        confirm(project_id, list(held), kind=option, actor_name=actor_name)
+        try:
+            confirm(project_id, list(held), kind=option, actor_name=actor_name)
+        except auth.Refused as refused:  # its number or Discipline is still asked: keep the kind
+            if refused.message["code"] != said.QUESTION_FIRST.code:
+                raise
+            for proposal in Proposal.objects.filter(project_id=project_id, id__in=held):
+                drawings.record_kind(proposal.subject_id, option)
     return None
 
 
@@ -1707,7 +1739,7 @@ def _newest(proposal: ProposalView) -> tuple[Any, ...]:
     return (_date_of(proposal.issue_date), _natural(proposal.revision_mark))
 
 
-def _date_of(text: str) -> tuple[int, int, int]:
+def _date_of(text: str | None) -> tuple[int, int, int]:
     parts = [int(p) for p in re.split(r"[./-]", text.strip()) if p.isdigit()] if text else []
     if len(parts) != 3:
         return (0, 0, 0)
