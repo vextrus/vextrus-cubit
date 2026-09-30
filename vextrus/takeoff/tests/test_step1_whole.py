@@ -771,7 +771,7 @@ def _read_anyway_stopped_after_its_sheets(qs: QsProject, monkeypatch: pytest.Mon
     from procrastinate.job_context import AbortReason
 
     from vextrus.platform.services import jobs
-    from vextrus.takeoff.services.read_propose import files as read_files
+    from vextrus.takeoff.services.read_propose import sheets as read_sheets
 
     use = readers({NAME: UNNUMBERED}, held=[NAME])
     file_id = uploaded(qs.member, qs.project_id, NAME)
@@ -780,14 +780,14 @@ def _read_anyway_stopped_after_its_sheets(qs: QsProject, monkeypatch: pytest.Mon
     [held_q] = open_questions(api, qs.project_id, "file_misread")
     assert answer(api, qs.project_id, held_q["id"], "read_anyway").status_code == 200
     kept = {"sheets": False}
-    original = read_files.sheets.read
+    original = read_sheets.read
 
     def reading(*args: Any, **kwargs: Any) -> Any:
         found = original(*args, **kwargs)
         kept["sheets"] = True
         return found
 
-    monkeypatch.setattr(read_files.sheets, "read", reading)
+    monkeypatch.setattr(read_sheets, "read", reading)
     with pytest.raises(jobs.Stopped):
         run_job(
             qs.member,
@@ -796,7 +796,7 @@ def _read_anyway_stopped_after_its_sheets(qs: QsProject, monkeypatch: pytest.Mon
             use,
             abort_reason=lambda: AbortReason.SHUTDOWN if kept["sheets"] else None,
         )
-    monkeypatch.setattr(read_files.sheets, "read", original)
+    monkeypatch.setattr(read_sheets, "read", original)
     return lambda: run_job(qs.member, file_id, monkeypatch, use)
 
 
