@@ -18,7 +18,7 @@ from vextrus.testing.auth import Api
 from vextrus.testing.drawings import owner_rows
 
 from ..t19a.step1 import *  # noqa: F403 (its fixtures, which pytest finds by name)
-from .step1_whole import coverage, open_questions, progress, proposals
+from ..t21c.step1_whole import coverage, open_questions, progress, proposals
 
 pytestmark = [
     pytest.mark.django_db(databases=["default", "owner"]),

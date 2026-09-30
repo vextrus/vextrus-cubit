@@ -61,9 +61,13 @@ CLEAN = {
         Sheet("S-03", "COLUMN SCHEDULE", ("COLUMN SCHEDULE",)),
     ]
 }
-"""Three structural sheets numbered without a gap, every view with a subject 17 proposes to a step:
-four views, none unaccounted, nothing to ask."""
-VIEWS = 4
+"""Three structural sheets numbered without a gap, every drawn view with a subject 17 proposes to a
+step: four drawn views and each sheet's title block, none unaccounted, nothing to ask."""
+DRAWN_VIEWS = 4
+TITLE_BLOCKS = 3
+"""A title block is a View (CONTEXT.md, "View"; the orchestrator's ruling R2): the engine reads one per
+titled sheet, proposed out for information (`for_information`), never unaccounted."""
+VIEWS = DRAWN_VIEWS + TITLE_BLOCKS
 
 
 @pytest.fixture(autouse=True)
@@ -147,6 +151,7 @@ def test_every_view_read_is_counted_once_in_coverage_as_proposed(
         "views": VIEWS, "assigned": 0, "excluded": 0, "proposed": VIEWS, "unaccounted": 0, "used": 0,
     }  # fmt: skip
     assert shown["by_step"] == {"foundations": 1, "beams": 2, "columns": 1}
+    assert shown["by_reason"] == {"for_information": TITLE_BLOCKS}
 
 
 # The bulk act and Coverage ---------------------------------------------------------------------------
@@ -164,12 +169,9 @@ def test_one_bulk_confirmation_leaves_no_view_proposed_or_unaccounted(
     assert response.status_code == 200, response.content
     assert response.json()["sheets"] == 3
     shown = coverage(api, qs_project.project_id)
-    assert (shown["views"], shown["assigned"], shown["proposed"], shown["unaccounted"]) == (
-        VIEWS,
-        VIEWS,
-        0,
-        0,
-    )
+    counts = ("views", "assigned", "excluded", "proposed", "unaccounted")
+    assert tuple(shown[k] for k in counts) == (VIEWS, DRAWN_VIEWS, TITLE_BLOCKS, 0, 0)
+    assert shown["by_reason"] == {"for_information": TITLE_BLOCKS}
     assert shown["unaccounted_views"] == []
 
 

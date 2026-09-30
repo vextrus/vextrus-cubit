@@ -96,7 +96,9 @@ def test_structural_views_are_proposed_to_steps_5_to_10_by_their_subject(
     shown = coverage(api_as(qs_project.member), qs_project.project_id)
 
     assert shown["by_step"] == {"foundations": 1, "beams": 2, "columns": 1}
-    assert (shown["proposed"], shown["unaccounted"]) == (4, 0)
+    # Four drawn views and three title blocks (a View, CONTEXT.md; ruling R2), proposed out.
+    assert (shown["proposed"], shown["unaccounted"]) == (7, 0)
+    assert shown["by_reason"] == {"for_information": 3}
 
 
 def test_an_architectural_plan_of_the_structure_is_proposed_out_and_a_toilet_detail_to_plumbing(
@@ -109,8 +111,8 @@ def test_an_architectural_plan_of_the_structure_is_proposed_out_and_a_toilet_det
 
     shown = coverage(api_as(qs_project.member), qs_project.project_id)
 
-    assert shown["views"] == 3
-    assert shown["by_reason"] == {"duplicate": 1}
+    assert shown["views"] == 5  # three drawn views and each sheet's title block
+    assert shown["by_reason"] == {"duplicate": 1, "for_information": 2}
     assert shown["by_step"] == {"walls": 2, "rooms": 2, "plumbing": 1}
     assert shown["unaccounted"] == 0
 
@@ -128,7 +130,9 @@ def test_an_mep_sheet_is_proposed_under_its_discipline_its_views_to_its_part(
 
     assert (sheet["number"], sheet["discipline"]) == ("E-01", "electrical")
     assert sheet["id"] != sheet["sheet_id"]
-    assert (shown["views"], shown["proposed"], shown["by_step"]) == (2, 2, {"electrical": 2})
+    # The lighting plan, the legend and the sheet's title block (proposed out for information).
+    assert (shown["views"], shown["proposed"], shown["by_step"]) == (3, 3, {"electrical": 2})
+    assert shown["by_reason"] == {"for_information": 1}
 
 
 def test_an_mep_sheet_confirmed_has_its_views_assigned_to_its_part_and_its_step_1_confirmed(
@@ -252,4 +256,4 @@ def test_a_sheet_left_out_for_unreadable_writing_is_counted_in_coverage(
     shown = coverage(api, qs_project.project_id)
 
     assert shown["unread_sheets"] == 1
-    assert shown["views"] == 1
+    assert shown["views"] == 2  # S-01's view and its title block; nothing of the sheet left out
