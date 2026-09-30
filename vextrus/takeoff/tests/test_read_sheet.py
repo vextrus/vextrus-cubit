@@ -268,7 +268,9 @@ def test_the_sheets_are_stamped_with_the_files_group_and_each_gets_its_views_and
         for s in found:
             assert s.has_render
             assert drawings.render(s.id)
-            assert [v.title for v in drawings.views(s.id)] == ["GROUND FLOOR BEAM LAYOUT PLAN"]
+            # A title block is a view too (loop-views): the drawn view is the one titled.
+            drawn = [v.title for v in drawings.views(s.id) if v.kind != "title_block"]
+            assert drawn == ["GROUND FLOOR BEAM LAYOUT PLAN"]
     steps = kept(qs_project.member, file_id)
     kept_candidates = steps[drawings.SHEETS].result["sheets"]
     assert {c["candidate"]["group"] for c in kept_candidates} == {view.group}
@@ -427,8 +429,11 @@ def test_a_stop_never_hands_the_rest_of_the_file_a_fresh_view_budget(
         )
     run_job(qs_project.member, stopped, monkeypatch)
 
-    expected = [(1, []), (0, ["views_scan_budget"]), (0, [])]
-    assert sheet_readings(qs_project.member, straight) == expected
+    expected = sheet_readings(qs_project.member, straight)
+    # The first sheet read (its view, and its title block once the engine emits one), both later
+    # sheets cut, the second saying so; the stopped run reads exactly as the straight one.
+    assert expected[0][0] >= 1
+    assert expected[1:] == [(0, ["views_scan_budget"]), (0, [])]
     assert sheet_readings(qs_project.member, stopped) == expected
 
 
@@ -564,7 +569,7 @@ def test_the_files_render_time_is_bounded_across_its_sheets_and_said_once(
     steps = kept(qs_project.member, spent)
     results = [steps[drawings.sheet_step(n)].result for n in range(1, FRAMES + 1)]
     assert [r["render"] for r in results] == [False] * FRAMES
-    assert all(r["views"] == 1 for r in results)
+    assert all(r["views"] >= 1 for r in results)  # its view (and its title block, loop-views)
     said = [m["params"]["limit"] for r in results for m in r["not_read_in_full"]]
     assert said == [sheets.RENDER_BUDGET]
     with qs_project.member.acting():
