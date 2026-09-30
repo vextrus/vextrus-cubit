@@ -40,7 +40,7 @@ import re
 import unicodedata
 import uuid
 from collections import Counter
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
@@ -704,6 +704,18 @@ def _record(kind: MessageCode, row: DrawingFile) -> None:
 # The Discipline ------------------------------------------------------------------------------------
 
 
+DISCIPLINE_CHANGED: list[Callable[[uuid.UUID], None]] = []
+"""What follows a file's Discipline changed by the QS, each called with the file's id in the change's
+own transaction: a module above `drawings` registers here (`on_discipline_changed`; takeoff's Step 1
+answers the sheets' `missing_discipline` Questions with it and asks the set's Questions again, #159)."""
+
+
+def on_discipline_changed(follow: Callable[[uuid.UUID], None]) -> None:
+    """Register `follow` once (see `DISCIPLINE_CHANGED`)."""
+    if follow not in DISCIPLINE_CHANGED:
+        DISCIPLINE_CHANGED.append(follow)
+
+
 def set_discipline(file_id: uuid.UUID, key: str) -> FileView:
     """The QS's choice of the file's Discipline: its sheets move with it (see the module)."""
     with transaction.atomic():
@@ -726,6 +738,8 @@ def set_discipline(file_id: uuid.UUID, key: str) -> FileView:
         # by its Discipline's next file.
         SheetRevision.objects.filter(source_file=row).update(revision=row.revision)
         _record(said.DISCIPLINE_CHANGED, row)
+        for follow in DISCIPLINE_CHANGED:
+            follow(row.id)
     return file(row.id)
 
 

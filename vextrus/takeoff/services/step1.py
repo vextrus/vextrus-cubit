@@ -1703,6 +1703,31 @@ def answer(
     return Answered(_question_view(project_id, row.id), read_again, corrected)
 
 
+def answer_disciplines(project_id: uuid.UUID, sheets: Sequence[drawings.SheetView]) -> int:
+    """The open `missing_discipline` Questions of these sheets, answered by the Discipline each now
+    has (its file's, chosen by the QS: #159), as if the QS had picked it; how many were answered."""
+    given = {s.id: s.discipline for s in sheets if s.discipline}
+    answered = 0
+    with transaction.atomic():
+        for row in Question.objects.select_for_update().filter(
+            project_id=project_id,
+            step=SHEETS,
+            status=QuestionStatus.OPEN,
+            kind=QuestionKind.MISSING_DISCIPLINE,
+            subject_id__in=list(given),
+        ):
+            assert row.subject_id is not None
+            row.status = QuestionStatus.ANSWERED
+            row.answer = {"option": given[row.subject_id], "by": "", "given_by": "file_discipline"}
+            row.answered_by_id = _user()
+            row.answered_at = timezone.now()
+            row.save(update_fields=["status", "answer", "answered_by", "answered_at"])
+            answered += 1
+        if answered:
+            record_progress(project_id)
+    return answered
+
+
 def _question_view(project_id: uuid.UUID, question_id: uuid.UUID) -> QuestionView:
     return next(q for q in questions(project_id) if q.id == question_id)
 
