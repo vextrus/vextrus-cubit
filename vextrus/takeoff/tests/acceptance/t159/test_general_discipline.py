@@ -80,7 +80,7 @@ def general_key(api: Any, project_id: uuid.UUID) -> str:
     assert len(named) == 1, (
         f"the Market's Disciplines hold no one General: {disciplines(api, project_id)}"
     )
-    return named[0]
+    return str(named[0])
 
 
 def conflicts_of_same_number(api: Any, project_id: uuid.UUID) -> list[dict[str, Any]]:
