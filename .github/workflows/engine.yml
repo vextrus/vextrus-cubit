@@ -162,7 +162,8 @@ jobs:
             -c "ALTER ROLE vextrus PASSWORD 'ci-throwaway-owner'" \
             -c "ALTER ROLE vextrus_app PASSWORD 'ci-throwaway-app'"
       - name: The toolchain's and the sandbox's tests
-        run: uv run --no-sync pytest -m "needs_toolchain or needs_bwrap"
+        # The acceptance plugin fails the run when an opt-in acceptance test is skipped (issue #107).
+        run: uv run --no-sync pytest -p tools.lint.acceptance_pytest -m "needs_toolchain or needs_bwrap"
 
   check-sandbox:
     # The check's sandbox tests (scripts/real_drawings/tests/test_sandbox.py): its bwrap, the offline
@@ -228,7 +229,7 @@ jobs:
           sudo chmod -R a+rX,go-w /opt/vextrus
       - name: The check's sandbox tests (fails if none ran)
         run: |
-          uv run --no-sync pytest -m "needs_toolchain or needs_bwrap" scripts -rs \
+          uv run --no-sync pytest -p tools.lint.acceptance_pytest -m "needs_toolchain or needs_bwrap" scripts -rs \
             --junitxml "$RUNNER_TEMP/check-sandbox.xml"
           python3 - "$RUNNER_TEMP/check-sandbox.xml" <<'PY'
           import sys

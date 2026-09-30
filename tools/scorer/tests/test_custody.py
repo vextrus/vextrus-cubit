@@ -239,8 +239,8 @@ def test_drop_setup_never_installs_the_poster_once_the_pipelines_user_exists() -
 def test_the_pipelines_user_may_run_only_the_posters_head_and_real_drawings() -> None:
     """F5 (50): vxrun's rule allowed every subcommand of the poster."""
     rule = SCRIPT.read_text().split('cat > "$tmp/rule" <<RULE', 1)[1].split("\nRULE\n", 1)[0]
-    assert "$LIB/post-status ^head [0-9A-Za-z._-]+\\$" in rule
-    assert "$LIB/post-status ^real-drawings [0-9A-Za-z-]+\\$" in rule
+    assert "$LIB/post-status ^head [0-9A-Za-z][0-9A-Za-z._-]*\\$" in rule
+    assert "$LIB/post-status ^real-drawings [0-9A-Za-z][0-9A-Za-z-]*\\$" in rule
     assert not re.search(r"\$LIB/post-status\s*(,|$)", rule, re.M)
 
 
