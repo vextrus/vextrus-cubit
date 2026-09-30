@@ -515,6 +515,31 @@ describe('M19: a copies row keeps its title and its count in right-to-left', () 
   })
 })
 
+describe('M21: the held file’s row names its file whole', () => {
+  for (const rtl of [false, true])
+    it(`shows the file name whole at 1280${rtl ? ' in en-XB' : ''}`, async () => {
+      if (rtl) activatePseudoRtl()
+      await page.viewport(1280, 800)
+      const { api, step1 } = kr01()
+      const held = step1.questions.find((q) => q.kind === 'file_misread')!.subject_id!
+      new FakeDrawingSet(api, 'KR-01').files = [file({ id: held, name: 'KR-STR-old.dwg', state: 'held', status: msg('drawings.files.held') })]
+      await mountApp(PATH, { as: PEOPLE.qs, api })
+      const row = await waitFor(() => {
+        const found = [...document.querySelectorAll<HTMLElement>('[role="row"][data-row]')].find((r) => r.querySelector('[data-notation="file-name"]') && /Held/.test(r.textContent ?? ''))
+        expect(found).toBeTruthy()
+        return found!
+      })
+      const cell = within(row).getAllByRole('gridcell')[2]!
+      const name = cell.querySelector<HTMLElement>('[data-notation="file-name"]')!
+      expect(clean(name.textContent)).toMatch(/\.dwg$/)
+      const n = name.getBoundingClientRect()
+      const box = cell.getBoundingClientRect()
+      expect(name.scrollWidth).toBeLessThanOrEqual(name.clientWidth + 1)
+      expect(n.left).toBeGreaterThanOrEqual(box.left - 1)
+      expect(n.right).toBeLessThanOrEqual(box.right + 1)
+    })
+})
+
 describe('M9: focus is visible on the list’s rows', () => {
   it('draws an outline on the row ↓ focuses', async () => {
     const { api } = kr01()

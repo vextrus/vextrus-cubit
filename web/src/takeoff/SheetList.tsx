@@ -457,10 +457,13 @@ function SheetRow({
   if (row.kind === 'file')
     title = file ? (
       <Trans>
-        <DrawingText kind="file-name" text={file} /> Held: the two readers disagree
+        <DrawingText kind="file-name" text={file} truncate={false} className="shrink-0" />
+        <span className="ms-1 min-w-0 truncate">Held: the two readers disagree</span>
       </Trans>
     ) : (
-      <Trans>A file is held: the two readers disagree</Trans>
+      <span className="min-w-0 truncate">
+        <Trans>A file is held: the two readers disagree</Trans>
+      </span>
     )
   else if (row.kind === 'entry')
     title = <span className="text-muted-foreground">{i18n._((q && QUESTION_KIND_BY_CODE[q.code]) || OTHER_QUESTION)}</span>

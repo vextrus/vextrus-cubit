@@ -566,6 +566,10 @@ msgstr "Tank details"
 msgid "Views by the step that will read them, proposed or assigned"
 msgstr "Views by the step that will read them, proposed or assigned"
 
+#: src/takeoff/SheetList.tsx
+msgid "<0/><1>Held: the two readers disagree</1>"
+msgstr "<0/><1>Held: the two readers disagree</1>"
+
 #: src/takeoff/Bar.tsx
 #: src/takeoff/Step1Inspector.tsx
 msgid "Exclude"
@@ -1116,10 +1120,6 @@ msgstr "Proposed to leave out: excluded sheets stay in the count with their reas
 #: src/takeoff/Bar.tsx
 msgid "Each has a number and title from its title block and is on its drawing list."
 msgstr "Each has a number and title from its title block and is on its drawing list."
-
-#: src/takeoff/SheetList.tsx
-msgid "<0/> Held: the two readers disagree"
-msgstr "<0/> Held: the two readers disagree"
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "Confirmed by {name} (Vextrus), {date}"
