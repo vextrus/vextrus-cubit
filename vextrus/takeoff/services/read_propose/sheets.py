@@ -25,9 +25,8 @@ of 38"): 17's views (`record_views`), 11's render buffers (`record_render`), and
 sheet alone decides it: a sheet with no number can match no page (`PlotNone.NO_NUMBER`). What the
 view finder's limits cut while reading the sheet is its result's `view_report` (by `views_<limit>`);
 the first sheet a limit cut says it, once for the file, in its result's `not_read_in_full`.
-The matching of the set's PDF pages to sheets, and F1, are 18's stage and not run here yet: until
-then the sheet list says why a sheet has no Plot from the set's PDFs as they stand (`drawings`' own
-reason).
+The matching of the set's PDF pages to sheets is the file's `finishing` step's and a PDF's
+`matching` step's (`read_propose.plot`, ticket 157); F1 is not run here yet.
 
 Each step's key holds the file's sha256, its reader, the conventions' digest, and the file's
 Discipline and group: the same file read again as it was skips every kept step. A run that resumes

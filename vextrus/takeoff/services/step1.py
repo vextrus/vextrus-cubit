@@ -192,6 +192,15 @@ class DisciplineProgress:
     """The StepProgress status: `confirmed` when every sheet is decided, no Question is open or
     kept open, no view is unaccounted and no file of it is reading (m0-screens 6.11); else
     `in_review` (or `not_started` with no sheet)."""
+    plots: tuple[PlotFile, ...] = ()
+    """The Plots read for it (157): each read PDF of its Discipline, and any other a sheet of it has
+    a page of, first added first; so a line about its sources can name the Plot added."""
+
+
+@dataclass(frozen=True)
+class PlotFile:
+    file_id: uuid.UUID
+    name: str
 
 
 @dataclass(frozen=True)
@@ -557,12 +566,21 @@ def progress(project_id: uuid.UUID) -> ProgressView:
         if row.sheet_revision_id in discipline_of
     )
     drawing_set = drawings.set_of(project_id)
+    files = drawings.files(drawing_set.id) if drawing_set else []
     reading = {
         f.discipline
-        for f in (drawings.files(drawing_set.id) if drawing_set else [])
+        for f in files
         if f.state
         in (drawings.FileState.WAITING, drawings.FileState.READING, drawings.FileState.RETRYING)
     }
+    paged: dict[str | None, set[uuid.UUID]] = {}
+    for sheet in sheets:
+        if sheet.plot.page is not None and sheet.plot.file_id is not None:
+            paged.setdefault(sheet.discipline, set()).add(sheet.plot.file_id)
+    read_pdfs = sorted(
+        (f for f in files if f.format == "pdf" and f.state == drawings.FileState.READ),
+        key=lambda f: (f.added_at, str(f.id)),
+    )
     rows = []
     for key in order:
         lists = _lists(project_id, key) if key else _Lists(None, None)
@@ -586,6 +604,11 @@ def progress(project_id: uuid.UUID) -> ProgressView:
                 total=total,
                 open_questions=open_questions[key],
                 status="confirmed" if done else ("in_review" if found[key] else "not_started"),
+                plots=tuple(
+                    PlotFile(f.id, f.name)
+                    for f in read_pdfs
+                    if (key is not None and f.discipline == key) or f.id in paged.get(key, set())
+                ),
             )
         )
     return ProgressView(rows, _not_received(project_id))

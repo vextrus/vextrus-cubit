@@ -284,6 +284,19 @@ def align(
     return fine, residual_mm(sheet, carried(drawn, page, fine, grid), grid)
 
 
+def agreement(page: Page, buffers: SheetBuffers, transform: PlotTransform, plot: Path) -> float | None:
+    """How well the page's ink, carried by the transform, lies on the sheet's: their F1 at the coarse
+    density within a pixel (a millimetre on paper); none when either cannot be drawn."""
+    if not COARSE_PX_PER_MM / transform.scale < MAX_PX_PER_PT:
+        return None
+    try:
+        sheet, grid = sheet_ink(buffers, COARSE_PX_PER_MM)
+        drawn = picture(plot, page, COARSE_PX_PER_MM / transform.scale)
+    except PictureError, RasterError:
+        return None
+    return f1(sheet, carried(drawn, page, transform, grid), 1)
+
+
 def refined(sheet: Mask, printed: Mask, transform: PlotTransform, grid: Grid) -> PlotTransform:
     """The transform corrected by the page's ink tile by tile: each of `TILES` x `TILES` tiles with ink
     on both finds its own shift (`FINE_SHIFT_PX` each way), and a scale about the sheet's centre and

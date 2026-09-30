@@ -18,7 +18,14 @@ names that Discipline's sheets first: a number of another Discipline's sheet on 
 or a number two Disciplines share) is set aside when one of its own is there. A page whose surest
 number is two sheets' numbers equally, or whose number several sheets carry and whose size cannot
 tell them apart, names several (`names_several_sheets`); one naming none says so (`names_no_sheet`);
-a scan (`scan`) or a page with no text (`no_text`) is not searched.
+a scan (`scan`) is not searched.
+
+**By its ink** (157: a Plot whose lettering is all strokes). A page with no text at all, and one that
+names several sheets alike, is matched by its drawing where its PDF is given (`by_ink`): each
+candidate (the sheets it names alike; for a page with no text, every sheet on its paper, when every
+sheet of the set was drawn) is placed and aligned by ink, and the one whose ink agrees clearly best
+is taken; a page whose ink names no one sheet (a frame and title block alone, which every sheet
+draws alike) keeps its reason (`names_several_sheets`, `no_text`).
 
 **Where** (`PlotTransform`: sheet to page, a scale, a turn in 90° steps, then an offset in page units,
 points; the sheet in its paper millimetres, as the buffers draw it). From the sizes first: the sheet is
@@ -66,6 +73,15 @@ MAX_PRINTED = 256
 """The most value texts and page items paired (a page's revision table may repeat a date many times):
 the pairs are weighed against each other, so their count is bounded before it is squared."""
 TURNS = (0, 90, 180, 270)
+MAX_BY_INK = 32
+"""The most sheets a page is tried against by ink: each is drawn and aligned (a second or so), so a
+textless page of a large set with every sheet on its paper is left unmatched rather than tried 200
+times."""
+MIN_INK_F1 = 0.6
+INK_MARGIN = 0.1
+"""A sheet is a page's by its ink when their inks agree (F1, `ink.agreement`) at least 0.6 and by 0.1
+more than the next sheet's: a frame and title block alone, which every sheet of a set draws alike,
+agree with each about as well, and so name none."""
 _WORDS = re.compile(r"[\s:;,()\[\]]+")
 _MIN_TITLE_PART = 4
 """The fewest characters a page item needs to be taken as part of a sheet's title (one of its lines)."""
@@ -92,11 +108,38 @@ def match(
         if page.scan:
             found.append(PlotMatch(page, reason=_reason(codes.SCAN)))
             continue
+        plot = (plots or {}).get(page.source_sha256)
         if not page.items:
-            found.append(PlotMatch(page, reason=_reason(codes.NO_TEXT)))
+            # Every sheet on the page's paper is a candidate; a sheet never drawn has no known paper
+            # and cannot be ruled out, so with one such the page is not guessed at.
+            drawn = [_buffers(geometry, i) for i in range(len(sheets))]
+            known = all(b is not None for b in drawn)
+            fitting = [i for i, b in enumerate(drawn) if known and _fits_size(page, b)]
+            inked = by_ink(
+                page, [sheets[i] for i in fitting], [_buffers(geometry, i) for i in fitting], plot
+            )
+            if inked is None:
+                found.append(PlotMatch(page, reason=_reason(codes.NO_TEXT)))
+            else:
+                k, transform, residual = inked
+                found.append(
+                    PlotMatch(page, sheet=sheets[fitting[k]], transform=transform, residual=residual)
+                )
             continue
         discipline = (disciplines or {}).get(page.source_sha256)
         chosen = _sheet_named(page, sheets, by_number, geometry, discipline)
+        if isinstance(chosen, list):  # several sheets named alike: their ink may tell them apart
+            inked = by_ink(
+                page, [sheets[i] for i in chosen], [_buffers(geometry, i) for i in chosen], plot
+            )
+            if inked is None:
+                found.append(PlotMatch(page, reason=_reason(codes.NAMES_SEVERAL_SHEETS)))
+            else:
+                k, transform, residual = inked
+                found.append(
+                    PlotMatch(page, sheet=sheets[chosen[k]], transform=transform, residual=residual)
+                )
+            continue
         if isinstance(chosen, str):
             found.append(PlotMatch(page, reason=chosen))
             continue
@@ -110,7 +153,6 @@ def match(
             found.append(PlotMatch(page, sheet=sheet))
             continue
         transform, residual = placed
-        plot = (plots or {}).get(page.source_sha256)
         if plot is not None:
             transform, residual = ink.align(page, buffers, transform, plot)
         found.append(PlotMatch(page, sheet=sheet, transform=transform, residual=residual))
@@ -130,8 +172,9 @@ def _sheet_named(
     by_number: dict[str, list[int]],
     geometry: Sequence[SheetBuffers | None],
     discipline: str | None = None,
-) -> int | str:
-    """The index of the sheet the page names, or the key of why none."""
+) -> int | str | list[int]:
+    """The index of the sheet the page names; the indices of the sheets it names alike, none more
+    surely (`names_several_sheets` unless their ink tells them apart); or the key of why none."""
 
     def ours(i: int) -> bool:
         d = sheets[i].discipline
@@ -156,15 +199,21 @@ def _sheet_named(
         best = {n: v for n, v in best.items() if any(ours(i) for i in by_number[n])}
     ranked = sorted(best.items(), key=lambda kv: kv[1], reverse=True)
     if len(ranked) > 1 and _as_sure(ranked[0][1], ranked[1][1]):
-        return _reason(codes.NAMES_SEVERAL_SHEETS)
+        tied = [n for n, v in ranked if _as_sure(ranked[0][1], v)]
+        several = [i for n in tied for i in by_number[n]]
+        return [i for i in several if ours(i)] or several
     candidates = by_number[ranked[0][0]]
     candidates = [i for i in candidates if ours(i)] or candidates
     if len(candidates) == 1:
         return candidates[0]
-    fitting = [i for i in candidates if _fits_size(page, geometry[i] if i < len(geometry) else None)]
+    fitting = [i for i in candidates if _fits_size(page, _buffers(geometry, i))]
     if len(fitting) == 1:
         return fitting[0]
-    return _reason(codes.NAMES_SEVERAL_SHEETS)
+    return fitting or candidates
+
+
+def _buffers(geometry: Sequence[SheetBuffers | None], i: int) -> SheetBuffers | None:
+    return geometry[i] if i < len(geometry) else None
 
 
 def _height(item: TextItem) -> float:
@@ -187,6 +236,40 @@ def _fits_size(page: Page, buffers: SheetBuffers | None) -> bool:
         abs(a - page.width) <= 0.02 * page.width and abs(b - page.height) <= 0.02 * page.height
         for a, b in ((w, h), (h, w))
     )
+
+
+# Which sheet, by its ink ------------------------------------------------------------------------------
+
+
+def by_ink(
+    page: Page,
+    sheets: Sequence[SheetCandidate],
+    geometry: Sequence[SheetBuffers | None],
+    plot: Path | None,
+) -> tuple[int, PlotTransform, float | None] | None:
+    """Which of the sheets the page plots, by their ink (a page with no text, or one naming several
+    sheets alike): each placed on the page (`place`, then `ink.align`) and scored by how well the
+    two inks agree (`ink.agreement`); the best is taken, with its transform and residual, when it
+    agrees at least `MIN_INK_F1` and by `INK_MARGIN` more than the next. None when it does not, when
+    the page's PDF or a sheet's buffers are missing (a sheet never drawn cannot be ruled out), or
+    when there are more than `MAX_BY_INK` sheets to try."""
+    if plot is None or not 1 <= len(sheets) <= MAX_BY_INK or any(b is None for b in geometry):
+        return None
+    scored: list[tuple[float, int, PlotTransform, float | None]] = []
+    for k, (sheet, buffers) in enumerate(zip(sheets, geometry, strict=True)):
+        placed = place(page, sheet, buffers) if buffers is not None else None
+        if buffers is None or placed is None:
+            return None
+        transform, residual = ink.align(page, buffers, placed[0], plot)
+        agrees = ink.agreement(page, buffers, transform, plot)
+        if agrees is None:
+            return None
+        scored.append((agrees, k, transform, residual))
+    scored.sort(key=lambda s: s[0], reverse=True)
+    best = scored[0]
+    if best[0] < MIN_INK_F1 or (len(scored) > 1 and best[0] - scored[1][0] < INK_MARGIN):
+        return None
+    return best[1], best[2], best[3]
 
 
 # Where -------------------------------------------------------------------------------------------------

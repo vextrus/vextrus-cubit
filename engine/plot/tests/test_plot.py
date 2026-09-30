@@ -632,3 +632,85 @@ def test_a_page_placed_by_its_text_but_not_drawable_is_unscored(tmp_path: Path) 
     assert render_f1.score(sheet_buffers(), page, found.transform, path) == render_f1.Unscored(
         "not_the_page"
     )
+
+
+# Which sheet, by its ink (157) -------------------------------------------------------------------------
+
+
+def mirrored(buffers: B.SheetBuffers) -> B.SheetBuffers:
+    """The sheet with its body drawn mirrored left to right inside the frame: its own drawing, on the
+    same paper, with the same title block."""
+    lines = buffers.lines.copy()
+    body_lines = lines["prim"] == 0
+    w = buffers.paper.width_mm - 140
+    for a in ("x0", "x1"):
+        lines[a][body_lines] = np.where(
+            (lines[a][body_lines] > 0) & (lines[a][body_lines] < w),
+            w - lines[a][body_lines],
+            lines[a][body_lines],
+        )
+    return replace(buffers, lines=lines)
+
+
+def two_numbers_plot(tmp_path: Path) -> tuple[Page, Path]:
+    """A page plotting `sheet_buffers()`'s body at 1:1, with S-201 and S-202 in text of one size: it
+    names both alike."""
+    content = b"0.5 w\n"
+    for x0, y0, x1, y1 in body(A1):
+        content += b"%s %s m %s %s l S\n" % (num(x0 * PT), num(y0 * PT), num(x1 * PT), num(y1 * PT))
+    pdf = Pdf()
+    font = truetype_font(pdf)
+    content += text(720 * PT, 540 * PT, "S-201", size=8 * PT) + text(
+        720 * PT, 520 * PT, "S-202", size=8 * PT
+    )
+    path = tmp_path / "plot.pdf"
+    page = PdfPage(content=content, size=(A1[0] * PT, A1[1] * PT), fonts={"F1": font})
+    path.write_bytes(document(pdf, [page], info={"Producer": "AutoCAD"}))
+    (read,) = page_text(path)
+    return read, path
+
+
+def test_a_page_naming_two_sheets_alike_is_told_apart_by_their_ink(tmp_path: Path) -> None:
+    page, path = two_numbers_plot(tmp_path)
+    sheets = [sheet("S-201"), sheet("S-202", "S-202")]
+    plots = {page.source_sha256: path}
+
+    assert named(page, sheets) == "names_several_sheets"  # no geometry: the text alone cannot tell
+    (first,) = registration.match([page], sheets, [sheet_buffers(), mirrored(sheet_buffers())], plots)
+    (second,) = registration.match([page], sheets, [mirrored(sheet_buffers()), sheet_buffers()], plots)
+
+    assert first.sheet is sheets[0], first
+    assert second.sheet is sheets[1], second
+    assert first.transform is not None
+    assert_same_place(first.transform, PlotTransform(PT, 0, (0.0, 0.0)))
+
+
+def test_a_page_whose_ink_agrees_with_both_sheets_alike_still_names_several(tmp_path: Path) -> None:
+    page, path = two_numbers_plot(tmp_path)
+    sheets = [sheet("S-201"), sheet("S-202", "S-202")]
+
+    (found,) = registration.match(
+        [page], sheets, [sheet_buffers(), sheet_buffers()], {page.source_sha256: path}
+    )
+
+    assert found.reason == "names_several_sheets"
+
+
+def test_a_page_with_no_text_is_not_tried_by_ink_without_its_pdf_or_against_too_many_sheets(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Bounded: past `MAX_BY_INK` sheets on its paper, a textless page is left unmatched without a
+    sheet drawn; and a page whose PDF is not given, or a sheet never drawn, is never guessed at."""
+    blank = page_of()
+    many = [sheet(f"S-{i}", f"S-{i}") for i in range(registration.MAX_BY_INK + 1)]
+    buffers = sheet_buffers()
+
+    def drawn(*_: object) -> None:
+        raise AssertionError("no sheet is drawn")
+
+    monkeypatch.setattr(ink, "align", drawn)
+    path = tmp_path / "unused.pdf"
+
+    assert registration.match([blank], many, [buffers] * len(many), {SHA: path})[0].reason == "no_text"
+    assert registration.match([blank], many[:2], [buffers] * 2, None)[0].reason == "no_text"
+    assert registration.match([blank], many[:2], [buffers, None], {SHA: path})[0].reason == "no_text"

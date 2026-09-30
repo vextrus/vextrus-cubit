@@ -14,7 +14,9 @@ the first is its finding, `takeoff.read_file.not_read_in_full {limit}`; and with
 sheets and views proposed, the set's Questions asked and its Checks run, `read_propose.proposals`).
 
 A PDF: `opening` (the copy checked, and the PDF report kept as codes; a scan is refused by it) and
-`matching` (the file marked read). 21b's page steps and the matching itself go into them.
+`matching` (the file marked read, and its pages matched to the set's sheets in the same transaction:
+`read_propose.plot`, ticket 157). A DWG's `finishing` matches the set's read PDFs' pages to its
+sheets likewise, so the two are matched in whichever order they are read.
 
 **A file that could not be read** (the reader raised its `ReadError`: a converter that failed, a
 limit reached, the second reader not installed or not the pinned build; or the worker ran out of
@@ -55,7 +57,7 @@ from engine.render.fonts import FontReport
 from vextrus.drawings import services as drawings
 from vextrus.drawings.messages import files as file_words
 from vextrus.platform.services import auth, jobs, storage
-from vextrus.takeoff.services.read_propose import proposals, sheets
+from vextrus.takeoff.services.read_propose import plot, proposals, sheets
 
 OUT_OF_MEMORY = read_codes.LIMIT_REACHED(limit="memory")
 """The reason of a file whose reading reached the cad worker's cap in the worker itself (a PDF's is
@@ -162,7 +164,7 @@ def _steps(
         steps.expect(len(PDF_STEPS))
         if opened.get("refused"):
             return Read(file_id, "pdf", "refused")  # a scan: refused by its report, nothing to match
-        steps.run(drawings.MATCHING, lambda: _mark_read(file_id), inputs={"sha256": sha256})
+        steps.run(drawings.MATCHING, lambda: _match(file_id), inputs={"sha256": sha256})
         return Read(file_id, "pdf", "read")
     kept = steps.run(drawings.READING, lambda: _first(file_id, use), inputs={"sha256": sha256})
     reader = {"reader": kept["reader"], "reader_version": kept["reader_version"]}
@@ -275,6 +277,9 @@ def _finish(
     # 21c: once the file is read (its sheets in the sheet list), in the same transaction: Step 1's
     # proposals, Questions and Checks, so a read file is never listed without them.
     proposed = propose()
+    # 157: the set's read PDFs' pages matched to its sheets, in the same transaction, so a read
+    # sheet is never listed beside a read PDF it was not matched against.
+    matched = plot.match(file_id)
     result: dict[str, Any] = {
         "fonts": len(font_report.fonts),
         "bangla_ansi_texts": len(flagged.texts),
@@ -282,6 +287,7 @@ def _finish(
         # Every limit that cut the reading: the report's sheets section says each from here.
         "not_read_in_full": list(not_read_in_full),
         "proposals": proposed,
+        "plot": matched,
     }
     return result
 
@@ -290,8 +296,14 @@ def _propose(file_id: uuid.UUID, load: Callable[[], ReadArtefact], unread: int) 
     return proposals.propose(file_id, load, sheets.conventions(file_id)[0], unread=unread)
 
 
-def _mark_read(file_id: uuid.UUID) -> jobs.StepResult:
-    return {"state": str(drawings.mark_read(file_id).state)}
+def _match(file_id: uuid.UUID) -> jobs.StepResult:
+    """A PDF marked read and its pages matched to the set's sheets, in one transaction (157)."""
+    state = str(drawings.mark_read(file_id).state)
+    try:
+        matched = plot.match(file_id)
+    except ReadError as error:
+        raise _Unread(error.message) from error
+    return {"state": state, "plot": matched}
 
 
 def _fail(file_id: uuid.UUID, finding: Message) -> jobs.StepResult:

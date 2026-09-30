@@ -91,6 +91,12 @@ class Step1CoverageOut(_FromView):
     """The sheets left out for unreadable writing (#135): counted, never silently unread."""
 
 
+class Step1PlotFileOut(Schema):
+    file_id: uuid.UUID
+    name: str
+    """The PDF's name as the QS added it."""
+
+
 class Step1DisciplineProgressOut(Schema):
     discipline: str | None
     confirmed: int
@@ -102,6 +108,9 @@ class Step1DisciplineProgressOut(Schema):
     open_questions: int
     status: str
     """The StepProgress status: `in_review`, `confirmed` (m0-screens 6.11) or `not_started`."""
+    plots: list[Step1PlotFileOut]
+    """The Plots read for the Discipline (157): each read PDF of it, and any other a sheet of it has
+    a page of, first added first."""
 
 
 class Step1ProgressOut(_FromView):

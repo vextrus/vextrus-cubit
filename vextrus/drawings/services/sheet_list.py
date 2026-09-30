@@ -579,6 +579,14 @@ def render(sheet_revision_id: uuid.UUID) -> bytes:
         raise auth.NotFound from None
 
 
+def hold_plots(set_id: uuid.UUID) -> None:
+    """Hold the Drawing Set's Plot matching until the transaction ends (ticket 157): the read job
+    matching a PDF and one matching a DWG of the same set wait for each other, so the second sees
+    what the first marked read and matched."""
+    drawing_set = _access.drawing_set(set_id)
+    _access.lock("plots", drawing_set.id)
+
+
 def record_plot(
     sheet_revision_id: uuid.UUID,
     match: PlotMatch | PlotNone | str,
@@ -786,11 +794,11 @@ def _no_plot_yet(sr: SheetRevision) -> Message:
         key=lambda pdf: (pdf[0] is None, pdf[1]),
     )
     statuses = {status for *_, status in found}
-    if statuses & {ReadStatus.QUEUED, ReadStatus.READING}:
+    # A read PDF with no match kept for this sheet has not been matched to it yet: the read job
+    # matches a PDF's pages in the transaction that marks it read, and a DWG's sheets likewise
+    # (157), so "no page of it matched" is said only by a match that ran (`PlotNone.NO_PAGE`).
+    if statuses & {ReadStatus.QUEUED, ReadStatus.READING, ReadStatus.READ}:
         return said.PLOT_NOT_YET()
-    read = [name for _, _, name, status in found if status == ReadStatus.READ]
-    if read:
-        return said.PLOT_NO_PAGE(plot_file=read[0])
     # One that could not be read, or was refused, is its PDF only if of its Discipline (a PDF of
     # none, a site photograph say, is not a sheet's Plot for being refused).
     own = {status for d, *_, status in found if discipline_id is None or d == discipline_id}
