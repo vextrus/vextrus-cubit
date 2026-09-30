@@ -377,11 +377,30 @@ def test_a_section_on_a_sheet_whose_title_names_no_subject_is_proposed_for_nothi
         ("grid_layout", ("grid",)),
         ("details", ()),
         ("site_plan", ()),
-        ("general_notes", ()),
+        ("general_notes", ("general_notes",)),
     ],
 )
 def test_a_structural_sheet_kind_names_its_steps(kind: str, steps: tuple[str, ...]) -> None:
     assert views.kind_steps(kind, "structural") == steps
+
+
+@pytest.mark.parametrize(
+    ("title", "named"),
+    [
+        ("U.G.W.R DETAILS", {"tank"}),
+        ("UGWR SECTION", {"tank"}),
+        ("OVERHEAD WATER TANK DETAILS", {"tank"}),
+        ("LINTEL & SUNSHADE DETAILS", {"lintel", "sunshade"}),
+        ("SECTION OF CHAJJA", {"sunshade"}),
+    ],
+)
+def test_the_subject_words_of_tanks_lintels_and_sunshades(title: str, named: set[str]) -> None:
+    assert views.subjects(title) == named
+
+
+def test_a_detail_on_a_lintel_and_sunshade_sheet_goes_to_beams_and_slabs() -> None:
+    steps, _, _ = views._proposal(ViewKind.DETAIL, None, "structural", ("lintel", "sunshade"))
+    assert steps == ("beams", "slabs")
 
 
 def test_no_other_disciplines_sheet_kind_names_a_step() -> None:

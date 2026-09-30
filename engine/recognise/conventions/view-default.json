@@ -99,9 +99,21 @@
       "plinth beam",
       "plinth beams"
     ],
+    "lintel": [
+      "lintel",
+      "lintels"
+    ],
     "slab": [
       "slab",
       "slabs"
+    ],
+    "sunshade": [
+      "sunshade",
+      "sunshades",
+      "sun shade",
+      "sun shades",
+      "chajja",
+      "chhajja"
     ],
     "stair": [
       "stair",
@@ -114,7 +126,17 @@
       "tanks",
       "water tank",
       "reservoir",
-      "water reservoir"
+      "water reservoir",
+      "u.g.w.r",
+      "ugwr",
+      "underground water reservoir",
+      "underground water tank",
+      "o.h.w.t",
+      "ohwt",
+      "o.h.w.r",
+      "ohwr",
+      "overhead water tank",
+      "overhead tank"
     ],
     "grid": [
       "grid",

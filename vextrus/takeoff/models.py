@@ -573,8 +573,9 @@ class CoverageStep(models.Model):
     """A Takeoff Step a view is assigned to; `used` once that step's Confirmation draws on it.
 
     With no `confirmation` the read proposed it; else the act that gave it (the QS's `assign`, or the
-    confirmation of a Structural sheet by a kind naming the Step, #158): it stands while that act is
-    not undone (the app deletes no row, so an undone act's steps stay, standing no more)."""
+    confirmation of a Structural sheet by a kind naming the Step, #158), one row per act that gives
+    the step: an `assign` stands while not undone, a kind's step while its act still decides the
+    sheet (the app deletes no row, so an undone act's steps stay, standing no more)."""
 
     id = models.UUIDField(primary_key=True, default=new_id, editable=False)
     tenant_id = models.UUIDField(editable=False)
@@ -589,7 +590,9 @@ class CoverageStep(models.Model):
     class Meta:
         constraints: ClassVar = [
             models.UniqueConstraint(
-                fields=["tenant_id", "coverage", "step"], name="takeoff_coveragestep_one"
+                fields=["tenant_id", "coverage", "step", "confirmation"],
+                name="takeoff_coveragestep_one",
+                nulls_distinct=False,
             ),
             _project_key("coveragestep"),
         ]

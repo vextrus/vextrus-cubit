@@ -464,14 +464,12 @@ def _asked(
 def coverage(project_id: uuid.UUID) -> CoverageView:
     """Every view of every sheet in the sheet list, counted once (a held file's views are not
     counted until it is read anyway): assigned, excluded, proposed or unaccounted; used from M1."""
-    listed = {s.id for s in _sheets(project_id)}
-    rows = [r for r in Coverage.objects.filter(project_id=project_id) if r.sheet_revision_id in listed]
+    deciding = {s.id: s.confirmation_id for s in _sheets(project_id)}
+    rows = [r for r in Coverage.objects.filter(project_id=project_id) if r.sheet_revision_id in deciding]
     counts: Counter[str] = Counter()
     by_step: Counter[str] = Counter()
     by_reason: Counter[str] = Counter()
-    steps: dict[uuid.UUID, list[CoverageStep]] = {}
-    for step in CoverageStep.objects.filter(_STANDING, coverage_id__in=[r.id for r in rows]):
-        steps.setdefault(step.coverage_id, []).append(step)
+    steps = _steps_standing(rows, deciding)
     used = 0
     unaccounted: list[UnaccountedView] = []
     view_proposals = {
@@ -1176,33 +1174,53 @@ def assign(
     return _act_view(act)
 
 
-_STANDING = Q(confirmation__isnull=True) | Q(confirmation__undone_at__isnull=True)
-"""A CoverageStep that stands: the read's, or given by an act not undone."""
+def _stands(given: CoverageStep, deciding: uuid.UUID | None) -> bool:
+    """A step stands when the read proposed it, or the QS's `assign` not undone gave it, or the
+    confirmation still deciding its sheet gave it by the kind confirmed (a sheet confirmed again as
+    another kind stands on the new kind's steps only)."""
+    act = given.confirmation
+    if act is None:
+        return True
+    if act.undone_at is not None:
+        return False
+    return act.act == ConfirmationAct.ASSIGN or act.id == deciding
+
+
+def _steps_standing(
+    rows: Sequence[Coverage], deciding: Mapping[uuid.UUID, uuid.UUID | None]
+) -> dict[uuid.UUID, list[CoverageStep]]:
+    """Each view's standing steps, each step once (every act that gave it keeps its own row, so one
+    act undone leaves the step to another still standing); `deciding`: each sheet's deciding act."""
+    sheet_of = {r.id: r.sheet_revision_id for r in rows}
+    standing: dict[uuid.UUID, dict[str, CoverageStep]] = {}
+    for given in (
+        CoverageStep.objects.select_related("confirmation")
+        .filter(coverage_id__in=list(sheet_of))
+        .order_by("step", "id")
+    ):
+        if _stands(given, deciding.get(sheet_of[given.coverage_id])):
+            standing.setdefault(given.coverage_id, {}).setdefault(given.step, given)
+    return {row: list(steps.values()) for row, steps in standing.items()}
 
 
 def _standing_steps(row: Coverage) -> list[str]:
-    return list(
-        CoverageStep.objects.filter(_STANDING, project_id=row.project_id, coverage=row)
-        .order_by("step")
-        .values_list("step", flat=True)
-    )
+    try:
+        deciding = drawings.sheet(row.sheet_revision_id).confirmation_id
+    except auth.NotFound:
+        deciding = None
+    return [s.step for s in _steps_standing([row], {row.sheet_revision_id: deciding}).get(row.id, [])]
 
 
 def _give_step(row: Coverage, step: str, act: Confirmation) -> None:
-    """The view in `step` by `act`, unless the step already stands for it (the read's, or an act's
-    not undone); a step an undone act gave is given again by this one."""
-    given, made = CoverageStep.objects.select_for_update().get_or_create(
+    """The view in `step` by `act`: a row of its own, so undoing another act that gave the same step
+    leaves it standing (the refuter's case, #158)."""
+    CoverageStep.objects.get_or_create(
         tenant_id=row.tenant_id,
         project_id=row.project_id,
         coverage=row,
         step=step,
-        defaults={"confirmation": act},
+        confirmation=act,
     )
-    if not made and given.confirmation_id is not None:
-        earlier = Confirmation.objects.get(project_id=row.project_id, id=given.confirmation_id)
-        if earlier.undone_at is not None:
-            given.confirmation = act
-            given.save(update_fields=["confirmation"])
 
 
 def _account(row: Coverage, sheet: drawings.SheetView, act: Confirmation) -> bool:
@@ -1702,7 +1720,7 @@ def record_coverage(sheet_id: uuid.UUID) -> int:
         )
         for step in view.steps:
             CoverageStep.objects.get_or_create(
-                tenant_id=tenant_id, project_id=project_id, coverage=row, step=step
+                tenant_id=tenant_id, project_id=project_id, coverage=row, step=step, confirmation=None
             )
         written += 1
     return written

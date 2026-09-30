@@ -29,10 +29,10 @@ msgid "takeoff.step1.which_kind"
 msgstr "What kind of sheet is {number}?"
 
 msgid "takeoff.step1.step_unknown"
-msgstr "That is not a Takeoff Step a view can be assigned to. Choose one of Steps 2 to 14."
+msgstr "Nothing was assigned: a view can be assigned only to Takeoff Steps 2 to 14. Choose one or more of them, then assign again."
 
 msgid "takeoff.step1.view_excluded"
-msgstr "This view is excluded, so it cannot be assigned to a step. Confirm it back in first."
+msgstr "Nothing was assigned: one of the chosen views is excluded, with its sheet or on its own. Assign the others without it, or confirm its sheet back in first."
 
 msgid "takeoff.step1.files_reading"
 msgstr "{count, plural, one {# file still reading} other {# files still reading}}"
@@ -41,10 +41,10 @@ msgid "takeoff.step1.sheets_undecided"
 msgstr "{count, plural, one {# sheet to confirm or exclude} other {# sheets to confirm or exclude}}"
 
 msgid "takeoff.step1.lists_disagree"
-msgstr "the two drawing lists disagree"
+msgstr "the drawing lists disagree"
 
 msgid "takeoff.step1.questions_open"
-msgstr "{count, plural, one {# Question open} other {# Questions open}}"
+msgstr "{count, plural, one {# Question to answer} other {# Questions to answer}}"
 
 msgid "takeoff.step1.views_unaccounted"
 msgstr "{count, plural, one {# view unaccounted} other {# views unaccounted}}"

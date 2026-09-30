@@ -4,6 +4,7 @@ acceptance tests leave open; `outstanding` for each thing that keeps a Disciplin
 the walls of `CoverageStep.confirmation` (migration 0002). Every sheet and title is invented."""
 
 import uuid
+from collections.abc import Callable
 from typing import Any
 
 import pytest
@@ -33,6 +34,7 @@ from vextrus.takeoff.tests.test_step1_walls import refused
 from vextrus.testing.auth import api_as
 from vextrus.testing.drawings import QsProject
 from vextrus.testing.jev import Offline
+from vextrus.testing.tenancy import Member
 
 pytestmark = pytest.mark.django_db
 
@@ -233,6 +235,66 @@ def _view_proposals(qs: QsProject) -> list[str]:
             for p in Proposal.objects.filter(project_id=qs.project_id, subject=ProposalSubject.VIEW)
             if p.subject_id not in out
         ]
+
+
+# Two QSs, and a sheet confirmed again (the refuter's cases, score 55 and 40) --------------------------
+
+
+def two_qs(qs: QsProject, sign_in: Callable[..., Member]) -> tuple[Any, Any]:
+    return api_as(qs.member), api_as(sign_in(role="qs", developer_id=qs.member.developer_id))
+
+
+def test_undoing_one_qss_assign_leaves_the_step_another_qs_gave(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, sign_in: Callable[..., Member]
+) -> None:
+    sheet = read_one(qs_project, monkeypatch)
+    a, b = two_qs(qs_project, sign_in)
+    pid = qs_project.project_id
+    assert confirm(a, pid, [sheet], kind=NO_SUBJECT_KIND).status_code == 200
+    view = the_view(a, pid)
+    assert assign(a, pid, [view], ["beams"]).status_code == 200
+    assert assign(b, pid, [view], ["beams"]).status_code == 200
+
+    assert undo(a, pid).json()["act"] == "assign"
+
+    assert counts(a, pid) == (1, 0, 0, {"beams": 1})  # B's act still stands
+    assert undo(b, pid).json()["act"] == "assign"
+    assert counts(a, pid) == (0, 0, 1, {})
+
+
+def test_undoing_a_confirmation_leaves_the_step_another_qs_assigned(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, sign_in: Callable[..., Member]
+) -> None:
+    sheet = read_one(qs_project, monkeypatch)
+    a, b = two_qs(qs_project, sign_in)
+    pid = qs_project.project_id
+    view = the_view(a, pid)
+    assert confirm(a, pid, [sheet], kind="beam_details").status_code == 200
+    assert assign(b, pid, [view], ["beams"]).status_code == 200
+
+    assert undo(a, pid).json()["act"] == "confirm"
+
+    assert counts(a, pid) == (0, 2, 0, {"beams": 1})  # proposed with B's step
+
+
+@pytest.mark.parametrize(("again", "shown"), [("slab_layout", (1, 0, 0, {"slabs": 1})),
+                                               (NO_SUBJECT_KIND, (0, 0, 1, {}))])  # fmt: skip
+def test_a_sheet_confirmed_again_as_another_kind_stands_on_that_kinds_steps(
+    qs_project: QsProject,
+    monkeypatch: pytest.MonkeyPatch,
+    again: str,
+    shown: tuple[int, int, int, dict[str, int]],
+) -> None:
+    sheet = read_one(qs_project, monkeypatch)
+    api = api_as(qs_project.member)
+    pid = qs_project.project_id
+    assert confirm(api, pid, [sheet], kind="beam_details").status_code == 200
+
+    assert confirm(api, pid, [sheet], kind=again).status_code == 200
+
+    assert counts(api, pid) == shown
+    assert undo(api, pid).status_code == 200  # back to beam_details: its step stands again
+    assert counts(api, pid) == (1, 0, 0, {"beams": 1})
 
 
 # Refusals the acceptance tests leave open -------------------------------------------------------------

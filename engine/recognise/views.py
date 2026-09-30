@@ -245,12 +245,15 @@ STRUCTURAL_STEPS: Mapping[str, tuple[str, ...]] = {
     "column": ("columns",),
     "shear_wall": ("columns",),
     "beam": ("beams",),
+    "lintel": ("beams",),
     "slab": ("slabs",),
+    "sunshade": ("slabs",),
     "stair": ("stairs",),
     "tank": ("tanks",),
     "grid": ("grid",),
 }
-"""Steps 4 to 10 (the grid, then foundations to tanks) by a Structural view's subject."""
+"""Steps 4 to 10 (the grid, then foundations to tanks) by a Structural view's subject: a lintel is a
+beam over an opening, a sunshade (chajja) a cantilever slab."""
 ARCHITECTURAL_STEPS = ("walls", "rooms")
 """Steps 11 and 12: walls and openings, rooms and finishes."""
 STRUCTURE_SUBJECTS = frozenset({"column", "beam", "shear_wall"})
@@ -1614,11 +1617,13 @@ def kind_steps(
 ) -> tuple[str, ...]:
     """The Takeoff Steps a Structural sheet's kind names by its subject words, in order
     (`beam_details`: beams; `column_schedule` and `shear_wall_details`: columns; `pile_cap_details`:
-    foundations; `details` or `site_plan`: none): what Step 1 gives a view of that sheet whose own
-    title and sheet's title name no subject, once the QS confirms the sheet as that kind (#158). No
-    other Discipline's kind names a Step here."""
+    foundations; `general_notes`: Step 2; `details` or `site_plan`: none): what Step 1 gives a view
+    of that sheet whose own title and sheet's title name no subject, once the QS confirms the sheet
+    as that kind (#158). No other Discipline's kind names a Step here."""
     if discipline != "structural":
         return ()
+    if kind == GENERAL_NOTES:
+        return (GENERAL_NOTES,)
     reading = _reading(conventions if conventions is not None else default_conventions())
     named = _subjects_in_order(kind.replace("_", " "), reading)
     return tuple(dict.fromkeys(step for key in named for step in STRUCTURAL_STEPS.get(key, ())))

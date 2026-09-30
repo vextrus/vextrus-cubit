@@ -5,7 +5,9 @@
 # - A CoverageStep names the act that gave it (none: the read proposed it). Like every reference inside
 #   takeoff it names a Confirmation of the same tenant and Project: a composite key beside Django's own,
 #   deferred. The app's rights are 0001's: it may add and change a CoverageStep, never delete one, so
-#   an undone act's steps stay, standing no more.
+#   an undone act's steps stay, standing no more. Each act that gives a view a step keeps a row of
+#   its own (one per view, step and act; the read's, with no act, once), so undoing one act never
+#   takes back a step another act still standing gave.
 
 import django.db.models.deletion
 from django.db import migrations, models
@@ -61,6 +63,18 @@ class Migration(migrations.Migration):
             constraint=models.CheckConstraint(
                 condition=models.Q(("act__in", ["confirm", "exclude", "drawing_list", "assign"])),
                 name="takeoff_confirmation_act",
+            ),
+        ),
+        migrations.RemoveConstraint(
+            model_name="coveragestep",
+            name="takeoff_coveragestep_one",
+        ),
+        migrations.AddConstraint(
+            model_name="coveragestep",
+            constraint=models.UniqueConstraint(
+                fields=("tenant_id", "coverage", "step", "confirmation"),
+                name="takeoff_coveragestep_one",
+                nulls_distinct=False,
             ),
         ),
         migrations.RunSQL(KEYS, KEYS_REVERSE),
