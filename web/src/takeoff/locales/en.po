@@ -950,6 +950,10 @@ msgstr "X excludes it, with a reason."
 msgid "↓ walks the list; Space opens a sheet; a Proposal counts toward nothing until you confirm it."
 msgstr "↓ walks the list; Space opens a sheet; a Proposal counts toward nothing until you confirm it."
 
+#: src/takeoff/Step1Inspector.tsx
+msgid "held by Question {tag}"
+msgstr "held by Question {tag}"
+
 #: src/takeoff/SheetList.tsx
 #: src/takeoff/Step1Inspector.tsx
 msgid "File"

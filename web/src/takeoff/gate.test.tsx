@@ -342,6 +342,21 @@ describe('M13: a Structural legend goes to Step 2, not to M3', () => {
   })
 })
 
+describe('M15: a sheet a Question holds is not "one source"', () => {
+  it('says "held by Question Q2" for S-07 and "held by Question Q4" for A-05', async () => {
+    const { api } = kr01()
+    await open(api)
+    const facts = () => clean(inspector().textContent)
+    await focusRow('S-07')
+    await waitFor(() => expect(facts()).toContain('Sources'))
+    expect(facts()).toMatch(/Sources ?held by Question Q2/)
+    expect(facts()).not.toContain('one source')
+    await focusRow('A-05')
+    await waitFor(() => expect(facts()).toMatch(/Sources ?held by Question Q\d/))
+    expect(facts()).not.toContain('one source')
+  })
+})
+
 describe('M9: focus is visible on the list’s rows', () => {
   it('draws an outline on the row ↓ focuses', async () => {
     const { api } = kr01()

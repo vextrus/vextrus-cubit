@@ -584,7 +584,9 @@ export function SheetFacts({
           <Fact label={<Trans>Plot</Trans>}>
             <PlotFact sheet={sheet} />
           </Fact>
-          <Fact label={<Trans>Sources</Trans>}>{row.sheets.every((s) => s.agrees) ? <Trans>two, agreeing</Trans> : <Trans>one source</Trans>}</Fact>
+          <Fact label={<Trans>Sources</Trans>}>
+            <SourcesFact row={row} />
+          </Fact>
         </dl>
       </Block>
       <Views sheet={sheet} selected={selectedView} onSelect={onSelectView} readOnly={readOnly} />
@@ -627,6 +629,13 @@ export function SheetFacts({
 }
 
 /** What a Question card reads from the model: every sheet, the drawing lists and the files' names. */
+/** "Sources" (6.6): a sheet a Question holds is not counted as agreeing or not until it is answered. */
+function SourcesFact({ row }: { row: Row }) {
+  const tag = row.question?.tag
+  if (tag) return <Trans>held by Question {tag}</Trans>
+  return row.sheets.every((s) => s.agrees) ? <Trans>two, agreeing</Trans> : <Trans>one source</Trans>
+}
+
 export { cardContext }
 
 export function QuestionCard({
