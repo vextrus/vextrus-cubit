@@ -666,8 +666,9 @@ and its tries as they were, so a worker's stop never counts against VEXTRUS_JOB_
 
 
 class _Retry(BaseRetryStrategy):
-    """Try a job up to VEXTRUS_JOB_TRIES times, unless it was refused or leaked a setting; a job
-    stopped with its worker is always tried again, at once."""
+    """Try a job up to VEXTRUS_JOB_TRIES times, unless it was refused, leaked a setting or ran out
+    of memory (the `cad` worker's cap: the same try would reach it again, 24); a job stopped with its
+    worker is always tried again, at once."""
 
     def get_retry_decision(
         self, *, exception: BaseException, job: procrastinate_jobs.Job
@@ -675,7 +676,7 @@ class _Retry(BaseRetryStrategy):
         if isinstance(exception, Stopped):
             # Tried again at once, and not counted: the job wall keeps its tries as they were.
             return RetryDecision(retry_in={"seconds": 0}, priority=STOP_PRIORITY)
-        if isinstance(exception, Cancelled | JobRefused | TenancyLeaked):
+        if isinstance(exception, Cancelled | JobRefused | TenancyLeaked | MemoryError):
             return None  # a cancel ends cancelled, even during a stop
         if job.attempts + 1 >= settings.VEXTRUS_JOB_TRIES:
             return None
