@@ -130,6 +130,8 @@ def _edges(edges: Any, tolerance: float) -> Points:
                 pieces.append(
                     np.array([(v.x, v.y) for v in spline.approximate(max(8, len(points) * 4))])
                 )
+            except MemoryError:
+                raise  # the job's memory limit, never a shape left out (24)
             except Exception as error:
                 raise Undrawable("a spline edge ezdxf cannot evaluate") from error
         else:
