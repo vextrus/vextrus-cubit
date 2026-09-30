@@ -1258,28 +1258,7 @@ def _views(
     paper_area = (rx1 - rx0) * (ry1 - ry0)
     unit = max(rx1 - rx0, ry1 - ry0) / REFERENCE_MM  # this paper's mm per an A1's
 
-    pairs: list[tuple[float, int, int]] = []
-    for ti in titles:
-        t = texts[ti]
-        x0, y0, x1, y1 = t.box
-        h = max(t.height, 1e-9)
-        for k, piece in enumerate(pieces):
-            px0, py0, px1, py1 = piece.box
-            if max(px1 - px0, py1 - py0) < MIN_VIEW_MM * unit or px0 > x1 or px1 < x0:
-                continue
-            if py1 - py0 < MIN_DRAWING * h:
-                continue  # a band: the title's own frame or a row of labels, not its drawing
-            below = (py0 - y1) / h  # the drawing above its title
-            above = (y0 - py1) / h  # the drawing under its title
-            if -0.5 <= below <= TITLE_GAP:
-                pairs.append((below, ti, k))
-            elif -0.5 <= above <= TITLE_GAP_UNDER:
-                pairs.append((above + TITLE_GAP, ti, k))
-            elif py0 <= y0 and y1 <= py1:  # its drawing runs past it, under or over
-                depth = min(y0 - py0, py1 - y1) / h
-                if depth <= TITLE_INSIDE:
-                    pairs.append((TITLE_GAP + TITLE_GAP_UNDER + depth, ti, k))
-    pairs.sort()
+    pairs = _pairs(texts, titles, pieces, unit)
     by_title: dict[int, int] = {}
     by_piece: dict[int, int] = {}
     for _, ti, k in pairs:
@@ -1353,6 +1332,36 @@ def _views(
             best[1].scale = scales.read(s.shown, reading.patterns)
             best[1].box = _union(best[1].box, s.box)
     return views[:MAX_VIEWS]
+
+
+def _pairs(
+    texts: Sequence[_Text], titles: Iterable[int], pieces: Sequence[_Piece], unit: float
+) -> list[tuple[float, int, int]]:
+    """Each title's candidate drawings, `(score, title, piece)`, best first: a piece it lies under (its
+    gap in the title's heights), else one it lies over, else one whose box holds it near an edge."""
+    pairs: list[tuple[float, int, int]] = []
+    for ti in titles:
+        t = texts[ti]
+        x0, y0, x1, y1 = t.box
+        h = max(t.height, 1e-9)
+        for k, piece in enumerate(pieces):
+            px0, py0, px1, py1 = piece.box
+            if max(px1 - px0, py1 - py0) < MIN_VIEW_MM * unit or px0 > x1 or px1 < x0:
+                continue
+            if py1 - py0 < MIN_DRAWING * h:
+                continue  # a band: the title's own frame or a row of labels, not its drawing
+            below = (py0 - y1) / h  # the drawing above its title
+            above = (y0 - py1) / h  # the drawing under its title
+            if -0.5 <= below <= TITLE_GAP:
+                pairs.append((below, ti, k))
+            elif -0.5 <= above <= TITLE_GAP_UNDER:
+                pairs.append((above + TITLE_GAP, ti, k))
+            elif py0 <= y0 and y1 <= py1:  # its drawing runs past it, under or over
+                depth = min(y0 - py0, py1 - y1) / h
+                if depth <= TITLE_INSIDE:
+                    pairs.append((TITLE_GAP + TITLE_GAP_UNDER + depth, ti, k))
+    pairs.sort()
+    return pairs
 
 
 def _title_lines(
