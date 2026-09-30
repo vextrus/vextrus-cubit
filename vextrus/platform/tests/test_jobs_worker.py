@@ -439,7 +439,12 @@ def test_a_cad_worker_with_no_cap_set_says_so_and_a_plain_worker_has_none(
     cad_job = defer(sample.cad_steps, developer, cad_subject)
     plain_job = defer(sample.two_steps, developer, plain_subject)
 
-    cad_output = sample.finish(sample.start_worker([settings.VEXTRUS_CAD_QUEUE]))
+    # 24 sets a cap by default; a deployment may still leave it unset.
+    cad_output = sample.finish(
+        sample.start_worker(
+            [settings.VEXTRUS_CAD_QUEUE], overrides={"VEXTRUS_CAD_WORKER_MEMORY_BYTES": None}
+        )
+    )
     plain_output = sample.finish(
         sample.start_worker([sample.TEST_QUEUE], overrides={"VEXTRUS_CAD_WORKER_MEMORY_BYTES": 1024**3})
     )
