@@ -111,3 +111,30 @@ describe('an act in flight', () => {
     expect(step1.calls()).not.toContain('POST /drawing-list')
   })
 })
+
+describe('an Undo while the act is still going (the review of 22, round 2)', () => {
+  async function openAt60() {
+    const api = new FakeApi({ latencyMs: 60 })
+    const step1 = new FakeStep1(api)
+    await mountApp('/p/KR-01/takeoff/1', { as: PEOPLE.qs, api })
+    await waitFor(() => expect(bodyText()).toContain('Confirmed 0 / 24'))
+    return step1
+  }
+
+  it('waits for the bulk act and undoes it, when Ctrl Z comes at once', async () => {
+    const step1 = await openAt60()
+    await userEvent.keyboard('{Enter}')
+    await userEvent.keyboard('{Control>}z{/Control}')
+    await waitFor(() => expect(bodyText()).toContain('Undone: confirmed 16 sheets and left out 1'), { timeout: 5000 })
+    expect(step1.calls().filter((c) => c.startsWith('POST'))).toEqual(['POST /confirm', 'POST /exclude', 'POST /undo', 'POST /undo'])
+  })
+
+  it('undoes the act when its toast’s Undo is pressed during the reload', async () => {
+    const step1 = await openAt60()
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(bodyText()).toContain('Confirmed 16 sheets; left out 1'))
+    await userEvent.keyboard('{Control>}z{/Control}')
+    await waitFor(() => expect(bodyText()).toContain('Undone: confirmed 16 sheets and left out 1'), { timeout: 5000 })
+    expect(step1.calls().filter((c) => c === 'POST /undo')).toHaveLength(2)
+  })
+})

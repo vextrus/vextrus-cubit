@@ -89,26 +89,51 @@ export function useStep1Acts(projectId: string): Step1Acts {
   const done = useRef<Done[]>([])
   /** An act in flight: another (a second Enter, a key held down) is ignored until it and its reload end. */
   const pending = useRef(false)
+  /**
+   * The act in flight's server calls, until they are made and kept in `done`: an Undo waits for them
+   * (its toast shows before the reload), rather than being dropped while Step 1 reloads.
+   */
+  const sending = useRef<Promise<void> | null>(null)
+  /** An undo in flight: a second Ctrl Z is ignored until it ends. */
+  const undoing = useRef(false)
   const refresh = useCallback(() => queryClient.invalidateQueries({ queryKey: step1Key(projectId) }), [queryClient, projectId])
 
-  const undoLast = useCallback(async () => {
-    if (pending.current) return
+  /** Starts an act: blocks others and marks its calls as in flight; returns what ends the calls. */
+  const begin = useCallback((): (() => void) | null => {
+    if (pending.current || undoing.current) return null
     pending.current = true
-    const last = done.current.pop()
+    let sent = () => {}
+    sending.current = new Promise<void>((resolve) => {
+      sent = resolve
+    })
+    return () => {
+      sending.current = null
+      sent()
+    }
+  }, [])
+
+  const undoLast = useCallback(async () => {
+    if (undoing.current) return
+    undoing.current = true
     try {
-      if (last) {
-        for (let i = 0; i < last.calls; i++) await undo(projectId)
-        const words = last.words
-        toast.show({ message: <Trans>Undone: {words}</Trans> })
-      } else {
-        const act = await undo(projectId)
-        toast.show({ message: <Trans>Undone: <UndoneWords act={act} /></Trans> })
+      // An act still sending is waited for, so this undoes it; one reloading is already in `done`.
+      if (sending.current) await sending.current
+      const last = done.current.pop()
+      try {
+        if (last) {
+          for (let i = 0; i < last.calls; i++) await undo(projectId)
+          const words = last.words
+          toast.show({ message: <Trans>Undone: {words}</Trans> })
+        } else {
+          const act = await undo(projectId)
+          toast.show({ message: <Trans>Undone: <UndoneWords act={act} /></Trans> })
+        }
+      } catch (error) {
+        sayRefused(error)
       }
-    } catch (error) {
-      sayRefused(error)
-    } finally {
       await refresh()
-      pending.current = false
+    } finally {
+      undoing.current = false
     }
   }, [projectId, refresh, sayRefused, toast])
 
@@ -117,8 +142,8 @@ export function useStep1Acts(projectId: string): Step1Acts {
   /** Runs the server acts in turn; whatever of them was done is one act to undo. */
   const run = useCallback(
     async (calls: (() => Promise<unknown>)[], words: ReactNode, said: ReactNode): Promise<boolean> => {
-      if (pending.current) return false
-      pending.current = true
+      const sent = begin()
+      if (!sent) return false
       let made = 0
       try {
         for (const call of calls) {
@@ -132,18 +157,19 @@ export function useStep1Acts(projectId: string): Step1Acts {
         return false
       } finally {
         if (made > 0) done.current.push({ calls: made, words })
+        sent()
         // Held until Step 1 has reloaded: a second Enter during the reload would send the act again.
         await refresh()
         pending.current = false
       }
     },
-    [onUndo, refresh, sayRefused, toast],
+    [begin, onUndo, refresh, sayRefused, toast],
   )
 
   const bulk = useCallback(
     async (confirming: readonly ProposalOut[], leavingOut: readonly ProposalOut[]) => {
-      if (pending.current) return
-      pending.current = true
+      const sent = begin()
+      if (!sent) return
       // One call per kind of act, each counted as it is made, so the words name only what was done.
       const calls: { sheets: number; out: boolean; call: () => Promise<unknown> }[] = []
       if (confirming.length) calls.push({ sheets: confirming.length, out: false, call: () => confirm(projectId, confirming.map((p) => p.id)) })
@@ -177,12 +203,13 @@ export function useStep1Acts(projectId: string): Step1Acts {
           })
       } finally {
         if (made > 0) done.current.push({ calls: made, words: <BulkWords n={n} m={m} /> })
+        sent()
         // Held until Step 1 has reloaded: a second Enter during the reload would send the act again.
         await refresh()
         pending.current = false
       }
     },
-    [f, i18n, onUndo, projectId, refresh, sayRefused, toast],
+    [begin, f, i18n, onUndo, projectId, refresh, sayRefused, toast],
   )
 
   const confirmSheets = useCallback(
@@ -212,8 +239,8 @@ export function useStep1Acts(projectId: string): Step1Acts {
   const setDrawingList = useCallback(
     async (discipline: string, text: string) => {
       // Not while another act is in flight: its undo would take this one's place (the refuter, round 1).
-      if (pending.current) return false
-      pending.current = true
+      const sent = begin()
+      if (!sent) return false
       const which = DISCIPLINE_IN_TEXT[discipline]
       const kind = which ? i18n._(which) : ''
       let made = 0
@@ -235,11 +262,12 @@ export function useStep1Acts(projectId: string): Step1Acts {
         return false
       } finally {
         if (made) done.current.push({ calls: 1, words: <Trans>the drawing list you set</Trans> })
+        sent()
         await refresh()
         pending.current = false
       }
     },
-    [i18n, onUndo, projectId, refresh, sayRefused, toast],
+    [begin, i18n, onUndo, projectId, refresh, sayRefused, toast],
   )
 
   return { bulk, confirmSheets, excludeSheets, setDrawingList, undoLast }
