@@ -68,6 +68,17 @@ async function focusRow(number: string) {
 }
 
 const inspector = () => screen.getByRole('complementary')
+
+/** The Structural drawing list read on a sheet also sends these fields (the fixture's list sends neither). */
+function listGives(api: FakeApi, extra: { read_on: string; read_revisions: Record<string, string> }) {
+  const base = api.handle
+  api.handle = async (request: Request) => {
+    const response = await base(request)
+    const url = new URL(request.url, location.origin)
+    if (request.method !== 'GET' || !url.pathname.endsWith('/takeoff/step1/drawing-list') || url.searchParams.get('discipline') !== 'structural') return response
+    return new Response(JSON.stringify({ ...(await response.json()), ...extra }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+  }
+}
 const card = (tag: string | RegExp) => (name: string) => (typeof tag === 'string' ? clean(name) === `Question ${tag}` : tag.test(clean(name)))
 
 describe('M1: an issue date is the API’s ISO date', () => {
@@ -119,15 +130,34 @@ describe('M4, M5: the Question cards', () => {
     await screen.findByRole('group', { name: /S-07/ })
   })
 
-  it('shows Q2’s pre-pick from the API with "Picked for you:" and what answering it does', async () => {
+  it('M14: pre-picks Q2 only where two sources agree, naming the drawing list on S-01', async () => {
+    const { api, step1 } = kr01()
+    listGives(api, { read_on: step1.proposals.find((p) => p.number === 'S-01')!.sheet_id, read_revisions: { 'S-07': 'B' } })
+    await open(api)
+    await focusRow('S-07')
+    const q2 = await screen.findByRole('region', { name: card('Q2') })
+    expect(clean(q2.textContent)).toContain('Picked for you: the later revision mark and the drawing list on S-01 agree')
+    expect(clean(q2.textContent)).toContain('Answering confirms S-07 (rev B) and excludes S-07 (rev A) as superseded.')
+    const picked = within(q2).getAllByRole('radio').find((r) => (r as HTMLInputElement).checked)
+    expect(clean(picked?.closest('label')?.textContent)).toContain('Keep rev B (20 Aug 2026); leave rev A out as superseded')
+  })
+
+  it('M14: shows no pre-pick when only the title block can be named', async () => {
     const { api } = kr01()
     await open(api)
     await focusRow('S-07')
     const q2 = await screen.findByRole('region', { name: card('Q2') })
-    expect(clean(q2.textContent)).toContain('Picked for you: S-07 rev B has the later revision mark')
-    expect(clean(q2.textContent)).toContain('Answering confirms S-07 (rev B) and excludes S-07 (rev A) as superseded.')
-    const picked = within(q2).getAllByRole('radio').find((r) => (r as HTMLInputElement).checked)
-    expect(clean(picked?.closest('label')?.textContent)).toContain('Keep rev B (20 Aug 2026); leave rev A out as superseded')
+    expect(clean(q2.textContent)).not.toContain('Picked for you')
+    expect(within(q2).getAllByRole('radio').some((r) => (r as HTMLInputElement).checked)).toBe(false)
+  })
+
+  it('M14: shows no pre-pick when the drawing list gives the other copy’s mark', async () => {
+    const { api, step1 } = kr01()
+    listGives(api, { read_on: step1.proposals.find((p) => p.number === 'S-01')!.sheet_id, read_revisions: { 'S-07': 'A' } })
+    await open(api)
+    await focusRow('S-07')
+    const q2 = await screen.findByRole('region', { name: card('Q2') })
+    expect(clean(q2.textContent)).not.toContain('Picked for you')
   })
 })
 

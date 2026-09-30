@@ -11,7 +11,7 @@ import { MachineText } from '@/format/machine'
 import { DrawingText } from '@/ui'
 import { SheetName } from './acts'
 import type { ProposalOut } from './data'
-import type { QuestionEntry } from './model'
+import type { QuestionEntry, Step1Model } from './model'
 import { disciplineName } from './SheetList'
 import { useHasEnglish } from './useHasEnglish'
 import { OPTION_NAMES, OTHER_OPTION, OTHER_QUESTION, QUESTION_KINDS, QUESTION_KIND_BY_CODE, SHEET_KIND_NAMES } from './words'
@@ -79,9 +79,20 @@ function ListSource({ entry, context, onOpen }: { entry: QuestionEntry; context:
 
 /** What a card needs from the screen beyond its Question: the drawing lists and every sheet. */
 export interface CardContext {
-  lists: Readonly<Record<string, { source: string | null; entered_by: string | null; read_on?: string | null; numbers: readonly string[] } | null | undefined>>
+  lists: Readonly<
+    Record<string, { source: string | null; entered_by: string | null; read_on?: string | null; numbers: readonly string[]; read_revisions?: Readonly<Record<string, string>> } | null | undefined>
+  >
   sheets: readonly ProposalOut[]
   names: Readonly<Record<string, string>>
+}
+
+/** A card's context from Step 1's model. */
+export function cardContext(model: Step1Model): CardContext {
+  return {
+    sheets: model.rows.flatMap((r) => [...r.sheets]),
+    lists: Object.fromEntries(model.disciplines.map((d) => [d.discipline, d.list])),
+    names: model.fileNames,
+  }
 }
 
 /** The body under the title (§6.7): what was read and why it is asked, with its figures in their kinds. */
@@ -192,36 +203,58 @@ function CopyIn({ sheet, other, first }: { sheet: ProposalOut; other: ProposalOu
 }
 
 /**
- * The option the API picked for the QS (screens.md Takeoff ruling 2: only where two independent sources
- * agree), or none. The card names the sources (§6.7's "Picked for you:"), worked out with `PickSources`.
+ * The option the API picked for the QS, shown only where two or more independent sources agree and
+ * the card can name them (screens.md Takeoff ruling 2, m0-screens 6.7): for two copies of one number,
+ * `pickSources` must name two; else no option is pre-picked.
  */
-export function usePick(entry: QuestionEntry): { key: string } | null {
+export function usePick(entry: QuestionEntry, context: CardContext): { key: string } | null {
   const picked = optionsOf(entry).find((o) => o.picked && o.key)
-  return picked?.key ? { key: picked.key } : null
+  if (!picked?.key) return null
+  if (isCopies(entry) && pickSources(entry, context, picked.key).count < 2) return null
+  return { key: picked.key }
 }
 
+interface PickSources {
+  /** The kept copy's title block: its later revision mark, its later date (one source, not two). */
+  mark: boolean
+  date: boolean
+  /** The Discipline's drawing list read on a sheet gives the number the kept copy's mark (a second source). */
+  list: ProposalOut | 'found' | null
+  count: number
+}
+
+const sameMark = (a: string, b: string) => a.trim().toUpperCase() === b.trim().toUpperCase()
+
 /**
- * What agrees on the pre-pick, from the facts the screen holds (§6.7's "Picked for you:"): for two copies
- * of one number, the kept copy's later revision mark and later date. Null where none can be named, and
- * the card then shows no such line.
+ * What agrees on keeping one of two copies (m0-screens 6.7 and 7's "the later revision mark, the later
+ * date and the drawing list on S-01 agree"): the kept copy's title block (a later revision mark or date)
+ * and the drawing list read on a sheet, when it lists the number with the kept copy's mark.
  */
-export function usePickSources(entry: QuestionEntry): ReactNode | null {
-  const pick = usePick(entry)?.key
-  if (!isCopies(entry) || (pick !== 'keep_b' && pick !== 'keep_a')) return null
+export function pickSources(entry: QuestionEntry, context: CardContext, pick: string): PickSources {
+  const none: PickSources = { mark: false, date: false, list: null, count: 0 }
+  if (!isCopies(entry) || (pick !== 'keep_b' && pick !== 'keep_a')) return none
   const [later, earlier] = entry.holds as [ProposalOut, ProposalOut]
   const keep = pick === 'keep_b' ? later : earlier
   const drop = pick === 'keep_b' ? earlier : later
   const mark = !!keep.revision_mark.trim() && !!drop.revision_mark.trim() && keep.revision_mark.localeCompare(drop.revision_mark, 'en', { numeric: true }) > 0
   const date = !!keep.issue_date && !!drop.issue_date && keep.issue_date > drop.issue_date
-  const kept = (
-    <>
-      <SheetName sheets={[keep]} /> <Copy sheet={keep} />
-    </>
-  )
-  if (mark && date) return <Trans>{kept} has the later revision mark and the later date</Trans>
-  if (mark) return <Trans>{kept} has the later revision mark</Trans>
-  if (date) return <Trans>{kept} has the later date</Trans>
-  return null
+  const list = context.lists[entry.question.discipline ?? keep.discipline ?? '']
+  const listed = keep.number ? list?.read_revisions?.[keep.number] : undefined
+  const agrees = !!listed && !!keep.revision_mark.trim() && sameMark(listed, keep.revision_mark) && !sameMark(listed, drop.revision_mark)
+  const on = agrees ? (list?.read_on ? context.sheets.find((p) => p.sheet_id === list.read_on) : undefined) : undefined
+  return { mark, date, list: agrees ? (on ?? 'found') : null, count: (mark || date ? 1 : 0) + (agrees ? 1 : 0) }
+}
+
+/** The pre-pick's sources in words ("the later revision mark and the drawing list on S-01 agree"), or null. */
+export function usePickSources(entry: QuestionEntry, context: CardContext): ReactNode | null {
+  const pick = usePick(entry, context)?.key
+  if (!pick) return null
+  const found = pickSources(entry, context, pick)
+  if (found.count < 2 || !found.list) return null
+  const list = found.list === 'found' ? <Trans>the drawing list found in the drawings</Trans> : <Trans>the drawing list on <SheetName sheets={[found.list]} /></Trans>
+  if (found.mark && found.date) return <Trans>the later revision mark, the later date and {list} agree</Trans>
+  if (found.mark) return <Trans>the later revision mark and {list} agree</Trans>
+  return <Trans>the later date and {list} agree</Trans>
 }
 
 /** An option's words, naming the copies' marks and dates for two sheets of one number. */
@@ -244,8 +277,9 @@ export function OptionWords({ entry, option }: { entry: QuestionEntry; option: O
 }
 
 /** The card's first line (§5 item 2, §6.7), for the option picked (pre-picked in M0), else what it settles. */
-export function Answering({ entry, names }: { entry: QuestionEntry; names: Readonly<Record<string, string>> }) {
-  const picked = usePick(entry)?.key
+export function Answering({ entry, context }: { entry: QuestionEntry; context: CardContext }) {
+  const names = context.names
+  const picked = usePick(entry, context)?.key
   const n = entry.holds.length
   const q = entry.question
   if (q.kind === 'file_misread') {

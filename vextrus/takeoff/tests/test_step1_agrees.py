@@ -183,6 +183,25 @@ def test_a_list_read_on_a_sheet_names_the_sheet_it_was_read_on(step1_project: St
     assert reader.get(path, discipline="structural").json()["read_on"] == str(step1_project.sheets[0])
 
 
+def test_a_read_list_gives_each_numbers_revision_mark(step1_project: Step1Project) -> None:
+    """The design gate's M14 (m0-screens 7, "Two sheets, one number"): the drawing list on S-01 is a
+    source of its own for which copy is current, so the API sends the marks the read list gives; a
+    number listed without one is left out, and a list the QS typed gives none."""
+    project = step1_project.project_id
+    path = f"/api/projects/{project}/takeoff/step1/drawing-list"
+    reader = api_as(step1_project.member)
+    assert reader.get(path, discipline="structural").json()["read_revisions"] == {}
+
+    with step1_project.member.acting():
+        step1.record_read_list(
+            step1_project.sheets[0],
+            "structural",
+            [("S-01", "NOTES", "A"), ("S-02", "PLAN"), ("S-07", "BEAMS", "B")],
+        )
+
+    assert reader.get(path, discipline="structural").json()["read_revisions"] == {"S-01": "A", "S-07": "B"}
+
+
 def test_a_proposal_carries_where_each_fact_was_read_and_its_views(step1_project: Step1Project) -> None:
     """The design gate's M7 and M2 (m0-screens §6.2, §6.6): the inspector's "where each was read"
     (number, title, storeys, file and layout, Plot) and the Views section and column come from the

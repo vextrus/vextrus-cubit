@@ -248,6 +248,9 @@ class ListView:
     agrees: bool
     read_on: uuid.UUID | None = None
     """The printed sheet the list read on a sheet was read on ("13 on the drawing list on S-01")."""
+    read_revisions: dict[str, str] = field(default_factory=dict)
+    """Each number the list read on a sheet gives a revision mark, with that mark ("S-07": "B"): a
+    source of its own for which copy of a number is current (m0-screens 7, "Two sheets, one number")."""
 
 
 # Reading ------------------------------------------------------------------------------------------
@@ -599,6 +602,18 @@ def _numbers(row: DrawingRegister) -> list[str]:
     )
 
 
+_MARK_LENGTH = RegisterEntry._meta.get_field("revision_mark").max_length
+
+
+def _revisions(row: DrawingRegister) -> dict[str, str]:
+    return dict(
+        RegisterEntry.objects.filter(register=row)
+        .exclude(revision_mark="")
+        .order_by("line", "id")
+        .values_list("number", "revision_mark")
+    )
+
+
 def _discipline(key: object) -> str:
     """A Discipline of the Market, by key; else refused."""
     if not isinstance(key, str) or key not in {d.key for d in drawings.disciplines()}:
@@ -708,6 +723,7 @@ def drawing_list(project_id: uuid.UUID, discipline: str) -> ListView:
         read_numbers=_numbers(lists.read) if lists.read else None,
         agrees=not lists.disagree,
         read_on=lists.read.source_sheet_id if lists.read else None,
+        read_revisions=_revisions(lists.read) if lists.read else {},
     )
 
 
@@ -1116,10 +1132,13 @@ def raise_question(
 
 
 def record_read_list(
-    sheet_id: uuid.UUID, discipline: str, numbers: Sequence[tuple[str, str]]
+    sheet_id: uuid.UUID,
+    discipline: str,
+    numbers: Sequence[tuple[str, str] | tuple[str, str, str]],
 ) -> uuid.UUID:
     """A Discipline's drawing list as read on a printed sheet of the set (13's register entries:
-    each number with its title, in the list's order); its id. Kept beside a list the QS gives: when
+    each number with its title and, where the list gives one, its revision mark, in the list's
+    order); its id. Kept beside a list the QS gives: when
     the two disagree, N is unknown until 21c's Question is answered."""
     sheet = drawings.sheet(sheet_id)
     project_id = _project_of(sheet)
@@ -1133,7 +1152,8 @@ def record_read_list(
             source_sheet_id=sheet.id,
         )
         seen: set[str] = set()
-        for line, (number, title) in enumerate(numbers, start=1):
+        for line, entry in enumerate(numbers, start=1):
+            number, title = entry[0], entry[1]
             if number in seen:
                 continue
             seen.add(number)
@@ -1143,6 +1163,7 @@ def record_read_list(
                 register=row,
                 number=number,
                 title=title,
+                revision_mark=(entry[2] if len(entry) > 2 else "")[:_MARK_LENGTH],
                 line=line,
             )
         record_progress(project_id)

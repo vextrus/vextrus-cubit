@@ -21,7 +21,7 @@ import { SheetName } from './acts'
 import { SheetRange } from './SheetRange'
 import type { CoverageOut, ProposalOut, ViewOut } from './data'
 import { NOTES_STEP, STEP_DISCIPLINES, listSheet, type DisciplineSection, type QuestionEntry, type Row, type Step1Model } from './model'
-import { Answering, CannotAnswer, Copy, OptionWords, QuestionBody, QuestionTitle, Trace, optionsOf, useKindLine, usePick, usePickSources, type CardContext } from './questionWords'
+import { Answering, CannotAnswer, cardContext, Copy, OptionWords, QuestionBody, QuestionTitle, Trace, optionsOf, useKindLine, usePick, usePickSources, type CardContext } from './questionWords'
 import { disciplineName } from './SheetList'
 import { NOT_RECEIVED_NAMES, OTHER_DISCIPLINE, OTHER_VIEW_KIND, REASON_SHORT, ROLE_NAMES, STEP_KEYS, STOREY_MEANINGS, UNKNOWN_REASON, VIEW_KINDS } from './words'
 
@@ -627,13 +627,7 @@ export function SheetFacts({
 }
 
 /** What a Question card reads from the model: every sheet, the drawing lists and the files' names. */
-export function cardContext(model: Step1Model): CardContext {
-  return {
-    sheets: model.rows.flatMap((r) => [...r.sheets]),
-    lists: Object.fromEntries(model.disciplines.map((d) => [d.discipline, d.list])),
-    names: model.fileNames,
-  }
-}
+export { cardContext }
 
 export function QuestionCard({
   entry,
@@ -653,8 +647,8 @@ export function QuestionCard({
   const kind = useKindLine(entry)
   const tag = entry.tag
   const options = optionsOf(entry)
-  const pick = usePick(entry)
-  const sources = usePickSources(entry)
+  const pick = usePick(entry, context)
+  const sources = usePickSources(entry, context)
   const name = `question-${entry.question.id}`
   return (
     <section aria-label={t`Question ${tag}`} className="m-2 overflow-hidden rounded-md border border-question">
@@ -666,7 +660,7 @@ export function QuestionCard({
         <span className="text-xs">{entry.kept ? <Trans>Kept open</Trans> : <Trans>Answer once</Trans>}</span>
       </header>
       <div className="bg-chrome-sunken px-3 py-1.5 text-xs">
-        <Answering entry={entry} names={names} />
+        <Answering entry={entry} context={context} />
       </div>
       <div className="flex flex-col gap-2 px-3 py-2 text-sm">
         <p className="text-xs text-ink-secondary">{kind}</p>

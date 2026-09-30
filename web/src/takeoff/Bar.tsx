@@ -10,7 +10,7 @@ import { Button, KeyCombo, KeyScope, cn, useKeys } from '@/ui'
 import { SheetName } from './acts'
 import type { ProposalOut } from './data'
 import { REASONS, whyOneSource, type Reason, type Row, type Step1Model } from './model'
-import { Answering, QuestionTitle } from './questionWords'
+import { Answering, QuestionTitle, cardContext } from './questionWords'
 import { disciplineName } from './SheetList'
 import { REASON_NAMES, REASON_SHORT, UNKNOWN_REASON } from './words'
 
@@ -167,7 +167,7 @@ export function useBar(c: BarContext): BarSpec | null {
             Question {tag}: {title}
           </Trans>
         ),
-        why: <Answering entry={row.question} names={model.fileNames} />,
+        why: <Answering entry={row.question} context={cardContext(model)} />,
         ghost: { label: <Trans>Next open item</Trans>, run: c.nextOpen },
       }
     }

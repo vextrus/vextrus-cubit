@@ -526,6 +526,10 @@ msgid "Proposal {p} · Assigned {a} · Question {q} · Excluded {x}"
 msgstr "Proposal {p} · Assigned {a} · Question {q} · Excluded {x}"
 
 #: src/takeoff/questionWords.tsx
+msgid "the later revision mark, the later date and {list} agree"
+msgstr "the later revision mark, the later date and {list} agree"
+
+#: src/takeoff/questionWords.tsx
 msgid "Answering confirms both copies."
 msgstr "Answering confirms both copies."
 
@@ -553,10 +557,6 @@ msgstr "Confirm back in"
 #: src/takeoff/words.tsx
 msgid "Tank details"
 msgstr "Tank details"
-
-#: src/takeoff/questionWords.tsx
-msgid "{kept} has the later revision mark and the later date"
-msgstr "{kept} has the later revision mark and the later date"
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "Views by the step that will read them, proposed or assigned"
@@ -705,6 +705,10 @@ msgstr "{name} {settled} / {total} settled"
 #: src/takeoff/words.tsx
 msgid "Single line diagram"
 msgstr "Single line diagram"
+
+#: src/takeoff/questionWords.tsx
+msgid "the drawing list on <0/>"
+msgstr "the drawing list on <0/>"
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "{questions, plural, one {Answer # Question: the held file first, then those holding the most sheets} other {Answer # Questions: the held file first, then those holding the most sheets}}"
@@ -860,6 +864,10 @@ msgstr "Sheets, in list order"
 #: src/takeoff/Bar.tsx
 msgid "{name} is confirmed by {by}"
 msgstr "{name} is confirmed by {by}"
+
+#: src/takeoff/questionWords.tsx
+msgid "the later date and {list} agree"
+msgstr "the later date and {list} agree"
 
 #: src/takeoff/SheetList.tsx
 msgid "▮ floor to floor  ▁ at floor level"
@@ -1541,6 +1549,10 @@ msgstr "Sheet kind unclear"
 msgid "Waiting for the QS. A Guest reads Questions and cannot answer them."
 msgstr "Waiting for the QS. A Guest reads Questions and cannot answer them."
 
+#: src/takeoff/questionWords.tsx
+msgid "the later revision mark and {list} agree"
+msgstr "the later revision mark and {list} agree"
+
 #: src/takeoff/Bar.tsx
 msgid "Open {name}"
 msgstr "Open {name}"
@@ -1919,10 +1931,6 @@ msgstr "Cover or index (its drawing list kept)"
 msgid "found, {listed} on the drawing list found in the drawings"
 msgstr "found, {listed} on the drawing list found in the drawings"
 
-#: src/takeoff/questionWords.tsx
-msgid "{kept} has the later revision mark"
-msgstr "{kept} has the later revision mark"
-
 #: src/takeoff/acts.tsx
 msgid "{m, plural, one {left out # sheet} other {left out # sheets}}"
 msgstr "{m, plural, one {left out # sheet} other {left out # sheets}}"
@@ -1938,10 +1946,6 @@ msgstr "Pit and chamber details"
 #: src/takeoff/ActorChip.tsx
 msgid "Vextrus"
 msgstr "Vextrus"
-
-#: src/takeoff/questionWords.tsx
-msgid "{kept} has the later date"
-msgstr "{kept} has the later date"
 
 #: src/takeoff/words.tsx
 msgid "Column schedule"
