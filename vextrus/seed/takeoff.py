@@ -2,22 +2,23 @@
 the QS's walk, and BP-02's "Held, answered". All invented; everything goes through
 `takeoff.services.step1`, as 21c's read job will write it.
 
-**KR-01:** each of its 24 printed sheets a Proposal. Where a sheet's kind was read, Jev's answer about
-it is kept on its Proposal: the kind, among the kinds its Discipline's sheets carry, answered by a
-stand-in for TypeSafe (no call leaves the machine; the answer goes through `jev.ask` into the
-tenant's cache, as a job's would). The five Questions are asked in §7's queue order: Q1
-KR-STR-old.dwg may be misread; Q2 two sheets numbered S-07 (rev B pre-picked); Q3 the unnumbered door
-and window schedule; Q4 the kind of A-05; Q5 S-13 on the drawing list in no file. Every view's
-Coverage row: 70 views, 68 proposed, 2 unaccounted (S-10's loose boxes). Step 1's progress rows, one
-per Discipline.
+**KR-01:** each of its 24 printed sheets a Proposal; its Structural drawing list as read on S-01 (S-01
+to S-13, `step1.record_read_list` with S-01 as its sheet, as 21c's job will write it). Where a
+sheet's kind was read, Jev's answer about it is kept on its Proposal: the kind, among the kinds its
+Discipline's sheets carry, answered by a stand-in for TypeSafe (no call leaves the machine; the
+answer goes through `jev.ask` into the tenant's cache, as a job's would). The five Questions are
+asked in §7's queue order: Q1 KR-STR-old.dwg may be misread; Q2 two sheets numbered S-07 (rev B
+pre-picked); Q3 the unnumbered door and window schedule; Q4 the kind of A-05; Q5 S-13 on the drawing
+list in no file. Every view's Coverage row: 70 views, 68 proposed, 2 unaccounted (S-10's loose
+boxes). Step 1's progress rows, one per Discipline.
 
-**BP-02, "Held, answered":** BP-ARC-old.dwg, held (its two readers disagree), its `file_misread`
-Question answered by Nusrat Jahan: read anyway (m0-screens 4.5, "Held, read anyway: its sheets are
-marked"; it has none).
+**BP-02, "Held, answered":** BP-ARC-old.dwg, held by `drawings`' seed (its two readers disagree,
+its four sheets found), its `file_misread` Question answered by Nusrat Jahan: read anyway (m0-screens
+4.5, "Held, read anyway: its sheets are marked").
 
-For 21a (a named shared edit, after 19a merges): a read job's states on BP-02 and MG-01 go in a
-function of their own called from `run`, beside `bokul_held`; `demo` holds each file's id as
-`file:<code>:<name>` and each Question's as `question:<code>:<n>`.
+The states a read job carries (reading with its time left, interrupted and retrying) are
+`drawings`' seed's, on MG-01 (#125). `demo` holds each file's id as `file:<code>:<name>` and each
+Question's as `question:<code>:<n>`.
 """
 
 import json
@@ -27,15 +28,13 @@ from decimal import Decimal
 
 import httpx
 
-from engine.check.decoders_agree import CODE as DECODERS_AGREE
 from engine.messages import conflicts as conflict_codes
 from engine.messages import decoders_agree as agree_codes
 from engine.messages import register_check as list_codes
-from engine.recognise.types import CheckOutcome, CheckResult
 from vextrus.drawings import services as drawings
 from vextrus.platform.services import jev, tenancy
 from vextrus.seed.demo import Demo
-from vextrus.seed.drawings import added, invented
+from vextrus.seed.drawings import STRUCTURAL
 from vextrus.takeoff.messages import step1 as step1_codes
 from vextrus.takeoff.services import step1
 
@@ -69,8 +68,20 @@ def kadam(demo: Demo) -> None:
     for key, sheet_id in list(demo.items()):
         if key.startswith(f"sheet:{code}:") and sheet_id in proposal_of:
             demo[f"proposal:{code}:{key.removeprefix(f'sheet:{code}:')}"] = proposal_of[sheet_id]
+    step1.record_read_list(demo[f"sheet:{code}:S-01"], "structural", drawing_list())
     ask_five(demo, code, project_id)
     step1.record_progress(project_id)
+
+
+def drawing_list() -> list[tuple[str, str]]:
+    """KR-01's Structural drawing list as read on S-01 (§7): S-01 to S-13, each number once (both
+    S-07s are one line), S-13 among them though no file carries it (Q5)."""
+    listed: dict[str, str] = {}
+    for sheet in STRUCTURAL:
+        if sheet.number is not None:
+            listed.setdefault(sheet.number, sheet.title)
+    listed["S-13"] = "SHEAR WALL DETAILS"
+    return list(listed.items())
 
 
 def ask_five(demo: Demo, code: str, project_id: uuid.UUID) -> None:
@@ -175,12 +186,8 @@ def bokul_held(demo: Demo) -> None:
     """A held file on BP-02 whose `file_misread` Question Nusrat Jahan answered: read anyway."""
     code = "BP-02"
     project_id = demo[f"project:{code}"]
-    held = added(demo, code, project_id, "BP-ARC-old.dwg", invented("dwg", "BP-ARC-old"))
-    disagree = agree_codes.DISAGREE(items=96, only_first=80, only_second=16, kinds=1, layers=2, unread=0)
-    drawings.record_reports(
-        held.id, cross_check=CheckResult(DECODERS_AGREE, CheckOutcome.FIRED, finding=disagree)
-    )
-    drawings.quarantine(held.id, disagree)
+    held = drawings.file(demo[f"file:{code}:BP-ARC-old.dwg"])
+    disagree = demo[f"finding:{code}:BP-ARC-old.dwg"]
     question_id = step1.raise_question(
         project_id,
         "file_misread",

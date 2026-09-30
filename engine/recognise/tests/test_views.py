@@ -2,13 +2,14 @@
 mechanics only, never a reading (docs/sdlc.md)."""
 
 import math
+from dataclasses import replace
 
 import numpy as np
 import pytest
 
 from engine.geometry.placement import chain, chain_transform
 from engine.recognise import sheets, views
-from engine.recognise.tests.drawing import DEFAULT, Sheets, W, frame_block, value_at
+from engine.recognise.tests.drawing import DEFAULT, H, Sheets, W, frame_block, rectangle, value_at
 from engine.recognise.types import (
     Box,
     Exclusion,
@@ -69,6 +70,13 @@ def model_sheet(
     return d, found[0]
 
 
+def drawn(d: Sheets, sheet: SheetCandidate) -> list[ViewCandidate]:
+    """The sheet's views but its title block (every framed sheet has one)."""
+    return [
+        v for v in views.find(d.artefact(), sheet, CONVENTIONS) if v.kind is not ViewKind.TITLE_BLOCK
+    ]
+
+
 def near(a: Box, b: tuple[float, float, float, float], by: float = 2.0) -> bool:
     return all(abs(p - q) <= by for p, q in zip(a.to_json(), b, strict=True))
 
@@ -78,7 +86,7 @@ def near(a: Box, b: tuple[float, float, float, float], by: float = 2.0) -> bool:
 
 def test_a_model_space_views_box_is_on_paper_in_mm_from_the_frames_corner() -> None:
     d, sheet = model_sheet([("GROUND FLOOR BEAM LAYOUT PLAN", (40, 300, 340, 560))], scale=50.0)
-    (view,) = views.find(d.artefact(), sheet, CONVENTIONS)
+    (view,) = drawn(d, sheet)
     assert view.kind is ViewKind.PLAN
     assert view.title == "GROUND FLOOR BEAM LAYOUT PLAN"
     assert near(view.box, (40, 288, 340, 560))
@@ -110,23 +118,65 @@ def test_a_layout_sheets_views_seen_through_a_viewport_are_placed_on_its_paper()
     )  # fmt: skip
     found = sheets.find(d.artefact(), "structural", DEFAULT)
     (sheet,) = [s for s in found if s.location.layout == "S-02"]
-    (view,) = views.find(d.artefact(), sheet, CONVENTIONS)
+    (view,) = drawn(d, sheet)
     assert view.title == "1ST FLOOR SLAB LAYOUT PLAN"
     assert view.storeys == ("floor_1",)
     # model (0, 0) lands at (250 - 150, 300 - 90) on paper; the title's baseline 12 mm under it
     assert near(view.box, (100, 198, 400, 410))
 
 
-def test_the_frame_and_its_title_block_are_no_view() -> None:
+def test_the_title_block_is_a_view_proposed_out_for_information_and_no_other_views() -> None:
     d, sheet = model_sheet([("COLUMN LAYOUT PLAN", (40, 300, 340, 560))], title="COLUMN LAYOUT PLAN")
     found = views.find(d.artefact(), sheet, CONVENTIONS)
-    assert [v.title for v in found] == ["COLUMN LAYOUT PLAN"]
-    assert all(v.box.x1 < 0.8 * W for v in found)
+    assert [v.kind for v in found] == [ViewKind.PLAN, ViewKind.TITLE_BLOCK]  # last, out of the rows
+    plan, block = found
+    assert plan.title == "COLUMN LAYOUT PLAN"
+    assert plan.box.x1 < 0.8 * W
+    # the title-block strip, bounded by its ruled border and the frame's (frame_block)
+    assert near(block.box, (0.8 * W, 0, W, H), by=0.5)
+    assert block.title is None
+    assert block.steps == ()
+    assert block.part is None
+    assert block.exclusion == Exclusion(ExclusionReason.FOR_INFORMATION)
+    assert views.working_view(found) == 0
+
+
+def test_a_title_block_ruled_in_pieces_is_bounded_by_its_nearest_rules() -> None:
+    """A title block in the lower-right corner, its border drawn as loose lines in pieces, and a rule
+    between its cells: its box is the corner the frame's and its rules bound, not a cell of it."""
+    d = Sheets()
+    block = d.block("CORNER", (0.0, 0.0, 0.0))
+    d.entity("LWPOLYLINE", rectangle(0, 0, W, H), owner=block)
+    for i, label in enumerate(("SHEET TITLE", "SCALE", "SHEET NO", "DATE")):
+        d.text(label, (0.6 * W + 10.0, 180.0 - 40.0 * i, 0.0), height=3.0, owner=block)
+    d.insert(block)
+    d.line((0.6 * W, 0), (0.6 * W, 120))  # its left border in two pieces
+    d.line((0.6 * W, 120), (0.6 * W, 200))
+    d.line((0.6 * W, 200), (0.7 * W, 200))  # its top border in two pieces
+    d.line((0.7 * W, 200), (W, 200))
+    d.line((0.6 * W, 100), (W, 100))  # a rule between its cells
+    d.text("GENERAL ARRANGEMENT", (0.6 * W + 12.0, 165.0, 0.0), height=5.0)
+    d.text("S-01", (0.6 * W + 12.0, 85.0, 0.0), height=5.0)
+    grid(d, (40, 300, 340, 560))
+    d.text("BEAM LAYOUT PLAN", (40, 288, 0.0), height=6.0)
+    d.text("DETAIL", (0.6 * W + 12.0, 120.0, 0.0), height=6.0)  # a loose word in the title block
+    (sheet,) = sheets.find(d.artefact(), "structural", DEFAULT)
+    found = views.find(d.artefact(), sheet, CONVENTIONS)
+    assert [v.kind for v in found] == [ViewKind.PLAN, ViewKind.TITLE_BLOCK]
+    assert near(found[1].box, (0.6 * W, 0, W, 200), by=0.5)
+    assert found[0].title == "BEAM LAYOUT PLAN"
+    assert found[0].box.x1 < 0.6 * W
+
+
+def test_a_sheet_with_no_title_block_text_has_no_title_block_view() -> None:
+    ruled = np.array([[0, 0, W, 0], [0, H, W, H], [0.8 * W, 0, 0.8 * W, H]], dtype=np.float64)
+    paper = views._Paper((0.0, 0.0, W, H), ruled, [], frame=ruled)
+    assert views._title_block(paper) is None
 
 
 def test_a_view_with_no_title_is_a_plan_when_it_is_large_and_nothing_when_small() -> None:
     d, sheet = model_sheet([(None, (40, 300, 340, 560)), (None, (400, 40, 420, 60))])
-    (view,) = views.find(d.artefact(), sheet, CONVENTIONS)
+    (view,) = drawn(d, sheet)
     assert view.kind is ViewKind.PLAN
     assert view.title is None
     assert view.storeys == ()
@@ -140,7 +190,7 @@ def test_a_scale_on_the_titles_line_is_the_views_stated_scale() -> None:
         [("BEAM DETAIL", (40, 300, 340, 560)), ("STAIR SECTION", (400, 300, 640, 560))],
         notes=(("SCALE 1:20", (280, 288), 3.0), ("N.T.S.", (600, 288), 3.0)),
     )
-    found = {v.title: v for v in views.find(d.artefact(), sheet, CONVENTIONS)}
+    found = {v.title: v for v in drawn(d, sheet)}
     assert found["BEAM DETAIL"].stated_scale == "1:20"
     assert not found["BEAM DETAIL"].not_to_scale
     assert found["STAIR SECTION"].stated_scale == "N.T.S."
@@ -190,7 +240,7 @@ def test_a_column_plans_storeys_run_floor_to_floor_and_a_beam_plans_are_at_floor
             ("2ND & 4TH FLOOR BEAM LAYOUT PLAN", (400, 300, 640, 560)),
         ]
     )
-    column, beam = views.find(d.artefact(), sheet, CONVENTIONS)
+    column, beam = drawn(d, sheet)
     assert column.storeys == ("ground", "floor_1", "floor_2", "floor_3")
     assert column.storeys_meaning is StoreysMeaning.FLOOR_TO_FLOOR
     assert beam.storeys == ("floor_2", "floor_4")
@@ -209,7 +259,7 @@ def test_views_are_read_in_rows_top_to_bottom_each_left_to_right() -> None:
             ("BEAM DETAIL", (400, 60, 640, 230)),
         ]
     )
-    titles = [v.title for v in views.find(d.artefact(), sheet, CONVENTIONS)]
+    titles = [v.title for v in drawn(d, sheet)]
     assert titles == ["BEAM LAYOUT PLAN", "SECTION 1-1", "BEAM SCHEDULE", "BEAM DETAIL"]
 
 
@@ -316,7 +366,7 @@ def test_a_layout_the_file_does_not_hold_has_no_views() -> None:
 def test_the_frame_rectangle_is_read_at_every_scale() -> None:
     for scale in (1.0, 20.0, 100.0):
         d, sheet = model_sheet([("BEAM LAYOUT PLAN", (40, 300, 340, 560))], scale=scale)
-        (found,) = views.find(d.artefact(), sheet, CONVENTIONS)
+        (found,) = drawn(d, sheet)
         assert near(found.box, (40, 288, 340, 560)), (scale, found.box)
         assert math.isclose(found.box.x1 - found.box.x0, 300, abs_tol=2)
 
@@ -331,14 +381,14 @@ def test_a_divider_between_rows_of_views_joins_nothing() -> None:
         ]
     )
     d.line((10_000.0 + 20 * 50, 284 * 50), (10_000.0 + 660 * 50, 284 * 50))  # 640 mm, 4 mm off a view
-    found = views.find(d.artefact(), sheet, CONVENTIONS)
+    found = drawn(d, sheet)
     assert [v.title for v in found] == ["SECTION 1-1", "SECTION 2-2", "SECTION 3-3"]
     assert near(found[2].box, (40, 48, 300, 280))
 
 
 def test_a_view_with_no_title_takes_the_kind_its_sheet_title_names() -> None:
     d, sheet = model_sheet([(None, (40, 300, 340, 560))], title="COLUMN SCHEDULE")
-    (found,) = views.find(d.artefact(), sheet, CONVENTIONS)
+    (found,) = drawn(d, sheet)
     assert found.kind is ViewKind.SCHEDULE
 
 
@@ -374,7 +424,7 @@ def test_a_notes_line_naming_a_kind_is_no_view_title() -> None:
         ("CONCRETE COVER SHALL BE 40 MM", (400, 490), 6.0),
     )
     d, sheet = model_sheet([("BEAM LAYOUT PLAN", (40, 300, 340, 560))], notes=notes)
-    titles = [v.title for v in views.find(d.artefact(), sheet, CONVENTIONS)]
+    titles = [v.title for v in drawn(d, sheet)]
     assert titles == ["BEAM LAYOUT PLAN"]
 
 
@@ -385,7 +435,7 @@ def test_an_underlined_title_far_under_its_drawing_is_the_drawings() -> None:
     ox, s = 10_000.0, 50.0
     d.text("GROUND FLOOR BEAM LAYOUT PLAN", (ox + 40 * s, 254 * s, 0.0), height=6.0 * s)
     d.line((ox + 40 * s, 252 * s), (ox + 220 * s, 252 * s))  # the underline
-    found = views.find(d.artefact(), sheet, CONVENTIONS)
+    found = drawn(d, sheet)
     (plan,) = [v for v in found if v.kind is ViewKind.PLAN]
     assert plan.title == "GROUND FLOOR BEAM LAYOUT PLAN"
     assert near(plan.box, (40, 252, 340, 560))
@@ -440,13 +490,13 @@ def test_a_layout_past_what_a_float_holds_has_no_views() -> None:
 def test_every_titled_detail_of_a_full_sheet_is_a_view() -> None:
     """Fourteen 50 mm details on an A1 at 1:1 gave six views: the paper's scale factor was shadowed by
     a loop's index, so the size bounds grew with each piece's number."""
-    drawn: list[tuple[str | None, tuple[float, float, float, float]]] = []
+    details: list[tuple[str | None, tuple[float, float, float, float]]] = []
     for i in range(14):
         x, y = 20 + (i % 7) * 90, 60 + (i // 7) * 250
-        drawn.append((f"SECTION {i + 1}-{i + 1}", (x, y, x + 50 + i * 0.5, y + 50 + i * 0.5)))
-    d, sheet = model_sheet(drawn, scale=1.0)
-    found = views.find(d.artefact(), sheet, CONVENTIONS)
-    assert sorted(v.title or "" for v in found) == sorted(t or "" for t, _ in drawn)
+        details.append((f"SECTION {i + 1}-{i + 1}", (x, y, x + 50 + i * 0.5, y + 50 + i * 0.5)))
+    d, sheet = model_sheet(details, scale=1.0)
+    found = drawn(d, sheet)
+    assert sorted(v.title or "" for v in found) == sorted(t or "" for t, _ in details)
 
 
 # Fix round 1 -------------------------------------------------------------------------------------------
@@ -501,7 +551,7 @@ def test_a_layout_frame_off_the_origin_gives_boxes_from_its_lower_left_corner() 
     )  # fmt: skip
     (sheet,) = [s for s in sheets.find(d.artefact(), "structural", DEFAULT) if s.location.layout]
     found = views.find(d.artefact(), sheet, CONVENTIONS)
-    (plan,) = found
+    plan, _ = found
     assert near(plan.box, (100, 198, 400, 410))
     assert found.paper == pytest.approx((W, 594.0), abs=1.0)
 
@@ -551,3 +601,303 @@ def test_the_export_carries_the_files_view_report() -> None:
         conventions_applied=None, process=process, stages={}, view_report={"scan_budget": 2},
     )  # fmt: skip
     assert export._file(reading, {})["view_report"] == {"scan_budget": 2}
+
+
+# Session 07's loop: untitled pieces ----------------------------------------------------------------
+
+
+def one_sheet(d: Sheets) -> SheetCandidate:
+    """The A1 frame at 1:1 in model space around what `d` draws."""
+    framed(d, frame_block(d), (0.0, 0.0), 1.0, {0: "GENERAL ARRANGEMENT", 2: "S-01"})
+    (sheet,) = sheets.find(d.artefact(), "structural", DEFAULT)
+    return sheet
+
+
+def test_a_titles_scale_line_and_second_line_make_it_no_note() -> None:
+    """A title, its scale line and a second title line in a column (three lines alike) is a title, its
+    second line no view's."""
+    d = Sheets()
+    grid(d, (40, 300, 340, 560))
+    d.text("GROUND FLOOR PLAN", (40, 288, 0.0), height=6.0)
+    d.text("NOT TO SCALE", (40, 279, 0.0), height=6.0)
+    d.text("PRESENTATION PLAN", (40, 270, 0.0), height=6.0)
+    found = drawn(d, one_sheet(d))
+    assert [(v.kind, v.title) for v in found] == [(ViewKind.PLAN, "GROUND FLOOR PLAN")]
+    assert found[0].not_to_scale
+
+
+def test_a_drawings_body_over_its_detached_row_is_one_view() -> None:
+    """A plan whose row of grid marks, under it and apart from it, is what its title lies under."""
+    d = Sheets()
+    grid(d, (40, 330, 340, 560))
+    grid(
+        d, (40, 280, 120, 330)
+    )  # a wing, one piece with the body: the body's box runs down past the row
+    for x in (200, 250, 300):  # the detached row of grid marks
+        d.entity("LWPOLYLINE", rectangle(x, 290, x + 26, 316))
+    d.text("COLUMN LAYOUT PLAN", (200, 278, 0.0), height=6.0)
+    found = drawn(d, one_sheet(d))
+    assert [(v.kind, v.title) for v in found] == [(ViewKind.PLAN, "COLUMN LAYOUT PLAN")]
+    assert near(found[0].box, (40, 278, 340, 560))
+
+
+def test_a_large_piece_inside_a_titled_drawings_box_is_that_drawings() -> None:
+    d = Sheets()
+    d.entity("LWPOLYLINE", rectangle(40, 200, 440, 530))  # the drawing's outline (no divider)
+    grid(d, (120, 260, 360, 470))  # inside it, well apart from it
+    d.text("PILE LAYOUT PLAN", (40, 188, 0.0), height=6.0)
+    found = drawn(d, one_sheet(d))
+    assert [(v.kind, v.title) for v in found] == [(ViewKind.PLAN, "PILE LAYOUT PLAN")]
+
+
+def test_a_title_inside_its_drawings_box_near_its_edge_is_the_drawings() -> None:
+    """A section whose ground line runs under and past its title."""
+    d = Sheets()
+    grid(d, (40, 300, 340, 560))
+    d.line((20, 290), (360, 290))  # the ground line
+    d.line((40, 290), (40, 300))
+    d.line((340, 290), (340, 300))
+    d.text("SECTION A-A", (150, 292, 0.0), height=6.0)
+    grid(d, (420, 300, 620, 560))
+    d.line((400, 290), (640, 290))
+    d.line((420, 290), (420, 300))
+    d.text("SECTION B-B", (380, 292, 0.0), height=6.0)  # its start left of its drawing's box
+    found = drawn(d, one_sheet(d))
+    assert [(v.kind, v.title) for v in found] == [
+        (ViewKind.SECTION, "SECTION A-A"),
+        (ViewKind.SECTION, "SECTION B-B"),
+    ]
+
+
+def test_a_titles_second_line_titles_no_drawing_under_it() -> None:
+    d = Sheets()
+    grid(d, (40, 330, 340, 560))
+    d.text("GROUND FLOOR PLAN", (40, 318, 0.0), height=6.0)
+    d.text("PRESENTATION PLAN", (40, 308, 0.0), height=6.0)
+    grid(d, (40, 200, 340, 290))  # an untitled drawing under the title's lines
+    found = drawn(d, one_sheet(d))
+    assert [v.title for v in found] == ["GROUND FLOOR PLAN", None]
+
+
+def test_the_lines_a_title_block_is_bounded_by_are_bounded(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(views, "MAX_RULES", 50)
+    lines = np.array([[0, y, 100, y] for y in range(1_000)], dtype=np.float64)
+    assert len(views._rules(lines, 0, 0.1)) == 50
+    assert len(views._rules(lines, 1, 0.1)) == 0  # none along y
+
+
+def test_a_titled_drawing_takes_no_neighbour_that_is_not_its_body() -> None:
+    """A titled section beside and under a larger drawing with no title (refuter, session 07): two
+    views, the section no row of the other's."""
+    d = Sheets()
+    grid(d, (40, 330, 400, 560))  # the larger drawing, its title not read, with a wing down its left
+    grid(d, (40, 215, 120, 330))
+    grid(d, (200, 200, 400, 300))  # the section, inside the other's box, apart from its lines
+    d.text("TANK SECTION", (200, 188, 0.0), height=6.0)
+    found = drawn(d, one_sheet(d))
+    assert sorted((v.title or "") for v in found) == ["", "TANK SECTION"]
+
+
+def test_a_titles_second_line_is_in_its_views_box() -> None:
+    d = Sheets()
+    grid(d, (40, 330, 340, 560))
+    d.text("GROUND FLOOR PLAN", (40, 318, 0.0), height=6.0)
+    d.text("PRESENTATION PLAN", (40, 308, 0.0), height=6.0)
+    (view,) = drawn(d, one_sheet(d))
+    assert view.box.y0 <= 308.5
+
+
+@pytest.mark.parametrize(
+    ("text", "title"),
+    [
+        ("TYPICAL SECTION\\POF SHOWER", "TYPICAL SECTION OF SHOWER"),
+        ("TYPICAL SECTION\\POF SHOWER\\PAND BASIN", None),  # three lines: a note's
+    ],
+)
+def test_a_title_of_two_lines_at_most_is_a_title(text: str, title: str | None) -> None:
+    d = Sheets()
+    grid(d, (40, 330, 340, 560))
+    d.text(text, (40, 318, 0.0), kind="MTEXT", height=6.0, attachment=1)
+    (view,) = drawn(d, one_sheet(d))
+    assert view.title == title
+
+
+def test_a_titles_lines_under_it_are_in_its_views_box() -> None:
+    """Its scale line and a smaller last line under it (refuter, session 07)."""
+    d = Sheets()
+    grid(d, (40, 330, 340, 560))
+    d.text("GROUND FLOOR PLAN", (40, 318, 0.0), height=6.0)
+    d.text("SCALE 1:100", (40, 308, 0.0), height=6.0)
+    d.text("FOR APPROVAL ONLY", (40, 297, 0.0), height=4.0)
+    (view,) = drawn(d, one_sheet(d))
+    assert view.box.y0 <= 297.5
+
+
+def test_a_notes_heading_keeps_its_lines() -> None:
+    d = Sheets()
+    grid(d, (40, 330, 340, 560))
+    d.text("BEAM LAYOUT PLAN", (40, 318, 0.0), height=6.0)
+    d.text("GENERAL NOTES", (400, 500, 0.0), height=6.0)
+    for i, line in enumerate(("ALL DIMENSIONS IN MM", "CONCRETE GRADE AS SPECIFIED", "COVER 25 MM")):
+        d.text(line, (400, 490 - 10 * i, 0.0), height=5.0)
+    found = drawn(d, one_sheet(d))
+    notes = [v for v in found if v.kind is ViewKind.NOTES]
+    assert len(notes) == 1
+    assert notes[0].box.y0 <= 470.5
+
+
+# Fix round 1 of loop-views: a title block never eats the sheet ---------------------------------
+
+
+def plan_on(d: Sheets) -> None:
+    grid(d, (40, 300, 340, 560))
+    d.text("GROUND FLOOR BEAM LAYOUT PLAN", (40, 288, 0.0), height=6.0)
+
+
+def test_zone_marks_along_the_frames_border_are_no_title_blocks() -> None:
+    """ISO 5457 zone marks inside the border (1 to 8 along the top, A to F down the left side)."""
+    d = Sheets()
+    block = frame_block(d)
+    for i in range(8):
+        d.text(str(i + 1), (40 + i * 100, H - 6, 0.0), height=3.0, owner=block)
+    for i, mark in enumerate("ABCDEF"):
+        d.text(mark, (3, 40 + i * 90, 0.0), height=3.0, owner=block)
+    plan_on(d)
+    sheet = one_sheet_of(d, block)
+    found = views.find(d.artefact(), sheet, CONVENTIONS)
+    assert [v.kind for v in found] == [ViewKind.PLAN, ViewKind.TITLE_BLOCK]
+    assert near(found[1].box, (0.8 * W, 0, W, H), by=0.5)
+
+
+def test_a_name_in_the_frames_far_corner_is_no_title_blocks() -> None:
+    d = Sheets()
+    block = frame_block(d)
+    d.text("ACME CONSULTANTS", (20, H - 20, 0.0), height=5.0, owner=block)
+    plan_on(d)
+    sheet = one_sheet_of(d, block)
+    found = views.find(d.artefact(), sheet, CONVENTIONS)
+    assert [v.kind for v in found] == [ViewKind.PLAN, ViewKind.TITLE_BLOCK]
+    assert near(found[1].box, (0.8 * W, 0, W, H), by=0.5)
+
+
+def test_a_stepped_title_block_keeps_the_detail_beside_it() -> None:
+    """A title block boxed at the lower right, a narrower revision table boxed on it."""
+    d = Sheets()
+    block = d.block("STEPPED", (0.0, 0.0, 0.0))
+    d.entity("LWPOLYLINE", rectangle(0, 0, W, H), owner=block)
+    d.entity("LWPOLYLINE", rectangle(0.6 * W, 0, W, 120), owner=block)
+    d.entity("LWPOLYLINE", rectangle(0.8 * W, 120, W, 200), owner=block)
+    d.text("REV", (0.8 * W + 5, 190, 0.0), height=3.0, owner=block)
+    d.text("SHEET TITLE", (0.6 * W + 5, 110, 0.0), height=3.0, owner=block)
+    d.text("SHEET NO", (0.6 * W + 5, 20, 0.0), height=3.0, owner=block)
+    plan_on(d)
+    grid(d, (60, 60, 300, 180))
+    d.text("PILE CAP DETAIL", (60, 48, 0.0), height=6.0)
+    d.insert(block)
+    d.text("GENERAL ARRANGEMENT", (0.6 * W + 5, 100, 0.0), height=5.0)
+    (sheet,) = sheets.find(d.artefact(), "structural", DEFAULT)
+    found = views.find(d.artefact(), sheet, CONVENTIONS)
+    assert [v.title for v in found if v.kind is not ViewKind.TITLE_BLOCK] == [
+        "GROUND FLOOR BEAM LAYOUT PLAN",
+        "PILE CAP DETAIL",
+    ]
+    (block_view,) = [v for v in found if v.kind is ViewKind.TITLE_BLOCK]
+    assert near(block_view.box, (0.6 * W, 0, W, 120), by=0.5)
+
+
+def test_a_title_block_covering_most_of_the_paper_is_not_read() -> None:
+    """Two values 13 read at opposite corners, no ruled line between: the box would be the paper."""
+    d, sheet = model_sheet([("BEAM LAYOUT PLAN", (40, 300, 340, 560))])
+    paper = views._paper(d.artefact(), sheet)
+    assert paper is not None
+    first, second = (t for t in paper.block if t.placed.entity.handle in paper.values)
+    apart = [
+        replace(first, box=(10.0, 10.0, 20.0, 15.0)),
+        replace(second, box=(W - 20, H - 15, W - 10, H - 10)),
+    ]
+    border = np.array([[0, 0, W, 0], [0, H, W, H], [0, 0, 0, H], [W, 0, W, H]], dtype=np.float64)
+    spread = replace(paper, block=apart, frame=border, segments=np.empty((0, 4)))
+    assert views._title_block(spread) is None
+    assert views._title_block(paper) is not None
+
+
+def one_sheet_of(d: Sheets, block: str) -> SheetCandidate:
+    framed(d, block, (0.0, 0.0), 1.0, {0: "GENERAL ARRANGEMENT", 2: "S-01"})
+    (sheet,) = sheets.find(d.artefact(), "structural", DEFAULT)
+    return sheet
+
+
+def plan_and_detail(d: Sheets, detail: tuple[float, float, float, float]) -> None:
+    plan_on(d)
+    grid(d, detail)
+    d.text("PILE CAP DETAIL", (detail[0], detail[1] - 12, 0.0), height=6.0)
+
+
+def read_block(d: Sheets) -> tuple[list[str | None], Box]:
+    (sheet,) = sheets.find(d.artefact(), "structural", DEFAULT)
+    found = views.find(d.artefact(), sheet, CONVENTIONS)
+    (block_view,) = [v for v in found if v.kind is ViewKind.TITLE_BLOCK]
+    return [v.title for v in found if v.kind is not ViewKind.TITLE_BLOCK], block_view.box
+
+
+def test_a_full_width_title_block_along_the_bottom_is_its_row() -> None:
+    """A strip across the sheet's foot, its cells ruled apart: the frame's texts across, in its row."""
+    d = Sheets()
+    b = d.block("STRIP", (0.0, 0.0, 0.0))
+    d.entity("LWPOLYLINE", rectangle(0, 0, W, H), owner=b)
+    d.entity("LWPOLYLINE", rectangle(0, 0, W, 60), owner=b)
+    for x in (180, 420, 660):
+        d.line((x, 0), (x, 60), owner=b)
+    d.entity("LWPOLYLINE", rectangle(20, 10, 80, 40), owner=b)  # a logo
+    d.text("ACME CONSULTANTS", (90, 30, 0.0), height=5.0, owner=b)
+    d.text("PROJECT", (190, 50, 0.0), height=3.0, owner=b)
+    d.text("SHEET TITLE", (430, 50, 0.0), height=3.0, owner=b)
+    d.text("SHEET NO", (670, 50, 0.0), height=3.0, owner=b)
+    d.text("DATE", (670, 20, 0.0), height=3.0, owner=b)
+    plan_and_detail(d, (400, 300, 700, 500))
+    d.insert(b)
+    d.text("GENERAL ARRANGEMENT", (430, 38, 0.0), height=5.0)
+    d.text("S-01", (670, 38, 0.0), height=5.0)
+    titles, box = read_block(d)
+    assert titles == ["GROUND FLOOR BEAM LAYOUT PLAN", "PILE CAP DETAIL"]
+    assert near(box, (0, 0, W, 60))
+
+
+def test_a_title_block_beside_a_revision_table_in_the_far_corner_is_its_own() -> None:
+    d = Sheets()
+    b = d.block("REVTOP", (0.0, 0.0, 0.0))
+    d.entity("LWPOLYLINE", rectangle(0, 0, W, H), owner=b)
+    d.entity("LWPOLYLINE", rectangle(0.7 * W, 0, W, 120), owner=b)
+    d.entity("LWPOLYLINE", rectangle(0.8 * W, H - 80, W, H), owner=b)
+    d.text("REVISIONS", (0.8 * W + 5, H - 10, 0.0), height=3.0, owner=b)
+    d.text("SHEET TITLE", (0.7 * W + 5, 110, 0.0), height=3.0, owner=b)
+    d.text("SHEET NO", (0.7 * W + 5, 30, 0.0), height=3.0, owner=b)
+    plan_and_detail(d, (0.72 * W, 200, 0.95 * W, 400))
+    d.insert(b)
+    d.text("GENERAL ARRANGEMENT", (0.7 * W + 5, 98, 0.0), height=5.0)
+    d.text("S-01", (0.7 * W + 5, 18, 0.0), height=5.0)
+    titles, box = read_block(d)
+    assert titles == ["GROUND FLOOR BEAM LAYOUT PLAN", "PILE CAP DETAIL"]
+    assert near(box, (0.7 * W, 0, W, 120))
+
+
+def test_a_title_block_beside_frame_notes_along_the_foot_is_its_own() -> None:
+    d = Sheets()
+    b = d.block("LR2", (0.0, 0.0, 0.0))
+    d.entity("LWPOLYLINE", rectangle(0, 0, W, H), owner=b)
+    d.entity("LWPOLYLINE", rectangle(W - 180, 0, W, 60), owner=b)
+    d.line((W - 90, 0), (W - 90, 60), owner=b)
+    d.text("SHEET TITLE", (W - 175, 52, 0.0), height=3.0, owner=b)
+    d.text("SHEET NO", (W - 85, 52, 0.0), height=3.0, owner=b)
+    d.text("DRAWN", (W - 175, 20, 0.0), height=3.0, owner=b)
+    d.text("CHECKED", (W - 85, 20, 0.0), height=3.0, owner=b)
+    notes = ("DO NOT SCALE", "DIMENSIONS IN MILLIMETRES", "COPYRIGHT RESERVED", "RECYCLED PAPER")
+    for i, note in enumerate(notes):
+        d.text(note, (10 + 150 * i, 15, 0.0), height=2.5, owner=b)
+    plan_and_detail(d, (400, 300, 700, 500))
+    d.insert(b)
+    d.text("GENERAL ARRANGEMENT", (W - 175, 40, 0.0), height=5.0)
+    d.text("S-01", (W - 85, 40, 0.0), height=5.0)
+    titles, box = read_block(d)
+    assert titles == ["GROUND FLOOR BEAM LAYOUT PLAN", "PILE CAP DETAIL"]
+    assert near(box, (W - 180, 0, W, 60))
