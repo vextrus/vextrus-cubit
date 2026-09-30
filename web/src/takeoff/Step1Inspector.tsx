@@ -20,7 +20,7 @@ import { QuestionGlyph } from '@/ui/glyphs'
 import { SheetName } from './acts'
 import { SheetRange } from './SheetRange'
 import type { CoverageOut, ProposalOut, ViewOut } from './data'
-import { listSheet, type DisciplineSection, type QuestionEntry, type Row, type Step1Model } from './model'
+import { NOTES_STEP, STEP_DISCIPLINES, listSheet, type DisciplineSection, type QuestionEntry, type Row, type Step1Model } from './model'
 import { Answering, CannotAnswer, Copy, OptionWords, QuestionBody, QuestionTitle, Trace, optionsOf, useKindLine, usePick, usePickSources, type CardContext } from './questionWords'
 import { disciplineName } from './SheetList'
 import { NOT_RECEIVED_NAMES, OTHER_DISCIPLINE, OTHER_VIEW_KIND, REASON_SHORT, ROLE_NAMES, STEP_KEYS, STOREY_MEANINGS, UNKNOWN_REASON, VIEW_KINDS } from './words'
@@ -400,7 +400,9 @@ function ViewChips({ view, confirmed }: { view: ViewOut; confirmed: boolean }) {
       </>
     )
   }
-  const steps = view.steps
+  // A Structural or Architectural Part (a legend) is Step 2's Notes, not an MEP Part for M3.
+  const notes = view.part !== null && STEP_DISCIPLINES.has(view.part) && !view.steps.some((k) => k === String(NOTES_STEP) || k === STEP_KEYS[NOTES_STEP - 1])
+  const steps = [...view.steps, ...(notes ? [String(NOTES_STEP)] : [])]
     .map((key) => {
       const n = /^\d+$/.test(key) ? Number(key) : (STEP_KEYS as readonly string[]).indexOf(key) + 1
       const step = TAKEOFF_STEPS[n - 1]
@@ -413,7 +415,7 @@ function ViewChips({ view, confirmed }: { view: ViewOut; confirmed: boolean }) {
         <Trans>no step: unaccounted</Trans>
       </span>
     )
-  const part = view.part ? disciplineName(view.part, i18n) : null
+  const part = view.part && !STEP_DISCIPLINES.has(view.part) ? disciplineName(view.part, i18n) : null
   return (
     <>
       {steps.map((s) => (
@@ -733,7 +735,8 @@ export function QuestionsTab({ model, readOnly, onOpen }: { model: Step1Model; r
 /** A key of Coverage's `by_step`: a Takeoff Step's number ("5 Foundations"), else an MEP Part ("Electrical, M3 onwards"). */
 function StepOrPart({ step }: { step: string }) {
   const { i18n } = useLingui()
-  const found = /^\d+$/.test(step) ? TAKEOFF_STEPS.find((s) => s.number === Number(step)) : undefined
+  const n = STEP_DISCIPLINES.has(step) ? NOTES_STEP : /^\d+$/.test(step) ? Number(step) : null
+  const found = n === null ? undefined : TAKEOFF_STEPS.find((s) => s.number === n)
   if (found) {
     const number = found.number
     const name = i18n._(found.name)

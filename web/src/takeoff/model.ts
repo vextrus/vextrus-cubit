@@ -9,6 +9,12 @@ import type { DrawingListOut, ProposalOut, QuestionOut, Step1Data } from './data
 /** The Takeoff's order of Disciplines (ADR 0040): Structural, Architectural, then each MEP one. */
 export const DISCIPLINE_ORDER = ['structural', 'architectural', 'electrical', 'plumbing', 'fire', 'mechanical', 'lift', 'gas'] as const
 
+/** The Disciplines Steps 1–13 take off (ADR 0040); every other one is an MEP Part, taken off from M3. */
+export const STEP_DISCIPLINES: ReadonlySet<string> = new Set(DISCIPLINE_ORDER.slice(0, 2))
+
+/** Where a view's Part goes: a Structural or Architectural sheet's own drawing (a legend) goes to Step 2's Notes. */
+export const NOTES_STEP = 2
+
 function disciplineRank(key: string | null): number {
   if (key === null) return Number.MAX_SAFE_INTEGER
   const i = (DISCIPLINE_ORDER as readonly string[]).indexOf(key)

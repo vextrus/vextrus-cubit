@@ -295,6 +295,23 @@ describe('M12: a title that states its storeys never reads "not stated"', () => 
   })
 })
 
+describe('M13: a Structural legend goes to Step 2, not to M3', () => {
+  it('reads "2 Notes" for S-01’s legend and "Electrical, M3 onwards" only for an MEP Part', async () => {
+    const { api, step1 } = kr01()
+    const view = (id: string, part: string) => ({ id, ordinal: 1, kind: 'legend', title: 'LEGEND', stated_scale: '', not_to_scale: true, storeys: [], storeys_as_stated: '', storeys_meaning: null, steps: [], part, proposed_exclusion: null, decision: null, excluded_reason: null, box: ['0', '0', '1', '1'] })
+    Object.assign(step1.proposals.find((p) => p.number === 'S-01')!, { views: [view('l1', 'structural')] })
+    Object.assign(step1.proposals.find((p) => p.number === 'S-02')!, { views: [view('l2', 'electrical')] })
+    await open(api)
+    const facts = () => clean(inspector().textContent)
+    await focusRow('S-01')
+    await waitFor(() => expect(facts()).toContain('Views (1)'))
+    expect(facts()).toContain('2 Notes')
+    expect(facts()).not.toContain('M3 onwards')
+    await focusRow('S-02')
+    await waitFor(() => expect(facts()).toContain('Electrical, M3 onwards'))
+  })
+})
+
 describe('M9: focus is visible on the list’s rows', () => {
   it('draws an outline on the row ↓ focuses', async () => {
     const { api } = kr01()
