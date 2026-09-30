@@ -1491,33 +1491,35 @@ def _widest_cut(
     the parts meet, (the titles below it, those above it))` as indices into `titles`, else None. A
     title's side is its centre's; in a band across, it is the drawing's over it (a title stands under
     its drawing)."""
-    if len(lines) < 2:
+    if len(lines) < 2 or len(titles) < 2:
         return None
-    best: tuple[float, int, float, tuple[list[int], list[int]]] | None = None
+    centres = np.array([_centre(t) for t in titles], dtype=np.float64)
+    best: tuple[float, int, float] | None = None
     for axis in (0, 1):
         lo = np.minimum(lines[:, axis], lines[:, axis + 2])
         hi = np.maximum(lines[:, axis], lines[:, axis + 2])
-        at_ = np.concatenate([hi, lo])
+        at = np.concatenate([hi, lo])
         step = np.concatenate([-np.ones(len(hi)), np.ones(len(lo))])  # ends before starts at a tie
-        order = np.lexsort((step, at_))
-        at_, count = at_[order], np.cumsum(step[order])
+        order = np.lexsort((step, at))
+        at, count = at[order], np.cumsum(step[order])
         thin = count[:-1] <= CUT_CROSSINGS  # between one event and the next
         edges = np.flatnonzero(np.diff(np.concatenate([[0], thin.astype(np.int8), [0]])))
-        for first, stop in zip(edges[::2], edges[1::2], strict=True):
-            if first == 0 or stop == len(at_) - 1:
-                continue  # a band at the lines' edge parts nothing from them
-            start, end = float(at_[first]), float(at_[stop])
-            if end - start < width or (best is not None and end - start <= best[0]):
-                continue
-            middle = (start + end) / 2
-            edge = middle if axis == 0 else start
-            low = [i for i, t in enumerate(titles) if _centre(t)[axis] < edge]
-            high = [i for i, t in enumerate(titles) if _centre(t)[axis] >= edge]
-            if low and high:
-                best = (end - start, axis, middle, (low, high))
+        first, stop = edges[::2], edges[1::2]
+        inner = (first > 0) & (stop < len(at) - 1)  # a band at the lines' edge parts nothing
+        start, end = at[first[inner]], at[stop[inner]]
+        edge = (start + end) / 2 if axis == 0 else start  # a title in a band across is its drawing's
+        low, high = centres[:, axis].min(), centres[:, axis].max()
+        valid = (end - start >= width) & (low < edge) & (edge <= high)
+        if valid.any():
+            i = int(np.argmax(np.where(valid, end - start, -np.inf)))
+            if best is None or end[i] - start[i] > best[0]:
+                best = (float(end[i] - start[i]), axis, float((start[i] + end[i]) / 2))
     if best is None:
         return None
-    return best[1], best[2], best[3]
+    _, axis, middle = best
+    edge = middle if axis == 0 else middle - best[0] / 2
+    below = [i for i in range(len(titles)) if centres[i, axis] < edge]
+    return axis, middle, (below, [i for i in range(len(titles)) if centres[i, axis] >= edge])
 
 
 def _bounds4(values: Sequence[float]) -> Bounds:

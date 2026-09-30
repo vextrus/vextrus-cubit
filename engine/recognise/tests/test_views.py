@@ -1003,3 +1003,15 @@ def test_a_piece_that_cannot_be_cut_is_its_tallest_titles() -> None:
     (view,) = drawn(d, sheet)
     assert view.title == "LONG SECTION OF BEAM B1"
     assert view.box.x1 >= 370
+
+
+def test_the_lines_a_sheets_cuts_weigh_are_bounded(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Past `MAX_CUT_WEIGHS` nothing more is cut: the shared piece is one drawing again."""
+    monkeypatch.setattr(views, "MAX_CUT_WEIGHS", 5)
+    d, sheet = labelled_sections(
+        [("LONG SECTION OF BEAM B1", (40, 300, 300, 380)), ("SECTION 1-1", (330, 300, 370, 380))],
+        LABELS_ACROSS,
+    )
+    (view,) = drawn(d, sheet)
+    assert view.box.x0 == pytest.approx(40, abs=1)
+    assert view.box.x1 >= 370
