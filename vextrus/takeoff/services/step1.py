@@ -343,7 +343,7 @@ def _agreeing(
         keys = Counter(numbers.key(s.number, discipline) for s in everyone if s.number)
         mine = [s for s in everyone if s.number and keys[numbers.key(s.number, discipline)] == 1]
         lists = _lists(project_id, discipline)
-        standing = lists.given or lists.read
+        standing = lists.standing
         if standing is not None and not lists.disagree:
             listed = {numbers.key(n, discipline) for n in _numbers(standing)}
             second = {s.id for s in mine if s.number and numbers.key(s.number, discipline) in listed}
@@ -566,16 +566,29 @@ class _Lists:
 
     @property
     def count(self) -> int | None:
-        standing = self.given or self.read
+        standing = self.standing
         if standing is None:
             return None
         return RegisterEntry.objects.filter(register=standing).count()
 
+    settled: str | None = None
+    """The QS's answer to the two lists' Question, while it stands: `use_read` or `use_given`."""
+
     @property
-    def disagree(self) -> bool:
+    def differ(self) -> bool:
         if self.given is None or self.read is None:
             return False
         return _numbers(self.given) != _numbers(self.read)
+
+    @property
+    def disagree(self) -> bool:
+        return self.differ and self.settled is None
+
+    @property
+    def standing(self) -> DrawingRegister | None:
+        if self.settled == "use_read":
+            return self.read or self.given
+        return self.given or self.read
 
 
 def _standing(project_id: uuid.UUID, discipline: str, sources: Iterable[str]) -> DrawingRegister | None:
@@ -591,7 +604,21 @@ def _standing(project_id: uuid.UUID, discipline: str, sources: Iterable[str]) ->
 def _lists(project_id: uuid.UUID, discipline: str) -> _Lists:
     given = _standing(project_id, discipline, (RegisterSource.PASTED, RegisterSource.TYPED))
     read = _standing(project_id, discipline, (RegisterSource.SHEET,))
-    return _Lists(given, read)
+    settled = None
+    if given is not None and read is not None:
+        answered = Question.objects.filter(
+            project_id=project_id,
+            question_key=_lists_key(given, read),
+            status=QuestionStatus.ANSWERED,
+        ).first()
+        if answered is not None and isinstance(answered.answer, dict):
+            settled = str(answered.answer.get("option"))
+    return _Lists(given, read, settled)
+
+
+def _lists_key(given: DrawingRegister, read: DrawingRegister) -> str:
+    """The two lists' Question, one per pair of lists (a new list asks again)."""
+    return hashlib.sha256(f"lists:{given.id}:{read.id}".encode()).hexdigest()
 
 
 def _numbers(row: DrawingRegister) -> list[str]:
@@ -602,7 +629,7 @@ def _numbers(row: DrawingRegister) -> list[str]:
     )
 
 
-_MARK_LENGTH = RegisterEntry._meta.get_field("revision_mark").max_length
+_MARK_LENGTH = RegisterEntry._meta.get_field("revision_mark").max_length or 0
 
 
 def _revisions(row: DrawingRegister) -> dict[str, str]:
@@ -712,7 +739,7 @@ def drawing_list(project_id: uuid.UUID, discipline: str) -> ListView:
     projects.get(project_id)
     key = _discipline(discipline)
     lists = _lists(project_id, key)
-    standing = lists.given or lists.read
+    standing = lists.standing
     return ListView(
         discipline=key,
         source=standing.source if standing else None,

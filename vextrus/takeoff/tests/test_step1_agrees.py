@@ -14,7 +14,7 @@ from django.utils import timezone
 
 from engine.messages import Message
 from vextrus.drawings import services as drawings
-from vextrus.takeoff.models import QuestionKind
+from vextrus.takeoff.models import Question, QuestionKind
 from vextrus.takeoff.services import step1
 from vextrus.testing.auth import api_as
 from vextrus.testing.drawings import QsProject, add, drawing, read_dwg
@@ -51,6 +51,40 @@ def test_two_lists_that_disagree_leave_every_sheet_with_one_source(step1_project
         step1.set_list(step1_project.project_id, "structural", "S-01 to S-04", actor_name="QS")
 
     assert set(agrees(step1_project).values()) == {False}
+
+
+def test_an_answered_lists_question_lets_sheets_agree_against_the_chosen_list(
+    step1_project: Step1Project,
+) -> None:
+    """The ruling on 21c's review: once the QS answers the two lists' Question (`use_read` or
+    `use_given`, 21c's `_lists`), the lists no longer disagree and each sheet is read against the list
+    chosen. Here the read list names S-01 and S-02, the typed one S-01 to S-04; the QS keeps the read
+    one."""
+    project_id = step1_project.project_id
+    with step1_project.member.acting():
+        step1.record_read_list(
+            step1_project.sheets[0], "structural", [("S-01", "NOTES"), ("S-02", "PLAN")]
+        )
+        step1.set_list(project_id, "structural", "S-01 to S-04", actor_name="QS")
+    assert set(agrees(step1_project).values()) == {False}
+    with step1_project.member.acting():
+        lists = step1._lists(project_id, "structural")
+        assert lists.given is not None
+        assert lists.read is not None
+        asked = step1.raise_question(
+            project_id,
+            QuestionKind.CONFLICT,
+            Message(code="takeoff.step1.lists_disagree", params={}),
+            discipline="structural",
+        )
+        Question.objects.filter(id=asked).update(question_key=step1._lists_key(lists.given, lists.read))
+        step1.answer_question(project_id, asked, {"option": "use_read"})
+
+    assert agrees(step1_project) == {"S-01": True, "S-02": True, "S-03": False}
+    held = api_as(step1_project.member).get(
+        f"/api/projects/{project_id}/takeoff/step1/drawing-list", discipline="structural"
+    )
+    assert (held.json()["agrees"], held.json()["numbers"]) == (True, ["S-01", "S-02"])
 
 
 def test_a_sheet_in_an_open_question_does_not_agree(step1_project: Step1Project) -> None:
