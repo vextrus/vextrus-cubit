@@ -245,15 +245,13 @@ STRUCTURAL_STEPS: Mapping[str, tuple[str, ...]] = {
     "column": ("columns",),
     "shear_wall": ("columns",),
     "beam": ("beams",),
-    "lintel": ("beams",),
     "slab": ("slabs",),
-    "sunshade": ("slabs",),
     "stair": ("stairs",),
     "tank": ("tanks",),
     "grid": ("grid",),
 }
-"""Steps 4 to 10 (the grid, then foundations to tanks) by a Structural view's subject: a lintel is a
-beam over an opening, a sunshade (chajja) a cantilever slab."""
+"""Steps 4 to 10 (the grid, then foundations to tanks) by a Structural view's subject (the subject
+words make a lintel a beam over an opening and a sunshade, or chajja, a cantilever slab)."""
 ARCHITECTURAL_STEPS = ("walls", "rooms")
 """Steps 11 and 12: walls and openings, rooms and finishes."""
 STRUCTURE_SUBJECTS = frozenset({"column", "beam", "shear_wall"})

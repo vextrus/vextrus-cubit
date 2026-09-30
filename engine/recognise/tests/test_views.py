@@ -390,8 +390,8 @@ def test_a_structural_sheet_kind_names_its_steps(kind: str, steps: tuple[str, ..
         ("U.G.W.R DETAILS", {"tank"}),
         ("UGWR SECTION", {"tank"}),
         ("OVERHEAD WATER TANK DETAILS", {"tank"}),
-        ("LINTEL & SUNSHADE DETAILS", {"lintel", "sunshade"}),
-        ("SECTION OF CHAJJA", {"sunshade"}),
+        ("LINTEL & SUNSHADE DETAILS", {"beam", "slab"}),
+        ("SECTION OF CHAJJA", {"slab"}),
     ],
 )
 def test_the_subject_words_of_tanks_lintels_and_sunshades(title: str, named: set[str]) -> None:
@@ -399,7 +399,10 @@ def test_the_subject_words_of_tanks_lintels_and_sunshades(title: str, named: set
 
 
 def test_a_detail_on_a_lintel_and_sunshade_sheet_goes_to_beams_and_slabs() -> None:
-    steps, _, _ = views._proposal(ViewKind.DETAIL, None, "structural", ("lintel", "sunshade"))
+    on_sheet = views._subjects_in_order(
+        "LINTEL, SUNSHADE & TYPICAL DETAILS", views._reading(CONVENTIONS)
+    )
+    steps, _, _ = views._proposal(ViewKind.DETAIL, None, "structural", on_sheet)
     assert steps == ("beams", "slabs")
 
 
