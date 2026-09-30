@@ -1,6 +1,9 @@
 """17's plan boxes (session 08's scored loop): what a plan's box takes in, on invented A1 sheets at 1:1,
 proving mechanics only, never a reading (docs/sdlc.md)."""
 
+import pytest
+
+from engine.recognise import views
 from engine.recognise.tests.drawing import Sheets
 from engine.recognise.tests.test_views import drawn, grid, near, one_sheet
 from engine.recognise.types import ViewKind
@@ -74,3 +77,20 @@ def test_a_plan_takes_no_notes_its_grid_lines_run_into() -> None:
     found = drawn(d, one_sheet(d))
     assert [v.kind for v in found] == [ViewKind.PLAN, ViewKind.NOTES]
     assert found[0].box.x1 < found[1].box.x0
+
+
+def test_a_plan_grows_along_at_most_its_longest_grid_lines_per_round(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A hostile sheet may rule any number of long lines across a plan: a round weighs only the
+    longest `MAX_REACH_LINES`, and there are at most `MAX_REACH_ROUNDS` rounds."""
+    monkeypatch.setattr(views, "MAX_REACH_LINES", 2)
+    monkeypatch.setattr(views, "MAX_REACH_ROUNDS", 1)
+    d = Sheets()
+    grid(d, (100, 250, 500, 500))
+    d.text("FIRST FLOOR PLAN", (100, 238, 0.0), height=6.0)
+    d.line((100, 300), (650, 300))  # 550 mm, the longest
+    d.line((90, 350), (620, 350))  # 530 mm
+    d.line((60, 400), (570, 400))  # 510 mm, reaching farthest left: not weighed
+    (plan,) = drawn(d, one_sheet(d))
+    assert near(plan.box, (90, 238, 650, 500))

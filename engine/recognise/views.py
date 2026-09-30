@@ -185,6 +185,10 @@ JOIN_MM = 10.0
 DIVIDER_SHARE = 0.6
 """A straight line along the paper's axes this share of the paper's side or longer is a border or a
 divider between views (the real sets rule rows of details apart), never a view's drawing."""
+MAX_REACH_LINES = 64
+"""The most grid lines, the longest first, a plan's box is grown along per round."""
+MAX_REACH_ROUNDS = 4
+"""The most rounds of plans growing along their grid lines (a grown box meets more of them)."""
 PLAN_MARK_MM = 25.0
 """A plan's marks set off its drawing (a section's cut arrows, a grid bubble past its line's end) stand
 within this of it on paper, in mm, and are no longer than this."""
@@ -1412,20 +1416,32 @@ def _plans_reach(
             views.remove(v)
         return True
 
-    for _ in range(len(views)):  # each round takes a view whole, or ends
+    # a line along x as (at, lo, hi, x?): where it stands across, and its ends along
+    ruled = np.concatenate(
+        [
+            np.stack([across[:, 1], across[:, [0, 2]].min(1), across[:, [0, 2]].max(1)], axis=1),
+            np.stack([down[:, 0], down[:, [1, 3]].min(1), down[:, [1, 3]].max(1)], axis=1),
+        ]
+    )
+    along_x = np.arange(len(ruled)) < len(across)
+    for _ in range(MAX_REACH_ROUNDS):  # a round that grows no box ends it
         grown = False
         for view in sorted(views, key=lambda v: v.title is None):
             if view.kind is not ViewKind.PLAN or not any(view is v for v in views):
                 continue
             x0, y0, x1, y1 = view.box
-            for s in across:
-                lo, hi = min(s[0], s[2]), max(s[0], s[2])
-                if y0 <= s[1] <= y1 and lo <= x1 and x0 <= hi:
-                    grown |= grow(view, _union(view.box, (lo, s[1], hi, s[1])), take=True)
-            for s in down:
-                lo, hi = min(s[1], s[3]), max(s[1], s[3])
-                if x0 <= s[0] <= x1 and lo <= y1 and y0 <= hi:
-                    grown |= grow(view, _union(view.box, (s[0], lo, s[0], hi)), take=True)
+            lo_at = np.where(along_x, y0, x0)
+            hi_at = np.where(along_x, y1, x1)
+            lo_box = np.where(along_x, x0, y0)
+            hi_box = np.where(along_x, x1, y1)
+            at, lo, hi = ruled[:, 0], ruled[:, 1], ruled[:, 2]
+            crossing = (lo_at <= at) & (at <= hi_at) & (lo <= hi_box) & (lo_box <= hi)
+            reaching = np.flatnonzero(crossing & ((lo < lo_box) | (hi > hi_box)))
+            reaching = reaching[np.argsort(lo[reaching] - hi[reaching], kind="stable")]
+            for k in reaching[:MAX_REACH_LINES].tolist():
+                at_k, lo_k, hi_k = (float(v) for v in ruled[k])
+                line = (lo_k, at_k, hi_k, at_k) if along_x[k] else (at_k, lo_k, at_k, hi_k)
+                grown |= grow(view, _union(view.box, line), take=True)
         if not grown:
             break
     reach = PLAN_MARK_MM * unit
