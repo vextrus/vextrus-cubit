@@ -88,8 +88,8 @@ export const SheetList = forwardRef<HTMLDivElement, SheetListProps>(function She
           heading={
             <Plural
               value={model.withdrawn.length}
-              one="# Question withdrawn when its sheet was left out: it is answered before the sheet is confirmed back in"
-              other="# Questions withdrawn when their sheets were left out: each is answered before its sheets are confirmed back in"
+              one="# Question withdrawn when its sheet was left out: it needs an answer before the sheet can be confirmed back in"
+              other="# Questions withdrawn when their sheets were left out: each needs an answer before its sheets can be confirmed back in"
             />
           }
           rows={model.withdrawn}
@@ -395,7 +395,7 @@ function State({ row }: { row: Row }) {
     return (
       <span className="inline-flex items-center gap-1.5 text-excluded">
         <StatusMark status="excluded" compact />
-        <Trans>Excluded; Question {tag} withdrawn</Trans>
+        <Trans>Excluded, Question {tag} withdrawn</Trans>
       </span>
     )
   }

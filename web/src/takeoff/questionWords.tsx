@@ -285,7 +285,7 @@ export function Answering({ entry, context }: { entry: QuestionEntry; context: C
   const q = entry.question
   if (entry.withdrawn) {
     const sheet = <SheetName sheets={entry.holds} />
-    return <Trans>Withdrawn when {sheet} was left out. It is answered before {sheet} is confirmed back in.</Trans>
+    return <Trans>Withdrawn when {sheet} was left out. {sheet} can be confirmed back in once this is answered.</Trans>
   }
   if (q.kind === 'file_misread') {
     const file = <FileName entry={entry} names={names} />

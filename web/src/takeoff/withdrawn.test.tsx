@@ -46,9 +46,9 @@ describe('a Question withdrawn by an exclusion', () => {
     const number = () => (active()?.getAttribute('role') === 'row' ? clean(active()!.querySelectorAll('[role="gridcell"]')[1]?.textContent).replace(/\s/g, '') : '')
     for (let i = 0; i < 12 && number() !== 'A-05'; i++) await userEvent.keyboard('{ArrowDown}')
     expect(number()).toBe('A-05')
-    expect(clean(active()!.textContent)).toContain('Excluded; Question Q5 withdrawn')
+    expect(clean(active()!.textContent)).toContain('Excluded, Question Q5 withdrawn')
     await waitFor(() => expect(bodyText()).toContain('Question Q5, withdrawn:'))
-    expect(bodyText()).toContain('Withdrawn when A-05 was left out. It is answered before A-05 is confirmed back in.')
+    expect(bodyText()).toContain('Withdrawn when A-05 was left out. A-05 can be confirmed back in once this is answered.')
     const card = await waitFor(() => {
       const found = [...document.querySelectorAll<HTMLElement>('section[aria-label]')].find((e) => clean(e.getAttribute('aria-label')) === 'Question Q5')
       expect(found).toBeTruthy()
