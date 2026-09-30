@@ -289,10 +289,11 @@ LAUNCHER
   cat > "$tmp/rule" <<RULE
 # Installed by scripts/owner/keys-custody.sh (ticket 24s). $OWNER runs, as $RUN_USER and without a
 # password, the installed real-drawing command (it checks its own arguments); $RUN_USER runs, as
-# $KEY_USER, the poster's \`head\` and \`real-drawings\` on one plain argument, and the scorer on one run id.
+# $KEY_USER, the poster's \`head\` and \`real-drawings\` on one plain argument, and the scorer on one run id;
+# each argument starts with a letter or digit, so it is never an option (issue #107).
 $OWNER ALL=($RUN_USER) NOPASSWD: $RUNNER
-$RUN_USER ALL=($KEY_USER) NOPASSWD: $LIB/post-status ^head [0-9A-Za-z._-]+\$, \\
-  $LIB/post-status ^real-drawings [0-9A-Za-z-]+\$, $SCORER ^[0-9A-Za-z-]+\$
+$RUN_USER ALL=($KEY_USER) NOPASSWD: $LIB/post-status ^head [0-9A-Za-z][0-9A-Za-z._-]*\$, \\
+  $LIB/post-status ^real-drawings [0-9A-Za-z][0-9A-Za-z-]*\$, $SCORER ^[0-9A-Za-z][0-9A-Za-z-]*\$
 RULE
   visudo -cf "$tmp/rule" >/dev/null || die "the rule does not validate; nothing was installed"
   sed 's/^/    /' "$tmp/rule"
@@ -332,9 +333,16 @@ RULE
     "sudo -u $RUN_USER -- sudo -n -u $KEY_USER $SCORER $run_id; [ \$? = 2 ]"
   check "$RUN_USER may ask the poster, as $KEY_USER, which commit GitHub holds for main" \
     "[ \"\$(sudo -u $RUN_USER -- sudo -n -u $KEY_USER $LIB/post-status head main)\" = $github_main ]"
+  # These ask sudo's policy (`-l`), running nothing: a refusal is sudo's, never the program's exit code.
   check "$RUN_USER is refused the poster's design gate" \
-    "! sudo -u $RUN_USER -- sudo -n -u $KEY_USER $LIB/post-status design-gate 1 $github_main --passed 1"
-  check "$RUN_USER is refused the scorer on a path" "! sudo -u $RUN_USER -- sudo -n -u $KEY_USER $SCORER /etc"
+    "! sudo -u $RUN_USER -- sudo -n -l -u $KEY_USER $LIB/post-status design-gate 1 $github_main --passed 1"
+  check "$RUN_USER is refused the scorer on a path" "! sudo -u $RUN_USER -- sudo -n -l -u $KEY_USER $SCORER /etc"
+  check "$RUN_USER is refused the scorer with a lone option" \
+    "! sudo -u $RUN_USER -- sudo -n -l -u $KEY_USER $SCORER --help"
+  check "$RUN_USER is refused the poster's head with an option" \
+    "! sudo -u $RUN_USER -- sudo -n -l -u $KEY_USER $LIB/post-status head --help"
+  check "$RUN_USER is refused the poster's real-drawings with an option" \
+    "! sudo -u $RUN_USER -- sudo -n -l -u $KEY_USER $LIB/post-status real-drawings -x"
   check "$RUN_USER is refused a shell as $KEY_USER" \
     "! sudo -u $RUN_USER -- sudo -n -u $KEY_USER /bin/sh -c true"
   printf '\n  %s passed, %s failed.\n' "$pass" "$fail"
