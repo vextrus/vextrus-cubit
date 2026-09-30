@@ -1198,10 +1198,6 @@ msgstr "{n, plural, one {Confirmed # sheet.} other {Confirmed # sheets.}}"
 msgid "Legend"
 msgstr "Legend"
 
-#: src/takeoff/Step1Screen.tsx
-msgid "{number} {mark}"
-msgstr "{number} {mark}"
-
 #: src/takeoff/words.tsx
 msgid "Sprinkler layout"
 msgstr "Sprinkler layout"

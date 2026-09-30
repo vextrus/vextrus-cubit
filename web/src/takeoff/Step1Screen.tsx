@@ -117,7 +117,7 @@ function useSheetLabel(model: Step1Model) {
     const copies = sheetsInOrder(model).filter((p) => p.number === number && p.discipline === sheet.discipline)
     const mark = sheet.revision_mark.trim()
     if (copies.length < 2 || !mark) return number
-    return /^rev\b|^r\d/i.test(mark) ? t`${number} ${mark}` : t`${number} rev ${mark}`
+    return /^rev\b|^r\d/i.test(mark) ? `${number} ${mark}` : t`${number} rev ${mark}`
   }
 }
 
