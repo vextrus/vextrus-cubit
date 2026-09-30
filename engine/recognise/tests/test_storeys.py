@@ -312,3 +312,28 @@ def test_a_unicode_digit_ordinal_reads_by_one_rule() -> None:
     """Decimal digits of any script are digits (a fullwidth one); a superscript is not one."""
     assert read("\uff11ST FLOOR PLAN").keys == ("floor_1",)
     assert read("²ND FLOOR PLAN").keys == ("not_stated",)
+
+
+@pytest.mark.parametrize(
+    ("title", "keys", "as_stated"),
+    [
+        ("GROUND FLOOR FLOOR FINISH LAYOUT PLAN", ("ground",), "GROUND FLOOR"),
+        ("2ND, 5TH & 6TH FLOOR FLOOR FINISHED LAYOUT PLAN", ("floor_2", "floor_5", "floor_6"),
+         "2ND, 5TH & 6TH FLOOR"),
+        ("ROOF FLOOR FLOOR FINISH PLAN", ("roof",), "ROOF FLOOR"),
+        ("MEZZANINE FLOOR FLOORING DETAILS", ("mezzanine",), "MEZZANINE FLOOR"),
+        # A floor word after a list or range word leads the next storey: still one phrase.
+        ("COLUMN PLAN (1ST FLOOR TO FLOOR 5TH)", floors(1, 5), "1ST FLOOR TO FLOOR 5TH"),
+        ("1ST FLOOR, FLOOR 2ND BEAM LAYOUT", ("floor_1", "floor_2"), "1ST FLOOR, FLOOR 2ND"),
+        ("1ST FLOOR/FLOOR 2ND SLAB", ("floor_1", "floor_2"), "1ST FLOOR/FLOOR 2ND"),
+    ],
+)  # fmt: skip
+def test_a_floor_word_after_the_phrase_s_own_names_the_subject_not_the_storey(
+    title: str, keys: tuple[str, ...], as_stated: str
+) -> None:
+    """A phrase takes one floor word: in "GROUND FLOOR FLOOR FINISH" the second "FLOOR" begins the
+    subject (the floor finish), so the storey is stated as "GROUND FLOOR"."""
+    found = read(title)
+
+    assert found.keys == keys
+    assert found.as_stated == as_stated
