@@ -99,3 +99,116 @@ def test_a_held_file_read_anyway_lists_its_sheets_with_their_questions_once_read
     missing = open_questions(api, qs_project.project_id, "missing")
     assert sorted((q["subject_id"], tuple(q["proposals"])) for q in missing) == numberless
     assert a_file(api, qs_project.project_id, file_id)["sheets_found"] == 3
+
+
+# Round 1 (F2, F3): the file's row and report while it is read again, and a re-read that failed ----
+
+
+def _job_says(monkeypatch: pytest.MonkeyPatch, status: str, *, attempt: int = 1) -> list[int]:
+    """The file's job seen as `status` (the inline runner leaves its queued row as it was); answers
+    the ids `jobs.restart` was asked to run again."""
+    from vextrus.platform.services import jobs
+
+    restarted: list[int] = []
+
+    def state(job_id: int) -> jobs.JobState:
+        return jobs.JobState(job_id, "read_file", status, attempt, 3, {"code": "x", "params": {}})
+
+    def restart(job_id: int) -> int:
+        restarted.append(job_id)
+        return job_id + 1000
+
+    def cancel(job_id: int) -> bool:
+        return True
+
+    monkeypatch.setattr(jobs, "cancel", cancel)
+    monkeypatch.setattr(jobs, "state", state)
+    monkeypatch.setattr(jobs, "restart", restart)
+    return restarted
+
+
+def _report(qs: QsProject, file_id: uuid.UUID) -> list[str]:
+    from vextrus.drawings import services as drawings
+
+    with qs.member.acting():
+        return [m["code"] for m in drawings.report(file_id).readers]
+
+
+def test_a_held_file_read_again_shows_as_reading_with_its_step_never_as_listed(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    file_id = held_and_answered(qs_project, monkeypatch)
+    api = api_as(qs_project.member)
+    queued = a_file(api, qs_project.project_id, file_id)
+    reread_stopped_before_finishing(qs_project, file_id, monkeypatch)
+    _job_says(monkeypatch, "running")
+
+    running = a_file(api, qs_project.project_id, file_id)
+
+    assert (queued["state"], queued["status"]["code"]) == ("waiting", "drawings.files.waiting")
+    assert running["state"] == "reading"  # the web polls a reading row until it ends
+    assert running["status"]["code"] == "drawings.files.finishing"  # its step, not "being read"
+    assert _report(qs_project, file_id) == ["drawings.reports.read_anyway_pending"]
+
+
+def test_a_held_file_read_anyway_is_held_with_its_sheets_once_its_read_ends(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    file_id = held_and_answered(qs_project, monkeypatch)
+    run_job(qs_project.member, file_id, monkeypatch, readers({NAME: SHEETS}, held=[NAME]))
+    _job_says(monkeypatch, "done")
+
+    ended = a_file(api_as(qs_project.member), qs_project.project_id, file_id)
+
+    assert (ended["state"], ended["status"]["code"]) == ("held", "drawings.files.held_read_anyway")
+    assert ended["sheets_found"] == 3
+    assert _report(qs_project, file_id) == ["drawings.reports.read_anyway"]
+
+
+def test_a_held_file_whose_read_again_failed_says_so_and_is_tried_again(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    file_id = held_and_answered(qs_project, monkeypatch)
+    reread_stopped_before_finishing(qs_project, file_id, monkeypatch)
+    restarted = _job_says(monkeypatch, "failed", attempt=3)
+    api = api_as(qs_project.member)
+
+    failed = a_file(api, qs_project.project_id, file_id)
+    again = api.post(f"/api/projects/{qs_project.project_id}/drawings/files/{file_id}/restart", {})
+
+    assert (failed["state"], failed["status"]) == (
+        "failed",
+        {"code": "drawings.files.failed", "params": {"tries": 3}},
+    )
+    assert _report(qs_project, file_id) == ["drawings.reports.read_anyway_stopped"]
+    assert again.status_code == 200, again.content
+    assert len(restarted) == 1
+    from vextrus.drawings import services as drawings
+
+    with qs_project.member.acting():
+        kept = drawings.file(file_id)
+        answered = drawings.held_answer(file_id)
+    assert kept.read_job_id == restarted[0] + 1000  # its job run again, its kept steps skipped
+    assert answered == drawings.HeldAnswer.READ_ANYWAY  # still held, as its answer left it
+
+
+def test_a_held_file_read_again_can_be_cancelled_and_stays_held(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The ux-critic's round: its row offers "Cancel reading" while it is read again; the act
+    cancels its job and keeps who did it, and the file stays held (its answer kept)."""
+    from vextrus.drawings import services as drawings
+
+    file_id = held_and_answered(qs_project, monkeypatch)
+    _job_says(monkeypatch, "running")
+    api = api_as(qs_project.member)
+
+    cancelled = api.post(f"/api/projects/{qs_project.project_id}/drawings/files/{file_id}/cancel", {})
+    _job_says(monkeypatch, "cancelled")
+    shown = a_file(api, qs_project.project_id, file_id)
+
+    assert cancelled.status_code == 200, cancelled.content
+    assert (shown["state"], shown["status"]["code"]) == ("cancelled", "drawings.files.cancelled")
+    assert _report(qs_project, file_id) == ["drawings.reports.read_anyway_stopped"]
+    with qs_project.member.acting():
+        assert drawings.held_answer(file_id) == drawings.HeldAnswer.READ_ANYWAY

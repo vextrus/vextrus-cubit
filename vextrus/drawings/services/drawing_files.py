@@ -112,6 +112,15 @@ def read_anyway(prefix: str = "") -> Q:
     )
 
 
+def reading_anyway(row: DrawingFile) -> bool:
+    """A held file read anyway whose read has not ended (its job queued, reading or failed)."""
+    return (
+        row.read_status == ReadStatus.QUARANTINED
+        and row.held_answer == HeldAnswer.READ_ANYWAY
+        and not read_anyway_ended(row)
+    )
+
+
 def read_anyway_ended(row: DrawingFile) -> bool:
     """`read_anyway`, of one file (its report's sheets say what the sheet list lists)."""
     return (
@@ -353,6 +362,12 @@ def _status(
         return FileState.REFUSED, said.REFUSED_SCAN()
     if status == ReadStatus.QUARANTINED:
         answer = HeldAnswer(row.held_answer) if row.held_answer else None
+        reading = job is not None and job.status != "done" and not read_anyway_ended(row)
+        if answer == HeldAnswer.READ_ANYWAY and reading:
+            # Read anyway, its job still reading it again (or failed at it): shown as any read is,
+            # so the row says what is happening and the list refreshes until its sheets join (#165).
+            assert job is not None
+            return _in_flight(row, job, now)
         return FileState.HELD, _HELD[answer]()
     if status == ReadStatus.READ:
         return FileState.READ, _read(row, pages_matched, dwg_read)
@@ -366,23 +381,28 @@ def _status(
             return FileState.STOPPING, said.STOPPING()
         return FileState.CANCELLED, _cancelled(row)
     if job is not None:
-        match job.status:
-            case "waiting":
-                return FileState.WAITING, said.WAITING(ahead=_ahead(row))
-            case "retrying":
-                return FileState.RETRYING, said.RETRYING(attempt=job.attempt, tries=job.tries)
-            case "stopping":
-                return FileState.STOPPING, said.STOPPING()
-            case "cancelled":
-                return FileState.CANCELLED, _cancelled(row)
-            case "failed":
-                return FileState.FAILED, said.FAILED(tries=max(job.attempt, 1))
-            case "done":  # its last step committed; its row ends in a moment
-                pdf = row.format == FileFormat.PDF
-                return FileState.READING, said.MATCHING_PAGES() if pdf else said.FINISHING()
-        return FileState.READING, _step(row, now)
+        return _in_flight(row, job, now)
     if status == ReadStatus.QUEUED:
         return FileState.WAITING, said.WAITING(ahead=_ahead(row))
+    return FileState.READING, _step(row, now)
+
+
+def _in_flight(row: DrawingFile, job: jobs.JobState, now: datetime) -> tuple[FileState, Message]:
+    """A file's row while its job is queued, running or ended, by the job's state."""
+    match job.status:
+        case "waiting":
+            return FileState.WAITING, said.WAITING(ahead=_ahead(row))
+        case "retrying":
+            return FileState.RETRYING, said.RETRYING(attempt=job.attempt, tries=job.tries)
+        case "stopping":
+            return FileState.STOPPING, said.STOPPING()
+        case "cancelled":
+            return FileState.CANCELLED, _cancelled(row)
+        case "failed":
+            return FileState.FAILED, said.FAILED(tries=max(job.attempt, 1))
+        case "done":  # its last step committed; its row ends in a moment
+            pdf = row.format == FileFormat.PDF
+            return FileState.READING, said.MATCHING_PAGES() if pdf else said.FINISHING()
     return FileState.READING, _step(row, now)
 
 
@@ -804,7 +824,10 @@ def cancel(file_id: uuid.UUID, *, actor_name: str = "") -> FileView:
     cancelled already) is left as it is, and nothing is written."""
     with transaction.atomic():
         row = _access.drawing_file(file_id, lock=True)
-        if row.read_status not in (ReadStatus.QUEUED, ReadStatus.READING):
+        held = reading_anyway(row)  # a held file read anyway, read again: it stays held (#165)
+        if row.read_status not in (ReadStatus.QUEUED, ReadStatus.READING) and not held:
+            return file(row.id)
+        if held and row.read_job_id is None:
             return file(row.id)
         if row.read_job_id is not None:
             job = jobs.state(row.read_job_id)
@@ -812,7 +835,8 @@ def cancel(file_id: uuid.UUID, *, actor_name: str = "") -> FileView:
                 return file(row.id)
             if not jobs.cancel(row.read_job_id):
                 return file(row.id)
-        row.read_status = ReadStatus.CANCELLED
+        if not held:
+            row.read_status = ReadStatus.CANCELLED
         row.cancelled_by = tenancy.current().user_id
         row.cancelled_by_name = actor_name[:200]
         row.cancelled_by_vextrus = is_vextrus()
@@ -843,6 +867,30 @@ def restart(file_id: uuid.UUID) -> FileView:
         )
         if unreadable(row):
             raise auth.Refused(said.OLD_VERSION(), status=409)
+        if _reading_anyway_failed(row, job):
+            # Read anyway, and reading it again failed (#165): its job runs again, its kept steps
+            # skipped; the file stays held, as its answer left it.
+            assert job is not None
+            row.read_job_id = jobs.restart(job.id)
+            row.read_step = ""
+            row.read_tries = 0
+            row.cancelled_by = None
+            row.cancelled_by_name = ""
+            row.cancelled_by_vextrus = False
+            row.cancelled_at = None
+            row.save(
+                update_fields=[
+                    "read_job_id",
+                    "read_step",
+                    "read_tries",
+                    "cancelled_by",
+                    "cancelled_by_name",
+                    "cancelled_by_vextrus",
+                    "cancelled_at",
+                ]
+            )
+            _record(said.READ_RESTARTED, row)
+            return file(row.id)
         if row.read_status in _ENDED_FOR_GOOD:
             raise auth.Refused(said.ALREADY_ENDED(), status=409)
         if not stopped:
@@ -850,6 +898,11 @@ def restart(file_id: uuid.UUID) -> FileView:
         _start_again(row, job)
         _record(said.READ_RESTARTED, row)
     return file(row.id)
+
+
+def _reading_anyway_failed(row: DrawingFile, job: jobs.JobState | None) -> bool:
+    """A held file read anyway whose job, reading it again, ended failed or cancelled."""
+    return reading_anyway(row) and job is not None and job.status in ("failed", "cancelled")
 
 
 def _marked(rows: Sequence[DrawingFile]) -> set[uuid.UUID]:

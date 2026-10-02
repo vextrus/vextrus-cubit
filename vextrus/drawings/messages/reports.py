@@ -19,6 +19,19 @@ READ_ANYWAY = MessageCode(
 """A held file answered "read anyway": its readers' disagreement (engine.decoders_agree.disagree's
 params), and that its sheets are listed, each marked held (in place of the finding's "nothing from it
 reaches the sheet list")."""
+READ_ANYWAY_PENDING = MessageCode(
+    "drawings.reports.read_anyway_pending",
+    params=("items", "only_first", "only_second", "kinds", "layers", "unread"),
+)
+"""A held file answered "read anyway" being read again (waiting or reading): its readers'
+disagreement, and that its sheets join the sheet list with their Questions once it is read (#165:
+`read_anyway` said they were listed while none was)."""
+READ_ANYWAY_STOPPED = MessageCode(
+    "drawings.reports.read_anyway_stopped",
+    params=("items", "only_first", "only_second", "kinds", "layers", "unread"),
+)
+"""A held file answered "read anyway" whose reading again failed or was cancelled: its readers'
+disagreement, that its sheets are not in the sheet list, and that "Read again" on its row reads it."""
 SHEETS_FOUND = MessageCode("drawings.reports.sheets_found", params=("sheets", "drawn", "layouts"))
 """Sheets found both laid out in the drawing and on layout tabs."""
 SHEETS_FOUND_DRAWN = MessageCode("drawings.reports.sheets_found_drawn", params=("sheets",))

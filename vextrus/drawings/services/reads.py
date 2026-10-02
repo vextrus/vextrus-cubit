@@ -101,6 +101,13 @@ class ReadStepStore:
     def progress(self, subject_id: uuid.UUID, progress: jobs.Progress) -> None:
         now: datetime = self._clock()
         row = _access.drawing_file(subject_id, lock=True)
+        if drawing_files.reading_anyway(row):
+            # A held file read anyway, read again: its step shown (it stays held), never its sheets
+            # counted done, which would list them before their Questions (#165).
+            row.read_step = progress.step or ""
+            row.progress_at = now
+            row.save(update_fields=["read_step", "progress_at"])
+            return
         if row.read_status not in _IN_FLIGHT:
             return
         step = progress.step or ""
@@ -371,5 +378,6 @@ def _end(
             # the last step's transaction with their Questions (`drawing_files.read_anyway`, #165).
             if row.read_status == ReadStatus.QUARANTINED and row.sheets_total is not None:
                 row.sheets_done = row.sheets_total
-                row.save(update_fields=["sheets_done"])
+                row.read_step = ""
+                row.save(update_fields=["sheets_done", "read_step"])
     return drawing_files.file(row.id)

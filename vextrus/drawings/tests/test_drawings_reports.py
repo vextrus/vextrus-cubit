@@ -156,6 +156,7 @@ def test_a_held_file_read_anyway_says_its_sheets_are_listed_not_that_nothing_rea
         services.quarantine(held.id, disagree)
         before = services.report(held.id).readers
         services.answer_held(held.id, "read_anyway")
+        services.mark_read(held.id)  # its re-read ended (#165: before, it says it is being read)
         after = services.report(held.id).readers
 
     assert before == (disagree,)
