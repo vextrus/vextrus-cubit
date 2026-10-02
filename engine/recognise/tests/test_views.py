@@ -817,7 +817,7 @@ def test_a_title_block_covering_most_of_the_paper_is_not_read() -> None:
         replace(second, box=(W - 20, H - 15, W - 10, H - 10)),
     ]
     border = np.array([[0, 0, W, 0], [0, H, W, H], [0, 0, 0, H], [W, 0, W, H]], dtype=np.float64)
-    spread = replace(paper, block=apart, frame=border, segments=np.empty((0, 4)))
+    spread = replace(paper, block=apart, frame=border, segments=np.empty((0, 4)), lengths=None)
     assert views._title_block(spread) is None
     assert views._title_block(paper) is not None
 

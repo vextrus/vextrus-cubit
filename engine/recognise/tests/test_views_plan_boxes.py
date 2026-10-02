@@ -1,10 +1,13 @@
 """17's plan boxes (session 08's scored loop): what a plan's box takes in, on invented A1 sheets at 1:1,
 proving mechanics only, never a reading (docs/sdlc.md)."""
 
+from dataclasses import replace
+
+import numpy as np
 import pytest
 
-from engine.recognise import views
-from engine.recognise.tests.drawing import Sheets
+from engine.recognise import sheets, views
+from engine.recognise.tests.drawing import DEFAULT, Sheets, frame_block, value_at
 from engine.recognise.tests.test_views import CONVENTIONS, drawn, grid, near, one_sheet
 from engine.recognise.types import ViewKind
 
@@ -183,3 +186,53 @@ def test_a_plan_grows_again_along_the_grid_lines_of_the_plan_it_took() -> None:
     d.line((100, 160), (660, 160))  # 560 mm, through the untitled body only
     (plan,) = drawn(d, one_sheet(d))
     assert near(plan.box, (100, 100, 660, 540))
+
+
+def test_a_diagonal_line_off_the_sheet_is_judged_as_drawn_beside_rules_in_the_title_block() -> None:
+    """Re-check, session 08: short rules inside the title block's strip are left out of the paper's
+    lines, and the lengths as drawn must be left out with them, never fall back to the cut length."""
+    d = Sheets()
+    grid(d, (40, 300, 340, 520))
+    d.text("GROUND FLOOR PLAN", (40, 288, 0.0), height=6.0)
+    d.line((200, 400), (200 + 460 * 0.8, 400 + 460 * 0.6 + 40))
+    for y in (60, 80, 100):  # short rules inside the title block's strip
+        d.line((0.93 * 841, y), (0.98 * 841, y))
+    (plan,) = drawn(d, one_sheet(d))
+    assert near(plan.box, (40, 288, 340, 520))
+
+
+def test_a_papers_lengths_are_one_per_segment() -> None:
+    segments = np.array([[1.0, 1.0, 2.0, 2.0], [3.0, 3.0, 4.0, 4.0]])
+    with pytest.raises(ValueError, match="one per segment"):
+        views._Paper((0.0, 0.0, 10.0, 10.0), segments, [], lengths=np.array([1.0]))
+    paper = views._Paper((0.0, 0.0, 10.0, 10.0), segments, [], lengths=np.array([1.0, 2.0]))
+    with pytest.raises(ValueError, match="one per segment"):
+        replace(paper, segments=segments[:1])
+    with pytest.raises(ValueError, match="one per segment"):
+        views._off_paper(segments, (0.0, 0.0, 10.0, 10.0), np.array([1.0]))
+
+
+def test_a_layouts_line_cut_by_its_viewport_is_measured_on_paper_from_the_viewport() -> None:
+    """A viewport flush with the frame's top shows part of a plan drawn far taller in model space: its
+    grid lines, cut at the paper's top by the viewport, are as long as the viewport shows them (300
+    mm), not as drawn (900 mm), so they stay the plan's."""
+    d = Sheets()
+    block = frame_block(d)
+    layout = d.layout("A-01")
+    insert = d.insert(block, owner=layout)
+    d.attrib(insert, "A-01", value_at(2), height=5.0)
+    d.attrib(insert, "FLOOR PLAN", value_at(0), height=5.0)
+    grid(d, (0.0, 0.0, 30_000.0, 90_000.0))  # verticals 90 m: 900 mm on paper at 1:100
+    d.text("TYPICAL FLOOR PLAN", (100.0, 282.0, 0.0), height=6.0, owner=layout)
+    d.entity(
+        "VIEWPORT",
+        {"id": 2, "center": [250.0, 444.0, 0.0], "width": 400.0, "height": 300.0,
+         "view_center_point": [15_000.0, 45_000.0, 0.0], "view_height": 30_000.0},
+        owner=layout,
+    )  # fmt: skip
+    (sheet,) = [
+        s for s in sheets.find(d.artefact(), "structural", DEFAULT) if s.location.layout == "A-01"
+    ]
+    (plan,) = [v for v in views.find(d.artefact(), sheet, CONVENTIONS) if v.kind is ViewKind.PLAN]
+    assert plan.title == "TYPICAL FLOOR PLAN"
+    assert plan.box.y1 > 590

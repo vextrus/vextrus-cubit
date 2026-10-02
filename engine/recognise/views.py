@@ -483,7 +483,11 @@ class _Paper:
     """The handles of the values 13 read (among `block`): where the title block is sought from."""
     lengths: NDArray[np.float64] | None = None
     """Each segment's length on paper before the paper's edge cut it (a viewport's own edge is no cut
-    here); its own length when none is given."""
+    here), one per segment, filtered wherever `segments` is; its own length when none is given."""
+
+    def __post_init__(self) -> None:
+        if self.lengths is not None and len(self.lengths) != len(self.segments):
+            raise ValueError("a paper's lengths are one per segment")
 
 
 def _paper(artefact: ReadArtefact, sheet: SheetCandidate) -> _Paper | None:
@@ -1007,7 +1011,9 @@ def _off_paper(
     xs, ys = segments[:, 0::2], segments[:, 1::2]
     inside = ((xs > x0 + tol) & (xs < x1 - tol) & (ys > y0 + tol) & (ys < y1 - tol)).all(axis=1)
     length = np.hypot(segments[:, 2] - segments[:, 0], segments[:, 3] - segments[:, 1])
-    if lengths is not None and len(lengths) == len(segments):
+    if lengths is not None:
+        if len(lengths) != len(segments):
+            raise ValueError("the lengths are one per segment")
         length = np.maximum(length, lengths)
     return np.asarray(~inside & (length >= OFF_PAPER_SHARE * long))
 
