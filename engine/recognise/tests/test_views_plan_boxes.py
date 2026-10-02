@@ -86,6 +86,7 @@ def test_a_plans_box_grows_into_no_other_view() -> None:
     assert (plan.kind, detail.kind) == (ViewKind.PLAN, ViewKind.DETAIL)
     assert plan.box.x1 < detail.box.x0
     assert near(plan.box, (60, 238, 460, 500))
+    assert detail.box.x0 >= 555  # a mark is a plan's only: the detail takes none
 
 
 def test_a_plan_cut_apart_where_its_grid_was_taken_out_is_one_plan() -> None:
@@ -105,13 +106,15 @@ def test_a_plan_cut_apart_where_its_grid_was_taken_out_is_one_plan() -> None:
 
 
 def test_a_plan_takes_no_notes_its_grid_lines_run_into() -> None:
-    """Notes with no title beside a plan, a grid line running into them: two views."""
+    """Notes with no title beside a plan (clear of the title block), two grid lines running into them:
+    two views."""
     d = Sheets()
-    grid(d, (60, 200, 400, 540))
-    d.text("FIRST FLOOR PLAN", (60, 188, 0.0), height=6.0)
+    grid(d, (40, 200, 380, 540))
+    d.text("FIRST FLOOR PLAN", (40, 188, 0.0), height=6.0)
     for i in range(12):
-        d.text(f"{i + 1}. ALL WORK TO THE ENGINEER'S APPROVAL", (560, 520 - 14 * i, 0.0), height=5.0)
-    d.line((40, 400), (620, 400))  # 580 mm: a divider, into the notes
+        d.text(f"{i + 1}. CURE FOR 14 DAYS", (500, 520 - 14 * i, 0.0), height=5.0)
+    d.line((30, 400), (580, 400))  # 550 mm: a divider, into the notes
+    d.line((30, 450), (580, 450))  # two of them: a grid's
     found = drawn(d, one_sheet(d))
     assert [v.kind for v in found] == [ViewKind.PLAN, ViewKind.NOTES]
     assert found[0].box.x1 < found[1].box.x0
@@ -127,8 +130,56 @@ def test_a_plan_grows_along_at_most_its_longest_grid_lines_per_round(
     d = Sheets()
     grid(d, (100, 250, 500, 500))
     d.text("FIRST FLOOR PLAN", (100, 238, 0.0), height=6.0)
-    d.line((100, 300), (650, 300))  # 550 mm, the longest
+    d.line((60, 400), (570, 400))  # 510 mm, reaching farthest left: not weighed (drawn first)
     d.line((90, 350), (620, 350))  # 530 mm
-    d.line((60, 400), (570, 400))  # 510 mm, reaching farthest left: not weighed
+    d.line((100, 300), (650, 300))  # 550 mm, the longest
     (plan,) = drawn(d, one_sheet(d))
     assert near(plan.box, (90, 238, 650, 500))
+
+
+def test_a_diagonal_line_running_off_the_sheet_is_no_part_of_a_plan() -> None:
+    """Reviewer, session 08 (F2): a line drawn long but cut short by the frame's edge (about 485 mm
+    drawn, 300 on paper), not along the axes: it is judged by its length as drawn."""
+    d = Sheets()
+    grid(d, (40, 300, 340, 520))
+    d.text("GROUND FLOOR PLAN", (40, 288, 0.0), height=6.0)
+    d.line((200, 400), (200 + 460 * 0.8, 400 + 460 * 0.6 + 40))
+    (plan,) = drawn(d, one_sheet(d))
+    assert near(plan.box, (40, 288, 340, 520))
+
+
+def test_a_plan_reaches_along_no_grid_line_running_off_the_paper() -> None:
+    """A line along the axes, long enough to read as a divider but not as a construction line, from
+    under the plan to the frame's top edge: the plan's box does not run along it."""
+    d = Sheets()
+    grid(d, (40, 300, 340, 520))
+    d.text("GROUND FLOOR PLAN", (40, 288, 0.0), height=6.0)
+    d.line((200, 200), (200, 594))  # 394 mm: over 0.6 of the height, under 0.5 of the long side
+    (plan,) = drawn(d, one_sheet(d))
+    assert near(plan.box, (40, 288, 340, 520))
+
+
+def test_a_plan_takes_no_mark_off_its_corner_nor_a_long_piece_beside_it() -> None:
+    """A mark diagonally off the plan's corner is beside no span of it; a piece beside it longer than
+    `PLAN_MARK_MM` is no mark."""
+    d = Sheets()
+    grid(d, (100, 250, 500, 500))
+    d.text("FIRST FLOOR PLAN", (100, 238, 0.0), height=6.0)
+    d.line((512, 512), (520, 512))  # off the top right corner, within reach
+    d.line((515, 300), (515, 340))  # 40 mm long, 15 mm off its right side
+    (plan,) = drawn(d, one_sheet(d))
+    assert near(plan.box, (100, 238, 500, 500))
+
+
+def test_a_plan_grows_again_along_the_grid_lines_of_the_plan_it_took() -> None:
+    """A plan takes the untitled plan its grid lines run into; the next round, a grid line of the
+    taken plan's runs its box farther."""
+    d = Sheets()
+    grid(d, (100, 300, 400, 540))
+    d.text("FIRST FLOOR PLAN", (100, 288, 0.0), height=6.0)
+    grid(d, (100, 100, 400, 220))  # the untitled body below
+    for x in (150, 250):
+        d.line((x, 100), (x, 540))  # 440 mm: dividers, into both
+    d.line((100, 160), (660, 160))  # 560 mm, through the untitled body only
+    (plan,) = drawn(d, one_sheet(d))
+    assert near(plan.box, (100, 100, 660, 540))

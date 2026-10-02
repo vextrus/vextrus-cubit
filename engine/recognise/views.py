@@ -481,6 +481,9 @@ class _Paper:
     """The title block's texts on paper: the frame's own and the values 13 read (no view's)."""
     values: frozenset[str] = frozenset()
     """The handles of the values 13 read (among `block`): where the title block is sought from."""
+    lengths: NDArray[np.float64] | None = None
+    """Each segment's length on paper before the paper's edge cut it (a viewport's own edge is no cut
+    here); its own length when none is given."""
 
 
 def _paper(artefact: ReadArtefact, sheet: SheetCandidate) -> _Paper | None:
@@ -528,6 +531,7 @@ def _paper(artefact: ReadArtefact, sheet: SheetCandidate) -> _Paper | None:
 
     parts: list[tuple[_Drawn, Transform, Bounds | None, Bounds | None]] = []
     region: Bounds | None = None
+    layout = sheet.location.layout is not None
     if sheet.location.layout is not None:
         handle = walker.layouts.get(sheet.location.layout)
         if handle is None:
@@ -565,6 +569,7 @@ def _paper(artefact: ReadArtefact, sheet: SheetCandidate) -> _Paper | None:
         parts.append((model, to_paper, (box.x0, box.y0, box.x1, box.y1), region))
 
     segments: list[NDArray[np.float64]] = []
+    lengths: list[NDArray[np.float64]] = []  # each segment's on paper before the paper's edge cut it
     frame_segments: list[NDArray[np.float64]] = []
     texts: list[_Text] = []
     block: list[_Text] = []
@@ -601,12 +606,20 @@ def _paper(artefact: ReadArtefact, sheet: SheetCandidate) -> _Paper | None:
         walker.text_reads -= len(chosen_texts)
         for mask, out in ((keep, segments), (framed, frame_segments)):
             chosen = drawn.segments[mask]
+            whole = _move(chosen, to_paper)  # a model sheet's window is its paper: measured before it
+            length = np.hypot(whole[:, 2] - whole[:, 0], whole[:, 3] - whole[:, 1])
             if window is not None:
-                chosen = _clip(chosen, window)
+                chosen, kept_now = _clip_kept(chosen, window)
+                length = length[kept_now]
             moved = _move(chosen, to_paper)
+            if layout:  # a viewport's edge is no paper's: measured from there
+                length = np.hypot(moved[:, 2] - moved[:, 0], moved[:, 3] - moved[:, 1])
             if clip is not None:
-                moved = _clip(moved, clip)
+                moved, kept_now = _clip_kept(moved, clip)
+                length = length[kept_now]
             out.append(moved)
+            if out is segments:
+                lengths.append(length)
         scale = to_paper.xy_scale
         for i in chosen_texts.tolist():
             placed = drawn.texts[i]
@@ -650,6 +663,7 @@ def _paper(artefact: ReadArtefact, sheet: SheetCandidate) -> _Paper | None:
         frame_drawn,
         block,
         values,
+        np.concatenate(lengths) if lengths else np.empty(0),
     )
 
 
@@ -733,8 +747,15 @@ def _move(segments: NDArray[np.float64], transform: Transform) -> NDArray[np.flo
 
 def _clip(segments: NDArray[np.float64], box: Bounds) -> NDArray[np.float64]:
     """The segments' parts inside the box (Liang and Barsky's clip, for every segment at once)."""
+    return _clip_kept(segments, box)[0]
+
+
+def _clip_kept(
+    segments: NDArray[np.float64], box: Bounds
+) -> tuple[NDArray[np.float64], NDArray[np.bool_]]:
+    """`_clip`, and which of the segments have a part inside the box."""
     if not len(segments):
-        return segments
+        return segments, np.ones(0, dtype=bool)
     x0, y0, x1, y1 = (segments[:, i] for i in range(4))
     dx, dy = x1 - x0, y1 - y0
     t0 = np.zeros(len(segments))
@@ -749,7 +770,7 @@ def _clip(segments: NDArray[np.float64], box: Bounds) -> NDArray[np.float64]:
         t1 = np.where(~parallel & (p > 0), np.minimum(t1, r), t1)
     keep &= t0 <= t1
     out = np.stack([x0 + t0 * dx, y0 + t0 * dy, x0 + t1 * dx, y0 + t1 * dy], axis=1)
-    return out[keep]
+    return out[keep], keep
 
 
 def _inside(point: tuple[float, float], box: Bounds) -> bool:
@@ -974,16 +995,20 @@ def _text_rows(
     return np.stack([x0[which], y, x1[which], y], axis=1)
 
 
-def _off_paper(segments: NDArray[np.float64], region: Bounds) -> NDArray[np.bool_]:
+def _off_paper(
+    segments: NDArray[np.float64], region: Bounds, lengths: NDArray[np.float64] | None = None
+) -> NDArray[np.bool_]:
     """The long lines running off a framed paper (an end on its edge, cut at the frame, or past it, and
-    `OFF_PAPER_SHARE` of its long side or longer): construction lines left in the drawing, never a
-    view's. A shorter line drawn to the edge is still its drawing's."""
+    `OFF_PAPER_SHARE` of its long side or longer as drawn, before the edge cut it): construction lines
+    left in the drawing, never a view's. A shorter line drawn to the edge is still its drawing's."""
     x0, y0, x1, y1 = region
     long = max(x1 - x0, y1 - y0)
     tol = 1e-6 * long
     xs, ys = segments[:, 0::2], segments[:, 1::2]
     inside = ((xs > x0 + tol) & (xs < x1 - tol) & (ys > y0 + tol) & (ys < y1 - tol)).all(axis=1)
     length = np.hypot(segments[:, 2] - segments[:, 0], segments[:, 3] - segments[:, 1])
+    if lengths is not None and len(lengths) == len(segments):
+        length = np.maximum(length, lengths)
     return np.asarray(~inside & (length >= OFF_PAPER_SHARE * long))
 
 
@@ -1251,10 +1276,12 @@ def _views(
     if block is not None:  # what lies in the title block is its, never another view's
         edge = RULE_MM * max(rx1 - rx0, ry1 - ry0) / REFERENCE_MM
         held = _grown(block, edge)
+        out = _segments_in(paper.segments, held)
         paper = replace(
             paper,
             texts=[t for t in paper.texts if not _inside(_centre(t.box), block)],
-            segments=paper.segments[~_segments_in(paper.segments, held)],
+            segments=paper.segments[~out],
+            lengths=None if paper.lengths is None else paper.lengths[~out],
         )
     texts = paper.texts
     titles: list[int] = []
@@ -1295,11 +1322,11 @@ def _views(
     off_grid = set(titles) | subtitles | set(scale_texts)
     underlined = _underlines(paper.segments, [texts[i] for i in titles])
     off = (  # a long line running off a framed sheet is no view's
-        _off_paper(paper.segments, paper.region)
+        _off_paper(paper.segments, paper.region, paper.lengths)
         if len(paper.frame)
         else np.zeros(len(paper.segments), dtype=bool)
     )
-    drawn = replace(paper, segments=paper.segments[~(underlined | off)])
+    drawn = replace(paper, segments=paper.segments[~(underlined | off)], lengths=None)
     pieces = _pieces(drawn, texts, (i for i in range(len(texts)) if i not in off_grid))
     pieces = sorted(pieces, key=lambda q: -q.area)[:MAX_PIECES]
     paper_area = (rx1 - rx0) * (ry1 - ry0)
@@ -1574,11 +1601,11 @@ def _plans_reach(
     """A plan's box takes in what a draughtsman draws around its drawing and the grid splits off: its
     grid lines to their ends (lines long enough to be read as dividers, `DIVIDER_SHARE`, lying across
     its box, and not running off the paper) and every plan with no title two or more of them run into
-    (its drawing cut apart where the grid was taken out; never notes or a legend beside it), titled
-    plans first; then its marks set off it (`PLAN_MARK_MM`: a piece left in no view, no longer than
-    that, within that of the plan's box and beside it, across its span, and nearer it than any other
-    view). Nothing grows further into a titled view's box or the title block's, nor into an untitled
-    one but by taking it whole."""
+    (its drawing cut apart where the grid was taken out; never notes or a legend beside it); then its
+    marks set off it (`PLAN_MARK_MM`: a piece left in no view, no longer than that, within that of the
+    plan's box and beside it, across its span, and nearer it than any other view). Nothing grows
+    further into a titled view's box or the title block's, nor into an untitled one but by taking it
+    whole."""
     width, height = size
     tol = 1e-6 * max(width, height)
     xs, ys = lines[:, 0::2], lines[:, 1::2]
@@ -1620,7 +1647,7 @@ def _plans_reach(
     along_x = np.arange(len(ruled)) < len(across)
     for _ in range(MAX_REACH_ROUNDS):  # a round that grows no box ends it
         grown = False
-        for view in sorted(views, key=lambda v: v.title is None):
+        for view in list(views):
             if view.kind is not ViewKind.PLAN or not any(view is v for v in views):
                 continue
             x0, y0, x1, y1 = view.box
