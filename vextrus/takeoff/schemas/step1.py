@@ -7,7 +7,7 @@ from dataclasses import asdict
 from datetime import datetime
 from typing import Any, Self
 
-from ninja import Schema
+from ninja import Field, Schema
 
 from vextrus.takeoff.services import step1
 
@@ -67,6 +67,18 @@ class Step1QuestionOut(_FromView):
     answered_at: datetime | None
     proposals: list[uuid.UUID]
     """The Proposals it holds: answering confirms, leaves out or corrects them."""
+    withdrawn_by: uuid.UUID | None = Field(
+        None,
+        description="While `status` is `withdrawn` because its sheet was left out: that exclusion "
+        "(the Step 1 act whose undo asks it again). Null otherwise, and for a Question a newer one "
+        "replaced.",
+    )
+    blocking: bool = Field(
+        False,
+        description="It holds its sheets from being confirmed until it is answered: open, or "
+        "withdrawn by an exclusion that still stands (then it is still answerable, and "
+        "`takeoff.step1.question_first` names it by `params.question`).",
+    )
 
 
 class Step1QuestionsOut(Schema):

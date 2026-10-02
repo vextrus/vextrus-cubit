@@ -2,6 +2,8 @@
 
 import os
 
+from django.core.exceptions import ImproperlyConfigured
+
 from vextrus.settings.base import env_flag
 
 AUTH_USER_MODEL = "platform.User"
@@ -26,15 +28,36 @@ SESSION_COOKIE_SAMESITE = "Lax"
 SESSION_COOKIE_SECURE = env_flag("VEXTRUS_SECURE_COOKIES")
 CSRF_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SECURE = SESSION_COOKIE_SECURE
-# The web app's origins: the Vite dev server locally (web's `dev`, on 5410), the deployed one elsewhere.
+
+
+def web_port() -> int:
+    """The web dev server's port: `VEXTRUS_WEB_PORT`, or 5410, as web/vite.config.ts reads it (#169).
+
+    An empty variable is unset; anything but a whole number from 1 to 65535 is refused. Only ASCII
+    whitespace is trimmed, as the web's config trims it, so the two agree on every value.
+    """
+    value = os.environ.get("VEXTRUS_WEB_PORT", "").strip(" \t\n\r\f\v")
+    if not value:
+        return 5410
+    # At most five digits before int(): a longer string is no port, and int() refuses past 4300 digits.
+    port = int(value) if len(value) <= 5 and value.isascii() and value.isdigit() else 0
+    if not 1 <= port <= 65535:
+        raise ImproperlyConfigured(f"VEXTRUS_WEB_PORT must be a port from 1 to 65535, not {value!r}")
+    return port
+
+
+# The web dev server's origin locally (web's `dev`, on VEXTRUS_WEB_PORT); a deployment sets its own.
+_LOCAL_WEB_ORIGIN = f"http://127.0.0.1:{web_port()}"
+
+# The web app's origins: the Vite dev server locally, the deployed one elsewhere.
 CSRF_TRUSTED_ORIGINS = [
     origin
-    for origin in os.environ.get("VEXTRUS_CSRF_TRUSTED_ORIGINS", "http://127.0.0.1:5410").split(",")
+    for origin in (os.environ.get("VEXTRUS_CSRF_TRUSTED_ORIGINS") or _LOCAL_WEB_ORIGIN).split(",")
     if origin
 ]
 
 # The web app's own origin, where an invitation link opens: `<origin>/join#<token>` (07).
-VEXTRUS_WEB_ORIGIN = os.environ.get("VEXTRUS_WEB_ORIGIN") or "http://127.0.0.1:5410"
+VEXTRUS_WEB_ORIGIN = os.environ.get("VEXTRUS_WEB_ORIGIN") or _LOCAL_WEB_ORIGIN
 
 # Invitations (07; docs/design/m0-screens.md §9, ruling 3): a link works once, for 7 days.
 VEXTRUS_INVITATION_DAYS = 7
