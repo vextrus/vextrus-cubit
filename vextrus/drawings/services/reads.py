@@ -367,9 +367,10 @@ def _end(
             row.read_status = status
             row.read_step = ""
             # A read file keeps a Discipline choice refused while it read (`sheet_list`, #159) as its
-            # finding when nothing cut its reading.
-            kept = row.finding if status == ReadStatus.READ and _refused_choice(row.finding) else None
-            row.finding = kept if finding is None else _text.read_json(dict(finding))
+            # finding, ahead of a limit that cut its reading: the limit is said in the report's Sheets
+            # section too (`reports._not_read_in_full`, from the finishing step's result).
+            if not (status == ReadStatus.READ and _refused_choice(row.finding)):
+                row.finding = None if finding is None else _text.read_json(dict(finding))
             row.read_tries = tries
             if status == ReadStatus.READ and row.sheets_total is not None:
                 row.sheets_done = row.sheets_total
