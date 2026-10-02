@@ -1398,20 +1398,23 @@ def _cut_shared(
 
     A title shares the smallest piece whose box holds its centre (a cross section's title standing
     inside its beam's piece), else the piece it is the best candidate for (`_pairs`). A piece two or
-    more titles share, every one a section's (another kind's drawings are left whole), is cut along the
+    more titles share, every one a section's, and no other kind's title may take (another kind's
+    drawings are left to the pairs), is cut along the
     widest band at most `CUT_CROSSINGS` of its lines cross, down or across, at least `SHARED_CUT_MM`
     wide, that leaves titles on
     both sides (a title in a band across is the drawing's over it, the convention), and each part again
     while it holds several. A part's box is its lines and the texts on the grid whose centre falls in
     its share of the piece's box. A piece that cannot be cut is its tallest title's, lettered `TALLER`
     than the rest (the main drawing's title over its cross sections'), else the pairs decide."""
+    pairs = _pairs(texts, titles, pieces, unit)
+    others = {k for _, ti, k in pairs if _kind(texts[ti].shown, reading) is not ViewKind.SECTION}
     best: dict[int, int] = {}
     for ti in titles:
         centre = _centre(texts[ti].box)
         holders = [k for k, piece in enumerate(pieces) if _inside(centre, piece.box)]
         if holders:
             best[ti] = min(holders, key=lambda k: pieces[k].area)
-    for _, ti, k in _pairs(texts, titles, pieces, unit):
+    for _, ti, k in pairs:
         best.setdefault(ti, k)
     shared: dict[int, list[int]] = {}
     for ti, k in best.items():
@@ -1419,7 +1422,9 @@ def _cut_shared(
     shared = {
         k: held
         for k, held in shared.items()
-        if len(held) > 1 and all(_kind(texts[ti].shown, reading) is ViewKind.SECTION for ti in held)
+        if len(held) > 1
+        and k not in others  # a drawing another kind's title may take is left to the pairs
+        and all(_kind(texts[ti].shown, reading) is ViewKind.SECTION for ti in held)
     }
     if not shared:
         return pieces, {}
@@ -1432,8 +1437,9 @@ def _cut_shared(
     out = list(pieces)
     given: dict[int, int] = {}
     for k, held in shared.items():
-        stack = [(lines[_segments_in(lines, pieces[k].box)], pieces[k].box, held)]
+        budget -= len(lines)  # finding the piece's lines weighs every line
         parts: list[tuple[NDArray[np.float64], Bounds, list[int]]] = []
+        stack = [(lines[_segments_in(lines, pieces[k].box)], pieces[k].box, held)] if budget >= 0 else []
         while stack:
             part_lines, region, part_titles = stack.pop()
             budget -= len(part_lines)
@@ -1449,6 +1455,7 @@ def _cut_shared(
             under = part_lines[:, [axis, axis + 2]].mean(axis=1) < at  # a line across goes by its middle
             stack.append((part_lines[under], _bounds4(lower), [part_titles[i] for i in low]))
             stack.append((part_lines[~under], _bounds4(upper), [part_titles[i] for i in high]))
+        parts = [part for part in parts if len(part[0])]
         if len(parts) < 2:  # one drawing: its title is the one lettered tallest, if one is
             heights = sorted((texts[ti].height, ti) for ti in held)
             if heights[-1][0] > TALLER * heights[-2][0]:

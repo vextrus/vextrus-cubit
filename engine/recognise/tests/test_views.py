@@ -1015,3 +1015,17 @@ def test_the_lines_a_sheets_cuts_weigh_are_bounded(monkeypatch: pytest.MonkeyPat
     (view,) = drawn(d, sheet)
     assert view.box.x0 == pytest.approx(40, abs=1)
     assert view.box.x1 >= 370
+
+
+def test_a_shared_drawing_another_kinds_title_may_take_is_left_to_the_pairs() -> None:
+    """A key plan's title lies nearer under the shared piece than the section titles, its centre in an
+    unrelated line's box: the drawing stays the key plan's, as without the cut (the refuter's case)."""
+    d, sheet = labelled_sections(
+        [("LONG SECTION OF BEAM B1", (40, 300, 300, 380)), ("SECTION 1-1", (330, 300, 370, 380))],
+        LABELS_ACROSS,
+    )
+    d.text("KEY PLAN", (10_000.0 + 230 * 50, 291 * 50, 0.0), height=5.0 * 50)
+    d.line((10_000.0 + 200 * 50, 200 * 50), (10_000.0 + 320 * 50, 296 * 50))
+    key = next(v for v in drawn(d, sheet) if v.title == "KEY PLAN")
+    assert key.box.x0 == pytest.approx(40, abs=1)
+    assert key.box.x1 >= 370
