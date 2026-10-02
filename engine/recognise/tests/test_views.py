@@ -120,6 +120,22 @@ def test_a_standard_sheet_at_a_standard_scale_no_round_one_holds_is_read_as_that
     assert read
 
 
+@pytest.mark.parametrize("side", [1e-320, 5e-324])
+def test_a_box_too_small_for_a_power_of_ten_is_laid_alike_by_views_and_buffers(side: float) -> None:
+    """#160's refuter: a box of 1e-320 units took a power of ten of 0.0 and divided by it, in views and
+    then in the buffers that share its rule; now both lay it on one paper, or the buffer refuses it."""
+    from engine.render import buffers
+
+    d = Sheets()
+    sheet = SheetCandidate(SheetLocation(box=Box(0, 0, side, side)))
+    found = views.find(d.artefact(), sheet, CONVENTIONS).paper
+    try:
+        paper = buffers.build(d.artefact(), sheet).paper
+    except ValueError:
+        return  # refused, as every paper that is no sheet's is
+    assert found == pytest.approx((paper.width_mm, paper.height_mm))
+
+
 @pytest.mark.parametrize("scale", [37.0, 45.0, 100.0])
 def test_views_and_buffers_lay_a_framed_sheet_on_the_frames_paper(scale: float) -> None:
     """#160: an A1 frame inserted at any scale, a round one or not, is on A1 in views and in the buffer

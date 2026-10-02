@@ -728,6 +728,8 @@ def _paper_scale(artefact: ReadArtefact, frame: DwgAnchor | None, box: Box) -> t
         if not scale > 0 or not math.isfinite(scale):
             continue
         power = 10 ** math.floor(math.log10(scale))
+        if not power > 0:
+            continue  # a scale past what a float's power of ten holds (a box of 1e-320 units)
         score = min(abs(math.log(scale / (r * p))) for r in ROUND_SCALES for p in (power, power * 10))
         if score < best_score:
             best, best_score = scale, score
@@ -894,6 +896,8 @@ def _pieces(paper: _Paper, texts: Sequence[_Text], held: Iterable[int]) -> list[
         return []
     k = max(width, height) / REFERENCE_MM
     cell = max(CELL_MM * k, max(width, height) / MAX_GRID)
+    if not cell > 0:
+        return []  # a paper too small for a float to grid (1e-323 mm): nothing is drawn on it
     nx, ny = int(width / cell) + 1, int(height / cell) + 1
     lines = _dividers_out(_clip(paper.segments, paper.region), width, height)
     words = _text_rows([texts[i].box for i in held], paper.region, cell, ny)
