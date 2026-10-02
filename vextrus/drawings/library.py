@@ -29,6 +29,8 @@ def _row(key: str, name: str, kind: DisciplineKind, *prefixes: str) -> Disciplin
 
 
 MEP = DisciplineKind.MEP
+NOTES_KIND = DisciplineKind.GENERAL
+"""The kind of a Market's General Discipline (#159): its sheets are general notes, Step 2's."""
 
 DISCIPLINES: Mapping[str, Sequence[DisciplineRow]] = {
     # Bangladesh (ADR 0040; the M0 plan's review Q8): one name each, used everywhere; the prefixes
@@ -42,6 +44,9 @@ DISCIPLINES: Mapping[str, Sequence[DisciplineRow]] = {
         _row("mechanical", "Mechanical (HVAC)", MEP, "M", "MEC", "MECH", "HVAC"),
         _row("lift", "Lift", MEP, "L", "LF", "LIFT"),
         _row("gas", "Gas", MEP, "G", "GS", "GAS"),
+        # #159 (the owner's ruling, session 07): the general notes a file carries in its own bare-
+        # numbered series; no prefix (G is Gas's). Its sheets are Step 2's notes.
+        _row("general", "General", DisciplineKind.GENERAL),
     ),
 }
 """Each Market's Disciplines, by the Market's code, in the order the Market lists them."""

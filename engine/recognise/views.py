@@ -75,7 +75,9 @@ conventions' subject whose words stand first in the title (the longest words fir
 layer). A view drawn with no title has none of these.
 
 **What it is proposed for** (m0-screens 6.18; the plan's review Q2 and Q7), by its sheet's Discipline:
-title blocks, key plans and 3D/perspective views are excluded `for_information`; a legend goes to Step
+every view of a sheet whose Discipline is a notes one (`ViewConventions.notes_disciplines`, a Market's
+General Discipline, #159) but its title block goes to Step 2, whatever its kind; title blocks, key
+plans and 3D/perspective views are excluded `for_information`; a legend goes to Step
 2 for Structural and Architectural, else to its Discipline's Part; every view of an MEP sheet (any
 Discipline but those of `STEP_DISCIPLINES`) to its Discipline's Part; general notes to Step 2. A
 Structural view goes to the Steps of its subject (`STRUCTURAL_STEPS`: 5 to 10 only here); an
@@ -102,7 +104,7 @@ import json
 import math
 import re
 from collections import Counter
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from functools import cache
 from pathlib import Path
@@ -1052,6 +1054,7 @@ class _Reading:
     patterns: tuple[str, ...]
     after_top: frozenset[str]  # words after "top" that make it a storey
     common: frozenset[str]  # the plan, floor and level words: no evidence of what a title names
+    notes: frozenset[str] = frozenset()  # the Disciplines whose sheets are general notes
 
 
 _readings: list[tuple[ViewConventions, _Reading]] = []
@@ -1077,6 +1080,7 @@ def _prepare(conventions: ViewConventions) -> _Reading:
         common=frozenset(
             t for w in (*sheet.plan_words, *sheet.floor_words, *sheet.level_words) for t in _tokens(w)
         ),
+        notes=frozenset(conventions.notes_disciplines),
     )
 
 
@@ -1533,7 +1537,7 @@ def _candidate(view: _View, paper: _Paper, reading: _Reading, discipline: str | 
         meaning = (
             StoreysMeaning.FLOOR_TO_FLOOR if subject in FLOOR_TO_FLOOR else StoreysMeaning.AT_FLOOR_LEVEL
         )
-    steps, part, exclusion = _proposal(view.kind, subject, discipline)
+    steps, part, exclusion = _proposal(view.kind, subject, discipline, reading.notes)
     anchors: tuple[DwgAnchor, ...] = ()
     if view.title is not None and paper.anchor is not None:
         a = paper.anchor
@@ -1566,9 +1570,13 @@ def _candidate(view: _View, paper: _Paper, reading: _Reading, discipline: str | 
 
 
 def _proposal(
-    kind: ViewKind, subject: str | None, discipline: str | None
+    kind: ViewKind, subject: str | None, discipline: str | None, notes: Collection[str] = ()
 ) -> tuple[tuple[str, ...], str | None, Exclusion | None]:
-    """A view's proposed Takeoff Steps, Part or exclusion (the module's docstring)."""
+    """A view's proposed Takeoff Steps, Part or exclusion (the module's docstring). `notes`: the
+    Disciplines whose sheets are general notes (`ViewConventions.notes_disciplines`): every view of
+    theirs is Step 2's, whatever its kind, but its title block (never a note: #159's acceptance)."""
+    if discipline is not None and discipline in notes and kind is not ViewKind.TITLE_BLOCK:
+        return (GENERAL_NOTES,), None, None
     if kind in _EXCLUDED_KINDS:
         return (), None, Exclusion(ExclusionReason.FOR_INFORMATION)
     if discipline is None:

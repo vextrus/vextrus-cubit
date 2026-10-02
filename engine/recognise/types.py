@@ -776,6 +776,9 @@ class ViewConventions:
     subject_words: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
     layer_words: Mapping[Layer, tuple[str, ...]] = field(default_factory=dict)
     scale_patterns: tuple[str, ...] = ()
+    notes_disciplines: tuple[str, ...] = ()
+    """The Disciplines, by key, whose sheets are general notes (a Market's General Discipline, #159):
+    every view of theirs is proposed to Step 2, whatever its kind. Market data, given by the product."""
 
     def __post_init__(self) -> None:
         for kind in self.kind_words:
@@ -786,14 +789,20 @@ class ViewConventions:
             Layer(layer)
         for pattern in self.scale_patterns:
             _pattern(pattern)
+        for discipline in self.notes_disciplines:
+            _key(discipline, "a Discipline's key")
+        _unique(self.notes_disciplines, "the notes Discipline")
 
     def to_json(self) -> dict[str, Any]:
-        return {
+        data: dict[str, Any] = {
             "kind_words": {str(k): list(v) for k, v in self.kind_words.items()},
             "subject_words": {k: list(v) for k, v in self.subject_words.items()},
             "layer_words": {str(k): list(v) for k, v in self.layer_words.items()},
             "scale_patterns": list(self.scale_patterns),
         }
+        if self.notes_disciplines:  # absent when none: the default's digest stays as it was
+            data["notes_disciplines"] = list(self.notes_disciplines)
+        return data
 
     @classmethod
     def from_json(cls, value: Any) -> ViewConventions:
@@ -812,6 +821,7 @@ class ViewConventions:
                 for k, v in _mapping(data, "layer_words").items()
             },
             scale_patterns=_words(data, "scale_patterns", "the scale patterns"),
+            notes_disciplines=_words(data, "notes_disciplines", "the notes Disciplines"),
         )
 
 
@@ -841,7 +851,7 @@ _SHEET_KEYS = {
     "sheet_kinds",
     "common_sheet_kinds",
 }
-_VIEW_KEYS = {"kind_words", "subject_words", "layer_words", "scale_patterns"}
+_VIEW_KEYS = {"kind_words", "subject_words", "layer_words", "scale_patterns", "notes_disciplines"}
 
 
 # Patterns, bounded -----------------------------------------------------------------------------------
