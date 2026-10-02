@@ -85,6 +85,7 @@ export const QUESTION_KIND_BY_CODE: Readonly<Record<string, MessageDescriptor>> 
   'engine.conflicts.same_number': msg`Two sheets, one number`,
   'engine.conflicts.same_storey': msg`Two plans draw one thing`,
   'engine.conflicts.same_title': msg`Two plans draw one thing`,
+  'engine.register_check.gap': msg`A gap in the numbering`,
   'engine.register_check.not_found': msg`On the drawing list, in no file`,
   'engine.register_check.not_listed': msg`In a file, not on the drawing list`,
   'takeoff.step1.no_number': msg`No number`,
@@ -96,7 +97,7 @@ export const QUESTION_KINDS: Readonly<Record<string, MessageDescriptor>> = {
   conflict: msg`Two sheets, one number`,
   missing: msg`No number`,
   low_confidence: msg`Sheet kind unclear`,
-  check: msg`A Check against the drawing list`,
+  // No `check`: a Check is against the drawing list, the Plot or the numbering, so each code words its own (ticket 164).
 }
 
 export const OTHER_QUESTION = msg`A Question about the sheets`
