@@ -26,6 +26,7 @@ def test_bangladesh_is_the_one_market_seeded(market: MarketProfile) -> None:
     assert market.time_zone == "Asia/Dhaka"
     assert market.days_off == (5, 6)  # Friday and Saturday
     assert market.default_home_region == "asia-south1"
+    assert market.date_order == "dmy"  # "12.09.2026" is the 12th of September (0009)
 
 
 @pytest.mark.django_db(databases=["default", "owner"])

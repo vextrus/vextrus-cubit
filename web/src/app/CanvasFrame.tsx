@@ -128,7 +128,7 @@ function Toolbar({ session, project, step }: { session: Session; project: Projec
   const s = project.step1
   const excluded = s.excluded
   return (
-    <div data-region="toolbar" className="focus-inset flex h-toolbar shrink-0 items-center gap-2 overflow-hidden border-b border-border bg-chrome px-2">
+    <div data-region="toolbar" role="toolbar" aria-label={t`The step's tools`} className="focus-inset flex h-toolbar shrink-0 items-center gap-2 overflow-hidden border-b border-border bg-chrome px-2">
       <span className="text-sm whitespace-nowrap text-ink-secondary">
         <Trans>Step {number}</Trans>
       </span>

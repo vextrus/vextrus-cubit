@@ -9,4 +9,4 @@
 export { decodeSheet, SheetBufferError, type DecodedSheet, type Paper } from './decode'
 export { drawSheet, SheetRenderer } from './gl'
 export { type ViewTransform, type PaperBox } from './view'
-export { SheetViewer } from './SheetViewer'
+export { SheetViewer, type SheetOutline } from './SheetViewer'
