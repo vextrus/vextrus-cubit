@@ -13,9 +13,10 @@ words (21c's read job raises its own). Worded in `web/src/messages/takeoff/step1
   which Question it is (`question`: its id, one the Questions list returns; for the screen to open
   it, not worded).
 - `one_source` (166): a confirm of more than one sheet naming sheets with one source (no open
-  Question holds them, nor are they a held file's sheets; m0-screens 6.4: only agreeing sheets join the bulk act, the others are
-  confirmed one by one), refused whole (409): how many (`count`), their ids (`sheets`, each as
-  `takeoff.proposals` gives a Proposal's `id`), the first one (`sheet`, `named` as `question_first`).
+  Question holds them, nor are they a held file's sheets; m0-screens 6.4: only agreeing sheets join
+  the bulk act, the others are confirmed one by one), refused whole (409): how many (`count`),
+  their ids (`sheets`, each as `takeoff.proposals` gives a Proposal's `id`), the first one
+  (`sheet`, `named` as `question_first`).
 - `held_file` (166): as `one_source`, for sheets of a held file the QS chose to read anyway (no
   open Question holds them; they never agree, m0-screens 6.4), with the same params.
 - `nothing_to_undo`: undo with no act of the QS's own left to undo on Step 1 (409).
