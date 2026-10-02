@@ -16,12 +16,14 @@ from engine.recognise import views as view_finder
 from engine.recognise.types import ViewConventions, ViewKind
 from vextrus.drawings.messages import files as drawing_words
 from vextrus.platform.services import tenancy
+from vextrus.takeoff import library as takeoff_library
 from vextrus.takeoff.services.read_propose import files
 from vextrus.takeoff.services.read_propose import proposals as read_proposals
 from vextrus.takeoff.tests.acceptance.t21c.step1_whole import (
     Sheet,
     a_file,
     confirm,
+    coverage,
     jev_says,
     open_questions,
     proposals,
@@ -35,6 +37,8 @@ from vextrus.testing.drawings import QsProject
 from vextrus.testing.jev import Offline
 
 pytestmark = pytest.mark.django_db
+
+STEP_2 = takeoff_library.STEPS[1].key
 
 
 @pytest.fixture(autouse=True)
@@ -183,3 +187,37 @@ def test_a_discipline_chosen_before_the_sheets_whose_numbers_are_taken_is_refuse
     chosen_now = discipline_of(api, qs_project, file_id, "architectural")
     assert chosen_now.status_code == 200, chosen_now.content  # type: ignore[attr-defined]
     assert a_file(api, qs_project.project_id, file_id)["finding"] is None
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="#159 fix round 1 F3, not fixed: re-proposing a read file's views needs a grant ruling "
+    "(drawings_view's app grant updates decisions only; takeoff_coverage(step) have no DELETE)",
+)
+def test_a_wrong_general_default_corrected_proposes_the_files_views_again(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#159 fix round 1 (F3): a bare-numbered structural file defaults to General (every view Step 2's);
+    the QS's Structural moves its views out of Step 2, to Structural's own proposals (Coverage follows)."""
+    file_id = read(
+        qs_project,
+        monkeypatch,
+        "KR-SET4-R0.dwg",
+        [
+            Sheet("01", "PILE LAYOUT PLAN", ("PILE LAYOUT PLAN",)),
+            Sheet("02", "BEAM LAYOUT PLAN", ("BEAM LAYOUT PLAN",)),
+        ],
+    )
+    api = api_as(qs_project.member)
+    assert a_file(api, qs_project.project_id, file_id)["discipline"] == "general"
+
+    chosen = discipline_of(api, qs_project, file_id, "structural")
+
+    assert chosen.status_code == 200, chosen.content  # type: ignore[attr-defined]
+    listed = [p for p in proposals(api, qs_project.project_id) if p["file_name"] == "KR-SET4-R0.dwg"]
+    assert {p["discipline"] for p in listed} == {"structural"}
+    confirmed = confirm(api, qs_project.project_id, [p["id"] for p in listed])
+    assert confirmed.status_code == 200, confirmed.content
+    shown = coverage(api, qs_project.project_id)
+    assert STEP_2 not in shown["by_step"], shown
+    assert shown["by_step"], shown
