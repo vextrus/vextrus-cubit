@@ -2,12 +2,16 @@
 holds (a conflict, a low confidence) is refused as `question_first`, naming that Question, never as
 `one_source` ("S-02 has one source" was false: the Question, not a lone confirm, settles it)."""
 
+from collections.abc import Callable
+from typing import Any
+
 import pytest
 
 from vextrus.takeoff.tests.acceptance.t21c.step1_whole import (
     Sheet,
     answer,
     confirm,
+    english,
     jev_says,
     open_questions,
     proposals,
@@ -168,3 +172,109 @@ def test_a_bulk_act_refused_for_its_question_is_refused_for_its_one_source_sheet
     assert second.status_code == 409, second.content
     assert second.json()["code"] == "takeoff.step1.one_source"
     assert second.json()["params"]["sheets"] == [lone["id"]]
+
+
+# Fix round 2, F1 (50; the words gate's class again): every reason `_agreeing` leaves a sheet out
+# maps to a refusal whose words are true of it. A Question that holds the sheet (by subject, by link,
+# or, the two drawing lists disagreeing, by its Discipline) is named; a held file's sheet is "held";
+# only a sheet with one source is said to have one.
+
+LISTED = (("S-01", "GENERAL NOTES"), ("S-02", "PILE LAYOUT PLAN"), ("S-03", "COLUMN SCHEDULE"))
+THREE = [
+    Sheet("S-01", "GENERAL NOTES", ("GENERAL NOTES",)),
+    Sheet("S-02", "PILE LAYOUT PLAN", ("PILE LAYOUT PLAN",)),
+    Sheet("S-03", "COLUMN SCHEDULE", ("COLUMN SCHEDULE",)),
+]
+
+
+Case = tuple[list[str], str, str | None]
+
+
+def _typed(api: Any, qs: QsProject, text: str) -> None:
+    listed = api.post(f"{step1(qs.project_id)}/drawing-list", {"discipline": "structural", "text": text})
+    assert listed.status_code == 200, listed.content
+
+
+def _lists_disagree(qs: QsProject, monkeypatch: pytest.MonkeyPatch, api: Any) -> Case:
+    _read(
+        qs,
+        monkeypatch,
+        [Sheet("S-01", "GENERAL NOTES", ("GENERAL NOTES",), register=LISTED), *THREE[1:]],
+    )
+    _typed(api, qs, "S-01 to S-04")
+    [q] = open_questions(api, qs.project_id, "conflict")
+    shown = proposals(api, qs.project_id)
+    return [the(shown, "S-02")["id"], the(shown, "S-03")["id"]], "question_first", q["id"]
+
+
+def _same_number(qs: QsProject, monkeypatch: pytest.MonkeyPatch, api: Any) -> Case:
+    _read(qs, monkeypatch, DUPLICATE)
+    _typed(api, qs, "S-01 to S-02")
+    [q] = open_questions(api, qs.project_id, "conflict")
+    shown = proposals(api, qs.project_id)
+    copy = next(p for p in shown if p["id"] in q["proposals"])
+    return [the(shown, "S-01")["id"], copy["id"]], "question_first", q["id"]
+
+
+def _no_number(qs: QsProject, monkeypatch: pytest.MonkeyPatch, api: Any) -> Case:
+    _read(qs, monkeypatch, [THREE[0], Sheet(None, "STAIR DETAILS", ("STAIR SECTION",))])
+    [q] = open_questions(api, qs.project_id, "missing")
+    shown = proposals(api, qs.project_id)
+    return [the(shown, "S-01")["id"], the(shown, None)["id"]], "question_first", q["id"]
+
+
+def _not_on_the_list(qs: QsProject, monkeypatch: pytest.MonkeyPatch, api: Any) -> Case:
+    _read(qs, monkeypatch, THREE)
+    _typed(api, qs, "S-01 to S-02")
+    assert open_questions(api, qs.project_id) == []
+    shown = proposals(api, qs.project_id)
+    return [the(shown, "S-01")["id"], the(shown, "S-03")["id"]], "one_source", None
+
+
+def _a_gap_and_no_list(qs: QsProject, monkeypatch: pytest.MonkeyPatch, api: Any) -> Case:
+    _read(qs, monkeypatch, [THREE[0], THREE[2]])
+    # The gap's `check` Question holds no sheet (it asks about S-02, which is not read).
+    assert all(q["proposals"] == [] for q in open_questions(api, qs.project_id))
+    shown = proposals(api, qs.project_id)
+    return [the(shown, "S-01")["id"], the(shown, "S-03")["id"]], "one_source", None
+
+
+REASONS: dict[str, Callable[[QsProject, pytest.MonkeyPatch, Any], Case]] = {
+    "lists_disagree": _lists_disagree,
+    "same_number": _same_number,
+    "no_number": _no_number,
+    "not_on_the_list": _not_on_the_list,
+    "a_gap_and_no_list": _a_gap_and_no_list,
+}
+
+
+@pytest.mark.parametrize("reason", list(REASONS))
+def test_every_reason_a_sheet_does_not_agree_is_refused_in_true_words(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, jev_offline: Offline, reason: str
+) -> None:
+    jev_says(jev_offline, "0.97")
+    api = api_as(qs_project.member)
+    chosen, code, question = REASONS[reason](qs_project, monkeypatch, api)
+    assert not any(p["agrees"] for p in proposals(api, qs_project.project_id) if p["id"] in chosen[1:])
+
+    refused = confirm(api, qs_project.project_id, chosen)
+
+    assert refused.status_code == 409, refused.content
+    body = refused.json()
+    assert body["code"] == f"takeoff.step1.{code}", body
+    if question is not None:
+        assert body["params"]["question"] == question
+    else:
+        # Only sheets with one source are said to have one: none an open Question holds.
+        held = {p for q in open_questions(api, qs_project.project_id) for p in q["proposals"]}
+        assert not set(body["params"]["sheets"]) & held
+    assert all(p["decision"] != "confirmed" for p in proposals(api, qs_project.project_id))
+
+
+def test_the_refusals_words_say_why_the_sheets_wait() -> None:
+    """Fix round 2's words (the gate's mays): the number/Discipline plural says what the Question is
+    about; a held sheet says why it is held."""
+    assert "a Question about their number or Discipline" in (
+        english("takeoff.step1.question_first") or ""
+    )
+    assert "is marked held because its file may be misread" in (english("takeoff.step1.held_file") or "")

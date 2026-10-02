@@ -1011,22 +1011,35 @@ def _holding(
     project_id: uuid.UUID, chosen: Sequence[tuple[drawings.SheetView, Proposal | None]]
 ) -> dict[uuid.UUID, Question]:
     """The open Step 1 Question (any kind; the oldest when several) holding each chosen sheet that one
-    holds, by its subject or a link to its Proposal, by sheet."""
+    holds, by its subject, a link to its Proposal, or (the two drawing lists disagreeing) its
+    Discipline: until that Question is answered no sheet of the Discipline agrees (`_agreeing`),
+    though its subject is only the sheet the list was read on. By sheet."""
     sheet_ids = [sheet.id for sheet, _p in chosen]
     proposal_of = {p.id: sheet.id for sheet, p in chosen if p is not None}
     open_questions = Question.objects.filter(
         project_id=project_id, step=SHEETS, status=QuestionStatus.OPEN
     )
+    of_discipline: dict[str, list[uuid.UUID]] = {}
+    for sheet, _p in chosen:
+        if sheet.discipline is not None:
+            of_discipline.setdefault(sheet.discipline, []).append(sheet.id)
     linked: dict[uuid.UUID, set[uuid.UUID]] = {}
     for link in QuestionLink.objects.filter(
         project_id=project_id, question__in=open_questions, proposal_id__in=list(proposal_of)
     ):
         linked.setdefault(link.question_id, set()).add(proposal_of[link.proposal_id])
     holding: dict[uuid.UUID, Question] = {}
-    for q in open_questions.filter(Q(subject_id__in=sheet_ids) | Q(id__in=list(linked))).order_by(
-        "created_at", "id"
-    ):
+    lists_disagree = Q(
+        kind=QuestionKind.CONFLICT,
+        message_code=answer_codes.LISTS_DISAGREE.code,
+        discipline__in=list(of_discipline),
+    )
+    for q in open_questions.filter(
+        Q(subject_id__in=sheet_ids) | Q(id__in=list(linked)) | lists_disagree
+    ).order_by("created_at", "id"):
         held = linked.get(q.id, set()) | ({q.subject_id} & set(sheet_ids) if q.subject_id else set())
+        if q.kind == QuestionKind.CONFLICT and q.message_code == answer_codes.LISTS_DISAGREE.code:
+            held |= set(of_discipline.get(q.discipline or "", []))
         for sheet_id in held:
             holding.setdefault(sheet_id, q)
     return holding
