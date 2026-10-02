@@ -321,12 +321,15 @@ RULE
   check "$OWNER cannot list $KEY_DIR" "! sudo -u $OWNER ls $KEY_DIR"
   check "$RUN_USER cannot list $KEY_DIR" "! sudo -u $RUN_USER ls $KEY_DIR"
   check "$OWNER cannot write $DROP" "! sudo -u $OWNER test -w $DROP"
+  # The installed copy as a whole: no file or folder, nor any link's target, that your user can write or
+  # that is not root's (a find that fails, unable to read a folder, fails the check too).
   check "$OWNER cannot change the scorer, the poster, the command or its launcher" \
     "! sudo -u $OWNER test -w $SCORER && ! sudo -u $OWNER test -w $RUNNER \
      && ! sudo -u $OWNER test -w $LIB/post-status && ! sudo -u $OWNER test -w $LIB/post-status.toml \
      && ! sudo -u $OWNER test -w $INSTALLED/scripts/real_drawings/command.py \
      && ! sudo -u $OWNER test -w $INSTALLED/.github/checkout-also.txt \
-     && [ -z \"\$(sudo -u $OWNER find $INSTALLED -writable -print -quit)\" ]"
+     && found=\$(sudo -u $OWNER find -L $INSTALLED \\( -writable -o ! -user root \\) -print -quit) \
+     && [ -z \"\$found\" ]"
   check "the installed scorer is GitHub's main's" "cmp -s $tmp/score $SCORER"
   check "$OWNER may run the installed command as $RUN_USER (its usage)" \
     "sudo -u $OWNER -- sudo -n -u $RUN_USER $RUNNER --help"
