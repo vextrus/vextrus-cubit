@@ -247,6 +247,10 @@ msgctxt "storey"
 msgid "Ground"
 msgstr "Ground"
 
+#: src/takeoff/questionWords.tsx
+msgid "Not part of this set: the numbering simply skips"
+msgstr "Not part of this set: the numbering simply skips"
+
 #: src/takeoff/Step1Inspector.tsx
 msgid "Excluded: {reason}"
 msgstr "Excluded: {reason}"
@@ -612,6 +616,10 @@ msgstr "Distribution board details"
 msgid "Sanitary fixture details"
 msgstr "Sanitary fixture details"
 
+#: src/takeoff/questionWords.tsx
+msgid "Trace: the title block of {sheet}"
+msgstr "Trace: the title block of {sheet}"
+
 #: src/takeoff/words.tsx
 msgid "Door and window layout"
 msgstr "Door and window layout"
@@ -971,6 +979,10 @@ msgstr "↓ walks the list; Space opens a sheet; a Proposal counts toward nothin
 #: src/takeoff/Step1Inspector.tsx
 msgid "held by Question {tag}"
 msgstr "held by Question {tag}"
+
+#: src/takeoff/questionWords.tsx
+msgid "Trace: the title blocks of {first} and {second}"
+msgstr "Trace: the title blocks of {first} and {second}"
 
 #: src/takeoff/SheetList.tsx
 #: src/takeoff/Step1Inspector.tsx
@@ -1520,6 +1532,10 @@ msgstr "State"
 #: src/takeoff/words.tsx
 msgid "The architectural drawing list"
 msgstr "The architectural drawing list"
+
+#: src/takeoff/questionWords.tsx
+msgid "{missing, plural, one {Not sent yet: count the missing number and ask the consultant} other {Not sent yet: count the missing numbers and ask the consultant}}"
+msgstr "{missing, plural, one {Not sent yet: count the missing number and ask the consultant} other {Not sent yet: count the missing numbers and ask the consultant}}"
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "{name} from the file"

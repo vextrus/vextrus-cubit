@@ -60,8 +60,24 @@ describe('a Question holding no sheet', () => {
     await waitFor(() => expect(card().some((c) => clean(c.textContent).includes('the numbering skips from A-03 to A-05'))).toBe(true))
     const text = clean(card().find((c) => clean(c.textContent).includes('skips from A-03'))!.textContent)
     expect(text).toContain('A gap in the numbering')
-    expect(text).toMatch(/Trace: the title block of A-03 \S* ?and A-05/)
+    expect(text).toContain('Trace: the title blocks of A-03 and A-05')
     expect(text).not.toContain('Trace: the drawing list')
+    // 21c gives it the drawing list's options; the gap words two of them for itself (the words gate, round 1).
+    expect(text).toContain('Not sent yet: count the missing number and ask the consultant')
+    expect(text).toContain('Not part of this set: the numbering simply skips')
+    expect(text).not.toContain('take it off the list')
+  })
+
+  it('traces a gap to the one title block found, in the singular, and words several missing numbers', async () => {
+    const id = 'c1640000-0000-4000-8000-0000000000a3'
+    await open([check(id, 'engine.register_check.gap', { after: 'A-03', before: 'A-99', missing: 3, discipline: 'architectural' })])
+    await waitFor(() => expect(rowOf(id)).toBeTruthy())
+    await userEvent.click(rowOf(id))
+    await waitFor(() => expect(card().some((c) => clean(c.textContent).includes('skips from A-03 to A-99'))).toBe(true))
+    const text = clean(card().find((c) => clean(c.textContent).includes('skips from A-03'))!.textContent)
+    expect(text).toContain('Trace: the title block of A-03')
+    expect(text).not.toContain('title blocks')
+    expect(text).toContain('Not sent yet: count the missing numbers and ask the consultant')
   })
 
   it('shows "—" for a Question with no sheet and no number, and does not call an unknown Check one against the drawing list', async () => {

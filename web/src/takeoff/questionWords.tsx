@@ -159,9 +159,20 @@ export function Trace({ entry, context, onOpen }: { entry: QuestionEntry; contex
     if (gap) {
       // No drawing list: the gap was read from the numbers in the title blocks either side of it.
       const sides = [gap.after, gap.before].flatMap((n) => context.sheets.filter((p) => p.number === n && (!q.discipline || p.discipline === q.discipline)).slice(0, 1))
-      if (sides.length === 0) return null
-      const sheets = <Joined items={sides.map((h) => <SheetLink key={h.id} sheet={h} onOpen={onOpen} />)} />
-      return <Trans>Trace: the title block of {sheets}</Trans>
+      const [one, two] = sides.map((h) => <SheetLink key={h.id} sheet={h} onOpen={onOpen} />)
+      if (!one) return null
+      // Its own words, plural on the sides found (the words gate of 164, round 1, M1).
+      if (!two) {
+        const sheet = one
+        return <Trans>Trace: the title block of {sheet}</Trans>
+      }
+      const first = one
+      const second = two
+      return (
+        <Trans>
+          Trace: the title blocks of {first} and {second}
+        </Trans>
+      )
     }
     if (typeof q.params.page === 'number') {
       const page = q.params.page
@@ -281,6 +292,13 @@ export function OptionWords({ entry, option }: { entry: QuestionEntry; option: O
     const date = byMark && keep.issue_date ? f.day(keep.issue_date) : null
     return date ? <Trans>Keep {kept} ({date}); leave {dropped} out as superseded</Trans> : <Trans>Keep {kept}; leave {dropped} out as superseded</Trans>
   }
+  // 21c raises every Check with the drawing list's options; a numbering gap words two of them for itself.
+  const gap = gapOf(entry.question)
+  if (gap && key === 'not_sent_yet') {
+    const missing = typeof entry.question.params.missing === 'number' ? entry.question.params.missing : 1
+    return <Plural value={missing} one="Not sent yet: count the missing number and ask the consultant" other="Not sent yet: count the missing numbers and ask the consultant" />
+  }
+  if (gap && key === 'not_in_set') return <Trans>Not part of this set: the numbering simply skips</Trans>
   const words = OPTION_NAMES[key] ?? (entry.question.kind === 'low_confidence' ? SHEET_KIND_NAMES[key] : undefined)
   return <>{i18n._(words ?? OTHER_OPTION)}</>
 }
