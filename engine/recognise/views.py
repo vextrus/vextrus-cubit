@@ -20,9 +20,13 @@ texts are no view's. **Every box is on paper, in mm, from the sheet's lower-left
 "24s <-> 17"), and `FoundViews.paper` is the paper's extent its boxes are on (the ruling of 14:20): a
 layout's paper units are taken as mm, its paper the frame's box (else the drawing's extent); a
 model-space sheet's box is `(model - lower-left corner of its frame) / scale`, the scale being its frame
-insert's (the frame block drawn at paper size, in mm), else, for a frame drawn as a rectangle or a scale
-giving no paper size, the one that makes the frame a standard paper size (`PAPER_SIDES`) at the roundest
-scale (`ROUND_SCALES`).
+insert's (the frame block drawn at paper size, in mm, the frame as it stands in model space's axes: a
+turned A3 is 297 wide and 420 tall), else, for a frame drawn as a rectangle or a scale giving no paper
+size (a frame block drawn at a fraction of its plotted size), a standard sheet when the box is one at a
+standard scale in the drawing's units (both sides, the render buffers' `_standard_sheet`), else the scale
+that makes the frame a standard paper size (`PAPER_SIDES`) at the roundest scale (`ROUND_SCALES`). This
+is the one rule for a model-space sheet's paper: the render buffers lay theirs by `_paper_scale` too, so
+a view's box and the drawing under it cannot drift apart (#160).
 
 **How views are found.** The sheet's lines and texts are laid on a grid of `CELL_MM` cells over its
 paper, grown by `GAP_MM` so that what is drawn closer than that joins, and split into connected pieces.
@@ -148,7 +152,7 @@ from engine.recognise.types import (
     ViewKind,
 )
 from engine.render import _shapes
-from engine.render.buffers import is_main_viewport, viewport_transform
+from engine.render.buffers import SCALES, UNIT_MM, _standard_sheet, is_main_viewport, viewport_transform
 
 DEFAULT_CONVENTIONS = Path(__file__).with_name("conventions") / "view-default.json"
 
@@ -559,7 +563,7 @@ def _paper(artefact: ReadArtefact, sheet: SheetCandidate) -> _Paper | None:
         model = walker.model()
         if box is None or model is None:
             return None
-        scale = _paper_scale(artefact, frame, box)
+        scale, _ = _paper_scale(artefact, frame, box)
         to_paper = scaling(1 / scale, 1 / scale) @ translation(-box.x0, -box.y0)
         region = (0.0, 0.0, (box.x1 - box.x0) / scale, (box.y1 - box.y0) / scale)
         parts.append((model, to_paper, (box.x0, box.y0, box.x1, box.y1), region))
@@ -698,9 +702,12 @@ def _extent(segments: NDArray[np.float64], texts: list[_Text]) -> Bounds | None:
     return (min(xs), min(ys), max(xs), max(ys))
 
 
-def _paper_scale(artefact: ReadArtefact, frame: DwgAnchor | None, box: Box) -> float:
-    """Model units per paper mm for a model-space sheet (the module's docstring)."""
-    long = max(box.x1 - box.x0, box.y1 - box.y0)
+def _paper_scale(artefact: ReadArtefact, frame: DwgAnchor | None, box: Box) -> tuple[float, bool]:
+    """Model units per paper mm for a model-space sheet (the module's docstring), and whether the drawing
+    gave it (the frame insert's scale, or a box that is a standard sheet at a standard scale) rather than
+    the roundest guess. The render buffers' paper is laid by this too (`buffers._model_paper`)."""
+    width, height = box.x1 - box.x0, box.y1 - box.y0
+    long, short = max(width, height), min(width, height)
     if frame is not None:
         entity = artefact.entities.get(frame.handle)
         if isinstance(entity, Insert):
@@ -710,7 +717,11 @@ def _paper_scale(artefact: ReadArtefact, frame: DwgAnchor | None, box: Box) -> f
             except PlacementError, ValueError:
                 scale = 0.0
             if scale > 0 and math.isfinite(scale) and MIN_PAPER_MM <= long / scale <= MAX_PAPER_MM:
-                return scale
+                return scale, True
+    unit = UNIT_MM.get(artefact.summary.insunits, 1.0)
+    matched = _standard_sheet(long, short, (unit,), SCALES) if short > 0 else None
+    if matched is not None:
+        return 1 / matched, True
     best, best_score = 1.0, math.inf
     for side in PAPER_SIDES:
         scale = long / side
@@ -720,7 +731,7 @@ def _paper_scale(artefact: ReadArtefact, frame: DwgAnchor | None, box: Box) -> f
         score = min(abs(math.log(scale / (r * p))) for r in ROUND_SCALES for p in (power, power * 10))
         if score < best_score:
             best, best_score = scale, score
-    return best
+    return best, False
 
 
 def _move(segments: NDArray[np.float64], transform: Transform) -> NDArray[np.float64]:

@@ -16,6 +16,7 @@ from engine.recognise.types import (
     ExclusionReason,
     Layer,
     SheetCandidate,
+    SheetLocation,
     StoreysMeaning,
     ViewCandidate,
     ViewKind,
@@ -93,9 +94,67 @@ def test_a_model_space_views_box_is_on_paper_in_mm_from_the_frames_corner() -> N
 
 
 def test_a_frame_drawn_as_a_rectangle_takes_the_paper_that_makes_its_scale_round() -> None:
-    """No insert to read the scale from: an A1 rectangle 100 times its size is at 1:100."""
-    assert views._paper_scale(Sheets().artefact(), None, Box(0, 0, 84_100, 59_400)) == pytest.approx(100)
-    assert views._paper_scale(Sheets().artefact(), None, Box(0, 0, 42_000, 29_700)) == pytest.approx(100)
+    """No insert to read the scale from: an A1 rectangle 100 times its size is at 1:100, read (a
+    standard sheet at a standard scale); a box that is no standard sheet takes the standard side at the
+    roundest scale, assumed."""
+    artefact = Sheets().artefact()
+    for box in (Box(0, 0, 84_100, 59_400), Box(0, 0, 42_000, 29_700)):
+        scale, read = views._paper_scale(artefact, None, box)
+        assert scale == pytest.approx(100)
+        assert read
+    scale, read = views._paper_scale(artefact, None, Box(0, 0, 1000, 700))
+    assert 1000 / scale == pytest.approx(420)
+    assert not read
+
+
+def test_a_standard_sheet_at_a_standard_scale_no_round_one_holds_is_read_as_that_sheet() -> None:
+    """#160: the roundest scale alone read an A1 at 1:150 as an A0 (1:106) and an A1 at 1:96 in inches
+    as an A3; both sides matching a standard sheet at a standard scale say which it is."""
+    artefact = Sheets().artefact()
+    scale, read = views._paper_scale(artefact, None, Box(0, 0, 841 * 150, 594 * 150))
+    assert scale == pytest.approx(150)
+    assert read
+    inches = replace(artefact, summary=replace(artefact.summary, insunits=1))
+    scale, read = views._paper_scale(inches, None, Box(0, 0, 841 * 96 / 25.4, 594 * 96 / 25.4))
+    assert scale == pytest.approx(96 / 25.4)
+    assert read
+
+
+@pytest.mark.parametrize("scale", [37.0, 45.0, 100.0])
+def test_views_and_buffers_lay_a_framed_sheet_on_the_frames_paper(scale: float) -> None:
+    """#160: an A1 frame inserted at any scale, a round one or not, is on A1 in views and in the buffer
+    alike, and the buffer says its paper was read (never assumed) when the insert gave it."""
+    from engine.render import buffers
+
+    d, sheet = model_sheet([("BEAM LAYOUT PLAN", (40, 300, 340, 560))], scale=scale)
+    paper = buffers.build(d.artefact(), sheet).paper
+    assert views.find(d.artefact(), sheet, CONVENTIONS).paper == pytest.approx((W, H))
+    assert (paper.width_mm, paper.height_mm) == pytest.approx((W, H))
+    assert paper.source == buffers.PaperSource.STANDARD
+
+
+@pytest.mark.parametrize(
+    ("box", "insunits"),
+    [((0, 0, 84_100, 59_400), 4), ((0, 0, 1000, 700), 4), ((0, 0, 841 * 150, 594 * 150), 4),
+     ((5, 5, 3178.6, 2245.0), 1), ((0, 0, 15_540, 10_989), 4), ((0, 0, 7, 3), 6)],
+)  # fmt: skip
+def test_views_and_buffers_agree_on_a_frameless_sheets_paper(
+    box: tuple[float, float, float, float], insunits: int
+) -> None:
+    """#160: with no frame insert, views and buffers take one paper by one rule, and the buffer's
+    source says whether the drawing gave it."""
+    from engine.render import buffers
+
+    d = Sheets()
+    d.line((box[0], box[1]), (box[2], box[3]))
+    artefact = d.artefact()
+    artefact = replace(artefact, summary=replace(artefact.summary, insunits=insunits))
+    sheet = SheetCandidate(SheetLocation(box=Box(*box)))
+    found = views.find(artefact, sheet, CONVENTIONS).paper
+    paper = buffers.build(artefact, sheet).paper
+    _, read = views._paper_scale(artefact, None, Box(*box))
+    assert found == pytest.approx((paper.width_mm, paper.height_mm))
+    assert paper.source == (buffers.PaperSource.STANDARD if read else buffers.PaperSource.ASSUMED)
 
 
 def test_a_layout_sheets_views_seen_through_a_viewport_are_placed_on_its_paper() -> None:
