@@ -542,11 +542,12 @@ describe('M21: the held file’s row names its file whole', () => {
 
 describe('F2: a long file name is cut in its middle and leaves the held reason its width (the review of 22, round 4)', () => {
   const LONG = 'KADAM-RESIDENCE-STRUCTURAL-DRAWINGS-SET-02-ISSUED-FOR-CONSTRUCTION-REVISED-AUG-2026-R0.dwg'
+  for (const width of [1280, 1024])
   for (const rtl of [false, true])
-    it(`keeps ".dwg", the whole name in the text and the tooltip, and the reason visible, at 1280${rtl ? ' in en-XB' : ''}`, async () => {
+    it(`keeps ".dwg", at least 8 characters of the name, the whole name in the text and the tooltip, and the reason visible, at ${width}${rtl ? ' in en-XB' : ''}`, async () => {
       expect(LONG.length).toBeGreaterThanOrEqual(80)
       if (rtl) activatePseudoRtl()
-      await page.viewport(1280, 800)
+      await page.viewport(width, 800)
       const { api, step1 } = kr01()
       const held = step1.questions.find((q) => q.kind === 'file_misread')!.subject_id!
       new FakeDrawingSet(api, 'KR-01').files = [file({ id: held, name: LONG, state: 'held', status: msg('drawings.files.held') })]
@@ -572,12 +573,19 @@ describe('F2: a long file name is cut in its middle and leaves the held reason i
       expect(x.width).toBeGreaterThan(10)
       expect(x.left).toBeGreaterThanOrEqual(box.left - 1)
       expect(x.right).toBeLessThanOrEqual(box.right + 1)
+      // The re-check of round 4: a name cut to its first letter ("K….dwg") cannot tell two held files
+      // apart (KR-STR-…, KR-ARC-…). At least 8 of its characters show, besides the ellipsis.
+      const stem = name.querySelector<HTMLElement>('span')!
+      const perCharacter = stem.scrollWidth / LONG.replace(/\.dwg$/, '').length
+      expect(stem.clientWidth / perCharacter - 1).toBeGreaterThanOrEqual(8)
       // The held reason keeps a width, inside the cell.
       const reason = [...cell.querySelectorAll<HTMLElement>('span')].find((e) => /Held/.test(e.textContent ?? '') && !e.querySelector('[data-notation]'))!
       const r = reason.getBoundingClientRect()
-      expect(r.width).toBeGreaterThanOrEqual(90)
-      expect(r.left).toBeGreaterThanOrEqual(box.left - 1)
-      expect(r.right).toBeLessThanOrEqual(box.right + 1)
+      // The reason truncates first (the re-check of round 4): "Held: the tw…" still reads, in a cell
+      // the 1280 and 1024 layouts both make 193 px wide.
+      expect(r.width).toBeGreaterThanOrEqual(72)
+      expect(r.left).toBeGreaterThanOrEqual(box.left - 0.5)
+      expect(r.right).toBeLessThanOrEqual(box.right + 0.5)
     })
 })
 

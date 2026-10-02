@@ -395,7 +395,8 @@ function State({ row }: { row: Row }) {
     return (
       <span className="inline-flex items-center gap-1.5 text-excluded">
         <StatusMark status="excluded" compact />
-        <Trans>Excluded, Question {tag} withdrawn</Trans>
+        {/* The compact mark says "Excluded" (its tooltip, and to a screen reader); 150 px holds no more (the builder's keyboard walk of 22 after merging 21c: "…Q5 w" at 1280). */}
+        <Trans>Question {tag} withdrawn</Trans>
       </span>
     )
   }
@@ -485,7 +486,7 @@ function SheetRow({
     title = file ? (
       <Trans>
         <FileName name={file} />
-        <span className="ms-1 min-w-24 shrink-[0.05] truncate">Held: the two readers disagree</span>
+        <span className="ms-1 min-w-0 flex-1 truncate">Held: the two readers disagree</span>
       </Trans>
     ) : (
       <span className="min-w-0 truncate">
@@ -588,13 +589,15 @@ function SheetRow({
  * A file name cut in its middle when it does not fit, its extension kept ("KR-STRUCTURAL-…R0.dwg" reads
  * as "KR-STRUCT….dwg"), the whole name in its text (what a screen reader reads) and its tooltip (the
  * review of 22, round 4, F2: a long name spilled past its cell and left the held reason no width).
+ * About 16 characters of room (the stem and its extension) before the reason gives up width (its re-check: two held files
+ * cut to "K….dwg" looked the same); the reason truncates first.
  */
 function FileName({ name }: { name: string }) {
   const dot = name.lastIndexOf('.')
   const stem = dot > 0 ? name.slice(0, dot) : name
   const extension = dot > 0 ? name.slice(dot) : ''
   return (
-    <bdi dir="ltr" data-notation="file-name" title={isolateLtr(name)} className="inline-flex min-w-16 max-w-full shrink overflow-hidden">
+    <bdi dir="ltr" data-notation="file-name" title={isolateLtr(name)} className="inline-flex max-w-[calc(100%-var(--spacing)*25)] min-w-[16ch] shrink-0 overflow-hidden">
       <span className="min-w-0 truncate">{stem}</span>
       {extension ? <span className="shrink-0">{extension}</span> : null}
     </bdi>

@@ -355,10 +355,6 @@ msgstr "{name} is confirmed by {by}, Vextrus Engineer"
 msgid "Open it to confirm it."
 msgstr "Open it to confirm it."
 
-#: src/takeoff/SheetList.tsx
-msgid "Excluded, Question {tag} withdrawn"
-msgstr "Excluded, Question {tag} withdrawn"
-
 #: src/takeoff/DrawingListDialog.tsx
 msgid "{file} carries no drawing list. Paste the consultant’s list (the transmittal or an email), or type the range it gives, and Vextrus checks it against the sheets found, both ways. Its source is marked as pasted or typed."
 msgstr "{file} carries no drawing list. Paste the consultant’s list (the transmittal or an email), or type the range it gives, and Vextrus checks it against the sheets found, both ways. Its source is marked as pasted or typed."
@@ -1960,6 +1956,10 @@ msgstr "Discipline"
 #: src/takeoff/words.tsx
 msgid "Riser diagram"
 msgstr "Riser diagram"
+
+#: src/takeoff/SheetList.tsx
+msgid "Question {tag} withdrawn"
+msgstr "Question {tag} withdrawn"
 
 #: src/takeoff/DrawingListDialog.tsx
 msgid "Close"
