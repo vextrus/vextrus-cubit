@@ -23,7 +23,7 @@ msgid "drawings.sheets.plot_no_number"
 msgstr "No Plot for this sheet: the sheet has no number, so no PDF page could be matched to it."
 
 msgid "drawings.sheets.plot_no_page"
-msgstr "No Plot for this sheet: no page of {plot_file} matched it. The report of {plot_file} says why for each page."
+msgstr "No Plot for this sheet: no page of {plot_file} matched it. The report of {plot_file} lists each sheet it has no page for."
 
 msgid "drawings.sheets.plot_no_pdf"
 msgstr "No Plot for this sheet: no PDF has been added for {discipline}."
