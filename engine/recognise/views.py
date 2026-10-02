@@ -22,10 +22,9 @@ layout's paper units are taken as mm, its paper the frame's box (else the drawin
 model-space sheet's box is `(model - lower-left corner of its frame) / scale`, the scale being its frame
 insert's when the frame is then a standard sheet (`FRAME_MATCH`; the frame block drawn at paper size,
 in mm or in the drawing's units, the frame as it stands in model space's axes: a turned A3 is 297 wide
-and 420 tall), else, for a frame drawn as a rectangle or a scale giving no standard sheet (a frame block drawn at a fraction of its
-plotted size), a standard sheet when the box is one at a
-standard scale in the drawing's units (both sides, the render buffers' `_standard_sheet`), else the scale
-that makes the frame a standard paper size (`PAPER_SIDES`) at the roundest scale (`ROUND_SCALES`). This
+and 420 tall), else, for a frame drawn as a rectangle or a scale giving no standard sheet (a frame
+block drawn at a fraction of its plotted size), a standard sheet when the box is one at a standard scale
+in the drawing's units (both sides, the render buffers' `_standard_sheet`), else the scale that makes the frame a standard paper size (`PAPER_SIDES`) at the roundest scale (`ROUND_SCALES`). This
 is the one rule for a model-space sheet's paper: the render buffers lay theirs by `_paper_scale` too, so
 a view's box and the drawing under it cannot drift apart (#160).
 
