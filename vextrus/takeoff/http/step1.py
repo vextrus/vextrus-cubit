@@ -9,6 +9,7 @@ another Developer, or none at all is the one 404 (`platform.auth.not_found`), an
 
 import uuid
 
+from django.db import transaction
 from django.http import HttpRequest
 from ninja import Router
 
@@ -16,6 +17,7 @@ from vextrus.platform.http.acts import Refusal, declare
 from vextrus.takeoff import acts
 from vextrus.takeoff.schemas.step1 import (
     Step1ActOut,
+    Step1AnswerIn,
     Step1ConfirmIn,
     Step1CoverageOut,
     Step1DrawingListIn,
@@ -30,6 +32,8 @@ from vextrus.takeoff.schemas.step1 import (
     Step1UndoIn,
 )
 from vextrus.takeoff.services import step1
+from vextrus.takeoff.services.read_propose import proposals
+from vextrus.takeoff.tasks import read_file
 
 router = Router()
 
@@ -71,7 +75,7 @@ def get_progress(request: HttpRequest, project_id: uuid.UUID) -> Step1ProgressOu
     return Step1ProgressOut.from_view(step1.progress(project_id))
 
 
-@router.post(f"{_PREFIX}/confirm", response={200: Step1ActOut, 400: Refusal})
+@router.post(f"{_PREFIX}/confirm", response={200: Step1ActOut, 400: Refusal, 409: Refusal})
 @declare(acts.CONFIRM, project="project_id")
 def confirm(request: HttpRequest, project_id: uuid.UUID, payload: Step1ConfirmIn) -> Step1ActOut:
     view = step1.confirm(project_id, payload.proposals, kind=payload.kind, actor_name=actor(request))
@@ -118,3 +122,24 @@ def get_drawing_list(
     request: HttpRequest, project_id: uuid.UUID, discipline: str
 ) -> Step1DrawingListOut:
     return Step1DrawingListOut.from_view(step1.drawing_list(project_id, discipline))
+
+
+@router.post(
+    f"{_PREFIX}/questions/{{question_id}}/answer",
+    response={200: Step1QuestionOut, 400: Refusal, 409: Refusal},
+)
+@declare(acts.CONFIRM, project="project_id")
+def answer_question(
+    request: HttpRequest, project_id: uuid.UUID, question_id: uuid.UUID, payload: Step1AnswerIn
+) -> Step1QuestionOut:
+    """Answer a Question with one of its options (`keep_open` keeps it open). A held file read
+    anyway has its read job queued again, in the answer's transaction."""
+    with transaction.atomic():
+        done = step1.answer(
+            project_id, question_id, payload.option, payload.text, actor_name=actor(request)
+        )
+        if done.read_again is not None:
+            read_file.read_again(done.read_again)
+        if done.corrected:  # a typed number another sheet has, say: its conflict is asked
+            proposals.set_questions(project_id)
+    return Step1QuestionOut.from_view(done.question)

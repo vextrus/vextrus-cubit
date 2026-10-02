@@ -1,7 +1,7 @@
-"""Step 1's tables hold their walls whoever writes (migration 0001), by every write, not only the one
-a service makes: the app deletes nothing of takeoff's, changes a Confirmation only by undoing it,
-never changes a drawing list, writes no Library row, and no row names another Project's or another
-Developer's."""
+"""Step 1's tables hold their walls whoever writes (migrations 0001 and 0002), by every write, not
+only the one a service makes: the app deletes nothing of takeoff's, changes a Confirmation only by
+undoing it, never changes a drawing list, writes no Library row, and no row names another Project's
+or another Developer's."""
 
 import uuid
 from collections.abc import Callable
@@ -138,3 +138,18 @@ def test_an_undone_act_is_never_brought_back_nor_back_dated(acted: Step1Project)
             ("update takeoff_confirmation set undone_at = '2000-01-01' where id = %s", standing.id),
         ):
             assert "undone once" in refused(sql, [act])
+
+
+def test_a_question_is_never_withdrawn_by_another_projects_act(acted: Step1Project) -> None:
+    """Migration 0002 (ticket 21c, round 4): `withdrawn_by` names an act of the Question's own
+    Project, as every reference inside takeoff does."""
+    with acted.member.acting():
+        other = projects.create(code=f"T-{uuid.uuid4().hex[:6]}", name="Another project")
+        question = step1.raise_question(
+            other.id, "missing", {"code": "takeoff.step1.no_number", "params": {}}
+        )
+        [act] = Confirmation.objects.filter(project_id=acted.project_id, act="confirm")
+        assert "same_project" in refused(
+            "update takeoff_question set status = 'withdrawn', withdrawn_by_id = %s where id = %s",
+            [act.id, question],
+        )

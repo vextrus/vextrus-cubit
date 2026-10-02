@@ -1,0 +1,6 @@
+# Beside the engine paths (.github/engine-paths.txt), what the real-drawing check's checkout carries
+# and its code hash follows (scripts/real_drawings/source.py's CHECKOUT_ALSO): the settings the
+# product's job starts Django with (vextrus.settings.job, 21c). No engine path, but a PR changing one
+# of these changes what a run reads, so real-drawings-na.yml never calls it "not applicable" either.
+# One glob per line, as in engine-paths.txt.
+vextrus/settings/**
