@@ -154,8 +154,13 @@ def run(job: Job, log: Path) -> None:
         with open_new(group) as written:
             written.write(f"{USER}:x:{UID}:\n".encode())
     with open_new(log) as output:
-        done = subprocess.run(
-            argv(job), stdout=output, stderr=subprocess.STDOUT, check=False, timeout=6 * HOURS
-        )
+        try:
+            done = subprocess.run(
+                argv(job), stdout=output, stderr=subprocess.STDOUT, check=False, timeout=6 * HOURS
+            )
+        except subprocess.TimeoutExpired:  # stopped, and said as a refusal: never an unhandled error
+            raise Refused(
+                f"the sandbox ran past {6 * HOURS:.0f} s and was stopped; its output is in {log}"
+            ) from None
     if done.returncode != 0:
         raise Refused(f"the sandbox ended with exit code {done.returncode}; its output is in {log}")

@@ -2,9 +2,12 @@
 `engine/export.py`, on invented sheets (`test_read_sheet.py`'s readers; no toolchain)."""
 
 import dataclasses
+import hashlib
+import sys
+import time
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -175,7 +178,7 @@ def test_a_held_file_is_read_anyway_so_the_set_stages_run_on_every_file(
     _read(qs_project, good, lambda path, artefact: agree, monkeypatch)
     _read(qs_project, held, lambda path, artefact: fired, monkeypatch)
 
-    assert export.read_held_anyway(qs_project.member.developer_id, qs_project.project_id) == 1
+    assert export.read_held_anyway(qs_project.member.developer_id, qs_project.project_id) == [held]
     _read(qs_project, held, lambda path, artefact: fired, monkeypatch)  # the job queued again
 
     with qs_project.member.acting():
@@ -235,3 +238,61 @@ def test_a_files_sheets_are_exported_in_the_order_the_finder_found_them(
 
     in_found_order = [[float(v) for v in located[str(entry["id"])]["box"]] for entry in found]
     assert [sheet["location"]["box"] for sheet in file["sheets"]] == in_found_order
+
+
+@pytest.mark.django_db
+def test_a_file_whose_reading_hangs_fails_alone_and_the_run_goes_on(
+    qs_project: QsProject, tmp_path: Path
+) -> None:
+    """The review's attack (21d): the job read every file in the export's own process with no bound,
+    so one hanging step held the run for the sandbox's six hours. Each file is read in a child of its
+    own (`read_each`), under the harness's file timeout: the hanging one is killed, its file failed
+    with the wall limit and its process `timed_out`; the next file is read as before."""
+    (tmp_path / "a-hangs.dwg").write_bytes(drawing("dwg"))
+    (tmp_path / "b-reads.dwg").write_bytes(drawing("dwg"))
+    paths = {name: _sha(tmp_path / name) for name in ("a-hangs.dwg", "b-reads.dwg")}
+    children = iter(
+        [
+            [sys.executable, "-c", "import time; time.sleep(60)"],  # a step that never ends
+            [sys.executable, "-c", "pass"],
+        ]
+    )
+    started = time.monotonic()
+
+    processes = export.read_each(
+        qs_project.member.developer_id,
+        qs_project.project_id,
+        tmp_path,
+        paths,
+        timeout=1.0,
+        worker=lambda: next(children),
+    )
+
+    assert time.monotonic() - started < 20
+    with qs_project.member.acting():
+        found = drawings.set_of(qs_project.project_id)
+        assert found is not None
+        by_name = {view.name: view for view in drawings.files(found.id)}
+    hung, other = by_name["a-hangs.dwg"], by_name["b-reads.dwg"]
+    assert hung.state == drawings.FileState.FAILED
+    assert hung.finding is not None
+    assert hung.finding["params"] == {"limit": "wall"}
+    assert processes[hung.id].status == "timed_out"
+    assert processes[other.id].status == "ok"
+    assert other.state != drawings.FileState.FAILED
+    document = export.export(
+        qs_project.member.developer_id,
+        qs_project.project_id,
+        paths,
+        folder=tmp_path,
+        run=RUN,
+        processes=processes,
+    )
+    files = {f["path"]: f for f in cast(list[dict[str, Any]], document["files"])}
+    assert files["a-hangs.dwg"]["process"]["status"] == "timed_out"
+    assert files["a-hangs.dwg"]["stages"]["read"]["state"] == "failed"
+    assert files["b-reads.dwg"]["process"]["status"] == "ok"
+
+
+def _sha(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()

@@ -35,17 +35,20 @@ import argparse
 import hashlib
 import json
 import os
+import signal
+import subprocess
 import sys
 import time
 import uuid
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import replace
 from datetime import UTC, datetime
 from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:  # the models load only once `main` has set Django up
-    from engine.export import FileReading, StageReport
+    from engine.export import FileReading, ProcessReport, StageReport
     from engine.recognise.types import SheetCandidate, ViewCandidate
     from vextrus.drawings.services import FileView, SheetView, ViewView
 
@@ -67,39 +70,48 @@ PROJECT = ("RDC-01", "The real-drawing check's set")
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m vextrus.takeoff.services.export")
-    parser.add_argument("--set", type=Path, required=True, help="the Drawing Set's folder")
-    parser.add_argument("--out", type=Path, required=True, help="where the export is written")
+    parser.add_argument("--set", type=Path, help="the Drawing Set's folder")
+    parser.add_argument("--out", type=Path, help="where the export is written")
     parser.add_argument("--database", required=True, help="the cluster's Unix socket directory")
     parser.add_argument("--run-id")
     parser.add_argument("--commit")
     parser.add_argument("--code-hash")
+    parser.add_argument(
+        "--file-timeout",
+        type=float,
+        default=None,
+        help="how long one file's reading may take (the harness's FILE_TIMEOUT by default)",
+    )
+    parser.add_argument("--worker", type=Path, help=argparse.SUPPRESS)  # a file's child: its storage
     args = parser.parse_args(argv)
+    if args.worker is not None:
+        return _work(args.database, args.worker)
+    if args.set is None or args.out is None:
+        parser.error("--set and --out are needed")
     started, clock = datetime.now(UTC), time.monotonic()
+    storage = args.out.parent / f"storage-{uuid.uuid4().hex}"
     _bootstrap(args.database)
-    _configure(args.database, args.out.parent / f"storage-{uuid.uuid4().hex}")
+    _configure(args.database, storage)
 
-    from django.conf import settings
     from django.core.management import call_command
 
-    from engine.harness import drawing_files
-    from vextrus.platform.services import jobs
+    from engine.harness import FILE_TIMEOUT, drawing_files
 
     call_command("migrate", verbosity=0)
     call_command("sync_library", verbosity=0)
     developer, project = _project()
     folder = args.set.resolve()
     paths = {path: _sha256(folder / path) for path in drawing_files(folder)}
-    _add(developer, project, folder, paths)
-    for queue in (settings.VEXTRUS_CAD_QUEUE, settings.VEXTRUS_DEFAULT_QUEUE):
-        jobs.run_worker([queue], wait=False)
-    if read_held_anyway(developer, project):
-        for queue in (settings.VEXTRUS_CAD_QUEUE, settings.VEXTRUS_DEFAULT_QUEUE):
-            jobs.run_worker([queue], wait=False)
+    timeout = FILE_TIMEOUT if args.file_timeout is None else args.file_timeout
+    child = [sys.executable, "-m", __spec__.name if __spec__ else "vextrus.takeoff.services.export"]
+    argv_of = lambda: [*child, "--database", args.database, "--worker", str(storage)]  # noqa: E731
+    processes = read_each(developer, project, folder, paths, timeout=timeout, worker=argv_of)
     document = export(
         developer,
         project,
         paths,
         folder=folder,
+        processes=processes,
         run={
             "id": args.run_id or str(uuid.uuid7()),
             "commit": args.commit,
@@ -110,6 +122,87 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     _write(args.out, document)
     return 0
+
+
+def _work(socket: str, storage: Path) -> int:
+    """A file's child: the job workers until no job is left, the CAD queue's under its own cap (21d:
+    in its own process, so the cap never bounds the export's set stages, and a file that runs past its
+    time is killed with it, never the run)."""
+    _configure(socket, storage)
+    from django.conf import settings
+
+    from vextrus.platform.services import jobs
+
+    for queue in (settings.VEXTRUS_CAD_QUEUE, settings.VEXTRUS_DEFAULT_QUEUE):
+        jobs.run_worker([queue], wait=False)
+    return 0
+
+
+def read_each(
+    developer: uuid.UUID,
+    project: uuid.UUID,
+    folder: Path,
+    paths: Mapping[str, str],
+    *,
+    timeout: float,
+    worker: Callable[[], list[str]],
+) -> dict[uuid.UUID, ProcessReport]:
+    """Each file added and read by the job in a child process of its own (`worker()`'s command), one
+    at a time, as the harness reads each file in its own process (21d): a child that runs past
+    `timeout` is killed with its process group, and its file ends failed (`engine.read.limit_reached
+    {wall}`), its job cancelled, its process `timed_out`; a child that fails leaves its file as the job
+    left it, its process `failed`. Nothing one file does stops the run. Then the held files are read
+    anyway (`read_held_anyway`), each in its own child too. Each added file's process, by its id."""
+    from engine.export import ProcessReport, ProcessStatus
+
+    reports: dict[uuid.UUID, ProcessReport] = {}
+
+    def run(file_id: uuid.UUID) -> None:
+        started = time.monotonic()
+        child = subprocess.Popen(worker(), stdin=subprocess.DEVNULL, start_new_session=True)
+        try:
+            code = child.wait(timeout=timeout)
+            status = ProcessStatus.OK if code == 0 else ProcessStatus.FAILED
+        except subprocess.TimeoutExpired:
+            os.killpg(child.pid, signal.SIGKILL)
+            code = child.wait()
+            status = ProcessStatus.TIMED_OUT
+            _timed_out(developer, file_id)
+        seconds = time.monotonic() - started + (reports[file_id].seconds if file_id in reports else 0.0)
+        reports[file_id] = ProcessReport(
+            status,
+            None if status is ProcessStatus.TIMED_OUT or code < 0 else code,
+            -code if code < 0 and status is not ProcessStatus.TIMED_OUT else None,
+            seconds,
+            0.0,
+            0,
+        )
+
+    for path in paths:
+        file_id = _add(developer, project, folder, path)
+        if file_id is not None:
+            run(file_id)
+    for file_id in read_held_anyway(developer, project):
+        run(file_id)
+    return reports
+
+
+def _timed_out(developer: uuid.UUID, file_id: uuid.UUID) -> None:
+    """A file whose child ran past its time: its job cancelled (so no later worker picks it up) and
+    the file failed with the wall limit, as the reader's own wall limit fails it."""
+    from django.db import transaction
+
+    from engine.messages import read as read_codes
+    from vextrus.drawings import services as drawings
+    from vextrus.platform.services import jobs, tenancy
+
+    with transaction.atomic(), tenancy.acting_in(developer):
+        view = drawings.file(file_id)
+        if view.read_job_id is not None:
+            # Its killed worker left it running: asked to abort, the stalled-job retrier (a later
+            # child's) ends it aborted, never runs it again (`jobs.retry_stalled`).
+            jobs.cancel(view.read_job_id)
+        drawings.mark_failed(file_id, read_codes.LIMIT_REACHED(limit="wall"))
 
 
 # The throwaway cluster -------------------------------------------------------------------------------
@@ -162,31 +255,32 @@ def _project() -> tuple[uuid.UUID, uuid.UUID]:
     return developer, project
 
 
-def _add(developer: uuid.UUID, project: uuid.UUID, folder: Path, paths: Iterable[str]) -> None:
-    """Each file added as the upload adds it, its read job queued; a file refused is left out (and
-    so not in the export's files), and said on stderr by its code."""
+def _add(developer: uuid.UUID, project: uuid.UUID, folder: Path, path: str) -> uuid.UUID | None:
+    """The file added as the upload adds it, its read job queued: its id; a file refused is left out
+    (and so not in the export's files), and said on stderr by its code."""
     from django.db import transaction
 
     from vextrus.platform.services import auth, tenancy
     from vextrus.takeoff.tasks import read_file
 
-    for path in paths:
-        with (
-            transaction.atomic(),
-            tenancy.acting_in(developer),
-            (folder / path).open("rb") as content,
-        ):
-            try:
-                read_file.add(project, name=Path(path).name, content=content, actor_name=ACTOR)
-            except auth.Refused as refused:
-                print(f"export: a file was not added: {refused}", file=sys.stderr)
+    with (
+        transaction.atomic(),
+        tenancy.acting_in(developer),
+        (folder / path).open("rb") as content,
+    ):
+        try:
+            added = read_file.add(project, name=Path(path).name, content=content, actor_name=ACTOR)
+        except auth.Refused as refused:
+            print(f"export: a file was not added: {refused}", file=sys.stderr)
+            return None
+    return added.file.id
 
 
-def read_held_anyway(developer: uuid.UUID, project: uuid.UUID) -> int:
+def read_held_anyway(developer: uuid.UUID, project: uuid.UUID) -> list[uuid.UUID]:
     """Each held file (its two readers disagree) answered "read anyway", as a QS answers its
     `file_misread` Question (`step1`'s answer: `drawings.answer_held`, then the job queued again,
     `read_file.read_again`): the harness reads a file whatever its readers say, so the check reads it
-    too, and its export still says the readers disagree. How many were answered."""
+    too, and its export still says the readers disagree. The files answered."""
     from django.db import transaction
 
     from vextrus.drawings import services as drawings
@@ -203,7 +297,7 @@ def read_held_anyway(developer: uuid.UUID, project: uuid.UUID) -> int:
         for file_id in held:
             drawings.answer_held(file_id, drawings.HeldAnswer.READ_ANYWAY)
             read_file.read_again(file_id)
-    return len(held)
+    return held
 
 
 def _sha256(path: Path) -> str:
@@ -233,6 +327,7 @@ def export(
     *,
     folder: Path,
     run: Mapping[str, object],
+    processes: Mapping[uuid.UUID, ProcessReport] | None = None,
 ) -> dict[str, object]:
     """The export of what the job recorded for the Project's set: `paths` are the set's files (path
     to sha256) under `folder`, in order, each joined to the file added from it by its content; a path
@@ -265,6 +360,11 @@ def export(
             )
             for path, view in joined
         ]
+    # Each file's own process (`read_each`), where the job read it in one: its time and how it ended.
+    readings = [
+        replace(reading, process=(processes or {}).get(view.id, reading.process))
+        for reading, (_, view) in zip(readings, joined, strict=True)
+    ]
     outcome = harness.read_set(readings, targets, built, sheet_conventions, folder)
     info = RunInfo(
         id=str(run["id"]),

@@ -240,3 +240,18 @@ def test_the_fake_job_reaches_its_throwaway_cluster_by_socket_only(tmp_path: Pat
     assert probe["run_id"] == "invented-run"
     log = (job.scratch / "pg.log").read_text()
     assert "database system is shut down" in log  # stopped when the script ended
+
+
+def test_a_sandbox_that_runs_past_its_time_is_stopped_and_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The review's attack (21d): the export hanging past the sandbox's bound escaped the command as a
+    TimeoutExpired (it catches only Refused), so the run said nothing; now it is refused, with its
+    log named."""
+    monkeypatch.setattr(sandbox, "HOURS", 0.5 / 6)  # half a second for the six hours
+    monkeypatch.setattr(sandbox, "argv", lambda job: ["sleep", "30"])
+    log = tmp_path / "sandbox.log"
+
+    with pytest.raises(Refused, match=r"ran past .* and was stopped"):
+        sandbox.run(a_job(tmp_path, job=False), log)
+    assert log.exists()
