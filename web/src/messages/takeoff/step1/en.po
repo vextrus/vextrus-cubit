@@ -53,4 +53,4 @@ msgid "takeoff.step1.no_view_chosen"
 msgstr "No view was chosen, so nothing was assigned. Choose one or more views, then assign them to a step."
 
 msgid "takeoff.step1.view_accounted"
-msgstr "Nothing was assigned: {count, plural, one {a view you chose already has} other {# views you chose already have}} a Takeoff Step, a Discipline Part or an exclusion. Only a view still unaccounted can be assigned. Choose only those, then assign again."
+msgstr "Nothing was assigned: {count, plural, one {a view you chose already has} other {# views you chose already have}} a Takeoff Step, a Discipline Part or an exclusion. Only a view still unaccounted can be assigned, so choose only those and assign again."
