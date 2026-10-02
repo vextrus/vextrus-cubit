@@ -137,6 +137,18 @@ describe('M22 (walk 5, item 2): Space works straight after load, before anything
     await userEvent.keyboard(' ')
     await waitFor(() => expect(sheetMode()).toBe(true))
   })
+
+  it('names what Space does from the page in the ? overlay, without a focused sheet (the words gate)', async () => {
+    const api = new FakeApi()
+    new FakeStep1(api)
+    await mountApp('/p/KR-01/takeoff/1', { as: PEOPLE.qs, api })
+    await waitFor(() => expect(bodyText()).toContain('Confirmed 0 / 24'))
+    ;(document.activeElement as HTMLElement | null)?.blur()
+    await userEvent.keyboard('?')
+    const overlay = await screen.findByRole('dialog')
+    expect(clean(overlay.textContent)).toContain('Open the sheet the bar names, or go back to the list')
+    expect(clean(overlay.textContent)).not.toContain('Open the focused sheet')
+  })
 })
 
 describe('Y5 (walk 5): the inspector lists what Enter takes in the bar’s order', () => {

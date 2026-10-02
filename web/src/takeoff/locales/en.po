@@ -315,6 +315,10 @@ msgstr "Cover or index"
 msgid "None: the sheet has no number, so no PDF page could be matched to it"
 msgstr "None: the sheet has no number, so no PDF page could be matched to it"
 
+#: src/takeoff/Step1Screen.tsx
+msgid "Open the sheet the bar names, or go back to the list"
+msgstr "Open the sheet the bar names, or go back to the list"
+
 #: src/takeoff/SheetList.tsx
 msgid "Disciplines not yet received"
 msgstr "Disciplines not yet received"

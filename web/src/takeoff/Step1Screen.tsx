@@ -298,7 +298,7 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
       // Space does what the bar says (6.15: none focused, the first sheet row); in a region, the
       // region's Space wins (the registry resolves regions before the screen).
       key: 'Space',
-      label: spaceLabel,
+      label: t`Open the sheet the bar names, or go back to the list`,
       group: 'screen',
       when: () => !document.activeElement || document.activeElement === document.body,
       run: () => {
