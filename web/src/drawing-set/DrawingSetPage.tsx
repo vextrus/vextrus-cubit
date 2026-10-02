@@ -85,6 +85,8 @@ function RowProgress({ share }: { share?: number }) {
   )
 }
 
+const CHOICE_UNDONE = 'drawings.files.discipline_choice_undone'
+
 function StatusCell({ file }: { file: FileOut }) {
   const { i18n } = useLingui()
   const f = useFormat()
@@ -101,6 +103,12 @@ function StatusCell({ file }: { file: FileOut }) {
         {file.state === 'refused' ? <ExcludedGlyph size={14} className="shrink-0 text-excluded" aria-hidden /> : null}
         <span className="min-w-0">
           <MachineText message={file.status} />
+          {/* #159: a QS who never opens the report still learns their choice did not stand. */}
+          {file.finding?.code === CHOICE_UNDONE ? (
+            <span className="block text-xs text-ink-secondary">
+              <Trans>Your Discipline choice was undone</Trans>
+            </span>
+          ) : null}
         </span>
       </span>
       {moving ? <RowProgress share={progressShare(file)} /> : null}

@@ -735,7 +735,10 @@ def set_discipline(file_id: uuid.UUID, key: str, *, actor_name: str = "") -> Fil
         row.discipline_source = DisciplineSource.QS
         row.revision = _first_issue(row.drawing_set, discipline, tenancy.current().user_id)
         fields = ["discipline", "discipline_source", "revision"]
-        if isinstance(row.finding, dict) and row.finding.get("code") == said.DISCIPLINE_SHEET_TAKEN.code:
+        if (
+            isinstance(row.finding, dict)
+            and row.finding.get("code") == said.DISCIPLINE_CHOICE_UNDONE.code
+        ):
             row.finding = None  # an earlier choice refused while the file read: answered by this one
             fields.append("finding")
         row.save(update_fields=fields)

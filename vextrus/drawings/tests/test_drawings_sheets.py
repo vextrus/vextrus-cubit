@@ -521,6 +521,6 @@ def test_a_choice_refused_while_reading_is_kept_beside_a_limit_that_cut_the_read
         shown = services.file(notes.id)
     assert shown.discipline != "structural"
     assert shown.finding == {
-        "code": "drawings.files.discipline_sheet_taken",
-        "params": {"sheet": "01", "discipline": "Structural"},
+        "code": "drawings.files.discipline_choice_undone",
+        "params": {"discipline": "Structural", "sheet": "01"},
     }

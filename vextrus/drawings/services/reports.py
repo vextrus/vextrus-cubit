@@ -28,6 +28,7 @@ from engine.check.bangla_ansi import BanglaAnsi, Flagged, FoundBy
 from engine.messages import Message
 from engine.messages.decoders_agree import DISAGREE
 from engine.read.artefact import ReadArtefact
+from vextrus.drawings.messages import files as file_words
 from vextrus.drawings.messages import reports as said
 from vextrus.drawings.models import (
     DrawingFile,
@@ -195,6 +196,10 @@ def _messages(stored: dict[str, Any] | None) -> tuple[Message, ...]:
 
 def _readers(row: DrawingFile) -> list[Message]:
     finding = row.finding
+    if isinstance(finding, dict) and finding.get("code") == file_words.DISCIPLINE_CHOICE_UNDONE.code:
+        # #159: the file's finding is a Discipline choice undone (said at the report's top line); the
+        # readers' own finding, if any, is their check's (the one the file was held with).
+        finding = (row.cross_check or {}).get("finding")
     stopped = row.read_status in (ReadStatus.FAILED, ReadStatus.QUARANTINED)
     if (
         finding

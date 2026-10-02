@@ -315,9 +315,9 @@ def _default_discipline(
 
 def _refuse_taken_choice(row: DrawingFile, candidates: Sequence[SheetCandidate]) -> bool:
     """A Discipline the QS chose before the file's numbers were read is refused now, if it already
-    has a sheet of one of them from another file: as `set_discipline` refuses it after the read (the
-    same words, kept as the file's finding), never a silent join by number (the orchestrator's
-    ruling, session 08). The file is then read as if never chosen."""
+    has a sheet of one of them from another file, as `set_discipline` refuses it after the read (in
+    words of its own, `discipline_choice_undone`, kept as the file's finding), never a silent join by
+    number (the orchestrator's ruling, session 08). The file is then read as if never chosen."""
     if row.discipline_source != DisciplineSource.QS or row.discipline_id is None:
         return False
     for candidate in candidates:
@@ -338,7 +338,7 @@ def _refuse_taken_choice(row: DrawingFile, candidates: Sequence[SheetCandidate])
             assert row.discipline is not None
             name = library_disciplines.name(row.discipline.labels)
             row.finding = _text.read_json(
-                dict(file_words.DISCIPLINE_SHEET_TAKEN(sheet=number, discipline=name))
+                dict(file_words.DISCIPLINE_CHOICE_UNDONE(discipline=name, sheet=number))
             )
             row.discipline = None
             row.discipline_source = ""

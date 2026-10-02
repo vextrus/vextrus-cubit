@@ -172,7 +172,7 @@ def test_a_discipline_chosen_before_the_sheets_whose_numbers_are_taken_is_refuse
     assert [r.status_code for r in chosen] == [200]  # the numbers were not read yet
     shown = a_file(api, qs_project.project_id, file_id)
     assert shown["discipline"] != "structural"
-    assert shown["finding"]["code"] == drawing_words.DISCIPLINE_SHEET_TAKEN.code
+    assert shown["finding"]["code"] == drawing_words.DISCIPLINE_CHOICE_UNDONE.code
     assert shown["finding"]["params"]["sheet"] == "01"
     listed = proposals(api, qs_project.project_id)
     theirs = {p["number"]: p for p in listed if p["file_name"] == "KR-STR-R0.dwg"}
@@ -198,7 +198,8 @@ def test_a_wrong_general_default_corrected_proposes_the_files_views_again(
     qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """#159 fix round 1 (F3): a bare-numbered structural file defaults to General (every view Step 2's);
-    the QS's Structural moves its views out of Step 2, to Structural's own proposals (Coverage follows)."""
+    the QS's Structural moves its views out of Step 2, to Structural's own proposals (Coverage
+    follows)."""
     file_id = read(
         qs_project,
         monkeypatch,

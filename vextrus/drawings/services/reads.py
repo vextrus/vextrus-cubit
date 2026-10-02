@@ -355,7 +355,7 @@ def answer_held(file_id: uuid.UUID, answer: HeldAnswer | str) -> drawing_files.F
 
 
 def _refused_choice(finding: object) -> bool:
-    return isinstance(finding, dict) and finding.get("code") == file_words.DISCIPLINE_SHEET_TAKEN.code
+    return isinstance(finding, dict) and finding.get("code") == file_words.DISCIPLINE_CHOICE_UNDONE.code
 
 
 def _end(

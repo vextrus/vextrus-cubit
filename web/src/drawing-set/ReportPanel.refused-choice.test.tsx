@@ -1,6 +1,6 @@
 /*
  * #159 (fix round 1, F1): a Discipline the QS chose while the file read, refused once its sheet numbers
- * were read (`drawings.files.discipline_sheet_taken`, kept as the read file's finding), is said at the
+ * were read (`drawings.files.discipline_choice_undone`, kept as the read file's finding), is said at the
  * report's top line, in words, beside a limit that cut the reading.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -22,7 +22,7 @@ afterEach(() => {
 
 const clean = (s: string | null | undefined) => (s ?? '').replace(/[⁦-⁩‎‏]/g, '').replace(/\s+/g, ' ').trim()
 
-describe('a refused Discipline choice in the report', () => {
+describe('a Discipline choice undone at read time, on its row and in the report', () => {
   it('says the refusal and the limit that cut the reading, each once', async () => {
     const api = new FakeApi()
     const set = new FakeDrawingSet(api, 'KR-01')
@@ -32,7 +32,7 @@ describe('a refused Discipline choice in the report', () => {
       state: 'read',
       status: msg('drawings.files.read'),
       sheets_found: 3,
-      finding: msg('drawings.files.discipline_sheet_taken', { sheet: '01', discipline: 'Structural' }),
+      finding: msg('drawings.files.discipline_choice_undone', { discipline: 'Structural', sheet: '01' }),
     })
     set.files.unshift(f)
     set.reports.set(f.id, {
@@ -44,9 +44,12 @@ describe('a refused Discipline choice in the report', () => {
     })
     await mountApp('/p/KR-01/drawing-set', { as: PEOPLE.qs, api })
     await screen.findByRole('heading', { name: 'Drawing Set' })
+    // The row says it before the report is opened (the words gate's may).
+    const row = (await screen.findByText('KR-SET3-R0.dwg')).closest('tr')
+    expect(clean(row?.textContent)).toContain('Your Discipline choice was undone')
     await userEvent.click(await screen.findByText('KR-SET3-R0.dwg'))
     const refused =
-      "Structural already has a sheet 01 from another file, so this file's Discipline was not changed."
+      'Structural already has a sheet 01 from another file, so your choice of Structural for this file was undone once its sheets were read.'
     const cut = 'This file holds more sheets than Vextrus lists from one file'
     await waitFor(() => expect(clean(document.body.textContent)).toContain(refused))
     const report = clean(screen.getByRole('region', { name: /KR-SET3-R0\.dwg/ }).textContent)

@@ -20,7 +20,7 @@ import { useDisciplineName } from './discipline'
 
 const SCAN = 'engine.pdf_report.scan'
 const MADE_BY_OTHER = 'engine.pdf_report.made_by_other'
-const TOP_LINE = ['takeoff.read_file.', 'drawings.files.discipline_sheet_taken']
+const TOP_LINE = ['takeoff.read_file.', 'drawings.files.discipline_choice_undone']
 
 function Section({ title, messages, children }: { title: ReactNode; messages: readonly MachineMessage[]; children?: ReactNode }) {
   if (messages.length === 0 && !children) return null

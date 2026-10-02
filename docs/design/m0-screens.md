@@ -145,7 +145,8 @@ pixels; the tokens in docs/design/system.md fix the pixels.
   the last five is shown on an M0 screen while a Project has one Building and there is one Market,
   except a Discipline Part's name beside a view it is proposed to, "Electrical, M3 onwards", 5).
 - **A Discipline has one name everywhere** (the plan's QS review, Q8): Structural, Architectural,
-  Electrical, Plumbing and sanitary, Fire, Mechanical (HVAC), Lift, Gas. They are Library rows per
+  Electrical, Plumbing and sanitary, Fire, Mechanical (HVAC), Lift, Gas, and General (a file of general notes in its own numbered series; never read from a file name)
+  (the owner's ruling, session 07; #159). They are Library rows per
   Market, their names Library data (`labels`, one per language), not catalogue words; a narrow column
   cuts a name with an ellipsis and shows it whole in
   the tooltip, never an abbreviation or a second name ("Plumbing" alone is wrong).
@@ -689,7 +690,8 @@ least 752 px at 1280.
 **Discipline** defaults from the file (spec amendment 8; proposed from the sheet numbers' prefix and
 the file name), shown as a quiet select the QS may change on the row; Step 1 starts from it. Its
 options are the Market's Disciplines (session 02, ADR 0040; the plan's QS review, Q8), one name each:
-Structural, Architectural, Electrical, Plumbing and sanitary, Fire, Mechanical (HVAC), Lift, Gas. A file
+Structural, Architectural, Electrical, Plumbing and sanitary, Fire, Mechanical (HVAC), Lift, Gas, and
+General (a file of general notes in its own numbered series; never read from a file name); its sheets are Step 2's notes (#159). A file
 of a Discipline that has no file yet opens only that Discipline's Step 1 (5); it is not a Revision.
 
 **The file's life, and its exact wording.** The Status cell holds the words and, while moving, a
