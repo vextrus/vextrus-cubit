@@ -1,6 +1,7 @@
 """The job's export (21c's `takeoff/services/export.py`): what the read job recorded, written through
 `engine/export.py`, on invented sheets (`test_read_sheet.py`'s readers; no toolchain)."""
 
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -9,6 +10,7 @@ import pytest
 from engine import harness
 from engine.recognise import views
 from vextrus.drawings import services as drawings
+from vextrus.platform.services import auth
 from vextrus.takeoff.services import export
 from vextrus.takeoff.services.read_propose import sheets as read_propose_sheets
 from vextrus.takeoff.tests.test_read_sheet import FRAMES, added, run_job
@@ -108,3 +110,33 @@ def test_the_export_fills_every_measure_the_harness_gives_from_what_the_job_kept
     )
     assert document["checks"], "the Check catalogue ran over the job's sheets and views"
     assert [len(c["sheets"]) for c in document["continuations"]] == [FRAMES]
+
+
+@pytest.mark.django_db
+def test_a_sheet_the_job_kept_no_render_for_fails_the_render_stage(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """As the harness's stage fails on a sheet it cannot build (the job keeps none for a sheet whose
+    paper it cannot draw, or once the file's render time is spent): the export goes on, and render
+    F1, which needs every sheet's buffers, is skipped for the set."""
+    file_id = added(qs_project)
+    run_job(qs_project.member, file_id, monkeypatch)
+    with qs_project.member.acting():
+        sha256 = drawings.file(file_id).sha256
+        first = drawings.sheets(drawings.file(file_id).set_id)[0].id
+    kept = drawings.render
+
+    def render(sheet_id: uuid.UUID) -> bytes:
+        if sheet_id == first:
+            raise auth.NotFound
+        return kept(sheet_id)
+
+    monkeypatch.setattr(drawings, "render", render)
+
+    document = exported(qs_project, {"KR-STR-R0.dwg": sha256})
+
+    [file] = document["files"]
+    report = file["stages"]["render_buffers"]
+    assert (report["state"], report["calls"], report["failed_calls"]) == ("failed", FRAMES, 1)
+    assert document["set_stages"]["render_f1"]["state"] == "skipped"
+    assert document["set_stages"]["conflicts"]["state"] == "ok"

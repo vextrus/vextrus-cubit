@@ -278,7 +278,7 @@ def _reading(
     from engine import harness
     from engine.export import StageReport, StageState, to_json
     from engine.recognise import views as view_finder
-    from engine.render.buffers import SheetBuffers
+    from engine.render.buffers import BufferError, SheetBuffers
     from vextrus.drawings import services as drawings
     from vextrus.platform.services import auth
     from vextrus.takeoff.services.read_propose import sheets as job_sheets
@@ -377,7 +377,7 @@ def _reading(
         for sheet in printed:
             try:
                 buffers.append(SheetBuffers.from_bytes(drawings.render(sheet.id)))
-            except auth.NotFound:
+            except auth.NotFound, BufferError:  # none kept, or not a sheet's buffers: not built
                 buffers.append(None)
         reports["render_buffers"] = StageReport(StageState.OK, calls=len(printed))
         missing = buffers.count(None)
