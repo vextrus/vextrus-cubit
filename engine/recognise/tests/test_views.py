@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 
 from engine.geometry.placement import chain, chain_transform
+from engine.read.anchor import DwgAnchor
 from engine.recognise import sheets, views
 from engine.recognise.tests.drawing import DEFAULT, H, Sheets, W, frame_block, rectangle, value_at
 from engine.recognise.types import (
@@ -118,6 +119,25 @@ def test_a_standard_sheet_at_a_standard_scale_no_round_one_holds_is_read_as_that
     scale, read = views._paper_scale(inches, None, Box(0, 0, 841 * 96 / 25.4, 594 * 96 / 25.4))
     assert scale == pytest.approx(96 / 25.4)
     assert read
+
+
+@pytest.mark.parametrize("share", [0.31, 0.6, 0.97])
+def test_a_frame_whose_insert_gives_no_standard_sheet_takes_the_boxs_paper(share: float) -> None:
+    """#160: a frame block drawn at a fraction of its plotted size (a real set's gave 130 x 92 mm, its
+    sheets plotted on A3) is no paper's; its paper is the box's (a standard sheet at a standard scale,
+    else the standard side at the roundest scale), as for a frame drawn as a rectangle. A frame within
+    `FRAME_MATCH` of its sheet (a border inside the paper's edge) keeps its insert's scale."""
+    d, sheet = model_sheet([("BEAM LAYOUT PLAN", (40, 300, 340, 560))], scale=50.0)
+    artefact, frame = d.artefact(), sheet.anchors[0]
+    assert isinstance(frame, DwgAnchor)
+    box = Box(0, 0, W * 50 * share, H * 50 * share)  # the frame as 13 boxed it: `share` of A1 at 1:50
+    scale, read = views._paper_scale(artefact, frame, box)
+    if share == 0.97:
+        assert scale == pytest.approx(50.0)
+        assert read
+    else:
+        assert (scale, read) == views._paper_scale(artefact, None, box)
+        assert scale != pytest.approx(50.0)
 
 
 @pytest.mark.parametrize("side", [1e-320, 5e-324])

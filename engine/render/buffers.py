@@ -479,10 +479,14 @@ def _linetypes() -> dict[str, list[float]]:
 
 
 def _standard_sheet(
-    long_units: float, short_units: float, units_mm: Iterable[float], scales: Iterable[float]
+    long_units: float,
+    short_units: float,
+    units_mm: Iterable[float],
+    scales: Iterable[float],
+    match: float = STANDARD_MATCH,
 ) -> float | None:
-    """Millimetres a unit when the box is a standard sheet, within STANDARD_MATCH, for one of the
-    units (mm a drawing unit) at one of the scales; the closest match, or none."""
+    """Millimetres a unit when the box is a standard sheet, within `match`, for one of the units (mm a
+    drawing unit) at one of the scales; the closest match, or none."""
     best: tuple[float, float] | None = None
     for unit in units_mm:
         for long_mm, short_mm in SHEETS_MM:
@@ -490,7 +494,7 @@ def _standard_sheet(
                 a = long_units * unit / scale
                 b = short_units * unit / scale
                 error = max(abs(a - long_mm) / long_mm, abs(b - short_mm) / short_mm)
-                if error <= STANDARD_MATCH and (best is None or error < best[0]):
+                if error <= match and (best is None or error < best[0]):
                     best = (error, unit / scale)
     return None if best is None else best[1]
 

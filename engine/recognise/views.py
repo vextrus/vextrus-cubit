@@ -20,9 +20,10 @@ texts are no view's. **Every box is on paper, in mm, from the sheet's lower-left
 "24s <-> 17"), and `FoundViews.paper` is the paper's extent its boxes are on (the ruling of 14:20): a
 layout's paper units are taken as mm, its paper the frame's box (else the drawing's extent); a
 model-space sheet's box is `(model - lower-left corner of its frame) / scale`, the scale being its frame
-insert's (the frame block drawn at paper size, in mm, the frame as it stands in model space's axes: a
-turned A3 is 297 wide and 420 tall), else, for a frame drawn as a rectangle or a scale giving no paper
-size (a frame block drawn at a fraction of its plotted size), a standard sheet when the box is one at a
+insert's when the frame is then a standard sheet (`FRAME_MATCH`; the frame block drawn at paper size,
+in mm, the frame as it stands in model space's axes: a turned A3 is 297 wide and 420 tall), else, for a
+frame drawn as a rectangle or a scale giving no standard sheet (a frame block drawn at a fraction of its
+plotted size), a standard sheet when the box is one at a
 standard scale in the drawing's units (both sides, the render buffers' `_standard_sheet`), else the scale
 that makes the frame a standard paper size (`PAPER_SIDES`) at the roundest scale (`ROUND_SCALES`). This
 is the one rule for a model-space sheet's paper: the render buffers lay theirs by `_paper_scale` too, so
@@ -258,8 +259,10 @@ PAPER_SIDES = (1189.0, 841.0, 594.0, 420.0, 297.0, 210.0)
 """The long sides of the standard papers (ISO A0 to A5), in mm."""
 ROUND_SCALES = (1.0, 1.25, 2.0, 2.5, 5.0, 7.5)
 """The scales a frame is drawn at, times a power of ten."""
-MIN_PAPER_MM, MAX_PAPER_MM = 100.0, 5000.0
-"""A frame insert's scale giving a paper outside these long sides, in mm, is not the paper's."""
+FRAME_MATCH = 0.05
+"""A frame insert's scale gives the paper when the frame is then a standard sheet within this share of
+each side (a border drawn inside the paper's edge); else the frame block was drawn at a fraction of its
+plotted size (#160) and the paper is the box's, as for a frame drawn as a rectangle."""
 
 STEP_DISCIPLINES = frozenset({"structural", "architectural"})
 """The Disciplines M0 measures: every other one's views go to its Part (MEP, M3 onwards)."""
@@ -716,7 +719,12 @@ def _paper_scale(artefact: ReadArtefact, frame: DwgAnchor | None, box: Box) -> t
                 scale = placed.xy_scale
             except PlacementError, ValueError:
                 scale = 0.0
-            if scale > 0 and math.isfinite(scale) and MIN_PAPER_MM <= long / scale <= MAX_PAPER_MM:
+            if (
+                scale > 0
+                and math.isfinite(scale)
+                and short > 0
+                and _standard_sheet(long / scale, short / scale, (1.0,), (1,), FRAME_MATCH)
+            ):
                 return scale, True
     unit = UNIT_MM.get(artefact.summary.insunits, 1.0)
     matched = _standard_sheet(long, short, (unit,), SCALES) if short > 0 else None
