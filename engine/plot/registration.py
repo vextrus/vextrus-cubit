@@ -351,13 +351,19 @@ def by_ink(
     if any(b is None for b in geometry):
         return None
     left[0] -= len(sheets)
-    scored: list[tuple[float, int, PlotTransform, float | None]] = []
-    for k, (sheet, buffers) in enumerate(zip(sheets, geometry, strict=True)):
+    aligned: list[tuple[PlotTransform, float | None]] = []
+    for sheet, buffers in zip(sheets, geometry, strict=True):
         placed = place(page, sheet, buffers) if buffers is not None else None
         if buffers is None or placed is None:
             return None
-        transform, residual = ink.align(page, buffers, placed[0], plot)
-        agrees = ink.agreement(page, buffers, transform, plot)
+        aligned.append(ink.align(page, buffers, placed[0], plot))
+    # Scored beyond the ink they all draw alike (a frame-only page agrees with a sparse sheet through
+    # its frame alone, 157's review): only what tells the sheets apart may name one.
+    drawn = [b for b in geometry if b is not None]
+    shared = ink.shared_ink(drawn)
+    scored: list[tuple[float, int, PlotTransform, float | None]] = []
+    for k, (buffers, (transform, residual)) in enumerate(zip(drawn, aligned, strict=True)):
+        agrees = ink.agreement(page, buffers, transform, plot, shared)
         if agrees is None:
             return None
         scored.append((agrees, k, transform, residual))

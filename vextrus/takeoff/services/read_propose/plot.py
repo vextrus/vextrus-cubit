@@ -33,7 +33,7 @@ Each PDF's pages that matched no sheet are kept as its report's lines (18's reas
 import math
 import uuid
 from collections import OrderedDict
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import ExitStack
 from decimal import Decimal
 from pathlib import Path
@@ -86,10 +86,11 @@ def match(file_id: uuid.UUID) -> jobs.StepResult:
         geometry = _Geometry(listed)
         if view.format == "pdf":
             found = registration.match(pages, candidates, geometry, paths, disciplines)
+            full = set(range(len(found)))
         else:
-            found = _for_dwg(file_id, listed, pages, candidates, geometry, paths, disciplines)
+            found, full = _for_dwg(file_id, listed, pages, candidates, geometry, paths, disciplines)
     matched = _keep(
-        listed, candidates, found, pdfs, set(paths), file_id if view.format == "dwg" else None
+        listed, candidates, found, full, pdfs, set(paths), file_id if view.format == "dwg" else None
     )
     _keep_reasons(found, [pdf for pdf in tried if pdf.sha256 in paths])
     return {"pages": len(found), "matched": matched}
@@ -112,9 +113,9 @@ def _for_dwg(
     geometry: Sequence[SheetBuffers | None],
     paths: dict[str, Path],
     disciplines: dict[str, str | None],
-) -> list[PlotMatch]:
+) -> tuple[list[PlotMatch], set[int]]:
     """Every page's match: named without geometry, then matched in full where it could be one of
-    the file's sheets (see the module)."""
+    the file's sheets (see the module); and the places of those matched in full."""
     ours = {id(c) for c, s in zip(candidates, listed, strict=True) if s.file_id == file_id}
     named = registration.match(pages, candidates, (), None, disciplines)
     again = [
@@ -131,13 +132,14 @@ def _for_dwg(
     inked = {
         i: str(named[i].reason) for i in again if named[i].sheet is None and found[i].sheet is not None
     }
-    return registration.unclaimed(found, inked)
+    return registration.unclaimed(found, inked), set(again)
 
 
 def _keep(
     listed: Sequence[drawings.SheetView],
     candidates: Sequence[SheetCandidate],
     found: Sequence[PlotMatch],
+    full: set[int],
     pdfs: Sequence[drawings.FileView],
     tried: set[str],
     dwg_id: uuid.UUID | None,
@@ -150,20 +152,31 @@ def _keep(
     by_id = {pdf.id: pdf for pdf in pdfs}
     given: set[uuid.UUID] = set()
     surest = _surest(found, by_candidate, by_sha)
-    for k, m in enumerate(found):
-        sheet = by_candidate.get(id(m.sheet)) if m.sheet is not None else None
-        if sheet is None or sheet.id in given or (dwg_id is not None and sheet.file_id != dwg_id):
-            continue
-        pdf = by_sha.get(getattr(m.page, "source_sha256", ""))
-        if pdf is None or surest.get((sheet.id, pdf.id)) != k:
-            continue  # another page of this PDF names the sheet more surely: its page
-        kept_id = sheet.plot.file_id if sheet.plot.page is not None else None
-        kept = by_id.get(kept_id) if kept_id is not None else None
-        if kept is not None and kept.id != pdf.id and _added(kept) < _added(pdf):
-            continue  # its Plot is a page of a PDF added before this one: the first added keeps it
-        drawings.record_plot(sheet.id, m)
-        given.add(sheet.id)
-    _release(listed, found, by_candidate, by_sha, surest, given)
+
+    def give(
+        of: Callable[[drawings.SheetView], bool], let_go: set[uuid.UUID], only: set[int] | None
+    ) -> None:
+        for k, m in enumerate(found):
+            if only is not None and k not in only:
+                continue
+            sheet = by_candidate.get(id(m.sheet)) if m.sheet is not None else None
+            if sheet is None or sheet.id in given or not of(sheet):
+                continue
+            pdf = by_sha.get(getattr(m.page, "source_sha256", ""))
+            if pdf is None or surest.get((sheet.id, pdf.id)) != k:
+                continue  # another page of this PDF names the sheet more surely: its page
+            held = sheet.plot.page is not None and sheet.id not in let_go
+            kept = by_id.get(sheet.plot.file_id) if held and sheet.plot.file_id else None
+            if kept is not None and kept.id != pdf.id and _added(kept) < _added(pdf):
+                continue  # its Plot is a page of a PDF added before this one: the first added keeps it
+            drawings.record_plot(sheet.id, m)
+            given.add(sheet.id)
+
+    give(lambda sheet: dwg_id is None or sheet.file_id == dwg_id, set(), None)
+    released = _release(listed, found, full, by_candidate, by_sha, surest, given)
+    # A sheet let go (of any file) is kept again from this run's pages matched in full, so the set's
+    # Plot is the same whichever order its files were read in (157's review, N2).
+    give(lambda sheet: sheet.id in released, released, full)
     for sheet in listed:
         if sheet.id in given or sheet.number is None or sheet.plot.page is not None:
             continue
@@ -181,30 +194,36 @@ def _keep(
 def _release(
     listed: Sequence[drawings.SheetView],
     found: Sequence[PlotMatch],
+    full: set[int],
     by_candidate: Mapping[int, drawings.SheetView],
     by_sha: Mapping[str, drawings.FileView],
     surest: Mapping[tuple[uuid.UUID, uuid.UUID], int],
     given: set[uuid.UUID],
-) -> None:
-    """One page, one sheet: every page matched here is let go by each sheet that held it before and
-    that it does not name now (a DWG read later carries a sheet the page names more surely, or makes
-    the page name several), so the set's Plot is the same whichever order its files were read in. A
-    sheet let go is kept as `PlotNone.NO_PAGE` naming that PDF: the match ran, and its page is
-    another's."""
+) -> set[uuid.UUID]:
+    """One page, one sheet: a page matched in full here (with its geometry), that now names another
+    sheet surely, is let go by each sheet that held it before (a DWG read later carries the sheet the
+    page plots). Never on a page only named here: a ranking made without geometry is not surer than
+    the one that gave the page. A sheet let go is kept as `PlotNone.NO_PAGE` naming that PDF (the
+    PDF's report lists it, "has no page in this PDF"), unless this run's pages give it another
+    (`_keep`). The sheets let go."""
     holders: dict[tuple[uuid.UUID, int], list[drawings.SheetView]] = {}
     for sheet in listed:
         if sheet.plot.page is not None and sheet.plot.file_id is not None:
             holders.setdefault((sheet.plot.file_id, sheet.plot.page), []).append(sheet)
+    released: set[uuid.UUID] = set()
     for k, m in enumerate(found):
         pdf = by_sha.get(getattr(m.page, "source_sha256", ""))
         number = getattr(m.page, "number", None)
-        if pdf is None or not isinstance(number, int):
+        if k not in full or pdf is None or not isinstance(number, int):
             continue
         named = by_candidate.get(id(m.sheet)) if m.sheet is not None else None
-        owner = named.id if named is not None and surest.get((named.id, pdf.id)) == k else None
+        if named is None or surest.get((named.id, pdf.id)) != k:
+            continue  # the page names no sheet surely now: what held it keeps it
         for held in holders.get((pdf.id, number), ()):
-            if held.id != owner and held.id not in given:
+            if held.id != named.id and held.id not in given:
                 drawings.record_plot(held.id, drawings.PlotNone.NO_PAGE, pdf_file_id=pdf.id)
+                released.add(held.id)
+    return released
 
 
 def _surest(
