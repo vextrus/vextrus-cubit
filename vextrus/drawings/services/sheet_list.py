@@ -799,7 +799,13 @@ def _no_plot_yet(sr: SheetRevision) -> Message:
     # A read PDF with no match kept for this sheet was never matched to it (a set read before 157,
     # or a PDF that could not be read again): "no page of it matched" is said only by a match that
     # ran (`PlotNone.NO_PAGE`).
-    read = [name for _, _, name, status in found if status == ReadStatus.READ]
+    # Of its own Discipline only (any, for a sheet of none): a read PDF of no Discipline may be a
+    # site photograph, not this sheet's Plot.
+    read = [
+        name
+        for d, _, name, status in found
+        if status == ReadStatus.READ and (discipline_id is None or d == discipline_id)
+    ]
     if read:
         return said.PLOT_NOT_MATCHED(plot_file=read[0])
     # One that could not be read, or was refused, is its PDF only if of its Discipline (a PDF of
