@@ -16,8 +16,9 @@ import { problemOf, problemText } from '@/auth/problem'
 import { useFormat } from '@/format'
 import { useToast } from '@/ui'
 import { DrawingText } from '@/ui/DrawingText'
-import { confirm, exclude, setList, step1Key, undo, type ActOut, type ProposalOut } from './data'
-import { REASONS, type Reason } from './model'
+import { answer, confirm, exclude, setList, step1Key, undo, type ActOut, type ProposalOut } from './data'
+import { REASONS, type QuestionEntry, type Reason } from './model'
+import { AnsweredWords } from './questionWords'
 import { SheetRange } from './SheetRange'
 import { DISCIPLINE_IN_TEXT, REASON_SHORT, UNKNOWN_REASON } from './words'
 
@@ -44,6 +45,8 @@ interface Entry {
   /** Its calls are made and counted (`made` has settled). */
   counted: boolean
   dropped: boolean
+  /** An answer to a Question: Ctrl Z does not take it back (21c has no undo for an answer). */
+  answer?: boolean
 }
 
 /** The label a sheet or a continuation goes by in a sentence: "S-02", "E-02–E-03", or its title. */
@@ -101,6 +104,8 @@ export interface Step1Acts {
   confirmSheets(sheets: readonly ProposalOut[], backIn?: string): Promise<boolean>
   excludeSheets(sheets: readonly ProposalOut[], reason: Reason, text?: string): Promise<boolean>
   setDrawingList(discipline: string, text: string): Promise<boolean>
+  /** Answers a Question with one of its options (`text`: the number typed for "Type a number"). */
+  answerQuestion(entry: QuestionEntry, option: string, text?: string): Promise<boolean>
   undoLast(): Promise<void>
   /** An act or an undo is in flight, until Step 1 has reloaded: keys that act are dropped meanwhile. */
   busy: boolean
@@ -209,6 +214,12 @@ export function useStep1Acts(projectId: string): Step1Acts {
             // An act in flight is waited for, so this undoes it; one that made nothing undoes nothing.
             const waited = !entry.counted
             await entry.made
+            if (entry.answer) {
+              toast.show({
+                message: <Trans>Nothing undone: an answer is not taken back with Ctrl Z. To change what it did, exclude the sheet or confirm it back in.</Trans>,
+              })
+              return
+            }
             if (entry.calls === 0) {
               // Refused while this Ctrl Z waited: its refusal, just shown, says why and what to do; kept.
               if (waited && !entry.dropped) return
@@ -400,5 +411,35 @@ export function useStep1Acts(projectId: string): Step1Acts {
     [begin, i18n, projectId, say, settle, toast, undoFor],
   )
 
-  return { bulk, confirmSheets, excludeSheets, setDrawingList, undoLast, busy }
+  const answerQuestion = useCallback(
+    async (entry: QuestionEntry, option: string, text = '') => {
+      const counted = begin()
+      if (!counted) return false
+      const mine = history.current.at(-1)
+      let made = 0
+      try {
+        await answer(projectId, entry.question.id, option, text)
+        made = 1
+        toast.show({ message: <AnsweredWords entry={entry} option={option} text={text.trim()} /> })
+        return true
+      } catch (error) {
+        if (reached(error)) made = 1
+        say(error)
+        return false
+      } finally {
+        counted(0, null)
+        if (made && mine) {
+          // The server's latest acts are now the answer's own (a confirm, an exclusion): no act made
+          // earlier in this tab is the one an undo would take back, so Ctrl Z starts from the answer.
+          mine.answer = true
+          const at = history.current.indexOf(mine)
+          history.current = at === -1 ? [] : history.current.slice(at)
+        }
+        await settle()
+      }
+    },
+    [begin, projectId, say, settle, toast],
+  )
+
+  return { bulk, confirmSheets, excludeSheets, setDrawingList, answerQuestion, undoLast, busy }
 }

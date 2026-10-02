@@ -92,6 +92,8 @@ export interface Step1Model {
   notReceived: readonly string[]
   /** The open Questions in queue order (Q1…); the withdrawn ones are not in it (they are `withdrawn`'s rows, tagged after it). */
   queue: readonly QuestionEntry[]
+  /** The answered Questions, in the order they were answered, tagged on after the open and withdrawn ones. */
+  answered: readonly QuestionEntry[]
   bulk: Bulk
   /** Every row in list order: what ↑ ↓ walk. */
   rows: readonly Row[]
@@ -136,8 +138,16 @@ function leftOut(q: QuestionOut, holds: readonly ProposalOut[]): ProposalOut[] {
   return byExclusion ? out : []
 }
 
-/** The sheets a Question holds: its subject, and for two sheets of one number, every copy. */
+/**
+ * The sheets a Question holds: those 21c links to it (`proposals`, in list order); before 21c, its
+ * subject, and for two sheets of one number, every copy.
+ */
 function held(q: QuestionOut, proposals: readonly ProposalOut[]): ProposalOut[] {
+  const linked = new Set<string>(Array.isArray(q.proposals) ? q.proposals : [])
+  if (linked.size > 0) {
+    const found = proposals.filter((p) => linked.has(p.id))
+    if (found.length > 0) return found
+  }
   const subject = proposals.find((p) => p.sheet_id === q.subject_id || p.id === q.subject_id)
   const number = typeof q.params.number === 'string' ? q.params.number : subject?.number
   if (q.kind === 'conflict' && number) {
@@ -165,6 +175,13 @@ export function withdrawnQueue(questions: readonly QuestionOut[], proposals: rea
   const entries = questions.map((question) => ({ question, holds: leftOut(question, held(question, proposals)) })).filter((e) => e.holds.length > 0)
   entries.sort((a, b) => compareNumbers(a.holds[0]!.number, b.holds[0]!.number))
   return entries.map((e, i) => ({ ...e, tag: `Q${after + i + 1}`, kept: false, withdrawn: true }))
+}
+
+/** The answered Questions, in the order answered, tagged on after `after` (Q7… after Q1–Q6). */
+export function answeredQueue(questions: readonly QuestionOut[], proposals: readonly ProposalOut[], after: number): QuestionEntry[] {
+  const entries = questions.filter((q) => q.status === 'answered').map((question) => ({ question, holds: held(question, proposals) }))
+  entries.sort((a, b) => (a.question.answered_at ?? '').localeCompare(b.question.answered_at ?? ''))
+  return entries.map((e, i) => ({ ...e, tag: `Q${after + i + 1}`, kept: false, withdrawn: false, answered: true }))
 }
 
 const decided = (p: ProposalOut) => p.decision !== null
@@ -223,6 +240,7 @@ export function step1Model(data: Step1Data): Step1Model {
   )
   const queue = questionQueue(data.questions, proposals)
   const withdrawnEntries = withdrawnQueue(data.questions, proposals, queue.length)
+  const answered = answeredQueue(data.questions, proposals, queue.length + withdrawnEntries.length)
   const heldBy = new Map<string, QuestionEntry>()
   for (const entry of [...queue, ...withdrawnEntries]) for (const p of entry.holds) if (!heldBy.has(p.id)) heldBy.set(p.id, entry)
 
@@ -286,6 +304,7 @@ export function step1Model(data: Step1Data): Step1Model {
     disciplines,
     notReceived: data.progress.not_received,
     queue,
+    answered,
     bulk: { confirm: bulkConfirm, leaveOut: bulkOut, reasons },
     rows,
     confirmed: proposals.filter((p) => p.decision === 'confirmed').length,

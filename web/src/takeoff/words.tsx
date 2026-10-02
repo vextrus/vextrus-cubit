@@ -89,6 +89,11 @@ export const QUESTION_KIND_BY_CODE: Readonly<Record<string, MessageDescriptor>> 
   'engine.register_check.not_listed': msg`In a file, not on the drawing list`,
   'takeoff.step1.no_number': msg`No number`,
   'takeoff.step1.which_kind': msg`Sheet kind unclear`,
+  'takeoff.proposals.which_kind': msg`Sheet kind unclear`,
+  'takeoff.proposals.which_discipline': msg`Discipline unclear`,
+  'takeoff.proposals.lists_disagree': msg`Two drawing lists differ`,
+  'takeoff.proposals.boundary_storey': msg`Where a range of storeys ends`,
+  'engine.register_check.gap': msg`A gap in the numbering`,
 }
 
 export const QUESTION_KINDS: Readonly<Record<string, MessageDescriptor>> = {
@@ -97,6 +102,8 @@ export const QUESTION_KINDS: Readonly<Record<string, MessageDescriptor>> = {
   missing: msg`No number`,
   low_confidence: msg`Sheet kind unclear`,
   check: msg`A Check against the drawing list`,
+  missing_discipline: msg`Discipline unclear`,
+  convention: msg`Where a range of storeys ends`,
 }
 
 export const OTHER_QUESTION = msg`A Question about the sheets`
@@ -107,6 +114,12 @@ export const OPTION_NAMES: Readonly<Record<string, MessageDescriptor>> = {
   await_resaved: msg`Set this file aside: I’ll re-save it from AutoCAD (open it, run AUDIT, save) and add it again`,
   sent_to_vextrus: msg`Set this file aside and mark it for Vextrus to look at`,
   keep_both: msg`They are different sheets: keep both`,
+  keep_all: msg`They are different sheets: keep both`,
+  keep_latest: msg`Keep the latest copy; leave the others out as superseded`,
+  use_read: msg`Use the drawing list on the sheet`,
+  use_given: msg`Use the drawing list you gave`,
+  includes_storey: msg`Yes: this sheet includes that storey`,
+  excludes_storey: msg`No: that storey is on the next sheet`,
   no_number: msg`Leave it without a number`,
   type_number: msg`Type a number`,
   not_sent_yet: msg`Not sent yet: keep it in the count as missing and ask the consultant`,

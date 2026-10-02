@@ -207,7 +207,36 @@ function CopyIn({ sheet, other, first }: { sheet: ProposalOut; other: ProposalOu
  * the card can name them (screens.md Takeoff ruling 2, m0-screens 6.7): for two copies of one number,
  * `pickSources` must name two; for any other Question no option is pre-picked yet.
  */
+/** The latest of the copies, as 21c keeps it for "keep the latest": by issue date, then revision mark. */
+export function latestOf(copies: readonly ProposalOut[]): ProposalOut | undefined {
+  const date = (text: string | null | undefined): number => {
+    const parts = (text ?? '').trim().split(/[./-]/).filter((x) => /^\d+$/.test(x)).map(Number)
+    if (parts.length !== 3) return 0
+    const [first, month, last] = parts as [number, number, number]
+    const [day, year] = first > 31 ? [last, first] : [first, last] // written year first, or day first
+    return year * 10000 + month * 100 + day
+  }
+  return [...copies].sort((a, b) => date(b.issue_date) - date(a.issue_date) || b.revision_mark.localeCompare(a.revision_mark, 'en', { numeric: true, sensitivity: 'base' }))[0]
+}
+
+/** The copy kept and the copy left out by a pick on two sheets of one number, or null for another pick. */
+function keptAndDropped(entry: QuestionEntry, key: string): { keep: ProposalOut; drop: ProposalOut } | null {
+  if (!isCopies(entry)) return null
+  const [later, earlier] = entry.holds as [ProposalOut, ProposalOut]
+  if (key === 'keep_b') return { keep: later, drop: earlier }
+  if (key === 'keep_a') return { keep: earlier, drop: later }
+  if (key !== 'keep_latest') return null
+  const keep = latestOf(entry.holds) ?? later
+  const drop = entry.holds.find((h) => h !== keep) ?? earlier
+  return { keep, drop }
+}
+
 export function usePick(entry: QuestionEntry, context: CardContext): { key: string } | null {
+  return prePick(entry, context)
+}
+
+/** The option pre-picked for the QS (usePick's, outside a component). */
+export function prePick(entry: QuestionEntry, context: CardContext): { key: string } | null {
   const picked = optionsOf(entry).find((o) => o.picked && o.key)
   if (!picked?.key) return null
   // Only two copies of one number have sources the card can name yet; any other pick is not shown.
@@ -233,10 +262,9 @@ const sameMark = (a: string, b: string) => a.trim().toUpperCase() === b.trim().t
  */
 export function pickSources(entry: QuestionEntry, context: CardContext, pick: string): PickSources {
   const none: PickSources = { mark: false, date: false, list: null, count: 0 }
-  if (!isCopies(entry) || (pick !== 'keep_b' && pick !== 'keep_a')) return none
-  const [later, earlier] = entry.holds as [ProposalOut, ProposalOut]
-  const keep = pick === 'keep_b' ? later : earlier
-  const drop = pick === 'keep_b' ? earlier : later
+  const pair = keptAndDropped(entry, pick)
+  if (!pair) return none
+  const { keep, drop } = pair
   const mark = !!keep.revision_mark.trim() && !!drop.revision_mark.trim() && keep.revision_mark.localeCompare(drop.revision_mark, 'en', { numeric: true }) > 0
   const date = !!keep.issue_date && !!drop.issue_date && keep.issue_date > drop.issue_date
   const list = context.lists[entry.question.discipline ?? keep.discipline ?? '']
@@ -263,24 +291,33 @@ export function OptionWords({ entry, option }: { entry: QuestionEntry; option: O
   const { i18n } = useLingui()
   const f = useFormat()
   const key = option.key ?? ''
-  if (isCopies(entry) && (key === 'keep_b' || key === 'keep_a')) {
-    const [later, earlier] = entry.holds as [ProposalOut, ProposalOut]
-    const keep = key === 'keep_b' ? later : earlier
-    const drop = key === 'keep_b' ? earlier : later
+  const pair = keptAndDropped(entry, key)
+  if (pair) {
+    const { keep, drop } = pair
+    const later = entry.holds[0]
     const kept = <CopyIn sheet={keep} other={drop} first={keep === later} />
     const dropped = <CopyIn sheet={drop} other={keep} first={drop === later} />
     const byMark = !!keep.revision_mark.trim() && !!drop.revision_mark.trim() && keep.revision_mark !== drop.revision_mark
     const date = byMark && keep.issue_date ? f.day(keep.issue_date) : null
     return date ? <Trans>Keep {kept} ({date}); leave {dropped} out as superseded</Trans> : <Trans>Keep {kept}; leave {dropped} out as superseded</Trans>
   }
-  const words = OPTION_NAMES[key] ?? (entry.question.kind === 'low_confidence' ? SHEET_KIND_NAMES[key] : undefined)
+  const q = entry.question
+  if (key === 'keep_all' && entry.holds.length > 2) {
+    const n = entry.holds.length
+    return <Plural value={n} one="They are different sheets: keep it" other="They are different sheets: keep all #" />
+  }
+  if (key === 'use_given' && q.params.source === 'pasted') return <Trans>Use the drawing list you pasted</Trans>
+  if (key === 'use_given' && q.params.source === 'typed') return <Trans>Use the range you typed</Trans>
+  if (q.kind === 'missing_discipline' && key !== 'keep_open') return <>{disciplineName(key, i18n)}</>
+  const words = OPTION_NAMES[key] ?? (q.kind === 'low_confidence' ? SHEET_KIND_NAMES[key] : undefined)
   return <>{i18n._(words ?? OTHER_OPTION)}</>
 }
 
 /** The card's first line (§5 item 2, §6.7), for the option picked (pre-picked in M0), else what it settles. */
-export function Answering({ entry, context }: { entry: QuestionEntry; context: CardContext }) {
+export function Answering({ entry, context, choice, hint = false }: { entry: QuestionEntry; context: CardContext; choice?: string | null; hint?: boolean }) {
   const names = context.names
-  const picked = usePick(entry, context)?.key
+  const prePick = usePick(entry, context)?.key
+  const picked = choice ?? prePick
   const n = entry.holds.length
   const q = entry.question
   if (entry.withdrawn) {
@@ -292,11 +329,11 @@ export function Answering({ entry, context }: { entry: QuestionEntry; context: C
     return q.subject_id && names[q.subject_id] ? <Trans>Answering decides whether {file}’s sheets join the list.</Trans> : <Trans>Answering decides whether this file’s sheets join the list.</Trans>
   }
   if (isCopies(entry) && picked) {
-    const [later, earlier] = entry.holds as [ProposalOut, ProposalOut]
+    const [later] = entry.holds as [ProposalOut, ProposalOut]
     const number = <SheetName sheets={[later]} />
-    if (picked === 'keep_b' || picked === 'keep_a') {
-      const keep = picked === 'keep_b' ? later : earlier
-      const drop = picked === 'keep_b' ? earlier : later
+    const pair = keptAndDropped(entry, picked)
+    if (pair) {
+      const { keep, drop } = pair
       const kept = <CopyIn sheet={keep} other={drop} first={keep === later} />
       const dropped = <CopyIn sheet={drop} other={keep} first={drop === later} />
       return (
@@ -305,28 +342,79 @@ export function Answering({ entry, context }: { entry: QuestionEntry; context: C
         </Trans>
       )
     }
-    if (picked === 'keep_both') return <Trans>Answering confirms both copies.</Trans>
+    if (picked === 'keep_both' || (picked === 'keep_all' && n === 2)) return <Trans>Answering confirms both copies.</Trans>
     if (picked === 'keep_open') return <Trans>Answering keeps both copies open. Neither is read until the consultant replies.</Trans>
   }
   if (picked === 'keep_open' && n > 0) {
     const name = <SheetName sheets={entry.holds} />
     return <Trans>Answering keeps {name} open.</Trans>
   }
-  if (n === 0) return <Trans>Answering confirms no sheets.</Trans>
+  if (picked === 'keep_all' && n > 0) return <Plural value={n} one="Answering confirms # sheet." other="Answering confirms # sheets." />
+  const keys = <PickKeys entry={entry} />
+  if (n === 0) return hint && !picked ? <Trans>Answering confirms no sheets. Pick an answer: {keys}.</Trans> : <Trans>Answering confirms no sheets.</Trans>
+  if (hint && !picked)
+    return (
+      <>
+        <Plural value={n} one="Answering settles # sheet." other="Answering settles # sheets." /> <Trans>Pick an answer: {keys}.</Trans>
+      </>
+    )
   return <Plural value={n} one="Answering settles # sheet." other="Answering settles # sheets." />
 }
 
-/** What the screen cannot do yet: answering (19a has no answer operation). */
-export function CannotAnswer({ entry, readOnly }: { entry: QuestionEntry; readOnly: 'md' | 'guest' | null }): ReactNode {
+/** "1, 2, 3": the number keys of a card's options (at most 9 have one). */
+function PickKeys({ entry }: { entry: QuestionEntry }) {
+  const f = useFormat()
+  const n = Math.min(9, optionsOf(entry).length)
+  return <>{Array.from({ length: n }, (_, i) => f.integer(i + 1)).join(', ')}</>
+}
+
+/** The card's foot: who answers, and what waits on the answer. */
+export function AnswerNote({ entry, readOnly }: { entry: QuestionEntry; readOnly: 'md' | 'guest' | null }): ReactNode {
   const { i18n } = useLingui()
   if (readOnly === 'md') return <Trans>Waiting for the QS. The MD reads Questions and cannot answer them.</Trans>
   if (readOnly === 'guest') return <Trans>Waiting for the QS. A Guest reads Questions and cannot answer them.</Trans>
   if (entry.withdrawn) {
     const sheet = <SheetName sheets={entry.holds} />
-    return <Trans>Questions cannot be answered on this screen yet, so {sheet} stays left out until this one is answered.</Trans>
+    return <Trans>{sheet} stays left out until this Question is answered. A pick changes nothing until you answer.</Trans>
   }
   const discipline = entry.question.discipline
-  if (!discipline) return <Trans>Questions cannot be answered on this screen yet. Confirm the other sheets meanwhile.</Trans>
+  if (!discipline) return <Trans>A pick changes nothing until you answer.</Trans>
   const name = disciplineName(discipline, i18n)
-  return <Trans>Questions cannot be answered on this screen yet, so {name} cannot be confirmed until this Question is answered. Confirm its other sheets meanwhile.</Trans>
+  return <Trans>A pick changes nothing until you answer. {name} cannot be confirmed until this Question is answered.</Trans>
+}
+
+/**
+ * The toast after an answer (§6.5: "Q3 answered. Confirms S-19 R1 and excludes R0 as superseded."),
+ * naming only what 21c's answer does to the sheets; "Keep open" says the Question stays.
+ */
+export function AnsweredWords({ entry, option, text }: { entry: QuestionEntry; option: string; text: string }) {
+  const tag = entry.tag
+  const n = entry.holds.length
+  if (option === 'keep_open') return <Trans>{tag} kept open for the consultant.</Trans>
+  const pair = keptAndDropped(entry, option)
+  if (pair) {
+    // A toast is drawn outside the format's provider: the copies go by their marks, never their dates.
+    const number = <SheetName sheets={[pair.keep]} />
+    const marked = !!pair.keep.revision_mark.trim() && !!pair.drop.revision_mark.trim() && pair.keep.revision_mark !== pair.drop.revision_mark
+    if (!marked) return <Trans>{tag} answered. Confirms the latest copy of {number} and excludes the other as superseded.</Trans>
+    const kept = <Copy sheet={pair.keep} />
+    const dropped = <Copy sheet={pair.drop} />
+    return (
+      <Trans>
+        {tag} answered. Confirms {number} ({kept}) and excludes {dropped} as superseded.
+      </Trans>
+    )
+  }
+  if (option === 'keep_all' && n > 0) {
+    return (
+      <Trans>
+        {tag} answered. <Plural value={n} one="Confirms # sheet." other="Confirms # sheets." />
+      </Trans>
+    )
+  }
+  if (option === 'type_number' && text) {
+    const number = <DrawingText kind="sheet-number" text={text} truncate={false} />
+    return <Trans>{tag} answered. The sheet is numbered {number}.</Trans>
+  }
+  return <Trans>{tag} answered.</Trans>
 }

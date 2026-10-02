@@ -16,6 +16,17 @@ describe('readRefusal', () => {
     expect([r.field, r.refusal?.code, r.refusal?.params]).toEqual(['code', 'projects.projects.code_taken', { code: 'KR-01', name: 'Kadam Residence' }])
   })
 
+  it('reads a refusal with a list of strings as a parameter (one_source, held_file: `sheets`), its items joined', () => {
+    const r = readRefusal(409, { code: 'takeoff.step1.one_source', params: { sheets: ['E-02', 'E-03'], count: 2 } })
+    expect(r.code).toBe('takeoff.step1.one_source')
+    expect(r.refusal?.params.count).toBe(2)
+    expect(String(r.refusal?.params.sheets).replace(/[\u2066-\u2069]/g, '')).toBe('E-02, E-03')
+  })
+
+  it.each([{ sheets: [1, 2] }, { sheets: ['A', { b: 1 }] }, { sheets: [['A']] }])('reads a list of anything but strings (%j) as no words', (params) => {
+    expect(readRefusal(409, { code: 'x.y.z', params }).refusal).toBeNull()
+  })
+
   it('reads Ninja’s 422, which carries no code, as a refusal without words', () => {
     const r = readRefusal(422, { detail: [{ type: 'missing', loc: ['body', 'payload', 'email'] }] })
     expect([r.status, r.refusal, r.code]).toEqual([422, null, null])
