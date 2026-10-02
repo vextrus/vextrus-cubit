@@ -23,8 +23,11 @@
   it (`buffers.viewport_window`). **A layout whose viewports show nothing is not a sheet:** it is
   dropped, or, where it carries a title block, proposed out as `blank`, with no value read from it
   (a stale layout's title block is a template's; the QS review, Q7), the first such layout of a file
-  only, the rest counted (review round 1: 5,000 stale tabs were 5,000 rows); one with no viewport of
-  its own that draws only a title block is a template's tab, and dropped. One drawn in paper space
+  only, the rest counted (review round 1: 5,000 stale tabs were 5,000 rows), unless it draws
+  `MIN_PAPER_CONTENT` things beyond its title block (notes beside an empty key plan: each proposed,
+  never dropped; #162 round 2). What a layout draws counts a text's lines, so a paragraph of notes
+  is its lines, not one thing. One with no viewport of its own that draws only a title block is a
+  template's tab, and dropped. One drawn in paper space
   whose title block gives no value at all (no number, title, date or mark: a template's tab with its
   notes, or a sheet whose title block was not read; #162) is proposed out as `blank`, every such
   layout of a file (it may be a real sheet, so none is dropped; `MAX_SHEETS` bounds them), unless a
@@ -1256,6 +1259,8 @@ class _Segmenter:
         titled = bool(paper and paper.frames) or len(title_words) >= MIN_EVIDENCE
         frames_shown = self._frames_shown(model, windows)
         drawn = len(own_entities) - (len(paper.frames) if paper else 0) - len(title_words)
+        # a paragraph of notes is its lines, not one thing (#162 round 2: 120 lines in 3 MTEXT)
+        drawn += sum(t.shown.count("\n") for t in (paper.texts if paper else []) if t.loose)
         if titled and unknown and shown < MIN_SHOWN:
             if self.unknown_kept >= MAX_UNKNOWN_LAYOUTS:
                 self.counts["layout_viewport_unknown_capped"] += 1
@@ -1291,7 +1296,8 @@ class _Segmenter:
             self.counts["layout_title_block_only"] += 1  # a template tab: nothing to propose
             return None, []
         if titled:
-            return self._blank(name, paper, entities, stale=True), []
+            # stale; one that draws notes in paper space may be a sheet with an empty key plan
+            return self._blank(name, paper, entities, stale=drawn < MIN_PAPER_CONTENT), []
         self.counts["layout_shows_unknown" if unknown else "layout_shows_nothing"] += 1
         return None, []
 
@@ -1299,10 +1305,10 @@ class _Segmenter:
         self, name: str, paper: _Space | None, entities: list[AnyEntity], *, stale: bool
     ) -> SheetCandidate | None:
         """A layout proposed out as `blank`, no value read from it. A stale layout (its viewports
-        show nothing) is proposed the first of a file only, the rest counted
-        (`layout_blank_not_proposed`, which the QS is told); one drawn in paper space whose title
-        block gave nothing may be a real sheet, so each is proposed, never dropped (#162 round 2;
-        `MAX_SHEETS` bounds the file)."""
+        show nothing) that draws little beyond its title block is proposed the first of a file
+        only, the rest counted (`layout_blank_not_proposed`, which the QS is told); one that draws
+        notes in paper space, or whose title block gave nothing, may be a real sheet, so each is
+        proposed, never dropped (#162 round 2; `MAX_SHEETS` bounds the file)."""
         if stale:
             if self.blank_proposed:
                 self.counts["layout_blank_not_proposed"] += 1  # one stale blank per file

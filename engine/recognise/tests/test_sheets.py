@@ -967,3 +967,55 @@ def test_the_kinds_are_data_the_conventions_carry() -> None:
 
     assert request is not None
     assert request.options == ("planting_plan", "hardscape_plan")
+
+
+def test_a_notes_sheet_drawn_as_a_few_paragraphs_is_a_sheet() -> None:
+    """The round-2 refuter's H1: 120 lines of notes in 3 MTEXT paragraphs are 120 things drawn, not
+    3, so the layout is a sheet, its title block read (it was dropped as a title block only)."""
+    d = Sheets()
+    tab = d.layout("Notes")
+    _main(d, tab)
+    d.insert(frame_block(d), (0, 0, 0), owner=tab)
+    d.text("S-901", value_at(2), owner=tab)
+    d.text("GENERAL NOTES", value_at(0), owner=tab)
+    for i in range(3):
+        body = "\\P".join(f"{i + 1}.{j} NOTE LINE" for j in range(40))
+        d.text(body, (40, 500 - 150 * i, 0), kind="MTEXT", owner=tab)
+
+    result = segment(d.artefact(), None, DEFAULT)
+
+    (sheet,) = result.sheets
+    assert sheet.location.layout == "Notes"
+    assert sheet.exclusion is None
+    assert sheet.number is not None
+    assert sheet.number.value == "S-901"
+    assert result.counts["layout_title_block_only"] == 0
+
+
+def _notes_with_key_plan(d: Sheets, name: str, number: str) -> None:
+    """A titled sheet of notes whose one viewport (a key plan) looks at empty model space."""
+    tab = d.layout(name)
+    _main(d, tab)
+    _viewport(d, tab, (90_000.0, 50_000.0), 2)
+    d.insert(frame_block(d, "FRAME_" + name), (0, 0, 0), owner=tab)
+    d.text(number, value_at(2), owner=tab)
+    for i in range(sheets.MIN_PAPER_CONTENT + 5):
+        d.text(f"{number} ROW {i + 1}", (40, 400 - 12 * i, 0), owner=tab)
+
+
+def test_every_notes_sheet_beside_an_empty_key_plan_is_kept() -> None:
+    """The round-2 refuter's H2: two notes sheets, each with an empty key-plan viewport, take the
+    stale path; each is kept, proposed out, the second no longer dropped by the stale cap."""
+    d = Sheets()
+    for i in range(5):
+        d.line((10 * i, 0), (10 * i, 100))
+    _notes_with_key_plan(d, "Notes", "A-901")
+    _notes_with_key_plan(d, "Schedules", "A-902")
+
+    result = segment(d.artefact(), None, DEFAULT)
+
+    assert [(s.location.layout, s.exclusion) for s in result.sheets] == [
+        ("Notes", Exclusion(ExclusionReason.BLANK)),
+        ("Schedules", Exclusion(ExclusionReason.BLANK)),
+    ]
+    assert result.counts["layout_blank_not_proposed"] == 0
