@@ -4,9 +4,11 @@ own, and the walls of the acts it adds (on hand-built artefacts, as `acceptance/
 import uuid
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import pytest
 
+from vextrus.drawings.library import DISCIPLINES
 from vextrus.takeoff.tests.acceptance.t21c.step1_whole import (
     KEEP_OPEN,
     NOT_FOUND,
@@ -334,6 +336,7 @@ def test_a_sheet_held_by_an_open_missing_question_cannot_be_confirmed_until_it_i
     api = api_as(qs_project.member)
     listed = proposals(api, qs_project.project_id)
     unnumbered = the(listed, None)["id"]
+    [asked] = open_questions(api, qs_project.project_id, "missing")
 
     single = confirm(api, qs_project.project_id, [unnumbered])
     bulk = confirm(api, qs_project.project_id, [p["id"] for p in listed])
@@ -343,7 +346,13 @@ def test_a_sheet_held_by_an_open_missing_question_cannot_be_confirmed_until_it_i
             409,
             {
                 "code": "takeoff.step1.question_first",
-                "params": {"count": 1, "asks": "number", "sheet": "STAIR DETAILS", "named": "title"},
+                "params": {
+                    "count": 1,
+                    "asks": "number",
+                    "sheet": "STAIR DETAILS",
+                    "named": "title",
+                    "question": asked["id"],
+                },
             },
         )
     assert all(p["decision"] is None for p in proposals(api, qs_project.project_id))
@@ -569,3 +578,270 @@ def test_answering_the_kind_of_a_left_out_unnumbered_sheet_does_not_confirm_it(
 
     assert response.status_code == 200, response.content
     assert the(proposals(api, qs_project.project_id), None)["decision"] == "excluded"
+
+
+# Round 4 -----------------------------------------------------------------------------------------
+
+
+def _blocked(qs: QsProject, monkeypatch: pytest.MonkeyPatch, kind: str) -> tuple[str, str, str]:
+    """A sheet a `missing` (no number) or `missing_discipline` (no Discipline) Question holds: the
+    Question's id, the sheet's Proposal's id and the sheet's number as the list shows it."""
+    if kind == "missing":
+        read(qs, monkeypatch, UNNUMBERED)
+        number = None
+    else:
+        _discipline_less(qs, monkeypatch)
+        number = "N-01"
+    api = api_as(qs.member)
+    [q] = open_questions(api, qs.project_id, kind)
+    return q["id"], the(proposals(api, qs.project_id), number)["id"], number or ""
+
+
+def _question(api: Any, project_id: uuid.UUID, question_id: str) -> dict[str, Any]:
+    [found] = [q for q in questions(api, project_id) if q["id"] == question_id]
+    return found
+
+
+@pytest.mark.parametrize("kind", ["missing", "missing_discipline"])
+def test_keep_open_on_a_question_its_exclusion_withdrew_leaves_its_sheet_held_and_undo_reopens_it(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, kind: str
+) -> None:
+    """Round 4, F1 (75): "keep open" overwrote the withdrawal, so "Confirm back in" then confirmed a
+    sheet of no number (or no Discipline) for good."""
+    question_id, sheet_id, _number = _blocked(qs_project, monkeypatch, kind)
+    api = api_as(qs_project.member)
+    left_out = exclude(api, qs_project.project_id, [sheet_id], "for_information")
+    assert left_out.status_code == 200, left_out.content
+    assert answer(api, qs_project.project_id, question_id, KEEP_OPEN).status_code == 200
+
+    back_in = confirm(api, qs_project.project_id, [sheet_id])
+
+    assert back_in.status_code == 409, back_in.content
+    assert back_in.json()["code"] == "takeoff.step1.question_first"
+    assert back_in.json()["params"]["question"] == question_id
+    shown = _question(api, qs_project.project_id, question_id)
+    assert (shown["status"], shown["withdrawn_by"], shown["blocking"]) == (
+        "withdrawn",
+        left_out.json()["confirmation_id"],
+        True,
+    )
+    assert api.post(f"{step1(qs_project.project_id)}/undo", {}).status_code == 200
+    shown = _question(api, qs_project.project_id, question_id)
+    assert (shown["status"], shown["withdrawn_by"], shown["blocking"]) == ("open", None, True)
+    assert shown["answer"]["option"] == KEEP_OPEN  # the "keep open" given meanwhile stays
+
+
+def test_a_kind_answered_while_the_sheet_is_left_out_is_applied_when_it_comes_back_in(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, jev_offline: Offline
+) -> None:
+    """Round 4, F2 (50): the kind's answer was kept on the Question alone and lost on confirm."""
+    jev_says(jev_offline, "0.34")
+    read(qs_project, monkeypatch, UNNUMBERED)
+    api = api_as(qs_project.member)
+    unnumbered = the(proposals(api, qs_project.project_id), None)
+    assert exclude(api, qs_project.project_id, [unnumbered["id"]], "blank").status_code == 200
+    [kind_q] = [
+        q
+        for q in open_questions(api, qs_project.project_id, "low_confidence")
+        if q["proposals"] == [unnumbered["id"]]
+    ]
+    chosen = keys(kind_q)[1]
+    assert answer(api, qs_project.project_id, kind_q["id"], chosen).status_code == 200
+    [number_q] = [q for q in questions(api, qs_project.project_id) if q["kind"] == "missing"]
+    assert answer(api, qs_project.project_id, number_q["id"], "type_number", "S-07").status_code == 200
+
+    back_in = confirm(api, qs_project.project_id, [unnumbered["id"]])
+
+    assert back_in.status_code == 200, back_in.content
+    shown = the(proposals(api, qs_project.project_id), "S-07")
+    assert (shown["decision"], shown["confirmed_kind"]) == ("confirmed", chosen)
+
+
+def test_every_question_a_refusal_names_is_one_the_questions_list_returns(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Round 4, F3 (50): the 409 named a Question the screen never showed (22 lists only open and
+    kept-open ones): the list returns it, `withdrawn`, with what withdrew it and that it holds its
+    sheet."""
+    question_id, sheet_id, _number = _blocked(qs_project, monkeypatch, "missing_discipline")
+    api = api_as(qs_project.member)
+    left_out = exclude(api, qs_project.project_id, [sheet_id], "for_information")
+
+    refused = confirm(api, qs_project.project_id, [sheet_id])
+
+    named = refused.json()["params"]["question"]
+    shown = _question(api, qs_project.project_id, named)
+    assert named == question_id
+    assert (shown["status"], shown["withdrawn_by"], shown["blocking"]) == (
+        "withdrawn",
+        left_out.json()["confirmation_id"],
+        True,
+    )
+
+
+# The committed check for the class (round 4; rounds 2, 3 and 4 found it): no path confirms a sheet
+# back in while the Question that blocks it is unresolved. Every answer each withdrawable Question
+# offers (a `missing` or `missing_discipline` Question: those an exclusion withdraws), given before
+# or after the exclusion, then every route back in (the single act, the bulk act, the kind's answer).
+
+WITHDRAWABLE: dict[str, list[str]] = {
+    "missing": ["no_number", "type_number", KEEP_OPEN],
+    "missing_discipline": [
+        *dict.fromkeys(row.key for rows in DISCIPLINES.values() for row in rows),
+        KEEP_OPEN,
+    ],
+}
+ROUTES = ("single", "bulk", "kind_answer")
+
+
+@pytest.mark.parametrize("route", ROUTES)
+@pytest.mark.parametrize("when", ["after_exclusion", "before_exclusion"])
+@pytest.mark.parametrize(
+    ("kind", "option"),
+    [(kind, option) for kind, options in WITHDRAWABLE.items() for option in options],
+)
+def test_no_route_confirms_a_left_out_sheet_back_in_while_its_blocking_question_is_unresolved(
+    qs_project: QsProject,
+    monkeypatch: pytest.MonkeyPatch,
+    jev_offline: Offline,
+    kind: str,
+    option: str,
+    when: str,
+    route: str,
+) -> None:
+    jev_says(jev_offline, "0.34")
+    question_id, sheet_id, _number = _blocked(qs_project, monkeypatch, kind)
+    api = api_as(qs_project.member)
+    assert keys(_question(api, qs_project.project_id, question_id)) == WITHDRAWABLE[kind]
+    text = "S-07" if option == "type_number" else ""
+    if when == "before_exclusion":
+        assert answer(api, qs_project.project_id, question_id, option, text).status_code == 200
+    assert exclude(api, qs_project.project_id, [sheet_id], "for_information").status_code == 200
+    if when == "after_exclusion":
+        assert answer(api, qs_project.project_id, question_id, option, text).status_code == 200
+    held_by = [
+        q
+        for q in questions(api, qs_project.project_id)
+        if q["kind"] == "low_confidence" and q["proposals"] == [sheet_id]
+    ]
+
+    if route == "single":
+        back_in = confirm(api, qs_project.project_id, [sheet_id])
+    elif route == "bulk":
+        back_in = confirm(
+            api, qs_project.project_id, [p["id"] for p in proposals(api, qs_project.project_id)]
+        )
+    else:
+        # The kind's answer confirms the sheets it holds; a sheet with no kind Question has no such
+        # route (its Discipline unknown, it offers no kinds): then the single act stands in.
+        if held_by:
+            [kind_q] = held_by
+            back_in = answer(api, qs_project.project_id, kind_q["id"], keys(kind_q)[0])
+        else:
+            back_in = confirm(api, qs_project.project_id, [sheet_id])
+
+    sheet = next(p for p in proposals(api, qs_project.project_id) if p["id"] == sheet_id)
+    shown = _question(api, qs_project.project_id, question_id)
+    if option == KEEP_OPEN:
+        # Unresolved: never confirmed, and the refusal (if the route refuses) names the Question.
+        assert sheet["decision"] == "excluded", (sheet, back_in.content)
+        assert shown["blocking"] is True
+        if back_in.status_code != 200:  # the kind's answer is kept (200); the acts refuse
+            assert back_in.status_code == 409, back_in.content
+            assert back_in.json()["code"] == "takeoff.step1.question_first"
+            assert back_in.json()["params"]["question"] == question_id
+        else:
+            assert route == "kind_answer"
+            assert held_by
+    else:
+        # Resolved: the sheet comes back in, with its number or Discipline as answered.
+        assert back_in.status_code == 200, back_in.content
+        assert (shown["status"], shown["blocking"]) == ("answered", False)
+        if route != "kind_answer" or not held_by:
+            assert sheet["decision"] == "confirmed", sheet
+        if kind == "missing_discipline":
+            assert sheet["discipline"] == option
+        elif option == "type_number":
+            assert sheet["number"] == "S-07"
+
+
+def _read_anyway_stopped_after_its_sheets(qs: QsProject, monkeypatch: pytest.MonkeyPatch) -> Any:
+    """A held file of an unnumbered sheet, read anyway, its read job stopped once its sheets are kept
+    and before Step 1 proposes them (the refuter's window); the file's readers."""
+    from procrastinate.job_context import AbortReason
+
+    from vextrus.platform.services import jobs
+    from vextrus.takeoff.services.read_propose import sheets as read_sheets
+
+    use = readers({NAME: UNNUMBERED}, held=[NAME])
+    file_id = uploaded(qs.member, qs.project_id, NAME)
+    run_job(qs.member, file_id, monkeypatch, use)
+    api = api_as(qs.member)
+    [held_q] = open_questions(api, qs.project_id, "file_misread")
+    assert answer(api, qs.project_id, held_q["id"], "read_anyway").status_code == 200
+    kept = {"sheets": False}
+    original = read_sheets.read
+
+    def reading(*args: Any, **kwargs: Any) -> Any:
+        found = original(*args, **kwargs)
+        kept["sheets"] = True
+        return found
+
+    monkeypatch.setattr(read_sheets, "read", reading)
+    with pytest.raises(jobs.Stopped):
+        run_job(
+            qs.member,
+            file_id,
+            monkeypatch,
+            use,
+            abort_reason=lambda: AbortReason.SHUTDOWN if kept["sheets"] else None,
+        )
+    monkeypatch.setattr(read_sheets, "read", original)
+    return lambda: run_job(qs.member, file_id, monkeypatch, use)
+
+
+def test_a_read_anyway_sheet_is_not_decided_before_its_read_asks_its_questions(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Round 4's refuter (55): a held file read anyway lists its sheets before Step 1 asks their
+    number, so an unnumbered sheet was confirmed with no Question to hold it, for good."""
+    read_on = _read_anyway_stopped_after_its_sheets(qs_project, monkeypatch)
+    api = api_as(qs_project.member)
+    unnumbered = the(proposals(api, qs_project.project_id), None)
+    assert open_questions(api, qs_project.project_id, "missing") == []
+
+    early = confirm(api, qs_project.project_id, [unnumbered["sheet_id"]])
+    left_out = exclude(api, qs_project.project_id, [unnumbered["sheet_id"]], "blank")
+
+    assert (early.status_code, early.json()) == (404, NOT_FOUND)
+    assert (left_out.status_code, left_out.json()) == (404, NOT_FOUND)
+    read_on()
+    [asked] = open_questions(api, qs_project.project_id, "missing")
+    unnumbered = the(proposals(api, qs_project.project_id), None)
+    refused = confirm(api, qs_project.project_id, [unnumbered["id"]])
+    assert (refused.status_code, refused.json()["params"]["question"]) == (409, asked["id"])
+
+
+def test_undo_never_puts_a_confirmation_back_on_a_sheet_whose_number_is_still_asked(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, sign_in: Callable[..., Member]
+) -> None:
+    """Round 4's refuter (55), its second half: undoing an exclusion put back a confirmation made
+    before the sheet's `missing` Question was raised (as a legacy row may carry), confirming it again
+    while the Question is unresolved. It goes back to undecided, its Question open."""
+    from vextrus.takeoff.models import Question
+
+    question_id, sheet_id, _number = _blocked(qs_project, monkeypatch, "missing")
+    api = api_as(qs_project.member)
+    # A confirmation made while the Question was not yet asked.
+    Question.objects.filter(id=question_id).update(status="withdrawn")
+    assert confirm(api, qs_project.project_id, [sheet_id]).status_code == 200
+    Question.objects.filter(id=question_id).update(status="open")
+    colleague = api_as(sign_in(role="qs", developer_id=qs_project.member.developer_id))
+    assert exclude(colleague, qs_project.project_id, [sheet_id], "blank").status_code == 200
+
+    back = colleague.post(f"{step1(qs_project.project_id)}/undo", {})
+
+    assert back.status_code == 200, back.content
+    sheet = next(p for p in proposals(api, qs_project.project_id) if p["id"] == sheet_id)
+    shown = _question(api, qs_project.project_id, question_id)
+    assert (sheet["decision"], shown["status"], shown["blocking"]) == (None, "open", True)
