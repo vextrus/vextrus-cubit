@@ -7,7 +7,7 @@ from dataclasses import asdict
 from datetime import datetime
 from typing import Any, Self
 
-from ninja import Schema
+from ninja import Field, Schema
 
 from vextrus.takeoff.services import step1
 
@@ -42,6 +42,8 @@ class Step1ProposalOut(_FromView):
     decided_by: str | None
     """Who confirmed or left it out, by name."""
     decided_at: datetime | None
+    agrees: bool
+    """Two sources agree on it (m0-screens §5): it joins the bulk act; else "Proposal, one source"."""
 
 
 class Step1ProposalsOut(Schema):
@@ -60,10 +62,30 @@ class Step1QuestionOut(_FromView):
     check_code: str | None
     answer: Any
     answered_at: datetime | None
+    proposals: list[uuid.UUID]
+    """The Proposals it holds: answering confirms, leaves out or corrects them."""
+    withdrawn_by: uuid.UUID | None = Field(
+        None,
+        description="While `status` is `withdrawn` because its sheet was left out: that exclusion "
+        "(the Step 1 act whose undo asks it again). Null otherwise, and for a Question a newer one "
+        "replaced.",
+    )
+    blocking: bool = Field(
+        False,
+        description="It holds its sheets from being confirmed until it is answered: open, or "
+        "withdrawn by an exclusion that still stands (then it is still answerable, and "
+        "`takeoff.step1.question_first` names it by `params.question`).",
+    )
 
 
 class Step1QuestionsOut(Schema):
     questions: list[Step1QuestionOut]
+
+
+class Step1UnaccountedViewOut(Schema):
+    id: uuid.UUID
+    view_id: uuid.UUID
+    sheet_id: uuid.UUID
 
 
 class Step1CoverageOut(_FromView):
@@ -75,6 +97,10 @@ class Step1CoverageOut(_FromView):
     used: int
     by_step: dict[str, int]
     by_reason: dict[str, int]
+    unaccounted_views: list[Step1UnaccountedViewOut]
+    """Each view no step, Part or exclusion accounts for: `id` its Proposal, which `exclude` takes."""
+    unread_sheets: int
+    """The sheets left out for unreadable writing (#135): counted, never silently unread."""
 
 
 class Step1DisciplineProgressOut(Schema):
@@ -86,6 +112,8 @@ class Step1DisciplineProgressOut(Schema):
     total: int | None
     """N; null ("—") while a list read on a sheet and one the QS gave disagree."""
     open_questions: int
+    status: str
+    """The StepProgress status: `in_review`, `confirmed` (m0-screens 6.11) or `not_started`."""
 
 
 class Step1ProgressOut(_FromView):
@@ -114,6 +142,11 @@ class Step1ExcludeIn(Schema):
 
 class Step1UndoIn(Schema):
     pass
+
+
+class Step1AnswerIn(Schema):
+    option: str
+    text: str = ""
 
 
 class Step1DrawingListIn(Schema):

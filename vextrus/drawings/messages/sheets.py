@@ -37,3 +37,5 @@ TEXT_UNREADABLE = MessageCode("drawings.sheets.text_unreadable")
 never cleaned behind the QS's back (400)."""
 REASON_UNKNOWN = MessageCode("drawings.sheets.reason_unknown")
 """A reason to leave out that is not one of the seven (400)."""
+DECIDED_ALREADY = MessageCode("drawings.sheets.decided_already")
+NUMBER_UNREADABLE = MessageCode("drawings.sheets.number_unreadable")

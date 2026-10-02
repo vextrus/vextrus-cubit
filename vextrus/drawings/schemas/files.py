@@ -11,6 +11,7 @@ from pydantic import ConfigDict
 
 from engine.messages import Message
 from vextrus.drawings.services import (
+    BanglaSheet,
     DisciplineView,
     FileView,
     FontRow,
@@ -51,6 +52,8 @@ class FileOut(Schema):
     added_by_name: str
     added_by_vextrus: bool
     """Added by a Vextrus Engineer: the name is shown with "(Vextrus)" (m0-screens 1.4)."""
+    marked_for_vextrus: bool
+    """A file that could not be read, marked for Vextrus to look at ("Mark for Vextrus")."""
 
     @classmethod
     def from_view(cls, view: FileView) -> FileOut:
@@ -68,6 +71,7 @@ class FileOut(Schema):
             added_at=view.added_at,
             added_by_name=view.added_by_name,
             added_by_vextrus=view.added_by_vextrus,
+            marked_for_vextrus=view.marked_for_vextrus,
         )
 
 
@@ -99,10 +103,25 @@ class FontRowOut(Schema):
     asked: Message
     how_close: Message
     texts: int
+    sheets: int
+    """How many of the file's sheets its texts are on (the Fonts table's "Sheets" column)."""
 
     @classmethod
     def from_row(cls, row: FontRow) -> FontRowOut:
-        return cls(asked=row.asked, how_close=row.how_close, texts=row.texts)
+        return cls(asked=row.asked, how_close=row.how_close, texts=row.texts, sheets=row.sheets)
+
+
+class BanglaSheetOut(Schema):
+    """A sheet with Bangla-ANSI texts on it ("A-02: 5 texts"), a link into Step 1."""
+
+    sheet_id: uuid.UUID
+    """The printed sheet's id."""
+    number: str | None
+    texts: int
+
+    @classmethod
+    def from_sheet(cls, sheet: BanglaSheet) -> BanglaSheetOut:
+        return cls(sheet_id=sheet.sheet_id, number=sheet.number, texts=sheet.texts)
 
 
 class ReportOut(Schema):
@@ -112,6 +131,8 @@ class ReportOut(Schema):
     readers: list[Message]
     sheets: list[Message]
     bangla: list[Message]
+    bangla_sheets: list[BanglaSheetOut]
+    """The sheets the Bangla-ANSI texts are on, in sheet order, each with how many."""
     fonts: list[Message]
     font_rows: list[FontRowOut]
     plot: list[Message]
@@ -125,6 +146,7 @@ class ReportOut(Schema):
             readers=list(report.readers),
             sheets=list(report.sheets),
             bangla=list(report.bangla),
+            bangla_sheets=[BanglaSheetOut.from_sheet(sheet) for sheet in report.bangla_sheets],
             fonts=list(report.fonts),
             font_rows=[FontRowOut.from_row(row) for row in report.font_rows],
             plot=list(report.plot),

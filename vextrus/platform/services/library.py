@@ -22,6 +22,7 @@ import uuid
 from dataclasses import dataclass
 from importlib import import_module
 
+from django.apps import apps
 from django.db import transaction
 
 from vextrus.modules import MODULES
@@ -61,6 +62,8 @@ def sync(using: str = OWNER_ALIAS) -> dict[str, int]:
                 migration.seed(Market, Developer, using)
         found = libraries(using)
         for module in MODULES:
+            if not apps.is_installed(f"vextrus.{module}"):
+                continue  # the job's settings install four modules alone (vextrus.settings.job)
             sync_module = getattr(import_module(f"vextrus.{module}.library"), "sync", None)
             if sync_module is not None:
                 written[module] = sync_module(found, using)
