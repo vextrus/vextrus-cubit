@@ -240,3 +240,47 @@ def test_the_sets_plot_matching_is_held_until_the_transaction_ends(qs_project: Q
 def test_holding_a_sets_plot_matching_is_refused_for_a_set_out_of_reach(qs_project: QsProject) -> None:
     with qs_project.member.acting(), transaction.atomic(), pytest.raises(auth.NotFound):
         drawings.hold_plots(uuid.uuid4())
+
+
+def test_of_two_pages_with_a_sheets_number_whole_the_one_its_drawing_fits_is_its_page() -> None:
+    """Measured on a real set (157): two pages of one PDF carried a sheet's number whole; the one
+    named first, in text as large, fitted the sheet at the residual's ceiling, and took it from its
+    own page. Whole before not, then the fit, then the text's size."""
+    from types import SimpleNamespace
+
+    from engine.read.anchor import PdfAnchor
+    from engine.read.pdf.types import Page, TextItem, TextSource
+    from engine.recognise.types import PlotMatch, SheetCandidate, SheetLocation
+    from vextrus.takeoff.services.read_propose.plot import _surest
+
+    sha = "b" * 64
+
+    def page(number: int, text: str, size: float) -> Page:
+        box = (10.0, 10.0, 10.0 + size * len(text), 10.0 + size)
+        item = TextItem(
+            text,
+            TextSource.TEXT,
+            PdfAnchor(sha, "pdfminer", "1", number, 0, box),
+            size,
+            0.0,
+            False,
+            None,
+        )
+        return Page(sha, number, 2384.0, 1684.0, 0, (0.0, 0.0, 2384.0, 1684.0), False, (item,))
+
+    candidate = SheetCandidate(SheetLocation(layout="50"))
+    sheet = SimpleNamespace(id=uuid.uuid4(), number="50")
+    pdf = SimpleNamespace(id=uuid.uuid4())
+
+    def surest(*matches: PlotMatch) -> int:
+        found = _surest(matches, {id(candidate): sheet}, {sha: pdf})  # type: ignore[dict-item]
+        return found[(sheet.id, pdf.id)]
+
+    misfit = PlotMatch(page(14, "50", 8.0), sheet=candidate, residual=3.0)
+    own = PlotMatch(page(50, "50", 8.0), sheet=candidate, residual=0.25)
+    referred = PlotMatch(page(3, "SEE 50", 30.0), sheet=candidate, residual=0.0)
+    assert surest(misfit, own) == 1
+    assert surest(own, misfit) == 0
+    assert surest(referred, misfit) == 1  # whole before a mention among other words
+    unplaced = PlotMatch(page(14, "50", 12.0), sheet=candidate)
+    assert surest(unplaced, own) == 1  # a page never placed fits worse than one placed

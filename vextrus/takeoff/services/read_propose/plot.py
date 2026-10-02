@@ -19,9 +19,9 @@ so both orders name each page alike.
 
 **What is kept.** A sheet named by a page gets it, placed, unless it has a page of a PDF added
 before this page's (the first added PDF with a page for a sheet is its Plot, the report's rule,
-whichever was read first), or another page of the same PDF names it more surely (its own page: the
-number whole, in the larger text; `registration.mention`), or an earlier page of this run named it
-(the PDFs first added first, each page in order). A sheet with a number, of a Discipline a PDF
+whichever was read first), or another page of the same PDF is more surely its own (the number
+whole, then the better fit, then the larger text; `_surest`), or an earlier page of this run named
+it (the PDFs first added first, each page in order). A sheet with a number, of a Discipline a PDF
 tried here covers (the PDF's own, or the PDF of none), and still with no page is kept as
 `PlotNone.NO_PAGE` naming such a PDF (its own Discipline's first, then the first added: the sheet
 list's order): the match ran, and found none. Another read PDF whose copy or reading fails now is
@@ -29,6 +29,7 @@ left out, never named; this file's own fails the file.
 Each PDF's pages that matched no sheet are kept as its report's lines (18's reason, with the page).
 """
 
+import math
 import uuid
 from collections import OrderedDict
 from collections.abc import Iterator, Mapping, Sequence
@@ -180,10 +181,13 @@ def _surest(
     by_candidate: Mapping[int, drawings.SheetView],
     by_sha: Mapping[str, drawings.FileView],
 ) -> dict[tuple[uuid.UUID, uuid.UUID], int]:
-    """For each sheet and PDF, the place in `found` of the PDF's page that names the sheet most
-    surely (`registration.mention`; the first of those as sure): a page that refers to a sheet
-    whose own page is in the same PDF never takes it from that page."""
-    best: dict[tuple[uuid.UUID, uuid.UUID], tuple[tuple[bool, float], int]] = {}
+    """For each sheet and PDF, the place in `found` of the PDF's page that is the sheet's own: of
+    the pages naming it, one with its number whole (`registration.mention`) before one holding it
+    among other words; then the one its drawing lies on best (the smaller residual: a real set had
+    two pages with the number whole, the wrong one fitting at the residual's ceiling); then the
+    larger text; then the first. A page that refers to a sheet whose own page is in the same PDF
+    never takes it from that page."""
+    best: dict[tuple[uuid.UUID, uuid.UUID], tuple[tuple[bool, float, float], int]] = {}
     for k, m in enumerate(found):
         sheet = by_candidate.get(id(m.sheet)) if m.sheet is not None else None
         pdf = by_sha.get(getattr(m.page, "source_sha256", ""))
@@ -191,7 +195,8 @@ def _surest(
             continue
         page = m.page
         sure = registration.mention(page, sheet.number or "") if isinstance(page, Page) else None
-        rank = sure or (False, -1.0)
+        whole, height = sure or (False, -1.0)
+        rank = (whole, -(m.residual if m.residual is not None else math.inf), height)
         kept = best.get((sheet.id, pdf.id))
         if kept is None or rank > kept[0]:
             best[(sheet.id, pdf.id)] = (rank, k)
