@@ -1,6 +1,7 @@
 """The job's export (21c's `takeoff/services/export.py`): what the read job recorded, written through
 `engine/export.py`, on invented sheets (`test_read_sheet.py`'s readers; no toolchain)."""
 
+import dataclasses
 import uuid
 from pathlib import Path
 from typing import Any
@@ -8,13 +9,20 @@ from typing import Any
 import pytest
 
 from engine import harness
+from engine.messages import decoders_agree as agree_codes
+from engine.read import ReadError
 from engine.recognise import views
+from engine.recognise.types import CheckOutcome, CheckResult
 from vextrus.drawings import services as drawings
 from vextrus.platform.services import auth
 from vextrus.takeoff.services import export
+from vextrus.takeoff.services.read_propose import files
 from vextrus.takeoff.services.read_propose import sheets as read_propose_sheets
-from vextrus.takeoff.tests.test_read_sheet import FRAMES, added, run_job
-from vextrus.testing.drawings import QsProject
+from vextrus.takeoff.tasks import read_file
+from vextrus.takeoff.tests.test_read_file import DISAGREE
+from vextrus.takeoff.tests.test_read_sheet import FRAMES, added, readers, run_job
+from vextrus.testing.drawings import QsProject, add, drawing
+from vextrus.testing.jobs import run_inline
 
 
 @pytest.fixture(autouse=True)
@@ -140,3 +148,69 @@ def test_a_sheet_the_job_kept_no_render_for_fails_the_render_stage(
     assert (report["state"], report["calls"], report["failed_calls"]) == ("failed", FRAMES, 1)
     assert document["set_stages"]["render_f1"]["state"] == "skipped"
     assert document["set_stages"]["conflicts"]["state"] == "ok"
+
+
+def _read(qs: QsProject, file_id: uuid.UUID, second: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    use = dataclasses.replace(readers(), second=second)
+    monkeypatch.setattr(files, "READERS", use)
+    run_inline(
+        read_file.read_file,
+        tenant_id=qs.member.developer_id,
+        user_id=qs.member.user.pk,
+        abort_reason=lambda: None,
+        file_id=file_id,
+    )
+
+
+@pytest.mark.django_db
+def test_a_held_file_is_read_anyway_so_the_set_stages_run_on_every_file(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The refuter's case (21d): one held DWG skipped every set stage for the whole set, while the
+    harness reads a file whatever its readers say. The check answers "read anyway", as a QS would."""
+    good = add(qs_project.member, qs_project.project_id, "S-GOOD.dwg", drawing("dwg")).file.id
+    held = add(qs_project.member, qs_project.project_id, "S-HELD.dwg", drawing("dwg")).file.id
+    agree = CheckResult(code="decoders_agree", outcome=CheckOutcome.PASSED)
+    fired = CheckResult(code="decoders_agree", outcome=CheckOutcome.FIRED, finding=DISAGREE)
+    _read(qs_project, good, lambda path, artefact: agree, monkeypatch)
+    _read(qs_project, held, lambda path, artefact: fired, monkeypatch)
+
+    assert export.read_held_anyway(qs_project.member.developer_id, qs_project.project_id) == 1
+    _read(qs_project, held, lambda path, artefact: fired, monkeypatch)  # the job queued again
+
+    with qs_project.member.acting():
+        paths = {
+            name: drawings.file(i).sha256 for name, i in (("S-GOOD.dwg", good), ("S-HELD.dwg", held))
+        }
+        assert drawings.file(held).state == drawings.FileState.HELD  # held, its sheets read anyway
+    document = exported(qs_project, paths)
+    by_path = {f["path"]: f for f in document["files"]}
+    assert by_path["S-HELD.dwg"]["decoders_agree"] is False  # the export still says they disagree
+    assert len(by_path["S-HELD.dwg"]["sheets"]) == FRAMES
+    assert by_path["S-HELD.dwg"]["stages"]["sheets"]["state"] == "ok"
+    states = {name: report["state"] for name, report in document["set_stages"].items()}
+    assert states == dict.fromkeys(harness.SET_STAGES, "ok")
+
+
+@pytest.mark.django_db
+def test_a_file_that_failed_after_its_first_reader_keeps_its_entity_counts(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """As the harness reads it: the read stage ok, the second reader's stage failed."""
+    file_id = added(qs_project)
+
+    def broken(path: Any, artefact: Any) -> CheckResult:
+        raise ReadError(agree_codes.NOT_INSTALLED())
+
+    with pytest.raises(files.FileNotRead):
+        _read(qs_project, file_id, broken, monkeypatch)
+    with qs_project.member.acting():
+        sha256 = drawings.file(file_id).sha256
+        assert drawings.file(file_id).state == drawings.FileState.FAILED
+
+    [file] = exported(qs_project, {"a.dwg": sha256})["files"]
+
+    assert file["stages"]["read"]["state"] == "ok"
+    assert file["entity_counts"]
+    assert file["stages"]["decoders_agree"]["state"] == "failed"
+    assert file["stages"]["sheets"]["state"] == "skipped"

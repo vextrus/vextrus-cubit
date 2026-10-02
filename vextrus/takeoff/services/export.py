@@ -92,6 +92,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     _add(developer, project, folder, paths)
     for queue in (settings.VEXTRUS_CAD_QUEUE, settings.VEXTRUS_DEFAULT_QUEUE):
         jobs.run_worker([queue], wait=False)
+    if read_held_anyway(developer, project):
+        for queue in (settings.VEXTRUS_CAD_QUEUE, settings.VEXTRUS_DEFAULT_QUEUE):
+            jobs.run_worker([queue], wait=False)
     document = export(
         developer,
         project,
@@ -177,6 +180,30 @@ def _add(developer: uuid.UUID, project: uuid.UUID, folder: Path, paths: Iterable
                 read_file.add(project, name=Path(path).name, content=content, actor_name=ACTOR)
             except auth.Refused as refused:
                 print(f"export: a file was not added: {refused}", file=sys.stderr)
+
+
+def read_held_anyway(developer: uuid.UUID, project: uuid.UUID) -> int:
+    """Each held file (its two readers disagree) answered "read anyway", as a QS answers its
+    `file_misread` Question (`step1`'s answer: `drawings.answer_held`, then the job queued again,
+    `read_file.read_again`): the harness reads a file whatever its readers say, so the check reads it
+    too, and its export still says the readers disagree. How many were answered."""
+    from django.db import transaction
+
+    from vextrus.drawings import services as drawings
+    from vextrus.platform.services import tenancy
+    from vextrus.takeoff.tasks import read_file
+
+    with transaction.atomic(), tenancy.acting_in(developer):
+        found = drawings.set_of(project)
+        held = [
+            view.id
+            for view in ([] if found is None else drawings.files(found.id))
+            if view.state == drawings.FileState.HELD
+        ]
+        for file_id in held:
+            drawings.answer_held(file_id, drawings.HeldAnswer.READ_ANYWAY)
+            read_file.read_again(file_id)
+    return len(held)
 
 
 def _sha256(path: Path) -> str:
@@ -311,24 +338,28 @@ def _reading(
         found["pdf_report"] = from_kept("pdf_report", kept.upload_report)
         if page_text := stages.open("page_text"):
             ok, pages = stages.call("page_text", page_text, folder / path)
-            if ok and isinstance(pages, list | tuple):
+            if ok and not isinstance(pages, list | tuple):
+                stages.fail("page_text", f"it returned {type(pages).__name__}, not a list of pages")
+            elif ok:
                 found["page_count"], found["pages"] = len(pages), list(pages)
         return _file(path, view, found, reports)
 
-    if read or state == drawings.FileState.REFUSED:
+    artefact = None
+    if read or failed:
+        try:
+            artefact = drawings.artefact(view.id)  # a file that failed after its first reader kept one
+        except auth.NotFound:
+            artefact = None
+    if read or artefact is not None or state == drawings.FileState.REFUSED:
         reports["read"] = StageReport(StageState.OK, calls=1)
+        if read and artefact is None:
+            stages.fail("read", "the job kept no artefact")
     elif failed:
         reports["read"] = StageReport(
             StageState.FAILED, calls=1, failed_calls=1, error=error or str(state)
         )
     else:
         reports["read"] = StageReport(StageState.SKIPPED, error=f"the file's job did not end: {state}")
-    artefact = None
-    if read:
-        try:
-            artefact = drawings.artefact(view.id)
-        except auth.NotFound:
-            stages.fail("read", "the job kept no artefact")
     if artefact is not None:
         summary = to_json(artefact.summary)
         if isinstance(summary, dict):
@@ -340,12 +371,17 @@ def _reading(
         calls=int(cross_check is not None),
         error=not_kept if cross_check is None else None,
     )
+    if cross_check is None and artefact is not None and failed:  # the second reader's step failed
+        reports["decoders_agree"] = StageReport(
+            StageState.FAILED, calls=1, failed_calls=1, error=error or str(state)
+        )
     found["decoders_agree"] = None if cross_check is None else harness.agree_of(cross_check)
     found["font_report"] = from_kept("font_report", kept.font_report)
     found["bangla_ansi"] = from_kept("bangla_ansi", kept.bangla_ansi)
 
     finder = kept.steps.get(drawings.SHEETS)
-    if state != drawings.FileState.READ or finder is None:
+    # A held file answered "read anyway" (`read_held_anyway`) stays held, its sheets read and kept.
+    if not read or finder is None:
         for name in ("sheets", "register", "views", "render_buffers"):
             reports[name] = StageReport(StageState.SKIPPED, error=f"the file is {state}")
     else:
