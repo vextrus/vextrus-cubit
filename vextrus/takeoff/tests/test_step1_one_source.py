@@ -118,13 +118,21 @@ def test_a_bulk_act_naming_a_held_files_sheet_read_anyway_is_refused_as_held_not
     read_anyway = the(shown, "S-03")
     assert read_anyway["agrees"] is False
 
-    refused = confirm(api, qs_project.project_id, [the(shown, "S-01")["id"], read_anyway["id"]])
+    lone = the(shown, "S-02")
+    assert lone["agrees"] is False  # S-01 and S-02 with no list or Plot: one source each
+
+    refused = confirm(api, qs_project.project_id, [lone["id"], read_anyway["id"]])
 
     assert refused.status_code == 409, refused.content
     assert refused.json() == {
         "code": "takeoff.step1.held_file",
         "params": {"count": 1, "sheets": [read_anyway["id"]], "sheet": "S-03", "named": "number"},
     }
+    # The words gate's may 3: the held sheet taken out, the rest is refused for its one source.
+    again = confirm(api, qs_project.project_id, [lone["id"], the(shown, "S-01")["id"]])
+    assert again.status_code == 409, again.content
+    assert again.json()["code"] == "takeoff.step1.one_source"
+    assert again.json()["params"]["sheets"] == [lone["id"], the(shown, "S-01")["id"]]
     assert all(p["decision"] != "confirmed" for p in proposals(api, qs_project.project_id))
 
 
