@@ -1,7 +1,7 @@
-"""The export from the database (ticket 21c): the real-drawing check's reading of a Drawing Set through
-the product's own job, written through `engine/export.py` (docs/plans/M0.md, 21c; the check's sandbox,
-`scripts/real_drawings/sandbox.py`, runs it in `--job` mode, an option with `--no-post`: the harness
-stays the check's default until this export fills what `GAPS` names, the owner's ruling of 30 Sep 2026):
+"""The export from the database (tickets 21c and 21d): the real-drawing check's reading of a Drawing Set
+through the product's own job, written through `engine/export.py` (docs/plans/M0.md, 21c; the check's
+default since 21d, the owner's ruling of 30 Sep 2026 once this export filled what the harness's did;
+the check's sandbox, `scripts/real_drawings/sandbox.py`, runs it):
 
     python -m vextrus.takeoff.services.export --set <folder> --out <export.json> --database <socket>
         [--run-id ID] [--commit SHA] [--code-hash HASH]
@@ -14,8 +14,21 @@ the job worker until no job is left, and writes the export from what the job rec
 through `drawings.services` (files, sheets, views). It acts for the system, with no Membership, so
 its scope is the whole tenant (`drawings.services._access`), as the seed's.
 
-`export(...)` is that last part alone. What the database does not hold is written as the export's
-schema lets it be absent (null, or an empty list), never guessed: see `GAPS`.
+`export(...)` is that last part alone. **Every measure the harness's export gives, this one gives
+from what the job kept** (`drawings.services.kept`, the artefact, the renders), stage by stage as
+the harness names them (`engine.harness.STAGES`): a file's entity counts and read format from its
+kept artefact's summary; the second reader's agreement, the font report, the Bangla-ANSI Check and
+a PDF's report from the reports the job kept; the sheet finder's report from the `sheets` step's
+result (less the sheets the job leaves out for unreadable writing, which the harness keeps), and
+the view finder's from the sheet steps' (each sheet's cut, summed: the finder's bounds are the
+file's); each sheet's render buffers from its kept render. What the job keeps only in part is read
+again, from the job's own inputs, with the call the job makes: the register (the job keeps each
+list's numbers and titles, not the rows' places) with 13's register over the kept artefact and the
+job's sheets, as `read_propose.proposals` reads it. What the job does not run yet, 18's Plot and its
+render F1 (`read_propose.sheets`: "not run here yet"), and the set's Conflicts, Continuations and
+Checks (the job raises them as Questions), are the harness's own set stages
+(`engine.harness.read_set`), run over the job's readings: the PDFs' pages from 12's `page_text` on
+the set's files. What is not kept at all is said as absent: see `GAPS`.
 """
 
 import argparse
@@ -27,22 +40,22 @@ import time
 import uuid
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import UTC, datetime
+from functools import partial
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:  # the models load only once `main` has set Django up
-    from engine.export import FileReading
+    from engine.export import FileReading, StageReport
     from engine.recognise.types import SheetCandidate, ViewCandidate
     from vextrus.drawings.services import FileView, SheetView, ViewView
 
 GAPS = (
     "process: the job's own read seconds, CPU seconds and peak memory per file are not kept (zero)",
-    "stages: only read, sheets and views are reported per file, from the file's state",
-    "entity_counts, font_report, pdf_report, bangla_ansi, sheet_report, view_report: null",
-    "read_format, conventions_applied, pages: null",
-    "register, render_f1, plot, conflicts, continuations, checks, set_stages: empty",
+    "rasterise: the job keeps each sheet's render buffers and never rasterises them (skipped)",
+    "papers: the views stage's paper per sheet is not kept (null)",
 )
-"""What the job's export cannot say yet, which the harness's did."""
+"""What the job's export cannot say, which the harness's did; none of it is a measure the check
+counts (the run-to-run diff shows read time and peak memory, never counts them)."""
 
 OWNER = "vextrus"
 APP = "vextrus_app"
@@ -83,6 +96,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         developer,
         project,
         paths,
+        folder=folder,
         run={
             "id": args.run_id or str(uuid.uuid7()),
             "commit": args.commit,
@@ -190,49 +204,84 @@ def export(
     project: uuid.UUID,
     paths: Mapping[str, str],
     *,
+    folder: Path,
     run: Mapping[str, object],
 ) -> dict[str, object]:
     """The export of what the job recorded for the Project's set: `paths` are the set's files (path
-    to sha256), in order, each joined to the file added from it by its content; a path no file was
-    added from is left out. Written through `engine.export.build`."""
+    to sha256) under `folder`, in order, each joined to the file added from it by its content; a path
+    no file was added from is left out. Written through `engine.export.build`, the set stages run
+    by the harness's own `read_set` over the job's readings (see the module)."""
     from django.db import transaction
 
-    from engine.export import RunInfo, SetOutcome, build
+    from engine import harness
+    from engine.export import RunInfo, build
     from vextrus.drawings import services as drawings
     from vextrus.platform.services import tenancy
+    from vextrus.takeoff.services.read_propose import sheets as job_sheets
 
+    targets = {stage.name: stage.target for stage in harness.STAGES}
+    built = {name: harness.resolve(target)[0] is not None for name, target in targets.items()}
     with transaction.atomic(), tenancy.acting_in(developer):
         found = drawings.set_of(project)
         added = {} if found is None else {view.sha256: view for view in drawings.files(found.id)}
         printed = [] if found is None else drawings.sheets(found.id)
+        joined = [(path, view) for path, sha256 in paths.items() if (view := added.get(sha256))]
+        dwgs = [view for _, view in joined if view.format == "dwg"]
+        sheet_conventions = job_sheets.conventions(dwgs[0].id)[0] if dwgs else None
         readings = [
-            _reading(path, view, [sheet for sheet in printed if sheet.file_id == view.id])
-            for path, sha256 in paths.items()
-            if (view := added.get(sha256)) is not None
+            _reading(
+                folder,
+                path,
+                view,
+                [sheet for sheet in printed if sheet.file_id == view.id],
+                targets,
+            )
+            for path, view in joined
         ]
+    outcome = harness.read_set(readings, targets, built, sheet_conventions, folder)
     info = RunInfo(
         id=str(run["id"]),
         commit=None if run.get("commit") is None else str(run["commit"]),
         code_hash=None if run.get("code_hash") is None else str(run["code_hash"]),
         started_at=str(run["started_at"]),
         seconds=float(str(run["seconds"])),
-        stages={name: (target, "21c", True) for name, target in STAGES.items()},
+        stages={
+            stage.name: (JOB_STAGES.get(stage.name, stage.target), stage.ticket, built[stage.name])
+            for stage in harness.STAGES
+        },
     )
-    return dict(build(info, readings, SetOutcome(stages={})))
+    return dict(build(info, readings, outcome))
 
 
-STAGES = {
+JOB_STAGES = {
     "read": "vextrus.takeoff.services.read_propose.files:read",
+    "decoders_agree": "vextrus.takeoff.services.read_propose.files:read",
+    "font_report": "vextrus.takeoff.services.read_propose.files:read",
+    "bangla_ansi": "vextrus.takeoff.services.read_propose.files:read",
+    "pdf_report": "vextrus.takeoff.services.read_propose.files:read",
     "sheets": "vextrus.takeoff.services.read_propose.sheets:read",
     "views": "vextrus.takeoff.services.read_propose.sheets:read",
+    "render_buffers": "vextrus.takeoff.services.read_propose.sheets:read",
 }
-"""The stages the job's export reports, by the product job's function that runs each."""
+"""The stages the job runs, by the product job's function that runs each; the others are named by the
+engine function this export runs over the job's readings (see the module)."""
 
 
-def _reading(path: str, view: FileView, printed: Sequence[SheetView]) -> FileReading:
-    """One file's FileReading from its FileView and printed sheets."""
-    from engine.export import FileReading, ProcessReport, ProcessStatus, StageReport, StageState
+def _reading(
+    folder: Path,
+    path: str,
+    view: FileView,
+    printed: Sequence[SheetView],
+    targets: Mapping[str, str],
+) -> FileReading:
+    """One file's FileReading from what its job kept (see the module)."""
+    from engine import harness
+    from engine.export import StageReport, StageState, to_json
+    from engine.recognise import views as view_finder
+    from engine.render.buffers import SheetBuffers
     from vextrus.drawings import services as drawings
+    from vextrus.platform.services import auth
+    from vextrus.takeoff.services.read_propose import sheets as job_sheets
 
     state = view.state
     read = state in (drawings.FileState.READ, drawings.FileState.HELD)
@@ -242,25 +291,122 @@ def _reading(path: str, view: FileView, printed: Sequence[SheetView]) -> FileRea
         drawings.FileState.CANCELLED,
     )
     error = None if view.finding is None else str(view.finding["code"])
+    kept = drawings.kept(view.id)
+    stages = harness.Stages(targets, progress=None)
+    reports = stages.reports
+    found: dict[str, Any] = {}
+    not_kept = f"the job kept none: the file is {state}"
+
+    def from_kept(name: str, value: dict[str, Any] | None) -> dict[str, int] | None:
+        if value is None:
+            reports[name] = StageReport(StageState.SKIPPED, error=not_kept)
+            return None
+        reports[name] = StageReport(StageState.OK, calls=1)
+        counts = harness.counts_of(value)
+        if counts is None:
+            stages.fail(name, "its kept report has no counts (names to counts)")
+        return counts
+
+    if view.format == "pdf":
+        found["pdf_report"] = from_kept("pdf_report", kept.upload_report)
+        if page_text := stages.open("page_text"):
+            ok, pages = stages.call("page_text", page_text, folder / path)
+            if ok and isinstance(pages, list | tuple):
+                found["page_count"], found["pages"] = len(pages), list(pages)
+        return _file(path, view, found, reports)
+
     if read or state == drawings.FileState.REFUSED:
-        first = StageReport(StageState.OK, calls=1)
+        reports["read"] = StageReport(StageState.OK, calls=1)
     elif failed:
-        first = StageReport(StageState.FAILED, calls=1, failed_calls=1, error=error or str(state))
+        reports["read"] = StageReport(
+            StageState.FAILED, calls=1, failed_calls=1, error=error or str(state)
+        )
     else:
-        first = StageReport(StageState.SKIPPED, error=f"the file's job did not end: {state}")
-    stages = {"read": first}
-    sheets: list[SheetCandidate] = []
-    views: list[list[ViewCandidate]] = []
-    if view.format == "dwg":
-        for name in ("sheets", "views"):
-            stages[name] = (
-                StageReport(StageState.OK, calls=len(printed))
-                if state == drawings.FileState.READ
-                else StageReport(StageState.SKIPPED, error=f"the file is {state}")
+        reports["read"] = StageReport(StageState.SKIPPED, error=f"the file's job did not end: {state}")
+    artefact = None
+    if read:
+        try:
+            artefact = drawings.artefact(view.id)
+        except auth.NotFound:
+            stages.fail("read", "the job kept no artefact")
+    if artefact is not None:
+        summary = to_json(artefact.summary)
+        if isinstance(summary, dict):
+            found["read_format"] = summary.get("format")
+            found["entity_counts"] = harness.counts_of(summary.get("entity_counts"))
+    cross_check = kept.cross_check
+    reports["decoders_agree"] = StageReport(
+        StageState.SKIPPED if cross_check is None else StageState.OK,
+        calls=int(cross_check is not None),
+        error=not_kept if cross_check is None else None,
+    )
+    found["decoders_agree"] = None if cross_check is None else harness.agree_of(cross_check)
+    found["font_report"] = from_kept("font_report", kept.font_report)
+    found["bangla_ansi"] = from_kept("bangla_ansi", kept.bangla_ansi)
+
+    finder = kept.steps.get(drawings.SHEETS)
+    if state != drawings.FileState.READ or finder is None:
+        for name in ("sheets", "register", "views", "render_buffers"):
+            reports[name] = StageReport(StageState.SKIPPED, error=f"the file is {state}")
+    else:
+        sheets = [_sheet(sheet, view.group) for sheet in printed]
+        found["sheets"] = sheets
+        found["views"] = [[_view(v) for v in drawings.views(sheet.id)] for sheet in printed]
+        reports["sheets"] = StageReport(StageState.OK, calls=1)
+        report = dict(finder.get("sheet_report") or {})
+        report.pop(job_sheets.UNREADABLE_TEXT, None)
+        found["sheet_report"] = harness.counts_of(report)
+        reports["views"] = StageReport(StageState.OK, calls=len(printed))
+        limits = view_finder.LIMITS
+        cut = [kept.steps.get(drawings.sheet_step(n + 1)) or {} for n in range(len(finder["sheets"]))]
+        found["view_report"] = (
+            {
+                limit: sum(_cut(step, job_sheets.VIEW_LIMIT.format(limit)) for step in cut)
+                for limit in limits
+            }
+            if printed
+            else None
+        )
+        if find_register := stages.open("register", None if artefact is not None else "read"):
+            conventions = job_sheets.conventions(view.id)[0]
+            ok, entries = stages.call(
+                "register", partial(find_register, conventions=conventions), artefact, sheets
             )
+            found["register"] = list(entries) if ok else []
+        buffers: list[SheetBuffers | None] = []
         for sheet in printed:
-            sheets.append(_sheet(sheet, view.group))
-            views.append([_view(v) for v in drawings.views(sheet.id)])
+            try:
+                buffers.append(SheetBuffers.from_bytes(drawings.render(sheet.id)))
+            except auth.NotFound:
+                buffers.append(None)
+        reports["render_buffers"] = StageReport(StageState.OK, calls=len(printed))
+        missing = buffers.count(None)
+        if missing:
+            reports["render_buffers"] = StageReport(
+                StageState.FAILED,
+                calls=len(printed),
+                failed_calls=missing,
+                error=f"the job kept no render for {missing} of the file's sheets",
+            )
+        found["buffers"] = buffers
+    reports["rasterise"] = StageReport(
+        StageState.SKIPPED, error="the job keeps render buffers and never rasterises them"
+    )
+    return _file(path, view, found, reports)
+
+
+def _cut(step: Mapping[str, Any], key: str) -> int:
+    """What a sheet step's `view_report` says one view limit cut on its sheet (0 when it says none)."""
+    report = step.get("view_report")
+    return int(report.get(key, 0)) if isinstance(report, dict) else 0
+
+
+def _file(
+    path: str, view: FileView, found: Mapping[str, Any], reports: Mapping[str, StageReport]
+) -> FileReading:
+    from engine import harness
+    from engine.export import FileReading, ProcessReport, ProcessStatus
+
     return FileReading(
         path=path,
         sha256=view.sha256,
@@ -269,10 +415,21 @@ def _reading(path: str, view: FileView, printed: Sequence[SheetView]) -> FileRea
         group=view.group,
         conventions_applied=None,
         process=ProcessReport(ProcessStatus.OK, 0, None, 0.0, 0.0, 0),
-        stages=stages,
-        decoders_agree=(None if view.format != "dwg" or not read else state == drawings.FileState.READ),
-        sheets=sheets,
-        views=views,
+        stages={name: reports[name] for name in harness.FILE_STAGES[view.format]},
+        read_format=found.get("read_format"),
+        decoders_agree=found.get("decoders_agree"),
+        entity_counts=found.get("entity_counts"),
+        font_report=found.get("font_report"),
+        pdf_report=found.get("pdf_report"),
+        bangla_ansi=found.get("bangla_ansi"),
+        sheet_report=found.get("sheet_report"),
+        view_report=found.get("view_report"),
+        sheets=found.get("sheets", []),
+        views=found.get("views", []),
+        register=found.get("register", []),
+        page_count=found.get("page_count"),
+        pages=found.get("pages", []),
+        buffers=found.get("buffers", []),
     )
 
 

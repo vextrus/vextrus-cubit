@@ -91,9 +91,11 @@ from vextrus.drawings.services.drawing_files import (
 from vextrus.drawings.services.library_disciplines import DisciplineView, conventions, disciplines
 from vextrus.drawings.services.reads import (
     ArtefactRef,
+    Kept,
     answer_held,
     artefact,
     attach_read_job,
+    kept,
     mark_failed,
     mark_read,
     original,
@@ -140,6 +142,7 @@ __all__ = [
     "FileView",
     "FontRow",
     "HeldAnswer",
+    "Kept",
     "PlotNone",
     "PlotView",
     "Report",
@@ -162,6 +165,7 @@ __all__ = [
     "file",
     "files",
     "held_answer",
+    "kept",
     "mark_failed",
     "mark_for_vextrus",
     "mark_read",
