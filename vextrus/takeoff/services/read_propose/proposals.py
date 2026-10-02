@@ -16,14 +16,16 @@ The sheets 21b left out for unreadable writing are counted (`unread`; Coverage's
 
 **Then the set's Questions**, over every sheet in the sheet list, whichever file brought it: 19b's
 Conflicts (`same_number`, `same_title`, `same_storey`) raised as `conflict` Questions holding their
-sheets' Proposals, each Discipline's sheets compared among themselves, a confirmed sheet with none
-(a later copy of it is a Revision's question), and the sheets of no Discipline only with the others of
-their own file (#161: each is asked its Discipline); a conflict no longer found is retired, `withdrawn`
-and still listed, and asked again if found again (an answered one is never touched); two
-plans of one subject whose floor-to-floor ranges meet at a storey asked where the first ends (a
-`convention` Question: 19b raises no conflict for them); the drawing list read on a sheet (13's
-register) kept per Discipline, and 19b's register Check run (`CheckRun`, trigger `read`), each
-finding a `check` Question. A Question raised again is the one asked (`step1.raise_question`).
+sheets' Proposals, each Discipline's sheets compared among themselves, a decided sheet (confirmed or
+left out) with none (a later copy of a confirmed one is a Revision's question), and the sheets of no
+Discipline only with the others of their own file (#161: each is asked its Discipline); a conflict
+no longer found is retired, `withdrawn` and still listed, and asked again if found again (an
+answered one is never touched); the conflicts are asked again after every act on Step 1
+(`set_conflicts`); two plans of one subject whose floor-to-floor ranges meet at a storey asked where
+the first ends (a `convention` Question: 19b raises no conflict for them); the drawing list read on
+a sheet (13's register) kept per Discipline, and 19b's register Check run (`CheckRun`, trigger
+`read`), each finding a `check` Question. A Question raised again is the one asked
+(`step1.raise_question`).
 """
 
 import uuid
@@ -344,8 +346,7 @@ def _read_lists(
 
 def set_questions(project_id: uuid.UUID, *, trigger_file: uuid.UUID | None = None) -> int:
     """The set's conflicts, boundary storeys and register Check, over every sheet in the sheet list
-    (see the module); how many Questions they hold (asked now or before). The conflicts not found
-    again are retired (#161)."""
+    (see the module); how many Questions they hold (asked now or before)."""
     drawing_set = drawings.set_of(project_id)
     if drawing_set is None:
         return 0
@@ -359,7 +360,43 @@ def set_questions(project_id: uuid.UUID, *, trigger_file: uuid.UUID | None = Non
     views = [[view_candidate(v) for v in vs] for vs in viewed]
     proposal_of = step1.proposal_ids(project_id)
     recognisers = finder.recognisers(conventions)
-    compared = [i for i, s in enumerate(listed) if s.decision != CONFIRMED]
+    asked = _conflicts(project_id, listed, sheets, views, proposal_of, recognisers, conventions)
+    asked += _boundaries(project_id, listed, viewed, proposal_of)
+    asked += _register(project_id, listed, sheets, views, proposal_of, recognisers, conventions)
+    return asked
+
+
+def set_conflicts(project_id: uuid.UUID) -> int:
+    """The set's conflicts asked again after an act decided or undid sheets (confirm, exclude, an
+    answer, undo): those of sheets now decided retired, those of sheets undecided again asked again;
+    how many are open. No Check is run (its runs are the reads')."""
+    drawing_set = drawings.set_of(project_id)
+    listed = drawings.sheets(drawing_set.id) if drawing_set is not None else []
+    groups = {f.id: f.group for f in drawings.files(drawing_set.id)} if drawing_set else {}
+    conventions = step1.sheet_conventions()
+    return _conflicts(
+        project_id,
+        listed,
+        [candidate(s, groups.get(s.file_id, "site")) for s in listed],
+        [[view_candidate(v) for v in drawings.views(s.id)] for s in listed],
+        step1.proposal_ids(project_id),
+        finder.recognisers(conventions),
+        conventions,
+    )
+
+
+def _conflicts(
+    project_id: uuid.UUID,
+    listed: Sequence[drawings.SheetView],
+    sheets: Sequence[SheetCandidate],
+    views: Sequence[Sequence[ViewCandidate]],
+    proposal_of: Mapping[uuid.UUID, uuid.UUID],
+    recognisers: finder.Recognisers,
+    conventions: SheetConventions,
+) -> int:
+    """19b's Conflicts over the sheets not yet decided (#161), each a `conflict` Question; every one
+    asked before and not found now retired (`step1.retire_questions`). How many were asked."""
+    compared = [i for i, s in enumerate(listed) if not s.decision]
     as_compared = [_compared(listed[i], sheets[i]) for i in compared]
     found = finder.compare(
         as_compared, [views[i] for i in compared], conventions=conventions, recognisers=recognisers
@@ -373,14 +410,9 @@ def set_questions(project_id: uuid.UUID, *, trigger_file: uuid.UUID | None = Non
         held = _held_sheets(conflict, at)
         raised.append(_conflict(project_id, conflict, [listed[i] for i in held], proposal_of))
     step1.retire_questions(project_id, CONFLICT_CODES, raised)
-    asked = len(raised)
-    asked += _boundaries(project_id, listed, viewed, proposal_of)
-    asked += _register(project_id, listed, sheets, views, proposal_of, recognisers, conventions)
-    return asked
+    return len(raised)
 
 
-CONFIRMED = "confirmed"
-"""A printed sheet's decision once the QS confirmed it (drawings' `Decision`)."""
 CONFLICT_CODES = tuple(
     c.code for c in (conflict_codes.SAME_NUMBER, conflict_codes.SAME_TITLE, conflict_codes.SAME_STOREY)
 )
@@ -393,7 +425,8 @@ group of their own), so even a Market's Discipline of this key would never meet 
 def _compared(sheet: drawings.SheetView, found: SheetCandidate) -> SheetCandidate:
     """A sheet as 19b compares it (#161, the orchestrator's ruling 5): one of no Discipline only with
     the other sheets of its own file, under no Discipline's prefixes (19b leaves a sheet of none
-    out); one confirmed is not compared at all (ruling 2: a later copy is a Revision question)."""
+    out). A decided sheet is not compared at all (ruling 2: a later copy of a confirmed sheet is a
+    Revision's question; a sheet left out is out of the set)."""
     if found.discipline is not None:
         return found
     none = Sourced(NO_DISCIPLINE, ValueSource.FILE)

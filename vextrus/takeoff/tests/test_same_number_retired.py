@@ -13,11 +13,13 @@ from vextrus.takeoff.tests.acceptance.t21c.step1_whole import (
     Sheet,
     a_file,
     answer,
+    confirm,
     jev_says,
     proposals,
     questions,
     readers,
     run_job,
+    step1,
     uploaded,
 )
 from vextrus.testing.auth import api_as
@@ -118,3 +120,40 @@ def test_the_sheets_of_a_file_of_no_discipline_are_compared_with_each_other_only
 
     assert (asked["status"], asked["params"]) == ("open", {"number": "05", "copies": 2})
     assert sorted(str(i) for i in asked["proposals"]) == mine
+
+
+def test_copies_left_out_by_keep_latest_are_in_no_new_conflict(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The refuter's case (severity 80): three copies, "keep latest" confirms one and leaves two out
+    as superseded; a later read of another file must not ask about those two again (a second "keep
+    latest" would confirm a superseded copy beside the latest)."""
+    read(qs_project, monkeypatch, STRUCTURAL, [*TWO_S04, *THIRD_S04])
+    api = api_as(qs_project.member)
+    [asked] = same_number(api, qs_project.project_id)
+    response = answer(api, qs_project.project_id, asked["id"], "keep_latest")
+    assert response.status_code == 200, response.content
+
+    read(qs_project, monkeypatch, STRUCTURAL_B, [Sheet("S-09", "BEAM SCHEDULE", ("BEAM SCHEDULE",))])
+
+    assert status_by_copies(api, qs_project.project_id) == {3: "answered"}
+
+
+def test_a_sheet_confirmed_leaves_its_conflict_and_its_undo_asks_it_again(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A confirmed sheet is in no conflict (ruling 2) from the act on, not from the next read; the
+    act undone, the conflict is asked again (rulings 3 and 4)."""
+    read(qs_project, monkeypatch, STRUCTURAL, TWO_S04)
+    api = api_as(qs_project.member)
+    first, _ = (p["id"] for p in proposals(api, qs_project.project_id))
+    assert status_by_copies(api, qs_project.project_id) == {2: "open"}
+
+    response = confirm(api, qs_project.project_id, [first])
+    assert response.status_code == 200, response.content
+    assert status_by_copies(api, qs_project.project_id) == {2: "withdrawn"}
+
+    response = api.send("post", f"{step1(qs_project.project_id)}/undo", {})
+
+    assert response.status_code == 200, response.content
+    assert status_by_copies(api, qs_project.project_id) == {2: "open"}
