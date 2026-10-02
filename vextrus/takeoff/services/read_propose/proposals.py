@@ -461,14 +461,16 @@ def _conflict(
     evidence = dict(conflict.evidence)
     if evidence.get("discipline") == NO_DISCIPLINE:
         evidence["discipline"] = ""
-    return step1.raise_question(
+    message = code(**evidence)
+    blocks = [proposal_of[s.id] for s in held if s.id in proposal_of]
+    return step1.asked_of(project_id, message, blocks) or step1.raise_question(
         project_id,
         "conflict",
-        code(**evidence),
+        message,
         subject_id=held[0].id,
         discipline=disciplines.pop() if len(disciplines) == 1 else None,
         options=options(keys),
-        blocks=[proposal_of[s.id] for s in held if s.id in proposal_of],
+        blocks=blocks,
     )
 
 

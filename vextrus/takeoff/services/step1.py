@@ -1649,6 +1649,21 @@ def raise_question(
     return row.id
 
 
+def asked_of(
+    project_id: uuid.UUID, message: Message, proposals: Iterable[uuid.UUID]
+) -> uuid.UUID | None:
+    """The Question already asked with these words of exactly these Proposals, however it was raised
+    (its subject and options aside: the demo's S-07 Question is raised by hand), the earliest; else
+    None. A conflict is its words and the sheets it holds (#161)."""
+    held = set(proposals)
+    for row in Question.objects.filter(
+        project_id=project_id, step=SHEETS, message_code=message["code"], params=message["params"]
+    ).order_by("created_at", "id"):
+        if set(QuestionLink.objects.filter(question=row).values_list("proposal_id", flat=True)) == held:
+            return row.id
+    return None
+
+
 def retire_questions(project_id: uuid.UUID, codes: Iterable[str], raised: Iterable[uuid.UUID]) -> int:
     """After a round that asked the set's Questions of these codes again (#161): each one `raised`
     that a past round retired is open again, and each still open that was not raised is retired,
