@@ -26,9 +26,10 @@
   only, the rest counted (review round 1: 5,000 stale tabs were 5,000 rows); one with no viewport of
   its own that draws only a title block is a template's tab, and dropped. One drawn in paper space
   whose title block gives no value at all (no number, title, date or mark: a template's tab with its
-  notes, or a sheet whose title block was not read; #162) is proposed out as `blank` on the same
-  terms, unless a limit was reached while it was read or its tab's name begins with a sheet number
-  of a Discipline's prefix: then it stays a sheet.
+  notes, or a sheet whose title block was not read; #162) is proposed out as `blank`, every such
+  layout of a file (it may be a real sheet, so none is dropped; `MAX_SHEETS` bounds them), unless a
+  limit was reached while it was read or its tab's name begins with a sheet number of a
+  Discipline's prefix (a name that is only a paper size, "A1", is not one): then it stays a sheet.
   Nothing is told empty on a guess: a titled layout with a viewport whose region cannot be read (a
   value lost or of no size, or past `MAX_VIEWPORTS`) stays a sheet, its values read, and is counted.
   A layout that shows a model-space frame, with no title block of its own, is that frame's plot: the
@@ -1284,25 +1285,29 @@ class _Segmenter:
             ):
                 # A template's tab, or a sheet whose title block was not read: proposed out, kept
                 self.counts["layout_template"] += 1
-                return self._blank(name, paper, entities), []
+                return self._blank(name, paper, entities, stale=False), []
             return sheet, frames_shown if titled and len(frames_shown) == 1 else []
         if titled and views == 0:
             self.counts["layout_title_block_only"] += 1  # a template tab: nothing to propose
             return None, []
         if titled:
-            return self._blank(name, paper, entities), []
+            return self._blank(name, paper, entities, stale=True), []
         self.counts["layout_shows_unknown" if unknown else "layout_shows_nothing"] += 1
         return None, []
 
     def _blank(
-        self, name: str, paper: _Space | None, entities: list[AnyEntity]
+        self, name: str, paper: _Space | None, entities: list[AnyEntity], *, stale: bool
     ) -> SheetCandidate | None:
-        """A layout proposed out as `blank`, no value read from it: the first of a file only, the
-        rest counted (`layout_blank_not_proposed`, which the QS is told)."""
-        if self.blank_proposed:
-            self.counts["layout_blank_not_proposed"] += 1  # one blank per file: the rest counted
-            return None
-        self.blank_proposed = True
+        """A layout proposed out as `blank`, no value read from it. A stale layout (its viewports
+        show nothing) is proposed the first of a file only, the rest counted
+        (`layout_blank_not_proposed`, which the QS is told); one drawn in paper space whose title
+        block gave nothing may be a real sheet, so each is proposed, never dropped (#162 round 2;
+        `MAX_SHEETS` bounds the file)."""
+        if stale:
+            if self.blank_proposed:
+                self.counts["layout_blank_not_proposed"] += 1  # one stale blank per file
+                return None
+            self.blank_proposed = True
         self.counts["layout_blank"] += 1
         first = paper.frames[0].handle if paper and paper.frames else entities[0].handle
         return SheetCandidate(
@@ -1314,7 +1319,10 @@ class _Segmenter:
 
     def _named_as_number(self, name: str) -> bool:
         """The tab's name begins with a sheet number of a Discipline's prefix ("S-901 GENERAL
-        NOTES"): a sheet whose title block was not read, kept as one (AutoCAD's "Layout1" is not)."""
+        NOTES"): a sheet whose title block was not read, kept as one (AutoCAD's "Layout1" is not,
+        nor a tab named only for its paper size, "A1" or "A3": `PAPER_TAB`)."""
+        if PAPER_TAB.fullmatch(_visible(name).strip()):
+            return False
         first = _visible(name).split(maxsplit=1)
         parts = sequence(first[0], self.conventions) if first else None
         prefix = _normal(parts.prefix) if parts is not None else ""
@@ -1323,8 +1331,8 @@ class _Segmenter:
         )
 
     def _limited(self) -> int:
-        """How often the file's limits were reached so far: a layout read past one is never dropped
-        for what its title block did not give."""
+        """How often the file's limits were reached so far: a layout read past one stays a sheet,
+        never proposed out for what its title block did not give."""
         return sum(self.counts[name] for name in LIMITS)
 
     def _frames_shown(self, model: _Space | None, windows: list[Bounds | None]) -> list[_Frame]:
@@ -1423,6 +1431,9 @@ class _Segmenter:
 
 MIN_PAPER_CONTENT = 20
 """The fewest things a layout with no viewport must draw beyond its title block to be a sheet."""
+PAPER_TAB = re.compile(r"A(?:10|[0-9])", re.IGNORECASE)
+"""A tab named only for its ISO 216 paper size ("A1", "A3"): no sheet number, though "A" is a
+Discipline's prefix (#162 round 2)."""
 
 
 DOUBLE_BORDER = 0.8

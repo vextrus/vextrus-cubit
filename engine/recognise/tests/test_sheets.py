@@ -598,9 +598,34 @@ def test_a_layout_whose_viewport_cannot_be_read_with_an_empty_title_block_stays_
     assert result.counts["layout_template"] == 0
 
 
-def test_a_second_template_in_a_file_is_counted_for_the_qs() -> None:
-    """One blank per file: a second is counted (`layout_blank_not_proposed`, a limit the QS is told),
-    never dropped unseen."""
+UNREAD_LABELS = ("DESCRIPTION", "SCALE", "DRAWING REF", "DATE")
+
+
+def _unread_sheet(d: Sheets, name: str, number: str, title: str) -> None:
+    """A real paper-space sheet of notes, its number and title under words the conventions lack and
+    its date blank: nothing of its title block is read."""
+    tab = d.layout(name)
+    _main(d, tab)
+    d.insert(frame_block(d, "FRAME_" + name, labels=UNREAD_LABELS), (0, 0, 0), owner=tab)
+    d.text(number, value_at(2), owner=tab)
+    d.text(title, value_at(0), owner=tab)
+    for i in range(sheets.MIN_PAPER_CONTENT + 5):
+        d.text(f"{title} NOTE {i + 1}", (40, 400 - 12 * i, 0), owner=tab)
+
+
+def _stale_layout(d: Sheets, name: str) -> None:
+    """A stale layout: a title block over viewports that look at empty model space."""
+    tab = d.layout(name)
+    _main(d, tab)
+    for i in range(2):
+        _viewport(d, tab, (90_000.0 + 1000 * i, 50_000.0), 2 + i)
+    d.insert(frame_block(d, "STALE_" + name), (0, 0, 0), owner=tab)
+
+
+def test_a_second_template_in_a_file_is_proposed_out_too() -> None:
+    """Every paper layout of a file whose title block gave nothing is kept, proposed out: the
+    one-per-file cap is a stale layout's only (#162 round 2; this inverts round 1's builder test,
+    which pinned the second one's drop)."""
     d = _paper_sheet(None, None)
     tab = d.layout("Layout2")
     _main(d, tab)
@@ -610,10 +635,78 @@ def test_a_second_template_in_a_file_is_counted_for_the_qs() -> None:
 
     result = segment(d.artefact(), None, DEFAULT)
 
-    assert [s.exclusion for s in result.sheets] == [Exclusion(ExclusionReason.BLANK)]
+    assert [(s.location.layout, s.exclusion) for s in result.sheets] == [
+        ("Layout1", Exclusion(ExclusionReason.BLANK)),
+        ("Layout2", Exclusion(ExclusionReason.BLANK)),
+    ]
     assert result.counts["layout_template"] == 2
+    assert result.counts["layout_blank_not_proposed"] == 0
+
+
+def test_every_unread_paper_sheet_of_a_file_is_kept() -> None:
+    """The re-check's attack G1: a firm whose labels the conventions lack, so no paper sheet of the
+    file is read; each is kept, proposed out, none dropped."""
+    d = Sheets()
+    _unread_sheet(d, "Layout1", "A-901", "GENERAL NOTES")
+    _unread_sheet(d, "Layout2", "A-902", "DOOR SCHEDULE")
+    _unread_sheet(d, "Layout3", "A-903", "WINDOW SCHEDULE")
+
+    result = segment(d.artefact(), None, DEFAULT)
+
+    assert [(s.location.layout, s.exclusion) for s in result.sheets] == [
+        (name, Exclusion(ExclusionReason.BLANK)) for name in ("Layout1", "Layout2", "Layout3")
+    ]
+    assert result.counts["layout_blank_not_proposed"] == 0
+
+
+def test_an_unread_paper_sheet_after_a_stale_layout_is_kept() -> None:
+    """The re-check's attack G2: a stale Layout1 takes the file's one stale blank; the unread real
+    sheet after it is still kept, proposed out."""
+    d = Sheets()
+    for i in range(5):
+        d.line((10 * i, 0), (10 * i, 100))
+    _stale_layout(d, "Layout1")
+    _unread_sheet(d, "Layout2", "A-901", "GENERAL NOTES")
+
+    result = segment(d.artefact(), None, DEFAULT)
+
+    assert [(s.location.layout, s.exclusion) for s in result.sheets] == [
+        ("Layout1", Exclusion(ExclusionReason.BLANK)),
+        ("Layout2", Exclusion(ExclusionReason.BLANK)),
+    ]
+    assert result.counts["layout_blank_not_proposed"] == 0
+
+
+def test_a_second_stale_layout_in_a_file_is_counted_for_the_qs() -> None:
+    """The stale cap stays (review round 1: 5,000 stale tabs were 5,000 rows): a second stale layout
+    is counted (`layout_blank_not_proposed`, a limit the QS is told)."""
+    d = Sheets()
+    for i in range(5):
+        d.line((10 * i, 0), (10 * i, 100))
+    _stale_layout(d, "Layout1")
+    _stale_layout(d, "Layout2")
+
+    result = segment(d.artefact(), None, DEFAULT)
+
+    assert [(s.location.layout, s.exclusion) for s in result.sheets] == [
+        ("Layout1", Exclusion(ExclusionReason.BLANK))
+    ]
     assert result.counts["layout_blank_not_proposed"] == 1
     assert "layout_blank_not_proposed" in sheets.LIMITS
+
+
+@pytest.mark.parametrize("name", ["A1", "a3", " A0 "])
+def test_a_template_on_a_tab_named_for_its_paper_size_is_proposed_out(name: str) -> None:
+    """The re-check's G3: "A1" is a paper size, not architectural sheet 1, so a tab named only that
+    whose title block gave nothing is proposed out like any template."""
+    d = Sheets()
+    tab = d.layout(name)
+    _main(d, tab)
+    d.insert(frame_block(d), (0, 0, 0), owner=tab)
+    for i in range(sheets.MIN_PAPER_CONTENT + 5):
+        d.text(f"NOTE {i + 1}", (40, 400 - 12 * i, 0), owner=tab)
+
+    _proposed_blank(segment(d.artefact(), None, DEFAULT), name)
 
 
 @pytest.mark.parametrize(("number", "title"), [("S-901", None), (None, "GENERAL NOTES")])
