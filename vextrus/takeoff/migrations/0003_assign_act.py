@@ -25,7 +25,7 @@ KEYS_REVERSE = [f"alter table takeoff_coveragestep drop constraint {KEY}"]
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("takeoff", "0001_initial"),
+        ("takeoff", "0002_question_withdrawn_by"),
     ]
 
     operations = [
