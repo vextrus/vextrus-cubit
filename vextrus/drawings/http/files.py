@@ -1,5 +1,5 @@
 """A Drawing Set's files in the API (ticket 14; m0-screens 4.5): list, one file's progress, cancel,
-restart, its Discipline, its report and a PDF's own bytes (the Plot).
+restart, Mark for Vextrus, its Discipline, its report and a PDF's own bytes (the Plot).
 
 Each operation declares its act through 07's guard, which answers first (signed out 401; no current
 Membership 403; a Project outside the Membership's scope 404, before the role; the MD or a Guest
@@ -74,6 +74,15 @@ def restart_reading(request: HttpRequest, project_id: uuid.UUID, file_id: uuid.U
     """Read a failed or cancelled file again ("Read again", "Try again"); anything else is 409."""
     in_project(services.file(file_id), project_id)
     return FileOut.from_view(services.restart(file_id))
+
+
+@router.post(f"{_PREFIX}/files/{{file_id}}/mark-for-vextrus", response={200: FileOut, 409: Refusal})
+@declare(acts.MARK_FOR_VEXTRUS, project="project_id")
+def mark_for_vextrus(request: HttpRequest, project_id: uuid.UUID, file_id: uuid.UUID) -> FileOut:
+    """Mark a file that could not be read for Vextrus to look at ("Mark for Vextrus"); anything
+    else is 409."""
+    in_project(services.file(file_id), project_id)
+    return FileOut.from_view(services.mark_for_vextrus(file_id))
 
 
 @router.put(

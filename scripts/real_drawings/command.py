@@ -31,12 +31,13 @@ code hash is not main's (it changes the engine's reading) that the scorer could 
 nothing and exits 3. Before then, a posting run runs as the owner's user and says it is not scored,
 and `--score` is refused.
 
-`--job` (21a; off by default until 21c) reads the head with the product's read job instead of the
+`--job` (21a; off by default until 21d) reads the head with the product's read job instead of the
 engine harness, against a throwaway PostgreSQL 18 cluster inside the sandbox (`sandbox.py`), its export
 from the job's export entry point; main is read with the harness as before, so the run diffs the job
-against the last harness run (21c's first posting run, the review R2). A job's exports are cached apart
-from the harness's, never one for the other. Until 21c makes it the default, `--job` is refused
-with `--score` and on a posting run: a job run is never scored or posted.
+against the last harness run (the review R2). A job's exports are cached apart from the harness's,
+never one for the other. Until 21d makes it the default (the owner's ruling of 30 Sep 2026: the
+harness stays the default until the job's export fills its gaps), `--job` is refused with `--score`
+and on a posting run: a job run is never scored or posted.
 """
 
 import argparse
@@ -124,7 +125,7 @@ class Machine:
 
 
 JOB_REFUSED = (
-    "--job is never scored or posted until 21c makes it the default: run it with --no-post, on a"
+    "--job is never scored or posted until 21d makes it the default: run it with --no-post, on a"
     " branch or main, without --score"
 )
 
@@ -146,7 +147,7 @@ def main(argv: list[str] | None = None) -> int:
         "--job",
         action="store_true",
         help="read the head with the product's read job against a throwaway PostgreSQL inside the"
-        " sandbox, not the engine harness (main is read with the harness); off until 21c",
+        " sandbox, not the engine harness (main is read with the harness); off until 21d",
     )
     how = parser.add_mutually_exclusive_group()
     how.add_argument(

@@ -279,6 +279,7 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
     if (focusedRow && focusedRow.sheets.length > 0) setPicker(focusedRow)
   }
 
+  const spaceLabel = t`Open the focused sheet, or go back to the list`
   useKeys([
     { key: 'Enter', label: t`Do what the bar says`, group: 'screen', run: (event) => (event.repeat ? undefined : enter()) },
     { key: 'Ctrl Z', label: t`Undo your last act on Step 1`, group: 'screen', run: (event) => (event.repeat ? undefined : undoKey()) },
@@ -291,6 +292,21 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
     { key: 'S', label: t`The sheet picker`, group: 'screen', when: () => mode === 'sheet', run: () => setSheetPicker(true) },
     { key: '[', label: t`Previous sheet`, group: 'screen', when: () => mode === 'sheet', run: () => page(-1) },
     { key: 'Q', label: t`Next open Question`, group: 'screen', run: nextQuestion },
+    {
+      // M22 (walk 5): straight after load focus is on the page, outside the list and canvas regions
+      // whose Space opens and closes a sheet, yet the bar shows "Open E-01 [Space]". From the page,
+      // Space does what the bar says (6.15: none focused, the first sheet row); in a region, the
+      // region's Space wins (the registry resolves regions before the screen).
+      key: 'Space',
+      label: t`Open the sheet the bar names, or go back to the list`,
+      group: 'screen',
+      when: () => !document.activeElement || document.activeElement === document.body,
+      run: () => {
+        if (mode === 'sheet') toList()
+        else if (bar?.ghost?.combo === 'Space') bar.ghost.run()
+        else fromList()
+      },
+    },
     {
       key: 'Esc',
       label: t`Back to the list; in the list, clear the focus`,
@@ -308,7 +324,6 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
     },
   ])
 
-  const spaceLabel = t`Open the focused sheet, or go back to the list`
   const fromList = () => {
     const row = rowByKey(focused) ?? model.rows.find((r) => r.sheets.length > 0) ?? null
     if (row && row.sheets.length > 0) openRow(row)
@@ -555,6 +570,22 @@ function SheetMode({
   }
   useLayoutEffect(focusCanvas, [render.data, sheet.id])
 
+  // #115: Try again's button goes while the sheet loads again; focus waits on the region (so Space
+  // still works) and, if the sheet fails again, comes back to the new Try again, never the page.
+  const retried = useRef(false)
+  const retryRender = () => {
+    if (region.current?.contains(document.activeElement)) {
+      retried.current = true
+      region.current.focus({ preventScroll: true })
+    }
+    void render.refetch()
+  }
+  useLayoutEffect(() => {
+    if (!retried.current || render.isFetching) return
+    retried.current = false
+    if (render.error && region.current?.contains(document.activeElement)) region.current.querySelector<HTMLElement>('button')?.focus({ preventScroll: true })
+  }, [render.error, render.isFetching, render.errorUpdatedAt])
+
   return (
     <>
       <SlotFill slot="toolbar.start" order={1}>
@@ -575,7 +606,7 @@ function SheetMode({
               key={sheet.id}
               buffer={render.data}
               label={name}
-              onRetry={() => void render.refetch()}
+              onRetry={retryRender}
               outlines={outlines}
               selected={selectedView}
               onSelect={onSelectView}
@@ -583,7 +614,7 @@ function SheetMode({
               labelInToolbar={false}
             />
           ) : render.error ? (
-            <LoadProblem error={render.error} onRetry={() => void render.refetch()} className="m-4" />
+            <LoadProblem error={render.error} onRetry={retryRender} className="m-4" />
           ) : (
             <Skeleton rows={6} className="m-6" status={<Trans>Opening <SheetName sheets={[sheet]} />…</Trans>} />
           )}

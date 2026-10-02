@@ -159,6 +159,12 @@ export function Overview({ model, projectName, readOnly }: { model: Step1Model; 
                 )}
               </li>
             ) : null}
+            {/* The bar's order (Y5, walk 5): the bulk act, then the sheets with one source, then the Questions. */}
+            {single > 0 ? (
+              <li>
+                <Plural value={single} one="Confirm # sheet with one source, on its own" other="Confirm # sheets with one source, one by one" />
+              </li>
+            ) : null}
             {questions > 0 ? (
               <li>
                 <Plural
@@ -166,11 +172,6 @@ export function Overview({ model, projectName, readOnly }: { model: Step1Model; 
                   one="Answer # Question: the held file first, then those holding the most sheets"
                   other="Answer # Questions: the held file first, then those holding the most sheets"
                 />
-              </li>
-            ) : null}
-            {single > 0 ? (
-              <li>
-                <Plural value={single} one="Confirm # sheet with one source, on its own" other="Confirm # sheets with one source, one by one" />
               </li>
             ) : null}
           </ol>

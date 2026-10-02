@@ -12,3 +12,5 @@ UPLOAD = Act("drawings.upload", Grant.CHANGE)
 CANCEL = Act("drawings.cancel", Grant.CHANGE)
 RESTART = Act("drawings.restart", Grant.CHANGE)
 SET_DISCIPLINE = Act("drawings.set_discipline", Grant.CHANGE)
+MARK_FOR_VEXTRUS = Act("drawings.mark_for_vextrus", Grant.CHANGE)
+"""Mark a file that could not be read for Vextrus to look at (4.5's Failed row)."""

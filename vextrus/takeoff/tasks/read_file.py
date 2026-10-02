@@ -90,3 +90,11 @@ def add(
     finally:
         _adding.reset(token)
     return added
+
+
+def read_again(file_id: uuid.UUID) -> jobs.JobId:
+    """Queue the file's read job again (a held file the QS chose to read anyway: its kept steps are
+    skipped, and it reads on from its sheets), named the file's. Inside the caller's transaction."""
+    job_id = read_file.defer(file_id=file_id)
+    drawings.attach_read_job(file_id, job_id)
+    return job_id
