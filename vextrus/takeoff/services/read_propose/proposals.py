@@ -16,7 +16,10 @@ The sheets 21b left out for unreadable writing are counted (`unread`; Coverage's
 
 **Then the set's Questions**, over every sheet in the sheet list, whichever file brought it: 19b's
 Conflicts (`same_number`, `same_title`, `same_storey`) raised as `conflict` Questions holding their
-sheets' Proposals; a sheet of no Discipline compared by number with every Discipline's (#102); two
+sheets' Proposals, each Discipline's sheets compared among themselves, a confirmed sheet with none
+(a later copy of it is a Revision's question), and the sheets of no Discipline only with the others of
+their own file (#161: each is asked its Discipline); a conflict no longer found is retired, `withdrawn`
+and still listed, and asked again if found again (an answered one is never touched); two
 plans of one subject whose floor-to-floor ranges meet at a storey asked where the first ends (a
 `convention` Question: 19b raises no conflict for them); the drawing list read on a sheet (13's
 register) kept per Discipline, and 19b's register Check run (`CheckRun`, trigger `read`), each
@@ -25,6 +28,7 @@ finding a `check` Question. A Question raised again is the one asked (`step1.rai
 
 import uuid
 from collections.abc import Callable, Mapping, Sequence
+from dataclasses import replace
 from typing import Any
 
 from engine.check import register as register_check
@@ -340,7 +344,8 @@ def _read_lists(
 
 def set_questions(project_id: uuid.UUID, *, trigger_file: uuid.UUID | None = None) -> int:
     """The set's conflicts, boundary storeys and register Check, over every sheet in the sheet list
-    (see the module); how many Questions they hold (asked now or before)."""
+    (see the module); how many Questions they hold (asked now or before). The conflicts not found
+    again are retired (#161)."""
     drawing_set = drawings.set_of(project_id)
     if drawing_set is None:
         return 0
@@ -354,27 +359,53 @@ def set_questions(project_id: uuid.UUID, *, trigger_file: uuid.UUID | None = Non
     views = [[view_candidate(v) for v in vs] for vs in viewed]
     proposal_of = step1.proposal_ids(project_id)
     recognisers = finder.recognisers(conventions)
-    found = finder.compare(sheets, views, conventions=conventions, recognisers=recognisers)
-    by_sheet = {id(c): i for i, c in enumerate(sheets)}
-    by_view = {id(v): i for i, vs in enumerate(views) for v in vs}
-    asked = 0
+    compared = [i for i, s in enumerate(listed) if s.decision != CONFIRMED]
+    as_compared = [_compared(listed[i], sheets[i]) for i in compared]
+    found = finder.compare(
+        as_compared, [views[i] for i in compared], conventions=conventions, recognisers=recognisers
+    )
+    at = {id(c): i for i, c in zip(compared, as_compared, strict=True)}
+    at |= {id(v): i for i in compared for v in views[i]}
+    raised: list[uuid.UUID] = []
     for conflict in found:
         if not isinstance(conflict, Conflict):
             continue
-        held = _held_sheets(conflict, by_sheet, by_view)
-        asked += _conflict(project_id, conflict, [listed[i] for i in held], proposal_of)
-    asked += _numbers_of_none(project_id, listed, sheets, proposal_of, recognisers, conventions)
+        held = _held_sheets(conflict, at)
+        raised.append(_conflict(project_id, conflict, [listed[i] for i in held], proposal_of))
+    step1.retire_questions(project_id, CONFLICT_CODES, raised)
+    asked = len(raised)
     asked += _boundaries(project_id, listed, viewed, proposal_of)
     asked += _register(project_id, listed, sheets, views, proposal_of, recognisers, conventions)
     return asked
 
 
-def _held_sheets(
-    conflict: Conflict, by_sheet: Mapping[int, int], by_view: Mapping[int, int]
-) -> list[int]:
+CONFIRMED = "confirmed"
+"""A printed sheet's decision once the QS confirmed it (drawings' `Decision`)."""
+CONFLICT_CODES = tuple(
+    c.code for c in (conflict_codes.SAME_NUMBER, conflict_codes.SAME_TITLE, conflict_codes.SAME_STOREY)
+)
+"""19b's Conflicts as Questions: each round asks them all again and retires the rest (#161)."""
+NO_DISCIPLINE = "no_discipline"
+"""The Discipline a sheet of none is compared under: only with its own file's other such sheets (a
+group of their own), so even a Market's Discipline of this key would never meet them."""
+
+
+def _compared(sheet: drawings.SheetView, found: SheetCandidate) -> SheetCandidate:
+    """A sheet as 19b compares it (#161, the orchestrator's ruling 5): one of no Discipline only with
+    the other sheets of its own file, under no Discipline's prefixes (19b leaves a sheet of none
+    out); one confirmed is not compared at all (ruling 2: a later copy is a Revision question)."""
+    if found.discipline is not None:
+        return found
+    none = Sourced(NO_DISCIPLINE, ValueSource.FILE)
+    return replace(found, discipline=none, group=f"{found.group}/{sheet.file_id}")
+
+
+def _held_sheets(conflict: Conflict, at: Mapping[int, int]) -> list[int]:
+    """The sheets a Conflict holds, by their place in the sheet list, each once (a view held is its
+    sheet)."""
     held: list[int] = []
     for found in conflict.candidates:
-        index = by_sheet.get(id(found), by_view.get(id(found)))
+        index = at.get(id(found))
         if index is not None and index not in held:
             held.append(index)
     return held
@@ -385,7 +416,8 @@ def _conflict(
     conflict: Conflict,
     held: Sequence[drawings.SheetView],
     proposal_of: Mapping[uuid.UUID, uuid.UUID],
-) -> int:
+) -> uuid.UUID:
+    """A Conflict as a `conflict` Question holding its sheets' Proposals; the Question's id."""
     code = {
         finder.SAME_NUMBER: conflict_codes.SAME_NUMBER,
         finder.SAME_TITLE: conflict_codes.SAME_TITLE,
@@ -393,61 +425,18 @@ def _conflict(
     }[conflict.kind]
     keys = SAME_NUMBER_OPTIONS if conflict.kind == finder.SAME_NUMBER else CONFLICT_OPTIONS
     disciplines = {s.discipline for s in held if s.discipline}
-    step1.raise_question(
+    evidence = dict(conflict.evidence)
+    if evidence.get("discipline") == NO_DISCIPLINE:
+        evidence["discipline"] = ""
+    return step1.raise_question(
         project_id,
         "conflict",
-        code(**dict(conflict.evidence)),
+        code(**evidence),
         subject_id=held[0].id,
         discipline=disciplines.pop() if len(disciplines) == 1 else None,
         options=options(keys),
         blocks=[proposal_of[s.id] for s in held if s.id in proposal_of],
     )
-    return 1
-
-
-def _numbers_of_none(
-    project_id: uuid.UUID,
-    listed: Sequence[drawings.SheetView],
-    sheets: Sequence[SheetCandidate],
-    proposal_of: Mapping[uuid.UUID, uuid.UUID],
-    recognisers: finder.Recognisers,
-    conventions: SheetConventions,
-) -> int:
-    """#102: a sheet of no Discipline compared by number with every Discipline's sheets of its group
-    (19b compares only sheets of one Discipline)."""
-    numbers = finder.Numbers(conventions, recognisers)
-
-    def printed(i: int) -> str | None:
-        number = listed[i].number
-        return None if number is None or finder.normal(number) is None else number
-
-    def same(i: int, j: int) -> bool:
-        """Sheet i (of no Discipline) numbered as sheet j, read under j's Discipline."""
-        a, b, discipline = printed(i), printed(j), listed[j].discipline
-        if a is None or b is None or discipline is None or sheets[i].group != sheets[j].group:
-            return False
-        return numbers.key(a, discipline) == numbers.key(b, discipline)
-
-    asked = 0
-    for i, sheet in enumerate(listed):
-        if sheet.discipline is not None or printed(i) is None:
-            continue
-        matched = [j for j in range(len(listed)) if j != i and same(i, j)]
-        if not matched:
-            continue
-        copies = sorted([i, *matched])
-        first = listed[copies[0]]
-        assert first.number is not None
-        step1.raise_question(
-            project_id,
-            "conflict",
-            conflict_codes.SAME_NUMBER(number=first.number, copies=len(copies)),
-            subject_id=first.id,
-            options=options(SAME_NUMBER_OPTIONS),
-            blocks=[proposal_of[listed[j].id] for j in copies if listed[j].id in proposal_of],
-        )
-        asked += 1
-    return asked
 
 
 def _boundaries(

@@ -1649,6 +1649,26 @@ def raise_question(
     return row.id
 
 
+def retire_questions(project_id: uuid.UUID, codes: Iterable[str], raised: Iterable[uuid.UUID]) -> int:
+    """After a round that asked the set's Questions of these codes again (#161): each one `raised`
+    that a past round retired is open again, and each still open that was not raised is retired,
+    `withdrawn` and still listed. An answered Question, or one withdrawn by leaving its sheet out, is
+    never touched. How many were retired."""
+    projects.get(project_id)
+    asked = set(raised)
+    ours = Question.objects.filter(project_id=project_id, step=SHEETS, message_code__in=list(codes))
+    ours.filter(id__in=asked, status=QuestionStatus.WITHDRAWN, withdrawn_by__isnull=True).update(
+        status=QuestionStatus.OPEN
+    )
+    retired = (
+        ours.filter(status=QuestionStatus.OPEN)
+        .exclude(id__in=asked)
+        .update(status=QuestionStatus.WITHDRAWN)
+    )
+    record_progress(project_id)
+    return retired
+
+
 def record_read_list(
     sheet_id: uuid.UUID, discipline: str, numbers: Sequence[tuple[str, str]]
 ) -> uuid.UUID:
