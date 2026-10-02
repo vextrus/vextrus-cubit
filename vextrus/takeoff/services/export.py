@@ -151,8 +151,9 @@ def read_each(
     at a time, as the harness reads each file in its own process (21d): a child that runs past
     `timeout` is killed with its process group, and its file ends failed (`engine.read.limit_reached
     {wall}`), its job cancelled, its process `timed_out`; a child that fails leaves its file as the job
-    left it, its process `failed`. Nothing one file does stops the run. Then the held files are read
-    anyway (`read_held_anyway`), each in its own child too. Each added file's process, by its id."""
+    left it, its process `failed`. Nothing one file does stops the run. Then each held file is read
+    anyway (`read_anyway`), answered and its job queued only just before its own child, so each child
+    reads that one file under its own timeout. Each added file's process, by its id."""
     from engine.export import ProcessReport, ProcessStatus
 
     reports: dict[uuid.UUID, ProcessReport] = {}
@@ -182,7 +183,8 @@ def read_each(
         file_id = _add(developer, project, folder, path)
         if file_id is not None:
             run(file_id)
-    for file_id in read_held_anyway(developer, project):
+    for file_id in held_files(developer, project):
+        read_anyway(developer, file_id)  # answered and queued just before its own child, alone
         run(file_id)
     return reports
 
@@ -199,8 +201,8 @@ def _timed_out(developer: uuid.UUID, file_id: uuid.UUID) -> None:
     with transaction.atomic(), tenancy.acting_in(developer):
         view = drawings.file(file_id)
         if view.read_job_id is not None:
-            # Its killed worker left it running: asked to abort, the stalled-job retrier (a later
-            # child's) ends it aborted, never runs it again (`jobs.retry_stalled`).
+            # Its killed worker left it doing: it is asked to abort and left so, never run again
+            # (no later child runs a job left doing; the throwaway cluster ends with the run).
             jobs.cancel(view.read_job_id)
         drawings.mark_failed(file_id, read_codes.LIMIT_REACHED(limit="wall"))
 
@@ -276,11 +278,27 @@ def _add(developer: uuid.UUID, project: uuid.UUID, folder: Path, path: str) -> u
     return added.file.id
 
 
-def read_held_anyway(developer: uuid.UUID, project: uuid.UUID) -> list[uuid.UUID]:
-    """Each held file (its two readers disagree) answered "read anyway", as a QS answers its
-    `file_misread` Question (`step1`'s answer: `drawings.answer_held`, then the job queued again,
-    `read_file.read_again`): the harness reads a file whatever its readers say, so the check reads it
-    too, and its export still says the readers disagree. The files answered."""
+def held_files(developer: uuid.UUID, project: uuid.UUID) -> list[uuid.UUID]:
+    """The set's held files (their two readers disagree), in the set's order."""
+    from django.db import transaction
+
+    from vextrus.drawings import services as drawings
+    from vextrus.platform.services import tenancy
+
+    with transaction.atomic(), tenancy.acting_in(developer):
+        found = drawings.set_of(project)
+        return [
+            view.id
+            for view in ([] if found is None else drawings.files(found.id))
+            if view.state == drawings.FileState.HELD
+        ]
+
+
+def read_anyway(developer: uuid.UUID, file_id: uuid.UUID) -> None:
+    """One held file answered "read anyway", as a QS answers its `file_misread` Question (`step1`'s
+    answer: `drawings.answer_held`, then its job queued again, `read_file.read_again`): the harness reads
+    a file whatever its readers say, so the check reads it too, and its export still says the readers
+    disagree. One file at a time: a child runs every job queued, so only this file's may be."""
     from django.db import transaction
 
     from vextrus.drawings import services as drawings
@@ -288,16 +306,8 @@ def read_held_anyway(developer: uuid.UUID, project: uuid.UUID) -> list[uuid.UUID
     from vextrus.takeoff.tasks import read_file
 
     with transaction.atomic(), tenancy.acting_in(developer):
-        found = drawings.set_of(project)
-        held = [
-            view.id
-            for view in ([] if found is None else drawings.files(found.id))
-            if view.state == drawings.FileState.HELD
-        ]
-        for file_id in held:
-            drawings.answer_held(file_id, drawings.HeldAnswer.READ_ANYWAY)
-            read_file.read_again(file_id)
-    return held
+        drawings.answer_held(file_id, drawings.HeldAnswer.READ_ANYWAY)
+        read_file.read_again(file_id)
 
 
 def _sha256(path: Path) -> str:
@@ -480,7 +490,7 @@ def _reading(
     found["bangla_ansi"] = from_kept("bangla_ansi", kept.bangla_ansi)
 
     finder = kept.steps.get(drawings.SHEETS)
-    # A held file answered "read anyway" (`read_held_anyway`) stays held, its sheets read and kept.
+    # A held file answered "read anyway" (`read_anyway`) stays held, its sheets read and kept.
     if not read or finder is None:
         for name in ("sheets", "register", "views", "render_buffers"):
             reports[name] = StageReport(StageState.SKIPPED, error=f"the file is {state}")

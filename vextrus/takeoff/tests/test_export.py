@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import pytest
+from django.db import transaction
 
 from engine import harness
 from engine.messages import decoders_agree as agree_codes
@@ -17,7 +18,7 @@ from engine.read import ReadError
 from engine.recognise import views
 from engine.recognise.types import CheckOutcome, CheckResult
 from vextrus.drawings import services as drawings
-from vextrus.platform.services import auth
+from vextrus.platform.services import auth, jobs, tenancy
 from vextrus.takeoff.services import export
 from vextrus.takeoff.services.read_propose import files
 from vextrus.takeoff.services.read_propose import sheets as read_propose_sheets
@@ -178,7 +179,8 @@ def test_a_held_file_is_read_anyway_so_the_set_stages_run_on_every_file(
     _read(qs_project, good, lambda path, artefact: agree, monkeypatch)
     _read(qs_project, held, lambda path, artefact: fired, monkeypatch)
 
-    assert export.read_held_anyway(qs_project.member.developer_id, qs_project.project_id) == [held]
+    assert export.held_files(qs_project.member.developer_id, qs_project.project_id) == [held]
+    export.read_anyway(qs_project.member.developer_id, held)
     _read(qs_project, held, lambda path, artefact: fired, monkeypatch)  # the job queued again
 
     with qs_project.member.acting():
@@ -292,6 +294,72 @@ def test_a_file_whose_reading_hangs_fails_alone_and_the_run_goes_on(
     assert files["a-hangs.dwg"]["process"]["status"] == "timed_out"
     assert files["a-hangs.dwg"]["stages"]["read"]["state"] == "failed"
     assert files["b-reads.dwg"]["process"]["status"] == "ok"
+
+
+@pytest.mark.django_db
+def test_each_held_file_is_read_anyway_in_its_own_child_under_its_own_timeout(
+    qs_project: QsProject, tmp_path: Path
+) -> None:
+    """Fix round 2's attack (21d): every held file was answered and queued at once, so the first held
+    file's child (which runs every job queued) read them all under one timeout: one reported
+    timed_out though its reading ended, the other ok in its stead. Each is now answered just before its
+    own child: the second's child hangs, and it alone is timed out and its job cancelled."""
+    developer = qs_project.member.developer_id
+    for name in ("a-held.dwg", "b-held.dwg"):
+        (tmp_path / name).write_bytes(drawing("dwg") + name.encode())
+    paths = {name: _sha(tmp_path / name) for name in ("a-held.dwg", "b-held.dwg")}
+    calls: list[str] = []
+
+    def by_name() -> dict[str, drawings.FileView]:
+        with tenancy.acting_in(developer):
+            found = drawings.set_of(qs_project.project_id)
+            assert found is not None
+            return {view.name: view for view in drawings.files(found.id)}
+
+    def worker() -> list[str]:
+        files = by_name()
+        calls.append(",".join(sorted(f"{n}:{v.state}" for n, v in files.items())))
+        if len(calls) <= 2:  # the first pass: each file's readers disagree, so it is held
+            [newest] = [v for v in files.values() if v.state != drawings.FileState.HELD]
+            with transaction.atomic(), tenancy.acting_in(developer):
+                drawings.quarantine(newest.id, DISAGREE)
+            return [sys.executable, "-c", "pass"]
+        if len(calls) == 3:  # a-held's child: b-held is not answered yet, its job not queued again
+            assert files["b-held.dwg"].read_job_id == first_jobs["b-held.dwg"]
+            return [sys.executable, "-c", "pass"]
+        return [sys.executable, "-c", "import time; time.sleep(60)"]  # b-held's child hangs
+
+    first_jobs: dict[str, int | None] = {}
+    real_add = export._add
+
+    def add(*args: Any) -> uuid.UUID | None:
+        added = real_add(*args)
+        first_jobs.update({n: v.read_job_id for n, v in by_name().items()})
+        return added
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(export, "_add", add)
+        processes = export.read_each(
+            developer, qs_project.project_id, tmp_path, paths, timeout=1.0, worker=worker
+        )
+
+    files = by_name()
+    a, b = files["a-held.dwg"], files["b-held.dwg"]
+    assert len(calls) == 4
+    assert processes[a.id].status == "ok"
+    assert processes[b.id].status == "timed_out"
+    assert b.state == drawings.FileState.HELD  # still held: its read-anyway reading never ended
+    assert a.state == drawings.FileState.HELD  # answered, its job queued again (unread: a fake child)
+    assert a.read_job_id != first_jobs["a-held.dwg"]
+    assert b.read_job_id is not None
+    assert a.read_job_id is not None
+    with tenancy.acting_in(developer):
+        stopped = jobs.state(b.read_job_id)
+        queued = jobs.state(a.read_job_id)
+    assert stopped is not None
+    assert stopped.status in ("cancelled", "stopping")
+    assert queued is not None
+    assert queued.status == "waiting"  # a-held's: never cancelled
 
 
 def _sha(path: Path) -> str:
