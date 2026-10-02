@@ -120,6 +120,10 @@ msgid "Open the file’s report"
 msgstr "Open the file’s report"
 
 #: src/drawing-set/DrawingSetPage.tsx
+msgid "Your Discipline choice was undone"
+msgstr "Your Discipline choice was undone"
+
+#: src/drawing-set/DrawingSetPage.tsx
 msgid "File"
 msgstr "File"
 

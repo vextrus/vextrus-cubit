@@ -22,7 +22,7 @@ afterEach(() => {
 
 const clean = (s: string | null | undefined) => (s ?? '').replace(/[⁦-⁩‎‏]/g, '').replace(/\s+/g, ' ').trim()
 
-describe('a refused Discipline choice in the report', () => {
+describe('a Discipline choice undone at read time, on its row and in the report', () => {
   it('says the refusal and the limit that cut the reading, each once', async () => {
     const api = new FakeApi()
     const set = new FakeDrawingSet(api, 'KR-01')
@@ -44,6 +44,9 @@ describe('a refused Discipline choice in the report', () => {
     })
     await mountApp('/p/KR-01/drawing-set', { as: PEOPLE.qs, api })
     await screen.findByRole('heading', { name: 'Drawing Set' })
+    // The row says it before the report is opened (the words gate's may).
+    const row = (await screen.findByText('KR-SET3-R0.dwg')).closest('tr')
+    expect(clean(row?.textContent)).toContain('Your Discipline choice was undone')
     await userEvent.click(await screen.findByText('KR-SET3-R0.dwg'))
     const refused =
       'Structural already has a sheet 01 from another file, so your choice of Structural for this file was undone once its sheets were read.'
