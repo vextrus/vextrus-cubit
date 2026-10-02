@@ -94,3 +94,63 @@ describe('§8 by keyboard, as the QS at 1280', () => {
     expect(step1.calls().filter((c) => c.startsWith('POST'))).toEqual(['POST /confirm', 'POST /exclude', 'POST /undo', 'POST /undo'].slice(0, step1.calls().filter((c) => c.startsWith('POST')).length))
   })
 })
+
+describe('M22 (walk 5, item 2): Space works straight after load, before anything is focused', () => {
+  const sheetMode = () => screen.getByRole('button', { name: 'Sheet' }).getAttribute('aria-pressed') === 'true'
+  /** The sheet the bar's Space names ("Open E-01"), or null when the bar names none. */
+  const barOpens = () => {
+    const ghost = document.querySelector<HTMLElement>('button[aria-keyshortcuts="Space"]:not([aria-pressed])')
+    const label = ghost ? [...ghost.childNodes].filter((n) => !(n instanceof Element && n.querySelector('kbd, [data-key-combo]')) && !(n instanceof Element && n.matches('kbd'))).map((n) => n.textContent).join('') : ''
+    const m = /^Open (\S+)$/.exec(clean(label))
+    return m ? m[1]! : null
+  }
+
+  it('opens the sheet the bar names when Space is pressed with focus on the page', async () => {
+    const api = new FakeApi()
+    new FakeStep1(api)
+    await mountApp('/p/KR-01/takeoff/1', { as: PEOPLE.qs, api })
+    await waitFor(() => expect(bodyText()).toContain('Confirmed 0 / 24'))
+    // The walk: the bulk act first, so the bar says "Open <sheet>" with Space.
+    ;(document.activeElement as HTMLElement | null)?.blur()
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(bodyText()).toContain('Confirmed 16 / 24, 1 excluded'))
+    await waitFor(() => expect(barOpens()).not.toBeNull())
+    const named = barOpens()!
+    ;(document.activeElement as HTMLElement | null)?.blur()
+    expect(document.activeElement).toBe(document.body)
+    await userEvent.keyboard(' ')
+    await waitFor(() => expect(sheetMode()).toBe(true))
+    // The canvas region names the sheet open ("Sheet E-01 rev R0").
+    expect(await screen.findByRole('group', { name: (n) => clean(n) === `Sheet ${named}` || clean(n).startsWith(`Sheet ${named} `) })).toBeTruthy()
+    // And back: Space with focus on the page again returns to the list.
+    ;(document.activeElement as HTMLElement | null)?.blur()
+    await userEvent.keyboard(' ')
+    await waitFor(() => expect(sheetMode()).toBe(false))
+  })
+
+  it('opens the first sheet row on a fresh load (m0-screens 6.15: none focused, the first sheet row)', async () => {
+    const api = new FakeApi()
+    new FakeStep1(api)
+    await mountApp('/p/KR-01/takeoff/1', { as: PEOPLE.qs, api })
+    await waitFor(() => expect(bodyText()).toContain('Confirmed 0 / 24'))
+    ;(document.activeElement as HTMLElement | null)?.blur()
+    await userEvent.keyboard(' ')
+    await waitFor(() => expect(sheetMode()).toBe(true))
+  })
+})
+
+describe('Y5 (walk 5): the inspector lists what Enter takes in the bar’s order', () => {
+  it('reads: the bulk act, the sheets with one source, then the Questions', async () => {
+    const api = new FakeApi()
+    new FakeStep1(api)
+    await mountApp('/p/KR-01/takeoff/1', { as: PEOPLE.qs, api })
+    await waitFor(() => expect(bodyText()).toContain('Enter takes them in this order'))
+    const heading = [...document.querySelectorAll('*')].find((e) => e.children.length === 0 && clean(e.textContent) === 'Enter takes them in this order')!
+    const list = heading.closest('section, div')!.parentElement!.querySelector('ol')!
+    const items = [...list.querySelectorAll('li')].map((li) => clean(li.textContent))
+    expect(items).toHaveLength(3)
+    expect(items[0]).toMatch(/^Confirm the 16 sheets that agree/)
+    expect(items[1]).toMatch(/one source/)
+    expect(items[2]).toMatch(/^Answer 5 Questions/)
+  })
+})

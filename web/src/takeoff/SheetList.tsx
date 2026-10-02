@@ -587,19 +587,26 @@ function SheetRow({
 
 /**
  * A file name cut in its middle when it does not fit, its extension kept ("KR-STRUCTURAL-…R0.dwg" reads
- * as "KR-STRUCT….dwg"), the whole name in its text (what a screen reader reads) and its tooltip (the
+ * as "KR-STRUC…SED-R0.dwg": its start, its last 6 characters and its extension), the whole name in its text (what a screen reader reads) and its tooltip (the
  * review of 22, round 4, F2: a long name spilled past its cell and left the held reason no width).
- * About 16 characters of room (the stem and its extension) before the reason gives up width (its re-check: two held files
+ * About 16 characters of room (the name's start, its last 6 characters and its extension) before the reason gives up width (its re-check: two held files
  * cut to "K….dwg" looked the same); the reason truncates first.
  */
+/** How many of a cut file name's last stem characters always show. */
+const TAIL_KEPT = 6
+
 function FileName({ name }: { name: string }) {
   const dot = name.lastIndexOf('.')
   const stem = dot > 0 ? name.slice(0, dot) : name
   const extension = dot > 0 ? name.slice(dot) : ''
+  // The stem's last characters stay with the extension, so files that differ at their end
+  // ("…-old.dwg", "…-R0.dwg") read apart when cut (the re-check of round 4, T1).
+  const tail = stem.length > TAIL_KEPT * 2 ? stem.slice(-TAIL_KEPT) : ''
+  const head = tail ? stem.slice(0, -TAIL_KEPT) : stem
   return (
     <bdi dir="ltr" data-notation="file-name" title={isolateLtr(name)} className="inline-flex max-w-[calc(100%-var(--spacing)*25)] min-w-[16ch] shrink-0 overflow-hidden">
-      <span className="min-w-0 truncate">{stem}</span>
-      {extension ? <span className="shrink-0">{extension}</span> : null}
+      <span data-file-head="" className="min-w-0 truncate">{head}</span>
+      {tail || extension ? <span className="shrink-0">{tail}{extension}</span> : null}
     </bdi>
   )
 }
