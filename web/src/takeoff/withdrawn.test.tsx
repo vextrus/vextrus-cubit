@@ -46,7 +46,7 @@ describe('a Question withdrawn by an exclusion', () => {
     const number = () => (active()?.getAttribute('role') === 'row' ? clean(active()!.querySelectorAll('[role="gridcell"]')[1]?.textContent).replace(/\s/g, '') : '')
     for (let i = 0; i < 12 && number() !== 'A-05'; i++) await userEvent.keyboard('{ArrowDown}')
     expect(number()).toBe('A-05')
-    expect(clean(active()!.textContent)).toContain('Excluded, Question Q5 withdrawn')
+    expect(clean(active()!.textContent)).toContain('Question Q5 withdrawn')
     await waitFor(() => expect(bodyText()).toContain('Question Q5, withdrawn:'))
     expect(bodyText()).toContain('Withdrawn when A-05 was left out. A-05 can be confirmed back in once this is answered.')
     const card = await waitFor(() => {
@@ -69,6 +69,31 @@ describe('a Question withdrawn by an exclusion', () => {
     const row = [...document.querySelectorAll<HTMLElement>('[role="row"][data-row]')].find((r) => clean(r.textContent).includes('A-05'))!
     expect(row).toBeTruthy()
     expect(clean(within(row).getAllByRole('gridcell').at(-1)!.textContent)).toContain('Question Q5 withdrawn')
+  })
+
+  for (const width of [1280, 1024])
+    it(`shows "Question Q5 withdrawn" whole in the State column at ${width}, the excluded mark read as "Excluded"`, async () => {
+      await page.viewport(width, 800)
+      await openWithdrawn()
+      const row = [...document.querySelectorAll<HTMLElement>('[role="row"][data-row]')].find((r) => clean(r.textContent).includes('A-05'))!
+      const state = within(row).getAllByRole('gridcell').at(-1)!
+      expect(clean(state.textContent)).toContain('Question Q5 withdrawn')
+      // The compact mark's word, read by a screen reader and shown in its tooltip.
+      expect(state.querySelector('[title="Excluded"]')).not.toBeNull()
+      // Nothing in the cell is cut ("…Q5 w" at 1280 before the walk's fix).
+      for (const e of [state, ...state.querySelectorAll<HTMLElement>('*:not(.sr-only)')]) expect(e.scrollWidth, clean(e.textContent)).toBeLessThanOrEqual(e.clientWidth + 1)
+      expect(state.getBoundingClientRect().right).toBeLessThanOrEqual(row.getBoundingClientRect().right + 1)
+    })
+
+  it('quotes a sheet the refusal names by its title with typographic quotes (Y2, walk 5)', async () => {
+    const { step1 } = await openWithdrawn()
+    step1.answerOnce('POST /confirm', 409, { code: 'takeoff.step1.question_first', params: { count: 1, asks: 'number', sheet: 'DOOR AND WINDOW SCHEDULE', named: 'title' } })
+    screen.getByRole('grid', { name: 'Sheets' }).focus()
+    const number = () => (active()?.getAttribute('role') === 'row' ? clean(active()!.querySelectorAll('[role="gridcell"]')[1]?.textContent).replace(/\s/g, '') : '')
+    for (let i = 0; i < 12 && number() !== 'A-05'; i++) await userEvent.keyboard('{ArrowDown}')
+    await userEvent.click(await screen.findByRole('button', { name: 'Confirm back in' }))
+    await waitFor(() => expect(bodyText()).toContain('the sheet titled “DOOR AND WINDOW SCHEDULE”'))
+    expect(bodyText()).not.toContain('"DOOR AND WINDOW SCHEDULE"')
   })
 
   it('is not taken by Q, the next open Question', async () => {

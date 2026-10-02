@@ -25,6 +25,7 @@ function f(over: Partial<FileOut>): FileOut {
     added_at: '2026-09-26T05:00:00Z',
     added_by_name: 'Nusrat Jahan',
     added_by_vextrus: false,
+    marked_for_vextrus: false,
     ...over,
   }
 }

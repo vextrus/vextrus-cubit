@@ -12,6 +12,7 @@ import userEvent from '@testing-library/user-event'
 import { page, userEvent as realKeys } from 'vitest/browser'
 import { FakeDrawingSet, file, msg } from '@/acceptance/t20b/drawings.fixture'
 import { FakeStep1 } from '@/acceptance/t22/step1.fixture'
+import { overrideLanguage } from '@/app/dev-language'
 import { FakeApi, PEOPLE, mountApp } from '@/app/testing'
 import { activateLanguage } from '@/i18n/activate'
 import { englishMessages } from '@/i18n/catalogues'
@@ -28,8 +29,26 @@ beforeEach(async () => {
 
 afterEach(() => {
   vi.useRealTimers()
+  overrideLanguage(false)
   activateLanguage(ENGLISH, englishMessages())
 })
+
+/**
+ * en-XB for the whole mount (T2): without overrideLanguage the Market's language took the screen back
+ * to English and these cases ran left to right. Call it before mountApp, then `expectRtl()`.
+ */
+function pseudoRtl(): void {
+  overrideLanguage()
+  activatePseudoRtl()
+}
+const expectRtl = () => expect(document.documentElement.dir).toBe('rtl')
+
+/** The held file's row: its title cell carries the file name (found by structure, not English words). */
+function heldFileRow(): HTMLElement {
+  const found = [...document.querySelectorAll<HTMLElement>('[role="row"][data-row]')].find((r) => r.querySelectorAll('[role="gridcell"]')[2]?.querySelector('[data-notation="file-name"]'))
+  expect(found).toBeTruthy()
+  return found!
+}
 
 const clean = (s: string | null | undefined) => (s ?? '').replace(/[⁦-⁩‎‏]/g, '').replace(/\s+/g, ' ').trim()
 const bodyText = () => clean(document.body.textContent)
@@ -494,12 +513,13 @@ describe('M18: each copy of S-07 opens as itself', () => {
 
 describe('M19: a copies row keeps its title and its count in right-to-left', () => {
   it('shows S-07’s title, cut only at its own end, and ", 2 copies" whole in en-XB at 1280', async () => {
-    activatePseudoRtl()
+    pseudoRtl()
     await page.viewport(1280, 800)
     const { api, step1 } = kr01()
     for (const p of step1.proposals.filter((p) => p.number === 'S-07')) p.title = 'TYPICAL FLOOR SLAB LAYOUT WITH TOP AND BOTTOM REINFORCEMENT DETAILS'
     await mountApp(PATH, { as: PEOPLE.qs, api })
     await waitFor(() => expect(document.querySelector('[data-notation="sheet-number"]')).not.toBeNull())
+    expectRtl()
     const row = await waitFor(() => rowOf('S-07'))
     const cell = within(row).getAllByRole('gridcell')[2]!
     const title = cell.querySelector('bdi')!
@@ -518,17 +538,14 @@ describe('M19: a copies row keeps its title and its count in right-to-left', () 
 describe('M21: the held file’s row names its file whole', () => {
   for (const rtl of [false, true])
     it(`shows the file name whole at 1280${rtl ? ' in en-XB' : ''}`, async () => {
-      if (rtl) activatePseudoRtl()
+      if (rtl) pseudoRtl()
       await page.viewport(1280, 800)
       const { api, step1 } = kr01()
       const held = step1.questions.find((q) => q.kind === 'file_misread')!.subject_id!
       new FakeDrawingSet(api, 'KR-01').files = [file({ id: held, name: 'KR-STR-old.dwg', state: 'held', status: msg('drawings.files.held') })]
       await mountApp(PATH, { as: PEOPLE.qs, api })
-      const row = await waitFor(() => {
-        const found = [...document.querySelectorAll<HTMLElement>('[role="row"][data-row]')].find((r) => r.querySelector('[data-notation="file-name"]') && /Held/.test(r.textContent ?? ''))
-        expect(found).toBeTruthy()
-        return found!
-      })
+      const row = await waitFor(heldFileRow)
+      if (rtl) expectRtl()
       const cell = within(row).getAllByRole('gridcell')[2]!
       const name = cell.querySelector<HTMLElement>('[data-notation="file-name"]')!
       expect(clean(name.textContent)).toMatch(/\.dwg$/)
@@ -540,22 +557,73 @@ describe('M21: the held file’s row names its file whole', () => {
     })
 })
 
+/**
+ * What a cut file name shows on screen, by layout (T1): each character of its head is measured with a
+ * DOM Range and counts only if it ends before the head's edge less the ellipsis's width; the tail and
+ * the extension always show. `stem` is the visible characters of the name without its extension.
+ */
+function shownName(name: HTMLElement): { text: string; stem: string } {
+  const head = name.querySelector<HTMLElement>('[data-file-head]')!
+  const text = head.firstChild as Text
+  const edge = head.getBoundingClientRect().right
+  const cut = head.scrollWidth > head.clientWidth + 0.5
+  const context = document.createElement('canvas').getContext('2d')!
+  context.font = getComputedStyle(head).font
+  const ellipsis = cut ? context.measureText('…').width : 0
+  let visible = ''
+  for (let i = 0; i < text.length; i++) {
+    const range = document.createRange()
+    range.setStart(text, i)
+    range.setEnd(text, i + 1)
+    if (range.getBoundingClientRect().right > edge - ellipsis + 0.5) break
+    visible += text.data[i]
+  }
+  const rest = clean([...name.children].filter((e) => e !== head).map((e) => e.textContent).join(''))
+  const extension = /\.[^.]*$/.exec(rest)?.[0] ?? ''
+  return { text: `${visible}${cut ? '…' : ''}${rest}`, stem: `${visible}${rest.slice(0, rest.length - extension.length)}` }
+}
+
+describe('T1: two held files sharing a long prefix', () => {
+  const PREFIX = 'KADAM-RESIDENCE-STRUCTURAL-DRAWINGS-SET-02-ISSUED-FOR-CONSTRUCTION-AUG-2026'
+  for (const width of [1280, 1024])
+    it(`read apart by their ends when cut ("…-R0.dwg", "…-old.dwg") at ${width}`, async () => {
+      await page.viewport(width, 800)
+      const { api, step1 } = kr01()
+      const first = step1.questions.find((q) => q.kind === 'file_misread')!
+      const second = { ...first, id: 'c2200000-0000-4000-8000-0000000000f2', subject_id: 'c2200000-0000-4000-8000-0000000000f3' }
+      step1.questions.splice(1, 0, second)
+      new FakeDrawingSet(api, 'KR-01').files = [
+        file({ id: first.subject_id!, name: `${PREFIX}-R0.dwg`, state: 'held', status: msg('drawings.files.held') }),
+        file({ id: second.subject_id!, name: `${PREFIX}-old.dwg`, state: 'held', status: msg('drawings.files.held') }),
+      ]
+      await mountApp(PATH, { as: PEOPLE.qs, api })
+      const names = await waitFor(() => {
+        const found = [...document.querySelectorAll<HTMLElement>('[role="row"][data-row] [role="gridcell"]:nth-child(3) [data-notation="file-name"]')]
+        expect(found).toHaveLength(2)
+        return found
+      })
+      const shown = names.map((n) => shownName(n).text)
+      expect(shown[0]).not.toBe(shown[1])
+      for (const t of shown) expect(t).toMatch(/…/)
+      expect(shown.some((t) => t.endsWith('-R0.dwg'))).toBe(true)
+      expect(shown.some((t) => t.endsWith('-old.dwg'))).toBe(true)
+    })
+})
+
 describe('F2: a long file name is cut in its middle and leaves the held reason its width (the review of 22, round 4)', () => {
   const LONG = 'KADAM-RESIDENCE-STRUCTURAL-DRAWINGS-SET-02-ISSUED-FOR-CONSTRUCTION-REVISED-AUG-2026-R0.dwg'
+  for (const width of [1280, 1024])
   for (const rtl of [false, true])
-    it(`keeps ".dwg", the whole name in the text and the tooltip, and the reason visible, at 1280${rtl ? ' in en-XB' : ''}`, async () => {
+    it(`keeps ".dwg", at least 8 characters of the name, the whole name in the text and the tooltip, and the reason visible, at ${width}${rtl ? ' in en-XB' : ''}`, async () => {
       expect(LONG.length).toBeGreaterThanOrEqual(80)
-      if (rtl) activatePseudoRtl()
-      await page.viewport(1280, 800)
+      if (rtl) pseudoRtl()
+      await page.viewport(width, 800)
       const { api, step1 } = kr01()
       const held = step1.questions.find((q) => q.kind === 'file_misread')!.subject_id!
       new FakeDrawingSet(api, 'KR-01').files = [file({ id: held, name: LONG, state: 'held', status: msg('drawings.files.held') })]
       await mountApp(PATH, { as: PEOPLE.qs, api })
-      const row = await waitFor(() => {
-        const found = [...document.querySelectorAll<HTMLElement>('[role="row"][data-row]')].find((r) => r.querySelector('[data-notation="file-name"]') && /Held/.test(r.textContent ?? ''))
-        expect(found).toBeTruthy()
-        return found!
-      })
+      const row = await waitFor(heldFileRow)
+      if (rtl) expectRtl()
       const cell = within(row).getAllByRole('gridcell')[2]!
       const box = cell.getBoundingClientRect()
       const name = cell.querySelector<HTMLElement>('[data-notation="file-name"]')!
@@ -566,18 +634,28 @@ describe('F2: a long file name is cut in its middle and leaves the held reason i
       const n = name.getBoundingClientRect()
       expect(n.left).toBeGreaterThanOrEqual(box.left - 1)
       expect(n.right).toBeLessThanOrEqual(box.right + 1)
-      const extension = [...name.querySelectorAll<HTMLElement>('span')].find((e) => clean(e.textContent) === '.dwg')!
+      const extension = [...name.querySelectorAll<HTMLElement>('span')].find((e) => clean(e.textContent).endsWith('.dwg') && !e.hasAttribute('data-file-head'))!
       expect(extension).toBeTruthy()
       const x = extension.getBoundingClientRect()
       expect(x.width).toBeGreaterThan(10)
       expect(x.left).toBeGreaterThanOrEqual(box.left - 1)
       expect(x.right).toBeLessThanOrEqual(box.right + 1)
+      // The re-check of round 4 (T1): a name cut to its first letter ("K….dwg") cannot tell two held
+      // files apart. Counted by layout: at least 8 of the stem's characters show, besides the ellipsis.
+      const shown = shownName(name)
+      expect(shown.stem.length, shown.text).toBeGreaterThanOrEqual(8)
+      expect(shown.text).toMatch(/…[^…]*-R0\.dwg$/)
       // The held reason keeps a width, inside the cell.
-      const reason = [...cell.querySelectorAll<HTMLElement>('span')].find((e) => /Held/.test(e.textContent ?? '') && !e.querySelector('[data-notation]'))!
+      // The reason is the name's next sibling (in any language).
+      const reason = name.nextElementSibling as HTMLElement
+      expect(reason).toBeTruthy()
+      expect(clean(reason.textContent).length).toBeGreaterThan(0)
       const r = reason.getBoundingClientRect()
-      expect(r.width).toBeGreaterThanOrEqual(90)
-      expect(r.left).toBeGreaterThanOrEqual(box.left - 1)
-      expect(r.right).toBeLessThanOrEqual(box.right + 1)
+      // The reason truncates first (the re-check of round 4): "Held: the tw…" still reads, in a cell
+      // the 1280 and 1024 layouts both make 193 px wide.
+      expect(r.width).toBeGreaterThanOrEqual(72)
+      expect(r.left).toBeGreaterThanOrEqual(box.left - 0.5)
+      expect(r.right).toBeLessThanOrEqual(box.right + 0.5)
     })
 })
 
@@ -596,11 +674,12 @@ describe('M9: focus is visible on the list’s rows', () => {
 
 describe('M10: a range of sheet numbers is one isolate', () => {
   it('reads "S-01–S-13" as one left-to-right notation in pseudo right-to-left', async () => {
-    activatePseudoRtl()
+    pseudoRtl()
     const { api, step1 } = kr01()
     step1.lists = {}
     await mountApp(PATH, { as: PEOPLE.qs, api })
     await waitFor(() => expect(document.querySelector('[data-notation="sheet-number"]')).not.toBeNull())
+    expectRtl()
     await waitFor(() => {
       const ranges = [...document.querySelectorAll('[data-notation="sheet-number"]')].map((el) => el.textContent)
       expect(ranges).toContain('A-01–A-07')
