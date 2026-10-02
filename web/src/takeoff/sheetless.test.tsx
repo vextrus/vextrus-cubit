@@ -63,8 +63,8 @@ describe('a Question holding no sheet', () => {
     expect(text).toContain('Trace: the title blocks of A-03 and A-05')
     expect(text).not.toContain('Trace: the drawing list')
     // 21c gives it the drawing list's options; the gap words two of them for itself (the words gate, round 1).
-    expect(text).toContain('Not sent yet: count the missing number and ask the consultant')
-    expect(text).toContain('Not part of this set: the numbering simply skips')
+    expect(text).toContain('Not sent yet: keep the missing sheet in the count and ask the consultant')
+    expect(text).toContain('Not part of this set: the numbering skips here')
     expect(text).not.toContain('take it off the list')
   })
 
@@ -77,7 +77,7 @@ describe('a Question holding no sheet', () => {
     const text = clean(card().find((c) => clean(c.textContent).includes('skips from A-03'))!.textContent)
     expect(text).toContain('Trace: the title block of A-03')
     expect(text).not.toContain('title blocks')
-    expect(text).toContain('Not sent yet: count the missing numbers and ask the consultant')
+    expect(text).toContain('Not sent yet: keep the missing sheets in the count and ask the consultant')
   })
 
   it('shows "—" for a Question with no sheet and no number, and does not call an unknown Check one against the drawing list', async () => {

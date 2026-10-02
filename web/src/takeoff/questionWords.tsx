@@ -296,9 +296,9 @@ export function OptionWords({ entry, option }: { entry: QuestionEntry; option: O
   const gap = gapOf(entry.question)
   if (gap && key === 'not_sent_yet') {
     const missing = typeof entry.question.params.missing === 'number' ? entry.question.params.missing : 1
-    return <Plural value={missing} one="Not sent yet: count the missing number and ask the consultant" other="Not sent yet: count the missing numbers and ask the consultant" />
+    return <Plural value={missing} one="Not sent yet: keep the missing sheet in the count and ask the consultant" other="Not sent yet: keep the missing sheets in the count and ask the consultant" />
   }
-  if (gap && key === 'not_in_set') return <Trans>Not part of this set: the numbering simply skips</Trans>
+  if (gap && key === 'not_in_set') return <Trans>Not part of this set: the numbering skips here</Trans>
   const words = OPTION_NAMES[key] ?? (entry.question.kind === 'low_confidence' ? SHEET_KIND_NAMES[key] : undefined)
   return <>{i18n._(words ?? OTHER_OPTION)}</>
 }

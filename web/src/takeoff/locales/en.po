@@ -247,10 +247,6 @@ msgctxt "storey"
 msgid "Ground"
 msgstr "Ground"
 
-#: src/takeoff/questionWords.tsx
-msgid "Not part of this set: the numbering simply skips"
-msgstr "Not part of this set: the numbering simply skips"
-
 #: src/takeoff/Step1Inspector.tsx
 msgid "Excluded: {reason}"
 msgstr "Excluded: {reason}"
@@ -836,6 +832,10 @@ msgstr "the drawing list you set"
 #: src/takeoff/SheetList.tsx
 msgid "found; no drawing list; numbering runs {range} without a gap"
 msgstr "found; no drawing list; numbering runs {range} without a gap"
+
+#: src/takeoff/questionWords.tsx
+msgid "{missing, plural, one {Not sent yet: keep the missing sheet in the count and ask the consultant} other {Not sent yet: keep the missing sheets in the count and ask the consultant}}"
+msgstr "{missing, plural, one {Not sent yet: keep the missing sheet in the count and ask the consultant} other {Not sent yet: keep the missing sheets in the count and ask the consultant}}"
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "mixed"
@@ -1533,10 +1533,6 @@ msgstr "State"
 msgid "The architectural drawing list"
 msgstr "The architectural drawing list"
 
-#: src/takeoff/questionWords.tsx
-msgid "{missing, plural, one {Not sent yet: count the missing number and ask the consultant} other {Not sent yet: count the missing numbers and ask the consultant}}"
-msgstr "{missing, plural, one {Not sent yet: count the missing number and ask the consultant} other {Not sent yet: count the missing numbers and ask the consultant}}"
-
 #: src/takeoff/Step1Inspector.tsx
 msgid "{name} from the file"
 msgstr "{name} from the file"
@@ -2016,6 +2012,10 @@ msgstr "Pit and chamber details"
 #: src/takeoff/ActorChip.tsx
 msgid "Vextrus"
 msgstr "Vextrus"
+
+#: src/takeoff/questionWords.tsx
+msgid "Not part of this set: the numbering skips here"
+msgstr "Not part of this set: the numbering skips here"
 
 #: src/takeoff/words.tsx
 msgid "Column schedule"
