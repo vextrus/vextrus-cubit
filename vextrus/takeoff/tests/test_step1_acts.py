@@ -338,3 +338,23 @@ def test_a_kind_not_offered_for_the_sheet_is_refused_and_changes_nothing(
     assert decisions(step1_project) == [None, None, None]
     ok = qs.post(url(step1_project.project_id, "confirm"), {"proposals": [first], "kind": "beam_layout"})
     assert ok.status_code == 200
+
+
+def test_a_decided_sheet_says_who_in_which_role_and_with_how_many(
+    step1_project: Step1Project, sign_in: Callable[..., Member]
+) -> None:
+    """The design gate's M8 (m0-screens §6.6's "who did what"): "Confirmed in bulk with 1 other sheet /
+    Nusrat Jahan, QS, …": each decided sheet carries its actor's role and its act's size; an undecided
+    one carries none. The MD reads the same."""
+    project = step1_project.project_id
+    ids = [str(p) for p in step1_project.proposals]
+    api_as(step1_project.member).post(url(project, "confirm"), {"proposals": ids[:2]})
+    md = sign_in(role="md", developer_id=step1_project.member.developer_id)
+
+    for reader in (step1_project.member, md):
+        rows = api_as(reader).get(url(project, "proposals")).json()["proposals"]
+        assert [(p["decided_by"], p["decided_by_role"], p["decided_with"]) for p in rows] == [
+            (step1_project.member.user.name, "qs", 2),
+            (step1_project.member.user.name, "qs", 2),
+            (None, None, 0),
+        ]

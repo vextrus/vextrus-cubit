@@ -64,7 +64,7 @@ from engine.recognise.conflicts import Numbers, recognisers
 from engine.recognise.sheets import default_conventions
 from engine.recognise.types import DisciplineConvention, SheetConventions, ValueSource
 from vextrus.drawings import services as drawings
-from vextrus.platform.services import auth, jev, markets, tenancy
+from vextrus.platform.services import auth, invitations, jev, markets, tenancy
 from vextrus.projects import services as projects
 from vextrus.takeoff import acts
 from vextrus.takeoff.library import EXPECTED, SHEETS, STEPS
@@ -94,6 +94,7 @@ from vextrus.takeoff.models import (
     RegisterSource,
     StepProgress,
 )
+from vextrus.takeoff.services.issue_dates import iso_date
 
 OTHER = "other"
 """The one reason that keeps the QS's words."""
@@ -117,7 +118,9 @@ class ProposalView:
     title: str
     revision_mark: str
     revision_mark_source: str | None
-    issue_date: str
+    issue_date: str | None
+    """The title block's issue date as an ISO date ("2026-09-12"), read in the Market's order; null
+    where it wrote none or none that is one calendar day (issue_dates)."""
     discipline: str | None
     file_id: uuid.UUID
     file_name: str
@@ -138,6 +141,45 @@ class ProposalView:
     title block, and its Discipline's drawing list naming it, or, with no list, its Discipline's
     numbering running without a gap and its Plot page matched; never while held or in an open
     Question. Only such a sheet joins the bulk act (6.4); the others are Proposals "with one source"."""
+    decided_by_role: str | None = None
+    """The actor's role in the Developer ("qs", "vextrus_engineer"): "Nusrat Jahan, QS" (6.6)."""
+    decided_with: int = 0
+    """How many sheets the act that decided it decided: "Confirmed in bulk with 55 other sheets"."""
+    number_source: str | None = None
+    """Where its number was read: "title_block_attribute", "title_block_text", …; None for none."""
+    title_source: str | None = None
+    storeys_as_stated: str = ""
+    layout: str | None = None
+    """The layout it is laid out on, by name; None when laid out in the drawing (a frame)."""
+    plot_file: str | None = None
+    plot_page: int | None = None
+    plot_residual: str | None = None
+    plot_none: dict[str, Any] | None = None
+    """Why it has no Plot (a message), or None when a page matched or no PDF was added."""
+    views: list[SheetViewView] = field(default_factory=list)
+    """Its views in reading order, title block included."""
+
+
+@dataclass(frozen=True)
+class SheetViewView:
+    """A view on a printed sheet as Step 1 shows it (m0-screens §6.6's Views, §6.5's outlines)."""
+
+    id: uuid.UUID
+    ordinal: int
+    kind: str
+    title: str
+    stated_scale: str
+    not_to_scale: bool
+    storeys: list[str]
+    storeys_as_stated: str
+    storeys_meaning: str | None
+    steps: list[str]
+    part: str | None
+    proposed_exclusion: str | None
+    decision: str | None
+    excluded_reason: str | None
+    box: list[str]
+    """x0, y0, x1, y1 in drawing units, as decimal strings (as read)."""
 
 
 @dataclass(frozen=True)
@@ -216,6 +258,9 @@ class ProgressView:
     disciplines: list[DisciplineProgress]
     not_received: list[str]
     """The Market's expected Disciplines of which no file has been added, in the Market's order."""
+    qs: list[str] = field(default_factory=list)
+    """The names of the QS members who may open the Project: whom the MD's and a Guest's bar names
+    ("Nusrat Jahan (QS) confirms the sheet list", m0-screens §6.12)."""
 
 
 @dataclass(frozen=True)
@@ -247,6 +292,11 @@ class ListView:
     read_numbers: list[str] | None
     """The list read on a sheet of the set, when there is one."""
     agrees: bool
+    read_on: uuid.UUID | None = None
+    """The printed sheet the list read on a sheet was read on ("13 on the drawing list on S-01")."""
+    read_revisions: dict[str, str] = field(default_factory=dict)
+    """Each number the list read on a sheet gives a revision mark, with that mark ("S-07": "B"): a
+    source of its own for which copy of a number is current (m0-screens 7, "Two sheets, one number")."""
 
 
 # Reading ------------------------------------------------------------------------------------------
@@ -291,10 +341,20 @@ def proposals(project_id: uuid.UUID) -> list[ProposalView]:
     stamps = {s.confirmation_id for s in sheets if s.confirmation_id}
     # Who and when, from the act that decided each sheet (a decision put back by an undo keeps its
     # own act's name and time).
-    who = {c.id: (c.by_name, c.at) for c in Confirmation.objects.filter(id__in=stamps)}
+    acts = list(Confirmation.objects.filter(id__in=stamps))
+    who = {c.id: (c.by_name, c.at) for c in acts}
+    roles = invitations.roles_of({c.user_id for c in acts})
+    role = {c.id: roles.get(c.user_id) for c in acts}
+    size = {c.id: c.proposals for c in acts}
     agreeing = _agreeing(project_id, sheets, by_sheet)
+    order = markets.of_developer(_tenant()).date_order
     return [
-        replace(_proposal_view(s, by_sheet.get(s.id), names, who), agrees=s.id in agreeing)
+        replace(
+            _proposal_view(s, by_sheet.get(s.id), names, who, order),
+            agrees=s.id in agreeing,
+            decided_by_role=role.get(s.confirmation_id) if s.confirmation_id else None,
+            decided_with=size.get(s.confirmation_id, 0) if s.confirmation_id else 0,
+        )
         for s in sheets
     ]
 
@@ -367,6 +427,7 @@ def _proposal_view(
     proposal: Proposal | None,
     names: Mapping[uuid.UUID, str],
     who: Mapping[uuid.UUID, tuple[str, datetime]],
+    date_order: str,
 ) -> ProposalView:
     by, at = who.get(sheet.confirmation_id, (None, None)) if sheet.confirmation_id else (None, None)
     pick = dict(proposal.jev_pick) if proposal and proposal.jev_pick else None
@@ -377,7 +438,7 @@ def _proposal_view(
         title=sheet.title,
         revision_mark=sheet.revision_mark,
         revision_mark_source=sheet.sources.get("revision_mark"),
-        issue_date=sheet.issue_date,
+        issue_date=iso_date(sheet.issue_date, date_order),
         discipline=sheet.discipline,
         file_id=sheet.file_id,
         file_name=names.get(sheet.file_id, ""),
@@ -391,6 +452,35 @@ def _proposal_view(
         excluded_text=sheet.excluded_text,
         decided_by=by,
         decided_at=at or sheet.decided_at,
+        number_source=sheet.sources.get("number"),
+        title_source=sheet.sources.get("title"),
+        storeys_as_stated=sheet.storeys_as_stated,
+        layout=layout if isinstance(layout := sheet.location.get("layout"), str) else None,
+        plot_file=names.get(sheet.plot.file_id) if sheet.plot.file_id and sheet.plot.page else None,
+        plot_page=sheet.plot.page,
+        plot_residual=sheet.plot.residual,
+        plot_none=dict(sheet.plot.none) if sheet.plot.none else None,
+        views=[_sheet_view_view(v) for v in drawings.views(sheet.id)],
+    )
+
+
+def _sheet_view_view(view: drawings.ViewView) -> SheetViewView:
+    return SheetViewView(
+        id=view.id,
+        ordinal=view.ordinal,
+        kind=view.confirmed_kind or view.kind,
+        title=view.title,
+        stated_scale=view.stated_scale,
+        not_to_scale=view.not_to_scale,
+        storeys=list(view.storeys),
+        storeys_as_stated=view.storeys_as_stated,
+        storeys_meaning=view.storeys_meaning,
+        steps=list(view.steps),
+        part=view.part,
+        proposed_exclusion=view.proposed_exclusion,
+        decision=view.decision,
+        excluded_reason=view.excluded_reason,
+        box=list(view.box),
     )
 
 
@@ -615,7 +705,7 @@ def progress(project_id: uuid.UUID) -> ProgressView:
                 ),
             )
         )
-    return ProgressView(rows, _not_received(project_id))
+    return ProgressView(rows, _not_received(project_id), invitations.qs_of(project_id))
 
 
 def _outstanding(
@@ -727,6 +817,18 @@ def _numbers(row: DrawingRegister) -> list[str]:
         RegisterEntry.objects.filter(register=row)
         .order_by("line", "id")
         .values_list("number", flat=True)
+    )
+
+
+_MARK_LENGTH = RegisterEntry._meta.get_field("revision_mark").max_length or 0
+
+
+def _revisions(row: DrawingRegister) -> dict[str, str]:
+    return dict(
+        RegisterEntry.objects.filter(register=row)
+        .exclude(revision_mark="")
+        .order_by("line", "id")
+        .values_list("number", "revision_mark")
     )
 
 
@@ -874,6 +976,8 @@ def drawing_list(project_id: uuid.UUID, discipline: str) -> ListView:
         entered_at=standing.entered_at if standing and standing.source != RegisterSource.SHEET else None,
         read_numbers=_numbers(lists.read) if lists.read else None,
         agrees=not lists.disagree,
+        read_on=lists.read.source_sheet_id if lists.read else None,
+        read_revisions=_revisions(lists.read) if lists.read else {},
     )
 
 
@@ -1841,10 +1945,13 @@ def raise_question(
 
 
 def record_read_list(
-    sheet_id: uuid.UUID, discipline: str, numbers: Sequence[tuple[str, str]]
+    sheet_id: uuid.UUID,
+    discipline: str,
+    numbers: Sequence[tuple[str, str] | tuple[str, str, str]],
 ) -> uuid.UUID:
     """A Discipline's drawing list as read on a printed sheet of the set (13's register entries:
-    each number with its title, in the list's order); its id. Kept beside a list the QS gives: when
+    each number with its title and, where the list gives one, its revision mark, in the list's
+    order); its id. Kept beside a list the QS gives: when
     the two disagree, N is unknown until 21c's Question is answered."""
     sheet = drawings.sheet(sheet_id)
     project_id = _project_of(sheet)
@@ -1858,7 +1965,8 @@ def record_read_list(
             source_sheet_id=sheet.id,
         )
         seen: set[str] = set()
-        for line, (number, title) in enumerate(numbers, start=1):
+        for line, entry in enumerate(numbers, start=1):
+            number, title = entry[0], entry[1]
             if number in seen:
                 continue
             seen.add(number)
@@ -1868,6 +1976,10 @@ def record_read_list(
                 register=row,
                 number=number,
                 title=title,
+                # A mark too long to keep is dropped, never cut: cut, it could name the other copy.
+                revision_mark=mark
+                if len(mark := entry[2] if len(entry) > 2 else "") <= _MARK_LENGTH
+                else "",
                 line=line,
             )
         record_progress(project_id)

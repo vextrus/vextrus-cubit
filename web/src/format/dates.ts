@@ -66,6 +66,22 @@ export function formatDate(at: Instant | null | undefined, profile: MarketFormat
     .join('')
 }
 
+const ISO_DAY = /^(\d{4})-(\d{2})-(\d{2})$/
+
+/**
+ * "12 Sep 2026" from a calendar day the API sends as an ISO date ("2026-09-12"), such as a sheet's
+ * issue date; no time zone moves it. Anything else ("12.09.2026", an instant) is not a day and shows
+ * as empty: the API reads a drawing's date in the Market's order, never the browser.
+ */
+export function formatDay(iso: string | null | undefined, profile: MarketFormat, monthName: (month: number) => string): string {
+  const found = iso ? ISO_DAY.exec(iso) : null
+  if (!found) return EMPTY
+  const [year, month, day] = [Number(found[1]), Number(found[2]), Number(found[3])]
+  const date = new Date(Date.UTC(year, month - 1, day))
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return EMPTY
+  return formatDate(date, { ...profile, timeZone: 'UTC' }, monthName)
+}
+
 /** "10:42": hours and minutes on the 24-hour clock, in the Market's time zone. */
 export function formatTime(at: Instant | null | undefined, profile: MarketFormat): string {
   const date = toDate(at)
