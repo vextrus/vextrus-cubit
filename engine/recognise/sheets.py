@@ -24,9 +24,11 @@
   dropped, or, where it carries a title block, proposed out as `blank`, with no value read from it
   (a stale layout's title block is a template's; the QS review, Q7), the first such layout of a file
   only, the rest counted (review round 1: 5,000 stale tabs were 5,000 rows); one with no viewport of
-  its own that draws only a title block is a template's tab, and dropped; so is one drawn in paper
-  space whose title block gives no value at all (no number, title, date or mark: a template's tab
-  with its notes; #162), unless a limit was reached while it was read.
+  its own that draws only a title block is a template's tab, and dropped. One drawn in paper space
+  whose title block gives no value at all (no number, title, date or mark: a template's tab with its
+  notes, or a sheet whose title block was not read; #162) is proposed out as `blank` on the same
+  terms, unless a limit was reached while it was read or its tab's name begins with a sheet number
+  of a Discipline's prefix: then it stays a sheet.
   Nothing is told empty on a guess: a titled layout with a viewport whose region cannot be read (a
   value lost or of no size, or past `MAX_VIEWPORTS`) stays a sheet, its values read, and is counted.
   A layout that shows a model-space frame, with no title block of its own, is that frame's plot: the
@@ -1273,31 +1275,52 @@ class _Segmenter:
                 if paper
                 else self._bare(name, entities)
             )
-            if shown < MIN_SHOWN and not unknown and _unfilled(sheet) and self._limited() == limited:
-                self.counts["layout_template"] += 1  # a template's tab: an empty title block, notes
-                return None, []
+            if (
+                shown < MIN_SHOWN
+                and not unknown
+                and _unfilled(sheet)
+                and self._limited() == limited
+                and not self._named_as_number(name)
+            ):
+                # A template's tab, or a sheet whose title block was not read: proposed out, kept
+                self.counts["layout_template"] += 1
+                return self._blank(name, paper, entities), []
             return sheet, frames_shown if titled and len(frames_shown) == 1 else []
         if titled and views == 0:
             self.counts["layout_title_block_only"] += 1  # a template tab: nothing to propose
             return None, []
-        if titled and self.blank_proposed:
-            self.counts["layout_blank_not_proposed"] += 1  # one blank per file: the rest counted
-            return None, []
         if titled:
-            self.blank_proposed = True
-            self.counts["layout_blank"] += 1
-            first = paper.frames[0].handle if paper and paper.frames else entities[0].handle
-            return (
-                SheetCandidate(
-                    SheetLocation(layout=name),
-                    discipline=self._discipline(None),
-                    exclusion=Exclusion(ExclusionReason.BLANK),
-                    anchors=(self.anchor(name, (), first),),
-                ),
-                [],
-            )
+            return self._blank(name, paper, entities), []
         self.counts["layout_shows_unknown" if unknown else "layout_shows_nothing"] += 1
         return None, []
+
+    def _blank(
+        self, name: str, paper: _Space | None, entities: list[AnyEntity]
+    ) -> SheetCandidate | None:
+        """A layout proposed out as `blank`, no value read from it: the first of a file only, the
+        rest counted (`layout_blank_not_proposed`, which the QS is told)."""
+        if self.blank_proposed:
+            self.counts["layout_blank_not_proposed"] += 1  # one blank per file: the rest counted
+            return None
+        self.blank_proposed = True
+        self.counts["layout_blank"] += 1
+        first = paper.frames[0].handle if paper and paper.frames else entities[0].handle
+        return SheetCandidate(
+            SheetLocation(layout=name),
+            discipline=self._discipline(None),
+            exclusion=Exclusion(ExclusionReason.BLANK),
+            anchors=(self.anchor(name, (), first),),
+        )
+
+    def _named_as_number(self, name: str) -> bool:
+        """The tab's name begins with a sheet number of a Discipline's prefix ("S-901 GENERAL
+        NOTES"): a sheet whose title block was not read, kept as one (AutoCAD's "Layout1" is not)."""
+        first = _visible(name).split(maxsplit=1)
+        parts = sequence(first[0], self.conventions) if first else None
+        prefix = _normal(parts.prefix) if parts is not None else ""
+        return bool(prefix) and any(
+            _normal(p) == prefix for d in self.conventions.disciplines for p in d.prefixes
+        )
 
     def _limited(self) -> int:
         """How often the file's limits were reached so far: a layout read past one is never dropped
