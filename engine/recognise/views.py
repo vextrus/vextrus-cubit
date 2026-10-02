@@ -1104,13 +1104,15 @@ def _subject(text: str, reading: _Reading) -> str | None:
 
 
 def _draws_structure(text: str, reading: _Reading) -> bool:
-    """Whether the text names a subject the structural set governs by a word other than a lintel's
-    (`NOT_STRUCTURE_WORDS`): "BEAM LAYOUT PLAN" does, "LINTEL LAYOUT PLAN" does not."""
+    """Whether the text's subject (its first subject words, as `_subject`) is one the structural set
+    governs, named by a word other than a lintel's (`NOT_STRUCTURE_WORDS`): "BEAM LAYOUT PLAN" is,
+    "LINTEL LAYOUT PLAN" is not, nor "STAIR AND BEAM PLAN" (its subject is the stair)."""
     tokens = _tokens(text)
-    return any(
-        key in STRUCTURE_SUBJECTS and " ".join(tokens[start:end]) not in NOT_STRUCTURE_WORDS
-        for start, end, key in reading.subjects.matches(tokens)
-    )
+    found = reading.subjects.matches(tokens)
+    if not found:
+        return False
+    start, end, key = found[0]
+    return key in STRUCTURE_SUBJECTS and " ".join(tokens[start:end]) not in NOT_STRUCTURE_WORDS
 
 
 def _subjects_in_order(text: str, reading: _Reading) -> tuple[str, ...]:

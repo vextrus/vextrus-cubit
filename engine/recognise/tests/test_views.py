@@ -412,7 +412,9 @@ def test_a_detail_on_a_lintel_and_sunshade_sheet_goes_to_beams_and_slabs() -> No
         ("LINTEL LAYOUT PLAN", None),
         ("GROUND FLOOR PLAN SHOWING LINTEL", None),
         ("GROUND FLOOR BEAM LAYOUT PLAN", ExclusionReason.DUPLICATE),
-        ("LINTEL AND BEAM LAYOUT PLAN", ExclusionReason.DUPLICATE),
+        ("BEAM AND LINTEL LAYOUT PLAN", ExclusionReason.DUPLICATE),
+        ("LINTEL AND BEAM LAYOUT PLAN", None),  # its subject is the lintel's
+        ("STAIR AND COLUMN PLAN", None),  # its subject is the stair, as before #158
     ],
 )
 def test_an_architectural_lintel_plan_stays_in_walls_and_rooms(
