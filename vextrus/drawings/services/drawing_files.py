@@ -874,6 +874,9 @@ def restart(file_id: uuid.UUID) -> FileView:
             row.read_job_id = jobs.restart(job.id)
             row.read_step = ""
             row.read_tries = 0
+            disagreement = (row.cross_check or {}).get("finding")
+            if disagreement:  # its reading-again reason gives way to its readers' disagreement
+                row.finding = disagreement
             row.cancelled_by = None
             row.cancelled_by_name = ""
             row.cancelled_by_vextrus = False
@@ -883,6 +886,7 @@ def restart(file_id: uuid.UUID) -> FileView:
                     "read_job_id",
                     "read_step",
                     "read_tries",
+                    "finding",
                     "cancelled_by",
                     "cancelled_by_name",
                     "cancelled_by_vextrus",

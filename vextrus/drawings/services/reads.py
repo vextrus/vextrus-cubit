@@ -373,6 +373,13 @@ def _end(
             if status == ReadStatus.READ and row.sheets_total is not None:
                 row.sheets_done = row.sheets_total
             row.save(update_fields=["read_status", "read_step", "finding", "read_tries", "sheets_done"])
+        elif status == ReadStatus.FAILED and drawing_files.reading_anyway(row):
+            # A held file read anyway whose reading again failed for good: it stays held, its
+            # reason kept as its finding (a memory limit is said as such, never only "after 1 try";
+            # #165). The readers' disagreement stays in its cross-check; restart puts it back.
+            row.finding = _text.read_json(dict(finding)) if finding is not None else row.finding
+            row.read_tries = max(1, tries)
+            row.save(update_fields=["finding", "read_tries"])
         elif status == ReadStatus.READ and row.held_answer == HeldAnswer.READ_ANYWAY:
             # A held file read anyway stays held; its sheets counted done list them from here, in
             # the last step's transaction with their Questions (`drawing_files.read_anyway`, #165).

@@ -204,11 +204,8 @@ def _readers(row: DrawingFile, state: str) -> list[Message]:
     ):
         if drawing_files.read_anyway_ended(row):
             return [said.READ_ANYWAY(**finding["params"])]
-        stopped_again = state in (
-            drawing_files.FileState.FAILED,
-            drawing_files.FileState.CANCELLED,
-            drawing_files.FileState.STOPPING,
-        )
+        # Stopping is not yet stopped: it is still being read until its job ends.
+        stopped_again = state in (drawing_files.FileState.FAILED, drawing_files.FileState.CANCELLED)
         pending = said.READ_ANYWAY_STOPPED if stopped_again else said.READ_ANYWAY_PENDING
         return [pending(**finding["params"])]
     if finding and (stopped or str(finding.get("code", "")).startswith("engine.decoders_agree.")):
