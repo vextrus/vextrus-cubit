@@ -482,17 +482,22 @@ def test_a_layout_whose_viewports_show_nothing_is_proposed_out_as_blank_with_no_
     assert result.counts["layout_blank"] == 1
 
 
-def _paper_sheet(number: str | None, title: str | None) -> Sheets:
+def _paper_sheet(
+    number: str | None,
+    title: str | None,
+    *,
+    labels: tuple[str, ...] = ("SHEET TITLE", "SCALE", "SHEET NO", "DATE"),
+    date: str | None = None,
+) -> Sheets:
     """A layout drawn in paper space only (its main viewport, no other): a title block, its values
     as given, and notes enough to be more than a title block."""
     d = Sheets()
     tab = d.layout("Layout1")
     _main(d, tab)
-    d.insert(frame_block(d), (0, 0, 0), owner=tab)
-    if number is not None:
-        d.text(number, value_at(2), owner=tab)
-    if title is not None:
-        d.text(title, value_at(0), owner=tab)
+    d.insert(frame_block(d, labels=labels), (0, 0, 0), owner=tab)
+    for cell, value in ((2, number), (0, title), (3, date)):
+        if value is not None:
+            d.text(value, value_at(cell), owner=tab)
     for i in range(sheets.MIN_PAPER_CONTENT + 5):
         d.text(f"NOTE {i + 1}", (40, 400 - 12 * i, 0), owner=tab)
     return d
@@ -517,6 +522,36 @@ def test_a_paper_layout_with_a_number_or_a_title_stays_a_sheet(
     assert sheet.location.layout == "Layout1"
     assert sheet.exclusion is None
     assert (sheet.number and sheet.number.value, sheet.title and sheet.title.value) == (number, title)
+    assert result.counts["layout_template"] == 0
+
+
+def test_a_paper_sheet_whose_number_and_title_labels_are_unknown_stays_a_sheet() -> None:
+    """The refuter's probe (#162): its number and title under words the conventions lack, its date
+    read: a filled title block, so a sheet (asked its number), never a template dropped unseen."""
+    d = _paper_sheet(
+        "A-901", "GENERAL NOTES", labels=("DESCRIPTION", "SCALE", "DRAWING REF", "DATE"),
+        date="12.08.2026",
+    )  # fmt: skip
+
+    result = segment(d.artefact(), None, DEFAULT)
+
+    (sheet,) = result.sheets
+    assert sheet.exclusion is None
+    assert sheet.issue_date is not None
+    assert result.counts["layout_template"] == 0
+
+
+def test_a_paper_sheet_read_past_a_limit_is_never_dropped_as_a_template(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Past the pair budget its number is not read: the layout stays a sheet, the limit counted."""
+    monkeypatch.setattr(sheets, "MAX_PAIRS", 0)
+
+    result = segment(_paper_sheet("S-901", "GENERAL NOTES").artefact(), None, DEFAULT)
+
+    (sheet,) = result.sheets
+    assert sheet.number is None
+    assert result.counts["pair_budget"] > 0
     assert result.counts["layout_template"] == 0
 
 

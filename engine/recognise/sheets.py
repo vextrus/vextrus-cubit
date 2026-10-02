@@ -25,7 +25,8 @@
   (a stale layout's title block is a template's; the QS review, Q7), the first such layout of a file
   only, the rest counted (review round 1: 5,000 stale tabs were 5,000 rows); one with no viewport of
   its own that draws only a title block is a template's tab, and dropped; so is one drawn in paper
-  space whose title block gives no number and no title (a template's tab with its notes; #162).
+  space whose title block gives no value at all (no number, title, date or mark: a template's tab
+  with its notes; #162), unless a limit was reached while it was read.
   Nothing is told empty on a guess: a titled layout with a viewport whose region cannot be read (a
   value lost or of no size, or past `MAX_VIEWPORTS`) stays a sheet, its values read, and is counted.
   A layout that shows a model-space frame, with no title block of its own, is that frame's plot: the
@@ -613,6 +614,13 @@ class FileBudget:
     def report(self) -> dict[str, int]:
         """Every count by name, each limit's given even when not reached (the harness's export)."""
         return {**dict.fromkeys(LIMITS, 0), **self.counts}
+
+
+def _unfilled(sheet: SheetCandidate) -> bool:
+    """Nothing was read from the sheet's title block: no number, title, issue date or revision mark
+    (a mark from the file's name is not the title block's)."""
+    read = (sheet.number, sheet.title, sheet.issue_date, sheet.revision_mark)
+    return all(v is None or v.source == ValueSource.FILE_NAME for v in read)
 
 
 # Frames ------------------------------------------------------------------------------------------------
@@ -1223,6 +1231,7 @@ class _Segmenter:
         self, name: str, handle: str, model: _Space | None
     ) -> tuple[SheetCandidate | None, list[_Frame]]:
         """A layout's sheet, if it is one, and the model-space frames it is the sheet of."""
+        limited = self._limited()
         record = self.artefact.blocks[handle]
         entities = [e for h in record.entities if (e := self.artefact.entities.get(h)) is not None]
         viewports = [e for e in entities if isinstance(e, Entity) and e.type == "VIEWPORT"]
@@ -1264,7 +1273,7 @@ class _Segmenter:
                 if paper
                 else self._bare(name, entities)
             )
-            if shown < MIN_SHOWN and not unknown and sheet.number is None and sheet.title is None:
+            if shown < MIN_SHOWN and not unknown and _unfilled(sheet) and self._limited() == limited:
                 self.counts["layout_template"] += 1  # a template's tab: an empty title block, notes
                 return None, []
             return sheet, frames_shown if titled and len(frames_shown) == 1 else []
@@ -1289,6 +1298,11 @@ class _Segmenter:
             )
         self.counts["layout_shows_unknown" if unknown else "layout_shows_nothing"] += 1
         return None, []
+
+    def _limited(self) -> int:
+        """How often the file's limits were reached so far: a layout read past one is never dropped
+        for what its title block did not give."""
+        return sum(self.counts[name] for name in LIMITS)
 
     def _frames_shown(self, model: _Space | None, windows: list[Bounds | None]) -> list[_Frame]:
         """The model-space frames the windows show (half a frame's box or more inside one), up to two:
