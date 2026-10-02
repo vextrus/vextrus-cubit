@@ -1772,20 +1772,41 @@ def retire_questions(project_id: uuid.UUID, codes: Iterable[str], raised: Iterab
     """After a round that asked the set's Questions of these codes again (#161): each one `raised`
     that a past round retired is open again, and each still open that was not raised is retired,
     `withdrawn` and still listed. An answered Question, or one withdrawn by leaving its sheet out, is
-    never touched. How many were retired."""
+    never touched. One the QS kept open hands that answer to the Question that supersedes it (its
+    code, holding every sheet it held, not answered yet). How many were retired."""
     projects.get(project_id)
     asked = set(raised)
     ours = Question.objects.filter(project_id=project_id, step=SHEETS, message_code__in=list(codes))
     ours.filter(id__in=asked, status=QuestionStatus.WITHDRAWN, withdrawn_by__isnull=True).update(
         status=QuestionStatus.OPEN
     )
-    retired = (
-        ours.filter(status=QuestionStatus.OPEN)
-        .exclude(id__in=asked)
-        .update(status=QuestionStatus.WITHDRAWN)
-    )
+    leaving = ours.filter(status=QuestionStatus.OPEN).exclude(id__in=asked)
+    kept = [q for q in leaving if isinstance(q.answer, dict) and q.answer.get("option") == KEEP_OPEN]
+    if kept:
+        held = _links(project_id, [q.id for q in kept] + list(asked))
+        heirs = list(ours.filter(id__in=asked, status=QuestionStatus.OPEN, answer__isnull=True))
+        for old in kept:
+            heir = next(
+                (q for q in heirs if q.message_code == old.message_code and held[old.id] <= held[q.id]),
+                None,
+            )
+            if heir is not None:
+                heir.answer = old.answer
+                heir.save(update_fields=["answer"])
+                heirs.remove(heir)
+    retired = leaving.update(status=QuestionStatus.WITHDRAWN)
     record_progress(project_id)
     return retired
+
+
+def _links(project_id: uuid.UUID, ids: Iterable[uuid.UUID]) -> dict[uuid.UUID, set[uuid.UUID]]:
+    """Each Question's Proposals, by the Question's id."""
+    held: dict[uuid.UUID, set[uuid.UUID]] = {i: set() for i in ids}
+    for question_id, proposal_id in QuestionLink.objects.filter(
+        project_id=project_id, question_id__in=list(held)
+    ).values_list("question_id", "proposal_id"):
+        held[question_id].add(proposal_id)
+    return held
 
 
 def record_read_list(

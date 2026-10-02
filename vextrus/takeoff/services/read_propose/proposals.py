@@ -16,8 +16,9 @@ The sheets 21b left out for unreadable writing are counted (`unread`; Coverage's
 
 **Then the set's Questions**, over every sheet in the sheet list, whichever file brought it: 19b's
 Conflicts (`same_number`, `same_title`, `same_storey`) raised as `conflict` Questions holding their
-sheets' Proposals, each Discipline's sheets compared among themselves, a decided sheet (confirmed or
-left out) with none (a later copy of a confirmed one is a Revision's question), and the sheets of no
+sheets' Proposals, each Discipline's sheets compared among themselves, every Conflict trimmed to
+its undecided sheets (a decided one keeps a run's context; copies of a number one of which is
+confirmed are a Revision's question), and the sheets of no
 Discipline only with the others of their own file (#161: each is asked its Discipline); a conflict
 no longer found is retired, `withdrawn` and still listed, and asked again if found again (an
 answered one is never touched); the conflicts are asked again after every act on Step 1
@@ -394,29 +395,52 @@ def _conflicts(
     recognisers: finder.Recognisers,
     conventions: SheetConventions,
 ) -> int:
-    """19b's Conflicts over the sheets not yet decided (#161), each a `conflict` Question; every one
-    asked before and not found now retired (`step1.retire_questions`). How many were asked."""
-    compared = [i for i, s in enumerate(listed) if not s.decision]
-    as_compared = [_compared(listed[i], sheets[i]) for i in compared]
-    found = finder.compare(
-        as_compared, [views[i] for i in compared], conventions=conventions, recognisers=recognisers
-    )
-    at = {id(c): i for i, c in zip(compared, as_compared, strict=True)}
-    at |= {id(v): i for i in compared for v in views[i]}
+    """19b's Conflicts over every listed sheet (a decided one keeps a run's or a storey's context),
+    each trimmed to the sheets not yet decided (`_undecided`) and asked as a `conflict` Question;
+    every one asked before and not found now retired (`step1.retire_questions`). How many were
+    asked."""
+    as_compared = [_compared(s, c) for s, c in zip(listed, sheets, strict=True)]
+    found = finder.compare(as_compared, views, conventions=conventions, recognisers=recognisers)
+    at = {id(c): i for i, c in enumerate(as_compared)}
+    at |= {id(v): i for i, vs in enumerate(views) for v in vs}
     raised: list[uuid.UUID] = []
     for conflict in found:
         if not isinstance(conflict, Conflict):
             continue
-        held = _held_sheets(conflict, at)
-        raised.append(_conflict(project_id, conflict, [listed[i] for i in held], proposal_of))
+        trimmed = _undecided(conflict, [listed[i] for i in _held_sheets(conflict, at)])
+        if trimmed is not None:
+            raised.append(_conflict(project_id, conflict.kind, *trimmed, proposal_of))
     step1.retire_questions(project_id, CONFLICT_CODES, raised)
     return len(raised)
+
+
+def _undecided(
+    conflict: Conflict, held: Sequence[drawings.SheetView]
+) -> tuple[dict[str, Any], list[drawings.SheetView]] | None:
+    """A Conflict's evidence and the sheets its Question holds: only those not yet decided, a
+    confirmed or left-out sheet never grouped with another (#161). Copies of one number are a
+    `same_number` Question only while none of them is confirmed (ruling 2 and the refuter's case of a
+    copy confirmed by hand: a Revision's question) and two or more are undecided, its words counting
+    those; a same title or storey stands while any of its sheets is undecided, its words the set's.
+    None: nothing to ask."""
+    undecided = [s for s in held if not s.decision]
+    evidence = dict(conflict.evidence)
+    if conflict.kind == finder.SAME_NUMBER:
+        if len(undecided) < 2 or any(s.decision == CONFIRMED for s in held):
+            return None
+        assert undecided[0].number is not None
+        evidence |= {"number": undecided[0].number, "copies": len(undecided)}
+    elif not undecided:
+        return None
+    return evidence, undecided
 
 
 CONFLICT_CODES = tuple(
     c.code for c in (conflict_codes.SAME_NUMBER, conflict_codes.SAME_TITLE, conflict_codes.SAME_STOREY)
 )
 """19b's Conflicts as Questions: each round asks them all again and retires the rest (#161)."""
+CONFIRMED = "confirmed"
+"""A printed sheet's decision once the QS confirmed it (drawings' `Decision`)."""
 NO_DISCIPLINE = "no_discipline"
 """The Discipline a sheet of none is compared under: only with its own file's other such sheets (a
 group of their own), so even a Market's Discipline of this key would never meet them."""
@@ -425,8 +449,7 @@ group of their own), so even a Market's Discipline of this key would never meet 
 def _compared(sheet: drawings.SheetView, found: SheetCandidate) -> SheetCandidate:
     """A sheet as 19b compares it (#161, the orchestrator's ruling 5): one of no Discipline only with
     the other sheets of its own file, under no Discipline's prefixes (19b leaves a sheet of none
-    out). A decided sheet is not compared at all (ruling 2: a later copy of a confirmed sheet is a
-    Revision's question; a sheet left out is out of the set)."""
+    out)."""
     if found.discipline is not None:
         return found
     none = Sourced(NO_DISCIPLINE, ValueSource.FILE)
@@ -446,7 +469,8 @@ def _held_sheets(conflict: Conflict, at: Mapping[int, int]) -> list[int]:
 
 def _conflict(
     project_id: uuid.UUID,
-    conflict: Conflict,
+    kind: str,
+    evidence: Mapping[str, Any],
     held: Sequence[drawings.SheetView],
     proposal_of: Mapping[uuid.UUID, uuid.UUID],
 ) -> uuid.UUID:
@@ -455,13 +479,13 @@ def _conflict(
         finder.SAME_NUMBER: conflict_codes.SAME_NUMBER,
         finder.SAME_TITLE: conflict_codes.SAME_TITLE,
         finder.SAME_STOREY: conflict_codes.SAME_STOREY,
-    }[conflict.kind]
-    keys = SAME_NUMBER_OPTIONS if conflict.kind == finder.SAME_NUMBER else CONFLICT_OPTIONS
+    }[kind]
+    keys = SAME_NUMBER_OPTIONS if kind == finder.SAME_NUMBER else CONFLICT_OPTIONS
     disciplines = {s.discipline for s in held if s.discipline}
-    evidence = dict(conflict.evidence)
-    if evidence.get("discipline") == NO_DISCIPLINE:
-        evidence["discipline"] = ""
-    message = code(**evidence)
+    worded = dict(evidence)
+    if worded.get("discipline") == NO_DISCIPLINE:
+        worded["discipline"] = ""
+    message = code(**worded)
     blocks = [proposal_of[s.id] for s in held if s.id in proposal_of]
     return step1.asked_of(project_id, message, blocks) or step1.raise_question(
         project_id,

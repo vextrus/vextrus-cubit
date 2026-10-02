@@ -86,10 +86,21 @@ describe('the bulk act', () => {
     expect(model.bulk.leaveOut.map((p) => p.number)).toEqual(['S-03'])
   })
 
+  it('groups a conflict only through the Proposals it lists, never by its number or Discipline (#161)', () => {
+    const mine = sheet('S-04', { revision_mark: 'R0' })
+    const copy = sheet('S-04', { revision_mark: 'R1' })
+    const confirmed = sheet('S-04', { revision_mark: 'R2', decision: 'confirmed' })
+    const elsewhere = sheet('04', { discipline: 'architectural' })
+    const q = question('conflict', { subject_id: mine.sheet_id, discipline: null, params: { number: 'S-04', copies: 2 }, proposals: [mine.id, copy.id] })
+    const model = step1Model(data([mine, copy, confirmed, elsewhere], [q]))
+    expect(model.needsYou).toHaveLength(1)
+    expect(model.needsYou[0]!.sheets.map((p) => p.id).sort()).toEqual([mine.id, copy.id].sort())
+  })
+
   it('holds every copy of a number two sheets share, in one row', () => {
     const b = sheet('S-07', { revision_mark: 'B' })
     const a = sheet('S-07', { revision_mark: 'A' })
-    const q = question('conflict', { subject_id: b.sheet_id, params: { number: 'S-07', copies: 2 } })
+    const q = question('conflict', { subject_id: b.sheet_id, params: { number: 'S-07', copies: 2 }, proposals: [b.id, a.id] })
     const model = step1Model(data([a, b], [q]))
     expect(model.needsYou).toHaveLength(1)
     expect(model.needsYou[0]!.sheets.map((p) => p.revision_mark)).toEqual(['B', 'A'])
