@@ -9,14 +9,14 @@ environment is made from the toolchain's Python and the locked wheels are instal
 wheel folder only, by hash, binary only (nothing is built); then the engine harness reads each set into
 `export-<set>.json`.
 
-**`--job` mode** (21a; off by default until 21c makes it the check's): instead of the harness, the
-product's read job reads each set, against a throwaway PostgreSQL 18 cluster started inside the
-sandbox from the host's own binaries (`PG_BIN`, under the bound /usr): its data in the private /tmp,
+**Job mode** (21a's `--job`; the check's default since 21d, `--harness` the way back): instead of the
+harness, the product's read job reads each set, against a throwaway PostgreSQL 18 cluster started inside
+the sandbox from the host's own binaries (`PG_BIN`, under the bound /usr): its data in the private /tmp,
 its only socket a Unix one (`SOCKET`; no TCP), stopped when the script ends, however it ends. The export
-is written by the job's export entry point (`JOB_ENTRY`, 21c's `takeoff/services/export.py`), called
-as `python -m <JOB_ENTRY> --set <set> --out <export> --database <socket>` with the run's metadata as
-flags. PostgreSQL refuses to run as root and needs its user's name, so in this mode the sandbox runs as
-one unprivileged user (`UID`, mapped to the owner outside) named in its own read-only /etc/passwd.
+is written by the job's export entry point (`JOB_ENTRY`, 21c's `takeoff/services/export.py`), called as
+`python -m <JOB_ENTRY> --set <set> --out <export> --database <socket>` with the run's metadata as flags.
+PostgreSQL refuses to run as root and needs its user's name, so in this mode the sandbox runs as one
+unprivileged user (`UID`, mapped to the owner outside) named in its own read-only /etc/passwd.
 """
 
 import re
