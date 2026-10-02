@@ -47,9 +47,10 @@ SET_NAME = re.compile(r"\A[a-z0-9][a-z0-9-]{0,63}\Z")
 # A branch the poster can ask GitHub about (scripts/owner/post-status's `head`): no `/`.
 BRANCH = re.compile(r"\A[A-Za-z0-9][A-Za-z0-9._-]{0,99}\Z")
 BUNDLE = "head.bundle"
-# The installed copy: every file the command imports, as paths in the repository (keys-custody.sh
-# installs these and the runner checks each against main's).
+# The installed copy: every file the command imports or reads at import (source.py's CHECKOUT_ALSO_FILE),
+# as paths in the repository (keys-custody.sh installs these and the runner checks each against main's).
 FILES = (
+    ".github/checkout-also.txt",
     "scripts/__init__.py",
     "scripts/real_drawings/__init__.py",
     "scripts/real_drawings/command.py",
