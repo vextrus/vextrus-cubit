@@ -14,8 +14,9 @@ import type { ProposalOut } from './data'
 import { SheetRange } from './SheetRange'
 import { ActorChip } from './ActorChip'
 import { StoreyStrip, StoreysText, stripSlots } from './storeys'
+import { QuestionTitle } from './questionWords'
 import { listSheet, rowState, type DisciplineSection, type Row, type Step1Model } from './model'
-import { DISCIPLINE_NAMES, NOT_RECEIVED_NAMES, OTHER_DISCIPLINE, OTHER_QUESTION, QUESTION_KIND_BY_CODE, REASON_SHORT, UNKNOWN_REASON } from './words'
+import { DISCIPLINE_NAMES, NOT_RECEIVED_NAMES, OTHER_DISCIPLINE, REASON_SHORT, UNKNOWN_REASON } from './words'
 
 export interface SheetListProps {
   model: Step1Model
@@ -473,7 +474,6 @@ function SheetRow({
   names: Readonly<Record<string, string>>
   slots: readonly string[]
 }) {
-  const { i18n } = useLingui()
   const f = useFormat()
   const first = row.sheets[0]
   const excluded = row.sheets.length > 0 && row.sheets.every((s) => s.decision === 'excluded')
@@ -493,7 +493,12 @@ function SheetRow({
       </span>
     )
   else if (row.kind === 'entry')
-    title = <span className="text-muted-foreground">{i18n._((q && QUESTION_KIND_BY_CODE[q.code]) || OTHER_QUESTION)}</span>
+    // The card's title, cut short, so the row and its card agree (ticket 164).
+    title = row.question ? (
+      <span className="min-w-0 truncate">
+        <QuestionTitle entry={row.question} names={names} />
+      </span>
+    ) : null
   else if (row.kind === 'copies')
     title = (
       <Trans>

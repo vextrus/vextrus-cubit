@@ -1914,6 +1914,10 @@ msgstr "↓ walks the list; Space opens a sheet; a Proposal counts toward nothin
 msgid "Read it anyway: its sheets join the list, marked held"
 msgstr "Read it anyway: its sheets join the list, marked held"
 
+#: src/takeoff/words.tsx
+msgid "A gap in the numbering"
+msgstr "A gap in the numbering"
+
 #: src/takeoff/storeys.tsx
 msgctxt "storey"
 msgid "Lift machine room roof"

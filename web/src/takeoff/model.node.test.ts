@@ -208,3 +208,23 @@ describe('kept open and withdrawn Questions (the review of 22, round 4, F4; the 
     expect(model.queue).toEqual([])
   })
 })
+
+describe('Questions holding no sheet (ticket 164: every one was worded as a held file)', () => {
+  it('makes a file’s row only for a held file; a numbering gap’s row names its two numbers, a drawing-list entry’s its number', () => {
+    const a = sheet('A-03', { discipline: 'architectural' })
+    const file = question('file_misread', { subject_id: 'f9' })
+    const gap = question('check', { code: 'engine.register_check.gap', discipline: 'architectural', params: { after: 'A-03', before: 'A-05', missing: 1 } })
+    const entry = question('check', { code: 'engine.register_check.not_found', params: { number: 'S-13' } })
+    const other = question('check', { code: 'engine.register_check.something_new' })
+    const model = step1Model(data([a], [file, gap, entry, other]))
+    const byId = (q: QuestionOut) => model.needsYou.find((r) => r.key === `q:${q.id}`)!
+    expect([file, gap, entry, other].map((q) => [byId(q).kind, byId(q).number, byId(q).numberTo])).toEqual([
+      ['file', null, null],
+      ['entry', 'A-03', 'A-05'],
+      ['entry', 'S-13', null],
+      ['entry', null, null],
+    ])
+    // Each is its own row, reachable by ↑ ↓.
+    expect(new Set(model.needsYou.map((r) => r.key)).size).toBe(4)
+  })
+})
