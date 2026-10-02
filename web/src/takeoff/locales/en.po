@@ -445,10 +445,6 @@ msgstr "other"
 msgid "Gas"
 msgstr "Gas"
 
-#: src/takeoff/words.tsx
-msgid "A Check against the drawing list"
-msgstr "A Check against the drawing list"
-
 #: src/takeoff/Bar.tsx
 msgid "Exclude with the reason typed"
 msgstr "Exclude with the reason typed"

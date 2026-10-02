@@ -11,7 +11,7 @@ import { MachineText } from '@/format/machine'
 import { DrawingText } from '@/ui'
 import { SheetName } from './acts'
 import type { ProposalOut } from './data'
-import type { QuestionEntry, Step1Model } from './model'
+import { gapOf, type QuestionEntry, type Step1Model } from './model'
 import { disciplineName } from './SheetList'
 import { useHasEnglish } from './useHasEnglish'
 import { OPTION_NAMES, OTHER_OPTION, OTHER_QUESTION, QUESTION_KINDS, QUESTION_KIND_BY_CODE, SHEET_KIND_NAMES } from './words'
@@ -155,6 +155,14 @@ export function Trace({ entry, context, onOpen }: { entry: QuestionEntry; contex
     return <Trans>Trace: the title block of {sheet} (the number field is empty)</Trans>
   }
   if (q.kind === 'check') {
+    const gap = gapOf(q)
+    if (gap) {
+      // No drawing list: the gap was read from the numbers in the title blocks either side of it.
+      const sides = [gap.after, gap.before].flatMap((n) => context.sheets.filter((p) => p.number === n && (!q.discipline || p.discipline === q.discipline)).slice(0, 1))
+      if (sides.length === 0) return null
+      const sheets = <Joined items={sides.map((h) => <SheetLink key={h.id} sheet={h} onOpen={onOpen} />)} />
+      return <Trans>Trace: the title block of {sheets}</Trans>
+    }
     if (typeof q.params.page === 'number') {
       const page = q.params.page
       return <Trans>Trace: page {page} of the Plot</Trans>

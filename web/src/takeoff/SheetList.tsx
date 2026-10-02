@@ -495,9 +495,16 @@ function SheetRow({
   else if (row.kind === 'entry')
     // The card's title, cut short, so the row and its card agree (ticket 164).
     title = row.question ? (
-      <span className="min-w-0 truncate">
-        <QuestionTitle entry={row.question} names={names} />
-      </span>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span tabIndex={-1} className="min-w-0 truncate">
+            <QuestionTitle entry={row.question} names={names} />
+          </span>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-sm">
+          <QuestionTitle entry={row.question} names={names} />
+        </TooltipContent>
+      </Tooltip>
     ) : null
   else if (row.kind === 'copies')
     title = (
@@ -549,6 +556,9 @@ function SheetRow({
           <span className="font-normal text-muted-foreground">
             <Trans>File</Trans>
           </span>
+        ) : row.kind === 'entry' ? (
+          // A Question with no sheet and no number: "none" is a sheet's missing number, so not here.
+          <span className="font-normal text-muted-foreground">—</span>
         ) : (
           <span className="font-normal text-question">
             <Trans>none</Trans>

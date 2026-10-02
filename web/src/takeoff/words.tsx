@@ -97,7 +97,7 @@ export const QUESTION_KINDS: Readonly<Record<string, MessageDescriptor>> = {
   conflict: msg`Two sheets, one number`,
   missing: msg`No number`,
   low_confidence: msg`Sheet kind unclear`,
-  check: msg`A Check against the drawing list`,
+  // No `check`: a Check is against the drawing list, the Plot or the numbering, so each code words its own (ticket 164).
 }
 
 export const OTHER_QUESTION = msg`A Question about the sheets`
