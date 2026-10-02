@@ -24,7 +24,8 @@ unless every id it names is found.
 **Step 1 is per Discipline** (s02 review Q6): each Discipline's sheets are counted on their own row,
 n (decided: confirmed or left out) of N; a sheet of no Discipline is never left out, and is counted
 on a row of its own, last (#102; how its number is compared is 21c's Question). A sheet the read
-proposed out (a cover, a stale layout; #162) is counted only once the QS confirms it in. N is the
+proposed out with no number (a cover, a stale layout; #162) is counted only once the QS confirms it
+in; one with a number is counted as any other (m0-screens §7 counts A-07, a 3D view). N is the
 drawing list's count where there is one; where a list read on a sheet and one the QS gave disagree,
 N is unknown (`total` None, shown "—") until 21c's Question is answered.
 
@@ -541,8 +542,8 @@ def _counted(row: Coverage) -> str:
 
 def progress(project_id: uuid.UUID) -> ProgressView:
     """Step 1's n / N per Discipline, in the sheet list's order (a sheet of no Discipline on its own
-    row, last), and the Market's expected Disciplines not yet received. A sheet proposed out is not
-    counted unless the QS confirmed it."""
+    row, last), and the Market's expected Disciplines not yet received. A sheet proposed out with no
+    number is not counted unless the QS confirmed it."""
     sheets = [s for s in _sheets(project_id) if _counted_sheet(s)]
     order: list[str | None] = []
     found: Counter[str | None] = Counter()
@@ -603,10 +604,14 @@ def progress(project_id: uuid.UUID) -> ProgressView:
     return ProgressView(rows, _not_received(project_id))
 
 
+def proposed_out(sheet: drawings.SheetView) -> bool:
+    """The read proposed the sheet out and it has no number (a cover, a stale layout; #162): it is
+    asked nothing, and Step 1 does not count it unless the QS confirms it in."""
+    return bool(sheet.proposed_exclusion) and not sheet.number
+
+
 def _counted_sheet(sheet: drawings.SheetView) -> bool:
-    """A sheet Step 1 counts: every one but those the read proposed out (a cover, a stale layout),
-    until the QS confirms one in."""
-    return not sheet.proposed_exclusion or sheet.decision == "confirmed"
+    return not proposed_out(sheet) or sheet.decision == "confirmed"
 
 
 def _not_received(project_id: uuid.UUID) -> list[str]:
