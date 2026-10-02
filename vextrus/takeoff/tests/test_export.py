@@ -214,3 +214,24 @@ def test_a_file_that_failed_after_its_first_reader_keeps_its_entity_counts(
     assert file["entity_counts"]
     assert file["stages"]["decoders_agree"]["state"] == "failed"
     assert file["stages"]["sheets"]["state"] == "skipped"
+
+
+@pytest.mark.django_db
+def test_a_files_sheets_are_exported_in_the_order_the_finder_found_them(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """As the harness lists them, whatever order the sheet list gives (21d: a Conflict's evidence
+    named its two sheets the other way round on a real set)."""
+    file_id = added(qs_project)
+    run_job(qs_project.member, file_id, monkeypatch)
+    with qs_project.member.acting():
+        sha256 = drawings.file(file_id).sha256
+        found = drawings.kept(file_id).steps[drawings.SHEETS]["sheets"]
+        located = {str(s.id): s.location for s in drawings.sheets(drawings.file(file_id).set_id)}
+    listed = drawings.sheets
+    monkeypatch.setattr(drawings, "sheets", lambda set_id: list(reversed(listed(set_id))))
+
+    [file] = exported(qs_project, {"KR-STR-R0.dwg": sha256})["files"]
+
+    in_found_order = [[float(v) for v in located[str(entry["id"])]["box"]] for entry in found]
+    assert [sheet["location"]["box"] for sheet in file["sheets"]] == in_found_order

@@ -385,6 +385,10 @@ def _reading(
         for name in ("sheets", "register", "views", "render_buffers"):
             reports[name] = StageReport(StageState.SKIPPED, error=f"the file is {state}")
     else:
+        # In the order the finder found them (the step's, by ordinal), as the harness lists them: a
+        # Conflict's evidence names its sheets in that order.
+        found_at = {str(entry["id"]): n for n, entry in enumerate(finder["sheets"])}
+        printed = sorted(printed, key=lambda sheet: found_at.get(str(sheet.id), len(found_at)))
         sheets = [_sheet(sheet, view.group) for sheet in printed]
         found["sheets"] = sheets
         found["views"] = [[_view(v) for v in drawings.views(sheet.id)] for sheet in printed]
