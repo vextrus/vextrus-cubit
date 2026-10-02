@@ -210,3 +210,30 @@ def test_a_later_drawings_read_never_lets_go_of_another_drawings_page_by_name_al
     with qs_project.member.acting():
         [s201] = [s for s in drawings.sheets(drawings.file(ids[a]).set_id) if s.number == "S-201"]
     assert (s201.plot.file_id, s201.plot.page) == (ids[plot], 2), s201.plot
+
+
+@pytest.mark.parametrize("order", ["pdf-a-b", "a-b-pdf", "a-pdf-b"])
+def test_a_page_matched_in_full_that_names_no_sheet_is_let_go_by_its_earlier_holder_in_every_order(
+    qs_project: QsProject,
+    engine_readers: None,  # noqa: F811
+    tmp_path: Path,
+    order: str,
+) -> None:
+    """157's re-check of round 2: A's S-201 took the PDF's one page by its text while only A was
+    listed; B, read later, adds a second S-201 drawing the same region, so the page names several
+    sheets its ink cannot tell apart. A kept the page, and the PDF's report counted it matched while
+    listing it as naming several; read with both DWGs first, neither held it."""
+    files = {
+        "KR-STR-A.dwg": _build(tmp_path, "a", [("S-201", T.REGION_A)]),
+        "KR-STR-B.dwg": _build(tmp_path, "b", [("S-201", T.REGION_A)]),
+        "KR-STR-PLOT.pdf": _one_page_plot(T.REGION_A, T._region_a(T.REGION_A[0])),
+    }
+    a, b, p = "KR-STR-A.dwg", "KR-STR-B.dwg", "KR-STR-PLOT.pdf"
+    names = {"pdf-a-b": [p, a, b], "a-b-pdf": [a, b, p], "a-pdf-b": [a, p, b]}[order]
+    ids = _read_in_order(qs_project, files, names)
+
+    with qs_project.member.acting():
+        listed = drawings.sheets(drawings.file(ids[a]).set_id)
+        plots = {("A" if s.file_id == ids[a] else "B"): s.plot.page for s in listed}
+        report = [(line["code"], line.get("params")) for line in drawings.report(ids[p]).pages]
+    assert plots == {"A": None, "B": None}, (plots, report)

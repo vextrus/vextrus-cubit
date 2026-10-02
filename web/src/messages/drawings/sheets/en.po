@@ -23,7 +23,7 @@ msgid "drawings.sheets.plot_no_number"
 msgstr "No Plot for this sheet: the sheet has no number, so no PDF page could be matched to it."
 
 msgid "drawings.sheets.plot_no_page"
-msgstr "No Plot for this sheet: no page of {plot_file} matched it. The report of {plot_file} lists each sheet it has no page for."
+msgstr "No Plot for this sheet: no page of {plot_file} matched it."
 
 msgid "drawings.sheets.plot_no_pdf"
 msgstr "No Plot for this sheet: no PDF has been added for {discipline}."
@@ -32,7 +32,7 @@ msgid "drawings.sheets.plot_no_pdf_any"
 msgstr "No Plot for this sheet: no PDF has been added to this Drawing Set."
 
 msgid "drawings.sheets.plot_not_matched"
-msgstr "No Plot for this sheet: {plot_file} was read before its pages were matched to sheets."
+msgstr "No Plot for this sheet: {plot_file} has been read, but its pages were not matched to the sheets. Tell Vextrus."
 
 msgid "drawings.sheets.plot_not_yet"
 msgstr "No Plot for this sheet yet: its PDF is still being read."

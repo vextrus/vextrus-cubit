@@ -201,8 +201,9 @@ def _release(
     given: set[uuid.UUID],
 ) -> set[uuid.UUID]:
     """One page, one sheet: a page matched in full here (with its geometry), that now names another
-    sheet surely, is let go by each sheet that held it before (a DWG read later carries the sheet the
-    page plots). Never on a page only named here: a ranking made without geometry is not surer than
+    sheet surely, or names none (several, which its ink cannot tell apart), is let go by each sheet
+    that held it before (a DWG read later carries the sheet the page plots). Never on a page only
+    named here: a ranking made without geometry is not surer than
     the one that gave the page. A sheet let go is kept as `PlotNone.NO_PAGE` naming that PDF (the
     PDF's report lists it, "has no page in this PDF"), unless this run's pages give it another
     (`_keep`). The sheets let go."""
@@ -217,10 +218,13 @@ def _release(
         if k not in full or pdf is None or not isinstance(number, int):
             continue
         named = by_candidate.get(id(m.sheet)) if m.sheet is not None else None
-        if named is None or surest.get((named.id, pdf.id)) != k:
-            continue  # the page names no sheet surely now: what held it keeps it
+        if named is not None and surest.get((named.id, pdf.id)) != k:
+            continue  # another page of this PDF names the sheet more surely: that page decides
+        # A page matched in full that names no sheet (several, or none) is let go by all that held
+        # it: kept, the Plot would hang on the order the files were read in (157's re-check).
+        owner = named.id if named is not None else None
         for held in holders.get((pdf.id, number), ()):
-            if held.id != named.id and held.id not in given:
+            if held.id != owner and held.id not in given:
                 drawings.record_plot(held.id, drawings.PlotNone.NO_PAGE, pdf_file_id=pdf.id)
                 released.add(held.id)
     return released
