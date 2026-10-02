@@ -1,0 +1,847 @@
+"""Ticket 21c's own tests beside its acceptance tests: the answer's refusals, a view left out on its
+own, and the walls of the acts it adds (on hand-built artefacts, as `acceptance/t21c` builds them)."""
+
+import uuid
+from collections.abc import Callable
+from pathlib import Path
+from typing import Any
+
+import pytest
+
+from vextrus.drawings.library import DISCIPLINES
+from vextrus.takeoff.tests.acceptance.t21c.step1_whole import (
+    KEEP_OPEN,
+    NOT_FOUND,
+    Sheet,
+    answer,
+    confirm,
+    coverage,
+    exclude,
+    jev_says,
+    keys,
+    open_questions,
+    proposals,
+    questions,
+    readers,
+    run_job,
+    step1,
+    the,
+    uploaded,
+)
+from vextrus.testing.auth import api_as
+from vextrus.testing.drawings import QsProject
+from vextrus.testing.jev import Offline
+from vextrus.testing.tenancy import Member
+
+pytestmark = pytest.mark.django_db
+
+NAME = "KR-STR-R0.dwg"
+DUPLICATE = [
+    Sheet("S-01", "PILE LAYOUT PLAN", ("PILE LAYOUT PLAN",)),
+    Sheet("S-02", "COLUMN SCHEDULE", ("COLUMN SCHEDULE",), rev="R1", date="14.09.2026"),
+    Sheet("S-02", "COLUMN SCHEDULE", ("COLUMN SCHEDULE",), rev="R0", date="02.08.2026"),
+]
+LOOSE = [Sheet("S-01", "PILE LAYOUT PLAN", ("PILE LAYOUT PLAN", "SECTION A-A"))]
+"""A pile plan and a section no step reads: one view unaccounted."""
+
+
+@pytest.fixture(autouse=True)
+def jev_sure(jev_offline: Offline) -> None:
+    jev_says(jev_offline, "0.97")
+
+
+def read(qs: QsProject, monkeypatch: pytest.MonkeyPatch, sheets: list[Sheet]) -> uuid.UUID:
+    file_id = uploaded(qs.member, qs.project_id, NAME)
+    run_job(qs.member, file_id, monkeypatch, readers({NAME: sheets}))
+    return file_id
+
+
+def test_a_question_answered_once_refuses_a_second_answer_and_keeps_the_first(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    read(qs_project, monkeypatch, DUPLICATE)
+    api = api_as(qs_project.member)
+    [q] = open_questions(api, qs_project.project_id, "conflict")
+    assert answer(api, qs_project.project_id, q["id"], "keep_latest").status_code == 200
+
+    again = answer(api, qs_project.project_id, q["id"], "keep_all")
+
+    assert (again.status_code, again.json()) == (
+        409,
+        {"code": "takeoff.proposals.answered_already", "params": {}},
+    )
+    [done] = [x for x in questions(api, qs_project.project_id) if x["id"] == q["id"]]
+    assert done["answer"]["option"] == "keep_latest"
+
+
+def test_keep_open_then_an_answer_settles_the_question(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    read(qs_project, monkeypatch, DUPLICATE)
+    api = api_as(qs_project.member)
+    [q] = open_questions(api, qs_project.project_id, "conflict")
+    assert answer(api, qs_project.project_id, q["id"], KEEP_OPEN).status_code == 200
+
+    response = answer(api, qs_project.project_id, q["id"], keys(q)[0])
+
+    assert response.status_code == 200, response.content
+    assert open_questions(api, qs_project.project_id, "conflict") == []
+
+
+def test_a_view_left_out_on_its_own_stays_out_when_its_sheet_is_confirmed_and_undo_brings_it_back(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    read(qs_project, monkeypatch, LOOSE)
+    api = api_as(qs_project.member)
+    [lone] = coverage(api, qs_project.project_id)["unaccounted_views"]
+
+    left_out = exclude(api, qs_project.project_id, [lone["id"]], "other", "part of the title block")
+    assert left_out.status_code == 200, left_out.content
+    confirm(api, qs_project.project_id, [p["id"] for p in proposals(api, qs_project.project_id)])
+
+    # (A title block, once the engine emits it as a view, is left out for information: not counted
+    # here.)
+    shown = coverage(api, qs_project.project_id)
+    assert (shown["unaccounted"], shown["by_reason"].get("other")) == (0, 1)
+    # The confirmation first, then the view's own exclusion: each undo takes back one act.
+    assert api.post(f"{step1(qs_project.project_id)}/undo", {}).status_code == 200
+    assert api.post(f"{step1(qs_project.project_id)}/undo", {}).status_code == 200
+    shown = coverage(api, qs_project.project_id)
+    assert (shown["unaccounted"], shown["by_reason"].get("other")) == (1, None)
+    assert [v["view_id"] for v in shown["unaccounted_views"]] == [lone["view_id"]]
+
+
+def test_a_typed_number_holding_a_drawing_code_is_refused_and_changes_nothing(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    read(qs_project, monkeypatch, [
+        Sheet("S-01", "PILE LAYOUT PLAN", ("PILE LAYOUT PLAN",)),
+        Sheet(None, "STAIR DETAILS", ("STAIR SECTION",)),
+    ])  # fmt: skip
+    api = api_as(qs_project.member)
+    [q] = open_questions(api, qs_project.project_id, "missing")
+
+    raw = answer(api, qs_project.project_id, q["id"], "type_number", text="S-%%C02")
+    empty = answer(api, qs_project.project_id, q["id"], "type_number")
+
+    assert (raw.status_code, raw.json()["code"]) == (400, "drawings.sheets.number_unreadable")
+    assert (empty.status_code, empty.json()["code"]) == (400, "takeoff.proposals.number_needed")
+    assert the(proposals(api, qs_project.project_id), None)["sheet_id"] == q["subject_id"]
+    assert [x["id"] for x in open_questions(api, qs_project.project_id, "missing")] == [q["id"]]
+
+
+def test_another_developers_view_cannot_be_left_out_nor_its_question_answered(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, sign_in: Callable[..., Member]
+) -> None:
+    read(qs_project, monkeypatch, LOOSE)
+    mine = api_as(qs_project.member)
+    [lone] = coverage(mine, qs_project.project_id)["unaccounted_views"]
+    other = sign_in(role="qs")
+    with other.acting():
+        from vextrus.projects import services as projects
+
+        theirs = projects.create(code=f"T-{uuid.uuid4().hex[:6]}", name="Their project").id
+    api = api_as(other)
+
+    refused = exclude(api, theirs, [lone["id"]], "other", "not theirs")
+    across = exclude(api, qs_project.project_id, [lone["id"]], "other", "not theirs")
+
+    assert (refused.status_code, refused.json()) == (404, NOT_FOUND)
+    assert (across.status_code, across.json()) == (404, NOT_FOUND)
+    assert coverage(mine, qs_project.project_id)["unaccounted"] == 1
+
+
+def test_undoing_a_sheets_confirmation_keeps_a_view_the_qs_left_out_on_its_own(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The refuter's case (score 60): undoing act 2 (the sheet confirmed) put back act 1 (the view
+    left out on its own), leaving the view unaccounted for good."""
+    read(qs_project, monkeypatch, LOOSE)
+    api = api_as(qs_project.member)
+    [lone] = coverage(api, qs_project.project_id)["unaccounted_views"]
+    exclude(api, qs_project.project_id, [lone["id"]], "other", "part of the title block")
+    confirm(api, qs_project.project_id, [p["id"] for p in proposals(api, qs_project.project_id)])
+
+    assert api.post(f"{step1(qs_project.project_id)}/undo", {}).status_code == 200
+
+    shown = coverage(api, qs_project.project_id)
+    assert (shown["unaccounted"], shown["by_reason"].get("other"), shown["by_step"]) == (
+        0,
+        1,
+        {"foundations": 1},
+    )
+    confirm(api, qs_project.project_id, [p["id"] for p in proposals(api, qs_project.project_id)])
+    shown = coverage(api, qs_project.project_id)
+    assert (shown["unaccounted"], shown["by_reason"].get("other"), shown["assigned"]) == (0, 1, 1)
+
+
+def test_undoing_an_assigned_views_own_exclusion_puts_it_back_under_its_confirmed_sheet(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    read(qs_project, monkeypatch, LOOSE)
+    api = api_as(qs_project.member)
+    confirm(api, qs_project.project_id, [p["id"] for p in proposals(api, qs_project.project_id)])
+    with qs_project.member.acting():
+        from vextrus.takeoff.models import Proposal
+
+        [assigned] = [
+            str(p.id)
+            for p in Proposal.objects.filter(project_id=qs_project.project_id, subject="view")
+            if p.values.get("steps")
+        ]
+    left_out = exclude(api, qs_project.project_id, [assigned], "duplicate")
+    assert left_out.status_code == 200, left_out.content
+
+    assert api.post(f"{step1(qs_project.project_id)}/undo", {}).status_code == 200
+
+    shown = coverage(api, qs_project.project_id)
+    assert (shown["assigned"], shown["proposed"], shown["by_reason"].get("duplicate")) == (1, 0, None)
+
+
+@pytest.mark.parametrize("typed", ["S-\n02", "S-\t02", "S-02‮", "S-​02"])
+def test_a_typed_number_holding_a_control_or_format_character_is_refused(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, typed: str
+) -> None:
+    """The refuter's case (score 35): a line break or a bidi override was kept in the number."""
+    read(qs_project, monkeypatch, [
+        Sheet("S-01", "PILE LAYOUT PLAN", ("PILE LAYOUT PLAN",)),
+        Sheet(None, "STAIR DETAILS", ("STAIR SECTION",)),
+    ])  # fmt: skip
+    api = api_as(qs_project.member)
+    [q] = open_questions(api, qs_project.project_id, "missing")
+
+    response = answer(api, qs_project.project_id, q["id"], "type_number", text=typed)
+
+    assert (response.status_code, response.json()) == (
+        400,
+        {"code": "drawings.sheets.number_unreadable", "params": {}},
+    )
+    assert [p["number"] for p in proposals(api, qs_project.project_id)] == ["S-01", None]
+
+
+def test_an_answer_keeps_the_qs_words_only_where_the_option_takes_them(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    read(qs_project, monkeypatch, DUPLICATE)
+    api = api_as(qs_project.member)
+    [q] = open_questions(api, qs_project.project_id, "conflict")
+
+    response = answer(api, qs_project.project_id, q["id"], KEEP_OPEN, text="%%C\x07" + "x" * 100_000)
+
+    assert response.status_code == 200, response.content
+    assert "text" not in response.json()["answer"]
+
+
+def test_a_sheet_with_no_number_is_named_by_its_title_in_its_questions_words(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, jev_offline: Offline
+) -> None:
+    """The words gate's must M2: a bare title stood in for a missing number ("Which Discipline is
+    COLUMN LAYOUT PLAN?"); a sheet is named by `named` (number, title or none)."""
+    jev_says(jev_offline, "0.34")
+    file_id = uploaded(qs_project.member, qs_project.project_id, "GENERAL NOTES.dwg")
+    run_job(qs_project.member, file_id, monkeypatch, readers({"GENERAL NOTES.dwg": [
+        Sheet(None, "GENERAL NOTES", ("GENERAL NOTES",)),
+    ]}))  # fmt: skip
+    asked = open_questions(api_as(qs_project.member), qs_project.project_id)
+
+    by_kind = {q["kind"]: q["params"] for q in asked}
+
+    assert by_kind["missing_discipline"] == {"sheet": "GENERAL NOTES", "named": "title"}
+
+
+def test_a_withdrawn_question_refuses_an_answer_as_no_longer_asked(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The words gate's must M1: a lists Question withdrawn by a newer list is refused by the code
+    whose words say "already answered or no longer asked"."""
+    rows = (("S-01", "GENERAL NOTES"), ("S-02", "PILE LAYOUT PLAN"), ("S-03", "COLUMN SCHEDULE"))
+    read(qs_project, monkeypatch, [
+        Sheet("S-01", "GENERAL NOTES", ("GENERAL NOTES",), register=rows),
+        Sheet("S-02", "PILE LAYOUT PLAN", ("PILE LAYOUT PLAN",)),
+        Sheet("S-03", "COLUMN SCHEDULE", ("COLUMN SCHEDULE",)),
+    ])  # fmt: skip
+    api = api_as(qs_project.member)
+    path = f"{step1(qs_project.project_id)}/drawing-list"
+    api.post(path, {"discipline": "structural", "text": "S-01 to S-04"})
+    [first] = open_questions(api, qs_project.project_id, "conflict")
+    assert first["params"] == {"sheet": "S-01", "named": "number", "source": "typed"}
+    api.post(path, {"discipline": "structural", "text": "S-01 to S-05"})
+
+    late = answer(api, qs_project.project_id, first["id"], "use_read")
+
+    assert (late.status_code, late.json()) == (
+        409,
+        {"code": "takeoff.proposals.answered_already", "params": {}},
+    )
+
+
+def test_the_questions_queue_by_sheets_held_then_conflicts_missing_items_and_checks(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """m0-screens §5's queue: the held file first, then the Questions holding the most sheets, then
+    conflicts, missing items and low-confidence ones, then the rest as raised (here the check on a
+    listed number in no file, raised before the missing number's Question)."""
+    held = uploaded(qs_project.member, qs_project.project_id, "KR-STR-old.dwg")
+    run_job(
+        qs_project.member,
+        held,
+        monkeypatch,
+        readers({"KR-STR-old.dwg": DUPLICATE}, held=["KR-STR-old.dwg"]),
+    )
+    read(qs_project, monkeypatch, [
+        Sheet("S-01", "GENERAL NOTES", ("GENERAL NOTES",), register=(
+            ("S-01", "GENERAL NOTES"), ("S-02", "COLUMN SCHEDULE"), ("S-03", "STAIR DETAILS"),
+            ("S-04", "ROOF BEAM LAYOUT PLAN"),
+        )),
+        Sheet("S-02", "COLUMN SCHEDULE", ("COLUMN SCHEDULE",), rev="R1", date="14.09.2026"),
+        Sheet("S-02", "COLUMN SCHEDULE", ("COLUMN SCHEDULE",), rev="R0", date="02.08.2026"),
+        Sheet(None, "STAIR DETAILS", ("STAIR SECTION",)),
+    ])  # fmt: skip
+
+    asked = open_questions(api_as(qs_project.member), qs_project.project_id)
+
+    assert [q["kind"] for q in asked][:3] == ["file_misread", "conflict", "missing"]
+    assert asked[-1]["kind"] == "check"
+
+
+# Fix round 1 -------------------------------------------------------------------------------------
+
+UNNUMBERED = [
+    Sheet("S-01", "PILE LAYOUT PLAN", ("PILE LAYOUT PLAN",)),
+    Sheet(None, "STAIR DETAILS", ("STAIR SECTION",)),
+]
+
+
+def test_a_typed_number_another_sheet_has_raises_a_same_number_conflict(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review finding 1 (75): typing S-01 on the unnumbered sheet left two S-01s and no Question."""
+    read(qs_project, monkeypatch, UNNUMBERED)
+    api = api_as(qs_project.member)
+    [q] = open_questions(api, qs_project.project_id, "missing")
+
+    assert answer(api, qs_project.project_id, q["id"], "type_number", text="S-01").status_code == 200
+
+    copies = [p["id"] for p in proposals(api, qs_project.project_id) if p["number"] == "S-01"]
+    [conflict] = open_questions(api, qs_project.project_id, "conflict")
+    assert conflict["code"] == "engine.conflicts.same_number"
+    assert sorted(conflict["proposals"]) == sorted(copies)
+
+
+def test_a_sheet_held_by_an_open_missing_question_cannot_be_confirmed_until_it_is_answered(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review finding 3 (50): confirming first left the Question unanswerable (409)."""
+    read(qs_project, monkeypatch, UNNUMBERED)
+    api = api_as(qs_project.member)
+    listed = proposals(api, qs_project.project_id)
+    unnumbered = the(listed, None)["id"]
+    [asked] = open_questions(api, qs_project.project_id, "missing")
+
+    single = confirm(api, qs_project.project_id, [unnumbered])
+    bulk = confirm(api, qs_project.project_id, [p["id"] for p in listed])
+
+    for refused in (single, bulk):
+        assert (refused.status_code, refused.json()) == (
+            409,
+            {
+                "code": "takeoff.step1.question_first",
+                "params": {
+                    "count": 1,
+                    "asks": "number",
+                    "sheet": "STAIR DETAILS",
+                    "named": "title",
+                    "question": asked["id"],
+                },
+            },
+        )
+    assert all(p["decision"] is None for p in proposals(api, qs_project.project_id))
+    [q] = open_questions(api, qs_project.project_id, "missing")
+    assert answer(api, qs_project.project_id, q["id"], "no_number").status_code == 200
+    assert confirm(api, qs_project.project_id, [unnumbered]).status_code == 200
+
+
+def test_once_the_lists_question_is_answered_the_sheets_agree_against_the_chosen_list(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review finding 2, the orchestrator's ruling: answered lists agree against the list chosen."""
+    rows = (("S-01", "GENERAL NOTES"), ("S-02", "PILE LAYOUT PLAN"), ("S-03", "COLUMN SCHEDULE"))
+    read(qs_project, monkeypatch, [
+        Sheet("S-01", "GENERAL NOTES", ("GENERAL NOTES",), register=rows),
+        Sheet("S-02", "PILE LAYOUT PLAN", ("PILE LAYOUT PLAN",)),
+        Sheet("S-03", "COLUMN SCHEDULE", ("COLUMN SCHEDULE",)),
+    ])  # fmt: skip
+    api = api_as(qs_project.member)
+    path = f"{step1(qs_project.project_id)}/drawing-list"
+    # A typed list shorter than the one read, so the list the answer chose is told from the other.
+    assert api.post(path, {"discipline": "structural", "text": "S-01 to S-02"}).status_code == 200
+    assert not any(p["agrees"] for p in proposals(api, qs_project.project_id))
+    [q] = open_questions(api, qs_project.project_id, "conflict")
+
+    assert answer(api, qs_project.project_id, q["id"], "use_read").status_code == 200
+
+    assert [p["agrees"] for p in proposals(api, qs_project.project_id)] == [True, True, True]
+
+
+def test_the_boundary_storey_question_names_the_storey_where_the_ranges_meet(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The words gate's M2: "... include the 1st storey? The range on S-08 also starts at the 1st.\""""
+    read(qs_project, monkeypatch, [
+        Sheet("S-07", "COLUMN LAYOUT PLAN BASEMENT TO 1ST FLOOR",
+              ("COLUMN LAYOUT PLAN BASEMENT TO 1ST FLOOR",)),
+        Sheet("S-08", "COLUMN LAYOUT PLAN 1ST TO 9TH FLOOR", ("COLUMN LAYOUT PLAN 1ST TO 9TH FLOOR",)),
+    ])  # fmt: skip
+    [q] = open_questions(api_as(qs_project.member), qs_project.project_id, "convention")
+
+    params = q["params"]
+    assert (params["level"], params["number"], params["next_sheet"]) == ("floor", 1, "S-08")
+
+
+def test_the_bangla_sections_header_counts_the_same_texts_as_its_sheet_links(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The words gate's M3: on a read (not the seed's lines) the header was missing."""
+    file_id = read(qs_project, monkeypatch, [
+        Sheet("S-01", "PILE LAYOUT PLAN", ("PILE LAYOUT PLAN",)),
+        Sheet("S-02", "GROUND FLOOR PLAN", ("GROUND FLOOR BEAM LAYOUT PLAN",), bangla=2),
+        Sheet("S-03", "COLUMN SCHEDULE", ("COLUMN SCHEDULE",), bangla=1),
+    ])  # fmt: skip
+    path = f"/api/projects/{qs_project.project_id}/drawings/files/{file_id}/report"
+    report = api_as(qs_project.member).get(path).json()
+
+    [header] = report["bangla"]
+    assert header["code"] == "engine.bangla_ansi.found"
+    assert header["params"]["texts"] == sum(s["texts"] for s in report["bangla_sheets"]) == 3
+    assert header["params"]["sheets"] == len(report["bangla_sheets"]) == 2
+
+
+def test_the_storeys_a_boundary_question_names_are_words_never_keys() -> None:
+    """The words gate's round-1 must 4: "the pile cap storey" printed a key."""
+    from vextrus.takeoff.services.read_propose.proposals import storey_named
+
+    assert storey_named("floor_1") == {"level": "floor", "number": 1, "storey": "floor_1"}
+    assert storey_named("basement_2")["level"] == "basement"
+    assert storey_named("basement_2")["number"] == 2
+    assert storey_named("roof")["level"] == "roof"
+    assert storey_named("pile_cap")["level"] == "pile_cap"
+    assert storey_named("a_storey_13_does_not_have")["level"] == "other"
+
+
+def test_a_held_file_read_anyway_that_found_no_sheet_can_be_marked_for_vextrus(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The words gate's round-1 must 1: its report says to mark it; its row stays held."""
+    held = uploaded(qs_project.member, qs_project.project_id, "KR-STR-old.dwg")
+    use = readers({"KR-STR-old.dwg": []}, held=["KR-STR-old.dwg"])
+    run_job(qs_project.member, held, monkeypatch, use)
+    api = api_as(qs_project.member)
+    [q] = open_questions(api, qs_project.project_id, "file_misread")
+    assert answer(api, qs_project.project_id, q["id"], "read_anyway").status_code == 200
+    run_job(qs_project.member, held, monkeypatch, use)
+
+    marked = api.post(f"/api/projects/{qs_project.project_id}/drawings/files/{held}/mark-for-vextrus")
+
+    assert marked.status_code == 200, marked.content
+    assert marked.json()["marked_for_vextrus"] is True
+
+
+# Fix round 2 -------------------------------------------------------------------------------------
+
+
+def test_answering_the_kind_of_a_sheet_whose_number_is_asked_keeps_the_kind_until_it_is_confirmed(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, jev_offline: Offline
+) -> None:
+    """Review round 2, finding 2 (50): the kind's answer was refused "confirm again" while the
+    number's Question held the sheet; now the kind is kept and the sheet confirms once numbered."""
+    jev_says(jev_offline, "0.34")
+    read(qs_project, monkeypatch, UNNUMBERED)
+    api = api_as(qs_project.member)
+    unnumbered = the(proposals(api, qs_project.project_id), None)
+    [kind_q] = [
+        q
+        for q in open_questions(api, qs_project.project_id, "low_confidence")
+        if q["proposals"] == [unnumbered["id"]]
+    ]
+    chosen = keys(kind_q)[1]
+
+    response = answer(api, qs_project.project_id, kind_q["id"], chosen)
+
+    assert response.status_code == 200, response.content
+    shown = the(proposals(api, qs_project.project_id), None)
+    assert (shown["kind"], shown["decision"]) == (chosen, None)
+    [number_q] = open_questions(api, qs_project.project_id, "missing")
+    assert answer(api, qs_project.project_id, number_q["id"], "no_number").status_code == 200
+    assert confirm(api, qs_project.project_id, [unnumbered["id"]]).status_code == 200
+    assert the(proposals(api, qs_project.project_id), None)["confirmed_kind"] == chosen
+
+
+def test_leaving_out_a_sheet_withdraws_its_discipline_question_and_undo_asks_it_again(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review round 2, finding 3 (50): an excluded sheet's missing_discipline Question could only be
+    answered 409 decided_already."""
+    file_id = uploaded(qs_project.member, qs_project.project_id, "GENERAL NOTES.dwg")
+    run_job(qs_project.member, file_id, monkeypatch, readers({"GENERAL NOTES.dwg": [
+        Sheet("N-01", "GENERAL NOTES", ("GENERAL NOTES",)),
+    ]}))  # fmt: skip
+    api = api_as(qs_project.member)
+    [q] = open_questions(api, qs_project.project_id, "missing_discipline")
+    sheet = the(proposals(api, qs_project.project_id), "N-01")
+
+    left_out = exclude(api, qs_project.project_id, [sheet["id"]], "for_information")
+
+    assert left_out.status_code == 200, left_out.content
+    assert open_questions(api, qs_project.project_id, "missing_discipline") == []
+    [gone] = [x for x in questions(api, qs_project.project_id) if x["id"] == q["id"]]
+    assert gone["status"] == "withdrawn"
+    assert api.post(f"{step1(qs_project.project_id)}/undo", {}).status_code == 200
+    assert [x["id"] for x in open_questions(api, qs_project.project_id, "missing_discipline")] == [
+        q["id"]
+    ]
+
+
+def test_every_storey_13_reads_is_named_by_the_boundary_questions_words() -> None:
+    """The words gate's pass-2 must M4: plinth, foundation, piles, stair room roof, lift machine room,
+    typical and top fell back to "its top storey"; `other` is left only for a storey 13 does not have."""
+    import json
+    import re
+
+    from engine.recognise.sheets import DEFAULT_CONVENTIONS
+    from vextrus.takeoff.services.read_propose.proposals import storey_named
+
+    words = json.loads(DEFAULT_CONVENTIONS.read_text(encoding="utf-8"))["storey_words"]
+    keys = {w["storey"] for w in words} | {"floor_1", "basement_1", "basement_2"}
+    catalogue = (
+        Path(__file__).resolve().parents[3] / "web/src/messages/takeoff/proposals/en.po"
+    ).read_text(encoding="utf-8")
+    [line] = [
+        line for line in catalogue.split("\n\n") if 'msgid "takeoff.proposals.boundary_storey"' in line
+    ]
+
+    for key in sorted(keys - {"not_stated"}):
+        level = storey_named(key)["level"]
+        assert level != "other", key
+        assert len(re.findall(rf"\b{level} \{{", line)) == 2, (key, level)
+
+
+# Round 3 -----------------------------------------------------------------------------------------
+
+
+def _discipline_less(qs: QsProject, monkeypatch: pytest.MonkeyPatch) -> tuple[str, str]:
+    file_id = uploaded(qs.member, qs.project_id, "GENERAL NOTES.dwg")
+    run_job(qs.member, file_id, monkeypatch, readers({"GENERAL NOTES.dwg": [
+        Sheet("N-01", "GENERAL NOTES", ("GENERAL NOTES",)),
+    ]}))  # fmt: skip
+    api = api_as(qs.member)
+    [q] = open_questions(api, qs.project_id, "missing_discipline")
+    return q["id"], the(proposals(api, qs.project_id), "N-01")["id"]
+
+
+def test_a_sheet_left_out_then_confirmed_back_in_is_refused_until_its_discipline_is_answered(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Round 3 (75): exclude withdrew the Discipline Question, and confirming back in then confirmed a
+    sheet of no Discipline for good (a dead end)."""
+    question_id, sheet_id = _discipline_less(qs_project, monkeypatch)
+    api = api_as(qs_project.member)
+    assert exclude(api, qs_project.project_id, [sheet_id], "for_information").status_code == 200
+
+    back_in = confirm(api, qs_project.project_id, [sheet_id])
+
+    assert (back_in.status_code, back_in.json()["code"]) == (409, "takeoff.step1.question_first")
+    assert back_in.json()["params"]["asks"] == "discipline"
+    # The Question the exclusion withdrew is answered, and the sheet then comes back in.
+    assert answer(api, qs_project.project_id, question_id, "structural").status_code == 200
+    assert confirm(api, qs_project.project_id, [sheet_id]).status_code == 200
+    shown = the(proposals(api, qs_project.project_id), "N-01")
+    assert (shown["discipline"], shown["decision"]) == ("structural", "confirmed")
+
+
+def test_answering_the_kind_of_a_left_out_unnumbered_sheet_does_not_confirm_it(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, jev_offline: Offline
+) -> None:
+    """Round 3, the second route: the kind's answer confirmed a left-out sheet whose number was never
+    given."""
+    jev_says(jev_offline, "0.34")
+    read(qs_project, monkeypatch, UNNUMBERED)
+    api = api_as(qs_project.member)
+    unnumbered = the(proposals(api, qs_project.project_id), None)
+    assert exclude(api, qs_project.project_id, [unnumbered["id"]], "blank").status_code == 200
+    [kind_q] = [
+        q
+        for q in open_questions(api, qs_project.project_id, "low_confidence")
+        if q["proposals"] == [unnumbered["id"]]
+    ]
+
+    response = answer(api, qs_project.project_id, kind_q["id"], keys(kind_q)[0])
+
+    assert response.status_code == 200, response.content
+    assert the(proposals(api, qs_project.project_id), None)["decision"] == "excluded"
+
+
+# Round 4 -----------------------------------------------------------------------------------------
+
+
+def _blocked(qs: QsProject, monkeypatch: pytest.MonkeyPatch, kind: str) -> tuple[str, str, str]:
+    """A sheet a `missing` (no number) or `missing_discipline` (no Discipline) Question holds: the
+    Question's id, the sheet's Proposal's id and the sheet's number as the list shows it."""
+    if kind == "missing":
+        read(qs, monkeypatch, UNNUMBERED)
+        number = None
+    else:
+        _discipline_less(qs, monkeypatch)
+        number = "N-01"
+    api = api_as(qs.member)
+    [q] = open_questions(api, qs.project_id, kind)
+    return q["id"], the(proposals(api, qs.project_id), number)["id"], number or ""
+
+
+def _question(api: Any, project_id: uuid.UUID, question_id: str) -> dict[str, Any]:
+    [found] = [q for q in questions(api, project_id) if q["id"] == question_id]
+    return found
+
+
+@pytest.mark.parametrize("kind", ["missing", "missing_discipline"])
+def test_keep_open_on_a_question_its_exclusion_withdrew_leaves_its_sheet_held_and_undo_reopens_it(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, kind: str
+) -> None:
+    """Round 4, F1 (75): "keep open" overwrote the withdrawal, so "Confirm back in" then confirmed a
+    sheet of no number (or no Discipline) for good."""
+    question_id, sheet_id, _number = _blocked(qs_project, monkeypatch, kind)
+    api = api_as(qs_project.member)
+    left_out = exclude(api, qs_project.project_id, [sheet_id], "for_information")
+    assert left_out.status_code == 200, left_out.content
+    assert answer(api, qs_project.project_id, question_id, KEEP_OPEN).status_code == 200
+
+    back_in = confirm(api, qs_project.project_id, [sheet_id])
+
+    assert back_in.status_code == 409, back_in.content
+    assert back_in.json()["code"] == "takeoff.step1.question_first"
+    assert back_in.json()["params"]["question"] == question_id
+    shown = _question(api, qs_project.project_id, question_id)
+    assert (shown["status"], shown["withdrawn_by"], shown["blocking"]) == (
+        "withdrawn",
+        left_out.json()["confirmation_id"],
+        True,
+    )
+    assert api.post(f"{step1(qs_project.project_id)}/undo", {}).status_code == 200
+    shown = _question(api, qs_project.project_id, question_id)
+    assert (shown["status"], shown["withdrawn_by"], shown["blocking"]) == ("open", None, True)
+    assert shown["answer"]["option"] == KEEP_OPEN  # the "keep open" given meanwhile stays
+
+
+def test_a_kind_answered_while_the_sheet_is_left_out_is_applied_when_it_comes_back_in(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, jev_offline: Offline
+) -> None:
+    """Round 4, F2 (50): the kind's answer was kept on the Question alone and lost on confirm."""
+    jev_says(jev_offline, "0.34")
+    read(qs_project, monkeypatch, UNNUMBERED)
+    api = api_as(qs_project.member)
+    unnumbered = the(proposals(api, qs_project.project_id), None)
+    assert exclude(api, qs_project.project_id, [unnumbered["id"]], "blank").status_code == 200
+    [kind_q] = [
+        q
+        for q in open_questions(api, qs_project.project_id, "low_confidence")
+        if q["proposals"] == [unnumbered["id"]]
+    ]
+    chosen = keys(kind_q)[1]
+    assert answer(api, qs_project.project_id, kind_q["id"], chosen).status_code == 200
+    [number_q] = [q for q in questions(api, qs_project.project_id) if q["kind"] == "missing"]
+    assert answer(api, qs_project.project_id, number_q["id"], "type_number", "S-07").status_code == 200
+
+    back_in = confirm(api, qs_project.project_id, [unnumbered["id"]])
+
+    assert back_in.status_code == 200, back_in.content
+    shown = the(proposals(api, qs_project.project_id), "S-07")
+    assert (shown["decision"], shown["confirmed_kind"]) == ("confirmed", chosen)
+
+
+def test_every_question_a_refusal_names_is_one_the_questions_list_returns(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Round 4, F3 (50): the 409 named a Question the screen never showed (22 lists only open and
+    kept-open ones): the list returns it, `withdrawn`, with what withdrew it and that it holds its
+    sheet."""
+    question_id, sheet_id, _number = _blocked(qs_project, monkeypatch, "missing_discipline")
+    api = api_as(qs_project.member)
+    left_out = exclude(api, qs_project.project_id, [sheet_id], "for_information")
+
+    refused = confirm(api, qs_project.project_id, [sheet_id])
+
+    named = refused.json()["params"]["question"]
+    shown = _question(api, qs_project.project_id, named)
+    assert named == question_id
+    assert (shown["status"], shown["withdrawn_by"], shown["blocking"]) == (
+        "withdrawn",
+        left_out.json()["confirmation_id"],
+        True,
+    )
+
+
+# The committed check for the class (round 4; rounds 2, 3 and 4 found it): no path confirms a sheet
+# back in while the Question that blocks it is unresolved. Every answer each withdrawable Question
+# offers (a `missing` or `missing_discipline` Question: those an exclusion withdraws), given before
+# or after the exclusion, then every route back in (the single act, the bulk act, the kind's answer).
+
+WITHDRAWABLE: dict[str, list[str]] = {
+    "missing": ["no_number", "type_number", KEEP_OPEN],
+    "missing_discipline": [
+        *dict.fromkeys(row.key for rows in DISCIPLINES.values() for row in rows),
+        KEEP_OPEN,
+    ],
+}
+ROUTES = ("single", "bulk", "kind_answer")
+
+
+@pytest.mark.parametrize("route", ROUTES)
+@pytest.mark.parametrize("when", ["after_exclusion", "before_exclusion"])
+@pytest.mark.parametrize(
+    ("kind", "option"),
+    [(kind, option) for kind, options in WITHDRAWABLE.items() for option in options],
+)
+def test_no_route_confirms_a_left_out_sheet_back_in_while_its_blocking_question_is_unresolved(
+    qs_project: QsProject,
+    monkeypatch: pytest.MonkeyPatch,
+    jev_offline: Offline,
+    kind: str,
+    option: str,
+    when: str,
+    route: str,
+) -> None:
+    jev_says(jev_offline, "0.34")
+    question_id, sheet_id, _number = _blocked(qs_project, monkeypatch, kind)
+    api = api_as(qs_project.member)
+    assert keys(_question(api, qs_project.project_id, question_id)) == WITHDRAWABLE[kind]
+    text = "S-07" if option == "type_number" else ""
+    if when == "before_exclusion":
+        assert answer(api, qs_project.project_id, question_id, option, text).status_code == 200
+    assert exclude(api, qs_project.project_id, [sheet_id], "for_information").status_code == 200
+    if when == "after_exclusion":
+        assert answer(api, qs_project.project_id, question_id, option, text).status_code == 200
+    held_by = [
+        q
+        for q in questions(api, qs_project.project_id)
+        if q["kind"] == "low_confidence" and q["proposals"] == [sheet_id]
+    ]
+
+    if route == "single":
+        back_in = confirm(api, qs_project.project_id, [sheet_id])
+    elif route == "bulk":
+        back_in = confirm(
+            api, qs_project.project_id, [p["id"] for p in proposals(api, qs_project.project_id)]
+        )
+    else:
+        # The kind's answer confirms the sheets it holds; a sheet with no kind Question has no such
+        # route (its Discipline unknown, it offers no kinds): then the single act stands in.
+        if held_by:
+            [kind_q] = held_by
+            back_in = answer(api, qs_project.project_id, kind_q["id"], keys(kind_q)[0])
+        else:
+            back_in = confirm(api, qs_project.project_id, [sheet_id])
+
+    sheet = next(p for p in proposals(api, qs_project.project_id) if p["id"] == sheet_id)
+    shown = _question(api, qs_project.project_id, question_id)
+    if option == KEEP_OPEN:
+        # Unresolved: never confirmed, and the refusal (if the route refuses) names the Question.
+        assert sheet["decision"] == "excluded", (sheet, back_in.content)
+        assert shown["blocking"] is True
+        if back_in.status_code != 200:  # the kind's answer is kept (200); the acts refuse
+            assert back_in.status_code == 409, back_in.content
+            assert back_in.json()["code"] == "takeoff.step1.question_first"
+            assert back_in.json()["params"]["question"] == question_id
+        else:
+            assert route == "kind_answer"
+            assert held_by
+    else:
+        # Resolved: the sheet comes back in, with its number or Discipline as answered.
+        assert back_in.status_code == 200, back_in.content
+        assert (shown["status"], shown["blocking"]) == ("answered", False)
+        if route != "kind_answer" or not held_by:
+            assert sheet["decision"] == "confirmed", sheet
+        if kind == "missing_discipline":
+            assert sheet["discipline"] == option
+        elif option == "type_number":
+            assert sheet["number"] == "S-07"
+
+
+def _read_anyway_stopped_after_its_sheets(qs: QsProject, monkeypatch: pytest.MonkeyPatch) -> Any:
+    """A held file of an unnumbered sheet, read anyway, its read job stopped once its sheets are kept
+    and before Step 1 proposes them (the refuter's window); the file's readers."""
+    from procrastinate.job_context import AbortReason
+
+    from vextrus.platform.services import jobs
+    from vextrus.takeoff.services.read_propose import sheets as read_sheets
+
+    use = readers({NAME: UNNUMBERED}, held=[NAME])
+    file_id = uploaded(qs.member, qs.project_id, NAME)
+    run_job(qs.member, file_id, monkeypatch, use)
+    api = api_as(qs.member)
+    [held_q] = open_questions(api, qs.project_id, "file_misread")
+    assert answer(api, qs.project_id, held_q["id"], "read_anyway").status_code == 200
+    kept = {"sheets": False}
+    original = read_sheets.read
+
+    def reading(*args: Any, **kwargs: Any) -> Any:
+        found = original(*args, **kwargs)
+        kept["sheets"] = True
+        return found
+
+    monkeypatch.setattr(read_sheets, "read", reading)
+    with pytest.raises(jobs.Stopped):
+        run_job(
+            qs.member,
+            file_id,
+            monkeypatch,
+            use,
+            abort_reason=lambda: AbortReason.SHUTDOWN if kept["sheets"] else None,
+        )
+    monkeypatch.setattr(read_sheets, "read", original)
+    return lambda: run_job(qs.member, file_id, monkeypatch, use)
+
+
+def test_a_read_anyway_sheet_is_not_decided_before_its_read_asks_its_questions(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Round 4's refuter (55): a held file read anyway lists its sheets before Step 1 asks their
+    number, so an unnumbered sheet was confirmed with no Question to hold it, for good."""
+    read_on = _read_anyway_stopped_after_its_sheets(qs_project, monkeypatch)
+    api = api_as(qs_project.member)
+    unnumbered = the(proposals(api, qs_project.project_id), None)
+    assert open_questions(api, qs_project.project_id, "missing") == []
+
+    early = confirm(api, qs_project.project_id, [unnumbered["sheet_id"]])
+    left_out = exclude(api, qs_project.project_id, [unnumbered["sheet_id"]], "blank")
+
+    assert (early.status_code, early.json()) == (404, NOT_FOUND)
+    assert (left_out.status_code, left_out.json()) == (404, NOT_FOUND)
+    read_on()
+    [asked] = open_questions(api, qs_project.project_id, "missing")
+    unnumbered = the(proposals(api, qs_project.project_id), None)
+    refused = confirm(api, qs_project.project_id, [unnumbered["id"]])
+    assert (refused.status_code, refused.json()["params"]["question"]) == (409, asked["id"])
+
+
+def test_undo_never_puts_a_confirmation_back_on_a_sheet_whose_number_is_still_asked(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, sign_in: Callable[..., Member]
+) -> None:
+    """Round 4's refuter (55), its second half: undoing an exclusion put back a confirmation made
+    before the sheet's `missing` Question was raised (as a legacy row may carry), confirming it again
+    while the Question is unresolved. It goes back to undecided, its Question open."""
+    from vextrus.takeoff.models import Question
+
+    question_id, sheet_id, _number = _blocked(qs_project, monkeypatch, "missing")
+    api = api_as(qs_project.member)
+    # A confirmation made while the Question was not yet asked.
+    Question.objects.filter(id=question_id).update(status="withdrawn")
+    assert confirm(api, qs_project.project_id, [sheet_id]).status_code == 200
+    Question.objects.filter(id=question_id).update(status="open")
+    colleague = api_as(sign_in(role="qs", developer_id=qs_project.member.developer_id))
+    assert exclude(colleague, qs_project.project_id, [sheet_id], "blank").status_code == 200
+
+    back = colleague.post(f"{step1(qs_project.project_id)}/undo", {})
+
+    assert back.status_code == 200, back.content
+    sheet = next(p for p in proposals(api, qs_project.project_id) if p["id"] == sheet_id)
+    shown = _question(api, qs_project.project_id, question_id)
+    assert (sheet["decision"], shown["status"], shown["blocking"]) == (None, "open", True)

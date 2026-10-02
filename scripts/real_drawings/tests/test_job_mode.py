@@ -207,7 +207,7 @@ def test_the_fake_job_reaches_its_throwaway_cluster_by_socket_only(tmp_path: Pat
     assert "database system is shut down" in log  # stopped when the script ended
 
 
-# Refused until 21c makes it the default (the orchestrator's ruling on the merge with 24s) --------------
+# Refused until 21d makes it the default (the orchestrator's ruling on the merge with 24s) --------------
 
 
 def test_job_mode_is_refused_on_a_posting_run(world: World) -> None:
@@ -235,5 +235,5 @@ def test_the_command_line_refuses_job_with_score_or_on_a_posting_run(
         command.main(argv)
 
     assert ended.value.code == 2
-    assert "--job is never scored or posted until 21c" in capsys.readouterr().err
+    assert "--job is never scored or posted until 21d" in capsys.readouterr().err
     assert world.sandbox_runs == []
