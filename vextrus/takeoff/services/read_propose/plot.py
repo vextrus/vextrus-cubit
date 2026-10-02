@@ -14,8 +14,9 @@ neither the file read nor its matches. The set's matching is held one at a time
 them; only the pages that could be its sheets' are matched in full (named for one of them, or naming
 none surely: several sheets alike, or no text), the rest named as before, so a set's Plot is not
 aligned again each time one of its DWGs is read. A page's naming depends on the page, the whole
-sheet list and, for a page matched by its ink, the other pages' text (`registration.unclaimed`),
-so both orders name each page alike.
+sheet list and, for a page matched by its ink, the other pages' text (`registration.unclaimed`);
+and a page given to a sheet now is let go by any sheet that held it before (`_release`), so the
+set ends with one sheet per page whichever order its files were read in.
 
 **What is kept.** A sheet named by a page gets it, placed, unless it has a page of a PDF added
 before this page's (the first added PDF with a page for a sheet is its Plot, the report's rule,
@@ -162,6 +163,7 @@ def _keep(
             continue  # its Plot is a page of a PDF added before this one: the first added keeps it
         drawings.record_plot(sheet.id, m)
         given.add(sheet.id)
+    _release(listed, found, by_candidate, by_sha, surest, given)
     for sheet in listed:
         if sheet.id in given or sheet.number is None or sheet.plot.page is not None:
             continue
@@ -174,6 +176,35 @@ def _keep(
             continue  # no PDF tried here is its Discipline's: what it says is unchanged
         drawings.record_plot(sheet.id, drawings.PlotNone.NO_PAGE, pdf_file_id=covering[0].id)
     return len(given)
+
+
+def _release(
+    listed: Sequence[drawings.SheetView],
+    found: Sequence[PlotMatch],
+    by_candidate: Mapping[int, drawings.SheetView],
+    by_sha: Mapping[str, drawings.FileView],
+    surest: Mapping[tuple[uuid.UUID, uuid.UUID], int],
+    given: set[uuid.UUID],
+) -> None:
+    """One page, one sheet: every page matched here is let go by each sheet that held it before and
+    that it does not name now (a DWG read later carries a sheet the page names more surely, or makes
+    the page name several), so the set's Plot is the same whichever order its files were read in. A
+    sheet let go is kept as `PlotNone.NO_PAGE` naming that PDF: the match ran, and its page is
+    another's."""
+    holders: dict[tuple[uuid.UUID, int], list[drawings.SheetView]] = {}
+    for sheet in listed:
+        if sheet.plot.page is not None and sheet.plot.file_id is not None:
+            holders.setdefault((sheet.plot.file_id, sheet.plot.page), []).append(sheet)
+    for k, m in enumerate(found):
+        pdf = by_sha.get(getattr(m.page, "source_sha256", ""))
+        number = getattr(m.page, "number", None)
+        if pdf is None or not isinstance(number, int):
+            continue
+        named = by_candidate.get(id(m.sheet)) if m.sheet is not None else None
+        owner = named.id if named is not None and surest.get((named.id, pdf.id)) == k else None
+        for held in holders.get((pdf.id, number), ()):
+            if held.id != owner and held.id not in given:
+                drawings.record_plot(held.id, drawings.PlotNone.NO_PAGE, pdf_file_id=pdf.id)
 
 
 def _surest(

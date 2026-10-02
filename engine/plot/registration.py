@@ -77,7 +77,8 @@ TURNS = (0, 90, 180, 270)
 MAX_BY_INK = 32
 """The most sheets a page is tried against by ink: each is drawn and aligned (a second or so), so a
 textless page of a large set with every sheet on its paper is left unmatched rather than tried 200
-times."""
+times. Checked before a sheet's buffers are loaded (`_may_ink`): past it, nothing is drawn or loaded
+for the page."""
 MAX_INK_TRIES = 128
 """The most sheets drawn and aligned by ink in one match, over all its pages (a few minutes): a PDF of
 hundreds of pages with no text is hostile input as much as a Plot, and the rest of its pages keep
@@ -132,12 +133,16 @@ def match(
                     fitting = [i for i, p in enumerate(papers) if p is not None and _fits_paper(page, p)]
                 discipline = (disciplines or {}).get(page.source_sha256)
                 fitting = [i for i in fitting if _of(sheets[i], discipline)] or fitting
-            inked = by_ink(
-                page,
-                [sheets[i] for i in fitting],
-                [_buffers(geometry, i) for i in fitting],
-                plot,
-                budget,
+            inked = (
+                by_ink(
+                    page,
+                    [sheets[i] for i in fitting],
+                    [_buffers(geometry, i) for i in fitting],
+                    plot,
+                    budget,
+                )
+                if _may_ink(fitting, budget)
+                else None
             )
             if inked is None:
                 found.append(PlotMatch(page, reason=_reason(codes.NO_TEXT)))
@@ -151,12 +156,16 @@ def match(
         discipline = (disciplines or {}).get(page.source_sha256)
         chosen = _sheet_named(page, sheets, by_number, geometry, discipline)
         if isinstance(chosen, list):  # several sheets named alike: their ink may tell them apart
-            inked = by_ink(
-                page,
-                [sheets[i] for i in chosen],
-                [_buffers(geometry, i) for i in chosen],
-                plot,
-                budget,
+            inked = (
+                by_ink(
+                    page,
+                    [sheets[i] for i in chosen],
+                    [_buffers(geometry, i) for i in chosen],
+                    plot,
+                    budget,
+                )
+                if _may_ink(chosen, budget)
+                else None
             )
             if inked is None:
                 found.append(PlotMatch(page, reason=_reason(codes.NAMES_SEVERAL_SHEETS)))
@@ -313,6 +322,14 @@ def _fits_paper(page: Page, paper: Paper) -> bool:
 # Which sheet, by its ink ------------------------------------------------------------------------------
 
 
+def _may_ink(candidates: Sequence[int], budget: list[int]) -> bool:
+    """Whether a page's candidates may be tried by ink, checked before any sheet's buffers are
+    loaded: at least two (one sheet alone has no rival to be measured against: a frame and title
+    block alone agree with a sparse sheet as well as its own page would), at most `MAX_BY_INK`, and
+    no more than the match's budget has left."""
+    return 2 <= len(candidates) <= min(MAX_BY_INK, budget[0])
+
+
 def by_ink(
     page: Page,
     sheets: Sequence[SheetCandidate],
@@ -323,12 +340,13 @@ def by_ink(
     """Which of the sheets the page plots, by their ink (a page with no text, or one naming several
     sheets alike): each placed on the page (`place`, then `ink.align`) and scored by how well the
     two inks agree (`ink.agreement`); the best is taken, with its transform and residual, when it
-    agrees at least `MIN_INK_F1` and by `INK_MARGIN` more than the next. None when it does not, when
+    agrees at least `MIN_INK_F1` and by `INK_MARGIN` more than the next. None for fewer than two
+    sheets (no rival to measure the agreement against), when it does not, when
     the page's PDF or a sheet's buffers are missing (a sheet never drawn cannot be ruled out), when
     there are more than `MAX_BY_INK` sheets to try, or more than `budget[0]` tries left (the match's,
     `MAX_INK_TRIES`, spent by each sheet tried)."""
     left = budget if budget is not None else [MAX_INK_TRIES]
-    if plot is None or not 1 <= len(sheets) <= min(MAX_BY_INK, left[0]):
+    if plot is None or not 2 <= len(sheets) <= min(MAX_BY_INK, left[0]):
         return None
     if any(b is None for b in geometry):
         return None

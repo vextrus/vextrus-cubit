@@ -797,3 +797,18 @@ def test_a_page_names_a_number_more_surely_whole_and_in_larger_text() -> None:
     assert registration.mention(title_block, "S-201") == (True, 12.0)
     assert registration.mention(reference, "S-201") == (False, 30.0)
     assert registration.mention(reference, "S-999") is None
+
+
+def test_textless_pages_fitting_more_sheets_than_ink_tries_load_no_buffers_per_page(
+    tmp_path: Path,
+) -> None:
+    """The review's case (157): 1000 textless pages, 60 sheets all on their paper: every sheet's
+    buffers were loaded for each page before the bound was checked (60,060 loads)."""
+    sheets = [sheet(f"S-{i:03}", f"L{i}") for i in range(60)]
+    pages = [replace(page_of(), number=k + 1) for k in range(1000)]
+    geometry = _CountedGeometry(sheet_buffers(), len(sheets))  # A1: every page fits every sheet
+
+    found = registration.match(pages, sheets, geometry, {SHA: tmp_path / "unused.pdf"})
+
+    assert {m.reason for m in found} == {"no_text"}
+    assert geometry.loads <= 2 * len(sheets), geometry.loads

@@ -794,11 +794,14 @@ def _no_plot_yet(sr: SheetRevision) -> Message:
         key=lambda pdf: (pdf[0] is None, pdf[1]),
     )
     statuses = {status for *_, status in found}
-    # A read PDF with no match kept for this sheet has not been matched to it yet: the read job
-    # matches a PDF's pages in the transaction that marks it read, and a DWG's sheets likewise
-    # (157), so "no page of it matched" is said only by a match that ran (`PlotNone.NO_PAGE`).
-    if statuses & {ReadStatus.QUEUED, ReadStatus.READING, ReadStatus.READ}:
+    if statuses & {ReadStatus.QUEUED, ReadStatus.READING}:
         return said.PLOT_NOT_YET()
+    # A read PDF with no match kept for this sheet was never matched to it (a set read before 157,
+    # or a PDF that could not be read again): "no page of it matched" is said only by a match that
+    # ran (`PlotNone.NO_PAGE`).
+    read = [name for _, _, name, status in found if status == ReadStatus.READ]
+    if read:
+        return said.PLOT_NOT_MATCHED(plot_file=read[0])
     # One that could not be read, or was refused, is its PDF only if of its Discipline (a PDF of
     # none, a site photograph say, is not a sheet's Plot for being refused).
     own = {status for d, *_, status in found if discipline_id is None or d == discipline_id}

@@ -11,7 +11,7 @@ msgstr "PDF page {page} could not be matched: neither its title block nor the te
 
 #. Either the page names two or more sheets' numbers, none more clearly than the others, or it names one number that two sheets carry and the page's size does not tell them apart. The words must hold for both.
 msgid "engine.plot.names_several_sheets"
-msgstr "PDF page {page} could not be matched: the text on the page could name more than one sheet, and nothing on it tells which."
+msgstr "PDF page {page} could not be matched: the text on the page could name more than one sheet, and nothing on it tells which, so it is no sheet's Plot."
 
 #. The page has no text items at all: a blank page, a page of lines whose lettering was plotted as lines, or a picture with lines.
 msgid "engine.plot.no_text"
