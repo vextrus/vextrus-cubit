@@ -406,6 +406,30 @@ def test_a_detail_on_a_lintel_and_sunshade_sheet_goes_to_beams_and_slabs() -> No
     assert steps == ("beams", "slabs")
 
 
+@pytest.mark.parametrize(
+    ("title", "exclusion"),
+    [
+        ("LINTEL LAYOUT PLAN", None),
+        ("GROUND FLOOR PLAN SHOWING LINTEL", None),
+        ("GROUND FLOOR BEAM LAYOUT PLAN", ExclusionReason.DUPLICATE),
+        ("LINTEL AND BEAM LAYOUT PLAN", ExclusionReason.DUPLICATE),
+    ],
+)
+def test_an_architectural_lintel_plan_stays_in_walls_and_rooms(
+    title: str, exclusion: ExclusionReason | None
+) -> None:
+    d = Sheets()
+    block = frame_block(d)
+    framed(d, block, (10_000.0, 0.0), 50.0, {0: "GROUND FLOOR PLAN", 2: "A-01"})
+    grid(d, (10_000.0 + 40 * 50, 300 * 50, 10_000.0 + 340 * 50, 560 * 50))
+    d.text(title, (10_000.0 + 40 * 50, (300 - 12) * 50, 0.0), height=6.0 * 50)
+    [sheet] = sheets.find(d.artefact(), "architectural", DEFAULT)
+    (found,) = drawn(d, sheet)
+    assert found.kind is ViewKind.PLAN
+    assert (found.exclusion.reason if found.exclusion else None) == exclusion
+    assert found.steps == (() if exclusion else ("walls", "rooms"))
+
+
 def test_no_other_disciplines_sheet_kind_names_a_step() -> None:
     assert views.kind_steps("beam_details", "architectural") == ()
     assert views.kind_steps("beam_details", None) == ()

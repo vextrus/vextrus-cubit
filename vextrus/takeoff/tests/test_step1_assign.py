@@ -206,18 +206,82 @@ def test_undoing_an_assign_keeps_a_view_excluded_since(
     assert counts(api, qs_project.project_id) == (0, 0, 1, {})
 
 
-def test_a_view_the_read_proposed_a_step_keeps_it_and_takes_another(
+ACCOUNTED_ONE = {"code": "takeoff.step1.view_accounted", "params": {"count": 1}}
+
+
+def test_a_view_the_read_proposed_a_step_is_not_put_in_another(
     qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """The review's ruling (F3): only a view still unaccounted is put in Steps."""
     beams = Sheet("S-02", "BEAM DETAILS", ("SECTION 1-1",))
     sheet = read_one(qs_project, monkeypatch, beams)
     api = api_as(qs_project.member)
-    assert confirm(api, qs_project.project_id, [sheet], kind="beam_details").status_code == 200
-    assert counts(api, qs_project.project_id) == (1, 0, 0, {"beams": 1})  # its sheet's title
-    assert assign(api, qs_project.project_id, _view_proposals(qs_project), ["slabs"]).status_code == 200
-    assert counts(api, qs_project.project_id)[3] == {"beams": 1, "slabs": 1}
-    assert undo(api, qs_project.project_id).status_code == 200
+    section = _view_proposals(qs_project)
+    for when in ("proposed", "confirmed"):
+        refusal = assign(api, qs_project.project_id, section, ["slabs"])
+        assert (refusal.status_code, refusal.json()) == (409, ACCOUNTED_ONE), when
+        confirm(api, qs_project.project_id, [sheet], kind="beam_details")
     assert counts(api, qs_project.project_id) == (1, 0, 0, {"beams": 1})
+    with qs_project.member.acting():
+        assert not Confirmation.objects.filter(project_id=qs_project.project_id, act="assign")
+
+
+def test_a_view_its_sheets_kind_or_an_assign_accounts_for_is_not_put_in_steps_again(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sheet = read_one(qs_project, monkeypatch)
+    api = api_as(qs_project.member)
+    pid = qs_project.project_id
+    view = the_view(api, pid)
+    assert assign(api, pid, [view], ["beams"]).status_code == 200
+    again = assign(api, pid, [view], ["slabs"])
+    assert (again.status_code, again.json()) == (409, ACCOUNTED_ONE)
+    assert undo(api, pid).json()["act"] == "assign"
+    assert confirm(api, pid, [sheet], kind="slab_layout").status_code == 200
+    by_kind = assign(api, pid, [view], ["beams"])
+    assert (by_kind.status_code, by_kind.json()) == (409, ACCOUNTED_ONE)
+    assert counts(api, pid) == (1, 0, 0, {"slabs": 1})
+
+
+@pytest.mark.parametrize("again", ["slab_layout", "stair_details", NO_SUBJECT_KIND])
+def test_the_qss_step_replaces_the_kinds_however_often_the_sheet_is_confirmed(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, again: str
+) -> None:
+    """The review's F2: assign beams, then confirm as a kind naming another Step, then again."""
+    sheet = read_one(qs_project, monkeypatch)
+    api = api_as(qs_project.member)
+    pid = qs_project.project_id
+    assert assign(api, pid, [the_view(api, pid)], ["beams"]).status_code == 200
+    assert confirm(api, pid, [sheet], kind="slab_layout").status_code == 200
+    assert counts(api, pid) == (1, 0, 0, {"beams": 1})
+    assert confirm(api, pid, [sheet], kind=again).status_code == 200
+    assert counts(api, pid) == (1, 0, 0, {"beams": 1})
+
+
+def test_the_qss_step_replaces_the_kinds_given_first(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """F2 the other way: a kind's step given before the QS's (a step given by an act now refused,
+    written as an older act could) stands under it no more."""
+    sheet = read_one(qs_project, monkeypatch)
+    api = api_as(qs_project.member)
+    pid = qs_project.project_id
+    view = the_view(api, pid)
+    assert confirm(api, pid, [sheet], kind="slab_layout").status_code == 200
+    with qs_project.member.acting():
+        from vextrus.takeoff.models import Coverage
+
+        [row] = Coverage.objects.filter(project_id=pid, proposed_status="unaccounted")
+        act = Confirmation.objects.create(
+            tenant_id=qs_project.member.developer_id, project_id=pid, step="sheets",
+            user_id=qs_project.member.user.id, by_name="QS", kind="single", act="assign",
+            proposals=1, before={},
+        )  # fmt: skip
+        CoverageStep.objects.create(
+            tenant_id=row.tenant_id, project_id=pid, coverage=row, step="beams", confirmation=act
+        )
+    assert view
+    assert counts(api, pid) == (1, 0, 0, {"beams": 1})
 
 
 def _view_proposals(qs: QsProject) -> list[str]:
@@ -244,7 +308,7 @@ def two_qs(qs: QsProject, sign_in: Callable[..., Member]) -> tuple[Any, Any]:
     return api_as(qs.member), api_as(sign_in(role="qs", developer_id=qs.member.developer_id))
 
 
-def test_undoing_one_qss_assign_leaves_the_step_another_qs_gave(
+def test_another_qs_may_assign_a_view_only_once_the_first_assign_is_undone(
     qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, sign_in: Callable[..., Member]
 ) -> None:
     sheet = read_one(qs_project, monkeypatch)
@@ -253,13 +317,14 @@ def test_undoing_one_qss_assign_leaves_the_step_another_qs_gave(
     assert confirm(a, pid, [sheet], kind=NO_SUBJECT_KIND).status_code == 200
     view = the_view(a, pid)
     assert assign(a, pid, [view], ["beams"]).status_code == 200
-    assert assign(b, pid, [view], ["beams"]).status_code == 200
+    refused = assign(b, pid, [view], ["beams"])  # accounted for by A's act: F3's ruling
+    assert (refused.status_code, refused.json()) == (409, ACCOUNTED_ONE)
 
     assert undo(a, pid).json()["act"] == "assign"
 
-    assert counts(a, pid) == (1, 0, 0, {"beams": 1})  # B's act still stands
-    assert undo(b, pid).json()["act"] == "assign"
     assert counts(a, pid) == (0, 0, 1, {})
+    assert assign(b, pid, [view], ["beams"]).status_code == 200  # unaccounted again: B may
+    assert counts(a, pid) == (1, 0, 0, {"beams": 1})
 
 
 def test_undoing_a_confirmation_leaves_the_step_another_qs_assigned(
@@ -269,8 +334,9 @@ def test_undoing_a_confirmation_leaves_the_step_another_qs_assigned(
     a, b = two_qs(qs_project, sign_in)
     pid = qs_project.project_id
     view = the_view(a, pid)
-    assert confirm(a, pid, [sheet], kind="beam_details").status_code == 200
     assert assign(b, pid, [view], ["beams"]).status_code == 200
+    assert confirm(a, pid, [sheet], kind="slab_layout").status_code == 200
+    assert counts(a, pid) == (1, 0, 0, {"beams": 1})
 
     assert undo(a, pid).json()["act"] == "confirm"
 
@@ -397,6 +463,7 @@ def test_outstanding_names_each_thing_in_m0_screens_5s_order() -> None:
         "takeoff.step1.step_unknown",
         "takeoff.step1.view_excluded",
         "takeoff.step1.no_view_chosen",
+        "takeoff.step1.view_accounted",
     ],
 )
 def test_every_new_code_has_its_english(code: str) -> None:

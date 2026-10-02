@@ -1398,9 +1398,10 @@ what one storey means (members at floor level or floor to floor): both are bound
   or confirm it back in, and a view nobody proposed a step for is excluded with a reason ("other: …")
   until M1. `A` is reserved; no "Assign steps" button or dialog exists in M0. *Amended (#158, 30 Sep
   2026):* a Structural view is given its Step by its kind and subject (its own title's, else its sheet
-  title's, else its sheet's confirmed kind), and the act that assigns a view still unaccounted exists
-  at the API only (`POST …/step1/assign`), while the Discipline's heading names what keeps it from
-  confirmed ("Structural 57 / 57 settled · 79 views unaccounted"). *Kept for M1's behaviour
+  title's, else its sheet's confirmed kind), and the act that puts a view still unaccounted in Takeoff
+  Steps 2 to 14 exists at the API only (`POST …/step1/assign`), while the Discipline's heading names
+  what keeps it from confirmed, in 5's order, joined by " · " ("Structural: 79 views unaccounted";
+  "Electrical: 3 sheets to confirm or exclude · 1 Question to answer"). *Kept for M1's behaviour
   spec:* a 420 px dialog "Which steps read "8th floor beam layout"?", "A view may feed several steps;
   each marks it used on its own. S-20, plan.", fourteen checkboxes "1 Sheets … 14 Site works and MEP
   allowances", then one per MEP Discipline Part received ("Electrical", "Plumbing and sanitary", "Fire",
@@ -1569,7 +1570,7 @@ owner's reversal at the M0 walk; ticket 22's design gate checks every row.
 | 13 | Coverage on the status bar | "Coverage 70 views: 0 assigned, 0 excluded, 68 proposed, 2 unaccounted" on the seed after reading; "proposed" = a view whose sheet is not yet confirmed and which has a step, a Part or an exclusion (6.11, 7) | 4.7: "Coverage: 70 views — 52 assigned, 16 excluded, 2 unaccounted"; 7: "52 assigned" | The plan's Coverage contract; nothing is assigned before a Confirmation |
 | 14 | `F` and `Shift F` | `F` fits the whole sheet; `Shift F` returns to the working view (2.2) | The prototype had them reversed | Takeoff ruling 6 |
 | 15 | A read and a pasted drawing list that disagree | A Question (5); N shows "—" until it is answered (6.10) | Unspecified | The plan's Coverage contract |
-| 16 | Progress | Per Discipline Part: "Structural confirmed · Electrical 3 to confirm" (5, 6.3, 6.6, 4.3); the missing ones as "Disciplines not yet received" (6.3) | One Step 1 across Disciplines | The plan's QS review, Q6 |
+| 16 | Progress | Per Discipline Part: "Structural confirmed · Electrical 3 to confirm" (5, 6.3, 6.6, 4.3); the missing ones as "Disciplines not yet received" (6.3). The progress summary keeps "3 to confirm"; the Discipline's heading gives the breakdown of what keeps it from confirmed (6.9, #158) | One Step 1 across Disciplines | The plan's QS review, Q6 |
 | 17 | Exclusion reasons | Seven, keys `1`–`7`, each with a short form (5) | Six (session 02), with "Reference only" and "3D or perspective" | The plan's QS review, Q9 |
 | 18 | A sheet with one source | State "Proposal, one source"; never in the bulk act; confirmed one by one (5, 6.4, 6.5) | Undefined | "Agrees" needs two sources (Q4) |
 | 19 | A Discipline with no drawing list | "no drawing list; numbering runs 01–57 without a gap", or "…; 14 and 31 missing" (6.3) | "—" | The plan's QS review, Q4 |

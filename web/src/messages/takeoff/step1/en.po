@@ -32,7 +32,7 @@ msgid "takeoff.step1.step_unknown"
 msgstr "Nothing was assigned: a view can be assigned only to Takeoff Steps 2 to 14. Choose one or more of them, then assign again."
 
 msgid "takeoff.step1.view_excluded"
-msgstr "Nothing was assigned: one of the chosen views is excluded, with its sheet or on its own. Assign the others without it, or confirm its sheet back in first."
+msgstr "Nothing was assigned: a view you chose is excluded, on its own or with its sheet. Assign the others without it, or confirm it, or its sheet, back in first."
 
 msgid "takeoff.step1.files_reading"
 msgstr "{count, plural, one {# file still reading} other {# files still reading}}"
@@ -51,3 +51,6 @@ msgstr "{count, plural, one {# view unaccounted} other {# views unaccounted}}"
 
 msgid "takeoff.step1.no_view_chosen"
 msgstr "No view was chosen, so nothing was assigned. Choose one or more views, then assign them to a step."
+
+msgid "takeoff.step1.view_accounted"
+msgstr "Nothing was assigned: {count, plural, one {a view you chose already has} other {# views you chose already have}} a step, a Part or an exclusion. Only a view still unaccounted can be assigned; choose those."

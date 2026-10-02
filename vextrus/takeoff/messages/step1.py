@@ -16,6 +16,8 @@ words (21c's read job raises its own). Worded in `web/src/messages/takeoff/step1
 - `no_view_chosen` (#158): views put in Steps naming no view (400).
 - `step_unknown` (#158): a view put in a key that is no Takeoff Step it may be put in, Step 2 to 14
   (400).
+- `view_accounted` (#158): views put in Steps that the read or their standing steps already account
+  for (409): how many of those chosen (`count`). Only a view still unaccounted is put in Steps.
 - `view_excluded` (#158): a view put in a Step while it is left out, on its own or with its sheet
   (409).
 - What keeps a Discipline's Step 1 from confirmed (#158; progress's `outstanding`, in m0-screens 5's
@@ -41,6 +43,7 @@ WHICH_KIND = MessageCode("takeoff.step1.which_kind", params=("number",))
 NO_VIEW_CHOSEN = MessageCode("takeoff.step1.no_view_chosen")
 STEP_UNKNOWN = MessageCode("takeoff.step1.step_unknown")
 VIEW_EXCLUDED = MessageCode("takeoff.step1.view_excluded")
+VIEW_ACCOUNTED = MessageCode("takeoff.step1.view_accounted", params=("count",))
 
 FILES_READING = MessageCode("takeoff.step1.files_reading", params=("count",))
 SHEETS_UNDECIDED = MessageCode("takeoff.step1.sheets_undecided", params=("count",))

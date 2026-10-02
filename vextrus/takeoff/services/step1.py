@@ -1208,6 +1208,9 @@ def assign(
             chosen.append(row)
         if any(row.status == CoverageStatus.EXCLUDED for row in chosen):
             raise auth.Refused(said.VIEW_EXCLUDED(), status=409)
+        accounted = [row for row in chosen if _accounted(row)]
+        if accounted:
+            raise auth.Refused(said.VIEW_ACCOUNTED(count=len(accounted)), status=409)
         disciplines = {listed[row.sheet_revision_id].discipline or "" for row in chosen}
         act = _act(
             project_id,
@@ -1223,6 +1226,13 @@ def assign(
                 _follow_sheet(row)
         record_progress(project_id)
     return _act_view(act)
+
+
+def _accounted(row: Coverage) -> bool:
+    """A view the read or its standing steps already account for (m0-screens 6.9: only a view still
+    unaccounted is put in Steps): the read proposed it a step, a Part or an exclusion, or a step
+    stands for it (the QS's `assign`, or its sheet's confirmed kind)."""
+    return row.proposed_status != CoverageStatus.UNACCOUNTED or bool(_standing_steps(row))
 
 
 def _stands(given: CoverageStep, deciding: uuid.UUID | None) -> bool:
@@ -1241,17 +1251,24 @@ def _steps_standing(
     rows: Sequence[Coverage], deciding: Mapping[uuid.UUID, uuid.UUID | None]
 ) -> dict[uuid.UUID, list[CoverageStep]]:
     """Each view's standing steps, each step once (every act that gave it keeps its own row, so one
-    act undone leaves the step to another still standing); `deciding`: each sheet's deciding act."""
+    act undone leaves the step to another still standing); `deciding`: each sheet's deciding act.
+    Where a step the QS put the view in stands, the steps its sheet's kind gave do not: the QS's
+    steps replace the kind's, whichever came first."""
     sheet_of = {r.id: r.sheet_revision_id for r in rows}
-    standing: dict[uuid.UUID, dict[str, CoverageStep]] = {}
+    standing: dict[uuid.UUID, list[CoverageStep]] = {}
     for given in (
         CoverageStep.objects.select_related("confirmation")
         .filter(coverage_id__in=list(sheet_of))
         .order_by("step", "id")
     ):
         if _stands(given, deciding.get(sheet_of[given.coverage_id])):
-            standing.setdefault(given.coverage_id, {}).setdefault(given.step, given)
-    return {row: list(steps.values()) for row, steps in standing.items()}
+            standing.setdefault(given.coverage_id, []).append(given)
+    found: dict[uuid.UUID, list[CoverageStep]] = {}
+    for row, steps in standing.items():
+        assigned = [s for s in steps if s.confirmation and s.confirmation.act == ConfirmationAct.ASSIGN]
+        kept = assigned or steps
+        found[row] = list({s.step: s for s in reversed(kept)}.values())[::-1]
+    return found
 
 
 def _standing_steps(row: Coverage) -> list[str]:
