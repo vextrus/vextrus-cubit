@@ -71,8 +71,10 @@ def test_the_list_shows_every_file_in_its_words_and_the_summary(kr: dict[str, An
     assert set(dwg) == {
         "id", "name", "format", "size", "discipline", "state", "status", "finding",
         "sheets_found", "plot_for", "added_at", "added_by_name", "added_by_vextrus",
+        "marked_for_vextrus",
     }  # fmt: skip
     assert dwg["added_by_vextrus"] is False
+    assert dwg["marked_for_vextrus"] is False
 
 
 def test_an_empty_project_lists_no_set(qs_project: QsProject) -> None:

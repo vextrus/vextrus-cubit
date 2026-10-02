@@ -2,6 +2,7 @@
 
 from vextrus.drawings.schemas.anchors import AnchorOut, StoredAnchor
 from vextrus.drawings.schemas.files import (
+    BanglaSheetOut,
     DisciplineIn,
     DisciplineOut,
     FileOut,
@@ -13,6 +14,7 @@ from vextrus.drawings.schemas.files import (
 
 __all__ = [
     "AnchorOut",
+    "BanglaSheetOut",
     "DisciplineIn",
     "DisciplineOut",
     "FileOut",

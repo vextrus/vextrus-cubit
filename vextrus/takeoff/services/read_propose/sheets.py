@@ -106,6 +106,8 @@ class SheetsRead:
     """How many sheets were recorded."""
     not_read_in_full: tuple[Message, ...]
     """Every limit that cut the file, each once, in the job's order (see the module)."""
+    unread: int = 0
+    """Sheets left out for unreadable writing (`UNREADABLE_TEXT`; 21c's Coverage counts them, #135)."""
 
 
 def read(
@@ -180,7 +182,8 @@ def read(
         cut += said
         # A kept step's render time is spent too: a stop never hands the rest a fresh budget.
         render_left[0] -= float(cast(float, done.get("render_seconds", 0.0)))
-    return SheetsRead(len(recorded), tuple(cut))
+    report = cast(dict[str, int], found.get("sheet_report", {}))
+    return SheetsRead(len(recorded), tuple(cut), int(report.get(UNREADABLE_TEXT, 0)))
 
 
 def _messages(kept: object) -> list[Message]:

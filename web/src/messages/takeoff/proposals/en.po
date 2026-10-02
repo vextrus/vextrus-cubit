@@ -1,0 +1,29 @@
+msgid ""
+msgstr ""
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: en\n"
+
+#. vextrus/takeoff/messages/proposals.py (ticket 21c): the read job's Questions (m0-screens 6.7) and an answer's refusals.
+msgid "takeoff.proposals.answered_already"
+msgstr "This Question is already answered or no longer asked, so nothing was changed. Reload the page to see where it stands."
+
+msgid "takeoff.proposals.boundary_storey"
+msgstr "Does \"{range}\" on {named, select, number {{sheet}} title {the sheet titled \"{sheet}\"} other {this sheet}} include {level, select, floor {the {number, selectordinal, one {#st} two {#nd} few {#rd} other {#th}} storey} basement {the {number, selectordinal, one {#st} two {#nd} few {#rd} other {#th}} basement} ground {the ground storey} lower_ground {the lower ground storey} mezzanine {the mezzanine} podium {the podium} roof {the roof} plinth {the plinth level} foundation {the foundation} pile_cap {the pile caps} pile {the pile heads} stair_room_roof {the stair room roof} lift_machine_room {the lift machine room} lift_machine_room_roof {the lift machine room roof} top {the top floor} typical {the typical floor} other {its top storey}}? The range on {next_named, select, number {{next_sheet}} title {the sheet titled \"{next_sheet}\"} other {another sheet}} also starts {level, select, floor {at the {number, selectordinal, one {#st} two {#nd} few {#rd} other {#th}} storey} basement {at the {number, selectordinal, one {#st} two {#nd} few {#rd} other {#th}} basement} ground {at the ground storey} lower_ground {at the lower ground storey} mezzanine {at the mezzanine} podium {at the podium} roof {at the roof} plinth {at the plinth level} foundation {at the foundation} pile_cap {at the pile caps} pile {at the pile heads} stair_room_roof {at the stair room roof} lift_machine_room {at the lift machine room} lift_machine_room_roof {at the lift machine room roof} top {at the top floor} typical {at the typical floor} other {there}}."
+
+msgid "takeoff.proposals.lists_disagree"
+msgstr "{source, select, typed {The Drawing List on {named, select, number {{sheet}} title {the sheet titled \"{sheet}\"} other {a sheet}} and the range you typed differ} other {The Drawing List on {named, select, number {{sheet}} title {the sheet titled \"{sheet}\"} other {a sheet}} and the one you pasted differ}}"
+
+msgid "takeoff.proposals.number_needed"
+msgstr "No number was typed, so the sheet was not numbered. Type its number, then answer again."
+
+msgid "takeoff.proposals.option_not_offered"
+msgstr "That answer is not one this Question offers, so nothing was changed. Reload the page and choose one of its answers."
+
+msgid "takeoff.proposals.which_discipline"
+msgstr "{named, select, number {Which Discipline is {sheet}? Neither its file nor its number says.} title {Which Discipline is the sheet titled \"{sheet}\"? Neither its file nor its title block says.} other {Which Discipline is this sheet? Neither its file nor its title block says.}}"
+
+msgid "takeoff.proposals.which_kind"
+msgstr "{named, select, number {What kind of sheet is {sheet}?} title {What kind of sheet is the one titled \"{sheet}\"?} other {What kind of sheet is this?}}"

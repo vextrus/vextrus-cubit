@@ -74,6 +74,8 @@ ADDED = MessageCode("drawings.files.added", params=("actor",), event=True)
 READ_CANCELLED = MessageCode("drawings.files.read_cancelled", params=("actor",), event=True)
 READ_RESTARTED = MessageCode("drawings.files.read_restarted", params=("actor",), event=True)
 DISCIPLINE_CHANGED = MessageCode("drawings.files.discipline_changed", params=("actor",), event=True)
+MARKED_FOR_VEXTRUS = MessageCode("drawings.files.marked_for_vextrus", params=("actor",), event=True)
+"""A file that could not be read, marked for Vextrus to look at ("Mark for Vextrus", 4.5)."""
 
 # Refusals ----------------------------------------------------------------------------------------
 
@@ -82,6 +84,9 @@ NOT_STOPPED = MessageCode("drawings.files.not_stopped")
 the first started it again. A file saved by an old AutoCAD is refused with OLD_VERSION."""
 ALREADY_ENDED = MessageCode("drawings.files.already_ended")
 """Read again or Try again on a file whose reading has ended (read, held or refused) (409)."""
+NOT_FAILED = MessageCode("drawings.files.not_failed")
+"""Mark for Vextrus on a file that did not fail to be read (waiting, being read, read, held, refused
+or cancelled) (409): only a file that could not be read is marked."""
 DISCIPLINE_UNKNOWN = MessageCode("drawings.files.discipline_unknown")
 """A Discipline this Market does not have (400)."""
 DISCIPLINE_SHEET_DECIDED = MessageCode("drawings.files.discipline_sheet_decided", params=("sheet",))

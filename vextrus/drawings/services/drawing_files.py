@@ -40,7 +40,7 @@ import re
 import unicodedata
 import uuid
 from collections import Counter
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
@@ -168,6 +168,8 @@ class FileView:
     plot_for: tuple[uuid.UUID, ...]
     """For a PDF: the DWGs whose sheets its pages matched (4.5 shows it under them)."""
     read_job_id: int | None
+    marked_for_vextrus: bool = False
+    """A file that could not be read, marked for Vextrus to look at ("Mark for Vextrus")."""
 
 
 @dataclass(frozen=True)
@@ -225,6 +227,7 @@ def group_of(row: DrawingFile) -> str:
 
 def _views(rows: list[DrawingFile]) -> list[FileView]:
     ids = [row.id for row in rows]
+    marked = _marked(rows)
     found = dict(
         Counter(
             SheetRevision.objects.filter(source_file_id__in=ids).values_list("source_file_id", flat=True)
@@ -273,6 +276,7 @@ def _views(rows: list[DrawingFile]) -> list[FileView]:
                 sheets_found=found.get(row.id, 0) if readable and row.format == FileFormat.DWG else None,
                 plot_for=tuple(plot_for.get(row.id, ())),
                 read_job_id=row.read_job_id,
+                marked_for_vextrus=row.id in marked,
             )
         )
     return shown
@@ -823,6 +827,37 @@ def restart(file_id: uuid.UUID) -> FileView:
             raise auth.Refused(said.NOT_STOPPED(), status=409)
         _start_again(row, job)
         _record(said.READ_RESTARTED, row)
+    return file(row.id)
+
+
+def _marked(rows: Sequence[DrawingFile]) -> set[uuid.UUID]:
+    """The files marked for Vextrus: those whose latest mark (an event,
+    `drawings.files.marked_for_vextrus`) is newer than their latest restart (the mark was for the
+    reading it asked about; reading again clears it). Kept as events, so `drawings` adds no column."""
+    failed = [r.id for r in rows]
+    if not failed:
+        return set()
+    latest = events.latest(
+        (said.MARKED_FOR_VEXTRUS, said.READ_RESTARTED), subject_type="drawing_file", subject_ids=failed
+    )
+    marks = {
+        subject: at for (kind, subject), at in latest.items() if kind == said.MARKED_FOR_VEXTRUS.code
+    }
+    restarts = {s: at for (kind, s), at in latest.items() if kind == said.READ_RESTARTED.code}
+    return {s for s, at in marks.items() if s not in restarts or at > restarts[s]}
+
+
+def mark_for_vextrus(file_id: uuid.UUID) -> FileView:
+    """Mark a file for Vextrus to look at ("Mark for Vextrus"), where its row or report asks for it
+    (`reports.asks_to_mark`); a file already marked is left as it is. Any other file is 409."""
+    from vextrus.drawings.services import reports  # the report's own facts (it imports this module)
+
+    with transaction.atomic():
+        row = _access.drawing_file(file_id, lock=True)
+        if not reports.asks_to_mark(row, file(row.id)):
+            raise auth.Refused(said.NOT_FAILED(), status=409)
+        if row.id not in _marked([row]):
+            _record(said.MARKED_FOR_VEXTRUS, row)
     return file(row.id)
 
 

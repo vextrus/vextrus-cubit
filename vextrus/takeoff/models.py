@@ -392,6 +392,16 @@ class Question(models.Model):
         db_index=False,
     )
     answered_at = models.DateTimeField(null=True, blank=True)
+    withdrawn_by = models.ForeignKey(
+        Confirmation,
+        models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="+",
+        db_index=False,
+        help_text="The exclusion that withdrew it (its sheet left out); no answer overwrites it, and "
+        "the exclusion's undo asks it again.",
+    )
     created_at = models.DateTimeField(default=timezone.now, editable=False)
 
     class Meta:
