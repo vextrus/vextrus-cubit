@@ -362,7 +362,7 @@ def test_a_frame_drawn_twice_in_one_place_is_one_sheet() -> None:
     assert result.counts["frame_inside_frame"] == 1
 
 
-def test_a_cover_with_no_title_block_is_a_sheet_with_no_number() -> None:
+def test_a_cover_with_no_title_block_is_kept_proposed_out_as_cover_index() -> None:
     d = Sheets()
     block = frame_block(d)
     for i in range(2):
@@ -382,7 +382,11 @@ def test_a_cover_with_no_title_block_is_a_sheet_with_no_number() -> None:
     assert covers[0].location.box is not None
     assert covers[0].location.box.x1 == pytest.approx(0.6 * W)
     assert covers[0].title is None
+    # A plain rectangle of text may be a cover or a box of notes: kept, never counted as a sheet (#162).
+    assert covers[0].exclusion == Exclusion(ExclusionReason.COVER_INDEX)
+    assert all(s.exclusion is None for s in result.sheets if s.number is not None)
     assert result.counts["cover"] == 1
+    assert result.counts["cover_proposed_out"] == 1
 
 
 def test_a_contents_sheet_written_as_one_text_of_many_lines_is_a_cover() -> None:
@@ -476,6 +480,44 @@ def test_a_layout_whose_viewports_show_nothing_is_proposed_out_as_blank_with_no_
     assert sheet.exclusion == Exclusion(ExclusionReason.BLANK)
     assert (sheet.number, sheet.title, sheet.issue_date) == (None, None, None)
     assert result.counts["layout_blank"] == 1
+
+
+def _paper_sheet(number: str | None, title: str | None) -> Sheets:
+    """A layout drawn in paper space only (its main viewport, no other): a title block, its values
+    as given, and notes enough to be more than a title block."""
+    d = Sheets()
+    tab = d.layout("Layout1")
+    _main(d, tab)
+    d.insert(frame_block(d), (0, 0, 0), owner=tab)
+    if number is not None:
+        d.text(number, value_at(2), owner=tab)
+    if title is not None:
+        d.text(title, value_at(0), owner=tab)
+    for i in range(sheets.MIN_PAPER_CONTENT + 5):
+        d.text(f"NOTE {i + 1}", (40, 400 - 12 * i, 0), owner=tab)
+    return d
+
+
+def test_a_paper_layout_with_an_empty_title_block_is_a_template_and_dropped() -> None:
+    """A stale template tab (#162): a title block with no number or title over notes, no viewport
+    showing model space, is no sheet, and is counted."""
+    result = segment(_paper_sheet(None, None).artefact(), None, DEFAULT)
+
+    assert result.sheets == []
+    assert result.counts["layout_template"] == 1
+
+
+@pytest.mark.parametrize(("number", "title"), [("S-901", None), (None, "GENERAL NOTES")])
+def test_a_paper_layout_with_a_number_or_a_title_stays_a_sheet(
+    number: str | None, title: str | None
+) -> None:
+    result = segment(_paper_sheet(number, title).artefact(), None, DEFAULT)
+
+    (sheet,) = result.sheets
+    assert sheet.location.layout == "Layout1"
+    assert sheet.exclusion is None
+    assert (sheet.number and sheet.number.value, sheet.title and sheet.title.value) == (number, title)
+    assert result.counts["layout_template"] == 0
 
 
 def test_a_layout_with_only_its_main_viewport_is_no_sheet() -> None:

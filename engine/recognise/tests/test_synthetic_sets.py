@@ -88,13 +88,17 @@ def test_set_b_frames_in_model_space_are_read_with_its_own_conventions(sets: dic
     with_default = sheets.find(artefact, None, DEFAULT)
     found = sheets.find(artefact, None, conventions_b())
 
-    blank = [s for s in found if s.exclusion is not None]
+    out = {s.exclusion.reason: s for s in found if s.exclusion is not None}
     framed = [s for s in found if s.exclusion is None]
-    assert len(framed) == 6
-    assert [s.location.layout for s in blank] == ["Layout1"]
-    assert blank[0].exclusion is not None
-    assert blank[0].exclusion.reason == ExclusionReason.BLANK
-    assert blank[0].number is None
+    assert len(framed) == 5
+    assert set(out) == {ExclusionReason.BLANK, ExclusionReason.COVER_INDEX}
+    assert out[ExclusionReason.BLANK].location.layout == "Layout1"
+    assert out[ExclusionReason.BLANK].number is None
+    # The cover (a plain rectangle of text) is kept, proposed out, with nothing read from it (#162).
+    cover = out[ExclusionReason.COVER_INDEX]
+    assert cover.location.box is not None
+    assert cover.number is None
+    assert cover.title is None
     numbers = sorted(s.number.value for s in framed if s.number)
     assert numbers == ["B-01", "B-02", "B-03", "B-04", "B-05"]
     titles = {s.number.value: s.title.value for s in framed if s.number and s.title}
@@ -107,9 +111,9 @@ def test_set_b_frames_in_model_space_are_read_with_its_own_conventions(sets: dic
     b03 = by_number["B-03"].location.box
     assert b03 is not None
     assert b03.x1 - b03.x0 == pytest.approx(48 * 16.54, rel=1e-6)
-    assert sum(1 for s in framed if s.number is None) == 1  # the cover
+    assert all(s.number for s in framed)
     # The default does not know set B's labels: the frames are found, their numbers are not read.
-    assert sum(1 for s in with_default if s.exclusion is None) == 6
+    assert sum(1 for s in with_default if s.exclusion is None) == 5
     assert not any(s.number for s in with_default)
 
 
