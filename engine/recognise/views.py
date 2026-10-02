@@ -21,8 +21,8 @@ texts are no view's. **Every box is on paper, in mm, from the sheet's lower-left
 layout's paper units are taken as mm, its paper the frame's box (else the drawing's extent); a
 model-space sheet's box is `(model - lower-left corner of its frame) / scale`, the scale being its frame
 insert's when the frame is then a standard sheet (`FRAME_MATCH`; the frame block drawn at paper size,
-in mm, the frame as it stands in model space's axes: a turned A3 is 297 wide and 420 tall), else, for a
-frame drawn as a rectangle or a scale giving no standard sheet (a frame block drawn at a fraction of its
+in mm or in the drawing's units, the frame as it stands in model space's axes: a turned A3 is 297 wide
+and 420 tall), else, for a frame drawn as a rectangle or a scale giving no standard sheet (a frame block drawn at a fraction of its
 plotted size), a standard sheet when the box is one at a
 standard scale in the drawing's units (both sides, the render buffers' `_standard_sheet`), else the scale
 that makes the frame a standard paper size (`PAPER_SIDES`) at the roundest scale (`ROUND_SCALES`). This
@@ -719,13 +719,17 @@ def _paper_scale(artefact: ReadArtefact, frame: DwgAnchor | None, box: Box) -> t
                 scale = placed.xy_scale
             except PlacementError, ValueError:
                 scale = 0.0
-            if (
-                scale > 0
-                and math.isfinite(scale)
-                and short > 0
-                and _standard_sheet(long / scale, short / scale, (1.0,), (1,), FRAME_MATCH)
-            ):
-                return scale, True
+            unit = UNIT_MM.get(artefact.summary.insunits, 1.0)
+            # The frame block drawn in mm (at paper size), else in the drawing's own units (an A3 frame
+            # 16.5 inches long in a drawing in inches).
+            for per_mm in (scale, scale / unit):
+                if (
+                    per_mm > 0
+                    and math.isfinite(per_mm)
+                    and short > 0
+                    and _standard_sheet(long / per_mm, short / per_mm, (1.0,), (1,), FRAME_MATCH)
+                ):
+                    return per_mm, True
     unit = UNIT_MM.get(artefact.summary.insunits, 1.0)
     matched = _standard_sheet(long, short, (unit,), SCALES) if short > 0 else None
     if matched is not None:

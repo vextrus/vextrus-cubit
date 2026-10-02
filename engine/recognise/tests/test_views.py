@@ -140,6 +140,33 @@ def test_a_frame_whose_insert_gives_no_standard_sheet_takes_the_boxs_paper(share
         assert scale != pytest.approx(50.0)
 
 
+def test_a_frame_block_drawn_in_inches_at_a3_is_on_a3_in_views_and_buffers() -> None:
+    """#160's real run: a drawing in inches whose A3 frame block is drawn 16.5 inches long, inserted at
+    1:73, was read as no paper (16.5 mm) and fell to the roundest guess, an A0; the block is in the
+    drawing's units, so its paper is A3, in views and in the buffer alike."""
+    from engine.render import buffers
+
+    d, sheet = model_sheet([("BEAM LAYOUT PLAN", (40, 300, 340, 560))], scale=50.0)
+    template = sheet.anchors[0]
+    assert isinstance(template, DwgAnchor)
+    block = d.block("A3-INCHES")
+    d.entity("LWPOLYLINE", rectangle(0, 0, 420 / 25.4, 297 / 25.4), owner=block)
+    at = (500_000.0, 0.0)
+    ins = d.insert(block, (*at, 0.0), scale=(73.0, 73.0, 73.0))
+    artefact = d.artefact()
+    artefact = replace(artefact, summary=replace(artefact.summary, insunits=1))
+    box = Box(at[0], at[1], at[0] + 420 / 25.4 * 73, at[1] + 297 / 25.4 * 73)
+    anchor = replace(template, handle=ins, inserts=())
+    framed_sheet = SheetCandidate(SheetLocation(box=box), anchors=(anchor,))
+    scale, read = views._paper_scale(artefact, anchor, box)
+    assert (box.x1 - box.x0) / scale == pytest.approx(420)
+    assert read
+    paper = buffers.build(artefact, framed_sheet).paper
+    assert (paper.width_mm, paper.height_mm) == pytest.approx((420, 297))
+    assert paper.source == buffers.PaperSource.STANDARD
+    assert views.find(artefact, framed_sheet, CONVENTIONS).paper == pytest.approx((420, 297))
+
+
 @pytest.mark.parametrize("side", [1e-320, 5e-324])
 def test_a_box_too_small_for_a_power_of_ten_is_laid_alike_by_views_and_buffers(side: float) -> None:
     """#160's refuter: a box of 1e-320 units took a power of ten of 0.0 and divided by it, in views and
