@@ -800,6 +800,20 @@ def _read_anyway_stopped_after_its_sheets(qs: QsProject, monkeypatch: pytest.Mon
     return lambda: run_job(qs.member, file_id, monkeypatch, use)
 
 
+def _recorded_unnumbered(member: Member) -> str:
+    """The one recorded sheet with no number, listed or not (read in the member's tenant: no Step 1
+    API lists a sheet off the sheet list)."""
+    from django.db import connection
+
+    with member.acting(), connection.cursor() as cursor:
+        cursor.execute(
+            "select sr.id from drawings_sheetrevision sr join drawings_sheet s on s.id = sr.sheet_id"
+            " where s.number = ''"
+        )
+        [(found,)] = cursor.fetchall()
+    return str(found)
+
+
 def test_a_read_anyway_sheet_is_not_decided_before_its_read_asks_its_questions(
     qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -807,11 +821,14 @@ def test_a_read_anyway_sheet_is_not_decided_before_its_read_asks_its_questions(
     number, so an unnumbered sheet was confirmed with no Question to hold it, for good."""
     read_on = _read_anyway_stopped_after_its_sheets(qs_project, monkeypatch)
     api = api_as(qs_project.member)
-    unnumbered = the(proposals(api, qs_project.project_id), None)
+    # #165: in this window the file lists nothing (its sheets join with their Questions); the sheet
+    # is taken from those its read recorded.
+    sheet_id = _recorded_unnumbered(qs_project.member)
+    assert proposals(api, qs_project.project_id) == []
     assert open_questions(api, qs_project.project_id, "missing") == []
 
-    early = confirm(api, qs_project.project_id, [unnumbered["sheet_id"]])
-    left_out = exclude(api, qs_project.project_id, [unnumbered["sheet_id"]], "blank")
+    early = confirm(api, qs_project.project_id, [sheet_id])
+    left_out = exclude(api, qs_project.project_id, [sheet_id], "blank")
 
     assert (early.status_code, early.json()) == (404, NOT_FOUND)
     assert (left_out.status_code, left_out.json()) == (404, NOT_FOUND)
