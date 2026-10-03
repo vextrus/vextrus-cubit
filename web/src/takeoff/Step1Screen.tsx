@@ -25,9 +25,9 @@ import { LoadProblem, readOnlyRole, usePageTitle, useReadOnlyToast } from '@/aut
 import { SheetViewer, type SheetOutline } from '@/sheet'
 import { useFormat } from '@/format'
 import { Popover, PopoverContent, PopoverTrigger } from '@/ui/primitives/popover'
-import { DrawingText, Empty, IconButton, KeyRegion, KeyScope, Skeleton, SheetsGlyph, buttonVariants, cn, isolateLtr, useKeys } from '@/ui'
+import { DrawingText, Empty, IconButton, KeyRegion, KeyScope, Skeleton, SheetsGlyph, buttonVariants, cn, isolateLtr, useKeys, useToast } from '@/ui'
 import { SheetName, useStep1Acts } from './acts'
-import { Bar, ExclusionPicker, useBar } from './Bar'
+import { Bar, ExclusionPicker, useBar, type BarSpec } from './Bar'
 import { renderQuery, useStep1, type CoverageOut, type ProposalOut, type ViewOut } from './data'
 import { DrawingListDialog } from './DrawingListDialog'
 import { FilesBand } from './FilesBand'
@@ -37,8 +37,9 @@ import { nextOpenRow, step1Model, type Reason, type Row, type Step1Model } from 
 import { SheetList, disciplineName } from './SheetList'
 import { OTHER_VIEW_KIND, VIEW_KINDS } from './words'
 import { stripSlots } from './storeys'
-import { CoverageLine, CoveragePanel, Overview, QuestionCard, QuestionsTab, SheetFacts, cardContext } from './Step1Inspector'
-import { Copy } from './questionWords'
+import { CoverageLine, CoveragePanel, Overview, QuestionCard, QuestionsTab, SheetFacts, cardContext, type Answerer, type Pick } from './Step1Inspector'
+import { Copy, optionsOf, prePick } from './questionWords'
+import type { QuestionEntry } from './model'
 
 const projectRoute = getRouteApi('/_app/p/$code')
 
@@ -126,6 +127,8 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
   const readOnly = readOnlyRole(session)
   const refuse = useReadOnlyToast()
   const acts = useStep1Acts(project.id)
+  const toast = useToast()
+  const format = useFormat()
   useSummaryCounts(project, model)
 
   // `?sheet=<printed sheet's id>` opens that sheet (the Drawing Set report's "Open in Step 1", #118).
@@ -147,6 +150,8 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
   const [viewPick, setViewPick] = useState<{ sheet: string; view: string } | null>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const focusNext = useRef<string | null>(null)
+  /** The QS's pick on each Question, by its id, until answered (a pick changes nothing until Enter, §6.7). */
+  const [picks, setPicks] = useState<Readonly<Record<string, Pick>>>({})
 
   const rowByKey = (key: string | null) => (key ? (model.rows.find((r) => r.key === key) ?? null) : null)
   const rowOfSheet = (id: string | null) => (id ? (model.rows.find((r) => r.sheets.some((s) => s.id === id)) ?? null) : null)
@@ -173,6 +178,21 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
       el.focus({ preventScroll: false })
       el.scrollIntoView({ block: 'nearest' })
     }
+  })
+
+  /** After the last Question is answered: focus the first open row of the reloaded Step 1. */
+  const focusFirstOpen = useRef<string | null>(null)
+  useLayoutEffect(() => {
+    const answered = focusFirstOpen.current
+    if (!answered || mode !== 'list') return
+    // Held until the answered Question's row has gone with the reload.
+    if (model.rows.some((r) => r.key === answered)) return
+    const first = nextOpenRow(model.rows, null)
+    const el = first ? listRef.current?.querySelector<HTMLElement>(`[data-row="${CSS.escape(first.key)}"]`) : null
+    if (!first || !el) return
+    focusFirstOpen.current = null
+    el.focus({ preventScroll: false })
+    el.scrollIntoView({ block: 'nearest' })
   })
 
   const focusRow = (key: string | null) => {
@@ -241,6 +261,63 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
     if (done && thenNext && mode === 'sheet' && openSheet) openNextProposal(openSheet)
   }
 
+  const setPick = (entry: QuestionEntry, pick: Pick | null) =>
+    setPicks((all) => {
+      const next = { ...all }
+      if (pick) next[entry.question.id] = pick
+      else delete next[entry.question.id]
+      return next
+    })
+
+  const answerEntry = async (entry: QuestionEntry) => {
+    if (readOnly) return refuse(readOnly)
+    const pick = picks[entry.question.id] ?? null
+    const key = pick?.key ?? prePick(entry, cardContext(model))?.key
+    if (!key) return
+    // Never an empty number (the walk, M4): Enter in the empty field is refused under it (round 3's gate).
+    if (key === 'type_number' && !(pick?.text ?? '').trim()) return setPick(entry, { key, text: pick?.text ?? '', refused: (pick?.refused ?? 0) + 1 })
+    const rowKey = `q:${entry.question.id}`
+    const done = await acts.answerQuestion(entry, key, key === 'type_number' ? (pick?.text ?? '') : '')
+    if (!done) return
+    setPick(entry, null)
+    // Kept open, it stays focused (its card says "Kept open"); else on to the next open Question, as
+    // "Ask later" would; none left, nothing focused (the overview).
+    if (key !== 'keep_open' && (focused === rowKey || mode === 'list')) {
+      const next = nextOpenRow(model.rows, rowKey, true)
+      if (next && next.key !== rowKey) focusRow(next.key)
+      else {
+        // The last Question answered: focus goes to the first sheet still open, the row the bar then
+        // names (the walk, M4), found in Step 1 as reloaded (its rows' keys change with the answer).
+        focusRow(null)
+        focusFirstOpen.current = rowKey
+      }
+    }
+  }
+
+  const answerer: Answerer | null = readOnly
+    ? null
+    : {
+        choice: (entry) => picks[entry.question.id] ?? null,
+        choose: (entry, key) => {
+          setPick(entry, { key, text: picks[entry.question.id]?.text ?? '' })
+          // A pick on a card in the Questions tab makes its Question the one Enter answers.
+          const rowKey = `q:${entry.question.id}`
+          if (mode === 'list' && focused !== rowKey && model.rows.some((r) => r.key === rowKey)) setFocused(rowKey)
+        },
+        type: (entry, text) => setPick(entry, { key: 'type_number', text }),
+        answer: (entry) => void answerEntry(entry),
+        later: () => nextQuestion(),
+        busy: acts.busy,
+      }
+
+  /** 1–9: pick that answer on the focused Question (§6.15). */
+  const pickByKey = (n: number) => {
+    if (readOnly) return refuse(readOnly)
+    const entry = focusedRow?.question
+    const option = entry ? optionsOf(entry)[n - 1] : undefined
+    if (entry && option?.key && answerer) answerer.choose(entry, option.key)
+  }
+
   const bar = useBar({
     model,
     row: focusedRow,
@@ -251,7 +328,18 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
     nextOpen,
     nextQuestion,
     openRow,
+    answerer,
   })
+  /**
+   * What the bar shows: while an act and Step 1's reload are in flight, the bar from before it,
+   * its button off (the walk, M5: mid-reload it showed the bulk act with Questions still open).
+   * Enter still reads the live bar, so a key pressed meanwhile is dropped as before.
+   */
+  // Taken as the act starts: Step 1 has not changed yet, so it is the bar the QS acted on.
+  const [held, setHeld] = useState<{ busy: boolean; bar: BarSpec | null }>({ busy: false, bar: null })
+  if (held.busy !== acts.busy) setHeld({ busy: acts.busy, bar: acts.busy ? bar : null })
+  const before = acts.busy ? held.bar : null
+  const shown = before ? { ...before, button: before.button && { ...before.button, disabled: true } } : bar
 
   const page = (by: number) => {
     if (mode !== 'sheet' || !open) return
@@ -267,8 +355,35 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
     if (next) focusRow(next.key)
   }
 
+  /** §6.4: Enter on a Question with nothing picked says what to do (a toast is drawn outside the format's provider). */
+  const sayPick = (entry: QuestionEntry) => {
+    const tag = entry.tag
+    const keys = Array.from({ length: Math.min(9, optionsOf(entry).length) }, (_, i) => format.integer(i + 1)).join(', ')
+    toast.show({ message: <Trans>Pick an answer to {tag} first: {keys}</Trans> })
+  }
+
+  /** Enter on a Question's card: answers it with the pick (or the pre-pick), else says to pick first. */
+  function enterOn(entry: QuestionEntry) {
+    if (readOnly) return refuse(readOnly)
+    if (picks[entry.question.id] || prePick(entry, cardContext(model))) void answerEntry(entry)
+    else sayPick(entry)
+  }
+
   const enter = () => {
     if (readOnly) return refuse(readOnly)
+    // The exclusion picker is what the bar shows: Enter is its own (with "Other" typed), never the bar's.
+    if (picker) return
+    // In a Question's card (its number field), Enter answers that Question, whatever row or sheet is open.
+    const inCard = (document.activeElement as HTMLElement | null)?.closest<HTMLElement>('[data-question]')?.dataset.question
+    const carded = inCard ? [...model.queue, ...model.withdrawn.flatMap((r) => (r.question ? [r.question] : []))].find((e) => e.question.id === inCard) : undefined
+    if (carded) return enterOn(carded)
+    if (bar?.button?.disabled) {
+      // A pick made, its number not typed yet: refused under the field, as Enter in it is.
+      const entry = focusedRow?.question
+      if (entry && picks[entry.question.id]?.key === 'type_number') void answerEntry(entry)
+      else if (entry) sayPick(entry)
+      return
+    }
     const act = bar?.button ?? bar?.ghost
     if (act) act.run()
     else nextOpen()
@@ -292,6 +407,16 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
     { key: 'S', label: t`The sheet picker`, group: 'screen', when: () => mode === 'sheet', run: () => setSheetPicker(true) },
     { key: '[', label: t`Previous sheet`, group: 'screen', when: () => mode === 'sheet', run: () => page(-1) },
     { key: 'Q', label: t`Next open Question`, group: 'screen', run: nextQuestion },
+    // 1–9: an answer on the focused Question (§6.15); the exclusion picker's own 1–9 win while it is open.
+    { key: '1', label: t`Pick answer 1 on the focused Question`, group: 'screen', when: () => !!focusedRow?.question, run: (event) => (event.repeat ? undefined : pickByKey(1)) },
+    { key: '2', label: t`Pick answer 2 on the focused Question`, group: 'screen', when: () => !!focusedRow?.question, run: (event) => (event.repeat ? undefined : pickByKey(2)) },
+    { key: '3', label: t`Pick answer 3 on the focused Question`, group: 'screen', when: () => !!focusedRow?.question, run: (event) => (event.repeat ? undefined : pickByKey(3)) },
+    { key: '4', label: t`Pick answer 4 on the focused Question`, group: 'screen', when: () => !!focusedRow?.question, run: (event) => (event.repeat ? undefined : pickByKey(4)) },
+    { key: '5', label: t`Pick answer 5 on the focused Question`, group: 'screen', when: () => !!focusedRow?.question, run: (event) => (event.repeat ? undefined : pickByKey(5)) },
+    { key: '6', label: t`Pick answer 6 on the focused Question`, group: 'screen', when: () => !!focusedRow?.question, run: (event) => (event.repeat ? undefined : pickByKey(6)) },
+    { key: '7', label: t`Pick answer 7 on the focused Question`, group: 'screen', when: () => !!focusedRow?.question, run: (event) => (event.repeat ? undefined : pickByKey(7)) },
+    { key: '8', label: t`Pick answer 8 on the focused Question`, group: 'screen', when: () => !!focusedRow?.question, run: (event) => (event.repeat ? undefined : pickByKey(8)) },
+    { key: '9', label: t`Pick answer 9 on the focused Question`, group: 'screen', when: () => !!focusedRow?.question, run: (event) => (event.repeat ? undefined : pickByKey(9)) },
     {
       // M22 (walk 5): straight after load focus is on the page, outside the list and canvas regions
       // whose Space opens and closes a sheet, yet the bar shows "Open E-01 [Space]". From the page,
@@ -338,7 +463,7 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
     />
   ) : focusedRow ? (
     <>
-      {focusedRow.question ? <QuestionCard entry={focusedRow.question} readOnly={readOnly} context={cardContext(model)} onOpen={openSheetOf} /> : null}
+      {focusedRow.question ? <QuestionCard entry={focusedRow.question} readOnly={readOnly} context={cardContext(model)} onOpen={openSheetOf} answerer={answerer} /> : null}
       <SheetFacts
         row={focusedRow}
         showTitle={mode === 'list'}
@@ -372,7 +497,7 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
       </SlotFill>
       <SlotFill slot="inspector.questions">
         <div className="flex w-full flex-col">
-          <QuestionsTab model={model} readOnly={readOnly} onOpen={openSheetOf} />
+          <QuestionsTab model={model} readOnly={readOnly} onOpen={openSheetOf} answerer={answerer} />
         </div>
       </SlotFill>
 
@@ -425,8 +550,8 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
               })
             }}
           />
-        ) : bar ? (
-          <Bar spec={bar} />
+        ) : shown ? (
+          <Bar spec={shown} />
         ) : null}
       </div>
 

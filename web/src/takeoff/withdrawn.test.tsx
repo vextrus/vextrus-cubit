@@ -55,7 +55,7 @@ describe('a Question withdrawn by an exclusion', () => {
       return found!
     })
     expect(clean(card.textContent)).toContain('Withdrawn')
-    expect(clean(card.textContent)).toContain('Questions cannot be answered on this screen yet, so A-05 stays left out until this one is answered.')
+    expect(clean(card.textContent)).toContain('A-05 stays left out until this Question is answered.')
   })
 
   it('keeps the sheet a refused "Confirm back in" names on screen, with its Question', async () => {

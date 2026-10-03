@@ -209,6 +209,9 @@ class QuestionView:
     Question withdrawn because a newer one replaced it."""
     blocking: bool = False
     """It holds its sheets from being confirmed: open, or withdrawn by an exclusion that still stands."""
+    raised: int | None = None
+    """Its place among the Project's Step 1 Questions in the order they were raised (open, answered
+    and withdrawn alike), from 1: its tag (Q1…) for life, whatever is answered or left out later."""
 
 
 @dataclass(frozen=True)
@@ -507,6 +510,16 @@ def questions(project_id: uuid.UUID) -> list[QuestionView]:
     projects.get(project_id)
     held = _held(project_id)
     found = _asked(project_id, Question.objects.filter(project_id=project_id, step=SHEETS), held)
+    # Counted over every Step 1 Question, asked still or not, so no tag moves when one stops being asked.
+    raised = {
+        qid: place
+        for place, qid in enumerate(
+            Question.objects.filter(project_id=project_id, step=SHEETS)
+            .order_by("created_at", "id")
+            .values_list("id", flat=True),
+            start=1,
+        )
+    }
 
     def queued(q: Question) -> tuple[Any, ...]:
         # m0-screens §5: the held file first, then the Questions holding the most sheets, then
@@ -537,6 +550,7 @@ def questions(project_id: uuid.UUID) -> list[QuestionView]:
             withdrawn_by=q.withdrawn_by_id if q.status == QuestionStatus.WITHDRAWN else None,
             blocking=q.kind in FIRST
             and (q.status == QuestionStatus.OPEN or _withdrawn_by_standing_exclusion(q)),
+            raised=raised.get(q.id),
         )
         for q in sorted(found, key=queued)
     ]
@@ -1570,8 +1584,9 @@ def _account(row: Coverage, sheet: drawings.SheetView, act: Confirmation) -> boo
 
 def undo(project_id: uuid.UUID) -> ActView:
     """Take back the acting user's own last act on Step 1 not yet undone (a confirmation, an
-    exclusion, a drawing list). Each sheet it still decides goes back to what it carried before the
-    act (another person's decision included), or to undecided; its Proposal and its views' Coverage
+    exclusion, a drawing list); refused as `answer_stays` when that act answered a Question. Each
+    sheet it still decides goes back to what it carried before the act (another person's decision
+    included), or to undecided; its Proposal and its views' Coverage
     follow. A sheet another act has decided since is left as that act decided it."""
     auth.require(acts.UNDO, project_id)
     projects.get(project_id)  # a Project not in scope (of another Developer, or none) is not found
@@ -1584,6 +1599,10 @@ def undo(project_id: uuid.UUID) -> ActView:
         )
         if act is None:
             raise auth.Refused(said.NOTHING_TO_UNDO(), status=409)
+        if act.kind == ConfirmationKind.QUESTION_ANSWER:
+            # An answer has no undo: taking back its confirm or exclusion would leave the Question
+            # answered by sheets it no longer decides. Its sheets are still excluded or confirmed.
+            raise auth.Refused(said.ANSWER_STAYS(), status=409)
         listed = {s.id for s in _sheets(project_id) if s.confirmation_id == act.id}
         # Every sheet the act still decides, those off the sheet list now included (a held file set
         # aside after the act): drawings clears them all; a sheet off the list cannot be decided

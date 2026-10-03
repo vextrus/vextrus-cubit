@@ -7,7 +7,7 @@
 import type { DrawingListOut, ProposalOut, QuestionOut, Step1Data } from './data'
 
 /** The Takeoff's order of Disciplines (ADR 0040): Structural, Architectural, then each MEP one. */
-export const DISCIPLINE_ORDER = ['structural', 'architectural', 'electrical', 'plumbing', 'fire', 'mechanical', 'lift', 'gas'] as const
+export const DISCIPLINE_ORDER = ['structural', 'architectural', 'electrical', 'plumbing', 'fire', 'mechanical', 'lift', 'gas', 'general'] as const
 
 /** The Disciplines Steps 1–13 take off (ADR 0040); every other one is an MEP Part, taken off from M3. */
 export const STEP_DISCIPLINES: ReadonlySet<string> = new Set(DISCIPLINE_ORDER.slice(0, 2))
@@ -92,6 +92,8 @@ export interface Step1Model {
   notReceived: readonly string[]
   /** The open Questions in queue order (Q1…); the withdrawn ones are not in it (they are `withdrawn`'s rows, tagged after it). */
   queue: readonly QuestionEntry[]
+  /** The answered Questions, in the order they were answered, tagged on after the open and withdrawn ones. */
+  answered: readonly QuestionEntry[]
   bulk: Bulk
   /** Every row in list order: what ↑ ↓ walk. */
   rows: readonly Row[]
@@ -177,6 +179,24 @@ export function withdrawnQueue(questions: readonly QuestionOut[], proposals: rea
   return entries.map((e, i) => ({ ...e, tag: `Q${after + i + 1}`, kept: false, withdrawn: true }))
 }
 
+/**
+ * A Question's tag for life (the design gate's walk, M1: tags renumbered after every answer): its
+ * place among the Project's Questions in the order raised, which the server gives as `raised`, so
+ * card, row, bar, toast and Answered line keep one tag whatever is answered or left out. Only when
+ * a Question lacks it (a server before #156's round 2) are the tags the queue's, as before.
+ */
+function raisedTags(entries: QuestionEntry[]): void {
+  if (!entries.every((e) => typeof e.question.raised === 'number')) return
+  for (const e of entries) e.tag = `Q${e.question.raised}`
+}
+
+/** The answered Questions, in the order answered, tagged on after `after` (Q7… after Q1–Q6). */
+export function answeredQueue(questions: readonly QuestionOut[], proposals: readonly ProposalOut[], after: number): QuestionEntry[] {
+  const entries = questions.filter((q) => q.status === 'answered').map((question) => ({ question, holds: held(question, proposals) }))
+  entries.sort((a, b) => (a.question.answered_at ?? '').localeCompare(b.question.answered_at ?? ''))
+  return entries.map((e, i) => ({ ...e, tag: `Q${after + i + 1}`, kept: false, withdrawn: false, answered: true }))
+}
+
 const decided = (p: ProposalOut) => p.decision !== null
 const sameState = (a: ProposalOut, b: ProposalOut) => a.decision === b.decision && a.excluded_reason === b.excluded_reason
 
@@ -239,6 +259,8 @@ export function step1Model(data: Step1Data): Step1Model {
   )
   const queue = questionQueue(data.questions, proposals)
   const withdrawnEntries = withdrawnQueue(data.questions, proposals, queue.length)
+  const answered = answeredQueue(data.questions, proposals, queue.length + withdrawnEntries.length)
+  raisedTags([...queue, ...withdrawnEntries, ...answered])
   const heldBy = new Map<string, QuestionEntry>()
   for (const entry of [...queue, ...withdrawnEntries]) for (const p of entry.holds) if (!heldBy.has(p.id)) heldBy.set(p.id, entry)
 
@@ -307,6 +329,7 @@ export function step1Model(data: Step1Data): Step1Model {
     disciplines,
     notReceived: data.progress.not_received,
     queue,
+    answered,
     bulk: { confirm: bulkConfirm, leaveOut: bulkOut, reasons },
     rows,
     confirmed: proposals.filter((p) => p.decision === 'confirmed').length,
