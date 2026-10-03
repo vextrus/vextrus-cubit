@@ -61,7 +61,7 @@ def test_the_app_reads_its_markets_disciplines_and_writes_none(qs_project: QsPro
         keys = [row[0] for row in sql("select key from drawings_discipline order by sort_order")]
         assert keys == [
             "structural", "architectural", "electrical", "plumbing",
-            "fire", "mechanical", "lift", "gas",
+            "fire", "mechanical", "lift", "gas", "general",
         ]  # fmt: skip
         any_id = one("select id from drawings_discipline where key = 'gas'")
         with refused("permission denied"):
@@ -84,7 +84,7 @@ def test_another_markets_disciplines_are_out_of_sight(
             other_market.library_id
         ]) == 0  # fmt: skip
         shown = services.disciplines()
-        assert len(shown) == 8
+        assert len(shown) == 9
         assert all(d.id not in other_market.discipline_ids.values() for d in shown)
 
 

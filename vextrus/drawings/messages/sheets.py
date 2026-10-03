@@ -17,10 +17,17 @@ PLOT_PDF_REFUSED = MessageCode("drawings.sheets.plot_pdf_refused")
 PLOT_NO_NUMBER = MessageCode("drawings.sheets.plot_no_number")
 PLOT_NOT_YET = MessageCode("drawings.sheets.plot_not_yet")
 """A PDF of its Discipline (or of none) is waiting or being read. Without a Plot recorded, a sheet's
-line is worked out from its set's PDFs as they stand: one of its Discipline or of none being read,
-PLOT_NOT_YET; else one read, PLOT_NO_PAGE (none of its pages matched the sheet); else one of its
+line is worked out from its set's PDFs as they stand: one of its Discipline or of none waiting or
+being read, PLOT_NOT_YET; else one read with no match kept for the sheet, PLOT_NOT_MATCHED (never a
+match that ran: 157); else one of its
 Discipline that was not read, PLOT_PDF_UNREAD; else only refused ones of its Discipline,
-PLOT_PDF_REFUSED; else PLOT_NO_PDF. A sheet of no Discipline counts every PDF as its own."""
+PLOT_PDF_REFUSED; else PLOT_NO_PDF. PLOT_NO_PAGE is only a match that ran and found no page
+(`PlotNone.NO_PAGE`, kept by the job). A sheet of no Discipline counts every PDF as its own."""
+PLOT_NOT_MATCHED = MessageCode("drawings.sheets.plot_not_matched", params=("plot_file",))
+"""A PDF of its Discipline (or of none) is read, and no match of it against the sheet is kept: the
+read job matches in the transaction that marks a file read (157), so this is a set read before that,
+or a PDF that could not be read again when the sheet's DWG was. `plot_file` is the first such PDF
+(its own Discipline's first, then first added)."""
 PLOT_PDF_UNREAD = MessageCode("drawings.sheets.plot_pdf_unread")
 """Its Discipline's PDFs there were not read (they failed, were cancelled or are held)."""
 

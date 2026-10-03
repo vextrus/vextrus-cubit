@@ -61,8 +61,10 @@ APP_KEY=/home/$KEY_USER/github-app/app.pem
 UV_VERSION=0.12.5
 UV_URL=https://github.com/astral-sh/uv/releases/download/$UV_VERSION/uv-x86_64-unknown-linux-gnu.tar.gz
 UV_SHA256=68a509da24b06b4223a1c0175fb5eb5bc79342b76cbeff0cfe51ac3f5b17b6b2
-# The installed copy: scripts/real_drawings/runner.py's FILES (a test keeps the two lists equal).
+# The installed copy: scripts/real_drawings/runner.py's FILES (a test keeps the two lists equal), the
+# data file source.py reads at import among them.
 RUNNER_FILES=(
+  .github/checkout-also.txt
   scripts/__init__.py
   scripts/real_drawings/__init__.py
   scripts/real_drawings/command.py
@@ -319,10 +321,15 @@ RULE
   check "$OWNER cannot list $KEY_DIR" "! sudo -u $OWNER ls $KEY_DIR"
   check "$RUN_USER cannot list $KEY_DIR" "! sudo -u $RUN_USER ls $KEY_DIR"
   check "$OWNER cannot write $DROP" "! sudo -u $OWNER test -w $DROP"
+  # The installed copy as a whole: no file or folder, nor any link's target, that your user can write or
+  # that is not root's (a find that fails, unable to read a folder, fails the check too).
   check "$OWNER cannot change the scorer, the poster, the command or its launcher" \
     "! sudo -u $OWNER test -w $SCORER && ! sudo -u $OWNER test -w $RUNNER \
      && ! sudo -u $OWNER test -w $LIB/post-status && ! sudo -u $OWNER test -w $LIB/post-status.toml \
-     && ! sudo -u $OWNER test -w $INSTALLED/scripts/real_drawings/command.py"
+     && ! sudo -u $OWNER test -w $INSTALLED/scripts/real_drawings/command.py \
+     && ! sudo -u $OWNER test -w $INSTALLED/.github/checkout-also.txt \
+     && found=\$(sudo -u $OWNER find -L $INSTALLED \\( -writable -o ! -user root \\) -print -quit) \
+     && [ -z \"\$found\" ]"
   check "the installed scorer is GitHub's main's" "cmp -s $tmp/score $SCORER"
   check "$OWNER may run the installed command as $RUN_USER (its usage)" \
     "sudo -u $OWNER -- sudo -n -u $RUN_USER $RUNNER --help"

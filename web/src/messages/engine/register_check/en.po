@@ -5,7 +5,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Language: en\n"
 
-#. engine/messages/register_check.py (ticket 19b): with no drawing list, a gap in a Discipline's numbering (m0-screens 6.3's "no drawing list; numbering runs 01–57; 14 and 31 missing"). A state, never a Question; the Discipline is a param 19a names.
+#. engine/messages/register_check.py (ticket 19b): with no drawing list, a gap in a Discipline's numbering (m0-screens 6.3's "no drawing list; numbering runs 01–57; 14 and 31 missing"). 21c raises it as a Check Question with no sheet (its row's Number cell reads A-03–A-05, its title is this sentence cut short); the Discipline is a param 19a names.
 msgid "engine.register_check.gap"
 msgstr "No drawing list, and the numbering skips from {after} to {before}: {missing, plural, one {# number is} other {# numbers are}} missing, so these sheets have one source and are confirmed one by one. Paste the drawing list, or ask the consultant whether {missing, plural, one {that sheet exists} other {those sheets exist}}."
 

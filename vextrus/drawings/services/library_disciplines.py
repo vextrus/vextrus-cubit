@@ -6,7 +6,9 @@ Market's Library for reading only); a Developer names one by its key and `drawin
 **A file's Discipline from its name:** the name's whole words (split at anything but a letter or a
 digit, the extension left off) against each Discipline's key and prefixes, case aside: exactly one
 Discipline matched gives it; none, or several, gives none. "KR-STR-R0.dwg" is Structural by `STR`;
-"site-photos.pdf" matches none; "KR-STR-ARC.dwg" matches two, so none.
+"site-photos.pdf" matches none; "KR-STR-ARC.dwg" matches two, so none. A notes Discipline (its kind
+`notes`, General, #159) is never read from a name: "GENERAL NOTES.dwg" is General by its sheets or
+not at all (`sheet_list`'s default).
 
     [structural, *_] = drawings.services.disciplines()
     drawings.services.conventions(file_id)  # (DisciplineConvention("structural", ("S", "ST", "STR")), …)
@@ -21,7 +23,7 @@ from pathlib import PurePosixPath
 from django.db.models import QuerySet
 
 from engine.recognise.types import DisciplineConvention
-from vextrus.drawings.models import Discipline
+from vextrus.drawings.models import Discipline, DisciplineKind
 from vextrus.drawings.services import _access
 from vextrus.platform.services import markets, tenancy
 
@@ -48,6 +50,13 @@ def conventions(file_id: uuid.UUID) -> tuple[DisciplineConvention, ...]:
     its Market's, each by key with its prefixes."""
     _access.drawing_file(file_id)
     return tuple(DisciplineConvention(d.key, d.prefixes) for d in disciplines())
+
+
+def notes_disciplines(file_id: uuid.UUID) -> tuple[str, ...]:
+    """The keys of the file's Market's notes Disciplines (kind `notes`: General, #159), whose sheets are
+    general notes: every view of theirs is Step 2's (17's `ViewConventions.notes_disciplines`)."""
+    _access.drawing_file(file_id)
+    return tuple(d.key for d in disciplines() if d.kind == DisciplineKind.GENERAL)
 
 
 def labels_of(discipline_id: uuid.UUID | None) -> dict[str, str]:
@@ -79,7 +88,8 @@ def from_name(name: str, candidates: Iterable[Discipline]) -> Discipline | None:
     matched = [
         discipline
         for discipline in candidates
-        if words & {discipline.key.casefold(), *(p.casefold() for p in discipline.prefixes)}
+        if discipline.kind != DisciplineKind.GENERAL
+        and words & {discipline.key.casefold(), *(p.casefold() for p in discipline.prefixes)}
     ]
     return matched[0] if len(matched) == 1 else None
 
