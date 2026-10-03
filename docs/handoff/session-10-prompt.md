@@ -32,7 +32,7 @@ land.sh,premerge-tc.sh}`, paths fixed).
 ## 1. First: land what is ready (in this order)
 | Order | PR | Ticket | State | Next |
 |---|---|---|---|---|
-| 1 | #196 | #162 no phantoms | if not merged at session 09's close: reviewed, `--accept` posted ("5 covers proposed out…"), CI re-running after the #159-clash test fix | land |
+| 1 | #196 | #162 no phantoms | if not merged at session 09's close: reviewed; the `--accept` ("5 covers proposed out…") went on an earlier head; CI re-running after the #159-clash test fix | re-post `--accept`, land |
 | 2 | #201 | scored loop 1: view boxes | re-check 2 mergeable; scored under the corrected keys: Edison views 332 → 418 / 739, sheets 38 → 44; Sample views 197 → 203 | merge main, `--accept` (views 243 gained / 79 lost / 8 changed, judged by the score), land; then re-score main |
 | 3 | #200 | #163 Next/Previous pin | light review PASS; design-gate posted at 33db463a (10; n/a rest) | merge main, re-post the gate, land |
 | 4 | #186 | #161 same-number per Discipline | its own change passed words; it contains #159's old head | merge main (now has #193), a words-only `ux-critic` pass, the gate, real-drawings, land |
@@ -40,7 +40,7 @@ land.sh,premerge-tc.sh}`, paths fixed).
 | 6 | 21d | the job as the check's default | `t21d` 811869f4 (local), re-check 2: fixed + one 50 filed (#192); render_f1 19 lost / 28 changed judged f32 paper | **merge last**: open a PR, `--accept`, land; then the owner's custody re-run |
 
 ## 2. Builders running or ready at session 09's close
-- **#160 one paper scale**: local `s9-160` (fix round 2, the last): a matched Plot page's paper for model-space sheets
+- **#160 one paper scale**: local `s9-160`, worktree `.claude/worktrees/t160` (branch `t160`), notes `.private/work/session-09/160/NOTES.txt` (fix round 2, the last): a matched Plot page's paper for model-space sheets
   (#157 is on main); render_f1 losses not accepted. Read its NOTES/READY, re-check, real-drawings.
 - **#168 Discipline from file names**: cloud on `t168s9` (main + acceptance 4ab17285). Review when READY.
 - Not started: **#167** Step 1 words bundle (carry list `.private/work/session-08/167/carry.md`, plus session 09's
