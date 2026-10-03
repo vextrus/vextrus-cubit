@@ -41,8 +41,9 @@ DUPLICATE = [
     Sheet("S-02", "COLUMN SCHEDULE", ("COLUMN SCHEDULE",), rev="R1", date="14.09.2026"),
     Sheet("S-02", "COLUMN SCHEDULE", ("COLUMN SCHEDULE",), rev="R0", date="02.08.2026"),
 ]
-LOOSE = [Sheet("S-01", "PILE LAYOUT PLAN", ("PILE LAYOUT PLAN", "SECTION A-A"))]
-"""A pile plan and a section no step reads: one view unaccounted."""
+LOOSE = [Sheet("S-01", "TYPICAL DETAILS", ("PILE LAYOUT PLAN", "SECTION A-A"))]
+"""A pile plan and a section no step reads: one view unaccounted (on a sheet whose title names no
+subject either, which would give the section its Steps, #158)."""
 
 
 @pytest.fixture(autouse=True)
