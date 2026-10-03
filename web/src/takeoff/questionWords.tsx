@@ -408,7 +408,8 @@ export function Answering({ entry, context, choice, hint = false }: { entry: Que
     const missing = typeof q.params.missing === 'number' ? q.params.missing : 1
     if (picked === 'not_in_set') {
       if (gap) return <Trans>Answering records that the numbering skips here: nothing is missing.</Trans>
-      return entryName ? <Trans>Answering takes {entryName} off the list.</Trans> : <Trans>Answering takes the sheet off the list.</Trans>
+      // 21c records it and takes nothing off the drawing list: said as what is recorded, not §6.7's "takes … off".
+      return entryName ? <Trans>Answering records that {entryName} is not part of this set.</Trans> : <Trans>Answering records that the sheet is not part of this set.</Trans>
     }
     if (picked === 'not_sent_yet' || picked === 'file_not_added') {
       const kept = gap ? (
@@ -438,9 +439,9 @@ export function Answering({ entry, context, choice, hint = false }: { entry: Que
     }
   }
   if (q.kind === 'missing' && n > 0) {
-    // §6.7's no-number row.
-    if (picked === 'no_number') return <Trans>Answering confirms the sheet without a number.</Trans>
-    if (picked === 'type_number') return <Trans>Answering confirms the sheet as the number you type.</Trans>
+    // §6.7's no-number row, as 21c does it: the number is set (or left empty); the sheet is confirmed in the list.
+    if (picked === 'no_number') return <Trans>Answering leaves the sheet without a number; confirm it in the list.</Trans>
+    if (picked === 'type_number') return <Trans>Answering gives the sheet the number you type; confirm it in the list.</Trans>
   }
   if (picked && RECORDED_ONLY.has(picked)) return <Trans>Answering records your pick; the copies stay as they are, to confirm or exclude in the list.</Trans>
   if (isCopies(entry) && picked) {
@@ -524,6 +525,11 @@ export function AnswerNote({ entry, readOnly }: { entry: QuestionEntry; readOnly
  * The toast after an answer (§6.5: "Q3 answered. Confirms S-19 R1 and excludes R0 as superseded."),
  * naming only what 21c's answer does to the sheets; "Keep open" says the Question stays.
  */
+function SheetKindName({ option }: { option: string }) {
+  const { i18n } = useLingui()
+  return <>{i18n._(SHEET_KIND_NAMES[option]!)}</>
+}
+
 export function AnsweredWords({ entry, option, text }: { entry: QuestionEntry; option: string; text: string }) {
   const tag = entry.tag
   const n = entry.holds.length
@@ -561,5 +567,18 @@ export function AnsweredWords({ entry, option, text }: { entry: QuestionEntry; o
     const number = <DrawingText kind="sheet-number" text={text} truncate={false} />
     return <Trans>{tag} answered. The sheet is numbered {number}.</Trans>
   }
+  // §6.5: the toast names what the answer did (the walk, M7).
+  const q = entry.question
+  if (q.kind === 'file_misread') {
+    if (option === 'read_anyway') return <Trans>{tag} answered. The file is read again; its sheets join the list, marked held.</Trans>
+    if (option === 'await_resaved') return <Trans>{tag} answered. The file is set aside, waiting for the re-saved file.</Trans>
+    if (option === 'sent_to_vextrus') return <Trans>{tag} answered. The file is set aside and marked for Vextrus to look at.</Trans>
+  }
+  if (q.kind === 'low_confidence' && SHEET_KIND_NAMES[option] && n > 0) {
+    const sheet = <SheetName sheets={entry.holds} />
+    const kind = <SheetKindName option={option} />
+    return <Trans>{tag} answered. Confirms {sheet} as a sheet of kind “{kind}”.</Trans>
+  }
+  if (q.kind === 'missing' && option === 'no_number') return <Trans>{tag} answered. The sheet stays without a number.</Trans>
   return <Trans>{tag} answered.</Trans>
 }

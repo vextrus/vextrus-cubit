@@ -27,7 +27,7 @@ import { useFormat } from '@/format'
 import { Popover, PopoverContent, PopoverTrigger } from '@/ui/primitives/popover'
 import { DrawingText, Empty, IconButton, KeyRegion, KeyScope, Skeleton, SheetsGlyph, buttonVariants, cn, isolateLtr, useKeys, useToast } from '@/ui'
 import { SheetName, useStep1Acts } from './acts'
-import { Bar, ExclusionPicker, useBar } from './Bar'
+import { Bar, ExclusionPicker, useBar, type BarSpec } from './Bar'
 import { renderQuery, useStep1, type CoverageOut, type ProposalOut, type ViewOut } from './data'
 import { DrawingListDialog } from './DrawingListDialog'
 import { FilesBand } from './FilesBand'
@@ -180,6 +180,21 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
     }
   })
 
+  /** After the last Question is answered: focus the first open row of the reloaded Step 1. */
+  const focusFirstOpen = useRef<string | null>(null)
+  useLayoutEffect(() => {
+    const answered = focusFirstOpen.current
+    if (!answered || mode !== 'list') return
+    // Held until the answered Question's row has gone with the reload.
+    if (model.rows.some((r) => r.key === answered)) return
+    const first = nextOpenRow(model.rows, null)
+    const el = first ? listRef.current?.querySelector<HTMLElement>(`[data-row="${CSS.escape(first.key)}"]`) : null
+    if (!first || !el) return
+    focusFirstOpen.current = null
+    el.focus({ preventScroll: false })
+    el.scrollIntoView({ block: 'nearest' })
+  })
+
   const focusRow = (key: string | null) => {
     setFocused(key)
     focusNext.current = key
@@ -259,6 +274,8 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
     const pick = picks[entry.question.id] ?? null
     const key = pick?.key ?? prePick(entry, cardContext(model))?.key
     if (!key) return
+    // Never an empty number (the walk, M4): Enter in the empty field does nothing; focus stays in it.
+    if (key === 'type_number' && !(pick?.text ?? '').trim()) return
     const rowKey = `q:${entry.question.id}`
     const done = await acts.answerQuestion(entry, key, key === 'type_number' ? (pick?.text ?? '') : '')
     if (!done) return
@@ -267,7 +284,13 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
     // "Ask later" would; none left, nothing focused (the overview).
     if (key !== 'keep_open' && (focused === rowKey || mode === 'list')) {
       const next = nextOpenRow(model.rows, rowKey, true)
-      focusRow(next && next.key !== rowKey ? next.key : null)
+      if (next && next.key !== rowKey) focusRow(next.key)
+      else {
+        // The last Question answered: focus goes to the first sheet still open, the row the bar then
+        // names (the walk, M4), found in Step 1 as reloaded (its rows' keys change with the answer).
+        focusRow(null)
+        focusFirstOpen.current = rowKey
+      }
     }
   }
 
@@ -307,6 +330,16 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
     openRow,
     answerer,
   })
+  /**
+   * What the bar shows: while an act and Step 1's reload are in flight, the bar from before it,
+   * its button off (the walk, M5: mid-reload it showed the bulk act with Questions still open).
+   * Enter still reads the live bar, so a key pressed meanwhile is dropped as before.
+   */
+  // Taken as the act starts: Step 1 has not changed yet, so it is the bar the QS acted on.
+  const [held, setHeld] = useState<{ busy: boolean; bar: BarSpec | null }>({ busy: false, bar: null })
+  if (held.busy !== acts.busy) setHeld({ busy: acts.busy, bar: acts.busy ? bar : null })
+  const before = acts.busy ? held.bar : null
+  const shown = before ? { ...before, button: before.button && { ...before.button, disabled: true } } : bar
 
   const page = (by: number) => {
     if (mode !== 'sheet' || !open) return
@@ -345,7 +378,8 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
     const carded = inCard ? [...model.queue, ...model.withdrawn.flatMap((r) => (r.question ? [r.question] : []))].find((e) => e.question.id === inCard) : undefined
     if (carded) return enterOn(carded)
     if (bar?.button?.disabled) {
-      if (focusedRow?.question) sayPick(focusedRow.question)
+      // A pick made, its number not typed yet: nothing to say beyond the field's own words.
+      if (focusedRow?.question && picks[focusedRow.question.question.id]?.key !== 'type_number') sayPick(focusedRow.question)
       return
     }
     const act = bar?.button ?? bar?.ghost
@@ -514,8 +548,8 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
               })
             }}
           />
-        ) : bar ? (
-          <Bar spec={bar} />
+        ) : shown ? (
+          <Bar spec={shown} />
         ) : null}
       </div>
 

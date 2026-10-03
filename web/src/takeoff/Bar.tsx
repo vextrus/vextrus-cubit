@@ -165,6 +165,8 @@ export function useBar(c: BarContext): BarSpec | null {
       const entry = row.question
       const answerer = c.answerer ?? null
       const picked = answerer ? (answerer.choice(entry)?.key ?? prePick(entry, cardContext(model))?.key ?? null) : null
+      // As the card's own button: off under "Type a number" until a number is typed (the walk, M4).
+      const unnumbered = picked === 'type_number' && !(answerer?.choice(entry)?.text ?? '').trim()
       const tag = row.question.tag
       const title = <QuestionTitle entry={row.question} names={model.fileNames} />
       return {
@@ -180,7 +182,7 @@ export function useBar(c: BarContext): BarSpec | null {
         why: <Answering entry={row.question} context={cardContext(model)} choice={picked} hint={!!answerer} />,
         button: answerer
           ? picked
-            ? { label: <Trans>Answer {tag}</Trans>, run: () => answerer.answer(entry) }
+            ? { label: <Trans>Answer {tag}</Trans>, run: () => answerer.answer(entry), disabled: unnumbered }
             : { label: <Trans>Pick an answer</Trans>, run: () => {}, disabled: true }
           : undefined,
         ghost: answerer ? { label: <Trans>Ask later</Trans>, run: c.nextQuestion, combo: 'Q' } : { label: <Trans>Next open item</Trans>, run: c.nextOpen },

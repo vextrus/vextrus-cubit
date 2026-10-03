@@ -70,7 +70,7 @@ describe('the card’s first line follows the pick (§6.7; the walk, M3)', () =>
     await waitFor(() => expect(cardText(card)).toContain('Answering keeps S-13 in the count as missing. Structural can still be confirmed.'))
     expect(cardText(card)).not.toContain('Answering confirms no sheets')
     await userEvent.keyboard('2')
-    await waitFor(() => expect(cardText(card)).toContain('Answering takes S-13 off the list.'))
+    await waitFor(() => expect(cardText(card)).toContain('Answering records that S-13 is not part of this set.'))
     await userEvent.keyboard('4')
     await waitFor(() => expect(cardText(card)).toContain('Answering keeps S-13 open. Structural cannot be confirmed until it is answered.'))
   })
@@ -80,10 +80,10 @@ describe('the card’s first line follows the pick (§6.7; the walk, M3)', () =>
     await userEvent.keyboard('q')
     const card = await cardOf('Q1')
     await userEvent.keyboard(String(question.options.findIndex((o) => o.key === 'type_number') + 1))
-    await waitFor(() => expect(cardText(card)).toContain('Answering confirms the sheet as the number you type.'))
+    await waitFor(() => expect(cardText(card)).toContain('Answering gives the sheet the number you type; confirm it in the list.'))
     expect(cardText(card)).not.toContain('Answering settles')
     await userEvent.click(within(card).getAllByRole('radio')[question.options.findIndex((o) => o.key === 'no_number')]!)
-    await waitFor(() => expect(cardText(card)).toContain('Answering confirms the sheet without a number.'))
+    await waitFor(() => expect(cardText(card)).toContain('Answering leaves the sheet without a number; confirm it in the list.'))
   })
 })
 
@@ -124,5 +124,85 @@ describe('a Question’s tag is fixed for life (the walk, M1)', () => {
     // The two still open keep their tags, Q1 and Q2, though one of them now leads the queue.
     expect(await cardOf('Q1')).toBeTruthy()
     expect(screen.queryByRole('region', { name: (n: string) => clean(n) === 'Question Q3' })).toBeNull()
+  })
+})
+
+describe('an empty number is never sent (the walk, M4)', () => {
+  it('does nothing on Enter in the empty number field, focus staying in it, the bar’s Answer off as the card’s', async () => {
+    const { question, calls } = await openWith('missing')
+    await userEvent.keyboard('q')
+    const card = await cardOf('Q1')
+    await userEvent.keyboard(String(question.options.findIndex((o) => o.key === 'type_number') + 1))
+    const field = await within(card).findByRole('textbox')
+    await waitFor(() => expect(document.activeElement).toBe(field))
+    await userEvent.keyboard('{Enter}')
+    await new Promise((r) => setTimeout(r, 300))
+    expect(calls.filter((c) => c.startsWith('POST'))).toEqual([])
+    expect(document.activeElement).toBe(field)
+    expect(bodyText()).not.toContain('Pick an answer to Q1 first')
+    const answers = screen.getAllByRole('button', { name: (n: string) => clean(n).startsWith('Answer Q1') })
+    expect(answers.length).toBeGreaterThan(1)
+    for (const b of answers) expect((b as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('focuses the row the bar names once the last Question is answered', async () => {
+    await openWith('same_title')
+    await userEvent.keyboard('q')
+    await cardOf('Q1')
+    await userEvent.keyboard('1')
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(bodyText()).toContain('Q1 answered.'))
+    await waitFor(() => expect(document.activeElement?.getAttribute('role'), document.activeElement?.outerHTML.slice(0, 200)).toBe('row'))
+  })
+})
+
+describe('the bar while Step 1 reloads after an answer (the walk, M5)', () => {
+  it('never shows the bulk act while the answer and its reload are in flight', async () => {
+    const fake = new FakeAnswers()
+    const kinds = fake.byKind()
+    fake.questions = [kinds.same_title!, kinds.missing!]
+    let slow = false
+    const base = fake.api.handle
+    fake.api.handle = async (request: Request) => {
+      if (request.method === 'POST' && request.url.endsWith('/answer')) slow = true
+      if (slow) await new Promise((r) => setTimeout(r, 150 + Math.random() * 150))
+      return base(request)
+    }
+    await mount(fake)
+    await userEvent.keyboard('q')
+    await cardOf('Q1')
+    await userEvent.keyboard('1')
+    await userEvent.keyboard('{Enter}')
+    const seen: string[] = []
+    const until = performance.now() + 1500
+    while (performance.now() < until) {
+      for (const b of screen.queryAllByRole('button')) {
+        const name = clean(b.textContent)
+        if (/^(Confirm \d+|Leave out \d+)/.test(name) && !(b as HTMLButtonElement).disabled) seen.push(name)
+      }
+      await new Promise((r) => setTimeout(r, 15))
+    }
+    await waitFor(() => expect(bodyText()).toContain('Q1 answered.'))
+    expect(seen).toEqual([])
+  })
+})
+
+describe('the toast names what the answer did (§6.5; the walk, M7)', () => {
+  it('says the held file is set aside', async () => {
+    await openWith('file_misread')
+    await userEvent.keyboard('q')
+    await cardOf('Q1')
+    await userEvent.keyboard('2')
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(bodyText()).toContain('Q1 answered. The file is set aside, waiting for the re-saved file.'))
+  })
+
+  it('says what kind of sheet the answer confirmed', async () => {
+    await openWith('low_confidence')
+    await userEvent.keyboard('q')
+    await cardOf('Q1')
+    await userEvent.keyboard('1')
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(bodyText()).toContain('Q1 answered. Confirms A-05 as a sheet of kind “Elevation”.'))
   })
 })
