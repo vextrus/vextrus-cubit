@@ -197,6 +197,7 @@ def test_a_choice_undone_on_a_held_file_read_anyway_keeps_the_readers_disagreeme
         services.record_sheets(
             held.id, [sheet_candidate(i, held.group, number=f"0{i + 1}") for i in range(3)]
         )
+        services.mark_read(held.id)  # its re-read ended (#165: before, it says it is being read)
         shown = services.file(held.id)
         readers = services.report(held.id).readers
 
