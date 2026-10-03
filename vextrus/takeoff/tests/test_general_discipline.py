@@ -96,14 +96,49 @@ def test_a_file_whose_numbered_sheets_are_not_all_bare_is_not_general(
     assert a_file(api, qs_project.project_id, file_id)["discipline"] is None
 
 
-def test_a_file_named_general_is_not_general_by_its_name(
+def test_a_file_named_general_is_general_by_its_name_and_one_named_notes_is_not(
     qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The General Discipline is never read from a file's name (21c's one-sheet GENERAL NOTES.dwg)."""
-    file_id = uploaded(qs_project.member, qs_project.project_id, "GENERAL NOTES.dwg")
+    """#168 turned #159's ruling: a name's "general note(s)" gives the General Discipline (it was
+    never read from a name); "notes" alone gives none (another Discipline's file has notes)."""
+    general = uploaded(qs_project.member, qs_project.project_id, "GENERAL NOTES.dwg")
+    notes = uploaded(qs_project.member, qs_project.project_id, "NOTES.dwg")
     api = api_as(qs_project.member)
 
-    assert a_file(api, qs_project.project_id, file_id)["discipline"] is None
+    assert a_file(api, qs_project.project_id, general)["discipline"] == "general"
+    assert a_file(api, qs_project.project_id, notes)["discipline"] is None
+
+
+@pytest.mark.parametrize("name", ["GENERAL.dwg", "GENERAL ARRANGEMENT.dwg", "general-layout.pdf"])
+def test_general_alone_in_a_name_guesses_nothing(qs_project: QsProject, name: str) -> None:
+    """#168's review 1 (75): "general" alone made a file General (the orchestrator's ruling, session
+    10: only "general note(s)" does)."""
+    file_id = uploaded(qs_project.member, qs_project.project_id, name)
+    shown = a_file(api_as(qs_project.member), qs_project.project_id, file_id)
+
+    assert shown["discipline"] is None
+
+
+def test_a_general_arrangement_files_sheets_read_architectural_not_general_notes(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#168's review 1 (75): a "general" in the name made the file General before its sheets were
+    read, so its A- sheets went to Step 2's general notes, and #159's open F3 kept them there after
+    the QS corrected it."""
+    name = "TOWER GENERAL ARRANGEMENT.dwg"
+    sheets = [
+        Sheet("A-101", "GROUND FLOOR PLAN", ("GROUND FLOOR PLAN",)),
+        Sheet("A-102", "FIRST FLOOR PLAN", ("FIRST FLOOR PLAN",)),
+    ]
+    file_id = read(qs_project, monkeypatch, name, sheets)
+    api = api_as(qs_project.member)
+
+    assert a_file(api, qs_project.project_id, file_id)["discipline"] == "architectural"
+    listed = [p for p in proposals(api, qs_project.project_id) if p["file_name"] == name]
+    assert listed
+    assert {p["discipline"] for p in listed} == {"architectural"}
+    assert STEP_2 not in coverage(api, qs_project.project_id)["by_step"]
+    assert sorted(coverage(api, qs_project.project_id)["by_step"]) == ["rooms", "walls"]
 
 
 @pytest.mark.parametrize("kind", [k for k in ViewKind if k is not ViewKind.TITLE_BLOCK])
