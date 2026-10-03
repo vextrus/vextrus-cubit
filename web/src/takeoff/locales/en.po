@@ -77,6 +77,10 @@ msgctxt "storey"
 msgid "Roof"
 msgstr "Roof"
 
+#: src/takeoff/questionWords.tsx
+msgid "{tag} answered. Recorded: keep them all; no sheet was confirmed."
+msgstr "{tag} answered. Recorded: keep them all; no sheet was confirmed."
+
 #: src/takeoff/Step1Inspector.tsx
 msgid "{single, plural, one {Confirm # sheet with one source, on its own} other {Confirm # sheets with one source, one by one}}"
 msgstr "{single, plural, one {Confirm # sheet with one source, on its own} other {Confirm # sheets with one source, one by one}}"
@@ -387,6 +391,10 @@ msgstr "Revision"
 msgid "Confirmed {name}."
 msgstr "Confirmed {name}."
 
+#: src/takeoff/questionWords.tsx
+msgid "{tag} answered. Recorded: the sheet’s kind is {kind}."
+msgstr "{tag} answered. Recorded: the sheet’s kind is {kind}."
+
 #: src/takeoff/words.tsx
 msgid "Boundary wall and gate details"
 msgstr "Boundary wall and gate details"
@@ -633,6 +641,10 @@ msgstr "A sheet titled “{title}” in {file} has an empty number in its title 
 msgid "Leave out {name}: {reason}"
 msgstr "Leave out {name}: {reason}"
 
+#: src/takeoff/questionWords.tsx
+msgid "{tag} answered. The sheet’s Discipline is {discipline}."
+msgstr "{tag} answered. The sheet’s Discipline is {discipline}."
+
 #: src/takeoff/Bar.tsx
 msgid "Coverage keeps the reason. Esc cancels"
 msgstr "Coverage keeps the reason. Esc cancels"
@@ -649,6 +661,10 @@ msgstr "{0, plural, one {Withdrawn when its sheet was left out} other {Withdrawn
 #: src/takeoff/questionWords.tsx
 msgid "A pick changes nothing until you answer. {name} cannot be confirmed until this Question is answered."
 msgstr "A pick changes nothing until you answer. {name} cannot be confirmed until this Question is answered."
+
+#: src/takeoff/questionWords.tsx
+msgid "{tag} answered. Recorded: keep the latest copy; no sheet was confirmed."
+msgstr "{tag} answered. Recorded: keep the latest copy; no sheet was confirmed."
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "Coverage, every view on every sheet read"
@@ -2109,6 +2125,10 @@ msgstr "Answering gives the sheet the number you type; confirm it in the list."
 #: src/takeoff/words.tsx
 msgid "Electrical"
 msgstr "Electrical"
+
+#: src/takeoff/questionWords.tsx
+msgid "{tag} answered. Confirms {sheet}."
+msgstr "{tag} answered. Confirms {sheet}."
 
 #: src/takeoff/Step1Screen.tsx
 msgid "Needs you"

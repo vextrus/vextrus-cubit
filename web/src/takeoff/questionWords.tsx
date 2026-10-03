@@ -570,6 +570,13 @@ export function AnsweredWords({ entry, option, text }: { entry: QuestionEntry; o
       </Trans>
     )
   }
+  // Nothing held (or one copy): 21c confirms what it holds, so say what it did with what is there.
+  if (option === 'keep_latest') {
+    if (n === 0) return <Trans>{tag} answered. Recorded: keep the latest copy; no sheet was confirmed.</Trans>
+    const sheet = <SheetName sheets={entry.holds} />
+    return <Trans>{tag} answered. Confirms {sheet}.</Trans>
+  }
+  if (option === 'keep_all' && n === 0) return <Trans>{tag} answered. Recorded: keep them all; no sheet was confirmed.</Trans>
   if (option === 'keep_all' && n > 0) {
     return (
       <Trans>
@@ -588,6 +595,10 @@ export function AnsweredWords({ entry, option, text }: { entry: QuestionEntry; o
     if (option === 'await_resaved') return <Trans>{tag} answered. The file is set aside, waiting for the re-saved file.</Trans>
     if (option === 'sent_to_vextrus') return <Trans>{tag} answered. The file is set aside and marked for Vextrus to look at.</Trans>
   }
+  if (q.kind === 'low_confidence' && SHEET_KIND_NAMES[option] && n === 0) {
+    const kind = <SheetKindName option={option} />
+    return <Trans>{tag} answered. Recorded: the sheet’s kind is {kind}.</Trans>
+  }
   if (q.kind === 'low_confidence' && SHEET_KIND_NAMES[option] && n > 0) {
     const sheet = <SheetName sheets={entry.holds} />
     const kind = <SheetKindName option={option} />
@@ -595,6 +606,11 @@ export function AnsweredWords({ entry, option, text }: { entry: QuestionEntry; o
     return <Trans>{tag} answered. {sheet}’s kind is {kind}.</Trans>
   }
   if (q.kind === 'missing' && option === 'no_number') return <Trans>{tag} answered. The sheet stays without a number.</Trans>
+  if (q.kind === 'missing_discipline' && option in DISCIPLINE_NAMES && n === 0) {
+    // 21c sets the Discipline of the sheet the Question is about, held or not.
+    const discipline = <DisciplineWord option={option} />
+    return <Trans>{tag} answered. The sheet’s Discipline is {discipline}.</Trans>
+  }
   if (q.kind === 'missing_discipline' && option in DISCIPLINE_NAMES && n > 0) {
     const sheet = <SheetName sheets={entry.holds} />
     const discipline = <DisciplineWord option={option} />

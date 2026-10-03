@@ -43,23 +43,33 @@ function toast(fake: FakeAnswers, question: Question21c, option: string, holds =
   return said
 }
 
+const UNKNOWN = 'Your answer is recorded.'
+
 describe('an answer’s toast names the act (#156 round 3, design gate item 1)', () => {
-  it('never says only "Q5 answered." for any option key of any Question code', () => {
+  it('never says only "Q5 answered." nor the unknown answer’s words for any option key of any known Question code', () => {
     const fake = new FakeAnswers()
     const questions = [...fake.everyShape(), ...Object.values(fake.byKind())]
     const gap = fake.everyShape().find((q) => q.code === 'engine.register_check.gap')!
     gap.params = { after: 'S-04', before: 'S-06', missing: 1 }
     questions.push(gap)
     expect(new Set(questions.map((q) => q.code))).toEqual(new Set(QUESTION_SHAPES.map((s) => s.code)))
+    const unnamed: string[] = []
     for (const question of questions) {
       for (const { key } of question.options as { key: string }[]) {
         for (const holds of [true, false]) {
           const said = toast(fake, question, key, holds)
-          expect(said, `${question.code} ${key} holds=${holds}`).toMatch(/^Q5 (answered|kept open)\b/)
-          expect(said, `${question.code} ${key} holds=${holds}`).not.toBe('Q5 answered.')
+          // The fallback is for a code or option this screen does not know: a known one names its act.
+          if (!/^Q5 (answered|kept open)\b/.test(said) || said === 'Q5 answered.' || said.includes(UNKNOWN)) unnamed.push(`${question.code} ${key} holds=${holds}: ${said}`)
         }
       }
     }
+    expect(unnamed).toEqual([])
+  })
+
+  it('keeps the fallback for a code this screen does not know yet, never the bare tag', () => {
+    const fake = new FakeAnswers()
+    const made = { ...fake.everyShape()[0]!, kind: 'invented', code: 'takeoff.proposals.invented', options: [{ key: 'invented_option', picked: false }] }
+    expect(toast(fake, made, 'invented_option')).toBe(`Q5 answered. ${UNKNOWN}`)
   })
 
   it('words the drawing-list Question’s answers from the card’s first line (the gate’s repro: S-13)', () => {
