@@ -24,6 +24,7 @@ For 21a (the upload operation and the read job, in `takeoff`):
 For 21b (sheets, views, render and Plot):
 
     services.conventions(file_id)                        # the Market's Disciplines, key and prefixes
+    services.notes_disciplines(file_id)                  # the keys of its notes Disciplines (General)
     [sr] = services.record_sheets(file_id, candidates)   # each candidate.group == file(file_id).group
     # sr.ordinal: its candidate's place in candidates (from 1); a sheet or view whose text is past
     # its column is not kept, alone, and the file's report counts it (views likewise, per sheet)
@@ -42,6 +43,7 @@ For the page (20b), through `drawings/http/` (list, one file, cancel, restart, D
     views = services.files(drawing_set.id); services.summary(views)
     services.file(file_id); services.report(file_id)     # a file's status; its report panel
     services.set_discipline(file_id, "electrical")       # its unconfirmed sheets move with it
+    services.on_discipline_changed(follow)               # follow(file_id) after each such change
     services.cancel(file_id, actor_name=user.name); services.restart(file_id)
     services.mark_for_vextrus(file_id)                   # a file that could not be read (21c)
     services.disciplines()                               # the Market's, one name each (labels)
@@ -82,6 +84,7 @@ from vextrus.drawings.services.drawing_files import (
     file,
     files,
     mark_for_vextrus,
+    on_discipline_changed,
     page_step,
     restart,
     set_discipline,
@@ -89,7 +92,12 @@ from vextrus.drawings.services.drawing_files import (
     sheet_step,
     summary,
 )
-from vextrus.drawings.services.library_disciplines import DisciplineView, conventions, disciplines
+from vextrus.drawings.services.library_disciplines import (
+    DisciplineView,
+    conventions,
+    disciplines,
+    notes_disciplines,
+)
 from vextrus.drawings.services.reads import (
     ArtefactRef,
     answer_held,
@@ -121,6 +129,7 @@ from vextrus.drawings.services.sheet_list import (
     record_views,
     render,
     sheet,
+    sheet_discipline,
     sheets,
     undo,
     views,
@@ -168,6 +177,8 @@ __all__ = [
     "mark_failed",
     "mark_for_vextrus",
     "mark_read",
+    "notes_disciplines",
+    "on_discipline_changed",
     "original",
     "page_step",
     "quarantine",
@@ -188,6 +199,7 @@ __all__ = [
     "set_sheet_discipline",
     "set_sheet_number",
     "sheet",
+    "sheet_discipline",
     "sheet_step",
     "sheets",
     "step_store",

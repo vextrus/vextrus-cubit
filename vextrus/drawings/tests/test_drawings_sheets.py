@@ -7,6 +7,7 @@ from typing import Any
 import pytest
 from django.db import connection
 
+from engine.messages import Message
 from engine.read.anchor import DwgAnchor
 from engine.read.pdf.types import Page
 from engine.recognise.types import (
@@ -504,3 +505,26 @@ def test_a_decided_or_colliding_sheet_keeps_the_files_discipline(qs_project: QsP
         "drawings.files.discipline_unknown",
     )
     assert kept == ("structural", "architectural")
+
+
+def test_a_choice_refused_while_reading_is_kept_beside_a_limit_that_cut_the_reading(
+    qs_project: QsProject,
+) -> None:
+    """#159 fix round 1 (F2): the refusal stays the read file's finding when a limit cut the reading
+    too; the limit is still said in the report's Sheets section (from the finishing step's result)."""
+    member = qs_project.member
+    struct = add(member, qs_project.project_id, "KR-STR-R0.dwg", drawing()).file
+    read_dwg(member, struct.id, ["01", "02"])
+    notes = add(member, qs_project.project_id, "KR-SET3-R0.dwg", drawing()).file
+    with member.acting():
+        services.set_discipline(notes.id, "structural")  # while it reads: its numbers are unread
+    read_dwg(member, notes.id, ["01", "02", "03"], mark_read=False)
+    cut = Message(code="takeoff.read_file.not_read_in_full", params={"limit": "sheets_capped"})
+    with member.acting():
+        services.mark_read(notes.id, [cut])
+        shown = services.file(notes.id)
+    assert shown.discipline != "structural"
+    assert shown.finding == {
+        "code": "drawings.files.discipline_choice_undone",
+        "params": {"discipline": "Structural", "sheet": "01"},
+    }

@@ -46,6 +46,7 @@ from typing import Any, cast
 from engine.messages import Message
 from engine.read import ReadArtefact
 from engine.read.anchor import anchor_from_json
+from engine.recognise import register as register_reader
 from engine.recognise import sheets as finder
 from engine.recognise import views as view_finder
 from engine.recognise.types import (
@@ -89,9 +90,13 @@ _SOURCED = ("number", "title", "discipline", "revision_mark", "issue_date", "sto
 
 def conventions(file_id: uuid.UUID) -> tuple[SheetConventions, ViewConventions]:
     """What the file's sheets and views are read with: 13's default sheet conventions with the
-    Market's Discipline rows over its Disciplines, and 17's default view conventions."""
+    Market's Discipline rows over its Disciplines, and 17's default view conventions with the
+    Market's notes Disciplines (General, #159: every view of its sheets is Step 2's)."""
     market = drawings.conventions(file_id)
-    return replace(finder.default_conventions(), disciplines=market), view_finder.default_conventions()
+    views = replace(
+        view_finder.default_conventions(), notes_disciplines=drawings.notes_disciplines(file_id)
+    )
+    return replace(finder.default_conventions(), disciplines=market), views
 
 
 def digest(sheet: SheetConventions, view: ViewConventions) -> str:
@@ -210,7 +215,15 @@ def _find(
     stamped = [replace(candidate, group=view.group) for candidate in found]
     candidates = [c for c in stamped if not _has_raw_codes(c)]
     report = {**found.budget.report(), UNREADABLE_TEXT: len(stamped) - len(candidates)}
-    recorded = drawings.record_sheets(file_id, candidates, empty_layouts=report.get("layout_empty", 0))
+    # A drawing list read on the file's sheets says it is no series of its own (never General):
+    # looked for only where the file could be General (no Discipline given or read on a sheet).
+    could_be_general = view.discipline is None and not any(c.discipline for c in candidates)
+    listed = could_be_general and bool(
+        register_reader.find(artefact, candidates, conventions=sheet_conventions)
+    )
+    recorded = drawings.record_sheets(
+        file_id, candidates, empty_layouts=report.get("layout_empty", 0), drawing_list=listed
+    )
     result: dict[str, Any] = {
         "sheet_report": report,
         "not_read_in_full": not_read_in_full(report, SHEETS_STEP_LIMITS),
@@ -241,6 +254,13 @@ def _read_sheet(
     """`seen`: the view finder's limits as the last sheet read with this artefact left them;
     `said_for_file`: the view limits an earlier sheet's step already said (once for the file: the
     words are the file's; `view_report` says which sheets a limit cut)."""
+    # The views are proposed by the sheet's Discipline as it stands now, not as the `sheets` step
+    # found it: the file's own default (General among them, #159) and a QS's choice made since are
+    # written on the sheet after the candidate was kept.
+    discipline = drawings.sheet_discipline(sheet_id)
+    candidate = replace(
+        candidate, discipline=Sourced(discipline, ValueSource.FILE) if discipline else None
+    )
     views = view_finder.find(artefact, candidate, view_conventions)
     kept = drawings.record_views(sheet_id, list(views))
     # The view finder's bounds are the file's, spent across its sheets: this sheet's cut is what
