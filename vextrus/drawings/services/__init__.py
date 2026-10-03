@@ -31,6 +31,7 @@ For 21b (sheets, views, render and Plot):
     services.record_views(sr.id, view_candidates)
     services.record_render(sr.id, buffers)
     services.record_plot(sr.id, plot_match)              # or services.PlotNone.NO_PDF, …
+    services.hold_plots(set_id)                          # the set's Plot matching, one at a time
     services.record_kind(sr.id, "beam_layout")           # the kind as read (a key)
     services.artefact(file_id)                           # the kept ReadArtefact, loaded back
     services.record_bangla_lines(file_id, flagged.findings(sheet_of))  # the Bangla-ANSI lines
@@ -120,6 +121,7 @@ from vextrus.drawings.services.sheet_list import (
     confirm_sheet,
     confirm_view,
     exclude,
+    hold_plots,
     record_kind,
     record_plot,
     record_render,
@@ -171,6 +173,7 @@ __all__ = [
     "file",
     "files",
     "held_answer",
+    "hold_plots",
     "mark_failed",
     "mark_for_vextrus",
     "mark_read",

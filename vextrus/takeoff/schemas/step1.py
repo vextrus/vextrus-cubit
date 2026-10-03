@@ -154,6 +154,12 @@ class Step1OutstandingOut(Schema):
     params: dict[str, int]
 
 
+class Step1PlotFileOut(Schema):
+    file_id: uuid.UUID
+    name: str
+    """The PDF's name as the QS added it."""
+
+
 class Step1DisciplineProgressOut(Schema):
     discipline: str | None
     confirmed: int
@@ -168,6 +174,9 @@ class Step1DisciplineProgressOut(Schema):
     outstanding: list[Step1OutstandingOut]
     """What keeps it from `confirmed`, in m0-screens 5's order, each a code with how many
     (`takeoff.step1.views_unaccounted` `{count}`, #158); empty once confirmed."""
+    plots: list[Step1PlotFileOut]
+    """The Plots read for the Discipline (157): each read PDF of it, and any other a sheet of it has
+    a page of, first added first."""
 
 
 class Step1ProgressOut(_FromView):

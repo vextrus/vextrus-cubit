@@ -254,6 +254,15 @@ class DisciplineProgress:
     outstanding: list[Message] = field(default_factory=list)
     """What keeps it from `confirmed` (#158), each a code with how many, in m0-screens 5's order;
     empty once confirmed."""
+    plots: tuple[PlotFile, ...] = ()
+    """The Plots read for it (157): each read PDF of its Discipline, and any other a sheet of it has
+    a page of, first added first; so a line about its sources can name the Plot added."""
+
+
+@dataclass(frozen=True)
+class PlotFile:
+    file_id: uuid.UUID
+    name: str
 
 
 @dataclass(frozen=True)
@@ -670,11 +679,20 @@ def progress(project_id: uuid.UUID) -> ProgressView:
         if row.sheet_revision_id in discipline_of
     )
     drawing_set = drawings.set_of(project_id)
+    files = drawings.files(drawing_set.id) if drawing_set else []
     reading = Counter(
         f.discipline
-        for f in (drawings.files(drawing_set.id) if drawing_set else [])
+        for f in files
         if f.state
         in (drawings.FileState.WAITING, drawings.FileState.READING, drawings.FileState.RETRYING)
+    )
+    paged: dict[str | None, set[uuid.UUID]] = {}
+    for sheet in sheets:
+        if sheet.plot.page is not None and sheet.plot.file_id is not None:
+            paged.setdefault(sheet.discipline, set()).add(sheet.plot.file_id)
+    read_pdfs = sorted(
+        (f for f in files if f.format == "pdf" and f.state == drawings.FileState.READ),
+        key=lambda f: (f.added_at, str(f.id)),
     )
     rows = []
     for key in order:
@@ -707,6 +725,11 @@ def progress(project_id: uuid.UUID) -> ProgressView:
                     disagree=total is None,
                     questions=open_questions[key],
                     unaccounted=unaccounted[key],
+                ),
+                plots=tuple(
+                    PlotFile(f.id, f.name)
+                    for f in read_pdfs
+                    if (key is not None and f.discipline == key) or f.id in paged.get(key, set())
                 ),
             )
         )
