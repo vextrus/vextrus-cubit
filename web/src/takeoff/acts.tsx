@@ -53,7 +53,10 @@ interface Entry {
   /** Its calls are made and counted (`made` has settled). */
   counted: boolean
   dropped: boolean
-  /** An answer to a Question: Ctrl Z does not take it back (21c has no undo for an answer). */
+  /**
+   * An answer to a Question that confirms or excludes: Ctrl Z does not take it back (21c has no undo
+   * for an answer). Set when the answer is sent, so a Ctrl Z while it is in flight is held by it too.
+   */
   answer?: boolean
 }
 
@@ -188,7 +191,7 @@ export function useStep1Acts(projectId: string): Step1Acts {
    * refuter of round 4: otherwise the next undo takes back the server's latest act under another act's
    * words).
    */
-  const queued = useRef<{ entry: Entry | undefined; off: boolean }[]>([])
+  const queued = useRef<{ entry: Entry | undefined; off: boolean; kept: boolean }[]>([])
 
   /** Puts acts back under any dropped keys kept since (no act is made while undos run). */
   const restore = useCallback((entries: Entry[]) => {
@@ -197,18 +200,22 @@ export function useStep1Acts(projectId: string): Step1Acts {
     history.current.push(...entries, ...dropped)
   }, [])
 
-  /** Undoes `entry` (none: the user's last act from before this tab), once the undos before it end. */
+  /**
+   * Undoes `entry` (none: the user's last act from before this tab), once the undos before it end.
+   * `kept`: an answer's entry, left in `history` when pressed, so every Ctrl Z after it meets it too.
+   */
   const undoEntry = useCallback(
-    (entry: Entry | undefined) => {
+    (entry: Entry | undefined, kept = false) => {
       undos.current += 1
       setBusy(true)
-      const ask = { entry, off: false }
+      const ask = { entry, off: false, kept }
       queued.current.push(ask)
       /** A refused undo: keeps what it did not undo, and calls off the presses behind it. */
       const refused = (left: Entry | null) => {
         const behind = queued.current.filter((q) => q !== ask && !q.off)
         for (const q of behind) q.off = true
         const back = behind
+          .filter((q) => !q.kept)
           .map((q) => q.entry)
           .filter((e): e is Entry => !!e)
           .reverse()
@@ -222,9 +229,13 @@ export function useStep1Acts(projectId: string): Step1Acts {
             // An act in flight is waited for, so this undoes it; one that made nothing undoes nothing.
             const waited = !entry.counted
             await entry.made
+            if (kept && !entry.answer) {
+              // The answer was refused or made no act: this Ctrl Z takes its entry, as for any other act.
+              const at = history.current.indexOf(entry)
+              if (at !== -1) history.current.splice(at, 1)
+            }
             if (entry.answer) {
               // It stays the last act: the server's latest acts are the answer's own, which no Ctrl Z may take.
-              restore([entry])
               toast.show({
                 message: <Trans>Nothing undone: Ctrl Z does not take back an answer to a Question, or anything before it. Exclude a sheet it confirmed, or confirm back in a sheet it excluded.</Trans>,
               })
@@ -272,7 +283,11 @@ export function useStep1Acts(projectId: string): Step1Acts {
   )
 
   /** Ctrl Z: the last act as it stands now, even one still in flight. */
-  const undoLast = useCallback(() => undoEntry(history.current.pop()), [undoEntry])
+  const undoLast = useCallback(() => {
+    // An answer, even one still in flight, is never taken off: each Ctrl Z after it meets it again.
+    const top = history.current.at(-1)
+    return top?.answer ? undoEntry(top, true) : undoEntry(history.current.pop())
+  }, [undoEntry])
 
   /**
    * A toast's Undo: its own act, while nothing but dropped keys came after it (a later act clears the
@@ -426,6 +441,8 @@ export function useStep1Acts(projectId: string): Step1Acts {
       const counted = begin()
       if (!counted) return false
       const mine = history.current.at(-1)
+      // Held from the moment it is sent (CI's slowed run: a Ctrl Z before the reply undid its act).
+      if (mine) mine.answer = makesAct(entry, option)
       let made = 0
       try {
         await answer(projectId, entry.question.id, option, text)
@@ -437,6 +454,7 @@ export function useStep1Acts(projectId: string): Step1Acts {
         say(error)
         return false
       } finally {
+        if (mine && !made) mine.answer = false
         counted(0, null)
         if (made && mine && !makesAct(entry, option)) {
           // An answer that confirms or excludes nothing makes no server act: Ctrl Z passes over it.
@@ -445,7 +463,6 @@ export function useStep1Acts(projectId: string): Step1Acts {
         } else if (made && mine) {
           // The server's latest acts are now the answer's own (a confirm, an exclusion): no act made
           // earlier in this tab is the one an undo would take back, so Ctrl Z starts from the answer.
-          mine.answer = true
           const at = history.current.indexOf(mine)
           history.current = at === -1 ? [] : history.current.slice(at)
         }

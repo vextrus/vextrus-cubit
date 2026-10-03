@@ -42,9 +42,9 @@ export interface Row {
   kind: RowKind
   /** The printed sheets it stands for (a continuation's several; a Question's copies). */
   sheets: readonly ProposalOut[]
-  /** "S-02", "E-02–E-03"; null for a sheet with no number or a file. */
+  /** "S-02", "E-02–E-03"; a numbering gap's "A-03–A-05"; null for a sheet with no number or a file. */
   number: string | null
-  /** The last number of a continuation. */
+  /** The last number of a continuation; the first number after a numbering gap. */
   numberTo: string | null
   question: QuestionEntry | null
 }
@@ -177,6 +177,17 @@ export function withdrawnQueue(questions: readonly QuestionOut[], proposals: rea
   return entries.map((e, i) => ({ ...e, tag: `Q${after + i + 1}`, kept: false, withdrawn: true }))
 }
 
+/**
+ * A Question's tag for life (the design gate's walk, M1: tags renumbered after every answer): its
+ * place among the Project's Questions in the order raised, which the server gives as `raised`, so
+ * card, row, bar, toast and Answered line keep one tag whatever is answered or left out. Only when
+ * a Question lacks it (a server before #156's round 2) are the tags the queue's, as before.
+ */
+function raisedTags(entries: QuestionEntry[]): void {
+  if (!entries.every((e) => typeof e.question.raised === 'number')) return
+  for (const e of entries) e.tag = `Q${e.question.raised}`
+}
+
 /** The answered Questions, in the order answered, tagged on after `after` (Q7… after Q1–Q6). */
 export function answeredQueue(questions: readonly QuestionOut[], proposals: readonly ProposalOut[], after: number): QuestionEntry[] {
   const entries = questions.filter((q) => q.status === 'answered').map((question) => ({ question, holds: held(question, proposals) }))
@@ -230,6 +241,12 @@ export function numberingOf(sheets: readonly ProposalOut[]): DisciplineSection['
   return { first: first.number, last: last.number, missing, twice }
 }
 
+/** A numbering-gap Question's two numbers, the last before the gap and the first after it; else null. */
+export function gapOf(q: QuestionOut): { after: string; before: string } | null {
+  const { after, before } = q.params
+  return q.code === 'engine.register_check.gap' && typeof after === 'string' && typeof before === 'string' ? { after, before } : null
+}
+
 export function step1Model(data: Step1Data): Step1Model {
   const proposals = [...data.proposals].sort(
     (a, b) =>
@@ -241,6 +258,7 @@ export function step1Model(data: Step1Data): Step1Model {
   const queue = questionQueue(data.questions, proposals)
   const withdrawnEntries = withdrawnQueue(data.questions, proposals, queue.length)
   const answered = answeredQueue(data.questions, proposals, queue.length + withdrawnEntries.length)
+  raisedTags([...queue, ...withdrawnEntries, ...answered])
   const heldBy = new Map<string, QuestionEntry>()
   for (const entry of [...queue, ...withdrawnEntries]) for (const p of entry.holds) if (!heldBy.has(p.id)) heldBy.set(p.id, entry)
 
@@ -249,8 +267,13 @@ export function step1Model(data: Step1Data): Step1Model {
     const holds = entry.holds
     if (holds.length > 1) return { key: `q:${q.id}`, kind: 'copies', sheets: holds, number: holds[0]!.number, numberTo: null, question: entry }
     if (holds.length === 1) return { key: `q:${q.id}`, kind: 'sheet', sheets: holds, number: holds[0]!.number, numberTo: null, question: entry }
+    // Only a held file's row is a file's (ticket 164): a numbering gap's row names its two numbers, a
+    // drawing-list entry's its number; neither holds a file.
+    if (q.kind === 'file_misread') return { key: `q:${q.id}`, kind: 'file', sheets: [], number: null, numberTo: null, question: entry }
+    const gap = gapOf(q)
+    if (gap) return { key: `q:${q.id}`, kind: 'entry', sheets: [], number: gap.after, numberTo: gap.before, question: entry }
     const number = typeof q.params.number === 'string' ? q.params.number : null
-    return { key: `q:${q.id}`, kind: number ? 'entry' : 'file', sheets: [], number, numberTo: null, question: entry }
+    return { key: `q:${q.id}`, kind: 'entry', sheets: [], number, numberTo: null, question: entry }
   })
 
   const withdrawn: Row[] = withdrawnEntries.map((entry) => ({
