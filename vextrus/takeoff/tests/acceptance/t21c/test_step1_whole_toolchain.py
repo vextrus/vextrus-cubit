@@ -186,9 +186,10 @@ def test_the_whole_step_ends_confirmed_with_no_view_proposed_or_unaccounted(
     assert left_out.status_code == 200, left_out.content
     undecided = [p["id"] for p in proposals(api, qs_project.project_id) if p["decision"] is None]
 
-    bulk = confirm(api, qs_project.project_id, undecided)
-
-    assert bulk.status_code == 200, bulk.content
+    # m0-screens 6.4 (ruled at #166): one-source sheets are confirmed one by one, never in bulk.
+    for one in undecided:
+        each = confirm(api, qs_project.project_id, [one])
+        assert each.status_code == 200, each.content
     shown = coverage(api, qs_project.project_id)
     assert (shown["proposed"], shown["unaccounted"]) == (0, 0)
     assert shown["by_reason"].get("other") == 1

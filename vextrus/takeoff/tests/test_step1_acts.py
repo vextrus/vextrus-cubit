@@ -349,7 +349,12 @@ def test_a_decided_sheet_says_who_in_which_role_and_with_how_many(
     one carries none. The MD reads the same."""
     project = step1_project.project_id
     ids = [str(p) for p in step1_project.proposals]
-    api_as(step1_project.member).post(url(project, "confirm"), {"proposals": ids[:2]})
+    qs = api_as(step1_project.member)
+    # Ticket 166 (m0-screens 6.4): only agreeing sheets join a bulk act, so a drawing list the QS
+    # types gives the sheets their second source first.
+    qs.post(url(project, "drawing-list"), {"discipline": "structural", "text": "S-01 to S-03"})
+    confirmed = qs.post(url(project, "confirm"), {"proposals": ids[:2]})
+    assert confirmed.status_code == 200, confirmed.content
     md = sign_in(role="md", developer_id=step1_project.member.developer_id)
 
     for reader in (step1_project.member, md):

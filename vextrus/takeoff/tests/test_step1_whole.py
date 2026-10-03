@@ -709,7 +709,9 @@ def test_no_route_confirms_a_left_out_sheet_back_in_while_its_blocking_question_
     when: str,
     route: str,
 ) -> None:
-    jev_says(jev_offline, "0.34")
+    # The bulk act of an unnumbered sheet's file: Jev sure of the kinds, so no low-confidence
+    # Question holds its other sheet (m0-screens 6.4, ticket 166: only agreeing sheets join it).
+    jev_says(jev_offline, "0.97" if (route, kind) == ("bulk", "missing") else "0.34")
     question_id, sheet_id, _number = _blocked(qs_project, monkeypatch, kind)
     api = api_as(qs_project.member)
     assert keys(_question(api, qs_project.project_id, question_id)) == WITHDRAWABLE[kind]
@@ -726,6 +728,24 @@ def test_no_route_confirms_a_left_out_sheet_back_in_while_its_blocking_question_
     ]
 
     if route == "single":
+        back_in = confirm(api, qs_project.project_id, [sheet_id])
+    elif route == "bulk" and kind == "missing" and option != KEEP_OPEN:
+        # Ticket 166 (m0-screens 6.4 overrides): the batch agrees first (a drawing list the QS
+        # types), but a sheet whose number is typed or absent has one source and never joins a bulk
+        # act: refused whole, nothing confirmed; it comes back in on its own.
+        listed = api.post(
+            f"{step1(qs_project.project_id)}/drawing-list",
+            {"discipline": "structural", "text": "S-01"},
+        )
+        assert listed.status_code == 200, listed.content
+        assert the(proposals(api, qs_project.project_id), "S-01")["agrees"] is True
+        bulk = confirm(
+            api, qs_project.project_id, [p["id"] for p in proposals(api, qs_project.project_id)]
+        )
+        assert bulk.status_code == 409, bulk.content
+        assert bulk.json()["code"] == "takeoff.step1.one_source"
+        assert bulk.json()["params"]["sheets"] == [sheet_id]
+        assert all(p["decision"] != "confirmed" for p in proposals(api, qs_project.project_id))
         back_in = confirm(api, qs_project.project_id, [sheet_id])
     elif route == "bulk":
         back_in = confirm(
