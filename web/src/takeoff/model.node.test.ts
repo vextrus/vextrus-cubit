@@ -32,6 +32,7 @@ function sheet(number: string | null, over: Partial<ProposalOut> = {}): Proposal
     excluded_text: '',
     decided_by: null,
     decided_at: null,
+    decided_act: null,
     agrees: true,
     decided_by_role: null,
     decided_with: 0,
