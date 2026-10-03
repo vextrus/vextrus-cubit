@@ -171,7 +171,8 @@ def record_sheets(
 ) -> list[SheetView]:
     """Keep a DWG's printed sheets, in the candidates' order (see the module); the printed sheets,
     in the same order. `empty_layouts`: layout tabs showing nothing, never sheets (the report);
-    `drawing_list`: a drawing list was read on its sheets (a file with one is never General)."""
+    `drawing_list`: a drawing list was read on its sheets (its sheets then never default it to
+    General; a "general note(s)" in its name still names it General, #168)."""
     with transaction.atomic():
         row = _access.drawing_file(file_id, lock=True)
         name = row.original_name

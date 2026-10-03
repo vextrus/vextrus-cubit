@@ -37,11 +37,18 @@ def words(text: str) -> tuple[str, ...]:
 
 
 def _row(
-    key: str, name: str, kind: DisciplineKind, prefixes: Sequence[str] = (), forms: Sequence[str] = ()
+    key: str,
+    name: str,
+    kind: DisciplineKind,
+    prefixes: Sequence[str] = (),
+    forms: Sequence[str] = (),
+    *,
+    named_by_key: bool = True,
 ) -> DisciplineRow:
-    """A row whose file-name forms are its key, its prefixes and `forms` (the forms 13's file-name
-    default read before #168, kept, and the ones #168 adds)."""
-    return DisciplineRow(key, {"en": name}, kind, tuple(prefixes), (key, *prefixes, *forms))
+    """A row whose file-name forms are its key (unless `named_by_key` is false), its prefixes and
+    `forms` (the forms 13's file-name default read before #168, kept, and the ones #168 adds)."""
+    own = (key,) if named_by_key else ()
+    return DisciplineRow(key, {"en": name}, kind, tuple(prefixes), (*own, *prefixes, *forms))
 
 
 MEP = DisciplineKind.MEP
@@ -67,9 +74,17 @@ DISCIPLINES: Mapping[str, Sequence[DisciplineRow]] = {
         _row("lift", "Lift", MEP, ("L", "LF", "LIFT")),
         _row("gas", "Gas", MEP, ("G", "GS", "GAS")),
         # #159 (the owner's ruling, session 07): the general notes a file carries in its own bare-
-        # numbered series; no prefix (G is Gas's). Its sheets are Step 2's notes. #168's ruling: a
-        # name's "general" gives it; "notes" alone gives nothing (another Discipline's file has notes).
-        _row("general", "General", DisciplineKind.GENERAL, (), ("general note", "general notes")),
+        # numbered series; no prefix (G is Gas's). Its sheets are Step 2's notes. #168 (the
+        # orchestrator's ruling, session 10): only "general note(s)" gives it; "general" alone does
+        # not ("GENERAL ARRANGEMENT" is architectural), nor "notes" alone (every file has notes).
+        _row(
+            "general",
+            "General",
+            DisciplineKind.GENERAL,
+            (),
+            ("general note", "general notes"),
+            named_by_key=False,
+        ),
     ),
 }
 """Each Market's Disciplines, by the Market's code, in the order the Market lists them."""
