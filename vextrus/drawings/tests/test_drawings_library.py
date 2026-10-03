@@ -112,5 +112,14 @@ def test_a_form_of_several_words_matches_them_in_a_row_only() -> None:
     assert named("Note General.pdf", [general]) is None
 
 
+@pytest.mark.parametrize("held", [None, 5, 3.5, "gas", {"gas": 1}, [None, 7, "", "  "]])
+def test_a_row_holding_no_list_of_forms_names_no_file(held: object) -> None:
+    """The refuter's finding: `null` or a number crashed the default; a bare string read as
+    one-letter forms ("gas" named "A Block.dwg")."""
+    gas = Discipline(key="gas", kind="mep", name_forms=held)
+
+    assert library_disciplines.from_name("A S G Block gas.dwg", [gas]) is None
+
+
 def test_bangladeshs_list_is_whole() -> None:
     library.check(library.DISCIPLINES["BD"])

@@ -86,9 +86,16 @@ def from_name(name: str, candidates: Iterable[Discipline]) -> Discipline | None:
     matched = [
         discipline
         for discipline in candidates
-        if any(_in_a_row(words(form), named) for form in discipline.name_forms if isinstance(form, str))
+        if any(_in_a_row(words(form), named) for form in _forms(discipline))
     ]
     return matched[0] if len(matched) == 1 else None
+
+
+def _forms(discipline: Discipline) -> list[str]:
+    """Its file-name forms; none when the row holds anything but a list (a hand-edited row, put back
+    by the next `sync_library`): a bare string is no list of one-letter forms."""
+    held = discipline.name_forms
+    return [form for form in held if isinstance(form, str)] if isinstance(held, list) else []
 
 
 def _in_a_row(form: tuple[str, ...], named: tuple[str, ...]) -> bool:
