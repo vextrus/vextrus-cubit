@@ -234,7 +234,8 @@ def test_a_sheet_with_a_matched_plot_page_is_on_that_pages_paper_in_views_and_bu
     # The box centred on the page: the margin the fit leaves is split on both sides.
     left = (box.x0 - paper.origin[0]) * paper.mm_per_unit
     right = paper.width_mm - (box.x1 - paper.origin[0]) * paper.mm_per_unit
-    assert left == pytest.approx(right) and left > 0
+    assert left == pytest.approx(right)
+    assert left > 0
 
 
 def test_a_views_box_on_a_plot_pages_paper_lies_over_the_buffers_drawing() -> None:
