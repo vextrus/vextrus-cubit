@@ -54,7 +54,6 @@ from vextrus.drawings.models import (
     DrawingFile,
     ExclusionReason,
     FileFormat,
-    HeldAnswer,
     PlotNone,
     ReadStatus,
     Sheet,
@@ -696,11 +695,9 @@ def _all() -> QuerySet[SheetRevision]:
 
 
 def _printed() -> QuerySet[SheetRevision]:
-    """The printed sheets in the sheet list: of read files, or held files read anyway."""
-    listed = Q(source_file__read_status=ReadStatus.READ) | Q(
-        source_file__read_status=ReadStatus.QUARANTINED,
-        source_file__held_answer=HeldAnswer.READ_ANYWAY,
-    )
+    """The printed sheets in the sheet list: of read files, or held files read anyway (once their
+    read has ended, `drawing_files.read_anyway`)."""
+    listed = Q(source_file__read_status=ReadStatus.READ) | drawing_files.read_anyway("source_file__")
     return SheetRevision.objects.select_related(
         "sheet__discipline", "source_file", "plot_file", "sheet__drawing_set"
     ).filter(listed)
