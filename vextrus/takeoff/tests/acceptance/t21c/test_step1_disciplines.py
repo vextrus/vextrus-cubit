@@ -160,7 +160,9 @@ def test_a_file_of_a_new_discipline_opens_only_its_own_step_1_while_structural_s
     read(qs_project, monkeypatch, STRUCTURAL)
     api = api_as(qs_project.member)
     structural = ids(proposals(api, qs_project.project_id), "structural")
-    confirm(api, qs_project.project_id, structural)
+    # One by one: its sheets have one source each, never in a bulk act (m0-screens 6.4; ticket 166).
+    for proposal in structural:
+        confirm(api, qs_project.project_id, [proposal])
     assert progress(api, qs_project.project_id)["structural"]["status"] == "confirmed"
 
     read(qs_project, monkeypatch, ELECTRICAL)
@@ -212,40 +214,30 @@ def test_answering_which_discipline_lists_the_sheet_under_it(
     assert None not in progress(api, qs_project.project_id)
 
 
-def test_a_sheet_with_no_discipline_numbered_like_structurals_is_asked_its_discipline_not_a_conflict(
+def test_a_sheet_with_no_discipline_numbered_like_a_disciplines_sheet_raises_a_conflict(
     qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """#102: "A general-notes file numbering its sheets from 01 ... collides with the first
-    structural sheets' numbers". Amended by #161 (the orchestrator's ruling, session 08): "An
-    unassigned file is not compared across Disciplines": the sheet raises no `same_number` Question
-    with Structural's 01; it is asked which Discipline it is (`missing_discipline`) instead. The
-    file's name and title name no Discipline, so #159's General Discipline is not given by them."""
-    unnamed = "KR-SET2-R0.dwg"
+    structural sheets' numbers; 19b raises no `same_number` ... because it compares only sheets with
+    a Discipline"."""
     drawn = {
         STRUCTURAL: [
             Sheet("01", "PILE LAYOUT PLAN", ("PILE LAYOUT PLAN",)),
             Sheet("02", "COLUMN SCHEDULE", ("COLUMN SCHEDULE",)),
         ],
-        unnamed: [Sheet("01", "SITE NOTES", ("SITE NOTES",))],
+        NO_DISCIPLINE: [Sheet("01", "GENERAL NOTES", ("GENERAL NOTES",))],
     }
     read(qs_project, monkeypatch, STRUCTURAL, drawn)
-    read(qs_project, monkeypatch, unnamed, drawn)
+    read(qs_project, monkeypatch, NO_DISCIPLINE, drawn)
     api = api_as(qs_project.member)
     listed = proposals(api, qs_project.project_id)
     ones = [p for p in listed if p["number"] == "01"]
     assert sorted(p["discipline"] or "" for p in ones) == ["", "structural"]
-    [unassigned] = [p for p in ones if p["discipline"] is None]
 
-    same_number = [
-        q
-        for q in open_questions(api, qs_project.project_id, "conflict")
-        if q["code"] == conflict_codes.SAME_NUMBER.code
-    ]
-    [asked] = open_questions(api, qs_project.project_id, "missing_discipline")
+    [q] = open_questions(api, qs_project.project_id, "conflict")
 
-    assert same_number == []
-    assert asked["subject_id"] == unassigned["sheet_id"]
-    assert asked["proposals"] == [unassigned["id"]]
+    assert q["code"] == conflict_codes.SAME_NUMBER.code
+    assert sorted(q["proposals"]) == sorted(p["id"] for p in ones)
 
 
 # #135: a sheet left out for unreadable writing ------------------------------------------------------

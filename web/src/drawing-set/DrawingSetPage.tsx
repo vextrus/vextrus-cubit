@@ -106,7 +106,7 @@ function StatusCell({ file }: { file: FileOut }) {
           {/* #159: a QS who never opens the report still learns their choice did not stand. */}
           {file.finding?.code === CHOICE_UNDONE ? (
             <span className="block text-xs text-ink-secondary">
-              <Trans>Your Discipline choice was undone</Trans>
+              <Trans>The Discipline choice was undone</Trans>
             </span>
           ) : null}
         </span>

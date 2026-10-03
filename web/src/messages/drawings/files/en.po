@@ -29,7 +29,7 @@ msgid "drawings.files.discipline_sheet_decided"
 msgstr "{sheet} from this file is already confirmed or left out in Step 1, so the file's Discipline was not changed. To change it, undo that decision in Step 1 first."
 
 msgid "drawings.files.discipline_choice_undone"
-msgstr "{discipline} already has a sheet {sheet} from another file, so your choice of {discipline} for this file was undone once its sheets were read. Choose its Discipline again on its row, or open {sheet} in Step 1 to see which file holds it."
+msgstr "The choice of {discipline} for this file was undone when its sheets were read: {discipline} already has a sheet {sheet} from another file, so the file now has no Discipline. Choose its Discipline on the file's row, or open {sheet} in Step 1 to see which file holds it."
 
 msgid "drawings.files.discipline_sheet_taken"
 msgstr "{discipline} already has a sheet {sheet} from another file, so this file's Discipline was not changed. Open {sheet} in Step 1 to see which file it comes from, or tell Vextrus."

@@ -165,6 +165,7 @@ def test_a_held_file_read_anyway_says_its_sheets_are_listed_not_that_nothing_rea
         services.quarantine(held.id, disagree)
         before = services.report(held.id).readers
         services.answer_held(held.id, "read_anyway")
+        services.mark_read(held.id)  # its re-read ended (#165: before, it says it is being read)
         after = services.report(held.id).readers
 
     assert before == (disagree,)
@@ -196,9 +197,31 @@ def test_a_choice_undone_on_a_held_file_read_anyway_keeps_the_readers_disagreeme
         services.record_sheets(
             held.id, [sheet_candidate(i, held.group, number=f"0{i + 1}") for i in range(3)]
         )
+        services.mark_read(held.id)  # its re-read ended (#165: before, it says it is being read)
         shown = services.file(held.id)
         readers = services.report(held.id).readers
 
     assert shown.finding is not None
     assert shown.finding["code"] == "drawings.files.discipline_choice_undone"
     assert readers == (said.READ_ANYWAY(**disagree["params"]),)
+
+
+def test_a_held_file_read_anyway_reports_its_sheets_only_once_its_read_has_ended(
+    qs_project: QsProject,
+) -> None:
+    """#165: the report's sheets section says what the sheet list lists: a held file answered "read
+    anyway" has none there until its re-read ends (`mark_read` in its last step)."""
+    member = qs_project.member
+    held = add(member, qs_project.project_id, "BP-ARC-old.dwg", drawing()).file
+    read_dwg(member, held.id, ["A-01", "A-02"], mark_read=False)
+    disagree = agree_codes.DISAGREE(items=1, only_first=1, only_second=0, kinds=1, layers=1, unread=1)
+    with member.acting():
+        services.quarantine(held.id, disagree)
+        services.answer_held(held.id, "read_anyway")
+        reading = services.report(held.id).sheets
+        listed = services.sheets(held.set_id)
+        services.mark_read(held.id)
+        ended = services.report(held.id).sheets
+
+    assert (reading, listed) == ((), [])
+    assert ended != ()
