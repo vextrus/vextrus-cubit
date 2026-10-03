@@ -25,7 +25,7 @@ import { LoadProblem, readOnlyRole, usePageTitle, useReadOnlyToast } from '@/aut
 import { SheetViewer, type SheetOutline } from '@/sheet'
 import { useFormat } from '@/format'
 import { Popover, PopoverContent, PopoverTrigger } from '@/ui/primitives/popover'
-import { DrawingText, Empty, IconButton, KeyRegion, KeyScope, Skeleton, SheetsGlyph, buttonVariants, cn, isolateLtr, useKeys } from '@/ui'
+import { DrawingText, Empty, IconButton, KeyRegion, KeyScope, Skeleton, SheetsGlyph, buttonVariants, cn, isolateLtr, useKeys, useToast } from '@/ui'
 import { SheetName, useStep1Acts } from './acts'
 import { Bar, ExclusionPicker, useBar } from './Bar'
 import { renderQuery, useStep1, type CoverageOut, type ProposalOut, type ViewOut } from './data'
@@ -127,6 +127,8 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
   const readOnly = readOnlyRole(session)
   const refuse = useReadOnlyToast()
   const acts = useStep1Acts(project.id)
+  const toast = useToast()
+  const format = useFormat()
   useSummaryCounts(project, model)
 
   // `?sheet=<printed sheet's id>` opens that sheet (the Drawing Set report's "Open in Step 1", #118).
@@ -320,9 +322,29 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
     if (next) focusRow(next.key)
   }
 
+  /** §6.4: Enter on a Question with nothing picked says what to do (a toast is drawn outside the format's provider). */
+  const sayPick = (entry: QuestionEntry) => {
+    const tag = entry.tag
+    const keys = Array.from({ length: Math.min(9, optionsOf(entry).length) }, (_, i) => format.integer(i + 1)).join(', ')
+    toast.show({ message: <Trans>Pick an answer to {tag} first: {keys}</Trans> })
+  }
+
   const enter = () => {
     if (readOnly) return refuse(readOnly)
-    if (bar?.button?.disabled) return
+    // The exclusion picker is what the bar shows: Enter is its own (with "Other" typed), never the bar's.
+    if (picker) return
+    // In a Question's card (its number field), Enter answers that Question, whatever row or sheet is open.
+    const inCard = (document.activeElement as HTMLElement | null)?.closest<HTMLElement>('[data-question]')?.dataset.question
+    const carded = inCard ? [...model.queue, ...model.withdrawn.flatMap((r) => (r.question ? [r.question] : []))].find((e) => e.question.id === inCard) : undefined
+    if (carded) {
+      if (picks[carded.question.id] || prePick(carded, cardContext(model))) void answerEntry(carded)
+      else sayPick(carded)
+      return
+    }
+    if (bar?.button?.disabled) {
+      if (focusedRow?.question) sayPick(focusedRow.question)
+      return
+    }
     const act = bar?.button ?? bar?.ghost
     if (act) act.run()
     else nextOpen()

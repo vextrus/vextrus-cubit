@@ -33,6 +33,14 @@ import { DISCIPLINE_IN_TEXT, REASON_SHORT, UNKNOWN_REASON } from './words'
  * a body cut short): counted as made, so Ctrl Z stays in step with the server's latest act (the refuter
  * of round 4, P1). A refusal made nothing; an unreachable server (the browser's TypeError) was not asked.
  */
+/** An answer 21c carries out by confirming or excluding sheets (a Confirmation the server's undo would take). */
+function makesAct(entry: QuestionEntry, option: string): boolean {
+  if (option === 'keep_open' || entry.holds.length === 0) return false
+  const q = entry.question
+  if (q.kind === 'conflict' && q.code !== 'takeoff.proposals.lists_disagree') return option === 'keep_latest' || option === 'keep_all'
+  return q.kind === 'low_confidence'
+}
+
 const reached = (error: unknown) => !(error instanceof ApiRefused) && !(error instanceof TypeError)
 
 interface Entry {
@@ -215,8 +223,10 @@ export function useStep1Acts(projectId: string): Step1Acts {
             const waited = !entry.counted
             await entry.made
             if (entry.answer) {
+              // It stays the last act: the server's latest acts are the answer's own, which no Ctrl Z may take.
+              restore([entry])
               toast.show({
-                message: <Trans>Nothing undone: an answer is not taken back with Ctrl Z. To change what it did, exclude the sheet or confirm it back in.</Trans>,
+                message: <Trans>Nothing undone: Ctrl Z cannot take back an answer yet. Its sheets can still be excluded, or confirmed back in.</Trans>,
               })
               return
             }
@@ -428,7 +438,11 @@ export function useStep1Acts(projectId: string): Step1Acts {
         return false
       } finally {
         counted(0, null)
-        if (made && mine) {
+        if (made && mine && !makesAct(entry, option)) {
+          // An answer that confirms or excludes nothing makes no server act: Ctrl Z passes over it.
+          const at = history.current.indexOf(mine)
+          if (at !== -1) history.current.splice(at, 1)
+        } else if (made && mine) {
           // The server's latest acts are now the answer's own (a confirm, an exclusion): no act made
           // earlier in this tab is the one an undo would take back, so Ctrl Z starts from the answer.
           mine.answer = true

@@ -157,7 +157,8 @@ describe('M4, M5: the Question cards', () => {
     await focusRow('S-07')
     const q2 = await screen.findByRole('region', { name: card('Q2') })
     expect(clean(q2.textContent)).toContain('Picked for you: the later revision mark and the drawing list on S-01 agree')
-    expect(clean(q2.textContent)).toContain('Answering confirms S-07 (rev B) and excludes S-07 (rev A) as superseded.')
+    // keep_b (the seed's key) is recorded by 21c and changes no sheet (#156's words gate): the line promises nothing.
+    expect(clean(q2.textContent)).toContain('Answering records your pick; the copies stay as they are, to confirm or exclude in the list.')
     const picked = within(q2).getAllByRole('radio').find((r) => (r as HTMLInputElement).checked)
     expect(clean(picked?.closest('label')?.textContent)).toContain('Keep rev B (20 Aug 2026); leave rev A out as superseded')
   })

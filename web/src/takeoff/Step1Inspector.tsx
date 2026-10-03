@@ -685,7 +685,7 @@ export function QuestionCard({
   const choice = can ? answerer.choice(entry) : null
   const current = choice?.key ?? pick?.key ?? null
   return (
-    <section aria-label={t`Question ${tag}`} className="m-2 overflow-hidden rounded-md border border-question">
+    <section aria-label={t`Question ${tag}`} data-question={entry.question.id} className="m-2 overflow-hidden rounded-md border border-question">
       <header className="flex items-center justify-between gap-2 bg-question-surface px-3 py-1.5 text-sm text-question">
         <span className="flex items-center gap-1.5 font-semibold">
           <QuestionGlyph size={14} />
