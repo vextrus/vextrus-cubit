@@ -73,15 +73,19 @@ def kadam(demo: Demo) -> None:
     step1.record_progress(project_id)
 
 
-def drawing_list() -> list[tuple[str, str]]:
+def drawing_list() -> list[tuple[str, str, str]]:
     """KR-01's Structural drawing list as read on S-01 (§7): S-01 to S-13, each number once (both
-    S-07s are one line), S-13 among them though no file carries it (Q5)."""
-    listed: dict[str, str] = {}
+    S-07s are one line, listed at the later revision, B: the drawing list is Q2's second source),
+    S-13 among them though no file carries it (Q5). Each line gives its sheet's revision mark."""
+    listed: dict[str, tuple[str, str]] = {}
     for sheet in STRUCTURAL:
-        if sheet.number is not None:
-            listed.setdefault(sheet.number, sheet.title)
-    listed["S-13"] = "SHEAR WALL DETAILS"
-    return list(listed.items())
+        if sheet.number is None:
+            continue
+        title, mark = listed.get(sheet.number, (sheet.title, sheet.mark))
+        later = max((mark, sheet.mark), key=lambda m: (len(m), m))
+        listed[sheet.number] = (title, later)
+    listed["S-13"] = ("SHEAR WALL DETAILS", "")
+    return [(number, title, mark) for number, (title, mark) in listed.items()]
 
 
 def ask_five(demo: Demo, code: str, project_id: uuid.UUID) -> None:
@@ -197,5 +201,6 @@ def bokul_held(demo: Demo) -> None:
         options=_options("read_anyway", "await_resaved", "sent_to_vextrus", "keep_open"),
     )
     drawings.answer_held(held.id, drawings.HeldAnswer.READ_ANYWAY)
+    drawings.mark_read(held.id)  # its re-read ended: its sheets listed from here (#165)
     step1.answer_question(project_id, question_id, {"key": "read_anyway"})
     demo[f"question:{code}:held"] = question_id
