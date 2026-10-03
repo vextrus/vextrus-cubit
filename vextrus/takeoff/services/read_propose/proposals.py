@@ -12,6 +12,8 @@ likely first, none picked; with TypeSafe unavailable the kind is left to the QS,
 asked. Each view a Proposal with its Traces, and its Coverage row (`step1.record_coverage`: to its
 Takeoff Steps and its Discipline Part, proposed out with a reason, or unaccounted). A sheet with no
 number is asked (`missing`), one with no Discipline asked which it is (`missing_discipline`, #102).
+A sheet the read proposed out with no number (a cover, a stale layout: `step1.proposed_out`) is
+proposed and asked nothing (#162): it is no sheet of the set's, and the QS sees it proposed out.
 The sheets 21b left out for unreadable writing are counted (`unread`; Coverage's `unread_sheets`).
 
 **Then the set's Questions**, over every sheet in the sheet list, whichever file brought it: 19b's
@@ -112,11 +114,12 @@ def propose(
     proposed = 0
     for sheet in listed:
         views = drawings.views(sheet.id)
-        proposal_id = _propose_sheet(project_id, sheet, views, conventions)
+        out = step1.proposed_out(sheet)
+        proposal_id = _propose_sheet(project_id, sheet, views, conventions, ask=not out)
         for seen in views:
             step1.propose_view(project_id, seen, traces=_view_traces(seen))
         step1.record_coverage(sheet.id)
-        if sheet.number is None:
+        if sheet.number is None and not out:
             step1.raise_question(
                 project_id,
                 "missing",
@@ -126,7 +129,7 @@ def propose(
                 options=options(MISSING_OPTIONS),
                 blocks=[proposal_id],
             )
-        if sheet.discipline is None:
+        if sheet.discipline is None and not out:
             keys = [d.key for d in drawings.disciplines()]
             step1.raise_question(
                 project_id,
@@ -208,6 +211,8 @@ def _propose_sheet(
     sheet: drawings.SheetView,
     views: Sequence[drawings.ViewView],
     conventions: SheetConventions,
+    *,
+    ask: bool = True,
 ) -> uuid.UUID:
     request = sheet_finder.judgement(
         candidate(sheet), [v.title for v in views if v.title], conventions=conventions
@@ -219,7 +224,7 @@ def _propose_sheet(
         answer=answer if sure and isinstance(answer, jev.Answer) else None,
         traces=_sheet_traces(sheet),
     )
-    if isinstance(answer, jev.Answer) and not sure:
+    if isinstance(answer, jev.Answer) and not sure and ask:
         step1.raise_question(
             project_id,
             "low_confidence",

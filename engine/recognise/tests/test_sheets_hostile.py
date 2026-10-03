@@ -599,3 +599,23 @@ def test_a_layout_named_with_a_control_character_is_left_out_and_counted(name: s
 
     assert result.sheets == []
     assert result.counts["layout_name_unreadable"] == 1
+
+
+def test_template_layouts_past_max_sheets_are_never_walked() -> None:
+    """#162 round 2: each paper layout whose title block gave nothing is proposed out, not one per
+    file, so a file of templates is bounded by `MAX_SHEETS` alone: past it, layouts are counted
+    (`layouts_not_read`), never walked."""
+    d = Sheets()
+    for i in range(sheets.MAX_SHEETS + 100):
+        tab = d.layout(f"Layout{i}")
+        d.text("SHEET NO", (10.0, 10.0, 0.0), owner=tab)
+        d.text("SCALE", (10.0, 20.0, 0.0), owner=tab)
+        for j in range(sheets.MIN_PAPER_CONTENT + 1):
+            d.line((100.0 + j, 0.0), (100.0 + j, 50.0), owner=tab)
+
+    result = segment(d.artefact(), None, DEFAULT)
+
+    assert len(result.sheets) == sheets.MAX_SHEETS
+    assert {s.exclusion for s in result.sheets} == {Exclusion(ExclusionReason.BLANK)}
+    assert result.counts["layout_template"] == sheets.MAX_SHEETS
+    assert result.counts["layouts_not_read"] == 100

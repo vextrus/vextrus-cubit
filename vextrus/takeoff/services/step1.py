@@ -24,9 +24,11 @@ unless every id it names is found.
 
 **Step 1 is per Discipline** (s02 review Q6): each Discipline's sheets are counted on their own row,
 n (decided: confirmed or left out) of N; a sheet of no Discipline is never left out, and is counted
-on a row of its own, last (#102; how its number is compared is 21c's Question). N is the drawing list's
-count where there is one; where a list read on a sheet and one the QS gave disagree, N is unknown
-(`total` None, shown "—") until 21c's Question is answered.
+on a row of its own, last (#102; how its number is compared is 21c's Question). A sheet the read
+proposed out with no number (a cover, a stale layout; #162) is counted only once the QS confirms it
+in; one with a number is counted as any other (m0-screens §7 counts A-07, a 3D view). N is the
+drawing list's count where there is one; where a list read on a sheet and one the QS gave disagree,
+N is unknown (`total` None, shown "—") until 21c's Question is answered.
 
 **Coverage** (ADR 0027; m0-screens 6.11): one row per view, written from the view's proposal; a view
 is proposed while its sheet is undecided, assigned once its sheet is confirmed with a step or its
@@ -257,6 +259,15 @@ class DisciplineProgress:
     outstanding: list[Message] = field(default_factory=list)
     """What keeps it from `confirmed` (#158), each a code with how many, in m0-screens 5's order;
     empty once confirmed."""
+    plots: tuple[PlotFile, ...] = ()
+    """The Plots read for it (157): each read PDF of its Discipline, and any other a sheet of it has
+    a page of, first added first; so a line about its sources can name the Plot added."""
+
+
+@dataclass(frozen=True)
+class PlotFile:
+    file_id: uuid.UUID
+    name: str
 
 
 @dataclass(frozen=True)
@@ -657,8 +668,9 @@ def _counted(row: Coverage) -> str:
 
 def progress(project_id: uuid.UUID) -> ProgressView:
     """Step 1's n / N per Discipline, in the sheet list's order (a sheet of no Discipline on its own
-    row, last), and the Market's expected Disciplines not yet received."""
-    sheets = _sheets(project_id)
+    row, last), and the Market's expected Disciplines not yet received. A sheet proposed out with no
+    number is not counted unless the QS confirmed it."""
+    sheets = [s for s in _sheets(project_id) if _counted_sheet(s)]
     order: list[str | None] = []
     found: Counter[str | None] = Counter()
     decided: Counter[str | None] = Counter()
@@ -684,11 +696,20 @@ def progress(project_id: uuid.UUID) -> ProgressView:
         if row.sheet_revision_id in discipline_of
     )
     drawing_set = drawings.set_of(project_id)
+    files = drawings.files(drawing_set.id) if drawing_set else []
     reading = Counter(
         f.discipline
-        for f in (drawings.files(drawing_set.id) if drawing_set else [])
+        for f in files
         if f.state
         in (drawings.FileState.WAITING, drawings.FileState.READING, drawings.FileState.RETRYING)
+    )
+    paged: dict[str | None, set[uuid.UUID]] = {}
+    for sheet in sheets:
+        if sheet.plot.page is not None and sheet.plot.file_id is not None:
+            paged.setdefault(sheet.discipline, set()).add(sheet.plot.file_id)
+    read_pdfs = sorted(
+        (f for f in files if f.format == "pdf" and f.state == drawings.FileState.READ),
+        key=lambda f: (f.added_at, str(f.id)),
     )
     rows = []
     for key in order:
@@ -722,6 +743,11 @@ def progress(project_id: uuid.UUID) -> ProgressView:
                     questions=open_questions[key],
                     unaccounted=unaccounted[key],
                 ),
+                plots=tuple(
+                    PlotFile(f.id, f.name)
+                    for f in read_pdfs
+                    if (key is not None and f.discipline == key) or f.id in paged.get(key, set())
+                ),
             )
         )
     return ProgressView(rows, _not_received(project_id), invitations.qs_of(project_id))
@@ -743,6 +769,16 @@ def _outstanding(
     if unaccounted:
         held.append(said.VIEWS_UNACCOUNTED(count=unaccounted))
     return held
+
+
+def proposed_out(sheet: drawings.SheetView) -> bool:
+    """The read proposed the sheet out and it has no number (a cover, a stale layout; #162): it is
+    asked nothing, and Step 1 does not count it unless the QS confirms it in."""
+    return bool(sheet.proposed_exclusion) and not sheet.number
+
+
+def _counted_sheet(sheet: drawings.SheetView) -> bool:
+    return not proposed_out(sheet) or sheet.decision == "confirmed"
 
 
 def _not_received(project_id: uuid.UUID) -> list[str]:
