@@ -53,8 +53,9 @@ class DisciplineKind(models.TextChoices):
 
 
 class Discipline(models.Model):
-    """One family of drawings a Market knows (CONTEXT.md), with its one name per language and the
-    sheet-number prefixes it is known by. A Library row per Market (`drawings/library.py`)."""
+    """One family of drawings a Market knows (CONTEXT.md), with its one name per language, the
+    sheet-number prefixes and the file-name forms it is known by. A Library row per Market
+    (`drawings/library.py`)."""
 
     id = models.UUIDField(primary_key=True, default=new_id, editable=False)
     tenant_id = models.UUIDField(editable=False, help_text="The Market's Library tenant.")
@@ -66,6 +67,11 @@ class Discipline(models.Model):
         default=list,
         blank=True,
         help_text="The sheet-number prefixes it is known by, as a drawing writes them: a list.",
+    )
+    name_forms = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="The forms a file's name gives it by, whole words, case aside: a list.",
     )
 
     class Meta:

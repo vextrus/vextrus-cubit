@@ -96,14 +96,17 @@ def test_a_file_whose_numbered_sheets_are_not_all_bare_is_not_general(
     assert a_file(api, qs_project.project_id, file_id)["discipline"] is None
 
 
-def test_a_file_named_general_is_not_general_by_its_name(
+def test_a_file_named_general_is_general_by_its_name_and_one_named_notes_is_not(
     qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The General Discipline is never read from a file's name (21c's one-sheet GENERAL NOTES.dwg)."""
-    file_id = uploaded(qs_project.member, qs_project.project_id, "GENERAL NOTES.dwg")
+    """#168's ruling turned #159's: a name's "general" gives the General Discipline (it was never read
+    from a name); "notes" alone gives none (another Discipline's file has notes)."""
+    general = uploaded(qs_project.member, qs_project.project_id, "GENERAL NOTES.dwg")
+    notes = uploaded(qs_project.member, qs_project.project_id, "NOTES.dwg")
     api = api_as(qs_project.member)
 
-    assert a_file(api, qs_project.project_id, file_id)["discipline"] is None
+    assert a_file(api, qs_project.project_id, general)["discipline"] == "general"
+    assert a_file(api, qs_project.project_id, notes)["discipline"] is None
 
 
 @pytest.mark.parametrize("kind", [k for k in ViewKind if k is not ViewKind.TITLE_BLOCK])

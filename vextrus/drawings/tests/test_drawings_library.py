@@ -6,6 +6,7 @@ from django.core.management import call_command
 
 from vextrus.drawings import library
 from vextrus.drawings.models import Discipline
+from vextrus.drawings.services import library_disciplines
 from vextrus.platform.database import OWNER_ALIAS
 from vextrus.platform.services import library as platform_library
 from vextrus.platform.services.markets import MarketProfile
@@ -63,15 +64,52 @@ def test_sync_puts_back_a_row_changed_by_hand(market: MarketProfile) -> None:
 
 
 def test_a_markets_list_refuses_a_prefix_naming_two_disciplines() -> None:
-    rows = [*library.DISCIPLINES["BD"], library._row("solar", "Solar", library.MEP, "S")]
+    rows = [*library.DISCIPLINES["BD"], library._row("solar", "Solar", library.MEP, ("S",))]
     with pytest.raises(ValueError, match="prefix names two Disciplines"):
         library.check(rows)
 
 
 def test_a_markets_list_refuses_a_key_given_twice() -> None:
-    rows = [*library.DISCIPLINES["BD"], library._row("gas", "Gas again", library.MEP, "GG")]
+    rows = [*library.DISCIPLINES["BD"], library._row("gas", "Gas again", library.MEP, ("GG",))]
     with pytest.raises(ValueError, match="key is given twice"):
         library.check(rows)
+
+
+def test_a_markets_list_refuses_a_file_name_form_naming_two_disciplines() -> None:
+    """#168: a form two Disciplines share (case and separators aside) could default a file to either."""
+    rows = [*library.DISCIPLINES["BD"], library._row("site", "Site", library.MEP, (), ("General-Note",))]
+    with pytest.raises(ValueError, match="form names two Disciplines"):
+        library.check(rows)
+
+
+def test_a_markets_list_refuses_a_file_name_form_of_no_word() -> None:
+    rows = [*library.DISCIPLINES["BD"], library._row("site", "Site", library.MEP, (), ("--",))]
+    with pytest.raises(ValueError, match="form has no word"):
+        library.check(rows)
+
+
+@pytest.mark.django_db(databases=["default", "owner"])
+def test_sync_writes_each_rows_file_name_forms_and_puts_back_a_changed_one(
+    market: MarketProfile,
+) -> None:
+    """#168: the forms are the row's own field, apart from its sheet-number prefixes."""
+    rows = Discipline.objects.using(OWNER_ALIAS).filter(tenant_id=market.library_id)
+    rows.filter(key="general").update(name_forms=["notes"])
+
+    assert platform_library.sync() == {"drawings": 1, "takeoff": 0}
+    assert {row.key: row.name_forms for row in rows} == {
+        row.key: list(row.name_forms) for row in library.DISCIPLINES["BD"]
+    }
+    assert rows.get(key="general").prefixes == []
+
+
+def test_a_form_of_several_words_matches_them_in_a_row_only() -> None:
+    general = Discipline(key="general", kind="notes", name_forms=["general note"])
+    named = library_disciplines.from_name
+
+    assert named("Zenith-General_Note.pdf", [general]) == general
+    assert named("General Zenith Note.pdf", [general]) is None
+    assert named("Note General.pdf", [general]) is None
 
 
 def test_bangladeshs_list_is_whole() -> None:
