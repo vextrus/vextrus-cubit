@@ -70,6 +70,7 @@ class Discipline(models.Model):
     )
     name_forms = models.JSONField(
         default=list,
+        db_default=[],
         blank=True,
         help_text="The forms a file's name gives it by, whole words, case aside: a list.",
     )

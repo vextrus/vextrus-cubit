@@ -14,6 +14,7 @@ class Migration(migrations.Migration):
             name="name_forms",
             field=models.JSONField(
                 blank=True,
+                db_default=[],
                 default=list,
                 help_text="The forms a file's name gives it by, whole words, case aside: a list.",
             ),
