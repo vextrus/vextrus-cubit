@@ -35,4 +35,8 @@ def test_not_read_in_full_is_worded_with_its_limit() -> None:
 def test_21a_adds_no_drawings_migration() -> None:
     migrations = ROOT / "vextrus" / "drawings" / "migrations"
 
-    assert sorted(p.name for p in migrations.glob("*.py")) == ["0001_initial.py", "__init__.py"]
+    # 21a added no drawings migration. Later tickets may add their own (#159's General Discipline
+    # kind, session 08's ruling), never one for the read job.
+    names = sorted(p.name for p in migrations.glob("*.py"))
+    assert "0001_initial.py" in names
+    assert not [n for n in names if "read" in n], names
