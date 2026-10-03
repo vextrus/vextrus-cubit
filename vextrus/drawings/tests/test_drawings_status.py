@@ -75,6 +75,7 @@ def test_the_summary_counts_what_could_not_be_read_and_every_listed_sheet(
     with member.acting():
         services.quarantine(held.id, {"code": "engine.decoders_agree.disagree", "params": {}})
         services.answer_held(held.id, "read_anyway")
+        services.mark_read(held.id)  # its re-read ended (#165: its sheets listed from here)
         services.mark_failed(failed.id, {"code": "engine.read.reader_failed", "params": {}}, tries=3)
         services.mark_failed(old.id, said.OLD_VERSION())
         shown = services.files(held.set_id)
@@ -323,5 +324,5 @@ def test_a_held_dwg_read_anyway_with_no_sheets_leaves_its_pdf_waiting(qs_project
     assert status(member, early.id) == ("read", said.PLOT_WAITING())
 
     # Once it has sheets, its PDF is matched against them (none of its pages matched here).
-    read_dwg(member, held.id, ["A-01", "A-02"], mark_read=False)
+    read_dwg(member, held.id, ["A-01", "A-02"])  # its re-read ended (#165)
     assert status(member, early.id) == ("read", said.PLOT_MATCHED(matched=0, pages=6))

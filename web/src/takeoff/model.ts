@@ -42,9 +42,9 @@ export interface Row {
   kind: RowKind
   /** The printed sheets it stands for (a continuation's several; a Question's copies). */
   sheets: readonly ProposalOut[]
-  /** "S-02", "E-02–E-03"; null for a sheet with no number or a file. */
+  /** "S-02", "E-02–E-03"; a numbering gap's "A-03–A-05"; null for a sheet with no number or a file. */
   number: string | null
-  /** The last number of a continuation. */
+  /** The last number of a continuation; the first number after a numbering gap. */
   numberTo: string | null
   question: QuestionEntry | null
 }
@@ -230,6 +230,12 @@ export function numberingOf(sheets: readonly ProposalOut[]): DisciplineSection['
   return { first: first.number, last: last.number, missing, twice }
 }
 
+/** A numbering-gap Question's two numbers, the last before the gap and the first after it; else null. */
+export function gapOf(q: QuestionOut): { after: string; before: string } | null {
+  const { after, before } = q.params
+  return q.code === 'engine.register_check.gap' && typeof after === 'string' && typeof before === 'string' ? { after, before } : null
+}
+
 export function step1Model(data: Step1Data): Step1Model {
   const proposals = [...data.proposals].sort(
     (a, b) =>
@@ -249,8 +255,13 @@ export function step1Model(data: Step1Data): Step1Model {
     const holds = entry.holds
     if (holds.length > 1) return { key: `q:${q.id}`, kind: 'copies', sheets: holds, number: holds[0]!.number, numberTo: null, question: entry }
     if (holds.length === 1) return { key: `q:${q.id}`, kind: 'sheet', sheets: holds, number: holds[0]!.number, numberTo: null, question: entry }
+    // Only a held file's row is a file's (ticket 164): a numbering gap's row names its two numbers, a
+    // drawing-list entry's its number; neither holds a file.
+    if (q.kind === 'file_misread') return { key: `q:${q.id}`, kind: 'file', sheets: [], number: null, numberTo: null, question: entry }
+    const gap = gapOf(q)
+    if (gap) return { key: `q:${q.id}`, kind: 'entry', sheets: [], number: gap.after, numberTo: gap.before, question: entry }
     const number = typeof q.params.number === 'string' ? q.params.number : null
-    return { key: `q:${q.id}`, kind: number ? 'entry' : 'file', sheets: [], number, numberTo: null, question: entry }
+    return { key: `q:${q.id}`, kind: 'entry', sheets: [], number, numberTo: null, question: entry }
   })
 
   const withdrawn: Row[] = withdrawnEntries.map((entry) => ({

@@ -297,6 +297,7 @@ def test_undo_while_the_sheet_is_off_the_list_leaves_its_proposal_undecided_too(
     with member.acting():
         drawings.quarantine(held.id, {"code": "engine.decoders_agree.disagree", "params": {}})
         drawings.answer_held(held.id, "read_anyway")
+        drawings.mark_read(held.id)  # its re-read ended (#165: its sheets listed from here)
         proposal = step1.propose_sheet(sheet.id)
         step1.record_coverage(sheet.id)
     qs = api_as(member)

@@ -497,10 +497,6 @@ msgstr "other"
 msgid "Gas"
 msgstr "Gas"
 
-#: src/takeoff/words.tsx
-msgid "A Check against the drawing list"
-msgstr "A Check against the drawing list"
-
 #: src/takeoff/Bar.tsx
 msgid "Exclude with the reason typed"
 msgstr "Exclude with the reason typed"
@@ -703,6 +699,10 @@ msgstr "{tag} answered. Confirms {number} {kept} and excludes {dropped} as super
 #: src/takeoff/words.tsx
 msgid "Sanitary fixture details"
 msgstr "Sanitary fixture details"
+
+#: src/takeoff/questionWords.tsx
+msgid "Trace: the title block of {sheet}"
+msgstr "Trace: the title block of {sheet}"
 
 #: src/takeoff/words.tsx
 msgid "Door and window layout"
@@ -939,6 +939,10 @@ msgstr "found; no drawing list; numbering runs {range} without a gap"
 msgid "Answered"
 msgstr "Answered"
 
+#: src/takeoff/questionWords.tsx
+msgid "{missing, plural, one {Not sent yet: keep the missing sheet in the count and ask the consultant} other {Not sent yet: keep the missing sheets in the count and ask the consultant}}"
+msgstr "{missing, plural, one {Not sent yet: keep the missing sheet in the count and ask the consultant} other {Not sent yet: keep the missing sheets in the count and ask the consultant}}"
+
 #: src/takeoff/Step1Inspector.tsx
 msgid "mixed"
 msgstr "mixed"
@@ -1101,6 +1105,10 @@ msgstr "held by Question {tag}"
 #: src/takeoff/Bar.tsx
 msgid "Pick an answer"
 msgstr "Pick an answer"
+
+#: src/takeoff/questionWords.tsx
+msgid "Trace: the title blocks of {first} and {second}"
+msgstr "Trace: the title blocks of {first} and {second}"
 
 #: src/takeoff/SheetList.tsx
 #: src/takeoff/Step1Inspector.tsx
@@ -2206,6 +2214,10 @@ msgstr "Pit and chamber details"
 #: src/takeoff/ActorChip.tsx
 msgid "Vextrus"
 msgstr "Vextrus"
+
+#: src/takeoff/questionWords.tsx
+msgid "Not part of this set: the numbering skips here"
+msgstr "Not part of this set: the numbering skips here"
 
 #: src/takeoff/words.tsx
 msgid "Where a range of storeys ends"

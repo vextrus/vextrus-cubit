@@ -18,6 +18,7 @@ from vextrus.takeoff import acts
 from vextrus.takeoff.schemas.step1 import (
     Step1ActOut,
     Step1AnswerIn,
+    Step1AssignIn,
     Step1ConfirmIn,
     Step1CoverageOut,
     Step1DrawingListIn,
@@ -88,6 +89,14 @@ def exclude(request: HttpRequest, project_id: uuid.UUID, payload: Step1ExcludeIn
     view = step1.exclude(
         project_id, payload.proposals, payload.reason, payload.text, actor_name=actor(request)
     )
+    return Step1ActOut.from_view(view)
+
+
+@router.post(f"{_PREFIX}/assign", response={200: Step1ActOut, 400: Refusal, 409: Refusal})
+@declare(acts.ASSIGN, project="project_id")
+def assign(request: HttpRequest, project_id: uuid.UUID, payload: Step1AssignIn) -> Step1ActOut:
+    """Put views in Takeoff Steps (#158): in M0 the API's only (m0-screens 6.9)."""
+    view = step1.assign(project_id, payload.proposals, payload.steps, actor_name=actor(request))
     return Step1ActOut.from_view(view)
 
 
