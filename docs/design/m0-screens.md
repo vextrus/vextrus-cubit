@@ -1164,9 +1164,13 @@ to a second line at 1280 and 1440.
 
 The file column appears when the list is at least 1000 px wide. An excluded sheet's number is struck
 through, its title and strip muted. Rows that are not sheets use the same height: a held file
-("File · NT-ARCH-Details-R1.dwg Held: the two readers disagree · Question Q1"); a drawing-list entry
-with no sheet ("A-28 · Facade lighting details · Question Q2", after its answer "missing, in the
-count"); while a file reads, one skeleton row per sheet still to come, with "reading…" in the State
+("File · NT-ARCH-Details-R1.dwg Held: the two readers disagree · Question Q1"); any other Question
+that holds no sheet takes its card's title (6.7), cut with an ellipsis and its tooltip the whole title
+(ticket 164): a drawing-list entry with no sheet ("A-28 · A-28 is on the drawing list but in no file ·
+Question Q2", after its answer "missing, in the count"), and, with no drawing list, a gap in the
+numbering ("A-03–A-05 · No drawing list, and the numbering skips from A-03 to A-05… · Question Q3";
+its card's kind line "A gap in the numbering"). "File" stands in the Number cell only for a held file;
+a Question with no sheet and no number shows "—" there. While a file reads, one skeleton row per sheet still to come, with "reading…" in the State
 column.
 
 **Continuation sheets** (the plan's QS review, Q3): sheets with the same title on consecutive numbers
