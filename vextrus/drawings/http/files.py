@@ -95,7 +95,9 @@ def set_discipline(
 ) -> FileOut:
     """The QS's choice of the file's Discipline; its unconfirmed sheets move with it."""
     in_project(services.file(file_id), project_id)
-    return FileOut.from_view(services.set_discipline(file_id, payload.discipline))
+    return FileOut.from_view(
+        services.set_discipline(file_id, payload.discipline, actor_name=actor(request))
+    )
 
 
 @router.get(f"{_PREFIX}/files/{{file_id}}/report", response=ReportOut)

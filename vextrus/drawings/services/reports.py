@@ -28,6 +28,7 @@ from engine.check.bangla_ansi import BanglaAnsi, Flagged, FoundBy
 from engine.messages import Message
 from engine.messages.decoders_agree import DISAGREE
 from engine.read.artefact import ReadArtefact
+from vextrus.drawings.messages import files as file_words
 from vextrus.drawings.messages import reports as said
 from vextrus.drawings.models import (
     DrawingFile,
@@ -88,7 +89,7 @@ def report(file_id: uuid.UUID) -> Report:
     on = _SheetTexts.of(row) if uses or flagged else _NO_SHEETS
     return Report(
         shown,
-        readers=tuple(_readers(row)),
+        readers=tuple(_readers(row, shown.state)),
         sheets=tuple(_sheets(row)),
         bangla=_bangla(row, on),
         bangla_sheets=on.bangla(flagged),
@@ -193,8 +194,12 @@ def _messages(stored: dict[str, Any] | None) -> tuple[Message, ...]:
     return tuple(Message(code=m["code"], params=m["params"]) for m in (stored or {}).get("messages", ()))
 
 
-def _readers(row: DrawingFile) -> list[Message]:
+def _readers(row: DrawingFile, state: str) -> list[Message]:
     finding = row.finding
+    if isinstance(finding, dict) and finding.get("code") == file_words.DISCIPLINE_CHOICE_UNDONE.code:
+        # #159: the file's finding is a Discipline choice undone (said at the report's top line); the
+        # readers' own finding, if any, is their check's (the one the file was held with).
+        finding = (row.cross_check or {}).get("finding")
     stopped = row.read_status in (ReadStatus.FAILED, ReadStatus.QUARANTINED)
     if (
         finding
@@ -202,7 +207,12 @@ def _readers(row: DrawingFile) -> list[Message]:
         and row.held_answer == HeldAnswer.READ_ANYWAY
         and finding.get("code") == DISAGREE.code
     ):
-        return [said.READ_ANYWAY(**finding["params"])]
+        if drawing_files.read_anyway_ended(row):
+            return [said.READ_ANYWAY(**finding["params"])]
+        # Stopping is not yet stopped: it is still being read until its job ends.
+        stopped_again = state in (drawing_files.FileState.FAILED, drawing_files.FileState.CANCELLED)
+        pending = said.READ_ANYWAY_STOPPED if stopped_again else said.READ_ANYWAY_PENDING
+        return [pending(**finding["params"])]
     if finding and (stopped or str(finding.get("code", "")).startswith("engine.decoders_agree.")):
         return [Message(code=finding["code"], params=finding["params"])]
     check = row.cross_check or {}
@@ -231,9 +241,7 @@ def asks_to_mark(row: DrawingFile, view: drawing_files.FileView) -> bool:
 
 
 def _listed(row: DrawingFile) -> bool:
-    return row.read_status == ReadStatus.READ or (
-        row.read_status == ReadStatus.QUARANTINED and row.held_answer == HeldAnswer.READ_ANYWAY
-    )
+    return row.read_status == ReadStatus.READ or drawing_files.read_anyway_ended(row)
 
 
 def _sheets(row: DrawingFile) -> list[Message]:

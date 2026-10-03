@@ -162,6 +162,14 @@ def test_one_bulk_confirmation_leaves_no_view_proposed_or_unaccounted(
 ) -> None:
     read_clean(qs_project, monkeypatch)
     api = api_as(qs_project.member)
+    # A drawing list the QS types, so the sheets agree and join the bulk act (m0-screens 6.4: sheets
+    # "with one source" are never in it; ticket 166).
+    listed = api.post(
+        f"{step1(qs_project.project_id)}/drawing-list",
+        {"discipline": "structural", "text": "S-01 to S-03"},
+    )
+    assert listed.status_code == 200, listed.content
+    assert all(p["agrees"] for p in proposals(api, qs_project.project_id))
     ids = [p["id"] for p in proposals(api, qs_project.project_id)]
 
     response = confirm(api, qs_project.project_id, ids)
@@ -186,7 +194,9 @@ def test_a_discipline_with_every_sheet_confirmed_and_nothing_open_is_confirmed(
     assert open_questions(api, qs_project.project_id) == []
     assert progress(api, qs_project.project_id)["structural"]["status"] == "in_review"
 
-    confirm(api, qs_project.project_id, [p["id"] for p in proposals(api, qs_project.project_id)])
+    # One by one: its sheets have one source each, never in a bulk act (m0-screens 6.4; ticket 166).
+    for proposal in proposals(api, qs_project.project_id):
+        assert confirm(api, qs_project.project_id, [proposal["id"]]).status_code == 200
 
     row = progress(api, qs_project.project_id)["structural"]
     assert (row["status"], row["confirmed"], row["total"], row["open_questions"]) == (
