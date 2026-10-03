@@ -77,4 +77,4 @@ m0-screens amendment #202) and a Question's tag is fixed for life (raised order)
 
 ## Merged in session 09
 #194 (ci limit), #178 (22 Step 1 screen), #175 (#166), #183 (#165), #184 (#158, with the owner-approved 21c pin
-amendment), #180 (#164), #193 (#159), #198 (#157). Filed: #189–#192, #195, #197, #199, #202, #204–#206.
+amendment), #180 (#164), #193 (#159), #198 (#157), #196 (#162). Filed: #189–#192, #195, #197, #199, #202, #204–#206.
