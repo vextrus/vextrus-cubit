@@ -11,10 +11,6 @@ msgstr ""
 msgid "Answering decides whether this file’s sheets join the list. Pick an answer: {keys}."
 msgstr "Answering decides whether this file’s sheets join the list. Pick an answer: {keys}."
 
-#: src/takeoff/questionWords.tsx
-msgid "{tag} answered."
-msgstr "{tag} answered."
-
 #: src/takeoff/words.tsx
 msgid "Grid layout"
 msgstr "Grid layout"
@@ -193,6 +189,10 @@ msgstr "{n, plural, one {Drawing list set: # sheet.} other {Drawing list set: # 
 msgid "No sheets yet. Add the Drawing Set’s files first."
 msgstr "No sheets yet. Add the Drawing Set’s files first."
 
+#: src/takeoff/questionWords.tsx
+msgid "{tag} answered. Recorded: the storey where this sheet’s range ends belongs to the next sheet’s range."
+msgstr "{tag} answered. Recorded: the storey where this sheet’s range ends belongs to the next sheet’s range."
+
 #: src/takeoff/Bar.tsx
 msgid "No drawing list and no Plot to check them against."
 msgstr "No drawing list and no Plot to check them against."
@@ -208,6 +208,10 @@ msgstr "Two plans draw one thing"
 #: src/takeoff/Bar.tsx
 msgid "{n, plural, one {Confirm # sheet that agrees} other {Confirm # sheets that agree}}, and leave out {m}: {reasons}"
 msgstr "{n, plural, one {Confirm # sheet that agrees} other {Confirm # sheets that agree}}, and leave out {m}: {reasons}"
+
+#: src/takeoff/words.tsx
+msgid "The general drawing list"
+msgstr "The general drawing list"
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "Confirmed by {name}, {date}"
@@ -283,6 +287,10 @@ msgstr "Ground"
 msgid "Excluded: {reason}"
 msgstr "Excluded: {reason}"
 
+#: src/takeoff/questionWords.tsx
+msgid "{tag} answered. {n, plural, one {Settles # sheet.} other {Settles # sheets.}}"
+msgstr "{tag} answered. {n, plural, one {Settles # sheet.} other {Settles # sheets.}}"
+
 #: src/takeoff/Step1Inspector.tsx
 msgid "{file} page {page}, registered to {residual} mm"
 msgstr "{file} page {page}, registered to {residual} mm"
@@ -339,6 +347,10 @@ msgstr "Floor finish layout"
 msgid "Do what the bar says"
 msgstr "Do what the bar says"
 
+#: src/takeoff/questionWords.tsx
+msgid "{tag} answered. Recorded: your pick. {name} stays in the list, to confirm or exclude."
+msgstr "{tag} answered. Recorded: your pick. {name} stays in the list, to confirm or exclude."
+
 #: src/takeoff/Step1Screen.tsx
 msgid "Sheet"
 msgstr "Sheet"
@@ -350,6 +362,10 @@ msgstr "Cover or index"
 #: src/takeoff/Step1Inspector.tsx
 msgid "None: the sheet has no number, so no PDF page could be matched to it"
 msgstr "None: the sheet has no number, so no PDF page could be matched to it"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Type the sheet’s number first, as its title block should read."
+msgstr "Type the sheet’s number first, as its title block should read."
 
 #: src/takeoff/words.tsx
 msgid "Use the drawing list you gave"
@@ -461,6 +477,14 @@ msgstr "Two drawing lists differ"
 msgid "{n, plural, one {They are different sheets: keep it} =2 {They are different sheets: keep both} other {They are different sheets: keep all #}}"
 msgstr "{n, plural, one {They are different sheets: keep it} =2 {They are different sheets: keep both} other {They are different sheets: keep all #}}"
 
+#: src/takeoff/questionWords.tsx
+msgid "{tag} answered. Recorded: the sheet is not part of this set."
+msgstr "{tag} answered. Recorded: the sheet is not part of this set."
+
+#: src/takeoff/questionWords.tsx
+msgid "{tag} answered. {name}’s sheets are counted against the drawing list on {number}."
+msgstr "{tag} answered. {name}’s sheets are counted against the drawing list on {number}."
+
 #: src/takeoff/Step1Inspector.tsx
 msgid "two, agreeing"
 msgstr "two, agreeing"
@@ -484,6 +508,10 @@ msgstr "{by}, {date}, {time}"
 #: src/takeoff/words.tsx
 msgid "Discipline unclear"
 msgstr "Discipline unclear"
+
+#: src/takeoff/questionWords.tsx
+msgid "{tag} answered. Recorded: the storey where {sheet}’s range ends belongs to the next sheet’s range."
+msgstr "{tag} answered. Recorded: the storey where {sheet}’s range ends belongs to the next sheet’s range."
 
 #: src/takeoff/questionWords.tsx
 msgid "{tag} answered. {sheet}’s kind is {kind}."
@@ -545,6 +573,10 @@ msgstr "Answering decides whether {file}’s sheets join the list. Pick an answe
 msgid "Keep open, ask the consultant"
 msgstr "Keep open, ask the consultant"
 
+#: src/takeoff/questionWords.tsx
+msgid "{tag} answered. {name}’s sheets are counted against the drawing list you pasted."
+msgstr "{tag} answered. {name}’s sheets are counted against the drawing list you pasted."
+
 #: src/takeoff/acts.tsx
 msgid "{n, plural, one {Drawing list set: # {kind} sheet.} other {Drawing list set: # {kind} sheets.}}"
 msgstr "{n, plural, one {Drawing list set: # {kind} sheet.} other {Drawing list set: # {kind} sheets.}}"
@@ -585,6 +617,10 @@ msgstr "plumbing and sanitary"
 msgid "Keep {kept}; leave the other {others, plural, one {# copy} other {# copies}} out as superseded"
 msgstr "Keep {kept}; leave the other {others, plural, one {# copy} other {# copies}} out as superseded"
 
+#: src/takeoff/questionWords.tsx
+msgid "{tag} answered. {name}’s sheets are counted against the drawing list found in the drawings."
+msgstr "{tag} answered. {name}’s sheets are counted against the drawing list found in the drawings."
+
 #: src/takeoff/words.tsx
 msgid "Section"
 msgstr "Section"
@@ -596,6 +632,10 @@ msgstr "A sheet titled “{title}” in {file} has an empty number in its title 
 #: src/takeoff/Bar.tsx
 msgid "Leave out {name}: {reason}"
 msgstr "Leave out {name}: {reason}"
+
+#: src/takeoff/questionWords.tsx
+msgid "{tag} answered. The sheet’s Discipline is {discipline}."
+msgstr "{tag} answered. The sheet’s Discipline is {discipline}."
 
 #: src/takeoff/Bar.tsx
 msgid "Coverage keeps the reason. Esc cancels"
@@ -670,6 +710,14 @@ msgstr "{n, selectordinal, one {#st} two {#nd} few {#rd} other {#th}}"
 msgid "the second copy"
 msgstr "the second copy"
 
+#: src/takeoff/questionWords.tsx
+msgid "{tag} answered. {sheet}’s Discipline is {discipline}."
+msgstr "{tag} answered. {sheet}’s Discipline is {discipline}."
+
+#: src/takeoff/questionWords.tsx
+msgid "{tag} answered. {name}’s sheets are counted against the drawing list given."
+msgstr "{tag} answered. {name}’s sheets are counted against the drawing list given."
+
 #: src/takeoff/Bar.tsx
 #: src/takeoff/Step1Inspector.tsx
 msgid "Confirm back in"
@@ -743,6 +791,10 @@ msgstr "Trace: the title block of {sheet}"
 #: src/takeoff/words.tsx
 msgid "Door and window layout"
 msgstr "Door and window layout"
+
+#: src/takeoff/questionWords.tsx
+msgid "{tag} answered. The sheet stays in the count as missing."
+msgstr "{tag} answered. The sheet stays in the count as missing."
 
 #: src/takeoff/words.tsx
 msgctxt "view kind"
@@ -883,6 +935,10 @@ msgstr "Elevation"
 #: src/takeoff/SheetList.tsx
 msgid "found, {listed} on the drawing list on {sheet}"
 msgstr "found, {listed} on the drawing list on {sheet}"
+
+#: src/takeoff/questionWords.tsx
+msgid "{tag} answered. The sheet stays in the count as missing until its file is added."
+msgstr "{tag} answered. The sheet stays in the count as missing until its file is added."
 
 #: src/takeoff/Bar.tsx
 msgid "Confirm {n}"
@@ -1076,6 +1132,14 @@ msgstr "{name} is confirmed by {by}"
 msgid "the later date and {list} agree"
 msgstr "the later date and {list} agree"
 
+#: src/takeoff/questionWords.tsx
+msgid "{tag} answered. {name}’s sheets are counted against the range you typed."
+msgstr "{tag} answered. {name}’s sheets are counted against the range you typed."
+
+#: src/takeoff/words.tsx
+msgid "general"
+msgstr "general"
+
 #: src/takeoff/SheetList.tsx
 msgid "▮ floor to floor  ▁ at floor level"
 msgstr "▮ floor to floor  ▁ at floor level"
@@ -1175,6 +1239,10 @@ msgid "Pick an answer"
 msgstr "Pick an answer"
 
 #: src/takeoff/questionWords.tsx
+msgid "{tag} answered. Recorded: {sheet}’s range includes the storey where it ends."
+msgstr "{tag} answered. Recorded: {sheet}’s range includes the storey where it ends."
+
+#: src/takeoff/questionWords.tsx
 msgid "Trace: the title blocks of {first} and {second}"
 msgstr "Trace: the title blocks of {first} and {second}"
 
@@ -1222,6 +1290,10 @@ msgstr "Lintel layout"
 #: src/takeoff/questionWords.tsx
 msgid "Answering keeps both copies open. Neither is read until the consultant replies."
 msgstr "Answering keeps both copies open. Neither is read until the consultant replies."
+
+#: src/takeoff/questionWords.tsx
+msgid "{tag} answered. {name} stays in the count as missing."
+msgstr "{tag} answered. {name} stays in the count as missing."
 
 #: src/takeoff/words.tsx
 msgid "Door and window schedule"
@@ -1288,6 +1360,10 @@ msgstr "{name}, {date}, {time}"
 msgid "Answering confirms {number} ({kept}) and excludes {number} ({dropped}) as superseded."
 msgstr "Answering confirms {number} ({kept}) and excludes {number} ({dropped}) as superseded."
 
+#: src/takeoff/questionWords.tsx
+msgid "{tag} answered. Recorded: the numbering skips here, and nothing is missing."
+msgstr "{tag} answered. Recorded: the numbering skips here, and nothing is missing."
+
 #: src/takeoff/Step1Screen.tsx
 msgid "{kind}, {scale}"
 msgstr "{kind}, {scale}"
@@ -1324,6 +1400,10 @@ msgstr "Expected sheets"
 #: src/takeoff/Step1Inspector.tsx
 msgid "{n, plural, one {Confirm the # sheet that agrees} other {Confirm the # sheets that agree}}"
 msgstr "{n, plural, one {Confirm the # sheet that agrees} other {Confirm the # sheets that agree}}"
+
+#: src/takeoff/questionWords.tsx
+msgid "{tag} answered. {name}’s sheets are counted against the drawing list on the sheet titled “{title}”."
+msgstr "{tag} answered. {name}’s sheets are counted against the drawing list on the sheet titled “{title}”."
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "{name}: no drawing list; {found} found."
@@ -1373,6 +1453,10 @@ msgstr "Confirmed by {name} (Vextrus), {date}"
 msgid "Lift"
 msgstr "Lift"
 
+#: src/takeoff/questionWords.tsx
+msgid "{tag} answered. Recorded: this sheet’s range includes the storey where it ends."
+msgstr "{tag} answered. Recorded: this sheet’s range includes the storey where it ends."
+
 #: src/takeoff/FilesBand.tsx
 msgid "Bangla font"
 msgstr "Bangla font"
@@ -1384,6 +1468,10 @@ msgstr "Foundation details"
 #: src/takeoff/words.tsx
 msgid "No: it belongs to the next sheet’s range"
 msgstr "No: it belongs to the next sheet’s range"
+
+#: src/takeoff/questionWords.tsx
+msgid "{tag} answered. Recorded: {name} is not part of this set; exclude it in the list."
+msgstr "{tag} answered. Recorded: {name} is not part of this set; exclude it in the list."
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "one source"
@@ -1684,6 +1772,10 @@ msgstr "duplicate"
 msgid "{n} / {total} settled"
 msgstr "{n} / {total} settled"
 
+#: src/takeoff/questionWords.tsx
+msgid "{tag} answered. No sheet is changed."
+msgstr "{tag} answered. No sheet is changed."
+
 #: src/takeoff/acts.tsx
 msgid "{n, plural, one {left out # sheet} other {left out # sheets}}"
 msgstr "{n, plural, one {left out # sheet} other {left out # sheets}}"
@@ -1857,6 +1949,10 @@ msgstr "Waiting for the QS. A Guest reads Questions and cannot answer them."
 msgid "the later revision mark and {list} agree"
 msgstr "the later revision mark and {list} agree"
 
+#: src/takeoff/questionWords.tsx
+msgid "{tag} answered. The sheet’s kind is {kind}."
+msgstr "{tag} answered. The sheet’s kind is {kind}."
+
 #: src/takeoff/Bar.tsx
 msgid "Open {name}"
 msgstr "Open {name}"
@@ -1876,6 +1972,10 @@ msgstr "Answering confirms {number} ({kept}) and excludes the other {others, plu
 #: src/takeoff/Step1Inspector.tsx
 msgid "→ walks them"
 msgstr "→ walks them"
+
+#: src/takeoff/questionWords.tsx
+msgid "{tag} answered. The sheet is numbered as typed."
+msgstr "{tag} answered. The sheet is numbered as typed."
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "proposed"
@@ -2062,6 +2162,10 @@ msgstr "Withdrawn when {sheet} was left out. {sheet} can be confirmed back in on
 msgid "Opening Step 1…"
 msgstr "Opening Step 1…"
 
+#: src/takeoff/words.tsx
+msgid "General"
+msgstr "General"
+
 #: src/takeoff/Step1Inspector.tsx
 msgid "{others, plural, one {Confirmed in bulk with # other sheet} other {Confirmed in bulk with # other sheets}}"
 msgstr "{others, plural, one {Confirmed in bulk with # other sheet} other {Confirmed in bulk with # other sheets}}"
@@ -2102,6 +2206,10 @@ msgstr "{n, plural, one {confirmed # sheet} other {confirmed # sheets}}"
 #: src/takeoff/words.tsx
 msgid "electrical"
 msgstr "electrical"
+
+#: src/takeoff/questionWords.tsx
+msgid "{tag} answered. {missing, plural, one {Recorded: the missing sheet is still to come. Paste the drawing list to count it.} other {Recorded: the # missing sheets are still to come. Paste the drawing list to count them.}}"
+msgstr "{tag} answered. {missing, plural, one {Recorded: the missing sheet is still to come. Paste the drawing list to count it.} other {Recorded: the # missing sheets are still to come. Paste the drawing list to count them.}}"
 
 #: src/takeoff/words.tsx
 msgid "Pile cap layout"
@@ -2323,9 +2431,17 @@ msgstr "Answering confirms no sheets."
 msgid "Pit and chamber details"
 msgstr "Pit and chamber details"
 
+#: src/takeoff/questionWords.tsx
+msgid "{tag} answered. Recorded: {name} is not part of this set."
+msgstr "{tag} answered. Recorded: {name} is not part of this set."
+
 #: src/takeoff/ActorChip.tsx
 msgid "Vextrus"
 msgstr "Vextrus"
+
+#: src/takeoff/questionWords.tsx
+msgid "{tag} answered. {name} stays in the count as missing until its file is added."
+msgstr "{tag} answered. {name} stays in the count as missing until its file is added."
 
 #: src/takeoff/questionWords.tsx
 msgid "Not part of this set: the numbering skips here"

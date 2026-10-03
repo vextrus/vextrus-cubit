@@ -7,7 +7,7 @@
 import type { DrawingListOut, ProposalOut, QuestionOut, Step1Data } from './data'
 
 /** The Takeoff's order of Disciplines (ADR 0040): Structural, Architectural, then each MEP one. */
-export const DISCIPLINE_ORDER = ['structural', 'architectural', 'electrical', 'plumbing', 'fire', 'mechanical', 'lift', 'gas'] as const
+export const DISCIPLINE_ORDER = ['structural', 'architectural', 'electrical', 'plumbing', 'fire', 'mechanical', 'lift', 'gas', 'general'] as const
 
 /** The Disciplines Steps 1–13 take off (ADR 0040); every other one is an MEP Part, taken off from M3. */
 export const STEP_DISCIPLINES: ReadonlySet<string> = new Set(DISCIPLINE_ORDER.slice(0, 2))

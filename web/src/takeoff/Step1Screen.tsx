@@ -151,7 +151,7 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
   const listRef = useRef<HTMLDivElement>(null)
   const focusNext = useRef<string | null>(null)
   /** The QS's pick on each Question, by its id, until answered (a pick changes nothing until Enter, §6.7). */
-  const [picks, setPicks] = useState<Readonly<Record<string, { key: string; text: string }>>>({})
+  const [picks, setPicks] = useState<Readonly<Record<string, { key: string; text: string; empty?: boolean }>>>({})
 
   const rowByKey = (key: string | null) => (key ? (model.rows.find((r) => r.key === key) ?? null) : null)
   const rowOfSheet = (id: string | null) => (id ? (model.rows.find((r) => r.sheets.some((s) => s.id === id)) ?? null) : null)
@@ -261,7 +261,7 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
     if (done && thenNext && mode === 'sheet' && openSheet) openNextProposal(openSheet)
   }
 
-  const setPick = (entry: QuestionEntry, pick: { key: string; text: string } | null) =>
+  const setPick = (entry: QuestionEntry, pick: { key: string; text: string; empty?: boolean } | null) =>
     setPicks((all) => {
       const next = { ...all }
       if (pick) next[entry.question.id] = pick
@@ -274,8 +274,9 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
     const pick = picks[entry.question.id] ?? null
     const key = pick?.key ?? prePick(entry, cardContext(model))?.key
     if (!key) return
-    // Never an empty number (the walk, M4): Enter in the empty field does nothing; focus stays in it.
-    if (key === 'type_number' && !(pick?.text ?? '').trim()) return
+    // Never an empty number (the walk, M4): Enter in the empty field answers nothing and says so in the
+    // field's own place (the design gate, round 3, item 2); focus stays in it.
+    if (key === 'type_number' && !(pick?.text ?? '').trim()) return setPick(entry, { key, text: pick?.text ?? '', empty: true })
     const rowKey = `q:${entry.question.id}`
     const done = await acts.answerQuestion(entry, key, key === 'type_number' ? (pick?.text ?? '') : '')
     if (!done) return
@@ -305,6 +306,7 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
           if (mode === 'list' && focused !== rowKey && model.rows.some((r) => r.key === rowKey)) setFocused(rowKey)
         },
         type: (entry, text) => setPick(entry, { key: 'type_number', text }),
+        numberNeeded: (entry) => !!picks[entry.question.id]?.empty,
         answer: (entry) => void answerEntry(entry),
         later: () => nextQuestion(),
         busy: acts.busy,
@@ -378,8 +380,10 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
     const carded = inCard ? [...model.queue, ...model.withdrawn.flatMap((r) => (r.question ? [r.question] : []))].find((e) => e.question.id === inCard) : undefined
     if (carded) return enterOn(carded)
     if (bar?.button?.disabled) {
-      // A pick made, its number not typed yet: nothing to say beyond the field's own words.
-      if (focusedRow?.question && picks[focusedRow.question.question.id]?.key !== 'type_number') sayPick(focusedRow.question)
+      // A pick made, its number not typed yet: the card's field says what to type (round 3, item 2).
+      const entry = focusedRow?.question
+      if (entry && picks[entry.question.id]?.key === 'type_number') void answerEntry(entry)
+      else if (entry) sayPick(entry)
       return
     }
     const act = bar?.button ?? bar?.ghost

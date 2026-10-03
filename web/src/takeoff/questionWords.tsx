@@ -595,5 +595,105 @@ export function AnsweredWords({ entry, option, text }: { entry: QuestionEntry; o
     return <Trans>{tag} answered. {sheet}’s kind is {kind}.</Trans>
   }
   if (q.kind === 'missing' && option === 'no_number') return <Trans>{tag} answered. The sheet stays without a number.</Trans>
-  return <Trans>{tag} answered.</Trans>
+  if (q.kind === 'missing' && option === 'type_number') return <Trans>{tag} answered. The sheet is numbered as typed.</Trans>
+  if (q.kind === 'check') {
+    const done = checkAnswered(entry, option)
+    if (done) return done
+  }
+  if (q.kind === 'missing_discipline') return <DisciplineAnswered entry={entry} option={option} />
+  if (q.code === 'takeoff.proposals.lists_disagree' && (option === 'use_read' || option === 'use_given')) return <ListsAnswered entry={entry} option={option} />
+  if (option === 'includes_storey' || option === 'excludes_storey') {
+    // A toast is read away from the card: it names the sheet (the words gate, round 3).
+    if (n === 0)
+      return option === 'includes_storey' ? (
+        <Trans>{tag} answered. Recorded: this sheet’s range includes the storey where it ends.</Trans>
+      ) : (
+        <Trans>{tag} answered. Recorded: the storey where this sheet’s range ends belongs to the next sheet’s range.</Trans>
+      )
+    const sheet = <SheetName sheets={entry.holds.slice(0, 1)} />
+    return option === 'includes_storey' ? (
+      <Trans>{tag} answered. Recorded: {sheet}’s range includes the storey where it ends.</Trans>
+    ) : (
+      <Trans>{tag} answered. Recorded: the storey where {sheet}’s range ends belongs to the next sheet’s range.</Trans>
+    )
+  }
+  if (q.kind === 'low_confidence' && SHEET_KIND_NAMES[option]) {
+    const kind = <SheetKindName option={option} />
+    return <Trans>{tag} answered. The sheet’s kind is {kind}.</Trans>
+  }
+  // Never the bare "Q5 answered." (the design gate, round 3): an answer the words above do not name says what it settles.
+  if (n === 0) return <Trans>{tag} answered. No sheet is changed.</Trans>
+  return (
+    <Trans>
+      {tag} answered. <Plural value={n} one="Settles # sheet." other="Settles # sheets." />
+    </Trans>
+  )
+}
+
+
+/** A drawing-list Check's toast, in step with the card's first line for the same pick (the design gate, round 3). */
+function checkAnswered(entry: QuestionEntry, option: string): ReactNode | null {
+  const tag = entry.tag
+  const q = entry.question
+  const gap = gapOf(q)
+  const listed = typeof q.params.number === 'string' && q.params.number ? q.params.number : null
+  const name = listed ? <DrawingText kind="sheet-number" text={listed} truncate={false} /> : entry.holds.length > 0 ? <SheetName sheets={entry.holds} /> : null
+  const missing = typeof q.params.missing === 'number' ? q.params.missing : 1
+  const unlisted = q.code === 'engine.register_check.not_listed'
+  if (option === 'not_in_set') {
+    if (gap) return <Trans>{tag} answered. Recorded: the numbering skips here, and nothing is missing.</Trans>
+    if (unlisted && name) return <Trans>{tag} answered. Recorded: {name} is not part of this set; exclude it in the list.</Trans>
+    if (name) return <Trans>{tag} answered. Recorded: {name} is not part of this set.</Trans>
+    return <Trans>{tag} answered. Recorded: the sheet is not part of this set.</Trans>
+  }
+  if (option !== 'not_sent_yet' && option !== 'file_not_added') return null
+  if (gap) {
+    return (
+      <Trans>
+        {tag} answered.{' '}
+        <Plural
+          value={missing}
+          one="Recorded: the missing sheet is still to come. Paste the drawing list to count it."
+          other="Recorded: the # missing sheets are still to come. Paste the drawing list to count them."
+        />
+      </Trans>
+    )
+  }
+  if (unlisted && name) return <Trans>{tag} answered. Recorded: your pick. {name} stays in the list, to confirm or exclude.</Trans>
+  if (option === 'file_not_added')
+    return name ? <Trans>{tag} answered. {name} stays in the count as missing until its file is added.</Trans> : <Trans>{tag} answered. The sheet stays in the count as missing until its file is added.</Trans>
+  return name ? <Trans>{tag} answered. {name} stays in the count as missing.</Trans> : <Trans>{tag} answered. The sheet stays in the count as missing.</Trans>
+}
+
+/** "Which Discipline?" answered: the sheet's Discipline is set (21c's `set_sheet_discipline`). */
+function DisciplineAnswered({ entry, option }: { entry: QuestionEntry; option: string }) {
+  const { i18n } = useLingui()
+  const tag = entry.tag
+  const discipline = disciplineName(option, i18n)
+  if (entry.holds.length === 0) return <Trans>{tag} answered. The sheet’s Discipline is {discipline}.</Trans>
+  const sheet = <SheetName sheets={entry.holds} />
+  return <Trans>{tag} answered. {sheet}’s Discipline is {discipline}.</Trans>
+}
+
+/** The two drawing lists' Question answered: which list the Discipline's sheets are now counted against. */
+function ListsAnswered({ entry, option }: { entry: QuestionEntry; option: 'use_read' | 'use_given' }) {
+  const { i18n } = useLingui()
+  const tag = entry.tag
+  const q = entry.question
+  const name = disciplineName(q.discipline, i18n)
+  if (option === 'use_given') {
+    if (q.params.source === 'typed') return <Trans>{tag} answered. {name}’s sheets are counted against the range you typed.</Trans>
+    if (q.params.source === 'pasted') return <Trans>{tag} answered. {name}’s sheets are counted against the drawing list you pasted.</Trans>
+    return <Trans>{tag} answered. {name}’s sheets are counted against the drawing list given.</Trans>
+  }
+  if (typeof q.params.sheet === 'string' && q.params.sheet) {
+    const on = q.params.sheet
+    if (q.params.named === 'number') {
+      const number = <DrawingText kind="sheet-number" text={on} truncate={false} />
+      return <Trans>{tag} answered. {name}’s sheets are counted against the drawing list on {number}.</Trans>
+    }
+    const title = <DrawingText kind="title" text={on} truncate={false} />
+    return <Trans>{tag} answered. {name}’s sheets are counted against the drawing list on the sheet titled “{title}”.</Trans>
+  }
+  return <Trans>{tag} answered. {name}’s sheets are counted against the drawing list found in the drawings.</Trans>
 }

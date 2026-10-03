@@ -17,6 +17,7 @@ export const DISCIPLINE_NAMES: Readonly<Record<string, MessageDescriptor>> = {
   mechanical: msg`Mechanical (HVAC)`,
   lift: msg`Lift`,
   gas: msg`Gas`,
+  general: msg`General`,
 }
 
 /** The same name in running text, lower case where the language wants it ("the architectural drawing list"). */
@@ -29,6 +30,7 @@ export const DISCIPLINE_IN_TEXT: Readonly<Record<string, MessageDescriptor>> = {
   mechanical: msg`mechanical (HVAC)`,
   lift: msg`lift`,
   gas: msg`gas`,
+  general: msg`general`,
 }
 
 /** The drawing-list dialog's title per Discipline (6.10), one message each. */
@@ -41,6 +43,7 @@ export const LIST_TITLES: Readonly<Record<string, MessageDescriptor>> = {
   mechanical: msg`The mechanical (HVAC) drawing list`,
   lift: msg`The lift drawing list`,
   gas: msg`The gas drawing list`,
+  general: msg`The general drawing list`,
 }
 
 export const OTHER_LIST_TITLE = msg`The drawing list`

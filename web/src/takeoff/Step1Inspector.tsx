@@ -649,6 +649,8 @@ export interface Answerer {
   choose(entry: QuestionEntry, key: string): void
   /** The number typed under "Type a number". */
   type(entry: QuestionEntry, text: string): void
+  /** Answered with "Type a number" and the field empty: the field says what to type. */
+  numberNeeded(entry: QuestionEntry): boolean
   answer(entry: QuestionEntry): void
   /** "Ask later": the next open Question. */
   later(): void
@@ -684,6 +686,8 @@ export function QuestionCard({
   const can = !readOnly && answerer !== null
   const choice = can ? answerer.choice(entry) : null
   const current = choice?.key ?? pick?.key ?? null
+  const needed = can && current === 'type_number' && answerer.numberNeeded(entry)
+  const numberFirst = <Trans>Type the sheet’s number first, as its title block should read.</Trans>
   return (
     <section aria-label={t`Question ${tag}`} data-question={entry.question.id} className="m-2 overflow-hidden rounded-md border border-question">
       <header className="flex items-center justify-between gap-2 bg-question-surface px-3 py-1.5 text-sm text-question">
@@ -741,16 +745,23 @@ export function QuestionCard({
                 </span>
               </label>
               {can && o.key === 'type_number' && current === 'type_number' ? (
-                <TextField
-                  label={<Trans>The sheet’s number</Trans>}
-                  hint={<Trans>As its title block should read. Enter answers.</Trans>}
-                  className="ps-6"
-                  autoFocus
-                  autoComplete="off"
-                  spellCheck={false}
-                  value={choice?.text ?? ''}
-                  onChange={(event) => answerer.type(entry, event.target.value)}
-                />
+                <>
+                  <TextField
+                    label={<Trans>The sheet’s number</Trans>}
+                    hint={needed ? undefined : <Trans>As its title block should read. Enter answers.</Trans>}
+                    error={needed ? numberFirst : undefined}
+                    className="ps-6"
+                    autoFocus
+                    autoComplete="off"
+                    spellCheck={false}
+                    value={choice?.text ?? ''}
+                    onChange={(event) => answerer.type(entry, event.target.value)}
+                  />
+                  {/* Always present, so the refusal is announced when it appears (politely). */}
+                  <span role="status" aria-live="polite" className="sr-only">
+                    {needed ? numberFirst : null}
+                  </span>
+                </>
               ) : null}
             </div>
           ))}
