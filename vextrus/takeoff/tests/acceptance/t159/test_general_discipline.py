@@ -195,9 +195,10 @@ def test_the_general_disciplines_sheets_are_step_2s_notes(
     listed = [p["id"] for p in proposals(api, qs_project.project_id) if p["discipline"] == general]
     assert len(listed) == 8
 
-    response = confirm(api, qs_project.project_id, listed)
-
-    assert response.status_code == 200, response.content
+    # m0-screens 6.4 (ruled at #166): one-source sheets are confirmed one by one, never in bulk.
+    for one in listed:
+        response = confirm(api, qs_project.project_id, [one])
+        assert response.status_code == 200, response.content
     shown = coverage(api, qs_project.project_id)
     assert shown["by_step"] == {STEP_2: 8}
     assert shown["unaccounted"] == 0
