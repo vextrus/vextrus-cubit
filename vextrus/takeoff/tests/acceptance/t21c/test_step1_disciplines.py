@@ -46,7 +46,7 @@ pytestmark = pytest.mark.django_db
 STRUCTURAL = "KR-STR-R0.dwg"
 ARCHITECTURAL = "KR-ARC-R0.dwg"
 ELECTRICAL = "KR-ELE-R0.dwg"
-NO_DISCIPLINE = "GENERAL NOTES.dwg"
+NO_DISCIPLINE = "NOTES.dwg"
 DRAWN: dict[str, list[Sheet]] = {
     STRUCTURAL: [
         Sheet("S-01", "PILE LAYOUT PLAN", ("PILE LAYOUT PLAN",)),

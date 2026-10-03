@@ -23,7 +23,7 @@ def mixed(qs_project: QsProject) -> QsProject:
     member = qs_project.member
     structural = add(member, qs_project.project_id, "KR-STR-R0.dwg", drawing()).file
     read_dwg(member, structural.id, ["01", "02"])
-    notes = add(member, qs_project.project_id, "GENERAL NOTES.dwg", drawing()).file
+    notes = add(member, qs_project.project_id, "NOTES.dwg", drawing()).file
     read_dwg(member, notes.id, ["01"], titles=["GENERAL NOTES"])
     with member.acting():
         drawing_set = drawings.set_of(qs_project.project_id)
