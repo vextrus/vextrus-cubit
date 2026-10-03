@@ -10,7 +10,7 @@ import type { I18n } from '@lingui/core'
 import { useLingui } from '@lingui/react'
 import { isolateLtr, type NotationKind } from '@/ui/notation'
 import { cn } from '@/ui/cn'
-import { SHORT_MONTHS, daysBetween, formatDate, formatTime, type Instant } from './dates'
+import { SHORT_MONTHS, daysBetween, formatDate, formatDay, formatTime, type Instant } from './dates'
 import { coordinateText, lengthText, levelText, scaleText, type Length, type NotationText } from './notation'
 import { formatCount, formatInteger, formatMoney, formatQuantity, formatShare, type Decimal, type Money } from './numbers'
 import type { MarketFormat, UnitSystemKey } from './profile'
@@ -37,6 +37,8 @@ export interface Format {
   count(n: number, N: number | null): string
   share(part: number, whole: number): string
   date(at: Instant | null | undefined): string
+  /** A calendar day sent as an ISO date ("2026-09-12" → "12 Sep 2026"); anything else is empty. */
+  day(iso: string | null | undefined): string
   time(at: Instant | null | undefined): string
   /** Whole days from now (or `from`) to `at`, counted in the Market's time zone. */
   daysUntil(at: Instant, from?: Instant): number
@@ -84,6 +86,7 @@ export function createFormat(profile: MarketFormat, unitSystemKey: UnitSystemKey
     count: (n, N) => formatCount(n, N, profile),
     share: (part, whole) => formatShare(part, whole, profile),
     date: (at) => formatDate(at, profile, month),
+    day: (iso) => formatDay(iso, profile, month),
     time: (at) => formatTime(at, profile),
     daysUntil: (at, from = new Date()) => daysBetween(from, at, profile),
     length: (v) => <Notation kind="length" text={text.length(v).screen} />,

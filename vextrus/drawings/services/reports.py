@@ -88,7 +88,7 @@ def report(file_id: uuid.UUID) -> Report:
     on = _SheetTexts.of(row) if uses or flagged else _NO_SHEETS
     return Report(
         shown,
-        readers=tuple(_readers(row)),
+        readers=tuple(_readers(row, shown.state)),
         sheets=tuple(_sheets(row)),
         bangla=_bangla(row, on),
         bangla_sheets=on.bangla(flagged),
@@ -193,7 +193,7 @@ def _messages(stored: dict[str, Any] | None) -> tuple[Message, ...]:
     return tuple(Message(code=m["code"], params=m["params"]) for m in (stored or {}).get("messages", ()))
 
 
-def _readers(row: DrawingFile) -> list[Message]:
+def _readers(row: DrawingFile, state: str) -> list[Message]:
     finding = row.finding
     stopped = row.read_status in (ReadStatus.FAILED, ReadStatus.QUARANTINED)
     if (
@@ -202,7 +202,12 @@ def _readers(row: DrawingFile) -> list[Message]:
         and row.held_answer == HeldAnswer.READ_ANYWAY
         and finding.get("code") == DISAGREE.code
     ):
-        return [said.READ_ANYWAY(**finding["params"])]
+        if drawing_files.read_anyway_ended(row):
+            return [said.READ_ANYWAY(**finding["params"])]
+        # Stopping is not yet stopped: it is still being read until its job ends.
+        stopped_again = state in (drawing_files.FileState.FAILED, drawing_files.FileState.CANCELLED)
+        pending = said.READ_ANYWAY_STOPPED if stopped_again else said.READ_ANYWAY_PENDING
+        return [pending(**finding["params"])]
     if finding and (stopped or str(finding.get("code", "")).startswith("engine.decoders_agree.")):
         return [Message(code=finding["code"], params=finding["params"])]
     check = row.cross_check or {}
@@ -231,9 +236,7 @@ def asks_to_mark(row: DrawingFile, view: drawing_files.FileView) -> bool:
 
 
 def _listed(row: DrawingFile) -> bool:
-    return row.read_status == ReadStatus.READ or (
-        row.read_status == ReadStatus.QUARANTINED and row.held_answer == HeldAnswer.READ_ANYWAY
-    )
+    return row.read_status == ReadStatus.READ or drawing_files.read_anyway_ended(row)
 
 
 def _sheets(row: DrawingFile) -> list[Message]:

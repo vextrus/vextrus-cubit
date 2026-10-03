@@ -62,6 +62,30 @@ term = "reader"
 reason = "m0-screens 4.5's Readers section, verbatim (\"… the second reader could not read 1 item\"), for a held file read anyway."
 
 [[allow]]
+msgid = "drawings.reports.read_anyway_pending"
+rule = "engine term"
+term = "readers"
+reason = "m0-screens 4.5's Readers section, verbatim (\"The two readers found different contents in this file: …\"), for a held file read anyway while it is read again or after that reading did not finish (#165)."
+
+[[allow]]
+msgid = "drawings.reports.read_anyway_pending"
+rule = "engine term"
+term = "reader"
+reason = "m0-screens 4.5's Readers section, verbatim (\"… the second reader could not read 1 item\"), for a held file read anyway while it is read again or after that reading did not finish (#165)."
+
+[[allow]]
+msgid = "drawings.reports.read_anyway_stopped"
+rule = "engine term"
+term = "readers"
+reason = "m0-screens 4.5's Readers section, verbatim (\"The two readers found different contents in this file: …\"), for a held file read anyway while it is read again or after that reading did not finish (#165)."
+
+[[allow]]
+msgid = "drawings.reports.read_anyway_stopped"
+rule = "engine term"
+term = "reader"
+reason = "m0-screens 4.5's Readers section, verbatim (\"… the second reader could not read 1 item\"), for a held file read anyway while it is read again or after that reading did not finish (#165)."
+
+[[allow]]
 msgid = "engine.decoders_agree.not_installed"
 rule = "engine term"
 term = "reader"

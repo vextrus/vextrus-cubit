@@ -69,6 +69,10 @@ msgid "Questions open"
 msgstr "Questions open"
 
 #: src/app/CanvasFrame.tsx
+msgid "The step's tools"
+msgstr "The step's tools"
+
+#: src/app/CanvasFrame.tsx
 msgid "Back to Step 1"
 msgstr "Back to Step 1"
 
