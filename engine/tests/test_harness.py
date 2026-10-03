@@ -647,6 +647,29 @@ def test_a_file_read_again_on_other_sheets_keeps_its_first_read(
     assert model["views"][0]["title"] == "no plot"
 
 
+@pytest.mark.parametrize("stage", ["views", "buffers"])
+def test_a_file_whose_second_read_does_worse_keeps_its_first_read(
+    tmp_path: Path, fakes: Callable[..., tuple[Stage, ...]], conventions: Path, stage: str
+) -> None:
+    """#160's refuter: a page whose paper a stage cannot take (one past the raster's cap, or one with
+    next to no size, which the views refuse) failed that stage on the second read, and the worse read
+    was kept; now a second read with any stage worse than the first's is not taken."""
+    refusing = PLOTTED[stage].replace(
+        "plot=None):\n",
+        "plot=None):\n            if plot is not None:\n"
+        "                raise ValueError('no paper this stage can take')\n",
+    )
+    document = run(
+        tmp_path,
+        fakes(**{**PLOTTED, stage: refusing}),
+        {"S-101.dwg": "", "plot.pdf": ""},
+        conventions=conventions,
+    )
+    dwg = by_path(document)["S-101.dwg"]
+    assert set(states(dwg).values()) == {"ok"}, dwg["stages"]
+    assert dwg["sheets"][0]["views"][0]["title"] == "no plot"
+
+
 def test_a_paper_already_the_plot_pages_is_not_read_again() -> None:
     """#160: a sheet on its page's paper within a plot's rounding (1 %), turned or not, is not read
     again for it."""

@@ -980,12 +980,21 @@ def _same_paper(a: tuple[float, float], b: tuple[float, float]) -> bool:
 
 def _read_again(first: FileReading, again: FileReading) -> FileReading:
     """The file read again on its Plot's papers, in place of its first read, when it read the same
-    sheets (by their numbers, in order) and its process ended well; else the first read stands. The
-    file's seconds and CPU seconds are both reads', its peak the higher."""
+    sheets (by their numbers, in order), its process ended well and no stage did worse (a stage ok
+    on the first read and not on the second: a page whose paper the raster or the views cannot take,
+    #160's refuter); else the first read stands. The file's seconds and CPU seconds are both reads',
+    its peak the higher."""
     numbers = [(s.number.value if s.number is not None else None) for s in first.sheets]
-    if again.process.status is not ProcessStatus.OK or numbers != [
-        (s.number.value if s.number is not None else None) for s in again.sheets
-    ]:
+    worse = any(
+        report.state is StageState.OK
+        and (name not in again.stages or again.stages[name].state is not StageState.OK)
+        for name, report in first.stages.items()
+    )
+    if (
+        worse
+        or again.process.status is not ProcessStatus.OK
+        or numbers != [(s.number.value if s.number is not None else None) for s in again.sheets]
+    ):
         return first
     process = replace(
         again.process,
