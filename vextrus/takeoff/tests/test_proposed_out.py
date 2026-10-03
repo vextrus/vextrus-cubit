@@ -36,8 +36,9 @@ NUMBERED = [Sheet("S-01", "PILE LAYOUT PLAN"), Sheet("S-02", "COLUMN SCHEDULE")]
 NOTES = ("GENERAL NOTES", "1. ALL DIMENSIONS ARE IN MM", "2. CONCRETE GRADE AS SCHEDULED")
 
 
-UNPREFIXED = [Sheet("01", "PILE LAYOUT PLAN"), Sheet("02", "COLUMN SCHEDULE")]
-"""Numbers with no Discipline's prefix: in a file named for none, every sheet is of no Discipline."""
+UNPREFIXED = [Sheet("01A", "PILE LAYOUT PLAN"), Sheet("02A", "COLUMN SCHEDULE")]
+"""Numbers with no Discipline's prefix: in a file named for none, every sheet is of no Discipline
+(not bare digits, which make the file General since #159)."""
 COVER_VIEW = "KEY PLAN"
 """A view drawn on the cover, so Jev is asked its kind."""
 
