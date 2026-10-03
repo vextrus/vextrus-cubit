@@ -362,7 +362,7 @@ def test_a_frame_drawn_twice_in_one_place_is_one_sheet() -> None:
     assert result.counts["frame_inside_frame"] == 1
 
 
-def test_a_cover_with_no_title_block_is_a_sheet_with_no_number() -> None:
+def test_a_cover_with_no_title_block_is_kept_proposed_out_as_cover_index() -> None:
     d = Sheets()
     block = frame_block(d)
     for i in range(2):
@@ -382,7 +382,11 @@ def test_a_cover_with_no_title_block_is_a_sheet_with_no_number() -> None:
     assert covers[0].location.box is not None
     assert covers[0].location.box.x1 == pytest.approx(0.6 * W)
     assert covers[0].title is None
+    # A plain rectangle of text may be a cover or a box of notes: kept, never counted as a sheet (#162).
+    assert covers[0].exclusion == Exclusion(ExclusionReason.COVER_INDEX)
+    assert all(s.exclusion is None for s in result.sheets if s.number is not None)
     assert result.counts["cover"] == 1
+    assert result.counts["cover_proposed_out"] == 1
 
 
 def test_a_contents_sheet_written_as_one_text_of_many_lines_is_a_cover() -> None:
@@ -476,6 +480,276 @@ def test_a_layout_whose_viewports_show_nothing_is_proposed_out_as_blank_with_no_
     assert sheet.exclusion == Exclusion(ExclusionReason.BLANK)
     assert (sheet.number, sheet.title, sheet.issue_date) == (None, None, None)
     assert result.counts["layout_blank"] == 1
+
+
+def _paper_sheet(
+    number: str | None,
+    title: str | None,
+    *,
+    labels: tuple[str, ...] = ("SHEET TITLE", "SCALE", "SHEET NO", "DATE"),
+    date: str | None = None,
+) -> Sheets:
+    """A layout drawn in paper space only (its main viewport, no other): a title block, its values
+    as given, and notes enough to be more than a title block."""
+    d = Sheets()
+    tab = d.layout("Layout1")
+    _main(d, tab)
+    d.insert(frame_block(d, labels=labels), (0, 0, 0), owner=tab)
+    for cell, value in ((2, number), (0, title), (3, date)):
+        if value is not None:
+            d.text(value, value_at(cell), owner=tab)
+    for i in range(sheets.MIN_PAPER_CONTENT + 5):
+        d.text(f"NOTE {i + 1}", (40, 400 - 12 * i, 0), owner=tab)
+    return d
+
+
+def _proposed_blank(result: sheets.Segmentation, name: str = "Layout1") -> None:
+    """The layout is kept, proposed out as `blank` with no value read, and counted a template."""
+    (sheet,) = result.sheets
+    assert sheet.location.layout == name
+    assert sheet.exclusion == Exclusion(ExclusionReason.BLANK)
+    assert (sheet.number, sheet.title, sheet.issue_date) == (None, None, None)
+    assert result.counts["layout_template"] == 1
+
+
+def test_a_paper_layout_with_an_empty_title_block_is_a_template_proposed_out() -> None:
+    """A stale template tab (#162): a title block with no value over notes, no viewport showing
+    model space, is no live sheet: it is kept, proposed out as blank (the takeoff neither asks
+    about it nor counts it), never dropped."""
+    _proposed_blank(segment(_paper_sheet(None, None).artefact(), None, DEFAULT))
+
+
+def test_a_paper_sheet_whose_labels_are_unknown_and_date_blank_is_kept_proposed_out() -> None:
+    """The review's attack A: its number and title under words the conventions lack, its date cell
+    blank: nothing read is not empty, so it is kept (proposed out), never dropped."""
+    labels = ("DESCRIPTION", "SCALE", "DRAWING REF", "DATE")
+    d = _paper_sheet("A-901", "GENERAL NOTES", labels=labels)
+
+    _proposed_blank(segment(d.artefact(), None, DEFAULT))
+
+
+def test_a_paper_sheet_whose_values_are_stroked_is_kept_proposed_out() -> None:
+    """The review's attack B: its number and title drawn as strokes, not text."""
+    d = _paper_sheet(None, None)
+    for cell in (0, 2):
+        x, y, _ = value_at(cell)
+        for k in range(6):
+            d.line((x + 4 * k, y), (x + 4 * k + 3, y + 5), owner="Layout1")
+
+    _proposed_blank(segment(d.artefact(), None, DEFAULT))
+
+
+def test_a_paper_sheet_whose_tab_is_named_by_its_number_stays_a_sheet() -> None:
+    """The review's attack E: its title block not read, its tab named "S-901 GENERAL NOTES": a
+    sheet, asked its number, as before #162."""
+    d = Sheets()
+    tab = d.layout("S-901 GENERAL NOTES")
+    _main(d, tab)
+    labels = ("DESCRIPTION", "SCALE", "DRAWING REF", "DATE")
+    d.insert(frame_block(d, labels=labels), (0, 0, 0), owner=tab)
+    d.text("S-901", value_at(2), owner=tab)
+    for i in range(sheets.MIN_PAPER_CONTENT + 5):
+        d.text(f"NOTE {i + 1}", (40, 400 - 12 * i, 0), owner=tab)
+
+    result = segment(d.artefact(), None, DEFAULT)
+
+    (sheet,) = result.sheets
+    assert sheet.location.layout == "S-901 GENERAL NOTES"
+    assert sheet.exclusion is None
+    assert result.counts["layout_template"] == 0
+
+
+def test_a_mark_from_the_file_name_does_not_fill_a_template() -> None:
+    d = _paper_sheet(None, None)
+    d.source_name = "KR-STR-R3.dwg"
+
+    result = segment(d.artefact(), None, DEFAULT)
+
+    _proposed_blank(result)
+    assert result.counts["layout_blank"] == 1
+
+
+def _titled_layout_with_viewport(view_height: float) -> Sheets:
+    """A titled layout, its title block empty, whose one viewport looks at drawn model space."""
+    d = Sheets()
+    for i in range(10):
+        d.line((1000.0 + 10 * i, 1000.0), (1000.0 + 10 * i, 1100.0))
+    tab = d.layout("Layout1")
+    _main(d, tab)
+    d.insert(frame_block(d), (0, 0, 0), owner=tab)
+    _viewport(d, tab, (1050.0, 1050.0), 2, height=view_height)
+    return d
+
+
+def test_a_layout_showing_model_space_with_an_empty_title_block_stays_a_sheet() -> None:
+    result = segment(_titled_layout_with_viewport(500.0).artefact(), None, DEFAULT)
+
+    (sheet,) = result.sheets
+    assert sheet.exclusion is None
+    assert result.counts["layout_template"] == 0
+
+
+def test_a_layout_whose_viewport_cannot_be_read_with_an_empty_title_block_stays_a_sheet() -> None:
+    result = segment(_titled_layout_with_viewport(0.0).artefact(), None, DEFAULT)
+
+    (sheet,) = result.sheets
+    assert sheet.exclusion is None
+    assert result.counts["layout_viewport_unknown"] == 1
+    assert result.counts["layout_template"] == 0
+
+
+UNREAD_LABELS = ("DESCRIPTION", "SCALE", "DRAWING REF", "DATE")
+
+
+def _unread_sheet(d: Sheets, name: str, number: str, title: str) -> None:
+    """A real paper-space sheet of notes, its number and title under words the conventions lack and
+    its date blank: nothing of its title block is read."""
+    tab = d.layout(name)
+    _main(d, tab)
+    d.insert(frame_block(d, "FRAME_" + name, labels=UNREAD_LABELS), (0, 0, 0), owner=tab)
+    d.text(number, value_at(2), owner=tab)
+    d.text(title, value_at(0), owner=tab)
+    for i in range(sheets.MIN_PAPER_CONTENT + 5):
+        d.text(f"{title} NOTE {i + 1}", (40, 400 - 12 * i, 0), owner=tab)
+
+
+def _stale_layout(d: Sheets, name: str) -> None:
+    """A stale layout: a title block over viewports that look at empty model space."""
+    tab = d.layout(name)
+    _main(d, tab)
+    for i in range(2):
+        _viewport(d, tab, (90_000.0 + 1000 * i, 50_000.0), 2 + i)
+    d.insert(frame_block(d, "STALE_" + name), (0, 0, 0), owner=tab)
+
+
+def test_a_second_template_in_a_file_is_proposed_out_too() -> None:
+    """Every paper layout of a file whose title block gave nothing is kept, proposed out: the
+    one-per-file cap is a stale layout's only (#162 round 2; this inverts round 1's builder test,
+    which pinned the second one's drop)."""
+    d = _paper_sheet(None, None)
+    tab = d.layout("Layout2")
+    _main(d, tab)
+    d.insert(frame_block(d, "SHEET2"), (0, 0, 0), owner=tab)
+    for i in range(sheets.MIN_PAPER_CONTENT + 5):
+        d.text(f"NOTE {i + 1}", (40, 400 - 12 * i, 0), owner=tab)
+
+    result = segment(d.artefact(), None, DEFAULT)
+
+    assert [(s.location.layout, s.exclusion) for s in result.sheets] == [
+        ("Layout1", Exclusion(ExclusionReason.BLANK)),
+        ("Layout2", Exclusion(ExclusionReason.BLANK)),
+    ]
+    assert result.counts["layout_template"] == 2
+    assert result.counts["layout_blank_not_proposed"] == 0
+
+
+def test_every_unread_paper_sheet_of_a_file_is_kept() -> None:
+    """The re-check's attack G1: a firm whose labels the conventions lack, so no paper sheet of the
+    file is read; each is kept, proposed out, none dropped."""
+    d = Sheets()
+    _unread_sheet(d, "Layout1", "A-901", "GENERAL NOTES")
+    _unread_sheet(d, "Layout2", "A-902", "DOOR SCHEDULE")
+    _unread_sheet(d, "Layout3", "A-903", "WINDOW SCHEDULE")
+
+    result = segment(d.artefact(), None, DEFAULT)
+
+    assert [(s.location.layout, s.exclusion) for s in result.sheets] == [
+        (name, Exclusion(ExclusionReason.BLANK)) for name in ("Layout1", "Layout2", "Layout3")
+    ]
+    assert result.counts["layout_blank_not_proposed"] == 0
+
+
+def test_an_unread_paper_sheet_after_a_stale_layout_is_kept() -> None:
+    """The re-check's attack G2: a stale Layout1 takes the file's one stale blank; the unread real
+    sheet after it is still kept, proposed out."""
+    d = Sheets()
+    for i in range(5):
+        d.line((10 * i, 0), (10 * i, 100))
+    _stale_layout(d, "Layout1")
+    _unread_sheet(d, "Layout2", "A-901", "GENERAL NOTES")
+
+    result = segment(d.artefact(), None, DEFAULT)
+
+    assert [(s.location.layout, s.exclusion) for s in result.sheets] == [
+        ("Layout1", Exclusion(ExclusionReason.BLANK)),
+        ("Layout2", Exclusion(ExclusionReason.BLANK)),
+    ]
+    assert result.counts["layout_blank_not_proposed"] == 0
+
+
+def test_a_second_stale_layout_in_a_file_is_counted_for_the_qs() -> None:
+    """The stale cap stays (review round 1: 5,000 stale tabs were 5,000 rows): a second stale layout
+    is counted (`layout_blank_not_proposed`, a limit the QS is told)."""
+    d = Sheets()
+    for i in range(5):
+        d.line((10 * i, 0), (10 * i, 100))
+    _stale_layout(d, "Layout1")
+    _stale_layout(d, "Layout2")
+
+    result = segment(d.artefact(), None, DEFAULT)
+
+    assert [(s.location.layout, s.exclusion) for s in result.sheets] == [
+        ("Layout1", Exclusion(ExclusionReason.BLANK))
+    ]
+    assert result.counts["layout_blank_not_proposed"] == 1
+    assert "layout_blank_not_proposed" in sheets.LIMITS
+
+
+@pytest.mark.parametrize("name", ["A1", "a3", " A0 "])
+def test_a_template_on_a_tab_named_for_its_paper_size_is_proposed_out(name: str) -> None:
+    """The re-check's G3: "A1" is a paper size, not architectural sheet 1, so a tab named only that
+    whose title block gave nothing is proposed out like any template."""
+    d = Sheets()
+    tab = d.layout(name)
+    _main(d, tab)
+    d.insert(frame_block(d), (0, 0, 0), owner=tab)
+    for i in range(sheets.MIN_PAPER_CONTENT + 5):
+        d.text(f"NOTE {i + 1}", (40, 400 - 12 * i, 0), owner=tab)
+
+    _proposed_blank(segment(d.artefact(), None, DEFAULT), name)
+
+
+@pytest.mark.parametrize(("number", "title"), [("S-901", None), (None, "GENERAL NOTES")])
+def test_a_paper_layout_with_a_number_or_a_title_stays_a_sheet(
+    number: str | None, title: str | None
+) -> None:
+    result = segment(_paper_sheet(number, title).artefact(), None, DEFAULT)
+
+    (sheet,) = result.sheets
+    assert sheet.location.layout == "Layout1"
+    assert sheet.exclusion is None
+    assert (sheet.number and sheet.number.value, sheet.title and sheet.title.value) == (number, title)
+    assert result.counts["layout_template"] == 0
+
+
+def test_a_paper_sheet_whose_number_and_title_labels_are_unknown_stays_a_sheet() -> None:
+    """The refuter's probe (#162): its number and title under words the conventions lack, its date
+    read: a filled title block, so a sheet (asked its number), never a template dropped unseen."""
+    d = _paper_sheet(
+        "A-901", "GENERAL NOTES", labels=("DESCRIPTION", "SCALE", "DRAWING REF", "DATE"),
+        date="12.08.2026",
+    )  # fmt: skip
+
+    result = segment(d.artefact(), None, DEFAULT)
+
+    (sheet,) = result.sheets
+    assert sheet.exclusion is None
+    assert sheet.issue_date is not None
+    assert result.counts["layout_template"] == 0
+
+
+def test_a_paper_sheet_read_past_a_limit_is_never_dropped_as_a_template(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Past the pair budget its number is not read: the layout stays a sheet, the limit counted."""
+    monkeypatch.setattr(sheets, "MAX_PAIRS", 0)
+
+    result = segment(_paper_sheet("S-901", "GENERAL NOTES").artefact(), None, DEFAULT)
+
+    (sheet,) = result.sheets
+    assert sheet.number is None
+    assert result.counts["pair_budget"] > 0
+    assert result.counts["layout_template"] == 0
 
 
 def test_a_layout_with_only_its_main_viewport_is_no_sheet() -> None:
@@ -693,3 +967,55 @@ def test_the_kinds_are_data_the_conventions_carry() -> None:
 
     assert request is not None
     assert request.options == ("planting_plan", "hardscape_plan")
+
+
+def test_a_notes_sheet_drawn_as_a_few_paragraphs_is_a_sheet() -> None:
+    """The round-2 refuter's H1: 120 lines of notes in 3 MTEXT paragraphs are 120 things drawn, not
+    3, so the layout is a sheet, its title block read (it was dropped as a title block only)."""
+    d = Sheets()
+    tab = d.layout("Notes")
+    _main(d, tab)
+    d.insert(frame_block(d), (0, 0, 0), owner=tab)
+    d.text("S-901", value_at(2), owner=tab)
+    d.text("GENERAL NOTES", value_at(0), owner=tab)
+    for i in range(3):
+        body = "\\P".join(f"{i + 1}.{j} NOTE LINE" for j in range(40))
+        d.text(body, (40, 500 - 150 * i, 0), kind="MTEXT", owner=tab)
+
+    result = segment(d.artefact(), None, DEFAULT)
+
+    (sheet,) = result.sheets
+    assert sheet.location.layout == "Notes"
+    assert sheet.exclusion is None
+    assert sheet.number is not None
+    assert sheet.number.value == "S-901"
+    assert result.counts["layout_title_block_only"] == 0
+
+
+def _notes_with_key_plan(d: Sheets, name: str, number: str) -> None:
+    """A titled sheet of notes whose one viewport (a key plan) looks at empty model space."""
+    tab = d.layout(name)
+    _main(d, tab)
+    _viewport(d, tab, (90_000.0, 50_000.0), 2)
+    d.insert(frame_block(d, "FRAME_" + name), (0, 0, 0), owner=tab)
+    d.text(number, value_at(2), owner=tab)
+    for i in range(sheets.MIN_PAPER_CONTENT + 5):
+        d.text(f"{number} ROW {i + 1}", (40, 400 - 12 * i, 0), owner=tab)
+
+
+def test_every_notes_sheet_beside_an_empty_key_plan_is_kept() -> None:
+    """The round-2 refuter's H2: two notes sheets, each with an empty key-plan viewport, take the
+    stale path; each is kept, proposed out, the second no longer dropped by the stale cap."""
+    d = Sheets()
+    for i in range(5):
+        d.line((10 * i, 0), (10 * i, 100))
+    _notes_with_key_plan(d, "Notes", "A-901")
+    _notes_with_key_plan(d, "Schedules", "A-902")
+
+    result = segment(d.artefact(), None, DEFAULT)
+
+    assert [(s.location.layout, s.exclusion) for s in result.sheets] == [
+        ("Notes", Exclusion(ExclusionReason.BLANK)),
+        ("Schedules", Exclusion(ExclusionReason.BLANK)),
+    ]
+    assert result.counts["layout_blank_not_proposed"] == 0
