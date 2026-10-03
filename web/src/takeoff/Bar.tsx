@@ -357,7 +357,9 @@ export function ExclusionPicker({ row, onPick, onCancel }: { row: Row; onPick: (
       key: 'Enter',
       label: t`Exclude with the reason typed`,
       group: 'screen' as const,
-      when: () => other !== null,
+      // Never from a Question's card (an option or its number field): that Enter is the card's, and
+      // with the picker open it does nothing (#156's refuter, fix round 1).
+      when: () => other !== null && !(document.activeElement as HTMLElement | null)?.closest('[data-question]'),
       run: () => {
         if (other && other.trim()) onPick('other', other.trim())
       },

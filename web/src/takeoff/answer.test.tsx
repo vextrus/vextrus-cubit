@@ -170,4 +170,26 @@ describe('keys on a card’s options (#156, fix round 1)', () => {
     await userEvent.type(field, 'S-99')
     expect((button as HTMLButtonElement).disabled).toBe(false)
   })
+
+  it('never excludes from a card while the picker holds a typed reason: Enter on an option or in the number field (the refuter, round 1)', async () => {
+    for (const kind of ['same_number', 'missing']) {
+      document.body.innerHTML = ''
+      const { calls, question, fake } = await openWith(kind)
+      await userEvent.keyboard('q')
+      const card = await screen.findByRole('region', { name: (n: string) => clean(n) === 'Question Q1' })
+      await userEvent.keyboard('x')
+      await userEvent.keyboard('7')
+      await screen.findByRole('textbox', { name: 'The reason, in a few words' })
+      await userEvent.keyboard('oops')
+      if (kind === 'missing') {
+        await userEvent.click(within(card).getAllByRole('radio')[question.options.findIndex((o) => o.key === 'type_number')]!)
+        await userEvent.type(await within(card).findByRole('textbox', { name: /number/ }), 'S-99')
+      } else {
+        await userEvent.click(within(card).getAllByRole('radio')[0]!)
+      }
+      await userEvent.keyboard('{Enter}')
+      await new Promise((r) => setTimeout(r, 400))
+      expect({ kind, posts: calls.filter((c) => c.startsWith('POST')), answers: fake.posted.length }).toEqual({ kind, posts: [], answers: 0 })
+    }
+  })
 })
