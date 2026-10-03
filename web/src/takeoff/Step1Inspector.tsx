@@ -645,7 +645,7 @@ export { cardContext }
 /** What answering needs from the screen: the pick per Question, and the acts. Null for the MD and a Guest. */
 export interface Answerer {
   /** The QS's pick on a Question (or null: the pre-pick, if any, stands). */
-  choice(entry: QuestionEntry): { key: string; text: string } | null
+  choice(entry: QuestionEntry): { key: string; text: string; empty?: boolean } | null
   choose(entry: QuestionEntry, key: string): void
   /** The number typed under "Type a number". */
   type(entry: QuestionEntry, text: string): void
@@ -743,7 +743,9 @@ export function QuestionCard({
               {can && o.key === 'type_number' && current === 'type_number' ? (
                 <TextField
                   label={<Trans>The sheet’s number</Trans>}
-                  hint={<Trans>As its title block should read. Enter answers.</Trans>}
+                  hint={choice?.empty ? undefined : <Trans>As its title block should read. Enter answers.</Trans>}
+                  error={choice?.empty ? <Trans>Type the sheet’s number first, as its title block should read.</Trans> : undefined}
+                  type="text"
                   className="ps-6"
                   autoFocus
                   autoComplete="off"
@@ -752,6 +754,12 @@ export function QuestionCard({
                   onChange={(event) => answerer.type(entry, event.target.value)}
                 />
               ) : null}
+              {can && o.key === 'type_number' ? (
+                // Present before the refusal so it is announced (politely) when the field refuses an empty number.
+                <span className="sr-only" aria-live="polite">
+                  {current === 'type_number' && choice?.empty ? <Trans>Type the sheet’s number first, as its title block should read.</Trans> : null}
+                </span>
+              ) : null}
             </div>
           ))}
         </fieldset>
@@ -759,7 +767,7 @@ export function QuestionCard({
           <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="primary"
-              disabled={current === null || (current === 'type_number' && !(choice?.text ?? '').trim()) || answerer.busy}
+              disabled={current === null || answerer.busy}
               onClick={() => answerer.answer(entry)}>
               <Trans>Answer {tag}</Trans>
               <KeyCombo combo="Enter" />

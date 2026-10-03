@@ -157,18 +157,40 @@ describe('keys on a card’s options (#156, fix round 1)', () => {
     expect(within(card).getByRole('radiogroup', { name: 'Answers' })).toBeTruthy()
   })
 
-  it('keeps Answer off until a number is typed under "Type a number"', async () => {
-    const { question } = await openWith('missing')
+  it('refuses an empty number aloud, by Enter or by Answer, and keeps focus in the field (round 3, the design gate)', async () => {
+    const REFUSED = 'Type the sheet’s number first, as its title block should read.'
+    const { question, fake } = await openWith('missing')
     await userEvent.keyboard('q')
     const card = await screen.findByRole('region', { name: (n: string) => clean(n) === 'Question Q1' })
     await userEvent.keyboard(String(question.options.findIndex((o) => o.key === 'type_number') + 1))
-    const field = await within(card).findByRole('textbox')
-    const button = within(card).getByRole('button', { name: (n: string) => clean(n).startsWith('Answer Q1') })
-    expect((button as HTMLButtonElement).disabled).toBe(true)
+    const field = await within(card).findByRole('textbox', { name: /number/ })
+    await waitFor(() => expect(document.activeElement).toBe(field))
+    expect(field.getAttribute('aria-invalid')).toBeNull()
+    expect(clean(card.textContent)).toContain('As its title block should read. Enter answers.')
+    // Enter in the empty field: refused under it, in the error style, announced politely; nothing sent.
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(field.getAttribute('aria-invalid')).toBe('true'))
+    expect(document.activeElement).toBe(field)
+    const error = card.querySelector('[data-field-error]')!
+    expect(clean(error.textContent)).toBe(REFUSED)
+    expect(field.getAttribute('aria-describedby')).toContain(error.id)
+    expect(clean(card.textContent)).not.toContain('Enter answers.')
+    const live = card.querySelector('[aria-live="polite"]')!
+    expect(clean(live.textContent)).toBe(REFUSED)
+    expect(fake.posted).toHaveLength(0)
+    // Blank is empty too; Answer refuses it the same way and puts focus back in the field.
     await userEvent.type(field, '  ')
-    expect((button as HTMLButtonElement).disabled).toBe(true)
+    const button = within(card).getByRole('button', { name: (n: string) => clean(n).startsWith('Answer Q1') })
+    await userEvent.click(button)
+    await waitFor(() => expect(field.getAttribute('aria-invalid')).toBe('true'))
+    await waitFor(() => expect(document.activeElement).toBe(field))
+    expect(fake.posted).toHaveLength(0)
+    // Typing clears the refusal; the number then answers.
     await userEvent.type(field, 'S-99')
-    expect((button as HTMLButtonElement).disabled).toBe(false)
+    expect(field.getAttribute('aria-invalid')).toBeNull()
+    expect(clean(card.textContent)).toContain('Enter answers.')
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(fake.posted).toHaveLength(1))
   })
 
   it('never excludes from a card while the picker holds a typed reason: Enter on an option or in the number field (the refuter, round 1)', async () => {

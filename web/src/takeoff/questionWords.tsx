@@ -428,6 +428,12 @@ export function Answering({ entry, context, choice, hint = false }: { entry: Que
         />
       ) : unlisted && entryName ? (
         <Trans>Answering records your pick; {entryName} stays in the list, to confirm or exclude.</Trans>
+      ) : picked === 'file_not_added' ? (
+        entryName ? (
+          <Trans>Answering keeps {entryName} in the count as missing until its file is added.</Trans>
+        ) : (
+          <Trans>Answering keeps the sheet in the count as missing until its file is added.</Trans>
+        )
       ) : entryName ? (
         <Trans>Answering keeps {entryName} in the count as missing.</Trans>
       ) : (
@@ -497,6 +503,7 @@ export function Answering({ entry, context, choice, hint = false }: { entry: Que
   }
   if (q.kind === 'low_confidence' && picked && picked !== 'keep_open' && SHEET_KIND_NAMES[picked] && n > 0) {
     const sheet = <SheetName sheets={entry.holds} />
+    if (picked === 'other') return <Trans>Answering marks {sheet} as another kind of sheet and confirms it, unless its number or Discipline is still asked.</Trans>
     const kind = i18n._(SHEET_KIND_NAMES[picked]!)
     return <Trans>Answering sets {sheet}’s kind to {kind} and confirms it, unless its number or Discipline is still asked.</Trans>
   }
@@ -592,8 +599,98 @@ export function AnsweredWords({ entry, option, text }: { entry: QuestionEntry; o
     const sheet = <SheetName sheets={entry.holds} />
     const kind = <SheetKindName option={option} />
     // 21c confirms it only when nothing else holds it (its number or Discipline asked, or left out it keeps the kind alone).
+    if (option === 'other') return <Trans>{tag} answered. {sheet} is another kind of sheet.</Trans>
     return <Trans>{tag} answered. {sheet}’s kind is {kind}.</Trans>
   }
   if (q.kind === 'missing' && option === 'no_number') return <Trans>{tag} answered. The sheet stays without a number.</Trans>
+  if (q.kind === 'missing' && option === 'type_number') return <Trans>{tag} answered. The sheet is numbered as you typed.</Trans>
+  if (q.kind === 'check') return <CheckAnswered entry={entry} option={option} />
+  if (q.code === 'takeoff.proposals.lists_disagree') return <ListsAnswered entry={entry} option={option} />
+  if (q.kind === 'missing_discipline') return <DisciplineAnswered entry={entry} option={option} />
+  if (q.kind === 'low_confidence' && option === 'other') return <Trans>{tag} answered. The sheet is another kind of sheet.</Trans>
+  if (q.kind === 'low_confidence' && SHEET_KIND_NAMES[option]) {
+    const kind = <SheetKindName option={option} />
+    return <Trans>{tag} answered. The sheet’s kind is {kind}.</Trans>
+  }
+  if (q.kind === 'convention' && option === 'includes_storey') {
+    if (n > 0) {
+      const sheet = <SheetName sheets={entry.holds} />
+      return <Trans>{tag} answered. Recorded: {sheet}’s range includes the storey asked.</Trans>
+    }
+    return <Trans>{tag} answered. Recorded: the sheet’s range includes the storey asked.</Trans>
+  }
+  if (q.kind === 'convention' && option === 'excludes_storey') return <Trans>{tag} answered. Recorded: the storey asked belongs to the next sheet’s range.</Trans>
+  if (option === 'keep_latest') return <Trans>{tag} answered. Confirms the latest copy and excludes the others as superseded.</Trans>
+  if (option === 'keep_all') return <Trans>{tag} answered. The sheets are kept as different sheets.</Trans>
+  // A key no Question code carries today (answer-words.test.tsx's class check keeps it unreachable).
   return <Trans>{tag} answered.</Trans>
+}
+
+/** A drawing-list Question's toast (§6.7's row), in step with the card's first line (`Answering`). */
+function CheckAnswered({ entry, option }: { entry: QuestionEntry; option: string }) {
+  const tag = entry.tag
+  const q = entry.question
+  const gap = gapOf(q)
+  const listed = typeof q.params.number === 'string' && q.params.number ? q.params.number : null
+  const entryName = listed ? <DrawingText kind="sheet-number" text={listed} truncate={false} /> : entry.holds.length > 0 ? <SheetName sheets={entry.holds} /> : null
+  const missing = typeof q.params.missing === 'number' ? q.params.missing : 1
+  const unlisted = q.code === 'engine.register_check.not_listed'
+  if (option === 'not_in_set') {
+    if (gap) return <Trans>{tag} answered. Recorded: the numbering skips here; nothing is missing.</Trans>
+    if (unlisted && entryName) return <Trans>{tag} answered. Recorded: {entryName} is not part of this set; exclude it in the list.</Trans>
+    return entryName ? <Trans>{tag} answered. Recorded: {entryName} is not part of this set.</Trans> : <Trans>{tag} answered. Recorded: the sheet is not part of this set.</Trans>
+  }
+  if (option === 'not_sent_yet' || option === 'file_not_added') {
+    if (gap)
+      return (
+        <Plural
+          value={missing}
+          one={`${tag} answered. Recorded: the missing sheet is still to come. Paste the drawing list to count it.`}
+          other={`${tag} answered. Recorded: the # missing sheets are still to come. Paste the drawing list to count them.`}
+        />
+      )
+    if (unlisted && entryName) return <Trans>{tag} answered. {entryName} stays in the list, to confirm or exclude.</Trans>
+    if (option === 'file_not_added')
+      return entryName ? (
+        <Trans>{tag} answered. {entryName} stays in the count as missing until its file is added.</Trans>
+      ) : (
+        <Trans>{tag} answered. The sheet stays in the count as missing until its file is added.</Trans>
+      )
+    return entryName ? <Trans>{tag} answered. {entryName} stays in the count as missing.</Trans> : <Trans>{tag} answered. The sheet stays in the count as missing.</Trans>
+  }
+  return <Trans>{tag} answered.</Trans>
+}
+
+/** The two lists' Question: which list the Discipline's sheets are now counted against (the card's first line). */
+function ListsAnswered({ entry, option }: { entry: QuestionEntry; option: string }) {
+  const { i18n } = useLingui()
+  const tag = entry.tag
+  const q = entry.question
+  const name = disciplineName(q.discipline, i18n)
+  const sheet = typeof q.params.sheet === 'string' && q.params.sheet ? q.params.sheet : null
+  if (option === 'use_read' && sheet && q.params.named === 'number') {
+    const number = <DrawingText kind="sheet-number" text={sheet} truncate={false} />
+    return <Trans>{tag} answered. {name}’s sheets are counted against the drawing list on {number}.</Trans>
+  }
+  if (option === 'use_read' && sheet) {
+    const title = <DrawingText kind="title" text={sheet} truncate={false} />
+    return <Trans>{tag} answered. {name}’s sheets are counted against the drawing list on the sheet titled “{title}”.</Trans>
+  }
+  if (option === 'use_read') return <Trans>{tag} answered. {name}’s sheets are counted against the drawing list on the sheet.</Trans>
+  if (option === 'use_given' && q.params.source === 'typed') return <Trans>{tag} answered. {name}’s sheets are counted against the range you typed.</Trans>
+  if (option === 'use_given' && q.params.source === 'pasted') return <Trans>{tag} answered. {name}’s sheets are counted against the drawing list you pasted.</Trans>
+  if (option === 'use_given') return <Trans>{tag} answered. {name}’s sheets are counted against the drawing list you gave.</Trans>
+  return <Trans>{tag} answered.</Trans>
+}
+
+/** "Which Discipline?": the sheet now carries the Discipline picked. */
+function DisciplineAnswered({ entry, option }: { entry: QuestionEntry; option: string }) {
+  const { i18n } = useLingui()
+  const tag = entry.tag
+  const name = disciplineName(option, i18n)
+  if (entry.holds.length > 0) {
+    const sheet = <SheetName sheets={entry.holds} />
+    return <Trans>{tag} answered. {sheet}’s Discipline is {name}.</Trans>
+  }
+  return <Trans>{tag} answered. The sheet’s Discipline is {name}.</Trans>
 }
