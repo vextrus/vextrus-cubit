@@ -122,6 +122,11 @@ class Step1QuestionOut(_FromView):
         "withdrawn by an exclusion that still stands (then it is still answerable, and "
         "`takeoff.step1.question_first` names it by `params.question`).",
     )
+    raised: int | None = Field(
+        None,
+        description="Its place among the Project's Step 1 Questions in the order they were raised "
+        "(open, answered and withdrawn alike), from 1: its tag (Q1…) for life.",
+    )
 
 
 class Step1QuestionsOut(Schema):
