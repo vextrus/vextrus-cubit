@@ -148,7 +148,8 @@ def test_a_proposed_out_sheet_is_not_counted_until_the_qs_confirms_it_in(
     assert row["open_questions"] == 0
 
     numbered = [p["id"] for p in listed if p["number"]]
-    assert confirm(api, qs_project.project_id, numbered).status_code == 200
+    for one in numbered:  # m0-screens 6.4 (#166): one-source sheets one by one
+        assert confirm(api, qs_project.project_id, [one]).status_code == 200
     row = rows(api, qs_project.project_id)["structural"]
     assert (row["found"], row["confirmed"], row["status"]) == (2, 2, "confirmed")
 
