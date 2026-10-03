@@ -7,7 +7,7 @@
  * The QS answers on the card (#156; §6.7): a pick (a click, or the number key on the focused Question)
  * changes nothing until "Answer Q1 ↵" (Enter); the MD and a Guest read the card and cannot pick.
  */
-import { useId, type ReactNode } from 'react'
+import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { Plural, Trans, useLingui } from '@lingui/react/macro'
 import { TAKEOFF_STEPS } from '@/app/steps'
 import { useFormat } from '@/format'
@@ -642,10 +642,17 @@ function SourcesFact({ row }: { row: Row }) {
 
 export { cardContext }
 
+/** The QS's pick on a Question; `refused` counts the answers refused for an empty number (each one refocuses the field). */
+export interface Pick {
+  key: string
+  text: string
+  refused?: number
+}
+
 /** What answering needs from the screen: the pick per Question, and the acts. Null for the MD and a Guest. */
 export interface Answerer {
   /** The QS's pick on a Question (or null: the pre-pick, if any, stands). */
-  choice(entry: QuestionEntry): { key: string; text: string } | null
+  choice(entry: QuestionEntry): Pick | null
   choose(entry: QuestionEntry, key: string): void
   /** The number typed under "Type a number". */
   type(entry: QuestionEntry, text: string): void
@@ -653,6 +660,33 @@ export interface Answerer {
   /** "Ask later": the next open Question. */
   later(): void
   busy: boolean
+}
+
+/**
+ * "Type a number"'s field. An answer with it empty is refused under it (round 3's design gate): focus
+ * stays in it, it is marked invalid, and the hint gives way to the error, announced politely.
+ */
+function NumberField({ entry, answerer, pick }: { entry: QuestionEntry; answerer: Answerer; pick: Pick | null }) {
+  const ref = useRef<HTMLInputElement>(null)
+  const refused = pick?.refused ?? 0
+  useEffect(() => {
+    if (refused) ref.current?.focus()
+  }, [refused])
+  return (
+    <div aria-live="polite" className="ps-6">
+      <TextField
+        ref={ref}
+        label={<Trans>The sheet’s number</Trans>}
+        hint={refused ? undefined : <Trans>As its title block should read. Enter answers.</Trans>}
+        error={refused ? <Trans>Type the sheet’s number first, as its title block should read.</Trans> : undefined}
+        autoFocus
+        autoComplete="off"
+        spellCheck={false}
+        value={pick?.text ?? ''}
+        onChange={(event) => answerer.type(entry, event.target.value)}
+      />
+    </div>
+  )
 }
 
 export function QuestionCard({
@@ -740,18 +774,7 @@ export function QuestionCard({
                   ) : null}
                 </span>
               </label>
-              {can && o.key === 'type_number' && current === 'type_number' ? (
-                <TextField
-                  label={<Trans>The sheet’s number</Trans>}
-                  hint={<Trans>As its title block should read. Enter answers.</Trans>}
-                  className="ps-6"
-                  autoFocus
-                  autoComplete="off"
-                  spellCheck={false}
-                  value={choice?.text ?? ''}
-                  onChange={(event) => answerer.type(entry, event.target.value)}
-                />
-              ) : null}
+              {can && o.key === 'type_number' && current === 'type_number' ? <NumberField entry={entry} answerer={answerer} pick={choice} /> : null}
             </div>
           ))}
         </fieldset>

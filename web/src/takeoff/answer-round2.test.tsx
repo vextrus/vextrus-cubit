@@ -145,6 +145,31 @@ describe('an empty number is never sent (the walk, M4)', () => {
     for (const b of answers) expect((b as HTMLButtonElement).disabled).toBe(true)
   })
 
+  it('refuses Enter in the empty field under it: focus kept, the field invalid, the hint replaced, said politely (round 3)', async () => {
+    const { question, calls } = await openWith('missing')
+    await userEvent.keyboard('q')
+    const card = await cardOf('Q1')
+    await userEvent.keyboard(String(question.options.findIndex((o) => o.key === 'type_number') + 1))
+    const field = await within(card).findByRole('textbox')
+    await waitFor(() => expect(document.activeElement).toBe(field))
+    expect(field.getAttribute('aria-invalid')).toBeNull()
+    expect(cardText(card)).toContain('As its title block should read. Enter answers.')
+    await userEvent.keyboard('{Enter}')
+    const refusal = 'Type the sheet’s number first, as its title block should read.'
+    await waitFor(() => expect(cardText(card)).toContain(refusal))
+    expect(cardText(card)).not.toContain('As its title block should read. Enter answers.')
+    expect(field.getAttribute('aria-invalid')).toBe('true')
+    expect(document.activeElement).toBe(field)
+    const error = within(card).getByText(refusal)
+    expect(error.closest('[aria-live="polite"]')).not.toBeNull()
+    expect(field.getAttribute('aria-describedby') ?? '').toContain(error.id)
+    expect(calls.filter((c) => c.startsWith('POST'))).toEqual([])
+    // Typed, the refusal goes and the hint is back.
+    await userEvent.keyboard('A-08')
+    await waitFor(() => expect(cardText(card)).toContain('As its title block should read. Enter answers.'))
+    expect(field.getAttribute('aria-invalid')).toBeNull()
+  })
+
   it('focuses the row the bar names once the last Question is answered', async () => {
     await openWith('same_title')
     await userEvent.keyboard('q')

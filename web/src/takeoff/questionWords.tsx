@@ -14,7 +14,7 @@ import type { ProposalOut } from './data'
 import { gapOf, type QuestionEntry, type Step1Model } from './model'
 import { disciplineName } from './SheetList'
 import { useHasEnglish } from './useHasEnglish'
-import { OPTION_NAMES, OTHER_OPTION, OTHER_QUESTION, QUESTION_KINDS, QUESTION_KIND_BY_CODE, SHEET_KIND_NAMES } from './words'
+import { DISCIPLINE_NAMES, OPTION_NAMES, OTHER_OPTION, OTHER_QUESTION, QUESTION_KINDS, QUESTION_KIND_BY_CODE, SHEET_KIND_NAMES } from './words'
 
 type Option = { key?: string; picked?: boolean }
 
@@ -595,5 +595,82 @@ export function AnsweredWords({ entry, option, text }: { entry: QuestionEntry; o
     return <Trans>{tag} answered. {sheet}’s kind is {kind}.</Trans>
   }
   if (q.kind === 'missing' && option === 'no_number') return <Trans>{tag} answered. The sheet stays without a number.</Trans>
-  return <Trans>{tag} answered.</Trans>
+  if (q.kind === 'missing_discipline' && option in DISCIPLINE_NAMES && n > 0) {
+    const sheet = <SheetName sheets={entry.holds} />
+    const discipline = <DisciplineWord option={option} />
+    return <Trans>{tag} answered. {sheet}’s Discipline is {discipline}.</Trans>
+  }
+  if (option === 'includes_storey' || option === 'excludes_storey') {
+    if (n === 0) return option === 'includes_storey' ? <Trans>{tag} answered. Recorded: the sheet’s range includes its top storey.</Trans> : <Trans>{tag} answered. Recorded: the sheet’s top storey belongs to the next sheet’s range.</Trans>
+    const sheet = <SheetName sheets={entry.holds} />
+    return option === 'includes_storey' ? <Trans>{tag} answered. Recorded: {sheet}’s range includes its top storey.</Trans> : <Trans>{tag} answered. Recorded: {sheet}’s top storey belongs to the next sheet’s range.</Trans>
+  }
+  if (q.code === 'takeoff.proposals.lists_disagree' && (option === 'use_read' || option === 'use_given')) return <ListUsed entry={entry} option={option} />
+  if (q.kind === 'check') return <CheckAnswered entry={entry} option={option} />
+  // A code or option this screen does not know yet: still not the bare tag (round 3's design gate).
+  return <Trans>{tag} answered. Your answer is recorded.</Trans>
+}
+
+function DisciplineWord({ option }: { option: string }) {
+  const { i18n } = useLingui()
+  return <>{disciplineName(option, i18n)}</>
+}
+
+/** The two lists' Question answered: which list the Discipline's sheets are now counted against. */
+function ListUsed({ entry, option }: { entry: QuestionEntry; option: 'use_read' | 'use_given' }) {
+  const { i18n } = useLingui()
+  const tag = entry.tag
+  const q = entry.question
+  const name = disciplineName(q.discipline, i18n)
+  if (option === 'use_read') {
+    if (typeof q.params.sheet === 'string' && q.params.sheet) {
+      const sheet = q.params.sheet
+      if (q.params.named === 'number') {
+        const number = <DrawingText kind="sheet-number" text={sheet} truncate={false} />
+        return <Trans>{tag} answered. {name}’s sheets are counted against the drawing list on {number}.</Trans>
+      }
+      const title = <DrawingText kind="title" text={sheet} truncate={false} />
+      return <Trans>{tag} answered. {name}’s sheets are counted against the drawing list on the sheet titled “{title}”.</Trans>
+    }
+    return <Trans>{tag} answered. {name}’s sheets are counted against the drawing list found in the drawings.</Trans>
+  }
+  if (q.params.source === 'typed') return <Trans>{tag} answered. {name}’s sheets are counted against the range you typed.</Trans>
+  return <Trans>{tag} answered. {name}’s sheets are counted against the drawing list you pasted.</Trans>
+}
+
+/** A drawing-list Question answered (§6.7's row): the card's first line, said as done. */
+function CheckAnswered({ entry, option }: { entry: QuestionEntry; option: string }) {
+  const tag = entry.tag
+  const q = entry.question
+  const gap = gapOf(q)
+  const listed = typeof q.params.number === 'string' && q.params.number ? q.params.number : null
+  const sheet = listed ? <DrawingText kind="sheet-number" text={listed} truncate={false} /> : entry.holds.length > 0 ? <SheetName sheets={entry.holds} /> : null
+  const missing = typeof q.params.missing === 'number' ? q.params.missing : 1
+  const unlisted = q.code === 'engine.register_check.not_listed'
+  if (option === 'not_in_set') {
+    if (gap) {
+      const after = <DrawingText kind="sheet-number" text={gap.after} truncate={false} />
+      const before = <DrawingText kind="sheet-number" text={gap.before} truncate={false} />
+      return <Trans>{tag} answered. Recorded: the numbering skips between {after} and {before}; nothing is missing.</Trans>
+    }
+    if (!sheet) return <Trans>{tag} answered. Recorded: the sheet is not part of this set.</Trans>
+    if (unlisted) return <Trans>{tag} answered. Recorded: {sheet} is not part of this set; exclude it in the list.</Trans>
+    return <Trans>{tag} answered. Recorded: {sheet} is not part of this set; the drawing list still counts it.</Trans>
+  }
+  if (option !== 'not_sent_yet' && option !== 'file_not_added') return <Trans>{tag} answered. Your answer is recorded.</Trans>
+  if (gap)
+    return (
+      <Trans>
+        {tag} answered. Recorded:{' '}
+        <Plural
+          value={missing}
+          one="the missing sheet is still to come. Paste the drawing list to count it."
+          other="the # missing sheets are still to come. Paste the drawing list to count them."
+        />
+      </Trans>
+    )
+  if (unlisted && sheet) return <Trans>{tag} answered. {sheet} stays in the list, to confirm or exclude.</Trans>
+  if (option === 'file_not_added')
+    return sheet ? <Trans>{tag} answered. {sheet} stays in the count as missing until its file is added.</Trans> : <Trans>{tag} answered. The sheet stays in the count as missing until its file is added.</Trans>
+  return sheet ? <Trans>{tag} answered. {sheet} stays in the count as missing.</Trans> : <Trans>{tag} answered. The sheet stays in the count as missing.</Trans>
 }
