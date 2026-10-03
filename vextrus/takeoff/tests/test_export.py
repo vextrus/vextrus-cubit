@@ -348,8 +348,10 @@ def test_each_held_file_is_read_anyway_in_its_own_child_under_its_own_timeout(
     assert len(calls) == 4
     assert processes[a.id].status == "ok"
     assert processes[b.id].status == "timed_out"
-    assert b.state == drawings.FileState.HELD  # still held: its read-anyway reading never ended
-    assert a.state == drawings.FileState.HELD  # answered, its job queued again (unread: a fake child)
+    # A held file read anyway is shown by its job's state until its read ends (#165), the file still
+    # held beneath: b-held's job cancelled, a-held's queued again (unread: a fake child).
+    assert b.state == drawings.FileState.CANCELLED
+    assert a.state == drawings.FileState.WAITING
     assert a.read_job_id != first_jobs["a-held.dwg"]
     assert b.read_job_id is not None
     assert a.read_job_id is not None
