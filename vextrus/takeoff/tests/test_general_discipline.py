@@ -108,12 +108,12 @@ def test_a_file_named_general_is_not_general_by_its_name(
 
 @pytest.mark.parametrize("kind", [k for k in ViewKind if k is not ViewKind.TITLE_BLOCK])
 def test_every_view_of_a_notes_discipline_but_its_title_block_is_step_2s(kind: ViewKind) -> None:
-    assert view_finder._proposal(kind, None, "notes_key", frozenset({"notes_key"})) == (
+    assert view_finder._proposal(kind, None, "notes_key", notes=frozenset({"notes_key"})) == (
         (view_finder.GENERAL_NOTES,),
         None,
         None,
     )
-    assert view_finder._proposal(kind, None, "other", frozenset({"notes_key"})) != (
+    assert view_finder._proposal(kind, None, "other", notes=frozenset({"notes_key"})) != (
         (view_finder.GENERAL_NOTES,),
         None,
         None,

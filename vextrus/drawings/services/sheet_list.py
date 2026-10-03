@@ -62,7 +62,6 @@ from vextrus.drawings.models import (
     DrawingFile,
     ExclusionReason,
     FileFormat,
-    HeldAnswer,
     PlotNone,
     ReadStatus,
     Sheet,
@@ -649,6 +648,14 @@ def render(sheet_revision_id: uuid.UUID) -> bytes:
         raise auth.NotFound from None
 
 
+def hold_plots(set_id: uuid.UUID) -> None:
+    """Hold the Drawing Set's Plot matching until the transaction ends (ticket 157): the read job
+    matching a PDF and one matching a DWG of the same set wait for each other, so the second sees
+    what the first marked read and matched."""
+    drawing_set = _access.drawing_set(set_id)
+    _access.lock("plots", drawing_set.id)
+
+
 def record_plot(
     sheet_revision_id: uuid.UUID,
     match: PlotMatch | PlotNone | str,
@@ -774,11 +781,9 @@ def _all() -> QuerySet[SheetRevision]:
 
 
 def _printed() -> QuerySet[SheetRevision]:
-    """The printed sheets in the sheet list: of read files, or held files read anyway."""
-    listed = Q(source_file__read_status=ReadStatus.READ) | Q(
-        source_file__read_status=ReadStatus.QUARANTINED,
-        source_file__held_answer=HeldAnswer.READ_ANYWAY,
-    )
+    """The printed sheets in the sheet list: of read files, or held files read anyway (once their
+    read has ended, `drawing_files.read_anyway`)."""
+    listed = Q(source_file__read_status=ReadStatus.READ) | drawing_files.read_anyway("source_file__")
     return SheetRevision.objects.select_related(
         "sheet__discipline", "source_file", "plot_file", "sheet__drawing_set"
     ).filter(listed)
@@ -866,9 +871,18 @@ def _no_plot_yet(sr: SheetRevision) -> Message:
     statuses = {status for *_, status in found}
     if statuses & {ReadStatus.QUEUED, ReadStatus.READING}:
         return said.PLOT_NOT_YET()
-    read = [name for _, _, name, status in found if status == ReadStatus.READ]
+    # A read PDF with no match kept for this sheet was never matched to it (a set read before 157,
+    # or a PDF that could not be read again): "no page of it matched" is said only by a match that
+    # ran (`PlotNone.NO_PAGE`).
+    # Of its own Discipline only (any, for a sheet of none): a read PDF of no Discipline may be a
+    # site photograph, not this sheet's Plot.
+    read = [
+        name
+        for d, _, name, status in found
+        if status == ReadStatus.READ and (discipline_id is None or d == discipline_id)
+    ]
     if read:
-        return said.PLOT_NO_PAGE(plot_file=read[0])
+        return said.PLOT_NOT_MATCHED(plot_file=read[0])
     # One that could not be read, or was refused, is its PDF only if of its Discipline (a PDF of
     # none, a site photograph say, is not a sheet's Plot for being refused).
     own = {status for d, *_, status in found if discipline_id is None or d == discipline_id}

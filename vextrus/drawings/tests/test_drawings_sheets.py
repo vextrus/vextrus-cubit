@@ -321,7 +321,9 @@ def test_a_sheet_with_no_plot_recorded_says_whether_a_pdf_is_there_to_match(
     assert refused == (said.PLOT_PDF_REFUSED(), said.PLOT_NOT_YET())
     assert added == (said.PLOT_NOT_YET(), said.PLOT_NOT_YET())
     assert unread[0] == said.PLOT_PDF_UNREAD()  # failed and refused: none that could be read
-    assert read[0] == said.PLOT_NO_PAGE(plot_file="KR-STR-R0 again.pdf")
+    # Read, with no match kept for the sheet: never "no page of it matched", nor "still being read"
+    # (#157: only a match that ran says no page matched; the PDF is read).
+    assert read[0] == said.PLOT_NOT_MATCHED(plot_file="KR-STR-R0 again.pdf")
 
 
 # The sheet list --------------------------------------------------------------------------------------
@@ -332,7 +334,7 @@ def test_nothing_from_a_cancelled_failed_held_or_refused_file_is_in_the_sheet_li
 ) -> None:
     member = qs_project.member
     ended = {}
-    for end in ("read", "cancelled", "failed", "held", "held_read_anyway"):
+    for end in ("read", "cancelled", "failed", "held", "held_read_anyway", "held_reading_anyway"):
         found = add(member, qs_project.project_id, f"{end}-STR.dwg", drawing()).file
         read_dwg(member, found.id, [f"S-{end}"], mark_read=False)
         with member.acting():
@@ -344,15 +346,17 @@ def test_nothing_from_a_cancelled_failed_held_or_refused_file_is_in_the_sheet_li
                 services.mark_failed(found.id, {"code": "engine.decoders_agree.stopped", "params": {}})
             else:
                 services.quarantine(found.id, {"code": "engine.decoders_agree.disagree", "params": {}})
-                if end == "held_read_anyway":
+                if end != "held":
                     services.answer_held(found.id, "read_anyway")
+                if end == "held_read_anyway":  # its re-read ended (#165: not listed before)
+                    services.mark_read(found.id)
         ended[end] = found
     with member.acting():
         listed = services.sheets(ended["read"].set_id)
         steps_kept = one("select count(*) from drawings_readstep")
         printed_kept = one("select count(*) from drawings_sheetrevision")
     assert [(s.number, s.held) for s in listed] == [("S-held_read_anyway", True), ("S-read", False)]
-    assert printed_kept == 5
+    assert printed_kept == 6
     assert steps_kept == 0
 
 

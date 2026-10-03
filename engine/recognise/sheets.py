@@ -15,20 +15,29 @@
   part of it (one sheet); a rectangle holding two frames or more (a box around a row of sheets) is not
   a sheet. A closed rectangle with no title block is a sheet too when it stands outside every frame,
   is a sheet's shape (`COVER_ASPECT`) and between `COVER_SIZE` of the file's frames in size, and holds
-  `MIN_COVER_CONTENT` lines of text or more (a cover, or a contents sheet); it has no number.
+  `MIN_COVER_CONTENT` lines of text or more (a cover, or a contents sheet); it has no number, and is
+  proposed out as `cover_index` (kept, never counted: no rule tells a cover from a box of notes; #162).
 - **A layout** is a sheet when its viewports show model space (`MIN_SHOWN` drawn things or more), or
   when it draws a title block and more in paper space. AutoCAD's own main viewport is left out by the
   renderer's rule (`buffers.is_main_viewport`), and a viewport's region is found as the renderer finds
   it (`buffers.viewport_window`). **A layout whose viewports show nothing is not a sheet:** it is
   dropped, or, where it carries a title block, proposed out as `blank`, with no value read from it
   (a stale layout's title block is a template's; the QS review, Q7), the first such layout of a file
-  only, the rest counted (review round 1: 5,000 stale tabs were 5,000 rows); one with no viewport of
-  its own that draws only a title block is a template's tab, and dropped. Nothing is told empty on a
-  guess: a titled layout with a viewport whose region cannot be read (a value lost or of no size, or
-  past `MAX_VIEWPORTS`) stays a sheet, its values read, and is counted. A layout that shows a
-  model-space frame, with no title block of its own, is that frame's plot: the frame is the sheet
-  (one sheet, not two); one with its own title block showing one frame is the sheet, and the frame
-  is not.
+  only, the rest counted (review round 1: 5,000 stale tabs were 5,000 rows), unless it draws
+  `MIN_PAPER_CONTENT` things beyond its title block (notes beside an empty key plan: each proposed,
+  never dropped; #162 round 2). What a layout draws counts a text's lines, so a paragraph of notes
+  is its lines, not one thing. One with no viewport of its own that draws only a title block is a
+  template's tab, and dropped. One drawn in paper space
+  whose title block gives no value at all (no number, title, date or mark: a template's tab with its
+  notes, or a sheet whose title block was not read; #162) is proposed out as `blank`, every such
+  layout of a file (it may be a real sheet, so none is dropped; `MAX_SHEETS` bounds them), unless a
+  limit was reached while it was read or its tab's name begins with a sheet number of a
+  Discipline's prefix (a name that is only a paper size, "A1", is not one): then it stays a sheet.
+  Nothing is told empty on a guess: a titled layout with a viewport whose region cannot be read (a
+  value lost or of no size, or past `MAX_VIEWPORTS`) stays a sheet, its values read, and is counted.
+  A layout that shows a model-space frame, with no title block of its own, is that frame's plot: the
+  frame is the sheet (one sheet, not two); one with its own title block showing one frame is the
+  sheet, and the frame is not.
 
 **What a title block says.** Each field (number, title, revision mark, issue date) is read in order
 from: (1) the frame insert's attributes whose tag names the field (`SHEET_NO`, `TITLE`, `TITLE2`: the
@@ -87,7 +96,7 @@ import unicodedata
 from array import array
 from collections import Counter
 from collections.abc import Iterable, Iterator, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from functools import cache
 from pathlib import Path, PureWindowsPath
 from typing import Any
@@ -611,6 +620,13 @@ class FileBudget:
     def report(self) -> dict[str, int]:
         """Every count by name, each limit's given even when not reached (the harness's export)."""
         return {**dict.fromkeys(LIMITS, 0), **self.counts}
+
+
+def _unfilled(sheet: SheetCandidate) -> bool:
+    """Nothing was read from the sheet's title block: no number, title, issue date or revision mark
+    (a mark from the file's name is not the title block's)."""
+    read = (sheet.number, sheet.title, sheet.issue_date, sheet.revision_mark)
+    return all(v is None or v.source == ValueSource.FILE_NAME for v in read)
 
 
 # Frames ------------------------------------------------------------------------------------------------
@@ -1184,6 +1200,8 @@ class _Segmenter:
                     self.counts["sheets_capped"] += 1  # never read
                 else:
                     sheets.append(reader.model_sheet(f, titled=id(f) in titled))
+                    if id(f) not in titled:
+                        self.counts["cover_proposed_out"] += 1
         for sheet in layout_sheets:
             if len(sheets) >= MAX_SHEETS:
                 self.counts["sheets_capped"] += 1
@@ -1219,6 +1237,7 @@ class _Segmenter:
         self, name: str, handle: str, model: _Space | None
     ) -> tuple[SheetCandidate | None, list[_Frame]]:
         """A layout's sheet, if it is one, and the model-space frames it is the sheet of."""
+        limited = self._limited()
         record = self.artefact.blocks[handle]
         entities = [e for h in record.entities if (e := self.artefact.entities.get(h)) is not None]
         viewports = [e for e in entities if isinstance(e, Entity) and e.type == "VIEWPORT"]
@@ -1240,6 +1259,8 @@ class _Segmenter:
         titled = bool(paper and paper.frames) or len(title_words) >= MIN_EVIDENCE
         frames_shown = self._frames_shown(model, windows)
         drawn = len(own_entities) - (len(paper.frames) if paper else 0) - len(title_words)
+        # a paragraph of notes is its lines, not one thing (#162 round 2: 120 lines in 3 MTEXT)
+        drawn += sum(t.shown.count("\n") for t in (paper.texts if paper else []) if t.loose)
         if titled and unknown and shown < MIN_SHOWN:
             if self.unknown_kept >= MAX_UNKNOWN_LAYOUTS:
                 self.counts["layout_viewport_unknown_capped"] += 1
@@ -1260,28 +1281,65 @@ class _Segmenter:
                 if paper
                 else self._bare(name, entities)
             )
+            if (
+                shown < MIN_SHOWN
+                and not unknown
+                and _unfilled(sheet)
+                and self._limited() == limited
+                and not self._named_as_number(name)
+            ):
+                # A template's tab, or a sheet whose title block was not read: proposed out, kept
+                self.counts["layout_template"] += 1
+                return self._blank(name, paper, entities, stale=False), []
             return sheet, frames_shown if titled and len(frames_shown) == 1 else []
         if titled and views == 0:
             self.counts["layout_title_block_only"] += 1  # a template tab: nothing to propose
             return None, []
-        if titled and self.blank_proposed:
-            self.counts["layout_blank_not_proposed"] += 1  # one blank per file: the rest counted
-            return None, []
         if titled:
-            self.blank_proposed = True
-            self.counts["layout_blank"] += 1
-            first = paper.frames[0].handle if paper and paper.frames else entities[0].handle
-            return (
-                SheetCandidate(
-                    SheetLocation(layout=name),
-                    discipline=self._discipline(None),
-                    exclusion=Exclusion(ExclusionReason.BLANK),
-                    anchors=(self.anchor(name, (), first),),
-                ),
-                [],
-            )
+            # stale; one that draws notes in paper space may be a sheet with an empty key plan
+            return self._blank(name, paper, entities, stale=drawn < MIN_PAPER_CONTENT), []
         self.counts["layout_shows_unknown" if unknown else "layout_shows_nothing"] += 1
         return None, []
+
+    def _blank(
+        self, name: str, paper: _Space | None, entities: list[AnyEntity], *, stale: bool
+    ) -> SheetCandidate | None:
+        """A layout proposed out as `blank`, no value read from it. A stale layout (its viewports
+        show nothing) that draws little beyond its title block is proposed the first of a file
+        only, the rest counted (`layout_blank_not_proposed`, which the QS is told); one that draws
+        notes in paper space, or whose title block gave nothing, may be a real sheet, so each is
+        proposed, never dropped (#162 round 2; `MAX_SHEETS` bounds the file)."""
+        if stale:
+            if self.blank_proposed:
+                self.counts["layout_blank_not_proposed"] += 1  # one stale blank per file
+                return None
+            self.blank_proposed = True
+        self.counts["layout_blank"] += 1
+        first = paper.frames[0].handle if paper and paper.frames else entities[0].handle
+        return SheetCandidate(
+            SheetLocation(layout=name),
+            discipline=self._discipline(None),
+            exclusion=Exclusion(ExclusionReason.BLANK),
+            anchors=(self.anchor(name, (), first),),
+        )
+
+    def _named_as_number(self, name: str) -> bool:
+        """The tab's name begins with a sheet number of a Discipline's prefix ("S-901 GENERAL
+        NOTES"): a sheet whose title block was not read, kept as one (AutoCAD's "Layout1" is not,
+        nor a tab named only for its paper size, "A1" or "A3": `PAPER_TAB`)."""
+        if PAPER_TAB.fullmatch(_visible(name).strip()):
+            return False
+        first = _visible(name).split(maxsplit=1)
+        parts = sequence(first[0], self.conventions) if first else None
+        prefix = _normal(parts.prefix) if parts is not None else ""
+        return bool(prefix) and any(
+            _normal(p) == prefix for d in self.conventions.disciplines for p in d.prefixes
+        )
+
+    def _limited(self) -> int:
+        """How often the file's limits were reached so far: a layout read past one stays a sheet,
+        never proposed out for what its title block did not give."""
+        return sum(self.counts[name] for name in LIMITS)
 
     def _frames_shown(self, model: _Space | None, windows: list[Bounds | None]) -> list[_Frame]:
         """The model-space frames the windows show (half a frame's box or more inside one), up to two:
@@ -1379,6 +1437,9 @@ class _Segmenter:
 
 MIN_PAPER_CONTENT = 20
 """The fewest things a layout with no viewport must draw beyond its title block to be a sheet."""
+PAPER_TAB = re.compile(r"A(?:10|[0-9])", re.IGNORECASE)
+"""A tab named only for its ISO 216 paper size ("A1", "A3"): no sheet number, though "A" is a
+Discipline's prefix (#162 round 2)."""
 
 
 DOUBLE_BORDER = 0.8
@@ -1424,13 +1485,15 @@ class _Reader:
 
     def model_sheet(self, frame: _Frame, *, titled: bool) -> SheetCandidate:
         key = frame.key()
+        cover = not titled
         near = self.space.reads.within(self.index, frame.bbox) if titled else []
         if near is None:
             near, titled = [], False  # past the space's budget: counted, read with no value
         inside = [self.space.texts[i] for i in near if frame.contains(self.space.texts[i].origin)]
         values = self._fields(frame, inside) if titled else {}
         anchors = [self.s.anchor(key, frame.chain_handles(), frame.handle)]
-        return self._candidate(SheetLocation(box=Box(*frame.bbox)), key, values, anchors)
+        sheet = self._candidate(SheetLocation(box=Box(*frame.bbox)), key, values, anchors)
+        return replace(sheet, exclusion=Exclusion(ExclusionReason.COVER_INDEX)) if cover else sheet
 
     def layout_sheet(self, name: str, entities: list[AnyEntity]) -> SheetCandidate:
         frame = self.space.frames[0] if self.space.frames else None
