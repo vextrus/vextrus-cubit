@@ -28,7 +28,6 @@ from .step1_whole import (
     answer,
     confirm,
     coverage,
-    exclude,
     jev_says,
     keys,
     no_raw_code,
@@ -146,20 +145,20 @@ def test_a_synthetic_dwg_uploaded_and_read_by_the_job_is_proposed_sheet_by_sheet
     assert all(p["discipline"] == "structural" and p["id"] != p["sheet_id"] for p in listed)
 
 
-def test_every_view_is_counted_and_the_one_no_step_reads_is_named_unaccounted(
+def test_every_view_is_counted_and_every_structural_view_is_accounted(
     qs_project: QsProject, dwgs: dict[str, bytes]
 ) -> None:
     api = read_structural(qs_project, dwgs)
-    [s201] = of_number(proposals(api, qs_project.project_id), "S-201")
 
     shown = coverage(api, qs_project.project_id)
 
     # Drawn: S-201 4, each S-202 3, S-203 3; and each of the four sheets' title block (a View,
-    # CONTEXT.md; ruling R2), proposed out for information, never unaccounted.
-    assert (shown["views"], shown["proposed"], shown["unaccounted"]) == (17, 16, 1)
+    # CONTEXT.md; ruling R2), proposed out for information, never unaccounted. Ticket 158 (the
+    # orchestrator's ruling, session 08): every Structural view reaches a step, so none is left
+    # unaccounted (this pinned S-201's one view no step read before 158).
+    assert (shown["views"], shown["proposed"], shown["unaccounted"]) == (17, 17, 0)
     assert shown["by_reason"].get("for_information") == 4
-    [lone] = shown["unaccounted_views"]
-    assert lone["sheet_id"] == s201["sheet_id"]
+    assert shown["unaccounted_views"] == []
 
 
 def test_the_number_drawn_twice_is_one_conflict_holding_both_copies(
@@ -181,9 +180,8 @@ def test_the_whole_step_ends_confirmed_with_no_view_proposed_or_unaccounted(
     api = read_structural(qs_project, dwgs)
     [q] = open_questions(api, qs_project.project_id, "conflict")
     assert answer(api, qs_project.project_id, q["id"], keys(q)[0]).status_code == 200
-    [lone] = coverage(api, qs_project.project_id)["unaccounted_views"]
-    left_out = exclude(api, qs_project.project_id, [lone["id"]], "other", "part of the title block")
-    assert left_out.status_code == 200, left_out.content
+    # Ticket 158: no Structural view is left unaccounted, so none needs leaving out first.
+    assert coverage(api, qs_project.project_id)["unaccounted_views"] == []
     undecided = [p["id"] for p in proposals(api, qs_project.project_id) if p["decision"] is None]
 
     # m0-screens 6.4 (ruled at #166): one-source sheets are confirmed one by one, never in bulk.
@@ -192,7 +190,7 @@ def test_the_whole_step_ends_confirmed_with_no_view_proposed_or_unaccounted(
         assert each.status_code == 200, each.content
     shown = coverage(api, qs_project.project_id)
     assert (shown["proposed"], shown["unaccounted"]) == (0, 0)
-    assert shown["by_reason"].get("other") == 1
+    assert "other" not in shown["by_reason"]  # 158: nothing was left out by hand
     assert open_questions(api, qs_project.project_id) == []
     assert progress(api, qs_project.project_id)["structural"]["status"] == "confirmed"
 
