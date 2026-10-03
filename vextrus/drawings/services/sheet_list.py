@@ -31,7 +31,7 @@ import json
 import re
 import uuid
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from decimal import Decimal
 from typing import Any
@@ -43,13 +43,21 @@ from django.utils import timezone
 from engine.messages import Message
 from engine.read.anchor import Anchor, DwgAnchor
 from engine.recognise.types import ExclusionReason as EngineExclusion
-from engine.recognise.types import PlotMatch, SheetCandidate, SheetLocation, ViewCandidate
+from engine.recognise.types import (
+    PlotMatch,
+    SheetCandidate,
+    SheetLocation,
+    ValueSource,
+    ViewCandidate,
+)
 from engine.render.buffers import BufferError, SheetBuffers
+from vextrus.drawings.messages import files as file_words
 from vextrus.drawings.messages import reads as refusal
 from vextrus.drawings.messages import sheets as said
 from vextrus.drawings.models import (
     Decision,
     Discipline,
+    DisciplineKind,
     DisciplineSource,
     DrawingFile,
     ExclusionReason,
@@ -155,10 +163,15 @@ class ViewView:
 
 
 def record_sheets(
-    file_id: uuid.UUID, candidates: Sequence[SheetCandidate], *, empty_layouts: int = 0
+    file_id: uuid.UUID,
+    candidates: Sequence[SheetCandidate],
+    *,
+    empty_layouts: int = 0,
+    drawing_list: bool = False,
 ) -> list[SheetView]:
     """Keep a DWG's printed sheets, in the candidates' order (see the module); the printed sheets,
-    in the same order. `empty_layouts`: layout tabs showing nothing, never sheets (the report)."""
+    in the same order. `empty_layouts`: layout tabs showing nothing, never sheets (the report);
+    `drawing_list`: a drawing list was read on its sheets (a file with one is never General)."""
     with transaction.atomic():
         row = _access.drawing_file(file_id, lock=True)
         name = row.original_name
@@ -176,7 +189,15 @@ def record_sheets(
             if key is not None and key not in market:
                 raise auth.Refused(refusal.UNKNOWN_DISCIPLINE(file=name), status=400)
             _decoded(name, *_sheet_words(candidate))
-        _default_discipline(row, candidates, market)
+        if _refuse_taken_choice(row, candidates):
+            # Read as if never chosen: the Discipline the finder gave from the file goes too.
+            candidates = [
+                replace(c, discipline=None)
+                if c.discipline is not None and c.discipline.source == ValueSource.FILE
+                else c
+                for c in candidates
+            ]
+        _default_discipline(row, candidates, market, drawing_list=drawing_list)
         _access.lock("sheets", row.drawing_set_id)
         places = [_location_key(c.location) for c in candidates]
         if len(set(places)) != len(places):
@@ -267,13 +288,21 @@ def _decoded(file_name: str, *texts: str | None) -> None:
 
 
 def _default_discipline(
-    row: DrawingFile, candidates: Sequence[SheetCandidate], market: dict[str, Discipline]
+    row: DrawingFile,
+    candidates: Sequence[SheetCandidate],
+    market: dict[str, Discipline],
+    *,
+    drawing_list: bool,
 ) -> None:
     """The file's Discipline from its sheets' numbers, only when its name gave none (and the QS
-    chose none): the one Discipline its numbered sheets agree on."""
+    chose none): the one Discipline its numbered sheets agree on; else, for a file running its own
+    series (two or more sheets with bare numbers, none of any Discipline, and no drawing list read on
+    them), the Market's notes Discipline, General (#159: the owner's ruling, session 07)."""
     if row.discipline_id is not None:
         return
     keys = {c.discipline.value for c in candidates if c.discipline is not None}
+    if not keys and not drawing_list and _own_series(candidates):
+        keys = {d.key for d in market.values() if d.kind == DisciplineKind.GENERAL}
     if len(keys) != 1:
         return
     discipline = market[keys.pop()]
@@ -281,6 +310,47 @@ def _default_discipline(
     row.discipline_source = DisciplineSource.SHEET_NUMBERS
     row.revision = drawing_files._first_issue(row.drawing_set, discipline, tenancy.current().user_id)
     row.save(update_fields=["discipline", "discipline_source", "revision"])
+
+
+def _refuse_taken_choice(row: DrawingFile, candidates: Sequence[SheetCandidate]) -> bool:
+    """A Discipline the QS chose before the file's numbers were read is refused now, if it already
+    has a sheet of one of them from another file, as `set_discipline` refuses it after the read (in
+    words of its own, `discipline_choice_undone`, kept as the file's finding), never a silent join by
+    number (the orchestrator's ruling, session 08). The file is then read as if never chosen."""
+    if row.discipline_source != DisciplineSource.QS or row.discipline_id is None:
+        return False
+    for candidate in candidates:
+        number = _text.read(candidate.number.value) if candidate.number is not None else ""
+        if not number:
+            continue
+        taken = (
+            Sheet.objects.filter(
+                drawing_set_id=row.drawing_set_id,
+                building_id=row.building_id,
+                discipline_id=row.discipline_id,
+                number=number,
+            )
+            .exclude(id__in=SheetRevision.objects.filter(source_file=row).values("sheet_id"))
+            .exists()
+        )
+        if taken:
+            assert row.discipline is not None
+            name = library_disciplines.name(row.discipline.labels)
+            row.finding = _text.read_json(
+                dict(file_words.DISCIPLINE_CHOICE_UNDONE(discipline=name, sheet=number))
+            )
+            row.discipline = None
+            row.discipline_source = ""
+            row.revision = None
+            row.save(update_fields=["finding", "discipline", "discipline_source", "revision"])
+            return True
+    return False
+
+
+def _own_series(candidates: Sequence[SheetCandidate]) -> bool:
+    """Two or more sheets numbered with bare digits ("01"), and no numbered sheet otherwise."""
+    numbers = [_text.read(c.number.value).strip() for c in candidates if c.number is not None]
+    return len(numbers) >= 2 and all(n.isascii() and n.isdigit() for n in numbers)
 
 
 def _location_key(location: SheetLocation) -> str:
@@ -685,6 +755,14 @@ def sheets(set_id: uuid.UUID, discipline: str | None = None) -> list[SheetView]:
 def sheet(sheet_revision_id: uuid.UUID) -> SheetView:
     """One printed sheet of the sheet list (in the acting Membership's scope); else not found."""
     return _sheet_view(_all().get(id=_listed(sheet_revision_id).id))
+
+
+def sheet_discipline(sheet_revision_id: uuid.UUID) -> str | None:
+    """A printed sheet's Discipline as it stands, by key, while its file is still being read (the
+    read job's views are proposed by it: #159); in the acting tenant's scope, else not found."""
+    sheet_revision = _access.sheet_revision(sheet_revision_id)
+    discipline = Sheet.objects.select_related("discipline").get(id=sheet_revision.sheet_id).discipline
+    return discipline.key if discipline else None
 
 
 def _all() -> QuerySet[SheetRevision]:

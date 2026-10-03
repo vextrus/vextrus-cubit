@@ -96,5 +96,10 @@ DISCIPLINE_SHEET_TAKEN = MessageCode(
 )
 """The chosen Discipline (its name, as the Market's Library gives it) already has a sheet with this
 number (409)."""
+DISCIPLINE_CHOICE_UNDONE = MessageCode(
+    "drawings.files.discipline_choice_undone", params=("discipline", "sheet")
+)
+"""A Discipline the QS chose while the file was still reading, undone once its sheets were read: the
+Discipline already has a sheet of this number from another file (#159; the read file's finding)."""
 DISCIPLINE_UNNUMBERED_DECIDED = MessageCode("drawings.files.discipline_unnumbered_decided")
 """As DISCIPLINE_SHEET_DECIDED, for a sheet with no number."""
