@@ -235,6 +235,20 @@ describe('the sheets a Question holds, and the answered ones (#156)', () => {
     ])
     expect(model.rows.filter((r) => r.question).map((r) => r.question!.tag)).toEqual(['Q1'])
   })
+  it('keeps each Question the tag of its place in the order raised, open, withdrawn or answered (the walk, M1)', () => {
+    const a = sheet('S-01')
+    const b = sheet('S-02')
+    const c = sheet('S-03', { decision: 'excluded', excluded_reason: 'superseded' })
+    // Raised as Q1–Q3; Q1 answered, Q3 withdrawn by leaving S-03 out: Q2 alone is open and stays Q2.
+    const first = question('low_confidence', { subject_id: a.sheet_id, status: 'answered', answered_at: '2026-09-30T06:00:00Z', raised: 1 })
+    const second = question('low_confidence', { subject_id: b.sheet_id, raised: 2 })
+    const third = question('low_confidence', { subject_id: c.sheet_id, status: 'withdrawn', withdrawn_by: 'act-1', blocking: true, raised: 3 })
+    const model = step1Model(data([a, b, c], [second, third, first]))
+    expect(model.queue.map((e) => e.tag)).toEqual(['Q2'])
+    expect(model.withdrawn.map((r) => r.question!.tag)).toEqual(['Q3'])
+    expect(model.answered.map((e) => e.tag)).toEqual(['Q1'])
+    expect(model.rows.filter((r) => r.question).map((r) => r.question!.tag).sort()).toEqual(['Q2', 'Q3'])
+  })
 })
 
 describe('Questions holding no sheet (ticket 164: every one was worded as a held file)', () => {

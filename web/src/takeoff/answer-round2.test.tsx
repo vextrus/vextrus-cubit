@@ -1,0 +1,128 @@
+/*
+ * Answering on Step 1, #156's fix round 2 (the design gate's walk): the card's first line follows the
+ * pick (§6.7, M3); Ctrl Z is held by an answer from the moment it is sent (CI's slowed run); a tag is
+ * fixed for life (M1).
+ */
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { page } from 'vitest/browser'
+import { PEOPLE, mountApp } from '@/app/testing'
+import { FakeAnswers } from '@/acceptance/t156/answer.fixture'
+
+beforeEach(async () => {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date('2026-09-30T06:00:00Z'))
+  await page.viewport(1440, 900)
+})
+
+afterEach(() => {
+  vi.useRealTimers()
+})
+
+const clean = (s: string | null | undefined) => (s ?? '').replace(/[⁦-⁩‎‏]/g, '').replace(/\s+/g, ' ').trim()
+const bodyText = () => clean(document.body.textContent)
+
+async function mount(fake: FakeAnswers, delay = 0) {
+  const calls: string[] = []
+  const base = fake.api.handle
+  fake.api.handle = async (request: Request) => {
+    calls.push(`${request.method} ${new URL(request.url, location.origin).pathname}`)
+    if (delay && request.method === 'POST') await new Promise((r) => setTimeout(r, delay))
+    return base(request)
+  }
+  await mountApp('/p/KR-01/takeoff/1', { as: PEOPLE.qs, api: fake.api })
+  await waitFor(() => expect(bodyText()).toContain('Confirmed 0 / 24'))
+  return calls
+}
+
+async function openWith(kind: string, delay = 0) {
+  const fake = new FakeAnswers()
+  const question = fake.byKind()[kind]!
+  fake.questions = [question]
+  const calls = await mount(fake, delay)
+  return { fake, question, calls }
+}
+
+const cardOf = (tag: string) => screen.findByRole('region', { name: (n: string) => clean(n) === `Question ${tag}` })
+const cardText = (card: HTMLElement) => clean(card.textContent)
+
+describe('the card’s first line follows the pick (§6.7; the walk, M3)', () => {
+  it('words each pick on the held file, and asks for a pick before one', async () => {
+    await openWith('file_misread')
+    await userEvent.keyboard('q')
+    const card = await cardOf('Q1')
+    await waitFor(() => expect(cardText(card)).toContain('Pick an answer: 1, 2, 3, 4.'))
+    await userEvent.keyboard('1')
+    await waitFor(() => expect(cardText(card)).toMatch(/Answering reads .* anyway: its sheets join the list as Proposals, each marked held, and their figures are flagged later\./))
+    await userEvent.keyboard('2')
+    await waitFor(() => expect(cardText(card)).toContain('Answering sets the file aside: none of its sheets is read or counted. Structural can still be confirmed.'))
+    expect(cardText(card)).not.toContain('Answering decides whether')
+    await userEvent.keyboard('4')
+    await waitFor(() => expect(cardText(card)).toContain('Answering keeps the file held. Structural cannot be confirmed until it is answered.'))
+  })
+
+  it('words each pick on a drawing-list entry in no file', async () => {
+    await openWith('check')
+    await userEvent.keyboard('q')
+    const card = await cardOf('Q1')
+    await userEvent.keyboard('1')
+    await waitFor(() => expect(cardText(card)).toContain('Answering keeps S-13 in the count as missing. Structural can still be confirmed.'))
+    expect(cardText(card)).not.toContain('Answering confirms no sheets')
+    await userEvent.keyboard('2')
+    await waitFor(() => expect(cardText(card)).toContain('Answering takes S-13 off the list.'))
+    await userEvent.keyboard('4')
+    await waitFor(() => expect(cardText(card)).toContain('Answering keeps S-13 open. Structural cannot be confirmed until it is answered.'))
+  })
+
+  it('words "Type a number" and "Leave it without a number"', async () => {
+    const { question } = await openWith('missing')
+    await userEvent.keyboard('q')
+    const card = await cardOf('Q1')
+    await userEvent.keyboard(String(question.options.findIndex((o) => o.key === 'type_number') + 1))
+    await waitFor(() => expect(cardText(card)).toContain('Answering confirms the sheet as the number you type.'))
+    expect(cardText(card)).not.toContain('Answering settles')
+    await userEvent.click(within(card).getAllByRole('radio')[question.options.findIndex((o) => o.key === 'no_number')]!)
+    await waitFor(() => expect(cardText(card)).toContain('Answering confirms the sheet without a number.'))
+  })
+})
+
+describe('Ctrl Z while an answer is in flight (CI’s slowed run)', () => {
+  it('sends no undo for a Ctrl Z pressed before the answer’s reply, however often', async () => {
+    const { calls } = await openWith('same_title', 300)
+    await userEvent.keyboard('q')
+    await cardOf('Q1')
+    await userEvent.keyboard('1')
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(calls.some((c) => c.endsWith('/answer'))).toBe(true))
+    for (let i = 0; i < 3; i++) await userEvent.keyboard('{Control>}z{/Control}')
+    await waitFor(() => expect(bodyText()).toContain('Nothing undone: Ctrl Z does not take back an answer to a Question, or anything before it.'), { timeout: 3000 })
+    await new Promise((r) => setTimeout(r, 1200))
+    expect(calls.filter((c) => c.endsWith('/undo'))).toEqual([])
+  })
+})
+
+describe('a Question’s tag is fixed for life (the walk, M1)', () => {
+  it('names an answered Question by the same tag in its card, its toast and the Answered list', async () => {
+    const fake = new FakeAnswers()
+    const kinds = fake.byKind()
+    // Raised in this order; the queue puts the two copies first, so their place in the queue is 1, not 3.
+    fake.questions = [kinds.low_confidence!, kinds.missing!, kinds.same_number!].map((q, i) => ({ ...q, raised: i + 1 }))
+    await mount(fake)
+    await userEvent.keyboard('q')
+    const card = await cardOf('Q3')
+    await userEvent.click(within(card).getAllByRole('radio')[0]!)
+    await userEvent.click(within(card).getByRole('button', { name: (n: string) => clean(n).startsWith('Answer Q3') }))
+    await waitFor(() => expect(bodyText()).toContain('Q3 answered.'))
+    await userEvent.click(screen.getByRole('tab', { name: /Questions/ }))
+    const line = await waitFor(() => {
+      const li = [...document.querySelectorAll('li')].find((l) => clean(l.textContent).includes('superseded'))
+      expect(li).toBeTruthy()
+      return li!
+    })
+    expect(clean(line.textContent)).toMatch(/^Q3 Keep/)
+    // The two still open keep their tags, Q1 and Q2, though one of them now leads the queue.
+    expect(await cardOf('Q1')).toBeTruthy()
+    expect(screen.queryByRole('region', { name: (n: string) => clean(n) === 'Question Q3' })).toBeNull()
+  })
+})

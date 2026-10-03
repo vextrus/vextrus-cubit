@@ -372,9 +372,75 @@ export function Answering({ entry, context, choice, hint = false }: { entry: Que
     const sheet = <SheetName sheets={entry.holds} />
     return <Trans>Withdrawn when {sheet} was left out. {sheet} can be confirmed back in once this is answered.</Trans>
   }
+  const keys = <PickKeys entry={entry} />
+  const discipline = q.discipline ? disciplineName(q.discipline, i18n) : null
   if (q.kind === 'file_misread') {
+    // §6.7's held-file row: each pick's own first line; before a pick, what it decides and the keys.
+    const named = !!(q.subject_id && names[q.subject_id])
     const file = <FileName entry={entry} names={names} />
-    return q.subject_id && names[q.subject_id] ? <Trans>Answering decides whether {file}’s sheets join the list.</Trans> : <Trans>Answering decides whether this file’s sheets join the list.</Trans>
+    if (picked === 'read_anyway')
+      return named ? (
+        <Trans>Answering reads {file} anyway: its sheets join the list as Proposals, each marked held, and their figures are flagged later.</Trans>
+      ) : (
+        <Trans>Answering reads this file anyway: its sheets join the list as Proposals, each marked held, and their figures are flagged later.</Trans>
+      )
+    if (picked === 'await_resaved' || picked === 'sent_to_vextrus')
+      return discipline ? (
+        <Trans>Answering sets the file aside: none of its sheets is read or counted. {discipline} can still be confirmed.</Trans>
+      ) : (
+        <Trans>Answering sets the file aside: none of its sheets is read or counted.</Trans>
+      )
+    if (picked === 'keep_open')
+      return discipline ? <Trans>Answering keeps the file held. {discipline} cannot be confirmed until it is answered.</Trans> : <Trans>Answering keeps the file held.</Trans>
+    if (hint && !picked)
+      return named ? (
+        <Trans>Answering decides whether {file}’s sheets join the list. Pick an answer: {keys}.</Trans>
+      ) : (
+        <Trans>Answering decides whether this file’s sheets join the list. Pick an answer: {keys}.</Trans>
+      )
+    return named ? <Trans>Answering decides whether {file}’s sheets join the list.</Trans> : <Trans>Answering decides whether this file’s sheets join the list.</Trans>
+  }
+  if (q.kind === 'check' && picked) {
+    // §6.7's drawing-list row: what each pick does to the entry (or the gap) and to its Discipline.
+    const gap = gapOf(q)
+    const listed = typeof q.params.number === 'string' && q.params.number ? q.params.number : null
+    const entryName = listed ? <DrawingText kind="sheet-number" text={listed} truncate={false} /> : n > 0 ? <SheetName sheets={entry.holds} /> : null
+    const missing = typeof q.params.missing === 'number' ? q.params.missing : 1
+    if (picked === 'not_in_set') {
+      if (gap) return <Trans>Answering records that the numbering skips here: nothing is missing.</Trans>
+      return entryName ? <Trans>Answering takes {entryName} off the list.</Trans> : <Trans>Answering takes the sheet off the list.</Trans>
+    }
+    if (picked === 'not_sent_yet' || picked === 'file_not_added') {
+      const kept = gap ? (
+        <Plural value={missing} one="Answering keeps the missing sheet in the count." other="Answering keeps the # missing sheets in the count." />
+      ) : entryName ? (
+        <Trans>Answering keeps {entryName} in the count as missing.</Trans>
+      ) : (
+        <Trans>Answering keeps the sheet in the count as missing.</Trans>
+      )
+      return discipline ? (
+        <>
+          {kept} <Trans>{discipline} can still be confirmed.</Trans>
+        </>
+      ) : (
+        kept
+      )
+    }
+    if (picked === 'keep_open') {
+      const open = gap ? <Trans>Answering keeps this gap open.</Trans> : entryName ? <Trans>Answering keeps {entryName} open.</Trans> : <Trans>Answering keeps this Question open.</Trans>
+      return discipline ? (
+        <>
+          {open} <Trans>{discipline} cannot be confirmed until it is answered.</Trans>
+        </>
+      ) : (
+        open
+      )
+    }
+  }
+  if (q.kind === 'missing' && n > 0) {
+    // §6.7's no-number row.
+    if (picked === 'no_number') return <Trans>Answering confirms the sheet without a number.</Trans>
+    if (picked === 'type_number') return <Trans>Answering confirms the sheet as the number you type.</Trans>
   }
   if (picked && RECORDED_ONLY.has(picked)) return <Trans>Answering records your pick; the copies stay as they are, to confirm or exclude in the list.</Trans>
   if (isCopies(entry) && picked) {
@@ -406,7 +472,6 @@ export function Answering({ entry, context, choice, hint = false }: { entry: Que
     return <Trans>Answering keeps {name} open.</Trans>
   }
   if (picked === 'keep_all' && n > 0) return <Plural value={n} one="Answering confirms # sheet." other="Answering confirms # sheets." />
-  const keys = <PickKeys entry={entry} />
   if (q.code === 'takeoff.proposals.lists_disagree') {
     const name = disciplineName(q.discipline, i18n)
     return hint && !picked ? (

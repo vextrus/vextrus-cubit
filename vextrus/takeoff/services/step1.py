@@ -207,6 +207,9 @@ class QuestionView:
     Question withdrawn because a newer one replaced it."""
     blocking: bool = False
     """It holds its sheets from being confirmed: open, or withdrawn by an exclusion that still stands."""
+    raised: int | None = None
+    """Its place among the Project's Step 1 Questions in the order they were raised (open, answered
+    and withdrawn alike), from 1: its tag (Q1…) for life, whatever is answered or left out later."""
 
 
 @dataclass(frozen=True)
@@ -496,6 +499,16 @@ def questions(project_id: uuid.UUID) -> list[QuestionView]:
     projects.get(project_id)
     held = _held(project_id)
     found = _asked(project_id, Question.objects.filter(project_id=project_id, step=SHEETS), held)
+    # Counted over every Step 1 Question, asked still or not, so no tag moves when one stops being asked.
+    raised = {
+        qid: place
+        for place, qid in enumerate(
+            Question.objects.filter(project_id=project_id, step=SHEETS)
+            .order_by("created_at", "id")
+            .values_list("id", flat=True),
+            start=1,
+        )
+    }
 
     def queued(q: Question) -> tuple[Any, ...]:
         # m0-screens §5: the held file first, then the Questions holding the most sheets, then
@@ -526,6 +539,7 @@ def questions(project_id: uuid.UUID) -> list[QuestionView]:
             withdrawn_by=q.withdrawn_by_id if q.status == QuestionStatus.WITHDRAWN else None,
             blocking=q.kind in FIRST
             and (q.status == QuestionStatus.OPEN or _withdrawn_by_standing_exclusion(q)),
+            raised=raised.get(q.id),
         )
         for q in sorted(found, key=queued)
     ]

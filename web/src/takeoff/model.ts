@@ -177,6 +177,17 @@ export function withdrawnQueue(questions: readonly QuestionOut[], proposals: rea
   return entries.map((e, i) => ({ ...e, tag: `Q${after + i + 1}`, kept: false, withdrawn: true }))
 }
 
+/**
+ * A Question's tag for life (the design gate's walk, M1: tags renumbered after every answer): its
+ * place among the Project's Questions in the order raised, which the server gives as `raised`, so
+ * card, row, bar, toast and Answered line keep one tag whatever is answered or left out. Only when
+ * a Question lacks it (a server before #156's round 2) are the tags the queue's, as before.
+ */
+function raisedTags(entries: QuestionEntry[]): void {
+  if (!entries.every((e) => typeof e.question.raised === 'number')) return
+  for (const e of entries) e.tag = `Q${e.question.raised}`
+}
+
 /** The answered Questions, in the order answered, tagged on after `after` (Q7… after Q1–Q6). */
 export function answeredQueue(questions: readonly QuestionOut[], proposals: readonly ProposalOut[], after: number): QuestionEntry[] {
   const entries = questions.filter((q) => q.status === 'answered').map((question) => ({ question, holds: held(question, proposals) }))
@@ -247,6 +258,7 @@ export function step1Model(data: Step1Data): Step1Model {
   const queue = questionQueue(data.questions, proposals)
   const withdrawnEntries = withdrawnQueue(data.questions, proposals, queue.length)
   const answered = answeredQueue(data.questions, proposals, queue.length + withdrawnEntries.length)
+  raisedTags([...queue, ...withdrawnEntries, ...answered])
   const heldBy = new Map<string, QuestionEntry>()
   for (const entry of [...queue, ...withdrawnEntries]) for (const p of entry.holds) if (!heldBy.has(p.id)) heldBy.set(p.id, entry)
 
