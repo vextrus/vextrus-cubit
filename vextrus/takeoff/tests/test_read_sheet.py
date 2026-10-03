@@ -55,10 +55,14 @@ AGREE = CheckResult(code="decoders_agree", outcome=CheckOutcome.PASSED)
 
 
 def test_13s_default_disciplines_are_every_markets_rows_by_key_and_prefix() -> None:
+    """Every row a number can name: a notes Discipline (General, #159) has no prefix, and is the
+    Market's data alone (the product gives it to 17 as `notes_disciplines`)."""
     default = [(d.key, d.prefixes) for d in finder.default_conventions().disciplines]
     assert drawings_library.DISCIPLINES, "no Market has Disciplines"
     for rows in drawings_library.DISCIPLINES.values():
-        assert default == [(row.key, row.prefixes) for row in rows]
+        numbered = [row for row in rows if row.kind != drawings_library.NOTES_KIND]
+        assert all(not row.prefixes for row in rows if row.kind == drawings_library.NOTES_KIND)
+        assert default == [(row.key, row.prefixes) for row in numbered]
 
 
 def test_the_disciplines_17_names_are_a_markets_disciplines() -> None:
@@ -74,12 +78,14 @@ def test_a_file_is_read_with_its_markets_disciplines_over_13s_defaults(qs_projec
     with qs_project.member.acting():
         sheet_conventions, view_conventions = sheets.conventions(file_id)
         market = drawings.conventions(file_id)
+        notes = tuple(d.key for d in drawings.disciplines() if d.kind == drawings_library.NOTES_KIND)
 
     assert market
     assert sheet_conventions.disciplines == market
     default = finder.default_conventions()
     assert sheet_conventions.title_block_fields == default.title_block_fields
-    assert view_conventions == view_finder.default_conventions()
+    assert len(notes) == 1  # the Market's General, as data (#159)
+    assert view_conventions == replace(view_finder.default_conventions(), notes_disciplines=notes)
 
 
 # A candidate kept between steps ------------------------------------------------------------------

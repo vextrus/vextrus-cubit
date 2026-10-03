@@ -90,7 +90,7 @@ def test_an_empty_project_lists_no_set(qs_project: QsProject) -> None:
     }
 
 
-def test_the_disciplines_are_the_markets_eight_by_key_and_name(qs_project: QsProject) -> None:
+def test_the_disciplines_are_the_markets_nine_by_key_and_name(qs_project: QsProject) -> None:
     response = api_as(qs_project.member).get(f"{base(qs_project.project_id)}/disciplines")
 
     assert [(d["key"], d["labels"]["en"]) for d in response.json()] == [
@@ -102,6 +102,7 @@ def test_the_disciplines_are_the_markets_eight_by_key_and_name(qs_project: QsPro
         ("mechanical", "Mechanical (HVAC)"),
         ("lift", "Lift"),
         ("gas", "Gas"),
+        ("general", "General"),
     ]
 
 
