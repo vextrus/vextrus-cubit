@@ -201,5 +201,6 @@ def bokul_held(demo: Demo) -> None:
         options=_options("read_anyway", "await_resaved", "sent_to_vextrus", "keep_open"),
     )
     drawings.answer_held(held.id, drawings.HeldAnswer.READ_ANYWAY)
+    drawings.mark_read(held.id)  # its re-read ended: its sheets listed from here (#165)
     step1.answer_question(project_id, question_id, {"key": "read_anyway"})
     demo[f"question:{code}:held"] = question_id

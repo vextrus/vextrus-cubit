@@ -22,8 +22,41 @@ msgstr "No sheet was chosen, so nothing was changed. Select one or more sheets, 
 msgid "takeoff.step1.nothing_to_undo"
 msgstr "You have nothing left to undo on Step 1: undo takes back only your own Confirmations, exclusions and drawing lists. To change another person\'s, exclude the sheet, confirm it back in, or paste the drawing list again."
 
+msgid "takeoff.step1.held_file"
+msgstr "Nothing was confirmed: {count, plural, one {{named, select, number {{sheet}} title {the sheet titled \"{sheet}\"} other {a chosen sheet}} is marked held because its file may be misread} other {# of the chosen sheets are marked held, each from a file that may be misread{named, select, number {, {sheet} among them} title {, the sheet titled \"{sheet}\" among them} other {}}}}, and only sheets that agree are confirmed together. Take {count, plural, one {it} other {them}} out of the selection to confirm the rest, then open {count, plural, one {it} other {each}} to check it and confirm it on its own."
+
+msgid "takeoff.step1.one_source"
+msgstr "Nothing was confirmed: {count, plural, one {{named, select, number {{sheet}} title {the sheet titled \"{sheet}\"} other {a chosen sheet}} has one source} other {# of the chosen sheets have one source each{named, select, number {, {sheet} among them} title {, the sheet titled \"{sheet}\" among them} other {}}}}, and only sheets that agree are confirmed together. Take {count, plural, one {it} other {them}} out of the selection to confirm the rest, then open {count, plural, one {it} other {each}} to confirm it on its own."
+
 msgid "takeoff.step1.question_first"
-msgstr "Nothing was confirmed: {count, plural, one {a Question asks the {asks, select, number {number} other {Discipline}} of {named, select, number {{sheet}} title {the sheet titled “{sheet}”} other {a chosen sheet}}} other {Questions ask the number or Discipline of # of the chosen sheets, {named, select, number {{sheet}} title {the sheet titled “{sheet}”} other {one}} among them}}. Answer {count, plural, one {it} other {them}} first, then confirm again."
+msgstr "Nothing was confirmed: {count, plural, one {{asks, select, number {a Question asks the number of {named, select, number {{sheet}} title {the sheet titled “{sheet}”} other {a chosen sheet}}} discipline {a Question asks the Discipline of {named, select, number {{sheet}} title {the sheet titled “{sheet}”} other {a chosen sheet}}} other {a Question holds {named, select, number {{sheet}} title {the sheet titled “{sheet}”} other {a chosen sheet}}}}} other {# of the chosen sheets wait on {asks, select, number {a Question about their number or Discipline} discipline {a Question about their number or Discipline} other {a Question}}{named, select, number {, {sheet} among them} title {, the sheet titled “{sheet}” among them} other {}}}}. Answer {count, plural, one {it} other {what is asked}} first, then confirm again."
 
 msgid "takeoff.step1.which_kind"
 msgstr "What kind of sheet is {number}?"
+
+msgid "takeoff.step1.step_unknown"
+msgstr "Nothing was assigned: a view can be assigned only to Takeoff Steps 2 to 14. Choose one or more of them, then assign again."
+
+msgid "takeoff.step1.view_excluded"
+msgstr "Nothing was assigned: a view you chose is excluded, on its own or with its sheet. Assign the others without it, or confirm it, or its sheet, back in first."
+
+msgid "takeoff.step1.files_reading"
+msgstr "{count, plural, one {# file still reading} other {# files still reading}}"
+
+msgid "takeoff.step1.sheets_undecided"
+msgstr "{count, plural, one {# sheet to confirm or exclude} other {# sheets to confirm or exclude}}"
+
+msgid "takeoff.step1.lists_disagree"
+msgstr "the drawing lists disagree"
+
+msgid "takeoff.step1.questions_open"
+msgstr "{count, plural, one {# Question to answer} other {# Questions to answer}}"
+
+msgid "takeoff.step1.views_unaccounted"
+msgstr "{count, plural, one {# view unaccounted} other {# views unaccounted}}"
+
+msgid "takeoff.step1.no_view_chosen"
+msgstr "No view was chosen, so nothing was assigned. Choose one or more views, then assign them to a step."
+
+msgid "takeoff.step1.view_accounted"
+msgstr "Nothing was assigned: {count, plural, one {a view you chose already has} other {# views you chose already have}} a Takeoff Step, a Discipline Part or an exclusion. Only a view still unaccounted can be assigned, so choose only those and assign again."
