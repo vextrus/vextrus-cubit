@@ -70,9 +70,9 @@ describe('the card’s first line follows the pick (§6.7; the walk, M3)', () =>
     await waitFor(() => expect(cardText(card)).toContain('Answering keeps S-13 in the count as missing. Structural can still be confirmed.'))
     expect(cardText(card)).not.toContain('Answering confirms no sheets')
     await userEvent.keyboard('2')
-    await waitFor(() => expect(cardText(card)).toContain('Answering records that S-13 is not part of this set.'))
+    await waitFor(() => expect(cardText(card)).toContain('Answering records that S-13 is not part of this set; the drawing list still counts it.'))
     await userEvent.keyboard('4')
-    await waitFor(() => expect(cardText(card)).toContain('Answering keeps S-13 open. Structural cannot be confirmed until it is answered.'))
+    await waitFor(() => expect(cardText(card)).toContain('Answering keeps S-13 open. Structural cannot be confirmed until this Question is answered.'))
   })
 
   it('words "Type a number" and "Leave it without a number"', async () => {
@@ -203,6 +203,43 @@ describe('the toast names what the answer did (§6.5; the walk, M7)', () => {
     await cardOf('Q1')
     await userEvent.keyboard('1')
     await userEvent.keyboard('{Enter}')
-    await waitFor(() => expect(bodyText()).toContain('Q1 answered. Confirms A-05 as a sheet of kind “Elevation”.'))
+    await waitFor(() => expect(bodyText()).toContain('Q1 answered. A-05’s kind is Elevation.'))
+  })
+})
+
+describe('a Check’s first lines say only what 21c does (the words gate, round 2)', () => {
+  async function openCheck(code: string, params: Record<string, unknown>) {
+    const fake = new FakeAnswers()
+    fake.questions = [{ ...fake.byKind().check!, code, params }]
+    await mount(fake)
+    await userEvent.keyboard('q')
+    return cardOf('Q1')
+  }
+
+  it('never says a sheet in a file but off the list is missing', async () => {
+    const card = await openCheck('engine.register_check.not_listed', { number: 'S-02' })
+    await userEvent.keyboard('1')
+    await waitFor(() => expect(cardText(card)).toContain('Answering records your pick; S-02 stays in the list, to confirm or exclude.'))
+    expect(cardText(card)).not.toContain('Answering keeps S-02 in the count as missing')
+    await userEvent.keyboard('2')
+    await waitFor(() => expect(cardText(card)).toContain('Answering records that S-02 is not part of this set; exclude it in the list.'))
+  })
+
+  it('never says a gap’s missing sheets are in the count (no drawing list counts them)', async () => {
+    const card = await openCheck('engine.register_check.gap', { after: 'S-03', before: 'S-05', missing: 1 })
+    await userEvent.keyboard('1')
+    await waitFor(() => expect(cardText(card)).toContain('Answering records that the missing sheet is still to come. Paste the drawing list to count it.'))
+    expect(cardText(card)).not.toContain('Answering keeps the missing sheet in the count')
+  })
+})
+
+describe('the read-anyway toast promises the read, not its result', () => {
+  it('says the file is being read again', async () => {
+    await openWith('file_misread')
+    await userEvent.keyboard('q')
+    await cardOf('Q1')
+    await userEvent.keyboard('1')
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(bodyText()).toContain('Q1 answered. Reading the file again: its sheets join the list, marked held, once it is read.'))
   })
 })
