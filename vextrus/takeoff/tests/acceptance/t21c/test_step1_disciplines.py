@@ -160,7 +160,9 @@ def test_a_file_of_a_new_discipline_opens_only_its_own_step_1_while_structural_s
     read(qs_project, monkeypatch, STRUCTURAL)
     api = api_as(qs_project.member)
     structural = ids(proposals(api, qs_project.project_id), "structural")
-    confirm(api, qs_project.project_id, structural)
+    # One by one: its sheets have one source each, never in a bulk act (m0-screens 6.4; ticket 166).
+    for proposal in structural:
+        confirm(api, qs_project.project_id, [proposal])
     assert progress(api, qs_project.project_id)["structural"]["status"] == "confirmed"
 
     read(qs_project, monkeypatch, ELECTRICAL)

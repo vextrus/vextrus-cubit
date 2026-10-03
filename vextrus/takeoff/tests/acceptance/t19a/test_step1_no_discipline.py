@@ -64,7 +64,9 @@ def test_confirming_every_disciplines_sheets_leaves_the_one_with_none_to_confirm
     listed = proposals(client, mixed.project_id)
     structural = [p["id"] for p in listed if p["discipline"] == "structural"]
 
-    client.post(f"{step1(mixed.project_id)}/confirm", {"proposals": structural})
+    # One by one: its sheets have one source each, never in a bulk act (m0-screens 6.4; ticket 166).
+    for proposal in structural:
+        client.post(f"{step1(mixed.project_id)}/confirm", {"proposals": [proposal]})
 
     body = client.get(f"{step1(mixed.project_id)}/progress").json()
     assert [(d["discipline"], d["confirmed"], d["found"]) for d in body["disciplines"]] == [

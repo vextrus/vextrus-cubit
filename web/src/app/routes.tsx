@@ -39,7 +39,9 @@ function useStepInPath() {
 
 export function TakeoffLayout() {
   const { data: session } = useSuspenseQuery(sessionQuery)
-  const project = projectRoute.useLoaderData()
+  const loaded = projectRoute.useLoaderData()
+  // The session's copy, which Step 1 keeps up to date with its counts (22), else the loader's.
+  const project = session.projects.find((p) => p.id === loaded.id) ?? loaded
   const step = useStepInPath()
   return (
     <CanvasFrame session={session} project={project} step={step}>

@@ -48,6 +48,8 @@ class DisciplineKind(models.TextChoices):
     STRUCTURAL = "structural"
     ARCHITECTURAL = "architectural"
     MEP = "mep"
+    GENERAL = "notes"
+    """A Market's General Discipline (#159): its sheets are general notes, Step 2's, never measured."""
 
 
 class Discipline(models.Model):

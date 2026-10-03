@@ -49,6 +49,7 @@ from engine.read.artefact import ReadArtefact
 from engine.read.pdf.types import PdfReport
 from engine.recognise.types import CheckResult
 from engine.render.fonts import FontReport
+from vextrus.drawings.messages import files as file_words
 from vextrus.drawings.messages import reads as refusal
 from vextrus.drawings.models import (
     Artefact,
@@ -101,6 +102,13 @@ class ReadStepStore:
     def progress(self, subject_id: uuid.UUID, progress: jobs.Progress) -> None:
         now: datetime = self._clock()
         row = _access.drawing_file(subject_id, lock=True)
+        if drawing_files.reading_anyway(row):
+            # A held file read anyway, read again: its step shown (it stays held), never its sheets
+            # counted done, which would list them before their Questions (#165).
+            row.read_step = progress.step or ""
+            row.progress_at = now
+            row.save(update_fields=["read_step", "progress_at"])
+            return
         if row.read_status not in _IN_FLIGHT:
             return
         step = progress.step or ""
@@ -353,6 +361,10 @@ def answer_held(file_id: uuid.UUID, answer: HeldAnswer | str) -> drawing_files.F
     return drawing_files.file(row.id)
 
 
+def _refused_choice(finding: object) -> bool:
+    return isinstance(finding, dict) and finding.get("code") == file_words.DISCIPLINE_CHOICE_UNDONE.code
+
+
 def _end(
     file_id: uuid.UUID, status: ReadStatus, finding: Message | None, *, tries: int = 0
 ) -> drawing_files.FileView:
@@ -361,9 +373,27 @@ def _end(
         if row.read_status in _IN_FLIGHT:
             row.read_status = status
             row.read_step = ""
-            row.finding = None if finding is None else _text.read_json(dict(finding))
+            # A read file keeps a Discipline choice refused while it read (`sheet_list`, #159) as its
+            # finding, ahead of a limit that cut its reading: the limit is said in the report's Sheets
+            # section too (`reports._not_read_in_full`, from the finishing step's result).
+            if not (status == ReadStatus.READ and _refused_choice(row.finding)):
+                row.finding = None if finding is None else _text.read_json(dict(finding))
             row.read_tries = tries
             if status == ReadStatus.READ and row.sheets_total is not None:
                 row.sheets_done = row.sheets_total
             row.save(update_fields=["read_status", "read_step", "finding", "read_tries", "sheets_done"])
+        elif status == ReadStatus.FAILED and drawing_files.reading_anyway(row):
+            # A held file read anyway whose reading again failed for good: it stays held, its
+            # reason kept as its finding (a memory limit is said as such, never only "after 1 try";
+            # #165). The readers' disagreement stays in its cross-check; restart puts it back.
+            row.finding = _text.read_json(dict(finding)) if finding is not None else row.finding
+            row.read_tries = max(1, tries)
+            row.save(update_fields=["finding", "read_tries"])
+        elif status == ReadStatus.READ and row.held_answer == HeldAnswer.READ_ANYWAY:
+            # A held file read anyway stays held; its sheets counted done list them from here, in
+            # the last step's transaction with their Questions (`drawing_files.read_anyway`, #165).
+            if row.read_status == ReadStatus.QUARANTINED and row.sheets_total is not None:
+                row.sheets_done = row.sheets_total
+                row.read_step = ""
+                row.save(update_fields=["sheets_done", "read_step"])
     return drawing_files.file(row.id)

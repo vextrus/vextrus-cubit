@@ -313,6 +313,138 @@ def test_a_views_proposal_by_its_discipline(
     assert (exclusion.reason if exclusion else None) == reason
 
 
+@pytest.mark.parametrize(
+    ("kind", "subject", "discipline", "on_sheet", "steps"),
+    [
+        (ViewKind.SECTION, None, "structural", ("beam",), ("beams",)),
+        (ViewKind.SECTION, None, "structural", ("slab",), ("slabs",)),
+        (ViewKind.SCHEDULE, None, "structural", ("shear_wall",), ("columns",)),
+        (ViewKind.DETAIL, None, "structural", ("pile",), ("foundations",)),
+        (ViewKind.SECTION, None, "structural", ("column", "beam"), ("columns", "beams")),
+        (ViewKind.SECTION, None, "structural", ("column", "shear_wall"), ("columns",)),
+        (ViewKind.SECTION, "column", "structural", ("beam",), ("columns",)),  # its own title first
+        (ViewKind.DETAIL, "opening", "structural", ("stair",), ("stairs",)),  # a subject of no Step
+        (ViewKind.PLAN, "grid", "structural", (), ("grid",)),
+        (ViewKind.PLAN, None, "structural", ("grid",), ("grid",)),
+        (ViewKind.SECTION, None, "structural", (), ()),  # nothing names its subject: unaccounted
+        (ViewKind.SECTION, None, "structural", ("toilet",), ()),
+        (ViewKind.SECTION, None, "architectural", ("beam",), ("walls", "rooms")),
+        (ViewKind.SECTION, None, None, ("beam",), ()),
+    ],
+)
+def test_a_structural_view_naming_no_subject_takes_its_sheet_titles(
+    kind: ViewKind,
+    subject: str | None,
+    discipline: str | None,
+    on_sheet: tuple[str, ...],
+    steps: tuple[str, ...],
+) -> None:
+    found_steps, part, exclusion = views._proposal(kind, subject, discipline, on_sheet)
+    assert (found_steps, part, exclusion) == (steps, None, None)
+
+
+def test_the_sheet_titles_subject_never_brings_back_a_view_proposed_out() -> None:
+    for kind in (ViewKind.TITLE_BLOCK, ViewKind.KEY_PLAN, ViewKind.PERSPECTIVE):
+        found_steps, _, exclusion = views._proposal(kind, None, "structural", ("beam",))
+        assert found_steps == ()
+        assert exclusion == Exclusion(ExclusionReason.FOR_INFORMATION)
+
+
+def test_a_section_on_a_beam_sheet_is_proposed_for_beams_its_own_subject_kept_none() -> None:
+    d, sheet = model_sheet([("SECTION 1-1", (40, 300, 340, 560))], title="BEAM DETAILS")
+    (found,) = drawn(d, sheet)
+    assert (found.kind, found.subject, found.steps) == (ViewKind.SECTION, None, ("beams",))
+
+
+def test_a_section_on_a_sheet_whose_title_names_no_subject_is_proposed_for_nothing() -> None:
+    d, sheet = model_sheet([("SECTION 9-9", (40, 300, 340, 560))], title="TYPICAL DETAILS")
+    (found,) = drawn(d, sheet)
+    assert (found.subject, found.steps, found.exclusion) == (None, (), None)
+
+
+@pytest.mark.parametrize(
+    ("kind", "steps"),
+    [
+        ("beam_details", ("beams",)),
+        ("beam_layout", ("beams",)),
+        ("column_schedule", ("columns",)),
+        ("shear_wall_details", ("columns",)),
+        ("pile_details", ("foundations",)),
+        ("pile_cap_details", ("foundations",)),
+        ("foundation_details", ("foundations",)),
+        ("slab_layout", ("slabs",)),
+        ("stair_details", ("stairs",)),
+        ("tank_details", ("tanks",)),
+        ("grid_layout", ("grid",)),
+        ("details", ()),
+        ("site_plan", ()),
+        ("general_notes", ("general_notes",)),
+    ],
+)
+def test_a_structural_sheet_kind_names_its_steps(kind: str, steps: tuple[str, ...]) -> None:
+    assert views.kind_steps(kind, "structural") == steps
+
+
+@pytest.mark.parametrize(
+    ("title", "named"),
+    [
+        ("U.G.W.R DETAILS", {"tank"}),
+        ("UGWR SECTION", {"tank"}),
+        ("OVERHEAD WATER TANK DETAILS", {"tank"}),
+        ("LINTEL & SUNSHADE DETAILS", {"beam", "slab"}),
+        ("SECTION OF CHAJJA", {"slab"}),
+    ],
+)
+def test_the_subject_words_of_tanks_lintels_and_sunshades(title: str, named: set[str]) -> None:
+    assert views.subjects(title) == named
+
+
+def test_a_detail_on_a_lintel_and_sunshade_sheet_goes_to_beams_and_slabs() -> None:
+    on_sheet = views._subjects_in_order(
+        "LINTEL, SUNSHADE & TYPICAL DETAILS", views._reading(CONVENTIONS)
+    )
+    steps, _, _ = views._proposal(ViewKind.DETAIL, None, "structural", on_sheet)
+    assert steps == ("beams", "slabs")
+
+
+@pytest.mark.parametrize(
+    ("title", "exclusion"),
+    [
+        ("LINTEL LAYOUT PLAN", None),
+        ("GROUND FLOOR PLAN SHOWING LINTEL", None),
+        ("GROUND FLOOR BEAM LAYOUT PLAN", ExclusionReason.DUPLICATE),
+        ("BEAM AND LINTEL LAYOUT PLAN", ExclusionReason.DUPLICATE),
+        ("LINTEL AND BEAM LAYOUT PLAN", None),  # its subject is the lintel's
+        ("STAIR AND COLUMN PLAN", None),  # its subject is the stair, as before #158
+    ],
+)
+def test_an_architectural_lintel_plan_stays_in_walls_and_rooms(
+    title: str, exclusion: ExclusionReason | None
+) -> None:
+    d = Sheets()
+    block = frame_block(d)
+    framed(d, block, (10_000.0, 0.0), 50.0, {0: "GROUND FLOOR PLAN", 2: "A-01"})
+    grid(d, (10_000.0 + 40 * 50, 300 * 50, 10_000.0 + 340 * 50, 560 * 50))
+    d.text(title, (10_000.0 + 40 * 50, (300 - 12) * 50, 0.0), height=6.0 * 50)
+    [sheet] = sheets.find(d.artefact(), "architectural", DEFAULT)
+    (found,) = drawn(d, sheet)
+    assert found.kind is ViewKind.PLAN
+    assert (found.exclusion.reason if found.exclusion else None) == exclusion
+    assert found.steps == (() if exclusion else ("walls", "rooms"))
+
+
+def test_no_other_disciplines_sheet_kind_names_a_step() -> None:
+    assert views.kind_steps("beam_details", "architectural") == ()
+    assert views.kind_steps("beam_details", None) == ()
+
+
+def test_every_structural_kind_but_the_general_ones_names_a_step() -> None:
+    """The conventions' Structural kinds, each told a Step but those that name no subject."""
+    kinds = sheets.default_conventions().sheet_kinds["structural"]
+    told = {kind for kind in kinds if views.kind_steps(kind, "structural")}
+    assert set(kinds) - told == {"site_plan", "details", "roof_structure_details"}
+
+
 def test_steps_five_to_ten_are_proposed_for_structural_views_only() -> None:
     structural = {s for steps in views.STRUCTURAL_STEPS.values() for s in steps}
     for subject in views.STRUCTURAL_STEPS:

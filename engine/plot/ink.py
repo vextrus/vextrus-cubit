@@ -284,6 +284,48 @@ def align(
     return fine, residual_mm(sheet, carried(drawn, page, fine, grid), grid)
 
 
+def agreement(
+    page: Page,
+    buffers: SheetBuffers,
+    transform: PlotTransform,
+    plot: Path,
+    shared: Mask | None = None,
+) -> float | None:
+    """How well the page's ink, carried by the transform, lies on the sheet's: their F1 at the coarse
+    density within a pixel (a millimetre on paper), leaving out `shared` (the ink every sheet tried
+    draws alike, a frame and title block: on it any sheet agrees with any page); none when either
+    cannot be drawn."""
+    if not COARSE_PX_PER_MM / transform.scale < MAX_PX_PER_PT:
+        return None
+    try:
+        sheet, grid = sheet_ink(buffers, COARSE_PX_PER_MM)
+        drawn = picture(plot, page, COARSE_PX_PER_MM / transform.scale)
+    except PictureError, RasterError:
+        return None
+    printed = carried(drawn, page, transform, grid)
+    if shared is not None and shared.shape == sheet.shape:
+        sheet, printed = sheet & ~shared, printed & ~shared
+    return f1(sheet, printed, 1)
+
+
+def shared_ink(geometry: list[SheetBuffers]) -> Mask | None:
+    """The ink every one of the sheets draws (each widened by a pixel) at the coarse density: what a
+    page agrees with whichever of them it is; none when their papers differ."""
+    masks = []
+    for buffers in geometry:
+        try:
+            mask, _ = sheet_ink(buffers, COARSE_PX_PER_MM)
+        except RasterError:
+            return None
+        masks.append(near(mask, 1))
+    if not masks or any(m.shape != masks[0].shape for m in masks):
+        return None
+    common = masks[0].copy()
+    for m in masks[1:]:
+        common &= m
+    return common
+
+
 def refined(sheet: Mask, printed: Mask, transform: PlotTransform, grid: Grid) -> PlotTransform:
     """The transform corrected by the page's ink tile by tile: each of `TILES` x `TILES` tiles with ink
     on both finds its own shift (`FINE_SHIFT_PX` each way), and a scale about the sheet's centre and
