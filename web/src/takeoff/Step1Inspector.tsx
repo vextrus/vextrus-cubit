@@ -717,10 +717,8 @@ export function QuestionCard({
         <p className="text-xs text-ink-secondary empty:hidden">
           <Trace entry={entry} context={context} onOpen={onOpen} />
         </p>
-        <fieldset className="flex flex-col gap-1" disabled={!can || answerer.busy}>
-          <legend className="sr-only">
-            <Trans>Answers</Trans>
-          </legend>
+        {/* A radiogroup: the key map leaves the arrows to it, and Enter on an option answers (the screen's Enter). */}
+        <fieldset role="radiogroup" aria-label={t`Answers`} className="flex flex-col gap-1" disabled={!can || answerer.busy}>
           {options.map((o, i) => (
             <div key={o.key ?? i} className="flex flex-col gap-1">
               <label className={cn('flex items-start gap-2 rounded-md px-1.5 py-1', current !== null && o.key === current && 'bg-selected')}>
@@ -759,7 +757,10 @@ export function QuestionCard({
         </fieldset>
         {can ? (
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="primary" disabled={current === null || answerer.busy} onClick={() => answerer.answer(entry)}>
+            <Button
+              variant="primary"
+              disabled={current === null || (current === 'type_number' && !(choice?.text ?? '').trim()) || answerer.busy}
+              onClick={() => answerer.answer(entry)}>
               <Trans>Answer {tag}</Trans>
               <KeyCombo combo="Enter" />
             </Button>

@@ -1359,8 +1359,9 @@ def _exclude_views(
 
 def undo(project_id: uuid.UUID) -> ActView:
     """Take back the acting user's own last act on Step 1 not yet undone (a confirmation, an
-    exclusion, a drawing list). Each sheet it still decides goes back to what it carried before the
-    act (another person's decision included), or to undecided; its Proposal and its views' Coverage
+    exclusion, a drawing list); refused as `answer_stays` when that act answered a Question. Each
+    sheet it still decides goes back to what it carried before the act (another person's decision
+    included), or to undecided; its Proposal and its views' Coverage
     follow. A sheet another act has decided since is left as that act decided it."""
     auth.require(acts.UNDO, project_id)
     projects.get(project_id)  # a Project not in scope (of another Developer, or none) is not found
@@ -1373,6 +1374,10 @@ def undo(project_id: uuid.UUID) -> ActView:
         )
         if act is None:
             raise auth.Refused(said.NOTHING_TO_UNDO(), status=409)
+        if act.kind == ConfirmationKind.QUESTION_ANSWER:
+            # An answer has no undo: taking back its confirm or exclusion would leave the Question
+            # answered by sheets it no longer decides. Its sheets are still excluded or confirmed.
+            raise auth.Refused(said.ANSWER_STAYS(), status=409)
         listed = {s.id for s in _sheets(project_id) if s.confirmation_id == act.id}
         # Every sheet the act still decides, those off the sheet list now included (a held file set
         # aside after the act): drawings clears them all; a sheet off the list cannot be decided

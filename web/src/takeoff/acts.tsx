@@ -226,7 +226,7 @@ export function useStep1Acts(projectId: string): Step1Acts {
               // It stays the last act: the server's latest acts are the answer's own, which no Ctrl Z may take.
               restore([entry])
               toast.show({
-                message: <Trans>Nothing undone: Ctrl Z cannot take back an answer yet. Its sheets can still be excluded, or confirmed back in.</Trans>,
+                message: <Trans>Nothing undone: Ctrl Z does not take back an answer to a Question, or anything before it. Exclude a sheet it confirmed, or confirm back in a sheet it excluded.</Trans>,
               })
               return
             }

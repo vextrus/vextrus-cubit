@@ -329,6 +329,13 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
     toast.show({ message: <Trans>Pick an answer to {tag} first: {keys}</Trans> })
   }
 
+  /** Enter on a Question's card: answers it with the pick (or the pre-pick), else says to pick first. */
+  function enterOn(entry: QuestionEntry) {
+    if (readOnly) return refuse(readOnly)
+    if (picks[entry.question.id] || prePick(entry, cardContext(model))) void answerEntry(entry)
+    else sayPick(entry)
+  }
+
   const enter = () => {
     if (readOnly) return refuse(readOnly)
     // The exclusion picker is what the bar shows: Enter is its own (with "Other" typed), never the bar's.
@@ -336,11 +343,7 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
     // In a Question's card (its number field), Enter answers that Question, whatever row or sheet is open.
     const inCard = (document.activeElement as HTMLElement | null)?.closest<HTMLElement>('[data-question]')?.dataset.question
     const carded = inCard ? [...model.queue, ...model.withdrawn.flatMap((r) => (r.question ? [r.question] : []))].find((e) => e.question.id === inCard) : undefined
-    if (carded) {
-      if (picks[carded.question.id] || prePick(carded, cardContext(model))) void answerEntry(carded)
-      else sayPick(carded)
-      return
-    }
+    if (carded) return enterOn(carded)
     if (bar?.button?.disabled) {
       if (focusedRow?.question) sayPick(focusedRow.question)
       return

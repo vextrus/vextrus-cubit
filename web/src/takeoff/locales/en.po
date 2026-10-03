@@ -1466,6 +1466,10 @@ msgstr "Lift layout"
 msgid "confirmed {name}"
 msgstr "confirmed {name}"
 
+#: src/takeoff/acts.tsx
+msgid "Nothing undone: Ctrl Z does not take back an answer to a Question, or anything before it. Exclude a sheet it confirmed, or confirm back in a sheet it excluded."
+msgstr "Nothing undone: Ctrl Z does not take back an answer to a Question, or anything before it. Exclude a sheet it confirmed, or confirm back in a sheet it excluded."
+
 #: src/takeoff/Bar.tsx
 #: src/takeoff/Step1Screen.tsx
 msgid "Next open Question"
@@ -1491,10 +1495,6 @@ msgstr "{file} may be misread"
 #: src/takeoff/questionWords.tsx
 msgid "Pick an answer: {keys}."
 msgstr "Pick an answer: {keys}."
-
-#: src/takeoff/acts.tsx
-msgid "Nothing undone: Ctrl Z cannot take back an answer yet. Its sheets can still be excluded, or confirmed back in."
-msgstr "Nothing undone: Ctrl Z cannot take back an answer yet. Its sheets can still be excluded, or confirmed back in."
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "Kept open"

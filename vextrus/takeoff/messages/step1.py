@@ -20,6 +20,8 @@ words (21c's read job raises its own). Worded in `web/src/messages/takeoff/step1
 - `held_file` (166): as `one_source`, for sheets of a held file the QS chose to read anyway (no
   open Question holds them; they never agree, m0-screens 6.4), with the same params.
 - `nothing_to_undo`: undo with no act of the QS's own left to undo on Step 1 (409).
+- `answer_stays` (156): undo whose act to take back was made by answering a Question (its confirm
+  or exclusion); an answer has no undo, so nothing changes (409).
 - `no_number`: a Question, a sheet with no number in its title block.
 - `which_kind`: a Question, what kind of sheet `number` is (the Discipline's kinds, most likely first).
 """
@@ -29,6 +31,7 @@ from engine.messages import MessageCode
 NOTHING_CHOSEN = MessageCode("takeoff.step1.nothing_chosen")
 DISCIPLINE_UNKNOWN = MessageCode("takeoff.step1.discipline_unknown")
 NOTHING_TO_UNDO = MessageCode("takeoff.step1.nothing_to_undo")
+ANSWER_STAYS = MessageCode("takeoff.step1.answer_stays")
 QUESTION_FIRST = MessageCode(
     "takeoff.step1.question_first", params=("count", "asks", "sheet", "named", "question")
 )

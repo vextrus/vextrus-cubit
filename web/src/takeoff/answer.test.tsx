@@ -63,7 +63,7 @@ describe('after an answer (#156)', () => {
     await pickAndAnswer(1)
     await waitFor(() => expect(bodyText()).toContain('Q1 answered.'))
     await userEvent.keyboard('{Control>}z{/Control}')
-    await waitFor(() => expect(bodyText()).toContain('Nothing undone: Ctrl Z cannot take back an answer yet.'))
+    await waitFor(() => expect(bodyText()).toContain('Nothing undone: Ctrl Z does not take back an answer to a Question, or anything before it.'))
     expect(calls.filter((c) => c.endsWith('/undo'))).toEqual([])
   })
 
@@ -83,7 +83,7 @@ describe('after an answer (#156)', () => {
     await waitFor(() => expect(bodyText()).toContain('Q1 answered.'))
     for (let i = 0; i < 3; i++) {
       await userEvent.keyboard('{Control>}z{/Control}')
-      await waitFor(() => expect(bodyText()).toContain('Nothing undone: Ctrl Z cannot take back an answer yet.'))
+      await waitFor(() => expect(bodyText()).toContain('Nothing undone: Ctrl Z does not take back an answer to a Question, or anything before it.'))
     }
     await new Promise((r) => setTimeout(r, 300))
     expect(calls.filter((c) => c.endsWith('/undo'))).toEqual([])
@@ -115,5 +115,59 @@ describe('after an answer (#156)', () => {
     await userEvent.keyboard('{Enter}')
     await new Promise((r) => setTimeout(r, 400))
     expect(calls.filter((c) => c.startsWith('POST'))).toEqual([])
+  })
+})
+
+// Fix round 1, F1 (75): the card's options take focus, so Enter on one and the arrows between them
+// are the card's own: the key map leaves a radio's Enter and a radiogroup's arrows to the focused element.
+describe('keys on a card’s options (#156, fix round 1)', () => {
+  it('answers on Enter with an option focused after a click (A2)', async () => {
+    const { fake, question } = await openWith('same_number')
+    await userEvent.keyboard('q')
+    const card = await screen.findByRole('region', { name: (n: string) => clean(n) === 'Question Q1' })
+    const first = within(card).getAllByRole('radio')[0]!
+    await userEvent.click(first)
+    expect(document.activeElement).toBe(first)
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(fake.posted).toHaveLength(1))
+    expect(fake.posted[0]!.question).toBe(question.id)
+    expect(fake.posted[0]!.body).toMatchObject({ option: question.options[0]!.key })
+  })
+
+  it('moves the pick with the arrows inside the card, the card staying in the Selection (A3)', async () => {
+    const { fake, question } = await openWith('same_number')
+    await userEvent.keyboard('q')
+    const card = await screen.findByRole('region', { name: (n: string) => clean(n) === 'Question Q1' })
+    await userEvent.keyboard('1')
+    const radios = within(card).getAllByRole('radio')
+    radios[0]!.focus()
+    await userEvent.keyboard('{ArrowDown}')
+    await waitFor(() => expect((radios[1] as HTMLInputElement).checked).toBe(true))
+    expect(document.activeElement).toBe(radios[1])
+    expect(card.isConnected).toBe(true)
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(fake.posted).toHaveLength(1))
+    expect(fake.posted[0]!.body).toMatchObject({ option: question.options[1]!.key })
+  })
+
+  it('names the options as one group of answers', async () => {
+    await openWith('same_number')
+    await userEvent.keyboard('q')
+    const card = await screen.findByRole('region', { name: (n: string) => clean(n) === 'Question Q1' })
+    expect(within(card).getByRole('radiogroup', { name: 'Answers' })).toBeTruthy()
+  })
+
+  it('keeps Answer off until a number is typed under "Type a number"', async () => {
+    const { question } = await openWith('missing')
+    await userEvent.keyboard('q')
+    const card = await screen.findByRole('region', { name: (n: string) => clean(n) === 'Question Q1' })
+    await userEvent.keyboard(String(question.options.findIndex((o) => o.key === 'type_number') + 1))
+    const field = await within(card).findByRole('textbox')
+    const button = within(card).getByRole('button', { name: (n: string) => clean(n).startsWith('Answer Q1') })
+    expect((button as HTMLButtonElement).disabled).toBe(true)
+    await userEvent.type(field, '  ')
+    expect((button as HTMLButtonElement).disabled).toBe(true)
+    await userEvent.type(field, 'S-99')
+    expect((button as HTMLButtonElement).disabled).toBe(false)
   })
 })
