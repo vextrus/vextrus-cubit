@@ -321,7 +321,9 @@ def test_a_sheet_with_no_plot_recorded_says_whether_a_pdf_is_there_to_match(
     assert refused == (said.PLOT_PDF_REFUSED(), said.PLOT_NOT_YET())
     assert added == (said.PLOT_NOT_YET(), said.PLOT_NOT_YET())
     assert unread[0] == said.PLOT_PDF_UNREAD()  # failed and refused: none that could be read
-    assert read[0] == said.PLOT_NO_PAGE(plot_file="KR-STR-R0 again.pdf")
+    # Read, with no match kept for the sheet: never "no page of it matched", nor "still being read"
+    # (#157: only a match that ran says no page matched; the PDF is read).
+    assert read[0] == said.PLOT_NOT_MATCHED(plot_file="KR-STR-R0 again.pdf")
 
 
 # The sheet list --------------------------------------------------------------------------------------
