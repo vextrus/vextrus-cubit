@@ -149,6 +149,11 @@ class Step1CoverageOut(_FromView):
     """The sheets left out for unreadable writing (#135): counted, never silently unread."""
 
 
+class Step1OutstandingOut(Schema):
+    code: str
+    params: dict[str, int]
+
+
 class Step1DisciplineProgressOut(Schema):
     discipline: str | None
     confirmed: int
@@ -160,6 +165,9 @@ class Step1DisciplineProgressOut(Schema):
     open_questions: int
     status: str
     """The StepProgress status: `in_review`, `confirmed` (m0-screens 6.11) or `not_started`."""
+    outstanding: list[Step1OutstandingOut]
+    """What keeps it from `confirmed`, in m0-screens 5's order, each a code with how many
+    (`takeoff.step1.views_unaccounted` `{count}`, #158); empty once confirmed."""
 
 
 class Step1ProgressOut(_FromView):
@@ -180,6 +188,13 @@ class Step1ActOut(_FromView):
 class Step1ConfirmIn(Schema):
     proposals: list[uuid.UUID]
     kind: str | None = None
+
+
+class Step1AssignIn(Schema):
+    proposals: list[uuid.UUID]
+    """The views' Proposals (Coverage's `unaccounted_views[].id`)."""
+    steps: list[str]
+    """Takeoff Step keys, 2 to 14 (`vextrus/takeoff/library.py`)."""
 
 
 class Step1ExcludeIn(Schema):
@@ -227,6 +242,7 @@ class Step1DrawingListOut(_FromView):
 
 __all__ = [
     "Step1ActOut",
+    "Step1AssignIn",
     "Step1ConfirmIn",
     "Step1CoverageOut",
     "Step1DrawingListIn",
