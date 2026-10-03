@@ -331,7 +331,7 @@ def test_nothing_from_a_cancelled_failed_held_or_refused_file_is_in_the_sheet_li
 ) -> None:
     member = qs_project.member
     ended = {}
-    for end in ("read", "cancelled", "failed", "held", "held_read_anyway"):
+    for end in ("read", "cancelled", "failed", "held", "held_read_anyway", "held_reading_anyway"):
         found = add(member, qs_project.project_id, f"{end}-STR.dwg", drawing()).file
         read_dwg(member, found.id, [f"S-{end}"], mark_read=False)
         with member.acting():
@@ -343,15 +343,17 @@ def test_nothing_from_a_cancelled_failed_held_or_refused_file_is_in_the_sheet_li
                 services.mark_failed(found.id, {"code": "engine.decoders_agree.stopped", "params": {}})
             else:
                 services.quarantine(found.id, {"code": "engine.decoders_agree.disagree", "params": {}})
-                if end == "held_read_anyway":
+                if end != "held":
                     services.answer_held(found.id, "read_anyway")
+                if end == "held_read_anyway":  # its re-read ended (#165: not listed before)
+                    services.mark_read(found.id)
         ended[end] = found
     with member.acting():
         listed = services.sheets(ended["read"].set_id)
         steps_kept = one("select count(*) from drawings_readstep")
         printed_kept = one("select count(*) from drawings_sheetrevision")
     assert [(s.number, s.held) for s in listed] == [("S-held_read_anyway", True), ("S-read", False)]
-    assert printed_kept == 5
+    assert printed_kept == 6
     assert steps_kept == 0
 
 

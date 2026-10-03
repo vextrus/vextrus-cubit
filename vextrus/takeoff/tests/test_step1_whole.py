@@ -710,7 +710,9 @@ def test_no_route_confirms_a_left_out_sheet_back_in_while_its_blocking_question_
     when: str,
     route: str,
 ) -> None:
-    jev_says(jev_offline, "0.34")
+    # The bulk act of an unnumbered sheet's file: Jev sure of the kinds, so no low-confidence
+    # Question holds its other sheet (m0-screens 6.4, ticket 166: only agreeing sheets join it).
+    jev_says(jev_offline, "0.97" if (route, kind) == ("bulk", "missing") else "0.34")
     question_id, sheet_id, _number = _blocked(qs_project, monkeypatch, kind)
     api = api_as(qs_project.member)
     assert keys(_question(api, qs_project.project_id, question_id)) == WITHDRAWABLE[kind]
@@ -727,6 +729,24 @@ def test_no_route_confirms_a_left_out_sheet_back_in_while_its_blocking_question_
     ]
 
     if route == "single":
+        back_in = confirm(api, qs_project.project_id, [sheet_id])
+    elif route == "bulk" and kind == "missing" and option != KEEP_OPEN:
+        # Ticket 166 (m0-screens 6.4 overrides): the batch agrees first (a drawing list the QS
+        # types), but a sheet whose number is typed or absent has one source and never joins a bulk
+        # act: refused whole, nothing confirmed; it comes back in on its own.
+        listed = api.post(
+            f"{step1(qs_project.project_id)}/drawing-list",
+            {"discipline": "structural", "text": "S-01"},
+        )
+        assert listed.status_code == 200, listed.content
+        assert the(proposals(api, qs_project.project_id), "S-01")["agrees"] is True
+        bulk = confirm(
+            api, qs_project.project_id, [p["id"] for p in proposals(api, qs_project.project_id)]
+        )
+        assert bulk.status_code == 409, bulk.content
+        assert bulk.json()["code"] == "takeoff.step1.one_source"
+        assert bulk.json()["params"]["sheets"] == [sheet_id]
+        assert all(p["decision"] != "confirmed" for p in proposals(api, qs_project.project_id))
         back_in = confirm(api, qs_project.project_id, [sheet_id])
     elif route == "bulk":
         back_in = confirm(
@@ -801,6 +821,20 @@ def _read_anyway_stopped_after_its_sheets(qs: QsProject, monkeypatch: pytest.Mon
     return lambda: run_job(qs.member, file_id, monkeypatch, use)
 
 
+def _recorded_unnumbered(member: Member) -> str:
+    """The one recorded sheet with no number, listed or not (read in the member's tenant: no Step 1
+    API lists a sheet off the sheet list)."""
+    from django.db import connection
+
+    with member.acting(), connection.cursor() as cursor:
+        cursor.execute(
+            "select sr.id from drawings_sheetrevision sr join drawings_sheet s on s.id = sr.sheet_id"
+            " where s.number = ''"
+        )
+        [(found,)] = cursor.fetchall()
+    return str(found)
+
+
 def test_a_read_anyway_sheet_is_not_decided_before_its_read_asks_its_questions(
     qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -808,11 +842,14 @@ def test_a_read_anyway_sheet_is_not_decided_before_its_read_asks_its_questions(
     number, so an unnumbered sheet was confirmed with no Question to hold it, for good."""
     read_on = _read_anyway_stopped_after_its_sheets(qs_project, monkeypatch)
     api = api_as(qs_project.member)
-    unnumbered = the(proposals(api, qs_project.project_id), None)
+    # #165: in this window the file lists nothing (its sheets join with their Questions); the sheet
+    # is taken from those its read recorded.
+    sheet_id = _recorded_unnumbered(qs_project.member)
+    assert proposals(api, qs_project.project_id) == []
     assert open_questions(api, qs_project.project_id, "missing") == []
 
-    early = confirm(api, qs_project.project_id, [unnumbered["sheet_id"]])
-    left_out = exclude(api, qs_project.project_id, [unnumbered["sheet_id"]], "blank")
+    early = confirm(api, qs_project.project_id, [sheet_id])
+    left_out = exclude(api, qs_project.project_id, [sheet_id], "blank")
 
     assert (early.status_code, early.json()) == (404, NOT_FOUND)
     assert (left_out.status_code, left_out.json()) == (404, NOT_FOUND)
