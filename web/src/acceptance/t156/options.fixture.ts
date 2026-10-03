@@ -7,7 +7,7 @@
  */
 
 /** Every Discipline key the Bangladesh Market has (vextrus/drawings/library.py). */
-export const DISCIPLINES = ['structural', 'architectural', 'electrical', 'plumbing', 'fire', 'mechanical', 'lift', 'gas'] as const
+export const DISCIPLINES = ['structural', 'architectural', 'electrical', 'plumbing', 'fire', 'mechanical', 'lift', 'gas', 'general'] as const
 
 /** Every sheet kind Jev may rank for a sheet (sheet-default.json's `sheet_kinds`, then `common_sheet_kinds`). */
 export const SHEET_KINDS = [
