@@ -253,6 +253,33 @@ def test_a_plot_page_no_sheet_could_be_on_leaves_the_drawings_paper(page: tuple[
     assert found == pytest.approx((own.width_mm, own.height_mm))
 
 
+def test_a_frame_read_at_its_scale_inside_the_plot_pages_edge_keeps_that_scale() -> None:
+    """#160 round 2's real run: set L's A3 frames are drawn 409 x 288 mm (a border inside the sheet's
+    edge) and read at their insert's 1:73; fitting that border to the 420 x 297 page enlarged every
+    drawing by 2.7 % and its ink fell off the Plot's. The page gives the paper; the drawing's read
+    scale, which lays the box on it within `FRAME_MATCH`, is kept, in views and buffers alike."""
+    from engine.render import buffers
+
+    d, sheet = model_sheet([("BEAM LAYOUT PLAN", (40, 300, 340, 560))], scale=50.0)
+    template = sheet.anchors[0]
+    assert isinstance(template, DwgAnchor)
+    block = d.block("A3-BORDER")
+    d.entity("LWPOLYLINE", rectangle(0, 0, 409 / 25.4, 288 / 25.4), owner=block)
+    ins = d.insert(block, (500_000.0, 0.0, 0.0), scale=(73.0, 73.0, 73.0))
+    artefact = d.artefact()
+    artefact = replace(artefact, summary=replace(artefact.summary, insunits=1))
+    box = Box(500_000.0, 0.0, 500_000.0 + 409 / 25.4 * 73, 288 / 25.4 * 73)
+    framed = SheetCandidate(SheetLocation(box=box), anchors=(replace(template, handle=ins, inserts=()),))
+    page = (297.0, 420.0)
+    paper = buffers.build(artefact, framed, page).paper
+    assert (paper.width_mm, paper.height_mm) == pytest.approx((420, 297))
+    assert paper.mm_per_unit == pytest.approx(25.4 / 73)
+    assert views.find(artefact, framed, CONVENTIONS, page).paper == pytest.approx((420, 297))
+    # A drawing whose read scale would not lay it on the page (an A1 frame on an A3 page) is fitted.
+    small = buffers.build(artefact, framed, (210.0, 148.0)).paper
+    assert small.mm_per_unit == pytest.approx(min(210 / (409 / 25.4 * 73), 148 / (288 / 25.4 * 73)))
+
+
 def test_a_views_box_on_a_plot_pages_paper_lies_over_the_buffers_drawing() -> None:
     """#160: on a matched Plot page's paper, a view's box (paper mm) is where the buffer draws the same
     model-space lines: one paper, one origin, one scale."""

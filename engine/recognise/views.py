@@ -590,11 +590,11 @@ def _paper(
         model = walker.model()
         if box is None or model is None:
             return None
-        fitted = _plot_paper(box, plot) if plot is not None else None
+        scale, read = _paper_scale(artefact, frame, box)
+        fitted = _plot_paper(box, plot, scale if read else None) if plot is not None else None
         if fitted is not None:
             scale, (ox, oy), (paper_w, paper_h) = fitted
         else:
-            scale, _ = _paper_scale(artefact, frame, box)
             ox, oy = box.x0, box.y0
             paper_w, paper_h = (box.x1 - box.x0) / scale, (box.y1 - box.y0) / scale
         to_paper = scaling(1 / scale, 1 / scale) @ translation(-ox, -oy)
@@ -738,7 +738,7 @@ def _extent(segments: NDArray[np.float64], texts: list[_Text]) -> Bounds | None:
 
 
 def _plot_paper(
-    box: Box, plot: tuple[float, float]
+    box: Box, plot: tuple[float, float], read: float | None = None
 ) -> tuple[float, tuple[float, float], tuple[float, float]] | None:
     """A model-space sheet's paper where its Plot page was matched (#160, the ruling of session 09):
     the page's paper, in mm, at the scale that fits the frame's box to it, the box centred on it.
@@ -746,7 +746,10 @@ def _plot_paper(
     none for a page or a box with no size. The paper keeps model space's axes: a page whose
     orientation differs from the box's plotted the sheet turned (the Plot's registration turns it
     back), so its sides are taken in the box's orientation. A page larger than any sheet
-    (`MAX_PAPER_MM`) gives none, and the sheet keeps the paper its drawing gives."""
+    (`MAX_PAPER_MM`) gives none, and the sheet keeps the paper its drawing gives. `read` is the scale
+    the drawing gave (`_paper_scale`, read): where it lays the box on the page within `FRAME_MATCH`
+    (a frame's border drawn inside the sheet's edge, as set L's A3 frames: 409 mm on a 420 mm page),
+    it is kept, since fitting the border to the page's edge would enlarge the drawing by its margin."""
     width, height = box.x1 - box.x0, box.y1 - box.y0
     sides = (width, height, *plot)
     if not all(math.isfinite(v) and v > 0 for v in sides):
@@ -758,6 +761,8 @@ def _plot_paper(
     scale = max(width / paper_w, height / paper_h)
     if not (math.isfinite(scale) and scale > 0):
         return None
+    if read is not None and math.isfinite(read) and scale <= read <= scale / (1 - FRAME_MATCH):
+        scale = read  # the drawing's scale lays the box on the page, inside its edge
     origin = (box.x0 - (paper_w * scale - width) / 2, box.y0 - (paper_h * scale - height) / 2)
     if not all(map(math.isfinite, origin)):
         return None

@@ -527,12 +527,12 @@ def _model_paper(
     buffer draws."""
     from engine.recognise import views  # views imports this module (the viewport rules)
 
-    fitted = views._plot_paper(box, plot) if plot is not None else None
-    if fitted is not None:
-        scale, origin, (width_mm, height_mm) = fitted
-        return Paper(width_mm, height_mm, 1 / scale, PaperSource.STANDARD, origin)
     frame = next((a for a in sheet.anchors if isinstance(a, DwgAnchor)), None)
     scale, read = views._paper_scale(artefact, frame, box)
+    fitted = views._plot_paper(box, plot, scale if read else None) if plot is not None else None
+    if fitted is not None:
+        plotted, origin, (width_mm, height_mm) = fitted
+        return Paper(width_mm, height_mm, 1 / plotted, PaperSource.STANDARD, origin)
     mm_per_unit = 1 / scale
     source = PaperSource.STANDARD if read else PaperSource.ASSUMED
     width, height = box.x1 - box.x0, box.y1 - box.y0
