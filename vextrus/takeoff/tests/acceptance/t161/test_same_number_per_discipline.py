@@ -231,8 +231,10 @@ def test_a_confirmed_sheet_is_held_by_no_open_question_with_another_files_sheet(
     ])  # fmt: skip
     api = api_as(qs_project.member)
     structural = [p["id"] for p in proposals(api, qs_project.project_id)]
-    response = confirm(api, qs_project.project_id, structural)
-    assert response.status_code == 200, response.content
+    # m0-screens 6.4 (ruled at #166): one-source sheets are confirmed one by one, never in bulk.
+    for one in structural:
+        response = confirm(api, qs_project.project_id, [one])
+        assert response.status_code == 200, response.content
 
     read(qs_project, monkeypatch, NO_DISCIPLINE, [
         Sheet(f"{n:02d}", f"SITE NOTES {n}", ("SITE NOTES",)) for n in (1, 2, 3)
