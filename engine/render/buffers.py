@@ -11,7 +11,9 @@ What a sheet holds
   scaled, turned by their twist and cut to their rectangles); its paper is the layout's used extents
   in its plot-paper units, inches or millimetres (`paper_source` 0; #87). A sheet in model space
   draws what lies in its box, cut to it, on the paper the views (17) lay its boxes on, by the one rule
-  (`views._paper_scale`, #160): the frame insert's scale (the frame block drawn at paper size, in mm;
+  (#160): where its Plot page was matched (`build(..., plot)`), that page's paper at the scale that
+  fits the box to it, the box centred (`views._plot_paper`, `paper_source` 1); else
+  (`views._paper_scale`) the frame insert's scale (the frame block drawn at paper size, in mm;
   a turned frame keeps model space's axes, so a turned A3 is 297 wide and 420 tall), else a standard
   sheet (ISO A0-A5, ANSI A-E, ARCH A-E1) when the box is one, within 0.5 %, at a standard scale (both
   `paper_source` 1, read from the drawing); otherwise the standard paper side the box takes at the
@@ -195,7 +197,7 @@ DEFAULT_LIMITS = Limits()
 
 class PaperSource:
     LAYOUT = 0  # the layout's own plot settings: reserved, since the ReadArtefact does not carry them
-    STANDARD = 1  # read from the drawing: a standard sheet, or a model-space frame insert's scale
+    STANDARD = 1  # read: a standard sheet, a model-space frame insert's scale, or its matched Plot page
     ASSUMED = 2
 
 
@@ -517,11 +519,18 @@ def _paper_for_box(
     return Paper(width * mm_per_unit, height * mm_per_unit, mm_per_unit, source, (x0, y0))
 
 
-def _model_paper(artefact: ReadArtefact, sheet: SheetCandidate, box: Box) -> Paper:
-    """A model-space sheet's paper, by views' one rule for it (`views._paper_scale`, the module's
-    docstring), so a view's box lies over what the buffer draws."""
+def _model_paper(
+    artefact: ReadArtefact, sheet: SheetCandidate, box: Box, plot: tuple[float, float] | None = None
+) -> Paper:
+    """A model-space sheet's paper, by views' one rule for it (`views._plot_paper` where its Plot page
+    was matched, else `views._paper_scale`; the module's docstring), so a view's box lies over what the
+    buffer draws."""
     from engine.recognise import views  # views imports this module (the viewport rules)
 
+    fitted = views._plot_paper(box, plot) if plot is not None else None
+    if fitted is not None:
+        scale, origin, (width_mm, height_mm) = fitted
+        return Paper(width_mm, height_mm, 1 / scale, PaperSource.STANDARD, origin)
     frame = next((a for a in sheet.anchors if isinstance(a, DwgAnchor)), None)
     scale, read = views._paper_scale(artefact, frame, box)
     mm_per_unit = 1 / scale
@@ -1071,7 +1080,7 @@ class _Sheet:
 
 
 def _space(
-    artefact: ReadArtefact, sheet: SheetCandidate
+    artefact: ReadArtefact, sheet: SheetCandidate, plot: tuple[float, float] | None = None
 ) -> tuple[str, Paper, tuple[float, float, float, float] | None]:
     """The block the sheet draws, its paper, and the window it is cut to (in drawing units)."""
     location = sheet.location
@@ -1099,7 +1108,7 @@ def _space(
     if handle is None:
         raise ValueError("the drawing has no model space")
     b = location.box
-    return handle, _model_paper(artefact, sheet, b), (b.x0, b.y0, b.x1, b.y1)
+    return handle, _model_paper(artefact, sheet, b, plot), (b.x0, b.y0, b.x1, b.y1)
 
 
 def _layout_box(artefact: ReadArtefact, handle: str) -> tuple[tuple[float, float, float, float], bool]:
@@ -1528,10 +1537,15 @@ def _viewports(
 
 
 def build(
-    artefact: ReadArtefact, sheet: SheetCandidate, *, limits: Limits = DEFAULT_LIMITS
+    artefact: ReadArtefact,
+    sheet: SheetCandidate,
+    plot: tuple[float, float] | None = None,
+    *,
+    limits: Limits = DEFAULT_LIMITS,
 ) -> SheetBuffers:
-    """The sheet's buffers (the module's docstring)."""
-    block, paper, window = _space(artefact, sheet)
+    """The sheet's buffers (the module's docstring). `plot` is the paper of the Plot page matched to a
+    model-space sheet, in mm (`views._plot_paper`; a layout's paper is its own)."""
+    block, paper, window = _space(artefact, sheet, plot)
     values = (paper.width_mm, paper.height_mm, paper.mm_per_unit, *paper.origin)
     if min(paper.width_mm, paper.height_mm) <= 0:
         raise ValueError("the sheet's paper has no area")

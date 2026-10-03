@@ -26,7 +26,9 @@ in mm or in the drawing's units, the frame as it stands in model space's axes: a
 and 420 tall), else, for a frame drawn as a rectangle or a scale giving no standard sheet (a frame
 block drawn at a fraction of its plotted size), a standard sheet when the box is one at a standard scale
 in the drawing's units (both sides, the render buffers' `_standard_sheet`), else the scale that makes the
-frame a standard paper size (`PAPER_SIDES`) at the roundest scale (`ROUND_SCALES`). This
+frame a standard paper size (`PAPER_SIDES`) at the roundest scale (`ROUND_SCALES`). Where the sheet's
+Plot page was matched (the harness passes its paper, `find(..., plot)`), its paper is that page's at the
+scale that fits the frame's box to it, the box centred (`_plot_paper`), before any of these. This
 is the one rule for a model-space sheet's paper: the render buffers lay theirs by `_paper_scale` too, so
 a view's box and the drawing under it cannot drift apart (#160).
 
@@ -503,7 +505,9 @@ class _Paper:
     """The handles of the values 13 read (among `block`): where the title block is sought from."""
 
 
-def _paper(artefact: ReadArtefact, sheet: SheetCandidate) -> _Paper | None:
+def _paper(
+    artefact: ReadArtefact, sheet: SheetCandidate, plot: tuple[float, float] | None = None
+) -> _Paper | None:
     walker = _walker(artefact)
     frame = next((a for a in sheet.anchors if isinstance(a, DwgAnchor)), None)
     values = frozenset(a.handle for a in sheet.anchors[1:] if isinstance(a, DwgAnchor))
@@ -579,10 +583,18 @@ def _paper(artefact: ReadArtefact, sheet: SheetCandidate) -> _Paper | None:
         model = walker.model()
         if box is None or model is None:
             return None
-        scale, _ = _paper_scale(artefact, frame, box)
-        to_paper = scaling(1 / scale, 1 / scale) @ translation(-box.x0, -box.y0)
-        region = (0.0, 0.0, (box.x1 - box.x0) / scale, (box.y1 - box.y0) / scale)
-        parts.append((model, to_paper, (box.x0, box.y0, box.x1, box.y1), region))
+        fitted = _plot_paper(box, plot) if plot is not None else None
+        if fitted is not None:
+            scale, (ox, oy), (paper_w, paper_h) = fitted
+        else:
+            scale, _ = _paper_scale(artefact, frame, box)
+            ox, oy = box.x0, box.y0
+            paper_w, paper_h = (box.x1 - box.x0) / scale, (box.y1 - box.y0) / scale
+        to_paper = scaling(1 / scale, 1 / scale) @ translation(-ox, -oy)
+        region = (0.0, 0.0, paper_w, paper_h)
+        x0, y0 = (box.x0 - ox) / scale, (box.y0 - oy) / scale
+        shown_box = (x0, y0, x0 + (box.x1 - box.x0) / scale, y0 + (box.y1 - box.y0) / scale)
+        parts.append((model, to_paper, (box.x0, box.y0, box.x1, box.y1), shown_box))
 
     segments: list[NDArray[np.float64]] = []
     frame_segments: list[NDArray[np.float64]] = []
@@ -716,6 +728,30 @@ def _extent(segments: NDArray[np.float64], texts: list[_Text]) -> Bounds | None:
     if not xs or max(xs) <= min(xs) or max(ys) <= min(ys):
         return None
     return (min(xs), min(ys), max(xs), max(ys))
+
+
+def _plot_paper(
+    box: Box, plot: tuple[float, float]
+) -> tuple[float, tuple[float, float], tuple[float, float]] | None:
+    """A model-space sheet's paper where its Plot page was matched (#160, the ruling of session 09):
+    the page's paper, in mm, at the scale that fits the frame's box to it, the box centred on it.
+    Model units per paper mm, the paper's lower-left corner in model units, and its width and height;
+    none for a page or a box with no size. The paper keeps model space's axes: a page whose
+    orientation differs from the box's plotted the sheet turned (the Plot's registration turns it
+    back), so its sides are taken in the box's orientation."""
+    width, height = box.x1 - box.x0, box.y1 - box.y0
+    sides = (width, height, *plot)
+    if not all(math.isfinite(v) and v > 0 for v in sides):
+        return None
+    long_mm, short_mm = max(plot), min(plot)
+    paper_w, paper_h = (long_mm, short_mm) if width >= height else (short_mm, long_mm)
+    scale = max(width / paper_w, height / paper_h)
+    if not (math.isfinite(scale) and scale > 0):
+        return None
+    origin = (box.x0 - (paper_w * scale - width) / 2, box.y0 - (paper_h * scale - height) / 2)
+    if not all(map(math.isfinite, origin)):
+        return None
+    return scale, origin, (paper_w, paper_h)
 
 
 def _paper_scale(artefact: ReadArtefact, frame: DwgAnchor | None, box: Box) -> tuple[float, bool]:
@@ -1270,14 +1306,18 @@ LIMITS = ("viewports_capped", "scan_budget", "read_budget")
 
 
 def find(
-    artefact: ReadArtefact, sheet: SheetCandidate, conventions: ViewConventions | None = None
+    artefact: ReadArtefact,
+    sheet: SheetCandidate,
+    conventions: ViewConventions | None = None,
+    plot: tuple[float, float] | None = None,
 ) -> FoundViews:
-    """The sheet's views, in reading order (the module's docstring)."""
+    """The sheet's views, in reading order (the module's docstring). `plot` is the paper of the Plot
+    page matched to a model-space sheet, in mm (`_plot_paper`; a layout's paper is its own)."""
     if not isinstance(sheet, SheetCandidate):
         raise TypeError(f"a sheet is a SheetCandidate, not {type(sheet).__name__}")
     held = conventions if conventions is not None else default_conventions()
     reading = _reading(held)
-    paper = _paper(artefact, sheet)
+    paper = _paper(artefact, sheet, plot)
     if paper is None:
         empty = FoundViews()
         empty.limits = _report(artefact)

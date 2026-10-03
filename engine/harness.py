@@ -36,6 +36,15 @@ Check can tell "not read" from "none found", and `conflicts.find` gets each shee
 where views were not read). Both get the conventions the sheets were read with (none when the run has no
 sheet conventions), since reading a sheet number takes them (19b).
 
+**The Plot's paper** (#160, the ruling of session 09): a model-space sheet whose Plot page is matched
+lies on that page's paper, and its views and buffers both read it. The match needs the buffers (where it
+places a sheet, and its ink), so it runs on the first read (`_plot_papers`, the `plot` stage's function
+as the set stage calls it); each DWG file with a matched model-space sheet whose paper is not already
+its page's is then read again, its views and buffers given the page's paper (`views.find(..., plot)`,
+`buffers.build(..., plot)`, in mm), and that read replaces the first (`_read_again`; the first stands
+when the second fails or reads other sheets). The set stages then run as above, the Plot matched again
+on the papers it shows.
+
 **What the harness reads from a result** it does not type itself, through its JSON form
 (`engine.export.to_json`): the artefact's `summary`, its `format` and its `entity_counts` (names to
 counts); a report's `counts` (names to counts), or the report itself when it is only that (the font
@@ -415,9 +424,11 @@ def _read_dwg(job: Mapping[str, Any], stages: _Stages) -> dict[str, Any]:
     views: list[list[ViewCandidate]] = [[] for _ in sheets or []]
     papers: list[tuple[float, float] | None] = [None for _ in sheets or []]
     missing = needs_sheets or (None if view_conventions is not None else "view conventions")
+    plotted = {int(j): (float(w), float(h)) for j, (w, h) in job.get("plot_papers", {}).items()}
     if find_views := stages.open("views", missing):
         for j, sheet in enumerate(sheets or []):
-            ok, result = stages.call("views", find_views, artefact, sheet, view_conventions)
+            plot = (plotted[j],) if j in plotted else ()
+            ok, result = stages.call("views", find_views, artefact, sheet, view_conventions, *plot)
             listed_views = _list_of(stages, "views", result, ViewCandidate) if ok else None
             views[j] = listed_views or []
             papers[j] = _paper_of(result) if listed_views is not None else None
@@ -428,7 +439,8 @@ def _read_dwg(job: Mapping[str, Any], stages: _Stages) -> dict[str, Any]:
     buffers: list[object | None] = [None for _ in sheets or []]
     if build_buffers := stages.open("render_buffers", needs_sheets):
         for j, sheet in enumerate(sheets or []):
-            ok, result = stages.call("render_buffers", build_buffers, artefact, sheet)
+            plot = (plotted[j],) if j in plotted else ()
+            ok, result = stages.call("render_buffers", build_buffers, artefact, sheet, *plot)
             buffers[j] = result if ok else None
     built_buffers = stages.reports["render_buffers"].state in (StageState.OK, StageState.FAILED)
     if rasterise := stages.open("rasterise", None if built_buffers else "render_buffers"):
@@ -783,6 +795,7 @@ def _read_file(
     built: Mapping[str, bool],
     file_timeout: float,
     launcher: _Launcher,
+    plot_papers: Mapping[int, tuple[float, float]] | None = None,
 ) -> FileReading:
     path = set_dir / relative
     kind = FORMATS[path.suffix.lower()]
@@ -805,6 +818,7 @@ def _read_file(
         "progress": str(progress),
         "keep_pages": built["plot"],
         "keep_buffers": built["plot"] and built["render_f1"],
+        "plot_papers": {str(j): list(paper) for j, paper in (plot_papers or {}).items()},
     }
     job_path.write_text(json.dumps(job), encoding="utf-8")
     reply = launcher.launch(job_path, log, file_timeout)
@@ -898,6 +912,90 @@ def _file_stages(
                 StageState.SKIPPED, error=f"the file's process ended before this stage ({how})"
             )
     return {name: reports[name] for name in FILE_STAGES[kind]}
+
+
+def _plot_papers(
+    files: Sequence[FileReading],
+    targets: Mapping[str, str],
+    built: Mapping[str, bool],
+    set_dir: Path,
+) -> dict[int, dict[int, tuple[float, float]]]:
+    """The Plot's papers for the model-space sheets read on another (#160, the ruling of session 09):
+    by file, by sheet, the paper in mm of the page the Plot is matched to, for each file to be read
+    again with them, so that its views and buffers lie on the one paper the Plot shows. The match is
+    the `plot` stage's, run as `_read_set` runs it, on the first read; nothing when it cannot run on
+    the whole set or fails (the stage then says so in `_read_set`). A paper within `PLOT_FITS` of the
+    page's on each side is the page's already: its file is not read again for it."""
+    if not built.get("plot") or not all(
+        f.stages[name].state is StageState.OK
+        for f in files
+        for name in (("page_text",) if f.format == "pdf" else ("sheets",))
+    ):
+        return {}
+    match, _ = resolve(targets["plot"])
+    if match is None:
+        return {}
+    where = {id(sheet): (i, j) for i, f in enumerate(files) for j, sheet in enumerate(f.sheets)}
+    sheets = [sheet for f in files for sheet in f.sheets]
+    geometry = [
+        f.buffers[j] if j < len(f.buffers) else None for f in files for j in range(len(f.sheets))
+    ]
+    plots = {f.sha256: set_dir / f.path for f in files if f.format == "pdf"}
+    disciplines = {f.sha256: f.discipline_default for f in files if f.format == "pdf"}
+    pages = [page for f in files for page in f.pages]
+    try:
+        matches = match(pages, sheets, geometry, plots, disciplines)
+    except Exception:
+        return {}
+    papers: dict[int, dict[int, tuple[float, float]]] = {}
+    for m in matches if isinstance(matches, list) else []:
+        sheet, page = getattr(m, "sheet", None), getattr(m, "page", None)
+        if sheet is None or id(sheet) not in where or sheet.location.layout is not None:
+            continue
+        size = (getattr(page, "width", None), getattr(page, "height", None))
+        if not all(isinstance(v, int | float) and math.isfinite(v) and v > 0 for v in size):
+            continue
+        paper = (float(size[0]) / PT_PER_MM, float(size[1]) / PT_PER_MM)  # type: ignore[arg-type]
+        i, j = where[id(sheet)]
+        reading = files[i]
+        now = reading.papers[j] if j < len(reading.papers) else None
+        if j < len(reading.buffers) and reading.buffers[j] is not None:
+            drawn = getattr(reading.buffers[j], "paper", None)
+            now = (drawn.width_mm, drawn.height_mm) if drawn is not None else now
+        if now is not None and _same_paper(now, paper):
+            continue
+        papers.setdefault(i, {})[j] = paper
+    return papers
+
+
+PT_PER_MM = 72 / 25.4
+PLOT_FITS = 0.01
+"""A sheet's paper is its Plot page's when each side is within 1 % of the page's, turned or not (a
+plot's rounding, as the registration's `FITS`)."""
+
+
+def _same_paper(a: tuple[float, float], b: tuple[float, float]) -> bool:
+    return all(abs(x - y) <= PLOT_FITS * y for x, y in zip(sorted(a), sorted(b), strict=True))
+
+
+def _read_again(first: FileReading, again: FileReading) -> FileReading:
+    """The file read again on its Plot's papers, in place of its first read, when it read the same
+    sheets (by their numbers, in order) and its process ended well; else the first read stands. The
+    file's seconds and CPU seconds are both reads', its peak the higher."""
+    numbers = [(s.number.value if s.number is not None else None) for s in first.sheets]
+    if again.process.status is not ProcessStatus.OK or numbers != [
+        (s.number.value if s.number is not None else None) for s in again.sheets
+    ]:
+        return first
+    process = replace(
+        again.process,
+        seconds=first.process.seconds + again.process.seconds,
+        cpu_seconds=first.process.cpu_seconds + again.process.cpu_seconds,
+        peak_rss_kib=max(first.process.peak_rss_kib, again.process.peak_rss_kib),
+        left_behind=first.process.left_behind + again.process.left_behind,
+        left_running=first.process.left_running or again.process.left_running,
+    )
+    return replace(again, process=process)
 
 
 def _read_set(
@@ -1061,12 +1159,27 @@ def run(
         tempfile.TemporaryDirectory(dir=out.parent, prefix=".harness-") as work,
         _Launcher() as launcher,
     ):
+        relatives = drawing_files(set_dir)
         files = [
             _read_file(
                 set_dir, relative, Path(work), index, applied, targets, built, file_timeout, launcher
             )
-            for index, relative in enumerate(drawing_files(set_dir))
+            for index, relative in enumerate(relatives)
         ]
+        for index, papers in _plot_papers(files, targets, built, set_dir).items():
+            again = _read_file(
+                set_dir,
+                relatives[index],
+                Path(work),
+                len(relatives) + index,
+                applied,
+                targets,
+                built,
+                file_timeout,
+                launcher,
+                papers,
+            )
+            files[index] = _read_again(files[index], again)
     outcome = _read_set(files, targets, built, applied.sheet_conventions, set_dir)
     info = RunInfo(
         id=run_id or str(uuid.uuid7()),

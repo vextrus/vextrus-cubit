@@ -9,6 +9,7 @@ import pytest
 
 from engine.geometry.placement import chain, chain_transform
 from engine.read.anchor import DwgAnchor
+from engine.read.artefact import ReadArtefact
 from engine.recognise import sheets, views
 from engine.recognise.tests.drawing import DEFAULT, H, Sheets, W, frame_block, rectangle, value_at
 from engine.recognise.types import (
@@ -194,6 +195,71 @@ def test_views_and_buffers_lay_a_framed_sheet_on_the_frames_paper(scale: float) 
     assert views.find(d.artefact(), sheet, CONVENTIONS).paper == pytest.approx((W, H))
     assert (paper.width_mm, paper.height_mm) == pytest.approx((W, H))
     assert paper.source == buffers.PaperSource.STANDARD
+
+
+def _fraction_frame() -> tuple[ReadArtefact, SheetCandidate, Box]:
+    """A drawing in inches whose frame block is drawn 130 x 92 units, inserted at 10 (as set L's
+    structural frames: a block at a fraction of its plotted size, no standard sheet by its insert)."""
+    d = Sheets()
+    block = d.block("FRACTION")
+    d.entity("LWPOLYLINE", rectangle(0, 0, 130, 92), owner=block)
+    ins = d.insert(block, (0.0, 0.0, 0.0), scale=(10.0, 10.0, 10.0))
+    d.line((100, 100), (1200, 820))
+    artefact = d.artefact()
+    artefact = replace(artefact, summary=replace(artefact.summary, insunits=1))
+    box = Box(0, 0, 1300, 920)
+    template = model_sheet([])[1].anchors[0]
+    assert isinstance(template, DwgAnchor)
+    anchor = replace(template, handle=ins, inserts=())
+    return artefact, SheetCandidate(SheetLocation(box=box), anchors=(anchor,)), box
+
+
+@pytest.mark.parametrize("page", [(420.0, 297.0), (297.0, 420.0)])
+def test_a_sheet_with_a_matched_plot_page_is_on_that_pages_paper_in_views_and_buffers(
+    page: tuple[float, float],
+) -> None:
+    """#160, the ruling of session 09: a model-space sheet whose Plot page was matched is on that
+    page's paper (A3 here, landscape or the page turned) at the scale that fits its frame's box to it,
+    in views and in the buffer alike, read; without the page, the fallback's guess (not A3)."""
+    from engine.render import buffers
+
+    artefact, sheet, box = _fraction_frame()
+    unplotted = buffers.build(artefact, sheet).paper
+    assert (unplotted.width_mm, unplotted.height_mm) != pytest.approx((420, 297), rel=0.05)
+    paper = buffers.build(artefact, sheet, page).paper
+    assert (paper.width_mm, paper.height_mm) == pytest.approx((420, 297))
+    assert paper.source == buffers.PaperSource.STANDARD
+    assert paper.mm_per_unit == pytest.approx(min(420 / 1300, 297 / 920))
+    assert views.find(artefact, sheet, CONVENTIONS, page).paper == pytest.approx((420, 297))
+    # The box centred on the page: the margin the fit leaves is split on both sides.
+    left = (box.x0 - paper.origin[0]) * paper.mm_per_unit
+    right = paper.width_mm - (box.x1 - paper.origin[0]) * paper.mm_per_unit
+    assert left == pytest.approx(right) and left > 0
+
+
+def test_a_views_box_on_a_plot_pages_paper_lies_over_the_buffers_drawing() -> None:
+    """#160: on a matched Plot page's paper, a view's box (paper mm) is where the buffer draws the same
+    model-space lines: one paper, one origin, one scale."""
+    from engine.render import buffers
+
+    scale = 50.0
+    d, sheet = model_sheet([("BEAM LAYOUT PLAN", (40, 300, 340, 560))], scale=scale)
+    page = (420.0, 297.0)
+    paper = buffers.build(d.artefact(), sheet, page).paper
+    found = [v for v in views.find(d.artefact(), sheet, CONVENTIONS, page)
+             if v.kind is not ViewKind.TITLE_BLOCK]  # fmt: skip
+    plain = drawn(d, sheet)
+    assert len(found) == len(plain) == 1
+    a = plain[0].box  # on the frame's own A1 at 1:50, from the frame's corner at (10,000, 0)
+    model = (10_000 + a.x0 * scale, a.y0 * scale, 10_000 + a.x1 * scale, a.y1 * scale)
+    expected = (
+        (model[0] - paper.origin[0]) * paper.mm_per_unit,
+        (model[1] - paper.origin[1]) * paper.mm_per_unit,
+        (model[2] - paper.origin[0]) * paper.mm_per_unit,
+        (model[3] - paper.origin[1]) * paper.mm_per_unit,
+    )
+    b = found[0].box
+    assert (b.x0, b.y0, b.x1, b.y1) == pytest.approx(expected, abs=0.5)
 
 
 @pytest.mark.parametrize(
