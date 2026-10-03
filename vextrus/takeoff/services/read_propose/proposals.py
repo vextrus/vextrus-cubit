@@ -146,6 +146,19 @@ def propose(
     return {"sheets": proposed, "questions": asked}
 
 
+def follow_discipline(file_id: uuid.UUID, actor_name: str = "") -> None:
+    """After the QS changed a read file's Discipline (`drawings.on_discipline_changed`, in the change's
+    transaction): its sheets' `missing_discipline` Questions are answered by it, and the set's
+    Questions asked again under the sheets' new Discipline. A file not yet read has no sheet listed:
+    its `proposals` step reads the choice itself (#159)."""
+    view = drawings.file(file_id)
+    listed = [s for s in drawings.sheets(view.set_id) if s.file_id == file_id]
+    if not listed:
+        return
+    step1.answer_disciplines(view.project_id, listed, actor_name=actor_name)
+    set_questions(view.project_id, trigger_file=file_id)
+
+
 NAMED_STOREYS = frozenset(
     {
         "pile",

@@ -3,14 +3,23 @@ and a PDF's pages, as each file and its PDFs stand."""
 
 import pytest
 
+from engine.check.bangla_ansi import BanglaAnsi
 from engine.messages import decoders_agree as agree_codes
 from engine.messages import read as read_codes
 from engine.read.pdf.types import Page
-from engine.recognise.types import PlotMatch
+from engine.recognise.types import CheckOutcome, CheckResult, PlotMatch
 from vextrus.drawings import services
 from vextrus.drawings.messages import reports as said
 from vextrus.platform.services import jobs
-from vextrus.testing.drawings import QsProject, add, drawing, pdf_report, read_dwg, sheet_candidate
+from vextrus.testing.drawings import (
+    QsProject,
+    add,
+    artefact_for,
+    drawing,
+    pdf_report,
+    read_dwg,
+    sheet_candidate,
+)
 
 
 def page(sha256: str, number: int) -> Page:
@@ -162,6 +171,39 @@ def test_a_held_file_read_anyway_says_its_sheets_are_listed_not_that_nothing_rea
     assert before == (disagree,)
     assert after == (said.READ_ANYWAY(**disagree["params"]),)
     assert disagree["code"] not in [line["code"] for line in after]
+
+
+def test_a_choice_undone_on_a_held_file_read_anyway_keeps_the_readers_disagreement(
+    qs_project: QsProject,
+) -> None:
+    """#159 fix round 2 (F4): the QS's Structural, chosen while the file read, is undone once its sheets
+    are read (the file's finding); the report's Readers section still says the readers disagreed and
+    the file was read anyway, from the readers' own check."""
+    member = qs_project.member
+    struct = add(member, qs_project.project_id, "KR-STR-R0.dwg", drawing()).file
+    read_dwg(member, struct.id, ["01", "02"])
+    held = add(member, qs_project.project_id, "KR-SET3-R0.dwg", drawing()).file
+    disagree = agree_codes.DISAGREE(items=96, only_first=80, only_second=16, kinds=1, layers=2, unread=0)
+    with member.acting():
+        services.set_discipline(held.id, "structural")  # while it reads: its numbers are unread
+        services.store_artefact(held.id, artefact_for(held.sha256, held.name, 3))
+        services.record_reports(
+            held.id,
+            cross_check=CheckResult(code="decoders_agree", outcome=CheckOutcome.FIRED, finding=disagree),
+            bangla_ansi=BanglaAnsi(()),
+        )
+        services.quarantine(held.id, disagree)
+        services.answer_held(held.id, "read_anyway")
+        services.record_sheets(
+            held.id, [sheet_candidate(i, held.group, number=f"0{i + 1}") for i in range(3)]
+        )
+        services.mark_read(held.id)  # its re-read ended (#165: before, it says it is being read)
+        shown = services.file(held.id)
+        readers = services.report(held.id).readers
+
+    assert shown.finding is not None
+    assert shown.finding["code"] == "drawings.files.discipline_choice_undone"
+    assert readers == (said.READ_ANYWAY(**disagree["params"]),)
 
 
 def test_a_held_file_read_anyway_reports_its_sheets_only_once_its_read_has_ended(

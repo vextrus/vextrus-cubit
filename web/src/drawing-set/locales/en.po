@@ -107,6 +107,10 @@ msgstr "{added, plural, =0 {No files added} one {# file added} other {# files ad
 msgid "Lettering"
 msgstr "Lettering"
 
+#: src/drawing-set/DrawingSetPage.tsx
+msgid "The Discipline choice was undone"
+msgstr "The Discipline choice was undone"
+
 #: src/drawing-set/ReportPanel.tsx
 msgid "Pictures"
 msgstr "Pictures"

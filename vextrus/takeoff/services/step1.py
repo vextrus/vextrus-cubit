@@ -256,6 +256,15 @@ class DisciplineProgress:
     outstanding: list[Message] = field(default_factory=list)
     """What keeps it from `confirmed` (#158), each a code with how many, in m0-screens 5's order;
     empty once confirmed."""
+    plots: tuple[PlotFile, ...] = ()
+    """The Plots read for it (157): each read PDF of its Discipline, and any other a sheet of it has
+    a page of, first added first; so a line about its sources can name the Plot added."""
+
+
+@dataclass(frozen=True)
+class PlotFile:
+    file_id: uuid.UUID
+    name: str
 
 
 @dataclass(frozen=True)
@@ -673,11 +682,20 @@ def progress(project_id: uuid.UUID) -> ProgressView:
         if row.sheet_revision_id in discipline_of
     )
     drawing_set = drawings.set_of(project_id)
+    files = drawings.files(drawing_set.id) if drawing_set else []
     reading = Counter(
         f.discipline
-        for f in (drawings.files(drawing_set.id) if drawing_set else [])
+        for f in files
         if f.state
         in (drawings.FileState.WAITING, drawings.FileState.READING, drawings.FileState.RETRYING)
+    )
+    paged: dict[str | None, set[uuid.UUID]] = {}
+    for sheet in sheets:
+        if sheet.plot.page is not None and sheet.plot.file_id is not None:
+            paged.setdefault(sheet.discipline, set()).add(sheet.plot.file_id)
+    read_pdfs = sorted(
+        (f for f in files if f.format == "pdf" and f.state == drawings.FileState.READ),
+        key=lambda f: (f.added_at, str(f.id)),
     )
     rows = []
     for key in order:
@@ -710,6 +728,11 @@ def progress(project_id: uuid.UUID) -> ProgressView:
                     disagree=total is None,
                     questions=open_questions[key],
                     unaccounted=unaccounted[key],
+                ),
+                plots=tuple(
+                    PlotFile(f.id, f.name)
+                    for f in read_pdfs
+                    if (key is not None and f.discipline == key) or f.id in paged.get(key, set())
                 ),
             )
         )
@@ -2193,6 +2216,37 @@ def answer(
         row.save(update_fields=["status", "answer", "answered_by", "answered_at"])
         record_progress(project_id)
     return Answered(_question_view(project_id, row.id), read_again, corrected)
+
+
+def answer_disciplines(
+    project_id: uuid.UUID, sheets: Sequence[drawings.SheetView], *, actor_name: str = ""
+) -> int:
+    """The open `missing_discipline` Questions of these sheets, answered by the Discipline each now
+    has (its file's, chosen by the QS: #159), as if the QS had picked it; how many were answered."""
+    given = {s.id: s.discipline for s in sheets if s.discipline}
+    answered = 0
+    with transaction.atomic():
+        for row in Question.objects.select_for_update().filter(
+            project_id=project_id,
+            step=SHEETS,
+            status=QuestionStatus.OPEN,
+            kind=QuestionKind.MISSING_DISCIPLINE,
+            subject_id__in=list(given),
+        ):
+            assert row.subject_id is not None
+            row.status = QuestionStatus.ANSWERED
+            row.answer = {
+                "option": given[row.subject_id],
+                "by": actor_name,
+                "given_by": "file_discipline",
+            }
+            row.answered_by_id = _user()
+            row.answered_at = timezone.now()
+            row.save(update_fields=["status", "answer", "answered_by", "answered_at"])
+            answered += 1
+        if answered:
+            record_progress(project_id)
+    return answered
 
 
 def _question_view(project_id: uuid.UUID, question_id: uuid.UUID) -> QuestionView:

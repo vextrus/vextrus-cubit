@@ -40,7 +40,7 @@ import re
 import unicodedata
 import uuid
 from collections import Counter
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
@@ -746,7 +746,20 @@ def _record(kind: MessageCode, row: DrawingFile) -> None:
 # The Discipline ------------------------------------------------------------------------------------
 
 
-def set_discipline(file_id: uuid.UUID, key: str) -> FileView:
+DISCIPLINE_CHANGED: list[Callable[[uuid.UUID, str], None]] = []
+"""What follows a file's Discipline changed by the QS, each called with the file's id and the QS's
+name in the change's own transaction: a module above `drawings` registers here
+(`on_discipline_changed`; takeoff's Step 1 answers the sheets' `missing_discipline` Questions with
+it and asks the set's Questions again, #159)."""
+
+
+def on_discipline_changed(follow: Callable[[uuid.UUID, str], None]) -> None:
+    """Register `follow` once (see `DISCIPLINE_CHANGED`)."""
+    if follow not in DISCIPLINE_CHANGED:
+        DISCIPLINE_CHANGED.append(follow)
+
+
+def set_discipline(file_id: uuid.UUID, key: str, *, actor_name: str = "") -> FileView:
     """The QS's choice of the file's Discipline: its sheets move with it (see the module)."""
     with transaction.atomic():
         row = _access.drawing_file(file_id, lock=True)
@@ -763,11 +776,20 @@ def set_discipline(file_id: uuid.UUID, key: str) -> FileView:
         row.discipline = discipline
         row.discipline_source = DisciplineSource.QS
         row.revision = _first_issue(row.drawing_set, discipline, tenancy.current().user_id)
-        row.save(update_fields=["discipline", "discipline_source", "revision"])
+        fields = ["discipline", "discipline_source", "revision"]
+        if (
+            isinstance(row.finding, dict)
+            and row.finding.get("code") == said.DISCIPLINE_CHOICE_UNDONE.code
+        ):
+            row.finding = None  # an earlier choice refused while the file read: answered by this one
+            fields.append("finding")
+        row.save(update_fields=fields)
         # A first issue left with no file stays (a Revision is never deleted), and is found again
         # by its Discipline's next file.
         SheetRevision.objects.filter(source_file=row).update(revision=row.revision)
         _record(said.DISCIPLINE_CHANGED, row)
+        for follow in DISCIPLINE_CHANGED:
+            follow(row.id, actor_name)
     return file(row.id)
 
 

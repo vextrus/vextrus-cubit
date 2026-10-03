@@ -20,6 +20,7 @@ import { useDisciplineName } from './discipline'
 
 const SCAN = 'engine.pdf_report.scan'
 const MADE_BY_OTHER = 'engine.pdf_report.made_by_other'
+const TOP_LINE = ['takeoff.read_file.', 'drawings.files.discipline_choice_undone']
 
 function Section({ title, messages, children }: { title: ReactNode; messages: readonly MachineMessage[]; children?: ReactNode }) {
   if (messages.length === 0 && !children) return null
@@ -55,9 +56,10 @@ export function ReportPanel({
   useEffect(() => heading.current?.focus(), [file.id])
   const report = useQuery(reportQuery(projectId, file.id, isMoving(file)))
   const r = report.data
-  // The top line is 21a's alone (a file not read in full); every other finding is in the API's own
-  // sections. Each sentence is said once: the status in the header, then the sections in order.
-  const finding = file.finding && file.finding.code.startsWith('takeoff.read_file.') ? file.finding : null
+  // The top line is 21a's (a file not read in full) or a Discipline choice refused once the file's
+  // sheet numbers were read (#159); every other finding is in the API's own sections. Each sentence is
+  // said once: the status in the header, then the sections in order.
+  const finding = file.finding && TOP_LINE.some((code) => file.finding?.code.startsWith(code)) ? file.finding : null
   const pdf = r ? pdfSections(r) : null
   const scan = r !== undefined && [...r.made_by, ...r.pages].some((m) => m.code === SCAN)
   const scanMadeBy = scan ? r.made_by.find((m) => m.code === MADE_BY_OTHER) : undefined
