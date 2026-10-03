@@ -209,6 +209,9 @@ class QuestionView:
     Question withdrawn because a newer one replaced it."""
     blocking: bool = False
     """It holds its sheets from being confirmed: open, or withdrawn by an exclusion that still stands."""
+    raised: int | None = None
+    """Its place among the Project's Step 1 Questions in the order they were raised (open, answered
+    and withdrawn alike), from 1: its tag (Q1…) for life, whatever is answered or left out later."""
 
 
 @dataclass(frozen=True)
@@ -507,6 +510,16 @@ def questions(project_id: uuid.UUID) -> list[QuestionView]:
     projects.get(project_id)
     held = _held(project_id)
     found = _asked(project_id, Question.objects.filter(project_id=project_id, step=SHEETS), held)
+    # Counted over every Step 1 Question, asked still or not, so no tag moves when one stops being asked.
+    raised = {
+        qid: place
+        for place, qid in enumerate(
+            Question.objects.filter(project_id=project_id, step=SHEETS)
+            .order_by("created_at", "id")
+            .values_list("id", flat=True),
+            start=1,
+        )
+    }
 
     def queued(q: Question) -> tuple[Any, ...]:
         # m0-screens §5: the held file first, then the Questions holding the most sheets, then
@@ -537,6 +550,7 @@ def questions(project_id: uuid.UUID) -> list[QuestionView]:
             withdrawn_by=q.withdrawn_by_id if q.status == QuestionStatus.WITHDRAWN else None,
             blocking=q.kind in FIRST
             and (q.status == QuestionStatus.OPEN or _withdrawn_by_standing_exclusion(q)),
+            raised=raised.get(q.id),
         )
         for q in sorted(found, key=queued)
     ]
@@ -1570,8 +1584,9 @@ def _account(row: Coverage, sheet: drawings.SheetView, act: Confirmation) -> boo
 
 def undo(project_id: uuid.UUID) -> ActView:
     """Take back the acting user's own last act on Step 1 not yet undone (a confirmation, an
-    exclusion, a drawing list). Each sheet it still decides goes back to what it carried before the
-    act (another person's decision included), or to undecided; its Proposal and its views' Coverage
+    exclusion, a drawing list); refused as `answer_stays` when that act answered a Question. Each
+    sheet it still decides goes back to what it carried before the act (another person's decision
+    included), or to undecided; its Proposal and its views' Coverage
     follow. A sheet another act has decided since is left as that act decided it."""
     auth.require(acts.UNDO, project_id)
     projects.get(project_id)  # a Project not in scope (of another Developer, or none) is not found
@@ -1584,6 +1599,10 @@ def undo(project_id: uuid.UUID) -> ActView:
         )
         if act is None:
             raise auth.Refused(said.NOTHING_TO_UNDO(), status=409)
+        if act.kind == ConfirmationKind.QUESTION_ANSWER:
+            # An answer has no undo: taking back its confirm or exclusion would leave the Question
+            # answered by sheets it no longer decides. Its sheets are still excluded or confirmed.
+            raise auth.Refused(said.ANSWER_STAYS(), status=409)
         listed = {s.id for s in _sheets(project_id) if s.confirmation_id == act.id}
         # Every sheet the act still decides, those off the sheet list now included (a held file set
         # aside after the act): drawings clears them all; a sheet off the list cannot be decided
@@ -2099,6 +2118,62 @@ def raise_question(
             tenant_id=row.tenant_id, project_id=project_id, question=row, proposal=proposal
         )
     return row.id
+
+
+def asked_of(
+    project_id: uuid.UUID, message: Message, proposals: Iterable[uuid.UUID]
+) -> uuid.UUID | None:
+    """The Question already asked with these words of exactly these Proposals, however it was raised
+    (its subject and options aside: the demo's S-07 Question is raised by hand), the earliest; else
+    None. A conflict is its words and the sheets it holds (#161)."""
+    held = set(proposals)
+    for row in Question.objects.filter(
+        project_id=project_id, step=SHEETS, message_code=message["code"], params=message["params"]
+    ).order_by("created_at", "id"):
+        if set(QuestionLink.objects.filter(question=row).values_list("proposal_id", flat=True)) == held:
+            return row.id
+    return None
+
+
+def retire_questions(project_id: uuid.UUID, codes: Iterable[str], raised: Iterable[uuid.UUID]) -> int:
+    """After a round that asked the set's Questions of these codes again (#161): each one `raised`
+    that a past round retired is open again, and each still open that was not raised is retired,
+    `withdrawn` and still listed. An answered Question, or one withdrawn by leaving its sheet out, is
+    never touched. One the QS kept open hands that answer to the Question that supersedes it (its
+    code, holding every sheet it held, not answered yet). How many were retired."""
+    projects.get(project_id)
+    asked = set(raised)
+    ours = Question.objects.filter(project_id=project_id, step=SHEETS, message_code__in=list(codes))
+    ours.filter(id__in=asked, status=QuestionStatus.WITHDRAWN, withdrawn_by__isnull=True).update(
+        status=QuestionStatus.OPEN
+    )
+    leaving = ours.filter(status=QuestionStatus.OPEN).exclude(id__in=asked)
+    kept = [q for q in leaving if isinstance(q.answer, dict) and q.answer.get("option") == KEEP_OPEN]
+    if kept:
+        held = _links(project_id, [q.id for q in kept] + list(asked))
+        heirs = list(ours.filter(id__in=asked, status=QuestionStatus.OPEN, answer__isnull=True))
+        for old in kept:
+            heir = next(
+                (q for q in heirs if q.message_code == old.message_code and held[old.id] <= held[q.id]),
+                None,
+            )
+            if heir is not None:
+                heir.answer = old.answer
+                heir.save(update_fields=["answer"])
+                heirs.remove(heir)
+    retired = leaving.update(status=QuestionStatus.WITHDRAWN)
+    record_progress(project_id)
+    return retired
+
+
+def _links(project_id: uuid.UUID, ids: Iterable[uuid.UUID]) -> dict[uuid.UUID, set[uuid.UUID]]:
+    """Each Question's Proposals, by the Question's id."""
+    held: dict[uuid.UUID, set[uuid.UUID]] = {i: set() for i in ids}
+    for question_id, proposal_id in QuestionLink.objects.filter(
+        project_id=project_id, question_id__in=list(held)
+    ).values_list("question_id", "proposal_id"):
+        held[question_id].add(proposal_id)
+    return held
 
 
 def record_read_list(

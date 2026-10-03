@@ -166,3 +166,13 @@ export async function readList(projectId: string, discipline: string, text: stri
 export async function setList(projectId: string, discipline: string, text: string): Promise<DrawingListOut> {
   return unwrap(api.POST('/api/projects/{project_id}/takeoff/step1/drawing-list', { ...path(projectId), body: { discipline, text } }))
 }
+
+/** Answers a Question with one of its options (21c); `text` only for "Type a number". `keep_open` keeps it open. */
+export async function answer(projectId: string, questionId: string, option: string, text = ''): Promise<QuestionOut> {
+  return unwrap(
+    api.POST('/api/projects/{project_id}/takeoff/step1/questions/{question_id}/answer', {
+      params: { path: { project_id: projectId, question_id: questionId } },
+      body: { option, text },
+    }),
+  )
+}

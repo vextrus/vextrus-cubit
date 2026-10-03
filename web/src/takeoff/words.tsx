@@ -17,6 +17,7 @@ export const DISCIPLINE_NAMES: Readonly<Record<string, MessageDescriptor>> = {
   mechanical: msg`Mechanical (HVAC)`,
   lift: msg`Lift`,
   gas: msg`Gas`,
+  general: msg`General`,
 }
 
 /** The same name in running text, lower case where the language wants it ("the architectural drawing list"). */
@@ -29,6 +30,7 @@ export const DISCIPLINE_IN_TEXT: Readonly<Record<string, MessageDescriptor>> = {
   mechanical: msg`mechanical (HVAC)`,
   lift: msg`lift`,
   gas: msg`gas`,
+  general: msg`general`,
 }
 
 /** The drawing-list dialog's title per Discipline (6.10), one message each. */
@@ -41,6 +43,7 @@ export const LIST_TITLES: Readonly<Record<string, MessageDescriptor>> = {
   mechanical: msg`The mechanical (HVAC) drawing list`,
   lift: msg`The lift drawing list`,
   gas: msg`The gas drawing list`,
+  general: msg`The general drawing list`,
 }
 
 export const OTHER_LIST_TITLE = msg`The drawing list`
@@ -90,6 +93,10 @@ export const QUESTION_KIND_BY_CODE: Readonly<Record<string, MessageDescriptor>> 
   'engine.register_check.not_listed': msg`In a file, not on the drawing list`,
   'takeoff.step1.no_number': msg`No number`,
   'takeoff.step1.which_kind': msg`Sheet kind unclear`,
+  'takeoff.proposals.which_kind': msg`Sheet kind unclear`,
+  'takeoff.proposals.which_discipline': msg`Discipline unclear`,
+  'takeoff.proposals.lists_disagree': msg`Two drawing lists differ`,
+  'takeoff.proposals.boundary_storey': msg`Where a range of storeys ends`,
 }
 
 export const QUESTION_KINDS: Readonly<Record<string, MessageDescriptor>> = {
@@ -97,6 +104,8 @@ export const QUESTION_KINDS: Readonly<Record<string, MessageDescriptor>> = {
   conflict: msg`Two sheets, one number`,
   missing: msg`No number`,
   low_confidence: msg`Sheet kind unclear`,
+  missing_discipline: msg`Discipline unclear`,
+  convention: msg`Where a range of storeys ends`,
   // No `check`: a Check is against the drawing list, the Plot or the numbering, so each code words its own (ticket 164).
 }
 
@@ -108,6 +117,12 @@ export const OPTION_NAMES: Readonly<Record<string, MessageDescriptor>> = {
   await_resaved: msg`Set this file aside: I’ll re-save it from AutoCAD (open it, run AUDIT, save) and add it again`,
   sent_to_vextrus: msg`Set this file aside and mark it for Vextrus to look at`,
   keep_both: msg`They are different sheets: keep both`,
+  keep_all: msg`They are different sheets: keep both`,
+  keep_latest: msg`Keep the latest copy; leave the others out as superseded`,
+  use_read: msg`Use the drawing list on the sheet`,
+  use_given: msg`Use the drawing list you gave`,
+  includes_storey: msg`Yes: this sheet’s range includes it`,
+  excludes_storey: msg`No: it belongs to the next sheet’s range`,
   no_number: msg`Leave it without a number`,
   type_number: msg`Type a number`,
   not_sent_yet: msg`Not sent yet: keep it in the count as missing and ask the consultant`,

@@ -7,7 +7,7 @@
 import type { DrawingListOut, ProposalOut, QuestionOut, Step1Data } from './data'
 
 /** The Takeoff's order of Disciplines (ADR 0040): Structural, Architectural, then each MEP one. */
-export const DISCIPLINE_ORDER = ['structural', 'architectural', 'electrical', 'plumbing', 'fire', 'mechanical', 'lift', 'gas'] as const
+export const DISCIPLINE_ORDER = ['structural', 'architectural', 'electrical', 'plumbing', 'fire', 'mechanical', 'lift', 'gas', 'general'] as const
 
 /** The Disciplines Steps 1–13 take off (ADR 0040); every other one is an MEP Part, taken off from M3. */
 export const STEP_DISCIPLINES: ReadonlySet<string> = new Set(DISCIPLINE_ORDER.slice(0, 2))
@@ -92,6 +92,8 @@ export interface Step1Model {
   notReceived: readonly string[]
   /** The open Questions in queue order (Q1…); the withdrawn ones are not in it (they are `withdrawn`'s rows, tagged after it). */
   queue: readonly QuestionEntry[]
+  /** The answered Questions, in the order they were answered, tagged on after the open and withdrawn ones. */
+  answered: readonly QuestionEntry[]
   bulk: Bulk
   /** Every row in list order: what ↑ ↓ walk. */
   rows: readonly Row[]
@@ -136,9 +138,19 @@ function leftOut(q: QuestionOut, holds: readonly ProposalOut[]): ProposalOut[] {
   return byExclusion ? out : []
 }
 
-/** The sheets a Question holds: its subject, and for two sheets of one number, every copy. */
+/**
+ * The sheets a Question holds: the Proposals it lists (`proposals`; ruling 1 of session 08: never
+ * worked out from its number or Discipline when the API lists them), else its subject. Before 21c no
+ * `proposals` is sent: then a conflict holds every copy of its number in its Discipline.
+ */
 function held(q: QuestionOut, proposals: readonly ProposalOut[]): ProposalOut[] {
   const subject = proposals.find((p) => p.sheet_id === q.subject_id || p.id === q.subject_id)
+  const listed: readonly string[] | undefined = q.proposals
+  if (listed !== undefined) {
+    const ids = new Set(listed)
+    const holds = proposals.filter((p) => ids.has(p.id))
+    return holds.length > 0 ? holds : subject ? [subject] : []
+  }
   const number = typeof q.params.number === 'string' ? q.params.number : subject?.number
   if (q.kind === 'conflict' && number) {
     return proposals.filter((p) => p.number === number && (q.discipline === null || p.discipline === q.discipline))
@@ -165,6 +177,24 @@ export function withdrawnQueue(questions: readonly QuestionOut[], proposals: rea
   const entries = questions.map((question) => ({ question, holds: leftOut(question, held(question, proposals)) })).filter((e) => e.holds.length > 0)
   entries.sort((a, b) => compareNumbers(a.holds[0]!.number, b.holds[0]!.number))
   return entries.map((e, i) => ({ ...e, tag: `Q${after + i + 1}`, kept: false, withdrawn: true }))
+}
+
+/**
+ * A Question's tag for life (the design gate's walk, M1: tags renumbered after every answer): its
+ * place among the Project's Questions in the order raised, which the server gives as `raised`, so
+ * card, row, bar, toast and Answered line keep one tag whatever is answered or left out. Only when
+ * a Question lacks it (a server before #156's round 2) are the tags the queue's, as before.
+ */
+function raisedTags(entries: QuestionEntry[]): void {
+  if (!entries.every((e) => typeof e.question.raised === 'number')) return
+  for (const e of entries) e.tag = `Q${e.question.raised}`
+}
+
+/** The answered Questions, in the order answered, tagged on after `after` (Q7… after Q1–Q6). */
+export function answeredQueue(questions: readonly QuestionOut[], proposals: readonly ProposalOut[], after: number): QuestionEntry[] {
+  const entries = questions.filter((q) => q.status === 'answered').map((question) => ({ question, holds: held(question, proposals) }))
+  entries.sort((a, b) => (a.question.answered_at ?? '').localeCompare(b.question.answered_at ?? ''))
+  return entries.map((e, i) => ({ ...e, tag: `Q${after + i + 1}`, kept: false, withdrawn: false, answered: true }))
 }
 
 const decided = (p: ProposalOut) => p.decision !== null
@@ -229,6 +259,8 @@ export function step1Model(data: Step1Data): Step1Model {
   )
   const queue = questionQueue(data.questions, proposals)
   const withdrawnEntries = withdrawnQueue(data.questions, proposals, queue.length)
+  const answered = answeredQueue(data.questions, proposals, queue.length + withdrawnEntries.length)
+  raisedTags([...queue, ...withdrawnEntries, ...answered])
   const heldBy = new Map<string, QuestionEntry>()
   for (const entry of [...queue, ...withdrawnEntries]) for (const p of entry.holds) if (!heldBy.has(p.id)) heldBy.set(p.id, entry)
 
@@ -297,6 +329,7 @@ export function step1Model(data: Step1Data): Step1Model {
     disciplines,
     notReceived: data.progress.not_received,
     queue,
+    answered,
     bulk: { confirm: bulkConfirm, leaveOut: bulkOut, reasons },
     rows,
     confirmed: proposals.filter((p) => p.decision === 'confirmed').length,
