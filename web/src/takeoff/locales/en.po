@@ -127,10 +127,6 @@ msgid "Trace: the title block of {sheets}"
 msgstr "Trace: the title block of {sheets}"
 
 #: src/takeoff/questionWords.tsx
-msgid "{n, plural, one {They draw different things: keep it} =2 {They draw different things: keep both} other {They draw different things: keep all #}}"
-msgstr "{n, plural, one {They draw different things: keep it} =2 {They draw different things: keep both} other {They draw different things: keep all #}}"
-
-#: src/takeoff/questionWords.tsx
 msgid "{tag} kept open for the consultant."
 msgstr "{tag} kept open for the consultant."
 
@@ -311,6 +307,10 @@ msgstr "Question {tag}: {title}"
 msgid "the pasted drawing list"
 msgstr "the pasted drawing list"
 
+#: src/takeoff/questionWords.tsx
+msgid "{tag} answered. Recorded the kind as {kind}; no sheet was confirmed."
+msgstr "{tag} answered. Recorded the kind as {kind}; no sheet was confirmed."
+
 #: src/takeoff/FilesBand.tsx
 msgid "The Drawing Set’s files"
 msgstr "The Drawing Set’s files"
@@ -480,10 +480,6 @@ msgstr "Section"
 #: src/takeoff/words.tsx
 msgid "Two drawing lists differ"
 msgstr "Two drawing lists differ"
-
-#: src/takeoff/questionWords.tsx
-msgid "{n, plural, one {They are different sheets: keep it} =2 {They are different sheets: keep both} other {They are different sheets: keep all #}}"
-msgstr "{n, plural, one {They are different sheets: keep it} =2 {They are different sheets: keep both} other {They are different sheets: keep all #}}"
 
 #: src/takeoff/questionWords.tsx
 msgid "{tag} answered. Recorded: the sheet is not part of this set."
@@ -1221,10 +1217,6 @@ msgstr "{tag} answered. The file is set aside and marked for Vextrus to look at.
 #: src/takeoff/words.tsx
 msgid "In a file, not on the drawing list"
 msgstr "In a file, not on the drawing list"
-
-#: src/takeoff/questionWords.tsx
-msgid "{tag} answered. Recorded: {kind}; no sheet was confirmed."
-msgstr "{tag} answered. Recorded: {kind}; no sheet was confirmed."
 
 #: src/takeoff/questionWords.tsx
 msgid "Use the drawing list you pasted"
@@ -2052,6 +2044,10 @@ msgstr "Keep {kept} ({date}); leave the other {others, plural, one {# copy} othe
 msgid "Foundation layout"
 msgstr "Foundation layout"
 
+#: src/takeoff/questionWords.tsx
+msgid "{n, plural, =0 {They are different sheets: keep them all} one {They are different sheets: keep it} =2 {They are different sheets: keep both} other {They are different sheets: keep all #}}"
+msgstr "{n, plural, =0 {They are different sheets: keep them all} one {They are different sheets: keep it} =2 {They are different sheets: keep both} other {They are different sheets: keep all #}}"
+
 #: src/takeoff/Step1Inspector.tsx
 msgid "{name}: no drawing list; numbering runs {range} without a gap; {found} found."
 msgstr "{name}: no drawing list; numbering runs {range} without a gap; {found} found."
@@ -2222,6 +2218,10 @@ msgstr "Pile cap layout"
 #: src/takeoff/FilesBand.tsx
 msgid "{pages, plural, one {Plot for {matched} of # page} other {Plot for {matched} of # pages}}"
 msgstr "{pages, plural, one {Plot for {matched} of # page} other {Plot for {matched} of # pages}}"
+
+#: src/takeoff/questionWords.tsx
+msgid "{n, plural, =0 {They draw different things: keep them all} one {They draw different things: keep it} =2 {They draw different things: keep both} other {They draw different things: keep all #}}"
+msgstr "{n, plural, =0 {They draw different things: keep them all} one {They draw different things: keep it} =2 {They draw different things: keep both} other {They draw different things: keep all #}}"
 
 #: src/takeoff/questionWords.tsx
 msgid "Their titles differ. Only one can be read, unless they are different sheets."

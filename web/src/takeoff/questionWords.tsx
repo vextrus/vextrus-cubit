@@ -334,8 +334,8 @@ export function OptionWords({ entry, option }: { entry: QuestionEntry; option: O
   const q = entry.question
   if (key === 'keep_all') {
     const n = entry.holds.length
-    if (q.code === 'engine.conflicts.same_storey') return <Plural value={n} one="They draw different things: keep it" _2="They draw different things: keep both" other="They draw different things: keep all #" />
-    return <Plural value={n} one="They are different sheets: keep it" _2="They are different sheets: keep both" other="They are different sheets: keep all #" />
+    if (q.code === 'engine.conflicts.same_storey') return <Plural value={n} _0="They draw different things: keep them all" one="They draw different things: keep it" _2="They draw different things: keep both" other="They draw different things: keep all #" />
+    return <Plural value={n} _0="They are different sheets: keep them all" one="They are different sheets: keep it" _2="They are different sheets: keep both" other="They are different sheets: keep all #" />
   }
   if (key === 'use_read' && typeof q.params.sheet === 'string' && q.params.sheet) {
     const sheet = q.params.sheet
@@ -597,7 +597,7 @@ export function AnsweredWords({ entry, option, text }: { entry: QuestionEntry; o
   }
   if (q.kind === 'low_confidence' && SHEET_KIND_NAMES[option] && n === 0) {
     const kind = <SheetKindName option={option} />
-    return <Trans>{tag} answered. Recorded: {kind}; no sheet was confirmed.</Trans>
+    return <Trans>{tag} answered. Recorded the kind as {kind}; no sheet was confirmed.</Trans>
   }
   if (q.kind === 'low_confidence' && SHEET_KIND_NAMES[option] && n > 0) {
     const sheet = <SheetName sheets={entry.holds} />

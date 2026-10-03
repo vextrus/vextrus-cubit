@@ -8,13 +8,15 @@ import { beforeAll, describe, expect, it } from 'vitest'
 import { render } from '@testing-library/react'
 import { i18n } from '@lingui/core'
 import { I18nProvider } from '@lingui/react'
+import { BANGLADESH } from '@/app/seed/demo.fixture'
+import { FormatProvider } from '@/format'
 import { activateLanguage } from '@/i18n/activate'
 import { englishMessages } from '@/i18n/catalogues'
 import { ENGLISH } from '@/i18n/languages'
 import { FakeAnswers, type Question21c } from '@/acceptance/t156/answer.fixture'
 import { DISCIPLINES, QUESTION_SHAPES } from '@/acceptance/t156/options.fixture'
 import { DISCIPLINE_ORDER, type QuestionEntry } from './model'
-import { AnsweredWords } from './questionWords'
+import { AnsweredWords, OptionWords } from './questionWords'
 import { disciplineName } from './SheetList'
 import { DISCIPLINE_IN_TEXT, LIST_TITLES } from './words'
 
@@ -108,5 +110,29 @@ describe('General is a Discipline the web knows (#205)', () => {
       expect(LIST_TITLES[key], key).toBeDefined()
     }
     expect(disciplineName('general', i18n)).toBe('General')
+  })
+})
+
+describe('keep all on a card holding no sheet (#203 words gate, round 3b)', () => {
+  it('says "keep them all", never "keep all 0"', () => {
+    const fake = new FakeAnswers()
+    const said = (code: string) => {
+      const question = fake.everyShape().find((q) => q.code === code)!
+      const entry = { question: question as unknown as QuestionEntry['question'], tag: 'Q5', holds: [], kept: false, withdrawn: false } as QuestionEntry
+      const { container, unmount } = render(
+        <I18nProvider i18n={i18n}>
+          <FormatProvider profile={BANGLADESH}>
+            <p>
+              <OptionWords entry={entry} option={{ key: 'keep_all' }} />
+            </p>
+          </FormatProvider>
+        </I18nProvider>,
+      )
+      const text = clean(container.textContent)
+      unmount()
+      return text
+    }
+    expect(said('engine.conflicts.same_title')).toBe('They are different sheets: keep them all')
+    expect(said('engine.conflicts.same_storey')).toBe('They draw different things: keep them all')
   })
 })
