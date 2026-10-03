@@ -238,6 +238,21 @@ def test_a_sheet_with_a_matched_plot_page_is_on_that_pages_paper_in_views_and_bu
     assert left > 0
 
 
+@pytest.mark.parametrize("page", [(1e9, 1e9), (math.inf, 297.0), (0.0, 297.0), (math.nan, 1.0)])
+def test_a_plot_page_no_sheet_could_be_on_leaves_the_drawings_paper(page: tuple[float, float]) -> None:
+    """#160's trust boundary: a hostile PDF's page, larger than any sheet or with no size, gives no
+    paper; the sheet keeps the one its drawing gives in views and buffers alike (the buffer is built,
+    never refused for the page)."""
+    from engine.render import buffers
+
+    artefact, sheet, _ = _fraction_frame()
+    own = buffers.build(artefact, sheet).paper
+    paper = buffers.build(artefact, sheet, page).paper
+    assert paper == own
+    found = views.find(artefact, sheet, CONVENTIONS, page).paper
+    assert found == pytest.approx((own.width_mm, own.height_mm))
+
+
 def test_a_views_box_on_a_plot_pages_paper_lies_over_the_buffers_drawing() -> None:
     """#160: on a matched Plot page's paper, a view's box (paper mm) is where the buffer draws the same
     model-space lines: one paper, one origin, one scale."""

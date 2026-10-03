@@ -163,7 +163,14 @@ from engine.recognise.types import (
     ViewKind,
 )
 from engine.render import _shapes
-from engine.render.buffers import SCALES, UNIT_MM, _standard_sheet, is_main_viewport, viewport_transform
+from engine.render.buffers import (
+    MAX_PAPER_MM,
+    SCALES,
+    UNIT_MM,
+    _standard_sheet,
+    is_main_viewport,
+    viewport_transform,
+)
 
 DEFAULT_CONVENTIONS = Path(__file__).with_name("conventions") / "view-default.json"
 
@@ -738,12 +745,15 @@ def _plot_paper(
     Model units per paper mm, the paper's lower-left corner in model units, and its width and height;
     none for a page or a box with no size. The paper keeps model space's axes: a page whose
     orientation differs from the box's plotted the sheet turned (the Plot's registration turns it
-    back), so its sides are taken in the box's orientation."""
+    back), so its sides are taken in the box's orientation. A page larger than any sheet
+    (`MAX_PAPER_MM`) gives none, and the sheet keeps the paper its drawing gives."""
     width, height = box.x1 - box.x0, box.y1 - box.y0
     sides = (width, height, *plot)
     if not all(math.isfinite(v) and v > 0 for v in sides):
         return None
     long_mm, short_mm = max(plot), min(plot)
+    if long_mm > MAX_PAPER_MM:
+        return None  # a page larger than any sheet (a hostile PDF's): the paper the drawing gives
     paper_w, paper_h = (long_mm, short_mm) if width >= height else (short_mm, long_mm)
     scale = max(width / paper_w, height / paper_h)
     if not (math.isfinite(scale) and scale > 0):
