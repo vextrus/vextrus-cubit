@@ -391,10 +391,6 @@ msgstr "Revision"
 msgid "Confirmed {name}."
 msgstr "Confirmed {name}."
 
-#: src/takeoff/questionWords.tsx
-msgid "{tag} answered. Recorded: the sheet’s kind is {kind}."
-msgstr "{tag} answered. Recorded: the sheet’s kind is {kind}."
-
 #: src/takeoff/words.tsx
 msgid "Boundary wall and gate details"
 msgstr "Boundary wall and gate details"
@@ -1225,6 +1221,10 @@ msgstr "{tag} answered. The file is set aside and marked for Vextrus to look at.
 #: src/takeoff/words.tsx
 msgid "In a file, not on the drawing list"
 msgstr "In a file, not on the drawing list"
+
+#: src/takeoff/questionWords.tsx
+msgid "{tag} answered. Recorded: {kind}; no sheet was confirmed."
+msgstr "{tag} answered. Recorded: {kind}; no sheet was confirmed."
 
 #: src/takeoff/questionWords.tsx
 msgid "Use the drawing list you pasted"

@@ -597,7 +597,7 @@ export function AnsweredWords({ entry, option, text }: { entry: QuestionEntry; o
   }
   if (q.kind === 'low_confidence' && SHEET_KIND_NAMES[option] && n === 0) {
     const kind = <SheetKindName option={option} />
-    return <Trans>{tag} answered. Recorded: the sheet’s kind is {kind}.</Trans>
+    return <Trans>{tag} answered. Recorded: {kind}; no sheet was confirmed.</Trans>
   }
   if (q.kind === 'low_confidence' && SHEET_KIND_NAMES[option] && n > 0) {
     const sheet = <SheetName sheets={entry.holds} />
