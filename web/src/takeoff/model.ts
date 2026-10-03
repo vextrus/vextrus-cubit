@@ -139,16 +139,18 @@ function leftOut(q: QuestionOut, holds: readonly ProposalOut[]): ProposalOut[] {
 }
 
 /**
- * The sheets a Question holds: those 21c links to it (`proposals`, in list order); before 21c, its
- * subject, and for two sheets of one number, every copy.
+ * The sheets a Question holds: the Proposals it lists (`proposals`; ruling 1 of session 08: never
+ * worked out from its number or Discipline when the API lists them), else its subject. Before 21c no
+ * `proposals` is sent: then a conflict holds every copy of its number in its Discipline.
  */
 function held(q: QuestionOut, proposals: readonly ProposalOut[]): ProposalOut[] {
-  const linked = new Set<string>(Array.isArray(q.proposals) ? q.proposals : [])
-  if (linked.size > 0) {
-    const found = proposals.filter((p) => linked.has(p.id))
-    if (found.length > 0) return found
-  }
   const subject = proposals.find((p) => p.sheet_id === q.subject_id || p.id === q.subject_id)
+  const listed: readonly string[] | undefined = q.proposals
+  if (listed !== undefined) {
+    const ids = new Set(listed)
+    const holds = proposals.filter((p) => ids.has(p.id))
+    return holds.length > 0 ? holds : subject ? [subject] : []
+  }
   const number = typeof q.params.number === 'string' ? q.params.number : subject?.number
   if (q.kind === 'conflict' && number) {
     return proposals.filter((p) => p.number === number && (q.discipline === null || p.discipline === q.discipline))
