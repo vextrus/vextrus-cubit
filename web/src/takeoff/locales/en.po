@@ -15,6 +15,10 @@ msgstr "Answering decides whether this file’s sheets join the list. Pick an an
 msgid "Grid layout"
 msgstr "Grid layout"
 
+#: src/takeoff/acts.tsx
+msgid "an untitled sheet drawn in the model of {file}"
+msgstr "an untitled sheet drawn in the model of {file}"
+
 #: src/takeoff/Step1Inspector.tsx
 msgid "As its title block should read. Enter answers."
 msgstr "As its title block should read. Enter answers."
@@ -92,10 +96,6 @@ msgstr "Column layout"
 #: src/takeoff/Step1Inspector.tsx
 msgid "Disciplines not yet received:"
 msgstr "Disciplines not yet received:"
-
-#: src/takeoff/acts.tsx
-msgid "an untitled sheet in {file}, layout “{layout}”"
-msgstr "an untitled sheet in {file}, layout “{layout}”"
 
 #: src/takeoff/questionWords.tsx
 msgid "{tag} answered. Recorded: the sheet’s top storey belongs to the next sheet’s range."
@@ -1227,10 +1227,6 @@ msgstr "A view counts once it is assigned to a step that will read it, or exclud
 msgid "{tag} answered. The file is set aside and marked for Vextrus to look at."
 msgstr "{tag} answered. The file is set aside and marked for Vextrus to look at."
 
-#: src/takeoff/acts.tsx
-msgid "An untitled sheet in {file}, laid out in the drawing"
-msgstr "An untitled sheet in {file}, laid out in the drawing"
-
 #: src/takeoff/words.tsx
 msgid "In a file, not on the drawing list"
 msgstr "In a file, not on the drawing list"
@@ -1296,10 +1292,6 @@ msgstr "{count} with no Discipline"
 msgid "found; no drawing list; numbering runs {range}; {twice} twice"
 msgstr "found; no drawing list; numbering runs {range}; {twice} twice"
 
-#: src/takeoff/acts.tsx
-msgid "an untitled sheet in {file}, laid out in the drawing"
-msgstr "an untitled sheet in {file}, laid out in the drawing"
-
 #: src/takeoff/questionWords.tsx
 msgid "rev {mark}"
 msgstr "rev {mark}"
@@ -1352,6 +1344,10 @@ msgstr "{start} and {tail}"
 msgid "Previous row; in a sheet, the previous sheet"
 msgstr "Previous row; in a sheet, the previous sheet"
 
+#: src/takeoff/acts.tsx
+msgid "An untitled sheet on layout “{layout}” of {file}"
+msgstr "An untitled sheet on layout “{layout}” of {file}"
+
 #: src/takeoff/storeys.tsx
 msgid "Basement"
 msgstr "Basement"
@@ -1363,6 +1359,10 @@ msgstr "Answering reads {file} anyway: its sheets join the list as Proposals, ea
 #: src/takeoff/words.tsx
 msgid "Blank: base plan only"
 msgstr "Blank: base plan only"
+
+#: src/takeoff/acts.tsx
+msgid "an untitled sheet on layout “{layout}” of {file}"
+msgstr "an untitled sheet on layout “{layout}” of {file}"
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "Confirmed"
@@ -1412,6 +1412,10 @@ msgstr "The sheet’s number"
 #: src/takeoff/words.tsx
 msgid "Set this file aside and mark it for Vextrus to look at"
 msgstr "Set this file aside and mark it for Vextrus to look at"
+
+#: src/takeoff/acts.tsx
+msgid "An untitled sheet drawn in the model of {file}"
+msgstr "An untitled sheet drawn in the model of {file}"
 
 #: src/takeoff/questionWords.tsx
 #: src/takeoff/Step1Inspector.tsx
@@ -1724,10 +1728,6 @@ msgstr "floor to floor"
 #: src/takeoff/Bar.tsx
 msgid "Coverage has a view that is neither assigned nor excluded"
 msgstr "Coverage has a view that is neither assigned nor excluded"
-
-#: src/takeoff/acts.tsx
-msgid "An untitled sheet in {file}, layout “{layout}”"
-msgstr "An untitled sheet in {file}, layout “{layout}”"
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "layout “<0/>”"

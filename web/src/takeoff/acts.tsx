@@ -74,11 +74,12 @@ export function SheetName({ sheets, start = false }: { sheets: readonly Proposal
   if (!first.number && !first.title.trim()) {
     // Neither number nor title (#167): named by its file and its layout, never by an empty quotation.
     const file = <DrawingText kind="file-name" text={first.file_name} truncate={false} />
+    // The place goes inside the name, so nothing trails it after a comma (review 1's recheck).
     if (first.layout) {
       const layout = <DrawingText kind="mark" text={first.layout} truncate={false} />
-      return start ? <Trans>An untitled sheet in {file}, layout “{layout}”</Trans> : <Trans>an untitled sheet in {file}, layout “{layout}”</Trans>
+      return start ? <Trans>An untitled sheet on layout “{layout}” of {file}</Trans> : <Trans>an untitled sheet on layout “{layout}” of {file}</Trans>
     }
-    return start ? <Trans>An untitled sheet in {file}, laid out in the drawing</Trans> : <Trans>an untitled sheet in {file}, laid out in the drawing</Trans>
+    return start ? <Trans>An untitled sheet drawn in the model of {file}</Trans> : <Trans>an untitled sheet drawn in the model of {file}</Trans>
   }
   if (!first.number) return <DrawingText kind="title" text={first.title} truncate={false} />
   if (sheets.length > 1 && last.number && last.number !== first.number) {

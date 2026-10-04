@@ -1,6 +1,7 @@
 /*
- * #167's words gate (F1): a sheet with neither number nor title is named "an untitled sheet in <file>, layout
- * “<layout>”" (or ", laid out in the drawing"; review 1's finding 1: two such sheets on two layouts read the same),
+ * #167's words gate (F1): a sheet with neither number nor title is named "an untitled sheet on layout “<layout>”
+ * of <file>" (or "drawn in the model of <file>"; review 1's finding 1: two such sheets on two layouts read the
+ * same; its recheck: a place after a comma was never closed off, "… in X.dwg, laid out in the drawing was left out"),
  * and that name broke every sentence built for a sheet number: lowercase at a sentence's start, and a
  * possessive that names the file ("an untitled sheet in KR-ARC-R0.dwg’s kind"). The class check: every
  * option key of every Question code, its toast, its card's first line and the withdrawn card's words,
@@ -45,6 +46,7 @@ function faults(text: string): string[] {
   if (/(^|[.?!]\s+)an untitled sheet/.test(text)) out.push('a sentence opens "an untitled sheet"')
   if (/\.dwg’s|\.dwg's/.test(text)) out.push('a possessive on the file name')
   if (/“\s*”|"\s*"/.test(text)) out.push('an empty quotation')
+  if (/untitled sheet[^.]*?\.dwg, (?:layout|laid out)/.test(text)) out.push('a place after a comma, never closed off')
   return out
 }
 
@@ -66,8 +68,8 @@ describe('an untitled sheet’s name in every sentence (#167 words gate, F1)', (
   it('names it by its file, capitalised at a sentence’s start', () => {
     const fake = new FakeAnswers()
     const sheet = untitled(fake) as unknown as QuestionEntry['holds'][number]
-    expect(words(<SheetName sheets={[sheet]} />)).toBe('an untitled sheet in KR-ARC-R0.dwg, laid out in the drawing')
-    expect(words(<SheetName sheets={[sheet]} start />)).toBe('An untitled sheet in KR-ARC-R0.dwg, laid out in the drawing')
+    expect(words(<SheetName sheets={[sheet]} />)).toBe('an untitled sheet drawn in the model of KR-ARC-R0.dwg')
+    expect(words(<SheetName sheets={[sheet]} start />)).toBe('An untitled sheet drawn in the model of KR-ARC-R0.dwg')
   })
 
   it('tells two untitled sheets of one file apart by their layouts (review 1, finding 1)', () => {
@@ -75,9 +77,9 @@ describe('an untitled sheet’s name in every sentence (#167 words gate, F1)', (
     const sheet = untitled(fake) as unknown as QuestionEntry['holds'][number]
     const one = { ...sheet, layout: 'Layout1' }
     const two = { ...sheet, layout: 'Layout2' }
-    expect(words(<SheetName sheets={[one]} />)).toBe('an untitled sheet in KR-ARC-R0.dwg, layout “Layout1”')
-    expect(words(<SheetName sheets={[two]} start />)).toBe('An untitled sheet in KR-ARC-R0.dwg, layout “Layout2”')
-    expect(words(<OneSourceWhat sheet={two} name={<SheetName sheets={[two]} start />} />)).toBe('An untitled sheet in KR-ARC-R0.dwg, layout “Layout2” has neither a number nor a title in its title block')
+    expect(words(<SheetName sheets={[one]} />)).toBe('an untitled sheet on layout “Layout1” of KR-ARC-R0.dwg')
+    expect(words(<SheetName sheets={[two]} start />)).toBe('An untitled sheet on layout “Layout2” of KR-ARC-R0.dwg')
+    expect(words(<OneSourceWhat sheet={two} name={<SheetName sheets={[two]} start />} />)).toBe('An untitled sheet on layout “Layout2” of KR-ARC-R0.dwg has neither a number nor a title in its title block')
   })
 
   it('never opens a sentence in lowercase on it, puts a possessive on it or quotes nothing, for any option of any Question', () => {
@@ -85,14 +87,16 @@ describe('an untitled sheet’s name in every sentence (#167 words gate, F1)', (
     const sheet = untitled(fake)
     const context: CardContext = { lists: {}, sheets: fake.step1.proposals as unknown as CardContext['sheets'], names: {} }
     const found: string[] = []
+    // Both places: on a layout, and drawn in the model (layout none).
+    for (const placed of [{ ...sheet, layout: null }, { ...sheet, layout: 'Layout2' }])
     for (const question of [...fake.everyShape(), ...Object.values(fake.byKind())]) {
-      const entry = entryOf(question, [sheet])
+      const entry = entryOf(question, [placed])
       const said = [
         words(<QuestionBody entry={entry} context={context} />),
         words(<Trace entry={entry} context={context} />),
         words(<Answering entry={entry} context={context} />),
-        words(<Answering entry={entryOf(question, [sheet], true)} context={context} />),
-        words(<AnswerNote entry={entryOf(question, [sheet], true)} readOnly={null} />),
+        words(<Answering entry={entryOf(question, [placed], true)} context={context} />),
+        words(<AnswerNote entry={entryOf(question, [placed], true)} readOnly={null} />),
       ]
       for (const { key } of question.options as { key: string }[]) {
         said.push(words(<AnsweredWords entry={entry} option={key} text="" />))
