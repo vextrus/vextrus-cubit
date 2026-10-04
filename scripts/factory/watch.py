@@ -1,0 +1,827 @@
+"""The watcher: one process that reads the factory's world every minute and writes it down.
+
+    python -m scripts.factory.watch [run] [--once] [--interval 60]
+    python -m scripts.factory.watch ensure
+    python3 scripts/factory/watch.py              (the detached form: `run`, no PYTHONPATH needed)
+
+Run it from the main checkout: git runs in the current directory's repository.
+
+Each pass (every `--interval` seconds; `--once` makes one pass and exits):
+- the ticket branches named by the launch records (`$VEXTRUS_FACTORY_DIR/launches/<ticket>-<utc>.json`,
+  launch-cli.md 5; the newest record per ticket, and only those started since `session.json`'s start when
+  a session is running) are read with one `git ls-remote --heads origin`. A new head is a push (a
+  heartbeat): it is fetched, its tip's trailers are read exactly as trailers.md 1 defines them (never a
+  reading of free text), and on a cloud branch `python -m tools.leakscan range origin/main..<head>
+  --no-stamp` (or `VEXTRUS_LEAKSCAN_CMD`) scans its diff and messages; the scan's output is reduced to
+  `file:line` and a count, its text is never kept. No scanner (before PR f2) is recorded as `absent` in
+  `watch-state.json` and is not an alarm;
+- `claude agents --json --all` (only when a local builder is recorded), the usage reading every 15
+  minutes (a line in `usage.log`), `gh pr list` every 5 minutes, `jev models-check` once a day (when
+  `scripts/factory/jev.py` or `VEXTRUS_JEV_CMD` exists), and every pass `rdlock.json`, `df`,
+  `/proc/meminfo`, the review ledger (`ledger/`), the G1 walks (`../walks/<sha40>/verdict.json`,
+  `g1.pid`) and `session.json`.
+
+It writes one `status.json` (status.schema.json, atomically, through `status.py`) and appends one line
+`<UTC> <KIND> <ticket|-> <detail>` per change to `events.log`. The kinds: PUSH, READY, BLOCKED (events)
+and the alarms, status.schema.json's codes: READY-WAITING, READY-NO-VERIFY, BUILDER-QUIET,
+BUILDER-BLOCKED, NEW-CLAUDE-BRANCH, LEAK-HIT, BUDGET-PASSED, FLOOR-CROSSED, REVIEW-READY,
+JEV-MODEL-MOVED. Alarms are edge-triggered: a line when one is raised, none while it holds, and it
+leaves `status.json` when its cause clears. Its memory is `watch-state.json`, so a READY head already
+on origin at the first run fires, and a restart does not fire it again. Before PR f4's `verify` exists
+every READY head raises READY-NO-VERIFY: that is the rule (trailers.md 1), not a fault.
+
+`ensure` starts a detached watcher unless `watch.pid` names a live one (a pid whose command line is not
+this module's is stale) and prints `started <pid>` or `running <pid>`. A running loop owns `watch.pid`;
+SIGTERM ends it and removes the file.
+
+Exit 0, or 1 when a `--once` pass failed.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import shlex
+import shutil
+import signal
+import subprocess
+import sys
+import time
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from pathlib import Path
+from types import FrameType
+from typing import Any
+
+if not __package__:  # the script form, `python3 scripts/factory/watch.py`
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from scripts.factory import governor, stamp, status
+
+QUIET_MINUTES = 30
+READY_WAIT_MINUTES = 10
+USAGE_EVERY = timedelta(minutes=15)
+PRS_EVERY = timedelta(minutes=5)
+JEV_EVERY = timedelta(hours=24)
+GIT_TIMEOUT = 120
+SCAN_TIMEOUT = 600
+SHA40 = re.compile(r"^[0-9a-f]{40}$")
+REVIEW_BRANCH = re.compile(r"^review/(\d+)-[0-9a-f]{8}$")
+LOCK_KINDS = {"posting": "post", "post": "post", "scored": "scored", "no-post": "no-post"}
+BUILDER_ROW_STATES = {"working", "blocked", "done", "failed", "stopped"}
+CLOSED_PR = {"MERGED", "CLOSED"}
+
+
+# --- trailers (trailers.md 1)
+@dataclass(frozen=True)
+class Trailers:
+    outcome: str | None  # READY, BLOCKED, READY-NO-VERIFY (a malformed READY) or None
+    reason: str | None = None
+    why: str | None = None
+
+
+KEYS = {"factory-state", "factory-verify", "factory-reason"}
+
+
+def parse_trailers(message: str, tree: str) -> Trailers:
+    """The tip commit's factory trailers, from its last paragraph only."""
+    paragraphs = [p for p in re.split(r"\n[ \t]*\n", message.strip()) if p.strip()]
+    if not paragraphs:
+        return Trailers(None)
+    found: dict[str, list[str]] = {}
+    for line in paragraphs[-1].splitlines():
+        match = re.match(r"^([A-Za-z0-9-]+):[ \t]*(.*?)\s*$", line)
+        if match and match.group(1).lower().startswith("factory-"):
+            found.setdefault(match.group(1).lower(), []).append(match.group(2))
+    if not found:
+        return Trailers(None)
+    states = found.get("factory-state", [])
+    looks_ready = any(value.upper() == "READY" for value in states)
+
+    def malformed(why: str) -> Trailers:
+        return Trailers("READY-NO-VERIFY" if looks_ready else None, None, why)
+
+    if any(len(values) > 1 for values in found.values()):
+        return malformed("a factory trailer is repeated")
+    if set(found) - KEYS:
+        return malformed("an unknown factory trailer")
+    if not states:
+        return malformed("factory trailers without Factory-State")
+    state = states[0]
+    verify = found.get("factory-verify", [None])[0]
+    reason = found.get("factory-reason", [None])[0]
+    verify_ok = verify is None or re.fullmatch(r"[0-9a-f]{40} ok", verify) is not None
+    if state == "READY":
+        if reason is not None:
+            return malformed("READY carries a Factory-Reason")
+        if verify is None:
+            return malformed("no Factory-Verify")
+        if not verify_ok:
+            return malformed("Factory-Verify is malformed")
+        if verify.split()[0] != tree:
+            return malformed("the Factory-Verify tree is not the head's tree")
+        return Trailers("READY")
+    if state == "BLOCKED":
+        if reason is None or not re.fullmatch(r"[^\r\n]{1,200}", reason) or not verify_ok:
+            return malformed("BLOCKED without a one-line Factory-Reason")
+        return Trailers("BLOCKED", public(reason, 200))
+    return malformed("Factory-State is not READY or BLOCKED")
+
+
+def public(text: str, limit: int) -> str:
+    """One printable line, at most `limit` characters."""
+    line = " ".join("".join(ch if ch.isprintable() else " " for ch in text).split())
+    return line[:limit]
+
+
+# --- git, run in the main checkout (the cwd)
+def git(*args: str) -> subprocess.CompletedProcess[str] | None:
+    try:
+        return subprocess.run(
+            ["git", *args],
+            capture_output=True,
+            text=True,
+            stdin=subprocess.DEVNULL,
+            timeout=GIT_TIMEOUT,
+            check=False,
+        )
+    except OSError, subprocess.SubprocessError:
+        return None
+
+
+def git_out(*args: str) -> str | None:
+    done = git(*args)
+    return done.stdout if done is not None and done.returncode == 0 else None
+
+
+def remote_heads() -> dict[str, str] | None:
+    """origin's branches and tips, or None when origin cannot be read this pass."""
+    out = git_out("ls-remote", "--heads", "origin")
+    if out is None:
+        return None
+    heads: dict[str, str] = {}
+    for line in out.splitlines():
+        sha, _, ref = line.partition("\t")
+        if ref.startswith("refs/heads/") and SHA40.match(sha):
+            heads[ref.removeprefix("refs/heads/")] = sha
+    return heads
+
+
+def fetch(branch: str, sha: str) -> bool:
+    if git_out("cat-file", "-e", f"{sha}^{{commit}}") is not None:
+        return True
+    ref = f"+refs/heads/{branch}:refs/remotes/origin/{branch}"
+    return git_out("fetch", "-q", "--no-tags", "origin", ref) is not None
+
+
+def read_head(branch: str, sha: str) -> tuple[str, str] | None:
+    """(message, tree) of a fetched head, or None when it cannot be fetched this pass."""
+    if not fetch(branch, sha):
+        return None
+    message = git_out("log", "-1", "--format=%B", sha)
+    tree = git_out("rev-parse", f"{sha}^{{tree}}")
+    if message is None or tree is None:
+        return None
+    return message, tree.strip()
+
+
+# --- the leak scan (leakscan-cli.md 6: the watcher only alarms, never stamps)
+def leakscan_command() -> list[str] | None:
+    chosen = os.environ.get("VEXTRUS_LEAKSCAN_CMD")
+    if chosen:
+        argv = shlex.split(chosen)
+        return argv if argv and (shutil.which(argv[0]) or Path(argv[0]).is_file()) else None
+    if (Path.cwd() / "tools" / "leakscan").is_dir():
+        return [sys.executable, "-m", "tools.leakscan"]
+    return None
+
+
+def leak_scan(head: str, main_sha: str | None) -> dict[str, Any]:
+    """{"result": absent|clean|hit|cannot-scan, "where": ..., "n": ...}: places and counts only."""
+    argv = leakscan_command()
+    if argv is None:
+        return {"result": "absent"}
+    if main_sha is not None:
+        fetch("main", main_sha)
+    try:
+        done = subprocess.run(
+            [*argv, "range", f"origin/main..{head}", "--no-stamp"],
+            capture_output=True,
+            text=True,
+            stdin=subprocess.DEVNULL,
+            timeout=SCAN_TIMEOUT,
+            check=False,
+        )
+    except OSError, subprocess.SubprocessError:
+        return {"result": "cannot-scan", "where": "cannot-scan", "n": 0}
+    if done.returncode == 0:
+        return {"result": "clean"}
+    hits: list[tuple[str, int]] = []
+    word = "error"
+    for line in done.stdout.splitlines():
+        match = re.fullmatch(r"HIT ([\w.:/@+-]{1,160}) (\d{1,6})", line.strip())
+        if match:
+            hits.append((match.group(1), int(match.group(2))))
+        cannot = re.match(r"leakscan: cannot-scan ([a-z-]{1,40})\b", line.strip())
+        if cannot:
+            word = cannot.group(1)
+    if done.returncode == 1 and hits:
+        return {"result": "hit", "where": hits[0][0], "n": sum(n for _, n in hits), "places": len(hits)}
+    return {"result": "cannot-scan", "where": f"cannot-scan:{word}", "n": 0}
+
+
+# --- readings with a cadence
+def gh_prs() -> list[dict[str, Any]] | None:
+    seam = os.environ.get("VEXTRUS_PRS_FILE")
+    if seam:
+        try:
+            text = Path(seam).read_text()
+        except OSError:
+            return None
+    else:
+        argv = ["gh", "pr", "list", "--state", "all", "--limit", "200"]
+        argv += ["--json", "number,headRefName,headRefOid,state"]
+        try:
+            done = subprocess.run(
+                argv, capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=120, check=False
+            )
+        except OSError, subprocess.SubprocessError:
+            return None
+        if done.returncode != 0:
+            return None
+        text = done.stdout
+    try:
+        loaded = json.loads(text)
+    except ValueError:
+        return None
+    if not isinstance(loaded, list):
+        return None
+    return [row for row in loaded if isinstance(row, dict) and isinstance(row.get("number"), int)]
+
+
+def jev_command() -> list[str] | None:
+    chosen = os.environ.get("VEXTRUS_JEV_CMD")
+    if chosen:
+        argv = shlex.split(chosen)
+        return argv if argv and (shutil.which(argv[0]) or Path(argv[0]).is_file()) else None
+    if (status.REPO / "scripts" / "factory" / "jev.py").is_file():
+        return [sys.executable, "-m", "scripts.factory.jev"]
+    return None
+
+
+def models_check() -> str | bool | None:
+    """The moved line (`<pinned> -> <seen>`), None when the model holds, False when not checked."""
+    argv = jev_command()
+    if argv is None:
+        return False
+    try:
+        done = subprocess.run(
+            [*argv, "models-check"],
+            capture_output=True,
+            text=True,
+            stdin=subprocess.DEVNULL,
+            timeout=120,
+            check=False,
+        )
+    except OSError, subprocess.SubprocessError:
+        return False
+    first = done.stdout.strip().splitlines()[0] if done.stdout.strip() else ""
+    if done.returncode == 1 and first.startswith("JEV-MODEL-MOVED"):
+        moved = re.sub(r"[^A-Za-z0-9._:>\- ]", "", first.removeprefix("JEV-MODEL-MOVED"))
+        return public(moved, 200) or "moved"
+    if done.returncode == 0:
+        return None
+    return False
+
+
+# --- the world's records
+def load_launches(folder: Path, since: datetime | None) -> dict[str, dict[str, Any]]:
+    newest: dict[str, dict[str, Any]] = {}
+    for path in sorted((folder / "launches").glob("*.json")):
+        if path.name.endswith(".agents.json"):
+            continue
+        try:
+            record = json.loads(path.read_text())
+            started = status.parse_utc(record["started_at"])
+            ticket, branch = str(record["ticket"]), str(record["branch"])
+            where = record["where"]
+        except OSError, ValueError, KeyError, TypeError:
+            print(f"watch: unreadable launch record {path.name}", file=sys.stderr)
+            continue
+        if where not in ("cloud", "local") or not ticket or not branch:
+            print(f"watch: unreadable launch record {path.name}", file=sys.stderr)
+            continue
+        if since is not None and started < since:
+            continue
+        record["_started"] = started
+        if ticket not in newest or started >= newest[ticket]["_started"]:
+            newest[ticket] = record
+    return newest
+
+
+def read_session() -> dict[str, Any] | None:
+    try:
+        return stamp.load_session()
+    except stamp.Refused:
+        return None
+
+
+def clock(session: dict[str, Any] | None, at: datetime) -> dict[str, Any]:
+    if session is None:
+        return {"session": None, "phase": None}
+    started = status.parse_utc(session["started_utc"])
+    block: dict[str, Any] = {
+        "session": {
+            "started_at": status.utc(started),
+            "budget_minutes": int(session["budget_minutes"]),
+            "elapsed_minutes": status.minutes_between(started, at),
+        },
+        "phase": None,
+    }
+    current = stamp.current_phase(session)
+    if current is not None:
+        since = status.parse_utc(current["start_utc"])
+        block["phase"] = {
+            "name": public(str(current["name"]), 40),
+            "started_at": status.utc(since),
+            "budget_minutes": int(current["minutes"]),
+            "elapsed_minutes": status.minutes_between(since, at),
+        }
+    return block
+
+
+def lock_view(folder: Path, at: datetime) -> dict[str, Any]:
+    """rdlock.json as the schema's `lock` (rdlock.py's kinds: posting is `post`)."""
+    try:
+        loaded = json.loads((folder / "rdlock.json").read_text())
+    except OSError, ValueError:
+        return {"holder": None, "waiters": []}
+
+    def entry(raw: Any) -> dict[str, Any] | None:
+        if not isinstance(raw, dict) or raw.get("kind") not in LOCK_KINDS:
+            return None
+        try:
+            since = status.parse_utc(raw["since"])
+        except KeyError, TypeError, ValueError:
+            return None
+        head = raw.get("head")
+        ticket = raw.get("ticket")
+        return {
+            "kind": LOCK_KINDS[raw["kind"]],
+            "ticket": public(ticket, 80) if isinstance(ticket, str) else None,
+            "head": head if isinstance(head, str) and SHA40.match(head) else None,
+            "since": status.utc(since),
+        }
+
+    holder = entry(loaded.get("holder")) if isinstance(loaded, dict) else None
+    if holder is not None:
+        holder["elapsed_minutes"] = status.minutes_between(status.parse_utc(holder["since"]), at)
+    raw_waiters = loaded.get("waiters", []) if isinstance(loaded, dict) else []
+    waiters = [w for w in (entry(raw) for raw in raw_waiters) if w is not None]
+    return {"holder": holder, "waiters": waiters}
+
+
+def reviews_view(folder: Path, prs: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+    by_pr: dict[int, list[dict[str, Any]]] = {}
+    for path in sorted((folder / "ledger").glob("*.json")):
+        try:
+            record = json.loads(path.read_text())
+            pr, round_ = int(record["pr"]), int(record["round"])
+            head, verdict = str(record["head"]), str(record["verdict"])
+        except OSError, ValueError, KeyError, TypeError:
+            continue
+        if (
+            pr < 1
+            or not 1 <= round_ <= 3
+            or not SHA40.match(head)
+            or verdict not in ("PASS", "FIX", "BLOCK")
+        ):
+            continue
+        record_at = str(record.get("recorded_at", ""))
+        by_pr.setdefault(pr, []).append(
+            {"round": round_, "head": head, "verdict": verdict, "at": record_at}
+        )
+    known = {row["number"]: row for row in prs or []}
+    found = []
+    for pr, records in sorted(by_pr.items()):
+        open_pr = known.get(pr)
+        if open_pr is not None and open_pr.get("state") in CLOSED_PR:
+            continue
+        newest = max(records, key=lambda r: (r["round"], r["at"]))
+        head = str(open_pr.get("headRefOid")) if open_pr is not None else newest["head"]
+        if any(r["verdict"] == "PASS" and r["head"] == head for r in records):
+            continue
+        found.append({"pr": pr, "round": newest["round"], "head": newest["head"]})
+    return found
+
+
+def g1_view(folder: Path, main_sha: str | None) -> dict[str, Any] | None:
+    running = status.live_pid(folder / "g1.pid")
+    walks: list[dict[str, Any]] = []
+    for path in (folder.parent / "walks").glob("*/verdict.json"):
+        try:
+            verdict = json.loads(path.read_text())
+            result, sha = verdict["result"], verdict["sha"]
+            finished = status.parse_utc(verdict["finished_at"])
+        except OSError, ValueError, KeyError, TypeError:
+            continue
+        if result in ("PASS", "FAIL") and SHA40.match(str(sha)) and verdict.get("ref", "main") == "main":
+            walks.append({"state": result, "sha": sha, "at": status.utc(finished), "_at": finished})
+    newest = max(walks, key=lambda w: w["_at"], default=None)
+    if running is not None:
+        sha = main_sha or (newest["sha"] if newest else None)
+        if sha is not None:
+            since = datetime.fromtimestamp((folder / "g1.pid").stat().st_mtime).astimezone()
+            return {"state": "RUNNING", "sha": sha, "at": status.utc(since)}
+    if newest is None:
+        return None
+    return {key: newest[key] for key in ("state", "sha", "at")}
+
+
+# --- one pass
+class Pass:
+    def __init__(self, folder: Path, at: datetime, state: dict[str, Any]) -> None:
+        self.folder = folder
+        self.at = at
+        self.state = state
+        self.events: list[tuple[str, str | None, str]] = []
+        self.alarms: dict[str, tuple[str, str | None, str]] = {}
+
+    def event(self, kind: str, subject: str | None, detail: str) -> None:
+        self.events.append((kind, subject, detail))
+
+    def alarm(self, key: str, code: str, subject: str | None, detail: str) -> None:
+        self.alarms[f"{code}|{key}"] = (code, subject, detail)
+
+    def due(self, key: str, every: timedelta) -> bool:
+        last = self.state.get(key)
+        return last is None or self.at - status.parse_utc(last) >= every
+
+
+def run_pass(folder: Path, at: datetime, started_at: datetime) -> None:
+    folder.mkdir(parents=True, exist_ok=True)
+    state = load_state(folder)
+    step = Pass(folder, at, state)
+    session = read_session()
+    since = status.parse_utc(session["started_utc"]) if session else None
+    records = load_launches(folder, since)
+    refs = remote_heads()
+    main_sha = refs.get("main") if refs is not None else None
+
+    if step.due("prs_read_at", PRS_EVERY):
+        state["prs_read_at"] = status.utc(at)
+        read = gh_prs()
+        if read is not None:
+            state["prs"] = read
+    prs: list[dict[str, Any]] | None = state.get("prs")
+
+    if step.due("usage_read_at", USAGE_EVERY):
+        state["usage_read_at"] = status.utc(at)
+        reading = governor.read_usage().usage
+        state["usage"] = (
+            None
+            if reading is None
+            else {
+                "session_percent": reading.session,
+                "week_percent": reading.week,
+                "read_at": status.utc(at),
+            }
+        )
+        with (folder / "usage.log").open("a") as log:
+            line = (
+                "unreadable" if reading is None else f"session={reading.session:g} week={reading.week:g}"
+            )
+            log.write(f"{status.utc(at)} {line}\n")
+
+    rows = governor.read_agents() if any(r["where"] == "local" for r in records.values()) else None
+    items = [
+        track(step, ticket, record, refs, main_sha, prs, rows)
+        for ticket, record in sorted(records.items())
+    ]
+
+    if refs is not None:
+        watch_branches(step, refs)
+    if session is not None:
+        spent = status.minutes_between(status.parse_utc(session["started_utc"]), at)
+        if spent > int(session["budget_minutes"]):
+            budget = int(session["budget_minutes"])
+            step.alarm("session", "BUDGET-PASSED", None, f"session {spent}/{budget} min")
+    resources = watch_floors(step)
+    watch_jev(step)
+
+    raise_alarms(step)
+    save_state(folder, state)
+    payload = status.build(
+        written_at=at,
+        watcher={"pid": os.getpid(), "started_at": status.utc(started_at)},
+        clock=clock(session, at),
+        resources=resources,
+        lock=lock_view(folder, at),
+        items=items,
+        reviews=reviews_view(folder, prs),
+        g1_main=g1_view(folder, main_sha),
+        usage=state.get("usage"),
+        alarms=[
+            {"code": a["code"], "subject": a["subject"], "detail": a["detail"], "since": a["since"]}
+            for a in state["alarms"].values()
+        ],
+    )
+    status.write_atomic(folder / "status.json", payload)
+
+
+def track(
+    step: Pass,
+    ticket: str,
+    record: dict[str, Any],
+    refs: dict[str, str] | None,
+    main_sha: str | None,
+    prs: list[dict[str, Any]] | None,
+    rows: list[dict[str, Any]] | None,
+) -> dict[str, Any]:
+    """Follow one ticket's branch; raise its alarms; return its `builders.items` entry."""
+    at, branch, where = step.at, str(record["branch"]), str(record["where"])
+    tickets = step.state.setdefault("tickets", {})
+    seen = tickets.get(ticket)
+    if seen is None or seen.get("branch") != branch:
+        seen = tickets[ticket] = {"branch": branch, "head": None, "last_push_at": None, "outcome": None}
+    head = refs.get(branch) if refs is not None else seen["head"]
+    if refs is not None and head != seen["head"]:
+        info = read_head(branch, head) if head is not None else ("", "")
+        if info is not None:
+            message, tree = info
+            trailers = parse_trailers(message, tree) if head is not None else Trailers(None)
+            seen.update(
+                head=head,
+                last_push_at=status.utc(at) if head is not None else seen["last_push_at"],
+                outcome=trailers.outcome,
+                reason=trailers.reason,
+                why=trailers.why,
+                outcome_at=status.utc(at),
+                leak=None,
+            )
+            if head is not None:
+                step.event("PUSH", ticket, head[:8])
+                if trailers.outcome == "READY":
+                    step.event("READY", ticket, head[:8])
+                elif trailers.outcome == "BLOCKED":
+                    step.event("BLOCKED", ticket, f"{head[:8]} {trailers.reason}")
+                if where == "cloud":
+                    seen["leak"] = leak_scan(head, main_sha)
+                    step.state["leakscan"] = seen["leak"]["result"]
+    head = seen["head"]
+    outcome = seen.get("outcome")
+    pr = pr_for(branch, prs)
+    closed = pr is not None and pr.get("state") in CLOSED_PR
+    last_push = seen.get("last_push_at")
+    quiet_since = status.parse_utc(last_push) if last_push else record["_started"]
+    quiet = status.minutes_between(quiet_since, at)
+
+    row = agents_row(rows, record.get("name"))
+    if closed:
+        state = "done"
+    elif outcome == "READY":
+        state = "ready"
+    elif outcome == "BLOCKED":
+        state = "blocked"
+    elif where == "local":
+        row_state = (
+            row.get("state") if row is not None else ("stopped" if rows is not None else "working")
+        )
+        state = row_state if row_state in BUILDER_ROW_STATES else "working"
+    else:
+        state = "quiet" if quiet >= QUIET_MINUTES else "working"
+
+    if head is not None and outcome == "READY-NO-VERIFY":
+        step.alarm(f"{ticket}|{head}", "READY-NO-VERIFY", ticket, f"{head[:8]} {seen.get('why')}")
+    if state == "ready" and head is not None:
+        waited = status.minutes_between(status.parse_utc(seen["outcome_at"]), at)
+        if waited >= READY_WAIT_MINUTES:
+            step.alarm(
+                f"{ticket}|{head}", "READY-WAITING", ticket, f"{head[:8]} READY {waited} min, not merged"
+            )
+    if where == "cloud" and state == "quiet":
+        step.alarm(f"{ticket}|{last_push}", "BUILDER-QUIET", ticket, f"no push for {quiet} min")
+    if where == "local" and row is not None and row.get("state") == "blocked" and not closed:
+        step.alarm(ticket, "BUILDER-BLOCKED", ticket, "local builder blocked (claude agents)")
+    budget = record.get("budget_minutes")
+    if isinstance(budget, int) and state not in ("ready", "blocked", "done"):
+        spent = status.minutes_between(record["_started"], at)
+        if spent > budget:
+            step.alarm(ticket, "BUDGET-PASSED", ticket, f"{spent}/{budget} min")
+    leak = seen.get("leak") or {}
+    if head is not None and leak.get("result") in ("hit", "cannot-scan"):
+        detail = f"{leak['where']} {leak['n']}"
+        if leak.get("places", 1) > 1:
+            detail += f" ({leak['places']} places)"
+        step.alarm(f"{ticket}|{head}", "LEAK-HIT", ticket, detail)
+
+    return {
+        "ticket": public(ticket, 80),
+        "where": where,
+        "state": state,
+        "branch": public(branch, 200),
+        "head": head,
+        "last_push_at": last_push,
+        "quiet_minutes": quiet if where == "cloud" else None,
+        "pr": pr["number"] if pr is not None and pr["number"] >= 1 else None,
+    }
+
+
+def pr_for(branch: str, prs: list[dict[str, Any]] | None) -> dict[str, Any] | None:
+    mine = [row for row in prs or [] if row.get("headRefName") == branch]
+    return max(mine, key=lambda row: (row.get("state") == "OPEN", row["number"]), default=None)
+
+
+def agents_row(rows: list[dict[str, Any]] | None, name: Any) -> dict[str, Any] | None:
+    if rows is None or not isinstance(name, str):
+        return None
+    mine = [row for row in rows if row.get("name") == name]
+    return max(
+        mine, key=lambda row: (row.get("pid") is not None, str(row.get("startedAt"))), default=None
+    )
+
+
+def watch_branches(step: Pass, refs: dict[str, str]) -> None:
+    claude = sorted(name for name in refs if name.startswith("claude/"))
+    baseline = step.state.get("claude_baseline")
+    if baseline is None:
+        step.state["claude_baseline"] = claude
+    else:
+        for name in claude:
+            if name not in baseline:
+                step.alarm(name, "NEW-CLAUDE-BRANCH", name[:80], "a new claude/* branch on origin")
+    for name in refs:
+        match = REVIEW_BRANCH.match(name)
+        if match:
+            step.alarm(name, "REVIEW-READY", f"#{match.group(1)}", f"review verdict branch {name}")
+
+
+def watch_floors(step: Pass) -> dict[str, Any]:
+    memory = governor.read_memory()
+    disk = governor.read_disk_gb()
+    if memory is not None:
+        if memory.available_gb < governor.MEM_FLOOR_GB:
+            detail = f"{memory.available_gb:.1f} GB available, under {governor.MEM_FLOOR_GB} GB"
+            step.alarm("mem", "FLOOR-CROSSED", "mem", detail)
+        if memory.swap_used_gb > governor.SWAP_REFUSE_GB:
+            detail = f"{memory.swap_used_gb:.1f} GB used, over {governor.SWAP_REFUSE_GB:.0f} GB"
+            step.alarm("swap", "FLOOR-CROSSED", "swap", detail)
+    if disk is not None and disk < governor.DISK_REFUSE_GB:
+        step.alarm(
+            "disk",
+            "FLOOR-CROSSED",
+            "disk",
+            f"{disk:.1f} GB free, under {governor.DISK_REFUSE_GB:.0f} GB",
+        )
+    usage = step.state.get("usage")
+    if usage and (
+        usage["session_percent"] >= governor.SESSION_HOLD or usage["week_percent"] >= governor.WEEK_HOLD
+    ):
+        detail = f"session {usage['session_percent']:g}% week {usage['week_percent']:g}%: launches held"
+        step.alarm("usage", "FLOOR-CROSSED", "usage", detail)
+    return {
+        "disk_free_gb": None if disk is None else round(disk, 1),
+        "swap_used_gb": None if memory is None else round(memory.swap_used_gb, 1),
+        "mem_available_gb": None if memory is None else round(memory.available_gb, 1),
+    }
+
+
+def watch_jev(step: Pass) -> None:
+    if step.due("jev_checked_at", JEV_EVERY):
+        moved = models_check()
+        if moved is not False:
+            step.state["jev_checked_at"] = status.utc(step.at)
+            step.state["jev_moved"] = moved
+    moved_line = step.state.get("jev_moved")
+    if isinstance(moved_line, str):
+        step.alarm(moved_line, "JEV-MODEL-MOVED", None, moved_line)
+
+
+def raise_alarms(step: Pass) -> None:
+    held: dict[str, dict[str, Any]] = step.state.get("alarms", {})
+    now_held: dict[str, dict[str, Any]] = {}
+    for key, (code, subject, detail) in step.alarms.items():
+        previous = held.get(key)
+        if previous is None:
+            step.event(code, subject, detail)
+        now_held[key] = {
+            "code": code,
+            "subject": None if subject is None else public(subject, 80),
+            "detail": public(detail, 200),
+            "since": previous["since"] if previous else status.utc(step.at),
+        }
+    step.state["alarms"] = now_held
+    if step.events:
+        with (step.folder / "events.log").open("a") as log:
+            for kind, subject, detail in step.events:
+                who = "-" if not subject else public(subject, 80).replace(" ", "_")
+                log.write(f"{status.utc(step.at)} {kind} {who} {public(detail, 200)}\n")
+
+
+def load_state(folder: Path) -> dict[str, Any]:
+    path = folder / "watch-state.json"
+    try:
+        loaded = json.loads(path.read_text())
+    except FileNotFoundError:
+        return {"schema": 1, "alarms": {}, "tickets": {}}
+    except OSError, ValueError:
+        print("watch: watch-state.json is unreadable; starting from an empty state", file=sys.stderr)
+        return {"schema": 1, "alarms": {}, "tickets": {}}
+    if not isinstance(loaded, dict):
+        return {"schema": 1, "alarms": {}, "tickets": {}}
+    loaded.setdefault("alarms", {})
+    loaded.setdefault("tickets", {})
+    return loaded
+
+
+def save_state(folder: Path, state: dict[str, Any]) -> None:
+    status.write_atomic(folder / "watch-state.json", state)
+
+
+# --- the process
+def is_watcher(pid: int) -> bool:
+    try:
+        args = Path(f"/proc/{pid}/cmdline").read_bytes().split(b"\0")
+    except OSError:
+        return False
+    return status.pid_alive(pid) and any(
+        arg == b"scripts.factory.watch" or arg.endswith(b"scripts/factory/watch.py") for arg in args
+    )
+
+
+def ensure() -> int:
+    folder = status.factory_dir()
+    folder.mkdir(parents=True, exist_ok=True)
+    pidfile = folder / "watch.pid"
+    pid = status.read_pidfile(pidfile)
+    if pid is not None and pid != os.getpid() and is_watcher(pid):
+        print(f"running {pid}")
+        return 0
+    env = dict(os.environ)
+    env["PYTHONPATH"] = os.pathsep.join(p for p in (str(status.REPO), env.get("PYTHONPATH")) if p)
+    cwd = status.main_checkout() or Path.cwd()
+    with (folder / "watch.out").open("ab") as out:
+        child = subprocess.Popen(
+            [sys.executable, "-m", "scripts.factory.watch", "run"],
+            cwd=cwd,
+            env=env,
+            stdin=subprocess.DEVNULL,
+            stdout=out,
+            stderr=out,
+            start_new_session=True,
+        )
+    pidfile.write_text(f"{child.pid}\n")
+    print(f"started {child.pid}")
+    return 0
+
+
+def _stop(signum: int, frame: FrameType | None) -> None:
+    raise SystemExit(0)
+
+
+def run(once: bool, interval: float) -> int:
+    folder = status.factory_dir()
+    folder.mkdir(parents=True, exist_ok=True)
+    started = status.now()
+    pidfile = folder / "watch.pid"
+    if once:
+        try:
+            run_pass(folder, status.now(), started)
+        except Exception as error:
+            print(f"watch: the pass failed: {type(error).__name__}: {error}", file=sys.stderr)
+            return 1
+        return 0
+    other = status.read_pidfile(pidfile)
+    if other is not None and other != os.getpid() and is_watcher(other):
+        print(f"running {other}")
+        return 0
+    signal.signal(signal.SIGTERM, _stop)
+    signal.signal(signal.SIGINT, _stop)
+    pidfile.write_text(f"{os.getpid()}\n")
+    try:
+        while True:
+            try:
+                run_pass(folder, status.now(), started)
+            except Exception as error:
+                print(f"watch: the pass failed: {type(error).__name__}: {error}", file=sys.stderr)
+            time.sleep(interval)
+    finally:
+        if status.read_pidfile(pidfile) == os.getpid():
+            pidfile.unlink(missing_ok=True)
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(prog="python -m scripts.factory.watch", description=__doc__)
+    parser.add_argument("command", nargs="?", choices=["run", "ensure"], default="run")
+    parser.add_argument("--once", action="store_true")
+    parser.add_argument("--interval", type=float, default=60.0)
+    args = parser.parse_args(argv)
+    if args.command == "ensure":
+        return ensure()
+    return run(args.once, args.interval)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

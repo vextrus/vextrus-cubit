@@ -1,0 +1,7 @@
+feat: the launcher refuses a branch origin does not list
+
+Not verified: the live launch.
+
+Factory-State: READY
+Factory-Verify: @TREE@ ok
+Co-Authored-By: Example Builder <builder@example.invalid>
