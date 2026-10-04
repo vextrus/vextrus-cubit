@@ -877,6 +877,41 @@ def test_w12_the_script_form_with_no_arguments_runs_the_loop_and_sigterm_removes
     assert "Traceback" not in err.read_text(), err.read_text()
 
 
+# W13 (tier 2, cut 3)
+def test_w13_a_new_review_branch_raises_review_ready_once(world: World) -> None:
+    world.once()
+    assert world.events("REVIEW-READY") == []
+    world.push("review/250-abcdef12", plain)
+    world.once()
+    world.once()
+    events = world.events("REVIEW-READY")
+    assert len(events) == 1, world.lines()
+    assert re.search(r"(?<![0-9])#?250(?![0-9])", events[0].split(" ", 2)[2]), events
+
+
+# W14 (tier 2, cut 5)
+def test_w14_jev_models_check_runs_at_most_daily_and_a_moved_model_is_an_event(world: World) -> None:
+    world.jev_cmd = str(world.jev_moved)
+    world.once("2026-10-04T21:00:00Z")
+    assert world.calls_of("jev") == [["models-check"]]
+    events = world.events("JEV-MODEL-MOVED")
+    assert len(events) == 1, world.lines()
+    assert "jev-1.14.0" in events[0]
+    world.once("2026-10-04T22:00:00Z")
+    world.once("2026-10-05T20:00:00Z")
+    assert len(world.calls_of("jev")) == 1, "models-check ran twice within 24 hours"
+    world.once("2026-10-05T22:00:00Z")
+    assert len(world.calls_of("jev")) == 2
+
+
+def test_w14_an_absent_jev_command_is_skipped_silently(world: World) -> None:
+    world.jev_cmd = str(world.tmp / "no-such-jev")
+    world.once()
+    assert world.events("JEV-MODEL-MOVED") == []
+    schema = json.loads((CONTRACTS / "status.schema.json").read_text())
+    assert violations(world.status(), schema, schema) == []
+
+
 # W15
 CASES = {
     "ready-ok": "READY",
