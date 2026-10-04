@@ -36,7 +36,8 @@ def test_a_directory_matched_only_by_a_directory_ignore_rule_is_exempt(tmp_path:
 def test_frontmatter_paths_in_both_forms_with_line_numbers() -> None:
     listed = '---\nname: x\npaths:\n  - "a/**"\n  - b/**\nother: 1\n---\n- "c/**"\n'
     assert docs_paths.frontmatter_paths(listed) == [(4, "a/**"), (5, "b/**")]
-    assert docs_paths.frontmatter_paths("---\npaths: [a/**, 'b/**']\n---\n") == [(2, "a/**"), (2, "b/**")]
+    comma = "---\npaths: [a/**, 'b/**']\n---\n"
+    assert docs_paths.frontmatter_paths(comma) == [(2, "a/**"), (2, "b/**")]
     assert docs_paths.frontmatter_paths("# no frontmatter\npaths: a/**\n") == []
 
 
