@@ -94,9 +94,9 @@ describe('an answer’s toast names the act (#156 round 3, design gate item 1)',
     const kinds = fake.byKind()
     expect(toast(fake, kinds.lists_disagree!, 'use_read')).toBe('Q5 answered. Structural’s sheets are counted against the drawing list on S-01.')
     expect(toast(fake, kinds.lists_disagree!, 'use_given')).toBe('Q5 answered. Structural’s sheets are counted against the drawing list you pasted.')
-    expect(toast(fake, kinds.missing_discipline!, 'general')).toBe('Q5 answered. A-06’s Discipline is General.')
-    expect(toast(fake, kinds.convention!, 'includes_storey')).toBe('Q5 answered. Recorded: S-08’s range includes its top storey.')
-    expect(toast(fake, kinds.convention!, 'excludes_storey')).toBe('Q5 answered. Recorded: S-08’s top storey belongs to the next sheet’s range.')
+    expect(toast(fake, kinds.missing_discipline!, 'general')).toBe('Q5 answered. The Discipline of A-06 is General.')
+    expect(toast(fake, kinds.convention!, 'includes_storey')).toBe('Q5 answered. Recorded: the range on S-08 includes its top storey.')
+    expect(toast(fake, kinds.convention!, 'excludes_storey')).toBe('Q5 answered. Recorded: the top storey on S-08 belongs to the next sheet’s range.')
   })
 })
 

@@ -281,3 +281,17 @@ describe('Questions holding no sheet (ticket 164: every one was worded as a held
     expect(new Set(model.needsYou.map((r) => r.key)).size).toBe(4)
   })
 })
+
+describe('the sheets of no Discipline (#167; its refuter)', () => {
+  it('counts every Proposal of no Discipline, as the Count does, whatever the progress row says', () => {
+    const cover = sheet(null, { discipline: null, proposed_exclusion: 'cover_index' })
+    const plumbing = sheet('M-01', { discipline: null })
+    // 19a's progress row leaves out a sheet proposed out with no number: the summary still counts it.
+    const d = data([sheet('S-01'), cover, plumbing])
+    d.progress = { ...d.progress, disciplines: [{ discipline: null, confirmed: 0, found: 1, listed: null, lists_disagree: false, total: 1, open_questions: 0 }] } as Step1Data['progress']
+    const model = step1Model(d)
+    expect(model.noDiscipline).toBe(2)
+    expect(model.found).toBe(3)
+    expect(step1Model(data([sheet('S-01'), cover])).noDiscipline).toBe(1)
+  })
+})

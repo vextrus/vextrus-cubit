@@ -1010,7 +1010,9 @@ heading of a Discipline with no list says so: "no drawing list; numbering runs 0
 **The Questions' order** (no money in M0; 6.18): a held file first (it blocks a whole file); then the
 Questions holding the most sheets; then conflicts, then missing items, then low-confidence ones; then
 sheet order (natural sort: S-2 before S-10). `Q` follows this order, and the inspector words it
-"Answer 5 Questions: the held file first, then those holding the most sheets".
+"Answer 5 Questions: the held file first, then those holding the most sheets". With no file held
+(none was, or its Question is answered): "Answer 5 Questions: those holding the most sheets first"; with
+the held file's the only one: "Answer 1 Question: the held file’s".
 
 **The Questions M0 raises, and their wording** (templates, the one source of each kind's title and
 options; names and numbers invented; 6.7 shows each filled in):
@@ -1027,6 +1029,19 @@ options; names and numbers invented; 6.7 shows each filled in):
 | Boundary storey (amendment 2) | "Does GROUND FLOOR BEAM LAYOUT mean the members at ground-floor level?" | 1 "Members at floor level" · 2 "The storey, floor to floor" · 3 "Keep open, ask the consultant" |
 | Floors that do not run, typical floor, a level title (6.7) | as 6.7 | as 6.7 |
 
+A sheet with neither number nor title is named by its layout and its file, never by an empty quotation:
+"an untitled sheet on layout “Layout2” of NT-ARC-R1.dwg" ("an untitled sheet laid out in the drawing of
+NT-ARC-R1.dwg" when it has no layout; the place sits inside the name, never after a comma), so two on two
+layouts of one file read apart ("A sheet in NT-ARC-R1.dwg has neither a number nor a title in its title
+block."; the bar: "… has neither a number nor a title in its title block"); a numbered sheet with no title by
+its number ("It has no title, so nothing says which kind of sheet A-05 is."). At a sentence's start it reads
+"An untitled sheet on layout …" or "An untitled sheet laid out in the drawing of …"; a possessive is never put on a sheet's name ("The kind of S-07 is Plan", not
+"S-07’s kind").
+
+An act's toast shows once Step 1 has reloaded, with the confirmed count it changed. If Step 1 cannot reload
+after an act or an undo, the toast adds: "Step 1 could not be reloaded, so the confirmed count may be behind.
+Reload the page to see it."
+
 "Keep open, ask the consultant" keeps the Question open, and Step 1 for that Discipline cannot be
 confirmed until it is answered; "Not sent yet" answers it, and the sheet stays in the count as
 missing, so that Discipline can still be confirmed.
@@ -1034,7 +1049,9 @@ missing, so that Discipline can still be confirmed.
 **No Question for these** (the plan's QS review, Q3): **identical titles on consecutive numbers are one
 continuation** ("Column schedule, 3 sheets"), grouped in the list (6.2) with no Question; two plans of
 one storey that draw different subjects (a beam layout and a slab layout) or different layers (a slab's
-top and bottom reinforcement) are normal practice, never a conflict.
+top and bottom reinforcement) are normal practice, never a conflict. One title on sheets whose numbers
+do not run on is a conflict headed "One title on two sheets" ("One title on 3 sheets" for more; whatever
+their kind: schedules, elevations); "Two plans draw one thing" heads only two plans of one storey.
 
 **Storeys.** A sheet's storeys come from its plan views as an explicit list, never an expanded
 first–last (amendment 1): shown as stated and normalised, "3RD, 5TH & 7TH FLOOR → 3rd, 5th, 7th";
@@ -1291,7 +1308,8 @@ and sheet mode alike (6.18). The toast sits just above it.
 ### 6.6 The inspector (320 px; tabs "Selection" and "Questions" with the open count)
 **Selection, nothing focused: the overview.** "Nilachal Tower's sheets" / the per-Part line (5),
 "Structural 0 / 40 settled · Architectural 0 / 28 settled" ("Structural confirmed · Electrical 3 to
-confirm" once a Part is confirmed) / "Read from 2 DWG files; 1 file held." / "Enter takes them in this
+confirm" once a Part is confirmed; sheets of no Discipline end it, "· 9 with no Discipline", so it
+counts every sheet) / "Read from 2 DWG files; 1 file held." / "Enter takes them in this
 order": 1 "Confirm the 56 sheets that agree and leave out 5: for information, cover or index,
 duplicate"; 2 "Answer 8 Questions: the held file first, then those holding the most sheets" /
 "↓ walks the list; Space opens a sheet; a Proposal counts toward nothing until you confirm it." /
