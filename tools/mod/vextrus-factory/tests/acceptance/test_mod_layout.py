@@ -29,7 +29,7 @@ def _hooks_module() -> Path:
     """The hooks module hooks.json names, resolved as Claude Code resolves it: relative to hooks.json."""
     hooks = _json(MOD / "hooks/hooks.json")
     assert isinstance(hooks, dict)
-    return (MOD / "hooks" / hooks["modules"][0]).resolve()
+    return (MOD / "hooks" / str(hooks["modules"][0])).resolve()
 
 
 def test_l1_the_manifest_names_the_mod_and_a_version() -> None:
