@@ -55,7 +55,7 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import Any, cast
 
-from django.db import transaction
+from django.db import connection, transaction
 from django.db.models import Q
 from django.utils import timezone
 
@@ -2429,20 +2429,27 @@ def record_progress(project_id: uuid.UUID) -> None:
     if held is not None:
         held.add(project_id)
         return
-    tenant_id = _tenant()
-    for row in progress(project_id).disciplines:
-        status = row.status
-        StepProgress.objects.update_or_create(
-            tenant_id=tenant_id,
-            project_id=project_id,
-            building_id=None,
-            step=SHEETS,
-            discipline=row.discipline or "",
-            defaults={
-                "status": status,
-                "placed": row.confirmed,
-                "total": row.total,
-                "open_questions": row.open_questions,
-                "updated_at": timezone.now(),
-            },
-        )
+    # Counted and written under one lock per Project, held to the transaction's end: an act and a
+    # read job writing the rows at once never write a count that misses the other's (#227's review).
+    with transaction.atomic():
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "select pg_advisory_xact_lock(hashtextextended(%s, 0))", [f"step1-progress:{project_id}"]
+            )
+        tenant_id = _tenant()
+        for row in progress(project_id).disciplines:
+            status = row.status
+            StepProgress.objects.update_or_create(
+                tenant_id=tenant_id,
+                project_id=project_id,
+                building_id=None,
+                step=SHEETS,
+                discipline=row.discipline or "",
+                defaults={
+                    "status": status,
+                    "placed": row.confirmed,
+                    "total": row.total,
+                    "open_questions": row.open_questions,
+                    "updated_at": timezone.now(),
+                },
+            )

@@ -12,9 +12,10 @@ it "read anyway", when the job, queued again by the answer, reads on), 21b's `sh
 kept as codes, and the file marked read in the same transaction, with every limit that cut its sheets:
 the first is its finding, `takeoff.read_file.not_read_in_full {limit}`; and with 21c's proposals: its
 sheets and views proposed, the set's Questions asked and its Checks run, `read_propose.proposals`).
-Its order holds Step 1's rows only for the moment before it commits (#227): the set's Plot matched
-first (minutes on a large set, holding no row of Step 1's), then the proposals, which write Step 1's
-progress rows once, at their end (`step1.progress_at_end`); so a QS's act never waits on it.
+Its order holds the rows a QS's act on Step 1 locks only for the moment before it commits (#227):
+the set's Plot found first (minutes on a large set, writing nothing: `plot.find`), then the
+proposals, then the Plot's matches kept and Step 1's progress rows written once
+(`step1.progress_at_end`); so a QS's act never waits on its reading.
 
 A PDF: `opening` (the copy checked, and the PDF report kept as codes; a scan is refused by it) and
 `matching` (the file marked read, and its pages matched to the set's sheets in the same transaction:
@@ -60,6 +61,7 @@ from engine.render.fonts import FontReport
 from vextrus.drawings import services as drawings
 from vextrus.drawings.messages import files as file_words
 from vextrus.platform.services import auth, jobs, storage
+from vextrus.takeoff.services import step1
 from vextrus.takeoff.services.read_propose import plot, proposals, sheets
 
 OUT_OF_MEMORY = read_codes.LIMIT_REACHED(limit="memory")
@@ -277,14 +279,17 @@ def _finish(
     flagged = use.bangla_ansi(artefact)
     drawings.record_reports(file_id, font_report=font_report, bangla_ansi=flagged)
     view = drawings.mark_read(file_id, not_read_in_full)
-    # 157: the set's read PDFs' pages matched to its sheets, in the same transaction, so a read
-    # sheet is never listed beside a read PDF it was not matched against. Before the proposals:
-    # the match takes minutes on a large set and holds no row of Step 1's (#227).
-    matched = plot.match(file_id)
-    # 21c: once the file is read (its sheets in the sheet list), in the same transaction: Step 1's
-    # proposals, Questions and Checks, so a read file is never listed without them. Last: they
-    # touch the rows a QS's act on Step 1 holds, and write its progress rows at their end.
-    proposed = propose()
+    with step1.progress_at_end():
+        # 157: the set's read PDFs' pages matched to its sheets, in the same transaction, so a read
+        # sheet is never listed beside a read PDF it was not matched against. Found first (minutes
+        # on a large set, writing nothing), kept last (#227).
+        keep = plot.find(file_id)
+        # 21c: once the file is read (its sheets in the sheet list), in the same transaction: Step
+        # 1's proposals, Questions and Checks, so a read file is never listed without them.
+        proposed = propose()
+        # The rows a QS's act on Step 1 locks too (a sheet the match lets go, its progress rows,
+        # written as this block ends) are held only for the moment before the step commits.
+        matched = keep()
     result: dict[str, Any] = {
         "fonts": len(font_report.fonts),
         "bangla_ansi_texts": len(flagged.texts),

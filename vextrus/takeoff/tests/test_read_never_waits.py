@@ -6,6 +6,7 @@ confirm, exclude and answer; here the same harness runs undo (the orchestrator's
 """
 
 import contextlib
+import threading
 import uuid
 from collections.abc import Iterator
 from pathlib import Path
@@ -42,6 +43,8 @@ from vextrus.takeoff.tests.acceptance.t157.test_plot_matched_toolchain import (
     run_job as read_by_engine,
 )
 from vextrus.takeoff.tests.acceptance.treadlock.test_acts_never_wait_on_a_read import (
+    FAIL_SAFE,
+    PLOT,
     SECOND_PLOT,
     SHEETS,
     Parked,
@@ -227,3 +230,107 @@ def test_a_dwgs_plot_match_that_runs_out_of_memory_leaves_the_file_failed_never_
     assert view.finding is not None
     assert view.finding["code"] == files.OUT_OF_MEMORY["code"]
     assert listed == []
+
+
+class ParkedAt:
+    """The harness's park (`Parked`'s interface) on any call: once `armed`, the first call signals
+    `reached` and waits for `released`, before the call runs (or, `after`, once it has run)."""
+
+    def __init__(self, call: Any, when: Any = lambda: True, *, after: bool = False) -> None:
+        self.call = call
+        self.when = when
+        self.after = after
+        self.armed = False
+        self.reached = threading.Event()
+        self.released = threading.Event()
+
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        park = self.armed and not self.reached.is_set() and self.when()
+        if park and not self.after:
+            self._park()
+        result = self.call(*args, **kwargs)
+        if park and self.after:
+            self._park()
+        return result
+
+    def _park(self) -> None:
+        self.reached.set()
+        assert self.released.wait(FAIL_SAFE), "the test never released the read job"
+
+
+def test_a_confirm_of_a_sheet_the_match_lets_go_never_waits_on_the_proposals(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, parked: Parked
+) -> None:
+    """#227's review, finding 1: a later file's match that lets go an earlier sheet's page locks
+    that sheet's row (`drawings.record_plot`), as a confirm of it does. Kept after the proposals
+    (and their Jev calls), the lock is held only for the moment before `finishing` commits: a
+    confirm of that sheet while the job proposes does not wait."""
+    later = read_first_and_plot(qs_project, monkeypatch)
+    project_id = qs_project.project_id
+    with qs_project.member.acting():
+        set_id = drawings.file(later).set_id
+        [s01] = [s for s in drawings.sheets(set_id) if s.number == "S-01"]
+        [plot_pdf] = [f for f in drawings.files(set_id) if f.name == PLOT]
+    api = api_as(qs_project.member)
+    [p01] = of_number(proposals(api, project_id), "S-01")
+    keep = plot_matching._keep
+
+    def keep_and_let_go(*args: Any) -> Any:
+        # What `_release` does to a sheet whose page now names another sheet, or none.
+        drawings.record_plot(s01.id, drawings.PlotNone.NO_PAGE, pdf_file_id=plot_pdf.id)
+        return keep(*args)
+
+    monkeypatch.setattr(plot_matching, "_keep", keep_and_let_go)
+    in_proposals = ParkedAt(step1_services.propose_sheet)
+    monkeypatch.setattr(step1_services, "propose_sheet", in_proposals)
+
+    overlap = act_while_the_later_file_reads(
+        qs_project,
+        later,
+        monkeypatch,
+        in_proposals,  # type: ignore[arg-type]
+        lambda: confirm(api, project_id, [p01["id"]]),
+    )
+
+    assert not overlap.waited_on_the_job, "the confirm waited on the read job's proposals"
+    assert overlap.response.status_code == 200, overlap.response.content
+    assert the(proposals(api, project_id), "S-01")["decision"] == "confirmed"
+
+
+def test_an_act_between_the_jobs_count_and_its_write_is_never_lost_from_the_progress_row(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, parked: Parked
+) -> None:
+    """#227's review, finding 2: the job's progress rows are counted, then written. A confirm that
+    commits in between must not be lost from them: the two are serialised by `record_progress`'s
+    lock, so the confirm waits (briefly, at the job's end) and counts the job's sheets too."""
+    later = read_first_and_plot(qs_project, monkeypatch)
+    project_id = qs_project.project_id
+    api = api_as(qs_project.member)
+    [p01] = of_number(proposals(api, project_id), "S-01")
+    recording = threading.local()
+    record = step1_services.record_progress
+
+    def flagged_record(project: uuid.UUID) -> None:
+        recording.on = True
+        try:
+            record(project)
+        finally:
+            recording.on = False
+
+    monkeypatch.setattr(step1_services, "record_progress", flagged_record)
+    counted = ParkedAt(step1_services.progress, lambda: getattr(recording, "on", False), after=True)
+    monkeypatch.setattr(step1_services, "progress", counted)
+
+    overlap = act_while_the_later_file_reads(
+        qs_project,
+        later,
+        monkeypatch,
+        counted,  # type: ignore[arg-type]
+        lambda: confirm(api, project_id, [p01["id"]]),
+    )
+
+    assert overlap.response.status_code == 200, overlap.response.content
+    member = qs_project.member
+    kept = kept_progress(member, project_id)
+    assert kept == counted_progress(member, project_id)
+    assert kept["structural"][1:3] == (1, 6)
