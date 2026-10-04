@@ -164,9 +164,9 @@ STRUCTURAL = (
         "S-01",
         "GENERAL NOTES",
         (
-            V(ViewKind.NOTES, "GENERAL NOTES", (0.03, 0.4, 0.45, 0.95), ("general_notes",)),
-            V(ViewKind.LEGEND, "LEGEND", (0.5, 0.55, 0.68, 0.95), ("general_notes",), part="structural"),
-            V(ViewKind.SCHEDULE, "DRAWING LIST", (0.72, 0.2, 0.97, 0.95), ("general_notes",)),
+            V(ViewKind.NOTES, "GENERAL NOTES", (0.03, 0.2, 0.45, 0.62), ("general_notes",)),
+            V(ViewKind.LEGEND, "LEGEND", (0.5, 0.2, 0.68, 0.62), ("general_notes",), part="structural"),
+            V(ViewKind.SCHEDULE, "DRAWING SCHEDULE", (0.72, 0.6, 0.97, 0.95), ("general_notes",)),
         ),
         kind="general_notes",
         codes=True,
@@ -255,7 +255,7 @@ STRUCTURAL = (
         "S-08",
         "S-08",
         "COLUMN LAYOUT, PILE CAP TO 2ND FLOOR",
-        (plan("COLUMN LAYOUT", ("columns",), storeys="PILE CAP TO 2ND FLOOR"),),
+        (plan("COLUMN LAYOUT, PILE CAP TO 2ND FLOOR", ("columns",)),),
         storeys="PILE CAP TO 2ND FLOOR",
         kind="column_layout",
     ),
@@ -480,6 +480,17 @@ ELECTRICAL = (
         kind="lighting_power_layout",
     ),
 )
+
+OLD_STRUCTURAL = (
+    S(
+        "S-01 old",
+        "S-01",
+        "GENERAL NOTES",
+        (V(ViewKind.NOTES, "GENERAL NOTES", (0.03, 0.4, 0.45, 0.95)),),
+    ),
+    S("S-02 old", "S-02", "PILE LAYOUT", (plan("PILE LAYOUT", ("foundations",)),)),
+)
+"""KR-STR-old.dwg's sheets: an older structural file, held before they are read."""
 
 EMPTY_TAB = "Layout1"
 """A stale layout tab showing nothing: never a sheet (m0-screens 4.5; the plan's review Q7)."""
