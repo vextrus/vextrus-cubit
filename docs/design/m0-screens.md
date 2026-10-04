@@ -354,7 +354,7 @@ of their own. This answers ux-critic #5.
 | `Ctrl K` | global | Jump to: projects; inside a project, the Drawing Set, Step 1, Members and access, and any sheet by number or title | 03 | yes |
 | `Esc` | global | Close the top-most layer (overlay, dialog, popover, menu, panel); else leave a mode; else leave one-by-one review; else clear the selection. Never leaves the page, never throws away typed text without asking | 03 (each layer registers its own close) | yes |
 | `F6` / `Shift F6` | global | Move focus to the next / previous region (top bar, list, canvas, inspector, status bar) | 03 | yes |
-| `Ctrl Z` | screen | Undo the last act on this screen, where the screen has undo (Step 1: the last Confirmation, answer or exclusion) | 22 | yes |
+| `Ctrl Z` | screen | Undo the last act on this screen, where the screen has undo (Step 1: the last Confirmation or exclusion; never an answer, §5) | 22 | yes |
 | `↑` `↓` | region: list | Previous / next row. In Step 1 the rows are sheets, so the viewer follows: the arrow keys page through the sheets (story 54, finish line step 6) | 01b (the list primitive), 20a, 20b, 22 | yes |
 | `↑` `↓` | region: canvas (Step 1) | The same as in the list: previous / next sheet, so paging works wherever focus is | 22 | yes |
 | `Home` `End` | region: list | First / last row | 01b (the list primitive) | yes |
@@ -1091,8 +1091,11 @@ received** (6.3): the Market's Disciplines expected for the building that have n
 Discipline row (Fire from 7 storeys, docs/specs/bd-defaults.md); each stays on its allowance until its
 drawings arrive.
 
-**Undo:** `Ctrl Z` undoes the last Confirmation, answer or exclusion; the toast names what it undid
-("Undone: confirmed 20 sheets").
+**Undo:** `Ctrl Z` undoes the last Confirmation or exclusion; the toast names what it undid
+("Undone: confirmed 20 sheets"). It never takes back an answer to a Question, nor anything done
+before one (session 09's ruling on #156: undoing the act an answer made would leave the Question
+answered with nothing holding its sheets). Ctrl Z after an answer changes nothing and says, in the
+tab that answered and from the server alike (`takeoff.step1.answer_stays`): "Nothing was undone: the last thing you did on Step 1 was answer a Question, and undo does not take back an answer or anything you did before it. To change what the answer decided, exclude a sheet it confirmed, or confirm back in a sheet it excluded.".
 
 **Who did what** (ux-critic #12): every confirmed or excluded sheet shows "Confirmed by Nusrat
 Jahan, 26 Sep 2026" or "Excluded by Arif Rahman (Vextrus), 26 Sep 2026: superseded" in the inspector.
@@ -1419,8 +1422,9 @@ what one storey means (members at floor level or floor to floor): both are bound
   S-18: storeys of "3rd, 5th & 7th floor beam layout". Still a Proposal until confirmed."; the State
   column adds ", corrected"; "Who did what" records "Corrected: number — → S-12; title; storeys of
   "…"". Corrections are counted for the owner (never shown to the client).
-- **Undo (`Ctrl Z`):** undoes the last act (a bulk act, a single Confirmation, an answer, an exclusion,
-  a correction, a pasted or typed list), repeatedly; the toast names what it undid (5).
+- **Undo (`Ctrl Z`):** undoes the last act (a bulk act, a single Confirmation, an exclusion, a
+  correction, a pasted or typed list), repeatedly; the toast names what it undid (5). An answer to a
+  Question is never undone, nor anything before it: Ctrl Z after one says so in §5's words.
 
 ### 6.10 The drawing list (amendment 7)
 Each Discipline's N comes from a drawing list: one read on a sheet ("39 on the drawing list on S-01")

@@ -14,6 +14,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { ApiRefused } from '@/api/client'
 import { problemOf, problemText } from '@/auth/problem'
 import { useFormat } from '@/format'
+import type { MachineMessage } from '@/format/machine'
 import { useToast } from '@/ui'
 import { DrawingText } from '@/ui/DrawingText'
 import { answer, confirm, exclude, setList, step1Key, undo, type ActOut, type ProposalOut } from './data'
@@ -40,6 +41,9 @@ function makesAct(entry: QuestionEntry, option: string): boolean {
   if (q.kind === 'conflict' && q.code !== 'takeoff.proposals.lists_disagree') return option === 'keep_latest' || option === 'keep_all'
   return q.kind === 'low_confidence'
 }
+
+/** Ctrl Z after an answer: the words of the server's refusal, which this tab does not ask for. */
+const ANSWER_STAYS: MachineMessage = { code: 'takeoff.step1.answer_stays', params: {} }
 
 const reached = (error: unknown) => !(error instanceof ApiRefused) && !(error instanceof TypeError)
 
@@ -236,9 +240,8 @@ export function useStep1Acts(projectId: string): Step1Acts {
             }
             if (entry.answer) {
               // It stays the last act: the server's latest acts are the answer's own, which no Ctrl Z may take.
-              toast.show({
-                message: <Trans>Nothing undone: Ctrl Z does not take back an answer to a Question, or anything before it. Exclude a sheet it confirmed, or confirm back in a sheet it excluded.</Trans>,
-              })
+              // The server's own refusal's words (`answer_stays`), so both paths say the same (session 09's ruling).
+              toast.show({ message: problemText({ refusal: ANSWER_STAYS }, f, i18n) })
               return
             }
             if (entry.calls === 0) {
@@ -279,7 +282,7 @@ export function useStep1Acts(projectId: string): Step1Acts {
       chain.current = chain.current.then(one).catch(() => {})
       return chain.current
     },
-    [projectId, refresh, restore, say, toast],
+    [f, i18n, projectId, refresh, restore, say, toast],
   )
 
   /** Ctrl Z: the last act as it stands now, even one still in flight. */
