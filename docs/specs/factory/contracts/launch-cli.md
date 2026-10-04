@@ -30,7 +30,8 @@ orchestrator adds it to the owner's list to delete in claude.ai/code (O8).
 
 `<code>` in `REFUSED <code>: ...` is one of: `not-main-checkout`, `branch-not-on-origin`, `no-acceptance-commit`,
 `prompt-leak`, `leakscan-unavailable`, `bundled`, `wrong-repository`, `wrong-revision`, `no-git-source`,
-`no-session`, `branch-not-rd` (a `--drawings` launch on a branch not starting `rd/`), `duplicate-name` (local),
+`no-session`, `wrong-environment` (the log names another environment, or the CLI fell back to the first one),
+`launch-timeout` (the CLI did not finish in 180 s and a session exists), `branch-not-rd` (a `--drawings` launch on a branch not starting `rd/`), `duplicate-name` (local),
 `merge-conflict` (local, carried branch), `no-preflight` (before f3: neither `--preflight` nor governor),
 `send-failed` (`say`: the CLI did not return `ok: true`), `governor` (exit 3: the governor refused the unit). The list is closed: a new code is added here first.
 
