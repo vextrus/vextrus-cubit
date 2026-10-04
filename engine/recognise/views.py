@@ -30,12 +30,12 @@ paper, grown by `GAP_MM` so that what is drawn closer than that joins, and split
 These sizes, `MIN_VIEW_MM` and `JOIN_MM` are an A1 sheet's (`REFERENCE_MM` long), scaled to the sheet's
 paper, so a frame whose paper is read too small or too large is split alike (a frame block drawn at a
 fraction of its plotted size: the real sets' frames give papers of 130 to 420 mm plotted on A3 and A1). A
-**view title** is a text of two lines at most and `MAX_TITLE_WORDS` words at most a line holding a kind's
-words (the kind listed first in the conventions wins where several are named: "TYPICAL BEAM SECTION
-DETAIL" is a detail), not in the title block, at least as tall as the sheet's median text (and at most
-`MAX_LETTER` of the paper), not numbered ("5. SEE SECTION ...") and not one of a column of
-`MIN_NOTE_LINES` lines alike (a note's; a scale text in the column is the title's scale line, not a
-note's). A title lying under
+**view title** is a text of two lines at most and `MAX_TITLE_WORDS` words at most (two letters or more:
+"F.B-1 (12"X16")" is none) holding a kind's words (the kind listed first in the conventions wins where
+several are named: "TYPICAL BEAM SECTION DETAIL" is a detail), not in the title block, at least as tall
+as the sheet's median text (and at most `MAX_LETTER` of the paper), not numbered ("5. SEE SECTION ...")
+and not one of a column of `MIN_NOTE_LINES` lines alike (a note's; a scale text in the column is the
+title's scale line, not a note's). A title lying under
 another within `SUBTITLE_GAP` of its height, across the same place, is its second line ("PRESENTATION
 PLAN" under "GROUND FLOOR PLAN"), no title of its own. Titles, second lines and scale texts stay off the
 grid, and so do the lines within a title's band (its underline), and straight lines along the paper's
@@ -232,6 +232,9 @@ line)."""
 MAX_BRIDGES = 4
 """The most lines lying in a band, each ending within `SHARED_CUT_MM` of its edges, that still part two
 drawings one piece holds (a cross section's slab lines drawn up to its long section's column face)."""
+CROSS_WIDTHS = 3.0
+"""The longest a cross section parted from its long section by a gap a few lines lie in is drawn, along
+the cut, in its title's widths."""
 MAX_CUT_TRIES = 16
 """The most bands weighed each way for one cut, the widest first."""
 TALLER = 1.2
@@ -1217,6 +1220,12 @@ class _Words:
         return found
 
 
+def _lettered(tokens: Sequence[str]) -> list[str]:
+    """The tokens that are words: two letters or more ("F.B-1 (12"X16")" holds none, so a title's
+    marks and sizes never run it past `MAX_TITLE_WORDS`)."""
+    return [t for t in tokens if sum(c.isalpha() for c in t) >= 2]
+
+
 def _tokens(text: str) -> list[str]:
     return "".join(c if c.isalnum() else " " for c in text.casefold()).split()
 
@@ -1468,11 +1477,10 @@ def _views(
             if len(scale_texts) < MAX_TITLES:
                 scale_texts.append(i)
             continue
-        rows = t.placed.shown.strip().split("\n")  # each line of a title of two capped alike
         if (
             len(titles) < MAX_TITLES
             and len(words) > 0
-            and max(len(_tokens(_plain(row))) for row in rows) <= MAX_TITLE_WORDS
+            and len(_lettered(words)) <= MAX_TITLE_WORDS  # a mark's or a size's figures are no words
             and tall <= t.height <= letter
             and not _ENUMERATED.match(t.shown)
             and _named_kind(t.shown, reading) is not None  # a heading word alone is no title's
@@ -1809,10 +1817,17 @@ def _widest_cut(
             below = [i for i in range(len(titles)) if centres[i, axis] < edge]
             above = [i for i in range(len(titles)) if centres[i, axis] >= edge]
             under = lines[:, [axis, axis + 2]].mean(axis=1) < middle  # a line across goes by its middle
-            if _drawn(lines[under], [heights[i] for i in below]) and _drawn(
-                lines[~under], [heights[i] for i in above]
+            if not (
+                _drawn(lines[under], [heights[i] for i in below])
+                and _drawn(lines[~under], [heights[i] for i in above])
             ):
-                return (axis, middle, (below, above)), weighed
+                continue
+            if bridged and not (
+                _cross_section(lines[under], axis, below, above, titles, heights)
+                or _cross_section(lines[~under], axis, above, below, titles, heights)
+            ):
+                continue  # lines lying in a gap within one drawing (its spans), never parted
+            return (axis, middle, (below, above)), weighed
     return None, weighed
 
 
@@ -1863,17 +1878,14 @@ def _bridged_bands(
         after = lo[~long][order]
         gap = np.flatnonzero(after[1:] - reach[:-1] >= width)
         starts, ends = np.sort(lo), np.sort(hi)
-        gaps = []
-        for i in gap:
-            start, end = float(reach[i]), float(after[i + 1])
-            middle = (start + end) / 2
-            alive = int(np.searchsorted(starts, middle)) - int(
-                np.searchsorted(ends, middle, side="right")
-            )  # the lines drawn across its middle
-            if alive <= CUT_CROSSINGS + MAX_BRIDGES:
-                gaps.append((end - start, start, end))
+        begin, stop = reach[gap], after[gap + 1]
+        middle = (begin + stop) / 2
+        alive = np.searchsorted(starts, middle) - np.searchsorted(ends, middle, side="right")
+        few = np.flatnonzero(alive <= CUT_CROSSINGS + MAX_BRIDGES)  # the lines drawn across its middle
+        widest = few[np.argsort(-(stop - begin)[few], kind="stable")[:MAX_CUT_TRIES]]
+        weighed += len(lines)  # the sweep over the axis
         low, high = centres[:, axis].min(), centres[:, axis].max()
-        for _, start, end in sorted(gaps, reverse=True)[:MAX_CUT_TRIES]:
+        for start, end in zip(begin[widest].tolist(), stop[widest].tolist(), strict=True):
             weighed += len(lines)
             over = long & (lo < end) & (hi > start)
             bridges = over & (lo >= start - width) & (hi <= end + width)  # lying in it
@@ -1890,6 +1902,27 @@ def _bridged_bands(
             ):
                 found.append((float(end - start), axis, float(start), float(end)))
     return found, weighed
+
+
+def _cross_section(
+    lines: NDArray[np.float64],
+    axis: int,
+    own: Sequence[int],
+    others: Sequence[int],
+    titles: Sequence[Bounds],
+    heights: Sequence[float],
+) -> bool:
+    """Whether `lines` (one side of a gap a few lines lie in) are a cross section drawn beside a larger
+    drawing: their titles (`own`) lettered `TALLER` times smaller than the other side's tallest (the
+    long section's title over its cross sections'), and the lines no longer along the axis than
+    `CROSS_WIDTHS` of their widest title (a cross section is drawn about as wide as its title; a long
+    section's further spans are not)."""
+    if not len(lines) or not own or not others:
+        return False
+    if max(heights[i] for i in own) * TALLER > max(heights[i] for i in others):
+        return False
+    span = float(lines[:, [axis, axis + 2]].max() - lines[:, [axis, axis + 2]].min())
+    return span <= CROSS_WIDTHS * max(titles[i][axis + 2] - titles[i][axis] for i in own)
 
 
 def _drawn(lines: NDArray[np.float64], heights: Sequence[float]) -> bool:

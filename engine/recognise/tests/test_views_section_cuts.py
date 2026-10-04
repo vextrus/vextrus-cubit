@@ -7,7 +7,7 @@ import math
 import pytest
 
 from engine.recognise import views
-from engine.recognise.tests.test_views import LABELS_ACROSS, drawn, labelled_sections
+from engine.recognise.tests.test_views import LABELS_ACROSS, drawn, grid, labelled_sections
 from engine.recognise.types import ViewKind
 
 OX, SCALE = 10_000.0, 50.0
@@ -21,11 +21,11 @@ def line(d: object, a: tuple[float, float], b: tuple[float, float]) -> None:
 
 def test_lines_drawn_across_the_gap_edge_to_edge_still_part_the_drawings() -> None:
     """A cross section's slab lines drawn from its sides to the long section's column face lie in the
-    band between them, ending at its edges: the band's own lines, not a drawing running on."""
-    d, sheet = labelled_sections(
-        [("LONG SECTION OF BEAM B1", (40, 300, 300, 380)), ("SECTION 1-1", (330, 300, 370, 380))],
-        LABELS_ACROSS,
-    )
+    band between them, ending at its edges: the band's own lines, not a drawing running on. Its title
+    is lettered smaller than the long section's, as drawn."""
+    d, sheet = labelled_sections([("LONG SECTION OF BEAM B1", (40, 300, 300, 380))], LABELS_ACROSS)
+    grid(d, (OX + 330 * SCALE, 300 * SCALE, OX + 370 * SCALE, 380 * SCALE))
+    d.text("SECTION 1-1", (OX + 330 * SCALE, 290 * SCALE, 0.0), height=4.0 * SCALE)
     for y in (340, 370):
         line(d, (300, y), (330, y))
     found = drawn(d, sheet)
@@ -148,9 +148,9 @@ def test_a_turned_tag_under_a_titles_line_is_no_line_of_the_title() -> None:
 # A title's words ---------------------------------------------------------------------------------------
 
 
-def test_a_title_of_two_lines_is_capped_line_by_line() -> None:
-    """A long section's title and its second line in one MTEXT, 17 words together, at most
-    `MAX_TITLE_WORDS` on each line: a title, as the same two lines written as two texts are."""
+def test_a_titles_marks_and_sizes_are_no_words() -> None:
+    """A long section's title and its second line in one MTEXT, 17 tokens with its mark's letter, its
+    size's and its levels' figures, 12 words of two letters or more: a title (`MAX_TITLE_WORDS`)."""
     d, sheet = labelled_sections([(None, (40, 300, 300, 380))], [])
     d.text(
         "LONG SECTION OF FLOOR BEAM B1 (12 X 16)\\PDROP 12 AND INVERT 4 FROM GRID 3",
@@ -165,11 +165,58 @@ def test_a_title_of_two_lines_is_capped_line_by_line() -> None:
 
 
 def test_one_line_of_more_words_than_a_title_has_is_still_no_title() -> None:
-    """The guard: the same 17 words on one line are a note's sentence, no title."""
+    """The guard: 13 words of two letters or more on one line are a note's sentence, no title."""
     d, sheet = labelled_sections([(None, (40, 300, 300, 380))], [])
     d.text(
-        "LONG SECTION OF FLOOR BEAM B1 (12 X 16) DROP 12 AND INVERT 4 FROM GRID 3",
+        "LONG SECTION OF FLOOR BEAM AT THE DROP AND INVERT FROM THE NEXT GRID",
         (OX + 40 * SCALE, 292 * SCALE, 0.0),
+        height=5.0 * SCALE,
+    )
+    found = drawn(d, sheet)
+    assert all(v.title is None for v in found)
+
+
+def test_a_long_sections_spans_joined_edge_to_edge_are_never_parted() -> None:
+    """Refuter, loop 3 (65): a long section drawn as two spans, its beam lines drawn edge to edge across
+    the column between them, its cross section beside it crossed by two lines (no band). The gap
+    between the spans is no cross section's: the far side's lines span more than `CROSS_WIDTHS` of
+    the cross section's title, so the long section stays one drawing."""
+    d, sheet = labelled_sections([(None, (330, 300, 370, 380))], LABELS_ACROSS)
+    for box in ((40, 300, 160, 380), (190, 300, 300, 380)):
+        grid(d, (OX + box[0] * SCALE, box[1] * SCALE, OX + box[2] * SCALE, box[3] * SCALE))
+    for y in (340, 370):
+        line(d, (160, y), (190, y))  # the beam's lines across the column
+    for y in (345, 355):
+        line(d, (290, y), (345, y))  # running into both: no band between long and cross section
+    d.text("LONG SECTION OF BEAM B1", (OX + 40 * SCALE, 288 * SCALE, 0.0), height=6.0 * SCALE)
+    d.text("SECTION 1-1", (OX + 330 * SCALE, 288 * SCALE, 0.0), height=4.0 * SCALE)
+    (view,) = drawn(d, sheet)
+    assert view.title == "LONG SECTION OF BEAM B1"
+    assert view.box.x0 == pytest.approx(40, abs=1)
+    assert view.box.x1 >= 370
+
+
+def test_a_gap_parts_no_drawings_whose_titles_are_lettered_alike() -> None:
+    """The cross section's rule: lines lying in a gap part a drawing only from a cross section beside
+    it, its title lettered `TALLER` times smaller than the long section's."""
+    d, sheet = labelled_sections(
+        [("LONG SECTION OF BEAM B1", (40, 300, 300, 380)), ("SECTION 1-1", (330, 300, 370, 380))],
+        LABELS_ACROSS,
+    )
+    for y in (340, 370):
+        line(d, (300, y), (330, y))
+    (view,) = drawn(d, sheet)  # both titles 6 mm: the gap parts nothing
+    assert view.box.x1 >= 370
+
+
+def test_a_two_line_note_naming_a_kind_is_no_title() -> None:
+    """Refuter, loop 3 (65): an unnumbered note in one MTEXT of two lines, 14 words, naming a section
+    and notes, at the sheet's lettering: no title (its words run past `MAX_TITLE_WORDS`)."""
+    d, sheet = labelled_sections([(None, (40, 300, 300, 380))], [])
+    d.text(
+        "FOR BEAM REINFORCEMENT REFER TO THE SECTION DRAWINGS\\PON SHEET S-07 AND THE GENERAL NOTES",
+        (OX + 40 * SCALE, 292 * SCALE, 0.0),
+        kind="MTEXT",
         height=5.0 * SCALE,
     )
     found = drawn(d, sheet)
