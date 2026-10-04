@@ -103,7 +103,7 @@ def test_the_bulk_act_holds_17_that_agree_and_the_electrical_sheets_have_one_sou
     nusrat: Api, kr01: uuid.UUID, by_the_job: None
 ) -> None:
     """§7: "17 agree: Structural 11 (S-01 to S-12 but the two S-07s), Architectural 6 (A-01 to A-04,
-    A-06, A-07); 'Confirm 16, leave out 1', A-07 left out 'for information'"; "One source: 3"."""
+    A-06, A-07); 'Confirm 17' (session 11 ruling: the job proposes no exclusion for A-07)"; "One source: 3"."""
     listed = proposals(nusrat, kr01)
 
     agreeing = [p for p in listed if p["agrees"]]
@@ -112,7 +112,7 @@ def test_the_bulk_act_holds_17_that_agree_and_the_electrical_sheets_have_one_sou
     assert sorted(p["number"] for p in agreeing if p["discipline"] == "architectural") == [
         "A-01", "A-02", "A-03", "A-04", "A-06", "A-07",
     ]  # fmt: skip
-    assert [p["number"] for p in agreeing if p["proposed_exclusion"]] == ["A-07"]
-    assert [p["proposed_exclusion"] for p in listed if p["number"] == "A-07"] == ["cover_index"]
+    assert [p["number"] for p in agreeing if p["proposed_exclusion"]] == []
+    assert [p["proposed_exclusion"] for p in listed if p["number"] == "A-07"] == [None]
     one_source = [p for p in listed if p["discipline"] == "electrical" and not p["agrees"]]
     assert sorted(p["number"] for p in one_source) == ["E-01", "E-02", "E-03"]
