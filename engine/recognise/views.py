@@ -38,9 +38,14 @@ alike (a note's; a scale text in the column is the title's scale line, not a not
 another within `SUBTITLE_GAP` of its height, across the same place, is its second line ("PRESENTATION
 PLAN" under "GROUND FLOOR PLAN"), no title of its own. Titles, second lines and scale texts stay off the
 grid, and so do the lines within a title's band (its underline), and straight lines along the paper's
-axes of `DIVIDER_SHARE` of its side or longer (borders, dividers between rows of details). Each title
+axes of `DIVIDER_SHARE` of its side or longer (borders, dividers between rows of details). **A ruled
+table** drawn with such rules (`_tables`: at least `MIN_TABLE_RULES` each way, every rule across
+running between the outermost rules down and every rule down between the outermost across, within
+`TABLE_TOLERANCE`) is one piece, what it holds with it, unless a drawing's title stands in it (a grid
+of titled details, its rules dividing them); a table with no title is a schedule. Each title
 takes the piece it lies under (a drawing titled beneath, the convention; within `TITLE_GAP` of its
-height), else the piece it lies over (within `TITLE_GAP_UNDER`), else, after all of those, the piece
+height), else the piece it lies over (within `TITLE_GAP_UNDER`; a notes, legend or schedule heading
+the other way round: its content stands under it), else, after all of those, the piece
 whose box holds it within `TITLE_INSIDE` of its lower or upper edge (a section's ground line running
 under and past its title), nearest first, one title a piece; a band less tall than `MIN_DRAWING` of its
 height is never its drawing, and joins its view when it meets the title. **Section drawings one piece
@@ -52,7 +57,17 @@ both sides (a title in a band across is the drawing's over it), until each part 
 drawing it is (`_cut_shared`); a piece another kind's title shares is left whole. A titled piece that
 is a row under a larger piece without a title (no taller than `ROW_SHARE` of it, across its width, within
 `JOIN_MM` of it) is that drawing's detached row of grid marks and dimensions, which is what the title
-lies nearest: the view takes the body too. A title's second lines, and up to `MAX_TITLE_LINES` one-line
+lies nearest: the view takes the body too. **A notes heading** (a text its kind's heading words lead,
+`ViewConventions.heading_words`: "NOTE :", "NOTES ON LAPS :") is a title whatever its height,
+length or lines (a block of notes in one text), unless a line like it stands over it in its column; it
+heads the lines stacked under it, and what continues them in a column beside (`_beside`)
+(`_column_under`: no taller than it, starting within `NOTE_INDENT` of its heights of its left edge,
+each within `NOTE_LINE_GAP` of the line before, until a line taller than the one before it by
+`NOTE_NEW_HEADING`, or a text taller than the heading or another title in its way; a scale-like line
+among them is a note's), which are off the grid and its view's
+box; one with no lines under it pairs as other titles do; one whose own
+words run past `MAX_TITLE_WORDS` with no lines under it is a note of one line, its view its text. A
+title's second lines, and up to `MAX_TITLE_LINES` one-line
 texts standing under a drawing's title (its scale line, its storeys; not a notes, legend or schedule
 heading's, whose lines are its content), are its: off the grid and in its view's box. A piece with no
 title lying in a titled view's box (grown by `JOIN_MM`) is that view's, whatever its size; another is a
@@ -249,6 +264,26 @@ MAX_SHEET_VIEWPORTS = 64
 MAX_STACK = 64
 """The most texts weighed in one cell of the note-line index."""
 MIN_NOTE_LINES = 3
+NOTE_INDENT = 3.0
+"""How far right of a notes heading's left edge, in its heights, a line under it may start (a numbered
+line's hanging indent) and still be its."""
+NOTE_LINE_GAP = 3.5
+"""How far under the line before, in the taller one's heights, a notes heading's next line may stand (a
+blank line between two notes)."""
+NOTE_NEW_HEADING = 1.15
+"""A line taller than this many of the line before's heights ends a notes heading's column."""
+MAX_NOTE_LINES = 200
+NOTE_SCAN = 4 * MAX_NOTE_LINES
+"""At most this many texts, the highest first, are weighed for one notes heading's column."""
+NOTE_BESIDE = 4
+"""At most this many columns beside a notes block continue it."""
+MIN_TABLE_RULES = 3
+MAX_TABLE_GROUPS = 400
+"""At most this many rules across are tried as a table's (each weighs every rule)."""
+"""A table's fewest rules each way, dividers all (`_tables`)."""
+TABLE_TOLERANCE = RULE_MM
+"""How far, in an A1's mm (scaled to the paper), a table's rules may miss each other's ends: a table's
+rules meet; a plan's grid lines run past each other to their marks."""
 """A text in a column of this many lines alike (same height, same left edge) is a note's line."""
 MAX_TEXTS = 200_000
 MAX_GRID = 1_500
@@ -906,6 +941,7 @@ class _Piece:
     lines: int = 0
     words: int = 0
     title_block: bool = False
+    table: bool = False  # a ruled table: its rules are dividers (`_tables`)
 
     @property
     def area(self) -> float:
@@ -1031,6 +1067,44 @@ def _off_paper(
     return np.asarray(~inside & (length >= OFF_PAPER_SHARE * long))
 
 
+def _tables(segments: NDArray[np.float64], region: Bounds) -> list[Bounds]:
+    """Ruled tables drawn with dividers: at least `MIN_TABLE_RULES` dividers across and as many down
+    (`DIVIDER_SHARE` of the paper's side or longer), every one across running from the leftmost one
+    down to the rightmost and every one down from the lowest across to the highest, each end within
+    `TABLE_TOLERANCE` (scaled to the paper); the box they rule, one per group of rules alike."""
+    rx0, ry0, rx1, ry1 = region
+    width, height = rx1 - rx0, ry1 - ry0
+    if not len(segments) or not (width > 0 and height > 0):
+        return []
+    tol = TABLE_TOLERANCE * max(width, height) / REFERENCE_MM
+    rule = RULE_MM * max(width, height) / REFERENCE_MM  # two rules nearer than this are one
+    rows = _rules(segments, 0, rule)  # (y, x from, x to)
+    columns = _rules(segments, 1, rule)  # (x, y from, y to)
+    rows = rows[rows[:, 2] - rows[:, 1] >= DIVIDER_SHARE * width][:MAX_RULES]
+    columns = columns[columns[:, 2] - columns[:, 1] >= DIVIDER_SHARE * height][:MAX_RULES]
+    found: list[Bounds] = []
+    for row in rows[:MAX_TABLE_GROUPS]:  # the rules across alike this one
+        across = rows[(np.abs(rows[:, 1] - row[1]) <= tol) & (np.abs(rows[:, 2] - row[2]) <= tol)]
+        if len(across) < MIN_TABLE_RULES:
+            continue
+        y0, y1 = float(across[:, 0].min()), float(across[:, 0].max())
+        down = columns[
+            (np.abs(columns[:, 1] - y0) <= tol)
+            & (np.abs(columns[:, 2] - y1) <= tol)
+            & (columns[:, 0] >= row[1] - tol)
+            & (columns[:, 0] <= row[2] + tol)
+        ]
+        if len(down) < MIN_TABLE_RULES:
+            continue
+        x0, x1 = float(down[:, 0].min()), float(down[:, 0].max())
+        if abs(x0 - row[1]) > tol or abs(x1 - row[2]) > tol:
+            continue  # the rules across run past the table's sides, or stop short of them
+        box = (x0, y0, x1, y1)
+        if not any(_meets(box, other) for other in found):
+            found.append(box)
+    return found
+
+
 def _dividers_out(segments: NDArray[np.float64], width: float, height: float) -> NDArray[np.float64]:
     """The segments without borders and dividers (`DIVIDER_SHARE`)."""
     if not len(segments):
@@ -1139,6 +1213,7 @@ class _Reading:
     after_top: frozenset[str]  # words after "top" that make it a storey
     common: frozenset[str]  # the plan, floor and level words: no evidence of what a title names
     notes: frozenset[str] = frozenset()  # the Disciplines whose sheets are general notes
+    headings: _Words = _Words(())  # words that make a text a heading of their kind when they lead it
 
 
 _readings: list[tuple[ViewConventions, _Reading]] = []
@@ -1165,10 +1240,19 @@ def _prepare(conventions: ViewConventions) -> _Reading:
             t for w in (*sheet.plan_words, *sheet.floor_words, *sheet.level_words) for t in _tokens(w)
         ),
         notes=frozenset(conventions.notes_disciplines),
+        headings=_Words.of({str(k): v for k, v in conventions.heading_words.items()}),
     )
 
 
+def _heading(text: str, reading: _Reading) -> ViewKind | None:
+    """The kind whose heading words lead the text ("NOTE ON LAPS :"), else None."""
+    found = reading.headings.matches(_tokens(text))
+    return ViewKind(found[0][2]) if found and found[0][0] == 0 else None
+
+
 def _kind(text: str, reading: _Reading) -> ViewKind | None:
+    if (heading := _heading(text, reading)) is not None:
+        return heading  # a heading's leading words name its kind, whatever words follow
     found = reading.kinds.matches(_tokens(text))
     if not found:
         return None
@@ -1325,7 +1409,13 @@ def _views(
     texts = paper.texts
     titles: list[int] = []
     scale_texts: list[int] = []
+    heads: set[int] = set()  # notes headings: titles whatever their height or length
     for i, t in enumerate(texts):
+        if _heading(t.shown, reading) is ViewKind.NOTES and 0 < t.height <= letter:
+            if len(titles) < MAX_TITLES:  # a block of notes in one text, too
+                titles.append(i)
+                heads.add(i)
+            continue
         if t.placed.shown.strip().count("\n") > 1:  # a title of two lines at most
             continue
         words = _tokens(t.shown)
@@ -1346,19 +1436,41 @@ def _views(
         ):
             titles.append(i)
     stacks = _Stacks(texts, skip=frozenset(scale_texts))  # a title's scale line is no note's
-    titles = [i for i in titles if stacks.lines(i) < MIN_NOTE_LINES]
+    every = _Stacks(texts) if heads else stacks  # a notes line over a heading, scale-like or not
+    titles = [  # a notes heading heads its column: no line like it stands over it
+        i
+        for i in titles
+        if stacks.lines(i) < MIN_NOTE_LINES or (i in heads and every.next(i, 1) is None)
+    ]
+    heads &= set(titles)
     second: dict[int, list[int]] = {}  # a title's second lines
     for j in titles:
+        if j in heads:
+            continue  # a notes heading is never another title's second line
         head = next((i for i in titles if i != j and _subtitle(texts[j], texts[i])), None)
         if head is not None:
             second.setdefault(head, []).append(j)
     subtitles = {j for lines in second.values() for j in lines}
     titles = [i for i in titles if i not in subtitles]
+    taken = set(titles) | subtitles  # a scale-like line in a column is a note's ("RAMP AT 1:12")
+    placed = _Placing.of(texts) if heads else None
+    columns = {i: _column_under(texts, placed, i, taken) for i in heads if placed is not None}
+    for i, lines in columns.items():  # a block continued in a column beside it
+        lines += _beside(texts, placed, [i, *lines], taken | set(scale_texts)) if placed else []
+    lone = {  # a note of one text, its words after its heading: a view of its own
+        i
+        for i in heads
+        if not columns[i]
+        and (len(_tokens(texts[i].shown)) > MAX_TITLE_WORDS or "\n" in texts[i].placed.shown.strip())
+    }
+    noted = {j for lines in columns.values() for j in lines}
+    scale_texts = [i for i in scale_texts if i not in noted]
     drawn_titles = [i for i in titles if _kind(texts[i].shown, reading) not in _HEADINGS]
-    for ti, lines in _title_lines(texts, drawn_titles, subtitles | set(titles)).items():
+    for ti, lines in _title_lines(texts, drawn_titles, subtitles | set(titles) | noted).items():
         second.setdefault(ti, []).extend(lines)
     subtitles = {j for lines in second.values() for j in lines}
-    off_grid = set(titles) | subtitles | set(scale_texts)
+    off_grid = set(titles) | subtitles | set(scale_texts) | noted
+    titles = [i for i in titles if not columns.get(i) and i not in lone]  # the rest pair with drawings
     underlined = _underlines(paper.segments, [texts[i] for i in titles])
     off = (  # a long line running off a framed sheet is no view's
         _off_paper(paper.segments, paper.region, paper.lengths)
@@ -1371,9 +1483,19 @@ def _views(
     paper_area = (rx1 - rx0) * (ry1 - ry0)
     unit = max(rx1 - rx0, ry1 - ry0) / REFERENCE_MM  # this paper's mm per an A1's
 
+    drawn_inside = [i for i in titles if _kind(texts[i].shown, reading) not in _HEADINGS]
+    for table in _tables(drawn.segments, paper.region):
+        if any(_inside(_centre(texts[i].box), table) for i in drawn_inside):
+            continue  # a grid of titled drawings: its rules divide them, no table
+        reach = _grown(table, TABLE_TOLERANCE * unit)
+        ruled = [p for p in pieces if _holds(reach, p.box)]
+        pieces = [p for p in pieces if not _holds(reach, p.box)]
+        cells = (sum(p.lines for p in ruled), sum(p.words for p in ruled))
+        pieces.append(_Piece(table, *cells, table=True))
     grid_texts = [i for i in range(len(texts)) if i not in off_grid]
     pieces, cut = _cut_shared(drawn, texts, titles, grid_texts, pieces, reading, unit)
-    pairs = _pairs(texts, titles, pieces, unit)
+    headed = {i for i in titles if _kind(texts[i].shown, reading) in _HEADINGS}  # content under
+    pairs = _pairs(texts, titles, pieces, unit, headed)
     by_title: dict[int, int] = dict(cut)
     by_piece: dict[int, int] = {k: ti for ti, k in cut.items()}
     for _, ti, k in pairs:
@@ -1414,12 +1536,19 @@ def _views(
             by_piece[k] = -1  # claimed by the titled view
             view.extra.append(pieces[k])
             view.box = _union(view.box, pieces[k].box)
+    for head in sorted(heads):  # a notes heading over its column, or a note of one line
+        if (columns[head] or head in lone) and len(views) < MAX_VIEWS:
+            box = _bounds([texts[head].box, *(texts[j].box for j in columns[head])])
+            views.append(_View(None, texts[head], ViewKind.NOTES, box))
     titled_boxes = [_grown(v.box, JOIN_MM * unit) for v in views]
     for k, piece in enumerate(pieces):
         if k in by_piece or any(_holds(box, piece.box) for box in titled_boxes):
             continue  # in a titled drawing's box, whatever its size, it is that drawing's (below)
         if piece.area >= MIN_UNTITLED * paper_area and len(views) < MAX_VIEWS:
-            kind = ViewKind.NOTES if piece.words > piece.lines else untitled
+            if piece.table:
+                kind = ViewKind.SCHEDULE  # a ruled table with no title
+            else:
+                kind = ViewKind.NOTES if piece.words > piece.lines else untitled
             views.append(_View(piece, None, kind, piece.box))
     for k, piece in enumerate(pieces):
         if k in by_piece or any(v.piece is piece for v in views):
@@ -1433,7 +1562,7 @@ def _views(
         s = texts[si]
         best: tuple[float, _View] | None = None
         for v in views:
-            if v.title is None:
+            if v.title is None or v.piece is None:  # a notes heading's column has no scale line
                 continue
             _, ty0, _, ty1 = v.title.box
             h = max(v.title.height, 1e-9)
@@ -1451,10 +1580,16 @@ def _views(
 
 
 def _pairs(
-    texts: Sequence[_Text], titles: Iterable[int], pieces: Sequence[_Piece], unit: float
+    texts: Sequence[_Text],
+    titles: Iterable[int],
+    pieces: Sequence[_Piece],
+    unit: float,
+    heads: Collection[int] = (),
 ) -> list[tuple[float, int, int]]:
     """Each title's candidate drawings, `(score, title, piece)`, best first: a piece it lies under (its
-    gap in the title's heights), else one it lies over, else one whose box holds it near an edge."""
+    gap in the title's heights), else one it lies over, else one whose box holds it near an edge; a
+    heading (`heads`: a notes, legend or schedule title) takes the piece it lies over first, its
+    content under it."""
     pairs: list[tuple[float, int, int]] = []
     for ti in titles:
         t = texts[ti]
@@ -1468,8 +1603,10 @@ def _pairs(
                 continue  # a band: the title's own frame or a row of labels, not its drawing
             below = (py0 - y1) / h  # the drawing above its title
             above = (y0 - py1) / h  # the drawing under its title
-            if -0.5 <= below <= TITLE_GAP:
-                pairs.append((below, ti, k))
+            if ti in heads and -0.5 <= above <= TITLE_GAP_UNDER:
+                pairs.append((above, ti, k))
+            elif -0.5 <= below <= TITLE_GAP:
+                pairs.append((below + (TITLE_GAP_UNDER if ti in heads else 0.0), ti, k))
             elif -0.5 <= above <= TITLE_GAP_UNDER:
                 pairs.append((above + TITLE_GAP, ti, k))
             elif py0 <= y0 and y1 <= py1:  # its drawing runs past it, under or over
@@ -1807,6 +1944,10 @@ class _Stacks:
         step = max(round(math.log(height, 1.25)), -400)
         return step, math.floor(x / height)
 
+    def next(self, i: int, direction: int) -> int | None:
+        """The line like it standing next over it (`direction` 1) or under it (-1), if any."""
+        return self._next(i, direction)
+
     def _next(self, i: int, direction: int) -> int | None:
         t = self.texts[i]
         step, column = self._key(t.box[0], t.height)
@@ -1831,6 +1972,95 @@ class _Stacks:
                 at = self._next(at, direction)
                 count += at is not None
         return count
+
+
+@dataclass(frozen=True)
+class _Placing:
+    """Every text's box and height as arrays, built once for all notes headings."""
+
+    boxes: NDArray[np.float64]
+    heights: NDArray[np.float64]
+
+    @classmethod
+    def of(cls, texts: Sequence[_Text]) -> _Placing:
+        boxes = np.array([t.box for t in texts], dtype=np.float64).reshape(-1, 4)
+        return cls(boxes, np.array([t.height for t in texts], dtype=np.float64))
+
+
+def _column_under(
+    texts: Sequence[_Text], placed: _Placing, head: int, taken: Collection[int]
+) -> list[int]:
+    """A notes heading's lines: the texts no taller than it stacked under it, top to bottom, each
+    starting at most `NOTE_INDENT` of its heights right of its left edge (or a height left of it) and
+    standing at most `NOTE_LINE_GAP` of the taller one's heights under the line before. The column
+    ends at a text in its way that is taller than the heading or taken (another title, a title's
+    second line: what stands under the notes is another view's), and at `MAX_NOTE_LINES`; at most
+    `NOTE_SCAN` texts are weighed."""
+    t = texts[head]
+    h = t.height
+    if not h > 0 or not len(placed.boxes):
+        return []
+    boxes, heights = placed.boxes, placed.heights
+    near = (
+        (boxes[:, 0] >= t.box[0] - h)
+        & (boxes[:, 0] <= t.box[0] + NOTE_INDENT * h)
+        & (boxes[:, 3] <= t.box[1] + 0.2 * h)
+    )
+    near[head] = False
+    found = np.flatnonzero(near)
+    if len(found) > NOTE_SCAN:  # the highest first: a column is read from its top
+        found = found[np.argpartition(-boxes[found, 3], NOTE_SCAN - 1)[:NOTE_SCAN]]
+    order = found[np.argsort(-boxes[found, 3], kind="stable")].tolist()
+    lines: list[int] = []
+    at = t
+    for j in order:
+        o = texts[j]
+        gap = (at.box[1] - o.box[3]) / max(at.height, o.height, 1e-9)
+        if gap > NOTE_LINE_GAP or len(lines) >= MAX_NOTE_LINES:
+            break
+        if gap < -0.2:
+            continue  # beside the line before, not under it
+        if j in taken or not 0 < heights[j] <= 1.05 * h:
+            break  # another view's title, or lettering taller than the notes: their column ends
+        if lines and o.height > NOTE_NEW_HEADING * at.height:
+            break  # a line taller than the one before heads the next block
+        lines.append(j)
+        at = o
+    return lines
+
+
+def _beside(
+    texts: Sequence[_Text], placed: _Placing, members: Sequence[int], taken: Collection[int]
+) -> list[int]:
+    """Texts continuing a notes block in a column beside it: no taller than its heading, the top of
+    each level with the block's top (within half the heading's height: a dimension or a label set
+    lower is a drawing's) and its left edge at most `NOTE_INDENT` of the heading's heights right of
+    the block's right edge; the block grows by each, for at most `NOTE_BESIDE` columns and
+    `MAX_NOTE_LINES` texts. None taken (titles, their second lines, scale lines)."""
+    h = texts[members[0]].height
+    if not h > 0:
+        return []
+    box = _bounds([texts[j].box for j in members])
+    boxes, heights = placed.boxes, placed.heights
+    free = (heights > 0) & (heights <= 1.05 * h)
+    free[list(members)] = False
+    if taken:
+        free[list(taken)] = False
+    found: list[int] = []
+    for _ in range(NOTE_BESIDE):
+        near = (
+            free
+            & (boxes[:, 0] > box[2] - 0.5 * h)
+            & (boxes[:, 0] <= box[2] + NOTE_INDENT * h)
+            & (np.abs(boxes[:, 3] - box[3]) <= 0.5 * h)
+        )
+        more = np.flatnonzero(near)[: MAX_NOTE_LINES - len(found)].tolist()
+        if not more:
+            break
+        free[more] = False
+        found += more
+        box = _bounds([box, *(texts[j].box for j in more)])
+    return found
 
 
 def _underlines(segments: NDArray[np.float64], titles: Sequence[_Text]) -> NDArray[np.bool_]:
