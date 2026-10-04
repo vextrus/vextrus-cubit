@@ -8,11 +8,12 @@ differently, so the readings are compared, not the bytes). A file the recording 
 seed's fault, raised by name, never a file's reason."""
 
 import hashlib
+from collections import Counter
 from pathlib import Path
 
 import pytest
 
-from engine.read.artefact import ReadArtefact
+from engine.read.artefact import ReadArtefact, Text
 from vextrus.seed import kr01
 
 
@@ -47,6 +48,57 @@ def test_each_recorded_dwg_is_the_one_its_reading_was_read_from(name: str) -> No
 def test_each_reading_is_of_the_drawing_kr01_draws_now(name: str) -> None:
     """Change `kr01.py`'s drawing and this fails until `record_demo_reading` is run again."""
     assert kr01.recorded_of(name)["drawn"] == kr01.drawn_digest(name)
+
+
+def _drawn(name: str) -> dict[str, object]:
+    """What `kr01.draw(name)` draws, as a reading of it would hold it."""
+    doc = kr01.draw(name)
+    return {
+        "insunits": doc.header["$INSUNITS"],
+        "styles": {style.dxf.name: style.dxf.font for style in doc.styles},
+        "entities": Counter(
+            (layout.name, entity.dxftype(), entity.dxf.layer)
+            for layout in doc.layouts
+            for entity in layout
+        ),
+        "texts": Counter(
+            (
+                layout.name,
+                entity.dxf.style,
+                entity.text if entity.dxftype() == "MTEXT" else entity.dxf.text,  # type: ignore[attr-defined]
+            )
+            for layout in doc.layouts
+            for entity in layout
+            if entity.dxftype() in ("TEXT", "MTEXT")
+        ),
+    }
+
+
+def _held(name: str) -> dict[str, object]:
+    """The same, from the recorded reading (no toolchain)."""
+    artefact = _recorded(name)
+    layout = {handle: block.layout for handle, block in artefact.blocks.items()}
+    return {
+        "insunits": artefact.summary.insunits,
+        "styles": {style.name: style.font for style in artefact.styles.values()},
+        "entities": Counter((layout.get(e.owner), e.type, e.layer) for e in artefact.entities.values()),
+        "texts": Counter(
+            (layout.get(e.owner), e.style, e.text)
+            for e in artefact.entities.values()
+            if isinstance(e, Text) and e.type in ("TEXT", "MTEXT")
+        ),
+    }
+
+
+@pytest.mark.parametrize("name", list(kr01.FILES))
+def test_each_reading_holds_what_kr01_draws_now_without_the_toolchain(name: str) -> None:
+    """The recorded reading against `draw(name)` itself, field by field: its units, its styles' fonts,
+    every entity by layout, kind and layer, and every text by layout and style (a recording of
+    another drawing, or a drawing since changed in units, fonts or words, fails here in CI)."""
+    drawn, held = _drawn(name), _held(name)
+
+    for field in ("insunits", "styles", "entities", "texts"):
+        assert held[field] == drawn[field], (name, field)
 
 
 @pytest.mark.needs_toolchain
