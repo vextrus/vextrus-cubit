@@ -63,7 +63,13 @@ describe('the Plot beneath the sheet', () => {
     expect(pressed('Plot')).toBe('false')
     const asked = plot.seen.filter((c) => c.endsWith('/plot')).length
     await userEvent.click(screen.getByRole('button', { name: 'Plot' }))
+    // Trying again looks like the first load: Plot pressed, "Loading the Plot…", no failure note.
+    await waitFor(() => expect(bodyText()).toContain('Loading the Plot…'))
+    expect(pressed('Plot')).toBe('true')
+    expect(bodyText()).not.toContain('The Plot could not be drawn')
     await waitFor(() => expect(plot.seen.filter((c) => c.endsWith('/plot')).length).toBeGreaterThan(asked))
+    // And failing again says so again.
+    await waitFor(() => expect(bodyText()).toContain('The Plot could not be drawn, so the sheet is shown as read.'), { timeout: 15_000 })
   }, 40_000)
 
   it('names a page matched but never lined up as the reason there is no Plot, and does not offer to try again', async () => {

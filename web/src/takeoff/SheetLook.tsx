@@ -66,7 +66,8 @@ export function useSheetLook(projectId: string, sheet: ProposalOut): SheetLook {
     // A drawn page is large: dropped as soon as no sheet shows it (the PDF's bytes stay cached).
     gcTime: 0,
     staleTime: Infinity,
-    retry,
+    // Once more on any failure (a page pdf.js refuses fails the same way again); never without end.
+    retry: 1,
     queryFn: async (): Promise<SheetPlot | Unaligned> => {
       const answer = await unwrap(
         api.GET('/api/projects/{project_id}/drawings/sheets/{sheet_id}/plot', { params: { path: { project_id: projectId, sheet_id: sheet.sheet_id } } }),
@@ -83,8 +84,10 @@ export function useSheetLook(projectId: string, sheet: ProposalOut): SheetLook {
   const unaligned = !!plot.data && 'unaligned' in plot.data
   const drawn = plot.data && !('unaligned' in plot.data) ? plot.data : null
   const has = matched && !unaligned
-  // A Plot that failed to draw shows As read too, so choosing Plot or Compare again tries again.
-  const shown: SheetLayer = has && !plot.isError ? layer : 'read'
+  // A Plot that failed to draw shows As read too, so choosing Plot or Compare again tries again; while
+  // it tries, it shows as the first load did (the query keeps its error until the new answer).
+  const failed = plot.isError && !plot.isFetching
+  const shown: SheetLayer = has && !failed ? layer : 'read'
   const none = (sheet.plot_none ?? null) as MachineMessage | null
   const file = isolateLtr(sheet.plot_file ?? '')
   const page = f.integer(sheet.plot_page ?? 0)
@@ -102,8 +105,18 @@ export function useSheetLook(projectId: string, sheet: ProposalOut): SheetLook {
   }
 
   let notes: ReactNode = null
-  if (!has && (raised === sheet.id || layer !== 'read')) notes = none && !unaligned ? <MachineText message={none} /> : why
-  else if (layer !== 'read' && plot.isError) notes = <Trans>The Plot could not be drawn, so the sheet is shown as read. Choose Plot or Compare to try again.</Trans>
+  if (!has && (raised === sheet.id || layer !== 'read'))
+    notes = unaligned ? (
+      <Trans>
+        No Plot for this sheet: page {page} of <DrawingText kind="file-name" text={sheet.plot_file ?? ''} truncate={false} /> matches it, but its drawing could not be lined up
+        with the sheet.
+      </Trans>
+    ) : none ? (
+      <MachineText message={none} />
+    ) : (
+      why
+    )
+  else if (layer !== 'read' && failed) notes = <Trans>The Plot could not be drawn, so the sheet is shown as read. Choose Plot or Compare to try again.</Trans>
   else if (shown === 'plot') notes = <PlotNote sheet={sheet} />
   else if (shown === 'compare')
     notes = dark ? <Trans>Compare: what was read in orange over the Plot</Trans> : <Trans>Compare: what was read in red over the Plot</Trans>

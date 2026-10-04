@@ -1226,6 +1226,10 @@ msgstr "Basement {n}"
 msgid "superseded"
 msgstr "superseded"
 
+#: src/takeoff/SheetLook.tsx
+msgid "No Plot for this sheet: page {page} of <0/> matches it, but its drawing could not be lined up with the sheet."
+msgstr "No Plot for this sheet: page {page} of <0/> matches it, but its drawing could not be lined up with the sheet."
+
 #. placeholder {0}: model.withdrawn.length
 #: src/takeoff/SheetList.tsx
 msgid "{0, plural, one {# Question withdrawn when its sheet was left out: it needs an answer before the sheet can be confirmed back in} other {# Questions withdrawn when their sheets were left out: each needs an answer before its sheets can be confirmed back in}}"
