@@ -335,9 +335,11 @@ export function useStep1Acts(projectId: string, shown?: Step1Data | null): Step1
    */
   const undoEntry = useCallback(
     (entry: Entry | undefined, kept = false) => {
-      // A toast queued for an act goes once an undo is pressed, as for a new act (#167's refuter, round 2).
+      // The act's toast goes once an undo is pressed, shown or queued, as for a new act: it would stand
+      // beside the Count the undo takes back (#167's refuter, round 2; CI's slowed run of PR #225).
       generation.current += 1
       waiting.current = null
+      toast.clear()
       const mark = marked()
       undos.current += 1
       setBusy(true)

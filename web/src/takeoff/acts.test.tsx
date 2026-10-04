@@ -317,7 +317,8 @@ describe('Ctrl Z takes the act the QS meant (the refuter of round 4)', () => {
   it("S5: a later act clears the last act's toast, so its Undo cannot take back the later one", async () => {
     const { step1, hold } = await openHeld()
     await actA(step1)
-    expect(screen.getByRole('button', { name: /Undo/ })).toBeInTheDocument()
+    // #167: the toast is drawn after the Count it reports, so it is waited for, not assumed.
+    expect(await screen.findByRole('button', { name: /Undo/ })).toBeInTheDocument()
     const release = hold('POST /exclude')
     await userEvent.keyboard('{Enter}')
     await waitFor(() => expect(busy()).toBe(true))
