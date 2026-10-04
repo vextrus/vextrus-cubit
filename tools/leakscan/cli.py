@@ -57,7 +57,7 @@ def _parser() -> argparse.ArgumentParser:
     bodies = commands.add_parser("bodies", parents=[common])
     bodies.add_argument("--since", required=True)
     allow = commands.add_parser("allow", parents=[common])
-    allow.add_argument("location")
+    allow.add_argument("locations", nargs="+")
     verify = commands.add_parser("verify-stamp", parents=[common])
     verify.add_argument("name")
     return parser
@@ -166,18 +166,26 @@ def _build(options: argparse.Namespace) -> int:
 
 
 def _allow(options: argparse.Namespace) -> int:
-    file, _, number = options.location.rpartition(":")
-    if not file or not number.isdigit() or int(number) < 1:
-        raise UsageError("allow takes <file>:<line>")
+    """Hashes the corpus strings that hit on each `<file>:<line>` into the allowlist (none: refused)."""
+    places: list[tuple[str, int]] = []
+    for location in options.locations:
+        file, _, number = location.rpartition(":")
+        if not file or not number.isdigit() or int(number) < 1:
+            raise UsageError("allow takes <file>:<line>")
+        places.append((file, int(number)))
     corpus = Corpus.load()
-    try:
-        lines = Path(file).read_bytes().decode("utf-8", "replace").split("\n")
-    except OSError:
-        raise CannotScan("source-unreadable") from None
-    line = lines[int(number) - 1] if int(number) <= len(lines) else ""
-    found = corpus.found(line)
+    found: set[str] = set()
+    files: dict[str, list[str]] = {}
+    for file, number in places:
+        if file not in files:
+            try:
+                files[file] = Path(file).read_bytes().decode("utf-8", "replace").split("\n")
+            except OSError:
+                raise CannotScan("source-unreadable") from None
+        lines = files[file]
+        found |= corpus.found(lines[number - 1] if number <= len(lines) else "")
     if not found:
-        print("leakscan: allow refused: that line has no hit", file=sys.stderr)
+        print("leakscan: allow refused: no hit on the given lines", file=sys.stderr)
         return 1
     added = core.add_to_allowlist(core.digest(value) for value in found)
     print(f"leakscan: allowed {len(found)} strings ({added} new hashes)")

@@ -169,3 +169,14 @@ What the real `build` reads, beyond section 1's list: each Markdown table row's 
 line (a drawing's text is often quoted in a table cell), and each TEXT, MTEXT, ATTRIB and ATTDEF both as
 stored and as decoded (`engine.text.decode`). `build` also prints one `source <name>: <n> strings read` line
 per real source before its last line (counts only).
+
+`allow` also takes several locations at once (`allow <file>:<line> <file>:<line> ...`): it loads the corpus once
+and hashes every hit on every line given, refusing only when none of the lines hits (a superset of section 2).
+
+What the real `build` leaves out, measured on 5 Oct 2026 (the first build read 85 GB of `.private/work/`, and
+every note line became a corpus string: 169,049 strings, 935 of 1,195 hit lines on one branch's diff, against 4
+distinct strings from each drawing source): folders of packages and caches (`node_modules`, `.git`, `.venv`,
+caches, the leak-scan home), the files a nested git checkout tracks (a walk's or a review's copy of the
+repository; their untracked outputs are read), text files over 2 MB, and from the notes every string that does
+not read like drawing text (one with a lower-case letter or a code or Markdown character). The DWG, PDF, export
+and walk sources are read whole. Result: 5,998 strings, built in about two minutes at 0.55 GB peak.
