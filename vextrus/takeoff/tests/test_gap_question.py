@@ -94,6 +94,8 @@ def test_the_gap_question_names_each_gap_and_holds_only_the_sheets_beside_them(
             {"after": "S-02", "before": "S-04", "missing": 1},
             {"after": "S-06", "before": "S-09", "missing": 2},
         ],
+        "count": 2,
+        "missing": 3,
     }
     held = {the_set.sheets[n].id for n in ("S-02", "S-04", "S-06", "S-09")}
     linked = QuestionLink.objects.filter(question_id=question["id"]).values_list(
@@ -340,3 +342,22 @@ def test_the_proposal_says_whether_its_plot_page_reads_its_title(qs_project: QsP
 
     plots = {p["number"]: (p["plot_page"], p["plot_title_alike"]) for p in body["proposals"]}
     assert plots == {"S-01": (1, True), "S-02": (2, False), "S-03": (None, False)}
+
+
+def test_a_drawing_list_typed_after_the_gap_was_asked_lifts_its_hold(qs_project: QsProject) -> None:
+    """A gap matters only with no drawing list (m0-screens §5): the list typed after the gap Question
+    was asked is the second source, so the sheets beside the gap agree and join the bulk act (the
+    suite's test_step1_whole found it: the gap still held S-01)."""
+    the_set = _Set(qs_project, ["S-01", "S-02", "S-04"])
+    the_set.ask()
+    assert len(the_set.gap_questions()) == 1
+    assert the_set.agrees()["S-02"] is False
+
+    listed = api_as(the_set.member).post(
+        f"/api/projects/{the_set.project_id}/takeoff/step1/drawing-list",
+        {"discipline": "structural", "text": "S-01 to S-04"},
+    )
+
+    assert listed.status_code == 200, listed.content
+    assert the_set.agrees() == {"S-01": True, "S-02": True, "S-04": True}
+    assert _bulk(the_set, "S-01", "S-02", "S-04") == 200

@@ -574,6 +574,7 @@ class SheetRevision(models.Model):
     plot_residual = models.DecimalField(max_digits=18, decimal_places=6, null=True, blank=True)
     plot_title_alike = models.BooleanField(
         default=False,
+        db_default=False,
         help_text="Its Plot page reads its title as well as its number: a second source (#229).",
     )
     render_f1 = models.DecimalField(max_digits=7, decimal_places=6, null=True, blank=True)

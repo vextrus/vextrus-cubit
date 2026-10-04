@@ -392,10 +392,15 @@ def _agreeing(
         project_id=project_id, step=SHEETS, status=QuestionStatus.OPEN
     )
     asked = set(open_questions.exclude(subject_id=None).values_list("subject_id", flat=True))
+    gap_codes = [list_codes.GAP.code, list_codes.GAPS.code]
+    links = QuestionLink.objects.filter(project_id=project_id, question__in=open_questions)
     linked = set(
-        QuestionLink.objects.filter(project_id=project_id, question__in=open_questions).values_list(
-            "proposal_id", flat=True
-        )
+        links.exclude(question__message_code__in=gap_codes).values_list("proposal_id", flat=True)
+    )
+    # A numbering gap holds its neighbours only while its Discipline has no drawing list (#229): a
+    # list typed after the gap was asked is the second source, not the numbering.
+    gap_linked = set(
+        links.filter(question__message_code__in=gap_codes).values_list("proposal_id", flat=True)
     )
     conventions = _conventions()
     numbers = Numbers(conventions, recognisers(conventions))
@@ -429,7 +434,14 @@ def _agreeing(
                 and sheet.sources.get("title") in _TITLE_BLOCK
                 and sheet.id not in asked
                 and (proposal is None or proposal.id not in linked)
-                and _place(numbers, sheet.number, discipline) not in beside.get(discipline, set())
+                and (
+                    standing is not None
+                    or (
+                        (proposal is None or proposal.id not in gap_linked)
+                        and _place(numbers, sheet.number, discipline)
+                        not in beside.get(discipline, set())
+                    )
+                )
             ):
                 agreeing.add(sheet.id)
     return agreeing
@@ -1257,9 +1269,14 @@ def _holding(
         message_code=answer_codes.LISTS_DISAGREE.code,
         discipline__in=list(of_discipline),
     )
-    for q in open_questions.filter(
-        Q(subject_id__in=sheet_ids) | Q(id__in=list(linked)) | lists_disagree
-    ).order_by("created_at", "id"):
+    # A numbering gap holds nothing in a Discipline with a drawing list (#229, as `_agreeing`).
+    listed = [d for d in of_discipline if _lists(project_id, d).standing is not None]
+    gaps_listed = Q(message_code__in=[list_codes.GAP.code, list_codes.GAPS.code], discipline__in=listed)
+    for q in (
+        open_questions.filter(Q(subject_id__in=sheet_ids) | Q(id__in=list(linked)) | lists_disagree)
+        .exclude(gaps_listed)
+        .order_by("created_at", "id")
+    ):
         held = linked.get(q.id, set()) | ({q.subject_id} & set(sheet_ids) if q.subject_id else set())
         if q.kind == QuestionKind.CONFLICT and q.message_code == answer_codes.LISTS_DISAGREE.code:
             held |= set(of_discipline.get(q.discipline or "", []))

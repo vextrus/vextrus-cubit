@@ -1,5 +1,6 @@
 # Ticket #229: whether a sheet's Plot page reads its title as well as its number (a second source).
-# Plots kept before it read no title alike until their PDF is read again.
+# Plots kept before it read no title alike until their PDF is read again. A database default, so
+# an insert that leaves it out holds no title read alike (as #168's name_forms).
 
 from django.conf import settings
 from django.db import migrations, models
@@ -20,6 +21,7 @@ class Migration(migrations.Migration):
             model_name="sheetrevision",
             name="plot_title_alike",
             field=models.BooleanField(
+                db_default=False,
                 default=False,
                 help_text="Its Plot page reads its title as well as its number: a second source (#229).",
             ),

@@ -702,8 +702,11 @@ def _place(numbers: finder.Numbers, number: str, discipline: str) -> tuple[str, 
 
 
 def _asked(discipline: str, gaps: Sequence[Message]) -> Message:
-    """The `gaps` Question's words: its Discipline and each gap's two numbers and count missing. Its
+    """The `gaps` Question's words: its Discipline, each gap's two numbers and count missing, how many
+    gaps and how many numbers missing in all. Its
     `gaps` param is a list, which `Param` (a scalar) does not name: the cast says so."""
     each = [{k: gap["params"][k] for k in ("after", "before", "missing")} for gap in gaps]
-    asked = {"code": list_codes.GAPS.code, "params": {"discipline": discipline, "gaps": each}}
+    missing = sum(int(gap["params"]["missing"]) for gap in gaps)
+    params = {"discipline": discipline, "gaps": each, "count": len(each), "missing": missing}
+    asked = {"code": list_codes.GAPS.code, "params": params}
     return cast(Message, asked)

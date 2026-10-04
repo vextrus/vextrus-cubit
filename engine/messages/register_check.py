@@ -14,7 +14,8 @@ states):
   sheets have one source) in the Check's run; Step 1 asks a Discipline's gaps as one `gaps` Question.
 - `gaps` (#229): every `gap` of one Discipline, asked as one Question by Step 1 (the owner's ruling,
   "all of one Discipline's gaps are asked as one Question"): `discipline` is its key, `gaps` a list of
-  `{after, before, missing}`, one per gap in the Check's order. Its answers are `gap`'s, for every gap;
+  `{after, before, missing}`, one per gap in the Check's order, `count` how many gaps and `missing`
+  how many numbers are missing in all. Its answers are `gap`'s, for every gap;
   while it is open it holds only the sheets either side of each gap.
 - `not_listed` is a state too, "Proposal, one source", unless 21c writes options for it.
 
@@ -29,7 +30,7 @@ from engine.messages import MessageCode
 NOT_FOUND = MessageCode("engine.register_check.not_found", params=("number",))
 NOT_LISTED = MessageCode("engine.register_check.not_listed", params=("number",))
 GAP = MessageCode("engine.register_check.gap", params=("after", "before", "missing", "discipline"))
-GAPS = MessageCode("engine.register_check.gaps", params=("discipline", "gaps"))
+GAPS = MessageCode("engine.register_check.gaps", params=("discipline", "gaps", "count", "missing"))
 
 TEXT_TOO_LONG = MessageCode("engine.register_check.text_too_long", params=("limit",))
 TOO_MANY = MessageCode("engine.register_check.too_many", params=("limit",))
