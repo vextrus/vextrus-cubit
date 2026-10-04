@@ -153,12 +153,12 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
   /** The QS's pick on each Question, by its id, until answered (a pick changes nothing until Enter, §6.7). */
   const [picks, setPicks] = useState<Readonly<Record<string, Pick>>>({})
   /**
-   * The Questions answered in this tab, as Step 1 last read them: a second Enter pressed after the
-   * answer's reload but before the screen re-renders reads the old pick and the old Question, and would
-   * post the answer again (#156's re-check). Step 1 as reloaded reads each changed Question as a new
-   * object, so only the copy already answered is refused; a new pick takes it off.
+   * The picks as they stood when an answer was made (every answer then sets a new picks record). A
+   * second Enter pressed after the answer but before the screen re-renders runs a handler of that
+   * render, with the old pick (#156's re-check): it is refused. Any render after it is not, so a
+   * Question kept open, unchanged, can be answered again (the refuter).
    */
-  const answered = useRef(new WeakSet<QuestionEntry['question']>())
+  const answeredWith = useRef(new WeakSet<Readonly<Record<string, Pick>>>())
 
   const rowByKey = (key: string | null) => (key ? (model.rows.find((r) => r.key === key) ?? null) : null)
   const rowOfSheet = (id: string | null) => (id ? (model.rows.find((r) => r.sheets.some((s) => s.id === id)) ?? null) : null)
@@ -271,17 +271,14 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
   const setPick = (entry: QuestionEntry, pick: Pick | null) =>
     setPicks((all) => {
       const next = { ...all }
-      if (pick) {
-        next[entry.question.id] = pick
-        answered.current.delete(entry.question)
-      }
+      if (pick) next[entry.question.id] = pick
       else delete next[entry.question.id]
       return next
     })
 
   const answerEntry = async (entry: QuestionEntry) => {
     if (readOnly) return refuse(readOnly)
-    if (answered.current.has(entry.question)) return
+    if (answeredWith.current.has(picks)) return
     const pick = picks[entry.question.id] ?? null
     const key = pick?.key ?? prePick(entry, cardContext(model))?.key
     if (!key) return
@@ -290,7 +287,7 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
     const rowKey = `q:${entry.question.id}`
     const done = await acts.answerQuestion(entry, key, key === 'type_number' ? (pick?.text ?? '') : '')
     if (!done) return
-    answered.current.add(entry.question)
+    answeredWith.current.add(picks)
     setPick(entry, null)
     // Kept open, it stays focused (its card says "Kept open"); else on to the next open Question, as
     // "Ask later" would; none left, nothing focused (the overview).

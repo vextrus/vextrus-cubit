@@ -9,7 +9,7 @@ import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { page } from 'vitest/browser'
 import { PEOPLE, mountApp } from '@/app/testing'
-import { FakeAnswers } from '@/acceptance/t156/answer.fixture'
+import { FakeAnswers, type Question21c } from '@/acceptance/t156/answer.fixture'
 
 beforeEach(async () => {
   vi.useFakeTimers({ toFake: ['Date'] })
@@ -75,5 +75,36 @@ describe('a double Enter posts an answer once, however the second Enter falls (#
     await answering
     await new Promise((r) => setTimeout(r, 300))
     expect(fake.posted).toHaveLength(1)
+  })
+})
+
+describe('a Question answered "keep open" can be answered again (#202; the refuter)', () => {
+  it('posts the pre-pick on Enter after a "keep open" that left the Question as it was', async () => {
+    const fake = new FakeAnswers()
+    // The seed's two copies of S-07, already kept open by this QS: answering "keep open" again changes nothing.
+    const copies = fake.questions.find((q) => q.code === 'engine.conflicts.same_number')! as Question21c
+    copies.answer = { option: 'keep_open', by: fake.step1.actor }
+    fake.questions = [copies]
+    // Two sources agree on rev B (the drawing list read on S-01), so the card pre-picks keep_b.
+    const base = fake.api.handle
+    const s01 = fake.step1.proposals.find((p) => p.number === 'S-01')!.sheet_id
+    fake.api.handle = async (request: Request) => {
+      const response = await base(request)
+      const url = new URL(request.url, location.origin)
+      if (request.method !== 'GET' || !url.pathname.endsWith('/takeoff/step1/drawing-list') || url.searchParams.get('discipline') !== 'structural') return response
+      return new Response(JSON.stringify({ ...(await response.json()), read_on: s01, read_revisions: { 'S-07': 'B' } }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    }
+    await mountApp('/p/KR-01/takeoff/1', { as: PEOPLE.qs, api: fake.api })
+    await waitFor(() => expect(bodyText()).toContain('Confirmed 0 / 24'))
+    await userEvent.keyboard('q')
+    const q1 = await screen.findByRole('region', { name: (n: string) => clean(n) === 'Question Q1' })
+    await waitFor(() => expect(clean(q1.textContent)).toContain('Picked for you'))
+    await userEvent.keyboard(String(copies.options.findIndex((o) => o.key === 'keep_open') + 1))
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(fake.posted).toHaveLength(1))
+    await waitFor(() => expect(document.querySelector('[data-step1]')?.getAttribute('aria-busy')).not.toBe('true'))
+    await new Promise((r) => setTimeout(r, 100))
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(fake.posted.map((p) => p.body.option)).toEqual(['keep_open', 'keep_b']))
   })
 })
