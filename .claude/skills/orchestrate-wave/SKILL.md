@@ -46,9 +46,9 @@ the cut goes into its issue; it never overruns silently.
   of its own config dir): `claude --bg --effort medium --name w<wave>-<ticket> "$(cat <ticket>.prompt)"`.
   It moves into its own worktree under `.claude/worktrees/`. Watch memory (`free -g`); hold one ticket
   rather than starve the rest.
-- **Cloud (account B):** `CLAUDE_CONFIG_DIR=~/.claude-b claude --cloud --effort medium "$(cat <ticket>.prompt)"`.
-  **Launch one first and check its git remote** (it must clone `vextrus/vextrus-cubit` and push its branch;
-  session 05's launches uploaded copies with no remote). Fan out only when it has.
+- **Cloud:** `uv run python -m scripts.factory.launch cloud …` (the launcher runs `--cloud` itself and judges
+  the launch). **Launch one first and check its git remote** (it must clone `vextrus/vextrus-cubit` and push
+  its branch; session 05's launches uploaded copies with no remote). Fan out only when it has.
 - Record ticket, time, where, effort, session name and id in the milestone issue and `STATE.md`.
 - **An earlier session's builder** resumes rather than restarts: `claude --bg --resume <id> "<next step>"`.
 
