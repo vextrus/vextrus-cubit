@@ -779,9 +779,14 @@ class ViewConventions:
     notes_disciplines: tuple[str, ...] = ()
     """The Disciplines, by key, whose sheets are general notes (a Market's General Discipline, #159):
     every view of theirs is proposed to Step 2, whatever its kind. Market data, given by the product."""
+    heading_words: Mapping[ViewKind, tuple[str, ...]] = field(default_factory=dict)
+    """Words that make a text a heading of their kind when they lead it ("NOTE :", "NOTES FOR ..."):
+    the heading of the lines stacked under it (17's views)."""
 
     def __post_init__(self) -> None:
         for kind in self.kind_words:
+            ViewKind(kind)
+        for kind in self.heading_words:
             ViewKind(kind)
         for subject in self.subject_words:
             _key(subject, "a subject")
@@ -802,6 +807,8 @@ class ViewConventions:
         }
         if self.notes_disciplines:  # absent when none: the default's digest stays as it was
             data["notes_disciplines"] = list(self.notes_disciplines)
+        if self.heading_words:  # absent when none, likewise
+            data["heading_words"] = {str(k): list(v) for k, v in self.heading_words.items()}
         return data
 
     @classmethod
@@ -822,6 +829,10 @@ class ViewConventions:
             },
             scale_patterns=_words(data, "scale_patterns", "the scale patterns"),
             notes_disciplines=_words(data, "notes_disciplines", "the notes Disciplines"),
+            heading_words={
+                ViewKind(k): _word_list(v, f"the heading words of the {k} kind")
+                for k, v in _mapping(data, "heading_words").items()
+            },
         )
 
 
@@ -851,7 +862,9 @@ _SHEET_KEYS = {
     "sheet_kinds",
     "common_sheet_kinds",
 }
-_VIEW_KEYS = {"kind_words", "subject_words", "layer_words", "scale_patterns", "notes_disciplines"}
+_VIEW_KEYS = {
+    "kind_words", "subject_words", "layer_words", "scale_patterns", "notes_disciplines", "heading_words",
+}  # fmt: skip
 
 
 # Patterns, bounded -----------------------------------------------------------------------------------
