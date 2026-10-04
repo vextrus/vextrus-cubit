@@ -31,7 +31,7 @@ const PATH = '/p/KR-01/takeoff/1'
 
 /** The catalogue's words for `takeoff.step1.answer_stays` (web/src/messages/takeoff/step1/en.po). */
 const ANSWER_STAYS =
-  'Nothing was undone: the last thing you did on Step 1 was answer a Question, and undo does not take back an answer or anything you did before it. To change what the answer decided, exclude a sheet it confirmed, or confirm back in a sheet it excluded.'
+  'Nothing undone: an answer to a Question cannot be undone, nor anything before it. To change what it decided, exclude a sheet it confirmed or confirm back one it excluded.'
 
 /** Step 1 takes keys again: its act, its undos and the reloads after them have ended (the screen's aria-busy). */
 const idle = () => waitFor(() => expect(document.querySelector('[data-step1]')?.getAttribute('aria-busy')).not.toBe('true'), { timeout: 5000 })
