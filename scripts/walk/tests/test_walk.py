@@ -693,3 +693,64 @@ def test_a_signal_interrupts_the_walk_but_ends_the_hold_quietly() -> None:
     with run._signals(stopping, [True]):
         os.kill(os.getpid(), signal.SIGTERM)
     assert stopping == [True]
+
+
+# ready.py, the third refuter pass ----------------------------------------------------------------
+
+
+def test_an_unreadable_walk_folder_is_malformed(tmp_path: Path) -> None:
+    repo, walks, _, c2 = _two_passes(tmp_path)
+    _put(walks, c2, _verdict(c2, "FAIL", "2026-10-05T02:00:00Z"))
+    (walks / c2).chmod(0)
+    try:
+        with pytest.raises(ready.Unreadable):
+            ready.ready("main", walks_dir=walks, repo=repo)
+    finally:
+        (walks / c2).chmod(0o755)
+
+
+@pytest.mark.parametrize(
+    "place",
+    ["old-<sha>/verdict.json", ".<sha>/verdict.json", "verdict.json", "archive/<sha>/verdict.json"],
+)
+def test_a_verdict_outside_its_walk_folder_is_malformed(tmp_path: Path, place: str) -> None:
+    repo, walks, _, c2 = _two_passes(tmp_path)
+    _put(walks, c2, _verdict(c2, "PASS", "2026-10-05T02:00:00Z"))
+    target = walks / place.replace("<sha>", c2)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(_verdict(c2, "FAIL", "2026-10-05T03:00:00Z")))
+
+    with pytest.raises(ready.Unreadable):
+        ready.ready("main", walks_dir=walks, repo=repo)
+
+
+def test_a_link_inside_a_walk_folder_is_malformed(tmp_path: Path) -> None:
+    repo, walks, _, c2 = _two_passes(tmp_path)
+    _put(walks, c2, _verdict(c2, "PASS", "2026-10-05T02:00:00Z"))
+    hidden = tmp_path / "hidden"
+    hidden.mkdir()
+    (hidden / "verdict.json").write_text(json.dumps(_verdict(c2, "FAIL", "2026-10-05T03:00:00Z")))
+    (walks / c2 / "old").symlink_to(hidden)
+
+    with pytest.raises(ready.Unreadable):
+        ready.ready("main", walks_dir=walks, repo=repo)
+
+
+def test_one_walk_filed_under_two_heads_is_one_walk(tmp_path: Path) -> None:
+    repo, walks, c1, c2 = _two_passes(tmp_path)
+    copied = _verdict(c1, "PASS", "2026-10-05T01:00:00Z")
+    copied["sha"] = c2
+    _put(walks, c2, copied)
+
+    assert ready.ready("main", walks_dir=walks, repo=repo).ok is False
+
+
+def test_a_pass_filed_under_a_tag_object_is_refused(tmp_path: Path) -> None:
+    repo, walks, c1, c2 = _two_passes(tmp_path)
+    _git(repo, "tag", "-a", "-m", "a tag", "t1", c1)
+    tag = _git(repo, "rev-parse", "t1")
+    (walks / c1 / "verdict.json").unlink()
+    _put(walks, tag, _verdict(tag, "PASS", "2026-10-05T01:00:00Z"))
+    _put(walks, c2, _verdict(c2, "PASS", "2026-10-05T02:00:00Z"))
+
+    assert ready.ready("main", walks_dir=walks, repo=repo).ok is False

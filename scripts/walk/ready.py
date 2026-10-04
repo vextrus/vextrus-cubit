@@ -23,6 +23,7 @@ not a JSON object, or a walk folder named by an upper-case sha, is malformed (ex
 
 import calendar
 import json
+import os
 import re
 import subprocess
 import sys
@@ -63,8 +64,9 @@ class _Entry:
     """Counted, and PASS."""
     counted: bool
     """Sound: valid, consistent, of main, filed under its own sha, its times possible."""
-    walk: tuple[str, str, str, str] | None
-    """(sha, started_at, finished_at, result) of a sound verdict: a copy of it is the same walk."""
+    walk: tuple[str, str, str] | None
+    """(started_at, finished_at, result) of a sound verdict: a copy of it, under any head, is the
+    same walk."""
 
 
 def _git(repo: Path, *args: str) -> str:
@@ -122,7 +124,9 @@ def consistent(verdict: Mapping[str, Any]) -> bool:
 
 SKEW = 600
 """Seconds of clock skew allowed between a commit and the verdict of its walk."""
-LOOSE_SHA = re.compile(r"[0-9a-fA-F]{40}")
+HEX_RUN = re.compile(r"[0-9a-fA-F]{40}")
+SCRATCH = "_src"
+"""run.py's scratch worktree, the one other folder a walks folder holds."""
 VERDICT_NAME = re.compile(r"verdict([.-][A-Za-z0-9-]+)?\.json|smoke-verdict\.json")
 """verdict.json, verdict.<finished_at>.json (a re-walk keeps the older), or a smoke's (never read)."""
 
@@ -132,9 +136,12 @@ def _epoch(stamp: str) -> int:
 
 
 def _committed(repo: Path, sha: str) -> int | None:
-    """The commit's committer time, or None when this repository does not have it."""
+    """The commit's committer time, or None when this repository has no commit by that sha (a tag
+    object or a blob is not one)."""
     try:
-        return int(_git(repo, "show", "-s", "--format=%ct", f"{sha}^{{commit}}").strip())
+        if _git(repo, "cat-file", "-t", sha).strip() != "commit":
+            return None
+        return int(_git(repo, "show", "-s", "--format=%ct", sha).strip())
     except Unreadable, ValueError:
         return None
 
@@ -182,36 +189,77 @@ def _read(path: Path, folder: str, committed: int | None) -> _Entry | None:
     # A PASS is counted only on a commit this repository has (its time and history can be checked).
     sound = sound and (body["result"] != "PASS" or committed is not None)
     passed = sound and body["result"] == "PASS"
-    walk = (folder, str(body.get("started_at")), when, str(body.get("result"))) if sound else None
+    # One walk is its two times and its result, under whatever head it is filed.
+    walk = (str(body.get("started_at")), when, str(body.get("result"))) if sound else None
     return _Entry(finished_at=when, sha=folder, passed=passed, counted=sound, walk=walk)
+
+
+def _listing(folder: Path) -> list[Path]:
+    """Every path under `folder`, failing closed: an unreadable folder or a link anywhere raises (a
+    walk folder holds no link, and a glob would pass over what it cannot read)."""
+    found: list[Path] = []
+    try:
+        with os.scandir(folder) as entries:
+            for entry in entries:
+                path = Path(entry.path)
+                if entry.is_symlink():
+                    raise Unreadable("a walk folder holds a link")
+                found.append(path)
+                if entry.is_dir(follow_symlinks=False):
+                    found += _listing(path)
+    except OSError as error:
+        raise Unreadable("a walk folder cannot be read") from error
+    return found
+
+
+def _no_stray_verdict(entry: Path) -> None:
+    """Outside the sha folders (and the scratch worktree), nothing may look like a walk or a verdict."""
+    if HEX_RUN.search(entry.name):
+        raise Unreadable("a folder or file is named with a sha but is not a walk folder")
+    if entry.is_symlink():
+        raise Unreadable("the walks folder holds a link")
+    paths = _listing(entry) if entry.is_dir() else [entry]
+    if any("verdict" in path.name.lower() or HEX_RUN.search(path.name) for path in [entry, *paths]):
+        raise Unreadable("a verdict lies outside its walk folder")
 
 
 def _entries(walks_dir: Path, repo: Path) -> list[_Entry]:
     """Every verdict of main under `walks_dir`, whatever its head (a copy of one walk once)."""
     entries: list[_Entry] = []
-    seen: set[tuple[str, str, str, str]] = set()
-    for folder in sorted(walks_dir.iterdir()):
+    seen: set[tuple[str, str, str]] = set()
+    for folder in sorted(_listing_top(walks_dir)):
+        if folder.name == SCRATCH:
+            continue
         if not SHA.fullmatch(folder.name):
-            if LOOSE_SHA.match(folder.name):
-                raise Unreadable("a walk folder is named like a sha but is not one")
+            _no_stray_verdict(folder)
             continue
         if folder.is_symlink() or not folder.is_dir():
             raise Unreadable("a walk folder is not a folder")
-        for path in folder.rglob("*"):
-            name = path.name.lower()
-            if "verdict" in name and not (path.parent == folder and VERDICT_NAME.fullmatch(path.name)):
+        paths = _listing(folder)
+        for path in paths:
+            if "verdict" in path.name.lower() and not (
+                path.parent == folder and VERDICT_NAME.fullmatch(path.name)
+            ):
                 raise Unreadable("a verdict file is misnamed or misplaced")
         committed = _committed(repo, folder.name)
-        for path in sorted(folder.glob("verdict*.json")):  # smoke-verdict.json is never read
+        verdicts = sorted(p for p in paths if p.parent == folder and p.name.startswith("verdict"))
+        for path in verdicts:  # smoke-verdict.json is never read
             entry = _read(path, folder.name, committed)
             if entry is None:
                 continue
             if entry.walk is not None:
                 if entry.walk in seen:
-                    continue  # a copy of a walk already counted is not a second walk
+                    continue  # a copy of a walk (under any head) is not a second walk
                 seen.add(entry.walk)
             entries.append(entry)
     return entries
+
+
+def _listing_top(walks_dir: Path) -> list[Path]:
+    try:
+        return [Path(entry.path) for entry in os.scandir(walks_dir)]
+    except OSError as error:
+        raise Unreadable("the walks folder cannot be read") from error
 
 
 def _resolve(repo: Path, ref: str) -> str:
