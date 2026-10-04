@@ -10,24 +10,29 @@ A second walk on the same product code counts (a repeat)."
 Exit 0 ready, 1 not ready (one reason line), 2 unreadable or malformed input. It fails closed: it says
 ready only on positive proof, and any exception exits 2, never 0.
 
-Verdicts are `<walks_dir>/<sha40>/verdict*.json` for the shas on `<ref>`'s first-parent history. One
-counts only when it validates against the contract, has `ref` "main", has `sha` equal to its folder,
-and is consistent (a PASS with every check and walked item PASS, no BLOCKS or misleading finding, the
-counts matching its findings, the three checks for each set). Any other verdict there (a forged or
-contradictory PASS, a smoke or foreign one, a misfiled one) is never counted and stands as a not-PASS
-at its time, so it can never be skipped over. A file that is not a JSON object is malformed (exit 2).
+Verdicts are `<walks_dir>/<sha40>/verdict*.json`, on any head (a FAIL on a head `<ref>` lacks is
+still main's newest). One counts only when it validates against the contract, has `ref` "main", has
+`sha` equal to its folder, is consistent (a PASS with every check of each set and every walked item
+PASS, no BLOCKS or misleading finding, counts matching its findings) and its times are possible
+(started before it finished, finished after its head was committed); a byte-for-byte copy of a walk is
+one walk. Any other verdict of main there (forged, contradictory, smoke, misfiled) is never counted and
+stands as a not-PASS at its time, so it can never be skipped over; a sound verdict of another ref is
+not main's and is left out. The newer PASS must be on `<ref>`'s first-parent history. A file that is
+not a JSON object, or a walk folder named by an upper-case sha, is malformed (exit 2).
 """
 
-import argparse
+import calendar
 import json
 import re
 import subprocess
 import sys
+import time
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from scripts.walk.cli import QuietParser
 from scripts.walk.sanitize import CHECK_IDS, ITEMS
 from scripts.walk.schema import verdict_errors
 
@@ -56,6 +61,9 @@ class _Entry:
     passed: bool
     """Counted, and PASS."""
     counted: bool
+    """Sound: valid, consistent, of main, filed under its own sha, its times possible."""
+    walk: tuple[str, str, str, str] | None
+    """(sha, started_at, finished_at, result) of a sound verdict: a copy of it is the same walk."""
 
 
 def _git(repo: Path, *args: str) -> str:
@@ -112,7 +120,30 @@ def consistent(verdict: Mapping[str, Any]) -> bool:
     )
 
 
-def _read(path: Path, folder: str) -> _Entry:
+SKEW = 600
+"""Seconds of clock skew allowed between a commit and the verdict of its walk."""
+LOOSE_SHA = re.compile(r"[0-9a-fA-F]{40}")
+
+
+def _epoch(stamp: str) -> int:
+    return calendar.timegm(time.strptime(stamp, "%Y-%m-%dT%H:%M:%SZ"))
+
+
+def _committed(repo: Path, sha: str) -> int | None:
+    """The commit's committer time, or None when this repository does not have it."""
+    try:
+        return int(_git(repo, "show", "-s", "--format=%ct", f"{sha}^{{commit}}").strip())
+    except Unreadable, ValueError:
+        return None
+
+
+def _times_hold(body: Mapping[str, Any], committed: int | None) -> bool:
+    """Started before it finished, and finished after its head was committed."""
+    started, finished = _epoch(body["started_at"]), _epoch(body["finished_at"])
+    return started <= finished and (committed is None or finished >= committed - SKEW)
+
+
+def _read(path: Path, folder: str, committed: int | None) -> _Entry | None:
     if path.is_symlink():
         raise Unreadable("a verdict is a link")
     try:
@@ -123,25 +154,40 @@ def _read(path: Path, folder: str) -> _Entry:
         raise Unreadable("a verdict is not a JSON object")
     stamp = body.get("finished_at")
     when = stamp if isinstance(stamp, str) and UTC.fullmatch(stamp) else NEWEST
-    counted = (
-        not verdict_errors(body) and body["ref"] == "main" and body["sha"] == folder and consistent(body)
+    sound = (
+        not verdict_errors(body)
+        and body["sha"] == folder
+        and consistent(body)
+        and _times_hold(body, committed)
     )
-    return _Entry(
-        finished_at=when,
-        sha=folder,
-        passed=counted and body["result"] == "PASS",
-        counted=counted,
-    )
+    if sound and body["ref"] != "main":
+        return None  # another ref's walk: not one of main's verdicts
+    passed = sound and body["result"] == "PASS"
+    walk = (folder, str(body.get("started_at")), when, str(body.get("result"))) if sound else None
+    return _Entry(finished_at=when, sha=folder, passed=passed, counted=sound, walk=walk)
 
 
-def _entries(walks_dir: Path, history: set[str]) -> list[_Entry]:
-    entries = []
+def _entries(walks_dir: Path, repo: Path) -> list[_Entry]:
+    """Every verdict of main under `walks_dir`, whatever its head (a copy of one walk once)."""
+    entries: list[_Entry] = []
+    seen: set[tuple[str, str, str, str]] = set()
     for folder in sorted(walks_dir.iterdir()):
-        if folder.name not in history or not SHA.fullmatch(folder.name):
+        if not SHA.fullmatch(folder.name):
+            if LOOSE_SHA.fullmatch(folder.name):
+                raise Unreadable("a walk folder's sha is not lower-case")
             continue
         if folder.is_symlink() or not folder.is_dir():
             raise Unreadable("a walk folder is not a folder")
-        entries += [_read(path, folder.name) for path in sorted(folder.glob("verdict*.json"))]
+        committed = _committed(repo, folder.name)
+        for path in sorted(folder.glob("verdict*.json")):
+            entry = _read(path, folder.name, committed)
+            if entry is None:
+                continue
+            if entry.walk is not None:
+                if entry.walk in seen:
+                    continue  # a copy of a walk already counted is not a second walk
+                seen.add(entry.walk)
+            entries.append(entry)
     return entries
 
 
@@ -157,7 +203,8 @@ def ready(ref: str, *, walks_dir: Path, repo: Path) -> Ready:
         return Ready(False, "not walk-ready: no G1 verdict on main")
     if not walks_dir.is_dir():
         raise Unreadable("the walks folder is not a folder")
-    entries = _entries(walks_dir, history)
+    # Every verdict of main counts in the order, on whatever head: one the ref lacks is never skipped.
+    entries = _entries(walks_dir, repo)
     # Newest first; on equal times a verdict that is not a counted PASS stands newer (fail closed).
     entries.sort(key=lambda e: (e.finished_at, not e.passed), reverse=True)
     passes = sum(1 for e in entries if e.passed)
@@ -172,6 +219,11 @@ def ready(ref: str, *, walks_dir: Path, repo: Path) -> Ready:
         return Ready(
             False, f"not walk-ready: {what} ({older.sha[:8]}) stands between the two newest PASSes"
         )
+    if newer.sha not in history:
+        return Ready(
+            False,
+            f"not walk-ready: newest PASS ({newer.sha[:8]}) is off the ref's first-parent history",
+        )
     if newer.sha != head:
         changed = _git(repo, "diff", "--name-only", "--no-renames", "-z", newer.sha, head)
         product = [path for path in changed.split("\0") if path and is_product_path(path)]
@@ -185,7 +237,7 @@ def ready(ref: str, *, walks_dir: Path, repo: Path) -> Ready:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="python -m scripts.walk.ready")
+    parser = QuietParser(prog="python -m scripts.walk.ready")
     parser.add_argument("ref")
     parser.add_argument("--walks-dir", type=Path, default=Path(".private/work/walks"))
     parser.add_argument("--repo", type=Path, default=Path())

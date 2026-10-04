@@ -29,7 +29,6 @@ It runs in the foreground (the orchestrator detaches it) and:
 verdict.
 """
 
-import argparse
 import contextlib
 import hashlib
 import json
@@ -48,6 +47,8 @@ from collections.abc import Callable, Iterator
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
+
+from scripts.walk.cli import QuietParser
 
 CODE = Path(__file__).resolve().parents[2]
 """This checkout: the walker's code (the spec, its config and node_modules) is the gate's own, never the
@@ -510,7 +511,7 @@ def run(root: Path, walk: Plan, *, sets: dict[str, list[str]], smoke: bool, hold
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="python -m scripts.walk.run")
+    parser = QuietParser(prog="python -m scripts.walk.run")
     parser.add_argument("sha")
     parser.add_argument("--root", type=Path, default=Path.cwd())
     parser.add_argument("--print-plan", action="store_true")

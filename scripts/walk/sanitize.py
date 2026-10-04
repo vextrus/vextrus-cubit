@@ -41,13 +41,13 @@ DEFECT_CLASSES: frozenset[str] = frozenset(
         "read_failed",
         "read_stalled",
         "read_quarantined",
-        "duplicate_on_drop",
+        "dupe_on_drop",  # a second drop of the same file made a second copy
         "cancel_restart_broken",
         "progress_wordless",
         "report_missing",
         "list_order_wrong",
         "sheet_illegible",
-        "coverage_left_over",
+        "views_left_over",  # a view given no Part and not put out of scope
         "answer_broken",
         "exclusion_broken",
         "undo_broken",
@@ -83,7 +83,7 @@ SCREENS: frozenset[str] = frozenset(
         "takeoff.step1",
         "takeoff.step1.sheet",
         "takeoff.step1.questions",
-        "takeoff.step1.coverage",
+        "takeoff.step1.views",  # the panel of views
         "takeoff.step1.drawing-list",
         "takeoff.step",
         "status-bar",
@@ -107,6 +107,23 @@ MEASURED_KEYS: frozenset[str] = frozenset(
     {"files", "completed", "p95_ms", "samples", "questions_max_per_discipline", "disciplines"}
 )
 """The contract's `measured` keys (reads_complete, act_p95_during_read, questions_per_discipline)."""
+
+DISCIPLINES: frozenset[str] = frozenset(
+    {
+        "structural",
+        "architectural",
+        "electrical",
+        "plumbing",
+        "fire",
+        "mechanical",
+        "lift",
+        "gas",
+        "general",
+        "none",
+    }
+)
+"""The Market's Discipline keys (vextrus/drawings/library.py) and `none` (no Discipline): the only
+Discipline names a public summary keeps, and only when they also match the slug pattern."""
 
 QUESTION_KINDS: frozenset[str] = frozenset(
     {
@@ -139,9 +156,17 @@ DISCIPLINE = re.compile(r"[a-z][a-z0-9_]{1,24}")
 SHA = re.compile(r"[0-9a-f]{40}")
 
 
+NUMBER_LIMIT = 10**12
+"""No walk number comes near it; a larger one could carry text in its digits, so it is not a number."""
+
+
 def is_number(value: object) -> bool:
-    """A real, finite number: never a bool, a string or None."""
-    return isinstance(value, int | float) and not isinstance(value, bool) and math.isfinite(float(value))
+    """A real, finite number below NUMBER_LIMIT in size: never a bool, a string or None."""
+    if isinstance(value, bool):
+        return False
+    if isinstance(value, int):
+        return -NUMBER_LIMIT < value < NUMBER_LIMIT
+    return isinstance(value, float) and math.isfinite(value) and abs(value) < NUMBER_LIMIT
 
 
 def _closed(value: object, allowed: frozenset[str] | tuple[str, ...]) -> str | None:
@@ -209,7 +234,7 @@ def _burden_row(raw: object) -> dict[str, Any] | None:
     if not isinstance(raw, Mapping):
         return None
     set_ = _code(raw.get("set"), SLUG)
-    discipline = _code(raw.get("discipline"), DISCIPLINE)
+    discipline = _closed(_code(raw.get("discipline"), DISCIPLINE), DISCIPLINES)
     if set_ is None or discipline is None:
         return None
     kinds = raw.get("questions_by_kind")

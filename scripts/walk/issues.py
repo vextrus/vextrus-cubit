@@ -18,13 +18,13 @@ The command line (run by `/real-set-walk`'s triage agent; paths under `.private/
     python -m scripts.walk.issues draft <sha40> [--walks-dir D]
         reads triage.json ({"items", "findings"}: allowlisted keys only) and open-issues.json (`gh issue
         list --label walk --state open --json number,body`), writes public/issue-drafts.json and one
-        body file per draft (public/new-<n>.md, public/comment-<n>.md). Exit 0, or 2 refused.
+        body file per draft (public/new-<n>.md, public/comment-<n>.md), and the private drafts.json
+        (which findings each draft carries). Exit 0, or 2 refused.
     python -m scripts.walk.issues record <sha40> [--walks-dir D] --created <n>=<issue number> ...
         writes findings.json (the agent layer's record for verdict.py): each finding with the issue
         drafted for it or the open issue it commented on. Exit 0, or 2 refused.
 """
 
-import argparse
 import json
 import re
 import subprocess
@@ -34,9 +34,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from scripts.walk.cli import QuietParser
 from scripts.walk.sanitize import ALLOWED_KEYS, ITEMS, sanitize_finding
 
 SHA = re.compile(r"[0-9a-f]{40}")
+STATUSES = ("PASS", "FAIL", "NOT_WALKED")
 MARKER = re.compile(r"<!-- walk-key: ([a-z][a-z0-9_]{0,39})/([a-z][a-z0-9_.-]{0,59}) -->")
 SUMMARY = re.compile(r"^leakscan: hits=([0-9]+) scanned=[0-9]+ corpus=[0-9a-f]{12}$", re.M)
 ROOT = Path(__file__).resolve().parents[2]
@@ -214,10 +216,20 @@ def _triage(folder: Path) -> dict[str, Any]:
         raise Refused("triage.json is not {items, findings}")
     if not isinstance(layer["findings"], list) or not isinstance(layer["items"], list):
         raise Refused("triage.json's items or findings are not lists")
-    return layer
+    items = []
+    for entry in layer["items"]:
+        if not isinstance(entry, dict) or set(entry) != {"item", "status"}:
+            raise Refused("an item is not {item, status}")
+        item = next((code for code in ITEMS if code == entry["item"]), None)
+        status = next((word for word in STATUSES if word == entry["status"]), None)
+        if item is None or status is None:
+            raise Refused("an item or its status is outside its closed set")
+        items.append({"item": item, "status": status})  # the allowlist's own words, rebuilt
+    return {"items": items, "findings": layer["findings"]}
 
 
 def _command_draft(folder: Path, sha: str) -> int:
+    scan: Scan = leakscan_text  # looked up at call time, so a test can stand a stub in
     layer = _triage(folder)
     rows = _load(folder / "open-issues.json")
     if not isinstance(rows, list):
@@ -227,25 +239,35 @@ def _command_draft(folder: Path, sha: str) -> int:
         if not isinstance(row, dict):
             raise Refused("an open issue is not an object")
         open_issues.append({"number": row.get("number"), "key": key_of(str(row.get("body", "")))})
-    drafts = draft(layer["findings"], open_issues, sha=sha, scan=leakscan_text)
+    drafts = draft(layer["findings"], open_issues, sha=sha, scan=scan)
     public = folder / "public"
+    # Private: which findings each draft carries (finding ids stay in the walk's folder).
     record: dict[str, Any] = {"sha": sha, "new": [], "comments": [], "merged": drafts.merged}
+    # Public: titles, keys, issue numbers and body files only.
+    shown: dict[str, Any] = {"sha": sha, "new": [], "comments": [], "merged": drafts.merged}
     for n, new in enumerate(drafts.new, start=1):
         _write(public / f"new-{n}.md", new["body"])
-        record["new"].append({"n": n, **new, "body_file": f"new-{n}.md"})
+        record["new"].append({"n": n, "findings": new["findings"]})
+        shown["new"].append(
+            {"n": n, "key": new["key"], "title": new["title"], "body_file": f"new-{n}.md"}
+        )
     for n, comment in enumerate(drafts.comments, start=1):
         _write(public / f"comment-{n}.md", comment["body"])
-        record["comments"].append({"n": n, **comment, "body_file": f"comment-{n}.md"})
-    _write(public / "issue-drafts.json", json.dumps(record, indent=2, sort_keys=True) + "\n")
+        record["comments"].append({"n": n, "number": comment["number"], "findings": comment["findings"]})
+        shown["comments"].append(
+            {"n": n, "key": comment["key"], "number": comment["number"], "body_file": f"comment-{n}.md"}
+        )
+    _write(folder / "drafts.json", json.dumps(record, indent=2, sort_keys=True) + "\n")
+    _write(public / "issue-drafts.json", json.dumps(shown, indent=2, sort_keys=True) + "\n")
     print(f"issues: {len(drafts.new)} new, {len(drafts.comments)} comments, {drafts.merged} merged")
     return 0
 
 
 def _command_record(folder: Path, sha: str, created: list[str]) -> int:
     layer = _triage(folder)
-    record = _load(folder / "public" / "issue-drafts.json")
+    record = _load(folder / "drafts.json")
     if not isinstance(record, dict) or record.get("sha") != sha:
-        raise Refused("issue-drafts.json is not this sha's")
+        raise Refused("drafts.json is not this sha's")
     numbers: dict[int, int] = {}
     for pair in created:
         n, _, number = pair.partition("=")
@@ -274,7 +296,7 @@ def _command_record(folder: Path, sha: str, created: list[str]) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="python -m scripts.walk.issues")
+    parser = QuietParser(prog="python -m scripts.walk.issues")
     parser.add_argument("command", choices=("draft", "record"))
     parser.add_argument("sha")
     parser.add_argument("--walks-dir", type=Path, default=Path(".private/work/walks"))

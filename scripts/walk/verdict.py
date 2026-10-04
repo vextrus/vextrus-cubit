@@ -28,6 +28,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from scripts.walk.cli import QuietParser
 from scripts.walk.sanitize import (
     ALLOWED_KEYS,
     CHECK_IDS,
@@ -421,7 +422,7 @@ def _keep_older(folder: Path) -> None:
 
 
 def _arguments(argv: list[str] | None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(prog="python -m scripts.walk.verdict")
+    parser = QuietParser(prog="python -m scripts.walk.verdict")
     parser.add_argument("sha")
     parser.add_argument("--leak-hits", type=int, required=True)
     parser.add_argument("--ref", default="main")

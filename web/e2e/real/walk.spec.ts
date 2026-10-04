@@ -46,10 +46,10 @@ type ApiFile = { id: string; state: string }
 type ApiQuestion = { id: string; kind: string; status: string; code: string; check_code: string | null; discipline: string | null }
 type ApiProposal = { discipline: string | null; agrees: boolean; held: boolean }
 
-/** A Discipline's key as a code (a Library key already is one); none becomes `unassigned`. */
+/** A Discipline's key as a code (a Library key already is one); none becomes `none`. */
 function disciplineCode(key: string | null): string {
-  const code = (key ?? 'unassigned').toLowerCase().replace(/[^a-z0-9_]/g, '_').slice(0, 24)
-  return /^[a-z][a-z0-9_]{1,24}$/.test(code) ? code : 'unassigned'
+  const code = (key ?? 'none').toLowerCase().replace(/[^a-z0-9_]/g, '_').slice(0, 24)
+  return /^[a-z][a-z0-9_]{1,24}$/.test(code) ? code : 'none'
 }
 
 /** A product enum code as a code, or `other`. */

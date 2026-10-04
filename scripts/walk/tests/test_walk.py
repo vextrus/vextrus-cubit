@@ -275,6 +275,53 @@ def test_a_smoke_verdict_file_is_never_read(tmp_path: Path) -> None:
     assert ready.ready("main", walks_dir=walks, repo=repo).ok is False
 
 
+def test_a_fail_on_a_head_the_ref_lacks_is_never_skipped(tmp_path: Path) -> None:
+    repo, (c1, c2, c3) = _repo(tmp_path, ["vextrus/a.py", "docs/b.md", "vextrus/c.py"])
+    _git(repo, "branch", "stale", c2)
+    walks = tmp_path / "walks"
+    _put(walks, c1, _verdict(c1, "PASS", "2026-10-05T01:00:00Z"))
+    _put(walks, c2, _verdict(c2, "PASS", "2026-10-05T03:00:00Z"))
+    _put(walks, c3, _verdict(c3, "FAIL", "2026-10-05T05:00:00Z"))
+    _put(walks, "f" * 40, _verdict("f" * 40, "FAIL", "2026-10-05T06:00:00Z"))  # a head never fetched
+
+    assert ready.ready("stale", walks_dir=walks, repo=repo).ok is False
+
+
+def test_a_copy_of_one_walk_is_not_two_walks(tmp_path: Path) -> None:
+    repo, (c1,) = _repo(tmp_path, ["vextrus/a.py"])
+    walks = tmp_path / "walks"
+    _put(walks, c1, _verdict(c1, "PASS", "2026-10-05T01:00:00Z"))
+    _put(walks, c1, _verdict(c1, "PASS", "2026-10-05T01:00:00Z"), "verdict-copy.json")
+
+    assert ready.ready("main", walks_dir=walks, repo=repo).ok is False
+
+
+@pytest.mark.parametrize("case", ["started-after-finished", "finished-before-its-commit"])
+def test_impossible_times_are_refused(tmp_path: Path, case: str) -> None:
+    repo, (c1, c2) = _repo(tmp_path, ["vextrus/a.py", "docs/b.md"])
+    walks = tmp_path / "walks"
+    _put(walks, c1, _verdict(c1, "PASS", "2026-10-05T01:00:00Z"))
+    odd = _verdict(c2, "PASS", "2026-10-05T02:00:00Z")
+    if case == "started-after-finished":
+        odd["started_at"] = "2026-10-05T03:00:00Z"
+    else:
+        odd["started_at"] = odd["finished_at"] = "2000-01-01T00:00:00Z"
+    _put(walks, c2, odd)
+
+    assert ready.ready("main", walks_dir=walks, repo=repo).ok is False
+
+
+def test_an_upper_case_sha_folder_is_malformed(tmp_path: Path) -> None:
+    repo, (c1, c2) = _repo(tmp_path, ["vextrus/a.py", "docs/b.md"])
+    walks = tmp_path / "walks"
+    _put(walks, c1, _verdict(c1, "PASS", "2026-10-05T01:00:00Z"))
+    _put(walks, c2, _verdict(c2, "PASS", "2026-10-05T02:00:00Z"))
+    _put(walks, c2.upper(), _verdict(c2, "FAIL", "2026-10-05T03:00:00Z"))
+
+    with pytest.raises(ready.Unreadable):
+        ready.ready("main", walks_dir=walks, repo=repo)
+
+
 def test_a_ref_starting_with_a_dash_is_refused(tmp_path: Path) -> None:
     repo, _ = _repo(tmp_path, ["docs/a.md"])
 
@@ -296,7 +343,7 @@ def test_a_hostile_marker_gives_no_key() -> None:
     assert issues.key_of("<!-- walk-key: other/projects -->") == "other/projects"
 
 
-def test_record_fills_each_finding_from_its_draft(tmp_path: Path) -> None:
+def _triage_folder(tmp_path: Path, items: list[dict[str, Any]] | None = None) -> Path:
     folder = tmp_path / SHA
     findings = [
         {
@@ -311,28 +358,74 @@ def test_record_fills_each_finding_from_its_draft(tmp_path: Path) -> None:
         for n, cls in ((1, "other"), (2, "other"), (3, "crash"))
     ]
     folder.mkdir()
-    (folder / "triage.json").write_text(json.dumps({"items": LAYER["items"], "findings": findings}))
-    drafts = issues.draft(
-        findings, [{"number": 9, "key": "crash/takeoff.step1"}], sha=SHA, scan=lambda t: 0
-    )
-    record = {
-        "sha": SHA,
-        "new": [{"n": 1, **drafts.new[0]}],
-        "comments": [{"n": 1, **drafts.comments[0]}],
-        "merged": drafts.merged,
-    }
-    (folder / "public").mkdir()
-    (folder / "public" / "issue-drafts.json").write_text(json.dumps(record))
+    triage = {"items": LAYER["items"] if items is None else items, "findings": findings}
+    (folder / "triage.json").write_text(json.dumps(triage))
+    open_issue = {"number": 9, "body": "- Walk: x\n<!-- walk-key: crash/takeoff.step1 -->"}
+    (folder / "open-issues.json").write_text(json.dumps([open_issue]))
+    return folder
 
-    code = issues.main(["record", SHA, "--walks-dir", str(tmp_path), "--created", "1=41"])
 
-    assert code == 0
+def test_draft_then_record_fill_each_finding_and_keep_ids_private(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder = _triage_folder(tmp_path)
+    monkeypatch.setattr(issues, "leakscan_text", lambda text: 0)
+
+    assert issues.main(["draft", SHA, "--walks-dir", str(tmp_path)]) == 0
+    assert issues.main(["record", SHA, "--walks-dir", str(tmp_path), "--created", "1=41"]) == 0
+
     layer = json.loads((folder / "findings.json").read_text())
     by_id = {f["id"]: (f["issue"], f["dedup_comment_on"]) for f in layer["findings"]}
     assert by_id == {"f-1": (41, None), "f-2": (41, None), "f-3": (None, 9)}
     judged = verdict.evaluate(_walk(), EXPECT, layer, ref="main", leak_hits=0, **TIMES)
     assert judged["agent_layer"]["issues_drafted"] == 2
     assert judged["agent_layer"]["dedup_comments"] == 1
+    public = "".join(f.read_text() for f in (folder / "public").iterdir())
+    assert "f-1" not in public  # finding ids (critic-chosen) never reach the public folder
+
+
+def test_record_rebuilds_the_items_from_closed_words(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    items = [{"item": "M0-FL1", "status": "PASS", "note": PLANTED}]
+    _triage_folder(tmp_path, items)
+    monkeypatch.setattr(issues, "leakscan_text", lambda text: 0)
+
+    assert issues.main(["draft", SHA, "--walks-dir", str(tmp_path)]) == 2
+    assert not (tmp_path / SHA / "findings.json").exists()
+
+
+@pytest.mark.parametrize("module", ["issues", "verdict", "ready", "run"])
+def test_a_usage_error_never_echoes_the_command_line(module: str) -> None:
+    done = subprocess.run(
+        [sys.executable, "-m", f"scripts.walk.{module}", PLANTED, "--" + PLANTED.lower()],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert done.returncode == 2
+    assert PLANTED not in done.stdout + done.stderr
+    assert PLANTED.lower() not in done.stdout + done.stderr
+
+
+def test_a_huge_integer_is_not_a_number() -> None:
+    hidden = int.from_bytes(PLANTED.encode())
+
+    assert sanitize.is_number(hidden) is False
+    assert sanitize.is_number(-hidden) is False
+    assert sanitize.is_number(10**400) is False  # no OverflowError either
+    judged = _evaluate(_walk())
+    judged["checks"][0]["measured"]["files"] = hidden
+    assert str(hidden) not in json.dumps(sanitize.sanitize_walk(judged))
+
+
+def test_the_summary_keeps_only_the_markets_disciplines() -> None:
+    judged = _evaluate(_walk())
+    judged["burden"][0]["discipline"] = "planted_qq"
+
+    assert sanitize.sanitize_walk(judged)["burden"] == []
 
 
 def test_the_summary_keeps_only_known_kinds_and_measures() -> None:
