@@ -164,8 +164,9 @@ def test_the_real_legacy_list_names_at_least_the_carried_commits() -> None:
     ]
     assert all(re.fullmatch(r"[0-9a-f]{40}", line) for line in listed)
     assert len(listed) == len(set(listed))
-    # Every carried commit is listed; more may be added (a PR cannot exempt itself: the lint reads the base's file).
-    assert LEGACY <= set(listed)
+    # Every carried commit is listed; more may be added.
+    # A PR cannot exempt itself: the lint reads the base's file.
+    assert set(listed) >= LEGACY
 
 
 def test_the_existing_rules_still_hold_beside_the_counts_rule(repo: tuple[Path, str]) -> None:
