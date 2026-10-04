@@ -34,8 +34,9 @@ civil engineer and the CEO and co-founder. The previous product (Vextrus Cubit) 
 - **Plain words.** Say what you did, what you found and what you need, briefly.
 - **Keep the context for the owner.** Fan read-heavy work out to background agents, one question each.
 - **Effort and models:** Opus 5.5 at `medium` for the orchestrator, builders and every gating or reading
-  agent; `high` only for hard tickets (reading drawings, hostile-input boundaries, security walls) and for
-  `pr-reviewer` and `refuter`. Sonnet 5.5 for light work (look-ups, `Explore`, naming a failure from a
+  agent; `high` for hard tickets (reading drawings, hostile-input boundaries, security walls), for every
+  `acceptance-writer` (the owner's Q20, 4 Oct 2026: "yes for most scenario if it comes to quality";
+  `medium` only for a docs-only ticket) and for `pr-reviewer` and `refuter`. Sonnet 5.5 for light work (look-ups, `Explore`, naming a failure from a
   log); both models default to medium; set effort explicitly.
 - **Cloud and local sessions:** cloud for tickets provable by committed tests; local (`claude --bg`, one
   worktree each) for anything touching real drawings. Cloud builders push their own branch only; local

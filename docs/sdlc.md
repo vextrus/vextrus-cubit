@@ -74,8 +74,10 @@ scope and walks the milestone.
   checkout; it judges each cloud launch's debug log and refuses a bundled session or one cloned at the
   wrong branch (session 05's cloud launches uploaded copies with no remote). Cloud builders push their
   own branch only; local builders commit and never push.
-- **Effort per launch:** `medium` (the committed default); `high` for hard tickets: reading drawings,
-  hostile-input boundaries, security walls.
+- **Effort per launch:** `medium` (the committed default); `high` for hard tickets (reading drawings,
+  hostile-input boundaries, security walls), for every `acceptance-writer` (the owner's Q20, 4 Oct 2026:
+  "yes for most scenario if it comes to quality"; `medium` only for a docs-only ticket) and for
+  `pr-reviewer` and `refuter`.
 - **Size:** as many tickets as own disjoint files and the machine's memory allows; the measures below
   decide whether to widen. (History: wave 1 was four cloud and one or two local tickets, widened to 6–8
   once the owner's review queue stayed under a day; ADR 0041 removed that queue; the measures continue.)

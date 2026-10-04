@@ -19,6 +19,21 @@ def test_inline_tokens_skip_fences_and_number_lines() -> None:
     assert list(docs_paths.inline_tokens(text)) == [(1, "x/y"), (5, "p/q"), (5, "r/s")]
 
 
+def test_a_span_wrapped_across_lines_keeps_the_pairing() -> None:
+    text = "a `wrapped\nspan` then `scripts/score/` here\n\n`x/y`\n"
+    assert list(docs_paths.inline_tokens(text)) == [
+        (1, "wrapped span"),
+        (2, "scripts/score/"),
+        (4, "x/y"),
+    ]
+
+
+def test_a_stale_path_after_a_wrapped_span_fails(tmp_path: Path) -> None:
+    tree(tmp_path, {"scripts/a.py": "", "CLAUDE.md": "Run `uv run\npytest` and `scripts/score/` now.\n"})
+    subprocess.run(["git", "add", "CLAUDE.md", "scripts/a.py"], cwd=tmp_path, check=True)
+    assert docs_paths.problems(tmp_path) == ["CLAUDE.md:2: `scripts/score/` does not exist"]
+
+
 def test_a_candidate_keeps_its_trailing_slash_and_drops_a_line_suffix(tmp_path: Path) -> None:
     t = tree(tmp_path, {"scripts/a.py": ""})
     assert docs_paths.candidate("scripts/score/", t) == "scripts/score/"

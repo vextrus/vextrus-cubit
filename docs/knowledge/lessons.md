@@ -353,7 +353,8 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
 - **Two agents sharing one scratch folder overwrote each other.** Give every agent its own folder under
   `.private/work/`. No check: the folder is private and outside git.
 - **A cloud builder can die with its account** (#168 was never built when account B stopped). Launch
-  every builder from the one account the orchestrator runs on. Check: `scripts/factory/tests/test_launch_cloud.py`.
+  every builder from the one account the orchestrator runs on. No check yet: factory: the launcher refuses
+  a builder launched from another account's config (no test checks the account or the config dir today).
 
 ## Session 09: landing the reviewed queue
 - **Strict up-to-date merging is serial:** every merge re-runs the next PR's CI (the python job went to
@@ -364,8 +365,8 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
 - **A wait loop that greps process lines matches itself** (`pgrep -f` waited on its own command line; a
   second time after session 07). No check yet: factory: the guard's wait rule (spec §3.13, C8); a
   CLAUDE.md law line meanwhile.
-- **The scorer refused a main export cached by a PR's run** (#199): score main with `--fresh`. Check:
-  `tools/scorer/tests/test_score.py`.
+- **The scorer refused a main export cached by a PR's run** (#199): score main with `--fresh`. No check
+  yet: #199, still open (`tools/scorer/tests/test_score.py` pins only the symptom).
 
 ## Session 10: the export without paper
 - **A change to what a check reads can blind it silently:** after #210 the scorer read the job's export,

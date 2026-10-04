@@ -39,7 +39,7 @@ FIRST_HELD_SESSION = 8
 SLUG = "vextrus/vextrus-cubit"
 EXEMPT_PREFIXES = (".private/", "~", "/", "http")
 
-INLINE = re.compile(r"(?<!`)`([^`\n]+)`(?!`)")
+INLINE = re.compile(r"(?<!`)`([^`]+)`(?!`)")
 FENCE = re.compile(r"^\s*(```|~~~)")
 LINE_SUFFIX = re.compile(r":\d+(-\d+)?$")
 SESSION = re.compile(r"^## Session (\d+)")
@@ -90,16 +90,33 @@ class Tree:
 
 
 def inline_tokens(text: str) -> Iterator[tuple[int, str]]:
-    """Each inline-code token outside fenced blocks, with its 1-based line number."""
+    """Each inline-code token outside fenced blocks, with the 1-based line its span opens on.
+
+    The docs are hard-wrapped, so a span can cross a line break: each paragraph (lines between blank
+    lines and fences) is joined with spaces before its spans are paired, and each match is mapped back
+    to the line it starts on."""
+    paragraph: list[tuple[int, str]] = []
+
+    def spans() -> Iterator[tuple[int, str]]:
+        joined = ""
+        starts: list[tuple[int, int]] = []  # (offset in joined, line number)
+        for number, line in paragraph:
+            starts.append((len(joined), number))
+            joined += line + " "
+        for match in INLINE.finditer(joined):
+            opened = next(n for offset, n in reversed(starts) if offset <= match.start())
+            yield opened, match.group(1)
+
     fenced = False
     for number, line in enumerate(text.splitlines(), start=1):
-        if FENCE.match(line):
-            fenced = not fenced
+        if FENCE.match(line) or fenced or not line.strip():
+            yield from spans()
+            paragraph = []
+            if FENCE.match(line):
+                fenced = not fenced
             continue
-        if fenced:
-            continue
-        for match in INLINE.finditer(line):
-            yield number, match.group(1)
+        paragraph.append((number, line))
+    yield from spans()
 
 
 def candidate(token: str, tree: Tree) -> str | None:
