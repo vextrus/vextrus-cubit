@@ -7,7 +7,15 @@ import math
 import pytest
 
 from engine.recognise import views
-from engine.recognise.tests.test_views import LABELS_ACROSS, drawn, grid, labelled_sections
+from engine.recognise.tests.drawing import Sheets
+from engine.recognise.tests.test_views import (
+    LABELS_ACROSS,
+    drawn,
+    grid,
+    labelled_sections,
+    near,
+    one_sheet,
+)
 from engine.recognise.types import ViewKind
 
 OX, SCALE = 10_000.0, 50.0
@@ -221,3 +229,75 @@ def test_a_two_line_note_naming_a_kind_is_no_title() -> None:
     )
     found = drawn(d, sheet)
     assert all(v.title is None for v in found)
+
+
+# A ruled table of any size --------------------------------------------------------------------------
+
+
+def table(d: object, rows: list[float], x0: float = 400.0, x1: float = 480.0) -> None:
+    """A ruled table at 1:1 on an A1 sheet: a rule across at each of `rows`, framed down both ends,
+    two rules down between them under its header row, and three cells of text a row."""
+    lo, hi = rows[0], rows[-1]
+    inner = (x0 + (x1 - x0) / 4, x0 + (x1 - x0) * 5 / 8)
+    for y in rows:
+        d.line((x0, y), (x1, y))  # type: ignore[attr-defined]
+    for x in (x0, x1):
+        d.line((x, lo), (x, hi))  # type: ignore[attr-defined]
+    for x in inner:
+        d.line((x, lo), (x, rows[-2]))  # type: ignore[attr-defined]
+    for a in rows[:-2]:  # every row under the header
+        for x in (x0 + 2, inner[0] + 2, inner[1] + 2):
+            d.text("C1", (x, a + 2, 0.0), height=2.5)  # type: ignore[attr-defined]
+
+
+def test_a_small_ruled_table_beside_a_plan_is_a_schedule() -> None:
+    """A column schedule set beside its plan, far smaller than `MIN_UNTITLED` of the paper and its
+    rules far shorter than `DIVIDER_SHARE` of it: a schedule of its own."""
+    d = Sheets()
+    grid(d, (40, 300, 340, 560))
+    d.text("GROUND FLOOR PLAN", (40, 288, 0.0), height=6.0)
+    table(d, [480.0, 490.0, 500.0, 510.0, 520.0, 530.0])
+    found = drawn(d, one_sheet(d))
+    schedules = [v for v in found if v.kind is ViewKind.SCHEDULE]
+    assert len(schedules) == 1
+    assert near(schedules[0].box, (400, 480, 480, 530), by=1.0)
+
+
+def test_lines_alike_of_many_spacings_are_no_table() -> None:
+    """The guard: the same rules spaced 10, 30, 10, 45 mm apart (a drawing's lines of one length) are no
+    table's rows (`TABLE_ROW_SPREAD`)."""
+    d = Sheets()
+    grid(d, (40, 300, 340, 560))
+    d.text("GROUND FLOOR PLAN", (40, 288, 0.0), height=6.0)
+    table(d, [400.0, 410.0, 440.0, 450.0, 495.0, 505.0])
+    assert not [v for v in drawn(d, one_sheet(d)) if v.kind is ViewKind.SCHEDULE]
+
+
+def test_ruled_lines_naming_one_mark_a_band_are_no_table() -> None:
+    """The guard: rules framed and divided like a table, but one text a band (a drawing's members, each
+    named once): fewer than `TABLE_CELLS` texts a row, no table."""
+    d = Sheets()
+    grid(d, (40, 300, 340, 560))
+    d.text("GROUND FLOOR PLAN", (40, 288, 0.0), height=6.0)
+    rows = [480.0, 490.0, 500.0, 510.0, 520.0, 530.0]
+    for y in rows:
+        d.line((400.0, y), (480.0, y))
+    for x in (400.0, 480.0):
+        d.line((x, rows[0]), (x, rows[-1]))
+    d.line((440.0, rows[0]), (440.0, rows[-2]))
+    for a in rows[:-1]:
+        d.text("B1", (402.0, a + 2, 0.0), height=2.5)
+    assert not [v for v in drawn(d, one_sheet(d)) if v.kind is ViewKind.SCHEDULE]
+
+
+def test_a_ruled_table_inside_a_titled_plans_box_is_still_a_schedule() -> None:
+    """A table drawn within the plan's box (its title running wide under it), its rules near the plan's
+    lines: no part of the plan's drawing, a schedule wherever it stands."""
+    d = Sheets()
+    grid(d, (40, 300, 340, 560))
+    d.text("GROUND FLOOR PLAN", (40, 288, 0.0), height=6.0)
+    table(d, [436.0, 446.0, 456.0, 466.0, 476.0, 486.0], x0=120.0, x1=184.0)
+    found = drawn(d, one_sheet(d))
+    schedules = [v for v in found if v.kind is ViewKind.SCHEDULE]
+    assert len(schedules) == 1
+    assert near(schedules[0].box, (120, 436, 184, 486), by=1.0)

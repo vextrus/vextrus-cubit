@@ -43,7 +43,10 @@ axes of `DIVIDER_SHARE` of its side or longer (borders, dividers between rows of
 table** drawn with such rules (`_tables`: at least `MIN_TABLE_RULES` each way, every rule across
 running between the outermost rules down and every rule down between the outermost across, within
 `TABLE_TOLERANCE`) is one piece, what it holds with it, unless a drawing's title stands in it (a grid
-of titled details, its rules dividing them); a table with no title is a schedule. Each title
+of titled details, its rules dividing them); a table with no title is a schedule, wherever it stands
+and whatever its size. So is a smaller one (`_ruled_tables`: rules across of one length, rows of one
+height but its header's, framed down both ends, a rule down between, `TABLE_CELLS` texts a row): a
+column schedule set beside its plan. Each title
 takes the piece it lies under (a drawing titled beneath, the convention; within `TITLE_GAP` of its
 height), else the piece it lies over (within `TITLE_GAP_UNDER`; a notes, legend or schedule heading
 the other way round: its content stands under it), else, after all of those, the piece
@@ -303,6 +306,11 @@ MIN_TABLE_RULES = 3
 """A table's fewest rules each way, dividers all (`_tables`)."""
 MAX_TABLE_GROUPS = 400
 """At most this many rules across are tried as a table's (each weighs every rule)."""
+TABLE_CELLS = 2
+"""A table holds at least this many texts a row, on average (its cells; `_ruled_tables`)."""
+TABLE_ROW_SPREAD = 0.25
+"""A table's rows are of one height, within this share of their usual height, all but one (its header
+row) (`_ruled_tables`)."""
 TABLE_TOLERANCE = RULE_MM
 """How far, in an A1's mm (scaled to the paper), a table's rules may miss each other's ends: a table's
 rules meet; a plan's grid lines run past each other to their marks."""
@@ -1126,6 +1134,60 @@ def _tables(segments: NDArray[np.float64], region: Bounds) -> list[Bounds]:
     return found
 
 
+def _ruled_tables(
+    segments: NDArray[np.float64], centres: NDArray[np.float64], region: Bounds
+) -> list[Bounds]:
+    """Ruled tables of any size (a column schedule set beside its plan): at least `MIN_TABLE_RULES`
+    rules across of one length (their ends within `TABLE_TOLERANCE`, scaled to the paper), rows of
+    one height (`TABLE_ROW_SPREAD`) but one; framed by a rule down at
+    each end running from the lowest to the highest; at least one rule down between them, half the
+    table's height or longer, lying within it (a header row may span); and a text (its `centres`) in
+    every row between two rules but one (a wall's thickness holds none), `TABLE_CELLS` a row on
+    average. The box they rule, one per group of rules alike."""
+    rx0, ry0, rx1, ry1 = region
+    side = max(rx1 - rx0, ry1 - ry0)
+    if not len(segments) or not side > 0:
+        return []
+    tol = TABLE_TOLERANCE * side / REFERENCE_MM
+    rows = _rules(segments, 0, RULE_MM * side / REFERENCE_MM)  # (y, x from, x to)
+    columns = _rules(segments, 1, RULE_MM * side / REFERENCE_MM)  # (x, y from, y to)
+    rows = rows[rows[:, 2] - rows[:, 1] > 2 * tol]
+    found: list[Bounds] = []
+    for row in rows[np.argsort(-(rows[:, 2] - rows[:, 1]), kind="stable")][:MAX_TABLE_GROUPS]:
+        if any(_inside((row[1], row[0]), box) for box in found):
+            continue
+        across = rows[(np.abs(rows[:, 1] - row[1]) <= tol) & (np.abs(rows[:, 2] - row[2]) <= tol)]
+        ys = np.sort(across[:, 0])
+        if len(ys) < MIN_TABLE_RULES:
+            continue
+        steps = np.diff(ys)
+        usual = float(np.median(steps))
+        if int((np.abs(steps - usual) > TABLE_ROW_SPREAD * usual).sum()) > 1:
+            continue  # rows of many heights: a drawing's lines alike, not a table's rows
+        x0, y0, x1, y1 = float(row[1]), float(ys[0]), float(row[2]), float(ys[-1])
+        down = columns[(columns[:, 1] <= y1 + tol) & (columns[:, 2] >= y0 - tol)]
+        framed = (down[:, 1] <= y0 + tol) & (down[:, 2] >= y1 - tol)
+        left = framed & (np.abs(down[:, 0] - x0) <= tol)
+        right = framed & (np.abs(down[:, 0] - x1) <= tol)
+        inner = (
+            (down[:, 0] > x0 + tol) & (down[:, 0] < x1 - tol)
+            & (down[:, 1] >= y0 - tol) & (down[:, 2] <= y1 + tol)
+            & (down[:, 2] - down[:, 1] >= (y1 - y0) / 2)
+        )  # fmt: skip
+        if not (left.any() and right.any() and inner.any()):
+            continue
+        held = centres[(centres[:, 0] > x0) & (centres[:, 0] < x1), 1]
+        rows_held = np.unique(np.searchsorted(ys, held[(held > y0) & (held < y1)]))
+        if len(rows_held) < len(ys) - 2:  # a text in every row but one (a wall's thickness holds none)
+            continue
+        if int(((held > y0) & (held < y1)).sum()) < TABLE_CELLS * (len(ys) - 1):
+            continue  # a mark a band (a drawing's lines named), not a row of cells
+        box = (x0, y0, x1, y1)
+        if not any(_meets(box, other) for other in found):
+            found.append(box)
+    return found
+
+
 def _dividers_out(segments: NDArray[np.float64], width: float, height: float) -> NDArray[np.float64]:
     """The segments without borders and dividers (`DIVIDER_SHARE`)."""
     if not len(segments):
@@ -1536,7 +1598,14 @@ def _views(
     inside = [  # any title but a schedule's own (a table's header row may hold it)
         i for i in {*titles, *heads} if _kind(texts[i].shown, reading) is not ViewKind.SCHEDULE
     ]
-    for table in _tables(drawn.segments, paper.region):
+    centres = np.array([_centre(t.box) for t in texts], dtype=np.float64).reshape(-1, 2)
+    tables = _tables(drawn.segments, paper.region)
+    tables += [
+        t
+        for t in _ruled_tables(drawn.segments, centres, paper.region)
+        if not any(_meets(t, other) for other in tables)
+    ]
+    for table in tables:
         if any(_inside(_centre(texts[i].box), table) for i in inside):
             continue  # a grid of titled drawings or of notes: its rules divide them, no table
         reach = _grown(table, TABLE_TOLERANCE * unit)
@@ -1602,13 +1671,15 @@ def _views(
         views.append(_View(None, texts[head], ViewKind.NOTES, box))
     titled_boxes = [_grown(v.box, JOIN_MM * unit) for v in views]
     for k, piece in enumerate(pieces):
-        if k in by_piece or any(_holds(box, piece.box) for box in titled_boxes):
+        if k in by_piece or len(views) >= MAX_VIEWS:
+            continue
+        if piece.table:  # a ruled table with no title is a schedule, whatever its size and place
+            views.append(_View(piece, None, ViewKind.SCHEDULE, piece.box))
+            continue
+        if any(_holds(box, piece.box) for box in titled_boxes):
             continue  # in a titled drawing's box, whatever its size, it is that drawing's (below)
-        if piece.area >= MIN_UNTITLED * paper_area and len(views) < MAX_VIEWS:
-            if piece.table:
-                kind = ViewKind.SCHEDULE  # a ruled table with no title
-            else:
-                kind = ViewKind.NOTES if piece.words > piece.lines else untitled
+        if piece.area >= MIN_UNTITLED * paper_area:
+            kind = ViewKind.NOTES if piece.words > piece.lines else untitled
             views.append(_View(piece, None, kind, piece.box))
     for k, piece in enumerate(pieces):
         if k in by_piece or any(v.piece is piece for v in views):
