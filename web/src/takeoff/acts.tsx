@@ -10,7 +10,7 @@
 import { useCallback, useRef, useState, type ReactNode } from 'react'
 import { Plural, Trans } from '@lingui/react/macro'
 import { useLingui } from '@lingui/react'
-import { useQueryClient } from '@tanstack/react-query'
+import { notifyManager, useQueryClient } from '@tanstack/react-query'
 import { ApiRefused } from '@/api/client'
 import { problemOf, problemText } from '@/auth/problem'
 import { useFormat } from '@/format'
@@ -65,6 +65,11 @@ export function SheetName({ sheets }: { sheets: readonly ProposalOut[] }) {
   const first = sheets[0]
   const last = sheets.at(-1)
   if (!first || !last) return null
+  if (!first.number && !first.title.trim()) {
+    // Neither number nor title (#167): named by its file, never by an empty quotation.
+    const file = <DrawingText kind="file-name" text={first.file_name} truncate={false} />
+    return <Trans>an untitled sheet in {file}</Trans>
+  }
   if (!first.number) return <DrawingText kind="title" text={first.title} truncate={false} />
   if (sheets.length > 1 && last.number && last.number !== first.number) {
     return <SheetRange first={first.number} last={last.number} />
@@ -109,6 +114,9 @@ function BulkDone({ n, m }: { n: number; m: number }) {
   )
 }
 
+/** A toast an act shows once Step 1 has reloaded. */
+type Done = Parameters<ReturnType<typeof useToast>['show']>[0]
+
 export interface Step1Acts {
   bulk(confirming: readonly ProposalOut[], leavingOut: readonly ProposalOut[]): Promise<void>
   /** `backIn`: the actor's name, when the sheets were excluded and are confirmed back in (6.9). */
@@ -150,6 +158,13 @@ export function useStep1Acts(projectId: string): Step1Acts {
     [f, i18n],
   )
   const say = useCallback((error: unknown) => toast.show({ message: failedText(error) }), [failedText, toast])
+  /**
+   * What an act did, shown once Step 1 has reloaded and rendered (#167, F1): queued behind the reload's
+   * own notices, so the toast never stands beside the stale Count or a bulk confirm still clickable.
+   */
+  const showDone = useCallback((done: Done | null) => {
+    if (done) notifyManager.schedule(() => toast.show(done))
+  }, [toast])
 
   /**
    * Starts an act: blocks others and puts it on top of `history` as its key is pressed; returns what
@@ -309,12 +324,13 @@ export function useStep1Acts(projectId: string): Step1Acts {
       const counted = begin()
       if (!counted) return false
       let made = 0
+      let done: Done | null = null
       try {
         for (const call of calls) {
           await call()
           made += 1
         }
-        toast.show({ message: said, onUndo: undoFor(words) })
+        done = { message: said, onUndo: undoFor(words) }
         return true
       } catch (error) {
         if (reached(error)) made += 1
@@ -323,9 +339,10 @@ export function useStep1Acts(projectId: string): Step1Acts {
       } finally {
         counted(made, words)
         await settle()
+        showDone(done)
       }
     },
-    [begin, say, settle, toast, undoFor],
+    [begin, say, settle, showDone, undoFor],
   )
 
   const bulk = useCallback(
@@ -350,32 +367,34 @@ export function useStep1Acts(projectId: string): Step1Acts {
         else n += c.sheets
       }
       let at: (typeof calls)[number] | undefined
+      let done: Done | null = null
       try {
         for (const c of calls) {
           at = c
           await c.call()
           count(c)
         }
-        toast.show({ message: <BulkDone n={n} m={m} />, onUndo: undoFor(words) })
+        done = { message: <BulkDone n={n} m={m} />, onUndo: undoFor(words) }
       } catch (error) {
         if (at && reached(error)) count(at)
         const refused = failedText(error)
         if (made === 0) say(error)
         else
-          toast.show({
+          done = {
             message: (
               <>
                 <BulkDone n={n} m={m} /> <Trans>The rest was not done: {refused}</Trans>
               </>
             ),
             onUndo: undoFor(words),
-          })
+          }
       } finally {
         counted(made, words)
         await settle()
+        showDone(done)
       }
     },
-    [begin, failedText, projectId, say, settle, toast, undoFor],
+    [begin, failedText, projectId, say, settle, showDone, undoFor],
   )
 
   const confirmSheets = useCallback(
@@ -411,18 +430,19 @@ export function useStep1Acts(projectId: string): Step1Acts {
       const kind = which ? i18n._(which) : ''
       const words = <Trans>the drawing list you set</Trans>
       let made = 0
+      let done: Done | null = null
       try {
         const list = await setList(projectId, discipline, text)
         made = 1
         const n = list.numbers.length
-        toast.show({
+        done = {
           message: which ? (
             <Plural value={n} one={`Drawing list set: # ${kind} sheet.`} other={`Drawing list set: # ${kind} sheets.`} />
           ) : (
             <Plural value={n} one="Drawing list set: # sheet." other="Drawing list set: # sheets." />
           ),
           onUndo: undoFor(words),
-        })
+        }
         return true
       } catch (error) {
         if (reached(error)) made = 1
@@ -431,9 +451,10 @@ export function useStep1Acts(projectId: string): Step1Acts {
       } finally {
         counted(made, words)
         await settle()
+        showDone(done)
       }
     },
-    [begin, i18n, projectId, say, settle, toast, undoFor],
+    [begin, i18n, projectId, say, settle, showDone, undoFor],
   )
 
   const answerQuestion = useCallback(
@@ -444,10 +465,11 @@ export function useStep1Acts(projectId: string): Step1Acts {
       // Held from the moment it is sent (CI's slowed run: a Ctrl Z before the reply undid its act).
       if (mine) mine.answer = makesAct(entry, option)
       let made = 0
+      let done: Done | null = null
       try {
         await answer(projectId, entry.question.id, option, text)
         made = 1
-        toast.show({ message: <AnsweredWords entry={entry} option={option} text={text.trim()} /> })
+        done = { message: <AnsweredWords entry={entry} option={option} text={text.trim()} /> }
         return true
       } catch (error) {
         if (reached(error)) made = 1
@@ -467,9 +489,10 @@ export function useStep1Acts(projectId: string): Step1Acts {
           history.current = at === -1 ? [] : history.current.slice(at)
         }
         await settle()
+        showDone(done)
       }
     },
-    [begin, projectId, say, settle, toast],
+    [begin, projectId, say, settle, showDone],
   )
 
   return { bulk, confirmSheets, excludeSheets, setDrawingList, answerQuestion, undoLast, busy }

@@ -103,6 +103,8 @@ export interface Step1Model {
   found: number
   /** Sheets that have one source and are still to confirm (6.4's "Nothing left but sheets with one source"). */
   oneSource: readonly ProposalOut[]
+  /** Sheets of no Discipline (19a's progress row with `discipline` null): none of `disciplines` holds them. */
+  noDiscipline: number
   /** Every Discipline received is confirmed. */
   allConfirmed: boolean
   /** Views neither assigned nor excluded (6.11). */
@@ -336,6 +338,7 @@ export function step1Model(data: Step1Data): Step1Model {
     excluded: proposals.filter((p) => p.decision === 'excluded').length,
     found: proposals.length,
     oneSource: free.filter((p) => !decided(p) && !p.agrees && p.proposed_exclusion === null),
+    noDiscipline: progressOf.get(null)?.found ?? proposals.filter((p) => p.discipline === null).length,
     allConfirmed: disciplines.length > 0 && disciplines.every((d) => d.confirmed),
     unaccounted: data.coverage.unaccounted,
     fileNames: data.fileNames ?? {},

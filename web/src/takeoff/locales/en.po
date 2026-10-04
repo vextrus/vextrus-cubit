@@ -308,6 +308,10 @@ msgid "the pasted drawing list"
 msgstr "the pasted drawing list"
 
 #: src/takeoff/questionWords.tsx
+msgid "A sheet in {file} has neither a number nor a title in its title block."
+msgstr "A sheet in {file} has neither a number nor a title in its title block."
+
+#: src/takeoff/questionWords.tsx
 msgid "{tag} answered. Recorded the kind as {kind}; no sheet was confirmed."
 msgstr "{tag} answered. Recorded the kind as {kind}; no sheet was confirmed."
 
@@ -597,6 +601,10 @@ msgstr "The drawing list"
 msgid "Beam layout"
 msgstr "Beam layout"
 
+#: src/takeoff/acts.tsx
+msgid "an untitled sheet in {file}"
+msgstr "an untitled sheet in {file}"
+
 #: src/takeoff/words.tsx
 msgid "Working plan"
 msgstr "Working plan"
@@ -864,6 +872,10 @@ msgstr "Set this file aside: I’ll re-save it from AutoCAD (open it, run AUDIT,
 #: src/takeoff/words.tsx
 msgid "HVAC layout"
 msgstr "HVAC layout"
+
+#: src/takeoff/questionWords.tsx
+msgid "It has no title, so nothing says which kind of sheet {number} is. Its kind decides which Takeoff steps read it."
+msgstr "It has no title, so nothing says which kind of sheet {number} is. Its kind decides which Takeoff steps read it."
 
 #: src/takeoff/SheetList.tsx
 msgid "Paste the drawing list"
@@ -1206,6 +1218,10 @@ msgstr "{0, plural, one {# Question withdrawn when its sheet was left out: it ne
 msgid "Point wiring layout"
 msgstr "Point wiring layout"
 
+#: src/takeoff/questionWords.tsx
+msgid "Trace: the title block of {untitled} (its number and title fields are empty)"
+msgstr "Trace: the title block of {untitled} (its number and title fields are empty)"
+
 #: src/takeoff/Step1Inspector.tsx
 msgid "A view counts once it is assigned to a step that will read it, or excluded with a reason. Used is 0: no step after Step 1 runs in M0. A view may feed several steps, so the steps below add up to more than the views."
 msgstr "A view counts once it is assigned to a step that will read it, or excluded with a reason. Used is 0: no step after Step 1 runs in M0. A view may feed several steps, so the steps below add up to more than the views."
@@ -1221,6 +1237,10 @@ msgstr "In a file, not on the drawing list"
 #: src/takeoff/questionWords.tsx
 msgid "Use the drawing list you pasted"
 msgstr "Use the drawing list you pasted"
+
+#: src/takeoff/questionWords.tsx
+msgid "Neither has a title. Only one can be read, unless they are different sheets."
+msgstr "Neither has a title. Only one can be read, unless they are different sheets."
 
 #: src/takeoff/Bar.tsx
 msgid "Confirm all {n} that agree"
@@ -1266,6 +1286,10 @@ msgstr "Next open item"
 #: src/takeoff/words.tsx
 msgid "Lightning protection"
 msgstr "Lightning protection"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "{count} with no Discipline"
+msgstr "{count} with no Discipline"
 
 #: src/takeoff/SheetList.tsx
 msgid "found; no drawing list; numbering runs {range}; {twice} twice"
@@ -1937,6 +1961,10 @@ msgstr "{n, plural, one {# sheet, two readers agree} other {# sheets, two reader
 msgid "No open Questions."
 msgstr "No open Questions."
 
+#: src/takeoff/Step1Inspector.tsx
+msgid "1 with no Discipline"
+msgstr "1 with no Discipline"
+
 #: src/takeoff/words.tsx
 msgid "Extinguisher and signage layout"
 msgstr "Extinguisher and signage layout"
@@ -1964,6 +1992,10 @@ msgstr "Keep the latest copy; leave the others out as superseded"
 #: src/takeoff/Step1Inspector.tsx
 msgid "Storeys"
 msgstr "Storeys"
+
+#: src/takeoff/words.tsx
+msgid "One title on two sheets"
+msgstr "One title on two sheets"
 
 #: src/takeoff/questionWords.tsx
 msgid "Answering confirms {number} ({kept}) and excludes the other {others, plural, one {# copy} other {# copies}} as superseded."
@@ -2089,6 +2121,10 @@ msgstr "{name}: {listed} on the drawing list on {sheet}; {found} found."
 #: src/takeoff/questionWords.tsx
 msgid "{tag} answered. The file is set aside, waiting for the re-saved file."
 msgstr "{tag} answered. The file is set aside, waiting for the re-saved file."
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "{questions, plural, one {Answer # Question} other {Answer # Questions: those holding the most sheets first}}"
+msgstr "{questions, plural, one {Answer # Question} other {Answer # Questions: those holding the most sheets first}}"
 
 #: src/takeoff/Bar.tsx
 msgid "{name} is excluded: {reason}"

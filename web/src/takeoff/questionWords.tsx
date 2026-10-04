@@ -103,6 +103,7 @@ export function QuestionBody({ entry, context }: { entry: QuestionEntry; context
   if (q.kind === 'file_misread') return has(q.code) ? <MachineText message={{ code: q.code, params: params(entry) }} /> : null
   if (isCopies(entry)) {
     const titles = [...new Set(entry.holds.map((h) => h.title))]
+    if (titles.length === 1 && !titles[0]!.trim()) return <Trans>Neither has a title. Only one can be read, unless they are different sheets.</Trans>
     if (titles.length === 1) {
       const title = <DrawingText kind="title" text={titles[0]!} truncate={false} />
       return <Trans>Both are titled “{title}”. Only one can be read.</Trans>
@@ -112,11 +113,13 @@ export function QuestionBody({ entry, context }: { entry: QuestionEntry; context
   if (q.code === 'takeoff.step1.no_number' && first) {
     const title = <DrawingText kind="title" text={first.title} truncate={false} />
     const file = <DrawingText kind="file-name" text={first.file_name} truncate={false} />
+    if (!first.title.trim()) return <Trans>A sheet in {file} has neither a number nor a title in its title block.</Trans>
     return <Trans>A sheet titled “{title}” in {file} has an empty number in its title block.</Trans>
   }
   if (q.code === 'takeoff.step1.which_kind' && first) {
     const title = <DrawingText kind="title" text={first.title} truncate={false} />
     const number = <SheetName sheets={[first]} />
+    if (!first.title.trim()) return <Trans>It has no title, so nothing says which kind of sheet {number} is. Its kind decides which Takeoff steps read it.</Trans>
     return <Trans>Its title, “{title}”, does not say which kind of sheet {number} is. Its kind decides which Takeoff steps read it.</Trans>
   }
   if (q.kind === 'check' && typeof q.params.number === 'string') {
@@ -151,6 +154,10 @@ export function Trace({ entry, context, onOpen }: { entry: QuestionEntry; contex
     return <Trans>Trace: the title blocks of {copies}</Trans>
   }
   if (q.code === 'takeoff.step1.no_number' && first) {
+    if (!first.title.trim()) {
+      const untitled = <SheetLink sheet={first} onOpen={onOpen} />
+      return <Trans>Trace: the title block of {untitled} (its number and title fields are empty)</Trans>
+    }
     const sheet = <SheetLink sheet={first} onOpen={onOpen}><DrawingText kind="title" text={first.title} truncate={false} /></SheetLink>
     return <Trans>Trace: the title block of {sheet} (the number field is empty)</Trans>
   }
