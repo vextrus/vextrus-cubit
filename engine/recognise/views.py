@@ -53,8 +53,12 @@ holds** (a beam's long section and its cross sections, joined by their bar label
 piece several section titles share (a title shares the piece whose box holds it, else its best drawing)
 is cut along its widest band that at most `CUT_CROSSINGS` lines cross, down or across, at least
 `SHARED_CUT_MM`, with titles on
-both sides (a title in a band across is the drawing's over it), until each part holds one title, whose
-drawing it is (`_cut_shared`); a piece another kind's title shares is left whole. A titled piece that
+both sides (a title in a band across is the drawing's over it) and a drawing on each (never a band less
+tall than `MIN_DRAWING` of its titles' heights: a title's frame), else, where there is none, along a
+gap up to `MAX_BRIDGES` lines lie in, each ending within `SHARED_CUT_MM` of its edges (a cross
+section's slab lines drawn up to its long section's column face), until each part holds one title, whose
+drawing it is, its box its lines within its share (`_cut_shared`); a piece another kind's title
+shares is left whole. A titled piece that
 is a row under a larger piece without a title (no taller than `ROW_SHARE` of it, across its width, within
 `JOIN_MM` of it) is that drawing's detached row of grid marks and dimensions, which is what the title
 lies nearest: the view takes the body too. **A notes heading** (a text its kind's heading words lead,
@@ -221,6 +225,11 @@ labels)."""
 CUT_CROSSINGS = 1
 """The most lines crossing a band that still parts two drawings one piece holds (a leader, a base
 line)."""
+MAX_BRIDGES = 4
+"""The most lines lying in a band, each ending within `SHARED_CUT_MM` of its edges, that still part two
+drawings one piece holds (a cross section's slab lines drawn up to its long section's column face)."""
+MAX_CUT_TRIES = 16
+"""The most bands weighed each way for one cut, the widest first."""
 TALLER = 1.2
 """A title lettered this many times taller than the others a piece that cannot be cut shares is its
 drawing's (a long section's title over its cross sections')."""
@@ -1715,7 +1724,10 @@ def _cut_shared(
             budget -= len(part_lines)
             found = None
             if len(part_titles) > 1 and budget >= 0:
-                found = _widest_cut(part_lines, [texts[ti].box for ti in part_titles], width)
+                boxes = [texts[ti].box for ti in part_titles]
+                tall = [texts[ti].height for ti in part_titles]
+                found, weighed = _widest_cut(part_lines, boxes, tall, width)
+                budget -= weighed
             if found is None:
                 parts.append((part_lines, region, part_titles))
                 continue
@@ -1733,11 +1745,11 @@ def _cut_shared(
             continue
         for n, (part_lines, region, part_titles) in enumerate(parts):
             box = _bounds4(
-                [
-                    float(part_lines[:, [0, 2]].min()),
-                    float(part_lines[:, [1, 3]].min()),
-                    float(part_lines[:, [0, 2]].max()),
-                    float(part_lines[:, [1, 3]].max()),
+                [  # its lines within its share (a line across the cut goes by its middle)
+                    max(float(part_lines[:, [0, 2]].min()), region[0]),
+                    max(float(part_lines[:, [1, 3]].min()), region[1]),
+                    min(float(part_lines[:, [0, 2]].max()), region[2]),
+                    min(float(part_lines[:, [1, 3]].max()), region[3]),
                 ]
             )
             inside = (
@@ -1761,42 +1773,126 @@ def _cut_shared(
 
 
 def _widest_cut(
-    lines: NDArray[np.float64], titles: Sequence[Bounds], width: float
-) -> tuple[int, float, tuple[list[int], list[int]]] | None:
+    lines: NDArray[np.float64], titles: Sequence[Bounds], heights: Sequence[float], width: float
+) -> tuple[tuple[int, float, tuple[list[int], list[int]]] | None, int]:
     """The widest band down (axis 0) or across (axis 1) that at most `CUT_CROSSINGS` of `lines` cross
-    (a leader, a base line running on), at least `width` wide, with titles on both sides: `(axis, where
-    the parts meet, (the titles below it, those above it))` as indices into `titles`, else None. A
-    title's side is its centre's; in a band across, it is the drawing's over it (a title stands under
-    its drawing)."""
+    (a leader, a base line running on), at least `width` wide, with titles on both sides and a drawing
+    on each (`_drawn`: never a band of lines less tall than `MIN_DRAWING` of its titles' heights):
+    `(axis, where the parts meet, (the titles below it, those above it))` as indices into `titles`,
+    else None; and the lines weighed finding it. A title's side is its centre's; in a band across, it
+    is the drawing's over it (a title stands under its drawing). Where no such band is found, a band
+    up to `MAX_BRIDGES` more lines lie in parts them too when each runs no further than `width` past
+    its edges (the band's own lines, joining the drawings edge to edge: a cross section's slab drawn up
+    to its long section's column face), while a line running on into a drawing still crosses it. At
+    most `MAX_CUT_TRIES` bands are weighed each way."""
     if len(lines) < 2 or len(titles) < 2:
-        return None
+        return None, 0
     centres = np.array([_centre(t) for t in titles], dtype=np.float64)
-    best: tuple[float, int, float] | None = None
+    weighed = 0
+    for bridged in (False, True):
+        if bridged:
+            bands, weighs = _bridged_bands(lines, centres, width)
+            weighed += weighs
+        else:
+            bands = [b for axis in (0, 1) for b in _bands(lines, centres, width, axis, CUT_CROSSINGS)]
+        bands.sort(key=lambda band: (-band[0], band[1]))  # the widest first, down before across at a tie
+        for _, axis, start, end in bands[:MAX_CUT_TRIES]:
+            weighed += len(lines)
+            middle = (start + end) / 2
+            edge = middle if axis == 0 else start  # a title in a band across is its drawing's
+            below = [i for i in range(len(titles)) if centres[i, axis] < edge]
+            above = [i for i in range(len(titles)) if centres[i, axis] >= edge]
+            under = lines[:, [axis, axis + 2]].mean(axis=1) < middle  # a line across goes by its middle
+            if _drawn(lines[under], [heights[i] for i in below]) and _drawn(
+                lines[~under], [heights[i] for i in above]
+            ):
+                return (axis, middle, (below, above)), weighed
+    return None, weighed
+
+
+def _bands(
+    lines: NDArray[np.float64], centres: NDArray[np.float64], width: float, axis: int, crossings: int
+) -> list[tuple[float, int, float, float]]:
+    """The bands along `axis` at most `crossings` of `lines` cross, at least `width` wide, with titles
+    (their `centres`) on both sides, inside the lines' extent: `(width, axis, start, end)`."""
+    lo = np.minimum(lines[:, axis], lines[:, axis + 2])
+    hi = np.maximum(lines[:, axis], lines[:, axis + 2])
+    at = np.concatenate([hi, lo])
+    step = np.concatenate([-np.ones(len(hi)), np.ones(len(lo))])  # ends before starts at a tie
+    order = np.lexsort((step, at))
+    at, count = at[order], np.cumsum(step[order])
+    thin = count[:-1] <= crossings  # between one event and the next
+    edges = np.flatnonzero(np.diff(np.concatenate([[0], thin.astype(np.int8), [0]])))
+    first, stop = edges[::2], edges[1::2]
+    inner = (first > 0) & (stop < len(at) - 1)  # a band at the lines' edge parts nothing
+    start, end = at[first[inner]], at[stop[inner]]
+    edge = (start + end) / 2 if axis == 0 else start  # a title in a band across is its drawing's
+    low, high = centres[:, axis].min(), centres[:, axis].max()
+    valid = (end - start >= width) & (low < edge) & (edge <= high)
+    pairs = zip(start[valid], end[valid], strict=True)
+    return [(float(e - s), axis, float(s), float(e)) for s, e in pairs]
+
+
+def _bridged_bands(
+    lines: NDArray[np.float64], centres: NDArray[np.float64], width: float
+) -> tuple[list[tuple[float, int, float, float]], int]:
+    """The bands a few lines lie in (bridges, within `width` of both its edges: drawn from one drawing's
+    edge to the other's): the gaps between the lines shorter along the axis than `width`, each narrowed
+    by the longer lines reaching into it from past one edge, kept while still `width` wide when at most
+    `CUT_CROSSINGS` lines run past both its edges (a line running on into both drawings crosses it),
+    at most `MAX_BRIDGES` lie in it, and titles (their `centres`) stand on both sides. A gap more
+    than `CUT_CROSSINGS + MAX_BRIDGES` lines are drawn across at its middle is a drawing's, never
+    weighed; the `MAX_CUT_TRIES` widest others each way are.
+    Returns the bands, `(width, axis, start, end)`, and the lines weighed."""
+    found: list[tuple[float, int, float, float]] = []
+    weighed = 0
     for axis in (0, 1):
         lo = np.minimum(lines[:, axis], lines[:, axis + 2])
         hi = np.maximum(lines[:, axis], lines[:, axis + 2])
-        at = np.concatenate([hi, lo])
-        step = np.concatenate([-np.ones(len(hi)), np.ones(len(lo))])  # ends before starts at a tie
-        order = np.lexsort((step, at))
-        at, count = at[order], np.cumsum(step[order])
-        thin = count[:-1] <= CUT_CROSSINGS  # between one event and the next
-        edges = np.flatnonzero(np.diff(np.concatenate([[0], thin.astype(np.int8), [0]])))
-        first, stop = edges[::2], edges[1::2]
-        inner = (first > 0) & (stop < len(at) - 1)  # a band at the lines' edge parts nothing
-        start, end = at[first[inner]], at[stop[inner]]
-        edge = (start + end) / 2 if axis == 0 else start  # a title in a band across is its drawing's
+        long = hi - lo >= width
+        if long.all():
+            continue
+        order = np.argsort(lo[~long], kind="stable")
+        reach = np.maximum.accumulate(hi[~long][order])  # how far the short lines reach so far
+        after = lo[~long][order]
+        gap = np.flatnonzero(after[1:] - reach[:-1] >= width)
+        starts, ends = np.sort(lo), np.sort(hi)
+        gaps = []
+        for i in gap:
+            start, end = float(reach[i]), float(after[i + 1])
+            middle = (start + end) / 2
+            alive = int(np.searchsorted(starts, middle)) - int(
+                np.searchsorted(ends, middle, side="right")
+            )  # the lines drawn across its middle
+            if alive <= CUT_CROSSINGS + MAX_BRIDGES:
+                gaps.append((end - start, start, end))
         low, high = centres[:, axis].min(), centres[:, axis].max()
-        valid = (end - start >= width) & (low < edge) & (edge <= high)
-        if valid.any():
-            i = int(np.argmax(np.where(valid, end - start, -np.inf)))
-            if best is None or end[i] - start[i] > best[0]:
-                best = (float(end[i] - start[i]), axis, float((start[i] + end[i]) / 2))
-    if best is None:
-        return None
-    _, axis, middle = best
-    edge = middle if axis == 0 else middle - best[0] / 2
-    below = [i for i in range(len(titles)) if centres[i, axis] < edge]
-    return axis, middle, (below, [i for i in range(len(titles)) if centres[i, axis] >= edge])
+        for _, start, end in sorted(gaps, reverse=True)[:MAX_CUT_TRIES]:
+            weighed += len(lines)
+            over = long & (lo < end) & (hi > start)
+            bridges = over & (lo >= start - width) & (hi <= end + width)  # lying in it
+            before, past = lo < start - width, hi > end + width
+            crossing = over & before & past
+            start = max([start, *hi[over & before & ~past]])  # a line reaching into it narrows it
+            end = min([end, *lo[over & past & ~before]])
+            edge = (start + end) / 2 if axis == 0 else start  # a title in a band across is its drawing's
+            if (
+                end - start >= width
+                and int(crossing.sum()) <= CUT_CROSSINGS
+                and int(bridges.sum()) <= MAX_BRIDGES
+                and low < edge <= high
+            ):
+                found.append((float(end - start), axis, float(start), float(end)))
+    return found, weighed
+
+
+def _drawn(lines: NDArray[np.float64], heights: Sequence[float]) -> bool:
+    """Whether `lines` are a drawing for titles of `heights`: some lines, at least `MIN_DRAWING` of the
+    tallest title's height tall (a band less tall is a title's frame or a row of labels)."""
+    if not len(lines):
+        return False
+    tall = float(lines[:, [1, 3]].max() - lines[:, [1, 3]].min())
+    return tall >= MIN_DRAWING * max(heights, default=0.0)
 
 
 def _bounds4(values: Sequence[float]) -> Bounds:
