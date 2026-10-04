@@ -97,21 +97,40 @@ function StillReading({ files }: { files: readonly FileOut[] }) {
   )
 }
 
+/**
+ * One file's row: what it is doing (§4.7's "Still reading KR-ELE-R0.dwg: sheet 2 of 3." while it reads
+ * sheets; a waiting or interrupted file says so, never "Still reading"), then what it will add. A PDF is
+ * a Plot: its pages are matched to sheets and never join the list as rows of their own.
+ */
 function StillReadingLine({ file }: { file: FileOut }) {
   const f = useFormat()
   const name = <DrawingText kind="file-name" text={file.name} truncate={false} className="text-foreground" />
   const { position, total } = file.status.params as { position?: unknown; total?: unknown }
-  const sheets = file.status.code === 'drawings.files.reading_sheet' || file.status.code === 'drawings.files.reading_sheet_left'
-  if (sheets && typeof position === 'number' && typeof total === 'number') {
-    const sheet = f.integer(position)
-    const of = f.integer(total)
-    return (
+  const counted = typeof position === 'number' && typeof total === 'number'
+  const code = file.status.code
+  const at = counted ? f.integer(position) : ''
+  const of = counted ? f.integer(total) : ''
+  let doing
+  if (file.state === 'waiting') doing = <Trans>{name} is waiting to be read.</Trans>
+  else if (file.state === 'retrying') doing = <Trans>Reading {name} was interrupted and is starting again.</Trans>
+  else if (counted && (code === 'drawings.files.reading_sheet' || code === 'drawings.files.reading_sheet_left'))
+    doing = (
       <Trans>
-        Still reading {name}: sheet {sheet} of {of}. Its sheets join the list when it is read.
+        Still reading {name}: sheet {at} of {of}.
       </Trans>
     )
-  }
-  return <Trans>Still reading {name}. Its sheets join the list when it is read.</Trans>
+  else if (counted && (code === 'drawings.files.reading_page' || code === 'drawings.files.reading_page_left'))
+    doing = (
+      <Trans>
+        Still reading {name}: page {at} of {of}.
+      </Trans>
+    )
+  else doing = <Trans>Still reading {name}.</Trans>
+  return (
+    <>
+      {doing} {file.format === 'pdf' ? <Trans>Its pages are matched to sheets when it is read.</Trans> : <Trans>Its sheets join the list when it is read.</Trans>}
+    </>
+  )
 }
 
 /** No sheets in Step 1 yet while files read: §4.7's row, never "No sheets yet. Add the Drawing Set's files first." */
