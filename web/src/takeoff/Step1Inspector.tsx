@@ -20,7 +20,7 @@ import { QuestionGlyph } from '@/ui/glyphs'
 import { SheetName } from './acts'
 import { SheetRange } from './SheetRange'
 import type { CoverageOut, ProposalOut, ViewOut } from './data'
-import { NOTES_STEP, STEP_DISCIPLINES, listSheet, type DisciplineSection, type QuestionEntry, type Row, type Step1Model } from './model'
+import { DISCIPLINE_ORDER, NOTES_STEP, STEP_DISCIPLINES, listSheet, type DisciplineSection, type QuestionEntry, type Row, type Step1Model } from './model'
 import { AnswerNote, Answering, cardContext, Copy, OptionWords, QuestionBody, QuestionTitle, Trace, optionsOf, useKindLine, usePick, usePickSources, type CardContext } from './questionWords'
 import { disciplineName } from './SheetList'
 import { NOT_RECEIVED_NAMES, OTHER_DISCIPLINE, OTHER_VIEW_KIND, REASON_SHORT, ROLE_NAMES, STEP_KEYS, STOREY_MEANINGS, UNKNOWN_REASON, VIEW_KINDS } from './words'
@@ -896,12 +896,45 @@ export function QuestionsTab({
   )
 }
 
-/** A key of Coverage's `by_step`: a Takeoff Step's key or number ("5 Foundations"), else an MEP Part ("Electrical, M3 onwards"). */
-function StepOrPart({ step }: { step: string }) {
+/** The Takeoff Step a key of Coverage's `by_step` counts for: its own (a key or a number), Step 2's Notes for a Structural or Architectural Part; none for an MEP Part. */
+function stepOf(key: string): number | null {
+  const at = (STEP_KEYS as readonly string[]).indexOf(key)
+  if (STEP_DISCIPLINES.has(key)) return NOTES_STEP
+  if (/^\d+$/.test(key)) return Number(key)
+  return at >= 0 ? at + 1 : null
+}
+
+/**
+ * Coverage's `by_step` as the panel's rows (m0-screens 6.11): one per Takeoff Step, in the steps' order,
+ * then each MEP Part. A Structural or Architectural Part's views join Step 2's row; the API counts a
+ * view in Step 2 never again under that Part, so the sum counts each view once.
+ */
+function stepRows(byStep: Record<string, number>): { key: string; step: number | null; part: string | null; count: number }[] {
+  const rows = new Map<string, { key: string; step: number | null; part: string | null; count: number }>()
+  for (const [key, count] of Object.entries(byStep)) {
+    const n = stepOf(key)
+    const found = n === null ? undefined : TAKEOFF_STEPS.find((s) => s.number === n)
+    const id = found ? `step:${found.number}` : key
+    const row = rows.get(id) ?? { key: id, step: found ? found.number : null, part: found ? null : key, count: 0 }
+    row.count += count
+    rows.set(id, row)
+  }
+  const rank = (part: string) => {
+    const i = (DISCIPLINE_ORDER as readonly string[]).indexOf(part)
+    return i === -1 ? DISCIPLINE_ORDER.length : i
+  }
+  return [...rows.values()].sort((a, b) => {
+    if (a.step !== null && b.step !== null) return a.step - b.step
+    if (a.step !== null) return -1
+    if (b.step !== null) return 1
+    return rank(a.part!) - rank(b.part!)
+  })
+}
+
+/** A row's name: a Takeoff Step's number and name ("5 Foundations"), else an MEP Part ("Electrical, M3 onwards"). */
+function StepOrPart({ step, part }: { step: number | null; part: string | null }) {
   const { i18n } = useLingui()
-  const key = (STEP_KEYS as readonly string[]).indexOf(step)
-  const n = STEP_DISCIPLINES.has(step) ? NOTES_STEP : /^\d+$/.test(step) ? Number(step) : key >= 0 ? key + 1 : null
-  const found = n === null ? undefined : TAKEOFF_STEPS.find((s) => s.number === n)
+  const found = step === null ? undefined : TAKEOFF_STEPS.find((s) => s.number === step)
   if (found) {
     const number = found.number
     const name = i18n._(found.name)
@@ -911,13 +944,15 @@ function StepOrPart({ step }: { step: string }) {
       </>
     )
   }
-  const part = disciplineName(step, i18n)
-  return <Trans>{part}, M3 onwards</Trans>
+  const name = disciplineName(part ?? '', i18n)
+  return <Trans>{name}, M3 onwards</Trans>
 }
 
-export function CoveragePanel({ coverage, held }: { coverage: CoverageOut; held: readonly string[] }) {
+/** `held`: the held files' names; `reading`: the files still reading (m0-screens 6.11's line for each). */
+export function CoveragePanel({ coverage, held, reading }: { coverage: CoverageOut; held: readonly string[]; reading: readonly string[] }) {
   const f = useFormat()
   const reasons = Object.entries(coverage.by_reason)
+  const steps = stepRows(coverage.by_step)
   const { i18n } = useLingui()
   return (
     <>
@@ -930,15 +965,17 @@ export function CoveragePanel({ coverage, held }: { coverage: CoverageOut; held:
         </p>
         <CoverageLine coverage={coverage} />
       </Block>
-      <Block title={<Trans>Views by the step that will read them, proposed or assigned</Trans>}>
-        <dl className="flex flex-col gap-1">
-          {Object.entries(coverage.by_step).map(([step, count]) => (
-            <Fact key={step} label={<StepOrPart step={step} />}>
-              {f.integer(count)}
-            </Fact>
-          ))}
-        </dl>
-      </Block>
+      {steps.length > 0 ? (
+        <Block title={<Trans>Views by the step that will read them, proposed or assigned</Trans>}>
+          <dl className="flex flex-col gap-1">
+            {steps.map((row) => (
+              <Fact key={row.key} label={<StepOrPart step={row.step} part={row.part} />}>
+                {f.integer(row.count)}
+              </Fact>
+            ))}
+          </dl>
+        </Block>
+      ) : null}
       {reasons.length > 0 ? (
         <Block title={<Trans>Excluded, by reason</Trans>}>
           <dl className="flex flex-col gap-1">
@@ -955,6 +992,14 @@ export function CoveragePanel({ coverage, held }: { coverage: CoverageOut; held:
         return (
           <p key={name} className="px-3 pt-2 text-xs">
             <Trans>{file} is held: its views are not counted unless you read it anyway.</Trans>
+          </p>
+        )
+      })}
+      {reading.map((name) => {
+        const file = <DrawingText kind="file-name" text={name} truncate={false} />
+        return (
+          <p key={name} className="px-3 pt-2 text-xs">
+            <Trans>{file} is still reading; its views join as its sheets arrive.</Trans>
           </p>
         )
       })}

@@ -56,7 +56,7 @@ export function Step1Page() {
     if (error) return <LoadProblem error={error} onRetry={retry} className="m-4" />
     return <Skeleton rows={10} className="m-4" status={<Trans>Opening Step 1…</Trans>} />
   }
-  if (data.proposals.length === 0 && data.questions.length === 0 && reading.length > 0) return <NoSheetsYet reading={reading} />
+  if (data.proposals.length === 0 && data.questions.length === 0 && reading.length > 0) return <NoSheetsYet project={project} reading={reading} />
   // The last file just finished and its sheets are on their way: never "Add the Drawing Set's files first" meanwhile.
   if (data.proposals.length === 0 && data.questions.length === 0 && refreshing) return <Skeleton rows={10} className="m-4" status={<Trans>Opening Step 1…</Trans>} />
   if (data.proposals.length === 0 && data.questions.length === 0) return <NoSheets project={project} readOnly={readOnlyRole(session) !== null} />
@@ -149,16 +149,33 @@ function StillReadingLine({ file }: { file: FileOut }) {
   )
 }
 
-/** No sheets in Step 1 yet while files read: §4.7's row, never "No sheets yet. Add the Drawing Set's files first." */
-function NoSheetsYet({ reading }: { reading: readonly FileOut[] }) {
+/**
+ * No sheets in Step 1 yet while files read: the files band (each file's chip, its report and Cancel in
+ * the inspector, as in list mode), §4.7's row for each file, and the way to the Drawing Set; never
+ * "No sheets yet. Add the Drawing Set's files first."
+ */
+function NoSheetsYet({ project, reading }: { project: ProjectSummary; reading: readonly FileOut[] }) {
+  const disciplines = useQuery(disciplinesQuery(project.id))
+  const [file, setFile] = useState<FileOut | null>(null)
+  const name = <DrawingText kind="file-name" text={reading[0]!.name} truncate={false} />
   return (
     <div className="flex h-full flex-col">
       <SlotFill slot="inspector.selection">
-        <p className="p-3 text-sm text-muted-foreground">
-          <Trans>Nothing is waiting.</Trans>
-        </p>
+        {file ? (
+          <ReportPanel key={file.id} projectId={project.id} file={file} disciplines={disciplines.data} onClose={() => setFile(null)} />
+        ) : (
+          <p className="p-3 text-sm text-muted-foreground">
+            {reading.length === 1 ? <Trans>No sheets yet: they arrive as {name} is read.</Trans> : <Trans>No sheets yet: they arrive as the files are read.</Trans>}
+          </p>
+        )}
       </SlotFill>
+      <FilesBand projectId={project.id} onOpen={setFile} />
       <StillReading files={reading} />
+      <div className="p-3">
+        <AppLink to={PATHS.drawingSet(project.code)} className={buttonVariants({ variant: 'secondary' })}>
+          <Trans>Go to the Drawing Set</Trans>
+        </AppLink>
+      </div>
     </div>
   )
 }
@@ -453,6 +470,7 @@ function Step1({
 
   const bar = useBar({
     model,
+    reading: reading.length,
     row: focusedRow,
     mode,
     readOnly,
@@ -593,6 +611,7 @@ function Step1({
     <CoveragePanel
       coverage={coverage}
       held={model.queue.filter((e) => e.question.kind === 'file_misread' && e.question.subject_id && model.fileNames[e.question.subject_id]).map((e) => model.fileNames[e.question.subject_id!]!)}
+      reading={reading.filter((f) => f.state === 'reading').map((f) => f.name)}
     />
   ) : focusedRow ? (
     <>

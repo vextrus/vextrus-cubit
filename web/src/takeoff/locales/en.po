@@ -57,6 +57,10 @@ msgid "Notes"
 msgstr "Notes"
 
 #: src/takeoff/Bar.tsx
+msgid "{reading, plural, one {The sheets of the file still to be read are not in it.} other {The sheets of the # files still to be read are not in it.}}"
+msgstr "{reading, plural, one {The sheets of the file still to be read are not in it.} other {The sheets of the # files still to be read are not in it.}}"
+
+#: src/takeoff/Bar.tsx
 msgid "{names} (QS) confirm the sheet list; every act shows who did it."
 msgstr "{names} (QS) confirm the sheet list; every act shows who did it."
 
@@ -845,6 +849,10 @@ msgstr "Gas line layout"
 #: src/takeoff/words.tsx
 msgid "ELV layout"
 msgstr "ELV layout"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "No sheets yet: they arrive as {name} is read."
+msgstr "No sheets yet: they arrive as {name} is read."
 
 #: src/takeoff/questionWords.tsx
 msgid "{tag} answered. Recorded: the range on {sheet} includes its top storey."
@@ -1923,6 +1931,10 @@ msgstr "excluded: {reason}"
 msgid "Sheets"
 msgstr "Sheets"
 
+#: src/takeoff/Step1Screen.tsx
+msgid "No sheets yet: they arrive as the files are read."
+msgstr "No sheets yet: they arrive as the files are read."
+
 #: src/takeoff/storeys.tsx
 msgctxt "storey"
 msgid "Lift machine room"
@@ -2357,6 +2369,10 @@ msgstr "Plot"
 msgid "Water tank details"
 msgstr "Water tank details"
 
+#: src/takeoff/Step1Inspector.tsx
+msgid "{file} is still reading; its views join as its sheets arrive."
+msgstr "{file} is still reading; its views join as its sheets arrive."
+
 #: src/takeoff/SheetList.tsx
 msgid "{file}, layout “<0/>”"
 msgstr "{file}, layout “<0/>”"
@@ -2364,6 +2380,10 @@ msgstr "{file}, layout “<0/>”"
 #: src/takeoff/questionWords.tsx
 msgid "Answering reads this file anyway: its sheets join the list as Proposals, each marked held, and their figures are flagged later."
 msgstr "Answering reads this file anyway: its sheets join the list as Proposals, each marked held, and their figures are flagged later."
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "{name}, M3 onwards"
+msgstr "{name}, M3 onwards"
 
 #: src/takeoff/SheetList.tsx
 msgid "{file}, laid out in the drawing"

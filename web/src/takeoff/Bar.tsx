@@ -37,6 +37,8 @@ export interface BarContext {
   openRow: (row: Row) => void
   /** The QS answering (null for the MD and a Guest): the pick on a Question, and Enter's answer. */
   answerer?: Answerer | null
+  /** How many of the Drawing Set's files are still to be read (6.13: the bulk act's why says their sheets are not in it). */
+  reading?: number
 }
 
 function Who({ sheet }: { sheet: ProposalOut }) {
@@ -65,7 +67,17 @@ function BulkWhat({ model }: { model: Step1Model }) {
   )
 }
 
-function BulkWhy({ model }: { model: Step1Model }) {
+function BulkWhy({ model, reading }: { model: Step1Model; reading: number }) {
+  const why = <BulkReasons model={model} />
+  if (reading === 0) return why
+  return (
+    <>
+      {why} <Plural value={reading} one="The sheets of the file still to be read are not in it." other="The sheets of the # files still to be read are not in it." />
+    </>
+  )
+}
+
+function BulkReasons({ model }: { model: Step1Model }) {
   const bulk = new Set(model.bulk.confirm.map((p) => p.discipline))
   const sections = model.disciplines.filter((d) => bulk.has(d.discipline))
   const listed = sections.some((d) => d.list)
@@ -149,7 +161,7 @@ export function useBar(c: BarContext): BarSpec | null {
   const firstBulk = model.rows.find((r) => r.sheets.some((p) => model.bulk.confirm.includes(p) || model.bulk.leaveOut.includes(p))) ?? null
   const bulkSpec: BarSpec = {
     what: <BulkWhat model={model} />,
-    why: <BulkWhy model={model} />,
+    why: <BulkWhy model={model} reading={c.reading ?? 0} />,
     ghost: firstBulk ? { label: <Trans>Review one by one</Trans>, run: () => c.openRow(firstBulk) } : undefined,
     button: {
       label: m === 0 ? <Trans>Confirm {n}</Trans> : n === 0 ? <Trans>Leave out {m}</Trans> : <Trans>Confirm {n}, leave out {m}</Trans>,
