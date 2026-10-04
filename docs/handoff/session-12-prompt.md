@@ -72,9 +72,9 @@ The owner's two questions from session 11's close, which the spec must answer **
   | PR / branch | What | Head | State |
   |---|---|---|---|
   | #237 `t182` | demo seed = the real read job's recorded output (absorbs #150, #204) | a28db350 (pushed) | review PASS, posted clean; **CI python times out at 35 min twice** (main takes 23–27): diagnose first |
-  | `t-readlock` (#227) | Step 1 acts never wait on a read job (D1) | 8598d580 (local) | review FIX 2×50 → fix round 1 committed (match writes after propose; advisory lock in record_progress); needs re-check + posting run |
-  | `t229` (#229) | a matched Plot page is a second source; gaps hold only their neighbours (D3; owner ruling) | 27675030 or later (local) | review FIX 70 (title words anywhere on the page) + 50 (keep-open lost); fix round 1 was running at close; no real-drawing run yet |
-  | `t228` (#228) | Jev's top kind proposed; Question only when close or contradicted; Slab details (D2; owner ruling) | 9800dc4b or later (local) | review FIX 75 (pre-pick not shown → ruling: keep and show it, amend §5) + 50; fix round 1 at close |
+  | `t-readlock` (#227) | Step 1 acts never wait on a read job (D1) | 675bdc7b (local) | review FIX 2×50 → fix round 1 committed (match writes after propose; advisory lock in record_progress); needs re-check + posting run |
+  | `t229` (#229) | a matched Plot page is a second source; gaps hold only their neighbours (D3; owner ruling) | 8738bfc4 (local) | review FIX 70 (title words anywhere on the page) + 50 (keep-open lost) → fix round 1 committed (title read in order near the number; keep-open by gaps); needs re-check; no real-drawing run yet |
+  | `t228` (#228) | Jev's top kind proposed; Question only when close or contradicted; Slab details (D2; owner ruling) | 9800dc4b (local) | review FIX 75 (pre-pick not shown → ruling: keep and show it, amend §5) + 50 → fix round 1 committed; needs re-check + posting run |
   | `t160` (#160) | one paper scale: outlines on their paper (D4) | d6f22236 (pushed) | sheets off paper 117 → 5; **render_f1 46 lost / 84 changed** (structural A0 guess without Plot paper): **the owner's trade question**; unscored (the disk filled) |
   | `loop-iou` | scored loop 3: tighter view boxes | 2973a919 (local; 99abbf56 pushed) | +10 / +23 views at ae25e64e; later heads unscored; PR body written; not reviewed |
 - **Not started:** D7 (#232 continuation runs shown as copies), D9 (#233 storeys), D10 (#234 presentation plans), #235 (D11
