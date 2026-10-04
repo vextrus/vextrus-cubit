@@ -2,6 +2,8 @@
 section and its cross section are parted, on invented A1 sheets at 1:50, proving mechanics only, never a
 reading (docs/sdlc.md)."""
 
+import math
+
 import pytest
 
 from engine.recognise import views
@@ -103,3 +105,40 @@ def test_a_cut_parts_a_drawings_lines_at_the_band_never_past_it() -> None:
     assert [v.title for v in found] == ["LONG SECTION OF BEAM B1", "SECTION 1-1"]
     long, _ = (v.box for v in found)
     assert long.x1 < 330  # its own bar labels in the band, never its cross section
+
+
+# A title's lines under it ---------------------------------------------------------------------------
+
+
+def test_a_callout_starting_at_the_titles_end_is_no_line_of_the_title() -> None:
+    """Two cross sections stacked; the lower one's bar label stands under the upper one's title,
+    starting where that title ends, its leader running down to the lower drawing. It overlaps the title
+    across less than `LINE_ACROSS` of its own width: no title line, so the upper view's box stops at its
+    title and the label is the lower drawing's."""
+    d, sheet = labelled_sections(
+        [("SECTION 1-1", (330, 300, 370, 380)), ("SECTION 2-2", (330, 200, 370, 260))], []
+    )
+    d.text("2-16 ST.", (OX + 375 * SCALE, 278 * SCALE, 0.0), height=5.0 * SCALE)
+    line(d, (375, 279), (365, 262))  # its leader, down to the lower drawing
+    upper, lower = drawn(d, sheet)
+    assert (upper.title, lower.title) == ("SECTION 1-1", "SECTION 2-2")
+    assert upper.box.y0 == pytest.approx(288, abs=0.5)
+    assert lower.box.y1 >= 283
+
+
+def test_a_line_set_under_its_title_is_still_the_titles() -> None:
+    """The guard: a scale line set under its title, from the same left edge, is the title's line."""
+    d, sheet = labelled_sections([("SECTION 1-1", (330, 300, 370, 380))], [])
+    d.text("SCALE 1:20", (OX + 330 * SCALE, 280 * SCALE, 0.0), height=5.0 * SCALE)
+    (view,) = drawn(d, sheet)
+    assert view.box.y0 == pytest.approx(280, abs=0.5)
+
+
+def test_a_turned_tag_under_a_titles_line_is_no_line_of_the_title() -> None:
+    """A mark lettered up the sheet (turned a quarter) under a title's second line: its box is taller
+    than twice its lettering, so it is no title line; the view's box stops at the second line."""
+    d, sheet = labelled_sections([("SECTION 1-1", (330, 300, 370, 380))], [])
+    d.text("TOP VIEW", (OX + 330 * SCALE, 280 * SCALE, 0.0), height=5.0 * SCALE)
+    d.text("SD1", (OX + 336 * SCALE, 250 * SCALE, 0.0), height=5.0 * SCALE, rotation_radians=math.pi / 2)
+    (view,) = drawn(d, sheet)
+    assert view.box.y0 == pytest.approx(280, abs=0.5)

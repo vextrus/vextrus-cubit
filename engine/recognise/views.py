@@ -202,6 +202,9 @@ MAX_TITLE_LINES = 3
 """The most lines a title holds under it (its second line, its scale line, its storeys)."""
 SUBTITLE_GAP = 3.5
 """The farthest a title's second line lies under it, in the title's heights."""
+LINE_ACROSS = 0.5
+"""A line under a title is its line only when the two overlap across this share of the narrower one's
+width (a scale line set under its title; never a callout starting where the title ends)."""
 TITLE_INSIDE = 3.0
 """The farthest a title lies inside its drawing's box from the box's lower or upper edge (a section's
 ground line or a legend's rows running past its title), in its heights; weighed after every title
@@ -2003,9 +2006,11 @@ def _title_lines(
     texts: Sequence[_Text], titles: Sequence[int], taken: Iterable[int]
 ) -> dict[int, list[int]]:
     """Each title's lines under it: up to `MAX_TITLE_LINES` one-line texts of at most `MAX_TITLE_WORDS`
-    words, each under the one before within `SUBTITLE_GAP` of the title's height, across the same place,
-    between half and one and a half of its height (its scale line, its storeys, its "PRESENTATION
-    PLAN"), none another title's."""
+    words, each under the one before within `SUBTITLE_GAP` of the title's height, across the same place
+    (overlapping it across `LINE_ACROSS` of the narrower one's width: a bar label whose leader ends just
+    past the title's end is a drawing's callout), between half and one and a half of its height and
+    lettered across (a box no taller than twice its lettering: never a turned tag) (its scale line, its
+    storeys, its "PRESENTATION PLAN"), none another title's."""
     if not texts or not titles:
         return {}
     boxes = np.array([t.box for t in texts], dtype=np.float64)
@@ -2022,14 +2027,16 @@ def _title_lines(
         at = texts[ti].box
         for _ in range(MAX_TITLE_LINES):
             gap = (at[1] - boxes[:, 3]) / h
+            across = np.minimum(boxes[:, 2], at[2]) - np.maximum(boxes[:, 0], at[0])
+            narrower = np.minimum(boxes[:, 2] - boxes[:, 0], at[2] - at[0])
             near = (
                 free
                 & (gap >= -0.2)
                 & (gap <= SUBTITLE_GAP)
-                & (boxes[:, 0] <= at[2])
-                & (boxes[:, 2] >= at[0])
+                & (across >= LINE_ACROSS * narrower)  # set under it, not a callout beside it
                 & (heights >= 0.5 * h)
                 & (heights <= 1.5 * h)
+                & (boxes[:, 3] - boxes[:, 1] <= 2 * heights)  # lettered across, never a turned tag
             )
             if not near.any():
                 break
