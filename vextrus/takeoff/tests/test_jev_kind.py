@@ -90,3 +90,27 @@ def test_a_one_word_kind_in_the_title_never_contradicts_jevs_clear_first(first: 
 
 def test_a_single_kind_offered_is_never_close() -> None:
     assert not unsure(answer(("beam_layout", "0.60")), "")
+
+
+@pytest.mark.parametrize(
+    ("first", "named", "title"),
+    [
+        ("slab_details", "slab_layout", "ROOF SLAB LAYOUT & DETAILS"),
+        ("pile_cap_details", "pile_cap_layout", "PILE CAP LAYOUT & DETAILS"),
+        ("foundation_details", "foundation_layout", "FOUNDATION LAYOUT AND DETAILS"),
+        ("beam_details", "beam_layout", "BEAM LAYOUT & DETAILS"),
+        ("column_schedule", "column_layout", "COLUMN LAYOUT & SCHEDULE"),
+    ],
+)
+def test_a_named_kind_of_jevs_firsts_subject_never_contradicts_it(
+    first: str, named: str, title: str
+) -> None:
+    """Review 1's finding 2 (score 50): each of these asked, Jev right and well ahead."""
+    clear = answer((first, "0.60"), (named, "0.10"), ("details", "0.10"))
+    assert not unsure(clear, title)
+
+
+def test_a_named_kind_of_another_subject_still_contradicts() -> None:
+    clear = answer(("beam_details", "0.60"), ("column_layout", "0.10"), ("pile_details", "0.10"))
+    assert unsure(clear, "COLUMN LAYOUT & DETAILS")
+    assert unsure(answer(("pile_details", "0.60"), ("pile_cap_layout", "0.10")), "PILE CAP LAYOUT")

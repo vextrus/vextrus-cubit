@@ -256,7 +256,8 @@ def unsure(answer: jev.Judgement, title: str) -> bool:
     """Whether Jev's kind for a sheet is asked rather than proposed (#228): never when Jev is sure
     (`jev.SHEET_TYPE.proposes`); else when its top two are close (its first's lead under
     `VEXTRUS_JEV_SHEET_TYPE_CLOSE_BY`) or the title contradicts its first (`kinds_named` names
-    kinds offered, none of them its first)."""
+    kinds offered, none of them of its first's subject: "BEAM LAYOUT & DETAILS" does not contradict
+    `beam_details`)."""
     if jev.SHEET_TYPE.proposes(answer):
         return False
     ranked = answer.ranked()
@@ -266,7 +267,12 @@ def unsure(answer: jev.Judgement, title: str) -> bool:
         if lead < settings.VEXTRUS_JEV_SHEET_TYPE_CLOSE_BY:
             return True
     named = kinds_named(title, ranked)
-    return bool(named) and first not in named
+    return bool(named) and all(subject(kind) != subject(first) for kind in named)
+
+
+def subject(kind: str) -> str:
+    """A kind's subject: every word of its key but the last ("pile cap" of `pile_cap_details`)."""
+    return kind.rpartition("_")[0]
 
 
 def kinds_named(title: str, kinds: Sequence[str]) -> list[str]:
