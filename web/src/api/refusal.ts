@@ -8,6 +8,7 @@
  *   catch (e) { if (e instanceof ApiRefused && e.field === 'code') showUnderCode(e.message) }
  */
 import type { MachineMessage } from '@/format/machine'
+import { isolateLtr } from '@/ui/notation'
 import type { SessionEvent } from './events'
 
 /** An act the API refused: its status, why (null when the body carries no code), and the field at fault. */
@@ -32,19 +33,32 @@ export class ApiRefused extends Error {
   }
 }
 
-function isMessage(value: unknown): value is MachineMessage {
+type Param = string | number | readonly string[]
+
+const isParam = (v: unknown): v is Param => typeof v === 'string' || typeof v === 'number' || (Array.isArray(v) && v.every((x) => typeof x === 'string'))
+
+function isMessage(value: unknown): value is { code: string; params: Readonly<Record<string, Param>> } {
   if (typeof value !== 'object' || value === null) return false
   const { code, params } = value as Record<string, unknown>
   if (typeof code !== 'string' || typeof params !== 'object' || params === null || Array.isArray(params)) return false
-  return Object.values(params).every((v) => typeof v === 'string' || typeof v === 'number')
+  return Object.values(params).every(isParam)
+}
+
+/**
+ * The machine's sentence with each list parameter (a refusal's `sheets`: "E-02, E-03") as one text,
+ * each item isolated left to right, as drawing text is (§1.8).
+ */
+function sentence(message: { code: string; params: Readonly<Record<string, Param>> }): MachineMessage {
+  const params = Object.fromEntries(Object.entries(message.params).map(([name, v]) => [name, typeof v === 'object' ? v.map((x) => isolateLtr(x)).join(', ') : v]))
+  return { code: message.code, params }
 }
 
 /** Reads a refused response's body into an `ApiRefused`, whatever its shape. */
 export function readRefusal(status: number, body: unknown): ApiRefused {
-  if (isMessage(body)) return new ApiRefused(status, { code: body.code, params: body.params })
+  if (isMessage(body)) return new ApiRefused(status, sentence(body))
   if (typeof body === 'object' && body !== null) {
     const { field, message } = body as Record<string, unknown>
-    if (isMessage(message)) return new ApiRefused(status, { code: message.code, params: message.params }, typeof field === 'string' ? field : null)
+    if (isMessage(message)) return new ApiRefused(status, sentence(message), typeof field === 'string' ? field : null)
   }
   return new ApiRefused(status, null)
 }

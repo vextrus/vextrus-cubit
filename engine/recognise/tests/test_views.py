@@ -202,6 +202,7 @@ def test_a_scale_on_the_titles_line_is_the_views_stated_scale() -> None:
     [
         ("TYPICAL BEAM SECTION DETAIL", ViewKind.DETAIL),  # the conventions' first-listed kind wins
         ("SECTION A-A", ViewKind.SECTION),
+        ("SEC. B1X-B1X", ViewKind.SECTION),  # the abbreviation a beam's cross section is titled by
         ("KEY PLAN", ViewKind.KEY_PLAN),
         ("COLUMN SCHEDULE", ViewKind.SCHEDULE),
         ("FRONT ELEVATION", ViewKind.ELEVATION),
@@ -948,7 +949,7 @@ def test_a_title_block_covering_most_of_the_paper_is_not_read() -> None:
         replace(second, box=(W - 20, H - 15, W - 10, H - 10)),
     ]
     border = np.array([[0, 0, W, 0], [0, H, W, H], [0, 0, 0, H], [W, 0, W, H]], dtype=np.float64)
-    spread = replace(paper, block=apart, frame=border, segments=np.empty((0, 4)))
+    spread = replace(paper, block=apart, frame=border, segments=np.empty((0, 4)), lengths=None)
     assert views._title_block(spread) is None
     assert views._title_block(paper) is not None
 
@@ -1033,3 +1034,177 @@ def test_a_title_block_beside_frame_notes_along_the_foot_is_its_own() -> None:
     titles, box = read_block(d)
     assert titles == ["GROUND FLOOR BEAM LAYOUT PLAN", "PILE CAP DETAIL"]
     assert near(box, (W - 180, 0, W, 60))
+
+
+# Section drawings one piece holds ----------------------------------------------------------------------
+
+
+def labelled_sections(
+    drawings: list[tuple[str | None, tuple[float, float, float, float]]],
+    labels: list[tuple[str, tuple[float, float]]],
+) -> tuple[Sheets, SheetCandidate]:
+    """Drawings on an A1 sheet, each titled 12 mm under it, and bar labels (2.5 mm tall on paper, less
+    than half a title's, so never a title's line) that join them into one piece, as a beam's long
+    section and its cross sections are joined."""
+    scale, ox = 50.0, 10_000.0
+    d, _ = model_sheet(drawings, scale=scale)
+    for text, (x, y) in labels:
+        d.text(text, (ox + x * scale, y * scale, 0.0), height=2.5 * scale)
+    return d, sheets.find(d.artefact(), "structural", DEFAULT)[0]
+
+
+LABELS_ACROSS = [("2-16 EXT.", (302.0, 330.0)), ("3-20 ST.", (316.0, 336.0))]
+"""Two labels bridging the 30 mm between a long section ending at 300 and a cross section at 330."""
+
+
+def test_a_long_section_and_its_cross_section_joined_by_labels_are_two_views() -> None:
+    d, sheet = labelled_sections(
+        [("LONG SECTION OF BEAM B1", (40, 300, 300, 380)), ("SECTION 1-1", (330, 300, 370, 380))],
+        LABELS_ACROSS,
+    )
+    found = drawn(d, sheet)
+    assert [v.title for v in found] == ["LONG SECTION OF BEAM B1", "SECTION 1-1"]
+    assert all(v.kind is ViewKind.SECTION for v in found)
+    long, cross = (v.box for v in found)
+    assert long.x0 == pytest.approx(40, abs=1)
+    assert long.x1 < 330  # the cross section is not the long's
+    assert cross.x0 > 300
+    assert 370 <= cross.x1 < 385  # its drawing and its title, which is wider
+    assert long.y0 == pytest.approx(288, abs=1)  # the titles under them
+    assert cross.y0 == pytest.approx(288, abs=1)
+
+
+def test_cross_sections_stacked_in_one_piece_each_take_the_drawing_over_their_title() -> None:
+    d, sheet = labelled_sections(
+        [("SECTION 1-1", (330, 300, 370, 340)), ("SECTION 2-2", (330, 360, 370, 400))],
+        [("2-16 ST.", (372.0, 338.0)), ("2-16 ST.", (372.0, 346.0)), ("2-16 ST.", (372.0, 354.0))],
+    )
+    found = drawn(d, sheet)
+    assert [v.title for v in found] == ["SECTION 2-2", "SECTION 1-1"]
+    upper, lower = (v.box for v in found)
+    assert 347 <= upper.y0 <= 350  # its title, its labels
+    assert upper.y1 == pytest.approx(400, abs=1)
+    assert lower.y0 == pytest.approx(288, abs=1)
+    assert lower.y1 < 350  # up to the band's middle
+
+
+def test_a_piece_a_plan_title_shares_with_a_section_title_is_left_whole() -> None:
+    """The rule is the sections': a plan joined to a section by labels stays one drawing, as before."""
+    d, sheet = labelled_sections(
+        [("FIRST FLOOR BEAM LAYOUT PLAN", (40, 300, 300, 380)), ("SECTION 1-1", (330, 300, 370, 380))],
+        LABELS_ACROSS,
+    )
+    (view,) = drawn(d, sheet)
+    assert view.box.x0 == pytest.approx(40, abs=1)
+    assert view.box.x1 == pytest.approx(370, abs=1)
+
+
+def test_section_drawings_closer_than_the_cut_band_are_left_whole() -> None:
+    """A band free of lines narrower than `SHARED_CUT_MM` parts nothing."""
+    d, sheet = labelled_sections(
+        [("LONG SECTION OF BEAM B1", (40, 300, 300, 380)), ("SECTION 1-1", (303, 300, 343, 380))],
+        [],
+    )
+    (view,) = drawn(d, sheet)
+    assert view.box.x0 == pytest.approx(40, abs=1)
+    assert view.box.x1 == pytest.approx(343, abs=1)
+
+
+def test_a_band_one_leader_crosses_still_parts_the_drawings() -> None:
+    """A leader from a bar label runs across the band between the long section and its cross section."""
+    d, sheet = labelled_sections(
+        [("LONG SECTION OF BEAM B1", (40, 300, 300, 380)), ("SECTION 1-1", (330, 300, 370, 380))],
+        LABELS_ACROSS,
+    )
+    d.line((10_000.0 + 290 * 50, 370 * 50), (10_000.0 + 345 * 50, 370 * 50))
+    found = drawn(d, sheet)
+    assert [v.title for v in found] == ["LONG SECTION OF BEAM B1", "SECTION 1-1"]
+    assert found[0].box.x1 < 330
+
+
+def test_a_piece_that_cannot_be_cut_is_its_tallest_titles() -> None:
+    """Two lines cross the band: the piece is one drawing, the long section's, lettered taller than its
+    cross section's title, which lies nearer."""
+    d, sheet = labelled_sections(
+        [("LONG SECTION OF BEAM B1", (40, 300, 300, 380)), (None, (330, 300, 370, 380))],
+        LABELS_ACROSS,
+    )
+    for y in (340, 370):
+        d.line((10_000.0 + 290 * 50, y * 50), (10_000.0 + 345 * 50, y * 50))
+    d.text("SEC. 1-1", (10_000.0 + 330 * 50, 294 * 50, 0.0), height=4.0 * 50)  # 2 mm under its drawing
+    (view,) = drawn(d, sheet)
+    assert view.title == "LONG SECTION OF BEAM B1"
+    assert view.box.x1 >= 370
+
+
+def test_the_lines_a_sheets_cuts_weigh_are_bounded(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Past `MAX_CUT_WEIGHS` nothing more is cut: the shared piece is one drawing again."""
+    monkeypatch.setattr(views, "MAX_CUT_WEIGHS", 5)
+    d, sheet = labelled_sections(
+        [("LONG SECTION OF BEAM B1", (40, 300, 300, 380)), ("SECTION 1-1", (330, 300, 370, 380))],
+        LABELS_ACROSS,
+    )
+    (view,) = drawn(d, sheet)
+    assert view.box.x0 == pytest.approx(40, abs=1)
+    assert view.box.x1 >= 370
+
+
+def test_a_shared_drawing_another_kinds_title_may_take_is_left_to_the_pairs() -> None:
+    """A key plan's title lies nearer under the shared piece than the section titles, its centre in an
+    unrelated line's box: the drawing stays the key plan's, as without the cut (the refuter's case)."""
+    d, sheet = labelled_sections(
+        [("LONG SECTION OF BEAM B1", (40, 300, 300, 380)), ("SECTION 1-1", (330, 300, 370, 380))],
+        LABELS_ACROSS,
+    )
+    d.text("KEY PLAN", (10_000.0 + 230 * 50, 291 * 50, 0.0), height=5.0 * 50)
+    d.line((10_000.0 + 200 * 50, 200 * 50), (10_000.0 + 320 * 50, 296 * 50))
+    key = next(v for v in drawn(d, sheet) if v.title == "KEY PLAN")
+    assert key.box.x0 == pytest.approx(40, abs=1)
+    assert key.box.x1 >= 370
+
+
+STACKED_LABELS = [
+    ("2-16 ST.", (372.0, 338.0)),
+    ("2-16 ST.", (372.0, 346.0)),
+    ("2-16 ST.", (372.0, 354.0)),
+]
+"""Bar labels right of two stacked cross sections, bridging the 20 mm band between them."""
+
+
+def test_a_title_low_in_the_band_across_is_still_the_drawings_over_it() -> None:
+    """The upper cross section's title stands in the lower half of the band between the two: a band
+    across sides its titles by where the band starts, not by its middle (a title is under its
+    drawing)."""
+    d, sheet = labelled_sections(
+        [("SECTION 1-1", (330, 300, 370, 340)), (None, (330, 360, 370, 400))], STACKED_LABELS
+    )
+    d.text(
+        "SECTION 2-2", (10_000.0 + 330 * 50, 342 * 50, 0.0), height=6.0 * 50
+    )  # centre 345, band 340-360
+    found = drawn(d, sheet)
+    assert [v.title for v in found] == ["SECTION 2-2", "SECTION 1-1"]
+    upper, lower = (v.box for v in found)
+    assert upper.y1 == pytest.approx(400, abs=1)
+    assert lower.y0 == pytest.approx(288, abs=1)
+    assert lower.y1 < 350  # up to the band's middle
+
+
+def test_a_parts_box_takes_the_labels_on_the_grid_in_its_share() -> None:
+    """Each cross section's box reaches its bar labels, which stand right of its title's end."""
+    d, sheet = labelled_sections(
+        [("SECTION 1-1", (330, 300, 370, 340)), ("SECTION 2-2", (330, 360, 370, 400))], STACKED_LABELS
+    )
+    upper, lower = (v.box for v in drawn(d, sheet))
+    assert upper.x1 >= 386  # the label at 354 (2.5 mm tall), past the title's end at about 380
+    assert lower.x1 >= 386  # the label at 338
+
+
+def test_a_lone_line_running_past_a_drawing_is_no_drawing_of_its_own() -> None:
+    """A line runs 100 mm on past a long section's end, a section title standing under its end: the
+    band it alone crosses lies at the lines' edge and parts nothing."""
+    d, sheet = labelled_sections([("LONG SECTION OF BEAM B1", (40, 300, 300, 380))], [])
+    d.line((10_000.0 + 300 * 50, 340 * 50), (10_000.0 + 400 * 50, 340 * 50))
+    d.text("SECTION 9-9", (10_000.0 + 340 * 50, 330 * 50, 0.0), height=6.0 * 50)
+    found = drawn(d, sheet)
+    assert [v.title for v in found] == ["LONG SECTION OF BEAM B1"]
+    assert found[0].box.x1 >= 400

@@ -4,14 +4,14 @@
  * Question card, the sheet's facts, where each was read, and who did what; Coverage's panel when the
  * status bar's Coverage is clicked. The Questions tab holds every open Question's card in queue order.
  *
- * Answering has no operation in 19a's API yet (the orchestrator's ruling for 22): the card shows the
- * Question, what its answer would do and its options, and says it cannot be answered here yet.
+ * The QS answers on the card (#156; §6.7): a pick (a click, or the number key on the focused Question)
+ * changes nothing until "Answer Q1 ↵" (Enter); the MD and a Guest read the card and cannot pick.
  */
-import type { ReactNode } from 'react'
+import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { Plural, Trans, useLingui } from '@lingui/react/macro'
 import { TAKEOFF_STEPS } from '@/app/steps'
 import { useFormat } from '@/format'
-import { Button, DrawingText, KeyCombo, cn } from '@/ui'
+import { Button, DrawingText, KeyCombo, TextField, cn } from '@/ui'
 import type { MessageDescriptor } from '@lingui/core'
 import { msg } from '@lingui/core/macro'
 import { ActorChip } from './ActorChip'
@@ -21,7 +21,7 @@ import { SheetName } from './acts'
 import { SheetRange } from './SheetRange'
 import type { CoverageOut, ProposalOut, ViewOut } from './data'
 import { NOTES_STEP, STEP_DISCIPLINES, listSheet, type DisciplineSection, type QuestionEntry, type Row, type Step1Model } from './model'
-import { Answering, CannotAnswer, cardContext, Copy, OptionWords, QuestionBody, QuestionTitle, Trace, optionsOf, useKindLine, usePick, usePickSources, type CardContext } from './questionWords'
+import { AnswerNote, Answering, cardContext, Copy, OptionWords, QuestionBody, QuestionTitle, Trace, optionsOf, useKindLine, usePick, usePickSources, type CardContext } from './questionWords'
 import { disciplineName } from './SheetList'
 import { NOT_RECEIVED_NAMES, OTHER_DISCIPLINE, OTHER_VIEW_KIND, REASON_SHORT, ROLE_NAMES, STEP_KEYS, STOREY_MEANINGS, UNKNOWN_REASON, VIEW_KINDS } from './words'
 
@@ -642,17 +642,66 @@ function SourcesFact({ row }: { row: Row }) {
 
 export { cardContext }
 
+/** The QS's pick on a Question; `refused` counts the answers refused for an empty number (each one refocuses the field). */
+export interface Pick {
+  key: string
+  text: string
+  refused?: number
+}
+
+/** What answering needs from the screen: the pick per Question, and the acts. Null for the MD and a Guest. */
+export interface Answerer {
+  /** The QS's pick on a Question (or null: the pre-pick, if any, stands). */
+  choice(entry: QuestionEntry): Pick | null
+  choose(entry: QuestionEntry, key: string): void
+  /** The number typed under "Type a number". */
+  type(entry: QuestionEntry, text: string): void
+  answer(entry: QuestionEntry): void
+  /** "Ask later": the next open Question. */
+  later(): void
+  busy: boolean
+}
+
+/**
+ * "Type a number"'s field. An answer with it empty is refused under it (round 3's design gate): focus
+ * stays in it, it is marked invalid, and the hint gives way to the error, announced politely.
+ */
+function NumberField({ entry, answerer, pick }: { entry: QuestionEntry; answerer: Answerer; pick: Pick | null }) {
+  const ref = useRef<HTMLInputElement>(null)
+  const refused = pick?.refused ?? 0
+  useEffect(() => {
+    if (refused) ref.current?.focus()
+  }, [refused])
+  return (
+    <div aria-live="polite" className="ps-6">
+      <TextField
+        ref={ref}
+        label={<Trans>The sheet’s number</Trans>}
+        hint={refused ? undefined : <Trans>As its title block should read. Enter answers.</Trans>}
+        error={refused ? <Trans>Type the sheet’s number first, as its title block should read.</Trans> : undefined}
+        autoFocus
+        autoComplete="off"
+        spellCheck={false}
+        value={pick?.text ?? ''}
+        onChange={(event) => answerer.type(entry, event.target.value)}
+      />
+    </div>
+  )
+}
+
 export function QuestionCard({
   entry,
   readOnly,
   context,
   onOpen,
+  answerer = null,
 }: {
   entry: QuestionEntry
   readOnly: 'md' | 'guest' | null
   context: CardContext
   /** A Trace link opens its sheet. */
   onOpen?: (sheet: ProposalOut) => void
+  answerer?: Answerer | null
 }) {
   const names = context.names
   const { t } = useLingui()
@@ -662,9 +711,15 @@ export function QuestionCard({
   const options = optionsOf(entry)
   const pick = usePick(entry, context)
   const sources = usePickSources(entry, context)
-  const name = `question-${entry.question.id}`
+  // Unique per card: the same Question's card is in the Selection and the Questions tab at once, and
+  // radios sharing a name across both would uncheck each other.
+  const uid = useId()
+  const name = `question-${entry.question.id}-${uid}`
+  const can = !readOnly && answerer !== null
+  const choice = can ? answerer.choice(entry) : null
+  const current = choice?.key ?? pick?.key ?? null
   return (
-    <section aria-label={t`Question ${tag}`} className="m-2 overflow-hidden rounded-md border border-question">
+    <section aria-label={t`Question ${tag}`} data-question={entry.question.id} className="m-2 overflow-hidden rounded-md border border-question">
       <header className="flex items-center justify-between gap-2 bg-question-surface px-3 py-1.5 text-sm text-question">
         <span className="flex items-center gap-1.5 font-semibold">
           <QuestionGlyph size={14} />
@@ -673,7 +728,7 @@ export function QuestionCard({
         <span className="text-xs">{entry.withdrawn ? <Trans>Withdrawn</Trans> : entry.kept ? <Trans>Kept open</Trans> : <Trans>Answer once</Trans>}</span>
       </header>
       <div className="bg-chrome-sunken px-3 py-1.5 text-xs">
-        <Answering entry={entry} context={context} />
+        <Answering entry={entry} context={context} choice={choice?.key ?? null} hint={can} />
       </div>
       <div className="flex flex-col gap-2 px-3 py-2 text-sm">
         <p className="text-xs text-ink-secondary">{kind}</p>
@@ -696,34 +751,105 @@ export function QuestionCard({
         <p className="text-xs text-ink-secondary empty:hidden">
           <Trace entry={entry} context={context} onOpen={onOpen} />
         </p>
-        <fieldset className="flex flex-col gap-1" disabled>
-          <legend className="sr-only">
-            <Trans>Answers</Trans>
-          </legend>
+        {/* A radiogroup: the key map leaves the arrows to it, and Enter on an option answers (the screen's Enter). */}
+        <fieldset role="radiogroup" aria-label={t`Answers`} className="flex flex-col gap-1" disabled={!can || answerer.busy}>
           {options.map((o, i) => (
-            <label key={o.key ?? i} className={cn('flex items-start gap-2 rounded-md px-1.5 py-1', pick && o.key === pick.key && 'bg-selected')}>
-              <input type="radio" name={name} value={o.key} defaultChecked={!!pick && o.key === pick.key} className="mt-1" />
-              <span className="num w-3 text-muted-foreground">{i + 1}</span>
-              <span>
-                <OptionWords entry={entry} option={o} />
-                {pick && o.key === pick.key && sources ? (
-                  <span className="block text-xs text-ink-secondary">
-                    <Trans>Picked for you: {sources}</Trans>
-                  </span>
-                ) : null}
-              </span>
-            </label>
+            <div key={o.key ?? i} className="flex flex-col gap-1">
+              <label className={cn('flex items-start gap-2 rounded-md px-1.5 py-1', current !== null && o.key === current && 'bg-selected')}>
+                <input
+                  type="radio"
+                  name={name}
+                  value={o.key}
+                  checked={current !== null && o.key === current}
+                  onChange={() => (can && o.key ? answerer.choose(entry, o.key) : undefined)}
+                  className="mt-1"
+                />
+                <span className="num w-3 text-muted-foreground">{i < 9 ? i + 1 : null}</span>
+                <span>
+                  <OptionWords entry={entry} option={o} />
+                  {pick && o.key === pick.key && sources ? (
+                    <span className="block text-xs text-ink-secondary">
+                      <Trans>Picked for you: {sources}</Trans>
+                    </span>
+                  ) : null}
+                </span>
+              </label>
+              {can && o.key === 'type_number' && current === 'type_number' ? <NumberField entry={entry} answerer={answerer} pick={choice} /> : null}
+            </div>
           ))}
         </fieldset>
+        {can ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="primary"
+              disabled={current === null || (current === 'type_number' && !(choice?.text ?? '').trim()) || answerer.busy}
+              onClick={() => answerer.answer(entry)}>
+              <Trans>Answer {tag}</Trans>
+              <KeyCombo combo="Enter" />
+            </Button>
+            <Button variant="ghost" onClick={answerer.later}>
+              <Trans>Ask later</Trans>
+              <KeyCombo combo="Q" />
+            </Button>
+          </div>
+        ) : null}
         <p className="text-xs text-muted-foreground">
-          <CannotAnswer entry={entry} readOnly={readOnly} />
+          <AnswerNote entry={entry} readOnly={readOnly} />
         </p>
       </div>
     </section>
   )
 }
 
-export function QuestionsTab({ model, readOnly, onOpen }: { model: Step1Model; readOnly: 'md' | 'guest' | null; onOpen?: (sheet: ProposalOut) => void }) {
+/** "Answered" (§6.6): one line each, "Q3 Keep R1 (14 Sep 2026); leave R0 out as superseded. Rafiq Hasan, 26 Sep 2026, 10:50". */
+function AnsweredLine({ entry }: { entry: QuestionEntry }) {
+  const f = useFormat()
+  const given = (typeof entry.question.answer === 'object' && entry.question.answer !== null ? entry.question.answer : {}) as { option?: unknown; by?: unknown; text?: unknown }
+  const option = typeof given.option === 'string' ? given.option : ''
+  const by = typeof given.by === 'string' ? given.by : ''
+  const at = entry.question.answered_at
+  const date = at ? f.date(at) : ''
+  const time = at ? f.time(at) : ''
+  const tag = entry.tag
+  const words =
+    option === 'type_number' && typeof given.text === 'string' && given.text ? (
+      <Trans>
+        Numbered <DrawingText kind="sheet-number" text={given.text} truncate={false} />
+      </Trans>
+    ) : (
+      <OptionWords entry={entry} option={{ key: option }} />
+    )
+  return (
+    <li className="flex flex-col">
+      <span>
+        <span className="font-medium">{tag}</span> {words}.
+      </span>
+      {by ? (
+        <span className="text-xs text-ink-secondary">
+          {date ? (
+            <Trans>
+              {by}, {date}, {time}
+            </Trans>
+          ) : (
+            by
+          )}
+        </span>
+      ) : null}
+    </li>
+  )
+}
+
+export function QuestionsTab({
+  model,
+  readOnly,
+  onOpen,
+  answerer = null,
+}: {
+  model: Step1Model
+  readOnly: 'md' | 'guest' | null
+  onOpen?: (sheet: ProposalOut) => void
+  answerer?: Answerer | null
+}) {
   const withdrawn = model.withdrawn.flatMap((r) => (r.question ? [r.question] : []))
   return (
     <>
@@ -733,7 +859,7 @@ export function QuestionsTab({ model, readOnly, onOpen }: { model: Step1Model; r
         </p>
       ) : null}
       {model.queue.map((entry) => (
-        <QuestionCard key={entry.question.id} entry={entry} readOnly={readOnly} context={cardContext(model)} onOpen={onOpen} />
+        <QuestionCard key={entry.question.id} entry={entry} readOnly={readOnly} context={cardContext(model)} onOpen={onOpen} answerer={answerer} />
       ))}
       {withdrawn.length > 0 ? (
         <h3 className="px-3 pt-3 text-xs font-medium text-ink-secondary">
@@ -741,8 +867,20 @@ export function QuestionsTab({ model, readOnly, onOpen }: { model: Step1Model; r
         </h3>
       ) : null}
       {withdrawn.map((entry) => (
-        <QuestionCard key={entry.question.id} entry={entry} readOnly={readOnly} context={cardContext(model)} onOpen={onOpen} />
+        <QuestionCard key={entry.question.id} entry={entry} readOnly={readOnly} context={cardContext(model)} onOpen={onOpen} answerer={answerer} />
       ))}
+      {model.answered.length > 0 ? (
+        <>
+          <h3 className="px-3 pt-3 text-xs font-medium text-ink-secondary">
+            <Trans>Answered</Trans>
+          </h3>
+          <ul className="flex flex-col gap-1.5 px-3 py-2 text-sm">
+            {model.answered.map((entry) => (
+              <AnsweredLine key={entry.question.id} entry={entry} />
+            ))}
+          </ul>
+        </>
+      ) : null}
     </>
   )
 }

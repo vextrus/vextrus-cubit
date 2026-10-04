@@ -239,8 +239,8 @@ def test_a_sheet_with_no_number_is_named_by_its_title_in_its_questions_words(
     """The words gate's must M2: a bare title stood in for a missing number ("Which Discipline is
     COLUMN LAYOUT PLAN?"); a sheet is named by `named` (number, title or none)."""
     jev_says(jev_offline, "0.34")
-    file_id = uploaded(qs_project.member, qs_project.project_id, "GENERAL NOTES.dwg")
-    run_job(qs_project.member, file_id, monkeypatch, readers({"GENERAL NOTES.dwg": [
+    file_id = uploaded(qs_project.member, qs_project.project_id, "NOTES.dwg")
+    run_job(qs_project.member, file_id, monkeypatch, readers({"NOTES.dwg": [
         Sheet(None, "GENERAL NOTES", ("GENERAL NOTES",)),
     ]}))  # fmt: skip
     asked = open_questions(api_as(qs_project.member), qs_project.project_id)
@@ -482,8 +482,8 @@ def test_leaving_out_a_sheet_withdraws_its_discipline_question_and_undo_asks_it_
 ) -> None:
     """Review round 2, finding 3 (50): an excluded sheet's missing_discipline Question could only be
     answered 409 decided_already."""
-    file_id = uploaded(qs_project.member, qs_project.project_id, "GENERAL NOTES.dwg")
-    run_job(qs_project.member, file_id, monkeypatch, readers({"GENERAL NOTES.dwg": [
+    file_id = uploaded(qs_project.member, qs_project.project_id, "NOTES.dwg")
+    run_job(qs_project.member, file_id, monkeypatch, readers({"NOTES.dwg": [
         Sheet("N-01", "GENERAL NOTES", ("GENERAL NOTES",)),
     ]}))  # fmt: skip
     api = api_as(qs_project.member)
@@ -530,8 +530,8 @@ def test_every_storey_13_reads_is_named_by_the_boundary_questions_words() -> Non
 
 
 def _discipline_less(qs: QsProject, monkeypatch: pytest.MonkeyPatch) -> tuple[str, str]:
-    file_id = uploaded(qs.member, qs.project_id, "GENERAL NOTES.dwg")
-    run_job(qs.member, file_id, monkeypatch, readers({"GENERAL NOTES.dwg": [
+    file_id = uploaded(qs.member, qs.project_id, "NOTES.dwg")
+    run_job(qs.member, file_id, monkeypatch, readers({"NOTES.dwg": [
         Sheet("N-01", "GENERAL NOTES", ("GENERAL NOTES",)),
     ]}))  # fmt: skip
     api = api_as(qs.member)
