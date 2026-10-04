@@ -59,14 +59,13 @@ The owner's two questions from session 11's close, which the spec must answer **
 5. `CLAUDE.md`, `docs/sdlc.md`, `.claude/` (settings, agents, skills, hooks), `docs/knowledge/lessons.md`: what you change.
 
 ## Where M0 stands at session 11's close (facts from tool results, 4 Oct 2026)
-- **main** de5b2373. Merged in session 11: #214 (the job's export keeps each sheet's paper), #216 (#206 set-aside chip),
+- **main** ca2e1c46. Merged in session 11: #214 (the job's export keeps each sheet's paper), #216 (#206 set-aside chip),
   #217 (#202 Ctrl Z / one post per answer), #225 (#167 Step 1 words), #213 (scored loop 2), #226 (guard: the seed's synthetic
   DWGs by exact path), #244 (#231 Plot/Compare/CAD-dark in Step 1), #238 (#230 Step 1 live refresh, Coverage step names).
-  **#242** (each test process's storage folder removed at exit) was landing at close: check `gh pr view 242`; if open, land
-  it first (Phase 0).
+  **#242** (each test process's storage folder removed at exit) merged at close: main ca2e1c46.
 - **Scores** (blind scorer; counts): main 1d949436: Edison sheets 44/217, views 418/739; Sample 8/67, 203/417. Loop 2's head
   0e30dc9a (merged as #213): 45/217, 429/739; 8/67, 215/417. Loop 3 `loop-iou` ae25e64e (unmerged): views 439 / 238, sheets
-  unchanged. **main de5b2373 is unscored.** The ruled bar (session 08): Edison ≥ 174/217 sheets and ≥ 592/739 views; Sample
+  unchanged. **main (de5b2373 onward) is unscored.** The ruled bar (session 08): Edison ≥ 174/217 sheets and ≥ 592/739 views; Sample
   ≥ 54/67 and ≥ 334/417 (80 %). The owner now asks about 90 %+ (critic X8: not yet a ruling).
 - **Carried: built, reviewed, not merged** (heads at close; "local" = not pushed, in its worktree under `.claude/worktrees/`):
   | PR / branch | What | Head | State |
@@ -169,8 +168,7 @@ subscription (the $500 credit, API-key vision runs).
   - Phase 5 ≤ 45 min.
 
   Cut line: at Phase 3 + 4 h, anything not tier-1 moves to an issue labelled `factory`.
-- If #242 is still open, land it first (merge main in, green CI, `merge_ready`). Refuse every launch while `df -h /` shows
-  < 30 GB free.
+- Refuse every launch while `df -h /` shows < 30 GB free (#242 closed one `/tmp` leak; #243 is the other).
 - Measure the machine: `df`, `free`, `git worktree list | wc -l`, the size of `.claude/worktrees`, stale `claude agents`
   and bg-spare processes. Then ask Q11 with the owner's one cleanup command ready.
 
@@ -273,7 +271,7 @@ spec contains:
    as a pre-push hook and a CI step, and run over issue and PR bodies too.
 6. **Session 13's plan and finish line, in the owner's words:**
    - the Q4/Q5 rulings, and the reading work that reaches the bar (S1 with Q13 answered, S2, S3; S4 only if Q8 is yes);
-   - the carried PRs in landing order: #242 → #237 → t-readlock → t229 → t228 → t160 → loop-iou;
+   - the carried PRs in landing order: #237 → t-readlock → t229 → t228 → t160 → loop-iou;
    - D7, D9, D10, #235, #236 and #245;
    - G1 passing twice on consecutive heads, then the owner's walk;
    - budgets for all of it.
