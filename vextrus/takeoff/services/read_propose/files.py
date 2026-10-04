@@ -11,12 +11,19 @@ it "read anyway", when the job, queued again by the answer, reads on), 21b's `sh
 `sheet_<n>` steps (`read_propose.sheets`), `finishing` (the font report and the Bangla-ANSI Check,
 kept as codes, and the file marked read in the same transaction, with every limit that cut its sheets:
 the first is its finding, `takeoff.read_file.not_read_in_full {limit}`; and with 21c's proposals: its
-sheets and views proposed, the set's Questions asked and its Checks run, `read_propose.proposals`).
+sheets and views proposed, the set's Questions asked and its Checks run, `read_propose.proposals`,
+Step 1's progress rows written once at its end). Then, in a transaction of its own after `finishing`
+commits, the set's read PDFs' pages matched to its sheets (`read_propose.plot`, ticket 157): the match
+takes minutes on a large set, and inside `finishing` it held Step 1's progress row, so a QS's act
+waited on it (#227). It is kept by no step (`finishing` stays the last), so a job tried again after
+`finishing` matches again; the match is the same whenever it runs. A DWG's sheet may show read but
+not yet matched until it commits.
 
 A PDF: `opening` (the copy checked, and the PDF report kept as codes; a scan is refused by it) and
 `matching` (the file marked read, and its pages matched to the set's sheets in the same transaction:
-`read_propose.plot`, ticket 157). A DWG's `finishing` matches the set's read PDFs' pages to its
-sheets likewise, so the two are matched in whichever order they are read.
+`read_propose.plot`, ticket 157; it holds no row of Step 1's). A DWG's match after `finishing`
+matches the set's read PDFs' pages to its sheets likewise, so the two are matched in whichever order
+they are read.
 
 **A file that could not be read** (the reader raised its `ReadError`: a converter that failed, a
 limit reached, the second reader not installed or not the pinned build; or the worker ran out of
@@ -137,7 +144,13 @@ def read(run: jobs.Run, file_id: uuid.UUID, readers: Readers | None = None) -> R
     steps = run.steps(drawings.step_store(), subject_id=file_id, total=len(DWG_STEPS))
     try:
         try:
-            return _steps(steps, file_id, use, lambda: _held_answer(run, file_id))
+            return _steps(
+                steps,
+                file_id,
+                use,
+                lambda: _held_answer(run, file_id),
+                lambda: _match_dwg(run, file_id),
+            )
         except MemoryError:
             # The cad worker's cap, reached in this process: the same try would reach it again.
             # Leave the handler before anything else runs: the error's traceback holds the frames
@@ -156,7 +169,11 @@ def read(run: jobs.Run, file_id: uuid.UUID, readers: Readers | None = None) -> R
 
 
 def _steps(
-    steps: jobs.Steps, file_id: uuid.UUID, use: Readers, held_answer: Callable[[], object]
+    steps: jobs.Steps,
+    file_id: uuid.UUID,
+    use: Readers,
+    held_answer: Callable[[], object],
+    match_dwg: Callable[[], object],
 ) -> Read:
     opened = steps.run(drawings.OPENING, lambda: _open(file_id, use), inputs={"file": file_id})
     sha256 = str(opened["sha256"])
@@ -198,6 +215,7 @@ def _steps(
         ),
         inputs={"sha256": sha256, **reader, **({"read_anyway": True} if read_anyway else {})},
     )
+    match_dwg()
     return Read(file_id, "dwg", "held" if read_anyway else "read")
 
 
@@ -205,6 +223,13 @@ def _held_answer(run: jobs.Run, file_id: uuid.UUID) -> object:
     """What the QS answered about the held file, read as it stands (never kept by a step)."""
     with run.acting(), transaction.atomic():
         return drawings.held_answer(file_id)
+
+
+def _match_dwg(run: jobs.Run, file_id: uuid.UUID) -> object:
+    """The set's read PDFs' pages matched to the DWG's sheets, after `finishing` committed, in a
+    transaction of its own (see the module; never kept by a step: tried again, it matches again)."""
+    with run.acting(), transaction.atomic():
+        return plot.match(file_id)
 
 
 # The steps' bodies: each runs inside its step's transaction, acting in the file's tenant -----------
@@ -275,11 +300,9 @@ def _finish(
     drawings.record_reports(file_id, font_report=font_report, bangla_ansi=flagged)
     view = drawings.mark_read(file_id, not_read_in_full)
     # 21c: once the file is read (its sheets in the sheet list), in the same transaction: Step 1's
-    # proposals, Questions and Checks, so a read file is never listed without them.
+    # proposals, Questions and Checks, so a read file is never listed without them. The Plot is
+    # matched after this commits, never here (#227; see the module).
     proposed = propose()
-    # 157: the set's read PDFs' pages matched to its sheets, in the same transaction, so a read
-    # sheet is never listed beside a read PDF it was not matched against.
-    matched = plot.match(file_id)
     result: dict[str, Any] = {
         "fonts": len(font_report.fonts),
         "bangla_ansi_texts": len(flagged.texts),
@@ -287,7 +310,6 @@ def _finish(
         # Every limit that cut the reading: the report's sheets section says each from here.
         "not_read_in_full": list(not_read_in_full),
         "proposals": proposed,
-        "plot": matched,
     }
     return result
 

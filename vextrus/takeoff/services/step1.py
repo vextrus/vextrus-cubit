@@ -44,12 +44,13 @@ For the seed and 21c's read job: `propose_sheet`, `record_coverage`, `raise_ques
 """
 
 import contextlib
+import contextvars
 import hashlib
 import json
 import re
 import uuid
 from collections import Counter
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import Any, cast
@@ -2400,9 +2401,34 @@ def _natural(text: str) -> list[tuple[int, int, str]]:
     ]
 
 
+_PROGRESS_AT_END: contextvars.ContextVar[set[uuid.UUID] | None] = contextvars.ContextVar(
+    "step1_progress_at_end", default=None
+)
+
+
+@contextlib.contextmanager
+def progress_at_end() -> Iterator[None]:
+    """Step 1's progress rows written once, as the block ends, however often it records them: a
+    read job's step holds the rows only for the moment before it commits, never while it proposes,
+    so a QS's act on Step 1 never waits on a read job (#227). Nothing is written if the block
+    raises (its transaction rolls back)."""
+    held: set[uuid.UUID] = set()
+    token = _PROGRESS_AT_END.set(held)
+    try:
+        yield
+    finally:
+        _PROGRESS_AT_END.reset(token)
+    for project_id in sorted(held, key=str):
+        record_progress(project_id)
+
+
 def record_progress(project_id: uuid.UUID) -> None:
     """Keep Step 1's progress rows as `progress` counts them, one per Discipline (and one for the
-    sheets of none)."""
+    sheets of none); inside `progress_at_end`, as its block ends."""
+    held = _PROGRESS_AT_END.get()
+    if held is not None:
+        held.add(project_id)
+        return
     tenant_id = _tenant()
     for row in progress(project_id).disciplines:
         status = row.status

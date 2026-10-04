@@ -113,7 +113,19 @@ def propose(
     *,
     unread: int = 0,
 ) -> dict[str, Any]:
-    """The `proposals` step (see the module); what it proposed and asked, as counts."""
+    """The `proposals` step (see the module); what it proposed and asked, as counts. Step 1's
+    progress rows are written once, at its end (`step1.progress_at_end`, #227)."""
+    with step1.progress_at_end():
+        return _propose(file_id, load, conventions, unread=unread)
+
+
+def _propose(
+    file_id: uuid.UUID,
+    load: Callable[[], ReadArtefact],
+    conventions: SheetConventions,
+    *,
+    unread: int,
+) -> dict[str, Any]:
     view = drawings.file(file_id)
     project_id = view.project_id
     listed = [s for s in drawings.sheets(view.set_id) if s.file_id == file_id]
