@@ -61,14 +61,15 @@ interface Entry {
 }
 
 /** The label a sheet or a continuation goes by in a sentence: "S-02", "E-02–E-03", or its title. */
-export function SheetName({ sheets }: { sheets: readonly ProposalOut[] }) {
+/** A sheet's name in words; `start`: it opens a sentence (an untitled sheet's words are capitalised). */
+export function SheetName({ sheets, start = false }: { sheets: readonly ProposalOut[]; start?: boolean }) {
   const first = sheets[0]
   const last = sheets.at(-1)
   if (!first || !last) return null
   if (!first.number && !first.title.trim()) {
     // Neither number nor title (#167): named by its file, never by an empty quotation.
     const file = <DrawingText kind="file-name" text={first.file_name} truncate={false} />
-    return <Trans>an untitled sheet in {file}</Trans>
+    return start ? <Trans>An untitled sheet in {file}</Trans> : <Trans>an untitled sheet in {file}</Trans>
   }
   if (!first.number) return <DrawingText kind="title" text={first.title} truncate={false} />
   if (sheets.length > 1 && last.number && last.number !== first.number) {
@@ -400,7 +401,8 @@ export function useStep1Acts(projectId: string): Step1Acts {
   const confirmSheets = useCallback(
     (sheets: readonly ProposalOut[], backIn?: string) => {
       const name = <SheetName sheets={sheets} />
-      const said = backIn ? <Trans>{name} confirmed back in, under {backIn}’s name.</Trans> : <Trans>Confirmed {name}.</Trans>
+      const Name = <SheetName sheets={sheets} start />
+      const said = backIn ? <Trans>{Name} confirmed back in, under {backIn}’s name.</Trans> : <Trans>Confirmed {name}.</Trans>
       return run([() => confirm(projectId, sheets.map((p) => p.id))], <Trans>confirmed {name}</Trans>, said)
     },
     [projectId, run],
@@ -409,12 +411,13 @@ export function useStep1Acts(projectId: string): Step1Acts {
   const excludeSheets = useCallback(
     (sheets: readonly ProposalOut[], reason: Reason, text = '') => {
       const name = <SheetName sheets={sheets} />
+      const Name = <SheetName sheets={sheets} start />
       const short = reason === 'other' && text.trim() ? text.trim() : i18n._(REASON_SHORT[reason] ?? UNKNOWN_REASON)
       return run(
         [() => exclude(projectId, sheets.map((p) => p.id), reason, text)],
         <Trans>excluded {name}</Trans>,
         <Trans>
-          {name} excluded: {short}. It stays in the count.
+          {Name} excluded: {short}. It stays in the count.
         </Trans>,
       )
     },

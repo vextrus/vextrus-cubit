@@ -1011,7 +1011,8 @@ heading of a Discipline with no list says so: "no drawing list; numbering runs 0
 Questions holding the most sheets; then conflicts, then missing items, then low-confidence ones; then
 sheet order (natural sort: S-2 before S-10). `Q` follows this order, and the inspector words it
 "Answer 5 Questions: the held file first, then those holding the most sheets". With no file held
-(none was, or its Question is answered): "Answer 5 Questions: those holding the most sheets first".
+(none was, or its Question is answered): "Answer 5 Questions: those holding the most sheets first"; with
+the held file's the only one: "Answer 1 Question: the held file’s".
 
 **The Questions M0 raises, and their wording** (templates, the one source of each kind's title and
 options; names and numbers invented; 6.7 shows each filled in):
@@ -1031,7 +1032,8 @@ options; names and numbers invented; 6.7 shows each filled in):
 A sheet with neither number nor title is named by its file, never by an empty quotation: "an
 untitled sheet in NT-ARC-R1.dwg" ("A sheet in NT-ARC-R1.dwg has neither a number nor a title in its title
 block."); a numbered sheet with no title by its number ("It has no title, so nothing says which kind of
-sheet A-05 is.").
+sheet A-05 is."). At a sentence's start it reads "An untitled sheet in NT-ARC-R1.dwg"; a possessive is
+never put on a sheet's name ("The kind of S-07 is Plan", not "S-07’s kind").
 
 "Keep open, ask the consultant" keeps the Question open, and Step 1 for that Discipline cannot be
 confirmed until it is answered; "Not sent yet" answers it, and the sheet stays in the count as
@@ -1041,8 +1043,8 @@ missing, so that Discipline can still be confirmed.
 continuation** ("Column schedule, 3 sheets"), grouped in the list (6.2) with no Question; two plans of
 one storey that draw different subjects (a beam layout and a slab layout) or different layers (a slab's
 top and bottom reinforcement) are normal practice, never a conflict. One title on sheets whose numbers
-do not run on is a conflict headed "One title on two sheets" (whatever their kind: schedules,
-elevations); "Two plans draw one thing" heads only two plans of one storey.
+do not run on is a conflict headed "One title on two sheets" ("One title on 3 sheets" for more; whatever
+their kind: schedules, elevations); "Two plans draw one thing" heads only two plans of one storey.
 
 **Storeys.** A sheet's storeys come from its plan views as an explicit list, never an expanded
 first–last (amendment 1): shown as stated and normalised, "3RD, 5TH & 7TH FLOOR → 3rd, 5th, 7th";

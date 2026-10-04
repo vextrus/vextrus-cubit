@@ -161,6 +161,8 @@ export function useBar(c: BarContext): BarSpec | null {
   if (row) {
     const sheet = row.sheets[0]
     const name = <SheetName sheets={row.sheets} />
+    // At a sentence's start (#167's words gate: an untitled sheet's words are capitalised there).
+    const Name = <SheetName sheets={row.sheets} start />
     if (row.question) {
       const entry = row.question
       const answerer = c.answerer ?? null
@@ -196,11 +198,11 @@ export function useBar(c: BarContext): BarSpec | null {
         what:
           sheet.decided_by_role === 'vextrus_engineer' ? (
             <Trans>
-              {name} is confirmed by {by}, Vextrus Engineer
+              {Name} is confirmed by {by}, Vextrus Engineer
             </Trans>
           ) : (
             <Trans>
-              {name} is confirmed by {by}
+              {Name} is confirmed by {by}
             </Trans>
           ),
         why: date ? <Trans>{date}, {time}. X excludes it, with a reason.</Trans> : <Trans>X excludes it, with a reason.</Trans>,
@@ -212,7 +214,7 @@ export function useBar(c: BarContext): BarSpec | null {
       return {
         what: (
           <Trans>
-            {name} is excluded: {reason}
+            {Name} is excluded: {reason}
           </Trans>
         ),
         why: (
@@ -237,12 +239,12 @@ export function useBar(c: BarContext): BarSpec | null {
       return {
         what: agrees ? (
           section?.list ? (
-            <Trans>{name} agrees: number and title from the title block, on the drawing list</Trans>
+            <Trans>{Name} agrees: number and title from the title block, on the drawing list</Trans>
           ) : (
-            <Trans>{name} agrees: number and title from the title block, in numbering without a gap, and its Plot page matches</Trans>
+            <Trans>{Name} agrees: number and title from the title block, in numbering without a gap, and its Plot page matches</Trans>
           )
         ) : (
-          <Trans>{name} has one source: number and title from its title block</Trans>
+          <Trans>{Name} has one source: number and title from its title block</Trans>
         ),
         why: agrees ? (
           <Trans>Enter confirms it and opens the next open sheet.</Trans>
@@ -257,7 +259,7 @@ export function useBar(c: BarContext): BarSpec | null {
     }
     if (sheet && !row.sheets.every((s) => s.agrees) && !sheet.proposed_exclusion) {
       return {
-        what: <Trans>{name} has one source: number and title from its title block</Trans>,
+        what: <Trans>{Name} has one source: number and title from its title block</Trans>,
         why: (
           <>
             <OneSourceWhy sheet={sheet} model={model} /> <Trans>Open it to confirm it.</Trans>

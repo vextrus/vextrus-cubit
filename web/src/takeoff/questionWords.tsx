@@ -30,8 +30,15 @@ function params(entry: QuestionEntry): Record<string, string | number> {
 
 /** The kind in the card's header: "Two sheets, one number". */
 export function useKindLine(entry: QuestionEntry): string {
-  const { i18n } = useLingui()
+  const { i18n, t } = useLingui()
+  const f = useFormat()
   const q = entry.question
+  if (q.code === 'engine.conflicts.same_title') {
+    // Counted as its body counts them (#167's words gate): "One title on 3 sheets".
+    const n = typeof q.params.sheets === 'number' ? q.params.sheets : entry.holds.length
+    const count = f.integer(n)
+    if (n > 2) return t`One title on ${count} sheets`
+  }
   return i18n._(QUESTION_KIND_BY_CODE[q.code] ?? QUESTION_KINDS[q.kind] ?? OTHER_QUESTION)
 }
 
@@ -103,7 +110,8 @@ export function QuestionBody({ entry, context }: { entry: QuestionEntry; context
   if (q.kind === 'file_misread') return has(q.code) ? <MachineText message={{ code: q.code, params: params(entry) }} /> : null
   if (isCopies(entry)) {
     const titles = [...new Set(entry.holds.map((h) => h.title))]
-    if (titles.length === 1 && !titles[0]!.trim()) return <Trans>Neither has a title. Only one can be read, unless they are different sheets.</Trans>
+    if (titles.length === 1 && !titles[0]!.trim())
+      return <Plural value={entry.holds.length} _2="Neither has a title. Only one can be read, unless they are different sheets." other="None of the # has a title. Only one can be read, unless they are different sheets." />
     if (titles.length === 1) {
       const title = <DrawingText kind="title" text={titles[0]!} truncate={false} />
       return <Trans>Both are titled “{title}”. Only one can be read.</Trans>
@@ -119,6 +127,7 @@ export function QuestionBody({ entry, context }: { entry: QuestionEntry; context
   if (q.code === 'takeoff.step1.which_kind' && first) {
     const title = <DrawingText kind="title" text={first.title} truncate={false} />
     const number = <SheetName sheets={[first]} />
+    if (!first.title.trim() && !first.number) return <Trans>It has neither a number nor a title, so nothing says which kind of sheet it is. Its kind decides which Takeoff steps read it.</Trans>
     if (!first.title.trim()) return <Trans>It has no title, so nothing says which kind of sheet {number} is. Its kind decides which Takeoff steps read it.</Trans>
     return <Trans>Its title, “{title}”, does not say which kind of sheet {number} is. Its kind decides which Takeoff steps read it.</Trans>
   }
@@ -377,7 +386,8 @@ export function Answering({ entry, context, choice, hint = false }: { entry: Que
   const q = entry.question
   if (entry.withdrawn) {
     const sheet = <SheetName sheets={entry.holds} />
-    return <Trans>Withdrawn when {sheet} was left out. {sheet} can be confirmed back in once this is answered.</Trans>
+    const Sheet = <SheetName sheets={entry.holds} start />
+    return <Trans>Withdrawn when {sheet} was left out. {Sheet} can be confirmed back in once this is answered.</Trans>
   }
   const keys = <PickKeys entry={entry} />
   const discipline = q.discipline ? disciplineName(q.discipline, i18n) : null
@@ -505,7 +515,7 @@ export function Answering({ entry, context, choice, hint = false }: { entry: Que
   if (q.kind === 'low_confidence' && picked && picked !== 'keep_open' && SHEET_KIND_NAMES[picked] && n > 0) {
     const sheet = <SheetName sheets={entry.holds} />
     const kind = i18n._(SHEET_KIND_NAMES[picked]!)
-    return <Trans>Answering sets {sheet}’s kind to {kind} and confirms it, unless its number or Discipline is still asked.</Trans>
+    return <Trans>Answering sets the kind of {sheet} to {kind} and confirms it, unless its number or Discipline is still asked.</Trans>
   }
   if (n === 0) return hint && !picked ? <Trans>Answering confirms no sheets. Pick an answer: {keys}.</Trans> : <Trans>Answering confirms no sheets.</Trans>
   if (hint && !picked)
@@ -533,7 +543,7 @@ export function AnswerNote({ entry, readOnly }: { entry: QuestionEntry; readOnly
   if (readOnly === 'md') return <Trans>Waiting for the QS. The MD reads Questions and cannot answer them.</Trans>
   if (readOnly === 'guest') return <Trans>Waiting for the QS. A Guest reads Questions and cannot answer them.</Trans>
   if (entry.withdrawn) {
-    const sheet = <SheetName sheets={entry.holds} />
+    const sheet = <SheetName sheets={entry.holds} start />
     return <Trans>{sheet} stays left out until this Question is answered. A pick changes nothing until you answer.</Trans>
   }
   const discipline = entry.question.discipline
@@ -610,7 +620,7 @@ export function AnsweredWords({ entry, option, text }: { entry: QuestionEntry; o
     const sheet = <SheetName sheets={entry.holds} />
     const kind = <SheetKindName option={option} />
     // 21c confirms it only when nothing else holds it (its number or Discipline asked, or left out it keeps the kind alone).
-    return <Trans>{tag} answered. {sheet}’s kind is {kind}.</Trans>
+    return <Trans>{tag} answered. The kind of {sheet} is {kind}.</Trans>
   }
   if (q.kind === 'missing' && option === 'no_number') return <Trans>{tag} answered. The sheet stays without a number.</Trans>
   if (q.kind === 'missing_discipline' && option in DISCIPLINE_NAMES && n === 0) {
@@ -621,12 +631,12 @@ export function AnsweredWords({ entry, option, text }: { entry: QuestionEntry; o
   if (q.kind === 'missing_discipline' && option in DISCIPLINE_NAMES && n > 0) {
     const sheet = <SheetName sheets={entry.holds} />
     const discipline = <DisciplineWord option={option} />
-    return <Trans>{tag} answered. {sheet}’s Discipline is {discipline}.</Trans>
+    return <Trans>{tag} answered. The Discipline of {sheet} is {discipline}.</Trans>
   }
   if (option === 'includes_storey' || option === 'excludes_storey') {
     if (n === 0) return option === 'includes_storey' ? <Trans>{tag} answered. Recorded: the sheet’s range includes its top storey.</Trans> : <Trans>{tag} answered. Recorded: the sheet’s top storey belongs to the next sheet’s range.</Trans>
     const sheet = <SheetName sheets={entry.holds} />
-    return option === 'includes_storey' ? <Trans>{tag} answered. Recorded: {sheet}’s range includes its top storey.</Trans> : <Trans>{tag} answered. Recorded: {sheet}’s top storey belongs to the next sheet’s range.</Trans>
+    return option === 'includes_storey' ? <Trans>{tag} answered. Recorded: the range on {sheet} includes its top storey.</Trans> : <Trans>{tag} answered. Recorded: the top storey on {sheet} belongs to the next sheet’s range.</Trans>
   }
   if (q.code === 'takeoff.proposals.lists_disagree' && (option === 'use_read' || option === 'use_given')) return <ListUsed entry={entry} option={option} />
   if (q.kind === 'check') return <CheckAnswered entry={entry} option={option} />
@@ -668,6 +678,8 @@ function CheckAnswered({ entry, option }: { entry: QuestionEntry; option: string
   const gap = gapOf(q)
   const listed = typeof q.params.number === 'string' && q.params.number ? q.params.number : null
   const sheet = listed ? <DrawingText kind="sheet-number" text={listed} truncate={false} /> : entry.holds.length > 0 ? <SheetName sheets={entry.holds} /> : null
+  // At a sentence's start, after "Q3 answered." (#167's words gate: an untitled sheet's words are capitalised).
+  const Sheet = listed ? sheet : entry.holds.length > 0 ? <SheetName sheets={entry.holds} start /> : null
   const missing = typeof q.params.missing === 'number' ? q.params.missing : 1
   const unlisted = q.code === 'engine.register_check.not_listed'
   if (option === 'not_in_set') {
@@ -692,8 +704,8 @@ function CheckAnswered({ entry, option }: { entry: QuestionEntry; option: string
         />
       </Trans>
     )
-  if (unlisted && sheet) return <Trans>{tag} answered. {sheet} stays in the list, to confirm or exclude.</Trans>
+  if (unlisted && Sheet) return <Trans>{tag} answered. {Sheet} stays in the list, to confirm or exclude.</Trans>
   if (option === 'file_not_added')
-    return sheet ? <Trans>{tag} answered. {sheet} stays in the count as missing until its file is added.</Trans> : <Trans>{tag} answered. The sheet stays in the count as missing until its file is added.</Trans>
-  return sheet ? <Trans>{tag} answered. {sheet} stays in the count as missing.</Trans> : <Trans>{tag} answered. The sheet stays in the count as missing.</Trans>
+    return sheet ? <Trans>{tag} answered. {Sheet} stays in the count as missing until its file is added.</Trans> : <Trans>{tag} answered. The sheet stays in the count as missing until its file is added.</Trans>
+  return sheet ? <Trans>{tag} answered. {Sheet} stays in the count as missing.</Trans> : <Trans>{tag} answered. The sheet stays in the count as missing.</Trans>
 }

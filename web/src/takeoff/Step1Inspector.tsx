@@ -177,7 +177,7 @@ export function Overview({ model, projectName, readOnly }: { model: Step1Model; 
                 {heldFirst ? (
                   <Plural
                     value={questions}
-                    one="Answer # Question: the held file first, then those holding the most sheets"
+                    one="Answer # Question: the held file’s"
                     other="Answer # Questions: the held file first, then those holding the most sheets"
                   />
                 ) : (
@@ -551,7 +551,7 @@ export function SheetFacts({
       <Block>
         <div className="flex flex-col gap-0.5">
           <span className="font-semibold">
-            <SheetName sheets={row.sheets} />
+            <SheetName sheets={row.sheets} start />
           </span>
           {showTitle ? <DrawingText kind="title" text={sheet.title} truncate={false} className="text-ink-secondary" /> : null}
           <span className="text-xs text-ink-secondary">

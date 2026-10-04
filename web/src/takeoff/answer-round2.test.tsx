@@ -228,7 +228,7 @@ describe('the toast names what the answer did (§6.5; the walk, M7)', () => {
     await cardOf('Q1')
     await userEvent.keyboard('1')
     await userEvent.keyboard('{Enter}')
-    await waitFor(() => expect(bodyText()).toContain('Q1 answered. A-05’s kind is Elevation.'))
+    await waitFor(() => expect(bodyText()).toContain('Q1 answered. The kind of A-05 is Elevation.'))
   })
 })
 
