@@ -1135,15 +1135,20 @@ def _tables(segments: NDArray[np.float64], region: Bounds) -> list[Bounds]:
 
 
 def _ruled_tables(
-    segments: NDArray[np.float64], centres: NDArray[np.float64], region: Bounds
+    segments: NDArray[np.float64],
+    centres: NDArray[np.float64],
+    lettered: NDArray[np.bool_],
+    region: Bounds,
 ) -> list[Bounds]:
     """Ruled tables of any size (a column schedule set beside its plan): at least `MIN_TABLE_RULES`
     rules across of one length (their ends within `TABLE_TOLERANCE`, scaled to the paper), rows of
-    one height (`TABLE_ROW_SPREAD`) but one; framed by a rule down at
-    each end running from the lowest to the highest; at least one rule down between them, half the
-    table's height or longer, lying within it (a header row may span); and a text (its `centres`) in
-    every row between two rules but one (a wall's thickness holds none), `TABLE_CELLS` a row on
-    average. The box they rule, one per group of rules alike."""
+    one height (`TABLE_ROW_SPREAD`) but one; framed by a rule down at each end running from the lowest
+    to the highest; at least one rule down between them, half the table's height or longer, lying
+    within it, and none reaching the top rule (a schedule's header row spans its columns: a window's
+    mullion or a revision table's rules run the full height); a text with a letter (`lettered`, at
+    its `centres`) in every row between two rules but one (a wall's thickness holds none; a stair's
+    treads are numbered in figures); and `TABLE_CELLS` texts a row on average. The box they rule,
+    one per group of rules alike."""
     rx0, ry0, rx1, ry1 = region
     side = max(rx1 - rx0, ry1 - ry0)
     if not len(segments) or not side > 0:
@@ -1176,9 +1181,15 @@ def _ruled_tables(
         )  # fmt: skip
         if not (left.any() and right.any() and inner.any()):
             continue
-        held = centres[(centres[:, 0] > x0) & (centres[:, 0] < x1), 1]
-        rows_held = np.unique(np.searchsorted(ys, held[(held > y0) & (held < y1)]))
-        if len(rows_held) < len(ys) - 2:  # a text in every row but one (a wall's thickness holds none)
+        within = (down[:, 0] > x0 + tol) & (down[:, 0] < x1 - tol)  # every rule down between the ends
+        if bool((down[within, 2] > ys[-2] + tol).any()):  # a stair's centre line, a window's mullion
+            continue  # a column reaching the top rule: no header row spans them, no schedule's
+            continue
+        across_it = (centres[:, 0] > x0) & (centres[:, 0] < x1)
+        held = centres[across_it, 1]
+        marks = centres[across_it & lettered, 1]
+        rows_held = np.unique(np.searchsorted(ys, marks[(marks > y0) & (marks < y1)]))
+        if len(rows_held) < len(ys) - 2:  # a mark in every row but one: a stair's treads are figures
             continue
         if int(((held > y0) & (held < y1)).sum()) < TABLE_CELLS * (len(ys) - 1):
             continue  # a mark a band (a drawing's lines named), not a row of cells
@@ -1599,10 +1610,11 @@ def _views(
         i for i in {*titles, *heads} if _kind(texts[i].shown, reading) is not ViewKind.SCHEDULE
     ]
     centres = np.array([_centre(t.box) for t in texts], dtype=np.float64).reshape(-1, 2)
+    lettered = np.array([any(c.isalpha() for c in t.shown) for t in texts], dtype=bool)
     tables = _tables(drawn.segments, paper.region)
     tables += [
         t
-        for t in _ruled_tables(drawn.segments, centres, paper.region)
+        for t in _ruled_tables(drawn.segments, centres, lettered, paper.region)
         if not any(_meets(t, other) for other in tables)
     ]
     for table in tables:

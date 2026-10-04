@@ -301,3 +301,46 @@ def test_a_ruled_table_inside_a_titled_plans_box_is_still_a_schedule() -> None:
     schedules = [v for v in found if v.kind is ViewKind.SCHEDULE]
     assert len(schedules) == 1
     assert near(schedules[0].box, (120, 436, 184, 486), by=1.0)
+
+
+def test_a_stairs_treads_numbered_in_figures_are_no_schedule() -> None:
+    """Refuter 2, loop 3 (70): a dog-leg stair in a plan, its two flights' treads aligned and numbered,
+    its centre line stopping under the landing (a header row's shape): no letter in its rows, so no
+    schedule; the plan stays the only view."""
+    d = Sheets()
+    grid(d, (40, 300, 340, 560))
+    d.text("GROUND FLOOR PLAN", (40, 288, 0.0), height=6.0)
+    ys = [436.0 + 5 * i for i in range(10)]
+    for y in ys:
+        d.line((200.0, y), (220.0, y))
+        d.line((220.0, y), (240.0, y))
+    for x in (200.0, 240.0):
+        d.line((x, ys[0]), (x, 491.0))
+    d.line((200.0, 491.0), (240.0, 491.0))  # the landing's far wall
+    d.line((220.0, ys[0]), (220.0, ys[-1]))  # the centre line between the flights
+    for i, y in enumerate(ys[:-1]):
+        d.text(str(i + 1), (208.0, y + 1.5, 0.0), height=2.0)
+        d.text(str(18 - i), (228.0, y + 1.5, 0.0), height=2.0)
+    d.text("LANDING", (210.0, 485.0, 0.0), height=2.0)
+    d.text("UP", (202.0, 438.0, 0.0), height=2.0)
+    found = drawn(d, one_sheet(d))
+    assert [v.kind for v in found] == [ViewKind.PLAN]
+
+
+def test_a_windows_glazing_bars_are_no_schedule() -> None:
+    """Refuter 2, loop 3 (55): a window elevation in a titled detail, its transoms evenly spaced and its
+    mullion running the full height, a word in each pane: no header row spans the mullion, no
+    schedule."""
+    d = Sheets()
+    grid(d, (40, 300, 140, 400))
+    rows = [320.0, 335.0, 350.0, 365.0, 380.0]
+    for y in rows:
+        d.line((70.0, y), (110.0, y))
+    for x in (70.0, 95.0, 110.0):
+        d.line((x, rows[0]), (x, rows[-1]))
+    for y in rows[:-1]:
+        d.text("GLASS", (73.0, y + 5, 0.0), height=2.0)
+        d.text("GLASS", (97.0, y + 5, 0.0), height=2.0)
+    d.text("WINDOW W1 ELEVATION", (40, 288, 0.0), height=6.0)
+    found = drawn(d, one_sheet(d))
+    assert not [v for v in found if v.kind is ViewKind.SCHEDULE]
