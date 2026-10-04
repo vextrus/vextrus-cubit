@@ -184,3 +184,74 @@ def test_the_default_leak_scan_fails_closed(
     monkeypatch.setattr(subprocess, "run", fake)
     with pytest.raises(RuntimeError):
         PrScan(105)("title", "")
+
+
+def test_a_fix_on_a_later_clean_merge_outranks_an_older_pass(tmp_path: Path) -> None:
+    import subprocess
+
+    from scripts.merge_ready import review_problems
+
+    def git(*args: str) -> str:
+        done = subprocess.run(["git", "-C", str(tmp_path), *args], capture_output=True, text=True)
+        return done.stdout.strip()
+
+    def commit(name: str, text: str) -> str:
+        (tmp_path / name).write_text(text)
+        git("add", name)
+        git("commit", "-q", "-m", name)
+        return git("rev-parse", "HEAD")
+
+    git("init", "-q", "-b", "main")
+    for key, value in (
+        ("user.email", "t@example.invalid"),
+        ("user.name", "t"),
+        ("commit.gpgsign", "false"),
+    ):
+        git("config", key, value)
+    commit("a.txt", "a\n")
+    git("checkout", "-q", "-b", "ticket")
+    h0 = commit("b.txt", "b\n")
+    heads = [h0]
+    for name in ("c.txt", "d.txt"):
+        git("checkout", "-q", "main")
+        base = commit(name, "main\n")
+        git("checkout", "-q", "ticket")
+        git("merge", "-q", "--no-edit", "main")
+        heads.append(git("rev-parse", "HEAD"))
+    ledger = tmp_path / ".ledger"
+    reviewed(ledger, recorded=False)
+    for head, verdict, comment in ((h0, "PASS", 7), (heads[1], "FIX", 8)):
+        record = {
+            "schema_version": 1,
+            "pr": 105,
+            "head": head,
+            "round": 1 if verdict == "PASS" else 2,
+            "verdict": verdict,
+            "counts": dict.fromkeys(
+                ("reviewers", "findings", "findings_ge_50", "confirmed", "refuted", "unproven"), 1
+            )
+            | {"unrefuted_ge_50": 0},
+            "decision_input_sha256": "ab" * 32,
+            "comment_id": comment,
+            "exception": None,
+            "source": "review-pr",
+            "recorded_at": "2026-10-05T10:00:00Z",
+        }
+        (ledger / f"105-{head}.json").write_text(json.dumps(record))
+    marker = f"<!-- vextrus-review round=1 head={h0} verdict=PASS findings=0 -->"
+    facts = {
+        "pr": 105,
+        "head": heads[2],
+        "base": base,
+        "title": "t",
+        "body": "",
+        "branch": "b",
+        "comments": [{"id": 7, "body": marker}],
+        "files": [],
+        "diff": "",
+        "messages": [],
+    }
+    found = review_problems(
+        facts, ledger_dir=ledger, repo=tmp_path, scan=lambda k, t: 0, issue_open=lambda n: True
+    )
+    assert any("FIX" in problem for problem in found)

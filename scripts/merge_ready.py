@@ -373,32 +373,33 @@ def ledger_problems(facts: dict[str, Any], ledger_dir: Path, repo: Path) -> list
     pr, head, base = facts["pr"], facts["head"], facts["base"]
     if not SHA.fullmatch(head):
         return ["the PR's head is not a full sha"]
-    exact = ledger_dir / f"{pr}-{head}.json"
-    candidates = [exact] if exact.is_file() else sorted(ledger_dir.glob(f"{pr}-*.json"))
-    found: list[str] = []
-    chosen: dict[str, Any] | None = None
-    for path in candidates:
+    broken: list[str] = []
+    stale: list[str] = []
+    eligible: list[dict[str, Any]] = []
+    for path in sorted(ledger_dir.glob(f"{pr}-*.json")) if ledger_dir.is_dir() else []:
         reviewed = path.stem.removeprefix(f"{pr}-")
         if not SHA.fullmatch(reviewed):
             continue
         try:
             record = json.loads(path.read_text())
         except OSError, ValueError:
-            found.append(f"the ledger record {path.name} cannot be read")
+            broken.append(f"the ledger record {path.name} cannot be read")
             continue
         if wrong := record_problems(record, pr, reviewed):
-            found.extend(f"the ledger record {path.name} {problem}" for problem in wrong)
+            broken.extend(f"the ledger record {path.name} {problem}" for problem in wrong)
             continue
-        if reviewed != head:
-            if record["verdict"] != "PASS":
-                continue
-            if (why := merges_since(repo, reviewed, head, base)) is not None:
-                found.append(f"the ledger's PASS is for {reviewed[:12]}, not the head: {why}")
-                continue
-        chosen = record
-        break
+        if reviewed != head and (why := merges_since(repo, reviewed, head, base)) is not None:
+            if record["verdict"] == "PASS":
+                stale.append(f"the ledger's PASS is for {reviewed[:12]}, not the head: {why}")
+            continue
+        eligible.append(record)
+    # The newest record that covers this head decides: a FIX on a later clean merge outranks an
+    # older PASS. A record that cannot be read refuses outright (fail closed).
+    if broken:
+        return broken
+    chosen = max(eligible, key=lambda record: int(record["comment_id"]), default=None)
     if chosen is None:
-        return found or [f"no ledger record for head {head[:12]}: review it (/review-pr) and record it"]
+        return stale or [f"no ledger record for head {head[:12]}: review it (/review-pr) and record it"]
     found = []
     if chosen["verdict"] != "PASS":
         found.append(f"the ledger says {chosen['verdict']} for {chosen['head'][:12]}, not PASS")
