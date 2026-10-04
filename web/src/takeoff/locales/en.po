@@ -15,10 +15,6 @@ msgstr "Answering decides whether this file’s sheets join the list. Pick an an
 msgid "Grid layout"
 msgstr "Grid layout"
 
-#: src/takeoff/acts.tsx
-msgid "an untitled sheet drawn in the model of {file}"
-msgstr "an untitled sheet drawn in the model of {file}"
-
 #: src/takeoff/Step1Inspector.tsx
 msgid "As its title block should read. Enter answers."
 msgstr "As its title block should read. Enter answers."
@@ -459,6 +455,10 @@ msgstr "Questions withdrawn"
 #: src/takeoff/acts.tsx
 msgid "Undone: <0/>"
 msgstr "Undone: <0/>"
+
+#: src/takeoff/acts.tsx
+msgid "An untitled sheet laid out in the drawing of {file}"
+msgstr "An untitled sheet laid out in the drawing of {file}"
 
 #: src/takeoff/Bar.tsx
 msgid "No drawing list and no Plot to check them against. Open each to confirm it."
@@ -1413,10 +1413,6 @@ msgstr "The sheet’s number"
 msgid "Set this file aside and mark it for Vextrus to look at"
 msgstr "Set this file aside and mark it for Vextrus to look at"
 
-#: src/takeoff/acts.tsx
-msgid "An untitled sheet drawn in the model of {file}"
-msgstr "An untitled sheet drawn in the model of {file}"
-
 #: src/takeoff/questionWords.tsx
 #: src/takeoff/Step1Inspector.tsx
 msgid "the drawing list"
@@ -2178,6 +2174,10 @@ msgstr "Superseded"
 #: src/takeoff/Bar.tsx
 msgid "Step 2, General notes and specification, comes in M1."
 msgstr "Step 2, General notes and specification, comes in M1."
+
+#: src/takeoff/acts.tsx
+msgid "an untitled sheet laid out in the drawing of {file}"
+msgstr "an untitled sheet laid out in the drawing of {file}"
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "none: the title block has none and the file name none"

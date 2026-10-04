@@ -1030,12 +1030,12 @@ options; names and numbers invented; 6.7 shows each filled in):
 | Floors that do not run, typical floor, a level title (6.7) | as 6.7 | as 6.7 |
 
 A sheet with neither number nor title is named by its layout and its file, never by an empty quotation:
-"an untitled sheet on layout “Layout2” of NT-ARC-R1.dwg" ("an untitled sheet drawn in the model of
+"an untitled sheet on layout “Layout2” of NT-ARC-R1.dwg" ("an untitled sheet laid out in the drawing of
 NT-ARC-R1.dwg" when it has no layout; the place sits inside the name, never after a comma), so two on two
 layouts of one file read apart ("A sheet in NT-ARC-R1.dwg has neither a number nor a title in its title
 block."; the bar: "… has neither a number nor a title in its title block"); a numbered sheet with no title by
 its number ("It has no title, so nothing says which kind of sheet A-05 is."). At a sentence's start it reads
-"An untitled sheet in …"; a possessive is never put on a sheet's name ("The kind of S-07 is Plan", not
+"An untitled sheet on layout …" or "An untitled sheet laid out in the drawing of …"; a possessive is never put on a sheet's name ("The kind of S-07 is Plan", not
 "S-07’s kind").
 
 An act's toast shows once Step 1 has reloaded, with the confirmed count it changed. If Step 1 cannot reload

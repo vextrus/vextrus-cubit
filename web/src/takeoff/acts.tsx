@@ -79,7 +79,7 @@ export function SheetName({ sheets, start = false }: { sheets: readonly Proposal
       const layout = <DrawingText kind="mark" text={first.layout} truncate={false} />
       return start ? <Trans>An untitled sheet on layout “{layout}” of {file}</Trans> : <Trans>an untitled sheet on layout “{layout}” of {file}</Trans>
     }
-    return start ? <Trans>An untitled sheet drawn in the model of {file}</Trans> : <Trans>an untitled sheet drawn in the model of {file}</Trans>
+    return start ? <Trans>An untitled sheet laid out in the drawing of {file}</Trans> : <Trans>an untitled sheet laid out in the drawing of {file}</Trans>
   }
   if (!first.number) return <DrawingText kind="title" text={first.title} truncate={false} />
   if (sheets.length > 1 && last.number && last.number !== first.number) {

@@ -1,6 +1,6 @@
 /*
  * #167's words gate (F1): a sheet with neither number nor title is named "an untitled sheet on layout “<layout>”
- * of <file>" (or "drawn in the model of <file>"; review 1's finding 1: two such sheets on two layouts read the
+ * of <file>" (or "laid out in the drawing of <file>"; review 1's finding 1: two such sheets on two layouts read the
  * same; its recheck: a place after a comma was never closed off, "… in X.dwg, laid out in the drawing was left out"),
  * and that name broke every sentence built for a sheet number: lowercase at a sentence's start, and a
  * possessive that names the file ("an untitled sheet in KR-ARC-R0.dwg’s kind"). The class check: every
@@ -68,8 +68,8 @@ describe('an untitled sheet’s name in every sentence (#167 words gate, F1)', (
   it('names it by its file, capitalised at a sentence’s start', () => {
     const fake = new FakeAnswers()
     const sheet = untitled(fake) as unknown as QuestionEntry['holds'][number]
-    expect(words(<SheetName sheets={[sheet]} />)).toBe('an untitled sheet drawn in the model of KR-ARC-R0.dwg')
-    expect(words(<SheetName sheets={[sheet]} start />)).toBe('An untitled sheet drawn in the model of KR-ARC-R0.dwg')
+    expect(words(<SheetName sheets={[sheet]} />)).toBe('an untitled sheet laid out in the drawing of KR-ARC-R0.dwg')
+    expect(words(<SheetName sheets={[sheet]} start />)).toBe('An untitled sheet laid out in the drawing of KR-ARC-R0.dwg')
   })
 
   it('tells two untitled sheets of one file apart by their layouts (review 1, finding 1)', () => {
@@ -87,7 +87,7 @@ describe('an untitled sheet’s name in every sentence (#167 words gate, F1)', (
     const sheet = untitled(fake)
     const context: CardContext = { lists: {}, sheets: fake.step1.proposals as unknown as CardContext['sheets'], names: {} }
     const found: string[] = []
-    // Both places: on a layout, and drawn in the model (layout none).
+    // Both places: on a layout, and laid out in the drawing (layout none).
     for (const placed of [{ ...sheet, layout: null }, { ...sheet, layout: 'Layout2' }])
     for (const question of [...fake.everyShape(), ...Object.values(fake.byKind())]) {
       const entry = entryOf(question, [placed])
