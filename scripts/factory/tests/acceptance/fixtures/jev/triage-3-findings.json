@@ -1,0 +1,77 @@
+{
+  "recorded": "synthetic",
+  "date": "2026-10-04",
+  "about": "Triage of 3 invented findings, hand-written in the live shape: p_real 0.93, 0.01 and 0.55; severities high, low and critical by argmax.",
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "real_0": {
+        "type": "noul",
+        "noul": 0.93
+      },
+      "severity_0": {
+        "type": "score",
+        "score": 2.0,
+        "confidence": 0.8,
+        "legend": {
+          "0": "low: style, naming or a comment; no behaviour changes",
+          "1": "medium: wrong behaviour in an uncommon path, or a missing test for a real path; no data loss or exposure",
+          "2": "high: wrong output, crash or data loss on a normal path, or a check that can be skipped",
+          "3": "critical: a secret or private data exposed, a security wall bypassed, or data destroyed"
+        },
+        "probabilities": {
+          "0": 0.0,
+          "1": 0.1,
+          "2": 0.8,
+          "3": 0.1
+        }
+      },
+      "real_1": {
+        "type": "noul",
+        "noul": 0.01
+      },
+      "severity_1": {
+        "type": "score",
+        "score": 0.3,
+        "confidence": 0.7,
+        "legend": {
+          "0": "low: style, naming or a comment; no behaviour changes",
+          "1": "medium: wrong behaviour in an uncommon path, or a missing test for a real path; no data loss or exposure",
+          "2": "high: wrong output, crash or data loss on a normal path, or a check that can be skipped",
+          "3": "critical: a secret or private data exposed, a security wall bypassed, or data destroyed"
+        },
+        "probabilities": {
+          "0": 0.7,
+          "1": 0.3,
+          "2": 0.0,
+          "3": 0.0
+        }
+      },
+      "real_2": {
+        "type": "noul",
+        "noul": 0.55
+      },
+      "severity_2": {
+        "type": "score",
+        "score": 2.5,
+        "confidence": 0.6,
+        "legend": {
+          "0": "low: style, naming or a comment; no behaviour changes",
+          "1": "medium: wrong behaviour in an uncommon path, or a missing test for a real path; no data loss or exposure",
+          "2": "high: wrong output, crash or data loss on a normal path, or a check that can be skipped",
+          "3": "critical: a secret or private data exposed, a security wall bypassed, or data destroyed"
+        },
+        "probabilities": {
+          "0": 0.0,
+          "1": 0.1,
+          "2": 0.3,
+          "3": 0.6
+        }
+      }
+    },
+    "usage": {
+      "input_tokens": 912,
+      "output_tokens": 101
+    }
+  }
+}

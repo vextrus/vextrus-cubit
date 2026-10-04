@@ -1,0 +1,74 @@
+{
+  "recorded": "live",
+  "date": "2026-10-04",
+  "about": "A noul, a choice of three and a 4-level score in one call over one invented finding.",
+  "request": {
+    "model": "jev-1.13.0",
+    "state": "Invented review finding on an invented diff: in invoice_totals.py the function sum_lines adds the discount twice when a line has both a percentage and a fixed discount, so the total printed on every such invoice is too low. The diff shows `total -= discount` on lines 41 and 47.",
+    "questions": {
+      "q0": {
+        "type": "noul",
+        "instructions": "Does the finding name a file and a line?"
+      },
+      "q1": {
+        "type": "choice",
+        "instructions": "Which part of the code does the finding concern?",
+        "criteria": {
+          "a": "arithmetic on money",
+          "b": "user interface text",
+          "c": "network access"
+        }
+      },
+      "q2": {
+        "type": "score",
+        "instructions": "How severe is this finding?",
+        "criteria": [
+          "low: style, naming or a comment; no behaviour changes",
+          "medium: wrong behaviour in an uncommon path, or a missing test for a real path; no data loss or exposure",
+          "high: wrong output, crash or data loss on a normal path, or a check that can be skipped",
+          "critical: a secret or private data exposed, a security wall bypassed, or data destroyed"
+        ]
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "q0": {
+        "type": "noul",
+        "noul": 0.8
+      },
+      "q1": {
+        "type": "choice",
+        "choice": "a",
+        "confidence": 1.0,
+        "probabilities": {
+          "a": 1.0,
+          "c": 0.0,
+          "b": 0.0
+        }
+      },
+      "q2": {
+        "type": "score",
+        "score": 1.86,
+        "confidence": 0.86,
+        "legend": {
+          "0": "low: style, naming or a comment; no behaviour changes",
+          "1": "medium: wrong behaviour in an uncommon path, or a missing test for a real path; no data loss or exposure",
+          "2": "high: wrong output, crash or data loss on a normal path, or a check that can be skipped",
+          "3": "critical: a secret or private data exposed, a security wall bypassed, or data destroyed"
+        },
+        "probabilities": {
+          "0": 0.0,
+          "1": 0.14,
+          "2": 0.86,
+          "3": 0.0
+        }
+      }
+    },
+    "usage": {
+      "input_tokens": 525,
+      "output_tokens": 71
+    }
+  }
+}
