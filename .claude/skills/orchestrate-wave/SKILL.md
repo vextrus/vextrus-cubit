@@ -4,22 +4,19 @@ description: The orchestrator's runbook for building one wave of a milestone aut
 ---
 # Orchestrating a wave
 
-Sessions are autonomous (ADR 0041; the owner: "I want complete autonomous sessions and I insist that"). You build,
-review, gate and land; the owner decides product and scope and walks the milestone. Every command below is specified
-in `docs/specs/factory.md` §2.2, and done is its §5. Keep your context for decisions: every read-heavy step goes to
-an agent, each returning a file under `.private/work/<session>/`.
+Sessions are autonomous (ADR 0041). You build, review, gate and land; the owner decides product and scope and walks
+the milestone. Every command below is in `docs/specs/factory.md` §2.2; done is its §5. Keep your context for
+decisions: read-heavy steps go to agents, each returning a file under `.private/work/<session>/`.
 
 ## Budgets and the clock
-Set the session's budget and phases before the first launch; the clock hook then prints elapsed against them on
-every prompt. Time comes from `date -u`, never from memory. Every message to a builder starts `[elapsed n/m min]`.
-Over budget: cut scope and say what; each cut becomes an issue named under the PR body's `## Cut`. Never overrun
-silently.
+Set the session's budget and phases before the first launch; the clock hook prints elapsed against them on every
+prompt. Time comes from `date -u`, never memory. Every message to a builder starts `[elapsed n/m min]`. Over budget:
+cut scope and say what; each cut becomes an issue under the PR body's `## Cut`. Never overrun silently.
 
 ## When to ask the owner
 Ask the owner only about product, scope, business, stack, spending and anything irreversible beyond pushing and
-merging (ADR 0041 delegates those two): one question at a time, your recommendation first and the reason in a line.
-Everything else (build, review, gates, push, land) runs without waiting. Never ask what research, the code or a
-sensible default can answer.
+merging (ADR 0041), one question at a time, your recommendation first and the reason in a line. A PR touching
+`scripts/owner/toolchain.sh` needs the owner's root re-run first: ask, with the command. Everything else runs.
 
 ## The runbook
 1. **Governor (preflight).** Before each launch, review, test run or walk, the governor checks memory, disk and
@@ -32,28 +29,36 @@ sensible default can answer.
    `uv run python -m scripts.factory.launch cloud …` (the only way `--cloud` is run; it refuses a branch origin
    lacks, a branch without an acceptance commit and a bundled upload). Real drawings, the guard and G1's builder:
    `uv run python -m scripts.factory.launch local …` (its own worktree and database, `VEXTRUS_ROLE=builder`).
-   Effort `medium`; `high` for reading drawings, hostile-input boundaries and security walls. Launch one first and
-   check it cloned `vextrus/vextrus-cubit` and pushed its branch; then fan out. Message a cloud builder through
-   the launcher's `say`, a local one with SendMessage. A stopped builder resumes; it is never restarted over its work.
+   Effort `medium`; `high` for drawings, hostile input and security walls. Launch one first and check it cloned
+   `vextrus/vextrus-cubit` and pushed its branch; then fan out. Message a cloud builder through the launcher's `say`,
+   a local one with SendMessage. Resume a stopped local builder only by its full `sessionId` (from `claude agents
+   --json --all`), only when its state is `stopped` or `failed` and its row has no `pid`, from its worktree, passing
+   `--settings /home/riz/vextrus-cubit/scripts/factory/builder.settings.json` again; a `done` session is alive and
+   waiting: SendMessage it, never resume it. Never restart a builder over its work.
 4. **Watch.** Monitor on the event log (`events.log` under `.private/work/factory/`), re-armed at its deadline, and
    `notify_when_idle` for local builders. No polling and no foreground sleep; never wait on a process listing. The
    SessionStart hook restarts the watcher when its pidfile is stale. A builder finishes with a `Factory-State:
-   READY` (verified) or `BLOCKED` trailer; a READY head with no verify record is bounced, not reviewed.
+   READY` (verified) or `BLOCKED` trailer; a READY head with no verify record is bounced, not reviewed. A local
+   builder never pushes: push its READY head yourself from the main checkout once the leak scan passes on the
+   range, and open its PR with `gh pr create --body-file <its last commit's body>`.
 5. **Review with `/review-pr`.** On each READY head, merged with `main` and any PR it meets: one review, then at
    most two fix rounds (the ledger refuses a third unless it is a security hole scoring 75 or more, a crash, or a
-   false statement a QS meets). A PR touching `web/**` also gets `ux-critic` (the walk, or the words-only gate).
-   One message per round: elapsed against budget, what held, each finding with its score, failing scenario and
-   fix direction. Each fix carries a test that fails without it; a finding of 50 or more, or a repeated class,
-   leaves a committed check. A finding after the cap becomes an issue (`needs-triage`, "found after the cap").
+   false statement a QS meets). A `web/**` PR also gets `ux-critic` (the walk, or the words-only gate). One message
+   per round: elapsed, what held, each finding with its score, failing scenario and fix direction; each fix with a
+   test that fails without it, and a committed check for a finding of 50 or more or a repeated class. A finding
+   after the cap becomes an issue (`needs-triage`, "found after the cap").
 6. **Land.** `uv run python -m scripts.land order` picks the order (engine PRs as their posting runs finish, the
    rest in the gaps); `scripts.land <PR>` needs a ledger PASS for the head, brings the branch up to date, waits for
-   CI, prints the status lines still owed and merges after `scripts.merge_ready`. Type each owed status yourself,
-   from the main checkout, from the independent gate's verdict, never the builder's:
-   `sudo -n -u vxkeys /usr/local/lib/vextrus/post-status <gate> <PR> <sha> …`, nothing else on the line. Engine
-   PRs: `scripts/real-drawings <PR> --no-post` first, read the table and the exports' states (`states.py`, beside
-   this file: states, times and error kinds, never text) under the accept rule (no failed stage gained; nothing
-   lost or changed without a judged reason; every gain judged real), then the posting run. Without the lander,
-   land by hand with the same steps; never `--admin`.
+   CI, prints the gates still owed and merges after `scripts.merge_ready`. The guard accepts only these exact
+   lines, typed by you in the main checkout. **design-gate**, from the independent gate's verdict, never the
+   builder's: `sudo -n -u vxkeys /usr/local/lib/vextrus/post-status design-gate <PR> <full sha> --passed <items>
+   --failed <items> --not-applicable <items>`, nothing else on the line; then `gh pr view <PR> --json
+   statusCheckRollup`. **real-drawings** is never typed through post-status: `scripts/real-drawings <PR> --no-post`
+   first, read the table and the exports' states (`states.py`, beside this file: states, times and error kinds,
+   never text) under the accept rule (no failed stage gained; nothing lost or changed without a judged reason;
+   every gain judged real), then `scripts/real-drawings <PR> --accept-if-clean` (it exits 3 and posts nothing if
+   not clean) or `scripts/real-drawings <PR> --accept "<judged reason, at most 100 characters>"`. Without the
+   lander, land by hand with the same steps; never `--admin`.
 7. **G1 walk.** After each merge wave, G1 walks `main` on the real sets, started detached and reporting through
    the event log. **The G1 rule:** never tell the owner "walk now" (or "ready for your walk") without a passing G1
    verdict on main's current product code; the walk-now Stop hook blocks the message otherwise.
@@ -62,17 +67,14 @@ sensible default can answer.
    check. Record them in the milestone issue before the next wave.
 
 ## Reading work: the scored loop
-Run the scorer on `main`'s export (`sudo -n -u vxkeys /usr/local/bin/vx-score <run id>`, the run of a committed
-head). One local agent per failing sheet loops change → `scripts/real-drawings <branch> --no-post` → score until
-its sheet passes or stops rising, then commits; its PR lands through steps 5 and 6. Held-out Sets are scored only in
-aggregate, at milestone gates. Every change to `scripts/real_drawings/` or `tools/scorer/` needs the owner's
-custody re-run first: batch those PRs and ask once.
+Score `main`'s export (`sudo -n -u vxkeys /usr/local/bin/vx-score <run id>`, a committed head's run). One local agent
+per failing sheet loops change → `scripts/real-drawings <branch> --no-post` → score until it passes or stops rising,
+then commits; it lands through steps 5 and 6. Held-out Sets are scored only in aggregate, at milestone gates. A change
+to `scripts/real_drawings/` or `tools/scorer/` needs the owner's custody re-run first: batch those PRs, ask once.
 
 ## Standing rules
 - Nothing from real drawings leaves `.private/`; reviewers never run the real-drawing check.
-- After each merge wave, adversary agents attack what merged, one surface each; a finding of 50 or more is re-run
-  by a `refuter` before you act on it.
+- After each merge wave, adversaries attack what merged, one surface each; a `refuter` re-runs each finding of 50+.
 - A builder BLOCKED on an acceptance test, with proof, is answered in minutes: its writer amends the test in an
   `acceptance:` commit on the branch, and the builder merges it.
-- After a reboot `/tmp` is gone and subagents are lost: read each one's `NOTES.txt`, re-launch fresh agents on the
-  earlier reports, and re-check every branch head.
+- After a reboot `/tmp` and subagents are gone: re-launch fresh agents from their `NOTES.txt`; re-check every head.

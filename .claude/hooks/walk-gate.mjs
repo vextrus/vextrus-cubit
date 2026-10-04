@@ -47,7 +47,10 @@ function verdict() {
   if (!existsSync(join(project, "scripts/walk/ready.py"))) {
     return "G1 is not installed (scripts/walk/ready.py is absent), so no walk can be offered. Do not ask the owner to walk; say what is unproven instead.";
   }
-  const python = process.env.VEXTRUS_PYTHON || "python3";
+  // The project's own interpreter (the venv `uv sync` made, Python 3.14), not the system's; never `uv run`, whose
+  // sync could outlast the hook's timeout.
+  const venv = join(project, ".venv/bin/python");
+  const python = process.env.VEXTRUS_PYTHON || (existsSync(venv) ? venv : "python3");
   const cap = Math.max(500, Math.min(12_000, deadline - Date.now()));
   const ready = spawnSync(python, ["-m", "scripts.walk.ready", "origin/main"], { cwd: project, stdio: "ignore", timeout: cap, killSignal: "SIGKILL" });
   if (ready.status === 0) return null;

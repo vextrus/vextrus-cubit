@@ -58,7 +58,10 @@ try {
     if (!watcherAlive(before)) {
       mkdirSync(folder, { recursive: true });
       const out = openSync(join(folder, "watch.out"), "a");
-      const python = process.env.VEXTRUS_PYTHON || "python3";
+      // The project's own interpreter (the venv `uv sync` made), not the system's; never `uv run`, whose sync
+      // could outlast the hook's timeout.
+      const venv = join(project, ".venv/bin/python");
+      const python = process.env.VEXTRUS_PYTHON || (existsSync(venv) ? venv : "python3");
       const child = spawn(python, ["scripts/factory/watch.py"], { cwd: project, detached: true, stdio: ["ignore", out, out] });
       child.on("error", () => {});
       child.unref();

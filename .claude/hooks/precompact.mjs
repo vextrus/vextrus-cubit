@@ -49,14 +49,22 @@ function budgetLines(session) {
 function openRounds() {
   const folder = join(factory, "ledger");
   const names = attempt(() => readdirSync(folder).filter((name) => name.endsWith(".json")).sort(), []);
-  const open = [];
+  // Only each PR's newest record counts (by recorded_at, then round): a later PASS closes an earlier FIX.
+  const newest = new Map();
+  const order = (record) => [isTime(record.recorded_at) ? Date.parse(record.recorded_at) : 0, Number.isInteger(record.round) ? record.round : 0];
   for (const name of names) {
     const record = readJson(join(folder, name));
-    if (!isObject(record) || record.verdict === "PASS") continue;
-    if (!Number.isInteger(record.pr) || typeof record.verdict !== "string") continue;
-    const head = typeof record.head === "string" ? record.head.slice(0, 7) : "?";
-    open.push(`- #${record.pr} at ${head}: round ${record.round ?? "?"}, ${record.verdict.slice(0, 20)}`);
+    if (!isObject(record) || !Number.isInteger(record.pr) || typeof record.verdict !== "string") continue;
+    const held = newest.get(record.pr);
+    const [time, round] = order(record);
+    if (held === undefined || time > order(held)[0] || (time === order(held)[0] && round >= order(held)[1])) newest.set(record.pr, record);
   }
+  const open = [...newest.values()]
+    .filter((record) => record.verdict !== "PASS")
+    .map((record) => {
+      const head = typeof record.head === "string" ? record.head.slice(0, 7) : "?";
+      return `- #${record.pr} at ${head}: round ${record.round ?? "?"}, ${record.verdict.slice(0, 20)}`;
+    });
   return open.length > 0 ? open : ["- none"];
 }
 

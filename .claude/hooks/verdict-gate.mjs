@@ -3,8 +3,14 @@
 // `pr-reviewer` ends `VERDICT: PASS|FIX|BLOCK at <40-hex sha>` (review-verdict.schema.json), `refuter` with
 // CONFIRMED, REFUTED or UNPROVEN, `acceptance-writer` with both counts (trailers.md 3). A report missing its line is
 // sent back once (stop_hook_active lets the second stop through). Every other agent, and any input this hook
-// cannot read, passes. The report is `last_assistant_message`, or `tool_input.message` for a handback report.
-import { readFileSync } from "node:fs";
+// cannot read, passes. The verdict line is the report's LAST non-empty line, as f4's agents write it (spec §3.3).
+// The report is the one the agent handed back: a subagent that reports through the SubagentHandback tool leaves only
+// its closing text in `last_assistant_message`, so the handback's `input.message` is read from the end of the agent's
+// transcript (`agent_transcript_path`, its last 2 MB). Without a handback, `last_assistant_message` is the report;
+// `tool_input.message` is the last fallback.
+import { closeSync, openSync, readFileSync, readSync, statSync } from "node:fs";
+
+const TRANSCRIPT_TAIL = 2 * 1024 * 1024;
 
 const REVIEWER_LINE = "VERDICT: PASS|FIX|BLOCK at <40-hex sha>";
 
@@ -36,12 +42,50 @@ const RULES = {
   },
 };
 
+/** The `input.message` of the transcript's last SubagentHandback call, or null. */
+function handedBack(path) {
+  if (typeof path !== "string" || path === "") return null;
+  let text;
+  let fd;
+  try {
+    fd = openSync(path, "r");
+    const size = statSync(path).size;
+    const start = Math.max(0, size - TRANSCRIPT_TAIL);
+    const buffer = Buffer.alloc(size - start);
+    readSync(fd, buffer, 0, buffer.length, start);
+    text = buffer.toString("utf8");
+    if (start > 0) text = text.slice(text.indexOf("\n") + 1); // Drop the line the cut began inside.
+  } catch {
+    return null;
+  } finally {
+    if (fd !== undefined) closeSync(fd);
+  }
+  let found = null;
+  for (const line of text.split("\n")) {
+    if (!line.includes("SubagentHandback")) continue;
+    let entry;
+    try {
+      entry = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    const message = entry?.message;
+    if (entry?.type !== "assistant" || !Array.isArray(message?.content)) continue;
+    for (const part of message.content) {
+      if (part?.type === "tool_use" && part.name === "SubagentHandback" && typeof part.input?.message === "string") found = part.input.message;
+    }
+  }
+  return found;
+}
+
 function verdict() {
   const event = JSON.parse(readFileSync(0, "utf8"));
   if (event === null || typeof event !== "object" || event.stop_hook_active === true) return null;
   const rule = Object.hasOwn(RULES, event.agent_type) ? RULES[event.agent_type] : null;
   if (rule === null) return null;
-  const report = typeof event.last_assistant_message === "string" ? event.last_assistant_message : event.tool_input?.message;
+  const report =
+    handedBack(event.agent_transcript_path) ??
+    (typeof event.last_assistant_message === "string" ? event.last_assistant_message : event.tool_input?.message);
   return typeof report === "string" ? rule(report) : null;
 }
 
