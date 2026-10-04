@@ -1,5 +1,9 @@
 # Milestones are proven on Held-out Sets, checked for regression on Development Sets, and measured against a Hand Takeoff
 
+**Amended by ADR 0042** (4 Oct 2026; the owner's Q7 ruling): cloud sessions may read the two Development Sets, through
+a private repository and a separate cloud environment; nothing from them is ever committed to this repository or put
+in an issue or a PR, and Held-out Sets stay local.
+
 A milestone is done only when its finish line passes in the running product, walked by the owner and
 the team:
 - **On the Development Sets** (the Sample Project and the Edison set), which build sessions read and

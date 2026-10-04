@@ -32,7 +32,7 @@ orchestrator adds it to the owner's list to delete in claude.ai/code (O8).
 `prompt-leak`, `leakscan-unavailable`, `bundled`, `wrong-repository`, `wrong-revision`, `no-git-source`,
 `no-session`, `branch-not-rd` (a `--drawings` launch on a branch not starting `rd/`), `duplicate-name` (local),
 `merge-conflict` (local, carried branch), `no-preflight` (before f3: neither `--preflight` nor governor),
-`send-failed` (`say`: the CLI did not return `ok: true`). The list is closed: a new code is added here first.
+`send-failed` (`say`: the CLI did not return `ok: true`), `governor` (exit 3: the governor refused the unit). The list is closed: a new code is added here first.
 
 ## 2. `launch cloud`
 
