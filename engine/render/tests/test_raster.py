@@ -103,11 +103,11 @@ def test_a_scale_that_would_exhaust_memory_is_refused_before_any_memory_is_taken
 
 def test_the_harness_reads_its_counts() -> None:
     from engine.export import to_json
-    from engine.harness import _counts
+    from engine.harness import counts_of
 
     drawing = Drawing()
     drawing.line((0, 10), (100, 10), lineweight=50)
-    counts = _counts(to_json(rasterise(_sheet(drawing), 1.0)))
+    counts = counts_of(to_json(rasterise(_sheet(drawing), 1.0)))
     assert counts is not None
     assert counts["ink_px"] > 0
 

@@ -1,11 +1,11 @@
-"""`scripts/real-drawings <PR number | branch | main> [--no-post] [--fresh] [--job]`: the real-drawing
-check, regression only (the M0 plan, "The real-drawing check", steps 1-7; ADRs 0026 and 0030 as amended
-in session 02).
+"""`scripts/real-drawings <PR number | branch | main> [--no-post] [--fresh] [--harness]`: the
+real-drawing check, regression only (the M0 plan, "The real-drawing check", steps 1-7; ADRs 0026 and
+0030 as amended in session 02).
 
 Run from the owner's checkout of main. It measures the head: the engine paths' files into a scratch
-checkout, the refusals, the locked wheels fetched by hash, the install and the harness inside the
-sandbox, the exports taken out link-free and checked against main's schema (or, when the head changes
-the schema, against its own, which the run says so the diff is read). It measures main the same
+checkout, the refusals, the locked wheels fetched by hash, the install and the product's job inside
+the sandbox, the exports taken out link-free and checked against main's schema (or, when the head
+changes the schema, against its own, which the run says so the diff is read). It measures main the same
 way when main's code hash is not cached, and diffs each Development Set's export against main's under
 the fixed matching, printing the counts gained, lost and changed per measure; the item list, which
 holds drawing text, stays under the owner's cache. Exports are cached by (code hash, the sandbox's
@@ -31,13 +31,14 @@ code hash is not main's (it changes the engine's reading) that the scorer could 
 nothing and exits 3. Before then, a posting run runs as the owner's user and says it is not scored,
 and `--score` is refused.
 
-`--job` (21a; off by default until 21d) reads the head with the product's read job instead of the
-engine harness, against a throwaway PostgreSQL 18 cluster inside the sandbox (`sandbox.py`), its export
-from the job's export entry point; main is read with the harness as before, so the run diffs the job
-against the last harness run (the review R2). A job's exports are cached apart from the harness's,
-never one for the other. Until 21d makes it the default (the owner's ruling of 30 Sep 2026: the
-harness stays the default until the job's export fills its gaps), `--job` is refused with `--score`
-and on a posting run: a job run is never scored or posted.
+**The product's read job reads both runs** (21a's `--job` mode, the default since 21d: the owner's
+ruling of 30 Sep 2026 kept the harness the default until the job's export filled what the harness's
+gave, which 21d's export does): against a throwaway PostgreSQL 18 cluster inside the sandbox
+(`sandbox.py`), its export from the job's export entry point. A job's exports are cached apart from
+the harness's, never one for the other. `--harness` reads both runs with the engine harness instead,
+the way back, with `--no-post` on a branch or main only: a posting or scored run reads with the job
+and takes neither flag (the installed copy, `runner.py`, is handed the command line as typed and
+knows neither); `--job`, the default, is still taken elsewhere for older command lines.
 """
 
 import argparse
@@ -124,9 +125,9 @@ class Machine:
     sandbox_version: str = SANDBOX_VERSION
 
 
-JOB_REFUSED = (
-    "--job is never scored or posted until 21d makes it the default: run it with --no-post, on a"
-    " branch or main, without --score"
+HARNESS_REFUSED = (
+    "--harness is never scored or posted (a posting or scored run reads with the product's job):"
+    " run it with --no-post, on a branch or main, without --score"
 )
 
 
@@ -143,11 +144,18 @@ def main(argv: list[str] | None = None) -> int:
         help="a scored run of a branch or main (main's baseline): the pipeline's user reads it and"
         " writes the run's folder, and the blind scorer scores it; nothing is posted",
     )
-    parser.add_argument(
+    reader = parser.add_mutually_exclusive_group()
+    reader.add_argument(
         "--job",
         action="store_true",
-        help="read the head with the product's read job against a throwaway PostgreSQL inside the"
-        " sandbox, not the engine harness (main is read with the harness); off until 21d",
+        help="read with the product's read job against a throwaway PostgreSQL inside the sandbox:"
+        " the default since 21d (taken for older command lines)",
+    )
+    reader.add_argument(
+        "--harness",
+        action="store_true",
+        help="read the head and main with the engine harness, not the product's job (the way back;"
+        " never scored or posted)",
     )
     how = parser.add_mutually_exclusive_group()
     how.add_argument(
@@ -165,8 +173,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.score and (args.no_post or args.target.isdigit()):
         parser.error("--score is a scored run of a branch or main (a PR's posting run is scored anyway)")
-    if args.job and (args.score or (args.target.isdigit() and not args.no_post)):
-        parser.error(JOB_REFUSED)
+    scored_or_posting = args.score or (args.target.isdigit() and not args.no_post)
+    if args.harness and scored_or_posting:
+        parser.error(HARNESS_REFUSED)
+    if args.job and scored_or_posting:  # the installed copy (runner.py) takes no reader's flag
+        parser.error("--job is the default: a posting or scored run takes no reader's flag")
     machine = owners_machine()
     try:
         if args.score or (args.target.isdigit() and not args.no_post):
@@ -191,7 +202,7 @@ def main(argv: list[str] | None = None) -> int:
             fresh=args.fresh,
             accept=args.accept,
             accept_if_clean=args.accept_if_clean,
-            job=args.job,
+            job=not args.harness,
         )
     except Refused as refused:
         print(f"real-drawings: refused: {refused}", file=sys.stderr)
@@ -228,13 +239,13 @@ def run(
     fresh: bool = False,
     accept: str | None = None,
     accept_if_clean: bool = False,
-    job: bool = False,
+    job: bool = True,
     score: bool = False,
 ) -> int:
     started = time.monotonic()
     posting = target.isdigit() and not no_post
-    if job and (score or posting):
-        raise Refused(JOB_REFUSED)
+    if not job and (score or posting):
+        raise Refused(HARNESS_REFUSED)
     with drop.posting_lock(m.drop) if posting else nullcontext():
         if posting and git(m.repo, "symbolic-ref", "--short", "HEAD").decode().strip() != MAIN:
             raise Refused("a posting run runs main's copy of the command: check out main first")
@@ -255,8 +266,10 @@ def run(
             m, head, main, work / "head", run_id, digests, fresh, job=job
         )
         main_hash, main_exports = head_hash, head_exports
-        if head.commit != base.commit or job:  # a job run is diffed against main's harness run
-            main_hash, main_exports, _ = measure(m, base, main, work / "main", run_id, digests, fresh)
+        if head.commit != base.commit:  # main is read the same way as the head
+            main_hash, main_exports, _ = measure(
+                m, base, main, work / "main", run_id, digests, fresh, job=job
+            )
         counts, items = report(m, main_exports, head_exports, head.commit == base.commit)
         head_failed = failed_text(head_exports)
         drop.write_new(work / "items.json", _json(items))  # holds drawing text: the owner's cache only
@@ -353,7 +366,7 @@ def measure(
     digests: Mapping[str, str],
     fresh: bool = False,
     *,
-    job: bool = False,
+    job: bool = True,
 ) -> tuple[str, dict[str, Path], bool]:
     """One commit's code hash and exports, and whether they came from the cache: they do when its code
     hash has read these sets before in the same sandbox (and mode) and no stage failed; `fresh` reads
@@ -376,7 +389,10 @@ def measure(
     if not python.exists():
         found.append(f"the head's Python is not installed: {python}")
     if job and not (sandbox.PG_BIN / "initdb").exists():
-        found.append(f"--job needs PostgreSQL 18's binaries: {sandbox.PG_BIN} has no initdb")
+        found.append(
+            f"the product's job needs PostgreSQL 18's binaries: {sandbox.PG_BIN} has no initdb"
+            " (--harness reads without them)"
+        )
     if found:
         raise Refused(f"{head.target}: " + "; ".join(found))
     shaped_by = f"{m.sandbox_version}-job" if job else m.sandbox_version

@@ -198,7 +198,7 @@ def test_the_report_counts_the_texts_whose_style_gave_their_height() -> None:
     """#82: a count, so the real-drawing check shows the style step at work (no message: nothing
     for a QS to do about it)."""
     from engine.export import to_json
-    from engine.harness import _counts
+    from engine.harness import counts_of
 
     drawing = Drawing()
     fixed = drawing.style("FIXED", fixed_height=3.7, font="romans.shx")
@@ -219,7 +219,7 @@ def test_the_report_counts_the_texts_whose_style_gave_their_height() -> None:
         "engine.font_report.summary",
         "engine.font_report.height_defaulted",
     ]
-    counts = _counts(to_json(found))
+    counts = counts_of(to_json(found))
     assert counts is not None
     assert counts["texts_height_from_style"] == 3
 
@@ -257,11 +257,11 @@ def test_a_style_named_like_a_path_with_fonts_named_like_urls_opens_nothing(
 
 def test_the_harness_reads_the_reports_counts() -> None:
     from engine.export import to_json
-    from engine.harness import _counts
+    from engine.harness import counts_of
 
     drawing = Drawing()
     drawing.text("A", font="romans.shx")
-    counts = _counts(to_json(fonts.report(drawing.artefact())))
+    counts = counts_of(to_json(fonts.report(drawing.artefact())))
     assert counts is not None
     assert counts["fonts_named"] == 1
 

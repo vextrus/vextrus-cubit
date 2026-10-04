@@ -83,3 +83,39 @@ def test_the_job_starts_in_the_checks_checkout_shape(tmp_path: Path) -> None:
 
     assert done.returncode == 0, done.stderr[-4000:]
     assert done.stdout.strip().endswith("started")
+
+
+def test_the_export_starts_as_the_sandbox_starts_it(tmp_path: Path) -> None:
+    """`python -m vextrus.takeoff.services.export` in a fresh interpreter, with no Django settings
+    named (the sandbox's cleared environment): its package imports nothing that needs Django set up,
+    so the run reaches the cluster, here a socket where none listens (21d: the first `--job` run on
+    the real sets ended at `ImproperlyConfigured` before reading anything)."""
+    checkout = tmp_path / "src"
+    _checkout(checkout)
+    env = {
+        key: value
+        for key, value in os.environ.items()
+        if key not in ("PYTHONPATH", "DJANGO_SETTINGS_MODULE", "DATABASE_URL")
+    }
+    socket = tmp_path / "no-cluster"
+    socket.mkdir()
+    out = tmp_path / "export.json"
+
+    done = subprocess.run(
+        [
+            *(sys.executable, "-m", "vextrus.takeoff.services.export", "--set", str(tmp_path)),
+            *("--out", str(out), "--database", str(socket)),
+        ],
+        cwd=checkout,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=300,
+        check=False,
+    )
+
+    assert done.returncode != 0
+    assert "ImproperlyConfigured" not in done.stderr, done.stderr[-4000:]
+    assert "AppRegistryNotReady" not in done.stderr, done.stderr[-4000:]
+    assert "psycopg.OperationalError" in done.stderr, done.stderr[-4000:]
+    assert not out.exists()
