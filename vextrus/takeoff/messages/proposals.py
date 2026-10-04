@@ -5,7 +5,8 @@ A sheet is named by `sheet` with `named`: `number` (its number), `title` (it has
 quoted) or `none` (neither: "this sheet").
 
 - `which_discipline`: a Question, which Discipline the sheet belongs to (it has none: #102).
-- `which_kind`: a Question, what kind of sheet it is (Jev is unsure; the kinds most likely first).
+- `which_kind`: a Question, what kind of sheet it is (Jev is unsure, #228: its top two close or the
+  title naming another kind; the kinds most likely first, its first picked).
 - `lists_disagree`: a Question, the drawing list read on the sheet and the one the QS gave (`source`:
   `pasted` or `typed`) differ.
 - `boundary_storey`: a Question, whether the range `range` on the sheet (its storeys as the drawing

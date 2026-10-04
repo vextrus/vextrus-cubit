@@ -147,6 +147,7 @@ export const SHEET_KIND_NAMES: Readonly<Record<string, MessageDescriptor>> = {
   beam_layout: msg`Beam layout`,
   beam_details: msg`Beam details`,
   slab_layout: msg`Slab layout`,
+  slab_details: msg`Slab details`,
   stair_details: msg`Stair details`,
   retaining_wall_details: msg`Retaining wall details`,
   tank_details: msg`Tank details`,

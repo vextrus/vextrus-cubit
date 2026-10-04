@@ -6,12 +6,14 @@ of a file's read job (21a's `files.read`), each kept once by `drawings`' StepSto
 
 **A read file's sheets** (those in the sheet list): each a Proposal of its own, with its Traces
 (where its number and title were read, else its place) and Jev's answer about its kind, asked with
-13's question (`engine.recognise.sheets.judgement`) through 15's `jev.ask_judgement`: proposed when
-Jev is sure (`jev.SHEET_TYPE.proposes`), else a `low_confidence` Question offering the kinds most
-likely first, none picked; with TypeSafe unavailable the kind is left to the QS, and nothing is
-asked. Each view a Proposal with its Traces, and its Coverage row (`step1.record_coverage`: to its
-Takeoff Steps and its Discipline Part, proposed out with a reason, or unaccounted). A sheet with no
-number is asked (`missing`), one with no Discipline asked which it is (`missing_discipline`, #102).
+13's question (`engine.recognise.sheets.judgement`) through 15's `jev.ask_judgement`: Jev's first
+choice is the proposed kind (#228, the owner's ruling "Propose Jev's top kind"), unless it is unsure
+(`unsure`: under `jev.SHEET_TYPE.proposes`, its top two close, or the sheet's title naming another
+kind), when a `low_confidence` Question offers the kinds most likely first, Jev's first picked; with
+TypeSafe unavailable the kind is left to the QS, and nothing is asked. Each view a Proposal with
+its Traces, and its Coverage row (`step1.record_coverage`: to its Takeoff Steps and its Discipline
+Part, proposed out with a reason, or unaccounted). A sheet with no number is asked (`missing`), one
+with no Discipline asked which it is (`missing_discipline`, #102).
 A sheet the read proposed out with no number (a cover, a stale layout: `step1.proposed_out`) is
 proposed and asked nothing (#162): it is no sheet of the set's, and the QS sees it proposed out.
 The sheets 21b left out for unreadable writing are counted (`unread`; Coverage's `unread_sheets`).
@@ -31,10 +33,13 @@ a sheet (13's register) kept per Discipline, and 19b's register Check run (`Chec
 (`step1.raise_question`).
 """
 
+import re
 import uuid
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import replace
 from typing import Any
+
+from django.conf import settings
 
 from engine.check import register as register_check
 from engine.messages import conflicts as conflict_codes
@@ -70,6 +75,9 @@ from vextrus.takeoff.services import step1
 
 KEEP_OPEN = "keep_open"
 """Every Question's last option (m0-screens §5: "Keep open, ask the consultant")."""
+GENERIC_KINDS = frozenset({"details", "other"})
+"""The kinds a title's words never name (`kinds_named`): "details" is in nearly every title, so it
+never contradicts a specific kind (`beam_details`), nor does "other"."""
 HELD_OPTIONS = ("read_anyway", "await_resaved", "sent_to_vextrus", KEEP_OPEN)
 SAME_NUMBER_OPTIONS = ("keep_latest", "keep_all", KEEP_OPEN)
 CONFLICT_OPTIONS = ("keep_all", KEEP_OPEN)
@@ -225,7 +233,7 @@ def _propose_sheet(
         candidate(sheet), [v.title for v in views if v.title], conventions=conventions
     )
     answer = jev.ask_judgement(request) if request is not None else None
-    sure = isinstance(answer, jev.Answer) and jev.SHEET_TYPE.proposes(answer)
+    sure = isinstance(answer, jev.Answer) and not unsure(answer, sheet.title)
     proposal_id = step1.propose_sheet(
         sheet.id,
         answer=answer if sure and isinstance(answer, jev.Answer) else None,
@@ -238,10 +246,40 @@ def _propose_sheet(
             said.WHICH_KIND(**named(sheet)),
             subject_id=sheet.id,
             discipline=sheet.discipline,
-            options=options([*answer.ranked(), KEEP_OPEN]),
+            options=[
+                {"key": key, "picked": at == 0} for at, key in enumerate([*answer.ranked(), KEEP_OPEN])
+            ],
             blocks=[proposal_id],
         )
     return proposal_id
+
+
+def unsure(answer: jev.Judgement, title: str) -> bool:
+    """Whether Jev's kind for a sheet is asked rather than proposed (#228): never when Jev is sure
+    (`jev.SHEET_TYPE.proposes`); else when its top two are close (its first's lead under
+    `VEXTRUS_JEV_SHEET_TYPE_CLOSE_BY`) or the title contradicts its first (`kinds_named` names
+    kinds offered, none of them its first)."""
+    if jev.SHEET_TYPE.proposes(answer):
+        return False
+    ranked = answer.ranked()
+    first = ranked[0]
+    if len(ranked) > 1:
+        lead = answer.probability(first) - answer.probability(ranked[1])
+        if lead < settings.VEXTRUS_JEV_SHEET_TYPE_CLOSE_BY:
+            return True
+    named = kinds_named(title, ranked)
+    return bool(named) and first not in named
+
+
+def kinds_named(title: str, kinds: Sequence[str]) -> list[str]:
+    """The kinds a sheet's title names word for word: each kind whose key's words ("column
+    schedule") stand together, whole, in the title ("TYPICAL COLUMN SCHEDULE"), case and
+    punctuation aside. Conservative: never a generic kind (`GENERIC_KINDS`), so a title's "details"
+    never names `details` against `beam_details`; "SLAB REINFORCEMENT" names no kind at all."""
+    said = f" {' '.join(re.findall(r'[^\W_]+', title.casefold()))} "
+    return [
+        kind for kind in kinds if kind not in GENERIC_KINDS and f" {' '.join(kind.split('_'))} " in said
+    ]
 
 
 def _sheet_traces(sheet: drawings.SheetView) -> list[tuple[str, dict[str, Any]]]:
