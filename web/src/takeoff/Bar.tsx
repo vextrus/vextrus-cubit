@@ -244,7 +244,7 @@ export function useBar(c: BarContext): BarSpec | null {
             <Trans>{Name} agrees: number and title from the title block, in numbering without a gap, and its Plot page matches</Trans>
           )
         ) : (
-          <Trans>{Name} has one source: number and title from its title block</Trans>
+          <OneSourceWhat sheet={sheet} name={Name} />
         ),
         why: agrees ? (
           <Trans>Enter confirms it and opens the next open sheet.</Trans>
@@ -259,7 +259,7 @@ export function useBar(c: BarContext): BarSpec | null {
     }
     if (sheet && !row.sheets.every((s) => s.agrees) && !sheet.proposed_exclusion) {
       return {
-        what: <Trans>{Name} has one source: number and title from its title block</Trans>,
+        what: <OneSourceWhat sheet={sheet} name={Name} />,
         why: (
           <>
             <OneSourceWhy sheet={sheet} model={model} /> <Trans>Open it to confirm it.</Trans>
@@ -339,6 +339,12 @@ export function Bar({ spec }: { spec: BarSpec }) {
       ) : null}
     </div>
   )
+}
+
+/** "S-07 has one source: …"; a sheet with neither number nor title has neither to read (#167's words gate, M5). */
+function OneSourceWhat({ sheet, name }: { sheet: ProposalOut | undefined; name: ReactNode }) {
+  if (sheet && !sheet.number && !sheet.title.trim()) return <Trans>{name} has one source: its title block, with no number or title</Trans>
+  return <Trans>{name} has one source: number and title from its title block</Trans>
 }
 
 /** The picker the bar becomes on X: seven reasons, keys 1–7; 8, 9 and 0 do nothing while it is open. */
