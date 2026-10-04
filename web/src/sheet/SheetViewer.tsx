@@ -48,7 +48,10 @@ export interface SheetViewerProps {
   labelInToolbar?: boolean
   /** CAD-dark: the #101318 ground and AutoCAD's colours; else Paper (4.6). */
   dark?: boolean
-  /** As read (default), Plot or Compare (4.6, "The Plot"): Plot and Compare need `plot`, else the read drawing shows. */
+  /**
+   * As read (default), Plot or Compare (4.6, "The Plot"). Until `plot` comes, Plot shows the read
+   * drawing, and Compare what was read in its colour over nothing.
+   */
   layer?: SheetLayer
   /** The sheet's Plot page, drawn, and its registration. */
   plot?: SheetPlot | null
@@ -145,7 +148,7 @@ export function SheetViewer({
             onSelect={onSelect}
             legend={legend}
             dark={dark}
-            layer={plot ? layer : 'read'}
+            layer={plot || layer === 'compare' ? layer : 'read'}
             plot={plot}
             notes={notes}
             status={status}
@@ -246,7 +249,7 @@ function SheetCanvas({
       const v = view.current
       if (!r || !v || !areaRef.current) return
       const now = look.current
-      if (plotRef.current) drawPlot(plotRef.current, v, now.layer === 'read' ? null : now.plot, now.dark)
+      if (plotRef.current) drawPlot(plotRef.current, v, now.layer === 'read' ? null : now.plot, now.dark, now.layer === 'compare')
       try {
         r.draw(sheet, v, { greekBelowPx: GREEK_BELOW_PX * (window.devicePixelRatio || 1), greekInk: greekInk(areaRef.current), palette: now.palette })
       } catch {
@@ -501,12 +504,19 @@ function SheetCanvas({
  * The Plot page on its own canvas beneath the drawing, registered to the view: on Paper as printed;
  * on CAD-dark inverted, its white paper the #101318 ground (4.6, "Compare").
  */
-function drawPlot(canvas: HTMLCanvasElement, view: ViewTransform, plot: SheetPlot | null, dark: boolean) {
+function drawPlot(canvas: HTMLCanvasElement, view: ViewTransform, plot: SheetPlot | null, dark: boolean, compare: boolean) {
   const ctx = canvas.getContext('2d')
   if (!ctx) return
   ctx.setTransform(1, 0, 0, 1, 0, 0)
   ctx.clearRect(0, 0, canvas.width, canvas.height)
-  if (!plot) return
+  if (!plot) {
+    // Compare before its Plot comes: what was read over a bare ground (its page to follow).
+    if (compare) {
+      ctx.fillStyle = dark ? CAD_DARK_HEX : '#ffffff'
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+    }
+    return
+  }
   const { image } = plot.picture
   ctx.setTransform(...plotMatrix(view, plot.transform, plot.picture))
   ctx.imageSmoothingEnabled = true

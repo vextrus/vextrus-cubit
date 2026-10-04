@@ -95,6 +95,34 @@ describe('the Plot beneath the sheet', () => {
   })
 })
 
+describe('Compare before its Plot comes', () => {
+  it('draws what was read in red at once, with "Loading the Plot…", while the PDF has not come', async () => {
+    await open((_, api) => {
+      const base = api.handle
+      api.handle = async (request: Request) => {
+        if (new URL(request.url, location.origin).pathname.endsWith('/pdf')) return new Promise<Response>(() => {})
+        return base(request)
+      }
+    })
+    await userEvent.click(screen.getByRole('button', { name: 'Compare' }))
+    await waitFor(() => expect(bodyText()).toContain('Loading the Plot…'))
+    expect(pressed('Compare')).toBe('true')
+    // The drawing's canvas, read back: its linework in #D0342C at 55 % on white.
+    await waitFor(() => {
+      const gl = document.querySelector<HTMLCanvasElement>('[role="group"][aria-label^="Sheet"] canvas:not([data-plot])')!
+      const copy = document.createElement('canvas')
+      copy.width = gl.width
+      copy.height = gl.height
+      const ctx = copy.getContext('2d', { willReadFrequently: true })!
+      ctx.drawImage(gl, 0, 0)
+      const px = ctx.getImageData(0, 0, copy.width, copy.height).data
+      let red = 0
+      for (let i = 0; i < px.length; i += 4) if (px[i + 3]! > 0 && px[i]! > 200 && px[i]! - px[i + 1]! > 50 && px[i]! - px[i + 2]! > 50) red++
+      expect(red, 'red linework').toBeGreaterThan(50)
+    })
+  })
+})
+
 describe('the look while paging (the orchestrator’s rulings)', () => {
   it('keeps CAD-dark, and keeps Plot: As read with the no-Plot note on a sheet without one, Plot again after', async () => {
     await open((p) => {
