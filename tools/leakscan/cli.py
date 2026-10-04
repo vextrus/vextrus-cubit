@@ -30,35 +30,36 @@ class _Parser(argparse.ArgumentParser):
 
 
 def _parser() -> argparse.ArgumentParser:
-    common = _Parser(add_help=False)
+    common = _Parser(add_help=False, allow_abbrev=False)
     common.add_argument("--quiet", action="store_true")
     common.add_argument("--json", action="store_true")
     parser = _Parser(
+        allow_abbrev=False,
         prog="python -m tools.leakscan",
         description="The leak scan: prints locations and counts, never text.",
     )
     commands = parser.add_subparsers(dest="command", required=True, parser_class=_Parser)
-    build = commands.add_parser("build", parents=[common])
+    build = commands.add_parser("build", parents=[common], allow_abbrev=False)
     build.add_argument("--source", action="append", type=Path, default=[])
-    ranged = commands.add_parser("range", parents=[common])
+    ranged = commands.add_parser("range", parents=[common], allow_abbrev=False)
     ranged.add_argument("span")
     ranged.add_argument("--ref")
     ranged.add_argument("--no-stamp", action="store_true")
-    body = commands.add_parser("file", parents=[common])
+    body = commands.add_parser("file", parents=[common], allow_abbrev=False)
     body.add_argument("path", type=Path)
     body.add_argument("--no-stamp", action="store_true")
-    text = commands.add_parser("text", parents=[common])
+    text = commands.add_parser("text", parents=[common], allow_abbrev=False)
     text.add_argument("--stdin", action="store_true", required=True)
     text.add_argument("--no-stamp", action="store_true")
-    pr = commands.add_parser("pr", parents=[common])
+    pr = commands.add_parser("pr", parents=[common], allow_abbrev=False)
     pr.add_argument("number", type=int)
-    folder = commands.add_parser("dir", parents=[common])
+    folder = commands.add_parser("dir", parents=[common], allow_abbrev=False)
     folder.add_argument("path", type=Path)
-    bodies = commands.add_parser("bodies", parents=[common])
+    bodies = commands.add_parser("bodies", parents=[common], allow_abbrev=False)
     bodies.add_argument("--since", required=True)
-    allow = commands.add_parser("allow", parents=[common])
+    allow = commands.add_parser("allow", parents=[common], allow_abbrev=False)
     allow.add_argument("locations", nargs="+")
-    verify = commands.add_parser("verify-stamp", parents=[common])
+    verify = commands.add_parser("verify-stamp", parents=[common], allow_abbrev=False)
     verify.add_argument("name")
     return parser
 

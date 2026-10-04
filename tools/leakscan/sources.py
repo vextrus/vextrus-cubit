@@ -78,7 +78,7 @@ def _tracked(checkout: Path) -> set[Path]:
     return {checkout / raw.decode("utf-8", "surrogateescape") for raw in done.stdout.split(b"\0") if raw}
 
 
-def _under(folder: Path, suffixes: set[str]) -> Iterator[Path]:
+def _under(folder: Path, suffixes: set[str], skipped: frozenset[Path] = frozenset()) -> Iterator[Path]:
     """Files under `folder` with one of `suffixes`, in a fixed order, streamed (the tree is large)."""
     leak_home = home().resolve()
     public: set[Path] = set()
@@ -90,6 +90,7 @@ def _under(folder: Path, suffixes: set[str]) -> Iterator[Path]:
             name
             for name in folders
             if name not in SKIPPED_FOLDERS
+            and (here / name) not in skipped
             and (here / name).resolve() != leak_home
             and not (here / name).is_symlink()
         )
@@ -151,6 +152,23 @@ def _note_strings(path: Path) -> Iterator[str]:
     return (value for value in _file_strings(path) if drawing_like(value.strip()))
 
 
+def walk_skips(walks: Path) -> frozenset[Path]:
+    """The walk folders that hold no drawing text: f5's serving worktree (`walks/_src`), and each walk's
+    `public/` (what is published) and `logs/`. A walk's own words (check ids, defect classes, screens)
+    would otherwise enter the corpus and refuse the next walk's drafts (PR #293's review)."""
+    skipped = {walks / "_src"}
+    if walks.is_dir():
+        for walk in walks.iterdir():
+            skipped |= {walk / "public", walk / "logs"}
+    return frozenset(skipped)
+
+
+def walk_strings(walks: Path) -> Iterator[str]:
+    """The walk source: drawing-like strings of a walk's own files (the notes' filter), skips applied."""
+    for path in _under(walks, TEXT_SUFFIXES | {".json"}, walk_skips(walks)):
+        yield from _note_strings(path)
+
+
 def real_sources(counts: dict[str, int]) -> Iterator[str]:
     """The local sources, in a fixed order; `counts` gets each source's number of strings read."""
     main = main_checkout()
@@ -176,10 +194,11 @@ def real_sources(counts: dict[str, int]) -> Iterator[str]:
     if exports.is_dir():
         yield from each("exports", _under(exports, {".json"}), _file_strings)
     walks = work / "walks"
+    skipped = walk_skips(walks)
     if walks.is_dir():
-        yield from each("walks", _under(walks, TEXT_SUFFIXES | {".json"}), _file_strings)
+        yield from each("walks", _under(walks, TEXT_SUFFIXES | {".json"}, skipped), _note_strings)
     if work.is_dir():
-        yield from each("notes", _under(work, {".md"}), _note_strings)
+        yield from each("notes", _under(work, {".md"}, skipped), _note_strings)
 
 
 def normalised(values: Iterator[str]) -> Iterator[str]:

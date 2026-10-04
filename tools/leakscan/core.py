@@ -120,7 +120,9 @@ class Corpus:
         self.sha256 = hashlib.sha256(data).hexdigest()
         allowed = allowlist()
         self._by_prefix: dict[str, list[str]] = {}
+        self.strings = 0
         for value in data.decode("utf-8").splitlines():
+            self.strings += keeps(value)
             if keeps(value) and digest(value) not in allowed:
                 self._by_prefix.setdefault(value[:MIN_LENGTH], []).append(value)
 
@@ -133,9 +135,13 @@ class Corpus:
         except OSError:
             raise CannotScan("corpus-unreadable") from None
         try:
-            return cls(data)
+            corpus = cls(data)
         except UnicodeDecodeError:
             raise CannotScan("corpus-unreadable") from None
+        if corpus.strings == 0:
+            # An empty corpus makes every scan clean: it is refused, never trusted.
+            raise CannotScan("corpus-unreadable")
+        return corpus
 
     def found(self, text: str) -> set[str]:
         """The corpus strings `text` contains, after normalisation. Never print what this returns."""

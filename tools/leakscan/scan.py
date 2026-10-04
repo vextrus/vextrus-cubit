@@ -4,9 +4,14 @@ A hit is a location and a count; the text is never kept beyond the test for it. 
 `gh` (reads only).
 """
 
+import contextlib
+import gzip
+import io
 import json
 import re
 import subprocess
+import zipfile
+import zlib
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -15,7 +20,13 @@ from typing import Any
 from tools.leakscan.core import CannotScan, Corpus, git
 
 _GH_FAILED = (OSError, subprocess.TimeoutExpired)
-_HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
+_HUNK = re.compile(r"^@@+ -\d+(?:,\d+)?(?: -\d+(?:,\d+)?)* \+(\d+)(?:,\d+)? @@")
+# What a wrapped line may start with: indentation, comment and list markers, quotes.
+_PREFIX = re.compile(r"""^\s*(?:(?:#+|//+|--+|/\*+|\*+|<!--|;+|%+|>+|[-+*•]|\d+[.)]|["'`])\s*)*""")
+_ZERO = "0" * 40
+_INFLATE_ERRORS = (OSError, EOFError, zlib.error)
+_ZIP_ERRORS = (OSError, zipfile.BadZipFile, RuntimeError, ValueError, EOFError, zlib.error)
+MAX_BLOB = 64 * 1024 * 1024
 
 
 @dataclass
@@ -31,6 +42,22 @@ class Result:
         if count:
             self.hits.append((where, count))
         return count
+
+    def block(self, corpus: Corpus, rows: list[tuple[str, int, str]]) -> None:
+        """Lines of one file in order, `(where, line number, text)`. Each pair of adjacent lines is also
+        tested joined, comment and list markers dropped, so a string wrapped over two lines is found; a
+        string found only that way counts at the first line."""
+        found = [corpus.found(text) for _, _, text in rows]
+        extra: list[set[str]] = [set() for _ in rows]
+        for i in range(len(rows) - 1):
+            if rows[i + 1][1] == rows[i][1] + 1:
+                joined = f"{_PREFIX.sub('', rows[i][2])} {_PREFIX.sub('', rows[i + 1][2])}"
+                extra[i] = corpus.found(joined) - found[i] - found[i + 1]
+        for (where, _, _), own, more in zip(rows, found, extra, strict=True):
+            self.scanned += 1
+            count = len(own | more)
+            if count:
+                self.hits.append((where, count))
 
     @property
     def total(self) -> int:
@@ -51,19 +78,24 @@ def _unquote(path: str) -> str:
 
 
 def added_lines(diff: str) -> Iterator[tuple[str, int, str]]:
-    """`(path, line number in the new file, text)` for every added line of a unified diff."""
+    """`(path, line number in the new file, text)` for every added line of a unified diff.
+
+    File headers (`--- `, `+++ `) are read only between a `diff ` line and the file's first hunk, so an
+    added line that itself starts `++ ` is content, never a path."""
     path = ""
     line = 0
+    header = False
     for row in diff.split("\n"):
-        if row.startswith("diff --git "):
-            path, line = "", 0
-        elif row.startswith("+++ "):
-            target = row[4:]
-            path = "" if target == "/dev/null" else _unquote(target)
-            if path.startswith("b/"):
-                path = path[2:]
-            elif path.startswith('"b/'):
-                path = _unquote(path)[2:]
+        if row.startswith(("diff --git ", "diff --cc ", "diff --combined ")):
+            path, line, header = "", 0, True
+        elif header:
+            if row.startswith("+++ "):
+                target = _unquote(row[4:])
+                path = "" if target == "/dev/null" else target[2:] if target.startswith("b/") else target
+            elif row.startswith("@@"):
+                header = False
+                match = _HUNK.match(row)
+                line = int(match[1]) if match else 0
         elif row.startswith("@@"):
             match = _HUNK.match(row)
             line = int(match[1]) if match else 0
@@ -75,17 +107,64 @@ def added_lines(diff: str) -> Iterator[tuple[str, int, str]]:
 
 
 def scan_diff(corpus: Corpus, result: Result, diff: str, names: list[str]) -> None:
-    """Added lines by `<path>:<line>`, or `name:<i>:<line>` where the path holds a corpus string."""
+    """Added lines by `<path>:<line>`; `name:<i>:<line>` where the path holds a corpus string, and
+    `unknown:<line>` for a path git's name list does not hold (a path is printed only from that list)."""
     named = {name: i for i, name in enumerate(names)}
     matched = {name for name in names if corpus.count(name)}
+    rows: dict[str, list[tuple[str, int, str]]] = {}
     for path, number, text in added_lines(diff):
-        where = f"name:{named.get(path, 0)}:{number}" if path in matched else f"{path}:{number}"
-        result.test(corpus, where, text)
+        if path not in named:
+            where = f"unknown:{number}"
+        elif path in matched:
+            where = f"name:{named[path]}:{number}"
+        else:
+            where = f"{path}:{number}"
+        rows.setdefault(path, []).append((where, number, text))
+    for block in rows.values():
+        result.block(corpus, block)
+
+
+def blob_texts(data: bytes, depth: int = 0) -> list[str]:
+    """The text a binary blob may hold: UTF-16 decoded, gzip and zip members opened, PDF streams
+    inflated, and printable runs of 8 or more characters (ASCII and UTF-16LE), as `strings` does."""
+    texts: list[str] = []
+    if depth > 2:
+        return texts
+    if data.startswith(b"\x1f\x8b"):
+        with contextlib.suppress(*_INFLATE_ERRORS):
+            texts += blob_texts(gzip.decompress(data)[:MAX_BLOB], depth + 1)
+    if data.startswith(b"PK\x03\x04"):
+        with contextlib.suppress(*_ZIP_ERRORS), zipfile.ZipFile(io.BytesIO(data)) as archive:
+            for member in archive.infolist()[:2000]:
+                texts.append(member.filename)
+                if member.file_size <= MAX_BLOB:
+                    texts += blob_texts(archive.read(member), depth + 1)
+    if data.startswith(b"%PDF"):
+        for stream in re.findall(rb"stream\r?\n(.*?)endstream", data, re.DOTALL)[:20000]:
+            try:
+                texts += blob_texts(zlib.decompress(stream)[:MAX_BLOB], depth + 1)
+            except zlib.error:
+                continue
+    if data[:2] in (b"\xff\xfe", b"\xfe\xff"):
+        texts += data.decode("utf-16", "replace").split("\n")
+    elif len(data) >= 4 and data[1::2].count(0) > len(data) // 4:
+        texts += data.decode("utf-16-le", "replace").split("\n")
+    if b"\0" not in data:
+        texts += data.decode("utf-8", "replace").split("\n")
+    texts += [run.decode("ascii") for run in re.findall(rb"[\x20-\x7e\t]{8,}", data)]
+    texts += [run.decode("utf-16-le") for run in re.findall(rb"(?:[\x20-\x7e]\x00){8,}", data)]
+    return texts
+
+
+def scan_blob(corpus: Corpus, result: Result, where: str, data: bytes) -> None:
+    """A binary blob's text, by `<where>:<n>` (n counts the texts found in it)."""
+    texts = blob_texts(data)
+    result.block(corpus, [(f"{where}:{n}", 0, text) for n, text in enumerate(texts, start=1)])
 
 
 def scan_message(corpus: Corpus, result: Result, sha: str, message: str) -> None:
-    for number, text in enumerate(message.split("\n"), start=1):
-        result.test(corpus, f"commit:{sha[:12]}:{number}", text)
+    rows = [(f"commit:{sha[:12]}:{n}", n, text) for n, text in enumerate(message.split("\n"), start=1)]
+    result.block(corpus, rows)
 
 
 def scan_names(corpus: Corpus, result: Result, names: list[str]) -> None:
@@ -102,33 +181,66 @@ def resolve(repo: Path, revision: str) -> str:
     return done.stdout.strip()
 
 
-def scan_range(corpus: Corpus, repo: Path, base: str, head: str, ref: str | None) -> Result:
-    """A push range: its added lines, its commit messages, its changed file names and the ref name."""
-    result = Result()
-    diff = git(
-        repo,
-        "-c",
-        "core.quotePath=false",
-        "diff",
-        "--no-color",
-        "--no-ext-diff",
-        "--unified=0",
-        f"{base}..{head}",
-        "--",
-    )
-    names_run = git(
-        repo, "-c", "core.quotePath=false", "diff", "--name-only", "-z", f"{base}..{head}", "--"
-    )
-    log = git(repo, "log", "--format=%H%x00%B%x00", f"{base}..{head}", "--")
-    if diff.returncode != 0 or names_run.returncode != 0 or log.returncode != 0:
+def _run(repo: Path, *args: str) -> str:
+    done = git(repo, "-c", "core.quotePath=false", *args)
+    if done.returncode != 0:
         raise CannotScan("bad-range")
-    names = [name for name in names_run.stdout.split("\0") if name]
-    scan_diff(corpus, result, diff.stdout, names)
-    fields = log.stdout.split("\0")
-    for i in range(0, len(fields) - 1, 2):
-        sha = fields[i].strip()
-        if sha:
-            scan_message(corpus, result, sha, fields[i + 1].strip("\n"))
+    return done.stdout
+
+
+def _blob(repo: Path, sha: str) -> bytes:
+    done = subprocess.run(["git", "cat-file", "blob", sha], cwd=repo, capture_output=True, check=False)
+    if done.returncode != 0:
+        raise CannotScan("bad-range")
+    return done.stdout
+
+
+def scan_commit(corpus: Corpus, result: Result, repo: Path, sha: str, names: list[str]) -> None:
+    """One commit's own changes (against its parent; a merge, what it did beyond the automatic merge):
+    its added lines, read as text whatever `.gitattributes` says, and every binary blob it adds. New file
+    names are appended to `names`."""
+    parents = _run(repo, "rev-list", "--parents", "-n", "1", sha).split()[1:]
+    common = ["--no-color", "--no-ext-diff", "--no-textconv", "--text", "--unified=0", "--no-renames"]
+    if len(parents) > 1:
+        patch = _run(repo, "show", "--remerge-diff", "--format=", *common, sha, "--")
+        raw = _run(repo, "diff-tree", "-r", "-z", "--no-renames", "-m", "--first-parent", sha, "--")
+    else:
+        patch = _run(repo, "diff-tree", "-p", "-r", "--root", *common, sha, "--")
+        raw = _run(repo, "diff-tree", "-r", "-z", "--root", "--no-renames", sha, "--")
+    fields = raw.split("\0")
+    changed: list[tuple[str, str, str]] = []
+    i = 0
+    while i < len(fields):
+        meta = fields[i]
+        if meta.startswith(":") and i + 1 < len(fields):
+            parts = meta[1:].split()
+            changed.append((parts[1], parts[3], fields[i + 1]))
+            i += 2
+        else:
+            i += 1
+    for _, _, path in changed:
+        if path not in names:
+            names.append(path)
+    scan_diff(corpus, result, patch, names)
+    for mode, blob, path in changed:
+        if blob == _ZERO or mode.startswith("160") or mode == "000000":
+            continue
+        data = _blob(repo, blob)
+        if b"\0" in data[:8000] or data.startswith((b"\x1f\x8b", b"PK\x03\x04", b"%PDF")):
+            index = names.index(path)
+            where = f"name:{index}" if corpus.count(path) else path
+            scan_blob(corpus, result, where, data)
+
+
+def scan_range(corpus: Corpus, repo: Path, base: str, head: str, ref: str | None) -> Result:
+    """A push range, commit by commit (what the push publishes, not only the net diff): each commit's
+    added lines and binary blobs, its message, every file name it touches, and the ref name."""
+    result = Result()
+    commits = _run(repo, "rev-list", "--reverse", "--topo-order", f"{base}..{head}", "--").split()
+    names: list[str] = []
+    for sha in commits:
+        scan_commit(corpus, result, repo, sha, names)
+        scan_message(corpus, result, sha, _run(repo, "log", "-1", "--format=%B", sha, "--").strip("\n"))
     scan_names(corpus, result, names)
     if ref is not None:
         result.test(corpus, "ref", ref)
@@ -138,8 +250,10 @@ def scan_range(corpus: Corpus, repo: Path, base: str, head: str, ref: str | None
 def scan_lines(corpus: Corpus, data: bytes, label: str) -> Result:
     """A body file or standard input, by `<label>:<line>`; bytes that are not UTF-8 read as replaced."""
     result = Result()
-    for number, text in enumerate(data.decode("utf-8", "replace").split("\n"), start=1):
-        result.test(corpus, f"{label}:{number}", text)
+    text = data.decode("utf-8", "replace").split("\n")
+    result.block(corpus, [(f"{label}:{n}", n, line) for n, line in enumerate(text, start=1)])
+    if b"\0" in data:
+        scan_blob(corpus, result, f"{label}:bin", data)
     return result
 
 
@@ -156,8 +270,11 @@ def scan_dir(corpus: Corpus, folder: Path) -> Result:
             data = path.read_bytes()
         except OSError:
             raise CannotScan("source-unreadable") from None
-        for number, text in enumerate(data.decode("utf-8", "replace").split("\n"), start=1):
-            result.test(corpus, f"name:{i}:{number}" if named else f"dir:{relative}:{number}", text)
+        prefix = f"name:{i}" if named else f"dir:{relative}"
+        lines = data.decode("utf-8", "replace").split("\n")
+        result.block(corpus, [(f"{prefix}:{n}", n, line) for n, line in enumerate(lines, start=1)])
+        if b"\0" in data[:8000] or data.startswith((b"\x1f\x8b", b"PK\x03\x04", b"%PDF")):
+            scan_blob(corpus, result, f"{prefix}:bin", data)
     return result
 
 
@@ -205,8 +322,8 @@ def _text(value: object) -> str:
 
 
 def _body(corpus: Corpus, result: Result, prefix: str, text: str) -> None:
-    for number, line in enumerate(text.split("\n"), start=1):
-        result.test(corpus, f"{prefix}:{number}", line)
+    lines = text.split("\n")
+    result.block(corpus, [(f"{prefix}:{n}", n, line) for n, line in enumerate(lines, start=1)])
 
 
 def _comments(corpus: Corpus, result: Result, prefix: str, comments: Iterable[object]) -> None:
@@ -241,8 +358,40 @@ def scan_pr(corpus: Corpus, number: int) -> Result:
             scan_message(
                 corpus, result, _text(commit.get("oid")), f"{headline}\n\n{body}" if body else headline
             )
+    _scan_pr_commits(corpus, result, number, view.get("commits") or [], names)
     scan_names(corpus, result, names)
     return result
+
+
+def _scan_pr_commits(
+    corpus: Corpus, result: Result, number: int, commits: list[Any], names: list[str]
+) -> None:
+    """Each of the PR's commits, scanned locally commit by commit (`gh pr diff` is only the net diff).
+    Run from a clone (the main checkout); a commit it lacks is fetched from the PR's head ref, and one
+    still missing refuses the scan. Outside a clone only the net diff is read."""
+    repo = Path.cwd()
+    if git(repo, "rev-parse", "--git-dir").returncode != 0:
+        return
+    oids = [_text(commit.get("oid")) for commit in commits if isinstance(commit, dict)]
+
+    def missing() -> list[str]:
+        return [oid for oid in oids if git(repo, "cat-file", "-e", f"{oid}^{{commit}}").returncode != 0]
+
+    if missing():
+        try:
+            subprocess.run(
+                ["git", "fetch", "-q", "--no-tags", "origin", f"refs/pull/{number}/head"],
+                cwd=repo,
+                capture_output=True,
+                check=False,
+                timeout=300,
+            )
+        except _GH_FAILED:
+            raise CannotScan("gh-failed") from None
+        if missing():
+            raise CannotScan("gh-failed")
+    for oid in oids:
+        scan_commit(corpus, result, repo, oid, names)
 
 
 def scan_bodies(corpus: Corpus, since: str) -> Result:
