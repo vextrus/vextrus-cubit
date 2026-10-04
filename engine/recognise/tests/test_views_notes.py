@@ -329,11 +329,15 @@ def test_a_callout_naming_a_note_inside_a_plan_heads_nothing() -> None:
 
 
 def test_many_small_note_texts_leave_the_drawings_titles() -> None:
-    """Review 1, loop 2 (50): 200 tiny "NOTE n" texts written before two titled drawings took every
-    title slot; headings have their own."""
+    """Review 1 and re-check 1, loop 2 (50): 200 "NOTES" headings, 3 mm high (above `MIN_HEADING`),
+    written before two titled drawings took every title slot; headings have their own."""
     d = Sheets()
-    for i in range(views.MAX_TITLES):
-        d.text(f"NOTE {i}:", (560 + (i % 4) * 15, 560 - (i // 4) * 4, 0.0), height=0.5)
+    for i in range(views.MAX_TITLES):  # staggered, so no two stand in one column
+        d.text(
+            "NOTES",
+            (360 + (i % 20) * 15 + (i // 20) * 0.7, 580 - (i // 20) * 25 - (i % 20) * 0.9, 0.0),
+            height=3.0,
+        )
     grid(d, (40, 300, 340, 560))
     d.text("LOWER DECK PLAN", (40, 288, 0.0), height=6.0)
     grid(d, (40, 40, 340, 250))
