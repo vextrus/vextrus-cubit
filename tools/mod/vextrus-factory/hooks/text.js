@@ -10,6 +10,11 @@ const UTC = /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$/
 const SHA = /^[0-9a-f]{40}$/
 const REQUIRED = ["schema_version", "written_at", "watcher", "clock", "resources", "lock", "builders", "reviews", "g1", "usage", "alarms"]
 const GROUP = ["working", "ready", "blocked", "quiet", "done", "failed", "stopped"]
+const LOCK_KINDS = ["post", "scored", "no-post"]
+const G1_STATES = ["PASS", "FAIL", "RUNNING"]
+const ALARM_CODES = ["BUILDER-QUIET", "BUILDER-BLOCKED", "READY-NO-VERIFY", "READY-WAITING", "NEW-CLAUDE-BRANCH", "LEAK-HIT", "BUDGET-PASSED", "FLOOR-CROSSED", "REVIEW-READY", "JEV-MODEL-MOVED"]
+// A ticket name is the one free string the band prints: one line, at most 80 characters.
+const TICKET = /^[^\u0000-\u001f\u007f-\u009f\u2028\u2029]{1,80}$/
 
 const isObj = (v) => v !== null && typeof v === "object" && !Array.isArray(v)
 const isCount = (v) => Number.isInteger(v) && v >= 0
@@ -26,7 +31,7 @@ function isGroup(v) {
 }
 
 function isHolder(v) {
-  return isObj(v) && typeof v.kind === "string" && orNull((t) => typeof t === "string")(v.ticket) && isCount(v.elapsed_minutes)
+  return isObj(v) && LOCK_KINDS.includes(v.kind) && orNull((t) => typeof t === "string" && TICKET.test(t))(v.ticket) && isCount(v.elapsed_minutes)
 }
 
 // The fields the band reads, checked against the schema's types. Anything else is WATCHER DOWN.
@@ -39,8 +44,8 @@ function isStatus(s) {
   if (!isObj(lock) || !orNull(isHolder)(lock.holder) || !Array.isArray(lock.waiters)) return false
   if (!isObj(b) || !isGroup(b.cloud) || !isGroup(b.local) || !Array.isArray(b.items)) return false
   if (!Array.isArray(s.reviews) || !s.reviews.every((x) => isObj(x) && isCount(x.pr) && isCount(x.round))) return false
-  if (!isObj(g1) || !orNull((m) => isObj(m) && typeof m.state === "string" && SHA.test(m.sha))(g1.main)) return false
-  if (!Array.isArray(s.alarms) || !s.alarms.every((a) => isObj(a) && typeof a.code === "string" && isUtc(a.since))) return false
+  if (!isObj(g1) || !orNull((m) => isObj(m) && G1_STATES.includes(m.state) && typeof m.sha === "string" && SHA.test(m.sha))(g1.main)) return false
+  if (!Array.isArray(s.alarms) || !s.alarms.every((a) => isObj(a) && ALARM_CODES.includes(a.code) && isUtc(a.since))) return false
   return s.usage === null || isObj(s.usage)
 }
 
@@ -113,8 +118,11 @@ export function segments(status, nowMs, ctx = null, schema = false) {
   return out
 }
 
+// Belt and braces: whatever passed the checks, no segment carries a line break or a control character.
+const oneLine = (seg) => seg.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g, " ")
+
 export function bandText(status, nowMs, ctx = null, schema = false) {
-  return segments(status, nowMs, ctx, schema).join(SEP)
+  return segments(status, nowMs, ctx, schema).map(oneLine).join(SEP)
 }
 
 // The band in at most two rows of `columns` cells: segments fill the first row, the rest go to the
@@ -122,7 +130,7 @@ export function bandText(status, nowMs, ctx = null, schema = false) {
 export function bandRows(status, nowMs, columns, schema = false) {
   const width = Number.isInteger(columns) && columns > 10 ? columns : 80
   const rows = [""]
-  for (const seg of segments(status, nowMs, null, schema)) {
+  for (const seg of segments(status, nowMs, null, schema).map(oneLine)) {
     const last = rows.length - 1
     const joined = rows[last] === "" ? seg : rows[last] + SEP + seg
     if (joined.length <= width || rows[last] === "" || rows.length === 2) rows[last] = joined

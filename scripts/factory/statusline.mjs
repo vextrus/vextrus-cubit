@@ -14,7 +14,7 @@
 // status.json, else <cwd>/.private/work/factory/status.json. $VEXTRUS_NOW (ISO UTC) sets "now" for
 // tests only.
 
-import { readFileSync } from "node:fs"
+import { readFileSync, statSync } from "node:fs"
 import { join } from "node:path"
 
 import { bandText, parseStatus } from "../../tools/mod/vextrus-factory/hooks/text.js"
@@ -49,7 +49,9 @@ function line() {
     const ctx = typeof used === "number" && Number.isFinite(used) ? Math.round(used) : null
     let text = ""
     try {
-      text = readFileSync(statusPath(input), "utf8")
+      const path = statusPath(input)
+      // A regular file only: a FIFO or a device would block the read and the line never prints.
+      if (statSync(path).isFile()) text = readFileSync(path, "utf8")
     } catch {
       // missing or unreadable: parseStatus("") is WATCHER DOWN
     }
