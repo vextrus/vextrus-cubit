@@ -1,0 +1,130 @@
+# Commit and PR-body lines the factory reads
+
+Contract (PR f0) for `docs/specs/factory.md` 2.2 "Builder's finish", 3.3 (`acceptance-writer`), 3.4 (`verify`),
+3.6 (the guard), 5 (definition of done). Producers: a builder (by `.claude/agents/builder.md`) and `verify`
+(PR f4). Consumers: the guard's READY push gate (PR f2), `scripts/factory/watch.py` (PR f3),
+`.claude/hooks/stop-gate.mjs` (PR f6), `tools/lint/acceptance.py` (PR f4), `scripts/merge_ready.py` (PR f4). Every
+consumer's test uses the fixtures at the end of this file.
+
+**READY and BLOCKED are these exact trailers, never a reading of free text** (Jev read "All checks pass but I am
+blocked on review" literally; spec 2.2 and 3.14).
+
+## 1. The builder's finish trailers
+
+Three trailer keys, in the commit message's last paragraph, in git's trailer form (`Key: value`, one per line;
+`git interpret-trailers --parse` reads them; they may sit among the attribution trailers `Co-Authored-By` and
+`Claude-Session`, which the factory ignores).
+
+| Key | Value (exact) | Meaning |
+|---|---|---|
+| `Factory-State` | `READY` or `BLOCKED` | The builder has finished (READY) or cannot go on (BLOCKED). |
+| `Factory-Verify` | `<tree> ok` | `<tree>` is 40 lowercase hex characters: the tree id `verify` printed, equal to the tree of this very commit. |
+| `Factory-Reason` | one line of text | Why the builder is blocked. |
+
+Grammar of the values, as regular expressions on the value alone (after git's trimming of the space after the colon):
+
+- `Factory-State`: `^(READY|BLOCKED)$`. Upper case; no other word means anything.
+- `Factory-Verify`: `^[0-9a-f]{40} ok$`. One space, the word `ok`, nothing after.
+- `Factory-Reason`: `^[^\r\n]{1,200}$`. One line, 1 to 200 characters, public words (a reason is leak-scanned like
+  every other message: no drawing text).
+
+Which keys go together:
+
+| Head's `Factory-State` | `Factory-Verify` | `Factory-Reason` |
+|---|---|---|
+| `READY` | **required** | **must be absent** |
+| `BLOCKED` | optional | **required** |
+| (no `Factory-State`) | must be absent | must be absent |
+
+A head that breaks the table, repeats a key (each key appears at most once), or whose `Factory-Verify` tree differs
+from `git rev-parse <head>^{tree}` is **malformed**: every consumer treats a malformed head as carrying no trailer at
+all and, where it raises alarms, raises `READY-NO-VERIFY` (status.schema.json) when `Factory-State: READY` is on it.
+Key spelling: producers write the keys exactly as above; a parser may match the key case-insensitively (git does) but
+the values stay case-sensitive.
+
+**Only the branch tip counts.** A consumer reads the trailers of the tip commit (`HEAD` of the builder's branch).
+A trailer on an older commit means nothing.
+
+### What each consumer does with them
+
+- **The guard's READY push gate** (`.claude/hooks/guard.mjs`): for a push whose head's message carries
+  `Factory-State: READY`, requires `<git-common-dir>/vextrus/verify-<HEAD^{tree}>.json` to exist with every
+  `exit_code` 0 (verify-record.schema.json). A head with BLOCKED, or with no trailer, is not gated by this rule. A
+  malformed head carrying `READY` is gated too (so a mistyped trailer cannot dodge the gate).
+- **`scripts/factory/watch.py`**: a new branch tip is fetched and its trailers read. READY with a matching
+  `Factory-Verify` raises the READY event (the builder's state is `ready`); READY with no matching tree raises
+  `READY-NO-VERIFY`; BLOCKED shows the builder as `blocked` with its reason in `events.log` (public words only); a
+  READY head unmerged for 10 minutes raises `READY-WAITING`. It also fires for a READY head already present when it
+  starts.
+- **`.claude/hooks/stop-gate.mjs`** (builder sessions only): a stop with uncommitted tracked changes and no trailer,
+  or a READY trailer with no green verify record, is blocked once with the text "commit with explicit paths and run
+  verify, or finish `Factory-State: BLOCKED` with a reason".
+- **`verify`** prints exactly one line, `Factory-Verify: <tree> ok`, when every check's `exit_code` is 0, and prints
+  nothing of that form otherwise.
+
+### Example (a builder's last commit)
+
+```
+feat(launch): the cloud launcher refuses a branch origin does not list
+
+Not verified: the live launch (needs the owner's cloud session).
+Verify: pytest 0, ruff 0, mypy 0, lint-imports 0.
+
+Factory-State: READY
+Factory-Verify: 0f3c1d5e7a9b2c4d6e8f1a3b5c7d9e0f2a4b6c8d ok
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_example
+```
+
+```
+fix(launch): stop wait loop
+
+Factory-State: BLOCKED
+Factory-Reason: the acceptance tests for the refusal cannot pass: the spec names no exit code
+```
+
+## 2. The body of that commit is the PR body
+
+The builder's last commit's body becomes the PR body (spec 2.2). Three machine-read parts, all in public words:
+
+1. **What was not verified comes first,** then the verify summary (each check's name and exit code).
+2. **`## Cut`, `## Not done`, `## Deferred`:** a heading with exactly one of these three titles (any heading level)
+   starts a section. `scripts/merge_ready.py` refuses a PR whose body has, under any of them, a list item that does
+   not contain a link to an issue of this repository that is open (`#<n>` or a `github.com/vextrus/vextrus-cubit/issues/<n>`
+   URL). A section with no list items passes.
+3. **`Harness net: +<a> / −<r>`** (a PR that changes `.claude`, `scripts`, `tools` or `.github`): `a` and `r` are the
+   added and removed line totals of `git diff --numstat origin/main -- .claude scripts tools .github`. The minus
+   sign is U+2212 as written here; a parser also accepts ASCII `-`.
+
+## 3. The acceptance commit's counts
+
+An acceptance commit's message starts `acceptance:` and changes only files under the acceptance paths
+(`tools/lint/acceptance.py`). From PR f4 its message also carries two lines, each on its own line, anywhere in the
+message body:
+
+| Line (exact form) | Regular expression | Meaning |
+|---|---|---|
+| `red-on-main: <n> failed` | `^red-on-main: ([0-9]+) failed$` | The writer ran the new tests on `origin/main`: `n` failed. Must be 1 or more. |
+| `green-on-throwaway: <n> passed` | `^green-on-throwaway: ([0-9]+) passed$` | On a throwaway implementation the same tests passed: `n`, equal to the count of tests written. Must be 1 or more. |
+
+An `acceptance:` commit without both lines fails the lint, unless its full sha is in
+`tools/lint/acceptance_legacy.txt` (the carried branches' older commits). An untestable ticket carries no acceptance
+commit and says why in the launch (`--untestable "<why>"`, launch-cli.md).
+
+## 4. Fixtures every consumer tests against
+
+Under `scripts/factory/tests/fixtures/trailers/` (PR f3) and `.claude/hooks/tests/fixtures/trailers/` (PR f2, f6),
+one commit message per case; each consumer's test asserts the outcome in this table:
+
+| Case | Message ends with | Parsed as |
+|---|---|---|
+| ready-ok | `Factory-State: READY` + `Factory-Verify: <tree of the commit> ok` | READY, verified |
+| ready-no-verify | `Factory-State: READY` only | malformed READY (gated by the guard; alarm) |
+| ready-wrong-tree | READY + `Factory-Verify: <another tree> ok` | malformed READY (gated; alarm) |
+| ready-with-reason | READY + verify + `Factory-Reason: x` | malformed READY (gated; alarm) |
+| blocked-ok | `Factory-State: BLOCKED` + `Factory-Reason: <text>` | BLOCKED |
+| blocked-no-reason | `Factory-State: BLOCKED` only | malformed (treated as no trailer) |
+| repeated-key | two `Factory-State` lines | malformed |
+| lowercase-value | `Factory-State: ready` | malformed (a READY-looking word is gated as READY) |
+| none | no factory trailer | no trailer |
+| older-commit-only | READY on the parent, none on the tip | no trailer |

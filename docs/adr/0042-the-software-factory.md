@@ -1,7 +1,7 @@
 # The software factory: the harness is committed code, builders and reviewers run in the cloud, custody stays local, Jev advises, and gates are checks
 
-Status: proposed, waiting for the owner's approval (session 12). On approval, PR f0 sets it to "accepted <UTC> by the
-owner: "<the owner's words, verbatim from STATE.md>"". The spec is `docs/specs/factory.md`.
+Status: accepted 2026-10-04T21:08:14Z by the owner: "Approve as written (Recommended)". The spec is
+`docs/specs/factory.md`; the data contracts are in `docs/specs/factory/contracts/`.
 
 The harness that builds Vextrus becomes a software factory: committed, tested and reviewed code that launches,
 watches, reviews, gates and merges the work, instead of prose runbooks and session scripts under `.private/`.
@@ -168,3 +168,5 @@ Jev under the cloud key (ADR 0013), and whether a Claude vision proposer may run
   (`.private/work/session-12/design/revision-2-log.md`).
 - 4 Oct 2026, 21:0xZ: a final check tied every Claude Code name in the spec to the verified reference or marked it
   unverified, re-measured Jev's model pin live, and aligned the approval pack's summary and tier-1 list with the spec.
+- 4 Oct 2026, 21:08Z: accepted by the owner as written: "Approve as written (Recommended)". Phase 3 starts (PR f0
+  commits the data contracts first).
