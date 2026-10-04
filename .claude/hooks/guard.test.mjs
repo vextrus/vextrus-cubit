@@ -252,3 +252,100 @@ test("force pushes, rewrites, skipped hooks, secrets, staging all and recursive 
   };
   for (const [command, rule] of Object.entries(cases)) assert.equal(bash(command), rule, command);
 });
+
+// ---------------------------------------------------------------- f2: the builder's own bypass spellings
+// Each case below is a spelling the f2 builder found passing its first repair (and main's guard). The
+// acceptance tests (tests/acceptance/) pin the ticket's rows; these pin the extra spellings.
+import { mkdtempSync, realpathSync } from "node:fs";
+import { tmpdir } from "node:os";
+
+/** The verdict with an explicit project, main checkout and session kind (a temporary folder as cwd). */
+function seen(command, { project = "/home/runner/work/vextrus-cubit/vextrus-cubit", main = MAIN, remote = false, cwd } = {}) {
+  const env = { ...process.env, CLAUDE_PROJECT_DIR: project, VEXTRUS_MAIN_CHECKOUT: main };
+  delete env.CLAUDE_CODE_REMOTE;
+  delete env.VEXTRUS_LEAKSCAN_HOME;
+  if (remote) env.CLAUDE_CODE_REMOTE = "true";
+  const where = cwd ?? realpathSync(mkdtempSync(`${tmpdir()}/f2-guard-`));
+  const run = spawnSync(process.execPath, [guard], {
+    input: JSON.stringify({ tool_name: "Bash", tool_input: { command }, cwd: where }),
+    encoding: "utf8",
+    env,
+  });
+  assert.equal(run.status, 0, run.stderr);
+  return run.stdout.trim() === "" ? null : JSON.parse(run.stdout).hookSpecificOutput.permissionDecisionReason.split(":")[0];
+}
+
+test("f2 bypass: a GitHub body built at run time is refused", () => {
+  for (const command of [
+    'gh pr create --title t --body "$(cat body.md)"',
+    'gh issue comment 5 -b "$BODY"',
+    "gh pr edit 5 --body `cat body.md`",
+    'gh api repos/o/r/issues/5/comments -f body="$(cat body.md)"',
+  ]) {
+    assert.equal(seen(command, { project: MAIN }), "GH_BODY", command);
+  }
+});
+
+test("f2 bypass: curl or wget writing to GitHub's API is refused", () => {
+  assert.equal(seen("curl -X POST https://api.github.com/repos/o/r/issues/5/comments -d @body.json", { project: MAIN }), "GH_BODY");
+  assert.equal(seen("curl -s https://api.github.com/repos/o/r/pulls/5", { project: MAIN }), null);
+});
+
+test("f2 bypass: pushes hidden from the push parser are refused for a builder", () => {
+  for (const command of [
+    "git subtree push --prefix docs origin x",
+    "git submodule foreach 'git push origin HEAD'",
+    'git rebase --exec "git push origin HEAD" HEAD~1',
+    "G=git; $G push origin HEAD",
+    'c="git push origin HEAD"; eval $c',
+    "echo push | xargs git",
+  ]) {
+    assert.equal(seen(command), "LOCAL_PUSH", command);
+  }
+});
+
+test("f2 bypass: env -C moves a main-checkout push to a folder the guard must judge", () => {
+  // The folder does not exist, so the push cannot be judged and is refused (fails closed).
+  assert.notEqual(seen("env -C /nonexistent/elsewhere git push origin HEAD:refs/heads/x", { project: MAIN }), null);
+});
+
+test("f2 bypass: the hooks path set by environment, a global config or a file write is refused", () => {
+  for (const command of [
+    "export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/dev/null; git commit -m x",
+    "HOME=/tmp/fakehome git commit -m x",
+    'printf "[core]\\n\\thooksPath = /dev/null\\n" >> .git/config',
+    "sed -i 's/hooks/x/' .git/config",
+  ]) {
+    assert.equal(seen(command), "HOOKS_PATH", command);
+  }
+  assert.equal(seen("cat .git/config"), null);
+});
+
+test("f2 bypass: git update-ref -d deletes a branch like branch -D", () => {
+  assert.equal(seen("git update-ref -d refs/heads/x"), "DISCARD");
+});
+
+test("f2 bypass: a for loop on pgrep -f is a self-matching wait", () => {
+  assert.equal(seen("for i in $(seq 100); do pgrep -f x || break; sleep 5; done"), "SELF_MATCHING_WAIT");
+});
+
+test("f2 bypass: a raw cloud session through npx is refused", () => {
+  assert.equal(seen('npx @anthropic-ai/claude-code --cloud "x"'), "RAW_SESSION");
+});
+
+test("f2 bypass: staging agent memory by a glob, or paths built at run time, is refused", () => {
+  assert.equal(seen("git add '.claude/agent-mem*'"), "STAGE_DIR");
+  assert.equal(seen("git add $(git ls-files -o)"), "STAGE_DIR");
+});
+
+test("f2 bypass: node --test and pytest inside a review folder are refused", () => {
+  const review = "/home/riz/vextrus-cubit/.private/work/factory/review/pr-5";
+  assert.notEqual(seen(`node --test ${review}/x.test.mjs`, { project: MAIN }), null);
+  assert.notEqual(seen(`cd ${review} && uv run pytest`, { project: MAIN }), null);
+});
+
+test("f2 bypass: awk's ENVIRON and gh auth token print secrets", () => {
+  assert.equal(seen(`awk 'BEGIN{print ENVIRON["TYPESAFE_API_KEY"]}'`), "SECRET_PRINTED");
+  assert.equal(seen("gh auth token"), "SECRET_PRINTED");
+  assert.equal(seen("gh auth status"), null);
+});

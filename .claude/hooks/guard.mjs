@@ -316,6 +316,7 @@ const VALUE_OPTIONS = {
 function commandOf(ws) {
   let i = 0;
   const assigns = [];
+  const chdirs = [];
   const skipOptions = (kind) => {
     while (i < ws.length && ws[i].startsWith("-") && ws[i] !== "--") {
       const option = ws[i].split("=")[0];
@@ -338,6 +339,9 @@ function commandOf(ws) {
       i++;
       while (i < ws.length && (ws[i].startsWith("-") || ASSIGNMENT.test(ws[i]))) {
         if (ASSIGNMENT.test(ws[i])) assigns.push(ws[i]);
+        if (ws[i] === "-C" || ws[i] === "--chdir") chdirs.push(ws[i + 1] ?? "");
+        else if (/^--chdir=/.test(ws[i])) chdirs.push(ws[i].slice(8));
+        else if (/^-C./.test(ws[i])) chdirs.push(ws[i].slice(2));
         i += VALUE_OPTIONS.env.includes(ws[i]) ? 2 : 1;
       }
     } else if (name === "uv" && ws[i + 1] === "run") {
@@ -357,7 +361,7 @@ function commandOf(ws) {
     } else break;
   }
   const rest = ws.slice(i);
-  return { name: rest.length > 0 ? basename(rest[0]) : "", args: rest.slice(1), words: rest, assigns };
+  return { name: rest.length > 0 ? basename(rest[0]) : "", args: rest.slice(1), words: rest, assigns, chdirs };
 }
 
 const SHELLS = new Set(["bash", "sh", "zsh", "dash", "ksh", "mksh", "fish", "busybox", "rbash"]);
@@ -404,7 +408,12 @@ function analyse(command, startCwd) {
   const units = [];
   const queue = [{ text: command, depth: 0, cwd: startCwd }];
   let budget = 300;
-  while (queue.length > 0 && budget-- > 0) {
+  let truncated = false;
+  while (queue.length > 0) {
+    if (budget-- <= 0) {
+      truncated = true;
+      break;
+    }
     const unit = queue.shift();
     units.push(unit.text);
     const { text, docs } = cutHeredocs(unit.text);
@@ -413,10 +422,13 @@ function analyse(command, startCwd) {
     const add = (ws, raw) => {
       const cmd = commandOf(ws);
       cmd.raw = raw;
+      cmd.depth = unit.depth;
       cmd.cwd = cwd;
+      for (const d of cmd.chdirs) cmd.cwd = cmd.cwd === null || d.includes("$") ? null : resolve(cmd.cwd, d);
       cmds.push(cmd);
       const deeper = (inner) => {
         if (unit.depth < 8) queue.push({ text: inner, depth: unit.depth + 1, cwd });
+        else truncated = true;
       };
       if (SHELLS.has(cmd.name)) {
         const k = cmd.args.findIndex((a) => /^-[A-Za-z]*c[A-Za-z]*$/.test(a));
@@ -436,6 +448,12 @@ function analyse(command, startCwd) {
         }
       }
       if (cmd.name === "git") {
+        const g = gitOf(cmd);
+        if (g.verb === "submodule" && g.args.includes("foreach")) deeper(g.args.slice(g.args.indexOf("foreach") + 1).filter((a) => !a.startsWith("-")).join(" "));
+        for (let k = 0; k < g.args.length; k++) {
+          if ((g.verb === "rebase" && (g.args[k] === "--exec" || g.args[k] === "-x")) || (g.verb === "bisect" && g.args[k] === "run")) deeper(g.args.slice(k + 1).join(" "));
+          if (g.verb === "rebase" && g.args[k].startsWith("--exec=")) deeper(g.args[k].slice(7));
+        }
         // `git -c alias.x='!cmd' x` runs cmd through the shell.
         for (let k = 0; k < cmd.args.length; k++) {
           const value = cmd.args[k] === "-c" ? cmd.args[k + 1] : null;
@@ -449,13 +467,19 @@ function analyse(command, startCwd) {
       const cmd = add(words(seg), seg);
       if (cmd.name === "cd" || cmd.name === "pushd") cwd = cdTarget(cmd, cwd);
     }
-    for (const inner of nested) if (unit.depth < 8) queue.push({ text: inner, depth: unit.depth + 1, cwd });
+    for (const inner of nested) {
+      if (unit.depth < 8) queue.push({ text: inner, depth: unit.depth + 1, cwd });
+      else truncated = true;
+    }
     for (const doc of docs) {
-      if (SHELL_WORD.test(doc.opener) && unit.depth < 8) queue.push({ text: doc.body, depth: unit.depth + 1, cwd });
+      if (SHELL_WORD.test(doc.opener)) {
+        if (unit.depth < 8) queue.push({ text: doc.body, depth: unit.depth + 1, cwd });
+        else truncated = true;
+      }
       if (INTERPRETER_WORD.test(doc.opener)) codes.push(doc.body);
     }
   }
-  return { cmds, codes, units };
+  return { cmds, codes, units, truncated };
 }
 
 // ------------------------------------------------------------------------------------------------ git reading
@@ -572,7 +596,7 @@ function pushOf(g) {
   return { flags, remote, refspecs };
 }
 
-const isPush = (g) => g.verb === "push";
+const isPush = (g) => g.verb === "push" || (g.verb === "subtree" && g.args.includes("push"));
 
 // ------------------------------------------------------------------------------------------------ the records
 
@@ -699,6 +723,9 @@ function secretTouched(analysis) {
     for (const w of wordsBesidesMessages(cmd)) if (SECRET_PATH.test(w) || globNamesSecret(w)) return true;
     if (["echo", "printf", "cat", "tee", "base64", "xxd", "od", "hexdump", "rev", "tr", "fold", "logger", "strings"].includes(cmd.name) && SECRET_EXPANSION.test(cmd.raw)) return true;
     if (cmd.name === "printenv" && cmd.args.some((a) => new RegExp(`^${SECRET_NAME}$`).test(a))) return true;
+    if (["awk", "gawk", "mawk", "nawk", "jq", "envsubst"].includes(cmd.name) && cmd.args.some((a) => /ENVIRON|\$ENV|\benv\b|getenv/.test(a) && (new RegExp(SECRET_NAME).test(a) || /ENVIRON\s*\)|for\s*\(\s*\w+\s+in\s+ENVIRON|\$ENV\b(?!\.)|env\s*$/.test(a)))) return true;
+    if (cmd.name === "envsubst") return true;
+    if (cmd.name === "gh" && cmd.args[0] === "auth" && (cmd.args[1] === "token" ? cmd.depth === 0 : cmd.args.includes("--show-token") || cmd.args.includes("-t"))) return true;
   }
   for (const code of analysis.codes) {
     if (SECRET_PATH.test(code)) return true;
@@ -739,7 +766,7 @@ function recursiveDelete(analysis) {
 function selfMatchingWait(analysis) {
   return analysis.units.some(
     (text) =>
-      /(?:^|[\s;&|(!])(?:while|until)\s/.test(text) &&
+      /(?:^|[\s;&|(!])(?:while|until|for)\s/.test(text) &&
       (/\bpgrep\b[^;&|\n]*\s(?:-[A-Za-z]*f[A-Za-z]*|--full)\b/.test(text) || /\bps\b[^;&\n]*\|\s*(?:[ef]?grep|rg|ugrep|awk)\b/.test(text)),
   );
 }
@@ -794,13 +821,18 @@ function stagesFolder(g) {
     if (!afterDashes && a.startsWith("-")) continue;
     if (/(?:^|\/)\.claude\/agent-memory[^/]*(?:\/|$)/.test(a) || /^\.?\/?\.claude\/agent-memory/.test(a)) return true;
     if (SEED_DRAWING.test(a)) continue;
-    if (a.startsWith(":")) return true;
+    if (a.startsWith(":") || /\$|`/.test(a)) return true;
     const literal = a.split(/[*?[]/)[0];
     const glob = literal !== a;
     const absolute = resolve(base, glob ? literal || "." : a);
     const rel = relative(top, absolute).split("\\").join("/");
     if (rel.startsWith("..") && !isAbsolute(a) && gitFolder(g) === null) continue;
     if (/(?:^|\/)\.claude\/agent-memory/.test(`/${rel}`)) return true;
+    if (glob) {
+      const relGlob = relative(top, resolve(base, a)).split("\\").join("/");
+      const pattern = new RegExp(`^${relGlob.replace(/[.+^${}()|\\]/g, "\\$&").replace(/\*\*/g, "\u0000").replace(/\*/g, "[^/]*").replace(/\?/g, "[^/]").replace(/\u0000/g, ".*")}`);
+      if ([".claude/agent-memory/x", ".claude/agent-memory-x/x", `${SEED_FOLDER}/x.dwg`].some((path) => pattern.test(path))) return true;
+    }
     if (rel === "" || rel === "." || SEED_FOLDER === rel || SEED_FOLDER.startsWith(`${rel}/`) || (glob && `${rel}/`.startsWith(`${SEED_FOLDER}/`))) return true;
     let folder = false;
     try {
@@ -854,6 +886,7 @@ function discards(g) {
   }
   if (verb === "worktree") return args[0] === "remove" && opts.some((a) => a === "--force" || a === "-f");
   if (verb === "stash") return args[0] === "drop" || args[0] === "clear";
+  if (verb === "update-ref") return opts.some((a) => a === "-d" || a === "--delete" || /^-[a-z]*d/.test(a) && !a.startsWith("--"));
   return false;
 }
 
@@ -861,8 +894,12 @@ function discards(g) {
 const configKeys = (g) => g.config.map((kv) => kv.split("=")[0].toLowerCase());
 
 /** True when a command sets core.hooksPath (or hides config from the guard), except the one lawful line. */
-function hooksPathSet(analysis) {
+function hooksPathSet(analysis, command) {
+  const flat = flatten(command);
+  if (/\bGIT_CONFIG_(?:PARAMETERS|COUNT|KEY_|VALUE_)/.test(flat)) return true;
+  if (/(?:^|[\s/])\.git\/(?:config|worktrees\/[^\s/]+\/config\.worktree)\b/.test(flat) && (/[^<]>|\btee\b|\bsed\b[^|;&]*\s-i|\bperl\b[^|;&]*\s-[a-z]*i|\b(?:cp|mv|ln|install|dd|truncate|python[0-9.]*|node)\b/.test(flat))) return true;
   for (const g of gitsOf(analysis)) {
+    if (g.assigns.some((a) => /^(?:HOME|XDG_CONFIG_HOME|GIT_CONFIG_GLOBAL|GIT_CONFIG_SYSTEM|GIT_CONFIG_NOSYSTEM|GIT_EXEC_PATH|GIT_TEMPLATE_DIR)=/.test(a))) return true;
     if (configKeys(g).some((k) => k === "core.hookspath" || k.startsWith("include"))) return true;
     if (g.assigns.some((a) => /^GIT_CONFIG(?:_PARAMETERS|_COUNT|_KEY_\d+|_VALUE_\d+|_GLOBAL|_SYSTEM)?=/.test(a) && !/^GIT_CONFIG_(?:GLOBAL|SYSTEM)=\/dev\/null$/.test(a))) return true;
     if (g.verb === "config" && g.args.some((a) => /core\.hookspath/i.test(a) || /^include(?:if)?\./i.test(a))) {
@@ -889,6 +926,7 @@ function pushConfigSet(analysis) {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function rawSession(analysis) {
+  if (analysis.units.some((u) => /(?:^|[\s/@])claude(?:-code)?\b[^;&|\n]*\s--cloud\b/.test(flatten(u)))) return true;
   for (const cmd of analysis.cmds) {
     if (cmd.name !== "claude") continue;
     const args = cmd.args;
@@ -932,13 +970,13 @@ function recordForged(analysis, command) {
   return false;
 }
 
-const TEST_RUNNERS = new Set(["npm", "npx", "pnpm", "pnpx", "yarn", "vitest", "jest", "bun", "bunx", "playwright"]);
+const TEST_RUNNERS = new Set(["npm", "npx", "pnpm", "pnpx", "yarn", "vitest", "jest", "bun", "bunx", "playwright", "node", "deno", "pytest", "tox", "nox", "make"]);
 const REVIEW_FOLDER = /\.private\/work\/factory\/review(?:\/|$)/;
 
 /** A test run (or any package script) inside a review folder, where a PR's code would run unreviewed. */
 function reviewRun(analysis, eventCwd) {
   for (const cmd of analysis.cmds) {
-    if (!TEST_RUNNERS.has(cmd.name)) continue;
+    if (!TEST_RUNNERS.has(cmd.name) && !/^python[0-9.]*$/.test(cmd.name) && !SHELLS.has(cmd.name)) continue;
     const where = cmd.cwd ?? eventCwd ?? "";
     if (REVIEW_FOLDER.test(`${where}/`)) return true;
     if (cmd.args.some((a, k) => REVIEW_FOLDER.test(`${a}/`) || ((cmd.args[k - 1] === "--prefix" || cmd.args[k - 1] === "-C" || cmd.args[k - 1] === "--cwd" || cmd.args[k - 1] === "--dir") && REVIEW_FOLDER.test(`${resolve(where || "/", a)}/`)))) return true;
@@ -947,6 +985,16 @@ function reviewRun(analysis, eventCwd) {
 }
 
 // ------------------------------------------------------------------------------------------------ GitHub
+
+/** True when curl, wget or httpie writes to GitHub's API (a body the guard cannot see). */
+function webGitHubWrite(analysis) {
+  for (const cmd of analysis.cmds) {
+    if (!["curl", "wget", "http", "https", "xh", "httpie"].includes(cmd.name)) continue;
+    if (!cmd.args.some((a) => /github(?:usercontent)?\.com/i.test(a))) continue;
+    if (cmd.args.some((a, k) => /^(?:-d|--data(?:-\w+)?|-F|--form|-T|--upload-file|--json|--post-data|--post-file|--body-data|--body-file)(?:=|$)/.test(a) || /^-[dFT]./.test(a) || ((a === "-X" || a === "--request" || a === "--method") && !/^(?:GET|HEAD)$/i.test(cmd.args[k + 1] ?? "")) || /^-X(?!GET|HEAD)./i.test(a) || /^(?:POST|PUT|PATCH|DELETE)$/.test(a) || /:=|[^=:]=[^=]/.test(a) && cmd.name !== "curl" && cmd.name !== "wget")) return true;
+  }
+  return false;
+}
 
 const GH_READS = new Set(["view", "list", "status", "diff", "checks", "watch", "download"]);
 const GH_BODY_LIMIT = 72;
@@ -1144,7 +1192,7 @@ const BASH_RULES = [
   },
   {
     rule: "HOOKS_PATH",
-    fires: (_parts, _command, ctx) => hooksPathSet(ctx.analysis),
+    fires: (_parts, command, ctx) => hooksPathSet(ctx.analysis, command),
     reason:
       "`core.hooksPath` is set once, by the orchestrator in the main checkout, to `scripts/git-hooks` (the pre-push leak scan), and never pointed anywhere else, through `-c`, `git config` or GIT_CONFIG_* variables.",
   },
@@ -1226,16 +1274,17 @@ const BASH_RULES = [
   },
   {
     rule: "CLOUD_GH",
-    fires: (_parts, _command, ctx) => cloud && cloudGitHubWrite(ctx.analysis),
+    fires: (_parts, _command, ctx) => cloud && (cloudGitHubWrite(ctx.analysis) || webGitHubWrite(ctx.analysis)),
     reason: "A cloud session writes nothing to GitHub but its own branch: no PR, issue, comment or review, and no `gh api` write. The orchestrator posts what is needed.",
   },
   {
     rule: "GH_BODY",
     closed: true,
     fires: (_parts, _command, ctx) => {
+      if (webGitHubWrite(ctx.analysis)) return { rule: "GH_BODY", reason: "A write to GitHub's API through curl or wget is not judged: use `gh` with a scanned `--body-file`." };
       for (const cmd of ctx.analysis.cmds) {
         const { inline, files } = ghBodies(cmd);
-        if (inline.some((text) => text.length > GH_BODY_LIMIT)) return { rule: "GH_BODY" };
+        if (inline.some((text) => text.length > GH_BODY_LIMIT || /\$|`/.test(text))) return { rule: "GH_BODY" };
         for (const file of files) {
           if (file === "-" || file === "/dev/stdin" || file === "") return { rule: "GH_BODY" };
           const where = cmd.cwd ?? ctx.cwd;
@@ -1258,7 +1307,12 @@ const BASH_RULES = [
   {
     rule: "PUSH",
     closed: true,
-    fires: (_parts, _command, ctx) => {
+    fires: (_parts, command, ctx) => {
+      const dynamic = ctx.analysis.cmds.some((cmd) => /[$`]/.test(cmd.words[0] ?? "") || (cmd.name === "xargs" || (cmd.name === "git" && gitOf(cmd).verb === "")));
+      if ((dynamic || ctx.analysis.truncated) && /\bpush\b/.test(flatten(command))) {
+        const rule = orchestrators ? "LEAK_STAMP" : cloud ? "CLOUD_PUSH" : "LOCAL_PUSH";
+        return { rule, reason: `A push whose command is built at run time cannot be judged. ${PUSH_REASONS[rule]}` };
+      }
       for (const g of gitsOf(ctx.analysis)) {
         if (!isPush(g) && g.verb !== "send-pack") continue;
         const verdict = judgePush(g);
