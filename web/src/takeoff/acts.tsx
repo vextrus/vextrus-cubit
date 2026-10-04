@@ -7,10 +7,10 @@
  * a call). An act made before this tab opened is undone one server act at a time, worded from 19a's
  * reply.
  */
-import { useCallback, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Plural, Trans } from '@lingui/react/macro'
 import { useLingui } from '@lingui/react'
-import { useQueryClient } from '@tanstack/react-query'
+import { notifyManager, useQueryClient } from '@tanstack/react-query'
 import { ApiRefused } from '@/api/client'
 import { filesQuery } from '@/drawing-set/data'
 import { problemOf, problemText } from '@/auth/problem'
@@ -18,7 +18,7 @@ import { useFormat } from '@/format'
 import type { MachineMessage } from '@/format/machine'
 import { useToast } from '@/ui'
 import { DrawingText } from '@/ui/DrawingText'
-import { answer, confirm, exclude, setList, step1Key, undo, type ActOut, type ProposalOut } from './data'
+import { answer, confirm, drawingListQuery, exclude, setList, step1Key, undo, type ActOut, type ProposalOut, type Step1Data } from './data'
 import { REASONS, type QuestionEntry, type Reason } from './model'
 import { AnsweredWords } from './questionWords'
 import { SheetRange } from './SheetRange'
@@ -66,10 +66,21 @@ interface Entry {
 }
 
 /** The label a sheet or a continuation goes by in a sentence: "S-02", "E-02–E-03", or its title. */
-export function SheetName({ sheets }: { sheets: readonly ProposalOut[] }) {
+/** A sheet's name in words; `start`: it opens a sentence (an untitled sheet's words are capitalised). */
+export function SheetName({ sheets, start = false }: { sheets: readonly ProposalOut[]; start?: boolean }) {
   const first = sheets[0]
   const last = sheets.at(-1)
   if (!first || !last) return null
+  if (!first.number && !first.title.trim()) {
+    // Neither number nor title (#167): named by its file and its layout, never by an empty quotation.
+    const file = <DrawingText kind="file-name" text={first.file_name} truncate={false} />
+    // The place goes inside the name, so nothing trails it after a comma (review 1's recheck).
+    if (first.layout) {
+      const layout = <DrawingText kind="mark" text={first.layout} truncate={false} />
+      return start ? <Trans>An untitled sheet on layout “{layout}” of {file}</Trans> : <Trans>an untitled sheet on layout “{layout}” of {file}</Trans>
+    }
+    return start ? <Trans>An untitled sheet laid out in the drawing of {file}</Trans> : <Trans>an untitled sheet laid out in the drawing of {file}</Trans>
+  }
   if (!first.number) return <DrawingText kind="title" text={first.title} truncate={false} />
   if (sheets.length > 1 && last.number && last.number !== first.number) {
     return <SheetRange first={first.number} last={last.number} />
@@ -114,6 +125,27 @@ function BulkDone({ n, m }: { n: number; m: number }) {
   )
 }
 
+/** A toast an act shows once Step 1 has reloaded. */
+type Done = Parameters<ReturnType<typeof useToast>['show']>[0] & {
+  /** Its words when Step 1 could not reload after it, where `message` ends without a full stop ("Undone: …"). */
+  stale?: ReactNode
+}
+
+/** Where an act began: its generation, and the Step 1 queries failing then (their failure is not the act's). */
+interface Mark {
+  generation: number
+  failing: ReadonlySet<string>
+}
+
+/** An act's toast when Step 1 could not reload after it: what was done, and that the confirmed count may be behind. */
+function StaleWords({ done }: { done: ReactNode }) {
+  return (
+    <>
+      {done} <Trans>Step 1 could not be reloaded, so the confirmed count may be behind. Reload the page to see it.</Trans>
+    </>
+  )
+}
+
 export interface Step1Acts {
   bulk(confirming: readonly ProposalOut[], leavingOut: readonly ProposalOut[]): Promise<void>
   /** `backIn`: the actor's name, when the sheets were excluded and are confirmed back in (6.9). */
@@ -127,7 +159,11 @@ export interface Step1Acts {
   busy: boolean
 }
 
-export function useStep1Acts(projectId: string): Step1Acts {
+/**
+ * `shown`: the Step 1 data the screen has just rendered. An act's toast waits until it is the data
+ * Step 1 reloaded after the act (#167, F1), so the toast never stands beside the Count it changed.
+ */
+export function useStep1Acts(projectId: string, shown?: Step1Data | null): Step1Acts {
   const queryClient = useQueryClient()
   const toast = useToast()
   const { i18n } = useLingui()
@@ -145,6 +181,64 @@ export function useStep1Acts(projectId: string): Step1Acts {
     () => Promise.all([queryClient.invalidateQueries({ queryKey: step1Key(projectId) }), queryClient.invalidateQueries({ queryKey: filesQuery(projectId).queryKey })]).then(() => {}),
     [queryClient, projectId],
   )
+  /**
+   * Whether Step 1 reloaded (every query but the files' names; #167's refuter): a reload that failed leaves
+   * old data on screen, and an act's toast must not stand beside it as if fresh.
+   */
+  const failing = useCallback(
+    () =>
+      new Set(
+        queryClient
+          .getQueryCache()
+          .findAll({ queryKey: step1Key(projectId) })
+          .filter((query) => query.queryKey[2] !== 'file-names' && query.state.status === 'error')
+          .map((query) => query.queryHash),
+      ),
+    [queryClient, projectId],
+  )
+  /** Whether nothing failed anew since `mark` (a list failing before the act is not the act's: the refuter, round 3). */
+  const reloaded = useCallback((mark: Mark) => [...failing()].every((hash) => mark.failing.has(hash)), [failing])
+  /** Bumped by each act begun: a toast queued for an earlier act is then dropped, as `toast.clear()` drops a shown one. */
+  const generation = useRef(0)
+  /** An act's place, taken as it begins: its generation and the Step 1 queries already failing. */
+  const marked = useCallback((): Mark => ({ generation: generation.current, failing: failing() }), [failing])
+  /** The toast of the last act, waiting for the screen to render what Step 1 reloaded. */
+  const waiting = useRef<{ toast: Done; generation: number } | null>(null)
+  /** Bumped when a toast starts waiting, so the effect below looks again. */
+  const [asked, setAsked] = useState(0)
+  /** Whether `shown` is the data Step 1 holds now (the same objects the reload put in its cache). */
+  const current = useCallback(
+    (data: Step1Data) => {
+      const key = step1Key(projectId)
+      const parts = [data.proposals, data.questions, data.coverage, data.progress]
+      if (!(['proposals', 'questions', 'coverage', 'progress'] as const).every((part, i) => queryClient.getQueryData([...key, part]) === parts[i])) return false
+      return Object.entries(data.lists).every(([discipline, list]) => queryClient.getQueryData(drawingListQuery(projectId, discipline).queryKey) === list)
+    },
+    [queryClient, projectId],
+  )
+  useEffect(() => {
+    const next = waiting.current
+    if (!next) return
+    if (next.generation !== generation.current) {
+      waiting.current = null
+      return
+    }
+    if (shown && !current(shown)) return
+    waiting.current = null
+    toast.show(next.toast)
+  }, [asked, current, shown, toast])
+  /** Whether Step 1 is still on screen; leaving it shows a waiting toast at once rather than lose it. */
+  const mounted = useRef(true)
+  useEffect(() => {
+    mounted.current = true
+    const box = waiting
+    return () => {
+      mounted.current = false
+      const next = box.current
+      box.current = null
+      if (next && next.generation === generation.current) toast.show(next.toast)
+    }
+  }, [toast])
   /** Why a call failed, in words; never throws (problemOf throws on an error that is not the API's). */
   const failedText = useCallback(
     (error: unknown) => {
@@ -159,6 +253,25 @@ export function useStep1Acts(projectId: string): Step1Acts {
     [f, i18n],
   )
   const say = useCallback((error: unknown) => toast.show({ message: failedText(error) }), [failedText, toast])
+  /**
+   * What an act did, shown once Step 1 has reloaded and rendered (#167, F1): queued behind the reload's
+   * own notices, so the toast never stands beside the stale Count or a bulk confirm still clickable.
+   */
+  const showDone = useCallback((done: Done | null, fresh: boolean, mark: Mark) => {
+    // An act or a Ctrl Z begun since this act began drops its toast (the refuter, rounds 1 to 3).
+    if (!done || mark.generation !== generation.current) return
+    // A reload that failed leaves the old Count on screen: the toast says so rather than stand beside it as if fresh.
+    const { stale, ...toastOf } = done
+    const next = fresh ? toastOf : { ...toastOf, message: stale ?? <StaleWords done={done.message} /> }
+    // Behind the reload's own notices, then shown by the effect once the screen has rendered them.
+    notifyManager.schedule(() => {
+      if (mark.generation !== generation.current) return
+      // Step 1 left meanwhile: no Count is drawn to wait for, so it is said at once (the refuter, round 4).
+      if (!mounted.current) return toast.show(next)
+      waiting.current = { toast: next, generation: mark.generation }
+      setAsked((n) => n + 1)
+    })
+  }, [toast])
 
   /**
    * Starts an act: blocks others and puts it on top of `history` as its key is pressed; returns what
@@ -171,9 +284,11 @@ export function useStep1Acts(projectId: string): Step1Acts {
       return null
     }
     pending.current = true
+    generation.current += 1
     setBusy(true)
     // The last act's toast goes: its Undo would now take back this act (the server undoes the latest).
     toast.clear()
+    waiting.current = null
     let counted = () => {}
     const entry: Entry = { calls: 0, words: null, made: new Promise<void>((resolve) => (counted = resolve)), counted: false, dropped: false }
     history.current.push(entry)
@@ -186,12 +301,17 @@ export function useStep1Acts(projectId: string): Step1Acts {
   }, [toast])
 
   /** Ends an act once Step 1 has reloaded; other acts are taken again from here. */
-  const settle = useCallback(async () => {
-    // Held until Step 1 has reloaded: a second Enter during the reload would send the act again.
-    await refresh().catch(() => {})
-    pending.current = false
-    if (undos.current === 0) setBusy(false)
-  }, [refresh])
+  /** Ends an act once Step 1 has reloaded; whether the reload succeeded. */
+  const settle = useCallback(
+    async (mark: Mark): Promise<boolean> => {
+      // Held until Step 1 has reloaded: a second Enter during the reload would send the act again.
+      await refresh().catch(() => {})
+      pending.current = false
+      if (undos.current === 0) setBusy(false)
+      return reloaded(mark)
+    },
+    [refresh, reloaded],
+  )
 
   /** Undoes `entry` (none: the user's last act from before this tab), once the undos before it end. */
   /**
@@ -215,6 +335,12 @@ export function useStep1Acts(projectId: string): Step1Acts {
    */
   const undoEntry = useCallback(
     (entry: Entry | undefined, kept = false) => {
+      // The act's toast goes once an undo is pressed, shown or queued, as for a new act: it would stand
+      // beside the Count the undo takes back (#167's refuter, round 2; CI's slowed run of PR #225).
+      generation.current += 1
+      waiting.current = null
+      toast.clear()
+      const mark = marked()
       undos.current += 1
       setBusy(true)
       const ask = { entry, off: false, kept }
@@ -232,6 +358,8 @@ export function useStep1Acts(projectId: string): Step1Acts {
       }
       const one = async () => {
         queued.current = queued.current.filter((q) => q !== ask)
+        // Its toast waits for the reload too (#167, F1): "Undone: …" never beside the Count it changed.
+        let done: Done | null = null
         try {
           if (ask.off) return
           if (entry) {
@@ -259,7 +387,10 @@ export function useStep1Acts(projectId: string): Step1Acts {
             try {
               for (; left > 0; left--) await undo(projectId)
               const words = entry.words
-              toast.show({ message: <Trans>Undone: {words}</Trans> })
+              done = {
+                message: <Trans>Undone: {words}</Trans>,
+                stale: <Trans>Undone: {words}. Step 1 could not be reloaded, so the confirmed count may be behind. Reload the page to see it.</Trans>,
+              }
             } catch (error) {
               if (reached(error)) left -= 1
               // What was not undone stays the last act, for the next Ctrl Z; part of it, worded plainly.
@@ -270,7 +401,14 @@ export function useStep1Acts(projectId: string): Step1Acts {
           } else {
             try {
               const act = await undo(projectId)
-              toast.show({ message: <Trans>Undone: <UndoneWords act={act} /></Trans> })
+              done = {
+                message: <Trans>Undone: <UndoneWords act={act} /></Trans>,
+                stale: (
+                  <Trans>
+                    Undone: <UndoneWords act={act} />. Step 1 could not be reloaded, so the confirmed count may be behind. Reload the page to see it.
+                  </Trans>
+                ),
+              }
             } catch (error) {
               if (!reached(error)) refused(null)
               say(error)
@@ -279,15 +417,17 @@ export function useStep1Acts(projectId: string): Step1Acts {
         } finally {
           // Reloaded whatever happened: the screen shows what the server holds.
           await refresh().catch(() => {})
+          const fresh = reloaded(mark)
           undos.current -= 1
           if (undos.current === 0 && !pending.current) setBusy(false)
+          showDone(done, fresh, mark)
         }
       }
       // Never left rejected: an undo that throws (a failed reload) must not stop the ones after it.
       chain.current = chain.current.then(one).catch(() => {})
       return chain.current
     },
-    [f, i18n, projectId, refresh, restore, say, toast],
+    [f, i18n, marked, projectId, refresh, reloaded, restore, say, showDone, toast],
   )
 
   /** Ctrl Z: the last act as it stands now, even one still in flight. */
@@ -316,13 +456,15 @@ export function useStep1Acts(projectId: string): Step1Acts {
     async (calls: (() => Promise<unknown>)[], words: ReactNode, said: ReactNode): Promise<boolean> => {
       const counted = begin()
       if (!counted) return false
+      const mark = marked()
       let made = 0
+      let done: Done | null = null
       try {
         for (const call of calls) {
           await call()
           made += 1
         }
-        toast.show({ message: said, onUndo: undoFor(words) })
+        done = { message: said, onUndo: undoFor(words) }
         return true
       } catch (error) {
         if (reached(error)) made += 1
@@ -330,16 +472,17 @@ export function useStep1Acts(projectId: string): Step1Acts {
         return false
       } finally {
         counted(made, words)
-        await settle()
+        showDone(done, await settle(mark), mark)
       }
     },
-    [begin, say, settle, toast, undoFor],
+    [begin, marked, say, settle, showDone, undoFor],
   )
 
   const bulk = useCallback(
     async (confirming: readonly ProposalOut[], leavingOut: readonly ProposalOut[]) => {
       const counted = begin()
       if (!counted) return
+      const mark = marked()
       // One call per kind of act, each counted as it is made, so the words name only what was done.
       const calls: { sheets: number; out: boolean; call: () => Promise<unknown> }[] = []
       if (confirming.length) calls.push({ sheets: confirming.length, out: false, call: () => confirm(projectId, confirming.map((p) => p.id)) })
@@ -358,38 +501,40 @@ export function useStep1Acts(projectId: string): Step1Acts {
         else n += c.sheets
       }
       let at: (typeof calls)[number] | undefined
+      let done: Done | null = null
       try {
         for (const c of calls) {
           at = c
           await c.call()
           count(c)
         }
-        toast.show({ message: <BulkDone n={n} m={m} />, onUndo: undoFor(words) })
+        done = { message: <BulkDone n={n} m={m} />, onUndo: undoFor(words) }
       } catch (error) {
         if (at && reached(error)) count(at)
         const refused = failedText(error)
         if (made === 0) say(error)
         else
-          toast.show({
+          done = {
             message: (
               <>
                 <BulkDone n={n} m={m} /> <Trans>The rest was not done: {refused}</Trans>
               </>
             ),
             onUndo: undoFor(words),
-          })
+          }
       } finally {
         counted(made, words)
-        await settle()
+        showDone(done, await settle(mark), mark)
       }
     },
-    [begin, failedText, projectId, say, settle, toast, undoFor],
+    [begin, failedText, marked, projectId, say, settle, showDone, undoFor],
   )
 
   const confirmSheets = useCallback(
     (sheets: readonly ProposalOut[], backIn?: string) => {
       const name = <SheetName sheets={sheets} />
-      const said = backIn ? <Trans>{name} confirmed back in, under {backIn}’s name.</Trans> : <Trans>Confirmed {name}.</Trans>
+      const Name = <SheetName sheets={sheets} start />
+      const said = backIn ? <Trans>{Name} confirmed back in, under {backIn}’s name.</Trans> : <Trans>Confirmed {name}.</Trans>
       return run([() => confirm(projectId, sheets.map((p) => p.id))], <Trans>confirmed {name}</Trans>, said)
     },
     [projectId, run],
@@ -398,12 +543,13 @@ export function useStep1Acts(projectId: string): Step1Acts {
   const excludeSheets = useCallback(
     (sheets: readonly ProposalOut[], reason: Reason, text = '') => {
       const name = <SheetName sheets={sheets} />
+      const Name = <SheetName sheets={sheets} start />
       const short = reason === 'other' && text.trim() ? text.trim() : i18n._(REASON_SHORT[reason] ?? UNKNOWN_REASON)
       return run(
         [() => exclude(projectId, sheets.map((p) => p.id), reason, text)],
         <Trans>excluded {name}</Trans>,
         <Trans>
-          {name} excluded: {short}. It stays in the count.
+          {Name} excluded: {short}. It stays in the count.
         </Trans>,
       )
     },
@@ -415,22 +561,24 @@ export function useStep1Acts(projectId: string): Step1Acts {
       // Not while another act is in flight: its undo would take this one's place (the refuter, round 1).
       const counted = begin()
       if (!counted) return false
+      const mark = marked()
       const which = DISCIPLINE_IN_TEXT[discipline]
       const kind = which ? i18n._(which) : ''
       const words = <Trans>the drawing list you set</Trans>
       let made = 0
+      let done: Done | null = null
       try {
         const list = await setList(projectId, discipline, text)
         made = 1
         const n = list.numbers.length
-        toast.show({
+        done = {
           message: which ? (
             <Plural value={n} one={`Drawing list set: # ${kind} sheet.`} other={`Drawing list set: # ${kind} sheets.`} />
           ) : (
             <Plural value={n} one="Drawing list set: # sheet." other="Drawing list set: # sheets." />
           ),
           onUndo: undoFor(words),
-        })
+        }
         return true
       } catch (error) {
         if (reached(error)) made = 1
@@ -438,24 +586,26 @@ export function useStep1Acts(projectId: string): Step1Acts {
         return false
       } finally {
         counted(made, words)
-        await settle()
+        showDone(done, await settle(mark), mark)
       }
     },
-    [begin, i18n, projectId, say, settle, toast, undoFor],
+    [begin, i18n, marked, projectId, say, settle, showDone, undoFor],
   )
 
   const answerQuestion = useCallback(
     async (entry: QuestionEntry, option: string, text = '') => {
       const counted = begin()
       if (!counted) return false
+      const mark = marked()
       const mine = history.current.at(-1)
       // Held from the moment it is sent (CI's slowed run: a Ctrl Z before the reply undid its act).
       if (mine) mine.answer = makesAct(entry, option)
       let made = 0
+      let done: Done | null = null
       try {
         await answer(projectId, entry.question.id, option, text)
         made = 1
-        toast.show({ message: <AnsweredWords entry={entry} option={option} text={text.trim()} /> })
+        done = { message: <AnsweredWords entry={entry} option={option} text={text.trim()} /> }
         return true
       } catch (error) {
         if (reached(error)) made = 1
@@ -474,10 +624,10 @@ export function useStep1Acts(projectId: string): Step1Acts {
           const at = history.current.indexOf(mine)
           history.current = at === -1 ? [] : history.current.slice(at)
         }
-        await settle()
+        showDone(done, await settle(mark), mark)
       }
     },
-    [begin, projectId, say, settle, toast],
+    [begin, marked, projectId, say, settle, showDone],
   )
 
   return { bulk, confirmSheets, excludeSheets, setDrawingList, answerQuestion, undoLast, busy }

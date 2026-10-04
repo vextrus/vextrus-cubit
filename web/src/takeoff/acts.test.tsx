@@ -123,7 +123,7 @@ describe('an act in flight', () => {
     const release = hold('GET /proposals')
     await userEvent.keyboard('{Enter}')
     await waitFor(() => expect(count(step1, 'POST /exclude')).toBe(1))
-    await waitFor(() => expect(bodyText()).toContain('Confirmed 16 sheets; left out 1'))
+    // #167 (F1): the toast waits for the reload, so the act's calls are what is waited for here.
     expect(busy()).toBe(true)
     await userEvent.keyboard('{Enter}')
     release()
@@ -182,14 +182,17 @@ describe('an Undo while the act is still going (the review of 22, rounds 2 and 3
     expect(posts(step1)).toEqual(['POST /confirm', 'POST /exclude', 'POST /undo', 'POST /undo'])
   })
 
-  it('undoes the act when its toast’s Undo is pressed during the reload', async () => {
+  it('offers the toast’s Undo only once Step 1 has reloaded (#167, F1), and it undoes the act', async () => {
     const { step1, hold } = await openHeld()
     const release = hold('GET /proposals')
     await userEvent.keyboard('{Enter}')
-    await waitFor(() => expect(bodyText()).toContain('Confirmed 16 sheets; left out 1'))
+    await waitFor(() => expect(count(step1, 'POST /exclude')).toBe(1))
     expect(busy()).toBe(true)
-    await userEvent.click(screen.getByRole('button', { name: /Undo/ }))
+    expect(bodyText()).not.toContain('Confirmed 16 sheets; left out 1')
+    expect(screen.queryByRole('button', { name: /Undo/ })).toBeNull()
     release()
+    await waitFor(() => expect(bodyText()).toContain('Confirmed 16 sheets; left out 1'))
+    await userEvent.click(screen.getByRole('button', { name: /Undo/ }))
     await waitFor(() => expect(bodyText()).toContain('Undone: confirmed 16 sheets and left out 1'), { timeout: 5000 })
     await accepting()
     expect(count(step1, 'POST /undo')).toBe(2)
@@ -314,7 +317,8 @@ describe('Ctrl Z takes the act the QS meant (the refuter of round 4)', () => {
   it("S5: a later act clears the last act's toast, so its Undo cannot take back the later one", async () => {
     const { step1, hold } = await openHeld()
     await actA(step1)
-    expect(screen.getByRole('button', { name: /Undo/ })).toBeInTheDocument()
+    // #167: the toast is drawn after the Count it reports, so it is waited for, not assumed.
+    expect(await screen.findByRole('button', { name: /Undo/ })).toBeInTheDocument()
     const release = hold('POST /exclude')
     await userEvent.keyboard('{Enter}')
     await waitFor(() => expect(busy()).toBe(true))
@@ -374,11 +378,12 @@ describe('Ctrl Z takes the act the QS meant (the refuter of round 4)', () => {
     const { step1, hold } = await openHeld()
     const release = hold('GET /proposals')
     await userEvent.keyboard('{Enter}')
-    await waitFor(() => expect(bodyText()).toContain('Confirmed 16 sheets; left out 1'))
+    await waitFor(() => expect(count(step1, 'POST /exclude')).toBe(1))
     expect(busy()).toBe(true)
     await userEvent.keyboard('{Enter}')
     release()
     await accepting()
+    await waitFor(() => expect(bodyText()).toContain('Confirmed 16 sheets; left out 1'))
     await userEvent.click(screen.getByRole('button', { name: /Undo/ }))
     await waitFor(() => expect(bodyText()).toContain('Undone: confirmed 16 sheets and left out 1'))
     expect(count(step1, 'POST /undo')).toBe(2)
