@@ -1,5 +1,8 @@
 # No dates: build at the fastest pace verification allows
 
+**Amended by ADR 0042** (4 Oct 2026; the owner's Q7 ruling): real drawings may go to cloud sessions (the two
+Development Sets, through a private repository and a separate cloud environment); never into this repository.
+
 No deadline or fixed timeline is set. Vextrus is built as fast as possible: the owner and the team
 work long days, local and cloud Claude Code sessions run around the clock, and token spending is not
 a constraint. Work runs in parallel as far as quality allows.
