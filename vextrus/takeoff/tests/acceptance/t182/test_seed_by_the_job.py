@@ -103,7 +103,8 @@ def test_the_bulk_act_holds_17_that_agree_and_the_electrical_sheets_have_one_sou
     nusrat: Api, kr01: uuid.UUID, by_the_job: None
 ) -> None:
     """§7: "17 agree: Structural 11 (S-01 to S-12 but the two S-07s), Architectural 6 (A-01 to A-04,
-    A-06, A-07); 'Confirm 17' (session 11 ruling: the job proposes no exclusion for A-07)"; "One source: 3"."""
+    A-06, A-07); 'Confirm 17' (session 11 ruling: the job proposes no exclusion for A-07)";
+    "One source: 3"."""
     listed = proposals(nusrat, kr01)
 
     agreeing = [p for p in listed if p["agrees"]]
