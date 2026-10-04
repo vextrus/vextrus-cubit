@@ -51,3 +51,12 @@ def test_a_word_inside_a_longer_word_is_not_the_word() -> None:
     page = page_of(item("S-02"), item("COLUMN LAYOUT PLANNING"))
 
     assert registration.reads_title(page, "COLUMN LAYOUT PLAN") is False
+
+
+@pytest.mark.parametrize("title", ["-", "- / -", "()"])
+def test_a_title_of_punctuation_alone_reads_none_alike(title: str) -> None:
+    """A word is read by its letters or digits: a page holding a dash reads no dash title (the
+    refuter, session 11)."""
+    page = page_of(item("S-02"), item(title), item("COLUMN LAYOUT PLAN"))
+
+    assert registration.reads_title(page, title) is False

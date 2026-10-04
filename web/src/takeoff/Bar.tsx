@@ -75,7 +75,7 @@ function BulkWhy({ model }: { model: Step1Model }) {
   if (listed && unlisted)
     return (
       <>
-        <Trans>Each has a number and title from its title block, on its drawing list or in numbering without a gap.</Trans> {tail}
+        <Trans>Each has a number and title from its title block, and its drawing list names it or its Plot page shows the same number and title.</Trans> {tail}
       </>
     )
   if (listed)
@@ -87,7 +87,7 @@ function BulkWhy({ model }: { model: Step1Model }) {
   if (unlisted)
     return (
       <>
-        <Trans>Each has a number and title from its title block, in numbering without a gap, and its Plot page matches.</Trans> {tail}
+        <Trans>Each has a number and title from its title block, and its Plot page shows the same number and title.</Trans> {tail}
       </>
     )
   return tail
@@ -100,7 +100,8 @@ function OneSourceWhy({ sheet, model }: { sheet: ProposalOut; model: Step1Model 
     model.disciplines.find((d) => d.discipline === sheet.discipline),
   )
   if (why === 'not-listed') return <Trans>The drawing list does not name it.</Trans>
-  if (why === 'gap') return <Trans>Its Discipline’s numbering has a gap or a number twice.</Trans>
+  if (why === 'gap') return <Trans>It is next to a gap in its Discipline’s numbering, which a Question asks about.</Trans>
+  if (why === 'twice') return <Trans>Another sheet of its Discipline has the same number.</Trans>
   if (why === 'no-list-no-plot') return <Trans>No drawing list and no Plot to check them against.</Trans>
   return <Trans>Nothing else confirms it.</Trans>
 }

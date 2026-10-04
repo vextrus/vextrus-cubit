@@ -232,8 +232,8 @@ def reads_title(page: Page, title: str | None) -> bool:
     """Whether the page's text reads the sheet's title (#229: a matched page is the sheet's second
     source only when its number and its title read alike): every word of the title, in 13's normal
     form, is a word of the page's text, the title block's lines and the body's alike (a title drawn
-    over two lines is two items). A sheet with no title, and a page with no text (one matched by its
-    ink), read no title alike."""
+    over two lines is two items); a word is one holding a letter or digit. A sheet with no title (or
+    one of punctuation alone), and a page with no text (one matched by its ink), read no title alike."""
     wanted = _words(title)
     if not wanted:
         return False
@@ -245,7 +245,10 @@ def reads_title(page: Page, title: str | None) -> bool:
 
 def _words(text: str | None) -> set[str]:
     key = normal(text)
-    return {word for word in _WORDS.split(key) if word} if key is not None else set()
+    if key is None:
+        return set()
+    # A word is read by its letters or digits: a dash alone is no word of a title.
+    return {word for word in _WORDS.split(key) if any(char.isalnum() for char in word)}
 
 
 def _reason(code: object) -> str:

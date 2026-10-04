@@ -89,6 +89,18 @@ describe('an answer’s toast names the act (#156 round 3, design gate item 1)',
     expect(toast(fake, gap, 'not_sent_yet')).toBe('Q5 answered. Recorded: the 2 missing sheets are still to come. Paste the drawing list to count them.')
   })
 
+  it('words one answer for every gap of a Discipline’s gap Question, counting the numbers missing in all (#229)', () => {
+    const fake = new FakeAnswers()
+    const gap = fake.everyShape().find((q) => q.code === 'engine.register_check.gap')!
+    const gaps = { ...gap, code: 'engine.register_check.gaps', params: { discipline: 'structural', gaps: [{ after: 'S-01', before: 'S-03', missing: 1 }, { after: 'S-03', before: 'S-07', missing: 3 }] } } as unknown as Question21c
+    expect(toast(fake, gaps, 'not_in_set')).toBe('Q5 answered. Recorded: the numbering skips at each gap; nothing is missing.')
+    expect(toast(fake, gaps, 'not_sent_yet')).toBe('Q5 answered. Recorded: the 4 missing sheets are still to come. Paste the drawing list to count them.')
+    expect(toast(fake, gaps, 'file_not_added')).toBe('Q5 answered. Recorded: the 4 missing sheets are still to come. Paste the drawing list to count them.')
+    // One gap in the Question: the words name it, as a gap Question asked before #229 did.
+    const one = { ...gaps, params: { discipline: 'structural', gaps: [{ after: 'S-04', before: 'S-07', missing: 2 }] } } as unknown as Question21c
+    expect(toast(fake, one, 'not_in_set')).toBe('Q5 answered. Recorded: the numbering skips between S-04 and S-07; nothing is missing.')
+  })
+
   it('names the list the Discipline is counted against, the Discipline set and the storey recorded', () => {
     const fake = new FakeAnswers()
     const kinds = fake.byKind()

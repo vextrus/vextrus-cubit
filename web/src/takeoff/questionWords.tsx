@@ -11,7 +11,7 @@ import { MachineText } from '@/format/machine'
 import { DrawingText } from '@/ui'
 import { SheetName } from './acts'
 import type { ProposalOut } from './data'
-import { gapOf, type QuestionEntry, type Step1Model } from './model'
+import { GAPS_CODE, gapsOf, isGaps, type QuestionEntry, type Step1Model } from './model'
 import { disciplineName } from './SheetList'
 import { useHasEnglish } from './useHasEnglish'
 import { DISCIPLINE_NAMES, OPTION_NAMES, OTHER_OPTION, OTHER_QUESTION, QUESTION_KINDS, QUESTION_KIND_BY_CODE, SHEET_KIND_NAMES } from './words'
@@ -25,8 +25,15 @@ export function optionsOf(entry: QuestionEntry): Option[] {
 const isCopies = (entry: QuestionEntry) => entry.question.code === 'engine.conflicts.same_number' && entry.holds.length >= 2
 
 function params(entry: QuestionEntry): Record<string, string | number> {
-  return Object.fromEntries(Object.entries(entry.question.params).filter(([, v]) => typeof v === 'string' || typeof v === 'number')) as Record<string, string | number>
+  const scalars = Object.fromEntries(Object.entries(entry.question.params).filter(([, v]) => typeof v === 'string' || typeof v === 'number')) as Record<string, string | number>
+  if (entry.question.code !== GAPS_CODE) return scalars
+  // A Discipline's gaps (#229): how many, how many numbers missing in all, and each gap as a range.
+  const gaps = gapsOf(entry.question)
+  return { ...scalars, count: gaps.length, missing: missingIn(gaps), gaps: gaps.map((g) => `${g.after}–${g.before}`).join(', ') }
 }
+
+/** The numbers missing across a Question's gaps. */
+const missingIn = (gaps: readonly { missing: number }[]) => gaps.reduce((sum, g) => sum + g.missing, 0)
 
 /** The kind in the card's header: "Two sheets, one number". */
 export function useKindLine(entry: QuestionEntry): string {
@@ -171,12 +178,22 @@ export function Trace({ entry, context, onOpen }: { entry: QuestionEntry; contex
     return <Trans>Trace: the title block of {sheet} (the number field is empty)</Trans>
   }
   if (q.kind === 'check') {
-    const gap = gapOf(q)
-    if (gap) {
-      // No drawing list: the gap was read from the numbers in the title blocks either side of it.
-      const sides = [gap.after, gap.before].flatMap((n) => context.sheets.filter((p) => p.number === n && (!q.discipline || p.discipline === q.discipline)).slice(0, 1))
-      const [one, two] = sides.map((h) => <SheetLink key={h.id} sheet={h} onOpen={onOpen} />)
+    const gaps = gapsOf(q)
+    if (gaps.length > 0) {
+      // No drawing list: each gap was read from the numbers in the title blocks either side of it (the
+      // sheets a Discipline's gap Question holds, #229, else those of its Discipline with the number).
+      const numbers = [...new Set(gaps.flatMap((g) => [g.after, g.before]))]
+      const sideOf = (n: string) => {
+        const held = entry.holds.filter((p) => p.number === n)
+        return (held.length > 0 ? held : context.sheets.filter((p) => p.number === n && (!q.discipline || p.discipline === q.discipline))).slice(0, 1)
+      }
+      const links = numbers.flatMap(sideOf).map((h) => <SheetLink key={h.id} sheet={h} onOpen={onOpen} />)
+      const [one, two] = links
       if (!one) return null
+      if (links.length > 2) {
+        const sides = <Joined items={links} />
+        return <Trans>Trace: the title blocks of {sides}</Trans>
+      }
       // Its own words, plural on the sides found (the words gate of 164, round 1, M1).
       if (!two) {
         const sheet = one
@@ -366,12 +383,13 @@ export function OptionWords({ entry, option }: { entry: QuestionEntry; option: O
   if (key === 'use_given' && q.params.source === 'typed') return <Trans>Use the range you typed</Trans>
   if (q.kind === 'missing_discipline' && key !== 'keep_open') return <>{disciplineName(key, i18n)}</>
   // 21c raises every Check with the drawing list's options; a numbering gap words two of them for itself.
-  const gap = gapOf(entry.question)
-  if (gap && key === 'not_sent_yet') {
-    const missing = typeof entry.question.params.missing === 'number' ? entry.question.params.missing : 1
+  const gaps = gapsOf(entry.question)
+  if (gaps.length > 0 && key === 'not_sent_yet') {
+    const missing = missingIn(gaps)
     return <Plural value={missing} one="Not sent yet: keep the missing sheet in the count and ask the consultant" other="Not sent yet: keep the missing sheets in the count and ask the consultant" />
   }
-  if (gap && key === 'not_in_set') return <Trans>Not part of this set: the numbering skips here</Trans>
+  if (gaps.length > 1 && key === 'not_in_set') return <Trans>Not part of this set: the numbering skips at each gap</Trans>
+  if (gaps.length === 1 && key === 'not_in_set') return <Trans>Not part of this set: the numbering skips here</Trans>
   // A sheet in a file but not on the drawing list: the list does not hold it, so the option says what is left to do.
   if (entry.question.code === 'engine.register_check.not_listed' && key === 'not_in_set') return <Trans>Not part of this set: record it, then exclude it in the list</Trans>
   const words = OPTION_NAMES[key] ?? (q.kind === 'low_confidence' ? SHEET_KIND_NAMES[key] : undefined)
@@ -421,13 +439,16 @@ export function Answering({ entry, context, choice, hint = false }: { entry: Que
   }
   if (q.kind === 'check' && picked) {
     // §6.7's drawing-list row: what each pick does to the entry (or the gap) and to its Discipline.
-    const gap = gapOf(q)
+    const gaps = gapsOf(q)
+    const gap = gaps.length > 0
     const listed = typeof q.params.number === 'string' && q.params.number ? q.params.number : null
-    const entryName = listed ? <DrawingText kind="sheet-number" text={listed} truncate={false} /> : n > 0 ? <SheetName sheets={entry.holds} /> : null
-    const missing = typeof q.params.missing === 'number' ? q.params.missing : 1
+    // A gap Question holds the sheets beside its gaps (#229), never a sheet the words name.
+    const entryName = listed ? <DrawingText kind="sheet-number" text={listed} truncate={false} /> : n > 0 && !gap ? <SheetName sheets={entry.holds} /> : null
+    const missing = gap ? missingIn(gaps) : typeof q.params.missing === 'number' ? q.params.missing : 1
     // A sheet in a file but not on the drawing list: it exists, and stays in the list whatever is picked.
     const unlisted = q.code === 'engine.register_check.not_listed'
     if (picked === 'not_in_set') {
+      if (gaps.length > 1) return <Trans>Answering records that the numbering skips at each gap: nothing is missing.</Trans>
       if (gap) return <Trans>Answering records that the numbering skips here: nothing is missing.</Trans>
       if (unlisted && entryName) return <Trans>Answering records that {entryName} is not part of this set; exclude it in the list.</Trans>
       // 21c records it and takes nothing off the drawing list (#206): said as what is recorded.
@@ -468,7 +489,7 @@ export function Answering({ entry, context, choice, hint = false }: { entry: Que
       )
     }
     if (picked === 'keep_open') {
-      const open = gap ? <Trans>Answering keeps this gap open.</Trans> : entryName ? <Trans>Answering keeps {entryName} open.</Trans> : <Trans>Answering keeps this Question open.</Trans>
+      const open = gaps.length > 1 ? <Trans>Answering keeps these gaps open.</Trans> : gap ? <Trans>Answering keeps this gap open.</Trans> : entryName ? <Trans>Answering keeps {entryName} open.</Trans> : <Trans>Answering keeps this Question open.</Trans>
       return discipline ? (
         <>
           {open} <Trans>{discipline} cannot be confirmed until this Question is answered.</Trans>
@@ -526,6 +547,13 @@ export function Answering({ entry, context, choice, hint = false }: { entry: Que
     const kind = i18n._(SHEET_KIND_NAMES[picked]!)
     return <Trans>Answering sets the kind of {sheet} to {kind} and confirms it, unless its number or Discipline is still asked.</Trans>
   }
+  // A Discipline's gap Question holds the sheets beside its gaps (#229), yet answering settles none of them.
+  if (isGaps(q))
+    return hint && !picked ? (
+      <Trans>Answering confirms no sheets: it records why the numbering skips, and the sheets either side of the gaps stop waiting for it. Pick an answer: {keys}.</Trans>
+    ) : (
+      <Trans>Answering confirms no sheets: it records why the numbering skips, and the sheets either side of the gaps stop waiting for it.</Trans>
+    )
   if (n === 0) return hint && !picked ? <Trans>Answering confirms no sheets. Pick an answer: {keys}.</Trans> : <Trans>Answering confirms no sheets.</Trans>
   if (hint && !picked)
     return (
@@ -684,14 +712,16 @@ function ListUsed({ entry, option }: { entry: QuestionEntry; option: 'use_read' 
 function CheckAnswered({ entry, option }: { entry: QuestionEntry; option: string }) {
   const tag = entry.tag
   const q = entry.question
-  const gap = gapOf(q)
+  const gaps = gapsOf(q)
+  const gap = gaps.length === 1 ? gaps[0]! : null
   const listed = typeof q.params.number === 'string' && q.params.number ? q.params.number : null
   const sheet = listed ? <DrawingText kind="sheet-number" text={listed} truncate={false} /> : entry.holds.length > 0 ? <SheetName sheets={entry.holds} /> : null
   // At a sentence's start, after "Q3 answered." (#167's words gate: an untitled sheet's words are capitalised).
   const Sheet = listed ? sheet : entry.holds.length > 0 ? <SheetName sheets={entry.holds} start /> : null
-  const missing = typeof q.params.missing === 'number' ? q.params.missing : 1
+  const missing = gaps.length > 0 ? missingIn(gaps) : typeof q.params.missing === 'number' ? q.params.missing : 1
   const unlisted = q.code === 'engine.register_check.not_listed'
   if (option === 'not_in_set') {
+    if (gaps.length > 1) return <Trans>{tag} answered. Recorded: the numbering skips at each gap; nothing is missing.</Trans>
     if (gap) {
       const after = <DrawingText kind="sheet-number" text={gap.after} truncate={false} />
       const before = <DrawingText kind="sheet-number" text={gap.before} truncate={false} />
@@ -702,7 +732,7 @@ function CheckAnswered({ entry, option }: { entry: QuestionEntry; option: string
     return <Trans>{tag} answered. Recorded: {sheet} is not part of this set; it stays on the drawing list.</Trans>
   }
   if (option !== 'not_sent_yet' && option !== 'file_not_added') return <Trans>{tag} answered. Your answer is recorded.</Trans>
-  if (gap)
+  if (gaps.length > 0)
     return (
       <Trans>
         {tag} answered. Recorded:{' '}

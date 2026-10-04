@@ -74,6 +74,8 @@ export interface DisciplineSection {
   numbering: { first: string; last: string; missing: readonly string[]; twice: readonly string[] } | null
   /** Every sheet settled, none of its Questions open, no view unaccounted (m0-screens §5). */
   confirmed: boolean
+  /** The sheets beside a numbering gap its open gap Question asks about (#229): one source each until it is answered. */
+  besideGap?: readonly string[]
 }
 
 export interface Bulk {
@@ -251,6 +253,35 @@ export function gapOf(q: QuestionOut): { after: string; before: string } | null 
   return q.code === 'engine.register_check.gap' && typeof after === 'string' && typeof before === 'string' ? { after, before } : null
 }
 
+export interface Gap {
+  after: string
+  before: string
+  missing: number
+}
+
+export const GAPS_CODE = 'engine.register_check.gaps'
+
+/**
+ * A Discipline's numbering gaps, as its one gap Question names them (#229: "all of one Discipline's
+ * gaps are asked as one Question"), in the Check's order; a Question asked before #229 names one gap.
+ * Empty for any other Question, or one whose gaps are not each two numbers and a count.
+ */
+export function gapsOf(q: QuestionOut): Gap[] {
+  const one = gapOf(q)
+  if (one) return [{ ...one, missing: typeof q.params.missing === 'number' ? q.params.missing : 1 }]
+  const listed: unknown = (q.params as Record<string, unknown>).gaps
+  if (q.code !== GAPS_CODE || !Array.isArray(listed)) return []
+  const gaps: Gap[] = []
+  for (const g of listed) {
+    if (!isRecord(g) || typeof g.after !== 'string' || typeof g.before !== 'string' || typeof g.missing !== 'number') return []
+    gaps.push({ after: g.after, before: g.before, missing: g.missing })
+  }
+  return gaps
+}
+
+/** Whether the Question is a Discipline's merged gap Question (it holds the sheets beside each gap, yet is a row of its own). */
+export const isGaps = (q: QuestionOut) => q.code === GAPS_CODE
+
 export function step1Model(data: Step1Data): Step1Model {
   const proposals = [...data.proposals].sort(
     (a, b) =>
@@ -264,11 +295,16 @@ export function step1Model(data: Step1Data): Step1Model {
   const answered = answeredQueue(data.questions, proposals, queue.length + withdrawnEntries.length)
   raisedTags([...queue, ...withdrawnEntries, ...answered])
   const heldBy = new Map<string, QuestionEntry>()
-  for (const entry of [...queue, ...withdrawnEntries]) for (const p of entry.holds) if (!heldBy.has(p.id)) heldBy.set(p.id, entry)
+  // The sheets beside a gap stay in their Discipline's rows, one source each while the gap is asked (#229).
+  for (const entry of [...queue, ...withdrawnEntries]) if (!isGaps(entry.question) || entry.withdrawn) for (const p of entry.holds) if (!heldBy.has(p.id)) heldBy.set(p.id, entry)
+  const besideGap = new Set(queue.filter((e) => isGaps(e.question)).flatMap((e) => e.holds.map((p) => p.id)))
 
   const needsYou: Row[] = queue.map((entry) => {
     const q = entry.question
     const holds = entry.holds
+    // A Discipline's gaps: its row names the first gap's first number and the last gap's last (#229).
+    const gaps = gapsOf(q)
+    if (isGaps(q) && gaps.length > 0) return { key: `q:${q.id}`, kind: 'entry', sheets: [], number: gaps[0]!.after, numberTo: gaps.at(-1)!.before, question: entry }
     if (holds.length > 1) return { key: `q:${q.id}`, kind: 'copies', sheets: holds, number: holds[0]!.number, numberTo: null, question: entry }
     if (holds.length === 1) return { key: `q:${q.id}`, kind: 'sheet', sheets: holds, number: holds[0]!.number, numberTo: null, question: entry }
     // Only a held file's row is a file's (ticket 164): a numbering gap's row names its two numbers, a
@@ -280,14 +316,19 @@ export function step1Model(data: Step1Data): Step1Model {
     return { key: `q:${q.id}`, kind: 'entry', sheets: [], number, numberTo: null, question: entry }
   })
 
-  const withdrawn: Row[] = withdrawnEntries.map((entry) => ({
-    key: `q:${entry.question.id}`,
-    kind: entry.holds.length > 1 ? 'copies' : 'sheet',
-    sheets: entry.holds,
-    number: entry.holds[0]!.number,
-    numberTo: null,
-    question: entry,
-  }))
+  const withdrawn: Row[] = withdrawnEntries.map((entry) => {
+    const gaps = gapsOf(entry.question)
+    if (isGaps(entry.question) && gaps.length > 0)
+      return { key: `q:${entry.question.id}`, kind: 'entry', sheets: entry.holds, number: gaps[0]!.after, numberTo: gaps.at(-1)!.before, question: entry }
+    return {
+      key: `q:${entry.question.id}`,
+      kind: entry.holds.length > 1 ? 'copies' : 'sheet',
+      sheets: entry.holds,
+      number: entry.holds[0]!.number,
+      numberTo: null,
+      question: entry,
+    }
+  })
 
   const free = proposals.filter((p) => !heldBy.has(p.id))
   const proposedOut = sheetRows(free.filter((p) => !decided(p) && p.proposed_exclusion !== null))
@@ -314,6 +355,7 @@ export function step1Model(data: Step1Data): Step1Model {
         openQuestions,
         list: hasList ? list : null,
         numbering: hasList ? null : numberingOf(mine),
+        besideGap: mine.filter((p) => besideGap.has(p.id)).map((p) => p.id),
         confirmed: mine.length > 0 && settled === mine.length && openQuestions === 0 && coverageDone,
       }
     })
@@ -367,7 +409,7 @@ export function rowState(row: Row): RowState {
 }
 
 /** Why a sheet has one source (6.5), for the bar to say. */
-export type OneSourceWhy = 'not-listed' | 'gap' | 'no-list-no-plot' | 'other'
+export type OneSourceWhy = 'not-listed' | 'gap' | 'twice' | 'no-list-no-plot' | 'other'
 
 export function whyOneSource(sheet: ProposalOut, section: DisciplineSection | undefined): OneSourceWhy {
   if (!section) return 'other'
@@ -380,9 +422,12 @@ export function whyOneSource(sheet: ProposalOut, section: DisciplineSection | un
     })
     return named ? 'other' : 'not-listed'
   }
-  const run = section.numbering
-  if (!run || run.missing.length > 0 || run.twice.length > 0) return 'gap'
-  return 'no-list-no-plot'
+  // With no drawing list, a matched Plot page is the second source (#229): only the sheets beside a
+  // gap the open gap Question asks about, and a number twice, lose it to the numbering.
+  if (section.besideGap?.includes(sheet.id)) return 'gap'
+  if (sheet.number && section.numbering?.twice.includes(sheet.number)) return 'twice'
+  if (sheet.plot_page === null || sheet.plot_page === undefined) return 'no-list-no-plot'
+  return 'other'
 }
 
 /** The first open row after `key` (wrapping), for "Next open item": a Question's row or an undecided sheet. */

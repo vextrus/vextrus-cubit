@@ -629,7 +629,9 @@ def _register(
         )
         findings.append((result.finding, [sheet.id] if sheet else [], question_id))
     step1.retire_questions(
-        project_id, (list_codes.GAP.code, list_codes.GAPS.code), [q for _, _, q in findings]
+        project_id,
+        (list_codes.GAP.code, list_codes.GAPS.code),
+        [q for _, _, q in findings if q is not None],
     )
     step1.record_check_run(
         project_id,
@@ -648,34 +650,55 @@ def _gaps(
     gaps: Sequence[Message],
     proposal_of: Mapping[uuid.UUID, uuid.UUID],
     numbers: finder.Numbers,
-) -> list[tuple[Message, list[uuid.UUID], uuid.UUID]]:
-    """Every gap of one Discipline's numbering asked as one `gaps` Question (#229, the owner's ruling:
-    "all of one Discipline's gaps are asked as one Question"), holding only the sheets beside its gaps
-    (each gap's `after` and `before`, by their numbers, not yet decided) while it is open; each gap a
-    finding of the Check's run, its subjects those two sheets', its Question the merged one."""
+) -> list[tuple[Message, list[uuid.UUID], uuid.UUID | None]]:
+    """Every gap of one Discipline's numbering not yet answered asked as one `gaps` Question (#229,
+    the owner's ruling: "all of one Discipline's gaps are asked as one Question"), holding only the
+    sheets beside its gaps while it is open: those whose series and running number are a gap's
+    `after` or `before` (a suffix aside: "S-04A" is beside a gap after "S-04"), not yet decided (an
+    undo brings one back into the hold through `step1._agreeing`, which reads the Question's gaps). A
+    gap answered before stays settled (`step1.answered_gaps`), however the others change. Each gap a
+    finding of the Check's run, its subjects those sheets', its Question the one that asks or
+    answered it."""
+    settled = step1.answered_gaps(project_id)
     of_discipline: dict[str, list[Message]] = {}
     for gap in gaps:
         of_discipline.setdefault(str(gap["params"]["discipline"]), []).append(gap)
-    found: list[tuple[Message, list[uuid.UUID], uuid.UUID]] = []
-    for discipline, mine in of_discipline.items():
+    found: list[tuple[Message, list[uuid.UUID], uuid.UUID | None]] = []
+    for discipline, every in of_discipline.items():
         numbered = [s for s in listed if s.discipline == discipline and s.number]
-        beside = []
-        for gap in mine:
-            ends = {numbers.key(str(gap["params"][end]), discipline) for end in ("after", "before")}
-            beside.append([s.id for s in numbered if numbers.key(s.number or "", discipline) in ends])
+        place = {s.id: _place(numbers, s.number or "", discipline) for s in numbered}
+        beside: list[list[uuid.UUID]] = []
+        for gap in every:
+            ends = {_place(numbers, str(gap["params"][end]), discipline) for end in ("after", "before")}
+            beside.append([s.id for s in numbered if place[s.id] is not None and place[s.id] in ends])
+        answered = {i: settled.get((discipline, *_ends(gap))) for i, gap in enumerate(every)}
+        mine = [i for i in range(len(every)) if answered[i] is None]
+        if not mine:
+            found += [(gap, beside[i], answered[i]) for i, gap in enumerate(every) if answered[i]]
+            continue
         undecided = {s.id for s in numbered if not s.decision}
-        held = dict.fromkeys(i for ids in beside for i in ids if i in undecided and i in proposal_of)
+        held = dict.fromkeys(s for i in mine for s in beside[i] if s in undecided and s in proposal_of)
         question_id = step1.raise_question(
             project_id,
             "check",
-            _asked(discipline, mine),
+            _asked(discipline, [every[i] for i in mine]),
             discipline=discipline,
             options=options(CHECK_OPTIONS),
             check_code=register_check.CODE,
-            blocks=[proposal_of[i] for i in held],
+            blocks=[proposal_of[s] for s in held],
         )
-        found += [(gap, ids, question_id) for gap, ids in zip(mine, beside, strict=True)]
+        found += [(gap, beside[i], answered[i] or question_id) for i, gap in enumerate(every)]
     return found
+
+
+def _ends(gap: Message) -> tuple[str, str, int]:
+    params = gap["params"]
+    return (str(params["after"]), str(params["before"]), int(params["missing"]))
+
+
+def _place(numbers: finder.Numbers, number: str, discipline: str) -> tuple[str, int] | None:
+    parts = numbers.parts_in(number, discipline)
+    return None if parts is None else (parts[0], parts[1])
 
 
 def _asked(discipline: str, gaps: Sequence[Message]) -> Message:

@@ -469,6 +469,9 @@ def _keep_sheet(
             changed["anchors"] = anchors
         if changed and existing.decision:
             raise auth.Refused(refusal.DECIDED(file=row.original_name), status=409)
+        if "title" in changed and existing.plot_title_alike:
+            # Its Plot page read the old title: until the page is matched again it reads none (#229).
+            changed["plot_title_alike"] = False
         old_sheet_id = existing.sheet_id
         for name, value in changed.items():
             setattr(existing, name, value)

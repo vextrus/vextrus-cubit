@@ -203,3 +203,123 @@ def test_a_plot_kept_again_reads_its_title_afresh(qs_project: QsProject) -> None
         )
         none = drawings.record_plot(sheet.id, PlotNone.NO_PAGE, pdf_file_id=the_set.pdf.id)
         assert (none.plot.page, none.plot.title_alike) == (None, False)
+
+
+# The refuter's round (session 11): each class it proved, held by a test -------------------------
+
+
+def _bulk(the_set: _Set, *numbers: str) -> int:
+    with the_set.member.acting():
+        proposal_of = step1.proposal_ids(the_set.project_id)
+    response = api_as(the_set.member).post(
+        f"/api/projects/{the_set.project_id}/takeoff/step1/confirm",
+        {"proposals": [str(proposal_of[the_set.sheets[n].id]) for n in numbers]},
+    )
+    status: int = response.status_code
+    return status
+
+
+def test_an_undo_brings_a_sheet_beside_an_open_gap_back_into_its_hold(qs_project: QsProject) -> None:
+    """S-02, confirmed on its own before the gap was asked, is undone while the gap Question is open:
+    it is beside the gap, so it does not agree and no bulk act may take it (the refuter: 200)."""
+    the_set = _Set(qs_project, ["S-01", "S-02", "S-04", "S-05"])
+    the_set.plot_all()
+    with the_set.member.acting():
+        proposal_of = step1.proposal_ids(the_set.project_id)
+        step1.confirm(the_set.project_id, [proposal_of[the_set.sheets["S-02"].id]], actor_name="QS")
+    the_set.ask()
+    assert len(the_set.gap_questions()) == 1
+
+    assert (
+        api_as(the_set.member).post(f"/api/projects/{the_set.project_id}/takeoff/step1/undo").status_code
+        == 200
+    )
+
+    assert the_set.agrees() == {"S-01": True, "S-02": False, "S-04": False, "S-05": True}
+    assert _bulk(the_set, "S-01", "S-02") == 409
+
+
+def _answer(the_set: _Set, question: dict[str, Any], option: str = "not_in_set") -> None:
+    path = f"/api/projects/{the_set.project_id}/takeoff/step1/questions/{question['id']}/answer"
+    response = api_as(the_set.member).post(path, {"option": option})
+    assert response.status_code == 200, response.json()
+
+
+def test_a_gap_answered_stays_settled_when_another_gap_appears(qs_project: QsProject) -> None:
+    """The next Question asks only the new gap and holds only its neighbours: the answered gap's
+    sheets keep agreeing (the refuter: S-02 and S-04 held again)."""
+    the_set = _Set(qs_project, ["S-01", "S-02", "S-04", "S-05"])
+    the_set.plot_all()
+    the_set.ask()
+    [question] = the_set.gap_questions()
+    _answer(the_set, question)
+
+    the_set.read("KR-STR-R1.dwg", ["S-08"])
+    the_set.plot_all()
+    the_set.ask()
+
+    [now] = the_set.gap_questions()
+    assert now["params"]["gaps"] == [{"after": "S-05", "before": "S-08", "missing": 2}]
+    shown = the_set.agrees()
+    assert (shown["S-02"], shown["S-04"], shown["S-05"], shown["S-08"]) == (True, True, False, False)
+
+
+def test_gaps_answered_stay_settled_when_one_of_them_is_filled(qs_project: QsProject) -> None:
+    """Two gaps answered, then a file fills one: the other is not asked again."""
+    the_set = _Set(qs_project, ["S-01", "S-03", "S-05"])
+    the_set.ask()
+    [question] = the_set.gap_questions()
+    _answer(the_set, question)
+
+    the_set.read("KR-STR-R1.dwg", ["S-02"])
+    the_set.ask()
+
+    assert the_set.gap_questions() == []
+    [answered] = the_set.gap_questions("answered")
+    assert answered["id"] == question["id"]
+
+
+def test_a_sheet_with_a_suffix_beside_a_gap_is_held(qs_project: QsProject) -> None:
+    """S-04A is S-04's running number: with S-05 missing it is beside the gap the Check names after
+    S-04 (the refuter: it agreed and was not held)."""
+    the_set = _Set(qs_project, ["S-03", "S-04", "S-04A", "S-06", "S-07"])
+    the_set.plot_all()
+    the_set.ask()
+
+    [question] = the_set.gap_questions()
+
+    shown = the_set.agrees()
+    assert {n: shown[n] for n in ("S-03", "S-04", "S-04A", "S-06", "S-07")} == {
+        "S-03": True,
+        "S-04": False,
+        "S-04A": False,
+        "S-06": False,
+        "S-07": True,
+    }
+    linked = QuestionLink.objects.filter(question_id=question["id"]).values_list(
+        "proposal__subject_id", flat=True
+    )
+    assert set(linked) == {the_set.sheets[n].id for n in ("S-04", "S-04A", "S-06")}
+
+
+def test_a_title_read_again_differently_clears_the_plots_title(qs_project: QsProject) -> None:
+    """The page read the old title, not the new one: until it is matched again it reads none (the
+    refuter: the flag stayed true over a changed title)."""
+    member, project_id = qs_project.member, qs_project.project_id
+    pdf = add(member, project_id, "KR-STR-R0.pdf", drawing("pdf")).file
+    dwg = add(member, project_id, "KR-STR-R0.dwg", drawing()).file
+    read_dwg(member, dwg.id, ["S-01"], titles=["COLUMN LAYOUT PLAN"])
+    with member.acting():
+        drawing_set = drawings.set_of(project_id)
+        assert drawing_set is not None
+        [sheet] = drawings.sheets(drawing_set.id)
+        shown = _page(pdf.sha256, 1, "S-01", "COLUMN LAYOUT PLAN")
+        kept = drawings.record_plot(sheet.id, PlotMatch(shown, sheet=plot.candidate(sheet)))
+        assert kept.plot.title_alike is True
+
+    read_dwg(member, dwg.id, ["S-01"], titles=["ROOF SLAB DETAILS"])
+
+    with member.acting():
+        [again] = drawings.sheets(drawing_set.id)
+        assert (again.id, again.title, again.plot.page) == (sheet.id, "ROOF SLAB DETAILS", 1)
+        assert again.plot.title_alike is False

@@ -69,6 +69,10 @@ msgid "Leave it without a number"
 msgstr "Leave it without a number"
 
 #: src/takeoff/questionWords.tsx
+msgid "Not part of this set: the numbering skips at each gap"
+msgstr "Not part of this set: the numbering skips at each gap"
+
+#: src/takeoff/questionWords.tsx
 msgid "the drawing list on {sheet}"
 msgstr "the drawing list on {sheet}"
 
@@ -414,6 +418,10 @@ msgstr "Answering decides whether this file’s sheets join the list."
 #: src/takeoff/words.tsx
 msgid "Perspective"
 msgstr "Perspective"
+
+#: src/takeoff/words.tsx
+msgid "Gaps in the numbering"
+msgstr "Gaps in the numbering"
 
 #: src/takeoff/storeys.tsx
 msgid "{listed} to top (top from Step 3)"
@@ -870,10 +878,6 @@ msgstr "read by Vextrus from the title"
 msgid "Presentation, 3D or for information"
 msgstr "Presentation, 3D or for information"
 
-#: src/takeoff/Bar.tsx
-msgid "Each has a number and title from its title block, in numbering without a gap, and its Plot page matches."
-msgstr "Each has a number and title from its title block, in numbering without a gap, and its Plot page matches."
-
 #: src/takeoff/words.tsx
 msgid "cover or index"
 msgstr "cover or index"
@@ -1021,6 +1025,10 @@ msgstr "Trace: the title blocks of {copies}"
 #: src/takeoff/Step1Inspector.tsx
 msgid "{n, plural, one {Views (#)} other {Views (#)}}"
 msgstr "{n, plural, one {Views (#)} other {Views (#)}}"
+
+#: src/takeoff/questionWords.tsx
+msgid "Answering keeps these gaps open."
+msgstr "Answering keeps these gaps open."
 
 #: src/takeoff/questionWords.tsx
 msgid "Keep {kept} ({date}); leave {dropped} out as superseded"
@@ -1202,6 +1210,10 @@ msgstr "Waiting for the QS. The MD reads Questions and cannot answer them."
 msgid "Basement {n}"
 msgstr "Basement {n}"
 
+#: src/takeoff/questionWords.tsx
+msgid "Answering records that the numbering skips at each gap: nothing is missing."
+msgstr "Answering records that the numbering skips at each gap: nothing is missing."
+
 #: src/takeoff/words.tsx
 msgid "superseded"
 msgstr "superseded"
@@ -1266,6 +1278,10 @@ msgstr "Pick an answer"
 #: src/takeoff/questionWords.tsx
 msgid "{tag} answered. {Sheet} stays in the count as missing until its file is added."
 msgstr "{tag} answered. {Sheet} stays in the count as missing until its file is added."
+
+#: src/takeoff/questionWords.tsx
+msgid "Answering confirms no sheets: it records why the numbering skips, and the sheets either side of the gaps stop waiting for it."
+msgstr "Answering confirms no sheets: it records why the numbering skips, and the sheets either side of the gaps stop waiting for it."
 
 #: src/takeoff/questionWords.tsx
 msgid "Trace: the title blocks of {first} and {second}"
@@ -1451,6 +1467,10 @@ msgid "{n, plural, one {Confirm the # sheet that agrees} other {Confirm the # sh
 msgstr "{n, plural, one {Confirm the # sheet that agrees} other {Confirm the # sheets that agree}} and leave out {m}: {reasons}"
 
 #: src/takeoff/Bar.tsx
+msgid "Each has a number and title from its title block, and its Plot page shows the same number and title."
+msgstr "Each has a number and title from its title block, and its Plot page shows the same number and title."
+
+#: src/takeoff/Bar.tsx
 msgid "Enter confirms it and opens the next open sheet."
 msgstr "Enter confirms it and opens the next open sheet."
 
@@ -1477,6 +1497,10 @@ msgstr "Proposed to leave out: excluded sheets stay in the count with their reas
 #: src/takeoff/Bar.tsx
 msgid "Each has a number and title from its title block and is on its drawing list."
 msgstr "Each has a number and title from its title block and is on its drawing list."
+
+#: src/takeoff/questionWords.tsx
+msgid "Answering confirms no sheets: it records why the numbering skips, and the sheets either side of the gaps stop waiting for it. Pick an answer: {keys}."
+msgstr "Answering confirms no sheets: it records why the numbering skips, and the sheets either side of the gaps stop waiting for it. Pick an answer: {keys}."
 
 #: src/takeoff/acts.tsx
 msgid "Nothing undone: your last change was not made. Press Ctrl Z again to undo the one before it."
@@ -1757,10 +1781,6 @@ msgstr "{n, plural, one {Answering confirms # sheet.} other {Answering confirms 
 msgid "{first} (QS) confirms the sheet list; every act shows who did it."
 msgstr "{first} (QS) confirms the sheet list; every act shows who did it."
 
-#: src/takeoff/Bar.tsx
-msgid "Each has a number and title from its title block, on its drawing list or in numbering without a gap."
-msgstr "Each has a number and title from its title block, on its drawing list or in numbering without a gap."
-
 #: src/takeoff/questionWords.tsx
 msgid "Answering decides which drawing list {name}’s sheets are counted against."
 msgstr "Answering decides which drawing list {name}’s sheets are counted against."
@@ -1824,6 +1844,10 @@ msgstr "{n, plural, one {left out # sheet} other {left out # sheets}}"
 #: src/takeoff/Bar.tsx
 msgid "{Name} is confirmed by {by}"
 msgstr "{Name} is confirmed by {by}"
+
+#: src/takeoff/questionWords.tsx
+msgid "{tag} answered. Recorded: the numbering skips at each gap; nothing is missing."
+msgstr "{tag} answered. Recorded: the numbering skips at each gap; nothing is missing."
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "Picked for you: {sources}"
@@ -2006,6 +2030,10 @@ msgstr "Waiting for the QS. A Guest reads Questions and cannot answer them."
 msgid "the later revision mark and {list} agree"
 msgstr "the later revision mark and {list} agree"
 
+#: src/takeoff/Bar.tsx
+msgid "Each has a number and title from its title block, and its drawing list names it or its Plot page shows the same number and title."
+msgstr "Each has a number and title from its title block, and its drawing list names it or its Plot page shows the same number and title."
+
 #: src/takeoff/questionWords.tsx
 msgid "{tag} answered. {Sheet} stays in the list, to confirm or exclude."
 msgstr "{tag} answered. {Sheet} stays in the list, to confirm or exclude."
@@ -2013,6 +2041,10 @@ msgstr "{tag} answered. {Sheet} stays in the list, to confirm or exclude."
 #: src/takeoff/Bar.tsx
 msgid "Open {name}"
 msgstr "Open {name}"
+
+#: src/takeoff/questionWords.tsx
+msgid "Trace: the title blocks of {sides}"
+msgstr "Trace: the title blocks of {sides}"
 
 #: src/takeoff/words.tsx
 msgid "Keep the latest copy; leave the others out as superseded"
@@ -2138,10 +2170,6 @@ msgstr "Foundations"
 msgid "{name} waiting for its DWG"
 msgstr "{name} waiting for its DWG"
 
-#: src/takeoff/Bar.tsx
-msgid "Its Discipline’s numbering has a gap or a number twice."
-msgstr "Its Discipline’s numbering has a gap or a number twice."
-
 #: src/takeoff/words.tsx
 msgid "Roof structure details"
 msgstr "Roof structure details"
@@ -2178,6 +2206,10 @@ msgstr "Step 2, General notes and specification, comes in M1."
 #: src/takeoff/acts.tsx
 msgid "an untitled sheet laid out in the drawing of {file}"
 msgstr "an untitled sheet laid out in the drawing of {file}"
+
+#: src/takeoff/Bar.tsx
+msgid "Another sheet of its Discipline has the same number."
+msgstr "Another sheet of its Discipline has the same number."
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "none: the title block has none and the file name none"
@@ -2531,6 +2563,10 @@ msgstr "Column schedule"
 #: src/takeoff/acts.tsx
 msgid "{n, plural, one {confirmed # sheet} other {confirmed # sheets}} and left out {m}"
 msgstr "{n, plural, one {confirmed # sheet} other {confirmed # sheets}} and left out {m}"
+
+#: src/takeoff/Bar.tsx
+msgid "It is next to a gap in its Discipline’s numbering, which a Question asks about."
+msgstr "It is next to a gap in its Discipline’s numbering, which a Question asks about."
 
 #: src/takeoff/words.tsx
 msgid "Slab outline layout"

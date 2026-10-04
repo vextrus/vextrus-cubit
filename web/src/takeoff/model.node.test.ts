@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { ProposalOut, QuestionOut, Step1Data } from './data'
-import { compareNumbers, nextOpenRow, numberingOf, questionQueue, rowState, step1Model } from './model'
+import { compareNumbers, gapsOf, nextOpenRow, numberingOf, questionQueue, rowState, step1Model, whyOneSource } from './model'
 
 let n = 0
 function sheet(number: string | null, over: Partial<ProposalOut> = {}): ProposalOut {
@@ -279,6 +279,52 @@ describe('Questions holding no sheet (ticket 164: every one was worded as a held
     ])
     // Each is its own row, reachable by ↑ ↓.
     expect(new Set(model.needsYou.map((r) => r.key)).size).toBe(4)
+  })
+})
+
+describe('one gap Question per Discipline (#229)', () => {
+  const gaps = [
+    { after: 'S-01', before: 'S-03', missing: 1 },
+    { after: 'S-03', before: 'S-05', missing: 1 },
+  ]
+
+  it('is a row of its own naming its first and last numbers, never a row of copies, and leaves the sheets beside its gaps in the list', () => {
+    const s1 = sheet('S-01', { agrees: false, plot_page: 1 })
+    const s3 = sheet('S-03', { agrees: false, plot_page: 2 })
+    const s5 = sheet('S-05', { agrees: false, plot_page: 3 })
+    const s6 = sheet('S-06', { plot_page: 4 })
+    const q = question('check', { code: 'engine.register_check.gaps', check_code: 'register', params: { discipline: 'structural', gaps } as QuestionOut['params'], proposals: [s1.id, s3.id, s5.id] } as Partial<QuestionOut>)
+    const model = step1Model(data([s1, s3, s5, s6], [q]))
+    const row = model.needsYou.find((r) => r.key === `q:${q.id}`)!
+    expect([row.kind, row.number, row.numberTo, row.sheets.length]).toEqual(['entry', 'S-01', 'S-05', 0])
+    const [section] = model.disciplines
+    expect(section!.rows.flatMap((r) => r.sheets.map((p) => p.number))).toEqual(['S-01', 'S-03', 'S-05', 'S-06'])
+    // Only S-06 agrees: the sheets beside the gaps have one source while the Question is open.
+    expect(model.bulk.confirm.map((p) => p.number)).toEqual(['S-06'])
+    expect(model.oneSource.map((p) => p.number)).toEqual(['S-01', 'S-03', 'S-05'])
+    expect(whyOneSource(s3, section)).toBe('gap')
+  })
+
+  it('says why a sheet away from every gap has one source: no Plot page, or not the gap', () => {
+    const s1 = sheet('S-01', { agrees: false, plot_page: 1 })
+    const s3 = sheet('S-03', { agrees: false, plot_page: 2 })
+    const s4 = sheet('S-04', { agrees: false, plot_page: null })
+    const s5 = sheet('S-05', { agrees: false, plot_page: 3 })
+    const q = question('check', { code: 'engine.register_check.gaps', params: { discipline: 'structural', gaps: [gaps[0]] } as QuestionOut['params'], proposals: [s1.id, s3.id] } as Partial<QuestionOut>)
+    const model = step1Model(data([s1, s3, s4, s5], [q]))
+    const [section] = model.disciplines
+    expect(whyOneSource(s4, section)).toBe('no-list-no-plot')
+    // A Plot page and still one source, away from the gap: never blamed on the numbering (#229).
+    expect(whyOneSource(s5, section)).toBe('other')
+  })
+
+  it('reads its gaps, and a gap Question asked before #229 as one gap; refuses gaps of another shape', () => {
+    const merged = question('check', { code: 'engine.register_check.gaps', params: { discipline: 'structural', gaps } as QuestionOut['params'] })
+    const old = question('check', { code: 'engine.register_check.gap', params: { after: 'A-03', before: 'A-07', missing: 3 } })
+    const bad = question('check', { code: 'engine.register_check.gaps', params: { discipline: 'structural', gaps: [{ after: 'S-01', before: 3, missing: 1 }] } as unknown as QuestionOut['params'] })
+    expect(gapsOf(merged)).toEqual(gaps)
+    expect(gapsOf(old)).toEqual([{ after: 'A-03', before: 'A-07', missing: 3 }])
+    expect(gapsOf(bad)).toEqual([])
   })
 })
 

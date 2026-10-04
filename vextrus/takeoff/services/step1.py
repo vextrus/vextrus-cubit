@@ -49,13 +49,13 @@ import json
 import re
 import uuid
 from collections import Counter
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Hashable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import Any, cast
 
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Q, QuerySet
 from django.utils import timezone
 
 from engine.check import register
@@ -397,6 +397,7 @@ def _agreeing(
     )
     conventions = _conventions()
     numbers = Numbers(conventions, recognisers(conventions))
+    beside = _beside_gaps(open_questions, numbers)
     of_discipline: dict[str, list[drawings.SheetView]] = {}
     for sheet in sheets:
         if sheet.discipline is not None:
@@ -426,9 +427,47 @@ def _agreeing(
                 and sheet.sources.get("title") in _TITLE_BLOCK
                 and sheet.id not in asked
                 and (proposal is None or proposal.id not in linked)
+                and _place(numbers, sheet.number, discipline) not in beside.get(discipline, set())
             ):
                 agreeing.add(sheet.id)
     return agreeing
+
+
+def gap_ends(question: Question) -> list[tuple[str, str, int]]:
+    """A numbering gap Question's gaps, `(after, before, missing)` each: the merged Question's list,
+    or an older Question's one gap (asked one per gap before #229); none for another Question."""
+    params = question.params if isinstance(question.params, dict) else {}
+    if question.message_code == list_codes.GAPS.code:
+        found = params.get("gaps")
+        listed = [g for g in found if isinstance(g, dict)] if isinstance(found, list) else []
+    elif question.message_code == list_codes.GAP.code:
+        listed = [params]
+    else:
+        return []
+    return [
+        (str(g.get("after", "")), str(g.get("before", "")), int(g.get("missing") or 0)) for g in listed
+    ]
+
+
+def _beside_gaps(questions: QuerySet[Question], numbers: Numbers) -> dict[str, set[Hashable]]:
+    """The places (series and running number, a suffix aside: "S-04A" is beside a gap after "S-04")
+    of the sheets either side of each gap an open gap Question asks, by Discipline: held while it is
+    open (#229), whatever the sheets' decisions were when it was asked (an undo brings one back)."""
+    codes = [list_codes.GAP.code, list_codes.GAPS.code]
+    held: dict[str, set[Hashable]] = {}
+    for question in questions.filter(message_code__in=codes):
+        for after, before, _missing in gap_ends(question):
+            for end in (after, before):
+                place = _place(numbers, end, question.discipline)
+                if place is not None:
+                    held.setdefault(question.discipline, set()).add(place)
+    return held
+
+
+def _place(numbers: Numbers, number: str | None, discipline: str) -> Hashable | None:
+    """A number's series and running number in its Discipline (its suffix aside); none without."""
+    parts = numbers.parts_in(number, discipline) if number else None
+    return None if parts is None else (parts[0], parts[1])
 
 
 def _proposal_view(
@@ -2110,6 +2149,21 @@ def raise_question(
             tenant_id=row.tenant_id, project_id=project_id, question=row, proposal=proposal
         )
     return row.id
+
+
+def answered_gaps(project_id: uuid.UUID) -> dict[tuple[str, str, str, int], uuid.UUID]:
+    """Each numbering gap a QS has answered (not kept open), as `(discipline, after, before,
+    missing)`, with the Question that answered it: settled, never asked again (#229)."""
+    settled: dict[tuple[str, str, str, int], uuid.UUID] = {}
+    for question in Question.objects.filter(
+        project_id=project_id,
+        step=SHEETS,
+        status=QuestionStatus.ANSWERED,
+        message_code__in=[list_codes.GAP.code, list_codes.GAPS.code],
+    ).order_by("answered_at", "id"):
+        for gap in gap_ends(question):
+            settled.setdefault((question.discipline, *gap), question.id)
+    return settled
 
 
 def asked_of(
