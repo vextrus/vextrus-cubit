@@ -4,7 +4,7 @@ Contract (PR f0) for `docs/specs/factory.md` 2.2 "Builder's finish", 3.3 (`accep
 3.6 (the guard), 5 (definition of done). Producers: a builder (by `.claude/agents/builder.md`) and `verify`
 (PR f4). Consumers: the guard's READY push gate (PR f2), `scripts/factory/watch.py` (PR f3),
 `.claude/hooks/stop-gate.mjs` (PR f6), `tools/lint/acceptance.py` (PR f4), `scripts/merge_ready.py` (PR f4). Every
-consumer's test uses the fixtures at the end of this file.
+consumer's test asserts the ten cases at the end of this file.
 
 **READY and BLOCKED are these exact trailers, never a reading of free text** (Jev read "All checks pass but I am
 blocked on review" literally; spec 2.2 and 3.14).
@@ -93,7 +93,8 @@ The builder's last commit's body becomes the PR body (spec 2.2). Three machine-r
    not contain a link to an issue of this repository that is open (`#<n>` or a `github.com/vextrus/vextrus-cubit/issues/<n>`
    URL). A section with no list items passes.
 3. **`Harness net: +<a> / −<r>`** (a PR that changes `.claude`, `scripts`, `tools` or `.github`): `a` and `r` are the
-   added and removed line totals of `git diff --numstat origin/main -- .claude scripts tools .github`. The minus
+   added and removed line totals of `git diff --numstat origin/main...HEAD -- .claude scripts tools .github` (three
+   dots: the PR's own changes since its merge base, not main's later commits). The minus
    sign is U+2212 as written here; a parser also accepts ASCII `-`.
 
 ## 3. The acceptance commit's counts
@@ -113,8 +114,10 @@ commit and says why in the launch (`--untestable "<why>"`, launch-cli.md).
 
 ## 4. Fixtures every consumer tests against
 
-Under `scripts/factory/tests/fixtures/trailers/` (PR f3) and `.claude/hooks/tests/fixtures/trailers/` (PR f2, f6),
-one commit message per case; each consumer's test asserts the outcome in this table:
+Only PR f3 commits trailer fixture files: one commit message per case, under `scripts/factory/tests/fixtures/trailers/`.
+PR f2 (the guard's READY push gate) and PR f6 (`stop-gate.mjs`) commit none, and nothing goes under
+`.claude/hooks/tests/fixtures/trailers/`: each generates the ten cases inside its own tests, from this table. Each
+consumer's test asserts the outcome in this table:
 
 | Case | Message ends with | Parsed as |
 |---|---|---|

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://vextrus.invalid/factory/walk-verdict.schema.json",
   "title": "A G1 walk's verdict: .private/work/walks/<sha40>/verdict.json",
-  "description": "Contract (PR f0) for the file the G1 real-set walk writes last (`scripts/walk/` and the `real-set-walk.js` workflow, PR f5) and `scripts/walk/ready.py` (PR f5), `scripts/factory/watch.py` (PR f3, the band's 'G1 main') and the walk-now hook (PR f6, through ready.py) read (docs/specs/factory.md 3.8 'real-set-walk.js', 5 'G1'). WRITE: after the script layer's `walk.json` exists, the agent layer has finished, every issue draft passed the leak scan and the triage is done, `scripts/walk/` writes `.private/work/walks/<sha40>/verdict.json` atomically; it is the last file written, so its existence means the walk is over. The folder name is the walked head's full sha. The file is private (under .private/) but holds no free text anyway: only enums, numbers and ids, so `scripts/walk/sanitize.py` can publish from it by allowlist (finish-line item, defect class, screen, numeric delta). READ: `ready.py <ref>` passes only when the two most recent verdicts of main (by `finished_at`) both have `result` PASS with no FAIL between them and the newer one is on `<ref>`'s current head, or on an earlier head whose diff to it touches no product path (`vextrus/`, `engine/`, `web/src/`, `pyproject.toml`, `uv.lock`); ready.py takes the head from `sha` and the diff from git. `result` is PASS only if every element of `checks` has status PASS, `agent_layer.blocks` is 0 and `agent_layer.misleading` is 0; an UNSET check, one with no expectation, fails PASS (invariant tested in `scripts/walk/tests/`). A walk is a FAIL when any of those does not hold; there is no third result.",
+  "description": "Contract (PR f0) for the file the G1 real-set walk writes last (`scripts/walk/` and the `real-set-walk.js` workflow, PR f5) and `scripts/walk/ready.py` (PR f5), `scripts/factory/watch.py` (PR f3, the band's 'G1 main') and the walk-now hook (PR f6, through ready.py) read (docs/specs/factory.md 3.8 'real-set-walk.js', 5 'G1'). WRITE: after the script layer's `walk.json` exists, the agent layer has finished, every issue draft passed the leak scan and the triage is done, `scripts/walk/` writes `.private/work/walks/<sha40>/verdict.json` atomically; it is the last file written, so its existence means the walk is over. The folder name is the walked head's full sha. The file is private (under .private/) but holds no free text anyway: only enums, numbers and ids, so `scripts/walk/sanitize.py` can publish from it by allowlist (finish-line item code, defect class, screen, numeric delta). READ: `ready.py <ref>` passes only when the two most recent verdicts of main (by `finished_at`) both have `result` PASS with no FAIL between them and the newer one is on `<ref>`'s current head, or on an earlier head whose diff to it touches no product path (`vextrus/`, `engine/`, `web/src/`, `pyproject.toml`, `uv.lock`); ready.py takes the head from `sha` and the diff from git. THE PASS RULE (stated once, here and in docs/specs/factory.md 5 'G1'): `result` is PASS if and only if (1) every element of `checks` has status PASS (UNSET, a check with no expectation, fails); (2) every element of `agent_layer.items` has status PASS (NOT_WALKED fails, as does FAIL) and all twelve walked items, M0-FL1 to M0-FL11 and M0-FL13, are listed once each; (3) `agent_layer.blocks` is 0; and (4) `agent_layer.misleading` is 0. Otherwise `result` is FAIL; there is no third result. The schema enforces the PASS direction (the top-level if/then); `scripts/walk/` computes `result` by this rule and `scripts/walk/tests/` tests both directions. THE ITEM CODES: M0-FLn is item n of docs/specs/M0.md 'Finish line', 'The owner's walk' (n = 1 to 13; the mapping table is in docs/specs/factory.md 5). The prefix keeps them apart from the finish codes FL1 and FL2 of docs/research/qs-defaults.md and docs/specs/M2.md.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -69,11 +69,11 @@
         "issues_drafted",
         "dedup_comments"
       ],
-      "description": "`/real-set-walk`: `ux-critic` (by eye) and `qs-critic` (burden) walk the finish-line items FL1 to FL11 and FL13 (quality-gates.md 2; FL12 is dropped from G1). Invariant (tested): len(findings) = issues_drafted + dedup_comments, and blocks and misleading are the counts of findings with severity BLOCKS and with misleading true.",
+      "description": "`/real-set-walk`: `ux-critic` (by eye) and `qs-critic` (burden) walk the finish-line items M0-FL1 to M0-FL11 and M0-FL13 (docs/specs/factory.md 5's table; M0-FL12, the owner's real-drawing check on main, is dropped from G1 because each merged engine head's posting run covers it). Invariant (tested): len(findings) = issues_drafted + dedup_comments, and blocks and misleading are the counts of findings with severity BLOCKS and with misleading true.",
       "properties": {
         "items": {
           "type": "array",
-          "description": "The verdict per finish-line item walked.",
+          "description": "The verdict per finish-line item walked. A PASS verdict lists all twelve walked items once each (the top-level if/then).",
           "items": {
             "type": "object",
             "additionalProperties": false,
@@ -84,8 +84,8 @@
             "properties": {
               "item": {
                 "type": "string",
-                "pattern": "^FL(1[0-1]|1[3]|[1-9])$",
-                "description": "FL1 to FL11 and FL13."
+                "pattern": "^M0-FL(1[0-1]|13|[1-9])$",
+                "description": "M0-FL1 to M0-FL11 and M0-FL13: item n of docs/specs/M0.md 'Finish line' (docs/specs/factory.md 5's table)."
               },
               "status": {
                 "enum": [
@@ -93,7 +93,7 @@
                   "FAIL",
                   "NOT_WALKED"
                 ],
-                "description": "NOT_WALKED fails the walk's `result` (every item is walked)."
+                "description": "The item's status, one of three: PASS: walked, and the item holds as docs/specs/M0.md words it (findings of severity OTHER may stand under it); FAIL: walked, and the item does not hold as worded (a finding under it says why); NOT_WALKED: not walked (no time, a crash, a screen that would not open). Only PASS lets the walk's `result` be PASS: FAIL and NOT_WALKED both fail it."
               }
             }
           }
@@ -132,6 +132,50 @@
       "properties": {
         "hits": {
           "const": 0
+        }
+      }
+    }
+  },
+  "if": {
+    "properties": {
+      "result": {
+        "const": "PASS"
+      }
+    },
+    "required": [
+      "result"
+    ]
+  },
+  "then": {
+    "properties": {
+      "checks": {
+        "items": {
+          "properties": {
+            "status": {
+              "const": "PASS"
+            }
+          }
+        }
+      },
+      "agent_layer": {
+        "properties": {
+          "items": {
+            "minItems": 12,
+            "uniqueItems": true,
+            "items": {
+              "properties": {
+                "status": {
+                  "const": "PASS"
+                }
+              }
+            }
+          },
+          "blocks": {
+            "const": 0
+          },
+          "misleading": {
+            "const": 0
+          }
         }
       }
     }
@@ -182,7 +226,7 @@
             "FAIL",
             "UNSET"
           ],
-          "description": "UNSET: no expectation exists for this check (`expected` is null). UNSET fails the walk."
+          "description": "PASS: measured within `expected`. FAIL: measured outside it, or not measured. UNSET: no expectation exists for this check (`expected` is null). FAIL and UNSET both fail the walk's `result`."
         },
         "measured": {
           "type": "object",
@@ -319,8 +363,8 @@
         },
         "item": {
           "type": "string",
-          "pattern": "^FL(1[0-1]|1[3]|[1-9])$",
-          "description": "The finish-line item it was found under."
+          "pattern": "^M0-FL(1[0-1]|13|[1-9])$",
+          "description": "The finish-line item it was found under (M0-FL1 to M0-FL11 and M0-FL13)."
         },
         "defect_class": {
           "type": "string",

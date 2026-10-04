@@ -96,3 +96,6 @@ process could read the keys and the App's key through it: ADR 0026's refuter #5)
   owner's user run the installed real-drawing command as `vxrun`. `vxrun` in turn runs, as the key user,
   only the poster's `head` and `real-drawings` and the scorer. A scored run measures only a head and a
   main that GitHub holds. The guard's two allowed command lines are unchanged.
+- 4 Oct 2026 (ADR 0042; the owner: "Approve as written (Recommended)"): item 9 — account A runs the orchestrator and
+  every builder, cloud launches only through the committed launcher, and cloud sessions may read the two Development
+  Sets (owner ruling Q7); item 5 — merge_ready enforces the review from a local ledger.

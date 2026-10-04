@@ -31,17 +31,19 @@ Each scan subcommand prints hit lines and one summary line (section 3) and exits
 | Command | Scans | Writes a stamp |
 |---|---|---|
 | `build` | Rebuilds the corpus from its sources (locally; through the engine's own DWG reader). Prints `corpus: <n> strings, sha256 <first 12 hex>` and exits 0, or 2 if a source cannot be read. | no |
-| `range <base>..<head> [--ref <name>]` | The range's **added lines** (`git diff <base>..<head>`, new side), its **commit messages**, its **changed file names** and, with `--ref`, the **ref name** being pushed. `<base>` and `<head>` are revisions; the stamp pins both as full shas. | yes (name = the full `<head>` sha) |
-| `file <path>` | One body file (a `gh ... --body-file` text). | yes (name = the file's sha256) |
-| `text --stdin` | The text on standard input: a cloud launch prompt or a `launch.py say` message. `--stdin` is required (text is never taken from the command line, which `ps` shows). | yes (name = the text's sha256) |
+| `range <base>..<head> [--ref <name>] [--no-stamp]` | The range's **added lines** (`git diff <base>..<head>`, new side), its **commit messages**, its **changed file names** and, with `--ref`, the **ref name** being pushed. `<base>` and `<head>` are revisions; the stamp pins both as full shas. | yes (name = the full `<head>` sha), unless `--no-stamp` |
+| `file <path> [--no-stamp]` | One body file (a `gh ... --body-file` text). | yes (name = the file's sha256), unless `--no-stamp` |
+| `text --stdin [--no-stamp]` | The text on standard input: a cloud launch prompt or a `launch.py say` message. `--stdin` is required (text is never taken from the command line, which `ps` shows). | yes (name = the text's sha256), unless `--no-stamp` |
 | `pr <number>` | A PR as `merge_ready` re-scans it before every merge: the PR's added lines, commit messages, file names, branch name, title, body and every comment (through `gh`, reads only). | no |
 | `dir <path>` | Every file under a folder (a walk's outputs, `.private/work/walks/<sha40>/`), text files by line, other files by name only; binary files are scanned as bytes for a corpus string. | no |
 | `bodies --since <date>` | Every issue and PR body edited since `<date>` (`YYYY-MM-DD` or a UTC timestamp), and their comments. Run each wave. | no |
 | `allow <file>:<line>` | Hashes the corpus strings that hit on that line of that file into `tools/leakscan/allowlist.txt` (appends sha256 lines; never prints a string). Refused if the line has no hit. | no |
-| `verify-stamp <name>` | Exits 0 if `.private/work/leakscan/ok/<name>` exists, parses, its `corpus` equals the current corpus hash and its `range` is consistent with `<name>`; else 1. This is the check the guard performs in its own code; the command exists for tests and humans. | no |
+| `verify-stamp <name>` | Exits 0 if `.private/work/leakscan/ok/<name>` exists, parses and is **valid** (section 4: the corpus hash is current and, for a range stamp, its base is an ancestor of both `origin/main` and `<name>` and its end equals `<name>`); else 1. This is the check the guard performs in its own code; the command exists for tests and humans. | no |
 
 Common options: `--quiet` (print only the summary line), `--json` (print the hit list and summary as one JSON object,
-section 3, instead of lines).
+section 3, instead of lines). `--no-stamp` (`range`, `file`, `text` only): scan and exit exactly as without it, but
+write no stamp; for a caller that scans for its own decision and must not create or replace the stamp the guard reads
+(the watcher, the pre-push hook; section 6).
 
 ## 3. Output
 
@@ -91,11 +93,20 @@ scanned range:
 ```
 
 `range` is `"<base40>..<head40>"` for a `range` scan and `"sha256:<64 hex>"` for `file` and `text`. A stamp is **valid**
-when its `corpus` equals the sha256 of the corpus file as it is now (so rebuilding the corpus voids every older
-stamp) and its `range`'s last part equals `<name>`.
+only when all of these hold:
 
-**What the guard checks** (a file check; no scan, so it cannot fail open on the 10 s hook timeout): for a `git push`
-from the main checkout, the stamp named by the head sha being pushed is valid; for a `gh` body write, the stamp named
+1. its `corpus` equals the sha256 of the corpus file as it is now (so rebuilding the corpus voids every older stamp);
+2. its `range`'s end (the part after `..`, or after `sha256:`) equals `<name>`, the head or hash it is checked for;
+3. for a range stamp only: its base is an ancestor of both `origin/main` and the head, that is
+   `git merge-base --is-ancestor <base40> origin/main` and `git merge-base --is-ancestor <base40> <head40>` both exit 0
+   (`<head40>` is the head being pushed, `HEAD` for a plain push). So a stamp for a narrow range (`HEAD~1..HEAD`) never
+   vouches for a push that carries unscanned commits not yet on main.
+
+A scan that would write a stamp failing rule 3 still scans and exits as usual, but writes no stamp.
+
+**What the guard checks** (a file check and the two `git merge-base --is-ancestor` calls of rule 3; no scan, so it
+cannot fail open on the 10 s hook timeout): for a `git push` from the main checkout, the stamp named by the head sha
+being pushed is valid (rules 1 to 3); for a `gh` body write, the stamp named
 by the sha256 of the `--body-file`'s bytes is valid; inline `--body` text longer than a short title is refused outright.
 The guard computes the corpus file's sha256 itself. Only `python -m tools.leakscan` writes a stamp: a hand-written
 file, a `tee` or a redirect to that folder is refused (f2's `permissions.deny` and guard rules).
@@ -119,9 +130,9 @@ one-line reason to standard error; neither holds scanned text.
 | `launch.py cloud` and `launch.py say` | `python -m tools.leakscan text --stdin < <prompt>` | refuse the launch or message (launch-cli.md exit 2) |
 | the orchestrator, before `git push` | `python -m tools.leakscan range <merge-base>..<head> --ref <branch>` | the guard refuses the push |
 | the orchestrator, before `gh ... --body-file f` | `python -m tools.leakscan file f` | the guard refuses the write |
-| `scripts/git-hooks/pre-push` | `python -m tools.leakscan range <remote-sha-or-merge-base>..<local-sha> --ref <ref>` for each pushed ref | the push is refused |
+| `scripts/git-hooks/pre-push` | `python -m tools.leakscan range <remote-sha-or-merge-base>..<local-sha> --ref <ref> --no-stamp` for each pushed ref (it is the gate itself; a base of the remote branch's old head is not an ancestor of `origin/main`, so a stamp from it would replace the guard's valid one with an invalid one) | the push is refused |
 | `merge_ready` | `python -m tools.leakscan pr <PR>` | not ready |
-| `watch.py`, each new cloud head | `python -m tools.leakscan range origin/main..<head>` (no stamp is needed to scan; none is written for a scan the watcher does not own) | `LEAK-HIT` alarm (status.schema.json) |
+| `watch.py`, each new cloud head | `python -m tools.leakscan range origin/main..<head> --no-stamp` (the watcher only alarms; it never writes a stamp) | `LEAK-HIT` alarm (status.schema.json) |
 | `scripts/walk/` | `python -m tools.leakscan dir .private/work/walks/<sha40>/` and `text --stdin` per issue draft | the verdict is not written |
 | each wave | `python -m tools.leakscan bodies --since <date>` | the orchestrator edits or deletes the body and files the leak |
 
@@ -134,5 +145,6 @@ The spec fixes: the corpus path, the hashed allowlist, what is scanned, "prints 
 text", the stamp's folder, name (`<sha or sha256>`) and content (corpus hash, scanned range), the guard's file check,
 and `allow <file:line>` and `bodies --since <date>` and `text --stdin`. This file decides what it leaves open:
 the other subcommand names, the exact `<where>` forms, the summary line, the exit codes (0, 1, 2, 64), the stamp's
-JSON form, the normalisation, the allowlist's file name, and that a stamp is voided by a rebuilt corpus. PR f2 may
+JSON form, the stamp's validity rules (section 4, including the ancestry rule), `--no-stamp`, the normalisation, the
+allowlist's file name, and that a stamp is voided by a rebuilt corpus. PR f2 may
 refine them only by changing this file first.

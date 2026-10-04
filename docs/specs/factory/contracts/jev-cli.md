@@ -44,9 +44,12 @@ Behaviour, each with a test in `scripts/factory/tests/test_jev.py` on recorded a
 
 ## 2. The command line
 
-`uv run python -m scripts.factory.jev <subcommand>`. A Jev subcommand is advisory: **it exits 0 whether Jev answered or
-not** (an unavailable answer prints `unavailable <why>` and writes nothing), so no caller's decision depends on it.
-Exit 64: usage error. Exit 1: an unexpected error in the client itself (the caller ignores it).
+`uv run python -m scripts.factory.jev <subcommand>`. Every subcommand is advisory, so no gate's decision depends on
+it. **`triage` and `same-issue` exit 0 whether Jev answered or not** (an unavailable answer prints `unavailable
+<why>` and writes nothing). **`models-check` is the one exception:** it exits 0, 1 or 2 by its own table below, and
+only the watcher's alarm reads that code (an unexpected error inside it prints `unavailable failed` and exits 2). Exit
+64: usage error, for every subcommand. Exit 1 from `triage` or `same-issue`: an unexpected error in the client itself
+(the caller ignores it).
 
 ### `triage --from <file>`
 
@@ -79,7 +82,8 @@ per issue title ("is the same defect as: ..."). Prints one JSON object:
 
 `decision` is `comment` when the best `p` is 0.8 or more (`issue` = that issue), `possible` when it is 0.3 to below
 0.8 (open a new issue saying "possibly the same as #<issue>"), `new` when it is below 0.3 or there are no issues, and
-`new` with `"jev": "unavailable"` (`issue` null, `p` null) when Jev was unavailable. Exit 0 always.
+`new` with `"jev": "unavailable"` (`issue` null, `p` null) when Jev was unavailable. Exit 0 whether or not Jev
+answered.
 
 ### `models-check`
 

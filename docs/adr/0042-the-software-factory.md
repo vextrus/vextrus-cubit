@@ -147,11 +147,27 @@ Rejected:
   status line carries the same data; it replaces the mod only after two recorded crashes.
 - **A blanket CI retry for flakes.** Only tests listed against an open issue get one recorded rerun.
 
-Supersedes `docs/sdlc.md:112-114` (the owner's ruling cited it as 111-113): "The harness stays small: three hooks
-(guard, state, after-bash), the blind scorer and the committed checks; no orchestrator code, ledger, state store or
-evidence packs. A harness change should remove as much as it adds." The last sentence stays. Amends ADR 0041:
-- item 9: account A, not account B, runs cloud sessions, launched only through the committed launcher;
-- item 5: the two-round cap is enforced by `merge_ready` from a local ledger, not by prose.
+Supersedes `docs/sdlc.md:112-114` (the owner's ruling cited it as 111-113; the same three lines): "The harness stays
+small: three hooks (guard, state, after-bash), the blind scorer and the committed checks; no orchestrator code,
+ledger, state store or evidence packs. A harness change should remove as much as it adds." The last sentence stays.
+Those lines stay in `docs/sdlc.md` until PR f7 rewrites them (spec §3.2); until then this ADR governs where they
+disagree.
+
+Amends:
+- **ADR 0041 item 9 (accounts and launches):** account A, not account B, runs the orchestrator and every cloud and
+  local builder; cloud sessions are launched and messaged only through the committed launcher.
+- **ADR 0041 item 9 (drawings):** "local sessions build anything touching real drawings" becomes: the two Development
+  Sets may reach cloud sessions through the private drawings route (spec §2.4, after its probe); Held-out Sets,
+  posting and scored runs, the scorer's keys and the G1 gate walk stay local.
+- **ADR 0041 item 5:** the two-round cap is enforced by `merge_ready` from a local ledger, not by prose.
+- **ADR 0005** (the Edison set "is read locally"): the Development Sets, the Edison set among them, may also be read
+  by cloud sessions through that route; never committed to the public repository or put in an issue, as before.
+- **ADR 0019** ("real drawings never go to cloud sessions"): the two Development Sets may; reading stays kept tight,
+  because every change to drawing reading still passes the local posting run before it merges.
+
+Each of the three drawing changes rests on the owner's Q7 ruling of 4 Oct 2026, quoted above: "Q7 drawing data - I'm
+allowing to be more easy going on this case and cloud sessions may read drawing and enabling Remote Control for most
+cases if that means more power and performance by allowing some privacy issues that I'm allowing willingly".
 
 Does not amend ADR 0011 or ADR 0013. Two owner questions stay open: whether cloud sessions may send drawing text to
 Jev under the cloud key (ADR 0013), and whether a Claude vision proposer may run inside the product's read

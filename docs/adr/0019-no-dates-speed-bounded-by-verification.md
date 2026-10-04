@@ -22,3 +22,9 @@ How waves run is ADR 0025.
 - 25 Sep 2026 (the owner's decision): no dates.
 - 26 Sep 2026: the local check is now ADR 0030's real-drawing check, on Development Sets and Held-out
   Sets.
+- 4 Oct 2026 (the owner's decision, session 12 Q7; ADR 0042): "real drawings never go to cloud sessions" no longer
+  holds: the two Development Sets may, through a private drawings repository and a read-only token, after a probe
+  (docs/specs/factory.md §2.4). Reading stays kept tight: posting and scored runs, the scorer's keys and Held-out Sets
+  stay local. The owner's ruling: "Q7 drawing data - I'm allowing to be more easy going on this case and cloud
+  sessions may read drawing and enabling Remote Control for most cases if that means more power and performance by
+  allowing some privacy issues that I'm allowing willingly".
