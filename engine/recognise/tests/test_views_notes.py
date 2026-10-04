@@ -335,11 +335,11 @@ def test_many_small_note_texts_leave_the_drawings_titles() -> None:
     for i in range(views.MAX_TITLES):
         d.text(f"NOTE {i}:", (560 + (i % 4) * 15, 560 - (i // 4) * 4, 0.0), height=0.5)
     grid(d, (40, 300, 340, 560))
-    d.text("GROUND FLOOR PLAN", (40, 288, 0.0), height=6.0)
+    d.text("LOWER DECK PLAN", (40, 288, 0.0), height=6.0)
     grid(d, (40, 40, 340, 250))
     d.text("SECTION 1-1", (40, 28, 0.0), height=6.0)
     titles = {v.title for v in drawn(d, one_sheet(d))}
-    assert {"GROUND FLOOR PLAN", "SECTION 1-1"} <= titles
+    assert {"LOWER DECK PLAN", "SECTION 1-1"} <= titles
 
 
 def test_a_notes_heading_takes_no_scale_text_beside_it() -> None:
