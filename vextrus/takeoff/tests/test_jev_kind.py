@@ -35,6 +35,13 @@ def answer(*ranked: tuple[str, str]) -> jev.Judgement:
         ("FIRST FLOOR SLAB REINFORCEMENT", ["slab_layout", "slab_details"], []),
         ("DOOR&WINDOW SCHEDULE", ["door_window_schedule"], ["door_window_schedule"]),
         ("BEAMLAYOUT", ["beam_layout"], []),
+        ("TYPICAL COLUMN SCHEDULES", ["column_schedule"], ["column_schedule"]),
+        # one-word kinds sit inside other kinds' titles (the refuter's finding B, score 55)
+        ("STAIR SECTION & DETAILS", ["stair_details", "section"], []),
+        ("TOILET PLAN, ELEVATION & SECTION", ["toilet_details", "elevation", "section"], []),
+        ("KITCHEN PLAN AND ELEVATION", ["kitchen_details", "elevation"], []),
+        ("BOUNDARY WALL & GATE ELEVATION", ["boundary_wall_gate_details", "elevation"], []),
+        ("GROUND FLOOR LIGHT POINT LAYOUT & LEGEND", ["point_wiring_layout", "legend"], []),
         ("", ["beam_layout"], []),
     ],
 )
@@ -63,6 +70,22 @@ def test_below_sure_a_title_naming_only_another_offered_kind_asks() -> None:
     assert not unsure(clear, "BEAM LAYOUT AND COLUMN SCHEDULE")  # it names Jev's first too
     assert not unsure(clear, "TYPICAL DETAILS")  # the generic word contradicts nothing
     assert not unsure(clear, "COLUMN DETAILS")  # no offered kind's words
+
+
+@pytest.mark.parametrize(
+    ("first", "title"),
+    [
+        ("stair_details", "STAIR SECTION & DETAILS"),
+        ("toilet_details", "TOILET PLAN, ELEVATION & SECTION"),
+        ("kitchen_details", "KITCHEN PLAN AND ELEVATION"),
+        ("boundary_wall_gate_details", "BOUNDARY WALL & GATE ELEVATION"),
+        ("point_wiring_layout", "GROUND FLOOR LIGHT POINT LAYOUT & LEGEND"),
+    ],
+)
+def test_a_one_word_kind_in_the_title_never_contradicts_jevs_clear_first(first: str, title: str) -> None:
+    """The refuter's finding B (score 55): each of these asked, Jev right and well ahead."""
+    clear = answer((first, "0.85"), ("section", "0.05"), ("elevation", "0.05"), ("legend", "0.05"))
+    assert not unsure(clear, title)
 
 
 def test_a_single_kind_offered_is_never_close() -> None:

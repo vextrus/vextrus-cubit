@@ -75,9 +75,6 @@ from vextrus.takeoff.services import step1
 
 KEEP_OPEN = "keep_open"
 """Every Question's last option (m0-screens §5: "Keep open, ask the consultant")."""
-GENERIC_KINDS = frozenset({"details", "other"})
-"""The kinds a title's words never name (`kinds_named`): "details" is in nearly every title, so it
-never contradicts a specific kind (`beam_details`), nor does "other"."""
 HELD_OPTIONS = ("read_anyway", "await_resaved", "sent_to_vextrus", KEEP_OPEN)
 SAME_NUMBER_OPTIONS = ("keep_latest", "keep_all", KEEP_OPEN)
 CONFLICT_OPTIONS = ("keep_all", KEEP_OPEN)
@@ -88,7 +85,8 @@ CHECK_OPTIONS = ("not_sent_yet", "not_in_set", "file_not_added", KEEP_OPEN)
 
 
 def options(keys: Sequence[str]) -> list[dict[str, object]]:
-    """A Question's options by key, in order, none pre-picked (a pick needs two sources: 22)."""
+    """A Question's options by key, in order, none pre-picked (a pick needs two sources: 22; the one
+    exception is #228's kind Question, Jev's first picked by the orchestrator's ruling)."""
     return [{"key": key, "picked": False} for key in keys]
 
 
@@ -272,14 +270,17 @@ def unsure(answer: jev.Judgement, title: str) -> bool:
 
 
 def kinds_named(title: str, kinds: Sequence[str]) -> list[str]:
-    """The kinds a sheet's title names word for word: each kind whose key's words ("column
-    schedule") stand together, whole, in the title ("TYPICAL COLUMN SCHEDULE"), case and
-    punctuation aside. Conservative: never a generic kind (`GENERIC_KINDS`), so a title's "details"
-    never names `details` against `beam_details`; "SLAB REINFORCEMENT" names no kind at all."""
-    said = f" {' '.join(re.findall(r'[^\W_]+', title.casefold()))} "
-    return [
-        kind for kind in kinds if kind not in GENERIC_KINDS and f" {' '.join(kind.split('_'))} " in said
-    ]
+    """The kinds a sheet's title names word for word: each kind of two words or more whose key's
+    words ("column schedule") stand together, whole, in the title ("TYPICAL COLUMN SCHEDULES"), case,
+    punctuation and a plural "s" aside. Conservative: a one-word kind (`details`, `section`,
+    `elevation`, `legend`) names nothing, as its word sits in many titles of other kinds ("STAIR
+    SECTION & DETAILS" is `stair_details`); "SLAB REINFORCEMENT" names no kind at all."""
+
+    def words(text: str) -> str:
+        return " ".join(w.removesuffix("s") for w in re.findall(r"[^\W_]+", text.casefold()))
+
+    said = f" {words(title)} "
+    return [kind for kind in kinds if "_" in kind and f" {words(kind)} " in said]
 
 
 def _sheet_traces(sheet: drawings.SheetView) -> list[tuple[str, dict[str, Any]]]:
