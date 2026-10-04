@@ -1095,7 +1095,7 @@ drawings arrive.
 ("Undone: confirmed 20 sheets"). It never takes back an answer that confirmed or excluded sheets,
 nor anything done before one (session 09's ruling on #156: undoing the act such an answer made would
 leave the Question answered with nothing holding its sheets). Ctrl Z after such an answer changes
-nothing and says, in the tab that answered and from the server alike (`takeoff.step1.answer_stays`): "Nothing was undone: the last thing you did on Step 1 was answer a Question, and undo does not take back an answer or anything you did before it. To change what the answer decided, exclude a sheet it confirmed, or confirm back in a sheet it excluded.". Ctrl Z passes over any other answer to the act before it.
+nothing and says, in the tab that answered and from the server alike (`takeoff.step1.answer_stays`): "Nothing undone: an answer to a Question cannot be undone, nor anything before it. To change what it decided, exclude a sheet it confirmed or confirm back one it excluded.". Ctrl Z passes over any other answer to the act before it.
 
 **Who did what** (ux-critic #12): every confirmed or excluded sheet shows "Confirmed by Nusrat
 Jahan, 26 Sep 2026" or "Excluded by Arif Rahman (Vextrus), 26 Sep 2026: superseded" in the inspector.

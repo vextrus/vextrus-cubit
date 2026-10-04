@@ -96,7 +96,7 @@ describe('Ctrl Z while an answer is in flight (CI’s slowed run)', () => {
     await userEvent.keyboard('{Enter}')
     await waitFor(() => expect(calls.some((c) => c.endsWith('/answer'))).toBe(true))
     for (let i = 0; i < 3; i++) await userEvent.keyboard('{Control>}z{/Control}')
-    await waitFor(() => expect(bodyText()).toContain('Nothing was undone: the last thing you did on Step 1 was answer a Question, and undo does not take back an answer or anything you did before it.'), { timeout: 3000 })
+    await waitFor(() => expect(bodyText()).toContain('Nothing undone: an answer to a Question cannot be undone, nor anything before it.'), { timeout: 3000 })
     await new Promise((r) => setTimeout(r, 1200))
     expect(calls.filter((c) => c.endsWith('/undo'))).toEqual([])
   })

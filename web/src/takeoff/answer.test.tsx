@@ -63,7 +63,7 @@ describe('after an answer (#156)', () => {
     await pickAndAnswer(1)
     await waitFor(() => expect(bodyText()).toContain('Q1 answered.'))
     await userEvent.keyboard('{Control>}z{/Control}')
-    await waitFor(() => expect(bodyText()).toContain('Nothing was undone: the last thing you did on Step 1 was answer a Question, and undo does not take back an answer or anything you did before it.'))
+    await waitFor(() => expect(bodyText()).toContain('Nothing undone: an answer to a Question cannot be undone, nor anything before it.'))
     expect(calls.filter((c) => c.endsWith('/undo'))).toEqual([])
   })
 
@@ -83,7 +83,7 @@ describe('after an answer (#156)', () => {
     await waitFor(() => expect(bodyText()).toContain('Q1 answered.'))
     for (let i = 0; i < 3; i++) {
       await userEvent.keyboard('{Control>}z{/Control}')
-      await waitFor(() => expect(bodyText()).toContain('Nothing was undone: the last thing you did on Step 1 was answer a Question, and undo does not take back an answer or anything you did before it.'))
+      await waitFor(() => expect(bodyText()).toContain('Nothing undone: an answer to a Question cannot be undone, nor anything before it.'))
     }
     await new Promise((r) => setTimeout(r, 300))
     expect(calls.filter((c) => c.endsWith('/undo'))).toEqual([])

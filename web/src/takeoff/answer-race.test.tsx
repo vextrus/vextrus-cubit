@@ -176,7 +176,7 @@ describe('Ctrl Z after a double Enter on an answer (#202; the design gate, M2)',
     await idle()
     expect(fake.posted).toHaveLength(1)
     await userEvent.keyboard('{Control>}z{/Control}')
-    await waitFor(() => expect(bodyText()).toContain('the last thing you did on Step 1 was answer a Question'))
+    await waitFor(() => expect(bodyText()).toContain('an answer to a Question cannot be undone'))
     expect(bodyText()).not.toContain('your last change was not made')
   })
 })
