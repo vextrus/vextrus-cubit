@@ -102,16 +102,29 @@ const SHA = "0123456789abcdef0123456789abcdef01234567";
 const POSTER = "sudo -n -u vxkeys /usr/local/lib/vextrus/post-status";
 const SCORER = "sudo -n -u vxkeys /usr/local/bin/vx-score";
 
-test("merging and pushing pass", () => {
+test("merging passes", () => {
   for (const command of [
     "gh pr merge 3 --merge",
     "gh pr merge 104 --squash --delete-branch",
     "gh api -X PUT repos/vextrus/vextrus-cubit/pulls/3/merge",
-    "git push -u origin autonomy-harness",
     "git merge origin/main",
   ]) {
     assert.equal(bash(command), null, command);
   }
+});
+
+// Spec 3.6 (f2): a session whose project is neither the main checkout nor a cloud copy is a local builder,
+// and a local builder never pushes (this case passed before f2). The orchestrator's pushes need a leak stamp
+// (tests/acceptance/guard-stamp-ready.test.mjs).
+test("a local builder's push is refused", () => {
+  const env = { ...process.env };
+  delete env.CLAUDE_CODE_REMOTE;
+  const run = spawnSync(process.execPath, [guard], {
+    input: JSON.stringify({ tool_name: "Bash", tool_input: { command: "git push -u origin autonomy-harness" } }),
+    encoding: "utf8",
+    env: { ...env, CLAUDE_PROJECT_DIR: "/home/runner/work/vextrus-cubit/vextrus-cubit" },
+  });
+  assert.equal(JSON.parse(run.stdout).hookSpecificOutput.permissionDecisionReason.split(":")[0], "LOCAL_PUSH");
 });
 
 test("exactly the poster and the scorer, as the key user with -n, pass", () => {
