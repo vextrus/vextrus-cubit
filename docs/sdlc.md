@@ -2,8 +2,11 @@
 
 Agreed by the owner on 25 Sep 2026, rewritten after session 01's rulings (26 Sep 2026) and levelled in
 session 02 (28 Sep 2026); sessions made autonomous in session 05 (29 Sep 2026): ADRs 0025, 0026, 0030
-and 0041. Evidence: docs/research/sdlc-claude-code.md, sdlc-waves-and-cloud.md and
-opus-5-5-agentic-orchestration.md. The harness is configuration, prose and committed checks. It must never become the product (docs/postmortem.md, cause 3).
+and 0041; the software factory since session 12 (ADR 0042). Evidence: docs/research/sdlc-claude-code.md,
+sdlc-waves-and-cloud.md and opus-5-5-agentic-orchestration.md. The harness is the factory: committed
+code, prose and checks. It must never become the product (docs/postmortem.md, cause 3), and the owner's
+Q1 ruling holds it: "Factory code is committed, tested and reviewed like product code. A harness change
+should remove as much as it adds."
 
 ## Per milestone
 1. **Grill** the milestone with the owner (`/grill-with-docs`, effort high). Write
@@ -46,8 +49,8 @@ opus-5-5-agentic-orchestration.md. The harness is configuration, prose and commi
      every figure through its formatter, logical CSS only (CI's lint and the shared expected-strings
      table);
    - **UI PRs** pass the design gate: `ux-critic` reads docs/design/system.md, docs/design/screens.md
-     and docs/design/m0-screens.md (the behaviour spec), runs the PR on the seeded demo project and
-     walks it at 1440×900 and 1280×800 (and 390×844 for the Project Summary and share link) with
+     and docs/design/m0-screens.md (the behaviour spec), runs the PR on the seeded demo project, which
+     proves the ticket's mechanics only (G1's agent layer walks the real sets), and walks it at 1440×900 and 1280×800 (and 390×844 for the Project Summary and share link) with
      screenshots; findings above minor block; the screenshots go in the PR body. After the pass, the
      orchestrator posts, through the owner's GitHub App, a **`design-gate`** status carrying the
      checklist's items passed and failed (docs/design/m0-screens.md §8, which marks each item automated or judged by eye), not the
@@ -65,10 +68,12 @@ scope and walks the milestone.
 - **A time budget first:** the session's and each ticket's, written in the brief. The orchestrator writes
   `elapsed <n> min / <budget> min` in every message to a builder (the research's one measured speed
   lever: docs/research/opus-5-5-agentic-orchestration.md §7 item 15). Over budget: cut scope, say what.
-- **Where tickets run:** cloud sessions (account B, `CLAUDE_CONFIG_DIR=~/.claude-b`) for tickets
-  provable by committed tests; local background sessions (`claude --bg`, one worktree each) for anything
-  touching real drawings. Check one cloud launch's git remote before fanning out (session 05's cloud
-  launches uploaded copies with no remote). Builders commit and never push.
+- **Where tickets run:** cloud sessions for tickets provable by committed tests; local background
+  sessions (`claude --bg`, one worktree each) for anything touching real drawings. Account A runs the
+  orchestrator and every builder. Every builder starts through `scripts.factory.launch`, from the main
+  checkout; it judges each cloud launch's debug log and refuses a bundled session or one cloned at the
+  wrong branch (session 05's cloud launches uploaded copies with no remote). Cloud builders push their
+  own branch only; local builders commit and never push.
 - **Effort per launch:** `medium` (the committed default); `high` for hard tickets: reading drawings,
   hostile-input boundaries, security walls.
 - **Size:** as many tickets as own disjoint files and the machine's memory allows; the measures below
@@ -95,7 +100,7 @@ stays, capped, and the orchestrator does what the owner did.
 3. **One independent review:** `pr-reviewer` on the committed head, merged with `main` and any PR it
    meets, scoring 0–100; in parallel, `ux-critic` as the words-only gate for a PR whose words reach a QS,
    or the walk for a UI PR.
-4. **At most two fix rounds,** one message each, every fix re-checked by the same agents on the new
+4. **At most two fix rounds,** enforced by `merge_ready`, one message each, every fix re-checked by the same agents on the new
    head. Findings at 50 and above are fixed; each serious finding (50 or more, or a repeated class) leaves
    a committed check. A finding after the second round is filed as an issue, unless it is a security hole
    scoring 75 or more, or a crash or false statement a QS meets.
@@ -108,10 +113,32 @@ stays, capped, and the orchestrator does what the owner did.
 6. **Measures** go to the milestone issue per PR and per wave: time to first PR against budget, review
    rounds, findings filed after the cap, gate and posting-run outcomes, checks added.
 
+## Definition of done (ADR 0042; the factory spec §5)
+**Per PR:**
+1. Acceptance tests by `acceptance-writer`, pushed before the builder starts, red on main and green on a
+   throwaway, with both counts in the commit (`tools/lint/acceptance.py`). An untestable ticket says why.
+2. The head carries `Factory-State: READY` and `Factory-Verify: <its own tree> ok`.
+3. `ci`, `web` and `engine` green, with at most one recorded rerun of a listed flake (`.github/flaky.txt`).
+4. Review in at most two fix rounds; every finding of 50 or more passed a refuter, was fixed and left a
+   committed check whose red output path is in the body. Round 3 only with a recorded exception (a
+   security hole of 75 or more, a crash, or a false statement a QS meets).
+5. `design-gate` (web) and `real-drawings` (engine paths) posted through `post-status`.
+6. The body leads with what is not verified, including "not walked on a real set" where true. Every cut
+   item links an open issue. A harness PR carries `Harness net: +a / -r`.
+7. `merge_ready` green.
+
+**Per wave:** G1, the real-set walk, on main after the wave's last merge: a script layer measures the
+reads, the acts' wait and the Questions; an agent layer walks the milestone's finish-line items on the
+real sets. A blocking finding or a regression becomes a fix ticket in the same session. Every walk
+finding of any severity becomes an issue (or a comment on its open issue).
+
+**Per milestone:** two passing G1 verdicts on main's current product code, the QS-burden measures within
+the owner's limits, and main's reading score measured, not claimed; only then "walk now" to the owner.
+
 ## Rules against the Builder's failure modes
-- **The harness stays small:** three hooks (guard, state, after-bash), the blind scorer and the
-  committed checks; no orchestrator code, ledger, state store or evidence packs. A harness change should
-  remove as much as it adds.
+- **The factory is product-grade code** (the owner's Q1 ruling, above): committed, tested and reviewed
+  like product code, and a harness change should remove as much as it adds. Every harness PR states its
+  `Harness net: +a / -r` from `git diff --numstat` over `.claude`, `scripts`, `tools` and `.github`.
 - **Green is not done.** CI is necessary, never sufficient; the owner's walk decides.
 - **Real drawings from M0.** Synthetic fixtures only for unit mechanics, never offered as proof. The
   clean Sample Project flatters a reader: it read through all fourteen steps while Edison read nothing
@@ -135,7 +162,8 @@ stays, capped, and the orchestrator does what the owner did.
 - **Reports lead with what is broken or unmeasured.**
 
 ## The harness
-- **`CLAUDE.md`** under one page, with `CONTEXT.md`, `docs/adr/`, `docs/intent.md`,
+- **`CLAUDE.md`** under one page (90 lines: the laws and a map; detail in `.claude/rules/`, loaded when
+  matching files are touched), with `CONTEXT.md`, `docs/adr/`, `docs/intent.md`,
   `docs/architecture.md`, `docs/milestones.md` and this file.
 - **Hooks:** the guard (secrets printed; staging everything; `.private/` or drawings staged; deleting
   untracked files; history rewrites; skipped hooks; PowerShell; statuses posted through the API;
@@ -147,8 +175,8 @@ stays, capped, and the orchestrator does what the owner did.
   `diagnosing-bugs`, `codebase-design`, `prototype`, `research`, `handoff`,
   `resolving-merge-conflicts`, `writing-for-agents`, `wizard`, `ask-matt`,
   `improve-codebase-architecture`; his review skill is `spec-review`), plus `product-review`,
-  `real-drawings` and `orchestrate-wave` (the orchestrator's runbook). The built-in `/code-review` and
-  ultrareview review PRs.
+  `real-drawings` and `orchestrate-wave` (the orchestrator's runbook). Second review lens: the adversary
+  agent inside `/review-pr` (ADR 0042).
 - **Agents:** `acceptance-writer` (a ticket's failing acceptance tests, before its builder),
   `pr-reviewer` (every PR, and every fix round), `refuter` (one claim), `ux-critic` (a walk,
   or the words-only gate), `qs-critic` and `drawing-analyst` (local, real drawings).
