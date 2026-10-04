@@ -12,6 +12,7 @@ import { Plural, Trans } from '@lingui/react/macro'
 import { useLingui } from '@lingui/react'
 import { useQueryClient } from '@tanstack/react-query'
 import { ApiRefused } from '@/api/client'
+import { filesQuery } from '@/drawing-set/data'
 import { problemOf, problemText } from '@/auth/problem'
 import { useFormat } from '@/format'
 import type { MachineMessage } from '@/format/machine'
@@ -139,7 +140,11 @@ export function useStep1Acts(projectId: string): Step1Acts {
   const undos = useRef(0)
   const chain = useRef<Promise<void>>(Promise.resolve())
   const [busy, setBusy] = useState(false)
-  const refresh = useCallback(() => queryClient.invalidateQueries({ queryKey: step1Key(projectId) }), [queryClient, projectId])
+  // An answer can move a file's status too (a held file set aside, §6.13), so the files band is read again with Step 1.
+  const refresh = useCallback(
+    () => Promise.all([queryClient.invalidateQueries({ queryKey: step1Key(projectId) }), queryClient.invalidateQueries({ queryKey: filesQuery(projectId).queryKey })]).then(() => {}),
+    [queryClient, projectId],
+  )
   /** Why a call failed, in words; never throws (problemOf throws on an error that is not the API's). */
   const failedText = useCallback(
     (error: unknown) => {

@@ -56,7 +56,15 @@ MEASURES = (
     "conflicts",
     "continuations",
 )
-SHEET_VALUES = ("number", "title", "discipline", "revision_mark", "issue_date", "storeys_as_stated")
+SHEET_VALUES = (
+    "number",
+    "title",
+    "discipline",
+    "revision_mark",
+    "issue_date",
+    "storeys_as_stated",
+    "paper",
+)
 VIEW_VALUES = (
     "kind",
     "not_to_scale",
