@@ -33,8 +33,9 @@ from pathlib import Path
 from typing import Any
 
 from scripts.walk.cli import QuietParser
-from scripts.walk.sanitize import CHECK_IDS, ITEMS
+from scripts.walk.sanitize import CHECK_IDS
 from scripts.walk.schema import verdict_errors
+from scripts.walk.verdict import result_of, status_of
 
 SHA = re.compile(r"[0-9a-f]{40}")
 UTC = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z")
@@ -83,7 +84,8 @@ def _git(repo: Path, *args: str) -> str:
 
 
 def is_product_path(path: str) -> bool:
-    return path.startswith(PRODUCT_DIRS) or path in PRODUCT_FILES
+    """Under a product directory, the directory itself (a submodule's pointer), or a product file."""
+    return path.startswith(PRODUCT_DIRS) or f"{path}/" in PRODUCT_DIRS or path in PRODUCT_FILES
 
 
 def consistent(verdict: Mapping[str, Any]) -> bool:
@@ -102,27 +104,27 @@ def consistent(verdict: Mapping[str, Any]) -> bool:
         return False
     if verdict["leak_scan"].get("hits") != 0:
         return False
-    if verdict["result"] != "PASS":
-        return True
+    rows: dict[str, list[Mapping[str, Any]]] = {}
+    for row in verdict["burden"]:
+        rows.setdefault(row["set"], []).append(row)
     by_set: dict[str, list[str]] = {}
     for check in verdict["checks"]:
-        if check["status"] != "PASS":
-            return False
         by_set.setdefault(check["set"], []).append(check["check"])
+        # Each status must be what its own measured, expected and burden rows give (verdict.py's rule).
+        if status_of(check, rows.get(check["set"], [])) != check["status"]:
+            return False
     if any(sorted(names) != sorted(CHECK_IDS) for names in by_set.values()):
         return False
-    items = [item["item"] for item in layer["items"]]
-    return (
-        sorted(items) == sorted(ITEMS)
-        and all(item["status"] == "PASS" for item in layer["items"])
-        and layer["blocks"] == 0
-        and layer["misleading"] == 0
-    )
+    if not set(rows) <= set(by_set):
+        return False  # a burden row for a set no check measured
+    return bool(result_of(verdict) == verdict["result"])
 
 
 SKEW = 600
 """Seconds of clock skew allowed between a commit and the verdict of its walk."""
 LOOSE_SHA = re.compile(r"[0-9a-fA-F]{40}")
+VERDICT_NAME = re.compile(r"verdict([.-][A-Za-z0-9-]+)?\.json|smoke-verdict\.json")
+"""verdict.json, verdict.<finished_at>.json (a re-walk keeps the older), or a smoke's (never read)."""
 
 
 def _epoch(stamp: str) -> int:
@@ -143,12 +145,27 @@ def _times_hold(body: Mapping[str, Any], committed: int | None) -> bool:
     return started <= finished and (committed is None or finished >= committed - SKEW)
 
 
+def _strict_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    keys = [key for key, _ in pairs]
+    if len(set(keys)) != len(keys):
+        raise ValueError("a key twice")
+    return dict(pairs)
+
+
+def _no_constant(name: str) -> Any:
+    raise ValueError("NaN or Infinity")
+
+
 def _read(path: Path, folder: str, committed: int | None) -> _Entry | None:
     if path.is_symlink():
         raise Unreadable("a verdict is a link")
     try:
-        body = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, ValueError) as error:
+        body = json.loads(
+            path.read_text(encoding="utf-8"),
+            object_pairs_hook=_strict_object,
+            parse_constant=_no_constant,
+        )
+    except (OSError, UnicodeDecodeError, ValueError, RecursionError) as error:
         raise Unreadable("a verdict is not JSON") from error
     if not isinstance(body, dict):
         raise Unreadable("a verdict is not a JSON object")
@@ -162,6 +179,8 @@ def _read(path: Path, folder: str, committed: int | None) -> _Entry | None:
     )
     if sound and body["ref"] != "main":
         return None  # another ref's walk: not one of main's verdicts
+    # A PASS is counted only on a commit this repository has (its time and history can be checked).
+    sound = sound and (body["result"] != "PASS" or committed is not None)
     passed = sound and body["result"] == "PASS"
     walk = (folder, str(body.get("started_at")), when, str(body.get("result"))) if sound else None
     return _Entry(finished_at=when, sha=folder, passed=passed, counted=sound, walk=walk)
@@ -173,13 +192,17 @@ def _entries(walks_dir: Path, repo: Path) -> list[_Entry]:
     seen: set[tuple[str, str, str, str]] = set()
     for folder in sorted(walks_dir.iterdir()):
         if not SHA.fullmatch(folder.name):
-            if LOOSE_SHA.fullmatch(folder.name):
-                raise Unreadable("a walk folder's sha is not lower-case")
+            if LOOSE_SHA.match(folder.name):
+                raise Unreadable("a walk folder is named like a sha but is not one")
             continue
         if folder.is_symlink() or not folder.is_dir():
             raise Unreadable("a walk folder is not a folder")
+        for path in folder.rglob("*"):
+            name = path.name.lower()
+            if "verdict" in name and not (path.parent == folder and VERDICT_NAME.fullmatch(path.name)):
+                raise Unreadable("a verdict file is misnamed or misplaced")
         committed = _committed(repo, folder.name)
-        for path in sorted(folder.glob("verdict*.json")):
+        for path in sorted(folder.glob("verdict*.json")):  # smoke-verdict.json is never read
             entry = _read(path, folder.name, committed)
             if entry is None:
                 continue
@@ -191,13 +214,31 @@ def _entries(walks_dir: Path, repo: Path) -> list[_Entry]:
     return entries
 
 
+def _resolve(repo: Path, ref: str) -> str:
+    """The ref's commit; a branch, a remote branch and a tag of one name must all name one commit."""
+    found = set()
+    for full in (f"refs/heads/{ref}", f"refs/remotes/{ref}", f"refs/tags/{ref}"):
+        try:
+            found.add(_git(repo, "rev-parse", "--verify", "--quiet", f"{full}^{{commit}}").strip())
+        except Unreadable:
+            continue
+    if len(found) > 1:
+        raise Unreadable("the ref names more than one commit")
+    head = (
+        found.pop()
+        if found
+        else _git(repo, "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}").strip()
+    )
+    if not SHA.fullmatch(head):
+        raise Unreadable("the ref is not a commit")
+    return head
+
+
 def ready(ref: str, *, walks_dir: Path, repo: Path) -> Ready:
     """Whether `ref` is walk-ready, with one reason line (shas and counts only)."""
     if ref.startswith("-"):
         raise Unreadable("a ref cannot start with a dash")
-    head = _git(repo, "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}").strip()
-    if not SHA.fullmatch(head):
-        raise Unreadable("the ref is not a commit")
+    head = _resolve(repo, ref)
     history = set(_git(repo, "rev-list", "--first-parent", head).split())
     if not walks_dir.exists():
         return Ready(False, "not walk-ready: no G1 verdict on main")
@@ -225,7 +266,17 @@ def ready(ref: str, *, walks_dir: Path, repo: Path) -> Ready:
             f"not walk-ready: newest PASS ({newer.sha[:8]}) is off the ref's first-parent history",
         )
     if newer.sha != head:
-        changed = _git(repo, "diff", "--name-only", "--no-renames", "-z", newer.sha, head)
+        changed = _git(
+            repo,
+            "diff",
+            "--no-relative",
+            "--no-ext-diff",
+            "--name-only",
+            "--no-renames",
+            "-z",
+            newer.sha,
+            head,
+        )
         product = [path for path in changed.split("\0") if path and is_product_path(path)]
         if product:
             return Ready(

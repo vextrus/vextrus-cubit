@@ -36,6 +36,7 @@ from typing import Any
 
 from scripts.walk.cli import QuietParser
 from scripts.walk.sanitize import ALLOWED_KEYS, ITEMS, sanitize_finding
+from scripts.walk.verdict import ISSUE_LIMIT
 
 SHA = re.compile(r"[0-9a-f]{40}")
 STATUSES = ("PASS", "FAIL", "NOT_WALKED")
@@ -119,7 +120,7 @@ def _open_keys(open_issues: Iterable[object]) -> dict[str, int]:
         if not isinstance(row, Mapping):
             raise Refused("an open issue is not an object")
         number, key = row.get("number"), row.get("key")
-        if isinstance(number, bool) or not isinstance(number, int) or number < 1:
+        if isinstance(number, bool) or not isinstance(number, int) or not 1 <= number < ISSUE_LIMIT:
             raise Refused("an open issue has no number")
         if key is None:
             continue
@@ -271,7 +272,7 @@ def _command_record(folder: Path, sha: str, created: list[str]) -> int:
     numbers: dict[int, int] = {}
     for pair in created:
         n, _, number = pair.partition("=")
-        if not (n.isdigit() and number.isdigit()) or int(number) < 1:
+        if not (n.isdigit() and number.isdigit()) or not 1 <= int(number) < ISSUE_LIMIT:
             raise Refused("--created takes <n>=<issue number>")
         numbers[int(n)] = int(number)
     issue_of: dict[str, tuple[int | None, int | None]] = {}
@@ -312,7 +313,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "draft":
             return _command_draft(folder, args.sha)
         return _command_record(folder, args.sha, args.created)
-    except (Refused, OSError, ValueError, KeyError, TypeError) as error:
+    except (Refused, OSError, ValueError, KeyError, TypeError, RecursionError) as error:
         reason = str(error) if isinstance(error, Refused) else type(error).__name__
         print(f"issues: refused ({reason})", file=sys.stderr)
         return 2

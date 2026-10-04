@@ -285,7 +285,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     try:
         data = json.loads(Path(args[0]).read_text(encoding="utf-8"))
-    except OSError, UnicodeDecodeError, ValueError:
+    except OSError, UnicodeDecodeError, ValueError, RecursionError:
         print("sanitize: unreadable or not JSON", file=sys.stderr)
         return 2
     if not isinstance(data, dict):

@@ -510,3 +510,158 @@ def test_an_earlier_walk_json_moves_aside(tmp_path: Path) -> None:
 
     assert not (tmp_path / "walk.json").exists()
     assert len(list(tmp_path.glob("walk.*.json"))) == 1
+
+
+def test_an_issue_number_that_could_carry_text_is_refused() -> None:
+    finding = {
+        "id": "f-1",
+        "item": "M0-FL5",
+        "defect_class": "crash",
+        "screen": "rail",
+        "delta": None,
+        "severity": "OTHER",
+        "misleading": False,
+    }
+    hidden = int.from_bytes(PLANTED.encode())
+
+    with pytest.raises(issues.Refused):
+        issues.draft([finding], [{"number": hidden, "key": "crash/rail"}], sha=SHA, scan=lambda t: 0)
+    with pytest.raises(verdict.Malformed):
+        verdict.evaluate(
+            _walk(),
+            EXPECT,
+            {**LAYER, "findings": [{**finding, "issue": hidden, "dedup_comment_on": None}]},
+            ref="main",
+            leak_hits=0,
+            **TIMES,
+        )
+
+
+def test_deeply_nested_json_is_bad_input_not_a_crash(tmp_path: Path) -> None:
+    deep = tmp_path / "deep.json"
+    deep.write_text("[" * 100_000)
+
+    done = subprocess.run(
+        [sys.executable, "-m", "scripts.walk.sanitize", str(deep)],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert done.returncode == 2
+
+
+# ready.py, the second refuter pass ---------------------------------------------------------------
+
+
+def _two_passes(tmp_path: Path) -> tuple[Path, Path, str, str]:
+    repo, (c1, c2) = _repo(tmp_path, ["vextrus/a.py", "docs/b.md"])
+    walks = tmp_path / "walks"
+    _put(walks, c1, _verdict(c1, "PASS", "2026-10-05T01:00:00Z"))
+    return repo, walks, c1, c2
+
+
+def _forge_numbers(body: dict[str, Any], case: str) -> None:
+    checks = {c["check"]: c for c in body["checks"]}
+    if case == "slow-acts-marked-pass":
+        checks["act_p95_during_read"]["measured"] = {"p95_ms": 5000, "samples": 9}
+    elif case == "a-file-unread-marked-pass":
+        checks["reads_complete"]["measured"] = {"files": 2, "completed": 1}
+        checks["reads_complete"]["expected"] = {"files": 2}
+    elif case == "never-measured-marked-pass":
+        checks["act_p95_during_read"]["measured"] = {"samples": 0}
+    elif case == "burden-over-its-limits":
+        body["burden"][0].update(
+            questions_by_kind={"low_confidence": 40},
+            bulk_confirmable_sheets=0,
+            false_continuation_questions=7,
+        )
+    elif case == "burden-for-a-set-never-checked":
+        body["burden"].append({**body["burden"][0], "set": "set-b"})
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        "slow-acts-marked-pass",
+        "a-file-unread-marked-pass",
+        "never-measured-marked-pass",
+        "burden-over-its-limits",
+        "burden-for-a-set-never-checked",
+    ],
+)
+def test_a_pass_its_own_numbers_contradict_is_refused(tmp_path: Path, case: str) -> None:
+    repo, walks, _, c2 = _two_passes(tmp_path)
+    forged = _verdict(c2, "PASS", "2026-10-05T02:00:00Z")
+    _forge_numbers(forged, case)
+    _put(walks, c2, forged)
+
+    assert ready.ready("main", walks_dir=walks, repo=repo).ok is False
+
+
+@pytest.mark.parametrize(
+    "text", ['{"p95_ms": NaN}', '{"result": "FAIL", "result": "PASS"}'], ids=["nan", "a-key-twice"]
+)
+def test_json_a_strict_reader_refuses_is_malformed(tmp_path: Path, text: str) -> None:
+    repo, walks, _, c2 = _two_passes(tmp_path)
+    _put(walks, c2, _verdict(c2, "PASS", "2026-10-05T02:00:00Z"))
+    (walks / c2 / "verdict.20261005T030000Z.json").write_text(text)
+
+    with pytest.raises(ready.Unreadable):
+        ready.ready("main", walks_dir=walks, repo=repo)
+
+
+@pytest.mark.parametrize(
+    "place", ["verdict.json.bak", "Verdict.json", "old/verdict.json", "<sha>.bak/verdict.json"]
+)
+def test_a_misnamed_or_misplaced_verdict_is_malformed(tmp_path: Path, place: str) -> None:
+    repo, walks, _, c2 = _two_passes(tmp_path)
+    _put(walks, c2, _verdict(c2, "PASS", "2026-10-05T02:00:00Z"))
+    target = walks / c2 / place.replace("<sha>", f"../{c2}")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(_verdict(c2, "FAIL", "2026-10-05T03:00:00Z")))
+
+    with pytest.raises(ready.Unreadable):
+        ready.ready("main", walks_dir=walks, repo=repo)
+
+
+def test_a_tag_and_a_branch_of_one_name_must_agree(tmp_path: Path) -> None:
+    repo, walks, _, c2 = _two_passes(tmp_path)
+    _put(walks, c2, _verdict(c2, "PASS", "2026-10-05T02:00:00Z"))
+    _git(repo, "tag", "main", c2)
+    (repo / "vextrus").mkdir(exist_ok=True)
+    (repo / "vextrus" / "c.py").write_text("c")
+    _git(repo, "add", "--", "vextrus/c.py")
+    _git(repo, "commit", "-q", "--no-verify", "-m", "c")
+
+    with pytest.raises(ready.Unreadable):
+        ready.ready("main", walks_dir=walks, repo=repo)
+
+
+def test_a_product_directory_itself_is_a_product_path() -> None:
+    assert ready.is_product_path("engine")
+    assert ready.is_product_path("web/src")
+    assert not ready.is_product_path("engineering.md")
+
+
+def test_a_relative_diff_setting_cannot_hide_product_changes(tmp_path: Path) -> None:
+    repo, walks, _, c2 = _two_passes(tmp_path)
+    _put(walks, c2, _verdict(c2, "PASS", "2026-10-05T02:00:00Z"))
+    (repo / "vextrus" / "c.py").write_text("c")
+    _git(repo, "add", "--", "vextrus/c.py")
+    _git(repo, "commit", "-q", "--no-verify", "-m", "c")
+    _git(repo, "config", "diff.relative", "true")
+
+    assert ready.ready("main", walks_dir=walks, repo=repo / "docs").ok is False
+
+
+def test_a_pass_on_a_sha_the_repository_lacks_is_refused(tmp_path: Path) -> None:
+    repo, walks, c1, _ = _two_passes(tmp_path)
+    blob = _git(repo, "rev-parse", "HEAD:docs/b.md")
+    _put(walks, blob, _verdict(blob, "PASS", "2026-10-05T01:30:00Z"))
+    head = _git(repo, "rev-parse", "HEAD")
+    _put(walks, head, _verdict(head, "PASS", "2026-10-05T02:00:00Z"))
+    (walks / c1 / "verdict.json").unlink()
+
+    assert ready.ready("main", walks_dir=walks, repo=repo).ok is False

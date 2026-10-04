@@ -24,7 +24,7 @@ import re
 import sys
 import tempfile
 import time
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -41,6 +41,8 @@ from scripts.walk.sanitize import (
 from scripts.walk.schema import verdict_errors, walk_errors
 
 SHA = re.compile(r"[0-9a-f]{40}")
+ISSUE_LIMIT = 10**7
+"""Above any issue number GitHub gives; a larger one could carry text in its digits."""
 UTC = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z")
 REF = re.compile(r"[A-Za-z0-9][A-Za-z0-9._/-]{0,99}")
 DISCIPLINE = re.compile(r"[a-z][a-z0-9_]{1,24}")
@@ -110,10 +112,10 @@ def _expectation(raw: object) -> dict[str, float]:
 
 
 def _check(
-    check: str, set_: str, measured: dict[str, Any], expected: dict[str, Any] | None, ok: bool
+    check: str, set_: str, measured: dict[str, Any], expected: dict[str, Any] | None
 ) -> dict[str, Any]:
-    status = "UNSET" if expected is None else "PASS" if ok else "FAIL"
-    return {"check": check, "set": set_, "status": status, "measured": measured, "expected": expected}
+    """A check, its status set after by `status_of`."""
+    return {"check": check, "set": set_, "status": "", "measured": measured, "expected": expected}
 
 
 def _limits(expect: Mapping[str, Any] | None, keys: tuple[str, ...]) -> dict[str, Any] | None:
@@ -121,6 +123,94 @@ def _limits(expect: Mapping[str, Any] | None, keys: tuple[str, ...]) -> dict[str
     if expect is None or any(key not in expect for key in keys):
         return None
     return {key: expect[key] for key in keys}
+
+
+def _row_holds(row: Mapping[str, Any], expected: Mapping[str, Any]) -> bool:
+    """A burden row whose own numbers agree (a total is its kinds' sum; parts within the whole) and
+    that is within each burden limit the expectation names."""
+    kinds = row["questions_by_kind"]
+    numbers = [
+        row[key] for key in ("questions_total", "sheets", "bulk_confirmable_sheets", "one_source_sheets")
+    ]
+    if not all(is_number(n) for n in [*numbers, *kinds.values()]):
+        return False
+    sheets, bulk, false = (
+        row["sheets"],
+        row["bulk_confirmable_sheets"],
+        row["false_continuation_questions"],
+    )
+    if (
+        row["questions_total"] != sum(kinds.values())
+        or bulk > sheets
+        or row["one_source_sheets"] > sheets
+    ):
+        return False
+    share_min = expected.get("bulk_confirmable_share_min")
+    if share_min is not None and sheets > 0 and bulk / sheets < share_min:
+        return False
+    false_max = expected.get("false_continuation_max")
+    # Not measured is not within the limit (fail closed).
+    return false_max is None or (false is not None and is_number(false) and false <= false_max)
+
+
+def status_of(check: Mapping[str, Any], rows: Sequence[Mapping[str, Any]]) -> str:
+    """A check's status from its own `measured`, `expected` and its set's burden rows: the one rule
+    `evaluate` writes by and `ready.py` re-checks every verdict by."""
+    measured, expected = check["measured"], check["expected"]
+    if expected is None:
+        return "UNSET"
+    values = [*measured.values(), *expected.values()]
+    if not all(is_number(v) for v in values):
+        return "FAIL"
+    match check["check"]:
+        case "reads_complete":
+            files, completed, want = (
+                measured.get("files"),
+                measured.get("completed"),
+                expected.get("files"),
+            )
+            ok = None not in (files, completed, want) and files > 0 and completed == files == want
+        case "act_p95_during_read":
+            p95_ms, samples, limit = (
+                measured.get("p95_ms"),
+                measured.get("samples"),
+                expected.get("p95_ms_max"),
+            )
+            ok = None not in (p95_ms, samples, limit) and samples > 0 and p95_ms <= limit
+        case "questions_per_discipline":
+            most, count = measured.get("questions_max_per_discipline"), measured.get("disciplines")
+            limit = expected.get("questions_max_per_discipline")
+            ok = (
+                None not in (most, count, limit)
+                and count > 0
+                and most <= limit
+                # The set's burden rows, when it has them, are the Disciplines the check measured.
+                and (
+                    not rows
+                    or (
+                        count == len(rows)
+                        and most == max(row["questions_total"] for row in rows)
+                        and all(_row_holds(row, expected) for row in rows)
+                    )
+                )
+            )
+        case _:
+            ok = False
+    return "PASS" if ok else "FAIL"
+
+
+def result_of(verdict: Mapping[str, Any]) -> str:
+    """The one PASS rule (walk-verdict.schema.json): every check and walked item PASS, none BLOCKS
+    or misleading."""
+    layer = verdict["agent_layer"]
+    passed = (
+        all(c["status"] == "PASS" for c in verdict["checks"])
+        and [i["item"] for i in layer["items"]] == list(ITEMS)
+        and all(i["status"] == "PASS" for i in layer["items"])
+        and layer["blocks"] == 0
+        and layer["misleading"] == 0
+    )
+    return "PASS" if passed else "FAIL"
 
 
 def _set_checks(
@@ -146,13 +236,7 @@ def _set_checks(
         states.append(file["state"])
     completed = sum(1 for state in states if state == DONE)
     expected = _limits(expect, ("files",))
-    reads = _check(
-        "reads_complete",
-        name,
-        {"files": len(states), "completed": completed},
-        expected,
-        expected is not None and len(states) > 0 and completed == len(states) == expected["files"],
-    )
+    reads = _check("reads_complete", name, {"files": len(states), "completed": completed}, expected)
 
     # (2) Act p95 while a later file is still reading: only acts with read_running true count.
     during = []
@@ -165,19 +249,12 @@ def _set_checks(
     if during:
         measured = {"p95_ms": p95(during), "samples": len(during)}
     expected = _limits(expect, ("p95_ms_max",))
-    act_check = _check(
-        "act_p95_during_read",
-        name,
-        measured,
-        expected,
-        expected is not None and bool(during) and measured["p95_ms"] <= expected["p95_ms_max"],
-    )
+    act_check = _check("act_p95_during_read", name, measured, expected)
 
     # (3) Questions per Discipline by kind, with the burden counts beside them.
     disciplines = sorted(set(questions) | set(burden))
     rows = []
     totals = []
-    burden_ok = True
     expected = _limits(expect, QUESTION_LIMITS)
     for discipline in disciplines:
         if not isinstance(discipline, str) or not DISCIPLINE.fullmatch(discipline):
@@ -201,12 +278,6 @@ def _set_checks(
         continuations = _count(counts.get("continuation_questions", 0), "continuation_questions")
         false_raw = counts.get("false_continuation_questions")
         false = None if false_raw is None else _count(false_raw, "false_continuation_questions")
-        if expected is not None:
-            if sheets > 0 and bulk / sheets < expected["bulk_confirmable_share_min"]:
-                burden_ok = False
-            # Not measured is not within the limit (fail closed).
-            if false is None or false > expected["false_continuation_max"]:
-                burden_ok = False
         rows.append(
             {
                 "set": name,
@@ -226,12 +297,11 @@ def _set_checks(
         name,
         {"questions_max_per_discipline": most, "disciplines": len(disciplines)},
         expected,
-        expected is not None
-        and len(disciplines) > 0
-        and most <= expected["questions_max_per_discipline"]
-        and burden_ok,
     )
-    return [reads, act_check, question_check], rows
+    checks = [reads, act_check, question_check]
+    for check in checks:
+        check["status"] = status_of(check, rows)
+    return checks, rows
 
 
 def _finding(raw: object) -> dict[str, Any]:
@@ -246,7 +316,7 @@ def _finding(raw: object) -> dict[str, Any]:
     issue, comment = raw["issue"], raw["dedup_comment_on"]
     for number in (issue, comment):
         if number is not None and (
-            isinstance(number, bool) or not isinstance(number, int) or number < 1
+            isinstance(number, bool) or not isinstance(number, int) or not 1 <= number < ISSUE_LIMIT
         ):
             raise Malformed("an issue number is not a positive integer")
     return {**clean, "issue": issue, "dedup_comment_on": comment}
@@ -350,13 +420,7 @@ def evaluate(
         raise Malformed("a check is missing")
 
     layer = _agent_layer(findings)
-    passed = (
-        all(c["status"] == "PASS" for c in checks)
-        and [i["item"] for i in layer["items"]] == list(ITEMS)
-        and all(i["status"] == "PASS" for i in layer["items"])
-        and layer["blocks"] == 0
-        and layer["misleading"] == 0
-    )
+    passed = result_of({"checks": checks, "agent_layer": layer}) == "PASS"
     return {
         "schema_version": 1,
         "sha": sha,
@@ -473,7 +537,7 @@ def main(argv: list[str] | None = None) -> int:
             finished_at=utc_now(),
             leak_hits=args.leak_hits,
         )
-    except (OSError, ValueError, KeyError, TypeError) as error:
+    except (OSError, ValueError, KeyError, TypeError, RecursionError) as error:
         # The error's kind only: a message could carry a path or a value.
         print(f"verdict: not judged ({type(error).__name__})", file=sys.stderr)
         return 2
