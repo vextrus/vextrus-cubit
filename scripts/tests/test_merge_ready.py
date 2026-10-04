@@ -345,3 +345,44 @@ def test_only_a_clean_two_parent_merge_of_main_extends_a_pass(tmp_path: Path) ->
     repo("commit", "-q", "--no-edit")
     [problem] = repo.problems(repo("rev-parse", "HEAD"), ledger)
     assert "re-review the resolution" in problem
+
+
+@pytest.mark.parametrize(
+    ("answer", "open_"),
+    [
+        ({"state": "OPEN", "url": "https://github.com/vextrus/vextrus-cubit/issues/7"}, True),
+        ({"state": "OPEN", "url": "https://github.com/vextrus/vextrus-cubit/pull/7"}, False),
+        ({"state": "CLOSED", "url": "https://github.com/vextrus/vextrus-cubit/issues/7"}, False),
+        ({"state": "OPEN"}, False),
+    ],
+    ids=["open-issue", "open-pull-request", "closed-issue", "no-url"],
+)
+def test_only_an_open_issue_not_a_pull_request_counts(
+    monkeypatch: pytest.MonkeyPatch, answer: dict[str, str], open_: bool
+) -> None:
+    """`gh issue view` answers OPEN for a pull request's number too (review F2)."""
+    import subprocess
+
+    from scripts.merge_ready import issue_is_open
+
+    def fake(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        assert "state,url" in args[0]
+        return subprocess.CompletedProcess(args[0], 0, json.dumps(answer), "")
+
+    monkeypatch.setattr(subprocess, "run", fake)
+    assert issue_is_open(7) is open_
+
+
+@pytest.mark.parametrize(
+    ("heading", "gated"),
+    [
+        ("## Cut items", True),
+        ("## Cut: tier 2", True),
+        ("### Not  done yet", True),
+        ("## Cutting", False),
+    ],
+)
+def test_a_gated_heading_is_matched_by_its_first_word(heading: str, gated: bool) -> None:
+    from scripts.merge_ready import cut_problems
+
+    assert bool(cut_problems(f"{heading}\n- the land script\n", lambda n: True)) is gated

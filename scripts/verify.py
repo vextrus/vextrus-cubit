@@ -66,9 +66,14 @@ def pytest_target(path: str) -> str | None:
     return None
 
 
-def plan_with_notes(paths: Iterable[str], *, have: Have = _have) -> tuple[list[Check], list[str]]:
-    """The checks for these changed paths, in run order, and a note for each check left out."""
+def plan_with_notes(
+    paths: Iterable[str], *, have: Have = _have, root: Path | None = None
+) -> tuple[list[Check], list[str]]:
+    """The checks for these changed paths, in run order, and a note for each check left out. `root` is
+    the checkout's root (default: the current folder): the schema path is absolute because `api:types`
+    runs from `web/`."""
     paths = sorted(set(paths))
+    schema = str((Path.cwd() if root is None else root).resolve() / WEB_SCHEMA)
     checks: list[Check] = []
     notes: list[str] = []
     python = [p for p in paths if PYTHON.search(p)]
@@ -88,13 +93,11 @@ def plan_with_notes(paths: Iterable[str], *, have: Have = _have) -> tuple[list[C
         # The cloud web order: `npm test` fails at import without the generated API types and the
         # route tree, so the schema is exported and the types generated before typecheck (which runs
         # `tsr generate`).
-        export = f"uv run manage.py export_openapi_schema --api vextrus.api.api > {WEB_SCHEMA}"
+        export = ("uv", "run", "manage.py", "export_openapi_schema", "--api", "vextrus.api.api")
         checks += [
-            Check("openapi-export", ("sh", "-c", f"mkdir -p {Path(WEB_SCHEMA).parent} && {export}")),
+            Check("openapi-export", (*export, "--output", schema)),
             Check(
-                "api-types",
-                ("npm", "--prefix", "web", "run", "api:types"),
-                {"OPENAPI_SCHEMA": WEB_SCHEMA},
+                "api-types", ("npm", "--prefix", "web", "run", "api:types"), {"OPENAPI_SCHEMA": schema}
             ),
             Check("typecheck", ("npm", "--prefix", "web", "run", "typecheck")),
             Check("lint", ("npm", "--prefix", "web", "run", "lint")),
@@ -122,8 +125,8 @@ def plan_with_notes(paths: Iterable[str], *, have: Have = _have) -> tuple[list[C
     return checks, notes
 
 
-def plan(paths: Iterable[str], *, have: Have = _have) -> list[Check]:
-    return plan_with_notes(paths, have=have)[0]
+def plan(paths: Iterable[str], *, have: Have = _have, root: Path | None = None) -> list[Check]:
+    return plan_with_notes(paths, have=have, root=root)[0]
 
 
 def flaky_entries(root: Path) -> list[tuple[str, str, str]]:
@@ -221,7 +224,8 @@ def main(argv: list[str] | None = None, *, run: Run = run_command) -> int:
     root = Path(_git("rev-parse", "--show-toplevel"))
     tree = _git("write-tree")
     common = Path(_git("rev-parse", "--path-format=absolute", "--git-common-dir"))
-    checks, notes = plan_with_notes(changed_paths())
+    (root / WEB_SCHEMA).parent.mkdir(parents=True, exist_ok=True)
+    checks, notes = plan_with_notes(changed_paths(), root=root)
     for note in notes:
         print(f"verify: {note}", file=sys.stderr)
     if not checks:

@@ -66,7 +66,9 @@ MARKER = re.compile(
 SHA = re.compile(r"[0-9a-f]{40}")
 KINDS = ("diff", "messages", "files", "branch", "title", "body", "comments")
 HEADING = re.compile(r"^ {0,3}#{1,6}[ \t]+(.*?)[ \t#]*$")
-GATED_SECTIONS = {"cut", "not done", "deferred"}
+# A section starts at a heading whose first word is Cut or Deferred, or whose first two are Not done
+# ("## Cut", "## Cut items", "## Cut: tier 2"); it ends at the next heading.
+GATED = re.compile(r"(cut|deferred|not[ \t]+done)\b", re.IGNORECASE)
 NOTHING = re.compile(r"^(?:[-*+][ \t]+)?(?:none|nothing)\.?$", re.IGNORECASE)
 ISSUE_LINK = re.compile(
     r"(?<![\w/&])#([0-9]+)\b|https://github\.com/vextrus/vextrus-cubit/issues/([0-9]+)\b"
@@ -232,13 +234,17 @@ class PrScan:
 
 
 def issue_is_open(number: int) -> bool:
+    """An open issue of this repository: `gh issue view` also answers OPEN for a pull request's number,
+    so its URL must be an issue's."""
     done = subprocess.run(
-        ["gh", "issue", "view", str(number), "--repo", "/".join(REPOSITORY), "--json", "state"],
+        ["gh", "issue", "view", str(number), "--repo", "/".join(REPOSITORY), "--json", "state,url"],
         capture_output=True,
         text=True,
         check=True,
     )
-    return bool(json.loads(done.stdout)["state"] == "OPEN")
+    answer = json.loads(done.stdout)
+    url = f"https://github.com/{'/'.join(REPOSITORY)}/issues/{number}"
+    return bool(answer.get("state") == "OPEN" and answer.get("url") == url)
 
 
 def scan_problems(facts: dict[str, Any], scan: Scan) -> list[str]:
@@ -273,8 +279,8 @@ def cut_problems(body: str, issue_open: IssueOpen) -> list[str]:
     item = 0
     for line in body.splitlines():
         if heading := HEADING.match(line):
-            title = heading[1].strip().rstrip(":").strip().lower()
-            section, item = (title, 0) if title in GATED_SECTIONS else (None, 0)
+            gated = GATED.match(heading[1].strip())
+            section, item = (" ".join(gated[1].lower().split()), 0) if gated else (None, 0)
             continue
         if section is None or not line.strip() or NOTHING.match(line.strip()):
             continue

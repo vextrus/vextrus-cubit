@@ -37,7 +37,9 @@ one line per step; if restarted, resume from it. **Scratch copies live under `.p
   `~/.cache/vextrus-real-drawings/wheels/` over it (check its sha256 against `toolchain/ezdxf.lock`) and run
   with `uv run --no-sync`.
 - **Locally, run only the PR's changed test files and your own attack tests** (`pytest -rf <files>`), each
-  run through `flock .private/work/factory/pytest.lock` so parallel reviewers do not starve the machine,
+  run through the main checkout's lock, so parallel reviewers do not starve the machine (it finds
+  the main checkout from any worktree or review slot):
+  `flock "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/.private/work/factory/pytest.lock" uv run pytest -rf <files>`,
   output kept in a file. The full Python and web suites are CI's.
 - A throwaway database: `VEXTRUS_DB_NAME=vextrus_review<PR>`; afterwards list `vextrus_review<PR>%` with psql
   and drop each by exact name (`dropdb -h 127.0.0.1 -U vextrus <name>`). Never `rm -r`.

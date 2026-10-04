@@ -13,8 +13,10 @@ How:
 - **Reproduce.** Run the narrowest proof that decides the claim: the one test file (read its verbose
   output; a fast green is read before it is trusted), a query against the dev database, the drawing
   pipeline on the named drawing, or the served product in the browser (the chrome-devtools MCP) for a
-  UI claim. Locally, run only the files that decide the claim (`pytest -rf <files>`, through `flock
-  .private/work/factory/pytest.lock`); the full suites are CI's. Do not run the whole suite unless asked.
+  UI claim. Locally, run only the files that decide the claim, each through the
+  main checkout's lock (it finds the main checkout from any worktree or review slot):
+  `flock "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/.private/work/factory/pytest.lock" uv run pytest -rf <files>`.
+  The full suites are CI's. Do not run the whole suite unless asked.
 - **Read what the claim leans on:** `CONTEXT.md`, the relevant ADR in `docs/adr/`, the milestone spec
   in `docs/specs/`, and check the claim against their exact words.
 - **Look for the ways it could be true and still wrong:** the right number for the wrong reason; a test

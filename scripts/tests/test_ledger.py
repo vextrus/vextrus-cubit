@@ -61,7 +61,7 @@ def test_crlf_lines_decide_like_lf(tmp_path: Path, capsys: pytest.CaptureFixture
 @pytest.mark.parametrize(
     "argv",
     [
-        ["check", "12", "--round", "1", "--exception", "crash"],
+        ["check", "12", "--round", "1", "--exception", "crash", "--reason", "x"],
         ["check", "0", "--round", "1"],
         ["decide", "--from", "x", "--head", "main"],
         ["bogus"],
@@ -153,3 +153,9 @@ def test_a_ledger_path_that_is_a_file_refuses_before_posting(tmp_path: Path) -> 
 def test_a_huge_score_is_bad_input(tmp_path: Path) -> None:
     given = source(tmp_path, f"VERDICT: PASS at {H}", "FINDING a " + "9" * 5000 + " -")
     assert main(["decide", "--from", str(given), "--head", H], ledger_dir=tmp_path) == 2
+
+
+def test_check_refuses_an_exception_with_no_reason(tmp_path: Path) -> None:
+    argv = ["check", "12", "--round", "3", "--exception", "crash"]
+    assert main(argv, ledger_dir=tmp_path / "ledger") == 3
+    assert main([*argv, "--reason", "the export crashes"], ledger_dir=tmp_path / "ledger") == 0

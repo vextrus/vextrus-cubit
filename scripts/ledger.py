@@ -535,6 +535,7 @@ def run(args: argparse.Namespace, *, scan: Scan, post: Post, ledger_dir: Path, h
     if args.command in ("decide", "record") and not SHA.fullmatch(args.head):
         raise BadInput("--head is a full 40-hex sha")
     if args.command == "check":
+        check_exception(args.round, args.exception, args.reason)
         check_round(ledger_dir, args.pr, args.round, args.exception)
         print(f"ledger: PR {args.pr} round {args.round} may start")
     elif args.command == "decide":

@@ -1,5 +1,7 @@
 """verify's path map and flake reading, beside the acceptance tests."""
 
+from pathlib import Path
+
 from scripts.verify import flakes_in, plan
 
 ENTRIES = [("scripts/tests/test_x.py :: test_a", "scripts/tests/test_x.py", "test_a")]
@@ -24,3 +26,14 @@ def test_flakes_need_every_failure_listed_and_at_least_one_failure() -> None:
     assert flakes_in(listed + "ERROR scripts/tests/test_y.py::test_b\n", ENTRIES) is None
     assert flakes_in("error: mypy found 1 error\n", ENTRIES) is None
     assert flakes_in(listed, []) is None
+
+
+def test_the_api_types_schema_is_the_exports_absolute_output(tmp_path: Path) -> None:
+    """`api:types` runs from `web/`, so a relative schema path would point under `web/` (review F3)."""
+    checks = {check.name: check for check in plan(["web/src/a.tsx"], root=tmp_path)}
+    export = checks["openapi-export"].argv
+    schema = checks["api-types"].env["OPENAPI_SCHEMA"]
+    assert Path(schema).is_absolute()
+    assert schema == str(tmp_path.resolve() / ".private/work/verify/openapi.json")
+    assert export[export.index("--output") + 1] == schema
+    assert export[0] != "sh"

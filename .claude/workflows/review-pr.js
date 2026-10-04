@@ -29,6 +29,8 @@ if (!(pr > 0) || !/^[0-9a-f]{40}$/.test(head) || !(round >= 1 && round <= 3)) {
   throw new Error('usage: /review-pr <PR> <40-hex head> <round 1-3> [exception]')
 }
 
+// The pytest lock lives in the main checkout, found from any worktree (a review slot among them).
+const LOCK = 'flock "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/.private/work/factory/pytest.lock"'
 const quote = (text) => "'" + text.replace(/'/g, "'\\''") + "'"
 const exceptionFlags = exception
   ? ` --exception ${quote(exception)}` + (reason ? ` --reason ${quote(reason)}` : '')
@@ -117,7 +119,8 @@ async function review() {
   const brief =
     `PR ${pr}, head ${head}, review round ${round}, checked out merged with main in ${slotPath} ` +
     `(VEXTRUS_DB_NAME=vextrus_rv_slot${slot}). Authority: ${authority}. Locally run only the PR's changed ` +
-    'test files and your own attack tests, through flock .private/work/factory/pytest.lock. Public words only.'
+    "test files and your own attack tests, each through the main checkout's lock: " +
+    `${LOCK} uv run pytest -rf <files>. Public words only.`
   const lenses = [
     () =>
       agent(`${brief}\nReview it in your six passes. Focus: ${focus}.`, {
@@ -125,13 +128,14 @@ async function review() {
         phase: 'Review',
         agentType: 'pr-reviewer',
         model: 'opus',
+        effort: 'high',
         schema: REVIEW,
       }),
     () =>
       agent(
         `${brief}\nYou are the adversary lens: find the failing scenario a QS meets with this change, ` +
           'and prove it with a test in the slot. Ignore style; report only what breaks.',
-        { label: 'adversary', phase: 'Review', agentType: 'pr-reviewer', model: 'opus', schema: REVIEW },
+        { label: 'adversary', phase: 'Review', agentType: 'pr-reviewer', model: 'opus', effort: 'high', schema: REVIEW },
       ),
   ]
   if (wordsChanged) {
@@ -141,6 +145,7 @@ async function review() {
         phase: 'Review',
         agentType: 'ux-critic',
         model: 'opus',
+        effort: 'high',
         schema: REVIEW,
       }),
     )
@@ -161,7 +166,7 @@ async function review() {
       agent(
         `Refute this finding on PR ${pr} at ${head} (checked out in ${slotPath}): ${finding.file}:${finding.line}, ` +
           `scored ${finding.score}: ${finding.summary}`,
-        { label: `refute ${finding.id}`, phase: 'Refute', agentType: 'refuter', model: 'opus', schema: REFUTE },
+        { label: `refute ${finding.id}`, phase: 'Refute', agentType: 'refuter', model: 'opus', effort: 'high', schema: REFUTE },
       ),
     ),
   )
