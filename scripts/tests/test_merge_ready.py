@@ -139,3 +139,48 @@ def test_statuses_of_an_older_head_or_a_closed_pr_are_refused(tmp_path: Path) ->
     assert problems(pull([], state="MERGED")) == ["the PR is merged, not open"]
     assert main(["x"], get=lambda pr: READY) == 2
     assert main(["105"], get=lambda pr: pull([]), **reviewed(tmp_path / "ledger")) == 1
+
+
+def test_the_default_leak_scan_maps_each_hit_to_its_part(monkeypatch: pytest.MonkeyPatch) -> None:
+    import subprocess
+
+    from scripts.merge_ready import PrScan
+
+    out = (
+        "HIT web/src/a.ts:3 1\nHIT commit:0123456789ab:2 1\nHIT name:0 1\nHIT pr:105:branch 1\n"
+        "HIT pr:105:title 1\nHIT pr:105:body:4 2\nHIT pr:105:comment:77:1 1\n"
+        "leakscan: hits=8 scanned=40 corpus=0123456789ab\n"
+    )
+
+    def fake(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(args[0], 1, out, "")
+
+    monkeypatch.setattr(subprocess, "run", fake)
+    scan = PrScan(105)
+    hits = {kind: scan(kind, "") for kind in ("diff", "messages", "files", "branch", "title")}
+    assert hits == dict.fromkeys(("diff", "messages", "files", "branch", "title"), 1)
+    assert (scan("body", ""), scan("comments", "")) == (2, 1)
+
+
+@pytest.mark.parametrize(
+    ("code", "out"),
+    [
+        (2, "leakscan: cannot-scan gh-failed\n"),
+        (0, "HIT pr:105:title 1\nleakscan: hits=0 scanned=1 corpus=0123456789ab\n"),
+        (1, "HIT pr:105:mystery 1\nleakscan: hits=1 scanned=1 corpus=0123456789ab\n"),
+    ],
+    ids=["cannot-scan", "count-mismatch", "unknown-part"],
+)
+def test_the_default_leak_scan_fails_closed(
+    monkeypatch: pytest.MonkeyPatch, code: int, out: str
+) -> None:
+    import subprocess
+
+    from scripts.merge_ready import PrScan
+
+    def fake(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(args[0], code, out, "")
+
+    monkeypatch.setattr(subprocess, "run", fake)
+    with pytest.raises(RuntimeError):
+        PrScan(105)("title", "")
