@@ -168,8 +168,8 @@ def test_how_close_is_close_is_the_setting_vextrus_jev_sheet_type_close_by(
     jev_offline: Offline,
     settings: Any,
 ) -> None:
-    """The closeness ("close") is a setting (the brief: "a setting"), so the scored loop tunes it on the real sets:
-    with it at 0.60, a lead of 0.50 is close and asks."""
+    """The closeness ("close") is a setting (the brief: "a setting"), so the scored loop tunes it on the
+    real sets: with it at 0.60, a lead of 0.50 is close and asks."""
     assert isinstance(getattr(jev_settings, "VEXTRUS_JEV_SHEET_TYPE_CLOSE_BY", None), Decimal)
     settings.VEXTRUS_JEV_SHEET_TYPE_CLOSE_BY = Decimal("0.60")
     jev_ranks(jev_offline, {BEAM_DETAILS.title: ("beam_details", "0.60", "beam_layout", "0.10")})
