@@ -100,7 +100,9 @@ the sheet's median text is still measured over every text it holds. The frame's 
 it are charged to the file's read budget with the drawing's, and at most `MAX_RULES` straight lines along
 each axis are weighed.
 
-**What a view says.** Its stated scale is the first scale pattern found in its title or a text on its
+**What a view says.** Its title is its title text's, and a plan's runs on into a line under it that is
+one bracketed phrase naming storeys ("(2ND TO 6TH FLOOR)"). Its stated scale is the first scale pattern
+found in its title or a text on its
 title's line or just under it (`scales.read`), verbatim; N.T.S. marks it not to scale. Its storeys are
 a plan's only: 13's `storeys.read(title, plan_title=True)`, an explicit list (and the symbolic end a
 range runs to), so "typical" is a storey only beside a floor or plan word; they mean the floors' levels
@@ -1464,6 +1466,7 @@ class _View:
     box: Bounds
     scale: scales.Scale | None = None
     extra: list[_Piece] = field(default_factory=list)
+    lines: list[_Text] = field(default_factory=list)  # its title's lines under it
 
 
 class FoundViews(list[ViewCandidate]):
@@ -1653,7 +1656,7 @@ def _views(
             if k not in by_piece and band and _meets(piece.box, _grown(t.box, t.height)):
                 by_piece[k] = ti
                 box = _union(box, piece.box)
-        views.append(_View(titled, t, kind, box))
+        views.append(_View(titled, t, kind, box, lines=[texts[j] for j in second.get(ti, ())]))
     for view in views:  # a drawing's body over its detached row (its grid marks, its dimensions)
         assert view.piece is not None
         near = _grown(view.piece.box, JOIN_MM * unit)
@@ -2378,6 +2381,14 @@ def _in_reading_order(views: list[_View]) -> list[_View]:
 # What a view says and is proposed for ------------------------------------------------------------------
 
 
+def _storeys_named(text: str) -> bool:
+    """Whether the text is one bracketed phrase naming storeys: "(2ND TO 6TH FLOOR)"."""
+    said = text.strip()
+    if not (len(said) > 2 and said[0] == "(" and said[-1] == ")" and ")" not in said[1:-1]):
+        return False
+    return storeys.read(said, sheet_finder.default_conventions(), plan_title=True).as_stated is not None
+
+
 def _candidate(
     view: _View,
     paper: _Paper,
@@ -2385,7 +2396,12 @@ def _candidate(
     discipline: str | None,
     on_sheet: Sequence[str] = (),
 ) -> ViewCandidate:
-    title = " ".join(view.title.shown.split()) if view.title is not None else None
+    title = None
+    if view.title is not None:  # a plan's storeys in brackets under it continue it: "(2ND TO 6TH FLOOR)"
+        said = [view.title.shown]
+        if view.kind is ViewKind.PLAN:
+            said += [t.shown for t in view.lines if _storeys_named(t.shown)]
+        title = " ".join(" ".join(said).split())
     scale = view.scale
     if title is not None and scale is None:
         scale = scales.read(title, reading.patterns)

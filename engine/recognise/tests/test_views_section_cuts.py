@@ -344,3 +344,31 @@ def test_a_windows_glazing_bars_are_no_schedule() -> None:
     d.text("WINDOW W1 ELEVATION", (40, 288, 0.0), height=6.0)
     found = drawn(d, one_sheet(d))
     assert not [v for v in found if v.kind is ViewKind.SCHEDULE]
+
+
+# A plan's storeys in brackets under its title -----------------------------------------------------
+
+
+def test_a_plans_storeys_in_brackets_under_its_title_continue_it() -> None:
+    """ "(2ND TO 6TH FLOOR)" set under a plan's title is the title's: the view's title says it."""
+    d = Sheets()
+    grid(d, (40, 300, 340, 560))
+    d.text("WASHROOM FITTINGS PLAN", (40, 288, 0.0), height=6.0)
+    d.text("(2ND TO 6TH FLOOR)", (40, 279, 0.0), height=6.0)
+    (view,) = drawn(d, one_sheet(d))
+    assert view.title == "WASHROOM FITTINGS PLAN (2ND TO 6TH FLOOR)"
+
+
+def test_a_bracketed_remark_under_a_title_is_not_its_title() -> None:
+    """The guards: a bracketed remark naming no storeys under a plan's title, and a bracketed line
+    under a section's title, stay the view's lines, not its title."""
+    for title, line in (
+        ("WASHROOM FITTINGS PLAN", "(SEE NOTES)"),
+        ("LONG SECTION OF BEAM B1", "(2ND TO 6TH FLOOR)"),
+    ):
+        d = Sheets()
+        grid(d, (40, 300, 340, 560))
+        d.text(title, (40, 288, 0.0), height=6.0)
+        d.text(line, (40, 279, 0.0), height=6.0)
+        (view,) = drawn(d, one_sheet(d))
+        assert view.title == title
