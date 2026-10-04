@@ -896,10 +896,11 @@ export function QuestionsTab({
   )
 }
 
-/** A key of Coverage's `by_step`: a Takeoff Step's number ("5 Foundations"), else an MEP Part ("Electrical, M3 onwards"). */
+/** A key of Coverage's `by_step`: a Takeoff Step's key or number ("5 Foundations"), else an MEP Part ("Electrical, M3 onwards"). */
 function StepOrPart({ step }: { step: string }) {
   const { i18n } = useLingui()
-  const n = STEP_DISCIPLINES.has(step) ? NOTES_STEP : /^\d+$/.test(step) ? Number(step) : null
+  const key = (STEP_KEYS as readonly string[]).indexOf(step)
+  const n = STEP_DISCIPLINES.has(step) ? NOTES_STEP : /^\d+$/.test(step) ? Number(step) : key >= 0 ? key + 1 : null
   const found = n === null ? undefined : TAKEOFF_STEPS.find((s) => s.number === n)
   if (found) {
     const number = found.number
