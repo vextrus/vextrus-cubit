@@ -339,6 +339,10 @@ msgstr "The reason, in a few words"
 msgid "By others (not in this Estimate)"
 msgstr "By others (not in this Estimate)"
 
+#: src/takeoff/questionWords.tsx
+msgid "{missing, plural, one {Answering records that the missing sheet is in a file not yet added; add it to the Drawing Set.} other {Answering records that the # missing sheets are in a file not yet added; add that file to the Drawing Set.}}"
+msgstr "{missing, plural, one {Answering records that the missing sheet is in a file not yet added; add it to the Drawing Set.} other {Answering records that the # missing sheets are in a file not yet added; add that file to the Drawing Set.}}"
+
 #: src/takeoff/Bar.tsx
 msgid "{count, plural, one {# {discipline} sheet has one source} other {# {discipline} sheets have one source each}}"
 msgstr "{count, plural, one {# {discipline} sheet has one source} other {# {discipline} sheets have one source each}}"
@@ -788,6 +792,10 @@ msgstr "Architectural"
 #: src/takeoff/words.tsx
 msgid "Solar layout"
 msgstr "Solar layout"
+
+#: src/takeoff/Bar.tsx
+msgid "Their Plot pages show a different number or title. Open each to compare and confirm it."
+msgstr "Their Plot pages show a different number or title. Open each to compare and confirm it."
 
 #: src/takeoff/words.tsx
 msgid "Plumbing and sanitary"
@@ -1388,6 +1396,10 @@ msgstr "Blank: base plan only"
 msgid "an untitled sheet on layout “{layout}” of {file}"
 msgstr "an untitled sheet on layout “{layout}” of {file}"
 
+#: src/takeoff/questionWords.tsx
+msgid "{tag} answered. Recorded: {missing, plural, one {the missing sheet is in a file not yet added; add it to the Drawing Set.} other {the # missing sheets are in a file not yet added; add that file to the Drawing Set.}}"
+msgstr "{tag} answered. Recorded: {missing, plural, one {the missing sheet is in a file not yet added; add it to the Drawing Set.} other {the # missing sheets are in a file not yet added; add that file to the Drawing Set.}}"
+
 #: src/takeoff/Step1Inspector.tsx
 msgid "Confirmed"
 msgstr "Confirmed"
@@ -1616,10 +1628,6 @@ msgid "Pick an answer to {tag} first: {keys}"
 msgstr "Pick an answer to {tag} first: {keys}"
 
 #: src/takeoff/questionWords.tsx
-msgid "{missing, plural, one {Answering records that the missing sheet is in a file not yet added; add it to the Drawing Set.} other {Answering records that the missing sheets are in a file not yet added; add it to the Drawing Set.}}"
-msgstr "{missing, plural, one {Answering records that the missing sheet is in a file not yet added; add it to the Drawing Set.} other {Answering records that the missing sheets are in a file not yet added; add it to the Drawing Set.}}"
-
-#: src/takeoff/questionWords.tsx
 msgid "Answering keeps {name} open."
 msgstr "Answering keeps {name} open."
 
@@ -1674,6 +1682,10 @@ msgstr "{file} is held: its views are not counted unless you read it anyway."
 #: src/takeoff/words.tsx
 msgid "Fire (a building of 7 storeys or more)"
 msgstr "Fire (a building of 7 storeys or more)"
+
+#: src/takeoff/Bar.tsx
+msgid "They are beside a gap in the numbering. Answer its Question to give them a second source, or open each to confirm it."
+msgstr "They are beside a gap in the numbering. Answer its Question to give them a second source, or open each to confirm it."
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "text in the title block"
@@ -1858,6 +1870,10 @@ msgid "Picked for you: {sources}"
 msgstr "Picked for you: {sources}"
 
 #: src/takeoff/Bar.tsx
+msgid "They are beside a gap in the numbering that {tag} asks about. Answer {tag} to give them a second source, or open each to confirm it."
+msgstr "They are beside a gap in the numbering that {tag} asks about. Answer {tag} to give them a second source, or open each to confirm it."
+
+#: src/takeoff/Bar.tsx
 msgid "Question {tag}, withdrawn: {title}"
 msgstr "Question {tag}, withdrawn: {title}"
 
@@ -1918,10 +1934,6 @@ msgstr "Step 1 is confirmed: every sheet is confirmed or excluded, and Coverage 
 #: src/takeoff/words.tsx
 msgid "by others"
 msgstr "by others"
-
-#: src/takeoff/questionWords.tsx
-msgid "{tag} answered. Recorded: {missing, plural, one {the missing sheet is in a file not yet added; add it to the Drawing Set.} other {the missing sheets are in a file not yet added; add it to the Drawing Set.}}"
-msgstr "{tag} answered. Recorded: {missing, plural, one {the missing sheet is in a file not yet added; add it to the Drawing Set.} other {the missing sheets are in a file not yet added; add it to the Drawing Set.}}"
 
 #: src/takeoff/SheetList.tsx
 msgid "{name}, from the file {file}"

@@ -1267,6 +1267,8 @@ never in the bulk act; the QS confirms each in sheet mode (6.5).
 | A row with nothing to act on | e.g. "On the drawing list, in no file. It stays in the count." · "Nothing to confirm here." | none |
 | Nothing left, files reading | "Reading NT-ARCH-R1.dwg: sheet 14 of 28" · "Its sheets join the list as they are read." | none |
 | Nothing left but sheets with one source | "3 Electrical sheets have one source each" · "No drawing list and no Plot to check them against. Open each to confirm it." | "Open E-01 Space" |
+| … beside a gap its Question asks about (#229) | "2 Architectural sheets have one source each" · "They are beside a gap in the numbering that Q3 asks about. Answer Q3 to give them a second source, or open each to confirm it." | "Open A-04 Space" |
+| … whose Plot pages show another title (#229) | "2 Architectural sheets have one source each" · "Their Plot pages show a different number or title. Open each to compare and confirm it." | "Open A-04 Space" |
 | Nothing left, Questions kept open | "2 Questions kept open for the consultant: Q5, Q7" · "Architectural is confirmed once they are answered." (the Discipline they hold) | ghost "Next open Question Q" |
 | Nothing left, Coverage not complete | "Coverage has a view that is neither assigned nor excluded" · "Open Coverage on the status bar to find it." | none |
 | A Discipline confirmed, others not | "Structural is confirmed: every sheet is confirmed or excluded, and none of its views is unaccounted" · "Electrical: 3 to confirm." | "Next open item ↵" |
@@ -1299,7 +1301,7 @@ and sheet mode alike (6.18). The toast sits just above it.
   storeys 8th, 9th. Enter confirms it and opens the next open sheet." with the ghost "Confirm all 56
   that agree" (the bulk act of 6.4, by mouse) and "Confirm S-20 ↵". For a sheet with one source (5):
   "E-02 has one source: number and title from its title block" · "No drawing list and no Plot to check
-  them against. Enter confirms it and opens the next open sheet." · "Confirm E-02 ↵". For a proposed
+  it against. Enter confirms it and opens the next open sheet." · "Confirm E-02 ↵". For a proposed
   exclusion: "Leave out S-39: for information" · "It stays in the count with its reason. X picks
   another reason." · "Leave out S-39 ↵". For a sheet a Question holds: that Question's bar. After the
   act, the next

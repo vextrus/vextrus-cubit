@@ -116,6 +116,26 @@ function OneSourceWhy({ sheet, model }: { sheet: ProposalOut; model: Step1Model 
   return <Trans>Nothing else confirms it.</Trans>
 }
 
+/** Why the sheets left with one source have it, by the first of them (6.4's "Nothing left but sheets
+ * with one source"): beside a gap, its Question gives them their second source (#229). */
+export function OneSourceSummary({ first, model }: { first: ProposalOut; model: Step1Model }) {
+  const why = whyOneSource(
+    first,
+    model.disciplines.find((d) => d.discipline === first.discipline),
+  )
+  if (why === 'gap') {
+    const tag = model.queue.find((e) => isGaps(e.question) && e.holds.some((p) => p.id === first.id))?.tag
+    return tag ? (
+      <Trans>They are beside a gap in the numbering that {tag} asks about. Answer {tag} to give them a second source, or open each to confirm it.</Trans>
+    ) : (
+      <Trans>They are beside a gap in the numbering. Answer its Question to give them a second source, or open each to confirm it.</Trans>
+    )
+  }
+  if (why === 'plot-differs') return <Trans>Their Plot pages show a different number or title. Open each to compare and confirm it.</Trans>
+  if (why === 'no-list-no-plot') return <Trans>No drawing list and no Plot to check them against. Open each to confirm it.</Trans>
+  return <Trans>Nothing else confirms them. Open each to confirm it.</Trans>
+}
+
 /** What the bar says and what Enter does, for the focused row (or none) in this mode. */
 export function useBar(c: BarContext): BarSpec | null {
   const { i18n, t } = useLingui()
@@ -299,12 +319,7 @@ export function useBar(c: BarContext): BarSpec | null {
     const firstRow = model.rows.find((r) => r.sheets.some((s) => s.id === first.id)) ?? null
     return {
       what: <Plural value={count} one={`# ${discipline} sheet has one source`} other={`# ${discipline} sheets have one source each`} />,
-      why:
-        whyOneSource(first, model.disciplines.find((d) => d.discipline === first.discipline)) === 'no-list-no-plot' ? (
-          <Trans>No drawing list and no Plot to check them against. Open each to confirm it.</Trans>
-        ) : (
-          <Trans>Nothing else confirms them. Open each to confirm it.</Trans>
-        ),
+      why: <OneSourceSummary first={first} model={model} />,
       ghost: firstRow ? { label: <Trans>Open <SheetName sheets={[first]} /></Trans>, run: () => c.openRow(firstRow), combo: 'Space' } : undefined,
     }
   }

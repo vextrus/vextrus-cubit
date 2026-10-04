@@ -495,7 +495,7 @@ export function Answering({ entry, context, choice, hint = false }: { entry: Que
           <Plural
             value={missing}
             one="Answering records that the missing sheet is in a file not yet added; add it to the Drawing Set."
-            other="Answering records that the missing sheets are in a file not yet added; add it to the Drawing Set."
+            other="Answering records that the # missing sheets are in a file not yet added; add that file to the Drawing Set."
           />
         ) : (
           <Plural
@@ -779,7 +779,7 @@ function CheckAnswered({ entry, option }: { entry: QuestionEntry; option: string
         <Plural
           value={missing}
           one="the missing sheet is in a file not yet added; add it to the Drawing Set."
-          other="the missing sheets are in a file not yet added; add it to the Drawing Set."
+          other="the # missing sheets are in a file not yet added; add that file to the Drawing Set."
         />
       </Trans>
     )

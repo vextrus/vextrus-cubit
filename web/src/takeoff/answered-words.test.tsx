@@ -95,7 +95,7 @@ describe('an answer’s toast names the act (#156 round 3, design gate item 1)',
     const gaps = { ...gap, code: 'engine.register_check.gaps', params: { discipline: 'structural', gaps: [{ after: 'S-01', before: 'S-03', missing: 1 }, { after: 'S-03', before: 'S-07', missing: 3 }] } } as unknown as Question21c
     expect(toast(fake, gaps, 'not_in_set')).toBe('Q5 answered. Recorded: the numbering skips at each gap; nothing is missing.')
     expect(toast(fake, gaps, 'not_sent_yet')).toBe('Q5 answered. Recorded: the 4 missing sheets are still to come; ask the consultant for them.')
-    expect(toast(fake, gaps, 'file_not_added')).toBe('Q5 answered. Recorded: the missing sheets are in a file not yet added; add it to the Drawing Set.')
+    expect(toast(fake, gaps, 'file_not_added')).toBe('Q5 answered. Recorded: the 4 missing sheets are in a file not yet added; add that file to the Drawing Set.')
     // One gap in the Question: the words name it, as a gap Question asked before #229 did.
     const one = { ...gaps, params: { discipline: 'structural', gaps: [{ after: 'S-04', before: 'S-07', missing: 2 }] } } as unknown as Question21c
     expect(toast(fake, one, 'not_in_set')).toBe('Q5 answered. Recorded: the numbering skips between S-04 and S-07; nothing is missing.')
