@@ -1122,6 +1122,10 @@ msgid "It is in a file I haven’t added yet"
 msgstr "It is in a file I haven’t added yet"
 
 #: src/takeoff/words.tsx
+msgid "Slab details"
+msgstr "Slab details"
+
+#: src/takeoff/words.tsx
 msgid "Substation and generator layout"
 msgstr "Substation and generator layout"
 
