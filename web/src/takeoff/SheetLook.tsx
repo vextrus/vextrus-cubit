@@ -68,7 +68,7 @@ export function useSheetLook(projectId: string, sheet: ProposalOut): SheetLook {
     staleTime: Infinity,
     // Once more on any failure (a page pdf.js refuses fails the same way again); never without end.
     retry: 1,
-    queryFn: async (): Promise<SheetPlot | Unaligned> => {
+    queryFn: async ({ signal }): Promise<SheetPlot | Unaligned> => {
       const answer = await unwrap(
         api.GET('/api/projects/{project_id}/drawings/sheets/{sheet_id}/plot', { params: { path: { project_id: projectId, sheet_id: sheet.sheet_id } } }),
       )
@@ -77,7 +77,7 @@ export function useSheetLook(projectId: string, sheet: ProposalOut): SheetLook {
       // no Plot to show, and trying again cannot change that.
       if (!answer.file_id || !answer.page || !transform) return { unaligned: true }
       const bytes = await queryClient.fetchQuery(pdfQuery(projectId, answer.file_id))
-      return { picture: await drawPlotPage(bytes, answer.page), transform }
+      return { picture: await drawPlotPage(bytes, answer.page, { signal }), transform }
     },
   })
 

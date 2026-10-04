@@ -10,14 +10,18 @@ const H = 419.53
 
 describe('drawPlotPage', () => {
   it('draws the page as displayed, white with its black half', async () => {
-    const started = performance.now()
-    const picture = await drawPlotPage(halfBlackPdf().buffer, 1, 600)
-    console.log('drawPlotPage ms', performance.now() - started)
+    const picture = await drawPlotPage(halfBlackPdf().buffer, 1, { maxPx: 600 })
     expect(picture.image.width).toBe(600)
     expect(picture.heightPt).toBeCloseTo(H, 1)
     const ctx = picture.image.getContext('2d')!
     const at = (x: number, y: number) => [...ctx.getImageData(x, y, 1, 1).data]
     expect(at(100, 200)).toEqual([0, 0, 0, 255])
     expect(at(500, 200)).toEqual([255, 255, 255, 255])
+  })
+
+  it('stops when its signal aborts', async () => {
+    const stop = new AbortController()
+    stop.abort()
+    await expect(drawPlotPage(halfBlackPdf().buffer, 1, { signal: stop.signal })).rejects.toThrow()
   })
 })

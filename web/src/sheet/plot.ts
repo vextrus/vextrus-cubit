@@ -69,11 +69,17 @@ function loadPdfJs(): Promise<PdfJs> {
   return pdfjs
 }
 
-/** Draws page `page` (from 1) of the PDF `bytes` as the page is displayed, its longer side `maxPx` pixels at most. */
-export async function drawPlotPage(bytes: ArrayBuffer, page: number, maxPx = PLOT_MAX_PX): Promise<PlotPicture> {
+/**
+ * Draws page `page` (from 1) of the PDF `bytes` as the page is displayed, its longer side `maxPx`
+ * pixels at most. `signal` stops it (paging on while a page draws): pdf.js's worker is let go at once.
+ */
+export async function drawPlotPage(bytes: ArrayBuffer, page: number, { maxPx = PLOT_MAX_PX, signal }: { maxPx?: number; signal?: AbortSignal } = {}): Promise<PlotPicture> {
   const lib = await loadPdfJs()
+  signal?.throwIfAborted()
   // pdf.js takes the bytes over to its worker: hand it a copy, so the cached response stays whole.
   const task = lib.getDocument({ data: new Uint8Array(bytes.slice(0)) })
+  const stop = () => void task.destroy()
+  signal?.addEventListener('abort', stop, { once: true })
   try {
     const doc = await task.promise
     const p = await doc.getPage(page)
@@ -88,6 +94,7 @@ export async function drawPlotPage(bytes: ArrayBuffer, page: number, maxPx = PLO
     await p.render({ canvas: image, canvasContext: ctx, viewport, background: '#ffffff' }).promise
     return { image, pxPerPt, heightPt: unit.height }
   } finally {
+    signal?.removeEventListener('abort', stop)
     void task.destroy()
   }
 }
