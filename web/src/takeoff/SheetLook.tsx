@@ -8,14 +8,14 @@
  *   const look = useSheetLook(projectId, sheet)
  *   <>{look.switches}<SheetViewer … {...look.viewer} /></>
  */
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { msg } from '@lingui/core/macro'
 import { Trans, useLingui } from '@lingui/react/macro'
 import { queryOptions, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, unwrap } from '@/api/client'
 import { useFormat } from '@/format'
 import { MachineText, machineText, type MachineMessage } from '@/format/machine'
-import { LookSwitches, drawPlotPage, readPlotTransform, type SheetLayer, type SheetPlot } from '@/sheet'
+import { LookSwitches, drawPlotPage, readPlotTransform, warmPdfJs, type SheetLayer, type SheetPlot } from '@/sheet'
 import { DrawingText, isolateLtr } from '@/ui'
 import { retry, type ProposalOut } from './data'
 
@@ -60,6 +60,10 @@ export function useSheetLook(projectId: string, sheet: ProposalOut): SheetLook {
   const [raised, setRaised] = useState<string | null>(null)
 
   const matched = !!sheet.plot_file && !!sheet.plot_page
+  // A sheet with a Plot is open: pdf.js loads while the QS looks, so P does not wait for it.
+  useEffect(() => {
+    if (matched) warmPdfJs()
+  }, [matched])
   const plot = useQuery({
     queryKey: ['sheet-plot', projectId, sheet.sheet_id],
     enabled: matched && layer !== 'read',

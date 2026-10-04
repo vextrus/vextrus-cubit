@@ -58,26 +58,44 @@ export function plotMatrix(view: ViewTransform, t: PlotTransform, picture: { pxP
 }
 
 type PdfJs = typeof import('pdfjs-dist')
-let pdfjs: Promise<PdfJs> | null = null
+interface Loaded {
+  lib: PdfJs
+  /** One worker for every page drawn: a document destroyed leaves a worker it was given running. */
+  worker: InstanceType<PdfJs['PDFWorker']>
+}
+let pdfjs: Promise<Loaded> | null = null
 
 /** pdf.js and its worker, on first use only (it is large and most sheets are opened without a Plot). */
-function loadPdfJs(): Promise<PdfJs> {
-  pdfjs ??= Promise.all([import('pdfjs-dist'), import('pdfjs-dist/build/pdf.worker.min.mjs?url')]).then(([lib, worker]) => {
-    lib.GlobalWorkerOptions.workerSrc = worker.default
-    return lib
+function loadPdfJs(): Promise<Loaded> {
+  pdfjs ??= Promise.all([import('pdfjs-dist'), import('pdfjs-dist/build/pdf.worker.min.mjs?url')]).then(([lib, url]) => {
+    lib.GlobalWorkerOptions.workerSrc = url.default
+    return { lib, worker: new lib.PDFWorker({ name: 'vextrus-plot' as never }) }
+  })
+  pdfjs.catch(() => {
+    pdfjs = null // a failed load (the network) is tried again next time
   })
   return pdfjs
 }
 
 /**
+ * Loads pdf.js and starts its worker before the first Plot is asked for (a sheet with a Plot is
+ * open), once the browser is idle, so the first P does not wait for it. Never in the first load.
+ */
+export function warmPdfJs(): void {
+  const go = () => void loadPdfJs().catch(() => undefined)
+  if ('requestIdleCallback' in window) window.requestIdleCallback(go, { timeout: 2000 })
+  else setTimeout(go, 200)
+}
+
+/**
  * Draws page `page` (from 1) of the PDF `bytes` as the page is displayed, its longer side `maxPx`
- * pixels at most. `signal` stops it (paging on while a page draws): pdf.js's worker is let go at once.
+ * pixels at most. `signal` stops it (paging on while a page draws): its document is let go at once.
  */
 export async function drawPlotPage(bytes: ArrayBuffer, page: number, { maxPx = PLOT_MAX_PX, signal }: { maxPx?: number; signal?: AbortSignal } = {}): Promise<PlotPicture> {
-  const lib = await loadPdfJs()
+  const { lib, worker } = await loadPdfJs()
   signal?.throwIfAborted()
   // pdf.js takes the bytes over to its worker: hand it a copy, so the cached response stays whole.
-  const task = lib.getDocument({ data: new Uint8Array(bytes.slice(0)) })
+  const task = lib.getDocument({ data: new Uint8Array(bytes.slice(0)), worker })
   const stop = () => void task.destroy()
   signal?.addEventListener('abort', stop, { once: true })
   try {
