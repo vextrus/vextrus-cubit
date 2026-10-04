@@ -29,6 +29,11 @@ _ZIP_ERRORS = (OSError, zipfile.BadZipFile, RuntimeError, ValueError, EOFError, 
 MAX_BLOB = 64 * 1024 * 1024
 
 
+def joined(first: str, second: str) -> str:
+    """Two adjacent lines as one, their comment and list markers dropped (a string wrapped over two)."""
+    return f"{_PREFIX.sub('', first)} {_PREFIX.sub('', second)}"
+
+
 @dataclass
 class Result:
     """The hits (`where`, count) in scan order and the number of lines, messages and names examined."""
@@ -51,8 +56,7 @@ class Result:
         extra: list[set[str]] = [set() for _ in rows]
         for i in range(len(rows) - 1):
             if rows[i + 1][1] == rows[i][1] + 1:
-                joined = f"{_PREFIX.sub('', rows[i][2])} {_PREFIX.sub('', rows[i + 1][2])}"
-                extra[i] = corpus.found(joined) - found[i] - found[i + 1]
+                extra[i] = corpus.found(joined(rows[i][2], rows[i + 1][2])) - found[i] - found[i + 1]
         for (where, _, _), own, more in zip(rows, found, extra, strict=True):
             self.scanned += 1
             count = len(own | more)

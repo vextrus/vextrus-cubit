@@ -184,7 +184,11 @@ def _allow(options: argparse.Namespace) -> int:
             except OSError:
                 raise CannotScan("source-unreadable") from None
         lines = files[file]
-        found |= corpus.found(lines[number - 1] if number <= len(lines) else "")
+        line = lines[number - 1] if number <= len(lines) else ""
+        found |= corpus.found(line)
+        if number < len(lines):
+            # The scan also tests a line joined with the next one (a string wrapped over two lines).
+            found |= corpus.found(scan.joined(line, lines[number]))
     if not found:
         print("leakscan: allow refused: no hit on the given lines", file=sys.stderr)
         return 1

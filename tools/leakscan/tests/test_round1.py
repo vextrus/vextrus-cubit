@@ -100,6 +100,9 @@ def test_a_string_wrapped_over_two_lines_is_found(leak: Leak) -> None:
     body = leak.tmp / "body.md"
     body.write_text(f"// {first}\n// {second}\n")
     assert leak.run("file", str(body), "--no-stamp").returncode == 1
+    # A generic wrapped string is allowlisted from its first line, as a hit there is reported.
+    assert leak.run("allow", f"{body}:1").returncode == 0
+    assert leak.run("file", str(body), "--no-stamp").returncode == 0
 
 
 def test_an_empty_corpus_refuses_every_scan(tmp_path: Path) -> None:
