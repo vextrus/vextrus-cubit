@@ -113,6 +113,6 @@ def test_the_bulk_act_holds_17_that_agree_and_the_electrical_sheets_have_one_sou
         "A-01", "A-02", "A-03", "A-04", "A-06", "A-07",
     ]  # fmt: skip
     assert [p["number"] for p in agreeing if p["proposed_exclusion"]] == ["A-07"]
-    assert [p["proposed_exclusion"] for p in listed if p["number"] == "A-07"] == ["for_information"]
+    assert [p["proposed_exclusion"] for p in listed if p["number"] == "A-07"] == ["cover_index"]
     one_source = [p for p in listed if p["discipline"] == "electrical" and not p["agrees"]]
     assert sorted(p["number"] for p in one_source) == ["E-01", "E-02", "E-03"]
