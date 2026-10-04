@@ -27,6 +27,7 @@ import { useFormat } from '@/format'
 import { Popover, PopoverContent, PopoverTrigger } from '@/ui/primitives/popover'
 import { DrawingText, Empty, IconButton, KeyRegion, KeyScope, Skeleton, SheetsGlyph, buttonVariants, cn, isolateLtr, useKeys, useToast } from '@/ui'
 import { SheetName, useStep1Acts } from './acts'
+import { useSheetLook } from './SheetLook'
 import { Bar, ExclusionPicker, useBar, type BarSpec } from './Bar'
 import { renderQuery, useStep1, type CoverageOut, type ProposalOut, type Step1Data, type ViewOut } from './data'
 import { DrawingListDialog } from './DrawingListDialog'
@@ -685,6 +686,7 @@ function SheetMode({
 }) {
   const { t } = useLingui()
   const render = useQuery(renderQuery(projectId, sheet.sheet_id))
+  const look = useSheetLook(projectId, sheet)
   const region = useRef<HTMLDivElement>(null)
   const name = useSheetLabel(model)(sheet)
   const tag = useViewTag()
@@ -739,6 +741,7 @@ function SheetMode({
           <ChevronRight strokeWidth={1.5} className="rtl:-scale-x-100" />
         </IconButton>
       </SlotFill>
+      {look.switches}
       <KeyRegion name="sheet" className="relative min-h-0 flex-1">
         <SpaceKey label={label} run={onSpace} />
         {/* F6 lands here, inside the key region, so Space and the sheet's keys work from it (M17). */}
@@ -754,6 +757,7 @@ function SheetMode({
               onSelect={onSelectView}
               legend={(sheet.views ?? []).length > 0 ? <Legend tones={(sheet.views ?? []).map((v) => viewTone(v, sheet, held))} /> : null}
               labelInToolbar={false}
+              {...look.viewer}
             />
           ) : render.error ? (
             <LoadProblem error={render.error} onRetry={retryRender} className="m-4" />

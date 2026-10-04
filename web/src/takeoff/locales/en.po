@@ -47,6 +47,10 @@ msgstr "✓ confirmed"
 msgid "{tag} answered. Recorded: the top storey on {sheet} belongs to the next sheet’s range."
 msgstr "{tag} answered. Recorded: the top storey on {sheet} belongs to the next sheet’s range."
 
+#: src/takeoff/SheetLook.tsx
+msgid "Plot: {file} page {page}"
+msgstr "Plot: {file} page {page}"
+
 #: src/takeoff/questionWords.tsx
 msgid "{tag} answered. {n, plural, one {Confirms # sheet.} other {Confirms # sheets.}}"
 msgstr "{tag} answered. {n, plural, one {Confirms # sheet.} other {Confirms # sheets.}}"
@@ -220,6 +224,10 @@ msgstr "{n, plural, one {Confirm # sheet that agrees} other {Confirm # sheets th
 #: src/takeoff/words.tsx
 msgid "The general drawing list"
 msgstr "The general drawing list"
+
+#: src/takeoff/SheetLook.tsx
+msgid "Loading the Plot…"
+msgstr "Loading the Plot…"
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "Confirmed by {name}, {date}"
@@ -898,6 +906,10 @@ msgstr "HVAC layout"
 msgid "It has no title, so nothing says which kind of sheet {number} is. Its kind decides which Takeoff steps read it."
 msgstr "It has no title, so nothing says which kind of sheet {number} is. Its kind decides which Takeoff steps read it."
 
+#: src/takeoff/SheetLook.tsx
+msgid "Compare: what was read in red over the Plot"
+msgstr "Compare: what was read in red over the Plot"
+
 #: src/takeoff/SheetList.tsx
 msgid "Paste the drawing list"
 msgstr "Paste the drawing list"
@@ -1291,6 +1303,10 @@ msgstr "{count} with no Discipline"
 #: src/takeoff/SheetList.tsx
 msgid "found; no drawing list; numbering runs {range}; {twice} twice"
 msgstr "found; no drawing list; numbering runs {range}; {twice} twice"
+
+#: src/takeoff/SheetLook.tsx
+msgid "Plot: {file} page {page}, registered to {residual} mm"
+msgstr "Plot: {file} page {page}, registered to {residual} mm"
 
 #: src/takeoff/questionWords.tsx
 msgid "rev {mark}"
@@ -1717,6 +1733,10 @@ msgstr "It has neither a number nor a title, so nothing says which kind of sheet
 msgid "The pasted drawing list"
 msgstr "The pasted drawing list"
 
+#: src/takeoff/SheetLook.tsx
+msgid "The Plot could not be drawn, so the sheet is shown as read. Choose Plot or Compare to try again."
+msgstr "The Plot could not be drawn, so the sheet is shown as read. Choose Plot or Compare to try again."
+
 #: src/takeoff/words.tsx
 msgid "floor to floor"
 msgstr "floor to floor"
@@ -1837,6 +1857,10 @@ msgstr "Question {tag}, withdrawn: {title}"
 msgid "Slab layout"
 msgstr "Slab layout"
 
+#: src/takeoff/SheetLook.tsx
+msgid "No Plot for this sheet."
+msgstr "No Plot for this sheet."
+
 #: src/takeoff/questionWords.tsx
 msgid "{tag} answered. Recorded: the sheet’s range includes its top storey."
 msgstr "{tag} answered. Recorded: the sheet’s range includes its top storey."
@@ -1886,6 +1910,10 @@ msgstr "Step 1 is confirmed: every sheet is confirmed or excluded, and Coverage 
 #: src/takeoff/words.tsx
 msgid "by others"
 msgstr "by others"
+
+#: src/takeoff/SheetLook.tsx
+msgid "Compare: what was read in orange over the Plot"
+msgstr "Compare: what was read in orange over the Plot"
 
 #: src/takeoff/SheetList.tsx
 msgid "{name}, from the file {file}"
