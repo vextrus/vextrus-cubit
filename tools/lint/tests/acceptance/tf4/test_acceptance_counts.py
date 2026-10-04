@@ -154,7 +154,7 @@ def test_an_acceptance_commit_that_only_deletes_needs_no_counts(repo: tuple[Path
     assert problems(root, base, f"{unlisted}~1") == []
 
 
-def test_the_real_legacy_list_names_exactly_the_carried_commits() -> None:
+def test_the_real_legacy_list_names_at_least_the_carried_commits() -> None:
     path = REPO / "tools/lint/acceptance_legacy.txt"
     assert path.is_file()
     listed = [
@@ -164,7 +164,8 @@ def test_the_real_legacy_list_names_exactly_the_carried_commits() -> None:
     ]
     assert all(re.fullmatch(r"[0-9a-f]{40}", line) for line in listed)
     assert len(listed) == len(set(listed))
-    assert set(listed) == LEGACY
+    # Every carried commit is listed; more may be added (a PR cannot exempt itself: the lint reads the base's file).
+    assert LEGACY <= set(listed)
 
 
 def test_the_existing_rules_still_hold_beside_the_counts_rule(repo: tuple[Path, str]) -> None:
