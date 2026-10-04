@@ -102,7 +102,7 @@ function cutHeredocs(command) {
     if (c === "<" && command[i + 1] === "<" && command[i + 2] !== "<" && command[i - 1] !== "<") {
       const m = /^<<(-?)[ \t]*(?:'([^'\n]*)'|"([^"\n]*)"|\\?([A-Za-z0-9_.-]+))/.exec(command.slice(i));
       if (m) {
-        pending.push({ strip: m[1] === "-", delim: m[2] ?? m[3] ?? m[4], start: out.lastIndexOf("\n") + 1 });
+        pending.push({ strip: m[1] === "-", delim: m[2] ?? m[3] ?? m[4], quoted: m[4] === undefined || m[0].includes("\\"), start: out.lastIndexOf("\n") + 1 });
         out += m[0];
         i += m[0].length;
         continue;
@@ -120,7 +120,7 @@ function cutHeredocs(command) {
           if ((doc.strip ? line.replace(/^\t+/, "") : line) === doc.delim) break;
           body.push(line);
         }
-        docs.push({ opener: out.slice(doc.start), body: body.join("\n") });
+        docs.push({ opener: out.slice(doc.start), body: body.join("\n"), quoted: doc.quoted });
       }
       out += "\n";
       pending = [];
@@ -130,6 +130,26 @@ function cutHeredocs(command) {
     i++;
   }
   return { text: out, docs };
+}
+
+/** The `$(…)` and backtick parts of text that bash expands as if double-quoted (an unquoted heredoc body). */
+function substitutions(text) {
+  const found = [];
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === "\\") {
+      i++;
+    } else if (text[i] === "$" && text[i + 1] === "(") {
+      const end = closing(text, i + 1);
+      found.push(text.slice(i + 2, end));
+      i = end;
+    } else if (text[i] === "`") {
+      let j = i + 1;
+      while (j < text.length && text[j] !== "`") j += text[j] === "\\" ? 2 : 1;
+      found.push(text.slice(i + 1, j));
+      i = j;
+    }
+  }
+  return found;
 }
 
 /** Top-level simple commands of `text` (quote-aware), and the texts of its `$(…)`, `<(…)` and backtick parts. */
@@ -332,6 +352,8 @@ function commandOf(ws) {
       i++;
     } else if (RESERVED.has(w)) {
       i++;
+    } else if (w === "function") {
+      i += 2;
     } else if (PLAIN_WRAPPERS.has(name)) {
       i++;
       while (i < ws.length && ws[i].startsWith("-")) i++;
@@ -409,6 +431,8 @@ function analyse(command, startCwd) {
   const queue = [{ text: command, depth: 0, cwd: startCwd }];
   let budget = 300;
   let truncated = false;
+  let fed = false;
+  for (let pass = 0; pass < 2; pass++) {
   while (queue.length > 0) {
     if (budget-- <= 0) {
       truncated = true;
@@ -436,6 +460,15 @@ function analyse(command, startCwd) {
       }
       if (cmd.name === "eval" || cmd.name === "source" || cmd.name === ".") deeper(cmd.args.join(" "));
       if (RUNS_ITS_ARGUMENTS.has(cmd.name)) deeper(cmd.args.filter((a) => !a.startsWith("-")).join(" "));
+      // A here-string is the shell's or the interpreter's input: `sh <<< 'cmd'`, `python3 <<< 'code'`.
+      if (SHELLS.has(cmd.name) || INTERPRETER.test(cmd.name)) {
+        const k = cmd.words.findIndex((w) => w.startsWith("<<<"));
+        const text = k < 0 ? null : cmd.words[k].length > 3 ? cmd.words[k].slice(3) : cmd.words[k + 1] ?? "";
+        if (text !== null) {
+          if (SHELLS.has(cmd.name)) deeper(text);
+          else codes.push(text);
+        }
+      }
       const code = codeOf(cmd);
       if (code !== null) codes.push(code);
       if (cmd.name === "find") {
@@ -472,12 +505,32 @@ function analyse(command, startCwd) {
       else truncated = true;
     }
     for (const doc of docs) {
+      // An unquoted heredoc (`<<EOF`) expands its `$(…)` and backticks, whatever command reads it.
+      if (!doc.quoted) {
+        for (const inner of substitutions(doc.body)) {
+          if (unit.depth < 8) queue.push({ text: inner, depth: unit.depth + 1, cwd });
+          else truncated = true;
+        }
+      }
       if (SHELL_WORD.test(doc.opener)) {
         if (unit.depth < 8) queue.push({ text: doc.body, depth: unit.depth + 1, cwd });
         else truncated = true;
       }
       if (INTERPRETER_WORD.test(doc.opener)) codes.push(doc.body);
     }
+  }
+  // A shell or an interpreter fed from stdin, a process substitution or a script written in the same
+  // command runs what echo and printf produce: read their words as shell text and as code, once.
+  if (fed || pass > 0) break;
+  const flat = flatten(command);
+  const readers = cmds.filter((cmd) => readsCommands(cmd, flat));
+  if (readers.length === 0) break;
+  fed = true;
+  for (const producer of cmds.filter((cmd) => cmd.name === "echo" || cmd.name === "printf")) {
+    const text = producer.args.filter((a) => !/^-[neE]+$/.test(a)).join(" ").replace(/\\n/g, "\n");
+    if (readers.some((cmd) => SHELLS.has(cmd.name) || cmd.name === "source" || cmd.name === ".")) queue.push({ text, depth: 1, cwd: producer.cwd });
+    if (readers.some((cmd) => INTERPRETER.test(cmd.name))) codes.push(text);
+  }
   }
   return { cmds, codes, units, truncated };
 }
@@ -604,11 +657,15 @@ const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
 /** The corpus file's sha256, computed here (there is no stored hash to trust). */
 function corpusHash() {
+  let data;
   try {
-    return sha256(readFileSync(join(LEAK_HOME, "corpus")));
+    data = readFileSync(join(LEAK_HOME, "corpus"));
   } catch {
     throw new GuardError(`there is no leak corpus at ${join(LEAK_HOME, "corpus")}: build it with \`uv run python -m tools.leakscan build\` in the main checkout`);
   }
+  // An empty corpus makes every scan clean, so it vouches for nothing.
+  if (!data.toString("utf8").split("\n").some((line) => line.length >= 8)) throw new GuardError("the leak corpus is empty: rebuild it in the main checkout");
+  return sha256(data);
 }
 
 /**
@@ -688,6 +745,10 @@ const ENV_DUMP =
 /** A shell glob word (`~/.pg*`) that could name a secret file. */
 function globNamesSecret(word) {
   if (!/[*?[]/.test(word)) return false;
+  if (/\.config\/g[*?[]|\.config\/[*?[]/.test(word)) return true;
+  // Bash's `*`, `?` and `[…]` never match a leading dot: only a glob whose basename starts with "." reaches a
+  // dotfile (`ls docs/*`, `wc -l tools/x/*` name no secret).
+  if (!basename(word).startsWith(".")) return false;
   const name = basename(word).replace(/\[[^\]]*\]?/g, "?");
   const pattern = new RegExp(`^${name.replace(/[.+^${}()|\\\]]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".")}$`);
   return SECRET_BASENAMES.some((secret) => pattern.test(secret)) || /\.config\/g[*?[]|\.config\/[*?[]/.test(word);
@@ -914,8 +975,8 @@ function hooksPathSet(analysis, command) {
 function pushConfigSet(analysis) {
   for (const g of gitsOf(analysis)) {
     const keys = configKeys(g);
-    if (keys.some((k) => k.startsWith("alias.") || /^remote\..*\.(?:push|mirror|pushurl)$/.test(k) || k === "push.default")) return true;
-    if (g.verb === "config" && g.args.some((a) => /^(?:alias\.|remote\..*\.(?:push|mirror|pushurl)$|push\.default$)/i.test(a))) {
+    if (keys.some((k) => k.startsWith("alias.") || /^remote\..*\.(?:push|mirror|pushurl)$/.test(k) || k === "push.default" || k === "push.followtags")) return true;
+    if (g.verb === "config" && g.args.some((a) => /^(?:alias\.|remote\..*\.(?:push|mirror|pushurl)$|push\.(?:default|followtags)$)/i.test(a))) {
       if (g.args.some((a) => /^--(?:get|get-all|get-regexp|list|show-origin|show-scope)$/.test(a) || a === "-l")) continue;
       return true;
     }
@@ -944,6 +1005,36 @@ function rawSession(analysis) {
 const LEDGER_TOOL = /scripts(?:\.|\/)ledger(?:\.py)?\b/;
 const SCANNER = (cmd) => /^python[0-9.]*$/.test(cmd.name) && cmd.args[0] === "-m" && cmd.args[1] === "tools.leakscan";
 
+/**
+ * How a simple command runs the scanner: null when it does not, "exact" for `[uv run [--no-sync]]
+ * python[3] -m tools.leakscan <command> …` with nothing else in front, "other" for any other way to reach it
+ * (`-mtools.leakscan`, `tools.leakscan.__main__`, a script path, PYTHONPATH or a uv project), which could
+ * run a different scanner or a corpus of the caller's choosing.
+ */
+function scannerRun(cmd) {
+  const all = words(cmd.raw ?? "");
+  const mention = all.some(
+    (w, k) =>
+      /^-m\s*tools[./]leakscan/.test(w) ||
+      (all[k - 1] === "-m" && /^tools[./]leakscan/.test(w)) ||
+      (/^(?:\.\/)?tools\/leakscan\/\S*\.py$/.test(w) && k > 0 && /python|pypy|^uv$/.test(basename(all[k - 1]))),
+  );
+  if (!mention) return null;
+  const prefix = all.slice(0, all.length - cmd.words.length).join(" ");
+  const exact =
+    cmd.assigns.length === 0 &&
+    /^python3?(?:\.[0-9]+)?$/.test(cmd.name) &&
+    cmd.words[0] === cmd.name &&
+    cmd.args[0] === "-m" &&
+    cmd.args[1] === "tools.leakscan" &&
+    ["", "uv run", "uv run --no-sync"].includes(prefix);
+  return exact ? "exact" : "other";
+}
+
+/** True when a scanner run writes a stamp, the corpus or the allowlist (not `--no-stamp` scans or reads). */
+const scannerWrites = (cmd) =>
+  cmd.args[2] === "build" || (["range", "file", "text"].includes(cmd.args[2]) && !cmd.args.includes("--no-stamp"));
+
 /** A forged stamp, ledger record or corpus: naming them other than through their own tools (spec 3.6, 3.7). */
 function recordForged(analysis, command) {
   const flat = flatten(command).replace(/\/(?:\.\/)+/g, "/").replace(/\/{2,}/g, "/");
@@ -952,7 +1043,13 @@ function recordForged(analysis, command) {
   if (analysis.codes.some((code) => /leakscan/.test(code))) return true;
   const scannerOnly = analysis.cmds.length === 1 && SCANNER(analysis.cmds[0]) && !/[<>]/.test(command);
   for (const cmd of analysis.cmds) {
-    if (SCANNER(cmd) && cmd.args[2] === "build" && cmd.args.some((a) => a === "--source" || a.startsWith("--source="))) return true;
+    const run = scannerRun(cmd);
+    if (run === "other") return true;
+    if (run !== "exact") continue;
+    if (cmd.args[2] === "build" && cmd.args.slice(3).some((a) => /^--s/.test(a))) return true;
+    // A stamp or a corpus is written only by the main checkout's own scanner, from the orchestrator's
+    // session: a worktree's scanner is that branch's code.
+    if (scannerWrites(cmd) && !(orchestrators && cmd.cwd === MAIN_CHECKOUT)) return true;
   }
   if (/leakscan\/(?:ok|corpus)(?:\/|\b|$)|work\/leakscan(?:\/|\b|$)/.test(flat) && !scannerOnly) return true;
   const home = LEAK_HOME.replace(/\/+$/, "");
@@ -1020,6 +1117,14 @@ function cloudGitHubWrite(analysis) {
     if (!GH_READS.has(gh.action)) return true;
   }
   return false;
+}
+
+/** True when a gh invocation writes to GitHub (any pr/issue/release/gist action but a read, or an api write). */
+function ghWrites(cmd) {
+  const gh = ghOf(cmd);
+  if (gh === null) return false;
+  if (gh.group === "api") return gh.args.some((a, k) => /^(?:-f|-F|--field|--raw-field|--input)(?:=|$)/.test(a) || /^-[fF]./.test(a) || ((a === "-X" || a === "--method") && !/^get$/i.test(gh.args[k + 1] ?? "")) || (/^(?:-X|--method=)./.test(a) && !/^(?:-X|--method=)GET$/i.test(a)));
+  return ["pr", "issue", "release", "gist", "label", "repo"].includes(gh.group) && gh.action !== "" && !GH_READS.has(gh.action);
 }
 
 /** Inline bodies and body files of a gh write: `{inline: [text], files: [path]}`. */
@@ -1286,6 +1391,7 @@ const BASH_RULES = [
       if (webGitHubWrite(ctx.analysis)) return { rule: "GH_BODY", reason: "A write to GitHub's API through curl or wget is not judged: use `gh` with a scanned `--body-file`." };
       for (const cmd of ctx.analysis.cmds) {
         const { inline, files } = ghBodies(cmd);
+        if ((inline.length > 0 || files.length > 0 || ghWrites(cmd)) && cmd.words.slice(1).some((w) => /[$`]/.test(w))) return { rule: "GH_BODY", reason: "A GitHub write whose words are expanded at run time cannot be judged: spell every argument out." };
         if (inline.some((text) => text.length > GH_BODY_LIMIT || /\$|`/.test(text))) return { rule: "GH_BODY" };
         if (files.length > 0 && !alone(ctx.analysis, cmd)) return { rule: "GH_BODY", reason: "Run a `gh … --body-file` write alone in its call: the guard checks the file before the command runs, so nothing may change it in the same call." };
         for (const file of files) {
@@ -1311,8 +1417,17 @@ const BASH_RULES = [
     rule: "PUSH",
     closed: true,
     fires: (_parts, command, ctx) => {
-      const dynamic = ctx.analysis.cmds.some((cmd) => /[$`]/.test(cmd.words[0] ?? "") || (cmd.name === "xargs" || (cmd.name === "git" && gitOf(cmd).verb === "")));
-      if ((dynamic || ctx.analysis.truncated) && /\bpush\b/.test(flatten(command))) {
+      const flat = flatten(command);
+      const dynamic =
+        ctx.analysis.cmds.some(
+          (cmd) =>
+            /[$`]/.test(cmd.words[0] ?? "") ||
+            cmd.name === "xargs" ||
+            (cmd.name === "git" && /^$|[$`]/.test(gitOf(cmd).verb)) ||
+            (cmd.name === "git" && gitOf(cmd).verb === "push" && cmd.words.slice(1).some((w) => /[$`]/.test(w))) ||
+            readsCommands(cmd, flat),
+        ) || ctx.analysis.codes.some((code) => /\bpush\b/.test(code));
+      if ((dynamic || ctx.analysis.truncated) && /\bpush\b/.test(flat)) {
         const rule = orchestrators ? "LEAK_STAMP" : cloud ? "CLOUD_PUSH" : "LOCAL_PUSH";
         return { rule, reason: `A push whose command is built at run time cannot be judged. ${PUSH_REASONS[rule]}` };
       }
@@ -1341,6 +1456,23 @@ const redirects = (raw) => /(?:^|[^<>&0-9])[0-9]*>{1,2}\|?\s*(?!&|\/dev\/null\b)
 const alone = (analysis, judged) =>
   !analysis.truncated && analysis.cmds.every((cmd) => cmd === judged || (READ_ONLY_FILTERS.has(cmd.name) && !redirects(cmd.raw)));
 
+/**
+ * True when a shell or an interpreter takes its commands from somewhere the guard does not read whole:
+ * standard input, a here-string, a process substitution, `source`/`.`, or a script the same command writes.
+ */
+function readsCommands(cmd, flat) {
+  const shell = SHELLS.has(cmd.name);
+  const interpreter = INTERPRETER.test(cmd.name);
+  if (cmd.name === "source" || cmd.name === ".") return true;
+  if (!shell && !interpreter) return false;
+  if (shell && cmd.args.some((a) => /^-[A-Za-z]*c[A-Za-z]*$/.test(a))) return false;
+  if (interpreter && (codeOf(cmd) !== null || cmd.args.includes("-m"))) return false;
+  const operands = cmd.args.filter((a) => !a.startsWith("-") || a === "-");
+  if (operands.length === 0 || operands[0] === "-" || operands[0].startsWith("<(") || operands[0].startsWith("<<<") || operands[0] === "/dev/stdin") return true;
+  const script = operands[0].replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`>\\s*(?:\\S*/)?${script}(?:[\\s;&|)]|$)`).test(flat);
+}
+
 const PUSH_REASONS = {
   LOCAL_PUSH: "A local builder never pushes: commit with explicit paths and finish with the Factory-State trailer; the orchestrator pushes your branch.",
   CLOUD_PUSH: "A cloud session pushes only HEAD (or its current branch) to its own branch on origin: `git push -u origin HEAD`. Never main, another branch, --all or --tags.",
@@ -1353,7 +1485,7 @@ function judgePush(g) {
   if (g.verb === "send-pack") return { rule: orchestrators ? "LEAK_STAMP" : cloud ? "CLOUD_PUSH" : "LOCAL_PUSH", reason: "Push with `git push`, which the guard can judge." };
   if (!orchestrators && !cloud) return { rule: "LOCAL_PUSH" };
   const { flags, remote, refspecs } = pushOf(g);
-  const configured = runGit(g, ["config", "--get-regexp", String.raw`^(remote\..*\.(push|mirror)|push\.default)$`]);
+  const configured = runGit(g, ["config", "--get-regexp", String.raw`^(remote\..*\.(push|mirror)|push\.(default|followtags))$`]);
   if (configured.status !== 0 && configured.status !== 1) throw new GuardError("git config could not be read");
   const unusual = configured.stdout
     .split("\n")

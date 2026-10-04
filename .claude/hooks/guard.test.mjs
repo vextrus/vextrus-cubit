@@ -260,10 +260,11 @@ import { mkdtempSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 
 /** The verdict with an explicit project, main checkout and session kind (a temporary folder as cwd). */
-function seen(command, { project = "/home/runner/work/vextrus-cubit/vextrus-cubit", main = MAIN, remote = false, cwd } = {}) {
+function seen(command, { project = "/home/runner/work/vextrus-cubit/vextrus-cubit", main = MAIN, remote = false, cwd, home } = {}) {
   const env = { ...process.env, CLAUDE_PROJECT_DIR: project, VEXTRUS_MAIN_CHECKOUT: main };
   delete env.CLAUDE_CODE_REMOTE;
   delete env.VEXTRUS_LEAKSCAN_HOME;
+  if (home !== undefined) env.VEXTRUS_LEAKSCAN_HOME = home;
   if (remote) env.CLAUDE_CODE_REMOTE = "true";
   const where = cwd ?? realpathSync(mkdtempSync(`${tmpdir()}/f2-guard-`));
   const run = spawnSync(process.execPath, [guard], {
@@ -403,4 +404,139 @@ test("f2 over-blocking: a script that copies the environment and loops over a di
 test("f2 bypass: bracket globs name secret files and agent memory too", () => {
   assert.equal(seen("cat ~/.pg[p]ass"), "SECRET_PRINTED");
   assert.equal(seen("git add '.claude/agent-memor[y]/'"), "STAGE_DIR");
+});
+
+
+// ---------------------------------------------------------------- f2 review round 1 (PR #291)
+import { createHash } from "node:crypto";
+import { mkdirSync as makeDir } from "node:fs";
+
+/** A temporary main checkout whose HEAD holds a valid stamp, a branch `unstamped`, and its leak home. */
+function stampedMain() {
+  const { repo, git } = tempMain();
+  const home = realpathSync(mkdtempSync(`${tmpdir()}/f2-home-`));
+  const corpus = "ZEBRA QUARRY HOLDINGS PVT 7731\n";
+  writeFile(`${home}/corpus`, corpus);
+  makeDir(`${home}/ok`);
+  const base = git("rev-parse", "HEAD");
+  git("checkout", "-q", "-b", "x");
+  writeFile(`${repo}/b.md`, "b\n");
+  git("add", "b.md");
+  git("commit", "-q", "-m", "b");
+  const head = git("rev-parse", "HEAD");
+  writeFile(`${home}/ok/${head}`, JSON.stringify({ corpus: createHash("sha256").update(corpus).digest("hex"), range: `${base}..${head}` }));
+  git("branch", "unstamped", base);
+  git("checkout", "-q", "-b", "y");
+  writeFile(`${repo}/c.md`, "c\n");
+  git("add", "c.md");
+  git("commit", "-q", "-m", "c");
+  git("branch", "-f", "unstamped", "HEAD");
+  git("checkout", "-q", "x");
+  return { repo, home, git };
+}
+
+test("f2 round 1: a glob reaches a secret only with a leading dot (no over-blocking)", () => {
+  for (const command of [
+    "git log --format='%h %s' main..x -- '*/tests/acceptance/*'",
+    "ls -la .private/work/session-12/f2/*",
+    "wc -l tools/leakscan/*",
+    "du -sh .private/work/*",
+    "git diff --stat -- 'web/src/acceptance/*'",
+    "for f in docs/adr/*; do head -1 $f; done",
+    "ls *.*",
+  ]) {
+    assert.equal(seen(command), null, command);
+  }
+  for (const command of ["cat ~/.pg*", "cat ~/.[p]gpass", "cat ~/.config/g*/hosts.yml"]) assert.equal(seen(command), "SECRET_PRINTED", command);
+});
+
+test("f2 round 1: an unquoted heredoc runs its substitutions", () => {
+  assert.equal(seen("cat > notes.md <<EOF\npushed: $(git push origin nostamp)\nEOF"), "LOCAL_PUSH");
+  assert.equal(seen("cat <<EOF\n$(rm -rf build)\nEOF"), "RECURSIVE_DELETE");
+  assert.equal(seen("cat <<EOF\n$(cat ~/.pgpass)\nEOF"), "SECRET_PRINTED");
+  assert.equal(seen("cat <<'EOF'\n$(rm -rf build) is only text here\nEOF"), null);
+});
+
+test("f2 round 1: push.followTags is refused (a tag's message is never scanned)", () => {
+  assert.equal(seen("git -c push.followTags=true push origin x", { project: MAIN, cwd: MAIN }), "GIT_CONFIG");
+  assert.equal(seen("git config push.followTags true"), "GIT_CONFIG");
+});
+
+test("f2 round 1: the scanner runs only in its exact form, and writes only from the main checkout", () => {
+  const { repo, home } = stampedMain();
+  const inMain = (command) => seen(command, { project: repo, main: repo, cwd: repo, home });
+  for (const command of [
+    "uv run python -m tools.leakscan build --sou /tmp/empty",
+    "uv run python -m tools.leakscan build --s /tmp/empty",
+    "uv run python -m tools.leakscan build --sou=/tmp/empty",
+    "uv run -m tools.leakscan build --source /tmp/empty",
+    "uv run python -mtools.leakscan build --source /tmp/empty",
+    "uv run python -m tools.leakscan.__main__ build --source /tmp/empty",
+    "PYTHONPATH=/tmp/evil uv run python -m tools.leakscan range a..b",
+    "uv run --project /tmp/evil python -m tools.leakscan range a..b",
+  ]) {
+    assert.equal(inMain(command), "RECORD_FORGED", command);
+  }
+  assert.equal(inMain("uv run python -m tools.leakscan build"), null);
+  assert.equal(inMain("uv run --no-sync python -m tools.leakscan range origin/main..HEAD --ref x"), null);
+  // A builder's worktree runs that branch's scanner: it may scan, but never stamp or build.
+  const builder = (command) => seen(command, { project: "/home/runner/work/wt", main: repo, cwd: repo, home });
+  assert.equal(builder("uv run python -m tools.leakscan range origin/main..HEAD"), "RECORD_FORGED");
+  assert.equal(builder("uv run python -m tools.leakscan build"), "RECORD_FORGED");
+  assert.equal(builder("uv run python -m tools.leakscan range origin/main..HEAD --no-stamp"), null);
+});
+
+test("f2 round 1: an empty corpus vouches for no push, even with a stamp made against it", () => {
+  const { repo, home, git } = stampedMain();
+  writeFile(`${home}/corpus`, "");
+  const head = git("rev-parse", "x");
+  const base = git("rev-parse", "main");
+  writeFile(`${home}/ok/${head}`, JSON.stringify({ corpus: createHash("sha256").update("").digest("hex"), range: `${base}..${head}` }));
+  assert.notEqual(seen("git push origin x", { project: repo, main: repo, cwd: repo, home }), null);
+});
+
+test("f2 round 1: words split at run time cannot smuggle refspecs or options", () => {
+  const { repo, home } = stampedMain();
+  const inMain = (command) => seen(command, { project: repo, main: repo, cwd: repo, home });
+  assert.equal(inMain("git push origin x"), null);
+  assert.equal(inMain("git push origin unstamped"), "LEAK_STAMP");
+  assert.equal(inMain("git push origin HEAD:x${IFS}unstamped:refs/heads/y"), "LEAK_STAMP");
+  assert.equal(inMain("git push origin${IFS}unstamped"), "LEAK_STAMP");
+  assert.equal(inMain("gh pr comment 5 --body-file body.md ${IFS}--body-file${IFS}other.md"), "GH_BODY");
+});
+
+test("f2 round 1: a push from code or from shell text on stdin is still a push", () => {
+  for (const command of [
+    `python3 -c 'import subprocess;subprocess.run(["git","push","origin","HEAD"])'`,
+    "python3 - <<'X'\nimport subprocess\nsubprocess.run(['git','push','origin','HEAD'])\nX",
+    "echo 'git push origin HEAD' | sh",
+    "sh <<< 'git push origin HEAD'",
+    "bash <(echo git push origin HEAD)",
+    "source <(echo git push origin HEAD)",
+    `perl -e 'system("git push origin HEAD")'`,
+    `node -e 'require("child_process").execSync("git push origin HEAD")'`,
+    "git ${X}push origin HEAD",
+    "function f { git push origin HEAD; }; f",
+  ]) {
+    assert.equal(seen(command), "LOCAL_PUSH", command);
+  }
+  assert.equal(seen("sh <<< 'rm -rf x'"), "RECURSIVE_DELETE");
+  assert.equal(seen("printf 'rm -rf x' > c.sh; bash c.sh"), "RECURSIVE_DELETE");
+  assert.equal(seen("echo 'import os;print(os.environ)' | python3"), "SECRET_PRINTED");
+  assert.equal(seen("python3 <<< 'import os;print(os.environ)'"), "SECRET_PRINTED");
+});
+
+test("f2 round 1: everyday commands near the new rules still pass", () => {
+  for (const command of [
+    "uv run pytest tools/leakscan",
+    "python3 -m pytest tools/leakscan -q",
+    "cat tools/leakscan/cli.py",
+    "git add tools/leakscan/scan.py",
+    "node --test .claude/hooks/",
+    "bash scripts/real-drawings --help",
+    "uv run python -m scripts.merge_ready 5",
+    'git commit -m "fix: the push rule"',
+  ]) {
+    assert.equal(seen(command), null, command);
+  }
 });
