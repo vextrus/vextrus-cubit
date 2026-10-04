@@ -414,6 +414,7 @@ def test_each_sheets_paper_is_exported_as_its_step_kept_it_and_a_step_kept_witho
         [True, 594.0],
         ["841", 594.0],
         {"w": 841.0},
+        [10**400, 594.0],
     ],
 )
 def test_a_paper_the_harness_would_not_give_is_kept_as_none(paper: Any) -> None:

@@ -299,7 +299,10 @@ def paper_of(paper: object) -> tuple[float, float] | None:
         return None
     if not all(isinstance(v, int | float) and not isinstance(v, bool) for v in paper):
         return None
-    width, height = float(paper[0]), float(paper[1])
+    try:
+        width, height = float(paper[0]), float(paper[1])
+    except OverflowError:  # an integer past a float's range: jsonb keeps 1e400 as one
+        return None
     return (width, height) if 0 < width < math.inf and 0 < height < math.inf else None
 
 

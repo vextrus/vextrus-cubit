@@ -505,7 +505,9 @@ def _reading(
         # file is not read again).
         at = [found_at.get(str(sheet.id)) for sheet in printed]
         steps = [None if n is None else kept.steps.get(drawings.sheet_step(n + 1)) for n in at]
-        found["papers"] = [job_sheets.paper_of((step or {}).get("paper")) for step in steps]
+        found["papers"] = [
+            job_sheets.paper_of(step.get("paper") if isinstance(step, dict) else None) for step in steps
+        ]
         reports["sheets"] = StageReport(StageState.OK, calls=1)
         report = dict(finder.get("sheet_report") or {})
         report.pop(job_sheets.UNREADABLE_TEXT, None)
