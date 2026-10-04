@@ -1,0 +1,182 @@
+/*
+ * A double Enter on a Question posts its answer once (#202; #156's re-check): an Enter pressed after
+ * the answer's reload but before the screen re-renders reads the old pick and the old Question. Enter
+ * is pressed on every turn of the event loop from the answer's post until its card goes, so one lands
+ * in that gap whenever there is one.
+ */
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { page } from 'vitest/browser'
+import { PEOPLE, mountApp } from '@/app/testing'
+import { FakeAnswers, type Question21c } from '@/acceptance/t156/answer.fixture'
+
+beforeEach(async () => {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date('2026-10-04T06:00:00Z'))
+  await page.viewport(1440, 900)
+})
+
+afterEach(() => {
+  vi.useRealTimers()
+})
+
+const clean = (s: string | null | undefined) => (s ?? '').replace(/[⁦-⁩‎‏]/g, '').replace(/\s+/g, ' ').trim()
+const bodyText = () => clean(document.body.textContent)
+const card = () => document.querySelector<HTMLElement>('[data-question]')
+const idle = () => waitFor(() => expect(document.querySelector('[data-step1]')?.getAttribute('aria-busy')).not.toBe('true'), { timeout: 5000 })
+
+/**
+ * Presses Enter (never marked `repeat`) on every task until `done`: posted through a MessageChannel,
+ * the queue React's scheduler renders from, so presses interleave with its renders (a nested
+ * setTimeout is clamped to 4 ms and steps over the gap).
+ */
+function enterEveryTurn(done: () => boolean): Promise<void> {
+  return new Promise((resolve) => {
+    const channel = new MessageChannel()
+    const press = () => {
+      if (done()) {
+        channel.port1.close()
+        return resolve()
+      }
+      const target = document.activeElement ?? document.body
+      target.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true, cancelable: true }))
+      target.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', bubbles: true, cancelable: true }))
+      channel.port2.postMessage(null)
+    }
+    channel.port1.onmessage = press
+    press()
+  })
+}
+
+describe('a double Enter posts an answer once, however the second Enter falls (#202)', () => {
+  it.each(['same_title', 'check'])('posts one answer to a %s Question with Enter pressed on every turn until its card goes', async (kind) => {
+    const fake = new FakeAnswers()
+    const question = fake.byKind()[kind]!
+    fake.questions = [question]
+    const base = fake.api.handle
+    let answering: Promise<void> | null = null
+    let gone = false
+    fake.api.handle = async (request: Request) => {
+      const reply = base(request)
+      if (request.method === 'POST' && /\/questions\/[^/]+\/answer\/?$/.test(new URL(request.url, location.origin).pathname) && !answering) {
+        answering = enterEveryTurn(() => gone)
+      }
+      return reply
+    }
+    await mountApp('/p/KR-01/takeoff/1', { as: PEOPLE.qs, api: fake.api })
+    await waitFor(() => expect(bodyText()).toContain('Confirmed 0 / 24'))
+    await userEvent.keyboard('q')
+    await screen.findByRole('region', { name: (n: string) => clean(n) === 'Question Q1' })
+    await userEvent.keyboard('1')
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(fake.posted.length).toBeGreaterThan(0))
+    await waitFor(() => expect(card()?.dataset.question === question.id).toBe(false), { timeout: 5000 })
+    gone = true
+    await answering
+    await new Promise((r) => setTimeout(r, 300))
+    expect(fake.posted).toHaveLength(1)
+  })
+})
+
+describe('a Question answered "keep open" can be answered again (#202; the refuter)', () => {
+  it('posts the pre-pick on Enter after a "keep open" that left the Question as it was', async () => {
+    const fake = new FakeAnswers()
+    // The seed's two copies of S-07, already kept open by this QS: answering "keep open" again changes nothing.
+    const copies = fake.questions.find((q) => q.code === 'engine.conflicts.same_number')! as Question21c
+    copies.answer = { option: 'keep_open', by: fake.step1.actor }
+    fake.questions = [copies]
+    // Two sources agree on rev B (the drawing list read on S-01), so the card pre-picks keep_b.
+    const base = fake.api.handle
+    const s01 = fake.step1.proposals.find((p) => p.number === 'S-01')!.sheet_id
+    fake.api.handle = async (request: Request) => {
+      const response = await base(request)
+      const url = new URL(request.url, location.origin)
+      if (request.method !== 'GET' || !url.pathname.endsWith('/takeoff/step1/drawing-list') || url.searchParams.get('discipline') !== 'structural') return response
+      return new Response(JSON.stringify({ ...(await response.json()), read_on: s01, read_revisions: { 'S-07': 'B' } }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    }
+    await mountApp('/p/KR-01/takeoff/1', { as: PEOPLE.qs, api: fake.api })
+    await waitFor(() => expect(bodyText()).toContain('Confirmed 0 / 24'))
+    await userEvent.keyboard('q')
+    const q1 = await screen.findByRole('region', { name: (n: string) => clean(n) === 'Question Q1' })
+    await waitFor(() => expect(clean(q1.textContent)).toContain('Picked for you'))
+    await userEvent.keyboard(String(copies.options.findIndex((o) => o.key === 'keep_open') + 1))
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(fake.posted).toHaveLength(1))
+    await waitFor(() => expect(document.querySelector('[data-step1]')?.getAttribute('aria-busy')).not.toBe('true'))
+    await new Promise((r) => setTimeout(r, 100))
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(fake.posted.map((p) => p.body.option)).toEqual(['keep_open', 'keep_b']))
+  })
+})
+
+describe('a pick changed while the answer is in flight posts nothing more (#202; the review, F1)', () => {
+  it.each(['same_title', 'check'])('%s: posts once when the QS re-picks during the flight, then Enter lands in the render gap', async (kind) => {
+    const fake = new FakeAnswers()
+    const question = fake.byKind()[kind]!
+    fake.questions = [question]
+    const base = fake.api.handle
+    let release: () => void = () => {}
+    const gate = new Promise<void>((r) => (release = r))
+    let answering: Promise<void> | null = null
+    let gone = false
+    let first = true
+    fake.api.handle = async (request: Request) => {
+      const isAnswer = request.method === 'POST' && /\/questions\/[^/]+\/answer\/?$/.test(new URL(request.url, location.origin).pathname)
+      if (isAnswer && first) {
+        first = false
+        await gate
+        const reply = base(request)
+        answering = enterEveryTurn(() => gone)
+        return reply
+      }
+      return base(request)
+    }
+    await mountApp('/p/KR-01/takeoff/1', { as: PEOPLE.qs, api: fake.api })
+    await waitFor(() => expect(bodyText()).toContain('Confirmed 0 / 24'))
+    await userEvent.keyboard('q')
+    await screen.findByRole('region', { name: (n: string) => clean(n) === 'Question Q1' })
+    await userEvent.keyboard('1')
+    await userEvent.keyboard('{Enter}')
+    await new Promise((r) => setTimeout(r, 100))
+    // The QS changes their mind while the answer is in flight: a new picks record.
+    await userEvent.keyboard('2')
+    await new Promise((r) => setTimeout(r, 50))
+    release()
+    await waitFor(() => expect(card()?.dataset.question === question.id).toBe(false), { timeout: 5000 })
+    gone = true
+    await answering
+    await new Promise((r) => setTimeout(r, 300))
+    expect(fake.posted).toHaveLength(1)
+  })
+})
+
+describe('Ctrl Z after a double Enter on an answer (#202; the design gate, M2)', () => {
+  it('words the answer that stays at the first Ctrl Z, keeping no dropped Enter', async () => {
+    const fake = new FakeAnswers()
+    const question = fake.byKind()['same_title']!
+    fake.questions = [question]
+    // The answer is held in flight until the second Enter has been pressed.
+    const base = fake.api.handle
+    let release: () => void = () => {}
+    const gate = new Promise<void>((r) => (release = r))
+    fake.api.handle = async (request: Request) => {
+      if (request.method === 'POST' && /\/questions\/[^/]+\/answer\/?$/.test(new URL(request.url, location.origin).pathname)) await gate
+      return base(request)
+    }
+    await mountApp('/p/KR-01/takeoff/1', { as: PEOPLE.qs, api: fake.api })
+    await waitFor(() => expect(bodyText()).toContain('Confirmed 0 / 24'))
+    await userEvent.keyboard('q')
+    await screen.findByRole('region', { name: (n: string) => clean(n) === 'Question Q1' })
+    await userEvent.keyboard(String(question.options.findIndex((o) => o.key === 'keep_all') + 1))
+    await userEvent.keyboard('{Enter}')
+    await new Promise((r) => setTimeout(r, 50))
+    await userEvent.keyboard('{Enter}')
+    release()
+    await idle()
+    expect(fake.posted).toHaveLength(1)
+    await userEvent.keyboard('{Control>}z{/Control}')
+    await waitFor(() => expect(bodyText()).toContain('an answer to a Question cannot be undone'))
+    expect(bodyText()).not.toContain('your last change was not made')
+  })
+})

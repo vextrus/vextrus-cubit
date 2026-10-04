@@ -152,6 +152,18 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
   const focusNext = useRef<string | null>(null)
   /** The QS's pick on each Question, by its id, until answered (a pick changes nothing until Enter, §6.7). */
   const [picks, setPicks] = useState<Readonly<Record<string, Pick>>>({})
+  /**
+   * The Questions whose answer is in flight: another Enter on one is ignored before it reaches the
+   * acts, so no dropped key is kept for Ctrl Z to meet (the design gate, M2).
+   */
+  const answering = useRef(new Set<string>())
+  /**
+   * The Questions answered here whose cleared pick has not yet been drawn: an Enter in that gap runs a
+   * handler of the render before, with the old pick or one made during the flight (the review, F1), and
+   * is refused. Cleared once the picks are drawn, so a Question kept open can be answered again.
+   */
+  const answered = useRef(new Set<string>())
+  useEffect(() => answered.current.clear(), [picks])
 
   const rowByKey = (key: string | null) => (key ? (model.rows.find((r) => r.key === key) ?? null) : null)
   const rowOfSheet = (id: string | null) => (id ? (model.rows.find((r) => r.sheets.some((s) => s.id === id)) ?? null) : null)
@@ -271,14 +283,18 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
 
   const answerEntry = async (entry: QuestionEntry) => {
     if (readOnly) return refuse(readOnly)
+    const id = entry.question.id
+    if (answering.current.has(id) || answered.current.has(id)) return
     const pick = picks[entry.question.id] ?? null
     const key = pick?.key ?? prePick(entry, cardContext(model))?.key
     if (!key) return
     // Never an empty number (the walk, M4): Enter in the empty field is refused under it (round 3's gate).
     if (key === 'type_number' && !(pick?.text ?? '').trim()) return setPick(entry, { key, text: pick?.text ?? '', refused: (pick?.refused ?? 0) + 1 })
     const rowKey = `q:${entry.question.id}`
-    const done = await acts.answerQuestion(entry, key, key === 'type_number' ? (pick?.text ?? '') : '')
+    answering.current.add(id)
+    const done = await acts.answerQuestion(entry, key, key === 'type_number' ? (pick?.text ?? '') : '').finally(() => answering.current.delete(id))
     if (!done) return
+    answered.current.add(id)
     setPick(entry, null)
     // Kept open, it stays focused (its card says "Kept open"); else on to the next open Question, as
     // "Ask later" would; none left, nothing focused (the overview).
@@ -397,7 +413,7 @@ function Step1({ session, project, model, coverage }: { session: Session; projec
   const spaceLabel = t`Open the focused sheet, or go back to the list`
   useKeys([
     { key: 'Enter', label: t`Do what the bar says`, group: 'screen', run: (event) => (event.repeat ? undefined : enter()) },
-    { key: 'Ctrl Z', label: t`Undo your last act on Step 1`, group: 'screen', run: (event) => (event.repeat ? undefined : undoKey()) },
+    { key: 'Ctrl Z', label: t`Undo your last confirmation, exclusion or drawing list on Step 1`, group: 'screen', run: (event) => (event.repeat ? undefined : undoKey()) },
     { key: 'X', label: t`Exclude the focused sheet, with a reason`, group: 'screen', run: excludeKey },
     { key: '↓', label: t`Next row; in a sheet, the next sheet`, group: 'screen', run: () => moveFocus(1) },
     { key: '↑', label: t`Previous row; in a sheet, the previous sheet`, group: 'screen', run: () => moveFocus(-1) },

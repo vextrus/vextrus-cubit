@@ -88,7 +88,7 @@ describe('§8 by keyboard, as the QS at 1280', () => {
     // ? lists the keys that work here (item 2).
     await userEvent.keyboard('?')
     const overlay = await screen.findByRole('dialog')
-    for (const key of ['Next open Question', 'Exclude the focused sheet, with a reason', 'Undo your last act on Step 1']) expect(clean(overlay.textContent)).toContain(key)
+    for (const key of ['Next open Question', 'Exclude the focused sheet, with a reason', 'Undo your last confirmation, exclusion or drawing list on Step 1']) expect(clean(overlay.textContent)).toContain(key)
     await userEvent.keyboard('{Escape}')
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     expect(step1.calls().filter((c) => c.startsWith('POST'))).toEqual(['POST /confirm', 'POST /exclude', 'POST /undo', 'POST /undo'].slice(0, step1.calls().filter((c) => c.startsWith('POST')).length))
