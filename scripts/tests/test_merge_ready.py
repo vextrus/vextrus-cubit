@@ -2,6 +2,8 @@
 not-applicable workflow) and every check passed."""
 
 import copy
+import json
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -45,11 +47,59 @@ def pull(
 
 
 READY = pull([status("real-drawings"), status("design-gate")])
+MARKER = f"<!-- vextrus-review round=1 head={HEAD} verdict=PASS findings=0 -->"
 
 
-def test_both_gates_by_the_app_and_green_checks_are_ready() -> None:
+def reviewed(ledger: Path, *, recorded: bool = True) -> dict[str, Any]:
+    """`main`'s review-gate seams for PR 105 at HEAD: a ledger PASS (unless not recorded)."""
+    ledger.mkdir(exist_ok=True)
+    if recorded:
+        record = {
+            "schema_version": 1,
+            "pr": 105,
+            "head": HEAD,
+            "round": 1,
+            "verdict": "PASS",
+            "counts": dict.fromkeys(
+                ("reviewers", "findings", "findings_ge_50", "confirmed", "refuted", "unproven"), 0
+            )
+            | {"reviewers": 2, "unrefuted_ge_50": 0},
+            "decision_input_sha256": "ab" * 32,
+            "comment_id": 7,
+            "exception": None,
+            "source": "review-pr",
+            "recorded_at": "2026-10-05T10:00:00Z",
+        }
+        (ledger / f"105-{HEAD}.json").write_text(json.dumps(record))
+    facts = {
+        "pr": 105,
+        "head": HEAD,
+        "base": "f" * 40,
+        "title": "t",
+        "body": "Not verified: nothing.\n",
+        "branch": "b",
+        "comments": [{"id": 7, "body": MARKER}],
+        "files": ["a.py"],
+        "diff": "+x\n",
+        "messages": ["m"],
+    }
+    return {
+        "facts": lambda pr: copy.deepcopy(facts),
+        "ledger_dir": ledger,
+        "repo": ledger,
+        "scan": lambda kind, text: 0,
+        "issue_open": lambda number: True,
+    }
+
+
+def test_both_gates_by_the_app_and_green_checks_are_ready(tmp_path: Path) -> None:
     assert problems(READY) == []
-    assert main(["105"], get=lambda pr: READY) == 0
+    assert main(["105"], get=lambda pr: READY, **reviewed(tmp_path / "ledger")) == 0
+
+
+def test_green_checks_with_no_ledger_pass_are_not_ready(tmp_path: Path) -> None:
+    gate = reviewed(tmp_path / "ledger", recorded=False)
+    assert main(["105"], get=lambda pr: READY, **gate) == 1
 
 
 def test_not_applicable_from_mains_workflow_is_ready() -> None:
@@ -82,10 +132,10 @@ def test_a_failed_pending_or_missing_check_is_refused() -> None:
     assert problems(pull(gates, [check("python")])) == ["ci: not succeeded"]
 
 
-def test_statuses_of_an_older_head_or_a_closed_pr_are_refused() -> None:
+def test_statuses_of_an_older_head_or_a_closed_pr_are_refused(tmp_path: Path) -> None:
     stale = copy.deepcopy(READY)
     stale["headRefOid"] = "f" * 40
     assert problems(stale) == ["the statuses read are not the head's: run again"]
     assert problems(pull([], state="MERGED")) == ["the PR is merged, not open"]
     assert main(["x"], get=lambda pr: READY) == 2
-    assert main(["105"], get=lambda pr: pull([])) == 1
+    assert main(["105"], get=lambda pr: pull([]), **reviewed(tmp_path / "ledger")) == 1
