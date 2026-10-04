@@ -1,0 +1,4 @@
+feat: the launcher refuses a branch origin does not list
+
+Factory-State: ready
+Factory-Verify: @TREE@ ok
