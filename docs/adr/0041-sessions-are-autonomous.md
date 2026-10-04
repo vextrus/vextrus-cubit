@@ -1,5 +1,9 @@
 # Sessions are autonomous: agents build, review, gate and merge; the owner walks the milestone
 
+**Amended by ADR 0042** (4 Oct 2026; the owner: "Approve as written (Recommended)"): item 9 — account A runs the
+orchestrator and every builder, cloud launches go only through the committed launcher, and cloud sessions may read
+the two Development Sets (the owner's Q7 ruling); item 5 — `merge_ready` enforces the review from a local ledger.
+
 The owner decides product and scope and walks each milestone's finish line on real drawings; everything
 between is done by agents, without waiting for the owner:
 
