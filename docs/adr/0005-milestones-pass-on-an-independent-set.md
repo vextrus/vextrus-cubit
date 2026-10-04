@@ -7,8 +7,8 @@ in an issue or a PR, and Held-out Sets stay local.
 A milestone is done only when its finish line passes in the running product, walked by the owner and
 the team:
 - **On the Development Sets** (the Sample Project and the Edison set), which build sessions read and
-  fit the readers to. They prove only that nothing regressed. A Vextrus core member works at Edison
-  Real Estate Ltd. and obtained permission to use its set for development; it is read locally, never
+  fit the readers to. They prove only that nothing regressed. The Edison set is used with its
+  Developer's permission, obtained by a Vextrus core member; it is read locally, never
   committed or put in an issue, and shown only with the owner's permission.
 - **On the Held-out Sets:** real sets from other consultants that no build session ever opens,
   scored only by the owner. They are the proof that Vextrus reads Dhaka drawings. One is required
@@ -52,3 +52,5 @@ and rules fitted to one office fail at the next, so prove it "on two or three re
   Sets stay local. The owner's ruling: "Q7 drawing data - I'm allowing to be more easy going on this case and cloud
   sessions may read drawing and enabling Remote Control for most cases if that means more power and performance by
   allowing some privacy issues that I'm allowing willingly".
+- 5 Oct 2026 (the owner: "Remove the legal name only (Recommended)"): the Development Set owner's legal company name is
+  removed from this ADR; the set keeps its working name.
