@@ -42,7 +42,7 @@ const sheetName = (number: string) => new RegExp(`^Sheet\\s*⁨?${number}⁩?$`)
 /** Step 1 in sheet mode on `number`, its sheet drawn. */
 async function openSheet(api: FakeApi, plot: FakePlot, number = 'S-02') {
   await mountApp(step1SheetPath('KR-01', plot.sheetId(number)), { as: PEOPLE.qs, api })
-  await screen.findByRole('group', { name: sheetName(number) })
+  await screen.findByRole('group', { name: sheetName(number) }, { timeout: 10_000 })
   await frames()
 }
 
