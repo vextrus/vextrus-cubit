@@ -488,3 +488,25 @@ def test_the_events_line_is_f3s_form(tmp_path: Path) -> None:
     lines = (tmp_path / ".private" / "work" / "factory" / "events.log").read_text().splitlines()
     assert lines[0].endswith(f" WALK - {SHA[:8]} check reads_complete PASS")
     assert lines[1].endswith(f" WALK smoke {SHA[:8]} started")
+
+
+def test_a_rewalks_older_verdict_does_not_end_the_hold(tmp_path: Path) -> None:
+    import os
+    import time
+
+    (tmp_path / "verdict.json").write_text("{}")
+    os.utime(tmp_path / "verdict.json", (1, 1))
+    since = time.time()
+
+    assert run.verdict_written(tmp_path, since) is False
+    (tmp_path / "verdict.json").write_text("{}")
+    assert run.verdict_written(tmp_path, since - 1) is True
+
+
+def test_an_earlier_walk_json_moves_aside(tmp_path: Path) -> None:
+    (tmp_path / "walk.json").write_text("{}")
+
+    run.set_aside(tmp_path)
+
+    assert not (tmp_path / "walk.json").exists()
+    assert len(list(tmp_path.glob("walk.*.json"))) == 1

@@ -445,11 +445,28 @@ def judge_checks(root: Path, walk: Plan, events: Events) -> bool:
     return all(check["status"] == "PASS" for check in judged["checks"])
 
 
-def hold(walk: Plan, stack: Stack, minutes: float, stopping: list[bool]) -> None:
-    """Keeps the stack served for the agent layer until the verdict exists, a signal, or time."""
+def verdict_written(out_dir: Path, since: float) -> bool:
+    """This walk's verdict exists: a verdict.json written after the walk started (a re-walk's older
+    one does not end the hold)."""
+    try:
+        return (out_dir / "verdict.json").stat().st_mtime > since
+    except OSError:
+        return False
+
+
+def set_aside(out_dir: Path) -> None:
+    """An earlier walk's walk.json moves aside, so a new one exists only once this walk wrote it."""
+    current = out_dir / "walk.json"
+    if current.exists():
+        stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime(current.stat().st_mtime))
+        current.replace(out_dir / f"walk.{stamp}.json")
+
+
+def hold(walk: Plan, stack: Stack, minutes: float, stopping: list[bool], since: float) -> None:
+    """Keeps the stack served for the agent layer until this walk's verdict exists, a signal, or time."""
     deadline = time.monotonic() + minutes * 60
     while time.monotonic() < deadline and not stopping:
-        if (walk.out_dir / "verdict.json").exists() or not stack.all_running():
+        if verdict_written(walk.out_dir, since) or not stack.all_running():
             return
         time.sleep(5)
 
@@ -482,10 +499,12 @@ def run(root: Path, walk: Plan, *, sets: dict[str, list[str]], smoke: bool, hold
     password = secrets.token_hex(24)
     log = walk.out_dir / "logs" / "prepare.txt"
     started_at = utc()
+    since = time.time()
     events("started")
     try:
         with _signals(stopping):
             walk.out_dir.mkdir(parents=True, exist_ok=True)
+            set_aside(walk.out_dir)
             prepare_checkout(root, walk, log)
             prepare_database(walk, password, log)
             serve(walk, password, stack)
@@ -496,7 +515,7 @@ def run(root: Path, walk: Plan, *, sets: dict[str, list[str]], smoke: bool, hold
             events(f"done {'PASS' if passed else 'FAIL'}")
             print(f"walk: {walk.sha8} script layer {'PASS' if passed else 'FAIL'} (playwright {code})")
             if not smoke:
-                hold(walk, stack, hold_minutes, stopping)
+                hold(walk, stack, hold_minutes, stopping, since)
             return 0 if passed else 1
     except (KeyboardInterrupt, WalkError, OSError, ValueError, subprocess.SubprocessError) as error:
         events("error")
