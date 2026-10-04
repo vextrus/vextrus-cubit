@@ -8,7 +8,7 @@
  *    Structural Part's views join Step 2's row ("2 Notes" once, the two counts summed).
  * 4. The Coverage panel says "<file> is still reading; its views join as its sheets arrive." for a file
  *    reading (never for one waiting), and shows no empty "Views by the step" heading.
- * May (6.13): while a file reads, the bulk act's why says its sheets are not in it.
+ * May (6.13): while a file reads, the bulk act's why says it does not include the file's sheets.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
@@ -115,10 +115,10 @@ describe('the Coverage panel while a file reads (must 4)', () => {
 })
 
 describe('the bulk act while a file reads (6.13)', () => {
-  it('says the sheets of the file still to be read are not in it', async () => {
+  it('says it does not include the sheets of the file still to be read', async () => {
     const { api } = kr01(() => [file({ name: 'KR-ELE-R0.dwg', discipline: 'electrical', state: 'reading', status: msg('drawings.files.reading_sheet', { position: 2, total: 3 }) })])
     await mountApp(PATH, { as: PEOPLE.qs, api })
     await waitFor(() => expect(bodyText()).toMatch(/Confirm \d+ sheets? that agree/))
-    expect(bodyText()).toContain('The sheets of the file still to be read are not in it.')
+    expect(bodyText()).toContain('This does not include the sheets of the file still to be read.')
   })
 })

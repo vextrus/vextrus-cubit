@@ -55,10 +55,15 @@ def test_a_view_in_other_steps_still_counts_under_its_part(
     """The Part still counts where Step 2 does not: a legend put in Beams feeds Step 2 by its Part."""
     read_one(qs_project, monkeypatch)
     the_view_as(qs_project, "structural", ("beams",))
-    assert coverage(api_as(qs_project.member), qs_project.project_id)["by_step"] == {"beams": 1, "structural": 1}
+    assert coverage(api_as(qs_project.member), qs_project.project_id)["by_step"] == {
+        "beams": 1,
+        "structural": 1,
+    }
 
 
-def test_an_mep_part_counts_beside_the_steps(qs_project: QsProject, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_an_mep_part_counts_beside_the_steps(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """A toilet detail counts under the walls and the Plumbing and sanitary Part (the API's own rule)."""
     read_one(qs_project, monkeypatch)
     the_view_as(qs_project, "plumbing", ("general_notes", "walls"))

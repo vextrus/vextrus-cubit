@@ -72,7 +72,7 @@ function BulkWhy({ model, reading }: { model: Step1Model; reading: number }) {
   if (reading === 0) return why
   return (
     <>
-      {why} <Plural value={reading} one="The sheets of the file still to be read are not in it." other="The sheets of the # files still to be read are not in it." />
+      {why} <Plural value={reading} one="This does not include the sheets of the file still to be read." other="This does not include the sheets of the # files still to be read." />
     </>
   )
 }

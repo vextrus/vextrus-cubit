@@ -57,10 +57,6 @@ msgid "Notes"
 msgstr "Notes"
 
 #: src/takeoff/Bar.tsx
-msgid "{reading, plural, one {The sheets of the file still to be read are not in it.} other {The sheets of the # files still to be read are not in it.}}"
-msgstr "{reading, plural, one {The sheets of the file still to be read are not in it.} other {The sheets of the # files still to be read are not in it.}}"
-
-#: src/takeoff/Bar.tsx
 msgid "{names} (QS) confirm the sheet list; every act shows who did it."
 msgstr "{names} (QS) confirm the sheet list; every act shows who did it."
 
@@ -1760,6 +1756,10 @@ msgstr "Answering records your pick; {entryName} stays in the list, to confirm o
 #: src/takeoff/SheetList.tsx
 msgid "Revision and date"
 msgstr "Revision and date"
+
+#: src/takeoff/Bar.tsx
+msgid "{reading, plural, one {This does not include the sheets of the file still to be read.} other {This does not include the sheets of the # files still to be read.}}"
+msgstr "{reading, plural, one {This does not include the sheets of the file still to be read.} other {This does not include the sheets of the # files still to be read.}}"
 
 #: src/takeoff/questionWords.tsx
 msgid "{tag} answered. Reading the file again: its sheets join the list, marked held, once it is read."
