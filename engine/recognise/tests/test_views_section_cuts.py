@@ -157,18 +157,18 @@ def test_a_turned_tag_under_a_titles_line_is_no_line_of_the_title() -> None:
 
 
 def test_a_titles_marks_and_sizes_are_no_words() -> None:
-    """A long section's title and its second line in one MTEXT, 17 tokens with its mark's letter, its
-    size's and its levels' figures, 12 words of two letters or more: a title (`MAX_TITLE_WORDS`)."""
+    """A long section's title and its second line in one MTEXT, 16 tokens with its mark's letter, its
+    size's and its levels' figures, 9 words of two letters or more: a title (`MAX_TITLE_WORDS`)."""
     d, sheet = labelled_sections([(None, (40, 300, 300, 380))], [])
     d.text(
-        "LONG SECTION OF FLOOR BEAM B1 (12 X 16)\\PDROP 12 AND INVERT 4 FROM GRID 3",
+        "LONG SECTION OF BEAM B9 (10 X 14)\\PSTEP 6 AND SOFFIT 2 FROM AXIS 5",
         (OX + 40 * SCALE, 296 * SCALE, 0.0),
         kind="MTEXT",
         height=5.0 * SCALE,
     )
     (view,) = drawn(d, sheet)
     assert view.title is not None
-    assert view.title.startswith("LONG SECTION OF FLOOR BEAM B1")
+    assert view.title.startswith("LONG SECTION OF BEAM B9")
     assert view.kind is ViewKind.SECTION
 
 
@@ -176,7 +176,7 @@ def test_one_line_of_more_words_than_a_title_has_is_still_no_title() -> None:
     """The guard: 13 words of two letters or more on one line are a note's sentence, no title."""
     d, sheet = labelled_sections([(None, (40, 300, 300, 380))], [])
     d.text(
-        "LONG SECTION OF FLOOR BEAM AT THE DROP AND INVERT FROM THE NEXT GRID",
+        "LONG SECTION OF BEAM AT THE STEP AND SOFFIT FROM THE NEXT AXIS",
         (OX + 40 * SCALE, 292 * SCALE, 0.0),
         height=5.0 * SCALE,
     )

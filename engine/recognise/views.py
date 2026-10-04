@@ -31,7 +31,7 @@ These sizes, `MIN_VIEW_MM` and `JOIN_MM` are an A1 sheet's (`REFERENCE_MM` long)
 paper, so a frame whose paper is read too small or too large is split alike (a frame block drawn at a
 fraction of its plotted size: the real sets' frames give papers of 130 to 420 mm plotted on A3 and A1). A
 **view title** is a text of two lines at most and `MAX_TITLE_WORDS` words at most (two letters or more:
-"F.B-1 (12"X16")" is none) holding a kind's words (the kind listed first in the conventions wins where
+"B-7 (10"X14")" is none) holding a kind's words (the kind listed first in the conventions wins where
 several are named: "TYPICAL BEAM SECTION DETAIL" is a detail), not in the title block, at least as tall
 as the sheet's median text (and at most `MAX_LETTER` of the paper), not numbered ("5. SEE SECTION ...")
 and not one of a column of `MIN_NOTE_LINES` lines alike (a note's; a scale text in the column is the
@@ -1296,7 +1296,7 @@ class _Words:
 
 
 def _lettered(tokens: Sequence[str]) -> list[str]:
-    """The tokens that are words: two letters or more ("F.B-1 (12"X16")" holds none, so a title's
+    """The tokens that are words: two letters or more ("B-7 (10"X14")" holds none, so a title's
     marks and sizes never run it past `MAX_TITLE_WORDS`)."""
     return [t for t in tokens if sum(c.isalpha() for c in t) >= 2]
 
