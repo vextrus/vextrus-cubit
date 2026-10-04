@@ -2,19 +2,17 @@
 the Drawing Set's read PDFs' pages matched to its listed sheets and placed on them, each kept through
 `drawings.services.record_plot`, in whichever order the DWG and its Plot are read.
 
-    counts = plot.match(file_id)      # a PDF: in `matching`; a DWG: after `finishing` commits
+    counts = plot.match(file_id)      # in the step that marks the file read, in its transaction
 
-A PDF's runs in the transaction that marks it read (its `matching` step), so a sheet list asked
-meanwhile sees neither the PDF read nor its matches. A DWG's runs in a transaction of its own once
-`finishing` (which marks it read and proposes its sheets) has committed: the match takes minutes on a
-large set, and in `finishing` it held Step 1's progress row, so a QS's act waited on it (#227). So a
-DWG's sheet may briefly show read but not yet matched against a read PDF; the match that follows
-gives it its page or its `NO_PAGE`. The set's matching is held one at a time
-(`drawings.services.hold_plots`), so a DWG and a PDF read at once each see the other's: whichever
-holds it second sees the first's file read (a DWG's sheets are listed before its match holds it).
+It runs in the transaction that marks the file read (a PDF's `matching` step, a DWG's `finishing`),
+so no read PDF and read sheet are ever seen together unmatched: a sheet list asked in between sees
+neither the file read nor its matches. The set's matching is held one at a time
+(`drawings.services.hold_plots`), so a DWG and a PDF read at once each see the other's. In a DWG's
+`finishing` it runs before Step 1's proposals: it takes minutes on a large set and touches no row of
+Step 1's, so a QS's act on Step 1 never waits on it (#227).
 
 **A PDF** (`matching`): its pages against every listed sheet of the set, each placed where matched.
-**A DWG** (after `finishing`): the set's read PDFs' pages against every listed sheet, its own now among
+**A DWG** (`finishing`): the set's read PDFs' pages against every listed sheet, its own now among
 them; only the pages that could be its sheets' are matched in full (named for one of them, or naming
 none surely: several sheets alike, or no text), the rest named as before, so a set's Plot is not
 aligned again each time one of its DWGs is read. A page's naming depends on the page, the whole

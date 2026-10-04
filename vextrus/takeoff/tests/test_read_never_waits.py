@@ -5,16 +5,21 @@ confirm, exclude and answer; here the same harness runs undo (the orchestrator's
     uv run pytest -rf vextrus/takeoff/tests/test_read_never_waits.py
 """
 
+import contextlib
 import uuid
 from collections.abc import Iterator
+from pathlib import Path
 from typing import Any
 
 import pytest
 from django.db import transaction
 
 from engine.read import pdf as pdf_reader
+from vextrus.drawings import services as drawings
 from vextrus.takeoff.models import StepProgress
 from vextrus.takeoff.services import step1 as step1_services
+from vextrus.takeoff.services.read_propose import files
+from vextrus.takeoff.services.read_propose import plot as plot_matching
 from vextrus.takeoff.tests.acceptance.t21c.step1_whole import (
     confirm,
     jev_says,
@@ -26,6 +31,16 @@ from vextrus.takeoff.tests.acceptance.t21c.step1_whole import (
     the,
     uploaded,
 )
+from vextrus.takeoff.tests.acceptance.t157.test_plot_matched_toolchain import (
+    dumper,  # noqa: F401 (the fixture engine_readers needs)
+    engine_readers,  # noqa: F401
+    plot,  # noqa: F401
+    set_a,  # noqa: F401
+    sheets_of,
+)
+from vextrus.takeoff.tests.acceptance.t157.test_plot_matched_toolchain import (
+    run_job as read_by_engine,
+)
 from vextrus.takeoff.tests.acceptance.treadlock.test_acts_never_wait_on_a_read import (
     SECOND_PLOT,
     SHEETS,
@@ -36,7 +51,7 @@ from vextrus.takeoff.tests.acceptance.treadlock.test_acts_never_wait_on_a_read i
     read_first_and_plot,
 )
 from vextrus.testing.auth import api_as
-from vextrus.testing.drawings import QsProject, drawing
+from vextrus.testing.drawings import QsProject, add, drawing
 from vextrus.testing.jev import Offline
 
 pytestmark = pytest.mark.django_db(transaction=True, databases=["default", "owner"])
@@ -148,3 +163,67 @@ def test_progress_at_end_writes_nothing_when_its_block_raises(
         with transaction.atomic():
             step1_services.record_progress(project_id)
         assert _kept(project_id) != before
+
+
+@pytest.mark.needs_toolchain
+@pytest.mark.needs_bwrap
+@pytest.mark.django_db
+def test_a_later_dwg_read_after_the_plot_keeps_the_first_dwgs_matches(
+    qs_project: QsProject,
+    set_a: bytes,  # noqa: F811 (the t157 acceptance fixtures)
+    plot: bytes,  # noqa: F811
+    engine_readers: None,  # noqa: F811
+    tmp_path: Path,
+) -> None:
+    """#230's walk saw a set's matched Plot drop to "no page" when a DWG was added (the demo seed's
+    stub PDFs, whose matches the seed writes and no reading can find again). On a set whose Plot was
+    matched by reading, a later DWG's `finishing` matches the Plot again (now before its proposals)
+    and the first DWG's sheets keep their pages."""
+    from engine.fixtures import dwg as dwg_fixtures
+
+    member = qs_project.member
+    first = add(member, qs_project.project_id, "KR-STR-R0.dwg", set_a).file.id
+    plot_id = add(member, qs_project.project_id, "KR-STR-PLOT.pdf", plot).file.id
+    for file_id in (first, plot_id):
+        read_by_engine(member, file_id)
+    before = {n: (s.plot.file_id, s.plot.page) for n, s in sheets_of(member, first).items()}
+    assert before == {"S-101": (plot_id, 2), "S-102": (plot_id, 1), "S-103": (plot_id, 3)}
+
+    set_b = dwg_fixtures.build(
+        "sheet_set_model", tmp_path, dwg_fixtures.build_writer(tmp_path)
+    ).read_bytes()
+    later = add(member, qs_project.project_id, "KR-STR-B.dwg", set_b).file.id
+    read_by_engine(member, later)
+
+    with member.acting():
+        assert drawings.file(later).state == drawings.FileState.READ
+    after = {n: (s.plot.file_id, s.plot.page) for n, s in sheets_of(member, first).items()}
+    assert after == before
+
+
+def test_a_dwgs_plot_match_that_runs_out_of_memory_leaves_the_file_failed_never_read_unmatched(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, parked: Parked
+) -> None:
+    """The refuter's case (#227's first build matched after `finishing` committed): the match and
+    the marking stay one transaction, so a match that reaches the cad worker's cap rolls the
+    marking back. The file ends failed with the memory reason (restartable), never read with its
+    sheets listed and never matched."""
+    later = read_first_and_plot(qs_project, monkeypatch)
+    real = plot_matching.match
+
+    def out_of_memory(file_id: uuid.UUID) -> Any:
+        if file_id == later:
+            raise MemoryError
+        return real(file_id)
+
+    monkeypatch.setattr(plot_matching, "match", out_of_memory)
+    with contextlib.suppress(Exception):  # the job ends failed, as its worker sees it
+        run_job(qs_project.member, later, monkeypatch, readers(SHEETS))
+
+    with qs_project.member.acting():
+        view = drawings.file(later)
+        listed = [s for s in drawings.sheets(view.set_id) if s.file_id == later]
+    assert view.state == drawings.FileState.FAILED
+    assert view.finding is not None
+    assert view.finding["code"] == files.OUT_OF_MEMORY["code"]
+    assert listed == []
