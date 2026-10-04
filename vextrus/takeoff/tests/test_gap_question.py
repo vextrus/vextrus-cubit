@@ -322,3 +322,21 @@ def test_a_title_read_again_differently_clears_the_plots_title(qs_project: QsPro
         [again] = drawings.sheets(drawing_set.id)
         assert (again.id, again.title, again.plot.page) == (sheet.id, "ROOF SLAB DETAILS", 1)
         assert again.plot.title_alike is False
+
+
+def test_the_proposal_says_whether_its_plot_page_reads_its_title(qs_project: QsProject) -> None:
+    """The bar says why a sheet with a Plot page has one source (the words gate: "Nothing else
+    confirms it" over a visible Plot page): the proposal carries the title read alike."""
+    the_set = _Set(qs_project, ["S-01", "S-02", "S-03"])
+    with the_set.member.acting():
+        for page, number in enumerate(("S-01", "S-02"), start=1):
+            sheet = the_set.sheets[number]
+            title = sheet.title if number == "S-01" else "ROOF PLAN"
+            shown = _page(the_set.pdf.sha256, page, number, title)
+            drawings.record_plot(sheet.id, PlotMatch(shown, sheet=plot.candidate(sheet)))
+
+    path = f"/api/projects/{the_set.project_id}/takeoff/step1/proposals"
+    body = api_as(the_set.member).get(path).json()
+
+    plots = {p["number"]: (p["plot_page"], p["plot_title_alike"]) for p in body["proposals"]}
+    assert plots == {"S-01": (1, True), "S-02": (2, False), "S-03": (None, False)}

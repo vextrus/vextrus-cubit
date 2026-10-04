@@ -1001,9 +1001,11 @@ given (the title it read).
 
 **What "agrees" means** (the plan's QS review, Q4). A sheet agrees when its number and title come from
 its title block and a second source confirms them: **with a drawing list**, the list names it; **with
-no drawing list**, its Discipline's numbering runs without a gap (every number from the first to the
-last present once) and its Plot page matched. A sheet with only one source (no list and no Plot) is a
-Proposal "with one source": it is not in the bulk act, and the QS confirms it on its own (6.5). The
+no drawing list**, its Plot page matched, its number and title read alike; a gap in the numbering holds
+only the sheets either side of it until its Question is answered, and all of one Discipline's gaps are
+asked as one Question (the owner's ruling of 4 Oct 2026, #229). A sheet with only one source (no list
+and no Plot, or a Plot page that shows another title) is a Proposal "with one source": it is not in the
+bulk act, and the QS confirms it on its own (6.5). The
 heading of a Discipline with no list says so: "no drawing list; numbering runs 01–57 without a gap"
 (never "—"; 6.3).
 
@@ -1242,9 +1244,9 @@ any agreeing sheet or proposed exclusion, the bar reads:
   one of them);
 - why: "Each has a number and title from its title block and is on its drawing list; storeys from its
   view titles. Left-out sheets stay in the count with their reason." With no drawing list (5): "Each
-  has a number and title from its title block, in numbering without a gap, and its Plot page matches;
+  has a number and title from its title block, and its Plot page shows the same number and title;
   storeys from its view titles." With both kinds: "Each has a number and title from its title block,
-  on its drawing list or in numbering without a gap; …";
+  and its drawing list names it or its Plot page shows the same number and title; …";
 - button: "Confirm 56, leave out 5 ↵"; in list mode with a sheet focused, also the ghost "Open S-04
   Space".
 
@@ -1517,7 +1519,7 @@ pastes that disagree raise a Question (5); until it is answered, N shows "—".
 | **A held file (ruling 3)** | Its row heads "Needs you" with Question Q1; nothing from it is listed or counted; Coverage says so. Its Discipline may be confirmed once Q1 is answered (5's options); the file's chip and row stay marked: "Held, read anyway" (its sheets listed, each marked "held") / "Set aside: waiting for the re-saved file" / "Set aside: sent to Vextrus to check" |
 | **A Discipline not yet received** | 6.3's last section; the overview names it; nothing blocks the other Disciplines |
 | **A new Discipline's file arrives** (after others are confirmed) | Its sheets join under their own heading as Proposals; the confirmed Disciplines keep "✓ confirmed"; the rail shows Proposals ready again; the Projects page reads "Step 1: Structural confirmed · Electrical 38 to confirm" |
-| **A Discipline with no drawing list** | Its heading: "no drawing list; numbering runs E-01–E-03 without a gap"; sheets agree on numbering and the Plot, else have one source (5) |
+| **A Discipline with no drawing list** | Its heading: "no drawing list; numbering runs E-01–E-03 without a gap"; a sheet agrees on its Plot page (number and title read alike), else has one source; a gap holds only the sheets either side of it until its Question is answered (5) |
 | **No Plot, and why** | "As read" only; Plot and Compare disabled with the reason as tooltip; `P` shows the note "No Plot for this sheet:" and the reason, top-left: "NT-ARCH-R1.dwg came with no PDF" · "the sheet has no number, so no PDF page could be matched to it" · "the PDF has no page for S-19 R0; its page 19 matched R1" · "PDF page 21 could not be matched: neither its title block nor the text on the page names a sheet" (a title block drawn as strokes is matched by the page's body text instead, 5). The inspector's Plot line repeats it ("None: …") |
 | **Bangla-font flag** | The file's chip "Bangla font" (amber); on an affected sheet, a canvas note "Bangla in a legacy font reads as "…"" and in the inspector "Bangla text here is set in SutonnyMJ, a legacy ANSI font. Vextrus reads it as "…", not as Bangla. The title and number are not affected." The file's report uses 4.5's wording |
 | **Kept open** | 6.7 |
@@ -1820,3 +1822,8 @@ looking empty (screens.md 5); its screenshots stay under `.private/`.
 - **4.4, the Vextrus access line: "Split by role"** (on 20a's design gate). The MD, who can end any
   Vextrus access, reads "… You can end it at any time."; a QS, who can end only the access they gave,
   reads "… You can end the access you gave; your MD can end any."
+
+## The owner's rulings (4 Oct 2026, session 11)
+- **5, what "agrees" means with no drawing list: "Plot match + gap local"** (#229). A sheet whose
+  Plot page matched (number and title read alike) has its second source; a numbering gap holds only
+  the sheets beside it; all of one Discipline's gaps are asked as one Question.

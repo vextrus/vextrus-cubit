@@ -160,6 +160,8 @@ class ProposalView:
     plot_file: str | None = None
     plot_page: int | None = None
     plot_residual: str | None = None
+    plot_title_alike: bool = False
+    """Its Plot page reads its title as well as its number (#229): the page is its second source."""
     plot_none: dict[str, Any] | None = None
     """Why it has no Plot (a message), or None when a page matched or no PDF was added."""
     views: list[SheetViewView] = field(default_factory=list)
@@ -509,6 +511,7 @@ def _proposal_view(
         plot_file=names.get(sheet.plot.file_id) if sheet.plot.file_id and sheet.plot.page else None,
         plot_page=sheet.plot.page,
         plot_residual=sheet.plot.residual,
+        plot_title_alike=sheet.plot.page is not None and sheet.plot.title_alike,
         plot_none=dict(sheet.plot.none) if sheet.plot.none else None,
         views=[_sheet_view_view(v) for v in drawings.views(sheet.id)],
     )
