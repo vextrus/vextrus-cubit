@@ -230,25 +230,60 @@ def mention(page: Page, number: str) -> tuple[bool, float] | None:
 
 def reads_title(page: Page, title: str | None) -> bool:
     """Whether the page's text reads the sheet's title (#229: a matched page is the sheet's second
-    source only when its number and its title read alike): every word of the title, in 13's normal
-    form, is a word of the page's text, the title block's lines and the body's alike (a title drawn
-    over two lines is two items); a word is one holding a letter or digit. A sheet with no title (or
-    one of punctuation alone), and a page with no text (one matched by its ink), read no title alike."""
+    source only when its number and its title read alike): the title's words, in 13's normal form and
+    in their order, are one item's run of words, or a chain of near items' (a title drawn over lines
+    is one item a line, `_near`): the first ending with the title's start, each between it whole, the
+    last starting with the rest. The title's words scattered over the page's notes are not its title
+    (review 1 of #229: "FIRST FLOOR PLAN" beside a note on the GROUND level reads no "GROUND FLOOR
+    PLAN"). A word is one holding a letter or digit. A sheet with no title (or one of punctuation
+    alone), and a page with no text (one matched by its ink), read no title alike."""
     wanted = _words(title)
     if not wanted:
         return False
-    printed: set[str] = set()
-    for item in page.items:
-        printed |= _words(item.text)
-    return wanted <= printed
+    lines = [(item, words) for item in page.items if (words := _words(item.text))]
+    n = len(wanted)
+    if any(_holds(words, wanted) for _, words in lines):
+        return True
+    # Where a chain of items has read the title to, each short of the whole: (its last item, words read).
+    reached = [(item, k) for item, words in lines for k in range(1, n) if words[-k:] == wanted[:k]]
+    seen: set[tuple[int, int]] = set()
+    while reached:
+        last, k = reached.pop()
+        if (id(last), k) in seen:
+            continue
+        seen.add((id(last), k))
+        for item, words in lines:
+            if item is last or not _near(last, item):
+                continue
+            if words[: n - k] == wanted[k:]:
+                return True
+            if k + len(words) < n and wanted[k : k + len(words)] == words:
+                reached.append((item, k + len(words)))
+    return False
 
 
-def _words(text: str | None) -> set[str]:
+def _near(a: TextItem, b: TextItem) -> bool:
+    """Whether two items are lines of one block: the gap between their boxes, across and along, is
+    within two of the taller's text heights."""
+    ax0, ay0, ax1, ay1 = a.anchor.box
+    bx0, by0, bx1, by1 = b.anchor.box
+    gap = (
+        max(min(bx0, bx1) - max(ax0, ax1), min(ax0, ax1) - max(bx0, bx1), 0.0),
+        max(min(by0, by1) - max(ay0, ay1), min(ay0, ay1) - max(by0, by1), 0.0),
+    )
+    return max(gap) <= 2 * max(_height(a), _height(b))
+
+
+def _holds(words: list[str], run: list[str]) -> bool:
+    return any(words[i : i + len(run)] == run for i in range(len(words) - len(run) + 1))
+
+
+def _words(text: str | None) -> list[str]:
     key = normal(text)
     if key is None:
-        return set()
+        return []
     # A word is read by its letters or digits: a dash alone is no word of a title.
-    return {word for word in _WORDS.split(key) if any(char.isalnum() for char in word)}
+    return [word for word in _WORDS.split(key) if any(char.isalnum() for char in word)]
 
 
 def _reason(code: object) -> str:

@@ -361,3 +361,88 @@ def test_a_drawing_list_typed_after_the_gap_was_asked_lifts_its_hold(qs_project:
     assert listed.status_code == 200, listed.content
     assert the_set.agrees() == {"S-01": True, "S-02": True, "S-04": True}
     assert _bulk(the_set, "S-01", "S-02", "S-04") == 200
+
+
+def _keep_open(the_set: _Set, question_id: str) -> None:
+    r = api_as(the_set.member).post(
+        f"/api/projects/{the_set.project_id}/takeoff/step1/questions/{question_id}/answer",
+        {"option": "keep_open"},
+    )
+    assert r.status_code == 200, r.json()
+
+
+def _kept_open(the_set: _Set, question_id: str) -> bool:
+    with the_set.member.acting():
+        answer = Question.objects.get(id=question_id).answer
+    return isinstance(answer, dict) and answer.get("option") == "keep_open"
+
+
+def test_a_gap_question_kept_open_stays_kept_open_when_a_read_fills_one_of_its_gaps(
+    qs_project: QsProject,
+) -> None:
+    """The QS keeps the gaps open (the sheets are not sent yet); one arrives: the gaps left are still
+    kept open (review 1 of #229)."""
+    the_set = _Set(qs_project, ["S-01", "S-03", "S-05"])
+    the_set.ask()
+    [first] = the_set.gap_questions()
+    _keep_open(the_set, first["id"])
+
+    the_set.read("KR-STR-R1.dwg", ["S-02"])
+    the_set.ask()
+
+    [now] = the_set.gap_questions()
+    assert now["id"] != first["id"]
+    assert _kept_open(the_set, now["id"])
+
+
+def test_a_per_gap_question_kept_open_hands_its_answer_to_the_merged_one(qs_project: QsProject) -> None:
+    """A Question asked one per gap before #229 is the merged Question's predecessor."""
+    the_set = _Set(qs_project, ["S-01", "S-03"])
+    with the_set.member.acting():
+        old = step1.raise_question(
+            the_set.project_id,
+            "check",
+            list_codes.GAP(after="S-01", before="S-03", missing=1, discipline="structural"),
+            discipline="structural",
+            options=proposals.options(proposals.CHECK_OPTIONS),
+            check_code="register",
+        )
+    _keep_open(the_set, str(old))
+
+    the_set.ask()
+
+    [now] = the_set.gap_questions()
+    assert _kept_open(the_set, now["id"])
+
+
+def test_a_gap_question_kept_open_does_not_answer_a_new_gap(qs_project: QsProject) -> None:
+    """A read that opens a gap the QS never saw asks it: the keep-open answer does not cover it."""
+    the_set = _Set(qs_project, ["S-01", "S-03"])
+    the_set.ask()
+    [first] = the_set.gap_questions()
+    _keep_open(the_set, first["id"])
+
+    the_set.read("KR-STR-R1.dwg", ["S-06"])
+    the_set.ask()
+
+    [now] = the_set.gap_questions()
+    assert now["id"] != first["id"]
+    with the_set.member.acting():
+        assert Question.objects.get(id=now["id"]).answer is None
+
+
+def test_a_plot_page_titled_otherwise_with_the_titles_words_in_its_notes_does_not_agree(
+    qs_project: QsProject,
+) -> None:
+    """Each sheet is "COLUMN LAYOUT S-0n"; its page carries its number, another title and a note
+    holding COLUMN (review 1 of #229): no second source."""
+    the_set = _Set(qs_project, ["S-01", "S-02", "S-03"])
+    with the_set.member.acting():
+        for page, (number, sheet) in enumerate(sorted(the_set.sheets.items()), start=1):
+            shown = _page(
+                the_set.pdf.sha256, page, number or "", f"FOUNDATION LAYOUT {number}", "COLUMN NOTES"
+            )
+            drawings.record_plot(sheet.id, PlotMatch(shown, sheet=plot.candidate(sheet)))
+    the_set.ask()
+
+    assert the_set.agrees() == dict.fromkeys(["S-01", "S-02", "S-03"], False)

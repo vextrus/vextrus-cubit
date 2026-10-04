@@ -2206,7 +2206,8 @@ def retire_questions(project_id: uuid.UUID, codes: Iterable[str], raised: Iterab
     that a past round retired is open again, and each still open that was not raised is retired,
     `withdrawn` and still listed. An answered Question, or one withdrawn by leaving its sheet out, is
     never touched. One the QS kept open hands that answer to the Question that supersedes it (its
-    code, holding every sheet it held, not answered yet). How many were retired."""
+    code, holding every sheet it held, not answered yet); a numbering gap's, to the Discipline's
+    `gaps` Question that asks only gaps they kept open (`_heir_of_gaps`). How many were retired."""
     projects.get(project_id)
     asked = set(raised)
     ours = Question.objects.filter(project_id=project_id, step=SHEETS, message_code__in=list(codes))
@@ -2218,7 +2219,10 @@ def retire_questions(project_id: uuid.UUID, codes: Iterable[str], raised: Iterab
     if kept:
         held = _links(project_id, [q.id for q in kept] + list(asked))
         heirs = list(ours.filter(id__in=asked, status=QuestionStatus.OPEN, answer__isnull=True))
-        for old in kept:
+        gapped = [q for q in kept if q.message_code in (list_codes.GAP.code, list_codes.GAPS.code)]
+        for given in _heir_of_gaps(gapped, heirs):
+            heirs.remove(given)
+        for old in (q for q in kept if q not in gapped):
             heir = next(
                 (q for q in heirs if q.message_code == old.message_code and held[old.id] <= held[q.id]),
                 None,
@@ -2230,6 +2234,26 @@ def retire_questions(project_id: uuid.UUID, codes: Iterable[str], raised: Iterab
     retired = leaving.update(status=QuestionStatus.WITHDRAWN)
     record_progress(project_id)
     return retired
+
+
+def _heir_of_gaps(kept: Sequence[Question], heirs: Sequence[Question]) -> list[Question]:
+    """The `gaps` Questions given the keep-open answer of the numbering gap Questions they supersede,
+    each of a Discipline whose kept-open Questions asked every gap it asks (review 1 of #229: a read
+    that fills one gap re-asks the rest, which the QS kept open; a Question asked one per gap before
+    #229 is the merged one's predecessor). Matched by the gaps, not the sheets held: the filled gap's
+    sheets leave the hold. One asking a gap no kept-open Question asked is the QS's to answer."""
+    given = []
+    for heir in heirs:
+        if heir.message_code != list_codes.GAPS.code:
+            continue
+        before = [q for q in kept if q.discipline == heir.discipline]
+        asked = {gap for q in before for gap in gap_ends(q)}
+        wanted = set(gap_ends(heir))
+        if before and wanted and wanted <= asked:
+            heir.answer = before[0].answer
+            heir.save(update_fields=["answer"])
+            given.append(heir)
+    return given
 
 
 def _links(project_id: uuid.UUID, ids: Iterable[uuid.UUID]) -> dict[uuid.UUID, set[uuid.UUID]]:
