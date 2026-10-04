@@ -50,6 +50,20 @@ def built(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Path]:
     return found
 
 
+@pytest.fixture(scope="module")
+def dumper(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """The pinned ACadSharp dumper, built here: CI's image has none at the readers' default path."""
+    from engine.read.acadsharp.tests.build import build_dumper
+
+    return build_dumper(tmp_path_factory.mktemp("t212-dumper"))
+
+
+@pytest.fixture
+def engine_readers(dumper: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Both reads (the harness's file processes and the job's readers) use the built dumper."""
+    monkeypatch.setenv("VEXTRUS_ACADSHARP_DUMP", str(dumper))
+
+
 def harness_sheets(folder: Path, out: Path) -> list[dict[str, Any]]:
     document: Any = harness.run(folder, out)
     (file,) = document["files"]
@@ -101,6 +115,7 @@ def fellow(sheet: dict[str, Any], among: list[dict[str, Any]]) -> dict[str, Any]
 
 @pytest.mark.needs_toolchain
 @pytest.mark.django_db
+@pytest.mark.usefixtures("engine_readers")
 def test_every_model_space_sheet_in_the_jobs_export_has_the_paper_the_harness_gives(
     qs_project: QsProject, built: dict[str, Path], tmp_path: Path
 ) -> None:
@@ -116,6 +131,7 @@ def test_every_model_space_sheet_in_the_jobs_export_has_the_paper_the_harness_gi
 
 @pytest.mark.needs_toolchain
 @pytest.mark.django_db
+@pytest.mark.usefixtures("engine_readers")
 def test_every_layout_sheet_in_the_jobs_export_has_its_own_paper_as_the_harness_gives(
     qs_project: QsProject, built: dict[str, Path], tmp_path: Path
 ) -> None:
