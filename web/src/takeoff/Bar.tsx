@@ -342,8 +342,8 @@ export function Bar({ spec }: { spec: BarSpec }) {
 }
 
 /** "S-07 has one source: …"; a sheet with neither number nor title has neither to read (#167's words gate, M5). */
-function OneSourceWhat({ sheet, name }: { sheet: ProposalOut | undefined; name: ReactNode }) {
-  if (sheet && !sheet.number && !sheet.title.trim()) return <Trans>{name} has one source: its title block, with no number or title</Trans>
+export function OneSourceWhat({ sheet, name }: { sheet: ProposalOut | undefined; name: ReactNode }) {
+  if (sheet && !sheet.number && !sheet.title.trim()) return <Trans>{name} has neither a number nor a title in its title block</Trans>
   return <Trans>{name} has one source: number and title from its title block</Trans>
 }
 

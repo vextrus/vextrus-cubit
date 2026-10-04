@@ -72,9 +72,13 @@ export function SheetName({ sheets, start = false }: { sheets: readonly Proposal
   const last = sheets.at(-1)
   if (!first || !last) return null
   if (!first.number && !first.title.trim()) {
-    // Neither number nor title (#167): named by its file, never by an empty quotation.
+    // Neither number nor title (#167): named by its file and its layout, never by an empty quotation.
     const file = <DrawingText kind="file-name" text={first.file_name} truncate={false} />
-    return start ? <Trans>An untitled sheet in {file}</Trans> : <Trans>an untitled sheet in {file}</Trans>
+    if (first.layout) {
+      const layout = <DrawingText kind="mark" text={first.layout} truncate={false} />
+      return start ? <Trans>An untitled sheet in {file}, layout “{layout}”</Trans> : <Trans>an untitled sheet in {file}, layout “{layout}”</Trans>
+    }
+    return start ? <Trans>An untitled sheet in {file}, laid out in the drawing</Trans> : <Trans>an untitled sheet in {file}, laid out in the drawing</Trans>
   }
   if (!first.number) return <DrawingText kind="title" text={first.title} truncate={false} />
   if (sheets.length > 1 && last.number && last.number !== first.number) {
@@ -132,11 +136,11 @@ interface Mark {
   failing: ReadonlySet<string>
 }
 
-/** An act's toast when Step 1 could not reload after it: what was done, and that the Count may be behind. */
+/** An act's toast when Step 1 could not reload after it: what was done, and that the confirmed count may be behind. */
 function StaleWords({ done }: { done: ReactNode }) {
   return (
     <>
-      {done} <Trans>Step 1 could not be reloaded, so its Count may be behind. Reload the page to see the current Count.</Trans>
+      {done} <Trans>Step 1 could not be reloaded, so the confirmed count may be behind. Reload the page to see it.</Trans>
     </>
   )
 }
@@ -382,7 +386,7 @@ export function useStep1Acts(projectId: string, shown?: Step1Data | null): Step1
               const words = entry.words
               done = {
                 message: <Trans>Undone: {words}</Trans>,
-                stale: <Trans>Undone: {words}. Step 1 could not be reloaded, so its Count may be behind. Reload the page to see the current Count.</Trans>,
+                stale: <Trans>Undone: {words}. Step 1 could not be reloaded, so the confirmed count may be behind. Reload the page to see it.</Trans>,
               }
             } catch (error) {
               if (reached(error)) left -= 1
@@ -398,7 +402,7 @@ export function useStep1Acts(projectId: string, shown?: Step1Data | null): Step1
                 message: <Trans>Undone: <UndoneWords act={act} /></Trans>,
                 stale: (
                   <Trans>
-                    Undone: <UndoneWords act={act} />. Step 1 could not be reloaded, so its Count may be behind. Reload the page to see the current Count.
+                    Undone: <UndoneWords act={act} />. Step 1 could not be reloaded, so the confirmed count may be behind. Reload the page to see it.
                   </Trans>
                 ),
               }

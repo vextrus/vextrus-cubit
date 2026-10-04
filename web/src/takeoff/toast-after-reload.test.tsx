@@ -1,7 +1,7 @@
 /*
  * #167's refuter, round 1: an act's toast waits for Step 1's reload (F1), and so
  *  R1. a reload that fails must not show the plain success toast beside the stale Count: it says the
- *      Count may be behind;
+ *      confirmed count may be behind;
  *  R2. a toast queued for an act must not show once the next act has begun (as `toast.clear()` drops a
  *      shown one), so no stale Undo stands during that act;
  *  R3. an undo's "Undone: …" waits for its reload too, never beside the Count it changed;
@@ -49,10 +49,10 @@ function watchToasts() {
   return { seen, stop: () => observer.disconnect() }
 }
 
-const STALE = 'Step 1 could not be reloaded, so its Count may be behind. Reload the page to see the current Count.'
+const STALE = 'Step 1 could not be reloaded, so the confirmed count may be behind. Reload the page to see it.'
 
 describe('an act’s toast after Step 1’s reload (#167 refuter)', () => {
-  it('R1: says the Count may be behind when the reload fails, never the plain toast beside "Confirmed 0 / 24"', async () => {
+  it('R1: says the confirmed count may be behind when the reload fails, never the plain toast beside "Confirmed 0 / 24"', async () => {
     const api = new FakeApi()
     new FakeStep1(api)
     let acted = false
@@ -137,7 +137,7 @@ describe('an act’s toast after Step 1’s reload (#167 refuter)', () => {
     expect(bodyText()).toContain('Confirmed 0 / 24')
   }, 30000)
 
-  it('R1 for an undo: ends "Undone: …" with its full stop before saying the Count may be behind (#167 words gate, F4)', async () => {
+  it('R1 for an undo: ends "Undone: …" with its full stop before saying the confirmed count may be behind (#167 words gate, F4)', async () => {
     const api = new FakeApi()
     new FakeStep1(api)
     let failing = false

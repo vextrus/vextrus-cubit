@@ -93,6 +93,10 @@ msgstr "Column layout"
 msgid "Disciplines not yet received:"
 msgstr "Disciplines not yet received:"
 
+#: src/takeoff/acts.tsx
+msgid "an untitled sheet in {file}, layout “{layout}”"
+msgstr "an untitled sheet in {file}, layout “{layout}”"
+
 #: src/takeoff/questionWords.tsx
 msgid "{tag} answered. Recorded: the sheet’s top storey belongs to the next sheet’s range."
 msgstr "{tag} answered. Recorded: the sheet’s top storey belongs to the next sheet’s range."
@@ -260,10 +264,6 @@ msgstr "Ceiling layout"
 #: src/takeoff/words.tsx
 msgid "Use the drawing list on the sheet"
 msgstr "Use the drawing list on the sheet"
-
-#: src/takeoff/acts.tsx
-msgid "Undone: {words}. Step 1 could not be reloaded, so its Count may be behind. Reload the page to see the current Count."
-msgstr "Undone: {words}. Step 1 could not be reloaded, so its Count may be behind. Reload the page to see the current Count."
 
 #: src/takeoff/Step1Screen.tsx
 msgid "Go to the Drawing Set"
@@ -618,10 +618,6 @@ msgstr "{tag} answered. The kind of {sheet} is {kind}."
 msgid "Beam layout"
 msgstr "Beam layout"
 
-#: src/takeoff/acts.tsx
-msgid "an untitled sheet in {file}"
-msgstr "an untitled sheet in {file}"
-
 #: src/takeoff/words.tsx
 msgid "Working plan"
 msgstr "Working plan"
@@ -812,6 +808,10 @@ msgstr "Undo your last confirmation, exclusion or drawing list on Step 1"
 #: src/takeoff/questionWords.tsx
 msgid "{discipline} cannot be confirmed until this Question is answered."
 msgstr "{discipline} cannot be confirmed until this Question is answered."
+
+#: src/takeoff/acts.tsx
+msgid "Step 1 could not be reloaded, so the confirmed count may be behind. Reload the page to see it."
+msgstr "Step 1 could not be reloaded, so the confirmed count may be behind. Reload the page to see it."
 
 #: src/takeoff/words.tsx
 msgid "Sanitary fixture details"
@@ -1227,6 +1227,10 @@ msgstr "A view counts once it is assigned to a step that will read it, or exclud
 msgid "{tag} answered. The file is set aside and marked for Vextrus to look at."
 msgstr "{tag} answered. The file is set aside and marked for Vextrus to look at."
 
+#: src/takeoff/acts.tsx
+msgid "An untitled sheet in {file}, laid out in the drawing"
+msgstr "An untitled sheet in {file}, laid out in the drawing"
+
 #: src/takeoff/words.tsx
 msgid "In a file, not on the drawing list"
 msgstr "In a file, not on the drawing list"
@@ -1291,6 +1295,10 @@ msgstr "{count} with no Discipline"
 #: src/takeoff/SheetList.tsx
 msgid "found; no drawing list; numbering runs {range}; {twice} twice"
 msgstr "found; no drawing list; numbering runs {range}; {twice} twice"
+
+#: src/takeoff/acts.tsx
+msgid "an untitled sheet in {file}, laid out in the drawing"
+msgstr "an untitled sheet in {file}, laid out in the drawing"
 
 #: src/takeoff/questionWords.tsx
 msgid "rev {mark}"
@@ -1377,6 +1385,10 @@ msgstr "What the QS has left, in order"
 msgid "The mechanical (HVAC) drawing list"
 msgstr "The mechanical (HVAC) drawing list"
 
+#: src/takeoff/acts.tsx
+msgid "Undone: {words}. Step 1 could not be reloaded, so the confirmed count may be behind. Reload the page to see it."
+msgstr "Undone: {words}. Step 1 could not be reloaded, so the confirmed count may be behind. Reload the page to see it."
+
 #: src/takeoff/Step1Inspector.tsx
 msgid "{name}, {date}, {time}"
 msgstr "{name}, {date}, {time}"
@@ -1446,10 +1458,6 @@ msgstr "Enter confirms it and opens the next open sheet."
 msgid "{tag} answered. {Sheet} stays in the count as missing."
 msgstr "{tag} answered. {Sheet} stays in the count as missing."
 
-#: src/takeoff/acts.tsx
-msgid "Step 1 could not be reloaded, so its Count may be behind. Reload the page to see the current Count."
-msgstr "Step 1 could not be reloaded, so its Count may be behind. Reload the page to see the current Count."
-
 #: src/takeoff/Step1Inspector.tsx
 msgid "None: no PDF was added to the Drawing Set"
 msgstr "None: no PDF was added to the Drawing Set"
@@ -1473,6 +1481,10 @@ msgstr "Each has a number and title from its title block and is on its drawing l
 #: src/takeoff/acts.tsx
 msgid "Nothing undone: your last change was not made. Press Ctrl Z again to undo the one before it."
 msgstr "Nothing undone: your last change was not made. Press Ctrl Z again to undo the one before it."
+
+#: src/takeoff/Bar.tsx
+msgid "{name} has neither a number nor a title in its title block"
+msgstr "{name} has neither a number nor a title in its title block"
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "Confirmed by {name} (Vextrus), {date}"
@@ -1713,6 +1725,10 @@ msgstr "floor to floor"
 msgid "Coverage has a view that is neither assigned nor excluded"
 msgstr "Coverage has a view that is neither assigned nor excluded"
 
+#: src/takeoff/acts.tsx
+msgid "An untitled sheet in {file}, layout “{layout}”"
+msgstr "An untitled sheet in {file}, layout “{layout}”"
+
 #: src/takeoff/Step1Inspector.tsx
 msgid "layout “<0/>”"
 msgstr "layout “<0/>”"
@@ -1866,10 +1882,6 @@ msgstr "Shear wall details"
 #: src/takeoff/Step1Screen.tsx
 msgid "none"
 msgstr "none"
-
-#: src/takeoff/Bar.tsx
-msgid "{name} has one source: its title block, with no number or title"
-msgstr "{name} has one source: its title block, with no number or title"
 
 #: src/takeoff/Bar.tsx
 msgid "Step 1 is confirmed: every sheet is confirmed or excluded, and Coverage has none unaccounted"
@@ -2096,10 +2108,6 @@ msgstr "Podium"
 #: src/takeoff/words.tsx
 msgid "Details"
 msgstr "Details"
-
-#: src/takeoff/acts.tsx
-msgid "An untitled sheet in {file}"
-msgstr "An untitled sheet in {file}"
 
 #: src/takeoff/questionWords.tsx
 msgid "Keep {kept} ({date}); leave the other {others, plural, one {# copy} other {# copies}} out as superseded"
@@ -2443,6 +2451,10 @@ msgstr "Vextrus Engineer"
 msgid "Excluded by {name}, {date}: {reason}"
 msgstr "Excluded by {name}, {date}: {reason}"
 
+#: src/takeoff/acts.tsx
+msgid "Undone: <0/>. Step 1 could not be reloaded, so the confirmed count may be behind. Reload the page to see it."
+msgstr "Undone: <0/>. Step 1 could not be reloaded, so the confirmed count may be behind. Reload the page to see it."
+
 #: src/takeoff/Step1Inspector.tsx
 msgid "A Proposal counts toward nothing until the QS confirms it."
 msgstr "A Proposal counts toward nothing until the QS confirms it."
@@ -2451,10 +2463,6 @@ msgstr "A Proposal counts toward nothing until the QS confirms it."
 #: src/takeoff/Step1Inspector.tsx
 msgid "Discipline"
 msgstr "Discipline"
-
-#: src/takeoff/acts.tsx
-msgid "Undone: <0/>. Step 1 could not be reloaded, so its Count may be behind. Reload the page to see the current Count."
-msgstr "Undone: <0/>. Step 1 could not be reloaded, so its Count may be behind. Reload the page to see the current Count."
 
 #: src/takeoff/words.tsx
 msgid "Riser diagram"

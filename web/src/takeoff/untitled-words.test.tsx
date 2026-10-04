@@ -1,5 +1,6 @@
 /*
- * #167's words gate (F1): a sheet with neither number nor title is named "an untitled sheet in <file>",
+ * #167's words gate (F1): a sheet with neither number nor title is named "an untitled sheet in <file>, layout
+ * “<layout>”" (or ", laid out in the drawing"; review 1's finding 1: two such sheets on two layouts read the same),
  * and that name broke every sentence built for a sheet number: lowercase at a sentence's start, and a
  * possessive that names the file ("an untitled sheet in KR-ARC-R0.dwg’s kind"). The class check: every
  * option key of every Question code, its toast, its card's first line and the withdrawn card's words,
@@ -17,6 +18,7 @@ import { englishMessages } from '@/i18n/catalogues'
 import { ENGLISH } from '@/i18n/languages'
 import { FakeAnswers, type Question21c } from '@/acceptance/t156/answer.fixture'
 import { SheetName } from './acts'
+import { OneSourceWhat } from './Bar'
 import type { QuestionEntry } from './model'
 import { AnsweredWords, AnswerNote, Answering, QuestionBody, Trace, useKindLine, type CardContext } from './questionWords'
 
@@ -64,8 +66,18 @@ describe('an untitled sheet’s name in every sentence (#167 words gate, F1)', (
   it('names it by its file, capitalised at a sentence’s start', () => {
     const fake = new FakeAnswers()
     const sheet = untitled(fake) as unknown as QuestionEntry['holds'][number]
-    expect(words(<SheetName sheets={[sheet]} />)).toBe('an untitled sheet in KR-ARC-R0.dwg')
-    expect(words(<SheetName sheets={[sheet]} start />)).toBe('An untitled sheet in KR-ARC-R0.dwg')
+    expect(words(<SheetName sheets={[sheet]} />)).toBe('an untitled sheet in KR-ARC-R0.dwg, laid out in the drawing')
+    expect(words(<SheetName sheets={[sheet]} start />)).toBe('An untitled sheet in KR-ARC-R0.dwg, laid out in the drawing')
+  })
+
+  it('tells two untitled sheets of one file apart by their layouts (review 1, finding 1)', () => {
+    const fake = new FakeAnswers()
+    const sheet = untitled(fake) as unknown as QuestionEntry['holds'][number]
+    const one = { ...sheet, layout: 'Layout1' }
+    const two = { ...sheet, layout: 'Layout2' }
+    expect(words(<SheetName sheets={[one]} />)).toBe('an untitled sheet in KR-ARC-R0.dwg, layout “Layout1”')
+    expect(words(<SheetName sheets={[two]} start />)).toBe('An untitled sheet in KR-ARC-R0.dwg, layout “Layout2”')
+    expect(words(<OneSourceWhat sheet={two} name={<SheetName sheets={[two]} start />} />)).toBe('An untitled sheet in KR-ARC-R0.dwg, layout “Layout2” has neither a number nor a title in its title block')
   })
 
   it('never opens a sentence in lowercase on it, puts a possessive on it or quotes nothing, for any option of any Question', () => {

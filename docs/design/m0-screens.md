@@ -1029,15 +1029,17 @@ options; names and numbers invented; 6.7 shows each filled in):
 | Boundary storey (amendment 2) | "Does GROUND FLOOR BEAM LAYOUT mean the members at ground-floor level?" | 1 "Members at floor level" · 2 "The storey, floor to floor" · 3 "Keep open, ask the consultant" |
 | Floors that do not run, typical floor, a level title (6.7) | as 6.7 | as 6.7 |
 
-A sheet with neither number nor title is named by its file, never by an empty quotation: "an
-untitled sheet in NT-ARC-R1.dwg" ("A sheet in NT-ARC-R1.dwg has neither a number nor a title in its title
-block."); a numbered sheet with no title by its number ("It has no title, so nothing says which kind of
-sheet A-05 is."). At a sentence's start it reads "An untitled sheet in NT-ARC-R1.dwg"; a possessive is
-never put on a sheet's name ("The kind of S-07 is Plan", not "S-07’s kind").
+A sheet with neither number nor title is named by its file and its layout, never by an empty quotation:
+"an untitled sheet in NT-ARC-R1.dwg, layout “Layout2”" (", laid out in the drawing" when it has no layout),
+so two in one file read apart ("A sheet in NT-ARC-R1.dwg has neither a number nor a title in its title
+block."; the bar: "… has neither a number nor a title in its title block"); a numbered sheet with no title by
+its number ("It has no title, so nothing says which kind of sheet A-05 is."). At a sentence's start it reads
+"An untitled sheet in …"; a possessive is never put on a sheet's name ("The kind of S-07 is Plan", not
+"S-07’s kind").
 
-An act's toast shows once Step 1 has reloaded, with the Count it changed. If Step 1 cannot reload after an
-act or an undo, the toast adds: "Step 1 could not be reloaded, so its Count may be behind. Reload the page
-to see the current Count."
+An act's toast shows once Step 1 has reloaded, with the confirmed count it changed. If Step 1 cannot reload
+after an act or an undo, the toast adds: "Step 1 could not be reloaded, so the confirmed count may be behind.
+Reload the page to see it."
 
 "Keep open, ask the consultant" keeps the Question open, and Step 1 for that Discipline cannot be
 confirmed until it is answered; "Not sent yet" answers it, and the sheet stays in the count as
