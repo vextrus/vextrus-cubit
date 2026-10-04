@@ -683,7 +683,7 @@ const SECRET_PATH =
 const SECRET_BASENAMES = [".pgpass", ".bashrc", ".bash_profile", ".bash_login", ".bash_history", ".profile", ".zshrc", ".zprofile", ".zshenv", ".netrc", ".git-credentials", ".credentials.json"];
 const ENV_ACCESS = /\bos\.environ\b|\bgetenv\b|\bprocess\.env\b|\bENV\s*\[|\$ENV\{|\bDeno\.env\b|\bBun\.env\b|\benviron\b/;
 const ENV_DUMP =
-  /print\s*\(\s*(?:dict\s*\(\s*)?os\.environ|os\.environ\s*\)|\.items\s*\(\s*\)|JSON\.stringify\s*\(\s*process\.env|console\.\w+\s*\(\s*process\.env\s*[,)]|Object\.(?:entries|values|keys)\s*\(\s*process\.env|util\.inspect\s*\(\s*process\.env/;
+  /print\s*\(\s*(?:dict\s*\(\s*)?os\.environ|os\.environ\s*\)|environ\.items\s*\(|JSON\.stringify\s*\(\s*process\.env|console\.\w+\s*\(\s*process\.env\s*[,)]|Object\.(?:entries|values|keys)\s*\(\s*process\.env|util\.inspect\s*\(\s*process\.env/;
 
 /** A shell glob word (`~/.pg*`) that could name a secret file. */
 function globNamesSecret(word) {

@@ -393,3 +393,9 @@ test("f2 bypass: an annotated tag or a submodule push from the main checkout is 
   assert.equal(seen("git push origin v1", { project: repo, main: repo, cwd: repo }), "LEAK_STAMP");
   assert.equal(seen("git push --recurse-submodules=on-demand origin HEAD:refs/heads/x", { project: repo, main: repo, cwd: repo }), "LEAK_STAMP");
 });
+
+test("f2 over-blocking: a script that copies the environment and loops over a dict passes", () => {
+  const command = "python3 - <<'EOF'\nimport os, subprocess\nenv = os.environ.copy()\nfor k, v in {'a': 1}.items():\n    print(k)\nsubprocess.run(['true'], env=env)\nEOF";
+  assert.equal(seen(command), null);
+  assert.equal(seen(`python3 -c "import os; print(os.environ)"`), "SECRET_PRINTED");
+});
