@@ -34,9 +34,10 @@ a sheet (13's register) kept per Discipline, and 19b's register Check run (`Chec
 import uuid
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import replace
-from typing import Any
+from typing import Any, cast
 
 from engine.check import register as register_check
+from engine.messages import Message
 from engine.messages import conflicts as conflict_codes
 from engine.messages import register_check as list_codes
 from engine.read import ReadArtefact
@@ -599,8 +600,12 @@ def _register(
     fired = [r for r in results if r.outcome == CheckOutcome.FIRED and r.finding is not None]
     by_sheet = {id(c): i for i, c in enumerate(sheets)}
     findings = []
+    gaps = [r.finding for r in fired if r.finding and r.finding["code"] == list_codes.GAP.code]
+    findings += _gaps(project_id, listed, gaps, proposal_of, finder.Numbers(conventions, recognisers))
     for result in fired:
         assert result.finding is not None
+        if result.finding["code"] == list_codes.GAP.code:
+            continue  # asked with its Discipline's other gaps, above
         subject = result.subject
         if isinstance(subject, RegisterEntry):
             subject = subject.sheet
@@ -623,6 +628,9 @@ def _register(
             else [],
         )
         findings.append((result.finding, [sheet.id] if sheet else [], question_id))
+    step1.retire_questions(
+        project_id, (list_codes.GAP.code, list_codes.GAPS.code), [q for _, _, q in findings]
+    )
     step1.record_check_run(
         project_id,
         register_check.CODE,
@@ -632,3 +640,47 @@ def _register(
         findings=findings,
     )
     return len(fired)
+
+
+def _gaps(
+    project_id: uuid.UUID,
+    listed: Sequence[drawings.SheetView],
+    gaps: Sequence[Message],
+    proposal_of: Mapping[uuid.UUID, uuid.UUID],
+    numbers: finder.Numbers,
+) -> list[tuple[Message, list[uuid.UUID], uuid.UUID]]:
+    """Every gap of one Discipline's numbering asked as one `gaps` Question (#229, the owner's ruling:
+    "all of one Discipline's gaps are asked as one Question"), holding only the sheets beside its gaps
+    (each gap's `after` and `before`, by their numbers, not yet decided) while it is open; each gap a
+    finding of the Check's run, its subjects those two sheets', its Question the merged one."""
+    of_discipline: dict[str, list[Message]] = {}
+    for gap in gaps:
+        of_discipline.setdefault(str(gap["params"]["discipline"]), []).append(gap)
+    found: list[tuple[Message, list[uuid.UUID], uuid.UUID]] = []
+    for discipline, mine in of_discipline.items():
+        numbered = [s for s in listed if s.discipline == discipline and s.number]
+        beside = []
+        for gap in mine:
+            ends = {numbers.key(str(gap["params"][end]), discipline) for end in ("after", "before")}
+            beside.append([s.id for s in numbered if numbers.key(s.number or "", discipline) in ends])
+        undecided = {s.id for s in numbered if not s.decision}
+        held = dict.fromkeys(i for ids in beside for i in ids if i in undecided and i in proposal_of)
+        question_id = step1.raise_question(
+            project_id,
+            "check",
+            _asked(discipline, mine),
+            discipline=discipline,
+            options=options(CHECK_OPTIONS),
+            check_code=register_check.CODE,
+            blocks=[proposal_of[i] for i in held],
+        )
+        found += [(gap, ids, question_id) for gap, ids in zip(mine, beside, strict=True)]
+    return found
+
+
+def _asked(discipline: str, gaps: Sequence[Message]) -> Message:
+    """The `gaps` Question's words: its Discipline and each gap's two numbers and count missing. Its
+    `gaps` param is a list, which `Param` (a scalar) does not name: the cast says so."""
+    each = [{k: gap["params"][k] for k in ("after", "before", "missing")} for gap in gaps]
+    asked = {"code": list_codes.GAPS.code, "params": {"discipline": discipline, "gaps": each}}
+    return cast(Message, asked)

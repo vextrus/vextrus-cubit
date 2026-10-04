@@ -143,9 +143,10 @@ class ProposalView:
     `question_answer` when answering a Question confirmed or left it out); None while undecided."""
     agrees: bool = False
     """Two sources agree on it (m0-screens §5, "What 'agrees' means"): its number and title from its
-    title block, and its Discipline's drawing list naming it, or, with no list, its Discipline's
-    numbering running without a gap and its Plot page matched; never while held or in an open
-    Question. Only such a sheet joins the bulk act (6.4); the others are Proposals "with one source"."""
+    title block, and its Discipline's drawing list naming it, or, with no list, its Plot page matched
+    with its number and title read alike (#229; a numbering gap holds only the sheets beside it, by
+    its open Question); never while held or in an open Question. Only such a sheet joins the bulk
+    act (6.4); the others are Proposals "with one source"."""
     decided_by_role: str | None = None
     """The actor's role in the Developer ("qs", "vextrus_engineer"): "Nusrat Jahan, QS" (6.6)."""
     decided_with: int = 0
@@ -410,8 +411,10 @@ def _agreeing(
         if standing is not None and not lists.disagree:
             listed = {numbers.key(n, discipline) for n in _numbers(standing)}
             second = {s.id for s in mine if s.number and numbers.key(s.number, discipline) in listed}
-        elif standing is None and _without_gap(numbers, discipline, everyone):
-            second = {s.id for s in mine if s.plot.page is not None}
+        elif standing is None:
+            # A matched Plot page whose number and title read alike, gap or no gap (#229): a gap
+            # holds only the sheets beside it, through its open Question's links.
+            second = {s.id for s in mine if s.plot.page is not None and s.plot.title_alike}
         else:
             second = set()
         for sheet in mine:
@@ -426,17 +429,6 @@ def _agreeing(
             ):
                 agreeing.add(sheet.id)
     return agreeing
-
-
-def _without_gap(numbers: Numbers, discipline: str, sheets: Sequence[drawings.SheetView]) -> bool:
-    """Every number from the Discipline's first to its last present once, in one series (a sheet
-    with no number sits out: it never agrees itself)."""
-    parts = [numbers.parts_in(s.number, discipline) for s in sheets if s.number]
-    if not parts or any(p is None for p in parts):
-        return False
-    series = {(p[0], p[2]) for p in parts if p is not None}
-    running = sorted(p[1] for p in parts if p is not None)
-    return len(series) == 1 and running == list(range(running[0], running[0] + len(running)))
 
 
 def _proposal_view(

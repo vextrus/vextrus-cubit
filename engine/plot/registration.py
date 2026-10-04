@@ -1,6 +1,7 @@
 """Registering the consultant's Plot: each PDF page matched to the sheet it plots, and placed on it.
 
     match(pages, sheets, geometry, plots) -> list[PlotMatch]     # the harness's `plot` stage
+    reads_title(page, title) -> bool                             # #229: the page reads the title
 
 `pages` are 12's (`engine.read.pdf.page_text`), every PDF's of the set; `sheets` are 13's; `geometry[i]`
 is `sheets[i]`'s render buffers (11's `buffers.build`), or none where they were not built: the sheet's
@@ -225,6 +226,26 @@ def mention(page: Page, number: str) -> tuple[bool, float] | None:
             found = (whole, _height(item))
             best = found if best is None or found > best else best
     return best
+
+
+def reads_title(page: Page, title: str | None) -> bool:
+    """Whether the page's text reads the sheet's title (#229: a matched page is the sheet's second
+    source only when its number and its title read alike): every word of the title, in 13's normal
+    form, is a word of the page's text, the title block's lines and the body's alike (a title drawn
+    over two lines is two items). A sheet with no title, and a page with no text (one matched by its
+    ink), read no title alike."""
+    wanted = _words(title)
+    if not wanted:
+        return False
+    printed: set[str] = set()
+    for item in page.items:
+        printed |= _words(item.text)
+    return wanted <= printed
+
+
+def _words(text: str | None) -> set[str]:
+    key = normal(text)
+    return {word for word in _WORDS.split(key) if word} if key is not None else set()
 
 
 def _reason(code: object) -> str:
