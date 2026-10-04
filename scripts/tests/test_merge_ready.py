@@ -255,3 +255,93 @@ def test_a_fix_on_a_later_clean_merge_outranks_an_older_pass(tmp_path: Path) -> 
         facts, ledger_dir=ledger, repo=tmp_path, scan=lambda k, t: 0, issue_open=lambda n: True
     )
     assert any("FIX" in problem for problem in found)
+
+
+class Git:
+    """A tmp repo: main, and the PR's branch whose reviewed head R has a ledger PASS (comment 7)."""
+
+    def __init__(self, root: Path) -> None:
+        import subprocess
+
+        self.root, self.run = root, subprocess.run
+        root.mkdir()
+        self("init", "-q", "-b", "main")
+        for key, value in (("user.email", "t@example.invalid"), ("user.name", "t")):
+            self("config", key, value)
+        self("config", "commit.gpgsign", "false")
+        self.commit({"sec.py": "check=False\n", "f.py": "base\n"})
+        self("checkout", "-q", "-b", "pr")
+        self.early = self.commit({"f.py": "evil()\n"})
+        self.reviewed = self.commit({"f.py": "good()\n"})
+        self("checkout", "-q", "main")
+        self.base = self.commit({"sec.py": "check=True\n"})
+        self("checkout", "-q", "pr")
+
+    def __call__(self, *args: str, check: bool = True) -> str:
+        done = self.run(["git", "-C", str(self.root), *args], capture_output=True, text=True)
+        assert done.returncode == 0 or not check, done.stderr
+        return done.stdout.strip()
+
+    def commit(self, files: dict[str, str]) -> str:
+        for name, text in files.items():
+            (self.root / name).write_text(text)
+            self("add", name)
+        self("commit", "-q", "-m", "change")
+        return self("rev-parse", "HEAD")
+
+    def problems(self, head: str, ledger: Path) -> list[str]:
+        from scripts.merge_ready import review_problems
+
+        record = json.loads(next(ledger.glob("105-*.json")).read_text()) | {"head": self.reviewed}
+        for path in ledger.glob("105-*.json"):
+            path.unlink()
+        (ledger / f"105-{self.reviewed}.json").write_text(json.dumps(record))
+        marker = f"<!-- vextrus-review round=1 head={self.reviewed} verdict=PASS findings=0 -->"
+        facts = {
+            "pr": 105,
+            "head": head,
+            "base": self.base,
+            "title": "t",
+            "body": "",
+            "branch": "pr",
+            "comments": [{"id": 7, "body": marker}],
+            "files": [],
+            "diff": "",
+            "messages": [],
+        }
+        return review_problems(
+            facts, ledger_dir=ledger, repo=self.root, scan=lambda k, t: 0, issue_open=lambda n: True
+        )
+
+
+def test_only_a_clean_two_parent_merge_of_main_extends_a_pass(tmp_path: Path) -> None:
+    """The refuter's attacks on gate (a): an octopus merge bringing back a pre-review commit, a merge
+    keeping our side (`-s ours`) and a hand-resolved conflict all show nothing under `diff-tree --cc`."""
+    repo = Git(tmp_path / "repo")
+    ledger = tmp_path / "ledger"
+    reviewed(ledger)
+    repo("merge", "-q", "--no-edit", "main")
+    assert repo.problems(repo("rev-parse", "HEAD"), ledger) == []
+
+    repo("reset", "-q", "--hard", repo.reviewed)
+    repo("merge", "-q", "--no-edit", "-s", "ours", "main")
+    [problem] = repo.problems(repo("rev-parse", "HEAD"), ledger)
+    assert "re-review the resolution" in problem
+
+    repo("reset", "-q", "--hard", repo.reviewed)
+    tree = repo("rev-parse", f"{repo.early}^{{tree}}")
+    octopus = repo(
+        "commit-tree", tree, "-p", repo.reviewed, "-p", repo.base, "-p", repo.early, "-m", "m"
+    )
+    [problem] = repo.problems(octopus, ledger)
+    assert "not a merge of main" in problem
+
+    repo("checkout", "-q", "main")
+    repo.base = repo.commit({"f.py": "main's\n"})
+    repo("checkout", "-q", "pr")
+    repo("merge", "-q", "--no-edit", "main", check=False)
+    (repo.root / "f.py").write_text("good()\n")
+    repo("add", "f.py")
+    repo("commit", "-q", "--no-edit")
+    [problem] = repo.problems(repo("rev-parse", "HEAD"), ledger)
+    assert "re-review the resolution" in problem

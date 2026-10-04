@@ -75,7 +75,7 @@ REVIEW_QUERY = """
 query($owner: String!, $name: String!, $pr: Int!) {
   repository(owner: $owner, name: $name) {
     pullRequest(number: $pr) {
-      headRefOid headRefName baseRefOid title body
+      headRefOid headRefName baseRefOid baseRefName title body
       comments(last: 100) { nodes { databaseId body } }
       files(first: 100) { nodes { path } }
       commits(last: 250) { nodes { commit { message } } }
@@ -169,6 +169,7 @@ def fetch_review(pr: int) -> dict[str, Any]:
         "pr": pr,
         "head": pull["headRefOid"],
         "base": pull["baseRefOid"],
+        "base_branch": pull["baseRefName"],
         "title": pull["title"],
         "body": pull["body"] or "",
         "branch": pull["headRefName"],
@@ -349,22 +350,40 @@ def _git(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
 
 
 def merges_since(repo: Path, reviewed: str, head: str, base: str) -> str | None:
-    """None when every commit since the reviewed head is a clean merge of main; else why not."""
+    """None when every commit from the reviewed head to this head is a clean merge of main; else why not.
+
+    Each commit must have exactly two parents: one the reviewed head (or a merge already checked), the
+    other an ancestor of main; and its tree must be the one `git merge-tree` makes from those two with no
+    conflict. So an octopus merge, a merge naming an older commit of the PR, a merge that keeps one side
+    (`-s ours`) and a hand-resolved conflict are all unreviewed code (`git diff-tree --cc` misses the
+    last three when the result copies a parent's file whole)."""
     if _git(repo, "merge-base", "--is-ancestor", reviewed, head).returncode != 0:
         return "the reviewed head is not an ancestor of the PR's head"
-    listed = _git(repo, "rev-list", "--parents", head, "--not", reviewed, base)
+    listed = _git(
+        repo, "rev-list", "--topo-order", "--reverse", "--parents", head, "--not", reviewed, base
+    )
     if listed.returncode != 0:
         return "the commits since the reviewed head cannot be read"
+    checked = {reviewed}
     for row in listed.stdout.splitlines():
         commit, *parents = row.split()
-        if len(parents) < 2:
+        ours = [parent for parent in parents if parent in checked]
+        theirs = [parent for parent in parents if parent not in checked]
+        if len(parents) != 2 or len(ours) != 1 or len(theirs) != 1:
             return f"commit {commit[:12]} since the reviewed head is not a merge of main: review it"
-        if not any(_git(repo, "merge-base", "--is-ancestor", p, base).returncode == 0 for p in parents):
+        if _git(repo, "merge-base", "--is-ancestor", theirs[0], base).returncode != 0:
             return f"merge {commit[:12]} since the reviewed head does not merge main: review it"
-        resolution = _git(repo, "diff-tree", "--cc", "--no-commit-id", "--name-only", "-r", commit)
-        if resolution.returncode != 0 or resolution.stdout.strip():
+        clean = _git(repo, "merge-tree", "--write-tree", "--no-messages", ours[0], theirs[0])
+        tree = _git(repo, "rev-parse", f"{commit}^{{tree}}")
+        if clean.returncode != 0:
             return f"merge {commit[:12]} resolved a conflict by hand: re-review the resolution"
-    return None
+        if tree.returncode != 0 or clean.stdout.split()[:1] != tree.stdout.split():
+            return (
+                f"merge {commit[:12]} differs from the clean merge of its parents: re-review the "
+                "resolution"
+            )
+        checked.add(commit)
+    return None if head in checked else "the PR's head is not reached by the merges checked: review it"
 
 
 def ledger_problems(facts: dict[str, Any], ledger_dir: Path, repo: Path) -> list[str]:
@@ -455,6 +474,8 @@ def main(
     review = facts(pr)
     if review["head"] != pull["headRefOid"]:
         found.append("the head moved while reading the PR: run again")
+    if review.get("base_branch", "main") != "main":
+        found.append(f"the PR's base is {review['base_branch']}, not main")
     found += review_problems(
         review,
         ledger_dir=default_ledger_dir() if ledger_dir is None else ledger_dir,
