@@ -50,10 +50,14 @@ def syntax_problem(path: Path) -> str | None:
     node = shutil.which("node")
     if node is None:
         return "node is not on PATH: cannot check the syntax"
-    # As an ES module: workflow scripts use `export` and top-level `await`.
+    # The runner takes `export const meta` off and runs the body as an async function (top-level
+    # `await` and `return`), so the check parses it the same way.
+    text = re.sub(
+        r"^export\s+const\s+meta\b", "const meta", path.read_text(errors="replace"), flags=re.M
+    )
     done = subprocess.run(
         [node, "--input-type=module", "--check"],
-        input=path.read_text(errors="replace"),
+        input=f"(async () => {{\n{text}\n}})()\n",
         capture_output=True,
         text=True,
         check=False,
