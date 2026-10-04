@@ -754,3 +754,69 @@ def test_a_pass_filed_under_a_tag_object_is_refused(tmp_path: Path) -> None:
     _put(walks, c2, _verdict(c2, "PASS", "2026-10-05T02:00:00Z"))
 
     assert ready.ready("main", walks_dir=walks, repo=repo).ok is False
+
+
+# ready.py, the fourth refuter pass ---------------------------------------------------------------
+
+
+def test_a_disciplines_row_listed_twice_is_refused(tmp_path: Path) -> None:
+    repo, walks, _, c2 = _two_passes(tmp_path)
+    walk = _walk(sha=c2)
+    walk["sets"]["set-a"]["questions"]["architectural"] = {"low_confidence": 1}
+    walk["sets"]["set-a"]["burden"]["architectural"] = {
+        **walk["sets"]["set-a"]["burden"]["structural"],
+        "false_continuation_questions": 7,
+    }
+    failing = verdict.evaluate(
+        walk,
+        EXPECT,
+        LAYER,
+        ref="main",
+        leak_hits=0,
+        started_at=TIMES["started_at"],
+        finished_at="2026-10-05T02:00:00Z",
+    )
+    assert failing["result"] == "FAIL"
+    forged = {**failing, "result": "PASS"}
+    forged["checks"] = [{**c, "status": "PASS"} for c in failing["checks"]]
+    forged["burden"] = [failing["burden"][1], failing["burden"][1]]  # structural twice, no architectural
+    _put(walks, c2, forged)
+
+    assert ready.ready("main", walks_dir=walks, repo=repo).ok is False
+
+
+def test_a_submodule_change_cannot_hide_behind_config(tmp_path: Path) -> None:
+    repo, walks, _, c2 = _two_passes(tmp_path)
+    _put(walks, c2, _verdict(c2, "PASS", "2026-10-05T02:00:00Z"))
+    _git(repo, "update-index", "--add", "--cacheinfo", f"160000,{c2},engine/core")
+    _git(repo, "commit", "-q", "--no-verify", "-m", "a submodule")
+    _git(repo, "config", "diff.ignoreSubmodules", "all")
+
+    assert ready.ready("main", walks_dir=walks, repo=repo).ok is False
+
+
+def test_a_fifo_in_a_walk_folder_is_malformed_not_a_hang(tmp_path: Path) -> None:
+    import os
+
+    repo, walks, _, c2 = _two_passes(tmp_path)
+    _put(walks, c2, _verdict(c2, "PASS", "2026-10-05T02:00:00Z"))
+    os.mkfifo(walks / c2 / "verdict-z.json")
+
+    with pytest.raises(ready.Unreadable):
+        ready.ready("main", walks_dir=walks, repo=repo)
+
+
+def test_an_older_pass_off_the_refs_history_is_not_counted_as_mains(tmp_path: Path) -> None:
+    repo, (c1,) = _repo(tmp_path, ["vextrus/a.py"])
+    _git(repo, "checkout", "-q", "-b", "feature")
+    (repo / "docs").mkdir()
+    (repo / "docs" / "f.md").write_text("f")
+    _git(repo, "add", "--", "docs/f.md")
+    _git(repo, "commit", "-q", "--no-verify", "-m", "f")
+    feature = _git(repo, "rev-parse", "HEAD")
+    _git(repo, "checkout", "-q", "main")
+    walks = tmp_path / "walks"
+    _put(walks, feature, _verdict(feature, "PASS", "2026-10-05T01:00:00Z"))
+    _put(walks, c1, _verdict(c1, "PASS", "2026-10-05T02:00:00Z"))
+
+    assert ready.ready("main", walks_dir=walks, repo=repo).ok is False

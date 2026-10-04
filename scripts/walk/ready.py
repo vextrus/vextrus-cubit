@@ -77,6 +77,7 @@ def _git(repo: Path, *args: str) -> str:
             text=True,
             check=False,
             timeout=60,
+            env=GIT_ENV,
         )
     except (OSError, subprocess.TimeoutExpired) as error:
         raise Unreadable("git could not run") from error
@@ -106,6 +107,10 @@ def consistent(verdict: Mapping[str, Any]) -> bool:
         return False
     if verdict["leak_scan"].get("hits") != 0:
         return False
+    pairs = [(row["set"], row["discipline"]) for row in verdict["burden"]]
+    ids = [finding["id"] for finding in findings]
+    if len(set(pairs)) != len(pairs) or len(set(ids)) != len(ids):
+        return False  # a Discipline's row, or a finding, listed twice
     rows: dict[str, list[Mapping[str, Any]]] = {}
     for row in verdict["burden"]:
         rows.setdefault(row["set"], []).append(row)
@@ -122,6 +127,14 @@ def consistent(verdict: Mapping[str, Any]) -> bool:
     return bool(result_of(verdict) == verdict["result"])
 
 
+GIT_ENV = {
+    **os.environ,
+    # The answer depends on the repository's commits alone: no user or system config (a global
+    # diff.ignoreSubmodules, say) and no replace refs can change what git reports.
+    "GIT_CONFIG_GLOBAL": os.devnull,
+    "GIT_CONFIG_NOSYSTEM": "1",
+    "GIT_NO_REPLACE_OBJECTS": "1",
+}
 SKEW = 600
 """Seconds of clock skew allowed between a commit and the verdict of its walk."""
 HEX_RUN = re.compile(r"[0-9a-fA-F]{40}")
@@ -204,6 +217,8 @@ def _listing(folder: Path) -> list[Path]:
                 path = Path(entry.path)
                 if entry.is_symlink():
                     raise Unreadable("a walk folder holds a link")
+                if not (entry.is_dir(follow_symlinks=False) or entry.is_file(follow_symlinks=False)):
+                    raise Unreadable("a walk folder holds something not a file or folder")
                 found.append(path)
                 if entry.is_dir(follow_symlinks=False):
                     found += _listing(path)
@@ -308,6 +323,11 @@ def ready(ref: str, *, walks_dir: Path, repo: Path) -> Ready:
         return Ready(
             False, f"not walk-ready: {what} ({older.sha[:8]}) stands between the two newest PASSes"
         )
+    if older.sha not in history:
+        return Ready(
+            False,
+            f"not walk-ready: the older PASS ({older.sha[:8]}) is off the ref's first-parent history",
+        )
     if newer.sha not in history:
         return Ready(
             False,
@@ -319,6 +339,7 @@ def ready(ref: str, *, walks_dir: Path, repo: Path) -> Ready:
             "diff",
             "--no-relative",
             "--no-ext-diff",
+            "--ignore-submodules=none",
             "--name-only",
             "--no-renames",
             "-z",
