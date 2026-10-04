@@ -399,3 +399,8 @@ test("f2 over-blocking: a script that copies the environment and loops over a di
   assert.equal(seen(command), null);
   assert.equal(seen(`python3 -c "import os; print(os.environ)"`), "SECRET_PRINTED");
 });
+
+test("f2 bypass: bracket globs name secret files and agent memory too", () => {
+  assert.equal(seen("cat ~/.pg[p]ass"), "SECRET_PRINTED");
+  assert.equal(seen("git add '.claude/agent-memor[y]/'"), "STAGE_DIR");
+});

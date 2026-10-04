@@ -688,8 +688,8 @@ const ENV_DUMP =
 /** A shell glob word (`~/.pg*`) that could name a secret file. */
 function globNamesSecret(word) {
   if (!/[*?[]/.test(word)) return false;
-  const name = basename(word);
-  const pattern = new RegExp(`^${name.replace(/[.+^${}()|\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".")}$`);
+  const name = basename(word).replace(/\[[^\]]*\]?/g, "?");
+  const pattern = new RegExp(`^${name.replace(/[.+^${}()|\\\]]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".")}$`);
   return SECRET_BASENAMES.some((secret) => pattern.test(secret)) || /\.config\/g[*?[]|\.config\/[*?[]/.test(word);
 }
 
@@ -829,8 +829,8 @@ function stagesFolder(g) {
     if (rel.startsWith("..") && !isAbsolute(a) && gitFolder(g) === null) continue;
     if (/(?:^|\/)\.claude\/agent-memory/.test(`/${rel}`)) return true;
     if (glob) {
-      const relGlob = relative(top, resolve(base, a)).split("\\").join("/");
-      const pattern = new RegExp(`^${relGlob.replace(/[.+^${}()|\\]/g, "\\$&").replace(/\*\*/g, "\u0000").replace(/\*/g, "[^/]*").replace(/\?/g, "[^/]").replace(/\u0000/g, ".*")}`);
+      const relGlob = relative(top, resolve(base, a)).split("\\").join("/").replace(/\[[^\]]*\]?/g, "?");
+      const pattern = new RegExp(`^${relGlob.replace(/[.+^${}()|\\\]]/g, "\\$&").replace(/\*\*/g, "\u0000").replace(/\*/g, "[^/]*").replace(/\?/g, "[^/]").replace(/\u0000/g, ".*")}`);
       if ([".claude/agent-memory/x", ".claude/agent-memory-x/x", `${SEED_FOLDER}/x.dwg`].some((path) => pattern.test(path))) return true;
     }
     if (rel === "" || rel === "." || SEED_FOLDER === rel || SEED_FOLDER.startsWith(`${rel}/`) || (glob && `${rel}/`.startsWith(`${SEED_FOLDER}/`))) return true;
@@ -1281,6 +1281,8 @@ const BASH_RULES = [
     rule: "GH_BODY",
     closed: true,
     fires: (_parts, _command, ctx) => {
+      // (_command is read when the reader could not follow the command.)
+      if (ctx.analysis.truncated && /\bgh\b[\s\S]*(?:--body|\s-[bF]\b|--notes|\bapi\b)|\bcurl\b[\s\S]*github/.test(flatten(_command))) return { rule: "GH_BODY", reason: "This command is too nested to judge; run the GitHub write alone, with a scanned --body-file." };
       if (webGitHubWrite(ctx.analysis)) return { rule: "GH_BODY", reason: "A write to GitHub's API through curl or wget is not judged: use `gh` with a scanned `--body-file`." };
       for (const cmd of ctx.analysis.cmds) {
         const { inline, files } = ghBodies(cmd);
@@ -1434,11 +1436,13 @@ function judge(tool, input, eventCwd) {
   if (tool === "Bash") {
     const command = typeof input.command === "string" ? input.command : "";
     const parts = segments(command);
-    let analysis = { cmds: [], codes: [], units: [command] };
+    // A command the reader cannot follow keeps the text-only rules and counts as unjudgeable: the push and
+    // GitHub-body rules refuse it (they fail closed).
+    let analysis = { cmds: [], codes: [], units: [command], truncated: true };
     try {
       analysis = analyse(command, eventCwd);
     } catch {
-      // An unreadable command keeps the original, text-only rules.
+      analysis.truncated = true;
     }
     const ctx = { analysis, cwd: eventCwd };
     for (const { rule, fires, reason, closed } of BASH_RULES) {
