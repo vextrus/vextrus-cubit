@@ -51,6 +51,8 @@ def test_a_heading_its_words_after_note_is_a_notes_heading() -> None:
     """ "NOTE ON LAPS :" names no other kind's words but leads with the notes heading word."""
     assert views.describe("NOTE ON LAPS :").kind is ViewKind.NOTES
     assert views.describe("NOTES ON SECTION Q-Q").kind is ViewKind.NOTES
+    assert views.describe("NOTE 2").kind is None  # a callout naming a note (review 1, loop 2)
+    assert views.describe("NOTE THE SECTION BELOW").kind is ViewKind.SECTION  # a sentence
     assert views.describe("SECTION A-A (SEE NOTE 3)").kind is ViewKind.SECTION  # led by another kind
 
 
@@ -276,10 +278,9 @@ def test_a_notes_block_takes_no_scale_line_of_a_detail_beside_it() -> None:
     assert notes.box.x1 <= alone.box.x1 + 1.0
 
 
-def test_a_block_of_notes_inside_a_drawing_is_a_view_and_leaves_the_drawing_whole() -> None:
-    """Refuter 2, loop 2 (55, kept by design): a notes block standing within a drawing's extent (as
-    a slab's bar notes stand in its plan) is a notes view of its own; the drawing's box and kind are
-    as they were without it."""
+def test_a_short_note_within_a_drawing_is_the_drawings_annotation() -> None:
+    """Refuter 2 and review 1, loop 2: a two-line note standing within a titled plan heads no block:
+    no notes view, the plan as it was without it."""
     d = Sheets()
     plan_with_labels(d)
     (alone,) = drawn(d, one_sheet(d))
@@ -289,4 +290,77 @@ def test_a_block_of_notes_inside_a_drawing_is_a_view_and_leaves_the_drawing_whol
     found = drawn(d, one_sheet(d))
     (plan,) = [v for v in found if v.kind is ViewKind.PLAN]
     assert plan.box.to_json() == alone.box.to_json()
-    assert [v.title for v in found if v.kind is ViewKind.NOTES] == ["NOTE: SEE DETAIL Q FOR SLEEVES"]
+    assert not [v for v in found if v.kind is ViewKind.NOTES]
+
+
+def test_a_block_of_notes_within_a_drawing_is_a_view_and_leaves_the_drawing_whole() -> None:
+    """A block of four lines in one text standing within a titled plan (a slab's notes in its plan):
+    a notes view of its own, the plan's box as it was."""
+    d = Sheets()
+    plan_with_labels(d)
+    (alone,) = drawn(d, one_sheet(d))
+    d = Sheets()
+    plan_with_labels(d)
+    block = "NOTE ON LAPS:\\P(A) PAINT EVERY RAIL\\P(B) SEAL EVERY JOINT\\P(C) CHECK EVERY LEVEL"
+    d.text(block, (100, 450, 0.0), kind="MTEXT", height=3.0)
+    found = drawn(d, one_sheet(d))
+    (plan,) = [v for v in found if v.kind is ViewKind.PLAN]
+    assert plan.box.to_json() == alone.box.to_json()
+    assert len([v for v in found if v.kind is ViewKind.NOTES]) == 1
+
+
+def test_a_callout_naming_a_note_inside_a_plan_heads_nothing() -> None:
+    """Review 1, loop 2 (50): "NOTE 2" in a plan over three room labels: a callout, no heading; the
+    labels stay the plan's and the plan is as it was without them heading anything."""
+    d = Sheets()
+    plan_with_labels(d)
+    for i, word in enumerate(("STORE", "HALL", "PANTRY")):
+        d.text(word, (150, 392 - 8 * i, 0.0), height=3.0)
+    (alone,) = drawn(d, one_sheet(d))
+    d = Sheets()
+    plan_with_labels(d)
+    d.text("NOTE 2", (150, 400, 0.0), height=3.0)
+    for i, word in enumerate(("STORE", "HALL", "PANTRY")):
+        d.text(word, (150, 392 - 8 * i, 0.0), height=3.0)
+    found = drawn(d, one_sheet(d))
+    assert not [v for v in found if v.kind is ViewKind.NOTES]
+    (plan,) = [v for v in found if v.kind is ViewKind.PLAN]
+    assert plan.box.to_json() == alone.box.to_json()
+
+
+def test_many_small_note_texts_leave_the_drawings_titles() -> None:
+    """Review 1, loop 2 (50): 200 tiny "NOTE n" texts written before two titled drawings took every
+    title slot; headings have their own."""
+    d = Sheets()
+    for i in range(views.MAX_TITLES):
+        d.text(f"NOTE {i}:", (560 + (i % 4) * 15, 560 - (i // 4) * 4, 0.0), height=0.5)
+    grid(d, (40, 300, 340, 560))
+    d.text("GROUND FLOOR PLAN", (40, 288, 0.0), height=6.0)
+    grid(d, (40, 40, 340, 250))
+    d.text("SECTION 1-1", (40, 28, 0.0), height=6.0)
+    titles = {v.title for v in drawn(d, one_sheet(d))}
+    assert {"GROUND FLOOR PLAN", "SECTION 1-1"} <= titles
+
+
+def test_a_notes_heading_takes_no_scale_text_beside_it() -> None:
+    """A scale text level with a notes heading is no scale of the notes (a notes view has no scale
+    line); the notes keep their own box."""
+    d = Sheets()
+    plan_with_labels(d)
+    column(d, "NOTES :", (400, 500), LINES, 3.0)
+    (alone,) = notes_of(d)
+    d.text("SCALE 1:50", (430, 500, 0.0), height=3.0)
+    (notes,) = notes_of(d)
+    assert notes.stated_scale is None
+    assert notes.box.to_json() == alone.box.to_json()
+
+
+def test_a_heading_too_small_to_letter_heads_nothing() -> None:
+    """Review 1, loop 2: a one-text note 1e-300 mm high made a notes view of no height."""
+    d = Sheets()
+    plan_with_labels(d)
+    sentence = (
+        "NOTE : KEEP EVERY SLEEVE CLEAR OF THE FRAME AND SEAL EACH JOINT WITH THE CHOSEN SEALANT ONLY"
+    )
+    d.text(sentence, (400, 500, 0.0), height=1e-300)
+    assert not notes_of(d)

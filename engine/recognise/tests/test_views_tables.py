@@ -109,3 +109,21 @@ def test_grid_lines_running_past_each_other_to_their_marks_are_no_table() -> Non
     grid(d, (100, 100, 300, 300))  # walls
     assert views._tables(_segments(d), (0.0, 0.0, 841.0, 594.0)) == []
     assert all(v.kind is not ViewKind.SCHEDULE for v in drawn(d, one_sheet(d)))
+
+
+def test_a_ruled_area_of_notes_is_no_table() -> None:
+    """Review 1, loop 2 (55): notes in three columns inside one box split by two full-height
+    dividers, a band across the top, no drawing: three notes views, no schedule over them."""
+    d = Sheets()
+    x0, y0, x1, y1 = 20, 30, 650, 570
+    for x in (x0, 230, 440, x1):
+        d.line((x, y0), (x, y1))
+    for y in (y0, 540, y1):
+        d.line((x0, y), (x1, y))
+    for c, x in enumerate((30, 240, 450)):
+        d.text("NOTES :", (x, 520, 0.0), height=4.0)
+        for i in range(12):
+            d.text(f"{i + 1}. A LINE OF WORDS {c}", (x, 510 - 7 * i, 0.0), height=2.8)
+    found = drawn(d, one_sheet(d))
+    assert not [v for v in found if v.kind is ViewKind.SCHEDULE]
+    assert len([v for v in found if v.kind is ViewKind.NOTES]) == 3

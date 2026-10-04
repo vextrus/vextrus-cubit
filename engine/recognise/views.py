@@ -58,8 +58,11 @@ drawing it is (`_cut_shared`); a piece another kind's title shares is left whole
 is a row under a larger piece without a title (no taller than `ROW_SHARE` of it, across its width, within
 `JOIN_MM` of it) is that drawing's detached row of grid marks and dimensions, which is what the title
 lies nearest: the view takes the body too. **A notes heading** (a text its kind's heading words lead,
-`ViewConventions.heading_words`: "NOTE :", "NOTES ON LAPS :") is a title whatever its height,
-length or lines (a block of notes in one text), unless a line like it stands over it in its column; it
+`ViewConventions.heading_words`, written as a heading: the words alone or a colon after them,
+"NOTES", "NOTE ON LAPS :"; never "NOTE 2", a callout) is a title whatever its length or lines (a block
+of notes in one text) and down to `MIN_HEADING` of the tallest lettering, with its own `MAX_TITLES`,
+unless a line like it stands over it in its column; one standing within a titled drawing is a view only
+when it heads a block (`MIN_NOTE_LINES` lines with its own), else it is the drawing's annotation. It
 heads the lines stacked under it, and what continues them in a column beside (`_beside`)
 (`_column_under`: no taller than it, starting within `NOTE_INDENT` of its heights of its left edge,
 each within `NOTE_LINE_GAP` of the line before, until a line taller than the one before it by
@@ -264,6 +267,9 @@ MAX_SHEET_VIEWPORTS = 64
 MAX_STACK = 64
 """The most texts weighed in one cell of the note-line index."""
 MIN_NOTE_LINES = 3
+"""A text in a column of this many lines alike (same height, same left edge) is a note's line."""
+MIN_HEADING = 0.01
+"""A notes heading's least height, a share of the tallest lettering (`MAX_LETTER` of the paper)."""
 NOTE_INDENT = 3.0
 """How far right of a notes heading's left edge, in its heights, a line under it may start (a numbered
 line's hanging indent) and still be its."""
@@ -278,13 +284,12 @@ NOTE_SCAN = 4 * MAX_NOTE_LINES
 NOTE_BESIDE = 4
 """At most this many columns beside a notes block continue it."""
 MIN_TABLE_RULES = 3
+"""A table's fewest rules each way, dividers all (`_tables`)."""
 MAX_TABLE_GROUPS = 400
 """At most this many rules across are tried as a table's (each weighs every rule)."""
-"""A table's fewest rules each way, dividers all (`_tables`)."""
 TABLE_TOLERANCE = RULE_MM
 """How far, in an A1's mm (scaled to the paper), a table's rules may miss each other's ends: a table's
 rules meet; a plan's grid lines run past each other to their marks."""
-"""A text in a column of this many lines alike (same height, same left edge) is a note's line."""
 MAX_TEXTS = 200_000
 MAX_GRID = 1_500
 MAX_SAMPLES = 4_000_000
@@ -1214,6 +1219,7 @@ class _Reading:
     common: frozenset[str]  # the plan, floor and level words: no evidence of what a title names
     notes: frozenset[str] = frozenset()  # the Disciplines whose sheets are general notes
     headings: _Words = _Words(())  # words that make a text a heading of their kind when they lead it
+    heading_tokens: frozenset[str] = frozenset()  # their words, one by one
 
 
 _readings: list[tuple[ViewConventions, _Reading]] = []
@@ -1241,18 +1247,41 @@ def _prepare(conventions: ViewConventions) -> _Reading:
         ),
         notes=frozenset(conventions.notes_disciplines),
         headings=_Words.of({str(k): v for k, v in conventions.heading_words.items()}),
+        heading_tokens=frozenset(
+            t for words in conventions.heading_words.values() for w in words for t in _tokens(w)
+        ),
     )
 
 
 def _heading(text: str, reading: _Reading) -> ViewKind | None:
-    """The kind whose heading words lead the text ("NOTE ON LAPS :"), else None."""
-    found = reading.headings.matches(_tokens(text))
-    return ViewKind(found[0][2]) if found and found[0][0] == 0 else None
+    """The kind whose heading words lead the text, written as a heading's are: the heading words
+    alone ("NOTES") or a colon after them ("NOTE ON LAPS :", "NOTE : ..."); else None ("NOTE 2" is a
+    callout naming a note, "NOTE THE ..." a sentence)."""
+    tokens = _tokens(text)
+    found = reading.headings.matches(tokens)
+    if not found or found[0][0] != 0:
+        return None
+    if ":" not in text and not all(w in reading.heading_tokens for w in tokens):
+        return None
+    return ViewKind(found[0][2])
+
+
+def _notes_heading(t: _Text, reading: _Reading) -> bool:
+    """Whether the text heads notes: led by a notes heading word, and its first line a heading's
+    ("NOTES", "NOTE ON LAPS :", "NOTE : ..."): the heading words alone, or a colon after the words
+    that lead it; "NOTE 2" (a callout naming a note) and "NOTE THE ..." (a sentence) are none."""
+    first = t.placed.shown.strip().split("\n", 1)[0]  # a block's first line is its heading
+    return _heading(_plain(first), reading) is ViewKind.NOTES
 
 
 def _kind(text: str, reading: _Reading) -> ViewKind | None:
     if (heading := _heading(text, reading)) is not None:
         return heading  # a heading's leading words name its kind, whatever words follow
+    return _named_kind(text, reading)
+
+
+def _named_kind(text: str, reading: _Reading) -> ViewKind | None:
+    """The kind the text's kind words name (the first listed wins), heading words aside."""
     found = reading.kinds.matches(_tokens(text))
     if not found:
         return None
@@ -1409,11 +1438,10 @@ def _views(
     texts = paper.texts
     titles: list[int] = []
     scale_texts: list[int] = []
-    heads: set[int] = set()  # notes headings: titles whatever their height or length
+    heads: set[int] = set()  # notes headings: titles whatever their height or length, own cap
     for i, t in enumerate(texts):
-        if _heading(t.shown, reading) is ViewKind.NOTES and 0 < t.height <= letter:
-            if len(titles) < MAX_TITLES:  # a block of notes in one text, too
-                titles.append(i)
+        if _notes_heading(t, reading) and MIN_HEADING * letter <= t.height <= letter:
+            if len(heads) < MAX_TITLES:  # a block of notes in one text, too
                 heads.add(i)
             continue
         if t.placed.shown.strip().count("\n") > 1:  # a title of two lines at most
@@ -1432,17 +1460,16 @@ def _views(
             and 0 < len(words) <= MAX_TITLE_WORDS
             and tall <= t.height <= letter
             and not _ENUMERATED.match(t.shown)
-            and _kind(t.shown, reading) is not None
+            and _named_kind(t.shown, reading) is not None  # a heading word alone is no title's
         ):
             titles.append(i)
     stacks = _Stacks(texts, skip=frozenset(scale_texts))  # a title's scale line is no note's
     every = _Stacks(texts) if heads else stacks  # a notes line over a heading, scale-like or not
-    titles = [  # a notes heading heads its column: no line like it stands over it
-        i
-        for i in titles
-        if stacks.lines(i) < MIN_NOTE_LINES or (i in heads and every.next(i, 1) is None)
-    ]
-    heads &= set(titles)
+    titles = [i for i in titles if stacks.lines(i) < MIN_NOTE_LINES]
+    heads = {  # a notes heading heads its column: no line like it stands over it
+        i for i in heads if stacks.lines(i) < MIN_NOTE_LINES or every.next(i, 1) is None
+    }
+    titles = sorted([*titles, *heads])
     second: dict[int, list[int]] = {}  # a title's second lines
     for j in titles:
         if j in heads:
@@ -1483,10 +1510,12 @@ def _views(
     paper_area = (rx1 - rx0) * (ry1 - ry0)
     unit = max(rx1 - rx0, ry1 - ry0) / REFERENCE_MM  # this paper's mm per an A1's
 
-    drawn_inside = [i for i in titles if _kind(texts[i].shown, reading) not in _HEADINGS]
+    inside = [  # any title but a schedule's own (a table's header row may hold it)
+        i for i in {*titles, *heads} if _kind(texts[i].shown, reading) is not ViewKind.SCHEDULE
+    ]
     for table in _tables(drawn.segments, paper.region):
-        if any(_inside(_centre(texts[i].box), table) for i in drawn_inside):
-            continue  # a grid of titled drawings: its rules divide them, no table
+        if any(_inside(_centre(texts[i].box), table) for i in inside):
+            continue  # a grid of titled drawings or of notes: its rules divide them, no table
         reach = _grown(table, TABLE_TOLERANCE * unit)
         ruled = [p for p in pieces if _holds(reach, p.box)]
         pieces = [p for p in pieces if not _holds(reach, p.box)]
@@ -1536,10 +1565,18 @@ def _views(
             by_piece[k] = -1  # claimed by the titled view
             view.extra.append(pieces[k])
             view.box = _union(view.box, pieces[k].box)
-    for head in sorted(heads):  # a notes heading over its column, or a note of one line
-        if (columns[head] or head in lone) and len(views) < MAX_VIEWS:
-            box = _bounds([texts[head].box, *(texts[j].box for j in columns[head])])
-            views.append(_View(None, texts[head], ViewKind.NOTES, box))
+    drawings = [v.box for v in views if v.piece is not None]  # the titled drawings
+    for head in sorted(heads):  # a notes heading over its column, or a note of one text
+        if not (columns[head] or head in lone) or len(views) >= MAX_VIEWS:
+            continue
+        noting = (  # a block of notes: lines under it, or lines of its own
+            len(columns[head]) >= MIN_NOTE_LINES - 1
+            or texts[head].placed.shown.strip().count("\n") >= MIN_NOTE_LINES - 1
+        )
+        if not noting and any(_holds(d, texts[head].box) for d in drawings):
+            continue  # a note within a drawing, no block of notes: the drawing's annotation
+        box = _bounds([texts[head].box, *(texts[j].box for j in columns[head])])
+        views.append(_View(None, texts[head], ViewKind.NOTES, box))
     titled_boxes = [_grown(v.box, JOIN_MM * unit) for v in views]
     for k, piece in enumerate(pieces):
         if k in by_piece or any(_holds(box, piece.box) for box in titled_boxes):
