@@ -1033,3 +1033,16 @@ def test_a_model_space_box_of_no_area_is_refused() -> None:
     drawing.line((0, 0), (200, 0))
     with pytest.raises(ValueError, match="no area"):
         build(drawing.artefact(), model_sheet(0, 0, 200, 0))
+
+
+def test_a_kept_buffer_is_the_buffer_built_for_any_paper() -> None:
+    """The header keeps the paper's size as float32 (the viewer reads it so): a sheet is built at
+    that precision, so what a read job keeps and scores later is what the harness scores now (21d:
+    the job's render F1 moved on 33 real sheets, by a pixel row a 1e-13 mm paper difference flipped)."""
+    drawing = Drawing()
+    drawing.line((0.0, 0.0), (100.0, 100.0))
+    built = build(drawing.artefact(), model_sheet(0, 0, 296.646848989298, 209.99999999999997))
+    back = SheetBuffers.from_bytes(built.to_bytes())
+
+    assert back.paper == built.paper
+    assert np.array_equal(rasterise(back, 4.0).pixels, rasterise(built, 4.0).pixels)

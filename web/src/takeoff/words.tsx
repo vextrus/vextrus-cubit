@@ -126,7 +126,7 @@ export const OPTION_NAMES: Readonly<Record<string, MessageDescriptor>> = {
   no_number: msg`Leave it without a number`,
   type_number: msg`Type a number`,
   not_sent_yet: msg`Not sent yet: keep it in the count as missing and ask the consultant`,
-  not_in_set: msg`Not part of this set: take it off the list`,
+  not_in_set: msg`Not part of this set: record it; it stays on the drawing list`,
   file_not_added: msg`It is in a file I haven’t added yet`,
   keep_open: msg`Keep open, ask the consultant`,
 }

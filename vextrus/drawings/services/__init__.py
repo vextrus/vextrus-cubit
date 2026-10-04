@@ -100,9 +100,11 @@ from vextrus.drawings.services.library_disciplines import (
 )
 from vextrus.drawings.services.reads import (
     ArtefactRef,
+    Kept,
     answer_held,
     artefact,
     attach_read_job,
+    kept,
     mark_failed,
     mark_read,
     original,
@@ -151,6 +153,7 @@ __all__ = [
     "FileView",
     "FontRow",
     "HeldAnswer",
+    "Kept",
     "PlotNone",
     "PlotView",
     "Report",
@@ -174,6 +177,7 @@ __all__ = [
     "files",
     "held_answer",
     "hold_plots",
+    "kept",
     "mark_failed",
     "mark_for_vextrus",
     "mark_read",

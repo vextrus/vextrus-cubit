@@ -515,7 +515,17 @@ def _paper_for_box(
     else:
         mm_per_unit = ASSUMED_LONG_SIDE_MM / long_units if long_units > 0 else 1.0
         source = PaperSource.ASSUMED
-    return Paper(width * mm_per_unit, height * mm_per_unit, mm_per_unit, source, (x0, y0))
+    return Paper(_kept(width * mm_per_unit), _kept(height * mm_per_unit), mm_per_unit, source, (x0, y0))
+
+
+def _kept(size_mm: float) -> float:
+    """A paper size at the precision the header keeps it (float32, as the viewer reads it), so a buffer
+    read back from its bytes is the buffer built: a raster's size is the paper's, and a size that
+    changed in its last bits can change it by a pixel (21d)."""
+    try:
+        return float(struct.unpack("<f", struct.pack("<f", size_mm))[0])
+    except OverflowError:  # past any float32: a paper no sheet has, which `build` refuses
+        return size_mm
 
 
 class _Bounds:

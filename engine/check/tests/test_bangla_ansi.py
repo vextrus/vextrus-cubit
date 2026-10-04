@@ -5,7 +5,7 @@ import pytest
 from engine.check import bangla_ansi
 from engine.check.bangla_ansi import FoundBy
 from engine.export import to_json
-from engine.harness import _counts
+from engine.harness import counts_of
 from engine.render.fixtures.artefacts import Drawing
 
 # "আমার সোনার বাংলা" as Bijoy stores it (bondhon's README gives `evsjv` for বাংলা); invented text.
@@ -77,7 +77,7 @@ def test_the_most_used_font_is_named_and_the_others_counted() -> None:
 def test_nothing_found_is_no_finding_and_the_harness_reads_the_counts() -> None:
     result = bangla_ansi.run(Drawing().artefact())
     assert result.findings(lambda _: "A-01") == []
-    assert _counts(to_json(result)) == {"texts": 0, "by_font": 0, "by_pattern": 0, "fonts": 0}
+    assert counts_of(to_json(result)) == {"texts": 0, "by_font": 0, "by_pattern": 0, "fonts": 0}
 
 
 def test_the_check_declares_its_code_version_and_milestone() -> None:
