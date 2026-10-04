@@ -81,6 +81,39 @@ describe('useKeys: features register keys, the map dispatches them (m0-screens Â
     expect(ctrl).toHaveBeenCalledOnce()
   })
 
+  it('gives a radio group the arrows and Space, and Enter on its radios or fields to the map (#156)', async () => {
+    const enter = vi.fn()
+    const down = vi.fn()
+    const space = vi.fn()
+    renderWith(
+      <KeyScope level="screen" name="specimen">
+        <Bind keys="Enter" label="Answer" run={enter} />
+        <Bind keys="â†“" label="Next row" run={down} />
+        <Bind keys="Space" label="Open" run={space} />
+        <fieldset role="radiogroup" aria-label="Answers">
+          <input type="radio" name="a" aria-label="One" />
+          <input type="radio" name="a" aria-label="Two" />
+          <input aria-label="Number" />
+        </fieldset>
+        <button type="button">Press</button>
+      </KeyScope>,
+    )
+    screen.getByLabelText('One').focus()
+    await userEvent.keyboard('{ArrowDown}')
+    expect(down).not.toHaveBeenCalled()
+    expect(screen.getByLabelText('Two')).toBeChecked()
+    await userEvent.keyboard(' ')
+    expect(space).not.toHaveBeenCalled()
+    await userEvent.keyboard('{Enter}')
+    expect(enter).toHaveBeenCalledOnce()
+    await userEvent.click(screen.getByLabelText('Number'))
+    await userEvent.keyboard('{Enter}')
+    expect(enter).toHaveBeenCalledTimes(2)
+    screen.getByRole('button', { name: 'Press' }).focus()
+    await userEvent.keyboard('{Enter}')
+    expect(enter).toHaveBeenCalledTimes(2)
+  })
+
   it('gives every key to an open dialog alone', async () => {
     const screenKey = vi.fn()
     const dialogEsc = vi.fn()

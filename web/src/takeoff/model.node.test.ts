@@ -87,10 +87,21 @@ describe('the bulk act', () => {
     expect(model.bulk.leaveOut.map((p) => p.number)).toEqual(['S-03'])
   })
 
+  it('groups a conflict only through the Proposals it lists, never by its number or Discipline (#161)', () => {
+    const mine = sheet('S-04', { revision_mark: 'R0' })
+    const copy = sheet('S-04', { revision_mark: 'R1' })
+    const confirmed = sheet('S-04', { revision_mark: 'R2', decision: 'confirmed' })
+    const elsewhere = sheet('04', { discipline: 'architectural' })
+    const q = question('conflict', { subject_id: mine.sheet_id, discipline: null, params: { number: 'S-04', copies: 2 }, proposals: [mine.id, copy.id] })
+    const model = step1Model(data([mine, copy, confirmed, elsewhere], [q]))
+    expect(model.needsYou).toHaveLength(1)
+    expect(model.needsYou[0]!.sheets.map((p) => p.id).sort()).toEqual([mine.id, copy.id].sort())
+  })
+
   it('holds every copy of a number two sheets share, in one row', () => {
     const b = sheet('S-07', { revision_mark: 'B' })
     const a = sheet('S-07', { revision_mark: 'A' })
-    const q = question('conflict', { subject_id: b.sheet_id, params: { number: 'S-07', copies: 2 } })
+    const q = question('conflict', { subject_id: b.sheet_id, params: { number: 'S-07', copies: 2 }, proposals: [b.id, a.id] })
     const model = step1Model(data([a, b], [q]))
     expect(model.needsYou).toHaveLength(1)
     expect(model.needsYou[0]!.sheets.map((p) => p.revision_mark)).toEqual(['B', 'A'])
@@ -210,6 +221,47 @@ describe('kept open and withdrawn Questions (the review of 22, round 4, F4; the 
   })
 })
 
+describe('the sheets a Question holds, and the answered ones (#156)', () => {
+  it('holds the sheets 21c links to it, in list order, though they share no number', () => {
+    const a = sheet('E-02', { discipline: 'electrical' })
+    const b = sheet('E-03', { discipline: 'electrical' })
+    const q = question('conflict', { code: 'engine.conflicts.same_title', subject_id: a.sheet_id, proposals: [b.id, a.id] })
+    const model = step1Model(data([a, b], [q]))
+    expect(model.queue[0]!.holds.map((p) => p.number)).toEqual(['E-02', 'E-03'])
+    expect(model.needsYou[0]!.sheets).toHaveLength(2)
+  })
+
+  it('tags the answered Questions after the open ones, in the order answered, and asks them no more', () => {
+    const a = sheet('S-01')
+    const b = sheet('S-02')
+    const c = sheet('S-03')
+    const open = question('low_confidence', { subject_id: a.sheet_id })
+    const later = question('low_confidence', { subject_id: b.sheet_id, status: 'answered', answered_at: '2026-09-30T07:00:00Z' })
+    const first = question('low_confidence', { subject_id: c.sheet_id, status: 'answered', answered_at: '2026-09-30T06:00:00Z' })
+    const model = step1Model(data([a, b, c], [open, later, first]))
+    expect(model.queue.map((e) => e.tag)).toEqual(['Q1'])
+    expect(model.answered.map((e) => [e.tag, e.question.id])).toEqual([
+      ['Q2', first.id],
+      ['Q3', later.id],
+    ])
+    expect(model.rows.filter((r) => r.question).map((r) => r.question!.tag)).toEqual(['Q1'])
+  })
+  it('keeps each Question the tag of its place in the order raised, open, withdrawn or answered (the walk, M1)', () => {
+    const a = sheet('S-01')
+    const b = sheet('S-02')
+    const c = sheet('S-03', { decision: 'excluded', excluded_reason: 'superseded' })
+    // Raised as Q1–Q3; Q1 answered, Q3 withdrawn by leaving S-03 out: Q2 alone is open and stays Q2.
+    const first = question('low_confidence', { subject_id: a.sheet_id, status: 'answered', answered_at: '2026-09-30T06:00:00Z', raised: 1 })
+    const second = question('low_confidence', { subject_id: b.sheet_id, raised: 2 })
+    const third = question('low_confidence', { subject_id: c.sheet_id, status: 'withdrawn', withdrawn_by: 'act-1', blocking: true, raised: 3 })
+    const model = step1Model(data([a, b, c], [second, third, first]))
+    expect(model.queue.map((e) => e.tag)).toEqual(['Q2'])
+    expect(model.withdrawn.map((r) => r.question!.tag)).toEqual(['Q3'])
+    expect(model.answered.map((e) => e.tag)).toEqual(['Q1'])
+    expect(model.rows.filter((r) => r.question).map((r) => r.question!.tag).sort()).toEqual(['Q2', 'Q3'])
+  })
+})
+
 describe('Questions holding no sheet (ticket 164: every one was worded as a held file)', () => {
   it('makes a file’s row only for a held file; a numbering gap’s row names its two numbers, a drawing-list entry’s its number', () => {
     const a = sheet('A-03', { discipline: 'architectural' })
@@ -227,5 +279,19 @@ describe('Questions holding no sheet (ticket 164: every one was worded as a held
     ])
     // Each is its own row, reachable by ↑ ↓.
     expect(new Set(model.needsYou.map((r) => r.key)).size).toBe(4)
+  })
+})
+
+describe('the sheets of no Discipline (#167; its refuter)', () => {
+  it('counts every Proposal of no Discipline, as the Count does, whatever the progress row says', () => {
+    const cover = sheet(null, { discipline: null, proposed_exclusion: 'cover_index' })
+    const plumbing = sheet('M-01', { discipline: null })
+    // 19a's progress row leaves out a sheet proposed out with no number: the summary still counts it.
+    const d = data([sheet('S-01'), cover, plumbing])
+    d.progress = { ...d.progress, disciplines: [{ discipline: null, confirmed: 0, found: 1, listed: null, lists_disagree: false, total: 1, open_questions: 0 }] } as Step1Data['progress']
+    const model = step1Model(d)
+    expect(model.noDiscipline).toBe(2)
+    expect(model.found).toBe(3)
+    expect(step1Model(data([sheet('S-01'), cover])).noDiscipline).toBe(1)
   })
 })

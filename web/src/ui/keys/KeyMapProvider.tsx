@@ -42,10 +42,14 @@ const ScopeContext = createContext<Scope | null>(null)
 
 // eslint-disable-next-line lingui/no-unlocalized-strings -- key names, not prose
 const WIDGET_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown', 'Space', 'Enter'])
-const WIDGETS =
-  '[role=menu],[role=menubar],[role=tablist],[role=radiogroup],[role=slider],[role=spinbutton],[role=tree],' +
+// A radio group takes the arrows and Space, never Enter (WAI-ARIA's radio group): Enter on a radio, or
+// in a field inside the group, reaches the map (#156's review: Enter on a Question's option answers it).
+const ENTER_WIDGETS =
+  '[role=menu],[role=menubar],[role=tablist],[role=slider],[role=spinbutton],[role=tree],' +
   '[role=listbox]:not([data-key-region]),[role=grid]:not([data-key-region]),[cmdk-root]'
-const PRESSABLE = 'button,a[href],summary,input[type=checkbox],input[type=radio],[role=button],[role=checkbox],[role=switch]'
+const WIDGETS = `${ENTER_WIDGETS},[role=radiogroup]`
+const PRESSABLE = 'button,a[href],summary,input[type=checkbox],[role=button],[role=checkbox],[role=switch]'
+const RADIO = 'input[type=radio],[role=radio]'
 const TEXT_INPUT_TYPES = new Set(['text', 'search', 'email', 'url', 'tel', 'password', 'number', 'date', 'time', ''])
 
 function isTyping(target: Element | null): boolean {
@@ -61,7 +65,8 @@ function reachesMapWhileTyping(combo: string): boolean {
 
 function ownedByWidget(target: Element | null, combo: string): boolean {
   if (!target || !WIDGET_KEYS.has(combo)) return false
-  if ((combo === 'Space' || combo === 'Enter') && target.closest(PRESSABLE)) return true
+  if (combo === 'Space') return target.closest(`${PRESSABLE},${RADIO}`) !== null || target.closest(WIDGETS) !== null
+  if (combo === 'Enter') return target.closest(PRESSABLE) !== null || target.closest(ENTER_WIDGETS) !== null
   return target.closest(WIDGETS) !== null
 }
 

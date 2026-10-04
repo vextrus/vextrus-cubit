@@ -354,7 +354,7 @@ of their own. This answers ux-critic #5.
 | `Ctrl K` | global | Jump to: projects; inside a project, the Drawing Set, Step 1, Members and access, and any sheet by number or title | 03 | yes |
 | `Esc` | global | Close the top-most layer (overlay, dialog, popover, menu, panel); else leave a mode; else leave one-by-one review; else clear the selection. Never leaves the page, never throws away typed text without asking | 03 (each layer registers its own close) | yes |
 | `F6` / `Shift F6` | global | Move focus to the next / previous region (top bar, list, canvas, inspector, status bar) | 03 | yes |
-| `Ctrl Z` | screen | Undo the last act on this screen, where the screen has undo (Step 1: the last Confirmation, answer or exclusion) | 22 | yes |
+| `Ctrl Z` | screen | Undo the last act on this screen, where the screen has undo (Step 1: the last Confirmation, exclusion or drawing list; never an answer that confirmed or excluded sheets, §5) | 22 | yes |
 | `↑` `↓` | region: list | Previous / next row. In Step 1 the rows are sheets, so the viewer follows: the arrow keys page through the sheets (story 54, finish line step 6) | 01b (the list primitive), 20a, 20b, 22 | yes |
 | `↑` `↓` | region: canvas (Step 1) | The same as in the list: previous / next sheet, so paging works wherever focus is | 22 | yes |
 | `Home` `End` | region: list | First / last row | 01b (the list primitive) | yes |
@@ -1010,7 +1010,9 @@ heading of a Discipline with no list says so: "no drawing list; numbering runs 0
 **The Questions' order** (no money in M0; 6.18): a held file first (it blocks a whole file); then the
 Questions holding the most sheets; then conflicts, then missing items, then low-confidence ones; then
 sheet order (natural sort: S-2 before S-10). `Q` follows this order, and the inspector words it
-"Answer 5 Questions: the held file first, then those holding the most sheets".
+"Answer 5 Questions: the held file first, then those holding the most sheets". With no file held
+(none was, or its Question is answered): "Answer 5 Questions: those holding the most sheets first"; with
+the held file's the only one: "Answer 1 Question: the held file’s".
 
 **The Questions M0 raises, and their wording** (templates, the one source of each kind's title and
 options; names and numbers invented; 6.7 shows each filled in):
@@ -1021,11 +1023,24 @@ options; names and numbers invented; 6.7 shows each filled in):
 | Two plans draw one thing (`conflict`; the plan's QS review, Q3) | "S-14 and S-15 both draw the 5th floor slab, bottom layer" (raised only when the Discipline, the subject, what the plan draws, and the layer, top or bottom, all match) | 1 "Keep S-15 (R1, 14 Sep 2026); exclude S-14 as superseded" · 2 "Keep S-14; exclude S-15" · 3 "They draw different things: keep both" · 4 "Keep open, ask the consultant" |
 | No number (`missing`) | "This sheet has no number in its title block" | 1 "A-08, as the drawing list names it" (only when a list names it) · 2 "Leave it without a number" · 3 "Type a number" · 4 "Keep open, ask the consultant" |
 | Sheet kind unclear (`low_confidence`) | "What kind of sheet is A-05?" | the kinds of sheet its Discipline has (conventions data; the owner's ruling, 29 Sep 2026: "Per-Discipline kinds"), most likely first, none pre-picked unless a second source agrees · "Keep open, ask the consultant" |
-| Drawing list against sheets (Check) | "S-13 is on the drawing list but in no file" | 1 "Not sent yet: keep it in the count as missing and ask the consultant" · 2 "Not part of this set: take it off the list" · 3 "It is in a file I haven't added yet" · 4 "Keep open, ask the consultant" |
+| Drawing list against sheets (Check) | "S-13 is on the drawing list but in no file" | 1 "Not sent yet: keep it in the count as missing and ask the consultant" · 2 "Not part of this set: record it; it stays on the drawing list" (a sheet in a file but not on the list: "Not part of this set: record it, then exclude it in the list"; the answer records it and takes nothing off the list) · 3 "It is in a file I haven't added yet" · 4 "Keep open, ask the consultant" |
 | Plot pages against sheets (Check) | "Page 12 of KR-STR-R0.pdf shows S-13, which no DWG has" | as above |
 | Read and pasted drawing lists disagree (`conflict`) | "The drawing list on S-01 and the one you pasted differ" (N shows "—" until answered) | 1 "Use the list on S-01" · 2 "Use the pasted list" · 3 "Keep open, ask the consultant" |
 | Boundary storey (amendment 2) | "Does GROUND FLOOR BEAM LAYOUT mean the members at ground-floor level?" | 1 "Members at floor level" · 2 "The storey, floor to floor" · 3 "Keep open, ask the consultant" |
 | Floors that do not run, typical floor, a level title (6.7) | as 6.7 | as 6.7 |
+
+A sheet with neither number nor title is named by its layout and its file, never by an empty quotation:
+"an untitled sheet on layout “Layout2” of NT-ARC-R1.dwg" ("an untitled sheet laid out in the drawing of
+NT-ARC-R1.dwg" when it has no layout; the place sits inside the name, never after a comma), so two on two
+layouts of one file read apart ("A sheet in NT-ARC-R1.dwg has neither a number nor a title in its title
+block."; the bar: "… has neither a number nor a title in its title block"); a numbered sheet with no title by
+its number ("It has no title, so nothing says which kind of sheet A-05 is."). At a sentence's start it reads
+"An untitled sheet on layout …" or "An untitled sheet laid out in the drawing of …"; a possessive is never put on a sheet's name ("The kind of S-07 is Plan", not
+"S-07’s kind").
+
+An act's toast shows once Step 1 has reloaded, with the confirmed count it changed. If Step 1 cannot reload
+after an act or an undo, the toast adds: "Step 1 could not be reloaded, so the confirmed count may be behind.
+Reload the page to see it."
 
 "Keep open, ask the consultant" keeps the Question open, and Step 1 for that Discipline cannot be
 confirmed until it is answered; "Not sent yet" answers it, and the sheet stays in the count as
@@ -1034,7 +1049,9 @@ missing, so that Discipline can still be confirmed.
 **No Question for these** (the plan's QS review, Q3): **identical titles on consecutive numbers are one
 continuation** ("Column schedule, 3 sheets"), grouped in the list (6.2) with no Question; two plans of
 one storey that draw different subjects (a beam layout and a slab layout) or different layers (a slab's
-top and bottom reinforcement) are normal practice, never a conflict.
+top and bottom reinforcement) are normal practice, never a conflict. One title on sheets whose numbers
+do not run on is a conflict headed "One title on two sheets" ("One title on 3 sheets" for more; whatever
+their kind: schedules, elevations); "Two plans draw one thing" heads only two plans of one storey.
 
 **Storeys.** A sheet's storeys come from its plan views as an explicit list, never an expanded
 first–last (amendment 1): shown as stated and normalised, "3RD, 5TH & 7TH FLOOR → 3rd, 5th, 7th";
@@ -1091,8 +1108,11 @@ received** (6.3): the Market's Disciplines expected for the building that have n
 Discipline row (Fire from 7 storeys, docs/specs/bd-defaults.md); each stays on its allowance until its
 drawings arrive.
 
-**Undo:** `Ctrl Z` undoes the last Confirmation, answer or exclusion; the toast names what it undid
-("Undone: confirmed 20 sheets").
+**Undo:** `Ctrl Z` undoes the last Confirmation or exclusion; the toast names what it undid
+("Undone: confirmed 20 sheets"). It never takes back an answer that confirmed or excluded sheets,
+nor anything done before one (session 09's ruling on #156: undoing the act such an answer made would
+leave the Question answered with nothing holding its sheets). Ctrl Z after such an answer changes
+nothing and says, in the tab that answered and from the server alike (`takeoff.step1.answer_stays`): "Nothing undone: an answer to a Question cannot be undone, nor anything before it. To change what it decided, exclude a sheet it confirmed or confirm back one it excluded.". Ctrl Z passes over any other answer to the act before it.
 
 **Who did what** (ux-critic #12): every confirmed or excluded sheet shows "Confirmed by Nusrat
 Jahan, 26 Sep 2026" or "Excluded by Arif Rahman (Vextrus), 26 Sep 2026: superseded" in the inspector.
@@ -1288,7 +1308,8 @@ and sheet mode alike (6.18). The toast sits just above it.
 ### 6.6 The inspector (320 px; tabs "Selection" and "Questions" with the open count)
 **Selection, nothing focused: the overview.** "Nilachal Tower's sheets" / the per-Part line (5),
 "Structural 0 / 40 settled · Architectural 0 / 28 settled" ("Structural confirmed · Electrical 3 to
-confirm" once a Part is confirmed) / "Read from 2 DWG files; 1 file held." / "Enter takes them in this
+confirm" once a Part is confirmed; sheets of no Discipline end it, "· 9 with no Discipline", so it
+counts every sheet) / "Read from 2 DWG files; 1 file held." / "Enter takes them in this
 order": 1 "Confirm the 56 sheets that agree and leave out 5: for information, cover or index,
 duplicate"; 2 "Answer 8 Questions: the held file first, then those holding the most sheets" /
 "↓ walks the list; Space opens a sheet; a Proposal counts toward nothing until you confirm it." /
@@ -1347,9 +1368,9 @@ Questions, section 7, follow the same templates), and one conflict by subject an
 | Kind (header) | Title | Body and Trace | Options (pre-pick) | First line after the pick |
 |---|---|---|---|---|
 | This file may be misread (`file_misread`) | "NT-ARCH-Details-R1.dwg may be misread" | "Two readers read the file and disagree: one found 312 more items, all on one layer. Nothing from this file enters the sheet list until you answer." Trace: the file, and the two readers' counts in words | 1 "Read it anyway: its sheets join the list, marked held" · 2 "Set this file aside: I'll re-save it from AutoCAD (open it, run AUDIT, save) and add it again" · 3 "Set this file aside and mark it for Vextrus to look at" · 4 "Keep open, ask the consultant" (none pre-picked; screens.md Step 1 ruling 3) | 1: "Answering reads NT-ARCH-Details-R1.dwg anyway: its sheets join the list as Proposals, each marked held, and their figures are flagged later." · 2, 3: "Answering sets the file aside: none of its sheets is read or counted. Architectural can still be confirmed." · 4: "Answering keeps the file held. Architectural cannot be confirmed until it is answered." |
-| On the drawing list, in no file (Check) | "A-28 is on the drawing list but in no file" | "The drawing list you pasted names 29 architectural sheets. 28 were found in NT-ARCH-R1.dwg; A-28 Facade lighting details was not." Trace: "Pasted drawing list, line 30: "A-28 FACADE LIGHTING DETAILS"". Raised only once every file is read | 1 "Not sent yet: keep it in the count as missing and ask the consultant" · 2 "Not part of this set: take it off the list" · 3 "It is in a file I haven't added yet" · 4 "Keep open, ask the consultant" (none) | 2: "Answering takes A-28 off the list: 28 sheets expected." · 1, 3: "Answering keeps A-28 in the count as missing. Architectural can still be confirmed." · 4: "Answering keeps A-28 open. Architectural cannot be confirmed until it is answered." |
+| On the drawing list, in no file (Check) | "A-28 is on the drawing list but in no file" | "The drawing list you pasted names 29 architectural sheets. 28 were found in NT-ARCH-R1.dwg; A-28 Facade lighting details was not." Trace: "Pasted drawing list, line 30: "A-28 FACADE LIGHTING DETAILS"". Raised only once every file is read | 1 "Not sent yet: keep it in the count as missing and ask the consultant" · 2 "Not part of this set: record it; it stays on the drawing list" · 3 "It is in a file I haven't added yet" · 4 "Keep open, ask the consultant" (none) | 2: "Answering records that A-28 is not part of this set; it stays on the drawing list. Architectural can still be confirmed." · 1, 3: "Answering keeps A-28 in the count as missing. Architectural can still be confirmed." · 4: "Answering keeps A-28 open. Architectural cannot be confirmed until it is answered." |
 | Two sheets, one number (`conflict`) | "Two sheets are numbered S-19" | "Both are titled "4th & 6th floor beam layout". Only one can be read." A table: Copy · Date · File, where: "R1 · 14 Sep 2026 · NT-STR-R1.dwg, laid out in the drawing, x 2,460′"; "R0 · 02 Aug 2026 · NT-STR-R1.dwg, laid out in the drawing, x −1,180′". Trace: "Title blocks of both copies; the drawing list on S-01, row 19: "S-19 R1"" | 1 "Keep R1 (14 Sep 2026); leave R0 out as superseded" (pre-picked: "the later revision mark, the later date and the drawing list on S-01 agree") · 2 "Keep R0 (02 Aug 2026); leave R1 out as superseded" · 3 "Keep both: they are different sheets" · 4 "Keep open, ask the consultant" | 1: "Answering confirms S-19 R1 and excludes R0 as superseded." · 3: "Answering confirms both copies." · 4: "Answering keeps both copies open. Neither is read until the consultant replies." |
-| No number (`missing`) | "This sheet has no number" | "A sheet titled "Lift pit and sump details" in NT-STR-R1.dwg has an empty number in its title block. The drawing list on S-01 names S-12 "Lift pit and sump details", and no sheet carries S-12." Trace: "Title block text (the number field is empty); the drawing list on S-01, row 12" | 1 "S-12, as the drawing list names it" (pre-picked: "the title in the title block and the title on the drawing list agree"; offered only when a list names it) · 2 "Leave it without a number" · 3 "Type a number" (opens the field in the card; `E` also corrects) · 4 "Keep open, ask the consultant" | 1: "Answering confirms the sheet as S-12." · 2: "Answering confirms the sheet without a number." · 3: "Answering confirms the sheet as the number you type." |
+| No number (`missing`) | "This sheet has no number" | "A sheet titled "Lift pit and sump details" in NT-STR-R1.dwg has an empty number in its title block. The drawing list on S-01 names S-12 "Lift pit and sump details", and no sheet carries S-12." Trace: "Title block text (the number field is empty); the drawing list on S-01, row 12" | 1 "S-12, as the drawing list names it" (pre-picked: "the title in the title block and the title on the drawing list agree"; offered only when a list names it) · 2 "Leave it without a number" · 3 "Type a number" (opens the field in the card; `E` also corrects) · 4 "Keep open, ask the consultant" | 1: "Answering confirms the sheet as S-12." · 2: "Answering leaves the sheet without a number; confirm it in the list." · 3: "Answering gives the sheet the number you type; confirm it in the list." |
 | Boundary storey (amendment 2) | "Does "Basement to 1st floor" include the 1st storey?" | "S-07 is a column plan, read storey by storey (floor to floor). Its columns may stop at the 1st floor slab or run through the 1st storey. S-08 "Column layout plan, 1st to 9th floor" also starts at the 1st." Trace: "S-07 title block; S-08 title block" | 1 "Basement and Ground: the columns stop at the 1st floor slab" · 2 "Basement, Ground and 1st" · 3 "Keep open, ask the consultant" (none) | "Answering confirms S-07 for Basement and Ground, storey by storey." |
 | Floors that do not run | "3rd, 5th & 7th: three floors, or 3rd to 7th?" | "The title lists floors that do not run: "3rd, 5th & 7th floor beam layout". Vextrus read it as three floors. S-19 draws the 4th and 6th." Trace: "S-18 title block; the drawing list on S-01, row 18; S-19 title block" | 1 "3rd, 5th and 7th only, as written" (pre-picked: "the title and the drawing list agree, and S-19 draws the 4th and 6th") · 2 "3rd to 7th, five floors" · 3 "Keep open, ask the consultant" | "Answering confirms S-18 for the 3rd, 5th and 7th floor levels." |
 | Typical floor | "Which floors are "typical" on S-21?" | "S-21 "Typical floor slab layout" names no floors." Trace: "S-21 title block; the drawing list on S-01, row 21; A-5 title block" | 1 "2nd to 8th floor" (pre-picked: "the drawing list on S-01 ("typical floor, 2nd–8th") and A-5 "Typical floor plan, 2nd to 8th floor" agree") · 2 "Typical: take the floors from Step 3 (Storeys and levels)" · 3 "Keep open, ask the consultant" | 1: "Answering confirms S-21 for the 2nd to 8th floor levels." · 2: "Answering confirms S-21 as typical; its floors come from Step 3." |
@@ -1419,8 +1440,11 @@ what one storey means (members at floor level or floor to floor): both are bound
   S-18: storeys of "3rd, 5th & 7th floor beam layout". Still a Proposal until confirmed."; the State
   column adds ", corrected"; "Who did what" records "Corrected: number — → S-12; title; storeys of
   "…"". Corrections are counted for the owner (never shown to the client).
-- **Undo (`Ctrl Z`):** undoes the last act (a bulk act, a single Confirmation, an answer, an exclusion,
-  a correction, a pasted or typed list), repeatedly; the toast names what it undid (5).
+- **Undo (`Ctrl Z`):** undoes the last act (a bulk act, a single Confirmation, an exclusion, a
+  correction, a pasted or typed list), repeatedly; the toast names what it undid (5). An answer that
+  confirmed or excluded sheets is never undone, nor anything before it: Ctrl Z after one says so in
+  §5's words. Ctrl Z passes over any other answer (one that only recorded a pick, or kept the
+  Question open), to the act before it (the orchestrator's ruling, session 11).
 
 ### 6.10 The drawing list (amendment 7)
 Each Discipline's N comes from a drawing list: one read on a sheet ("39 on the drawing list on S-01")

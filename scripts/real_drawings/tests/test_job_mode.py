@@ -1,8 +1,8 @@
 """`--job` mode (21a; the M0 plan, "The real-drawing check", step 3; the review R2): the product's job
 in the sandbox against a throwaway PostgreSQL 18 cluster on a Unix socket, its export from the job's
-export entry point; off by default. The command's tests run a fake sandbox (`world.py`); the last ones
-run the real sandbox and the real cluster with a fake entry point, where the toolchain, bwrap and
-PostgreSQL 18 are installed:
+export entry point; the default since 21d (`--harness` the way back). The command's tests run a fake
+sandbox (`world.py`); the last ones run the real sandbox and the real cluster with a fake entry point,
+where the toolchain, bwrap and PostgreSQL 18 are installed:
 
     uv run pytest -m "needs_toolchain or needs_bwrap" scripts/real_drawings/tests/test_job_mode.py
 """
@@ -38,10 +38,19 @@ def metadata(world: World) -> dict[str, object]:
 # The command ---------------------------------------------------------------------------------------
 
 
-def test_the_harness_reads_both_runs_by_default(world: World) -> None:
+def test_the_job_reads_both_runs_by_default(world: World) -> None:
     world.commit("tuning", {"engine/read.py": "X = 1\n"})
 
     run("tuning", no_post=True, m=world.machine())
+
+    assert [job.job for job in world.sandbox_runs] == [True, True]  # the head's, then main's
+    assert metadata(world)["mode"] == "job"
+
+
+def test_harness_mode_reads_both_runs_with_the_harness(world: World) -> None:
+    world.commit("tuning", {"engine/read.py": "X = 1\n"})
+
+    run("tuning", no_post=True, m=world.machine(), job=False)
 
     assert [job.job for job in world.sandbox_runs] == [False, False]
     assert metadata(world)["mode"] == "harness"
@@ -51,31 +60,17 @@ def test_the_harness_reads_both_runs_by_default(world: World) -> None:
     assert "--uid" not in sandbox.argv(world.sandbox_runs[0])
 
 
-def test_job_mode_reads_the_head_with_the_job_and_main_with_the_harness(world: World) -> None:
-    world.commit("tuning", {"engine/read.py": "X = 1\n"})
-
-    run("tuning", no_post=True, m=world.machine(), job=True)
-
-    assert [job.job for job in world.sandbox_runs] == [True, False]
-    assert metadata(world)["mode"] == "job"
-
-
-def test_a_job_run_of_main_is_still_diffed_against_mains_harness_run(world: World) -> None:
-    run("main", no_post=True, m=world.machine(), job=True)
-
-    assert [job.job for job in world.sandbox_runs] == [True, False]
-
-
 def test_a_jobs_export_is_never_reused_as_the_harnesss_or_the_other_way(world: World) -> None:
-    run("main", no_post=True, m=world.machine())
+    run("main", no_post=True, m=world.machine(), job=False)
     assert [job.job for job in world.sandbox_runs] == [False]
 
-    run("main", no_post=True, m=world.machine(), job=True)
+    run("main", no_post=True, m=world.machine())
+    run("main", no_post=True, m=world.machine(), job=False)
 
-    assert [job.job for job in world.sandbox_runs] == [False, True]  # main's harness run: cached
+    assert [job.job for job in world.sandbox_runs] == [False, True]  # each mode's run: cached
 
 
-def test_the_command_line_takes_job(world: World, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_command_line_still_takes_job(world: World, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(command, "owners_machine", world.machine)
 
     assert command.main(["main", "--no-post", "--job"]) == 0
@@ -83,11 +78,51 @@ def test_the_command_line_takes_job(world: World, monkeypatch: pytest.MonkeyPatc
     assert world.sandbox_runs[0].job is True
 
 
+def test_the_command_line_takes_harness(world: World, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(command, "owners_machine", world.machine)
+
+    assert command.main(["main", "--no-post", "--harness"]) == 0
+
+    assert world.sandbox_runs[0].job is False
+
+
+@pytest.mark.parametrize("line", [["57", "--harness"], ["main", "--score", "--harness"]])
+def test_harness_mode_is_never_posted_or_scored(
+    world: World, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], line: list[str]
+) -> None:
+    monkeypatch.setattr(command, "owners_machine", world.machine)
+
+    with pytest.raises(SystemExit):
+        command.main(line)
+
+    assert "--harness is never scored or posted" in capsys.readouterr().err
+    with pytest.raises(Refused, match="--harness is never scored or posted"):
+        run("57", no_post=False, m=world.machine(), job=False)
+    with pytest.raises(Refused, match="--harness is never scored or posted"):
+        run("main", no_post=True, m=world.machine(), job=False, score=True)
+    assert world.sandbox_runs == []
+    assert world.posted == []
+
+
+@pytest.mark.parametrize("line", [["57", "--job"], ["main", "--score", "--job"]])
+def test_a_posting_or_scored_run_takes_no_readers_flag(
+    world: World, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], line: list[str]
+) -> None:
+    """The installed copy (`runner.py`) is handed the command line as typed and knows no `--job`."""
+    monkeypatch.setattr(command, "owners_machine", world.machine)
+
+    with pytest.raises(SystemExit):
+        command.main(line)
+
+    assert "--job is the default" in capsys.readouterr().err
+    assert world.sandbox_runs == []
+
+
 def test_job_mode_without_postgresql_18_is_refused(world: World) -> None:
     shutil.rmtree(sandbox.PG_BIN)
 
     with pytest.raises(Refused, match="PostgreSQL 18's binaries"):
-        run("main", no_post=True, m=world.machine(), job=True)
+        run("main", no_post=True, m=world.machine())
     assert world.sandbox_runs == []
 
 
@@ -207,33 +242,16 @@ def test_the_fake_job_reaches_its_throwaway_cluster_by_socket_only(tmp_path: Pat
     assert "database system is shut down" in log  # stopped when the script ended
 
 
-# Refused until 21d makes it the default (the orchestrator's ruling on the merge with 24s) --------------
-
-
-def test_job_mode_is_refused_on_a_posting_run(world: World) -> None:
-    with pytest.raises(Refused, match="never scored or posted"):
-        run("57", no_post=False, m=world.machine(), job=True)
-    assert world.sandbox_runs == []
-    assert world.posted == []
-
-
-def test_job_mode_is_refused_with_score(world: World) -> None:
-    with pytest.raises(Refused, match="never scored or posted"):
-        run("main", no_post=True, m=world.machine(), job=True, score=True)
-    assert world.sandbox_runs == []
-
-
-@pytest.mark.parametrize(
-    "argv", [["57", "--job"], ["main", "--job", "--score"]], ids=["posting", "score"]
-)
-def test_the_command_line_refuses_job_with_score_or_on_a_posting_run(
-    world: World, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], argv: list[str]
+def test_a_sandbox_that_runs_past_its_time_is_stopped_and_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(command, "owners_machine", world.machine)
+    """The review's attack (21d): the export hanging past the sandbox's bound escaped the command as a
+    TimeoutExpired (it catches only Refused), so the run said nothing; now it is refused, with its
+    log named."""
+    monkeypatch.setattr(sandbox, "HOURS", 0.5 / 6)  # half a second for the six hours
+    monkeypatch.setattr(sandbox, "argv", lambda job: ["sleep", "30"])
+    log = tmp_path / "sandbox.log"
 
-    with pytest.raises(SystemExit) as ended:
-        command.main(argv)
-
-    assert ended.value.code == 2
-    assert "--job is never scored or posted until 21d" in capsys.readouterr().err
-    assert world.sandbox_runs == []
+    with pytest.raises(Refused, match=r"ran past .* and was stopped"):
+        sandbox.run(a_job(tmp_path, job=False), log)
+    assert log.exists()

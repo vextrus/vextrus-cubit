@@ -10,7 +10,8 @@ import { Button, KeyCombo, KeyScope, cn, useKeys } from '@/ui'
 import { SheetName } from './acts'
 import type { ProposalOut } from './data'
 import { REASONS, whyOneSource, type Reason, type Row, type Step1Model } from './model'
-import { Answering, QuestionTitle, cardContext } from './questionWords'
+import { Answering, QuestionTitle, cardContext, prePick } from './questionWords'
+import type { Answerer } from './Step1Inspector'
 import { disciplineName } from './SheetList'
 import { REASON_NAMES, REASON_SHORT, UNKNOWN_REASON } from './words'
 
@@ -18,7 +19,7 @@ export interface BarSpec {
   what: ReactNode
   why: ReactNode
   /** The copper button, and what Enter does; `name` is its accessible name when its words hold figures. */
-  button?: { label: ReactNode; run: () => void; name?: string }
+  button?: { label: ReactNode; run: () => void; name?: string; disabled?: boolean }
   /** A ghost button beside it (by mouse), with its key shown. */
   ghost?: { label: ReactNode; run: () => void; combo?: string }
 }
@@ -34,6 +35,8 @@ export interface BarContext {
   /** Q: the next open Question (m0-screens §6.12's ghost for the MD and a Guest). */
   nextQuestion: () => void
   openRow: (row: Row) => void
+  /** The QS answering (null for the MD and a Guest): the pick on a Question, and Enter's answer. */
+  answerer?: Answerer | null
 }
 
 function Who({ sheet }: { sheet: ProposalOut }) {
@@ -158,7 +161,14 @@ export function useBar(c: BarContext): BarSpec | null {
   if (row) {
     const sheet = row.sheets[0]
     const name = <SheetName sheets={row.sheets} />
+    // At a sentence's start (#167's words gate: an untitled sheet's words are capitalised there).
+    const Name = <SheetName sheets={row.sheets} start />
     if (row.question) {
+      const entry = row.question
+      const answerer = c.answerer ?? null
+      const picked = answerer ? (answerer.choice(entry)?.key ?? prePick(entry, cardContext(model))?.key ?? null) : null
+      // As the card's own button: off under "Type a number" until a number is typed (the walk, M4).
+      const unnumbered = picked === 'type_number' && !(answerer?.choice(entry)?.text ?? '').trim()
       const tag = row.question.tag
       const title = <QuestionTitle entry={row.question} names={model.fileNames} />
       return {
@@ -171,8 +181,13 @@ export function useBar(c: BarContext): BarSpec | null {
             Question {tag}: {title}
           </Trans>
         ),
-        why: <Answering entry={row.question} context={cardContext(model)} />,
-        ghost: { label: <Trans>Next open item</Trans>, run: c.nextOpen },
+        why: <Answering entry={row.question} context={cardContext(model)} choice={picked} hint={!!answerer} />,
+        button: answerer
+          ? picked
+            ? { label: <Trans>Answer {tag}</Trans>, run: () => answerer.answer(entry), disabled: unnumbered }
+            : { label: <Trans>Pick an answer</Trans>, run: () => {}, disabled: true }
+          : undefined,
+        ghost: answerer ? { label: <Trans>Ask later</Trans>, run: c.nextQuestion, combo: 'Q' } : { label: <Trans>Next open item</Trans>, run: c.nextOpen },
       }
     }
     if (sheet && sheet.decision === 'confirmed') {
@@ -183,11 +198,11 @@ export function useBar(c: BarContext): BarSpec | null {
         what:
           sheet.decided_by_role === 'vextrus_engineer' ? (
             <Trans>
-              {name} is confirmed by {by}, Vextrus Engineer
+              {Name} is confirmed by {by}, Vextrus Engineer
             </Trans>
           ) : (
             <Trans>
-              {name} is confirmed by {by}
+              {Name} is confirmed by {by}
             </Trans>
           ),
         why: date ? <Trans>{date}, {time}. X excludes it, with a reason.</Trans> : <Trans>X excludes it, with a reason.</Trans>,
@@ -199,7 +214,7 @@ export function useBar(c: BarContext): BarSpec | null {
       return {
         what: (
           <Trans>
-            {name} is excluded: {reason}
+            {Name} is excluded: {reason}
           </Trans>
         ),
         why: (
@@ -224,12 +239,12 @@ export function useBar(c: BarContext): BarSpec | null {
       return {
         what: agrees ? (
           section?.list ? (
-            <Trans>{name} agrees: number and title from the title block, on the drawing list</Trans>
+            <Trans>{Name} agrees: number and title from the title block, on the drawing list</Trans>
           ) : (
-            <Trans>{name} agrees: number and title from the title block, in numbering without a gap, and its Plot page matches</Trans>
+            <Trans>{Name} agrees: number and title from the title block, in numbering without a gap, and its Plot page matches</Trans>
           )
         ) : (
-          <Trans>{name} has one source: number and title from its title block</Trans>
+          <OneSourceWhat sheet={sheet} name={Name} />
         ),
         why: agrees ? (
           <Trans>Enter confirms it and opens the next open sheet.</Trans>
@@ -244,7 +259,7 @@ export function useBar(c: BarContext): BarSpec | null {
     }
     if (sheet && !row.sheets.every((s) => s.agrees) && !sheet.proposed_exclusion) {
       return {
-        what: <Trans>{name} has one source: number and title from its title block</Trans>,
+        what: <OneSourceWhat sheet={sheet} name={Name} />,
         why: (
           <>
             <OneSourceWhy sheet={sheet} model={model} /> <Trans>Open it to confirm it.</Trans>
@@ -317,13 +332,19 @@ export function Bar({ spec }: { spec: BarSpec }) {
         </Button>
       ) : null}
       {spec.button ? (
-        <Button variant="commit" onClick={spec.button.run} aria-label={spec.button.name} aria-keyshortcuts="Enter" /* eslint-disable-line lingui/no-unlocalized-strings -- a key name */>
+        <Button variant="commit" disabled={spec.button.disabled} onClick={spec.button.run} aria-label={spec.button.name} aria-keyshortcuts="Enter" /* eslint-disable-line lingui/no-unlocalized-strings -- a key name */>
           {spec.button.label}
           <KeyCombo combo="Enter" className="[&_kbd]:border-transparent [&_kbd]:bg-transparent [&_kbd]:text-current" />
         </Button>
       ) : null}
     </div>
   )
+}
+
+/** "S-07 has one source: …"; a sheet with neither number nor title has neither to read (#167's words gate, M5). */
+export function OneSourceWhat({ sheet, name }: { sheet: ProposalOut | undefined; name: ReactNode }) {
+  if (sheet && !sheet.number && !sheet.title.trim()) return <Trans>{name} has neither a number nor a title in its title block</Trans>
+  return <Trans>{name} has one source: number and title from its title block</Trans>
 }
 
 /** The picker the bar becomes on X: seven reasons, keys 1–7; 8, 9 and 0 do nothing while it is open. */
@@ -346,7 +367,9 @@ export function ExclusionPicker({ row, onPick, onCancel }: { row: Row; onPick: (
       key: 'Enter',
       label: t`Exclude with the reason typed`,
       group: 'screen' as const,
-      when: () => other !== null,
+      // Never from a Question's card (an option or its number field): that Enter is the card's, and
+      // with the picker open it does nothing (#156's refuter, fix round 1).
+      when: () => other !== null && !(document.activeElement as HTMLElement | null)?.closest('[data-question]'),
       run: () => {
         if (other && other.trim()) onPick('other', other.trim())
       },

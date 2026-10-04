@@ -14,7 +14,7 @@ import type { ProposalOut } from './data'
 import { gapOf, type QuestionEntry, type Step1Model } from './model'
 import { disciplineName } from './SheetList'
 import { useHasEnglish } from './useHasEnglish'
-import { OPTION_NAMES, OTHER_OPTION, OTHER_QUESTION, QUESTION_KINDS, QUESTION_KIND_BY_CODE, SHEET_KIND_NAMES } from './words'
+import { DISCIPLINE_NAMES, OPTION_NAMES, OTHER_OPTION, OTHER_QUESTION, QUESTION_KINDS, QUESTION_KIND_BY_CODE, SHEET_KIND_NAMES } from './words'
 
 type Option = { key?: string; picked?: boolean }
 
@@ -30,8 +30,15 @@ function params(entry: QuestionEntry): Record<string, string | number> {
 
 /** The kind in the card's header: "Two sheets, one number". */
 export function useKindLine(entry: QuestionEntry): string {
-  const { i18n } = useLingui()
+  const { i18n, t } = useLingui()
+  const f = useFormat()
   const q = entry.question
+  if (q.code === 'engine.conflicts.same_title') {
+    // Counted as its body counts them (#167's words gate): "One title on 3 sheets".
+    const n = typeof q.params.sheets === 'number' ? q.params.sheets : entry.holds.length
+    const count = f.integer(n)
+    if (n > 2) return t`One title on ${count} sheets`
+  }
   return i18n._(QUESTION_KIND_BY_CODE[q.code] ?? QUESTION_KINDS[q.kind] ?? OTHER_QUESTION)
 }
 
@@ -103,6 +110,8 @@ export function QuestionBody({ entry, context }: { entry: QuestionEntry; context
   if (q.kind === 'file_misread') return has(q.code) ? <MachineText message={{ code: q.code, params: params(entry) }} /> : null
   if (isCopies(entry)) {
     const titles = [...new Set(entry.holds.map((h) => h.title))]
+    if (titles.length === 1 && !titles[0]!.trim())
+      return <Plural value={entry.holds.length} _2="Neither has a title. Only one can be read, unless they are different sheets." other="None of the # has a title. Only one can be read, unless they are different sheets." />
     if (titles.length === 1) {
       const title = <DrawingText kind="title" text={titles[0]!} truncate={false} />
       return <Trans>Both are titled “{title}”. Only one can be read.</Trans>
@@ -112,11 +121,14 @@ export function QuestionBody({ entry, context }: { entry: QuestionEntry; context
   if (q.code === 'takeoff.step1.no_number' && first) {
     const title = <DrawingText kind="title" text={first.title} truncate={false} />
     const file = <DrawingText kind="file-name" text={first.file_name} truncate={false} />
+    if (!first.title.trim()) return <Trans>A sheet in {file} has neither a number nor a title in its title block.</Trans>
     return <Trans>A sheet titled “{title}” in {file} has an empty number in its title block.</Trans>
   }
   if (q.code === 'takeoff.step1.which_kind' && first) {
     const title = <DrawingText kind="title" text={first.title} truncate={false} />
     const number = <SheetName sheets={[first]} />
+    if (!first.title.trim() && !first.number) return <Trans>It has neither a number nor a title, so nothing says which kind of sheet it is. Its kind decides which Takeoff steps read it.</Trans>
+    if (!first.title.trim()) return <Trans>It has no title, so nothing says which kind of sheet {number} is. Its kind decides which Takeoff steps read it.</Trans>
     return <Trans>Its title, “{title}”, does not say which kind of sheet {number} is. Its kind decides which Takeoff steps read it.</Trans>
   }
   if (q.kind === 'check' && typeof q.params.number === 'string') {
@@ -151,6 +163,10 @@ export function Trace({ entry, context, onOpen }: { entry: QuestionEntry; contex
     return <Trans>Trace: the title blocks of {copies}</Trans>
   }
   if (q.code === 'takeoff.step1.no_number' && first) {
+    if (!first.title.trim()) {
+      const untitled = <SheetLink sheet={first} onOpen={onOpen} />
+      return <Trans>Trace: the title block of {untitled} (its number and title fields are empty)</Trans>
+    }
     const sheet = <SheetLink sheet={first} onOpen={onOpen}><DrawingText kind="title" text={first.title} truncate={false} /></SheetLink>
     return <Trans>Trace: the title block of {sheet} (the number field is empty)</Trans>
   }
@@ -226,7 +242,36 @@ function CopyIn({ sheet, other, first }: { sheet: ProposalOut; other: ProposalOu
  * the card can name them (screens.md Takeoff ruling 2, m0-screens 6.7): for two copies of one number,
  * `pickSources` must name two; for any other Question no option is pre-picked yet.
  */
+/** The latest of the copies, as 21c keeps it for "keep the latest": by issue date, then revision mark. */
+export function latestOf(copies: readonly ProposalOut[]): ProposalOut | undefined {
+  const date = (text: string | null | undefined): number => {
+    const parts = (text ?? '').trim().split(/[./-]/).filter((x) => /^\d+$/.test(x)).map(Number)
+    if (parts.length !== 3) return 0
+    const [first, month, last] = parts as [number, number, number]
+    const [day, year] = first > 31 ? [last, first] : [first, last] // written year first, or day first
+    return year * 10000 + month * 100 + day
+  }
+  return [...copies].sort((a, b) => date(b.issue_date) - date(a.issue_date) || b.revision_mark.localeCompare(a.revision_mark, 'en', { numeric: true, sensitivity: 'base' }))[0]
+}
+
+/** The copy kept and the copy left out by a pick on two sheets of one number, or null for another pick. */
+function keptAndDropped(entry: QuestionEntry, key: string): { keep: ProposalOut; drop: ProposalOut } | null {
+  if (!isCopies(entry)) return null
+  const [later, earlier] = entry.holds as [ProposalOut, ProposalOut]
+  if (key === 'keep_b') return { keep: later, drop: earlier }
+  if (key === 'keep_a') return { keep: earlier, drop: later }
+  if (key !== 'keep_latest') return null
+  const keep = latestOf(entry.holds) ?? later
+  const drop = entry.holds.find((h) => h !== keep) ?? earlier
+  return { keep, drop }
+}
+
 export function usePick(entry: QuestionEntry, context: CardContext): { key: string } | null {
+  return prePick(entry, context)
+}
+
+/** The option pre-picked for the QS (usePick's, outside a component). */
+export function prePick(entry: QuestionEntry, context: CardContext): { key: string } | null {
   const picked = optionsOf(entry).find((o) => o.picked && o.key)
   if (!picked?.key) return null
   // Only two copies of one number have sources the card can name yet; any other pick is not shown.
@@ -252,10 +297,9 @@ const sameMark = (a: string, b: string) => a.trim().toUpperCase() === b.trim().t
  */
 export function pickSources(entry: QuestionEntry, context: CardContext, pick: string): PickSources {
   const none: PickSources = { mark: false, date: false, list: null, count: 0 }
-  if (!isCopies(entry) || (pick !== 'keep_b' && pick !== 'keep_a')) return none
-  const [later, earlier] = entry.holds as [ProposalOut, ProposalOut]
-  const keep = pick === 'keep_b' ? later : earlier
-  const drop = pick === 'keep_b' ? earlier : later
+  const pair = keptAndDropped(entry, pick)
+  if (!pair) return none
+  const { keep, drop } = pair
   const mark = !!keep.revision_mark.trim() && !!drop.revision_mark.trim() && keep.revision_mark.localeCompare(drop.revision_mark, 'en', { numeric: true }) > 0
   const date = !!keep.issue_date && !!drop.issue_date && keep.issue_date > drop.issue_date
   const list = context.lists[entry.question.discipline ?? keep.discipline ?? '']
@@ -282,16 +326,45 @@ export function OptionWords({ entry, option }: { entry: QuestionEntry; option: O
   const { i18n } = useLingui()
   const f = useFormat()
   const key = option.key ?? ''
-  if (isCopies(entry) && (key === 'keep_b' || key === 'keep_a')) {
-    const [later, earlier] = entry.holds as [ProposalOut, ProposalOut]
-    const keep = key === 'keep_b' ? later : earlier
-    const drop = key === 'keep_b' ? earlier : later
+  const pair = keptAndDropped(entry, key)
+  if (pair) {
+    const { keep, drop } = pair
+    const later = entry.holds[0]
     const kept = <CopyIn sheet={keep} other={drop} first={keep === later} />
     const dropped = <CopyIn sheet={drop} other={keep} first={drop === later} />
     const byMark = !!keep.revision_mark.trim() && !!drop.revision_mark.trim() && keep.revision_mark !== drop.revision_mark
     const date = byMark && keep.issue_date ? f.day(keep.issue_date) : null
+    const others = entry.holds.length - 1
+    if (others > 1)
+      return date ? (
+        <Trans>
+          Keep {kept} ({date}); leave the other <Plural value={others} one="# copy" other="# copies" /> out as superseded
+        </Trans>
+      ) : (
+        <Trans>
+          Keep {kept}; leave the other <Plural value={others} one="# copy" other="# copies" /> out as superseded
+        </Trans>
+      )
     return date ? <Trans>Keep {kept} ({date}); leave {dropped} out as superseded</Trans> : <Trans>Keep {kept}; leave {dropped} out as superseded</Trans>
   }
+  const q = entry.question
+  if (key === 'keep_all') {
+    const n = entry.holds.length
+    if (q.code === 'engine.conflicts.same_storey') return <Plural value={n} _0="They draw different things: keep them all" one="They draw different things: keep it" _2="They draw different things: keep both" other="They draw different things: keep all #" />
+    return <Plural value={n} _0="They are different sheets: keep them all" one="They are different sheets: keep it" _2="They are different sheets: keep both" other="They are different sheets: keep all #" />
+  }
+  if (key === 'use_read' && typeof q.params.sheet === 'string' && q.params.sheet) {
+    const sheet = q.params.sheet
+    if (q.params.named === 'number') {
+      const number = <DrawingText kind="sheet-number" text={sheet} truncate={false} />
+      return <Trans>Use the drawing list on {number}</Trans>
+    }
+    const title = <DrawingText kind="title" text={sheet} truncate={false} />
+    return <Trans>Use the drawing list on the sheet titled “{title}”</Trans>
+  }
+  if (key === 'use_given' && q.params.source === 'pasted') return <Trans>Use the drawing list you pasted</Trans>
+  if (key === 'use_given' && q.params.source === 'typed') return <Trans>Use the range you typed</Trans>
+  if (q.kind === 'missing_discipline' && key !== 'keep_open') return <>{disciplineName(key, i18n)}</>
   // 21c raises every Check with the drawing list's options; a numbering gap words two of them for itself.
   const gap = gapOf(entry.question)
   if (gap && key === 'not_sent_yet') {
@@ -299,60 +372,349 @@ export function OptionWords({ entry, option }: { entry: QuestionEntry; option: O
     return <Plural value={missing} one="Not sent yet: keep the missing sheet in the count and ask the consultant" other="Not sent yet: keep the missing sheets in the count and ask the consultant" />
   }
   if (gap && key === 'not_in_set') return <Trans>Not part of this set: the numbering skips here</Trans>
-  const words = OPTION_NAMES[key] ?? (entry.question.kind === 'low_confidence' ? SHEET_KIND_NAMES[key] : undefined)
+  // A sheet in a file but not on the drawing list: the list does not hold it, so the option says what is left to do.
+  if (entry.question.code === 'engine.register_check.not_listed' && key === 'not_in_set') return <Trans>Not part of this set: record it, then exclude it in the list</Trans>
+  const words = OPTION_NAMES[key] ?? (q.kind === 'low_confidence' ? SHEET_KIND_NAMES[key] : undefined)
   return <>{i18n._(words ?? OTHER_OPTION)}</>
 }
 
 /** The card's first line (§5 item 2, §6.7), for the option picked (pre-picked in M0), else what it settles. */
-export function Answering({ entry, context }: { entry: QuestionEntry; context: CardContext }) {
+export function Answering({ entry, context, choice, hint = false }: { entry: QuestionEntry; context: CardContext; choice?: string | null; hint?: boolean }) {
+  const { i18n } = useLingui()
   const names = context.names
-  const picked = usePick(entry, context)?.key
+  const prePick = usePick(entry, context)?.key
+  const picked = choice ?? prePick
   const n = entry.holds.length
   const q = entry.question
   if (entry.withdrawn) {
     const sheet = <SheetName sheets={entry.holds} />
-    return <Trans>Withdrawn when {sheet} was left out. {sheet} can be confirmed back in once this is answered.</Trans>
+    const Sheet = <SheetName sheets={entry.holds} start />
+    return <Trans>Withdrawn when {sheet} was left out. {Sheet} can be confirmed back in once this is answered.</Trans>
   }
+  const keys = <PickKeys entry={entry} />
+  const discipline = q.discipline ? disciplineName(q.discipline, i18n) : null
   if (q.kind === 'file_misread') {
+    // §6.7's held-file row: each pick's own first line; before a pick, what it decides and the keys.
+    const named = !!(q.subject_id && names[q.subject_id])
     const file = <FileName entry={entry} names={names} />
-    return q.subject_id && names[q.subject_id] ? <Trans>Answering decides whether {file}’s sheets join the list.</Trans> : <Trans>Answering decides whether this file’s sheets join the list.</Trans>
+    if (picked === 'read_anyway')
+      return named ? (
+        <Trans>Answering reads {file} anyway: its sheets join the list as Proposals, each marked held, and their figures are flagged later.</Trans>
+      ) : (
+        <Trans>Answering reads this file anyway: its sheets join the list as Proposals, each marked held, and their figures are flagged later.</Trans>
+      )
+    if (picked === 'await_resaved' || picked === 'sent_to_vextrus')
+      return discipline ? (
+        <Trans>Answering sets the file aside: none of its sheets is read or counted. {discipline} can still be confirmed.</Trans>
+      ) : (
+        <Trans>Answering sets the file aside: none of its sheets is read or counted.</Trans>
+      )
+    if (picked === 'keep_open')
+      return discipline ? <Trans>Answering keeps the file held. {discipline} cannot be confirmed until it is answered.</Trans> : <Trans>Answering keeps the file held.</Trans>
+    if (hint && !picked)
+      return named ? (
+        <Trans>Answering decides whether {file}’s sheets join the list. Pick an answer: {keys}.</Trans>
+      ) : (
+        <Trans>Answering decides whether this file’s sheets join the list. Pick an answer: {keys}.</Trans>
+      )
+    return named ? <Trans>Answering decides whether {file}’s sheets join the list.</Trans> : <Trans>Answering decides whether this file’s sheets join the list.</Trans>
   }
+  if (q.kind === 'check' && picked) {
+    // §6.7's drawing-list row: what each pick does to the entry (or the gap) and to its Discipline.
+    const gap = gapOf(q)
+    const listed = typeof q.params.number === 'string' && q.params.number ? q.params.number : null
+    const entryName = listed ? <DrawingText kind="sheet-number" text={listed} truncate={false} /> : n > 0 ? <SheetName sheets={entry.holds} /> : null
+    const missing = typeof q.params.missing === 'number' ? q.params.missing : 1
+    // A sheet in a file but not on the drawing list: it exists, and stays in the list whatever is picked.
+    const unlisted = q.code === 'engine.register_check.not_listed'
+    if (picked === 'not_in_set') {
+      if (gap) return <Trans>Answering records that the numbering skips here: nothing is missing.</Trans>
+      if (unlisted && entryName) return <Trans>Answering records that {entryName} is not part of this set; exclude it in the list.</Trans>
+      // 21c records it and takes nothing off the drawing list (#206): said as what is recorded.
+      const recorded = entryName ? (
+        <Trans>Answering records that {entryName} is not part of this set; it stays on the drawing list.</Trans>
+      ) : (
+        <Trans>Answering records that the sheet is not part of this set; it stays on the drawing list.</Trans>
+      )
+      return discipline ? (
+        <>
+          {recorded} <Trans>{discipline} can still be confirmed.</Trans>
+        </>
+      ) : (
+        recorded
+      )
+    }
+    if (picked === 'not_sent_yet' || picked === 'file_not_added') {
+      // A gap is raised only without a drawing list: the missing numbers were never in the count.
+      const kept = gap ? (
+        <Plural
+          value={missing}
+          one="Answering records that the missing sheet is still to come. Paste the drawing list to count it."
+          other="Answering records that the # missing sheets are still to come. Paste the drawing list to count them."
+        />
+      ) : unlisted && entryName ? (
+        <Trans>Answering records your pick; {entryName} stays in the list, to confirm or exclude.</Trans>
+      ) : entryName ? (
+        <Trans>Answering keeps {entryName} in the count as missing.</Trans>
+      ) : (
+        <Trans>Answering keeps the sheet in the count as missing.</Trans>
+      )
+      return discipline ? (
+        <>
+          {kept} <Trans>{discipline} can still be confirmed.</Trans>
+        </>
+      ) : (
+        kept
+      )
+    }
+    if (picked === 'keep_open') {
+      const open = gap ? <Trans>Answering keeps this gap open.</Trans> : entryName ? <Trans>Answering keeps {entryName} open.</Trans> : <Trans>Answering keeps this Question open.</Trans>
+      return discipline ? (
+        <>
+          {open} <Trans>{discipline} cannot be confirmed until this Question is answered.</Trans>
+        </>
+      ) : (
+        open
+      )
+    }
+  }
+  if (q.kind === 'missing' && n > 0) {
+    // §6.7's no-number row, as 21c does it: the number is set (or left empty); the sheet is confirmed in the list.
+    if (picked === 'no_number') return <Trans>Answering leaves the sheet without a number; confirm it in the list.</Trans>
+    if (picked === 'type_number') return <Trans>Answering gives the sheet the number you type; confirm it in the list.</Trans>
+  }
+  if (picked && RECORDED_ONLY.has(picked)) return <Trans>Answering records your pick; the copies stay as they are, to confirm or exclude in the list.</Trans>
   if (isCopies(entry) && picked) {
-    const [later, earlier] = entry.holds as [ProposalOut, ProposalOut]
+    const [later] = entry.holds as [ProposalOut, ProposalOut]
     const number = <SheetName sheets={[later]} />
-    if (picked === 'keep_b' || picked === 'keep_a') {
-      const keep = picked === 'keep_b' ? later : earlier
-      const drop = picked === 'keep_b' ? earlier : later
+    const pair = keptAndDropped(entry, picked)
+    if (pair) {
+      const { keep, drop } = pair
       const kept = <CopyIn sheet={keep} other={drop} first={keep === later} />
       const dropped = <CopyIn sheet={drop} other={keep} first={drop === later} />
+      const others = n - 1
+      if (others > 1)
+        return (
+          <Trans>
+            Answering confirms {number} ({kept}) and excludes the other <Plural value={others} one="# copy" other="# copies" /> as superseded.
+          </Trans>
+        )
       return (
         <Trans>
           Answering confirms {number} ({kept}) and excludes {number} ({dropped}) as superseded.
         </Trans>
       )
     }
-    if (picked === 'keep_both') return <Trans>Answering confirms both copies.</Trans>
+    if (picked === 'keep_all' && n === 2) return <Trans>Answering confirms both copies.</Trans>
     if (picked === 'keep_open') return <Trans>Answering keeps both copies open. Neither is read until the consultant replies.</Trans>
   }
   if (picked === 'keep_open' && n > 0) {
     const name = <SheetName sheets={entry.holds} />
     return <Trans>Answering keeps {name} open.</Trans>
   }
-  if (n === 0) return <Trans>Answering confirms no sheets.</Trans>
+  if (picked === 'keep_all' && n > 0) return <Plural value={n} one="Answering confirms # sheet." other="Answering confirms # sheets." />
+  if (q.code === 'takeoff.proposals.lists_disagree') {
+    const name = disciplineName(q.discipline, i18n)
+    return hint && !picked ? (
+      <Trans>Answering decides which drawing list {name}’s sheets are counted against. Pick an answer: {keys}.</Trans>
+    ) : (
+      <Trans>Answering decides which drawing list {name}’s sheets are counted against.</Trans>
+    )
+  }
+  if (q.kind === 'low_confidence' && picked && picked !== 'keep_open' && SHEET_KIND_NAMES[picked] && n > 0) {
+    const sheet = <SheetName sheets={entry.holds} />
+    const kind = i18n._(SHEET_KIND_NAMES[picked]!)
+    return <Trans>Answering sets the kind of {sheet} to {kind} and confirms it, unless its number or Discipline is still asked.</Trans>
+  }
+  if (n === 0) return hint && !picked ? <Trans>Answering confirms no sheets. Pick an answer: {keys}.</Trans> : <Trans>Answering confirms no sheets.</Trans>
+  if (hint && !picked)
+    return (
+      <>
+        <Plural value={n} one="Answering settles # sheet." other="Answering settles # sheets." /> <Trans>Pick an answer: {keys}.</Trans>
+      </>
+    )
   return <Plural value={n} one="Answering settles # sheet." other="Answering settles # sheets." />
 }
 
-/** What the screen cannot do yet: answering (19a has no answer operation). */
-export function CannotAnswer({ entry, readOnly }: { entry: QuestionEntry; readOnly: 'md' | 'guest' | null }): ReactNode {
+/** Two copies' older keys (the seed's): 21c records them and changes no sheet, so their words promise nothing. */
+const RECORDED_ONLY: ReadonlySet<string> = new Set(['keep_b', 'keep_a', 'keep_both'])
+
+/** "1, 2, 3": the number keys of a card's options (at most 9 have one). */
+function PickKeys({ entry }: { entry: QuestionEntry }) {
+  const f = useFormat()
+  const n = Math.min(9, optionsOf(entry).length)
+  return <>{Array.from({ length: n }, (_, i) => f.integer(i + 1)).join(', ')}</>
+}
+
+/** The card's foot: who answers, and what waits on the answer. */
+export function AnswerNote({ entry, readOnly }: { entry: QuestionEntry; readOnly: 'md' | 'guest' | null }): ReactNode {
   const { i18n } = useLingui()
   if (readOnly === 'md') return <Trans>Waiting for the QS. The MD reads Questions and cannot answer them.</Trans>
   if (readOnly === 'guest') return <Trans>Waiting for the QS. A Guest reads Questions and cannot answer them.</Trans>
   if (entry.withdrawn) {
-    const sheet = <SheetName sheets={entry.holds} />
-    return <Trans>Questions cannot be answered on this screen yet, so {sheet} stays left out until this one is answered.</Trans>
+    const sheet = <SheetName sheets={entry.holds} start />
+    return <Trans>{sheet} stays left out until this Question is answered. A pick changes nothing until you answer.</Trans>
   }
   const discipline = entry.question.discipline
-  if (!discipline) return <Trans>Questions cannot be answered on this screen yet. Confirm the other sheets meanwhile.</Trans>
+  if (!discipline) return <Trans>A pick changes nothing until you answer.</Trans>
   const name = disciplineName(discipline, i18n)
-  return <Trans>Questions cannot be answered on this screen yet, so {name} cannot be confirmed until this Question is answered. Confirm its other sheets meanwhile.</Trans>
+  return <Trans>A pick changes nothing until you answer. {name} cannot be confirmed until this Question is answered.</Trans>
+}
+
+/**
+ * The toast after an answer (§6.5: "Q3 answered. Confirms S-19 R1 and excludes R0 as superseded."),
+ * naming only what 21c's answer does to the sheets; "Keep open" says the Question stays.
+ */
+function SheetKindName({ option }: { option: string }) {
+  const { i18n } = useLingui()
+  return <>{i18n._(SHEET_KIND_NAMES[option]!)}</>
+}
+
+export function AnsweredWords({ entry, option, text }: { entry: QuestionEntry; option: string; text: string }) {
+  const tag = entry.tag
+  const n = entry.holds.length
+  if (option === 'keep_open') return <Trans>{tag} kept open for the consultant.</Trans>
+  if (RECORDED_ONLY.has(option)) return <Trans>{tag} answered. Its sheets are unchanged: confirm or exclude them in the list.</Trans>
+  const pair = keptAndDropped(entry, option)
+  if (pair) {
+    // A toast is drawn outside the format's provider: the copies go by their marks, never their dates.
+    const number = <SheetName sheets={[pair.keep]} />
+    const others = n - 1
+    const marked = !!pair.keep.revision_mark.trim() && !!pair.drop.revision_mark.trim() && pair.keep.revision_mark !== pair.drop.revision_mark
+    if (!marked || others > 1) {
+      return (
+        <Trans>
+          {tag} answered. Confirms the latest copy of {number} and excludes the other <Plural value={others} one="# copy" other="# copies" /> as superseded.
+        </Trans>
+      )
+    }
+    const kept = <Copy sheet={pair.keep} />
+    const dropped = <Copy sheet={pair.drop} />
+    return (
+      <Trans>
+        {tag} answered. Confirms {number} {kept} and excludes {dropped} as superseded.
+      </Trans>
+    )
+  }
+  // Nothing held (or one copy): 21c confirms what it holds, so say what it did with what is there.
+  if (option === 'keep_latest') {
+    if (n === 0) return <Trans>{tag} answered. Recorded: keep the latest copy; no sheet was confirmed.</Trans>
+    const sheet = <SheetName sheets={entry.holds} />
+    return <Trans>{tag} answered. Confirms {sheet}.</Trans>
+  }
+  if (option === 'keep_all' && n === 0) return <Trans>{tag} answered. Recorded: keep them all; no sheet was confirmed.</Trans>
+  if (option === 'keep_all' && n > 0) {
+    return (
+      <Trans>
+        {tag} answered. <Plural value={n} one="Confirms # sheet." other="Confirms # sheets." />
+      </Trans>
+    )
+  }
+  if (option === 'type_number' && text) {
+    const number = <DrawingText kind="sheet-number" text={text} truncate={false} />
+    return <Trans>{tag} answered. The sheet is numbered {number}.</Trans>
+  }
+  // §6.5: the toast names what the answer did (the walk, M7).
+  const q = entry.question
+  if (q.kind === 'file_misread') {
+    if (option === 'read_anyway') return <Trans>{tag} answered. Reading the file again: its sheets join the list, marked held, once it is read.</Trans>
+    if (option === 'await_resaved') return <Trans>{tag} answered. The file is set aside, waiting for the re-saved file.</Trans>
+    if (option === 'sent_to_vextrus') return <Trans>{tag} answered. The file is set aside and marked for Vextrus to look at.</Trans>
+  }
+  if (q.kind === 'low_confidence' && SHEET_KIND_NAMES[option] && n === 0) {
+    const kind = <SheetKindName option={option} />
+    return <Trans>{tag} answered. Recorded the kind as {kind}; no sheet was confirmed.</Trans>
+  }
+  if (q.kind === 'low_confidence' && SHEET_KIND_NAMES[option] && n > 0) {
+    const sheet = <SheetName sheets={entry.holds} />
+    const kind = <SheetKindName option={option} />
+    // 21c confirms it only when nothing else holds it (its number or Discipline asked, or left out it keeps the kind alone).
+    return <Trans>{tag} answered. The kind of {sheet} is {kind}.</Trans>
+  }
+  if (q.kind === 'missing' && option === 'no_number') return <Trans>{tag} answered. The sheet stays without a number.</Trans>
+  if (q.kind === 'missing_discipline' && option in DISCIPLINE_NAMES && n === 0) {
+    // 21c sets the Discipline of the sheet the Question is about, held or not.
+    const discipline = <DisciplineWord option={option} />
+    return <Trans>{tag} answered. The sheet’s Discipline is {discipline}.</Trans>
+  }
+  if (q.kind === 'missing_discipline' && option in DISCIPLINE_NAMES && n > 0) {
+    const sheet = <SheetName sheets={entry.holds} />
+    const discipline = <DisciplineWord option={option} />
+    return <Trans>{tag} answered. The Discipline of {sheet} is {discipline}.</Trans>
+  }
+  if (option === 'includes_storey' || option === 'excludes_storey') {
+    if (n === 0) return option === 'includes_storey' ? <Trans>{tag} answered. Recorded: the sheet’s range includes its top storey.</Trans> : <Trans>{tag} answered. Recorded: the sheet’s top storey belongs to the next sheet’s range.</Trans>
+    const sheet = <SheetName sheets={entry.holds} />
+    return option === 'includes_storey' ? <Trans>{tag} answered. Recorded: the range on {sheet} includes its top storey.</Trans> : <Trans>{tag} answered. Recorded: the top storey on {sheet} belongs to the next sheet’s range.</Trans>
+  }
+  if (q.code === 'takeoff.proposals.lists_disagree' && (option === 'use_read' || option === 'use_given')) return <ListUsed entry={entry} option={option} />
+  if (q.kind === 'check') return <CheckAnswered entry={entry} option={option} />
+  // A code or option this screen does not know yet: still not the bare tag (round 3's design gate).
+  return <Trans>{tag} answered. Your answer is recorded.</Trans>
+}
+
+function DisciplineWord({ option }: { option: string }) {
+  const { i18n } = useLingui()
+  return <>{disciplineName(option, i18n)}</>
+}
+
+/** The two lists' Question answered: which list the Discipline's sheets are now counted against. */
+function ListUsed({ entry, option }: { entry: QuestionEntry; option: 'use_read' | 'use_given' }) {
+  const { i18n } = useLingui()
+  const tag = entry.tag
+  const q = entry.question
+  const name = disciplineName(q.discipline, i18n)
+  if (option === 'use_read') {
+    if (typeof q.params.sheet === 'string' && q.params.sheet) {
+      const sheet = q.params.sheet
+      if (q.params.named === 'number') {
+        const number = <DrawingText kind="sheet-number" text={sheet} truncate={false} />
+        return <Trans>{tag} answered. {name}’s sheets are counted against the drawing list on {number}.</Trans>
+      }
+      const title = <DrawingText kind="title" text={sheet} truncate={false} />
+      return <Trans>{tag} answered. {name}’s sheets are counted against the drawing list on the sheet titled “{title}”.</Trans>
+    }
+    return <Trans>{tag} answered. {name}’s sheets are counted against the drawing list found in the drawings.</Trans>
+  }
+  if (q.params.source === 'typed') return <Trans>{tag} answered. {name}’s sheets are counted against the range you typed.</Trans>
+  return <Trans>{tag} answered. {name}’s sheets are counted against the drawing list you pasted.</Trans>
+}
+
+/** A drawing-list Question answered (§6.7's row): the card's first line, said as done. */
+function CheckAnswered({ entry, option }: { entry: QuestionEntry; option: string }) {
+  const tag = entry.tag
+  const q = entry.question
+  const gap = gapOf(q)
+  const listed = typeof q.params.number === 'string' && q.params.number ? q.params.number : null
+  const sheet = listed ? <DrawingText kind="sheet-number" text={listed} truncate={false} /> : entry.holds.length > 0 ? <SheetName sheets={entry.holds} /> : null
+  // At a sentence's start, after "Q3 answered." (#167's words gate: an untitled sheet's words are capitalised).
+  const Sheet = listed ? sheet : entry.holds.length > 0 ? <SheetName sheets={entry.holds} start /> : null
+  const missing = typeof q.params.missing === 'number' ? q.params.missing : 1
+  const unlisted = q.code === 'engine.register_check.not_listed'
+  if (option === 'not_in_set') {
+    if (gap) {
+      const after = <DrawingText kind="sheet-number" text={gap.after} truncate={false} />
+      const before = <DrawingText kind="sheet-number" text={gap.before} truncate={false} />
+      return <Trans>{tag} answered. Recorded: the numbering skips between {after} and {before}; nothing is missing.</Trans>
+    }
+    if (!sheet) return <Trans>{tag} answered. Recorded: the sheet is not part of this set.</Trans>
+    if (unlisted) return <Trans>{tag} answered. Recorded: {sheet} is not part of this set; exclude it in the list.</Trans>
+    return <Trans>{tag} answered. Recorded: {sheet} is not part of this set; it stays on the drawing list.</Trans>
+  }
+  if (option !== 'not_sent_yet' && option !== 'file_not_added') return <Trans>{tag} answered. Your answer is recorded.</Trans>
+  if (gap)
+    return (
+      <Trans>
+        {tag} answered. Recorded:{' '}
+        <Plural
+          value={missing}
+          one="the missing sheet is still to come. Paste the drawing list to count it."
+          other="the # missing sheets are still to come. Paste the drawing list to count them."
+        />
+      </Trans>
+    )
+  if (unlisted && Sheet) return <Trans>{tag} answered. {Sheet} stays in the list, to confirm or exclude.</Trans>
+  if (option === 'file_not_added')
+    return sheet ? <Trans>{tag} answered. {Sheet} stays in the count as missing until its file is added.</Trans> : <Trans>{tag} answered. The sheet stays in the count as missing until its file is added.</Trans>
+  return sheet ? <Trans>{tag} answered. {Sheet} stays in the count as missing.</Trans> : <Trans>{tag} answered. The sheet stays in the count as missing.</Trans>
 }

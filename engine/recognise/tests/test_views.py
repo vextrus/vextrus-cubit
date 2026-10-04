@@ -1180,7 +1180,7 @@ def test_a_title_block_covering_most_of_the_paper_is_not_read() -> None:
         replace(second, box=(W - 20, H - 15, W - 10, H - 10)),
     ]
     border = np.array([[0, 0, W, 0], [0, H, W, H], [0, 0, 0, H], [W, 0, W, H]], dtype=np.float64)
-    spread = replace(paper, block=apart, frame=border, segments=np.empty((0, 4)))
+    spread = replace(paper, block=apart, frame=border, segments=np.empty((0, 4)), lengths=None)
     assert views._title_block(spread) is None
     assert views._title_block(paper) is not None
 
@@ -1392,3 +1392,50 @@ def test_a_shared_drawing_another_kinds_title_may_take_is_left_to_the_pairs() ->
     key = next(v for v in drawn(d, sheet) if v.title == "KEY PLAN")
     assert key.box.x0 == pytest.approx(40, abs=1)
     assert key.box.x1 >= 370
+
+
+STACKED_LABELS = [
+    ("2-16 ST.", (372.0, 338.0)),
+    ("2-16 ST.", (372.0, 346.0)),
+    ("2-16 ST.", (372.0, 354.0)),
+]
+"""Bar labels right of two stacked cross sections, bridging the 20 mm band between them."""
+
+
+def test_a_title_low_in_the_band_across_is_still_the_drawings_over_it() -> None:
+    """The upper cross section's title stands in the lower half of the band between the two: a band
+    across sides its titles by where the band starts, not by its middle (a title is under its
+    drawing)."""
+    d, sheet = labelled_sections(
+        [("SECTION 1-1", (330, 300, 370, 340)), (None, (330, 360, 370, 400))], STACKED_LABELS
+    )
+    d.text(
+        "SECTION 2-2", (10_000.0 + 330 * 50, 342 * 50, 0.0), height=6.0 * 50
+    )  # centre 345, band 340-360
+    found = drawn(d, sheet)
+    assert [v.title for v in found] == ["SECTION 2-2", "SECTION 1-1"]
+    upper, lower = (v.box for v in found)
+    assert upper.y1 == pytest.approx(400, abs=1)
+    assert lower.y0 == pytest.approx(288, abs=1)
+    assert lower.y1 < 350  # up to the band's middle
+
+
+def test_a_parts_box_takes_the_labels_on_the_grid_in_its_share() -> None:
+    """Each cross section's box reaches its bar labels, which stand right of its title's end."""
+    d, sheet = labelled_sections(
+        [("SECTION 1-1", (330, 300, 370, 340)), ("SECTION 2-2", (330, 360, 370, 400))], STACKED_LABELS
+    )
+    upper, lower = (v.box for v in drawn(d, sheet))
+    assert upper.x1 >= 386  # the label at 354 (2.5 mm tall), past the title's end at about 380
+    assert lower.x1 >= 386  # the label at 338
+
+
+def test_a_lone_line_running_past_a_drawing_is_no_drawing_of_its_own() -> None:
+    """A line runs 100 mm on past a long section's end, a section title standing under its end: the
+    band it alone crosses lies at the lines' edge and parts nothing."""
+    d, sheet = labelled_sections([("LONG SECTION OF BEAM B1", (40, 300, 300, 380))], [])
+    d.line((10_000.0 + 300 * 50, 340 * 50), (10_000.0 + 400 * 50, 340 * 50))
+    d.text("SECTION 9-9", (10_000.0 + 340 * 50, 330 * 50, 0.0), height=6.0 * 50)
+    found = drawn(d, sheet)
+    assert [v.title for v in found] == ["LONG SECTION OF BEAM B1"]
+    assert found[0].box.x1 >= 400

@@ -22,6 +22,9 @@ msgstr "No sheet was chosen, so nothing was changed. Select one or more sheets, 
 msgid "takeoff.step1.nothing_to_undo"
 msgstr "You have nothing left to undo on Step 1: undo takes back only your own Confirmations, exclusions and drawing lists. To change another person\'s, exclude the sheet, confirm it back in, or paste the drawing list again."
 
+msgid "takeoff.step1.answer_stays"
+msgstr "Nothing undone: an answer to a Question cannot be undone, nor anything before it. To change what it decided, exclude a sheet it confirmed or confirm back one it excluded."
+
 msgid "takeoff.step1.held_file"
 msgstr "Nothing was confirmed: {count, plural, one {{named, select, number {{sheet}} title {the sheet titled \"{sheet}\"} other {a chosen sheet}} is marked held because its file may be misread} other {# of the chosen sheets are marked held, each from a file that may be misread{named, select, number {, {sheet} among them} title {, the sheet titled \"{sheet}\" among them} other {}}}}, and only sheets that agree are confirmed together. Take {count, plural, one {it} other {them}} out of the selection to confirm the rest, then open {count, plural, one {it} other {each}} to check it and confirm it on its own."
 

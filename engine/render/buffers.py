@@ -516,7 +516,17 @@ def _paper_for_box(
         mm_per_unit, source = matched, PaperSource.STANDARD
     else:
         mm_per_unit, source = unmatched_mm_per_unit, PaperSource.ASSUMED
-    return Paper(width * mm_per_unit, height * mm_per_unit, mm_per_unit, source, (x0, y0))
+    return Paper(_kept(width * mm_per_unit), _kept(height * mm_per_unit), mm_per_unit, source, (x0, y0))
+
+
+def _kept(size_mm: float) -> float:
+    """A paper size at the precision the header keeps it (float32, as the viewer reads it), so a buffer
+    read back from its bytes is the buffer built: a raster's size is the paper's, and a size that
+    changed in its last bits can change it by a pixel (21d)."""
+    try:
+        return float(struct.unpack("<f", struct.pack("<f", size_mm))[0])
+    except OverflowError:  # past any float32: a paper no sheet has, which `build` refuses
+        return size_mm
 
 
 def _model_paper(
@@ -532,11 +542,13 @@ def _model_paper(
     fitted = views._plot_paper(box, plot, scale if read else None) if plot is not None else None
     if fitted is not None:
         plotted, origin, (width_mm, height_mm) = fitted
-        return Paper(width_mm, height_mm, 1 / plotted, PaperSource.STANDARD, origin)
+        return Paper(_kept(width_mm), _kept(height_mm), 1 / plotted, PaperSource.STANDARD, origin)
     mm_per_unit = 1 / scale
     source = PaperSource.STANDARD if read else PaperSource.ASSUMED
     width, height = box.x1 - box.x0, box.y1 - box.y0
-    return Paper(width * mm_per_unit, height * mm_per_unit, mm_per_unit, source, (box.x0, box.y0))
+    return Paper(
+        _kept(width * mm_per_unit), _kept(height * mm_per_unit), mm_per_unit, source, (box.x0, box.y0)
+    )
 
 
 class _Bounds:

@@ -53,6 +53,21 @@ test("the endpoint is refused anywhere, not only at a command's start", () => {
   assert.equal(bash(`bash -c "gh api repos/o/r/commits/0123abc/STATUSES"`), "STATUS_POSTED");
 });
 
+test("the demo seed's synthetic drawings may be staged by name, and no other drawing", () => {
+  assert.equal(bash("git add vextrus/seed/recorded/KR-STR-R0.dwg"), null);
+  for (const command of [
+    "git add vextrus/seed/recorded/../../../.private/reference/a.dwg",
+    "git add vextrus/seed/recorded/sub/a.dwg",
+    "git add vextrus/seed/a.dwg",
+    "git add x/vextrus/seed/recorded/a.dwg",
+    "git add vextrus/seed/recorded/a.dxf",
+    "git add -f vextrus/seed/recorded/a.dwg",
+    "git add vextrus/seed/recorded/..dwg",
+  ]) {
+    assert.equal(bash(command), "PRIVATE_STAGED", command);
+  }
+});
+
 test("ordinary work passes", () => {
   for (const command of [
     "git status",

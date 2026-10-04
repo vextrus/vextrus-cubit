@@ -251,6 +251,36 @@ def _load(row: DrawingFile, found: Artefact) -> ReadArtefact:
     return ReadArtefact.from_json(json.loads(storage.get(key)))
 
 
+@dataclass(frozen=True)
+class Kept:
+    """What a file's read job kept, as kept (for the real-drawing check's export, 21d): its reports'
+    JSON (`record_reports`; None where none was kept) and each completed step's result by its name
+    (the latest kept, where a step was kept for more than one input)."""
+
+    cross_check: dict[str, Any] | None
+    upload_report: dict[str, Any] | None
+    font_report: dict[str, Any] | None
+    bangla_ansi: dict[str, Any] | None
+    steps: dict[str, dict[str, Any]]
+
+
+def kept(file_id: uuid.UUID) -> Kept:
+    """The file's kept reports and step results (see `Kept`)."""
+    row = _access.drawing_file(file_id)
+    steps: dict[str, dict[str, Any]] = {}
+    for step, result in (
+        ReadStep.objects.filter(file=row).order_by("created_at", "id").values_list("step", "result")
+    ):
+        steps[step] = dict(result)
+    return Kept(
+        cross_check=row.cross_check,
+        upload_report=row.upload_report,
+        font_report=row.font_report,
+        bangla_ansi=row.bangla_ansi,
+        steps=steps,
+    )
+
+
 # Reports and ends ------------------------------------------------------------------------------------
 
 

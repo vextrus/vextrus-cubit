@@ -259,8 +259,9 @@ def _describe(error: BaseException) -> str:
 # One file, in its child process ---------------------------------------------------------------------
 
 
-class _Stages:
-    """The reports of one process's stages, saved to a progress file as they change."""
+class Stages:
+    """The reports of one process's stages, saved to a progress file as they change (the job's export
+    reports the stages it runs itself through one too, 21d)."""
 
     def __init__(self, targets: Mapping[str, str], progress: Path | None) -> None:
         self.targets = targets
@@ -317,7 +318,7 @@ class _Stages:
         partial.replace(self.progress)
 
 
-def _counts(value: JSON) -> dict[str, int] | None:
+def counts_of(value: JSON) -> dict[str, int] | None:
     """Names to counts, from a report's `counts` or from the report itself."""
     if isinstance(value, dict) and "counts" in value:
         value = value["counts"]
@@ -328,7 +329,7 @@ def _counts(value: JSON) -> dict[str, int] | None:
     return None
 
 
-def _agree(value: JSON) -> bool | None:
+def agree_of(value: JSON) -> bool | None:
     if isinstance(value, bool):
         return value
     if isinstance(value, dict):
@@ -339,7 +340,7 @@ def _agree(value: JSON) -> bool | None:
     return None
 
 
-def _as_json(stages: _Stages, name: str, value: object) -> JSON:
+def _as_json(stages: Stages, name: str, value: object) -> JSON:
     try:
         return to_json(value)
     except (TypeError, ValueError, RecursionError) as error:
@@ -347,21 +348,21 @@ def _as_json(stages: _Stages, name: str, value: object) -> JSON:
         return None
 
 
-def _list_of[T](stages: _Stages, name: str, value: object, kind: type[T]) -> list[T] | None:
+def _list_of[T](stages: Stages, name: str, value: object, kind: type[T]) -> list[T] | None:
     if not isinstance(value, list | tuple) or not all(isinstance(v, kind) for v in value):
         stages.fail(name, f"it returned {type(value).__name__}, not a list of {kind.__name__}")
         return None
     return list(value)
 
 
-def _counted(stages: _Stages, name: str, value: object) -> dict[str, int] | None:
-    counts = _counts(_as_json(stages, name, value))
+def _counted(stages: Stages, name: str, value: object) -> dict[str, int] | None:
+    counts = counts_of(_as_json(stages, name, value))
     if counts is None and stages.reports[name].state is not StageState.FAILED:
         stages.fail(name, "its result has no counts (names to counts)")
     return counts
 
 
-def _read_dwg(job: Mapping[str, Any], stages: _Stages) -> dict[str, Any]:
+def _read_dwg(job: Mapping[str, Any], stages: Stages) -> dict[str, Any]:
     path = Path(job["path"])
     found: dict[str, Any] = {}
     sheet_conventions = view_conventions = None
@@ -378,7 +379,7 @@ def _read_dwg(job: Mapping[str, Any], stages: _Stages) -> dict[str, Any]:
             summary = _as_json(stages, "read", getattr(artefact, "summary", None))
             if isinstance(summary, dict):
                 found["read_format"] = summary.get("format")
-                found["entity_counts"] = _counts(summary.get("entity_counts"))
+                found["entity_counts"] = counts_of(summary.get("entity_counts"))
             if found.get("entity_counts") is None:
                 stages.fail("read", "its artefact has no summary with entity_counts (names to counts)")
     needs_artefact = None if have_artefact else "read"
@@ -386,7 +387,7 @@ def _read_dwg(job: Mapping[str, Any], stages: _Stages) -> dict[str, Any]:
     if decoders := stages.open("decoders_agree", needs_artefact):
         ok, result = stages.call("decoders_agree", decoders, path, artefact)
         if ok:
-            found["decoders_agree"] = _agree(_as_json(stages, "decoders_agree", result))
+            found["decoders_agree"] = agree_of(_as_json(stages, "decoders_agree", result))
             if found["decoders_agree"] is None:
                 stages.fail("decoders_agree", "its result says neither agree nor disagree")
     for name, key in (("font_report", "font_report"), ("bangla_ansi", "bangla_ansi")):
@@ -419,7 +420,7 @@ def _read_dwg(job: Mapping[str, Any], stages: _Stages) -> dict[str, Any]:
             entries = None
         found["register"] = entries or []
     report = getattr(budget, "report", None)  # every limit the finder or register reached, or 0
-    found["sheet_report"] = _counts(report()) if callable(report) else None
+    found["sheet_report"] = counts_of(report()) if callable(report) else None
 
     views: list[list[ViewCandidate]] = [[] for _ in sheets or []]
     papers: list[tuple[float, float] | None] = [None for _ in sheets or []]
@@ -432,7 +433,7 @@ def _read_dwg(job: Mapping[str, Any], stages: _Stages) -> dict[str, Any]:
             listed_views = _list_of(stages, "views", result, ViewCandidate) if ok else None
             views[j] = listed_views or []
             papers[j] = _paper_of(result) if listed_views is not None else None
-            found["view_report"] = _counts(_as_json(stages, "views", getattr(result, "limits", None)))
+            found["view_report"] = counts_of(_as_json(stages, "views", getattr(result, "limits", None)))
     found["views"] = views
     found["papers"] = papers
 
@@ -463,7 +464,7 @@ def _paper_of(result: object) -> tuple[float, float] | None:
     return (width, height) if 0 < width < math.inf and 0 < height < math.inf else None
 
 
-def _read_pdf(job: Mapping[str, Any], stages: _Stages) -> dict[str, Any]:
+def _read_pdf(job: Mapping[str, Any], stages: Stages) -> dict[str, Any]:
     path = Path(job["path"])
     found: dict[str, Any] = {}
     if report := stages.open("pdf_report"):
@@ -488,7 +489,7 @@ def child_main(job_path: str) -> int:
     """A file's child process: runs its stages and leaves what it found for the parent, by pickle."""
     job = _load(job_path)
     sys.path[:] = job["sys_path"]
-    stages = _Stages(job["targets"], Path(job["progress"]))
+    stages = Stages(job["targets"], Path(job["progress"]))
     found = _read_dwg(job, stages) if job["format"] == "dwg" else _read_pdf(job, stages)
     stages.handing_over()
     found["stages"] = {name: report.to_json() for name, report in stages.reports.items()}
@@ -923,8 +924,8 @@ def _plot_papers(
     """The Plot's papers for the model-space sheets read on another (#160, the ruling of session 09):
     by file, by sheet, the paper in mm of the page the Plot is matched to, for each file to be read
     again with them, so that its views and buffers lie on the one paper the Plot shows. The match is
-    the `plot` stage's, run as `_read_set` runs it, on the first read; nothing when it cannot run on
-    the whole set or fails (the stage then says so in `_read_set`). A paper within `PLOT_FITS` of the
+    the `plot` stage's, run as `read_set` runs it, on the first read; nothing when it cannot run on
+    the whole set or fails (the stage then says so in `read_set`). A paper within `PLOT_FITS` of the
     page's on each side is the page's already: its file is not read again for it."""
     if not built.get("plot") or not all(
         f.stages[name].state is StageState.OK
@@ -1007,14 +1008,17 @@ def _read_again(first: FileReading, again: FileReading) -> FileReading:
     return replace(again, process=process)
 
 
-def _read_set(
+def read_set(
     files: Sequence[FileReading],
     targets: Mapping[str, str],
     built: Mapping[str, bool],
     conventions: SheetConventions | None,
     set_dir: Path,
 ) -> SetOutcome:
-    stages = _Stages(targets, progress=None)
+    """The set stages over the files' readings (the module's "Then across the set"); the job's
+    export (21d, `vextrus/takeoff/services/export.py`) runs them too, on the job's readings, so the
+    two exports say the same of the same sheets."""
+    stages = Stages(targets, progress=None)
     refs = References(files)
     outcome = SetOutcome(stages=stages.reports)
     sheets = [sheet for reading in files for sheet in reading.sheets]
@@ -1189,7 +1193,7 @@ def run(
                 papers,
             )
             files[index] = _read_again(files[index], again)
-    outcome = _read_set(files, targets, built, applied.sheet_conventions, set_dir)
+    outcome = read_set(files, targets, built, applied.sheet_conventions, set_dir)
     info = RunInfo(
         id=run_id or str(uuid.uuid7()),
         commit=commit,
