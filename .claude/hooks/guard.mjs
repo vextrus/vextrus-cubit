@@ -41,6 +41,10 @@ const args = (rest) => (rest ?? "").split(/\s+/).filter((arg) => arg !== "");
 // Only the orchestrator's session, whose project is the main checkout, may run them: a builder's session
 // (a worktree under .claude/worktrees/, or a cloud copy) never posts its own gate. Within one Unix user
 // this is a tripwire, not a wall (ADR 0041).
+// The demo seed's own synthetic drawings (vextrus/seed/kr01.py, written by the repo's writer; the owner's
+// ruling, session 11: "Allow that path only"): exactly these, by name, and nothing under .private/.
+const SEED_DRAWING = /^(?:\.\/)?vextrus\/seed\/recorded\/[A-Za-z0-9_-][A-Za-z0-9._-]*\.dwg$/;
+
 const AS_KEY_USER = String.raw`^sudo -n -u vxkeys `;
 // One plain argument (a run id, a PR number or a branch name): a letter or digit first, so never an option
 // (issue #107); the sudoers rule autonomy-setup.sh installs for the scorer is this same pattern.
@@ -78,7 +82,16 @@ const BASH_RULES = [
     fires: (parts) =>
       parts.some((part) => {
         const add = gitVerb("add").exec(part);
-        return add !== null && args(add[1]).some((a) => a === "-f" || a === "--force" || a.includes(".private") || /\.(dwg|dxf|rvt|ifc)$/i.test(a));
+        return (
+          add !== null &&
+          args(add[1]).some(
+            (a) =>
+              a === "-f" ||
+              a === "--force" ||
+              a.includes(".private") ||
+              (/\.(dwg|dxf|rvt|ifc)$/i.test(a) && !SEED_DRAWING.test(a)),
+          )
+        );
       }),
     reason:
       "Real drawings (the Edison set, the Sample Project, client sets) and everything derived from them live in .private/ and never enter git. A forced add of an ignored path is refused for the same reason.",
