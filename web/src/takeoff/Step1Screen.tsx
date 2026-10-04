@@ -15,7 +15,7 @@
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Trans, useLingui } from '@lingui/react/macro'
-import { useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
+import { useIsFetching, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
 import { getRouteApi, useSearch } from '@tanstack/react-router'
 import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import { AppLink, PATHS } from '@/app/AppLink'
@@ -31,9 +31,10 @@ import { PAPER_AS_READ, useSheetLook, type LookSetting } from './SheetLook'
 import { Bar, ExclusionPicker, useBar, type BarSpec } from './Bar'
 import { renderQuery, useStep1, type CoverageOut, type ProposalOut, type Step1Data, type ViewOut } from './data'
 import { DrawingListDialog } from './DrawingListDialog'
+import { step1Key } from './data'
 import { FilesBand } from './FilesBand'
 import { ReportPanel } from '@/drawing-set/ReportPanel'
-import { disciplinesQuery, type FileOut } from '@/drawing-set/data'
+import { POLL_MS, disciplinesQuery, filesQuery, isMoving, type FileOut } from '@/drawing-set/data'
 import { nextOpenRow, step1Model, type Reason, type Row, type Step1Model } from './model'
 import { SheetList, disciplineName } from './SheetList'
 import { OTHER_VIEW_KIND, VIEW_KINDS } from './words'
@@ -50,19 +51,140 @@ export function Step1Page() {
   const { data: session } = useSuspenseQuery(sessionQuery)
   const project = projectRoute.useLoaderData()
   const { data, error, retry } = useStep1(project.id)
+  const reading = useRefreshAsFilesFinish(project.id)
   if (!data) {
     if (error) return <LoadProblem error={error} onRetry={retry} className="m-4" />
     return <Skeleton rows={10} className="m-4" status={<Trans>Opening Step 1…</Trans>} />
   }
+  if (data.proposals.length === 0 && data.questions.length === 0 && reading.length > 0) return <NoSheetsYet project={project} reading={reading} />
   if (data.proposals.length === 0 && data.questions.length === 0) return <NoSheets project={project} readOnly={readOnlyRole(session) !== null} />
   return (
     <KeyScope level="screen" name="step1">
-      <Step1 session={session} project={project} model={step1Model(data)} coverage={data.coverage} drawn={data} />
+      <Step1 session={session} project={project} model={step1Model(data)} coverage={data.coverage} drawn={data} reading={reading} />
     </KeyScope>
   )
 }
 
+/** How often Step 1 asks for the files while none moves: a file added in another tab, or by a colleague, starts its row and refresh. */
+const IDLE_POLL_MS = 30_000
+
+/**
+ * The Drawing Set's files still reading (waiting, reading or retrying; a file being stopped adds no
+ * sheets). Whenever a file changes state, Step 1's answers are fetched again, so a file's sheets, the
+ * Count and Coverage arrive without a reload as it finishes. The files are asked for every 2 s while
+ * one moves, every 30 s otherwise and on coming back to the tab. On the first files answer, Step 1's
+ * answers are fetched again unless they arrived after it (a tie counts as before): sent together, the server may answer Step 1
+ * first and finish a file before it answers the files, which then show nothing moving to wait for.
+ */
+function useRefreshAsFilesFinish(projectId: string): FileOut[] {
+  const qc = useQueryClient()
+  const files = useQuery({
+    ...filesQuery(projectId),
+    refetchOnWindowFocus: true,
+    refetchInterval: (query) => (query.state.data?.files.some(isMoving) ? POLL_MS : IDLE_POLL_MS),
+    // Step 1's whole screen hangs on this: it re-renders when the files change, never at each poll (CI's slowed run).
+    notifyOnChangeProps: ['data'],
+  })
+  const list = files.data?.files
+  const states = list?.map((f) => `${f.id}:${f.state}`).join(',')
+  const seen = useRef<string | undefined>(undefined)
+  useEffect(() => {
+    if (states === undefined || states === seen.current) return
+    const first = seen.current === undefined
+    seen.current = states
+    const step1At = qc.getQueryState([...step1Key(projectId), 'proposals'])?.dataUpdatedAt ?? 0
+    const answeredAt = qc.getQueryState(filesQuery(projectId).queryKey)?.dataUpdatedAt ?? 0
+    if (!first || step1At <= answeredAt) void qc.invalidateQueries({ queryKey: step1Key(projectId) })
+  }, [states, qc, projectId])
+  return (list ?? []).filter((f) => isMoving(f) && f.state !== 'stopping')
+}
+
+/** m0-screens §4.7, "Files still reading": one row per file above the list, or alone while no file is read yet. */
+function StillReading({ files }: { files: readonly FileOut[] }) {
+  if (files.length === 0) return null
+  return (
+    <div role="status" className="flex flex-col gap-0.5 border-b border-border px-3 py-1.5 text-xs text-ink-secondary">
+      {files.map((file) => (
+        <p key={file.id}>
+          <StillReadingLine file={file} />
+        </p>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * One file's row: what it is doing (§4.7's "Still reading KR-ELE-R0.dwg: sheet 2 of 3." while it reads
+ * sheets; a waiting or interrupted file says so, never "Still reading"), then what it will add. A PDF is
+ * a Plot: its pages are matched to sheets and never join the list as rows of their own.
+ */
+function StillReadingLine({ file }: { file: FileOut }) {
+  const f = useFormat()
+  const name = <DrawingText kind="file-name" text={file.name} truncate={false} className="text-foreground" />
+  const { position, total } = file.status.params as { position?: unknown; total?: unknown }
+  const counted = typeof position === 'number' && typeof total === 'number'
+  const code = file.status.code
+  const at = counted ? f.integer(position) : ''
+  const of = counted ? f.integer(total) : ''
+  let doing
+  if (file.state === 'waiting') doing = <Trans>{name} is waiting to be read.</Trans>
+  else if (file.state === 'retrying') doing = <Trans>Reading {name} was interrupted and is starting again.</Trans>
+  else if (counted && (code === 'drawings.files.reading_sheet' || code === 'drawings.files.reading_sheet_left'))
+    doing = (
+      <Trans>
+        Still reading {name}: sheet {at} of {of}.
+      </Trans>
+    )
+  else if (counted && (code === 'drawings.files.reading_page' || code === 'drawings.files.reading_page_left'))
+    doing = (
+      <Trans>
+        Still reading {name}: page {at} of {of}.
+      </Trans>
+    )
+  else doing = <Trans>Still reading {name}.</Trans>
+  return (
+    <>
+      {doing} {file.format === 'pdf' ? <Trans>Its pages are matched to sheets when it is read.</Trans> : <Trans>Its sheets join the list when it is read.</Trans>}
+    </>
+  )
+}
+
+/**
+ * No sheets in Step 1 yet while files read: the files band (each file's chip, its report and Cancel in
+ * the inspector, as in list mode), §4.7's row for each file, and the way to the Drawing Set; never
+ * "No sheets yet. Add the Drawing Set's files first."
+ */
+function NoSheetsYet({ project, reading }: { project: ProjectSummary; reading: readonly FileOut[] }) {
+  const disciplines = useQuery(disciplinesQuery(project.id))
+  const [file, setFile] = useState<FileOut | null>(null)
+  const name = <DrawingText kind="file-name" text={reading[0]!.name} truncate={false} />
+  return (
+    <div className="flex h-full flex-col">
+      <SlotFill slot="inspector.selection">
+        {file ? (
+          <ReportPanel key={file.id} projectId={project.id} file={file} disciplines={disciplines.data} onClose={() => setFile(null)} />
+        ) : (
+          <p className="p-3 text-sm text-muted-foreground">
+            {reading.length === 1 ? <Trans>No sheets yet: they arrive as {name} is read.</Trans> : <Trans>No sheets yet: they arrive as the files are read.</Trans>}
+          </p>
+        )}
+      </SlotFill>
+      <FilesBand projectId={project.id} onOpen={setFile} />
+      <StillReading files={reading} />
+      <div className="p-3">
+        <AppLink to={PATHS.drawingSet(project.code)} className={buttonVariants({ variant: 'secondary' })}>
+          <Trans>Go to the Drawing Set</Trans>
+        </AppLink>
+      </div>
+    </div>
+  )
+}
+
 function NoSheets({ project, readOnly }: { project: ProjectSummary; readOnly: boolean }) {
+  // The last file just finished and its sheets are on their way: never "Add the Drawing Set's files first"
+  // meanwhile. Asked only here, with nothing to show: Step 1's own screen never re-renders as its queries fetch.
+  const refreshing = useIsFetching({ queryKey: step1Key(project.id) }) > 0
+  if (refreshing) return <Skeleton rows={10} className="m-4" status={<Trans>Opening Step 1…</Trans>} />
   return (
     <div className="flex h-full items-center justify-center">
       <SlotFill slot="inspector.selection">
@@ -123,7 +245,21 @@ function useSheetLabel(model: Step1Model) {
   }
 }
 
-function Step1({ session, project, model, coverage, drawn }: { session: Session; project: ProjectSummary; model: Step1Model; coverage: CoverageOut; drawn: Step1Data }) {
+function Step1({
+  session,
+  project,
+  model,
+  coverage,
+  drawn,
+  reading,
+}: {
+  session: Session
+  project: ProjectSummary
+  model: Step1Model
+  coverage: CoverageOut
+  drawn: Step1Data
+  reading: readonly FileOut[]
+}) {
   const { t } = useLingui()
   const readOnly = readOnlyRole(session)
   const refuse = useReadOnlyToast()
@@ -340,6 +476,7 @@ function Step1({ session, project, model, coverage, drawn }: { session: Session;
 
   const bar = useBar({
     model,
+    reading: reading.length,
     row: focusedRow,
     mode,
     readOnly,
@@ -480,6 +617,7 @@ function Step1({ session, project, model, coverage, drawn }: { session: Session;
     <CoveragePanel
       coverage={coverage}
       held={model.queue.filter((e) => e.question.kind === 'file_misread' && e.question.subject_id && model.fileNames[e.question.subject_id]).map((e) => model.fileNames[e.question.subject_id!]!)}
+      reading={reading.filter((f) => f.state === 'reading').map((f) => f.name)}
     />
   ) : focusedRow ? (
     <>
@@ -524,6 +662,7 @@ function Step1({ session, project, model, coverage, drawn }: { session: Session;
       {mode === 'list' ? (
         <ListRegion label={spaceLabel} onSpace={fromList}>
           <FilesBand projectId={project.id} onOpen={(file) => setPanel({ file })} />
+          <StillReading files={reading} />
           <SheetList
             ref={listRef}
             model={model}
