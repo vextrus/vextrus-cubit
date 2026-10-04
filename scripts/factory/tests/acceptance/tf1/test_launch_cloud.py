@@ -68,7 +68,7 @@ RECORD_KEYS = {
 
 
 def cloned(revision: str = BRANCH, repository: str = REPOSITORY, session: str | None = SESSION) -> str:
-    """The CLI's debug lines for a launch cloned from GitHub (shapes read on 29 Sep 2026; the environment line, 4 Oct)."""
+    """The CLI's debug lines for a launch cloned from GitHub (read 29 Sep; environment line 4 Oct)."""
     return (
         "[DEBUG] Selected environment: env_01x (vextrus, anthropic_cloud)\n"
         "[DEBUG] GitHub app is installed on vextrus/vextrus-cubit\n"
