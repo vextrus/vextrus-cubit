@@ -5,6 +5,10 @@
 # Required checks are never filtered by path at the workflow level (a skipped workflow leaves a
 # required check waiting): the `changes` job decides, and jobs skip by `if:`. The `ci` job at the end
 # is the one to require. Actions are pinned by commit, with their version in a comment.
+#
+# The tests run as a matrix, one leg per shard of .github/ci-shards.json (f1); the lints, types and
+# scans run once, in python-checks. `python3 -m tools.lint.ci_shards` (in harness) proves the shards
+# partition the suite and that this file still reads them.
 name: ci
 
 on:
