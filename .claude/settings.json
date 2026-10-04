@@ -29,7 +29,24 @@
     "deny": [
       "Read(//home/riz/vextrus-cad/**)",
       "Edit(//home/riz/vextrus-cad/**)",
-      "Read(//home/vxkeys/**)"
+      "Read(//home/vxkeys/**)",
+      "Read(~/.pgpass)",
+      "Read(~/.bashrc)",
+      "Read(~/.bash_profile)",
+      "Read(~/.profile)",
+      "Read(~/.zshrc)",
+      "Read(~/.claude/.credentials.json)",
+      "Read(~/.config/gh/**)",
+      "Edit(~/.pgpass)",
+      "Edit(~/.bashrc)",
+      "Edit(~/.bash_profile)",
+      "Edit(~/.profile)",
+      "Edit(~/.zshrc)",
+      "Edit(~/.claude/.credentials.json)",
+      "Edit(~/.config/gh/**)",
+      "Edit(//home/riz/vextrus-cubit/.private/work/leakscan/ok/**)",
+      "Edit(//home/riz/vextrus-cubit/.private/work/leakscan/**)",
+      "Edit(//home/riz/vextrus-cubit/.private/work/factory/ledger/**)"
     ]
   },
   "hooks": {
