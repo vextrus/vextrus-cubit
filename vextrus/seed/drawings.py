@@ -84,8 +84,10 @@ from vextrus.drawings import services
 from vextrus.drawings.messages import files as file_words
 from vextrus.drawings.messages import reports as report_words
 from vextrus.drawings.services.reads import ReadStepStore
-from vextrus.platform.services import jobs, library, tenancy
+from vextrus.platform.services import jev, jobs, library, tenancy
 from vextrus.seed.demo import Demo
+from vextrus.takeoff.services.read_propose import files
+from vextrus.takeoff.services.read_propose.files import Readers
 from vextrus.takeoff.tasks.read_file import read_file
 
 PAPER = (841.0, 594.0)
@@ -164,9 +166,10 @@ STRUCTURAL = (
         "S-01",
         "GENERAL NOTES",
         (
-            V(ViewKind.NOTES, "GENERAL NOTES", (0.03, 0.2, 0.45, 0.62), ("general_notes",)),
-            V(ViewKind.LEGEND, "LEGEND", (0.5, 0.2, 0.68, 0.62), ("general_notes",), part="structural"),
-            V(ViewKind.SCHEDULE, "DRAWING SCHEDULE", (0.72, 0.6, 0.97, 0.95), ("general_notes",)),
+            V(ViewKind.NOTES, "GENERAL NOTES", (0.03, 0.62, 0.45, 0.95), ("general_notes",)),
+            V(ViewKind.LEGEND, "LEGEND", (0.5, 0.62, 0.68, 0.95), ("general_notes",), part="structural"),
+            V(ViewKind.DETAIL, "STANDARD HOOK AND BEND DETAIL", (0.03, 0.2, 0.28, 0.55), scale="N.T.S."),
+            V(ViewKind.SCHEDULE, "DRAWING SCHEDULE", (0.72, 0.2, 0.97, 0.6)),
         ),
         kind="general_notes",
         codes=True,
@@ -336,7 +339,7 @@ ARCHITECTURAL = (
             V(ViewKind.SECTION, "WALL SECTION", (0.7, 0.5, 0.97, 0.95), ("walls",), scale="1:20"),
         ),
         storeys="GROUND FLOOR",
-        kind="floor_plan",
+        kind="working_plan",
         bangla=5,
     ),
     S(
@@ -348,7 +351,7 @@ ARCHITECTURAL = (
             V(ViewKind.DETAIL, "TOILET DETAIL", (0.7, 0.5, 0.97, 0.95), ("rooms",), scale="1:20"),
         ),
         storeys="TYPICAL FLOOR",
-        kind="floor_plan",
+        kind="working_plan",
         bangla=4,
     ),
     S(
@@ -377,7 +380,7 @@ ARCHITECTURAL = (
         "DOOR AND WINDOW SCHEDULE",
         (V(ViewKind.SCHEDULE, "DOOR AND WINDOW SCHEDULE", (0.03, 0.2, 0.66, 0.95), ("walls",)),),
         mark_source=ValueSource.FILE_NAME,
-        kind="schedule",
+        kind="door_window_schedule",
     ),
     S(
         "A-06",
@@ -415,7 +418,6 @@ ARCHITECTURAL = (
             ),
         ),
         layout="A-07",
-        title_block=False,
         exclusion=ExclusionReason.FOR_INFORMATION,
         kind="perspective",
     ),
@@ -454,7 +456,7 @@ ELECTRICAL = (
             ),
         ),
         storeys="TYPICAL FLOOR",
-        kind="lighting_power_layout",
+        kind="lighting_layout",
     ),
     S(
         "E-03",
@@ -477,7 +479,7 @@ ELECTRICAL = (
             ),
         ),
         storeys="TYPICAL FLOOR",
-        kind="lighting_power_layout",
+        kind="lighting_layout",
     ),
 )
 
@@ -531,20 +533,25 @@ def library_ready() -> None:
 
 
 def kadam(demo: Demo) -> None:
+    """KR-01's DWGs through the product's read job, replaying the recording (`vextrus.seed.kr01`):
+    each added, then read step by step as its worker would, its Proposals and Questions the job's.
+    The PDFs, which no job reads here, are matched to the job's sheets through the services."""
+    from vextrus.seed import kr01  # it draws `drawings`' sheets: imported here, not at the top
+
     code = "KR-01"
     project_id = demo[f"project:{code}"]
-    structural = dwg(
-        demo,
-        code,
-        project_id,
-        "KR-STR-R0.dwg",
-        STRUCTURAL,
-        fonts_used=("arial.ttf", "romans.shx", "swissc.ttf"),
-    )
-    architectural = dwg(
-        demo, code, project_id, "KR-ARC-R0.dwg", ARCHITECTURAL, fonts_used=("arial.ttf",), empty_tab=True
-    )
-    electrical = dwg(demo, code, project_id, "KR-ELE-R0.dwg", ELECTRICAL, fonts_used=("arial.ttf",))
+    use = kr01.replayed()
+    with jev.using(kr01.jev_stand_in()):
+        structural, architectural, electrical = (
+            by_the_job(demo, code, project_id, name, sheets, use)
+            for name, sheets in (
+                ("KR-STR-R0.dwg", STRUCTURAL),
+                ("KR-ARC-R0.dwg", ARCHITECTURAL),
+                ("KR-ELE-R0.dwg", ELECTRICAL),
+            )
+        )
+        held = added(demo, code, project_id, kr01.HELD, kr01.content(kr01.HELD))
+        _read(demo, held.id, use)
     for sheet in electrical.values():
         services.record_plot(sheet.id, services.PlotNone.NO_PDF)
     structural_pdf, facts = pdf(
@@ -558,14 +565,6 @@ def kadam(demo: Demo) -> None:
         demo, code, project_id, "KR-ARC-R0.pdf", pages=8, maker="other", lines=True
     )
     plot(architectural_pdf, facts, architectural)
-    held = added(demo, code, project_id, "KR-STR-old.dwg", invented("dwg", "KR-STR-old"))
-    disagree = agree_codes.DISAGREE(
-        items=212, only_first=187, only_second=25, kinds=2, layers=3, unread=0
-    )
-    services.record_reports(
-        held.id, cross_check=CheckResult(DECODERS_AGREE, CheckOutcome.FIRED, finding=disagree)
-    )
-    services.quarantine(held.id, disagree)
     scan = added(demo, code, project_id, "site-photos.pdf", invented("pdf", "site-photos"))
     services.record_reports(scan.id, upload_report=pdf_rules.report(scan_facts(3), scan.sha256))
 
@@ -738,6 +737,46 @@ def pdf_bytes(marker: str, pages: int) -> bytes:
         f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{start}\n%%EOF\n".encode()
     )
     return out.getvalue()
+
+
+def by_the_job(
+    demo: Demo,
+    code: str,
+    project_id: uuid.UUID,
+    name: str,
+    sheets: Sequence[S],
+    use: Readers,
+) -> dict[str, services.SheetView]:
+    """A recorded DWG added and read by the read job; its sheets by `S.label` (each found sheet
+    matched to the drawn one by its number and revision mark, else its title)."""
+    from vextrus.seed import kr01
+
+    found = added(demo, code, project_id, name, kr01.content(name))
+    _read(demo, found.id, use)
+    read = [s for s in services.sheets(found.set_id) if s.file_id == found.id]
+    by_label = {}
+    for sheet in sheets:
+        [match] = [
+            r
+            for r in read
+            if (r.number, r.title) == (sheet.number, sheet.title)
+            and (sheet.mark_source is ValueSource.FILE_NAME or r.revision_mark == sheet.mark)
+        ]
+        by_label[sheet.label] = match
+        demo[f"sheet:{code}:{sheet.label}"] = match.id
+        demo[f"views:{code}:{sheet.label}"] = [v.id for v in services.views(match.id)]
+    return by_label
+
+
+def _read(demo: Demo, file_id: uuid.UUID, use: Readers) -> None:
+    """The file's read job, run here as its worker runs it (`read_propose.files.read`), as Nusrat."""
+    run = jobs.Run(
+        job_id=None,
+        tenant_id=demo["developer:shapla"],
+        user_id=demo["user:nusrat"],
+        abort_reason=lambda: None,
+    )
+    files.read(run, file_id, use)
 
 
 def added(

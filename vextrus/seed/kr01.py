@@ -3,7 +3,16 @@ and values, each view its drawing filling its box with plausible content and its
 13's sheet finder and 17's view finder read a drawing. All invented: no office's convention and
 nothing from a real Drawing Set; it proves the demo's mechanics, never a reading (docs/sdlc.md).
 
-    doc = draw("KR-STR-R0.dwg")          # an ezdxf Drawing; `record_demo_reading` writes it as DWG
+    doc = draw("KR-STR-R0.dwg")          # an ezdxf Drawing; `record(folder)` writes it as DWG
+    use = replayed()                     # the read job's readers, replaying the recording
+
+**The recording** (`recorded/`, committed): each file's DWG as the repo's writer saved it, and what the
+engine's two readers read from it (the first's ReadArtefact, the second's check), made once by
+`uv run manage.py record_demo_reading` with the toolchain. The seed puts each DWG through the
+product's read job (`read_propose.files.read`) with `replayed()`: no toolchain and no process, the
+readers' answers looked up by the file's sha256; the fonts and the Bangla-ANSI Check run as they are.
+KR-STR-old.dwg's second reader is the planted disagreement (m0-screens §7: "the planted-disagreement
+stub"), so the job holds it.
 
 What each file carries is `vextrus.seed.drawings`' sheets (`STRUCTURAL`, `ARCHITECTURAL`,
 `ELECTRICAL`, `OLD_STRUCTURAL`): their numbers, titles, revision marks, dates, views (kind words in
@@ -11,15 +20,29 @@ their titles, boxes as fractions of the paper) and where they lie (side by side 
 layout tab). Everything in millimetres (INSUNITS 4) on an A1, 1:1 on paper.
 """
 
+import gzip
+import hashlib
 import itertools
+import json
 import math
+import os
+import tempfile
 from collections.abc import Callable, Sequence
+from decimal import Decimal
+from pathlib import Path
 
+import httpx
 from ezdxf.document import Drawing
 from ezdxf.filemanagement import new
 from ezdxf.layouts import BaseLayout
 
-from engine.recognise.types import ViewKind
+from engine.check import bangla_ansi
+from engine.messages import decoders_agree as agree_codes
+from engine.read import ReadArtefact, ReadError
+from engine.read.pdf.types import PdfReport
+from engine.recognise.types import CheckOutcome, CheckResult, ViewKind
+from engine.render import fonts as font_report
+from vextrus.platform.services import jev
 from vextrus.seed.drawings import (
     ARCHITECTURAL,
     ELECTRICAL,
@@ -33,6 +56,7 @@ from vextrus.seed.drawings import (
     S,
     V,
 )
+from vextrus.takeoff.services.read_propose import files
 
 VERSION = "AC1032"
 """The DWG version the writer saves (as the real sets' newest)."""
@@ -52,6 +76,8 @@ STYLES = {
 TITLE_HEIGHT = 5.0
 """A view's title; its content is lettered smaller (`TEXT_HEIGHT`)."""
 TEXT_HEIGHT = 2.5
+REGISTER_HEIGHT = 3.0
+"""S-01's drawing list heading: 13's register reads rows this many heights either side (its span)."""
 SEGMENT = 80.0
 """mm: the longest straight piece a view's drawing holds."""
 TITLE_ROOM = 14.0
@@ -187,7 +213,9 @@ def _view(pen: _Pen, sheet: S, view: V) -> None:
     if view.kind is ViewKind.SCHEDULE and sheet.number == "S-01":
         # A drawing list's heading stands over its rows (13's register reads the rows under it).
         _register(pen, (x0 + 2, y0 + 2, x1 - 2, y1 - TITLE_ROOM))
-        pen.text(view.title, (x0 + 2, y1 - 9), height=TITLE_HEIGHT, style=pen.title_font, layer="TITLES")
+        pen.text(
+            view.title, (x0 + 2, y1 - 9), height=REGISTER_HEIGHT, style=pen.title_font, layer="TITLES"
+        )
         return
     CONTENT.get(view.kind, _plan)(pen, region, sheet, view)
     pen.text(view.title, (x0 + 2, y0 + 4), height=TITLE_HEIGHT, style=pen.title_font, layer="TITLES")
@@ -290,9 +318,9 @@ def _register(pen: _Pen, region: Region) -> None:
     for n, (number, title, mark) in enumerate(drawing_list()):
         y = y1 - 8 - 10 * n
         pen.line((x0, y - 3), (x1, y - 3), "TABLE")
-        pen.text(number, (x0 + 2, y), height=2.5)
-        pen.text(title, (x0 + 22, y), height=2.5)
-        pen.text(mark, (x1 - 14, y), height=2.5)
+        pen.text(number, (x0 + 2, y), height=2.5, style=pen.title_font)
+        pen.text(title, (x0 + 22, y), height=2.5, style=pen.title_font)
+        pen.text(mark, (x1 - 14, y), height=2.5, style=pen.title_font)
 
 
 def drawing_list() -> list[tuple[str, str, str]]:
@@ -365,7 +393,7 @@ def _perspective(pen: _Pen, region: Region, sheet: S, view: V) -> None:
     size = min(x1 - x0, y1 - y0) * 0.35
 
     def iso(x: float, y: float, z: float) -> Point:
-        return (base[0] + (x - y) * cos * size, base[1] + (x + y) * sin * size + z * size * 0.3)
+        return (base[0] + (x - y) * cos * size, base[1] + (x + y) * sin * size + z * size * 0.12)
 
     for z in range(8):
         corners = [iso(0, 0, z), iso(1, 0, z), iso(1, 1, z), iso(0, 1, z)]
@@ -393,3 +421,126 @@ CONTENT: dict[ViewKind, Callable[[_Pen, Region, S, V], None]] = {
     ViewKind.KEY_PLAN: _key_plan,
     ViewKind.PERSPECTIVE: _perspective,
 }
+
+
+# The recording, and its replay -----------------------------------------------------------------------
+
+RECORDED = Path(__file__).with_name("recorded")
+HELD = "KR-STR-old.dwg"
+"""The file whose second reader is planted to disagree (§7): the job holds it."""
+PLANTED = agree_codes.DISAGREE(items=212, only_first=187, only_second=25, kinds=2, layers=3, unread=0)
+
+
+def content(name: str) -> bytes:
+    """The recorded DWG's bytes, as the seed adds the file."""
+    return (RECORDED / name).read_bytes()
+
+
+def record(folder: Path) -> list[str]:
+    """Draw each file, write it as DWG with the repo's writer and read it with the engine's two
+    readers; keep both in `RECORDED`. Needs the toolchain (.NET, LibreDWG, bwrap); `folder` holds the
+    builds. Answers each file's line: its name, sha256 and what the second reader said."""
+    from engine.check import decoders_agree
+    from engine.fixtures import dwg
+    from engine.read import read
+    from engine.read.acadsharp.tests.build import build_dumper
+
+    folder = Path(tempfile.mkdtemp(prefix="record-", dir=folder))  # a fresh build each run
+    writer = dwg.build_writer(folder / "writer")
+    os.environ["VEXTRUS_ACADSHARP_DUMP"] = str(build_dumper(folder / "dumper"))
+    RECORDED.mkdir(exist_ok=True)
+    said = []
+    for name in FILES:
+        dxf = folder / f"{name}.dxf"
+        draw(name).saveas(dxf)
+        path = RECORDED / name
+        dwg._run([str(dwg.dotnet()), str(writer), str(dxf), str(path), VERSION], 120)
+        artefact = read(path, source_name=name)
+        checked = decoders_agree.run(path, artefact)
+        kept = {
+            "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+            "artefact": artefact.to_json(),
+            "second": {
+                "code": checked.code,
+                "outcome": str(checked.outcome),
+                "finding": checked.finding,
+            },
+        }
+        with gzip.open(RECORDED / f"{name}.json.gz", "wt", encoding="utf-8") as out:
+            json.dump(kept, out, sort_keys=True)
+        said.append(f"{name} {kept['sha256']} {checked.outcome}")
+    return said
+
+
+def _recorded() -> dict[str, dict[str, object]]:
+    kept = {}
+    for name in FILES:
+        with gzip.open(RECORDED / f"{name}.json.gz", "rt", encoding="utf-8") as read:
+            one = json.load(read)
+        kept[one["sha256"]] = one
+    return kept
+
+
+def replayed() -> files.Readers:
+    """The read job's readers, answering from the recording by the file's sha256 (a file not
+    recorded is unreadable: `ReadError`)."""
+    kept = _recorded()
+
+    def of(path: Path) -> dict[str, object]:
+        sha256 = hashlib.sha256(path.read_bytes()).hexdigest()
+        if sha256 not in kept:
+            from engine.messages import read as read_codes
+
+            raise ReadError(read_codes.UNSUPPORTED_FORMAT(format="unknown"))
+        return kept[sha256]
+
+    def first(path: Path, name: str) -> ReadArtefact:
+        return ReadArtefact.from_json(of(path)["artefact"])  # type: ignore[arg-type]
+
+    def second(path: Path, artefact: ReadArtefact) -> CheckResult:
+        if artefact.summary.source_name == HELD:
+            return CheckResult(code="decoders_agree", outcome=CheckOutcome.FIRED, finding=PLANTED)
+        said = of(path)["second"]
+        assert isinstance(said, dict)
+        return CheckResult(
+            code=said["code"], outcome=CheckOutcome(said["outcome"]), finding=said["finding"]
+        )
+
+    def pdf(path: Path) -> PdfReport:
+        raise ReadError(PLANTED)  # no PDF is read by the job in the seed
+
+    return files.Readers(
+        dwg=first, second=second, fonts=font_report.report, bangla_ansi=bangla_ansi.run, pdf=pdf
+    )
+
+
+# Jev, as the demo has it ----------------------------------------------------------------------------
+
+SURE = Decimal("0.95")
+UNSURE = Decimal("0.55")
+
+
+def jev_stand_in() -> jev.Client:
+    """A client whose TypeSafe is a function here (no call leaves the machine; its answers go into the
+    tenant's cache, as a job's would): a sheet's kind is the one its drawing was drawn as, sure, when
+    that kind is among the options; a sheet drawn as no kind (A-05, "SECTION A-A & ELEVATION") gets the
+    options as offered, unsure, so the job asks the QS."""
+    kinds: dict[str, str] = {}
+    for sheets, _fonts in FILES.values():
+        for sheet in sheets:
+            if sheet.kind:
+                kinds.setdefault(sheet.title, sheet.kind)
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        [(node, asked)] = body["questions"].items()
+        options = list(asked["criteria"])
+        drawn = kinds.get(str(body["state"].get("title", "")))
+        choice, confidence = (drawn, SURE) if drawn in options else (options[0], UNSURE)
+        rest = ((1 - confidence) / (len(options) - 1)).quantize(Decimal("0.0001"))
+        probabilities = {o: float(rest) for o in options if o != choice} | {choice: float(confidence)}
+        said = {"type": "choice", "choice": choice, "confidence": float(confidence)}
+        said["probabilities"] = probabilities
+        return httpx.Response(200, json={"model": body["model"], "answers": {node: said}})
+
+    return jev.Client(transport=httpx.MockTransport(answer), key=lambda: "seed-stand-in")
