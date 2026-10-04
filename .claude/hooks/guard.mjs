@@ -1285,6 +1285,7 @@ const BASH_RULES = [
       for (const cmd of ctx.analysis.cmds) {
         const { inline, files } = ghBodies(cmd);
         if (inline.some((text) => text.length > GH_BODY_LIMIT || /\$|`/.test(text))) return { rule: "GH_BODY" };
+        if (files.length > 0 && !alone(ctx.analysis, cmd)) return { rule: "GH_BODY", reason: "Run a `gh … --body-file` write alone in its call: the guard checks the file before the command runs, so nothing may change it in the same call." };
         for (const file of files) {
           if (file === "-" || file === "/dev/stdin" || file === "") return { rule: "GH_BODY" };
           const where = cmd.cwd ?? ctx.cwd;
@@ -1313,8 +1314,13 @@ const BASH_RULES = [
         const rule = orchestrators ? "LEAK_STAMP" : cloud ? "CLOUD_PUSH" : "LOCAL_PUSH";
         return { rule, reason: `A push whose command is built at run time cannot be judged. ${PUSH_REASONS[rule]}` };
       }
-      for (const g of gitsOf(ctx.analysis)) {
-        if (!isPush(g) && g.verb !== "send-pack") continue;
+      for (const cmd of ctx.analysis.cmds) {
+        const g = gitOf(cmd);
+        if (g === null || (!isPush(g) && g.verb !== "send-pack")) continue;
+        if ((orchestrators || cloud) && !alone(ctx.analysis, cmd)) {
+          const rule = orchestrators ? "LEAK_STAMP" : "READY_UNVERIFIED";
+          return { rule, reason: `Run a push alone in its call: the guard judges the head before the command runs, so a commit or checkout in the same call would push what was never judged. ${PUSH_REASONS[rule]}` };
+        }
         const verdict = judgePush(g);
         if (verdict !== null) return verdict;
       }
@@ -1323,6 +1329,15 @@ const BASH_RULES = [
     reason: "",
   },
 ];
+
+// A judged write must stand alone: the guard sees the repository and the files before the command runs, so
+// `git commit --amend … && git push` or `echo … >> body.md && gh … --body-file body.md` would send what was
+// never judged. Only these read-only filters (and a cd, which the guard follows) may share its call.
+const READ_ONLY_FILTERS = new Set(["cd", "tail", "head", "cat", "grep", "wc", "sort", "uniq", "true", "echo"]);
+/** True when a simple command writes a file through a redirect (`> f`, `>> f`; not `2>&1` or /dev/null). */
+const redirects = (raw) => /(?:^|[^<>&0-9])[0-9]*>{1,2}\|?\s*(?!&|\/dev\/null\b)\S/.test(raw.replace(/'[^']*'|"(?:[^"\\]|\\.)*"/g, "''"));
+const alone = (analysis, judged) =>
+  !analysis.truncated && analysis.cmds.every((cmd) => cmd === judged || (READ_ONLY_FILTERS.has(cmd.name) && !redirects(cmd.raw)));
 
 const PUSH_REASONS = {
   LOCAL_PUSH: "A local builder never pushes: commit with explicit paths and finish with the Factory-State trailer; the orchestrator pushes your branch.",
@@ -1363,11 +1378,14 @@ function judgePush(g) {
   // The main checkout: every pushed head needs its stamp, and a READY head its verify record.
   if (["--all", "--branches", "--tags", "--follow-tags", "--mirror"].some((flag) => flags.has(flag))) return { rule: "LEAK_STAMP", reason: `Push one ref at a time, each stamped. ${PUSH_REASONS.LEAK_STAMP}` };
   if (unusual) return { rule: "LEAK_STAMP", reason: `This repository has remote push or push.default settings, so the pushed refs cannot be judged. ${PUSH_REASONS.LEAK_STAMP}` };
+  if ([...flags].some((flag) => flag === "--recurse-submodules") && !g.args.some((a) => /^--recurse-submodules=(?:no|check)$/.test(a))) return { rule: "LEAK_STAMP", reason: `Submodule commits are not scanned. ${PUSH_REASONS.LEAK_STAMP}` };
   const sources = refspecs.length === 0 ? ["HEAD"] : refspecs.map((spec) => spec.split(":")[0]);
   for (const src of sources) {
     if (src === "" || /[*?[]/.test(src)) return { rule: "LEAK_STAMP", reason: `A wildcard or empty refspec cannot be stamped. ${PUSH_REASONS.LEAK_STAMP}` };
     const sha = commitOf(g, src);
     if (sha === null) return { rule: "LEAK_STAMP", reason: `\`${src}\` names no commit here. ${PUSH_REASONS.LEAK_STAMP}` };
+    const object = runGit(g, ["rev-parse", "--verify", "-q", "--end-of-options", src]);
+    if (object.status !== 0 || object.stdout.trim() !== sha) return { rule: "LEAK_STAMP", reason: `\`${src}\` is a tag (or another object), whose message no scan covers: push branches. ${PUSH_REASONS.LEAK_STAMP}` };
     const problem = stampProblem(sha, g);
     if (problem !== null) return { rule: "LEAK_STAMP", reason: `${problem}. ${PUSH_REASONS.LEAK_STAMP}` };
     const ready = readyProblem(g, sha);

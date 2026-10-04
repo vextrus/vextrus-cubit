@@ -349,3 +349,47 @@ test("f2 bypass: awk's ENVIRON and gh auth token print secrets", () => {
   assert.equal(seen("gh auth token"), "SECRET_PRINTED");
   assert.equal(seen("gh auth status"), null);
 });
+
+// ---------------------------------------------------------------- f2: what is pushed or posted is what was judged
+import { writeFileSync as writeFile } from "node:fs";
+
+/** A temporary repository standing in for the main checkout, with one commit and origin/main on it. */
+function tempMain() {
+  const repo = realpathSync(mkdtempSync(`${tmpdir()}/f2-main-`));
+  const git = (...args) => spawnSync("git", args, { cwd: repo, encoding: "utf8", env: { ...process.env, GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_NOSYSTEM: "1", GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@example.invalid", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@example.invalid" } }).stdout.trim();
+  git("init", "-q", "-b", "main");
+  writeFile(`${repo}/a.md`, "a\n");
+  git("add", "a.md");
+  git("commit", "-q", "-m", "base");
+  git("update-ref", "refs/remotes/origin/main", git("rev-parse", "HEAD"));
+  return { repo, git };
+}
+
+test("f2 bypass: a push from the main checkout shares its call only with read-only filters", () => {
+  const { repo } = tempMain();
+  for (const command of [
+    'git commit --amend -m "x" && git push origin HEAD:refs/heads/x',
+    "git checkout other && git push origin HEAD:refs/heads/x",
+    "git push origin HEAD:refs/heads/x; git push origin HEAD:refs/heads/y",
+  ]) {
+    assert.equal(seen(command, { project: repo, main: repo, cwd: repo }), "LEAK_STAMP", command);
+  }
+});
+
+test("f2 bypass: a cloud push shares its call with no commit (the READY gate judges the head it sees)", () => {
+  const { repo, git } = tempMain();
+  git("checkout", "-q", "-b", "claude/own");
+  assert.equal(seen('git commit -q --allow-empty -m "x" -m "Factory-State: READY" && git push origin HEAD', { project: repo, cwd: repo, remote: true }), "READY_UNVERIFIED");
+});
+
+test("f2 bypass: a body file changed in the same call as its gh write is refused", () => {
+  const { repo } = tempMain();
+  assert.equal(seen("echo more >> body.md && gh pr create --title t --body-file body.md", { project: repo, main: repo, cwd: repo }), "GH_BODY");
+});
+
+test("f2 bypass: an annotated tag or a submodule push from the main checkout is refused", () => {
+  const { repo, git } = tempMain();
+  git("tag", "-a", "v1", "-m", "a tag message no scan covers");
+  assert.equal(seen("git push origin v1", { project: repo, main: repo, cwd: repo }), "LEAK_STAMP");
+  assert.equal(seen("git push --recurse-submodules=on-demand origin HEAD:refs/heads/x", { project: repo, main: repo, cwd: repo }), "LEAK_STAMP");
+});
