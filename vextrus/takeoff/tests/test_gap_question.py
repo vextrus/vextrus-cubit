@@ -12,7 +12,6 @@ from engine.read.anchor import PdfAnchor
 from engine.read.pdf.types import Page, TextItem, TextSource
 from engine.recognise.types import PlotMatch
 from vextrus.drawings import services as drawings
-from vextrus.drawings.models import PlotNone
 from vextrus.takeoff.models import Question, QuestionLink
 from vextrus.takeoff.services import step1
 from vextrus.takeoff.services.read_propose import plot, proposals
@@ -201,7 +200,7 @@ def test_a_plot_kept_again_reads_its_title_afresh(qs_project: QsProject) -> None
         drawings.record_plot(
             sheet.id, PlotMatch(_page(the_set.pdf.sha256, 1, "S-01", sheet.title), sheet=found)
         )
-        none = drawings.record_plot(sheet.id, PlotNone.NO_PAGE, pdf_file_id=the_set.pdf.id)
+        none = drawings.record_plot(sheet.id, "no_page", pdf_file_id=the_set.pdf.id)
         assert (none.plot.page, none.plot.title_alike) == (None, False)
 
 
