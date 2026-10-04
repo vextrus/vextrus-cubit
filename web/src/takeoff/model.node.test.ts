@@ -44,6 +44,7 @@ function sheet(number: string | null, over: Partial<ProposalOut> = {}): Proposal
     plot_page: null,
     plot_residual: null,
     plot_none: null,
+    plot_title_alike: true,
     views: [],
     ...over,
   }
@@ -316,6 +317,8 @@ describe('one gap Question per Discipline (#229)', () => {
     expect(whyOneSource(s4, section)).toBe('no-list-no-plot')
     // A Plot page and still one source, away from the gap: never blamed on the numbering (#229).
     expect(whyOneSource(s5, section)).toBe('other')
+    // A Plot page whose words do not read the sheet's number and title alike: said so (the words gate of #229).
+    expect(whyOneSource({ ...s5, plot_title_alike: false }, section)).toBe('plot-differs')
   })
 
   it('reads its gaps, and a gap Question asked before #229 as one gap; refuses gaps of another shape', () => {

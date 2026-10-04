@@ -409,7 +409,7 @@ export function rowState(row: Row): RowState {
 }
 
 /** Why a sheet has one source (6.5), for the bar to say. */
-export type OneSourceWhy = 'not-listed' | 'gap' | 'twice' | 'no-list-no-plot' | 'other'
+export type OneSourceWhy = 'not-listed' | 'gap' | 'twice' | 'no-list-no-plot' | 'plot-differs' | 'other'
 
 export function whyOneSource(sheet: ProposalOut, section: DisciplineSection | undefined): OneSourceWhy {
   if (!section) return 'other'
@@ -427,6 +427,8 @@ export function whyOneSource(sheet: ProposalOut, section: DisciplineSection | un
   if (section.besideGap?.includes(sheet.id)) return 'gap'
   if (sheet.number && section.numbering?.twice.includes(sheet.number)) return 'twice'
   if (sheet.plot_page === null || sheet.plot_page === undefined) return 'no-list-no-plot'
+  // A page matched by its number whose words do not read the sheet's number and title alike (#229).
+  if (sheet.plot_title_alike === false) return 'plot-differs'
   return 'other'
 }
 

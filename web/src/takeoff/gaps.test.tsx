@@ -23,18 +23,25 @@ afterEach(() => {
 const clean = (s: string | null | undefined) => (s ?? '').replace(/[⁦-⁩‎‏]/g, '').replace(/\s+/g, ' ').trim()
 const ID = 'c2290000-0000-4000-8000-0000000000a1'
 
-async function open() {
+type Gap = { after: string; before: string; missing: number }
+const TWO: Gap[] = [
+  { after: 'A-01', before: 'A-03', missing: 1 },
+  { after: 'A-03', before: 'A-05', missing: 1 },
+]
+
+async function open(gapsOf: Gap[] = TWO) {
   const api = new FakeApi()
   const step1 = new FakeStep1(api, 'KR-01')
   step1.proposals = step1.proposals.filter((p) => p.number !== 'A-02' && p.number !== 'A-04')
-  // The Check's `after` and `before` of each gap: A-01, A-03 and A-05.
-  const beside = step1.proposals.filter((p) => p.number === 'A-01' || p.number === 'A-03' || p.number === 'A-05')
+  // The Check's `after` and `before` of each gap (with two gaps: A-01, A-03 and A-05).
+  const sides = new Set(gapsOf.flatMap((g) => [g.after, g.before]))
+  const beside = step1.proposals.filter((p) => p.number !== null && sides.has(p.number))
   const gaps: QuestionOut = {
     id: ID,
     kind: 'check',
     status: 'open',
     code: 'engine.register_check.gaps',
-    params: { discipline: 'architectural', gaps: [{ after: 'A-01', before: 'A-03', missing: 1 }, { after: 'A-03', before: 'A-05', missing: 1 }] } as unknown as QuestionOut['params'],
+    params: { discipline: 'architectural', gaps: gapsOf } as unknown as QuestionOut['params'],
     options: ['not_sent_yet', 'not_in_set', 'file_not_added', 'keep_open'].map((key) => ({ key, picked: false })),
     discipline: 'architectural',
     subject_id: null,
@@ -64,12 +71,26 @@ describe('a Discipline’s gaps, asked as one Question', () => {
     await waitFor(() => expect(card().some((c) => clean(c.textContent).includes('the numbering skips 2 times'))).toBe(true))
     const text = clean(card().find((c) => clean(c.textContent).includes('skips 2 times'))!.textContent)
     expect(text).toContain('Gaps in the numbering')
-    expect(text).toContain('at A-01–A-03, A-03–A-05: 2 numbers are missing, so the sheets either side of each gap have one source')
+    expect(text).toContain('No drawing list, and the numbering skips 2 times, from A-01 to A-03 and from A-03 to A-05: 2 numbers are missing, so the sheets either side of each gap have one source until this is answered.')
     expect(text).toContain('Trace: the title blocks of A-01, A-03 and A-05')
-    expect(text).toContain('Answering confirms no sheets: it records why the numbering skips, and the sheets either side of the gaps stop waiting for it.')
+    expect(text).toContain('Answering confirms no sheets: it records why the numbering skips, and the sheets either side of each gap stop waiting for it.')
     expect(text).not.toContain('Answering settles')
-    expect(text).toContain('Not sent yet: keep the missing sheets in the count and ask the consultant')
+    expect(text).toContain('Not sent yet: the 2 missing sheets are still to come; ask the consultant')
     expect(text).toContain('Not part of this set: the numbering skips at each gap')
     expect(text).not.toContain('skips here')
+  })
+
+  it('reads as m0-screens 6.2 with one gap, in the singular', async () => {
+    await open([{ after: 'A-01', before: 'A-03', missing: 1 }])
+    await waitFor(() => expect(rowOf(`q:${ID}`)).toBeTruthy())
+    await userEvent.click(rowOf(`q:${ID}`)!)
+    await waitFor(() => expect(card().some((c) => clean(c.textContent).includes('skips from A-01'))).toBe(true))
+    const text = clean(card().find((c) => clean(c.textContent).includes('skips from A-01'))!.textContent)
+    expect(text).toContain(
+      'No drawing list, and the numbering skips from A-01 to A-03: 1 number is missing, so the sheets either side of the gap have one source until this is answered. Paste the drawing list, or ask the consultant whether that sheet exists.',
+    )
+    expect(text).toContain('Answering confirms no sheets: it records why the numbering skips, and the sheets either side of the gap stop waiting for it.')
+    expect(text).toContain('Not sent yet: the missing sheet is still to come; ask the consultant')
+    expect(text).toContain('Not part of this set: the numbering skips here')
   })
 })
