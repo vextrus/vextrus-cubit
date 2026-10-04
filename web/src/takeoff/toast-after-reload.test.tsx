@@ -9,7 +9,8 @@
  *  R5. a toast queued for an act goes once Ctrl Z is pressed, as for a new act (round 2);
  *  R6. a drawing list failing before the act is not the act's: its toast says nothing stale (round 3, Q1);
  *  R7. Ctrl Z pressed while the act's calls are in flight drops that act's toast (round 3, Q3);
- *  R8. no toast is ever drawn beside the Count from before its act or undo, watched frame by frame (round 3, Q4).
+ *  R8. no toast is ever drawn beside the Count from before its act or undo, watched frame by frame (round 3, Q4);
+ *  R9. leaving Step 1 while the act reloads still says what the act did (round 4, Q5).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
@@ -279,5 +280,28 @@ describe('an act’s toast after Step 1’s reload (#167 refuter)', () => {
     const wrong = watch.seen.filter((t) => (t.startsWith('Confirmed 16 sheets') && !t.endsWith('|| Confirmed 16 / 24')) || (t.startsWith('Undone') && !t.endsWith('|| Confirmed 0 / 24')))
     expect(wrong).toEqual([])
     expect(watch.seen.length).toBeGreaterThanOrEqual(2)
+  }, 30000)
+
+  it('R9: still shows the act’s toast when the QS leaves Step 1 while it reloads', async () => {
+    const api = new FakeApi()
+    new FakeStep1(api)
+    let acted = false
+    const waiting: (() => void)[] = []
+    const inner = api.handle
+    api.handle = async (request: Request) => {
+      const url = new URL(request.url, location.origin)
+      const isStep1 = url.pathname.includes('/takeoff/step1')
+      if (isStep1 && request.method !== 'GET') acted = true
+      else if (isStep1 && acted && request.method === 'GET') await new Promise<void>((r) => waiting.push(r))
+      return inner(request)
+    }
+    const { router } = await mountApp('/p/KR-01/takeoff/1', { as: PEOPLE.qs, api })
+    await waitFor(() => expect(bodyText()).toContain('Confirmed 0 / 24'))
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(waiting.length).toBeGreaterThan(0), { timeout: 5000 })
+    await router.navigate({ to: '/p/$code/drawing-set', params: { code: 'KR-01' } } as never)
+    await waitFor(() => expect(document.querySelector('[data-step1]')).toBeNull(), { timeout: 5000 })
+    for (const go of waiting.splice(0)) go()
+    await waitFor(() => expect(toastText()).toContain('Confirmed 16 sheets'), { timeout: 5000 })
   }, 30000)
 })

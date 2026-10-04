@@ -213,6 +213,18 @@ export function useStep1Acts(projectId: string, shown?: Step1Data | null): Step1
     waiting.current = null
     toast.show(next.toast)
   }, [asked, current, shown, toast])
+  /** Whether Step 1 is still on screen; leaving it shows a waiting toast at once rather than lose it. */
+  const mounted = useRef(true)
+  useEffect(() => {
+    mounted.current = true
+    const box = waiting
+    return () => {
+      mounted.current = false
+      const next = box.current
+      box.current = null
+      if (next && next.generation === generation.current) toast.show(next.toast)
+    }
+  }, [toast])
   /** Why a call failed, in words; never throws (problemOf throws on an error that is not the API's). */
   const failedText = useCallback(
     (error: unknown) => {
@@ -240,10 +252,12 @@ export function useStep1Acts(projectId: string, shown?: Step1Data | null): Step1
     // Behind the reload's own notices, then shown by the effect once the screen has rendered them.
     notifyManager.schedule(() => {
       if (mark.generation !== generation.current) return
+      // Step 1 left meanwhile: no Count is drawn to wait for, so it is said at once (the refuter, round 4).
+      if (!mounted.current) return toast.show(next)
       waiting.current = { toast: next, generation: mark.generation }
       setAsked((n) => n + 1)
     })
-  }, [])
+  }, [toast])
 
   /**
    * Starts an act: blocks others and puts it on top of `history` as its key is pressed; returns what
