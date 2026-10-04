@@ -28,7 +28,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/ui/primitives/popover
 import { DrawingText, Empty, IconButton, KeyRegion, KeyScope, Skeleton, SheetsGlyph, buttonVariants, cn, isolateLtr, useKeys, useToast } from '@/ui'
 import { SheetName, useStep1Acts } from './acts'
 import { Bar, ExclusionPicker, useBar, type BarSpec } from './Bar'
-import { renderQuery, useStep1, type CoverageOut, type ProposalOut, type ViewOut } from './data'
+import { renderQuery, useStep1, type CoverageOut, type ProposalOut, type Step1Data, type ViewOut } from './data'
 import { DrawingListDialog } from './DrawingListDialog'
 import { FilesBand } from './FilesBand'
 import { ReportPanel } from '@/drawing-set/ReportPanel'
@@ -56,7 +56,7 @@ export function Step1Page() {
   if (data.proposals.length === 0 && data.questions.length === 0) return <NoSheets project={project} readOnly={readOnlyRole(session) !== null} />
   return (
     <KeyScope level="screen" name="step1">
-      <Step1 session={session} project={project} model={step1Model(data)} coverage={data.coverage} />
+      <Step1 session={session} project={project} model={step1Model(data)} coverage={data.coverage} drawn={data} />
     </KeyScope>
   )
 }
@@ -122,11 +122,12 @@ function useSheetLabel(model: Step1Model) {
   }
 }
 
-function Step1({ session, project, model, coverage }: { session: Session; project: ProjectSummary; model: Step1Model; coverage: CoverageOut }) {
+function Step1({ session, project, model, coverage, drawn }: { session: Session; project: ProjectSummary; model: Step1Model; coverage: CoverageOut; drawn: Step1Data }) {
   const { t } = useLingui()
   const readOnly = readOnlyRole(session)
   const refuse = useReadOnlyToast()
-  const acts = useStep1Acts(project.id)
+  // The data drawn now: an act's toast waits until it is what Step 1 reloaded (#167, F1).
+  const acts = useStep1Acts(project.id, drawn)
   const toast = useToast()
   const format = useFormat()
   useSummaryCounts(project, model)

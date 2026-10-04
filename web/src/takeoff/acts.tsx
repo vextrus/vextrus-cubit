@@ -7,7 +7,7 @@
  * a call). An act made before this tab opened is undone one server act at a time, worded from 19a's
  * reply.
  */
-import { useCallback, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Plural, Trans } from '@lingui/react/macro'
 import { useLingui } from '@lingui/react'
 import { notifyManager, useQueryClient } from '@tanstack/react-query'
@@ -16,7 +16,7 @@ import { problemOf, problemText } from '@/auth/problem'
 import { useFormat } from '@/format'
 import { useToast } from '@/ui'
 import { DrawingText } from '@/ui/DrawingText'
-import { answer, confirm, exclude, setList, step1Key, undo, type ActOut, type ProposalOut } from './data'
+import { answer, confirm, drawingListQuery, exclude, setList, step1Key, undo, type ActOut, type ProposalOut, type Step1Data } from './data'
 import { REASONS, type QuestionEntry, type Reason } from './model'
 import { AnsweredWords } from './questionWords'
 import { SheetRange } from './SheetRange'
@@ -121,6 +121,12 @@ type Done = Parameters<ReturnType<typeof useToast>['show']>[0] & {
   stale?: ReactNode
 }
 
+/** Where an act began: its generation, and the Step 1 queries failing then (their failure is not the act's). */
+interface Mark {
+  generation: number
+  failing: ReadonlySet<string>
+}
+
 /** An act's toast when Step 1 could not reload after it: what was done, and that the Count may be behind. */
 function StaleWords({ done }: { done: ReactNode }) {
   return (
@@ -143,7 +149,11 @@ export interface Step1Acts {
   busy: boolean
 }
 
-export function useStep1Acts(projectId: string): Step1Acts {
+/**
+ * `shown`: the Step 1 data the screen has just rendered. An act's toast waits until it is the data
+ * Step 1 reloaded after the act (#167, F1), so the toast never stands beside the Count it changed.
+ */
+export function useStep1Acts(projectId: string, shown?: Step1Data | null): Step1Acts {
   const queryClient = useQueryClient()
   const toast = useToast()
   const { i18n } = useLingui()
@@ -161,16 +171,48 @@ export function useStep1Acts(projectId: string): Step1Acts {
    * Whether Step 1 reloaded (every query but the files' names; #167's refuter): a reload that failed leaves
    * old data on screen, and an act's toast must not stand beside it as if fresh.
    */
-  const reloaded = useCallback(
+  const failing = useCallback(
     () =>
-      queryClient
-        .getQueryCache()
-        .findAll({ queryKey: step1Key(projectId) })
-        .every((query) => query.queryKey[2] === 'file-names' || query.state.status !== 'error'),
+      new Set(
+        queryClient
+          .getQueryCache()
+          .findAll({ queryKey: step1Key(projectId) })
+          .filter((query) => query.queryKey[2] !== 'file-names' && query.state.status === 'error')
+          .map((query) => query.queryHash),
+      ),
     [queryClient, projectId],
   )
+  /** Whether nothing failed anew since `mark` (a list failing before the act is not the act's: the refuter, round 3). */
+  const reloaded = useCallback((mark: Mark) => [...failing()].every((hash) => mark.failing.has(hash)), [failing])
   /** Bumped by each act begun: a toast queued for an earlier act is then dropped, as `toast.clear()` drops a shown one. */
   const generation = useRef(0)
+  /** An act's place, taken as it begins: its generation and the Step 1 queries already failing. */
+  const marked = useCallback((): Mark => ({ generation: generation.current, failing: failing() }), [failing])
+  /** The toast of the last act, waiting for the screen to render what Step 1 reloaded. */
+  const waiting = useRef<{ toast: Done; generation: number } | null>(null)
+  /** Bumped when a toast starts waiting, so the effect below looks again. */
+  const [asked, setAsked] = useState(0)
+  /** Whether `shown` is the data Step 1 holds now (the same objects the reload put in its cache). */
+  const current = useCallback(
+    (data: Step1Data) => {
+      const key = step1Key(projectId)
+      const parts = [data.proposals, data.questions, data.coverage, data.progress]
+      if (!(['proposals', 'questions', 'coverage', 'progress'] as const).every((part, i) => queryClient.getQueryData([...key, part]) === parts[i])) return false
+      return Object.entries(data.lists).every(([discipline, list]) => queryClient.getQueryData(drawingListQuery(projectId, discipline).queryKey) === list)
+    },
+    [queryClient, projectId],
+  )
+  useEffect(() => {
+    const next = waiting.current
+    if (!next) return
+    if (next.generation !== generation.current) {
+      waiting.current = null
+      return
+    }
+    if (shown && !current(shown)) return
+    waiting.current = null
+    toast.show(next.toast)
+  }, [asked, current, shown, toast])
   /** Why a call failed, in words; never throws (problemOf throws on an error that is not the API's). */
   const failedText = useCallback(
     (error: unknown) => {
@@ -189,19 +231,19 @@ export function useStep1Acts(projectId: string): Step1Acts {
    * What an act did, shown once Step 1 has reloaded and rendered (#167, F1): queued behind the reload's
    * own notices, so the toast never stands beside the stale Count or a bulk confirm still clickable.
    */
-  const showDone = useCallback(
-    (done: Done | null, fresh: boolean) => {
-      if (!done) return
-      const mine = generation.current
-      // A reload that failed leaves the old Count on screen: the toast says so rather than stand beside it as if fresh.
-      const { stale, ...toastOf } = done
-      const shown = fresh ? toastOf : { ...toastOf, message: stale ?? <StaleWords done={done.message} /> }
-      notifyManager.schedule(() => {
-        if (generation.current === mine) toast.show(shown)
-      })
-    },
-    [toast],
-  )
+  const showDone = useCallback((done: Done | null, fresh: boolean, mark: Mark) => {
+    // An act or a Ctrl Z begun since this act began drops its toast (the refuter, rounds 1 to 3).
+    if (!done || mark.generation !== generation.current) return
+    // A reload that failed leaves the old Count on screen: the toast says so rather than stand beside it as if fresh.
+    const { stale, ...toastOf } = done
+    const next = fresh ? toastOf : { ...toastOf, message: stale ?? <StaleWords done={done.message} /> }
+    // Behind the reload's own notices, then shown by the effect once the screen has rendered them.
+    notifyManager.schedule(() => {
+      if (mark.generation !== generation.current) return
+      waiting.current = { toast: next, generation: mark.generation }
+      setAsked((n) => n + 1)
+    })
+  }, [])
 
   /**
    * Starts an act: blocks others and puts it on top of `history` as its key is pressed; returns what
@@ -218,6 +260,7 @@ export function useStep1Acts(projectId: string): Step1Acts {
     setBusy(true)
     // The last act's toast goes: its Undo would now take back this act (the server undoes the latest).
     toast.clear()
+    waiting.current = null
     let counted = () => {}
     const entry: Entry = { calls: 0, words: null, made: new Promise<void>((resolve) => (counted = resolve)), counted: false, dropped: false }
     history.current.push(entry)
@@ -231,13 +274,16 @@ export function useStep1Acts(projectId: string): Step1Acts {
 
   /** Ends an act once Step 1 has reloaded; other acts are taken again from here. */
   /** Ends an act once Step 1 has reloaded; whether the reload succeeded. */
-  const settle = useCallback(async (): Promise<boolean> => {
-    // Held until Step 1 has reloaded: a second Enter during the reload would send the act again.
-    await refresh().catch(() => {})
-    pending.current = false
-    if (undos.current === 0) setBusy(false)
-    return reloaded()
-  }, [refresh, reloaded])
+  const settle = useCallback(
+    async (mark: Mark): Promise<boolean> => {
+      // Held until Step 1 has reloaded: a second Enter during the reload would send the act again.
+      await refresh().catch(() => {})
+      pending.current = false
+      if (undos.current === 0) setBusy(false)
+      return reloaded(mark)
+    },
+    [refresh, reloaded],
+  )
 
   /** Undoes `entry` (none: the user's last act from before this tab), once the undos before it end. */
   /**
@@ -263,6 +309,8 @@ export function useStep1Acts(projectId: string): Step1Acts {
     (entry: Entry | undefined, kept = false) => {
       // A toast queued for an act goes once an undo is pressed, as for a new act (#167's refuter, round 2).
       generation.current += 1
+      waiting.current = null
+      const mark = marked()
       undos.current += 1
       setBusy(true)
       const ask = { entry, off: false, kept }
@@ -340,17 +388,17 @@ export function useStep1Acts(projectId: string): Step1Acts {
         } finally {
           // Reloaded whatever happened: the screen shows what the server holds.
           await refresh().catch(() => {})
-          const fresh = reloaded()
+          const fresh = reloaded(mark)
           undos.current -= 1
           if (undos.current === 0 && !pending.current) setBusy(false)
-          showDone(done, fresh)
+          showDone(done, fresh, mark)
         }
       }
       // Never left rejected: an undo that throws (a failed reload) must not stop the ones after it.
       chain.current = chain.current.then(one).catch(() => {})
       return chain.current
     },
-    [projectId, refresh, reloaded, restore, say, showDone, toast],
+    [marked, projectId, refresh, reloaded, restore, say, showDone, toast],
   )
 
   /** Ctrl Z: the last act as it stands now, even one still in flight. */
@@ -379,6 +427,7 @@ export function useStep1Acts(projectId: string): Step1Acts {
     async (calls: (() => Promise<unknown>)[], words: ReactNode, said: ReactNode): Promise<boolean> => {
       const counted = begin()
       if (!counted) return false
+      const mark = marked()
       let made = 0
       let done: Done | null = null
       try {
@@ -394,16 +443,17 @@ export function useStep1Acts(projectId: string): Step1Acts {
         return false
       } finally {
         counted(made, words)
-        showDone(done, await settle())
+        showDone(done, await settle(mark), mark)
       }
     },
-    [begin, say, settle, showDone, undoFor],
+    [begin, marked, say, settle, showDone, undoFor],
   )
 
   const bulk = useCallback(
     async (confirming: readonly ProposalOut[], leavingOut: readonly ProposalOut[]) => {
       const counted = begin()
       if (!counted) return
+      const mark = marked()
       // One call per kind of act, each counted as it is made, so the words name only what was done.
       const calls: { sheets: number; out: boolean; call: () => Promise<unknown> }[] = []
       if (confirming.length) calls.push({ sheets: confirming.length, out: false, call: () => confirm(projectId, confirming.map((p) => p.id)) })
@@ -445,10 +495,10 @@ export function useStep1Acts(projectId: string): Step1Acts {
           }
       } finally {
         counted(made, words)
-        showDone(done, await settle())
+        showDone(done, await settle(mark), mark)
       }
     },
-    [begin, failedText, projectId, say, settle, showDone, undoFor],
+    [begin, failedText, marked, projectId, say, settle, showDone, undoFor],
   )
 
   const confirmSheets = useCallback(
@@ -482,6 +532,7 @@ export function useStep1Acts(projectId: string): Step1Acts {
       // Not while another act is in flight: its undo would take this one's place (the refuter, round 1).
       const counted = begin()
       if (!counted) return false
+      const mark = marked()
       const which = DISCIPLINE_IN_TEXT[discipline]
       const kind = which ? i18n._(which) : ''
       const words = <Trans>the drawing list you set</Trans>
@@ -506,16 +557,17 @@ export function useStep1Acts(projectId: string): Step1Acts {
         return false
       } finally {
         counted(made, words)
-        showDone(done, await settle())
+        showDone(done, await settle(mark), mark)
       }
     },
-    [begin, i18n, projectId, say, settle, showDone, undoFor],
+    [begin, i18n, marked, projectId, say, settle, showDone, undoFor],
   )
 
   const answerQuestion = useCallback(
     async (entry: QuestionEntry, option: string, text = '') => {
       const counted = begin()
       if (!counted) return false
+      const mark = marked()
       const mine = history.current.at(-1)
       // Held from the moment it is sent (CI's slowed run: a Ctrl Z before the reply undid its act).
       if (mine) mine.answer = makesAct(entry, option)
@@ -543,10 +595,10 @@ export function useStep1Acts(projectId: string): Step1Acts {
           const at = history.current.indexOf(mine)
           history.current = at === -1 ? [] : history.current.slice(at)
         }
-        showDone(done, await settle())
+        showDone(done, await settle(mark), mark)
       }
     },
-    [begin, projectId, say, settle, showDone],
+    [begin, marked, projectId, say, settle, showDone],
   )
 
   return { bulk, confirmSheets, excludeSheets, setDrawingList, answerQuestion, undoLast, busy }

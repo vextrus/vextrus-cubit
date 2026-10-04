@@ -6,7 +6,10 @@
  *      shown one), so no stale Undo stands during that act;
  *  R3. an undo's "Undone: …" waits for its reload too, never beside the Count it changed;
  *  R4. a drawing list whose own reload fails says so too (round 2: only the Count's queries were checked);
- *  R5. a toast queued for an act goes once Ctrl Z is pressed, as for a new act (round 2).
+ *  R5. a toast queued for an act goes once Ctrl Z is pressed, as for a new act (round 2);
+ *  R6. a drawing list failing before the act is not the act's: its toast says nothing stale (round 3, Q1);
+ *  R7. Ctrl Z pressed while the act's calls are in flight drops that act's toast (round 3, Q3);
+ *  R8. no toast is ever drawn beside the Count from before its act or undo, watched frame by frame (round 3, Q4).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
@@ -30,6 +33,21 @@ const bodyText = () => (document.body.textContent ?? '').replace(/[⁦-⁩‎‏
 const refusal = { code: 'takeoff.step1.nothing_to_undo', params: {} }
 const count = (step1: FakeStep1, call: string) => step1.calls().filter((c) => c === call).length
 const busy = () => document.querySelector('[data-step1]')?.getAttribute('aria-busy') === 'true'
+const toastText = () => (document.querySelector('[role="status"][aria-live="polite"]')?.textContent ?? '').replace(/[⁦-⁩‎‏]/g, '').replace(/\s+/g, ' ').trim()
+
+/** Every DOM state with a toast, as "toast || Count". */
+function watchToasts() {
+  const seen: string[] = []
+  const observer = new MutationObserver(() => {
+    const toast = toastText()
+    if (!toast) return
+    const line = `${toast} || ${(bodyText().match(/Confirmed \d+ \/ 24/g) ?? []).join(' & ')}`
+    if (seen.at(-1) !== line) seen.push(line)
+  })
+  observer.observe(document.body, { subtree: true, childList: true, characterData: true })
+  return { seen, stop: () => observer.disconnect() }
+}
+
 const STALE = 'Step 1 could not be reloaded, so its Count may be behind. Reload the page to see the current Count.'
 
 describe('an act’s toast after Step 1’s reload (#167 refuter)', () => {
@@ -195,5 +213,71 @@ describe('an act’s toast after Step 1’s reload (#167 refuter)', () => {
     expect(screen.queryByRole('button', { name: /Undo/ })).toBeNull()
     releaseUndo()
     await waitFor(() => expect(bodyText()).toContain('Undone: confirmed 16 sheets and left out 1'), { timeout: 5000 })
+  }, 30000)
+
+  it('R6: says nothing stale when only a drawing list that failed before the act fails again', async () => {
+    const api = new FakeApi()
+    new FakeStep1(api)
+    const inner = api.handle
+    api.handle = async (request: Request) => {
+      const url = new URL(request.url, location.origin)
+      if (request.method === 'GET' && url.pathname.endsWith('/drawing-list') && url.searchParams.get('discipline') === 'electrical')
+        return new Response(JSON.stringify({ code: 'x', params: {} }), { status: 503, headers: { 'Content-Type': 'application/json' } })
+      return inner(request)
+    }
+    await mountApp('/p/KR-01/takeoff/1', { as: PEOPLE.qs, api })
+    await waitFor(() => expect(bodyText()).toContain('Confirmed 0 / 24'))
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(toastText()).toContain('Confirmed 16 sheets'), { timeout: 15000 })
+    expect(toastText()).not.toContain('could not be reloaded')
+  }, 30000)
+
+  it('R7: drops the act’s toast when Ctrl Z is pressed while its calls are in flight', async () => {
+    const api = new FakeApi()
+    const step1 = new FakeStep1(api)
+    let hold = true
+    let release = () => {}
+    const inner = api.handle
+    api.handle = async (request: Request) => {
+      const url = new URL(request.url, location.origin)
+      if (hold && request.method === 'POST' && url.pathname.endsWith('/exclude')) {
+        hold = false
+        await new Promise<void>((r) => (release = r))
+      }
+      return inner(request)
+    }
+    await mountApp('/p/KR-01/takeoff/1', { as: PEOPLE.qs, api })
+    await waitFor(() => expect(bodyText()).toContain('Confirmed 0 / 24'))
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(hold).toBe(false))
+    const watch = watchToasts()
+    await userEvent.keyboard('{Control>}z{/Control}')
+    release()
+    await waitFor(() => expect(count(step1, 'POST /undo')).toBe(2), { timeout: 5000 })
+    await waitFor(() => expect(toastText()).toContain('Undone'), { timeout: 5000 })
+    await new Promise((r) => setTimeout(r, 300))
+    watch.stop()
+    expect(watch.seen.filter((t) => t.startsWith('Confirmed 16 sheets'))).toEqual([])
+    expect(watch.seen.filter((t) => t.startsWith('Undone') && !t.endsWith('|| Confirmed 0 / 24'))).toEqual([])
+  }, 30000)
+
+  it('R8: draws each toast only beside the Count its act or undo left, an act then an undo', async () => {
+    const api = new FakeApi()
+    const step1 = new FakeStep1(api)
+    await mountApp('/p/KR-01/takeoff/1', { as: PEOPLE.qs, api })
+    await waitFor(() => expect(bodyText()).toContain('Confirmed 0 / 24'))
+    const watch = watchToasts()
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(toastText()).toContain('Confirmed 16 sheets'))
+    await waitFor(() => expect(busy()).toBe(false))
+    await new Promise((r) => setTimeout(r, 300))
+    await userEvent.keyboard('{Control>}z{/Control}')
+    await waitFor(() => expect(count(step1, 'POST /undo')).toBe(2), { timeout: 5000 })
+    await waitFor(() => expect(toastText()).toContain('Undone'))
+    await new Promise((r) => setTimeout(r, 300))
+    watch.stop()
+    const wrong = watch.seen.filter((t) => (t.startsWith('Confirmed 16 sheets') && !t.endsWith('|| Confirmed 16 / 24')) || (t.startsWith('Undone') && !t.endsWith('|| Confirmed 0 / 24')))
+    expect(wrong).toEqual([])
+    expect(watch.seen.length).toBeGreaterThanOrEqual(2)
   }, 30000)
 })
