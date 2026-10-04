@@ -2,7 +2,7 @@
 
 Each ADR states the decision as it now stands; its `## History` lists every amendment with its date,
 evidence and the owner's ruling, quoted. A superseded ADR keeps its file as a stub so old links
-resolve. Format: `.claude/skills/domain-modeling/ADR-FORMAT.md`. Updated 28 Sep 2026, at the end of session 02 (every ADR re-read against its rulings).
+resolve. Format: `.claude/skills/domain-modeling/ADR-FORMAT.md`. Updated 28 Sep 2026, at the end of session 02 (every ADR re-read against its rulings); 4 Oct 2026, ADR 0042.
 
 | # | Title | Status | The decision in one line |
 |---|---|---|---|
