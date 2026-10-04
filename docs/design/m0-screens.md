@@ -947,9 +947,9 @@ canvas foot and inspector is section 6 (layout A). Wireframes: `step1-shell-1440
   list, section 6.3), the sheet label and the viewer's switches.
 - The Confirmation bar floats at the canvas foot, 44 px, at most 820 px wide in list and sheet mode,
   centred: what ("17 sheets agree: Structural, Architectural"), why ("Each has a number and title from
-  its title block, on its drawing list or in numbering without a gap; 1 left out: for information"),
-  "Review one by one" (ghost), and the screen's one copper button "Confirm 16, leave out 1 ↵" (6.4's
-  wording; the seed's state, 7).
+  its title block, on its drawing list or in numbering without a gap"),
+  "Review one by one" (ghost), and the screen's one copper button "Confirm 17 ↵" (6.4's wording; the
+  seed's state, 7; #182: the read job proposes no sheet of the seed out).
 - Status bar Coverage (story 43): "Coverage 70 views: 0 assigned, 0 excluded, 68 proposed, 2
   unaccounted" (the seed after reading, 7); "unaccounted" in amber while above 0; clicking opens
   Coverage in the inspector.
@@ -1017,7 +1017,7 @@ options; names and numbers invented; 6.7 shows each filled in):
 | Kind | Title | Options |
 |---|---|---|
 | Held file (`file_misread`; screens.md Step 1 ruling 3) | "KR-STR-old.dwg may be misread" | 1 "Read it anyway: its sheets join the list, marked held" · 2 "Set this file aside: I'll re-save it from AutoCAD (open it, run AUDIT, save) and add it again" · 3 "Set this file aside and mark it for Vextrus to look at" · 4 "Keep open, ask the consultant" |
-| Two sheets, one number (`conflict`) | "Two sheets are numbered S-07" (each with revision mark, date and file) | 1 "Keep rev B (20 Aug 2026); exclude rev A as superseded" · 2 "Keep rev A; exclude rev B" · 3 "They are different sheets: keep both" · 4 "Keep open, ask the consultant" |
+| Two sheets, one number (`conflict`) | "Two sheets are numbered S-07" (each with revision mark, date and file) | 1 "Keep the latest copy; leave the others out as superseded" · 2 "They are different sheets: keep both" · 3 "Keep open, ask the consultant" (the read job's own options, `keep_latest`, `keep_all`, `keep_open`; #204) |
 | Two plans draw one thing (`conflict`; the plan's QS review, Q3) | "S-14 and S-15 both draw the 5th floor slab, bottom layer" (raised only when the Discipline, the subject, what the plan draws, and the layer, top or bottom, all match) | 1 "Keep S-15 (R1, 14 Sep 2026); exclude S-14 as superseded" · 2 "Keep S-14; exclude S-15" · 3 "They draw different things: keep both" · 4 "Keep open, ask the consultant" |
 | No number (`missing`) | "This sheet has no number in its title block" | 1 "A-08, as the drawing list names it" (only when a list names it) · 2 "Leave it without a number" · 3 "Type a number" · 4 "Keep open, ask the consultant" |
 | Sheet kind unclear (`low_confidence`) | "What kind of sheet is A-05?" | the kinds of sheet its Discipline has (conventions data; the owner's ruling, 29 Sep 2026: "Per-Discipline kinds"), most likely first, none pre-picked unless a second source agrees · "Keep open, ask the consultant" |
@@ -1651,7 +1651,7 @@ Uploading, Upload stopped and Stopping are moments, not rows: the seed holds non
 **KR-01's files.**
 | File | What it carries | Its states |
 |---|---|---|
-| KR-STR-R0.dwg | 13 sheet borders laid out in the drawing: S-01 general notes with a legend and a drawing list naming S-01 to S-13; S-02 pile layout; S-03 pile cap layout; S-04 ground floor beam layout, with a lift pit detail drawn inside the plan and a tie detail marked N.T.S.; S-05 1st floor beam layout; S-06 "3RD, 5TH & 7TH FLOOR BEAM LAYOUT" (a non-run list); S-07 rev B "TYPICAL FLOOR SLAB LAYOUT" (an untitled typical floor) and S-07 rev A, superseded, beside it; S-08 column layout, pile cap to 2nd floor; S-09 column schedule; S-10 stair details with a burst title block (no attributes; its loose text makes two boxes the reader cannot place); S-11 roof beam layout; S-12 overhead tank and lift machine room. Text uses `%%C`, `%%D`, `%%P`, MTEXT `\P` and a stacked ½ | Read; two readers agree; fonts Arial, Romans (AutoCAD lettering), Swiss 721 Condensed |
+| KR-STR-R0.dwg | 13 sheet borders laid out in the drawing: S-01 general notes with a legend, a standard hook and bend detail, and a drawing list naming S-01 to S-13; S-02 pile layout; S-03 pile cap layout; S-04 ground floor beam layout, with a lift pit detail drawn inside the plan and a tie detail marked N.T.S.; S-05 1st floor beam layout; S-06 "3RD, 5TH & 7TH FLOOR BEAM LAYOUT" (a non-run list); S-07 rev B "TYPICAL FLOOR SLAB LAYOUT" (an untitled typical floor) and S-07 rev A, superseded, beside it; S-08 column layout, pile cap to 2nd floor; S-09 column schedule; S-10 stair details; S-11 roof beam layout; S-12 overhead tank and lift machine room. Text uses `%%C`, `%%D`, `%%P`, MTEXT `\P` and a stacked ½ | Read; two readers agree; fonts Arial, Romans (AutoCAD lettering), Swiss 721 Condensed |
 | KR-STR-R0.pdf | 12 pages plotted from it: 11 match; page 12 shows S-13 (in no DWG); 2 pages turned 90°; AutoCAD lettering kept as text; layers kept; one logo | Plot: 11 of 12 matched |
 | KR-ARC-R0.dwg | 8 sheets: A-01 site plan with a key plan, A-02 ground floor plan, A-03 typical floor plan, A-04 roof plan, A-05 "SECTION A-A & ELEVATION" (kind unclear), a door and window schedule with no number (burst title block), and on layout tabs A-06 and A-07 (a 3D view alone on its sheet: the view excluded by default, the sheet proposed to leave out, "for information"); no drawing list; and one stale layout tab showing nothing, which is not a sheet (4.5). Room names on A-02 and A-03 typed in SutonnyMJ | Read; two readers agree; 1 flag: Bangla text (9 texts on 2 sheets) |
 | KR-ARC-R0.pdf | 8 pages, all matched; made by a PDF tool other than AutoCAD; lettering drawn as lines; no layers | Plot: 8 of 8 matched; lettering as lines |
@@ -1659,16 +1659,16 @@ Uploading, Upload stopped and Stopping are moments, not rows: the seed holds non
 | KR-STR-old.dwg | an older structural file | Held: the readers disagree (the planted-disagreement stub) |
 | site-photos.pdf | pictures only | Refused: a scan |
 
-**KR-01 after reading** (the state 14 and 19a write as rows, and 21c's job must reproduce):
+**KR-01 after reading** (from #182, the read job's own reading of the seed's synthetic DWGs, replayed from `vextrus/seed/recorded/`; the PDFs' Plot is still written through the services):
 | What | Count and wording |
 |---|---|
 | Sheets found | 24: Structural 13, Architectural 8, Electrical 3 (KR-STR-old.dwg held, not counted). Toolbar "Confirmed 0 / 24" |
 | Headings (6.3) | "Structural 13 found, 13 on the drawing list on S-01 \| 0 / 13 settled" · "Architectural 8 found; no drawing list; numbering runs A-01–A-07 without a gap \| 0 / 8 settled" · "Electrical 3 found; no drawing list; numbering runs E-01–E-03 without a gap \| 0 / 3 settled" · "Disciplines not yet received: Plumbing and sanitary · Fire (a building of 7 storeys or more) · Lift" |
-| The bulk act | 17 agree: Structural 11 (S-01 to S-12 but the two S-07s), Architectural 6 (A-01 to A-04, A-06, A-07); "Confirm 16, leave out 1 ↵", A-07 left out "for information" |
+| The bulk act | 17 agree: Structural 11 (S-01 to S-12 but the two S-07s), Architectural 6 (A-01 to A-04, A-06, A-07); "Confirm 17 ↵" (A-07's sheet is not proposed out: the read job proposes only its 3D view out, "for information"; #182) |
 | One source | 3: E-01 to E-03, "Proposal, one source" |
-| Questions, 5 open, in queue order | Q1 KR-STR-old.dwg may be misread (no pre-pick) · Q2 two sheets numbered S-07 (pre-picked "keep rev B": the later revision mark and the drawing list agree) · Q3 the unnumbered architectural schedule (no list names it: "Leave it without a number", "Type a number", "Keep open"; no pre-pick) · Q4 the kind of A-05 (no pre-pick) · Q5 the drawing list and the Plot both name S-13, which no DWG has (no pre-pick) |
-| Views, 70 | Proposed excluded 25 (23 title blocks, the key plan and the 3D view, "for information") · proposed to a step or Part 43 (the legends of S-01 and E-01 among them) · unaccounted 2 (the loose boxes on S-10). Status bar: "Coverage 70 views: 0 assigned, 0 excluded, 68 proposed, 2 unaccounted" |
-| After the QS's walk | The bulk act; Q1 "Set this file aside…"; Q2 keep rev B (rev A's plan excluded, superseded); Q3 typed "A-08"; Q4 answered; Q5 "Not sent yet" (S-13 in the count as missing); the two loose boxes excluded, "other: part of the title block". Then "Step 1: Structural confirmed · Architectural confirmed · Electrical 3 to confirm"; then E-01 to E-03 confirmed one by one: "✓ Confirmed 22 / 24, 2 excluded", "Coverage 70 views: 42 assigned, 28 excluded, 0 proposed, 0 unaccounted" |
+| Questions, 5 open, in queue order | Q1 KR-STR-old.dwg may be misread (no pre-pick) · Q2 two sheets numbered S-07 (no pre-pick: the read job pre-picks none) · Q3 the unnumbered architectural schedule (no list names it: "Leave it without a number", "Type a number", "Keep open"; no pre-pick) · Q4 the kind of A-05 (no pre-pick) · Q5 the drawing list and the Plot both name S-13, which no DWG has (no pre-pick) |
+| Views, 70 | Proposed excluded 26 (24 title blocks, the key plan and the 3D view, "for information") · proposed to a step or Part 42 (the legends of S-01 and E-01 among them) · unaccounted 2 (S-01's drawing list and its standard hook and bend detail: neither names a member a Step reads; #182). Status bar: "Coverage 70 views: 0 assigned, 0 excluded, 68 proposed, 2 unaccounted" |
+| After the QS's walk | The bulk act; Q1 "Set this file aside…"; Q2 keep the latest (rev A excluded, superseded); Q3 typed "A-08"; Q4 answered; Q5 "Not sent yet" (S-13 in the count as missing); S-01's two unaccounted views excluded, "for information". Then "Step 1: Structural confirmed · Architectural confirmed · Electrical 3 to confirm"; then E-01 to E-03 confirmed one by one: "✓ Confirmed 23 / 24, 1 excluded" (#182: this walk's Coverage counts are not yet measured on the job's seed) |
 
 **What 22's design gate can reach in wave 5, and what waits** (the plan's UX review, U2). 22 is built
 while 21b and 21c are not merged, on 14's and 19a's rows and on 21a's per-file job:
