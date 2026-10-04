@@ -665,3 +665,16 @@ def test_a_pass_on_a_sha_the_repository_lacks_is_refused(tmp_path: Path) -> None
     (walks / c1 / "verdict.json").unlink()
 
     assert ready.ready("main", walks_dir=walks, repo=repo).ok is False
+
+
+def test_the_agent_layers_sign_in_is_owner_only_and_outside_the_walk(tmp_path: Path) -> None:
+    import stat
+
+    path = tmp_path / ".private" / "work" / "factory" / "g1.sign-in"
+
+    run.write_sign_in(path, PLANTED)
+    run.write_sign_in(path, PLANTED)  # a stale one is replaced
+
+    assert stat.S_IMODE(path.stat().st_mode) == 0o600
+    assert json.loads(path.read_text()) == {"email": run.QS_EMAIL, "password": PLANTED}
+    assert "walks" not in path.parts

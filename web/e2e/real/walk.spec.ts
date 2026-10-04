@@ -36,6 +36,7 @@ type FileRecord = { id: number; state: string; read_seconds: number | null }
 type ActRecord = { kind: string; ms: number; read_running: boolean; status: number }
 type Burden = { sheets: number; one_source: number; bulk_confirmable: number; continuation_questions: number; false_continuation_questions: number | null }
 type SetRecord = {
+  project: string
   files: FileRecord[]
   acts: ActRecord[]
   questions: Record<string, Record<string, number>>
@@ -262,9 +263,9 @@ test('G1: reads complete, acts while reading, Questions per Discipline', async (
     let n = 0
     for (const [slug, files] of Object.entries(sets)) {
       n += 1
-      const record: SetRecord = { files: [], acts: [], questions: {}, burden: {} }
-      walk.sets[slug] = record
       const code = `WK-${String(n).padStart(2, '0')}`
+      const record: SetRecord = { project: code, files: [], acts: [], questions: {}, burden: {} }
+      walk.sets[slug] = record
       const project = await api.post<{ id: string; code: string }>('/api/projects', { code, name: `Walk set ${n}` })
       const answered = new Set<string>()
       for (const [i, file] of files.entries()) {

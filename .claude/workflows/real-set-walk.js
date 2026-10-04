@@ -116,9 +116,9 @@ async function gate() {
     () =>
       agent(
         [
-          `G1 walk, by eye, of the head ${SHA} served at ${served.web} (sign in as the seed's QS, Nusrat Jahan;`,
-          'the password is in the environment of the walk, so ask for none: if you cannot sign in, every item is NOT_WALKED).',
-          'The script layer already uploaded the real Development Sets into the projects WK-01 and WK-02.',
+          `G1 walk, by eye, of the head ${SHA} served at ${served.web}. Sign in with the email and password in`,
+          '.private/work/factory/g1.sign-in (read it; never print, quote or pass it on; if it is missing, every item is NOT_WALKED).',
+          `The script layer already uploaded the real Development Sets: ${FOLDER}/walk.json names each set's project.`,
           `Walk the finish-line items ${ITEMS.join(', ')} of docs/specs/factory.md 5's table on the real sets,`,
           'each PASS, FAIL or NOT_WALKED, by the product-review skill: your own page, selected by URL before every',
           'action, per-page emulate only. One finding per defect seen in the running product.',
@@ -129,8 +129,8 @@ async function gate() {
     () =>
       agent(
         [
-          `G1 burden lens on the head ${SHA} served at ${served.web} (the seed's QS; projects WK-01 and WK-02 hold`,
-          'the real sets). Count what a QS must do by hand: Questions per Discipline, Sheets outside the bulk',
+          `G1 burden lens on the head ${SHA} served at ${served.web} (sign in from .private/work/factory/g1.sign-in, never`,
+          `printing it; ${FOLDER}/walk.json names each set's project). Count what a QS must do by hand: Questions per Discipline, Sheets outside the bulk`,
           'confirmation, false continuation Questions, proposed leave-outs to undo; compare with the expectation',
           'files under .private/work/walk-expect/ where they exist. Judge M0-FL5, M0-FL7, M0-FL8 and M0-FL9 only;',
           'list the other items NOT_WALKED. Your own browser page, selected by URL; per-page emulate only.',

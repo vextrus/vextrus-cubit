@@ -14,7 +14,8 @@ It runs in the foreground (the orchestrator detaches it) and:
    `scripts/real_drawings` does) and its `web/node_modules`;
 3. makes the database `vextrus_walk_<sha8>` afresh (`ensure_database`, `flush`, `migrate`,
    `sync_library`, `seed_demo`), with a demo password made for this run, in the children's environment
-   only (never printed, logged or written);
+   (never printed or logged) and, for the agent layer's sign-in while the stack is served, in one
+   owner-only file `.private/work/factory/g1.sign-in`, removed when the stack stops;
 4. serves the API, both workers and the web dev server on two free ports (never 5410 or 8000);
 5. runs `web/e2e/real/walk.spec.ts` from this checkout, which writes `walk.json`, its traces and
    screenshots under `.private/work/walks/<sha40>/` (private; `public/` is the only leavable folder);
@@ -362,6 +363,21 @@ def _wait_for(url: str, stack: Stack) -> None:
     raise WalkError("the stack did not answer in time")
 
 
+QS_EMAIL = "nusrat@shapla-homes.example"
+"""The seed's QS (docs/design/m0-screens.md 7), whom the scripted walk and the agent layer sign in as."""
+
+
+def write_sign_in(path: Path, password: str) -> None:
+    """The agent layer's sign-in for the served stack: one file, owner-only (0600), outside every walk
+    folder (so no scan or summary reads it), removed when the stack stops. It is the only place the
+    per-run password is written; it is never printed or logged."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.unlink(missing_ok=True)
+    handle = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(handle, "w", encoding="utf-8") as file:
+        file.write(json.dumps({"email": QS_EMAIL, "password": password}) + "\n")
+
+
 def serve(walk: Plan, password: str, stack: Stack) -> None:
     python = str(walk.worktree / ".venv" / "bin" / "python")
     env = _child_env(walk, {"VEXTRUS_DEMO_PASSWORD": password})
@@ -494,6 +510,7 @@ def run(root: Path, walk: Plan, *, sets: dict[str, list[str]], smoke: bool, hold
     events = Events(root, walk.sha8, smoke=smoke)
     pidfile = root / ".private" / "work" / "factory" / "g1.pid"
     acquire(pidfile, pid=os.getpid())
+    sign_in = pidfile.with_name("g1.sign-in")
     stack = Stack()
     stopping: list[bool] = []
     password = secrets.token_hex(24)
@@ -508,6 +525,8 @@ def run(root: Path, walk: Plan, *, sets: dict[str, list[str]], smoke: bool, hold
             prepare_checkout(root, walk, log)
             prepare_database(walk, password, log)
             serve(walk, password, stack)
+            if not smoke:
+                write_sign_in(sign_in, password)
             code = walk_spec(root, walk, password, sets, smoke=smoke, started_at=started_at)
             if not (walk.out_dir / "walk.json").exists():
                 raise WalkError(f"the walk wrote no walk.json (playwright exited {code})")
@@ -525,6 +544,7 @@ def run(root: Path, walk: Plan, *, sets: dict[str, list[str]], smoke: bool, hold
         )
         return 2
     finally:
+        sign_in.unlink(missing_ok=True)
         stack.stop()
         release(pidfile, pid=os.getpid())
 

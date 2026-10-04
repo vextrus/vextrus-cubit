@@ -33,6 +33,7 @@
       "additionalProperties": false,
       "required": ["files", "acts", "questions", "burden"],
       "properties": {
+        "project": { "type": "string", "pattern": "^WK-[0-9]{2}$", "description": "The project the walk made for the set (the agent layer walks it)." },
         "files": {
           "type": "array",
           "description": "Each file in upload order. state: done (read), or the product's end state (failed, held, unreadable, refused, cancelled), or timeout.",
