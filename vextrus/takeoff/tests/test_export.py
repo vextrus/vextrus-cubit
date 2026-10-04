@@ -3,6 +3,7 @@
 
 import dataclasses
 import hashlib
+import math
 import sys
 import time
 import uuid
@@ -366,3 +367,58 @@ def test_each_held_file_is_read_anyway_in_its_own_child_under_its_own_timeout(
 
 def _sha(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+@pytest.mark.django_db
+def test_each_sheets_paper_is_exported_as_its_step_kept_it_and_a_step_kept_without_one_as_none(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#212: the paper lives in the sheet step's result; a file read before it did (a kept step with
+    no paper) exports none, without being read again."""
+    file_id = added(qs_project)
+    run_job(qs_project.member, file_id, monkeypatch)
+    with qs_project.member.acting():
+        sha256 = drawings.file(file_id).sha256
+        steps = drawings.kept(file_id).steps
+    papers = [steps[drawings.sheet_step(n + 1)]["paper"] for n in range(FRAMES)]
+
+    [file] = exported(qs_project, {"KR-STR-R0.dwg": sha256})["files"]
+    assert [sheet["paper"] for sheet in file["sheets"]] == papers
+    assert all(paper is not None for paper in papers)
+
+    kept = drawings.kept
+
+    def before_212(found: uuid.UUID) -> drawings.Kept:
+        was = kept(found)
+        old = {name: {k: v for k, v in step.items() if k != "paper"} for name, step in was.steps.items()}
+        return dataclasses.replace(was, steps=old)
+
+    monkeypatch.setattr(drawings, "kept", before_212)
+    monkeypatch.setattr(read_file, "read_again", lambda *a, **k: pytest.fail("read again"))
+
+    [file] = exported(qs_project, {"KR-STR-R0.dwg": sha256})["files"]
+    assert [sheet["paper"] for sheet in file["sheets"]] == [None] * FRAMES
+    assert file["stages"]["sheets"]["state"] == "ok"
+
+
+@pytest.mark.parametrize(
+    "paper",
+    [
+        None,
+        [841.0],
+        [841.0, 594.0, 1.0],
+        [0, 594.0],
+        [-1.0, 594.0],
+        [math.inf, 594.0],
+        [math.nan, 594.0],
+        [True, 594.0],
+        ["841", 594.0],
+        {"w": 841.0},
+    ],
+)
+def test_a_paper_the_harness_would_not_give_is_kept_as_none(paper: Any) -> None:
+    assert read_propose_sheets.paper_of(paper) is None
+
+
+def test_a_paper_is_kept_as_two_floats_in_mm() -> None:
+    assert read_propose_sheets.paper_of((841, 594.0)) == (841.0, 594.0)

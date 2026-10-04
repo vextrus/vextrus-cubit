@@ -55,7 +55,6 @@ if TYPE_CHECKING:  # the models load only once `main` has set Django up
 GAPS = (
     "process: the job's own read seconds, CPU seconds and peak memory per file are not kept (zero)",
     "rasterise: the job keeps each sheet's render buffers and never rasterises them (skipped)",
-    "papers: the views stage's paper per sheet is not kept (null)",
 )
 """What the job's export cannot say, which the harness's did; none of it is a measure the check
 counts (the run-to-run diff shows read time and peak memory, never counts them)."""
@@ -502,6 +501,11 @@ def _reading(
         sheets = [_sheet(sheet, view.group) for sheet in printed]
         found["sheets"] = sheets
         found["views"] = [[_view(v) for v in drawings.views(sheet.id)] for sheet in printed]
+        # The paper the sheet's step kept (#212); none where a step was kept before it was (that
+        # file is not read again).
+        at = [found_at.get(str(sheet.id)) for sheet in printed]
+        steps = [None if n is None else kept.steps.get(drawings.sheet_step(n + 1)) for n in at]
+        found["papers"] = [job_sheets.paper_of((step or {}).get("paper")) for step in steps]
         reports["sheets"] = StageReport(StageState.OK, calls=1)
         report = dict(finder.get("sheet_report") or {})
         report.pop(job_sheets.UNREADABLE_TEXT, None)
@@ -580,6 +584,7 @@ def _file(
         page_count=found.get("page_count"),
         pages=found.get("pages", []),
         buffers=found.get("buffers", []),
+        papers=found.get("papers", []),
     )
 
 
