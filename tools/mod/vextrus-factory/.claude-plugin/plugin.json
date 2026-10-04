@@ -1,0 +1,9 @@
+{
+  "name": "vextrus-factory",
+  "version": "0.1.0",
+  "description": "The orchestrator's band: the factory's status.json above the prompt (docs/specs/factory.md 4(b)). Loads only through --plugin-dir; draws only for VEXTRUS_ROLE=orchestrator outside cloud.",
+  "author": {
+    "name": "Vextrus"
+  },
+  "types": "./types/index.d.ts"
+}
