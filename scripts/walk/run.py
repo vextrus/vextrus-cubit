@@ -5,7 +5,7 @@ ports (`VEXTRUS_WEB_PORT`, `VEXTRUS_API_URL`) and both workers. `web/e2e/real/wa
 writes them to `walk.json`."
 
     python -m scripts.walk.run <sha40> [--root R] [--print-plan] [--set <slug> ...]
-        [--smoke <one file>] [--hold-minutes N]
+        [--smoke <file> ...] [--hold-minutes N]
 
 It runs in the foreground (the orchestrator detaches it) and:
 1. takes `.private/work/factory/g1.pid` (a live one refuses: one walk at a time; f3's governor reads it);
@@ -24,8 +24,9 @@ It runs in the foreground (the orchestrator detaches it) and:
 7. keeps the stack served for `/real-set-walk`'s agent layer until `verdict.json` appears, SIGTERM, or
    `--hold-minutes` pass; then stops what it started, by pid (never by pattern), and frees g1.pid.
 
-`--smoke <file>` walks one file as the set `smoke` into `.private/work/walks-smoke/<sha40>/` (a
-`"smoke": true` walk.json), never holds, and never writes a verdict.
+`--smoke <file>` (repeatable) walks those files as the set `smoke` into
+`.private/work/walks-smoke/<sha40>/` (a `"smoke": true` walk.json), never holds, and never writes a
+verdict.
 """
 
 import argparse
@@ -48,6 +49,9 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
+CODE = Path(__file__).resolve().parents[2]
+"""This checkout: the walker's code (the spec, its config and node_modules) is the gate's own, never the
+walked head's."""
 SHA = re.compile(r"[0-9a-f]{40}")
 SLUG = re.compile(r"[a-z0-9][a-z0-9_-]{0,39}")
 OWNER_PORTS = frozenset({5410, 8000})
@@ -401,7 +405,7 @@ def walk_spec(
             "WALK_SMOKE": "1" if smoke else "",
         },
     )
-    web = root / "web"
+    web = CODE / "web"
     with (walk.out_dir / "logs" / "playwright.txt").open("ab") as out:
         done = subprocess.run(
             [
@@ -511,7 +515,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--root", type=Path, default=Path.cwd())
     parser.add_argument("--print-plan", action="store_true")
     parser.add_argument("--set", dest="sets", action="append")
-    parser.add_argument("--smoke", type=Path, help="one file under .private/reference/")
+    parser.add_argument(
+        "--smoke", type=Path, action="append", help="a file under .private/reference/ (repeatable)"
+    )
     parser.add_argument("--web-port", type=int)
     parser.add_argument("--api-port", type=int)
     parser.add_argument("--hold-minutes", type=float, default=120)
@@ -534,11 +540,11 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     try:
         if smoke:
-            file = args.smoke.resolve()
             reference = (root / ".private" / "reference").resolve()
-            if not file.is_file() or reference not in file.parents:
-                raise ValueError("the smoke file must be a file under .private/reference/")
-            sets = {"smoke": [str(file)]}
+            files = [given.resolve() for given in args.smoke]
+            if any(not f.is_file() or reference not in f.parents for f in files):
+                raise ValueError("a smoke file must be a file under .private/reference/")
+            sets = {"smoke": [str(f) for f in files]}
         else:
             sets = set_files(root, args.sets or list(DEFAULT_SETS))
     except (ValueError, OSError, WalkError) as error:
