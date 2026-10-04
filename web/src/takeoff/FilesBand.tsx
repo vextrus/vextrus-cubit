@@ -3,7 +3,9 @@
  * opening that file's report in the inspector (4.5's report, as other panels are, 4.1). A read DWG
  * reads "✓ KR-STR-R0.dwg 13 sheets, two readers agree" (an amber "Bangla font" where flagged); a PDF
  * "✓ KR-STR-R0.pdf Plot for 12 of 13 pages"; a held file is
- * an amber chip "KR-STR-old.dwg held"; a file still reading says so; any other state names it through
+ * an amber chip "KR-STR-old.dwg held" until its Question is answered, then reads by its status code (§6.13:
+ * "Held, read anyway…", amber still; "Set aside: waiting for the re-saved file" or "Set aside: sent to
+ * Vextrus to check", plain, since nothing of it is read or counted); a file still reading says so; any other state names it through
  * the Drawing Set's own words (its status message). It wraps to a second line where it must.
  */
 import { Plural, Trans, useLingui } from '@lingui/react/macro'
@@ -27,7 +29,7 @@ export function FilesBand({ projectId, onOpen }: { projectId: string; onOpen: (f
             onClick={() => onOpen(file)}
             className={cn(
               'inline-flex h-6 items-center gap-1.5 rounded-sm border px-2 hover:bg-hover focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-ring',
-              file.state === 'held' ? 'border-question bg-question-surface text-question' : 'border-border bg-paper text-ink-secondary',
+              file.state === 'held' && !setAside(file) ? 'border-question bg-question-surface text-question' : 'border-border bg-paper text-ink-secondary',
             )}
           >
             <FileChip file={file} />
@@ -38,11 +40,22 @@ export function FilesBand({ projectId, onOpen }: { projectId: string; onOpen: (f
   )
 }
 
+/** A held file whose Question was answered "Set this file aside…": none of it is read or counted. */
+function setAside(file: FileOut): boolean {
+  return file.status.code === 'drawings.files.await_resaved' || file.status.code === 'drawings.files.sent_to_vextrus'
+}
+
 function FileChip({ file }: { file: FileOut }) {
   const f = useFormat()
   const name = <DrawingText kind="file-name" text={file.name} truncate={false} className="text-foreground" />
   const code = file.status.code
   const params = file.status.params as Record<string, unknown>
+  if (file.state === 'held' && code !== 'drawings.files.held')
+    return (
+      <>
+        {name} <MachineText message={file.status} />
+      </>
+    )
   if (file.state === 'held')
     return (
       <Trans>

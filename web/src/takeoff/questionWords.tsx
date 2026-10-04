@@ -372,6 +372,8 @@ export function OptionWords({ entry, option }: { entry: QuestionEntry; option: O
     return <Plural value={missing} one="Not sent yet: keep the missing sheet in the count and ask the consultant" other="Not sent yet: keep the missing sheets in the count and ask the consultant" />
   }
   if (gap && key === 'not_in_set') return <Trans>Not part of this set: the numbering skips here</Trans>
+  // A sheet in a file but not on the drawing list: the list does not hold it, so the option says what is left to do.
+  if (entry.question.code === 'engine.register_check.not_listed' && key === 'not_in_set') return <Trans>Not part of this set: record it, then exclude it in the list</Trans>
   const words = OPTION_NAMES[key] ?? (q.kind === 'low_confidence' ? SHEET_KIND_NAMES[key] : undefined)
   return <>{i18n._(words ?? OTHER_OPTION)}</>
 }
@@ -428,11 +430,18 @@ export function Answering({ entry, context, choice, hint = false }: { entry: Que
     if (picked === 'not_in_set') {
       if (gap) return <Trans>Answering records that the numbering skips here: nothing is missing.</Trans>
       if (unlisted && entryName) return <Trans>Answering records that {entryName} is not part of this set; exclude it in the list.</Trans>
-      // 21c records it and takes nothing off the drawing list: said as what is recorded, not §6.7's "takes … off".
-      return entryName ? (
-        <Trans>Answering records that {entryName} is not part of this set; the drawing list still counts it.</Trans>
+      // 21c records it and takes nothing off the drawing list (#206): said as what is recorded.
+      const recorded = entryName ? (
+        <Trans>Answering records that {entryName} is not part of this set; it stays on the drawing list.</Trans>
       ) : (
-        <Trans>Answering records that the sheet is not part of this set; the drawing list still counts it.</Trans>
+        <Trans>Answering records that the sheet is not part of this set; it stays on the drawing list.</Trans>
+      )
+      return discipline ? (
+        <>
+          {recorded} <Trans>{discipline} can still be confirmed.</Trans>
+        </>
+      ) : (
+        recorded
       )
     }
     if (picked === 'not_sent_yet' || picked === 'file_not_added') {
@@ -690,7 +699,7 @@ function CheckAnswered({ entry, option }: { entry: QuestionEntry; option: string
     }
     if (!sheet) return <Trans>{tag} answered. Recorded: the sheet is not part of this set.</Trans>
     if (unlisted) return <Trans>{tag} answered. Recorded: {sheet} is not part of this set; exclude it in the list.</Trans>
-    return <Trans>{tag} answered. Recorded: {sheet} is not part of this set; the drawing list still counts it.</Trans>
+    return <Trans>{tag} answered. Recorded: {sheet} is not part of this set; it stays on the drawing list.</Trans>
   }
   if (option !== 'not_sent_yet' && option !== 'file_not_added') return <Trans>{tag} answered. Your answer is recorded.</Trans>
   if (gap)

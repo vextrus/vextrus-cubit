@@ -79,7 +79,7 @@ describe('an answer’s toast names the act (#156 round 3, design gate item 1)',
     const found = fake.byKind().check!
     expect(toast(fake, found, 'not_sent_yet')).toBe('Q5 answered. S-13 stays in the count as missing.')
     expect(toast(fake, found, 'file_not_added')).toBe('Q5 answered. S-13 stays in the count as missing until its file is added.')
-    expect(toast(fake, found, 'not_in_set')).toBe('Q5 answered. Recorded: S-13 is not part of this set; the drawing list still counts it.')
+    expect(toast(fake, found, 'not_in_set')).toBe('Q5 answered. Recorded: S-13 is not part of this set; it stays on the drawing list.')
     const listed = fake.everyShape().find((q) => q.code === 'engine.register_check.not_listed')!
     expect(toast(fake, listed, 'not_in_set')).toBe('Q5 answered. Recorded: S-02 is not part of this set; exclude it in the list.')
     expect(toast(fake, listed, 'not_sent_yet')).toBe('Q5 answered. S-02 stays in the list, to confirm or exclude.')

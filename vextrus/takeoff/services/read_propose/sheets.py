@@ -36,6 +36,7 @@ so the view finder's file-wide bounds are spent as in a run never stopped.
 
 import hashlib
 import json
+import math
 import time
 import uuid
 from collections.abc import Callable, Mapping, Sequence
@@ -286,8 +287,23 @@ def _read_sheet(
         ),
         "render": has_render,
         "render_seconds": render_seconds,
+        "paper": paper_of(views.paper),
     }
     return result
+
+
+def paper_of(paper: object) -> tuple[float, float] | None:
+    """The views stage's paper as the sheet's step keeps it (the harness's form, `engine/harness.py`):
+    two finite sizes above 0, in mm, or none."""
+    if not isinstance(paper, tuple | list) or len(paper) != 2:
+        return None
+    if not all(isinstance(v, int | float) and not isinstance(v, bool) for v in paper):
+        return None
+    try:
+        width, height = float(paper[0]), float(paper[1])
+    except OverflowError:  # an integer past a float's range: jsonb keeps 1e400 as one
+        return None
+    return (width, height) if 0 < width < math.inf and 0 < height < math.inf else None
 
 
 def _render(

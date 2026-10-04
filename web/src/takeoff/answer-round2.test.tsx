@@ -70,7 +70,7 @@ describe('the card’s first line follows the pick (§6.7; the walk, M3)', () =>
     await waitFor(() => expect(cardText(card)).toContain('Answering keeps S-13 in the count as missing. Structural can still be confirmed.'))
     expect(cardText(card)).not.toContain('Answering confirms no sheets')
     await userEvent.keyboard('2')
-    await waitFor(() => expect(cardText(card)).toContain('Answering records that S-13 is not part of this set; the drawing list still counts it.'))
+    await waitFor(() => expect(cardText(card)).toContain('Answering records that S-13 is not part of this set; it stays on the drawing list. Structural can still be confirmed.'))
     await userEvent.keyboard('4')
     await waitFor(() => expect(cardText(card)).toContain('Answering keeps S-13 open. Structural cannot be confirmed until this Question is answered.'))
   })
@@ -96,7 +96,7 @@ describe('Ctrl Z while an answer is in flight (CI’s slowed run)', () => {
     await userEvent.keyboard('{Enter}')
     await waitFor(() => expect(calls.some((c) => c.endsWith('/answer'))).toBe(true))
     for (let i = 0; i < 3; i++) await userEvent.keyboard('{Control>}z{/Control}')
-    await waitFor(() => expect(bodyText()).toContain('Nothing undone: Ctrl Z does not take back an answer to a Question, or anything before it.'), { timeout: 3000 })
+    await waitFor(() => expect(bodyText()).toContain('Nothing undone: an answer to a Question cannot be undone, nor anything before it.'), { timeout: 3000 })
     await new Promise((r) => setTimeout(r, 1200))
     expect(calls.filter((c) => c.endsWith('/undo'))).toEqual([])
   })
@@ -248,6 +248,12 @@ describe('a Check’s first lines say only what 21c does (the words gate, round 
     expect(cardText(card)).not.toContain('Answering keeps S-02 in the count as missing')
     await userEvent.keyboard('2')
     await waitFor(() => expect(cardText(card)).toContain('Answering records that S-02 is not part of this set; exclude it in the list.'))
+  })
+
+  it('never offers a sheet off the list as staying on the drawing list (#206’s words gate)', async () => {
+    const card = await openCheck('engine.register_check.not_listed', { number: 'S-02' })
+    await waitFor(() => expect(cardText(card)).toContain('Not part of this set: record it, then exclude it in the list'))
+    expect(cardText(card)).not.toMatch(/stays on the drawing list|drawing list still counts/)
   })
 
   it('never says a gap’s missing sheets are in the count (no drawing list counts them)', async () => {

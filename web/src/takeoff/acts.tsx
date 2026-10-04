@@ -12,8 +12,10 @@ import { Plural, Trans } from '@lingui/react/macro'
 import { useLingui } from '@lingui/react'
 import { notifyManager, useQueryClient } from '@tanstack/react-query'
 import { ApiRefused } from '@/api/client'
+import { filesQuery } from '@/drawing-set/data'
 import { problemOf, problemText } from '@/auth/problem'
 import { useFormat } from '@/format'
+import type { MachineMessage } from '@/format/machine'
 import { useToast } from '@/ui'
 import { DrawingText } from '@/ui/DrawingText'
 import { answer, confirm, drawingListQuery, exclude, setList, step1Key, undo, type ActOut, type ProposalOut, type Step1Data } from './data'
@@ -40,6 +42,9 @@ function makesAct(entry: QuestionEntry, option: string): boolean {
   if (q.kind === 'conflict' && q.code !== 'takeoff.proposals.lists_disagree') return option === 'keep_latest' || option === 'keep_all'
   return q.kind === 'low_confidence'
 }
+
+/** Ctrl Z after an answer: the words of the server's refusal, which this tab does not ask for. */
+const ANSWER_STAYS: MachineMessage = { code: 'takeoff.step1.answer_stays', params: {} }
 
 const reached = (error: unknown) => !(error instanceof ApiRefused) && !(error instanceof TypeError)
 
@@ -166,7 +171,11 @@ export function useStep1Acts(projectId: string, shown?: Step1Data | null): Step1
   const undos = useRef(0)
   const chain = useRef<Promise<void>>(Promise.resolve())
   const [busy, setBusy] = useState(false)
-  const refresh = useCallback(() => queryClient.invalidateQueries({ queryKey: step1Key(projectId) }), [queryClient, projectId])
+  // An answer can move a file's status too (a held file set aside, §6.13), so the files band is read again with Step 1.
+  const refresh = useCallback(
+    () => Promise.all([queryClient.invalidateQueries({ queryKey: step1Key(projectId) }), queryClient.invalidateQueries({ queryKey: filesQuery(projectId).queryKey })]).then(() => {}),
+    [queryClient, projectId],
+  )
   /**
    * Whether Step 1 reloaded (every query but the files' names; #167's refuter): a reload that failed leaves
    * old data on screen, and an act's toast must not stand beside it as if fresh.
@@ -357,9 +366,8 @@ export function useStep1Acts(projectId: string, shown?: Step1Data | null): Step1
             }
             if (entry.answer) {
               // It stays the last act: the server's latest acts are the answer's own, which no Ctrl Z may take.
-              toast.show({
-                message: <Trans>Nothing undone: Ctrl Z does not take back an answer to a Question, or anything before it. Exclude a sheet it confirmed, or confirm back in a sheet it excluded.</Trans>,
-              })
+              // The server's own refusal's words (`answer_stays`), so both paths say the same (session 09's ruling).
+              toast.show({ message: problemText({ refusal: ANSWER_STAYS }, f, i18n) })
               return
             }
             if (entry.calls === 0) {
@@ -412,7 +420,7 @@ export function useStep1Acts(projectId: string, shown?: Step1Data | null): Step1
       chain.current = chain.current.then(one).catch(() => {})
       return chain.current
     },
-    [marked, projectId, refresh, reloaded, restore, say, showDone, toast],
+    [f, i18n, marked, projectId, refresh, reloaded, restore, say, showDone, toast],
   )
 
   /** Ctrl Z: the last act as it stands now, even one still in flight. */

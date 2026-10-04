@@ -343,6 +343,10 @@ msgstr "By others (not in this Estimate)"
 msgid "{count, plural, one {# {discipline} sheet has one source} other {# {discipline} sheets have one source each}}"
 msgstr "{count, plural, one {# {discipline} sheet has one source} other {# {discipline} sheets have one source each}}"
 
+#: src/takeoff/questionWords.tsx
+msgid "Answering records that the sheet is not part of this set; it stays on the drawing list."
+msgstr "Answering records that the sheet is not part of this set; it stays on the drawing list."
+
 #: src/takeoff/words.tsx
 msgid "Lighting layout"
 msgstr "Lighting layout"
@@ -727,6 +731,10 @@ msgstr "Answering confirms both copies."
 msgid "{markText}, {date}"
 msgstr "{markText}, {date}"
 
+#: src/takeoff/questionWords.tsx
+msgid "Answering records that {entryName} is not part of this set; it stays on the drawing list."
+msgstr "Answering records that {entryName} is not part of this set; it stays on the drawing list."
+
 #: src/takeoff/Step1Inspector.tsx
 msgid "→ walks them; X excludes"
 msgstr "→ walks them; X excludes"
@@ -797,6 +805,10 @@ msgstr "Distribution board details"
 msgid "{tag} answered. Confirms {number} {kept} and excludes {dropped} as superseded."
 msgstr "{tag} answered. Confirms {number} {kept} and excludes {dropped} as superseded."
 
+#: src/takeoff/Step1Screen.tsx
+msgid "Undo your last confirmation, exclusion or drawing list on Step 1"
+msgstr "Undo your last confirmation, exclusion or drawing list on Step 1"
+
 #: src/takeoff/questionWords.tsx
 msgid "{discipline} cannot be confirmed until this Question is answered."
 msgstr "{discipline} cannot be confirmed until this Question is answered."
@@ -837,10 +849,6 @@ msgstr "{tag} answered. Recorded: the range on {sheet} includes its top storey."
 #: src/takeoff/Step1Inspector.tsx
 msgid "{name}, {role}"
 msgstr "{name}, {role}"
-
-#: src/takeoff/questionWords.tsx
-msgid "{tag} answered. Recorded: {sheet} is not part of this set; the drawing list still counts it."
-msgstr "{tag} answered. Recorded: {sheet} is not part of this set; the drawing list still counts it."
 
 #: src/takeoff/Bar.tsx
 msgid "You are reading this as the MD."
@@ -1051,10 +1059,6 @@ msgstr "{questions, plural, one {Needs you: # Question open} other {Needs you: #
 #: src/takeoff/questionWords.tsx
 msgid "{missing, plural, one {Answering records that the missing sheet is still to come. Paste the drawing list to count it.} other {Answering records that the # missing sheets are still to come. Paste the drawing list to count them.}}"
 msgstr "{missing, plural, one {Answering records that the missing sheet is still to come. Paste the drawing list to count it.} other {Answering records that the # missing sheets are still to come. Paste the drawing list to count them.}}"
-
-#: src/takeoff/questionWords.tsx
-msgid "Answering records that the sheet is not part of this set; the drawing list still counts it."
-msgstr "Answering records that the sheet is not part of this set; the drawing list still counts it."
 
 #: src/takeoff/acts.tsx
 msgid "The rest was not done: {refused}"
@@ -1659,10 +1663,6 @@ msgstr "Lift layout"
 msgid "confirmed {name}"
 msgstr "confirmed {name}"
 
-#: src/takeoff/acts.tsx
-msgid "Nothing undone: Ctrl Z does not take back an answer to a Question, or anything before it. Exclude a sheet it confirmed, or confirm back in a sheet it excluded."
-msgstr "Nothing undone: Ctrl Z does not take back an answer to a Question, or anything before it. Exclude a sheet it confirmed, or confirm back in a sheet it excluded."
-
 #: src/takeoff/Bar.tsx
 #: src/takeoff/Step1Screen.tsx
 msgid "Next open Question"
@@ -1768,6 +1768,10 @@ msgstr "Structural"
 #: src/takeoff/words.tsx
 msgid "Pile layout"
 msgstr "Pile layout"
+
+#: src/takeoff/questionWords.tsx
+msgid "{tag} answered. Recorded: {sheet} is not part of this set; it stays on the drawing list."
+msgstr "{tag} answered. Recorded: {sheet} is not part of this set; it stays on the drawing list."
 
 #: src/takeoff/words.tsx
 msgid "The fire drawing list"
@@ -1916,10 +1920,6 @@ msgstr "State"
 msgid "The architectural drawing list"
 msgstr "The architectural drawing list"
 
-#: src/takeoff/questionWords.tsx
-msgid "Answering records that {entryName} is not part of this set; the drawing list still counts it."
-msgstr "Answering records that {entryName} is not part of this set; the drawing list still counts it."
-
 #: src/takeoff/Step1Inspector.tsx
 msgid "{name} from the file"
 msgstr "{name} from the file"
@@ -2058,6 +2058,10 @@ msgstr "{mark}, from the file name"
 msgctxt "storey"
 msgid "Mezzanine"
 msgstr "Mezzanine"
+
+#: src/takeoff/questionWords.tsx
+msgid "Not part of this set: record it, then exclude it in the list"
+msgstr "Not part of this set: record it, then exclude it in the list"
 
 #: src/takeoff/questionWords.tsx
 msgid "Use the drawing list on the sheet titled “{title}”"
@@ -2285,6 +2289,10 @@ msgid "Their titles differ. Only one can be read, unless they are different shee
 msgstr "Their titles differ. Only one can be read, unless they are different sheets."
 
 #: src/takeoff/words.tsx
+msgid "Not part of this set: record it; it stays on the drawing list"
+msgstr "Not part of this set: record it; it stays on the drawing list"
+
+#: src/takeoff/words.tsx
 msgctxt "view kind"
 msgid "Title block"
 msgstr "Title block"
@@ -2313,10 +2321,6 @@ msgstr "Plot"
 msgid "Water tank details"
 msgstr "Water tank details"
 
-#: src/takeoff/Step1Screen.tsx
-msgid "Undo your last act on Step 1"
-msgstr "Undo your last act on Step 1"
-
 #: src/takeoff/SheetList.tsx
 msgid "{file}, layout “<0/>”"
 msgstr "{file}, layout “<0/>”"
@@ -2324,10 +2328,6 @@ msgstr "{file}, layout “<0/>”"
 #: src/takeoff/questionWords.tsx
 msgid "Answering reads this file anyway: its sheets join the list as Proposals, each marked held, and their figures are flagged later."
 msgstr "Answering reads this file anyway: its sheets join the list as Proposals, each marked held, and their figures are flagged later."
-
-#: src/takeoff/words.tsx
-msgid "Not part of this set: take it off the list"
-msgstr "Not part of this set: take it off the list"
 
 #: src/takeoff/SheetList.tsx
 msgid "{file}, laid out in the drawing"
