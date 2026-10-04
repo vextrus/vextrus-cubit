@@ -55,6 +55,11 @@ export function PartsLine({ model }: { model: Step1Model }) {
     const total = d.total === null ? '—' : f.integer(d.total)
     return t`${name} ${settled} / ${total} settled`
   })
+  // The sheets of no Discipline are counted too (#167): 19a's progress row with no Discipline, else the list's own.
+  if (model.noDiscipline > 0) {
+    const count = f.integer(model.noDiscipline)
+    parts.push(model.noDiscipline === 1 ? t`1 with no Discipline` : t`${count} with no Discipline`)
+  }
   return <>{parts.join(' · ')}</>
 }
 
@@ -130,6 +135,8 @@ export function Overview({ model, projectName, readOnly }: { model: Step1Model; 
   const single = model.oneSource.length
   const reasons = model.bulk.reasons.map((r) => i18n._(REASON_SHORT[r] ?? UNKNOWN_REASON)).join(', ')
   const nothing = n + m === 0 && questions === 0 && single === 0
+  // "The held file first" only while a held file's Question is open (#167: no file held, no such words).
+  const heldFirst = model.queue.some((e) => e.question.kind === 'file_misread')
   return (
     <>
       <Block title={<Trans>{projectName}’s sheets</Trans>}>
@@ -167,11 +174,15 @@ export function Overview({ model, projectName, readOnly }: { model: Step1Model; 
             ) : null}
             {questions > 0 ? (
               <li>
-                <Plural
-                  value={questions}
-                  one="Answer # Question: the held file first, then those holding the most sheets"
-                  other="Answer # Questions: the held file first, then those holding the most sheets"
-                />
+                {heldFirst ? (
+                  <Plural
+                    value={questions}
+                    one="Answer # Question: the held file’s"
+                    other="Answer # Questions: the held file first, then those holding the most sheets"
+                  />
+                ) : (
+                  <Plural value={questions} one="Answer # Question" other="Answer # Questions: those holding the most sheets first" />
+                )}
               </li>
             ) : null}
           </ol>
@@ -540,7 +551,7 @@ export function SheetFacts({
       <Block>
         <div className="flex flex-col gap-0.5">
           <span className="font-semibold">
-            <SheetName sheets={row.sheets} />
+            <SheetName sheets={row.sheets} start />
           </span>
           {showTitle ? <DrawingText kind="title" text={sheet.title} truncate={false} className="text-ink-secondary" /> : null}
           <span className="text-xs text-ink-secondary">
