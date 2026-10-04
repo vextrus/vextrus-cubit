@@ -11,10 +11,12 @@ whose leak scan hit is not judged at all.
         [--smoke]
 
 reads `<D>/<sha40>/walk.json` and `findings.json` (the agent layer's `{"items", "findings"}`; absent:
-the agent layer did not run), writes `<D>/<sha40>/public/summary.json` (sanitize's allowlist only) and
-then `verdict.json`, atomically and last; a verdict already there is kept as
-`verdict.<its finished_at>.json`. Exit 0 PASS, 1 FAIL, 2 error (nothing written). `--smoke` writes
-`smoke-verdict.json` (a name `ready.py` never reads) with `"smoke": true`, and never `verdict.json`.
+the agent layer did not run) and judges each walk once (a verdict already holding the walk's
+`started_at` refuses, exit 2: a re-judgement needs a new walk), writes
+`<D>/<sha40>/public/summary.json` (sanitize's allowlist only) and then `verdict.json`, atomically and
+last; an earlier walk's verdict already there is kept as `verdict.<its finished_at>.json`.
+Exit 0 PASS, 1 FAIL, 2 error (nothing written). `--smoke` writes `smoke-verdict.json` (a name
+`ready.py` never reads) with `"smoke": true`, and never `verdict.json`.
 """
 
 import argparse
@@ -462,6 +464,27 @@ def write_atomic(path: Path, data: Any) -> None:
         raise
 
 
+class Judged(ValueError):
+    """This walk already has its verdict: a re-judgement needs a new walk."""
+
+
+def judged_once(folder: Path, started_at: str | None) -> None:
+    """One walk, one judgement. A walk is known by its `started_at`: a verdict already in `folder`
+    holding it refuses (judging it again, after the expectations or the findings change, would
+    count as a second walk). A walk.json with no `started_at` cannot be told from another, so it is
+    judged only into a folder holding no verdict at all. An unreadable verdict there refuses too.
+    run.py sets an older walk.json aside before a new walk of the same head writes its own."""
+    for path in sorted(folder.glob("verdict*.json")):
+        if started_at is None:
+            raise Judged("a walk with no started_at, and a verdict already here")
+        try:
+            older = _read_json(path)
+        except (OSError, ValueError, RecursionError) as error:
+            raise Judged("a verdict here cannot be read") from error
+        if not isinstance(older, Mapping) or older.get("started_at") == started_at:
+            raise Judged("this walk already has its verdict")
+
+
 def _keep_older(folder: Path) -> None:
     """A re-walk of one sha keeps the verdict already there as `verdict.<its finished_at>.json`."""
     current = folder / "verdict.json"
@@ -523,11 +546,15 @@ def main(argv: list[str] | None = None) -> int:
                 path = args.expect_dir / f"{name}.json"
                 if path.exists():
                     expect[name] = _read_json(path)
-        started = walk.get("started_at")
-        if not isinstance(started, str) or not UTC.fullmatch(started):
-            started = time.strftime(
-                "%Y-%m-%dT%H:%M:%SZ", time.gmtime((folder / "walk.json").stat().st_mtime)
-            )
+        stamp = walk.get("started_at")
+        recorded = stamp if isinstance(stamp, str) and UTC.fullmatch(stamp) else None
+        if not args.smoke:
+            judged_once(folder, recorded)
+        # Only a walk.json the scripted walk did not write lacks it (a hand-made one, a test's);
+        # judged_once has let such a walk through only into a folder that holds no verdict yet.
+        started = recorded or time.strftime(
+            "%Y-%m-%dT%H:%M:%SZ", time.gmtime((folder / "walk.json").stat().st_mtime)
+        )
         verdict = evaluate(
             walk,
             expect,

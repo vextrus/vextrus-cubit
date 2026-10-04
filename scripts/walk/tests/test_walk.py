@@ -175,15 +175,93 @@ def test_only_a_smoke_walk_is_judged_with_smoke(tmp_path: Path) -> None:
 
 
 def test_a_rewalk_keeps_the_older_verdict(tmp_path: Path) -> None:
-    walks, expect_dir, folder = _lay_out(tmp_path, _walk())
+    walks, expect_dir, folder = _lay_out(tmp_path, _walk(started_at="2026-10-05T00:00:00Z"))
 
     assert _cli(walks, expect_dir).returncode == 0
     first = json.loads((folder / "verdict.json").read_text())
+    run.set_aside(folder)  # what run.py does before a new walk of the same head
+    (folder / "walk.json").write_text(json.dumps(_walk(started_at="2026-10-05T00:30:00Z")))
     assert _cli(walks, expect_dir).returncode == 0
 
     stamp = first["finished_at"].replace("-", "").replace(":", "")
     assert json.loads((folder / f"verdict.{stamp}.json").read_text()) == first
-    assert (folder / "verdict.json").exists()
+    assert json.loads((folder / "verdict.json").read_text())["started_at"] == "2026-10-05T00:30:00Z"
+
+
+# One walk, one judgement (review round 1 of #293: a re-judged walk counted as a second walk).
+
+
+def test_one_walk_judged_twice_is_not_two_passes(tmp_path: Path) -> None:
+    repo, (sha,) = _repo(tmp_path, ["docs/a.md"])
+    walks, expect_dir = tmp_path / "walks", tmp_path / "expect"
+    expect_dir.mkdir()
+    (expect_dir / "set-a.json").write_text(json.dumps(EXPECT["set-a"]))
+    folder = walks / sha
+    folder.mkdir(parents=True)
+    (folder / "walk.json").write_text(json.dumps(_walk(sha=sha, started_at=_a_minute_ago())))
+    (folder / "findings.json").write_text(json.dumps(LAYER))
+
+    assert _cli_for(sha, walks, expect_dir).returncode == 0
+    again = _cli_for(sha, walks, expect_dir)
+
+    assert again.returncode == 2
+    assert [p.name for p in folder.glob("verdict*.json")] == ["verdict.json"]
+    assert ready.ready("main", walks_dir=walks, repo=repo).ok is False
+
+
+def test_a_fail_rejudged_against_new_expectations_stays_one_fail(tmp_path: Path) -> None:
+    repo, (sha,) = _repo(tmp_path, ["docs/a.md"])
+    walks, expect_dir = tmp_path / "walks", tmp_path / "expect"
+    expect_dir.mkdir()  # no expectation yet: UNSET, so FAIL
+    folder = walks / sha
+    folder.mkdir(parents=True)
+    (folder / "walk.json").write_text(json.dumps(_walk(sha=sha, started_at=_a_minute_ago())))
+    (folder / "findings.json").write_text(json.dumps(LAYER))
+
+    assert _cli_for(sha, walks, expect_dir).returncode == 1
+    (expect_dir / "set-a.json").write_text(json.dumps(EXPECT["set-a"]))
+    assert _cli_for(sha, walks, expect_dir).returncode == 2
+    assert _cli_for(sha, walks, expect_dir).returncode == 2
+
+    assert json.loads((folder / "verdict.json").read_text())["result"] == "FAIL"
+    assert ready.ready("main", walks_dir=walks, repo=repo).ok is False
+
+
+def test_a_walk_with_no_start_is_judged_only_into_an_empty_folder(tmp_path: Path) -> None:
+    walks, expect_dir, folder = _lay_out(tmp_path, _walk())
+
+    assert _cli(walks, expect_dir).returncode == 0
+    (folder / "walk.json").touch()  # a new mtime is not a new walk
+
+    assert _cli(walks, expect_dir).returncode == 2
+    assert [p.name for p in folder.glob("verdict*.json")] == ["verdict.json"]
+
+
+def _a_minute_ago() -> str:
+    import time
+
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - 60))
+
+
+def _cli_for(sha: str, walks: Path, expect_dir: Path) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "scripts.walk.verdict",
+            sha,
+            "--leak-hits",
+            "0",
+            "--walks-dir",
+            str(walks),
+            "--expect-dir",
+            str(expect_dir),
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
 
 
 # ready.py ----------------------------------------------------------------------------------------
