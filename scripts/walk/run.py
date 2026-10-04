@@ -488,10 +488,14 @@ def hold(walk: Plan, stack: Stack, minutes: float, stopping: list[bool], since: 
 
 
 @contextlib.contextmanager
-def _signals(stopping: list[bool]) -> Iterator[None]:
+def _signals(stopping: list[bool], holding: list[bool]) -> Iterator[None]:
+    """SIGTERM or SIGINT: stop. While the walk runs it interrupts (an error); while the stack is only
+    held for the agent layer it ends the hold quietly (the walk is done)."""
+
     def handler(signum: int, frame: object) -> None:
         stopping.append(True)
-        raise KeyboardInterrupt
+        if not holding:
+            raise KeyboardInterrupt
 
     before = {sig: signal.signal(sig, handler) for sig in (signal.SIGTERM, signal.SIGINT)}
     try:
@@ -513,13 +517,14 @@ def run(root: Path, walk: Plan, *, sets: dict[str, list[str]], smoke: bool, hold
     sign_in = pidfile.with_name("g1.sign-in")
     stack = Stack()
     stopping: list[bool] = []
+    holding: list[bool] = []
     password = secrets.token_hex(24)
     log = walk.out_dir / "logs" / "prepare.txt"
     started_at = utc()
     since = time.time()
     events("started")
     try:
-        with _signals(stopping):
+        with _signals(stopping, holding):
             walk.out_dir.mkdir(parents=True, exist_ok=True)
             set_aside(walk.out_dir)
             prepare_checkout(root, walk, log)
@@ -534,6 +539,7 @@ def run(root: Path, walk: Plan, *, sets: dict[str, list[str]], smoke: bool, hold
             events(f"done {'PASS' if passed else 'FAIL'}")
             print(f"walk: {walk.sha8} script layer {'PASS' if passed else 'FAIL'} (playwright {code})")
             if not smoke:
+                holding.append(True)
                 hold(walk, stack, hold_minutes, stopping, since)
             return 0 if passed else 1
     except (KeyboardInterrupt, WalkError, OSError, ValueError, subprocess.SubprocessError) as error:

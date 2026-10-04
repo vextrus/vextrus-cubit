@@ -678,3 +678,18 @@ def test_the_agent_layers_sign_in_is_owner_only_and_outside_the_walk(tmp_path: P
     assert stat.S_IMODE(path.stat().st_mode) == 0o600
     assert json.loads(path.read_text()) == {"email": run.QS_EMAIL, "password": PLANTED}
     assert "walks" not in path.parts
+
+
+def test_a_signal_interrupts_the_walk_but_ends_the_hold_quietly() -> None:
+    import os
+    import signal
+
+    stopping: list[bool] = []
+    with pytest.raises(KeyboardInterrupt), run._signals(stopping, []):
+        os.kill(os.getpid(), signal.SIGTERM)
+    assert stopping == [True]
+
+    stopping.clear()
+    with run._signals(stopping, [True]):
+        os.kill(os.getpid(), signal.SIGTERM)
+    assert stopping == [True]
