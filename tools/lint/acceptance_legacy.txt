@@ -1,0 +1,7 @@
+# Acceptance commits made before the counts rule (tools/lint/acceptance.py): each carried branch's
+# `acceptance:` commit that has no `red-on-main: <n> failed` / `green-on-throwaway: <n> passed` lines.
+# One full sha per line. The lint reads this file as it is at the base, so a PR cannot exempt itself.
+0a72a25d38bdfa648874a2d24b06ac586649267e
+0383e734b8aa91c9518d93abf22133e5a62c1f49
+449fd7956a59ff05a3d0ab9fc3c6f0e9318d3adf
+050b96e604013529fb3e51ce09d31992d391ed08

@@ -19,7 +19,13 @@ def git(root: Path, *args: str) -> str:
     ).stdout.strip()
 
 
+COUNTS = "\n\nred-on-main: 1 failed\ngreen-on-throwaway: 1 passed"
+
+
 def commit(root: Path, message: str, files: dict[str, str]) -> str:
+    """Commit the files; an `acceptance:` message gets its counts (the counts rule has its own tests)."""
+    if message.startswith("acceptance:"):
+        message += COUNTS
     for name, text in files.items():
         path = root / name
         path.parent.mkdir(parents=True, exist_ok=True)
