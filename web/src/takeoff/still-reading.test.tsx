@@ -108,14 +108,16 @@ it('lists a file read between Step 1’s first answer and the files’ first ans
 it('never says "Add the Drawing Set’s files first" while the last file’s sheets are on their way', async () => {
   fakeClock()
   const { api, finish } = oneFileReading()
-  await mountOnFakeClock(api)
-  expect(await within(5_000, () => bodyText().includes('Still reading KR-STR-R0.dwg'))).toBe(true)
   const handle = api.handle
+  let slow = false
   api.handle = async (request) => {
-    // Step 1's answers come back a second after the file is read.
-    if (new URL(request.url).pathname.includes('/step1/')) await new Promise((resolve) => setTimeout(resolve, 1_000))
+    // Once the file is read, Step 1's answers come back a second later (the transport is fixed at mount).
+    if (slow && new URL(request.url).pathname.includes('/step1/')) await new Promise((resolve) => setTimeout(resolve, 1_000))
     return handle(request)
   }
+  await mountOnFakeClock(api)
+  expect(await within(5_000, () => bodyText().includes('Still reading KR-STR-R0.dwg'))).toBe(true)
+  slow = true
   finish()
   expect(
     await within(
