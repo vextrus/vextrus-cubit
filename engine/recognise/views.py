@@ -30,11 +30,12 @@ paper, grown by `GAP_MM` so that what is drawn closer than that joins, and split
 These sizes, `MIN_VIEW_MM` and `JOIN_MM` are an A1 sheet's (`REFERENCE_MM` long), scaled to the sheet's
 paper, so a frame whose paper is read too small or too large is split alike (a frame block drawn at a
 fraction of its plotted size: the real sets' frames give papers of 130 to 420 mm plotted on A3 and A1). A
-**view title** is a text of two lines at most and `MAX_TITLE_WORDS` words at most holding a kind's words
-(the kind listed first in the conventions wins where several are named: "TYPICAL BEAM SECTION DETAIL" is
-a detail), not in the title block, at least as tall as the sheet's median text (and at most `MAX_LETTER`
-of the paper), not numbered ("5. SEE SECTION ...") and not one of a column of `MIN_NOTE_LINES` lines
-alike (a note's; a scale text in the column is the title's scale line, not a note's). A title lying under
+**view title** is a text of two lines at most and `MAX_TITLE_WORDS` words at most a line holding a kind's
+words (the kind listed first in the conventions wins where several are named: "TYPICAL BEAM SECTION
+DETAIL" is a detail), not in the title block, at least as tall as the sheet's median text (and at most
+`MAX_LETTER` of the paper), not numbered ("5. SEE SECTION ...") and not one of a column of
+`MIN_NOTE_LINES` lines alike (a note's; a scale text in the column is the title's scale line, not a
+note's). A title lying under
 another within `SUBTITLE_GAP` of its height, across the same place, is its second line ("PRESENTATION
 PLAN" under "GROUND FLOOR PLAN"), no title of its own. Titles, second lines and scale texts stay off the
 grid, and so do the lines within a title's band (its underline), and straight lines along the paper's
@@ -1467,9 +1468,11 @@ def _views(
             if len(scale_texts) < MAX_TITLES:
                 scale_texts.append(i)
             continue
+        rows = t.placed.shown.strip().split("\n")  # each line of a title of two capped alike
         if (
             len(titles) < MAX_TITLES
-            and 0 < len(words) <= MAX_TITLE_WORDS
+            and len(words) > 0
+            and max(len(_tokens(_plain(row))) for row in rows) <= MAX_TITLE_WORDS
             and tall <= t.height <= letter
             and not _ENUMERATED.match(t.shown)
             and _named_kind(t.shown, reading) is not None  # a heading word alone is no title's

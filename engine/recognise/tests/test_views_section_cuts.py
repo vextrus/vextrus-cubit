@@ -8,6 +8,7 @@ import pytest
 
 from engine.recognise import views
 from engine.recognise.tests.test_views import LABELS_ACROSS, drawn, labelled_sections
+from engine.recognise.types import ViewKind
 
 OX, SCALE = 10_000.0, 50.0
 """`labelled_sections`' frame: its lower-left corner in model space and its scale."""
@@ -142,3 +143,34 @@ def test_a_turned_tag_under_a_titles_line_is_no_line_of_the_title() -> None:
     d.text("SD1", (OX + 336 * SCALE, 250 * SCALE, 0.0), height=5.0 * SCALE, rotation_radians=math.pi / 2)
     (view,) = drawn(d, sheet)
     assert view.box.y0 == pytest.approx(280, abs=0.5)
+
+
+# A title's words ---------------------------------------------------------------------------------------
+
+
+def test_a_title_of_two_lines_is_capped_line_by_line() -> None:
+    """A long section's title and its second line in one MTEXT, 17 words together, at most
+    `MAX_TITLE_WORDS` on each line: a title, as the same two lines written as two texts are."""
+    d, sheet = labelled_sections([(None, (40, 300, 300, 380))], [])
+    d.text(
+        "LONG SECTION OF FLOOR BEAM B1 (12 X 16)\\PDROP 12 AND INVERT 4 FROM GRID 3",
+        (OX + 40 * SCALE, 296 * SCALE, 0.0),
+        kind="MTEXT",
+        height=5.0 * SCALE,
+    )
+    (view,) = drawn(d, sheet)
+    assert view.title is not None
+    assert view.title.startswith("LONG SECTION OF FLOOR BEAM B1")
+    assert view.kind is ViewKind.SECTION
+
+
+def test_one_line_of_more_words_than_a_title_has_is_still_no_title() -> None:
+    """The guard: the same 17 words on one line are a note's sentence, no title."""
+    d, sheet = labelled_sections([(None, (40, 300, 300, 380))], [])
+    d.text(
+        "LONG SECTION OF FLOOR BEAM B1 (12 X 16) DROP 12 AND INVERT 4 FROM GRID 3",
+        (OX + 40 * SCALE, 292 * SCALE, 0.0),
+        height=5.0 * SCALE,
+    )
+    found = drawn(d, sheet)
+    assert all(v.title is None for v in found)
