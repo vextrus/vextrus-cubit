@@ -13,7 +13,7 @@ export const DISCIPLINES = ['structural', 'architectural', 'electrical', 'plumbi
 export const SHEET_KINDS = [
     'site_plan', 'grid_layout', 'pile_layout', 'pile_details', 'pile_cap_layout', 'pile_cap_details',
     'foundation_layout', 'foundation_details', 'column_layout', 'column_schedule', 'shear_wall_details',
-    'beam_layout', 'beam_details', 'slab_layout', 'stair_details', 'retaining_wall_details', 'tank_details',
+    'beam_layout', 'beam_details', 'slab_layout', 'slab_details', 'stair_details', 'retaining_wall_details', 'tank_details',
     'roof_structure_details', 'details', 'working_plan', 'presentation_plan', 'roof_plan', 'elevation',
     'section', 'door_window_layout', 'door_window_schedule', 'door_window_details', 'floor_finish_layout',
     'finish_schedule', 'ceiling_layout', 'lintel_layout', 'slab_outline_layout', 'toilet_details',
