@@ -9,6 +9,8 @@
 """
 
 import json
+import os
+import subprocess
 from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
@@ -49,11 +51,57 @@ def _file_strings(path: Path) -> Iterator[str]:
             yield from line.split(_CELL_SPLIT)
 
 
+# Folders that hold copies of public or third-party text, never notes: packages, caches and the leak-scan
+# home itself. Inside a nested git checkout (a copy of the repository for a walk or a review) the files
+# that checkout tracks are public copies and are skipped; its untracked files (walk outputs) are read.
+SKIPPED_FOLDERS = {
+    "node_modules",
+    ".git",
+    ".venv",
+    "venv",
+    "__pycache__",
+    ".pytest_cache",
+    ".mypy_cache",
+}
+SKIPPED_FOLDERS |= {".ruff_cache", "site-packages", ".cache", "leakscan"}
+MAX_TEXT_BYTES = 2_000_000
+_TEXT = {".md", ".txt", ".json"}
+
+
+def _tracked(checkout: Path) -> set[Path]:
+    """The files a nested checkout tracks (none when git cannot say)."""
+    done = subprocess.run(
+        ["git", "-C", str(checkout), "ls-files", "-z"], capture_output=True, check=False
+    )
+    if done.returncode != 0:
+        return set()
+    return {checkout / raw.decode("utf-8", "surrogateescape") for raw in done.stdout.split(b"\0") if raw}
+
+
 def _under(folder: Path, suffixes: set[str]) -> Iterator[Path]:
+    """Files under `folder` with one of `suffixes`, in a fixed order, streamed (the tree is large)."""
     leak_home = home().resolve()
-    for path in sorted(folder.rglob("*")):
-        if path.is_file() and not path.is_symlink() and path.suffix.lower() in suffixes:
-            if leak_home in path.resolve().parents:
+    public: set[Path] = set()
+    for current, folders, files in os.walk(folder):
+        here = Path(current)
+        if (here / ".git").exists() and here != folder:
+            public |= _tracked(here)
+        folders[:] = sorted(
+            name
+            for name in folders
+            if name not in SKIPPED_FOLDERS
+            and (here / name).resolve() != leak_home
+            and not (here / name).is_symlink()
+        )
+        for name in sorted(files):
+            path = here / name
+            suffix = path.suffix.lower()
+            if suffix not in suffixes or path.is_symlink() or path in public:
+                continue
+            try:
+                if suffix in _TEXT and path.stat().st_size > MAX_TEXT_BYTES:
+                    continue
+            except OSError:
                 continue
             yield path
 
@@ -87,6 +135,22 @@ def _pdf_texts(path: Path) -> Iterator[str]:
             yield item.text
 
 
+# Agents' notes quote code, commands and the repository's own docs far more than drawings: measured on
+# 5 Oct 2026, every line of the notes made 169,049 corpus strings and 935 of 1,195 hit lines on one
+# branch's diff, against 4 distinct strings from each drawing source. A note keeps a string only when it
+# reads like drawing text as AutoCAD sets it: no lower-case letter and no code or Markdown character.
+_CODE_CHARACTERS = set('`/\\_=(){}[]<>$#*|;"~^@')
+
+
+def drawing_like(value: str) -> bool:
+    """A note's string that reads like drawing text: upper case, no code or Markdown characters."""
+    return not any(c.islower() or c in _CODE_CHARACTERS for c in value)
+
+
+def _note_strings(path: Path) -> Iterator[str]:
+    return (value for value in _file_strings(path) if drawing_like(value.strip()))
+
+
 def real_sources(counts: dict[str, int]) -> Iterator[str]:
     """The local sources, in a fixed order; `counts` gets each source's number of strings read."""
     main = main_checkout()
@@ -115,7 +179,7 @@ def real_sources(counts: dict[str, int]) -> Iterator[str]:
     if walks.is_dir():
         yield from each("walks", _under(walks, TEXT_SUFFIXES | {".json"}), _file_strings)
     if work.is_dir():
-        yield from each("notes", _under(work, {".md"}), _file_strings)
+        yield from each("notes", _under(work, {".md"}), _note_strings)
 
 
 def normalised(values: Iterator[str]) -> Iterator[str]:
