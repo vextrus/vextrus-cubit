@@ -38,7 +38,7 @@ from ezdxf.layouts.base import BaseLayout
 
 from engine.check import bangla_ansi
 from engine.messages import decoders_agree as agree_codes
-from engine.read import ReadArtefact, ReadError
+from engine.read import ReadArtefact
 from engine.read.pdf.types import PdfReport
 from engine.recognise.types import CheckOutcome, CheckResult, ViewKind
 from engine.render import fonts as font_report
@@ -359,6 +359,14 @@ NOTE_LINES = (
     "LAP LENGTH 50 BAR DIAMETERS.",
     "DO NOT SCALE FROM THE DRAWING.",
     "READ WITH THE ARCHITECTURAL DRAWINGS.",
+    "CEMENT: ORDINARY PORTLAND, ONE BRAND THROUGHOUT.",
+    "COARSE AGGREGATE: STONE CHIPS, 20 MM DOWN.",
+    "CURE EVERY POUR FOR 14 DAYS.",
+    "STRIP SOFFIT FORMWORK AFTER 14 DAYS.",
+    "SETTING OUT TO BE CHECKED BY THE ENGINEER.",
+    "ALL LEVELS ARE FROM THE PLINTH, +0.000.",
+    "NO OPENING IN A BEAM WITHOUT THE ENGINEER'S CONSENT.",
+    "BACKFILL IN 150 MM LAYERS, EACH COMPACTED.",
 )
 
 
@@ -431,6 +439,11 @@ HELD = "KR-STR-old.dwg"
 PLANTED = agree_codes.DISAGREE(items=212, only_first=187, only_second=25, kinds=2, layers=3, unread=0)
 
 
+class NotRecorded(RuntimeError):
+    """A file reached the replaying readers that the recording does not hold: the seed's fault (a
+    stale recording), raised as it is, never a file's reason."""
+
+
 def content(name: str) -> bytes:
     """The recorded DWG's bytes, as the seed adds the file."""
     return (RECORDED / name).read_bytes()
@@ -458,6 +471,7 @@ def record(folder: Path) -> list[str]:
         artefact = read(path, source_name=name)
         checked = decoders_agree.run(path, artefact)
         kept = {
+            "drawn": drawn_digest(name),
             "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
             "artefact": artefact.to_json(),
             "second": {
@@ -472,6 +486,33 @@ def record(folder: Path) -> list[str]:
     return said
 
 
+def drawn_digest(name: str) -> str:
+    """What `draw(name)` draws, as a digest of every entity on every layout (its kind, layer, style,
+    points and words), so a recording made from another drawing is seen (`recorded_of`). The DWG's own
+    bytes cannot say it: the writer stamps each save differently."""
+    doc = draw(name)
+    lines = []
+    for layout in doc.layouts:
+        for entity in layout:
+            dxf = entity.dxf.all_existing_dxf_attribs()
+            kept = {k: v for k, v in dxf.items() if k not in ("handle", "owner")}
+            if entity.dxftype() == "LWPOLYLINE":
+                kept["points"] = [tuple(round(c, 6) for c in p) for p in entity.get_points()]  # type: ignore[attr-defined]
+            if entity.dxftype() == "MTEXT":
+                kept["text"] = entity.text  # type: ignore[attr-defined]
+            lines.append(
+                f"{layout.name}|{entity.dxftype()}|{sorted((k, repr(v)) for k, v in kept.items())}"
+            )
+    return hashlib.sha256("\n".join(lines).encode()).hexdigest()
+
+
+def recorded_of(name: str) -> dict[str, object]:
+    """The recording of one file, as kept."""
+    with gzip.open(RECORDED / f"{name}.json.gz", "rt", encoding="utf-8") as read:
+        kept: dict[str, object] = json.load(read)
+    return kept
+
+
 def _recorded() -> dict[str, dict[str, object]]:
     kept = {}
     for name in FILES:
@@ -483,15 +524,16 @@ def _recorded() -> dict[str, dict[str, object]]:
 
 def replayed() -> files.Readers:
     """The read job's readers, answering from the recording by the file's sha256 (a file not
-    recorded is unreadable: `ReadError`)."""
+    recorded is the seed's fault: `NotRecorded`)."""
     kept = _recorded()
 
     def of(path: Path) -> dict[str, object]:
         sha256 = hashlib.sha256(path.read_bytes()).hexdigest()
         if sha256 not in kept:
-            from engine.messages import read as read_codes
-
-            raise ReadError(read_codes.UNSUPPORTED_FORMAT(format="unknown"))
+            raise NotRecorded(
+                f"{path.name} ({sha256}) is not in vextrus/seed/recorded/: run"
+                " `uv run manage.py record_demo_reading <work folder>` and commit what it writes"
+            )
         return kept[sha256]
 
     def first(path: Path, name: str) -> ReadArtefact:
@@ -507,7 +549,7 @@ def replayed() -> files.Readers:
         )
 
     def pdf(path: Path) -> PdfReport:
-        raise ReadError(PLANTED)  # no PDF is read by the job in the seed
+        raise NotRecorded(f"{path.name}: the seed's PDFs are not read by the job, so none is recorded")
 
     return files.Readers(
         dwg=first, second=second, fonts=font_report.report, bangla_ansi=bangla_ansi.run, pdf=pdf
