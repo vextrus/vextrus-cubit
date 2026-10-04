@@ -150,7 +150,8 @@ async function timedAct(page: Page, api: Api, projectId: string, kind: string, k
   const pattern = ACT_PATHS[kind]!
   const sent = page.waitForRequest((r) => r.method() === 'POST' && pattern.test(new URL(r.url()).pathname), { timeout: 4000 }).catch(() => null)
   let started = Date.now()
-  for (const key of keys) {
+  for (const [i, key] of keys.entries()) {
+    if (i > 0) await page.waitForTimeout(400) // the screen settles between keys (a sheet opening)
     started = Date.now()
     await page.keyboard.press(key)
   }
@@ -205,7 +206,11 @@ async function actWhileReading(page: Page, api: Api, project: { id: string; code
       return act
     }
     if (await focusFirstRow(page)) {
-      if (await record('confirm', ['Enter'])) await record('undo', ['Control+z'])
+      // The bulk confirmation when the bar offers one (where D1 lived); else one sheet, opened.
+      let confirmed = await record('confirm', ['Escape', 'Enter'])
+      if (!confirmed && (await focusFirstRow(page))) confirmed = await record('confirm', ['Space', 'Enter'])
+      if (confirmed) await record('undo', ['Control+z'])
+      await page.keyboard.press('Escape')
     }
     if (await focusFirstRow(page)) {
       if (await record('exclude', ['x', '1'])) await record('undo', ['Control+z'])
