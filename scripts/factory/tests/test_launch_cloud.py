@@ -1,5 +1,6 @@
 """The cloud launch's judge: a bundled session is never taken for a cloned one (sessions 05 and 06).
-The six judge tests moved unchanged from scripts/tests/test_cloud_launch.py (ticket f1); the rest
+The six judge tests moved from scripts/tests/test_cloud_launch.py (ticket f1; their cloned log
+now carries the `Selected environment` line real logs have, PR #286 round 1); the rest
 pin the launcher's small pieces. The whole command is pinned by tests/acceptance/tf1/."""
 
 import json
@@ -22,6 +23,7 @@ BUNDLED = """
 def cloned(revision: str, repo: str = REPO, created: bool = True) -> str:
     return (
         "[DEBUG] GitHub app is installed on vextrus/vextrus-cubit\n"
+        "[DEBUG] Selected environment: env_01x (vextrus, anthropic_cloud)\n"
         f"[DEBUG] [teleportToRemote] Git source: {repo}, revision: {revision}\n"
         + ("[DEBUG] Successfully created remote session: session_01Cloned\n" if created else "")
     )
@@ -119,3 +121,9 @@ def test_the_local_request_hands_on_only_the_options_given() -> None:
         "--prompt-file",
         "p.md",
     ]
+
+
+def test_a_log_with_no_selected_environment_is_refused_by_default() -> None:
+    log = cloned("x").replace("[DEBUG] Selected environment: env_01x (vextrus, anthropic_cloud)\n", "")
+    verdict = judge(log, repository=REPO, branch="x")
+    assert (verdict.ok, verdict.code) == (False, "wrong-environment")

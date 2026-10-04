@@ -63,9 +63,9 @@ CREATED = re.compile(r"Successfully created remote session: (session_\w+)")
 ENV = re.compile(r"Selected environment: (env_\w+) \(([^,]+),")
 FALLBACK = re.compile(r"Configured default environment \S+ not found, using first available")
 ENVIRONMENT = "vextrus"
-# A log with no `Selected environment` line passes for now: the committed acceptance fixtures (tf1's
-# C tests) carry none. Turn this on once they do (review round 1 of PR #286, F1).
-REQUIRE_ENVIRONMENT_LINE = False
+# A log with no `Selected environment` line is refused: how the session's environment was chosen is
+# then unknown (fail closed; review round 1 of PR #286, F1).
+REQUIRE_ENVIRONMENT_LINE = True
 LAUNCH_TIMEOUT = 180
 MESSAGE_TIMEOUT = 120
 TOOL_TIMEOUT = 60
