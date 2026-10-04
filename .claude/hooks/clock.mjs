@@ -16,7 +16,7 @@ const now = (() => {
 })();
 
 const git = (...args) => {
-  const done = spawnSync("git", ["-C", project, ...args], { encoding: "utf8", timeout: 3_000 });
+  const done = spawnSync("git", ["-C", project, ...args], { encoding: "utf8", timeout: 2_000 });
   return done.status === 0 ? done.stdout.trim() : null;
 };
 const real = (path) => {

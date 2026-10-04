@@ -10,10 +10,13 @@ import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 const project = process.env.CLAUDE_PROJECT_DIR || "";
+// Registered with a 15 s timeout, and a timed-out hook fails open: every wait below shares one 13 s deadline, so the
+// block is printed before Claude Code would kill the hook.
+const deadline = Date.now() + 13_000;
 const PHRASES = /walk now|ready for your walk|please walk/i;
 
 const git = (...args) => {
-  const done = spawnSync("git", ["-C", project, ...args], { encoding: "utf8", timeout: 3_000 });
+  const done = spawnSync("git", ["-C", project, ...args], { encoding: "utf8", timeout: 2_000 });
   return done.status === 0 ? done.stdout.trim() : null;
 };
 const real = (path) => {
@@ -45,9 +48,10 @@ function verdict() {
     return "G1 is not installed (scripts/walk/ready.py is absent), so no walk can be offered. Do not ask the owner to walk; say what is unproven instead.";
   }
   const python = process.env.VEXTRUS_PYTHON || "python3";
-  const ready = spawnSync(python, ["-m", "scripts.walk.ready", "origin/main"], { cwd: project, stdio: "ignore", timeout: 12_000, killSignal: "SIGKILL" });
+  const cap = Math.max(500, Math.min(12_000, deadline - Date.now()));
+  const ready = spawnSync(python, ["-m", "scripts.walk.ready", "origin/main"], { cwd: project, stdio: "ignore", timeout: cap, killSignal: "SIGKILL" });
   if (ready.status === 0) return null;
-  const why = ready.error || ready.signal ? "did not answer within 12 s" : `exited ${ready.status}`;
+  const why = ready.error || ready.signal ? `did not answer within ${Math.round(cap / 1000)} s` : `exited ${ready.status}`;
   return `No passing G1 on main's current product code (scripts.walk.ready origin/main ${why}). Do not ask the owner to walk: run the G1 walk first, or say what is unproven.`;
 }
 
