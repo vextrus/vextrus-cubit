@@ -1,0 +1,234 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vextrus.invalid/factory/status.schema.json",
+  "title": "The factory's status: .private/work/factory/status.json",
+  "description": "Contract (PR f0) for the one file `scripts/factory/watch.py` (producer, PR f3) writes and `scripts/factory/statusline.mjs` (PR f8) and the `vextrus-factory` mod's band (`tools/mod/vextrus-factory/`, PR f8) read (docs/specs/factory.md 2.2 'Watch', 3.5 'Status line', 4 (b)). WRITE: watch.py rewrites the whole file every pass (60 s) atomically: it writes `status.json.tmp` in the same folder and renames it over `status.json`, so a reader never sees half a file. READ: a consumer reads the file whole, ignores nothing it needs, and never calls a process (the mod makes no `$.process.run` calls). AGE: a consumer computes `status n min old` as now minus `written_at`; when that is over 180 seconds, or the file is missing or does not parse, it prints WATCHER DOWN and still prints the clock. Every number is a count, a size or a time: no free text from a drawing, a diff or a builder's report ever enters this file (the leak wall: spec 5). `additionalProperties` is false on purpose: a producer that adds a field changes this schema and `status.sample.json` first, and every consumer's test reads the sample.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "written_at", "watcher", "clock", "resources", "lock", "builders", "reviews", "g1", "usage", "alarms"],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "description": "Raised only by a breaking change; a consumer that sees another value prints WATCHER DOWN with 'status schema' and the clock."
+    },
+    "written_at": {
+      "$ref": "#/$defs/utc",
+      "description": "UTC time this pass finished writing. The only source of 'status n min old'."
+    },
+    "watcher": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pid", "started_at"],
+      "properties": {
+        "pid": {"type": "integer", "minimum": 1, "description": "The watcher's pid (also in .private/work/factory/watch.pid)."},
+        "started_at": {"$ref": "#/$defs/utc"}
+      }
+    },
+    "clock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["session", "phase"],
+      "description": "From .private/work/factory/session.json (`stamp start`), the same source the clock hook prints. A consumer shows the clock UTC time from its own clock, never from this file.",
+      "properties": {
+        "session": {
+          "oneOf": [{"type": "null"}, {"$ref": "#/$defs/budget"}],
+          "description": "null when no `stamp start` has run ('no budget set')."
+        },
+        "phase": {
+          "oneOf": [{"type": "null"}, {"$ref": "#/$defs/phaseBudget"}],
+          "description": "null when the session has no current phase. The band's '3h12/5h30' is the phase when present, else the session."
+        }
+      }
+    },
+    "resources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["disk_free_gb", "swap_used_gb", "mem_available_gb"],
+      "description": "The band's 'disk 61G swap 0.0G avail 14G'. Gigabytes of 1024^3 bytes, one decimal place at most. null when the reading failed this pass (a consumer prints '?').",
+      "properties": {
+        "disk_free_gb": {"type": ["number", "null"], "minimum": 0, "description": "`df` free space of the repository's filesystem."},
+        "swap_used_gb": {"type": ["number", "null"], "minimum": 0, "description": "/proc/meminfo SwapTotal - SwapFree."},
+        "mem_available_gb": {"type": ["number", "null"], "minimum": 0, "description": "/proc/meminfo MemAvailable."}
+      }
+    },
+    "lock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["holder", "waiters"],
+      "description": "The real-drawing lock's queue, as scripts/factory/rdlock.py keeps it in .private/work/factory/rdlock.json (holder, waiters, head, kind, since). When rdlock is cut (tier 2) the watcher reads the session flock: holder is then {kind, ticket: null, head: null} and waiters is [] if the waiters are not visible. The band's 'lock: post t228 14m (+2 waiting)'.",
+      "properties": {
+        "holder": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/lockEntryHolder"}], "description": "null when the lock is free."},
+        "waiters": {"type": "array", "items": {"$ref": "#/$defs/lockEntry"}, "description": "In queue order: posting first, then scored, then no-post, first in first out within each kind (spec 2.2 'Real-drawing lock')."}
+      }
+    },
+    "builders": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cloud", "local", "items"],
+      "description": "Builders by state: 'cloud 4 working, 1 READY, 1 quiet 31m · local 1'. The counts are the producer's tally of `items` (every item counts once, by `where` and `state`), so a consumer may use either.",
+      "properties": {
+        "cloud": {"$ref": "#/$defs/builderGroup"},
+        "local": {"$ref": "#/$defs/builderGroup"},
+        "items": {"type": "array", "items": {"$ref": "#/$defs/builder"}}
+      }
+    },
+    "reviews": {
+      "type": "array",
+      "description": "Open review rounds: 'reviews #250 r1, #251 r2'. A PR appears once, at its newest open round, from the ledger folder (.private/work/factory/ledger/) and the PR's open state; a PR whose ledger holds a PASS for its current head is not open.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["pr", "round", "head"],
+        "properties": {
+          "pr": {"type": "integer", "minimum": 1},
+          "round": {"type": "integer", "minimum": 1, "maximum": 3},
+          "head": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/sha"}], "description": "The head the round reviewed; null if not yet known."}
+        }
+      }
+    },
+    "g1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["main"],
+      "description": "The G1 real-set walk's state on main, from .private/work/walks/<sha40>/verdict.json (walk-verdict.schema.json) and the live pidfile of a running walk.",
+      "properties": {
+        "main": {
+          "oneOf": [{"type": "null"}, {"$ref": "#/$defs/g1State"}],
+          "description": "null when no walk of main has ever run. The band's 'G1 main: FAIL ca2e1c4' prints the first 7 characters of `sha`."
+        }
+      }
+    },
+    "usage": {
+      "oneOf": [{"type": "null"}, {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["session_percent", "week_percent", "read_at"],
+        "properties": {
+          "session_percent": {"type": "number", "minimum": 0, "maximum": 100},
+          "week_percent": {"type": "number", "minimum": 0, "maximum": 100},
+          "read_at": {"$ref": "#/$defs/utc"}
+        }
+      }],
+      "description": "The last good `claude -p \"/usage\"` reading (every 15 min, spec 2.3). null when never read or when the text could not be parsed (the governor then fails closed; the status line says nothing about usage)."
+    },
+    "alarms": {
+      "type": "array",
+      "description": "The alarms the watcher currently holds (spec 2.2 'Watch'); an alarm is dropped when its cause clears. The status line shows the count and the newest `code`.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "subject", "detail", "since"],
+        "properties": {
+          "code": {
+            "enum": ["BUILDER-QUIET", "BUILDER-BLOCKED", "READY-NO-VERIFY", "READY-WAITING", "NEW-CLAUDE-BRANCH", "LEAK-HIT", "BUDGET-PASSED", "FLOOR-CROSSED", "REVIEW-READY", "JEV-MODEL-MOVED"],
+            "description": "BUILDER-QUIET: a cloud builder with no push for 30 min. BUILDER-BLOCKED: a local builder `blocked`. READY-NO-VERIFY: a READY head whose Factory-Verify tree does not match its tree. READY-WAITING: a READY head waiting 10 min. NEW-CLAUDE-BRANCH: any new claude/* branch on origin. LEAK-HIT: a leak-scan hit on a cloud head. BUDGET-PASSED: a ticket's or the session's budget passed. FLOOR-CROSSED: a governor floor (disk, memory, swap, usage) crossed. REVIEW-READY: a cloud review verdict branch appeared (tier 2). JEV-MODEL-MOVED: `jev models-check` saw the model move (tier 2)."
+          },
+          "subject": {"type": ["string", "null"], "maxLength": 80, "description": "The ticket, branch, PR (`#250`) or floor name the alarm is about; null for a session-wide alarm."},
+          "detail": {"type": "string", "maxLength": 200, "description": "One line in public words, counts and names only. Never drawing text, a diff line or a leak-scan hit's text (a LEAK-HIT's detail is `file:line` and a count)."},
+          "since": {"$ref": "#/$defs/utc"}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "utc": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "description": "UTC to the second, with a literal Z (the form `date -u +%Y-%m-%dT%H:%M:%SZ` prints)."
+    },
+    "sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "minutes": {"type": "integer", "minimum": 0},
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["started_at", "budget_minutes", "elapsed_minutes"],
+      "properties": {
+        "started_at": {"$ref": "#/$defs/utc"},
+        "budget_minutes": {"type": "integer", "minimum": 1},
+        "elapsed_minutes": {"$ref": "#/$defs/minutes", "description": "As `stamp elapsed` computes it at `written_at`."}
+      }
+    },
+    "phaseBudget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "started_at", "budget_minutes", "elapsed_minutes"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1, "maxLength": 40},
+        "started_at": {"$ref": "#/$defs/utc"},
+        "budget_minutes": {"type": "integer", "minimum": 1},
+        "elapsed_minutes": {"$ref": "#/$defs/minutes"}
+      }
+    },
+    "lockKind": {
+      "enum": ["post", "scored", "no-post"],
+      "description": "post: a posting run; scored: a scored run; no-post: a `--no-post` run. Priority post > scored > no-post."
+    },
+    "lockEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "ticket", "head", "since"],
+      "properties": {
+        "kind": {"$ref": "#/$defs/lockKind"},
+        "ticket": {"type": ["string", "null"], "maxLength": 80},
+        "head": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/sha"}]},
+        "since": {"$ref": "#/$defs/utc", "description": "When the entry joined the queue (a waiter) or took the lock (the holder)."}
+      }
+    },
+    "lockEntryHolder": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "ticket", "head", "since", "elapsed_minutes"],
+      "properties": {
+        "kind": {"$ref": "#/$defs/lockKind"},
+        "ticket": {"type": ["string", "null"], "maxLength": 80},
+        "head": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/sha"}]},
+        "since": {"$ref": "#/$defs/utc"},
+        "elapsed_minutes": {"$ref": "#/$defs/minutes", "description": "The band's '14m' in 'lock: post t228 14m'."}
+      }
+    },
+    "builderState": {
+      "enum": ["working", "ready", "blocked", "quiet", "done", "failed", "stopped"],
+      "description": "A cloud builder is working (a push within the last 30 min or no push yet and young), ready (its newest head carries Factory-State: READY), blocked (BLOCKED), quiet (no push for 30 min or more and not ready or blocked) or done (its PR merged or closed). A local builder's state is `claude agents --json --all`'s `state` (working, blocked, done, failed, stopped), except that a head carrying READY shows ready."
+    },
+    "builderGroup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["working", "ready", "blocked", "quiet", "done", "failed", "stopped", "quiet_max_minutes"],
+      "properties": {
+        "working": {"$ref": "#/$defs/minutes"},
+        "ready": {"$ref": "#/$defs/minutes"},
+        "blocked": {"$ref": "#/$defs/minutes"},
+        "quiet": {"$ref": "#/$defs/minutes"},
+        "done": {"$ref": "#/$defs/minutes"},
+        "failed": {"$ref": "#/$defs/minutes"},
+        "stopped": {"$ref": "#/$defs/minutes"},
+        "quiet_max_minutes": {"type": ["integer", "null"], "minimum": 0, "description": "The longest quiet time among this group's quiet builders ('1 quiet 31m'); null when none is quiet."}
+      }
+    },
+    "builder": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ticket", "where", "state", "branch", "head", "last_push_at", "quiet_minutes", "pr"],
+      "properties": {
+        "ticket": {"type": "string", "minLength": 1, "maxLength": 80},
+        "where": {"enum": ["cloud", "local"]},
+        "state": {"$ref": "#/$defs/builderState"},
+        "branch": {"type": "string", "minLength": 1, "maxLength": 200},
+        "head": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/sha"}], "description": "The branch tip the watcher last fetched; null before the first push."},
+        "last_push_at": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/utc"}], "description": "When the tip last changed, as the watcher saw it."},
+        "quiet_minutes": {"type": ["integer", "null"], "minimum": 0, "description": "Minutes since `last_push_at` for a cloud builder; null for a local builder."},
+        "pr": {"type": ["integer", "null"], "minimum": 1}
+      }
+    },
+    "g1State": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "sha", "at"],
+      "properties": {
+        "state": {"enum": ["PASS", "FAIL", "RUNNING"], "description": "The newest walk of main: its verdict.json result, or RUNNING while its pidfile names a live run."},
+        "sha": {"$ref": "#/$defs/sha", "description": "The walked head."},
+        "at": {"$ref": "#/$defs/utc", "description": "When the walk finished (RUNNING: when it started)."}
+      }
+    }
+  }
+}

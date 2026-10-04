@@ -1,5 +1,9 @@
 # Milestones are proven on Held-out Sets, checked for regression on Development Sets, and measured against a Hand Takeoff
 
+**Amended by ADR 0042** (4 Oct 2026; the owner's Q7 ruling): cloud sessions may read the two Development Sets, through
+a private repository and a separate cloud environment; nothing from them is ever committed to this repository or put
+in an issue or a PR, and Held-out Sets stay local.
+
 A milestone is done only when its finish line passes in the running product, walked by the owner and
 the team:
 - **On the Development Sets** (the Sample Project and the Edison set), which build sessions read and
@@ -42,3 +46,9 @@ and rules fitted to one office fail at the next, so prove it "on two or three re
 - 28 Sep 2026 (owner's decisions, session 02 Q16, Q29): each Held-out Set is scored first as an unknown
   office's first read (no Drafting Profile of its office), then with one if it exists (ADR 0039); M3 (MEP)
   needs one Held-out Set with MEP drawings. The blind scoring starts in M1 (ADR 0030).
+- 4 Oct 2026 (the owner's decision, session 12 Q7; ADR 0042): the Development Sets, the Edison set among them, may
+  also be read by cloud sessions, through a private drawings repository and a read-only token, after a probe
+  (docs/specs/factory.md §2.4). They are still never committed to the public repository or put in an issue; Held-out
+  Sets stay local. The owner's ruling: "Q7 drawing data - I'm allowing to be more easy going on this case and cloud
+  sessions may read drawing and enabling Remote Control for most cases if that means more power and performance by
+  allowing some privacy issues that I'm allowing willingly".

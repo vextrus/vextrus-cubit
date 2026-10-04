@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vextrus.invalid/factory/review-verdict.schema.json",
+  "title": "A cloud reviewer's verdict file: .review/<pr>-<nonce8>.json (refuter: .review/refute-<pr>-<nonce8>-<n>.json)",
+  "description": "Contract (PR f0) for the one file a cloud reviewer or refuter commits and pushes, and `scripts/ledger.py fetch-verdict` reads (PR f4, tier 2; docs/specs/factory.md 2.2 'Launch, cloud review' and 'Review record'). The channel, in order: `scripts/factory/review_cloud.py` makes a 128-bit nonce (`secrets.token_hex(16)`, 32 lowercase hex characters, kept only in the launch record and in that reviewer's prompt), pushes the PR's head sha to `refs/heads/review/<pr>-<nonce8>` (nonce8 is the first 8 characters of the nonce) and launches the reviewer on that branch. The reviewer commits exactly this one file, as a child of `head_sha`, pushes only that branch, and ends its session with the line `VERDICT: PASS|FIX|BLOCK at <40-hex sha>` (a refuter: `CONFIRMED`, `REFUTED` or `UNPROVEN`). FILE NAME: a pr-reviewer writes `.review/<pr>-<nonce8>.json`; a refuter writes `.review/refute-<pr>-<nonce8>-<n>.json` where `n` counts the refuter's claims from 1. READ: `fetch-verdict` runs `git fetch origin review/<pr>-<nonce8>` and records the verdict only if all of these hold: the tip's parent is `head_sha`; the tip changes exactly the one verdict path; the file's `nonce` equals the launch record's nonce; the file's `head_sha` equals the PR's current head (`gh pr view --json headRefOid`), and the head did not move during the review; the file's `pr` equals the PR. Then it deletes the review branch as a subprocess. Words are public: no drawing text, no key. A verdict file is advice to the local ledger: it can say PASS, but `merge_ready` still needs the ledger's record and CI. A PR comment or a Remote Control message is never a verdict.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["pr", "head_sha", "nonce", "agent", "verdict", "findings"],
+  "properties": {
+    "pr": {"type": "integer", "minimum": 1},
+    "head_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$", "description": "The PR head reviewed; the parent of the review branch's tip."},
+    "nonce": {"type": "string", "pattern": "^[0-9a-f]{32}$", "description": "The full 128-bit nonce from the prompt, as 32 lowercase hex characters."},
+    "agent": {"enum": ["pr-reviewer", "refuter"]},
+    "verdict": {"enum": ["PASS", "FIX", "BLOCK", "CONFIRMED", "REFUTED", "UNPROVEN"]},
+    "findings": {
+      "type": "array",
+      "description": "A pr-reviewer's findings, in public words. A refuter writes [] (its claim and answer are in its verdict and the review branch's commit message).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["score", "file", "line", "summary"],
+        "properties": {
+          "score": {"type": "integer", "minimum": 0, "maximum": 100, "description": "The reviewer's score; 50 or more needs a refuter before it reaches the builder."},
+          "file": {"type": "string", "minLength": 1, "maxLength": 300, "description": "A repository path (never a drawing's name)."},
+          "line": {"type": "integer", "minimum": 0, "description": "The line in the new file; 0 when the finding is about the file as a whole."},
+          "summary": {"type": "string", "minLength": 1, "maxLength": 600, "description": "One or two sentences: the failing scenario. Public words."}
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"agent": {"const": "pr-reviewer"}}},
+      "then": {"properties": {"verdict": {"enum": ["PASS", "FIX", "BLOCK"]}}}
+    },
+    {
+      "if": {"properties": {"agent": {"const": "refuter"}}},
+      "then": {"properties": {"verdict": {"enum": ["CONFIRMED", "REFUTED", "UNPROVEN"]}, "findings": {"maxItems": 0}}}
+    }
+  ]
+}
