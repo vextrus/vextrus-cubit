@@ -51,14 +51,11 @@ export function Step1Page() {
   const project = projectRoute.useLoaderData()
   const { data, error, retry } = useStep1(project.id)
   const reading = useRefreshAsFilesFinish(project.id)
-  const refreshing = useIsFetching({ queryKey: step1Key(project.id) }) > 0
   if (!data) {
     if (error) return <LoadProblem error={error} onRetry={retry} className="m-4" />
     return <Skeleton rows={10} className="m-4" status={<Trans>Opening Step 1…</Trans>} />
   }
   if (data.proposals.length === 0 && data.questions.length === 0 && reading.length > 0) return <NoSheetsYet project={project} reading={reading} />
-  // The last file just finished and its sheets are on their way: never "Add the Drawing Set's files first" meanwhile.
-  if (data.proposals.length === 0 && data.questions.length === 0 && refreshing) return <Skeleton rows={10} className="m-4" status={<Trans>Opening Step 1…</Trans>} />
   if (data.proposals.length === 0 && data.questions.length === 0) return <NoSheets project={project} readOnly={readOnlyRole(session) !== null} />
   return (
     <KeyScope level="screen" name="step1">
@@ -84,18 +81,20 @@ function useRefreshAsFilesFinish(projectId: string): FileOut[] {
     ...filesQuery(projectId),
     refetchOnWindowFocus: true,
     refetchInterval: (query) => (query.state.data?.files.some(isMoving) ? POLL_MS : IDLE_POLL_MS),
+    // Step 1's whole screen hangs on this: it re-renders when the files change, never at each poll (CI's slowed run).
+    notifyOnChangeProps: ['data'],
   })
   const list = files.data?.files
   const states = list?.map((f) => `${f.id}:${f.state}`).join(',')
-  const answeredAt = files.dataUpdatedAt
   const seen = useRef<string | undefined>(undefined)
   useEffect(() => {
     if (states === undefined || states === seen.current) return
     const first = seen.current === undefined
     seen.current = states
     const step1At = qc.getQueryState([...step1Key(projectId), 'proposals'])?.dataUpdatedAt ?? 0
+    const answeredAt = qc.getQueryState(filesQuery(projectId).queryKey)?.dataUpdatedAt ?? 0
     if (!first || step1At <= answeredAt) void qc.invalidateQueries({ queryKey: step1Key(projectId) })
-  }, [states, answeredAt, qc, projectId])
+  }, [states, qc, projectId])
   return (list ?? []).filter((f) => isMoving(f) && f.state !== 'stopping')
 }
 
@@ -181,6 +180,10 @@ function NoSheetsYet({ project, reading }: { project: ProjectSummary; reading: r
 }
 
 function NoSheets({ project, readOnly }: { project: ProjectSummary; readOnly: boolean }) {
+  // The last file just finished and its sheets are on their way: never "Add the Drawing Set's files first"
+  // meanwhile. Asked only here, with nothing to show: Step 1's own screen never re-renders as its queries fetch.
+  const refreshing = useIsFetching({ queryKey: step1Key(project.id) }) > 0
+  if (refreshing) return <Skeleton rows={10} className="m-4" status={<Trans>Opening Step 1…</Trans>} />
   return (
     <div className="flex h-full items-center justify-center">
       <SlotFill slot="inspector.selection">
