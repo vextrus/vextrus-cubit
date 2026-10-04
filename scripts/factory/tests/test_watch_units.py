@@ -156,3 +156,59 @@ def test_a_scanner_that_cannot_scan_is_an_alarm_without_text(
 def test_a_process_is_a_watcher_only_by_its_command_line() -> None:
     assert not watch.is_watcher(os.getpid())
     assert not watch.is_watcher(2**22 + 1)
+
+
+def test_review_launches_are_not_builders_and_name_their_launched_head(tmp_path: Path) -> None:
+    launches = tmp_path / "launches"
+    launches.mkdir()
+    head = "c" * 40
+    builder = {
+        "ticket": "f3",
+        "branch": "f3-branch",
+        "where": "cloud",
+        "started_at": "2026-10-04T20:00:00Z",
+    }
+    review = {
+        **builder,
+        "ticket": "review-250-abcdef12",
+        "branch": "review/250-abcdef12",
+        "review": {"pr": 250, "head_sha": head, "nonce": "0" * 32, "branch": "review/250-abcdef12"},
+    }
+    (launches / "f3-20261004T200000Z.json").write_text(json.dumps(builder))
+    (launches / "review-250-abcdef12-20261004T200000Z.json").write_text(json.dumps(review))
+    builders, reviews = watch.load_launches(tmp_path, None)
+    assert set(builders) == {"f3"}
+    assert reviews == {"review/250-abcdef12": head}
+
+
+def test_review_ready_fires_only_for_a_verdict_commit_on_a_recorded_review_branch(
+    tmp_path: Path,
+) -> None:
+    head, verdict = "c" * 40, "d" * 40
+    reviews = {"review/250-abcdef12": head}
+
+    def alarms(refs: dict[str, str]) -> list[str]:
+        step = watch.Pass(tmp_path, AT, {"claude_baseline": []})
+        watch.watch_branches(step, refs, reviews)
+        return sorted(step.alarms)
+
+    assert alarms({"review/250-abcdef12": head}) == [], (
+        "the branch the orchestrator pushed is no verdict"
+    )
+    assert alarms({"review/250-abcdef12": verdict}) == [f"REVIEW-READY|review/250-abcdef12|{verdict}"]
+    assert alarms({"review/251-0011aabb": head}) == ["REVIEW-READY|review/251-0011aabb"]
+
+
+@pytest.mark.parametrize(("code", "moved"), [(0, None), (2, "kept"), (1, "jev-1.13.0 -> jev-1.14.0")])
+def test_every_models_check_that_ran_is_stamped(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, code: int, moved: str | None
+) -> None:
+    jev = tmp_path / "jev"
+    line = "JEV-MODEL-MOVED jev-1.13.0 -> jev-1.14.0" if code == 1 else "unavailable busy"
+    jev.write_text(f"#!{sys.executable}\nprint({line!r})\nraise SystemExit({code})\n")
+    jev.chmod(0o755)
+    monkeypatch.setenv("VEXTRUS_JEV_CMD", str(jev))
+    step = watch.Pass(tmp_path, AT, {"jev_moved": "kept"})
+    watch.watch_jev(step)
+    assert step.state["jev_checked_at"] == "2026-10-04T21:08:00Z"
+    assert step.state["jev_moved"] == moved

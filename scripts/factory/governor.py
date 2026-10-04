@@ -11,7 +11,8 @@ Floors, every local unit: `MemAvailable - cost >= 5.4`; swap used above 2 refuse
 disk free (`df -k --output=avail /`) under 30 refuses, under 40 warns (the spec names no disk cost per
 unit, so it is 0); at most 3 local agents (`claude agents --json --all` rows with a `pid` and a `kind`
 other than `interactive`) for `local-agent`. A live `g1.pid` (the G1 walk) refuses `web-tests`,
-`pytest` and `walk`; a live `rd.pid` (a real-drawing run) refuses `web-tests` and `rd-run`.
+`pytest` and `walk`; a live `rd.pid` (a real-drawing run) refuses `web-tests` and `rd-run`; a pidfile
+that names no pid counts as live.
 
 Usage (`cloud-session`, `local-agent`, `review`): only `Current session: N% used` and `Current week (all
 models): N% used` are read (any other line, the per-model week lines among them, is ignored). A new
@@ -106,7 +107,7 @@ def _run(argv: list[str]) -> str | None:
             timeout=COMMAND_TIMEOUT,
             check=False,
         )
-    except OSError, subprocess.SubprocessError:
+    except status.RUN_ERRORS:
         return None
     return done.stdout if done.returncode == 0 else None
 
@@ -389,7 +390,11 @@ def _check_exclusions(verdict: Verdict) -> None:
     ):
         if verdict.unit not in excluded:
             continue
-        pid = status.live_pid(folder / name)
+        path = folder / name
+        if path.exists() and status.read_pidfile(path) is None:  # fail closed: unreadable is live
+            verdict.reasons.append(f"{name} exists but names no pid; {what} may be running")
+            continue
+        pid = status.live_pid(path)
         if pid is not None:
             verdict.reasons.append(f"{what} is running ({name} names live pid {pid})")
 
@@ -418,6 +423,10 @@ def main(argv: list[str] | None = None) -> int:
     one.add_argument("--rate", type=float)
     one.add_argument("--hours-to-reset", type=float)
     args = parser.parse_args(argv)
+    for option in ("running", "agents", "rate", "hours_to_reset"):
+        value = getattr(args, option)
+        if value is not None and value < 0:
+            parser.error(f"--{option.replace('_', '-')} cannot be negative")
     if (args.rate is None) != (args.hours_to_reset is None):
         parser.error("--rate and --hours-to-reset go together")
     verdict = check(

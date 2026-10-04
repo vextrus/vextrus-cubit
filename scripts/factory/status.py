@@ -28,6 +28,13 @@ MAX_AGE_SECONDS = 180
 STATES = ("working", "ready", "blocked", "quiet", "done", "failed", "stopped")
 REPO = Path(__file__).resolve().parents[2]
 
+# Named exception tuples: the formatter writes a bare `except A, B:` (Python 3.14 only), and the
+# watcher's script form must also compile on the machine's older `python3` (f6's watch-start.mjs).
+RUN_ERRORS = (OSError, subprocess.SubprocessError)
+RECORD_ERRORS = (OSError, ValueError, KeyError, TypeError)
+READ_ERRORS = (OSError, ValueError)
+FIELD_ERRORS = (KeyError, TypeError, ValueError)
+
 
 def now() -> datetime:
     """The factory's clock: `VEXTRUS_NOW` (`2026-10-04T21:08:00Z`) when set, else the real UTC time."""
@@ -171,7 +178,7 @@ def age_seconds(path: Path, at: datetime) -> float | None:
     try:
         loaded = json.loads(path.read_text())
         written = parse_utc(loaded["written_at"])
-    except OSError, ValueError, KeyError, TypeError:
+    except RECORD_ERRORS:
         return None
     return (at - written).total_seconds()
 

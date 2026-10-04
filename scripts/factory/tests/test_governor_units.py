@@ -107,3 +107,26 @@ def test_a_failing_command_is_an_unreadable_reading(no_seams: Path) -> None:
     stub(no_seams, "claude", "Current session: 1% used\nCurrent week (all models): 1% used\n", code=1)
     assert governor.read_usage().usage is None
     assert governor.read_agents() is None
+
+
+def test_a_pidfile_that_names_no_pid_counts_as_live(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    (tmp_path / "meminfo").write_text("MemAvailable: 67108864 kB\nSwapTotal: 0 kB\nSwapFree: 0 kB\n")
+    (tmp_path / "df").write_text("Avail\n524288000\n")
+    monkeypatch.setenv("VEXTRUS_MEMINFO_FILE", str(tmp_path / "meminfo"))
+    monkeypatch.setenv("VEXTRUS_DF_FILE", str(tmp_path / "df"))
+    monkeypatch.setenv("VEXTRUS_FACTORY_DIR", str(tmp_path))
+    assert governor.check("rd-run").ok
+    (tmp_path / "rd.pid").write_text("not a pid\n")
+    refused = governor.check("rd-run")
+    assert not refused.ok
+    assert "rd.pid" in str(refused.reason)
+
+
+@pytest.mark.parametrize("option", ["--running", "--agents", "--rate"])
+def test_negative_counts_are_a_usage_error(option: str) -> None:
+    extra = ["--hours-to-reset", "1"] if option == "--rate" else []
+    with pytest.raises(SystemExit) as stopped:
+        governor.main(["check", "review", option, "-1", *extra])
+    assert stopped.value.code == 2

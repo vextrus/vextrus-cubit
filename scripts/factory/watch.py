@@ -30,9 +30,12 @@ leaves `status.json` when its cause clears. Its memory is `watch-state.json`, so
 on origin at the first run fires, and a restart does not fire it again. Before PR f4's `verify` exists
 every READY head raises READY-NO-VERIFY: that is the rule (trailers.md 1), not a fault.
 
-`ensure` starts a detached watcher unless `watch.pid` names a live one (a pid whose command line is not
-this module's is stale) and prints `started <pid>` or `running <pid>`. A running loop owns `watch.pid`;
-SIGTERM ends it and removes the file.
+One watcher at a time: a running loop holds an exclusive `flock` of `watch.lock` for its whole life; a
+second loop prints `running <pid>` and exits 0. `ensure` starts a detached `python scripts/factory/
+watch.py run` (its command line names watch.py, as f6's watch-start.mjs expects) unless the lock is held,
+and prints `started <pid>` or `running <pid>`. The loop writes `watch.pid`; SIGTERM, SIGINT or SIGHUP
+ends it and removes the file. This file and the modules it imports compile on Python 3.11 and later, so
+the machine's own `python3` can run the script form.
 
 Exit 0, or 1 when a `--once` pass failed.
 """
@@ -40,6 +43,7 @@ Exit 0, or 1 when a `--once` pass failed.
 from __future__ import annotations
 
 import argparse
+import fcntl
 import json
 import os
 import re
@@ -65,6 +69,8 @@ READY_WAIT_MINUTES = 10
 USAGE_EVERY = timedelta(minutes=15)
 PRS_EVERY = timedelta(minutes=5)
 JEV_EVERY = timedelta(hours=24)
+ENSURE_WAIT_STEPS = 600
+ENSURE_WAIT_SECONDS = 0.05
 GIT_TIMEOUT = 120
 SCAN_TIMEOUT = 600
 SHA40 = re.compile(r"^[0-9a-f]{40}$")
@@ -147,7 +153,7 @@ def git(*args: str) -> subprocess.CompletedProcess[str] | None:
             timeout=GIT_TIMEOUT,
             check=False,
         )
-    except OSError, subprocess.SubprocessError:
+    except status.RUN_ERRORS:
         return None
 
 
@@ -214,7 +220,7 @@ def leak_scan(head: str, main_sha: str | None) -> dict[str, Any]:
             timeout=SCAN_TIMEOUT,
             check=False,
         )
-    except OSError, subprocess.SubprocessError:
+    except status.RUN_ERRORS:
         return {"result": "cannot-scan", "where": "cannot-scan", "n": 0}
     if done.returncode == 0:
         return {"result": "clean"}
@@ -247,7 +253,7 @@ def gh_prs() -> list[dict[str, Any]] | None:
             done = subprocess.run(
                 argv, capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=120, check=False
             )
-        except OSError, subprocess.SubprocessError:
+        except status.RUN_ERRORS:
             return None
         if done.returncode != 0:
             return None
@@ -271,11 +277,11 @@ def jev_command() -> list[str] | None:
     return None
 
 
-def models_check() -> str | bool | None:
-    """The moved line (`<pinned> -> <seen>`), None when the model holds, False when not checked."""
+def models_check() -> tuple[str, str | None]:
+    """(`absent` | `ok` | `moved` | `unavailable`, the moved line `<pinned> -> <seen>` when moved)."""
     argv = jev_command()
     if argv is None:
-        return False
+        return "absent", None
     try:
         done = subprocess.run(
             [*argv, "models-check"],
@@ -285,20 +291,24 @@ def models_check() -> str | bool | None:
             timeout=120,
             check=False,
         )
-    except OSError, subprocess.SubprocessError:
-        return False
+    except status.RUN_ERRORS:
+        return "unavailable", None
     first = done.stdout.strip().splitlines()[0] if done.stdout.strip() else ""
     if done.returncode == 1 and first.startswith("JEV-MODEL-MOVED"):
         moved = re.sub(r"[^A-Za-z0-9._:>\- ]", "", first.removeprefix("JEV-MODEL-MOVED"))
-        return public(moved, 200) or "moved"
-    if done.returncode == 0:
-        return None
-    return False
+        return "moved", public(moved, 200) or "moved"
+    return ("ok", None) if done.returncode == 0 else ("unavailable", None)
 
 
 # --- the world's records
-def load_launches(folder: Path, since: datetime | None) -> dict[str, dict[str, Any]]:
+def load_launches(
+    folder: Path, since: datetime | None
+) -> tuple[dict[str, dict[str, Any]], dict[str, str]]:
+    """The builders' newest launch record per ticket, and the cloud reviews' branches with the head each
+    was launched on. A record whose `review` is not null (review_cloud.py's reviewer or refuter) is not a
+    builder: it is never tracked as one, only used to tell its verdict commit from the pushed branch."""
     newest: dict[str, dict[str, Any]] = {}
+    reviews: dict[str, str] = {}
     for path in sorted((folder / "launches").glob("*.json")):
         if path.name.endswith(".agents.json"):
             continue
@@ -307,8 +317,15 @@ def load_launches(folder: Path, since: datetime | None) -> dict[str, dict[str, A
             started = status.parse_utc(record["started_at"])
             ticket, branch = str(record["ticket"]), str(record["branch"])
             where = record["where"]
-        except OSError, ValueError, KeyError, TypeError:
+            review = record.get("review")
+        except status.RECORD_ERRORS:
             print(f"watch: unreadable launch record {path.name}", file=sys.stderr)
+            continue
+        if review is not None:
+            head = review.get("head_sha") if isinstance(review, dict) else None
+            if isinstance(head, str) and SHA40.match(head):
+                for name in {branch, str(review.get("branch") or branch)}:
+                    reviews[name] = head
             continue
         if where not in ("cloud", "local") or not ticket or not branch:
             print(f"watch: unreadable launch record {path.name}", file=sys.stderr)
@@ -318,7 +335,7 @@ def load_launches(folder: Path, since: datetime | None) -> dict[str, dict[str, A
         record["_started"] = started
         if ticket not in newest or started >= newest[ticket]["_started"]:
             newest[ticket] = record
-    return newest
+    return newest, reviews
 
 
 def read_session() -> dict[str, Any] | None:
@@ -356,7 +373,7 @@ def lock_view(folder: Path, at: datetime) -> dict[str, Any]:
     """rdlock.json as the schema's `lock` (rdlock.py's kinds: posting is `post`)."""
     try:
         loaded = json.loads((folder / "rdlock.json").read_text())
-    except OSError, ValueError:
+    except status.READ_ERRORS:
         return {"holder": None, "waiters": []}
 
     def entry(raw: Any) -> dict[str, Any] | None:
@@ -364,7 +381,7 @@ def lock_view(folder: Path, at: datetime) -> dict[str, Any]:
             return None
         try:
             since = status.parse_utc(raw["since"])
-        except KeyError, TypeError, ValueError:
+        except status.FIELD_ERRORS:
             return None
         head = raw.get("head")
         ticket = raw.get("ticket")
@@ -390,7 +407,7 @@ def reviews_view(folder: Path, prs: list[dict[str, Any]] | None) -> list[dict[st
             record = json.loads(path.read_text())
             pr, round_ = int(record["pr"]), int(record["round"])
             head, verdict = str(record["head"]), str(record["verdict"])
-        except OSError, ValueError, KeyError, TypeError:
+        except status.RECORD_ERRORS:
             continue
         if (
             pr < 1
@@ -425,7 +442,7 @@ def g1_view(folder: Path, main_sha: str | None) -> dict[str, Any] | None:
             verdict = json.loads(path.read_text())
             result, sha = verdict["result"], verdict["sha"]
             finished = status.parse_utc(verdict["finished_at"])
-        except OSError, ValueError, KeyError, TypeError:
+        except status.RECORD_ERRORS:
             continue
         if result in ("PASS", "FAIL") and SHA40.match(str(sha)) and verdict.get("ref", "main") == "main":
             walks.append({"state": result, "sha": sha, "at": status.utc(finished), "_at": finished})
@@ -466,7 +483,7 @@ def run_pass(folder: Path, at: datetime, started_at: datetime) -> None:
     step = Pass(folder, at, state)
     session = read_session()
     since = status.parse_utc(session["started_utc"]) if session else None
-    records = load_launches(folder, since)
+    records, reviews = load_launches(folder, since)
     refs = remote_heads()
     main_sha = refs.get("main") if refs is not None else None
 
@@ -502,7 +519,7 @@ def run_pass(folder: Path, at: datetime, started_at: datetime) -> None:
     ]
 
     if refs is not None:
-        watch_branches(step, refs)
+        watch_branches(step, refs, reviews)
     if session is not None:
         spent = status.minutes_between(status.parse_utc(session["started_utc"]), at)
         if spent > int(session["budget_minutes"]):
@@ -643,7 +660,7 @@ def agents_row(rows: list[dict[str, Any]] | None, name: Any) -> dict[str, Any] |
     )
 
 
-def watch_branches(step: Pass, refs: dict[str, str]) -> None:
+def watch_branches(step: Pass, refs: dict[str, str], reviews: dict[str, str]) -> None:
     claude = sorted(name for name in refs if name.startswith("claude/"))
     baseline = step.state.get("claude_baseline")
     if baseline is None:
@@ -652,10 +669,17 @@ def watch_branches(step: Pass, refs: dict[str, str]) -> None:
         for name in claude:
             if name not in baseline:
                 step.alarm(name, "NEW-CLAUDE-BRANCH", name[:80], "a new claude/* branch on origin")
-    for name in refs:
+    for name, tip in refs.items():
         match = REVIEW_BRANCH.match(name)
-        if match:
+        if not match:
+            continue
+        launched_on = reviews.get(name)
+        if launched_on is None:  # no launch record: any review branch is a verdict to read
             step.alarm(name, "REVIEW-READY", f"#{match.group(1)}", f"review verdict branch {name}")
+        elif tip != launched_on:  # the reviewer's verdict commit sits on the head it was given
+            step.alarm(
+                f"{name}|{tip}", "REVIEW-READY", f"#{match.group(1)}", f"review verdict {tip[:8]}"
+            )
 
 
 def watch_floors(step: Pass) -> dict[str, Any]:
@@ -690,9 +714,10 @@ def watch_floors(step: Pass) -> dict[str, Any]:
 
 def watch_jev(step: Pass) -> None:
     if step.due("jev_checked_at", JEV_EVERY):
-        moved = models_check()
-        if moved is not False:
+        outcome, moved = models_check()
+        if outcome != "absent":  # every run counts: at most one call a day, whatever it said
             step.state["jev_checked_at"] = status.utc(step.at)
+        if outcome in ("ok", "moved"):  # `unavailable` keeps the last answer (jev-cli.md: no alarm)
             step.state["jev_moved"] = moved
     moved_line = step.state.get("jev_moved")
     if isinstance(moved_line, str):
@@ -726,7 +751,7 @@ def load_state(folder: Path) -> dict[str, Any]:
         loaded = json.loads(path.read_text())
     except FileNotFoundError:
         return {"schema": 1, "alarms": {}, "tickets": {}}
-    except OSError, ValueError:
+    except status.READ_ERRORS:
         print("watch: watch-state.json is unreadable; starting from an empty state", file=sys.stderr)
         return {"schema": 1, "alarms": {}, "tickets": {}}
     if not isinstance(loaded, dict):
@@ -751,30 +776,59 @@ def is_watcher(pid: int) -> bool:
     )
 
 
+def lock_held(folder: Path) -> bool:
+    """Whether a running loop holds `watch.lock` (its flock is the one-watcher rule; the pidfile only
+    names it)."""
+    with (folder / "watch.lock").open("a") as handle:
+        try:
+            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return True
+        fcntl.flock(handle, fcntl.LOCK_UN)
+    return False
+
+
+def wait_for_pidfile(pidfile: Path, child: subprocess.Popen[bytes] | None) -> int | None:
+    """The pid `watch.pid` names once the lock holder has written it (bounded; no busy loop)."""
+    for _ in range(ENSURE_WAIT_STEPS):
+        pid = status.read_pidfile(pidfile)
+        if child is not None and pid == child.pid:
+            return pid
+        if child is None and pid is not None and is_watcher(pid):
+            return pid
+        if child is not None and child.poll() is not None:
+            return None
+        time.sleep(ENSURE_WAIT_SECONDS)
+    return None
+
+
 def ensure() -> int:
     folder = status.factory_dir()
     folder.mkdir(parents=True, exist_ok=True)
     pidfile = folder / "watch.pid"
-    pid = status.read_pidfile(pidfile)
-    if pid is not None and pid != os.getpid() and is_watcher(pid):
-        print(f"running {pid}")
+    if lock_held(folder):
+        print(f"running {wait_for_pidfile(pidfile, None) or '?'}")
         return 0
-    env = dict(os.environ)
-    env["PYTHONPATH"] = os.pathsep.join(p for p in (str(status.REPO), env.get("PYTHONPATH")) if p)
     cwd = status.main_checkout() or Path.cwd()
     with (folder / "watch.out").open("ab") as out:
+        # The script form: its command line names watch.py (f6's watch-start.mjs counts watchers by it).
         child = subprocess.Popen(
-            [sys.executable, "-m", "scripts.factory.watch", "run"],
+            [sys.executable, str(status.REPO / "scripts" / "factory" / "watch.py"), "run"],
             cwd=cwd,
-            env=env,
             stdin=subprocess.DEVNULL,
             stdout=out,
             stderr=out,
             start_new_session=True,
         )
-    pidfile.write_text(f"{child.pid}\n")
-    print(f"started {child.pid}")
-    return 0
+    pid = wait_for_pidfile(pidfile, child)
+    if pid is not None:
+        print(f"started {pid}")
+        return 0
+    if lock_held(folder):  # another ensure's watcher won the lock; this child has exited
+        print(f"running {wait_for_pidfile(pidfile, None) or '?'}")
+        return 0
+    print(f"watch: the watcher did not start (see {folder / 'watch.out'})", file=sys.stderr)
+    return 1
 
 
 def _stop(signum: int, frame: FrameType | None) -> None:
@@ -793,12 +847,21 @@ def run(once: bool, interval: float) -> int:
             print(f"watch: the pass failed: {type(error).__name__}: {error}", file=sys.stderr)
             return 1
         return 0
-    other = status.read_pidfile(pidfile)
-    if other is not None and other != os.getpid() and is_watcher(other):
-        print(f"running {other}")
+    lock = (folder / "watch.lock").open("a")  # held, unclosed, for the life of the process
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        lock.close()
+        named = status.read_pidfile(pidfile)
+        print(
+            f"running {named}"
+            if named is not None and is_watcher(named)
+            else "running (watch.pid stale)"
+        )
         return 0
     signal.signal(signal.SIGTERM, _stop)
     signal.signal(signal.SIGINT, _stop)
+    signal.signal(signal.SIGHUP, _stop)
     pidfile.write_text(f"{os.getpid()}\n")
     try:
         while True:
@@ -810,6 +873,7 @@ def run(once: bool, interval: float) -> int:
     finally:
         if status.read_pidfile(pidfile) == os.getpid():
             pidfile.unlink(missing_ok=True)
+        lock.close()
 
 
 def main(argv: list[str] | None = None) -> int:

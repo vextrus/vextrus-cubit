@@ -15,10 +15,11 @@ caller joins the queue, or keeps its place (exit 4 with `--no-block`; without it
 again every 5 s). A second waiter for the same head and kind under another pid is refused (exit 5).
 A holder or waiter whose pid is dead is dropped. `release` frees the lock, or leaves the queue.
 
-`run` acquires (waiting), writes `$VEXTRUS_FACTORY_DIR/rd.pid` (the governor's and orchestrator.sh's
-sign of a running real-drawing run), runs the command with its output unbuffered into
-`$VEXTRUS_FACTORY_DIR/../rd/<head8>-<kind>-<UTC>.log`, and releases the lock and removes `rd.pid` when
-the command ends, failed or not. It exits with the command's code.
+`run` acquires (waiting; a duplicate is refused with exit 5 and nothing runs), writes
+`$VEXTRUS_FACTORY_DIR/rd.pid` (the governor's and orchestrator.sh's sign of a running real-drawing run),
+runs the command with its output unbuffered into `$VEXTRUS_FACTORY_DIR/../rd/<head8>-<kind>-<UTC>.log`,
+and releases the lock and removes `rd.pid` when the command ends, failed or not, or on SIGTERM, SIGHUP
+or SIGINT. It exits with the command's code.
 
 Exit 0, 4 queued, 5 a duplicate waiter, 2 usage error.
 """
@@ -30,12 +31,14 @@ import fcntl
 import json
 import os
 import re
+import signal
 import subprocess
 import sys
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
+from types import FrameType
 from typing import Any
 
 from scripts.factory import status
@@ -145,15 +148,28 @@ def show() -> list[str]:
     return lines
 
 
+def _stop(signum: int, frame: FrameType | None) -> None:
+    raise SystemExit(128 + signum)
+
+
 def run(kind: str, head: str, ticket: str | None, command: list[str]) -> int:
     pid = os.getpid()
-    acquire(kind, head, pid, ticket, block=True)
+    for signum in (signal.SIGTERM, signal.SIGHUP, signal.SIGINT):
+        signal.signal(signum, _stop)  # the finally below releases; subprocess.run kills the command
+    try:
+        code = acquire(kind, head, pid, ticket, block=True)
+    except SystemExit:
+        release(kind, head, pid)  # leave the queue
+        raise
+    if code != HELD:  # a duplicate waiter: never run without the lock, never touch rd.pid
+        print(f"rdlock: refused: a {kind} run for {head[:8]} is already queued or holding the lock")
+        return code
     folder = status.factory_dir()
     pidfile = folder / "rd.pid"
-    logs = folder.parent / "rd"
-    logs.mkdir(parents=True, exist_ok=True)
-    log = logs / f"{head[:8]}-{kind}-{status.now().strftime('%Y%m%dT%H%M%SZ')}.log"
     try:
+        logs = folder.parent / "rd"
+        logs.mkdir(parents=True, exist_ok=True)
+        log = logs / f"{head[:8]}-{kind}-{status.now().strftime('%Y%m%dT%H%M%SZ')}.log"
         pidfile.write_text(f"{pid}\n")
         env = dict(os.environ, PYTHONUNBUFFERED="1")
         with log.open("ab", buffering=0) as out:
