@@ -148,3 +148,24 @@ the other subcommand names, the exact `<where>` forms, the summary line, the exi
 JSON form, the stamp's validity rules (section 4, including the ancestry rule), `--no-stamp`, the normalisation, the
 allowlist's file name, and that a stamp is voided by a rebuilt corpus. PR f2 may
 refine them only by changing this file first.
+
+## 8. Test seams (PR f2)
+
+Added by PR f2 as section 7 asks. These exist so tests run in a temporary folder; the harness never sets
+them, and the guard refuses any command that sets one inline (`RECORD_FORGED`).
+
+| Seam | Read by | Default | What a test sets it to |
+|---|---|---|---|
+| `VEXTRUS_MAIN_CHECKOUT` | the guard, the scanner | `/home/riz/vextrus-cubit` | a temporary repository treated as the main checkout |
+| `VEXTRUS_LEAKSCAN_HOME` | the guard, the scanner | `<main checkout>/.private/work/leakscan` | a temporary folder holding `corpus` and `ok/` |
+| `VEXTRUS_LEAKSCAN_ALLOWLIST` | the scanner | `tools/leakscan/allowlist.txt` beside the tool | a temporary allowlist file |
+| `build --source <dir>` (repeatable) | the scanner | the real sources of section 1 | folders of invented text: `*.txt` and `*.md` lines (and Markdown table cells), and every string of a `*.json` file, nested; a missing folder exits 2 with `cannot-scan source-unreadable` |
+
+The guard reads the first two (and `CLAUDE_PROJECT_DIR`, `CLAUDE_CODE_REMOTE`) from its own process
+environment, which Claude Code sets and a Bash command cannot change. `build --source` is refused by the
+guard in every session (a corpus built from a chosen folder would make every scan clean).
+
+What the real `build` reads, beyond section 1's list: each Markdown table row's cells as well as the whole
+line (a drawing's text is often quoted in a table cell), and each TEXT, MTEXT, ATTRIB and ATTDEF both as
+stored and as decoded (`engine.text.decode`). `build` also prints one `source <name>: <n> strings read` line
+per real source before its last line (counts only).
