@@ -119,10 +119,10 @@ function OneSourceWhy({ sheet, model }: { sheet: ProposalOut; model: Step1Model 
 /** Why the sheets left with one source have it, by the first of them (6.4's "Nothing left but sheets
  * with one source"): beside a gap, its Question gives them their second source (#229). */
 export function OneSourceSummary({ first, model }: { first: ProposalOut; model: Step1Model }) {
-  const why = whyOneSource(
-    first,
-    model.disciplines.find((d) => d.discipline === first.discipline),
-  )
+  const section = model.disciplines.find((d) => d.discipline === first.discipline)
+  const whys = new Set(model.oneSource.filter((p) => p.discipline === first.discipline).map((p) => whyOneSource(p, section)))
+  // The sheets it counts (its Discipline's) for one reason, else none named (the words gate of #229).
+  const why = whys.size === 1 ? whyOneSource(first, section) : 'other'
   if (why === 'gap') {
     const tag = model.queue.find((e) => isGaps(e.question) && e.holds.some((p) => p.id === first.id))?.tag
     return tag ? (

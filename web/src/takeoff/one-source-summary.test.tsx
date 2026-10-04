@@ -121,4 +121,12 @@ describe('the bar over sheets left with one source', () => {
 
     expect(words(<OneSourceSummary first={s1} model={model} />)).toBe('No drawing list and no Plot to check them against. Open each to confirm it.')
   })
+
+  it('names no reason when its sheets have different ones', () => {
+    const s1 = sheet('S-01', { agrees: false, plot_page: 1, plot_title_alike: false })
+    const s2 = sheet('S-02', { agrees: false, plot_page: null })
+    const model = step1Model(data([s1, s2]))
+
+    expect(words(<OneSourceSummary first={model.oneSource[0]!} model={model} />)).toBe('Nothing else confirms them. Open each to confirm it.')
+  })
 })
