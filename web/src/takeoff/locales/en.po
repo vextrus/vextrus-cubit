@@ -226,6 +226,10 @@ msgid "The general drawing list"
 msgstr "The general drawing list"
 
 #: src/takeoff/SheetLook.tsx
+msgid "No Plot for this sheet, and Vextrus did not record why. Tell Vextrus."
+msgstr "No Plot for this sheet, and Vextrus did not record why. Tell Vextrus."
+
+#: src/takeoff/SheetLook.tsx
 msgid "Loading the Plot…"
 msgstr "Loading the Plot…"
 
@@ -289,6 +293,10 @@ msgstr "Roof details"
 #: src/takeoff/words.tsx
 msgid "Presentation plan"
 msgstr "Presentation plan"
+
+#: src/takeoff/SheetLook.tsx
+msgid "No Plot for this sheet: page {page} of {file} matches it, but its drawing could not be lined up with the sheet."
+msgstr "No Plot for this sheet: page {page} of {file} matches it, but its drawing could not be lined up with the sheet."
 
 #: src/takeoff/acts.tsx
 msgid "your last change to Step 1"
@@ -1856,10 +1864,6 @@ msgstr "Question {tag}, withdrawn: {title}"
 #: src/takeoff/words.tsx
 msgid "Slab layout"
 msgstr "Slab layout"
-
-#: src/takeoff/SheetLook.tsx
-msgid "No Plot for this sheet."
-msgstr "No Plot for this sheet."
 
 #: src/takeoff/questionWords.tsx
 msgid "{tag} answered. Recorded: the sheet’s range includes its top storey."

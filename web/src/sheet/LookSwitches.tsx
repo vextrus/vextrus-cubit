@@ -10,8 +10,14 @@
 import { useLingui } from '@lingui/react/macro'
 import { Contrast, Loader2 } from 'lucide-react'
 import { SlotFill } from '@/app/slots'
-import { IconButton, Segmented, useKeys } from '@/ui'
+import { IconButton, cn, useKeys } from '@/ui'
 import type { SheetLayer } from './SheetViewer'
+
+const ITEM = cn(
+  'inline-flex h-control items-center gap-1 px-2.5 text-sm whitespace-nowrap text-ink-secondary hover:bg-hover',
+  'aria-pressed:bg-paper aria-pressed:font-medium aria-pressed:text-foreground',
+  'aria-disabled:cursor-not-allowed aria-disabled:text-ink-disabled aria-disabled:hover:bg-transparent',
+)
 
 const NEXT: Record<SheetLayer, SheetLayer> = { read: 'plot', plot: 'compare', compare: 'read' }
 
@@ -43,20 +49,34 @@ export function LookSwitches({
     { key: 'D', label: t`Paper ⇄ CAD-dark`, group: 'sheet', run: () => onDark(!dark) },
     { key: 'P', label: t`As read → Plot → Compare`, group: 'sheet', run: cycle },
   ])
-  const spin = (value: SheetLayer) => (loading && layer === value ? <Loader2 aria-hidden strokeWidth={1.5} className="size-3 animate-spin motion-reduce:animate-none" /> : null)
+  const options: [SheetLayer, string][] = [
+    ['read', t`As read`],
+    ['plot', t`Plot`],
+    ['compare', t`Compare`],
+  ]
   return (
     <SlotFill slot="toolbar.end" order={10}>
-      <Segmented<SheetLayer>
-        label={t`What the sheet shows`}
-        value={layer}
-        onChange={onLayer}
-        onRefused={onNoPlot}
-        options={[
-          { value: 'read', label: t`As read` },
-          { value: 'plot', label: <>{t`Plot`}{spin('plot')}</>, disabled: noPlot !== null, title: noPlot ?? undefined },
-          { value: 'compare', label: <>{t`Compare`}{spin('compare')}</>, disabled: noPlot !== null, title: noPlot ?? undefined },
-        ]}
-      />
+      {/* Pressed buttons at the toolbar's control height, as Step 1's List | Sheet (one line, §8 item 6). */}
+      <div role="group" aria-label={t`What the sheet shows`} className="inline-flex overflow-hidden rounded-md bg-chrome-sunken ring-1 ring-border-strong">
+        {options.map(([value, words]) => {
+          const off = value !== 'read' && noPlot !== null
+          return (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={layer === value}
+              aria-disabled={off || undefined}
+              aria-keyshortcuts="P"
+              title={off ? noPlot : undefined}
+              onClick={() => (off ? onNoPlot() : onLayer(value))}
+              className={ITEM}
+            >
+              {words}
+              {loading && layer === value ? <Loader2 aria-hidden strokeWidth={1.5} className="size-3 animate-spin motion-reduce:animate-none" /> : null}
+            </button>
+          )
+        })}
+      </div>
       <IconButton label={t`CAD-dark`} combo="D" pressed={dark} onClick={() => onDark(!dark)}>
         <Contrast strokeWidth={1.5} />
       </IconButton>

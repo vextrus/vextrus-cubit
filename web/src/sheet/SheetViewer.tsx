@@ -465,13 +465,14 @@ function SheetCanvas({
             if (event.button === 1) event.preventDefault()
           }}
         >
-          <canvas ref={plotRef} aria-hidden className={cn('absolute inset-0 h-full w-full', layer === 'read' && 'invisible')} />
-          {/* Compare lays what was read over the Plot: red on white multiplies, orange on black screens. */}
+          {/* The drawing above the Plot (z 1; the outlines after it, z 1, above both). Compare lays what was
+              read over the Plot: red on white multiplies, orange on black screens. */}
           <canvas
             ref={canvasRef}
             aria-hidden
-            className={cn('absolute inset-0 h-full w-full', layer === 'plot' && 'invisible', layer === 'compare' && (dark ? 'mix-blend-screen' : 'mix-blend-multiply'))}
+            className={cn('absolute inset-0 z-[1] h-full w-full', layer === 'plot' && 'invisible', layer === 'compare' && (dark ? 'mix-blend-screen' : 'mix-blend-multiply'))}
           />
+          <canvas ref={plotRef} aria-hidden data-plot="" className={cn('absolute inset-0 z-0 h-full w-full', layer === 'read' && 'invisible')} />
           {hasOutlines && shown ? <Outlines outlines={outlines} view={shown} selected={selected} onSelect={onSelect} /> : null}
           {legend || notes ? (
             <div className="pointer-events-none absolute start-3 top-2 z-[2] flex flex-col items-start gap-1 text-xs">
@@ -488,7 +489,7 @@ function SheetCanvas({
           <div
             aria-hidden
             data-focus-ring=""
-            className="pointer-events-none absolute inset-0 group-focus-visible:outline-2 group-focus-visible:-outline-offset-2 group-focus-visible:outline-ring group-focus-visible:outline-solid"
+            className="pointer-events-none absolute inset-0 z-[3] group-focus-visible:outline-2 group-focus-visible:-outline-offset-2 group-focus-visible:outline-ring group-focus-visible:outline-solid"
           />
         </div>
       </LtrCanvas>
