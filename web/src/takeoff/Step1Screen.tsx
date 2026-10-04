@@ -15,7 +15,7 @@
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Trans, useLingui } from '@lingui/react/macro'
-import { useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
+import { useIsFetching, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
 import { getRouteApi, useSearch } from '@tanstack/react-router'
 import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import { AppLink, PATHS } from '@/app/AppLink'
@@ -33,7 +33,7 @@ import { DrawingListDialog } from './DrawingListDialog'
 import { step1Key } from './data'
 import { FilesBand } from './FilesBand'
 import { ReportPanel } from '@/drawing-set/ReportPanel'
-import { disciplinesQuery, filesQuery, isMoving, type FileOut } from '@/drawing-set/data'
+import { POLL_MS, disciplinesQuery, filesQuery, isMoving, type FileOut } from '@/drawing-set/data'
 import { nextOpenRow, step1Model, type Reason, type Row, type Step1Model } from './model'
 import { SheetList, disciplineName } from './SheetList'
 import { OTHER_VIEW_KIND, VIEW_KINDS } from './words'
@@ -51,11 +51,14 @@ export function Step1Page() {
   const project = projectRoute.useLoaderData()
   const { data, error, retry } = useStep1(project.id)
   const reading = useRefreshAsFilesFinish(project.id)
+  const refreshing = useIsFetching({ queryKey: step1Key(project.id) }) > 0
   if (!data) {
     if (error) return <LoadProblem error={error} onRetry={retry} className="m-4" />
     return <Skeleton rows={10} className="m-4" status={<Trans>Opening Step 1…</Trans>} />
   }
   if (data.proposals.length === 0 && data.questions.length === 0 && reading.length > 0) return <NoSheetsYet reading={reading} />
+  // The last file just finished and its sheets are on their way: never "Add the Drawing Set's files first" meanwhile.
+  if (data.proposals.length === 0 && data.questions.length === 0 && refreshing) return <Skeleton rows={10} className="m-4" status={<Trans>Opening Step 1…</Trans>} />
   if (data.proposals.length === 0 && data.questions.length === 0) return <NoSheets project={project} readOnly={readOnlyRole(session) !== null} />
   return (
     <KeyScope level="screen" name="step1">
@@ -64,23 +67,36 @@ export function Step1Page() {
   )
 }
 
+/** How often Step 1 asks for the files while none moves: a file added in another tab, or by a colleague, starts its row and refresh. */
+const IDLE_POLL_MS = 30_000
+
 /**
  * The Drawing Set's files still reading (waiting, reading or retrying; a file being stopped adds no
  * sheets). Whenever a file changes state, Step 1's answers are fetched again, so a file's sheets, the
- * Count and Coverage arrive without a reload as it finishes (the files query polls while any file moves).
+ * Count and Coverage arrive without a reload as it finishes. The files are asked for every 2 s while
+ * one moves, every 30 s otherwise and on coming back to the tab. On the first files answer, Step 1's
+ * answers are fetched again unless they arrived after it (a tie counts as before): sent together, the server may answer Step 1
+ * first and finish a file before it answers the files, which then show nothing moving to wait for.
  */
 function useRefreshAsFilesFinish(projectId: string): FileOut[] {
   const qc = useQueryClient()
-  const files = useQuery(filesQuery(projectId)).data?.files
-  const states = files?.map((f) => `${f.id}:${f.state}`).join(',')
-  const seen = useRef(states)
+  const files = useQuery({
+    ...filesQuery(projectId),
+    refetchOnWindowFocus: true,
+    refetchInterval: (query) => (query.state.data?.files.some(isMoving) ? POLL_MS : IDLE_POLL_MS),
+  })
+  const list = files.data?.files
+  const states = list?.map((f) => `${f.id}:${f.state}`).join(',')
+  const answeredAt = files.dataUpdatedAt
+  const seen = useRef<string | undefined>(undefined)
   useEffect(() => {
     if (states === undefined || states === seen.current) return
     const first = seen.current === undefined
     seen.current = states
-    if (!first) void qc.invalidateQueries({ queryKey: step1Key(projectId) })
-  }, [states, qc, projectId])
-  return (files ?? []).filter((f) => isMoving(f) && f.state !== 'stopping')
+    const step1At = qc.getQueryState([...step1Key(projectId), 'proposals'])?.dataUpdatedAt ?? 0
+    if (!first || step1At <= answeredAt) void qc.invalidateQueries({ queryKey: step1Key(projectId) })
+  }, [states, answeredAt, qc, projectId])
+  return (list ?? []).filter((f) => isMoving(f) && f.state !== 'stopping')
 }
 
 /** m0-screens §4.7, "Files still reading": one row per file above the list, or alone while no file is read yet. */
