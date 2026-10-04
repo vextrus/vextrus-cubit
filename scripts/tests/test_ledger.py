@@ -107,3 +107,49 @@ def test_the_default_leak_scan_reads_the_hit_count(monkeypatch: pytest.MonkeyPat
 
     monkeypatch.setattr(subprocess, "run", fake)
     assert ledger.leak_scan("text") == 2
+
+
+def test_the_round_check_post_and_write_happen_under_the_ledger_lock(tmp_path: Path) -> None:
+    """Two `record` runs at once cannot both pass the round check (the refuter's race)."""
+    import fcntl
+
+    store = tmp_path / "ledger"
+    held: list[bool] = []
+
+    def post(pr: int, body: str) -> int:
+        with open(tmp_path / "ledger.lock", "a") as other:
+            try:
+                fcntl.flock(other, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                held.append(True)
+        return 5
+
+    assert record(tmp_path, store, H, 1, post=post) == 0
+    assert held == [True]
+
+
+@pytest.mark.parametrize("reason", ["one\u2028two", "a\x85b", "\u200b", " "])
+def test_a_reason_must_be_one_printable_line(tmp_path: Path, reason: str) -> None:
+    given = source(tmp_path, f"VERDICT: PASS at {H}")
+    argv = ["record", "12", "--round", "3", "--head", H, "--from", str(given)]
+    argv += ["--exception", "crash", "--reason", reason]
+    assert main(argv, scan=lambda text: 0, post=lambda pr, body: 5, ledger_dir=tmp_path / "l") == 3
+
+
+def test_a_ledger_path_that_is_a_file_refuses_before_posting(tmp_path: Path) -> None:
+    store = tmp_path / "ledger"
+    store.write_text("not a folder\n")
+    posts: list[str] = []
+
+    def post(pr: int, body: str) -> int:
+        posts.append(body)
+        return 5
+
+    assert main(["check", "12", "--round", "1"], ledger_dir=store) == 3
+    assert record(tmp_path, store, H, 1, post=post) == 3
+    assert posts == []
+
+
+def test_a_huge_score_is_bad_input(tmp_path: Path) -> None:
+    given = source(tmp_path, f"VERDICT: PASS at {H}", "FINDING a " + "9" * 5000 + " -")
+    assert main(["decide", "--from", str(given), "--head", H], ledger_dir=tmp_path) == 2

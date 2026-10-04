@@ -26,6 +26,7 @@ Exit codes: 0 ok, 2 bad input or usage, 3 refused. Standard library only.
 
 import argparse
 import contextlib
+import fcntl
 import hashlib
 import json
 import os
@@ -33,7 +34,7 @@ import re
 import subprocess
 import sys
 import tempfile
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -43,7 +44,7 @@ REPOSITORY = "vextrus/vextrus-cubit"
 SHA = re.compile(r"[0-9a-f]{40}")
 NONCE = re.compile(r"[0-9a-f]{32}")
 VERDICT = re.compile(r"VERDICT: (PASS|FIX|BLOCK) at (\S+)")
-FINDING = re.compile(r"FINDING (\S+) (-?[0-9]+) (CONFIRMED|REFUTED|UNPROVEN|-)")
+FINDING = re.compile(r"FINDING (\S+) (-?[0-9]{1,4}) (CONFIRMED|REFUTED|UNPROVEN|-)")
 EXCEPTIONS = ("security75", "crash", "false-statement")
 RANK = {"PASS": 0, "FIX": 1, "BLOCK": 2}
 STANDS = {"CONFIRMED", "UNPROVEN"}
@@ -145,9 +146,18 @@ def marker(round_: int, head: str, decision: Decision) -> str:
 
 def recorded_rounds(ledger_dir: Path, pr: int) -> list[int]:
     """The rounds already recorded for the PR; Refused if a record cannot be read (fail closed)."""
-    rounds = []
-    for path in sorted(ledger_dir.glob(f"{pr}-*.json")) if ledger_dir.is_dir() else []:
-        if not SHA.fullmatch(path.stem.removeprefix(f"{pr}-")):
+    rounds: list[int] = []
+    if not ledger_dir.exists():
+        return rounds
+    try:
+        names = sorted(os.listdir(ledger_dir))
+    except OSError as error:  # not a folder, or not listable: never "no rounds yet"
+        raise Refused("the ledger folder cannot be listed") from error
+    for name in names:
+        path = ledger_dir / name
+        if not name.endswith(".json") or not SHA.fullmatch(
+            name.removesuffix(".json").removeprefix(f"{pr}-")
+        ):
             continue
         try:
             rounds.append(int(json.loads(path.read_text())["round"]))
@@ -180,7 +190,7 @@ def check_exception(round_: int, exception: str | None, reason: str | None) -> d
         if reason is not None:
             raise BadInput("--reason goes with --exception")
         return None
-    if reason is None or not reason.strip() or "\n" in reason or "\r" in reason or len(reason) > 300:
+    if reason is None or not reason.strip() or not reason.isprintable() or len(reason) > 300:
         raise Refused("an exception needs --reason: one line of 1 to 300 characters")
     return {"kind": exception, "reason": reason}
 
@@ -215,6 +225,11 @@ def utc_now() -> str:
     return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def refuse_in_the_cloud() -> None:
+    if os.environ.get("CLAUDE_CODE_REMOTE", "").strip().lower() in ("true", "1", "yes"):
+        raise Refused("the ledger is written only in the main checkout's local session, never the cloud")
+
+
 def commit_record(
     *,
     pr: int,
@@ -228,13 +243,16 @@ def commit_record(
     ledger_dir: Path,
 ) -> None:
     """Scan, post the marker, then write the record: the steps every record takes, in this order."""
-    if os.environ.get("CLAUDE_CODE_REMOTE") == "true":
-        raise Refused("the ledger is written only in the main checkout's local session, never the cloud")
+    refuse_in_the_cloud()
     path = ledger_dir / f"{pr}-{head}.json"
     if path.exists():
         raise Refused(f"{path.name} is already recorded: a record is never overwritten")
     if decision.verdict == "PASS" and decision.counts["unrefuted_ge_50"]:
         raise Refused("a PASS with a finding of 50 or more that no refuter has seen")
+    try:
+        ledger_dir.mkdir(parents=True, exist_ok=True)
+    except OSError as error:
+        raise Refused("the ledger folder cannot be made: nothing posted") from error
     body = marker(round_, head, decision)
     scan_or_refuse(scan, body if exception is None else f"{body}\n{exception['reason']}")
     try:
@@ -310,6 +328,27 @@ def _finding_ok(item: Any) -> bool:
     )
 
 
+def unique_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    keys = [key for key, _ in pairs]
+    if len(keys) != len(set(keys)):
+        raise ValueError("a key is repeated")
+    return dict(pairs)
+
+
+@contextlib.contextmanager
+def ledger_lock(ledger_dir: Path) -> Iterator[None]:
+    """One writer at a time: the round check, the post and the write happen under this lock (a sibling
+    file, so the ledger folder holds records only)."""
+    try:
+        ledger_dir.parent.mkdir(parents=True, exist_ok=True)
+        handle = open(ledger_dir.with_name(ledger_dir.name + ".lock"), "a")  # noqa: SIM115
+    except OSError as error:
+        raise Refused("the ledger lock cannot be taken") from error
+    with handle:
+        fcntl.flock(handle, fcntl.LOCK_EX)
+        yield
+
+
 def _git(*args: str) -> str:
     done = subprocess.run(["git", *args], capture_output=True, text=True, check=False)
     if done.returncode != 0:
@@ -348,10 +387,11 @@ def fetch_verdict(
     parents = _git("rev-list", "--parents", "-n", "1", tip).split()[1:]
     if parents != [head]:
         raise Refused("the review branch's tip is not one commit on the PR head")
-    changed = [
-        row.split("\t")
-        for row in _git("diff-tree", "--no-commit-id", "--name-status", "-r", tip).splitlines()
-    ]
+    raw = _git("diff-tree", "--no-commit-id", "--raw", "-r", tip).splitlines()
+    # `:<old mode> <new mode> <old> <new> <status>\t<path>`: one regular file (mode 100644), added.
+    changed = [[row.split("\t")[0].split()[-1], row.split("\t", 1)[-1]] for row in raw]
+    if len(raw) != 1 or raw[0].split()[1] != "100644":
+        raise Refused("the review branch's tip must add exactly the one verdict file, a regular file")
     expected = re.compile(
         re.escape(f".review/{pr}-{nonce[:8]}.json")
         if agent == "pr-reviewer"
@@ -360,7 +400,7 @@ def fetch_verdict(
     if len(changed) != 1 or changed[0][0] != "A" or not expected.fullmatch(changed[0][1]):
         raise Refused("the review branch's tip must add exactly the one verdict file")
     try:
-        verdict_file = json.loads(_git("show", f"{tip}:{changed[0][1]}"))
+        verdict_file = json.loads(_git("show", f"{tip}:{changed[0][1]}"), object_pairs_hook=unique_keys)
     except ValueError as error:
         raise Refused("the verdict file is not JSON") from error
     if wrong := review_verdict_problems(verdict_file, agent):
@@ -501,30 +541,34 @@ def run(args: argparse.Namespace, *, scan: Scan, post: Post, ledger_dir: Path, h
         print(decide(read(args.source), args.head).line())
     elif args.command == "record":
         exception = check_exception(args.round, args.exception, args.reason)
-        check_round(ledger_dir, args.pr, args.round, args.exception)
         decision = decide(read(args.source), args.head)
-        commit_record(
-            pr=args.pr,
-            head=args.head,
-            round_=args.round,
-            decision=decision,
-            exception=exception,
-            source="review-pr",
-            scan=scan,
-            post=post,
-            ledger_dir=ledger_dir,
-        )
+        refuse_in_the_cloud()
+        with ledger_lock(ledger_dir):
+            check_round(ledger_dir, args.pr, args.round, args.exception)
+            commit_record(
+                pr=args.pr,
+                head=args.head,
+                round_=args.round,
+                decision=decision,
+                exception=exception,
+                source="review-pr",
+                scan=scan,
+                post=post,
+                ledger_dir=ledger_dir,
+            )
     else:
-        check_round(ledger_dir, args.pr, args.round, None)
-        fetch_verdict(
-            args.pr,
-            args.launch,
-            args.round,
-            scan=scan,
-            post=post,
-            ledger_dir=ledger_dir,
-            head_of=head_of,
-        )
+        refuse_in_the_cloud()
+        with ledger_lock(ledger_dir):
+            check_round(ledger_dir, args.pr, args.round, None)
+            fetch_verdict(
+                args.pr,
+                args.launch,
+                args.round,
+                scan=scan,
+                post=post,
+                ledger_dir=ledger_dir,
+                head_of=head_of,
+            )
 
 
 def read(path: Path) -> bytes:
