@@ -24,6 +24,7 @@ afterEach(() => {
 const clean = (s: string | null | undefined) => (s ?? '').replace(/[⁦-⁩‎‏]/g, '').replace(/\s+/g, ' ').trim()
 const bodyText = () => clean(document.body.textContent)
 const card = () => document.querySelector<HTMLElement>('[data-question]')
+const idle = () => waitFor(() => expect(document.querySelector('[data-step1]')?.getAttribute('aria-busy')).not.toBe('true'), { timeout: 5000 })
 
 /**
  * Presses Enter (never marked `repeat`) on every task until `done`: posted through a MessageChannel,
@@ -106,5 +107,76 @@ describe('a Question answered "keep open" can be answered again (#202; the refut
     await new Promise((r) => setTimeout(r, 100))
     await userEvent.keyboard('{Enter}')
     await waitFor(() => expect(fake.posted.map((p) => p.body.option)).toEqual(['keep_open', 'keep_b']))
+  })
+})
+
+describe('a pick changed while the answer is in flight posts nothing more (#202; the review, F1)', () => {
+  it.each(['same_title', 'check'])('%s: posts once when the QS re-picks during the flight, then Enter lands in the render gap', async (kind) => {
+    const fake = new FakeAnswers()
+    const question = fake.byKind()[kind]!
+    fake.questions = [question]
+    const base = fake.api.handle
+    let release: () => void = () => {}
+    const gate = new Promise<void>((r) => (release = r))
+    let answering: Promise<void> | null = null
+    let gone = false
+    let first = true
+    fake.api.handle = async (request: Request) => {
+      const isAnswer = request.method === 'POST' && /\/questions\/[^/]+\/answer\/?$/.test(new URL(request.url, location.origin).pathname)
+      if (isAnswer && first) {
+        first = false
+        await gate
+        const reply = base(request)
+        answering = enterEveryTurn(() => gone)
+        return reply
+      }
+      return base(request)
+    }
+    await mountApp('/p/KR-01/takeoff/1', { as: PEOPLE.qs, api: fake.api })
+    await waitFor(() => expect(bodyText()).toContain('Confirmed 0 / 24'))
+    await userEvent.keyboard('q')
+    await screen.findByRole('region', { name: (n: string) => clean(n) === 'Question Q1' })
+    await userEvent.keyboard('1')
+    await userEvent.keyboard('{Enter}')
+    await new Promise((r) => setTimeout(r, 100))
+    // The QS changes their mind while the answer is in flight: a new picks record.
+    await userEvent.keyboard('2')
+    await new Promise((r) => setTimeout(r, 50))
+    release()
+    await waitFor(() => expect(card()?.dataset.question === question.id).toBe(false), { timeout: 5000 })
+    gone = true
+    await answering
+    await new Promise((r) => setTimeout(r, 300))
+    expect(fake.posted).toHaveLength(1)
+  })
+})
+
+describe('Ctrl Z after a double Enter on an answer (#202; the design gate, M2)', () => {
+  it('words the answer that stays at the first Ctrl Z, keeping no dropped Enter', async () => {
+    const fake = new FakeAnswers()
+    const question = fake.byKind()['same_title']!
+    fake.questions = [question]
+    // The answer is held in flight until the second Enter has been pressed.
+    const base = fake.api.handle
+    let release: () => void = () => {}
+    const gate = new Promise<void>((r) => (release = r))
+    fake.api.handle = async (request: Request) => {
+      if (request.method === 'POST' && /\/questions\/[^/]+\/answer\/?$/.test(new URL(request.url, location.origin).pathname)) await gate
+      return base(request)
+    }
+    await mountApp('/p/KR-01/takeoff/1', { as: PEOPLE.qs, api: fake.api })
+    await waitFor(() => expect(bodyText()).toContain('Confirmed 0 / 24'))
+    await userEvent.keyboard('q')
+    await screen.findByRole('region', { name: (n: string) => clean(n) === 'Question Q1' })
+    await userEvent.keyboard(String(question.options.findIndex((o) => o.key === 'keep_all') + 1))
+    await userEvent.keyboard('{Enter}')
+    await new Promise((r) => setTimeout(r, 50))
+    await userEvent.keyboard('{Enter}')
+    release()
+    await idle()
+    expect(fake.posted).toHaveLength(1)
+    await userEvent.keyboard('{Control>}z{/Control}')
+    await waitFor(() => expect(bodyText()).toContain('the last thing you did on Step 1 was answer a Question'))
+    expect(bodyText()).not.toContain('your last change was not made')
   })
 })

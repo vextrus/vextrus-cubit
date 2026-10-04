@@ -780,6 +780,10 @@ msgstr "Distribution board details"
 msgid "{tag} answered. Confirms {number} {kept} and excludes {dropped} as superseded."
 msgstr "{tag} answered. Confirms {number} {kept} and excludes {dropped} as superseded."
 
+#: src/takeoff/Step1Screen.tsx
+msgid "Undo your last confirmation, exclusion or drawing list on Step 1"
+msgstr "Undo your last confirmation, exclusion or drawing list on Step 1"
+
 #: src/takeoff/questionWords.tsx
 msgid "{discipline} cannot be confirmed until this Question is answered."
 msgstr "{discipline} cannot be confirmed until this Question is answered."
@@ -2251,10 +2255,6 @@ msgstr "Plot"
 #: src/takeoff/words.tsx
 msgid "Water tank details"
 msgstr "Water tank details"
-
-#: src/takeoff/Step1Screen.tsx
-msgid "Undo your last act on Step 1"
-msgstr "Undo your last act on Step 1"
 
 #: src/takeoff/SheetList.tsx
 msgid "{file}, layout “<0/>”"
