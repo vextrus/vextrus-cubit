@@ -12,7 +12,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { msg } from '@lingui/core/macro'
 import { Trans, useLingui } from '@lingui/react/macro'
 import { queryOptions, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, unwrap } from '@/api/client'
+import { ApiRefused, api, unwrap } from '@/api/client'
 import { useFormat } from '@/format'
 import { MachineText, machineText, type MachineMessage } from '@/format/machine'
 import { LookSwitches, drawPlotPage, readPlotTransform, warmPdfJs, type SheetLayer, type SheetPlot } from '@/sheet'
@@ -50,12 +50,21 @@ export interface SheetLook {
   viewer: { dark: boolean; layer: SheetLayer; plot: SheetPlot | null; notes: ReactNode; status: ReactNode }
 }
 
-export function useSheetLook(projectId: string, sheet: ProposalOut): SheetLook {
+/** CAD-dark and the chosen mode: Step 1's screen keeps them, so they outlast paging and List ⇄ Sheet. */
+export interface LookSetting {
+  dark: boolean
+  layer: SheetLayer
+}
+
+export const PAPER_AS_READ: LookSetting = { dark: false, layer: 'read' }
+
+export function useSheetLook(projectId: string, sheet: ProposalOut, setting: LookSetting, onSetting: (next: LookSetting) => void): SheetLook {
   const { i18n, t } = useLingui()
   const f = useFormat()
   const queryClient = useQueryClient()
-  const [dark, setDark] = useState(false)
-  const [layer, setLayer] = useState<SheetLayer>('read')
+  const { dark, layer } = setting
+  const setDark = (next: boolean) => onSetting({ dark: next, layer })
+  const setLayer = (next: SheetLayer) => onSetting({ dark, layer: next })
   // The sheet on which P (or a click on a disabled segment) raised the no-Plot note: paging lowers it.
   const [raised, setRaised] = useState<string | null>(null)
 
@@ -70,8 +79,8 @@ export function useSheetLook(projectId: string, sheet: ProposalOut): SheetLook {
     // A drawn page is large: dropped as soon as no sheet shows it (the PDF's bytes stay cached).
     gcTime: 0,
     staleTime: Infinity,
-    // Once more on any failure (a page pdf.js refuses fails the same way again); never without end.
-    retry: 1,
+    // A refusal is an answer, never tried again; any other failure once more at most, never without end.
+    retry: (failures, error) => !(error instanceof ApiRefused) && failures < 1,
     queryFn: async ({ signal }): Promise<SheetPlot | Unaligned> => {
       const answer = await unwrap(
         api.GET('/api/projects/{project_id}/drawings/sheets/{sheet_id}/plot', { params: { path: { project_id: projectId, sheet_id: sheet.sheet_id } } }),
@@ -120,7 +129,14 @@ export function useSheetLook(projectId: string, sheet: ProposalOut): SheetLook {
     ) : (
       why
     )
-  else if (layer !== 'read' && failed) notes = <Trans>The Plot could not be drawn, so the sheet is shown as read. Choose Plot or Compare to try again.</Trans>
+  else if (layer !== 'read' && failed)
+    notes =
+      // The server refused the Plot or its PDF: its own reason, and no offer to try again (review 1, finding 2).
+      plot.error instanceof ApiRefused && plot.error.refusal ? (
+        <MachineText message={plot.error.refusal} />
+      ) : (
+        <Trans>The Plot could not be drawn, so the sheet is shown as read. Choose Plot or Compare to try again.</Trans>
+      )
   else if (shown === 'plot') notes = <PlotNote sheet={sheet} />
   else if (shown === 'compare')
     notes = dark ? <Trans>Compare: what was read in orange over the Plot</Trans> : <Trans>Compare: what was read in red over the Plot</Trans>

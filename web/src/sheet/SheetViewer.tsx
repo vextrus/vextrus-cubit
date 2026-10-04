@@ -476,7 +476,7 @@ function SheetCanvas({
             className={cn('absolute inset-0 z-[1] h-full w-full', layer === 'plot' && 'invisible', layer === 'compare' && (dark ? 'mix-blend-screen' : 'mix-blend-multiply'))}
           />
           <canvas ref={plotRef} aria-hidden data-plot="" className={cn('absolute inset-0 z-0 h-full w-full', layer === 'read' && 'invisible')} />
-          {hasOutlines && shown ? <Outlines outlines={outlines} view={shown} selected={selected} onSelect={onSelect} /> : null}
+          {hasOutlines && shown ? <Outlines outlines={outlines} view={shown} selected={selected} onSelect={onSelect} dark={dark} /> : null}
           {legend || notes ? (
             <div className="pointer-events-none absolute start-3 top-2 z-[2] flex flex-col items-start gap-1 text-xs">
               {legend ? <div className="rounded-md bg-paper/90 px-2 py-1 text-ink-secondary">{legend}</div> : null}
@@ -518,6 +518,11 @@ function drawPlot(canvas: HTMLCanvasElement, view: ViewTransform, plot: SheetPlo
     return
   }
   const { image } = plot.picture
+  // On CAD-dark the ground fills the whole canvas, around the page too (design gate walk 1, M2).
+  if (dark) {
+    ctx.fillStyle = CAD_DARK_HEX
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+  }
   ctx.setTransform(...plotMatrix(view, plot.transform, plot.picture))
   ctx.imageSmoothingEnabled = true
   ctx.imageSmoothingQuality = 'high'
@@ -534,7 +539,19 @@ function drawPlot(canvas: HTMLCanvasElement, view: ViewTransform, plot: SheetPlo
 }
 
 /** The views' outlines over the drawing, 2 px outside each view, with its tag above the top-left corner. */
-function Outlines({ outlines, view, selected, onSelect }: { outlines: readonly SheetOutline[]; view: ViewTransform; selected: string | null; onSelect?: (id: string) => void }) {
+function Outlines({
+  outlines,
+  view,
+  selected,
+  onSelect,
+  dark,
+}: {
+  outlines: readonly SheetOutline[]
+  view: ViewTransform
+  selected: string | null
+  onSelect?: (id: string) => void
+  dark: boolean
+}) {
   const dpr = window.devicePixelRatio || 1
   return (
     <>
@@ -556,7 +573,13 @@ function Outlines({ outlines, view, selected, onSelect }: { outlines: readonly S
             className={cn('absolute z-[1] rounded-[1px] border', OUTLINE_TONE[o.tone], selected === o.id ? 'border-2' : 'border-[1px]')}
             style={{ insetInlineStart: start, insetBlockStart: top, inlineSize: width, blockSize: height }}
           >
-            <span className="pointer-events-none absolute -top-4 start-0 whitespace-nowrap text-2xs leading-none">{o.tag}</span>
+            {/* On CAD-dark the tag sits on paper, where its tone reads at 4.5:1 or more (design gate walk 1, M3). */}
+            <span
+              data-tag=""
+              className={cn('pointer-events-none absolute -top-4 start-0 whitespace-nowrap text-2xs leading-none', dark && 'rounded-xs bg-paper px-0.5 py-px')}
+            >
+              {o.tag}
+            </span>
           </button>
         )
       })}

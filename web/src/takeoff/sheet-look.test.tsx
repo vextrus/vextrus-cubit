@@ -123,6 +123,68 @@ describe('Compare before its Plot comes', () => {
   })
 })
 
+describe('design gate walk 1 and review 1 (fix round 1)', () => {
+  it('keeps CAD-dark and Plot through List ⇄ Sheet (M1)', async () => {
+    await open()
+    await userEvent.keyboard('dp')
+    await waitFor(() => expect(pressed('Plot')).toBe('true'))
+    await userEvent.keyboard(' ')
+    await waitFor(() => expect(screen.queryByRole('group', { name: /^Sheet/ })).toBeNull())
+    await userEvent.keyboard(' ')
+    await screen.findByRole('group', { name: /^Sheet/ })
+    await waitFor(() => expect(pressed('Plot')).toBe('true'))
+    expect(screen.getByRole('button', { name: 'CAD-dark' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('fills the canvas around the page with the CAD-dark ground on Plot (M2)', async () => {
+    await open()
+    await userEvent.keyboard('dp')
+    await waitFor(() => expect(plotPixel(0.65, 0.5)).toEqual([0x10, 0x13, 0x18, 255]), { timeout: 10_000 })
+    // Off the page: the canvas's corner.
+    expect(plotPixel(0.005, 0.005)).toEqual([0x10, 0x13, 0x18, 255])
+  })
+
+  it('sets the view tags on paper on CAD-dark, and leaves them bare on Paper (M3)', async () => {
+    await open((p) => {
+      const view = { id: 'v1', ordinal: 1, kind: 'plan', title: 'PLAN', stated_scale: '', not_to_scale: false, storeys: [], storeys_as_stated: '', storeys_meaning: null, steps: [], part: null, proposed_exclusion: null, decision: null, excluded_reason: null, box: ['20', '20', '120', '100'] }
+      Object.assign(p['step1'].proposals.find((x) => x.number === 'S-02')!, { views: [view] })
+    })
+    const tag = () => document.querySelector<HTMLElement>('[data-tag]')!
+    await waitFor(() => expect(tag()).not.toBeNull())
+    expect(getComputedStyle(tag()).backgroundColor).toBe('rgba(0, 0, 0, 0)')
+    await userEvent.keyboard('d')
+    await waitFor(() => expect(getComputedStyle(tag()).backgroundColor).toBe('rgb(255, 255, 255)'))
+  })
+
+  it('shows the server’s reason when the PDF is refused, never offers to try again, and does not ask twice (finding 2)', async () => {
+    let asked = 0
+    await open((_, api) => {
+      const base = api.handle
+      api.handle = async (request: Request) => {
+        if (new URL(request.url, location.origin).pathname.endsWith('/pdf')) {
+          asked++
+          return new Response(JSON.stringify({ code: 'platform.storage.missing', params: {} }), { status: 409, headers: { 'Content-Type': 'application/json' } })
+        }
+        return base(request)
+      }
+    })
+    await userEvent.keyboard('p')
+    await waitFor(() => expect(bodyText()).toContain('Vextrus no longer has this file. Add it again to replace it.'))
+    expect(bodyText()).not.toContain('try again')
+    expect(pressed('As read')).toBe('true')
+    expect(asked).toBe(1)
+  })
+
+  it('words D and P in the keys overlay as sentences, and CAD-dark carries its key', async () => {
+    await open()
+    expect(screen.getByRole('button', { name: 'CAD-dark' })).toHaveAttribute('aria-keyshortcuts', 'D')
+    await userEvent.keyboard('?')
+    const keys = clean((await screen.findByRole('dialog', { name: 'Keys' })).textContent)
+    expect(keys).toContain('Paper or CAD-dark')
+    expect(keys).toContain('As read, then Plot, then Compare')
+  })
+})
+
 describe('the look while paging (the orchestrator’s rulings)', () => {
   it('keeps CAD-dark, and keeps Plot: As read with the no-Plot note on a sheet without one, Plot again after', async () => {
     await open((p) => {

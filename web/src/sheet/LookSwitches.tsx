@@ -46,8 +46,8 @@ export function LookSwitches({
     else onLayer(NEXT[layer])
   }
   useKeys([
-    { key: 'D', label: t`Paper ⇄ CAD-dark`, group: 'sheet', run: () => onDark(!dark) },
-    { key: 'P', label: t`As read → Plot → Compare`, group: 'sheet', run: cycle },
+    { key: 'D', label: t`Paper or CAD-dark`, group: 'sheet', run: () => onDark(!dark) },
+    { key: 'P', label: t`As read, then Plot, then Compare`, group: 'sheet', run: cycle },
   ])
   const options: [SheetLayer, string][] = [
     ['read', t`As read`],
@@ -77,7 +77,7 @@ export function LookSwitches({
           )
         })}
       </div>
-      <IconButton label={t`CAD-dark`} combo="D" pressed={dark} onClick={() => onDark(!dark)}>
+      <IconButton label={t`CAD-dark`} combo="D" aria-keyshortcuts="D" pressed={dark} onClick={() => onDark(!dark)}>
         <Contrast strokeWidth={1.5} />
       </IconButton>
     </SlotFill>
