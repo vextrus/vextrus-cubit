@@ -212,14 +212,15 @@ def test_a_dwgs_plot_match_that_runs_out_of_memory_leaves_the_file_failed_never_
     marking back. The file ends failed with the memory reason (restartable), never read with its
     sheets listed and never matched."""
     later = read_first_and_plot(qs_project, monkeypatch)
-    real = plot_matching.match
+    real = plot_matching.find
 
     def out_of_memory(file_id: uuid.UUID) -> Any:
         if file_id == later:
             raise MemoryError
         return real(file_id)
 
-    monkeypatch.setattr(plot_matching, "match", out_of_memory)
+    # `finishing` finds the match through `plot.find` (`plot.match` is `find(file_id)()`).
+    monkeypatch.setattr(plot_matching, "find", out_of_memory)
     with contextlib.suppress(Exception):  # the job ends failed, as its worker sees it
         run_job(qs_project.member, later, monkeypatch, readers(SHEETS))
 
