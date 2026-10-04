@@ -31,10 +31,10 @@ Each scan subcommand prints hit lines and one summary line (section 3) and exits
 | Command | Scans | Writes a stamp |
 |---|---|---|
 | `build` | Rebuilds the corpus from its sources (locally; through the engine's own DWG reader). Prints `corpus: <n> strings, sha256 <first 12 hex>` and exits 0, or 2 if a source cannot be read. | no |
-| `range <base>..<head> [--ref <name>] [--no-stamp]` | The range's **added lines** (`git diff <base>..<head>`, new side), its **commit messages**, its **changed file names** and, with `--ref`, the **ref name** being pushed. `<base>` and `<head>` are revisions; the stamp pins both as full shas. | yes (name = the full `<head>` sha), unless `--no-stamp` |
+| `range <base>..<head> [--ref <name>] [--no-stamp]` | **Every commit in the range, one by one** (a push publishes each commit, not only the net diff: text added in one commit and removed in a later one is still sent): each commit's **added lines** (its own diff against its parent, read as text whatever `.gitattributes` says, no textconv; a merge, what it did beyond the automatic merge), the text in each **binary blob** it adds (UTF-16 decoded, gzip and zip opened, PDF streams inflated, printable runs), its **commit message** and every **file name** it touches; with `--ref`, the **ref name** being pushed. `<base>` and `<head>` are revisions; the stamp pins both as full shas. (Changed by PR f2's review, round 1; it was the net `git diff <base>..<head>`.) | yes (name = the full `<head>` sha), unless `--no-stamp` |
 | `file <path> [--no-stamp]` | One body file (a `gh ... --body-file` text). | yes (name = the file's sha256), unless `--no-stamp` |
 | `text --stdin [--no-stamp]` | The text on standard input: a cloud launch prompt or a `launch.py say` message. `--stdin` is required (text is never taken from the command line, which `ps` shows). | yes (name = the text's sha256), unless `--no-stamp` |
-| `pr <number>` | A PR as `merge_ready` re-scans it before every merge: the PR's added lines, commit messages, file names, branch name, title, body and every comment (through `gh`, reads only). | no |
+| `pr <number>` | A PR as `merge_ready` re-scans it before every merge: the PR's added lines, commit messages, file names, branch name, title, body and every comment (through `gh`, reads only), and, run from a clone, **each of its commits as `range` scans them** (a commit the clone lacks is fetched from `refs/pull/<n>/head`; one still missing is `cannot-scan gh-failed`). | no |
 | `dir <path>` | Every file under a folder (a walk's outputs, `.private/work/walks/<sha40>/`), text files by line, other files by name only; binary files are scanned as bytes for a corpus string. | no |
 | `bodies --since <date>` | Every issue and PR body edited since `<date>` (`YYYY-MM-DD` or a UTC timestamp), and their comments. Run each wave. | no |
 | `allow <file>:<line>` | Hashes the corpus strings that hit on that line of that file into `tools/leakscan/allowlist.txt` (appends sha256 lines; never prints a string). Refused if the line has no hit. | no |
@@ -65,6 +65,10 @@ HIT <where> <n>
 | `pr:<n>:title`, `pr:<n>:body:<line>`, `pr:<n>:comment:<id>:<line>`, `pr:<n>:branch` | parts of a PR |
 | `issue:<n>:body:<line>`, `issue:<n>:comment:<id>:<line>` | parts of an issue |
 | `dir:<relative path>:<line>` | a line under a scanned folder (`name:<i>` as above if the name matched) |
+| `<path>:<n>`, `<label>:bin:<n>` | the `<n>`th text found in a binary blob (a pushed file, a body file, a file under a folder) |
+| `unknown:<line>` | an added line whose path git's name list does not hold (a path is printed only from that list) |
+
+Every run of lines (a file's added lines, a message, a body) is also tested **two adjacent lines at a time, joined** with comment and list markers dropped, so a string wrapped over two lines is found; such a hit counts at the first line.
 
 The **last line** is always one summary line:
 
@@ -180,3 +184,11 @@ caches, the leak-scan home), the files a nested git checkout tracks (a walk's or
 repository; their untracked outputs are read), text files over 2 MB, and from the notes every string that does
 not read like drawing text (one with a lower-case letter or a code or Markdown character). The DWG, PDF, export
 and walk sources are read whole. Result: 5,998 strings, built in about two minutes at 0.55 GB peak.
+
+The walks source reads only drawing-like strings (the notes' filter), and skips `walks/_src` (f5's serving
+worktree) and each walk's `public/` and `logs/`: a walk's own closed words (check ids, defect classes, screens)
+would otherwise enter the corpus and refuse the next walk's drafts (PR #293's review). `build`, and every
+stamping scan, runs only as the orchestrator's `uv run python -m tools.leakscan …` with the main checkout as
+its working folder (the guard refuses any other form, so a branch's own scanner code never writes a stamp or
+the corpus); option abbreviations are usage errors; an empty corpus is refused (`cannot-scan
+corpus-unreadable`), never trusted.
