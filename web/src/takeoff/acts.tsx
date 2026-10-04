@@ -115,17 +115,17 @@ function BulkDone({ n, m }: { n: number; m: number }) {
   )
 }
 
-/** The queries the Count and the bar are drawn from (data.ts): an act's toast waits for them to reload. */
-const FRESH_PARTS = ['proposals', 'questions', 'coverage', 'progress'] as const
-
 /** A toast an act shows once Step 1 has reloaded. */
-type Done = Parameters<ReturnType<typeof useToast>['show']>[0]
+type Done = Parameters<ReturnType<typeof useToast>['show']>[0] & {
+  /** Its words when Step 1 could not reload after it, where `message` ends without a full stop ("Undone: …"). */
+  stale?: ReactNode
+}
 
 /** An act's toast when Step 1 could not reload after it: what was done, and that the Count may be behind. */
 function StaleWords({ done }: { done: ReactNode }) {
   return (
     <>
-      {done} <Trans>Step 1 could not be reloaded, so its Count may be behind. Reload the page to see it.</Trans>
+      {done} <Trans>Step 1 could not be reloaded, so its Count may be behind. Reload the page to see the current Count.</Trans>
     </>
   )
 }
@@ -158,11 +158,15 @@ export function useStep1Acts(projectId: string): Step1Acts {
   const [busy, setBusy] = useState(false)
   const refresh = useCallback(() => queryClient.invalidateQueries({ queryKey: step1Key(projectId) }), [queryClient, projectId])
   /**
-   * Whether what the Count and the bar read reloaded (#167's refuter): a reload that failed leaves the
+   * Whether Step 1 reloaded (every query but the files' names; #167's refuter): a reload that failed leaves
    * old data on screen, and an act's toast must not stand beside it as if fresh.
    */
   const reloaded = useCallback(
-    () => FRESH_PARTS.every((part) => queryClient.getQueryState([...step1Key(projectId), part])?.status !== 'error'),
+    () =>
+      queryClient
+        .getQueryCache()
+        .findAll({ queryKey: step1Key(projectId) })
+        .every((query) => query.queryKey[2] === 'file-names' || query.state.status !== 'error'),
     [queryClient, projectId],
   )
   /** Bumped by each act begun: a toast queued for an earlier act is then dropped, as `toast.clear()` drops a shown one. */
@@ -190,7 +194,8 @@ export function useStep1Acts(projectId: string): Step1Acts {
       if (!done) return
       const mine = generation.current
       // A reload that failed leaves the old Count on screen: the toast says so rather than stand beside it as if fresh.
-      const shown = fresh ? done : { ...done, message: <StaleWords done={done.message} /> }
+      const { stale, ...toastOf } = done
+      const shown = fresh ? toastOf : { ...toastOf, message: stale ?? <StaleWords done={done.message} /> }
       notifyManager.schedule(() => {
         if (generation.current === mine) toast.show(shown)
       })
@@ -256,6 +261,8 @@ export function useStep1Acts(projectId: string): Step1Acts {
    */
   const undoEntry = useCallback(
     (entry: Entry | undefined, kept = false) => {
+      // A toast queued for an act goes once an undo is pressed, as for a new act (#167's refuter, round 2).
+      generation.current += 1
       undos.current += 1
       setBusy(true)
       const ask = { entry, off: false, kept }
@@ -303,7 +310,10 @@ export function useStep1Acts(projectId: string): Step1Acts {
             try {
               for (; left > 0; left--) await undo(projectId)
               const words = entry.words
-              done = { message: <Trans>Undone: {words}</Trans> }
+              done = {
+                message: <Trans>Undone: {words}</Trans>,
+                stale: <Trans>Undone: {words}. Step 1 could not be reloaded, so its Count may be behind. Reload the page to see the current Count.</Trans>,
+              }
             } catch (error) {
               if (reached(error)) left -= 1
               // What was not undone stays the last act, for the next Ctrl Z; part of it, worded plainly.
@@ -314,7 +324,14 @@ export function useStep1Acts(projectId: string): Step1Acts {
           } else {
             try {
               const act = await undo(projectId)
-              done = { message: <Trans>Undone: <UndoneWords act={act} /></Trans> }
+              done = {
+                message: <Trans>Undone: <UndoneWords act={act} /></Trans>,
+                stale: (
+                  <Trans>
+                    Undone: <UndoneWords act={act} />. Step 1 could not be reloaded, so its Count may be behind. Reload the page to see the current Count.
+                  </Trans>
+                ),
+              }
             } catch (error) {
               if (!reached(error)) refused(null)
               say(error)

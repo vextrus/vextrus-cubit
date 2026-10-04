@@ -261,6 +261,10 @@ msgstr "Ceiling layout"
 msgid "Use the drawing list on the sheet"
 msgstr "Use the drawing list on the sheet"
 
+#: src/takeoff/acts.tsx
+msgid "Undone: {words}. Step 1 could not be reloaded, so its Count may be behind. Reload the page to see the current Count."
+msgstr "Undone: {words}. Step 1 could not be reloaded, so its Count may be behind. Reload the page to see the current Count."
+
 #: src/takeoff/Step1Screen.tsx
 msgid "Go to the Drawing Set"
 msgstr "Go to the Drawing Set"
@@ -1438,6 +1442,10 @@ msgstr "Enter confirms it and opens the next open sheet."
 msgid "{tag} answered. {Sheet} stays in the count as missing."
 msgstr "{tag} answered. {Sheet} stays in the count as missing."
 
+#: src/takeoff/acts.tsx
+msgid "Step 1 could not be reloaded, so its Count may be behind. Reload the page to see the current Count."
+msgstr "Step 1 could not be reloaded, so its Count may be behind. Reload the page to see the current Count."
+
 #: src/takeoff/Step1Inspector.tsx
 msgid "None: no PDF was added to the Drawing Set"
 msgstr "None: no PDF was added to the Drawing Set"
@@ -2345,10 +2353,6 @@ msgstr "Excluded by {name} (Vextrus), {date}: {reason}"
 msgid "Storeys per view"
 msgstr "Storeys per view"
 
-#: src/takeoff/acts.tsx
-msgid "Step 1 could not be reloaded, so its Count may be behind. Reload the page to see it."
-msgstr "Step 1 could not be reloaded, so its Count may be behind. Reload the page to see it."
-
 #: src/takeoff/questionWords.tsx
 msgid "no revision mark"
 msgstr "no revision mark"
@@ -2447,6 +2451,10 @@ msgstr "A Proposal counts toward nothing until the QS confirms it."
 #: src/takeoff/Step1Inspector.tsx
 msgid "Discipline"
 msgstr "Discipline"
+
+#: src/takeoff/acts.tsx
+msgid "Undone: <0/>. Step 1 could not be reloaded, so its Count may be behind. Reload the page to see the current Count."
+msgstr "Undone: <0/>. Step 1 could not be reloaded, so its Count may be behind. Reload the page to see the current Count."
 
 #: src/takeoff/words.tsx
 msgid "Riser diagram"

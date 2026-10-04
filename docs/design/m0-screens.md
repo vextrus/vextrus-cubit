@@ -1035,6 +1035,10 @@ block."); a numbered sheet with no title by its number ("It has no title, so not
 sheet A-05 is."). At a sentence's start it reads "An untitled sheet in NT-ARC-R1.dwg"; a possessive is
 never put on a sheet's name ("The kind of S-07 is Plan", not "S-07’s kind").
 
+An act's toast shows once Step 1 has reloaded, with the Count it changed. If Step 1 cannot reload after an
+act or an undo, the toast adds: "Step 1 could not be reloaded, so its Count may be behind. Reload the page
+to see the current Count."
+
 "Keep open, ask the consultant" keeps the Question open, and Step 1 for that Discipline cannot be
 confirmed until it is answered; "Not sent yet" answers it, and the sheet stays in the count as
 missing, so that Discipline can still be confirmed.
