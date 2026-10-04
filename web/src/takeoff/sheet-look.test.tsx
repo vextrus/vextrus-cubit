@@ -17,7 +17,7 @@ const clean = (s: string | null | undefined) => (s ?? '').replace(/[⁦-⁩‎�
 const bodyText = () => clean(document.body.textContent)
 const pressed = (name: string) => screen.getByRole('button', { name }).getAttribute('aria-pressed')
 
-/** KR-01 with S-02's Plot on page 1 of the fake's one-page PDF (its left half black). */
+/** KR-01 with S-02's Plot on page 1 of the fake's PDF (each page's left half black). */
 async function open(prepare?: (plot: FakePlot, api: FakeApi) => void, number = 'S-02') {
   await page.viewport(1440, 900)
   const api = new FakeApi()
@@ -55,8 +55,8 @@ describe('the Plot beneath the sheet', () => {
   })
 
   it('falls back to As read when the page cannot be drawn, and tries again when Plot is chosen', async () => {
-    // Page 2 of a one-page PDF: pdf.js refuses it.
-    const { plot } = await open((p) => p.matched('S-02', 2))
+    // A page past the fake PDF's last (it has 16): pdf.js refuses it.
+    const { plot } = await open((p) => p.matched('S-02', 99))
     await userEvent.keyboard('p')
     await waitFor(() => expect(bodyText()).toContain('The Plot could not be drawn, so the sheet is shown as read. Choose Plot or Compare to try again.'), { timeout: 15_000 })
     expect(pressed('As read')).toBe('true')
