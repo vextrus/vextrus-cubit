@@ -26,11 +26,13 @@ refused session keeps running, it is sent STOP at once and listed for deletion i
 from __future__ import annotations
 
 import argparse
+import fcntl
 import importlib
 import json
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 from collections.abc import Callable
@@ -58,6 +60,18 @@ HEX32 = re.compile(r"^[0-9a-f]{32}$")
 BUNDLED = re.compile(r"\[teleportToRemote\] Bundling \(reason: ([^)]*)\)")
 SOURCE = re.compile(r"\[teleportToRemote\] Git source: (\S+), revision: (\S+)")
 CREATED = re.compile(r"Successfully created remote session: (session_\w+)")
+ENV = re.compile(r"Selected environment: (env_\w+) \(([^,]+),")
+FALLBACK = re.compile(r"Configured default environment \S+ not found, using first available")
+ENVIRONMENT = "vextrus"
+# A log with no `Selected environment` line passes for now: the committed acceptance fixtures (tf1's
+# C tests) carry none. Turn this on once they do (review round 1 of PR #286, F1).
+REQUIRE_ENVIRONMENT_LINE = False
+LAUNCH_TIMEOUT = 180
+MESSAGE_TIMEOUT = 120
+TOOL_TIMEOUT = 60
+TIMED_OUT = 124  # what a ClaudeRunner returns when the CLI ran out of time (as timeout(1) does)
+NOT_FOUND = 127  # what a ClaudeRunner returns when there is no `claude` to run
+MAIN_CHECKOUT_DEFAULT = "/home/riz/vextrus-cubit"
 
 
 # --- the judge -------------------------------------------------------------------------------------
@@ -71,8 +85,10 @@ class Verdict:
     code: str = "ok"
 
 
-def judge(log: str, *, repository: str, branch: str) -> Verdict:
-    """Read a `claude --debug-file` log of one `--cloud` launch."""
+def judge(log: str, *, repository: str, branch: str, environment: str = ENVIRONMENT) -> Verdict:
+    """Read a `claude --debug-file` log of one `--cloud` launch. The environment is checked by name:
+    the CLI takes it from the user's `remote.defaultEnvironmentId` and, when that id is unknown,
+    silently falls back to the first environment (which carries the drawings token)."""
     session = m.group(1) if (m := CREATED.search(log)) else None
     if bundled := BUNDLED.search(log):
         why = f"bundled, not cloned ({bundled.group(1)}): the session has no origin"
@@ -86,6 +102,17 @@ def judge(log: str, *, repository: str, branch: str) -> Verdict:
     if source.group(2) != branch:
         why = f"cloned at revision {source.group(2)}, not the ticket's branch {branch}"
         return Verdict(False, why, session, "wrong-revision")
+    selected = ENV.search(log)
+    name = selected.group(2).strip() if selected else None
+    fell_back = FALLBACK.search(log) is not None
+    if (
+        fell_back
+        or (name is not None and name != environment)
+        or (name is None and REQUIRE_ENVIRONMENT_LINE)
+    ):
+        why = f"ran in environment {name or 'unknown'}, not {environment}"
+        why += " (the configured default was not found; the CLI took the first)" if fell_back else ""
+        return Verdict(False, why, session, "wrong-environment")
     if session is None:
         return Verdict(False, "cloned, but no session was created", None, "no-session")
     return Verdict(True, f"cloned {repository} at {branch}", session)
@@ -122,17 +149,33 @@ Send = Callable[[list[str]], tuple[int, str]]
 def default_claude(argv: list[str]) -> int:
     """Run one CLI command. A launch wants a terminal: `script` gives it one and keeps its screen out
     of ours (`shlex.join` quotes the prompt for `/bin/sh`). A `-p` message needs none."""
+    if shutil.which(argv[0]) is None:
+        return NOT_FOUND
     if "-p" in argv:
-        done = subprocess.run(argv, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, check=False)
-        return done.returncode
-    done = subprocess.run(
-        ["script", "-q", "-c", shlex.join(argv), "/dev/null"],
-        stdin=subprocess.DEVNULL,
-        stdout=subprocess.DEVNULL,
-        env={**os.environ, "SHELL": "/bin/sh"},
-        check=False,
-    )
+        code, out = default_send(argv)
+        return 0 if code == 0 and _json_ok(out) else 1
+    try:
+        done = subprocess.run(
+            ["script", "-q", "-c", shlex.join(argv), "/dev/null"],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            env={**os.environ, "SHELL": "/bin/sh"},
+            check=False,
+            timeout=LAUNCH_TIMEOUT,
+        )
+    except subprocess.TimeoutExpired:
+        return TIMED_OUT
+    except OSError:
+        return NOT_FOUND
     return done.returncode
+
+
+def _json_ok(out: str) -> bool:
+    try:
+        reply = json.loads(out)
+    except ValueError:
+        return False
+    return isinstance(reply, dict) and reply.get("ok") is True
 
 
 def default_scan(root: Path) -> Scan | None:
@@ -149,9 +192,10 @@ def default_scan(root: Path) -> Scan | None:
                 capture_output=True,
                 text=True,
                 check=False,
+                timeout=TOOL_TIMEOUT,
             )
-        except OSError as error:
-            return ScanResult(False, f"leakscan did not run ({error})")
+        except (OSError, subprocess.TimeoutExpired) as error:
+            return ScanResult(False, f"leakscan did not run ({type(error).__name__})")
         counts = _last_line(done.stdout) or f"leakscan exited {done.returncode}"
         return ScanResult(done.returncode == 0, counts)
 
@@ -167,9 +211,11 @@ def default_govern(root: Path, usage_checked: str | None = None) -> Govern | Non
 
     def govern() -> Reading:
         try:
-            done = subprocess.run(command, cwd=root, capture_output=True, text=True, check=False)
-        except OSError as error:
-            return Reading(False, f"the governor did not run ({error})")
+            done = subprocess.run(
+                command, cwd=root, capture_output=True, text=True, check=False, timeout=TOOL_TIMEOUT
+            )
+        except (OSError, subprocess.TimeoutExpired) as error:
+            return Reading(False, f"the governor did not run ({type(error).__name__})")
         said = " ".join(done.stdout.split())
         if done.returncode == 0:
             return Reading(True, said)
@@ -188,9 +234,10 @@ def default_snapshot() -> str:
             capture_output=True,
             text=True,
             check=False,
+            timeout=TOOL_TIMEOUT,
         )
-    except OSError as error:
-        return json.dumps({"error": f"claude agents did not run ({error})"})
+    except (OSError, subprocess.TimeoutExpired) as error:
+        return json.dumps({"error": f"claude agents did not run ({type(error).__name__})"})
     if done.returncode != 0:
         return json.dumps({"error": f"claude agents exited {done.returncode}"})
     return done.stdout
@@ -199,10 +246,17 @@ def default_snapshot() -> str:
 def default_send(argv: list[str]) -> tuple[int, str]:
     try:
         done = subprocess.run(
-            argv, stdin=subprocess.DEVNULL, capture_output=True, text=True, check=False
+            argv,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=MESSAGE_TIMEOUT,
         )
+    except subprocess.TimeoutExpired:
+        return 1, f"the CLI did not answer in {MESSAGE_TIMEOUT} s"
     except OSError as error:
-        return 1, f"the CLI did not run ({error})"
+        return 1, f"the CLI did not run ({type(error).__name__})"
     return done.returncode, done.stdout
 
 
@@ -348,20 +402,42 @@ def parse_cloud(argv: list[str]) -> CloudRequest:
 
 
 def _git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        ["git", "-C", str(root), *args],
-        capture_output=True,
-        text=True,
-        check=False,
-        stdin=subprocess.DEVNULL,
-    )
+    """One git command; a hang or a missing git reads as a failed command, never a traceback."""
+    command = ["git", "-C", str(root), *args]
+    try:
+        return subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            check=False,
+            stdin=subprocess.DEVNULL,
+            timeout=TOOL_TIMEOUT,
+        )
+    except subprocess.TimeoutExpired:
+        return subprocess.CompletedProcess(
+            command, 124, "", f"git {args[0]} timed out after {TOOL_TIMEOUT} s"
+        )
+    except OSError as error:
+        return subprocess.CompletedProcess(command, 127, "", f"git did not run ({type(error).__name__})")
+
+
+def main_checkout() -> Path:
+    """The one folder launches run from (`VEXTRUS_MAIN_CHECKOUT` moves it, for tests)."""
+    return Path(os.environ.get("VEXTRUS_MAIN_CHECKOUT", MAIN_CHECKOUT_DEFAULT)).resolve()
 
 
 def is_main_checkout(root: Path) -> bool:
-    """True in the main checkout: its git dir is the common one (a linked worktree's is not)."""
+    """True only at the top of the main checkout: the configured folder, its own top level, and a
+    git dir that is the common one (a linked worktree's is not). A standalone clone elsewhere hangs
+    at the CLI's trust dialog; a subdirectory is not the checkout."""
+    if root.resolve() != main_checkout():
+        return False
+    top = _git(root, "rev-parse", "--show-toplevel")
     own = _git(root, "rev-parse", "--path-format=absolute", "--absolute-git-dir")
     common = _git(root, "rev-parse", "--path-format=absolute", "--git-common-dir")
-    if own.returncode or common.returncode:
+    if top.returncode or own.returncode or common.returncode:
+        return False
+    if Path(top.stdout.strip()).resolve() != root.resolve():
         return False
     return Path(own.stdout.strip()).resolve() == Path(common.stdout.strip()).resolve()
 
@@ -408,8 +484,9 @@ def cli_version() -> str:
             capture_output=True,
             text=True,
             check=False,
+            timeout=TOOL_TIMEOUT,
         )
-    except OSError:
+    except OSError, subprocess.TimeoutExpired:
         return "unknown"
     words = done.stdout.split()
     return words[0] if done.returncode == 0 and words else "unknown"
@@ -440,16 +517,21 @@ def _error(message: str) -> Outcome:
 
 @dataclass
 class _Proving:
-    """The proven-CLI rule: a version not yet in `proven-cli.txt` is allowed one launch at a time
-    (a lock beside the list); an OK verdict adds it."""
+    """The proven-CLI rule: a version not yet in `proven-cli.txt` is allowed one launch at a time;
+    an OK verdict adds it. The lock is a `flock` on `proven-cli.lock`, held on a descriptor open for
+    the whole launch, so the kernel lets it go when the launcher dies however it dies."""
 
     folder: Path
     version: str
-    held: bool = field(default=False)
+    fd: int | None = field(default=None)
 
     @property
     def listed(self) -> Path:
         return self.folder / "proven-cli.txt"
+
+    @property
+    def lock(self) -> Path:
+        return self.folder / "proven-cli.lock"
 
     def proven(self) -> bool:
         try:
@@ -459,21 +541,92 @@ class _Proving:
 
     def acquire(self) -> bool:
         self.folder.mkdir(parents=True, exist_ok=True)
+        fd = os.open(self.lock, os.O_CREAT | os.O_WRONLY, 0o600)
         try:
-            os.close(os.open(self.folder / "proven-cli.lock", os.O_CREAT | os.O_EXCL | os.O_WRONLY))
-        except FileExistsError:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            os.close(fd)
             return False
-        self.held = True
+        os.ftruncate(fd, 0)
+        os.write(fd, f"{os.getpid()} {self.version}\n".encode())
+        self.fd = fd
         return True
 
     def release(self, ok: bool) -> None:
-        if not self.held:
+        if self.fd is None:
             return
         if ok and self.version != "unknown":
             with self.listed.open("a") as out:
                 out.write(f"{self.version}\n")
-        (self.folder / "proven-cli.lock").unlink(missing_ok=True)
-        self.held = False
+        fcntl.flock(self.fd, fcntl.LOCK_UN)
+        os.close(self.fd)
+        self.fd = None
+
+
+@dataclass
+class _Run:
+    """One `cloud` run's record: written for every run past the argument check, refused or not."""
+
+    req: CloudRequest
+    record_dir: Path
+    started: datetime
+    snapshot: Callable[[], str]
+    governor: dict[str, object] = field(default_factory=dict)
+    leak_scan: dict[str, str] = field(default_factory=lambda: {"status": "not-run", "line": ""})
+    cli_version: str = "unknown"
+
+    @property
+    def stamp(self) -> str:
+        return self.started.strftime("%Y%m%dT%H%M%SZ")
+
+    def write(self, verdict: Verdict, *, stop_sent: bool = False) -> None:
+        record = {
+            "ticket": self.req.ticket,
+            "branch": self.req.branch,
+            "where": "cloud",
+            "role": self.req.role,
+            "effort": self.req.effort,
+            "model": self.req.model,
+            "budget_minutes": self.req.budget_minutes,
+            "session_id": verdict.session,
+            "cli_version": self.cli_version,
+            "started_at": self.started.isoformat().replace("+00:00", "Z"),
+            "governor": self.governor,
+            "leak_scan": self.leak_scan,
+            "judge": {"ok": verdict.ok, "code": verdict.code, "reason": verdict.reason},
+            "stop_sent": stop_sent,
+            "untestable": self.req.untestable,
+            "review": self.req.review.as_record() if self.req.review else None,
+        }
+        try:
+            self.record_dir.mkdir(parents=True, exist_ok=True)
+            path, agents = self._free_name()
+            with path.open("x") as out:
+                out.write(json.dumps(record, indent=2) + "\n")
+            agents.write_text(self.snapshot())
+        except OSError as error:
+            print(f"ERROR the launch record was not written ({type(error).__name__}: {error.filename})")
+            return
+        print(f"record: {path}")
+
+    def _free_name(self) -> tuple[Path, Path]:
+        """`<ticket>-<utc>.json`, or `-2`, `-3`... after it: a record is never overwritten."""
+        base = f"{self.req.ticket}-{self.stamp}"
+        for n in range(1, 1000):
+            name = base if n == 1 else f"{base}-{n}"
+            if not (self.record_dir / f"{name}.json").exists():
+                return self.record_dir / f"{name}.json", self.record_dir / f"{name}.agents.json"
+        raise FileExistsError(f"{base}: too many records this second")
+
+    def refuse(self, code: str, reason: str, exit_code: int = 2) -> Outcome:
+        if code == "governor":
+            line = f"REFUSED governor: {reason}"
+            print(line)
+            outcome = Outcome(exit_code, line)
+        else:
+            outcome = _refused(code, reason)
+        self.write(Verdict(False, reason, None, code))
+        return outcome
 
 
 def launch_cloud(
@@ -486,26 +639,36 @@ def launch_cloud(
     snapshot: Callable[[], str] = default_snapshot,
     now: Callable[[], datetime] = utcnow,
 ) -> Outcome:
-    """Refuse, or launch and judge one cloud session; print the run's lines and write its record.
-    `scan` and `govern` None mean the tree has no leak scan or governor yet (then `--prompt-scanned`
-    and `--preflight` stand in for them); left out, they are this tree's own."""
+    """Refuse, or launch and judge one cloud session; print the run's lines and write its record
+    (refusals before the launch too, with no session). `scan` and `govern` None mean the tree has no
+    leak scan or governor yet (then `--prompt-scanned` and `--preflight` stand in for them); left
+    out, they are this tree's own."""
     scan = default_scan(root) if isinstance(scan, Default) else scan
     govern = default_govern(root, req.usage_checked) if isinstance(govern, Default) else govern
     if not BRANCH.match(req.branch) or ".." in req.branch or not TICKET.match(req.ticket):
         print("error: a malformed --branch or --ticket", file=sys.stderr)
         return Outcome(USAGE, "usage: a malformed --branch or --ticket")
+    if req.untestable is not None and not req.untestable.strip():
+        print("error: --untestable needs a reason", file=sys.stderr)
+        return Outcome(USAGE, "usage: --untestable needs a reason")
     try:
         text = req.prompt_file.read_text()
     except (OSError, UnicodeDecodeError) as error:
         return _error(f"cannot read the prompt file ({type(error).__name__})")
 
+    record_dir = req.record_dir or main_checkout() / FACTORY / "launches"
+    run = _Run(req, record_dir, now().astimezone(UTC), snapshot)
+    run.cli_version = cli_version()
+
     if not is_main_checkout(root):
-        return _refused(
-            "not-main-checkout", f"{root} is not the main checkout (a linked worktree or no checkout)"
+        return run.refuse(
+            "not-main-checkout",
+            f"{root} is not the top of the main checkout {main_checkout()}"
+            " (a linked worktree, another clone or a subdirectory)",
         )
     sha = origin_sha(root, req.branch)
     if sha is None:
-        return _refused(
+        return run.refuse(
             "branch-not-on-origin", f"git ls-remote finds no refs/heads/{req.branch} on origin"
         )
     if req.role not in NO_ACCEPTANCE_NEEDED and req.untestable is None:
@@ -513,68 +676,74 @@ def launch_cloud(
         if isinstance(found, str):
             return _error(found)
         if not found:
-            return _refused(
+            return run.refuse(
                 "no-acceptance-commit",
                 f"origin/{req.branch} has no `acceptance:` commit ahead of origin/main"
                 " (or give --untestable)",
             )
 
-    governor: dict[str, object]
     if govern is not None:
         reading = govern()
+        run.governor = {"source": "governor", "reading": reading.text}
         if not reading.ok:
-            line = f"REFUSED governor: {reading.text}"
-            print(line)
-            return Outcome(3, line)
-        governor = {"source": "governor", "reading": reading.text}
+            return run.refuse("governor", reading.text, exit_code=3)
     elif req.preflight:
-        governor = {"source": "preflight", "reading": req.preflight}
+        run.governor = {"source": "preflight", "reading": req.preflight}
     else:
-        return _refused(
+        return run.refuse(
             "no-preflight",
             "no governor on this tree: give --preflight with the df, free and /usage lines",
         )
     if req.usage_checked:
-        governor["usage_checked"] = req.usage_checked
+        run.governor["usage_checked"] = req.usage_checked
 
     prompt = preamble(req.branch, req.repository) + "\n" + text
     if scan is not None:
         scanned = scan(prompt)
+        run.leak_scan = {"status": "clean" if scanned.clean else "hit", "line": scanned.counts}
         if not scanned.clean:
-            return _refused("prompt-leak", f"the leak scan found a hit in the prompt ({scanned.counts})")
-        leak_scan = {"status": "clean", "line": scanned.counts}
+            return run.refuse(
+                "prompt-leak", f"the leak scan found a hit in the prompt ({scanned.counts})"
+            )
     elif req.prompt_scanned:
-        leak_scan = {"status": "interim", "line": req.prompt_scanned}
+        run.leak_scan = {"status": "interim", "line": req.prompt_scanned}
     else:
-        return _refused(
+        return run.refuse(
             "leakscan-unavailable",
             "no leak scan on this tree: give --prompt-scanned with the count line",
         )
 
-    record_dir = req.record_dir or root / FACTORY / "launches"
-    started = now().astimezone(UTC)
-    stamp = started.strftime("%Y%m%dT%H%M%SZ")
-    record_path = record_dir / f"{req.ticket}-{stamp}.json"
-    log = req.log or record_dir / f"{req.ticket}-{stamp}.debug.log"
-    if record_path.exists() or (req.log is None and log.exists()):
-        return _error(f"{record_path.name} already exists: a record is never overwritten")
-    record_dir.mkdir(parents=True, exist_ok=True)
-    log.parent.mkdir(parents=True, exist_ok=True)
-    log.unlink(missing_ok=True)  # an earlier launch's lines must never judge this one
+    log = req.log or record_dir / f"{req.ticket}-{run.stamp}.debug.log"
+    if log.exists():
+        # Never overwritten: an earlier launch's lines must never judge this one.
+        return _error(f"the debug log {log} already exists; give a new --log")
+    try:
+        log.parent.mkdir(parents=True, exist_ok=True)
+    except OSError as error:
+        return _error(f"cannot make the debug log's folder ({type(error).__name__})")
 
-    version = cli_version()
-    proving = _Proving(root / FACTORY, version)
+    proving = _Proving(root / FACTORY, run.cli_version)
     if not proving.proven() and not proving.acquire():
-        return _error(f"CLI {version} is not yet proven and another launch is proving it; wait for it")
+        return _error(
+            f"CLI {run.cli_version} is not yet proven and another launch holds"
+            f" {proving.lock}; wait for it"
+        )
     verdict = Verdict(False, "the launch did not run", None, "no-session")
     try:
         argv = ["claude", "--debug-file", str(log), "--model", req.model, "--effort", req.effort]
-        claude([*argv, "--on-branch", req.branch, "--cloud", prompt])
+        code = claude([*argv, "--on-branch", req.branch, "--cloud", prompt])
+        if code == NOT_FOUND:
+            return _error("the claude CLI is not on PATH")
         try:
             judged = log.read_text(errors="replace")
         except OSError:
             judged = ""
         verdict = judge(judged, repository=req.repository, branch=req.branch)
+        if code == TIMED_OUT:
+            why = f"the launch did not finish in {LAUNCH_TIMEOUT} s ({verdict.reason})"
+            verdict = Verdict(
+                False, why, verdict.session, "launch-timeout" if verdict.session else "no-session"
+            )
     finally:
         proving.release(verdict.ok)
 
@@ -593,28 +762,7 @@ def launch_cloud(
             with (record_dir / "to-delete.txt").open("a") as listed:
                 listed.write(f"{session}\n")
             print(f"DELETE {session}")
-
-    record = {
-        "ticket": req.ticket,
-        "branch": req.branch,
-        "where": "cloud",
-        "role": req.role,
-        "effort": req.effort,
-        "model": req.model,
-        "budget_minutes": req.budget_minutes,
-        "session_id": session,
-        "cli_version": version,
-        "started_at": started.isoformat().replace("+00:00", "Z"),
-        "governor": governor,
-        "leak_scan": leak_scan,
-        "judge": {"ok": verdict.ok, "code": verdict.code, "reason": verdict.reason},
-        "stop_sent": stop_sent,
-        "untestable": req.untestable,
-        "review": req.review.as_record() if req.review else None,
-    }
-    record_path.write_text(json.dumps(record, indent=2) + "\n")
-    (record_dir / f"{req.ticket}-{stamp}.agents.json").write_text(snapshot())
-    print(f"record: {record_path}")
+    run.write(verdict, stop_sent=stop_sent)
     return outcome
 
 
