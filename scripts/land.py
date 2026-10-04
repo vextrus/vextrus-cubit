@@ -4,8 +4,8 @@
 For each PR, engine PRs with a ledger PASS first, then the rest by number (a PR with no PASS is left
 out): it refuses (exit 3) unless the local review ledger has a PASS for the PR's head, then marks the PR
 ready, brings main in (`gh pr update-branch`), waits for CI, reruns the failed jobs **once** and only
-when every failed test is listed in `.github/flaky.txt`, runs `merge_ready`, merges and pulls main. It never
-raises privilege and never runs a shell. Exit codes: 0 landed, 2 usage, 3 refused.
+when every failed test is listed in `.github/flaky.txt`, runs `merge_ready`, merges and pulls main. It
+never raises privilege and never runs a shell. Exit codes: 0 landed, 2 usage, 3 refused.
 """
 
 import json
