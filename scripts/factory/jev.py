@@ -23,12 +23,16 @@ import hashlib
 import json
 import os
 import re
+import socket
+import ssl
 import sys
 import tempfile
 import threading
 import time
-from collections.abc import Callable, Iterator, Mapping
+import urllib.request
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from concurrent.futures import ThreadPoolExecutor
+from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -36,6 +40,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any, NoReturn
 
+import httpcore
 import httpx
 
 from vextrus.settings import jev as settings
@@ -203,28 +208,34 @@ def _label(value: str) -> str:
 
 class _Health:
     """Failures in a row across the process; after `VEXTRUS_JEV_COOL_OFF_AFTER` of them, every call is
-    `cooling_off` for `VEXTRUS_JEV_COOL_OFF_SECONDS`, then one call tries again."""
+    `cooling_off` for `VEXTRUS_JEV_COOL_OFF_SECONDS`, then one call (the probe) tries again while the
+    others still cool off. Every admitted call is settled, so a probe never stays open."""
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._failures = 0
         self._until: float | None = None
+        self._probing = False
 
-    def cooling(self) -> bool:
+    def admit(self) -> bool:
         with self._lock:
-            return self._until is not None and _now() < self._until
+            if self._until is None:
+                return True
+            if _now() < self._until or self._probing:
+                return False
+            self._probing = True
+            return True
 
-    def failed(self, why: Why) -> None:
-        if why not in _OUTAGES:
-            return
+    def settle(self, why: Why | None) -> None:
+        """An admitted call's end: `None` for an answer, else why it failed."""
         with self._lock:
-            self._failures += 1
-            if self._failures >= settings.VEXTRUS_JEV_COOL_OFF_AFTER:
-                self._until = _now() + settings.VEXTRUS_JEV_COOL_OFF_SECONDS
-
-    def succeeded(self) -> None:
-        with self._lock:
-            self._failures, self._until = 0, None
+            self._probing = False
+            if why is None:
+                self._failures, self._until = 0, None
+            elif why in _OUTAGES:
+                self._failures += 1
+                if self._failures >= settings.VEXTRUS_JEV_COOL_OFF_AFTER:
+                    self._until = _now() + settings.VEXTRUS_JEV_COOL_OFF_SECONDS
 
 
 _health = _Health()
@@ -494,27 +505,190 @@ def _validated(data: object, call: _Call) -> tuple[dict[str, dict[str, Any]], st
 
 
 def _record(call: _Call, answers: Answers) -> str:
-    """What the cache keeps: the validated response in the API's shape (no state, no key)."""
+    """What the cache keeps: the validated response in the API's shape (no state, no key), with the
+    question names in the order their wire ids were given. The file's digest sorts the questions, so
+    the same questions in another order name the same file: the names tell them apart."""
     wire_answers = {
         wire_id: _wire_answer(question["type"], answers[name])
         for (wire_id, question), name in zip(call.wire.items(), call.names, strict=True)
     }
     usage = {"input_tokens": answers.input_tokens, "output_tokens": answers.output_tokens}
-    return json.dumps({"model": answers.model, "answers": wire_answers, "usage": usage}, allow_nan=False)
+    record = {
+        "names": list(call.names),
+        "model": answers.model,
+        "answers": wire_answers,
+        "usage": usage,
+    }
+    return json.dumps(record, allow_nan=False)
 
 
 def _from_cache(path: Path, call: _Call) -> Answers | None:
-    """A cached answer, read as strictly as a fresh one; anything unreadable is a miss."""
+    """A cached answer, read as strictly as a fresh one; anything unreadable, or recorded for the same
+    questions asked in another order, is a miss."""
     try:
-        validated = _validated(_strict_json(path.read_text(encoding="ascii")), call)
+        data = _strict_json(path.read_text(encoding="ascii"))
     except OSError, ValueError, UnicodeDecodeError, RecursionError:
         return None
+    if not isinstance(data, dict) or data.get("names") != list(call.names):
+        return None
+    validated = _validated(data, call)
     if validated is None:
         return None
     named, model, input_tokens, output_tokens = validated
     return Answers(
         named, model=model, input_tokens=input_tokens, output_tokens=output_tokens, latency_ms=0
     )
+
+
+# The sockets: every wait cut to the call's deadline -------------------------------------------------
+#
+# httpx times each socket read on its own, so a server sending a header line or a body byte just inside
+# the read timeout, again and again, would hold a call for ever. The module's own client runs on these
+# sockets, each wait cut to what is left of the call's deadline (re-implemented after the product's
+# client, `vextrus/platform/services/jev.py`, which is tenant-bound and not imported). A client a caller
+# passes to `ask` (the tests' mock transports) is used as given: the deadline then holds between tries
+# and body chunks only.
+
+_DEADLINE: ContextVar[tuple[Callable[[], float], float] | None] = ContextVar(
+    "factory_jev_deadline", default=None
+)
+"""The call in progress in this thread: its clock and the time it must end by."""
+
+
+def _left(timeout: float | None, expired: type[Exception]) -> float | None:
+    """`timeout` cut to what is left of the call's deadline; `expired` when nothing is."""
+    call = _DEADLINE.get()
+    if call is None:
+        return timeout
+    clock, deadline = call
+    left = deadline - clock()
+    if left <= 0:
+        raise expired("the call's deadline has passed")
+    return left if timeout is None else min(timeout, left)
+
+
+class _Stream(httpcore.NetworkStream):
+    """httpcore's socket stream, each wait cut to the call's deadline."""
+
+    def __init__(self, inner: httpcore.NetworkStream) -> None:
+        self._inner = inner
+
+    def read(self, max_bytes: int, timeout: float | None = None) -> bytes:
+        return self._inner.read(max_bytes, _left(timeout, httpcore.ReadTimeout))
+
+    def write(self, buffer: bytes, timeout: float | None = None) -> None:
+        self._inner.write(buffer, _left(timeout, httpcore.WriteTimeout))
+
+    def close(self) -> None:
+        self._inner.close()
+
+    def start_tls(
+        self,
+        ssl_context: ssl.SSLContext,
+        server_hostname: str | None = None,
+        timeout: float | None = None,
+    ) -> httpcore.NetworkStream:
+        wait = _left(timeout, httpcore.ConnectTimeout)
+        return _Stream(self._inner.start_tls(ssl_context, server_hostname, wait))
+
+    def get_extra_info(self, info: str) -> Any:
+        return self._inner.get_extra_info(info)
+
+
+class _Sockets(httpcore.NetworkBackend):
+    """httpcore's sockets, connecting to each address in turn with what is left of the deadline.
+    Name resolution is the system resolver's own and is not cut."""
+
+    def __init__(self) -> None:
+        self._sockets = httpcore.SyncBackend()
+
+    def connect_tcp(
+        self,
+        host: str,
+        port: int,
+        timeout: float | None = None,
+        local_address: str | None = None,
+        socket_options: Iterable[Any] | None = None,
+    ) -> httpcore.NetworkStream:
+        try:
+            found = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+        except OSError as failed:
+            raise httpcore.ConnectError("cannot resolve the host") from failed
+        failure: Exception = httpcore.ConnectError("the host has no address")
+        for *_kind, address in found:
+            wait = _left(timeout, httpcore.ConnectTimeout)
+            try:
+                stream = self._sockets.connect_tcp(
+                    str(address[0]), port, wait, local_address, list(socket_options or ())
+                )
+            except httpcore.ConnectError as failed:
+                failure = failed
+                continue
+            return _Stream(stream)
+        raise failure
+
+    def connect_unix_socket(
+        self, path: str, timeout: float | None = None, socket_options: Iterable[Any] | None = None
+    ) -> httpcore.NetworkStream:
+        raise httpcore.ConnectError("TypeSafe is reached over TCP only")
+
+    def sleep(self, seconds: float) -> None:
+        raise RuntimeError("the pool never waits: it is made with retries=0")
+
+
+class _Transport(httpx.HTTPTransport):
+    """httpx's transport on `_Sockets`, through `proxy` when one is given (a cloud session reaches
+    TypeSafe through its proxy). TLS is verified as httpx does (`SSL_CERT_FILE` honoured); no retry of
+    its own. httpx takes no network backend, so the pool it makes is replaced by one that does, as
+    httpx 0.28.1 (pinned) builds it."""
+
+    def __init__(self, proxy: str | None = None) -> None:
+        tls = httpx.create_ssl_context(verify=True, trust_env=True)
+        super().__init__(verify=tls, trust_env=True, retries=0)
+        sockets = _Sockets()
+        if proxy is None:
+            self._pool = httpcore.ConnectionPool(
+                ssl_context=tls,
+                max_connections=MAX_CONCURRENT,
+                http1=True,
+                http2=False,
+                retries=0,
+                network_backend=sockets,
+            )
+            return
+        through = httpx.Proxy(url=proxy)
+        if through.url.scheme not in ("http", "https"):
+            raise ValueError("only an http or https proxy is used")
+        self._pool = httpcore.HTTPProxy(
+            proxy_url=httpcore.URL(
+                scheme=through.url.raw_scheme,
+                host=through.url.raw_host,
+                port=through.url.port,
+                target=through.url.raw_path,
+            ),
+            proxy_auth=through.raw_auth,
+            proxy_headers=through.headers.raw,
+            ssl_context=tls,
+            proxy_ssl_context=through.ssl_context,
+            max_connections=MAX_CONCURRENT,
+            http1=True,
+            http2=False,
+            retries=0,
+            network_backend=sockets,
+        )
+
+
+def _proxy_for(url: httpx.URL) -> str | None:
+    """The environment's proxy for `url` (`<scheme>_proxy`, `all_proxy`, `no_proxy`), as the standard
+    library reads them."""
+    proxies = urllib.request.getproxies_environment()
+    if url.host and urllib.request.proxy_bypass(url.host):
+        return None
+    return proxies.get(url.scheme) or proxies.get("all") or None
+
+
+def _own_client(url: httpx.URL) -> httpx.Client:
+    return httpx.Client(transport=_Transport(_proxy_for(url)), trust_env=False, follow_redirects=False)
 
 
 # The network --------------------------------------------------------------------------------------
@@ -619,22 +793,27 @@ def _send(
 def _exchange(
     client: httpx.Client | None, method: str, url: httpx.URL, key: str, body: bytes | None
 ) -> tuple[bytes | Why, float]:
-    """One call inside the concurrency limit and the deadline: the body (or why not) and the seconds
-    it took. Closes the client it opens; never raises."""
-    owned: httpx.Client | None = None
+    """One call inside the concurrency limit and the deadline (the wait for a slot included): the body
+    (or why not) and the seconds it took. Closes the client it opens; never raises."""
     start = _now()
+    deadline = start + settings.VEXTRUS_JEV_DEADLINE_SECONDS
+    if not _slots.acquire(timeout=max(deadline - _now(), 0.0)):
+        return Why.TIMED_OUT, _now() - start
+    owned: httpx.Client | None = None
+    token = _DEADLINE.set((_now, deadline))
     try:
-        with _slots:
-            start = _now()
-            http = client
-            if http is None:
-                owned = http = httpx.Client(follow_redirects=False)
-            outcome = _send(http, method, url, key, start + settings.VEXTRUS_JEV_DEADLINE_SECONDS, body)
+        http = client
+        if http is None:
+            owned = http = _own_client(url)
+        outcome = _send(http, method, url, key, deadline, body)
     except Exception:  # nothing TypeSafe sends may raise into the caller
         outcome = Why.FAILED
     finally:
+        _DEADLINE.reset(token)
         if owned is not None:
-            owned.close()
+            with contextlib.suppress(Exception):
+                owned.close()
+        _slots.release()
     return outcome, _now() - start
 
 
@@ -655,22 +834,24 @@ def _ask(
     key = _key()
     if key is None:
         return Unavailable(Why.NO_KEY), False
-    if _health.cooling():
+    if not _health.admit():
         return Unavailable(Why.COOLING_OFF), False
-    body, took = _exchange(client, "POST", url, key, call.body)
     validated: tuple[dict[str, dict[str, Any]], str, int, int] | None = None
-    if not isinstance(body, Why):
-        try:
-            validated = _validated(_strict_json(body.decode("utf-8")), call)
-        except ValueError, UnicodeDecodeError, RecursionError:
-            validated = None
-        if validated is None:
-            body = Why.MALFORMED
-    if isinstance(body, Why) or validated is None:
-        why = body if isinstance(body, Why) else Why.MALFORMED
-        _health.failed(why)
-        return Unavailable(why), False
-    _health.succeeded()
+    why: Why | None = Why.FAILED
+    try:
+        body, took = _exchange(client, "POST", url, key, call.body)
+        if isinstance(body, Why):
+            why = body
+        else:
+            try:
+                validated = _validated(_strict_json(body.decode("utf-8")), call)
+            except ValueError, UnicodeDecodeError, RecursionError:
+                validated = None
+            why = None if validated is not None else Why.MALFORMED
+    finally:
+        _health.settle(why)
+    if why is not None or validated is None:
+        return Unavailable(why or Why.MALFORMED), False
     named, seen, input_tokens, output_tokens = validated
     answers = Answers(
         named,

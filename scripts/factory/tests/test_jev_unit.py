@@ -4,13 +4,18 @@ the acceptance path may hold no deselected test."""
 
 import json
 import os
-from collections.abc import Callable
+import socket
+import threading
+import time
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 import httpx
 import pytest
 
 from scripts.factory import jev
+from vextrus.settings import jev as jev_settings
 
 SENTINEL = "KEYSENTINEL-do-not-print-0451"
 MARKER = "INVENTED-MARKER-7f3a"
@@ -139,6 +144,134 @@ def test_pins_come_only_from_a_tables_model_column(tmp_path: Path) -> None:
         "| threshold | model-ish |\n|---|---|\n| 0.9 | jev-3.0.0 |\n"
     )
     assert jev.read_pins(path) == {"jev-1.13.0", "jev-2.0.0"}
+
+
+# Fix round 1 (F1): the deadline holds while the status line, the headers and the body arrive -------
+
+
+@contextmanager
+def dripping_server(head: bytes, drip: bytes) -> Iterator[int]:
+    """A local HTTP server that reads the request, sends `head`, then `drip` every 50 ms for at most
+    3 s (so a client without the deadline ends in about 3 s rather than never). Its port."""
+    listener = socket.socket()
+    listener.bind(("127.0.0.1", 0))
+    listener.listen(1)
+    stop = threading.Event()
+
+    def serve() -> None:
+        try:
+            connection, _address = listener.accept()
+        except OSError:
+            return
+        with connection:
+            connection.recv(65_536)
+            connection.sendall(head)
+            ends = time.monotonic() + 3.0
+            while not stop.is_set() and time.monotonic() < ends:
+                try:
+                    connection.sendall(drip)
+                except OSError:
+                    return
+                stop.wait(0.05)
+
+    server = threading.Thread(target=serve, daemon=True)
+    server.start()
+    try:
+        yield listener.getsockname()[1]
+    finally:
+        stop.set()
+        listener.close()
+        server.join(timeout=5)
+
+
+@pytest.mark.parametrize(
+    ("head", "drip"),
+    [
+        (b"HTTP/1.1 200 OK\r\n", b"X-Invented-Drip: x\r\n"),
+        (b"HTTP/1.1 200 OK\r\nContent-Length: 60000\r\n\r\n", b" "),
+    ],
+    ids=["header-drip", "body-drip"],
+)
+def test_a_server_dripping_headers_or_body_is_cut_at_the_deadline(
+    monkeypatch: pytest.MonkeyPatch, head: bytes, drip: bytes
+) -> None:
+    for name in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy"):
+        monkeypatch.delenv(name, raising=False)
+    deadline = 0.5
+    monkeypatch.setattr(jev_settings, "VEXTRUS_JEV_DEADLINE_SECONDS", deadline)
+    with dripping_server(head, drip) as port:
+        start = time.monotonic()
+        outcome, took = jev._exchange(
+            None, "GET", httpx.URL(f"http://127.0.0.1:{port}/"), "invented-key", None
+        )
+        elapsed = time.monotonic() - start
+    # Each line or byte comes within 50 ms, far inside the 4 s read timeout: only the deadline ends
+    # it. The margin is loose so no machine's speed matters; without the deadline it takes 3 s.
+    assert outcome == jev.Why.TIMED_OUT
+    assert elapsed < deadline + 1.0
+    assert took <= elapsed
+
+
+def test_outside_a_call_a_streams_waits_are_as_given() -> None:
+    assert jev._left(4.0, TimeoutError) == 4.0
+
+
+# Fix round 1 (F2): the same questions in another order never get each other's answers ------------
+
+
+def test_the_same_questions_in_two_orders_each_get_their_own_answers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("TYPESAFE_API_KEY", SENTINEL)
+    wet = {"kind": "noul", "text": "Is the invented towel wet?"}
+    green = {"kind": "noul", "text": "Is the invented leaf green?"}
+    by_text = {wet["text"]: 0.97, green["text"]: 0.12}
+    sent: list[httpx.Request] = []
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        sent.append(request)
+        asked = json.loads(request.content)["questions"]
+        answers = {
+            qid: {"type": "noul", "noul": by_text[question["instructions"]]}
+            for qid, question in asked.items()
+        }
+        return httpx.Response(200, json={"model": "jev-1.13.0", "answers": answers})
+
+    state = "Invented state for two orders."
+    with mocked(respond) as client:
+        first = jev.ask(state, {"wet": wet, "green": green}, client=client)
+        second = jev.ask(state, {"green": green, "wet": wet}, client=client)
+        third = jev.ask(state, {"green": green, "wet": wet}, client=client)
+    for answers in (first, second, third):
+        assert isinstance(answers, jev.Answers)
+        assert answers["wet"]["p"] == pytest.approx(0.97)
+        assert answers["green"]["p"] == pytest.approx(0.12)
+    assert len(sent) == 2, "the other order is a miss; the same order again is a hit"
+
+
+# Below 50, fixed too: after the cool-off one probe goes, the others still cool off ----------------
+
+
+def test_after_the_cool_off_one_probe_goes_while_the_others_wait(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    now = [1000.0]
+    monkeypatch.setattr(jev, "_now", lambda: now[0])
+    health = jev._Health()
+    for _ in range(3):
+        assert health.admit()
+        health.settle(jev.Why.FAILED)
+    assert not health.admit()
+    now[0] += 60.0
+    assert health.admit(), "the probe"
+    assert not health.admit(), "another caller while the probe is out"
+    health.settle(jev.Why.FAILED)
+    assert not health.admit(), "the probe failed: cooling off again"
+    now[0] += 60.0
+    assert health.admit()
+    health.settle(None)
+    assert health.admit(), "an answer ends the cool-off"
+    assert health.admit()
 
 
 @pytest.mark.live
