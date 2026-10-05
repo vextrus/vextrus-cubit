@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -212,3 +213,65 @@ def test_every_models_check_that_ran_is_stamped(
     watch.watch_jev(step)
     assert step.state["jev_checked_at"] == "2026-10-04T21:08:00Z"
     assert step.state["jev_moved"] == moved
+
+
+ATTRIBUTION = "Co-Authored-By: x <x@example.invalid>\nClaude-Session: https://example.invalid/s"
+
+
+def test_trailers_before_an_attribution_only_paragraph_are_read() -> None:
+    ready = f"feat: x\n\nFactory-State: READY\nFactory-Verify: {TREE} ok\n\n{ATTRIBUTION}\n"
+    assert watch.parse_trailers(ready, TREE).outcome == "READY"
+    prose = f"feat: x\n\nFactory-State: READY\nFactory-Verify: {TREE} ok\n\nA note.\n\n{ATTRIBUTION}\n"
+    assert watch.parse_trailers(prose, TREE).outcome is None
+    assert watch.parse_trailers(f"{ATTRIBUTION}\n", TREE).outcome is None
+    mixed = f"feat: x\n\nFactory-State: READY\nFactory-Verify: {TREE} ok\n\n{ATTRIBUTION}\nNote: y\n"
+    assert watch.parse_trailers(mixed, TREE).outcome is None
+
+
+def git_in(repo: Path, *args: str) -> str:
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    env.update(
+        GIT_CONFIG_NOSYSTEM="1",
+        GIT_CONFIG_GLOBAL=os.devnull,
+        GIT_AUTHOR_NAME="t",
+        GIT_AUTHOR_EMAIL="t@example.invalid",
+        GIT_COMMITTER_NAME="t",
+        GIT_COMMITTER_EMAIL="t@example.invalid",
+        GIT_AUTHOR_DATE="2026-01-01T00:00:00+0000",
+        GIT_COMMITTER_DATE="2026-01-01T00:00:00+0000",
+    )
+    done = subprocess.run(["git", *args], cwd=repo, env=env, capture_output=True, text=True, check=True)
+    return done.stdout.strip()
+
+
+def test_the_local_head_is_the_checkouts_own_ref(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    git_in(tmp_path, "init", "-q", "-b", "main")
+    git_in(tmp_path, "commit", "-q", "--allow-empty", "-m", "seed")
+    seed = git_in(tmp_path, "rev-parse", "HEAD")
+    git_in(tmp_path, "update-ref", "refs/heads/t-branch", seed)
+    monkeypatch.chdir(tmp_path)
+    assert watch.local_head("t-branch") == seed
+    assert watch.local_head("no-such-branch") is None
+    assert watch.local_head("a..b") is None
+
+
+def test_a_merge_of_main_takes_its_first_parents_outcome(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    git_in(tmp_path, "init", "-q", "-b", "main")
+    git_in(tmp_path, "commit", "-q", "--allow-empty", "-m", "seed")
+    seed = git_in(tmp_path, "rev-parse", "HEAD")
+    tree = git_in(tmp_path, "rev-parse", "HEAD^{tree}")
+    message = f"feat: x\n\nFactory-State: READY\nFactory-Verify: {tree} ok\n"
+    ready = git_in(tmp_path, "commit-tree", tree, "-p", seed, "-m", message)
+    main = git_in(tmp_path, "commit-tree", tree, "-p", seed, "-m", "main moves")
+    side = git_in(tmp_path, "commit-tree", tree, "-p", seed, "-m", "a side branch")
+    git_in(tmp_path, "update-ref", "refs/heads/main", main)
+    merged = git_in(tmp_path, "commit-tree", tree, "-p", ready, "-p", main, "-m", "Merge main")
+    not_main = git_in(tmp_path, "commit-tree", tree, "-p", ready, "-p", side, "-m", "Merge side")
+    monkeypatch.chdir(tmp_path)
+    outcome = watch.head_trailers(merged, "Merge main\n", tree, main).outcome
+    assert outcome == "READY"
+    assert watch.head_trailers(not_main, "Merge side\n", tree, main).outcome is None

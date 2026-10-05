@@ -9,12 +9,14 @@ Run it from the main checkout: git runs in the current directory's repository.
 Each pass (every `--interval` seconds; `--once` makes one pass and exits):
 - the ticket branches named by the launch records (`$VEXTRUS_FACTORY_DIR/launches/<ticket>-<utc>.json`,
   launch-cli.md 5; the newest record per ticket, and only those started since `session.json`'s start when
-  a session is running) are read with one `git ls-remote --heads origin`. A new head is a push (a
-  heartbeat): it is fetched, its tip's trailers are read exactly as trailers.md 1 defines them (never a
-  reading of free text), and on a cloud branch `python -m tools.leakscan range origin/main..<head>
-  --no-stamp` (or `VEXTRUS_LEAKSCAN_CMD`) scans its diff and messages; the scan's output is reduced to
-  `file:line` and a count, its text is never kept. No scanner (before PR f2) is recorded as `absent` in
-  `watch-state.json` and is not an alarm;
+  a session is running) are read with one `git ls-remote --heads origin`; a local builder's head is its
+  `refs/heads/<branch>` in this checkout (its worktree shares the refs; it never pushes), origin's tip
+  until that ref exists. A new head is a push (a heartbeat; on a local branch a commit): it is fetched,
+  its tip's trailers are read exactly as trailers.md 1 defines them (never a reading of free text; a
+  merge of main takes its first parent's), and on a cloud branch `python -m tools.leakscan range
+  origin/main..<head> --no-stamp` (or `VEXTRUS_LEAKSCAN_CMD`) scans its diff and messages; the scan's
+  output is reduced to `file:line` and a count, its text is never kept. No scanner (before PR f2) is
+  recorded as `absent` in `watch-state.json` and is not an alarm;
 - `claude agents --json --all` (only when a local builder is recorded), the usage reading every 15
   minutes (a line in `usage.log`), `gh pr list` every 5 minutes, `jev models-check` once a day (when
   `scripts/factory/jev.py` or `VEXTRUS_JEV_CMD` exists), and every pass `rdlock.json`, `df`,
@@ -22,7 +24,8 @@ Each pass (every `--interval` seconds; `--once` makes one pass and exits):
   `g1.pid`) and `session.json`.
 
 It writes one `status.json` (status.schema.json, atomically, through `status.py`) and appends one line
-`<UTC> <KIND> <ticket|-> <detail>` per change to `events.log`. The kinds: PUSH, READY, BLOCKED (events)
+`<UTC> <KIND> <ticket|-> <detail>` per change to `events.log`. The kinds: PUSH, COMMIT (a local head
+that is not origin's tip), READY, BLOCKED (events)
 and the alarms, status.schema.json's codes: READY-WAITING, READY-NO-VERIFY, BUILDER-QUIET,
 BUILDER-BLOCKED, NEW-CLAUDE-BRANCH, LEAK-HIT, BUDGET-PASSED, FLOOR-CROSSED, REVIEW-READY,
 JEV-MODEL-MOVED. Alarms are edge-triggered: a line when one is raised, none while it holds, and it
@@ -89,16 +92,28 @@ class Trailers:
 
 
 KEYS = {"factory-state", "factory-verify", "factory-reason"}
+ATTRIBUTION = {"co-authored-by", "claude-session"}
+TRAILER = re.compile(r"^([A-Za-z0-9-]+):[ \t]*(.*?)\s*$")
+MERGE_DEPTH = 20
+
+
+def is_attribution(paragraph: str) -> bool:
+    """A paragraph of attribution trailers (`Co-Authored-By`, `Claude-Session`) and nothing else."""
+    keys = [TRAILER.match(line) for line in paragraph.splitlines() if line.strip()]
+    return bool(keys) and all(m is not None and m.group(1).lower() in ATTRIBUTION for m in keys)
 
 
 def parse_trailers(message: str, tree: str) -> Trailers:
-    """The tip commit's factory trailers, from its last paragraph only."""
+    """The tip commit's factory trailers, from its last paragraph, or from the one before it when the
+    last holds only attribution trailers (trailers.md 1). Never from free text earlier in the body."""
     paragraphs = [p for p in re.split(r"\n[ \t]*\n", message.strip()) if p.strip()]
+    if len(paragraphs) > 1 and is_attribution(paragraphs[-1]):
+        paragraphs.pop()
     if not paragraphs:
         return Trailers(None)
     found: dict[str, list[str]] = {}
     for line in paragraphs[-1].splitlines():
-        match = re.match(r"^([A-Za-z0-9-]+):[ \t]*(.*?)\s*$", line)
+        match = TRAILER.match(line)
         if match and match.group(1).lower().startswith("factory-"):
             found.setdefault(match.group(1).lower(), []).append(match.group(2))
     if not found:
@@ -191,6 +206,39 @@ def read_head(branch: str, sha: str) -> tuple[str, str] | None:
     if message is None or tree is None:
         return None
     return message, tree.strip()
+
+
+def local_head(branch: str) -> str | None:
+    """`refs/heads/<branch>` in the main checkout: a local builder's worktree shares these refs, so this
+    is its own head, pushed or not. None when there is no such ref or git refuses the name."""
+    out = git_out("rev-parse", "--verify", "-q", f"refs/heads/{branch}")
+    sha = out.strip() if out is not None else ""
+    return sha if SHA40.match(sha) else None
+
+
+def head_trailers(sha: str, message: str, tree: str, main_sha: str | None) -> Trailers:
+    """The head's trailers; when it is a merge of main (two parents, the second on origin/main) with no
+    outcome of its own, its first parent's, through further merges of main (the lander's merge)."""
+    trailers = parse_trailers(message, tree)
+    main = main_sha or "refs/remotes/origin/main"
+    for _ in range(MERGE_DEPTH):
+        if trailers.outcome is not None:
+            break
+        parents = (git_out("rev-list", "--parents", "-n", "1", sha) or "").split()[1:]
+        if len(parents) != 2:
+            break
+        if main_sha is not None:
+            fetch("main", main_sha)
+        on_main = git("merge-base", "--is-ancestor", parents[1], main)
+        if on_main is None or on_main.returncode != 0:
+            break
+        sha = parents[0]
+        message_out = git_out("log", "-1", "--format=%B", sha)
+        tree_out = git_out("rev-parse", f"{sha}^{{tree}}")
+        if message_out is None or tree_out is None:
+            break
+        trailers = parse_trailers(message_out, tree_out.strip())
+    return trailers
 
 
 # --- the leak scan (leakscan-cli.md 6: the watcher only alarms, never stamps)
@@ -590,12 +638,17 @@ def track(
     seen = tickets.get(ticket)
     if seen is None or seen.get("branch") != branch:
         seen = tickets[ticket] = {"branch": branch, "head": None, "last_push_at": None, "outcome": None}
-    head = refs.get(branch) if refs is not None else seen["head"]
-    if refs is not None and head != seen["head"]:
+    tip = refs.get(branch) if refs is not None else None  # origin's
+    # A local builder's own head is its ref in this checkout; origin's tip until it has one.
+    mine = local_head(branch) if where == "local" else None
+    head = mine or (tip if refs is not None else seen["head"])
+    if (refs is not None or mine is not None) and head != seen["head"]:
         info = read_head(branch, head) if head is not None else ("", "")
         if info is not None:
             message, tree = info
-            trailers = parse_trailers(message, tree) if head is not None else Trailers(None)
+            trailers = (
+                head_trailers(head, message, tree, main_sha) if head is not None else Trailers(None)
+            )
             seen.update(
                 head=head,
                 last_push_at=status.utc(at) if head is not None else seen["last_push_at"],
@@ -607,7 +660,10 @@ def track(
                 acceptance=head is not None and message.startswith("acceptance:"),
             )
             if head is not None:
-                step.event("PUSH", ticket, head[:8])
+                if mine is None:
+                    step.event("PUSH", ticket, head[:8])
+                elif head != tip:  # equal to origin's tip: the launch tip or a head already pushed
+                    step.event("COMMIT", ticket, head[:8])
                 if trailers.outcome == "READY":
                     step.event("READY", ticket, head[:8])
                 elif trailers.outcome == "BLOCKED":
