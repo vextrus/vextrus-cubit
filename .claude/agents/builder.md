@@ -78,8 +78,9 @@ Your last commit's message body is the PR body; its last paragraph carries the t
 - `Factory-State: BLOCKED` and `Factory-Reason: <one line, public words>`.
 The body, in this order: what was **not verified** first (honestly: the live calls, the paths no test
 reaches, anything cut); then the verify summary (each check and its exit code); then `## Cut` holding one
-`- ` item per cut, each naming the issue title to file, or `None.` alone (`merge_ready` refuses any other
-line there); then `## For a later ticket` with what a later ticket must know and, for a harness PR
+`- ` item per cut, each naming the issue title to file (one plain indented line may wrap it; no `|`, `<`,
+`>` or backtick), or `None.` alone (`merge_ready` refuses any other line there, and any line elsewhere that
+starts Cut, Deferred or Not done); then `## For a later ticket` with what a later ticket must know and, for a harness PR
 (`.claude`, `scripts`, `tools`, `.github`), `Harness net: +a / −r` from `git diff --numstat
 origin/main...HEAD`; then the trailers paragraph, last: `Factory-State`, `Factory-Verify` (or
 `Factory-Reason`), `Co-Authored-By` and `Claude-Session` together, with no blank line between them.
