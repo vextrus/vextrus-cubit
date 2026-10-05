@@ -308,3 +308,55 @@ def test_an_empty_log_failed_falls_back_to_the_job_s_whole_log() -> None:
     named = Logs(FLAKE, "")
     assert failed_tests(named.job_log("1", "2")) == ["vextrus/x/tests/test_a.py :: test_flaky"]
     assert len(named.argv) == 1, "a log that names its tests needs no second read"
+
+
+def run_git(cwd: Path, *args: str) -> str:
+    done = subprocess.run(
+        ["git", "-c", "user.email=a@b", "-c", "user.name=a", "-c", "commit.gpgsign=false", *args],
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return done.stdout.strip()
+
+
+def behind_origin(root: Path) -> tuple[Path, str]:
+    """A checkout on main one commit behind its origin's main; returns it and origin's main."""
+    origin, repo, other = root / "origin.git", root / "repo", root / "other"
+    run_git(root, "init", "-q", "--bare", "-b", "main", str(origin))
+    run_git(root, "clone", "-q", str(origin), str(repo))
+    run_git(repo, "commit", "-q", "--allow-empty", "-m", "base")
+    run_git(repo, "push", "-q", "origin", "main")
+    run_git(root, "clone", "-q", str(origin), str(other))
+    run_git(other, "commit", "-q", "--allow-empty", "-m", "merged")
+    run_git(other, "push", "-q", "origin", "main")
+    return repo, run_git(other, "rev-parse", "HEAD")
+
+
+def test_pull_main_retries_a_fetch_another_process_raced_for_origin_main(tmp_path: Path) -> None:
+    """Another fetch holds `refs/remotes/origin/main` as ours runs ("cannot lock ref"): ours is tried
+    again 2 s later instead of leaving main behind."""
+    repo, ahead = behind_origin(tmp_path)
+    lock = repo / ".git" / "refs" / "remotes" / "origin" / "main.lock"
+    lock.write_text("")
+    sleeps: list[float] = []
+
+    def other_fetch_done(seconds: float) -> None:
+        sleeps.append(seconds)
+        lock.unlink(missing_ok=True)
+
+    Gh(repo, sleep=other_fetch_done).pull_main()
+    assert sleeps == [2]
+    assert run_git(repo, "rev-parse", "HEAD") == ahead
+
+
+def test_pull_main_raises_after_three_failed_fetches(tmp_path: Path) -> None:
+    repo, _ = behind_origin(tmp_path)
+    before = run_git(repo, "rev-parse", "HEAD")
+    (repo / ".git" / "refs" / "remotes" / "origin" / "main.lock").write_text("")
+    sleeps: list[float] = []
+    with pytest.raises(subprocess.CalledProcessError):
+        Gh(repo, sleep=sleeps.append).pull_main()
+    assert sleeps == [2, 2]
+    assert run_git(repo, "rev-parse", "HEAD") == before

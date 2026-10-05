@@ -12,8 +12,10 @@ with no password: libpq reads the password from `~/.pgpass`. CI and the cloud se
 The database's name is the URLs' path when they carry one, else `VEXTRUS_DB_NAME`, else the
 worktree's own: `vextrus` in the main checkout and `vextrus_<worktree>` in a linked worktree, so
 parallel sessions never share data. `manage.py ensure_database` creates it. Test databases are named
-by the worktree's database and a hash of every migration (`<name>_test_<hash>`), so a changed
-migration gets a fresh test database and an unchanged one is reused.
+`<name>_test_<hash>`: the worktree's database and a hash of every migration and of the checkout's
+resolved path, so a changed migration gets a fresh test database, an unchanged one is reused, and two
+checkouts that share a name never share one. Under pytest-xdist each worker appends `_gw<N>`
+(`vextrus.testing.database`); `_MAX_NAME` keeps `_gw127` within PostgreSQL's 63.
 """
 
 import hashlib
@@ -33,7 +35,7 @@ from vextrus.settings.tenancy import VEXTRUS_APP_ROLE, VEXTRUS_OWNER_ROLE
 VEXTRUS_OWNER_ALIAS = "owner"
 _LOCAL_HOST = "127.0.0.1"
 _LOCAL_PORT = "5432"
-_MAX_NAME = 40  # leaves room for "_test_" and 10 hex characters within PostgreSQL's 63
+_MAX_NAME = 40  # leaves room for "_test_", 10 hex and xdist's "_gw127" within PostgreSQL's 63
 _HASHED_PACKAGES = ("django", "procrastinate")  # their own migrations make our test schema too
 
 
@@ -56,6 +58,13 @@ def migrations_hash(checkout: Path) -> str:
     for package in _HASHED_PACKAGES:
         digest.update(f"{package}=={version(package)}\0".encode())
     return digest.hexdigest()
+
+
+def test_database_hash(checkout: Path) -> str:
+    """10 hex of the migrations' hash and the checkout's resolved path: one test database per schema
+    and per checkout (two checkouts named alike, under different parents, never share one)."""
+    digest = hashlib.sha256(f"{migrations_hash(checkout)}\0{checkout.resolve()}".encode())
+    return digest.hexdigest()[:10]
 
 
 def _parse(variable: str, url: str) -> dict[str, str]:
@@ -88,7 +97,7 @@ def databases(environ: Mapping[str, str], checkout: Path) -> dict[str, dict[str,
             f"DATABASE_URL and DATABASE_OWNER_URL must name one database: {names}"
         )
     name = names.pop()
-    test_name = f"{name}_test_{migrations_hash(checkout)[:10]}"
+    test_name = f"{name}_test_{test_database_hash(checkout)}"
     return {
         alias: {
             "ENGINE": "django.db.backends.postgresql",

@@ -42,9 +42,12 @@ from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import NoReturn
+from typing import TYPE_CHECKING, NoReturn
 
 from scripts.factory import stamp, status
+
+if TYPE_CHECKING:
+    from scripts.factory.jev import Answers, Unavailable
 
 REPOSITORY = "github.com/vextrus/vextrus-cubit"
 MODEL = "claude-opus-5-5"
@@ -347,6 +350,50 @@ class Default:
 
 
 DEFAULT = Default()
+
+# --- Jev's second opinion (#260, J-f: "a warning, never a refusal") -------------------------------
+
+JEV_WARN_AT = 0.9
+JEV_TASK = "launch-warn"
+JEV_ASKS = ("builder", "acceptance-writer")
+JEV_QUESTIONS: dict[str, dict[str, str]] = {
+    "needs_real_drawings": {
+        "kind": "noul",
+        "text": "Does this ticket require reading real project drawing files (CAD or PDF) or files"
+        " under a private folder that a cloud session does not have?",
+    },
+    "needs_other_ticket": {
+        "kind": "noul",
+        "text": "Does this ticket require editing or reading a file that another ticket owns, or a"
+        " change that has not landed on the main branch?",
+    },
+}
+Ask = Callable[[str, dict[str, dict[str, str]]], "Answers | Unavailable"]
+
+
+def _jev_blank(status: str) -> dict[str, object]:
+    return {"status": status, "warnings": [], "p": {}}
+
+
+def default_ask(state: str, questions: dict[str, dict[str, str]]) -> Answers | Unavailable:
+    """The real Jev, looked up at call time so a test can replace `jev.ask`."""
+    jev_module = importlib.import_module("scripts.factory.jev")
+    answered: Answers | Unavailable = jev_module.ask(state, questions, task=JEV_TASK)
+    return answered
+
+
+def jev_reading(text: str, ask: Ask) -> dict[str, object]:
+    """Jev's advisory reading of a ticket prompt: always `status`, `warnings` and `p` (and `why` when
+    unavailable). Advice only: no caller decides anything on it, and it never holds the prompt."""
+    try:
+        answered = ask(text, JEV_QUESTIONS)
+    except Exception:
+        return {"status": "unavailable", "why": "failed", "warnings": [], "p": {}}
+    if not isinstance(answered, Mapping):  # an `Unavailable` (by shape: `jev` may be reloaded)
+        return {"status": "unavailable", "why": answered.why.value, "warnings": [], "p": {}}
+    p = {name: float(answered[name]["p"]) for name in JEV_QUESTIONS}
+    warnings = [name.replace("_", "-") for name, value in p.items() if value >= JEV_WARN_AT]
+    return {"status": "ok", "warnings": warnings, "p": p}
 
 
 def utcnow() -> datetime:
@@ -688,6 +735,7 @@ class _Run:
     governor: dict[str, object] = field(default_factory=dict)
     leak_scan: dict[str, str] = field(default_factory=lambda: {"status": "not-run", "line": ""})
     cli_version: str = "unknown"
+    jev: dict[str, object] = field(default_factory=lambda: _jev_blank("not-asked"))
 
     @property
     def stamp(self) -> str:
@@ -713,6 +761,7 @@ class _Run:
             "stop_sent": stop_sent,
             "untestable": self.req.untestable,
             "review": self.req.review.as_record() if self.req.review else None,
+            "jev": self.jev,
         }
         try:
             self.record_dir.mkdir(parents=True, exist_ok=True)
@@ -723,6 +772,10 @@ class _Run:
         except OSError as error:
             print(f"ERROR the launch record was not written ({type(error).__name__}: {error.filename})")
             return
+        warnings, p = self.jev["warnings"], self.jev["p"]
+        if isinstance(warnings, list) and isinstance(p, dict):  # never line 1: OK/REFUSED stays first
+            for code in warnings:
+                print(f"JEV-DISAGREES {code} p={p[code.replace('-', '_')]:.2f}")
         print(f"record: {path}")
 
     def _free_name(self) -> tuple[Path, Path]:
@@ -761,11 +814,13 @@ def launch_cloud(
     snapshot: Callable[[], str] = default_snapshot,
     now: Callable[[], datetime] = utcnow,
     sleep: Callable[[float], None] = time.sleep,
+    jev: Ask | Default | None = None,
 ) -> Outcome:
     """Refuse, or launch and judge one cloud session; print the run's lines and write its record
     (refusals before the launch too, with no session). `scan` and `govern` None mean the tree has no
     leak scan or governor yet (then `--prompt-scanned` and `--preflight` stand in for them); left
-    out, they are this tree's own. Every run past the usage checks writes one record."""
+    out, they are this tree's own. `jev` None (left out) asks no one; `DEFAULT` (only `main`) asks
+    the real Jev for advice. Every run past the usage checks writes one record."""
     scan = default_scan(root) if isinstance(scan, Default) else scan
     govern = default_govern(root, req.usage_checked) if isinstance(govern, Default) else govern
     if not BRANCH.match(req.branch) or ".." in req.branch or not TICKET.match(req.ticket):
@@ -840,6 +895,12 @@ def launch_cloud(
             "leakscan-unavailable",
             "no leak scan on this tree: give --prompt-scanned with the count line",
         )
+
+    # Advice only: no branch below reads `run.jev`. A reviewer's prompt holds the nonce: never sent.
+    if jev is None:
+        run.jev = _jev_blank("off")
+    elif req.role in JEV_ASKS and req.review is None:
+        run.jev = jev_reading(text, default_ask if isinstance(jev, Default) else jev)
 
     log = req.log or record_dir / f"{req.ticket}-{run.stamp}.debug.log"
     if log.exists():
@@ -1070,7 +1131,7 @@ def main(argv: list[str] | None = None) -> int:
     command, rest = (args[0], args[1:]) if args else ("", [])
     if command == "cloud":
         request = parse_cloud(rest)
-        return launch_cloud(request, root=Path.cwd()).exit_code
+        return launch_cloud(request, root=Path.cwd(), jev=DEFAULT).exit_code
     if command == "say":
         return main_say(rest)
     if command == "local":
