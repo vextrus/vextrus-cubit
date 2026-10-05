@@ -289,16 +289,16 @@ _QUALIFIER = re.compile(r"\([^)]*\)")
 
 
 def expanded(title: str, kinds: Sequence[str]) -> list[str]:
-    """A title's segments whose subject it elides, each with that subject (or last word) restored, as
-    `_words` gives them. The title is split on its joiners (`_JOINERS`), each segment's bracketed
-    qualifier and words holding a digit ("DETAILS-2", "LEVEL 7") aside; a kind's last word is the last
-    word of any of `kinds`. A segment holding only a kind's last word takes the subject words of the
-    segment before it: its words but a last kind word ("BEAM LAYOUT & DETAILS": "beam detail"), and
-    that segment's subject joined to the subject-only segments before it ("DOOR & WINDOW SCHEDULE &
-    DETAILS": "door window detail" too). A segment ending in no kind's last word takes the last word
-    of the next segment that ends in one ("COLUMN & BEAM LAYOUT": "column layout"), and the run of
-    them is read joined to it ("DOOR AND WINDOW LAYOUT": "door window layout"). Nothing is borrowed
-    across a segment that names its own subject: "COLUMN LAYOUT & BEAM DETAILS" expands nothing."""
+    """A title's one-word segments with their elided subject (or last word) restored from the segment
+    beside them, as `_words` gives them. The title is split on its joiners (`_JOINERS`), each
+    segment's bracketed qualifier and words holding a digit ("DETAILS-2", "LEVEL 7") aside; a kind's
+    last word is the last word of any of `kinds`. A segment holding only a kind's last word takes
+    the subject of the segment just before it, its words but a kind's last word ("BEAM LAYOUT &
+    DETAILS": "beam detail"); a segment holding only a subject, one word that is no kind's last
+    word, takes the last word of the segment just after it when that segment ends in one ("COLUMN &
+    BEAM LAYOUT": "column layout"). A segment of two words or more names its own subject and lends or
+    borrows nothing, and nothing reaches past the adjacent segment (#426, review 1): "COLUMN LAYOUT
+    & BEAM DETAILS" expands nothing, nor does "COLUMN & BEAM SECTION, SLAB LAYOUT"."""
     lasts = {_words(k.rpartition("_")[2]) for k in kinds}
     segments = [
         words
@@ -306,25 +306,15 @@ def expanded(title: str, kinds: Sequence[str]) -> list[str]:
         if (words := [w for w in _words(part).split() if not any(c.isdigit() for c in w)])
     ]
     phrases: list[str] = []
-    subjects: list[list[str]] = []
-    run: list[str] = []
-    for words in segments:
-        if words[-1] not in lasts:
-            subjects, run = [words], [*run, *words]
-        elif len(words) == 1:
-            phrases += [" ".join([*subject, words[0]]) for subject in subjects]
-            run = []
-        else:
-            own = words[:-1]
-            subjects = [own, [*run, *own]] if run else [own]
-            phrases += [" ".join([*run, *words])] if run else []
-            run = []
-    shared = ""
-    for words in reversed(segments):
-        if words[-1] in lasts:
-            shared = words[-1]
-        elif shared:
-            phrases.append(" ".join([*words, shared]))
+    for at, words in enumerate(segments):
+        if len(words) > 1:
+            continue
+        if words[0] in lasts and at > 0:
+            before = segments[at - 1]
+            subject = before[:-1] if before[-1] in lasts else before
+            phrases += [" ".join([*subject, words[0]])] if subject else []
+        elif words[0] not in lasts and at + 1 < len(segments) and segments[at + 1][-1] in lasts:
+            phrases.append(" ".join([words[0], segments[at + 1][-1]]))
     return phrases
 
 

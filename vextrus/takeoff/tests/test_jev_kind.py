@@ -6,6 +6,7 @@ from typing import Any
 
 import pytest
 
+from engine.recognise.sheets import default_conventions
 from vextrus.platform.services import jev
 from vextrus.takeoff.services.read_propose.proposals import kinds_named, unsure
 
@@ -136,99 +137,111 @@ def test_a_named_kind_of_jevs_firsts_subject_contradicts_it_without_its_last_wor
     assert unsure(clear, title)
 
 
+def offered(discipline: str) -> list[str]:
+    """The kinds a Discipline's sheet is offered, as the conventions hold them (never invented)."""
+    return list(default_conventions().kinds(discipline))
+
+
+def clear_over(discipline: str, first: str, second: str) -> jev.Judgement:
+    """Jev's answer over every kind the Discipline offers: its first at 0.60, well ahead of its
+    second at 0.10, the rest sharing what is left."""
+    kinds = offered(discipline)
+    assert first in kinds, first
+    assert second in kinds, second
+    rest = (Decimal("0.30") / (len(kinds) - 2)).quantize(Decimal("0.000001"))
+    return answer(
+        (first, "0.60"), (second, "0.10"), *((k, str(rest)) for k in kinds if k not in (first, second))
+    )
+
+
 @pytest.mark.parametrize(
-    ("title", "kinds", "named"),
+    ("discipline", "title", "named"),
     [
-        ("BEAM LAYOUT & DETAILS", ["beam_layout", "beam_details"], ["beam_layout", "beam_details"]),
-        (
-            "COLUMN LAYOUTS AND SCHEDULE",
-            ["column_schedule", "column_layout"],
-            ["column_schedule", "column_layout"],
-        ),
-        (
-            "COLUMN LAYOUT & BEAM DETAILS",
-            ["beam_layout", "column_layout", "beam_details"],
-            ["column_layout", "beam_details"],
-        ),
-        ("COLUMN & BEAM LAYOUT", ["beam_layout", "column_layout"], ["beam_layout", "column_layout"]),
-        (
-            "PILE, PILE CAP / COLUMN LAYOUT",
-            ["pile_layout", "pile_cap_layout", "column_layout"],
-            ["pile_layout", "pile_cap_layout", "column_layout"],
-        ),
-        (
-            "TIE BEAM LAYOUT, SECTIONS & DETAILS",
-            ["beam_layout", "beam_details", "beam_section", "details"],
-            ["beam_layout", "beam_details", "beam_section"],
-        ),
-        ("DETAILS & BEAM LAYOUT", ["beam_details", "beam_layout"], ["beam_layout"]),
-        ("SLAB LAYOUT & MISC. DETAILS", ["slab_details", "slab_layout"], ["slab_layout"]),
-        (
-            "ISLAND & STAIR DETAILS",
-            ["island_details", "stair_details"],
-            ["island_details", "stair_details"],
-        ),
+        ("structural", "BEAM LAYOUT & DETAILS", ["beam_layout", "beam_details"]),
+        ("structural", "COLUMN LAYOUTS AND SCHEDULE", ["column_layout", "column_schedule"]),
+        ("structural", "COLUMN LAYOUT & BEAM DETAILS", ["column_layout", "beam_details"]),
+        ("structural", "COLUMN & BEAM LAYOUT", ["column_layout", "beam_layout"]),
+        ("structural", "COLUMN & LANDING SLAB LAYOUT", ["column_layout", "slab_layout"]),
+        ("structural", "DETAILS & BEAM LAYOUT", ["beam_layout"]),
+        ("structural", "SLAB LAYOUT & MISC. DETAILS", ["slab_layout"]),
+        ("structural", "LEVEL 4 SLAB LAYOUT + DETAILS (TYP.)", ["slab_layout", "slab_details"]),
+        # never past the adjacent segment: a segment of two words or more lends nothing
+        ("structural", "PILE, PILE CAP & COLUMN LAYOUT", ["column_layout"]),
+        ("structural", "PILE & GRADE BEAM SECTION, COLUMN LAYOUT", ["column_layout"]),
+        ("structural", "TIE BEAM LAYOUT, SECTIONS & DETAILS", ["beam_layout"]),
+        ("architectural", "DOOR & WINDOW SCHEDULE & DETAILS", ["door_window_schedule"]),
     ],
 )
-def test_a_segment_of_only_a_kinds_last_word_takes_the_subject_beside_it(
-    title: str, kinds: list[str], named: list[str]
+def test_a_one_word_segment_takes_its_elided_part_from_the_segment_beside_it_only(
+    discipline: str, title: str, named: list[str]
 ) -> None:
-    """An elided subject expanded (review 3): a last word alone takes the subject words of the
-    segment before it; a subject alone takes the last word of the segment after it."""
-    assert kinds_named(title, kinds) == named
+    """An elided subject expanded over the Discipline's real kinds (review 3; #426 review 1): a
+    segment of only a kind's last word takes the subject of the segment just before it, a segment of
+    one subject word the last word of the segment just after it; nothing more."""
+    assert kinds_named(title, offered(discipline)) == named
 
 
 @pytest.mark.parametrize(
-    ("first", "others", "title"),
+    ("discipline", "first", "second", "title"),
     [
-        ("beam_layout", ("column_layout", "beam_details"), "COLUMN LAYOUT & BEAM DETAILS"),
-        ("pile_details", ("pile_layout", "pile_cap_details"), "PILE LAYOUT & PILE CAP DETAILS"),
-        ("slab_details", ("slab_layout", "details"), "ROOF SLAB LAYOUT & MISC. DETAILS"),
-        ("slab_details", ("slab_layout", "details"), "SLAB LAYOUT, TYPICAL DETAILS"),
-        ("column_schedule", ("column_layout", "beam_details"), "COLUMN LAYOUT & BEAM SCHEDULE"),
-    ],
-)
-def test_a_kinds_last_word_borrowed_from_another_subject_never_clears_a_contradiction(
-    first: str, others: tuple[str, str], title: str
-) -> None:
-    """Review 3's finding (score 50): fix round 2 proposed each of these, Jev's first's last word
-    being somewhere in the title; the title names other kinds and not Jev's first, so it asks."""
-    clear = answer((first, "0.60"), (others[0], "0.10"), (others[1], "0.10"))
-    assert unsure(clear, title)
-
-
-def test_a_title_naming_jevs_first_by_an_elided_subject_does_not_contradict_it() -> None:
-    """A subject sharing the last word of the segment after it: either kind, as Jev's first, is
-    proposed."""
-    for first, other in (("beam_layout", "column_layout"), ("column_layout", "beam_layout")):
-        assert not unsure(answer((first, "0.60"), (other, "0.10")), "COLUMN & BEAM LAYOUT")
-
-
-@pytest.mark.parametrize(
-    ("first", "others", "title"),
-    [
-        ("beam_details", ("beam_layout", "details"), "BEAM LAYOUT & DETAILS (LEVELS 2-6)"),
-        ("beam_details", ("beam_layout", "details"), "BEAM LAYOUT & DETAILS-2"),
-        ("beam_details", ("beam_layout", "details"), "BEAM LAYOUT WITH DETAILS"),
-        ("slab_details", ("slab_layout", "details"), "LEVEL 4 SLAB LAYOUT + DETAILS"),
+        # review 3: a last word borrowed from another subject's kind
+        ("structural", "beam_layout", "column_layout", "COLUMN LAYOUT & BEAM DETAILS"),
+        ("structural", "pile_details", "pile_layout", "PILE LAYOUT & PILE CAP DETAILS"),
+        ("structural", "slab_details", "slab_layout", "ROOF SLAB LAYOUT & MISC. DETAILS"),
+        ("structural", "slab_details", "slab_layout", "SLAB LAYOUT, TYPICAL DETAILS"),
+        ("structural", "column_schedule", "column_layout", "COLUMN LAYOUT & BEAM SCHEDULE"),
+        # #426 review 1, finding 1: borrowed past a segment that names its own subject
+        ("structural", "pile_layout", "column_layout", "PILE & GRADE BEAM SECTION, COLUMN LAYOUT"),
+        ("structural", "slab_layout", "beam_layout", "SLAB & SHEAR WALL ELEVATION, BEAM LAYOUT"),
+        ("structural", "pile_cap_layout", "slab_layout", "PILE CAP & STAIR SECTION, SLAB LAYOUTS"),
+        # #426 review 1, finding 2: a details segment after a section is not expanded
+        ("structural", "beam_details", "beam_layout", "TIE BEAM LAYOUT, SECTIONS & DETAILS"),
+        ("structural", "slab_details", "slab_layout", "ROOF SLAB LAYOUT, SECTION & DETAILS"),
+        # a joined subject is never reached past the adjacent segment
         (
+            "architectural",
             "door_window_details",
-            ("door_window_schedule", "details"),
+            "door_window_schedule",
             "DOOR & WINDOW SCHEDULE & DETAILS",
         ),
         (
+            "architectural",
             "door_window_schedule",
-            ("door_window_details", "details"),
+            "door_window_details",
             "DOOR/WINDOW DETAILS, SCHEDULE",
         ),
-        ("door_window_layout", ("door_window_details", "details"), "DOOR AND WINDOW LAYOUT"),
     ],
 )
-def test_an_elided_subject_with_a_qualifier_or_a_joiner_of_its_own_still_names_jevs_first(
-    first: str, others: tuple[str, str], title: str
+def test_a_title_naming_other_kinds_and_not_jevs_first_asks(
+    discipline: str, first: str, second: str, title: str
 ) -> None:
-    """The fix round 3 refuter's regressions (scores 60 and 55): f6548980e proposed each of these and
-    the first draft of the expansion asked all but the last (a run of subjects read joined); the
-    title names Jev's first, so it is proposed."""
-    clear = answer((first, "0.60"), (others[0], "0.10"), (others[1], "0.10"))
-    assert not unsure(clear, title)
+    """Each was proposed by an earlier draft; the title names other offered kinds and not Jev's
+    first, so it asks."""
+    assert unsure(clear_over(discipline, first, second), title)
+
+
+@pytest.mark.parametrize(
+    ("discipline", "first", "second", "title"),
+    [
+        ("structural", "beam_layout", "column_layout", "COLUMN & BEAM LAYOUT"),
+        ("structural", "column_layout", "beam_layout", "COLUMN & BEAM LAYOUT"),
+        ("structural", "beam_details", "beam_layout", "BEAM LAYOUT & DETAILS (LEVELS 2-6)"),
+        ("structural", "beam_details", "beam_layout", "BEAM LAYOUT & DETAILS-2"),
+        ("structural", "beam_details", "beam_layout", "BEAM LAYOUT WITH DETAILS"),
+        ("structural", "slab_details", "slab_layout", "LEVEL 4 SLAB LAYOUT + DETAILS"),
+        ("structural", "column_schedule", "column_layout", "TYPICAL COLUMN LAYOUT & SCHEDULES"),
+        ("structural", "pile_cap_details", "pile_cap_layout", "PILE CAP LAYOUT AND DETAILS"),
+        (
+            "architectural",
+            "door_window_details",
+            "door_window_schedule",
+            "DOOR-WINDOW SCHEDULE & DETAILS",
+        ),
+    ],
+)
+def test_a_title_naming_jevs_first_by_an_elided_subject_proposes_it(
+    discipline: str, first: str, second: str, title: str
+) -> None:
+    """Review 1's shape and the fix round 3 refuter's (scores 60 and 55): the title names Jev's
+    first once its one-word segment is expanded, so it is proposed."""
+    assert not unsure(clear_over(discipline, first, second), title)
