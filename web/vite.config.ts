@@ -155,6 +155,8 @@ export default defineConfig(({ mode }) => {
       sourcemap: true,
     },
     test: {
+      // Each failing test's name is kept in test-results/failures.log (issue #271).
+      reporters: ['default', ...(process.env.GITHUB_ACTIONS === 'true' ? ['github-actions'] : []), './scripts/failure-reporter.mjs'],
       projects: [
         {
           extends: true,
