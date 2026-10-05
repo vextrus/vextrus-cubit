@@ -313,6 +313,10 @@ KEPT_OUT: dict[str, tuple[Callable[[drawings.SheetView], drawings.SheetView], st
 }
 """The change to E-03, the number it is then listed by, and the code a bulk act naming it gets."""
 
+LEAVES_THE_NUMBERING = {"a sheet of no Discipline", "a number that does not parse"}
+"""Changes that take E-03 out of Electrical's running numbers: E-02 and E-04 then sit beside a gap
+(as the engine's numbering Check reads it) and stay out too."""
+
 
 @pytest.mark.parametrize("why", list(KEPT_OUT))
 def test_a_sheet_that_fails_the_title_block_basis_stays_out_and_the_others_agree(
@@ -322,8 +326,9 @@ def test_a_sheet_that_fails_the_title_block_basis_stays_out_and_the_others_agree
     read(qs_project, monkeypatch, {ELECTRICAL: drawn(*CONTINUOUS)})
     changed(monkeypatch, "E-03", change)
 
+    neighbours = None if why in LEAVES_THE_NUMBERING else TITLE_BLOCK
     assert bases(qs_project) == {
-        "E-01": TITLE_BLOCK, "E-02": TITLE_BLOCK, shown_as: None, "E-04": TITLE_BLOCK,
+        "E-01": TITLE_BLOCK, "E-02": neighbours, shown_as: None, "E-04": neighbours,
     }  # fmt: skip
     response = bulk(qs_project, ["E-01", shown_as])
     refused(response, {code})
