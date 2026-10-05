@@ -137,7 +137,7 @@ describe('the summary line (§4.5 "Layout"; 14\'s rulings)', () => {
   it('shows the summary the API counts, word for word, not a count of the rows', async () => {
     const { api, set } = drawingSet()
     // 14's rulings: the summary counts only files being read; the page shows the API's, never its own.
-    set.summary = msg('drawings.files.summary', { files: 7, sheets: 21, reading: 1, failed: 0, held: 1, refused: 1 })
+    set.summary = msg('drawings.files.summary', { files: 7, sheets: 21, held_sheets: 0, reading: 1, failed: 0, held: 1, refused: 1 })
     set.files.push(
       file({ name: 'KR-STR-R0.dwg', state: 'read', status: msg('drawings.files.read'), sheets_found: 21 }),
       file({ name: 'KR-ARC-R0.dwg', state: 'waiting', status: msg('drawings.files.waiting', { ahead: 0 }) }),

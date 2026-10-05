@@ -77,7 +77,7 @@ export const MARKET_DISCIPLINES = [
 
 export class FakeDrawingSet {
   files: FileOut[] = []
-  summary: Msg = msg('drawings.files.summary', { files: 0, sheets: 0, reading: 0, failed: 0, held: 0, refused: 0 })
+  summary: Msg = msg('drawings.files.summary', { files: 0, sheets: 0, held_sheets: 0, reading: 0, failed: 0, held: 0, refused: 0 })
   disciplines = MARKET_DISCIPLINES
   reports = new Map<string, Partial<ReportOut>>()
   /** Every drawings request, "METHOD /path" and its JSON body when it had one. */
