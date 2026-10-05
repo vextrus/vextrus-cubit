@@ -1367,16 +1367,27 @@ const scannerWrites = (cmd) =>
 // when nothing in the command runs what they print; git only in its message.)
 const TEXT_TAKERS = new Set(["grep", "egrep", "fgrep", "rg", "ugrep", "cat", "head", "tail", "less", "more", "wc", "ls", "jq", "sort", "uniq", "diff", "cmp", "test", "[", "true", ":", "cd"]);
 
+const SCHEDULERS = new Set(["at", "batch", "crontab", "busybox", "toybox"]);
+
+/**
+ * True when a simple command runs data as commands: xargs, eval, source, a shell or interpreter reading stdin,
+ * a shell -c script built at run time, a scheduler (at, batch, crontab), or a command that runs its arguments.
+ */
+function runsData(cmd) {
+  if (prefixOf(cmd).some((w) => basename(w) === "xargs") || cmd.name === "eval" || SCHEDULERS.has(cmd.name) || RUNS_ITS_ARGUMENTS.has(cmd.name)) return true;
+  if (readsCommands(cmd, flatten(cmd.raw ?? ""))) return true;
+  const c = cmd.args.findIndex((a) => /^-[A-Za-z]*c[A-Za-z]*$/.test(a));
+  return SHELLS.has(cmd.name) && c >= 0 && /[$`]/.test(cmd.args[c + 1] ?? "");
+}
+
 /** The words of a command that may run something (its message, pattern or code words left out). */
 function runnableWords(analysis, cmd) {
   const ws = words(cmd.raw ?? "");
-  if (prefixOf(cmd).some((w) => basename(w) === "xargs")) return ws;
+  // When anything in the command runs data as commands, text stays text nowhere (main's whole-text reading).
+  if (analysis.cmds.some(runsData)) return ws;
   if (TEXT_TAKERS.has(cmd.name) && cmd.assigns.length === 0) return [];
   if (cmd.name === "eval") return [];
-  if (cmd.name === "echo" || cmd.name === "printf") {
-    const fed = analysis.cmds.some((other) => prefixOf(other).some((w) => basename(w) === "xargs") || readsCommands(other, flatten(other.raw ?? "")) || other.name === "eval");
-    return fed ? ws : ws.slice(0, ws.length - cmd.words.length);
-  }
+  if (cmd.name === "echo" || cmd.name === "printf") return ws.slice(0, ws.length - cmd.words.length);
   // Code, a shell's -c script and env -S's string are judged on their own; a git message is text.
   const own = new Set([codeOf(cmd)]);
   const message = cmd.name === "git" && ["commit", "tag", "merge", "notes", "stash"].includes(gitOf(cmd)?.verb ?? "");

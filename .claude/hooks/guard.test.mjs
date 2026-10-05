@@ -949,3 +949,18 @@ test("T-GUARD-A round 1 refuter 3: git's command settings, xargs, other runners,
     assert.equal(bash(command), null, command);
   }
 });
+
+test("T-GUARD-A round 1 refuter 4: text that the same command runs is not text", () => {
+  const L = "python3 -m scripts.ledger record";
+  for (const command of [
+    `echo '${L}' | busybox sh`,
+    `git commit -m '${L}' && sh -c "$(git log -1 --format=%s)"`,
+    `echo '* * * * * ${L}' | crontab -`,
+    `echo '${L}' | at now`,
+    `echo '${L}' | batch`,
+  ]) {
+    assert.equal(bash(command), "RECORD_FORGED", command);
+  }
+  assert.equal(bash(`echo "next: ${L}" >> .private/work/session-12/STATE.md`), null);
+  assert.equal(bash(`git commit -m "docs: ${L}"`), null);
+});
